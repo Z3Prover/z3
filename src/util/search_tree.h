@@ -89,7 +89,7 @@ namespace search_tree {
         node *find_active_node() {
             if (m_status == status::active)
                 return this;
-            if (m_status != status::open)
+            if (m_status == status::closed)
                 return nullptr;
             node *nodes[2] = {m_left, m_right};
             for (unsigned i = 0; i < 2; ++i) {
@@ -97,8 +97,10 @@ namespace search_tree {
                 if (res)
                     return res;
             }
-            if (m_left->get_status() == status::closed && m_right->get_status() == status::closed)
+            if (m_left->get_status() == status::closed && m_right->get_status() == status::closed) {
                 m_status = status::closed;
+                IF_VERBOSE(1, verbose_stream() << "find_active_node CLOSING NODE \n";);
+            }
             return nullptr;
         }
 
@@ -248,6 +250,35 @@ namespace search_tree {
 
             auto attach = find_highest_attach(p, resolvent);
             close(attach, resolvent);
+
+            // Now try to propagate upward *with resolution*
+            node<Config>* cur = attach;
+            while (true) {
+                node<Config>* parent = cur->parent();
+                if (!parent) break;
+
+                auto left  = parent->left();
+                auto right = parent->right();
+                if (!left || !right) break;
+
+                if (left->get_status() != status::closed ||
+                    right->get_status() != status::closed)
+                    break;
+
+                if (left->get_core().empty() ||
+                    right->get_core().empty())
+                    break;
+
+                auto res = compute_sibling_resolvent(left, right);
+
+                if (res.empty()) {
+                    close(m_root.get(), res);   // global UNSAT
+                    return;
+                }
+
+                close(parent, res);
+                cur = parent;  // keep bubbling
+            }
         }
 
         // Given complementary sibling nodes for literals x and ¬x, sibling resolvent = (core_left ∪ core_right) \ {x,
@@ -342,8 +373,9 @@ namespace search_tree {
 
             auto p = n->parent();
             while (p) {
-                if (p->left() && p->left()->get_status() == status::closed && p->right() &&
-                    p->right()->get_status() == status::closed) {
+                if (p->left() && p->left()->get_status() == status::closed &&
+                    p->right() && p->right()->get_status() == status::closed) {
+                        IF_VERBOSE(1, verbose_stream() << "activate_node CLOSING NODE \n";);
                     p->set_status(status::closed);
                     n = p;
                     p = n->parent();

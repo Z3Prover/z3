@@ -1,0 +1,334 @@
+Worker 0 created with 0 assumptions
+Worker 1 created with 0 assumptions
+Worker 2 created with 0 assumptions
+Worker 3 created with 0 assumptions
+null (a)
+
+Worker 2 CUBE SIZE IN MAIN LOOP: 0
+ Checking cube
+with max_conflicts: 1000
+null (a)
+
+Worker 0 CUBE SIZE IN MAIN LOOP: 0
+ Checking cube
+with max_conflicts: 1000
+null (a)
+
+Worker 3 CUBE SIZE IN MAIN LOOP: 0
+ Checking cube
+with max_conflicts: 1000
+null (a)
+
+Worker 1 CUBE SIZE IN MAIN LOOP: 0
+ Checking cube
+with max_conflicts: 1000
+Worker 0 DONE checking cube l_undef
+Worker 0 found undef cube
+Batch manager splitting on literal: (= i844 1)
+null (o)
+  (= i844 1) (a)
+  (not (= i844 1)) (o)
+
+Worker 0 CUBE SIZE IN MAIN LOOP: 1
+ Checking cube
+(= i844 1)
+with max_conflicts: 1500
+Worker 2 DONE checking cube l_undef
+Worker 2 found undef cube
+Batch manager splitting on literal: (= i844 1)
+null (o)
+  (= i844 1) (a)
+  (not (= i844 1)) (a)
+
+Worker 2 CUBE SIZE IN MAIN LOOP: 1
+ Checking cube
+(not (= i844 1))
+with max_conflicts: 1500
+Worker 3 DONE checking cube l_undef
+Worker 3 found undef cube
+Batch manager splitting on literal: (<= (+ (if #4125 143 0) (* -1 #4566)) 0)
+null (o)
+  (= i844 1) (a)
+  (not (= i844 1)) (a)
+
+Worker 3 CUBE SIZE IN MAIN LOOP: 1
+ Checking cube
+(= i844 1)
+with max_conflicts: 1500
+Worker 1 DONE checking cube l_undef
+Worker 1 found undef cube
+Batch manager splitting on literal: (if (or (if #4152 #19337 #19339) (not #19414)) (not (= #19349 0)) (not (or #4126 #4156 #4192 #19340 #19341 #19415 #19345 #19353 #19356 #19359)))
+null (o)
+  (= i844 1) (a)
+  (not (= i844 1)) (a)
+
+Worker 1 CUBE SIZE IN MAIN LOOP: 1
+ Checking cube
+(= i844 1)
+with max_conflicts: 1500
+Worker 2 DONE checking cube l_false
+Worker 2 found unsat cube
+Batch manager backtracking.
+(not (= i844 1))
+
+null (o)
+  (= i844 1) (a)
+  (not (= i844 1)) (c)
+null (o)
+  (= i844 1) (a)
+  (not (= i844 1)) (c)
+
+Worker 2 CUBE SIZE IN MAIN LOOP: 1
+ Checking cube
+(= i844 1)
+with max_conflicts: 1500
+Worker 0 DONE checking cube l_undef
+Worker 0 found undef cube
+Batch manager splitting on literal: (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467)
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (o)
+    (not (= (if #18091 #21074 #12435) 467)) (a)
+  (not (= i844 1)) (c)
+
+Worker 0 CUBE SIZE IN MAIN LOOP: 2
+ Checking cube
+(not (= (if #4419 #4474 #4457) 467))
+(= i844 1)
+with max_conflicts: 2250
+Worker 3 DONE checking cube l_undef
+Worker 3 found undef cube
+Batch manager splitting on literal: (or (not (or #19362 #19286 #19227 #19263 #19187 #19259 #19192 #19219 #19211 #19123 #19136 #19139 #19060 #19065 #19069 #19106 ...)) (not (or #19093 #19123 #12678 #19000 #19054 #19052 #19101 #19014 #19018 #19022 #19055 #19034 #19050 #18947 #18948 #19048 ...)) (not (or #19089 #18278)) (not (or #19089 #18883)) (not (or #19123 #19089 #12678 #18886)) (not (or #19123 #19089 #12678 #19000 #18864)) (not (or #19093 #19123 #19089 #12678 #19000 #19054 #19052 #19101 #19014 #19018 #19022 #19055 #19034 #19050 #18947 #18948 ...)) (not (or #19093 #19123 #19089 #12678 #19000 #19054 #19052 #19101 #19014 #19018 #19022 #19055 #19034 #19050 #18947 #18948 ...)) (not (or #19093 #19123 #19089 #12678 #19000 #19054 #19052 #19101 #19014 #19018 #19022 #19055 #19034 #19050 #18947 #18948 ...)) (not (or #19123 #19089 #12678 #19000 #19054 #18823)) (not (or #19123 #19089 #12678 #19000 #19054 #18784)) (not (or #18831 #18576)))
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (a)
+    (not (= (if #18091 #21074 #12435) 467)) (a)
+  (not (= i844 1)) (c)
+
+Worker 3 CUBE SIZE IN MAIN LOOP: 2
+ Checking cube
+(= (if (or #3574 #3584 #3593 #3601 #3609 #3617 #3626 #3634 #3643 #3655 #3681 #3689 #4418) (if #4465 #4489 467) (if #3574 229 #4456)) 467)
+(= i844 1)
+with max_conflicts: 2250
+Worker 1 DONE checking cube l_undef
+Worker 1 found undef cube
+Batch manager splitting on literal: (or (not (or #4126 #4151 #19339 #19340 #19347 #19362 #19281 #19334 #19286 #19323 #19319 #19305 #19227 #19315 #19313 #19270 ...)) (not (or #19362 #19286 #19227 #19263 #19187 #19259 #19192 #19219 #19211)) (not (or #19192 #19135)) (not (or #19192 #19113)) (not (or #19362 #19286 #19227 #19263 #19192 #19059)) (not (or #19362 #19286 #19227 #19263 #19192 #19160)) (not (or #19069 #19096)))
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (a)
+    (not (= (if #18091 #21074 #12435) 467)) (a)
+  (not (= i844 1)) (c)
+
+Worker 1 CUBE SIZE IN MAIN LOOP: 2
+ Checking cube
+(= (if (or #3574 #3584 #3593 #3601 #3609 #3617 #3626 #3634 #3643 #3655 #3681 #3689 #4418) (if #4465 #4489 467) (if #3574 229 #4456)) 467)
+(= i844 1)
+with max_conflicts: 2250
+Worker 1 DONE checking cube l_false
+Worker 1 found unsat cube
+Batch manager backtracking.
+(= (if (or #3574 #3584 #3593 #3601 #3609 #3617 #3626 #3634 #3643 #3655 #3681 #3689 #4418) (if #4465 #4489 467) (if #3574 229 #4456)) 467)
+
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (c)
+    (not (= (if #18091 #21074 #12435) 467)) (a)
+  (not (= i844 1)) (c)
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (c)
+    (not (= (if #18091 #21074 #12435) 467)) (a)
+  (not (= i844 1)) (c)
+
+Worker 1 CUBE SIZE IN MAIN LOOP: 2
+ Checking cube
+(not (= (if #4419 #4474 #4457) 467))
+(= i844 1)
+with max_conflicts: 2250
+Worker 2 DONE checking cube l_undef
+Worker 2 found undef cube
+Batch manager splitting on literal: (or (if (or #19089 #18932) (not #18855) (not #18717)) (if (or #19089 #18932) (= #18931 0) (not #18650)) (not (or #19089 #18932 #18658)) (not (or #19089 #18932 #18280 #18666)) (not (or #19089 #18932 #18280 #18888 #18860 #18676)) (not (or #19089 #18932 #18280 #18888 #18860 #18865 #18608)) (not (or #19089 #18932 #18280 #18888 #18860 #18865 #18617)) (not (or #19089 #18932 #18280 #18888 #18860 #18865 #18868 #18265 #18629)) (not (or #19089 #18932 #18280 #18888 #18860 #18865 #18868 #18265 #18638)) (not (or #19089 #18932 #18280 #18888 #18860 #18865 #18868 #18265 #18873 #18808 #18570)) (not (or #19089 #18932 #18280 #18888 #18860 #18865 #18868 #18265 #18873 #18808 #18879 #18578)) (not (or #19089 #18932 #18280 #18888 #18860 #18865 #18868 #18265 #18873 #18808 #18879 #18831 #18792 #18804 #18802 #18814 ...)) (not (or #19089 #18932 #18280 #18888 #18860 #18865 #18868 #18265 #18873 #18808 #18879 #18831 #18596)) (not (or #19089 #18932 #18280 #18888 #18860 #18865 #18868 #18265 #18873 #18808 #18879 #18831 #18605)) (not (or #18535 #18144)))
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (c)
+    (not (= (if #18091 #21074 #12435) 467)) (a)
+  (not (= i844 1)) (c)
+
+Worker 2 CUBE SIZE IN MAIN LOOP: 2
+ Checking cube
+(not (= (if #4419 #4474 #4457) 467))
+(= i844 1)
+with max_conflicts: 2250
+Worker 3 DONE checking cube l_false
+Worker 3 found unsat cube
+Batch manager backtracking.
+(= (if (or #3574 #3584 #3593 #3601 #3609 #3617 #3626 #3634 #3643 #3655 #3681 #3689 #4418) (if #4465 #4489 467) (if #3574 229 #4456)) 467)
+
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (c)
+    (not (= (if #18091 #21074 #12435) 467)) (a)
+  (not (= i844 1)) (c)
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (c)
+    (not (= (if #18091 #21074 #12435) 467)) (a)
+  (not (= i844 1)) (c)
+
+Worker 3 CUBE SIZE IN MAIN LOOP: 2
+ Checking cube
+(not (= (if #4419 #4474 #4457) 467))
+(= i844 1)
+with max_conflicts: 2250
+Worker 0 DONE checking cube l_undef
+Worker 0 found undef cube
+Batch manager splitting on literal: (or (not (or #4126 #4151 #19339 #19340 #19347 #19362 #19281 #19334 #19286 #19323 #19319 #19305 #19227 #19315 #19313 #19270 ...)) (not (or #19362 #19286 #19227 #19263 #19187 #19259 #19192 #19219 #19211)) (not (or #19192 #19135)) (not (or #19192 #19113)) (not (or #19362 #19286 #19227 #19263 #19192 #19059)) (not (or #19362 #19286 #19227 #19263 #19192 #19160)) (not (or #19069 #19096)))
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (c)
+    (not (= (if #18091 #21074 #12435) 467)) (o)
+      (or (not (or #4126 #4151 #19339 #19340 #19347 #19362 #19281 #19334 #19286 #19323 #19319 #19305 #19227 #19315 #19313 #19270 ...)) (not (or #19362 #19286 #19227 #19263 #19187 #19259 #19192 #19219 #19211)) (not (or #19192 #19135)) (not (or #19192 #19113)) (not (or #19362 #19286 #19227 #19263 #19192 #19059)) (not (or #19362 #19286 #19227 #19263 #19192 #19160)) (not (or #19069 #19096))) (a)
+      (not (or (not #19191) (not #19122) (not #19157) (not #19138) (not #19126) (not #19064) (not #19020))) (o)
+  (not (= i844 1)) (c)
+
+Worker 0 CUBE SIZE IN MAIN LOOP: 3
+ Checking cube
+(or (not (or #28 #30 #1499 #1504 #1788 #1803 #1819 #1822 #1840 #1849 #1874 #1880 #1895 #1953 #1959 #1986 ...)) (not (or #1803 #1840 #1895 #1914 #1922 #1928 #2009 #2022 #2342)) (not (or #2009 #2366)) (not (or #2009 #2372)) (not (or #1803 #1840 #1895 #1914 #2009 #2397)) (not (or #1803 #1840 #1895 #1914 #2009 #2405)) (not (or #2414 #2519)))
+(not (= (if #4419 #4474 #4457) 467))
+(= i844 1)
+with max_conflicts: 3375
+Worker 1 DONE checking cube l_undef
+Worker 1 found undef cube
+Batch manager splitting on literal: (or (not (= i844 1)) (= i1041 0) (not (or #4126 #4151 #4182)) (if (or #4126 #4151) (not #19336) (not #19416)) (not (or #4126 #4156 #19417 #19341 #19415 #19345)) (if (or #19340 #19347) (not #19351) (not #19361)) (if (or #19340 #19347) (= #19349 0) (not #19366)) (not (or #4126 #4151 #19339 #19340 #19347 #19334)) (not (or #4126 #4151 #19339 #19334)))
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (c)
+    (not (= (if #18091 #21074 #12435) 467)) (o)
+      (or (not (or #4126 #4151 #19339 #19340 #19347 #19362 #19281 #19334 #19286 #19323 #19319 #19305 #19227 #19315 #19313 #19270 ...)) (not (or #19362 #19286 #19227 #19263 #19187 #19259 #19192 #19219 #19211)) (not (or #19192 #19135)) (not (or #19192 #19113)) (not (or #19362 #19286 #19227 #19263 #19192 #19059)) (not (or #19362 #19286 #19227 #19263 #19192 #19160)) (not (or #19069 #19096))) (a)
+      (not (or (not #19191) (not #19122) (not #19157) (not #19138) (not #19126) (not #19064) (not #19020))) (a)
+  (not (= i844 1)) (c)
+
+Worker 1 CUBE SIZE IN MAIN LOOP: 3
+ Checking cube
+(not (or (not #2008) (not #2343) (not #2367) (not #2373) (not #2398) (not #2406) (not #2520)))
+(not (= (if #4419 #4474 #4457) 467))
+(= i844 1)
+with max_conflicts: 3375
+Worker 1 DONE checking cube l_false
+Worker 1 found unsat cube
+Batch manager backtracking.
+(not (or (not #2008) (not #2343) (not #2367) (not #2373) (not #2398) (not #2406) (not #2520)))
+(not (= (if #4419 #4474 #4457) 467))
+
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (c)
+    (not (= (if #18091 #21074 #12435) 467)) (o)
+      (or (not (or #4126 #4151 #19339 #19340 #19347 #19362 #19281 #19334 #19286 #19323 #19319 #19305 #19227 #19315 #19313 #19270 ...)) (not (or #19362 #19286 #19227 #19263 #19187 #19259 #19192 #19219 #19211)) (not (or #19192 #19135)) (not (or #19192 #19113)) (not (or #19362 #19286 #19227 #19263 #19192 #19059)) (not (or #19362 #19286 #19227 #19263 #19192 #19160)) (not (or #19069 #19096))) (a)
+      (not (or (not #19191) (not #19122) (not #19157) (not #19138) (not #19126) (not #19064) (not #19020))) (c)
+  (not (= i844 1)) (c)
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (c)
+    (not (= (if #18091 #21074 #12435) 467)) (o)
+      (or (not (or #4126 #4151 #19339 #19340 #19347 #19362 #19281 #19334 #19286 #19323 #19319 #19305 #19227 #19315 #19313 #19270 ...)) (not (or #19362 #19286 #19227 #19263 #19187 #19259 #19192 #19219 #19211)) (not (or #19192 #19135)) (not (or #19192 #19113)) (not (or #19362 #19286 #19227 #19263 #19192 #19059)) (not (or #19362 #19286 #19227 #19263 #19192 #19160)) (not (or #19069 #19096))) (a)
+      (not (or (not #19191) (not #19122) (not #19157) (not #19138) (not #19126) (not #19064) (not #19020))) (c)
+  (not (= i844 1)) (c)
+
+Worker 1 CUBE SIZE IN MAIN LOOP: 3
+ Checking cube
+(or (not (or #28 #30 #1499 #1504 #1788 #1803 #1819 #1822 #1840 #1849 #1874 #1880 #1895 #1953 #1959 #1986 ...)) (not (or #1803 #1840 #1895 #1914 #1922 #1928 #2009 #2022 #2342)) (not (or #2009 #2366)) (not (or #2009 #2372)) (not (or #1803 #1840 #1895 #1914 #2009 #2397)) (not (or #1803 #1840 #1895 #1914 #2009 #2405)) (not (or #2414 #2519)))
+(not (= (if #4419 #4474 #4457) 467))
+(= i844 1)
+with max_conflicts: 3375
+Worker 3 DONE checking cube l_undef
+Worker 3 found undef cube
+Batch manager splitting on literal: (or (not (= i844 1)) (= i1041 0) (not (or #4126 #4151 #4182)) (if (or #4126 #4151) (not #19336) (not #19416)) (not (or #4126 #4156 #19417 #19341 #19415 #19345)) (if (or #19340 #19347) (not #19351) (not #19361)) (if (or #19340 #19347) (= #19349 0) (not #19366)) (not (or #4126 #4151 #19339 #19340 #19347 #19334)) (not (or #4126 #4151 #19339 #19334)))
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (c)
+    (not (= (if #18091 #21074 #12435) 467)) (o)
+      (or (not (or #4126 #4151 #19339 #19340 #19347 #19362 #19281 #19334 #19286 #19323 #19319 #19305 #19227 #19315 #19313 #19270 ...)) (not (or #19362 #19286 #19227 #19263 #19187 #19259 #19192 #19219 #19211)) (not (or #19192 #19135)) (not (or #19192 #19113)) (not (or #19362 #19286 #19227 #19263 #19192 #19059)) (not (or #19362 #19286 #19227 #19263 #19192 #19160)) (not (or #19069 #19096))) (a)
+      (not (or (not #19191) (not #19122) (not #19157) (not #19138) (not #19126) (not #19064) (not #19020))) (c)
+  (not (= i844 1)) (c)
+
+Worker 3 CUBE SIZE IN MAIN LOOP: 3
+ Checking cube
+(or (not (or #28 #30 #1499 #1504 #1788 #1803 #1819 #1822 #1840 #1849 #1874 #1880 #1895 #1953 #1959 #1986 ...)) (not (or #1803 #1840 #1895 #1914 #1922 #1928 #2009 #2022 #2342)) (not (or #2009 #2366)) (not (or #2009 #2372)) (not (or #1803 #1840 #1895 #1914 #2009 #2397)) (not (or #1803 #1840 #1895 #1914 #2009 #2405)) (not (or #2414 #2519)))
+(not (= (if #4419 #4474 #4457) 467))
+(= i844 1)
+with max_conflicts: 3375
+Worker 2 DONE checking cube l_undef
+Worker 2 found undef cube
+Batch manager splitting on literal: (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 139)
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (c)
+    (not (= (if #18091 #21074 #12435) 467)) (o)
+      (or (not (or #4126 #4151 #19339 #19340 #19347 #19362 #19281 #19334 #19286 #19323 #19319 #19305 #19227 #19315 #19313 #19270 ...)) (not (or #19362 #19286 #19227 #19263 #19187 #19259 #19192 #19219 #19211)) (not (or #19192 #19135)) (not (or #19192 #19113)) (not (or #19362 #19286 #19227 #19263 #19192 #19059)) (not (or #19362 #19286 #19227 #19263 #19192 #19160)) (not (or #19069 #19096))) (a)
+      (not (or (not #19191) (not #19122) (not #19157) (not #19138) (not #19126) (not #19064) (not #19020))) (c)
+  (not (= i844 1)) (c)
+
+Worker 2 CUBE SIZE IN MAIN LOOP: 3
+ Checking cube
+(or (not (or #28 #30 #1499 #1504 #1788 #1803 #1819 #1822 #1840 #1849 #1874 #1880 #1895 #1953 #1959 #1986 ...)) (not (or #1803 #1840 #1895 #1914 #1922 #1928 #2009 #2022 #2342)) (not (or #2009 #2366)) (not (or #2009 #2372)) (not (or #1803 #1840 #1895 #1914 #2009 #2397)) (not (or #1803 #1840 #1895 #1914 #2009 #2405)) (not (or #2414 #2519)))
+(not (= (if #4419 #4474 #4457) 467))
+(= i844 1)
+with max_conflicts: 3375
+Worker 0 DONE checking cube l_false
+Worker 0 found unsat cube
+Batch manager backtracking.
+(or (not (or #28 #30 #1499 #1504 #1788 #1803 #1819 #1822 #1840 #1849 #1874 #1880 #1895 #1953 #1959 #1986 ...)) (not (or #1803 #1840 #1895 #1914 #1922 #1928 #2009 #2022 #2342)) (not (or #2009 #2366)) (not (or #2009 #2372)) (not (or #1803 #1840 #1895 #1914 #2009 #2397)) (not (or #1803 #1840 #1895 #1914 #2009 #2405)) (not (or #2414 #2519)))
+
+null (o)
+  (= i844 1) (o)
+    (= (if (or #18719 #18652 #18660 #18670 #18678 #18610 #18619 #18631 #18640 #18572 #18580 #18321 #18090) (if #17954 #21153 467) (if #18719 229 #12434)) 467) (c)
+    (not (= (if #18091 #21074 #12435) 467)) (c)
+      (or (not (or #4126 #4151 #19339 #19340 #19347 #19362 #19281 #19334 #19286 #19323 #19319 #19305 #19227 #19315 #19313 #19270 ...)) (not (or #19362 #19286 #19227 #19263 #19187 #19259 #19192 #19219 #19211)) (not (or #19192 #19135)) (not (or #19192 #19113)) (not (or #19362 #19286 #19227 #19263 #19192 #19059)) (not (or #19362 #19286 #19227 #19263 #19192 #19160)) (not (or #19069 #19096))) (c)
+      (not (or (not #19191) (not #19122) (not #19157) (not #19138) (not #19126) (not #19064) (not #19020))) (c)
+  (not (= i844 1)) (c)
+Worker 0 no more cubes
+Worker 3 DONE checking cube l_false
+Worker 3 determined formula unsat
+Batch manager setting UNSAT.
+Canceling workers
+Worker 0 canceling
+Worker 1 canceling
+Worker 2 canceling
+Worker 3 canceling
+Worker 2 DONE checking cube l_undef
+Batch manager setting exception msg: context cancelled.
+Worker 1 DONE checking cube l_undef
+Batch manager setting exception msg: context cancelled.
+unsat
+(:added-eqs                   1500969
+ :arith-eq-adapter            2833
+ :arith-bound-propagations-lp 186457
+ :arith-conflicts             709
+ :arith-diseq                 141667
+ :arith-fixed-eqs             193016
+ :arith-lower                 126333
+ :arith-make-feasible         58175
+ :arith-max-columns           1655
+ :arith-max-rows              675
+ :arith-offset-eqs            58115
+ :arith-upper                 211128
+ :binary-propagations         4257304
+ :conflicts                   25803
+ :decisions                   558902
+ :del-clause                  20323
+ :max-memory                  113.82
+ :memory                      19.16
+ :minimized-lits              156466
+ :mk-bool-var                 21452
+ :mk-clause                   37426
+ :mk-clause-binary            61467
+ :num-allocs                  56680178
+ :num-checks                  21
+ :parallel-max-cube-size      3
+ :parallel-num_cubes          12
+ :propagations                6156196
+ :restarts                    222
+ :rlimit-count                17594573
+ :time                        0.74
+ :total-time                  2.67)

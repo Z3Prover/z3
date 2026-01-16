@@ -273,14 +273,16 @@ namespace smt {
             g_core.push_back(expr_ref(l2g(c), m));
         }
         m_search_tree.backtrack(node, g_core);
+        IF_VERBOSE(1, verbose_stream() << "Search tree is closed: " << m_search_tree.is_closed() << "\n");
 
         IF_VERBOSE(1, m_search_tree.display(verbose_stream() << bounded_pp_exprs(core) << "\n"););
         if (m_search_tree.is_closed()) {
-            m_state = state::is_unsat;
-            SASSERT(p.ctx.m_unsat_core.empty());
-            for (auto e : m_search_tree.get_core_from_root())
-               p.ctx.m_unsat_core.push_back(e);
-            cancel_workers();
+            IF_VERBOSE(1, verbose_stream() << "Search tree closed, setting UNSAT\n");
+            expr_ref_vector core(m);
+            for (auto const& e : m_search_tree.get_core_from_root()) {
+                core.push_back(e.get());
+            }
+            set_unsat(l2g, core);
         }
     }
 
@@ -450,7 +452,7 @@ namespace smt {
         cube.reset();
         std::unique_lock<std::mutex> lock(mux);
         if (m_search_tree.is_closed()) {
-            IF_VERBOSE(1, verbose_stream() << "all done\n";);
+            IF_VERBOSE(1, verbose_stream() << "all done, Status: " << m_state << "\n";);
             return false;
         }
         if (m_state != state::is_running) {
