@@ -133,7 +133,7 @@ public:
             rw.set_is_fd(&m_is_fd);            
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);
-            for (unsigned idx = 0; idx < size; idx++) {
+            for (unsigned idx = 0; idx < size; ++idx) {
                 rw(g->form(idx), new_curr, new_pr);
                 if (produce_proofs) {
                     proof * pr = g->pr(idx);

@@ -175,7 +175,7 @@ namespace smt {
         unsigned num_decls = q->get_num_decls();
         subst_args.resize(num_decls, nullptr);
         sks.resize(num_decls, nullptr);
-        for (unsigned i = 0; i < num_decls; i++) {
+        for (unsigned i = 0; i < num_decls; ++i) {
             sort * s  = q->get_decl_sort(num_decls - i - 1);
             expr * sk = m.mk_fresh_const(nullptr, s);
             sks[num_decls - i - 1]        = sk;
@@ -207,7 +207,7 @@ namespace smt {
         expr_ref def(m);
         bindings.resize(num_decls);
         unsigned max_generation = 0;
-        for (unsigned i = 0; i < num_decls; i++) {
+        for (unsigned i = 0; i < num_decls; ++i) {
             expr * sk = sks.get(num_decls - i - 1);
             func_decl * sk_d = to_app(sk)->get_decl();
             expr_ref sk_value(cex->get_some_const_interp(sk_d), m);
@@ -579,7 +579,7 @@ namespace smt {
                 unsigned num_decls = q->get_num_decls();
                 unsigned gen       = inst.m_generation;
                 unsigned offset    = inst.m_bindings_offset;
-                for (unsigned i = 0; i < num_decls; i++) {
+                for (unsigned i = 0; i < num_decls; ++i) {
                     expr * b = m_pinned_exprs.get(offset + i);
                     if (!m_context->e_internalized(b)) {
                         TRACE(model_checker, tout << "internalizing b:\n" << mk_pp(b, m) << "\n";);

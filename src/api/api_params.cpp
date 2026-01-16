@@ -202,7 +202,7 @@ extern "C" {
         std::ostringstream buffer;
         buffer << "(";
         unsigned sz = to_param_descrs_ptr(p)->size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (i > 0) 
                 buffer << ", ";
             buffer << to_param_descrs_ptr(p)->get_param_name(i);

@@ -14,7 +14,7 @@ monotone::monotone(core * c) : common(c) {}
 void monotone::monotonicity_lemma() {
     unsigned shift = random();
     unsigned size = c().m_to_refine.size();
-    for (unsigned i = 0; i < size && !done(); i++) { 
+    for (unsigned i = 0; i < size && !done(); ++i) { 
         lpvar v = c().m_to_refine[(i + shift) % size];
         monotonicity_lemma(c().emons()[v]);
     }

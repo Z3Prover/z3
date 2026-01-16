@@ -52,7 +52,7 @@ void context_params::set_uint(unsigned & opt, char const * param, char const * v
 }
 
 static void lower_case(std::string& p) {
-    for (size_t i = 0; i < p.size(); i++) {
+    for (size_t i = 0; i < p.size(); ++i) {
         if (p[i] >= 'A' && p[i] <= 'Z')
             p[i] = p[i] - 'A' + 'a';
         else if (p[i] == '-')

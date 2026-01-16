@@ -1668,14 +1668,14 @@ public:
 
     template<typename T>
     void inc_array_ref(unsigned sz, T * const * a) {
-        for(unsigned i = 0; i < sz; i++) {
+        for(unsigned i = 0; i < sz; ++i) {
             inc_ref(a[i]);
         }
     }
 
     template<typename T>
     void dec_array_ref(unsigned sz, T * const * a) {
-        for(unsigned i = 0; i < sz; i++) {
+        for(unsigned i = 0; i < sz; ++i) {
             dec_ref(a[i]);
         }
     }
@@ -2406,7 +2406,7 @@ private:
 
     template<typename T>
     void push_dec_array_ref(unsigned sz, T * const * a) {
-        for(unsigned i = 0; i < sz; i++) {
+        for(unsigned i = 0; i < sz; ++i) {
             push_dec_ref(a[i]);
         }
     }

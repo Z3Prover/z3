@@ -45,7 +45,7 @@ bv_decl_plugin::bv_decl_plugin():
 void bv_decl_plugin::set_manager(ast_manager * m, family_id id) {
     decl_plugin::set_manager(m, id);
 
-    for (unsigned i = 1; i <= 64; i++) 
+    for (unsigned i = 1; i <= 64; ++i) 
         mk_bv_sort(i);
 
     m_bit0 = m->mk_const_decl(symbol("bit0"), get_bv_sort(1), func_decl_info(m_family_id, OP_BIT0));
@@ -408,7 +408,7 @@ inline bool bv_decl_plugin::get_bv_size(expr * t, int & result) {
 
 bool bv_decl_plugin::get_concat_size(unsigned arity, sort * const * domain, int & result) {
     result = 0;
-    for (unsigned i = 0; i < arity; i++) {
+    for (unsigned i = 0; i < arity; ++i) {
         int sz;
         if (!get_bv_size(domain[i], sz)) {
             return false;
@@ -501,7 +501,7 @@ func_decl * bv_decl_plugin::mk_bit2bool(unsigned bv_size, unsigned num_parameter
 }
 
 func_decl * bv_decl_plugin::mk_mkbv(unsigned arity, sort * const * domain) {
-    for (unsigned i = 0; i < arity; i++) {
+    for (unsigned i = 0; i < arity; ++i) {
         if (!m_manager->is_bool(domain[i])) {
             m_manager->raise_exception("invalid mkbv operator");
             return nullptr;

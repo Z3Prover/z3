@@ -51,7 +51,7 @@ namespace smt {
         n->m_proof_is_logged = false;
         n->m_is_shared        = 2;
         unsigned num_args     = n->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {            
+        for (unsigned i = 0; i < num_args; ++i) {            
             enode * arg  = app2enode[owner->get_arg(i)->get_id()];
             n->m_args[i] = arg;
             arg->get_root()->m_is_shared = 2;
@@ -84,7 +84,7 @@ namespace smt {
         SASSERT(m_root == this);
         SASSERT(m_next == this);
         unsigned num_args = get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             enode * arg = get_arg(i);
             if (update_children_parent) {
                 SASSERT(arg->get_root()->m_parents.back() == this);
@@ -210,7 +210,7 @@ namespace smt {
                 unsigned i = 0;
                 unsigned num_args = parent->get_num_args();
                 SASSERT(num_args > 0);
-                for (; i < num_args; i++) {
+                for (; i < num_args; ++i) {
                     enode * arg = parent->get_arg(i);
                     if (arg->get_root() == m_root)
                         break;
@@ -299,7 +299,7 @@ namespace smt {
             return false;
         }
         else {
-            for (unsigned i = 0; i < num_args; i++)
+            for (unsigned i = 0; i < num_args; ++i)
                 if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root())
                     return false;
             return true;
@@ -308,7 +308,7 @@ namespace smt {
 
     unsigned get_max_generation(unsigned num_enodes, enode * const * enodes) {
         unsigned max = 0;
-        for (unsigned i = 0; i < num_enodes; i++) {
+        for (unsigned i = 0; i < num_enodes; ++i) {
             unsigned curr = enodes[i]->get_generation();
             if (curr > max)
                 max = curr;
@@ -317,12 +317,12 @@ namespace smt {
     }
 
     void unmark_enodes(unsigned num_enodes, enode * const * enodes) {
-        for (unsigned i = 0; i < num_enodes; i++)
+        for (unsigned i = 0; i < num_enodes; ++i)
             enodes[i]->unset_mark();
     }
 
     void unmark_enodes2(unsigned num_enodes, enode * const * enodes) {
-        for (unsigned i = 0; i < num_enodes; i++)
+        for (unsigned i = 0; i < num_enodes; ++i)
             enodes[i]->unset_mark2();
     }
     

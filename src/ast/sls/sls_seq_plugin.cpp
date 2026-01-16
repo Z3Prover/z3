@@ -1624,13 +1624,13 @@ namespace sls {
 
         if (offset_val.is_neg() || offset_val.get_unsigned() >= r.length()) {
             has_empty = true;
-            for (unsigned i = 0; i < r.length(); i++)
+            for (unsigned i = 0; i < r.length(); ++i)
                 m_int_updates.push_back({ offset, rational(i), 1 });
         }
 
         if (!len_val.is_pos()) {
             has_empty = true;
-            for (unsigned i = 1; i + offset_u < r.length(); i++)
+            for (unsigned i = 1; i + offset_u < r.length(); ++i)
                 m_int_updates.push_back({ len, rational(i), 1 });
         }
 

@@ -403,7 +403,7 @@ namespace smt {
             return FC_DONE;
         final_check_status r = FC_DONE;
         unsigned num_vars = get_num_vars();
-        for (unsigned v = 0; v < num_vars; v++) {
+        for (unsigned v = 0; v < num_vars; ++v) {
             var_data * d = m_var_data[v];
             if (d->m_prop_upward && instantiate_axiom2b_for(v))
                 r = FC_CONTINUE;
@@ -465,14 +465,14 @@ namespace smt {
         unsigned num_vars = get_num_vars();
         if (num_vars == 0) return;
         out << "Theory array:\n";
-        for (unsigned v = 0; v < num_vars; v++) {
+        for (unsigned v = 0; v < num_vars; ++v) {
             display_var(out, v);
         }
     }
 
     // TODO: move to another file
     void theory_array::display_ids(std::ostream & out, unsigned n, enode * const * v) {
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             if (i > 0) out << " ";
             out << "#" << v[i]->get_owner_id();
         }

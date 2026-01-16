@@ -49,7 +49,7 @@ void tst_instantiate(ast_manager & m, expr * f) {
     quantifier * q = find_quantifier(f);
     if (q) {
         expr_ref_vector cnsts(m);
-        for (unsigned i = 0; i < q->get_num_decls(); i++) 
+        for (unsigned i = 0; i < q->get_num_decls(); ++i) 
             cnsts.push_back(m.mk_fresh_const("a", q->get_decl_sort(i)));
         expr_ref r = instantiate(m, q, cnsts.data());
         TRACE(var_subst, tout << "quantifier:\n" << mk_pp(q, m) << "\nresult:\n" << mk_pp(r, m) << "\n";);

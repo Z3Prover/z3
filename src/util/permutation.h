@@ -57,7 +57,7 @@ inline std::ostream & operator<<(std::ostream & out, permutation const & p) {
 template<typename T>
 void apply_permutation_core(unsigned sz, T * data, unsigned * p) {
     int * p1 = reinterpret_cast<int*>(p);
-    for (int i = 0; i < static_cast<int>(sz); i++) {
+    for (int i = 0; i < static_cast<int>(sz); ++i) {
         if (p1[i] < 0)
             continue; // already processed
         int j = i;
@@ -86,7 +86,7 @@ void apply_permutation(unsigned sz, T * data, unsigned const * p) {
     apply_permutation_core(sz, data, const_cast<unsigned*>(p));
     // restore p
     int * p1 = reinterpret_cast<int*>(const_cast<unsigned*>(p));
-    for (unsigned i = 0; i < sz; i++) { 
+    for (unsigned i = 0; i < sz; ++i) { 
         p1[i] = - p1[i] - 1;
     }
 }

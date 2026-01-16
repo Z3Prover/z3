@@ -44,7 +44,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::move_non_base_vars_to_bounds() {
         theory_var num = get_num_vars();
-        for (theory_var v = 0; v < num; v++) {
+        for (theory_var v = 0; v < num; ++v) {
             if (is_non_base(v)) {
                 bound * l               = lower(v);
                 bound * u               = upper(v);
@@ -78,7 +78,7 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::has_infeasible_int_var() {
         int num = get_num_vars();
-        for (theory_var v = 0; v < num; v++) {
+        for (theory_var v = 0; v < num; ++v) {
             if (is_int(v) && !get_value(v).is_int())
                 return true;
         }
@@ -457,7 +457,7 @@ namespace smt {
         ast_manager & m = get_manager();
         expr_ref_vector _args(m);
         
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             rational _k = args[i].m_coeff.to_rational();
             expr * x = get_enode(args[i].m_var)->get_expr();
             if (m_util.is_int(x) && !all_int)
@@ -637,7 +637,7 @@ namespace smt {
             if (num_ints > 0) {
                 lcm_den = lcm(lcm_den, denominator(k));
                 TRACE(gomory_cut_detail, tout << "k: " << k << " lcm_den: " << lcm_den << "\n";
-                      for (unsigned i = 0; i < pol.size(); i++) {
+                      for (unsigned i = 0; i < pol.size(); ++i) {
                           tout << pol[i].m_coeff << " " << pol[i].m_var << "\n";
                       }
                       tout << "k: " << k << "\n";);
@@ -645,14 +645,14 @@ namespace smt {
                 if (!lcm_den.is_one()) {
                     // normalize coefficients of integer parameters to be integers.
                     unsigned n = pol.size();
-                    for (unsigned i = 0; i < n; i++) {
+                    for (unsigned i = 0; i < n; ++i) {
                         pol[i].m_coeff *= lcm_den;
                         SASSERT(!is_int(pol[i].m_var) || pol[i].m_coeff.is_int());
                     }
                     k *= lcm_den;
                 }
                 TRACE(gomory_cut_detail, tout << "after *lcm\n";
-                      for (unsigned i = 0; i < pol.size(); i++) {
+                      for (unsigned i = 0; i < pol.size(); ++i) {
                           tout << pol[i].m_coeff << " * v" << pol[i].m_var << "\n";
                       }
                       tout << "k: " << k << "\n";);
@@ -893,7 +893,7 @@ namespace smt {
         bool inf_l, inf_u;
         inf_numeral l, u;
         numeral m;
-        for (theory_var v = 0; v < num; v++) {
+        for (theory_var v = 0; v < num; ++v) {
             if (!is_non_base(v)) 
                 continue;
             get_freedom_interval(v, inf_l, l, inf_u, u, m);
@@ -937,7 +937,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::fix_non_base_vars() {
         int num = get_num_vars();
-        for (theory_var v = 0; v < num; v++) {
+        for (theory_var v = 0; v < num; ++v) {
             if (!is_non_base(v)) 
                 continue;
             if (!is_int(v))
@@ -965,7 +965,7 @@ namespace smt {
 
         TRACE(arith,
               int num = get_num_vars();
-              for (theory_var v = 0; v < num; v++) {
+              for (theory_var v = 0; v < num; ++v) {
                   if (is_int(v) && !get_value(v).is_int()) {
                       numeral f1 = get_value(v).get_rational() - floor(get_value(v).get_rational());
                       numeral f2 = ceil(get_value(v).get_rational()) - get_value(v).get_rational();
@@ -980,7 +980,7 @@ namespace smt {
               numeral max(0);
               numeral min(1);
               int num = get_num_vars();
-              for (theory_var v = 0; v < num; v++) {
+              for (theory_var v = 0; v < num; ++v) {
                   if (is_int(v) && !get_value(v).is_int()) {
                       numeral f1 = get_value(v).get_rational() - floor(get_value(v).get_rational());
                       numeral f2 = ceil(get_value(v).get_rational()) - get_value(v).get_rational();
@@ -1010,7 +1010,7 @@ namespace smt {
               bool inf_l; bool inf_u;
               inf_numeral l; inf_numeral u;
               numeral m;
-              for (theory_var v = 0; v < num; v++) {
+              for (theory_var v = 0; v < num; ++v) {
                   if (is_non_base(v)) {
                       get_freedom_interval(v, inf_l, l, inf_u, u, m);
                       if ((!m.is_one() /* && !l.is_zero() */) || !get_value(v).is_int()) {
@@ -1032,7 +1032,7 @@ namespace smt {
         
         TRACE(arith_int_inf,
               int num = get_num_vars();
-              for (theory_var v = 0; v < num; v++) {
+              for (theory_var v = 0; v < num; ++v) {
                   if (is_int(v) && !get_value(v).is_int()) {
                       display_var(tout, v);
                   }

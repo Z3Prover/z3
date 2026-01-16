@@ -708,7 +708,7 @@ static void tst_psc(polynomial_ref const & p, polynomial_ref const & q, polynomi
     std::cout << "q: " << q << std::endl;
     m.psc_chain(p, q, x, S);
     unsigned sz = S.size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         std::cout << "S_" << i << ": " << polynomial_ref(S.get(i), m) << std::endl;
     }
     if (sz > 0) {
@@ -733,7 +733,7 @@ static void tst_psc_perf(polynomial_ref const & p, polynomial_ref const & q, pol
     std::cout << "q: " << q << std::endl;
     m.psc_chain(p, q, x, S);
     unsigned sz = S.size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         std::cout << "S_" << i << ": " << m.size(S.get(i)) << std::endl; // polynomial_ref(S.get(i), m) << std::endl;
     }
 }
@@ -840,14 +840,14 @@ static void tst_vars(polynomial_ref const & p, unsigned sz, polynomial::var * xs
     p.m().vars(p, r);
     std::cout << "---------------\n";
     std::cout << "p: " << p << "\nvars: ";
-    for (unsigned i = 0; i < r.size(); i++) {
+    for (unsigned i = 0; i < r.size(); ++i) {
         std::cout << r[i] << " ";
     }
     std::cout << std::endl;
     ENSURE(r.size() == sz);
     std::sort(r.begin(), r.end());
     std::sort(xs, xs + sz);
-    for (unsigned i = 0; i < r.size(); i++) {
+    for (unsigned i = 0; i < r.size(); ++i) {
         ENSURE(r[i] == xs[i]);
     }
 }
@@ -1022,7 +1022,7 @@ void tst_mfact(polynomial_ref const & p, unsigned num_distinct_factors) {
     factor(p, fs);
     std::cout << "factors:\n";
     std::cout << p.m().m().to_string(fs.get_constant()) << "\n";
-    for (unsigned i = 0; i < fs.distinct_factors(); i++) {
+    for (unsigned i = 0; i < fs.distinct_factors(); ++i) {
         std::cout << "*(" << fs[i] << ")^" << fs.get_degree(i) << std::endl;
     }
     ENSURE(fs.distinct_factors() == num_distinct_factors);
@@ -1571,7 +1571,7 @@ static void tst_gcd2() {
     // polynomial_ref p1(m);
     // p1 = derivative(p, 0);
     // polynomial_ref g(m);
-    // for (unsigned i = 0; i < 50; i++)
+    // for (unsigned i = 0; i < 50; ++i)
     //    g = gcd(p, p1);
     // return;
 

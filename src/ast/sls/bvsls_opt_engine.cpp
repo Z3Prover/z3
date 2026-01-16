@@ -41,7 +41,7 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
 
     if (initial_model.get() != nullptr) {
         TRACE(sls_opt, tout << "Initial model provided: " << std::endl;
-                        for (unsigned i = 0; i < initial_model->get_num_constants(); i++) {
+                        for (unsigned i = 0; i < initial_model->get_num_constants(); ++i) {
                             func_decl * fd = initial_model->get_constant(i);
                             expr * val = initial_model->get_const_interp(fd);
                             tout << fd->get_name() << " := " << mk_ismt2_pp(val, m()) << std::endl;
@@ -57,7 +57,7 @@ bvsls_opt_engine::optimization_result bvsls_opt_engine::optimize(
 
     for (m_stats.m_restarts = 0;
          m_stats.m_restarts < m_max_restarts;
-         m_stats.m_restarts++)
+         ++m_stats.m_restarts)
     {
         mpz old_best;
         m_mpz_manager.set(old_best, m_best_model_score);
@@ -178,7 +178,7 @@ void bvsls_opt_engine::save_model(mpz const & score) {
     model_ref mdl = m_hard_tracker.get_model();
     model_ref obj_mdl = m_obj_tracker.get_model();
 
-    for (unsigned i = 0; i < obj_mdl->get_num_constants(); i++) {
+    for (unsigned i = 0; i < obj_mdl->get_num_constants(); ++i) {
         func_decl * fd = obj_mdl->get_constant(i);
         expr * val = obj_mdl->get_const_interp(fd);
         if (mdl->has_interpretation(fd)) {
@@ -252,14 +252,14 @@ mpz bvsls_opt_engine::find_best_move(
     mpz new_score;
     m_mpz_manager.set(new_score, score);
 
-    for (unsigned i = 0; i < to_evaluate.size() && m_mpz_manager.lt(new_score, max_score); i++) {
+    for (unsigned i = 0; i < to_evaluate.size() && m_mpz_manager.lt(new_score, max_score); ++i) {
         func_decl * fd = to_evaluate[i];
         sort * srt = fd->get_range();
         bv_sz = (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);
         m_mpz_manager.set(old_value, m_obj_tracker.get_value(fd));
 
         // first try to flip every bit
-        for (unsigned j = 0; j < bv_sz && m_mpz_manager.lt(new_score, max_score); j++) {
+        for (unsigned j = 0; j < bv_sz && m_mpz_manager.lt(new_score, max_score); ++j) {
             // What would happen if we flipped bit #i ?                
             mk_flip(srt, old_value, j, temp);
 

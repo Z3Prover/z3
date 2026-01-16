@@ -1187,20 +1187,20 @@ void mpz_manager<SYNCH>::gcd(unsigned sz, mpz const * as, mpz & g) {
         break;
     }
     unsigned i;
-    for (i = 0; i < sz; i++) {
+    for (i = 0; i < sz; ++i) {
         if (!is_small(as[i]))
             break;
     }
     if (i != sz) {
         // array has big numbers
         sbuffer<unsigned, 1024> p;
-        for (i = 0; i < sz; i++)
+        for (i = 0; i < sz; ++i)
             p.push_back(i);
         sz_lt lt(*this, as);
         std::sort(p.begin(), p.end(), lt);
-        TRACE(mpz_gcd, for (unsigned i = 0; i < sz; i++) tout << p[i] << ":" << size_info(as[p[i]]) << " "; tout << "\n";);
+        TRACE(mpz_gcd, for (unsigned i = 0; i < sz; ++i) tout << p[i] << ":" << size_info(as[p[i]]) << " "; tout << "\n";);
         gcd(as[p[0]], as[p[1]], g);
-        for (i = 2; i < sz; i++) {
+        for (i = 2; i < sz; ++i) {
             if (is_one(g))
                 return;
             gcd(g, as[p[i]], g);
@@ -1209,7 +1209,7 @@ void mpz_manager<SYNCH>::gcd(unsigned sz, mpz const * as, mpz & g) {
     }
     else {
         gcd(as[0], as[1], g);
-        for (unsigned i = 2; i < sz; i++) {
+        for (unsigned i = 2; i < sz; ++i) {
             if (is_one(g))
                 return;
             gcd(g, as[i], g);
@@ -1229,7 +1229,7 @@ void mpz_manager<SYNCH>::gcd(unsigned sz, mpz const * as, mpz & g) {
         break;
     }
     gcd(as[0], as[1], g);
-    for (unsigned i = 2; i < sz; i++) {
+    for (unsigned i = 2; i < sz; ++i) {
         if (is_one(g))
             return;
         gcd(g, as[i], g);
@@ -1687,7 +1687,7 @@ double mpz_manager<SYNCH>::get_double(mpz const & a) const {
     double r = 0.0;
     double d = 1.0;
     unsigned sz = size(a);
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         r += d * static_cast<double>(digits(a)[i]);
         if (sizeof(digit_t) == sizeof(uint64_t))
             d *= (1.0 + static_cast<double>(UINT64_MAX)); // 64-bit version, multiply by 2^64
@@ -1891,7 +1891,7 @@ void mpz_manager<SYNCH>::power(mpz const & a, unsigned p, mpz & b) {
                 allocate_if_needed(b, sz);
                 SASSERT(b.m_ptr->m_capacity >= sz);
                 b.m_ptr->m_size     = sz;
-                for (unsigned i = 0; i < sz - 1; i++)
+                for (unsigned i = 0; i < sz - 1; ++i)
                     b.m_ptr->m_digits[i] = 0;
                 b.m_ptr->m_digits[sz-1] = 1 << shift;
                 b.m_val = 1;
@@ -1947,7 +1947,7 @@ bool mpz_manager<SYNCH>::is_power_of_two(mpz const & a, unsigned & shift) {
     mpz_cell * c     = a.m_ptr;
     unsigned sz      = c->m_size;
     digit_t * ds     = c->m_digits;
-    for (unsigned i = 0; i < sz - 1; i++) {
+    for (unsigned i = 0; i < sz - 1; ++i) {
         if (ds[i] != 0)
             return false;
     }
@@ -1986,7 +1986,7 @@ void mpz_manager<SYNCH>::ensure_capacity(mpz & a, unsigned capacity) {
         SASSERT(a.m_ptr->m_capacity >= capacity);
         if (val == INT_MIN) {
             unsigned intmin_sz = m_int_min.m_ptr->m_size;
-            for (unsigned i = 0; i < intmin_sz; i++)
+            for (unsigned i = 0; i < intmin_sz; ++i)
                 a.m_ptr->m_digits[i] = m_int_min.m_ptr->m_digits[i];
             a.m_val = -1;
             a.m_ptr->m_size = m_int_min.m_ptr->m_size;
@@ -2007,7 +2007,7 @@ void mpz_manager<SYNCH>::ensure_capacity(mpz & a, unsigned capacity) {
         SASSERT(new_cell->m_capacity == capacity);
         unsigned old_sz  = a.m_ptr->m_size;
         new_cell->m_size = old_sz;
-        for (unsigned i = 0; i < old_sz; i++)
+        for (unsigned i = 0; i < old_sz; ++i)
             new_cell->m_digits[i] = a.m_ptr->m_digits[i];
         deallocate(a);
         a.m_ptr = new_cell;
@@ -2077,7 +2077,7 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
         unsigned i       = 0;
         unsigned j       = digit_shift;
         if (bit_shift != 0) {
-            for (; i < new_sz - 1; i++, j++) {
+            for (; i < new_sz - 1; ++i, ++j) {
                 ds[i] = ds[j];
                 ds[i] >>= bit_shift;
                 ds[i] |= (ds[j+1] << comp_shift);
@@ -2086,7 +2086,7 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
             ds[i] >>= bit_shift;
         }
         else {
-            for (; i < new_sz; i++, j++) {
+            for (; i < new_sz; ++i, ++j) {
                 ds[i] = ds[j];
             }
         }
@@ -2095,7 +2095,7 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
         SASSERT(new_sz == sz);
         SASSERT(bit_shift != 0);
         unsigned i       = 0;
-        for (; i < new_sz - 1; i++) {
+        for (; i < new_sz - 1; ++i) {
             ds[i] >>= bit_shift;
             ds[i] |= (ds[i+1] << comp_shift);
         }
@@ -2136,7 +2136,7 @@ void mpz_manager<SYNCH>::mul2k(mpz & a, unsigned k) {
     mpz_cell * cell_a    = a.m_ptr;
     old_sz = cell_a->m_size;
     digit_t * ds         = cell_a->m_digits;
-    for (unsigned i = old_sz; i < new_sz; i++) 
+    for (unsigned i = old_sz; i < new_sz; ++i) 
         ds[i] = 0;
     cell_a->m_size       = new_sz;
 
@@ -2154,13 +2154,13 @@ void mpz_manager<SYNCH>::mul2k(mpz & a, unsigned k) {
     }
     if (bit_shift > 0) {
         DEBUG_CODE({
-            for (unsigned i = 0; i < word_shift; i++) {
+            for (unsigned i = 0; i < word_shift; ++i) {
                 SASSERT(ds[i] == 0);
             }
         });
         unsigned comp_shift = (8 * sizeof(digit_t)) - bit_shift;
         digit_t prev = 0;
-        for (unsigned i = word_shift; i < new_sz; i++) {
+        for (unsigned i = word_shift; i < new_sz; ++i) {
             digit_t new_prev = (ds[i] >> comp_shift);
             ds[i] <<= bit_shift;
             ds[i] |= prev;
@@ -2215,7 +2215,7 @@ unsigned mpz_manager<SYNCH>::power_of_two_multiple(mpz const & a) {
     unsigned sz         = c->m_size;
     unsigned r          = 0;
     digit_t * source    = c->m_digits; 
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         if (source[i] != 0) {
             digit_t v = source[i];
             if (sizeof(digit_t) == 8) {
@@ -2515,7 +2515,7 @@ bool mpz_manager<SYNCH>::decompose(mpz const & a, svector<digit_t> & digits) {
 #ifndef _MP_GMP
         mpz_cell * cell_a = a.m_ptr;
         unsigned sz = cell_a->m_size;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             digits.push_back(cell_a->m_digits[i]);
         }
         return a.m_val < 0;

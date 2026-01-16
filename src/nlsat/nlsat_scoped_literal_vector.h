@@ -55,13 +55,13 @@ namespace nlsat {
             unsigned sz = m_lits.size();
             if (new_sz == sz)
                 return;
-            for (unsigned i = new_sz; i < sz; i++) {
+            for (unsigned i = new_sz; i < sz; ++i) {
                 m_solver.dec_ref(m_lits[i]);
             }
             m_lits.shrink(new_sz);
         }
         void append(unsigned sz, literal const * ls) {
-            for (unsigned i = 0; i < sz; i++)
+            for (unsigned i = 0; i < sz; ++i)
                 push_back(ls[i]);
         }
         void append(scoped_literal_vector const& ls) {

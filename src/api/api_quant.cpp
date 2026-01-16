@@ -73,7 +73,7 @@ extern "C" {
         expr * const* no_ps = reinterpret_cast<expr * const*>(no_patterns);
         symbol qid = to_symbol(quantifier_id);
         pattern_validator v(mk_c(c)->m());
-        for (unsigned i = 0; i < num_patterns; i++) {
+        for (unsigned i = 0; i < num_patterns; ++i) {
             if (!v(num_decls, ps[i], 0, 0)) {
                 SET_ERROR_CODE(Z3_INVALID_PATTERN, nullptr);
                 return nullptr;

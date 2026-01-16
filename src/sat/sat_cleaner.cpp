@@ -87,12 +87,12 @@ namespace sat {
         for (; it != end; ++it) {
             clause & c = *(*it);
             TRACE(sat_cleaner_bug, tout << "cleaning: " << c << "\n";
-                  for (unsigned i = 0; i < c.size(); i++) tout << c[i] << ": " << s.value(c[i]) << "\n";);
+                  for (unsigned i = 0; i < c.size(); ++i) tout << c[i] << ": " << s.value(c[i]) << "\n";);
             CTRACE(sat_cleaner_frozen, c.frozen(), tout << c << "\n";);
             unsigned sz = c.size();
             unsigned i = 0, j = 0;
             m_cleanup_counter += sz;
-            for (; i < sz; i++) {
+            for (; i < sz; ++i) {
                 switch (s.value(c[i])) {
                 case l_true:
                     goto end_loop;

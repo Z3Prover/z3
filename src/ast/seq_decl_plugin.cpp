@@ -1285,7 +1285,7 @@ bool seq_util::rex::pp::print_seq(std::ostream& out, expr* s) const {
             print(out, e);
     }
     else if (re.u.str.is_string(s, z)) {
-        for (unsigned i = 0; i < z.length(); i++)
+        for (unsigned i = 0; i < z.length(); ++i)
             out << (char)z[i];
     }
     else if (re.u.str.is_at(s, x, i))

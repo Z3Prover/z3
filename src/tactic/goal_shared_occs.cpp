@@ -22,7 +22,7 @@ void goal_shared_occs::operator()(goal const & g) {
     m_occs.reset();
     shared_occs_mark visited;
     unsigned sz = g.size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr * t = g.form(i);
         m_occs(t, visited);
     }

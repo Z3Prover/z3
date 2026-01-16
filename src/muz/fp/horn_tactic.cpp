@@ -198,7 +198,7 @@ class horn_tactic : public tactic {
             m_ctx.reset();
             m_ctx.ensure_opened();
 
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 f = g->form(i);
                 formula_kind k = get_formula_kind(f);
                 switch(k) {

@@ -122,7 +122,7 @@ bool horner::horner_lemmas() {
     unsigned r = c().random();
     unsigned sz = rows.size();
     bool conflict = false;
-    for (unsigned i = 0; i < sz && !conflict; i++) {
+    for (unsigned i = 0; i < sz && !conflict; ++i) {
         m_row_index = rows[(i + r) % sz];
         if (lemmas_on_row(matrix.m_rows[m_row_index])) {
             c().lp_settings().stats().m_horner_conflicts++;

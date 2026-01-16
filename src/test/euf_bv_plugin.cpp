@@ -20,7 +20,7 @@ static euf::enode* get_node(euf::egraph& g, bv_util& b, expr* e) {
     for (expr* arg : *to_app(e))
         args.push_back(get_node(g, b, arg));
     n = g.mk(e, 0, args.size(), args.data());
-    g.add_th_var(n, s_var++, b.get_family_id());
+    g.add_th_var(n, ++s_var, b.get_family_id());
     return n;
 }
 

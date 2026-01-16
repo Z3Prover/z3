@@ -242,7 +242,7 @@ bv2fpa_converter::array_model bv2fpa_converter::convert_array_func_interp(model_
     if (as_arr_mdl == 0) return am;
     TRACE(bv2fpa, tout << "arity=0 func_interp for " << mk_ismt2_pp(f, m) << " := " << mk_ismt2_pp(as_arr_mdl, m) << std::endl;);
     SASSERT(arr_util.is_as_array(as_arr_mdl));
-    for (unsigned i = 0; i < arity; i++)
+    for (unsigned i = 0; i < arity; ++i)
         array_domain.push_back(to_sort(f->get_range()->get_parameter(i).get_ast()));
     sort * rng = to_sort(f->get_range()->get_parameter(arity).get_ast());
 
@@ -268,12 +268,12 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
     if (bv_fi) {
         fpa_rewriter rw(m);
 
-        for (unsigned i = 0; i < bv_fi->num_entries(); i++) {
+        for (unsigned i = 0; i < bv_fi->num_entries(); ++i) {
             func_entry const * bv_fe = bv_fi->get_entry(i);
             expr * const * bv_args = bv_fe->get_args();
             expr_ref_buffer new_args(m);
 
-            for (unsigned j = 0; j < arity; j++) {
+            for (unsigned j = 0; j < arity; ++j) {
                 sort * ft_dj = dmn[j];
                 expr * bv_aj = bv_args[j];
                 expr_ref ai = rebuild_floats(mc, ft_dj, to_app(bv_aj));
@@ -288,12 +288,12 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
             TRACE(bv2fpa,
                   tout << "func_interp entry #" << i << ":" << std::endl;
                   tout << "(" << bv_f->get_name();
-                  for (unsigned i = 0; i < bv_f->get_arity(); i++)
+                  for (unsigned i = 0; i < bv_f->get_arity(); ++i)
                       tout << " " << mk_ismt2_pp(bv_args[i], m);
                   tout << ") = " << mk_ismt2_pp(bv_fres, m) << std::endl;
                   tout << " --> " << std::endl;
                   tout << "(" << f->get_name();
-                  for (unsigned i = 0; i < new_args.size(); i++)
+                  for (unsigned i = 0; i < new_args.size(); ++i)
                       tout << " " << mk_ismt2_pp(new_args[i], m);
                   tout << ") = " << mk_ismt2_pp(ft_fres, m) << std::endl;);
             func_entry * fe = result->get_entry(new_args.data());

@@ -239,7 +239,7 @@ public:
                            expr_ref & result,
                            proof_ref & result_pr);
 
-    void register_preferred(unsigned num, func_decl * const * fs) { for (unsigned i = 0; i < num; i++) register_preferred(fs[i]); }
+    void register_preferred(unsigned num, func_decl * const * fs) { for (unsigned i = 0; i < num; ++i) register_preferred(fs[i]); }
     
     bool is_forbidden(func_decl const * decl) const {
         family_id fid = decl->get_family_id();

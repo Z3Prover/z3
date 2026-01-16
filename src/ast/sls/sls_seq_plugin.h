@@ -169,7 +169,6 @@ namespace sls {
         bool is_value(expr* e);
     public:
         seq_plugin(context& c);
-        ~seq_plugin() override = default;
         expr_ref get_value(expr* e) override;
         void initialize() override;
         void start_propagation() override {}

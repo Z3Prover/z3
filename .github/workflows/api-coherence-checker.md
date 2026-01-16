@@ -25,7 +25,7 @@ tools:
 safe-outputs:
   create-discussion:
     title-prefix: "[API Coherence] "
-    category: "General"
+    category: "Agentic Workflows"
     close-older-discussions: true
   github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -51,6 +51,13 @@ Check your cache memory for:
 - List of APIs already analyzed
 - Current progress through the API surface
 - Any pending suggestions or issues found
+
+**Important**: If you have cached pending suggestions or issues:
+- **Re-verify each cached issue** before including it in the report
+- Check if the missing API has been implemented since the last run
+- Use Serena, grep, or glob to verify the current state of the code
+- **Mark issues as resolved** if the code now includes the previously missing functionality
+- **Remove resolved issues** from the cache and do NOT include them in the report
 
 If this is your first run or memory is empty, initialize a tracking structure to systematically cover all APIs over multiple runs.
 
@@ -108,6 +115,11 @@ For each inconsistency found, provide:
 - **Suggested fix**: Specific recommendation (e.g., "Add `Z3_solver_get_reason_unknown` wrapper to Python API")
 - **Priority**: High (core functionality), Medium (useful feature), Low (nice-to-have)
 
+**Critical**: Before finalizing recommendations:
+- **Verify each recommendation** is still valid by checking the current codebase
+- **Do not report issues that have been resolved** - verify the code hasn't been updated to fix the gap
+- Only include issues that are confirmed to still exist in the current codebase
+
 ### 6. Create Discussion with Results
 
 Create a GitHub Discussion with:
@@ -115,18 +127,27 @@ Create a GitHub Discussion with:
 - **Content Structure**:
   - Summary of APIs analyzed in this run
   - Statistics (e.g., "Analyzed 15 functions across 6 languages")
-  - Coherence findings organized by priority
+  - **Resolution status**: Number of previously cached issues now resolved (if any)
+  - Coherence findings organized by priority (only unresolved issues)
   - Specific recommendations for each gap found
   - Progress tracker: what % of APIs have been analyzed so far
   - Next areas to analyze in future runs
+
+**Important**: Only include issues that are confirmed to be unresolved in the current codebase. Do not report resolved issues as if they are still open or not started.
 
 ### 7. Update Cache Memory
 
 Store in cache memory:
 - APIs analyzed in this run (add to cumulative list)
 - Progress percentage through total API surface
-- Any high-priority issues that need follow-up
+- **Only unresolved issues** that need follow-up (after re-verification)
+- **Remove resolved issues** from the cache
 - Next APIs to analyze in the next run
+
+**Critical**: Keep cache fresh by:
+- Re-verifying all cached issues periodically (at least every few runs)
+- Removing issues that have been resolved from the cache
+- Not perpetuating stale information about resolved issues
 
 ## Guidelines
 
@@ -135,6 +156,8 @@ Store in cache memory:
 - **Be actionable**: Recommendations should be clear enough for a developer to implement
 - **Use Serena effectively**: Leverage Serena's language service integration for Java, Python, TypeScript, and C# to get accurate API information
 - **Cache your progress**: Always update cache memory so future runs build on previous work
+- **Keep cache fresh**: Re-verify cached issues before reporting them to ensure they haven't been resolved
+- **Don't report resolved issues**: Always check if a cached issue has been fixed before including it in the report
 - **Focus on quality over quantity**: 3-5 API families analyzed thoroughly is better than 20 analyzed superficially
 - **Consider developer experience**: Flag not just missing features but also confusing naming or parameter differences
 
@@ -147,7 +170,13 @@ Store in cache memory:
 Analyzed: Solver APIs, BitVector operations, Context creation
 Total functions checked: 18
 Languages covered: 6
+Previously cached issues resolved: 2
 Inconsistencies found: 7
+
+## Resolution Updates
+The following cached issues have been resolved since the last run:
+- ✅ BitVector Rotation in Java - Implemented in commit abc123
+- ✅ Solver Statistics API in C# - Fixed in PR #5678
 
 ## Progress
 - APIs analyzed so far: 45/~200 (22.5%)
@@ -156,14 +185,15 @@ Inconsistencies found: 7
 
 ## High Priority Issues
 
-### 1. Missing BitVector Rotation in Java
-**What**: Bit rotation functions `Z3_mk_rotate_left` and `Z3_mk_rotate_right` are not exposed in Java
-**Available in**: C, C++, Python, .NET, TypeScript
-**Missing in**: Java
-**Fix**: Add `mkRotateLeft(int i)` and `mkRotateRight(int i)` methods to `BitVecExpr` class
-**File**: `src/api/java/BitVecExpr.java`
+### 1. Missing BitVector Sign Extension in TypeScript
+**What**: Bit sign extension function `Z3_mk_sign_ext` is not exposed in TypeScript
+**Available in**: C, C++, Python, .NET, Java
+**Missing in**: TypeScript
+**Fix**: Add `signExt(int i)` method to `BitVecExpr` class
+**File**: `src/api/js/src/high-level/`
+**Verified**: Checked current codebase on [Date] - still missing
 
-### 2. Inconsistent Solver Statistics API
+### 2. Inconsistent Solver Timeout API
 ...
 
 ## Medium Priority Issues

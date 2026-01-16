@@ -64,7 +64,7 @@ namespace nlsat {
 
             void reset() {
                 unsigned sz = m_sections.size();
-                for (unsigned i = 0; i < sz; i++)
+                for (unsigned i = 0; i < sz; ++i)
                     m_am.del(m_sections[i].m_root);
                 m_sections.reset();
                 m_sorted_sections.reset();
@@ -159,7 +159,7 @@ namespace nlsat {
                 // Must normalize signs since we use arithmetic operations such as *
                 // during evaluation.
                 // Without normalization, overflows may happen, and wrong results may be produced.
-                for (unsigned i = 0; i < num_poly_signs; i++)
+                for (unsigned i = 0; i < num_poly_signs; ++i)
                     m_poly_signs.push_back(signs[i]);
                 m_poly_sections.append(p_section_ids);
                 m_info.push_back(poly_info(roots.size(), first_section, first_sign));
@@ -236,7 +236,7 @@ namespace nlsat {
                 unsigned num_roots = pinfo.m_num_roots;
                 if (num_roots < LINEAR_SEARCH_THRESHOLD) {
                     unsigned i = 0;
-                    for (; i < num_roots; i++) {
+                    for (; i < num_roots; ++i) {
                         unsigned section_cell_id = cell_id(pinfo, i);
                         if (section_cell_id == c)
                             return sign_zero;
@@ -288,13 +288,13 @@ namespace nlsat {
             bool check_invariant() const {
 #ifdef Z3DEBUG
                 SASSERT(m_sections.size() == m_sorted_sections.size());
-                for (unsigned i = 0; i < m_sorted_sections.size(); i++) {
+                for (unsigned i = 0; i < m_sorted_sections.size(); ++i) {
                     SASSERT(m_sorted_sections[i] < m_sections.size());
                     SASSERT(m_sections[m_sorted_sections[i]].m_pos == i);
                 }
                 unsigned total_num_sections = 0;
                 unsigned total_num_signs = 0;
-                for (unsigned i = 0; i < m_info.size(); i++) {
+                for (unsigned i = 0; i < m_info.size(); ++i) {
                     SASSERT(m_info[i].m_first_section <= m_poly_sections.size());
                     SASSERT(m_info[i].m_num_roots == 0 || m_info[i].m_first_section < m_poly_sections.size());
                     SASSERT(m_info[i].m_first_sign < m_poly_signs.size());
@@ -310,15 +310,15 @@ namespace nlsat {
             // Display sign table for the given variable
             void display(std::ostream & out) const {
                 out << "sections:\n  ";
-                for (unsigned i = 0; i < m_sections.size(); i++) {
+                for (unsigned i = 0; i < m_sections.size(); ++i) {
                     if (i > 0) out << " < ";
                     m_am.display_decimal(out, m_sections[m_sorted_sections[i]].m_root);
                 }
                 out << "\n";
                 out << "sign variations:\n";
-                for (unsigned i = 0; i < m_info.size(); i++) {
+                for (unsigned i = 0; i < m_info.size(); ++i) {
                     out << "  ";
-                    for (unsigned j = 0; j < num_cells(); j++) {
+                    for (unsigned j = 0; j < num_cells(); ++j) {
                         if (j > 0)
                             out << " ";
                         auto s = sign_at(i, j);
@@ -333,21 +333,21 @@ namespace nlsat {
             // Display sign table for the given variable
             void display_raw(std::ostream & out) const {
                 out << "sections:\n  ";
-                for (unsigned i = 0; i < m_sections.size(); i++) {
+                for (unsigned i = 0; i < m_sections.size(); ++i) {
                     if (i > 0) out << " < ";
                     m_am.display_decimal(out, m_sections[m_sorted_sections[i]].m_root);
                 }
                 out << "\n";
                 out << "poly_info:\n";
-                for (unsigned i = 0; i < m_info.size(); i++) {
+                for (unsigned i = 0; i < m_info.size(); ++i) {
                     out << "  roots:";
                     poly_info const & info = m_info[i];
-                    for (unsigned j = 0; j < info.m_num_roots; j++) {
+                    for (unsigned j = 0; j < info.m_num_roots; ++j) {
                         out << " ";
                         out << m_poly_sections[info.m_first_section+j];
                     }
                     out << ", signs:";
-                    for (unsigned j = 0; j < info.m_num_roots+1; j++) {
+                    for (unsigned j = 0; j < info.m_num_roots+1; ++j) {
                         out << " ";
                         int s = m_poly_signs[info.m_first_sign+j];
                         if (s < 0) out << "-";
@@ -407,7 +407,7 @@ namespace nlsat {
             atom::kind k = a->get_kind();
             unsigned sz  = a->size();
             int sign = 1;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 int curr_sign = eval_sign(a->p(i));
                 if (a->is_even(i) && curr_sign < 0)
                     curr_sign = 1;
@@ -477,7 +477,7 @@ namespace nlsat {
         sign sign_at(ineq_atom * a, sign_table const & t, unsigned c) const {
             auto sign = sign_pos;
             unsigned num_ps = a->size();
-            for (unsigned i = 0; i < num_ps; i++) {
+            for (unsigned i = 0; i < num_ps; ++i) {
                 ::sign curr_sign = t.sign_at(i, c);
                 TRACE(nlsat_evaluator_bug, tout << "sign of i: " << i << " at cell " << c << "\n"; 
                       m_pm.display(tout, a->p(i)); 
@@ -497,14 +497,14 @@ namespace nlsat {
             TRACE(nlsat_evaluator, m_solver.display(tout, *a) << "\n";);
             unsigned num_ps = a->size();
             var x = a->max_var();
-            for (unsigned i = 0; i < num_ps; i++) {
+            for (unsigned i = 0; i < num_ps; ++i) {
                 add(a->p(i), x, table);
                 TRACE(nlsat_evaluator_bug, tout << "table after:\n"; m_pm.display(tout, a->p(i)); tout << "\n"; table.display_raw(tout);); 
                 
             }
             TRACE(nlsat_evaluator, 
                   tout << "sign table for:\n"; 
-                  for (unsigned i = 0; i < num_ps; i++) { m_pm.display(tout, a->p(i)); tout << "\n"; }
+                  for (unsigned i = 0; i < num_ps; ++i) { m_pm.display(tout, a->p(i)); tout << "\n"; }
                   table.display(tout););
 
             interval_set_ref result(m_ism);
@@ -519,7 +519,7 @@ namespace nlsat {
             unsigned prev_root_id = UINT_MAX;
             
             unsigned num_cells = table.num_cells();
-            for (unsigned c = 0; c < num_cells; c++) {
+            for (unsigned c = 0; c < num_cells; ++c) {
                 TRACE(nlsat_evaluator,
                       tout << "cell: " << c << "\n";
                       tout << "prev_sat: " << prev_sat << "\n";

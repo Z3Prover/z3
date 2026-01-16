@@ -1401,7 +1401,7 @@ private:
 
             bool fact_fail = false;
             fact.reset();
-            for(unsigned i=0;i<pred_arity; i++) {
+            for(unsigned i=0;i<pred_arity; ++i) {
                 uint64_t const_num = args[i];
                 table_element c;
                 if(!inp_num_to_element(arg_sorts[i], const_num, c)) {

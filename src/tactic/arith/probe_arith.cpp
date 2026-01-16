@@ -350,7 +350,7 @@ static bool is_lp(goal const & g) {
     ast_manager & m = g.m();
     arith_util u(m);
     unsigned sz = g.size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr * f  = g.form(i);
         bool sign = false;
         while (m.is_not(f, f))

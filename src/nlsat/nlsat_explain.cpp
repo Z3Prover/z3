@@ -62,7 +62,7 @@ namespace nlsat {
             void reset() {
                 pmanager & pm = m_set.m();
                 unsigned sz = m_set.size();
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     m_in_set[pm.id(m_set.get(i))] = false;
                 }
                 m_set.reset();
@@ -85,7 +85,7 @@ namespace nlsat {
                 pmanager & pm = m_set.m();
                 var max = null_var;
                 unsigned sz = m_set.size();
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     var x = pm.max_var(m_set.get(i));
                     SASSERT(x != null_var);
                     if (max == null_var || x > max)
@@ -104,7 +104,7 @@ namespace nlsat {
                 pmanager & pm = m_set.m();
                 unsigned sz = m_set.size();
                 unsigned j  = 0;
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     poly * p = m_set.get(i);
                     var y = pm.max_var(p);
                     SASSERT(y <= x);
@@ -168,7 +168,7 @@ namespace nlsat {
         }
         
         std::ostream& display(std::ostream & out, polynomial_ref_vector const & ps, char const * delim = "\n") const {
-            for (unsigned i = 0; i < ps.size(); i++) {
+            for (unsigned i = 0; i < ps.size(); ++i) {
                 if (i > 0)
                     out << delim;
                 m_pm.display(out, ps.get(i), m_solver.display_proc());
@@ -245,12 +245,12 @@ namespace nlsat {
         */
         void collect_polys(unsigned num, literal const * ls, polynomial_ref_vector & ps) {
             ps.reset();
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 atom * a = m_atoms[ls[i].var()];
                 SASSERT(a != 0);
                 if (a->is_ineq_atom()) {
                     unsigned sz = to_ineq_atom(a)->size();
-                    for (unsigned j = 0; j < sz; j++)
+                    for (unsigned j = 0; j < sz; ++j)
                         ps.push_back(to_ineq_atom(a)->p(j));
                 }
                 else {
@@ -317,7 +317,7 @@ namespace nlsat {
                   m_am.display_decimal(tout, y_val); tout << "\n";);
             polynomial_ref p(m_pm);
             unsigned sz = ps.size();
-            for (unsigned k = 0; k < sz; k++) {
+            for (unsigned k = 0; k < sz; ++k) {
                 p = ps.get(k);
                 if (max_var(p) != y)
                     continue;
@@ -334,7 +334,7 @@ namespace nlsat {
                           tout << "\n";
                       });
                 bool all_lt = true;
-                for (unsigned i = 0; i < num_roots; i++) {
+                for (unsigned i = 0; i < num_roots; ++i) {
                     int s = m_am.compare(y_val, roots[i]);
                     TRACE(nlsat_explain,
                           m_am.display_decimal(tout << "comparing root: ", roots[i]); tout << "\n";
@@ -487,7 +487,7 @@ namespace nlsat {
             unsigned j  = 0;
             unsigned sz = ps.size(); 
             polynomial_ref p(m_pm);
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 p = ps.get(i);
                 elim_vanishing(p);
                 if (!is_const(p)) {
@@ -536,7 +536,7 @@ namespace nlsat {
                 int atom_sign = 1;
                 unsigned sz = a->size();
                 bool normalized = false; // true if the literal needs to be normalized
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     p = a->p(i);
                     if (max_var(p) == max)
                         elim_vanishing(p); // eliminate vanishing coefficients of max
@@ -615,7 +615,7 @@ namespace nlsat {
         void normalize(scoped_literal_vector & C, var max) {
             unsigned sz = C.size();
             unsigned j  = 0;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 literal new_l = normalize(C[i], max);
                 if (new_l == true_literal)
                     continue;
@@ -641,7 +641,7 @@ namespace nlsat {
             var max = max_var(ps.get(0)); 
             SASSERT(max != null_var); // there are no constant polynomials in ps
             unsigned sz = ps.size();
-            for (unsigned i = 1; i < sz; i++) {
+            for (unsigned i = 1; i < sz; ++i) {
                 var curr = m_pm.max_var(ps.get(i));
                 SASSERT(curr != null_var);
                 if (curr > max)
@@ -663,7 +663,7 @@ namespace nlsat {
          */
         var max_var(unsigned sz, literal const * ls) {
             var max = null_var;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 literal l = ls[i];
                 atom * a  = m_atoms[l.var()];
                 if (a != nullptr) {
@@ -682,7 +682,7 @@ namespace nlsat {
         void keep_p_x(polynomial_ref_vector & ps, var x, polynomial_ref_vector & qs) {
             unsigned sz = ps.size();
             unsigned j  = 0;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 poly * q = ps.get(i);
                 if (max_var(q) != x) {
                     qs.push_back(q);
@@ -709,7 +709,7 @@ namespace nlsat {
                 factor(p, m_factors);
                 TRACE(nlsat_explain, display(tout << "adding factors of\n", p); tout << "\n" << m_factors << "\n";);
                 polynomial_ref f(m_pm);
-                for (unsigned i = 0; i < m_factors.size(); i++) {
+                for (unsigned i = 0; i < m_factors.size(); ++i) {
                     f = m_factors.get(i);
                     elim_vanishing(f);
                     if (!is_const(f)) {
@@ -731,7 +731,7 @@ namespace nlsat {
             polynomial_ref coeff(m_pm);
 
             // Add the leading or all coeffs, depening on being square-free
-            for (unsigned i = 0; i < ps.size(); i++) {
+            for (unsigned i = 0; i < ps.size(); ++i) {
                 p = ps.get(i);
                 unsigned k_deg = m_pm.degree(p, x);
                 if (k_deg == 0) continue;
@@ -752,9 +752,9 @@ namespace nlsat {
             polynomial_ref q(m_pm);
             SASSERT(samples.size() <= 2);
 
-            for (unsigned i = 0; i < ps.size(); i++){
+            for (unsigned i = 0; i < ps.size(); ++i){
                 p = ps.get(i);
-                for (unsigned j = 0; j < samples.size(); j++){
+                for (unsigned j = 0; j < samples.size(); ++j){
                     q = samples.get(j);
                     if (!m_pm.eq(p, q)) {
                         psc(p, q, x);
@@ -772,7 +772,7 @@ namespace nlsat {
             m_is_even.reset();
             polynomial_ref f(m_pm);
             bool have_zero = false;
-            for (unsigned i = 0; i < num_factors; i++) {
+            for (unsigned i = 0; i < num_factors; ++i) {
                 f = m_factors.get(i);
                 if (coeffs_are_zeroes_in_factor(f)) {
                     have_zero = true;
@@ -784,7 +784,7 @@ namespace nlsat {
             var x = max_var(f);
             unsigned n = degree(f, x);
             auto c = polynomial_ref(this->m_pm);
-            for (unsigned j = 0; j <= n; j++) {
+            for (unsigned j = 0; j <= n; ++j) {
                 c = m_pm.coeff(s, x, j);
                 SASSERT(sign(c) == 0);
                 ensure_sign(c);
@@ -797,7 +797,7 @@ namespace nlsat {
             var x = max_var(s);
             unsigned n = degree(s, x);
             auto c = polynomial_ref(this->m_pm);
-            for (unsigned j = 0; j <= n; j++) {
+            for (unsigned j = 0; j <= n; ++j) {
                 c = m_pm.coeff(s, x, j);
                 if (sign(c) != 0)
                     return false;
@@ -820,7 +820,7 @@ namespace nlsat {
                       tout << "psc: " << s << "\n";
                   });
 
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 s = S.get(i);
                 TRACE(nlsat_explain, display(tout << "processing psc(" << i << ")\n", s) << "\n";); 
                 if (is_zero(s)) {
@@ -860,7 +860,7 @@ namespace nlsat {
             polynomial_ref p(m_pm);
             polynomial_ref p_prime(m_pm);
             unsigned sz = ps.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 p = ps.get(i);
                 if (degree(p, x) < 2)
                     continue;
@@ -881,9 +881,9 @@ namespace nlsat {
             polynomial_ref p(m_pm);
             polynomial_ref q(m_pm);
             unsigned sz = ps.size();
-            for (unsigned i = 0; i < sz - 1; i++) {
+            for (unsigned i = 0; i < sz - 1; ++i) {
                 p = ps.get(i);
-                for (unsigned j = i + 1; j < sz; j++) {
+                for (unsigned j = i + 1; j < sz; ++j) {
                     q = ps.get(j);
                     psc(p, q, x);
                 }
@@ -1090,7 +1090,7 @@ namespace nlsat {
         */
         bool all_univ(polynomial_ref_vector const & ps, var x) {
             unsigned sz = ps.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 poly * p = ps.get(i);
                 if (max_var(p) != x)
                     return false;
@@ -1146,7 +1146,7 @@ namespace nlsat {
                 return;
 
             m_todo.reset();
-            for (unsigned i = 0; i < ps.size(); i++) {
+            for (unsigned i = 0; i < ps.size(); ++i) {
                 polynomial_ref p(m_pm);
                 p = ps.get(i);
                 insert_fresh_factors_in_todo(p);
@@ -1298,7 +1298,7 @@ namespace nlsat {
             polynomial_ref_buffer new_factors(m_pm);
             sbuffer<bool>         new_factors_even;
             polynomial_ref        new_factor(m_pm);
-            for (unsigned s = 0; s < num_factors; s++) {
+            for (unsigned s = 0; s < num_factors; ++s) {
                 poly * f = _a->p(s);
                 bool is_even = _a->is_even(s);
                 if (m_pm.degree(f, info.m_x) < info.m_k) {
@@ -1445,7 +1445,7 @@ namespace nlsat {
             scoped_literal new_lit(m_solver);
             unsigned sz   = C.size();
             unsigned j    = 0;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 literal  l = C[i];
                 new_lit = null_literal;
                 simplify(l, info, max, new_lit);
@@ -1484,7 +1484,7 @@ namespace nlsat {
             poly * r       = nullptr;
             unsigned min_d = UINT_MAX;
             unsigned sz    = C.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 literal l = C[i];
                 if (l.sign())
                     continue;
@@ -1526,7 +1526,7 @@ namespace nlsat {
                     continue; // we don't rewrite root atoms
                 ineq_atom * _a = to_ineq_atom(a);
                 unsigned num_factors = _a->size();
-                for (unsigned j = 0; j < num_factors; j++) {
+                for (unsigned j = 0; j < num_factors; ++j) {
                     poly * p = _a->p(j);
                     xs.reset();
                     m_pm.vars(p, xs);
@@ -1627,7 +1627,7 @@ namespace nlsat {
             interval_set_ref r(ism);
             // Copy the union of the infeasible intervals of core into r.
             unsigned sz = core.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 literal l = core[i];
                 atom * a  = m_atoms[l.var()];
                 SASSERT(a != 0);
@@ -1646,7 +1646,7 @@ namespace nlsat {
             }
             // Copy the union of the infeasible intervals of todo into r until r becomes full.
             sz = todo.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 literal l = todo[i];
                 atom * a  = m_atoms[l.var()];
                 SASSERT(a != 0);

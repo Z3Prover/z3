@@ -118,7 +118,7 @@ template<typename T>
 static void tst4(unsigned num, unsigned N) {
     int_set s;
     T       t;
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         int v = rand() % N;
         if (rand() % 3 == 2) {
             TRACE(chashtable, tout << "erase " << v << "\n";);

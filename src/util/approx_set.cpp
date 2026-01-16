@@ -23,7 +23,7 @@ void approx_set::display(std::ostream & out) const {
     out << "{";
     bool first = true;
     unsigned long long s = m_set;
-    for (unsigned i = 0; i < approx_set_traits<unsigned long long>::capacity; i++) {
+    for (unsigned i = 0; i < approx_set_traits<unsigned long long>::capacity; ++i) {
         if ((s & 1) != 0) {
             if (first) {
                 first = false;

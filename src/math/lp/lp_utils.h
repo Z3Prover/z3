@@ -44,7 +44,7 @@ bool contains(const C & collection, const D & key) {
 
 template <typename C>
 std::ostream& print_vector(const C * t, unsigned size, std::ostream & out) {
-    for (unsigned i = 0; i < size; i++ )
+    for (unsigned i = 0; i < size; ++i )
         out << t[i] << " ";
     out << std::endl;
     return out;
@@ -77,7 +77,7 @@ bool is_non_decreasing(const K& v) {
         return true; // v is empty
     auto b = v.begin();
     b++;
-    for (; b != v.end(); a++, b++) {
+    for (; b != v.end(); ++a, ++b) {
         if (*a > *b)
             return false;
     }

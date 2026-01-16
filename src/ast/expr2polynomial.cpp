@@ -255,11 +255,11 @@ struct expr2polynomial::imp {
         polynomial::scoped_numeral d(nm());
         polynomial::scoped_numeral d_aux(nm());
         d = 1;
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             nm().lcm(d, d_args[i], d);
         }
         p = pm().mk_zero();
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             checkpoint();
             nm().div(d, d_args[i], d_aux);
             p_aux = pm().mul(d_aux, p_args[i]);
@@ -291,7 +291,7 @@ struct expr2polynomial::imp {
         polynomial::scoped_numeral d(nm());
         p = pm().mk_const(rational(1));
         d = 1;
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             checkpoint();
             p = pm().mul(p, p_args[i]);
             d = d * d_args[i];
@@ -388,10 +388,10 @@ struct expr2polynomial::imp {
 
     bool is_int_poly(polynomial::polynomial_ref const & p) {
         unsigned sz = size(p);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             polynomial::monomial * m = pm().get_monomial(p, i);
             unsigned msz = pm().size(m);
-            for (unsigned j = 0; j < msz; j++) {
+            for (unsigned j = 0; j < msz; ++j) {
                 polynomial::var x = pm().get_var(m, j);
                 if (!m_wrapper.is_int(x))
                     return false;
@@ -406,7 +406,7 @@ struct expr2polynomial::imp {
         unsigned sz = size(p);
         bool is_int = is_int_poly(p);
 
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             margs.reset();
             polynomial::monomial * _m = pm().get_monomial(p, i);
             polynomial::numeral const & a = pm().coeff(p, i);
@@ -414,7 +414,7 @@ struct expr2polynomial::imp {
                 margs.push_back(m_autil.mk_numeral(rational(a), is_int));
             }
             unsigned msz = pm().size(_m);
-            for (unsigned j = 0; j < msz; j++) {
+            for (unsigned j = 0; j < msz; ++j) {
                 polynomial::var x = pm().get_var(_m, j);
                 expr * t;
                 if (m_use_var_idxs) {
@@ -431,7 +431,7 @@ struct expr2polynomial::imp {
                     margs.push_back(m_autil.mk_power(t, m_autil.mk_numeral(rational(d), is_int)));
                 }
                 else {
-                    for (unsigned k = 0; k < d; k++)
+                    for (unsigned k = 0; k < d; ++k)
                         margs.push_back(t);
                 }
             }

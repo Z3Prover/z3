@@ -299,7 +299,7 @@ namespace datalog {
     bool relation_manager::is_non_explanation(relation_signature const& s) const {
         dl_decl_util & decl_util = get_context().get_decl_util();
         unsigned n = s.size();
-        for(unsigned i = 0; i < n; i++) {
+        for(unsigned i = 0; i < n; ++i) {
             if(decl_util.is_rule_sort(s[i])) {
                 return false;
             }
@@ -410,7 +410,7 @@ namespace datalog {
     void relation_manager::from_predicate(func_decl * pred, relation_signature & result) {
         result.reset();
         unsigned arg_num=pred->get_arity();
-        for(unsigned i=0;i<arg_num; i++) {
+        for(unsigned i=0;i<arg_num; ++i) {
             relation_sort rel_srt;
             from_predicate(pred, i, rel_srt);
             result.push_back(rel_srt);
@@ -421,7 +421,7 @@ namespace datalog {
     bool relation_manager::relation_signature_to_table(const relation_signature & from, table_signature & to) {
         unsigned n=from.size();
         to.resize(n);
-        for(unsigned i=0; i<n; i++) {
+        for(unsigned i=0; i<n; ++i) {
             if(!relation_sort_to_table(from[i], to[i])) {
                 return false;
             }
@@ -434,7 +434,7 @@ namespace datalog {
         SASSERT(s.size()==from.size());
         unsigned n=from.size();
         to.resize(n);
-        for(unsigned i=0;i<n;i++) {
+        for(unsigned i=0;i<n;++i) {
             relation_to_table(s[i], from[i], to[i]);
         }
     }
@@ -444,7 +444,7 @@ namespace datalog {
             SASSERT(s.size()==from.size());
             unsigned n=from.size();
             to.resize(n);
-            for(unsigned i=0;i<n;i++) {
+            for(unsigned i=0;i<n;++i) {
                 table_to_relation(s[i], from[i], to[i]);
             }
     }
@@ -944,7 +944,7 @@ namespace datalog {
                 for (const table_base::row_interface& row2 : t2) {
 
                     bool match=true;
-                    for(unsigned i=0; i<m_col_cnt; i++) {
+                    for(unsigned i=0; i<m_col_cnt; ++i) {
                         if(row1[m_cols1[i]]!=row2[m_cols2[i]]) {
                             match=false;
                             break;
@@ -955,16 +955,16 @@ namespace datalog {
                     }
 
                     acc.reset();
-                    for(unsigned i=0; i<t1first_func; i++) {
+                    for(unsigned i=0; i<t1first_func; ++i) {
                         acc.push_back(row1[i]);
                     }
-                    for(unsigned i=0; i<t2first_func; i++) {
+                    for(unsigned i=0; i<t2first_func; ++i) {
                         acc.push_back(row2[i]);
                     }
-                    for(unsigned i=t1first_func; i<t1cols; i++) {
+                    for(unsigned i=t1first_func; i<t1cols; ++i) {
                         acc.push_back(row1[i]);
                     }
-                    for(unsigned i=t2first_func; i<t2cols; i++) {
+                    for(unsigned i=t2first_func; i<t2cols; ++i) {
                         acc.push_back(row2[i]);
                     }
                     res->add_fact(acc);
@@ -1262,7 +1262,7 @@ namespace datalog {
 
         bool should_remove(const table_fact & f) const override {
             table_element val=f[m_identical_cols[0]];
-            for(unsigned i=1; i<m_col_cnt; i++) {
+            for(unsigned i=1; i<m_col_cnt; ++i) {
                 if(f[m_identical_cols[i]]!=val) {
                     return true;
                 }
@@ -1634,7 +1634,7 @@ namespace datalog {
         virtual void modify_fact(table_fact & f) const {
             unsigned ofs=1;
             unsigned r_i=1;
-            for(unsigned i=m_removed_cols[0]+1; i<m_inp_col_cnt; i++) {
+            for(unsigned i=m_removed_cols[0]+1; i<m_inp_col_cnt; ++i) {
                 if(r_i!=m_removed_col_cnt && m_removed_cols[r_i]==i) {
                     r_i++;
                     ofs++;

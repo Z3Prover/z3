@@ -350,7 +350,7 @@ template <typename T, typename K >
 bool vectors_are_equal_(const T & a, const K &b) {
     if (a.size() != b.size())
         return false;
-    for (unsigned i = 0; i < a.size(); i++){
+    for (unsigned i = 0; i < a.size(); ++i){
         if (a[i] != b[i]) {
             return false;
         }

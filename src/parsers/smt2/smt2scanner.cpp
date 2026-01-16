@@ -389,7 +389,7 @@ namespace smt2 {
             begin++;
         while (begin < end && isspace(m_cache[end-1]))
             end--;
-        for (unsigned i = begin; i < end; i++)
+        for (unsigned i = begin; i < end; ++i)
             m_cache_result.push_back(m_cache[i]);
         m_cache_result.push_back(0);
         return m_cache_result.begin();

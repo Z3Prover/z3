@@ -591,7 +591,7 @@ struct cofactor_elim_term_ite::imp {
                 bool has_new_args = false;
                 bool has_term_ite = false;
                 unsigned num = to_app(t)->get_num_args();
-                for (unsigned i = 0; i < num; i++) {
+                for (unsigned i = 0; i < num; ++i) {
                     expr * arg = to_app(t)->get_arg(i);
                     expr * new_arg = nullptr;
                     TRACE(cofactor_bug, tout << "collecting child: " << arg->get_id() << "\n";);

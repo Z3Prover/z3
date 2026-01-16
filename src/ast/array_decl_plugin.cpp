@@ -57,7 +57,7 @@ sort * array_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
         return nullptr;
     }
     
-    for (unsigned i = 0; i < num_parameters; i++) {
+    for (unsigned i = 0; i < num_parameters; ++i) {
         if (!parameters[i].is_ast() || !is_sort(parameters[i].get_ast())) {
             m_manager->raise_exception("invalid array sort definition, parameter is not a sort");
             return nullptr;
@@ -71,7 +71,7 @@ sort * array_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
     }
     bool is_infinite = false;
     bool is_very_big = false;
-    for (unsigned i = 0; i < num_parameters; i++) {
+    for (unsigned i = 0; i < num_parameters; ++i) {
         sort * s = to_sort(parameters[i].get_ast());
         if (s->is_infinite()) {
             is_infinite = true;
@@ -90,7 +90,7 @@ sort * array_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
     else {
         rational domain_sz(1);
         rational num_elements;
-        for (unsigned i = 0; i < num_parameters - 1; i++) {
+        for (unsigned i = 0; i < num_parameters - 1; ++i) {
             domain_sz *= rational(to_sort(parameters[i].get_ast())->get_num_elements().size(),rational::ui64());
         }
         if (domain_sz <= rational(128)) {
@@ -423,7 +423,7 @@ func_decl * array_decl_plugin::mk_set_subset(unsigned arity, sort * const * doma
 
 func_decl * array_decl_plugin::mk_as_array(func_decl * f) {
     vector<parameter> parameters;
-    for (unsigned i = 0; i < f->get_arity(); i++) {
+    for (unsigned i = 0; i < f->get_arity(); ++i) {
         parameters.push_back(parameter(f->get_domain(i)));
     }
     parameters.push_back(parameter(f->get_range()));
@@ -550,7 +550,7 @@ expr * array_decl_plugin::get_some_value(sort * s) {
 bool array_decl_plugin::is_fully_interp(sort * s) const {
     SASSERT(s->is_sort_of(m_family_id, ARRAY_SORT));
     unsigned sz = get_array_arity(s);
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         if (!m_manager->is_fully_interp(get_array_domain(s, i)))
             return false;
     }

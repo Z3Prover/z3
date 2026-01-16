@@ -170,7 +170,7 @@ public:
     }
 
     vector(SZ s, T const * data) {
-        for (SZ i = 0; i < s; i++) {
+        for (SZ i = 0; i < s; ++i) {
             push_back(data[i]);
         }
     }
@@ -195,7 +195,7 @@ public:
         }
         if (size() != other.size())
             return false;
-        for (unsigned i = 0; i < size(); i++) {
+        for (unsigned i = 0; i < size(); ++i) {
             if ((*this)[i] != other[i])
                 return false;
         }

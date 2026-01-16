@@ -195,7 +195,7 @@ struct expr2subpaving::imp {
         scoped_mpz n_arg(qm());
         scoped_mpz d_arg(qm());
         sbuffer<subpaving::power> pws;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * arg = margs[i];
             unsigned k;
             as_power(arg, arg, k);
@@ -227,7 +227,7 @@ struct expr2subpaving::imp {
         var_buffer xs;
         scoped_mpq c(qm()), c_arg(qm());
         scoped_mpz n_arg(qm()), d_arg(qm());
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             expr * arg           = t->get_arg(i);
             subpaving::var x_arg = process(arg, depth+1, n_arg, d_arg);
             if (x_arg == subpaving::null_var) {
@@ -242,14 +242,14 @@ struct expr2subpaving::imp {
         }
         qm().set(d,  c.get().denominator());
         unsigned sz = xs.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             qm().lcm(d, ds[i], d);
         }
         scoped_mpz & k = d_arg;
         qm().div(d, c.get().denominator(), k);
         scoped_mpz sum_c(qm());
         qm().mul(c.get().numerator(), k, sum_c);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             qm().div(d, ds[i], k);
             qm().mul(ns[i], k, ns[i]);
         }

@@ -31,7 +31,7 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
     ast_manager& m = g->m();
     expr_ref_vector clause(m);
     unsigned sz = g->size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr * f            = g->form(i);
         expr_dependency * d = g->dep(i);
         if (d == nullptr || !g->unsat_core_enabled()) {

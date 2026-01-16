@@ -261,7 +261,7 @@ namespace lp {
 
         std::ostream& print_S(std::ostream& out) {
             out << "S:\n";
-            for (unsigned ei = 0 ; ei < m_e_matrix.row_count(); ei++) {
+            for (unsigned ei = 0 ; ei < m_e_matrix.row_count(); ++ei) {
                 print_entry(ei, out, false, false, true);
             }
             return out;
@@ -468,7 +468,7 @@ namespace lp {
             bool invariant() const {
                 // 1. For each j in [0..m_index.size()), if m_index[j] = -1, ensure no m_data[k].var() == j
                 //    otherwise verify m_data[m_index[j]].var() == j
-                for (unsigned j = 0; j < m_index.size(); j++) {
+                for (unsigned j = 0; j < m_index.size(); ++j) {
                     int idx = m_index[j];
                     if (idx == -1) {
                         // Check that j is not in m_data
@@ -690,7 +690,7 @@ namespace lp {
 
             auto& column = m_l_matrix.m_columns[j];
             int pivot_col_cell_index = -1;
-            for (unsigned k = 0; k < column.size(); k++) {
+            for (unsigned k = 0; k < column.size(); ++k) {
                 if (column[k].var() == last_row_index) {
                     pivot_col_cell_index = k;
                     break;
@@ -1135,7 +1135,7 @@ namespace lp {
 
         bool entries_are_ok() {
             if (lra.settings().get_cancel_flag()) return true;
-            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
+            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ++ei) {
                 if (entry_invariant(ei) == false) {
                     TRACE(dio, tout << "bad entry:"; print_entry(ei, tout););
                     return false;
@@ -1909,7 +1909,7 @@ namespace lp {
         }
 
         void fill_f_vector(std_vector<unsigned> & f_vector) {
-            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
+            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ++ei) {
                 if (belongs_to_s(ei)) continue;
                 if (m_e_matrix.m_rows[ei].size() == 0) {
                     if (m_sum_of_fixed[ei].is_zero()) {
@@ -2011,7 +2011,7 @@ namespace lp {
 
         bool columns_to_terms_is_correct() const {
             std::unordered_map<unsigned, std::unordered_set<unsigned>> c2t;
-            for (unsigned k = 0; k < lra.terms().size(); k++) {
+            for (unsigned k = 0; k < lra.terms().size(); ++k) {
                 const lar_term* t = lra.terms()[k];
                 if (!lia.column_is_int(t->j())) continue;
                 SASSERT(t->j() != UINT_MAX);
@@ -2059,7 +2059,7 @@ namespace lp {
             return true;
         }
         bool is_in_sync() const {
-            for (unsigned j = 0; j < m_e_matrix.column_count(); j++) {
+            for (unsigned j = 0; j < m_e_matrix.column_count(); ++j) {
                 unsigned external_j = m_var_register.local_to_external(j);
                 if (external_j == UINT_MAX)
                     continue;
@@ -2069,7 +2069,7 @@ namespace lp {
 
             }
 
-            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
+            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ++ei) {
                 auto it = m_row2fresh_defs.find(ei);
                 if (it != m_row2fresh_defs.end()) {
                     for (unsigned xt : it->second) {
@@ -2212,7 +2212,7 @@ namespace lp {
         }
 
         bool is_eliminated_from_f(unsigned j) const {
-            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
+            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ++ei) {
                 if (!belongs_to_f(ei))
                     continue;
                 const auto& row = m_e_matrix.m_rows[ei];
@@ -2488,7 +2488,7 @@ namespace lp {
             int kh_sign = 0; // the initial values of kh_sign and h_markovich_number do not matter, assign to remove the warning
             unsigned h_markovich_number = 0;
             unsigned ih = -1; // f_vector[ih] = h
-            for (unsigned i = 0; i < f_vector.size(); i++) {
+            for (unsigned i = 0; i < f_vector.size(); ++i) {
                 unsigned ei = f_vector[i];
                 SASSERT (belongs_to_f(ei));
                 if (m_e_matrix.m_rows[ei].size() == 0) {

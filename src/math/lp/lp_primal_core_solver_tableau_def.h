@@ -202,7 +202,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
     m_leaving_candidates.clear();
     auto & col = this->m_A.m_columns[entering];
     unsigned col_size = static_cast<unsigned>(col.size());
-    for (;k < col_size && unlimited; k++) {
+    for (;k < col_size && unlimited; ++k) {
         const column_cell & c = col[k];
         unsigned i = c.var();
         const T & ed = this->m_A.get_val(c);
@@ -221,7 +221,7 @@ template <typename T, typename X> int lp_primal_core_solver<T, X>::find_leaving_
     }
 
     X ratio;
-    for (;k < col_size; k++) {
+    for (;k < col_size; ++k) {
         const column_cell & c = col[k];
         unsigned i = c.var();
         const T & ed = this->m_A.get_val(c);
@@ -290,7 +290,7 @@ update_x_tableau(unsigned entering, const X& delta) {
 template <typename T, typename X> void lp_primal_core_solver<T, X>::init_reduced_costs_tableau() {
     
     unsigned size = this->m_basis_heading.size();
-    for (unsigned j = 0; j < size; j++) {
+    for (unsigned j = 0; j < size; ++j) {
         if (this->m_basis_heading[j] >= 0)
             this->m_d[j] = zero_of_type<T>();
         else {

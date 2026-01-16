@@ -59,7 +59,7 @@ public:
     }
 
     approx_set_tpl(unsigned sz, T const * es) {
-        for (unsigned i = 0; i < sz; i++)
+        for (unsigned i = 0; i < sz; ++i)
             insert(es[i]);
     }
 

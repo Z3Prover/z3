@@ -55,7 +55,7 @@ class qe_tactic : public tactic {
             bool produce_proofs = g->proofs_enabled();
 
             unsigned sz = g->size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 checkpoint();
                 if (g->inconsistent())
                     break;

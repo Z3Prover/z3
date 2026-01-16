@@ -98,7 +98,7 @@ bool lemma_cluster::match(const expr_ref &e, substitution &sub) {
         return m_arith.is_numeral(e) || m_bv.is_numeral(e);
     };
     // All the matches should be numerals
-    for (unsigned i = 0; i < n_binds; i++) {
+    for (unsigned i = 0; i < n_binds; ++i) {
         sub.get_binding(i, var, r);
         if (!is_numeral(r.get_expr())) return false;
     }
@@ -149,7 +149,7 @@ void lemma_cluster::rm_subsumed(lemma_info_vector &removed_lemmas) {
     lemma_info_vector keep;
     for (auto lem : m_lemma_vec) {
         bool found = false;
-        for (unsigned i = 0; i < r->size(); i++) {
+        for (unsigned i = 0; i < r->size(); ++i) {
             if (lem.get_lemma()->get_expr() == r->form(i)) {
                 found = true;
                 keep.push_back(lem);
