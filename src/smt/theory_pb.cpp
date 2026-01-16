@@ -552,7 +552,7 @@ namespace smt {
         switch (is_true) {
         case l_false: 
             lit.neg();
-            // fall-through
+            Z3_fallthrough;
         case l_true: 
             ctx.mk_th_axiom(get_id(), 1, &lit);
             return true;

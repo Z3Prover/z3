@@ -1884,7 +1884,7 @@ public:
                 switch(m_mark[w]) {
                 case DL_UNMARKED:
                     m_visited.push_back(w);
-                    // fall through
+                    Z3_fallthrough;
                 case DL_PROCESSED:
                     m_mark[w] = DL_FOUND;
                     m_heap.insert(w);
