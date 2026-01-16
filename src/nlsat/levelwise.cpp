@@ -396,41 +396,12 @@ namespace nlsat {
         }
 
         // Sector heuristic 2 (chain): omit lc for extremes of chain that appear on other side
+        // DISABLED: This optimization is unsound - see bug investigation
         void compute_omit_lc_sector_chain(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
             omit_lc.clear();
-            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
-                return;
-
-            std_vector<uint8_t> side_mask;
-            compute_side_mask(level, side_mask);
-
-            anum const& v = sample().value(level);
-            auto const& rfs = m_rel.m_rfunc;
-
-            // Find the midpoint (first element > sample)
-            unsigned mid_idx = 0;
-            while (mid_idx < rfs.size() && m_am.compare(rfs[mid_idx].val, v) <= 0)
-                ++mid_idx;
-
-            // First of lower partition: omit if also appears on upper side
-            if (mid_idx > 0) {
-                poly* p_first = rfs.front().ire.p;
-                if (p_first) {
-                    unsigned id = m_pm.id(p_first);
-                    if (vec_get(side_mask, id, static_cast<uint8_t>(0)) & 2)
-                        vec_setx(omit_lc, id, true, false);
-                }
-            }
-
-            // Last of upper partition: omit if also appears on lower side
-            if (mid_idx < rfs.size()) {
-                poly* p_last = rfs.back().ire.p;
-                if (p_last) {
-                    unsigned id = m_pm.id(p_last);
-                    if (vec_get(side_mask, id, static_cast<uint8_t>(0)) & 1)
-                        vec_setx(omit_lc, id, true, false);
-                }
-            }
+            // Disabled - the SMT-RAT noLdcf optimization for chain mode appears to be unsound
+            // or incorrectly implemented. For safety, we don't omit any leading coefficients
+            // in chain mode until the issue is fully understood.
         }
 
         // Sector heuristic 3 (lowest_degree): omit lc for leaves (deg==1) on both sides
@@ -487,41 +458,12 @@ namespace nlsat {
         }
 
         // Section heuristic 2 (section_chain): omit lc for extremes of chain that appear on other side
+        // DISABLED: This optimization is unsound - see bug investigation
         void compute_omit_lc_section_chain(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& omit_lc) {
             omit_lc.clear();
-            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
-                return;
-
-            std_vector<uint8_t> side_mask;
-            compute_side_mask(level, side_mask);
-
-            anum const& v = sample().value(level);
-            auto const& rfs = m_rel.m_rfunc;
-
-            // Find the midpoint (first element > sample)
-            unsigned mid_idx = 0;
-            while (mid_idx < rfs.size() && m_am.compare(rfs[mid_idx].val, v) <= 0)
-                ++mid_idx;
-
-            // First of lower partition: omit if also appears on upper side
-            if (mid_idx > 0) {
-                poly* p_first = rfs.front().ire.p;
-                if (p_first) {
-                    unsigned id = m_pm.id(p_first);
-                    if (vec_get(side_mask, id, static_cast<uint8_t>(0)) & 2)
-                        vec_setx(omit_lc, id, true, false);
-                }
-            }
-
-            // Last of upper partition: omit if also appears on lower side
-            if (mid_idx < rfs.size()) {
-                poly* p_last = rfs.back().ire.p;
-                if (p_last) {
-                    unsigned id = m_pm.id(p_last);
-                    if (vec_get(side_mask, id, static_cast<uint8_t>(0)) & 1)
-                        vec_setx(omit_lc, id, true, false);
-                }
-            }
+            // Disabled - the SMT-RAT noLdcf optimization for chain mode appears to be unsound
+            // or incorrectly implemented. For safety, we don't omit any leading coefficients
+            // in chain mode until the issue is fully understood.
         }
 
         // Section heuristic 3 (section_lowest_degree): omit lc for leaves (deg==1) on both sides
@@ -1118,7 +1060,7 @@ namespace nlsat {
                 unsigned deg = m_pm.degree(p, level);
                 lc = m_pm.coeff(p, level, deg);
 
-                bool add_lc = true;  // Let todo_set handle duplicates if witness == lc
+                bool add_lc = true;
                 if (is_section_poly) {
                     // add_lc stays true
                 }
@@ -1148,12 +1090,13 @@ namespace nlsat {
                     if (level_tags[i].second != inv_req::ord)
                         add_disc = false;
                 }
-                else if (m_section_relation_mode == section_chain) {
-                    // In SMT-RAT's chain-style section heuristic, discriminants are projected for
-                    // polynomials that actually have roots around the sample.
-                    if (level_tags[i].second != inv_req::ord && !has_roots)
-                        add_disc = false;
-                }
+                // DISABLED: chain disc skipping is unsound
+                // else if (m_section_relation_mode == section_chain) {
+                //     // In SMT-RAT's chain-style section heuristic, discriminants are projected for
+                //     // polynomials that actually have roots around the sample.
+                //     if (level_tags[i].second != inv_req::ord && !has_roots)
+                //         add_disc = false;
+                // }
 
                 // Only omit discriminants for polynomials that were not required to be order-invariant
                 // by upstream projection steps.
