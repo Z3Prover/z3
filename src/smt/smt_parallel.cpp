@@ -451,7 +451,7 @@ namespace smt {
         cube.reset();
         std::unique_lock<std::mutex> lock(mux);
         if (m_search_tree.is_closed()) {
-            IF_VERBOSE(1, verbose_stream() << "all done, Status: " << m_state << "\n";);
+            IF_VERBOSE(1, verbose_stream() << "all done\n";);
             return false;
         }
         if (m_state != state::is_running) {

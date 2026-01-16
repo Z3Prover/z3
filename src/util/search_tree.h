@@ -97,10 +97,8 @@ namespace search_tree {
                 if (res)
                     return res;
             }
-            if (m_left->get_status() == status::closed && m_right->get_status() == status::closed) {
+            if (m_left->get_status() == status::closed && m_right->get_status() == status::closed)
                 m_status = status::closed;
-                IF_VERBOSE(1, verbose_stream() << "find_active_node CLOSING NODE \n";);
-            }
             return nullptr;
         }
 
@@ -153,8 +151,6 @@ namespace search_tree {
             child = activate_from_root(nodes[1 - index]);
             if (child)
                 return child;
-            // if (left && right && left->get_status() == status::closed && right->get_status() == status::closed)
-            //     n->set_status(status::closed);
             return nullptr;
         }
 
@@ -191,7 +187,7 @@ namespace search_tree {
             return attach_here;
         }
 
-        // Propagate closure upward via sibling resolution starting at `start`.
+        // Propagate closure upward via sibling resolution starting at node `cur`.
         // Returns true iff global UNSAT was detected.
         bool propagate_closure_upward(node<Config>* cur) {
             while (true) {
