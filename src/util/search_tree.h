@@ -134,7 +134,6 @@ namespace search_tree {
         random_gen m_rand;
 
         // return an active node in the subtree rooted at n, or nullptr if there is none
-        // close nodes that are fully explored (whose children are all closed)
         node<Config> *activate_from_root(node<Config> *n) {
             if (!n)
                 return nullptr;
@@ -154,8 +153,8 @@ namespace search_tree {
             child = activate_from_root(nodes[1 - index]);
             if (child)
                 return child;
-            if (left && right && left->get_status() == status::closed && right->get_status() == status::closed)
-                n->set_status(status::closed);
+            // if (left && right && left->get_status() == status::closed && right->get_status() == status::closed)
+            //     n->set_status(status::closed);
             return nullptr;
         }
 
@@ -190,6 +189,39 @@ namespace search_tree {
             }
 
             return attach_here;
+        }
+
+        // Propagate closure upward via sibling resolution starting at `start`.
+        // Returns true iff global UNSAT was detected.
+        bool propagate_closure_upward(node<Config>* cur) {
+            while (true) {
+                node<Config>* parent = cur->parent();
+                if (!parent)
+                    return false;
+
+                auto left  = parent->left();
+                auto right = parent->right();
+                if (!left || !right)
+                    return false;
+
+                if (left->get_status() != status::closed ||
+                    right->get_status() != status::closed)
+                    return false;
+
+                if (left->get_core().empty() ||
+                    right->get_core().empty())
+                    return false;
+
+                auto res = compute_sibling_resolvent(left, right);
+
+                if (res.empty()) {
+                    close(m_root.get(), res);   // global UNSAT
+                    return true;
+                }
+
+                close(parent, res);
+                cur = parent;  // keep bubbling
+            }
         }
 
         void close(node<Config> *n, vector<literal> const &C) {
@@ -251,34 +283,10 @@ namespace search_tree {
             auto attach = find_highest_attach(p, resolvent);
             close(attach, resolvent);
 
-            // Now try to propagate upward *with resolution*
+            // try to propagate the highest attach node upward *with sibling resolution*
+            // this handles the case when non-chronological backjumping takes us to a node whose sibling was closed by another thread
             node<Config>* cur = attach;
-            while (true) {
-                node<Config>* parent = cur->parent();
-                if (!parent) break;
-
-                auto left  = parent->left();
-                auto right = parent->right();
-                if (!left || !right) break;
-
-                if (left->get_status() != status::closed ||
-                    right->get_status() != status::closed)
-                    break;
-
-                if (left->get_core().empty() ||
-                    right->get_core().empty())
-                    break;
-
-                auto res = compute_sibling_resolvent(left, right);
-
-                if (res.empty()) {
-                    close(m_root.get(), res);   // global UNSAT
-                    return;
-                }
-
-                close(parent, res);
-                cur = parent;  // keep bubbling
-            }
+            propagate_closure_upward(cur);
         }
 
         // Given complementary sibling nodes for literals x and ¬x, sibling resolvent = (core_left ∪ core_right) \ {x,
@@ -346,6 +354,7 @@ namespace search_tree {
                            };
                        SASSERT(all_of(conflict, [&](auto const &a) { return on_path(a); })););
 
+            // Walk upward to find the nearest ancestor whose decision participates in the conflict
             while (n) {
                 if (any_of(conflict, [&](auto const &a) { return a == n->get_literal(); })) {
                     // close the subtree under n (preserves core attached to n), and attempt to resolve upwards
@@ -375,8 +384,10 @@ namespace search_tree {
             while (p) {
                 if (p->left() && p->left()->get_status() == status::closed &&
                     p->right() && p->right()->get_status() == status::closed) {
-                        IF_VERBOSE(1, verbose_stream() << "activate_node CLOSING NODE \n";);
-                    p->set_status(status::closed);
+                    //     IF_VERBOSE(1, verbose_stream() << "activate_node CLOSING NODE \n";);
+                    // p->set_status(status::closed);
+                    if (p->get_status() != status::closed) 
+                        return nullptr; // inconsistent state
                     n = p;
                     p = n->parent();
                     continue;
