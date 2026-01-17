@@ -1924,7 +1924,6 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           '',
           status,
           '',
-          assumptions.length,
           assumptions,
           formula
         ));
