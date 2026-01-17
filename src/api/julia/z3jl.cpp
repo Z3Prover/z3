@@ -411,7 +411,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(solver, units)
         .method("trail", static_cast<expr_vector (solver::*)() const>(&solver::trail))
         .method("trail", [](solver &s, jlcxx::ArrayRef<unsigned> levels) {
-            int sz = levels.size();
+            int sz = static_cast<int>(levels.size());
             z3::array<unsigned> _levels(sz);
             for (int i = 0; i < sz; ++i) {
                 _levels[i] = levels[i];
@@ -641,7 +641,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(context, set_rounding_mode)
         .method("enumeration_sort", 
             [](context& c, char const * name, jlcxx::ArrayRef<jl_value_t*,1> names, func_decl_vector &cs, func_decl_vector &ts) {
-                int sz = names.size();
+                int sz = static_cast<int>(names.size());
                 std::vector<const char *> _names;
                 for (int i = 0; i < sz; ++i) {
                     const char *x = jl_string_data(names[i]);
@@ -651,7 +651,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
             })
         .method("tuple_sort", 
             [](context& c, char const * name, jlcxx::ArrayRef<jl_value_t*,1> names, jlcxx::ArrayRef<jl_value_t*,1> sorts, func_decl_vector &projs) {
-                int sz = names.size();
+                int sz = static_cast<int>(names.size());
                 std::vector<sort> _sorts;
                 std::vector<const char *> _names;
                 for (int i = 0; i < sz; ++i) {

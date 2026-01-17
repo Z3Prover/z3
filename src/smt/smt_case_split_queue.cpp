@@ -1030,7 +1030,7 @@ namespace {
 
         void add_to_queue2(expr * e)
         {
-            int      idx = m_queue2.size();
+            int      idx = static_cast<int>(m_queue2.size());
 
             GOAL_START();
             m_queue2.push_back(queue_entry(e, get_generation(e)));

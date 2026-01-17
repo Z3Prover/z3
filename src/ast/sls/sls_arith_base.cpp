@@ -1972,7 +1972,7 @@ namespace sls {
             return 0.0000001;            
         else if (result == 0)
             return 0.000002;        
-        for (int i = m_prob_break.size(); i <= breaks; ++i) 
+        for (int i = static_cast<int>(m_prob_break.size()); i <= breaks; ++i) 
             m_prob_break.push_back(std::pow(m_config.cb, -i));
         return m_prob_break[breaks];
     }
