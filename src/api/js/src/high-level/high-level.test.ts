@@ -2136,23 +2136,23 @@ describe('high-level', () => {
       // x^2 - 2 = 0 has roots ±√2
       // Polynomial: -2 + 0*x + 1*x^2
       const coeffs = [
-        RCFNum(-2),  // constant term
-        RCFNum(0),   // x coefficient
-        RCFNum(1)    // x^2 coefficient
+        RCFNum(-2), // constant term
+        RCFNum(0), // x coefficient
+        RCFNum(1), // x^2 coefficient
       ];
-      
+
       const roots = RCFNum.roots(coeffs);
       expect(roots.length).toBe(2);
-      
+
       // All roots should be algebraic
       roots.forEach(root => {
         expect(root.isAlgebraic()).toBe(true);
       });
-      
+
       // Check that roots are approximately ±√2
       const root1Decimal = roots[0].toDecimal(5);
       const root2Decimal = roots[1].toDecimal(5);
-      
+
       // One should be approximately 1.414 and the other -1.414
       const decimals = [root1Decimal, root2Decimal].sort();
       expect(decimals[0]).toContain('-1.4');
@@ -2162,7 +2162,7 @@ describe('high-level', () => {
     it('should check isRational predicate', () => {
       const rational = RCFNum('3/4');
       const pi = RCFNum.pi();
-      
+
       expect(rational.isRational()).toBe(true);
       expect(pi.isRational()).toBe(false);
     });
@@ -2171,9 +2171,9 @@ describe('high-level', () => {
       // x^2 - 2 = 0
       const coeffs = [RCFNum(-2), RCFNum(0), RCFNum(1)];
       const roots = RCFNum.roots(coeffs);
-      
+
       expect(roots[0].isAlgebraic()).toBe(true);
-      
+
       // Pi is not algebraic
       const pi = RCFNum.pi();
       expect(pi.isAlgebraic()).toBe(false);
@@ -2183,7 +2183,7 @@ describe('high-level', () => {
       const pi = RCFNum.pi();
       const e = RCFNum.e();
       const rational = RCFNum(5);
-      
+
       expect(pi.isTranscendental()).toBe(true);
       expect(e.isTranscendental()).toBe(true);
       expect(rational.isTranscendental()).toBe(false);
@@ -2192,7 +2192,7 @@ describe('high-level', () => {
     it('should check isInfinitesimal predicate', () => {
       const eps = RCFNum.infinitesimal();
       const rational = RCFNum(5);
-      
+
       expect(eps.isInfinitesimal()).toBe(true);
       expect(rational.isInfinitesimal()).toBe(false);
     });
@@ -2201,7 +2201,7 @@ describe('high-level', () => {
       const pi = RCFNum.pi();
       const compact = pi.toString(true);
       const nonCompact = pi.toString(false);
-      
+
       // Both should contain 'pi' or similar representation
       expect(compact.length).toBeGreaterThan(0);
       expect(nonCompact.length).toBeGreaterThan(0);
@@ -2211,7 +2211,7 @@ describe('high-level', () => {
       const pi = RCFNum.pi();
       const decimal5 = pi.toDecimal(5);
       const decimal10 = pi.toDecimal(10);
-      
+
       // 10 decimal places should be longer than 5
       expect(decimal10.length).toBeGreaterThanOrEqual(decimal5.length);
       expect(decimal5).toContain('3.14');
@@ -2221,7 +2221,7 @@ describe('high-level', () => {
     it('should work with infinitesimal comparisons', () => {
       const eps = RCFNum.infinitesimal();
       const tiny = RCFNum('1/1000000');
-      
+
       // Infinitesimal should be smaller than any positive real
       expect(eps.lt(tiny)).toBe(true);
     });

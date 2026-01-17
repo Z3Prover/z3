@@ -184,12 +184,12 @@ export interface Context<Name extends string = 'main'> {
 
   /**
    * Set the pretty printing mode for ASTs.
-   * 
+   *
    * @param mode - The print mode to use:
    *   - Z3_PRINT_SMTLIB_FULL (0): Print AST nodes in SMTLIB verbose format.
    *   - Z3_PRINT_LOW_LEVEL (1): Print AST nodes using a low-level format.
    *   - Z3_PRINT_SMTLIB2_COMPLIANT (2): Print AST nodes in SMTLIB 2.x compliant format.
-   * 
+   *
    * @category Functions
    */
   setPrintMode(mode: Z3_ast_print_mode): void;
@@ -1523,16 +1523,16 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
 export interface StatisticsEntry<Name extends string = 'main'> {
   /** @hidden */
   readonly __typename: 'StatisticsEntry';
-  
+
   /** The key/name of this statistic */
   readonly key: string;
-  
+
   /** The numeric value of this statistic */
   readonly value: number;
-  
+
   /** True if this statistic is stored as an unsigned integer */
   readonly isUint: boolean;
-  
+
   /** True if this statistic is stored as a double */
   readonly isDouble: boolean;
 }
@@ -1543,8 +1543,8 @@ export interface StatisticsCtor<Name extends string> {
 
 /**
  * Statistics for solver operations
- * 
- * Provides access to performance metrics, memory usage, decision counts, 
+ *
+ * Provides access to performance metrics, memory usage, decision counts,
  * and other diagnostic information from solver operations.
  */
 export interface Statistics<Name extends string = 'main'> extends Iterable<StatisticsEntry<Name>> {
@@ -1992,26 +1992,26 @@ export interface RatNum<Name extends string = 'main'> extends Arith<Name> {
 
 /**
  * A Real Closed Field (RCF) numeral.
- * 
+ *
  * RCF numerals can represent:
  * - Rational numbers
  * - Algebraic numbers (roots of polynomials)
  * - Transcendental extensions (e.g., pi, e)
  * - Infinitesimal extensions
- * 
+ *
  * ```typescript
  * const { RCFNum } = Context('main');
- * 
+ *
  * // Create pi
  * const pi = RCFNum.pi();
  * console.log(pi.toDecimal(10)); // "3.1415926536"
- * 
+ *
  * // Create a rational
  * const half = new RCFNum('1/2');
- * 
+ *
  * // Arithmetic
  * const sum = pi.add(half);
- * 
+ *
  * // Check properties
  * console.log(pi.isTranscendental()); // true
  * console.log(half.isRational()); // true
@@ -2187,9 +2187,9 @@ export interface RCFNumCreation<Name extends string> {
 
   /**
    * Find roots of a polynomial.
-   * 
+   *
    * The polynomial is a[n-1]*x^(n-1) + ... + a[1]*x + a[0].
-   * 
+   *
    * @param coefficients - Polynomial coefficients (constant term first)
    * @returns Array of RCF numerals representing the roots
    */

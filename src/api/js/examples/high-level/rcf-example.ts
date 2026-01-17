@@ -1,12 +1,12 @@
 /**
  * Example demonstrating the RCF (Real Closed Field) API in TypeScript.
- * 
+ *
  * This example shows how to use RCF numerals to work with:
  * - Transcendental numbers (pi, e)
  * - Algebraic numbers (roots of polynomials)
  * - Infinitesimals
  * - Exact real arithmetic
- * 
+ *
  * Note: This example uses the high-level API for a cleaner interface.
  */
 
@@ -76,9 +76,9 @@ async function rcfRootsExample() {
   // Find roots of x^2 - 2 = 0
   // Polynomial: -2 + 0*x + 1*x^2
   const coeffs = [
-    RCFNum(-2),  // constant term
-    RCFNum(0),   // x coefficient
-    RCFNum(1)    // x^2 coefficient
+    RCFNum(-2), // constant term
+    RCFNum(0), // x coefficient
+    RCFNum(1), // x^2 coefficient
   ];
 
   const roots = RCFNum.roots(coeffs);
