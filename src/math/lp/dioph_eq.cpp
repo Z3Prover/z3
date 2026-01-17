@@ -1094,11 +1094,11 @@ namespace lp {
 
                 recalculate_entry(ei);
                 
-                if (m_e_matrix.m_columns.back().size() == 0) {
+                if (!m_e_matrix.m_columns.empty() && m_e_matrix.m_columns.back().size() == 0) {
                     m_e_matrix.m_columns.pop_back();
                     m_var_register.shrink(m_e_matrix.column_count());
                 }
-                if (m_l_matrix.m_columns.back().size() == 0)
+                if (!m_l_matrix.m_columns.empty() && m_l_matrix.m_columns.back().size() == 0)
                     m_l_matrix.m_columns.pop_back();
             }
             remove_irrelevant_fresh_defs();
