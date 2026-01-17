@@ -30,6 +30,7 @@ PYTHON_ENABLED=True
 MAKEJOBS=getenv("MAKEJOBS", '8')
 OS_NAME=None
 LINUX_X64=mk_util.LINUX_X64
+HOST_IS_ARM64=mk_util.IS_ARCH_ARM64  # Save the original host architecture
 
 def set_verbose(flag):
     global VERBOSE
@@ -122,7 +123,7 @@ def check_build_dir(path):
 
 # Create a build directory using mk_make.py
 def mk_build_dir(path):
-    global LINUX_X64
+    global LINUX_X64, HOST_IS_ARM64
     if not check_build_dir(path) or FORCE_MK:
         env = os.environ
         opts = [sys.executable, os.path.join('scripts', 'mk_make.py'), "-b", path, "--staticlib"]
@@ -148,7 +149,7 @@ def mk_build_dir(path):
                 "CXX": "aarch64-none-linux-gnu-g++"
             }
             env.update(myvar)
-        elif not mk_util.IS_ARCH_ARM64 and not LINUX_X64:
+        elif HOST_IS_ARM64 and not mk_util.IS_ARCH_ARM64:
             # we are on arm64 machine but build for x64
             # handle cross compilation on macOS (or other Unix systems)
             import platform
