@@ -1116,16 +1116,16 @@ namespace nlsat {
             // Non-trivial = section, or sector with at least one finite bound (ignore (-oo,+oo)).
             for (auto const & I : cell) {
                 if (I.is_section()) {
-                    if (I.l && I.l_index) // root indices start at 1
-                        add_root_literal(atom::ROOT_EQ, max_var(I.l.get()), I.l_index, I.l.get());
+                    SASSERT(I.l && I.l_index);
+                    add_root_literal(atom::ROOT_EQ, max_var(I.l.get()), I.l_index, I.l.get());
                     continue;
                 }
                 if (I.l_inf() && I.u_inf())
                     continue; // skip whole-line sector
-                if (!I.l_inf() && I.l_index)
+                if (!I.l_inf())
                     add_root_literal(m_full_dimensional ? atom::ROOT_GE : 
                         atom::ROOT_GT, max_var(I.l.get()), I.l_index, I.l.get());
-                if (!I.u_inf() && I.u_index && I.u)
+                if (!I.u_inf())
                     add_root_literal(m_full_dimensional ? atom::ROOT_LE : 
                         atom::ROOT_LT, max_var(I.u.get()), I.u_index, I.u.get());
             }

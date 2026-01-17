@@ -70,6 +70,8 @@ namespace nlsat {
         unsigned               m_level = 0;      // current level being processed
         relation_mode          m_sector_relation_mode = chain;
         relation_mode          m_section_relation_mode = section_chain;
+        unsigned               m_l_rf = UINT_MAX; // position of lower bound in m_rel.m_rfunc
+        unsigned               m_u_rf = UINT_MAX; // position of upper bound in m_rel.m_rfunc (UINT_MAX in section case)
 
         polynomial_ref_vector  m_psc_tmp;        // scratch for PSC chains
         bool                   m_fail = false;
@@ -114,12 +116,10 @@ namespace nlsat {
         struct relation_E {
             std::vector<root_function>              m_rfunc; // Θ: root functions on current level
             std::vector<std::pair<unsigned, unsigned>> m_pairs; // ≼ relation on indices into m_rfunc
-            unsigned                                m_partition_boundary; // index of first root > sample (set after sorting)
             bool empty() const { return m_rfunc.empty() && m_pairs.empty(); }
             void clear() {
                 m_pairs.clear();
                 m_rfunc.clear();
-                m_partition_boundary = 0;
             }
             void add_pair(unsigned j, unsigned k) { m_pairs.emplace_back(j, k); }
         };
@@ -411,10 +411,9 @@ namespace nlsat {
             compute_side_mask(level, side_mask);
 
             unsigned n = m_rel.m_rfunc.size();
-            unsigned partition_idx = m_rel.m_partition_boundary;
 
-            // Extreme of lower chain: index 0 (if lower partition exists, i.e., partition_idx > 0)
-            if (partition_idx > 0) {
+            // Extreme of lower chain: index 0 (if lower partition exists)
+            if (is_set(m_l_rf)) {
                 poly* p = m_rel.m_rfunc[0].ire.p;
                 if (p) {
                     unsigned id = m_pm.id(p);
@@ -424,8 +423,8 @@ namespace nlsat {
                 }
             }
 
-            // Extreme of upper chain: last index (if upper partition exists, i.e., partition_idx < n)
-            if (partition_idx < n) {
+            // Extreme of upper chain: last index (if upper partition exists)
+            if (is_set(m_u_rf)) {
                 poly* p = m_rel.m_rfunc[n - 1].ire.p;
                 if (p) {
                     unsigned id = m_pm.id(p);
@@ -503,7 +502,8 @@ namespace nlsat {
             compute_side_mask(level, side_mask);
 
             unsigned n = m_rel.m_rfunc.size();
-            unsigned partition_idx = m_rel.m_partition_boundary;
+            // In section case, partition is at m_l_rf + 1 (section root is at m_l_rf)
+            unsigned partition_idx = m_l_rf + 1;
 
             // Extreme of lower chain: index 0 (if lower partition exists, i.e., partition_idx > 0)
             if (partition_idx > 0) {
@@ -639,37 +639,37 @@ namespace nlsat {
         }
 
         // Relation construction heuristics (same intent as previous implementation).
-        void fill_relation_with_biggest_cell_heuristic(unsigned l, unsigned u) {
-            if (is_set(l))
-                for (unsigned j = 0; j < l; ++j)
-                    m_rel.add_pair(j, l);
+        void fill_relation_with_biggest_cell_heuristic() {
+            if (is_set(m_l_rf))
+                for (unsigned j = 0; j < m_l_rf; ++j)
+                    m_rel.add_pair(j, m_l_rf);
 
-            if (is_set(u))
-                for (unsigned j = u + 1; j < m_rel.m_rfunc.size(); ++j)
-                    m_rel.add_pair(u, j);
+            if (is_set(m_u_rf))
+                for (unsigned j = m_u_rf + 1; j < m_rel.m_rfunc.size(); ++j)
+                    m_rel.add_pair(m_u_rf, j);
 
-            if (is_set(l) && is_set(u)) {
-                SASSERT(l + 1 == u);
-                m_rel.add_pair(l, u);
+            if (is_set(m_l_rf) && is_set(m_u_rf)) {
+                SASSERT(m_l_rf + 1 == m_u_rf);
+                m_rel.add_pair(m_l_rf, m_u_rf);
             }
         }
 
-        void fill_relation_with_chain_heuristic(unsigned l, unsigned u) {
-            if (is_set(l))
-                for (unsigned j = 0; j < l; ++j)
+        void fill_relation_with_chain_heuristic() {
+            if (is_set(m_l_rf))
+                for (unsigned j = 0; j < m_l_rf; ++j)
                     m_rel.add_pair(j, j + 1);
 
-            if (is_set(u))
-                for (unsigned j = u + 1; j < m_rel.m_rfunc.size(); ++j)
+            if (is_set(m_u_rf))
+                for (unsigned j = m_u_rf + 1; j < m_rel.m_rfunc.size(); ++j)
                     m_rel.add_pair(j - 1, j);
 
-            if (is_set(l) && is_set(u)) {
-                SASSERT(l + 1 == u);
-                m_rel.add_pair(l, u);
+            if (is_set(m_l_rf) && is_set(m_u_rf)) {
+                SASSERT(m_l_rf + 1 == m_u_rf);
+                m_rel.add_pair(m_l_rf, m_u_rf);
             }
         }
 
-        void fill_relation_with_min_degree_resultant_sum(unsigned l, unsigned u) {
+        void fill_relation_with_min_degree_resultant_sum() {
             auto const& rfs = m_rel.m_rfunc;
             unsigned n = rfs.size();
             if (n == 0)
@@ -680,10 +680,10 @@ namespace nlsat {
             for (unsigned i = 0; i < n; ++i)
                 degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
 
-            if (is_set(l)) {
-                unsigned min_idx = l;
-                unsigned min_deg = degs[l];
-                for (int j = static_cast<int>(l) - 1; j >= 0; --j) {
+            if (is_set(m_l_rf)) {
+                unsigned min_idx = m_l_rf;
+                unsigned min_deg = degs[m_l_rf];
+                for (int j = static_cast<int>(m_l_rf) - 1; j >= 0; --j) {
                     unsigned jj = static_cast<unsigned>(j);
                     m_rel.add_pair(jj, min_idx);
                     if (degs[jj] < min_deg) {
@@ -693,10 +693,10 @@ namespace nlsat {
                 }
             }
 
-            if (is_set(u)) {
-                unsigned min_idx = u;
-                unsigned min_deg = degs[u];
-                for (unsigned j = u + 1; j < n; ++j) {
+            if (is_set(m_u_rf)) {
+                unsigned min_idx = m_u_rf;
+                unsigned min_deg = degs[m_u_rf];
+                for (unsigned j = m_u_rf + 1; j < n; ++j) {
                     m_rel.add_pair(min_idx, j);
                     if (degs[j] < min_deg) {
                         min_deg = degs[j];
@@ -705,55 +705,55 @@ namespace nlsat {
                 }
             }
 
-            if (is_set(l) && is_set(u)) {
-                SASSERT(l + 1 == u);
-                m_rel.add_pair(l, u);
+            if (is_set(m_l_rf) && is_set(m_u_rf)) {
+                SASSERT(m_l_rf + 1 == m_u_rf);
+                m_rel.add_pair(m_l_rf, m_u_rf);
             }
         }
 
-        void fill_relation_pairs_for_section_biggest_cell(unsigned l) {
+        void fill_relation_pairs_for_section_biggest_cell() {
             auto const& rfs = m_rel.m_rfunc;
             unsigned n = rfs.size();
             if (n == 0)
                 return;
-            SASSERT(is_set(l));
-            SASSERT(l < n);
-            for (unsigned j = 0; j < l; ++j)
-                m_rel.add_pair(j, l);
-            for (unsigned j = l + 1; j < n; ++j)
-                m_rel.add_pair(l, j);
+            SASSERT(is_set(m_l_rf));
+            SASSERT(m_l_rf < n);
+            for (unsigned j = 0; j < m_l_rf; ++j)
+                m_rel.add_pair(j, m_l_rf);
+            for (unsigned j = m_l_rf + 1; j < n; ++j)
+                m_rel.add_pair(m_l_rf, j);
         }
 
-        void fill_relation_pairs_for_section_chain(unsigned l) {
+        void fill_relation_pairs_for_section_chain() {
             auto const& rfs = m_rel.m_rfunc;
             unsigned n = rfs.size();
             if (n == 0)
                 return;
-            SASSERT(is_set(l));
-            SASSERT(l < n);
-            for (unsigned j = 0; j < l; ++j)
+            SASSERT(is_set(m_l_rf));
+            SASSERT(m_l_rf < n);
+            for (unsigned j = 0; j < m_l_rf; ++j)
                 m_rel.add_pair(j, j + 1);
-            for (unsigned j = l + 1; j < n; ++j)
+            for (unsigned j = m_l_rf + 1; j < n; ++j)
                 m_rel.add_pair(j - 1, j);
         }
 
-        void fill_relation_pairs_for_section_lowest_degree(unsigned l) {
+        void fill_relation_pairs_for_section_lowest_degree() {
             auto const& rfs = m_rel.m_rfunc;
             unsigned n = rfs.size();
             if (n == 0)
                 return;
-            SASSERT(is_set(l));
-            SASSERT(l < n);
+            SASSERT(is_set(m_l_rf));
+            SASSERT(m_l_rf < n);
 
             std::vector<unsigned> degs;
             degs.reserve(n);
             for (unsigned i = 0; i < n; ++i)
                 degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
 
-            // For roots below l: connect each to the minimum-degree root seen so far
-            unsigned min_idx_below = l;
-            unsigned min_deg_below = degs[l];
-            for (int j = static_cast<int>(l) - 1; j >= 0; --j) {
+            // For roots below m_l_rf: connect each to the minimum-degree root seen so far
+            unsigned min_idx_below = m_l_rf;
+            unsigned min_deg_below = degs[m_l_rf];
+            for (int j = static_cast<int>(m_l_rf) - 1; j >= 0; --j) {
                 unsigned jj = static_cast<unsigned>(j);
                 m_rel.add_pair(jj, min_idx_below);
                 if (degs[jj] < min_deg_below) {
@@ -762,10 +762,10 @@ namespace nlsat {
                 }
             }
 
-            // For roots above l: connect minimum-degree root to each subsequent root
-            unsigned min_idx_above = l;
-            unsigned min_deg_above = degs[l];
-            for (unsigned j = l + 1; j < n; ++j) {
+            // For roots above m_l_rf: connect minimum-degree root to each subsequent root
+            unsigned min_idx_above = m_l_rf;
+            unsigned min_deg_above = degs[m_l_rf];
+            for (unsigned j = m_l_rf + 1; j < n; ++j) {
                 m_rel.add_pair(min_idx_above, j);
                 if (degs[j] < min_deg_above) {
                     min_deg_above = degs[j];
@@ -774,37 +774,37 @@ namespace nlsat {
             }
         }
 
-        void fill_relation_pairs_for_section(unsigned l) {
+        void fill_relation_pairs_for_section() {
             SASSERT(m_I[m_level].section);
             switch (m_section_relation_mode) {
             case biggest_cell:
             case section_biggest_cell:
-                fill_relation_pairs_for_section_biggest_cell(l);
+                fill_relation_pairs_for_section_biggest_cell();
                 break;
             case chain:
             case section_chain:
-                fill_relation_pairs_for_section_chain(l);
+                fill_relation_pairs_for_section_chain();
                 break;
             case lowest_degree:
             case section_lowest_degree:
-                fill_relation_pairs_for_section_lowest_degree(l);
+                fill_relation_pairs_for_section_lowest_degree();
                 break;
             default:
                 NOT_IMPLEMENTED_YET();
             }
         }
 
-        void fill_relation_pairs_for_sector(unsigned l, unsigned u) {
+        void fill_relation_pairs_for_sector() {
             SASSERT(!m_I[m_level].section);
             switch (m_sector_relation_mode) {
             case biggest_cell:
-                fill_relation_with_biggest_cell_heuristic(l, u);
+                fill_relation_with_biggest_cell_heuristic();
                 break;
             case chain:
-                fill_relation_with_chain_heuristic(l, u);
+                fill_relation_with_chain_heuristic();
                 break;
             case lowest_degree:
-                fill_relation_with_min_degree_resultant_sum(l, u);
+                fill_relation_with_min_degree_resultant_sum();
                 break;
             default:
                 NOT_IMPLEMENTED_YET();
@@ -911,9 +911,6 @@ namespace nlsat {
                 [&](root_function const& a, root_function const& b) { return root_function_lt(a, b, level, true); });
             std::sort(mid, rfs.end(),
                 [&](root_function const& a, root_function const& b) { return root_function_lt(a, b, level, false); });
-
-            // After sorting, store partition boundary
-            m_rel.m_partition_boundary = static_cast<unsigned>(mid - rfs.begin());
         }
 
         // Populate Θ (root functions) around the sample, partitioned at `mid`, and sort each partition.
@@ -938,22 +935,24 @@ namespace nlsat {
         }
 
         // Pick I_level around sample(level) from sorted Θ, split at `mid`.
-        void set_interval_from_root_partition(unsigned level, anum const& v, std::vector<root_function>::iterator mid,
-                            unsigned& l_index, unsigned& u_index) {
+        // Sets m_l_rf/m_u_rf (positions in m_rfunc) and m_I[level] (interval with root indices).
+        void set_interval_from_root_partition(unsigned level, anum const& v, std::vector<root_function>::iterator mid) {
             auto& rfs = m_rel.m_rfunc;
             if (mid != rfs.begin()) {
-                l_index = static_cast<unsigned>((mid - rfs.begin()) - 1);
+                m_l_rf = static_cast<unsigned>((mid - rfs.begin()) - 1);
                 auto& r = *(mid - 1);
                 if (m_am.eq(r.val, v)) {
+                    // Section case: only m_l_rf is defined
                     m_I[level].section = true;
                     m_I[level].l = r.ire.p;
                     m_I[level].l_index = r.ire.i;
+                    m_u_rf = UINT_MAX;
                 }
                 else {
                     m_I[level].l = r.ire.p;
                     m_I[level].l_index = r.ire.i;
                     if (mid != rfs.end()) {
-                        u_index = l_index + 1;
+                        m_u_rf = m_l_rf + 1;
                         m_I[level].u = mid->ire.p;
                         m_I[level].u_index = mid->ire.i;
                     }
@@ -961,7 +960,8 @@ namespace nlsat {
             }
             else {
                 // sample is below all roots: I = (-oo, theta_1)
-                u_index = 0;
+                m_l_rf = UINT_MAX;
+                m_u_rf = 0;
                 auto& r = *mid;
                 m_I[level].u = r.ire.p;
                 m_I[level].u_index = r.ire.i;
@@ -969,21 +969,21 @@ namespace nlsat {
         }
 
         // Build Θ (root functions) and pick I_level around sample(level).
+        // Sets m_l_rf/m_u_rf and m_I[level].
         // Returns whether any roots were found (i.e., whether a relation can be built).
-        bool build_interval(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& poly_has_roots,
-                            unsigned& l_index, unsigned& u_index) {
+        bool build_interval(unsigned level, polynomial_ref_vector const& level_ps, std_vector<bool>& poly_has_roots) {
             m_level = level;
             m_rel.clear();
             reset_interval(m_I[level]);
+            m_l_rf = UINT_MAX;
+            m_u_rf = UINT_MAX;
 
             anum const& v = sample().value(level);
             std::vector<root_function>::iterator mid;
             if (!build_sorted_root_functions_around_sample(level, level_ps, poly_has_roots, v, mid))
                 return false;
 
-            l_index = static_cast<unsigned>(-1);
-            u_index = static_cast<unsigned>(-1);
-            set_interval_from_root_partition(level, v, mid, l_index, u_index);
+            set_interval_from_root_partition(level, v, mid);
             return true;
         }
 
@@ -1184,13 +1184,12 @@ namespace nlsat {
             std::vector<tagged_id>& level_tags,
             std::vector<polynomial_ref> const& witnesses,
             std_vector<bool> const& poly_has_roots,
-            bool have_interval,
-            unsigned l_index) {
+            bool have_interval) {
 
             SASSERT(m_I[level].section);
             SASSERT(m_level == level);
             if (have_interval)
-                fill_relation_pairs_for_section(l_index);
+                fill_relation_pairs_for_section();
             upgrade_bounds_to_ord(level, level_ps, level_tags);
             add_level_projections_section(P, level, level_ps, level_tags, witnesses, poly_has_roots);
             add_relation_resultants(P, level);
@@ -1203,14 +1202,12 @@ namespace nlsat {
             std::vector<tagged_id>& level_tags,
             std::vector<polynomial_ref> const& witnesses,
             std_vector<bool> const& poly_has_roots,
-            bool have_interval,
-            unsigned l_index,
-            unsigned u_index) {
+            bool have_interval) {
 
             SASSERT(!m_I[level].section);
             SASSERT(m_level == level);
             if (have_interval)
-                fill_relation_pairs_for_sector(l_index, u_index);
+                fill_relation_pairs_for_sector();
             upgrade_bounds_to_ord(level, level_ps, level_tags);
             add_level_projections_sector(P, level, level_ps, level_tags, witnesses, poly_has_roots);
             add_relation_resultants(P, level);
@@ -1224,7 +1221,7 @@ namespace nlsat {
             for (unsigned i = 0; i < level_ps.size(); ++i) {
                 polynomial_ref p(level_ps.get(i), m_pm);
                 SASSERT(level_tags[i].first == m_pm.id(p.get()));
-                
+
                 polynomial_ref w = choose_nonzero_coeff(p, level);
                 if (!w)
                     fail();
@@ -1233,13 +1230,12 @@ namespace nlsat {
 
             // Lines 3-8: Θ + I_level + relation ≼
             std_vector<bool> poly_has_roots;
-            unsigned l_index = UINT_MAX, u_index = UINT_MAX;
-            bool have_interval = build_interval(level, level_ps, poly_has_roots, l_index, u_index);
+            bool have_interval = build_interval(level, level_ps, poly_has_roots);
             if (m_I[level].section) {
-                process_level_section(P, level, level_ps, level_tags, witnesses, poly_has_roots, have_interval, l_index);
+                process_level_section(P, level, level_ps, level_tags, witnesses, poly_has_roots, have_interval);
             }
             else {
-                process_level_sector(P, level, level_ps, level_tags, witnesses, poly_has_roots, have_interval, l_index, u_index);
+                process_level_sector(P, level, level_ps, level_tags, witnesses, poly_has_roots, have_interval);
             }
         }
 
