@@ -53,7 +53,7 @@ public:
     // For imprecise types (e.g., floats) it should set the rounding mode.
     void round_to_minus_inf() {}
     void round_to_plus_inf() {}
-    void set_rounding(bool to_plus_inf) {}
+    void set_rounding(bool /*to_plus_inf*/) {}
 
     // Getters
     numeral const & lower(interval const & a) const { return a.m_lower; }
