@@ -4653,8 +4653,10 @@ namespace nlsat {
 
     void solver::record_levelwise_result(bool success) {
         m_imp->m_stats.m_levelwise_calls++;
-        if (!success)
+        if (!success) {
             m_imp->m_stats.m_levelwise_failures++;
+            // m_imp->m_apply_lws = false; // is it useful to throttle
+        }
     }
 
     bool solver::has_root_atom(clause const& c) const {
@@ -4677,5 +4679,5 @@ namespace nlsat {
 
     unsigned solver::lws_section_relation_mode() const { return m_imp->m_lws_section_relation_mode; }
 
-        
+
 };

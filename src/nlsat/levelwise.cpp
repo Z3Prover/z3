@@ -114,10 +114,12 @@ namespace nlsat {
         struct relation_E {
             std::vector<root_function>              m_rfunc; // Θ: root functions on current level
             std::vector<std::pair<unsigned, unsigned>> m_pairs; // ≼ relation on indices into m_rfunc
+            unsigned                                m_partition_boundary; // index of first root > sample (set after sorting)
             bool empty() const { return m_rfunc.empty() && m_pairs.empty(); }
             void clear() {
                 m_pairs.clear();
                 m_rfunc.clear();
+                m_partition_boundary = 0;
             }
             void add_pair(unsigned j, unsigned k) { m_pairs.emplace_back(j, k); }
         };
@@ -395,18 +397,6 @@ namespace nlsat {
             }
         }
 
-        // Find the partition boundary in m_rfunc (index of first root > sample).
-        // Returns n if all roots are <= sample (i.e., no upper partition).
-        unsigned find_partition_boundary(unsigned level) {
-            anum const& v = sample().value(level);
-            unsigned n = m_rel.m_rfunc.size();
-            for (unsigned i = 0; i < n; ++i) {
-                if (m_am.compare(m_rel.m_rfunc[i].val, v) > 0)
-                    return i;
-            }
-            return n;
-        }
-
         // Sector heuristic 2 (chain): omit lc for extremes of chain that appear on other side.
         // SMT-RAT logic (OneCellCAD.h lines 975-985):
         // - lower2.begin() = polynomial with smallest root below sample (extreme of lower chain)
@@ -421,7 +411,7 @@ namespace nlsat {
             compute_side_mask(level, side_mask);
 
             unsigned n = m_rel.m_rfunc.size();
-            unsigned partition_idx = find_partition_boundary(level);
+            unsigned partition_idx = m_rel.m_partition_boundary;
 
             // Extreme of lower chain: index 0 (if lower partition exists, i.e., partition_idx > 0)
             if (partition_idx > 0) {
@@ -513,7 +503,7 @@ namespace nlsat {
             compute_side_mask(level, side_mask);
 
             unsigned n = m_rel.m_rfunc.size();
-            unsigned partition_idx = find_partition_boundary(level);
+            unsigned partition_idx = m_rel.m_partition_boundary;
 
             // Extreme of lower chain: index 0 (if lower partition exists, i.e., partition_idx > 0)
             if (partition_idx > 0) {
@@ -921,6 +911,9 @@ namespace nlsat {
                 [&](root_function const& a, root_function const& b) { return root_function_lt(a, b, level, true); });
             std::sort(mid, rfs.end(),
                 [&](root_function const& a, root_function const& b) { return root_function_lt(a, b, level, false); });
+
+            // After sorting, store partition boundary
+            m_rel.m_partition_boundary = static_cast<unsigned>(mid - rfs.begin());
         }
 
         // Populate Θ (root functions) around the sample, partitioned at `mid`, and sort each partition.
@@ -1083,17 +1076,12 @@ namespace nlsat {
                 unsigned deg = m_pm.degree(p, level);
                 lc = m_pm.coeff(p, level, deg);
 
-                bool add_lc = true;  // Let todo_set handle duplicates if witness == lc
-                unsigned pid = m_pm.id(p.get());
-                if (vec_get(omit_lc, pid, false))
-                    add_lc = false;
+                bool add_lc = !vec_get(omit_lc, m_pm.id(p.get()), false);  // Let todo_set handle duplicates if witness == lc
 
                 if (add_lc && i < usize(poly_has_roots) && !poly_has_roots[i])
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         add_lc = false;
 
-                // In sector case, always add discriminant (noDisc optimization only applies to sections)
-                bool add_disc = true;
                 // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample
                 // AND we're adding lc, we do not need to project an additional non-null coefficient witness.
                 polynomial_ref witness = witnesses[i];
@@ -1101,7 +1089,7 @@ namespace nlsat {
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         witness = polynomial_ref(m_pm);
                 }
-                add_projections_for(P, p, level, witness, add_lc, add_disc);
+                add_projections_for(P, p, level, witness, add_lc, true); //true for adding the discriminant: always add it in sector, required by Lemma 3.2.
             }
         }
 
