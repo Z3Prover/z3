@@ -1,6 +1,0 @@
-(declare-const x Bool)
-(declare-const x3 Bool)
-(declare-const x1 Int)
-(declare-fun cd (Int Int) Int)
-(assert (forall ((a Int) (b Int) (c Int)) (or (<= a 1) (<= b 1) (exists ((d Int)) (and (ite (ite (<= (to_int (+ 1.0 0.00000001 (* (to_real b) (to_real b) (to_real b)))) (cd 0 0)) true (is_int (+ 1.0 (* 0.00000001 (/ 1.0 1000000000.0)) (* (to_real b) (to_real b) (to_real b))))) (is_int (/ 0.00000001 (+ 1.0 (to_real d)))) (ite (< (abs (to_real b)) 0.00000001) true (ite (<= (abs b) (cd 0 c)) (is_int (/ (+ 0.00000001 (* (to_real x1) (to_real x1) (to_real (to_int (/ 1.0 (to_real b)))))) (+ 1 1.0))) x3))) (ite (ite (<= b (cd 0 0)) (is_int (+ 1.0 (* (/ 1.0 1000000000.0)) (* (to_real a) (to_real a) (to_real a)))) (is_int (+ 1.0 (* 0.00000001 (/ 1.0 1000000000.0)) (* 0.00000001 (to_real x1) (to_real a)) (* (to_real a) (to_real a) (to_real a))))) x (ite (< a 1.0) true (ite (<= b (cd 0 0)) true (is_int (+ 1.0 (* 0.00000001 (/ 1.0 1000000000.0)) (* (to_real (to_int (/ (to_real d) (+ 1.0 1.0)))) (to_real (to_int (/ (to_real x1) (+ 1.0 (to_real a))))) (to_real (to_int (/ (to_real x1) (+ 1.0 (to_real a))))))))))))))))
-(check-sat)
