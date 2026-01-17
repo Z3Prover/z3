@@ -1,7 +1,7 @@
 import assert from 'assert';
 import asyncToArray from 'iter-tools/methods/async-to-array';
 import { init, killThreads } from '../jest';
-import { Arith, Bool, Model, Quantifier, Z3AssertionError, Z3HighLevel, AstVector } from './types';
+import { Arith, Bool, Model, Quantifier, Z3AssertionError, Z3HighLevel, AstVector, RCFNum } from './types';
 import { expectType } from 'ts-expect';
 
 // this should not be necessary but there may be a Jest bug
@@ -1986,7 +1986,7 @@ describe('high-level', () => {
   });
 
   describe('RCFNum', () => {
-    let RCFNum: Z3HighLevel['RCFNum'];
+    let RCFNum: ReturnType<typeof api.Context<'rcf'>>['RCFNum'];
 
     beforeEach(() => {
       ({ RCFNum } = api.Context('rcf'));
@@ -2145,7 +2145,7 @@ describe('high-level', () => {
       expect(roots.length).toBe(2);
 
       // All roots should be algebraic
-      roots.forEach(root => {
+      roots.forEach((root: RCFNum<'rcf'>) => {
         expect(root.isAlgebraic()).toBe(true);
       });
 
