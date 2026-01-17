@@ -1984,4 +1984,246 @@ describe('high-level', () => {
       }
     });
   });
+
+  describe('RCFNum', () => {
+    let RCFNum: Z3HighLevel['RCFNum'];
+
+    beforeEach(() => {
+      ({ RCFNum } = api.Context('rcf'));
+    });
+
+    it('should create RCF from string', () => {
+      const half = RCFNum('1/2');
+      expect(half.toString()).toContain('1');
+      expect(half.toString()).toContain('2');
+      expect(half.isRational()).toBe(true);
+    });
+
+    it('should create RCF from integer', () => {
+      const five = RCFNum(5);
+      expect(five.toString()).toContain('5');
+      expect(five.isRational()).toBe(true);
+    });
+
+    it('should create pi', () => {
+      const pi = RCFNum.pi();
+      expect(pi.isTranscendental()).toBe(true);
+      expect(pi.isRational()).toBe(false);
+      const piStr = pi.toDecimal(10);
+      expect(piStr).toContain('3.14');
+    });
+
+    it('should create e', () => {
+      const e = RCFNum.e();
+      expect(e.isTranscendental()).toBe(true);
+      expect(e.isRational()).toBe(false);
+      const eStr = e.toDecimal(10);
+      expect(eStr).toContain('2.71');
+    });
+
+    it('should create infinitesimal', () => {
+      const eps = RCFNum.infinitesimal();
+      expect(eps.isInfinitesimal()).toBe(true);
+      expect(eps.isRational()).toBe(false);
+    });
+
+    it('should perform addition', () => {
+      const a = RCFNum('1/2');
+      const b = RCFNum('1/3');
+      const sum = a.add(b);
+      expect(sum.isRational()).toBe(true);
+      // 1/2 + 1/3 = 5/6
+      const decimal = sum.toDecimal(5);
+      expect(decimal).toContain('0.833');
+    });
+
+    it('should perform subtraction', () => {
+      const a = RCFNum(1);
+      const b = RCFNum('1/2');
+      const diff = a.sub(b);
+      expect(diff.isRational()).toBe(true);
+      // 1 - 1/2 = 1/2
+      const decimal = diff.toDecimal(5);
+      expect(decimal).toContain('0.5');
+    });
+
+    it('should perform multiplication', () => {
+      const a = RCFNum(2);
+      const b = RCFNum(3);
+      const prod = a.mul(b);
+      expect(prod.isRational()).toBe(true);
+      expect(prod.toString()).toContain('6');
+    });
+
+    it('should perform division', () => {
+      const a = RCFNum(1);
+      const b = RCFNum(2);
+      const quot = a.div(b);
+      expect(quot.isRational()).toBe(true);
+      const decimal = quot.toDecimal(5);
+      expect(decimal).toContain('0.5');
+    });
+
+    it('should perform negation', () => {
+      const a = RCFNum(5);
+      const negA = a.neg();
+      expect(negA.toString()).toContain('-');
+    });
+
+    it('should perform inversion', () => {
+      const a = RCFNum(2);
+      const inv = a.inv();
+      expect(inv.isRational()).toBe(true);
+      const decimal = inv.toDecimal(5);
+      expect(decimal).toContain('0.5');
+    });
+
+    it('should perform power', () => {
+      const a = RCFNum(2);
+      const squared = a.power(2);
+      expect(squared.toString()).toContain('4');
+    });
+
+    it('should compare with lt', () => {
+      const a = RCFNum(1);
+      const b = RCFNum(2);
+      expect(a.lt(b)).toBe(true);
+      expect(b.lt(a)).toBe(false);
+    });
+
+    it('should compare with gt', () => {
+      const a = RCFNum(2);
+      const b = RCFNum(1);
+      expect(a.gt(b)).toBe(true);
+      expect(b.gt(a)).toBe(false);
+    });
+
+    it('should compare with le', () => {
+      const a = RCFNum(1);
+      const b = RCFNum(2);
+      const c = RCFNum(1);
+      expect(a.le(b)).toBe(true);
+      expect(a.le(c)).toBe(true);
+      expect(b.le(a)).toBe(false);
+    });
+
+    it('should compare with ge', () => {
+      const a = RCFNum(2);
+      const b = RCFNum(1);
+      const c = RCFNum(2);
+      expect(a.ge(b)).toBe(true);
+      expect(a.ge(c)).toBe(true);
+      expect(b.ge(a)).toBe(false);
+    });
+
+    it('should compare with eq', () => {
+      const a = RCFNum(5);
+      const b = RCFNum(5);
+      const c = RCFNum(6);
+      expect(a.eq(b)).toBe(true);
+      expect(a.eq(c)).toBe(false);
+    });
+
+    it('should compare with neq', () => {
+      const a = RCFNum(5);
+      const b = RCFNum(6);
+      const c = RCFNum(5);
+      expect(a.neq(b)).toBe(true);
+      expect(a.neq(c)).toBe(false);
+    });
+
+    it('should find polynomial roots', () => {
+      // x^2 - 2 = 0 has roots ±√2
+      // Polynomial: -2 + 0*x + 1*x^2
+      const coeffs = [
+        RCFNum(-2),  // constant term
+        RCFNum(0),   // x coefficient
+        RCFNum(1)    // x^2 coefficient
+      ];
+      
+      const roots = RCFNum.roots(coeffs);
+      expect(roots.length).toBe(2);
+      
+      // All roots should be algebraic
+      roots.forEach(root => {
+        expect(root.isAlgebraic()).toBe(true);
+      });
+      
+      // Check that roots are approximately ±√2
+      const root1Decimal = roots[0].toDecimal(5);
+      const root2Decimal = roots[1].toDecimal(5);
+      
+      // One should be approximately 1.414 and the other -1.414
+      const decimals = [root1Decimal, root2Decimal].sort();
+      expect(decimals[0]).toContain('-1.4');
+      expect(decimals[1]).toContain('1.4');
+    });
+
+    it('should check isRational predicate', () => {
+      const rational = RCFNum('3/4');
+      const pi = RCFNum.pi();
+      
+      expect(rational.isRational()).toBe(true);
+      expect(pi.isRational()).toBe(false);
+    });
+
+    it('should check isAlgebraic predicate', () => {
+      // x^2 - 2 = 0
+      const coeffs = [RCFNum(-2), RCFNum(0), RCFNum(1)];
+      const roots = RCFNum.roots(coeffs);
+      
+      expect(roots[0].isAlgebraic()).toBe(true);
+      
+      // Pi is not algebraic
+      const pi = RCFNum.pi();
+      expect(pi.isAlgebraic()).toBe(false);
+    });
+
+    it('should check isTranscendental predicate', () => {
+      const pi = RCFNum.pi();
+      const e = RCFNum.e();
+      const rational = RCFNum(5);
+      
+      expect(pi.isTranscendental()).toBe(true);
+      expect(e.isTranscendental()).toBe(true);
+      expect(rational.isTranscendental()).toBe(false);
+    });
+
+    it('should check isInfinitesimal predicate', () => {
+      const eps = RCFNum.infinitesimal();
+      const rational = RCFNum(5);
+      
+      expect(eps.isInfinitesimal()).toBe(true);
+      expect(rational.isInfinitesimal()).toBe(false);
+    });
+
+    it('should convert to string with compact mode', () => {
+      const pi = RCFNum.pi();
+      const compact = pi.toString(true);
+      const nonCompact = pi.toString(false);
+      
+      // Both should contain 'pi' or similar representation
+      expect(compact.length).toBeGreaterThan(0);
+      expect(nonCompact.length).toBeGreaterThan(0);
+    });
+
+    it('should convert to decimal with precision', () => {
+      const pi = RCFNum.pi();
+      const decimal5 = pi.toDecimal(5);
+      const decimal10 = pi.toDecimal(10);
+      
+      // 10 decimal places should be longer than 5
+      expect(decimal10.length).toBeGreaterThanOrEqual(decimal5.length);
+      expect(decimal5).toContain('3.14');
+      expect(decimal10).toContain('3.141592');
+    });
+
+    it('should work with infinitesimal comparisons', () => {
+      const eps = RCFNum.infinitesimal();
+      const tiny = RCFNum('1/1000000');
+      
+      // Infinitesimal should be smaller than any positive real
+      expect(eps.lt(tiny)).toBe(true);
+    });
+  });
 });
