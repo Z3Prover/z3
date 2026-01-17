@@ -155,10 +155,11 @@ def mk_build_dir(path):
             import platform
             if platform.system() == 'Darwin':
                 # On macOS, we can cross-compile using -arch flag
+                target_arch_flag = ' -arch x86_64'
                 myvar = {
-                    "CXXFLAGS": os.environ.get("CXXFLAGS", "") + " -arch x86_64",
-                    "CFLAGS": os.environ.get("CFLAGS", "") + " -arch x86_64",
-                    "LDFLAGS": os.environ.get("LDFLAGS", "") + " -arch x86_64"
+                    "CXXFLAGS": (os.environ.get("CXXFLAGS", "").strip() + target_arch_flag).strip(),
+                    "CFLAGS": (os.environ.get("CFLAGS", "").strip() + target_arch_flag).strip(),
+                    "LDFLAGS": (os.environ.get("LDFLAGS", "").strip() + target_arch_flag).strip()
                 }
                 env.update(myvar)
         if subprocess.call(opts, env=env) != 0:
