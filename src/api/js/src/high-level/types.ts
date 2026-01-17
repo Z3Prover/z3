@@ -279,6 +279,9 @@ export interface Context<Name extends string = 'main'> {
   isRealSort(obj: unknown): boolean;
 
   /** @category Functions */
+  isRCFNum(obj: unknown): obj is RCFNum<Name>;
+
+  /** @category Functions */
   isBitVecSort(obj: unknown): obj is BitVecSort<number, Name>;
 
   /** @category Functions */
@@ -442,6 +445,8 @@ export interface Context<Name extends string = 'main'> {
   readonly Int: IntCreation<Name>;
   /** @category Expressions */
   readonly Real: RealCreation<Name>;
+  /** @category Expressions */
+  readonly RCFNum: RCFNumCreation<Name>;
   /** @category Expressions */
   readonly BitVec: BitVecCreation<Name>;
   /** @category Expressions */
@@ -1983,6 +1988,212 @@ export interface RatNum<Name extends string = 'main'> extends Arith<Name> {
   asDecimal(prec?: number): string;
 
   asString(): string;
+}
+
+/**
+ * A Real Closed Field (RCF) numeral.
+ * 
+ * RCF numerals can represent:
+ * - Rational numbers
+ * - Algebraic numbers (roots of polynomials)
+ * - Transcendental extensions (e.g., pi, e)
+ * - Infinitesimal extensions
+ * 
+ * ```typescript
+ * const { RCFNum } = Context('main');
+ * 
+ * // Create pi
+ * const pi = RCFNum.pi();
+ * console.log(pi.toDecimal(10)); // "3.1415926536"
+ * 
+ * // Create a rational
+ * const half = new RCFNum('1/2');
+ * 
+ * // Arithmetic
+ * const sum = pi.add(half);
+ * 
+ * // Check properties
+ * console.log(pi.isTranscendental()); // true
+ * console.log(half.isRational()); // true
+ * ```
+ * @category Arithmetic
+ */
+export interface RCFNum<Name extends string = 'main'> {
+  /** @hidden */
+  readonly __typename: 'RCFNum';
+
+  /** @hidden */
+  readonly ctx: Context<Name>;
+
+  /**
+   * Add two RCF numerals.
+   * @param other - The RCF numeral to add
+   * @returns this + other
+   */
+  add(other: RCFNum<Name>): RCFNum<Name>;
+
+  /**
+   * Subtract two RCF numerals.
+   * @param other - The RCF numeral to subtract
+   * @returns this - other
+   */
+  sub(other: RCFNum<Name>): RCFNum<Name>;
+
+  /**
+   * Multiply two RCF numerals.
+   * @param other - The RCF numeral to multiply
+   * @returns this * other
+   */
+  mul(other: RCFNum<Name>): RCFNum<Name>;
+
+  /**
+   * Divide two RCF numerals.
+   * @param other - The RCF numeral to divide by
+   * @returns this / other
+   */
+  div(other: RCFNum<Name>): RCFNum<Name>;
+
+  /**
+   * Negate this RCF numeral.
+   * @returns -this
+   */
+  neg(): RCFNum<Name>;
+
+  /**
+   * Compute the multiplicative inverse.
+   * @returns 1/this
+   */
+  inv(): RCFNum<Name>;
+
+  /**
+   * Raise this RCF numeral to a power.
+   * @param k - The exponent
+   * @returns this^k
+   */
+  power(k: number): RCFNum<Name>;
+
+  /**
+   * Check if this RCF numeral is less than another.
+   * @param other - The RCF numeral to compare with
+   * @returns true if this < other
+   */
+  lt(other: RCFNum<Name>): boolean;
+
+  /**
+   * Check if this RCF numeral is greater than another.
+   * @param other - The RCF numeral to compare with
+   * @returns true if this > other
+   */
+  gt(other: RCFNum<Name>): boolean;
+
+  /**
+   * Check if this RCF numeral is less than or equal to another.
+   * @param other - The RCF numeral to compare with
+   * @returns true if this <= other
+   */
+  le(other: RCFNum<Name>): boolean;
+
+  /**
+   * Check if this RCF numeral is greater than or equal to another.
+   * @param other - The RCF numeral to compare with
+   * @returns true if this >= other
+   */
+  ge(other: RCFNum<Name>): boolean;
+
+  /**
+   * Check if this RCF numeral is equal to another.
+   * @param other - The RCF numeral to compare with
+   * @returns true if this == other
+   */
+  eq(other: RCFNum<Name>): boolean;
+
+  /**
+   * Check if this RCF numeral is not equal to another.
+   * @param other - The RCF numeral to compare with
+   * @returns true if this != other
+   */
+  neq(other: RCFNum<Name>): boolean;
+
+  /**
+   * Check if this RCF numeral is a rational number.
+   * @returns true if this is rational
+   */
+  isRational(): boolean;
+
+  /**
+   * Check if this RCF numeral is an algebraic number.
+   * @returns true if this is algebraic
+   */
+  isAlgebraic(): boolean;
+
+  /**
+   * Check if this RCF numeral is an infinitesimal.
+   * @returns true if this is infinitesimal
+   */
+  isInfinitesimal(): boolean;
+
+  /**
+   * Check if this RCF numeral is a transcendental number.
+   * @returns true if this is transcendental
+   */
+  isTranscendental(): boolean;
+
+  /**
+   * Convert this RCF numeral to a string.
+   * @param compact - If true, use compact representation
+   * @returns String representation
+   */
+  toString(compact?: boolean): string;
+
+  /**
+   * Convert this RCF numeral to a decimal string.
+   * @param precision - Number of decimal places
+   * @returns Decimal string representation
+   */
+  toDecimal(precision: number): string;
+}
+
+/**
+ * Creation interface for RCF numerals
+ * @category Arithmetic
+ */
+export interface RCFNumCreation<Name extends string> {
+  /**
+   * Create an RCF numeral from a rational string.
+   * @param value - String representation of a rational number (e.g., "3/2", "0.5", "42")
+   */
+  (value: string): RCFNum<Name>;
+
+  /**
+   * Create an RCF numeral from a small integer.
+   * @param value - Integer value
+   */
+  (value: number): RCFNum<Name>;
+
+  /**
+   * Create an RCF numeral representing pi.
+   */
+  pi(): RCFNum<Name>;
+
+  /**
+   * Create an RCF numeral representing e (Euler's constant).
+   */
+  e(): RCFNum<Name>;
+
+  /**
+   * Create an RCF numeral representing an infinitesimal.
+   */
+  infinitesimal(): RCFNum<Name>;
+
+  /**
+   * Find roots of a polynomial.
+   * 
+   * The polynomial is a[n-1]*x^(n-1) + ... + a[1]*x + a[0].
+   * 
+   * @param coefficients - Polynomial coefficients (constant term first)
+   * @returns Array of RCF numerals representing the roots
+   */
+  roots(coefficients: RCFNum<Name>[]): RCFNum<Name>[];
 }
 
 /**
