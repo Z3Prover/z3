@@ -2648,6 +2648,54 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Map function f over the sequence s.
+        /// </summary>
+        public Expr MkSeqMap(Expr f, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, s);
+            return Expr.Create(this, Native.Z3_mk_seq_map(nCtx, f.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Map function f over the sequence s at index i.
+        /// </summary>
+        public Expr MkSeqMapi(Expr f, Expr i, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(i != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, i, s);
+            return Expr.Create(this, Native.Z3_mk_seq_mapi(nCtx, f.NativeObject, i.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Fold left the function f over the sequence s with initial value a.
+        /// </summary>
+        public Expr MkSeqFoldLeft(Expr f, Expr a, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(a != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, a, s);
+            return Expr.Create(this, Native.Z3_mk_seq_foldl(nCtx, f.NativeObject, a.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Fold left with index the function f over the sequence s with initial value a starting at index i.
+        /// </summary>
+        public Expr MkSeqFoldLeftI(Expr f, Expr i, Expr a, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(i != null);
+            Debug.Assert(a != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, i, a, s);
+            return Expr.Create(this, Native.Z3_mk_seq_foldli(nCtx, f.NativeObject, i.NativeObject, a.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
         /// Convert a regular expression that accepts sequence s.
         /// </summary>
         public ReExpr MkToRe(SeqExpr s)
