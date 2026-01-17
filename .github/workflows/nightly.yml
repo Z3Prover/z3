@@ -584,6 +584,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          ls
           find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) > release_files.txt
           
           gh release create Nightly \
