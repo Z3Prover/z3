@@ -100,9 +100,7 @@ namespace datalog {
         //(discovering a total relation might reveal other total relations)
         do {
             new_discovered = false;
-            rule_set::iterator rend = rules.end();
-            for(rule_set::iterator rit = rules.begin(); rit!=rend; ++rit) {
-                rule * r = *rit;
+            for (rule* r : rules) {
                 func_decl * head_pred = r->get_decl();
                 if(is_total_rule(r) && !m_total_relations.contains(head_pred)) {
                     on_discovered_total_relation(head_pred, r);
@@ -261,9 +259,7 @@ namespace datalog {
 
         func_decl_set const& candidate_preds = m_context.get_predicates();
 
-        func_decl_set::iterator end = candidate_preds.end();
-        for(func_decl_set::iterator it = candidate_preds.begin(); it!=end; ++it) {
-            func_decl * pred = *it;
+        for (func_decl* pred : candidate_preds) {
             unsigned rel_sz;
 
             if (m_total_relations.contains(pred)) { continue; } // already total
@@ -306,9 +302,7 @@ namespace datalog {
 
     void mk_subsumption_checker::collect_ground_unconditional_rule_heads(const rule_set & rules)
     {
-        rule_set::iterator rend = rules.end();
-        for(rule_set::iterator rit = rules.begin(); rit!=rend; ++rit) {
-            rule * r = *rit;
+        for (rule* r : rules) {
             func_decl * pred = r->get_decl();
 
             if(r->get_tail_size()!=0) { continue; }

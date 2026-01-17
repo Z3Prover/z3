@@ -648,11 +648,10 @@ public:
     void randomize(ptr_vector<expr> const & as) {
         TRACE(sls_verbose, tout << "Abandoned model:" << std::endl; show_model(tout); );
 
-        for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); ++it) {
-            func_decl * fd = it->m_key;
+        for (auto& [fd, ep] : m_entry_points) {
             sort * s = fd->get_range();
             mpz temp = get_random(s);
-            set_value(it->m_value, temp);
+            set_value(ep, temp);
             m_mpz_manager.del(temp);
         }
 
@@ -662,8 +661,8 @@ public:
     void reset(ptr_vector<expr> const & as) {
         TRACE(sls_verbose, tout << "Abandoned model:" << std::endl; show_model(tout); );
 
-        for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); ++it) {
-            set_value(it->m_value, m_zero);
+        for (auto& [fd, ep] : m_entry_points) {
+            set_value(ep, m_zero);
         }
     }              
 

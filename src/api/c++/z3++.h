@@ -3431,7 +3431,7 @@ namespace z3 {
             Z3_optimize_inc_ref(c, m_opt);
             add(expr_vector(c, src.assertions()));
             expr_vector v(c, src.objectives());
-            for (expr_vector::iterator it = v.begin(); it != v.end(); ++it) minimize(*it);
+            for (auto& e : v) minimize(e);
         }
         optimize& operator=(optimize const& o) {
             Z3_optimize_inc_ref(o.ctx(), o.m_opt);
@@ -3447,7 +3447,7 @@ namespace z3 {
             Z3_optimize_assert(ctx(), m_opt, e);
         }
         void add(expr_vector const& es) {
-            for (expr_vector::iterator it = es.begin(); it != es.end(); ++it) add(*it);
+            for (auto& e : es) add(e);
         }
         void add(expr const& e, expr const& t) {
             assert(e.is_bool());
