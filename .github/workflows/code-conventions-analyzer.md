@@ -1,7 +1,7 @@
 ---
 description: Analyzes Z3 codebase for consistent coding conventions and opportunities to use modern C++ features
 on:
-  schedule: weekly
+  schedule: daily
   workflow_dispatch:
 permissions: read-all
 tools:
