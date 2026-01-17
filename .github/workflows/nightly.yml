@@ -38,7 +38,7 @@ jobs:
           python-version: '3.x'
       
       - name: Build
-        run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk
+        run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=x64
       
       - name: Clone z3test
         run: git clone https://github.com/z3prover/z3test z3test
