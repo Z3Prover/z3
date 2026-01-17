@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: ubuntu:jammy
+    container: ubuntu:noble
 
     strategy:
       fail-fast: false
