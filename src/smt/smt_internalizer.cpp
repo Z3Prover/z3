@@ -1164,7 +1164,6 @@ namespace smt {
                     simp_lits.push_back(~curr);
                 }
                 break; // ignore literal                
-                // fall through
             case l_undef:
                 if (curr == ~prev)
                     return false; // clause is equivalent to true

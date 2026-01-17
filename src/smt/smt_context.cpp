@@ -2552,7 +2552,7 @@ namespace smt {
                 break;
             case l_true:
                 is_taut = true;
-                // fallthrough
+                Z3_fallthrough;
             case l_undef:
                 if (i != j) {
                     cls.swap_lits(i, j);
