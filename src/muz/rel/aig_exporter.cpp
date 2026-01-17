@@ -23,8 +23,8 @@ namespace datalog {
         m_latch_vars(m), m_latch_varsp(m), m_ruleid_var_set(m), m_ruleid_varp_set(m)
     {
         std::set<func_decl*> predicates;
-        for (auto& [pred, _] : m_rules.get_grouped_rules())
-            predicates.insert(pred);
+        for (auto it = m_rules.begin_grouped_rules(), end = m_rules.end_grouped_rules(); it != end; ++it)
+            predicates.insert(it->m_key);
 
         for (auto& [pred, _] : *facts)
             predicates.insert(pred);
@@ -98,8 +98,8 @@ namespace datalog {
         expr_ref_vector exprs(m);
         substitution subst(m);
 
-        for (auto& [pred, rules] : m_rules.get_grouped_rules()) {
-            for (rule* r : *rules) {
+        for (auto it = m_rules.begin_grouped_rules(), end = m_rules.end_grouped_rules(); it != end; ++it) {
+            for (rule* r : *it->get_value()) {
                 unsigned numqs = r->get_positive_tail_size();
                 if (numqs > 1) {
                     throw default_exception("non-linear clauses not supported");
