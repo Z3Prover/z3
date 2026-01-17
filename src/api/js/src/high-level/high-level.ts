@@ -1899,6 +1899,36 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return check(Z3.solver_to_string(contextPtr, this.ptr));
       }
 
+      toSmtlib2(status: string = 'unknown'): string {
+        const assertionsVec = this.assertions();
+        const numAssertions = assertionsVec.length();
+        let formula: Z3_ast;
+        let assumptions: Z3_ast[];
+
+        if (numAssertions > 0) {
+          // Use last assertion as formula and rest as assumptions
+          assumptions = [];
+          for (let i = 0; i < numAssertions - 1; i++) {
+            assumptions.push(assertionsVec.get(i).ast);
+          }
+          formula = assertionsVec.get(numAssertions - 1).ast;
+        } else {
+          // No assertions, use true
+          assumptions = [];
+          formula = ctx.Bool.val(true).ast;
+        }
+
+        return check(Z3.benchmark_to_smtlib_string(
+          contextPtr,
+          '',
+          '',
+          status,
+          '',
+          assumptions,
+          formula
+        ));
+      }
+
       fromString(s: string) {
         Z3.solver_from_string(contextPtr, this.ptr, s);
         throwIfError();

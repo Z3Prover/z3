@@ -3491,6 +3491,32 @@ namespace Microsoft.Z3
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)));
             return assertions.ToBoolExprArray();
         }
+
+        /// <summary>
+        /// Convert a benchmark into SMT-LIB2 formatted string.
+        /// </summary>
+        /// <param name="name">Name of the benchmark. May be null.</param>
+        /// <param name="logic">The benchmark logic. May be null.</param>
+        /// <param name="status">Status string, such as "sat", "unsat", or "unknown".</param>
+        /// <param name="attributes">Other attributes, such as source, difficulty or category. May be null.</param>
+        /// <param name="assumptions">Auxiliary assumptions.</param>
+        /// <param name="formula">Formula to be checked for consistency in conjunction with assumptions.</param>
+        /// <returns>A string representation of the benchmark in SMT-LIB2 format.</returns>
+        public string BenchmarkToSmtlibString(string name, string logic, string status, string attributes, BoolExpr[] assumptions, BoolExpr formula)
+        {
+            Debug.Assert(assumptions != null);
+            Debug.Assert(formula != null);
+
+            return Native.Z3_benchmark_to_smtlib_string(
+                nCtx,
+                name,
+                logic,
+                status,
+                attributes,
+                (uint)(assumptions?.Length ?? 0),
+                AST.ArrayToNative(assumptions),
+                formula.NativeObject);
+        }
         #endregion
 
         #region Goals
