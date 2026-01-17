@@ -515,8 +515,8 @@ jobs:
       
       - name: Extract builds
         run: |
-          ls
           cd artifacts
+          ls
           mkdir -p osx-x64-bin osx-arm64-bin win32-bin win64-bin
           cd osx-x64-bin && unzip ../z3-*-x64-osx*.zip && cd ..
           cd osx-arm64-bin && unzip ../z3-*-arm64-osx*.zip && cd ..
