@@ -590,6 +590,34 @@ namespace Microsoft.Z3
             return Native.Z3_solver_to_string(Context.nCtx, NativeObject);
         }
 
+        /// <summary>
+        /// Convert the solver assertions to SMT-LIB2 format as a benchmark.
+        /// </summary>
+        /// <param name="status">Status string, such as "sat", "unsat", or "unknown". Default is "unknown".</param>
+        /// <returns>A string representation of the solver's assertions in SMT-LIB2 format.</returns>
+        public string ToSmt2(string status = "unknown")
+        {
+            BoolExpr[] assertions = Assertions;
+            BoolExpr formula;
+            BoolExpr[] assumptions;
+            
+            if (assertions.Length > 0)
+            {
+                // Use last assertion as formula and rest as assumptions
+                assumptions = new BoolExpr[assertions.Length - 1];
+                Array.Copy(assertions, assumptions, assertions.Length - 1);
+                formula = assertions[assertions.Length - 1];
+            }
+            else
+            {
+                // No assertions, use true
+                assumptions = new BoolExpr[0];
+                formula = Context.MkTrue();
+            }
+
+            return Context.BenchmarkToSmtlibString("", "", status, "", assumptions, formula);
+        }
+
         #region Internal
         internal Solver(Context ctx, IntPtr obj)
             : base(ctx, obj)
