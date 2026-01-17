@@ -23,7 +23,7 @@ jobs:
       uses: actions/checkout@v6.0.1
 
     - name: Install cross build tools
-      run:  apt update && apt install -y ninja-build cmake python3 g++-12-${{ matrix.arch }}-linux-gnu
+      run:  apt update && apt install -y ninja-build cmake python3 g++-13-${{ matrix.arch }}-linux-gnu
       env:
         DEBIAN_FRONTEND: noninteractive
 
