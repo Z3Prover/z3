@@ -175,7 +175,7 @@ namespace datalog {
                     switch(search(depth-1, index+1)) {
                     case l_undef:
                         status = l_undef;
-                        // fallthrough
+                        Z3_fallthrough;
                     case l_false:
                         m_goals.resize(num_goals);   
                         break;
