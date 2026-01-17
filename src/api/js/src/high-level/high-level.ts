@@ -3413,14 +3413,16 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       constructor(ptr: Z3_rcf_num);
       constructor(valueOrPtr: string | number | Z3_rcf_num) {
         this.ctx = ctx;
+        let myPtr: Z3_rcf_num;
         if (typeof valueOrPtr === 'string') {
-          this.ptr = check(Z3.rcf_mk_rational(contextPtr, valueOrPtr));
+          myPtr = check(Z3.rcf_mk_rational(contextPtr, valueOrPtr));
         } else if (typeof valueOrPtr === 'number') {
-          this.ptr = check(Z3.rcf_mk_small_int(contextPtr, valueOrPtr));
+          myPtr = check(Z3.rcf_mk_small_int(contextPtr, valueOrPtr));
         } else {
-          this.ptr = valueOrPtr;
+          myPtr = valueOrPtr;
         }
-        cleanup.register(this, () => Z3.rcf_del(contextPtr, this.ptr), this);
+        this.ptr = myPtr;
+        cleanup.register(this, () => Z3.rcf_del(contextPtr, myPtr), this);
       }
 
       add(other: RCFNum<Name>): RCFNum<Name> {
