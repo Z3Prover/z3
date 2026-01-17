@@ -1173,6 +1173,28 @@ export interface Solver<Name extends string = 'main'> {
   fromFile(filename: string): void;
 
   /**
+   * Convert the solver's assertions to SMT-LIB2 format as a benchmark.
+   * 
+   * This exports the current set of assertions in the solver as an SMT-LIB2 string,
+   * which can be used for bug reporting, sharing problems, or benchmarking.
+   *
+   * @param status - Status string such as "sat", "unsat", or "unknown" (default: "unknown")
+   * @returns A string representation of the solver's assertions in SMT-LIB2 format
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * const y = Int.const('y');
+   * solver.add(x.gt(0));
+   * solver.add(y.eq(x.add(1)));
+   * const smtlib2 = solver.toSmtlib2('unknown');
+   * console.log(smtlib2); // Prints SMT-LIB2 formatted problem
+   * ```
+   */
+  toSmtlib2(status?: string): string;
+
+  /**
    * Manually decrease the reference count of the solver
    * This is automatically done when the solver is garbage collected,
    * but calling this eagerly can help release memory sooner.
