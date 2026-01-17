@@ -2271,7 +2271,7 @@ public class Context implements AutoCloseable {
      */
     public final <R extends Sort, A extends Sort> Expr<A> mkSeqFoldli(Expr<?> f, Expr<IntSort> i, Expr<A> a, Expr<SeqSort<R>> s)
     {
-        checkContextMatch(f, i, a, s);
+        checkContextMatch(new Z3Object[] { f, i, a, s });
         return (Expr<A>) Expr.create(this, Native.mkSeqFoldli(nCtx(), f.getNativeObject(), i.getNativeObject(), a.getNativeObject(), s.getNativeObject()));
     }
 
