@@ -2236,6 +2236,46 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Map function f over sequence s.
+     * Returns a new sequence where f is applied to each element of s.
+     */
+    public final <R extends Sort> SeqExpr<R> mkSeqMap(Expr<?> f, Expr<SeqSort<R>> s)
+    {
+        checkContextMatch(f, s);
+        return (SeqExpr<R>) Expr.create(this, Native.mkSeqMap(nCtx(), f.getNativeObject(), s.getNativeObject()));
+    }
+
+    /**
+     * Map function f over sequence s starting at index i.
+     * Returns a new sequence where f is applied to each element of s along with its index starting from i.
+     */
+    public final <R extends Sort> SeqExpr<R> mkSeqMapi(Expr<?> f, Expr<IntSort> i, Expr<SeqSort<R>> s)
+    {
+        checkContextMatch(f, i, s);
+        return (SeqExpr<R>) Expr.create(this, Native.mkSeqMapi(nCtx(), f.getNativeObject(), i.getNativeObject(), s.getNativeObject()));
+    }
+
+    /**
+     * Left fold of function f over sequence s with accumulator a.
+     * Applies f to accumulate values from left to right over the sequence.
+     */
+    public final <R extends Sort, A extends Sort> Expr<A> mkSeqFoldl(Expr<?> f, Expr<A> a, Expr<SeqSort<R>> s)
+    {
+        checkContextMatch(f, a, s);
+        return (Expr<A>) Expr.create(this, Native.mkSeqFoldl(nCtx(), f.getNativeObject(), a.getNativeObject(), s.getNativeObject()));
+    }
+
+    /**
+     * Left fold of function f over sequence s with accumulator a starting at index i.
+     * Applies f to accumulate values from left to right over the sequence, tracking the index starting from i.
+     */
+    public final <R extends Sort, A extends Sort> Expr<A> mkSeqFoldli(Expr<?> f, Expr<IntSort> i, Expr<A> a, Expr<SeqSort<R>> s)
+    {
+        checkContextMatch(f, i, a, s);
+        return (Expr<A>) Expr.create(this, Native.mkSeqFoldli(nCtx(), f.getNativeObject(), i.getNativeObject(), a.getNativeObject(), s.getNativeObject()));
+    }
+
+    /**
      * Replace the first occurrence of src by dst in s.
      */
     public final <R extends Sort> SeqExpr<R> mkReplace(Expr<SeqSort<R>> s, Expr<SeqSort<R>> src, Expr<SeqSort<R>> dst)
