@@ -45,6 +45,7 @@ import {
   Z3_goal_prec,
   Z3_param_descrs,
   Z3_simplifier,
+  Z3_rcf_num,
 } from '../low-level';
 import {
   AnyAst,
@@ -93,6 +94,8 @@ import {
   Quantifier,
   BodyT,
   RatNum,
+  RCFNum,
+  RCFNumCreation,
   Seq,
   SeqSort,
   Simplifier,
@@ -526,6 +529,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return isSort(obj) && obj.kind() === Z3_sort_kind.Z3_REAL_SORT;
     }
 
+    function isRCFNum(obj: unknown): obj is RCFNum<Name> {
+      const r = obj instanceof RCFNumImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
     function isBitVecSort(obj: unknown): obj is BitVecSort<number, Name> {
       const r = obj instanceof BitVecSortImpl;
       r && _assertContext(obj);
@@ -825,6 +834,26 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new RatNumImpl(Z3.mk_numeral(contextPtr, value.toString(), Real.sort().ptr));
       },
     };
+
+    const RCFNum = Object.assign((value: string | number) => new RCFNumImpl(value), {
+      pi: () => new RCFNumImpl(check(Z3.rcf_mk_pi(contextPtr))),
+
+      e: () => new RCFNumImpl(check(Z3.rcf_mk_e(contextPtr))),
+
+      infinitesimal: () => new RCFNumImpl(check(Z3.rcf_mk_infinitesimal(contextPtr))),
+
+      roots: (coefficients: RCFNum<Name>[]) => {
+        assert(coefficients.length > 0, 'Polynomial coefficients cannot be empty');
+        const coeffPtrs = coefficients.map(c => (c as RCFNumImpl).ptr);
+        const { rv: numRoots, roots: rootPtrs } = Z3.rcf_mk_roots(contextPtr, coeffPtrs);
+        const result: RCFNum<Name>[] = [];
+        for (let i = 0; i < numRoots; i++) {
+          result.push(new RCFNumImpl(rootPtrs[i]));
+        }
+        return result;
+      },
+    }) as RCFNumCreation<Name>;
+
     const BitVec = {
       sort<Bits extends number>(bits: Bits): BitVecSort<Bits, Name> {
         assert(Number.isSafeInteger(bits), 'number of bits must be an integer');
@@ -1744,7 +1773,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new FuncDeclImpl(check(Z3.mk_transitive_closure(contextPtr, f.ptr)));
     }
 
-    async function polynomialSubresultants(p: Arith<Name>, q: Arith<Name>, x: Arith<Name>): Promise<AstVector<Name, Arith<Name>>> {
+    async function polynomialSubresultants(
+      p: Arith<Name>,
+      q: Arith<Name>,
+      x: Arith<Name>,
+    ): Promise<AstVector<Name, Arith<Name>>> {
       const result = await Z3.polynomial_subresultants(contextPtr, p.ast, q.ast, x.ast);
       return new AstVectorImpl<ArithImpl>(check(result));
     }
@@ -2490,7 +2523,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           const key = Z3.stats_get_key(contextPtr, this.ptr, i);
           const isUint = Z3.stats_is_uint(contextPtr, this.ptr, i);
           const isDouble = Z3.stats_is_double(contextPtr, this.ptr, i);
-          const value = isUint 
+          const value = isUint
             ? Z3.stats_get_uint_value(contextPtr, this.ptr, i)
             : Z3.stats_get_double_value(contextPtr, this.ptr, i);
           result.push({
@@ -3398,6 +3431,114 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       asString() {
         return Z3.get_numeral_string(contextPtr, this.ast);
+      }
+    }
+
+    class RCFNumImpl implements RCFNum<Name> {
+      declare readonly __typename: RCFNum['__typename'];
+      readonly ctx: Context<Name>;
+      readonly ptr: Z3_rcf_num;
+
+      constructor(value: string | number);
+      constructor(ptr: Z3_rcf_num);
+      constructor(valueOrPtr: string | number | Z3_rcf_num) {
+        this.ctx = ctx;
+        let myPtr: Z3_rcf_num;
+        if (typeof valueOrPtr === 'string') {
+          myPtr = check(Z3.rcf_mk_rational(contextPtr, valueOrPtr));
+        } else if (typeof valueOrPtr === 'number') {
+          myPtr = check(Z3.rcf_mk_small_int(contextPtr, valueOrPtr));
+        } else {
+          myPtr = valueOrPtr;
+        }
+        this.ptr = myPtr;
+        cleanup.register(this, () => Z3.rcf_del(contextPtr, myPtr), this);
+      }
+
+      add(other: RCFNum<Name>): RCFNum<Name> {
+        _assertContext(other);
+        return new RCFNumImpl(check(Z3.rcf_add(contextPtr, this.ptr, (other as RCFNumImpl).ptr)));
+      }
+
+      sub(other: RCFNum<Name>): RCFNum<Name> {
+        _assertContext(other);
+        return new RCFNumImpl(check(Z3.rcf_sub(contextPtr, this.ptr, (other as RCFNumImpl).ptr)));
+      }
+
+      mul(other: RCFNum<Name>): RCFNum<Name> {
+        _assertContext(other);
+        return new RCFNumImpl(check(Z3.rcf_mul(contextPtr, this.ptr, (other as RCFNumImpl).ptr)));
+      }
+
+      div(other: RCFNum<Name>): RCFNum<Name> {
+        _assertContext(other);
+        return new RCFNumImpl(check(Z3.rcf_div(contextPtr, this.ptr, (other as RCFNumImpl).ptr)));
+      }
+
+      neg(): RCFNum<Name> {
+        return new RCFNumImpl(check(Z3.rcf_neg(contextPtr, this.ptr)));
+      }
+
+      inv(): RCFNum<Name> {
+        return new RCFNumImpl(check(Z3.rcf_inv(contextPtr, this.ptr)));
+      }
+
+      power(k: number): RCFNum<Name> {
+        return new RCFNumImpl(check(Z3.rcf_power(contextPtr, this.ptr, k)));
+      }
+
+      lt(other: RCFNum<Name>): boolean {
+        _assertContext(other);
+        return check(Z3.rcf_lt(contextPtr, this.ptr, (other as RCFNumImpl).ptr));
+      }
+
+      gt(other: RCFNum<Name>): boolean {
+        _assertContext(other);
+        return check(Z3.rcf_gt(contextPtr, this.ptr, (other as RCFNumImpl).ptr));
+      }
+
+      le(other: RCFNum<Name>): boolean {
+        _assertContext(other);
+        return check(Z3.rcf_le(contextPtr, this.ptr, (other as RCFNumImpl).ptr));
+      }
+
+      ge(other: RCFNum<Name>): boolean {
+        _assertContext(other);
+        return check(Z3.rcf_ge(contextPtr, this.ptr, (other as RCFNumImpl).ptr));
+      }
+
+      eq(other: RCFNum<Name>): boolean {
+        _assertContext(other);
+        return check(Z3.rcf_eq(contextPtr, this.ptr, (other as RCFNumImpl).ptr));
+      }
+
+      neq(other: RCFNum<Name>): boolean {
+        _assertContext(other);
+        return check(Z3.rcf_neq(contextPtr, this.ptr, (other as RCFNumImpl).ptr));
+      }
+
+      isRational(): boolean {
+        return check(Z3.rcf_is_rational(contextPtr, this.ptr));
+      }
+
+      isAlgebraic(): boolean {
+        return check(Z3.rcf_is_algebraic(contextPtr, this.ptr));
+      }
+
+      isInfinitesimal(): boolean {
+        return check(Z3.rcf_is_infinitesimal(contextPtr, this.ptr));
+      }
+
+      isTranscendental(): boolean {
+        return check(Z3.rcf_is_transcendental(contextPtr, this.ptr));
+      }
+
+      toString(compact: boolean = false): string {
+        return check(Z3.rcf_num_to_string(contextPtr, this.ptr, compact, false));
+      }
+
+      toDecimal(precision: number): string {
+        return check(Z3.rcf_num_to_decimal_string(contextPtr, this.ptr, precision));
       }
     }
 
@@ -4550,6 +4691,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       isReal,
       isRealVal,
       isRealSort,
+      isRCFNum,
       isBitVecSort,
       isBitVec,
       isBitVecVal, // TODO fix ordering
@@ -4583,6 +4725,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Bool,
       Int,
       Real,
+      RCFNum,
       BitVec,
       Float,
       FloatRM,
