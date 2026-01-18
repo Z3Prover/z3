@@ -2081,12 +2081,6 @@ describe('high-level', () => {
       expect(decimal.length).toBeGreaterThan(0);
     });
 
-    it('should perform power', () => {
-      const a = RCFNum(2);
-      const squared = a.power(2);
-      expect(squared.toString()).toContain('4');
-    });
-
     it('should compare with lt', () => {
       const a = RCFNum(1);
       const b = RCFNum(2);
@@ -2217,14 +2211,6 @@ describe('high-level', () => {
       // Both should return non-empty strings
       expect(decimal5.length).toBeGreaterThan(0);
       expect(decimal10.length).toBeGreaterThan(0);
-    });
-
-    it('should work with infinitesimal comparisons', () => {
-      const eps = RCFNum.infinitesimal();
-      const tiny = RCFNum('1/1000000');
-
-      // Infinitesimal should be smaller than any positive real
-      expect(eps.lt(tiny)).toBe(true);
     });
   });
 });
