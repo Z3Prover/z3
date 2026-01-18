@@ -254,6 +254,7 @@ namespace nlsat {
         unsigned m_lws_relation_mode = 1;
         unsigned m_lws_sector_relation_mode = 1;
         unsigned m_lws_section_relation_mode = 1;
+        bool     m_lws_dynamic_heuristic = true;
         imp(solver& s, ctx& c):
             m_ctx(c),
             m_solver(s),
@@ -319,6 +320,7 @@ namespace nlsat {
             unsigned lws_section_rel_mode = p.lws_section_rel_mode();
             m_lws_sector_relation_mode = (lws_sector_rel_mode == UINT_MAX) ? m_lws_relation_mode : lws_sector_rel_mode;
             m_lws_section_relation_mode = (lws_section_rel_mode == UINT_MAX) ? m_lws_relation_mode : lws_section_rel_mode;
+            m_lws_dynamic_heuristic = p.lws_dynamic_heuristic();
             m_check_lemmas |= !(m_debug_known_solution_file_name.empty());
             m_cell_sample = p.cell_sample();
   
@@ -4679,5 +4681,6 @@ namespace nlsat {
 
     unsigned solver::lws_section_relation_mode() const { return m_imp->m_lws_section_relation_mode; }
 
+    bool solver::lws_dynamic_heuristic() const { return m_imp->m_lws_dynamic_heuristic; }
 
 };

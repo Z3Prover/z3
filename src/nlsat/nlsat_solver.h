@@ -251,6 +251,7 @@ namespace nlsat {
         unsigned lws_relation_mode() const;
         unsigned lws_sector_relation_mode() const;
         unsigned lws_section_relation_mode() const;
+        bool lws_dynamic_heuristic() const;
         void reset();
         void collect_statistics(statistics & st);
         void reset_statistics();

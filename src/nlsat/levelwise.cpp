@@ -6,6 +6,7 @@
 #include "nlsat_common.h"
 #include "util/z3_exception.h"
 #include "util/vector.h"
+#include "util/trace.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -70,6 +71,7 @@ namespace nlsat {
         unsigned               m_level = 0;      // current level being processed
         relation_mode          m_sector_relation_mode = chain;
         relation_mode          m_section_relation_mode = section_chain;
+        bool                   m_dynamic_heuristic = true; // dynamically select heuristic based on weight
         unsigned               m_l_rf = UINT_MAX; // position of lower bound in m_rel.m_rfunc
         unsigned               m_u_rf = UINT_MAX; // position of upper bound in m_rel.m_rfunc (UINT_MAX in section case)
 
@@ -134,6 +136,237 @@ namespace nlsat {
 
         relation_E m_rel;
 
+        // Weight function for estimating projection complexity.
+        // w(p, level) estimates the "cost" of polynomial p at the given level.
+        // w(disc(a)) ≈ 2*w(a), w(res(a,b)) ≈ w(a) + w(b)
+        unsigned w(poly* p, unsigned level) const {
+            if (!p) return 0;
+            return m_pm.degree(p, level);
+        }
+
+        // Estimate resultant weight for a given set of pairs
+        unsigned estimate_resultant_weight(std::vector<std::pair<unsigned, unsigned>> const& pairs) const {
+            auto const& rfs = m_rel.m_rfunc;
+            unsigned total = 0;
+            std::set<std::pair<unsigned, unsigned>> seen;
+            for (auto const& pr : pairs) {
+                poly* a = rfs[pr.first].ire.p;
+                poly* b = rfs[pr.second].ire.p;
+                if (!a || !b) continue;
+                unsigned id1 = m_pm.id(a);
+                unsigned id2 = m_pm.id(b);
+                if (id1 == id2) continue;
+                auto key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
+                if (!seen.insert(key).second) continue;
+                // w(res(a,b)) ≈ w(a) + w(b)
+                total += w(a, m_level) + w(b, m_level);
+            }
+            return total;
+        }
+
+        // Generate pairs for biggest_cell heuristic (sector case)
+        std::vector<std::pair<unsigned, unsigned>> get_pairs_biggest_cell_sector() const {
+            std::vector<std::pair<unsigned, unsigned>> pairs;
+            if (is_set(m_l_rf))
+                for (unsigned j = 0; j < m_l_rf; ++j)
+                    pairs.emplace_back(j, m_l_rf);
+            if (is_set(m_u_rf))
+                for (unsigned j = m_u_rf + 1; j < m_rel.m_rfunc.size(); ++j)
+                    pairs.emplace_back(m_u_rf, j);
+            if (is_set(m_l_rf) && is_set(m_u_rf))
+                pairs.emplace_back(m_l_rf, m_u_rf);
+            return pairs;
+        }
+
+        // Generate pairs for chain heuristic (sector case)
+        std::vector<std::pair<unsigned, unsigned>> get_pairs_chain_sector() const {
+            std::vector<std::pair<unsigned, unsigned>> pairs;
+            if (is_set(m_l_rf))
+                for (unsigned j = 0; j < m_l_rf; ++j)
+                    pairs.emplace_back(j, j + 1);
+            if (is_set(m_u_rf))
+                for (unsigned j = m_u_rf + 1; j < m_rel.m_rfunc.size(); ++j)
+                    pairs.emplace_back(j - 1, j);
+            if (is_set(m_l_rf) && is_set(m_u_rf))
+                pairs.emplace_back(m_l_rf, m_u_rf);
+            return pairs;
+        }
+
+        // Generate pairs for lowest_degree heuristic (sector case)
+        std::vector<std::pair<unsigned, unsigned>> get_pairs_lowest_degree_sector() const {
+            std::vector<std::pair<unsigned, unsigned>> pairs;
+            auto const& rfs = m_rel.m_rfunc;
+            unsigned n = rfs.size();
+            if (n == 0) return pairs;
+
+            std::vector<unsigned> degs;
+            degs.reserve(n);
+            for (unsigned i = 0; i < n; ++i)
+                degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
+
+            if (is_set(m_l_rf)) {
+                unsigned min_idx = m_l_rf;
+                unsigned min_deg = degs[m_l_rf];
+                for (int j = static_cast<int>(m_l_rf) - 1; j >= 0; --j) {
+                    unsigned jj = static_cast<unsigned>(j);
+                    pairs.emplace_back(jj, min_idx);
+                    if (degs[jj] < min_deg) {
+                        min_deg = degs[jj];
+                        min_idx = jj;
+                    }
+                }
+            }
+            if (is_set(m_u_rf)) {
+                unsigned min_idx = m_u_rf;
+                unsigned min_deg = degs[m_u_rf];
+                for (unsigned j = m_u_rf + 1; j < n; ++j) {
+                    pairs.emplace_back(min_idx, j);
+                    if (degs[j] < min_deg) {
+                        min_deg = degs[j];
+                        min_idx = j;
+                    }
+                }
+            }
+            if (is_set(m_l_rf) && is_set(m_u_rf))
+                pairs.emplace_back(m_l_rf, m_u_rf);
+            return pairs;
+        }
+
+        // Choose the best sector heuristic based on estimated weight
+        relation_mode choose_best_sector_heuristic() {
+            // With fewer than 2 root functions, no pairs can be generated
+            // so all heuristics are equivalent - use default
+            if (m_rel.m_rfunc.size() < 2) {
+                TRACE(lws,
+                    tout << "Level " << m_level << " SECTOR: rfunc.size=" << m_rel.m_rfunc.size()
+                         << " < 2, using default heuristic\n";
+                );
+                return m_sector_relation_mode;
+            }
+
+            auto pairs_bc = get_pairs_biggest_cell_sector();
+            auto pairs_ch = get_pairs_chain_sector();
+            auto pairs_ld = get_pairs_lowest_degree_sector();
+
+            unsigned w_bc = estimate_resultant_weight(pairs_bc);
+            unsigned w_ch = estimate_resultant_weight(pairs_ch);
+            unsigned w_ld = estimate_resultant_weight(pairs_ld);
+
+            TRACE(lws,
+                tout << "Level " << m_level << " SECTOR: rfunc.size=" << m_rel.m_rfunc.size()
+                     << ", m_l_rf=" << (is_set(m_l_rf) ? std::to_string(m_l_rf) : "UNSET")
+                     << ", m_u_rf=" << (is_set(m_u_rf) ? std::to_string(m_u_rf) : "UNSET")
+                     << ", pairs_bc=" << pairs_bc.size()
+                     << ", pairs_ch=" << pairs_ch.size()
+                     << ", pairs_ld=" << pairs_ld.size()
+                     << "\n  weight estimates: biggest_cell=" << w_bc
+                     << ", chain=" << w_ch
+                     << ", lowest_degree=" << w_ld << "\n";
+            );
+
+            if (w_ld <= w_ch && w_ld <= w_bc) return lowest_degree;
+            if (w_ch <= w_bc) return chain;
+            return biggest_cell;
+        }
+
+        // Generate pairs for section heuristics
+        std::vector<std::pair<unsigned, unsigned>> get_pairs_biggest_cell_section() const {
+            std::vector<std::pair<unsigned, unsigned>> pairs;
+            auto const& rfs = m_rel.m_rfunc;
+            unsigned n = rfs.size();
+            if (n == 0 || !is_set(m_l_rf)) return pairs;
+            for (unsigned j = 0; j < m_l_rf; ++j)
+                pairs.emplace_back(j, m_l_rf);
+            for (unsigned j = m_l_rf + 1; j < n; ++j)
+                pairs.emplace_back(m_l_rf, j);
+            return pairs;
+        }
+
+        std::vector<std::pair<unsigned, unsigned>> get_pairs_chain_section() const {
+            std::vector<std::pair<unsigned, unsigned>> pairs;
+            auto const& rfs = m_rel.m_rfunc;
+            unsigned n = rfs.size();
+            if (n == 0 || !is_set(m_l_rf)) return pairs;
+            for (unsigned j = 0; j + 1 < n; ++j)
+                pairs.emplace_back(j, j + 1);
+            return pairs;
+        }
+
+        std::vector<std::pair<unsigned, unsigned>> get_pairs_lowest_degree_section() const {
+            std::vector<std::pair<unsigned, unsigned>> pairs;
+            auto const& rfs = m_rel.m_rfunc;
+            unsigned n = rfs.size();
+            if (n == 0 || !is_set(m_l_rf)) return pairs;
+
+            std::vector<unsigned> degs;
+            degs.reserve(n);
+            for (unsigned i = 0; i < n; ++i)
+                degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
+
+            // Lower partition: [0, m_l_rf)
+            if (m_l_rf > 0) {
+                unsigned min_idx = m_l_rf;
+                unsigned min_deg = degs[m_l_rf];
+                for (int j = static_cast<int>(m_l_rf) - 1; j >= 0; --j) {
+                    unsigned jj = static_cast<unsigned>(j);
+                    pairs.emplace_back(jj, min_idx);
+                    if (degs[jj] < min_deg) {
+                        min_deg = degs[jj];
+                        min_idx = jj;
+                    }
+                }
+            }
+            // Upper partition: (m_l_rf, n)
+            if (m_l_rf + 1 < n) {
+                unsigned min_idx = m_l_rf;
+                unsigned min_deg = degs[m_l_rf];
+                for (unsigned j = m_l_rf + 1; j < n; ++j) {
+                    pairs.emplace_back(min_idx, j);
+                    if (degs[j] < min_deg) {
+                        min_deg = degs[j];
+                        min_idx = j;
+                    }
+                }
+            }
+            return pairs;
+        }
+
+        // Choose the best section heuristic based on estimated weight
+        relation_mode choose_best_section_heuristic() {
+            // With fewer than 2 root functions, no pairs can be generated
+            // so all heuristics are equivalent - use default
+            if (m_rel.m_rfunc.size() < 2) {
+                TRACE(lws,
+                    tout << "Level " << m_level << " SECTION: rfunc.size=" << m_rel.m_rfunc.size()
+                         << " < 2, using default heuristic\n";
+                );
+                return m_section_relation_mode;
+            }
+
+            auto pairs_bc = get_pairs_biggest_cell_section();
+            auto pairs_ch = get_pairs_chain_section();
+            auto pairs_ld = get_pairs_lowest_degree_section();
+
+            unsigned w_bc = estimate_resultant_weight(pairs_bc);
+            unsigned w_ch = estimate_resultant_weight(pairs_ch);
+            unsigned w_ld = estimate_resultant_weight(pairs_ld);
+
+            TRACE(lws,
+                tout << "Level " << m_level << " SECTION: rfunc.size=" << m_rel.m_rfunc.size()
+                     << ", m_l_rf=" << (is_set(m_l_rf) ? std::to_string(m_l_rf) : "UNSET")
+                     << ", pairs_bc=" << pairs_bc.size()
+                     << ", pairs_ch=" << pairs_ch.size()
+                     << ", pairs_ld=" << pairs_ld.size()
+                     << "\n  weight estimates: biggest_cell=" << w_bc
+                     << ", chain=" << w_ch
+                     << ", lowest_degree=" << w_ld << "\n";
+            );
+
+            if (w_ld <= w_ch && w_ld <= w_bc) return section_lowest_degree;
+            if (w_ch <= w_bc) return section_chain;
+            return section_biggest_cell;
+        }
+
         impl(
             solver& solver,
             polynomial_ref_vector const& ps,
@@ -184,6 +417,8 @@ namespace nlsat {
                 m_section_relation_mode = section_chain;
                 break;
             }
+
+            m_dynamic_heuristic = m_solver.lws_dynamic_heuristic();
         }
 
         void fail() { throw nullified_poly_exception(); }
@@ -1084,10 +1319,9 @@ namespace nlsat {
                 // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample
                 // AND we're adding lc, we do not need to project an additional non-null coefficient witness.
                 polynomial_ref witness = m_witnesses[i];
-                if (witness && !is_const(witness) && add_lc) {
+                if (add_lc && witness && !is_const(witness)) 
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         witness = polynomial_ref(m_pm);
-                }
                 add_projections_for(m_todo, p, m_level, witness, add_lc, true); //true for adding the discriminant: always add it in sector, required by Lemma 3.2.
             }
         }
@@ -1128,10 +1362,9 @@ namespace nlsat {
                     if (add_lc && vec_get(omit_lc, pid, false))
                         add_lc = false;
 
-                    if (add_lc && !has_roots) {
+                    if (add_lc && !has_roots)
                         if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                             add_lc = false;
-                    }
                 }
 
                 bool add_disc = true;
@@ -1160,10 +1393,9 @@ namespace nlsat {
                 // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample
                 // AND we're adding lc, we do not need to project an additional non-null coefficient witness.
                 polynomial_ref witness = m_witnesses[i];
-                if (witness && !is_const(witness) && add_lc) {
+                if (add_lc && witness && !is_const(witness)) 
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         witness = polynomial_ref(m_pm);
-                }
 
                 add_projections_for(m_todo, p, m_level, witness, add_lc, add_disc);
             }
@@ -1171,8 +1403,11 @@ namespace nlsat {
 
         void process_level_section(bool have_interval) {
             SASSERT(m_I[m_level].section);
-            if (have_interval)
+            if (have_interval) {
+                if (m_dynamic_heuristic)
+                    m_section_relation_mode = choose_best_section_heuristic();
                 fill_relation_pairs_for_section();
+            }
             upgrade_bounds_to_ord();
             add_level_projections_section();
             add_relation_resultants();
@@ -1180,8 +1415,11 @@ namespace nlsat {
 
         void process_level_sector(bool have_interval) {
             SASSERT(!m_I[m_level].section);
-            if (have_interval)
+            if (have_interval) {
+                if (m_dynamic_heuristic)
+                    m_sector_relation_mode = choose_best_sector_heuristic();
                 fill_relation_pairs_for_sector();
+            }
             upgrade_bounds_to_ord();
             add_level_projections_sector();
             add_relation_resultants();
