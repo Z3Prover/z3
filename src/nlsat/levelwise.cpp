@@ -75,7 +75,7 @@ namespace nlsat {
 
         // Per-level state set by process_level/process_top_level
         using tagged_id = std::pair<unsigned, inv_req>; // <pm.id(poly), tag>
-        todo_set*                       m_todo = nullptr;
+        todo_set                        m_todo;
         polynomial_ref_vector           m_level_ps;
         std::vector<tagged_id>          m_level_tags;
         std::vector<polynomial_ref>     m_witnesses;
@@ -148,6 +148,7 @@ namespace nlsat {
               m_pm(pm),
               m_am(am),
               m_cache(cache),
+              m_todo(m_cache, true),
               m_level_ps(m_pm),
               m_psc_tmp(m_pm) {
             m_I.reserve(m_n);
@@ -261,7 +262,7 @@ namespace nlsat {
         // Extract polynomials at max level from m_todo into m_level_ps and m_level_tags.
         // Sets m_level to the extracted level.
         void extract_max_tagged() {
-            m_level = m_todo->extract_max_polys(m_level_ps);
+            m_level = m_todo.extract_max_polys(m_level_ps);
             m_level_tags.clear();
             m_level_tags.reserve(m_level_ps.size());
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
@@ -1006,7 +1007,7 @@ namespace nlsat {
                 std::pair<unsigned, unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
                 if (!added_pairs.insert(key).second)
                     continue;
-                request_factorized(*m_todo, psc_resultant(a, b, m_level), inv_req::ord);
+                request_factorized(m_todo, psc_resultant(a, b, m_level), inv_req::ord);
             }
         }
 
@@ -1047,7 +1048,7 @@ namespace nlsat {
                 std::pair<unsigned, unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
                 if (!added_pairs.insert(key).second)
                     continue;
-                request_factorized(*m_todo, psc_resultant(p1, p2, m_n), inv_req::ord);
+                request_factorized(m_todo, psc_resultant(p1, p2, m_n), inv_req::ord);
             }
         }
 
@@ -1087,7 +1088,7 @@ namespace nlsat {
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         witness = polynomial_ref(m_pm);
                 }
-                add_projections_for(*m_todo, p, m_level, witness, add_lc, true); //true for adding the discriminant: always add it in sector, required by Lemma 3.2.
+                add_projections_for(m_todo, p, m_level, witness, add_lc, true); //true for adding the discriminant: always add it in sector, required by Lemma 3.2.
             }
         }
 
@@ -1164,7 +1165,7 @@ namespace nlsat {
                         witness = polynomial_ref(m_pm);
                 }
 
-                add_projections_for(*m_todo, p, m_level, witness, add_lc, add_disc);
+                add_projections_for(m_todo, p, m_level, witness, add_lc, add_disc);
             }
         }
 
@@ -1251,7 +1252,7 @@ namespace nlsat {
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         witness = polynomial_ref(m_pm);
                 }
-                add_projections_for(*m_todo, p, m_n, witness, add_lc, true);
+                add_projections_for(m_todo, p, m_n, witness, add_lc, true);
             }
         }
 
@@ -1259,28 +1260,27 @@ namespace nlsat {
             if (m_n == 0)
                 return m_I;
 
-            todo_set P(m_cache, true);
-            m_todo = &P;
+            m_todo.reset();
 
-            // Initialize P with distinct irreducible factors of the input polynomials.
+            // Initialize m_todo with distinct irreducible factors of the input polynomials.
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 polynomial_ref pi(m_P.get(i), m_pm);
                 for_each_distinct_factor(pi, [&](polynomial_ref const& f) {
-                    request(P, f.get(), inv_req::sign);
+                    request(m_todo, f.get(), inv_req::sign);
                 });
             }
 
-            if (P.empty())
+            if (m_todo.empty())
                 return m_I;
 
             // Process top level m_n (we project from x_{m_n} and do not return an interval for it).
-            if (P.max_var() == m_n) {
+            if (m_todo.max_var() == m_n) {
                 extract_max_tagged();
                 process_top_level();
             }
 
             // Now iteratively process remaining levels (descending).
-            while (!P.empty()) {
+            while (!m_todo.empty()) {
                 extract_max_tagged();
                 SASSERT(m_level < m_n);
                 process_level();
