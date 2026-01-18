@@ -2865,7 +2865,8 @@ namespace Microsoft.Z3
             Debug.Assert(i != null);
             Debug.Assert(a != null);
             Debug.Assert(s != null);
-            CheckContextMatch(f, i, a, s);
+            CheckContextMatch(f, i, a);
+            CheckContextMatch(s, a);
             return Expr.Create(this, Native.Z3_mk_seq_foldli(nCtx, f.NativeObject, i.NativeObject, a.NativeObject, s.NativeObject));
         }
 
