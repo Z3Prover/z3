@@ -106,7 +106,7 @@ jobs:
     name: "Python bindings (manylinux Centos ARM64 cross) build"
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    container: "quay.io/pypa/manylinux2014_x86_64:latest"
+    container: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
