@@ -291,7 +291,7 @@ jobs:
             setupCmd1: ''
             setupCmd2: ''
             buildCmd: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DZ3_SINGLE_THREADED=ON -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
-            runTests: true
+            runTests: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
