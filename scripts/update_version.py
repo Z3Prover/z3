@@ -115,6 +115,34 @@ def update_release_yml(version):
     except IOError as e:
         print(f"Error updating release.yml: {e}")
 
+def update_github_nightly_yml(version):
+    """Update .github/workflows/nightly.yml with the version."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    nightly_file = os.path.join(os.path.dirname(script_dir), '.github', 'workflows', 'nightly.yml')
+    
+    version_parts = version.split('.')
+    if len(version_parts) >= 3:
+        major, minor, patch = version_parts[0], version_parts[1], version_parts[2]
+    else:
+        print(f"Warning: Invalid version format in VERSION.txt: {version}")
+        return
+    
+    try:
+        with open(nightly_file, 'r') as f:
+            content = f.read()
+        
+        # Update MAJOR, MINOR, PATCH environment variables
+        content = re.sub(r"(\s+MAJOR:\s*')[^']*('.*)", r"\g<1>" + major + r"\g<2>", content)
+        content = re.sub(r"(\s+MINOR:\s*')[^']*('.*)", r"\g<1>" + minor + r"\g<2>", content)
+        content = re.sub(r"(\s+PATCH:\s*')[^']*('.*)", r"\g<1>" + patch + r"\g<2>", content)
+        
+        with open(nightly_file, 'w') as f:
+            f.write(content)
+        
+        print(f"Updated .github/workflows/nightly.yml version to {major}.{minor}.{patch}")
+    except IOError as e:
+        print(f"Error updating .github/workflows/nightly.yml: {e}")
+
 def main():
     """Main function."""
     print("Z3 Version Update Script")
@@ -128,6 +156,7 @@ def main():
     update_bazel_module(version)
     update_nightly_yaml(version)
     update_release_yml(version)
+    update_github_nightly_yml(version)
     
     print("\nUpdate complete!")
     print("\nNote: The following files automatically read from VERSION.txt:")
