@@ -573,12 +573,15 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R tmp
       
-      - name: Delete existing Nightly release
+      - name: Delete existing Nightly release and tag
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete Nightly --yes --cleanup-tag || true
+          # Delete the release first (this also deletes assets)
+          gh release delete Nightly --yes || echo "No release to delete"
+          # Delete the tag explicitly
+          git push origin :refs/tags/Nightly || echo "No tag to delete"
       
       - name: Create Nightly release
         env:
