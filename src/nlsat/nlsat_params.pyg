@@ -27,5 +27,6 @@ def_module_params('nlsat',
                           ('lws_rel_mode', UINT, 1, "relation mode for levelwise: 0 for biggest_cell, 1 for chain, 2 for lowest_degree"),
                           ('lws_sector_rel_mode', UINT, UINT_MAX, "relation mode for levelwise in SECTOR case: 0 for biggest_cell, 1 for chain, 2 for lowest_degree; UINT_MAX inherits lws_rel_mode"),
                           ('lws_section_rel_mode', UINT, UINT_MAX, "relation mode for levelwise in SECTION case: 0 for biggest_cell, 1 for chain, 2 for lowest_degree; UINT_MAX inherits lws_rel_mode"),
+                          ('lws_dynamic_heuristic', BOOL, True, "dynamically select levelwise heuristic based on estimated projection weight"),
                           ('canonicalize', BOOL, True, "canonicalize polynomials.")
                           ))         
