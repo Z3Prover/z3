@@ -4,23 +4,6 @@
 
   vanishing(v, p) = (q, r) with q = 0, r >= 0 if p := q*v + r, M(q) = 0
 
-  TODOs:
-
-  Assumptions are added to impose sign constraints on non-linear multipliers
-  or to identify vanishing polynomials.
-  The sign of the assumption is based on the current candidate interpretation.
-  It could be that the negation of this assumption is asserted (and is 
-  false under the current candiate interpretation). 
-  The procedure could loop around refining a false assumption.
-  To handle this we could also track bounds of polynomials. 
-  Then we can check if a bound on a polynomial is already asserted, 
-  either as a case split or as an input assertion.
-  To retract consequences of temporary assumed bounds we would associate
-  levels with constraints and also undo and replay constraints during backjumping/backtracking.
-  A bound assumption corresponds to a decision. A conflict that depends on a bound assumption
-  reverts the assumptiom, and justifies it by the conflict dependencies.
-  In this way we would eliminate the double nested loop: saturate looping over the search loop.
-
   --*/
 
 #include <algorithm>
@@ -306,6 +289,7 @@ namespace nla {
         m_justifications.push_back(j);        
         m_constraint_index.insert({p.index(), k}, ci);
         push_bound(ci);
+        push_constraint(ci);
         ++c().lp_settings().stats().m_stellensatz.m_num_constraints;        
         m_has_occurs.reserve(ci + 1);
         return ci;
@@ -885,20 +869,25 @@ namespace nla {
 
     bool stellensatz2::constraint_is_bound_conflict(lp::constraint_index ci) {
         auto const &c = m_constraints[ci];
-        auto const& [p, k] = c;
+        auto const &[p, k] = c;
         scoped_dep_interval iv(m_di);
-        interval(p, iv);
-        if (iv->m_upper_inf)
+        calculate_interval(iv, p);
+        return constraint_is_bound_conflict(ci, iv);
+    }
+
+    bool stellensatz2::constraint_is_bound_conflict(lp::constraint_index ci, dep_interval const &iv) {
+        auto const &[p, k] = m_constraints[ci];
+        if (iv.m_upper_inf)
             return false;
-        if (iv->m_upper > 0)
+        if (iv.m_upper > 0)
             return false;
-        bool is_negative = iv->m_upper < 0 || iv->m_upper_open;
-        SASSERT(is_negative || iv->m_upper == 0);
+        bool is_negative = iv.m_upper < 0 || iv.m_upper_open;
+        SASSERT(is_negative || iv.m_upper == 0);
         bool is_conflict = k == lp::lconstraint_kind::GT || (k == lp::lconstraint_kind::GE && is_negative);
         if (!is_conflict)
             return false;
         m_conflict_dep.reset();
-        m_dm.linearize(iv->m_lower_dep, m_conflict_dep);
+        m_dm.linearize(iv.m_lower_dep, m_conflict_dep);
         TRACE(arith, tout << "constraint is bound conflict: "; display_constraint(tout, ci) << "\n";);                    
         return true;
     }
@@ -923,20 +912,27 @@ namespace nla {
     // 
     // Based on current bounds for variables, compute bounds of polynomial
     // 
-    void stellensatz2::interval(dd::pdd p, scoped_dep_interval& iv) {
-        auto &m = iv.m();
+    void stellensatz2::calculate_interval(scoped_dep_interval& out, dd::pdd p) {
+        auto &m = out.m();
         if (p.is_val()) {
-            m.set_value(iv, p.val());
+            m.set_value(out, p.val());
             return;
         }
-        scoped_dep_interval x(m), lo(m), hi(m);        
-        auto v = p.var();
+        scoped_dep_interval lo(m), hi(m), x(m);
+        calculate_interval(x, p.var());
+        calculate_interval(hi, p.hi());
+        calculate_interval(lo, p.lo());
+        calculate_interval(out, x, lo, hi);
+    }
+
+    void stellensatz2::calculate_interval(scoped_dep_interval& x, lpvar v) {
+        auto &m = x.m();
         auto lb = get_lower(v);
         if (lb == UINT_MAX) {
             m.set_lower_is_inf(x, true);
         }
         else {
-            auto const& lo = m_bounds[lb];
+            auto const &lo = m_bounds[lb];
             m.set_lower_is_inf(x, false);
             m.set_lower_is_open(x, lo.m_kind == lp::lconstraint_kind::GT);
             m.set_lower(x, lo.m_value);
@@ -947,16 +943,19 @@ namespace nla {
             m.set_upper_is_inf(x, true);
         }
         else {
-            auto const& hi = m_bounds[ub];
+            auto const &hi = m_bounds[ub];
             m.set_upper_is_inf(x, false);
             m.set_upper_is_open(x, hi.m_kind == lp::lconstraint_kind::LT);
             m.set_upper(x, hi.m_value);
             m.set_upper_dep(x, hi.d);
         }
-        interval(p.hi(), hi);
-        interval(p.lo(), lo);
-        m.mul<dep_intervals::with_deps>(x, hi, hi);
-        m.add<dep_intervals::with_deps>(lo, hi, iv);          
+    }
+
+    void stellensatz2::calculate_interval(scoped_dep_interval& out, dep_interval const& x, dep_interval const& lo, dep_interval const& hi) {
+        auto &m = out.m();
+        scoped_dep_interval tmp(m);
+        m.mul<dep_intervals::with_deps>(x, hi, tmp);
+        m.add<dep_intervals::with_deps>(lo, tmp, out);
     }
 
     //
@@ -1148,14 +1147,17 @@ namespace nla {
         m_justifications.shrink(head);
         m_levels.shrink(head);
         // re-insert bounds
-        for (; m_bounds.size() >= ci;)
+        for (; m_bounds.size() >= ci;) {
             pop_bound();
-        for (; m_bounds.size() < head;)
+            pop_constraint(m_bounds.size());
+        }
+        for (; m_bounds.size() < head;) {
             push_bound(m_bounds.size());
+            push_constraint(m_bounds.size() - 1);
+        }
 
         SASSERT(well_formed_last_bound());
-        reset_conflict();
-        m_prop_qhead = ci;
+        reset_conflict();        
     }
 
     stellensatz2::justification stellensatz2::translate_j(std::function<lp::constraint_index(lp::constraint_index)> const& f,
@@ -1167,6 +1169,12 @@ namespace nla {
                 for (auto ci : arg.cs)
                     cs.push_back(f(ci));
                 return bound_propagation_justification{f(arg.ci), cs};
+            }
+            else if constexpr (std::is_same_v<T, propagation_justification>) {
+                svector<lp::constraint_index> cs;
+                for (auto ci : arg.cs)
+                    cs.push_back(f(ci));
+                return propagation_justification{cs};
             }
             else if constexpr (std::is_same_v<T, assumption_justification>) {
                 return assumption_justification{};
@@ -1218,6 +1226,10 @@ namespace nla {
             auto const &bpj = std::get<bound_propagation_justification>(j);
             return index == 0 ? bpj.ci : bpj.cs[index - 1];
         }
+        if (std::holds_alternative<propagation_justification>(j)) {
+            auto const &bpj = std::get<propagation_justification>(j);
+            return bpj.cs[index];
+        }
         if (std::holds_alternative<assumption_justification>(j)) {
             UNREACHABLE();
         }
@@ -1264,6 +1276,8 @@ namespace nla {
     unsigned stellensatz2::num_constraints(justification const &j) {
         if (std::holds_alternative<bound_propagation_justification>(j)) 
             return 1 + std::get<bound_propagation_justification>(j).cs.size();
+        if (std::holds_alternative<propagation_justification>(j)) 
+            return std::get<propagation_justification>(j).cs.size();
         if (std::holds_alternative<assumption_justification>(j))
             return 0;
         if (std::holds_alternative<external_justification>(j))
@@ -1286,57 +1300,25 @@ namespace nla {
         return 0;
     }
 
-    void stellensatz2::propagate() {
-        if (m_prop_qhead == m_constraints.size())
+    void stellensatz2::propagate_constraint(lpvar x, lp::lconstraint_kind k, rational const& value,
+        lp::constraint_index ci, svector<lp::constraint_index>& cs) {
+        TRACE(arith, display_constraint(tout << "constraint is propagating ", ci) << "\n";
+              tout << "v" << x << " " << k << " " << value << "\n";);
+
+        // block repeated bounds propagation
+        if (propagation_cycle(x, value, k, ci, cs))
             return;
-       
-        for (; m_prop_qhead < m_constraints.size(); ++m_prop_qhead) {
-            if (!c().reslim().inc())
-                return;
-            auto q = m_bounds[m_prop_qhead].q;
-            if (is_bound_conflict(q))
-                return;
-            
-            if (!q.is_var())
-                continue;
-            auto v = q.var();
 
-            for (unsigned i = 0; i < m_occurs[v].size(); ++i) {
-                lp::constraint_index ci = m_occurs[v][i];
+        ci = add_constraint(pddm.mk_var(x) - value, k, bound_propagation_justification{ci, cs});
 
-                TRACE(arith, tout << "propagate v" << v << " (" << ci << ")\n");
+        if (constraint_is_bound_conflict(ci))
+            return;
 
-                // detect conflict or propagate dep_intervals
+        set_in_bounds(x);
 
-                if (constraint_is_bound_conflict(ci))
-                    return;
-                
-                lpvar w;
-                rational value;
-                lp::lconstraint_kind k;
-                svector<lp::constraint_index> cs;
-                if (!constraint_is_propagating(ci, cs, w, k, value))
-                    continue;
-
-                TRACE(arith, display_constraint(tout << "constraint is propagating ", ci) << "\n";
-                      tout << "v" << w << " " << k << " " << value << "\n";);
-
-                // block repeated bounds propagation 
-                if (propagation_cycle(w, value, k, ci, cs))
-                    continue;
-
-                ci = add_constraint(pddm.mk_var(w) - value, k, bound_propagation_justification{ci, cs});
-                
-                if (constraint_is_bound_conflict(ci))
-                    return;
-
-                set_in_bounds(w);
-
-                CTRACE(arith, !well_formed_last_bound(), display(tout));
-                SASSERT(well_formed_last_bound());
-                SASSERT(well_formed_var(w));                
-            }
-        }
+        CTRACE(arith, !well_formed_last_bound(), display(tout));
+        SASSERT(well_formed_last_bound());
+        SASSERT(well_formed_var(x));
     }
 
     bool stellensatz2::propagation_cycle(lpvar v, rational const &value, lp::lconstraint_kind k, lp::constraint_index ci, svector<lp::constraint_index>& cs) const {
@@ -1427,8 +1409,7 @@ namespace nla {
 
     unsigned stellensatz2::max_level(constraint const &c) const {
         unsigned level = 0;
-        auto const &vars = c.p.free_vars();
-        for (auto v : vars)
+        for (auto v : c.p.free_vars())
             level = std::max(level, m_var2level[v]);
         return level;
     }
@@ -1449,99 +1430,108 @@ namespace nla {
                                                  lp::lconstraint_kind &k, rational &value) {
         auto [p, ck] = m_constraints[ci];
         cs.reset();
+        k = ck;
         for (auto x : p.free_vars()) {
             auto f = factor(x, ci);
             if (f.degree > 1)
                 continue;
             scoped_dep_interval ivp(m_di), ivq(m_di);
-            interval(f.p, ivp);
-            interval(-f.q, ivq); 
+            calculate_interval(ivp, f.p);
+            calculate_interval(ivq, -f.q);
+
             TRACE(arith_verbose, tout << "variable v" << x << " in " << p << "\n";
                   m_di.display(tout << "interval: " << f.p << ": ", ivp) << "\n";
                   m_di.display(tout << "interval: " << -f.q << ": ", ivq) << "\n";
                   display_constraint(tout, ci) << "\n");
-           
-            // hi_p > 0
-            // 0 <= lo_q <= -q
-            // => x >= lo_q / hi_p
-            // 
-            if (!ivp->m_upper_inf && ivp->m_upper > 0 && !ivq->m_lower_inf && ivq->m_lower >= 0) {
-                // v >= -q / p
-                auto quot = ivq->m_lower / ivp->m_upper;
-                if (var_is_int(x))
-                    quot = ceil(quot);
-                bool is_strict = !var_is_int(x) && (ck == lp::lconstraint_kind::GT || ivq->m_lower_open || ivp->m_lower_open);
-                if (!has_lo(x) || quot > lo_val(x) || (!lo_is_strict(x) && quot == lo_val(x) && is_strict)) {
-                    TRACE(arith, tout << "new lower bound v" << x << " " << quot << "\n");
-                    auto d = m_dm.mk_join(ivq->m_lower_dep, ivp->m_upper_dep);
-                    m_dm.linearize(d, cs);
-                    k = is_strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE;
-                    v = x;
-                    value = quot;
-                    return true;
-                }
-            }
 
-            // hi_p >= p >= lo_p > 0
-            // 0 > hi_q >= -q >= lo_q
-            // => x >= lo_q / lo_p
-            if (!ivp->m_lower_inf && ivp->m_lower > 0 && !ivq->m_lower_inf && ivq->m_lower <= 0) {
-                auto quot = ivq->m_lower / ivp->m_lower;
-                if (var_is_int(x))
-                    quot = ceil(quot);
-                bool is_strict =
-                    !var_is_int(x) && (ck == lp::lconstraint_kind::GT || ivq->m_lower_open || ivp->m_lower_open);
-                if (!has_lo(x) || quot > lo_val(x) || (!lo_is_strict(x) && quot == lo_val(x) && is_strict)) {
-                    TRACE(arith, tout << "new lower bound v" << x << " " << quot << "\n");
-                    auto d = m_dm.mk_join(ivp->m_lower_dep, ivq->m_lower_dep);
-                    m_dm.linearize(d, cs);
-                    k = is_strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE;
-                    v = x;
-                    value = quot;
-                    return true;
-                }
+            v = x;
+            k = ck;
+            if (constraint_is_propagating(ivp, ivq, v, cs, k, value))
+                return true;
+        }
+           
+        return false;
+    }
+
+    bool stellensatz2::constraint_is_propagating(dep_interval const &ivp, dep_interval const &ivq, lpvar x,
+                                                 svector<lp::constraint_index> &cs, lp::lconstraint_kind &k,
+                                                 rational &value) {
+        // hi_p > 0
+        // 0 <= lo_q <= -q
+        // => x >= lo_q / hi_p
+        //
+        if (!ivp.m_upper_inf && ivp.m_upper > 0 && !ivq.m_lower_inf && ivq.m_lower >= 0) {
+            // v >= -q / p
+            auto quot = ivq.m_lower / ivp.m_upper;
+            if (var_is_int(x))
+                quot = ceil(quot);
+            bool is_strict =
+                !var_is_int(x) && (k == lp::lconstraint_kind::GT || ivq.m_lower_open || ivp.m_lower_open);
+            if (!has_lo(x) || quot > lo_val(x) || (!lo_is_strict(x) && quot == lo_val(x) && is_strict)) {
+                TRACE(arith, tout << "new lower bound v" << x << " " << quot << "\n");
+                auto d = m_dm.mk_join(ivq.m_lower_dep, ivp.m_upper_dep);
+                m_dm.linearize(d, cs);
+                k = is_strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE;
+                value = quot;
+                return true;
             }
-            
-            // p <= hi_p < 0
-            // lo_q <= q <= hi_q < 0
-            // => x <= lo_q / hi_p
-            if (!ivp->m_upper_inf && ivp->m_upper < 0 && !ivq->m_upper_inf && !ivq->m_lower_inf && ivq->m_upper <= 0) {
-                // v <= -q / p
-                auto quot = ivq->m_lower / ivp->m_upper;
-                if (var_is_int(x))
-                    quot = floor(quot);
-                bool is_strict =
-                    !var_is_int(x) && (ck == lp::lconstraint_kind::GT || ivq->m_lower_open || ivp->m_upper_open);
-                if (!has_hi(x) || quot < hi_val(x) || (!hi_is_strict(x) && quot == hi_val(x) && is_strict)) {
-                    TRACE(arith, tout << "new upper bound v" << x << " " << quot << "\n");
-                    auto d = m_dm.mk_join(ivq->m_upper_dep, m_dm.mk_join(ivq->m_lower_dep, ivp->m_upper_dep));
-                    m_dm.linearize(d, cs);
-                    k = is_strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE;
-                    v = x;
-                    value = quot;
-                    return true;
-                }
+        }
+
+        // hi_p >= p >= lo_p > 0
+        // 0 > hi_q >= -q >= lo_q
+        // => x >= lo_q / lo_p
+        if (!ivp.m_lower_inf && ivp.m_lower > 0 && !ivq.m_lower_inf && ivq.m_lower <= 0) {
+            auto quot = ivq.m_lower / ivp.m_lower;
+            if (var_is_int(x))
+                quot = ceil(quot);
+            bool is_strict =
+                !var_is_int(x) && (k == lp::lconstraint_kind::GT || ivq.m_lower_open || ivp.m_lower_open);
+            if (!has_lo(x) || quot > lo_val(x) || (!lo_is_strict(x) && quot == lo_val(x) && is_strict)) {
+                TRACE(arith, tout << "new lower bound v" << x << " " << quot << "\n");
+                auto d = m_dm.mk_join(ivp.m_lower_dep, ivq.m_lower_dep);
+                m_dm.linearize(d, cs);
+                k = is_strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE;
+                value = quot;
+                return true;
             }
-            // lo_p <= p < 0
-            // 0 <= lo_q <= -q 
-            // => x <= lo_q / lo_p
-            // 
-            if (!ivp->m_upper_inf && ivp->m_upper < 0 && !ivp->m_lower_inf && 
-                !ivq->m_lower_inf && ivq->m_lower >= 0) {
-                auto quot = ivq->m_lower / ivp->m_lower;
-                if (var_is_int(x))
-                    quot = floor(quot);
-                bool is_strict =
-                    !var_is_int(x) && (ck == lp::lconstraint_kind::GT || ivq->m_lower_open || ivp->m_lower_open);
-                if (!has_hi(x) || quot < hi_val(x) || (!hi_is_strict(x) && quot == hi_val(x) && is_strict)) {
-                    TRACE(arith, tout << "new upper bound v" << x << " " << quot << "\n");
-                    auto d = m_dm.mk_join(ivp->m_upper_dep, m_dm.mk_join(ivp->m_lower_dep, ivq->m_lower_dep));
-                    m_dm.linearize(d, cs);
-                    k = is_strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE;
-                    v = x;
-                    value = quot;
-                    return true;
-                }
+        }
+
+        // p <= hi_p < 0
+        // lo_q <= q <= hi_q < 0
+        // => x <= lo_q / hi_p
+        if (!ivp.m_upper_inf && ivp.m_upper < 0 && !ivq.m_upper_inf && !ivq.m_lower_inf && ivq.m_upper <= 0) {
+            // v <= -q / p
+            auto quot = ivq.m_lower / ivp.m_upper;
+            if (var_is_int(x))
+                quot = floor(quot);
+            bool is_strict =
+                !var_is_int(x) && (k == lp::lconstraint_kind::GT || ivq.m_lower_open || ivp.m_upper_open);
+            if (!has_hi(x) || quot < hi_val(x) || (!hi_is_strict(x) && quot == hi_val(x) && is_strict)) {
+                TRACE(arith, tout << "new upper bound v" << x << " " << quot << "\n");
+                auto d = m_dm.mk_join(ivq.m_upper_dep, m_dm.mk_join(ivq.m_lower_dep, ivp.m_upper_dep));
+                m_dm.linearize(d, cs);
+                k = is_strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE;
+                value = quot;
+                return true;
+            }
+        }
+        // lo_p <= p < 0
+        // 0 <= lo_q <= -q
+        // => x <= lo_q / lo_p
+        //
+        if (!ivp.m_upper_inf && ivp.m_upper < 0 && !ivp.m_lower_inf && !ivq.m_lower_inf && ivq.m_lower >= 0) {
+            auto quot = ivq.m_lower / ivp.m_lower;
+            if (var_is_int(x))
+                quot = floor(quot);
+            bool is_strict =
+                !var_is_int(x) && (k == lp::lconstraint_kind::GT || ivq.m_lower_open || ivp.m_lower_open);
+            if (!has_hi(x) || quot < hi_val(x) || (!hi_is_strict(x) && quot == hi_val(x) && is_strict)) {
+                TRACE(arith, tout << "new upper bound v" << x << " " << quot << "\n");
+                auto d = m_dm.mk_join(ivp.m_upper_dep, m_dm.mk_join(ivp.m_lower_dep, ivq.m_lower_dep));
+                m_dm.linearize(d, cs);
+                k = is_strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE;
+                value = quot;
+                return true;
             }
         }
         return false;
@@ -1913,8 +1903,7 @@ namespace nla {
         m_var2level[w] = l;
         m_level2var[l0] = v;
         m_level2var[l] = w;
-    }
-   
+    }   
 
     std::ostream &stellensatz2::display(std::ostream &out) const {        
         for (unsigned v = 0; v < num_vars(); ++v) 
@@ -1924,6 +1913,58 @@ namespace nla {
             display_constraint(out, ci) << "\n";
             display(out << "\t<- ", m_justifications[ci]) << "\n";
         }
+        
+        // Display propagation data structures
+        out << "\n=== Propagation State ===\n";
+        
+        // Display polynomial queue
+        out << "Polynomial queue (qhead=" << m_prop_qhead << "):\n";
+        for (unsigned i = 0; i < m_polynomial_queue.size(); ++i) {
+            out << "  [" << i << "]" << (i < m_prop_qhead ? " (processed)" : "") << " ";
+            m_polynomial_queue[i].display(out) << "\n";
+        }
+        
+        // Display intervals
+        out << "\nIntervals:\n";
+        for (unsigned idx = 0; idx < m_intervals.size(); ++idx) {
+            auto const& ivs = m_intervals[idx];
+            if (ivs.empty())
+                continue;
+            auto const& iv = *ivs.back();
+            out << "  [" << idx << "] ";
+            m_di.display(out, iv) << "\n";
+        }
+        
+        // Display parents
+        out << "\nParents:\n";
+        for (unsigned idx = 0; idx < m_parents.size(); ++idx) {
+            auto const& parents = m_parents[idx];
+            if (parents.empty())
+                continue;
+            out << "  [" << idx << "] -> { ";
+            bool first = true;
+            for (auto const& p : parents) {
+                if (!first) out << ", ";
+                first = false;
+                p.display(out);
+            }
+            out << " }\n";
+        }
+        
+        // Display factors
+        out << "\nFactors:\n";
+        for (unsigned idx = 0; idx < m_factors.size(); ++idx) {
+            auto const& factors = m_factors[idx];
+            if (factors.empty())
+                continue;
+            out << "  [" << idx << "]:\n";
+            for (auto const& [x, f, ci] : factors) {
+                out << "    var=j" << x << " deg=" << f.degree << " p=";
+                f.p.display(out) << " q=";
+                f.q.display(out) << " ci=" << ci << "\n";
+            }
+        }
+        
         return out;
     }
 
@@ -2137,5 +2178,206 @@ namespace nla {
                 add_constraint(r, k, prop);
             }
         }
+    }
+
+    // incremental bounds propagation
+    // When adding a new bound x >= r, then
+    // set up to walk all parents of x in constraints
+    // recompute bounds for every of these sub-expressions
+    // propagate recomputed bounds up if they are stronger
+    // For sub-expressions that correspond to factors, perform
+    // bounds propagations
+    // For sub-expressions that correspond to constraints check that bounds have
+    // non-empty intersection with the bound imposed by the constraint
+    
+    // 1. Life-time management of sub-expressions and insertion into propagation queue
+    void stellensatz2::push_constraint(lp::constraint_index ci) {
+        auto [p, k] = m_constraints[ci];
+        m_scopes.push_back(
+            {m_parent_trail.size(), 
+             m_factor_trail.size(), 
+             m_polynomial_queue.size(), 
+             m_interval_trail.size(), 
+             m_prop_qhead});
+
+        insert_parents(p);
+        insert_parents(p, ci);
+        for (auto x : p.free_vars()) {
+            auto f = factor(x, ci);
+            if (f.degree > 1)
+                continue;
+            insert_parents(f.p);
+            insert_parents(f.q);
+            insert_factor(f.p, x, f, ci);
+            insert_factor(f.q, x, f, ci);
+        }
+
+        // 2 new bound is added, then update intervals and queue up for propagation
+        auto const &b = m_bounds[ci];
+        auto &m = m_di.num_manager();
+        scoped_dep_interval new_iv(m_di);
+        bool is_strict = k == lp::lconstraint_kind::GT;
+
+        if (b.q.is_var()) {
+            auto const &iv = get_interval(b.q);
+            m_di.set_lower_is_inf(new_iv, false);
+            m_di.set_lower(new_iv, b.m_value);
+            m_di.set_lower_is_open(new_iv, is_strict);
+            m_di.set_lower_dep(new_iv, b.d);
+            m_di.copy_upper_bound<dep_intervals::with_deps>(iv, new_iv);
+            if (update_interval(new_iv, b.q))
+                m_polynomial_queue.push_back(b.q);
+        }
+        if (b.mq.is_var()) {
+            auto const &iv = get_interval(b.mq);
+            m_di.set_upper_is_inf(new_iv, false);
+            m_di.set_upper_is_open(new_iv, is_strict);
+            m_di.set_upper_dep(new_iv, b.d);
+            m_di.set_upper(new_iv, -b.m_value);
+            m_di.copy_lower_bound<dep_intervals::with_deps>(iv, new_iv);
+            if (update_interval(new_iv, b.mq))
+                m_polynomial_queue.push_back(b.mq);
+        }
+    }
+
+
+    void stellensatz2::insert_parents(dd::pdd const &p, lp::constraint_index ci) {
+        m_parent_constraints.reserve(p.index() + 1);
+        m_parent_constraints[p.index()].push_back(ci);
+    }
+
+    void stellensatz2::insert_parents(dd::pdd const &p) {
+        if (m_is_parent.get(p.index(), false) || p.is_val())
+            return;
+        m_is_parent.setx(p.index(), true, false);
+        m_parent_trail.push_back(p);
+        m_intervals.reserve(p.index() + 1);
+        m_intervals[p.index()].push_back(alloc(dep_interval));
+        insert_child(p.lo(), p);
+        insert_child(p.hi(), p);
+    }
+
+    void stellensatz2::insert_child(dd::pdd const &child, dd::pdd const &parent) {
+        m_parents.reserve(child.index() + 1);
+        m_parents[child.index()].push_back(parent);
+        insert_parents(child);
+    }
+
+    void stellensatz2::insert_factor(dd::pdd const &p, lpvar x, factorization const &f, lp::constraint_index ci) {
+        m_factors[p.index()].push_back({x, f, ci});
+        m_factor_trail.push_back(p.index());
+    }
+    
+    void stellensatz2::pop_constraint(lp::constraint_index ci) {
+        auto const &s = m_scopes[ci];
+        m_parent_constraints[ci].pop_back();
+        while (m_factor_trail.size() >= s.factors_lim) {
+            auto p_index = m_factor_trail.back();
+            m_factors[p_index].pop_back();
+            m_factor_trail.pop_back();
+        }
+        while (m_parent_trail.size() >= s.parents_lim) {
+            auto p = m_parent_trail.back();
+            m_is_parent[p.index()] = false;
+            m_parents[p.lo().index()].pop_back();
+            m_parents[p.hi().index()].pop_back();
+            m_parent_trail.pop_back();
+        }
+        m_polynomial_queue.shrink(s.polynomial_lim);
+
+        while (m_interval_trail.size() > s.interval_lim) {
+            auto p_index = m_interval_trail.back();
+            m_intervals[p_index].pop_back();
+            m_interval_trail.pop_back();
+        }
+        m_prop_qhead = s.qhead; 
+        m_scopes.pop_back();
+    }
+   
+   
+    void stellensatz2::propagate() {
+        while (m_prop_qhead < m_polynomial_queue.size()) {
+            auto p = m_polynomial_queue[m_prop_qhead++];
+            propagate_intervals(p);
+        }
+    }
+
+    bool stellensatz2::is_better(dep_interval const &new_iv, dep_interval const &old_iv) {
+        auto &m = m_di.num_manager();
+        if (old_iv.m_lower_inf && !new_iv.m_lower_inf)
+            return true;
+        if (old_iv.m_upper_inf && !new_iv.m_upper_inf)
+            return true;
+        if (!new_iv.m_lower_inf && !old_iv.m_lower_inf &&
+            (m.gt(new_iv.m_lower, old_iv.m_lower) ||
+             (m.eq(new_iv.m_lower, old_iv.m_lower) && new_iv.m_lower_open && !old_iv.m_lower_open)))
+            return true;
+
+        if (!new_iv.m_upper_inf && !old_iv.m_upper_inf &&
+            (m.gt(old_iv.m_upper, new_iv.m_upper) ||
+             (m.eq(new_iv.m_upper, old_iv.m_upper) && new_iv.m_upper_open && !old_iv.m_upper_open)))
+            return true;
+
+        return false;
+    }
+
+    dep_interval const &stellensatz2::get_interval(dd::pdd const &p) {
+        auto &ivs = m_intervals[p.index()];
+        if (ivs.empty() && p.is_val()) {
+            ivs.push_back(alloc(dep_interval));
+            m_di.set_value(*ivs.back(), p.val());
+            return *ivs.back();
+        }
+        SASSERT(!ivs.empty());
+        return *ivs.back();
+    }
+
+    bool stellensatz2::update_interval(dep_interval const &new_iv, dd::pdd const &p) {
+        auto &old_iv = get_interval(p);
+
+        if (!is_better(new_iv, old_iv))
+            return false;
+
+        m_intervals[p.index()].push_back(alloc(dep_interval));
+        m_di.set<dep_intervals::with_deps>(*m_intervals[p.index()].back(), new_iv);
+        m_interval_trail.push_back(p.index());
+        return true;
+    }
+
+    void stellensatz2::propagate_intervals(dd::pdd const &p) {
+        // for each parent of p, propagate updated intervals
+        for (auto parent : m_parents[p.index()]) {
+            SASSERT(!parent.is_val());
+            scoped_dep_interval new_iv(m_di);
+            auto &x = get_interval(pddm.mk_var(parent.var()));
+            auto &lo = get_interval(parent.lo());
+            auto &hi = get_interval(parent.hi());
+            calculate_interval(new_iv, x, lo, hi);
+            if (update_interval(new_iv, parent))
+                m_polynomial_queue.push_back(parent);
+        }
+
+        // check constraints
+        for (auto ci : m_parent_constraints[p.index()]) {
+            auto const &[poly, k] = m_constraints[ci];
+            auto &iv_poly = get_interval(poly);
+            if (constraint_is_bound_conflict(ci, iv_poly))
+                return;  // conflict detected
+        }
+
+        // propagate to factors
+        for (auto const &[x, f, ci] : m_factors[p.index()]) {
+            scoped_dep_interval iv_mq(m_di);
+            auto &iv_p = get_interval(f.p);
+            auto &iv_q = get_interval(f.q);
+            m_di.neg<dep_intervals::with_deps>(iv_q, iv_mq);
+            auto [p, k] = m_constraints[ci];  // p == f.p * x + f.q
+            SASSERT(p == (f.p * pddm.mk_var(x)) + f.q);
+            rational value;
+            svector<lp::constraint_index> cs;
+            if (constraint_is_propagating(iv_p, iv_mq, x, cs, k, value))
+                propagate_constraint(x, k, value, ci, cs);
+        }
+
     }
 }
