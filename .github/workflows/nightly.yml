@@ -472,7 +472,7 @@ jobs:
 
   python-package:
     name: "Python packaging"
-    needs: [mac-build-x64, mac-build-arm64, windows-build-x64, windows-build-x86, manylinux-python-arm64]
+    needs: [mac-build-x64, mac-build-arm64, windows-build-x64, windows-build-x86]
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
@@ -532,7 +532,6 @@ jobs:
           echo $PWD/../../../artifacts/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-          cp $PWD/../../../artifacts/*.whl dist/ || true
       
       - name: Upload artifact
         uses: actions/upload-artifact@v6
