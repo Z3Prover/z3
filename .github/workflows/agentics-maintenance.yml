@@ -45,7 +45,7 @@ jobs:
       discussions: write
     steps:
       - name: Setup Scripts
-        uses: githubnext/gh-aw/actions/setup@v0.36.0
+        uses: githubnext/gh-aw/actions/setup@v0.37.0
         with:
           destination: /opt/gh-aw/actions
 
@@ -64,7 +64,7 @@ jobs:
       issues: write
     steps:
       - name: Setup Scripts
-        uses: githubnext/gh-aw/actions/setup@v0.36.0
+        uses: githubnext/gh-aw/actions/setup@v0.37.0
         with:
           destination: /opt/gh-aw/actions
 
@@ -102,7 +102,7 @@ jobs:
           echo "✓ All workflows compiled successfully"
 
       - name: Setup Scripts
-        uses: githubnext/gh-aw/actions/setup@v0.36.0
+        uses: githubnext/gh-aw/actions/setup@v0.37.0
         with:
           destination: /tmp/gh-aw/actions
 
