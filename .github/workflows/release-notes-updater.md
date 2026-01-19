@@ -21,11 +21,10 @@ tools:
   view: {}
 
 safe-outputs:
-  create-pull-request:
+  create-discussion:
     title-prefix: "[Release Notes] "
-    labels: [documentation, automated]
-    draft: false
-    if-no-changes: "warn"
+    category: "Announcements"
+    close-older-discussions: false
   github-token: ${{ secrets.GITHUB_TOKEN }}
 
 steps:
@@ -137,59 +136,54 @@ Version X.Y.Z
   - https://github.com/Z3Prover/z3/pull/7947
 ```
 
-### 6. Update RELEASE_NOTES.md
+### 6. Prepare the Release Notes Content
 
-Insert the new release section **immediately after** the "Version 4.next" section:
+**CRITICAL: Maintain Consistent Formatting**
 
-1. Read the current RELEASE_NOTES.md
+Study the existing RELEASE_NOTES.md carefully to match the style. Your formatted content should be ready to insert **immediately after** the "Version 4.next" section:
+
+1. Read the current RELEASE_NOTES.md to understand the format
 2. Find the "Version 4.next" section (it should be at the top)
-3. Insert your new release section after it but before the previous release sections
-4. Keep the "Version 4.next" section intact - don't modify it
+3. Format your release notes to be inserted after it but before the previous release sections
+4. The "Version 4.next" section should remain intact - don't modify it
 
-The structure should be:
+The structure for the formatted content should be:
 ```markdown
-RELEASE NOTES
-
-Version 4.next
-================
-[keep existing content]
-
 Version X.Y.Z
 ==============
 [your new release notes here]
-
-Version [previous]
-==============
-[existing previous releases]
 ```
 
-### 7. Check for Existing Pull Requests
+This content will be shared in a discussion where maintainers can review it before applying it to RELEASE_NOTES.md.
 
-Before creating a new pull request, check if there's already an open PR for release notes updates:
+### 7. Check for Existing Discussions
+
+Before creating a new discussion, check if there's already an open discussion for release notes updates:
 
 ```bash
-# Search for open PRs with "[Release Notes]" in the title
-gh pr list --state open --search "[Release Notes] in:title" --json number,title
+# Search for open discussions with "[Release Notes]" in the title
+gh search discussions --repo Z3Prover/z3 "[Release Notes] in:title" --json number,title
 ```
 
-If an open PR already exists:
-- Do NOT create a new pull request
-- Add a comment to the existing PR with the new analysis
+If a recent discussion already exists (within the last week):
+- Do NOT create a new discussion
 - Exit gracefully
 
-### 8. Create Pull Request
+### 8. Create Discussion
 
-If there are substantial updates to add AND no existing PR exists:
-- Create a pull request with the updated RELEASE_NOTES.md
+If there are substantial updates to add AND no recent discussion exists:
+- Create a discussion with the release notes analysis
 - Use a descriptive title like "Release notes for version X.Y.Z"
-- In the PR description, summarize:
+- In the discussion body, include:
+  - The formatted release notes content that should be added to RELEASE_NOTES.md
   - Number of maintainer changes included
   - Number of external contributions acknowledged
   - Any notable features or improvements
   - Date range of commits analyzed
+  - Instructions for maintainers on how to apply these updates to RELEASE_NOTES.md
 
 If there are NO substantial changes since the last release:
-- Do NOT create a pull request
+- Do NOT create a discussion
 - Exit gracefully
 
 ## Guidelines
@@ -201,7 +195,7 @@ If there are NO substantial changes since the last release:
 - **Give credit**: Always acknowledge external contributors
 - **Use proper links**: Include PR and issue links where applicable
 - **Stay focused**: This is about documenting changes, not reviewing code quality
-- **No empty updates**: Only create a PR if there are actual changes to document
+- **No empty updates**: Only create a discussion if there are actual changes to document
 
 ## Important Notes
 
@@ -211,7 +205,8 @@ If there are NO substantial changes since the last release:
 - Maintain the bullet point structure and indentation style
 - Include links to PRs using the full GitHub URL format
 - Do NOT modify the "Version 4.next" section - only add a new section below it
-- Do NOT create a PR if there are no changes to document
+- Do NOT create a discussion if there are no changes to document
+- The discussion should provide ready-to-apply content for RELEASE_NOTES.md
 
 ## Example Workflow
 
@@ -220,5 +215,5 @@ If there are NO substantial changes since the last release:
 3. Get commits: `git log --format='%H|%an|%ae|%s' z3-4.15.4..HEAD`
 4. Analyze each commit to determine if substantial
 5. Format the changes following existing style
-6. Insert new "Version 4.15.5" section after "Version 4.next"
-7. Create PR with the update
+6. Check for existing discussions
+7. Create discussion with the release notes analysis and formatted content

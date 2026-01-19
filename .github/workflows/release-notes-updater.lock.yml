@@ -152,32 +152,25 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'EOF'
-          {"create_pull_request":{},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
+          {"create_discussion":{"max":1},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
           EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'EOF'
           [
             {
-              "description": "Create a new GitHub pull request to propose code changes. Use this after making file edits to submit them for review and merging. The PR will be created from the current branch with your committed changes. For code review comments on an existing PR, use create_pull_request_review_comment instead. CONSTRAINTS: Maximum 1 pull request(s) can be created. Title will be prefixed with \"[Release Notes] \". Labels [documentation automated] will be automatically added.",
+              "description": "Create a GitHub discussion for announcements, Q\u0026A, reports, status updates, or community conversations. Use this for content that benefits from threaded replies, doesn't require task tracking, or serves as documentation. For actionable work items that need assignment and status tracking, use create_issue instead. CONSTRAINTS: Maximum 1 discussion(s) can be created. Title will be prefixed with \"[Release Notes] \". Discussions will be created in category \"Announcements\".",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
                   "body": {
-                    "description": "Detailed PR description in Markdown. Include what changes were made, why, testing notes, and any breaking changes. Do NOT repeat the title as a heading.",
+                    "description": "Discussion content in Markdown. Do NOT repeat the title as a heading since it already appears as the discussion's h1. Include all relevant context, findings, or questions.",
                     "type": "string"
                   },
-                  "branch": {
-                    "description": "Source branch name containing the changes. If omitted, uses the current working branch.",
+                  "category": {
+                    "description": "Discussion category by name (e.g., 'General'), slug (e.g., 'general'), or ID. If omitted, uses the first available category. Category must exist in the repository.",
                     "type": "string"
-                  },
-                  "labels": {
-                    "description": "Labels to categorize the PR (e.g., 'enhancement', 'bugfix'). Labels must exist in the repository.",
-                    "items": {
-                      "type": "string"
-                    },
-                    "type": "array"
                   },
                   "title": {
-                    "description": "Concise PR title describing the changes. Follow repository conventions (e.g., conventional commits). The title appears as the main heading.",
+                    "description": "Concise discussion title summarizing the topic. The title appears as the main heading, so keep it brief and descriptive.",
                     "type": "string"
                   }
                 },
@@ -187,7 +180,7 @@ jobs:
                 ],
                 "type": "object"
               },
-              "name": "create_pull_request"
+              "name": "create_discussion"
             },
             {
               "description": "Report that a tool or capability needed to complete the task is not available. Use this when you cannot accomplish what was requested because the required functionality is missing or access is restricted.",
@@ -236,7 +229,7 @@ jobs:
           EOF
           cat > /opt/gh-aw/safeoutputs/validation.json << 'EOF'
           {
-            "create_pull_request": {
+            "create_discussion": {
               "defaultMax": 1,
               "fields": {
                 "body": {
@@ -245,17 +238,14 @@ jobs:
                   "sanitize": true,
                   "maxLength": 65000
                 },
-                "branch": {
-                  "required": true,
+                "category": {
                   "type": "string",
                   "sanitize": true,
-                  "maxLength": 256
+                  "maxLength": 128
                 },
-                "labels": {
-                  "type": "array",
-                  "itemType": "string",
-                  "itemSanitize": true,
-                  "itemMaxLength": 128
+                "repo": {
+                  "type": "string",
+                  "maxLength": 256
                 },
                 "title": {
                   "required": true,
@@ -524,59 +514,54 @@ jobs:
             - https://github.com/Z3Prover/z3/pull/7947
           ```
           
-          ### 6. Update RELEASE_NOTES.md
+          ### 6. Prepare the Release Notes Content
           
-          Insert the new release section **immediately after** the "Version 4.next" section:
+          **CRITICAL: Maintain Consistent Formatting**
           
-          1. Read the current RELEASE_NOTES.md
+          Study the existing RELEASE_NOTES.md carefully to match the style. Your formatted content should be ready to insert **immediately after** the "Version 4.next" section:
+          
+          1. Read the current RELEASE_NOTES.md to understand the format
           2. Find the "Version 4.next" section (it should be at the top)
-          3. Insert your new release section after it but before the previous release sections
-          4. Keep the "Version 4.next" section intact - don't modify it
+          3. Format your release notes to be inserted after it but before the previous release sections
+          4. The "Version 4.next" section should remain intact - don't modify it
           
-          The structure should be:
+          The structure for the formatted content should be:
           ```markdown
-          RELEASE NOTES
-          
-          Version 4.next
-          ================
-          [keep existing content]
-          
           Version X.Y.Z
           ==============
           [your new release notes here]
-          
-          Version [previous]
-          ==============
-          [existing previous releases]
           ```
           
-          ### 7. Check for Existing Pull Requests
+          This content will be shared in a discussion where maintainers can review it before applying it to RELEASE_NOTES.md.
           
-          Before creating a new pull request, check if there's already an open PR for release notes updates:
+          ### 7. Check for Existing Discussions
+          
+          Before creating a new discussion, check if there's already an open discussion for release notes updates:
           
           ```bash
-          # Search for open PRs with "[Release Notes]" in the title
-          gh pr list --state open --search "[Release Notes] in:title" --json number,title
+          # Search for open discussions with "[Release Notes]" in the title
+          gh search discussions --repo Z3Prover/z3 "[Release Notes] in:title" --json number,title
           ```
           
-          If an open PR already exists:
-          - Do NOT create a new pull request
-          - Add a comment to the existing PR with the new analysis
+          If a recent discussion already exists (within the last week):
+          - Do NOT create a new discussion
           - Exit gracefully
           
-          ### 8. Create Pull Request
+          ### 8. Create Discussion
           
-          If there are substantial updates to add AND no existing PR exists:
-          - Create a pull request with the updated RELEASE_NOTES.md
+          If there are substantial updates to add AND no recent discussion exists:
+          - Create a discussion with the release notes analysis
           - Use a descriptive title like "Release notes for version X.Y.Z"
-          - In the PR description, summarize:
+          - In the discussion body, include:
+            - The formatted release notes content that should be added to RELEASE_NOTES.md
             - Number of maintainer changes included
             - Number of external contributions acknowledged
             - Any notable features or improvements
             - Date range of commits analyzed
+            - Instructions for maintainers on how to apply these updates to RELEASE_NOTES.md
           
           If there are NO substantial changes since the last release:
-          - Do NOT create a pull request
+          - Do NOT create a discussion
           - Exit gracefully
           
           ## Guidelines
@@ -588,7 +573,7 @@ jobs:
           - **Give credit**: Always acknowledge external contributors
           - **Use proper links**: Include PR and issue links where applicable
           - **Stay focused**: This is about documenting changes, not reviewing code quality
-          - **No empty updates**: Only create a PR if there are actual changes to document
+          - **No empty updates**: Only create a discussion if there are actual changes to document
           
           ## Important Notes
           
@@ -598,7 +583,8 @@ jobs:
           - Maintain the bullet point structure and indentation style
           - Include links to PRs using the full GitHub URL format
           - Do NOT modify the "Version 4.next" section - only add a new section below it
-          - Do NOT create a PR if there are no changes to document
+          - Do NOT create a discussion if there are no changes to document
+          - The discussion should provide ready-to-apply content for RELEASE_NOTES.md
           
           ## Example Workflow
           
@@ -607,8 +593,8 @@ jobs:
           3. Get commits: `git log --format='%H|%an|%ae|%s' z3-4.15.4..HEAD`
           4. Analyze each commit to determine if substantial
           5. Format the changes following existing style
-          6. Insert new "Version 4.15.5" section after "Version 4.next"
-          7. Create PR with the update
+          6. Check for existing discussions
+          7. Create discussion with the release notes analysis and formatted content
           
           PROMPT_EOF
       - name: Substitute placeholders
@@ -652,7 +638,7 @@ jobs:
           <instructions>
           To create or modify GitHub resources (issues, discussions, pull requests, etc.), you MUST call the appropriate safe output tool. Simply writing content will NOT work - the workflow requires actual tool calls.
           
-          **Available tools**: create_pull_request, missing_tool, noop
+          **Available tools**: create_discussion, missing_tool, noop
           
           **Critical**: Tool calls write structured data that downstream jobs process. Without tool calls, follow-up actions will be skipped.
           </instructions>
@@ -865,7 +851,6 @@ jobs:
             /tmp/gh-aw/mcp-logs/
             /tmp/gh-aw/sandbox/firewall/logs/
             /tmp/gh-aw/agent-stdio.log
-            /tmp/gh-aw/aw.patch
           if-no-files-found: ignore
 
   conclusion:
@@ -1113,15 +1098,13 @@ jobs:
 
   safe_outputs:
     needs:
-      - activation
       - agent
       - detection
     if: ((!cancelled()) && (needs.agent.result != 'skipped')) && (needs.detection.outputs.success == 'true')
     runs-on: ubuntu-slim
     permissions:
-      contents: write
-      issues: write
-      pull-requests: write
+      contents: read
+      discussions: write
     timeout-minutes: 15
     env:
       GH_AW_ENGINE_ID: "copilot"
@@ -1146,37 +1129,12 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs/
           find "/tmp/gh-aw/safeoutputs/" -type f -print
           echo "GH_AW_AGENT_OUTPUT=/tmp/gh-aw/safeoutputs/agent_output.json" >> "$GITHUB_ENV"
-      - name: Download patch artifact
-        continue-on-error: true
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
-        with:
-          name: agent-artifacts
-          path: /tmp/gh-aw/
-      - name: Checkout repository
-        if: ((!cancelled()) && (needs.agent.result != 'skipped')) && (contains(needs.agent.outputs.output_types, 'create_pull_request'))
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          token: ${{ github.token }}
-          persist-credentials: false
-          fetch-depth: 1
-      - name: Configure Git credentials
-        if: ((!cancelled()) && (needs.agent.result != 'skipped')) && (contains(needs.agent.outputs.output_types, 'create_pull_request'))
-        env:
-          REPO_NAME: ${{ github.repository }}
-          SERVER_URL: ${{ github.server_url }}
-        run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-          # Re-authenticate git with GitHub token
-          SERVER_URL_STRIPPED="${SERVER_URL#https://}"
-          git remote set-url origin "https://x-access-token:${{ github.token }}@${SERVER_URL_STRIPPED}/${REPO_NAME}.git"
-          echo "Git configured with standard GitHub Actions identity"
       - name: Process Safe Outputs
         id: process_safe_outputs
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_pull_request\":{\"base_branch\":\"${{ github.ref_name }}\",\"draft\":false,\"if_no_changes\":\"warn\",\"labels\":[\"documentation\",\"automated\"],\"max\":1,\"max_patch_size\":1024,\"title_prefix\":\"[Release Notes] \"}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_discussion\":{\"category\":\"Announcements\",\"expires\":168,\"max\":1,\"title_prefix\":\"[Release Notes] \"}}"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
