@@ -25,7 +25,7 @@ namespace smt {
           non_link_justifications(MAX_VARS * MAX_VARS, {nullptr, nullptr}), largest_var(0),
           max_size(MAX_VARS), ctx(ctx), t_lattice_refutation(t_lattice) {
         // Initialize the vectors
-        link_dls.resize(MAX_VARS * MAX_VARS, 0);
+        link_dls.resize(MAX_VARS * MAX_VARS, static_cast<unsigned>(0));
         for (int i = 0; i < MAX_VARS; i++) {
             reachable[i].reset();
             non_links[i].reset();
@@ -53,8 +53,11 @@ namespace smt {
     }
 
     bool reachability_matrix::bitwise_or_rows(int source_dest, int source) {
-        // Save old state for potential rollback
+        // Save old state before modification
         uint_set old_reachable = reachable[source_dest];
+        
+        // Push trail before modifying
+        ctx.push_trail(value_trail(reachable[source_dest]));
         
         // Compute union: reachable[source_dest] |= reachable[source]
         reachable[source_dest] |= reachable[source];
@@ -62,7 +65,6 @@ namespace smt {
         // Check if anything changed
         bool changes = !(old_reachable == reachable[source_dest]);
         if (changes) {
-            ctx.push_trail(value_trail(reachable[source_dest]));
             // Check for conflicts with newly added reachabilities
             for (unsigned dest : reachable[source_dest]) {
                 if (!old_reachable.contains(dest)) {
