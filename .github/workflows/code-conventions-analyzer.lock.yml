@@ -86,6 +86,17 @@ jobs:
           persist-credentials: false
       - name: Create gh-aw temp directory
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
+      # Cache memory file share configuration from frontmatter processed below
+      - name: Create cache-memory directory
+        run: bash /opt/gh-aw/actions/create_cache_memory_dir.sh
+      - name: Restore cache memory file share data
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          key: memory-${{ github.workflow }}-${{ github.run_id }}
+          path: /tmp/gh-aw/cache-memory
+          restore-keys: |
+            memory-${{ github.workflow }}-
+            memory-
       - name: Configure Git credentials
         env:
           REPO_NAME: ${{ github.repository }}
@@ -421,6 +432,31 @@ jobs:
           2. **Opportunities to use modern C++ features** that would simplify code
           3. **Common patterns** that could be improved or standardized
           
+          ## Step 1: Initialize or Resume Progress (Cache Memory)
+          
+          **Check your cache memory for:**
+          - List of code quality issues previously identified
+          - Current progress through the codebase analysis
+          - Any recommendations or work items from previous runs
+          
+          **Critical - Re-verify All Cached Issues:**
+          
+          Before including any previously cached issue in your report, you **MUST**:
+          
+          1. **Re-verify each cached issue** against the current codebase
+          2. **Check if the issue has been resolved** since the last run:
+             - Use `grep`, `glob`, `view`, or `bash` to inspect the relevant code
+             - Check git history with `git log` to see if the files were updated
+             - Verify that the pattern or issue still exists
+          3. **Categorize each cached issue** as:
+             - ✅ **RESOLVED**: Code has been updated and issue no longer exists
+             - 🔄 **IN PROGRESS**: Partial fixes have been applied
+             - ❌ **UNRESOLVED**: Issue still exists unchanged
+          4. **Remove resolved issues** from your cache and report
+          5. **Update partially resolved issues** with current state
+          
+          **Important:** If this is your first run or memory is empty, initialize a new tracking structure. Focus on systematic coverage of the codebase over multiple runs rather than attempting to analyze everything at once.
+          
           ## Analysis Areas
           
           ### 1. Coding Convention Consistency
@@ -606,8 +642,16 @@ jobs:
              - `src/api/` - Public API surface
              - `src/tactic/` - Tactics and simplifiers (good for m_imp pattern analysis)
              - Use `glob` to find representative source files
+             - **Prioritize areas** not yet analyzed (check cache memory)
           
-          2. **Use code search tools** effectively:
+          2. **Re-verify previously identified issues** (if any exist in cache):
+             - For each cached issue, check current code state
+             - Use `git log` to see recent changes to relevant files
+             - Verify with `grep`, `glob`, or `view` that the issue still exists
+             - Mark issues as resolved, in-progress, or unresolved
+             - Only include unresolved issues in the new report
+          
+          3. **Use code search tools** effectively:
              - `grep` with patterns to find specific code constructs
              - `glob` to identify file groups for analysis
              - `view` to examine specific files in detail
@@ -620,13 +664,13 @@ jobs:
                  - bugprone-* (selected high-signal checks)
                  - performance-* (selected)
           
-          3. **Identify patterns** by examining multiple files:
+          4. **Identify patterns** by examining multiple files:
              - Look at 10-15 representative files per major area
              - Note common patterns vs inconsistencies
              - Check both header (.h) and implementation (.cpp) files
              - Use `sizeof` and field alignment to analyze struct sizes
           
-          4. **Quantify findings**:
+          5. **Quantify findings**:
              - Count occurrences of specific patterns
              - Identify which areas are most affected
              - Prioritize findings by impact and prevalence
@@ -651,31 +695,62 @@ jobs:
           
           [Brief overview of key findings - 2-3 sentences]
           
+          ## Progress Tracking Summary
+          
+          **This section tracks work items across multiple runs:**
+          
+          ### Previously Identified Issues - Status Update
+          
+          **✅ RESOLVED Issues** (since last run):
+          - [List issues from cache that have been resolved, with brief description]
+          - [Include file references and what changed]
+          - [Note: Only include if re-verification confirms resolution]
+          - If none: "No previously identified issues have been resolved since the last run"
+          
+          **🔄 IN PROGRESS Issues** (partial fixes applied):
+          - [List issues where some improvements have been made but work remains]
+          - [Show what's been done and what's left]
+          - If none: "No issues are currently in progress"
+          
+          **❌ UNRESOLVED Issues** (still present):
+          - [Brief list of issues that remain from previous runs]
+          - [Will be detailed in sections below]
+          - If none or first run: "This is the first analysis run" or "All previous issues resolved"
+          
+          ### New Issues Identified in This Run
+          
+          [Count of new issues found in this analysis]
+          
           ## 1. Coding Convention Consistency Findings
           
           ### 1.1 Naming Conventions
           - **Current State**: [What you observed]
           - **Inconsistencies Found**: [List specific examples with file:line references]
+          - **Status**: [New / Previously Identified - Unresolved]
           - **Recommendation**: [Suggested standard to adopt]
           
           ### 1.2 Code Formatting
           - **Alignment with .clang-format**: [Assessment]
           - **Common Deviations**: [List patterns that deviate from style guide]
+          - **Status**: [New / Previously Identified - Unresolved]
           - **Files Needing Attention**: [List specific files or patterns]
           
           ### 1.3 Documentation Style
           - **Current Practices**: [Observed documentation patterns]
           - **Inconsistencies**: [Examples of different documentation approaches]
+          - **Status**: [New / Previously Identified - Unresolved]
           - **Recommendation**: [Suggested documentation standard]
           
           ### 1.4 Include Patterns
           - **Header Guard Usage**: `#pragma once` vs traditional guards
           - **Include Order**: [Observed patterns]
+          - **Status**: [New / Previously Identified - Unresolved]
           - **Recommendations**: [Suggested improvements]
           
           ### 1.5 Error Handling
           - **Current Approaches**: [Exception usage, return codes, assertions]
           - **Consistency Assessment**: [Are patterns consistent across modules?]
+          - **Status**: [New / Previously Identified - Unresolved]
           - **Recommendations**: [Suggested standards]
           
           ## 2. Modern C++ Feature Opportunities
@@ -686,6 +761,7 @@ jobs:
           - **Modern Alternative**: [How it could be improved]
           - **Impact**: [Benefits: readability, safety, performance]
           - **Example Locations**: [File:line references]
+          - **Status**: [New / Previously Identified - Unresolved]
           - **Estimated Effort**: [Low/Medium/High]
           
           ### 2.1 C++11/14 Features
@@ -695,6 +771,7 @@ jobs:
           - **Modern**: `[improved code example]`
           - **Benefit**: [Why this is better]
           - **Prevalence**: Found in [number] locations
+          - **Status**: [New / Previously Identified - Unresolved]
           
           [Repeat for each opportunity]
           
@@ -752,6 +829,12 @@ jobs:
             - Recommendation: Keep explicit (required for polymorphism), but ensure `= default` or add comment
             - Examples: [File:line references]
           
+          PROMPT_EOF
+      - name: Append prompt (part 2)
+        env:
+          GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
+        run: |
+          cat << 'PROMPT_EOF' >> "$GH_AW_PROMPT"
           #### 4.1.3 Non-Virtual Destructor Safety Analysis
           - **Classes with Virtual Methods but Non-Virtual Destructors**: Potential polymorphism issues
             - Pattern: Class has virtual methods but destructor is not virtual
@@ -807,12 +890,6 @@ jobs:
           
           ### 4.4 AST Creation Efficiency and Determinism
           - **Redundant Creation**: [Examples of rebuilding same expression multiple times]
-          PROMPT_EOF
-      - name: Append prompt (part 2)
-        env:
-          GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
-        run: |
-          cat << 'PROMPT_EOF' >> "$GH_AW_PROMPT"
           - **Temporary Usage**: [Places where temporaries could be cached and order of creation determinized]
           - **Impact**: [Performance improvement potential and determinism across platforms]
           
@@ -907,10 +984,51 @@ jobs:
           - **Source directories covered**: [list]
           - **Lines of code reviewed**: ~[estimate]
           - **Pattern occurrences counted**: [key patterns with counts]
+          - **Issues resolved since last run**: [number]
+          - **New issues identified**: [number]
+          - **Total unresolved issues**: [number]
           ```
+          
+          ## Step 2: Update Cache Memory After Analysis
+          
+          After completing your analysis and creating the discussion, **update your cache memory** with:
+          
+          1. **Remove resolved issues** from the cache:
+             - Delete any issues that have been verified as resolved
+             - Do not carry forward stale information
+          
+          2. **Store only unresolved issues** for next run:
+             - Each issue should include:
+               - Description of the issue
+               - File locations (paths and line numbers if applicable)
+               - Pattern or code example
+               - Recommendation for fix
+               - Date last verified
+          
+          3. **Track analysis progress**:
+             - Which directories/areas have been analyzed
+             - Which analysis categories have been covered
+             - Percentage of codebase examined
+             - Next areas to focus on
+          
+          4. **Store summary statistics**:
+             - Total issues identified (cumulative)
+             - Total issues resolved
+             - Current unresolved count
+             - Analysis run count
+          
+          **Critical:** Keep your cache clean and current. The cache should only contain:
+          - Unresolved issues verified in the current run
+          - Areas not yet analyzed
+          - Progress tracking information
+          
+          Do NOT perpetuate resolved issues in the cache. Always verify before storing.
           
           ## Important Guidelines
           
+          - **Track progress across runs**: Use cache memory to maintain state between runs
+          - **Always re-verify cached issues**: Check that previously identified issues still exist before reporting them
+          - **Report resolved work items**: Acknowledge when issues have been fixed to show progress
           - **Be thorough but focused**: Examine a representative sample, not every file
           - **Provide specific examples**: Always include file paths and line numbers
           - **Balance idealism with pragmatism**: Consider the effort required for changes
@@ -928,6 +1046,7 @@ jobs:
           - **Measure size improvements**: Use `static_assert` and `sizeof` to verify memory layout optimizations
           - **Prioritize safety**: Smart pointers, `std::optional`, and `std::span` improve type safety
           - **Consider performance**: Hash table optimizations and AST caching have measurable impact
+          - **Keep cache current**: Remove resolved issues from cache, only store verified unresolved items
           
           ## Code Search Examples
           
@@ -1097,6 +1216,31 @@ jobs:
           GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
         run: |
           cat "/opt/gh-aw/prompts/temp_folder_prompt.md" >> "$GH_AW_PROMPT"
+      - name: Append cache memory instructions to prompt
+        env:
+          GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
+        run: |
+          cat << 'PROMPT_EOF' >> "$GH_AW_PROMPT"
+          
+          ---
+          
+          ## Cache Folder Available
+          
+          You have access to a persistent cache folder at `/tmp/gh-aw/cache-memory/` where you can read and write files to create memories and store information.
+          
+          - **Read/Write Access**: You can freely read from and write to any files in this folder
+          - **Persistence**: Files in this folder persist across workflow runs via GitHub Actions cache
+          - **Last Write Wins**: If multiple processes write to the same file, the last write will be preserved
+          - **File Share**: Use this as a simple file share - organize files as you see fit
+          
+          Examples of what you can store:
+          - `/tmp/gh-aw/cache-memory/notes.txt` - general notes and observations
+          - `/tmp/gh-aw/cache-memory/preferences.json` - user preferences and settings
+          - `/tmp/gh-aw/cache-memory/history.log` - activity history and logs
+          - `/tmp/gh-aw/cache-memory/state/` - organized state files in subdirectories
+          
+          Feel free to create, read, update, and organize files in this folder as needed for your tasks.
+          PROMPT_EOF
       - name: Append safe outputs instructions to prompt
         env:
           GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
@@ -1228,7 +1372,7 @@ jobs:
         run: |
           set -o pipefail
           sudo -E awf --env-all --container-workdir "${GITHUB_WORKSPACE}" --mount /tmp:/tmp:rw --mount "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}:rw" --mount /usr/bin/date:/usr/bin/date:ro --mount /usr/bin/gh:/usr/bin/gh:ro --mount /usr/bin/yq:/usr/bin/yq:ro --mount /usr/local/bin/copilot:/usr/local/bin/copilot:ro --mount /home/runner/.copilot:/home/runner/.copilot:rw --mount /opt/gh-aw:/opt/gh-aw:ro --allow-domains api.business.githubcopilot.com,api.enterprise.githubcopilot.com,api.github.com,api.githubcopilot.com,api.individual.githubcopilot.com,github.com,host.docker.internal,raw.githubusercontent.com,registry.npmjs.org --log-level info --proxy-logs-dir /tmp/gh-aw/sandbox/firewall/logs --image-tag 0.8.2 \
-            -- /usr/local/bin/copilot --add-dir /tmp/gh-aw/ --log-level all --log-dir /tmp/gh-aw/sandbox/agent/logs/ --add-dir "${GITHUB_WORKSPACE}" --disable-builtin-mcps --allow-tool github --allow-tool safeoutputs --allow-tool 'shell(cat)' --allow-tool 'shell(clang-format --version)' --allow-tool 'shell(date)' --allow-tool 'shell(echo)' --allow-tool 'shell(git diff:*)' --allow-tool 'shell(git log:*)' --allow-tool 'shell(git show:*)' --allow-tool 'shell(grep)' --allow-tool 'shell(head)' --allow-tool 'shell(ls)' --allow-tool 'shell(pwd)' --allow-tool 'shell(sort)' --allow-tool 'shell(tail)' --allow-tool 'shell(uniq)' --allow-tool 'shell(wc)' --allow-tool 'shell(yq)' --allow-tool write --allow-all-paths --share /tmp/gh-aw/sandbox/agent/logs/conversation.md --prompt "$(cat /tmp/gh-aw/aw-prompts/prompt.txt)"${GH_AW_MODEL_AGENT_COPILOT:+ --model "$GH_AW_MODEL_AGENT_COPILOT"} \
+            -- /usr/local/bin/copilot --add-dir /tmp/gh-aw/ --log-level all --log-dir /tmp/gh-aw/sandbox/agent/logs/ --add-dir "${GITHUB_WORKSPACE}" --disable-builtin-mcps --allow-tool github --allow-tool safeoutputs --allow-tool 'shell(cat)' --allow-tool 'shell(clang-format --version)' --allow-tool 'shell(date)' --allow-tool 'shell(echo)' --allow-tool 'shell(git diff:*)' --allow-tool 'shell(git log:*)' --allow-tool 'shell(git show:*)' --allow-tool 'shell(grep)' --allow-tool 'shell(head)' --allow-tool 'shell(ls)' --allow-tool 'shell(pwd)' --allow-tool 'shell(sort)' --allow-tool 'shell(tail)' --allow-tool 'shell(uniq)' --allow-tool 'shell(wc)' --allow-tool 'shell(yq)' --allow-tool write --add-dir /tmp/gh-aw/cache-memory/ --allow-all-paths --share /tmp/gh-aw/sandbox/agent/logs/conversation.md --prompt "$(cat /tmp/gh-aw/aw-prompts/prompt.txt)"${GH_AW_MODEL_AGENT_COPILOT:+ --model "$GH_AW_MODEL_AGENT_COPILOT"} \
             2>&1 | tee /tmp/gh-aw/agent-stdio.log
         env:
           COPILOT_AGENT_RUNNER_TYPE: STANDALONE
@@ -1328,6 +1472,12 @@ jobs:
         env:
           AWF_LOGS_DIR: /tmp/gh-aw/sandbox/firewall/logs
         run: awf logs summary >> $GITHUB_STEP_SUMMARY
+      - name: Upload cache-memory data as artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: always()
+        with:
+          name: cache-memory
+          path: /tmp/gh-aw/cache-memory
       - name: Upload agent artifacts
         if: always()
         continue-on-error: true
@@ -1348,6 +1498,7 @@ jobs:
       - agent
       - detection
       - safe_outputs
+      - update_cache_memory
     if: (always()) && (needs.agent.result != 'skipped')
     runs-on: ubuntu-slim
     permissions:
@@ -1633,4 +1784,28 @@ jobs:
             setupGlobals(core, github, context, exec, io);
             const { main } = require('/opt/gh-aw/actions/safe_output_handler_manager.cjs');
             await main();
+
+  update_cache_memory:
+    needs:
+      - agent
+      - detection
+    if: always() && needs.detection.outputs.success == 'true'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Setup Scripts
+        uses: githubnext/gh-aw/actions/setup@v0.36.0
+        with:
+          destination: /opt/gh-aw/actions
+      - name: Download cache-memory artifact (default)
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        continue-on-error: true
+        with:
+          name: cache-memory
+          path: /tmp/gh-aw/cache-memory
+      - name: Save cache-memory to cache (default)
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          key: memory-${{ github.workflow }}-${{ github.run_id }}
+          path: /tmp/gh-aw/cache-memory
 
