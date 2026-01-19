@@ -28,7 +28,8 @@ namespace smt {
         theory(ctx, ctx.get_manager().mk_family_id("finite_set")),
         u(m),
         m_axioms(m), m_rw(m), m_find(*this),
-        m_cardinality_solver(*this)
+        m_cardinality_solver(*this),
+        m_lattice_refutation(*this)
     {
         // Setup the add_clause callback for axioms
         std::function<void(theory_axiom *)> add_clause_fn =
@@ -227,8 +228,11 @@ namespace smt {
             e = ctx.mk_enode(term, false, m.is_bool(term), true);        
         
         // Attach theory variable if this is a set
-        if (!is_attached_to_var(e))             
+        if (!is_attached_to_var(e)){            
             ctx.attach_th_var(e, this, mk_var(e));
+            TRACE(finite_set, tout << "create_theory_var: " << e->get_th_var(get_id()) << " enode:" << e->get_expr() << "\n";);
+        }
+
 
         // Assert immediate axioms
         if (!ctx.relevancy())
@@ -256,6 +260,10 @@ namespace smt {
             ctx.push_trail(push_back_vector(m_eqs));
             m_find.merge(v1, v2);  // triggers merge_eh, which triggers incremental generation of theory axioms
         }
+        m_lattice_refutation.add_equality(v1, v2);
+
+        // Check if Z3 has a boolean variable for it
+        TRACE(finite_set, tout << "new_eq_eh_r1: " << n1->get_root() << "r2: "<< n2->get_root() <<"\n";);
     }
 
     /**
@@ -279,6 +287,7 @@ namespace smt {
             ctx.push_trail(push_back_vector(m_diseqs));
             m_axioms.extensionality_axiom(e1, e2);
         }
+        m_lattice_refutation.add_disequality(v1,v2);
     }
 
     //
@@ -405,6 +414,8 @@ namespace smt {
     void theory_finite_set::assign_eh(bool_var v, bool is_true) {
         TRACE(finite_set, tout << "assign_eh: v" << v << " is_true: " << is_true << "\n";);
         expr *e = ctx.bool_var2expr(v);
+        TRACE(finite_set, tout << "assign_eh_expr: " << mk_pp(e, m) << "\n";);
+
         // retrieve the watch list for clauses where e appears with opposite polarity
         unsigned idx = 2 * e->get_id() + (is_true ? 1 : 0);
         if (idx >= m_clauses.watch.size())

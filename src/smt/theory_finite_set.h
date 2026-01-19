@@ -87,6 +87,7 @@ the theory solver uses a stand-alone satisfiability checker for Boolean algebras
 #include "util/union_find.h"
 #include "smt/smt_theory.h"
 #include "smt/theory_finite_set_size.h"
+#include "smt/theory_finite_set_lattice_refutation.h"
 #include "model/finite_set_factory.h"
 
 namespace smt {
@@ -96,6 +97,7 @@ namespace smt {
         using th_union_find = union_find<theory_finite_set>;
         friend class theory_finite_set_test;
         friend class theory_finite_set_size;
+        friend class theory_finite_set_lattice_refutation;
         friend struct finite_set_value_proc;
 
         struct var_data {
@@ -139,6 +141,7 @@ namespace smt {
         th_union_find             m_find;
         theory_clauses            m_clauses;
         theory_finite_set_size m_cardinality_solver;
+        theory_finite_set_lattice_refutation m_lattice_refutation;
         finite_set_factory *m_factory = nullptr;
         obj_map<enode, obj_map<enode, bool> *> m_set_members;
         ptr_vector<func_decl> m_set_in_decls;
