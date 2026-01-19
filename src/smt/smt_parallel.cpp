@@ -77,8 +77,6 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << "SLS threw an exception: " << ex.what() << "\n");
             b.set_exception(ex.what());
         }
-        IF_VERBOSE(10, verbose_stream() << res << "\n");
-        IF_VERBOSE(10, m_sls->display(verbose_stream()));
 
         if (res == l_true) {            
             model_ref mdl = m_sls->get_model();
@@ -184,13 +182,8 @@ namespace smt {
 
     parallel::sls_worker::sls_worker(parallel& p)
         : p(p), b(p.m_batch_manager), m(), m_g2l(p.ctx.m, m), m_l2g(m, p.ctx.m) {
-
         IF_VERBOSE(1, verbose_stream() << "Initialized SLS portfolio thread\n");
-
-        // Build params ONCE (main thread)
         m_params.append(p.ctx.m_params);
-
-        // Build tactics ONCE (main thread, thread-unsafe!)
         m_sls = alloc(sls::smt_solver, m, m_params);
     }
 
@@ -554,21 +547,17 @@ namespace smt {
         
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
-
         SASSERT(num_threads > 1);
         for (unsigned i = 0; i < num_threads; ++i)
             m_workers.push_back(alloc(worker, i, *this, asms));
-        
         for (auto w : m_workers)
             sl.push_child(&(w->limit()));
-
         if (m_should_run_sls) {
             m_sls_worker = alloc(sls_worker, *this);
             sl.push_child(&(m_sls_worker->limit()));
         }
 
         // Launch threads
-        // threads must live beyond the branch scope so we declare them here.
         vector<std::thread> threads;
         threads.resize(m_should_run_sls ? num_threads + 1 : num_threads); // +1 for sls worker
         for (unsigned i = 0; i < num_threads; ++i)

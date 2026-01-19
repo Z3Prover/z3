@@ -773,7 +773,6 @@ public:
             if (m.has_trace_stream())
                 throw default_exception("threads and trace are incompatible");
 
-            IF_VERBOSE(1, verbose_stream() << "par_and_then: spawning " << r1_size << " threads\n";);
             vector<std::thread> threads(r1_size);
             for (unsigned i = 0; i < r1_size; ++i) {
                 threads[i] = std::thread([&, i]() { worker_thread(i); });

@@ -733,8 +733,7 @@ private:
         s.collect_statistics(m_stats);
     }
 
-    lbool solve(model_ref& mdl) {      
-        IF_VERBOSE(1, verbose_stream() << "(tactic.parallel :threads " << m_num_threads << ")\n";);  
+    lbool solve(model_ref& mdl) {        
         add_branches(1);
         vector<std::thread> threads;
         for (unsigned i = 0; i < m_num_threads; ++i) 
