@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true  
+
 # This workflow migrates jobs from azure-pipelines.yml to GitHub Actions.
 # See .github/workflows/CI_MIGRATION.md for details on the migration.
 
