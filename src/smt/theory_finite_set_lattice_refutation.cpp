@@ -25,7 +25,7 @@ namespace smt {
           non_link_justifications(MAX_VARS * MAX_VARS, {nullptr, nullptr}), largest_var(0),
           max_size(MAX_VARS), ctx(ctx), t_lattice_refutation(t_lattice) {
         // Initialize the vectors
-        link_dls.resize(MAX_VARS * MAX_VARS, static_cast<unsigned>(0));
+        link_dls.resize(MAX_VARS * MAX_VARS, 0);
         for (int i = 0; i < MAX_VARS; i++) {
             reachable[i].reset();
             non_links[i].reset();
@@ -53,26 +53,36 @@ namespace smt {
     }
 
     bool reachability_matrix::bitwise_or_rows(int source_dest, int source) {
-        // Save old state before modification
-        uint_set old_reachable = reachable[source_dest];
+        // Check if there's anything to add
+        bool has_new_elements = false;
+        for (unsigned dest : reachable[source]) {
+            if (!reachable[source_dest].contains(dest)) {
+                has_new_elements = true;
+                break;
+            }
+        }
         
-        // Push trail before modifying
+        if (!has_new_elements) {
+            return false;
+        }
+        
+        // Push trail before modifying (captures current state for undo)
         ctx.push_trail(value_trail(reachable[source_dest]));
+        
+        // Save elements before modification for conflict checking
+        uint_set old_reachable = reachable[source_dest];
         
         // Compute union: reachable[source_dest] |= reachable[source]
         reachable[source_dest] |= reachable[source];
         
-        // Check if anything changed
-        bool changes = !(old_reachable == reachable[source_dest]);
-        if (changes) {
-            // Check for conflicts with newly added reachabilities
-            for (unsigned dest : reachable[source_dest]) {
-                if (!old_reachable.contains(dest)) {
-                    check_reachability_conflict(source_dest, dest);
-                }
+        // Check for conflicts with newly added reachabilities
+        for (unsigned dest : reachable[source_dest]) {
+            if (!old_reachable.contains(dest)) {
+                check_reachability_conflict(source_dest, dest);
             }
         }
-        return changes;
+        
+        return true;
     }
 
     bool reachability_matrix::set_reachability(theory_var source, theory_var dest, enode_pair reachability_witness) {
