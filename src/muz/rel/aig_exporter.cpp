@@ -23,14 +23,11 @@ namespace datalog {
         m_latch_vars(m), m_latch_varsp(m), m_ruleid_var_set(m), m_ruleid_varp_set(m)
     {
         std::set<func_decl*> predicates;
-        for (rule_set::decl2rules::iterator I = m_rules.begin_grouped_rules(),
-            E = m_rules.end_grouped_rules(); I != E; ++I) {
-            predicates.insert(I->m_key);
-        }
+        for (auto it = m_rules.begin_grouped_rules(), end = m_rules.end_grouped_rules(); it != end; ++it)
+            predicates.insert(it->m_key);
 
-        for (fact_vector::const_iterator I = facts->begin(), E = facts->end(); I != E; ++I) {
-            predicates.insert(I->first);
-        }
+        for (auto& [pred, _] : *facts)
+            predicates.insert(pred);
 
         // reserve pred id = 0 for initialization purposes
         unsigned num_preds = (unsigned)predicates.size() + 1;
@@ -101,11 +98,8 @@ namespace datalog {
         expr_ref_vector exprs(m);
         substitution subst(m);
 
-        for (rule_set::decl2rules::iterator I = m_rules.begin_grouped_rules(),
-            E = m_rules.end_grouped_rules(); I != E; ++I) {
-            for (rule_vector::iterator II = I->get_value()->begin(),
-                EE = I->get_value()->end(); II != EE; ++II) {
-                rule *r = *II;
+        for (auto it = m_rules.begin_grouped_rules(), end = m_rules.end_grouped_rules(); it != end; ++it) {
+            for (rule* r : *it->get_value()) {
                 unsigned numqs = r->get_positive_tail_size();
                 if (numqs > 1) {
                     throw default_exception("non-linear clauses not supported");

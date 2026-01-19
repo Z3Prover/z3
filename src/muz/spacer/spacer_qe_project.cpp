@@ -2139,10 +2139,8 @@ class array_project_selects_util {
         }
 
         // dealloc
-        sel_map::iterator begin = m_sel_terms.begin(), end = m_sel_terms.end();
-        for (sel_map::iterator it = begin; it != end; ++it) {
-            dealloc(it->m_value);
-        }
+        for (auto& [key, value] : m_sel_terms)
+            dealloc(value);
         m_sel_terms.reset();
     }
 };

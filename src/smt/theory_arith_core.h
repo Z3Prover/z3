@@ -2174,7 +2174,7 @@ namespace smt {
                 bool is_pos = !is_neg;
                 if (x_i != x_j && ((is_pos && above_lower(x_j)) || (is_neg && below_upper(x_j)))) {
                     int num       = get_num_non_free_dep_vars(x_j, best_so_far);
-                    int col_sz    = m_columns[x_j].size();
+                    int col_sz    = static_cast<int>(m_columns[x_j].size());
                     if (num < best_so_far || (num == best_so_far && col_sz < best_col_sz)) {
                         result        = x_j;
                         out_a_ij      = a_ij;

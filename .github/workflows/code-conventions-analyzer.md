@@ -1,10 +1,11 @@
 ---
 description: Analyzes Z3 codebase for consistent coding conventions and opportunities to use modern C++ features
 on:
-  schedule: weekly
+  schedule: daily
   workflow_dispatch:
 permissions: read-all
 tools:
+  cache-memory: true
   github:
     toolsets: [default]
   view: {}
@@ -36,6 +37,31 @@ Conduct a comprehensive analysis of the Z3 codebase to identify:
 1. **Coding convention inconsistencies** across the codebase
 2. **Opportunities to use modern C++ features** that would simplify code
 3. **Common patterns** that could be improved or standardized
+
+## Step 1: Initialize or Resume Progress (Cache Memory)
+
+**Check your cache memory for:**
+- List of code quality issues previously identified
+- Current progress through the codebase analysis
+- Any recommendations or work items from previous runs
+
+**Critical - Re-verify All Cached Issues:**
+
+Before including any previously cached issue in your report, you **MUST**:
+
+1. **Re-verify each cached issue** against the current codebase
+2. **Check if the issue has been resolved** since the last run:
+   - Use `grep`, `glob`, `view`, or `bash` to inspect the relevant code
+   - Check git history with `git log` to see if the files were updated
+   - Verify that the pattern or issue still exists
+3. **Categorize each cached issue** as:
+   - ✅ **RESOLVED**: Code has been updated and issue no longer exists
+   - 🔄 **IN PROGRESS**: Partial fixes have been applied
+   - ❌ **UNRESOLVED**: Issue still exists unchanged
+4. **Remove resolved issues** from your cache and report
+5. **Update partially resolved issues** with current state
+
+**Important:** If this is your first run or memory is empty, initialize a new tracking structure. Focus on systematic coverage of the codebase over multiple runs rather than attempting to analyze everything at once.
 
 ## Analysis Areas
 
@@ -222,8 +248,16 @@ Identify opportunities specific to Z3's architecture and coding patterns:
    - `src/api/` - Public API surface
    - `src/tactic/` - Tactics and simplifiers (good for m_imp pattern analysis)
    - Use `glob` to find representative source files
+   - **Prioritize areas** not yet analyzed (check cache memory)
 
-2. **Use code search tools** effectively:
+2. **Re-verify previously identified issues** (if any exist in cache):
+   - For each cached issue, check current code state
+   - Use `git log` to see recent changes to relevant files
+   - Verify with `grep`, `glob`, or `view` that the issue still exists
+   - Mark issues as resolved, in-progress, or unresolved
+   - Only include unresolved issues in the new report
+
+3. **Use code search tools** effectively:
    - `grep` with patterns to find specific code constructs
    - `glob` to identify file groups for analysis
    - `view` to examine specific files in detail
@@ -236,13 +270,13 @@ Identify opportunities specific to Z3's architecture and coding patterns:
        - bugprone-* (selected high-signal checks)
        - performance-* (selected)
 
-3. **Identify patterns** by examining multiple files:
+4. **Identify patterns** by examining multiple files:
    - Look at 10-15 representative files per major area
    - Note common patterns vs inconsistencies
    - Check both header (.h) and implementation (.cpp) files
    - Use `sizeof` and field alignment to analyze struct sizes
 
-4. **Quantify findings**:
+5. **Quantify findings**:
    - Count occurrences of specific patterns
    - Identify which areas are most affected
    - Prioritize findings by impact and prevalence
@@ -267,31 +301,62 @@ Create a comprehensive discussion with your findings structured as follows:
 
 [Brief overview of key findings - 2-3 sentences]
 
+## Progress Tracking Summary
+
+**This section tracks work items across multiple runs:**
+
+### Previously Identified Issues - Status Update
+
+**✅ RESOLVED Issues** (since last run):
+- [List issues from cache that have been resolved, with brief description]
+- [Include file references and what changed]
+- [Note: Only include if re-verification confirms resolution]
+- If none: "No previously identified issues have been resolved since the last run"
+
+**🔄 IN PROGRESS Issues** (partial fixes applied):
+- [List issues where some improvements have been made but work remains]
+- [Show what's been done and what's left]
+- If none: "No issues are currently in progress"
+
+**❌ UNRESOLVED Issues** (still present):
+- [Brief list of issues that remain from previous runs]
+- [Will be detailed in sections below]
+- If none or first run: "This is the first analysis run" or "All previous issues resolved"
+
+### New Issues Identified in This Run
+
+[Count of new issues found in this analysis]
+
 ## 1. Coding Convention Consistency Findings
 
 ### 1.1 Naming Conventions
 - **Current State**: [What you observed]
 - **Inconsistencies Found**: [List specific examples with file:line references]
+- **Status**: [New / Previously Identified - Unresolved]
 - **Recommendation**: [Suggested standard to adopt]
 
 ### 1.2 Code Formatting
 - **Alignment with .clang-format**: [Assessment]
 - **Common Deviations**: [List patterns that deviate from style guide]
+- **Status**: [New / Previously Identified - Unresolved]
 - **Files Needing Attention**: [List specific files or patterns]
 
 ### 1.3 Documentation Style
 - **Current Practices**: [Observed documentation patterns]
 - **Inconsistencies**: [Examples of different documentation approaches]
+- **Status**: [New / Previously Identified - Unresolved]
 - **Recommendation**: [Suggested documentation standard]
 
 ### 1.4 Include Patterns
 - **Header Guard Usage**: `#pragma once` vs traditional guards
 - **Include Order**: [Observed patterns]
+- **Status**: [New / Previously Identified - Unresolved]
 - **Recommendations**: [Suggested improvements]
 
 ### 1.5 Error Handling
 - **Current Approaches**: [Exception usage, return codes, assertions]
 - **Consistency Assessment**: [Are patterns consistent across modules?]
+- **Status**: [New / Previously Identified - Unresolved]
 - **Recommendations**: [Suggested standards]
 
 ## 2. Modern C++ Feature Opportunities
@@ -302,6 +367,7 @@ For each opportunity, provide:
 - **Modern Alternative**: [How it could be improved]
 - **Impact**: [Benefits: readability, safety, performance]
 - **Example Locations**: [File:line references]
+- **Status**: [New / Previously Identified - Unresolved]
 - **Estimated Effort**: [Low/Medium/High]
 
 ### 2.1 C++11/14 Features
@@ -311,6 +377,7 @@ For each opportunity, provide:
 - **Modern**: `[improved code example]`
 - **Benefit**: [Why this is better]
 - **Prevalence**: Found in [number] locations
+- **Status**: [New / Previously Identified - Unresolved]
 
 [Repeat for each opportunity]
 
@@ -517,10 +584,51 @@ Provide 3-5 concrete examples of recommended refactorings:
 - **Source directories covered**: [list]
 - **Lines of code reviewed**: ~[estimate]
 - **Pattern occurrences counted**: [key patterns with counts]
+- **Issues resolved since last run**: [number]
+- **New issues identified**: [number]
+- **Total unresolved issues**: [number]
 ```
+
+## Step 2: Update Cache Memory After Analysis
+
+After completing your analysis and creating the discussion, **update your cache memory** with:
+
+1. **Remove resolved issues** from the cache:
+   - Delete any issues that have been verified as resolved
+   - Do not carry forward stale information
+
+2. **Store only unresolved issues** for next run:
+   - Each issue should include:
+     - Description of the issue
+     - File locations (paths and line numbers if applicable)
+     - Pattern or code example
+     - Recommendation for fix
+     - Date last verified
+
+3. **Track analysis progress**:
+   - Which directories/areas have been analyzed
+   - Which analysis categories have been covered
+   - Percentage of codebase examined
+   - Next areas to focus on
+
+4. **Store summary statistics**:
+   - Total issues identified (cumulative)
+   - Total issues resolved
+   - Current unresolved count
+   - Analysis run count
+
+**Critical:** Keep your cache clean and current. The cache should only contain:
+- Unresolved issues verified in the current run
+- Areas not yet analyzed
+- Progress tracking information
+
+Do NOT perpetuate resolved issues in the cache. Always verify before storing.
 
 ## Important Guidelines
 
+- **Track progress across runs**: Use cache memory to maintain state between runs
+- **Always re-verify cached issues**: Check that previously identified issues still exist before reporting them
+- **Report resolved work items**: Acknowledge when issues have been fixed to show progress
 - **Be thorough but focused**: Examine a representative sample, not every file
 - **Provide specific examples**: Always include file paths and line numbers
 - **Balance idealism with pragmatism**: Consider the effort required for changes
@@ -538,6 +646,7 @@ Provide 3-5 concrete examples of recommended refactorings:
 - **Measure size improvements**: Use `static_assert` and `sizeof` to verify memory layout optimizations
 - **Prioritize safety**: Smart pointers, `std::optional`, and `std::span` improve type safety
 - **Consider performance**: Hash table optimizations and AST caching have measurable impact
+- **Keep cache current**: Remove resolved issues from cache, only store verified unresolved items
 
 ## Code Search Examples
 

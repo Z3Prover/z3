@@ -2648,6 +2648,55 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Map function f over the sequence s.
+        /// </summary>
+        public Expr MkSeqMap(Expr f, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, s);
+            return Expr.Create(this, Native.Z3_mk_seq_map(nCtx, f.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Map function f over the sequence s at index i.
+        /// </summary>
+        public Expr MkSeqMapi(Expr f, Expr i, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(i != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, i, s);
+            return Expr.Create(this, Native.Z3_mk_seq_mapi(nCtx, f.NativeObject, i.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Fold left the function f over the sequence s with initial value a.
+        /// </summary>
+        public Expr MkSeqFoldLeft(Expr f, Expr a, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(a != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, a, s);
+            return Expr.Create(this, Native.Z3_mk_seq_foldl(nCtx, f.NativeObject, a.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Fold left with index the function f over the sequence s with initial value a starting at index i.
+        /// </summary>
+        public Expr MkSeqFoldLeftI(Expr f, Expr i, Expr a, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(i != null);
+            Debug.Assert(a != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, i, a);
+            CheckContextMatch(s, a);
+            return Expr.Create(this, Native.Z3_mk_seq_foldli(nCtx, f.NativeObject, i.NativeObject, a.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
         /// Convert a regular expression that accepts sequence s.
         /// </summary>
         public ReExpr MkToRe(SeqExpr s)
@@ -3442,6 +3491,32 @@ namespace Microsoft.Z3
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)));
             return assertions.ToBoolExprArray();
+        }
+
+        /// <summary>
+        /// Convert a benchmark into SMT-LIB2 formatted string.
+        /// </summary>
+        /// <param name="name">Name of the benchmark. May be null.</param>
+        /// <param name="logic">The benchmark logic. May be null.</param>
+        /// <param name="status">Status string, such as "sat", "unsat", or "unknown".</param>
+        /// <param name="attributes">Other attributes, such as source, difficulty or category. May be null.</param>
+        /// <param name="assumptions">Auxiliary assumptions.</param>
+        /// <param name="formula">Formula to be checked for consistency in conjunction with assumptions.</param>
+        /// <returns>A string representation of the benchmark in SMT-LIB2 format.</returns>
+        public string BenchmarkToSmtlibString(string name, string logic, string status, string attributes, BoolExpr[] assumptions, BoolExpr formula)
+        {
+            Debug.Assert(assumptions != null);
+            Debug.Assert(formula != null);
+
+            return Native.Z3_benchmark_to_smtlib_string(
+                nCtx,
+                name,
+                logic,
+                status,
+                attributes,
+                (uint)(assumptions?.Length ?? 0),
+                AST.ArrayToNative(assumptions),
+                formula.NativeObject);
         }
         #endregion
 

@@ -620,7 +620,7 @@ namespace smt {
 
     template<typename Ext>
     bool theory_dense_diff_logic<Ext>::check_matrix() const {
-        int sz = m_matrix.size();
+        int sz = static_cast<int>(m_matrix.size());
         for (theory_var i = 0; i < sz; ++i) {
             for (theory_var j = 0; j < sz; ++j) {
                 cell const & c = m_matrix[i][j];
