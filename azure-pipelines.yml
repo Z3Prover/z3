@@ -1,3 +1,12 @@
+# ============================================================================
+# DEPRECATION NOTICE
+# ============================================================================
+# This Azure Pipelines configuration has been migrated to GitHub Actions.
+# See .github/workflows/ci.yml for the new CI pipeline.
+# See .github/workflows/CI_MIGRATION.md for migration details.
+# 
+# This file is kept for reference and may be removed in the future.
+# ============================================================================
 
 variables:
   cmakeJulia: '-DZ3_BUILD_JULIA_BINDINGS=True'
