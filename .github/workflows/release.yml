@@ -353,7 +353,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: WindowsBuild-arm64
-          path: dist/arm64/dist/*.zip
+          path: dist/arm64/*.zip
           retention-days: 7
 
   # ============================================================================
