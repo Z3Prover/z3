@@ -70,16 +70,13 @@ namespace smt {
         for (expr* e : assertions)
             m_sls->assert_expr(m_g2l(e));
 
-        // m_st.reset();
         lbool res = l_undef;
         try {
             res = m_sls->check();
         } catch (z3_exception& ex) {
             IF_VERBOSE(1, verbose_stream() << "SLS threw an exception: " << ex.what() << "\n");
-            // m_sls->collect_statistics(m_st);
             b.set_exception(ex.what());
         }
-        // m_sls->collect_statistics(m_st);
         IF_VERBOSE(10, verbose_stream() << res << "\n");
         IF_VERBOSE(10, m_sls->display(verbose_stream()));
 
@@ -92,6 +89,10 @@ namespace smt {
     void parallel::sls_worker::cancel() {
         IF_VERBOSE(1, verbose_stream() << " SLS WORKER cancelling\n");
         m.limit().cancel();
+    }
+
+    void parallel::sls_worker::collect_statistics(::statistics &st) const {
+        m_sls->collect_statistics(st);
     }
 
     void parallel::worker::run() {
@@ -547,6 +548,9 @@ namespace smt {
 
         m_batch_manager.initialize();
         m_workers.reset();
+
+        smt_parallel_params pp(ctx.m_params);
+        bool m_should_run_sls = pp.sls();
         
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
@@ -558,18 +562,21 @@ namespace smt {
         for (auto w : m_workers)
             sl.push_child(&(w->limit()));
 
-        m_sls_worker = alloc(sls_worker, *this);
-        sl.push_child(&(m_sls_worker->limit()));
+        if (m_should_run_sls) {
+            m_sls_worker = alloc(sls_worker, *this);
+            sl.push_child(&(m_sls_worker->limit()));
+        }
 
         // Launch threads
         // threads must live beyond the branch scope so we declare them here.
         vector<std::thread> threads;
-        threads.resize(num_threads + 1); // +1 for sls worker
-        for (unsigned i = 0; i < num_threads; ++i) {
+        threads.resize(m_should_run_sls ? num_threads + 1 : num_threads); // +1 for sls worker
+        for (unsigned i = 0; i < num_threads; ++i)
             threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
-        }
+        
         // the final thread runs the sls worker
-        threads[num_threads] = std::thread([&]() { m_sls_worker->run(); });
+        if (m_should_run_sls)
+            threads[num_threads] = std::thread([&]() { m_sls_worker->run(); });
 
         // Wait for all threads to finish
         for (auto &th : threads)
@@ -578,6 +585,8 @@ namespace smt {
         for (auto w : m_workers)
             w->collect_statistics(ctx.m_aux_stats);
         m_batch_manager.collect_statistics(ctx.m_aux_stats);
+        if (m_should_run_sls)
+            m_sls_worker->collect_statistics(ctx.m_aux_stats);
 
         return m_batch_manager.get_result();
     }

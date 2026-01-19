@@ -119,8 +119,8 @@ namespace smt {
                 bool m_share_units_relevant_only = true;
                 bool m_share_units_initial_only = true;
                 double m_max_conflict_mul = 1.5;
-                bool m_cube_initial_only = true;
-                bool m_inprocessing = true;
+                bool m_inprocessing = false;
+                bool m_sls = false;
                 unsigned m_inprocessing_delay = 1;
                 unsigned m_max_cube_depth = 20;
                 unsigned m_max_conflicts = UINT_MAX;
@@ -181,6 +181,7 @@ namespace smt {
                 sls_worker(parallel &p);
                 void cancel();
                 void run();
+                void collect_statistics(::statistics& st) const;
 
                 reslimit &limit() {
                     return m.limit();
