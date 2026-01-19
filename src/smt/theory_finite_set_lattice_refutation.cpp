@@ -21,10 +21,11 @@ const int MAX_VARS = 320;
 namespace smt {
     reachability_matrix::reachability_matrix(context &ctx, theory_finite_set_lattice_refutation &t_lattice)
         : reachable(MAX_VARS), links(MAX_VARS * MAX_VARS, {nullptr, nullptr}),
-          link_dls(MAX_VARS * MAX_VARS, 0u), non_links(MAX_VARS),
+          link_dls(), non_links(MAX_VARS),
           non_link_justifications(MAX_VARS * MAX_VARS, {nullptr, nullptr}), largest_var(0),
           max_size(MAX_VARS), ctx(ctx), t_lattice_refutation(t_lattice) {
-        // Initialize the uint_sets for each row
+        // Initialize the vectors
+        link_dls.resize(MAX_VARS * MAX_VARS, 0);
         for (int i = 0; i < MAX_VARS; i++) {
             reachable[i].reset();
             non_links[i].reset();
@@ -63,7 +64,7 @@ namespace smt {
         if (changes) {
             ctx.push_trail(value_trail(reachable[source_dest]));
             // Check for conflicts with newly added reachabilities
-            for (unsigned dest : reachable[source]) {
+            for (unsigned dest : reachable[source_dest]) {
                 if (!old_reachable.contains(dest)) {
                     check_reachability_conflict(source_dest, dest);
                 }
