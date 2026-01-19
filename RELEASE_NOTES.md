@@ -9,6 +9,23 @@ Version 4.next
  
 Version 4.15.5
 ==============
+- Add RCF (Real Closed Field) API to TypeScript bindings, achieving feature parity with Python, Java, C++, and C# implementations. 
+  The API includes 38 functions for exact real arithmetic with support for π, e, algebraic roots, and infinitesimals.
+  https://github.com/Z3Prover/z3/pull/8225
+- Add sequence higher-order functions (map, fold) to Java, C#, and TypeScript APIs. Functions include SeqMap, SeqMapi, SeqFoldl, and SeqFoldli
+  for functional programming patterns over sequences.
+  - Java API: https://github.com/Z3Prover/z3/pull/8226
+  - C# API: https://github.com/Z3Prover/z3/pull/8227
+  - TypeScript API included in https://github.com/Z3Prover/z3/pull/8228
+- Add benchmark export functionality to C# and TypeScript APIs for exporting solver problems as SMTLIB2 benchmarks.
+  https://github.com/Z3Prover/z3/pull/8228
+- Fix UNKNOWN bug in search tree with inconsistent end state during nonchronological backjumping. The fix ensures all node closing
+  occurs in backtrack to maintain consistency between search tree and batch manager state. Thanks to Ilana Shapiro.
+  https://github.com/Z3Prover/z3/pull/8214
+- Fix segmentation fault in dioph_eq.cpp when processing UFNIRA problems without explicit set-logic declarations. Added bounds checks
+  before accessing empty column vectors. https://github.com/Z3Prover/z3/pull/8218, fixes #8208
+- Migrate build and release infrastructure from Azure Pipelines to GitHub Actions, including CI workflows, nightly builds, and release packaging.
+- Bug fixes including #8195
 
 Version 4.15.4
 ==============
