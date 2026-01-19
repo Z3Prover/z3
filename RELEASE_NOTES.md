@@ -6,6 +6,9 @@ Version 4.next
   - sat.euf 
     - CDCL core for SMT queries. It extends the SAT engine with theory solver plugins.
   - add global incremental pre-processing for the legacy core.
+ 
+Version 4.15.5
+==============
 
 Version 4.15.4
 ==============
