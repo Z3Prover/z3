@@ -36,7 +36,7 @@ jobs:
   
   mac-build-x64:
     name: "Mac Build x64"
-    runs-on: macos-13
+    runs-on: macos-15
     timeout-minutes: 90
     steps:
       - name: Checkout code
@@ -65,7 +65,7 @@ jobs:
 
   mac-build-arm64:
     name: "Mac ARM64 Build"
-    runs-on: macos-13
+    runs-on: macos-15
     timeout-minutes: 90
     steps:
       - name: Checkout code
