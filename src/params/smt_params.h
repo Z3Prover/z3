@@ -114,6 +114,7 @@ struct smt_params : public preprocessor_params,
     symbol           m_proof_log;
     bool             m_sls_enable = false;
     bool             m_sls_parallel = true;
+    bool             m_finite_set_lattice_refutation = true;
 
     // -----------------------------------
     //

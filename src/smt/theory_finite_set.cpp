@@ -260,7 +260,8 @@ namespace smt {
             ctx.push_trail(push_back_vector(m_eqs));
             m_find.merge(v1, v2);  // triggers merge_eh, which triggers incremental generation of theory axioms
         }
-        m_lattice_refutation.add_equality(v1, v2);
+        if (ctx.get_fparams().m_finite_set_lattice_refutation)
+            m_lattice_refutation.add_equality(v1, v2);
 
         // Check if Z3 has a boolean variable for it
         TRACE(finite_set, tout << "new_eq_eh_r1: " << n1->get_root() << "r2: "<< n2->get_root() <<"\n";);
@@ -287,7 +288,8 @@ namespace smt {
             ctx.push_trail(push_back_vector(m_diseqs));
             m_axioms.extensionality_axiom(e1, e2);
         }
-        m_lattice_refutation.add_disequality(v1,v2);
+        if (ctx.get_fparams().m_finite_set_lattice_refutation)
+            m_lattice_refutation.add_disequality(v1,v2);
     }
 
     //

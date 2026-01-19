@@ -12,7 +12,7 @@ Module Name:
 #include "smt/smt_theory.h"
 #include "smt/theory_finite_set.h"
 #include "smt/smt_context.h"
-#include "iostream"
+#include <iostream>
 
 const int NUM_WORDS = 5;
 // some example have shown, the introduction of large conflict clauses can severely slow down refutation
