@@ -279,8 +279,8 @@ namespace nla {
 
         unsigned level = get_level(j);
         if (is_decision(j)) {
-            level = m_num_scopes;
-            ++m_num_scopes;           
+            ++m_num_scopes;    
+            level = m_num_scopes;       
         }
 
         m_constraints.push_back({p, k});
@@ -730,7 +730,7 @@ namespace nla {
 
         if (p.is_unilinear() && has_bound(p.hi().val(), p.var(), p.lo().val()))
             // ax + b ~k~ 0
-            return add_constraint(p, k, external_justification(d));    
+            return add_constraint(p, k, external_justification(d));  
         return add_constraint(p, k, assumption_justification());
     }
     
@@ -2179,7 +2179,6 @@ namespace nla {
         }
     }
 
-
     void stellensatz2::insert_parents(dd::pdd const &p, lp::constraint_index ci) {
         m_parent_constraints.reserve(p.index() + 1);
         m_parent_constraints[p.index()].push_back(ci);
@@ -2187,7 +2186,6 @@ namespace nla {
     }
 
     void stellensatz2::insert_parents(dd::pdd const &p) {
-        TRACE(arith, tout << "insert parents " << p << "\n");
         if (m_is_parent.get(p.index(), false) || p.is_val())
             return;
         m_is_parent.setx(p.index(), true, false);
@@ -2199,6 +2197,8 @@ namespace nla {
     }
 
     void stellensatz2::insert_child(dd::pdd const &child, dd::pdd const &parent) {
+        if (child.is_val())
+            return;
         m_parents.reserve(child.index() + 1);
         m_parents[child.index()].push_back(parent);
         insert_parents(child);
