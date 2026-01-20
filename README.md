@@ -166,6 +166,8 @@ See [``examples/c++``](examples/c++) for examples.
 
 Use the ``--java`` command line flag with ``mk_make.py`` to enable building these.
 
+For IDE setup instructions (Eclipse, IntelliJ IDEA, Visual Studio Code) and troubleshooting, see the [Java IDE Setup Guide](doc/JAVA_IDE_SETUP.md).
+
 See [``examples/java``](examples/java) for examples.
 
 ### ``OCaml``
