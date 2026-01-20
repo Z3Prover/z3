@@ -177,8 +177,7 @@ namespace nla {
         monomial_factory m_monomial_factory;
         vector<rational> m_values;
         svector<lp::constraint_index> m_core;
-        vector<svector<lp::constraint_index>> m_occurs, m_max_occurs;  // map from variable to constraints they occur.
-        bool_vector m_has_occurs;                        // is the constraint indexed already
+        vector<svector<lp::constraint_index>> m_max_occurs;  // map from variable to constraints they occur.
         map<constraint_key, lp::constraint_index, constraint_key::hash, constraint_key::eq> m_constraint_index;
 
         // 
@@ -219,7 +218,7 @@ namespace nla {
         void pop_bound();
         void mark_dependencies(u_dependency *d);
         void mark_dependencies(lp::constraint_index ci);
-        bool should_propagate() const { return m_prop_qhead < m_constraints.size(); }
+        bool should_propagate() const { return m_prop_qhead < m_polynomial_queue.size(); }
 
         // assuming variables have bounds determine if polynomial has lower/upper bounds
         void calculate_interval(scoped_dep_interval &out, dd::pdd p);
@@ -246,7 +245,7 @@ namespace nla {
 
         // propagation 
         struct scope {
-            unsigned parents_lim, factors_lim, polynomial_lim, interval_lim, qhead;
+            unsigned parents_lim, factors_lim, polynomial_lim, interval_lim, parent_constraints_lim, qhead;
         };
 
         struct factor_prop {
@@ -261,6 +260,7 @@ namespace nla {
         vector<dd::pdd> m_polynomial_queue;
         unsigned_vector m_interval_trail;
         unsigned_vector m_factor_trail;
+        unsigned_vector m_parent_constraints_trail;
         vector<svector<lp::constraint_index>> m_parent_constraints;
         vector<scoped_ptr_vector<dep_interval>> m_intervals;
         bool_vector m_is_parent;
@@ -269,8 +269,9 @@ namespace nla {
 
         unsigned get_lower(lpvar v) const { return get_lower(pddm.mk_var(v)); }
         unsigned get_upper(lpvar v) const { return get_upper(pddm.mk_var(v)); }
-        unsigned get_lower(dd::pdd const &p) const { return m_idx2bound[p.index()]; }
-        unsigned get_upper(dd::pdd const &p) const { return m_idx2bound[(-p).index()]; }
+        unsigned get_lower(dd::pdd const &p) const { return m_idx2bound.get(p.index(), UINT_MAX); }
+        unsigned get_upper(dd::pdd const &p) const { return m_idx2bound.get((-p).index(), UINT_MAX); }
+        
 
         bool has_lo(dd::pdd const &p) const { return get_lower(p) != UINT_MAX; }
         bool has_hi(dd::pdd const &p) const { return get_upper(p) != UINT_MAX; }
@@ -333,9 +334,6 @@ namespace nla {
         void init_solver();
         void init_vars();
         void simplify();
-        void init_occurs();
-        void init_occurs(lp::constraint_index ci);
-        void remove_occurs(lp::constraint_index ci);
 
         lp::constraint_index factor(lp::constraint_index ci);
         void conflict(svector<lp::constraint_index> const& core);
@@ -346,12 +344,12 @@ namespace nla {
         lp::constraint_index resolve(lp::constraint_index c1, lp::constraint_index c2);
 
         // propagation
-        void push_constraint(lp::constraint_index ci);
+        void push_propagation(lp::constraint_index ci);
         void insert_parents(dd::pdd const &p, lp::constraint_index ci);
         void insert_parents(dd::pdd const &p);
         void insert_child(dd::pdd const &child, dd::pdd const &parent);
         void insert_factor(dd::pdd const &p, lpvar x, factorization const &f, lp::constraint_index ci);
-        void pop_constraint(lp::constraint_index ci);
+        void pop_propagation(lp::constraint_index ci);
         bool is_better(dep_interval const &new_iv, dep_interval const &old_iv);      
         bool update_interval(dep_interval const &new_iv, dd::pdd const &p);
         dep_interval const &get_interval(dd::pdd const &p);
@@ -374,8 +372,6 @@ namespace nla {
         bool var_is_bound_conflict(lpvar v);
         bool is_bound_conflict(dd::pdd const &p);
 
-        bool constraint_is_propagating(lp::constraint_index ci, svector<lp::constraint_index> &cs, lpvar &v,
-                                       lp::lconstraint_kind &k, rational &value);
         bool constraint_is_propagating(dep_interval const &ivp, dep_interval const& ivq, lpvar x, 
                                        svector<lp::constraint_index> &cs, lp::lconstraint_kind &k, rational &value);
             

@@ -22,6 +22,7 @@
 #include "math/lp/nla_order_lemmas.h"
 #include "math/lp/nla_powers.h"
 #include "math/lp/nla_stellensatz.h"
+#include "math/lp/nla_stellensatz2.h"
 #include "math/lp/nla_tangent_lemmas.h"
 #include "math/lp/emonics.h"
 #include "math/lp/nex.h"
@@ -93,7 +94,7 @@ class core {
     divisions                m_divisions;
     intervals                m_intervals; 
     monomial_bounds          m_monomial_bounds;
-    stellensatz              m_stellensatz;
+    stellensatz2             m_stellensatz;
     unsigned                 m_conflicts;
     bool                     m_check_feasible = false;
     horner                   m_horner;
