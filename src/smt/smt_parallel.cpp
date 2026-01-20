@@ -82,6 +82,11 @@ namespace smt {
                 return;
             }
 
+            if (strstr(ex.what(), "unsupported for sls3") != nullptr) {
+                IF_VERBOSE(1, verbose_stream() << "SLS opted out: " << ex.what() << "\n");
+                return;
+            }
+
             // Anything else is a real error
             IF_VERBOSE(1, verbose_stream() << "SLS threw exception: " << ex.what() << "\n");
             b.set_exception(ex.what());
