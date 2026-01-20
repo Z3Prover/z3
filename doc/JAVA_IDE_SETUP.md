@@ -267,7 +267,7 @@ For Maven or Gradle projects, you can use system-scoped dependencies:
 <dependency>
     <groupId>com.microsoft</groupId>
     <artifactId>z3</artifactId>
-    <version>4.15.4</version>
+    <version>x.x.x</version> <!-- Replace with your Z3 version -->
     <scope>system</scope>
     <systemPath>${project.basedir}/lib/com.microsoft.z3.jar</systemPath>
 </dependency>
