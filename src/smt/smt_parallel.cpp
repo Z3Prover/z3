@@ -82,7 +82,7 @@ namespace smt {
                 return;
             }
 
-            if (strstr(ex.what(), "unsupported for sls3") != nullptr) {
+            if (strstr(ex.what(), "unsupported for sls") != nullptr) {
                 IF_VERBOSE(1, verbose_stream() << "SLS opted out: " << ex.what() << "\n");
                 return;
             }
@@ -558,7 +558,7 @@ namespace smt {
         m_workers.reset();
 
         smt_parallel_params pp(ctx.m_params);
-        bool m_should_run_sls = pp.sls();
+        m_should_run_sls = pp.sls();
         
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);

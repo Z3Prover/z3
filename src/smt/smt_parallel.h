@@ -36,6 +36,7 @@ namespace smt {
     class parallel {
         context& ctx;
         unsigned num_threads;
+        bool m_should_run_sls = false;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -85,7 +86,7 @@ namespace smt {
 
             void cancel_background_threads() {
                 cancel_workers();
-                cancel_sls_worker();
+                if (p.m_should_run_sls) cancel_sls_worker();    
             }
 
             void init_parameters_state();
