@@ -548,10 +548,7 @@ jobs:
           echo $PWD/../../../artifacts/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-      
-      - name: Copy manylinux wheels
-        run: cp artifacts/*.whl src/api/python/dist
-      
+            
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
@@ -597,6 +594,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) > release_files.txt
+
+          less release_files.txt
           
           gh release create z3-${{ env.RELEASE_VERSION }} \
             --title "z3-${{ env.RELEASE_VERSION }}" \

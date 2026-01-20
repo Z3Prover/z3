@@ -463,7 +463,7 @@ jobs:
 
   python-package:
     name: "Python packaging"
-    needs: [mac-build-x64, mac-build-arm64, windows-build-x64, windows-build-x86]
+    needs: [mac-build-x64, mac-build-arm64, windows-build-x64, windows-build-x86, manylinux-python-amd64, manylinux-python-arm64]
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
@@ -496,6 +496,12 @@ jobs:
         uses: actions/download-artifact@v7.0.0
         with:
           name: WindowsBuild-x86
+          path: artifacts
+
+      - name: Download ManyLinux AMD64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: ManyLinuxPythonBuildAMD64
           path: artifacts
       
       - name: Download ManyLinux Arm64 Build
