@@ -89,9 +89,6 @@ namespace nlsat {
         // Entries are upgraded SIGN -> ORD as needed and cleared when a polynomial is extracted.
         std_vector<uint8_t>    m_req;
 
-        // Scratch set for tracking added polynomial pairs (reused to avoid allocations)
-        mutable std::set<std::pair<unsigned, unsigned>> m_added_pairs;
-
         // Reusable maps keyed by polynomial ID (more efficient than vectors for sparse IDs)
         mutable std::unordered_map<unsigned, uint8_t> m_side_mask;
         mutable std::unordered_map<unsigned, unsigned> m_deg_in_order_graph;
@@ -135,13 +132,20 @@ namespace nlsat {
         // Root functions (Theta) and the chosen relation (≼) on a given level.
         struct relation_E {
             std::vector<root_function>              m_rfunc; // Θ: root functions on current level
-            std::vector<std::pair<unsigned, unsigned>> m_pairs; // ≼ relation on indices into m_rfunc
+            std::set<std::pair<poly*, poly*>>       m_pairs; // ≼ relation as unique polynomial pairs
             bool empty() const { return m_rfunc.empty() && m_pairs.empty(); }
             void clear() {
                 m_pairs.clear();
                 m_rfunc.clear();
             }
-            void add_pair(unsigned j, unsigned k) { m_pairs.emplace_back(j, k); }
+            // Add pair by indices - canonicalizes and de-duplicates automatically
+            void add_pair(unsigned j, unsigned k) {
+                poly* a = m_rfunc[j].ire.p;
+                poly* b = m_rfunc[k].ire.p;
+                if (!a || !b || a == b) return;
+                if (a > b) std::swap(a, b);
+                m_pairs.insert({a, b});
+            }
         };
 
         relation_E m_rel;
@@ -156,21 +160,10 @@ namespace nlsat {
 
         // Estimate resultant weight for m_rel.m_pairs
         unsigned estimate_resultant_weight() const {
-            auto const& rfs = m_rel.m_rfunc;
             unsigned total = 0;
-            m_added_pairs.clear();
-            for (auto const& pr : m_rel.m_pairs) {
-                poly* a = rfs[pr.first].ire.p;
-                poly* b = rfs[pr.second].ire.p;
-                if (!a || !b) continue;
-                unsigned id1 = m_pm.id(a);
-                unsigned id2 = m_pm.id(b);
-                if (id1 == id2) continue;
-                auto key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
-                if (!m_added_pairs.insert(key).second) continue;
-                // w(res(a,b)) ≈ w(a) + w(b)
-                total += w(a, m_level) + w(b, m_level);
-            }
+            for (auto const& pr : m_rel.m_pairs)
+                total += w(pr.first, m_level) + w(pr.second, m_level);
+            
             return total;
         }
 
@@ -509,19 +502,9 @@ namespace nlsat {
         // Compute deg: count distinct resultant-neighbors for each polynomial
         void compute_resultant_degree() {
             m_deg_in_order_graph.clear();
-            m_added_pairs.clear();
             for (auto const& pr : m_rel.m_pairs) {
-                poly* a = m_rel.m_rfunc[pr.first].ire.p;
-                poly* b = m_rel.m_rfunc[pr.second].ire.p;
-                if (!a || !b)
-                    continue;
-                unsigned id1 = m_pm.id(a);
-                unsigned id2 = m_pm.id(b);
-                if (id1 == id2)
-                    continue;
-                std::pair<unsigned, unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
-                if (!m_added_pairs.insert(key).second)
-                    continue;
+                unsigned id1 = m_pm.id(pr.first);
+                unsigned id2 = m_pm.id(pr.second);
                 m_deg_in_order_graph[id1]++;
                 m_deg_in_order_graph[id2]++;
             }
@@ -562,9 +545,10 @@ namespace nlsat {
 
         // Helper for chain heuristics:
         // Omit lc for extremes of chain that appear on the other side.
+        // Only applies when BOTH bounds exist (consistent with SMT-RAT's approach).
         // - Extreme of lower chain (index 0): omit if it also appears on upper side
         // - Extreme of upper chain (index n-1): omit if it also appears on lower side
-        void compute_omit_lc_chain_extremes(bool has_lower, bool has_upper) {
+        void compute_omit_lc_chain_extremes() {
             m_omit_lc.clear();
             if (m_rel.m_rfunc.empty())
                 return;
@@ -572,31 +556,30 @@ namespace nlsat {
             compute_side_mask();
             unsigned n = m_rel.m_rfunc.size();
 
-            if (has_lower) {
-                poly* p = m_rel.m_rfunc[0].ire.p;
-                unsigned id = m_pm.id(p);
-                auto it = m_side_mask.find(id);
-                if (it != m_side_mask.end() && (it->second & 2))
-                    m_omit_lc[id] = true;
-            }
+            // Lower extreme: omit if it also appears on upper side
+            poly* p_lower = m_rel.m_rfunc[0].ire.p;
+            unsigned id_lower = m_pm.id(p_lower);
+            auto it_lower = m_side_mask.find(id_lower);
+            if (it_lower != m_side_mask.end() && (it_lower->second & 2))
+                m_omit_lc[id_lower] = true;
 
-            if (has_upper) {
-                poly* p = m_rel.m_rfunc[n - 1].ire.p;
-                unsigned id = m_pm.id(p);
-                auto it = m_side_mask.find(id);
-                if (it != m_side_mask.end() && (it->second & 1))
-                    m_omit_lc[id] = true;
-            }
+            // Upper extreme: omit if it also appears on lower side
+            poly* p_upper = m_rel.m_rfunc[n - 1].ire.p;
+            unsigned id_upper = m_pm.id(p_upper);
+            auto it_upper = m_side_mask.find(id_upper);
+            if (it_upper != m_side_mask.end() && (it_upper->second & 1))
+                m_omit_lc[id_upper] = true;
         }
 
         // Dispatch to appropriate sector heuristic
         void compute_omit_lc_sector() {
+            if (!is_set(m_l_rf) || !is_set(m_u_rf)) return;
             switch (m_sector_relation_mode) {
             case biggest_cell:
                 compute_omit_lc_both_sides(false);
                 break;
             case chain:
-                compute_omit_lc_chain_extremes(is_set(m_l_rf), is_set(m_u_rf));
+                compute_omit_lc_chain_extremes();
                 break;
             case lowest_degree:
                 compute_omit_lc_both_sides(true);
@@ -614,8 +597,7 @@ namespace nlsat {
                 m_omit_lc.clear();  // no omit_lc - handled via ORD_INV tag
                 break;
             case section_chain: {
-                unsigned partition_idx = m_l_rf + 1;
-                compute_omit_lc_chain_extremes(partition_idx > 0, partition_idx < m_rel.m_rfunc.size());
+                compute_omit_lc_chain_extremes();
                 break;
             }
             case section_lowest_degree:
@@ -650,19 +632,9 @@ namespace nlsat {
             m_unique_neighbor.clear();
             m_deg_in_order_graph.clear();
 
-            m_added_pairs.clear();
             for (auto const& pr : m_rel.m_pairs) {
-                poly* a = m_rel.m_rfunc[pr.first].ire.p;
-                poly* b = m_rel.m_rfunc[pr.second].ire.p;
-                if (!a || !b)
-                    continue;
-                unsigned id1 = m_pm.id(a);
-                unsigned id2 = m_pm.id(b);
-                if (id1 == id2)
-                    continue;
-                std::pair<unsigned, unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
-                if (!m_added_pairs.insert(key).second)
-                    continue;
+                unsigned id1 = m_pm.id(pr.first);
+                unsigned id2 = m_pm.id(pr.second);
 
                 auto add_neighbor = [&](unsigned id, unsigned other) {
                     m_deg_in_order_graph[id]++;
@@ -1044,20 +1016,8 @@ namespace nlsat {
 
 
         void add_relation_resultants() {
-            m_added_pairs.clear();
             for (auto const& pr : m_rel.m_pairs) {
-                poly* a = m_rel.m_rfunc[pr.first].ire.p;
-                poly* b = m_rel.m_rfunc[pr.second].ire.p;
-                if (!a || !b)
-                    continue;
-                unsigned id1 = m_pm.id(a);
-                unsigned id2 = m_pm.id(b);
-                if (id1 == id2)
-                    continue;
-                std::pair<unsigned, unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
-                if (!m_added_pairs.insert(key).second)
-                    continue;
-                request_factorized(m_todo, psc_resultant(a, b, m_level), inv_req::ord);
+                request_factorized(m_todo, psc_resultant(pr.first, pr.second, m_level), inv_req::ord);
             }
         }
 
@@ -1085,18 +1045,14 @@ namespace nlsat {
             std::sort(root_vals.begin(), root_vals.end(), [&](auto const& a, auto const& b) {
                 return m_am.lt(a.first, b.first);
             });
-            m_added_pairs.clear();
+            std::set<std::pair<poly*, poly*>> added_pairs;
             for (unsigned j = 0; j + 1 < root_vals.size(); ++j) {
                 poly* p1 = root_vals[j].second;
                 poly* p2 = root_vals[j + 1].second;
-                if (!p1 || !p2)
+                if (!p1 || !p2 || p1 == p2)
                     continue;
-                unsigned id1 = m_pm.id(p1);
-                unsigned id2 = m_pm.id(p2);
-                if (id1 == id2)
-                    continue;
-                std::pair<unsigned, unsigned> key = id1 < id2 ? std::make_pair(id1, id2) : std::make_pair(id2, id1);
-                if (!m_added_pairs.insert(key).second)
+                if (p1 > p2) std::swap(p1, p2);
+                if (!added_pairs.insert({p1, p2}).second)
                     continue;
                 request_factorized(m_todo, psc_resultant(p1, p2, m_n), inv_req::ord);
             }
