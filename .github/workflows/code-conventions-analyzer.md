@@ -9,7 +9,6 @@ tools:
   github:
     toolsets: [default]
   view: {}
-  grep: {}
   glob: {}
   bash:
     - "clang-format --version"
