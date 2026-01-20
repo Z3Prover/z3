@@ -72,10 +72,20 @@ namespace smt {
 
         lbool res = l_undef;
         try {
+            if (!m.inc())
+                return;
             res = m_sls->check();
         } catch (z3_exception& ex) {
-            IF_VERBOSE(1, verbose_stream() << "SLS threw an exception: " << ex.what() << "\n");
+            // Cancellation is normal in portfolio mode
+            if (m.limit().is_canceled()) {
+                IF_VERBOSE(1, verbose_stream() << "SLS worker canceled\n");
+                return;
+            }
+
+            // Anything else is a real error
+            IF_VERBOSE(1, verbose_stream() << "SLS threw exception: " << ex.what() << "\n");
             b.set_exception(ex.what());
+            return;
         }
 
         if (res == l_true) {            
