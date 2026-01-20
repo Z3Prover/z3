@@ -66,7 +66,7 @@ namespace nlsat {
         pmanager&                    m_pm;
         anum_manager&                m_am;
         polynomial::cache&           m_cache;
-        std::vector<root_function_interval> m_I; // intervals for variables 0..m_n-1
+        std_vector<root_function_interval> m_I; // intervals for variables 0..m_n-1
 
         unsigned               m_level = 0;      // current level being processed
         relation_mode          m_sector_relation_mode = chain;
@@ -79,8 +79,8 @@ namespace nlsat {
         using tagged_id = std::pair<unsigned, inv_req>; // <pm.id(poly), tag>
         todo_set                        m_todo;
         polynomial_ref_vector           m_level_ps;
-        std::vector<tagged_id>          m_level_tags;
-        std::vector<polynomial_ref>     m_witnesses;
+        std_vector<tagged_id>          m_level_tags;
+        std_vector<polynomial_ref>     m_witnesses;
         std_vector<bool>                m_poly_has_roots;
 
         polynomial_ref_vector  m_psc_tmp;        // scratch for PSC chains
@@ -89,12 +89,12 @@ namespace nlsat {
         // Entries are upgraded SIGN -> ORD as needed and cleared when a polynomial is extracted.
         std_vector<uint8_t>    m_req;
 
-        // Reusable maps keyed by polynomial ID (more efficient than vectors for sparse IDs)
-        mutable std::unordered_map<unsigned, uint8_t> m_side_mask;
-        mutable std::unordered_map<unsigned, unsigned> m_deg_in_order_graph;
-        mutable std::unordered_map<unsigned, bool> m_omit_lc;
-        mutable std::unordered_map<unsigned, bool> m_omit_disc;
-        mutable std::unordered_map<unsigned, unsigned> m_unique_neighbor;
+        // Vectors indexed by position in m_level_ps (more cache-friendly than maps)
+        mutable std_vector<uint8_t> m_side_mask;       // bit0 = lower, bit1 = upper, 3 = both
+        mutable std_vector<bool> m_omit_lc;
+        mutable std_vector<bool> m_omit_disc;
+        mutable std_vector<unsigned> m_unique_neighbor; // UINT_MAX = not set, UINT_MAX-1 = multiple
+        mutable std_vector<unsigned> m_deg_in_order_graph; // degree of polynomial in resultant graph
 
         assignment const& sample() const { return m_solver.sample(); }
 
@@ -117,32 +117,34 @@ namespace nlsat {
         struct root_function {
             scoped_anum      val;
             indexed_root_expr ire;
-            root_function(anum_manager& am, poly* p, unsigned idx, anum const& v)
-                : val(am), ire{ p, idx } { am.set(val, v); }
-            root_function(root_function&& other) noexcept : val(other.val.m()), ire(other.ire) { val = other.val; }
+            unsigned         ps_idx; // index in m_level_ps
+            root_function(anum_manager& am, poly* p, unsigned idx, anum const& v, unsigned ps_idx)
+                : val(am), ire{ p, idx }, ps_idx(ps_idx) { am.set(val, v); }
+            root_function(root_function&& other) noexcept : val(other.val.m()), ire(other.ire), ps_idx(other.ps_idx) { val = other.val; }
             root_function(root_function const&) = delete;
             root_function& operator=(root_function const&) = delete;
             root_function& operator=(root_function&& other) noexcept {
                 val = other.val;
                 ire = other.ire;
+                ps_idx = other.ps_idx;
                 return *this;
             }
         };
 
         // Root functions (Theta) and the chosen relation (≼) on a given level.
         struct relation_E {
-            std::vector<root_function>              m_rfunc; // Θ: root functions on current level
-            std::set<std::pair<poly*, poly*>>       m_pairs; // ≼ relation as unique polynomial pairs
+            std_vector<root_function>              m_rfunc; // Θ: root functions on current level
+            std::set<std::pair<unsigned, unsigned>> m_pairs; // ≼ relation as unique m_level_ps index pairs
             bool empty() const { return m_rfunc.empty() && m_pairs.empty(); }
             void clear() {
                 m_pairs.clear();
                 m_rfunc.clear();
             }
-            // Add pair by indices - canonicalizes and de-duplicates automatically
+            // Add pair by rfunc indices - canonicalizes and de-duplicates using ps_idx
             void add_pair(unsigned j, unsigned k) {
-                poly* a = m_rfunc[j].ire.p;
-                poly* b = m_rfunc[k].ire.p;
-                if (!a || !b || a == b) return;
+                unsigned a = m_rfunc[j].ps_idx;
+                unsigned b = m_rfunc[k].ps_idx;
+                if (a == b) return;
                 if (a > b) std::swap(a, b);
                 m_pairs.insert({a, b});
             }
@@ -158,12 +160,12 @@ namespace nlsat {
             return m_pm.degree(p, level);
         }
 
-        // Estimate resultant weight for m_rel.m_pairs
+        // Estimate resultant weight for m_rel.m_pairs (pairs of m_level_ps indices)
         unsigned estimate_resultant_weight() const {
             unsigned total = 0;
             for (auto const& pr : m_rel.m_pairs)
-                total += w(pr.first, m_level) + w(pr.second, m_level);
-            
+                total += w(m_level_ps.get(pr.first), m_level) + w(m_level_ps.get(pr.second), m_level);
+
             return total;
         }
 
@@ -380,10 +382,10 @@ namespace nlsat {
             return polynomial_ref(m_pm);
         }
 
-        poly* request(todo_set& P, poly* p, inv_req req) {
+        poly* request(poly* p, inv_req req) {
             if (!p || req == inv_req::none)
                 return p;
-            p = P.insert(p);
+            p = m_todo.insert(p);
             unsigned id = m_pm.id(p);
             auto cur = static_cast<inv_req>(vec_get(m_req, id, static_cast<uint8_t>(inv_req::none)));
             inv_req nxt = max_req(cur, req);
@@ -392,9 +394,9 @@ namespace nlsat {
             return p;
         }
 
-        void request_factorized(todo_set& P, polynomial_ref const& poly, inv_req req) {
+        void request_factorized(polynomial_ref const& poly, inv_req req) {
             for_each_distinct_factor(poly, [&](polynomial_ref const& f) {
-                request(P, f.get(), req); // inherit tag across factorization (SMT-RAT appendOnCorrectLevel)
+                request(f.get(), req); // inherit tag across factorization (SMT-RAT appendOnCorrectLevel)
             });
         }
 
@@ -460,19 +462,19 @@ namespace nlsat {
             return best;
         }
 
-        void add_projections_for(todo_set& P, polynomial_ref const& p, unsigned x, polynomial_ref const& nonzero_coeff, bool add_leading_coeff, bool add_discriminant) {
+        void add_projections_for(polynomial_ref const& p, unsigned x, polynomial_ref const& nonzero_coeff, bool add_leading_coeff, bool add_discriminant) {
             // Line 11 (non-null witness coefficient)
             if (nonzero_coeff && !is_const(nonzero_coeff))
-                request_factorized(P, nonzero_coeff, inv_req::sign);
+                request_factorized(nonzero_coeff, inv_req::sign);
 
             // Line 12 (disc + leading coefficient)
             if (add_discriminant)
-                request_factorized(P, psc_discriminant(p, x), inv_req::ord);
+                request_factorized(psc_discriminant(p, x), inv_req::ord);
             if (add_leading_coeff) {
                 unsigned deg = m_pm.degree(p, x);
                 polynomial_ref lc(m_pm);
                 lc = m_pm.coeff(p, x, deg);
-                request_factorized(P, lc, inv_req::sign);
+                request_factorized(lc, inv_req::sign);
             }
         }
 
@@ -485,28 +487,24 @@ namespace nlsat {
         // bit0 = lower (<= sample), bit1 = upper (> sample), 3 = both sides
         void compute_side_mask() {
             m_side_mask.clear();
+            m_side_mask.resize(m_level_ps.size(), 0);
             anum const& v = sample().value(m_level);
             for (auto const& rf : m_rel.m_rfunc) {
-                poly* p = rf.ire.p;
-                if (!p)
-                    continue;
-                unsigned id = m_pm.id(p);
-                uint8_t& mask = m_side_mask[id];
                 if (m_am.compare(rf.val, v) <= 0)
-                    mask |= 1;
+                    m_side_mask[rf.ps_idx] |= 1;
                 else
-                    mask |= 2;
+                    m_side_mask[rf.ps_idx] |= 2;
             }
         }
 
         // Compute deg: count distinct resultant-neighbors for each polynomial
-        void compute_resultant_degree() {
+        // m_pairs contains index pairs into m_level_ps
+        void compute_resultant_graph_degree() {
             m_deg_in_order_graph.clear();
+            m_deg_in_order_graph.resize(m_level_ps.size(), 0);
             for (auto const& pr : m_rel.m_pairs) {
-                unsigned id1 = m_pm.id(pr.first);
-                unsigned id2 = m_pm.id(pr.second);
-                m_deg_in_order_graph[id1]++;
-                m_deg_in_order_graph[id2]++;
+                m_deg_in_order_graph[pr.first]++;
+                m_deg_in_order_graph[pr.second]++;
             }
         }
 
@@ -519,27 +517,20 @@ namespace nlsat {
         // If require_leaf is true, additionally require deg == 1 (leaf in resultant graph).
         void compute_omit_lc_both_sides(bool require_leaf) {
             m_omit_lc.clear();
+            m_omit_lc.resize(m_level_ps.size(), false);
             if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
                 return;
 
             compute_side_mask();
             if (require_leaf)
-                compute_resultant_degree();
+                compute_resultant_graph_degree();
 
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
-                poly* p = m_level_ps.get(i);
-                if (!p)
+                if (m_side_mask[i] != 3)
                     continue;
-                unsigned id = m_pm.id(p);
-                auto sm_it = m_side_mask.find(id);
-                if (sm_it == m_side_mask.end() || sm_it->second != 3)
+                if (require_leaf && m_deg_in_order_graph[i] != 1)
                     continue;
-                if (require_leaf) {
-                    auto deg_it = m_deg_in_order_graph.find(id);
-                    if (deg_it == m_deg_in_order_graph.end() || deg_it->second != 1)
-                        continue;
-                }
-                m_omit_lc[id] = true;
+                m_omit_lc[i] = true;
             }
         }
 
@@ -550,6 +541,7 @@ namespace nlsat {
         // - Extreme of upper chain (index n-1): omit if it also appears on lower side
         void compute_omit_lc_chain_extremes() {
             m_omit_lc.clear();
+            m_omit_lc.resize(m_level_ps.size(), false);
             if (m_rel.m_rfunc.empty())
                 return;
 
@@ -557,18 +549,14 @@ namespace nlsat {
             unsigned n = m_rel.m_rfunc.size();
 
             // Lower extreme: omit if it also appears on upper side
-            poly* p_lower = m_rel.m_rfunc[0].ire.p;
-            unsigned id_lower = m_pm.id(p_lower);
-            auto it_lower = m_side_mask.find(id_lower);
-            if (it_lower != m_side_mask.end() && (it_lower->second & 2))
-                m_omit_lc[id_lower] = true;
+            unsigned idx_lower = m_rel.m_rfunc[0].ps_idx;
+            if (m_side_mask[idx_lower] & 2)
+                m_omit_lc[idx_lower] = true;
 
             // Upper extreme: omit if it also appears on lower side
-            poly* p_upper = m_rel.m_rfunc[n - 1].ire.p;
-            unsigned id_upper = m_pm.id(p_upper);
-            auto it_upper = m_side_mask.find(id_upper);
-            if (it_upper != m_side_mask.end() && (it_upper->second & 1))
-                m_omit_lc[id_upper] = true;
+            unsigned idx_upper = m_rel.m_rfunc[n - 1].ps_idx;
+            if (m_side_mask[idx_upper] & 1)
+                m_omit_lc[idx_upper] = true;
         }
 
         // Dispatch to appropriate sector heuristic
@@ -616,56 +604,55 @@ namespace nlsat {
         void compute_omit_disc_from_section_relation() {
             auto const& I = m_I[m_level];
             m_omit_disc.clear();
+            m_omit_disc.resize(m_level_ps.size(), false);
             if (!I.section)
-                return;
-            poly* section_p = I.l.get();
-            if (!section_p)
                 return;
             if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
                 return;
+            if (!is_set(m_l_rf))
+                return;
 
-            unsigned section_id = m_pm.id(section_p);
+            // In section case, m_l_rf points to the section-defining root function
+            unsigned section_idx = m_rel.m_rfunc[m_l_rf].ps_idx;
 
             // Track the unique (if any) resultant-neighbor for each polynomial and its degree in the
-            // de-duplicated resultant graph. If deg(p) == 1 and neighbor(p) == section_id, then p is
+            // de-duplicated resultant graph. If deg(p) == 1 and neighbor(p) == section, then p is
             // a leaf connected only to the section polynomial.
+            // m_unique_neighbor[i] = neighbor's index, UINT_MAX = not set, UINT_MAX-1 = multiple neighbors
             m_unique_neighbor.clear();
+            m_unique_neighbor.resize(m_level_ps.size(), UINT_MAX);
             m_deg_in_order_graph.clear();
+            m_deg_in_order_graph.resize(m_level_ps.size(), 0);
 
+            // m_pairs contains index pairs into m_level_ps
             for (auto const& pr : m_rel.m_pairs) {
-                unsigned id1 = m_pm.id(pr.first);
-                unsigned id2 = m_pm.id(pr.second);
+                unsigned idx1 = pr.first;
+                unsigned idx2 = pr.second;
 
-                auto add_neighbor = [&](unsigned id, unsigned other) {
-                    m_deg_in_order_graph[id]++;
-                    auto it = m_unique_neighbor.find(id);
-                    if (it == m_unique_neighbor.end())
-                        m_unique_neighbor[id] = other;
-                    else if (it->second != other)
-                        it->second = UINT_MAX - 1; // multiple neighbors
+                auto add_neighbor = [&](unsigned idx, unsigned other_idx) {
+                    m_deg_in_order_graph[idx]++;
+                    if (m_unique_neighbor[idx] == UINT_MAX)
+                        m_unique_neighbor[idx] = other_idx;
+                    else if (m_unique_neighbor[idx] != other_idx)
+                        m_unique_neighbor[idx] = UINT_MAX - 1; // multiple neighbors
                 };
-                add_neighbor(id1, id2);
-                add_neighbor(id2, id1);
+                add_neighbor(idx1, idx2);
+                add_neighbor(idx2, idx1);
             }
 
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
-                poly* p = m_level_ps.get(i);
-                if (!p)
+                if (i == section_idx)
                     continue;
-                unsigned id = m_pm.id(p);
-                if (id == section_id)
+                if (m_deg_in_order_graph[i] != 1)
                     continue;
-                auto deg_it = m_deg_in_order_graph.find(id);
-                if (deg_it == m_deg_in_order_graph.end() || deg_it->second != 1)
-                    continue;
-                auto un_it = m_unique_neighbor.find(id);
-                if (un_it == m_unique_neighbor.end() || un_it->second != section_id)
+                if (m_unique_neighbor[i] != section_idx)
                     continue;
                 // If p vanishes at the sample on the section, we may need p's delineability to
                 // reason about coinciding root functions; be conservative and keep disc(p).
+                poly* p = m_level_ps.get(i);
                 if (m_am.eval_sign_at(polynomial_ref(p, m_pm), sample()) == 0)
                     continue;
-                m_omit_disc[id] = true;
+                m_omit_disc[i] = true;
             }
         }
 
@@ -706,7 +693,7 @@ namespace nlsat {
             if (n == 0)
                 return;
 
-            std::vector<unsigned> degs;
+            std_vector<unsigned> degs;
             degs.reserve(n);
             for (unsigned i = 0; i < n; ++i)
                 degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
@@ -776,7 +763,7 @@ namespace nlsat {
             SASSERT(is_set(m_l_rf));
             SASSERT(m_l_rf < n);
 
-            std::vector<unsigned> degs;
+            std_vector<unsigned> degs;
             degs.reserve(n);
             for (unsigned i = 0; i < n; ++i)
                 degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
@@ -844,13 +831,14 @@ namespace nlsat {
 
         // Extract roots of polynomial p around sample value v at the given level,
         // partitioning them into lhalf (roots <= v) and uhalf (roots > v).
+        // ps_idx is the index of p in m_level_ps.
         // Returns whether the polynomial has any roots.
-        bool isolate_roots_around_sample(unsigned level, poly* p, unsigned idx,
-                                          anum const& v, std::vector<root_function>& lhalf,
-                                          std::vector<root_function>& uhalf) {
+        bool isolate_roots_around_sample(unsigned level, poly* p, unsigned ps_idx,
+                                          anum const& v, std_vector<root_function>& lhalf,
+                                          std_vector<root_function>& uhalf) {
             scoped_anum_vector roots(m_am);
 
-            // When the sample value is rational use a closest-root isolation 
+            // When the sample value is rational use a closest-root isolation
             // returning at most two roots
             if (v.is_basic()) {
                 scoped_mpq s(m_am.qm());
@@ -860,15 +848,15 @@ namespace nlsat {
                 SASSERT(roots.size() == idx_vec.size());
                 for (unsigned k = 0; k < roots.size(); ++k) {
                     if (m_am.compare(roots[k], v) <= 0)
-                        lhalf.emplace_back(m_am, p, idx_vec[k], roots[k]);
+                        lhalf.emplace_back(m_am, p, idx_vec[k], roots[k], ps_idx);
                     else
-                        uhalf.emplace_back(m_am, p, idx_vec[k], roots[k]);
+                        uhalf.emplace_back(m_am, p, idx_vec[k], roots[k], ps_idx);
                 }
                 return roots.size();
             }
 
             m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), level), roots);
-            
+
             // SMT-RAT style reduction: keep only the closest to v roots: one below and one above v,
             // or a single root at v
             unsigned lower = UINT_MAX, upper = UINT_MAX;
@@ -888,12 +876,12 @@ namespace nlsat {
                 }
             }
             if (lower != UINT_MAX) {
-                lhalf.emplace_back(m_am, p, lower + 1, roots[lower]);
+                lhalf.emplace_back(m_am, p, lower + 1, roots[lower], ps_idx);
                 if (section)
                     return roots.size(); // only keep the section root for this polynomial
             }
             if (upper != UINT_MAX)
-                uhalf.emplace_back(m_am, p, upper + 1, roots[upper]);
+                uhalf.emplace_back(m_am, p, upper + 1, roots[upper], ps_idx);
             return roots.size();
         }
 
@@ -903,14 +891,14 @@ namespace nlsat {
         }
 
         bool collect_partitioned_root_functions_around_sample(anum const& v,
-                            std::vector<root_function>& lhalf, std::vector<root_function>& uhalf) {
+                            std_vector<root_function>& lhalf, std_vector<root_function>& uhalf) {
             for (unsigned i = 0; i < m_level_ps.size(); ++i)
                 m_poly_has_roots[i] = isolate_roots_around_sample(m_level, m_level_ps.get(i), i, v, lhalf, uhalf);
             return !lhalf.empty() || !uhalf.empty();
         }
 
-        std::vector<root_function>::iterator set_relation_root_functions_from_partitions(std::vector<root_function>& lhalf,
-                            std::vector<root_function>& uhalf) {
+        std_vector<root_function>::iterator set_relation_root_functions_from_partitions(std_vector<root_function>& lhalf,
+                            std_vector<root_function>& uhalf) {
             auto& rfs = m_rel.m_rfunc;
             size_t mid_pos = lhalf.size();
             rfs.clear();
@@ -935,7 +923,7 @@ namespace nlsat {
             return m_pm.id(a.ire.p) < m_pm.id(b.ire.p);
         }
 
-        void sort_root_function_partitions(std::vector<root_function>::iterator mid) {
+        void sort_root_function_partitions(std_vector<root_function>::iterator mid) {
             auto& rfs = m_rel.m_rfunc;
             std::sort(rfs.begin(), mid,
                 [&](root_function const& a, root_function const& b) { return root_function_lt(a, b, true); });
@@ -945,10 +933,10 @@ namespace nlsat {
 
         // Populate Θ (root functions) around the sample, partitioned at `mid`, and sort each partition.
         // Returns whether any roots were found.
-        bool build_sorted_root_functions_around_sample(anum const& v, std::vector<root_function>::iterator& mid) {
+        bool build_sorted_root_functions_around_sample(anum const& v, std_vector<root_function>::iterator& mid) {
             init_poly_has_roots();
 
-            std::vector<root_function> lhalf, uhalf;
+            std_vector<root_function> lhalf, uhalf;
             if (!collect_partitioned_root_functions_around_sample(v, lhalf, uhalf))
                 return false;
 
@@ -964,7 +952,7 @@ namespace nlsat {
 
         // Pick I_level around sample(m_level) from sorted Θ, split at `mid`.
         // Sets m_l_rf/m_u_rf (positions in m_rfunc) and m_I[m_level] (interval with root indices).
-        void set_interval_from_root_partition(anum const& v, std::vector<root_function>::iterator mid) {
+        void set_interval_from_root_partition(anum const& v, std_vector<root_function>::iterator mid) {
             auto& rfs = m_rel.m_rfunc;
             if (mid != rfs.begin()) {
                 m_l_rf = static_cast<unsigned>((mid - rfs.begin()) - 1);
@@ -1006,7 +994,7 @@ namespace nlsat {
             m_u_rf = UINT_MAX;
 
             anum const& v = sample().value(m_level);
-            std::vector<root_function>::iterator mid;
+            std_vector<root_function>::iterator mid;
             if (!build_sorted_root_functions_around_sample(v, mid))
                 return false;
 
@@ -1017,7 +1005,9 @@ namespace nlsat {
 
         void add_relation_resultants() {
             for (auto const& pr : m_rel.m_pairs) {
-                request_factorized(m_todo, psc_resultant(pr.first, pr.second, m_level), inv_req::ord);
+                poly* p1 = m_level_ps.get(pr.first);
+                poly* p2 = m_level_ps.get(pr.second);
+                request_factorized(psc_resultant(p1, p2, m_level), inv_req::ord);
             }
         }
 
@@ -1027,7 +1017,7 @@ namespace nlsat {
             m_poly_has_roots.clear();
             m_poly_has_roots.resize(m_level_ps.size(), false);
 
-            std::vector<std::pair<scoped_anum, poly*>> root_vals;
+            std_vector<std::pair<scoped_anum, poly*>> root_vals;
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 poly* p = m_level_ps.get(i);
                 scoped_anum_vector roots(m_am);
@@ -1054,7 +1044,7 @@ namespace nlsat {
                 if (p1 > p2) std::swap(p1, p2);
                 if (!added_pairs.insert({p1, p2}).second)
                     continue;
-                request_factorized(m_todo, psc_resultant(p1, p2, m_n), inv_req::ord);
+                request_factorized(psc_resultant(p1, p2, m_n), inv_req::ord);
             }
         }
 
@@ -1080,9 +1070,7 @@ namespace nlsat {
                 unsigned deg = m_pm.degree(p, m_level);
                 lc = m_pm.coeff(p, m_level, deg);
 
-                unsigned pid = m_pm.id(p.get());
-                auto it = m_omit_lc.find(pid);
-                bool add_lc = (it == m_omit_lc.end() || !it->second);
+                bool add_lc = (i >= m_omit_lc.size() || !m_omit_lc[i]);
 
                 if (add_lc && i < usize(m_poly_has_roots) && !m_poly_has_roots[i])
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
@@ -1094,7 +1082,7 @@ namespace nlsat {
                 if (add_lc && witness && !is_const(witness))
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         witness = polynomial_ref(m_pm);
-                add_projections_for(m_todo, p, m_level, witness, add_lc, true); //true for adding the discriminant: always add it in sector, required by Lemma 3.2.
+                add_projections_for(p, m_level, witness, add_lc, true); //true for adding the discriminant: always add it in sector, required by Lemma 3.2.
             }
         }
 
@@ -1112,7 +1100,6 @@ namespace nlsat {
 
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 polynomial_ref p(m_level_ps.get(i), m_pm);
-                unsigned pid = m_pm.id(p.get());
                 bool is_section_poly = section_p && p.get() == section_p;
                 bool has_roots = i < usize(m_poly_has_roots) && m_poly_has_roots[i];
 
@@ -1131,8 +1118,7 @@ namespace nlsat {
                         add_lc = false;
                 }
                 else {
-                    auto it = m_omit_lc.find(pid);
-                    if (add_lc && it != m_omit_lc.end() && it->second)
+                    if (add_lc && i < m_omit_lc.size() && m_omit_lc[i])
                         add_lc = false;
 
                     if (add_lc && !has_roots)
@@ -1160,8 +1146,7 @@ namespace nlsat {
                 // Only omit discriminants for polynomials that were not required to be order-invariant
                 // by upstream projection steps.
                 if (add_disc && m_level_tags[i].second != inv_req::ord) {
-                    auto it = m_omit_disc.find(pid);
-                    if (it != m_omit_disc.end() && it->second)
+                    if (i < m_omit_disc.size() && m_omit_disc[i])
                         add_disc = false;
                 }
 
@@ -1172,7 +1157,7 @@ namespace nlsat {
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         witness = polynomial_ref(m_pm);
 
-                add_projections_for(m_todo, p, m_level, witness, add_lc, add_disc);
+                add_projections_for(p, m_level, witness, add_lc, add_disc);
             }
         }
 
@@ -1264,11 +1249,11 @@ namespace nlsat {
                 if (add_lc && witness && !is_const(witness) && add_lc)
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         witness = polynomial_ref(m_pm);
-                add_projections_for(m_todo, p, m_n, witness, add_lc, true);
+                add_projections_for(p, m_n, witness, add_lc, true);
             }
         }
 
-        std::vector<root_function_interval> single_cell_work() {
+        std_vector<root_function_interval> single_cell_work() {
             if (m_n == 0)
                 return m_I;
 
@@ -1278,7 +1263,7 @@ namespace nlsat {
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 polynomial_ref pi(m_P.get(i), m_pm);
                 for_each_distinct_factor(pi, [&](polynomial_ref const& f) {
-                    request(m_todo, f.get(), inv_req::sign);
+                    request(f.get(), inv_req::sign);
                 });
             }
 
@@ -1301,7 +1286,7 @@ namespace nlsat {
             return m_I;
         }
 
-        std::vector<root_function_interval> single_cell() {
+        std_vector<root_function_interval> single_cell() {
             try {
                 return single_cell_work();
             }
@@ -1324,7 +1309,7 @@ namespace nlsat {
 
     levelwise::~levelwise() { delete m_impl; }
 
-    std::vector<levelwise::root_function_interval> levelwise::single_cell() {
+    std_vector<levelwise::root_function_interval> levelwise::single_cell() {
         return m_impl->single_cell();
     }
 

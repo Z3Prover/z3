@@ -45,7 +45,7 @@ namespace nlsat {
 
         levelwise(levelwise const&) = delete;
         levelwise& operator=(levelwise const&) = delete;
-        std::vector<root_function_interval> single_cell();
+        std_vector<root_function_interval> single_cell();
         bool failed() const;
     };
 
