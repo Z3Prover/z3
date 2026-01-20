@@ -18,7 +18,6 @@ tools:
     toolsets: [default]
   bash: [":*"]
   edit: {}
-  grep: {}
   glob: {}
   web-search: {}
 
