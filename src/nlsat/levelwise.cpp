@@ -167,6 +167,20 @@ namespace nlsat {
             return total;
         }
 
+        // Estimate leading coefficient weight for polynomials where omit_lc is false
+        unsigned estimate_lc_weight() const {
+            unsigned total = 0;
+            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
+                if (i < m_omit_lc.size() && m_omit_lc[i])
+                    continue;
+                poly* p = m_level_ps.get(i);
+                unsigned deg = m_pm.degree(p, m_level);
+                if (deg > 0)
+                    total += w(m_pm.coeff(p, m_level, deg), m_level - 1);
+            }
+            return total;
+        }
+
         // Choose the best sector heuristic based on estimated weight.
         // Also fills m_rel.m_pairs with the winning heuristic's pairs.
         relation_mode choose_best_sector_heuristic() {
@@ -180,19 +194,26 @@ namespace nlsat {
                 return m_sector_relation_mode;
             }
 
+            // Compute side_mask once (needed for omit_lc computation)
+            compute_side_mask();
+
             // Estimate weights by filling m_rel.m_pairs temporarily.
+            // Include both resultant weight and lc weight for non-omitted lcs.
             // Fill lowest_degree last since it's the most common winner (tie-breaker).
             m_rel.m_pairs.clear();
             fill_relation_with_biggest_cell_heuristic();
-            unsigned w_bc = estimate_resultant_weight();
+            compute_omit_lc_both_sides(false);
+            unsigned w_bc = estimate_resultant_weight() + estimate_lc_weight();
 
             m_rel.m_pairs.clear();
             fill_relation_with_chain_heuristic();
-            unsigned w_ch = estimate_resultant_weight();
+            compute_omit_lc_chain_extremes();
+            unsigned w_ch = estimate_resultant_weight() + estimate_lc_weight();
 
             m_rel.m_pairs.clear();
             fill_relation_with_min_degree_resultant_sum();
-            unsigned w_ld = estimate_resultant_weight();
+            compute_omit_lc_both_sides(true);  // needs m_deg_in_order_graph, computed inside
+            unsigned w_ld = estimate_resultant_weight() + estimate_lc_weight();
 
             TRACE(lws,
                 tout << "Level " << m_level << " SECTOR: rfunc.size=" << m_rel.m_rfunc.size()
@@ -205,7 +226,7 @@ namespace nlsat {
 
             unsigned w_min = std::min({w_bc, w_ch, w_ld});
 
-            // If lowest_degree wins, pairs are already filled
+            // If lowest_degree wins, pairs and omit_lc are already filled
             if (w_ld == w_min)
                 return lowest_degree;
 
@@ -213,10 +234,11 @@ namespace nlsat {
             m_rel.m_pairs.clear();
             if (w_ch == w_min) {
                 fill_relation_with_chain_heuristic();
+                compute_omit_lc_chain_extremes();
                 return chain;
             }
-            TRACE(lws, tout << "bc wins\n");
             fill_relation_with_biggest_cell_heuristic();
+            compute_omit_lc_both_sides(false);
             return biggest_cell;
         }
 
@@ -233,19 +255,26 @@ namespace nlsat {
                 return m_section_relation_mode;
             }
 
+            // Compute side_mask once (needed for omit_lc computation)
+            compute_side_mask();
+
             // Estimate weights by filling m_rel.m_pairs temporarily.
+            // Include both resultant weight and lc weight for non-omitted lcs.
             // Fill lowest_degree last since it's the most common winner (tie-breaker).
             m_rel.m_pairs.clear();
             fill_relation_pairs_for_section_biggest_cell();
-            unsigned w_bc = estimate_resultant_weight();
+            m_omit_lc.clear();  // no omit_lc for biggest_cell (handled via ORD_INV tag)
+            unsigned w_bc = estimate_resultant_weight() + estimate_lc_weight();
 
             m_rel.m_pairs.clear();
             fill_relation_pairs_for_section_chain();
-            unsigned w_ch = estimate_resultant_weight();
+            compute_omit_lc_chain_extremes();
+            unsigned w_ch = estimate_resultant_weight() + estimate_lc_weight();
 
             m_rel.m_pairs.clear();
             fill_relation_pairs_for_section_lowest_degree();
-            unsigned w_ld = estimate_resultant_weight();
+            compute_omit_lc_both_sides(true);  // needs m_deg_in_order_graph, computed inside
+            unsigned w_ld = estimate_resultant_weight() + estimate_lc_weight();
 
             TRACE(lws,
                 tout << "Level " << m_level << " SECTION: rfunc.size=" << m_rel.m_rfunc.size()
@@ -257,7 +286,7 @@ namespace nlsat {
 
             unsigned w_min = std::min({w_bc, w_ch, w_ld});
 
-            // If lowest_degree wins, pairs are already filled
+            // If lowest_degree wins, pairs and omit_lc are already filled
             if (w_ld == w_min)
                 return section_lowest_degree;
 
@@ -265,9 +294,11 @@ namespace nlsat {
             m_rel.m_pairs.clear();
             if (w_ch == w_min) {
                 fill_relation_pairs_for_section_chain();
+                compute_omit_lc_chain_extremes();
                 return section_chain;
             }
             fill_relation_pairs_for_section_biggest_cell();
+            m_omit_lc.clear();
             return section_biggest_cell;
         }
 
@@ -1067,7 +1098,9 @@ namespace nlsat {
             // Note: Algorithm 1 adds disc + ldcf for ALL polynomials (classical delineability)
             // We additionally omit leading coefficients for rootless polynomials when possible
             // (cf. projective delineability, Lemma 3.2).
-            compute_omit_lc_sector();
+            // When m_dynamic_heuristic is true, omit_lc is already computed by choose_best_sector_heuristic()
+            if (!m_dynamic_heuristic)
+                compute_omit_lc_sector();
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 polynomial_ref p(m_level_ps.get(i), m_pm);
                 polynomial_ref lc(m_pm);
@@ -1094,8 +1127,9 @@ namespace nlsat {
             SASSERT(m_I[m_level].section);
             poly* section_p = m_I[m_level].l.get();
 
-            // Compute omission information derived from the chosen relation (still used for heuristics 2/3).
-            compute_omit_lc_section();
+            // When m_dynamic_heuristic is true, omit_lc is already computed by choose_best_section_heuristic()
+            if (!m_dynamic_heuristic)
+                compute_omit_lc_section();
             // SMT-RAT only applies noDisc optimization for section_lowest_degree (heuristic 3)
             if (m_section_relation_mode == section_lowest_degree)
                 compute_omit_disc_from_section_relation();
