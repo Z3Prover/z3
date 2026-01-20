@@ -76,10 +76,8 @@ namespace nlsat {
         unsigned               m_u_rf = UINT_MAX; // position of upper bound in m_rel.m_rfunc (UINT_MAX in section case)
 
         // Per-level state set by process_level/process_top_level
-        using tagged_id = std::pair<unsigned, inv_req>; // <pm.id(poly), tag>
         todo_set                        m_todo;
         polynomial_ref_vector           m_level_ps;
-        std_vector<tagged_id>          m_level_tags;
         std_vector<polynomial_ref>     m_witnesses;
         std_vector<bool>                m_poly_has_roots;
 
@@ -400,22 +398,28 @@ namespace nlsat {
             });
         }
 
-        // Extract polynomials at max level from m_todo into m_level_ps and m_level_tags.
-        // Sets m_level to the extracted level.
+        // Extract polynomials at max level from m_todo into m_level_ps.
+        // Sets m_level to the extracted level. Requirements remain in m_req.
         void extract_max_tagged() {
             m_level = m_todo.extract_max_polys(m_level_ps);
-            m_level_tags.clear();
-            m_level_tags.reserve(m_level_ps.size());
+            // Ensure all extracted polynomials have at least SIGN requirement
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
-                poly* p = m_level_ps.get(i);
-                unsigned id = m_pm.id(p);
-                inv_req req = static_cast<inv_req>(vec_get(m_req, id, static_cast<uint8_t>(inv_req::sign)));
-                if (req == inv_req::none)
-                    req = inv_req::sign;
-                m_level_tags.emplace_back(id, req);
-                // Clear: extracted polynomials are no longer part of the worklist.
-                vec_setx(m_req, id, static_cast<uint8_t>(inv_req::none), static_cast<uint8_t>(inv_req::none));
+                unsigned id = m_pm.id(m_level_ps.get(i));
+                if (vec_get(m_req, id, static_cast<uint8_t>(inv_req::none)) == static_cast<uint8_t>(inv_req::none))
+                    vec_setx(m_req, id, static_cast<uint8_t>(inv_req::sign), static_cast<uint8_t>(inv_req::none));
             }
+        }
+
+        // Get the requirement for polynomial at index i in m_level_ps
+        inv_req get_req(unsigned i) const {
+            unsigned id = m_pm.id(m_level_ps.get(i));
+            return static_cast<inv_req>(vec_get(m_req, id, static_cast<uint8_t>(inv_req::sign)));
+        }
+
+        // Set the requirement for polynomial at index i in m_level_ps
+        void set_req(unsigned i, inv_req req) {
+            unsigned id = m_pm.id(m_level_ps.get(i));
+            vec_setx(m_req, id, static_cast<uint8_t>(req), static_cast<uint8_t>(inv_req::none));
         }
 
         // Select a coefficient c of p (wrt x) such that c(s) != 0, or return null.
@@ -1054,7 +1058,7 @@ namespace nlsat {
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 poly* p = m_level_ps.get(i);
                 if (p == lb || p == ub)
-                    m_level_tags[i].second = inv_req::ord;
+                    set_req(i, inv_req::ord);
             }
         }
 
@@ -1114,7 +1118,7 @@ namespace nlsat {
                 else if (m_section_relation_mode == section_biggest_cell) {
                     // SMT-RAT section heuristic 1 projects leading coefficients primarily for the
                     // defining section polynomial; keep LCs only for upstream ORD polynomials.
-                    if (m_level_tags[i].second != inv_req::ord)
+                    if (get_req(i) != inv_req::ord)
                         add_lc = false;
                 }
                 else {
@@ -1132,20 +1136,20 @@ namespace nlsat {
                 else if (m_section_relation_mode == section_biggest_cell) {
                     // SMT-RAT section heuristic 1 projects discriminants primarily for the defining
                     // polynomial; keep discriminants only for upstream ORD polynomials.
-                    if (m_level_tags[i].second != inv_req::ord)
+                    if (get_req(i) != inv_req::ord)
                         add_disc = false;
                 }
                 // DISABLED: chain disc skipping is unsound
                 // else if (m_section_relation_mode == section_chain) {
                 //     // In SMT-RAT's chain-style section heuristic, discriminants are projected for
                 //     // polynomials that actually have roots around the sample.
-                //     if (m_level_tags[i].second != inv_req::ord && !has_roots)
+                //     if (get_req(i) != inv_req::ord && !has_roots)
                 //         add_disc = false;
                 // }
 
                 // Only omit discriminants for polynomials that were not required to be order-invariant
                 // by upstream projection steps.
-                if (add_disc && m_level_tags[i].second != inv_req::ord) {
+                if (add_disc && get_req(i) != inv_req::ord) {
                     if (i < m_omit_disc.size() && m_omit_disc[i])
                         add_disc = false;
                 }
@@ -1188,15 +1192,11 @@ namespace nlsat {
         }
 
         void process_level() {
-            SASSERT(m_level_ps.size() == m_level_tags.size());
-
             // Line 10/11: detect nullification + pick a non-zero coefficient witness per p.
             m_witnesses.clear();
             m_witnesses.reserve(m_level_ps.size());
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 polynomial_ref p(m_level_ps.get(i), m_pm);
-                SASSERT(m_level_tags[i].first == m_pm.id(p.get()));
-
                 polynomial_ref w = choose_nonzero_coeff(p, m_level);
                 if (!w)
                     fail();
@@ -1212,12 +1212,10 @@ namespace nlsat {
         }
 
         void process_top_level() {
-            SASSERT(m_level_ps.size() == m_level_tags.size());
             m_witnesses.clear();
             m_witnesses.reserve(m_level_ps.size());
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 polynomial_ref p(m_level_ps.get(i), m_pm);
-                SASSERT(m_level_tags[i].first == m_pm.id(p.get()));
                 polynomial_ref w = choose_nonzero_coeff(p, m_n);
                 if (!w)
                     fail();
