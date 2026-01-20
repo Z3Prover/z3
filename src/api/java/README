@@ -4,3 +4,10 @@ Java bindings
 The Java bindings will be included in the Z3 build if it is configured with   
 the option --java to python scripts/mk_make.py. This will produce the   
 com.microsoft.z3.jar package in the build directory.
+
+## IDE Setup Guide
+
+For comprehensive instructions on using Z3 Java bindings in IDEs (Eclipse, 
+IntelliJ IDEA, Visual Studio Code), including troubleshooting common issues 
+like ClassNotFoundException, see:
+   ../../../doc/JAVA_IDE_SETUP.md

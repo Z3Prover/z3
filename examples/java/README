@@ -1,5 +1,13 @@
 A small example using the Z3 Java bindings.   
 
+## IDE Setup
+
+For detailed instructions on setting up Z3 Java bindings in Eclipse, IntelliJ IDEA, 
+or Visual Studio Code, see:
+   ../../doc/JAVA_IDE_SETUP.md
+
+## Building and Running Examples
+
 To build the example, configure Z3 with the --java option to scripts/mk_make.py, build via  
    make examples
 in the build directory.
