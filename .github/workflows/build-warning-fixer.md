@@ -6,7 +6,6 @@ on:
 permissions: read-all
 tools:
   view: {}
-  grep: {}
   glob: {}
   edit:
   bash:

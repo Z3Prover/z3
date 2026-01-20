@@ -63,18 +63,19 @@ Report back with specific findings and actionable fixes.
 - `gh aw audit <run-id> --json` → investigate a specific run with JSON output
 - `gh aw status` → show status of agentic workflows in the repository
 
-:::note[Alternative: agentic-workflows Tool]
-If `gh aw` is not authenticated (e.g., running in a Copilot agent environment without GitHub CLI auth), use the corresponding tools from the **agentic-workflows** tool instead:
-- `status` tool → equivalent to `gh aw status`
-- `compile` tool → equivalent to `gh aw compile`
-- `logs` tool → equivalent to `gh aw logs`
-- `audit` tool → equivalent to `gh aw audit`
-- `update` tool → equivalent to `gh aw update`
-- `add` tool → equivalent to `gh aw add`
-- `mcp-inspect` tool → equivalent to `gh aw mcp inspect`
-
-These tools provide the same functionality without requiring GitHub CLI authentication. Enable by adding `agentic-workflows:` to your workflow's `tools:` section.
-:::
+> [!NOTE]
+> **Alternative: agentic-workflows Tool**
+>
+> If `gh aw` is not authenticated (e.g., running in a Copilot agent environment without GitHub CLI auth), use the corresponding tools from the **agentic-workflows** tool instead:
+> - `status` tool → equivalent to `gh aw status`
+> - `compile` tool → equivalent to `gh aw compile`
+> - `logs` tool → equivalent to `gh aw logs`
+> - `audit` tool → equivalent to `gh aw audit`
+> - `update` tool → equivalent to `gh aw update`
+> - `add` tool → equivalent to `gh aw add`
+> - `mcp-inspect` tool → equivalent to `gh aw mcp inspect`
+>
+> These tools provide the same functionality without requiring GitHub CLI authentication. Enable by adding `agentic-workflows:` to your workflow's `tools:` section.
 
 ## Starting the Conversation
 

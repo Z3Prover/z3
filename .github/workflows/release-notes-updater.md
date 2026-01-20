@@ -16,7 +16,6 @@ tools:
     toolsets: [default]
   bash: [":*"]
   edit: {}
-  grep: {}
   glob: {}
   view: {}
 
