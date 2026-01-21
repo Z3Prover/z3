@@ -96,7 +96,8 @@ void apply_permutation(std::span<T> data, std::span<unsigned const> p) {
     apply_permutation_core(data, std::span<unsigned>(const_cast<unsigned*>(p.data()), p.size()));
     // restore p
     int * p1 = reinterpret_cast<int*>(const_cast<unsigned*>(p.data()));
-    for (size_t i = 0; i < p.size(); ++i) { 
+    int sz = static_cast<int>(p.size());
+    for (int i = 0; i < sz; ++i) { 
         p1[i] = - p1[i] - 1;
     }
 }
