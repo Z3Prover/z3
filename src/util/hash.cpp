@@ -29,8 +29,10 @@ static unsigned read_unsigned(const char *s) {
 
 // I'm using Bob Jenkin's hash function.
 // http://burtleburtle.net/bob/hash/doobs.html
-unsigned string_hash(const char * str, unsigned length, unsigned init_value) {
+unsigned string_hash(std::string_view str, unsigned init_value) {
     unsigned a, b, c, len;
+    const char * data = str.data();
+    unsigned length = static_cast<unsigned>(str.length());
 
     /* Set up the internal state */
     len = length;
@@ -40,49 +42,49 @@ unsigned string_hash(const char * str, unsigned length, unsigned init_value) {
     /*---------------------------------------- handle most of the key */
     SASSERT(sizeof(unsigned) == 4);
     while (len >= 12) {
-        a += read_unsigned(str);
-        b += read_unsigned(str+4);
-        c += read_unsigned(str+8);
+        a += read_unsigned(data);
+        b += read_unsigned(data+4);
+        c += read_unsigned(data+8);
         mix(a,b,c);
-        str += 12; len -= 12;
+        data += 12; len -= 12;
     }
 
     /*------------------------------------- handle the last 11 bytes */
     c += length;
     switch(len) {        /* all the case statements fall through */
     case 11: 
-        c+=((unsigned)str[10]<<24);
+        c+=((unsigned)data[10]<<24);
         Z3_fallthrough;
     case 10: 
-        c+=((unsigned)str[9]<<16);
+        c+=((unsigned)data[9]<<16);
         Z3_fallthrough;
     case 9 : 
-        c+=((unsigned)str[8]<<8);
+        c+=((unsigned)data[8]<<8);
         Z3_fallthrough;
         /* the first byte of c is reserved for the length */
     case 8 : 
-        b+=((unsigned)str[7]<<24);
+        b+=((unsigned)data[7]<<24);
         Z3_fallthrough;
     case 7 : 
-        b+=((unsigned)str[6]<<16);
+        b+=((unsigned)data[6]<<16);
         Z3_fallthrough;
     case 6 : 
-        b+=((unsigned)str[5]<<8);
+        b+=((unsigned)data[5]<<8);
         Z3_fallthrough;
     case 5 : 
-        b+=str[4];
+        b+=data[4];
         Z3_fallthrough;
     case 4 : 
-        a+=((unsigned)str[3]<<24);
+        a+=((unsigned)data[3]<<24);
         Z3_fallthrough;
     case 3 : 
-        a+=((unsigned)str[2]<<16);
+        a+=((unsigned)data[2]<<16);
         Z3_fallthrough;
     case 2 : 
-        a+=((unsigned)str[1]<<8);
+        a+=((unsigned)data[1]<<8);
         Z3_fallthrough;
     case 1 : 
-        a+=str[0];
+        a+=data[0];
         /* case 0: nothing left to add */
         break;
     }

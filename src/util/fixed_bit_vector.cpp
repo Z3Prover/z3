@@ -137,7 +137,7 @@ bool fixed_bit_vector_manager::equals(fixed_bit_vector const& a, fixed_bit_vecto
     return last_word(a) == last_word(b);
 }
 unsigned fixed_bit_vector_manager::hash(fixed_bit_vector const& src) const {
-    return string_hash(reinterpret_cast<char const* const>(src.m_data), num_bits()/8, num_bits());
+    return string_hash(std::string_view(reinterpret_cast<char const* const>(src.m_data), num_bits()/8), num_bits());
 }
 
 bool fixed_bit_vector_manager::contains(fixed_bit_vector const& a, fixed_bit_vector const& b) const {

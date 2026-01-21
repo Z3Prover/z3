@@ -103,7 +103,7 @@ namespace sls {
     struct zstring_hash_proc {
         unsigned operator()(zstring const & s) const {
             auto str = s.encode();
-            return string_hash(str.c_str(), static_cast<unsigned>(s.length()), 17);
+            return string_hash(std::string_view(str), 17);
         }
     };
     

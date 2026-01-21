@@ -63,7 +63,7 @@ namespace datalog {
 
     struct std_string_hash_proc { 
         unsigned operator()(const std::string & s) const 
-        { return string_hash(s.c_str(), static_cast<unsigned>(s.length()), 17); } 
+        { return string_hash(std::string_view(s), 17); } 
     };
 
     // typedef int_hashtable<int_hash, default_eq<int> > idx_set;

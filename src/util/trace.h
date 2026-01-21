@@ -20,6 +20,7 @@ Revision History:
 #pragma once
 
 #include<fstream>
+#include<string_view>
 #include "trace_tags.h"
 
 #ifdef SINGLE_THREAD
@@ -53,9 +54,9 @@ void verbose_unlock();
 extern std::ofstream tout; 
 #define TRACE_CODE(CODE) { CODE } ((void) 0 )
 
-void enable_trace(const char * tag);
+void enable_trace(std::string_view tag);
 void enable_all_trace(bool flag);
-void disable_trace(const char * tag);
+void disable_trace(std::string_view tag);
 bool is_trace_enabled(TraceTag tag);
 void close_trace();
 void open_trace();
@@ -63,9 +64,9 @@ void open_trace();
 #else
 #define TRACE_CODE(CODE) ((void) 0)
 
-static inline void enable_trace(const char * tag) {}
+static inline void enable_trace(std::string_view tag) {}
 static inline void enable_all_trace(bool flag) {}
-static inline void disable_trace(const char * tag) {}
+static inline void disable_trace(std::string_view tag) {}
 static inline bool is_trace_enabled(TraceTag tag) { return false; }
 static inline void close_trace() {}
 static inline void open_trace() {}

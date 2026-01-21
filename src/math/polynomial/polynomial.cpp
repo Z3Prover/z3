@@ -168,7 +168,7 @@ namespace polynomial {
         }
     public:
         static unsigned hash_core(unsigned sz, power const * pws) {
-            return string_hash(reinterpret_cast<char*>(const_cast<power*>(pws)), sz*sizeof(power), 11);
+            return string_hash(std::string_view(reinterpret_cast<char*>(const_cast<power*>(pws)), sz*sizeof(power)), 11);
         }
 
         struct hash_proc {
