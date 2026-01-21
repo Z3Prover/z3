@@ -28,6 +28,7 @@ Revision History:
 #include <functional>
 #include <algorithm>
 #include <iterator>
+#include <span>
 
 #ifndef SIZE_MAX
 #define SIZE_MAX std::numeric_limits<std::size_t>::max()
@@ -360,12 +361,18 @@ public:
 };
 
 template<typename T>
-void shuffle(unsigned sz, T * array, random_gen & gen) {
-    int n = sz;
+void shuffle(std::span<T> array, random_gen & gen) {
+    int n = array.size();
     while (--n > 0) {
         int k = gen() % (n + 1);
         std::swap(array[n], array[k]);
     }
+}
+
+// Backward compatibility overload
+template<typename T>
+void shuffle(unsigned sz, T * array, random_gen & gen) {
+    shuffle(std::span<T>(array, sz), gen);
 }
 
 void fatal_error(int error_code);
