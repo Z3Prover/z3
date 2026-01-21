@@ -332,34 +332,38 @@ namespace lp {
         if (!column_has_term(be.m_j)) {
             if (coeff_map.size() != 1)
                 return false;
-            auto it = coeff_map.find(be.m_j);
-            if (it == coeff_map.end()) return false;
-            mpq ratio = it->second;
-            if (ratio < zero_of_type<mpq>()) {
-                kind = static_cast<lconstraint_kind>(-kind);
+            if (auto ratio_opt = try_get_value(coeff_map, be.m_j)) {
+                mpq ratio = *ratio_opt;
+                if (ratio < zero_of_type<mpq>()) {
+                    kind = static_cast<lconstraint_kind>(-kind);
+                }
+                rs_of_evidence /= ratio;
+            } else {
+                return false;
             }
-            rs_of_evidence /= ratio;
         }
         else {
             lar_term const& t = get_term(be.m_j);
             auto first_coeff = t.begin();
             unsigned j = (*first_coeff).j();
-            auto it = coeff_map.find(j);
-            if (it == coeff_map.end())
+            if (auto ratio_opt = try_get_value(coeff_map, j)) {
+                mpq ratio = *ratio_opt / (*first_coeff).coeff();
+                for (auto p : t) {
+                    if (auto coeff_opt = try_get_value(coeff_map, p.j())) {
+                        if (p.coeff() * ratio != *coeff_opt)
+                            return false;
+                    } else {
+                        return false;
+                    }
+                }
+                if (ratio < zero_of_type<mpq>()) {
+                    kind = static_cast<lconstraint_kind>(-kind);
+                }
+                rs_of_evidence /= ratio;
+                // rs_of_evidence += t->m_v * ratio;
+            } else {
                 return false;
-            mpq ratio = it->second / (*first_coeff).coeff();
-            for (auto p : t) {
-                it = coeff_map.find(p.j());
-                if (it == coeff_map.end())
-                    return false;
-                if (p.coeff() * ratio != it->second)
-                    return false;
             }
-            if (ratio < zero_of_type<mpq>()) {
-                kind = static_cast<lconstraint_kind>(-kind);
-            }
-            rs_of_evidence /= ratio;
-            // rs_of_evidence += t->m_v * ratio;
         }
 
         return kind == be.kind() && rs_of_evidence == be.m_bound;
@@ -2716,10 +2720,9 @@ namespace lp {
     bool lar_solver::fetch_normalized_term_column(const lar_term& c, std::pair<mpq, lpvar>& a_j) const {
         TRACE(lar_solver_terms, print_term_as_indices(c, tout << "looking for term ") << "\n";);
         SASSERT(c.is_normalized());
-        auto it = m_imp->m_normalized_terms_to_columns.find(c);
-        if (it != m_imp->m_normalized_terms_to_columns.end()) {
-            TRACE(lar_solver_terms, tout << "got " << it->second << "\n";);
-            a_j = it->second;
+        if (auto result = try_get_value(m_imp->m_normalized_terms_to_columns, c)) {
+            TRACE(lar_solver_terms, tout << "got " << *result << "\n";);
+            a_j = *result;
             return true;
         }
         TRACE(lar_solver_terms, tout << "have not found\n";);

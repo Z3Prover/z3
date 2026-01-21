@@ -61,6 +61,14 @@ std::optional<B> try_get_value(const std::unordered_map<A,B> & map, const A& key
     return it->second;
 }
 
+template <typename A, typename B, typename Hash, typename KeyEqual>
+std::optional<B> try_get_value(const std::unordered_map<A,B,Hash,KeyEqual> & map, const A& key) {
+    const auto it = map.find(key);
+    if (it == map.end()) 
+        return std::nullopt;
+    return it->second;
+}
+
 template <typename A, typename B, typename C>
 std::optional<B> try_get_value(const std::map<A,B,C> & map, const A& key) {
     const auto it = map.find(key);
