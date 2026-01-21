@@ -260,13 +260,13 @@ namespace datalog {
             num_bits = 1;
             return true;
         }
-        rational n;
-        if (dl.is_numeral(e, n) && n.is_uint64()) {
+        uint64_t n;
+        if (dl.is_numeral(e, n)) {
             if (auto sz = dl.try_get_size(e->get_sort())) {
                 num_bits = 0;
                 uint64_t tmp = *sz;
                 while (tmp > 0) ++num_bits, tmp = tmp/2;
-                r = n;
+                r = rational(n, rational::ui64());
                 return true;
             }
         }
