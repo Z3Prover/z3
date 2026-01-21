@@ -96,16 +96,17 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
             f_b.reset();
             f_q.reset();
             for(unsigned col=0; col<sig_b.size(); ++col) {
-                uint64_t sort_sz;
-                if(!decl_util.try_get_size(sig_q[col], sort_sz)) {
+                if (auto sort_sz = decl_util.try_get_size(sig_q[col])) {
+                    uint64_t num = ran()%(*sort_sz);
+                    app * el_b = decl_util.mk_numeral(num, sig_b[col]);
+                    f_b.push_back(el_b);
+                    app * el_q = decl_util.mk_numeral(num, sig_q[col]);
+                    f_q.push_back(el_q);
+                }
+                else {
                     warning_msg("cannot get sort size");
                     return;
                 }
-                uint64_t num = ran()%sort_sz;
-                app * el_b = decl_util.mk_numeral(num, sig_b[col]);
-                f_b.push_back(el_b);
-                app * el_q = decl_util.mk_numeral(num, sig_q[col]);
-                f_q.push_back(el_q);
             }
 
             bool found_in_b = rel_b.contains_fact(f_b);

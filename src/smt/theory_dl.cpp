@@ -240,10 +240,10 @@ namespace smt {
         }
 
         app* max_value(sort* s) {
-            uint64_t sz;
-            VERIFY(u().try_get_size(s, sz));
-            SASSERT(sz > 0);
-            return mk_bv_constant(sz-1, s);
+            auto sz = u().try_get_size(s);
+            VERIFY(sz);
+            SASSERT(*sz > 0);
+            return mk_bv_constant(*sz-1, s);
         }
 
         void mk_lt(app* x, app* y) {

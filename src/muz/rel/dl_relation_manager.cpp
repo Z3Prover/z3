@@ -400,7 +400,11 @@ namespace datalog {
     }
 
     bool relation_manager::relation_sort_to_table(const relation_sort & from, table_sort & to) {
-        return get_context().get_decl_util().try_get_size(from, to);
+        if (auto size = get_context().get_decl_util().try_get_size(from)) {
+            to = *size;
+            return true;
+        }
+        return false;
     }
 
     void relation_manager::from_predicate(func_decl * pred, unsigned arg_index, relation_sort & result) {
