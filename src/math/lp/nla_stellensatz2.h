@@ -199,7 +199,7 @@ namespace nla {
         unsigned_vector m_split_count;                  // var -> number of times variable has been split
 
         unsigned           m_prop_qhead = 0;            // head into propagation queue
-        lp::constraint_index m_conflict;
+        lp::constraint_index m_conflict = lp::null_ci;
         svector<lp::constraint_index> m_conflict_dep;
 
         u_dependency_manager m_dm;
@@ -215,6 +215,7 @@ namespace nla {
 
         void init_search();
         void init_levels();
+        void insert_max_var(lp::constraint_index ci);
         void pop_bound();
         void mark_dependencies(u_dependency *d);
         void mark_dependencies(lp::constraint_index ci);

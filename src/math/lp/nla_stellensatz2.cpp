@@ -136,6 +136,14 @@ namespace nla {
         m_monomial_factory.reset();
         m_coi.init();
         m_values.reset();
+        while (!m_constraints.empty()) {
+            m_constraints.pop_back();
+            m_justifications.pop_back();
+            m_levels.pop_back();
+            pop_bound();
+            pop_propagation(m_bounds.size());
+        }
+        m_constraint_index.reset();        
         init_vars();
         simplify();
     }
@@ -283,13 +291,15 @@ namespace nla {
             level = m_num_scopes;       
         }
 
+        SASSERT(m_constraints.size() == m_justifications.size());
         m_constraints.push_back({p, k});
         m_levels.push_back(level);
         m_justifications.push_back(j);        
         m_constraint_index.insert({p.index(), k}, ci);
         push_bound(ci);
         push_propagation(ci);
-        ++c().lp_settings().stats().m_stellensatz.m_num_constraints;        
+        ++c().lp_settings().stats().m_stellensatz.m_num_constraints;    
+        TRACE(arith, tout << "add constraint "; display_constraint(tout, ci));
         return ci;
     }
 
@@ -310,7 +320,6 @@ namespace nla {
     void stellensatz2::pop_bound() {
         auto const &[k, bound, last_bound, d, q, mq] = m_bounds.back();
         m_idx2bound[q.index()] = last_bound;
-        m_idx2bound.pop_back();
         m_dm.pop_scope(1);
         m_bounds.pop_back();
     }
@@ -352,8 +361,8 @@ namespace nla {
             // q + offset >= lo_bound + offset
             if (lo_bound + offset > 0)
                 return l_false;
-            if (lo_bound + offset == 0)
-                return lo_is_strict(q) ? l_false : l_undef;
+            if (lo_bound + offset == 0 && lo_is_strict(q))
+                return l_false;
         }
         if (has_hi(q)) {
             auto hi_bound = hi_val(q);
@@ -361,8 +370,8 @@ namespace nla {
             // q + offset <= hi_bound + offset
             if (hi_bound + offset < 0)
                 return l_true;
-            if (hi_bound + offset == 0)
-                return hi_is_strict(q) ? l_true : l_undef;
+            if (hi_bound + offset == 0 && hi_is_strict(q))
+                return l_true;
         }
         if (val > 0)
             return l_false;
@@ -388,16 +397,16 @@ namespace nla {
         // check that other_p is disjoint from tabu
         // compute overlaps extending x
         //
+        // need to allow for sign being 0
+        
         auto f_sign = sign(f.p);
+        auto g_sign = sign(g.p);
         if (f_sign == l_undef)
             return lp::null_ci;
-        auto g_sign = sign(g.p);
         if (g_sign == l_undef)
             return lp::null_ci;
         if (f_sign == g_sign)
             return lp::null_ci;
-        auto p_value1 = value(f.p);
-        auto p_value2 = value(g.p);
 
         for (unsigned i = 0; i < f.degree; ++i)
             f.p *= to_pdd(x);
@@ -427,7 +436,7 @@ namespace nla {
             ci_a = ci;
         else if (g_p.is_val())
             ci_a = multiply(ci, pddm.mk_val(g_p.val()));
-        else if (f_sign == l_true)
+        else if (g_sign == l_true)
             ci_a = multiply(ci, assume(g_p, f_strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE));
         else
             ci_a = multiply(ci, assume(g_p, f_strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE));
@@ -436,7 +445,7 @@ namespace nla {
             ci_b = other_ci;
         else if (f_p.is_val())
             ci_b = multiply(other_ci, pddm.mk_val(f_p.val()));
-        else if (f_sign == l_false)
+        else if (f_sign == l_true)
             ci_b = multiply(other_ci, assume(f_p, g_strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE));
         else
             ci_b = multiply(other_ci, assume(f_p, g_strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE));
@@ -731,6 +740,7 @@ namespace nla {
         if (p.is_unilinear() && has_bound(p.hi().val(), p.var(), p.lo().val()))
             // ax + b ~k~ 0
             return add_constraint(p, k, external_justification(d));  
+        TRACE(arith, tout << m_constraints.size() << " assume " << p << " " << k << " 0\n");
         return add_constraint(p, k, assumption_justification());
     }
     
@@ -858,7 +868,8 @@ namespace nla {
             return false;
         m_conflict_dep.reset();
         m_dm.linearize(iv.m_lower_dep, m_conflict_dep);
-        TRACE(arith, tout << "constraint is bound conflict: "; display_constraint(tout, ci););                    
+        TRACE(arith, tout << "constraint is bound conflict: "; display_constraint(tout, ci);
+        m_di.display(tout, iv) << "\n");                    
         return true;
     }
 
@@ -972,21 +983,24 @@ namespace nla {
         for (auto &v : m_max_occurs)
             v.reset();
         m_max_occurs.reserve(num_vars());
-        for (unsigned ci = 0; ci < m_constraints.size(); ++ci) {
-            auto const &c = m_constraints[ci];
-            if (c.p.degree() > m_config.max_degree)
-                continue;
-            unsigned level = 0;
-            lpvar max_var = lp::null_lpvar;
-            for (auto v : c.p.free_vars()) {
-                if (m_var2level[v] > level) {
-                    level = m_var2level[v];
-                    max_var = v;
-                }
+        for (unsigned ci = 0; ci < m_constraints.size(); ++ci) 
+            insert_max_var(ci);
+    }
+
+    void stellensatz2::insert_max_var(lp::constraint_index ci) {
+        auto const &c = m_constraints[ci];
+        if (c.p.degree() > m_config.max_degree)
+            return;
+        unsigned level = 0;
+        lpvar max_var = lp::null_lpvar;
+        for (auto v : c.p.free_vars()) {
+            if (m_var2level[v] > level) {
+                level = m_var2level[v];
+                max_var = v;
             }
-            if (max_var != lp::null_lpvar)
-                m_max_occurs[max_var].push_back(ci);
         }
+        if (max_var != lp::null_lpvar)
+            m_max_occurs[max_var].push_back(ci);    
     }
 
     //
@@ -995,8 +1009,8 @@ namespace nla {
     // flip the last decision and backjump to the UIP.
     //     
     lbool stellensatz2::resolve_conflict() {
-        TRACE(arith, tout << "resolving conflict: "; display_constraint(tout, m_conflict); display(tout););
         SASSERT(is_conflict());
+        TRACE(arith, tout << "resolving conflict: "; display_constraint(tout, m_conflict); display(tout););
 
         m_conflict_marked_ci.reset();
         unsigned conflict_level = 0;
@@ -1009,7 +1023,8 @@ namespace nla {
         TRACE(arith, tout << "conflict level " << conflict_level << " constraints: " << m_conflict_marked_ci << "\n");
         unsigned ci = m_constraints.size();
         unsigned sz = ci;
-        while (!found_decision && ci > 0 && !m_conflict_marked_ci.empty()) {
+        m_core.reset();
+        while (!found_decision && ci > 0 && !m_conflict_marked_ci.empty() && conflict_level > 0) {
             --ci;
             if (!m_conflict_marked_ci.contains(ci))
                 continue;
@@ -1027,17 +1042,17 @@ namespace nla {
                   tout << "new conflict: "; display_constraint(tout, m_conflict););
         }
         SASSERT(found_decision == (conflict_level != 0));
-        if (conflict_level == 0) {
-            m_core.reset();
-            for (auto ci : m_conflict_marked_ci)
-                m_core.push_back(ci);
+        if (constraint_is_conflict(m_conflict)) {
+            TRACE(arith, tout << "Conflict " << m_conflict << "\n");
+            m_core.push_back(m_conflict);
             reset_conflict();
             return l_false;
         }
-        if (constraint_is_conflict(m_conflict)) {
-            m_core.reset();
-            m_core.push_back(m_conflict);
+        if (conflict_level == 0) {
+            for (auto ci : m_conflict_marked_ci)
+                m_core.push_back(ci);            
             reset_conflict();
+            TRACE(arith, tout << "conflict " << m_core << "\n");
             return l_false;
         }
 
@@ -1095,11 +1110,12 @@ namespace nla {
         svector<lp::constraint_index> tail2head;
         tail2head.resize(sz - ci);
         auto translate_ci = [&](lp::constraint_index old_ci) -> lp::constraint_index {
-            return old_ci <= ci ? old_ci : tail2head[sz - old_ci];
+            SASSERT(old_ci != ci);
+            return old_ci < ci ? old_ci : tail2head[sz - old_ci];
         };
         for (; tail < m_constraints.size(); ++tail) {
             auto [p, k] = m_constraints[tail];
-            auto level = get_level(m_justifications[tail]);
+            auto level = m_levels[tail];
             m_constraint_index.erase({p.index(), k});
             if (level > m_num_scopes) 
                 continue;            
@@ -1327,6 +1343,7 @@ namespace nla {
         unsigned num_levels = m_level2var.size();
         unsigned num_rounds = 0;
         unsigned max_rounds = num_levels * 5;
+        unsigned constraint_lim = m_constraints.size();
         m_tabu.reset();
         for (unsigned level = 0; level < num_levels && c().reslim().inc() && num_rounds < max_rounds; ++level) {
             w = m_level2var[level];
@@ -1347,6 +1364,9 @@ namespace nla {
                 continue;
 
             m_tabu.insert(conflict);
+            for (lp::constraint_index ci = constraint_lim; ci < m_constraints.size(); ++ci)
+                insert_max_var(ci);
+            constraint_lim = m_constraints.size();
 
             auto p = m_constraints[conflict].p;
             SASSERT(!p.free_vars().empty());
@@ -1409,6 +1429,8 @@ namespace nla {
                 m_dm.linearize(d, cs);
                 k = is_strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE;
                 value = quot;
+                TRACE(arith, m_di.display(tout, ivp) << "\n"; m_di.display(tout, ivq) << "\n";
+                      tout << "v" << x << " " << k << " " << value << " " << cs << "\n");
                 return true;
             }
         }
@@ -1428,6 +1450,8 @@ namespace nla {
                 m_dm.linearize(d, cs);
                 k = is_strict ? lp::lconstraint_kind::GT : lp::lconstraint_kind::GE;
                 value = quot;
+                TRACE(arith, m_di.display(tout, ivp) << "\n"; m_di.display(tout, ivq) << "\n";
+                      tout << "v" << x << " " << k << " " << value << " " << cs << "\n");
                 return true;
             }
         }
@@ -1448,6 +1472,8 @@ namespace nla {
                 m_dm.linearize(d, cs);
                 k = is_strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE;
                 value = quot;
+                TRACE(arith, m_di.display(tout, ivp) << "\n"; m_di.display(tout, ivq) << "\n";
+                      tout << "v" << x << " " << k << " " << value << " " << cs << "\n");
                 return true;
             }
         }
@@ -1467,6 +1493,8 @@ namespace nla {
                 m_dm.linearize(d, cs);
                 k = is_strict ? lp::lconstraint_kind::LT : lp::lconstraint_kind::LE;
                 value = quot;
+                TRACE(arith, m_di.display(tout, ivp) << "\n"; m_di.display(tout, ivq) << "\n";
+                      tout << "v" << x << " " << k << " " << value << " " << cs << "\n");
                 return true;
             }
         }
@@ -1675,7 +1703,9 @@ namespace nla {
                 else
                     lo = lo + 1;
             }
-            CTRACE(arith, !in_bounds(v, lo), display_var_range(tout << "repair v" << v << " to lo " << lo << "\n", v) << "\n");
+            CTRACE(arith, !in_bounds(v, lo),
+                   display_var_range(tout << "repair v" << v << " to lo " << lo << "\n", v) << "\n";
+                   display(tout));
             SASSERT(in_bounds(v, lo));
             m_values[v] = lo;
             SASSERT(in_bounds(v));
@@ -1698,7 +1728,7 @@ namespace nla {
                               << " is int " << var_is_int(v) << "\n";
                   display_constraint(tout, inf); display_constraint(tout, sup););
             auto res = resolve_variable(v, inf, sup);
-            TRACE(arith, display_constraint(tout << "resolve ", res) << " " << constraint_is_false(res) << "\n");
+            TRACE(arith, display_constraint(tout << "resolve ", res));
             if (constraint_is_false(res)) 
                 return res;            
         }
@@ -1847,6 +1877,8 @@ namespace nla {
         
         for (unsigned ci = 0; ci < m_constraints.size(); ++ci) 
             display_constraint(out, ci);        
+
+        // return out;
         
         // Display propagation data structures
         out << "\n=== Propagation State ===\n";
@@ -1961,11 +1993,11 @@ namespace nla {
 
     std::ostream &stellensatz2::display_constraint(std::ostream &out, lp::constraint_index ci) const {
         if (ci == lp::null_ci)
-            return out << "(null) ";
+            return out << "(null)\n";
         bool is_true = constraint_is_true(ci);
         auto const &[p, k] = m_constraints[ci];
         auto level = m_levels[ci];
-        display_constraint(out << "(" << ci << ") @ " << level << " ", m_constraints[ci])
+        display_constraint(out << "(" << ci << ") @ " << level << ": ", m_constraints[ci])
                << (is_true ? " [true] " : " [false] ") << "(" << value(p) << " " << k << " 0)\n";
         auto const &j = m_justifications[ci];
         return display(out << "\t<- ", j) << "\n";
@@ -2056,6 +2088,7 @@ namespace nla {
     // Accumulate dependencies from d1, d2 into substituted (can be a propagation justification)
     //
     void stellensatz2::simplify() { 
+        TRACE(arith, tout << "simplify\n");
         using var_ci_vector = svector<std::pair<unsigned, lp::constraint_index>>; 
         struct eq_info {
             lpvar v;
@@ -2200,7 +2233,7 @@ namespace nla {
         if (child.is_val())
             return;
         m_parents.reserve(child.index() + 1);
-        m_parents[child.index()].push_back(parent);
+        m_parents[child.index()].push_back(parent);       
         insert_parents(child);
     }
 
@@ -2214,20 +2247,22 @@ namespace nla {
     
     void stellensatz2::pop_propagation(lp::constraint_index ci) {
         auto const &s = m_scopes[ci];
-        while (m_factor_trail.size() >= s.factors_lim) {
+        while (m_factor_trail.size() > s.factors_lim) {
             auto p_index = m_factor_trail.back();
             m_factors[p_index].pop_back();
             m_factor_trail.pop_back();
         }
-        while (m_parent_trail.size() >= s.parents_lim) {
+        while (m_parent_trail.size() > s.parents_lim) {
             auto p = m_parent_trail.back();
             m_is_parent[p.index()] = false;
-            m_parents[p.lo().index()].pop_back();
-            m_parents[p.hi().index()].pop_back();
+            if (!p.lo().is_val())
+                m_parents[p.lo().index()].pop_back();
+            if (!p.hi().is_val())
+                m_parents[p.hi().index()].pop_back();
             m_parent_trail.pop_back();
         }
         m_polynomial_queue.shrink(s.polynomial_lim);
-        while (m_parent_constraints_trail.size() >= s.parent_constraints_lim) {
+        while (m_parent_constraints_trail.size() > s.parent_constraints_lim) {
             auto p_index = m_parent_constraints_trail.back();
             m_parent_constraints[p_index].pop_back();
             m_parent_constraints_trail.pop_back();
@@ -2296,6 +2331,7 @@ namespace nla {
 
     void stellensatz2::propagate_intervals(dd::pdd const &p) {
         // for each parent of p, propagate updated intervals
+        m_parents.reserve(p.index() + 1);
         for (auto parent : m_parents[p.index()]) {
             SASSERT(!parent.is_val());
             scoped_dep_interval new_iv(m_di);
@@ -2308,6 +2344,7 @@ namespace nla {
         }
 
         // check constraints
+        m_parent_constraints.reserve(p.index() + 1);
         for (auto ci : m_parent_constraints[p.index()]) {
             auto const &[poly, k] = m_constraints[ci];
             auto &iv_poly = get_interval(poly);
@@ -2316,6 +2353,7 @@ namespace nla {
         }
 
         // propagate to factors
+        m_factors.reserve(p.index() + 1);
         for (auto const &[x, f, ci] : m_factors[p.index()]) {
             scoped_dep_interval iv_mq(m_di);
             auto &iv_p = get_interval(f.p);
