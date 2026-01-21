@@ -1862,7 +1862,7 @@ unsigned mpz_manager<SYNCH>::hash(mpz const & a) {
     unsigned sz = size(a);
     if (sz == 1)
         return static_cast<unsigned>(digits(a)[0]);
-    return string_hash(reinterpret_cast<char*>(digits(a)), sz * sizeof(digit_t), 17);
+    return string_hash(std::string_view(reinterpret_cast<char*>(digits(a)), sz * sizeof(digit_t)), 17);
 #else
     return mpz_get_si(*a.m_ptr);
 #endif

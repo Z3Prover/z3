@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include<algorithm>
+#include<string_view>
 #include "util/util.h"
 
 #define mix(a,b,c)              \
@@ -65,10 +66,10 @@ inline unsigned hash_u_u(unsigned a, unsigned b) {
     return combine_hash(hash_u(a), hash_u(b));
 }
 
-unsigned string_hash(const char * str, unsigned len, unsigned init_value);
+unsigned string_hash(std::string_view str, unsigned init_value);
 
 inline unsigned unsigned_ptr_hash(unsigned const* vec, unsigned len, unsigned init_value) {
-    return string_hash((char const*)(vec), len*4, init_value);
+    return string_hash(std::string_view((char const*)(vec), len*4), init_value);
 }
 
 template<typename Composite, typename GetKindHashProc, typename GetChildHashProc>

@@ -223,7 +223,7 @@ bool bit_vector::contains(bit_vector const& other) const {
 }
 
 unsigned bit_vector::get_hash() const {
-    return string_hash(reinterpret_cast<char const* const>(m_data), size()/8,  0);
+    return string_hash(std::string_view(reinterpret_cast<char const* const>(m_data), size()/8),  0);
 }
 
 bit_vector& bit_vector::neg() {
