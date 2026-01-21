@@ -1000,11 +1000,11 @@ namespace lp {
 
         void find_changed_terms_and_more_changed_rows() {
             for (unsigned j : m_changed_f_columns) {
-                const auto it = m_columns_to_terms.find(j);
-                if (it != m_columns_to_terms.end())
-                    for (unsigned k : it->second) {
+                if (auto terms = try_get_value(m_columns_to_terms, j)) {
+                    for (unsigned k : *terms) {
                         mark_term_change(k);
                     }
+                }
                 if (!m_var_register.external_is_used(j))
                     continue;
                 for (const auto& p : m_e_matrix.column(this->lar_solver_to_local(j))) {

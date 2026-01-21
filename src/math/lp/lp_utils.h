@@ -20,6 +20,7 @@ Revision History:
 #pragma once
 #include <string>
 #include <optional>
+#include <map>
 #include "math/lp/numeric_pair.h"
 #include "math/lp/lp_types.h"
 #include "util/debug.h"
@@ -54,6 +55,14 @@ std::ostream& print_vector(const C * t, unsigned size, std::ostream & out) {
 
 template <typename A, typename B>
 std::optional<B> try_get_value(const std::unordered_map<A,B> & map, const A& key) {
+    const auto it = map.find(key);
+    if (it == map.end()) 
+        return std::nullopt;
+    return it->second;
+}
+
+template <typename A, typename B, typename C>
+std::optional<B> try_get_value(const std::map<A,B,C> & map, const A& key) {
     const auto it = map.find(key);
     if (it == map.end()) 
         return std::nullopt;
