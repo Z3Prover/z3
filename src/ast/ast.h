@@ -27,7 +27,6 @@ Revision History:
 #include "util/rational.h"
 #include "util/hash.h"
 #include <optional>
-#include <string_view>
 #include "util/trace.h"
 #include "util/bit_vector.h"
 #include "util/symbol_table.h"
@@ -1210,22 +1209,22 @@ protected:
     static bool is_proof(decl_kind k) { return k > LAST_BASIC_OP; }
     bool check_proof_sorts(basic_op_kind k, unsigned arity, sort * const * domain) const;
     bool check_proof_args(basic_op_kind k, unsigned num_args, expr * const * args) const;
-    func_decl * mk_bool_op_decl(std::string_view name, basic_op_kind k, unsigned num_args = 0,
+    func_decl * mk_bool_op_decl(char const * name, basic_op_kind k, unsigned num_args = 0,
                                 bool asooc = false, bool comm = false, bool idempotent = false, bool flat_associative = false, bool chainable = false);
     func_decl * mk_implies_decl();
-    func_decl * mk_proof_decl(std::string_view name, basic_op_kind k, unsigned num_parents, bool inc_ref);
-    func_decl * mk_proof_decl(std::string_view name, basic_op_kind k, unsigned num_parents, func_decl*& fn);
-    func_decl * mk_proof_decl(std::string_view name, basic_op_kind k, unsigned num_parents, ptr_vector<func_decl> & cache);
-    func_decl * mk_compressed_proof_decl(std::string_view name, basic_op_kind k, unsigned num_parents);
+    func_decl * mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, bool inc_ref);
+    func_decl * mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, func_decl*& fn);
+    func_decl * mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, ptr_vector<func_decl> & cache);
+    func_decl * mk_compressed_proof_decl(char const * name, basic_op_kind k, unsigned num_parents);
     func_decl * mk_proof_decl(basic_op_kind k, unsigned num_parents);
     func_decl * mk_proof_decl(basic_op_kind k, unsigned num_parameters, parameter const* params, unsigned num_parents);
     func_decl * mk_proof_decl(
-        std::string_view name, basic_op_kind k,
+        char const * name, basic_op_kind k,
         unsigned num_parameters, parameter const* params, unsigned num_parents);
 
 
     void set_manager(ast_manager * m, family_id id) override;
-    func_decl * mk_eq_decl_core(std::string_view name, decl_kind k, sort * s, ptr_vector<func_decl> & cache);
+    func_decl * mk_eq_decl_core(char const * name, decl_kind k, sort * s, ptr_vector<func_decl> & cache);
     func_decl * mk_ite_decl(sort * s);
     sort* join(sort* s1, sort* s2);
     sort* join(unsigned n, sort*const* srts);
