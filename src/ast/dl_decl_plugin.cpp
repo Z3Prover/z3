@@ -659,7 +659,7 @@ namespace datalog {
 
     app* dl_decl_util::mk_numeral(uint64_t value, sort* s) {
         if (is_finite_sort(s)) {
-            if (auto sz = try_get_size(s); sz && *sz <= value) {
+            if (auto sz = try_get_size(s); sz.has_value() && *sz <= value) {
                 m.raise_exception("value is out of bounds");
             }
             parameter params[2] = { parameter(rational(value, rational::ui64())), parameter(s) };
