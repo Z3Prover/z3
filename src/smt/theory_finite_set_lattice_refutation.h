@@ -10,7 +10,6 @@ Module Name:
 #pragma once
 
 #include "ast/finite_set_decl_plugin.h"
-#include "ast/rewriter/finite_set_axioms.h"
 #include "smt/smt_theory.h"
 
 namespace smt {
@@ -19,11 +18,11 @@ namespace smt {
 
     class theory_finite_set_lattice_refutation;
     class reachability_matrix {
-        std::vector<uint64_t> reachable;
-        std::vector<enode_pair> links;
-        std::vector<uint64_t> link_dls;
-        std::vector<uint64_t> non_links;
-        std::vector<enode_pair> non_link_justifications;
+        svector<uint64_t> reachable;    // V x V -> bitset of reachable nodes
+        enode_pair_vector links;        // V x V -> enode_pair justifying the link
+        svector<uint64_t> link_dls;     // V x V -> decision level when the link was added
+        svector<uint64_t> non_links;    // V x V -> bitset of non-reachable nodes
+        enode_pair_vector non_link_justifications;  // V x V -> enode_pair justifying the non-link
 
         int largest_var;
 
@@ -40,10 +39,10 @@ namespace smt {
         inline uint64_t get_bitmask(int col) const;
 
     public:
-        void get_path(theory_var source, theory_var dest, vector<enode_pair> &path, int &num_decisions);
+        std::pair<vector<enode_pair>, int> get_path(theory_var source, theory_var dest);
         reachability_matrix(context &ctx, theory_finite_set_lattice_refutation &t_lattice);
         bool in_bounds(theory_var source, theory_var dest);
-        bool is_reachable(theory_var source, theory_var dest);
+        bool is_reachable(theory_var source, theory_var dest) const;
         bool is_reachability_forbidden(theory_var source, theory_var dest);
         bool is_linked(theory_var source, theory_var dest);
 
@@ -53,7 +52,7 @@ namespace smt {
         bool set_reachability(theory_var source, theory_var dest, enode_pair reachability_witness);
         bool set_non_reachability(theory_var source, theory_var dest, enode_pair non_reachability_witness);
         int get_max_var();
-        void print_relations();
+        void display_relations(std::ostream& out) const;
     };
 
     class theory_finite_set_lattice_refutation {

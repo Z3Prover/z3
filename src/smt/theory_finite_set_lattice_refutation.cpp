@@ -3,12 +3,11 @@ Copyright (c) 2025 Lorenz Winkler
 
 Module Name:
 
-    theory_finite_lattice_refutation.cpp
+    theory_finite_set_lattice_refutation.cpp
 
 --*/
 
 #include "smt/theory_finite_set_lattice_refutation.h"
-#include "ast/rewriter/finite_set_axioms.h"
 #include "smt/smt_theory.h"
 #include "smt/theory_finite_set.h"
 #include "smt/smt_context.h"
@@ -20,10 +19,15 @@ const int MAX_DECISION_LITERALS = 10;
 
 namespace smt {
     reachability_matrix::reachability_matrix(context &ctx, theory_finite_set_lattice_refutation &t_lattice)
-        : reachable(NUM_WORDS * NUM_WORDS * 64, 0), links(NUM_WORDS * NUM_WORDS * 64 * 64, {nullptr, nullptr}),
-          link_dls(NUM_WORDS * NUM_WORDS * 64 * 64, 0), non_links(NUM_WORDS * NUM_WORDS * 64),
-          non_link_justifications(NUM_WORDS * NUM_WORDS * 64 * 64, {nullptr, nullptr}), largest_var(0),
-          max_size(NUM_WORDS * 64), ctx(ctx), t_lattice_refutation(t_lattice) {}
+        : reachable(NUM_WORDS * NUM_WORDS * 64, 0ull), 
+        links(NUM_WORDS * NUM_WORDS * 64 * 64, {nullptr, nullptr}),
+        link_dls(NUM_WORDS * NUM_WORDS * 64 * 64, 0ull), 
+        non_links(NUM_WORDS * NUM_WORDS * 64, 0ull),
+        non_link_justifications(NUM_WORDS * NUM_WORDS * 64 * 64, {nullptr, nullptr}), 
+        largest_var(0),
+        max_size(NUM_WORDS * 64), 
+        ctx(ctx), 
+        t_lattice_refutation(t_lattice) {}
 
     int reachability_matrix::get_max_var() {
         return largest_var;
@@ -45,7 +49,7 @@ namespace smt {
         return source >= 0 && dest >= 0 && source < max_size && dest < max_size;
     }
 
-    bool reachability_matrix::is_reachable(theory_var source, theory_var dest) {
+    bool reachability_matrix::is_reachable(theory_var source, theory_var dest) const {
         return reachable[get_word_index(source, dest)] & get_bitmask(dest);
     }
 
@@ -159,14 +163,14 @@ namespace smt {
         add_subset(subset->get_th_var(th.get_id()), superset->get_th_var(th.get_id()), {n1, n2});
     };
 
-    void reachability_matrix::get_path(theory_var source, theory_var dest, vector<enode_pair> &path,
-                                       int &num_decisions) {
+    std::pair<vector<enode_pair>, int> reachability_matrix::get_path(theory_var source, theory_var dest) {
         SASSERT(is_reachable(source, dest));
+        vector<enode_pair> path;
         vector<bool> visited(max_size, false);
         if (source != dest) {
             visited[source] = true;
         }
-        num_decisions = 0;
+        int num_decisions = 0;
         do {
             bool success = false;
             // TRACE(finite_set, tout << "get_path:source: "<<source);
@@ -186,14 +190,13 @@ namespace smt {
             SASSERT(success);
         } while (source != dest);
         TRACE(finite_set, tout << "get_path_num_decisions: " << num_decisions);
+        return {std::move(path), num_decisions};
     }
 
     bool reachability_matrix::check_reachability_conflict(theory_var source, theory_var dest) {
         if (is_reachable(source, dest) && is_reachability_forbidden(source, dest)) {
             TRACE(finite_set, tout << "found_conflict1: " << source << " -> " << dest);
-            vector<enode_pair> path;
-            int num_decisions;
-            get_path(source, dest, path, num_decisions);
+            auto [path, num_decisions] = get_path(source, dest);
             // TRACE(finite_set, tout << "found path: "<<source<<" -> "<<dest<<" length: "<<path.size());
             if (num_decisions <= MAX_DECISION_LITERALS) {
                 TRACE(finite_set, tout << "num_decisions: " << num_decisions << " path_length: " << path.size());
@@ -217,12 +220,12 @@ namespace smt {
         return false;
     }
 
-    void reachability_matrix::print_relations() {
-        TRACE(finite_set, tout << "largest_var: " << largest_var);
-        for (size_t i = 0; i < max_size; i++) {
-            for (size_t j = 0; j < max_size; j++) {
+    void reachability_matrix::display_relations(std::ostream& out) const {
+        out << "largest_var: " << largest_var << "\n";
+        for (int i = 0; i < max_size; i++) {
+            for (int j = 0; j < max_size; j++) {
                 if ((reachable[get_word_index(i, j)] & get_bitmask(j)) || is_reachable(i, j)) {
-                    TRACE(finite_set, tout << "reachable: " << i << "->" << j << "  :" << is_reachable(i, j));
+                    out << "reachable: " << i << "->" << j << "  :" << is_reachable(i, j) << "\n";
                 }
             }
         }
@@ -248,13 +251,13 @@ namespace smt {
 
         enode *subset = n1;
         enode *superset = get_superset(n1, n2);
-        if (superset == nullptr) {
+        if (!superset) {
             subset = n2;
             superset = get_superset(n2, n1);
         }
-        if (superset == nullptr) {
+        if (!superset) 
             return;
-        }
+        
         TRACE(finite_set, tout << "new_diseq_intersection: " << enode_pp(subset, ctx) << "(" << th.get_th_var(subset)
                                << ")" << "\\not\\subseteq " << enode_pp(superset, ctx) << "(" << th.get_th_var(superset)
                                << ")");
@@ -273,15 +276,13 @@ namespace smt {
         SASSERT(reachability.is_reachable(subset_th, superset_th));
         if (reachability.is_reachable(superset_th, subset_th)) {
             TRACE(finite_set, tout << "cycle_detected: " << subset_th << " <--> " << superset_th);
-            vector<enode_pair> path;
-            int num_decisions;
-            reachability.get_path(subset_th, subset_th, path, num_decisions);
+            auto [path, num_decisions] = reachability.get_path(subset_th, subset_th);
             // we propagate the equality
             // build justification to be used by all propagated equalities
             auto j1 = ctx.mk_justification(
                 ext_theory_conflict_justification(th.get_id(), ctx, 0, nullptr, path.size(), path.data()));
 
-            for (size_t i = 0; i < path.size() - 1; i++) {
+            for (unsigned i = 0; i < path.size() - 1; i++) {
                 auto set1 = path[i].first;
                 auto set2 = path[i + 1].first;
                 ctx.add_eq(set1, set2, eq_justification(j1));
