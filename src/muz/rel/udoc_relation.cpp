@@ -260,12 +260,15 @@ namespace datalog {
             num_bits = 1;
             return true;
         }
-        uint64_t n, sz;
-        if (dl.is_numeral(e, n) && dl.try_get_size(e->get_sort(), sz)) {
-            num_bits = 0;
-            while (sz > 0) ++num_bits, sz = sz/2;
-            r = rational(n, rational::ui64());
-            return true;
+        rational n;
+        if (dl.is_numeral(e, n) && n.is_uint64()) {
+            if (auto sz = dl.try_get_size(e->get_sort())) {
+                num_bits = 0;
+                uint64_t tmp = *sz;
+                while (tmp > 0) ++num_bits, tmp = tmp/2;
+                r = n;
+                return true;
+            }
         }
         return false;
     }
@@ -275,9 +278,9 @@ namespace datalog {
             return bv.get_bv_size(s);
         if (m.is_bool(s)) 
             return 1;
-        uint64_t sz;
-        if (dl.try_get_size(s, sz)) {
-            while (sz > 0) ++num_bits, sz /= 2;
+        if (auto sz = dl.try_get_size(s)) {
+            uint64_t tmp = *sz;
+            while (tmp > 0) ++num_bits, tmp /= 2;
             return num_bits;
         }
         UNREACHABLE();
