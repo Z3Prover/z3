@@ -48,6 +48,7 @@ Revision History:
 #include "util/dependency.h"
 #include "util/rlimit.h"
 #include <variant>
+#include <span>
 
 #define RECYCLE_FREE_AST_INDICES
 
@@ -1667,17 +1668,29 @@ public:
     }
 
     template<typename T>
-    void inc_array_ref(unsigned sz, T * const * a) {
-        for(unsigned i = 0; i < sz; ++i) {
-            inc_ref(a[i]);
+    void inc_array_ref(std::span<T * const> a) {
+        for(auto elem : a) {
+            inc_ref(elem);
         }
     }
 
+    // Backward compatibility overload
+    template<typename T>
+    void inc_array_ref(unsigned sz, T * const * a) {
+        inc_array_ref(std::span<T * const>(a, sz));
+    }
+
+    template<typename T>
+    void dec_array_ref(std::span<T * const> a) {
+        for(auto elem : a) {
+            dec_ref(elem);
+        }
+    }
+
+    // Backward compatibility overload
     template<typename T>
     void dec_array_ref(unsigned sz, T * const * a) {
-        for(unsigned i = 0; i < sz; ++i) {
-            dec_ref(a[i]);
-        }
+        dec_array_ref(std::span<T * const>(a, sz));
     }
 
     static unsigned get_node_size(ast const * n);
@@ -2405,10 +2418,16 @@ private:
     }
 
     template<typename T>
-    void push_dec_array_ref(unsigned sz, T * const * a) {
-        for(unsigned i = 0; i < sz; ++i) {
-            push_dec_ref(a[i]);
+    void push_dec_array_ref(std::span<T * const> a) {
+        for(auto elem : a) {
+            push_dec_ref(elem);
         }
+    }
+
+    // Backward compatibility overload
+    template<typename T>
+    void push_dec_array_ref(unsigned sz, T * const * a) {
+        push_dec_array_ref(std::span<T * const>(a, sz));
     }
 };
 
