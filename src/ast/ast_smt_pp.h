@@ -20,6 +20,7 @@ Revision History:
 
 #include "ast/ast.h"
 #include<string>
+#include<string_view>
 #include "util/map.h"
 
 class smt_renaming {
@@ -65,12 +66,12 @@ private:
 public:
     ast_smt_pp(ast_manager& m);
 
-    void set_benchmark_name(const char* bn) { if (bn) m_benchmark_name = bn; }
-    void set_source_info(const char* si) { if (si) m_source_info = si; }
-    void set_status(const char* s) { if (s) m_status = s; }
-    void set_category(const char* c) { if (c) m_category = c; }
+    void set_benchmark_name(std::string_view bn) { if (!bn.empty()) m_benchmark_name = symbol(std::string(bn)); }
+    void set_source_info(std::string_view si) { if (!si.empty()) m_source_info = symbol(std::string(si)); }
+    void set_status(std::string_view s) { if (!s.empty()) m_status = symbol(std::string(s)); }
+    void set_category(std::string_view c) { if (!c.empty()) m_category = symbol(std::string(c)); }
     void set_logic(symbol const& l) { m_logic = l; }
-    void add_attributes(const char* s) { if (s) m_attributes += s; }
+    void add_attributes(std::string_view s) { if (!s.empty()) m_attributes += s; }
     void add_assumption(expr* n) { m_assumptions.push_back(n); }
     void add_assumption_star(expr* n) { m_assumptions_star.push_back(n); }
     void set_simplify_implies(bool f) { m_simplify_implies = f; }

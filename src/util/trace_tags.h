@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstring>
+#include <string_view>
 
 enum class TraceTag {
 #define X(tag_class, tag, desc) tag,
@@ -41,8 +42,8 @@ inline TraceTag get_trace_tag_class(TraceTag tag) {
 
 
 // Find TraceTag by string
-inline TraceTag find_trace_tag_by_string(const char* tag_str) {
-#define X(tag_class, tag, desc) if (strcmp(#tag, tag_str) == 0) return TraceTag::tag;
+inline TraceTag find_trace_tag_by_string(std::string_view tag_str) {
+#define X(tag_class, tag, desc) if (tag_str == #tag) return TraceTag::tag;
 #include "util/trace_tags.def"
 #undef X
     return TraceTag::Count;
