@@ -20,6 +20,7 @@ Revision History:
 
 #include<algorithm>
 #include<string_view>
+#include<span>
 #include "util/util.h"
 
 #define mix(a,b,c)              \
@@ -68,8 +69,13 @@ inline unsigned hash_u_u(unsigned a, unsigned b) {
 
 unsigned string_hash(std::string_view str, unsigned init_value);
 
+inline unsigned unsigned_ptr_hash(std::span<unsigned const> vec, unsigned init_value) {
+    return string_hash(std::string_view(reinterpret_cast<char const*>(vec.data()), vec.size() * sizeof(unsigned)), init_value);
+}
+
+// Backward compatibility overload
 inline unsigned unsigned_ptr_hash(unsigned const* vec, unsigned len, unsigned init_value) {
-    return string_hash(std::string_view((char const*)(vec), len*4), init_value);
+    return unsigned_ptr_hash(std::span<unsigned const>(vec, len), init_value);
 }
 
 template<typename Composite, typename GetKindHashProc, typename GetChildHashProc>
