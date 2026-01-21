@@ -677,7 +677,7 @@ bool basic_decl_plugin::check_proof_args(basic_op_kind k, unsigned num_args, exp
     }
 }
 
-func_decl * basic_decl_plugin::mk_bool_op_decl(char const * name, basic_op_kind k, unsigned num_args, bool assoc, bool comm, bool idempotent,
+func_decl * basic_decl_plugin::mk_bool_op_decl(std::string_view name, basic_op_kind k, unsigned num_args, bool assoc, bool comm, bool idempotent,
                                                bool flat_associative, bool chainable) {
     ptr_buffer<sort> domain;
     for (unsigned i = 0; i < num_args; ++i)
@@ -688,7 +688,7 @@ func_decl * basic_decl_plugin::mk_bool_op_decl(char const * name, basic_op_kind 
     info.set_commutative(comm);
     info.set_idempotent(idempotent);
     info.set_chainable(chainable);
-    func_decl * d           = m_manager->mk_func_decl(symbol(name), num_args, domain.data(), m_bool_sort, info);
+    func_decl * d           = m_manager->mk_func_decl(symbol(std::string(name)), num_args, domain.data(), m_bool_sort, info);
     m_manager->inc_ref(d);
     return d;
 }
@@ -703,36 +703,36 @@ func_decl * basic_decl_plugin::mk_implies_decl() {
 }
 
 func_decl * basic_decl_plugin::mk_proof_decl(
-    char const * name, basic_op_kind k,
+    std::string_view name, basic_op_kind k,
     unsigned num_parameters, parameter const* params, unsigned num_parents) {
     ptr_buffer<sort> domain;
     for (unsigned i = 0; i < num_parents; ++i)
         domain.push_back(m_proof_sort);
     domain.push_back(m_bool_sort);
     func_decl_info info(m_family_id, k, num_parameters, params);
-    return m_manager->mk_func_decl(symbol(name), num_parents+1, domain.data(), m_proof_sort, info);
+    return m_manager->mk_func_decl(symbol(std::string(name)), num_parents+1, domain.data(), m_proof_sort, info);
 }
 
-func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, bool inc_ref) {
+func_decl * basic_decl_plugin::mk_proof_decl(std::string_view name, basic_op_kind k, unsigned num_parents, bool inc_ref) {
     ptr_buffer<sort> domain;
     for (unsigned i = 0; i < num_parents; ++i)
         domain.push_back(m_proof_sort);
     domain.push_back(m_bool_sort);
-    func_decl * d = m_manager->mk_func_decl(symbol(name), num_parents+1, domain.data(), m_proof_sort, func_decl_info(m_family_id, k));
+    func_decl * d = m_manager->mk_func_decl(symbol(std::string(name)), num_parents+1, domain.data(), m_proof_sort, func_decl_info(m_family_id, k));
     if (inc_ref) m_manager->inc_ref(d);
     return d;
 }
 
-func_decl * basic_decl_plugin::mk_compressed_proof_decl(char const * name, basic_op_kind k, unsigned num_parents) {
+func_decl * basic_decl_plugin::mk_compressed_proof_decl(std::string_view name, basic_op_kind k, unsigned num_parents) {
     ptr_buffer<sort> domain;
     for (unsigned i = 0; i < num_parents; ++i)
         domain.push_back(m_proof_sort);
-    func_decl * d = m_manager->mk_func_decl(symbol(name), num_parents, domain.data(), m_proof_sort, func_decl_info(m_family_id, k));
+    func_decl * d = m_manager->mk_func_decl(symbol(std::string(name)), num_parents, domain.data(), m_proof_sort, func_decl_info(m_family_id, k));
     m_manager->inc_ref(d);
     return d;
 }
 
-func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, ptr_vector<func_decl> & cache) {
+func_decl * basic_decl_plugin::mk_proof_decl(std::string_view name, basic_op_kind k, unsigned num_parents, ptr_vector<func_decl> & cache) {
     if (num_parents >= cache.size()) {
         cache.resize(num_parents+1, nullptr);
     }
@@ -763,7 +763,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_param
 #define MK_DECL(_decl_,_mk_decl_) if (!_decl_) _decl_ = _mk_decl_; return _decl_;
 
 
-func_decl * basic_decl_plugin::mk_proof_decl(char const* name, basic_op_kind k, unsigned num_parents, func_decl*& fn) {
+func_decl * basic_decl_plugin::mk_proof_decl(std::string_view name, basic_op_kind k, unsigned num_parents, func_decl*& fn) {
     if (!fn) {
         fn = mk_proof_decl(name, k, num_parents, true);
     }
@@ -958,7 +958,7 @@ sort * basic_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
     return m_proof_sort;
 }
 
-func_decl * basic_decl_plugin::mk_eq_decl_core(char const * name, decl_kind k, sort * s, ptr_vector<func_decl> & cache) {
+func_decl * basic_decl_plugin::mk_eq_decl_core(std::string_view name, decl_kind k, sort * s, ptr_vector<func_decl> & cache) {
     unsigned id = s->get_small_id();
     force_ptr_array_size(cache, id + 1);
     if (cache[id] == 0) {
@@ -966,7 +966,7 @@ func_decl * basic_decl_plugin::mk_eq_decl_core(char const * name, decl_kind k, s
         func_decl_info info(m_family_id, k);
         info.set_commutative();
         info.set_chainable();
-        func_decl * decl = m_manager->mk_func_decl(symbol(name), 2, domain, m_bool_sort, info);
+        func_decl * decl = m_manager->mk_func_decl(symbol(std::string(name)), 2, domain, m_bool_sort, info);
         SASSERT(decl->is_chainable());
         cache[id] = decl;
         m_manager->inc_ref(decl);
