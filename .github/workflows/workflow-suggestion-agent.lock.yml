@@ -19,13 +19,13 @@
 #   gh aw compile
 # For more information: https://github.com/githubnext/gh-aw/blob/main/.github/aw/github-agentic-workflows.md
 #
-# Weekly release notes updater that generates updates based on changes since last release
+# Daily agent that suggests which agentic workflow agents should be added to the Z3 repository
 
-name: "Release Notes Updater"
+name: "Workflow Suggestion Agent"
 "on":
   schedule:
-  - cron: "8 16 * * 2"
-    # Friendly format: weekly (scattered)
+  - cron: "31 6 * * *"
+    # Friendly format: daily (scattered)
   workflow_dispatch:
 
 permissions: {}
@@ -33,7 +33,7 @@ permissions: {}
 concurrency:
   group: "gh-aw-${{ github.workflow }}"
 
-run-name: "Release Notes Updater"
+run-name: "Workflow Suggestion Agent"
 
 jobs:
   activation:
@@ -51,7 +51,7 @@ jobs:
       - name: Check workflow file timestamps
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
-          GH_AW_WORKFLOW_FILE: "release-notes-updater.lock.yml"
+          GH_AW_WORKFLOW_FILE: "workflow-suggestion-agent.lock.yml"
         with:
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
@@ -89,9 +89,18 @@ jobs:
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
       - name: Checkout repository
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-        with:
-          fetch-depth: 0
 
+      # Cache memory file share configuration from frontmatter processed below
+      - name: Create cache-memory directory
+        run: bash /opt/gh-aw/actions/create_cache_memory_dir.sh
+      - name: Restore cache-memory file share data
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          key: memory-${{ github.workflow }}-${{ github.run_id }}
+          path: /tmp/gh-aw/cache-memory
+          restore-keys: |
+            memory-${{ github.workflow }}-
+            memory-
       - name: Configure Git credentials
         env:
           REPO_NAME: ${{ github.repository }}
@@ -160,7 +169,7 @@ jobs:
           cat > /opt/gh-aw/safeoutputs/tools.json << 'EOF'
           [
             {
-              "description": "Create a GitHub discussion for announcements, Q\u0026A, reports, status updates, or community conversations. Use this for content that benefits from threaded replies, doesn't require task tracking, or serves as documentation. For actionable work items that need assignment and status tracking, use create_issue instead. CONSTRAINTS: Maximum 1 discussion(s) can be created. Title will be prefixed with \"[Release Notes] \". Discussions will be created in category \"Announcements\".",
+              "description": "Create a GitHub discussion for announcements, Q\u0026A, reports, status updates, or community conversations. Use this for content that benefits from threaded replies, doesn't require task tracking, or serves as documentation. For actionable work items that need assignment and status tracking, use create_issue instead. CONSTRAINTS: Maximum 1 discussion(s) can be created. Title will be prefixed with \"[Workflow Suggestions] \". Discussions will be created in category \"Agentic Workflows\".",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -375,6 +384,14 @@ jobs:
                   "GITHUB_WORKSPACE": "\${GITHUB_WORKSPACE}",
                   "DEFAULT_BRANCH": "\${DEFAULT_BRANCH}"
                 }
+              },
+              "serena": {
+                "type": "stdio",
+                "container": "ghcr.io/githubnext/serena-mcp-server:latest",
+                "args": ["--network", "host"],
+                "entrypoint": "serena",
+                "entrypointArgs": ["start-mcp-server", "--context", "codex", "--project", "${{ github.workspace }}"],
+                "mounts": ["${{ github.workspace }}:${{ github.workspace }}:rw"]
               }
             },
             "gateway": {
@@ -398,7 +415,7 @@ jobs:
               version: "",
               agent_version: "0.0.387",
               cli_version: "v0.37.1",
-              workflow_name: "Release Notes Updater",
+              workflow_name: "Workflow Suggestion Agent",
               experimental: false,
               supports_tools_allowlist: true,
               supports_http_transport: true,
@@ -457,6 +474,26 @@ jobs:
           cat "/opt/gh-aw/prompts/temp_folder_prompt.md" >> "$GH_AW_PROMPT"
           cat "/opt/gh-aw/prompts/markdown.md" >> "$GH_AW_PROMPT"
           cat << 'PROMPT_EOF' >> "$GH_AW_PROMPT"
+          
+          ---
+          
+          ## Cache Folder Available
+          
+          You have access to a persistent cache folder at `/tmp/gh-aw/cache-memory/` where you can read and write files to create memories and store information.
+          
+          - **Read/Write Access**: You can freely read from and write to any files in this folder
+          - **Persistence**: Files in this folder persist across workflow runs via GitHub Actions cache
+          - **Last Write Wins**: If multiple processes write to the same file, the last write will be preserved
+          - **File Share**: Use this as a simple file share - organize files as you see fit
+          
+          Examples of what you can store:
+          - `/tmp/gh-aw/cache-memory/notes.txt` - general notes and observations
+          - `/tmp/gh-aw/cache-memory/preferences.json` - user preferences and settings
+          - `/tmp/gh-aw/cache-memory/history.log` - activity history and logs
+          - `/tmp/gh-aw/cache-memory/state/` - organized state files in subdirectories
+          
+          Feel free to create, read, update, and organize files in this folder as needed for your tasks.
+          
           <safe-outputs>
           <description>GitHub API Access Instructions</description>
           <important>
@@ -503,188 +540,354 @@ jobs:
           </system>
           PROMPT_EOF
           cat << 'PROMPT_EOF' >> "$GH_AW_PROMPT"
-          # Release Notes Updater
+          # Workflow Suggestion Agent
           
           ## Job Description
           
-          Your name is __GH_AW_GITHUB_WORKFLOW__. You are an expert AI agent tasked with updating the RELEASE_NOTES.md file in the Z3 theorem prover repository `__GH_AW_GITHUB_REPOSITORY__` with information about changes since the last release.
+          Your name is __GH_AW_GITHUB_WORKFLOW__. You are an expert AI agent tasked with analyzing the Z3 theorem prover repository `__GH_AW_GITHUB_REPOSITORY__` to identify automation opportunities and suggest new agentic workflow agents that would be valuable for the development team.
           
           ## Your Task
           
-          ### 1. Determine the Next Release Version
+          ### 1. Initialize or Resume Progress (Cache Memory)
           
-          Read the file `scripts/VERSION.txt` to find the next release version number. This version should be used as the section header for the new release notes.
+          Check your cache memory for:
+          - List of workflow suggestions already made
+          - Workflows that have been implemented since last run
+          - Repository patterns and insights discovered
+          - Areas of the codebase already analyzed
           
-          ### 2. Identify the Last Release
+          **Important**: If you have cached suggestions:
+          - **Re-verify each cached suggestion** before including it in the report
+          - Check if a workflow has been created for that suggestion since the last run
+          - Use glob to find workflow files and grep to search for specific automation
+          - **Mark suggestions as implemented** if a workflow now exists
+          - **Remove implemented suggestions** from the cache and celebrate them in the report
+          - Only carry forward suggestions that are still relevant and unimplemented
           
-          The RELEASE_NOTES.md file contains release history. The last release is the first completed version section after "Version 4.next" (which is for planned features).
+          If this is your first run or memory is empty, initialize a tracking structure.
           
-          Find the last release tag in git to identify which commits to analyze:
-          ```bash
-          git tag --sort=-creatordate | grep -E '^z3-[0-9]+\.[0-9]+\.[0-9]+$' | head -1
+          ### 2. Analyze the Repository Context
+          
+          Examine the Z3 repository to understand:
+          
+          **Development Patterns:**
+          - What types of issues are commonly reported? (use GitHub API to analyze recent issues)
+          - What areas generate the most pull requests?
+          - What languages and frameworks are used? (check file extensions, build files)
+          - What build systems and testing frameworks exist?
+          - What documentation exists and where gaps might be?
+          
+          **Current Automation:**
+          - What GitHub Actions workflows already exist? (check `.github/workflows/` for both `.yml` and `.md` files)
+          - What agentic workflows are already in place? (`.md` files in `.github/workflows/`)
+          - What types of automation are missing?
+          
+          **Development Pain Points:**
+          - Repetitive tasks that could be automated
+          - Quality assurance gaps (linting, testing, security)
+          - Documentation maintenance needs
+          - Community management needs (issue triage, PR reviews)
+          - Release management tasks
+          - Performance monitoring needs
+          
+          ### 3. Identify Automation Opportunities
+          
+          Look for patterns that suggest automation opportunities:
+          
+          **Issue Management:**
+          - Issues without labels or incorrect labels
+          - Questions that could be auto-answered
+          - Issues needing triage or categorization
+          - Stale issues that need attention
+          - Duplicate issues that could be detected
+          
+          **Pull Request Management:**
+          - PRs needing code review
+          - PRs with merge conflicts
+          - PRs missing tests or documentation
+          - PRs that need performance validation
+          - PRs that could benefit from automated checks
+          
+          **Code Quality:**
+          - Code that could benefit from automated refactoring
+          - Patterns that violate project conventions
+          - Security vulnerabilities to monitor
+          - Performance regressions to detect
+          - Test coverage gaps
+          
+          **Documentation:**
+          - Out-of-date documentation
+          - Missing API documentation
+          - Tutorial gaps
+          - Release notes maintenance
+          - Changelog generation
+          
+          **Community & Communication:**
+          - Weekly/monthly status reports
+          - Contributor recognition
+          - Onboarding automation
+          - Community health metrics
+          
+          **Release & Deployment:**
+          - Release preparation tasks
+          - Version bumping
+          - Binary distribution
+          - Package publishing
+          
+          **Research & Monitoring:**
+          - Academic paper tracking (for theorem provers)
+          - Competitor analysis
+          - Dependency updates
+          - Security advisory monitoring
+          
+          ### 4. Consider Workflow Feasibility
+          
+          For each potential automation opportunity, assess:
+          
+          **Technical Feasibility:**
+          - Can it be done with available tools (GitHub API, bash, Serena, web-fetch, etc.)?
+          - Does it require external services or APIs?
+          - Is the data needed accessible?
+          - Would it need special permissions?
+          
+          **Value Assessment:**
+          - How much time would it save?
+          - How many people would benefit?
+          - What's the impact on code quality/velocity?
+          - Is it solving a real pain point or just nice-to-have?
+          
+          **Safety & Security:**
+          - Can it be done safely with safe-outputs?
+          - Does it need write permissions (try to avoid)?
+          - Could it cause harm if the AI makes mistakes?
+          - Does it handle sensitive data appropriately?
+          
+          ### 5. Learn from Existing Workflows
+          
+          Study the existing agentic workflows in this repository:
+          - What patterns do they follow?
+          - What tools do they use?
+          - How are they triggered?
+          - What safe-outputs do they use?
+          
+          Use these as templates for your suggestions.
+          
+          ### 6. Generate Workflow Suggestions
+          
+          For each suggestion, provide:
+          
+          **Workflow Name:** Clear, descriptive name (e.g., "Performance Regression Detector")
+          
+          **Purpose:** What problem does it solve? Who benefits?
+          
+          **Trigger:** When should it run?
+          - `issues` - When issues are opened/edited
+          - `pull_request` - When PRs are opened/updated
+          - `schedule: daily` or `schedule: weekly` - Regular schedules
+          - `workflow_dispatch` - Manual trigger (auto-added by compiler with fuzzy schedules)
+          
+          **Required Tools:**
+          - GitHub API (via `toolsets: [default]`)
+          - Other tools (web-search, web-fetch, bash, Serena, etc.)
+          - Any required network access
+          
+          **Safe Outputs:**
+          - What write operations are needed? (create-discussion, add-comment, create-issue, create-pull-request)
+          - For daily reporting workflows, include `close-older-discussions: true` to prevent clutter
+          
+          **Priority:** High (addresses critical gap), Medium (valuable improvement), Low (nice-to-have)
+          
+          **Implementation Notes:**
+          - Key challenges or considerations
+          - Similar workflows to reference
+          - Special permissions or setup needed
+          
+          **Example Workflow Snippet:**
+          Provide a minimal example of the workflow frontmatter to show feasibility:
+          ```yaml
+          ---
+          description: Brief description
+          on:
+            schedule: daily
+          permissions: read-all
+          tools:
+            github:
+              toolsets: [default]
+          safe-outputs:
+            create-discussion:
+              close-older-discussions: true
+          ---
           ```
           
-          If no tags are found, use the last 3 months of commits as a fallback.
+          ### 7. Check for Recent Suggestions
           
-          ### 3. Analyze Commits Since Last Release
+          Before creating a new discussion, check if there's already an open discussion for workflow suggestions:
+          - Look for discussions with "[Workflow Suggestions]" in the title
+          - Check if it was created within the last 3 days
           
-          Get all commits since the last release:
-          ```bash
-          # If a tag was found (e.g., z3-4.15.4):
-          git log --format='%H|%an|%ae|%s' <last-tag>..HEAD
-          
-          # Or if using date fallback:
-          git log --format='%H|%an|%ae|%s' --since="3 months ago"
-          ```
-          
-          For each commit, you need to:
-          - Determine if it's from a maintainer or external contributor
-          - Assess whether it's substantial (affects functionality, features, or performance)
-          - Understand what changed by examining the commit (use `git show <commit-hash>`)
-          
-          **Identifying Maintainers:**
-          - Maintainers typically have `@microsoft.com` email addresses or are core team members
-          - Look for patterns like `nbjorner@microsoft.com` (Nikolaj Bjorner - core maintainer)
-          - External contributors often have GitHub email addresses or non-Microsoft domains
-          - Pull request commits merged by maintainers are considered maintainer changes
-          - Commits from external contributors through PRs should be identified by checking if they're merge commits
-          
-          **Determining Substantial Changes:**
-          Substantial changes include:
-          - New features or APIs
-          - Performance improvements
-          - Bug fixes that affect core functionality
-          - Changes to solving algorithms
-          - Deprecations or breaking changes
-          - Security fixes
-          
-          NOT substantial (but still acknowledge external contributions):
-          - Documentation typos
-          - Code style changes
-          - Minor refactoring without functional impact
-          - Build script tweaks (unless they fix major issues)
-          
-          ### 4. Check for Related Pull Requests
-          
-          For significant changes, try to find the associated pull request number:
-          - Look in commit messages for `#NNNN` references
-          - Search GitHub for PRs that were merged around the same time
-          - This helps with proper attribution
-          
-          Use GitHub tools to search for pull requests:
-          ```bash
-          # Search for merged PRs since last release
-          ```
-          
-          ### 5. Format the Release Notes
-          
-          **CRITICAL: Maintain Consistent Formatting**
-          
-          Study the existing RELEASE_NOTES.md carefully to match the style:
-          - Use bullet points with `-` for each entry
-          - Include PR numbers as links: `https://github.com/Z3Prover/z3/pull/NNNN`
-          - Include issue numbers as `#NNNN`
-          - Give credit: "thanks to [Name]" for external contributions
-          - Group related changes together
-          - Order by importance: major features first, then improvements, then bug fixes
-          - Use proper technical terminology consistent with existing entries
-          
-          **Format Examples from Existing Release Notes:**
-          ```markdown
-          Version X.Y.Z
-          ==============
-          - Add methods to create polymorphic datatype constructors over the API. The prior method was that users had to manage 
-            parametricity using their own generation of instances. The updated API allows to work with polymorphic datatype declarations
-            directly.
-          - MSVC build by default respect security flags, https://github.com/Z3Prover/z3/pull/7988 
-          - Using a new algorithm for smt.threads=k, k > 1 using a shared search tree. Thanks to Ilana Shapiro.
-          - Thanks for several pull requests improving usability, including
-            - https://github.com/Z3Prover/z3/pull/7955
-            - https://github.com/Z3Prover/z3/pull/7995
-            - https://github.com/Z3Prover/z3/pull/7947
-          ```
-          
-          ### 6. Prepare the Release Notes Content
-          
-          **CRITICAL: Maintain Consistent Formatting**
-          
-          Study the existing RELEASE_NOTES.md carefully to match the style. Your formatted content should be ready to insert **immediately after** the "Version 4.next" section:
-          
-          1. Read the current RELEASE_NOTES.md to understand the format
-          2. Find the "Version 4.next" section (it should be at the top)
-          3. Format your release notes to be inserted after it but before the previous release sections
-          4. The "Version 4.next" section should remain intact - don't modify it
-          
-          The structure for the formatted content should be:
-          ```markdown
-          Version X.Y.Z
-          ==============
-          [your new release notes here]
-          ```
-          
-          This content will be shared in a discussion where maintainers can review it before applying it to RELEASE_NOTES.md.
-          
-          ### 7. Check for Existing Discussions
-          
-          Before creating a new discussion, check if there's already an open discussion for release notes updates:
-          
-          ```bash
-          # Search for open discussions with "[Release Notes]" in the title
-          gh search discussions --repo Z3Prover/z3 "[Release Notes] in:title" --json number,title
-          ```
-          
-          If a recent discussion already exists (within the last week):
+          If a very recent discussion exists:
           - Do NOT create a new discussion
           - Exit gracefully
           
-          ### 8. Create Discussion
+          ### 8. Create Discussion with Suggestions
           
-          If there are substantial updates to add AND no recent discussion exists:
-          - Create a discussion with the release notes analysis
-          - Use a descriptive title like "Release notes for version X.Y.Z"
-          - In the discussion body, include:
-            - The formatted release notes content that should be added to RELEASE_NOTES.md
-            - Number of maintainer changes included
-            - Number of external contributions acknowledged
-            - Any notable features or improvements
-            - Date range of commits analyzed
-            - Instructions for maintainers on how to apply these updates to RELEASE_NOTES.md
+          Create a GitHub Discussion with:
           
-          If there are NO substantial changes since the last release:
-          - Do NOT create a discussion
-          - Exit gracefully
+          **Title:** "[Workflow Suggestions] Daily Report - [Date]"
+          
+          **Content Structure:**
+          - **Executive Summary:** Number of suggestions, priority breakdown
+          - **Implemented Since Last Run:** Celebrate any previously suggested workflows that have been implemented (if any)
+          - **Top Priority Suggestions:** 2-3 high-value workflows that should be implemented soon
+          - **Medium Priority Suggestions:** 3-5 valuable improvements
+          - **Low Priority Suggestions:** Nice-to-have ideas
+          - **Repository Insights:** Any interesting patterns or observations about the repository
+          - **Progress Tracker:** What % of repository automation potential has been covered
+          
+          **Formatting Guidelines:**
+          - Use progressive disclosure with `<details><summary>` for each suggestion
+          - Include code blocks for workflow examples
+          - Use checkboxes `- [ ]` for tracking implementation
+          - Keep it actionable and specific
+          
+          **Important Notes:**
+          - Only include suggestions that are confirmed to be unimplemented in the current repository
+          - Verify each suggestion is still relevant before including it
+          - Celebrate implemented suggestions but don't re-suggest them
+          
+          ### 9. Update Cache Memory
+          
+          Store in cache memory:
+          - All new suggestions made in this run
+          - **Remove implemented suggestions** from the cache
+          - Repository patterns and insights discovered
+          - Areas of automation already well-covered
+          - Next areas to focus on in future runs
+          
+          **Critical:** Keep cache fresh by:
+          - Removing suggestions that have been implemented
+          - Updating suggestions based on repository changes
+          - Not perpetuating stale information
           
           ## Guidelines
           
-          - **Be selective**: Only include changes that matter to users
-          - **Be accurate**: Verify commit details before including them
-          - **Be consistent**: Match the existing release notes style exactly
-          - **Be thorough**: Don't miss significant changes, but don't include trivial ones
-          - **Give credit**: Always acknowledge external contributors
-          - **Use proper links**: Include PR and issue links where applicable
-          - **Stay focused**: This is about documenting changes, not reviewing code quality
-          - **No empty updates**: Only create a discussion if there are actual changes to document
+          - **Be strategic:** Focus on high-impact automation opportunities
+          - **Be specific:** Provide concrete workflow examples, not vague ideas
+          - **Be realistic:** Only suggest workflows that are technically feasible
+          - **Be safety-conscious:** Prioritize workflows that use safe-outputs over those needing write permissions
+          - **Use cache effectively:** Build on previous runs' knowledge
+          - **Keep cache fresh:** Verify suggestions are still relevant and remove implemented ones
+          - **Learn from examples:** Study existing workflows in the repository
+          - **Consider the team:** What would save the most time for Z3 maintainers?
+          - **Quality over quantity:** 5 excellent suggestions are better than 20 mediocre ones
+          - **Celebrate progress:** Acknowledge when suggestions get implemented
+          
+          ## Z3-Specific Context
+          
+          Z3 is a theorem prover and SMT solver used in:
+          - Program verification
+          - Security analysis
+          - Compiler optimization
+          - Test generation
+          - Formal methods research
+          
+          **Key considerations for Z3:**
+          - Academic research community
+          - Multi-language bindings (C++, Python, Java, C#, OCaml, JavaScript)
+          - Performance is critical
+          - Correctness is paramount
+          - Used in production by major companies
+          - Active contributor community
+          
+          **Common Z3 tasks that could benefit from automation:**
+          - API consistency across language bindings
+          - Performance benchmark tracking
+          - Research paper and citation tracking
+          - Example code validation
+          - Tutorial maintenance
+          - Solver regression detection
+          - Build time optimization
+          - Cross-platform compatibility testing
+          - Community contribution recognition
+          - Issue triage by solver component (SAT, SMT, theory solvers)
           
           ## Important Notes
           
-          - The next version in `scripts/VERSION.txt` is the target version for these release notes
-          - External contributions should be acknowledged even if the changes are minor
-          - Maintainer changes must be substantial to be included
-          - Maintain the bullet point structure and indentation style
-          - Include links to PRs using the full GitHub URL format
-          - Do NOT modify the "Version 4.next" section - only add a new section below it
-          - Do NOT create a discussion if there are no changes to document
-          - The discussion should provide ready-to-apply content for RELEASE_NOTES.md
+          - **DO NOT** create issues or pull requests - only discussions
+          - **DO NOT** suggest workflows for things that are already well-automated
+          - **DO** verify suggestions are still relevant before reporting them
+          - **DO** close older discussions automatically (this is configured)
+          - **DO** provide enough detail for maintainers to quickly assess and implement suggestions
+          - **DO** consider the unique needs of a theorem prover project
+          - **DO** suggest workflows that respect the expertise of the Z3 team (assist, don't replace)
           
-          ## Example Workflow
+          ## Example Output Structure
           
-          1. Read `scripts/VERSION.txt` → version is 4.15.5.0 → next release is 4.15.5
-          2. Find last release tag → `z3-4.15.4`
-          3. Get commits: `git log --format='%H|%an|%ae|%s' z3-4.15.4..HEAD`
-          4. Analyze each commit to determine if substantial
-          5. Format the changes following existing style
-          6. Check for existing discussions
-          7. Create discussion with the release notes analysis and formatted content
+          ```markdown
+          # Workflow Suggestions - January 21, 2026
+          
+          ## Executive Summary
+          - 8 new suggestions this run
+          - 1 previously suggested workflow now implemented! 🎉
+          - Priority: 2 High, 4 Medium, 2 Low
+          
+          ## 🎉 Implemented Since Last Run
+          - **API Coherence Checker** - Successfully implemented and running daily!
+          
+          ## High Priority Suggestions
+          
+          <details>
+          <summary><b>1. Performance Regression Detector</b></summary>
+          
+          **Purpose:** Automatically detect performance regressions in solver benchmarks
+          
+          **Trigger:** `pull_request` (on PRs that modify solver code)
+          
+          **Tools Needed:**
+          - GitHub API (`toolsets: [default]`)
+          - Bash for running benchmarks
+          - Network defaults for downloading benchmark sets
+          
+          **Safe Outputs:**
+          - `add-comment:` to report results on PRs
+          
+          **Value:** Critical for maintaining Z3's performance characteristics
+          
+          **Implementation Notes:**
+          - Could use existing benchmark suite
+          - Compare against baseline from main branch
+          - Report significant regressions (>5% slowdown)
+          
+          **Example:**
+          \`\`\`yaml
+          ---
+          description: Detect performance regressions in solver benchmarks
+          on:
+            pull_request:
+              types: [opened, synchronize]
+              paths: ['src/**/*.cpp', 'src/**/*.h']
+          permissions: read-all
+          tools:
+            github:
+              toolsets: [default]
+            bash: [":*"]
+          safe-outputs:
+            add-comment:
+              max: 3
+          ---
+          \`\`\`
+          
+          </details>
+          
+          ## Medium Priority Suggestions
+          ...
+          
+          ## Low Priority Suggestions
+          ...
+          
+          ## Repository Insights
+          ...
+          ```
           
           PROMPT_EOF
       - name: Substitute placeholders
@@ -746,7 +949,7 @@ jobs:
         run: |
           set -o pipefail
           sudo -E awf --env-all --container-workdir "${GITHUB_WORKSPACE}" --mount /tmp:/tmp:rw --mount "${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}:rw" --mount /usr/bin/date:/usr/bin/date:ro --mount /usr/bin/gh:/usr/bin/gh:ro --mount /usr/bin/yq:/usr/bin/yq:ro --mount /usr/local/bin/copilot:/usr/local/bin/copilot:ro --mount /home/runner/.copilot:/home/runner/.copilot:rw --mount /opt/gh-aw:/opt/gh-aw:ro --allow-domains api.business.githubcopilot.com,api.enterprise.githubcopilot.com,api.github.com,api.githubcopilot.com,api.individual.githubcopilot.com,github.com,host.docker.internal,raw.githubusercontent.com,registry.npmjs.org --log-level info --proxy-logs-dir /tmp/gh-aw/sandbox/firewall/logs --enable-host-access --image-tag 0.10.0 \
-            -- /usr/local/bin/copilot --add-dir /tmp/gh-aw/ --log-level all --log-dir /tmp/gh-aw/sandbox/agent/logs/ --add-dir "${GITHUB_WORKSPACE}" --disable-builtin-mcps --allow-all-tools --allow-all-paths --share /tmp/gh-aw/sandbox/agent/logs/conversation.md --prompt "$(cat /tmp/gh-aw/aw-prompts/prompt.txt)"${GH_AW_MODEL_AGENT_COPILOT:+ --model "$GH_AW_MODEL_AGENT_COPILOT"} \
+            -- /usr/local/bin/copilot --add-dir /tmp/gh-aw/ --log-level all --log-dir /tmp/gh-aw/sandbox/agent/logs/ --add-dir "${GITHUB_WORKSPACE}" --disable-builtin-mcps --allow-all-tools --add-dir /tmp/gh-aw/cache-memory/ --allow-all-paths --share /tmp/gh-aw/sandbox/agent/logs/conversation.md --prompt "$(cat /tmp/gh-aw/aw-prompts/prompt.txt)"${GH_AW_MODEL_AGENT_COPILOT:+ --model "$GH_AW_MODEL_AGENT_COPILOT"} \
             2>&1 | tee /tmp/gh-aw/agent-stdio.log
         env:
           COPILOT_AGENT_RUNNER_TYPE: STANDALONE
@@ -867,6 +1070,12 @@ jobs:
           # AWF runs with sudo, creating files owned by root
           sudo chmod -R a+r /tmp/gh-aw/sandbox/firewall/logs 2>/dev/null || true
           awf logs summary | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Upload cache-memory data as artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        if: always()
+        with:
+          name: cache-memory
+          path: /tmp/gh-aw/cache-memory
       - name: Upload agent artifacts
         if: always()
         continue-on-error: true
@@ -887,6 +1096,7 @@ jobs:
       - agent
       - detection
       - safe_outputs
+      - update_cache_memory
     if: (always()) && (needs.agent.result != 'skipped')
     runs-on: ubuntu-slim
     permissions:
@@ -931,7 +1141,7 @@ jobs:
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
           GH_AW_NOOP_MAX: 1
-          GH_AW_WORKFLOW_NAME: "Release Notes Updater"
+          GH_AW_WORKFLOW_NAME: "Workflow Suggestion Agent"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -944,7 +1154,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "Release Notes Updater"
+          GH_AW_WORKFLOW_NAME: "Workflow Suggestion Agent"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -957,7 +1167,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "Release Notes Updater"
+          GH_AW_WORKFLOW_NAME: "Workflow Suggestion Agent"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_SECRET_VERIFICATION_RESULT: ${{ needs.agent.outputs.secret_verification_result }}
@@ -976,7 +1186,7 @@ jobs:
           GH_AW_COMMENT_ID: ${{ needs.activation.outputs.comment_id }}
           GH_AW_COMMENT_REPO: ${{ needs.activation.outputs.comment_repo }}
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          GH_AW_WORKFLOW_NAME: "Release Notes Updater"
+          GH_AW_WORKFLOW_NAME: "Workflow Suggestion Agent"
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_DETECTION_CONCLUSION: ${{ needs.detection.result }}
         with:
@@ -1022,8 +1232,8 @@ jobs:
       - name: Setup threat detection
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
-          WORKFLOW_NAME: "Release Notes Updater"
-          WORKFLOW_DESCRIPTION: "Weekly release notes updater that generates updates based on changes since last release"
+          WORKFLOW_NAME: "Workflow Suggestion Agent"
+          WORKFLOW_DESCRIPTION: "Daily agent that suggests which agentic workflow agents should be added to the Z3 repository"
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
           script: |
@@ -1154,8 +1364,8 @@ jobs:
     timeout-minutes: 15
     env:
       GH_AW_ENGINE_ID: "copilot"
-      GH_AW_WORKFLOW_ID: "release-notes-updater"
-      GH_AW_WORKFLOW_NAME: "Release Notes Updater"
+      GH_AW_WORKFLOW_ID: "workflow-suggestion-agent"
+      GH_AW_WORKFLOW_NAME: "Workflow Suggestion Agent"
     outputs:
       process_safe_outputs_processed_count: ${{ steps.process_safe_outputs.outputs.processed_count }}
       process_safe_outputs_temporary_id_map: ${{ steps.process_safe_outputs.outputs.temporary_id_map }}
@@ -1180,7 +1390,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_discussion\":{\"category\":\"Announcements\",\"expires\":168,\"max\":1,\"title_prefix\":\"[Release Notes] \"},\"missing_data\":{},\"missing_tool\":{}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_discussion\":{\"category\":\"Agentic Workflows\",\"close_older_discussions\":true,\"expires\":168,\"max\":1,\"title_prefix\":\"[Workflow Suggestions] \"},\"missing_data\":{},\"missing_tool\":{}}"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -1188,4 +1398,28 @@ jobs:
             setupGlobals(core, github, context, exec, io);
             const { main } = require('/opt/gh-aw/actions/safe_output_handler_manager.cjs');
             await main();
+
+  update_cache_memory:
+    needs:
+      - agent
+      - detection
+    if: always() && needs.detection.outputs.success == 'true'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Setup Scripts
+        uses: githubnext/gh-aw/actions/setup@v0.37.1
+        with:
+          destination: /opt/gh-aw/actions
+      - name: Download cache-memory artifact (default)
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        continue-on-error: true
+        with:
+          name: cache-memory
+          path: /tmp/gh-aw/cache-memory
+      - name: Save cache-memory to cache (default)
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          key: memory-${{ github.workflow }}-${{ github.run_id }}
+          path: /tmp/gh-aw/cache-memory
 
