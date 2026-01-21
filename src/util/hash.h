@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include<algorithm>
+#include<string_view>
 #include "util/util.h"
 
 #define mix(a,b,c)              \

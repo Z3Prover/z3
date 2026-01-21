@@ -20,6 +20,7 @@ Revision History:
 #pragma once
 
 #include<fstream>
+#include<string_view>
 #include "trace_tags.h"
 
 #ifdef SINGLE_THREAD
