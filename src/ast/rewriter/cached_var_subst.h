@@ -29,7 +29,7 @@ class cached_var_subst {
     };
     struct key_hash_proc {
         unsigned operator()(key * k) const {
-            return string_hash(reinterpret_cast<char const *>(k->m_bindings), sizeof(expr *) * k->m_num_bindings, k->m_qa->get_id());
+            return string_hash(std::string_view(reinterpret_cast<char const *>(k->m_bindings), sizeof(expr *) * k->m_num_bindings), k->m_qa->get_id());
         }
     };
     struct key_eq_proc {

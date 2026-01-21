@@ -711,7 +711,7 @@ namespace bv {
             hash(solver& s) :s(s) {}
             bool operator()(theory_var v) const {
                 literal_vector const& a = s.m_bits[v];
-                return string_hash(reinterpret_cast<char*>(a.data()), a.size() * sizeof(sat::literal), 3);
+                return string_hash(std::string_view(reinterpret_cast<char*>(a.data()), a.size() * sizeof(sat::literal)), 3);
             }
         };
         eq eq_proc(*this);
