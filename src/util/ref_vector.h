@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include<span>
 #include "util/vector.h"
 #include "util/obj_ref.h"
 #include "util/ref.h"
@@ -192,9 +193,14 @@ public:
             push_back(other[i]);
     }
 
+    void append(std::span<T * const> data) {
+        for(auto elem : data)
+            push_back(elem);
+    }
+
+    // Backward compatibility overload
     void append(unsigned sz, T * const * data) {
-        for(unsigned i = 0; i < sz; ++i)
-            push_back(data[i]);
+        append(std::span<T * const>(data, sz));
     }
 
     void operator=(ref_vector_core && other) noexcept {
@@ -249,9 +255,15 @@ public:
 
     ref_vector(ref_vector &&) noexcept = default;
 
+    ref_vector(TManager & m, std::span<T * const> data):
+        super(ref_manager_wrapper<T, TManager>(m)) {
+        this->append(data);
+    }
+
+    // Backward compatibility overload
     ref_vector(TManager & m, unsigned sz, T * const * data):
         super(ref_manager_wrapper<T, TManager>(m)) {
-        this->append(sz, data);
+        this->append(std::span<T * const>(data, sz));
     }
     
     TManager & get_manager() const {
