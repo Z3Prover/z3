@@ -226,9 +226,8 @@ namespace api {
             e = m_bv_util.mk_numeral(n, s);
         }
         else if (fid == get_datalog_fid() && n.is_uint64()) {
-            uint64_t sz;
-            if (m_datalog_util.try_get_size(s, sz) && 
-                sz <= n.get_uint64()) {
+            if (auto size_opt = m_datalog_util.try_get_size(s); 
+                size_opt.has_value() && *size_opt <= n.get_uint64()) {
                 invoke_error_handler(Z3_INVALID_ARG);
             }
             e = m_datalog_util.mk_numeral(n.get_uint64(), s);

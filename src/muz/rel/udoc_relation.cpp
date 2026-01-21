@@ -248,6 +248,17 @@ namespace datalog {
         SASSERT(dl.is_finite_sort(s));
         return dl.mk_numeral(r.get_uint64(), s);
     }
+
+    // Helper function to count bits needed to represent a size
+    unsigned udoc_plugin::count_bits_for_size(uint64_t size) const {
+        unsigned num_bits = 0;
+        while (size > 0) {
+            ++num_bits;
+            size /= 2;
+        }
+        return num_bits;
+    }
+
     bool udoc_plugin::is_numeral(expr* e, rational& r, unsigned& num_bits) {
         if (bv.is_numeral(e, r, num_bits)) return true;
         if (m.is_true(e)) {
@@ -260,12 +271,13 @@ namespace datalog {
             num_bits = 1;
             return true;
         }
-        uint64_t n, sz;
-        if (dl.is_numeral(e, n) && dl.try_get_size(e->get_sort(), sz)) {
-            num_bits = 0;
-            while (sz > 0) ++num_bits, sz = sz/2;
-            r = rational(n, rational::ui64());
-            return true;
+        uint64_t n;
+        if (dl.is_numeral(e, n)) {
+            if (auto sz = dl.try_get_size(e->get_sort())) {
+                num_bits = count_bits_for_size(*sz);
+                r = rational(n, rational::ui64());
+                return true;
+            }
         }
         return false;
     }
@@ -275,10 +287,8 @@ namespace datalog {
             return bv.get_bv_size(s);
         if (m.is_bool(s)) 
             return 1;
-        uint64_t sz;
-        if (dl.try_get_size(s, sz)) {
-            while (sz > 0) ++num_bits, sz /= 2;
-            return num_bits;
+        if (auto sz = dl.try_get_size(s)) {
+            return count_bits_for_size(*sz);
         }
         UNREACHABLE();
         return 0;
