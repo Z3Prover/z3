@@ -115,3 +115,4 @@ genaisrc/genblogpost.genai.mts
 *.mts
 # Bazel generated files
 bazel-*
+build_test.log
