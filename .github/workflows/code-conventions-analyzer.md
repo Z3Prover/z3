@@ -376,6 +376,12 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 - Alternatives: `std::expected`, `std::optional`, error codes
 - Performance and clarity improvements
 
+**Inefficient Stream Output:**
+- Using strings to output single characters, such as << "X",
+  as well as using multiple consecutive constant strings such as << "Foo" << "Bar".
+- Alternatives: << 'X'  and << "Foo" "Bar"
+- Performance improvement and binary size reduction
+
 ## Analysis Methodology
 
 1. **Sample key directories** in the codebase:
@@ -693,6 +699,12 @@ For each opportunity, provide:
 - **Performance**: [Impact of exception-based control flow]
 - **Refactoring Opportunities**: [Specific patterns to replace]
 
+### 4.13 Inefficient Stream Output
+- **Current Usage**: [string stream output operator used for single characters]
+- **Modern Alternatives**: [use char output operator]
+- **Performance**: [Reduce code size and improve performance]
+- **Refactoring Opportunities**: [<< "X"]
+
 ## 5. Priority Recommendations
 
 Ranked list of improvements by impact and effort:
@@ -943,6 +955,12 @@ grep pattern: "if.*<.*\{.*=|if.*>.*\{.*=" glob: "src/**/*.cpp"
 ```
 grep pattern: "try.*\{.*for\(|try.*\{.*while\(" glob: "src/**/*.cpp"
 grep pattern: "catch.*continue|catch.*break" glob: "src/**/*.cpp"
+```
+
+**Find inefficient output string operations using constant strings:**
+```
+grep pattern: "<<\s*\".\"" glob: "src/**/*.cpp"
+grep pattern: "<<\s*\".*\"\s*<<\s*\".*\"" glob: "src/**/*.cpp"
 ```
 
 ## Security and Safety
