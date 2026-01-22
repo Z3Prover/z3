@@ -216,6 +216,10 @@ public:
         return m_manager.mk_app(m_fid, OP_STORE, 0, nullptr, num_args, args);
     }
 
+    app * mk_store(std::span<expr * const> args) const {
+        return mk_store(static_cast<unsigned>(args.size()), args.data());
+    }
+
     app * mk_store(expr_ref_vector const& args) const {
         return mk_store(args.size(), args.data());
     }
@@ -242,6 +246,10 @@ public:
         return m_manager.mk_app(m_fid, OP_SELECT, 0, nullptr, num_args, args);
     }
 
+    app * mk_select(std::span<expr * const> args) const {
+        return mk_select(static_cast<unsigned>(args.size()), args.data());
+    }
+
     app * mk_select(ptr_vector<expr> const& args) const {
         return mk_select(args.size(), args.data());
     }
@@ -259,6 +267,10 @@ public:
         return m_manager.mk_app(m_fid, OP_ARRAY_MAP, 1, &p, num_args, args);
     }
 
+    app * mk_map(func_decl * f, std::span<expr * const> args) {
+        return mk_map(f, static_cast<unsigned>(args.size()), args.data());
+    }
+
     expr * mk_map_assoc(func_decl * f, unsigned num_args, expr * const * args) {
         expr* r = args[0];
         for (unsigned i = 1; i < num_args; ++i) {
@@ -266,6 +278,10 @@ public:
             r = mk_map(f, 2, es);
         }
         return r;
+    }
+
+    expr * mk_map_assoc(func_decl * f, std::span<expr * const> args) {
+        return mk_map_assoc(f, static_cast<unsigned>(args.size()), args.data());
     }
 
     app * mk_default(expr * a) {

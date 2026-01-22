@@ -89,12 +89,30 @@ public:
     family_id get_family_id() const { return m_fid; }
     app * mk_at_most_k(unsigned num_args, expr * const * args, unsigned k);
     app * mk_at_least_k(unsigned num_args, expr * const * args, unsigned k);
+    app * mk_at_most_k(std::span<expr * const> args, unsigned k) { return mk_at_most_k(static_cast<unsigned>(args.size()), args.data(), k); }
+    app * mk_at_least_k(std::span<expr * const> args, unsigned k) { return mk_at_least_k(static_cast<unsigned>(args.size()), args.data(), k); }
     app * mk_at_most_k(expr_ref_vector const& args, unsigned k) { return mk_at_most_k(args.size(), args.data(), k); }
     app * mk_at_least_k(expr_ref_vector const& args, unsigned k) { return mk_at_least_k(args.size(), args.data(), k); }
     app * mk_le(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
+    app * mk_le(std::span<rational const> coeffs, std::span<expr * const> args, rational const& k) {
+        SASSERT(coeffs.size() == args.size());
+        return mk_le(static_cast<unsigned>(coeffs.size()), coeffs.data(), args.data(), k);
+    }
     app * mk_ge(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
+    app * mk_ge(std::span<rational const> coeffs, std::span<expr * const> args, rational const& k) {
+        SASSERT(coeffs.size() == args.size());
+        return mk_ge(static_cast<unsigned>(coeffs.size()), coeffs.data(), args.data(), k);
+    }
     app * mk_eq(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
+    app * mk_eq(std::span<rational const> coeffs, std::span<expr * const> args, rational const& k) {
+        SASSERT(coeffs.size() == args.size());
+        return mk_eq(static_cast<unsigned>(coeffs.size()), coeffs.data(), args.data(), k);
+    }
     app * mk_lt(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
+    app * mk_lt(std::span<rational const> coeffs, std::span<expr * const> args, rational const& k) {
+        SASSERT(coeffs.size() == args.size());
+        return mk_lt(static_cast<unsigned>(coeffs.size()), coeffs.data(), args.data(), k);
+    }
     bool is_pb(expr* t) const { return is_app(t) && to_app(t)->get_family_id() == get_family_id(); }
     bool is_at_most_k(func_decl *a) const;
     bool is_at_most_k(expr *a) const { return is_app(a) && is_at_most_k(to_app(a)->get_decl()); }
