@@ -66,10 +66,10 @@ private:
 public:
     ast_smt_pp(ast_manager& m);
 
-    void set_benchmark_name(std::string_view bn) { if (!bn.empty()) m_benchmark_name = symbol(std::string(bn)); }
-    void set_source_info(std::string_view si) { if (!si.empty()) m_source_info = symbol(std::string(si)); }
-    void set_status(std::string_view s) { if (!s.empty()) m_status = symbol(std::string(s)); }
-    void set_category(std::string_view c) { if (!c.empty()) m_category = symbol(std::string(c)); }
+    void set_benchmark_name(std::string_view bn) { if (!bn.empty()) m_benchmark_name = symbol(bn); }
+    void set_source_info(std::string_view si) { if (!si.empty()) m_source_info = symbol(si); }
+    void set_status(std::string_view s) { if (!s.empty()) m_status = symbol(s); }
+    void set_category(std::string_view c) { if (!c.empty()) m_category = symbol(c); }
     void set_logic(symbol const& l) { m_logic = l; }
     void add_attributes(std::string_view s) { if (!s.empty()) m_attributes += s; }
     void add_assumption(expr* n) { m_assumptions.push_back(n); }

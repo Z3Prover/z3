@@ -53,7 +53,8 @@ class symbol {
 public:
     symbol() = default;
     explicit symbol(char const * d);
-    explicit symbol(const std::string & str) : symbol(str.c_str()) {}
+    explicit symbol(std::string_view sv);
+    explicit symbol(const std::string & str) : symbol(std::string_view(str)) {}
     explicit symbol(unsigned idx):
         m_data(BOXTAGINT(char const *, idx, 1)) {
 #if !defined(__LP64__) && !defined(_WIN64)

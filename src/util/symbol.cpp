@@ -138,6 +138,25 @@ symbol::symbol(char const * d) {
         m_data = g_symbol_tables->get_str(d);
 }
 
+symbol::symbol(std::string_view sv) {
+    if (sv.empty()) {
+        m_data = g_symbol_tables->get_str("");
+    }
+    else {
+        // Check if the string_view points to a null-terminated string
+        // This is true for string literals and std::string's c_str()
+        if (sv.data()[sv.size()] == '\0') {
+            // Can use directly without copy
+            m_data = g_symbol_tables->get_str(sv.data());
+        }
+        else {
+            // Need to create a temporary null-terminated string
+            std::string temp(sv);
+            m_data = g_symbol_tables->get_str(temp.c_str());
+        }
+    }
+}
+
 symbol & symbol::operator=(char const * d) {
     m_data = d ? g_symbol_tables->get_str(d) : nullptr;
     return *this;
