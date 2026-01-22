@@ -1909,8 +1909,12 @@ app * ast_manager::mk_app(family_id fid, decl_kind k, unsigned num_parameters, p
     return nullptr;
 }
 
+app * ast_manager::mk_app(family_id fid, decl_kind k, std::span<expr * const> args) {
+    return mk_app(fid, k, 0, nullptr, static_cast<unsigned>(args.size()), args.data());
+}
+
 app * ast_manager::mk_app(family_id fid, decl_kind k, unsigned num_args, expr * const * args) {
-    return mk_app(fid, k, 0, nullptr, num_args, args);
+    return mk_app(fid, k, std::span<expr * const>(args, num_args));
 }
 
 app * ast_manager::mk_app(family_id fid, decl_kind k, expr * arg) {
@@ -2210,7 +2214,8 @@ inline app * ast_manager::mk_app_core(func_decl * decl, expr * arg1, expr * arg2
     return mk_app_core(decl, 2, args);
 }
 
-app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * args) {
+app * ast_manager::mk_app(func_decl * decl, std::span<expr * const> args) {
+    unsigned num_args = static_cast<unsigned>(args.size());
 
     bool type_error =
         decl->get_arity() != num_args && !decl->is_right_associative() &&
@@ -2258,11 +2263,15 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
         }
     }
     if (r == nullptr) {
-        r = mk_app_core(decl, num_args, args);
+        r = mk_app_core(decl, num_args, args.data());
     }
     SASSERT(r != 0);
     TRACE(app_ground, tout << "ground: " << r->is_ground() << " id: " << r->get_id() << "\n" << mk_ll_pp(r, *this) << "\n";);
     return r;
+}
+
+app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * args) {
+    return mk_app(decl, std::span<expr * const>(args, num_args));
 }
 
 
@@ -2376,11 +2385,15 @@ bool ast_manager::is_label_lit(expr const * n, buffer<symbol> & names) const {
     return true;
 }
 
-app * ast_manager::mk_pattern(unsigned num_exprs, app * const * exprs) {
-    for (unsigned i = 0; i < num_exprs; ++i) {
+app * ast_manager::mk_pattern(std::span<app * const> exprs) {
+    for (size_t i = 0; i < exprs.size(); ++i) {
         if (!is_app(exprs[i])) throw default_exception("patterns cannot be variables or quantifiers");
     }
-    return mk_app(pattern_family_id, OP_PATTERN, 0, nullptr, num_exprs, (expr*const*)exprs);
+    return mk_app(pattern_family_id, OP_PATTERN, 0, nullptr, static_cast<unsigned>(exprs.size()), (expr*const*)exprs.data());
+}
+
+app * ast_manager::mk_pattern(unsigned num_exprs, app * const * exprs) {
+    return mk_pattern(std::span<app * const>(exprs, num_exprs));
 }
 
 bool ast_manager::is_pattern(expr const * n) const {

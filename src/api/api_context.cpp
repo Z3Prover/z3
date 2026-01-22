@@ -243,18 +243,23 @@ namespace api {
         return e;    
     }
         
-    expr * context::mk_and(unsigned num_exprs, expr * const * exprs) {
-        switch(num_exprs) {
+    expr * context::mk_and(std::span<expr * const> exprs) {
+        switch(exprs.size()) {
         case 0: 
             return m().mk_true(); 
         case 1: 
             save_ast_trail(exprs[0]);
             return exprs[0];
         default: {
-            expr * a = m().mk_and(num_exprs, exprs);
+            expr * a = m().mk_and(exprs);
             save_ast_trail(a);
             return a;
-        } }
+        }
+        }
+    }
+
+    expr * context::mk_and(unsigned num_exprs, expr * const * exprs) {
+        return mk_and(std::span<expr * const>(exprs, num_exprs));
     }
 
 

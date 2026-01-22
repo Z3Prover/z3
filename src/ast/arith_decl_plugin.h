@@ -471,8 +471,12 @@ public:
     app * mk_gt(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_GT, arg1, arg2); }
     app * mk_divides(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_IDIVIDES, arg1, arg2); }
 
-    app * mk_add(unsigned num_args, expr * const * args) const { return num_args == 1 && is_app(args[0]) ? to_app(args[0]) : m_manager.mk_app(arith_family_id, OP_ADD, num_args, args); }
-    app * mk_add(std::span<expr * const> args) const { return mk_add(static_cast<unsigned>(args.size()), args.data()); }
+    app * mk_add(std::span<expr * const> args) const { 
+        return args.size() == 1 && is_app(args[0]) ? to_app(args[0]) : m_manager.mk_app(arith_family_id, OP_ADD, args); 
+    }
+    app * mk_add(unsigned num_args, expr * const * args) const { 
+        return mk_add(std::span<expr * const>(args, num_args)); 
+    }
     app * mk_add(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_ADD, arg1, arg2); }
     app * mk_add(expr * arg1, expr * arg2, expr* arg3) const { return m_manager.mk_app(arith_family_id, OP_ADD, arg1, arg2, arg3); }
     app * mk_add(expr_ref_vector const& args) const { return mk_add(args.size(), args.data()); }
@@ -481,12 +485,20 @@ public:
     app * mk_add(ptr_vector<expr> const& args) const { return mk_add(args.size(), args.data()); }
 
     app * mk_sub(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_SUB, arg1, arg2); }
-    app * mk_sub(unsigned num_args, expr * const * args) const { return m_manager.mk_app(arith_family_id, OP_SUB, num_args, args); }
-    app * mk_sub(std::span<expr * const> args) const { return mk_sub(static_cast<unsigned>(args.size()), args.data()); }
+    app * mk_sub(std::span<expr * const> args) const { 
+        return m_manager.mk_app(arith_family_id, OP_SUB, args); 
+    }
+    app * mk_sub(unsigned num_args, expr * const * args) const { 
+        return mk_sub(std::span<expr * const>(args, num_args)); 
+    }
     app * mk_mul(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_MUL, arg1, arg2); }
     app * mk_mul(expr * arg1, expr * arg2, expr* arg3) const { return m_manager.mk_app(arith_family_id, OP_MUL, arg1, arg2, arg3); }
-    app * mk_mul(unsigned num_args, expr * const * args) const { return num_args == 1 && is_app(args[0]) ? to_app(args[0]) : m_manager.mk_app(arith_family_id, OP_MUL, num_args, args); }
-    app * mk_mul(std::span<expr * const> args) const { return mk_mul(static_cast<unsigned>(args.size()), args.data()); }
+    app * mk_mul(std::span<expr * const> args) const { 
+        return args.size() == 1 && is_app(args[0]) ? to_app(args[0]) : m_manager.mk_app(arith_family_id, OP_MUL, args); 
+    }
+    app * mk_mul(unsigned num_args, expr * const * args) const { 
+        return mk_mul(std::span<expr * const>(args, num_args)); 
+    }
     app * mk_mul(ptr_buffer<expr> const& args) const { return mk_mul(args.size(), args.data()); }
     app * mk_mul(ptr_vector<expr> const& args) const { return mk_mul(args.size(), args.data()); }
     app * mk_mul(expr_ref_vector const& args) const { return mk_mul(args.size(), args.data()); }

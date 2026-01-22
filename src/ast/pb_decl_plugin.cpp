@@ -122,8 +122,10 @@ void pb_util::normalize(unsigned num_args, rational const* coeffs, rational cons
     }
 }
 
-app * pb_util::mk_le(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
-    normalize(num_args, coeffs, k);
+app * pb_util::mk_le(std::span<rational const> coeffs, std::span<expr * const> args, rational const& k) {
+    SASSERT(coeffs.size() == args.size());
+    unsigned num_args = static_cast<unsigned>(args.size());
+    normalize(num_args, coeffs.data(), k);
     m_params.reset();
     m_params.push_back(parameter(floor(m_k)));
     bool all_ones = true;
@@ -133,13 +135,19 @@ app * pb_util::mk_le(unsigned num_args, rational const * coeffs, expr * const * 
     }
     if (all_ones && k.is_unsigned() && floor(m_k).is_int32()) {
         m_params[0] = parameter(floor(m_k).get_int32());
-        return m.mk_app(m_fid, OP_AT_MOST_K, 1, m_params.data(), num_args, args, m.mk_bool_sort());
+        return m.mk_app(m_fid, OP_AT_MOST_K, 1, m_params.data(), num_args, args.data(), m.mk_bool_sort());
     }
-    return m.mk_app(m_fid, OP_PB_LE, m_params.size(), m_params.data(), num_args, args, m.mk_bool_sort());
+    return m.mk_app(m_fid, OP_PB_LE, m_params.size(), m_params.data(), num_args, args.data(), m.mk_bool_sort());
 }
 
-app * pb_util::mk_ge(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
-    normalize(num_args, coeffs, k);
+app * pb_util::mk_le(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
+    return mk_le(std::span<rational const>(coeffs, num_args), std::span<expr * const>(args, num_args), k);
+}
+
+app * pb_util::mk_ge(std::span<rational const> coeffs, std::span<expr * const> args, rational const& k) {
+    SASSERT(coeffs.size() == args.size());
+    unsigned num_args = static_cast<unsigned>(args.size());
+    normalize(num_args, coeffs.data(), k);
     m_params.reset();
     m_params.push_back(parameter(ceil(m_k)));
     bool all_ones = true;
@@ -149,13 +157,19 @@ app * pb_util::mk_ge(unsigned num_args, rational const * coeffs, expr * const * 
     }
     if (all_ones && k.is_unsigned()) {
         m_params[0] = parameter(ceil(m_k).get_unsigned());
-        return m.mk_app(m_fid, OP_AT_LEAST_K, 1, m_params.data(), num_args, args, m.mk_bool_sort());
+        return m.mk_app(m_fid, OP_AT_LEAST_K, 1, m_params.data(), num_args, args.data(), m.mk_bool_sort());
     }
-    return m.mk_app(m_fid, OP_PB_GE, m_params.size(), m_params.data(), num_args, args, m.mk_bool_sort());
+    return m.mk_app(m_fid, OP_PB_GE, m_params.size(), m_params.data(), num_args, args.data(), m.mk_bool_sort());
 }
 
-app * pb_util::mk_eq(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
-    normalize(num_args, coeffs, k);
+app * pb_util::mk_ge(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
+    return mk_ge(std::span<rational const>(coeffs, num_args), std::span<expr * const>(args, num_args), k);
+}
+
+app * pb_util::mk_eq(std::span<rational const> coeffs, std::span<expr * const> args, rational const& k) {
+    SASSERT(coeffs.size() == args.size());
+    unsigned num_args = static_cast<unsigned>(args.size());
+    normalize(num_args, coeffs.data(), k);
     if (!m_k.is_int()) {
         return m.mk_false();
     }
@@ -167,7 +181,11 @@ app * pb_util::mk_eq(unsigned num_args, rational const * coeffs, expr * const * 
     for (unsigned i = 0; i < num_args; ++i) {
         m_params.push_back(parameter(m_coeffs[i]));
     }
-    return m.mk_app(m_fid, OP_PB_EQ, m_params.size(), m_params.data(), num_args, args, m.mk_bool_sort());
+    return m.mk_app(m_fid, OP_PB_EQ, m_params.size(), m_params.data(), num_args, args.data(), m.mk_bool_sort());
+}
+
+app * pb_util::mk_eq(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k) {
+    return mk_eq(std::span<rational const>(coeffs, num_args), std::span<expr * const>(args, num_args), k);
 }
 
 // ax + by < k
@@ -175,8 +193,10 @@ app * pb_util::mk_eq(unsigned num_args, rational const * coeffs, expr * const * 
 // -ax - by >= -k + 1
 // <=>
 // a(1-x) + b(1-y) >= -k + a + b + 1
-app * pb_util::mk_lt(unsigned num_args, rational const * _coeffs, expr * const * _args, rational const& _k) {
-    normalize(num_args, _coeffs, _k);
+app * pb_util::mk_lt(std::span<rational const> _coeffs, std::span<expr * const> _args, rational const& _k) {
+    SASSERT(_coeffs.size() == _args.size());
+    unsigned num_args = static_cast<unsigned>(_args.size());
+    normalize(num_args, _coeffs.data(), _k);
     expr_ref_vector args(m);
     for (unsigned i = 0; i < num_args; ++i) {
         args.push_back(mk_not(m, _args[i]));
@@ -187,13 +207,21 @@ app * pb_util::mk_lt(unsigned num_args, rational const * _coeffs, expr * const *
     for (unsigned i = 0; i < num_args; ++i) {
         m_k += m_coeffs[i];
     }
-    return mk_ge(num_args, m_coeffs.data(), args.data(), m_k);
+    return mk_ge(std::span<rational const>(m_coeffs.data(), num_args), std::span<expr * const>(args.data(), num_args), m_k);
+}
+
+app * pb_util::mk_lt(unsigned num_args, rational const * _coeffs, expr * const * _args, rational const& _k) {
+    return mk_lt(std::span<rational const>(_coeffs, num_args), std::span<expr * const>(_args, num_args), _k);
 }
 
 
-app * pb_util::mk_at_most_k(unsigned num_args, expr * const * args, unsigned k) {
+app * pb_util::mk_at_most_k(std::span<expr * const> args, unsigned k) {
     parameter param(k);
-    return m.mk_app(m_fid, OP_AT_MOST_K, 1, &param, num_args, args, m.mk_bool_sort());
+    return m.mk_app(m_fid, OP_AT_MOST_K, 1, &param, static_cast<unsigned>(args.size()), args.data(), m.mk_bool_sort());
+}
+
+app * pb_util::mk_at_most_k(unsigned num_args, expr * const * args, unsigned k) {
+    return mk_at_most_k(std::span<expr * const>(args, num_args), k);
 }
 
 bool pb_util::is_at_most_k(func_decl *a) const {
@@ -210,9 +238,13 @@ bool pb_util::is_at_most_k(expr *a, rational& k) const {
     }
 }
 
-app * pb_util::mk_at_least_k(unsigned num_args, expr * const * args, unsigned k) {
+app * pb_util::mk_at_least_k(std::span<expr * const> args, unsigned k) {
     parameter param(k);
-    return m.mk_app(m_fid, OP_AT_LEAST_K, 1, &param, num_args, args, m.mk_bool_sort());
+    return m.mk_app(m_fid, OP_AT_LEAST_K, 1, &param, static_cast<unsigned>(args.size()), args.data(), m.mk_bool_sort());
+}
+
+app * pb_util::mk_at_least_k(unsigned num_args, expr * const * args, unsigned k) {
+    return mk_at_least_k(std::span<expr * const>(args, num_args), k);
 }
 
 bool pb_util::is_at_least_k(func_decl *a) const {
