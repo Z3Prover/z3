@@ -233,7 +233,7 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
     else {
         bound_vars(var_sorts, var_names, MK_EQ(e, n), n, defs);
     }
-    new_def = mk_and(m, defs);
+    new_def = mk_and(m, defs.size(), defs.data());
 }
 
 

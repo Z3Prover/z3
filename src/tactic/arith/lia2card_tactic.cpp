@@ -341,7 +341,7 @@ public:
         if (!m.is_true(e)) {
             es.push_back(e);
         }
-        result = mk_and(m, es);
+        result = mk_and(es);
         if (!m.is_true(e)) {
             es.pop_back();
         }

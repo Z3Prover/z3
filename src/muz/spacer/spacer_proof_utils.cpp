@@ -735,7 +735,7 @@ namespace spacer {
         }
 
         expr_ref lemma(m);
-        lemma = mk_or(m, args);
+        lemma = mk_or(m, args.size(), args.data());
 
         proof* res;
         res = m.mk_lemma(premise, lemma);
