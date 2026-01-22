@@ -163,13 +163,13 @@ expr_ref hilbert_basis_validate::mk_validate(hilbert_basis& hb) {
             }
             eqs.push_back(m.mk_eq(xs[j].get(), a.mk_add(sum.size(), sum.data())));
         }
-        fml = m.mk_and(std::span<expr* const>(eqs.data(), eqs.size()));
+        fml = m.mk_and(eqs);
         if (!names.empty()) {
             fml = m.mk_exists(names.size(), sorts.data(), names.data(), fml);
         }
         fmls.push_back(fml);
     }
-    fml1 = m.mk_or(fmls.size(), fmls.data());
+    fml1 = m.mk_or(fmls);
     fmls.reset();
 
     sz = hb.get_num_ineqs();
@@ -194,7 +194,7 @@ expr_ref hilbert_basis_validate::mk_validate(hilbert_basis& hb) {
             fmls.push_back(a.mk_ge(lhs, rhs));
         }
     }
-    fml2 = m.mk_and(std::span<expr* const>(fmls.data(), fmls.size()));
+    fml2 = m.mk_and(fmls);
     fml = m.mk_eq(fml1, fml2);
 
     bounds.reset();
@@ -204,7 +204,7 @@ expr_ref hilbert_basis_validate::mk_validate(hilbert_basis& hb) {
         }
     }
     if (!bounds.empty()) {
-        fml = m.mk_implies(m.mk_and(std::span<expr* const>(bounds.data(), bounds.size())), fml);
+        fml = m.mk_implies(m.mk_and(bounds), fml);
     }
     return fml;
 

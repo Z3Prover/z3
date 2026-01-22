@@ -347,11 +347,11 @@ namespace datalog {
             }
             else {
                 if (m.is_and(f)) {
-                    result = m.mk_and(std::span<expr* const>(m_app_args.data(), m_app_args.size()));
+                    result = m.mk_and(m_app_args);
                 }
                 else {
                     SASSERT(m.is_or(f));
-                    result = m.mk_or(m_app_args.size(), m_app_args.data());
+                    result = m.mk_or(m_app_args);
                 }
             }
 
@@ -529,7 +529,7 @@ namespace datalog {
                 m_itail_members.push_back(r->get_tail(i));
                 SASSERT(!r->is_neg_tail(i));
             }
-            itail = m.mk_and(std::span<expr* const>(m_itail_members.data(), m_itail_members.size()));
+            itail = m.mk_and(m_itail_members);
             modified = true;
         }
 

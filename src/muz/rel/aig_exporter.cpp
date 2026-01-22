@@ -125,7 +125,7 @@ namespace datalog {
                     exprs.push_back(e);
                 }
 
-                transition_function.push_back(m.mk_and(std::span<expr* const>(exprs.data(), exprs.size())));
+                transition_function.push_back(m.mk_and(exprs));
             }
         }
 
@@ -140,11 +140,11 @@ namespace datalog {
                     exprs.push_back(m.mk_eq(get_latch_var(i, m_latch_varsp), I->second[i]));
                 }
 
-                transition_function.push_back(m.mk_and(std::span<expr* const>(exprs.data(), exprs.size())));
+                transition_function.push_back(m.mk_and(exprs));
             }
         }
 
-        expr *tr = m.mk_or(transition_function.size(), transition_function.data());
+        expr *tr = m.mk_or(transition_function);
         aig_ref aig = m_aigm.mk_aig(tr);
         expr_ref aig_expr(m);
         m_aigm.to_formula(aig, aig_expr);
@@ -186,10 +186,10 @@ namespace datalog {
             for (func_decl* pred : preds) {
                 exprs.reset();
                 assert_pred_id(pred, m_ruleid_var_set, exprs);
-                output.push_back(m.mk_and(std::span<expr* const>(exprs.data(), exprs.size())));
+                output.push_back(m.mk_and(exprs));
             }
 
-            expr *out = m.mk_or(output.size(), output.data());
+            expr *out = m.mk_or(output);
             aig = m_aigm.mk_aig(out);
             m_aigm.to_formula(aig, aig_expr);
             output_id = expr_to_aig(aig_expr);

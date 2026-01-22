@@ -952,7 +952,7 @@ class arith_project_util {
         if (new_fml) {
             fml = new_fml;
             // add in eqs
-            fml = m.mk_and(fml, m.mk_and(std::span<expr* const>(eqs.data(), eqs.size())));
+            fml = m.mk_and(fml, m.mk_and(eqs));
         } else {
             // unchanged
             SASSERT(eqs.empty());
@@ -1023,7 +1023,7 @@ class arith_project_util {
                 lits.push_back(
                     a.mk_lt(t2, a.mk_numeral(abs(num_val), a.mk_int())));
 
-                new_fml = m.mk_and(std::span<expr* const>(lits.data(), lits.size()));
+                new_fml = m.mk_and(lits);
             }
         } else if (!is_app(fml)) {
             new_fml = fml;
@@ -1656,7 +1656,7 @@ class array_project_eqs_util {
         lits.append(m_idx_lits_v);
         lits.append(m_aux_lits_v);
         lits.push_back(fml);
-        fml = m.mk_and(std::span<expr* const>(lits.data(), lits.size()));
+        fml = m.mk_and(lits);
 
         if (m_subst_term_v) {
             m_true_sub_v.insert(m_v, m_subst_term_v);
@@ -1859,7 +1859,7 @@ class array_select_reducer {
         expr_ref_vector lits(m);
         lits.append(m_idx_lits);
         lits.push_back(fml);
-        fml = m.mk_and(std::span<expr* const>(lits.data(), lits.size()));
+        fml = m.mk_and(lits);
         // simplify all trivial expressions introduced
         m_rw(fml);
 
@@ -2074,7 +2074,7 @@ class array_project_selects_util {
         expr_ref_vector lits(m);
         lits.append(m_idx_lits);
         lits.push_back(fml);
-        fml = m.mk_and(std::span<expr* const>(lits.data(), lits.size()));
+        fml = m.mk_and(lits);
 
         // substitute for sel terms
         m_sub(fml);

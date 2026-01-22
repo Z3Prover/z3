@@ -262,7 +262,7 @@ bool quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
                                                   f->get_arity(), f->get_domain(),
                                                   f->get_range());
     expr_ref f_else(m.mk_app(fd, m_new_vars.size(), m_new_vars.data()), m);
-    expr_ref ite(m.mk_ite(m.mk_and(std::span<expr* const>(m_new_eqs.data(), m_new_eqs.size())), t, f_else), m);
+    expr_ref ite(m.mk_ite(m.mk_and(m_new_eqs), t, f_else), m);
 
     expr_ref eq(m.mk_eq(appl, ite), m);
 

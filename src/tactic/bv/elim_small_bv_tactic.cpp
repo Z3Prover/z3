@@ -173,8 +173,8 @@ class elim_small_bv_tactic : public tactic {
                       for (unsigned k = 0; k < new_bodies.size(); ++k)
                           tout << mk_ismt2_pp(new_bodies[k].get(), m) << std::endl; );
                 
-                body = is_forall(q) ? m.mk_and(std::span<expr* const>(new_bodies.data(), new_bodies.size())) :
-                    m.mk_or(new_bodies.size(), new_bodies.data());
+                body = is_forall(q) ? m.mk_and(new_bodies) :
+                    m.mk_or(new_bodies);
                 SASSERT(is_well_sorted(m, body));
                 
                 proof_ref pr(m);

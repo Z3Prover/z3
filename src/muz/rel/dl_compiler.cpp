@@ -677,7 +677,7 @@ namespace datalog {
 
         // enforce interpreted tail predicates
         if (!tail.empty()) {
-            app_ref filter_cond(tail.size() == 1 ? to_app(tail.back()) : m.mk_and(std::span<expr* const>(tail.data(), tail.size())), m);
+            app_ref filter_cond(tail.size() == 1 ? to_app(tail.back()) : m.mk_and(tail), m);
 
             // check if there are any columns to remove
             unsigned_vector remove_columns;

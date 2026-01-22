@@ -567,7 +567,7 @@ namespace tb {
             }
             fml = vs(g.get_constraint(), vars.size(), vars.data());
             fmls.push_back(fml);
-            m_precond = m.mk_and(std::span<expr* const>(fmls.data(), fmls.size()));
+            m_precond = m.mk_and(fmls);
             IF_VERBOSE(2,
                        verbose_stream() << "setup-match: ";
                        for (unsigned i = 0; i < m_preds.size(); ++i) {

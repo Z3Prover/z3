@@ -2592,7 +2592,7 @@ bool context::validate() {
                 for (unsigned j = utsz; j < tsz; ++j) {
                     fmls.push_back(r.get_tail(j));
                 }
-                tmp = m.mk_and(std::span<expr* const>(fmls.data(), fmls.size()));
+                tmp = m.mk_and(fmls);
                 svector<symbol> names;
                 expr_free_vars fv;
                 fv (tmp);
@@ -4227,7 +4227,7 @@ bool context::check_invariant(unsigned lvl, func_decl* fn)
     if (m.is_true(inv)) { return true; }
     pt.add_premises(m_rels, lvl, conj);
     conj.push_back(m.mk_not(inv));
-    expr_ref fml(m.mk_and(std::span<expr* const>(conj.data(), conj.size())), m);
+    expr_ref fml(m.mk_and(conj), m);
     ctx->assert_expr(fml);
     lbool result = ctx->check_sat(0, nullptr);
     TRACE(spacer, tout << "Check invariant level: " << lvl << " " << result
