@@ -52,8 +52,8 @@ std::ostream& print_vector(const C * t, unsigned size, std::ostream & out) {
 }
 
 
-template <typename A, typename B>
-std::optional<B> try_get_value(const std::unordered_map<A,B> & map, const A& key) {
+template <typename A, typename B, typename Hash = std::hash<A>, typename KeyEqual = std::equal_to<A>>
+std::optional<B> try_get_value(const std::unordered_map<A,B,Hash,KeyEqual> & map, const A& key) {
     const auto it = map.find(key);
     if (it == map.end()) 
         return std::nullopt;
