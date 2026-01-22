@@ -163,7 +163,7 @@ struct ast_ext2 {
         return trail(m.mk_or(n, lits));
     }
     pliteral mk_min(unsigned n, pliteral const* lits) {
-        return trail(m.mk_and(n, lits));
+        return trail(m.mk_and(std::span<expr* const>(lits, n)));
     }
     pliteral mk_not(pliteral a) { if (m.is_not(a,a)) return a;
         return trail(m.mk_not(a));
