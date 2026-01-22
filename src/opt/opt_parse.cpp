@@ -134,7 +134,7 @@ class wcnf {
             if (parsed_lit < 0) p = m.mk_not(p);
             ors.push_back(p);
         }
-        result = to_app(mk_or(m, ors.size(), ors.data()));
+        result = to_app(mk_or(m, ors));
         return result;
     }
 
@@ -153,7 +153,7 @@ class wcnf {
                 p = m.mk_not(p);
             ors.push_back(p);
         }
-        result = to_app(mk_or(m, ors.size(), ors.data()));
+        result = to_app(mk_or(m, ors));
         return result;
     }
     

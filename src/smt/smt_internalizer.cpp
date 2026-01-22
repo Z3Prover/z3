@@ -1605,7 +1605,7 @@ namespace smt {
         if (root_gate)
             new_lits.push_back(m.mk_not(root_gate));
         SASSERT(num_lits > 1);
-        expr * fact        = m.mk_or(new_lits.size(), new_lits.data());
+        expr * fact        = m.mk_or(new_lits);
         return m.mk_def_axiom(fact);
         
     }

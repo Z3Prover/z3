@@ -273,7 +273,7 @@ namespace smt {
             ptr_vector<expr> args;
             args.push_back(m.mk_not(q));
             args.append(to_app(s_instance)->get_num_args(), to_app(s_instance)->get_args());
-            lemma = m.mk_or(args.size(), args.data());
+            lemma = m.mk_or(args);
         }
         else if (m.is_false(s_instance)) {
             lemma = m.mk_not(q);

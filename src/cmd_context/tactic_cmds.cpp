@@ -368,10 +368,10 @@ public:
                         if (formulas.size() == 1)
                             or_args.push_back(formulas[0]);
                         else
-                            or_args.push_back(m.mk_and(formulas.size(), formulas.data()));
+                            or_args.push_back(m.mk_and(formulas));
                     }
                     expr_ref assertion_ref(m);
-                    assertion_ref = m.mk_or(or_args.size(), or_args.data());
+                    assertion_ref = m.mk_or(or_args);
                     expr * assertions[1] = { assertion_ref.get() };
                     ctx.display_smt2_benchmark(ctx.regular_stream(), 1, assertions);
                 }

@@ -109,7 +109,7 @@ namespace datalog {
         for (unsigned i = 0; i < m_elems.size(); ++i) {
             disj.push_back(to_formula(m_elems[i]));
         }
-        fml = mk_or(m, disj.size(), disj.data());
+        fml = mk_or(m, disj);
     }
     expr_ref udoc_relation::to_formula(doc const& d) const {
         ast_manager& m = get_plugin().get_ast_manager();
@@ -119,7 +119,7 @@ namespace datalog {
         for (unsigned i = 0; i < d.neg().size(); ++i) {
             conjs.push_back(m.mk_not(to_formula(d.neg()[i])));
         }
-        result = mk_and(m, conjs.size(), conjs.data());
+        result = mk_and(m, conjs);
         return result;
     }
     expr_ref udoc_relation::to_formula(tbv const& t) const {
@@ -168,7 +168,7 @@ namespace datalog {
                 }
             }
         }
-        result = mk_and(m, conjs.size(), conjs.data());
+        result = mk_and(m, conjs);
         return result;
     }
 
@@ -664,8 +664,8 @@ namespace datalog {
                 rests.push_back(g);
             }
         }
-        guard = mk_and(m, guards.size(), guards.data());
-        rest  = mk_and(m, rests.size(),  rests.data());        
+        guard = mk_and(m, guards);
+        rest  = mk_and(m, rests);        
     }
     void udoc_relation::extract_equalities(expr* g, expr_ref& rest, subset_ints& equalities,
                                            unsigned_vector& roots) const {
@@ -683,7 +683,7 @@ namespace datalog {
                 conds.pop_back();
             }
         }
-        rest = mk_and(m, conds.size(), conds.data());
+        rest = mk_and(m, conds);
     }
 
     void udoc_relation::extract_equalities(

@@ -967,7 +967,7 @@ class fm_tactic : public tactic {
             if (lits.size() == 1)
                 return to_app(lits[0]);
             else
-                return m.mk_or(lits.size(), lits.data());
+                return m.mk_or(lits);
         }
         
         var mk_var(expr * t) {

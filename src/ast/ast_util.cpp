@@ -236,7 +236,7 @@ expr * expand_distinct(ast_manager & m, unsigned num_args, expr * const * args) 
         for (unsigned j = i + 1; j < num_args; ++j)
             new_diseqs.push_back(m.mk_not(m.mk_eq(args[i], args[j])));
     }
-    return mk_and(m, new_diseqs.size(), new_diseqs.data());
+    return mk_and(m, new_diseqs);
 }
 
 expr* mk_distinct(ast_manager& m, unsigned num_args, expr * const * args) {

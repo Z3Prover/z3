@@ -71,7 +71,7 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
             }
             SASSERT(clause.size() > 1);
             expr_ref cls(m);
-            cls = mk_or(m, clause.size(), clause.data());
+            cls = mk_or(m, clause);
             clauses.push_back(cls);
         }
     }

@@ -998,7 +998,7 @@ namespace opt {
             else if (is_objective(r->form(i)))
                 fmls.push_back(r->form(i));
             else
-                fmls.push_back(m.mk_implies(mk_and(m, deps.size(), deps.data()), r->form(i)));
+                fmls.push_back(m.mk_implies(mk_and(m, deps), r->form(i)));
         }        
         if (r->inconsistent()) {
             ptr_vector<expr> core_elems;

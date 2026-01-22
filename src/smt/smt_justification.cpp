@@ -281,7 +281,7 @@ namespace smt {
         if (lits.size() == 1)
             return m.mk_th_lemma(m_th_id, lits.get(0), 0, nullptr, m_params.size(), m_params.data());
         else
-            return m.mk_th_lemma(m_th_id, m.mk_or(lits.size(), lits.data()), 0, nullptr, m_params.size(), m_params.data());
+            return m.mk_th_lemma(m_th_id, m.mk_or(lits), 0, nullptr, m_params.size(), m_params.data());
     }
 
     proof * theory_propagation_justification::mk_proof(conflict_resolution & cr) {
@@ -436,7 +436,7 @@ namespace smt {
         if (lits.size() == 1)
             return m.mk_th_lemma(m_th_id, lits.get(0), 0, nullptr, m_params.size(), m_params.data());
         else
-            return m.mk_th_lemma(m_th_id, m.mk_or(lits.size(), lits.data()), 0, nullptr, m_params.size(), m_params.data());
+            return m.mk_th_lemma(m_th_id, m.mk_or(lits), 0, nullptr, m_params.size(), m_params.data());
     }
 
 };

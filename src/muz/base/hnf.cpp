@@ -450,7 +450,7 @@ private:
         case 1: 
             return app_ref(m.mk_implies(body[0], head), m);
         default:
-            return app_ref(m.mk_implies(m.mk_and(body.size(), body.data()), head), m);
+            return app_ref(m.mk_implies(m.mk_and(body), head), m);
         }        
     }
 
