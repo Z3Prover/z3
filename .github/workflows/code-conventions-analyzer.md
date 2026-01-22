@@ -251,7 +251,7 @@ Z3 uses C++20 (as specified in `.clang-format`). Look for opportunities to use:
 **C++17 features:**
 - Structured bindings for tuple/pair unpacking
 - `if constexpr` for compile-time conditionals
-- **`std::optional` instead of pointer-based optional values** - **PRIMARY FOCUS: Implement these changes directly (see Workflow for std::optional Refactoring above)**
+- **`std::optional` instead of pointer-based optional values** - **PRIMARY FOCUS: Implement these changes directly (see "Workflow for std::optional Refactoring" section near the beginning of this document)**
 - `std::string_view` for string parameters
 - Fold expressions for variadic templates
 - `[[nodiscard]]` and `[[maybe_unused]]` attributes
