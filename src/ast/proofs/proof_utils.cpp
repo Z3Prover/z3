@@ -238,7 +238,7 @@ class reduce_hypotheses {
         if (args.empty()) { 
             return pf; 
         }
-        lemma = mk_or(m, args);
+        lemma = mk_or(m, args.size(), args.data());
         proof* res = m.mk_lemma(pf, lemma);
         m_pinned.push_back(res);
 
@@ -280,7 +280,7 @@ class reduce_hypotheses {
 
         SASSERT(new_fact_cls.size() + pf_args.size() - 1 == cls.size());
         expr_ref new_fact(m);
-        new_fact = mk_or(m, new_fact_cls);
+        new_fact = mk_or(m, new_fact_cls.size(), new_fact_cls.data());
 
         // create new proof step
         proof *res = m.mk_unit_resolution(pf_args.size(), pf_args.data(), new_fact);
