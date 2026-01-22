@@ -278,6 +278,37 @@ jobs:
           path: src/api/python/wheelhouse/*.whl
           retention-days: 7
 
+  windows-python-arm64:
+    name: "Python bindings (Windows ARM64)"
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.1
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Install build tools
+        run: pip install build
+      
+      - name: Build wheels
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64_arm64
+          cd src\api\python
+          set Z3_CROSS_COMPILING=arm64
+          python -m build
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: WindowsPythonBuildArm64
+          path: src/api/python/dist/*.whl
+          retention-days: 7
+
   windows-build-x64:
     name: "Windows x64 build"
     runs-on: windows-latest
@@ -482,7 +513,7 @@ jobs:
 
   python-package:
     name: "Python packaging"
-    needs: [mac-build-x64, mac-build-arm64, windows-build-x64, windows-build-x86, manylinux-python-amd64, manylinux-python-arm64]
+    needs: [mac-build-x64, mac-build-arm64, windows-build-x64, windows-build-x86, manylinux-python-amd64, manylinux-python-arm64, windows-python-arm64]
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
@@ -529,6 +560,12 @@ jobs:
           name: ManyLinuxPythonBuildArm64
           path: artifacts
       
+      - name: Download Windows ARM64 Python Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: WindowsPythonBuildArm64
+          path: artifacts
+      
       - name: Extract builds
         run: |
           cd artifacts
@@ -548,6 +585,8 @@ jobs:
           echo $PWD/../../../artifacts/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+          # Copy pre-built Windows ARM64 wheels (built in windows-python-arm64 job)
+          cp ../../../artifacts/*.whl dist/ 2>/dev/null || true
             
       - name: Upload artifact
         uses: actions/upload-artifact@v6
