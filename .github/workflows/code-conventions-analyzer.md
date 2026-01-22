@@ -10,12 +10,18 @@ tools:
     toolsets: [default]
   view: {}
   glob: {}
+  edit: {}
   bash:
     - "clang-format --version"
     - "git log:*"
     - "git diff:*"
     - "git show:*"
 safe-outputs:
+  create-pull-request:
+    title-prefix: "[Conventions] "
+    labels: [code-quality, automated]
+    draft: true
+    if-no-changes: ignore
   create-discussion:
     title-prefix: "Code Conventions Analysis"
     category: "Agentic Workflows"
@@ -32,10 +38,143 @@ You are an expert C++ code quality analyst specializing in the Z3 theorem prover
 
 ## Your Task
 
-Conduct a comprehensive analysis of the Z3 codebase to identify:
-1. **Coding convention inconsistencies** across the codebase
-2. **Opportunities to use modern C++ features** that would simplify code
-3. **Common patterns** that could be improved or standardized
+**PRIMARY FOCUS: Create Pull Requests for std::optional Refactoring**
+
+Your primary task is to identify and **directly implement** refactorings that replace pointer-based optional patterns with `std::optional<T>`. This workflow will:
+
+1. **Find std::optional opportunities** - Functions returning null pointers to indicate absence or using output parameters
+2. **Implement the refactoring** - Use the `edit` tool to make actual code changes
+3. **Create pull requests** - Automatically create a PR with your changes for std::optional improvements
+4. **Create discussions for other findings** - For other code quality issues, create discussions (not PRs)
+
+**Focus Areas for std::optional Refactoring:**
+- Functions returning `nullptr` to indicate "no value"
+- Functions using output parameters (pointer/reference parameters) to return optional results
+- Boolean return + output parameter patterns (e.g., `bool get_value(T* out)`)
+- APIs that would benefit from explicit optional semantics
+
+**Secondary Task:**
+Additionally, conduct analysis of other coding conventions and modern C++ opportunities for discussion (not immediate implementation)
+
+## Workflow for std::optional Refactoring (PRIMARY)
+
+### Step A: Find std::optional Refactoring Opportunities
+
+1. **Search for common patterns** that should use `std::optional`:
+   ```bash
+   # Functions returning nullptr to indicate absence
+   grep pattern: "return nullptr;" glob: "src/**/*.{cpp,h}"
+   
+   # Boolean return + output parameter patterns
+   grep pattern: "bool [a-z_]+\(.*\*" glob: "src/**/*.h"
+   grep pattern: "bool [a-z_]+\(.*&" glob: "src/**/*.h"
+   
+   # Functions with output parameters
+   grep pattern: "\([^,]+\*[^,]*\)" glob: "src/**/*.h"
+   ```
+
+2. **Analyze candidates** for refactoring:
+   - Use `view` to examine the function implementation
+   - Check if the function is part of the public API or internal
+   - Verify that the pattern is indeed optional (not always valid)
+   - Ensure the change would improve code clarity
+
+3. **Select 1-3 high-value targets** per run:
+   - Prefer internal APIs over public APIs (less breaking)
+   - Choose functions with clear optional semantics
+   - Focus on functions with multiple call sites for broader impact
+
+### Step B: Implement the Refactoring
+
+For each selected function:
+
+1. **Update the function signature** in header file:
+   ```cpp
+   // Before:
+   bool get_something(T* result);
+   // or
+   T* find_something();
+   
+   // After:
+   std::optional<T> get_something();
+   ```
+
+2. **Update the function implementation**:
+   ```cpp
+   // Before:
+   bool get_something(T* result) {
+       if (condition) {
+           *result = value;
+           return true;
+       }
+       return false;
+   }
+   
+   // After:
+   std::optional<T> get_something() {
+       if (condition) {
+           return value;
+       }
+       return std::nullopt;
+   }
+   ```
+
+3. **Update all call sites** to use the new API:
+   ```cpp
+   // Before:
+   T result;
+   if (get_something(&result)) {
+       use(result);
+   }
+   
+   // After:
+   if (auto result = get_something()) {
+       use(*result);
+   }
+   ```
+
+4. **Verify the changes**:
+   - Use `grep` to find any remaining call sites
+   - Check that the refactoring is complete
+   - Ensure no compilation errors would occur
+
+### Step C: Create the Pull Request
+
+Use the `output.create-pull-request` tool to create a PR with:
+- **Title**: "Refactor [function_name] to use std::optional"
+- **Description**: 
+  - Explain what was changed
+  - Why std::optional is better (type safety, explicit semantics)
+  - List all modified files
+  - Note any caveats or considerations
+
+**Example PR description:**
+```markdown
+# Refactor to use std::optional
+
+This PR refactors the following functions to use `std::optional<T>` instead of pointer-based optional patterns:
+
+- `get_value()` in `src/util/some_file.cpp`
+- `find_item()` in `src/ast/another_file.cpp`
+
+## Benefits:
+- Explicit optional semantics (no nullptr checks needed)
+- Type safety (can't forget to check for absence)
+- Modern C++17 idiom
+
+## Changes:
+- Updated function signatures to return `std::optional<T>`
+- Modified implementations to return `std::nullopt` instead of `nullptr`
+- Updated all call sites to use optional idioms
+
+## Testing:
+- No functional changes to logic
+- All existing call sites updated
+```
+
+### Step D: Create Discussion for Other Findings
+
+If you identify other code quality issues (naming, formatting, other C++ features), create a **discussion** (not a PR) with those findings using the existing discussion format from the workflow.
 
 ## Step 1: Initialize or Resume Progress (Cache Memory)
 
@@ -112,7 +251,7 @@ Z3 uses C++20 (as specified in `.clang-format`). Look for opportunities to use:
 **C++17 features:**
 - Structured bindings for tuple/pair unpacking
 - `if constexpr` for compile-time conditionals
-- `std::optional` instead of pointer-based optional values
+- **`std::optional` instead of pointer-based optional values** - **PRIMARY FOCUS: Implement these changes directly (see "Workflow for std::optional Refactoring" section near the beginning of this document)**
 - `std::string_view` for string parameters
 - Fold expressions for variadic templates
 - `[[nodiscard]]` and `[[maybe_unused]]` attributes
@@ -206,9 +345,9 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 - Return value optimization opportunities being blocked
 
 **Optional Value Patterns:**
-- Functions returning null + using output parameters
-- Replace with `std::optional<T>` return values
-- Cleaner API that avoids pointer/reference output parameters
+- **PRIMARY TASK**: Functions returning null + using output parameters
+- **ACTION**: Replace with `std::optional<T>` return values using the refactoring workflow above
+- **RESULT**: Create a pull request with the actual code changes (see "Workflow for std::optional Refactoring")
 
 **Exception String Construction:**
 - Using `stringstream` to build exception messages
@@ -281,9 +420,18 @@ Identify opportunities specific to Z3's architecture and coding patterns:
    - Prioritize findings by impact and prevalence
    - Measure potential size savings for memory layout optimizations
 
-## Deliverable: Detailed Analysis Discussion
+## Deliverables
 
-Create a comprehensive discussion with your findings structured as follows:
+### PRIMARY: Pull Request for std::optional Refactoring
+
+If you implement std::optional refactoring (following the workflow above), create a pull request using `output.create-pull-request` with:
+- Clear title indicating what was refactored
+- Description of changes and benefits
+- List of modified files and functions
+
+### SECONDARY: Detailed Analysis Discussion
+
+For other code quality findings (non-std::optional), create a comprehensive discussion with your findings structured as follows:
 
 ### Discussion Title
 "Code Conventions Analysis - [Date] - [Key Finding Summary]"
@@ -508,11 +656,19 @@ For each opportunity, provide:
 - **Incorrect std::move**: [Move from const, unnecessary moves]
 - **Return Value Optimization**: [Places where RVO is blocked]
 
-### 4.8 Optional Value Pattern Modernization
-- **Current Pattern**: [Functions returning null + output parameters]
-- **Modern Pattern**: [std::optional<T> return value opportunities]
-- **API Improvements**: [Specific function signatures to update]
-- **Examples**: [File:line references with before/after]
+### 4.8 Optional Value Pattern Modernization - **IMPLEMENT AS PULL REQUEST**
+
+**This is the PRIMARY focus area - implement these changes directly:**
+
+- **Current Pattern**: Functions returning null + output parameters
+- **Modern Pattern**: `std::optional<T>` return value opportunities
+- **Action**: Use the "Workflow for std::optional Refactoring" section above to:
+  1. Find candidate functions
+  2. Refactor using the `edit` tool
+  3. Create a pull request with your changes
+- **API Improvements**: Specific function signatures to update
+- **Examples**: File:line references with before/after code
+- **Output**: Pull request (not just discussion)
 
 ### 4.9 Exception String Construction
 - **Current**: [stringstream usage for building exception messages]
@@ -792,14 +948,24 @@ grep pattern: "catch.*continue|catch.*break" glob: "src/**/*.cpp"
 ## Security and Safety
 
 - Never execute untrusted code
-- Use `bash` only for safe read-only operations (git, grep patterns)
-- Don't modify any files (this is an analysis-only workflow)
-- Focus on identifying issues, not fixing them (fixes can be done in follow-up PRs)
+- Use `bash` only for safe operations (git, grep patterns)
+- **For std::optional refactoring**: Use the `edit` tool to modify files directly
+- **For other findings**: Create discussions only (no code modifications)
+- All code changes for std::optional will be reviewed through the PR process
 
 ## Output Requirements
 
-- Create exactly ONE comprehensive discussion with all findings
-- Use the structured format above
-- Include specific file references for all examples
-- Provide actionable recommendations
+**Two types of outputs:**
+
+1. **Pull Request** (for std::optional refactoring):
+   - Use `output.create-pull-request` to create a PR
+   - Include clear title and description
+   - List all modified files
+   - Explain the refactoring and its benefits
+
+2. **Discussion** (for other code quality findings):
+   - Create exactly ONE comprehensive discussion with all findings
+   - Use the structured format above
+   - Include specific file references for all examples
+   - Provide actionable recommendations
 - Previous discussions created by this workflow will be automatically closed (using `close-older-discussions: true`)
