@@ -1791,6 +1791,10 @@ public:
 
     [[nodiscard]] app * mk_app(family_id fid, decl_kind k, unsigned num_args, expr * const * args);
 
+    [[nodiscard]] app * mk_app(family_id fid, decl_kind k, std::span<expr * const> args) {
+        return mk_app(fid, k, static_cast<unsigned>(args.size()), args.data());
+    }
+
     [[nodiscard]] app * mk_app(family_id fid, decl_kind k, expr * arg);
 
     [[nodiscard]] app * mk_app(family_id fid, decl_kind k, expr * arg1, expr * arg2);
@@ -1811,6 +1815,10 @@ public:
         return mk_func_decl(name, arity, domain, range, static_cast<func_decl_info *>(nullptr));
     }
 
+    [[nodiscard]] func_decl * mk_func_decl(symbol const & name, std::span<sort * const> domain, sort * range) {
+        return mk_func_decl(name, static_cast<unsigned>(domain.size()), domain.data(), range);
+    }
+
     [[nodiscard]] func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range,
                              func_decl_info const & info) {
         if (info.is_null()) {
@@ -1824,6 +1832,10 @@ public:
     [[nodiscard]] func_decl * mk_func_decl(unsigned arity, sort * const * domain, func_decl_info const & info) {
         return mk_func_decl(info.get_family_id(), info.get_decl_kind(), info.get_num_parameters(), info.get_parameters(),
                             arity, domain);
+    }
+
+    [[nodiscard]] func_decl * mk_func_decl(std::span<sort * const> domain, func_decl_info const & info) {
+        return mk_func_decl(static_cast<unsigned>(domain.size()), domain.data(), info);
     }
 
     [[nodiscard]] func_decl * mk_skolem_const_decl(symbol const& name, sort* s) {
@@ -1883,6 +1895,10 @@ public:
     }
 
     [[nodiscard]] app * mk_app(func_decl * decl, unsigned num_args, expr * const * args);
+
+    [[nodiscard]] app * mk_app(func_decl * decl, std::span<expr * const> args) {
+        return mk_app(decl, static_cast<unsigned>(args.size()), args.data());
+    }
 
     [[nodiscard]] app* mk_app(func_decl* decl, ref_vector<expr, ast_manager> const& args) {
         return mk_app(decl, args.size(), args.data());
@@ -2023,6 +2039,10 @@ public:
     family_id get_label_family_id() const { return label_family_id; }
 
     [[nodiscard]] app * mk_pattern(unsigned num_exprs, app * const * exprs);
+
+    [[nodiscard]] app * mk_pattern(std::span<app * const> exprs) {
+        return mk_pattern(static_cast<unsigned>(exprs.size()), exprs.data());
+    }
 
     [[nodiscard]] app * mk_pattern(app * expr) { return mk_pattern(1, &expr); }
 
@@ -2202,6 +2222,8 @@ public:
     app * mk_xor(ref_buffer<expr, ast_manager> const& args) { return mk_xor(args.size(), args.data()); }
     app * mk_or(unsigned num_args, expr * const * args) { return mk_app(basic_family_id, OP_OR, num_args, args); }
     app * mk_and(unsigned num_args, expr * const * args) { return mk_app(basic_family_id, OP_AND, num_args, args); }
+    app * mk_or(std::span<expr * const> args) { return mk_app(basic_family_id, OP_OR, args); }
+    app * mk_and(std::span<expr * const> args) { return mk_app(basic_family_id, OP_AND, args); }
     app * mk_or(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_OR, arg1, arg2); }
     app * mk_and(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_AND, arg1, arg2); }
     app * mk_or(expr * arg1, expr * arg2, expr * arg3) { return mk_app(basic_family_id, OP_OR, arg1, arg2, arg3); }

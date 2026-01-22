@@ -70,7 +70,15 @@ public:
     linear_equation_manager(numeral_manager & _m, small_object_allocator & a):m_allocator(a), m(_m), m_int_buffer(m), m_val_buffer(m) {}
 
     linear_equation * mk(unsigned sz, mpq * as, var * xs, bool normalized = false);
+    linear_equation * mk(std::span<mpq> as, std::span<var> xs, bool normalized = false) {
+        SASSERT(as.size() == xs.size());
+        return mk(static_cast<unsigned>(as.size()), as.data(), xs.data(), normalized);
+    }
     linear_equation * mk(unsigned sz, mpz * as, var * xs, bool normalized = false);
+    linear_equation * mk(std::span<mpz> as, std::span<var> xs, bool normalized = false) {
+        SASSERT(as.size() == xs.size());
+        return mk(static_cast<unsigned>(as.size()), as.data(), xs.data(), normalized);
+    }
     void del(linear_equation * eq);
 
     // Return b1 * eq1 + b2 * eq2

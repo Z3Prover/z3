@@ -191,6 +191,9 @@ namespace api {
         
         // Return a conjunction that will be exposed to the "external" world.
         expr * mk_and(unsigned num_exprs, expr * const * exprs);
+        expr * mk_and(std::span<expr * const> exprs) {
+            return mk_and(static_cast<unsigned>(exprs.size()), exprs.data());
+        }
 
         // Hack for preventing an AST for being GC when ref-count is not used
         // void persist_ast(ast * n, unsigned num_scopes);

@@ -192,7 +192,15 @@ public:
     void del_var(var x);
     bool is_dead(var x) const { return m_dead[x] != 0; }
     void mk_eq(unsigned sz, mpq * as, var * xs);
+    void mk_eq(std::span<mpq> as, std::span<var> xs) {
+        SASSERT(as.size() == xs.size());
+        mk_eq(static_cast<unsigned>(as.size()), as.data(), xs.data());
+    }
     void mk_eq(unsigned sz, mpz * as, var * xs);
+    void mk_eq(std::span<mpz> as, std::span<var> xs) {
+        SASSERT(as.size() == xs.size());
+        mk_eq(static_cast<unsigned>(as.size()), as.data(), xs.data());
+    }
     void del_constraints();
     void assert_lower(var x, mpq const & k, bool strict, assumption a = null_assumption) {
         m.set(m_tmp, k);
