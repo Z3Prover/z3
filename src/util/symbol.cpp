@@ -138,20 +138,6 @@ symbol::symbol(char const * d) {
         m_data = g_symbol_tables->get_str(d);
 }
 
-symbol::symbol(std::string_view sv) {
-    if (sv.empty()) {
-        m_data = g_symbol_tables->get_str("");
-    }
-    else {
-        // Symbol table requires null-terminated strings.
-        // Create temporary string to ensure null-termination.
-        // For short strings, std::string's small string optimization
-        // avoids heap allocation.
-        std::string temp(sv);
-        m_data = g_symbol_tables->get_str(temp.c_str());
-    }
-}
-
 symbol & symbol::operator=(char const * d) {
     m_data = d ? g_symbol_tables->get_str(d) : nullptr;
     return *this;
