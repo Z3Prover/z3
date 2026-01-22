@@ -2386,8 +2386,8 @@ bool ast_manager::is_label_lit(expr const * n, buffer<symbol> & names) const {
 }
 
 app * ast_manager::mk_pattern(std::span<app * const> exprs) {
-    for (size_t i = 0; i < exprs.size(); ++i) {
-        if (!is_app(exprs[i])) throw default_exception("patterns cannot be variables or quantifiers");
+    for (auto expr : exprs) {
+        if (!is_app(expr)) throw default_exception("patterns cannot be variables or quantifiers");
     }
     return mk_app(pattern_family_id, OP_PATTERN, 0, nullptr, static_cast<unsigned>(exprs.size()), (expr*const*)exprs.data());
 }

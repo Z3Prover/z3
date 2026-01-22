@@ -273,9 +273,11 @@ public:
 
     expr * mk_map_assoc(func_decl * f, std::span<expr * const> args) {
         expr* r = args[0];
+        expr* es[2];
         for (size_t i = 1; i < args.size(); ++i) {
-            expr* es[2] = { r, args[i] };
-            r = mk_map(f, std::span<expr * const>(es, 2));
+            es[0] = r;
+            es[1] = args[i];
+            r = mk_map(f, 2, es);
         }
         return r;
     }
