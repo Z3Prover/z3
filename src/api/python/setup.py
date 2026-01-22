@@ -316,6 +316,7 @@ class bdist_wheel(_bdist_wheel):
                 # windows arm64 is not supported by pypi yet
                 ("win", "x64"): "win_amd64",
                 ("win", "x86"): "win32",
+                ("win", "arm64"): "win_arm64",
                 ("osx", "x64"): f"macosx_{os_version_tag}_x86_64",
                 ("osx", "arm64"): f"macosx_{os_version_tag}_arm64",
                 ("darwin", "x86_64"): f"macosx_{os_version_tag}_x86_64",

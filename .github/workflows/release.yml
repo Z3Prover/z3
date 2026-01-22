@@ -482,7 +482,7 @@ jobs:
 
   python-package:
     name: "Python packaging"
-    needs: [mac-build-x64, mac-build-arm64, windows-build-x64, windows-build-x86, manylinux-python-amd64, manylinux-python-arm64]
+    needs: [mac-build-x64, mac-build-arm64, windows-build-x64, windows-build-x86, windows-build-arm64, manylinux-python-amd64, manylinux-python-arm64]
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
@@ -517,6 +517,12 @@ jobs:
           name: WindowsBuild-x86
           path: artifacts
       
+      - name: Download Win ARM64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: WindowsBuild-arm64
+          path: artifacts
+      
       - name: Download ManyLinux AMD64 Build
         uses: actions/download-artifact@v7.0.0
         with:
@@ -533,11 +539,12 @@ jobs:
         run: |
           cd artifacts
           ls
-          mkdir -p osx-x64-bin osx-arm64-bin win32-bin win64-bin
+          mkdir -p osx-x64-bin osx-arm64-bin win32-bin win64-bin win-arm64-bin
           cd osx-x64-bin && unzip ../z3-*-x64-osx*.zip && cd ..
           cd osx-arm64-bin && unzip ../z3-*-arm64-osx*.zip && cd ..
           cd win32-bin && unzip ../z3-*-x86-win*.zip && cd ..
           cd win64-bin && unzip ../z3-*-x64-win*.zip && cd ..
+          cd win-arm64-bin && unzip ../z3-*-arm64-win*.zip && cd ..
       
       - name: Build Python packages
         run: |
@@ -546,6 +553,7 @@ jobs:
           python3 setup.py sdist
           echo $PWD/../../../artifacts/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+          echo $PWD/../../../artifacts/win-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
             
