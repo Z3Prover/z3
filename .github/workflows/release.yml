@@ -585,7 +585,8 @@ jobs:
           echo $PWD/../../../artifacts/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-          # Copy pre-built Windows ARM64 wheels (built in windows-python-arm64 job)
+          # Copy pre-built wheels (ManyLinux ARM64/AMD64 + Windows ARM64)
+          # All pre-built .whl files are downloaded directly to artifacts/ directory
           cp ../../../artifacts/*.whl dist/ 2>/dev/null || true
             
       - name: Upload artifact
