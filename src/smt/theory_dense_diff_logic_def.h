@@ -1093,7 +1093,7 @@ namespace smt {
         else {
             // 
             expr_ref_vector const& core = m_objective_assignments[v];
-            f = m.mk_and(core.size(), core.data());
+            f = m.mk_and(core);
             if (is_strict) {
                 f = m.mk_not(f);
             }
@@ -1109,7 +1109,7 @@ namespace smt {
             }
             else {
                 expr_ref_vector const& core = m_objective_assignments[v];
-                f = m.mk_and(core.size(), core.data());
+                f = m.mk_and(core);
             }
         }
         else {

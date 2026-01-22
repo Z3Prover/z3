@@ -719,7 +719,7 @@ public:
             max_resolve(core, w);
             break;
         }
-        fml = mk_not(m, mk_and(m, core.size(), core.data()));
+        fml = mk_not(m, mk_and(m, core));
         add(fml);
         // save small cores such that lex-combinations of maxres can reuse these cores.
         if (core.size() <= 2) {

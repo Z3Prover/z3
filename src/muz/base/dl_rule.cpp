@@ -564,7 +564,7 @@ namespace datalog {
         switch (body.size()) {
         case 0:  break;
         case 1:  fml = m.mk_implies(body[0].get(), fml); break;
-        default: fml = m.mk_implies(m.mk_and(body.size(), body.data()), fml); break;
+        default: fml = m.mk_implies(m.mk_and(body), fml); break;
         }
 
         m_free_vars.reset();        

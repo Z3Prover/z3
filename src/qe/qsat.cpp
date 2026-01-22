@@ -1282,7 +1282,7 @@ namespace qe {
             expr_ref_vector defs(m);
             expr_ref fml(m);
             in->get_formulas(fmls);
-            fml = mk_and(m, fmls.size(), fmls.data());
+            fml = mk_and(m, fmls);
             
             // for now:
             // fail if cores.  (TBD)

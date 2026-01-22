@@ -202,7 +202,7 @@ namespace datalog {
         m_terms.reset();
         m_var2cnst.reset();
         m_cnst2var.reset();
-        fml = m.mk_and(conjs.size(), conjs.data());
+        fml = m.mk_and(conjs);
 
         for (unsigned i = 0; i < sorts.size(); ++i) {
             var = m.mk_var(i, sorts[i]);
@@ -211,7 +211,7 @@ namespace datalog {
             m_cnst2var.insert(cnst, var);
         }
 
-        fml = m.mk_and(conjs.size(), conjs.data());
+        fml = m.mk_and(conjs);
         m_var2cnst(fml);
         collect_egraph(fml);
 
@@ -221,7 +221,7 @@ namespace datalog {
         for (auto & kv : m_funs) dealloc(kv.m_value);
         m_funs.reset();
 
-        fml = m.mk_and(conjs.size(), conjs.data());
+        fml = m.mk_and(conjs);
         fml = m.mk_implies(fml, r.get_head());
         TRACE(dl, r.display(m_ctx, tout); tout << mk_pp(fml, m) << "\n";);
         

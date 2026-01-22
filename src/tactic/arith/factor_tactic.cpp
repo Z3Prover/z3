@@ -77,7 +77,7 @@ class factor_tactic : public tactic {
             if (args.size() == 1)
                 result = args[0];
             else
-                result = m.mk_or(args.size(), args.data());
+                result = m.mk_or(args);
         }
 
         decl_kind flip(decl_kind k) {
@@ -161,9 +161,9 @@ class factor_tactic : public tactic {
             if (args.size() == 1)
                 result = args[0];
             else if (strict)
-                result = m.mk_and(args.size(), args.data());
+                result = m.mk_and(args);
             else
-                result = m.mk_or(args.size(), args.data());
+                result = m.mk_or(args);
         }
 
         br_status factor(func_decl * f, expr * lhs, expr * rhs, expr_ref & result) {

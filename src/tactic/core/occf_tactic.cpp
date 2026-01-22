@@ -175,7 +175,7 @@ class occf_tactic : public tactic {
                 }
                 if (keep != nullptr)
                     new_lits.push_back(keep);
-                g->update(i, m.mk_or(new_lits.size(), new_lits.data()), nullptr, d);
+                g->update(i, m.mk_or(new_lits), nullptr, d);
             }
             g->inc_depth();
             result.push_back(g.get());

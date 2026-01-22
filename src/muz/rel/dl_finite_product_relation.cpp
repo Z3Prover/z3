@@ -2367,7 +2367,7 @@ namespace datalog {
             }
             sh(tmp, fact_sz-1, tmp);
             conjs.push_back(tmp);
-            disjs.push_back(m.mk_and(conjs.size(), conjs.data()));
+            disjs.push_back(m.mk_and(conjs));
         }
         bool_rewriter(m).mk_or(disjs.size(), disjs.data(), fml);
     }

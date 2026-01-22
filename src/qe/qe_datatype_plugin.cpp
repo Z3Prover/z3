@@ -388,7 +388,7 @@ namespace qe {
                 expr* l_i = l->get_arg(i);
                 conj.push_back(m.mk_eq(l_i, r_i));                
             }
-            expr* e = m.mk_and(conj.size(), conj.data());
+            expr* e = m.mk_and(conj);
             m_map.insert(a, e, nullptr);
             TRACE(qe, tout << "replace: " << mk_pp(a, m) << " ==> \n" << mk_pp(e, m) << "\n";);
             return true;
