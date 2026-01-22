@@ -1292,7 +1292,7 @@ namespace smt {
                 ctx.literal2expr(lits[i], tmp);
                 es.push_back(tmp);
             }
-            tmp = m.mk_and(es.size(), es.data());
+            tmp = m.mk_and(std::span<expr* const>(es.data(), es.size()));
             bool_var v = ctx.b_internalized(tmp)?ctx.get_bool_var(tmp):ctx.mk_bool_var(tmp);
             return literal(v);
         }
@@ -2025,7 +2025,7 @@ namespace smt {
             for (literal lit : m_antecedents) {
                 args.push_back(literal2expr(lit));
             }
-            B = m.mk_not(m.mk_and(args.size(), args.data()));
+            B = m.mk_not(m.mk_and(std::span<expr* const>(args.data(), args.size())));
             validate_implies(A, B); );
         return true;
     }

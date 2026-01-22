@@ -368,7 +368,7 @@ public:
                         if (formulas.size() == 1)
                             or_args.push_back(formulas[0]);
                         else
-                            or_args.push_back(m.mk_and(formulas.size(), formulas.data()));
+                            or_args.push_back(m.mk_and(std::span<expr* const>(formulas.data(), formulas.size())));
                     }
                     expr_ref assertion_ref(m);
                     assertion_ref = m.mk_or(or_args.size(), or_args.data());

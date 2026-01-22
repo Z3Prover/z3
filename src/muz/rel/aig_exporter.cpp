@@ -125,7 +125,7 @@ namespace datalog {
                     exprs.push_back(e);
                 }
 
-                transition_function.push_back(m.mk_and(exprs.size(), exprs.data()));
+                transition_function.push_back(m.mk_and(std::span<expr* const>(exprs.data(), exprs.size())));
             }
         }
 
@@ -140,7 +140,7 @@ namespace datalog {
                     exprs.push_back(m.mk_eq(get_latch_var(i, m_latch_varsp), I->second[i]));
                 }
 
-                transition_function.push_back(m.mk_and(exprs.size(), exprs.data()));
+                transition_function.push_back(m.mk_and(std::span<expr* const>(exprs.data(), exprs.size())));
             }
         }
 
@@ -186,7 +186,7 @@ namespace datalog {
             for (func_decl* pred : preds) {
                 exprs.reset();
                 assert_pred_id(pred, m_ruleid_var_set, exprs);
-                output.push_back(m.mk_and(exprs.size(), exprs.data()));
+                output.push_back(m.mk_and(std::span<expr* const>(exprs.data(), exprs.size())));
             }
 
             expr *out = m.mk_or(output.size(), output.data());

@@ -161,7 +161,7 @@ class factor_tactic : public tactic {
             if (args.size() == 1)
                 result = args[0];
             else if (strict)
-                result = m.mk_and(args.size(), args.data());
+                result = m.mk_and(std::span<expr* const>(args.data(), args.size()));
             else
                 result = m.mk_or(args.size(), args.data());
         }

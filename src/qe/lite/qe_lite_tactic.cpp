@@ -550,7 +550,7 @@ namespace qel {
         void flatten_definitions(expr_ref_vector& conjs) {
             TRACE(qe_lite,
                   expr_ref tmp(m);
-                  tmp = m.mk_and(conjs.size(), conjs.data());
+                  tmp = m.mk_and(std::span<expr* const>(conjs.data(), conjs.size()));
                   tout << mk_pp(tmp, m) << "\n";);
             for (unsigned i = 0; i < conjs.size(); ++i) {
                 expr* c = conjs[i].get();
@@ -586,7 +586,7 @@ namespace qel {
             }
             TRACE(qe_lite,
                   expr_ref tmp(m);
-                  tmp = m.mk_and(conjs.size(), conjs.data());
+                  tmp = m.mk_and(std::span<expr* const>(conjs.data(), conjs.size()));
                   tout << "after flatten\n" << mk_pp(tmp, m) << "\n";);
         }
 
@@ -665,7 +665,7 @@ namespace qel {
 
                 if (!m_order.empty()) {
                     expr_ref r(m), new_r(m);
-                    r = m.mk_and(conjs.size(), conjs.data());
+                    r = m.mk_and(std::span<expr* const>(conjs.data(), conjs.size()));
                     create_substitution(largest_vinx + 1);
                     new_r = m_subst(r, m_subst_map.size(), m_subst_map.data());
                     m_rewriter(new_r);

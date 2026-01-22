@@ -887,7 +887,7 @@ void proof_checker::set_false(expr_ref& e, unsigned position, expr_ref& lit) {
             args.append(num_bodies, bodies);
             lit = m.mk_not(args[position].get());
             args[position] = m.mk_true();
-            e = m.mk_implies(m.mk_and(args.size(), args.data()), head);
+            e = m.mk_implies(m.mk_and(std::span<expr* const>(args.data(), args.size())), head);
         }
     }
     else if (position == 0) {

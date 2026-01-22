@@ -164,7 +164,7 @@ expr * mk_and(ast_manager & m, unsigned num_args, expr * const * args) {
     else if (num_args == 1)
         return args[0];
     else
-        return m.mk_and(num_args, args);
+        return m.mk_and(std::span<expr* const>(args, num_args));
 }
 
 app* mk_and(ast_manager & m, unsigned num_args, app * const * args) {
