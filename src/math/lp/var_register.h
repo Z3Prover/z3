@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 #include "math/lp/lp_types.h"
+#include "math/lp/lp_utils.h"
 namespace lp  {
 
 
@@ -53,9 +54,8 @@ public:
 
     unsigned add_var(unsigned user_var, bool is_int) {
         if (user_var != UINT_MAX) {
-            auto t = m_external_to_local.find(user_var);
-            if (t != m_external_to_local.end()) {
-                return t->second;
+            if (auto local = try_get_value(m_external_to_local, user_var)) {
+                return *local;
             }
         }
         
@@ -96,29 +96,26 @@ public:
     }
 
     bool external_is_used(unsigned ext_j) const {
-        auto it = m_external_to_local.find(ext_j);
-        return it != m_external_to_local.end();
+        return try_get_value(m_external_to_local, ext_j).has_value();
     }
 
     bool external_is_used(unsigned ext_j, unsigned & local_j ) const {
-        auto it = m_external_to_local.find(ext_j);
-        if ( it == m_external_to_local.end()) {
-            local_j = UINT_MAX;
-            return false;
+        if (auto local = try_get_value(m_external_to_local, ext_j)) {
+            local_j = *local;
+            return true;
         }
-        local_j = it->second;
-        return true;
+        local_j = UINT_MAX;
+        return false;
     }
 
     bool external_is_used(unsigned ext_j, unsigned & local_j, bool & is_int ) const {
-        auto it = m_external_to_local.find(ext_j);
-        if ( it == m_external_to_local.end()){
-            local_j = UINT_MAX;
-            return false;
+        if (auto local = try_get_value(m_external_to_local, ext_j)) {
+            local_j = *local;
+            is_int = m_local_to_external[local_j].is_integer();
+            return true;
         }
-        local_j = it->second;
-        is_int = m_local_to_external[local_j].is_integer();
-        return true;
+        local_j = UINT_MAX;
+        return false;
     }
 
     bool has_int_var() const {
