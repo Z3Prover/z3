@@ -241,6 +241,8 @@ namespace nla {
         bool is_decision(justification const& j) const { return std::holds_alternative<assumption_justification>(j); }
         bool is_decision(lp::constraint_index ci) const { return is_decision(m_justifications[ci]); }
 
+        void reset();
+
         indexed_uint_set m_tabu;
         unsigned_vector m_var2level, m_level2var;
 
@@ -458,6 +460,7 @@ namespace nla {
 
     public:
         stellensatz2(core* core);
+        ~stellensatz2();
         lbool saturate();
 
         void updt_params(params_ref const &p);

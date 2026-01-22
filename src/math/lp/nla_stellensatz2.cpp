@@ -87,6 +87,10 @@ namespace nla {
         m_di(m_dm, core->reslim()) {
     }
 
+    stellensatz2::~stellensatz2() { 
+        reset();
+    }
+
     lbool stellensatz2::saturate() {
         unsigned num_conflicts = 0;
         init_solver();
@@ -131,10 +135,9 @@ namespace nla {
         return r;
     }
 
-    void stellensatz2::init_solver() {
+    void stellensatz2::reset() {
         m_num_scopes = 0;
         m_monomial_factory.reset();
-        m_coi.init();
         m_values.reset();
         while (!m_constraints.empty()) {
             m_constraints.pop_back();
@@ -143,7 +146,12 @@ namespace nla {
             pop_bound();
             pop_propagation(m_bounds.size());
         }
-        m_constraint_index.reset();        
+        m_constraint_index.reset();
+    }
+
+    void stellensatz2::init_solver() {
+        reset();        
+        m_coi.init();
         init_vars();
         simplify();
     }
@@ -584,19 +592,26 @@ namespace nla {
     // 
     bool stellensatz2::backtrack(svector<lp::constraint_index> const &core) {
         // reset_bounds();
+        SASSERT(well_formed());
         m_constraints_in_conflict.reset();
         svector<lp::constraint_index> external, assumptions;
         for (auto ci : core)
             explain_constraint(ci, external, assumptions);
-        TRACE(arith, display(tout << "backtrack core " << core << "external " << external << " assumptions " << assumptions << "\n"));
+        TRACE(arith, display(tout << "backtrack core " << core << "external " << external << " assumptions " << assumptions << "\n");
+        for (auto a : assumptions)
+            display_constraint(tout, a);
+    );
         if (assumptions.empty())
             return false;
         lp::constraint_index max_ci = 0;
-        for (auto ci : assumptions)
+        for (auto ci : assumptions) 
             max_ci = std::max(ci, max_ci);
+
         assumptions.erase(max_ci);
+        SASSERT(all_of(assumptions, [&](lp::constraint_index ci) { return m_levels[ci] < m_levels[max_ci]; }));
         external.append(assumptions);
         backtrack(max_ci, external);
+        SASSERT(well_formed());
         return true;
     }
 
@@ -1099,14 +1114,19 @@ namespace nla {
             propagation_level = std::max(propagation_level, m_levels[ci]);
         m_constraint_index.erase({p.index(), k});
         
+        TRACE(arith, display_constraint(tout, ci) << "deps: " << deps << " level " << propagation_level << "\n");    
+        TRACE(arith, for (auto d : deps) display_constraint(tout << "  dep: ", d););
+        SASSERT(propagation_level <= m_levels[ci]);
         // propagate negated constraint
         m_constraints[ci] = negate_constraint(m_constraints[ci]);
         m_justifications[ci] = propagation_justification(deps);
+        m_num_scopes = m_levels[ci] - 1;
         m_levels[ci] = propagation_level;
-        m_num_scopes = propagation_level;
         lp::constraint_index head = ci + 1, tail = ci + 1;
         // replay other constraints
         unsigned sz = m_constraints.size();
+        // non-chronological backtracking breaks several assumptions that hold for chronological
+        // The last decision 
         svector<lp::constraint_index> tail2head;
         tail2head.resize(sz - ci);
         auto translate_ci = [&](lp::constraint_index old_ci) -> lp::constraint_index {
@@ -1114,11 +1134,13 @@ namespace nla {
             return old_ci < ci ? old_ci : tail2head[sz - old_ci];
         };
         for (; tail < m_constraints.size(); ++tail) {
+
             auto [p, k] = m_constraints[tail];
             auto level = m_levels[tail];
             m_constraint_index.erase({p.index(), k});
             if (level > m_num_scopes) 
                 continue;            
+            TRACE(arith, display_constraint(tout << "replaying " << tail << " " << m_num_scopes << "\n", tail));
             m_constraints[head] = m_constraints[tail];
             m_justifications[head] = translate_j(translate_ci, m_justifications[tail]);
             m_levels[head] = is_decision(head) ? ++m_num_scopes : get_level(m_justifications[tail]); 
@@ -1508,6 +1530,20 @@ namespace nla {
         for (unsigned i = 0; i < m_constraints.size(); ++i)
             if (!well_formed_bound(i))
                 return false;
+        unsigned level = 1;
+        for (lp::constraint_index i = 0; i < m_constraints.size(); ++i) {
+            if (is_decision(i)) {
+                CTRACE(arith, level != m_levels[i], tout << "level of " << i << " should be " << level << "\n";
+                       display_constraint(tout, i));
+                if (level != m_levels[i])
+                    return false;
+                ++level;
+            }
+        }
+        if (m_num_scopes + 1 != level) {
+            TRACE(arith, tout << "num scopes set to " << m_num_scopes << " but there are " << level -1 << " decisions\n");
+            return false;
+        }
         return true;
     }
 
@@ -1662,7 +1698,7 @@ namespace nla {
         auto [inf, sup, conflict, lo, hi] = find_bounds(v);
 
         CTRACE(arith, inf != lp::null_ci || sup != lp::null_ci || conflict != lp::null_ci, 
-                tout << "bounds for v" << v << " @ " << m_var2level[v] << "\n";
+                tout << "bounds for v" << v << " @" << m_var2level[v] << "\n";
                 display_constraint(tout << "lo: ", inf); 
                 display_constraint(tout << "hi: ", sup);
                 display_constraint(tout << "conflict: ", conflict));
@@ -1676,7 +1712,7 @@ namespace nla {
         if (!constraint_is_false(inf) && !constraint_is_false(sup))
             return lp::null_ci;
 
-        TRACE(arith, tout << "v" << v << " @ " << m_var2level[v] << "\n");
+        TRACE(arith, tout << "v" << v << " @" << m_var2level[v] << "\n");
 
         bool strict_lo = inf != lp::null_ci && m_constraints[inf].k == lp::lconstraint_kind::GT;
         bool strict_hi = sup != lp::null_ci && m_constraints[sup].k == lp::lconstraint_kind::GT;
@@ -1878,7 +1914,7 @@ namespace nla {
         for (unsigned ci = 0; ci < m_constraints.size(); ++ci) 
             display_constraint(out, ci);        
 
-        // return out;
+        return out;
         
         // Display propagation data structures
         out << "\n=== Propagation State ===\n";
@@ -1997,7 +2033,7 @@ namespace nla {
         bool is_true = constraint_is_true(ci);
         auto const &[p, k] = m_constraints[ci];
         auto level = m_levels[ci];
-        display_constraint(out << "(" << ci << ") @ " << level << ": ", m_constraints[ci])
+        display_constraint(out << "(" << ci << ") @" << level << ": ", m_constraints[ci])
                << (is_true ? " [true] " : " [false] ") << "(" << value(p) << " " << k << " 0)\n";
         auto const &j = m_justifications[ci];
         return display(out << "\t<- ", j) << "\n";
@@ -2276,13 +2312,10 @@ namespace nla {
         m_prop_qhead = s.qhead; 
         m_scopes.pop_back();
     }
-   
-   
+      
     void stellensatz2::propagate() {
-        while (m_prop_qhead < m_polynomial_queue.size()) {
-            auto p = m_polynomial_queue[m_prop_qhead++];
-            propagate_intervals(p);
-        }
+        while (m_prop_qhead < m_polynomial_queue.size() && !is_conflict() && c().reslim().inc()) 
+            propagate_intervals(m_polynomial_queue[m_prop_qhead++]);        
     }
 
     bool stellensatz2::is_better(dep_interval const &new_iv, dep_interval const &old_iv) {
@@ -2318,6 +2351,7 @@ namespace nla {
 
     bool stellensatz2::update_interval(dep_interval const &new_iv, dd::pdd const &p) {
         SASSERT(!p.is_val());
+        // SASSERT(!m_di.is_empty(new_iv));
         auto &old_iv = get_interval(p);
 
         if (!is_better(new_iv, old_iv))
@@ -2330,17 +2364,12 @@ namespace nla {
     }
 
     void stellensatz2::propagate_intervals(dd::pdd const &p) {
-        // for each parent of p, propagate updated intervals
-        m_parents.reserve(p.index() + 1);
-        for (auto parent : m_parents[p.index()]) {
-            SASSERT(!parent.is_val());
-            scoped_dep_interval new_iv(m_di);
-            auto &x = get_interval(pddm.mk_var(parent.var()));
-            auto &lo = get_interval(parent.lo());
-            auto &hi = get_interval(parent.hi());
-            calculate_interval(new_iv, x, lo, hi);
-            if (update_interval(new_iv, parent))
-                m_polynomial_queue.push_back(parent);
+        auto const &ivp = get_interval(p);
+        if (m_di.is_empty(ivp)) {
+            m_conflict_dep.reset();
+            m_dm.linearize(ivp.m_lower_dep, m_conflict_dep);
+            m_dm.linearize(ivp.m_upper_dep, m_conflict_dep);
+            return;
         }
 
         // check constraints
@@ -2365,6 +2394,19 @@ namespace nla {
             svector<lp::constraint_index> cs;
             if (constraint_is_propagating(iv_p, iv_mq, x, cs, k, value))
                 propagate_constraint(x, k, value, ci, cs);
+        }
+
+        // for each parent of p, propagate updated intervals
+        m_parents.reserve(p.index() + 1);
+        for (auto parent : m_parents[p.index()]) {
+            SASSERT(!parent.is_val());
+            scoped_dep_interval new_iv(m_di);
+            auto &x = get_interval(pddm.mk_var(parent.var()));
+            auto &lo = get_interval(parent.lo());
+            auto &hi = get_interval(parent.hi());
+            calculate_interval(new_iv, x, lo, hi);
+            if (update_interval(new_iv, parent))
+                m_polynomial_queue.push_back(parent);
         }
 
     }

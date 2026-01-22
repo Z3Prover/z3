@@ -1214,8 +1214,9 @@ void interval_manager<C>::mul(interval const & i1, interval const & i2, interval
     m().swap(upper(r), new_u_val);
     set_lower_is_inf(r, new_l_kind == EN_MINUS_INFINITY);
     set_upper_is_inf(r, new_u_kind == EN_PLUS_INFINITY);
-    SASSERT(!(i1_contains_zero || i2_contains_zero) || contains_zero(r));
     TRACE(interval_bug, tout << "result: "; display(tout, r); tout << "\n";);
+    SASSERT(!(i1_contains_zero || i2_contains_zero) || contains_zero(r));
+
 #ifdef _TRACE
     call_id++;
 #endif
