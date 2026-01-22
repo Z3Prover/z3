@@ -1348,7 +1348,7 @@ namespace smt {
         switch (lits.size()) {
         case 0:  fact = nullptr; break;
         case 1:  fact = lits[0]; break;
-        default: fact = m.mk_or(lits.size(), lits.data());
+        default: fact = m.mk_or(lits);
         }
         if (fact == nullptr)
             m_lemma_proof = pr;

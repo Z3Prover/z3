@@ -550,7 +550,7 @@ namespace smt {
                 eqs.push_back(eq_lit);
                 m_solver.assert_expr(m.mk_implies(eq_lit, eq));
             }
-            m_solver.assert_expr(m.mk_not(m.mk_and(eqs.size(), eqs.c_ptr())));
+            m_solver.assert_expr(m.mk_not(m.mk_and(eqs)));
             lbool is_sat = m_solver.check_sat(0,0);
             switch(is_sat) {
             case l_false:

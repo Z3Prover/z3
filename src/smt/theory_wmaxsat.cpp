@@ -254,7 +254,7 @@ namespace smt {
                   //ctx.display(tout);                      
                   );
         }
-        expr_ref result(m.mk_or(disj.size(), disj.data()), m);
+        expr_ref result(m.mk_or(disj), m);
         TRACE(opt,
               tout << result << " weight: " << weight << "\n";
               tout << "cost: " << m_zcost << " min-cost: " << m_zmin_cost << "\n";);

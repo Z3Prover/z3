@@ -160,13 +160,13 @@ class horn_tactic : public tactic {
             }
             if (head) {
                 if (!is_implication(f)) {
-                    f = m.mk_and(body.size(), body.data());
+                    f = m.mk_and(body);
                     f = m.mk_implies(f, head);
                 }
                 return IS_RULE;
             }
             else {
-                f = m.mk_and(body.size(), body.data());
+                f = m.mk_and(body);
                 return IS_QUERY;
             }
         }

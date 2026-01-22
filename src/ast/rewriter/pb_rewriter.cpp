@@ -170,7 +170,7 @@ expr_ref pb_rewriter::mk_validate_rewrite(app_ref& e1, app_ref& e2) {
     expr_ref fml2 = translate_pb2lia(vars, e2);    
     tmp = m.mk_not(m.mk_eq(fml1, fml2));
     fmls.push_back(tmp);
-    tmp = m.mk_and(fmls.size(), fmls.data());
+    tmp = m.mk_and(fmls);
     return tmp;
 }
 

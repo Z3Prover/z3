@@ -104,7 +104,7 @@ protected:
             return;
         ptr_vector<expr> fmls;
         g.get_formulas(fmls);
-        fml = mk_and(m, fmls.size(), fmls.data());
+        fml = mk_and(m, fmls);
         m_solver.push();
         reduce(fml);
         m_solver.pop(1);
@@ -122,7 +122,7 @@ protected:
             // enable_trace("after_search");
             m_solver.push();
             expr_ref fml1(m);
-            fml1 = mk_and(m, fmls.size(), fmls.data());
+            fml1 = mk_and(m, fmls);
             fml1 = m.mk_iff(fml, fml1);
             fml1 = m.mk_not(fml1);
             m_solver.assert_expr(fml1);

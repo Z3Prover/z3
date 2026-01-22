@@ -60,7 +60,7 @@ static void validate_quant_solutions(app* x, expr* fml, expr_ref_vector& guards)
     //    fml <=> guard_1 \/ guard_2 \/ ... 
     ast_manager& m = guards.get_manager();
     expr_ref tmp(m), fml2(m);
-    tmp = m.mk_or(guards.size(), guards.c_ptr());
+    tmp = m.mk_or(guards);
     expr* _x = x;
     std::cout << mk_pp(fml, m) << "\n";
     expr_abstract(m, 0, 1, &_x, fml, fml2);

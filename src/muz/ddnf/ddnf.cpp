@@ -850,7 +850,7 @@ namespace datalog {
                 result = eqs[0].get();
                 break;
             default:
-                result = m.mk_or(eqs.size(), eqs.data());
+                result = m.mk_or(eqs);
                 break;
             }
         }

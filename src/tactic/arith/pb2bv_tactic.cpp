@@ -293,7 +293,7 @@ private:
                     switch (m_cls.size()) {
                     case 0:  m_result.push_back(m.mk_false()); break;
                     case 1:  m_result.push_back(m_cls[0]); break;
-                    default: m_result.push_back(m.mk_or(m_cls.size(), m_cls.data()));
+                    default: m_result.push_back(m.mk_or(m_cls));
                     }
                     return;
                 }
@@ -380,7 +380,7 @@ private:
                 for (unsigned i = 0; i < m_p.size(); ++i) {
                     args.push_back(mon_lit2lit(m_p[i]));
                 }             
-                r = m.mk_or(args.size(), args.data());
+                r = m.mk_or(args);
                 return;
             }
         

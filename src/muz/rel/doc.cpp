@@ -711,7 +711,7 @@ expr_ref doc_manager::to_formula(ast_manager & m, tbv const& src) {
             break;            
         }        
     }
-    result = mk_and(m, conj.size(), conj.data());
+    result = mk_and(conj);
     return result;    
 }
 
@@ -726,7 +726,7 @@ expr_ref doc_manager::to_formula(ast_manager& m, doc const& src) {
     for (unsigned i = 0; i < src.neg().size(); ++i) {
         conj.push_back(m.mk_not(to_formula(m, src.neg()[i])));
     }
-    result = mk_and(m, conj.size(), conj.data());
+    result = mk_and(conj);
     return result;
 }
     

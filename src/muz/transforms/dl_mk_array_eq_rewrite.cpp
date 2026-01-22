@@ -99,7 +99,7 @@ namespace datalog {
             res_conjs.push_back(tmp);
         }
         proof_ref pr(m);
-        m_src_manager->mk_rule(m.mk_implies(m.mk_and(res_conjs.size(), res_conjs.data()), r.get_head()), pr, dest, r.name());
+        m_src_manager->mk_rule(m.mk_implies(m.mk_and(res_conjs), r.get_head()), pr, dest, r.name());
     }
 
     // NSB Code review: use substitution facility, such as expr_safe_replace or expr_replacer.
