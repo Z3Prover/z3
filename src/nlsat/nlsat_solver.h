@@ -195,6 +195,9 @@ namespace nlsat {
 
         void inc_simplify();
         void record_levelwise_result(bool success);
+        void record_levelwise_sector();
+        void record_levelwise_section();
+        void record_levelwise_spanning_tree();
         void add_bound(bound_constraint const& c);
 
         /**
@@ -252,6 +255,7 @@ namespace nlsat {
         unsigned lws_sector_relation_mode() const;
         unsigned lws_section_relation_mode() const;
         bool lws_dynamic_heuristic() const;
+        unsigned lws_spt_threshold() const;
         void reset();
         void collect_statistics(statistics & st);
         void reset_statistics();

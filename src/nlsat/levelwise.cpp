@@ -38,11 +38,13 @@ namespace nlsat {
         biggest_cell,
         chain,
         lowest_degree,
+        spanning_tree,
 
         // Section-specific heuristics:
         section_biggest_cell,
         section_chain,
-        section_lowest_degree
+        section_lowest_degree,
+        section_spanning_tree
     };
 
 // Tag indicating what kind of invariance we need to preserve for a polynomial on the cell:
@@ -72,6 +74,7 @@ namespace nlsat {
         relation_mode          m_sector_relation_mode = chain;
         relation_mode          m_section_relation_mode = section_chain;
         bool                   m_dynamic_heuristic = true; // dynamically select heuristic based on weight
+        unsigned               m_spanning_tree_threshold = 3; // minimum both-side count for spanning tree
         unsigned               m_l_rf = UINT_MAX; // position of lower bound in m_rel.m_rfunc
         unsigned               m_u_rf = UINT_MAX; // position of upper bound in m_rel.m_rfunc (UINT_MAX in section case)
 
@@ -150,6 +153,81 @@ namespace nlsat {
 
         relation_E m_rel;
 
+        // Check that the relation forms a valid connected structure for order-invariance.
+        // Every root function on each side must be connected to the boundary through edges.
+        bool relation_invariant() const {
+            auto const& rfs = m_rel.m_rfunc;
+            unsigned n = rfs.size();
+            if (n == 0) return true;
+
+            // Build adjacency list from pairs (using ps_idx)
+            // Use vectors indexed by ps_idx for efficiency
+            unsigned max_ps_idx = 0;
+            for (auto const& rf : rfs)
+                if (rf.ps_idx > max_ps_idx) max_ps_idx = rf.ps_idx;
+            for (auto const& pr : m_rel.m_pairs) {
+                if (pr.first > max_ps_idx) max_ps_idx = pr.first;
+                if (pr.second > max_ps_idx) max_ps_idx = pr.second;
+            }
+
+            std_vector<std_vector<unsigned>> adj(max_ps_idx + 1);
+            for (auto const& pr : m_rel.m_pairs) {
+                adj[pr.first].push_back(pr.second);
+                adj[pr.second].push_back(pr.first);
+            }
+
+            // BFS to find all ps_idx reachable from a starting ps_idx
+            auto reachable_from = [&](unsigned start_ps_idx) -> std_vector<bool> {
+                std_vector<bool> visited(max_ps_idx + 1, false);
+                std_vector<unsigned> queue;
+                queue.push_back(start_ps_idx);
+                visited[start_ps_idx] = true;
+                while (!queue.empty()) {
+                    unsigned curr = queue.back();
+                    queue.pop_back();
+                    for (unsigned neighbor : adj[curr]) {
+                        if (!visited[neighbor]) {
+                            visited[neighbor] = true;
+                            queue.push_back(neighbor);
+                        }
+                    }
+                }
+                return visited;
+            };
+
+            // Check lower side: all rfuncs in [0, m_l_rf] must be connected to boundary
+            if (is_set(m_l_rf) && m_l_rf < n) {
+                unsigned boundary_ps_idx = rfs[m_l_rf].ps_idx;
+                std_vector<bool> reachable = reachable_from(boundary_ps_idx);
+                for (unsigned i = 0; i <= m_l_rf; ++i) {
+                    unsigned ps_idx = rfs[i].ps_idx;
+                    if (!reachable[ps_idx]) {
+                        TRACE(lws, tout << "INVARIANT FAIL: lower side rfunc " << i
+                              << " (ps_idx=" << ps_idx << ") not connected to boundary "
+                              << m_l_rf << " (ps_idx=" << boundary_ps_idx << ")\n";);
+                        return false;
+                    }
+                }
+            }
+
+            // Check upper side: all rfuncs in [m_u_rf, n-1] must be connected to boundary
+            if (is_set(m_u_rf) && m_u_rf < n) {
+                unsigned boundary_ps_idx = rfs[m_u_rf].ps_idx;
+                std_vector<bool> reachable = reachable_from(boundary_ps_idx);
+                for (unsigned i = m_u_rf; i < n; ++i) {
+                    unsigned ps_idx = rfs[i].ps_idx;
+                    if (!reachable[ps_idx]) {
+                        TRACE(lws, tout << "INVARIANT FAIL: upper side rfunc " << i
+                              << " (ps_idx=" << ps_idx << ") not connected to boundary "
+                              << m_u_rf << " (ps_idx=" << boundary_ps_idx << ")\n";);
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
         // Weight function for estimating projection complexity.
         // w(p, level) estimates the "cost" of polynomial p at the given level.
         // w(disc(a)) ≈ 2*w(a), w(res(a,b)) ≈ w(a) + w(b)
@@ -183,6 +261,7 @@ namespace nlsat {
 
         // Choose the best sector heuristic based on estimated weight.
         // Also fills m_rel.m_pairs with the winning heuristic's pairs.
+        // Note: spanning_tree is handled at a higher level (process_level_sector)
         relation_mode choose_best_sector_heuristic() {
             // With fewer than 2 root functions, no pairs can be generated
             // so all heuristics are equivalent - use default
@@ -194,12 +273,11 @@ namespace nlsat {
                 return m_sector_relation_mode;
             }
 
-            // Compute side_mask once (needed for omit_lc computation)
+            // Compute side_mask (needed for omit_lc computation)
             compute_side_mask();
 
             // Estimate weights by filling m_rel.m_pairs temporarily.
             // Include both resultant weight and lc weight for non-omitted lcs.
-            // Fill lowest_degree last since it's the most common winner (tie-breaker).
             m_rel.m_pairs.clear();
             fill_relation_with_biggest_cell_heuristic();
             compute_omit_lc_both_sides(false);
@@ -212,7 +290,7 @@ namespace nlsat {
 
             m_rel.m_pairs.clear();
             fill_relation_with_min_degree_resultant_sum();
-            compute_omit_lc_both_sides(true);  // needs m_deg_in_order_graph, computed inside
+            compute_omit_lc_both_sides(true);
             unsigned w_ld = estimate_resultant_weight() + estimate_lc_weight();
 
             TRACE(lws,
@@ -226,7 +304,7 @@ namespace nlsat {
 
             unsigned w_min = std::min({w_bc, w_ch, w_ld});
 
-            // If lowest_degree wins, pairs and omit_lc are already filled
+            // If lowest_degree wins, pairs are already filled
             if (w_ld == w_min)
                 return lowest_degree;
 
@@ -244,6 +322,7 @@ namespace nlsat {
 
         // Choose the best section heuristic based on estimated weight.
         // Also fills m_rel.m_pairs with the winning heuristic's pairs.
+        // Note: spanning_tree is handled at a higher level (process_level_section)
         relation_mode choose_best_section_heuristic() {
             // With fewer than 2 root functions, no pairs can be generated
             // so all heuristics are equivalent - use default
@@ -255,12 +334,11 @@ namespace nlsat {
                 return m_section_relation_mode;
             }
 
-            // Compute side_mask once (needed for omit_lc computation)
+            // Compute side_mask (needed for omit_lc computation)
             compute_side_mask();
 
             // Estimate weights by filling m_rel.m_pairs temporarily.
             // Include both resultant weight and lc weight for non-omitted lcs.
-            // Fill lowest_degree last since it's the most common winner (tie-breaker).
             m_rel.m_pairs.clear();
             fill_relation_pairs_for_section_biggest_cell();
             m_omit_lc.clear();  // no omit_lc for biggest_cell (handled via ORD_INV tag)
@@ -273,7 +351,7 @@ namespace nlsat {
 
             m_rel.m_pairs.clear();
             fill_relation_pairs_for_section_lowest_degree();
-            compute_omit_lc_both_sides(true);  // needs m_deg_in_order_graph, computed inside
+            compute_omit_lc_both_sides(true);
             unsigned w_ld = estimate_resultant_weight() + estimate_lc_weight();
 
             TRACE(lws,
@@ -286,7 +364,7 @@ namespace nlsat {
 
             unsigned w_min = std::min({w_bc, w_ch, w_ld});
 
-            // If lowest_degree wins, pairs and omit_lc are already filled
+            // If lowest_degree wins, pairs are already filled
             if (w_ld == w_min)
                 return section_lowest_degree;
 
@@ -354,6 +432,7 @@ namespace nlsat {
             }
 
             m_dynamic_heuristic = m_solver.lws_dynamic_heuristic();
+            m_spanning_tree_threshold = m_solver.lws_spt_threshold();
         }
 
         void fail() { throw nullified_poly_exception(); }
@@ -605,6 +684,7 @@ namespace nlsat {
                 compute_omit_lc_chain_extremes();
                 break;
             case lowest_degree:
+            case spanning_tree:
                 compute_omit_lc_both_sides(true);
                 break;
             default:
@@ -624,6 +704,7 @@ namespace nlsat {
                 break;
             }
             case section_lowest_degree:
+            case section_spanning_tree:
                 compute_omit_lc_both_sides(true);
                 break;
             default:
@@ -827,6 +908,215 @@ namespace nlsat {
             }
         }
 
+        // ============================================================================
+        // Spanning tree heuristic based on the Reaching Orders Lemma.
+        // For polynomials appearing on both sides of the sample, we build a spanning
+        // tree that ensures order-invariance on both sides with n-1 edges.
+        // ============================================================================
+
+        // Build spanning tree on both-side polynomials using the lemma construction.
+        // Adds pairs directly to m_rel.m_pairs. Returns true if tree was built.
+        // K = lower rfunc positions, f = upper rfunc positions
+        bool build_both_side_spanning_tree() {
+            auto const& rfs = m_rel.m_rfunc;
+            unsigned n = rfs.size();
+            if (n == 0) return false;
+
+            // Map ps_idx -> rfunc index on lower/upper side
+            std_vector<unsigned> lower_pos(m_level_ps.size(), UINT_MAX);
+            std_vector<unsigned> upper_pos(m_level_ps.size(), UINT_MAX);
+
+            if (is_set(m_l_rf)) {
+                for (unsigned i = 0; i <= m_l_rf; ++i)
+                    lower_pos[rfs[i].ps_idx] = i;
+            }
+            // For sector case: upper side is [m_u_rf, n)
+            // For section case: upper side is (m_l_rf, n) since m_u_rf is not set
+            unsigned upper_start = is_set(m_u_rf) ? m_u_rf : (is_set(m_l_rf) ? m_l_rf + 1 : 0);
+            for (unsigned i = upper_start; i < n; ++i)
+                upper_pos[rfs[i].ps_idx] = i;
+
+            // Collect both-side polynomial ps_idx's (must have valid positions on both sides)
+            std_vector<unsigned> both;
+            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
+                if (m_side_mask[i] == 3 && lower_pos[i] != UINT_MAX && upper_pos[i] != UINT_MAX)
+                    both.push_back(i);
+            }
+
+            // m_spanning_tree_threshold is guaranteed >= 2 (minimum for a spanning tree)
+            if (both.size() < m_spanning_tree_threshold)
+                return false;
+
+            // Sort both by lower_pos (this is K in the lemma)
+            std::sort(both.begin(), both.end(),
+                      [&](unsigned a, unsigned b) { return lower_pos[a] < lower_pos[b]; });
+
+            // Lemma construction: iteratively connect min(remaining) to element with min f-value in tree
+            std_vector<bool> in_tree(both.size(), false);
+
+            // Start with element that has minimum upper_pos (root of out-arborescence on f(K))
+            unsigned root_idx = 0;
+            for (unsigned i = 1; i < both.size(); ++i) {
+                if (upper_pos[both[i]] < upper_pos[both[root_idx]])
+                    root_idx = i;
+            }
+            in_tree[root_idx] = true;
+
+            // Add remaining elements
+            for (unsigned added = 1; added < both.size(); ++added) {
+                // Find minimum lower_pos element not yet in tree (element 'a' in lemma)
+                unsigned a_idx = UINT_MAX;
+                for (unsigned i = 0; i < both.size(); ++i) {
+                    if (!in_tree[i]) {
+                        a_idx = i;
+                        break; // both is sorted by lower_pos, so first not-in-tree is min
+                    }
+                }
+                SASSERT(a_idx != UINT_MAX);
+
+                // Find element in tree with minimum upper_pos (element 'c' in lemma)
+                unsigned c_idx = UINT_MAX;
+                unsigned min_upper = UINT_MAX;
+                for (unsigned i = 0; i < both.size(); ++i) {
+                    if (in_tree[i] && upper_pos[both[i]] < min_upper) {
+                        min_upper = upper_pos[both[i]];
+                        c_idx = i;
+                    }
+                }
+                SASSERT(c_idx != UINT_MAX);
+
+                // Add edge {a, c} as ps_idx pair directly to m_rel.m_pairs
+                unsigned ps_a = both[a_idx];
+                unsigned ps_c = both[c_idx];
+                m_rel.m_pairs.insert({std::min(ps_a, ps_c), std::max(ps_a, ps_c)});
+                in_tree[a_idx] = true;
+            }
+            return true;
+        }
+
+        // Sector spanning tree heuristic:
+        // 1. Build spanning tree on both-side polynomials
+        // 2. Extend with lowest_degree for single-side polynomials
+        void fill_relation_with_spanning_tree_heuristic() {
+            auto const& rfs = m_rel.m_rfunc;
+            unsigned n = rfs.size();
+            if (n == 0) return;
+
+            // Need side_mask computed
+            compute_side_mask();
+
+            // Build spanning tree on both-side polynomials (adds to m_rel.m_pairs)
+            if (!build_both_side_spanning_tree()) {
+                // Not enough valid both-side polys, fall back
+                fill_relation_with_biggest_cell_heuristic();
+                return;
+            }
+
+            // Both-side polynomials exist, so both boundaries must be set
+            SASSERT(is_set(m_l_rf) && is_set(m_u_rf));
+
+            // Extend for single-side polynomials using biggest_cell style
+            // (connect all unconnected to the boundary)
+
+            // Lower side: connect all unconnected polynomials to the boundary m_l_rf
+            for (unsigned j = 0; j < m_l_rf; ++j) {
+                if (m_side_mask[rfs[j].ps_idx] != 3)  // single-side poly
+                    m_rel.add_pair(j, m_l_rf);
+            }
+            // If boundary is not a both-side poly, connect spanning tree to boundary
+            // using the both-side poly with maximum lower position
+            if (m_side_mask[rfs[m_l_rf].ps_idx] != 3) {
+                unsigned max_lower_idx = UINT_MAX;
+                for (unsigned j = 0; j < m_l_rf; ++j) {
+                    if (m_side_mask[rfs[j].ps_idx] == 3)
+                        max_lower_idx = j;  // last one found is maximum
+                }
+                if (max_lower_idx != UINT_MAX)
+                    m_rel.add_pair(max_lower_idx, m_l_rf);
+            }
+
+            // Upper side: connect all unconnected polynomials to the boundary m_u_rf
+            for (unsigned j = m_u_rf + 1; j < n; ++j) {
+                if (m_side_mask[rfs[j].ps_idx] != 3)  // single-side poly
+                    m_rel.add_pair(m_u_rf, j);
+            }
+            // If boundary is not a both-side poly, connect spanning tree to boundary
+            // using the both-side poly with minimum upper position
+            if (m_side_mask[rfs[m_u_rf].ps_idx] != 3) {
+                unsigned min_upper_idx = UINT_MAX;
+                for (unsigned j = m_u_rf + 1; j < n; ++j) {
+                    if (m_side_mask[rfs[j].ps_idx] == 3) {
+                        min_upper_idx = j;  // first one found is minimum
+                        break;
+                    }
+                }
+                if (min_upper_idx != UINT_MAX)
+                    m_rel.add_pair(m_u_rf, min_upper_idx);
+            }
+
+            // Connect lower and upper boundaries
+            SASSERT(m_l_rf + 1 == m_u_rf);
+            m_rel.add_pair(m_l_rf, m_u_rf);
+        }
+
+        // Section spanning tree heuristic
+        void fill_relation_pairs_for_section_spanning_tree() {
+            auto const& rfs = m_rel.m_rfunc;
+            unsigned n = rfs.size();
+            if (n == 0) return;
+            SASSERT(is_set(m_l_rf));
+            SASSERT(m_l_rf < n);
+
+            // Need side_mask computed
+            compute_side_mask();
+
+            // Build spanning tree on both-side polynomials (adds to m_rel.m_pairs)
+            if (!build_both_side_spanning_tree()) {
+                // Not enough valid both-side polys, fall back
+                fill_relation_pairs_for_section_biggest_cell();
+                return;
+            }
+
+            // Extend for single-side polynomials using biggest_cell style
+            // (connect all unconnected to the section m_l_rf)
+
+            // Below section: connect all unconnected to section
+            for (unsigned j = 0; j < m_l_rf; ++j) {
+                if (m_side_mask[rfs[j].ps_idx] != 3)  // single-side poly
+                    m_rel.add_pair(j, m_l_rf);
+            }
+            // If section poly is not a both-side poly, connect spanning tree to section
+            // using the both-side poly with maximum lower position
+            if (m_side_mask[rfs[m_l_rf].ps_idx] != 3) {
+                unsigned max_lower_idx = UINT_MAX;
+                for (unsigned j = 0; j < m_l_rf; ++j) {
+                    if (m_side_mask[rfs[j].ps_idx] == 3)
+                        max_lower_idx = j;  // last one found is maximum
+                }
+                if (max_lower_idx != UINT_MAX)
+                    m_rel.add_pair(max_lower_idx, m_l_rf);
+            }
+
+            // Above section: connect all unconnected to section
+            for (unsigned j = m_l_rf + 1; j < n; ++j) {
+                if (m_side_mask[rfs[j].ps_idx] != 3)  // single-side poly
+                    m_rel.add_pair(m_l_rf, j);
+            }
+            // If section poly is not a both-side poly, connect spanning tree to section
+            // using the both-side poly with minimum upper position
+            if (m_side_mask[rfs[m_l_rf].ps_idx] != 3) {
+                unsigned min_upper_idx = UINT_MAX;
+                for (unsigned j = m_l_rf + 1; j < n; ++j) {
+                    if (m_side_mask[rfs[j].ps_idx] == 3) {
+                        min_upper_idx = j;  // first one found is minimum
+                        break;
+                    }
+                }
+                if (min_upper_idx != UINT_MAX)
+                    m_rel.add_pair(m_l_rf, min_upper_idx);
+            }
+        }
+
         void fill_relation_pairs_for_section() {
             SASSERT(m_I[m_level].section);
             switch (m_section_relation_mode) {
@@ -841,6 +1131,10 @@ namespace nlsat {
             case lowest_degree:
             case section_lowest_degree:
                 fill_relation_pairs_for_section_lowest_degree();
+                break;
+            case spanning_tree:
+            case section_spanning_tree:
+                fill_relation_pairs_for_section_spanning_tree();
                 break;
             default:
                 NOT_IMPLEMENTED_YET();
@@ -859,6 +1153,9 @@ namespace nlsat {
             case lowest_degree:
                 fill_relation_with_min_degree_resultant_sum();
                 break;
+            case spanning_tree:
+                fill_relation_with_spanning_tree_heuristic();
+                break;
             default:
                 NOT_IMPLEMENTED_YET();
             }
@@ -868,29 +1165,31 @@ namespace nlsat {
         // partitioning them into lhalf (roots <= v) and uhalf (roots > v).
         // ps_idx is the index of p in m_level_ps.
         // Returns whether the polynomial has any roots.
-        bool isolate_roots_around_sample(unsigned level, poly* p, unsigned ps_idx,
+        bool isolate_roots_around_sample(poly* p, unsigned ps_idx,
                                           anum const& v, std_vector<root_function>& lhalf,
                                           std_vector<root_function>& uhalf) {
             scoped_anum_vector roots(m_am);
-
+            
+            
             // When the sample value is rational use a closest-root isolation
-            // returning at most two roots
+            // returning at most closest to the sample roots
             if (v.is_basic()) {
                 scoped_mpq s(m_am.qm());
                 m_am.to_rational(v, s);
                 svector<unsigned> idx_vec;
-                m_am.isolate_roots_closest(polynomial_ref(p, m_pm), undef_var_assignment(sample(), level), s, roots, idx_vec);
+                m_am.isolate_roots_closest(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_level), s, roots, idx_vec);
                 SASSERT(roots.size() == idx_vec.size());
+                SASSERT(roots.size() < 2 ||(roots.size() == 2 &&  m_am.compare(roots[0], v) < 0 && m_am.compare(roots[1], v) > 0));
                 for (unsigned k = 0; k < roots.size(); ++k) {
                     if (m_am.compare(roots[k], v) <= 0)
                         lhalf.emplace_back(m_am, p, idx_vec[k], roots[k], ps_idx);
-                    else
+                    else 
                         uhalf.emplace_back(m_am, p, idx_vec[k], roots[k], ps_idx);
                 }
                 return roots.size();
             }
 
-            m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), level), roots);
+            m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_level), roots);
 
             // SMT-RAT style reduction: keep only the closest to v roots: one below and one above v,
             // or a single root at v
@@ -928,7 +1227,7 @@ namespace nlsat {
         bool collect_partitioned_root_functions_around_sample(anum const& v,
                             std_vector<root_function>& lhalf, std_vector<root_function>& uhalf) {
             for (unsigned i = 0; i < m_level_ps.size(); ++i)
-                m_poly_has_roots[i] = isolate_roots_around_sample(m_level, m_level_ps.get(i), i, v, lhalf, uhalf);
+                m_poly_has_roots[i] = isolate_roots_around_sample(m_level_ps.get(i), i, v, lhalf, uhalf);
             return !lhalf.empty() || !uhalf.empty();
         }
 
@@ -1199,13 +1498,37 @@ namespace nlsat {
             }
         }
 
+        // Check if spanning tree should be used based on both_count threshold
+        bool should_use_spanning_tree() {
+            if (m_rel.m_rfunc.size() < 2)
+                return false;
+            compute_side_mask();
+            unsigned both_count = 0;
+            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
+                if (m_side_mask[i] == 3)
+                    if (++both_count >= m_spanning_tree_threshold)
+                        return true;
+            }
+            return false;
+        }
+
         void process_level_section(bool have_interval) {
             SASSERT(m_I[m_level].section);
+            m_solver.record_levelwise_section();
             if (have_interval) {
-                if (m_dynamic_heuristic)
+                // Check spanning tree threshold first, independent of dynamic heuristic
+                if (should_use_spanning_tree()) {
+                    m_rel.m_pairs.clear();
+                    fill_relation_pairs_for_section_spanning_tree();
+                    compute_omit_lc_both_sides(true);
+                    m_section_relation_mode = section_spanning_tree;
+                    m_solver.record_levelwise_spanning_tree();
+                } else if (m_dynamic_heuristic) {
                     m_section_relation_mode = choose_best_section_heuristic(); // also fills pairs
-                else
+                } else {
                     fill_relation_pairs_for_section();
+                }
+                SASSERT(relation_invariant());
             }
             upgrade_bounds_to_ord();
             add_level_projections_section();
@@ -1214,11 +1537,21 @@ namespace nlsat {
 
         void process_level_sector(bool have_interval) {
             SASSERT(!m_I[m_level].section);
+            m_solver.record_levelwise_sector();
             if (have_interval) {
-                if (m_dynamic_heuristic)
+                // Check spanning tree threshold first, independent of dynamic heuristic
+                if (should_use_spanning_tree()) {
+                    m_rel.m_pairs.clear();
+                    fill_relation_with_spanning_tree_heuristic();
+                    compute_omit_lc_both_sides(true);
+                    m_sector_relation_mode = spanning_tree;
+                    m_solver.record_levelwise_spanning_tree();
+                } else if (m_dynamic_heuristic) {
                     m_sector_relation_mode = choose_best_sector_heuristic(); // also fills pairs
-                else
+                } else {
                     fill_relation_pairs_for_sector();
+                }
+                SASSERT(relation_invariant());
             }
             upgrade_bounds_to_ord();
             add_level_projections_sector();

@@ -243,6 +243,9 @@ namespace nlsat {
             unsigned               m_irrational_assignments; // number of irrational witnesses
             unsigned               m_levelwise_calls;
             unsigned               m_levelwise_failures;
+            unsigned               m_levelwise_sectors;
+            unsigned               m_levelwise_sections;
+            unsigned               m_levelwise_spanning_tree;
             unsigned               m_lws_initial_fail;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
@@ -255,6 +258,7 @@ namespace nlsat {
         unsigned m_lws_sector_relation_mode = 1;
         unsigned m_lws_section_relation_mode = 1;
         bool     m_lws_dynamic_heuristic = true;
+        unsigned m_lws_spt_threshold = 3;
         imp(solver& s, ctx& c):
             m_ctx(c),
             m_solver(s),
@@ -321,6 +325,7 @@ namespace nlsat {
             m_lws_sector_relation_mode = (lws_sector_rel_mode == UINT_MAX) ? m_lws_relation_mode : lws_sector_rel_mode;
             m_lws_section_relation_mode = (lws_section_rel_mode == UINT_MAX) ? m_lws_relation_mode : lws_section_rel_mode;
             m_lws_dynamic_heuristic = p.lws_dynamic_heuristic();
+            m_lws_spt_threshold = std::max(2u, p.lws_spt_threshold());
             m_check_lemmas |= !(m_debug_known_solution_file_name.empty());
             m_cell_sample = p.cell_sample();
   
@@ -2790,6 +2795,9 @@ namespace nlsat {
             st.update("nlsat irrational assignments", m_stats.m_irrational_assignments);
             st.update("levelwise calls", m_stats.m_levelwise_calls);
             st.update("levelwise failures", m_stats.m_levelwise_failures);
+            st.update("levelwise sectors", m_stats.m_levelwise_sectors);
+            st.update("levelwise sections", m_stats.m_levelwise_sections);
+            st.update("levelwise spanning-tree", m_stats.m_levelwise_spanning_tree);
         }
 
         void reset_statistics() {
@@ -4661,6 +4669,18 @@ namespace nlsat {
         }
     }
 
+    void solver::record_levelwise_sector() {
+        m_imp->m_stats.m_levelwise_sectors++;
+    }
+
+    void solver::record_levelwise_section() {
+        m_imp->m_stats.m_levelwise_sections++;
+    }
+
+    void solver::record_levelwise_spanning_tree() {
+        m_imp->m_stats.m_levelwise_spanning_tree++;
+    }
+
     bool solver::has_root_atom(clause const& c) const {
         return m_imp->has_root_atom(c);
     }
@@ -4682,5 +4702,7 @@ namespace nlsat {
     unsigned solver::lws_section_relation_mode() const { return m_imp->m_lws_section_relation_mode; }
 
     bool solver::lws_dynamic_heuristic() const { return m_imp->m_lws_dynamic_heuristic; }
+
+    unsigned solver::lws_spt_threshold() const { return m_imp->m_lws_spt_threshold; }
 
 };
