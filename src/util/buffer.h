@@ -22,6 +22,7 @@ Revision History:
 #pragma once
 
 #include <cstddef>
+#include <span>
 #include "util/memory_manager.h"
 
 template<typename T, bool CallDestructors=true, unsigned INITIAL_SIZE=16>
@@ -192,10 +193,15 @@ public:
         return m_buffer;
     }
 
-    void append(unsigned n, T const * elems) {
-        for (unsigned i = 0; i < n; ++i) {
-            push_back(elems[i]);
+    void append(std::span<T const> elems) {
+        for (auto const& elem : elems) {
+            push_back(elem);
         }
+    }
+
+    // Backward compatibility overload
+    void append(unsigned n, T const * elems) {
+        append(std::span<T const>(elems, n));
     }
 
     void append(const buffer& source) {
@@ -265,10 +271,15 @@ public:
 template<typename T, unsigned INITIAL_SIZE=16>
 class ptr_buffer : public buffer<T *, false, INITIAL_SIZE> {
 public:
-    void append(unsigned n, T * const * elems) {
-        for (unsigned i = 0; i < n; ++i) {
-            this->push_back(elems[i]);
+    void append(std::span<T * const> elems) {
+        for (auto elem : elems) {
+            this->push_back(elem);
         }
+    }
+
+    // Backward compatibility overload
+    void append(unsigned n, T * const * elems) {
+        append(std::span<T * const>(elems, n));
     }
 };
 
