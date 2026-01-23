@@ -246,14 +246,14 @@ If you identify other code quality issues (naming, formatting, other C++ feature
 
 1. **Search for common patterns** that should use `std::initializer_list`:
    ```bash
-   # Functions with unsigned + pointer parameter pairs
-   grep pattern: "unsigned.*sz.*T.*\*.*args|unsigned.*size.*\*|unsigned.*num.*\*" glob: "src/**/*.h"
+   # Functions with unsigned + pointer parameter pairs (generic pattern)
+   grep pattern: "unsigned.*(sz|size|num|n).*\*" glob: "src/**/*.h"
    
    # Specific patterns like mk_ functions with sz + args
    grep pattern: "mk_[a-z_]+\(unsigned.*\*" glob: "src/**/*.h"
    
-   # Function declarations with sz/size/num + pointer
-   grep pattern: "\(unsigned (sz|size|num|n)[^,]*,\s*\w+\s*\*\s*const\s*\*" glob: "src/**/*.h"
+   # Function declarations with sz/size/num + pointer (more specific)
+   grep pattern: "\(unsigned (sz|size|num|n)[^,)]*,\s*\w+\s*\*\s*(const\s*)?\*" glob: "src/**/*.h"
    ```
 
 2. **Analyze candidates** for refactoring:
@@ -1283,8 +1283,8 @@ grep pattern: "\(unsigned (sz|size|num|n)[^,)]*,\s*\w+\s*\*\s*(const\s*)?\*" glo
 # Common Z3 patterns like mk_ functions
 grep pattern: "mk_[a-z_]+\(unsigned.*\*" glob: "src/**/*.h"
 
-# Function declarations with size + pointer combinations
-grep pattern: "unsigned.*sz.*\w+.*\*.*args|unsigned.*size.*\*|unsigned.*num.*\*" glob: "src/**/*.h"
+# Function declarations with size + pointer combinations (broader pattern)
+grep pattern: "unsigned.*(sz|size|num|n).*\*" glob: "src/**/*.h"
 
 # Call sites creating temporary arrays
 grep pattern: "\w+\s+\w+\[[0-9]+\]\s*=\s*\{.*\};" glob: "src/**/*.cpp"
