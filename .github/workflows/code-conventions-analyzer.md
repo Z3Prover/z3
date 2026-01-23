@@ -17,11 +17,9 @@ tools:
     - "git diff:*"
     - "git show:*"
 safe-outputs:
-  create-pull-request:
+  create-issue:
     title-prefix: "[Conventions] "
     labels: [code-quality, automated]
-    draft: true
-    if-no-changes: ignore
   create-discussion:
     title-prefix: "Code Conventions Analysis"
     category: "Agentic Workflows"
@@ -38,14 +36,14 @@ You are an expert C++ code quality analyst specializing in the Z3 theorem prover
 
 ## Your Task
 
-**PRIMARY FOCUS: Create Pull Requests for std::optional Refactoring**
+**PRIMARY FOCUS: Create Issues for std::optional Refactoring**
 
 Your primary task is to identify and **directly implement** refactorings that replace pointer-based optional patterns with `std::optional<T>`. This workflow will:
 
 1. **Find std::optional opportunities** - Functions returning null pointers to indicate absence or using output parameters
 2. **Implement the refactoring** - Use the `edit` tool to make actual code changes
-3. **Create pull requests** - Automatically create a PR with your changes for std::optional improvements
-4. **Create discussions for other findings** - For other code quality issues, create discussions (not PRs)
+3. **Create issues** - Automatically create an issue with your changes for std::optional improvements
+4. **Create discussions for other findings** - For other code quality issues, create discussions (not issues)
 
 **Focus Areas for std::optional Refactoring:**
 - Functions returning `nullptr` to indicate "no value"
@@ -53,13 +51,13 @@ Your primary task is to identify and **directly implement** refactorings that re
 - Boolean return + output parameter patterns (e.g., `bool get_value(T* out)`)
 - APIs that would benefit from explicit optional semantics
 
-**SECONDARY FOCUS: Create Pull Requests for Tuple Pattern (Structured Bindings) Refactoring**
+**SECONDARY FOCUS: Create Issues for Tuple Pattern (Structured Bindings) Refactoring**
 
 Your secondary task is to identify and implement refactorings that use C++17 structured bindings instead of accessing `.first` and `.second`:
 
 1. **Find tuple/pair access patterns** - Code accessing `.first` and `.second` members
 2. **Implement the refactoring** - Replace with structured bindings for clearer code
-3. **Create pull requests** - Automatically create a PR with your changes for tuple pattern improvements
+3. **Create issues** - Automatically create an issue with your changes for tuple pattern improvements
 
 **Focus Areas for Tuple Pattern Refactoring:**
 - Variables that access both `.first` and `.second` multiple times
@@ -78,13 +76,13 @@ auto [a, b] = f(y);
 return g(a, b);
 ```
 
-**TERTIARY FOCUS: Create Pull Requests for initializer_list Refactoring**
+**TERTIARY FOCUS: Create Issues for initializer_list Refactoring**
 
 Your tertiary task is to identify and implement refactorings that use `std::initializer_list<T>` instead of array pointer + size parameters:
 
 1. **Find array + size parameter patterns** - Functions taking `(unsigned sz, T* args)` or similar
 2. **Implement the refactoring** - Replace with `std::initializer_list<T>` for cleaner APIs
-3. **Create pull requests** - Automatically create a PR with your changes for initializer_list improvements
+3. **Create issues** - Automatically create an issue with your changes for initializer_list improvements
 
 **Focus Areas for initializer_list Refactoring:**
 - Functions with `unsigned sz/size/num, T* const* args` parameter pairs
@@ -202,9 +200,9 @@ For each selected function:
    - Check that the refactoring is complete
    - Ensure no compilation errors would occur
 
-### Step C: Create the Pull Request
+### Step C: Create the Issue
 
-Use the `output.create-pull-request` tool to create a PR with:
+Use the `output.create-issue` tool to create an issue with:
 - **Title**: "Refactor [function_name] to use std::optional"
 - **Description**: 
   - Explain what was changed
@@ -212,7 +210,7 @@ Use the `output.create-pull-request` tool to create a PR with:
   - List all modified files
   - Note any caveats or considerations
 
-**Example PR description:**
+**Example issue description:**
 ```markdown
 # Refactor to use std::optional
 
@@ -319,9 +317,9 @@ For each selected function:
    - Check that the refactoring is complete
    - Ensure no compilation errors would occur
 
-### Step C: Create the Pull Request
+### Step C: Create the Issue
 
-Use the `output.create-pull-request` tool to create a PR with:
+Use the `output.create-issue` tool to create an issue with:
 - **Title**: "Refactor [function_name] to use std::initializer_list"
 - **Description**: 
   - Explain what was changed
@@ -329,7 +327,7 @@ Use the `output.create-pull-request` tool to create a PR with:
   - List all modified files
   - Note any caveats or considerations
 
-**Example PR description:**
+**Example issue description:**
 ```markdown
 # Refactor to use std::initializer_list
 
@@ -534,12 +532,12 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 **Optional Value Patterns:**
 - **PRIMARY TASK**: Functions returning null + using output parameters
 - **ACTION**: Replace with `std::optional<T>` return values using the refactoring workflow above
-- **RESULT**: Create a pull request with the actual code changes (see "Workflow for std::optional Refactoring")
+- **RESULT**: Create an issue with the actual code changes (see "Workflow for std::optional Refactoring")
 
 **Tuple/Pair Access Patterns:**
 - **SECONDARY TASK**: Code accessing `.first` and `.second` on pairs/tuples
 - **ACTION**: Replace with C++17 structured bindings for cleaner, more readable code
-- **RESULT**: Create a pull request with the actual code changes
+- **RESULT**: Create an issue with the actual code changes
 - **Example**:
   ```cpp
   // Before
@@ -630,9 +628,9 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 
 ## Deliverables
 
-### PRIMARY: Pull Request for std::optional Refactoring
+### PRIMARY: Issue for std::optional Refactoring
 
-If you implement std::optional refactoring (following the workflow above), create a pull request using `output.create-pull-request` with:
+If you implement std::optional refactoring (following the workflow above), create an issue using `output.create-issue` with:
 - Clear title indicating what was refactored
 - Description of changes and benefits
 - List of modified files and functions
@@ -864,7 +862,7 @@ For each opportunity, provide:
 - **Incorrect std::move**: [Move from const, unnecessary moves]
 - **Return Value Optimization**: [Places where RVO is blocked]
 
-### 4.8 Optional Value Pattern Modernization - **IMPLEMENT AS PULL REQUEST**
+### 4.8 Optional Value Pattern Modernization - **IMPLEMENT AS ISSUE**
 
 **This is the PRIMARY focus area - implement these changes directly:**
 
@@ -873,12 +871,12 @@ For each opportunity, provide:
 - **Action**: Use the "Workflow for std::optional Refactoring" section above to:
   1. Find candidate functions
   2. Refactor using the `edit` tool
-  3. Create a pull request with your changes
+  3. Create an issue with your changes
 - **API Improvements**: Specific function signatures to update
 - **Examples**: File:line references with before/after code
-- **Output**: Pull request (not just discussion)
+- **Output**: Issue (not just discussion)
 
-### 4.9 Tuple Pattern (Structured Bindings) Modernization - **IMPLEMENT AS PULL REQUEST**
+### 4.9 Tuple Pattern (Structured Bindings) Modernization - **IMPLEMENT AS ISSUE**
 
 **This is a SECONDARY focus area - implement these changes directly:**
 
@@ -893,7 +891,7 @@ For each opportunity, provide:
   1. Search for patterns using `.first` and `.second`
   2. Identify cases where intermediate variable can be eliminated
   3. Refactor to use structured bindings
-  4. Create a pull request with changes
+  4. Create an issue with changes
 - **Example Pattern**:
   ```cpp
   // Before: Using .first and .second
@@ -935,7 +933,7 @@ For each opportunity, provide:
   - Call `.first` and `.second` on the same variable multiple times
   - Create intermediate variables just to access pair members
   - Have sequential uses of both `.first` and `.second`
-- **Output**: Pull request with refactored code
+- **Output**: Issue with refactored code
 
 ### 4.10 Exception String Construction
 - **Current**: [stringstream usage for building exception messages]
@@ -949,7 +947,7 @@ For each opportunity, provide:
 - **Type Safety**: [How span improves API safety]
 - **Examples**: [Function signatures to update]
 
-### 4.12 Array Parameter Modernization (std::initializer_list) - **IMPLEMENT AS PULL REQUEST**
+### 4.12 Array Parameter Modernization (std::initializer_list) - **IMPLEMENT AS ISSUE**
 
 **This is a TERTIARY focus area - implement these changes directly:**
 
@@ -964,7 +962,7 @@ For each opportunity, provide:
   1. Search for functions with `unsigned sz/size/num` + pointer parameters
   2. Identify functions where call sites use temporary arrays of constant size
   3. Refactor to use `std::initializer_list<T> const&`
-  4. Create a pull request with changes
+  4. Create an issue with changes
 - **Example Pattern**:
   ```cpp
   // Before: Array + size parameters
@@ -998,7 +996,7 @@ For each opportunity, provide:
   - Have small, compile-time known array sizes
   - Are internal APIs (not part of public C interface)
   - Would benefit from simpler call syntax
-- **Output**: Pull request with refactored code
+- **Output**: Issue with refactored code
 - **Note**: Only apply to internal C++ APIs, not to public C API functions that need C compatibility
 
 ### 4.13 Increment Operator Patterns
@@ -1319,14 +1317,14 @@ grep pattern: "<<\s*\".*\"\s*<<\s*\".*\"" glob: "src/**/*.cpp"
 - Use `bash` only for safe operations (git, grep patterns)
 - **For std::optional refactoring**: Use the `edit` tool to modify files directly
 - **For other findings**: Create discussions only (no code modifications)
-- All code changes for std::optional will be reviewed through the PR process
+- All code changes for std::optional will be reviewed through the issue process
 
 ## Output Requirements
 
 **Two types of outputs:**
 
-1. **Pull Request** (for std::optional refactoring):
-   - Use `output.create-pull-request` to create a PR
+1. **Issue** (for std::optional refactoring):
+   - Use `output.create-issue` to create an issue
    - Include clear title and description
    - List all modified files
    - Explain the refactoring and its benefits
