@@ -78,6 +78,44 @@ auto [a, b] = f(y);
 return g(a, b);
 ```
 
+**TERTIARY FOCUS: Create Pull Requests for initializer_list Refactoring**
+
+Your tertiary task is to identify and implement refactorings that use `std::initializer_list<T>` instead of array pointer + size parameters:
+
+1. **Find array + size parameter patterns** - Functions taking `(unsigned sz, T* args)` or similar
+2. **Implement the refactoring** - Replace with `std::initializer_list<T>` for cleaner APIs
+3. **Create pull requests** - Automatically create a PR with your changes for initializer_list improvements
+
+**Focus Areas for initializer_list Refactoring:**
+- Functions with `unsigned sz/size/num, T* const* args` parameter pairs
+- Call sites that create temporary arrays of constant length just to pass to these functions
+- Internal APIs where changing the signature is safe and beneficial
+- Functions where the size is always small and known at compile time
+
+**Example refactoring:**
+```cpp
+// Before: Array + size parameters
+R foo(unsigned sz, T const* args) {
+    for (unsigned i = 0; i < sz; ++i) {
+        use(args[i]);
+    }
+}
+
+// Call site before:
+T args1[2] = {1, 2};
+foo(2, args1);
+
+// After: Using initializer_list
+R foo(std::initializer_list<T> const& args) {
+    for (auto const& arg : args) {
+        use(arg);
+    }
+}
+
+// Call site after:
+foo({1, 2});
+```
+
 **Additional Task:**
 Additionally, conduct analysis of other coding conventions and modern C++ opportunities for discussion (not immediate implementation)
 
@@ -201,6 +239,129 @@ This PR refactors the following functions to use `std::optional<T>` instead of p
 ### Step D: Create Discussion for Other Findings
 
 If you identify other code quality issues (naming, formatting, other C++ features), create a **discussion** (not a PR) with those findings using the existing discussion format from the workflow.
+
+## Workflow for initializer_list Refactoring (TERTIARY)
+
+### Step A: Find initializer_list Refactoring Opportunities
+
+1. **Search for common patterns** that should use `std::initializer_list`:
+   ```bash
+   # Functions with unsigned + pointer parameter pairs
+   grep pattern: "unsigned.*sz.*T.*\*.*args|unsigned.*size.*\*|unsigned.*num.*\*" glob: "src/**/*.h"
+   
+   # Specific patterns like mk_ functions with sz + args
+   grep pattern: "mk_[a-z_]+\(unsigned.*\*" glob: "src/**/*.h"
+   
+   # Function declarations with sz/size/num + pointer
+   grep pattern: "\(unsigned (sz|size|num|n)[^,]*,\s*\w+\s*\*\s*const\s*\*" glob: "src/**/*.h"
+   ```
+
+2. **Analyze candidates** for refactoring:
+   - Use `view` to examine the function implementation
+   - Check call sites to see if they use temporary arrays
+   - Verify that the function is internal (not part of public C API)
+   - Ensure the array size is typically small and known at compile time
+   - Confirm that changing to initializer_list would simplify call sites
+
+3. **Select 1-2 high-value targets** per run:
+   - Prefer internal helper functions over widely-used APIs
+   - Choose functions where call sites create temporary arrays
+   - Focus on functions that would benefit from simpler call syntax
+
+### Step B: Implement the Refactoring
+
+For each selected function:
+
+1. **Update the function signature** in header file:
+   ```cpp
+   // Before:
+   R foo(unsigned sz, T const* args);
+   // or
+   R foo(unsigned sz, T* const* args);
+   
+   // After:
+   R foo(std::initializer_list<T> const& args);
+   ```
+
+2. **Update the function implementation**:
+   ```cpp
+   // Before:
+   R foo(unsigned sz, T const* args) {
+       for (unsigned i = 0; i < sz; ++i) {
+           process(args[i]);
+       }
+   }
+   
+   // After:
+   R foo(std::initializer_list<T> const& args) {
+       for (auto const& arg : args) {
+           process(arg);
+       }
+   }
+   // Or access size with args.size() if needed
+   ```
+
+3. **Update all call sites** to use the new API:
+   ```cpp
+   // Before:
+   T args1[2] = {1, 2};
+   foo(2, args1);
+   
+   // After:
+   foo({1, 2});
+   ```
+
+4. **Add necessary includes**:
+   - Add `#include <initializer_list>` to header file if not already present
+
+5. **Verify the changes**:
+   - Use `grep` to find any remaining call sites with the old pattern
+   - Check that the refactoring is complete
+   - Ensure no compilation errors would occur
+
+### Step C: Create the Pull Request
+
+Use the `output.create-pull-request` tool to create a PR with:
+- **Title**: "Refactor [function_name] to use std::initializer_list"
+- **Description**: 
+  - Explain what was changed
+  - Why initializer_list is better (cleaner call sites, type safety)
+  - List all modified files
+  - Note any caveats or considerations
+
+**Example PR description:**
+```markdown
+# Refactor to use std::initializer_list
+
+This PR refactors the following functions to use `std::initializer_list<T>` instead of array pointer + size parameters:
+
+- `mk_and(unsigned sz, expr* const* args)` in `src/ast/some_file.cpp`
+- `mk_or(unsigned sz, expr* const* args)` in `src/ast/another_file.cpp`
+
+## Benefits:
+- Cleaner call sites: `mk_and({a, b, c})` instead of creating temporary arrays
+- Type safety: Size is implicit, no mismatch possible
+- Modern C++ idiom (std::initializer_list is C++11)
+- Compile-time size verification
+
+## Changes:
+- Updated function signatures to take `std::initializer_list<T> const&`
+- Modified implementations to use range-based for loops or `.size()`
+- Updated all call sites to use brace-initialization
+- Added `#include <initializer_list>` where needed
+
+## Testing:
+- No functional changes to logic
+- All existing call sites updated
+
+## Considerations:
+- Only applied to internal functions where call sites typically use small, fixed-size arrays
+- Public C API functions were not modified to maintain compatibility
+```
+
+### Step D: Create Discussion for Other Findings
+
+If you identify other code quality issues, create a **discussion** with those findings.
 
 ## Step 1: Initialize or Resume Progress (Cache Memory)
 
@@ -782,24 +943,76 @@ For each opportunity, provide:
 - **String Copies**: [Unnecessary copies when raising exceptions]
 - **Examples**: [Specific exception construction sites]
 
-### 4.11 Array Parameter Modernization
-- **Current**: [Pointer + size parameter pairs]
+### 4.11 Array Parameter Modernization (std::span)
+- **Current**: [Pointer + size parameter pairs for runtime-sized arrays]
 - **Modern**: [std::span usage opportunities]
 - **Type Safety**: [How span improves API safety]
 - **Examples**: [Function signatures to update]
 
-### 4.12 Increment Operator Patterns
+### 4.12 Array Parameter Modernization (std::initializer_list) - **IMPLEMENT AS PULL REQUEST**
+
+**This is a TERTIARY focus area - implement these changes directly:**
+
+- **Current Pattern**: Functions with `unsigned sz, T* args` or `unsigned sz, T* const* args` parameters
+- **Modern Pattern**: Use `std::initializer_list<T>` for functions called with compile-time constant arrays
+- **Benefits**: 
+  - Cleaner call sites: `foo({1, 2, 3})` instead of creating temporary arrays
+  - No size/pointer mismatch possible
+  - Type safety with implicit size
+  - More readable and concise
+- **Action**: Find and refactor array + size parameter patterns:
+  1. Search for functions with `unsigned sz/size/num` + pointer parameters
+  2. Identify functions where call sites use temporary arrays of constant size
+  3. Refactor to use `std::initializer_list<T> const&`
+  4. Create a pull request with changes
+- **Example Pattern**:
+  ```cpp
+  // Before: Array + size parameters
+  R foo(unsigned sz, T const* args) {
+      for (unsigned i = 0; i < sz; ++i) {
+          process(args[i]);
+      }
+  }
+  
+  // Call site before:
+  T args1[2] = {1, 2};
+  foo(2, args1);
+  
+  // After: Using initializer_list
+  R foo(std::initializer_list<T> const& args) {
+      for (auto const& arg : args) {
+          process(arg);
+      }
+  }
+  
+  // Call site after:
+  foo({1, 2});
+  ```
+- **Search Patterns**: Look for:
+  - Function signatures with `unsigned sz/size/num/n` followed by pointer parameter
+  - Common Z3 patterns like `mk_and(unsigned sz, expr* const* args)`
+  - Internal helper functions (not public C API)
+  - Functions where typical call sites use small, fixed arrays
+- **Candidates**: Functions that:
+  - Are called with temporary arrays created at call site
+  - Have small, compile-time known array sizes
+  - Are internal APIs (not part of public C interface)
+  - Would benefit from simpler call syntax
+- **Output**: Pull request with refactored code
+- **Note**: Only apply to internal C++ APIs, not to public C API functions that need C compatibility
+
+### 4.13 Increment Operator Patterns
 - **Postfix Usage**: [Count of i++ where result is unused]
 - **Prefix Preference**: [Places to use ++i instead]
 - **Iterator Loops**: [Heavy iterator usage areas]
 
-### 4.13 Exception Control Flow
+### 4.14 Exception Control Flow
 - **Current Usage**: [Exceptions used for normal control flow]
 - **Modern Alternatives**: [std::expected, std::optional, error codes]
 - **Performance**: [Impact of exception-based control flow]
 - **Refactoring Opportunities**: [Specific patterns to replace]
 
-### 4.14 Inefficient Stream Output
+### 4.15 Inefficient Stream Output
 - **Current Usage**: [string stream output operator used for single characters]
 - **Modern Alternatives**: [use char output operator]
 - **Performance**: [Reduce code size and improve performance]
@@ -1060,6 +1273,21 @@ grep pattern: "\([^)]*\.first[^)]*\.second[^)]*\)" glob: "src/**/*.cpp"
 **Find pointer + size parameters:**
 ```
 grep pattern: "\([^,]+\*[^,]*,\s*size_t|, unsigned.*size\)" glob: "src/**/*.h"
+```
+
+**Find array + size parameters (initializer_list opportunities):**
+```
+# Functions with unsigned sz/size/num + pointer parameter pairs
+grep pattern: "\(unsigned (sz|size|num|n)[^,)]*,\s*\w+\s*\*\s*(const\s*)?\*" glob: "src/**/*.h"
+
+# Common Z3 patterns like mk_ functions
+grep pattern: "mk_[a-z_]+\(unsigned.*\*" glob: "src/**/*.h"
+
+# Function declarations with size + pointer combinations
+grep pattern: "unsigned.*sz.*\w+.*\*.*args|unsigned.*size.*\*|unsigned.*num.*\*" glob: "src/**/*.h"
+
+# Call sites creating temporary arrays
+grep pattern: "\w+\s+\w+\[[0-9]+\]\s*=\s*\{.*\};" glob: "src/**/*.cpp"
 ```
 
 **Find postfix increment:**
