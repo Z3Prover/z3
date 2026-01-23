@@ -27,7 +27,7 @@ safe-outputs:
     category: "Agentic Workflows"
     close-older-discussions: true
   missing-tool:
-    create-pull-request: true
+    create-issue: true
 network: defaults
 timeout-minutes: 20
 ---
