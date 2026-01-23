@@ -38,20 +38,28 @@ You are an expert C++ code quality analyst specializing in the Z3 theorem prover
 
 ## Your Task
 
-**PRIMARY FOCUS: Create Pull Requests for std::optional Refactoring**
+**PRIMARY FOCUS: Create Pull Requests for Modern C++ Refactorings**
 
-Your primary task is to identify and **directly implement** refactorings that replace pointer-based optional patterns with `std::optional<T>`. This workflow will:
+Your primary task is to identify and **directly implement** refactorings that use modern C++ features to improve code quality. This workflow will:
 
-1. **Find std::optional opportunities** - Functions returning null pointers to indicate absence or using output parameters
+1. **Find refactoring opportunities** - Functions that can benefit from modern C++ features
 2. **Implement the refactoring** - Use the `edit` tool to make actual code changes
-3. **Create pull requests** - Automatically create a PR with your changes for std::optional improvements
+3. **Create pull requests** - Automatically create a PR with your changes
 4. **Create discussions for other findings** - For other code quality issues, create discussions (not PRs)
 
-**Focus Areas for std::optional Refactoring:**
+**Primary Focus Areas for Refactoring:**
+
+### 1. std::optional Refactoring
 - Functions returning `nullptr` to indicate "no value"
 - Functions using output parameters (pointer/reference parameters) to return optional results
 - Boolean return + output parameter patterns (e.g., `bool get_value(T* out)`)
 - APIs that would benefit from explicit optional semantics
+
+### 2. std::initializer_list Refactoring
+- Functions taking pointer + size parameters (e.g., `foo(unsigned sz, T* args)`)
+- Called with temporary arrays of constant length (e.g., `T arr[2] = {1, 2}; foo(2, arr)`)
+- Can be modernized to use `std::initializer_list<T>` for cleaner syntax
+- Benefits: Type safety, compile-time size checking, cleaner call sites
 
 **Secondary Task:**
 Additionally, conduct analysis of other coding conventions and modern C++ opportunities for discussion (not immediate implementation)
@@ -176,6 +184,160 @@ This PR refactors the following functions to use `std::optional<T>` instead of p
 
 If you identify other code quality issues (naming, formatting, other C++ features), create a **discussion** (not a PR) with those findings using the existing discussion format from the workflow.
 
+## Workflow for std::initializer_list Refactoring (PRIMARY)
+
+### Step A: Find std::initializer_list Refactoring Opportunities
+
+1. **Search for common patterns** that should use `std::initializer_list`:
+   ```bash
+   # Functions with pointer + size parameter patterns
+   grep pattern: "\(unsigned\s+\w+,\s*\w+\s*\*" glob: "src/**/*.h"
+   
+   # Functions with const pointer + size patterns
+   grep pattern: "\(unsigned\s+\w+,\s*\w+\s+const\s*\*" glob: "src/**/*.h"
+   
+   # Look for call sites with temporary arrays
+   grep pattern: "\w+\s+\w+\[\d+\]\s*=\s*\{" glob: "src/**/*.cpp"
+   ```
+
+2. **Analyze candidates** for refactoring:
+   - Use `view` to examine the function implementation and call sites
+   - Check if the function is part of the public API or internal
+   - Verify that callers often use constant-length arrays
+   - Look for patterns like: `T arr[N] = {...}; func(N, arr);`
+   - Ensure the function doesn't modify the array (should be const T*)
+   - Confirm that using initializer_list would simplify the API
+
+3. **Select 1-3 high-value targets** per run:
+   - Prefer internal APIs over public APIs (less breaking)
+   - Choose functions with clear constant-length array usage
+   - Focus on functions where the array size is small and known at compile time
+   - Prioritize functions with multiple call sites for broader impact
+
+### Step B: Implement the Refactoring
+
+For each selected function:
+
+1. **Update the function signature** in header file:
+   ```cpp
+   // Before:
+   R foo(unsigned sz, T* args);
+   // or
+   R foo(unsigned sz, T const* args);
+   
+   // After:
+   R foo(std::initializer_list<T> const& args);
+   ```
+
+2. **Update the function implementation**:
+   ```cpp
+   // Before:
+   R foo(unsigned sz, T* args) {
+       for (unsigned i = 0; i < sz; i++) {
+           process(args[i]);
+       }
+   }
+   
+   // After:
+   R foo(std::initializer_list<T> const& args) {
+       for (auto const& arg : args) {
+           process(arg);
+       }
+       // Or access size with: args.size()
+       // Or use std::vector if needed: std::vector<T>(args)
+   }
+   ```
+
+3. **Update all call sites** to use the new API:
+   ```cpp
+   // Before:
+   T args1[2] = {1, 2};
+   foo(2, args1);
+   
+   // After:
+   foo({1, 2});
+   // Or even cleaner if the values are known:
+   foo(1, 2);  // when function signature allows variadic
+   ```
+
+4. **Consider keeping backward compatibility** (optional):
+   - For public APIs, you might want to keep both versions temporarily
+   - Add the initializer_list overload alongside the existing version
+   - Mark the old version as deprecated if appropriate
+
+5. **Verify the changes**:
+   - Use `grep` to find any remaining call sites using the old pattern
+   - Check that the refactoring is complete
+   - Ensure no compilation errors would occur
+   - Verify that the semantics remain unchanged
+
+### Step C: Create the Pull Request
+
+Use the `output.create-pull-request` tool to create a PR with:
+- **Title**: "Refactor [function_name] to use std::initializer_list"
+- **Description**: 
+  - Explain what was changed
+  - Why std::initializer_list is better (type safety, cleaner syntax)
+  - List all modified files
+  - Note any caveats or considerations
+
+**Example PR description:**
+```markdown
+# Refactor to use std::initializer_list
+
+This PR refactors the following functions to use `std::initializer_list<T>` instead of pointer + size parameters:
+
+- `mk_clause()` in `src/sat/sat_solver.h`
+- `add_clause()` in `src/sat/sat_solver_core.h`
+
+## Benefits:
+- Cleaner call syntax (no need to pass array size separately)
+- Compile-time size checking for constant arrays
+- Type safety (can't accidentally pass wrong size)
+- Modern C++11 idiom
+- Eliminates temporary array variables at call sites
+
+## Changes:
+- Updated function signatures to accept `std::initializer_list<T> const&`
+- Modified implementations to iterate over initializer_list
+- Updated all call sites to use brace-initialization syntax
+- Removed temporary array variables where possible
+
+## Example improvement:
+```cpp
+// Before:
+literal lits[3] = {l1, l2, l3};
+mk_clause(3, lits);
+
+// After:
+mk_clause({l1, l2, l3});
+```
+
+## Testing:
+- No functional changes to logic
+- All existing call sites updated
+- Semantics preserved
+```
+
+### Step D: Alternative Approach for Complex Cases
+
+For some cases, `std::initializer_list` may not be the best choice:
+
+1. **When to use `std::span` instead**:
+   - Function needs to modify the array elements
+   - Function is called with existing arrays (not just literals)
+   - Performance-critical code where initializer_list overhead matters
+
+2. **When to keep the original API**:
+   - Public API with many external users
+   - Function is called predominantly with runtime-sized arrays
+   - Array data comes from dynamic sources
+
+3. **When to provide both overloads**:
+   - Both patterns are common in the codebase
+   - Gradual migration is preferred
+   - Public API that needs backward compatibility
+
 ## Step 1: Initialize or Resume Progress (Cache Memory)
 
 **Check your cache memory for:**
@@ -247,6 +409,7 @@ Z3 uses C++20 (as specified in `.clang-format`). Look for opportunities to use:
 - `constexpr` for compile-time constants
 - Delegating constructors
 - In-class member initializers
+- **`std::initializer_list` for array parameters** - **PRIMARY FOCUS: Implement these changes directly (see "Workflow for std::initializer_list Refactoring" section)**
 
 **C++17 features:**
 - Structured bindings for tuple/pair unpacking
@@ -346,10 +509,17 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 
 **Optional Value Patterns:**
 - **PRIMARY TASK**: Functions returning null + using output parameters
-- **ACTION**: Replace with `std::optional<T>` return values using the refactoring workflow above
-- **RESULT**: Create a pull request with the actual code changes (see "Workflow for std::optional Refactoring")
+- **ACTION**: Replace with `std::optional<T>` return values using the refactoring workflow above (see "Workflow for std::optional Refactoring")
+- **RESULT**: Create a pull request with the actual code changes
 
-**Exception String Construction:**
+**Array Parameter Patterns (initializer_list):**
+- **PRIMARY TASK**: Functions taking pointer + size parameters (e.g., `unsigned sz, T* args`)
+- **PATTERN**: Called with temporary constant-length arrays (e.g., `T arr[2] = {1, 2}; foo(2, arr)`)
+- **ACTION**: Replace with `std::initializer_list<T>` using the refactoring workflow (see "Workflow for std::initializer_list Refactoring")
+- **BENEFITS**: Cleaner call syntax, type safety, no separate size parameter
+- **RESULT**: Create a pull request with the actual code changes
+
+**Move Semantics:**
 - Using `stringstream` to build exception messages
 - Unnecessary string copies when raising exceptions
 - Replace with `std::format` for cleaner, more efficient code
@@ -682,11 +852,34 @@ For each opportunity, provide:
 - **String Copies**: [Unnecessary copies when raising exceptions]
 - **Examples**: [Specific exception construction sites]
 
-### 4.10 Array Parameter Modernization
-- **Current**: [Pointer + size parameter pairs]
-- **Modern**: [std::span usage opportunities]
-- **Type Safety**: [How span improves API safety]
-- **Examples**: [Function signatures to update]
+### 4.10 Array Parameter Modernization - **IMPLEMENT AS PULL REQUEST**
+
+**This is a PRIMARY focus area - implement these changes directly:**
+
+- **Pattern 1: Constant-length array parameters** → `std::initializer_list<T>`
+  - **Current Pattern**: Functions taking `(unsigned sz, T* args)` or `(unsigned sz, T const* args)`
+  - **Modern Pattern**: `std::initializer_list<T> const&` for constant-length arrays
+  - **Action**: Use the "Workflow for std::initializer_list Refactoring" section above to:
+    1. Find candidate functions with pointer + size parameters
+    2. Identify call sites using temporary constant-length arrays
+    3. Refactor using the `edit` tool
+    4. Create a pull request with your changes
+  - **When to Use**: Functions commonly called with compile-time constant arrays
+  - **Call Site Improvement**: 
+    ```cpp
+    // Before: T args[3] = {a, b, c}; foo(3, args);
+    // After:  foo({a, b, c});
+    ```
+  - **Output**: Pull request (not just discussion)
+
+- **Pattern 2: Dynamic array views** → `std::span`
+  - **Current Pattern**: Pointer + size parameter pairs for runtime-sized arrays
+  - **Modern Pattern**: `std::span<T>` or `std::span<const T>` for array views
+  - **Type Safety**: How span improves API safety
+  - **When to Use**: Functions that work with existing arrays of dynamic size
+  - **Note**: This is currently discussion-only (not PRIMARY focus)
+  
+- **Examples**: Function signatures to update with file:line references
 
 ### 4.11 Increment Operator Patterns
 - **Postfix Usage**: [Count of i++ where result is unused]
@@ -937,7 +1130,19 @@ grep pattern: "bool.*\(.*\*.*\)|bool.*\(.*&" glob: "src/**/*.h"
 
 **Find pointer + size parameters:**
 ```
-grep pattern: "\([^,]+\*[^,]*,\s*size_t|, unsigned.*size\)" glob: "src/**/*.h"
+grep pattern: "\(unsigned\s+\w+,\s*\w+\s*\*" glob: "src/**/*.h"
+grep pattern: "\(unsigned\s+\w+,\s*\w+\s+const\s*\*" glob: "src/**/*.h"
+```
+
+**Find temporary array initializations (potential initializer_list call sites):**
+```
+grep pattern: "\w+\s+\w+\[\d+\]\s*=\s*\{" glob: "src/**/*.cpp"
+grep pattern: "^\s*\w+\s+\w+\[\d+\]\s*=.*;" glob: "src/**/*.cpp"
+```
+
+**Find existing initializer_list usage (for consistency):**
+```
+grep pattern: "initializer_list" glob: "src/**/*.{h,cpp}"
 ```
 
 **Find postfix increment:**
