@@ -1914,7 +1914,7 @@ app * ast_manager::mk_app(family_id fid, decl_kind k, unsigned num_args, expr * 
 }
 
 app * ast_manager::mk_app(family_id fid, decl_kind k, std::span<expr* const> args) {
-    return mk_app(fid, k, 0, nullptr, args.size(), args.data());
+    return mk_app(fid, k, 0, nullptr, static_cast<unsigned>(args.size()), args.data());
 }
 
 app * ast_manager::mk_app(family_id fid, decl_kind k, expr * arg) {
