@@ -256,8 +256,6 @@ For each selected function:
    
    // After:
    foo({1, 2});
-   // Or even cleaner if the values are known:
-   foo(1, 2);  // when function signature allows variadic
    ```
 
 4. **Consider keeping backward compatibility** (optional):
@@ -520,6 +518,11 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 - **RESULT**: Create a pull request with the actual code changes
 
 **Move Semantics:**
+- Places where `std::move` is needed but missing
+- Incorrect usage of `std::move` (moving from const references, etc.)
+- Return value optimization opportunities being blocked
+
+**Exception String Construction:**
 - Using `stringstream` to build exception messages
 - Unnecessary string copies when raising exceptions
 - Replace with `std::format` for cleaner, more efficient code
