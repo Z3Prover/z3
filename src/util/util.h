@@ -362,7 +362,7 @@ public:
 
 template<typename T>
 void shuffle(std::span<T> array, random_gen & gen) {
-    int n = array.size();
+    auto n = array.size();
     while (--n > 0) {
         int k = gen() % (n + 1);
         std::swap(array[n], array[k]);
