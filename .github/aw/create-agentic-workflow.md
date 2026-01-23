@@ -304,7 +304,7 @@ safe-outputs:
 ---
 
 <!-- Edit the file linked below to modify the agent without recompilation. Feel free to move the entire markdown body to that file. -->
-@./agentics/<workflow-id>.md
+{{#runtime-import agentics/<workflow-id>.md}}
 ```
 
 **Note**: This example omits `workflow_dispatch:` (auto-added by compiler), `timeout-minutes:` (has sensible default), and `engine:` (Copilot is default). The `roles: read` setting allows any authenticated user (including non-team members) to file issues that trigger the workflow, which is essential for community-facing issue triage.
