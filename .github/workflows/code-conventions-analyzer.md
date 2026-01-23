@@ -22,12 +22,6 @@ safe-outputs:
     labels: [code-quality, automated]
     draft: true
     if-no-changes: ignore
-  create-discussion:
-    title-prefix: "Code Conventions Analysis"
-    category: "Agentic Workflows"
-    close-older-discussions: true
-  missing-tool:
-    create-issue: true
 network: defaults
 timeout-minutes: 20
 ---
@@ -38,25 +32,27 @@ You are an expert C++ code quality analyst specializing in the Z3 theorem prover
 
 ## Your Task
 
-**PRIMARY FOCUS: Create Pull Requests for std::optional Refactoring**
+**Create Pull Requests for Code Quality Improvements**
 
-Your primary task is to identify and **directly implement** refactorings that replace pointer-based optional patterns with `std::optional<T>`. This workflow will:
+Your task is to identify and **directly implement** code quality improvements, focusing on refactorings that modernize the codebase. This workflow will:
 
-1. **Find std::optional opportunities** - Functions returning null pointers to indicate absence or using output parameters
+1. **Find improvement opportunities** - Identify code patterns that can be modernized
 2. **Implement the refactoring** - Use the `edit` tool to make actual code changes
-3. **Create pull requests** - Automatically create a PR with your changes for std::optional improvements
-4. **Create discussions for other findings** - For other code quality issues, create discussions (not PRs)
+3. **Create pull requests** - Automatically create a PR with your changes
 
-**Focus Areas for std::optional Refactoring:**
-- Functions returning `nullptr` to indicate "no value"
-- Functions using output parameters (pointer/reference parameters) to return optional results
-- Boolean return + output parameter patterns (e.g., `bool get_value(T* out)`)
+**Focus Areas for Refactoring:**
+- Functions returning `nullptr` to indicate "no value" → use `std::optional<T>`
+- Functions using output parameters (pointer/reference parameters) to return optional results → use `std::optional<T>`
+- Boolean return + output parameter patterns (e.g., `bool get_value(T* out)`) → use `std::optional<T>`
 - APIs that would benefit from explicit optional semantics
+- Other modern C++ improvements that can be implemented with low risk
 
-**Secondary Task:**
-Additionally, conduct analysis of other coding conventions and modern C++ opportunities for discussion (not immediate implementation)
+**CRITICAL - Output Requirements:**
+- **ONLY create pull requests with actual code changes**
+- **DO NOT create GitHub issues or discussions with analysis reports**
+- **Include all analysis and findings in the PR description itself**
 
-## Workflow for std::optional Refactoring (PRIMARY)
+## Workflow for std::optional Refactoring
 
 ### Step A: Find std::optional Refactoring Opportunities
 
@@ -172,36 +168,13 @@ This PR refactors the following functions to use `std::optional<T>` instead of p
 - All existing call sites updated
 ```
 
-### Step D: Create Discussion for Other Findings
+### Step D: Include Additional Findings in PR Description
 
-If you identify other code quality issues (naming, formatting, other C++ features), create a **discussion** (not a PR) with those findings using the existing discussion format from the workflow.
-
-## Step 1: Initialize or Resume Progress (Cache Memory)
-
-**Check your cache memory for:**
-- List of code quality issues previously identified
-- Current progress through the codebase analysis
-- Any recommendations or work items from previous runs
-
-**Critical - Re-verify All Cached Issues:**
-
-Before including any previously cached issue in your report, you **MUST**:
-
-1. **Re-verify each cached issue** against the current codebase
-2. **Check if the issue has been resolved** since the last run:
-   - Use `grep`, `glob`, `view`, or `bash` to inspect the relevant code
-   - Check git history with `git log` to see if the files were updated
-   - Verify that the pattern or issue still exists
-3. **Categorize each cached issue** as:
-   - ✅ **RESOLVED**: Code has been updated and issue no longer exists
-   - 🔄 **IN PROGRESS**: Partial fixes have been applied
-   - ❌ **UNRESOLVED**: Issue still exists unchanged
-4. **Remove resolved issues** from your cache and report
-5. **Update partially resolved issues** with current state
-
-**Important:** If this is your first run or memory is empty, initialize a new tracking structure. Focus on systematic coverage of the codebase over multiple runs rather than attempting to analyze everything at once.
+If you identify other code quality issues during your analysis (naming, formatting, other C++ features), include a brief summary in your PR description under an "Additional Observations" section. **Remember: Create pull requests with code changes, not analysis reports as separate issues or discussions.**
 
 ## Analysis Areas
+
+When searching for refactoring opportunities, consider these areas of code quality improvement:
 
 ### 1. Coding Convention Consistency
 
@@ -251,7 +224,7 @@ Z3 uses C++20 (as specified in `.clang-format`). Look for opportunities to use:
 **C++17 features:**
 - Structured bindings for tuple/pair unpacking
 - `if constexpr` for compile-time conditionals
-- **`std::optional` instead of pointer-based optional values** - **PRIMARY FOCUS: Implement these changes directly (see "Workflow for std::optional Refactoring" section near the beginning of this document)**
+- **`std::optional` instead of pointer-based optional values** - **PRIMARY FOCUS: Implement these changes directly using the refactoring workflow above**
 - `std::string_view` for string parameters
 - Fold expressions for variadic templates
 - `[[nodiscard]]` and `[[maybe_unused]]` attributes
@@ -347,7 +320,7 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 **Optional Value Patterns:**
 - **PRIMARY TASK**: Functions returning null + using output parameters
 - **ACTION**: Replace with `std::optional<T>` return values using the refactoring workflow above
-- **RESULT**: Create a pull request with the actual code changes (see "Workflow for std::optional Refactoring")
+- **RESULT**: Create a pull request with the actual code changes
 
 **Exception String Construction:**
 - Using `stringstream` to build exception messages
@@ -392,16 +365,8 @@ Identify opportunities specific to Z3's architecture and coding patterns:
    - `src/api/` - Public API surface
    - `src/tactic/` - Tactics and simplifiers (good for m_imp pattern analysis)
    - Use `glob` to find representative source files
-   - **Prioritize areas** not yet analyzed (check cache memory)
 
-2. **Re-verify previously identified issues** (if any exist in cache):
-   - For each cached issue, check current code state
-   - Use `git log` to see recent changes to relevant files
-   - Verify with `grep`, `glob`, or `view` that the issue still exists
-   - Mark issues as resolved, in-progress, or unresolved
-   - Only include unresolved issues in the new report
-
-3. **Use code search tools** effectively:
+2. **Use code search tools** effectively:
    - `grep` with patterns to find specific code constructs
    - `glob` to identify file groups for analysis
    - `view` to examine specific files in detail
@@ -414,390 +379,60 @@ Identify opportunities specific to Z3's architecture and coding patterns:
        - bugprone-* (selected high-signal checks)
        - performance-* (selected)
 
-4. **Identify patterns** by examining multiple files:
+3. **Identify patterns** by examining multiple files:
    - Look at 10-15 representative files per major area
    - Note common patterns vs inconsistencies
    - Check both header (.h) and implementation (.cpp) files
    - Use `sizeof` and field alignment to analyze struct sizes
 
-5. **Quantify findings**:
+4. **Quantify findings**:
    - Count occurrences of specific patterns
    - Identify which areas are most affected
    - Prioritize findings by impact and prevalence
    - Measure potential size savings for memory layout optimizations
 
-## Deliverables
-
-### PRIMARY: Pull Request for std::optional Refactoring
-
-If you implement std::optional refactoring (following the workflow above), create a pull request using `output.create-pull-request` with:
+When you implement code refactoring, create a pull request using `output.create-pull-request` with:
 - Clear title indicating what was refactored
 - Description of changes and benefits
 - List of modified files and functions
+- Any additional code quality observations found during analysis
 
-### SECONDARY: Detailed Analysis Discussion
-
-For other code quality findings (non-std::optional), create a comprehensive discussion with your findings structured as follows:
-
-### Discussion Title
-"Code Conventions Analysis - [Date] - [Key Finding Summary]"
-
-### Discussion Body Structure
+**Example PR Description:**
 
 ```markdown
-# Code Conventions Analysis Report
+# Refactor to use std::optional
 
-**Analysis Date**: [Current Date]
-**Files Examined**: ~[number] files across key directories
+This PR refactors the following functions to use `std::optional<T>` instead of pointer-based optional patterns:
 
-## Executive Summary
+- `get_value()` in `src/util/some_file.cpp`
+- `find_item()` in `src/ast/another_file.cpp`
 
-[Brief overview of key findings - 2-3 sentences]
+## Benefits:
+- Explicit optional semantics (no nullptr checks needed)
+- Type safety (can't forget to check for absence)
+- Modern C++17 idiom
 
-## Progress Tracking Summary
+## Changes:
+- Updated function signatures to return `std::optional<T>`
+- Modified implementations to return `std::nullopt` instead of `nullptr`
+- Updated all call sites to use optional idioms
 
-**This section tracks work items across multiple runs:**
+## Additional Observations:
+- Found 5 other similar patterns in `src/smt/` that could benefit from this refactoring
+- Noted several empty destructors that could be simplified with `= default`
 
-### Previously Identified Issues - Status Update
-
-**✅ RESOLVED Issues** (since last run):
-- [List issues from cache that have been resolved, with brief description]
-- [Include file references and what changed]
-- [Note: Only include if re-verification confirms resolution]
-- If none: "No previously identified issues have been resolved since the last run"
-
-**🔄 IN PROGRESS Issues** (partial fixes applied):
-- [List issues where some improvements have been made but work remains]
-- [Show what's been done and what's left]
-- If none: "No issues are currently in progress"
-
-**❌ UNRESOLVED Issues** (still present):
-- [Brief list of issues that remain from previous runs]
-- [Will be detailed in sections below]
-- If none or first run: "This is the first analysis run" or "All previous issues resolved"
-
-### New Issues Identified in This Run
-
-[Count of new issues found in this analysis]
-
-## 1. Coding Convention Consistency Findings
-
-### 1.1 Naming Conventions
-- **Current State**: [What you observed]
-- **Inconsistencies Found**: [List specific examples with file:line references]
-- **Status**: [New / Previously Identified - Unresolved]
-- **Recommendation**: [Suggested standard to adopt]
-
-### 1.2 Code Formatting
-- **Alignment with .clang-format**: [Assessment]
-- **Common Deviations**: [List patterns that deviate from style guide]
-- **Status**: [New / Previously Identified - Unresolved]
-- **Files Needing Attention**: [List specific files or patterns]
-
-### 1.3 Documentation Style
-- **Current Practices**: [Observed documentation patterns]
-- **Inconsistencies**: [Examples of different documentation approaches]
-- **Status**: [New / Previously Identified - Unresolved]
-- **Recommendation**: [Suggested documentation standard]
-
-### 1.4 Include Patterns
-- **Header Guard Usage**: `#pragma once` vs traditional guards
-- **Include Order**: [Observed patterns]
-- **Status**: [New / Previously Identified - Unresolved]
-- **Recommendations**: [Suggested improvements]
-
-### 1.5 Error Handling
-- **Current Approaches**: [Exception usage, return codes, assertions]
-- **Consistency Assessment**: [Are patterns consistent across modules?]
-- **Status**: [New / Previously Identified - Unresolved]
-- **Recommendations**: [Suggested standards]
-
-## 2. Modern C++ Feature Opportunities
-
-For each opportunity, provide:
-- **Feature**: [Name of C++ feature]
-- **Current Pattern**: [What's used now with examples]
-- **Modern Alternative**: [How it could be improved]
-- **Impact**: [Benefits: readability, safety, performance]
-- **Example Locations**: [File:line references]
-- **Status**: [New / Previously Identified - Unresolved]
-- **Estimated Effort**: [Low/Medium/High]
-
-### 2.1 C++11/14 Features
-
-#### Opportunity: [Feature Name]
-- **Current**: `[code example]` in `src/path/file.cpp:123`
-- **Modern**: `[improved code example]`
-- **Benefit**: [Why this is better]
-- **Prevalence**: Found in [number] locations
-- **Status**: [New / Previously Identified - Unresolved]
-
-[Repeat for each opportunity]
-
-### 2.2 C++17 Features
-
-[Same structure as above]
-
-### 2.3 C++20 Features
-
-[Same structure as above]
-
-## 3. Standard Library Usage Opportunities
-
-### 3.1 Algorithm Usage
-- **Custom Implementations**: [Examples of reinvented algorithms]
-- **Standard Alternatives**: [Which std algorithms could be used]
-
-### 3.2 Container Patterns
-- **Current**: [Custom containers or patterns]
-- **Standard**: [Standard library alternatives]
-
-### 3.3 Memory Management
-- **Manual Patterns**: [Raw pointers, manual new/delete]
-- **RAII Opportunities**: [Where smart pointers could help]
-
-### 3.4 Value Clamping
-- **Current**: [Manual min/max comparisons]
-- **Modern**: [`std::clamp` usage opportunities]
-
-## 4. Z3-Specific Code Quality Opportunities
-
-### 4.1 Constructor/Destructor Optimization
-
-#### 4.1.1 Empty Constructor Analysis
-- **Truly Empty Constructors**: Constructors with completely empty bodies
-  - Count: [Number of `ClassName() {}` patterns]
-  - Recommendation: Replace with `= default` or remove if compiler can generate
-  - Examples: [File:line references]
-- **Constructors with Only Member Initializers**: Constructors that could use in-class initializers
-  - Pattern: `ClassName() : m_member(value) {}`
-  - Recommendation: Move initialization to class member declaration if appropriate
-  - Examples: [File:line references]
-- **Default Value Constructors**: Constructors that only set members to default values
-  - Pattern: Constructor setting pointers to nullptr, ints to 0, bools to false
-  - Recommendation: Use in-class member initializers and `= default`
-  - Examples: [File:line references]
-
-#### 4.1.2 Empty Destructor Analysis
-- **Non-Virtual Empty Destructors**: Destructors with empty bodies in non-polymorphic classes
-  - Count: [Number of `~ClassName() {}` patterns without virtual]
-  - Recommendation: Remove or use `= default` to reduce binary size
-  - Examples: [File:line references]
-- **Virtual Empty Destructors**: Empty virtual destructors in base classes
-  - Count: [Number found]
-  - Recommendation: Keep explicit (required for polymorphism), but ensure `= default` or add comment
-  - Examples: [File:line references]
-
-#### 4.1.3 Non-Virtual Destructor Safety Analysis
-- **Classes with Virtual Methods but Non-Virtual Destructors**: Potential polymorphism issues
-  - Pattern: Class has virtual methods but destructor is not virtual
-  - Risk: If used polymorphically, may cause undefined behavior
-  - Count: [Number of classes]
-  - Examples: [File:line references with class hierarchy info]
-- **Base Classes without Virtual Destructors**: Classes that might be inherited from
-  - Check: Does class have derived classes in codebase?
-  - Recommendation: Add virtual destructor if inheritance is intended, or mark class `final`
-  - Examples: [File:line references]
-- **Leaf Classes with Unnecessary Virtual Destructors**: Final classes with virtual destructors
-  - Pattern: Class marked `final` but has `virtual ~ClassName()`
-  - Recommendation: Remove `virtual` keyword (minor optimization)
-  - Examples: [File:line references]
-
-#### 4.1.4 Missing noexcept Analysis
-- **Non-Default Constructors without noexcept**: Constructors that don't throw
-  - Pattern: Explicit constructors without `noexcept` specification
-  - Recommendation: Add `noexcept` if constructor doesn't throw
-  - Count: [Number found]
-  - Examples: [File:line references]
-- **Non-Virtual Destructors without noexcept**: Destructors should be noexcept by default
-  - Pattern: Non-virtual destructors without explicit `noexcept`
-  - Recommendation: Add explicit `noexcept` for clarity (or rely on implicit)
-  - Note: Destructors are implicitly noexcept, but explicit is clearer
-  - Count: [Number found]
-  - Examples: [File:line references]
-- **Virtual Destructors without noexcept**: Virtual destructors that should be noexcept
-  - Pattern: `virtual ~ClassName()` without `noexcept`
-  - Recommendation: Add `noexcept` for exception safety guarantees
-  - Count: [Number found]
-  - Examples: [File:line references]
-
-#### 4.1.5 Compiler-Generated Special Members
-- **Classes with Explicit Rule of 3/5**: Classes that define some but not all special members
-  - Rule of 5: Constructor, Destructor, Copy Constructor, Copy Assignment, Move Constructor, Move Assignment
-  - Recommendation: Either define all or use `= default`/`= delete` appropriately
-  - Examples: [File:line references]
-- **Impact**: [Code size reduction potential, compile time improvements]
-
-### 4.2 Implementation Pattern (m_imp) Analysis
-- **Current Usage**: [Files using m_imp pattern for internal-only classes]
-- **Opportunity**: [Classes that could use anonymous namespace instead]
-- **Criteria**: Classes only exported through builder/factory functions
-- **Examples**: [Specific simplifiers, transformers, utility classes]
-
-### 4.3 Memory Layout Optimization
-- **POD Candidates**: [Classes that can be made POD]
-- **Field Reordering**: [Classes with padding that can be reduced]
-- **Size Analysis**: [Use static_assert + sizeof results]
-- **Bitfield Opportunities**: [Structs with bool flags or small integers]
-- **Estimated Savings**: [Total size reduction across codebase]
-
-### 4.4 AST Creation Efficiency and Determinism
-- **Redundant Creation**: [Examples of rebuilding same expression multiple times]
-- **Temporary Usage**: [Places where temporaries could be cached and order of creation determinized]
-- **Impact**: [Performance improvement potential and determinism across platforms]
-
-### 4.5 Hash Table Operation Optimization
-- **Double Lookups**: [Check existence + insert/get patterns]
-- **Single Lookup Pattern**: [How to use Z3's hash table APIs efficiently]
-- **Examples**: [Specific files and patterns]
-- **Performance Impact**: [Lookup reduction potential]
-
-### 4.6 Custom Smart Pointer Opportunities
-- **Manual Deallocation**: [Code manually calling custom allocator free]
-- **RAII Wrapper Needed**: [Where custom smart pointer would help]
-- **Simplification**: [Code that would be cleaner with auto cleanup]
-
-### 4.7 Move Semantics Analysis
-- **Missing std::move**: [Returns/assignments that should use move]
-- **Incorrect std::move**: [Move from const, unnecessary moves]
-- **Return Value Optimization**: [Places where RVO is blocked]
-
-### 4.8 Optional Value Pattern Modernization - **IMPLEMENT AS PULL REQUEST**
-
-**This is the PRIMARY focus area - implement these changes directly:**
-
-- **Current Pattern**: Functions returning null + output parameters
-- **Modern Pattern**: `std::optional<T>` return value opportunities
-- **Action**: Use the "Workflow for std::optional Refactoring" section above to:
-  1. Find candidate functions
-  2. Refactor using the `edit` tool
-  3. Create a pull request with your changes
-- **API Improvements**: Specific function signatures to update
-- **Examples**: File:line references with before/after code
-- **Output**: Pull request (not just discussion)
-
-### 4.9 Exception String Construction
-- **Current**: [stringstream usage for building exception messages]
-- **Modern**: [std::format and std::formater opportunities]
-- **String Copies**: [Unnecessary copies when raising exceptions]
-- **Examples**: [Specific exception construction sites]
-
-### 4.10 Array Parameter Modernization
-- **Current**: [Pointer + size parameter pairs]
-- **Modern**: [std::span usage opportunities]
-- **Type Safety**: [How span improves API safety]
-- **Examples**: [Function signatures to update]
-
-### 4.11 Increment Operator Patterns
-- **Postfix Usage**: [Count of i++ where result is unused]
-- **Prefix Preference**: [Places to use ++i instead]
-- **Iterator Loops**: [Heavy iterator usage areas]
-
-### 4.12 Exception Control Flow
-- **Current Usage**: [Exceptions used for normal control flow]
-- **Modern Alternatives**: [std::expected, std::optional, error codes]
-- **Performance**: [Impact of exception-based control flow]
-- **Refactoring Opportunities**: [Specific patterns to replace]
-
-### 4.13 Inefficient Stream Output
-- **Current Usage**: [string stream output operator used for single characters]
-- **Modern Alternatives**: [use char output operator]
-- **Performance**: [Reduce code size and improve performance]
-- **Refactoring Opportunities**: [<< "X"]
-
-## 5. Priority Recommendations
-
-Ranked list of improvements by impact and effort:
-
-1. **[Recommendation Title]** - [Impact: High/Medium/Low] - [Effort: High/Medium/Low]
-   - Description: [What to do]
-   - Rationale: [Why this matters]
-   - Affected Areas: [Where to apply]
-
-[Continue ranking...]
-
-## 6. Sample Refactoring Examples
-
-Provide 3-5 concrete examples of recommended refactorings:
-
-### Example 1: [Title]
-**Location**: `src/path/file.cpp:123-145`
-
-**Current Code**:
-\`\`\`cpp
-[Show current implementation]
-\`\`\`
-
-**Modernized Code**:
-\`\`\`cpp
-[Show improved implementation]
-\`\`\`
-
-**Benefits**: [List improvements]
-
-[Repeat for other examples]
-
-## 7. Next Steps
-
-- [ ] Review and prioritize these recommendations
-- [ ] Create focused issues for high-priority items
-- [ ] Consider updating coding standards documentation
-- [ ] Plan incremental refactoring efforts
-- [ ] Consider running automated refactoring tools (e.g., clang-tidy)
-
-## Appendix: Analysis Statistics
-
-- **Total files examined**: [number]
-- **Source directories covered**: [list]
-- **Lines of code reviewed**: ~[estimate]
-- **Pattern occurrences counted**: [key patterns with counts]
-- **Issues resolved since last run**: [number]
-- **New issues identified**: [number]
-- **Total unresolved issues**: [number]
+## Testing:
+- No functional changes to logic
+- All existing call sites updated
 ```
-
-## Step 2: Update Cache Memory After Analysis
-
-After completing your analysis and creating the discussion, **update your cache memory** with:
-
-1. **Remove resolved issues** from the cache:
-   - Delete any issues that have been verified as resolved
-   - Do not carry forward stale information
-
-2. **Store only unresolved issues** for next run:
-   - Each issue should include:
-     - Description of the issue
-     - File locations (paths and line numbers if applicable)
-     - Pattern or code example
-     - Recommendation for fix
-     - Date last verified
-
-3. **Track analysis progress**:
-   - Which directories/areas have been analyzed
-   - Which analysis categories have been covered
-   - Percentage of codebase examined
-   - Next areas to focus on
-
-4. **Store summary statistics**:
-   - Total issues identified (cumulative)
-   - Total issues resolved
-   - Current unresolved count
-   - Analysis run count
-
-**Critical:** Keep your cache clean and current. The cache should only contain:
-- Unresolved issues verified in the current run
-- Areas not yet analyzed
-- Progress tracking information
-
-Do NOT perpetuate resolved issues in the cache. Always verify before storing.
 
 ## Important Guidelines
 
-- **Track progress across runs**: Use cache memory to maintain state between runs
-- **Always re-verify cached issues**: Check that previously identified issues still exist before reporting them
-- **Report resolved work items**: Acknowledge when issues have been fixed to show progress
-- **Be thorough but focused**: Examine a representative sample, not every file
-- **Provide specific examples**: Always include file paths and line numbers
+- **Make actual code changes**: Focus on implementing refactorings, not just documenting findings
+- **Create pull requests for all changes**: Use `output.create-pull-request` to submit your work
+- **Include analysis in PR descriptions**: Put observations and findings in the PR description, not in separate issues or discussions
+- **Be thorough but focused**: Examine representative samples, not every file
+- **Provide specific examples**: Always include file paths and line numbers in PR descriptions
 - **Balance idealism with pragmatism**: Consider the effort required for changes
 - **Respect existing patterns**: Z3 has evolved over time; some patterns exist for good reasons
 - **Focus on high-impact changes**: Prioritize improvements that enhance:
@@ -813,7 +448,6 @@ Do NOT perpetuate resolved issues in the cache. Always verify before storing.
 - **Measure size improvements**: Use `static_assert` and `sizeof` to verify memory layout optimizations
 - **Prioritize safety**: Smart pointers, `std::optional`, and `std::span` improve type safety
 - **Consider performance**: Hash table optimizations and AST caching have measurable impact
-- **Keep cache current**: Remove resolved issues from cache, only store verified unresolved items
 
 ## Code Search Examples
 
@@ -963,27 +597,27 @@ grep pattern: "<<\s*\".\"" glob: "src/**/*.cpp"
 grep pattern: "<<\s*\".*\"\s*<<\s*\".*\"" glob: "src/**/*.cpp"
 ```
 
-## Security and Safety
-
-- Never execute untrusted code
-- Use `bash` only for safe operations (git, grep patterns)
-- **For std::optional refactoring**: Use the `edit` tool to modify files directly
-- **For other findings**: Create discussions only (no code modifications)
-- All code changes for std::optional will be reviewed through the PR process
-
 ## Output Requirements
 
-**Two types of outputs:**
+Create pull requests with code changes using `output.create-pull-request`:
 
-1. **Pull Request** (for std::optional refactoring):
-   - Use `output.create-pull-request` to create a PR
-   - Include clear title and description
-   - List all modified files
-   - Explain the refactoring and its benefits
+**Pull Request Requirements:**
+- **Title**: Clear, specific title indicating what was refactored (e.g., "[Conventions] Refactor counter::get_max_positive to use std::optional")
+- **Description**: Include:
+  - Summary of changes made
+  - Rationale and benefits
+  - List of modified files and key functions
+  - Testing notes (how changes were validated)
+  - Any additional code quality observations noted during analysis
 
-2. **Discussion** (for other code quality findings):
-   - Create exactly ONE comprehensive discussion with all findings
-   - Use the structured format above
-   - Include specific file references for all examples
-   - Provide actionable recommendations
-- Previous discussions created by this workflow will be automatically closed (using `close-older-discussions: true`)
+**DO NOT:**
+- Create GitHub issues with analysis reports
+- Create GitHub discussions with analysis summaries
+- Create summary documents of code quality findings
+
+**DO:**
+- Focus on making actual code changes
+- Create pull requests with those changes
+- Include any relevant analysis in the PR description itself
+
+All code changes will be reviewed through the PR process before merging.
