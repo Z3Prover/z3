@@ -143,7 +143,7 @@ After fixing all errors:
 3. **Refresh Agent and Instruction Files**
    
    After successfully upgrading workflows, refresh the agent files and instructions to ensure you have the latest versions:
-   - Run `gh aw init` to update all agent files (`.github/agents/*.md`) and instruction files (`.github/aw/github-agentic-workflows.md`)
+   - Run `gh aw init --push` to update all agent files (`.github/agents/*.md`) and instruction files (`.github/aw/github-agentic-workflows.md`), then automatically commit and push the changes
    - This ensures that agents and instructions are aligned with the new gh-aw version
    - The command will preserve your existing configuration while updating to the latest templates
 
@@ -190,12 +190,12 @@ Upgraded all agentic workflows to gh-aw version [VERSION].
 - ✅ No compilation errors or warnings
 
 ### Post-Upgrade Steps
-- ✅ Refreshed agent files and instructions with `gh aw init`
+- ✅ Refreshed agent files and instructions with `gh aw init --push`
 
 ## Files Changed
 - Updated `.md` workflow files: [LIST]
 - Generated `.lock.yml` files: [LIST]
-- Updated agent files: [LIST] (if `gh aw init` was run)
+- Updated agent files: [LIST] (if `gh aw init --push` was run)
 ```
 
 ### If Compilation Errors Cannot Be Fixed

@@ -100,8 +100,6 @@ When a user interacts with you:
 3. **Follow the loaded prompt's instructions** exactly
 4. **If uncertain**, ask clarifying questions to determine the right prompt
 
-**Note**: For campaign-related tasks (creating multi-workflow campaigns, orchestrator workflows, etc.), use the `agentic-campaigns` agent instead.
-
 ## Quick Reference
 
 ```bash
