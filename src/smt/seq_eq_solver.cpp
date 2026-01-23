@@ -150,7 +150,8 @@ bool theory_seq::has_len_offset(expr_ref_vector const& ls, expr_ref_vector const
         return true;
     }
 
-    if (m_offset_eq.find(root1, root2, offset)) {
+    if (auto opt_offset = m_offset_eq.find(root1, root2)) {
+        offset = *opt_offset;
         TRACE(seq, tout << "(" << mk_pp(l_fst, m) << ", " << mk_pp(r_fst,m) << " " << offset << ")\n";);
         return true;
     }

@@ -21,6 +21,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "smt/smt_theory.h"
+#include <optional>
 
 namespace smt {
 
@@ -43,9 +44,10 @@ namespace smt {
         bool empty() const { return m_offset_equalities.empty(); }
         /**
            \brief determine if r1 = r2 + offset
+           \return optional containing the offset if found, nullopt otherwise
          */
-        bool find(enode* r1, enode* r2, int& offset) const;
-        bool contains(enode* r1, enode* r2) const { int offset = 0; return find(r1, r2, offset); }
+        std::optional<int> find(enode* r1, enode* r2) const;
+        bool contains(enode* r1, enode* r2) const { return find(r1, r2).has_value(); }
         bool contains(enode* r);
         bool propagate();
         void pop_scope_eh(unsigned num_scopes);
