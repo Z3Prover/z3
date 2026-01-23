@@ -23,15 +23,16 @@ Read the ENTIRE content of this file carefully before proceeding. Follow the ins
 - `compile` → compile all workflows
 - `compile <workflow-name>` → compile a specific workflow
 
-:::note[Command Execution]
-When running in GitHub Copilot Cloud, you don't have direct access to `gh aw` CLI commands. Instead, use the **agentic-workflows** MCP tool:
-- `fix` tool → apply automatic codemods to fix deprecated fields
-- `compile` tool → compile workflows
-
-When running in other environments with `gh aw` CLI access, prefix commands with `gh aw` (e.g., `gh aw compile`).
-
-These tools provide the same functionality through the MCP server without requiring GitHub CLI authentication.
-:::
+> [!NOTE]
+> **Command Execution**
+>
+> When running in GitHub Copilot Cloud, you don't have direct access to `gh aw` CLI commands. Instead, use the **agentic-workflows** MCP tool:
+> - `fix` tool → apply automatic codemods to fix deprecated fields
+> - `compile` tool → compile workflows
+>
+> When running in other environments with `gh aw` CLI access, prefix commands with `gh aw` (e.g., `gh aw compile`).
+>
+> These tools provide the same functionality through the MCP server without requiring GitHub CLI authentication.
 
 ## Instructions
 
