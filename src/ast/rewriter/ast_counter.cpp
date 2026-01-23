@@ -49,21 +49,18 @@ void counter::collect_positive(uint_set & acc) const {
             acc.insert(kv.m_key); 
 }
 
-bool counter::get_max_positive(unsigned & res) const {
-    bool found = false;
+std::optional<unsigned> counter::get_max_positive() const {
+    std::optional<unsigned> result;
     for (auto const& kv : *this) {
-        if (kv.m_value > 0 && (!found || kv.m_key > res) ) { 
-            found = true;
-            res = kv.m_key;
+        if (kv.m_value > 0 && (!result || kv.m_key > *result)) {
+            result = kv.m_key;
         }
     }
-    return found;
+    return result;
 }
 
-unsigned counter::get_max_positive() const {
-    unsigned max_pos;
-    VERIFY(get_max_positive(max_pos));
-    return max_pos;
+unsigned counter::get_max_positive_or_zero() const {
+    return get_max_positive().value_or(0);
 }
 
 int counter::get_max_counter_value() const {

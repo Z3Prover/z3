@@ -382,9 +382,9 @@ namespace datalog {
 
         rule_counter ctr;
         ctr.count_rule_vars(r);
-        unsigned max_var_idx, new_var_idx_base;
-        if (ctr.get_max_positive(max_var_idx)) {
-            new_var_idx_base = max_var_idx+1;
+        unsigned new_var_idx_base;
+        if (auto max_var_idx = ctr.get_max_positive()) {
+            new_var_idx_base = *max_var_idx + 1;
         }
         else {
             new_var_idx_base = 0;
