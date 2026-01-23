@@ -712,7 +712,7 @@ namespace datalog {
     rule * mk_explanations::get_e_rule(rule * r) {
         rule_counter ctr;
         ctr.count_rule_vars(r);
-        unsigned next_var = ctr.get_max_positive().transform([](unsigned v) { return v + 1; }).value_or(0);
+        unsigned next_var = ctr.get_max_positive().has_value() ? (ctr.get_max_positive().value() + 1) : 0;
         unsigned head_var = next_var++;
         app_ref e_head(get_e_lit(r->get_head(), head_var), m_manager);
 
