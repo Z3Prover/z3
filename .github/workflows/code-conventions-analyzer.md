@@ -1037,7 +1037,8 @@ grep pattern: "\.first" glob: "src/**/*.{cpp,h}"
 # Find .second usage
 grep pattern: "\.second" glob: "src/**/*.{cpp,h}"
 
-# Find variables used with both .first and .second (good candidates)
+# Find variables used with both .first and .second on same line (high-value candidates)
+# Note: This only matches single-line patterns; use separate .first/.second searches for comprehensive coverage
 grep pattern: "[a-z_]+\.first.*[a-z_]+\.second" glob: "src/**/*.cpp"
 
 # Find iterator dereferencing with .first or .second
