@@ -831,8 +831,6 @@ jobs:
              
              // After:
              foo({1, 2});
-             // Or even cleaner if the values are known:
-             foo(1, 2);  // when function signature allows variadic
              ```
           
           4. **Consider keeping backward compatibility** (optional):
@@ -1049,9 +1047,9 @@ jobs:
           - Redundant AST creation calls (rebuilding same expression multiple times)
           - Opportunities to cache and reuse AST node references
           - Use of temporaries instead of repeated construction
+          - **Nested API calls with non-deterministic argument evaluation**
           PROMPT_EOF
           cat << 'PROMPT_EOF' >> "$GH_AW_PROMPT"
-          - **Nested API calls with non-deterministic argument evaluation**
             - Detect expressions where multiple arguments to an API call are themselves API calls
             - C++ does **not guarantee evaluation order of function arguments**, which can lead to:
               - Platform-dependent performance differences
@@ -1097,6 +1095,11 @@ jobs:
           - **RESULT**: Create a pull request with the actual code changes
           
           **Move Semantics:**
+          - Places where `std::move` is needed but missing
+          - Incorrect usage of `std::move` (moving from const references, etc.)
+          - Return value optimization opportunities being blocked
+          
+          **Exception String Construction:**
           - Using `stringstream` to build exception messages
           - Unnecessary string copies when raising exceptions
           - Replace with `std::format` for cleaner, more efficient code
@@ -1436,10 +1439,10 @@ jobs:
           - **Pattern 1: Constant-length array parameters** → `std::initializer_list<T>`
             - **Current Pattern**: Functions taking `(unsigned sz, T* args)` or `(unsigned sz, T const* args)`
             - **Modern Pattern**: `std::initializer_list<T> const&` for constant-length arrays
-            - **Action**: Use the "Workflow for std::initializer_list Refactoring" section above to:
-              1. Find candidate functions with pointer + size parameters
           PROMPT_EOF
           cat << 'PROMPT_EOF' >> "$GH_AW_PROMPT"
+            - **Action**: Use the "Workflow for std::initializer_list Refactoring" section above to:
+              1. Find candidate functions with pointer + size parameters
               2. Identify call sites using temporary constant-length arrays
               3. Refactor using the `edit` tool
               4. Create a pull request with your changes
