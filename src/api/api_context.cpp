@@ -252,7 +252,7 @@ namespace api {
             save_ast_trail(exprs[0]);
             return exprs[0];
         default: {
-            expr * a = m().mk_and(num_exprs, exprs);
+            expr * a = m().mk_and(std::span<expr* const>(exprs, num_exprs));
             save_ast_trail(a);
             return a;
         } }

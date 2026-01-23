@@ -170,6 +170,6 @@ br_status datatype_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & resul
     for (unsigned i = 0; i < num; ++i) {            
         eqs.push_back(m().mk_eq(to_app(lhs)->get_arg(i), to_app(rhs)->get_arg(i)));
     }
-    result = m().mk_and(eqs.size(), eqs.data());
+    result = m().mk_and(std::span<expr* const>(eqs.data(), eqs.size()));
     return BR_REWRITE2;
 }

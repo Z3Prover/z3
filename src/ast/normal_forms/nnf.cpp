@@ -470,7 +470,7 @@ struct nnf::imp {
         }
         app * r;
         if (m.is_and(t) == fr.m_pol)
-            r = m.mk_and(t->get_num_args(), m_result_stack.data() + fr.m_spos);
+            r = m.mk_and(std::span<expr* const>(m_result_stack.data() + fr.m_spos, t->get_num_args()));
         else
             r = m.mk_or(t->get_num_args(), m_result_stack.data() + fr.m_spos);
         
@@ -524,7 +524,7 @@ struct nnf::imp {
         if (fr.m_pol)
             r = m.mk_or(2, m_result_stack.data() + fr.m_spos);
         else
-            r = m.mk_and(2, m_result_stack.data() + fr.m_spos);
+            r = m.mk_and(std::span<expr* const>(m_result_stack.data() + fr.m_spos, 2));
         
         m_result_stack.shrink(fr.m_spos);
         m_result_stack.push_back(r);
