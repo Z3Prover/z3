@@ -486,7 +486,7 @@ namespace datalog {
         DEBUG_CODE(
             counter ctr;
             ctr.count(permutation);
-            SASSERT(permutation.empty() || ctr.get_max_positive()==permutation.size()-1);
+            SASSERT(permutation.empty() || ctr.get_max_positive().value_or(0)==permutation.size()-1);
             SASSERT(permutation.empty() || ctr.get_positive_count()==permutation.size());
             );
         unsigned sz = permutation.size();
