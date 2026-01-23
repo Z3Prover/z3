@@ -208,6 +208,7 @@ namespace nla {
 
         void propagate();
         bool decide(); 
+        bool repair();
         lbool search();
         lbool resolve_conflict();
         void backtrack(lp::constraint_index ci, svector<lp::constraint_index> const &deps);
@@ -228,14 +229,6 @@ namespace nla {
         void retrieve_interval(scoped_dep_interval &out, dd::pdd const &p);
         void retrieve_interval(scoped_dep_interval &out, lpvar v);
 
-        void set_conflict(lp::constraint_index ci) {
-            m_conflict = ci;
-        }
-        void set_conflict_var(lpvar v) { 
-            m_conflict_dep.push_back(lo_constraint(v));
-            m_conflict_dep.push_back(hi_constraint(v));
-            m_conflict = resolve_variable(v, lo_constraint(v), hi_constraint(v));
-        }
         void reset_conflict() { m_conflict = lp::null_ci; m_conflict_dep.reset(); }
         bool is_conflict() const { return !m_conflict_dep.empty(); }
         bool is_decision(justification const& j) const { return std::holds_alternative<assumption_justification>(j); }
@@ -260,12 +253,12 @@ namespace nla {
         vector<dd::pdd> m_parent_trail;
         vector<vector<dd::pdd>> m_parents;
         vector<vector<factor_prop>> m_factors;
-        vector<dd::pdd> m_polynomial_queue;
+        vector<std::pair<dd::pdd, lp::constraint_index>> m_polynomial_queue;
         unsigned_vector m_interval_trail;
         unsigned_vector m_factor_trail;
         unsigned_vector m_parent_constraints_trail;
         vector<svector<lp::constraint_index>> m_parent_constraints;
-        vector<scoped_ptr_vector<dep_interval>> m_intervals;
+        vector<ptr_vector<dep_interval>> m_intervals;
         bool_vector m_is_parent;
 
         void push_bound(lp::constraint_index ci);
@@ -356,7 +349,7 @@ namespace nla {
         bool is_better(dep_interval const &new_iv, dep_interval const &old_iv);      
         bool update_interval(dep_interval const &new_iv, dd::pdd const &p);
         dep_interval const &get_interval(dd::pdd const &p);
-        void propagate_intervals(dd::pdd const &p);
+        void propagate_intervals(dd::pdd const &p, lp::constraint_index ci);
         void propagate_constraint(lpvar x, lp::lconstraint_kind k, rational const &value, lp::constraint_index ci, svector<lp::constraint_index> &cs);
 
         // constraints

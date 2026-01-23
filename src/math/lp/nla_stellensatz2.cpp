@@ -147,6 +147,13 @@ namespace nla {
             pop_propagation(m_bounds.size());
         }
         m_constraint_index.reset();
+        for (auto & ivs : m_intervals) {
+            for (auto iv : ivs) {
+                m_di.del(*iv);
+                dealloc(iv);
+            }
+            ivs.reset();
+        }
     }
 
     void stellensatz2::init_solver() {
@@ -514,7 +521,8 @@ namespace nla {
         auto new_ci = add(ci, p_is_0);
         TRACE(arith, display_constraint(tout << "j" << x << " ", ci);
                      display_constraint(tout << "reduced ", new_ci);
-                     display_constraint(tout, p_is_0));       
+                     display_constraint(tout, p_is_0));  
+        new_ci = factor(new_ci);
         return new_ci;
     }
 
@@ -966,6 +974,8 @@ namespace nla {
                 is_sat = resolve_conflict();
             else if (should_propagate())
                 propagate();
+            else if (repair())
+                continue;
             else if (!decide())
                 is_sat = l_true;
         }
@@ -1025,12 +1035,13 @@ namespace nla {
     //     
     lbool stellensatz2::resolve_conflict() {
         SASSERT(is_conflict());
-        TRACE(arith, tout << "resolving conflict: "; display_constraint(tout, m_conflict); display(tout););
+        TRACE(arith, tout << "resolving conflict: " << m_conflict_dep << "\n"; display_constraint(tout, m_conflict);
+              display(tout););
 
         m_conflict_marked_ci.reset();
         unsigned conflict_level = 0;
         for (auto ci : m_conflict_dep) {
-            mark_dependencies(ci);
+            m_conflict_marked_ci.insert(ci);
             conflict_level = std::max(conflict_level, m_levels[ci]);
         }
 
@@ -1046,7 +1057,7 @@ namespace nla {
 
             mark_dependencies(ci);
             m_conflict_marked_ci.remove(ci);
-            m_conflict = resolve(m_conflict, ci);
+            //m_conflict = resolve(m_conflict, ci);
             if (conflict_level == 0)
                 m_core.push_back(ci);
 
@@ -1056,14 +1067,16 @@ namespace nla {
                   tout << "is_decision: " << found_decision << "\n"; display_constraint(tout, ci);
                   tout << "new conflict: "; display_constraint(tout, m_conflict););
         }
-        SASSERT(found_decision == (conflict_level != 0));
+        #if 0
         if (constraint_is_conflict(m_conflict)) {
             TRACE(arith, tout << "Conflict " << m_conflict << "\n");
             m_core.push_back(m_conflict);
             reset_conflict();
             return l_false;
         }
-        if (conflict_level == 0) {
+        #endif
+        SASSERT(found_decision == (conflict_level != 0));
+        if (!found_decision) {
             for (auto ci : m_conflict_marked_ci)
                 m_core.push_back(ci);            
             reset_conflict();
@@ -1348,17 +1361,9 @@ namespace nla {
    
     //
     // Attempt to repair variables in some order
-    // If hitting a variable that cannot be repaired, create a decision based on the value conflict.
-    // Attempts to repair a variable can result in a new conflict obtained from vanishing polynomials
-    // or conflicting bounds. The conflicts are assumed to contain variables of lower levels and
-    // repair of those constraints are re-attempted.
-    // If a variable is in a false constraint that cannot be repaired, pick a non-fixed
-    // variable from the constraint and tighten its bound.
     // 
-    bool stellensatz2::decide() {
-        rational value;
-        lp::lconstraint_kind k;       
-        lpvar w;
+    
+    bool stellensatz2::repair() {
 
         init_levels();
         unsigned num_fixed = 0;
@@ -1366,9 +1371,10 @@ namespace nla {
         unsigned num_rounds = 0;
         unsigned max_rounds = num_levels * 5;
         unsigned constraint_lim = m_constraints.size();
+        unsigned constraint_size = m_constraints.size();
         m_tabu.reset();
         for (unsigned level = 0; level < num_levels && c().reslim().inc() && num_rounds < max_rounds; ++level) {
-            w = m_level2var[level];
+            lpvar w = m_level2var[level];
             ++num_rounds;
             lp::constraint_index conflict = repair_variable(w);
             TRACE(arith, display_constraint(tout << "repair lvl:" << level << " v" << w << ": ", conflict)
@@ -1392,29 +1398,47 @@ namespace nla {
 
             auto p = m_constraints[conflict].p;
             SASSERT(!p.free_vars().empty());
-            if (!p.free_vars().contains(w)) 
+            if (!p.free_vars().contains(w))
                 // backtrack decision to max variable in ci
-                level = std::min(max_level(m_constraints[conflict]) - 1, level);           
+                level = std::min(max_level(m_constraints[conflict]) - 1, level);
         }
-
-        if (m_num_scopes < 4 && find_split(w, value, k)) {        
-            SASSERT(k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::GE);
-            bool is_upper = k == lp::lconstraint_kind::LE;
-            SASSERT(!is_upper || !has_lo(w) || lo_val(w) <= value);
-            SASSERT( is_upper || !has_hi(w) || hi_val(w) >= value);
-            add_constraint(pddm.mk_var(w) - value, k, assumption_justification());
-            m_values[w] = value;
-            TRACE(arith, tout << "decide v" << w << " " << k << " " << value << "\n");
-            IF_VERBOSE(3, verbose_stream() << "decide v" << w << " " << k << " " << value << "\n");
-            SASSERT(in_bounds(w));
-            SASSERT(well_formed_var(w));
-            SASSERT(well_formed_last_bound());
-            ++c().lp_settings().stats().m_stellensatz.m_num_decisions;
-            // verbose_stream() << "split " << m_num_scopes << "\n";
+        if (num_rounds >= max_rounds)
+            return false;
+        if (constraint_size < m_constraints.size()) {
+            // TODO check sat wrt linear constraints
             return true;
         }
-
         return false;
+    }
+    // If hitting a variable that cannot be repaired, create a decision based on the value conflict.
+    // Attempts to repair a variable can result in a new conflict obtained from vanishing polynomials
+    // or conflicting bounds. The conflicts are assumed to contain variables of lower levels and
+    // repair of those constraints are re-attempted.
+    // If a variable is in a false constraint that cannot be repaired, pick a non-fixed
+    // variable from the constraint and tighten its bound.
+    // 
+    bool stellensatz2::decide() {
+
+        rational value;
+        lp::lconstraint_kind k;
+        lpvar w;
+        if (!find_split(w, value, k))
+            return false;
+
+        SASSERT(k == lp::lconstraint_kind::LE || k == lp::lconstraint_kind::GE);
+        bool is_upper = k == lp::lconstraint_kind::LE;
+        SASSERT(!is_upper || !has_lo(w) || lo_val(w) <= value);
+        SASSERT(is_upper || !has_hi(w) || hi_val(w) >= value);
+        add_constraint(pddm.mk_var(w) - value, k, assumption_justification());
+        m_values[w] = value;
+        TRACE(arith, tout << "decide v" << w << " " << k << " " << value << "\n");
+        IF_VERBOSE(3, verbose_stream() << "decide v" << w << " " << k << " " << value << "\n");
+        SASSERT(in_bounds(w));
+        SASSERT(well_formed_var(w));
+        SASSERT(well_formed_last_bound());
+        ++c().lp_settings().stats().m_stellensatz.m_num_decisions;
+        // verbose_stream() << "split " << m_num_scopes << "\n";
+        return true;
     }
 
     unsigned stellensatz2::max_level(constraint const &c) const {
@@ -1789,8 +1813,10 @@ namespace nla {
                 found = true;
             }
         }
-        if (found)
+        if (found) {
             ++m_split_count[v];
+            IF_VERBOSE(1, verbose_stream() << "split v" << v << " " << m_split_count[v] << "\n");
+        }
         return found;
     }
 
@@ -1923,7 +1949,7 @@ namespace nla {
         out << "Polynomial queue (qhead=" << m_prop_qhead << "):\n";
         for (unsigned i = 0; i < m_polynomial_queue.size(); ++i) {
             out << "  [" << i << "]" << (i < m_prop_qhead ? " (processed)" : "") << " "
-            << m_polynomial_queue[i] << "\n";
+            << m_polynomial_queue[i].first << "\n";
         }
         
         // Display intervals
@@ -2220,32 +2246,12 @@ namespace nla {
 
         // 2 new bound is added, then update intervals and queue up for propagation
         auto const &b = m_bounds[ci];
-        auto &m = m_di.num_manager();
-        scoped_dep_interval new_iv(m_di);
-        bool is_strict = k == lp::lconstraint_kind::GT;
 
-        if (b.q.is_var()) {
-            auto const &iv = get_interval(b.q);
-            m_di.set_lower_is_inf(new_iv, false);
-            m_di.set_lower(new_iv, b.m_value);
-            m_di.set_lower_is_open(new_iv, is_strict);
-            m_di.set_lower_dep(new_iv, b.d);
-            if (!iv.m_upper_inf)
-               m_di.copy_upper_bound<dep_intervals::with_deps>(iv, new_iv);
-            if (update_interval(new_iv, b.q))
-                m_polynomial_queue.push_back(b.q);
-        }
-        if (b.mq.is_var()) {
-            auto const &iv = get_interval(b.mq);
-            m_di.set_upper_is_inf(new_iv, false);
-            m_di.set_upper_is_open(new_iv, is_strict);
-            m_di.set_upper_dep(new_iv, b.d);
-            m_di.set_upper(new_iv, -b.m_value);
-            if (!iv.m_lower_inf)
-                m_di.copy_lower_bound<dep_intervals::with_deps>(iv, new_iv);
-            if (update_interval(new_iv, b.mq))
-                m_polynomial_queue.push_back(b.mq);
-        }
+        if (b.q.is_var()) 
+            m_polynomial_queue.push_back({b.q, ci});        
+        else if (b.mq.is_var()) 
+            m_polynomial_queue.push_back({b.mq, ci});
+        
     }
 
     void stellensatz2::insert_parents(dd::pdd const &p, lp::constraint_index ci) {
@@ -2305,7 +2311,10 @@ namespace nla {
         }
 
         while (m_interval_trail.size() > s.interval_lim) {
-            auto p_index = m_interval_trail.back();
+            auto p_index = m_interval_trail.back(); 
+            auto iv = m_intervals[p_index].back();
+            m_di.del(*iv);
+            dealloc(iv);
             m_intervals[p_index].pop_back();
             m_interval_trail.pop_back();
         }
@@ -2314,8 +2323,10 @@ namespace nla {
     }
       
     void stellensatz2::propagate() {
-        while (m_prop_qhead < m_polynomial_queue.size() && !is_conflict() && c().reslim().inc()) 
-            propagate_intervals(m_polynomial_queue[m_prop_qhead++]);        
+        while (m_prop_qhead < m_polynomial_queue.size() && !is_conflict() && c().reslim().inc()) {
+            auto [p, ci] = m_polynomial_queue[m_prop_qhead++];
+            propagate_intervals(p, ci);
+        }
     }
 
     bool stellensatz2::is_better(dep_interval const &new_iv, dep_interval const &old_iv) {
@@ -2351,7 +2362,7 @@ namespace nla {
 
     bool stellensatz2::update_interval(dep_interval const &new_iv, dd::pdd const &p) {
         SASSERT(!p.is_val());
-        // SASSERT(!m_di.is_empty(new_iv));
+        SASSERT(!m_di.is_empty(new_iv));
         auto &old_iv = get_interval(p);
 
         if (!is_better(new_iv, old_iv))
@@ -2363,13 +2374,47 @@ namespace nla {
         return true;
     }
 
-    void stellensatz2::propagate_intervals(dd::pdd const &p) {
-        auto const &ivp = get_interval(p);
-        if (m_di.is_empty(ivp)) {
-            m_conflict_dep.reset();
-            m_dm.linearize(ivp.m_lower_dep, m_conflict_dep);
-            m_dm.linearize(ivp.m_upper_dep, m_conflict_dep);
+    void stellensatz2::propagate_intervals(dd::pdd const &p, lp::constraint_index ci) {
+        if (is_conflict())
             return;
+        if (ci != lp::null_ci) {
+            auto [poly, k] = m_constraints[ci];
+            auto const &b = m_bounds[ci];
+            auto &m = m_di.num_manager();
+            scoped_dep_interval new_iv(m_di);
+            bool is_strict = k == lp::lconstraint_kind::GT;
+            if (p == b.q) {
+                auto const &iv = get_interval(b.q);
+                m_di.set_lower_is_inf(new_iv, false);
+                m_di.set_lower(new_iv, b.m_value);
+                m_di.set_lower_is_open(new_iv, is_strict);
+                m_di.set_lower_dep(new_iv, b.d);
+                if (!iv.m_upper_inf)
+                    m_di.copy_upper_bound<dep_intervals::with_deps>(iv, new_iv);
+                if (m_di.is_empty(new_iv)) {
+                    m_dm.linearize(new_iv->m_lower_dep, m_conflict_dep);
+                    m_dm.linearize(new_iv->m_upper_dep, m_conflict_dep);
+                    return;
+                }
+                if (!update_interval(new_iv, b.q))
+                    return;
+            }
+            else {
+                auto const &iv = get_interval(b.mq);
+                m_di.set_upper_is_inf(new_iv, false);
+                m_di.set_upper_is_open(new_iv, is_strict);
+                m_di.set_upper_dep(new_iv, b.d);
+                m_di.set_upper(new_iv, -b.m_value);
+                if (!iv.m_lower_inf)
+                    m_di.copy_lower_bound<dep_intervals::with_deps>(iv, new_iv);
+                if (m_di.is_empty(new_iv)) {
+                    m_dm.linearize(new_iv->m_lower_dep, m_conflict_dep);
+                    m_dm.linearize(new_iv->m_upper_dep, m_conflict_dep);
+                    return;
+                }
+                if (!update_interval(new_iv, b.mq))
+                    return;
+            }
         }
 
         // check constraints
@@ -2394,20 +2439,25 @@ namespace nla {
             svector<lp::constraint_index> cs;
             if (constraint_is_propagating(iv_p, iv_mq, x, cs, k, value))
                 propagate_constraint(x, k, value, ci, cs);
+            if (is_conflict())
+                return;
         }
 
         // for each parent of p, propagate updated intervals
         m_parents.reserve(p.index() + 1);
         for (auto parent : m_parents[p.index()]) {
             SASSERT(!parent.is_val());
+            SASSERT(!is_conflict());
             scoped_dep_interval new_iv(m_di);
             auto &x = get_interval(pddm.mk_var(parent.var()));
             auto &lo = get_interval(parent.lo());
             auto &hi = get_interval(parent.hi());
+            SASSERT(!m_di.is_empty(x));
+            SASSERT(!m_di.is_empty(lo));
+            SASSERT(!m_di.is_empty(hi));
             calculate_interval(new_iv, x, lo, hi);
             if (update_interval(new_iv, parent))
-                m_polynomial_queue.push_back(parent);
+                m_polynomial_queue.push_back({parent, lp::null_ci});
         }
-
     }
 }
