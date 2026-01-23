@@ -827,8 +827,8 @@ jobs:
              # Specific patterns like mk_ functions with sz + args
              grep pattern: "mk_[a-z_]+\(unsigned.*\*" glob: "src/**/*.h"
              
-             # Function declarations with sz/size/num + pointer (more specific)
-             grep pattern: "\(unsigned (sz|size|num|n)[^,)]*,\s*\w+\s*\*\s*(const\s*)?\*" glob: "src/**/*.h"
+             # Function declarations with sz/size/num + pointer (more specific, matches both single and double pointers)
+             grep pattern: "\(unsigned (sz|size|num|n)[^,)]*,\s*\w+\s*\*(\s*const)?\s*\*?" glob: "src/**/*.h"
              ```
           
           2. **Analyze candidates** for refactoring:
@@ -1053,9 +1053,9 @@ jobs:
             - Classes with virtual functions but non-virtual destructors (potential issue)
             - Base classes without virtual destructors (check if inheritance is intended)
             - Non-virtual destructors missing `noexcept` (should be added)
-            - Leaf classes with unnecessary virtual destructors (minor overhead)
           PROMPT_EOF
           cat << 'PROMPT_EOF' >> "$GH_AW_PROMPT"
+            - Leaf classes with unnecessary virtual destructors (minor overhead)
           - Missing `noexcept` on non-default constructors and destructors
           - Opportunities to use compiler-generated special members (`= default`, `= delete`)
           
@@ -1451,9 +1451,9 @@ jobs:
             1. Find candidate functions
             2. Refactor using the `edit` tool
             3. Create a pull request with your changes
-          - **API Improvements**: Specific function signatures to update
           PROMPT_EOF
           cat << 'PROMPT_EOF' >> "$GH_AW_PROMPT"
+          - **API Improvements**: Specific function signatures to update
           - **Examples**: File:line references with before/after code
           - **Output**: Pull request (not just discussion)
           
@@ -1856,8 +1856,8 @@ jobs:
           
           **Find array + size parameters (initializer_list opportunities):**
           ```
-          # Functions with unsigned sz/size/num + pointer parameter pairs
-          grep pattern: "\(unsigned (sz|size|num|n)[^,)]*,\s*\w+\s*\*\s*(const\s*)?\*" glob: "src/**/*.h"
+          # Functions with unsigned sz/size/num + pointer parameter pairs (matches both single and double pointers)
+          grep pattern: "\(unsigned (sz|size|num|n)[^,)]*,\s*\w+\s*\*(\s*const)?\s*\*?" glob: "src/**/*.h"
           
           # Common Z3 patterns like mk_ functions
           grep pattern: "mk_[a-z_]+\(unsigned.*\*" glob: "src/**/*.h"
@@ -1915,6 +1915,8 @@ jobs:
              - Use the structured format above
              - Include specific file references for all examples
              - Provide actionable recommendations
+          PROMPT_EOF
+          cat << 'PROMPT_EOF' >> "$GH_AW_PROMPT"
           - Previous discussions created by this workflow will be automatically closed (using `close-older-discussions: true`)
           
           PROMPT_EOF

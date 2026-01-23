@@ -252,8 +252,8 @@ If you identify other code quality issues (naming, formatting, other C++ feature
    # Specific patterns like mk_ functions with sz + args
    grep pattern: "mk_[a-z_]+\(unsigned.*\*" glob: "src/**/*.h"
    
-   # Function declarations with sz/size/num + pointer (more specific)
-   grep pattern: "\(unsigned (sz|size|num|n)[^,)]*,\s*\w+\s*\*\s*(const\s*)?\*" glob: "src/**/*.h"
+   # Function declarations with sz/size/num + pointer (more specific, matches both single and double pointers)
+   grep pattern: "\(unsigned (sz|size|num|n)[^,)]*,\s*\w+\s*\*(\s*const)?\s*\*?" glob: "src/**/*.h"
    ```
 
 2. **Analyze candidates** for refactoring:
@@ -1277,8 +1277,8 @@ grep pattern: "\([^,]+\*[^,]*,\s*size_t|, unsigned.*size\)" glob: "src/**/*.h"
 
 **Find array + size parameters (initializer_list opportunities):**
 ```
-# Functions with unsigned sz/size/num + pointer parameter pairs
-grep pattern: "\(unsigned (sz|size|num|n)[^,)]*,\s*\w+\s*\*\s*(const\s*)?\*" glob: "src/**/*.h"
+# Functions with unsigned sz/size/num + pointer parameter pairs (matches both single and double pointers)
+grep pattern: "\(unsigned (sz|size|num|n)[^,)]*,\s*\w+\s*\*(\s*const)?\s*\*?" glob: "src/**/*.h"
 
 # Common Z3 patterns like mk_ functions
 grep pattern: "mk_[a-z_]+\(unsigned.*\*" glob: "src/**/*.h"
