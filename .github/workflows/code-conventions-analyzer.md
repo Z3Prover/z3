@@ -745,17 +745,23 @@ For each opportunity, provide:
   ```
 - **Another Example**:
   ```cpp
-  // Before: Accessing pair members
+  // Before: Accessing pair members via iterator
   auto result = map.find(key);
   if (result != map.end()) {
       use_key(result->first);
       use_value(result->second);
   }
   
-  // After: Structured bindings in range-for or with explicit names
+  // After: Structured bindings to access pair
   auto it = map.find(key);
   if (it != map.end()) {
       auto& [k, v] = *it;
+      use_key(k);
+      use_value(v);
+  }
+  
+  // Or for range-based loops (eliminates iterator entirely):
+  for (auto& [k, v] : map) {
       use_key(k);
       use_value(v);
   }
@@ -1037,9 +1043,9 @@ grep pattern: "\.first" glob: "src/**/*.{cpp,h}"
 # Find .second usage
 grep pattern: "\.second" glob: "src/**/*.{cpp,h}"
 
-# Find variables used with both .first and .second on same line (high-value candidates)
-# Note: This only matches single-line patterns; use separate .first/.second searches for comprehensive coverage
-grep pattern: "[a-z_]+\.first.*[a-z_]+\.second" glob: "src/**/*.cpp"
+# Find same variable used with both .first and .second on same line (high-value candidates)
+# Note: This only matches single-line patterns where the same var is used; use separate .first/.second searches for comprehensive coverage
+grep pattern: "([a-z_]+)\.first.*\1\.second" glob: "src/**/*.cpp"
 
 # Find iterator dereferencing with .first or .second
 grep pattern: "->first|->second" glob: "src/**/*.cpp"
@@ -1047,8 +1053,8 @@ grep pattern: "->first|->second" glob: "src/**/*.cpp"
 # Find return statements using .first and .second
 grep pattern: "return.*\.first.*\.second" glob: "src/**/*.cpp"
 
-# Find function calls with .first and .second as arguments
-grep pattern: "\(.*\.first.*\.second.*\)" glob: "src/**/*.cpp"
+# Find function calls with .first and .second as arguments (focused pattern)
+grep pattern: "\([^)]*\.first[^)]*\.second[^)]*\)" glob: "src/**/*.cpp"
 ```
 
 **Find pointer + size parameters:**
