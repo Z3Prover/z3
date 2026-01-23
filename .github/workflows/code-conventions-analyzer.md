@@ -1172,19 +1172,22 @@ grep pattern: "<<\s*\".*\"\s*<<\s*\".*\"" glob: "src/**/*.cpp"
 
 - Never execute untrusted code
 - Use `bash` only for safe operations (git, grep patterns)
-- **For std::optional refactoring**: Use the `edit` tool to modify files directly
+- **For std::optional and std::initializer_list refactoring**: Use the `edit` tool to modify files directly
 - **For other findings**: Create discussions only (no code modifications)
-- All code changes for std::optional will be reviewed through the PR process
+- All code changes will be reviewed through the PR process
 
 ## Output Requirements
 
 **Two types of outputs:**
 
-1. **Pull Request** (for std::optional refactoring):
+1. **Pull Request** (for std::optional and std::initializer_list refactoring):
    - Use `output.create-pull-request` to create a PR
    - Include clear title and description
    - List all modified files
    - Explain the refactoring and its benefits
+   - Examples: 
+     - "Refactor [function_name] to use std::optional"
+     - "Refactor [function_name] to use std::initializer_list"
 
 2. **Discussion** (for other code quality findings):
    - Create exactly ONE comprehensive discussion with all findings
