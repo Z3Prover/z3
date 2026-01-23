@@ -386,7 +386,7 @@ namespace datalog {
             }
             counter ctr;
             ctr.count(key_len, key_cols);
-            if (ctr.get_max_counter_value()!=1 || ctr.get_max_positive()!=non_func_cols-1) {
+            if (ctr.get_max_counter_value()!=1 || ctr.get_max_positive().value_or(0)!=non_func_cols-1) {
                 return false;
             }
             SASSERT(ctr.get_positive_count() == non_func_cols);
@@ -467,7 +467,7 @@ namespace datalog {
         //Maybe we might keep a list of indexes that contain functional columns and on an update reset 
         //only those.
         SASSERT(key_len == 0 || 
-            counter().count(key_len, key_cols).get_max_positive()<get_signature().first_functional());
+            counter().count(key_len, key_cols).get_max_positive().value_or(0)<get_signature().first_functional());
 #endif
         key_spec kspec;
         kspec.append(key_len, key_cols);
@@ -808,8 +808,8 @@ namespace datalog {
         if (col_cnt == 0) {
             return false;
         }
-        return counter().count(col_cnt, cols1).get_max_positive()>=s1.first_functional()
-            || counter().count(col_cnt, cols2).get_max_positive()>=s2.first_functional();
+        return counter().count(col_cnt, cols1).get_max_positive().value_or(0)>=s1.first_functional()
+            || counter().count(col_cnt, cols2).get_max_positive().value_or(0)>=s2.first_functional();
     }
 
 
@@ -1138,7 +1138,7 @@ namespace datalog {
             ctr.count(m_cols2);
             m_joining_neg_non_functional = ctr.get_max_counter_value() == 1
                 && ctr.get_positive_count() == neg_first_func 
-                && (neg_first_func == 0 || ctr.get_max_positive() == neg_first_func-1);
+                && (neg_first_func == 0 || ctr.get_max_positive().value_or(0) == neg_first_func-1);
         }
 
         /**

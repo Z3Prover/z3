@@ -23,6 +23,7 @@ Revision History:
 
 #pragma once
 
+#include <optional>
 #include "ast/ast.h"
 #include "util/map.h"
 #include "util/uint_set.h"
@@ -55,8 +56,8 @@ public:
     void collect_positive(uint_set & acc) const;
     unsigned get_positive_count() const;
 
-    bool get_max_positive(unsigned & res) const;
-    unsigned get_max_positive() const;
+    std::optional<unsigned> get_max_positive() const;
+    unsigned get_max_positive_or_zero() const;
 
     /**
        Since the default counter value of a counter is zero, the result is never negative.
