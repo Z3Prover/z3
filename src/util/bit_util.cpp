@@ -80,7 +80,7 @@ unsigned nlz_core(unsigned x) {
 */
 unsigned nlz(std::span<unsigned const> data) {
     unsigned r = 0;
-    unsigned i = data.size();
+    unsigned i = static_cast<unsigned>(data.size());
     while (i > 0) {
         --i;
         unsigned d = data[i];
@@ -130,8 +130,8 @@ unsigned ntz(std::span<unsigned const> data) {
    Fill range [src.size(), dst.size()) of dst with zeros if dst.size() > src.size().
 */
 void copy(std::span<unsigned const> src, std::span<unsigned> dst) {
-    unsigned src_sz = src.size();
-    unsigned dst_sz = dst.size();
+    unsigned src_sz = static_cast<unsigned>(src.size());
+    unsigned dst_sz = static_cast<unsigned>(dst.size());
     if (dst_sz >= src_sz) {
         unsigned i;
         for (i = 0; i < src_sz; ++i) 
@@ -173,8 +173,8 @@ void reset(std::span<unsigned> data) {
    \pre !dst.empty()
 */
 void shl(std::span<unsigned const> src, unsigned k, std::span<unsigned> dst) {
-    unsigned src_sz = src.size();
-    unsigned dst_sz = dst.size();
+    unsigned src_sz = static_cast<unsigned>(src.size());
+    unsigned dst_sz = static_cast<unsigned>(dst.size());
     SASSERT(src_sz != 0);
     SASSERT(dst_sz != 0);
     SASSERT(k != 0);
@@ -242,8 +242,8 @@ void shl(std::span<unsigned const> src, unsigned k, std::span<unsigned> dst) {
    \pre !dst.empty()
 */
 void shr(std::span<unsigned const> src, unsigned k, std::span<unsigned> dst) {
-    unsigned src_sz = src.size();
-    unsigned dst_sz = dst.size();
+    unsigned src_sz = static_cast<unsigned>(src.size());
+    unsigned dst_sz = static_cast<unsigned>(dst.size());
     unsigned sz = src_sz;
     
     // Handle the case where src and dst have the same size (original first shr function)
@@ -350,7 +350,7 @@ void shr(std::span<unsigned const> src, unsigned k, std::span<unsigned> dst) {
    \brief Return true if one of the first k bits of src is not zero.
 */
 bool has_one_at_first_k_bits(std::span<unsigned const> data, unsigned k) {
-    unsigned sz = data.size();
+    unsigned sz = static_cast<unsigned>(data.size());
     SASSERT(sz != 0);
     unsigned word_sz = k / (8 * sizeof(unsigned));
     if (word_sz > sz)
@@ -386,7 +386,7 @@ bool dec(std::span<unsigned> data) {
 }
 
 bool lt(std::span<unsigned> data1, std::span<unsigned> data2) {
-    unsigned sz = data1.size();
+    unsigned sz = static_cast<unsigned>(data1.size());
     unsigned i = sz;
     while (i > 0) {
         --i;
@@ -399,7 +399,7 @@ bool lt(std::span<unsigned> data1, std::span<unsigned> data2) {
 }
 
 bool add(std::span<unsigned const> a, std::span<unsigned const> b, std::span<unsigned> c) {
-    unsigned sz = a.size();
+    unsigned sz = static_cast<unsigned>(a.size());
     unsigned k = 0;
     for (unsigned j = 0; j < sz; ++j) {
         unsigned r = a[j] + b[j]; 
