@@ -159,7 +159,7 @@ public:
     void mk_and(unsigned num_args, expr * const * args, expr_ref & result) {
         if (mk_and_core(num_args, args, result) == BR_FAILED) {
             SASSERT(!m_elim_and);
-            result = m().mk_and(num_args, args);
+            result = m().mk_and(std::span<expr* const>(args, num_args));
         }
     }
     void mk_or(unsigned num_args, expr * const * args, expr_ref & result) {

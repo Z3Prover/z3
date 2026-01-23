@@ -441,7 +441,7 @@ void goal::display_as_and(std::ostream & out) const {
     for (unsigned i = 0; i < sz; ++i)
         args.push_back(form(i));
     expr_ref tmp(m());
-    tmp = m().mk_and(args.size(), args.data());
+    tmp = m().mk_and(std::span<expr* const>(args.data(), args.size()));
     out << mk_ismt2_pp(tmp, m()) << "\n";
 }
 

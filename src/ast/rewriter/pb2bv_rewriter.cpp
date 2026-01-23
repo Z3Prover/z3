@@ -945,7 +945,7 @@ struct pb2bv_rewriter::imp {
         pliteral mk_false() { return m.mk_false(); }
         pliteral mk_true() { return m.mk_true(); }
         pliteral mk_max(unsigned n, pliteral const* lits) { return trail(m.mk_or(n, lits)); }
-        pliteral mk_min(unsigned n, pliteral const* lits) { return trail(m.mk_and(n, lits)); }
+        pliteral mk_min(unsigned n, pliteral const* lits) { return trail(m.mk_and(std::span<expr* const>(lits, n))); }
         pliteral mk_not(pliteral a) { if (m.is_not(a,a)) return a; return trail(m.mk_not(a)); }
 
         std::ostream& pp(std::ostream& out, pliteral lit) {  return out << mk_ismt2_pp(lit, m);  }

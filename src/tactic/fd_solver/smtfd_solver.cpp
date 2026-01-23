@@ -1628,7 +1628,7 @@ namespace smtfd {
             unsigned sz = m_assertions.size() - m_assertions_qhead;
             if (sz > 0) {
                 m_assertions.push_back(m_toggles.back());                
-                expr_ref fml(m.mk_and(sz + 1, m_assertions.data() + m_assertions_qhead), m);
+                expr_ref fml(m.mk_and(std::span<expr* const>(m_assertions.data() + m_assertions_qhead, sz + 1)), m);
                 m_assertions.pop_back();                
                 expr* toggle = add_toggle(m.mk_fresh_const("toggle", m.mk_bool_sort()));
                 m_assertions_qhead = m_assertions.size();

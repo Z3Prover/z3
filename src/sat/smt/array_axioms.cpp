@@ -342,7 +342,7 @@ namespace array {
         else if (a.is_union(map)) 
             result = m.mk_or(n, args);
         else if (a.is_intersect(map)) 
-            result = m.mk_and(n, args);
+            result = m.mk_and(std::span<expr* const>(args, n));
         else if (a.is_difference(map)) {
             SASSERT(n > 0);
             result = args[0];
