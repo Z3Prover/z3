@@ -53,8 +53,34 @@ Your primary task is to identify and **directly implement** refactorings that re
 - Boolean return + output parameter patterns (e.g., `bool get_value(T* out)`)
 - APIs that would benefit from explicit optional semantics
 
-**Secondary Task:**
+**SECONDARY FOCUS: Create Pull Requests for Tuple Pattern (Structured Bindings) Refactoring**
+
+Your secondary task is to identify and implement refactorings that use C++17 structured bindings instead of accessing `.first` and `.second`:
+
+1. **Find tuple/pair access patterns** - Code accessing `.first` and `.second` members
+2. **Implement the refactoring** - Replace with structured bindings for clearer code
+3. **Create pull requests** - Automatically create a PR with your changes for tuple pattern improvements
+
+**Focus Areas for Tuple Pattern Refactoring:**
+- Variables that access both `.first` and `.second` multiple times
+- Return values from functions that are immediately decomposed
+- Iterator dereferences accessing pair members (e.g., map iterators)
+- Code that would be clearer with meaningful variable names instead of `.first`/`.second`
+
+**Example refactoring:**
+```cpp
+// Before: Using .first and .second
+auto x = f(y);
+return g(x.first, x.second);
+
+// After: Using structured bindings
+auto [a, b] = f(y);
+return g(a, b);
+```
+
+**Additional Task:**
 Additionally, conduct analysis of other coding conventions and modern C++ opportunities for discussion (not immediate implementation)
+
 
 ## Workflow for std::optional Refactoring (PRIMARY)
 
@@ -348,6 +374,21 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 - **PRIMARY TASK**: Functions returning null + using output parameters
 - **ACTION**: Replace with `std::optional<T>` return values using the refactoring workflow above
 - **RESULT**: Create a pull request with the actual code changes (see "Workflow for std::optional Refactoring")
+
+**Tuple/Pair Access Patterns:**
+- **SECONDARY TASK**: Code accessing `.first` and `.second` on pairs/tuples
+- **ACTION**: Replace with C++17 structured bindings for cleaner, more readable code
+- **RESULT**: Create a pull request with the actual code changes
+- **Example**:
+  ```cpp
+  // Before
+  auto x = f(y);
+  return g(x.first, x.second);
+  
+  // After
+  auto [a, b] = f(y);
+  return g(a, b);
+  ```
 
 **Exception String Construction:**
 - Using `stringstream` to build exception messages
@@ -676,30 +717,89 @@ For each opportunity, provide:
 - **Examples**: File:line references with before/after code
 - **Output**: Pull request (not just discussion)
 
-### 4.9 Exception String Construction
+### 4.9 Tuple Pattern (Structured Bindings) Modernization - **IMPLEMENT AS PULL REQUEST**
+
+**This is a SECONDARY focus area - implement these changes directly:**
+
+- **Current Pattern**: Accessing `.first` and `.second` on pairs/tuples
+- **Modern Pattern**: Use C++17 structured bindings for cleaner code
+- **Benefits**: 
+  - More readable variable names instead of `.first`/`.second`
+  - Clearer intent of what values represent
+  - Eliminates intermediate variables
+  - Reduces chance of errors from swapping `.first`/`.second`
+- **Action**: Find and refactor tuple/pair access patterns:
+  1. Search for patterns using `.first` and `.second`
+  2. Identify cases where intermediate variable can be eliminated
+  3. Refactor to use structured bindings
+  4. Create a pull request with changes
+- **Example Pattern**:
+  ```cpp
+  // Before: Using .first and .second
+  auto x = f(y);
+  return g(x.first, x.second);
+  
+  // After: Using structured bindings
+  auto [a, b] = f(y);
+  return g(a, b);
+  ```
+- **Another Example**:
+  ```cpp
+  // Before: Accessing pair members via iterator
+  auto result = map.find(key);
+  if (result != map.end()) {
+      use_key(result->first);
+      use_value(result->second);
+  }
+  
+  // After: Structured bindings to access pair
+  auto it = map.find(key);
+  if (it != map.end()) {
+      auto& [k, v] = *it;
+      use_key(k);
+      use_value(v);
+  }
+  
+  // Or for range-based loops (eliminates iterator entirely):
+  for (auto& [k, v] : map) {
+      use_key(k);
+      use_value(v);
+  }
+  ```
+- **Search Patterns**: Look for code using `.first` or `.second` on:
+  - Return values from functions returning `std::pair` or tuples
+  - Iterator dereferences (especially map iterators)
+  - Direct pair/tuple variable access
+- **Candidates**: Functions or code blocks that:
+  - Call `.first` and `.second` on the same variable multiple times
+  - Create intermediate variables just to access pair members
+  - Have sequential uses of both `.first` and `.second`
+- **Output**: Pull request with refactored code
+
+### 4.10 Exception String Construction
 - **Current**: [stringstream usage for building exception messages]
 - **Modern**: [std::format and std::formater opportunities]
 - **String Copies**: [Unnecessary copies when raising exceptions]
 - **Examples**: [Specific exception construction sites]
 
-### 4.10 Array Parameter Modernization
+### 4.11 Array Parameter Modernization
 - **Current**: [Pointer + size parameter pairs]
 - **Modern**: [std::span usage opportunities]
 - **Type Safety**: [How span improves API safety]
 - **Examples**: [Function signatures to update]
 
-### 4.11 Increment Operator Patterns
+### 4.12 Increment Operator Patterns
 - **Postfix Usage**: [Count of i++ where result is unused]
 - **Prefix Preference**: [Places to use ++i instead]
 - **Iterator Loops**: [Heavy iterator usage areas]
 
-### 4.12 Exception Control Flow
+### 4.13 Exception Control Flow
 - **Current Usage**: [Exceptions used for normal control flow]
 - **Modern Alternatives**: [std::expected, std::optional, error codes]
 - **Performance**: [Impact of exception-based control flow]
 - **Refactoring Opportunities**: [Specific patterns to replace]
 
-### 4.13 Inefficient Stream Output
+### 4.14 Inefficient Stream Output
 - **Current Usage**: [string stream output operator used for single characters]
 - **Modern Alternatives**: [use char output operator]
 - **Performance**: [Reduce code size and improve performance]
@@ -933,6 +1033,28 @@ grep pattern: "return [a-z_]+;" glob: "src/**/*.cpp"
 ```
 grep pattern: "return.*nullptr.*&" glob: "src/**/*.{h,cpp}"
 grep pattern: "bool.*\(.*\*.*\)|bool.*\(.*&" glob: "src/**/*.h"
+```
+
+**Find tuple/pair access patterns (structured binding opportunities):**
+```
+# Find .first usage
+grep pattern: "\.first" glob: "src/**/*.{cpp,h}"
+
+# Find .second usage
+grep pattern: "\.second" glob: "src/**/*.{cpp,h}"
+
+# Find same variable used with both .first and .second on same line (high-value candidates)
+# Note: This only matches single-line patterns where the same var is used; use separate .first/.second searches for comprehensive coverage
+grep pattern: "([a-z_]+)\.first.*\1\.second" glob: "src/**/*.cpp"
+
+# Find iterator dereferencing with .first or .second
+grep pattern: "->first|->second" glob: "src/**/*.cpp"
+
+# Find return statements using .first and .second
+grep pattern: "return.*\.first.*\.second" glob: "src/**/*.cpp"
+
+# Find function calls with .first and .second as arguments (focused pattern)
+grep pattern: "\([^)]*\.first[^)]*\.second[^)]*\)" glob: "src/**/*.cpp"
 ```
 
 **Find pointer + size parameters:**
