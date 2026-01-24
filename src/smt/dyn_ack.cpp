@@ -379,16 +379,16 @@ namespace smt {
         }
         unsigned max_instances  = static_cast<unsigned>(m_context.get_num_conflicts() * m_params.m_dack_factor);
         while (m_num_instances < max_instances && m_qhead < m_to_instantiate.size()) {
-            app_pair & p = m_to_instantiate[m_qhead];
+            auto& [first, second] = m_to_instantiate[m_qhead];
             m_qhead++;
             m_num_instances++;
-            instantiate(p.first, p.second);
+            instantiate(first, second);
         }
         while (m_num_instances < max_instances && m_triple.m_qhead < m_triple.m_to_instantiate.size()) {
-            app_triple & p = m_triple.m_to_instantiate[m_triple.m_qhead];
+            auto& [first, second, third] = m_triple.m_to_instantiate[m_triple.m_qhead];
             m_triple.m_qhead++;
             m_num_instances++;
-            instantiate(p.first, p.second, p.third);
+            instantiate(first, second, third);
         }
     }
 
