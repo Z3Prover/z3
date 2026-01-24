@@ -29,7 +29,7 @@ timeout-minutes: 20
 ---
 
 <!-- Edit the file linked below to modify the agent without recompilation. Feel free to move the entire markdown body to that file. -->
-{{#runtime-import agentics/lws-code-quality-analyzer.md}}
+@./agentics/lws-code-quality-analyzer.md
 
 # Quick Reference
 

@@ -569,7 +569,7 @@ jobs:
           PROMPT_EOF
           cat << 'PROMPT_EOF' >> "$GH_AW_PROMPT"
           
-          {{#runtime-import agentics/lws-code-quality-analyzer.md}}
+          @./agentics/lws-code-quality-analyzer.md
           
           # Quick Reference
           
