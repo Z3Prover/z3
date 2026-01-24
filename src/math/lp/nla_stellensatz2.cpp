@@ -106,6 +106,7 @@ namespace nla {
         case l_true:
             if (set_model())
                 return l_true;
+            r = l_undef;
             break;
         default: 
             break;
