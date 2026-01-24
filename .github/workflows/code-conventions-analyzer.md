@@ -65,15 +65,22 @@ Your secondary task is to identify and implement refactorings that use C++17 str
 - Iterator dereferences accessing pair members (e.g., map iterators)
 - Code that would be clearer with meaningful variable names instead of `.first`/`.second`
 
+**Naming Convention for Structured Bindings:**
+When introducing structured bindings, use names that are representative of the types or field semantics:
+- For `enode_pair`: use `[n1, n2]` instead of `[first, second]` or `[a, b]`
+- For map iterators: use `[key, value]` or `[k, v]` instead of `[first, second]`
+- For domain-specific pairs: use names reflecting the semantics (e.g., `[var, offset]`, `[expr, count]`)
+- **Avoid generic names** like `first`, `second`, `third`, `a`, `b` unless the pair truly represents generic values
+
 **Example refactoring:**
 ```cpp
-// Before: Using .first and .second
-auto x = f(y);
-return g(x.first, x.second);
+// Before: Using .first and .second on enode_pair
+enode_pair p = get_pair(y);
+return merge(p.first, p.second);
 
-// After: Using structured bindings
-auto [a, b] = f(y);
-return g(a, b);
+// After: Using structured bindings with meaningful names
+auto [n1, n2] = get_pair(y);
+return merge(n1, n2);
 ```
 
 **TERTIARY FOCUS: Create Issues for initializer_list Refactoring**
@@ -538,15 +545,16 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 - **SECONDARY TASK**: Code accessing `.first` and `.second` on pairs/tuples
 - **ACTION**: Replace with C++17 structured bindings for cleaner, more readable code
 - **RESULT**: Create an issue with the actual code changes
+- **NAMING**: Use descriptive names based on types/semantics (e.g., `[n1, n2]` for `enode_pair`, `[k, v]` for maps)
 - **Example**:
   ```cpp
   // Before
-  auto x = f(y);
-  return g(x.first, x.second);
+  enode_pair p = get_pair(y);
+  return merge(p.first, p.second);
   
-  // After
-  auto [a, b] = f(y);
-  return g(a, b);
+  // After: Use meaningful names, not generic [a, b]
+  auto [n1, n2] = get_pair(y);
+  return merge(n1, n2);
   ```
 
 **Exception String Construction:**
@@ -890,17 +898,17 @@ For each opportunity, provide:
 - **Action**: Find and refactor tuple/pair access patterns:
   1. Search for patterns using `.first` and `.second`
   2. Identify cases where intermediate variable can be eliminated
-  3. Refactor to use structured bindings
+  3. Refactor to use structured bindings with **meaningful names** (not generic `a`, `b`, `first`, `second`)
   4. Create an issue with changes
 - **Example Pattern**:
   ```cpp
-  // Before: Using .first and .second
-  auto x = f(y);
-  return g(x.first, x.second);
+  // Before: Using .first and .second on enode_pair
+  enode_pair p = get_pair(y);
+  return merge(p.first, p.second);
   
-  // After: Using structured bindings
-  auto [a, b] = f(y);
-  return g(a, b);
+  // After: Using structured bindings with descriptive names
+  auto [n1, n2] = get_pair(y);
+  return merge(n1, n2);
   ```
 - **Another Example**:
   ```cpp
