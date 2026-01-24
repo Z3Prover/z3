@@ -598,9 +598,9 @@ bool theory_seq::check_extensionality(expr* e1, enode* n1, enode* n2) {
         m_exclude.update(o1, o2);
         return true;
     }
-    for (auto const& p : m_new_eqs) {
-        if (m_exclude.contains(p.first, p.second)) {
-            TRACE(seq, tout << "excluded " << mk_pp(p.first, m) << " " << mk_pp(p.second, m) << "\n";);
+    for (auto const& [first, second] : m_new_eqs) {
+        if (m_exclude.contains(first, second)) {
+            TRACE(seq, tout << "excluded " << mk_pp(first, m) << " " << mk_pp(second, m) << "\n";);
             return true;
         }
     }
@@ -926,10 +926,10 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
     }
     TRACE(seq,
           tout << "reduced to\n";
-          for (auto p : new_eqs) {
-              tout << mk_bounded_pp(p.first, m, 2) << "\n";
+          for (auto [first, second] : new_eqs) {
+              tout << mk_bounded_pp(first, m, 2) << "\n";
               tout << " = \n";
-              tout << mk_bounded_pp(p.second, m, 2) << "\n";
+              tout << mk_bounded_pp(second, m, 2) << "\n";
           }
           );
     m_seq_rewrite.add_seqs(ls, rs, new_eqs);
@@ -939,11 +939,11 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
     }
     TRACE(seq_verbose, 
           tout << ls << " = " << rs << "\n";);
-    for (auto const& p : new_eqs) {
+    for (auto const& [first, second] : new_eqs) {
         if (ctx.inconsistent())
             break;
-        expr_ref li(p.first, m);
-        expr_ref ri(p.second, m);
+        expr_ref li(first, m);
+        expr_ref ri(second, m);
         seq::eq_ptr r;
         m_eq_deps = deps;
         if (m_eq.reduce(li, ri, r)) {
@@ -961,8 +961,8 @@ bool theory_seq::simplify_eq(expr_ref_vector& ls, expr_ref_vector& rs, dependenc
     }
     TRACE(seq_verbose,
           if (!ls.empty() || !rs.empty()) tout << ls << " = " << rs << ";\n";
-          for (auto const& p : new_eqs) {
-              tout << mk_pp(p.first, m) << " = " << mk_pp(p.second, m) << ";\n";
+          for (auto const& [first, second] : new_eqs) {
+              tout << mk_pp(first, m) << " = " << mk_pp(second, m) << ";\n";
           });
 
 
@@ -2424,8 +2424,8 @@ void theory_seq::validate_fmls(enode_pair_vector const& eqs, literal_vector cons
         ctx.literal2expr(lit, fml);
         fmls.push_back(fml);
     }
-    for (auto const& p : eqs) {
-        fmls.push_back(m.mk_eq(p.first->get_expr(), p.second->get_expr()));
+    for (auto const& [n1, n2] : eqs) {
+        fmls.push_back(m.mk_eq(n1->get_expr(), n2->get_expr()));
     }
     TRACE(seq, tout << fmls << "\n";);
 

@@ -258,12 +258,12 @@ namespace smt {
         TRACE(arith_eq_adapter, tout << "restart\n";);
         enode_pair_vector tmp(m_restart_pairs);
         m_restart_pairs.reset();
-        for (auto const& p : tmp) {
+        for (auto const& [n1, n2] : tmp) {
             if (ctx.inconsistent())
                 break;
-            TRACE(arith_eq_adapter, tout << "creating arith_eq_adapter axioms at the base level #" << p.first->get_owner_id() << " #" <<
-                  p.second->get_owner_id() << "\n";);
-            mk_axioms(p.first, p.second);
+            TRACE(arith_eq_adapter, tout << "creating arith_eq_adapter axioms at the base level #" << n1->get_owner_id() << " #" <<
+                  n2->get_owner_id() << "\n";);
+            mk_axioms(n1, n2);
         }
     }
 
