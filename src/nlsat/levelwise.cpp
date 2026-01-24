@@ -658,10 +658,16 @@ namespace nlsat {
             if (require_leaf)
                 compute_resultant_graph_degree();
 
+            // Identify bound polynomial indices (must never omit LC)
+            unsigned l_bound_idx = is_set(m_l_rf) ? m_rel.m_rfunc[m_l_rf].ps_idx : UINT_MAX;
+            unsigned u_bound_idx = is_set(m_u_rf) ? m_rel.m_rfunc[m_u_rf].ps_idx : UINT_MAX;
+
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 if (m_side_mask[i] != 3)
                     continue;
                 if (require_leaf && m_deg_in_order_graph[i] != 1)
+                    continue;
+                if (i == l_bound_idx || i == u_bound_idx)
                     continue;
                 m_omit_lc[i] = true;
             }
@@ -681,14 +687,18 @@ namespace nlsat {
             compute_side_mask();
             unsigned n = m_rel.m_rfunc.size();
 
-            // Lower extreme: omit if it also appears on upper side
+            // Identify bound polynomial indices (must never omit LC)
+            unsigned l_bound_idx = is_set(m_l_rf) ? m_rel.m_rfunc[m_l_rf].ps_idx : UINT_MAX;
+            unsigned u_bound_idx = is_set(m_u_rf) ? m_rel.m_rfunc[m_u_rf].ps_idx : UINT_MAX;
+
+            // Lower extreme: omit if it also appears on upper side (and not a bound)
             unsigned idx_lower = m_rel.m_rfunc[0].ps_idx;
-            if (m_side_mask[idx_lower] & 2)
+            if ((m_side_mask[idx_lower] & 2) && idx_lower != l_bound_idx && idx_lower != u_bound_idx)
                 m_omit_lc[idx_lower] = true;
 
-            // Upper extreme: omit if it also appears on lower side
+            // Upper extreme: omit if it also appears on lower side (and not a bound)
             unsigned idx_upper = m_rel.m_rfunc[n - 1].ps_idx;
-            if (m_side_mask[idx_upper] & 1)
+            if ((m_side_mask[idx_upper] & 1) && idx_upper != l_bound_idx && idx_upper != u_bound_idx)
                 m_omit_lc[idx_upper] = true;
         }
 
@@ -1474,11 +1484,6 @@ namespace nlsat {
                 bool add_lc = (i >= m_omit_lc.size() || !m_omit_lc[i]);
                 bool is_lower_bound = is_set(m_l_rf) && i == m_rel.m_rfunc[m_l_rf].ps_idx;
                 bool is_upper_bound = is_set(m_u_rf) && i == m_rel.m_rfunc[m_u_rf].ps_idx;
-
-                // Per Algorithm 2, Line 13 of projective_delineability.pdf:
-                // Bound-defining polynomials MUST have their LC projected for delineability
-                if (is_lower_bound || is_upper_bound)
-                    add_lc = true;
 
                 TRACE(lws,
                     tout << "  poly[" << i << "] is_lower=" << is_lower_bound << " is_upper=" << is_upper_bound;
