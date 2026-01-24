@@ -270,6 +270,8 @@ namespace nlsat {
                     tout << "Level " << m_level << " SECTOR: rfunc.size=" << m_rel.m_rfunc.size()
                          << " < 2, using default heuristic\n";
                 );
+                // Clear m_omit_lc to avoid using stale values from a previous level
+                m_omit_lc.clear();
                 return m_sector_relation_mode;
             }
 
@@ -331,6 +333,8 @@ namespace nlsat {
                     tout << "Level " << m_level << " SECTION: rfunc.size=" << m_rel.m_rfunc.size()
                          << " < 2, using default heuristic\n";
                 );
+                // Clear m_omit_lc to avoid using stale values from a previous level
+                m_omit_lc.clear();
                 return m_section_relation_mode;
             }
 
@@ -504,6 +508,11 @@ namespace nlsat {
 
         void request_factorized(polynomial_ref const& poly, inv_req req) {
             for_each_distinct_factor(poly, [&](polynomial_ref const& f) {
+                TRACE(lws,
+                    tout << "      request_factorized: factor=";
+                    m_pm.display(tout, f);
+                    tout << " at level " << m_pm.max_var(f) << "\n";
+                );
                 request(f.get(), req); // inherit tag across factorization (SMT-RAT appendOnCorrectLevel)
             });
         }
@@ -577,6 +586,11 @@ namespace nlsat {
         }
 
         void add_projections_for(polynomial_ref const& p, unsigned x, polynomial_ref const& nonzero_coeff, bool add_leading_coeff, bool add_discriminant) {
+            TRACE(lws,
+                tout << "  add_projections_for: p=";
+                m_pm.display(tout, p);
+                tout << " x=" << x << " add_lc=" << add_leading_coeff << " add_disc=" << add_discriminant << "\n";
+            );
             // Line 11 (non-null witness coefficient)
             if (nonzero_coeff && !is_const(nonzero_coeff))
                 request_factorized(nonzero_coeff, inv_req::sign);
@@ -588,6 +602,11 @@ namespace nlsat {
                 unsigned deg = m_pm.degree(p, x);
                 polynomial_ref lc(m_pm);
                 lc = m_pm.coeff(p, x, deg);
+                TRACE(lws,
+                    tout << "    adding lc: ";
+                    m_pm.display(tout, lc);
+                    tout << "\n";
+                );
                 request_factorized(lc, inv_req::sign);
             }
         }
@@ -774,18 +793,29 @@ namespace nlsat {
 
         // Relation construction heuristics (same intent as previous implementation).
         void fill_relation_with_biggest_cell_heuristic() {
+            TRACE(lws,
+                tout << "  fill_biggest_cell: m_l_rf=" << m_l_rf << ", m_u_rf=" << m_u_rf << ", rfunc.size=" << m_rel.m_rfunc.size() << "\n";
+            );
             if (is_set(m_l_rf))
-                for (unsigned j = 0; j < m_l_rf; ++j)
+                for (unsigned j = 0; j < m_l_rf; ++j) {
+                    TRACE(lws, tout << "    add_pair(" << j << ", " << m_l_rf << ")\n";);
                     m_rel.add_pair(j, m_l_rf);
+                }
 
             if (is_set(m_u_rf))
-                for (unsigned j = m_u_rf + 1; j < m_rel.m_rfunc.size(); ++j)
+                for (unsigned j = m_u_rf + 1; j < m_rel.m_rfunc.size(); ++j) {
+                    TRACE(lws, tout << "    add_pair(" << m_u_rf << ", " << j << ")\n";);
                     m_rel.add_pair(m_u_rf, j);
+                }
 
             if (is_set(m_l_rf) && is_set(m_u_rf)) {
                 SASSERT(m_l_rf + 1 == m_u_rf);
+                TRACE(lws, tout << "    add_pair(" << m_l_rf << ", " << m_u_rf << ")\n";);
                 m_rel.add_pair(m_l_rf, m_u_rf);
             }
+            TRACE(lws,
+                tout << "  fill_biggest_cell done: pairs.size=" << m_rel.m_pairs.size() << "\n";
+            );
         }
 
         void fill_relation_with_chain_heuristic() {
@@ -1338,10 +1368,31 @@ namespace nlsat {
 
 
         void add_relation_resultants() {
+            TRACE(lws,
+                tout << "  add_relation_resultants: " << m_rel.m_pairs.size() << " pairs\n";
+            );
             for (auto const& pr : m_rel.m_pairs) {
                 poly* p1 = m_level_ps.get(pr.first);
                 poly* p2 = m_level_ps.get(pr.second);
-                request_factorized(psc_resultant(p1, p2, m_level), inv_req::ord);
+                TRACE(lws,
+                    tout << "    resultant(" << pr.first << ", " << pr.second << "): ";
+                    m_pm.display(tout, p1);
+                    tout << " and ";
+                    m_pm.display(tout, p2);
+                    tout << "\n";
+                );
+                polynomial_ref res = psc_resultant(p1, p2, m_level);
+                TRACE(lws,
+                    tout << "      resultant poly: ";
+                    if (res) {
+                        m_pm.display(tout, res);
+                        tout << "\n      resultant sign at sample: " << m_am.eval_sign_at(res, sample());
+                    } else {
+                        tout << "(null)";
+                    }
+                    tout << "\n";
+                );
+                request_factorized(res, inv_req::ord);
             }
         }
 
@@ -1393,6 +1444,20 @@ namespace nlsat {
         }
 
         void add_level_projections_sector() {
+            TRACE(lws,
+                tout << "\n  add_level_projections_sector at level " << m_level << "\n";
+                tout << "  Lower bound rf=" << m_l_rf << ", Upper bound rf=" << m_u_rf << "\n";
+                if (is_set(m_l_rf)) {
+                    tout << "    lower poly idx=" << m_rel.m_rfunc[m_l_rf].ps_idx << ": ";
+                    m_pm.display(tout, m_level_ps.get(m_rel.m_rfunc[m_l_rf].ps_idx));
+                    tout << "\n";
+                }
+                if (is_set(m_u_rf)) {
+                    tout << "    upper poly idx=" << m_rel.m_rfunc[m_u_rf].ps_idx << ": ";
+                    m_pm.display(tout, m_level_ps.get(m_rel.m_rfunc[m_u_rf].ps_idx));
+                    tout << "\n";
+                }
+            );
             // Lines 11-12 (Algorithm 1): add projections for each p
             // Note: Algorithm 1 adds disc + ldcf for ALL polynomials (classical delineability)
             // We additionally omit leading coefficients for rootless polynomials when possible
@@ -1407,6 +1472,19 @@ namespace nlsat {
                 lc = m_pm.coeff(p, m_level, deg);
 
                 bool add_lc = (i >= m_omit_lc.size() || !m_omit_lc[i]);
+                bool is_lower_bound = is_set(m_l_rf) && i == m_rel.m_rfunc[m_l_rf].ps_idx;
+                bool is_upper_bound = is_set(m_u_rf) && i == m_rel.m_rfunc[m_u_rf].ps_idx;
+
+                // Per Algorithm 2, Line 13 of projective_delineability.pdf:
+                // Bound-defining polynomials MUST have their LC projected for delineability
+                if (is_lower_bound || is_upper_bound)
+                    add_lc = true;
+
+                TRACE(lws,
+                    tout << "  poly[" << i << "] is_lower=" << is_lower_bound << " is_upper=" << is_upper_bound;
+                    tout << " omit_lc[i]=" << (i < m_omit_lc.size() ? (m_omit_lc[i] ? "true" : "false") : "N/A");
+                    tout << " add_lc=" << add_lc << "\n";
+                );
 
                 if (add_lc && i < usize(m_poly_has_roots) && !m_poly_has_roots[i])
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
@@ -1559,6 +1637,16 @@ namespace nlsat {
         }
 
         void process_level() {
+            TRACE(lws,
+                tout << "\n--- process_level: level=" << m_level << " ---\n";
+                tout << "Polynomials at this level (" << m_level_ps.size() << "):\n";
+                for (unsigned i = 0; i < m_level_ps.size(); ++i) {
+                    tout << "  ps[" << i << "]: ";
+                    m_pm.display(tout, m_level_ps.get(i));
+                    tout << "\n";
+                }
+            );
+
             // Line 10/11: detect nullification + pick a non-zero coefficient witness per p.
             m_witnesses.clear();
             m_witnesses.reserve(m_level_ps.size());
@@ -1572,6 +1660,20 @@ namespace nlsat {
 
             // Lines 3-8: Θ + I_level + relation ≼
             bool have_interval = build_interval();
+
+            TRACE(lws,
+                tout << "Interval: ";
+                display(tout, m_solver, m_I[m_level]);
+                tout << "\n";
+                tout << "Section? " << (m_I[m_level].section ? "yes" : "no") << "\n";
+                tout << "have_interval=" << have_interval << ", rfunc.size=" << m_rel.m_rfunc.size() << "\n";
+                for (unsigned i = 0; i < m_rel.m_rfunc.size(); ++i) {
+                    tout << "  rfunc[" << i << "]: ps_idx=" << m_rel.m_rfunc[i].ps_idx << ", val=";
+                    m_am.display(tout, m_rel.m_rfunc[i].val);
+                    tout << "\n";
+                }
+            );
+
             if (m_I[m_level].section)
                 process_level_section(have_interval);
             else
@@ -1579,6 +1681,16 @@ namespace nlsat {
         }
 
         void process_top_level() {
+            TRACE(lws,
+                tout << "\n--- process_top_level: level=" << m_n << " ---\n";
+                tout << "Polynomials at top level (" << m_level_ps.size() << "):\n";
+                for (unsigned i = 0; i < m_level_ps.size(); ++i) {
+                    tout << "  ps[" << i << "]: ";
+                    m_pm.display(tout, m_level_ps.get(i));
+                    tout << "\n";
+                }
+            );
+
             m_witnesses.clear();
             m_witnesses.reserve(m_level_ps.size());
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
@@ -1619,6 +1731,21 @@ namespace nlsat {
         }
 
         std_vector<root_function_interval> single_cell_work() {
+            TRACE(lws,             
+                tout << "Input polynomials (" << m_P.size() << "):\n";
+                for (unsigned i = 0; i < m_P.size(); ++i) {
+                    tout << "  p[" << i << "]: ";
+                    m_pm.display(tout, m_P.get(i));
+                    tout << "\n";
+                }
+                tout << "Sample values:\n";
+                for (unsigned j = 0; j < m_n; ++j) {
+                    tout << "  x" << j << " = ";
+                    m_am.display(tout, sample().value(j));
+                    tout << "\n";
+                }
+            );
+
             if (m_n == 0)
                 return m_I;
 
@@ -1646,7 +1773,20 @@ namespace nlsat {
                 extract_max_tagged();
                 SASSERT(m_level < m_n);
                 process_level();
+                TRACE(lws,
+                    tout << "After level " << m_level << ": m_todo.empty()=" << m_todo.empty();
+                    if (!m_todo.empty()) tout << ", m_todo.max_var()=" << m_todo.max_var();
+                    tout << "\n";
+                );
             }
+
+            TRACE(lws,
+                for (unsigned i = 0; i < m_I.size(); ++i) {
+                    tout << "I[" << i << "]: ";
+                    display(tout, m_solver, m_I[i]);
+                    tout << "\n";
+                }
+            );
 
             return m_I;
         }
