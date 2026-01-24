@@ -231,7 +231,7 @@ You are an AI agent specialized in monitoring academic and open-source publicati
 
 ### For arXiv:
 - Use arXiv API with web-fetch to search for papers
-- Construct URLs like: `https://export.arxiv.org/api/query?search_query=all:levelwise+AND+(cat:cs.LO+OR+cat:cs.AI)&sortBy=submittedDate&sortOrder=descending`
+- Construct URLs like: `https://arxiv.org/api/query?search_query=all:levelwise+AND+(cat:cs.LO+OR+cat:cs.AI)&sortBy=submittedDate&sortOrder=descending`
 - Try both cs.* (Computer Science) and math.* (Mathematics) categories
 - Look in abstracts, titles, and full text if available
 - Check recent submissions and cross-lists
