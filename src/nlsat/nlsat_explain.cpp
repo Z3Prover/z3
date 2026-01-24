@@ -131,6 +131,9 @@ namespace nlsat {
         // temporary fields for preprocessing core
         scoped_literal_vector   m_core1;
         scoped_literal_vector   m_core2;
+        
+        // Lower-stage polynomials encountered during normalization that need to be projected
+        polynomial_ref_vector   m_lower_stage_polys;
 
         // temporary fields for storing the result
         scoped_literal_vector * m_result = nullptr;
@@ -156,6 +159,7 @@ namespace nlsat {
             m_todo(u, canonicalize),
             m_core1(s),
             m_core2(s),
+            m_lower_stage_polys(m_pm),
             m_evaluator(ev) {
             m_simplify_cores   = false;
             m_full_dimensional = false;
@@ -516,6 +520,8 @@ namespace nlsat {
                             SASSERT(max_var(p) != null_var);
                             SASSERT(max_var(p) < max);
                             // factor p is a lower stage polynomial, so we should add assumption to justify p being eliminated
+                            // Also collect it for projection to ensure proper cell construction
+                            m_lower_stage_polys.push_back(p);
                             if (s == 0)
                                 add_assumption(atom::EQ, p);  // add assumption p = 0
                             else if (a->is_even(i))
@@ -971,6 +977,8 @@ namespace nlsat {
             if (!is_const(p)) {
                 TRACE(nlsat_explain, tout << p << "\n";);
                 add_assumption(s == 0 ? atom::EQ : (s < 0 ? atom::LT : atom::GT), p);
+                // Also add p to the projection to ensure proper cell construction
+                insert_fresh_factors_in_todo(p);
             }
             return s;
         }
@@ -1110,7 +1118,7 @@ namespace nlsat {
             if (lws.failed())
                 return false;
 
-            TRACE(lws, for (unsigned i = 0; i < cell.size(); i++)  
+            TRACE(lws, for (unsigned i = 0; i < cell.size(); i++)
                                  display(tout << "I[" << i << "]:", m_solver, cell[i]) << "\n";);
             // Enumerate all intervals in the computed cell and add literals for each non-trivial interval.
             // Non-trivial = section, or sector with at least one finite bound (ignore (-oo,+oo)).
@@ -1154,12 +1162,18 @@ namespace nlsat {
             for (auto p: m_todo.m_set)
                 ps.push_back(p);
 
+            bool use_all_coeffs = false;
             if (m_solver.apply_levelwise()) {
                 bool levelwise_ok = levelwise_single_cell(ps, max_x, m_cache);
                 m_solver.record_levelwise_result(levelwise_ok);
                 if (levelwise_ok)
                     return;
+                // Levelwise failed, use add_all_coeffs mode for fallback projection
+                use_all_coeffs = true;
             }
+            // Set m_add_all_coeffs for the rest of the projection, restore on function exit
+            flet<bool> _set_all_coeffs(m_add_all_coeffs, use_all_coeffs || m_add_all_coeffs);
+            
             var x = m_todo.extract_max_polys(ps);
             polynomial_ref_vector samples(m_pm);
             if (x < max_x)
@@ -1190,6 +1204,7 @@ namespace nlsat {
                 x = m_todo.extract_max_polys(ps);
                 cac_add_cell_lits(ps, x, samples);
             }
+            
         }
 
         void project(polynomial_ref_vector & ps, var max_x) {
@@ -1593,8 +1608,19 @@ namespace nlsat {
                 return;
             }
             collect_polys(num, ls, m_ps);
+            
+            // Add lower-stage polynomials collected during normalization
+            // These polynomials had assumptions added but need to be projected as well
+            for (unsigned i = 0; i < m_lower_stage_polys.size(); i++) {
+                m_ps.push_back(m_lower_stage_polys.get(i));
+            }
+            
             var max_x = max_var(m_ps);
             TRACE(nlsat_explain, tout << "polynomials in the conflict:\n"; display(tout, m_solver, m_ps); tout << "\n";);
+
+            // Note: levelwise is now called in process2() before normalize()
+            // to ensure it receives the original polynomials
+
             elim_vanishing(m_ps);
             TRACE(nlsat_explain, tout << "after elim_vanishing m_ps:\n"; display(tout, m_solver, m_ps); tout << "\n";);
             project(m_ps, max_x);
@@ -1602,6 +1628,11 @@ namespace nlsat {
         }
 
         void process2(unsigned num, literal const * ls) {
+            // Reset lower-stage polynomials collection
+            m_lower_stage_polys.reset();
+            
+            // Try levelwise with ORIGINAL polynomials BEFORE any normalization
+          
             if (m_simplify_cores) {
                 TRACE(nlsat_explain, tout << "m_simplify_cores is true\n";);
                 m_core2.reset();
