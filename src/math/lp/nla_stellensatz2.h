@@ -138,6 +138,11 @@ namespace nla {
             unsigned max_splits_per_var = 2;
         };
 
+        struct stats {
+            unsigned m_num_conflicts = 0;
+            void reset() { m_num_conflicts = 0; }
+        };
+
         struct constraint_key {
             unsigned pdd;
             lp::lconstraint_kind k;
@@ -170,6 +175,7 @@ namespace nla {
         coi m_coi;
         mutable dd::pdd_manager pddm;
         config m_config;
+        stats  m_stats;
         vector<constraint> m_constraints;    // ci -> polynomial x comparison x justification
         unsigned_vector    m_levels;         // ci -> decision level of constraint
         vector<justification> m_justifications;
@@ -208,7 +214,8 @@ namespace nla {
 
         void propagate();
         bool decide(); 
-        bool repair();
+        bool primal_saturate();
+        void dual_saturate();
         lbool search();
         lbool resolve_conflict();
         void backtrack(lp::constraint_index ci, svector<lp::constraint_index> const &deps);
@@ -221,6 +228,7 @@ namespace nla {
         void mark_dependencies(u_dependency *d);
         void mark_dependencies(lp::constraint_index ci);
         bool should_propagate() const { return m_prop_qhead < m_polynomial_queue.size(); }
+        bool should_dual_saturate() { return false; }
 
         // assuming variables have bounds determine if polynomial has lower/upper bounds
         void calculate_interval(scoped_dep_interval &out, dd::pdd p);
@@ -233,6 +241,8 @@ namespace nla {
         bool is_conflict() const { return !m_conflict_dep.empty(); }
         bool is_decision(justification const& j) const { return std::holds_alternative<assumption_justification>(j); }
         bool is_decision(lp::constraint_index ci) const { return is_decision(m_justifications[ci]); }
+        bool is_feasible();
+        bool is_linear_conflict();
 
         void reset();
 
@@ -347,7 +357,8 @@ namespace nla {
         void insert_factor(dd::pdd const &p, lpvar x, factorization const &f, lp::constraint_index ci);
         void pop_propagation(lp::constraint_index ci);
         bool is_better(dep_interval const &new_iv, dep_interval const &old_iv);      
-        bool update_interval(dep_interval const &new_iv, dd::pdd const &p);
+        bool strengthen_interval(dep_interval const &new_iv, dd::pdd const &p);
+        bool is_bounds_conflict(dep_interval &i);
         dep_interval const &get_interval(dd::pdd const &p);
         void propagate_intervals(dd::pdd const &p, lp::constraint_index ci);
         void propagate_constraint(lpvar x, lp::lconstraint_kind k, rational const &value, lp::constraint_index ci, svector<lp::constraint_index> &cs);

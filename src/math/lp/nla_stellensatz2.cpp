@@ -92,46 +92,25 @@ namespace nla {
     }
 
     lbool stellensatz2::saturate() {
-        unsigned num_conflicts = 0;
         init_solver();
         TRACE(arith, display(tout << "stellensatz before saturation\n"));
-    start_saturate:
         lbool r = search();
 
         TRACE(arith, tout << "search " << r << ": " << m_core << "\n");
 
-        if (r == l_undef)
-            r = m_solver.solve(m_core);
-        TRACE(arith, display(tout << "stellensatz after saturation " << r << "\n"));
-        if (r == l_false) {
-            ++num_conflicts;
-            IF_VERBOSE(2, verbose_stream() << "(nla.stellensatz :conflicts " << num_conflicts << ":constraints "
-                                           << m_constraints.size() << ")\n");
-            if (num_conflicts >= m_config.max_conflicts)
-                return l_undef;
-            while (backtrack(m_core)) {
-                ++c().lp_settings().stats().m_stellensatz.m_num_backtracks;
-                lbool rb = m_solver.solve(m_core);
-                TRACE(arith, tout << "backtrack search " << rb << ": " << m_core << "\n");
-                // verbose_stream() << rb << " " << num_conflicts << " " << m_config.max_conflicts << "\n";
-                if (rb == l_false)
-                    continue;
-                if (rb == l_undef) {
-                    //verbose_stream() << "undetermined solve\n";
-                    // return rb;
-                }
-                m_solver.update_values(m_values);
-                goto start_saturate;
-            }
+        switch (r) {
+        case l_false:
             ++c().lp_settings().stats().m_stellensatz.m_num_conflicts;
             conflict(m_core);
+            return l_false;
+        case l_true:
+            if (set_model())
+                return l_true;
+            break;
+        default: 
+            break;
         }
-        if (r == l_true && !set_model())
-            r = l_undef;
-        if (r == l_undef) {
-            IF_VERBOSE(2, display(verbose_stream()));
-        }
-        // verbose_stream() << "result " << r << "\n";
+        IF_VERBOSE(2, display(verbose_stream()));        
         return r;
     }
 
@@ -161,6 +140,7 @@ namespace nla {
         m_coi.init();
         init_vars();
         simplify();
+        m_stats.reset();
     }
 
     void stellensatz2::init_vars() {
@@ -492,6 +472,35 @@ namespace nla {
         c().lra_solver().settings().stats().m_nla_stellensatz++;
     }
 
+    bool stellensatz2::is_feasible() {
+        if (any_of(m_constraints, [&](auto const &c) { return !constraint_is_true(c); }))
+            return false;
+        for (auto v : m_var2level) {
+            if (var_is_int(v) && !value(v).is_int())
+                return false;
+        }
+        return true;
+    }
+
+    bool stellensatz2::is_linear_conflict() {
+        lbool r = m_solver.solve(m_core);
+        TRACE(arith, display(tout << "stellensatz after saturation " << r << "\n"));
+        if (r != l_false) {
+            m_solver.update_values(m_values);
+            return false;
+        }
+        while (backtrack(m_core)) {            
+            r = m_solver.solve(m_core);
+            TRACE(arith, tout << "backtrack search " << r << ": " << m_core << "\n");
+            if (r == l_false)
+                continue;
+            m_solver.update_values(m_values);
+            return false;
+        }        
+        return true;
+    }
+
+
     //
     // for px + q >= 0 
     // If M(p) = 0, then 
@@ -523,6 +532,8 @@ namespace nla {
                      display_constraint(tout << "reduced ", new_ci);
                      display_constraint(tout, p_is_0));  
         new_ci = factor(new_ci);
+        // display_constraint(verbose_stream(), p_is_0) << "\n";
+        // display_constraint(verbose_stream(), new_ci) << "\n";
         return new_ci;
     }
 
@@ -600,15 +611,15 @@ namespace nla {
     // 
     bool stellensatz2::backtrack(svector<lp::constraint_index> const &core) {
         // reset_bounds();
+
         SASSERT(well_formed());
         m_constraints_in_conflict.reset();
         svector<lp::constraint_index> external, assumptions;
         for (auto ci : core)
             explain_constraint(ci, external, assumptions);
-        TRACE(arith, display(tout << "backtrack core " << core << "external " << external << " assumptions " << assumptions << "\n");
-        for (auto a : assumptions)
-            display_constraint(tout, a);
-    );
+        TRACE(arith, display(tout << "backtrack core " << core << "external " << external << " assumptions "
+                                  << assumptions << "\n");
+              for (auto a : assumptions) display_constraint(tout, a););
         if (assumptions.empty())
             return false;
         lp::constraint_index max_ci = 0;
@@ -974,13 +985,19 @@ namespace nla {
                 is_sat = resolve_conflict();
             else if (should_propagate())
                 propagate();
-            else if (repair())
+            else if (primal_saturate())
                 continue;
+            else if (is_feasible())
+                is_sat = l_true;
+            else if (is_linear_conflict())
+                is_sat = l_false;
+            else if (should_dual_saturate())
+                dual_saturate();
             else if (!decide())
                 is_sat = l_true;
         }
         if (is_sat == l_true) 
-            return all_of(m_constraints, [&](auto const &c) { return constraint_is_true(c); }) ? l_true : l_undef;        
+            return is_feasible() ? l_true : l_undef;        
         return is_sat;
     }
 
@@ -1035,6 +1052,7 @@ namespace nla {
     //     
     lbool stellensatz2::resolve_conflict() {
         SASSERT(is_conflict());
+        ++c().lp_settings().stats().m_stellensatz.m_num_backtracks;
         TRACE(arith, tout << "resolving conflict: " << m_conflict_dep << "\n"; display_constraint(tout, m_conflict);
               display(tout););
 
@@ -1090,7 +1108,7 @@ namespace nla {
         for (auto ci : m_conflict_marked_ci) 
             deps.push_back(ci);
         
-        backtrack(ci, deps);
+        backtrack(ci, deps);        
         return l_undef;
     }
 
@@ -1359,11 +1377,16 @@ namespace nla {
         return false;
     }
    
+    // Dual saturation assembles 
+    void stellensatz2::dual_saturate() {
+
+    }
+
     //
     // Attempt to repair variables in some order
     // 
     
-    bool stellensatz2::repair() {
+    bool stellensatz2::primal_saturate() {
 
         init_levels();
         unsigned num_fixed = 0;
@@ -1800,7 +1823,7 @@ namespace nla {
         bool found = false;
         unsigned n = 0;
         for (lpvar w = 0; w < m_level2var.size(); ++w) {
-            if (var_is_int(w) && !m_values[w].is_int()) {
+            if (var_is_int(w) && !value(w).is_int()) {
                 if (is_fixed(w))
                     continue;
                 if (m_split_count[w] > m_config.max_splits_per_var)
@@ -2360,7 +2383,7 @@ namespace nla {
         return *ivs.back();
     }
 
-    bool stellensatz2::update_interval(dep_interval const &new_iv, dd::pdd const &p) {
+    bool stellensatz2::strengthen_interval(dep_interval const &new_iv, dd::pdd const &p) {
         SASSERT(!p.is_val());
         SASSERT(!m_di.is_empty(new_iv));
         auto &old_iv = get_interval(p);
@@ -2391,12 +2414,9 @@ namespace nla {
                 m_di.set_lower_dep(new_iv, b.d);
                 if (!iv.m_upper_inf)
                     m_di.copy_upper_bound<dep_intervals::with_deps>(iv, new_iv);
-                if (m_di.is_empty(new_iv)) {
-                    m_dm.linearize(new_iv->m_lower_dep, m_conflict_dep);
-                    m_dm.linearize(new_iv->m_upper_dep, m_conflict_dep);
+                if (is_bounds_conflict(new_iv))
                     return;
-                }
-                if (!update_interval(new_iv, b.q))
+                if (!strengthen_interval(new_iv, b.q))
                     return;
             }
             else {
@@ -2407,12 +2427,9 @@ namespace nla {
                 m_di.set_upper(new_iv, -b.m_value);
                 if (!iv.m_lower_inf)
                     m_di.copy_lower_bound<dep_intervals::with_deps>(iv, new_iv);
-                if (m_di.is_empty(new_iv)) {
-                    m_dm.linearize(new_iv->m_lower_dep, m_conflict_dep);
-                    m_dm.linearize(new_iv->m_upper_dep, m_conflict_dep);
+                if (is_bounds_conflict(new_iv))
                     return;
-                }
-                if (!update_interval(new_iv, b.mq))
+                if (!strengthen_interval(new_iv, b.mq))
                     return;
             }
         }
@@ -2456,8 +2473,17 @@ namespace nla {
             SASSERT(!m_di.is_empty(lo));
             SASSERT(!m_di.is_empty(hi));
             calculate_interval(new_iv, x, lo, hi);
-            if (update_interval(new_iv, parent))
+            if (strengthen_interval(new_iv, parent))
                 m_polynomial_queue.push_back({parent, lp::null_ci});
         }
+    }
+
+    bool stellensatz2::is_bounds_conflict(dep_interval &i) {
+        if (m_di.is_empty(i)) {
+            m_dm.linearize(i.m_lower_dep, m_conflict_dep);
+            m_dm.linearize(i.m_upper_dep, m_conflict_dep);
+            return true;
+        }
+        return false;
     }
 }
