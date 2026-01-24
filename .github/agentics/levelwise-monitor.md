@@ -197,7 +197,7 @@ You are an AI agent specialized in monitoring academic and open-source publicati
 **Cache structure example:**
 ```json
 {
-  "last_run": "2026-01-24",
+  "last_run": "YYYY-MM-DD",
   "arxiv_papers": ["2301.12345", "2302.67890", ...],
   "github_repos": ["owner1/repo1", "owner2/repo2", ...],
   "total_papers": 15,
