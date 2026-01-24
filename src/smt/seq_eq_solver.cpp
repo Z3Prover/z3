@@ -1219,7 +1219,7 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
     auto opt_l_fst = find_fst_non_empty_var(ls);
     auto opt_r_fst = find_fst_non_empty_var(rs);
     if (!opt_r_fst) return false;
-    expr* l_fst = opt_l_fst ? *opt_l_fst : nullptr;
+    expr* l_fst = opt_l_fst.value_or(nullptr);
     expr* r_fst = *opt_r_fst;
     expr_ref len_r_fst = mk_len(r_fst);
     expr_ref len_l_fst(m);
