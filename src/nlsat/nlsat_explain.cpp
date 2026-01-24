@@ -50,7 +50,6 @@ namespace nlsat {
         bool                    m_factor;
         bool                    m_add_all_coeffs;
         bool                    m_add_zero_disc;
-        bool                    m_sample_cell_project;
 
         assignment const &      sample() const { return m_solver.sample(); }
         assignment &            sample() { return m_solver.sample(); }
@@ -142,7 +141,7 @@ namespace nlsat {
         evaluator &             m_evaluator;
 
         imp(solver & s, assignment const & x2v, polynomial::cache & u, atom_vector const & atoms, atom_vector const & x2eq,
-            evaluator & ev, bool sample_cell_project, bool canonicalize):
+            evaluator & ev, bool canonicalize):
             m_solver(s),
             m_atoms(atoms),
             m_x2eq(x2eq),
@@ -155,7 +154,6 @@ namespace nlsat {
             m_factors(m_pm),
             m_factors_save(m_pm),
             m_roots_tmp(m_am),
-            m_sample_cell_project(sample_cell_project),
             m_todo(u, canonicalize),
             m_core1(s),
             m_core2(s),
@@ -1083,35 +1081,6 @@ namespace nlsat {
            \brief Apply model-based projection operation defined in our paper.
         */
 
-        void project_original(polynomial_ref_vector & ps, var max_x) {
-            if (ps.empty())
-                return;
-            m_todo.reset();
-            for (poly* p : ps) {
-                m_todo.insert(p);
-            }
-            var x = m_todo.extract_max_polys(ps);
-            // Remark: after vanishing coefficients are eliminated, ps may not contain max_x anymore
-            if (x < max_x)
-                add_cell_lits(ps, x);
-            while (true) {
-                if (all_univ(ps, x) && m_todo.empty()) {
-                    m_todo.reset();
-                    break;
-                }
-                TRACE(nlsat_explain, tout << "project loop, processing var "; m_solver.display_var(tout, x); 
-                tout << "\npolynomials\n";
-                display(tout, m_solver, ps); tout << "\n";);
-                add_lcs(ps, x);
-                psc_discriminant(ps, x);
-                psc_resultant(ps, x);
-                if (m_todo.empty())
-                    break;
-                x = m_todo.extract_max_polys(ps);
-                add_cell_lits(ps, x);
-            }
-        }
-
         bool levelwise_single_cell(polynomial_ref_vector & ps, var max_x, polynomial::cache & cache) {
             levelwise lws(m_solver, ps, max_x, sample(), m_pm, m_am, cache);
             auto cell = lws.single_cell();
@@ -1208,12 +1177,7 @@ namespace nlsat {
         }
 
         void project(polynomial_ref_vector & ps, var max_x) {
-            if (m_sample_cell_project) {
-                project_cdcac(ps, max_x);
-            }
-            else {
-                project_original(ps, max_x);
-            }
+            project_cdcac(ps, max_x);
         }
 
         bool check_already_added() const {
@@ -1906,8 +1870,8 @@ namespace nlsat {
     };
 
     explain::explain(solver & s, assignment const & x2v, polynomial::cache & u, 
-                     atom_vector const& atoms, atom_vector const& x2eq, evaluator & ev, bool use_cell_sample, bool canonicalize) {
-        m_imp = alloc(imp, s, x2v, u, atoms, x2eq, ev, use_cell_sample, canonicalize);
+                     atom_vector const& atoms, atom_vector const& x2eq, evaluator & ev, bool canonicalize) {
+        m_imp = alloc(imp, s, x2v, u, atoms, x2eq, ev, canonicalize);
     }
 
     explain::~explain() {

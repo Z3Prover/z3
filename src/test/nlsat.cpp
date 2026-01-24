@@ -1056,7 +1056,117 @@ static void tst_nullified_polynomial() {
     ENSURE(lws.failed());
 }
 
+// Test case for unsound lemma lws2380 - comparing standard projection vs levelwise
+// The issue: x7 is unconstrained in levelwise output but affects the section polynomial
+static void tst_unsound_lws2380() {
+    enable_trace("nlsat_explain");
+    
+    auto run_test = [](bool use_lws) {
+        std::cout << "=== tst_unsound_lws2380: " << (use_lws ? "Levelwise" : "Standard") << " projection (lws=" << use_lws << ") ===\n";
+        params_ref      ps;
+        ps.set_bool("lws", use_lws);
+        reslimit        rlim;
+        nlsat::solver s(rlim, ps, false);
+        anum_manager & am     = s.am();
+        nlsat::pmanager & pm  = s.pm();
+        nlsat::assignment as(am);
+        nlsat::explain& ex    = s.get_explain();
+
+        // Create 14 variables x0-x13
+        nlsat::var x0 = s.mk_var(false);
+        nlsat::var x1 = s.mk_var(false);
+        nlsat::var x2 = s.mk_var(false);
+        nlsat::var x3 = s.mk_var(false);
+        nlsat::var x4 = s.mk_var(false);
+        nlsat::var x5 = s.mk_var(false);
+        nlsat::var x6 = s.mk_var(false);
+        nlsat::var x7 = s.mk_var(false);
+        nlsat::var x8 = s.mk_var(false);
+        nlsat::var x9 = s.mk_var(false);
+        nlsat::var x10 = s.mk_var(false);
+        nlsat::var x11 = s.mk_var(false);
+        nlsat::var x12 = s.mk_var(false);
+        nlsat::var x13 = s.mk_var(false);
+
+        polynomial_ref _x0(pm), _x1(pm), _x2(pm), _x3(pm), _x4(pm), _x5(pm), _x6(pm);
+        polynomial_ref _x7(pm), _x8(pm), _x9(pm), _x10(pm), _x11(pm), _x12(pm), _x13(pm);
+        _x0 = pm.mk_polynomial(x0);
+        _x1 = pm.mk_polynomial(x1);
+        _x2 = pm.mk_polynomial(x2);
+        _x3 = pm.mk_polynomial(x3);
+        _x4 = pm.mk_polynomial(x4);
+        _x5 = pm.mk_polynomial(x5);
+        _x6 = pm.mk_polynomial(x6);
+        _x7 = pm.mk_polynomial(x7);
+        _x8 = pm.mk_polynomial(x8);
+        _x9 = pm.mk_polynomial(x9);
+        _x10 = pm.mk_polynomial(x10);
+        _x11 = pm.mk_polynomial(x11);
+        _x12 = pm.mk_polynomial(x12);
+        _x13 = pm.mk_polynomial(x13);
+
+        // p[0]: x13
+        polynomial_ref p0(pm);
+        p0 = _x13;
+
+        // p[1]: 170*x8*x13 + x10*x11*x12 - x11*x12 - x7*x8*x12 + x5*x10*x11 + 184*x1*x10*x11
+        //       - x0*x10*x11 - x5*x11 - 184*x1*x11 + x0*x11 - x3*x8*x10 + x2*x8*x10
+        //       - 2*x10 - 184*x1*x7*x8 - x2*x8 + 2
+        polynomial_ref p1(pm);
+        p1 = (170 * _x8 * _x13) +
+             (_x10 * _x11 * _x12) -
+             (_x11 * _x12) -
+             (_x7 * _x8 * _x12) +
+             (_x5 * _x10 * _x11) +
+             (184 * _x1 * _x10 * _x11) -
+             (_x0 * _x10 * _x11) -
+             (_x5 * _x11) -
+             (184 * _x1 * _x11) +
+             (_x0 * _x11) -
+             (_x3 * _x8 * _x10) +
+             (_x2 * _x8 * _x10) -
+             (2 * _x10) -
+             (184 * _x1 * _x7 * _x8) -
+             (_x2 * _x8) +
+             2;
+
+        std::cout << "p0: " << p0 << "\n";
+        std::cout << "p1: " << p1 << "\n";
+
+        // Set sample: x0=-1, x1=-1, x2=0, x3=-1, x5=0, x7=0, x8=2, x10=0, x11=0, x12=2
+        scoped_anum val(am);
+        am.set(val, -1); as.set(x0, val);
+        am.set(val, -1); as.set(x1, val);
+        am.set(val, 0);  as.set(x2, val);
+        am.set(val, -1); as.set(x3, val);
+        am.set(val, 0);  as.set(x4, val);
+        am.set(val, 0);  as.set(x5, val);
+        am.set(val, 0);  as.set(x6, val);
+        am.set(val, 0);  as.set(x7, val);
+        am.set(val, 2);  as.set(x8, val);
+        am.set(val, 0);  as.set(x9, val);
+        am.set(val, 0);  as.set(x10, val);
+        am.set(val, 0);  as.set(x11, val);
+        am.set(val, 2);  as.set(x12, val);
+        am.set(val, 1);  as.set(x13, val);
+        s.set_rvalues(as);
+
+        // Create literals for the two polynomials
+        nlsat::scoped_literal_vector lits(s);
+        lits.push_back(mk_gt(s, p0.get()));  // x13 > 0
+        lits.push_back(mk_gt(s, p1.get()));  // p1 > 0
+
+        project_fa(s, ex, x13, lits.size(), lits.data());
+        std::cout << "\n";
+    };
+
+    run_test(false);  // Standard projection
+    run_test(true);   // Levelwise projection
+}
+
 void tst_nlsat() {
+    tst_unsound_lws2380();
+    std::cout << "------------------\n";
     tst_polynomial_cache_mk_unique();
     std::cout << "------------------\n";
     tst_nullified_polynomial();
