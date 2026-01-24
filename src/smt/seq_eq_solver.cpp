@@ -1216,9 +1216,11 @@ bool theory_seq::find_better_rep(expr_ref_vector const& ls, expr_ref_vector cons
 
     if (ls.empty() || rs.empty())
         return false;
-    expr* l_fst = find_fst_non_empty_var(ls);
-    expr* r_fst = find_fst_non_empty_var(rs);
-    if (!r_fst) return false;
+    auto opt_l_fst = find_fst_non_empty_var(ls);
+    auto opt_r_fst = find_fst_non_empty_var(rs);
+    if (!opt_r_fst) return false;
+    expr* l_fst = opt_l_fst ? *opt_l_fst : nullptr;
+    expr* r_fst = *opt_r_fst;
     expr_ref len_r_fst = mk_len(r_fst);
     expr_ref len_l_fst(m);
     enode * root2;
@@ -1303,11 +1305,11 @@ int theory_seq::find_fst_non_empty_idx(expr_ref_vector const& xs) {
     return -1;
 }
 
-expr* theory_seq::find_fst_non_empty_var(expr_ref_vector const& x) {
+std::optional<expr*> theory_seq::find_fst_non_empty_var(expr_ref_vector const& x) {
     int i = find_fst_non_empty_idx(x);
     if (i >= 0)
         return x[i];
-    return nullptr;
+    return std::nullopt;
 }
 
 #endif
