@@ -654,13 +654,16 @@ namespace lp {
         struct undo_fixed_column : public trail {
             imp& m_imp;
             unsigned m_j;  // the column that has been added
-            const mpq m_fixed_val;
+            mpq m_fixed_val;  // not const: needs to be reset in undo() to free heap memory
             undo_fixed_column(imp& s, unsigned j) : m_imp(s), m_j(j), m_fixed_val(s.lra.get_lower_bound(j).x) {
                 SASSERT(s.lra.column_is_fixed(j));
             }
 
             void undo() override {
                 m_imp.add_changed_column(m_j);
+                // Free heap-allocated memory in m_fixed_val since this struct is region-allocated
+                // and its destructor won't be called
+                m_fixed_val.reset();
             }
         };
 
