@@ -591,7 +591,7 @@ void arith_rewriter::get_nl_muls(expr* t, ptr_buffer<expr>& muls) {
         muls.push_back(t);    
 }
 
-expr* arith_rewriter::find_nl_factor(expr* t) {
+std::optional<expr*> arith_rewriter::find_nl_factor(expr* t) {
     ptr_buffer<expr> sum, muls;
     sum.push_back(t);
 
@@ -608,18 +608,19 @@ expr* arith_rewriter::find_nl_factor(expr* t) {
                 if (is_add_factor(m, t))
                     return m;
             }
-            return nullptr;
+            return std::nullopt;
         }
     }
-    return nullptr;
+    return std::nullopt;
 }
 
 br_status arith_rewriter::factor_le_ge_eq(expr * arg1, expr * arg2, op_kind kind, expr_ref & result) {
     
     if (is_zero(arg2)) {
-        expr* f = find_nl_factor(arg1);
-        if (!f)
+        auto opt_f = find_nl_factor(arg1);
+        if (!opt_f)
             return BR_FAILED;
+        expr* f = *opt_f;
         expr_ref f2 = remove_factor(f, arg1);
         expr* z = m_util.mk_numeral(rational(0), m_util.is_int(arg1));
         result = m.mk_or(m_util.mk_eq(f, z), m_util.mk_eq(f2, z));
