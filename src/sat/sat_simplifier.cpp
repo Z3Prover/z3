@@ -1630,7 +1630,7 @@ namespace sat {
                 return;
             }
             for (literal l2 : m_intersection) {
-                watched* w = find_binary_watch(s.get_wlist(~l), ~l2);
+                auto w = find_binary_watch(s.get_wlist(~l), ~l2);
                 if (!w) {
                     s.s.mk_bin_clause(l, ~l2, true);
                     ++s.m_num_bca;

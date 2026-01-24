@@ -20,6 +20,7 @@ Revision History:
 
 #include "sat/sat_types.h"
 #include "util/vector.h"
+#include <optional>
 
 namespace sat {
     /**
@@ -117,8 +118,8 @@ namespace sat {
 
     typedef vector<watched> watch_list;
 
-    watched* find_binary_watch(watch_list & wlist, literal l);
-    watched const* find_binary_watch(watch_list const & wlist, literal l);
+    std::optional<watched*> find_binary_watch(watch_list & wlist, literal l);
+    std::optional<watched const*> find_binary_watch(watch_list const & wlist, literal l);
     bool erase_clause_watch(watch_list & wlist, clause_offset c);
 
     class clause_allocator;

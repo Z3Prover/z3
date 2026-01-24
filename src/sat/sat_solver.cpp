@@ -469,14 +469,14 @@ namespace sat {
             assign_unit(l2);
             return;
         }
-        watched* w0 = redundant ? find_binary_watch(get_wlist(~l1), l2) : nullptr;
+        auto w0 = redundant ? find_binary_watch(get_wlist(~l1), l2) : std::nullopt;
         if (w0 && !m_trim) {
             TRACE(sat, tout << "found binary " << l1 << " " << l2 << "\n";);
-            if (w0->is_learned() && !redundant) {
-                w0->set_learned(false);
+            if ((*w0)->is_learned() && !redundant) {
+                (*w0)->set_learned(false);
                 w0 = find_binary_watch(get_wlist(~l2), l1);            
                 VERIFY(w0);
-                w0->set_learned(false);                        
+                (*w0)->set_learned(false);                        
             }
             if (propagate_bin_clause(l1, l2) && !at_base_lvl() && !redundant)
                 push_reinit_stack(l1, l2);

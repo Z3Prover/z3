@@ -152,8 +152,8 @@ namespace sat {
 #if 0
             // learn equivalences during probing:
             if (implies(lit, l)) {
-                if (nullptr == find_binary_watch(s.get_wlist(lit), l) ||
-                    nullptr == find_binary_watch(s.get_wlist(~l), ~lit)) {
+                if (!find_binary_watch(s.get_wlist(lit), l) ||
+                    !find_binary_watch(s.get_wlist(~l), ~lit)) {
                     m_equivs.push_back(std::make_pair(lit, l));
                 }
             }
