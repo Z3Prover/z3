@@ -534,14 +534,14 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_simplifier(c, name);
         RESET_ERROR_CODE();
-        simplifier_cmd * t = mk_c(c)->find_simplifier_cmd(symbol(name));
-        if (t == nullptr) {
+        auto t = mk_c(c)->find_simplifier_cmd(symbol(name));
+        if (!t) {
             std::stringstream err;
             err << "unknown simplifier " << name;
             SET_ERROR_CODE(Z3_INVALID_ARG, err.str());
             RETURN_Z3(nullptr);
         }
-        simplifier_factory new_t = t->factory();
+        simplifier_factory new_t = (*t)->factory();
         RETURN_SIMPLIFIER(new_t);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -658,12 +658,12 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_simplifier_get_descr(c, name);
         RESET_ERROR_CODE();
-        simplifier_cmd * t = mk_c(c)->find_simplifier_cmd(symbol(name));
-        if (t == nullptr) {
+        auto t = mk_c(c)->find_simplifier_cmd(symbol(name));
+        if (!t) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return "";
         }
-        return t->get_descr();
+        return (*t)->get_descr();
         Z3_CATCH_RETURN("");
     }
 

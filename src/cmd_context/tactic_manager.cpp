@@ -64,10 +64,11 @@ std::optional<tactic_cmd*> tactic_manager::find_tactic_cmd(symbol const & s) con
     return std::nullopt;
 }
 
-simplifier_cmd * tactic_manager::find_simplifier_cmd(symbol const & s) const {
+std::optional<simplifier_cmd*> tactic_manager::find_simplifier_cmd(symbol const & s) const {
     simplifier_cmd * c = nullptr;
-    m_name2simplifier.find(s, c);
-    return c;
+    if (m_name2simplifier.find(s, c))
+        return c;
+    return std::nullopt;
 }
 
 probe_info * tactic_manager::find_probe(symbol const & s) const {

@@ -39,7 +39,7 @@ public:
     void insert(probe_info * p);
     std::optional<tactic_cmd*> find_tactic_cmd(symbol const & s) const; 
     probe_info * find_probe(symbol const & s) const;     
-    simplifier_cmd* find_simplifier_cmd(symbol const& s) const;
+    std::optional<simplifier_cmd*> find_simplifier_cmd(symbol const& s) const;
 
     unsigned num_tactics() const { return m_tactics.size(); }
     unsigned num_probes() const { return m_probes.size(); }

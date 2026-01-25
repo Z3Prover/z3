@@ -73,9 +73,9 @@ static simplifier_factory mk_using_params(cmd_context & ctx, sexpr * n) {
 
 simplifier_factory sexpr2simplifier(cmd_context & ctx, sexpr * n) {
     if (n->is_symbol()) {
-        simplifier_cmd * cmd = ctx.find_simplifier_cmd(n->get_symbol());
-        if (cmd != nullptr)
-            return cmd->factory();
+        auto cmd = ctx.find_simplifier_cmd(n->get_symbol());
+        if (cmd)
+            return (*cmd)->factory();
         throw cmd_exception("invalid tactic, unknown tactic ", n->get_symbol(), n->get_line(), n->get_pos());
     }
     else if (n->is_composite()) {
