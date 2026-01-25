@@ -20,6 +20,7 @@ safe-outputs:
   create-issue:
     title-prefix: "[Conventions] "
     labels: [code-quality, automated]
+    max: 5
   create-discussion:
     title-prefix: "Code Conventions Analysis"
     category: "Agentic Workflows"
