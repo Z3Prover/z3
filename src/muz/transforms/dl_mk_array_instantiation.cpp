@@ -277,7 +277,7 @@ namespace datalog {
                 new_args.push_back(arg_correspondance[i][chosen[i]].get());
             }
             res.push_back(create_pred(old_pred, new_args));
-            unsigned pos=-1;
+            unsigned pos = UINT_MAX;
             do {
                 pos++;
                 if(pos==chosen.size()){

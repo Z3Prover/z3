@@ -683,7 +683,7 @@ unsigned bv_rewriter::propagate_extract(unsigned high, expr * arg, expr_ref & re
     bool all_numerals = true;
     unsigned removable = to_remove;
     numeral val;
-    unsigned curr_first_sz = -1;
+    unsigned curr_first_sz = UINT_MAX;
     // calculate how much can be removed
     for (unsigned i = 0; i < num; ++i) {
         expr * const curr = a->get_arg(i);
