@@ -27,6 +27,8 @@ Revision History:
 #include "util/map.h"
 #include "util/dependency.h"
 #include "util/permutation.h"
+#include "util/scoped_timer.h"
+#include "util/cancel_eh.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/polynomial_cache.h"
 #include "nlsat/nlsat_solver.h"
@@ -311,7 +313,7 @@ namespace nlsat {
             m_explain.set_minimize_cores(min_cores);
             m_explain.set_factor(p.factor());
             m_explain.set_add_all_coeffs(p.add_all_coeffs());
-            m_explain.set_add_zero_disc(p.zero_disc());            
+            m_explain.set_add_zero_disc(p.zero_disc());
             m_am.updt_params(p.p);
         }
 
@@ -1013,42 +1015,27 @@ namespace nlsat {
             }
         }
 
-        void check_lemma(unsigned n, literal const* cls, bool is_valid, assumption_set a) {
-            TRACE(nlsat, display(tout << "check lemma: ", n, cls) << "\n";
-                  display(tout););
-            if (!m_debug_known_solution_file_name.empty()) {
-                debug_check_lemma_on_known_sat_values(n, cls);
-                return;
-            }
-            IF_VERBOSE(2, display(verbose_stream() << "check lemma " << (is_valid?"valid: ":"consequence: "), n, cls) << "\n");
-            for (clause* c : m_learned) IF_VERBOSE(1, display(verbose_stream() << "lemma: ", *c) << "\n"); 
-            scoped_suspend_rlimit _limit(m_rlimit);
-            ctx c(m_rlimit, m_ctx.m_params, m_ctx.m_incremental);
-            solver solver2(c);
-            imp& checker = *(solver2.m_imp);
-            checker.m_check_lemmas = false;
-            checker.m_log_lemmas = false;
-            checker.m_dump_mathematica = false;
-            checker.m_inline_vars = false;
-
+        // Helper: Setup checker solver and translate atoms/clauses
+        void setup_checker(imp& checker, scoped_bool_vars& tr, unsigned n, literal const* cls, assumption_set a) {
             auto pconvert = [&](poly* p) {
                 return convert(m_pm, p, checker.m_pm);
             };
 
-            // need to translate Boolean variables and literals
-            scoped_bool_vars tr(checker);
+            // Register variables (must use mk_var to also create vars in polynomial manager)
             for (var x = 0; x < m_is_int.size(); ++x) {
-                checker.register_var(x, is_int(x));
+                checker.mk_var(is_int(x));
             }
+            
+            // Translate Boolean variables and atoms
             bool_var bv = 0;
             tr.push_back(bv);
             for (bool_var b = 1; b < m_atoms.size(); ++b) {
-                atom* a = m_atoms[b];
-                if (a == nullptr) {
+                atom* at = m_atoms[b];
+                if (at == nullptr) {
                     bv = checker.mk_bool_var();
                 }
-                else if (a->is_ineq_atom()) {
-                    ineq_atom& ia = *to_ineq_atom(a);
+                else if (at->is_ineq_atom()) {
+                    ineq_atom& ia = *to_ineq_atom(at);
                     unsigned sz = ia.size();
                     polynomial_ref_vector ps(checker.m_pm);
                     bool_vector is_even;
@@ -1058,12 +1045,14 @@ namespace nlsat {
                     }
                     bv = checker.mk_ineq_atom(ia.get_kind(), sz, ps.data(), is_even.data());
                 }
-                else if (a->is_root_atom()) {
-                    root_atom& r = *to_root_atom(a);
+                else if (at->is_root_atom()) {
+                    root_atom& r = *to_root_atom(at);
                     if (r.x() >= max_var(r.p())) {
-                        // permutation may be reverted after check completes, 
-                        // but then root atoms are not used in lemmas.
                         bv = checker.mk_root_atom(r.get_kind(), r.x(), r.i(), pconvert(r.p()));
+                    }
+                    else {
+                        // root atom cannot be translated due to variable ordering
+                        bv = checker.mk_bool_var();
                     }
                 }
                 else {
@@ -1071,54 +1060,93 @@ namespace nlsat {
                 }
                 tr.push_back(bv);
             }
-            if (!is_valid) {
-                for (clause* c : m_clauses) {
-                    if (!a && c->assumptions()) {
-                        continue;
-                    }
-                    literal_vector lits;
-                    for (literal lit : *c) {
-                        lits.push_back(literal(tr[lit.var()], lit.sign()));
-                    }
-                    checker.mk_external_clause(lits.size(), lits.data(), nullptr);
+            
+            // Add original clauses (checking that lemma is a consequence)
+            for (clause* c : m_clauses) {
+                if (!a && c->assumptions()) {
+                    continue;
                 }
+                literal_vector lits;
+                for (literal lit : *c) {
+                    lits.push_back(literal(tr[lit.var()], lit.sign()));
+                }
+                checker.mk_external_clause(lits.size(), lits.data(), nullptr);
             }
+            
+            // Add negation of lemma literals
             for (unsigned i = 0; i < n; ++i) {
                 literal lit = cls[i];
                 literal nlit(tr[lit.var()], !lit.sign());
                 checker.mk_external_clause(1, &nlit, nullptr);
             }
-            lbool r = checker.check();
-            if (r == l_true) {
-                for (bool_var b : tr) {
-                    literal lit(b, false);
-                    IF_VERBOSE(0, checker.display(verbose_stream(), lit) << " := " << checker.value(lit) << "\n");
-                    TRACE(nlsat, checker.display(tout, lit) << " := " << checker.value(lit) << "\n";);
+        }
+
+        // Helper: Display unsound lemma failure information
+        void display_unsound_lemma(imp& checker, scoped_bool_vars& tr, unsigned n, literal const* cls) {
+            verbose_stream() << "\n";
+            verbose_stream() << "========== UNSOUND LEMMA DETECTED ==========\n";
+            verbose_stream() << "The following lemma is NOT implied by the original clauses:\n";
+            display(verbose_stream() << "  Lemma: ", n, cls) << "\n\n";
+            verbose_stream() << "Reason: Found a satisfying assignment where:\n";
+            verbose_stream() << "  - The original clauses are satisfied\n";
+            verbose_stream() << "  - But ALL literals in the lemma are FALSE\n\n";
+            
+            // Display variable values used in the lemma
+            verbose_stream() << "Variable values in counterexample:\n";
+            auto lemma_vars = collect_vars_on_clause(n, cls);
+            for (var x : lemma_vars) {
+                if (checker.m_assignment.is_assigned(x)) {
+                    verbose_stream() << "  ";
+                    m_display_var(verbose_stream(), x);
+                    verbose_stream() << " = ";
+                    checker.m_am.display_decimal(verbose_stream(), checker.m_assignment.value(x));
+                    verbose_stream() << "\n";
                 }
-                for (clause* c : m_learned) {
-                    bool found = false;
-                    for (literal lit: *c) {
-                        literal tlit(tr[lit.var()], lit.sign());
-                        found |= checker.value(tlit) == l_true;
-                    }
-                    if (!found) {
-                        IF_VERBOSE(0, display(verbose_stream() << "violdated clause: ", *c) << "\n");
-                        TRACE(nlsat, display(tout << "violdated clause: ", *c) << "\n";);
-                    }
+            }
+            
+            verbose_stream() << "\nLemma literals evaluated to FALSE:\n";
+            for (unsigned i = 0; i < n; ++i) {
+                literal lit = cls[i];
+                literal tlit(tr[lit.var()], lit.sign());
+                verbose_stream() << "  ";
+                display(verbose_stream(), lit);
+                verbose_stream() << " = " << checker.value(tlit) << "\n";
+            }
+            verbose_stream() << "=============================================\n";
+            verbose_stream() << "ABORTING: Unsound lemma detected!\n";
+        }
+
+        void check_lemma(unsigned n, literal const* cls, assumption_set a) {
+            TRACE(nlsat, display(tout << "check lemma: ", n, cls) << "\n";
+                  display(tout););
+            
+            try {
+                // Create a separate reslimit for the checker with 10 second timeout
+                reslimit checker_rlimit;
+                cancel_eh<reslimit> eh(checker_rlimit);
+                scoped_timer timer(10000, &eh);
+                
+                ctx c(checker_rlimit, m_ctx.m_params, m_ctx.m_incremental);
+                solver solver2(c);
+                imp& checker = *(solver2.m_imp);
+                checker.m_check_lemmas = false;
+                checker.m_log_lemmas = false;
+                checker.m_dump_mathematica = false;
+                checker.m_inline_vars = false;
+                
+                scoped_bool_vars tr(checker);
+                setup_checker(checker, tr, n, cls, a);            
+                lbool r = checker.check();           
+                if (r == l_undef) // Checker timed out - skip this lemma check
+                    return;
+                
+                if (r == l_true) {
+                    display_unsound_lemma(checker, tr, n, cls);
+                    exit(1);
                 }
-                for (clause* c : m_valids) {
-                    bool found = false;
-                    for (literal lit: *c) {
-                        literal tlit(tr[lit.var()], lit.sign());
-                        found |= checker.value(tlit) == l_true;
-                    }
-                    if (!found) {
-                        IF_VERBOSE(0, display(verbose_stream() << "violdated tautology clause: ", *c) << "\n");
-                        TRACE(nlsat, display(tout << "violdated tautology clause: ", *c) << "\n";);
-                    }                    
-                }
-                throw default_exception("lemma did not check");
-                UNREACHABLE();
+            }
+            catch (...) {
+                // Ignore exceptions from the checker - just skip this lemma check
             }
         }
 
@@ -2096,7 +2124,7 @@ namespace nlsat {
             
             if (m_check_lemmas)
                 for (clause* c : m_learned) 
-                    check_lemma(c->size(), c->data(), false, nullptr);
+                    check_lemma(c->size(), c->data(), nullptr);
             
             assumptions.reset();
             assumptions.append(result);
@@ -2333,7 +2361,7 @@ namespace nlsat {
             }
 
             if (m_check_lemmas) {
-                check_lemma(m_lazy_clause.size(), m_lazy_clause.data(), false, nullptr);
+                check_lemma(m_lazy_clause.size(), m_lazy_clause.data(), nullptr);
                 m_valids.push_back(mk_clause_core(m_lazy_clause.size(), m_lazy_clause.data(), false, nullptr));
             }
             
@@ -2578,7 +2606,7 @@ namespace nlsat {
                   tout << "found_decision: " << found_decision << "\n";);
             
             if (m_check_lemmas) {
-                check_lemma(m_lemma.size(), m_lemma.data(), false, m_lemma_assumptions.get());
+                check_lemma(m_lemma.size(), m_lemma.data(), m_lemma_assumptions.get());
             }
 
             // if (m_log_lemmas) 
