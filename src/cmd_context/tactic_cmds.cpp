@@ -654,9 +654,9 @@ static tactic * mk_skip_if_failed(cmd_context & ctx, sexpr * n) {
 
 tactic * sexpr2tactic(cmd_context & ctx, sexpr * n) {
     if (n->is_symbol()) {
-        tactic_cmd * cmd = ctx.find_tactic_cmd(n->get_symbol());
-        if (cmd != nullptr)
-            return cmd->mk(ctx.m());
+        auto cmd = ctx.find_tactic_cmd(n->get_symbol());
+        if (cmd)
+            return (*cmd)->mk(ctx.m());
         sexpr * decl = ctx.find_user_tactic(n->get_symbol());
         if (decl != nullptr)
             return sexpr2tactic(ctx, decl);
