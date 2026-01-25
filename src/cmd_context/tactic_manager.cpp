@@ -70,9 +70,10 @@ simplifier_cmd * tactic_manager::find_simplifier_cmd(symbol const & s) const {
     return c;
 }
 
-probe_info * tactic_manager::find_probe(symbol const & s) const {
+std::optional<probe_info*> tactic_manager::find_probe(symbol const & s) const {
     probe_info * p = nullptr;
-    m_name2probe.find(s, p);
-    return p;
+    if (m_name2probe.find(s, p))
+        return p;
+    return std::nullopt;
 }
 
