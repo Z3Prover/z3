@@ -767,9 +767,9 @@ MK_NARY_PROBE(mk_mul);
 
 probe * sexpr2probe(cmd_context & ctx, sexpr * n) {
     if (n->is_symbol()) {
-        probe_info * pinfo = ctx.find_probe(n->get_symbol());
-        if (pinfo != nullptr)
-            return pinfo->get();
+        auto pinfo = ctx.find_probe(n->get_symbol());
+        if (pinfo)
+            return (*pinfo)->get();
         throw cmd_exception("invalid probe, unknown builtin probe ", n->get_symbol(), n->get_line(), n->get_pos());
     }
     else if (n->is_numeral()) {
