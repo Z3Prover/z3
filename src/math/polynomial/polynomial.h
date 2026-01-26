@@ -1398,6 +1398,13 @@ inline polynomial_ref resultant(polynomial_ref const & p, polynomial_ref const &
     return polynomial_ref(r);
 }
 
+inline polynomial_ref discriminant(polynomial_ref const & p, unsigned x) {
+    polynomial::manager & m = p.m();
+    polynomial_ref r(m);
+    m.discriminant(p, x, r);
+    return polynomial_ref(r);
+}
+
 inline bool is_pos(polynomial_ref const & p) {
     return p.m().is_pos(p);
 }
