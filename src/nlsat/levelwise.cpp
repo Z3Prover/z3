@@ -1501,6 +1501,7 @@ namespace nlsat {
                 if (add_lc && witness && !is_const(witness))
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         witness = polynomial_ref(m_pm);
+                
                 add_projections_for(p, m_level, witness, add_lc, true); //true for adding the discriminant: always add it in sector, required by Lemma 3.2.
             }
         }
@@ -1532,10 +1533,9 @@ namespace nlsat {
                     // add_lc stays true
                 }
                 else if (m_section_relation_mode == section_biggest_cell) {
-                    // SMT-RAT section heuristic 1 projects leading coefficients primarily for the
-                    // defining section polynomial; keep LCs only for upstream ORD polynomials.
-                    if (get_req(i) != inv_req::ord)
-                        add_lc = false;
+                    // SMT-RAT section heuristic 1 does NOT use noLdcf optimization.
+                    // All polynomials with roots get their LC projected.
+                    // add_lc stays true
                 }
                 else {
                     if (add_lc && i < m_omit_lc.size() && m_omit_lc[i])
@@ -1595,13 +1595,24 @@ namespace nlsat {
             return false;
         }
 
+        // Clear all per-level state that could be stale from previous levels.
+        // This ensures no leftover heuristic decisions affect the current level.
+        void clear_level_state() {
+            m_omit_lc.clear();
+            m_omit_disc.clear();
+            m_rel.m_pairs.clear();
+            m_side_mask.clear();
+            m_deg_in_order_graph.clear();
+            m_unique_neighbor.clear();
+        }
+
         void process_level_section(bool have_interval) {
             SASSERT(m_I[m_level].section);
             m_solver.record_levelwise_section();
+            clear_level_state();  // Clear stale state from previous level
             if (have_interval) {
                 // Check spanning tree threshold first, independent of dynamic heuristic
                 if (should_use_spanning_tree()) {
-                    m_rel.m_pairs.clear();
                     fill_relation_pairs_for_section_spanning_tree();
                     compute_omit_lc_both_sides(true);
                     m_section_relation_mode = section_spanning_tree;
@@ -1621,10 +1632,10 @@ namespace nlsat {
         void process_level_sector(bool have_interval) {
             SASSERT(!m_I[m_level].section);
             m_solver.record_levelwise_sector();
+            clear_level_state();  // Clear stale state from previous level
             if (have_interval) {
                 // Check spanning tree threshold first, independent of dynamic heuristic
                 if (should_use_spanning_tree()) {
-                    m_rel.m_pairs.clear();
                     fill_relation_with_spanning_tree_heuristic();
                     compute_omit_lc_both_sides(true);
                     m_sector_relation_mode = spanning_tree;
