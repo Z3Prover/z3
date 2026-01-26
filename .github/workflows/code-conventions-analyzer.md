@@ -38,24 +38,9 @@ You are an expert C++ code quality analyst specializing in the Z3 theorem prover
 
 ## Your Task
 
-**PRIMARY FOCUS: Create Issues for std::optional Refactoring**
+**PRIMARY FOCUS: Create Issues for Tuple Pattern (Structured Bindings) Refactoring**
 
-Your primary task is to identify and **directly implement** refactorings that replace pointer-based optional patterns with `std::optional<T>`. This workflow will:
-
-1. **Find std::optional opportunities** - Functions returning null pointers to indicate absence or using output parameters
-2. **Implement the refactoring** - Use the `edit` tool to make actual code changes
-3. **Create issues** - Automatically create an issue with your changes for std::optional improvements
-4. **Create discussions for other findings** - For other code quality issues, create discussions (not issues)
-
-**Focus Areas for std::optional Refactoring:**
-- Functions returning `nullptr` to indicate "no value"
-- Functions using output parameters (pointer/reference parameters) to return optional results
-- Boolean return + output parameter patterns (e.g., `bool get_value(T* out)`)
-- APIs that would benefit from explicit optional semantics
-
-**SECONDARY FOCUS: Create Issues for Tuple Pattern (Structured Bindings) Refactoring**
-
-Your secondary task is to identify and implement refactorings that use C++17 structured bindings instead of accessing `.first` and `.second`:
+Your primary task is to identify and implement refactorings that use C++17 structured bindings instead of accessing `.first` and `.second`:
 
 1. **Find tuple/pair access patterns** - Code accessing `.first` and `.second` members
 2. **Implement the refactoring** - Replace with structured bindings for clearer code
@@ -85,9 +70,9 @@ auto [n1, n2] = get_pair(y);
 return merge(n1, n2);
 ```
 
-**TERTIARY FOCUS: Create Issues for initializer_list Refactoring**
+**SECONDARY FOCUS: Create Issues for initializer_list Refactoring**
 
-Your tertiary task is to identify and implement refactorings that use `std::initializer_list<T>` instead of array pointer + size parameters:
+Your secondary task is to identify and implement refactorings that use `std::initializer_list<T>` instead of array pointer + size parameters:
 
 1. **Find array + size parameter patterns** - Functions taking `(unsigned sz, T* args)` or similar
 2. **Implement the refactoring** - Replace with `std::initializer_list<T>` for cleaner APIs
@@ -127,127 +112,7 @@ foo({1, 2});
 Additionally, conduct analysis of other coding conventions and modern C++ opportunities for discussion (not immediate implementation)
 
 
-## Workflow for std::optional Refactoring (PRIMARY)
-
-### Step A: Find std::optional Refactoring Opportunities
-
-1. **Search for common patterns** that should use `std::optional`:
-   ```bash
-   # Functions returning nullptr to indicate absence
-   grep pattern: "return nullptr;" glob: "src/**/*.{cpp,h}"
-   
-   # Boolean return + output parameter patterns
-   grep pattern: "bool [a-z_]+\(.*\*" glob: "src/**/*.h"
-   grep pattern: "bool [a-z_]+\(.*&" glob: "src/**/*.h"
-   
-   # Functions with output parameters
-   grep pattern: "\([^,]+\*[^,]*\)" glob: "src/**/*.h"
-   ```
-
-2. **Analyze candidates** for refactoring:
-   - Use `view` to examine the function implementation
-   - Check if the function is part of the public API or internal
-   - Verify that the pattern is indeed optional (not always valid)
-   - Ensure the change would improve code clarity
-
-3. **Select 1-3 high-value targets** per run:
-   - Prefer internal APIs over public APIs (less breaking)
-   - Choose functions with clear optional semantics
-   - Focus on functions with multiple call sites for broader impact
-
-### Step B: Implement the Refactoring
-
-For each selected function:
-
-1. **Update the function signature** in header file:
-   ```cpp
-   // Before:
-   bool get_something(T* result);
-   // or
-   T* find_something();
-   
-   // After:
-   std::optional<T> get_something();
-   ```
-
-2. **Update the function implementation**:
-   ```cpp
-   // Before:
-   bool get_something(T* result) {
-       if (condition) {
-           *result = value;
-           return true;
-       }
-       return false;
-   }
-   
-   // After:
-   std::optional<T> get_something() {
-       if (condition) {
-           return value;
-       }
-       return std::nullopt;
-   }
-   ```
-
-3. **Update all call sites** to use the new API:
-   ```cpp
-   // Before:
-   T result;
-   if (get_something(&result)) {
-       use(result);
-   }
-   
-   // After:
-   if (auto result = get_something()) {
-       use(*result);
-   }
-   ```
-
-4. **Verify the changes**:
-   - Use `grep` to find any remaining call sites
-   - Check that the refactoring is complete
-   - Ensure no compilation errors would occur
-
-### Step C: Create the Issue
-
-Use the `output.create-issue` tool to create an issue with:
-- **Title**: "Refactor [function_name] to use std::optional"
-- **Description**: 
-  - Explain what was changed
-  - Why std::optional is better (type safety, explicit semantics)
-  - List all modified files
-  - Note any caveats or considerations
-
-**Example issue description:**
-```markdown
-# Refactor to use std::optional
-
-This PR refactors the following functions to use `std::optional<T>` instead of pointer-based optional patterns:
-
-- `get_value()` in `src/util/some_file.cpp`
-- `find_item()` in `src/ast/another_file.cpp`
-
-## Benefits:
-- Explicit optional semantics (no nullptr checks needed)
-- Type safety (can't forget to check for absence)
-- Modern C++17 idiom
-
-## Changes:
-- Updated function signatures to return `std::optional<T>`
-- Modified implementations to return `std::nullopt` instead of `nullptr`
-- Updated all call sites to use optional idioms
-
-## Testing:
-- No functional changes to logic
-- All existing call sites updated
-```
-
-### Step D: Create Discussion for Other Findings
-
-If you identify other code quality issues (naming, formatting, other C++ features), create a **discussion** (not a PR) with those findings using the existing discussion format from the workflow.
-
-## Workflow for initializer_list Refactoring (TERTIARY)
+## Workflow for initializer_list Refactoring (SECONDARY)
 
 ### Step A: Find initializer_list Refactoring Opportunities
 
@@ -445,7 +310,6 @@ Z3 uses C++20 (as specified in `.clang-format`). Look for opportunities to use:
 **C++17 features:**
 - Structured bindings for tuple/pair unpacking
 - `if constexpr` for compile-time conditionals
-- **`std::optional` instead of pointer-based optional values** - **PRIMARY FOCUS: Implement these changes directly (see "Workflow for std::optional Refactoring" section near the beginning of this document)**
 - `std::string_view` for string parameters
 - Fold expressions for variadic templates
 - `[[nodiscard]]` and `[[maybe_unused]]` attributes
@@ -538,13 +402,8 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 - Incorrect usage of `std::move` (moving from const references, etc.)
 - Return value optimization opportunities being blocked
 
-**Optional Value Patterns:**
-- **PRIMARY TASK**: Functions returning null + using output parameters
-- **ACTION**: Replace with `std::optional<T>` return values using the refactoring workflow above
-- **RESULT**: Create an issue with the actual code changes (see "Workflow for std::optional Refactoring")
-
 **Tuple/Pair Access Patterns:**
-- **SECONDARY TASK**: Code accessing `.first` and `.second` on pairs/tuples
+- **PRIMARY TASK**: Code accessing `.first` and `.second` on pairs/tuples
 - **ACTION**: Replace with C++17 structured bindings for cleaner, more readable code
 - **RESULT**: Create an issue with the actual code changes
 - **NAMING**: Use descriptive names based on types/semantics (e.g., `[n1, n2]` for `enode_pair`, `[k, v]` for maps)
@@ -638,16 +497,16 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 
 ## Deliverables
 
-### PRIMARY: Issue for std::optional Refactoring
+### PRIMARY: Issues for Code Refactoring
 
-If you implement std::optional refactoring (following the workflow above), create an issue using `output.create-issue` with:
+When you implement refactorings (structured bindings, initializer_list), create issues using `output.create-issue` with:
 - Clear title indicating what was refactored
 - Description of changes and benefits
 - List of modified files and functions
 
 ### SECONDARY: Detailed Analysis Discussion
 
-For other code quality findings (non-std::optional), create a comprehensive discussion with your findings structured as follows:
+For other code quality findings, create a comprehensive discussion with your findings structured as follows:
 
 ### Discussion Title
 "Code Conventions Analysis - [Date] - [Key Finding Summary]"
@@ -872,23 +731,9 @@ For each opportunity, provide:
 - **Incorrect std::move**: [Move from const, unnecessary moves]
 - **Return Value Optimization**: [Places where RVO is blocked]
 
-### 4.8 Optional Value Pattern Modernization - **IMPLEMENT AS ISSUE**
+### 4.8 Tuple Pattern (Structured Bindings) Modernization - **IMPLEMENT AS ISSUE**
 
 **This is the PRIMARY focus area - implement these changes directly:**
-
-- **Current Pattern**: Functions returning null + output parameters
-- **Modern Pattern**: `std::optional<T>` return value opportunities
-- **Action**: Use the "Workflow for std::optional Refactoring" section above to:
-  1. Find candidate functions
-  2. Refactor using the `edit` tool
-  3. Create an issue with your changes
-- **API Improvements**: Specific function signatures to update
-- **Examples**: File:line references with before/after code
-- **Output**: Issue (not just discussion)
-
-### 4.9 Tuple Pattern (Structured Bindings) Modernization - **IMPLEMENT AS ISSUE**
-
-**This is a SECONDARY focus area - implement these changes directly:**
 
 - **Current Pattern**: Accessing `.first` and `.second` on pairs/tuples
 - **Modern Pattern**: Use C++17 structured bindings for cleaner code
@@ -945,21 +790,21 @@ For each opportunity, provide:
   - Have sequential uses of both `.first` and `.second`
 - **Output**: Issue with refactored code
 
-### 4.10 Exception String Construction
+### 4.9 Exception String Construction
 - **Current**: [stringstream usage for building exception messages]
 - **Modern**: [std::format and std::formater opportunities]
 - **String Copies**: [Unnecessary copies when raising exceptions]
 - **Examples**: [Specific exception construction sites]
 
-### 4.11 Array Parameter Modernization (std::span)
+### 4.10 Array Parameter Modernization (std::span)
 - **Current**: [Pointer + size parameter pairs for runtime-sized arrays]
 - **Modern**: [std::span usage opportunities]
 - **Type Safety**: [How span improves API safety]
 - **Examples**: [Function signatures to update]
 
-### 4.12 Array Parameter Modernization (std::initializer_list) - **IMPLEMENT AS ISSUE**
+### 4.11 Array Parameter Modernization (std::initializer_list) - **IMPLEMENT AS ISSUE**
 
-**This is a TERTIARY focus area - implement these changes directly:**
+**This is a SECONDARY focus area - implement these changes directly:**
 
 - **Current Pattern**: Functions with `unsigned sz, T* args` or `unsigned sz, T* const* args` parameters
 - **Modern Pattern**: Use `std::initializer_list<T>` for functions called with compile-time constant arrays
@@ -1009,18 +854,18 @@ For each opportunity, provide:
 - **Output**: Issue with refactored code
 - **Note**: Only apply to internal C++ APIs, not to public C API functions that need C compatibility
 
-### 4.13 Increment Operator Patterns
+### 4.12 Increment Operator Patterns
 - **Postfix Usage**: [Count of i++ where result is unused]
 - **Prefix Preference**: [Places to use ++i instead]
 - **Iterator Loops**: [Heavy iterator usage areas]
 
-### 4.14 Exception Control Flow
+### 4.13 Exception Control Flow
 - **Current Usage**: [Exceptions used for normal control flow]
-- **Modern Alternatives**: [std::expected, std::optional, error codes]
+- **Modern Alternatives**: [std::expected or error codes]
 - **Performance**: [Impact of exception-based control flow]
 - **Refactoring Opportunities**: [Specific patterns to replace]
 
-### 4.15 Inefficient Stream Output
+### 4.14 Inefficient Stream Output
 - **Current Usage**: [string stream output operator used for single characters]
 - **Modern Alternatives**: [use char output operator]
 - **Performance**: [Reduce code size and improve performance]
@@ -1325,15 +1170,15 @@ grep pattern: "<<\s*\".*\"\s*<<\s*\".*\"" glob: "src/**/*.cpp"
 
 - Never execute untrusted code
 - Use `bash` only for safe operations (git, grep patterns)
-- **For std::optional refactoring**: Use the `edit` tool to modify files directly
+- **For code refactoring (structured bindings, initializer_list)**: Use the `edit` tool to modify files directly
 - **For other findings**: Create discussions only (no code modifications)
-- All code changes for std::optional will be reviewed through the issue process
+- All code changes will be reviewed through the issue process
 
 ## Output Requirements
 
 **Two types of outputs:**
 
-1. **Issue** (for std::optional refactoring):
+1. **Issue** (for refactorings like structured bindings or initializer_list):
    - Use `output.create-issue` to create an issue
    - Include clear title and description
    - List all modified files
