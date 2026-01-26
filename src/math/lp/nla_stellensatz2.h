@@ -219,6 +219,7 @@ namespace nla {
         bool can_continue_search();
         lbool search();
         lbool resolve_conflict();
+        std::optional<lp::constraint_index> find_backtrack_constraint();
         void backtrack(lp::constraint_index ci, svector<lp::constraint_index> const &deps);
         constraint negate_constraint(constraint const &c);
 
@@ -226,7 +227,6 @@ namespace nla {
         void init_levels();
         void insert_max_var(lp::constraint_index ci);
         void pop_bound();
-        void mark_dependencies(u_dependency *d);
         void mark_dependencies(lp::constraint_index ci);
         bool should_propagate() const { return m_prop_qhead < m_polynomial_queue.size(); }
         bool should_dual_saturate() { return false; }
@@ -430,8 +430,6 @@ namespace nla {
         void explain_constraint(lemma_builder& new_lemma, lp::constraint_index ci, lp::explanation &ex);
         void explain_constraint(lp::constraint_index ci, svector<lp::constraint_index> &external,
                                 svector<lp::constraint_index> &assumptions);
-        bool backtrack(svector<lp::constraint_index> const& core);
-        bool core_is_linear(svector<lp::constraint_index> const &core);
 
         bool well_formed();
         bool well_formed_var(lpvar v);

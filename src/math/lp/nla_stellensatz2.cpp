@@ -487,14 +487,9 @@ namespace nla {
             m_solver.update_values(m_values);
             return false;
         }
-        while (backtrack(m_core)) {            
-            r = m_solver.solve(m_core);
-            TRACE(arith, tout << "backtrack search " << r << ": " << m_core << "\n");
-            if (r == l_false)
-                continue;
-            m_solver.update_values(m_values);
-            return false;
-        }        
+        m_conflict_dep.reset();
+        m_conflict_dep.append(m_core);
+        verbose_stream() << "is-linear-conflict\n";
         return true;
     }
 
@@ -593,47 +588,6 @@ namespace nla {
         dd::pdd lc(pddm), rest(pddm);
         p.factor(v, degree, lc, rest);
         return {degree, lc, rest};
-    }
-
-    //
-    // check if core depends on an assumption
-    // identify the maximal assumption
-    // undo m_constraints down to max_ci.
-    // negate max_ci
-    // propagate it using remaining external and assumptions.
-    // find a new satisfying assignment (if any) before continuing.
-    // 
-    bool stellensatz2::backtrack(svector<lp::constraint_index> const &core) {
-        ++c().lp_settings().stats().m_stellensatz.m_num_backtracks;
-        ++m_stats.m_num_backtracks;
-        SASSERT(well_formed());
-        m_constraints_in_conflict.reset();
-        svector<lp::constraint_index> external, assumptions;
-        for (auto ci : core)
-            explain_constraint(ci, external, assumptions);
-        TRACE(arith, display(tout << "backtrack core " << core << "external " << external << " assumptions "
-                                  << assumptions << "\n");
-              for (auto a : assumptions) display_constraint(tout, a););
-        if (assumptions.empty())
-            return false;
-        lp::constraint_index max_ci = 0;
-        for (auto ci : assumptions) 
-            max_ci = std::max(ci, max_ci);
-
-        assumptions.erase(max_ci);
-        SASSERT(all_of(assumptions, [&](lp::constraint_index ci) { return m_levels[ci] < m_levels[max_ci]; }));
-        external.append(assumptions);
-        backtrack(max_ci, external);
-        SASSERT(well_formed());
-        return true;
-    }
-
-    bool stellensatz2::core_is_linear(svector<lp::constraint_index> const &core) {
-        m_constraints_in_conflict.reset();
-        svector<lp::constraint_index> external, assumptions;
-        for (auto ci : core)
-            explain_constraint(ci, external, assumptions);
-        return all_of(assumptions, [&](auto ci) { return has_term_offset(m_constraints[ci].p); });
     }
 
     void stellensatz2::explain_constraint(lp::constraint_index ci, svector<lp::constraint_index> &external,
@@ -936,12 +890,12 @@ namespace nla {
                 is_sat = resolve_conflict();
             else if (should_propagate())
                 propagate();
+            else if (is_linear_conflict())
+                continue;
             else if (primal_saturate())
                 continue;
             else if (is_feasible())
                 is_sat = l_true;
-            else if (is_linear_conflict())
-                is_sat = l_false;
             else if (should_dual_saturate())
                 dual_saturate();
             else if (!decide())
@@ -1001,11 +955,28 @@ namespace nla {
     }
 
     //
-    // Conflict resolution is similar to CDCL
+    // Conflict resolution is similar to CDCL:
     // walk m_bounds based on the propagated bounds
     // flip the last decision and backjump to the UIP.
     //     
     lbool stellensatz2::resolve_conflict() {
+        verbose_stream() << "resolve conflict\n";
+        ++c().lp_settings().stats().m_stellensatz.m_num_backtracks;
+
+        auto ci = find_backtrack_constraint();
+        if (!ci)
+            return l_false;
+        SASSERT(is_decision(*ci));
+
+        svector<lp::constraint_index> deps;
+        for (auto ci : m_conflict_marked_ci) 
+            deps.push_back(ci);        
+
+        backtrack(*ci, deps);        
+        return l_undef;
+    }
+
+    std::optional<lp::constraint_index> stellensatz2::find_backtrack_constraint() {
         SASSERT(is_conflict());
         TRACE(arith, tout << "resolving conflict: " << m_conflict_dep << "\n"; display_constraint(tout, m_conflict);
               display(tout););
@@ -1029,7 +1000,6 @@ namespace nla {
 
             mark_dependencies(ci);
             m_conflict_marked_ci.remove(ci);
-            //m_conflict = resolve(m_conflict, ci);
             if (conflict_level == 0)
                 m_core.push_back(ci);
 
@@ -1039,31 +1009,15 @@ namespace nla {
                   tout << "is_decision: " << found_decision << "\n"; display_constraint(tout, ci);
                   tout << "new conflict: "; display_constraint(tout, m_conflict););
         }
-        #if 0
-        if (constraint_is_conflict(m_conflict)) {
-            TRACE(arith, tout << "Conflict " << m_conflict << "\n");
-            m_core.push_back(m_conflict);
-            reset_conflict();
-            return l_false;
-        }
-        #endif
         SASSERT(found_decision == (conflict_level != 0));
         if (!found_decision) {
             for (auto ci : m_conflict_marked_ci)
-                m_core.push_back(ci);            
+                m_core.push_back(ci);
             reset_conflict();
             TRACE(arith, tout << "conflict " << m_core << "\n");
-            return l_false;
+            return std::nullopt;
         }
-
-        SASSERT(is_decision(ci));
-
-        svector<lp::constraint_index> deps;
-        for (auto ci : m_conflict_marked_ci) 
-            deps.push_back(ci);
-        
-        backtrack(ci, deps);        
-        return l_undef;
+        return ci;
     }
 
     // ~(x >= k) == -x > -k == -x >= -k + 1 if k integer
@@ -1204,12 +1158,6 @@ namespace nla {
         }, j);
     }
 
-    void stellensatz2::mark_dependencies(u_dependency* d) { 
-        auto cdeps = antecedents(d);
-        for (auto a : cdeps)
-            m_conflict_marked_ci.insert(a);
-    }
-
     void stellensatz2::mark_dependencies(lp::constraint_index ci) {
         for (auto cij : justification_range(*this, m_justifications[ci]))
             m_conflict_marked_ci.insert(cij);
@@ -1347,7 +1295,7 @@ namespace nla {
     // 
     
     bool stellensatz2::primal_saturate() {
-
+        verbose_stream() << "primal saturate " << m_constraints.size() << "\n";
         init_levels();
         unsigned num_fixed = 0;
         unsigned num_levels = m_level2var.size();
@@ -1386,6 +1334,9 @@ namespace nla {
                 // backtrack decision to max variable in ci
                 level = std::min(max_level(m_constraints[conflict]) - 1, level);
         }
+        if (is_feasible())
+            return false;
+
         if (num_rounds >= max_rounds)
             return false;
         if (constraint_size < m_constraints.size()) {
@@ -2307,6 +2258,7 @@ namespace nla {
     }
       
     void stellensatz2::propagate() {
+        verbose_stream() << "propagate\n";
         while (m_prop_qhead < m_polynomial_queue.size() && !is_conflict() && c().reslim().inc()) {
             auto [p, ci] = m_polynomial_queue[m_prop_qhead++];
             propagate_intervals(p, ci);
