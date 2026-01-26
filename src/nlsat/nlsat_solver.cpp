@@ -1143,7 +1143,7 @@ namespace nlsat {
                 // Create a separate reslimit for the checker with 10 second timeout
                 reslimit checker_rlimit;
                 cancel_eh<reslimit> eh(checker_rlimit);
-                scoped_timer timer(10000, &eh);
+                scoped_timer timer(1000, &eh);
                 
                 ctx c(checker_rlimit, m_ctx.m_params, m_ctx.m_incremental);
                 solver solver2(c);
