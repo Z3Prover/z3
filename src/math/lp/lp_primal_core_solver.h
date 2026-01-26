@@ -191,8 +191,8 @@ namespace lp {
             // least one pivot operation
             int choice = -1;
             int nchoices = 0;
-            unsigned min_non_free_so_far = -1;
-            unsigned best_col_sz = -1;
+            unsigned min_non_free_so_far = UINT_MAX;
+            unsigned best_col_sz = UINT_MAX;
             unsigned bj = this->m_basis[i];
             bool bj_needs_to_grow = needs_to_grow(bj);
             for (unsigned k = 0; k < this->m_A.m_rows[i].size(); ++k) {

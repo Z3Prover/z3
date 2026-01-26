@@ -2111,7 +2111,7 @@ namespace lp {
         std::tuple<mpq, unsigned, int, unsigned> find_minimal_abs_coeff(unsigned ei) {
             bool first = true;
             mpq ahk;
-            unsigned k = -1;
+            unsigned k = UINT_MAX;
             int k_sign = 0;
             mpq t;
             for (const auto& p : m_e_matrix.m_rows[ei]) {
@@ -2485,12 +2485,12 @@ namespace lp {
         lia_move rewrite_eqs(std_vector<unsigned>& f_vector) {
             if (f_vector.size() == 0)
                 return lia_move::undef;
-            unsigned h = -1, kh = 0; // the initial value of kh does not matter, assign to remove the warning
+            unsigned h = UINT_MAX, kh = 0; // the initial value of kh does not matter, assign to remove the warning
             unsigned n = 0;  // number of choices for a fresh variable
             mpq min_ahk;
             int kh_sign = 0; // the initial values of kh_sign and h_markovich_number do not matter, assign to remove the warning
             unsigned h_markovich_number = 0;
-            unsigned ih = -1; // f_vector[ih] = h
+            unsigned ih = UINT_MAX; // f_vector[ih] = h
             for (unsigned i = 0; i < f_vector.size(); ++i) {
                 unsigned ei = f_vector[i];
                 SASSERT (belongs_to_f(ei));
