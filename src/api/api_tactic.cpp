@@ -91,12 +91,12 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_probe(c, name);
         RESET_ERROR_CODE();
-        auto p = mk_c(c)->find_probe(symbol(name));
-        if (!p) {
+        probe_info * p = mk_c(c)->find_probe(symbol(name));
+        if (p == nullptr) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
-        probe * new_p = (*p)->get();
+        probe * new_p = p->get();
         RETURN_PROBE(new_p);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -404,12 +404,12 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_probe_get_descr(c, name);
         RESET_ERROR_CODE();
-        auto p = mk_c(c)->find_probe(symbol(name));
-        if (!p) {
+        probe_info * p = mk_c(c)->find_probe(symbol(name));
+        if (p == nullptr) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return "";
         }
-        return (*p)->get_descr();
+        return p->get_descr();
         Z3_CATCH_RETURN("");
     }
 
