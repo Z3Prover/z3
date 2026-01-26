@@ -1174,10 +1174,11 @@ std::optional<psort_decl*> cmd_context::find_psort_decl(symbol const & s) const 
 }
 
 
-cmd * cmd_context::find_cmd(symbol const & s) const {
+std::optional<cmd*> cmd_context::find_cmd(symbol const & s) const {
     cmd * c = nullptr;
-    m_cmds.find(s, c);
-    return c;
+    if (m_cmds.find(s, c))
+        return c;
+    return std::nullopt;
 }
 
 sexpr * cmd_context::find_user_tactic(symbol const & s) const {

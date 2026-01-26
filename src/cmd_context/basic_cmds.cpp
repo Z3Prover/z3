@@ -55,8 +55,8 @@ public:
     void prepare(cmd_context & ctx) override { m_cmds.reset(); }
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_SYMBOL; }
     void set_next_arg(cmd_context & ctx, symbol const & s) override {
-        cmd * c = ctx.find_cmd(s);
-        if (c == nullptr) {
+        auto c = ctx.find_cmd(s);
+        if (!c) {
             std::string err_msg("unknown command '");
             err_msg = err_msg + s.str() + "'";
             throw cmd_exception(std::move(err_msg));
@@ -86,9 +86,9 @@ public:
         }
         else {
             for (symbol const& s : m_cmds) {
-                cmd * c = ctx.find_cmd(s);
+                auto c = ctx.find_cmd(s);
                 SASSERT(c);
-                display_cmd(ctx, s, c);
+                display_cmd(ctx, s, *c);
             }
         }
         ctx.regular_stream() << "\"\n";

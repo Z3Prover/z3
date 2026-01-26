@@ -41,7 +41,7 @@ namespace smt2 {
         params_ref           m_params;
         scanner              m_scanner;
         scanner::token       m_curr;
-        cmd *                m_curr_cmd;
+        std::optional<cmd*>  m_curr_cmd;
         stack                m_stack;
         struct local {
             expr *           m_term;
@@ -2754,15 +2754,15 @@ namespace smt2 {
             case scanner::BV_TOKEN:
             case scanner::INT_TOKEN:
             case scanner::FLOAT_TOKEN:
-                m_curr_cmd->set_next_arg(m_ctx, m_scanner.get_number());
+                (*m_curr_cmd)->set_next_arg(m_ctx, m_scanner.get_number());
                 next();
                 break;
             case scanner::SYMBOL_TOKEN:
-                m_curr_cmd->set_next_arg(m_ctx, m_scanner.get_id());
+                (*m_curr_cmd)->set_next_arg(m_ctx, m_scanner.get_id());
                 next();
                 break;
             case scanner::STRING_TOKEN:
-                m_curr_cmd->set_next_arg(m_ctx, m_scanner.get_string());
+                (*m_curr_cmd)->set_next_arg(m_ctx, m_scanner.get_string());
                 next();
                 break;
             default:
@@ -2825,13 +2825,13 @@ namespace smt2 {
         }
 
         void parse_next_cmd_arg() {
-            SASSERT(m_curr_cmd != 0);
-            cmd_arg_kind k = m_curr_cmd->next_arg_kind(m_ctx);
+            SASSERT(m_curr_cmd != std::nullopt);
+            cmd_arg_kind k = (*m_curr_cmd)->next_arg_kind(m_ctx);
             switch (k) {
             case CPK_UINT: {
                 check_int("invalid command argument, unsigned integer expected");
                 unsigned u = curr_unsigned();
-                m_curr_cmd->set_next_arg(m_ctx, u);
+                (*m_curr_cmd)->set_next_arg(m_ctx, u);
                 next();
                 break;
             }
@@ -2840,28 +2840,28 @@ namespace smt2 {
                 symbol val = curr_id();
                 if (val != "true" && val != "false")
                     throw parser_exception("invalid command argument, true/false expected");
-                m_curr_cmd->set_next_arg(m_ctx, val == "true");
+                (*m_curr_cmd)->set_next_arg(m_ctx, val == "true");
                 next();
                 break;
             }
             case CPK_NUMERAL:
                 check_int_or_float("invalid command argument, numeral expected");
-                m_curr_cmd->set_next_arg(m_ctx, curr_numeral());
+                (*m_curr_cmd)->set_next_arg(m_ctx, curr_numeral());
                 next();
                 break;
             case CPK_DECIMAL:
                 check_float("invalid command argument, decimal expected");
-                m_curr_cmd->set_next_arg(m_ctx, curr_numeral());
+                (*m_curr_cmd)->set_next_arg(m_ctx, curr_numeral());
                 next();
                 break;
             case CPK_STRING:
                 check_string("invalid command argument, string expected");
-                m_curr_cmd->set_next_arg(m_ctx, m_scanner.get_string());
+                (*m_curr_cmd)->set_next_arg(m_ctx, m_scanner.get_string());
                 next();
                 break;
             case CPK_KEYWORD:
                 check_keyword("invalid command argument, keyword expected");
-                m_curr_cmd->set_next_arg(m_ctx, curr_id());
+                (*m_curr_cmd)->set_next_arg(m_ctx, curr_id());
                 next();
                 break;
             case CPK_OPTION_VALUE:
@@ -2869,44 +2869,44 @@ namespace smt2 {
                 break;
             case CPK_SYMBOL:
                 check_identifier("invalid command argument, symbol expected");
-                m_curr_cmd->set_next_arg(m_ctx, curr_id());
+                (*m_curr_cmd)->set_next_arg(m_ctx, curr_id());
                 next();
                 return;
             case CPK_SYMBOL_LIST: {
                 unsigned spos = m_symbol_stack.size();
                 unsigned num  = parse_symbols();
-                m_curr_cmd->set_next_arg(m_ctx, num, m_symbol_stack.data() + spos);
+                (*m_curr_cmd)->set_next_arg(m_ctx, num, m_symbol_stack.data() + spos);
                 break;
             }
             case CPK_SORT:
                 parse_sort("invalid command argument, sort expected");
-                m_curr_cmd->set_next_arg(m_ctx, sort_stack().back());
+                (*m_curr_cmd)->set_next_arg(m_ctx, sort_stack().back());
                 return;
             case CPK_SORT_LIST: {
                 unsigned spos = sort_stack().size();
                 unsigned num = parse_sorts("expecting sort list starting with '('");
-                m_curr_cmd->set_next_arg(m_ctx, num, sort_stack().data() + spos);
+                (*m_curr_cmd)->set_next_arg(m_ctx, num, sort_stack().data() + spos);
                 break;
             }
             case CPK_EXPR:
                 parse_expr();
-                m_curr_cmd->set_next_arg(m_ctx, expr_stack().back());
+                (*m_curr_cmd)->set_next_arg(m_ctx, expr_stack().back());
                 return;
             case CPK_EXPR_LIST: {
                 unsigned spos = expr_stack().size();
                 unsigned num = parse_exprs();
-                m_curr_cmd->set_next_arg(m_ctx, num, expr_stack().data() + spos);
+                (*m_curr_cmd)->set_next_arg(m_ctx, num, expr_stack().data() + spos);
                 break;
             }
             case CPK_FUNC_DECL: {
                 func_decl * f = parse_func_decl_ref();
-                m_curr_cmd->set_next_arg(m_ctx, f);
+                (*m_curr_cmd)->set_next_arg(m_ctx, f);
                 return;
             }
             case CPK_FUNC_DECL_LIST: {
                 ptr_buffer<func_decl> flist;
                 parse_func_decl_refs(flist);
-                m_curr_cmd->set_next_arg(m_ctx, flist.size(), flist.data());
+                (*m_curr_cmd)->set_next_arg(m_ctx, flist.size(), flist.data());
                 return;
             }
             case CPK_SORTED_VAR:
@@ -2917,7 +2917,7 @@ namespace smt2 {
                 break;
             case CPK_SEXPR:
                 parse_sexpr();
-                m_curr_cmd->set_next_arg(m_ctx, sexpr_stack().back());
+                (*m_curr_cmd)->set_next_arg(m_ctx, sexpr_stack().back());
                 break;
             case CPK_INVALID:
                 throw parser_exception("invalid/unexpected argument");
@@ -2941,26 +2941,26 @@ namespace smt2 {
         void parse_ext_cmd(int line, int pos) {
             symbol s = curr_id();
             m_curr_cmd = m_ctx.find_cmd(s);
-            if (m_curr_cmd == nullptr) {
+            if (!m_curr_cmd) {
                 parse_unknown_cmd();
                 return;
             }
             next();
-            unsigned arity = m_curr_cmd->get_arity();
+            unsigned arity = (*m_curr_cmd)->get_arity();
             unsigned i     = 0;
             unsigned sort_spos  = size(m_sort_stack);
             unsigned expr_spos  = size(m_expr_stack);
             unsigned sexpr_spos = size(m_sexpr_stack);
             unsigned sym_spos   = m_symbol_stack.size();
-            m_curr_cmd->set_line_pos(line, pos);
-            m_curr_cmd->prepare(m_ctx);
+            (*m_curr_cmd)->set_line_pos(line, pos);
+            (*m_curr_cmd)->prepare(m_ctx);
             while (true) {
                 if (curr_is_rparen()) {
                     if (arity != VAR_ARITY && i < arity)
                         throw parser_exception("invalid command, argument(s) missing");
-                    m_curr_cmd->execute(m_ctx);
+                    (*m_curr_cmd)->execute(m_ctx);
                     next();
-                    m_curr_cmd = nullptr;
+                    m_curr_cmd = std::nullopt;
                     shrink(m_sort_stack, sort_spos);
                     shrink(m_expr_stack, expr_spos);
                     shrink(m_sexpr_stack, sexpr_spos);
@@ -3077,7 +3077,7 @@ namespace smt2 {
             m_params(p),
             m_scanner(ctx, is, interactive),
             m_curr(scanner::NULL_TOKEN),
-            m_curr_cmd(nullptr),
+            m_curr_cmd(std::nullopt),
             m_num_bindings(0),
             m_let("let"),
             m_bang("!"),
@@ -3255,7 +3255,7 @@ namespace smt2 {
                 }
                 m_scanner.stop_caching();
                 if (m_curr_cmd)
-                    m_curr_cmd->failure_cleanup(m_ctx);
+                    (*m_curr_cmd)->failure_cleanup(m_ctx);
                 reset();
                 found_errors = true;
                 if (!sync_after_error())

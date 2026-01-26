@@ -472,7 +472,7 @@ public:
                                unsigned arity, sort * const * domain, sort * range);
     recfun::promise_def decl_rec_fun(const symbol &name, unsigned int arity, sort *const *domain, sort *range);
     std::optional<psort_decl*> find_psort_decl(symbol const & s) const;
-    cmd * find_cmd(symbol const & s) const;
+    std::optional<cmd*> find_cmd(symbol const & s) const;
     sexpr * find_user_tactic(symbol const & s) const;
     object_ref * find_object_ref(symbol const & s) const;
     void mk_const(symbol const & s, expr_ref & result);
