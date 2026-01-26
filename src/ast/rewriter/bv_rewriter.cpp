@@ -24,7 +24,6 @@ Notes:
 #include "ast/ast_pp.h"
 
 
-
 void bv_rewriter::updt_local_params(params_ref const & _p) {
     bv_rewriter_params p(_p);
     m_hi_div0 = p.hi_div0();
