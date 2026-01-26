@@ -54,76 +54,6 @@ namespace nlsat {
         assignment const &      sample() const { return m_solver.sample(); }
         assignment &            sample() { return m_solver.sample(); }
 
-        struct todo_set {
-            polynomial::cache  &    m_cache;
-            polynomial_ref_vector   m_set;
-            svector<char>           m_in_set;
-            
-            todo_set(polynomial::cache & u):m_cache(u), m_set(u.pm()) {}
-
-            void reset() {
-                pmanager & pm = m_set.m();
-                unsigned sz = m_set.size();
-                for (unsigned i = 0; i < sz; ++i) {
-                    m_in_set[pm.id(m_set.get(i))] = false;
-                }
-                m_set.reset();
-            }
-            
-            void insert(poly * p) {
-                pmanager & pm = m_set.m();
-                p = m_cache.mk_unique(p);
-                unsigned pid = pm.id(p);
-                if (m_in_set.get(pid, false))
-                    return;
-                m_in_set.setx(pid, true, false);
-                m_set.push_back(p);
-            }
-            
-            bool empty() const { return m_set.empty(); }
-            
-            // Return max variable in todo_set
-            var max_var() const {
-                pmanager & pm = m_set.m();
-                var max = null_var;
-                unsigned sz = m_set.size();
-                for (unsigned i = 0; i < sz; ++i) {
-                    var x = pm.max_var(m_set.get(i));
-                    SASSERT(x != null_var);
-                    if (max == null_var || x > max)
-                        max = x;
-                }
-                return max;
-            }
-            
-            /**
-               \brief Remove the maximal polynomials from the set and store
-               them in max_polys. Return the maximal variable
-             */
-            var extract_max_polys(polynomial_ref_vector & max_polys) {
-                max_polys.reset();
-                var x = max_var();
-                pmanager & pm = m_set.m();
-                unsigned sz = m_set.size();
-                unsigned j  = 0;
-                for (unsigned i = 0; i < sz; ++i) {
-                    poly * p = m_set.get(i);
-                    var y = pm.max_var(p);
-                    SASSERT(y <= x);
-                    if (y == x) {
-                        max_polys.push_back(p);
-                        m_in_set[pm.id(p)] = false;
-                    }
-                    else {
-                        m_set.set(j, p);
-                        j++;
-                    }
-                }
-                m_set.shrink(j);
-                return x;
-            }
-        };
-        
         // temporary field for store todo set of polynomials
         todo_set                m_todo;
 
@@ -774,7 +704,7 @@ namespace nlsat {
             auto c = polynomial_ref(this->m_pm);
             for (unsigned j = 0; j <= n; ++j) {
                 c = m_pm.coeff(s, x, j);
-                if (sign(c, sample(), m_am) != 0)
+                if (nlsat::sign(c, sample(), m_am) != 0)
                     return false;
             }
             return true;
