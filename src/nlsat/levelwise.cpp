@@ -1608,7 +1608,6 @@ namespace nlsat {
 
         void process_level_section(bool have_interval) {
             SASSERT(m_I[m_level].section);
-            m_solver.record_levelwise_section();
             clear_level_state();  // Clear stale state from previous level
             if (have_interval) {
                 // Check spanning tree threshold first, independent of dynamic heuristic
@@ -1616,7 +1615,6 @@ namespace nlsat {
                     fill_relation_pairs_for_section_spanning_tree();
                     compute_omit_lc_both_sides(true);
                     m_section_relation_mode = section_spanning_tree;
-                    m_solver.record_levelwise_spanning_tree();
                 } else if (m_dynamic_heuristic) {
                     m_section_relation_mode = choose_best_section_heuristic(); // also fills pairs
                 } else {
@@ -1631,7 +1629,6 @@ namespace nlsat {
 
         void process_level_sector(bool have_interval) {
             SASSERT(!m_I[m_level].section);
-            m_solver.record_levelwise_sector();
             clear_level_state();  // Clear stale state from previous level
             if (have_interval) {
                 // Check spanning tree threshold first, independent of dynamic heuristic
@@ -1639,7 +1636,6 @@ namespace nlsat {
                     fill_relation_with_spanning_tree_heuristic();
                     compute_omit_lc_both_sides(true);
                     m_sector_relation_mode = spanning_tree;
-                    m_solver.record_levelwise_spanning_tree();
                 } else if (m_dynamic_heuristic) {
                     m_sector_relation_mode = choose_best_sector_heuristic(); // also fills pairs
                 } else {
