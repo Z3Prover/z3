@@ -1037,7 +1037,7 @@ public:
         }
         m_temp_constants.reset();
 
-        unsigned pos = -1;
+        unsigned pos = UINT_MAX;
         if (m_ucb)
         {
             double max = -1.0;
@@ -1090,7 +1090,7 @@ public:
             return nullptr;
         m_temp_constants.reset();
         
-        unsigned cnt_unsat = 0, pos = -1;
+        unsigned cnt_unsat = 0, pos = UINT_MAX;
         for (unsigned i = 0; i < sz; ++i)
             if ((i != m_last_pos) && m_mpz_manager.neq(get_value(as[i]), m_one) && (get_random_uint(16) % ++cnt_unsat == 0)) pos = i;
 
