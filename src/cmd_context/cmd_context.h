@@ -20,6 +20,7 @@ Notes:
 --*/
 #pragma once
 
+#include<optional>
 #include<sstream>
 #include<vector>
 #include "util/stopwatch.h"
@@ -470,7 +471,7 @@ public:
     func_decl * find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,
                                unsigned arity, sort * const * domain, sort * range);
     recfun::promise_def decl_rec_fun(const symbol &name, unsigned int arity, sort *const *domain, sort *range);
-    psort_decl * find_psort_decl(symbol const & s) const;
+    std::optional<psort_decl*> find_psort_decl(symbol const & s) const;
     cmd * find_cmd(symbol const & s) const;
     sexpr * find_user_tactic(symbol const & s) const;
     object_ref * find_object_ref(symbol const & s) const;

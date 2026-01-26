@@ -582,12 +582,12 @@ namespace smt2 {
         sort * parse_sort_name(char const* context = "") {
             SASSERT(curr_is_identifier());
             symbol id = curr_id();
-            psort_decl * d = m_ctx.find_psort_decl(id);
-            if (d == nullptr)
+            auto d = m_ctx.find_psort_decl(id);
+            if (!d)
                 unknown_sort(id, context);
-            if (!d->has_var_params() && d->get_num_params() != 0)
+            if (!(*d)->has_var_params() && (*d)->get_num_params() != 0)
                 throw parser_exception("sort constructor expects parameters");
-            sort * r = d->instantiate(pm());
+            sort * r = (*d)->instantiate(pm());
             if (r == nullptr)
                 throw parser_exception("invalid sort application");
             next();
@@ -597,12 +597,12 @@ namespace smt2 {
         psort * parse_psort_name(bool ignore_unknown_sort = false) {
             SASSERT(curr_is_identifier());
             symbol id = curr_id();
-            psort_decl * d = m_ctx.find_psort_decl(id);
-            if (d != nullptr) {
-                if (!d->has_var_params() && d->get_num_params() != 0)
+            auto d = m_ctx.find_psort_decl(id);
+            if (d) {
+                if (!(*d)->has_var_params() && (*d)->get_num_params() != 0)
                     throw parser_exception("sort constructor expects parameters");
                 next();
-                return pm().mk_psort_app(d);
+                return pm().mk_psort_app(*d);
             }
             else {
                 int idx = 0;
@@ -625,8 +625,8 @@ namespace smt2 {
             SASSERT(curr_id_is_underscore());
             next();
             symbol id = check_identifier_next("invalid indexed sort, symbol expected");
-            psort_decl * d = m_ctx.find_psort_decl(id);
-            if (d == nullptr)
+            auto d = m_ctx.find_psort_decl(id);
+            if (!d)
                 unknown_sort(id);
             sbuffer<unsigned> args;
             while (!curr_is_rparen()) {
@@ -635,7 +635,7 @@ namespace smt2 {
                 args.push_back(u);
                 next();
             }
-            sort * r = d->instantiate(pm(), args.size(), args.data());
+            sort * r = (*d)->instantiate(pm(), args.size(), args.data());
             if (r == nullptr)
                 throw parser_exception("invalid sort application");
             next();
@@ -645,13 +645,13 @@ namespace smt2 {
         void push_psort_app_frame() {
             SASSERT(curr_is_identifier());
             symbol id = curr_id();
-            psort_decl * d = m_ctx.find_psort_decl(id);
-            if (d == nullptr) {
+            auto d = m_ctx.find_psort_decl(id);
+            if (!d) {
                 unknown_sort(id);                                
             }
             next();
             void * mem      = m_stack.allocate(sizeof(psort_frame));
-            new (mem) psort_frame(*this, d, psort_stack().size());
+            new (mem) psort_frame(*this, *d, psort_stack().size());
         }
 
         void pop_psort_app_frame() {
@@ -708,12 +708,12 @@ namespace smt2 {
         void push_sort_app_frame() {
             SASSERT(curr_is_identifier());
             symbol id = curr_id();
-            psort_decl * d = m_ctx.find_psort_decl(id);
-            if (d == nullptr)
+            auto d = m_ctx.find_psort_decl(id);
+            if (!d)
                 unknown_sort(id);
             next();
             void * mem      = m_stack.allocate(sizeof(sort_frame));
-            new (mem) sort_frame(*this, d, sort_stack().size());
+            new (mem) sort_frame(*this, *d, sort_stack().size());
         }
 
         void pop_sort_app_frame() {
@@ -867,7 +867,7 @@ namespace smt2 {
 
             check_nonreserved_identifier("invalid sort declaration, symbol expected");
             symbol id = curr_id();
-            if (m_ctx.find_psort_decl(id) != nullptr)
+            if (m_ctx.find_psort_decl(id))
                 throw parser_exception("invalid sort declaration, sort already declared/defined");
             next();
             check_rparen("invalid sort declaration, ')' expected");
@@ -2277,7 +2277,7 @@ namespace smt2 {
 
             check_nonreserved_identifier("invalid sort declaration, symbol expected");
             symbol id = curr_id();
-            if (m_ctx.find_psort_decl(id) != nullptr)
+            if (m_ctx.find_psort_decl(id))
                 throw parser_exception("invalid sort declaration, sort already declared/defined");
             next();
             if (curr_is_rparen()) {
@@ -2302,7 +2302,7 @@ namespace smt2 {
             next();
             check_nonreserved_identifier("invalid sort definition, symbol expected");
             symbol id = curr_id();
-            if (m_ctx.find_psort_decl(id) != nullptr)
+            if (m_ctx.find_psort_decl(id))
                 throw parser_exception("invalid sort definition, sort already declared/defined");
             next();
             parse_sort_decl_params();
