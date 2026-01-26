@@ -887,20 +887,20 @@ public:
         m_array_fid = null_family_id;
     }
     void execute(cmd_context & ctx) override {
-        auto array_sort = ctx.find_psort_decl(m_array_sort);
-        if (!array_sort)
+        psort_decl * array_sort = ctx.find_psort_decl(m_array_sort);
+        if (array_sort == nullptr)
             throw cmd_exception("Array sort is not available");
         ptr_vector<sort> & array_sort_args = m_domain;
         sort_ref_buffer domain(ctx.m());
         unsigned arity = m_f->get_arity();
         for (unsigned i = 0; i < arity; ++i) {
             array_sort_args.push_back(m_f->get_domain(i));
-            domain.push_back((*array_sort)->instantiate(ctx.pm(), array_sort_args.size(), array_sort_args.data()));
+            domain.push_back(array_sort->instantiate(ctx.pm(), array_sort_args.size(), array_sort_args.data()));
             array_sort_args.pop_back();
         }
         sort_ref range(ctx.m());
         array_sort_args.push_back(m_f->get_range());
-        range = (*array_sort)->instantiate(ctx.pm(), array_sort_args.size(), array_sort_args.data());
+        range = array_sort->instantiate(ctx.pm(), array_sort_args.size(), array_sort_args.data());
         parameter p(m_f);
         func_decl_ref new_map(ctx.m());
         new_map = ctx.m().mk_func_decl(get_array_fid(ctx), OP_ARRAY_MAP, 1, &p, domain.size(), domain.data(), range.get());
