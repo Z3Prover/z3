@@ -109,9 +109,9 @@
 #                  [XML_INJECT xml_injection])
 # ```
 # 
-# Require 3.5 for batch copy multiple files
+# Require 3.10 for batch copy multiple files
 
-cmake_minimum_required(VERSION 3.5.0)
+cmake_minimum_required(VERSION 3.10.0)
 
 IF(DOTNET_FOUND)
     RETURN()
