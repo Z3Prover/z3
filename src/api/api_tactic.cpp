@@ -59,14 +59,14 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_tactic(c, name);
         RESET_ERROR_CODE();
-        auto t = mk_c(c)->find_tactic_cmd(symbol(name));
-        if (!t) {
+        tactic_cmd * t = mk_c(c)->find_tactic_cmd(symbol(name));
+        if (t == nullptr) {
             std::stringstream err;
             err << "unknown tactic " << name;
             SET_ERROR_CODE(Z3_INVALID_ARG, err.str());
             RETURN_Z3(nullptr);
         }
-        tactic * new_t = (*t)->mk(mk_c(c)->m());
+        tactic * new_t = t->mk(mk_c(c)->m());
         RETURN_TACTIC(new_t);
         Z3_CATCH_RETURN(nullptr);
     }
@@ -391,12 +391,12 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_tactic_get_descr(c, name);
         RESET_ERROR_CODE();
-        auto t = mk_c(c)->find_tactic_cmd(symbol(name));
-        if (!t) {
+        tactic_cmd * t = mk_c(c)->find_tactic_cmd(symbol(name));
+        if (t == nullptr) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return "";
         }
-        return (*t)->get_descr();
+        return t->get_descr();
         Z3_CATCH_RETURN("");
     }
     

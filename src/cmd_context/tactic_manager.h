@@ -20,7 +20,6 @@ Notes:
 #include "cmd_context/tactic_cmds.h"
 #include "cmd_context/simplifier_cmds.h"
 #include "util/dictionary.h"
-#include <optional>
 
 class tactic_manager {
 protected:
@@ -37,7 +36,7 @@ public:
     void insert(tactic_cmd * c);
     void insert(simplifier_cmd* c);
     void insert(probe_info * p);
-    std::optional<tactic_cmd*> find_tactic_cmd(symbol const & s) const; 
+    tactic_cmd * find_tactic_cmd(symbol const & s) const; 
     probe_info * find_probe(symbol const & s) const;     
     simplifier_cmd* find_simplifier_cmd(symbol const& s) const;
 
