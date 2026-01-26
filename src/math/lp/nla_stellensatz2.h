@@ -139,8 +139,8 @@ namespace nla {
         };
 
         struct stats {
-            unsigned m_num_conflicts = 0;
-            void reset() { m_num_conflicts = 0; }
+            unsigned m_num_backtracks = 0;
+            void reset() { m_num_backtracks = 0; }
         };
 
         struct constraint_key {
@@ -216,6 +216,7 @@ namespace nla {
         bool decide(); 
         bool primal_saturate();
         void dual_saturate();
+        bool can_continue_search();
         lbool search();
         lbool resolve_conflict();
         void backtrack(lp::constraint_index ci, svector<lp::constraint_index> const &deps);
@@ -231,11 +232,7 @@ namespace nla {
         bool should_dual_saturate() { return false; }
 
         // assuming variables have bounds determine if polynomial has lower/upper bounds
-        void calculate_interval(scoped_dep_interval &out, dd::pdd p);
-        void calculate_interval(scoped_dep_interval &out, lpvar x);
         void calculate_interval(scoped_dep_interval &out, dep_interval const& x, dep_interval const&lo, dep_interval const&hi);
-        void retrieve_interval(scoped_dep_interval &out, dd::pdd const &p);
-        void retrieve_interval(scoped_dep_interval &out, lpvar v);
 
         void reset_conflict() { m_conflict = lp::null_ci; m_conflict_dep.reset(); }
         bool is_conflict() const { return !m_conflict_dep.empty(); }
@@ -264,11 +261,11 @@ namespace nla {
         vector<vector<dd::pdd>> m_parents;
         vector<vector<factor_prop>> m_factors;
         vector<std::pair<dd::pdd, lp::constraint_index>> m_polynomial_queue;
-        unsigned_vector m_interval_trail;
+        mutable unsigned_vector m_interval_trail;
         unsigned_vector m_factor_trail;
         unsigned_vector m_parent_constraints_trail;
         vector<svector<lp::constraint_index>> m_parent_constraints;
-        vector<ptr_vector<dep_interval>> m_intervals;
+        mutable vector<ptr_vector<dep_interval>> m_intervals;
         bool_vector m_is_parent;
 
         void push_bound(lp::constraint_index ci);
@@ -359,7 +356,7 @@ namespace nla {
         bool is_better(dep_interval const &new_iv, dep_interval const &old_iv);      
         bool strengthen_interval(dep_interval const &new_iv, dd::pdd const &p);
         bool is_bounds_conflict(dep_interval &i);
-        dep_interval const &get_interval(dd::pdd const &p);
+        dep_interval const &get_interval(dd::pdd const &p) const;
         void propagate_intervals(dd::pdd const &p, lp::constraint_index ci);
         void propagate_constraint(lpvar x, lp::lconstraint_kind k, rational const &value, lp::constraint_index ci, svector<lp::constraint_index> &cs);
 
@@ -436,10 +433,10 @@ namespace nla {
         bool backtrack(svector<lp::constraint_index> const& core);
         bool core_is_linear(svector<lp::constraint_index> const &core);
 
-        bool well_formed() const;
-        bool well_formed_var(lpvar v) const;
-        bool well_formed_bound(unsigned bound_index) const;
-        bool well_formed_last_bound() const { return well_formed_bound(m_bounds.size() - 1); }
+        bool well_formed();
+        bool well_formed_var(lpvar v);
+        bool well_formed_constraint(unsigned ci) const;
+        bool well_formed_last_constraint() const { return well_formed_constraint(m_bounds.size() - 1); }
 
         struct pp_j {
             stellensatz2 const &s;
@@ -453,6 +450,7 @@ namespace nla {
             return p.display(out);
         }
         std::ostream& display(std::ostream& out) const;
+        std::ostream& display_verbose(std::ostream &out) const;
         std::ostream& display_product(std::ostream& out, svector<lpvar> const& vars) const;
         std::ostream& display_constraint(std::ostream& out, lp::constraint_index ci) const;
         std::ostream& display_constraint(std::ostream& out, constraint const& c) const;
