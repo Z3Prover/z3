@@ -34,17 +34,8 @@ static void vec_setx(std_vector<T>& v, unsigned idx, T val, T def) {
 namespace nlsat {
 
     enum relation_mode {
-        // Sector (i.e., non-section) heuristics:
         biggest_cell,
-        chain,
-        lowest_degree,
-        spanning_tree,
-
-        // Section-specific heuristics:
-        section_biggest_cell,
-        section_chain,
-        section_lowest_degree,
-        section_spanning_tree
+        spanning_tree
     };
 
 // Tag indicating what kind of invariance we need to preserve for a polynomial on the cell:
@@ -71,9 +62,7 @@ namespace nlsat {
         std_vector<root_function_interval> m_I; // intervals for variables 0..m_n-1
 
         unsigned               m_level = 0;      // current level being processed
-        relation_mode          m_sector_relation_mode = chain;
-        relation_mode          m_section_relation_mode = section_chain;
-        bool                   m_dynamic_heuristic = true; // dynamically select heuristic based on weight
+        relation_mode          m_rel_mode = biggest_cell;
         unsigned               m_spanning_tree_threshold = 3; // minimum both-side count for spanning tree
         unsigned               m_l_rf = UINT_MAX; // position of lower bound in m_rel.m_rfunc
         unsigned               m_u_rf = UINT_MAX; // position of upper bound in m_rel.m_rfunc (UINT_MAX in section case)
@@ -94,8 +83,8 @@ namespace nlsat {
         mutable std_vector<uint8_t> m_side_mask;       // bit0 = lower, bit1 = upper, 3 = both
         mutable std_vector<bool> m_omit_lc;
         mutable std_vector<bool> m_omit_disc;
-        mutable std_vector<unsigned> m_unique_neighbor; // UINT_MAX = not set, UINT_MAX-1 = multiple
         mutable std_vector<unsigned> m_deg_in_order_graph; // degree of polynomial in resultant graph
+        mutable std_vector<unsigned> m_unique_neighbor;    // UINT_MAX = not set, UINT_MAX-1 = multiple
 
         assignment const& sample() const { return m_solver.sample(); }
 
@@ -262,128 +251,6 @@ namespace nlsat {
         // Choose the best sector heuristic based on estimated weight.
         // Also fills m_rel.m_pairs with the winning heuristic's pairs.
         // Note: spanning_tree is handled at a higher level (process_level_sector)
-        relation_mode choose_best_sector_heuristic() {
-            // With fewer than 2 root functions, no pairs can be generated
-            // so all heuristics are equivalent - use default
-            if (m_rel.m_rfunc.size() < 2) {
-                TRACE(lws,
-                    tout << "Level " << m_level << " SECTOR: rfunc.size=" << m_rel.m_rfunc.size()
-                         << " < 2, using default heuristic\n";
-                );
-                // Clear m_omit_lc to avoid using stale values from a previous level
-                m_omit_lc.clear();
-                return m_sector_relation_mode;
-            }
-
-            // Compute side_mask (needed for omit_lc computation)
-            compute_side_mask();
-
-            // Estimate weights by filling m_rel.m_pairs temporarily.
-            // Include both resultant weight and lc weight for non-omitted lcs.
-            m_rel.m_pairs.clear();
-            fill_relation_with_biggest_cell_heuristic();
-            compute_omit_lc_both_sides(false);
-            unsigned w_bc = estimate_resultant_weight() + estimate_lc_weight();
-
-            m_rel.m_pairs.clear();
-            fill_relation_with_chain_heuristic();
-            compute_omit_lc_chain_extremes();
-            unsigned w_ch = estimate_resultant_weight() + estimate_lc_weight();
-
-            m_rel.m_pairs.clear();
-            fill_relation_with_min_degree_resultant_sum();
-            compute_omit_lc_both_sides(true);
-            unsigned w_ld = estimate_resultant_weight() + estimate_lc_weight();
-
-            TRACE(lws,
-                tout << "Level " << m_level << " SECTOR: rfunc.size=" << m_rel.m_rfunc.size()
-                     << ", m_l_rf=" << (is_set(m_l_rf) ? std::to_string(m_l_rf) : "UNSET")
-                     << ", m_u_rf=" << (is_set(m_u_rf) ? std::to_string(m_u_rf) : "UNSET")
-                     << "\n  weight estimates: biggest_cell=" << w_bc
-                     << ", chain=" << w_ch
-                     << ", lowest_degree=" << w_ld << "\n";
-            );
-
-            unsigned w_min = std::min({w_bc, w_ch, w_ld});
-
-            // If lowest_degree wins, pairs are already filled
-            if (w_ld == w_min)
-                return lowest_degree;
-
-            // Otherwise, refill with the winning heuristic
-            m_rel.m_pairs.clear();
-            if (w_ch == w_min) {
-                fill_relation_with_chain_heuristic();
-                compute_omit_lc_chain_extremes();
-                return chain;
-            }
-            fill_relation_with_biggest_cell_heuristic();
-            compute_omit_lc_both_sides(false);
-            return biggest_cell;
-        }
-
-        // Choose the best section heuristic based on estimated weight.
-        // Also fills m_rel.m_pairs with the winning heuristic's pairs.
-        // Note: spanning_tree is handled at a higher level (process_level_section)
-        relation_mode choose_best_section_heuristic() {
-            // With fewer than 2 root functions, no pairs can be generated
-            // so all heuristics are equivalent - use default
-            if (m_rel.m_rfunc.size() < 2) {
-                TRACE(lws,
-                    tout << "Level " << m_level << " SECTION: rfunc.size=" << m_rel.m_rfunc.size()
-                         << " < 2, using default heuristic\n";
-                );
-                // Clear m_omit_lc to avoid using stale values from a previous level
-                m_omit_lc.clear();
-                return m_section_relation_mode;
-            }
-
-            // Compute side_mask (needed for omit_lc computation)
-            compute_side_mask();
-
-            // Estimate weights by filling m_rel.m_pairs temporarily.
-            // Include both resultant weight and lc weight for non-omitted lcs.
-            m_rel.m_pairs.clear();
-            fill_relation_pairs_for_section_biggest_cell();
-            m_omit_lc.clear();  // no omit_lc for biggest_cell (handled via ORD_INV tag)
-            unsigned w_bc = estimate_resultant_weight() + estimate_lc_weight();
-
-            m_rel.m_pairs.clear();
-            fill_relation_pairs_for_section_chain();
-            compute_omit_lc_chain_extremes();
-            unsigned w_ch = estimate_resultant_weight() + estimate_lc_weight();
-
-            m_rel.m_pairs.clear();
-            fill_relation_pairs_for_section_lowest_degree();
-            compute_omit_lc_both_sides(true);
-            unsigned w_ld = estimate_resultant_weight() + estimate_lc_weight();
-
-            TRACE(lws,
-                tout << "Level " << m_level << " SECTION: rfunc.size=" << m_rel.m_rfunc.size()
-                     << ", m_l_rf=" << (is_set(m_l_rf) ? std::to_string(m_l_rf) : "UNSET")
-                     << "\n  weight estimates: biggest_cell=" << w_bc
-                     << ", chain=" << w_ch
-                     << ", lowest_degree=" << w_ld << "\n";
-            );
-
-            unsigned w_min = std::min({w_bc, w_ch, w_ld});
-
-            // If lowest_degree wins, pairs are already filled
-            if (w_ld == w_min)
-                return section_lowest_degree;
-
-            // Otherwise, refill with the winning heuristic
-            m_rel.m_pairs.clear();
-            if (w_ch == w_min) {
-                fill_relation_pairs_for_section_chain();
-                compute_omit_lc_chain_extremes();
-                return section_chain;
-            }
-            fill_relation_pairs_for_section_biggest_cell();
-            m_omit_lc.clear();
-            return section_biggest_cell;
-        }
-
         impl(
             solver& solver,
             polynomial_ref_vector const& ps,
@@ -405,37 +272,6 @@ namespace nlsat {
             for (unsigned i = 0; i < m_n; ++i)
                 m_I.emplace_back(m_pm);
 
-            switch (m_solver.lws_sector_relation_mode()) {
-            case 0:
-                m_sector_relation_mode = biggest_cell;
-                break;
-            case 1:
-                m_sector_relation_mode = chain;
-                break;
-            case 2:
-                m_sector_relation_mode = lowest_degree;
-                break;
-            default:
-                m_sector_relation_mode = chain;
-                break;
-            }
-
-            switch (m_solver.lws_section_relation_mode()) {
-            case 0:
-                m_section_relation_mode = section_biggest_cell;
-                break;
-            case 1:
-                m_section_relation_mode = section_chain;
-                break;
-            case 2:
-                m_section_relation_mode = section_lowest_degree;
-                break;
-            default:
-                m_section_relation_mode = section_chain;
-                break;
-            }
-
-            m_dynamic_heuristic = m_solver.lws_dynamic_heuristic();
             m_spanning_tree_threshold = m_solver.lws_spt_threshold();
         }
 
@@ -630,14 +466,69 @@ namespace nlsat {
             }
         }
 
+        // Check if lower and upper bounds come from the same polynomial
+        bool same_boundary_poly() const {
+            if (!is_set(m_l_rf) || !is_set(m_u_rf))
+                return false;
+            return m_rel.m_rfunc[m_l_rf].ps_idx == m_rel.m_rfunc[m_u_rf].ps_idx;
+        }
+
         // Compute deg: count distinct resultant-neighbors for each polynomial
         // m_pairs contains index pairs into m_level_ps
         void compute_resultant_graph_degree() {
             m_deg_in_order_graph.clear();
             m_deg_in_order_graph.resize(m_level_ps.size(), 0);
+            m_unique_neighbor.clear();
+            m_unique_neighbor.resize(m_level_ps.size(), UINT_MAX);
             for (auto const& pr : m_rel.m_pairs) {
-                m_deg_in_order_graph[pr.first]++;
-                m_deg_in_order_graph[pr.second]++;
+                unsigned idx1 = pr.first;
+                unsigned idx2 = pr.second;
+                m_deg_in_order_graph[idx1]++;
+                m_deg_in_order_graph[idx2]++;
+                // Track unique neighbor
+                auto update_neighbor = [&](unsigned idx, unsigned other) {
+                    if (m_unique_neighbor[idx] == UINT_MAX)
+                        m_unique_neighbor[idx] = other;
+                    else if (m_unique_neighbor[idx] != other)
+                        m_unique_neighbor[idx] = UINT_MAX - 1;  // multiple neighbors
+                };
+                update_neighbor(idx1, idx2);
+                update_neighbor(idx2, idx1);
+            }
+        }
+
+        // Compute noDisc for spanning_tree mode.
+        // A polynomial's discriminant can be omitted if it's a leaf (deg == 1)
+        // connected only to a boundary polynomial.
+        void compute_omit_disc_for_spanning_tree() {
+            m_omit_disc.clear();
+            m_omit_disc.resize(m_level_ps.size(), false);
+            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
+                return;
+
+            // Need graph info
+            compute_resultant_graph_degree();
+
+            // Identify bound polynomial indices
+            unsigned l_bound_idx = is_set(m_l_rf) ? m_rel.m_rfunc[m_l_rf].ps_idx : UINT_MAX;
+            unsigned u_bound_idx = is_set(m_u_rf) ? m_rel.m_rfunc[m_u_rf].ps_idx : UINT_MAX;
+
+            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
+                // Skip boundary polynomials
+                if (i == l_bound_idx || i == u_bound_idx)
+                    continue;
+                // Must be a leaf
+                if (m_deg_in_order_graph[i] != 1)
+                    continue;
+                // Must be connected only to a boundary polynomial
+                unsigned neighbor = m_unique_neighbor[i];
+                if (neighbor != l_bound_idx && neighbor != u_bound_idx)
+                    continue;
+                // If poly vanishes at sample, we need its discriminant for coinciding roots
+                poly* p = m_level_ps.get(i);
+                if (m_am.eval_sign_at(polynomial_ref(p, m_pm), sample()) == 0)
+                    continue;
+                m_omit_disc[i] = true;
             }
         }
 
@@ -673,132 +564,21 @@ namespace nlsat {
             }
         }
 
-        // Helper for chain heuristics:
-        // Omit lc for extremes of chain that appear on the other side.
-        // Only applies when BOTH bounds exist (consistent with SMT-RAT's approach).
-        // - Extreme of lower chain (index 0): omit if it also appears on upper side
-        // - Extreme of upper chain (index n-1): omit if it also appears on lower side
-        void compute_omit_lc_chain_extremes() {
-            m_omit_lc.clear();
-            m_omit_lc.resize(m_level_ps.size(), false);
-            if (m_rel.m_rfunc.empty())
-                return;
-
-            compute_side_mask();
-            unsigned n = m_rel.m_rfunc.size();
-
-            // Identify bound polynomial indices (must never omit LC)
-            unsigned l_bound_idx = is_set(m_l_rf) ? m_rel.m_rfunc[m_l_rf].ps_idx : UINT_MAX;
-            unsigned u_bound_idx = is_set(m_u_rf) ? m_rel.m_rfunc[m_u_rf].ps_idx : UINT_MAX;
-
-            // Lower extreme: omit if it also appears on upper side (and not a bound)
-            unsigned idx_lower = m_rel.m_rfunc[0].ps_idx;
-            if ((m_side_mask[idx_lower] & 2) && idx_lower != l_bound_idx && idx_lower != u_bound_idx)
-                m_omit_lc[idx_lower] = true;
-
-            // Upper extreme: omit if it also appears on lower side (and not a bound)
-            unsigned idx_upper = m_rel.m_rfunc[n - 1].ps_idx;
-            if ((m_side_mask[idx_upper] & 1) && idx_upper != l_bound_idx && idx_upper != u_bound_idx)
-                m_omit_lc[idx_upper] = true;
-        }
-
-        // Dispatch to appropriate sector heuristic
+        // Compute noLdcf for sector case
         void compute_omit_lc_sector() {
             if (!is_set(m_l_rf) || !is_set(m_u_rf)) return;
-            switch (m_sector_relation_mode) {
-            case biggest_cell:
+            if (m_rel_mode == spanning_tree)
+                compute_omit_lc_both_sides(true);
+            else
                 compute_omit_lc_both_sides(false);
-                break;
-            case chain:
-                compute_omit_lc_chain_extremes();
-                break;
-            case lowest_degree:
-            case spanning_tree:
-                compute_omit_lc_both_sides(true);
-                break;
-            default:
-                m_omit_lc.clear();
-                break;
-            }
         }
 
-        // Dispatch to appropriate section heuristic
+        // Compute noLdcf for section case
         void compute_omit_lc_section() {
-            switch (m_section_relation_mode) {
-            case section_biggest_cell:
-                m_omit_lc.clear();  // no omit_lc - handled via ORD_INV tag
-                break;
-            case section_chain: {
-                compute_omit_lc_chain_extremes();
-                break;
-            }
-            case section_lowest_degree:
-            case section_spanning_tree:
+            if (m_rel_mode == biggest_cell)
+                m_omit_lc.clear();  // no omit_lc for biggest_cell
+            else // spanning_tree
                 compute_omit_lc_both_sides(true);
-                break;
-            default:
-                m_omit_lc.clear();
-                break;
-            }
-        }
-
-        // Decide which discriminants can be omitted in the SECTION case based on the chosen
-        // resultant relation. Inspired by SMT-RAT's "noDisc" optimization in OneCellCAD.h:
-        // if a polynomial is only connected to the section-defining polynomial via resultants,
-        // we do not need its discriminant for transitive root-order reasoning.
-        void compute_omit_disc_from_section_relation() {
-            auto const& I = m_I[m_level];
-            m_omit_disc.clear();
-            m_omit_disc.resize(m_level_ps.size(), false);
-            if (!I.section)
-                return;
-            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
-                return;
-            if (!is_set(m_l_rf))
-                return;
-
-            // In section case, m_l_rf points to the section-defining root function
-            unsigned section_idx = m_rel.m_rfunc[m_l_rf].ps_idx;
-
-            // Track the unique (if any) resultant-neighbor for each polynomial and its degree in the
-            // de-duplicated resultant graph. If deg(p) == 1 and neighbor(p) == section, then p is
-            // a leaf connected only to the section polynomial.
-            // m_unique_neighbor[i] = neighbor's index, UINT_MAX = not set, UINT_MAX-1 = multiple neighbors
-            m_unique_neighbor.clear();
-            m_unique_neighbor.resize(m_level_ps.size(), UINT_MAX);
-            m_deg_in_order_graph.clear();
-            m_deg_in_order_graph.resize(m_level_ps.size(), 0);
-
-            // m_pairs contains index pairs into m_level_ps
-            for (auto const& pr : m_rel.m_pairs) {
-                unsigned idx1 = pr.first;
-                unsigned idx2 = pr.second;
-
-                auto add_neighbor = [&](unsigned idx, unsigned other_idx) {
-                    m_deg_in_order_graph[idx]++;
-                    if (m_unique_neighbor[idx] == UINT_MAX)
-                        m_unique_neighbor[idx] = other_idx;
-                    else if (m_unique_neighbor[idx] != other_idx)
-                        m_unique_neighbor[idx] = UINT_MAX - 1; // multiple neighbors
-                };
-                add_neighbor(idx1, idx2);
-                add_neighbor(idx2, idx1);
-            }
-
-            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
-                if (i == section_idx)
-                    continue;
-                if (m_deg_in_order_graph[i] != 1)
-                    continue;
-                if (m_unique_neighbor[i] != section_idx)
-                    continue;
-                // If p vanishes at the sample on the section, we may need p's delineability to
-                // reason about coinciding root functions; be conservative and keep disc(p).
-                poly* p = m_level_ps.get(i);
-                if (m_am.eval_sign_at(polynomial_ref(p, m_pm), sample()) == 0)
-                    continue;
-                m_omit_disc[i] = true;
-            }
         }
 
         // Relation construction heuristics (same intent as previous implementation).
@@ -828,63 +608,6 @@ namespace nlsat {
             );
         }
 
-        void fill_relation_with_chain_heuristic() {
-            if (is_set(m_l_rf))
-                for (unsigned j = 0; j < m_l_rf; ++j)
-                    m_rel.add_pair(j, j + 1);
-
-            if (is_set(m_u_rf))
-                for (unsigned j = m_u_rf + 1; j < m_rel.m_rfunc.size(); ++j)
-                    m_rel.add_pair(j - 1, j);
-
-            if (is_set(m_l_rf) && is_set(m_u_rf)) {
-                SASSERT(m_l_rf + 1 == m_u_rf);
-                m_rel.add_pair(m_l_rf, m_u_rf);
-            }
-        }
-
-        void fill_relation_with_min_degree_resultant_sum() {
-            auto const& rfs = m_rel.m_rfunc;
-            unsigned n = rfs.size();
-            if (n == 0)
-                return;
-
-            std_vector<unsigned> degs;
-            degs.reserve(n);
-            for (unsigned i = 0; i < n; ++i)
-                degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
-
-            if (is_set(m_l_rf)) {
-                unsigned min_idx = m_l_rf;
-                unsigned min_deg = degs[m_l_rf];
-                for (int j = static_cast<int>(m_l_rf) - 1; j >= 0; --j) {
-                    unsigned jj = static_cast<unsigned>(j);
-                    m_rel.add_pair(jj, min_idx);
-                    if (degs[jj] < min_deg) {
-                        min_deg = degs[jj];
-                        min_idx = jj;
-                    }
-                }
-            }
-
-            if (is_set(m_u_rf)) {
-                unsigned min_idx = m_u_rf;
-                unsigned min_deg = degs[m_u_rf];
-                for (unsigned j = m_u_rf + 1; j < n; ++j) {
-                    m_rel.add_pair(min_idx, j);
-                    if (degs[j] < min_deg) {
-                        min_deg = degs[j];
-                        min_idx = j;
-                    }
-                }
-            }
-
-            if (is_set(m_l_rf) && is_set(m_u_rf)) {
-                SASSERT(m_l_rf + 1 == m_u_rf);
-                m_rel.add_pair(m_l_rf, m_u_rf);
-            }
-        }
-
         void fill_relation_pairs_for_section_biggest_cell() {
             auto const& rfs = m_rel.m_rfunc;
             unsigned n = rfs.size();
@@ -896,56 +619,6 @@ namespace nlsat {
                 m_rel.add_pair(j, m_l_rf);
             for (unsigned j = m_l_rf + 1; j < n; ++j)
                 m_rel.add_pair(m_l_rf, j);
-        }
-
-        void fill_relation_pairs_for_section_chain() {
-            auto const& rfs = m_rel.m_rfunc;
-            unsigned n = rfs.size();
-            if (n == 0)
-                return;
-            SASSERT(is_set(m_l_rf));
-            SASSERT(m_l_rf < n);
-            for (unsigned j = 0; j < m_l_rf; ++j)
-                m_rel.add_pair(j, j + 1);
-            for (unsigned j = m_l_rf + 1; j < n; ++j)
-                m_rel.add_pair(j - 1, j);
-        }
-
-        void fill_relation_pairs_for_section_lowest_degree() {
-            auto const& rfs = m_rel.m_rfunc;
-            unsigned n = rfs.size();
-            if (n == 0)
-                return;
-            SASSERT(is_set(m_l_rf));
-            SASSERT(m_l_rf < n);
-
-            std_vector<unsigned> degs;
-            degs.reserve(n);
-            for (unsigned i = 0; i < n; ++i)
-                degs.push_back(m_pm.degree(rfs[i].ire.p, m_level));
-
-            // For roots below m_l_rf: connect each to the minimum-degree root seen so far
-            unsigned min_idx_below = m_l_rf;
-            unsigned min_deg_below = degs[m_l_rf];
-            for (int j = static_cast<int>(m_l_rf) - 1; j >= 0; --j) {
-                unsigned jj = static_cast<unsigned>(j);
-                m_rel.add_pair(jj, min_idx_below);
-                if (degs[jj] < min_deg_below) {
-                    min_deg_below = degs[jj];
-                    min_idx_below = jj;
-                }
-            }
-
-            // For roots above m_l_rf: connect minimum-degree root to each subsequent root
-            unsigned min_idx_above = m_l_rf;
-            unsigned min_deg_above = degs[m_l_rf];
-            for (unsigned j = m_l_rf + 1; j < n; ++j) {
-                m_rel.add_pair(min_idx_above, j);
-                if (degs[j] < min_deg_above) {
-                    min_deg_above = degs[j];
-                    min_idx_above = j;
-                }
-            }
         }
 
         // ============================================================================
@@ -983,7 +656,7 @@ namespace nlsat {
                     both.push_back(i);
             }
 
-            // m_spanning_tree_threshold is guaranteed >= 2 (minimum for a spanning tree)
+            // Need at least threshold polynomials on both sides
             if (both.size() < m_spanning_tree_threshold)
                 return false;
 
@@ -1159,46 +832,18 @@ namespace nlsat {
 
         void fill_relation_pairs_for_section() {
             SASSERT(m_I[m_level].section);
-            switch (m_section_relation_mode) {
-            case biggest_cell:
-            case section_biggest_cell:
-                fill_relation_pairs_for_section_biggest_cell();
-                break;
-            case chain:
-            case section_chain:
-                fill_relation_pairs_for_section_chain();
-                break;
-            case lowest_degree:
-            case section_lowest_degree:
-                fill_relation_pairs_for_section_lowest_degree();
-                break;
-            case spanning_tree:
-            case section_spanning_tree:
+            if (m_rel_mode == spanning_tree)
                 fill_relation_pairs_for_section_spanning_tree();
-                break;
-            default:
-                NOT_IMPLEMENTED_YET();
-            }
+            else
+                fill_relation_pairs_for_section_biggest_cell();
         }
 
         void fill_relation_pairs_for_sector() {
             SASSERT(!m_I[m_level].section);
-            switch (m_sector_relation_mode) {
-            case biggest_cell:
-                fill_relation_with_biggest_cell_heuristic();
-                break;
-            case chain:
-                fill_relation_with_chain_heuristic();
-                break;
-            case lowest_degree:
-                fill_relation_with_min_degree_resultant_sum();
-                break;
-            case spanning_tree:
+            if (m_rel_mode == spanning_tree)
                 fill_relation_with_spanning_tree_heuristic();
-                break;
-            default:
-                NOT_IMPLEMENTED_YET();
-            }
+            else
+                fill_relation_with_biggest_cell_heuristic();
         }
 
         // Extract roots of polynomial p around sample value v at the given level,
@@ -1472,9 +1117,13 @@ namespace nlsat {
             // Note: Algorithm 1 adds disc + ldcf for ALL polynomials (classical delineability)
             // We additionally omit leading coefficients for rootless polynomials when possible
             // (cf. projective delineability, Lemma 3.2).
-            // When m_dynamic_heuristic is true, omit_lc is already computed by choose_best_sector_heuristic()
-            if (!m_dynamic_heuristic)
-                compute_omit_lc_sector();
+            compute_omit_lc_sector();
+
+            // When lower and upper bounds come from the same polynomial, treat like section case
+            // for discriminant skipping - skip disc for non-ORD, non-boundary polys
+            bool same_poly = same_boundary_poly();
+            unsigned bound_idx = same_poly && is_set(m_l_rf) ? m_rel.m_rfunc[m_l_rf].ps_idx : UINT_MAX;
+
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 polynomial_ref p(m_level_ps.get(i), m_pm);
                 polynomial_ref lc(m_pm);
@@ -1502,7 +1151,15 @@ namespace nlsat {
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                         witness = polynomial_ref(m_pm);
                 
-                add_projections_for(p, m_level, witness, add_lc, true); //true for adding the discriminant: always add it in sector, required by Lemma 3.2.
+                // Discriminant: always add unless same_boundary_poly and not boundary/ORD,
+                // or spanning_tree mode with leaf connected to boundary
+                bool add_disc = true;
+                if (same_poly && i != bound_idx && get_req(i) != inv_req::ord)
+                    add_disc = false;
+                if (add_disc && get_req(i) != inv_req::ord && i < m_omit_disc.size() && m_omit_disc[i])
+                    add_disc = false;
+
+                add_projections_for(p, m_level, witness, add_lc, add_disc);
             }
         }
 
@@ -1510,14 +1167,9 @@ namespace nlsat {
             SASSERT(m_I[m_level].section);
             poly* section_p = m_I[m_level].l.get();
 
-            // When m_dynamic_heuristic is true, omit_lc is already computed by choose_best_section_heuristic()
-            if (!m_dynamic_heuristic)
-                compute_omit_lc_section();
-            // SMT-RAT only applies noDisc optimization for section_lowest_degree (heuristic 3)
-            if (m_section_relation_mode == section_lowest_degree)
-                compute_omit_disc_from_section_relation();
-            else
-                m_omit_disc.clear();
+            compute_omit_lc_section();
+            // No noDisc optimization - always compute discriminants
+            m_omit_disc.clear();
 
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 polynomial_ref p(m_level_ps.get(i), m_pm);
@@ -1528,41 +1180,22 @@ namespace nlsat {
                 unsigned deg = m_pm.degree(p, m_level);
                 lc = m_pm.coeff(p, m_level, deg);
 
+                // Compute add_lc: section_biggest_cell always adds LC, spanning_tree uses omit_lc
                 bool add_lc = true;
-                if (is_section_poly) {
-                    // add_lc stays true
-                }
-                else if (m_section_relation_mode == section_biggest_cell) {
-                    // SMT-RAT section heuristic 1 does NOT use noLdcf optimization.
-                    // All polynomials with roots get their LC projected.
-                    // add_lc stays true
-                }
-                else {
-                    if (add_lc && i < m_omit_lc.size() && m_omit_lc[i])
+                if (!is_section_poly && m_rel_mode == spanning_tree) {
+                    if (i < m_omit_lc.size() && m_omit_lc[i])
                         add_lc = false;
-
                     if (add_lc && !has_roots)
                         if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
                             add_lc = false;
                 }
 
+                // Compute add_disc: biggest_cell only adds disc for section_poly and ORD polys
                 bool add_disc = true;
-                if (is_section_poly)
-                    add_disc = true;
-                else if (m_section_relation_mode == section_biggest_cell) {
-                    // SMT-RAT section heuristic 1 projects discriminants primarily for the defining
-                    // polynomial; keep discriminants only for upstream ORD polynomials.
+                if (!is_section_poly && m_rel_mode == biggest_cell) {
                     if (get_req(i) != inv_req::ord)
                         add_disc = false;
                 }
-                // DISABLED: chain disc skipping is unsound
-                // else if (m_section_relation_mode == section_chain) {
-                //     // In SMT-RAT's chain-style section heuristic, discriminants are projected for
-                //     // polynomials that actually have roots around the sample.
-                //     if (get_req(i) != inv_req::ord && !has_roots)
-                //         add_disc = false;
-                // }
-
                 // Only omit discriminants for polynomials that were not required to be order-invariant
                 // by upstream projection steps.
                 if (add_disc && get_req(i) != inv_req::ord) {
@@ -1583,6 +1216,9 @@ namespace nlsat {
 
         // Check if spanning tree should be used based on both_count threshold
         bool should_use_spanning_tree() {
+            // Need at least 2 polynomials for a spanning tree to have edges
+            if (m_spanning_tree_threshold < 2)
+                return false;
             if (m_rel.m_rfunc.size() < 2)
                 return false;
             compute_side_mask();
@@ -1609,14 +1245,14 @@ namespace nlsat {
         void process_level_section(bool have_interval) {
             SASSERT(m_I[m_level].section);
             clear_level_state();  // Clear stale state from previous level
+            m_rel_mode = biggest_cell;  // default
             if (have_interval) {
-                // Check spanning tree threshold first, independent of dynamic heuristic
+                // Check spanning tree threshold first
                 if (should_use_spanning_tree()) {
                     fill_relation_pairs_for_section_spanning_tree();
                     compute_omit_lc_both_sides(true);
-                    m_section_relation_mode = section_spanning_tree;
-                } else if (m_dynamic_heuristic) {
-                    m_section_relation_mode = choose_best_section_heuristic(); // also fills pairs
+                    compute_omit_disc_for_spanning_tree();
+                    m_rel_mode = spanning_tree;
                 } else {
                     fill_relation_pairs_for_section();
                 }
@@ -1630,14 +1266,14 @@ namespace nlsat {
         void process_level_sector(bool have_interval) {
             SASSERT(!m_I[m_level].section);
             clear_level_state();  // Clear stale state from previous level
+            m_rel_mode = biggest_cell;  // default
             if (have_interval) {
-                // Check spanning tree threshold first, independent of dynamic heuristic
+                // Check spanning tree threshold first
                 if (should_use_spanning_tree()) {
                     fill_relation_with_spanning_tree_heuristic();
                     compute_omit_lc_both_sides(true);
-                    m_sector_relation_mode = spanning_tree;
-                } else if (m_dynamic_heuristic) {
-                    m_sector_relation_mode = choose_best_sector_heuristic(); // also fills pairs
+                    compute_omit_disc_for_spanning_tree();
+                    m_rel_mode = spanning_tree;
                 } else {
                     fill_relation_pairs_for_sector();
                 }

@@ -23,10 +23,6 @@ def_module_params('nlsat',
                           ('zero_disc', BOOL, False, "add_zero_assumption to the vanishing discriminant."),
                           ('known_sat_assignment_file_name', STRING, "", "the file name of a known solution: used for debugging only"),
                           ('lws', BOOL, True, "apply levelwise."),
-                          ('lws_rel_mode', UINT, 1, "relation mode for levelwise: 0 for biggest_cell, 1 for chain, 2 for lowest_degree"),
-                          ('lws_sector_rel_mode', UINT, UINT_MAX, "relation mode for levelwise in SECTOR case: 0 for biggest_cell, 1 for chain, 2 for lowest_degree; UINT_MAX inherits lws_rel_mode"),
-                          ('lws_section_rel_mode', UINT, UINT_MAX, "relation mode for levelwise in SECTION case: 0 for biggest_cell, 1 for chain, 2 for lowest_degree; UINT_MAX inherits lws_rel_mode"),
-                          ('lws_dynamic_heuristic', BOOL, True, "dynamically select levelwise heuristic based on estimated projection weight"),
-                          ('lws_spt_threshold', UINT, 3, "minimum both-side polynomial count to apply spanning tree optimization"),
+                          ('lws_spt_threshold', UINT, 3, "minimum both-side polynomial count to apply spanning tree optimization; < 2 disables spanning tree"),
                           ('canonicalize', BOOL, True, "canonicalize polynomials.")
                           ))         
