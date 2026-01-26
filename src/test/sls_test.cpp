@@ -37,6 +37,7 @@ namespace bv {
         void force_restart() override {}
         std::ostream& display(std::ostream& out)  override { return out; }
         reslimit& rlimit() override { return m_limit; }
+        unsigned timestamp(sat::bool_var v) override { return 0; }
     };
 
     class sls_test {
