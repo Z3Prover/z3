@@ -242,9 +242,6 @@ namespace nlsat {
             unsigned               m_irrational_assignments; // number of irrational witnesses
             unsigned               m_levelwise_calls;
             unsigned               m_levelwise_failures;
-            unsigned               m_levelwise_sectors;
-            unsigned               m_levelwise_sections;
-            unsigned               m_levelwise_spanning_tree;
             unsigned               m_lws_initial_fail;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
@@ -2793,9 +2790,6 @@ namespace nlsat {
             st.update("nlsat irrational assignments", m_stats.m_irrational_assignments);
             st.update("levelwise calls", m_stats.m_levelwise_calls);
             st.update("levelwise failures", m_stats.m_levelwise_failures);
-            st.update("levelwise sectors", m_stats.m_levelwise_sectors);
-            st.update("levelwise sections", m_stats.m_levelwise_sections);
-            st.update("levelwise spanning-tree", m_stats.m_levelwise_spanning_tree);
         }
 
         void reset_statistics() {
@@ -4665,18 +4659,6 @@ namespace nlsat {
             m_imp->m_stats.m_levelwise_failures++;
             // m_imp->m_apply_lws = false; // is it useful to throttle
         }
-    }
-
-    void solver::record_levelwise_sector() {
-        m_imp->m_stats.m_levelwise_sectors++;
-    }
-
-    void solver::record_levelwise_section() {
-        m_imp->m_stats.m_levelwise_sections++;
-    }
-
-    void solver::record_levelwise_spanning_tree() {
-        m_imp->m_stats.m_levelwise_spanning_tree++;
     }
 
     bool solver::has_root_atom(clause const& c) const {

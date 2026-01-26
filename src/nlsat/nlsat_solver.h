@@ -195,9 +195,6 @@ namespace nlsat {
 
         void inc_simplify();
         void record_levelwise_result(bool success);
-        void record_levelwise_sector();
-        void record_levelwise_section();
-        void record_levelwise_spanning_tree();
         void add_bound(bound_constraint const& c);
 
         /**
