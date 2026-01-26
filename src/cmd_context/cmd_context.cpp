@@ -1172,11 +1172,10 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
     throw cmd_exception("invalid function declaration reference, unknown indexed function ", s);
 }
 
-std::optional<psort_decl*> cmd_context::find_psort_decl(symbol const & s) const {
+psort_decl * cmd_context::find_psort_decl(symbol const & s) const {
     psort_decl * p = nullptr;
-    if (m_psort_decls.find(s, p))
-        return p;
-    return std::nullopt;
+    m_psort_decls.find(s, p);
+    return p;
 }
 
 
