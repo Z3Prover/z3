@@ -57,11 +57,10 @@ void tactic_manager::insert(probe_info * p) {
     m_probes.push_back(p);
 }
 
-std::optional<tactic_cmd*> tactic_manager::find_tactic_cmd(symbol const & s) const {
+tactic_cmd * tactic_manager::find_tactic_cmd(symbol const & s) const {
     tactic_cmd * c = nullptr;
-    if (m_name2tactic.find(s, c))
-        return c;
-    return std::nullopt;
+    m_name2tactic.find(s, c);
+    return c;
 }
 
 simplifier_cmd * tactic_manager::find_simplifier_cmd(symbol const & s) const {
