@@ -1168,8 +1168,7 @@ namespace nlsat {
             poly* section_p = m_I[m_level].l.get();
 
             compute_omit_lc_section();
-            // No noDisc optimization - always compute discriminants
-            m_omit_disc.clear();
+            // m_omit_disc is computed by compute_omit_disc_for_spanning_tree() in process_level_section()
 
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 polynomial_ref p(m_level_ps.get(i), m_pm);
@@ -1190,12 +1189,8 @@ namespace nlsat {
                             add_lc = false;
                 }
 
-                // Compute add_disc: biggest_cell only adds disc for section_poly and ORD polys
+                // Compute add_disc: spanning_tree can omit disc for leaves
                 bool add_disc = true;
-                if (!is_section_poly && m_rel_mode == biggest_cell) {
-                    if (get_req(i) != inv_req::ord)
-                        add_disc = false;
-                }
                 // Only omit discriminants for polynomials that were not required to be order-invariant
                 // by upstream projection steps.
                 if (add_disc && get_req(i) != inv_req::ord) {
