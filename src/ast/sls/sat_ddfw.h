@@ -72,6 +72,7 @@ namespace sat {
             double   m_reward = 0;
             double   m_last_reward = 0;
             unsigned m_make_count = 0;
+            unsigned m_timestamp = 0;
             int      m_bias = 0;
             ema      m_reward_avg = 1e-5;
         };
@@ -282,6 +283,8 @@ namespace sat {
         double get_reward_avg(bool_var v) const { return m_vars[v].m_reward_avg; }
 
         inline int& bias(bool_var v) { return m_vars[v].m_bias; }
+
+        unsigned timestamp(bool_var v) { return m_vars[v].m_timestamp; }
 
         void reserve_vars(unsigned n);
         
