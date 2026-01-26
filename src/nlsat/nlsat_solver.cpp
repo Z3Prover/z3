@@ -250,10 +250,6 @@ namespace nlsat {
         stats                  m_stats;
         std::string m_debug_known_solution_file_name;
         bool m_apply_lws;
-        unsigned m_lws_relation_mode = 1;
-        unsigned m_lws_sector_relation_mode = 1;
-        unsigned m_lws_section_relation_mode = 1;
-        bool     m_lws_dynamic_heuristic = true;
         unsigned m_lws_spt_threshold = 3;
         imp(solver& s, ctx& c):
             m_ctx(c),
@@ -315,13 +311,7 @@ namespace nlsat {
             m_variable_ordering_strategy = p.variable_ordering_strategy();
             m_debug_known_solution_file_name = p.known_sat_assignment_file_name();
             m_apply_lws = p.lws();
-            m_lws_relation_mode = p.lws_rel_mode();
-            unsigned lws_sector_rel_mode = p.lws_sector_rel_mode();
-            unsigned lws_section_rel_mode = p.lws_section_rel_mode();
-            m_lws_sector_relation_mode = (lws_sector_rel_mode == UINT_MAX) ? m_lws_relation_mode : lws_sector_rel_mode;
-            m_lws_section_relation_mode = (lws_section_rel_mode == UINT_MAX) ? m_lws_relation_mode : lws_section_rel_mode;
-            m_lws_dynamic_heuristic = p.lws_dynamic_heuristic();
-            m_lws_spt_threshold = std::max(2u, p.lws_spt_threshold());
+            m_lws_spt_threshold = p.lws_spt_threshold();  // 0 disables spanning tree
             m_check_lemmas |= !(m_debug_known_solution_file_name.empty());
   
             m_ism.set_seed(m_random_seed);
@@ -4674,14 +4664,6 @@ namespace nlsat {
     }
 
     bool solver::apply_levelwise() const { return m_imp->m_apply_lws; }
-
-    unsigned solver::lws_relation_mode() const { return m_imp->m_lws_relation_mode; }
-
-    unsigned solver::lws_sector_relation_mode() const { return m_imp->m_lws_sector_relation_mode; }
-
-    unsigned solver::lws_section_relation_mode() const { return m_imp->m_lws_section_relation_mode; }
-
-    bool solver::lws_dynamic_heuristic() const { return m_imp->m_lws_dynamic_heuristic; }
 
     unsigned solver::lws_spt_threshold() const { return m_imp->m_lws_spt_threshold; }
 
