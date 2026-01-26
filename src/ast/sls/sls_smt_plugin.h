@@ -186,5 +186,6 @@ namespace sls {
             m_new_clause_added = true;
         }
         void force_restart() override { m_ddfw->force_restart(); }
+        unsigned timestamp(sat::bool_var v) override { return m_ddfw->timestamp(v); }
     };
 }
