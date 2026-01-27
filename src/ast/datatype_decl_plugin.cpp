@@ -325,16 +325,26 @@ namespace datatype {
                 sort* s = m_manager->mk_sort(name.get_symbol(),
                                              sort_info(m_family_id, k, num_parameters, parameters, true));
                 def* d = nullptr;
-                if (m_defs.find(s->get_name(), d) && d->sort_size() && d->params().size() == num_parameters - 1) {
-                    obj_map<sort, sort_size> S;
-                    for (unsigned i = 0; i + 1 < num_parameters; ++i) {
-                        sort* r = to_sort(parameters[i + 1].get_ast());
-                        TRACE(datatype, tout << "inserting " << mk_ismt2_pp(r, *m_manager) << " " << r->get_num_elements() << "\n";);
-                        S.insert(d->params()[i], r->get_num_elements()); 
+                if (m_defs.find(s->get_name(), d)) {
+                    // Validate parameter count matches definition
+                    if (d->params().size() != num_parameters - 1) {
+                        TRACE(datatype, tout << "Parameter count mismatch for datatype " << name
+                              << ": provided " << (num_parameters - 1) << " parameters but definition expects "
+                              << d->params().size() << " parameters\n";);
+                        m_manager->raise_exception("invalid datatype instantiation: parameter count mismatch");
+                        return nullptr;
                     }
-                    sort_size ts = d->sort_size()->eval(S);
-                    TRACE(datatype, tout << name << " has size " << ts << "\n";);
-                    s->set_num_elements(ts);
+                    if (d->sort_size() && d->params().size() == num_parameters - 1) {
+                        obj_map<sort, sort_size> S;
+                        for (unsigned i = 0; i + 1 < num_parameters; ++i) {
+                            sort* r = to_sort(parameters[i + 1].get_ast());
+                            TRACE(datatype, tout << "inserting " << mk_ismt2_pp(r, *m_manager) << " " << r->get_num_elements() << "\n";);
+                            S.insert(d->params()[i], r->get_num_elements()); 
+                        }
+                        sort_size ts = d->sort_size()->eval(S);
+                        TRACE(datatype, tout << name << " has size " << ts << "\n";);
+                        s->set_num_elements(ts);
+                    }
                 }
                 else {
                     TRACE(datatype, tout << "not setting size for " << name << "\n";);
@@ -845,6 +855,13 @@ namespace datatype {
             if (!is_declared(s))
                 return nullptr;
             def & d = get_def(s->get_name());
+            // Check for parameter count mismatch to prevent segfault
+            if (n != d.params().size()) {
+                TRACE(datatype, tout << "Parameter count mismatch for datatype " << s->get_name() 
+                      << ": sort has " << n << " parameters but definition has " 
+                      << d.params().size() << " parameters\n";);
+                return nullptr;
+            }
             SASSERT(n == d.params().size());
             for (unsigned i = 0; i < n; ++i) {
                 sort* ps = get_datatype_parameter_sort(s, i);
