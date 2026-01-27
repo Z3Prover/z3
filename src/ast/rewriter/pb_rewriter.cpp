@@ -251,11 +251,11 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         rational slack(0);
         m_args.reset();
         m_coeffs.reset();
-        for (auto const& kv : vec) {
-            m_args.push_back(kv.first);
-            m_coeffs.push_back(kv.second);
-            SASSERT(kv.second.is_pos());
-            slack += kv.second;
+        for (auto const& [e, coeff] : vec) {
+            m_args.push_back(e);
+            m_coeffs.push_back(coeff);
+            SASSERT(coeff.is_pos());
+            slack += coeff;
             all_unit &= m_coeffs.back().is_one();
         }
         if (is_eq) {
