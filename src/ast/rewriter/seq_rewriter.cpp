@@ -5617,8 +5617,8 @@ std::pair<bool, unsigned> seq_rewriter::min_length(unsigned sz, expr* const* ss)
             bool visited = true;
             bool is_valid = true;
             unsigned count = 0u;
-            std::pair<bool, unsigned> r;
             for (expr* arg : *to_app(e)) {
+                std::pair<bool, unsigned> r;
                 if (cache.find(arg, r)) {
                     auto [r_valid, r_count] = r;
                     is_valid &= r_valid;
