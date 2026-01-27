@@ -35,8 +35,10 @@ tools:
     - ":*"
 
 safe-outputs:
-  create-pull-request:
-    if-no-changes: ignore
+  create-discussion:
+    title-prefix: "[SpecBot] "
+    category: "Agentic Workflows"
+    close-older-discussions: true
   missing-tool:
     create-issue: true
 

@@ -20,7 +20,7 @@ SpecBot uses LLM reasoning to:
 2. **Analyze code structure** including members, methods, and dependencies
 3. **Mine specifications** using multi-step reasoning about code semantics
 4. **Generate annotations** using Z3's existing assertion macros (`SASSERT`, `ENSURE`, `VERIFY`)
-5. **Create pull requests** with the annotated code for human review
+5. **Create discussions** documenting the proposed specifications for human review and implementation
 
 ### Example Annotations
 
@@ -124,11 +124,11 @@ Uses LLM reasoning to infer:
 - Follows Z3's coding conventions
 - Guards expensive checks with `DEBUG` macros
 
-### 5. Pull Request Creation
-Creates a PR with:
-- Detailed description of specifications added
+### 5. Discussion Creation
+Creates a discussion in the "Agentic Workflows" category with:
+- Detailed description of specifications identified
 - Rationale for each assertion
-- Human review recommendations
+- Human review and implementation recommendations
 
 ## Best Practices
 
@@ -149,17 +149,18 @@ Creates a PR with:
 ## Human Review Required
 
 SpecBot is a **specification synthesis assistant**, not a replacement for human expertise:
-- **Review all assertions** for correctness
+- **Review all proposed assertions** for correctness
 - **Validate complex invariants** against code semantics
 - **Check performance impact** of assertion checks
 - **Refine specifications** based on domain knowledge
-- **Test changes** before merging
+- **Implement changes manually** after review
+- **Test changes** before applying to the codebase
 
 LLMs can occasionally hallucinate or miss nuances, so human oversight is essential.
 
 ## Output Format
 
-### Pull Request Structure
+### Discussion Structure
 ```markdown
 ## ✨ Automatic Specification Mining
 
@@ -197,7 +198,7 @@ LLMs can occasionally hallucinate or miss nuances, so human oversight is essenti
 Edit `.github/agentics/specbot.md` to modify:
 - Agent instructions and guidelines
 - Specification synthesis strategies
-- Output formatting
+- Discussion output formatting
 - Error handling behavior
 
 Changes take effect immediately on the next run.
@@ -211,7 +212,7 @@ gh aw compile specbot
 Recompilation is needed for:
 - Changing triggers (schedule, workflow_dispatch)
 - Modifying permissions or tools
-- Adjusting timeout or safe outputs
+- Adjusting timeout or safe outputs (e.g., switching from PR to Discussion)
 
 ## Troubleshooting
 
