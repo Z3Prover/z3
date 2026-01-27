@@ -442,7 +442,7 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 
 **Exception Control Flow:**
 - Using exceptions for normal control flow
-- Alternatives: `std::expected`, `std::optional`, error codes
+- Alternatives: `std::expected`, error codes
 - Performance and clarity improvements
 
 **Inefficient Stream Output:**
@@ -977,7 +977,7 @@ Do NOT perpetuate resolved issues in the cache. Always verify before storing.
 - **Quantify when possible**: Use numbers to show prevalence of patterns
 - **Consider backward compatibility**: Z3 is a mature project with many users
 - **Measure size improvements**: Use `static_assert` and `sizeof` to verify memory layout optimizations
-- **Prioritize safety**: Smart pointers, `std::optional`, and `std::span` improve type safety
+- **Prioritize safety**: Smart pointers and `std::span` improve type safety
 - **Consider performance**: Hash table optimizations and AST caching have measurable impact
 - **Keep cache current**: Remove resolved issues from cache, only store verified unresolved items
 
