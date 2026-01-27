@@ -29,7 +29,10 @@ namespace bv {
         solver::var_pos vp;
         sat::literal lit;
     public:
-        bit_trail(solver& s, var_pos vp) : s(s), vp(vp), lit([&vp, &s]{ auto [v, idx] = vp; return s.m_bits[v][idx]; }()) {}
+        bit_trail(solver& s, var_pos vp) : s(s), vp(vp) {
+            auto [v, idx] = vp;
+            lit = s.m_bits[v][idx];
+        }
 
         void undo() override {
             auto [v, idx] = vp;
@@ -979,9 +982,9 @@ namespace bv {
             atom* a = get_bv2a(cv);
             force_push();
             if (a)
-                for (auto [v_curr, idx_curr] : *a)
-                    if (propagate_eqc || find(v_curr) != find(v2) || idx_curr != idx) 
-                        m_prop_queue.push_back(propagation_item(std::make_pair(v_curr, idx_curr)));  
+                for (auto curr : *a)
+                    if (propagate_eqc || find(curr.first) != find(v2) || curr.second != idx) 
+                        m_prop_queue.push_back(propagation_item(curr));  
             return true;
         }
     }
