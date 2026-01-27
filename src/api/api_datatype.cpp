@@ -495,6 +495,49 @@ extern "C" {
         Z3_CATCH;
     }
 
+    void Z3_API Z3_mk_polymorphic_datatypes(Z3_context c,
+                                            unsigned num_sorts,
+                                            Z3_symbol const sort_names[],
+                                            unsigned const num_params[],
+                                            Z3_sort const* params[],
+                                            Z3_sort sorts[],
+                                            Z3_constructor_list constructor_lists[]) {
+        Z3_TRY;
+        // Note: LOG macro not auto-generated for this function due to 2D array parameter
+        RESET_ERROR_CODE();
+        ast_manager& m = mk_c(c)->m();
+        mk_c(c)->reset_last_result();
+        datatype_util data_util(m);
+
+        ptr_vector<datatype_decl> datas;
+        for (unsigned i = 0; i < num_sorts; ++i) {
+            constructor_list* cl = reinterpret_cast<constructor_list*>(constructor_lists[i]);
+            datas.push_back(api_datatype_decl(c, sort_names[i], num_params[i], params[i], cl->size(), reinterpret_cast<Z3_constructor*>(cl->data())));
+        }
+        sort_ref_vector _sorts(m);
+        bool ok = mk_c(c)->get_dt_plugin()->mk_datatypes(datas.size(), datas.data(), 0, nullptr, _sorts);
+        del_datatype_decls(datas.size(), datas.data());
+
+        if (!ok) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            return;
+        }
+
+        SASSERT(_sorts.size() == num_sorts);
+        for (unsigned i = 0; i < _sorts.size(); ++i) {
+            sort* s = _sorts[i].get();
+            mk_c(c)->save_multiple_ast_trail(s);
+            sorts[i] = of_sort(s);
+            constructor_list* cl = reinterpret_cast<constructor_list*>(constructor_lists[i]);
+            ptr_vector<func_decl> const& cnstrs = *data_util.get_datatype_constructors(s);
+            for (unsigned j = 0; j < cl->size(); ++j) {
+                constructor* cn = (*cl)[j];
+                cn->m_constructor = cnstrs[j];
+            }
+        }
+        Z3_CATCH;
+    }
+
     bool Z3_API Z3_is_recursive_datatype_sort(Z3_context c, Z3_sort t) {
         Z3_TRY;
         LOG_Z3_is_recursive_datatype_sort(c, t);

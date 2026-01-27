@@ -2222,6 +2222,30 @@ extern "C" {
                                 Z3_constructor_list constructor_lists[]);
 
     /**
+       \brief Create mutually recursive polymorphic datatypes.
+
+       \param c logical context.
+       \param num_sorts number of datatype sorts.
+       \param sort_names names of datatype sorts.
+       \param num_params array of number of type parameters for each sort.
+       \param params array of arrays of type parameters for each sort.
+       \param sorts array of datatype sorts (output).
+       \param constructor_lists list of constructors, one list per sort.
+
+       \sa Z3_mk_constructor
+       \sa Z3_mk_constructor_list
+       \sa Z3_mk_datatypes
+       \sa Z3_mk_polymorphic_datatype
+    */
+    void Z3_API Z3_mk_polymorphic_datatypes(Z3_context c,
+                                            unsigned num_sorts,
+                                            Z3_symbol const sort_names[],
+                                            unsigned const num_params[],
+                                            Z3_sort const* params[],
+                                            Z3_sort sorts[],
+                                            Z3_constructor_list constructor_lists[]);
+
+    /**
        \brief Query constructor for declared functions.
 
        \param c logical context.
