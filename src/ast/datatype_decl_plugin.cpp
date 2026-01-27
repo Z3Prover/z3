@@ -325,7 +325,7 @@ namespace datatype {
                 sort* s = m_manager->mk_sort(name.get_symbol(),
                                              sort_info(m_family_id, k, num_parameters, parameters, true));
                 def* d = nullptr;
-                if (m_defs.find(s->get_name(), d)) {
+                if (m_defs.find(s->get_name(), d) && d->sort_size()) {
                     // Validate parameter count matches definition
                     if (d->params().size() != num_parameters - 1) {
                         TRACE(datatype, tout << "Parameter count mismatch for datatype " << name
@@ -334,7 +334,6 @@ namespace datatype {
                         m_manager->raise_exception("invalid datatype instantiation: parameter count mismatch");
                         return nullptr;
                     }
-                    if (d->sort_size()) {
                         obj_map<sort, sort_size> S;
                         for (unsigned i = 0; i + 1 < num_parameters; ++i) {
                             sort* r = to_sort(parameters[i + 1].get_ast());
@@ -344,7 +343,7 @@ namespace datatype {
                         sort_size ts = d->sort_size()->eval(S);
                         TRACE(datatype, tout << name << " has size " << ts << "\n";);
                         s->set_num_elements(ts);
-                    }
+                    
                 }
                 else {
                     TRACE(datatype, tout << "not setting size for " << name << "\n";);
