@@ -44,6 +44,9 @@ concurrency:
 
 run-name: "Specbot"
 
+env:
+  GH_TOKEN: ${{ secrets.BOT_PAT }}
+
 jobs:
   activation:
     runs-on: ubuntu-slim
