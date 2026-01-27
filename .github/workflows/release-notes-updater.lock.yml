@@ -88,7 +88,7 @@ jobs:
       - name: Create gh-aw temp directory
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
       - name: Checkout repository
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v5
         with:
           fetch-depth: 0
 
