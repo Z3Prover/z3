@@ -21,10 +21,6 @@ permissions:
   issues: read
   pull-requests: read
 
-network:
-  allowed:
-    - cpp
-
 tools:
   github:
     toolsets: [default]
