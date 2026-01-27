@@ -3314,9 +3314,10 @@ namespace pb {
         reset_active_var_set();
         for (bool_var v : m_active_vars) {
             if (!test_and_set_active(v)) continue;
-            auto [w, l] = get_wliteral(v);
+            wliteral wl = get_wliteral(v);
+            auto [w, l] = wl;
             if (w == 0) continue;
-            wlits.push_back(wliteral(w, l));
+            wlits.push_back(wl);
             sum += w;
         }
         m_overflow |= sum >= UINT_MAX/2;
