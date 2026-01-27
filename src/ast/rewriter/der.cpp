@@ -285,7 +285,7 @@ static void der_sort_vars(ptr_vector<var> & vars, expr_ref_vector & definitions,
                     // Remark: The size of definitions may be smaller than the number of variables occurring in the quantified formula.
                     if (definitions.get(vidx, nullptr) != nullptr) {
                         if (visiting.is_marked(e)) {
-                            // cycle detected: remove t
+                            // cycle detected: remove e
                             visiting.reset_mark(e);
                             definitions[vidx] = nullptr;
                         }
