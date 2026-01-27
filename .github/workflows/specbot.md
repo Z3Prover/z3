@@ -16,6 +16,9 @@ on:
 
 roles: [write, maintain, admin]
 
+env:
+  GH_TOKEN: ${{ secrets.BOT_PAT }}
+
 permissions:
   contents: read
   issues: read
