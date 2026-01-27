@@ -202,18 +202,19 @@ int* allocate_buffer(size_t size) {
 - Run quick smoke tests if possible
 - Note any compilation errors or warnings
 
-### 6. Create Pull Request
+### 6. Create Discussion
 
-**PR Structure:**
-- Title: `[SpecBot] Add specifications to [ClassName]`
-- Use `create-pull-request` safe output
-- Set `skip-if-match: 'is:pr is:open in:title "[SpecBot]"'` to avoid duplicates
+**Discussion Structure:**
+- Title: `Add specifications to [ClassName]`
+- Use `create-discussion` safe output
+- Category: "Agentic Workflows"
+- Previous discussions with same prefix will be automatically closed
 
-**PR Body Template:**
+**Discussion Body Template:**
 ```markdown
 ## ✨ Automatic Specification Mining
 
-This PR adds formal specifications (class invariants, pre/post-conditions) to improve code correctness and maintainability.
+This discussion proposes formal specifications (class invariants, pre/post-conditions) to improve code correctness and maintainability.
 
 ### 📋 Classes Annotated
 - `ClassName` in `src/path/to/file.cpp`
@@ -247,7 +248,7 @@ This PR adds formal specifications (class invariants, pre/post-conditions) to im
 - All assertions are guarded by debug macros where appropriate
 - Assertions have been validated for correctness
 - No behavior changes - only adding checks
-- Human review recommended for complex invariants
+- Human review and manual implementation recommended for complex invariants
 
 ### 📚 Methodology
 Specifications synthesized using LLM-based invariant mining inspired by [arXiv:2502.18917](https://arxiv.org/abs/2502.18917).
@@ -293,7 +294,7 @@ Specifications synthesized using LLM-based invariant mining inspired by [arXiv:2
 ## Output Format
 
 ### Success Case (specifications added):
-Create a PR with annotated code.
+Create a discussion documenting the proposed specifications.
 
 ### No Changes Case (already well-annotated):
 Exit gracefully with a comment explaining why no changes were made:
@@ -309,7 +310,7 @@ No additional specifications needed at this time.
 ```
 
 ### Partial Success Case:
-Create a PR with whatever specifications could be confidently added, and note any limitations:
+Create a discussion documenting whatever specifications could be confidently identified, and note any limitations:
 ```markdown
 ### ⚠️ Limitations
 Some potential invariants were identified but not added due to:
@@ -330,7 +331,7 @@ These can be addressed in future iterations or manual review.
 ### Incremental Refinement:
 - Use cache-memory to track which classes have been analyzed
 - Build on previous runs to improve specifications over time
-- Learn from PR feedback to refine future annotations
+- Learn from discussion feedback to refine future annotations
 
 ### Pattern Recognition:
 - Common patterns: container invariants, ownership invariants, state machine invariants
@@ -349,5 +350,5 @@ These can be addressed in future iterations or manual review.
 
 - If you can't understand a class well enough, skip it and try another
 - If compilation fails, investigate and fix assertion syntax
-- If you're unsure about an invariant's correctness, document it as a question in PR
+- If you're unsure about an invariant's correctness, document it as a question in the discussion
 - Always be transparent about confidence levels and limitations
