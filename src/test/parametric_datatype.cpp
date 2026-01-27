@@ -152,7 +152,7 @@ static void test_polymorphic_datatypes_api() {
     
     Z3_symbol tree_field_names[2] = {value_sym, children_sym};
     Z3_sort tree_field_sorts[2] = {t_var, forest_ref};  // T and Forest<T>
-    unsigned tree_sort_refs[2] = {0, 1};  // 0=not recursive, 1=reference to Forest (index 1)
+    unsigned tree_sort_refs[2] = {0, 0};  // Both use explicit sorts, not recursive refs
     
     Z3_constructor tree_con = Z3_mk_constructor(
         ctx, mk_tree_sym, is_tree_sym, 2, tree_field_names, tree_field_sorts, tree_sort_refs
@@ -174,7 +174,7 @@ static void test_polymorphic_datatypes_api() {
     
     Z3_symbol forest_field_names[2] = {head_sym, tail_sym};
     Z3_sort forest_field_sorts[2] = {tree_ref, forest_ref};  // Tree<T> and Forest<T>
-    unsigned forest_sort_refs[2] = {0, 1};  // 0=reference to Tree (index 0), 1=reference to Forest (index 1)
+    unsigned forest_sort_refs[2] = {0, 0};  // Both use explicit sorts, not recursive refs
     
     Z3_constructor cons_con = Z3_mk_constructor(
         ctx, cons_sym, is_cons_sym, 2, forest_field_names, forest_field_sorts, forest_sort_refs

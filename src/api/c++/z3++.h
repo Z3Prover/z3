@@ -375,6 +375,17 @@ namespace z3 {
         */
         sort_vector datatypes(unsigned n, symbol const* names,
                               constructor_list *const* cons);
+
+        /**
+           \brief Create a set of mutually recursive polymorphic datatypes.
+           \c n - number of recursive datatypes
+           \c names - array of names of length n
+           \c params - array of type parameter vectors of length n
+           \c cons - array of constructor lists of length n
+        */
+        sort_vector datatypes(unsigned n, symbol const* names,
+                              sort_vector const* params,
+                              constructor_list *const* cons);
                        
 
         /**
@@ -3748,6 +3759,34 @@ namespace z3 {
         for (unsigned i = 0; i < n; ++i)
             _names[i] = names[i], _cons[i] = *cons[i];
         Z3_mk_datatypes(*this, n, _names.ptr(), _sorts.ptr(), _cons.ptr());
+        for (unsigned i = 0; i < n; ++i)
+            result.push_back(sort(*this, _sorts[i]));
+        return result;
+    }
+
+    inline sort_vector context::datatypes(
+        unsigned n, symbol const* names,
+        sort_vector const* params,
+        constructor_list *const* cons) {
+        sort_vector result(*this);
+        array<Z3_symbol> _names(n);
+        array<Z3_sort> _sorts(n);
+        array<unsigned> _num_params(n);
+        array<Z3_constructor_list> _cons(n);
+        std::vector<array<Z3_sort>> _params_vec;
+        std::vector<Z3_sort const*> _params_ptrs;
+        
+        _params_vec.reserve(n);
+        _params_ptrs.reserve(n);
+        
+        for (unsigned i = 0; i < n; ++i) {
+            _names[i] = names[i];
+            _num_params[i] = params[i].size();
+            _params_vec.emplace_back(params[i]);
+            _params_ptrs.push_back(_params_vec[i].ptr());
+            _cons[i] = *cons[i];
+        }
+        Z3_mk_polymorphic_datatypes(*this, n, _names.ptr(), _num_params.ptr(), _params_ptrs.data(), _sorts.ptr(), _cons.ptr());
         for (unsigned i = 0; i < n; ++i)
             result.push_back(sort(*this, _sorts[i]));
         return result;
