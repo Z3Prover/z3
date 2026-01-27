@@ -3343,16 +3343,15 @@ namespace smt {
     }
 
     void context::reset_tmp_clauses() {
-        for (auto& p : m_tmp_clauses) {
-            if (p.first) del_clause(false, p.first);
+        for (auto& [clausep, lits] : m_tmp_clauses) {
+            if (clausep) del_clause(false, clausep);
         }
         m_tmp_clauses.reset();
     }
 
     lbool context::decide_clause() {
         if (m_tmp_clauses.empty()) return l_true;
-        for (auto & tmp_clause : m_tmp_clauses) {
-            literal_vector& lits = tmp_clause.second;
+        for (auto & [clausep, lits] : m_tmp_clauses) {
             literal unassigned = null_literal;
             for (literal l : lits) {
                 switch (get_assignment(l)) {
@@ -3376,7 +3375,7 @@ namespace smt {
                 set_conflict(b_justification(), ~lits[0]);
             }
             else {
-                set_conflict(b_justification(tmp_clause.first), null_literal);
+                set_conflict(b_justification(clausep), null_literal);
             }
             VERIFY(!resolve_conflict());
             return l_false;
@@ -3404,11 +3403,9 @@ namespace smt {
             push_scope();
             vector<std::pair<expr*,expr_ref>> asm2proxy;
             internalize_proxies(asms, asm2proxy);
-            for (auto const& p: asm2proxy) {
+            for (auto const& [orig_assumption, curr_assumption] : asm2proxy) {
                 if (inconsistent())
                     break;
-                expr_ref curr_assumption = p.second;
-                expr* orig_assumption = p.first;
                 if (m.is_true(curr_assumption)) continue;
                 SASSERT(is_valid_assumption(m, curr_assumption));
                 proof * pr = m.mk_asserted(curr_assumption);
