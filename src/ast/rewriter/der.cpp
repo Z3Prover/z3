@@ -272,36 +272,35 @@ static void der_sort_vars(ptr_vector<var> & vars, expr_ref_vector & definitions,
         todo.push_back(frame(v, 0));
         while (!todo.empty()) {
         start:
-            frame & fr = todo.back();
-            expr * t   = fr.first;
-            if (done.is_marked(t)) {
+            auto& [e, idx] = todo.back();
+            if (done.is_marked(e)) {
                 todo.pop_back();
                 continue;
             }
-            switch (t->get_kind()) {
+            switch (e->get_kind()) {
             case AST_VAR:
-                vidx = to_var(t)->get_idx();
-                if (fr.second == 0) {
+                vidx = to_var(e)->get_idx();
+                if (idx == 0) {
                     CTRACE(der_bug, vidx >= definitions.size(), tout << "vidx: " << vidx << "\n";);
                     // Remark: The size of definitions may be smaller than the number of variables occurring in the quantified formula.
                     if (definitions.get(vidx, nullptr) != nullptr) {
-                        if (visiting.is_marked(t)) {
+                        if (visiting.is_marked(e)) {
                             // cycle detected: remove t
-                            visiting.reset_mark(t);
+                            visiting.reset_mark(e);
                             definitions[vidx] = nullptr;
                         }
                         else {
-                            visiting.mark(t);
-                            fr.second = 1;
+                            visiting.mark(e);
+                            idx = 1;
                             todo.push_back(frame(definitions.get(vidx), 0));
                             goto start;
                         }
                     }
                 }
                 else {
-                    SASSERT(fr.second == 1);
+                    SASSERT(idx == 1);
                     if (definitions.get(vidx, nullptr) != nullptr) {
-                        visiting.reset_mark(t);
+                        visiting.reset_mark(e);
                         order.push_back(vidx);
                     }
                     else {
@@ -309,7 +308,7 @@ static void der_sort_vars(ptr_vector<var> & vars, expr_ref_vector & definitions,
                         // do nothing
                     }
                 }
-                done.mark(t);
+                done.mark(e);
                 todo.pop_back();
                 break;
             case AST_QUANTIFIER:
@@ -317,16 +316,16 @@ static void der_sort_vars(ptr_vector<var> & vars, expr_ref_vector & definitions,
                 todo.pop_back();
                 break;
             case AST_APP:
-                num = to_app(t)->get_num_args();
-                while (fr.second < num) {
-                    expr * arg = to_app(t)->get_arg(fr.second);
-                    fr.second++;
+                num = to_app(e)->get_num_args();
+                while (idx < num) {
+                    expr * arg = to_app(e)->get_arg(idx);
+                    idx++;
                     if (done.is_marked(arg))
                         continue;
                     todo.push_back(frame(arg, 0));
                     goto start;
                 }
-                done.mark(t);
+                done.mark(e);
                 todo.pop_back();
                 break;
             default:
