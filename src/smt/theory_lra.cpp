@@ -401,9 +401,9 @@ class theory_lra::imp {
                     theory_var w = mk_var(n1);
                     lpvar vj = register_theory_var_in_lar_solver(v);
                     lpvar wj = register_theory_var_in_lar_solver(w);
-                    auto lu_constraints = lp().add_equality(vj, wj);
-                    add_def_constraint(lu_constraints.first);
-                    add_def_constraint(lu_constraints.second);
+                    auto [lower_ci, upper_ci] = lp().add_equality(vj, wj);
+                    add_def_constraint(lower_ci);
+                    add_def_constraint(upper_ci);
                 }
             }
             else if (is_app(n) && a.get_family_id() == to_app(n)->get_family_id()) {
@@ -1915,8 +1915,8 @@ public:
         expr_ref fml(m);
         expr_ref_vector ts(m);
         rational rhs = c.rhs();
-        for (auto cv : c.coeffs()) {
-            ts.push_back(multerm(cv.first, var2expr(cv.second)));
+        for (auto [coeff, var] : c.coeffs()) {
+            ts.push_back(multerm(coeff, var2expr(var)));
         }
         switch (c.kind()) {
         case lp::LE: fml = a.mk_le(a.mk_add(ts.size(), ts.data()), a.mk_numeral(rhs, true)); break;
@@ -3330,13 +3330,13 @@ public:
             if (vec.size() <= tv) {
                 vec.resize(tv + 1, constraint_bound(UINT_MAX, rational()));
             }
-            constraint_bound& b = vec[tv];
-            if (b.first == UINT_MAX || (is_lower? b.second < v : b.second > v)) {
+            auto& [ci_ref, bound] = vec[tv];
+            if (ci_ref == UINT_MAX || (is_lower? bound < v : bound > v)) {
                 TRACE(arith, tout << "tighter bound " << tv << "\n";);
                 m_history.push_back(vec[tv]);
                 ctx().push_trail(history_trail<constraint_bound>(vec, tv, m_history));
-                b.first = ci;
-                b.second = v;
+                ci_ref = ci;
+                bound = v;
             }
             return true;
         }
@@ -3450,8 +3450,8 @@ public:
         TRACE(arith,
               for (auto c : m_core) 
                   ctx().display_detailed_literal(tout << ctx().get_assign_level(c.var()) << " " << c << " ", c) << "\n";              
-              for (auto e : m_eqs) 
-                  tout << pp(e.first) << " = " << pp(e.second) << "\n";
+              for (auto [n1, n2] : m_eqs) 
+                  tout << pp(n1) << " = " << pp(n2) << "\n";
               tout << " ==> " << pp(x) << " = " << pp(y) << "\n";
               );
         
@@ -3530,8 +3530,9 @@ public:
             break;
         }
         case equality_source: {
-            SASSERT(m_equalities[idx].first  != nullptr);
-            SASSERT(m_equalities[idx].second != nullptr);
+            auto [n1, n2] = m_equalities[idx];
+            SASSERT(n1 != nullptr);
+            SASSERT(n2 != nullptr);
             m_eqs.push_back(m_equalities[idx]);          
             break;
         }
@@ -3587,8 +3588,8 @@ public:
                         m_eqs.size(), m_eqs.data(), m_params.size(), m_params.data())));
         }
         else {
-            for (auto const& eq : m_eqs) {
-                m_core.push_back(th.mk_eq(eq.first->get_expr(), eq.second->get_expr(), false));
+            for (auto const& [n1, n2] : m_eqs) {
+                m_core.push_back(th.mk_eq(n1->get_expr(), n2->get_expr(), false));
             }
             for (literal & c : m_core) {
                 c.neg();
@@ -3648,16 +3649,15 @@ public:
 
             m_nla->am().set(r, 0);
             while (!m_todo_terms.empty()) {
-                rational wcoeff = m_todo_terms.back().second;
-                t = m_todo_terms.back().first;                
+                auto [term, wcoeff] = m_todo_terms.back();
                 m_todo_terms.pop_back();
-                lp::lar_term const& term = lp().get_term(t);
-                TRACE(nl_value, lp().print_term(term, tout) << "\n";);
+                lp::lar_term const& term_ref = lp().get_term(term);
+                TRACE(nl_value, lp().print_term(term_ref, tout) << "\n";);
                 scoped_anum r1(m_nla->am());
                 rational c1(0);
                 m_nla->am().set(r1, c1.to_mpq());
                 m_nla->am().add(r, r1, r);                
-                for (lp::lar_term::ival arg : term) {
+                for (lp::lar_term::ival arg : term_ref) {
                     auto wi = arg.j();
                     c1 = arg.coeff() * wcoeff;
                     if (lp().column_has_term(wi)) {
@@ -3973,8 +3973,8 @@ public:
             ctx().literal2expr(c, tmp);
             nctx.assert_expr(tmp);
         }
-        for (auto const& eq : m_eqs) {
-            nctx.assert_expr(m.mk_eq(eq.first->get_expr(), eq.second->get_expr()));
+        for (auto const& [n1, n2] : m_eqs) {
+            nctx.assert_expr(m.mk_eq(n1->get_expr(), n2->get_expr()));
         }
     }        
 
@@ -4237,10 +4237,11 @@ public:
                 out << bpp(e) << " " << ctx().get_assignment(lit) << "\n";
                 break;
             }
-            case equality_source: 
-                out << pp(m_equalities[idx].first) << " = " 
-                    << pp(m_equalities[idx].second) << "\n"; 
+            case equality_source: {
+                auto [n1, n2] = m_equalities[idx];
+                out << pp(n1) << " = " << pp(n2) << "\n";
                 break;
+            }
             case definition_source: {
                 theory_var v = m_definitions[idx];
                 if (v != null_theory_var) 
