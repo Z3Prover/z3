@@ -334,7 +334,7 @@ namespace datatype {
                         m_manager->raise_exception("invalid datatype instantiation: parameter count mismatch");
                         return nullptr;
                     }
-                    if (d->sort_size() && d->params().size() == num_parameters - 1) {
+                    if (d->sort_size()) {
                         obj_map<sort, sort_size> S;
                         for (unsigned i = 0; i + 1 < num_parameters; ++i) {
                             sort* r = to_sort(parameters[i + 1].get_ast());
