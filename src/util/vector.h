@@ -54,6 +54,16 @@ class vector {
 #define CAPACITY_IDX -2
     T * m_data = nullptr;
 
+    // Class invariant checking
+    void check_invariant() const {
+        // Fundamental invariant: size never exceeds capacity
+        SASSERT(size() <= capacity());
+        // Null data implies zero size and capacity
+        SASSERT(m_data != nullptr || (size() == 0 && capacity() == 0));
+        // Non-null data implies positive capacity
+        SASSERT(m_data == nullptr || capacity() > 0);
+    }
+
     void destroy_elements() {
         std::destroy_n(m_data, size());
     }
@@ -78,7 +88,7 @@ class vector {
         }
         else {
             static_assert(std::is_nothrow_move_constructible<T>::value);
-            SASSERT(capacity() > 0);
+            SASSERT(capacity() > 0);  // Pre-condition: existing capacity must be positive
             SZ old_capacity = reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX];
             SZ old_capacity_T = sizeof(T) * old_capacity + sizeof(SZ) * 2;
             SZ new_capacity = (3 * old_capacity + 1) >> 1;
@@ -133,11 +143,13 @@ public:
 
     vector(SZ s) {
         init(s);
+        check_invariant();
     }
 
     void init(SZ s) {
         SASSERT(m_data == nullptr);
         if (s == 0) {
+            check_invariant();
             return;
         }
         SZ * mem = reinterpret_cast<SZ*>(memory::allocate(sizeof(T) * s + sizeof(SZ) * 2));
@@ -152,10 +164,12 @@ public:
         for (; it != e; ++it) {
             new (it) T(); 
         }
+        check_invariant();
     }
 
     vector(SZ s, T const & elem) {
         resize(s, elem);
+        check_invariant();
     }
 
     vector(vector const & source) {
@@ -163,24 +177,30 @@ public:
             copy_core(source);
         }
         SASSERT(size() == source.size());
+        check_invariant();
     }
 
     vector(vector&& other) noexcept {
         std::swap(m_data, other.m_data);
+        check_invariant();
     }
 
     vector(SZ s, T const * data) {
+        SASSERT(s == 0 || data != nullptr);  // Pre-condition: non-null data for non-zero size
         for (SZ i = 0; i < s; ++i) {
             push_back(data[i]);
         }
+        check_invariant();
     }
 
     vector(std::initializer_list<T> const& l) {
         for (auto const& t : l) 
-            push_back(t);        
+            push_back(t);
+        check_invariant();
     }
  
-    ~vector() { 
+    ~vector() {
+        check_invariant();
         destroy();
     } 
 
@@ -217,6 +237,8 @@ public:
         else {
             m_data = nullptr;
         }
+        check_invariant();  // Post-condition: invariant established
+        SASSERT(size() == source.size());  // Post-condition: size matches source
         return *this;
     }
 
@@ -227,6 +249,7 @@ public:
         destroy();
         m_data = nullptr;
         std::swap(m_data, source.m_data);
+        check_invariant();  // Post-condition: invariant established
         return *this;
     }
 
@@ -282,6 +305,7 @@ public:
             }
             reinterpret_cast<SZ *>(m_data)[SIZE_IDX] = 0;
         }
+        check_invariant();  // Post-condition: invariant holds after reset
     }
 
     void clear() { reset(); }
@@ -401,11 +425,12 @@ public:
     }
 
     void pop_back() { 
-        SASSERT(!empty()); 
+        SASSERT(!empty());  // Pre-condition: vector must not be empty
         if (CallDestructors) {
             back().~T(); 
         }
-        reinterpret_cast<SZ *>(m_data)[SIZE_IDX]--; 
+        reinterpret_cast<SZ *>(m_data)[SIZE_IDX]--;
+        check_invariant();  // Post-condition: invariant preserved
     }
 
     vector& push_back(T const & elem) {
@@ -414,6 +439,7 @@ public:
         }
         new (m_data + reinterpret_cast<SZ *>(m_data)[SIZE_IDX]) T(elem); 
         reinterpret_cast<SZ *>(m_data)[SIZE_IDX]++;
+        check_invariant();
         return *this;
     }
 
@@ -430,6 +456,7 @@ public:
         }
         new (m_data + reinterpret_cast<SZ *>(m_data)[SIZE_IDX]) T(std::move(elem));
         reinterpret_cast<SZ *>(m_data)[SIZE_IDX]++;
+        check_invariant();
         return *this;
     }
 
@@ -438,7 +465,7 @@ public:
     }
 
     void erase(iterator pos) {
-        SASSERT(pos >= begin() && pos < end());
+        SASSERT(pos >= begin() && pos < end());  // Pre-condition: valid iterator
         iterator prev = pos;
         ++pos;
         iterator e    = end();
@@ -446,6 +473,7 @@ public:
             *prev = std::move(*pos);
         }
         pop_back();
+        check_invariant();  // Post-condition: invariant preserved
     }
 
     void erase(T const & elem) {
@@ -471,7 +499,7 @@ public:
 
     void shrink(SZ s) {
         if (m_data) {
-            SASSERT(s <= reinterpret_cast<SZ *>(m_data)[SIZE_IDX]);
+            SASSERT(s <= reinterpret_cast<SZ *>(m_data)[SIZE_IDX]);  // Pre-condition: can only shrink to smaller size
             if (CallDestructors) {
                 iterator it = m_data + s;
                 iterator e  = end();
@@ -482,8 +510,9 @@ public:
             reinterpret_cast<SZ *>(m_data)[SIZE_IDX] = s;
         }
         else {
-            SASSERT(s == 0);
+            SASSERT(s == 0);  // Pre-condition: null data implies shrinking to zero
         }
+        check_invariant();  // Post-condition: invariant preserved
     }
 
     template<typename Args>
@@ -493,13 +522,14 @@ public:
         while (s > capacity()) {
             expand_vector();
         }
-        SASSERT(m_data != 0);
+        SASSERT(m_data != 0);  // Post-condition: data allocated after expansion
         reinterpret_cast<SZ *>(m_data)[SIZE_IDX] = s;
         iterator it  = m_data + sz;
         iterator end = m_data + s;
         for (; it != end; ++it) {
             new (it) T(std::forward<Args>(args));
         }
+        check_invariant();  // Post-condition: invariant holds after resize
     }
 
     void resize(SZ s) {
@@ -508,13 +538,14 @@ public:
         while (s > capacity()) {
             expand_vector();
         }
-        SASSERT(m_data != 0);
+        SASSERT(m_data != 0);  // Post-condition: data allocated after expansion
         reinterpret_cast<SZ *>(m_data)[SIZE_IDX] = s;
         iterator it  = m_data + sz;
         iterator end = m_data + s;
         for (; it != end; ++it) {
             new (it) T();
         }
+        check_invariant();  // Post-condition: invariant holds after resize
     }
 
     void append(vector<T, CallDestructors> const & other) {
