@@ -164,14 +164,22 @@ public:
         unsigned long long m_set;
         unsigned           m_val;
         void move_to_next() {
-            // TODO: this code can be optimized in platforms with special
-            // instructions to count leading (trailing) zeros in a word.
-            while (m_set > 0) {
-                if ((m_set & 1ull) != 0) {
-                    return;
+            if (m_set > 0) {
+#ifdef __GNUC__
+                // Use compiler builtin for trailing zero count (optimized)
+                unsigned tz = __builtin_ctzll(m_set);
+                m_val += tz;
+                m_set >>= tz;
+#else
+                // Fallback to loop-based approach
+                while (m_set > 0) {
+                    if ((m_set & 1ull) != 0) {
+                        return;
+                    }
+                    m_val++;
+                    m_set = m_set >> 1;
                 }
-                m_val ++;
-                m_set = m_set >> 1;
+#endif
             }
         }
     public:
