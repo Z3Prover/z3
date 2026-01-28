@@ -38,8 +38,6 @@ mcp-servers:
   serena:
     container: "ghcr.io/githubnext/serena-mcp-server"
     version: "latest"
-    env:
-      SERENA_LANGUAGES: "cpp"
 
 safe-outputs:
   create-discussion:
