@@ -167,6 +167,7 @@ public:
             if (m_set > 0) {
 #ifdef __GNUC__
                 // Use compiler builtin for trailing zero count (optimized)
+                // After shift, LSB will be set to 1 (same as fallback behavior)
                 unsigned tz = __builtin_ctzll(m_set);
                 m_val += tz;
                 m_set >>= tz;
