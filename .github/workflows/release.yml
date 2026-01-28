@@ -650,26 +650,18 @@ jobs:
     if: ${{ github.event.inputs.publish_pypi == 'true' }}
     needs: [python-package]
     runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-      
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.x'
-      
       - name: Download Python packages
         uses: actions/download-artifact@v7.0.0
         with:
           name: PythonPackage
           path: dist
       
-      - name: Install twine
-        run: python3 -m pip install --user -U setuptools importlib_metadata wheel twine
-      
       - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: python3 -m twine upload dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
