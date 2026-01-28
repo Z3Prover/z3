@@ -104,6 +104,11 @@ namespace nlsat {
         void maximize(var x, unsigned n, literal const * ls, scoped_anum& val, bool& unbounded);
 
         /**
+           Print the polynomials that were passed to levelwise in the last call (for debugging).
+         */
+        void display_last_lws_input(std::ostream& out);
+
+        /**
            Unit test routine.
          */
         void test_root_literal(atom::kind k, var y, unsigned i, poly* p, scoped_literal_vector & result);

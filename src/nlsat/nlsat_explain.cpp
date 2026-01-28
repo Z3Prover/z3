@@ -63,6 +63,9 @@ namespace nlsat {
         
         // Lower-stage polynomials encountered during normalization that need to be projected
         polynomial_ref_vector   m_lower_stage_polys;
+        
+        // Store last levelwise input for debugging unsound lemmas
+        polynomial_ref_vector   m_last_lws_input_polys;
 
         // temporary fields for storing the result
         scoped_literal_vector * m_result = nullptr;
@@ -88,6 +91,7 @@ namespace nlsat {
             m_core1(s),
             m_core2(s),
             m_lower_stage_polys(m_pm),
+            m_last_lws_input_polys(m_pm),
             m_evaluator(ev) {
             m_simplify_cores   = false;
             m_full_dimensional = false;
@@ -1012,6 +1016,11 @@ namespace nlsat {
         */
 
         bool levelwise_single_cell(polynomial_ref_vector & ps, var max_x, polynomial::cache & cache) {
+            // Store polynomials for debugging unsound lemmas
+            m_last_lws_input_polys.reset();
+            for (unsigned i = 0; i < ps.size(); i++)
+                m_last_lws_input_polys.push_back(ps.get(i));
+            
             levelwise lws(m_solver, ps, max_x, sample(), m_pm, m_am, cache);
             auto cell = lws.single_cell();
             if (lws.failed())
@@ -1062,6 +1071,7 @@ namespace nlsat {
                 ps.push_back(p);
 
             bool use_all_coeffs = false;
+            
             if (m_solver.apply_levelwise()) {
                 bool levelwise_ok = levelwise_single_cell(ps, max_x, m_cache);
                 m_solver.record_levelwise_result(levelwise_ok);
@@ -1847,6 +1857,16 @@ namespace nlsat {
 
     void explain::maximize(var x, unsigned n, literal const * ls, scoped_anum& val, bool& unbounded) {
         m_imp->maximize(x, n, ls, val, unbounded);
+    }
+
+    void explain::display_last_lws_input(std::ostream& out) {
+        out << "=== POLYNOMIALS PASSED TO LEVELWISE ===\n";
+        for (unsigned i = 0; i < m_imp->m_last_lws_input_polys.size(); i++) {
+            out << "  p[" << i << "]: ";
+            m_imp->m_pm.display(out, m_imp->m_last_lws_input_polys.get(i));
+            out << "\n";
+        }
+        out << "=== END LEVELWISE INPUT (" << m_imp->m_last_lws_input_polys.size() << " polynomials) ===\n";
     }
 
     void explain::test_root_literal(atom::kind k, var y, unsigned i, poly* p, scoped_literal_vector & result) {

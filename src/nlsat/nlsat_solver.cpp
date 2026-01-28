@@ -54,7 +54,6 @@ Revision History:
 
 namespace nlsat {
 
-
     typedef chashtable<ineq_atom*, ineq_atom::hash_proc, ineq_atom::eq_proc> ineq_atom_table;
     typedef chashtable<root_atom*, root_atom::hash_proc, root_atom::eq_proc> root_atom_table;
 
@@ -250,6 +249,7 @@ namespace nlsat {
         stats                  m_stats;
         std::string m_debug_known_solution_file_name;
         bool m_apply_lws;
+        bool m_last_conflict_used_lws = false;  // Track if last conflict explanation used levelwise
         unsigned m_lws_spt_threshold = 3;
         imp(solver& s, ctx& c):
             m_ctx(c),
@@ -1022,7 +1022,8 @@ namespace nlsat {
         }
 
         // Helper: Setup checker solver and translate atoms/clauses
-        void setup_checker(imp& checker, scoped_bool_vars& tr, unsigned n, literal const* cls, assumption_set a) {
+        // Returns false if the lemma cannot be properly translated for checking
+        bool setup_checker(imp& checker, scoped_bool_vars& tr, unsigned n, literal const* cls, assumption_set a) {
             auto pconvert = [&](poly* p) {
                 return convert(m_pm, p, checker.m_pm);
             };
@@ -1058,7 +1059,9 @@ namespace nlsat {
                     }
                     else {
                         // root atom cannot be translated due to variable ordering
-                        bv = checker.mk_bool_var();
+                        // Skip lemma check in this case
+                        TRACE(nlsat, tout << "check_lemma: skipping due to untranslatable root atom\n";);
+                        return false;
                     }
                 }
                 else {
@@ -1085,12 +1088,20 @@ namespace nlsat {
                 literal nlit(tr[lit.var()], !lit.sign());
                 checker.mk_external_clause(1, &nlit, nullptr);
             }
+            return true;  // Successfully set up the checker
         }
 
         // Helper: Display unsound lemma failure information
         void display_unsound_lemma(imp& checker, scoped_bool_vars& tr, unsigned n, literal const* cls) {
             verbose_stream() << "\n";
             verbose_stream() << "========== UNSOUND LEMMA DETECTED ==========\n";
+            verbose_stream() << "Levelwise used for this conflict: " << (m_last_conflict_used_lws ? "YES" : "NO") << "\n";
+            
+            // Print polynomials passed to levelwise
+            if (m_last_conflict_used_lws) {
+                m_explain.display_last_lws_input(verbose_stream());
+            }
+            
             verbose_stream() << "The following lemma is NOT implied by the original clauses:\n";
             display(verbose_stream() << "  Lemma: ", n, cls) << "\n\n";
             verbose_stream() << "Reason: Found a satisfying assignment where:\n";
@@ -1130,7 +1141,7 @@ namespace nlsat {
                 // Create a separate reslimit for the checker with 10 second timeout
                 reslimit checker_rlimit;
                 cancel_eh<reslimit> eh(checker_rlimit);
-                scoped_timer timer(1000, &eh);
+                scoped_timer timer(1000, &eh); // one second
                 
                 ctx c(checker_rlimit, m_ctx.m_params, m_ctx.m_incremental);
                 solver solver2(c);
@@ -1139,14 +1150,20 @@ namespace nlsat {
                 checker.m_log_lemmas = false;
                 checker.m_dump_mathematica = false;
                 checker.m_inline_vars = false;
+                checker.m_apply_lws = false;  // Disable levelwise for checker to avoid recursive issues
                 
                 scoped_bool_vars tr(checker);
-                setup_checker(checker, tr, n, cls, a);            
+                if (!setup_checker(checker, tr, n, cls, a))
+                    return;  // Lemma contains untranslatable atoms, skip check
                 lbool r = checker.check();           
                 if (r == l_undef) // Checker timed out - skip this lemma check
                     return;
                 
                 if (r == l_true) {
+                    // Before reporting unsound, dump the lemma to see what we're checking
+                    verbose_stream() << "Dumping lemma that internal checker thinks is not a tautology:\n";
+                    verbose_stream() << "Checker levelwise calls: " << checker.m_stats.m_levelwise_calls << "\n";
+                    log_lemma(verbose_stream(), n, cls, true, "internal-check-fail");
                     display_unsound_lemma(checker, tr, n, cls);
                     exit(1);
                 }
@@ -2125,9 +2142,8 @@ namespace nlsat {
             collect(assumptions, m_learned);
             del_clauses(m_valids);
             
-            if (m_check_lemmas)
-                for (clause* c : m_learned) 
-                    check_lemma(c->size(), c->data(), nullptr);
+            // Note: Don't check learned clauses here - they are the result of resolution
+            // and may not be tautologies. Conflict lemmas are checked in resolve_lazy_justification.
             
             assumptions.reset();
             assumptions.append(result);
@@ -2364,6 +2380,8 @@ namespace nlsat {
             }
 
             if (m_check_lemmas) {
+                TRACE(nlsat, tout << "Checking lazy clause with " << m_lazy_clause.size() << " literals:\n";
+                      display(tout, m_lazy_clause.size(), m_lazy_clause.data()) << "\n";);
                 check_lemma(m_lazy_clause.size(), m_lazy_clause.data(), nullptr);
                 m_valids.push_back(mk_clause_core(m_lazy_clause.size(), m_lazy_clause.data(), false, nullptr));
             }
@@ -2609,9 +2627,8 @@ namespace nlsat {
             TRACE(nlsat, tout << "new lemma:\n"; display(tout, m_lemma.size(), m_lemma.data()); tout << "\n";
                   tout << "found_decision: " << found_decision << "\n";);
             
-            if (m_check_lemmas) {
-                check_lemma(m_lemma.size(), m_lemma.data(), m_lemma_assumptions.get());
-            }
+            // Note: Don't check m_lemma here - it's the result of resolution
+            // and may not be a tautology. Conflict lemmas are checked in resolve_lazy_justification.
 
             // if (m_log_lemmas) 
             //    log_lemma(std::cout, m_lemma.size(), m_lemma.data(), false);
@@ -4645,6 +4662,7 @@ namespace nlsat {
 
     void solver::record_levelwise_result(bool success) {
         m_imp->m_stats.m_levelwise_calls++;
+        m_imp->m_last_conflict_used_lws = success;  // Track for unsound lemma reporting
         if (!success) {
             m_imp->m_stats.m_levelwise_failures++;
             // m_imp->m_apply_lws = false; // is it useful to throttle
