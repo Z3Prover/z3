@@ -663,39 +663,133 @@ namespace nlsat {
             std::sort(both.begin(), both.end(),
                       [](both_info const& a, both_info const& b) { return a.lower_rf < b.lower_rf; });
 
-            // Build spanning tree using Reaching Orders Lemma:
-            // Start with element that has minimum upper_rf, root of out-arborescence on the right
-            std_vector<bool> in_tree(both.size(), false);
-            unsigned root_idx = 0;
+            // Build spanning tree using Reaching Orders Lemma (from the paper):
+            // Process elements in order of increasing lower_rf.
+            // For each new element a = min(remaining), connect to c where f(c) = min(f(K \ {a}))
+            // i.e., c has minimum upper_rf among all elements except a.
+
+            // Root of in-arborescence on lower side is max(K) = last element (max lower_rf)
+            // Root of out-arborescence on upper side is min(f(K)) = element with min upper_rf
+            unsigned upper_root_idx = 0;
             for (unsigned i = 1; i < both.size(); ++i) {
-                if (both[i].upper_rf < both[root_idx].upper_rf)
-                    root_idx = i;
+                if (both[i].upper_rf < both[upper_root_idx].upper_rf)
+                    upper_root_idx = i;
             }
-            in_tree[root_idx] = true;
-
-            // Iteratively add remaining elements
-            for (unsigned added = 1; added < both.size(); ++added) {
-                // Find min lower_rf element not in tree (first in sorted order)
-                unsigned a_idx = UINT_MAX;
-                for (unsigned i = 0; i < both.size(); ++i)
-                    if (!in_tree[i]) { a_idx = i; break; }
-                
-                SASSERT(a_idx != UINT_MAX);
-
-                // Find element in tree with min upper_rf
+            unsigned lower_root_idx = both.size() - 1;
+            
+            // Process in order of lower_rf (sorted order)
+            // First element (index 0) has min lower_rf
+            for (unsigned a_idx = 0; a_idx < both.size() - 1; ++a_idx) {
+                // Find c = element with min upper_rf among all elements except a_idx
+                // Since we process in lower_rf order, elements [a_idx+1, n) are "K' = K \ {a}"
+                // and we need min upper_rf among them
                 unsigned c_idx = UINT_MAX;
-                for (unsigned i = 0; i < both.size(); ++i) {
-                    if (in_tree[i] && (c_idx == UINT_MAX || both[i].upper_rf < both[c_idx].upper_rf))
+                for (unsigned i = a_idx + 1; i < both.size(); ++i) {
+                    if (c_idx == UINT_MAX || both[i].upper_rf < both[c_idx].upper_rf)
                         c_idx = i;
                 }
                 SASSERT(c_idx != UINT_MAX);
-
-                // Add edge {a, c} as ps_idx pair
+                
+                // Add edge {a, c}
                 unsigned ps_a = both[a_idx].ps_idx;
                 unsigned ps_c = both[c_idx].ps_idx;
                 m_rel.m_pairs.insert({std::min(ps_a, ps_c), std::max(ps_a, ps_c)});
-                in_tree[a_idx] = true;
             }
+
+            // Check arborescence invariants
+            auto arb_invariant = [&]() {
+                // Reconstruct parent[] from the algorithm logic
+                std_vector<unsigned> parent(both.size(), UINT_MAX);
+                for (unsigned a_idx = 0; a_idx < both.size() - 1; ++a_idx) {
+                    unsigned c_idx = UINT_MAX;
+                    for (unsigned i = a_idx + 1; i < both.size(); ++i) {
+                        if (c_idx == UINT_MAX || both[i].upper_rf < both[c_idx].upper_rf)
+                            c_idx = i;
+                    }
+                    parent[a_idx] = c_idx;
+                }
+                
+                // Check it's a tree: exactly n-1 edges
+                unsigned edge_count = 0;
+                for (unsigned i = 0; i < both.size(); ++i) {
+                    if (parent[i] != UINT_MAX) edge_count++;
+                }
+                SASSERT(edge_count == both.size() - 1);  // tree has n-1 edges
+                
+                // Check roots are at extremes
+                // lower_root_idx should have max lower_rf
+                for (unsigned i = 0; i < both.size(); ++i)
+                    SASSERT(both[i].lower_rf <= both[lower_root_idx].lower_rf);
+                // upper_root_idx should have min upper_rf
+                for (unsigned i = 0; i < both.size(); ++i)
+                    SASSERT(both[i].upper_rf >= both[upper_root_idx].upper_rf);
+                
+                // Root of in-arborescence (max lower_rf) has no parent
+                SASSERT(parent[lower_root_idx] == UINT_MAX);
+                for (unsigned i = 0; i < both.size(); ++i) {
+                    if (i != lower_root_idx)
+                        SASSERT(parent[i] != UINT_MAX);  // non-root has exactly 1 parent
+                }
+                
+                // Check in-arborescence on left (lower) side:
+                // Each node can reach lower_root by following parent pointers
+                // and lower_rf increases (going right) at each step
+                for (unsigned i = 0; i < both.size(); ++i) {
+                    unsigned curr = i;
+                    unsigned steps = 0;
+                    while (curr != lower_root_idx) {
+                        unsigned p = parent[curr];
+                        SASSERT(p != UINT_MAX);
+                        // Going to parent increases lower_rf (toward root which has max lower_rf)
+                        SASSERT(both[curr].lower_rf < both[p].lower_rf);
+                        curr = p;
+                        steps++;
+                        SASSERT(steps < both.size());  // prevent infinite loop
+                    }
+                }
+                
+                // Check out-arborescence on right (upper) side:
+                // Re-orient edges based on upper_rf: edge goes from smaller to larger upper_rf
+                // Build adjacency from the edges in parent[]
+                std_vector<std_vector<unsigned>> out_children(both.size());
+                for (unsigned i = 0; i < both.size(); ++i) {
+                    if (parent[i] != UINT_MAX) {
+                        unsigned p = parent[i];
+                        // Edge {i, p} exists. Orient based on upper_rf.
+                        if (both[i].upper_rf < both[p].upper_rf) {
+                            // i has smaller upper_rf, so edge is i → p in out-arborescence
+                            out_children[i].push_back(p);
+                        } else {
+                            // p has smaller upper_rf, so edge is p → i in out-arborescence
+                            out_children[p].push_back(i);
+                        }
+                    }
+                }
+                
+                // Each node can be reached from upper_root by following out_children
+                // and upper_rf increases (going away from root which has min upper_rf)
+                std_vector<bool> reached(both.size(), false);
+                std_vector<unsigned> stack;
+                stack.push_back(upper_root_idx);
+                reached[upper_root_idx] = true;
+                while (!stack.empty()) {
+                    unsigned curr = stack.back();
+                    stack.pop_back();
+                    for (unsigned child : out_children[curr]) {
+                        // Going to child increases upper_rf (away from root which has min upper_rf)
+                        SASSERT(both[child].upper_rf > both[curr].upper_rf);
+                        SASSERT(!reached[child]);  // tree, no cycles
+                        reached[child] = true;
+                        stack.push_back(child);
+                    }
+                }
+                // All nodes reachable from upper_root
+                for (unsigned i = 0; i < both.size(); ++i)
+                    SASSERT(reached[i]);
+                
+                return true;
+            };
+            SASSERT(arb_invariant());
         }
 
         // Sector spanning tree heuristic:
