@@ -1368,11 +1368,11 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
     
     // Clamp exp_delta to safe range for casting to int/unsigned
     // When exp_delta > INT_MAX, it will trigger the exp_delta > sbits+5 branch
-    // When exp_delta < INT_MIN, clamp it to prevent overflow when negating
+    // When exp_delta is very negative, cap it to avoid extremely large multiplications
     if (exp_delta > INT_MAX)
         exp_delta = INT_MAX;
-    else if (exp_delta < INT_MIN)
-        exp_delta = INT_MIN + 1;
+    else if (exp_delta < -(sbits + 5))
+        exp_delta = -(sbits + 5);  // Cap negative values symmetrically
     
     scoped_mpz minuend(m_mpz_manager), subtrahend(m_mpz_manager);
 
