@@ -66,7 +66,7 @@ static void test_apply_permutation(unsigned sz, unsigned num_tries, unsigned max
         shuffle(p.size(), p.data(), g);
         apply_permutation_copy(sz, data.data(), p.data(), new_data.data());
         apply_permutation(sz, data.data(), p.data());
-        for (unsigned i = 0; i < 0; ++i)
+        for (unsigned i = 0; i < sz; ++i)
             ENSURE(data[i] == new_data[i]);
     }
 }

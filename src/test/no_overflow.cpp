@@ -591,7 +591,7 @@ void test_equiv(Equivalence_params params, unsigned bvsize, bool is_signed) {
         cond = Z3_mk_not(ctx, Z3_mk_eq(ctx, t2, Z3_mk_int(ctx, 0, bv)));
     }
 
-    unsigned extsize = params.extsize < 0 ? bvsize : params.extsize;
+    unsigned extsize = params.extsize < 0 ? bvsize : static_cast<unsigned>(params.extsize);
     if (is_signed) {
         min = Z3_mk_sign_ext(ctx, extsize, min);
         max = Z3_mk_sign_ext(ctx, extsize, max);

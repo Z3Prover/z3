@@ -337,7 +337,7 @@ static void add_random_ineq(
         vars.push_back(var_t(x, rational(coeff)));
         value += coeff*values[x];
     }
-    unsigned abs_value = value < 0 ? - value : value;
+    unsigned abs_value = value < 0 ? static_cast<unsigned>(- value) : static_cast<unsigned>(value);
     // value + k <= 0
     // k <= - value
     // range for k is 2*|value|
