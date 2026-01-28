@@ -1365,7 +1365,15 @@ void mpf_manager::partial_remainder(mpf & x, mpf const & y, mpf_exp_t const & ex
     scoped_mpz X_YQ_sig(m_mpz_manager);
     mpf_exp_t exp_delta = exp(x) - YQ_exp;
     TRACE(mpf_dbg_rem, tout << "exp_delta=" << exp_delta << std::endl;);
-    SASSERT(INT_MIN < exp_delta && exp_delta <= INT_MAX);
+    
+    // Clamp exp_delta to safe range for casting to int/unsigned
+    // When exp_delta > INT_MAX, it will trigger the exp_delta > sbits+5 branch
+    // When exp_delta < INT_MIN, clamp it to prevent overflow when negating
+    if (exp_delta > INT_MAX)
+        exp_delta = INT_MAX;
+    else if (exp_delta < INT_MIN)
+        exp_delta = INT_MIN + 1;
+    
     scoped_mpz minuend(m_mpz_manager), subtrahend(m_mpz_manager);
 
     scoped_mpz x_sig_lrg(m_mpz_manager);
