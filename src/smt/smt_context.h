@@ -137,6 +137,7 @@ namespace smt {
         scoped_ptr<base_dependent_expr_state> m_fmls;
 
         svector<double> m_lit_scores[2];
+        svector<double> m_phase_scores[2];
 
 
         // -----------------------------------
@@ -1099,6 +1100,11 @@ namespace smt {
 
         void force_phase(literal l) {
             force_phase(l.var(), !l.sign());
+        }
+
+        void unforce_phase(bool_var v) {
+            bool_var_data & d   = get_bdata(v);
+            d.m_phase_available = false;
         }
 
         bool contains_instance(quantifier * q, unsigned num_bindings, enode * const * bindings);

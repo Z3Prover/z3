@@ -279,6 +279,7 @@ namespace smt {
         m_assignment[(~l).index()] = l_false;
         bool_var_data & d          = get_bdata(l.var());
         set_justification(l.var(), d, j);
+        ++m_phase_scores[l.sign()][l.var()];
         d.m_scope_lvl              = m_scope_lvl;
         if (m_fparams.m_restart_adaptive && d.m_phase_available) {
             m_agility             *= m_fparams.m_agility_factor;

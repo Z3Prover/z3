@@ -121,6 +121,7 @@ namespace smt {
                 bool m_share_units_initial_only = true;
                 double m_max_conflict_mul = 1.5;
                 bool m_inprocessing = false;
+                bool m_backbones = false;
                 bool m_sls = false;
                 unsigned m_inprocessing_delay = 1;
                 unsigned m_max_cube_depth = 20;
@@ -154,6 +155,8 @@ namespace smt {
             } // allow for backoff scheme of conflicts within the thread for cube timeouts.
 
             void simplify();
+            expr_ref_vector find_backbone_candidates(unsigned k = 10);
+            expr_ref_vector get_backbones_from_candidates(expr_ref_vector const& candidates);
 
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);

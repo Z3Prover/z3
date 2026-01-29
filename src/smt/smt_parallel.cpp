@@ -121,7 +121,51 @@ namespace smt {
 
         check_cube_start:
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
+
+            u_map<double> original_activities;
+            if (m_config.m_backbones) {
+                LOG_WORKER(1, " BACKBONE DETECTION\n");
+                expr_ref_vector backbone_candidates = find_backbone_candidates();
+                if (!backbone_candidates.empty()) { // TODO: avoid splitting on backbones
+                    for (expr* bb : backbone_candidates) {
+                        // Set the phase of the candidates to the negation of their assumed values
+                        bool phase = false;
+                        if (m.is_not(bb))
+                            phase = true;
+
+                        sat::bool_var v = ctx->get_bool_var(bb);
+                        ctx->force_phase(v, phase);
+                        LOG_WORKER(1, " backbone candidate forced phase: " << mk_bounded_pp(bb, m, 3) << " := " << (phase ? "true" : "false") << "\n");
+
+                        auto const& activities = ctx->get_activity_vector();
+                        double max_activity = 0.0;
+                        for (unsigned i = 0; i < activities.size(); ++i)
+                            max_activity = std::max(max_activity, activities[i]);
+
+                        original_activities.insert(v, ctx->get_activity(v));
+
+                        // Promote this candidate above all others
+                        unsigned eps = 1.0;
+                        ctx->set_activity(v, max_activity + eps);
+
+                        LOG_WORKER(1, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
+                    }
+                }
+                if (!m.inc()) {
+                    b.set_exception("context cancelled");
+                    return;
+                }
+            }
+
             lbool r = check_cube(cube);
+
+            if (m_config.m_backbones) {
+                // Restore activities of backbone candidates to old values after the search
+                for (auto const& [v, act] : original_activities) {
+                    ctx->set_activity(v, act);
+                    ctx->unforce_phase(v); // TODO: is this needed?
+                }
+            }
 
             if (!m.inc()) {
                 b.set_exception("context cancelled");
@@ -190,9 +234,11 @@ namespace smt {
         m_num_shared_units = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
+        ctx->m_phase_cache_on = true; // not sure if this is needed, ensure phase caching is on for backbone detection for now
 
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_inprocessing = pp.inprocessing();
+        m_config.m_backbones = pp.backbones();
     }
 
     parallel::sls_worker::sls_worker(parallel& p)
@@ -200,6 +246,122 @@ namespace smt {
         IF_VERBOSE(1, verbose_stream() << "Initialized SLS portfolio thread\n");
         m_params.append(p.ctx.m_params);
         m_sls = alloc(sls::smt_solver, m, m_params);
+    }
+
+    expr_ref_vector parallel::worker::find_backbone_candidates(unsigned k) {
+        expr_ref_vector backbone_candidates(m);
+        vector<std::pair<double, expr_ref>> top_k; // will hold at most k elements
+        expr_ref candidate(m);
+
+        for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
+            if (ctx->get_assignment(v) != l_undef)
+                continue;
+            candidate = ctx->bool_var2expr(v);
+            if (!candidate)
+                continue;
+
+            auto score_pos = ctx->m_phase_scores[0][v]; // assigned to true
+            auto score_neg = ctx->m_phase_scores[1][v]; // assigned to false
+
+            ctx->m_phase_scores[0][v] /= 2; // decay the scores
+            ctx->m_phase_scores[1][v] /= 2;
+
+            if (score_pos == score_neg)
+                continue;
+
+            double score_ratio = INFINITY; // score_pos / score_neg;
+
+            LOG_WORKER(1, " backbone candidate: " << mk_bounded_pp(candidate, m, 3) << " score_pos " << score_pos << " score_neg " << score_neg << "\n");
+
+            // if score_neg is zero (and thus score_pos > 0 since at this point score_pos != score_neg)
+            // then not(e) is a backbone candidate with score_ratio=infinity
+            if (score_neg == 0) { 
+                candidate = mk_not(candidate);
+            } 
+            else {
+                score_ratio = score_pos / score_neg;
+            }
+
+            if (score_ratio < 1) { // so score_pos < score_neg
+                candidate = mk_not(candidate);
+                // score_ratio *= -1; // insert by absolute value
+            }
+
+            // insert into top_k. linear scan since k is very small
+            if (top_k.size() < k) {
+                top_k.push_back({score_ratio, candidate});
+            } 
+            else {
+                // find the smallest in top_k and replace if we found a new element bigger than the min
+                size_t min_idx = 0;
+                for (size_t i = 1; i < k; ++i)
+                    if (top_k[i].first < top_k[min_idx].first)
+                        min_idx = i;
+
+                if (score_ratio > top_k[min_idx].first) {
+                    top_k[min_idx] = {score_ratio, candidate};
+                }
+            }
+        }
+
+        for (auto& p : top_k)
+            backbone_candidates.push_back(p.second);
+        
+        for (expr* e : backbone_candidates)
+            LOG_WORKER(1, "selected backbone candidate: " << mk_bounded_pp(e, m, 3) << " head size " << ctx->m_lit_scores->size() << " num vars " << ctx->get_num_bool_vars() << "\n");
+
+        return backbone_candidates;
+    }
+
+        // 
+    // Assume the negation of all candidates (or a batch of them)
+    // run the solver with a low budget of conflicts
+    // if the unsat core contains a single candidate we have found a backbone literal
+    // 
+    expr_ref_vector parallel::worker::get_backbones_from_candidates(expr_ref_vector const& candidates) {
+        expr_ref_vector backbones(m);
+        unsigned sz = asms.size();
+
+        // Push ALL candidate negations (Strategy 1 batch)
+        for (expr* e : candidates) {
+            asms.push_back(m.mk_not(e));
+        }
+
+        LOG_WORKER(1, "PUSHED BACKBONE CANDIDATES TO ASMS\n");
+
+        ctx->get_fparams().m_max_conflicts = 100;
+
+        lbool r = l_undef;
+        try {
+            r = ctx->check(asms.size(), asms.data());
+        }
+        catch (z3_error& err) {
+            b.set_exception(err.error_code());
+        }
+        catch (z3_exception& ex) {
+            b.set_exception(ex.what());
+        }
+        catch (...) {
+            b.set_exception("unknown exception");
+        }
+
+        // restore assumptions
+        asms.shrink(sz);
+
+        LOG_WORKER(1, "BACKBONE CHECK RESULT: " << r << "\n");
+
+        if (r == l_false) {
+            auto core = ctx->unsat_core();
+            LOG_WORKER(1, "UNSAT CORE: " << core << "\n");
+
+            // Strategy 1: every literal in the core is a backbone
+            for (expr* a : core) {
+                // a is ¬e  →  e is backbone
+                backbones.push_back(mk_not(m, a));
+            }
+        }
+
+        return backbones;
     }
 
     void parallel::worker::share_units() {
