@@ -216,6 +216,8 @@ sig
   val to_string : sort -> string
   val mk_uninterpreted : context -> Symbol.symbol -> sort
   val mk_uninterpreted_s : context -> string -> sort
+  val mk_type_variable : context -> Symbol.symbol -> sort
+  val mk_type_variable_s : context -> string -> sort
 end = struct
   type sort = Z3native.sort
   let gc a = Z3native.context_of_ast a
@@ -228,6 +230,8 @@ end = struct
   let to_string (x:sort) = Z3native.sort_to_string (gc x) x
   let mk_uninterpreted ctx s = Z3native.mk_uninterpreted_sort ctx s
   let mk_uninterpreted_s (ctx:context) (s:string) = mk_uninterpreted ctx (Symbol.mk_string ctx s)
+  let mk_type_variable ctx s = Z3native.mk_type_variable ctx s
+  let mk_type_variable_s (ctx:context) (s:string) = mk_type_variable ctx (Symbol.mk_string ctx s)
 end
 
 and FuncDecl :
@@ -907,6 +911,13 @@ struct
 
   let mk_sort_s (ctx:context) (name:string) (constructors:Constructor.constructor list) =
     mk_sort ctx (Symbol.mk_string ctx name) constructors
+
+  let mk_polymorphic_sort (ctx:context) (name:Symbol.symbol) (type_params:Sort.sort list) (constructors:Constructor.constructor list) =
+    let (x,_) = Z3native.mk_polymorphic_datatype ctx name (List.length type_params) type_params (List.length constructors) constructors in
+    x
+
+  let mk_polymorphic_sort_s (ctx:context) (name:string) (type_params:Sort.sort list) (constructors:Constructor.constructor list) =
+    mk_polymorphic_sort ctx (Symbol.mk_string ctx name) type_params constructors
 
   let mk_sort_ref (ctx: context) (name:Symbol.symbol) =
     Z3native.mk_datatype_sort ctx name 0 []

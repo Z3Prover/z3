@@ -45,7 +45,7 @@ jobs:
       comment_repo: ""
     steps:
       - name: Setup Scripts
-        uses: githubnext/gh-aw/actions/setup@v0.37.23
+        uses: githubnext/gh-aw/actions/setup@v0.37.24
         with:
           destination: /opt/gh-aw/actions
       - name: Check workflow file timestamps
@@ -82,11 +82,11 @@ jobs:
       secret_verification_result: ${{ steps.validate-secret.outputs.verification_result }}
     steps:
       - name: Setup Scripts
-        uses: githubnext/gh-aw/actions/setup@v0.37.23
+        uses: githubnext/gh-aw/actions/setup@v0.37.24
         with:
           destination: /opt/gh-aw/actions
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v6.0.2
         with:
           persist-credentials: false
       - name: Create gh-aw temp directory
@@ -865,7 +865,7 @@ jobs:
       total_count: ${{ steps.missing_tool.outputs.total_count }}
     steps:
       - name: Setup Scripts
-        uses: githubnext/gh-aw/actions/setup@v0.37.23
+        uses: githubnext/gh-aw/actions/setup@v0.37.24
         with:
           destination: /opt/gh-aw/actions
       - name: Debug job inputs
@@ -981,7 +981,7 @@ jobs:
       success: ${{ steps.parse_results.outputs.success }}
     steps:
       - name: Setup Scripts
-        uses: githubnext/gh-aw/actions/setup@v0.37.23
+        uses: githubnext/gh-aw/actions/setup@v0.37.24
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent artifacts
@@ -1133,7 +1133,7 @@ jobs:
       process_safe_outputs_temporary_id_map: ${{ steps.process_safe_outputs.outputs.temporary_id_map }}
     steps:
       - name: Setup Scripts
-        uses: githubnext/gh-aw/actions/setup@v0.37.23
+        uses: githubnext/gh-aw/actions/setup@v0.37.24
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent output artifact
@@ -1155,7 +1155,7 @@ jobs:
           path: /tmp/gh-aw/
       - name: Checkout repository
         if: ((!cancelled()) && (needs.agent.result != 'skipped')) && (contains(needs.agent.outputs.output_types, 'create_pull_request'))
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@0c366fd6a839edf440554fa01a7085ccba70ac98 # v6.0.2
         with:
           token: ${{ github.token }}
           persist-credentials: false

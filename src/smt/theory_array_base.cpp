@@ -428,13 +428,19 @@ namespace smt {
             for (unsigned i = 0; i < m_axiom1_todo.size(); ++i)
                 assert_store_axiom1_core(m_axiom1_todo[i]);
             m_axiom1_todo.reset();
-            for (unsigned i = 0; i < m_axiom2_todo.size(); ++i)
-                assert_store_axiom2_core(m_axiom2_todo[i].first, m_axiom2_todo[i].second);
+            for (unsigned i = 0; i < m_axiom2_todo.size(); ++i) {
+                auto [store, select] = m_axiom2_todo[i];
+                assert_store_axiom2_core(store, select);
+            }
             m_axiom2_todo.reset();
-            for (unsigned i = 0; i < m_extensionality_todo.size(); ++i)
-                assert_extensionality_core(m_extensionality_todo[i].first, m_extensionality_todo[i].second);
-            for (unsigned i = 0; i < m_congruent_todo.size(); ++i)
-                assert_congruent_core(m_congruent_todo[i].first, m_congruent_todo[i].second);
+            for (unsigned i = 0; i < m_extensionality_todo.size(); ++i) {
+                auto [a1, a2] = m_extensionality_todo[i];
+                assert_extensionality_core(a1, a2);
+            }
+            for (unsigned i = 0; i < m_congruent_todo.size(); ++i) {
+                auto [a1, a2] = m_congruent_todo[i];
+                assert_congruent_core(a1, a2);
+            }
             m_extensionality_todo.reset();
             m_congruent_todo.reset();
             if (!ctx.get_fparams().m_array_weak && has_propagate_up_trail()) {
@@ -852,9 +858,7 @@ namespace smt {
             propagate_selects_to_store_parents(r, todo);
         }
         for (unsigned qhead = 0; qhead < todo.size(); ++qhead) {
-            enode_pair & pair = todo[qhead];
-            enode * r   = pair.first;
-            enode * sel = pair.second;
+            auto [r, sel] = todo[qhead];
             propagate_select_to_store_parents(r, sel, todo);
         }
     }

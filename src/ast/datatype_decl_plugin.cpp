@@ -845,6 +845,8 @@ namespace datatype {
             if (!is_declared(s))
                 return nullptr;
             def & d = get_def(s->get_name());
+            if (n != d.params().size()) 
+                throw default_exception("datatype " + s->get_name().str() + " has " + std::to_string(n) + " parameters, but " + std::to_string(d.params().size()) + " were expected");
             SASSERT(n == d.params().size());
             for (unsigned i = 0; i < n; ++i) {
                 sort* ps = get_datatype_parameter_sort(s, i);

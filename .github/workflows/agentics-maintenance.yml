@@ -46,7 +46,7 @@ jobs:
       issues: write
     steps:
       - name: Setup Scripts
-        uses: githubnext/gh-aw/actions/setup@v0.37.23
+        uses: githubnext/gh-aw/actions/setup@v0.37.24
         with:
           destination: /opt/gh-aw/actions
 

@@ -4981,8 +4981,7 @@ br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
 void seq_rewriter::intersect(unsigned lo, unsigned hi, svector<std::pair<unsigned, unsigned>>& ranges) {
     unsigned j = 0;
     for (unsigned i = 0; i < ranges.size(); ++i) {
-        unsigned lo1 = ranges[i].first;
-        unsigned hi1 = ranges[i].second;        
+        auto [lo1, hi1] = ranges[i];
         if (hi < lo1) 
             break;
         if (hi1 >= lo) 
@@ -5244,8 +5243,8 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     if (!changed) {
         return BR_FAILED;
     }
-    for (auto const& p : new_eqs) {
-        res.push_back(m().mk_eq(p.first, p.second));
+    for (auto const& [lhs, rhs] : new_eqs) {
+        res.push_back(m().mk_eq(lhs, rhs));
     }
     result = mk_and(res);
     TRACE(seq_verbose, tout << result << "\n";);
@@ -5616,11 +5615,14 @@ std::pair<bool, unsigned> seq_rewriter::min_length(unsigned sz, expr* const* ss)
         }
         else if (str().is_concat(e)) {
             bool visited = true;
-            std::pair<bool, unsigned> result(true, 0u), r;
+            bool is_valid = true;
+            unsigned count = 0u;
             for (expr* arg : *to_app(e)) {
+                std::pair<bool, unsigned> r;
                 if (cache.find(arg, r)) {
-                    result.first &= r.first;
-                    result.second += r.second;
+                    auto [r_valid, r_count] = r;
+                    is_valid &= r_valid;
+                    count += r_count;
                 }
                 else {
                     sub.push_back(arg);
@@ -5628,7 +5630,7 @@ std::pair<bool, unsigned> seq_rewriter::min_length(unsigned sz, expr* const* ss)
                 }
             }
             if (visited)
-                cache.insert(e, result);
+                cache.insert(e, { is_valid, count });
             return visited;
         }
         else if (m().is_ite(e, c, th, el)) {
@@ -5639,8 +5641,10 @@ std::pair<bool, unsigned> seq_rewriter::min_length(unsigned sz, expr* const* ss)
             if (!cache.find(el, r2))
                 sub.push_back(el);
             if (subsz != sub.size())
-                return false;            
-            cache.insert(e, { r1.first && r2.first && r1.second == r2.second, std::min(r1.second, r2.second)});
+                return false;
+            auto [r1_valid, r1_count] = r1;
+            auto [r2_valid, r2_count] = r2;
+            cache.insert(e, { r1_valid && r2_valid && r1_count == r2_count, std::min(r1_count, r2_count)});
             return true;
         }
         else {

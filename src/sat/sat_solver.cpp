@@ -1394,8 +1394,10 @@ namespace sat {
             for (unsigned i = 0; i < mdl.size(); ++i) 
                 priorities[i] = { m_local_search->get_priority(i), i };
             std::sort(priorities.begin(), priorities.end(), [](auto& x, auto& y) { return x.first > y.first; });
-            for (unsigned i = priorities.size() / 10; i-- > 0; )
-                move_to_front(priorities[i].second);
+            for (unsigned i = priorities.size() / 10; i-- > 0; ) {
+                auto [priority, var] = priorities[i];
+                move_to_front(var);
+            }
 #endif
 
 
@@ -2151,9 +2153,9 @@ namespace sat {
 
 #if 0
         IF_VERBOSE(2, for (bool_var v = 0; v < num; ++v) verbose_stream() << v << ": " << m_model[v] << "\n";);
-        for (auto p : big::s_del_bin) {
-            if (value(p.first) != l_true && value(p.second) != l_true) {
-                IF_VERBOSE(2, verbose_stream() << "binary violation: " << p.first << " " << p.second << "\n");
+        for (auto [l1, l2] : big::s_del_bin) {
+            if (value(l1) != l_true && value(l2) != l_true) {
+                IF_VERBOSE(2, verbose_stream() << "binary violation: " << l1 << " " << l2 << "\n");
             }
         }
 #endif
@@ -4179,9 +4181,7 @@ namespace sat {
         // m_binary_clause_graph.reset();
         collect_bin_clauses(m_user_bin_clauses, true, false);
         hashtable<literal_pair, pair_hash<literal_hash, literal_hash>, default_eq<literal_pair> > seen_bc;
-        for (auto const& b : m_user_bin_clauses) {
-            literal l1 = b.first;
-            literal l2 = b.second;
+        for (auto const& [l1, l2] : m_user_bin_clauses) {
             literal_pair p(l1, l2);
             if (!seen_bc.contains(p)) {
                 seen_bc.insert(p);

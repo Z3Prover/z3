@@ -290,6 +290,12 @@ sig
 
   (** Create a new uninterpreted sort. *)
   val mk_uninterpreted_s : context -> string -> sort
+
+  (** Create a type variable sort for use in polymorphic datatypes. *)
+  val mk_type_variable : context -> Symbol.symbol -> sort
+
+  (** Create a type variable sort for use in polymorphic datatypes. *)
+  val mk_type_variable_s : context -> string -> sort
 end
 
 (** Function declarations *)
@@ -1098,6 +1104,14 @@ sig
 
   (** Create a new datatype sort. *)
   val mk_sort_s : context -> string -> Constructor.constructor list -> Sort.sort
+
+  (** Create a new polymorphic datatype sort with type parameters.
+      Type parameters should be created using Sort.mk_type_variable. *)
+  val mk_polymorphic_sort : context -> Symbol.symbol -> Sort.sort list -> Constructor.constructor list -> Sort.sort
+
+  (** Create a new polymorphic datatype sort with type parameters.
+      Type parameters should be created using Sort.mk_type_variable. *)
+  val mk_polymorphic_sort_s : context -> string -> Sort.sort list -> Constructor.constructor list -> Sort.sort
 
   (** Create mutually recursive datatypes. *)
   val mk_sorts : context -> Symbol.symbol list -> Constructor.constructor list list -> Sort.sort list

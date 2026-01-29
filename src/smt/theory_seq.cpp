@@ -242,8 +242,8 @@ void theory_seq::exclusion_table::pop_scope(unsigned num_scopes) {
 }
 
 void theory_seq::exclusion_table::display(std::ostream& out) const {
-    for (auto const& kv : m_table) {
-        out << mk_bounded_pp(kv.first, m, 2) << " != " << mk_bounded_pp(kv.second, m, 2) << "\n";
+    for (auto const& [lhs, rhs] : m_table) {
+        out << mk_bounded_pp(lhs, m, 2) << " != " << mk_bounded_pp(rhs, m, 2) << "\n";
     }
 }
 
@@ -1842,11 +1842,12 @@ std::ostream& theory_seq::display_disequation(std::ostream& out, ne const& e) co
         out << "\n";
     }
     for (unsigned j = 0; j < e.eqs().size(); ++j) {
-        for (expr* t : e[j].first) {
+        auto const& [lhs, rhs] = e[j];
+        for (expr* t : lhs) {
             out << mk_bounded_pp(t, m, 2) << " ";
         }
         out << " != ";
-        for (expr* t : e[j].second) {
+        for (expr* t : rhs) {
             out << mk_bounded_pp(t, m, 2) << " ";
         }
         out << "\n";
@@ -1860,11 +1861,11 @@ std::ostream& theory_seq::display_disequation(std::ostream& out, ne const& e) co
 std::ostream& theory_seq::display_deps(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const {
     smt2_pp_environment_dbg env(m);
     params_ref p;
-    for (auto const& eq : eqs) {
-        if (eq.first->get_root() != eq.second->get_root())
+    for (auto const& [n1, n2] : eqs) {
+        if (n1->get_root() != n2->get_root())
             out << "invalid: ";
-        out << "  (= " << mk_bounded_pp(eq.first->get_expr(), m, 2)
-            << "\n     " << mk_bounded_pp(eq.second->get_expr(), m, 2) 
+        out << "  (= " << mk_bounded_pp(n1->get_expr(), m, 2)
+            << "\n     " << mk_bounded_pp(n2->get_expr(), m, 2) 
             << ")\n";        
     }
     for (literal l : lits) {
@@ -1875,9 +1876,9 @@ std::ostream& theory_seq::display_deps(std::ostream& out, literal_vector const& 
 
 std::ostream& theory_seq::display_deps_smt2(std::ostream& out, literal_vector const& lits, enode_pair_vector const& eqs) const {
     params_ref p;
-    for (auto const& eq : eqs) {
-        out << "  (= " << pp(eq.first, m)
-            << "\n     " << pp(eq.second, m) 
+    for (auto const& [n1, n2] : eqs) {
+        out << "  (= " << pp(n1, m)
+            << "\n     " << pp(n2, m) 
             << ")\n";
     }
     for (literal l : lits) {
@@ -1962,8 +1963,9 @@ void theory_seq::init_model(model_generator & mg) {
     }
     for (ne const& n : m_nqs) {
         for (unsigned i = 0; i < n.eqs().size(); ++i) {
-            init_model(n[i].first);
-            init_model(n[i].second);
+            auto const& [lhs, rhs] = n[i];
+            init_model(lhs);
+            init_model(rhs);
         }
     }
 }
@@ -2199,9 +2201,9 @@ void theory_seq::validate_model(proto_model& mdl) {
         }
     }
 
-    for (auto const& ex : m_exclude) {
-        expr_ref l(ex.first, m);
-        expr_ref r(ex.second, m);
+    for (auto const& [lhs, rhs] : m_exclude) {
+        expr_ref l(lhs, m);
+        expr_ref r(rhs, m);
         if (mdl.are_equal(l, r)) {
             IF_VERBOSE(0, verbose_stream() << "exclude " << l << " = " << r << " = " << mdl(l) << "\n");
         }
@@ -2217,8 +2219,8 @@ void theory_seq::validate_model(proto_model& mdl) {
 #if 0
     // to enable this check need to add m_util.str.is_skolem(f); to theory_seq::include_func_interp
     for (auto const& kv : m_rep) {
-        expr_ref l(kv.m_key, m);
-        expr_ref r(kv.m_value.first, m);
+        expr_ref l(kv.v, m);
+        expr_ref r(kv.e, m);
 
         if (!mdl.are_equal(l, r)) {
             enode* ln = ensure_enode(l);
