@@ -24,6 +24,7 @@ Revision History:
 #include "util/hashtable.h"
 #include "util/obj_hashtable.h"
 #include "util/uint_set.h"
+#include "util/map.h"
 #include "ast/converters/horn_subsume_model_converter.h"
 #include "ast/converters/replace_proof_converter.h"
 #include "ast/substitution/substitution.h"
@@ -212,23 +213,42 @@ namespace datalog {
         template<typename T1, typename T2>
         void populate(const T1 & a1, const T2 & a2)
         {
-            //TODO: optimize quadratic complexity
-            //TODO: optimize number of checks when variable occurs multiple times
+            // Optimized O(n+m) approach using hash map instead of O(n*m) nested loops
+            // Build a map from variable index to positions in a1
+            u_map<unsigned_vector> var_to_positions;
+            
             unsigned a1num = expr_cont_get_size(a1);
             unsigned a2num = expr_cont_get_size(a2);
-            for (unsigned i1 = 0; i1<a1num; ++i1) {
-                expr * e1 = expr_cont_get(a1,i1);
+            
+            // First pass: collect all positions of each variable in a1
+            for (unsigned i1 = 0; i1 < a1num; ++i1) {
+                expr * e1 = expr_cont_get(a1, i1);
                 if (!is_var(e1)) {
                     continue;
                 }
                 var* v1 = to_var(e1);
-                for (unsigned i2 = 0; i2<a2num; ++i2) {
-                    expr * e2 = expr_cont_get(a2,i2);
-                    if (!is_var(e2)) {
-                        continue;
-                    }
-                    var* v2 = to_var(e2);
-                    if (v1->get_idx() == v2->get_idx()) {
+                unsigned var_idx = v1->get_idx();
+                
+                // Use insert_if_not_there to do a single lookup and get a reference
+                unsigned_vector& positions = var_to_positions.insert_if_not_there(var_idx, unsigned_vector());
+                positions.push_back(i1);
+            }
+            
+            // Second pass: for each variable in a2, match with all its positions in a1
+            for (unsigned i2 = 0; i2 < a2num; ++i2) {
+                expr * e2 = expr_cont_get(a2, i2);
+                if (!is_var(e2)) {
+                    continue;
+                }
+                var* v2 = to_var(e2);
+                unsigned var_idx = v2->get_idx();
+                
+                // Use find_core for single lookup
+                auto entry = var_to_positions.find_core(var_idx);
+                if (entry) {
+                    unsigned_vector const& positions = entry->get_data().m_value;
+                    // Add all matching pairs
+                    for (unsigned i1 : positions) {
                         add_pair(i1, i2);
                     }
                 }
