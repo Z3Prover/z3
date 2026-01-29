@@ -321,26 +321,27 @@ namespace smt {
         region& r = ctx.get_region();
         m_eqs = new (r) enode_pair[num_eqs];
         std::uninitialized_copy(eqs, eqs + num_eqs, m_eqs);
-        DEBUG_CODE({
+        DEBUG_CODE(
             for (unsigned i = 0; i < num_eqs; ++i) {
-                SASSERT(eqs[i].first->get_root() == eqs[i].second->get_root());
+                enode_pair const & p = eqs[i];
+                SASSERT(p.first->get_root() == p.second->get_root());
             }
-        });
+        );
     }
 
     void ext_simple_justification::get_antecedents(conflict_resolution & cr) {
         simple_justification::get_antecedents(cr);
         for (unsigned i = 0; i < m_num_eqs; ++i) {
-            enode_pair const & p = m_eqs[i];
-            cr.mark_eq(p.first, p.second);
+            auto [n1, n2] = m_eqs[i];
+            cr.mark_eq(n1, n2);
         }
     }
 
     bool ext_simple_justification::antecedent2proof(conflict_resolution & cr, ptr_buffer<proof> & result) {
         bool visited = simple_justification::antecedent2proof(cr, result);
         for (unsigned i = 0; i < m_num_eqs; ++i) {
-            enode_pair const & p = m_eqs[i];
-            proof * pr = cr.get_proof(p.first, p.second);
+            auto [n1, n2] = m_eqs[i];
+            proof * pr = cr.get_proof(n1, n2);
             if (pr == nullptr)
                 visited = false;
             else
