@@ -487,7 +487,7 @@ namespace smt {
             fmls.push_back(n);
         }
         for (unsigned i = 0; i < num_eq_antecedents; ++i) {
-            auto [n1, n2] = eq_antecedents[i];
+            auto const& [n1, n2] = eq_antecedents[i];
             n = m.mk_eq(n1->get_expr(), n2->get_expr());
             fmls.push_back(n);
         }
@@ -697,7 +697,7 @@ namespace smt {
     }
 
     std::ostream& operator<<(std::ostream& out, enode_eq_pp const& p) {
-        auto [n1, n2] = p.p;
+        auto const& [n1, n2] = p.p;
         return out << enode_pp(n1, p.ctx) << " = " << enode_pp(n2, p.ctx) << "\n";
     }
 

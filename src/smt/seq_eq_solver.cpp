@@ -101,7 +101,7 @@ void theory_seq::add_consequence(bool uses_eq, expr_ref_vector const& clause) {
     linearize(dep, eqs, lits);
     for (auto& lit : lits)
         lit.neg();
-    for (auto [n1, n2] : eqs)
+    for (auto const& [n1, n2] : eqs)
         lits.push_back(~mk_eq(n1->get_expr(), n2->get_expr(), false));
     for (auto f : clause)
         lits.push_back(mk_literal(f));    

@@ -332,7 +332,7 @@ namespace smt {
     void ext_simple_justification::get_antecedents(conflict_resolution & cr) {
         simple_justification::get_antecedents(cr);
         for (unsigned i = 0; i < m_num_eqs; ++i) {
-            auto [n1, n2] = m_eqs[i];
+            auto const& [n1, n2] = m_eqs[i];
             cr.mark_eq(n1, n2);
         }
     }
@@ -340,7 +340,7 @@ namespace smt {
     bool ext_simple_justification::antecedent2proof(conflict_resolution & cr, ptr_buffer<proof> & result) {
         bool visited = simple_justification::antecedent2proof(cr, result);
         for (unsigned i = 0; i < m_num_eqs; ++i) {
-            auto [n1, n2] = m_eqs[i];
+            auto const& [n1, n2] = m_eqs[i];
             proof * pr = cr.get_proof(n1, n2);
             if (pr == nullptr)
                 visited = false;
