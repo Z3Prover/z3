@@ -744,11 +744,12 @@ namespace opt {
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
             display_objective(out, obj);
+            auto [lower, upper] = b[i];
             if (obj.m_type == O_MAXIMIZE) {
-                out << " |-> [" << b[i].first << ":" << b[i].second << "]\n";
+                out << " |-> [" << lower << ":" << upper << "]\n";
             }
             else {
-                out << " |-> [" << -b[i].second << ":" << -b[i].first << "]\n";
+                out << " |-> [" << -upper << ":" << -lower << "]\n";
             }
         }        
     }
