@@ -201,9 +201,9 @@ namespace smt {
                 js->get_antecedents(*this);
             }
             while (!m_todo_eqs.empty()) {
-                enode_pair p = m_todo_eqs.back();
+                auto [n1, n2] = m_todo_eqs.back();
                 m_todo_eqs.pop_back();
-                eq2literals(p.first, p.second);
+                eq2literals(n1, n2);
             }
             if (m_todo_js_qhead == m_todo_js.size()) {
                 m_antecedents = nullptr;
