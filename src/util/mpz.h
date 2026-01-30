@@ -152,7 +152,6 @@ class mpz_manager {
     mutable std::recursive_mutex    m_lock;
 #define MPZ_BEGIN_CRITICAL() if (SYNCH) m_lock.lock()
 #define MPZ_END_CRITICAL()   if (SYNCH) m_lock.unlock()
-static_assert(false);
 #else
 #define MPZ_BEGIN_CRITICAL() {}
 #define MPZ_END_CRITICAL()   {}
