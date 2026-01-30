@@ -474,6 +474,89 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Create a type variable for use in polymorphic functions and datatypes.
+     * Type variables can be used as sort parameters in polymorphic datatypes.
+     * @param name name of the type variable
+     * @return a new type variable sort
+     **/
+    public TypeVarSort mkTypeVariable(Symbol name)
+    {
+        checkContextMatch(name);
+        return new TypeVarSort(this, name);
+    }
+
+    /**
+     * Create a type variable for use in polymorphic functions and datatypes.
+     * Type variables can be used as sort parameters in polymorphic datatypes.
+     * @param name name of the type variable
+     * @return a new type variable sort
+     **/
+    public TypeVarSort mkTypeVariable(String name)
+    {
+        return mkTypeVariable(mkSymbol(name));
+    }
+
+    /**
+     * Create a polymorphic (parametric) datatype sort.
+     * A polymorphic datatype is parameterized by type variables, allowing it to
+     * work with different types. This is similar to generic types in programming languages.
+     * 
+     * @param name name of the datatype sort
+     * @param parameters array of type variable sorts to parameterize the datatype
+     * @param constructors array of constructor specifications
+     * @return a new polymorphic datatype sort
+     * 
+     * Example:
+     * <pre>
+     * // Create a polymorphic List datatype: List[T]
+     * TypeVarSort T = ctx.mkTypeVariable("T");
+     * Constructor&lt;Object&gt; nil = ctx.mkConstructor("nil", "is_nil", null, null, null);
+     * Constructor&lt;Object&gt; cons = ctx.mkConstructor("cons", "is_cons",
+     *     new String[]{"head", "tail"},
+     *     new Sort[]{T, null}, // head has type T, tail is recursive reference
+     *     new int[]{0, 0}); // sortRef 0 refers back to List[T]
+     * DatatypeSort&lt;Object&gt; listSort = ctx.mkPolymorphicDatatypeSort("List",
+     *     new Sort[]{T}, new Constructor[]{nil, cons});
+     * </pre>
+     **/
+    public <R> DatatypeSort<R> mkPolymorphicDatatypeSort(Symbol name, Sort[] parameters, Constructor<R>[] constructors)
+    {
+        checkContextMatch(name);
+        checkContextMatch(parameters);
+        checkContextMatch(constructors);
+        
+        int numParams = parameters.length;
+        long[] paramsNative = AST.arrayToNative(parameters);
+        
+        ConstructorList<R> consList = new ConstructorList<>(this, constructors);
+        int numConstructors = constructors.length;
+        long[] constructorsNative = new long[numConstructors];
+        for (int i = 0; i < numConstructors; i++) {
+            constructorsNative[i] = constructors[i].getNativeObject();
+        }
+        
+        long nativeSort = Native.mkPolymorphicDatatype(nCtx(), name.getNativeObject(),
+                numParams, paramsNative, numConstructors, constructorsNative);
+        
+        return new DatatypeSort<>(this, nativeSort);
+    }
+
+    /**
+     * Create a polymorphic (parametric) datatype sort.
+     * A polymorphic datatype is parameterized by type variables, allowing it to
+     * work with different types. This is similar to generic types in programming languages.
+     * 
+     * @param name name of the datatype sort
+     * @param parameters array of type variable sorts to parameterize the datatype
+     * @param constructors array of constructor specifications
+     * @return a new polymorphic datatype sort
+     **/
+    public <R> DatatypeSort<R> mkPolymorphicDatatypeSort(String name, Sort[] parameters, Constructor<R>[] constructors)
+    {
+        return mkPolymorphicDatatypeSort(mkSymbol(name), parameters, constructors);
+    }
+
+    /**
      * Update a datatype field at expression t with value v.
      * The function performs a record update at t. The field
      * that is passed in as argument is updated with value v,
