@@ -321,12 +321,12 @@ namespace smt {
         region& r = ctx.get_region();
         m_eqs = new (r) enode_pair[num_eqs];
         std::uninitialized_copy(eqs, eqs + num_eqs, m_eqs);
-        DEBUG_CODE(
+        DEBUG_CODE((
             for (unsigned i = 0; i < num_eqs; ++i) {
                 enode_pair const & [n1, n2] = eqs[i];
                 SASSERT(n1->get_root() == n2->get_root());
             }
-        );
+        ));
     }
 
     void ext_simple_justification::get_antecedents(conflict_resolution & cr) {
