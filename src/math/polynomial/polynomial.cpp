@@ -3168,31 +3168,35 @@ namespace polynomial {
             void add(numeral const & input, polynomial const * output) {
                 TRACE(newton, tout << m().to_string(input) << " -> "; output->display(tout, m()); tout << "\n";);
                 SASSERT(m().modular());
+                // Ensure input is normalized before using it
+                scoped_numeral normalized_input(m());
+                m().set(normalized_input, input);
+                m().p_normalize(normalized_input);
                 unsigned sz = num_sample_points();
                 if (sz > 0) {
                     unsigned k = sz;
                     // add new inverse
                     scoped_numeral product(m());
                     scoped_numeral aux(m());
-                    SASSERT(!m().eq(input, m_inputs[0]));
-                    m().sub(input, m_inputs[0], product);
+                    SASSERT(!m().eq(normalized_input, m_inputs[0]));
+                    m().sub(normalized_input, m_inputs[0], product);
                     for (unsigned i = 1; i <= k - 1; ++i) {
-                        SASSERT(!m().eq(input, m_inputs[i]));
-                        m().sub(input, m_inputs[i], aux);
+                        SASSERT(!m().eq(normalized_input, m_inputs[i]));
+                        m().sub(normalized_input, m_inputs[i], aux);
                         m().mul(product, aux, product);
                     }
                     m().inv(product);
-                    m_inputs.push_back(input);
+                    m_inputs.push_back(normalized_input);
                     m_invs.push_back(product);
                     TRACE(newton, tout << "invs[" << k << "]: " << product << "\n";);
-                    SASSERT(m().eq(m_inputs[k], input));
+                    SASSERT(m().eq(m_inputs[k], normalized_input));
                     // Compute newton's coefficient
                     polynomial_ref temp(pm.m_wrapper);
                     polynomial_ref aux_poly(pm.m_wrapper);
                     temp = m_vs.get(k-1);
                     for (int j = k - 2; j >= 0; j--) {
                         // temp <- temp*(input - m_inputs[j]) + vs[j]
-                        m().sub(input, m_inputs[j], aux);
+                        m().sub(normalized_input, m_inputs[j], aux);
                         SASSERT(m().is_p_normalized(aux));
                         aux_poly = pm.mul(aux, temp);
                         temp     = pm.add(aux_poly, m_vs.get(j));
@@ -3207,7 +3211,7 @@ namespace polynomial {
                     TRACE(newton, tout << "vs[" << k << "]: " << aux_poly << "\n";);
                 }
                 else {
-                    m_inputs.push_back(input);
+                    m_inputs.push_back(normalized_input);
                     m_vs.push_back(const_cast<polynomial*>(output));
                 }
             }
@@ -4394,6 +4398,7 @@ namespace polynomial {
             auto sz = vals.size();
             while (true) {
                 m().set(r, rand() % p);
+                m().p_normalize(r.get()); // normalize the value to ensure it's in the correct range
                 // check if fresh value...
                 unsigned k = 0;
                 for (; k < sz; ++k) {
