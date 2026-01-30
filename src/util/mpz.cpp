@@ -1876,7 +1876,8 @@ void mpz_manager<SYNCH>::power(mpz const & a, unsigned p, mpz & b) {
                 for (unsigned i = 0; i < sz - 1; ++i)
                     b.ptr()->m_digits[i] = 0;
                 b.ptr()->m_digits[sz-1] = 1 << shift;
-                b.set_ptr(b.ptr(), false, false);
+                // b is already large after allocate_if_needed, just ensure sign is positive
+                b.set_sign(1);
             }
             return;
         }
@@ -1968,17 +1969,17 @@ void mpz_manager<SYNCH>::ensure_capacity(mpz & a, unsigned capacity) {
             unsigned intmin_sz = m_int_min.ptr()->m_size;
             for (unsigned i = 0; i < intmin_sz; ++i)
                 a.ptr()->m_digits[i] = m_int_min.ptr()->m_digits[i];
-            a.set_ptr(a.ptr(), true, false);
+            a.set_sign(-1);
             a.ptr()->m_size = m_int_min.ptr()->m_size;
         }
         else if (val < 0) {
             a.ptr()->m_digits[0] = -val;
-            a.set_ptr(a.ptr(), true, false);
+            a.set_sign(-1);
             a.ptr()->m_size = 1;
         }
         else {
             a.ptr()->m_digits[0] =  val;
-            a.set_ptr(a.ptr(), false, false);
+            a.set_sign(1);
             a.ptr()->m_size = 1;
         }
     }
