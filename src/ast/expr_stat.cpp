@@ -27,9 +27,7 @@ void get_expr_stat(expr * n, expr_stat & r) {
     buffer<pair> todo;
     todo.push_back(pair(n, 0));
     while (!todo.empty()) {
-        pair & p       = todo.back();
-        n              = p.first;
-        unsigned depth = p.second;
+        auto [n, depth] = todo.back();
         unsigned j;
         todo.pop_back();
         r.m_sym_count++;
