@@ -528,7 +528,6 @@ public class Context implements AutoCloseable {
         int numParams = parameters.length;
         long[] paramsNative = AST.arrayToNative(parameters);
         
-        ConstructorList<R> consList = new ConstructorList<>(this, constructors);
         int numConstructors = constructors.length;
         long[] constructorsNative = new long[numConstructors];
         for (int i = 0; i < numConstructors; i++) {
