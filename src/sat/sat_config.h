@@ -155,7 +155,7 @@ namespace sat {
         bool               m_core_minimize;
         bool               m_drat;  // drat proofs
 
-        // Bitfields for 32 boolean flags (packed into 4 bytes)
+        // Bitfields for 32 boolean flags (typically packed into 4 bytes on most platforms)
         // Note: m_core_minimize and m_drat are kept as regular bools above
         // because they are passed by reference (flet usage)
         unsigned           m_phase_sticky : 1;
@@ -199,6 +199,8 @@ namespace sat {
 
     // Verify struct packing optimization
     // Previous size was 408 bytes, optimized to 320 bytes (88 bytes / 21.6% reduction)
-    static_assert(sizeof(config) <= 320, "sat::config size regression - check field ordering and alignment");
+    // The assertion checks for a reasonable range to detect both regressions and unexpected reductions
+    static_assert(sizeof(config) >= 300 && sizeof(config) <= 320, 
+                  "sat::config size changed unexpectedly - expected 320 bytes, check field ordering and alignment");
 };
 

@@ -35,7 +35,7 @@ struct theory_bv_params {
     // This bool must be addressable (flet usage in qe/qe.cpp)
     bool         m_bv_enable_int2bv2int;
     
-    // Bitfields for 7 boolean flags (packed into 1 byte, but aligned to 4-byte boundary with above bool)
+    // Bitfields for 7 boolean flags (typically packed into 4 bytes on most platforms)
     unsigned     m_hi_div0 : 1;  //!< if true, uses the hardware interpretation for div0, mod0, ... if false, div0, mod0, ... are considered uninterpreted.
     unsigned     m_bv_reflect : 1;
     unsigned     m_bv_lazy_le : 1;
@@ -67,5 +67,7 @@ struct theory_bv_params {
 
 // Verify struct packing optimization
 // Previous size was 20 bytes, optimized to 16 bytes (4 bytes / 20% reduction)
-static_assert(sizeof(theory_bv_params) <= 16, "theory_bv_params size regression - check field ordering and alignment");
+// The assertion checks for exact size to detect any unexpected changes
+static_assert(sizeof(theory_bv_params) == 16, 
+              "theory_bv_params size changed unexpectedly - expected 16 bytes, check field ordering and alignment");
 
