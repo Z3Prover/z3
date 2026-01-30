@@ -1,0 +1,27 @@
+#pragma once
+
+#include "util/params.h"
+
+enum bv_solver_id {
+    BS_NO_BV,
+    BS_BLASTER
+};
+
+struct theory_bv_params {
+    // BASELINE: Original layout (not optimized)
+    bv_solver_id m_bv_mode;
+    bool         m_hi_div0;
+    bool         m_bv_reflect;
+    bool         m_bv_lazy_le;
+    bool         m_bv_cc;
+    unsigned     m_bv_blast_max_size;
+    bool         m_bv_enable_int2bv2int;
+    bool         m_bv_watch_diseq;
+    bool         m_bv_delay;
+    bool         m_bv_size_reduce;
+    unsigned     m_bv_solver;
+    
+    theory_bv_params(params_ref const & p = params_ref());
+    void updt_params(params_ref const & p);
+    void display(std::ostream & out) const;
+};

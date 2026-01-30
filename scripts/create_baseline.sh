@@ -1,0 +1,216 @@
+#!/bin/bash
+# Create baseline (unoptimized) struct versions for comparison
+
+set -e
+
+cd /home/runner/work/z3/z3
+
+echo "Creating baseline (unoptimized) struct versions..."
+
+# For sat_config.h - revert to simpler layout (mixing field sizes)
+cat > src/sat/sat_config.h.baseline << 'EOF'
+#pragma once
+
+#include "util/params.h"
+
+namespace sat {
+
+    enum phase_selection {
+        PS_ALWAYS_TRUE,
+        PS_ALWAYS_FALSE,
+        PS_BASIC_CACHING,
+        PS_SAT_CACHING,
+        PS_LOCAL_SEARCH,
+        PS_FROZEN,
+        PS_RANDOM
+    };
+
+    enum restart_strategy {
+        RS_GEOMETRIC,
+        RS_LUBY,
+        RS_EMA,
+        RS_STATIC
+    };
+
+    enum gc_strategy {
+        GC_DYN_PSM,
+        GC_PSM,
+        GC_GLUE,
+        GC_GLUE_PSM,
+        GC_PSM_GLUE
+    };
+
+    enum branching_heuristic {
+        BH_VSIDS,
+        BH_CHB
+    };
+
+    enum pb_resolve {
+        PB_CARDINALITY,
+        PB_ROUNDING
+    };
+
+    enum pb_lemma_format {
+        PB_LEMMA_CARDINALITY,
+        PB_LEMMA_PB
+    };
+
+    enum reward_t {
+        ternary_reward,
+        unit_literal_reward,
+        heule_schur_reward,
+        heule_unit_reward,
+        march_cu_reward
+    };
+
+    enum cutoff_t {
+        depth_cutoff,
+        freevars_cutoff,
+        psat_cutoff,
+        adaptive_freevars_cutoff,
+        adaptive_psat_cutoff
+    };
+
+    enum local_search_mode {
+        gsat,
+        wsat
+    };
+
+    struct config {
+        // BASELINE: Original layout with mixed field sizes (not optimized)
+        unsigned long long m_max_memory;
+        phase_selection    m_phase;
+        unsigned           m_search_sat_conflicts;
+        unsigned           m_search_unsat_conflicts;
+        bool               m_phase_sticky;
+        unsigned           m_rephase_base;
+        unsigned           m_reorder_base;
+        double             m_reorder_itau;
+        unsigned           m_reorder_activity_scale;
+        bool               m_propagate_prefetch;
+        restart_strategy   m_restart;
+        bool               m_restart_fast;
+        unsigned           m_restart_initial;
+        double             m_restart_factor;
+        double             m_restart_margin;
+        unsigned           m_restart_max;
+        unsigned           m_activity_scale;
+        double             m_fast_glue_avg;
+        double             m_slow_glue_avg;
+        unsigned           m_inprocess_max;
+        symbol             m_inprocess_out;
+        double             m_random_freq;
+        unsigned           m_random_seed;
+        unsigned           m_burst_search;
+        bool               m_enable_pre_simplify;
+        unsigned           m_max_conflicts;
+        unsigned           m_num_threads;
+        bool               m_ddfw_search;
+        unsigned           m_ddfw_threads;
+        bool               m_prob_search;
+        unsigned           m_local_search_threads;
+        bool               m_local_search;
+        local_search_mode  m_local_search_mode;
+        bool               m_local_search_dbg_flips;
+        bool               m_anf_simplify;
+        unsigned           m_anf_delay;
+        bool               m_anf_exlin;
+        bool               m_lookahead_simplify;
+        bool               m_lookahead_simplify_bca;
+        cutoff_t           m_lookahead_cube_cutoff;
+        double             m_lookahead_cube_fraction;
+        unsigned           m_lookahead_cube_depth;
+        double             m_lookahead_cube_freevars;
+        double             m_lookahead_cube_psat_var_exp;
+        double             m_lookahead_cube_psat_clause_base;
+        double             m_lookahead_cube_psat_trigger;
+        reward_t           m_lookahead_reward;
+        bool               m_lookahead_double;
+        bool               m_lookahead_global_autarky;
+        double             m_lookahead_delta_fraction;
+        bool               m_lookahead_use_learned;
+        bool               m_incremental;
+        unsigned           m_next_simplify1;
+        double             m_simplify_mult2;
+        unsigned           m_simplify_max;
+        unsigned           m_simplify_delay;
+        unsigned           m_variable_decay;
+        gc_strategy        m_gc_strategy;
+        unsigned           m_gc_initial;
+        unsigned           m_gc_increment;
+        unsigned           m_gc_small_lbd;
+        unsigned           m_gc_k;
+        bool               m_gc_burst;
+        bool               m_gc_defrag;
+        bool               m_force_cleanup;
+        unsigned           m_backtrack_scopes;
+        unsigned           m_backtrack_init_conflicts;
+        bool               m_minimize_lemmas;
+        bool               m_dyn_sub_res;
+        bool               m_core_minimize;
+        bool               m_core_minimize_partial;
+        bool               m_drat;
+        bool               m_drat_disable;
+        bool               m_drat_binary;
+        symbol             m_drat_file;
+        bool               m_smt_proof_check;
+        bool               m_drat_check_unsat;
+        bool               m_drat_check_sat;
+        bool               m_drat_activity;
+        bool               m_card_solver;
+        bool               m_xor_solver;
+        pb_resolve         m_pb_resolve;
+        pb_lemma_format    m_pb_lemma_format;
+        branching_heuristic m_branching_heuristic;
+        bool               m_anti_exploration;
+        double             m_step_size_init;
+        double             m_step_size_dec;
+        double             m_step_size_min;
+        double             m_reward_multiplier;
+        double             m_reward_offset;
+        bool               m_elim_vars;
+
+        config(params_ref const & p);
+        void updt_params(params_ref const & p);
+        static void collect_param_descrs(param_descrs & d);
+    };
+};
+EOF
+
+# For theory_bv_params.h - revert to simpler layout
+cat > src/params/theory_bv_params.h.baseline << 'EOF'
+#pragma once
+
+#include "util/params.h"
+
+enum bv_solver_id {
+    BS_NO_BV,
+    BS_BLASTER
+};
+
+struct theory_bv_params {
+    // BASELINE: Original layout (not optimized)
+    bv_solver_id m_bv_mode;
+    bool         m_hi_div0;
+    bool         m_bv_reflect;
+    bool         m_bv_lazy_le;
+    bool         m_bv_cc;
+    unsigned     m_bv_blast_max_size;
+    bool         m_bv_enable_int2bv2int;
+    bool         m_bv_watch_diseq;
+    bool         m_bv_delay;
+    bool         m_bv_size_reduce;
+    unsigned     m_bv_solver;
+    
+    theory_bv_params(params_ref const & p = params_ref());
+    void updt_params(params_ref const & p);
+    void display(std::ostream & out) const;
+};
+EOF
+
+echo "Baseline versions created:"
+echo "  - src/sat/sat_config.h.baseline"
+echo "  - src/params/theory_bv_params.h.baseline"
+echo ""
+echo "To use baseline: copy .baseline files to actual .h files"
+echo "To use optimized: copy .optimized files to actual .h files"

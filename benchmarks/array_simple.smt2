@@ -1,0 +1,6 @@
+(set-logic QF_AUFLIA)
+(declare-const a (Array Int Int))
+(declare-const i Int)
+(declare-const v Int)
+(assert (= (select (store a i v) i) v))
+(check-sat)
