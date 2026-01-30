@@ -223,7 +223,7 @@ class mpz_manager {
     // make sure that n is a big number and has capacity equal to at least c.
     void allocate_if_needed(mpz & n, unsigned c) {
         if (m_init_cell_capacity > c) c = m_init_cell_capacity;
-        if (n.ptr() == nullptr || capacity(n) < c) {
+        if (n.is_small() || n.ptr() == nullptr || capacity(n) < c) {
             deallocate(n);
             n.set_ptr(allocate(c), false, false); // positive, owned
         }
@@ -394,10 +394,13 @@ class mpz_manager {
     };
     
     void mk_big(mpz & a) {
-        if (a.ptr() == nullptr) {
+        if (a.is_small()) {
             a.set_ptr(allocate(), false, false); // positive, owned
         }
-        // else already large, keep as is
+        else if (a.ptr() == nullptr) {
+            a.set_ptr(allocate(), false, false); // positive, owned
+        }
+        // else already large with valid pointer
     }
 
 

@@ -261,7 +261,7 @@ void mpz_manager<SYNCH>::sub(mpz const & a, mpz const & b, mpz & c) {
 template<bool SYNCH>
 void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
 #ifndef _MP_GMP
-    mpz_cell* cell = c.ptr();
+    mpz_cell* cell = c.is_small() ? nullptr : c.ptr();
     if (cell == nullptr) {
         cell = allocate(m_init_cell_capacity);
         c.set_ptr(cell, false, false); // Will update sign below
@@ -294,7 +294,7 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
         c.ptr()->m_size = digits(c)[1] == 0 ? 1 : 2;
     }
 #else
-    mpz_t* cell = c.ptr();
+    mpz_t* cell = c.is_small() ? nullptr : c.ptr();
     if (cell == nullptr) {
         cell = allocate();
         c.set_ptr(cell, false, false);
@@ -327,7 +327,7 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
 template<bool SYNCH>
 void mpz_manager<SYNCH>::set_big_ui64(mpz & c, uint64_t v) {
 #ifndef _MP_GMP
-    mpz_cell* cell = c.ptr();
+    mpz_cell* cell = c.is_small() ? nullptr : c.ptr();
     if (cell == nullptr) {
         cell = allocate(m_init_cell_capacity);
         c.set_ptr(cell, false, false); // positive, owned
@@ -346,7 +346,7 @@ void mpz_manager<SYNCH>::set_big_ui64(mpz & c, uint64_t v) {
         c.ptr()->m_size = digits(c)[1] == 0 ? 1 : 2;
     }
 #else
-    mpz_t* cell = c.ptr();
+    mpz_t* cell = c.is_small() ? nullptr : c.ptr();
     if (cell == nullptr) {
         cell = allocate();
         c.set_ptr(cell, false, false); // positive, owned
