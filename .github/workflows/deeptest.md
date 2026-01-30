@@ -12,9 +12,6 @@ on:
         description: 'Issue number to link the generated tests to (optional)'
         required: false
         type: string
-  slash_command:
-    name: deeptest
-    events: [issues, issue_comment, pull_request, pull_request_comment]
 
 permissions: read-all
 
@@ -58,8 +55,6 @@ You are the DeepTest agent for the Z3 theorem prover repository.
 **Workflow dispatch file path**: ${{ github.event.inputs.file_path }}
 
 **Issue number** (if linked): ${{ github.event.inputs.issue_number }}
-
-If triggered by a slash command (`/deeptest`), extract the file path from the issue or comment text.
 
 ## Instructions
 
