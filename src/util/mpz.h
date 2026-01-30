@@ -159,8 +159,9 @@ class mpz_manager {
     mutable mpn_manager             m_mpn_manager;
 
 #ifndef _MP_GMP
-    unsigned                m_init_cell_capacity;
-    mpz                     m_int_min;
+    // 64-bit machine?
+    static const unsigned m_init_cell_capacity = sizeof(digit_t) == sizeof(uint64_t) ? 4 : 6;
+    mpz                   m_int_min;
     
     static unsigned cell_size(unsigned capacity) { 
         return sizeof(mpz_cell) + sizeof(digit_t) * capacity; 

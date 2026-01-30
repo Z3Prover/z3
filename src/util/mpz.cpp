@@ -133,13 +133,6 @@ mpz_manager<SYNCH>::mpz_manager():
     m_allocator("mpz_manager") {
 
 #ifndef _MP_GMP
-    if (sizeof(digit_t) == sizeof(uint64_t)) {
-        // 64-bit machine
-        m_init_cell_capacity = 4;
-    }
-    else {
-        m_init_cell_capacity = 6;
-    }
     set(m_int_min, -static_cast<int64_t>(INT_MIN));
 #else
     // GMP
