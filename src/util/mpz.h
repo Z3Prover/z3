@@ -152,6 +152,7 @@ class mpz_manager {
     mutable std::recursive_mutex    m_lock;
 #define MPZ_BEGIN_CRITICAL() if (SYNCH) m_lock.lock()
 #define MPZ_END_CRITICAL()   if (SYNCH) m_lock.unlock()
+static_assert(false);
 #else
 #define MPZ_BEGIN_CRITICAL() {}
 #define MPZ_END_CRITICAL()   {}
@@ -211,16 +212,12 @@ class mpz_manager {
 
     mpz_t * allocate() {        
         mpz_t * cell;
-#ifdef SINGLE_THREAD
-        cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));        
-#else
         if (SYNCH) {
             cell = reinterpret_cast<mpz_t*>(memory::allocate(sizeof(mpz_t)));
         }
         else {
             cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));        
         }
-#endif
         mpz_init(*cell);
         return cell;
     }
@@ -228,16 +225,12 @@ class mpz_manager {
     void deallocate(bool is_heap, mpz_t * ptr) { 
         mpz_clear(*ptr); 
         if (is_heap) {
-#ifdef SINGLE_THREAD
-            m_allocator.deallocate(sizeof(mpz_t), ptr); 
-#else
             if (SYNCH) {
                 memory::deallocate(ptr);
             }
             else {
                 m_allocator.deallocate(sizeof(mpz_t), ptr); 
             }
-#endif
         }
     }
 
