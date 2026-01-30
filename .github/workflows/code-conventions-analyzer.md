@@ -38,41 +38,9 @@ You are an expert C++ code quality analyst specializing in the Z3 theorem prover
 
 ## Your Task
 
-**PRIMARY FOCUS: Create Issues for Tuple Pattern (Structured Bindings) Refactoring**
+**PRIMARY FOCUS: Create Issues for initializer_list Refactoring**
 
-Your primary task is to identify and implement refactorings that use C++17 structured bindings instead of accessing `.first` and `.second`:
-
-1. **Find tuple/pair access patterns** - Code accessing `.first` and `.second` members
-2. **Implement the refactoring** - Replace with structured bindings for clearer code
-3. **Create issues** - Automatically create an issue with your changes for tuple pattern improvements
-
-**Focus Areas for Tuple Pattern Refactoring:**
-- Variables that access both `.first` and `.second` multiple times
-- Return values from functions that are immediately decomposed
-- Iterator dereferences accessing pair members (e.g., map iterators)
-- Code that would be clearer with meaningful variable names instead of `.first`/`.second`
-
-**Naming Convention for Structured Bindings:**
-When introducing structured bindings, use names that are representative of the types or field semantics:
-- For `enode_pair`: use `[n1, n2]` instead of `[first, second]` or `[a, b]`
-- For map iterators: use `[key, value]` or `[k, v]` instead of `[first, second]`
-- For domain-specific pairs: use names reflecting the semantics (e.g., `[var, offset]`, `[expr, count]`)
-- **Avoid generic names** like `first`, `second`, `third`, `a`, `b` unless the pair truly represents generic values
-
-**Example refactoring:**
-```cpp
-// Before: Using .first and .second on enode_pair
-enode_pair p = get_pair(y);
-return merge(p.first, p.second);
-
-// After: Using structured bindings with meaningful names
-auto [n1, n2] = get_pair(y);
-return merge(n1, n2);
-```
-
-**SECONDARY FOCUS: Create Issues for initializer_list Refactoring**
-
-Your secondary task is to identify and implement refactorings that use `std::initializer_list<T>` instead of array pointer + size parameters:
+Your primary task is to identify and implement refactorings that use `std::initializer_list<T>` instead of array pointer + size parameters:
 
 1. **Find array + size parameter patterns** - Functions taking `(unsigned sz, T* args)` or similar
 2. **Implement the refactoring** - Replace with `std::initializer_list<T>` for cleaner APIs
@@ -112,7 +80,7 @@ foo({1, 2});
 Additionally, conduct analysis of other coding conventions and modern C++ opportunities for discussion (not immediate implementation)
 
 
-## Workflow for initializer_list Refactoring (SECONDARY)
+## Workflow for initializer_list Refactoring (PRIMARY)
 
 ### Step A: Find initializer_list Refactoring Opportunities
 
@@ -308,7 +276,6 @@ Z3 uses C++20 (as specified in `.clang-format`). Look for opportunities to use:
 - In-class member initializers
 
 **C++17 features:**
-- Structured bindings for tuple/pair unpacking
 - `if constexpr` for compile-time conditionals
 - `std::string_view` for string parameters
 - Fold expressions for variadic templates
@@ -402,22 +369,6 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 - Incorrect usage of `std::move` (moving from const references, etc.)
 - Return value optimization opportunities being blocked
 
-**Tuple/Pair Access Patterns:**
-- **PRIMARY TASK**: Code accessing `.first` and `.second` on pairs/tuples
-- **ACTION**: Replace with C++17 structured bindings for cleaner, more readable code
-- **RESULT**: Create an issue with the actual code changes
-- **NAMING**: Use descriptive names based on types/semantics (e.g., `[n1, n2]` for `enode_pair`, `[k, v]` for maps)
-- **Example**:
-  ```cpp
-  // Before
-  enode_pair p = get_pair(y);
-  return merge(p.first, p.second);
-  
-  // After: Use meaningful names, not generic [a, b]
-  auto [n1, n2] = get_pair(y);
-  return merge(n1, n2);
-  ```
-
 **Exception String Construction:**
 - Using `stringstream` to build exception messages
 - Unnecessary string copies when raising exceptions
@@ -499,7 +450,7 @@ Identify opportunities specific to Z3's architecture and coding patterns:
 
 ### PRIMARY: Issues for Code Refactoring
 
-When you implement refactorings (structured bindings, initializer_list), create issues using `output.create-issue` with:
+When you implement refactorings (initializer_list), create issues using `output.create-issue` with:
 - Clear title indicating what was refactored
 - Description of changes and benefits
 - List of modified files and functions
@@ -731,80 +682,21 @@ For each opportunity, provide:
 - **Incorrect std::move**: [Move from const, unnecessary moves]
 - **Return Value Optimization**: [Places where RVO is blocked]
 
-### 4.8 Tuple Pattern (Structured Bindings) Modernization - **IMPLEMENT AS ISSUE**
-
-**This is the PRIMARY focus area - implement these changes directly:**
-
-- **Current Pattern**: Accessing `.first` and `.second` on pairs/tuples
-- **Modern Pattern**: Use C++17 structured bindings for cleaner code
-- **Benefits**: 
-  - More readable variable names instead of `.first`/`.second`
-  - Clearer intent of what values represent
-  - Eliminates intermediate variables
-  - Reduces chance of errors from swapping `.first`/`.second`
-- **Action**: Find and refactor tuple/pair access patterns:
-  1. Search for patterns using `.first` and `.second`
-  2. Identify cases where intermediate variable can be eliminated
-  3. Refactor to use structured bindings with **meaningful names** (not generic `a`, `b`, `first`, `second`)
-  4. Create an issue with changes
-- **Example Pattern**:
-  ```cpp
-  // Before: Using .first and .second on enode_pair
-  enode_pair p = get_pair(y);
-  return merge(p.first, p.second);
-  
-  // After: Using structured bindings with descriptive names
-  auto [n1, n2] = get_pair(y);
-  return merge(n1, n2);
-  ```
-- **Another Example**:
-  ```cpp
-  // Before: Accessing pair members via iterator
-  auto result = map.find(key);
-  if (result != map.end()) {
-      use_key(result->first);
-      use_value(result->second);
-  }
-  
-  // After: Structured bindings to access pair
-  auto it = map.find(key);
-  if (it != map.end()) {
-      auto& [k, v] = *it;
-      use_key(k);
-      use_value(v);
-  }
-  
-  // Or for range-based loops (eliminates iterator entirely):
-  for (auto& [k, v] : map) {
-      use_key(k);
-      use_value(v);
-  }
-  ```
-- **Search Patterns**: Look for code using `.first` or `.second` on:
-  - Return values from functions returning `std::pair` or tuples
-  - Iterator dereferences (especially map iterators)
-  - Direct pair/tuple variable access
-- **Candidates**: Functions or code blocks that:
-  - Call `.first` and `.second` on the same variable multiple times
-  - Create intermediate variables just to access pair members
-  - Have sequential uses of both `.first` and `.second`
-- **Output**: Issue with refactored code
-
-### 4.9 Exception String Construction
+### 4.8 Exception String Construction
 - **Current**: [stringstream usage for building exception messages]
 - **Modern**: [std::format and std::formater opportunities]
 - **String Copies**: [Unnecessary copies when raising exceptions]
 - **Examples**: [Specific exception construction sites]
 
-### 4.10 Array Parameter Modernization (std::span)
+### 4.9 Array Parameter Modernization (std::span)
 - **Current**: [Pointer + size parameter pairs for runtime-sized arrays]
 - **Modern**: [std::span usage opportunities]
 - **Type Safety**: [How span improves API safety]
 - **Examples**: [Function signatures to update]
 
-### 4.11 Array Parameter Modernization (std::initializer_list) - **IMPLEMENT AS ISSUE**
+### 4.10 Array Parameter Modernization (std::initializer_list) - **IMPLEMENT AS ISSUE**
 
-**This is a SECONDARY focus area - implement these changes directly:**
+**This is the PRIMARY focus area - implement these changes directly:**
 
 - **Current Pattern**: Functions with `unsigned sz, T* args` or `unsigned sz, T* const* args` parameters
 - **Modern Pattern**: Use `std::initializer_list<T>` for functions called with compile-time constant arrays
@@ -854,18 +746,18 @@ For each opportunity, provide:
 - **Output**: Issue with refactored code
 - **Note**: Only apply to internal C++ APIs, not to public C API functions that need C compatibility
 
-### 4.12 Increment Operator Patterns
+### 4.11 Increment Operator Patterns
 - **Postfix Usage**: [Count of i++ where result is unused]
 - **Prefix Preference**: [Places to use ++i instead]
 - **Iterator Loops**: [Heavy iterator usage areas]
 
-### 4.13 Exception Control Flow
+### 4.12 Exception Control Flow
 - **Current Usage**: [Exceptions used for normal control flow]
 - **Modern Alternatives**: [std::expected or error codes]
 - **Performance**: [Impact of exception-based control flow]
 - **Refactoring Opportunities**: [Specific patterns to replace]
 
-### 4.14 Inefficient Stream Output
+### 4.13 Inefficient Stream Output
 - **Current Usage**: [string stream output operator used for single characters]
 - **Modern Alternatives**: [use char output operator]
 - **Performance**: [Reduce code size and improve performance]
@@ -1101,28 +993,6 @@ grep pattern: "return.*nullptr.*&" glob: "src/**/*.{h,cpp}"
 grep pattern: "bool.*\(.*\*.*\)|bool.*\(.*&" glob: "src/**/*.h"
 ```
 
-**Find tuple/pair access patterns (structured binding opportunities):**
-```
-# Find .first usage
-grep pattern: "\.first" glob: "src/**/*.{cpp,h}"
-
-# Find .second usage
-grep pattern: "\.second" glob: "src/**/*.{cpp,h}"
-
-# Find same variable used with both .first and .second on same line (high-value candidates)
-# Note: This only matches single-line patterns where the same var is used; use separate .first/.second searches for comprehensive coverage
-grep pattern: "([a-z_]+)\.first.*\1\.second" glob: "src/**/*.cpp"
-
-# Find iterator dereferencing with .first or .second
-grep pattern: "->first|->second" glob: "src/**/*.cpp"
-
-# Find return statements using .first and .second
-grep pattern: "return.*\.first.*\.second" glob: "src/**/*.cpp"
-
-# Find function calls with .first and .second as arguments (focused pattern)
-grep pattern: "\([^)]*\.first[^)]*\.second[^)]*\)" glob: "src/**/*.cpp"
-```
-
 **Find pointer + size parameters:**
 ```
 grep pattern: "\([^,]+\*[^,]*,\s*size_t|, unsigned.*size\)" glob: "src/**/*.h"
@@ -1170,7 +1040,7 @@ grep pattern: "<<\s*\".*\"\s*<<\s*\".*\"" glob: "src/**/*.cpp"
 
 - Never execute untrusted code
 - Use `bash` only for safe operations (git, grep patterns)
-- **For code refactoring (structured bindings, initializer_list)**: Use the `edit` tool to modify files directly
+- **For code refactoring (initializer_list)**: Use the `edit` tool to modify files directly
 - **For other findings**: Create discussions only (no code modifications)
 - All code changes will be reviewed through the issue process
 
@@ -1178,7 +1048,7 @@ grep pattern: "<<\s*\".*\"\s*<<\s*\".*\"" glob: "src/**/*.cpp"
 
 **Two types of outputs:**
 
-1. **Issue** (for refactorings like structured bindings or initializer_list):
+1. **Issue** (for refactorings like initializer_list):
    - Use `output.create-issue` to create an issue
    - Include clear title and description
    - List all modified files
