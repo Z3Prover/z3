@@ -159,6 +159,7 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   Symbol.java
   Tactic.java
   TupleSort.java
+  TypeVarSort.java
   UninterpretedSort.java
   UserPropagatorBase.java
   Version.java
