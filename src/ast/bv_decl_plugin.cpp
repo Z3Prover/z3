@@ -836,9 +836,7 @@ rational bv_recognizers::norm(rational const & val, unsigned bv_size, bool is_si
 
 bool bv_recognizers::has_sign_bit(rational const & n, unsigned bv_size) const {
     SASSERT(bv_size > 0);
-    rational m = norm(n, bv_size, false);
-    rational p = rational::power_of_two(bv_size - 1);
-    return m >= p;
+    return numerator(n).get_bit(bv_size - 1) == 1;
 }
 
 bool bv_recognizers::is_bv_sort(sort const * s) const {
