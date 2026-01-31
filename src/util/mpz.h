@@ -439,7 +439,7 @@ class mpz_manager {
     int big_compare(mpz const & a, mpz const & b);
 
 public:
-    unsigned size_info(mpz const & a);
+    static unsigned size_info(mpz const & a);
     struct sz_lt;
 
     static bool precise() { return true; }
@@ -486,6 +486,8 @@ public:
     void div(mpz const & a, mpz const & b, mpz & c);
 
     void mod(mpz const & a, mpz const & b, mpz & c);
+
+    mpz mod2k(mpz const & a, unsigned k);
 
     void neg(mpz & a);
 

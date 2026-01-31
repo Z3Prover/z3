@@ -15,7 +15,7 @@ DeepTest is an AI-powered GitHub Agentic Workflow that automatically generates c
 
 ## How to Use
 
-### Method 1: Workflow Dispatch (Manual Trigger)
+### Workflow Dispatch (Manual Trigger)
 
 1. Go to **Actions** → **Deeptest** in the GitHub repository
 2. Click **Run workflow**
@@ -23,20 +23,11 @@ DeepTest is an AI-powered GitHub Agentic Workflow that automatically generates c
 4. Optionally link to an issue number
 5. Click **Run workflow**
 
-### Method 2: Slash Command (In Issues/PRs)
-
-Simply comment on any issue or pull request:
-
-```
-/deeptest src/util/vector.h
-```
-
 The workflow will:
-1. Extract the file path from your comment
-2. Analyze the source file
-3. Generate comprehensive tests
-4. Create a pull request with the test files
-5. Add a comment with statistics and instructions
+1. Analyze the source file
+2. Generate comprehensive tests
+3. Create a pull request with the test files
+4. Optionally add a comment to the linked issue with statistics and instructions
 
 ## What Gets Generated
 
@@ -83,16 +74,12 @@ After running, DeepTest will:
 ## Example Usage
 
 ### Example 1: Test a C++ utility file
-```
-/deeptest src/util/vector.h
-```
+Via workflow dispatch with file path: `src/util/vector.h`
 
 ### Example 2: Test a Python API file
-```
-/deeptest src/api/python/z3/z3.py
-```
+Via workflow dispatch with file path: `src/api/python/z3/z3.py`
 
-### Example 3: Via workflow dispatch
+### Example 3: Link to an issue
 - File path: `src/ast/ast.cpp`
 - Issue number: `1234` (optional)
 
