@@ -238,7 +238,7 @@ namespace nlsat {
         unsigned estimate_lc_weight() const {
             unsigned total = 0;
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
-                if (i < m_omit_lc.size() && m_omit_lc[i])
+                if (vec_get(m_omit_lc, i, false))
                     continue;
                 poly* p = m_level_ps.get(i);
                 unsigned deg = m_pm.degree(p, m_level);
@@ -345,9 +345,7 @@ namespace nlsat {
         void request_factorized(polynomial_ref const& poly, inv_req req) {
             for_each_distinct_factor(poly, [&](polynomial_ref const& f) {
                 TRACE(lws,
-                      tout << "      request_factorized: factor=";
-                      m_pm.display(tout, f);
-                      tout << " at level " << m_pm.max_var(f) << "\n";
+                      m_pm.display(tout << "      request_factorized: factor=", f) << " at level " << m_pm.max_var(f) << "\n";
                     );
                 request(f.get(), req); // inherit tag across factorization (SMT-RAT appendOnCorrectLevel)
             });
@@ -423,9 +421,8 @@ namespace nlsat {
 
         void add_projection_for_poly(polynomial_ref const& p, unsigned x, polynomial_ref const& nonzero_coeff, bool add_leading_coeff, bool add_discriminant) {
             TRACE(lws,
-                  tout << "  add_projection_for_poly: p=";
-                  m_pm.display(tout, p);
-                  tout << " x=" << x << " add_lc=" << add_leading_coeff << " add_disc=" << add_discriminant << "\n";
+                  m_pm.display(tout << "  add_projection_for_poly: p=", p)
+                      << " x=" << x << " add_lc=" << add_leading_coeff << " add_disc=" << add_discriminant << "\n";
                 );
             // Line 11 (non-null witness coefficient)
             if (nonzero_coeff && !is_const(nonzero_coeff))
@@ -438,11 +435,7 @@ namespace nlsat {
                 unsigned deg = m_pm.degree(p, x);
                 polynomial_ref lc(m_pm);
                 lc = m_pm.coeff(p, x, deg);
-                TRACE(lws,
-                      tout << "    adding lc: ";
-                      m_pm.display(tout, lc);
-                      tout << "\n";
-                    );
+                TRACE(lws, m_pm.display(tout << "    adding lc: ", lc) << "\n";);
                 request_factorized(lc, inv_req::sign);
             }
         }
@@ -474,6 +467,16 @@ namespace nlsat {
             return m_rel.m_rfunc[m_l_rf].ps_idx == m_rel.m_rfunc[m_u_rf].ps_idx;
         }
 
+        // Get lower bound polynomial index (UINT_MAX if not set)
+        unsigned lower_bound_idx() const {
+            return is_set(m_l_rf) ? m_rel.m_rfunc[m_l_rf].ps_idx : UINT_MAX;
+        }
+
+        // Get upper bound polynomial index (UINT_MAX if not set)
+        unsigned upper_bound_idx() const {
+            return is_set(m_u_rf) ? m_rel.m_rfunc[m_u_rf].ps_idx : UINT_MAX;
+        }
+
         // Compute deg: count distinct resultant-neighbors for each polynomial
         // m_pairs contains index pairs into m_level_ps
         void compute_resultant_graph_degree() {
@@ -499,8 +502,24 @@ namespace nlsat {
         }
 
         // Compute noDisc for spanning_tree mode.
-        // A polynomial's discriminant can be omitted if it's a leaf (deg == 1)
+        // A polynomial's discriminant can be omitted if it's a "leaf" in the resultant graph,
         // connected only to a boundary polynomial.
+        //
+        // Relation diagram for noDisc-eligible polynomial p:
+        //
+        //     lower side                    upper side
+        //   ─────────────────────────────────────────────
+        //       p ──Res── lb ═══════ ub
+        //                  ↑          ↑
+        //              (boundary polynomials)
+        //
+        // Here p is a leaf with deg=1, connected only to lb (lower boundary).
+        // Its discriminant can be skipped because:
+        // - Root ordering of p relative to lb is fixed by Res(p, lb)
+        // - No other polynomial depends on p's internal root ordering
+        // - The boundary polynomial's discriminant handles its own root ordering
+        //
+        // Symmetrically, a leaf connected only to ub qualifies too.
         void compute_omit_disc_for_spanning_tree() {
             m_omit_disc.clear();
             m_omit_disc.resize(m_level_ps.size(), false);
@@ -510,13 +529,15 @@ namespace nlsat {
             // Need graph info
             compute_resultant_graph_degree();
 
-            // Identify bound polynomial indices
-            unsigned l_bound_idx = is_set(m_l_rf) ? m_rel.m_rfunc[m_l_rf].ps_idx : UINT_MAX;
-            unsigned u_bound_idx = is_set(m_u_rf) ? m_rel.m_rfunc[m_u_rf].ps_idx : UINT_MAX;
+            unsigned l_bound_idx = lower_bound_idx();
+            unsigned u_bound_idx = upper_bound_idx();
 
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 // Skip boundary polynomials
                 if (i == l_bound_idx || i == u_bound_idx)
+                    continue;
+                // Only skip if poly is not ORD-required by upstream projection
+                if (get_req(i) == inv_req::ord)
                     continue;
                 // Must be a leaf
                 if (m_deg_in_order_graph[i] != 1)
@@ -533,25 +554,57 @@ namespace nlsat {
             }
         }
 
+        // Compute noDisc for same_boundary_poly case.
+        // When lower and upper bounds come from the same polynomial, non-bound polynomials
+        // with roots (but not ORD requirement) can omit their discriminant.
+        // Rootless polynomials must keep discriminant to ensure they stay rootless.
+        void compute_omit_disc_for_same_boundary() {
+            m_omit_disc.clear();
+            m_omit_disc.resize(m_level_ps.size(), false);
+            if (!same_boundary_poly())
+                return;
+
+            unsigned bound_idx = lower_bound_idx();
+
+            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
+                // Skip boundary polynomial
+                if (i == bound_idx)
+                    continue;
+                // Only skip if poly is not ORD-required
+                if (get_req(i) == inv_req::ord)
+                    continue;
+                // Only skip if poly has roots (rootless needs disc to stay rootless)
+                if (!poly_has_roots(i))
+                    continue;
+                m_omit_disc[i] = true;
+            }
+        }
+
         // ----------------------------------------------------------------------------
         // noLdcf heuristic helpers
         // ----------------------------------------------------------------------------
 
-        // Helper for biggest_cell and lowest_degree heuristics:
-        // Omit lc for polynomials appearing on both sides of the sample.
-        // If require_leaf is true, additionally require deg == 1 (leaf in resultant graph).
+        // Compute noLdcf: which leading coefficients can be omitted.
+        // 
+        // Theory: A polynomial p with roots on BOTH sides of the sample has resultants
+        // with both bounds (Res(p, lb) and Res(p, ub)), ensuring its roots stay ordered.
+        // Even if p's LC becomes zero (degree drops), the existing roots remain correctly
+        // ordered via these resultant constraints.
+        //
+        // - biggest_cell mode (require_leaf=false): all non-bound polys with both-side roots
+        // - spanning_tree mode (require_leaf=true): only leaves (deg == 1) with both-side roots
+        //
         void compute_omit_lc_both_sides(bool require_leaf) {
             m_omit_lc.clear();
             m_omit_lc.resize(m_level_ps.size(), false);
-            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
+            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty() || m_side_mask.empty())
                 return;
 
             if (require_leaf)
                 compute_resultant_graph_degree();
 
-            // Identify bound polynomial indices (must never omit LC)
-            unsigned l_bound_idx = is_set(m_l_rf) ? m_rel.m_rfunc[m_l_rf].ps_idx : UINT_MAX;
-            unsigned u_bound_idx = is_set(m_u_rf) ? m_rel.m_rfunc[m_u_rf].ps_idx : UINT_MAX;
+            unsigned l_bound_idx = lower_bound_idx();
+            unsigned u_bound_idx = upper_bound_idx();
 
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 if (m_side_mask[i] != 3)
@@ -562,17 +615,6 @@ namespace nlsat {
                     continue;
                 m_omit_lc[i] = true;
             }
-        }
-
-        void compute_omit_lc_sector() {
-            if (!is_set(m_l_rf) || !is_set(m_u_rf)) return;
-            // m_rel == spanning_tree, only leaves can drop ldcfs, but in the biggest cell all non-bounds are leaves,
-            compute_omit_lc_both_sides(m_rel_mode == spanning_tree); 
-        }
-
-        void compute_omit_lc_section() {
-            if (m_rel_mode == spanning_tree)                
-                compute_omit_lc_both_sides(true);
         }
 
         // Relation construction heuristics (same intent as previous implementation).
@@ -671,10 +713,9 @@ namespace nlsat {
             // Root of in-arborescence on lower side is max(K) = last element (max lower_rf)
             // Root of out-arborescence on upper side is min(f(K)) = element with min upper_rf
             unsigned upper_root_idx = 0;
-            for (unsigned i = 1; i < both.size(); ++i) {
+            for (unsigned i = 1; i < both.size(); ++i)
                 if (both[i].upper_rf < both[upper_root_idx].upper_rf)
                     upper_root_idx = i;
-            }
             unsigned lower_root_idx = both.size() - 1;
             
             // Process in order of lower_rf (sorted order)
@@ -684,10 +725,9 @@ namespace nlsat {
                 // Since we process in lower_rf order, elements [a_idx+1, n) are "K' = K \ {a}"
                 // and we need min upper_rf among them
                 unsigned c_idx = UINT_MAX;
-                for (unsigned i = a_idx + 1; i < both.size(); ++i) {
+                for (unsigned i = a_idx + 1; i < both.size(); ++i)
                     if (c_idx == UINT_MAX || both[i].upper_rf < both[c_idx].upper_rf)
                         c_idx = i;
-                }
                 SASSERT(c_idx != UINT_MAX);
                 
                 // Add edge {a, c}
@@ -702,18 +742,16 @@ namespace nlsat {
                 std_vector<unsigned> parent(both.size(), UINT_MAX);
                 for (unsigned a_idx = 0; a_idx < both.size() - 1; ++a_idx) {
                     unsigned c_idx = UINT_MAX;
-                    for (unsigned i = a_idx + 1; i < both.size(); ++i) {
+                    for (unsigned i = a_idx + 1; i < both.size(); ++i)
                         if (c_idx == UINT_MAX || both[i].upper_rf < both[c_idx].upper_rf)
                             c_idx = i;
-                    }
                     parent[a_idx] = c_idx;
                 }
                 
                 // Check it's a tree: exactly n-1 edges
                 unsigned edge_count = 0;
-                for (unsigned i = 0; i < both.size(); ++i) {
+                for (unsigned i = 0; i < both.size(); ++i)
                     if (parent[i] != UINT_MAX) edge_count++;
-                }
                 SASSERT(edge_count == both.size() - 1);  // tree has n-1 edges
                 
                 // Check roots are at extremes
@@ -726,10 +764,9 @@ namespace nlsat {
                 
                 // Root of in-arborescence (max lower_rf) has no parent
                 SASSERT(parent[lower_root_idx] == UINT_MAX);
-                for (unsigned i = 0; i < both.size(); ++i) {
+                for (unsigned i = 0; i < both.size(); ++i)
                     if (i != lower_root_idx)
                         SASSERT(parent[i] != UINT_MAX);  // non-root has exactly 1 parent
-                }
                 
                 // Check in-arborescence on left (lower) side:
                 // Each node can reach lower_root by following parent pointers
@@ -801,16 +838,14 @@ namespace nlsat {
             unsigned n = rfs.size();
             
             // Lower side: connect single-side polys to lower boundary
-            for (unsigned j = 0; j < m_l_rf; ++j) {
+            for (unsigned j = 0; j < m_l_rf; ++j)
                 if (m_side_mask[rfs[j].ps_idx] != 3)
                     m_rel.add_pair(j, m_l_rf);
-            }
             
             // Upper side: connect single-side polys to upper boundary
-            for (unsigned j = m_u_rf + 1; j < n; ++j) {
+            for (unsigned j = m_u_rf + 1; j < n; ++j)
                 if (m_side_mask[rfs[j].ps_idx] != 3)
                     m_rel.add_pair(m_u_rf, j);
-            }
         }
 
         // Helper: Connect spanning tree extremes to boundaries (when boundaries are different polys)
@@ -820,10 +855,9 @@ namespace nlsat {
             
             // Find max lower both-side poly (closest to lower boundary from below)
             unsigned max_lower_both = UINT_MAX;
-            for (unsigned j = 0; j < m_l_rf; ++j) {
+            for (unsigned j = 0; j < m_l_rf; ++j)
                 if (m_side_mask[rfs[j].ps_idx] == 3)
                     max_lower_both = j;
-            }
             
             // Find min upper both-side poly (closest to upper boundary from above)
             unsigned min_upper_both = UINT_MAX;
@@ -1035,21 +1069,15 @@ namespace nlsat {
                 poly* p1 = m_level_ps.get(pr.first);
                 poly* p2 = m_level_ps.get(pr.second);
                 TRACE(lws,
-                      tout << "    resultant(" << pr.first << ", " << pr.second << "): ";
-                      m_pm.display(tout, p1);
-                      tout << " and ";
-                      m_pm.display(tout, p2);
-                      tout << "\n";
+                      m_pm.display(m_pm.display(tout << "    resultant(" << pr.first << ", " << pr.second << "): ", p1) << " and ", p2) << "\n";
                     );
                 polynomial_ref res = psc_resultant(p1, p2, m_level);
                 TRACE(lws,
                       tout << "      resultant poly: ";
-                      if (res) {
-                          m_pm.display(tout, res);
-                          tout << "\n      resultant sign at sample: " << m_am.eval_sign_at(res, sample());
-                      } else {
+                      if (res)
+                          m_pm.display(tout, res) << "\n      resultant sign at sample: " << m_am.eval_sign_at(res, sample());
+                      else
                           tout << "(null)";
-                      }
                       tout << "\n";
                     );
                 request_factorized(res, inv_req::ord);
@@ -1091,13 +1119,8 @@ namespace nlsat {
             
             TRACE(lws,
                   tout << "  Sorted roots:\n";
-                  for (unsigned j = 0; j < root_vals.size(); ++j) {
-                      tout << "    [" << j << "] val=";
-                      m_am.display_decimal(tout, root_vals[j].first, 5);
-                      tout << " poly=";
-                      m_pm.display(tout, root_vals[j].second);
-                      tout << "\n";
-                  }
+                  for (unsigned j = 0; j < root_vals.size(); ++j)
+                      m_pm.display(m_am.display_decimal(tout << "    [" << j << "] val=", root_vals[j].first, 5) << " poly=", root_vals[j].second) << "\n";
                 );
             
             std::set<std::pair<poly*, poly*>> added_pairs;
@@ -1110,11 +1133,7 @@ namespace nlsat {
                 if (!added_pairs.insert({p1, p2}).second)
                     continue;
                 TRACE(lws,
-                      tout << "  Adjacent resultant pair: ";
-                      m_pm.display(tout, p1);
-                      tout << " and ";
-                      m_pm.display(tout, p2);
-                      tout << "\n";
+                      m_pm.display(m_pm.display(tout << "  Adjacent resultant pair: ", p1) << " and ", p2) << "\n";
                     );
                 request_factorized(psc_resultant(p1, p2, m_n), inv_req::ord);
             }
@@ -1130,104 +1149,26 @@ namespace nlsat {
             }
         }
 
-        void add_level_projections_sector() {
-            TRACE(lws,
-                  tout << "\n  add_level_projections_sector at level " << m_level << "\n";
-                  tout << "  Lower bound rf=" << m_l_rf << ", Upper bound rf=" << m_u_rf << "\n";
-                  if (is_set(m_l_rf)) {
-                      tout << "    lower poly idx=" << m_rel.m_rfunc[m_l_rf].ps_idx << ": ";
-                      m_pm.display(tout, m_level_ps.get(m_rel.m_rfunc[m_l_rf].ps_idx));
-                      tout << "\n";
-                  }
-                  if (is_set(m_u_rf)) {
-                      tout << "    upper poly idx=" << m_rel.m_rfunc[m_u_rf].ps_idx << ": ";
-                      m_pm.display(tout, m_level_ps.get(m_rel.m_rfunc[m_u_rf].ps_idx));
-                      tout << "\n";
-                  }
-                );
-            // Lines 11-12 (Algorithm 1): add projections for each p
-            // Note: Algorithm 1 adds disc + ldcf for ALL polynomials (classical delineability)
-            // We additionally omit leading coefficients for rootless polynomials when possible
-            // (cf. projective delineability, Lemma 3.2).
-            compute_omit_lc_sector();
-
-            // When lower and upper bounds come from the same polynomial, treat like section case
-            // for discriminant skipping - skip disc for non-ORD, non-boundary polys
-            bool same_poly = same_boundary_poly();
-            unsigned bound_idx = same_poly && is_set(m_l_rf) ? m_rel.m_rfunc[m_l_rf].ps_idx : UINT_MAX;
-
-            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
-                polynomial_ref p(m_level_ps.get(i), m_pm);
-                polynomial_ref lc(m_pm);
-                unsigned deg = m_pm.degree(p, m_level);
-                lc = m_pm.coeff(p, m_level, deg);
-
-                bool add_lc = (i >= m_omit_lc.size() || !m_omit_lc[i]);
-                bool is_lower_bound = is_set(m_l_rf) && i == m_rel.m_rfunc[m_l_rf].ps_idx;
-                bool is_upper_bound = is_set(m_u_rf) && i == m_rel.m_rfunc[m_u_rf].ps_idx;
-
-                TRACE(lws,
-                      tout << "  poly[" << i << "] is_lower=" << is_lower_bound << " is_upper=" << is_upper_bound;
-                      tout << " omit_lc[i]=" << (i < m_omit_lc.size() ? (m_omit_lc[i] ? "true" : "false") : "N/A");
-                      tout << " add_lc=" << add_lc << "\n";
-                    );
-
-                if (add_lc && !poly_has_roots(i))
-                    if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
-                        add_lc = false;
-
-                // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample
-                // AND we're adding lc, we do not need to project an additional non-null coefficient witness.
-                polynomial_ref witness = m_witnesses[i];
-                if (add_lc && witness && !is_const(witness))
-                    if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
-                        witness = polynomial_ref(m_pm);
-                
-                // Discriminant: always add unless same_boundary_poly and not boundary/ORD,
-                // or spanning_tree mode with leaf connected to boundary
-                bool add_disc = true;
-                if (same_poly && i != bound_idx && get_req(i) != inv_req::ord)
-                    add_disc = false;
-                if (add_disc && get_req(i) != inv_req::ord && i < m_omit_disc.size() && m_omit_disc[i])
-                    add_disc = false;
-
-                add_projection_for_poly(p, m_level, witness, add_lc, add_disc);
-            }
-        }
-
         bool is_section() { return m_I[m_level].is_section();}
         
-        void add_level_projections_section() {
-            SASSERT(is_section());
-            compute_omit_lc_section();
-            // m_omit_disc is computed by compute_omit_disc_for_spanning_tree() in process_level_section()
-            poly* section_p = m_I[m_level].l.get();
-            SASSERT(section_p);
+        // Common projection loop used by both section and sector cases.
+        // m_omit_lc and m_omit_disc are precomputed (empty for section case).
+        void add_level_projections() {
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 polynomial_ref p(m_level_ps.get(i), m_pm);
-                bool is_section_poly = p.get() == section_p;
                 polynomial_ref lc(m_pm);
                 unsigned deg = m_pm.degree(p, m_level);
                 lc = m_pm.coeff(p, m_level, deg);
 
-                // Compute add_lc: section_biggest_cell always adds LC, spanning_tree uses omit_lc
-                bool add_lc = true;
-                if (!is_section_poly && m_rel_mode == spanning_tree) {
-                    if (i < m_omit_lc.size() && m_omit_lc[i])
-                        add_lc = false;
-                    if (add_lc && !poly_has_roots(i))
-                        if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
-                            add_lc = false;
-                }
+                bool add_lc = !vec_get(m_omit_lc, i, false);
+                bool add_disc = !vec_get(m_omit_disc, i, false);
 
-                // Compute add_disc: spanning_tree can omit disc for leaves
-                bool add_disc = true;
-                // Only omit discriminants for polynomials that were not required to be order-invariant
-                // by upstream projection steps.
-                if (add_disc && get_req(i) != inv_req::ord) {
-                    if (i < m_omit_disc.size() && m_omit_disc[i])
-                        add_disc = false;
-                }
+                TRACE(lws,
+                      tout << "  poly[" << i << "]";
+                      tout << " omit_lc=" << vec_get(m_omit_lc, i, false);
+                      tout << " omit_disc=" << vec_get(m_omit_disc, i, false);
+                      tout << "\n";
+                    );
 
                 // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample
                 // AND we're adding lc, we do not need to project an additional non-null coefficient witness.
@@ -1240,8 +1181,11 @@ namespace nlsat {
             }
         }
 
-        // Check if spanning tree should be used based on both_count threshold
+        // Check if spanning tree should be used based on both_count threshold.
+        // Note: This is only called from process_level_sector() which handles non-section cases.
+        // Spanning tree requires: distinct lower/upper bounds (!same_boundary_poly) and enough both-side polys.
         bool should_use_spanning_tree() {
+            SASSERT(!is_section());  // spanning_tree is for sector case only
             // Need at least 2 polynomials for a spanning tree to have edges
             if (m_spanning_tree_threshold < 2)
                 return false;
@@ -1254,7 +1198,7 @@ namespace nlsat {
                 return false;
 
             if (same_boundary_poly())
-                return false;  //spanning tree does not make sense: all same pairs will be obtained with the biggest cell
+                return false;  // spanning tree requires distinct lower/upper bounds
             
             unsigned both_count = 0;
             for (unsigned i = 0; i < m_level_ps.size(); ++i)
@@ -1283,7 +1227,9 @@ namespace nlsat {
                 SASSERT(relation_invariant());
             }
             upgrade_bounds_to_ord();
-            add_level_projections_section();
+            // For section case, m_omit_lc and m_omit_disc are empty (cleared by clear_level_state)
+            // so all LCs and discriminants are added
+            add_level_projections();
             add_relation_resultants();
         }
 
@@ -1294,16 +1240,24 @@ namespace nlsat {
                 // Check spanning tree threshold first
                 if (should_use_spanning_tree()) {
                     fill_relation_sector_spanning_tree();
-                    compute_omit_lc_both_sides(true);
                     compute_omit_disc_for_spanning_tree();
                     m_rel_mode = spanning_tree;
-                } else 
+                } else {
                     fill_relation_sector_biggest_cell();
+                    // For same_boundary_poly, compute disc omission
+                    if (same_boundary_poly())
+                        compute_omit_disc_for_same_boundary();
+                    // TODO: Could also drop discriminants for single-side leaves in biggest_cell mode.
+                    // A leaf p with all roots on one side (e.g., below lb) has sign at sample determined
+                    // solely by being above/below all roots - internal root ordering doesn't matter.
+                    // SMT-RAT doesn't implement this, but it should be theoretically sound.
+                }
+                compute_omit_lc_both_sides(m_rel_mode == spanning_tree);
                 
                 SASSERT(relation_invariant());
             }
             upgrade_bounds_to_ord();
-            add_level_projections_sector();
+            add_level_projections();
             add_relation_resultants();
         }
 
@@ -1334,16 +1288,11 @@ namespace nlsat {
             bool have_interval = build_interval();
 
             TRACE(lws,
-                  tout << "Interval: ";
-                  display(tout, m_solver, m_I[m_level]);
-                  tout << "\n";
-                  tout << "Section? " << (m_I[m_level].section ? "yes" : "no") << "\n";
-                  tout << "have_interval=" << have_interval << ", rfunc.size=" << m_rel.m_rfunc.size() << "\n";
-                  for (unsigned i = 0; i < m_rel.m_rfunc.size(); ++i) {
-                      tout << "  rfunc[" << i << "]: ps_idx=" << m_rel.m_rfunc[i].ps_idx << ", val=";
-                      m_am.display(tout, m_rel.m_rfunc[i].val);
-                      tout << "\n";
-                  }
+                  display(tout << "Interval: ", m_solver, m_I[m_level])
+                      << "\nSection? " << (m_I[m_level].section ? "yes" : "no")
+                      << "\nhave_interval=" << have_interval << ", rfunc.size=" << m_rel.m_rfunc.size() << "\n";
+                  for (unsigned i = 0; i < m_rel.m_rfunc.size(); ++i)
+                      m_am.display(tout << "  rfunc[" << i << "]: ps_idx=" << m_rel.m_rfunc[i].ps_idx << ", val=", m_rel.m_rfunc[i].val) << "\n";
                 );
 
             if (m_I[m_level].section)
@@ -1352,7 +1301,7 @@ namespace nlsat {
                 process_level_sector(have_interval);
         }
 
-        bool poly_has_roots(unsigned i) { return i < usize(m_poly_has_roots) && m_poly_has_roots[i]; }
+        bool poly_has_roots(unsigned i) { return i < vec_get(m_poly_has_roots, i, false); }
         
         void process_top_level() {
             TRACE(lws, display_polys_at_level(tout););
@@ -1384,15 +1333,11 @@ namespace nlsat {
         std_vector<root_function_interval> single_cell_work() {
             TRACE(lws,             
                   tout << "Input polynomials (" << m_P.size() << "):\n";
-                  for (unsigned i = 0; i < m_P.size(); ++i) {
-                      tout << "  p[" << i << "]: ";
-                      m_pm.display(tout, m_P.get(i)) << "\n";
-                  }
+                  for (unsigned i = 0; i < m_P.size(); ++i)
+                      m_pm.display(tout << "  p[" << i << "]: ", m_P.get(i)) << "\n";
                   tout << "Sample values:\n";
-                  for (unsigned j = 0; j < m_n; ++j) {
-                      tout << "  x" << j << " = ";
-                      m_am.display(tout, sample().value(j)) << "\n";
-                  }
+                  for (unsigned j = 0; j < m_n; ++j)
+                      m_am.display(tout << "  x" << j << " = ", sample().value(j)) << "\n";
                 );
 
             if (m_n == 0) return m_I;
@@ -1428,11 +1373,8 @@ namespace nlsat {
             }
 
             TRACE(lws,
-                  for (unsigned i = 0; i < m_I.size(); ++i) {
-                      tout << "I[" << i << "]: ";
-                      display(tout, m_solver, m_I[i]);
-                      tout << "\n";
-                  }
+                  for (unsigned i = 0; i < m_I.size(); ++i)
+                      display(tout << "I[" << i << "]: ", m_solver, m_I[i]) << "\n";
                 );
 
             return m_I;

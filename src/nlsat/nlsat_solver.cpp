@@ -1108,8 +1108,12 @@ namespace nlsat {
             verbose_stream() << "  - The original clauses are satisfied\n";
             verbose_stream() << "  - But ALL literals in the lemma are FALSE\n\n";
             
+            // Display sample point (original solver's assignment)
+            verbose_stream() << "Variable values at SAMPLE point:\n";
+            display_num_assignment(verbose_stream());
+            
             // Display variable values used in the lemma
-            verbose_stream() << "Variable values in counterexample:\n";
+            verbose_stream() << "\nVariable values in counterexample:\n";
             auto lemma_vars = collect_vars_on_clause(n, cls);
             for (var x : lemma_vars) {
                 if (checker.m_assignment.is_assigned(x)) {
