@@ -320,7 +320,7 @@ class sort_size {
     sort_size(kind_t k, uint64_t r):m_kind(k), m_size(r) {}
 public:
     sort_size():m_kind(SS_INFINITE), m_size(0) {}
-    sort_size(uint64_t const & sz):m_kind(SS_FINITE), m_size(sz) {}
+    sort_size(uint64_t sz):m_kind(SS_FINITE), m_size(sz) {}
     explicit sort_size(rational const& r) {
         if (r.is_uint64()) {
             m_kind = SS_FINITE;

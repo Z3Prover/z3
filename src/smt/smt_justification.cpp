@@ -323,9 +323,7 @@ namespace smt {
         std::uninitialized_copy(eqs, eqs + num_eqs, m_eqs);
         DEBUG_CODE(
             for (unsigned i = 0; i < num_eqs; ++i) {
-                enode* n1 = eqs[i].first;
-                enode* n2 = eqs[i].second;
-                SASSERT(n1->get_root() == n2->get_root());
+                SASSERT(eqs[i].first->get_root() == eqs[i].second->get_root());
             }
         );
     }
