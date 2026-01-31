@@ -30,6 +30,7 @@ public:
     mpq(int v) : m_num(v) {}
     mpq() = default;
     mpq(mpq &&) noexcept = default;
+    mpq(mpz && n) noexcept : m_num(std::move(n)) {}
     mpq & operator=(mpq&&) = default;
     mpq & operator=(mpq const&) = delete;
     mpz const & numerator() const { return m_num; }
@@ -557,6 +558,8 @@ public:
         SASSERT(is_int(a) && is_int(b));
         mod(a.m_num, b.m_num, c);
     }
+
+    mpz mod2k(mpz const & a, unsigned k) { return mpz_manager<SYNCH>::mod2k(a, k); }
 
     static unsigned hash(mpz const & a) { return mpz_manager<SYNCH>::hash(a); }
 

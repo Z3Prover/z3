@@ -4391,9 +4391,12 @@ namespace polynomial {
         // select a new random value in GF(p) that is not in vals, and store it in r
         void peek_fresh(scoped_numeral_vector const & vals, unsigned p, scoped_numeral & r) {
             SASSERT(vals.size() < p); // otherwise we can't keep the fresh value
+            SASSERT(m().modular()); // ensure we're in modular mode
             auto sz = vals.size();
             while (true) {
                 m().set(r, rand() % p);
+                m().p_normalize(r.get()); // normalize the value to ensure it's in the correct range
+                SASSERT(m().is_p_normalized(r)); // verify normalization succeeded
                 // check if fresh value...
                 unsigned k = 0;
                 for (; k < sz; ++k) {
