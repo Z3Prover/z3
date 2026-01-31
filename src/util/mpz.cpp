@@ -670,7 +670,7 @@ mpz mpz_manager<SYNCH>::mod2k(mpz const & a, unsigned k) {
     if (rem_bits > 0 && digit_count < ca.cell()->m_size) {
         is_zero &= (digits(result)[digit_count] = ca.cell()->m_digits[digit_count] & mask) == 0;
     }
-    result.m_ptr->m_size = total_digits;
+    result.ptr()->m_size = total_digits;
 
     if (ca.sign() < 0 && !is_zero) {
         // Negative case: if non-zero, result = 2^k - (|a| mod 2^k)
@@ -697,7 +697,7 @@ mpz mpz_manager<SYNCH>::mod2k(mpz const & a, unsigned k) {
     ensure_mpz_t a1(a);
     mk_big(result);
     MPZ_BEGIN_CRITICAL();
-    mpz_tdiv_r_2exp(*result.m_ptr, a1(), k);
+    mpz_tdiv_r_2exp(*result.ptr(), a1(), k);
     MPZ_END_CRITICAL();
 #endif
     return result;
