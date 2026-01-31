@@ -6,7 +6,8 @@ on:
   workflow_dispatch:
 permissions: read-all
 tools:
-  cache-memory: true
+  cache-memory:
+    key: conventions-cache-${{ github.workflow }}-${{ github.run_id }}
   github:
     toolsets: [default]
   view: {}
