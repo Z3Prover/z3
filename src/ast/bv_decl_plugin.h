@@ -461,8 +461,7 @@ public:
     MATCH_UNARY(is_int2bv);
     bool is_bit2bool(expr* e, expr*& bv, unsigned& idx) const;
 
-    rational norm(rational const & val, unsigned bv_size, bool is_signed) const ;
-    rational norm(rational const & val, unsigned bv_size) const { return norm(val, bv_size, false); }
+    rational norm(rational const & val, unsigned bv_size, bool is_signed = false) const ;
     bool has_sign_bit(rational const & n, unsigned bv_size) const;
 };
 

@@ -1979,9 +1979,7 @@ namespace nlsat {
                            << " :propagations " << m_stats.m_propagations 
                            << " :clauses " << m_clauses.size() 
                            << " :learned " << m_learned.size() << ")\n");
-                for (auto const& b : bounds) {
-                    var x = b.first;
-                    rational lo = b.second;
+                for (auto const& [x, lo] : bounds) {
                     rational hi = lo + 1; // rational::one();
                     bool is_even = false;                        
                     polynomial_ref p(m_pm);

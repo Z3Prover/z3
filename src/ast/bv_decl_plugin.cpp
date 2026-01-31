@@ -162,7 +162,7 @@ void bv_decl_plugin::mk_bv_sort(unsigned bv_size) {
             sz = sort_size::mk_very_big();
         }
         else {
-            sz = sort_size(rational::power_of_two(bv_size));
+            sz = sort_size(1ULL << bv_size);
         }
         m_bv_sorts[bv_size] = m_manager->mk_sort(m_bv_sym, sort_info(m_family_id, BV_SORT, sz, 1, &p));
         m_manager->inc_ref(m_bv_sorts[bv_size]);
@@ -836,9 +836,7 @@ rational bv_recognizers::norm(rational const & val, unsigned bv_size, bool is_si
 
 bool bv_recognizers::has_sign_bit(rational const & n, unsigned bv_size) const {
     SASSERT(bv_size > 0);
-    rational m = norm(n, bv_size, false);
-    rational p = rational::power_of_two(bv_size - 1);
-    return m >= p;
+    return numerator(n).get_bit(bv_size - 1) == 1;
 }
 
 bool bv_recognizers::is_bv_sort(sort const * s) const {
