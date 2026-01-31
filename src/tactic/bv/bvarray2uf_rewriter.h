@@ -37,7 +37,7 @@ public:
     ~bvarray2uf_rewriter_cfg();
 
     ast_manager & m() const { return m_manager; }
-    void updt_params(params_ref const & p) {}
+    void updt_params(params_ref const &) {}
 
     void reset();
 

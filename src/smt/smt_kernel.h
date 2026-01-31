@@ -154,10 +154,10 @@ namespace smt {
            \brief control phase selection and variable ordering.
            Base implementation is a no-op.
         */
-        void set_phase(expr * e) { }
+        void set_phase(expr *) { }
         solver::phase* get_phase() { return nullptr; }
-        void set_phase(solver::phase* p) { }
-        void move_to_front(expr* e) { }
+        void set_phase(solver::phase*) { }
+        void move_to_front(expr*) { }
 
         /**
            \brief Return the model associated with the last check command.

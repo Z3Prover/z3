@@ -181,7 +181,7 @@ namespace smt {
         // Set a conflict due to a negative cycle.
         void set_conflict();
                
-        void new_edge(dl_var src, dl_var dst, unsigned num_edges, edge_id const* edges) {}
+        void new_edge(dl_var, dl_var, unsigned, edge_id const*) {}
 
         // Create a new theory variable.
         th_var mk_var(enode* n) override;

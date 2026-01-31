@@ -632,9 +632,9 @@ namespace smt {
         app* mk_value(app* a);
 
         trail_stack& get_trail_stack() { return m_trail_stack; }
-        void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2) {}
-        void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
-        void unmerge_eh(theory_var v1, theory_var v2) {}
+        void merge_eh(theory_var, theory_var, theory_var, theory_var) {}
+        void after_merge_eh(theory_var, theory_var, theory_var, theory_var) { }
+        void unmerge_eh(theory_var, theory_var) {}
 
         // eq_solver callbacks
         void add_consequence(bool uses_eq, expr_ref_vector const& clause) override;

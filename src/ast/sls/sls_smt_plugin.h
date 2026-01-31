@@ -113,7 +113,7 @@ namespace sls {
         void check(expr_ref_vector const& fmls, vector <sat::literal_vector> const& clauses);
         void finalize(model_ref& md, ::statistics& st);
         void get_shared_clauses(vector<sat::literal_vector>& clauses);
-        void updt_params(params_ref& p) {}
+        void updt_params(params_ref&) {}
         std::ostream& display(std::ostream& out) override;
 
         void bounded_run(unsigned max_iterations);

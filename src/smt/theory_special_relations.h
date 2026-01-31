@@ -118,7 +118,7 @@ namespace smt {
             void operator()(literal_vector const & ex) {
                 m_explanation.append(ex);
             }
-            void new_edge(dl_var src, dl_var dst, unsigned num_edges, edge_id const* edges) {}
+            void new_edge(dl_var, dl_var, unsigned, edge_id const*) {}
 
             bool add_strict_edge(theory_var v1, theory_var v2, literal_vector const& j);
             bool add_non_strict_edge(theory_var v1, theory_var v2, literal_vector const& j);

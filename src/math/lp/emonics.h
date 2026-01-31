@@ -138,8 +138,8 @@ public:
         TRACE(nla_solver, tout << "unmerged " << i << " and " << j << "\n";);
     }
     
-    void merge_eh(unsigned r2, unsigned r1, unsigned v2, unsigned v1) {}
-    void after_merge_eh(unsigned r2, unsigned r1, unsigned v2, unsigned v1) {}
+    void merge_eh(unsigned, unsigned, unsigned, unsigned) {}
+    void after_merge_eh(unsigned, unsigned, unsigned, unsigned) {}
 
     void set_propagated(monic const& m);
     void set_bound_propagated(monic const& m);

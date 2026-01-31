@@ -36,7 +36,7 @@ namespace sls {
         void assert_expr(expr* e);
         lbool check();
         model_ref get_model();
-        void updt_params(params_ref& p) {}
+        void updt_params(params_ref&) {}
         void collect_statistics(statistics& st);
         std::ostream& display(std::ostream& out);
         void reset_statistics();

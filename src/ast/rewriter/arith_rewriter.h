@@ -40,7 +40,7 @@ protected:
     bool is_numeral(expr * n) const { return m_util.is_numeral(n); }
     bool is_numeral(expr * n, numeral & r) const { return m_util.is_numeral(n, r); }
     bool is_minus_one(expr * n) const { return m_util.is_minus_one(n); }
-    void normalize(numeral & c, sort * s) {}
+    void normalize(numeral &, sort *) {}
     app * mk_numeral(numeral const & r, sort * s) { return m_util.mk_numeral(r, s); }
     decl_kind add_decl_kind() const { return OP_ADD; }
     decl_kind mul_decl_kind() const { return OP_MUL; }

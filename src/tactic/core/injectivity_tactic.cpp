@@ -150,7 +150,7 @@ class injectivity_tactic : public tactic {
             }
         }
 
-        void updt_params(params_ref const & p) {}
+        void updt_params(params_ref const &) {}
     };
 
     struct rewriter_eq_cfg : public default_rewriter_cfg {

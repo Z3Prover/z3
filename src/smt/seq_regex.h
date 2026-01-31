@@ -189,7 +189,7 @@ namespace smt {
         seq_regex(theory_seq& th);
 
         void push_scope() {}
-        void pop_scope(unsigned num_scopes) {}
+        void pop_scope(unsigned) {}
         bool can_propagate() const { return false; }
         bool propagate() const { return false; }
 

@@ -272,7 +272,7 @@ struct enum2bv_rewriter::imp {
         m_rw(*this, m, p) {
     }
 
-    void updt_params(params_ref const & p) {}
+    void updt_params(params_ref const &) {}
     unsigned get_num_steps() const { return m_rw.get_num_steps(); }
     void cleanup() { m_rw.cleanup(); }
     void operator()(expr * e, expr_ref & result, proof_ref & result_proof) {

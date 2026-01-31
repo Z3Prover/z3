@@ -53,8 +53,8 @@ public:
     // Setters
     void set_lower(interval & a, numeral const & n) { m_manager.set(a.m_lower, n); }
     void set_upper(interval & a, numeral const & n) { m_manager.set(a.m_upper, n); }
-    void set_lower_is_open(interval & a, bool v) {}
-    void set_upper_is_open(interval & a, bool v) {}
+    void set_lower_is_open(interval &, bool) {}
+    void set_upper_is_open(interval &, bool) {}
     void set_lower_is_inf(interval & a, bool v) { if (v) m_manager.m().mk_ninf(m_manager.ebits(), m_manager.sbits(), a.m_lower); }
     void set_upper_is_inf(interval & a, bool v) { if (v) m_manager.m().mk_pinf(m_manager.ebits(), m_manager.sbits(), a.m_upper); }
     

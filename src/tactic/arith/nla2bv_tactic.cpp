@@ -79,7 +79,7 @@ class nla2bv_tactic : public tactic {
             m_default_bv_size = m_num_bits = p.get_uint("nla2bv_bv_size", 4);
         }
 
-        void updt_params(params_ref const& p)  {} 
+        void updt_params(params_ref const&)  {} 
         
         void operator()(goal & g, model_converter_ref & mc) {
             TRACE(nla2bv, g.display(tout);

@@ -51,8 +51,8 @@ public:
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
 
-    void updt_params(params_ref const & p) {}
-    static void get_param_descrs(param_descrs & r) {}
+    void updt_params(params_ref const &) {}
+    static void get_param_descrs(param_descrs &) {}
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
 
