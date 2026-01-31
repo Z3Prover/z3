@@ -98,12 +98,9 @@ protected:
     friend class mpbq_manager;
     friend class mpz_stack;
 public:
-    mpz(int v):m_val(v), m_kind(mpz_small), m_owner(mpz_self), m_ptr(nullptr) {}
-    mpz():m_val(0), m_kind(mpz_small), m_owner(mpz_self), m_ptr(nullptr) {}
-    mpz(mpz_type* ptr): m_val(0), m_kind(mpz_small), m_owner(mpz_ext), m_ptr(ptr) { SASSERT(ptr);}
-    mpz(mpz && other) noexcept : m_val(other.m_val), m_kind(other.m_kind), m_owner(other.m_owner), m_ptr(nullptr) {
-        std::swap(m_ptr, other.m_ptr);
-    }
+    mpz(int v = 0) noexcept : m_val(v), m_kind(mpz_small), m_owner(mpz_self), m_ptr(nullptr) {}
+    mpz(mpz_type* ptr) noexcept : m_val(0), m_kind(mpz_small), m_owner(mpz_ext), m_ptr(ptr) { SASSERT(ptr); }
+    mpz(mpz && other) noexcept : mpz() { swap(other); }
 
     mpz& operator=(mpz const& other) = delete;
     mpz& operator=(mpz &&other) noexcept {
@@ -390,7 +387,7 @@ class mpz_manager {
     int big_compare(mpz const & a, mpz const & b);
 
 public:
-    unsigned size_info(mpz const & a);
+    static unsigned size_info(mpz const & a);
     struct sz_lt;
 
     static bool precise() { return true; }
@@ -437,6 +434,8 @@ public:
     void div(mpz const & a, mpz const & b, mpz & c);
 
     void mod(mpz const & a, mpz const & b, mpz & c);
+
+    mpz mod2k(mpz const & a, unsigned k);
 
     void neg(mpz & a);
 
