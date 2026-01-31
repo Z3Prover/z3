@@ -935,6 +935,9 @@ namespace smt {
         m_lit_scores[0].reserve(v + 1);
         m_lit_scores[1].reserve(v + 1);
         m_lit_scores[0][v] = m_lit_scores[1][v] = 0.0;
+        m_phase_scores[0].reserve(v + 1);
+        m_phase_scores[1].reserve(v + 1);
+        m_phase_scores[0][v] = m_phase_scores[1][v] = 0.0;
 
         literal l(v, false);
         literal not_l(v, true);
