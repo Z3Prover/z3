@@ -162,7 +162,7 @@ void bv_decl_plugin::mk_bv_sort(unsigned bv_size) {
             sz = sort_size::mk_very_big();
         }
         else {
-            sz = sort_size(rational::power_of_two(bv_size));
+            sz = sort_size(1ULL << bv_size);
         }
         m_bv_sorts[bv_size] = m_manager->mk_sort(m_bv_sym, sort_info(m_family_id, BV_SORT, sz, 1, &p));
         m_manager->inc_ref(m_bv_sorts[bv_size]);
