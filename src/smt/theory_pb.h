@@ -249,7 +249,6 @@ namespace smt {
 
             card_watch*  m_lit_cwatch[2] = { nullptr, nullptr };
             card*        m_card = nullptr;
-        };
 
             void reset() {
                 dealloc(m_lit_watch[0]);
