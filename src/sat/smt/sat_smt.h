@@ -37,7 +37,6 @@ namespace sat {
         }
 
     public:
-        constraint_base() = default;
         void*  mem() { return m_mem; }
 
         static size_t obj_size(size_t sz) { 

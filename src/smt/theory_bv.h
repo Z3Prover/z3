@@ -55,7 +55,6 @@ namespace smt {
 
         struct bit_atom : public atom {
             var_pos_occ * m_occs = nullptr;
-            bit_atom() = default;
             bool is_bit() const override { return true; }
         };
 

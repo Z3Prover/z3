@@ -32,7 +32,6 @@ class mk_fresh_name {
     char       m_char = 'A';
     unsigned   m_num = 0;
 public:
-    mk_fresh_name() = default;
     void add(ast* a);
     void add(symbol const& s) { m_symbols.insert(s); }
     symbol next();

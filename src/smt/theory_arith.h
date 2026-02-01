@@ -192,7 +192,6 @@ namespace smt {
             unsigned           m_size = 0; 
             int                m_first_free_idx = -1;
             
-            column() = default;
             unsigned size() const { return m_size; }
             unsigned num_entries() const { return m_entries.size(); }
             void reset();
@@ -245,7 +244,6 @@ namespace smt {
             void init();
 
         public:
-            antecedents_t() = default;
             void reset();
             literal_vector const& lits() const { return m_lits; }
             eq_vector const& eqs() const { return m_eqs; }
