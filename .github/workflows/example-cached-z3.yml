@@ -1,0 +1,87 @@
+name: Example - Using Cached Z3
+
+# This is an example workflow demonstrating how to use the cached Z3 build
+# It can be used as a template for other workflows that need Z3
+
+on:
+  workflow_dispatch:  # Manual trigger only for testing
+
+permissions:
+  contents: read
+
+jobs:
+  test-with-cached-z3:
+    name: "Test Z3 with cache"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      # Restore Z3 from cache
+      - name: Restore Z3 cache
+        id: cache-z3
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/z3
+            build/libz3.so
+            build/libz3.a
+            build/*.so
+            build/*.a
+            build/python
+          key: z3-build-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            z3-build-${{ runner.os }}-
+
+      # Only build if cache miss
+      - name: Build Z3 (if not cached)
+        if: steps.cache-z3.outputs.cache-hit != 'true'
+        run: |
+          echo "Cache miss - building Z3 from source"
+          python scripts/mk_make.py
+          cd build
+          make -j$(nproc)
+
+      # Verify Z3 is working
+      - name: Verify Z3
+        run: |
+          echo "Z3 binary location:"
+          ls -lh build/z3
+          echo ""
+          echo "Z3 version:"
+          build/z3 --version
+          echo ""
+          echo "Testing Z3 with simple formula:"
+          echo "(declare-const x Int)(assert (> x 0))(check-sat)(get-model)" | build/z3 -in
+
+      # Example: Use Z3 to solve a problem
+      - name: Test Z3 functionality
+        run: |
+          # Create a test SMT2 file
+          cat > test.smt2 << 'EOF'
+          (declare-const x Int)
+          (declare-const y Int)
+          (assert (> x 0))
+          (assert (< y 10))
+          (assert (= (+ x y) 15))
+          (check-sat)
+          (get-model)
+          EOF
+          
+          echo "Running Z3 on test problem:"
+          build/z3 test.smt2
+          
+      - name: Report cache status
+        run: |
+          if [ "${{ steps.cache-z3.outputs.cache-hit }}" == "true" ]; then
+            echo "✅ Z3 was restored from cache - saved ~15 minutes of build time!"
+          else
+            echo "⚠️ Z3 was built from source - consider running the build-z3-cache workflow first"
+          fi
