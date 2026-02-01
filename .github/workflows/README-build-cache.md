@@ -177,7 +177,7 @@ jobs:
 - **Retention**: Caches are removed after 7 days without being accessed
 - **Repository Limit**: Total cache size per repository is limited to 10GB
 - **Eviction**: Least Recently Used (LRU) caches are evicted when the limit is reached
-- **Size per Entry**: Each Z3 build cache is approximately 68MB (z3: 34MB, libz3.so: 33MB, python: 2MB)
+- **Size per Entry**: Each Z3 build cache is approximately 70MB (z3 executable, libz3 libraries, and Python bindings)
 
 **This Workflow's Strategy:**
 - **Daily Schedule**: Runs daily at 2 AM UTC to refresh the cache

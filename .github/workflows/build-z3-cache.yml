@@ -55,6 +55,8 @@ jobs:
             build/*.a
             build/python
           key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: |
+            z3-build-${{ runner.os }}-
 
       - name: Configure Z3
         if: steps.cache-z3.outputs.cache-hit != 'true'
