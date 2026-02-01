@@ -322,6 +322,9 @@ namespace datatype {
                     }
                 }
 
+                // Check if the datatype has already been registered with a different number of parameters.
+                // Note: num_parameters includes the datatype name as the first parameter, so we subtract 1
+                // to compare with the def's parameter count which doesn't include the name.
                 def* d = nullptr;
                 if (m_defs.find(name.get_symbol(), d) && d->params().size() != num_parameters - 1) {
                     throw default_exception("datatype has already been registered but with a different number of parameters");
