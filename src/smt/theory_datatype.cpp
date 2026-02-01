@@ -975,8 +975,7 @@ namespace smt {
 
         // DFS traversal from `n`. Look at top element and explore it.
         while (!res && !m_stack.empty()) {
-            stack_op op = m_stack.back().first;
-            enode * app = m_stack.back().second;
+            auto [op, app] = m_stack.back();
             m_stack.pop_back();
 
             if (oc_cycle_free(app))
