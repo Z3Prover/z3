@@ -46,8 +46,7 @@ namespace sat {
         SASSERT(!stack.empty());
         unsigned sz = stack.size();
         for (unsigned i = sz; i-- > 0; ) {
-            unsigned csz = stack[i].first;
-            literal lit = stack[i].second;
+            auto [csz, lit] = stack[i];
             bool sat = false;
             for (unsigned j = 0; !sat && j < csz; ++j) {
                 sat = value_at(c[j], m) == l_true;
@@ -317,7 +316,8 @@ namespace sat {
                     elim_stackv const& stack = st->stack();
                     unsigned sz = stack.size();
                     for (unsigned i = sz; i-- > 0; ) {
-                        out << "\n   " << stack[i].first << " " << stack[i].second;
+                        auto [csz, lit] = stack[i];
+                        out << "\n   " << csz << " " << lit;
                     }
                 }
                 ++index;
@@ -385,9 +385,7 @@ namespace sat {
                     if (st) {
                         // clause sizes increase, so we can always swap
                         // the blocked literal to the front from the prefix.
-                        for (auto const& p : st->stack()) {
-                            unsigned csz = p.first;
-                            literal lit = p.second;
+                        for (auto const& [csz, lit] : st->stack()) {
                             swap(lit.var(), csz, clause);
                             update_stack.append(csz, clause.data());
                             update_stack.push_back(null_literal);
