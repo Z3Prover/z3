@@ -554,52 +554,6 @@ namespace nlsat {
             }
         }
 
-        // Compute noDisc for same_boundary_poly case (sector with same lower/upper poly).
-        // When lower and upper bounds come from the same polynomial t, non-bound polynomials
-        // can omit their discriminant IF they don't vanish at sample AND their discriminant
-        // is non-zero at sample.
-        //
-        // Theory: If poly p doesn't vanish at sample, all its roots are on one side of the sample.
-        // Sign(p at sample) = sign(LC) * (-1)^(#roots below). If roots coincide (disc=0),
-        // two roots merge/disappear, parity changes by 2, sign unchanged. So disc not needed.
-        //
-        // However, if disc(p) = 0 at sample, p has a multiple root that can SPLIT when parameters
-        // change. When a double root splits, it creates two distinct roots, potentially one on
-        // each side of the sample, causing a sign change. So we must keep disc when disc=0.
-        //
-        // Example: p = (x-1)^2 at sample has disc=0. If it splits to (x-1)(x-9), the sample
-        // at x=5 has different sign than before.
-        void compute_omit_disc_for_same_boundary() {
-            m_omit_disc.clear();
-            m_omit_disc.resize(m_level_ps.size(), false);
-            if (!same_boundary_poly())
-                return;
-
-            unsigned bound_idx = lower_bound_idx();
-
-            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
-                // Skip boundary polynomial
-                if (i == bound_idx)
-                    continue;
-                // Only skip if poly is not ORD-required
-                if (get_req(i) == inv_req::ord)
-                    continue;
-                // Only skip if poly has roots (rootless needs disc to stay rootless)
-                if (!poly_has_roots(i))
-                    continue;
-                poly* p = m_level_ps.get(i);
-                polynomial_ref p_ref(p, m_pm);
-                // Keep disc if poly vanishes at sample (root coincides with boundary)
-                if (m_am.eval_sign_at(p_ref, sample()) == 0)
-                    continue;
-                // Keep disc if discriminant is zero at sample (multiple root can split)
-                polynomial_ref disc = psc_discriminant(p_ref, m_level);
-                if (disc && !is_const(disc) && m_am.eval_sign_at(disc, sample()) == 0)
-                    continue;
-                m_omit_disc[i] = true;
-            }
-        }
-
         // ----------------------------------------------------------------------------
         // noLdcf heuristic helpers
         // ----------------------------------------------------------------------------
@@ -1263,16 +1217,8 @@ namespace nlsat {
                     fill_relation_sector_spanning_tree();
                     compute_omit_disc_for_spanning_tree();
                     m_rel_mode = spanning_tree;
-                } else {
-                    fill_relation_sector_biggest_cell();
-                    // For same_boundary_poly, compute disc omission
-                    if (same_boundary_poly())
-                        compute_omit_disc_for_same_boundary();
-                    // TODO: Could also drop discriminants for single-side leaves in biggest_cell mode.
-                    // A leaf p with all roots on one side (e.g., below lb) has sign at sample determined
-                    // solely by being above/below all roots - internal root ordering doesn't matter.
-                    // SMT-RAT doesn't implement this, but it should be theoretically sound.
-                }
+                } else 
+                    fill_relation_sector_biggest_cell();                    
                 compute_omit_lc_both_sides(m_rel_mode == spanning_tree);
                 
                 SASSERT(relation_invariant());
