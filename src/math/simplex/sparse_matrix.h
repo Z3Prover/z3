@@ -80,7 +80,7 @@ namespace simplex {
                 int m_next_free_col_entry_idx;
             };
             col_entry(int r, int i): m_row_id(r), m_row_idx(i) {}
-            col_entry() = default;            
+            col_entry(): m_row_idx(0) {}            
             bool is_dead() const { return (unsigned) m_row_id == dead_id; }
         };
      
