@@ -134,20 +134,18 @@ protected:
     friend class mpbq_manager;
     friend class mpz_stack;
 public:
-    mpz(int v) {
+    mpz(int v = 0) noexcept {
         // Encode small integer: shift left by 1 and set bit 0
         m_value = (static_cast<uintptr_t>(static_cast<intptr_t>(v)) << 1) | SMALL_BIT;
     }
     
-    mpz() : m_value(SMALL_BIT) {} // 0 encoded as small integer
-    
-    mpz(mpz_type* ptr) {
+    mpz(mpz_type* ptr) noexcept {
         SASSERT(ptr);
         set_ptr(ptr, false, true); // external pointer, non-negative
     }
     
-    mpz(mpz && other) noexcept : m_value(other.m_value) {
-        other.m_value = SMALL_BIT; // Reset other to 0
+    mpz(mpz && other) noexcept : mpz() {
+        swap(other);
     }
 
     mpz& operator=(mpz const& other) = delete;
