@@ -444,7 +444,7 @@ void mpz_manager<SYNCH>::set_digits(mpz & target, unsigned sz, digit_t const * d
         set(target, digits[0]);
     else {
 #ifndef _MP_GMP
-        mpz_cell* cell = target.ptr();
+        mpz_cell* cell = target.is_small() ? nullptr : target.ptr();
         if (cell == nullptr) {
             unsigned c = sz < m_init_cell_capacity ? m_init_cell_capacity : sz;
             cell                = allocate(c);
