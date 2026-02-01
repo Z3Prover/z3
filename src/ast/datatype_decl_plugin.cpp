@@ -321,10 +321,14 @@ namespace datatype {
                         throw invalid_datatype();
                     }
                 }
+
+                def* d = nullptr;
+                if (m_defs.find(name.get_symbol(), d) && d->params().size() != num_parameters - 1) {
+                    throw default_exception("datatype has already been registered but with a different number of parameters");
+                }
                                 
                 sort* s = m_manager->mk_sort(name.get_symbol(),
                                              sort_info(m_family_id, k, num_parameters, parameters, true));
-                def* d = nullptr;
                 if (m_defs.find(s->get_name(), d) && d->sort_size() && d->params().size() == num_parameters - 1) {
                     obj_map<sort, sort_size> S;
                     for (unsigned i = 0; i + 1 < num_parameters; ++i) {
@@ -343,6 +347,10 @@ namespace datatype {
             }
             catch (const invalid_datatype &) {
                 m_manager->raise_exception("invalid datatype");
+                return nullptr;
+            }
+            catch (const default_exception & ex) {
+                m_manager->raise_exception(ex.what());
                 return nullptr;
             }
         }
