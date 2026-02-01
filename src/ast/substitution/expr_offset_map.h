@@ -28,8 +28,7 @@ template<typename T>
 class expr_offset_map {
     struct data {
         T        m_data;
-        unsigned m_timestamp;
-        data():m_timestamp(0) {}
+        unsigned m_timestamp = 0;
     };
     vector<svector<data> > m_map;
     unsigned               m_timestamp;
