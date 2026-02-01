@@ -126,30 +126,33 @@ namespace smt {
             if (m_config.m_backbones) {
                 LOG_WORKER(1, " BACKBONE DETECTION\n");
                 expr_ref_vector backbone_candidates = find_backbone_candidates();
-                if (!backbone_candidates.empty()) { // TODO: avoid splitting on backbones
-                    for (expr* bb : backbone_candidates) {
-                        // Set the phase of the candidates to the negation of their assumed values
-                        bool phase = false;
-                        if (m.is_not(bb))
-                            phase = true;
+                for (expr* bb : backbone_candidates) { // TODO: avoid splitting on backbones
+                    // Set the phase of the candidates to the negation of their assumed values
+                    LOG_WORKER(1, " backbone candidate: " << mk_bounded_pp(bb, m, 3) << "\n");
+                    expr* atom = bb;
+                    bool phase = false;
 
-                        sat::bool_var v = ctx->get_bool_var(bb);
-                        ctx->force_phase(v, phase);
-                        LOG_WORKER(1, " backbone candidate forced phase: " << mk_bounded_pp(bb, m, 3) << " := " << (phase ? "true" : "false") << "\n");
-
-                        auto const& activities = ctx->get_activity_vector();
-                        double max_activity = 0.0;
-                        for (unsigned i = 0; i < activities.size(); ++i)
-                            max_activity = std::max(max_activity, activities[i]);
-
-                        original_activities.insert(v, ctx->get_activity(v));
-
-                        // Promote this candidate above all others
-                        unsigned eps = 1.0;
-                        ctx->set_activity(v, max_activity + eps);
-
-                        LOG_WORKER(1, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
+                    if (m.is_not(atom)) {
+                        phase = true;
+                        atom = to_app(atom)->get_arg(0);
                     }
+
+                    sat::bool_var v = ctx->get_bool_var(atom);
+                    ctx->force_phase(v, phase);
+                    LOG_WORKER(1, " backbone candidate forced phase: " << mk_bounded_pp(bb, m, 3) << " := " << (phase ? "true" : "false") << "\n");
+
+                    auto const& activities = ctx->get_activity_vector();
+                    double max_activity = 0.0;
+                    for (unsigned i = 0; i < activities.size(); ++i)
+                        max_activity = std::max(max_activity, activities[i]);
+
+                    original_activities.insert(v, ctx->get_activity(v));
+
+                    // Promote this candidate above all others
+                    double eps = 1.0;
+                    ctx->set_activity(v, max_activity + eps);
+
+                    LOG_WORKER(1, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
                 }
                 if (!m.inc()) {
                     b.set_exception("context cancelled");
@@ -159,17 +162,17 @@ namespace smt {
 
             lbool r = check_cube(cube);
 
+            if (!m.inc()) {
+                b.set_exception("context cancelled");
+                return;
+            }
+
             if (m_config.m_backbones) {
                 // Restore activities of backbone candidates to old values after the search
                 for (auto const& [v, act] : original_activities) {
                     ctx->set_activity(v, act);
                     ctx->unforce_phase(v); // TODO: is this needed?
                 }
-            }
-
-            if (!m.inc()) {
-                b.set_exception("context cancelled");
-                return;
             }
 
             switch (r) {
@@ -271,8 +274,6 @@ namespace smt {
 
             double score_ratio = INFINITY; // score_pos / score_neg;
 
-            LOG_WORKER(1, " backbone candidate: " << mk_bounded_pp(candidate, m, 3) << " score_pos " << score_pos << " score_neg " << score_neg << "\n");
-
             // if score_neg is zero (and thus score_pos > 0 since at this point score_pos != score_neg)
             // then not(e) is a backbone candidate with score_ratio=infinity
             if (score_neg == 0) { 
@@ -307,13 +308,10 @@ namespace smt {
         for (auto& p : top_k)
             backbone_candidates.push_back(p.second);
         
-        for (expr* e : backbone_candidates)
-            LOG_WORKER(1, "selected backbone candidate: " << mk_bounded_pp(e, m, 3) << " head size " << ctx->m_lit_scores->size() << " num vars " << ctx->get_num_bool_vars() << "\n");
-
         return backbone_candidates;
     }
 
-        // 
+    // 
     // Assume the negation of all candidates (or a batch of them)
     // run the solver with a low budget of conflicts
     // if the unsat core contains a single candidate we have found a backbone literal
@@ -322,7 +320,7 @@ namespace smt {
         expr_ref_vector backbones(m);
         unsigned sz = asms.size();
 
-        // Push ALL candidate negations (Strategy 1 batch)
+        // Push ALL candidate negations
         for (expr* e : candidates) {
             asms.push_back(m.mk_not(e));
         }
@@ -352,9 +350,8 @@ namespace smt {
 
         if (r == l_false) {
             auto core = ctx->unsat_core();
-            LOG_WORKER(1, "UNSAT CORE: " << core << "\n");
 
-            // Strategy 1: every literal in the core is a backbone
+            // every literal in the core is a backbone
             for (expr* a : core) {
                 // a is ¬e  →  e is backbone
                 backbones.push_back(mk_not(m, a));
