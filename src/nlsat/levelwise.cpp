@@ -554,15 +554,21 @@ namespace nlsat {
             }
         }
 
-        // Compute noDisc for same_boundary_poly case (section case).
+        // Compute noDisc for same_boundary_poly case (sector with same lower/upper poly).
         // When lower and upper bounds come from the same polynomial t, non-bound polynomials
-        // can omit their discriminant IF they don't vanish at sample.
+        // can omit their discriminant IF they don't vanish at sample AND their discriminant
+        // is non-zero at sample.
         //
-        // Theory: If poly p doesn't vanish at sample, all its roots are on one side of t's root.
+        // Theory: If poly p doesn't vanish at sample, all its roots are on one side of the sample.
         // Sign(p at sample) = sign(LC) * (-1)^(#roots below). If roots coincide (disc=0),
         // two roots merge/disappear, parity changes by 2, sign unchanged. So disc not needed.
         //
-        // But if p vanishes at sample, it has a root coinciding with t's root - keep disc.
+        // However, if disc(p) = 0 at sample, p has a multiple root that can SPLIT when parameters
+        // change. When a double root splits, it creates two distinct roots, potentially one on
+        // each side of the sample, causing a sign change. So we must keep disc when disc=0.
+        //
+        // Example: p = (x-1)^2 at sample has disc=0. If it splits to (x-1)(x-9), the sample
+        // at x=5 has different sign than before.
         void compute_omit_disc_for_same_boundary() {
             m_omit_disc.clear();
             m_omit_disc.resize(m_level_ps.size(), false);
@@ -581,9 +587,14 @@ namespace nlsat {
                 // Only skip if poly has roots (rootless needs disc to stay rootless)
                 if (!poly_has_roots(i))
                     continue;
-                // Keep disc if poly vanishes at sample (root coincides with section poly)
                 poly* p = m_level_ps.get(i);
-                if (m_am.eval_sign_at(polynomial_ref(p, m_pm), sample()) == 0)
+                polynomial_ref p_ref(p, m_pm);
+                // Keep disc if poly vanishes at sample (root coincides with boundary)
+                if (m_am.eval_sign_at(p_ref, sample()) == 0)
+                    continue;
+                // Keep disc if discriminant is zero at sample (multiple root can split)
+                polynomial_ref disc = psc_discriminant(p_ref, m_level);
+                if (disc && !is_const(disc) && m_am.eval_sign_at(disc, sample()) == 0)
                     continue;
                 m_omit_disc[i] = true;
             }
