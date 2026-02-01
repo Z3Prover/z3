@@ -391,6 +391,94 @@ public class Solver extends Z3Object {
     }
 
     /**
+     * Retrieve the trail and their associated decision levels after a {@code check} call.
+     * The trail contains Boolean literals (decisions and propagations), and the levels
+     * array contains the corresponding decision levels at which each literal was assigned.
+     * 
+     * @return An array where index i contains the decision level for trail[i]
+     * @throws Z3Exception
+     **/
+    public int[] getTrailLevels()
+    {
+        BoolExpr[] trail = getTrail();
+        ASTVector trailVector = new ASTVector(getContext(), Native.solverGetTrail(getContext().nCtx(), getNativeObject()));
+        int[] levels = new int[trail.length];
+        Native.solverGetLevels(getContext().nCtx(), getNativeObject(), trailVector.getNativeObject(), trail.length, levels);
+        return levels;
+    }
+
+    /**
+     * Return a sequence of cubes (arrays of Boolean expressions) for partitioning the search space.
+     * This is primarily useful for cube-and-conquer parallel SAT solving strategies.
+     * The iterator yields cubes until the search space is exhausted.
+     * 
+     * @param vars Optional array of variables to use as initial cube variables. If null, solver decides.
+     * @param cutoff Backtrack level cutoff for cube generation
+     * @return Iterator over arrays of Boolean expressions representing cubes
+     * @throws Z3Exception
+     **/
+    public java.util.Iterator<BoolExpr[]> cube(Expr<?>[] vars, int cutoff)
+    {
+        ASTVector cubeVars = new ASTVector(getContext());
+        if (vars != null) {
+            for (Expr<?> v : vars) {
+                cubeVars.push(v);
+            }
+        }
+        
+        return new java.util.Iterator<BoolExpr[]>() {
+            private BoolExpr[] nextCube = computeNext();
+            
+            private BoolExpr[] computeNext() {
+                ASTVector result = new ASTVector(getContext(), 
+                    Native.solverCube(getContext().nCtx(), getNativeObject(), 
+                                     cubeVars.getNativeObject(), cutoff));
+                BoolExpr[] cube = result.ToBoolExprArray();
+                
+                // Check for termination conditions
+                if (cube.length == 1 && cube[0].isFalse()) {
+                    return null; // No more cubes
+                }
+                if (cube.length == 0) {
+                    return null; // Search space exhausted
+                }
+                return cube;
+            }
+            
+            @Override
+            public boolean hasNext() {
+                return nextCube != null;
+            }
+            
+            @Override
+            public BoolExpr[] next() {
+                if (nextCube == null) {
+                    throw new java.util.NoSuchElementException();
+                }
+                BoolExpr[] current = nextCube;
+                nextCube = computeNext();
+                return current;
+            }
+        };
+    }
+
+    /**
+     * Set an initial value for a variable to guide the solver's search heuristics.
+     * This can improve performance when good initial values are known for the problem domain.
+     * 
+     * @param var The variable to set an initial value for
+     * @param value The initial value for the variable
+     * @throws Z3Exception
+     **/
+    public void setInitialValue(Expr<?> var, Expr<?> value)
+    {
+        getContext().checkContextMatch(var);
+        getContext().checkContextMatch(value);
+        Native.solverSetInitialValue(getContext().nCtx(), getNativeObject(), 
+                                     var.getNativeObject(), value.getNativeObject());
+    }
+
+    /**
      * Create a clone of the current solver with respect to{@code ctx}.
      */
     public Solver translate(Context ctx) 
