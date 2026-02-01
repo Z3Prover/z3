@@ -93,12 +93,12 @@ namespace dd {
                 m_index(0)
             {}
 
-            node(): m_refcount(0), m_level(0), m_lo(0), m_hi(0), m_index(0) {}
-            unsigned m_refcount : 10;
-            unsigned m_level : 22;
-            PDD      m_lo;
-            PDD      m_hi;
-            unsigned m_index;
+            node() = default;
+            unsigned m_refcount : 10 = 0;
+            unsigned m_level : 22 = 0;
+            PDD      m_lo = 0;
+            PDD      m_hi = 0;
+            unsigned m_index = 0;
             unsigned hash() const { return mk_mix(m_level, m_lo, m_hi); } 
             bool is_val() const { return m_hi == 0 && (m_lo != 0 || m_index == 0); }
             bool is_internal() const { return m_hi == 0 && m_lo == 0 && m_index != 0; }
