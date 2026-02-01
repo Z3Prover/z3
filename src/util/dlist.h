@@ -32,7 +32,6 @@ class dll_base {
 
 protected:
     dll_base() = default;
-    ~dll_base() = default;
 
 public:
     dll_base(dll_base const&) = delete;
