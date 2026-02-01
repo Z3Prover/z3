@@ -554,10 +554,15 @@ namespace nlsat {
             }
         }
 
-        // Compute noDisc for same_boundary_poly case.
-        // When lower and upper bounds come from the same polynomial, non-bound polynomials
-        // with roots (but not ORD requirement) can omit their discriminant.
-        // Rootless polynomials must keep discriminant to ensure they stay rootless.
+        // Compute noDisc for same_boundary_poly case (section case).
+        // When lower and upper bounds come from the same polynomial t, non-bound polynomials
+        // can omit their discriminant IF they don't vanish at sample.
+        //
+        // Theory: If poly p doesn't vanish at sample, all its roots are on one side of t's root.
+        // Sign(p at sample) = sign(LC) * (-1)^(#roots below). If roots coincide (disc=0),
+        // two roots merge/disappear, parity changes by 2, sign unchanged. So disc not needed.
+        //
+        // But if p vanishes at sample, it has a root coinciding with t's root - keep disc.
         void compute_omit_disc_for_same_boundary() {
             m_omit_disc.clear();
             m_omit_disc.resize(m_level_ps.size(), false);
@@ -575,6 +580,10 @@ namespace nlsat {
                     continue;
                 // Only skip if poly has roots (rootless needs disc to stay rootless)
                 if (!poly_has_roots(i))
+                    continue;
+                // Keep disc if poly vanishes at sample (root coincides with section poly)
+                poly* p = m_level_ps.get(i);
+                if (m_am.eval_sign_at(polynomial_ref(p, m_pm), sample()) == 0)
                     continue;
                 m_omit_disc[i] = true;
             }
@@ -718,7 +727,7 @@ namespace nlsat {
                     upper_root_idx = i;
             unsigned lower_root_idx = both.size() - 1;
             
-            // Process in order of lower_rf (sorted order)
+            // Process in order of lower_rf 
             // First element (index 0) has min lower_rf
             for (unsigned a_idx = 0; a_idx < both.size() - 1; ++a_idx) {
                 // Find c = element with min upper_rf among all elements except a_idx
@@ -736,6 +745,7 @@ namespace nlsat {
                 m_rel.m_pairs.insert({std::min(ps_a, ps_c), std::max(ps_a, ps_c)});
             }
 
+            
             // Check arborescence invariants
             auto arb_invariant = [&]() {
                 // Reconstruct parent[] from the algorithm logic
