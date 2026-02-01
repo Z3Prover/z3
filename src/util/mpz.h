@@ -395,9 +395,6 @@ class mpz_manager {
         if (a.is_small()) {
             a.set_ptr(allocate(), false, false); // positive, owned
         }
-        else if (a.ptr() == nullptr) {
-            a.set_ptr(allocate(), false, false); // positive, owned
-        }
         // else already large with valid pointer
     }
 
