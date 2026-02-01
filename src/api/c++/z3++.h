@@ -3773,7 +3773,9 @@ namespace z3 {
         array<Z3_sort> _sorts(n);
         array<unsigned> _num_params(n);
         array<Z3_constructor_list> _cons(n);
-        std::vector<array<Z3_sort>> _params_vec;
+        
+        // Use unique_ptr to manage array lifetimes since array is non-copyable
+        std::vector<std::unique_ptr<array<Z3_sort>>> _params_vec;
         std::vector<Z3_sort const*> _params_ptrs;
         
         _params_vec.reserve(n);
@@ -3782,8 +3784,8 @@ namespace z3 {
         for (unsigned i = 0; i < n; ++i) {
             _names[i] = names[i];
             _num_params[i] = params[i].size();
-            _params_vec.emplace_back(params[i]);
-            _params_ptrs.push_back(_params_vec[i].ptr());
+            _params_vec.push_back(std::unique_ptr<array<Z3_sort>>(new array<Z3_sort>(params[i])));
+            _params_ptrs.push_back(_params_vec[i]->ptr());
             _cons[i] = *cons[i];
         }
         Z3_mk_polymorphic_datatypes(*this, n, _names.ptr(), _num_params.ptr(), _params_ptrs.data(), _sorts.ptr(), _cons.ptr());
