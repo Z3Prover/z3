@@ -37,14 +37,14 @@ namespace opt {
 
     // Adjust bound bound |-> m_offset + (m_negate?-1:1)*bound
     class adjust_value {
-        rational m_offset;
-        bool     m_negate;
+        rational m_offset = 0;
+        bool     m_negate = false;
     public:
         adjust_value(rational const& offset, bool neg):
             m_offset(offset),
             m_negate(neg)
         {}
-        adjust_value(): m_offset(0), m_negate(false) {}
+        adjust_value() = default;
         void set_offset(rational const& o) { m_offset = o; }
         void set_negate(bool neg) { m_negate = neg; }
         rational const& get_offset() const { return m_offset; }

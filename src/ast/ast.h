@@ -315,11 +315,11 @@ class sort_size {
         // of elements is at least bigger than 2^64.
         SS_FINITE_VERY_BIG,
         SS_INFINITE
-    } m_kind;
-    uint64_t m_size; // It is only meaningful if m_kind == SS_FINITE
+    } m_kind = SS_INFINITE;
+    uint64_t m_size = 0; // It is only meaningful if m_kind == SS_FINITE
     sort_size(kind_t k, uint64_t r):m_kind(k), m_size(r) {}
 public:
-    sort_size():m_kind(SS_INFINITE), m_size(0) {}
+    sort_size() = default;
     sort_size(uint64_t sz):m_kind(SS_FINITE), m_size(sz) {}
     explicit sort_size(rational const& r) {
         if (r.is_uint64()) {

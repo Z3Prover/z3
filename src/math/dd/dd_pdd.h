@@ -160,13 +160,13 @@ namespace dd {
                 m_rest(UINT_MAX)
             {}
 
-            factor_entry(): m_p(0), m_v(0), m_degree(0), m_lc(UINT_MAX), m_rest(UINT_MAX) {}
+            factor_entry() = default;
 
-            PDD m_p;            // input
-            unsigned m_v;       // input
-            unsigned m_degree;  // input
-            PDD m_lc;           // output
-            PDD m_rest;         // output
+            PDD m_p = 0;            // input
+            unsigned m_v = 0;       // input
+            unsigned m_degree = 0;  // input
+            PDD m_lc = UINT_MAX;           // output
+            PDD m_rest = UINT_MAX;         // output
 
             bool is_valid() { return m_lc != UINT_MAX; }
 

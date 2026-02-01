@@ -115,11 +115,11 @@ namespace simplex {
         */
         struct column {
             svector<col_entry> m_entries;
-            unsigned           m_size; 
-            int                m_first_free_idx;
-            mutable unsigned   m_refs;
+            unsigned           m_size = 0; 
+            int                m_first_free_idx = -1;
+            mutable unsigned   m_refs = 0;
             
-            column():m_size(0), m_first_free_idx(-1), m_refs(0) {}
+            column() = default;
             unsigned size() const { return m_size; }
             unsigned num_entries() const { return m_entries.size(); }
             void reset();
