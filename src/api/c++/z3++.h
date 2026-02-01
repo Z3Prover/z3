@@ -2998,17 +2998,17 @@ namespace z3 {
         }
 
         void solve_for(expr_vector const& vars, expr_vector& terms, expr_vector& guards) {
+            // Create a copy of vars since the C API modifies the variables vector
             expr_vector variables(ctx());
             for (unsigned i = 0; i < vars.size(); ++i) {
                 check_context(*this, vars[i]);
                 variables.push_back(vars[i]);
             }
-            expr_vector out_terms(ctx());
-            expr_vector out_guards(ctx());
-            Z3_solver_solve_for(ctx(), m_solver, variables, out_terms, out_guards);
+            // Clear output vectors before calling C API
+            terms = expr_vector(ctx());
+            guards = expr_vector(ctx());
+            Z3_solver_solve_for(ctx(), m_solver, variables, terms, guards);
             check_error();
-            terms = out_terms;
-            guards = out_guards;
         }
 
         void import_model_converter(solver const& src) {
