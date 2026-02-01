@@ -495,19 +495,15 @@ public:
     static bool is_zero(mpz const & a) { return sign(a) == 0; }
 
     static int sign(mpz const & a) {
-#ifndef _MP_GMP
         if (is_small(a)) {
             int v = a.value();
             return (v > 0) - (v < 0); // Returns -1, 0, or 1
         }
+#ifndef _MP_GMP
         else {
             return a.sign();
         }
 #else
-        if (is_small(a)) {
-            int v = a.value();
-            return (v > 0) - (v < 0); // Returns -1, 0, or 1
-        }
         else
             return mpz_sgn(*a.ptr());
 #endif
