@@ -3,9 +3,9 @@ name: Build and Cache Z3
 on:
   # Allow manual trigger
   workflow_dispatch:
-  # Run on schedule to keep cache fresh (every 6 hours)
+  # Run on schedule to keep cache fresh (daily at 2 AM UTC)
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '0 2 * * *'
   # Run on pushes to main to update cache with latest changes
   push:
     branches: [ "master", "main" ]
@@ -43,8 +43,8 @@ jobs:
           echo "key=z3-build-${{ runner.os }}-${{ github.sha }}" >> $GITHUB_OUTPUT
           echo "fallback-key=z3-build-${{ runner.os }}-" >> $GITHUB_OUTPUT
 
-      - name: Check for existing cache
-        id: cache-check
+      - name: Restore or create cache
+        id: cache-z3
         uses: actions/cache@v4
         with:
           path: |
@@ -55,30 +55,16 @@ jobs:
             build/*.a
             build/python
           key: ${{ steps.cache-key.outputs.key }}
-          lookup-only: true
 
       - name: Configure Z3
-        if: steps.cache-check.outputs.cache-hit != 'true'
+        if: steps.cache-z3.outputs.cache-hit != 'true'
         run: python scripts/mk_make.py
 
       - name: Build Z3
-        if: steps.cache-check.outputs.cache-hit != 'true'
+        if: steps.cache-z3.outputs.cache-hit != 'true'
         run: |
           cd build
           make -j$(nproc)
-
-      - name: Cache Z3 build
-        if: steps.cache-check.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            build/z3
-            build/libz3.so
-            build/libz3.a
-            build/*.so
-            build/*.a
-            build/python
-          key: ${{ steps.cache-key.outputs.key }}
 
       - name: Display build info
         run: |

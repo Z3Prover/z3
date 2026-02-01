@@ -25,6 +25,9 @@ jobs:
           python-version: '3.x'
 
       # Restore Z3 from cache
+      # The cache key uses github.sha for the current commit
+      # The restore-keys allow falling back to recent builds from other commits
+      # This pattern provides good cache hit rates while keeping caches fresh
       - name: Restore Z3 cache
         id: cache-z3
         uses: actions/cache/restore@v4

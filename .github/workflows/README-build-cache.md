@@ -22,10 +22,21 @@ The workflow caches:
 
 The cache key is: `z3-build-{OS}-{git-sha}`
 
+**How it works:**
+- Each commit gets its own cache entry based on its git SHA
+- When restoring, the `restore-keys` pattern allows falling back to caches from previous commits
+- The most recent cache matching the `restore-keys` pattern will be used if an exact key match isn't found
+- This means workflows typically restore from a recent build and save a new cache for the current commit
+
+**Example:**
+- A workflow on commit `abc123` will look for `z3-build-Linux-abc123`
+- If not found, it falls back to the most recent `z3-build-Linux-*` cache
+- After building, it saves a new cache with key `z3-build-Linux-abc123`
+
 This ensures:
-- Each commit gets its own cache
 - Caches are OS-specific
-- Fallback to previous builds when exact match not found
+- Each new commit can reuse builds from recent commits
+- The cache stays relatively up-to-date with the repository
 
 ## Using the Cached Build
 
@@ -162,10 +173,21 @@ jobs:
 
 ## Cache Maintenance
 
-- **Schedule**: Cache is refreshed every 6 hours to stay current
-- **Push Trigger**: Cache updates on pushes to master/main branches
+**GitHub Actions Cache Policies:**
+- **Retention**: Caches are removed after 7 days without being accessed
+- **Repository Limit**: Total cache size per repository is limited to 10GB
+- **Eviction**: Least Recently Used (LRU) caches are evicted when the limit is reached
+- **Size per Entry**: Each Z3 build cache is approximately 68MB (z3: 34MB, libz3.so: 33MB, python: 2MB)
+
+**This Workflow's Strategy:**
+- **Daily Schedule**: Runs daily at 2 AM UTC to refresh the cache
+- **Push Trigger**: Updates cache on pushes to master/main branches  
 - **Manual Trigger**: Can be triggered manually via workflow_dispatch
-- **Retention**: GitHub Actions caches are kept for 7 days by default
+
+**Best Practices:**
+- The daily schedule ensures at least one cache is always available (within 7-day retention)
+- Multiple commits may share the same cache via the `restore-keys` fallback pattern
+- If you need guaranteed cache availability for a specific commit, manually trigger the workflow
 
 ## Troubleshooting
 
