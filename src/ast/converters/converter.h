@@ -25,7 +25,6 @@ Notes:
 class converter {
     unsigned m_ref_count = 0;
 public:
-    converter() = default;
     virtual ~converter() = default;
 
     void inc_ref() { ++m_ref_count;  }
