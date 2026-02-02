@@ -496,7 +496,8 @@ public:
 
     static int sign(mpz const & a) {
         if (is_small(a)) {
-            return a.value();
+            int v = a.value();
+            return (v > 0) - (v < 0); // Returns -1, 0, or 1
         }
 #ifndef _MP_GMP
         else {
