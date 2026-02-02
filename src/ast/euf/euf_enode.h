@@ -38,34 +38,45 @@ namespace euf {
     typedef id_var_list<> th_var_list;
 
     class enode {
+        // Memory layout optimized: fields grouped by size for cache efficiency
+        // 8-byte aligned fields (pointers)
         expr*         m_expr = nullptr;
-        bool          m_mark1 = false;
-        bool          m_mark2 = false;
-        bool          m_mark3 = false;
-        bool          m_commutative = false;
-        bool          m_interpreted = false;
-        bool          m_cgc_enabled = true;
-        bool          m_merge_tf_enabled = false;
-        bool          m_is_equality = false;    // Does the expression represent an equality
-        bool          m_is_relevant = false;
-        lbool         m_is_shared = l_undef;
-        lbool         m_value = l_undef;        // Assignment by SAT solver for Boolean node
-        sat::bool_var m_bool_var = sat::null_bool_var;    // SAT solver variable associated with Boolean node
-        unsigned      m_class_size = 1;         // Size of the equivalence class if the enode is the root.
-        unsigned      m_table_id = UINT_MAX;       
-        unsigned      m_generation = 0;         // Tracks how many quantifier instantiation rounds were needed to generate this enode.
-        enode_vector  m_parents;
         enode*        m_next   = nullptr;
         enode*        m_root   = nullptr;
         enode*        m_target = nullptr;
         enode*        m_cg     = nullptr;
+        
+        // Complex types
+        enode_vector  m_parents;
         th_var_list   m_th_vars;
         justification m_justification;
         justification m_lit_justification;
-        unsigned      m_num_args = 0;
-        signed char   m_lbl_hash = -1;  // It is different from -1, if enode is used in a pattern
         approx_set    m_lbls;
         approx_set    m_plbls;
+        
+        // 4-byte aligned fields
+        sat::bool_var m_bool_var = sat::null_bool_var;    // SAT solver variable associated with Boolean node
+        unsigned      m_class_size = 1;         // Size of the equivalence class if the enode is the root.
+        unsigned      m_table_id = UINT_MAX;       
+        unsigned      m_generation = 0;         // Tracks how many quantifier instantiation rounds were needed to generate this enode.
+        unsigned      m_num_args = 0;
+        
+        // 1-byte field
+        signed char   m_lbl_hash = -1;  // It is different from -1, if enode is used in a pattern
+        
+        // Bitfields for boolean flags (packed into ~2 bytes instead of 88 bytes scattered)
+        unsigned      m_mark1 : 1 = 0;
+        unsigned      m_mark2 : 1 = 0;
+        unsigned      m_mark3 : 1 = 0;
+        unsigned      m_commutative : 1 = 0;
+        unsigned      m_interpreted : 1 = 0;
+        unsigned      m_cgc_enabled : 1 = 1;  // Default true
+        unsigned      m_merge_tf_enabled : 1 = 0;
+        unsigned      m_is_equality : 1 = 0;
+        unsigned      m_is_relevant : 1 = 0;
+        unsigned      m_is_shared : 2 = 1;      // lbool: l_false=0, l_undef=1, l_true=2 (default l_undef)
+        unsigned      m_value : 2 = 1;          // lbool: Assignment by SAT solver for Boolean node (default l_undef)
+        
         enode*        m_args[0];
 
         friend class enode_args;
@@ -133,7 +144,7 @@ namespace euf {
         void del_th_var(theory_id id) { m_th_vars.del_var(id); }   
         void set_cgc_enabled(bool m) { m_cgc_enabled = m; }
         void set_merge_tf(bool m) { m_merge_tf_enabled = m; }
-        void set_value(lbool v) { m_value = v; }
+        void set_value(lbool v) { m_value = static_cast<unsigned>(v + 1); }
         void set_justification(justification j) { m_justification = j; }
         void set_is_equality() { m_is_equality = true;  }
         void set_bool_var(sat::bool_var v) { m_bool_var = v; }
@@ -151,7 +162,7 @@ namespace euf {
         bool is_equality() const { return m_is_equality; }
         bool is_relevant() const { return m_is_relevant; }
         void set_relevant(bool b) { m_is_relevant = b; }
-        lbool value() const { return m_value;  }
+        lbool value() const { return static_cast<lbool>(static_cast<int>(m_value) - 1);  }
         sat::bool_var bool_var() const { return m_bool_var; }
         bool is_cgr() const { return this == m_cg; }
         enode* get_cg() const { return m_cg; }
@@ -179,8 +190,8 @@ namespace euf {
         void unmark3() { m_mark3 = false; }
         bool is_marked3() { return m_mark3; }
 
-        lbool is_shared() const { return m_is_shared; }
-        void set_is_shared(lbool s) { m_is_shared = s; }
+        lbool is_shared() const { return static_cast<lbool>(static_cast<int>(m_is_shared) - 1); }
+        void set_is_shared(lbool s) { m_is_shared = static_cast<unsigned>(s + 1); }
 
         template<bool m> void mark1_targets() {
             enode* n = this;
