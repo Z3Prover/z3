@@ -3001,6 +3001,26 @@ namespace z3 {
             set_initial_value(var, ctx().bool_val(b));            
         }
 
+        void solve_for(expr_vector const& vars, expr_vector& terms, expr_vector& guards) {
+            // Create a copy of vars since the C API modifies the variables vector
+            expr_vector variables(ctx());
+            for (unsigned i = 0; i < vars.size(); ++i) {
+                check_context(*this, vars[i]);
+                variables.push_back(vars[i]);
+            }
+            // Clear output vectors before calling C API
+            terms = expr_vector(ctx());
+            guards = expr_vector(ctx());
+            Z3_solver_solve_for(ctx(), m_solver, variables, terms, guards);
+            check_error();
+        }
+
+        void import_model_converter(solver const& src) {
+            check_context(*this, src);
+            Z3_solver_import_model_converter(ctx(), src.m_solver, m_solver);
+            check_error();
+        }
+
         expr proof() const { Z3_ast r = Z3_solver_get_proof(ctx(), m_solver); check_error(); return expr(ctx(), r); }
         friend std::ostream & operator<<(std::ostream & out, solver const & s);
 
