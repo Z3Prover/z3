@@ -31,11 +31,11 @@ Revision History:
 #include "util/vector.h"
 
 class mpbq {
-    mpz      m_num;
-    unsigned m_k;    // we don't need mpz here. 2^(2^32-1) is a huge number, we will not even be able to convert the mpbq into an mpq
+    mpz      m_num = 0;
+    unsigned m_k = 0;    // we don't need mpz here. 2^(2^32-1) is a huge number, we will not even be able to convert the mpbq into an mpq
     friend class mpbq_manager;
 public:
-    mpbq():m_num(0), m_k(0) {}
+    mpbq() = default;
     mpbq(int v):m_num(v), m_k(0) {}
     mpbq(int v, unsigned k):m_num(v), m_k(k) {}
     mpz const & numerator() const { return m_num; }

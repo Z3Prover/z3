@@ -29,8 +29,7 @@ class var_offset_map {
 protected:
     struct data {
         T        m_data;
-        unsigned m_timestamp;
-        data():m_timestamp(0) {}
+        unsigned m_timestamp = 0;
     };
     
     svector<data>           m_map;
