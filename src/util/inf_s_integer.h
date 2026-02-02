@@ -25,8 +25,8 @@ class inf_s_integer {
     static inf_s_integer m_zero;
     static inf_s_integer m_one;
     static inf_s_integer m_minus_one;
-    int m_first;
-    int m_second;
+    int m_first = 0;
+    int m_second = 0;
  public:
 
     unsigned hash() const { 
@@ -44,7 +44,7 @@ class inf_s_integer {
 
     std::string to_string() const;
 
-    inf_s_integer():m_first(0), m_second(0) {}
+    inf_s_integer() = default;
 
     explicit inf_s_integer(int n):m_first(n), m_second(0) {}
     explicit inf_s_integer(int n, int d): m_first(n), m_second(0) { SASSERT(d == 1); }

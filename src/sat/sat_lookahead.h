@@ -116,15 +116,13 @@ namespace sat {
         };
 
         struct prefix {
-            unsigned m_prefix;
-            unsigned m_length;
-            prefix(): m_prefix(0), m_length(0) {}            
+            unsigned m_prefix = 0;
+            unsigned m_length = 0;
         };
 
         struct lit_info {
-            double     m_lookahead_reward;
-            unsigned  m_double_lookahead;
-            lit_info(): m_lookahead_reward(0), m_double_lookahead(0) {}
+            double     m_lookahead_reward = 0;
+            unsigned  m_double_lookahead = 0;
         };
 
         struct stats {
