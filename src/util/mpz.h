@@ -182,7 +182,7 @@ public:
 #ifndef _MP_GMP
 class mpz_stack : public mpz {
     static const unsigned capacity = 8;
-    unsigned char m_bytes[sizeof(mpz_cell) + sizeof(digit_t) * capacity];
+    alignas(8) unsigned char m_bytes[sizeof(mpz_cell) + sizeof(digit_t) * capacity];
 public:
     mpz_stack():mpz(reinterpret_cast<mpz_cell*>(m_bytes)) {
         ptr()->m_capacity = capacity;
@@ -496,8 +496,7 @@ public:
 
     static int sign(mpz const & a) {
         if (is_small(a)) {
-            int v = a.value();
-            return (v > 0) - (v < 0); // Returns -1, 0, or 1
+            return a.value();
         }
 #ifndef _MP_GMP
         else {
