@@ -33,17 +33,27 @@ static void vec_setx(std_vector<T>& v, unsigned idx, T val, T def) {
 
 namespace nlsat {
 
-    enum relation_mode {
-        biggest_cell,
-        spanning_tree
+    // The three projection modes for a level:
+    // 1. section_biggest_cell: Sample is on a root. All disc/lc added.
+    // 2. sector_biggest_cell:  Sample between roots. noLdcf optimization only.
+    // 3. sector_spanning_tree: Sample between roots with many both-side polys.
+    //                          Both noLdcf and noDisc optimizations.
+    enum class projection_mode {
+        section_biggest_cell,
+        sector_biggest_cell,
+        sector_spanning_tree
     };
 
 // Tag indicating what kind of invariance we need to preserve for a polynomial on the cell:
-// - SIGN: sign-invariance is sufficient
-// - ORD:  order-invariance is required (a stronger requirement)
+// - SIGN: sign-invariance is sufficient (polynomial doesn't change sign within the cell)
+// - ORD:  order-invariance is required (root multiplicities are constant within the cell)
 //
-// This is inspired by SMT-RAT's InvarianceType and is used together with a
-// de-dup/upgrade worklist discipline (appendOnCorrectLevel()).
+// Order-invariance is stronger than sign-invariance and is needed for:
+// - Discriminants: to ensure root functions remain continuous and ordered (Theorem 2.1 in [1])
+// - Resultants: to ensure relative ordering of roots from different polynomials (Theorem 2.2 in [1])
+// Sign-invariance suffices for leading coefficients (ensures polynomial degree doesn't drop).
+//
+// [1] Nalbach et al., "Projective Delineability for Single Cell Construction", SC² 2025
     enum class inv_req : uint8_t { none = 0, sign = 1, ord = 2 };
 
     static inline inv_req max_req(inv_req a, inv_req b) {
@@ -62,10 +72,9 @@ namespace nlsat {
         std_vector<root_function_interval> m_I; // intervals for variables 0..m_n-1
 
         unsigned               m_level = 0;      // current level being processed
-        relation_mode          m_rel_mode = biggest_cell;
         unsigned               m_spanning_tree_threshold = 3; // minimum both-side count for spanning tree
         unsigned               m_l_rf = UINT_MAX; // position of lower bound in m_rel.m_rfunc
-        unsigned               m_u_rf = UINT_MAX; // position of upper bound in m_rel.m_rfunc (UINT_MAX in section case)
+        unsigned               m_u_rf = UINT_MAX; // position of upper bound in m_rel.m_rfunc, UINT_MAX in section case
 
         // Per-level state set by process_level/process_top_level
         todo_set                        m_todo;
@@ -347,7 +356,9 @@ namespace nlsat {
                 TRACE(lws,
                       m_pm.display(tout << "      request_factorized: factor=", f) << " at level " << m_pm.max_var(f) << "\n";
                     );
-                request(f.get(), req); // inherit tag across factorization (SMT-RAT appendOnCorrectLevel)
+                // Each irreducible factor inherits the invariance requirement.
+                // If already requested with a weaker tag, upgrade to the stronger one.
+                request(f.get(), req);
             });
         }
 
@@ -441,8 +452,25 @@ namespace nlsat {
         }
 
         // ============================================================================
-        // noLdcf helpers - compute which leading coefficients can be omitted
-        // Inspired by SMT-RAT's "noLdcf" optimization in OneCellCAD.h.
+        // noLdcf optimization - compute which leading coefficients can be omitted
+        //
+        // This optimization is justified by PROJECTIVE DELINEABILITY theory [1,2].
+        //
+        // Regular delineability (Theorem 2.1 in [2]) requires the leading coefficient
+        // to be sign-invariant to ensure the polynomial's degree doesn't drop. However,
+        // projective delineability (Theorem 3.1 in [2]) shows that order-invariance of
+        // the discriminant alone (without LC sign-invariance) is sufficient to ensure
+        // the polynomial's roots behave continuously - they may "go to infinity" when
+        // the LC vanishes, but won't suddenly appear or disappear within the cell.
+        //
+        // For a polynomial p with roots on BOTH sides of the sample:
+        // - Resultants with both boundary polynomials are computed anyway
+        // - These resultants ensure p's roots don't cross the cell boundaries (Thm 3.2)
+        // - Even if p's degree drops (LC becomes zero), existing roots remain ordered
+        // - New roots can only appear "at infinity", outside the bounded cell
+        //
+        // [1] Michel et al., "On Projective Delineability", arXiv:2411.13300, 2024
+        // [2] Nalbach et al., "Projective Delineability for Single Cell Construction", SC² 2025
         // ============================================================================
 
         // Compute side_mask: track which side(s) each polynomial appears on
@@ -467,12 +495,12 @@ namespace nlsat {
             return m_rel.m_rfunc[m_l_rf].ps_idx == m_rel.m_rfunc[m_u_rf].ps_idx;
         }
 
-        // Get lower bound polynomial index (UINT_MAX if not set)
+        // Get lower bound polynomial index, or UINT_MAX if not set
         unsigned lower_bound_idx() const {
             return is_set(m_l_rf) ? m_rel.m_rfunc[m_l_rf].ps_idx : UINT_MAX;
         }
 
-        // Get upper bound polynomial index (UINT_MAX if not set)
+        // Get upper bound polynomial index, or UINT_MAX if not set
         unsigned upper_bound_idx() const {
             return is_set(m_u_rf) ? m_rel.m_rfunc[m_u_rf].ps_idx : UINT_MAX;
         }
@@ -501,73 +529,27 @@ namespace nlsat {
             }
         }
 
-        // Compute noDisc for spanning_tree mode.
-        // A polynomial's discriminant can be omitted if it's a "leaf" in the resultant graph,
-        // connected only to a boundary polynomial.
-        //
-        // Relation diagram for noDisc-eligible polynomial p:
-        //
-        //     lower side                    upper side
-        //   ─────────────────────────────────────────────
-        //       p ──Res── lb ═══════ ub
-        //                  ↑          ↑
-        //              (boundary polynomials)
-        //
-        // Here p is a leaf with deg=1, connected only to lb (lower boundary).
-        // Its discriminant can be skipped because:
-        // - Root ordering of p relative to lb is fixed by Res(p, lb)
-        // - No other polynomial depends on p's internal root ordering
-        // - The boundary polynomial's discriminant handles its own root ordering
-        //
-        // Symmetrically, a leaf connected only to ub qualifies too.
-        void compute_omit_disc_for_spanning_tree() {
-            m_omit_disc.clear();
-            m_omit_disc.resize(m_level_ps.size(), false);
-            if (m_rel.m_rfunc.empty() || m_rel.m_pairs.empty())
-                return;
-
-            // Need graph info
-            compute_resultant_graph_degree();
-
-            unsigned l_bound_idx = lower_bound_idx();
-            unsigned u_bound_idx = upper_bound_idx();
-
-            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
-                // Skip boundary polynomials
-                if (i == l_bound_idx || i == u_bound_idx)
-                    continue;
-                // Only skip if poly is not ORD-required by upstream projection
-                if (get_req(i) == inv_req::ord)
-                    continue;
-                // Must be a leaf
-                if (m_deg_in_order_graph[i] != 1)
-                    continue;
-                // Must be connected only to a boundary polynomial
-                unsigned neighbor = m_unique_neighbor[i];
-                if (neighbor != l_bound_idx && neighbor != u_bound_idx)
-                    continue;
-                // If poly vanishes at sample, we need its discriminant for coinciding roots
-                poly* p = m_level_ps.get(i);
-                if (m_am.eval_sign_at(polynomial_ref(p, m_pm), sample()) == 0)
-                    continue;
-                m_omit_disc[i] = true;
-            }
-        }
+        // TODO: Investigate noDisc optimization for spanning_tree mode when lb and ub are the same
+        // polynomial. SMT-RAT does noDisc for leaves connected to the section-defining polynomial
+        // in section case, which might extend to sectors where lb == ub. The previous implementation
+        // here was unsound because it applied to general leaves connected to any boundary, but
+        // discriminants are needed to ensure a polynomial's own roots don't merge/split.
 
         // ----------------------------------------------------------------------------
         // noLdcf heuristic helpers
         // ----------------------------------------------------------------------------
 
-        // Compute noLdcf: which leading coefficients can be omitted.
+        // Compute noLdcf: which leading coefficients can be omitted using projective delineability.
         // 
-        // Theory: A polynomial p with roots on BOTH sides of the sample has resultants
-        // with both bounds (Res(p, lb) and Res(p, ub)), ensuring its roots stay ordered.
-        // Even if p's LC becomes zero (degree drops), the existing roots remain correctly
-        // ordered via these resultant constraints.
+        // A polynomial p with roots on BOTH sides of the sample has resultants with both bounds.
+        // By projective delineability (Theorem 3.1 in [2]), we only need the discriminant to be
+        // order-invariant - the LC can be omitted because roots "going to infinity" don't affect
+        // sign-invariance within the bounded cell.
         //
-        // - biggest_cell mode (require_leaf=false): all non-bound polys with both-side roots
-        // - spanning_tree mode (require_leaf=true): only leaves (deg == 1) with both-side roots
+        // - biggest_cell mode, require_leaf=false: all non-bound polys with both-side roots
+        // - spanning_tree mode, require_leaf=true: only leaves with deg == 1 and both-side roots
         //
+        // [2] Nalbach et al., "Projective Delineability for Single Cell Construction", SC² 2025
         void compute_omit_lc_both_sides(bool require_leaf) {
             m_omit_lc.clear();
             m_omit_lc.resize(m_level_ps.size(), false);
@@ -768,13 +750,10 @@ namespace nlsat {
                     if (parent[i] != UINT_MAX) {
                         unsigned p = parent[i];
                         // Edge {i, p} exists. Orient based on upper_rf.
-                        if (both[i].upper_rf < both[p].upper_rf) {
-                            // i has smaller upper_rf, so edge is i → p in out-arborescence
-                            out_children[i].push_back(p);
-                        } else {
-                            // p has smaller upper_rf, so edge is p → i in out-arborescence
-                            out_children[p].push_back(i);
-                        }
+                        if (both[i].upper_rf < both[p].upper_rf)
+                            out_children[i].push_back(p);  // i has smaller upper_rf
+                        else
+                            out_children[p].push_back(i);  // p has smaller upper_rf
                     }
                 }
                 
@@ -890,8 +869,9 @@ namespace nlsat {
 
             m_am.isolate_roots(polynomial_ref(p, m_pm), undef_var_assignment(sample(), m_level), roots);
 
-            // SMT-RAT style reduction: keep only the closest to v roots: one below and one above v,
-            // or a single root at v
+            // For single cell construction, we only need the closest roots to the sample point:
+            // at most one root below v and one root above v, or a single root at v for sections.
+            // Other roots are irrelevant for bounding the cell containing the sample.
             unsigned lower = UINT_MAX, upper = UINT_MAX;
             bool section = false;
             for (unsigned k = 0; k < roots.size(); ++k) {
@@ -1126,9 +1106,32 @@ namespace nlsat {
 
         bool is_section() { return m_I[m_level].is_section();}
         
-        // Common projection loop used by both section and sector cases.
-        // m_omit_lc and m_omit_disc are precomputed (empty for section case).
-        void add_level_projections() {
+        // Section case: only the section-defining polynomial needs disc and lc projections.
+        // 
+        // Theory: For a section (sample on a root), sign-invariance of other polynomials
+        // is ensured by resultants with the section-defining polynomial. Their leading
+        // coefficients and discriminants are not needed because:
+        // - Resultant Res(p, q) being order-invariant ensures relative root ordering (Thm 2.2 in [1])
+        // - The section polynomial's delineability (via its disc/lc) anchors the cell
+        //
+        // [1] Nalbach et al., "Projective Delineability for Single Cell Construction", SC² 2025
+        void add_section_projections() {
+            poly* section_poly = m_I[m_level].l;
+            SASSERT(section_poly);
+            
+            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
+                polynomial_ref p(m_level_ps.get(i), m_pm);
+                polynomial_ref witness = m_witnesses[i];
+                
+                if (m_level_ps.get(i) == section_poly)
+                    add_projection_for_poly(p, m_level, witness, /*add_lc=*/true, /*add_disc=*/true);
+                else if (witness && !is_const(witness))
+                    request_factorized(witness, inv_req::sign);
+            }
+        }
+
+        // Sector case: projection loop using m_omit_lc and m_omit_disc.
+        void add_sector_projections() {
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 polynomial_ref p(m_level_ps.get(i), m_pm);
                 polynomial_ref lc(m_pm);
@@ -1145,8 +1148,9 @@ namespace nlsat {
                       tout << "\n";
                     );
 
-                // SMT-RAT-style coeffNonNull: if the leading coefficient is already non-zero at the sample
-                // AND we're adding lc, we do not need to project an additional non-null coefficient witness.
+                // coeffNonNull optimization: if the leading coefficient is already non-zero at the
+                // sample point AND we're projecting it, the LC itself serves as the non-null witness.
+                // No need for an additional coefficient witness in this case.
                 polynomial_ref witness = m_witnesses[i];
                 if (add_lc && witness && !is_const(witness))
                     if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
@@ -1157,8 +1161,8 @@ namespace nlsat {
         }
 
         // Check if spanning tree should be used based on both_count threshold.
-        // Note: This is only called from process_level_sector() which handles non-section cases.
-        // Spanning tree requires: distinct lower/upper bounds (!same_boundary_poly) and enough both-side polys.
+        // Note: This is only called from process_level_sector which handles non-section cases.
+        // Spanning tree requires distinct lower/upper bounds and enough both-side polys.
         bool should_use_spanning_tree() {
             SASSERT(!is_section());  // spanning_tree is for sector case only
             // Need at least 2 polynomials for a spanning tree to have edges
@@ -1194,37 +1198,37 @@ namespace nlsat {
             m_unique_neighbor.clear();
         }
 
-        void process_level_section(bool have_interval) {
-            SASSERT(m_I[m_level].section);
-            m_rel_mode = biggest_cell;  // default
+        void process_level_with_mode(projection_mode mode, bool have_interval) {
             if (have_interval) {
-                fill_relation_pairs_for_section_biggest_cell();
-                SASSERT(relation_invariant());
-            }
-            upgrade_bounds_to_ord();
-            // For section case, m_omit_lc and m_omit_disc are empty (cleared by clear_level_state)
-            // so all LCs and discriminants are added
-            add_level_projections();
-            add_relation_resultants();
-        }
+                switch (mode) {
+                case projection_mode::section_biggest_cell:
+                    fill_relation_pairs_for_section_biggest_cell();
+                    break;
 
-        void process_level_sector(bool have_interval) {
-            SASSERT(!m_I[m_level].section);
-            m_rel_mode = biggest_cell;  // default
-            if (have_interval) {
-                // Check spanning tree threshold first
-                if (should_use_spanning_tree()) {
+                case projection_mode::sector_biggest_cell:
+                    fill_relation_sector_biggest_cell();
+                    compute_side_mask();
+                    compute_omit_lc_both_sides(/*require_leaf=*/false);
+                    // m_omit_disc stays empty - all discriminants added
+                    break;
+
+                case projection_mode::sector_spanning_tree:
                     fill_relation_sector_spanning_tree();
-                    compute_omit_disc_for_spanning_tree();
-                    m_rel_mode = spanning_tree;
-                } else 
-                    fill_relation_sector_biggest_cell();                    
-                compute_omit_lc_both_sides(m_rel_mode == spanning_tree);
-                
+                    compute_side_mask();
+                    compute_omit_lc_both_sides(/*require_leaf=*/true);
+                    // m_omit_disc stays empty - all discriminants added
+                    break;
+                }
                 SASSERT(relation_invariant());
             }
+
             upgrade_bounds_to_ord();
-            add_level_projections();
+            
+            if (mode == projection_mode::section_biggest_cell)
+                add_section_projections();
+            else
+                add_sector_projections();
+            
             add_relation_resultants();
         }
 
@@ -1262,10 +1266,15 @@ namespace nlsat {
                       m_am.display(tout << "  rfunc[" << i << "]: ps_idx=" << m_rel.m_rfunc[i].ps_idx << ", val=", m_rel.m_rfunc[i].val) << "\n";
                 );
 
+            projection_mode mode;
             if (m_I[m_level].section)
-                process_level_section(have_interval);
+                mode = projection_mode::section_biggest_cell;
+            else if (should_use_spanning_tree())
+                mode = projection_mode::sector_spanning_tree;
             else
-                process_level_sector(have_interval);
+                mode = projection_mode::sector_biggest_cell;
+
+            process_level_with_mode(mode, have_interval);
         }
 
         bool poly_has_roots(unsigned i) { return i < vec_get(m_poly_has_roots, i, false); }
