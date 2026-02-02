@@ -35,6 +35,7 @@ namespace nlsat {
         interval_set_manager(anum_manager & m, small_object_allocator & a);
         
         void set_seed(unsigned s) { m_rand.set_seed(s); }
+        unsigned get_seed() const { return m_rand.get_seed(); }
 
         /**
            \brief Return the empty set.

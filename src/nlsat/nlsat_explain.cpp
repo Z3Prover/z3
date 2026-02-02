@@ -361,7 +361,6 @@ namespace nlsat {
                 TRACE(nlsat_explain, tout << "lc: " << lc << " reduct: " << reduct << "\n";);
                 insert_fresh_factors_in_todo(lc);
                 if (!is_zero(lc) && sign(lc)) {
-                    insert_fresh_factors_in_todo(lc);
                     TRACE(nlsat_explain, tout << "lc does no vaninsh\n";);
                     return;
                 }

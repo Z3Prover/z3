@@ -1141,6 +1141,10 @@ namespace nlsat {
             TRACE(nlsat, display(tout << "check lemma: ", n, cls) << "\n";
                   display(tout););
             
+            // Save RNG state before check_lemma to ensure determinism
+            unsigned saved_random_seed = m_random_seed;
+            unsigned saved_ism_seed = m_ism.get_seed();
+            
             try {
                 // Create a separate reslimit for the checker with 10 second timeout
                 reslimit checker_rlimit;
@@ -1157,11 +1161,19 @@ namespace nlsat {
                 checker.m_apply_lws = false;  // Disable levelwise for checker to avoid recursive issues
                 
                 scoped_bool_vars tr(checker);
-                if (!setup_checker(checker, tr, n, cls, a))
+                if (!setup_checker(checker, tr, n, cls, a)) {
+                    // Restore RNG state
+                    m_random_seed = saved_random_seed;
+                    m_ism.set_seed(saved_ism_seed);
                     return;  // Lemma contains untranslatable atoms, skip check
+                }
                 lbool r = checker.check();           
-                if (r == l_undef) // Checker timed out - skip this lemma check
-                    return;
+                if (r == l_undef) {
+                    // Restore RNG state
+                    m_random_seed = saved_random_seed;
+                    m_ism.set_seed(saved_ism_seed);
+                    return; // Checker timed out - skip this lemma check
+                }
                 
                 if (r == l_true) {
                     // Before reporting unsound, dump the lemma to see what we're checking
@@ -1175,6 +1187,10 @@ namespace nlsat {
             catch (...) {
                 // Ignore exceptions from the checker - just skip this lemma check
             }
+            
+            // Restore RNG state after check_lemma
+            m_random_seed = saved_random_seed;
+            m_ism.set_seed(saved_ism_seed);
         }
 
         void log_lemma(std::ostream& out, clause const& cls, std::string annotation) {
