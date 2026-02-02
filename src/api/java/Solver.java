@@ -400,8 +400,8 @@ public class Solver extends Z3Object {
      **/
     public int[] getTrailLevels()
     {
-        BoolExpr[] trail = getTrail();
         ASTVector trailVector = new ASTVector(getContext(), Native.solverGetTrail(getContext().nCtx(), getNativeObject()));
+        BoolExpr[] trail = trailVector.ToBoolExprArray();
         int[] levels = new int[trail.length];
         Native.solverGetLevels(getContext().nCtx(), getNativeObject(), trailVector.getNativeObject(), trail.length, levels);
         return levels;
