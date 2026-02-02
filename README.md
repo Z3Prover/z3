@@ -217,6 +217,57 @@ python -c 'import z3; print(z3.get_version_string())'
 ...
 ```
 
+#### Free-Threaded Python Support (Python 3.13t)
+
+Python 3.13 introduced an experimental free-threaded build (also known as "nogil" or ABI tagged as ``3.13t``) 
+where the Global Interpreter Lock (GIL) can be disabled using the ``Py_GIL_DISABLED`` flag. This enables 
+true parallelism for Python threads on multi-core systems.
+
+**Current Status:**
+
+Z3's Python bindings use ``ctypes`` to interface with the native C library (``libz3``). The bindings 
+themselves are compatible with Python 3.13t and should work when built against a free-threaded Python 
+installation. However, users should be aware of the following considerations:
+
+**Thread Safety Requirements:**
+
+1. **Z3 Context Isolation**: Z3's C API is **not thread-safe** when sharing contexts across threads. 
+   For safe multi-threaded use:
+   - Create a separate ``Z3_context`` (``Context()`` in Python) for each thread
+   - Do not share Z3 objects (contexts, solvers, formulas, etc.) between threads
+   - Use the ``.translate(ctx)`` method to move objects between contexts when needed
+
+2. **Safe Pattern Example**:
+   ```python
+   from z3 import *
+   import threading
+   
+   def worker():
+       # Each thread creates its own context
+       ctx = Context()
+       x = Int('x', ctx)
+       s = Solver(ctx=ctx)
+       s.add(x > 0)
+       print(s.check())
+   
+   threads = [threading.Thread(target=worker) for _ in range(4)]
+   for t in threads: t.start()
+   for t in threads: t.join()
+   ```
+
+3. **Building with Free-Threaded Python**: To build Z3 with Python 3.13t, use the same build 
+   commands but with a free-threaded Python interpreter (``python3.13t``):
+   ```bash
+   python3.13t scripts/mk_make.py --python
+   cd build
+   make
+   make install
+   ```
+
+**Note**: While Z3's Python bindings work with free-threaded Python, achieving performance benefits 
+requires following the context-per-thread pattern. Improper sharing of Z3 objects between threads 
+can lead to crashes or incorrect results, regardless of whether the GIL is present.
+
 See [``examples/python``](examples/python) for examples.
 
 ### ``Julia``
