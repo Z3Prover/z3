@@ -188,8 +188,7 @@ namespace smtfd {
                 }
                 unsigned n = (m_rand() << 16) | m_rand();
                 expr* num = m_butil.mk_numeral(n, bw);
-                expr* es[2] = { num, m.mk_fresh_const(name, m_butil.mk_sort(bw)) };
-                expr* e = m_butil.mk_bv_xor(2, es);
+                expr* e = m_butil.mk_bv_xor({num, m.mk_fresh_const(name, m_butil.mk_sort(bw))});
                 return m_butil.mk_concat(e, m_butil.mk_numeral(0, 24 - bw));
             }
         }
