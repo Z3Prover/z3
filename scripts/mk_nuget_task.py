@@ -37,8 +37,8 @@ os_info = {  'x64-ubuntu-latest' : ('so', 'linux-x64'),
 # Pattern-based mappings for more flexible matching
 # These patterns handle version numbers and other variable parts
 os_patterns = [
-    (re.compile(r'x64-glibc-\d+(\.\d+)*'), 'so', 'linux-x64'),      # Matches x64-glibc-2.35, x64-glibc-2.39, etc.
-    (re.compile(r'arm64-glibc-\d+(\.\d+)*'), 'so', 'linux-arm64'),  # Matches arm64-glibc-* with version
+    (re.compile(r'x64-glibc-\d+(?:\.\d+)*'), 'so', 'linux-x64'),      # Matches x64-glibc-2.35, x64-glibc-2.39, etc.
+    (re.compile(r'arm64-glibc-\d+(?:\.\d+)*'), 'so', 'linux-arm64'),  # Matches arm64-glibc-* with version
 ]
 
         
