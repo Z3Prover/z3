@@ -391,25 +391,27 @@ public class Solver extends Z3Object {
     }
 
     /**
-     * Retrieve the trail and their associated decision levels after a {@code check} call.
-     * The trail contains Boolean literals (decisions and propagations), and the levels
-     * array contains the corresponding decision levels at which each literal was assigned.
+     * Retrieve the decision levels for each literal in the solver's trail after a {@code check} call.
+     * The trail contains Boolean literals (decisions and propagations) in the order they were assigned.
+     * The returned array has one entry per trail literal, indicating at which decision level it was assigned.
+     * Use {@link #getTrail()} to retrieve the trail literals themselves.
      * 
-     * @return An array where index i contains the decision level for trail[i]
+     * @return An array where element i contains the decision level for the i-th trail literal
      * @throws Z3Exception
      **/
     public int[] getTrailLevels()
     {
         ASTVector trailVector = new ASTVector(getContext(), Native.solverGetTrail(getContext().nCtx(), getNativeObject()));
-        BoolExpr[] trail = trailVector.ToBoolExprArray();
-        int[] levels = new int[trail.length];
-        Native.solverGetLevels(getContext().nCtx(), getNativeObject(), trailVector.getNativeObject(), trail.length, levels);
+        int[] levels = new int[trailVector.size()];
+        Native.solverGetLevels(getContext().nCtx(), getNativeObject(), trailVector.getNativeObject(), trailVector.size(), levels);
         return levels;
     }
 
     /**
-     * Return a sequence of cubes (arrays of Boolean expressions) for partitioning the search space.
-     * This is primarily useful for cube-and-conquer parallel SAT solving strategies.
+     * Return a sequence of cubes (conjunctions of literals) for partitioning the search space.
+     * Each cube represents a partial assignment that can be used as a starting point for parallel solving.
+     * This is primarily useful for cube-and-conquer parallel SAT solving strategies, where different
+     * cubes can be solved independently by different workers.
      * The iterator yields cubes until the search space is exhausted.
      * 
      * @param vars Optional array of variables to use as initial cube variables. If null, solver decides.
