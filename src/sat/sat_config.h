@@ -85,122 +85,116 @@ namespace sat {
     };
 
     struct config {
-        // Memory layout optimized: fields grouped by size for minimal padding
-        // 8-byte aligned fields first (doubles, unsigned long long)
         unsigned long long m_max_memory;
+        phase_selection    m_phase;
+        unsigned           m_search_sat_conflicts;
+        unsigned           m_search_unsat_conflicts;
+        bool               m_phase_sticky;
+        unsigned           m_rephase_base;
+        unsigned           m_reorder_base;
         double             m_reorder_itau;
+        unsigned           m_reorder_activity_scale;
+        bool               m_propagate_prefetch;
+        restart_strategy   m_restart;
+        bool               m_restart_fast;
+        unsigned           m_restart_initial;
         double             m_restart_factor; // for geometric case
         double             m_restart_margin; // for ema
+        unsigned           m_restart_max;
+        unsigned           m_activity_scale;
         double             m_fast_glue_avg;
         double             m_slow_glue_avg;
+        unsigned           m_inprocess_max;
+        symbol             m_inprocess_out;
         double             m_random_freq;
+        unsigned           m_random_seed;
+        unsigned           m_burst_search;
+        bool               m_enable_pre_simplify;
+        unsigned           m_max_conflicts;
+        unsigned           m_num_threads;
+        bool               m_ddfw_search;
+        unsigned           m_ddfw_threads;
+        bool               m_prob_search;
+        unsigned           m_local_search_threads;
+        bool               m_local_search;
+        local_search_mode  m_local_search_mode;
+        bool               m_local_search_dbg_flips;
+        bool               m_anf_simplify;
+        unsigned           m_anf_delay;
+        bool               m_anf_exlin;
+        bool               m_lookahead_simplify;
+        bool               m_lookahead_simplify_bca;
+        cutoff_t           m_lookahead_cube_cutoff;
         double             m_lookahead_cube_fraction;
+        unsigned           m_lookahead_cube_depth;
         double             m_lookahead_cube_freevars;
         double             m_lookahead_cube_psat_var_exp;
         double             m_lookahead_cube_psat_clause_base;
         double             m_lookahead_cube_psat_trigger;
+        reward_t           m_lookahead_reward;
+        bool               m_lookahead_double;
+        bool               m_lookahead_global_autarky;
         double             m_lookahead_delta_fraction;
+        bool               m_lookahead_use_learned;
+
+        bool               m_incremental;
+        unsigned           m_next_simplify1;
         double             m_simplify_mult2;
+        unsigned           m_simplify_max;
+        unsigned           m_simplify_delay;
+
+        unsigned           m_variable_decay;
+
+        gc_strategy        m_gc_strategy;
+        unsigned           m_gc_initial;
+        unsigned           m_gc_increment;
+        unsigned           m_gc_small_lbd;
+        unsigned           m_gc_k;
+        bool               m_gc_burst;
+        bool               m_gc_defrag;
+
+        bool               m_force_cleanup;
+
+        // backtracking
+        unsigned           m_backtrack_scopes;
+        unsigned           m_backtrack_init_conflicts;
+
+        bool               m_minimize_lemmas;
+        bool               m_dyn_sub_res;
+        bool               m_core_minimize;
+        bool               m_core_minimize_partial;
+
+        // drat proofs
+        bool               m_drat;
+        bool               m_drat_disable;
+        bool               m_drat_binary;
+        symbol             m_drat_file;
+        bool               m_smt_proof_check;
+        bool               m_drat_check_unsat;
+        bool               m_drat_check_sat;
+        bool               m_drat_activity;
+        
+        bool               m_card_solver;
+        bool               m_xor_solver;
+        pb_resolve         m_pb_resolve;
+        pb_lemma_format    m_pb_lemma_format;
+        
+        // branching heuristic settings.
+        branching_heuristic m_branching_heuristic;
+        bool               m_anti_exploration;
         double             m_step_size_init;
         double             m_step_size_dec;
         double             m_step_size_min;
         double             m_reward_multiplier;
         double             m_reward_offset;
 
-        // Symbol fields (8 bytes each on 64-bit platforms)
-        symbol             m_inprocess_out;
-        symbol             m_drat_file;
-
-        // 4-byte fields: unsigned integers
-        unsigned           m_search_sat_conflicts;
-        unsigned           m_search_unsat_conflicts;
-        unsigned           m_rephase_base;
-        unsigned           m_reorder_base;
-        unsigned           m_reorder_activity_scale;
-        unsigned           m_restart_initial;
-        unsigned           m_restart_max;
-        unsigned           m_activity_scale;
-        unsigned           m_inprocess_max;
-        unsigned           m_random_seed;
-        unsigned           m_burst_search;
-        unsigned           m_max_conflicts;
-        unsigned           m_num_threads;
-        unsigned           m_ddfw_threads;
-        unsigned           m_local_search_threads;
-        unsigned           m_anf_delay;
-        unsigned           m_lookahead_cube_depth;
-        unsigned           m_next_simplify1;
-        unsigned           m_simplify_max;
-        unsigned           m_simplify_delay;
-        unsigned           m_variable_decay;
-        unsigned           m_gc_initial;
-        unsigned           m_gc_increment;
-        unsigned           m_gc_small_lbd;
-        unsigned           m_gc_k;
-        unsigned           m_backtrack_scopes;  // backtracking
-        unsigned           m_backtrack_init_conflicts;
-
-        // 4-byte fields: enums
-        phase_selection    m_phase;
-        restart_strategy   m_restart;
-        local_search_mode  m_local_search_mode;
-        cutoff_t           m_lookahead_cube_cutoff;
-        reward_t           m_lookahead_reward;
-        gc_strategy        m_gc_strategy;
-        pb_resolve         m_pb_resolve;
-        pb_lemma_format    m_pb_lemma_format;
-        branching_heuristic m_branching_heuristic;
-
-        // These bool fields are accessed by reference (via flet), so cannot be bitfields
-        bool               m_core_minimize;
-        bool               m_drat;  // drat proofs
-
-        // Bitfields for 32 boolean flags (typically packed into 4 bytes on most platforms)
-        // Note: m_core_minimize and m_drat are kept as regular bools above
-        // because they are passed by reference (flet usage)
-        unsigned           m_phase_sticky : 1;
-        unsigned           m_propagate_prefetch : 1;
-        unsigned           m_restart_fast : 1;
-        unsigned           m_enable_pre_simplify : 1;
-        unsigned           m_ddfw_search : 1;
-        unsigned           m_prob_search : 1;
-        unsigned           m_local_search : 1;
-        unsigned           m_local_search_dbg_flips : 1;
-        unsigned           m_anf_simplify : 1;
-        unsigned           m_anf_exlin : 1;
-        unsigned           m_lookahead_simplify : 1;
-        unsigned           m_lookahead_simplify_bca : 1;
-        unsigned           m_lookahead_double : 1;
-        unsigned           m_lookahead_global_autarky : 1;
-        unsigned           m_lookahead_use_learned : 1;
-        unsigned           m_incremental : 1;
-        unsigned           m_gc_burst : 1;
-        unsigned           m_gc_defrag : 1;
-        unsigned           m_force_cleanup : 1;
-        unsigned           m_minimize_lemmas : 1;
-        unsigned           m_dyn_sub_res : 1;
-        unsigned           m_core_minimize_partial : 1;
-        unsigned           m_drat_disable : 1;
-        unsigned           m_drat_binary : 1;
-        unsigned           m_smt_proof_check : 1;
-        unsigned           m_drat_check_unsat : 1;
-        unsigned           m_drat_check_sat : 1;
-        unsigned           m_drat_activity : 1;
-        unsigned           m_card_solver : 1;
-        unsigned           m_xor_solver : 1;
-        unsigned           m_anti_exploration : 1;
-        unsigned           m_elim_vars : 1;  // simplifier configurations used outside of sat_simplifier
+        // simplifier configurations used outside of sat_simplifier
+        bool               m_elim_vars;
 
         config(params_ref const & p);
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
 
     };
-
-    // Verify struct packing optimization
-    // Previous size was 408 bytes, optimized to 320 bytes (88 bytes / 21.6% reduction)
-    // The assertion checks for a reasonable range to detect both regressions and unexpected reductions
-    static_assert(sizeof(config) >= 300 && sizeof(config) <= 320, 
-                  "sat::config size changed unexpectedly - expected 320 bytes, check field ordering and alignment");
 };
 
