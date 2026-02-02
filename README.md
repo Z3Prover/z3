@@ -220,8 +220,8 @@ python -c 'import z3; print(z3.get_version_string())'
 #### Free-Threaded Python Support (Python 3.13t)
 
 Python 3.13 introduced an experimental free-threaded build (also known as "nogil" or ABI tagged as ``3.13t``) 
-where the Global Interpreter Lock (GIL) can be disabled using the ``Py_GIL_DISABLED`` flag. This enables 
-true parallelism for Python threads on multi-core systems.
+where the Global Interpreter Lock (GIL) is disabled (indicated by the ``Py_GIL_DISABLED`` compile-time macro). 
+This enables true parallelism for Python threads on multi-core systems.
 
 **Current Status:**
 
@@ -235,7 +235,7 @@ installation. However, users should be aware of the following considerations:
    For safe multi-threaded use:
    - Create a separate ``Z3_context`` (``Context()`` in Python) for each thread
    - Do not share Z3 objects (contexts, solvers, formulas, etc.) between threads
-   - Use the ``.translate(ctx)`` method to move objects between contexts when needed
+   - Use the ``.translate(ctx)`` method to copy objects to a different context when needed
 
 2. **Safe Pattern Example**:
    ```python
