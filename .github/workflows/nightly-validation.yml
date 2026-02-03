@@ -165,6 +165,10 @@ jobs:
           cd test-nuget
           dotnet new console
           dotnet add package Microsoft.Z3 --source ../nuget-packages --prerelease
+          # Add RuntimeIdentifier to ensure native library is loaded correctly
+          sed -i '' '/<\/PropertyGroup>/i\
+          <RuntimeIdentifier>osx-x64</RuntimeIdentifier>\
+          ' test-nuget.csproj
       
       - name: Create test code
         run: |
@@ -220,6 +224,10 @@ jobs:
           cd test-nuget
           dotnet new console
           dotnet add package Microsoft.Z3 --source ../nuget-packages --prerelease
+          # Add RuntimeIdentifier to ensure native library is loaded correctly
+          sed -i '' '/<\/PropertyGroup>/i\
+          <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>\
+          ' test-nuget.csproj
       
       - name: Create test code
         run: |
@@ -344,7 +352,8 @@ jobs:
         run: |
           cd downloads
           unzip *x64-glibc*.zip
-          cd z3-*
+          Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
+          cd "$Z3_DIR"
           ./bin/z3 --version
           
           # Test basic SMT solving
@@ -376,7 +385,8 @@ jobs:
         run: |
           cd downloads
           unzip *x64-osx*.zip
-          cd z3-*
+          Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
+          cd "$Z3_DIR"
           ./bin/z3 --version
           
           # Test basic SMT solving
@@ -408,7 +418,8 @@ jobs:
         run: |
           cd downloads
           unzip *arm64-osx*.zip
-          cd z3-*
+          Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
+          cd "$Z3_DIR"
           ./bin/z3 --version
           
           # Test basic SMT solving
@@ -538,3 +549,126 @@ jobs:
           Z3_PATH=$(find downloads -name z3 -type f | head -n 1)
           chmod +x $Z3_PATH
           python z3test/scripts/test_benchmarks.py $Z3_PATH z3test/regressions/smt2
+
+  # ============================================================================
+  # PYTHON WHEEL VALIDATION
+  # ============================================================================
+  
+  validate-python-wheel-ubuntu-x64:
+    name: "Validate Python wheel on Ubuntu x64"
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download Python wheel from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*manylinux*x86_64.whl" --dir wheels
+      
+      - name: Install and test wheel
+        run: |
+          pip install wheels/*.whl
+          python -c "import z3; x = z3.Int('x'); s = z3.Solver(); s.add(x > 0); print('Result:', s.check()); print('Model:', s.model())"
+
+  validate-python-wheel-macos-arm64:
+    name: "Validate Python wheel on macOS ARM64"
+    runs-on: macos-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download Python wheel from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*macosx*arm64.whl" --dir wheels
+      
+      - name: Install and test wheel
+        run: |
+          pip install wheels/*.whl
+          python -c "import z3; x = z3.Int('x'); s = z3.Solver(); s.add(x > 0); print('Result:', s.check()); print('Model:', s.model())"
+
+  validate-python-wheel-macos-x64:
+    name: "Validate Python wheel on macOS x64"
+    runs-on: macos-13
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download Python wheel from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*macosx*x86_64.whl" --dir wheels
+      
+      - name: Install and test wheel
+        run: |
+          pip install wheels/*.whl
+          python -c "import z3; x = z3.Int('x'); s = z3.Solver(); s.add(x > 0); print('Result:', s.check()); print('Model:', s.model())"
+
+  validate-python-wheel-windows-x64:
+    name: "Validate Python wheel on Windows x64"
+    runs-on: windows-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download Python wheel from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.release_tag }}"
+          if ([string]::IsNullOrEmpty($tag)) {
+            $tag = "Nightly"
+          }
+          gh release download $tag --pattern "*win_amd64.whl" --dir wheels
+      
+      - name: Install and test wheel
+        shell: pwsh
+        run: |
+          $wheel = Get-ChildItem wheels/*.whl | Select-Object -First 1
+          pip install $wheel.FullName
+          python -c "import z3; x = z3.Int('x'); s = z3.Solver(); s.add(x > 0); print('Result:', s.check()); print('Model:', s.model())"
