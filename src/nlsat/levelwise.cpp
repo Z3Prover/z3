@@ -1106,27 +1106,34 @@ namespace nlsat {
 
         bool is_section() { return m_I[m_level].is_section();}
         
-        // Section case: only the section-defining polynomial needs disc and lc projections.
-        // 
-        // Theory: For a section (sample on a root), sign-invariance of other polynomials
-        // is ensured by resultants with the section-defining polynomial. Their leading
-        // coefficients and discriminants are not needed because:
-        // - Resultant Res(p, q) being order-invariant ensures relative root ordering (Thm 2.2 in [1])
-        // - The section polynomial's delineability (via its disc/lc) anchors the cell
+        // Section case: the section-defining polynomial needs disc and lc projections.
+        // For polynomials WITH roots: resultants with section polynomial ensure root ordering.
+        // For polynomials WITHOUT roots: they need LC + disc to ensure they don't gain roots.
+        //
+        // Theory: For a section (sample on a root), sign-invariance of polynomials with roots
+        // is ensured by resultants with the section-defining polynomial (Thm 2.2 in [1]).
+        // But polynomials without roots need delineability (LC + disc) to stay root-free.
         //
         // [1] Nalbach et al., "Projective Delineability for Single Cell Construction", SC² 2025
         void add_section_projections() {
             poly* section_poly = m_I[m_level].l;
             SASSERT(section_poly);
             
+            // Build set of polynomial indices that have roots at this level
+            std::set<unsigned> has_roots;
+            for (auto const& rf : m_rel.m_rfunc)
+                has_roots.insert(rf.ps_idx);
+            
             for (unsigned i = 0; i < m_level_ps.size(); ++i) {
                 polynomial_ref p(m_level_ps.get(i), m_pm);
                 polynomial_ref witness = m_witnesses[i];
                 
                 if (m_level_ps.get(i) == section_poly)
-                    add_projection_for_poly(p, m_level, witness, /*add_lc=*/true, /*add_disc=*/true);
+                    add_projection_for_poly(p, m_level, witness, true, true); // section poly: full projection
+                else if (has_roots.find(i) == has_roots.end())
+                    add_projection_for_poly(p, m_level, witness, true, true); // no roots: need LC+disc for delineability
                 else if (witness && !is_const(witness))
-                    request_factorized(witness, inv_req::sign);
+                    request_factorized(witness, inv_req::sign); // has roots: witness only
             }
         }
 

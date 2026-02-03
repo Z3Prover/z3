@@ -2346,9 +2346,8 @@ static void tst_unsound_lws_ppblockterm() {
 }
 
 void tst_nlsat() {
-    // TODO: Fix z3-76w - ppblockterm test fails because counterexample is inside cell
-    // tst_unsound_lws_ppblockterm();
-    // std::cout << "------------------\n";
+    tst_unsound_lws_ppblockterm();
+    std::cout << "------------------\n";
     tst_unsound_lws_n46();
     std::cout << "------------------\n";
     tst_unsound_lws_et4();
