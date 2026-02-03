@@ -56,6 +56,9 @@ namespace nlsat {
 
         // temporary field for store todo set of polynomials
         todo_set                m_todo;
+        
+        // Track polynomials already processed in current projection to avoid cycles
+        todo_set                m_processed;
 
         // temporary fields for preprocessing core
         scoped_literal_vector   m_core1;
@@ -88,6 +91,7 @@ namespace nlsat {
             m_factors_save(m_pm),
             m_roots_tmp(m_am),
             m_todo(u, canonicalize),
+            m_processed(u, canonicalize),
             m_core1(s),
             m_core2(s),
             m_lower_stage_polys(m_pm),
@@ -607,6 +611,10 @@ namespace nlsat {
            \brief Add factors of p to todo
         */
         void insert_fresh_factors_in_todo(polynomial_ref & p) {
+            // Skip if already processed in this projection (prevents cycles)
+            if (m_processed.contains(p))
+                return;
+            
             if (is_const(p))
                 return;
             elim_vanishing(p);
@@ -620,7 +628,7 @@ namespace nlsat {
                 for (unsigned i = 0; i < m_factors.size(); ++i) {
                     f = m_factors.get(i);
                     elim_vanishing(f);
-                    if (!is_const(f)) {
+                    if (!is_const(f) && !m_processed.contains(f)) {
                         TRACE(nlsat_explain, tout << "adding factor:\n"; display(tout, m_solver, f); tout << "\n";);
                         m_todo.insert(f);
                     }
@@ -1054,11 +1062,17 @@ namespace nlsat {
          * "Solving Satisfiability of Polynomial Formulas By Sample - Cell Projection"
          * https://arxiv.org/abs/2003.00409 
          */
+        void collect_to_processed(polynomial_ref_vector & ps) {
+            for (unsigned i = 0; i < ps.size(); ++i)
+                m_processed.insert(ps.get(i));
+        }
+
         void project_cdcac(polynomial_ref_vector & ps, var max_x) {
             bool first = true;
             if (ps.empty())
                 return;
             m_todo.reset();
+            m_processed.reset();
             for (unsigned i = 0; i < ps.size(); ++i) {
                 polynomial_ref p(m_pm);
                 p = ps.get(i);
@@ -1083,6 +1097,7 @@ namespace nlsat {
             flet<bool> _set_all_coeffs(m_add_all_coeffs, use_all_coeffs || m_add_all_coeffs);
             
             var x = m_todo.extract_max_polys(ps);
+            collect_to_processed(ps);
             polynomial_ref_vector samples(m_pm);
             if (x < max_x)
                 cac_add_cell_lits(ps, x, samples);
@@ -1110,6 +1125,7 @@ namespace nlsat {
                 if (m_todo.empty())
                     break;
                 x = m_todo.extract_max_polys(ps);
+                collect_to_processed(ps);
                 cac_add_cell_lits(ps, x, samples);
             }
             
