@@ -672,7 +672,7 @@ namespace nlsat {
             for (unsigned i = 1; i < both.size(); ++i)
                 if (both[i].upper_rf < both[upper_root_idx].upper_rf)
                     upper_root_idx = i;
-            unsigned lower_root_idx = both.size() - 1;
+            (void)upper_root_idx;  // used in DEBUG_CODE below
             
             // Process in order of lower_rf 
             // First element (index 0) has min lower_rf
@@ -693,7 +693,9 @@ namespace nlsat {
             }
 
             
-            // Check arborescence invariants
+            // Check arborescence invariants (used in debug via SASSERT)
+            DEBUG_CODE(
+            unsigned lower_root_idx = both.size() - 1;
             auto arb_invariant = [&]() {
                 // Reconstruct parent[] from the algorithm logic
                 std_vector<unsigned> parent(both.size(), UINT_MAX);
@@ -780,7 +782,7 @@ namespace nlsat {
                 
                 return true;
             };
-            SASSERT(arb_invariant());
+            SASSERT(arb_invariant()););
         }
 
         // Sector spanning tree heuristic:
