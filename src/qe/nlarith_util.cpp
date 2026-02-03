@@ -344,7 +344,7 @@ namespace nlarith {
 
         app* mk_or(expr* a, expr* b) {
             expr* args[2] = { a, b };
-            return mk_or(2, args);
+            return mk_or(args);
         }
         void display_branching(
             std::ostream& out, app* x,
