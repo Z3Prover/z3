@@ -228,7 +228,7 @@ namespace nlsat {
         unsigned               m_max_conflicts;
         unsigned               m_lemma_rlimit;
         unsigned               m_lemma_count;
-        unsigned m_variable_ordering_strategy;
+        unsigned               m_variable_ordering_strategy;
         bool m_set_0_more;
 
         struct stats {

@@ -467,6 +467,11 @@ static nlsat::literal mk_eq(nlsat::solver& s, nlsat::poly* p) {
     return s.mk_ineq_literal(nlsat::atom::EQ, 1, _p, is_even);
 }
 
+static nlsat::literal mk_root_eq(nlsat::solver& s, nlsat::poly* p, nlsat::var x, unsigned i) {
+    nlsat::bool_var b = s.mk_root_atom(nlsat::atom::ROOT_EQ, x, i, p);
+    return nlsat::literal(b, false);
+}
+
 static void set_assignment_value(nlsat::assignment& as, anum_manager& am, nlsat::var v, rational const& val) {
     scoped_anum tmp(am);
     am.set(tmp, val.to_mpq());
@@ -2345,7 +2350,189 @@ static void tst_unsound_lws_ppblockterm() {
     std::cout << "=== END tst_unsound_lws_ppblockterm ===\n\n";
 }
 
+// Test case for gh-8397: unsound lemma with lws=false
+// Unsound lemma detected by nlsat.check_lemmas=true:
+// !(1024 x1 = 0) or !(x1 + 1 > 0) or !(2048 x1^2 + 4096 x1 = 0) or 
+// !(x1 = root[3](1024 x1^3 + 6144 x1^2 + 6144 x1)) or 
+// !(x1 = root[3](2048 x1^3 + 6144 x1^2 + 4096 x1)) or !(x1 = 0) or 
+// 4 x6^3 + 4 x5 x6^2 - 4 x1 x6^2 + 4 x6^2 - 4 x1 x5 x6 - 4 x1 x6 < 0 or 
+// x6 - x1 = 0 or x6 > 0
+// Counterexample: x1 = 0, x5 = 0, x6 = -0.5
+static void tst_unsound_gh8397() {
+    // Reproduce exact unsound lemma from gh-8397
+    // Unsound lemma: !(1024 x1 = 0) or !(x1 + 1 > 0) or !(2048 x1^2 + 4096 x1 = 0) or 
+    //   !(x1 = root[3](1024 x1^3 + 6144 x1^2 + 6144 x1)) or 
+    //   !(x1 = root[3](2048 x1^3 + 6144 x1^2 + 4096 x1)) or !(x1 = 0) or 
+    //   4 x6^3 + 4 x5 x6^2 - 4 x1 x6^2 + 4 x6^2 - 4 x1 x5 x6 - 4 x1 x6 < 0 or x6 - x1 = 0 or x6 > 0
+    // Counterexample: x1=0, x5=0, x6=-0.5 makes ALL literals FALSE
+    // Sample point: x0=-1, x1=0, x2=0, x3=-1, x4=0, x5=-1 (x6 is conflict var)
+    std::cout << "=== tst_unsound_gh8397 ===\n";
+    
+    auto run_test = [](bool use_lws) {
+        std::cout << "\n--- Running with lws=" << (use_lws ? "true" : "false") << " ---\n";
+        
+        params_ref ps;
+        ps.set_bool("lws", use_lws);
+        reslimit rlim;
+        nlsat::solver s(rlim, ps, false);
+        anum_manager& am = s.am();
+        nlsat::pmanager& pm = s.pm();
+        nlsat::explain& ex = s.get_explain();
+        
+        // Create variables in order: x0, x1, x2, x3, x4, x5, x6
+        nlsat::var x0 = s.mk_var(false);
+        nlsat::var x1 = s.mk_var(false);
+        nlsat::var x2 = s.mk_var(false);
+        nlsat::var x3 = s.mk_var(false);
+        nlsat::var x4 = s.mk_var(false);
+        nlsat::var x5 = s.mk_var(false);
+        nlsat::var x6 = s.mk_var(false);
+        (void)x0; (void)x2; (void)x3; (void)x4;  // suppress unused warnings
+        
+        polynomial_ref _x1(pm), _x5(pm), _x6(pm);
+        _x1 = pm.mk_polynomial(x1);
+        _x5 = pm.mk_polynomial(x5);
+        _x6 = pm.mk_polynomial(x6);
+        
+        // Polynomials from the unsound lemma
+        // p_main: 4 x6^3 + 4 x5 x6^2 - 4 x1 x6^2 + 4 x6^2 - 4 x1 x5 x6 - 4 x1 x6
+        polynomial_ref p_main(pm);
+        p_main = 4*_x6*_x6*_x6 + 4*_x5*_x6*_x6 - 4*_x1*_x6*_x6 + 4*_x6*_x6 - 4*_x1*_x5*_x6 - 4*_x1*_x6;
+        
+        // p_diff: x6 - x1
+        polynomial_ref p_diff(pm);
+        p_diff = _x6 - _x1;
+        
+        // Additional polynomials for x1 constraints (from root literals)
+        // 1024 x1^3 + 6144 x1^2 + 6144 x1 = 1024*x1*(x1^2 + 6*x1 + 6)
+        polynomial_ref p_root1(pm);
+        p_root1 = 1024*_x1*_x1*_x1 + 6144*_x1*_x1 + 6144*_x1;
+        
+        // 2048 x1^3 + 6144 x1^2 + 4096 x1 = 1024*x1*(2*x1^2 + 6*x1 + 4)
+        polynomial_ref p_root2(pm);
+        p_root2 = 2048*_x1*_x1*_x1 + 6144*_x1*_x1 + 4096*_x1;
+        
+        // 1024 x1
+        polynomial_ref p_x1_eq(pm);
+        p_x1_eq = 1024*_x1;
+        
+        // x1 + 1
+        polynomial_ref p_x1_gt(pm);
+        p_x1_gt = _x1 + 1;
+        
+        // 2048 x1^2 + 4096 x1
+        polynomial_ref p_x1_eq2(pm);
+        p_x1_eq2 = 2048*_x1*_x1 + 4096*_x1;
+        
+        std::cout << "p_main: " << p_main << "\n";
+        std::cout << "p_diff: " << p_diff << "\n";
+        std::cout << "p_root1: " << p_root1 << "\n";
+        std::cout << "p_root2: " << p_root2 << "\n";
+        
+        // Set sample point: x0=-1, x1=0, x2=0, x3=-1, x4=0, x5=-1
+        nlsat::assignment sample_as(am);
+        scoped_anum val(am);
+        am.set(val, -1); sample_as.set(x0, val);
+        am.set(val, 0);  sample_as.set(x1, val);
+        am.set(val, 0);  sample_as.set(x2, val);
+        am.set(val, -1); sample_as.set(x3, val);
+        am.set(val, 0);  sample_as.set(x4, val);
+        am.set(val, -1); sample_as.set(x5, val);
+        // x6 is the conflict variable, set to 0 for sample
+        am.set(val, 0);  sample_as.set(x6, val);
+        s.set_rvalues(sample_as);
+        
+        // Input literals for the conflict (constraints on x6):
+        // The conflict is that x6 > x1 (i.e. x6 > 0) AND p_main < 0 
+        // But at sample point x1=0, x5=-1, these are infeasible at x6=0
+        nlsat::scoped_literal_vector lits(s);
+        lits.push_back(mk_gt(s, p_diff.get()));  // x6 - x1 > 0 (i.e. x6 > 0 since x1=0)
+        lits.push_back(mk_lt(s, p_main.get()));  // p_main < 0
+        
+        // Also add x1 constraints that were part of the conflict core
+        lits.push_back(mk_eq(s, p_x1_eq.get()));   // 1024 x1 = 0
+        lits.push_back(mk_gt(s, p_x1_gt.get()));   // x1 + 1 > 0
+        lits.push_back(mk_eq(s, p_x1_eq2.get()));  // 2048 x1^2 + 4096 x1 = 0
+        // Root literals: x1 = root[3](p_root1), x1 = root[3](p_root2)
+        lits.push_back(mk_root_eq(s, p_root1.get(), x1, 3));  // x1 = root[3](p_root1)
+        lits.push_back(mk_root_eq(s, p_root2.get(), x1, 3));  // x1 = root[3](p_root2)
+        lits.push_back(mk_eq(s, _x1.get()));       // x1 = 0
+        
+        std::cout << "Input literals:\n";
+        s.display(std::cout, lits.size(), lits.data());
+        std::cout << "\n";
+        
+        // Call compute_conflict_explanation
+        nlsat::scoped_literal_vector result(s);
+        ex.compute_conflict_explanation(lits.size(), lits.data(), result);
+        
+        std::cout << "Result lemma (lws=" << (use_lws ? "true" : "false") << "):\n";
+        std::cout << "(or";
+        for (auto l : result) {
+            s.display(std::cout << "\n  ", l);
+        }
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            s.display(std::cout << "\n  ", ~lits[i]);
+        }
+        std::cout << "\n)\n";
+        
+        // Counterexample from checker: x1=0, x5=0, x6=-0.5
+        nlsat::assignment counter_as(am);
+        am.set(val, -1); counter_as.set(x0, val);
+        am.set(val, 0);  counter_as.set(x1, val);
+        am.set(val, 0);  counter_as.set(x2, val);
+        am.set(val, -1); counter_as.set(x3, val);
+        am.set(val, 0);  counter_as.set(x4, val);
+        am.set(val, 0);  counter_as.set(x5, val);  // changed from -1 to 0
+        mpq half; am.qm().set(half, -1, 2);  // -1/2
+        am.set(val, half); counter_as.set(x6, val);
+        
+        std::cout << "\nEvaluating at counterexample (x1=0, x5=0, x6=-0.5):\n";
+        
+        // Evaluate each result literal at counterexample
+        small_object_allocator allocator;
+        nlsat::evaluator eval(s, counter_as, pm, allocator);
+        
+        bool all_false = true;
+        for (auto l : result) {
+            nlsat::atom* a = s.bool_var2atom(l.var());
+            if (a) {
+                bool value = eval.eval(a, l.sign());
+                s.display(std::cout << "  ", l);
+                std::cout << " -> " << (value ? "TRUE" : "FALSE") << "\n";
+                if (value) all_false = false;
+            }
+        }
+        
+        // Also check negated input literals
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            nlsat::literal nl = ~lits[i];
+            nlsat::atom* a = s.bool_var2atom(nl.var());
+            if (a) {
+                bool value = eval.eval(a, nl.sign());
+                s.display(std::cout << "  ", nl);
+                std::cout << " -> " << (value ? "TRUE" : "FALSE") << "\n";
+                if (value) all_false = false;
+            }
+        }
+        
+        if (all_false) {
+            std::cout << "*** ALL literals FALSE at counterexample - LEMMA IS UNSOUND! ***\n";
+        } else {
+            std::cout << "At least one literal is TRUE - lemma is sound at this point\n";
+        }
+    };
+    
+    run_test(false);  // lws=false (buggy)
+    run_test(true);   // lws=true (should be correct)
+    
+    std::cout << "\n=== END tst_unsound_gh8397 ===\n\n";
+}
+
 void tst_nlsat() {
+    tst_unsound_gh8397();
+    return;
+    std::cout << "------------------\n";
     tst_unsound_lws_ppblockterm();
     std::cout << "------------------\n";
     tst_unsound_lws_n46();

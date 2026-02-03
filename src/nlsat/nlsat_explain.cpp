@@ -368,19 +368,20 @@ namespace nlsat {
                     TRACE(nlsat_explain, tout << "lc does no vaninsh\n";);
                     return;
                 }
-                add_zero_assumption(lc);
                 if (k == 0) {
                     // all coefficients of p vanished in the current interpretation,
                     // and were added as assumptions.
                     p = m_pm.mk_zero();
                     TRACE(nlsat_explain, tout << "all coefficients of p vanished\n";);
                     if (m_add_all_coeffs) {
+                        add_zero_assumption(lc);
                         return;
                     }
                     TRACE(nlsat_explain, tout << "falling back to add-all-coeffs projection\n";);
                     m_add_all_coeffs = true;
                     throw add_all_coeffs_restart();
                 }
+                add_zero_assumption(lc);
                 k--;
                 p = reduct;
             }
@@ -740,8 +741,14 @@ namespace nlsat {
                 s = S.get(i);
                 TRACE(nlsat_explain, display(tout << "processing psc(" << i << ")\n", m_solver, s) << "\n";); 
                 if (is_zero(s)) {
-                    TRACE(nlsat_explain, tout << "skipping psc is the zero polynomial\n";);
-                    continue;
+                    // PSC is identically zero - polynomials share a common factor.
+                    // This can cause unsound lemmas. Fall back to add-all-coeffs projection.
+                    TRACE(nlsat_explain, tout << "psc is zero polynomial - polynomials share common factor\n";);
+                    if (m_add_all_coeffs)
+                        continue;
+                    TRACE(nlsat_explain, tout << "falling back to add-all-coeffs projection\n";);
+                    m_add_all_coeffs = true;
+                    throw add_all_coeffs_restart();
                 }
                 if (is_const(s)) {
                     TRACE(nlsat_explain, tout << "done, psc is a constant\n";);
