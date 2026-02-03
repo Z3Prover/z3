@@ -78,8 +78,8 @@ namespace smt {
         unsigned            m_merge_tf:1;       //!< True if the enode should be merged with true/false when the associated boolean variable is assigned.
         unsigned            m_cgc_enabled:1;    //!< True if congruence closure is enabled for this enode.
         unsigned            m_is_shared:2;      //!< 0 - not shared, 1 - shared, 2 - invalid state
+        unsigned            m_proof_is_logged:1;  //!< Indicates that the proof for the enode being equal to its root is in the log.
         unsigned            m_iscope_lvl;       //!< When the enode was internalized
-        bool                m_proof_is_logged;  //!< Indicates that the proof for the enode being equal to its root is in the log.
         signed char         m_lbl_hash;         //!< It is different from -1, if enode is used in a pattern
         /*
           The following property is valid for m_parents
