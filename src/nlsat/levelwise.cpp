@@ -1277,7 +1277,7 @@ namespace nlsat {
             process_level_with_mode(mode, have_interval);
         }
 
-        bool poly_has_roots(unsigned i) { return i < vec_get(m_poly_has_roots, i, false); }
+        bool poly_has_roots(unsigned i) { return vec_get(m_poly_has_roots, i, false); }
         
         void process_top_level() {
             TRACE(lws, display_polys_at_level(tout););
