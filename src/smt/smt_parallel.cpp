@@ -125,11 +125,11 @@ namespace smt {
             u_map<double> original_activities;
             if (m_config.m_backbones) {
                 LOG_WORKER(1, " BACKBONE DETECTION\n");
-                expr_ref_vector backbone_candidates = find_backbone_candidates();
-                for (expr* bb : backbone_candidates) { // TODO: avoid splitting on backbones
+                svector<smt::parallel::bb_candidate> backbone_candidates = find_backbone_candidates();
+                for (smt::parallel::bb_candidate const& bb : backbone_candidates) {
                     // Set the phase of the candidates to the negation of their assumed values
-                    LOG_WORKER(1, " backbone candidate: " << mk_bounded_pp(bb, m, 3) << "\n");
-                    expr* atom = bb;
+                    LOG_WORKER(1, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
+                    expr* atom = bb.lit.get();
                     bool phase = false;
 
                     if (m.is_not(atom)) {
@@ -139,7 +139,7 @@ namespace smt {
 
                     sat::bool_var v = ctx->get_bool_var(atom);
                     ctx->force_phase(v, phase);
-                    LOG_WORKER(1, " backbone candidate forced phase: " << mk_bounded_pp(bb, m, 3) << " := " << (phase ? "true" : "false") << "\n");
+                    LOG_WORKER(1, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
 
                     auto const& activities = ctx->get_activity_vector();
                     double max_activity = 0.0;
@@ -154,6 +154,9 @@ namespace smt {
 
                     LOG_WORKER(1, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
                 }
+
+                b.collect_backbone_candidates(m_l2g, id, backbone_candidates);
+
                 if (!m.inc()) {
                     b.set_exception("context cancelled");
                     return;
@@ -251,8 +254,18 @@ namespace smt {
         m_sls = alloc(sls::smt_solver, m, m_params);
     }
 
-    expr_ref_vector parallel::worker::find_backbone_candidates(unsigned k) {
-        expr_ref_vector backbone_candidates(m);
+    parallel::backbones_worker::backbones_worker(parallel& p)
+        : p(p), b(p.m_batch_manager), m(), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m), m_l2g(m, p.ctx.m) {
+        IF_VERBOSE(1, verbose_stream() << "Initialized backbones thread\n");
+        ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
+        ctx->set_logic(p.ctx.m_setup.get_logic());
+        context::copy(p.ctx, *ctx, true);
+
+        ctx->get_fparams().m_preprocess = false;
+    }
+
+    svector<smt::parallel::bb_candidate> parallel::worker::find_backbone_candidates(unsigned k) {
+        svector<smt::parallel::bb_candidate> backbone_candidates;
         vector<std::pair<double, expr_ref>> top_k; // will hold at most k elements
         expr_ref candidate(m);
 
@@ -306,7 +319,7 @@ namespace smt {
         }
 
         for (auto& p : top_k)
-            backbone_candidates.push_back(p.second);
+            backbone_candidates.push_back(bb_candidate(m, p.second.get(), p.first, 1));
         
         return backbone_candidates;
     }
@@ -316,47 +329,44 @@ namespace smt {
     // run the solver with a low budget of conflicts
     // if the unsat core contains a single candidate we have found a backbone literal
     // 
-    expr_ref_vector parallel::worker::get_backbones_from_candidates(expr_ref_vector const& candidates) {
+    expr_ref_vector parallel::batch_manager::get_global_backbones_from_candidates() {
         expr_ref_vector backbones(m);
         unsigned sz = asms.size();
 
-        // Push ALL candidate negations
-        for (expr* e : candidates) {
-            asms.push_back(m.mk_not(e));
-        }
+        for (auto& bb : m_bb_candidates) 
+            asms.push_back(m.mk_not(bb.lit.get()));
 
-        LOG_WORKER(1, "PUSHED BACKBONE CANDIDATES TO ASMS\n");
+            LOG_WORKER(1, "PUSHED BACKBONES TO ASMS\n");
 
-        ctx->get_fparams().m_max_conflicts = 100;
-
-        lbool r = l_undef;
-        try {
-            r = ctx->check(asms.size(), asms.data());
-        }
-        catch (z3_error& err) {
-            b.set_exception(err.error_code());
-        }
-        catch (z3_exception& ex) {
-            b.set_exception(ex.what());
-        }
-        catch (...) {
-            b.set_exception("unknown exception");
-        }
-
-        // restore assumptions
-        asms.shrink(sz);
-
-        LOG_WORKER(1, "BACKBONE CHECK RESULT: " << r << "\n");
-
-        if (r == l_false) {
-            auto core = ctx->unsat_core();
-
-            // every literal in the core is a backbone
-            for (expr* a : core) {
-                // a is ¬e  →  e is backbone
-                backbones.push_back(mk_not(m, a));
+            ctx->get_fparams().m_max_conflicts = 100;
+            lbool r = l_undef;
+            try {
+                r = ctx->check(asms.size(), asms.data());
             }
-        }
+            catch (z3_error& err) {
+                b.set_exception(err.error_code());
+            }
+            catch (z3_exception& ex) {
+                b.set_exception(ex.what());
+            }
+            catch (...) {
+                b.set_exception("unknown exception");
+            }
+
+            asms.shrink(sz); // restore assumptions
+
+            LOG_WORKER(1, " BACKBONE CHECK RESULT: " << r << "\n");
+
+            if (r == l_false) {
+                // c must be true in all models → backbone
+                auto core = ctx->unsat_core();
+                LOG_WORKER(1, "core: " << core << "\n");
+                if (core.size() == 1) {
+                    expr* e = core.get(0);
+                    backbones.push_back(mk_not(m, e));
+                }                
+            }
+        
 
         return backbones;
     }
@@ -529,6 +539,65 @@ namespace smt {
         for (expr *e : new_clauses) {
             ctx->assert_expr(e);
             LOG_WORKER(4, " asserting shared clause: " << mk_bounded_pp(e, m, 3) << "\n");
+        }
+    }
+
+    void parallel::batch_manager::collect_backbone_candidates(ast_translation& l2g, unsigned worker_id, svector<smt::parallel::bb_candidate>& bb_candidates) {
+        std::scoped_lock lock(mux);
+        auto is_global_backbone = [&](expr* e) -> bool {
+            for (expr* bb : m_global_backbones) {
+                if (bb == e)
+                    return true;
+            }
+            return false;
+        };
+
+        auto find_existing_candidate_idx = [&](expr* e) -> int {
+            for (unsigned i = 0; i < m_bb_candidates.size(); ++i) {
+                if (m_bb_candidates[i].lit.get() == e)
+                    return i;
+            }
+            return -1;
+        };
+
+        for (auto const& c : bb_candidates) {
+            expr_ref g_lit(l2g(c.lit.get()), m);
+            if (is_global_backbone(g_lit.get()))
+                continue;
+
+            double score = c.score;
+            int idx = find_existing_candidate_idx(g_lit.get());
+
+            if (idx >= 0) {
+                // Existing candidate: bump hits + maybe improve score
+                auto& existing = m_bb_candidates[idx];
+                existing.hits++;
+
+                if (score > existing.score)
+                    existing.score = score;
+
+                continue;
+            }
+            
+            if (m_bb_candidates.size() < m_bb_max) {
+                m_bb_candidates.push_back(bb_candidate(m, g_lit.get(), score, 1));
+                continue;
+            }
+
+            // Find worst candidate to evict
+            unsigned worst_idx = 0;
+            double worst_score = m_bb_candidates[0].score;
+
+            for (unsigned i = 1; i < m_bb_candidates.size(); ++i) {
+                if (m_bb_candidates[i].score < worst_score) {
+                    worst_score = m_bb_candidates[i].score;
+                    worst_idx = i;
+                }
+            }
+
+            // Only replace if strictly better
+            if (score > worst_score) 
+                m_bb_candidates[worst_idx] = bb_candidate(m, g_lit.get(), score, 1);
         }
     }
 

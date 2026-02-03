@@ -43,6 +43,14 @@ namespace smt {
             expr_ref clause;
         };
 
+        struct bb_candidate {
+            expr_ref lit;      // global literal (in batch manager AST)
+            double score;      // age / dominance score
+            unsigned hits;     // how many times reported
+
+            bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : lit(e, m), score(s), hits(h) {}
+        };
+
         class batch_manager {        
 
             enum state {
@@ -58,7 +66,6 @@ namespace smt {
                 unsigned m_num_cubes = 0;
             };
 
-
             ast_manager& m;
             parallel& p;
             std::mutex mux;
@@ -71,6 +78,10 @@ namespace smt {
             std::string m_exception_msg;
             vector<shared_clause> shared_clause_trail; // store all shared clauses with worker IDs
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
+
+            svector<bb_candidate> m_bb_candidates;
+            unsigned m_bb_max = 10;
+            expr_ref_vector m_global_backbones;
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
@@ -92,7 +103,7 @@ namespace smt {
             void init_parameters_state();
 
         public:
-            batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)) { }
+            batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)), m_global_backbones(m) { }
 
             void initialize();
 
@@ -101,6 +112,8 @@ namespace smt {
             void set_exception(std::string const& msg);
             void set_exception(unsigned error_code);
             void collect_statistics(::statistics& st) const;
+            void collect_backbone_candidates(ast_translation& l2g, unsigned worker_id, svector<bb_candidate>& bb_candidates);
+            expr_ref_vector get_global_backbones_from_candidates(expr_ref_vector const& candidates);
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
@@ -155,8 +168,7 @@ namespace smt {
             } // allow for backoff scheme of conflicts within the thread for cube timeouts.
 
             void simplify();
-            expr_ref_vector find_backbone_candidates(unsigned k = 10);
-            expr_ref_vector get_backbones_from_candidates(expr_ref_vector const& candidates);
+            svector<bb_candidate> find_backbone_candidates(unsigned k = 10);
 
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
