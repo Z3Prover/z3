@@ -85,7 +85,7 @@ class mpz {
     typedef mpz_t mpz_type;
 #endif
 private:
-    uintptr_t m_value = 0;
+    uintptr_t m_value = 1;  // Default to small integer 0: (0 << 1) | 1 = 1
 
     static constexpr uintptr_t SMALL_BIT = 0x1;
     static constexpr uintptr_t SIGN_BIT  = 0x2;
@@ -311,11 +311,20 @@ class mpz_manager {
 
 #ifndef _MP_GMP
 
-    static unsigned capacity(mpz const & c) { return c.ptr()->m_capacity; }
+    static unsigned capacity(mpz const & c) { 
+        SASSERT(!c.is_small());
+        return c.ptr()->m_capacity; 
+    }
 
-    static unsigned size(mpz const & c) { return c.ptr()->m_size; }
+    static unsigned size(mpz const & c) { 
+        SASSERT(!c.is_small());
+        return c.ptr()->m_size; 
+    }
 
-    static digit_t * digits(mpz const & c) { return c.ptr()->m_digits; }
+    static digit_t * digits(mpz const & c) { 
+        SASSERT(!c.is_small());
+        return c.ptr()->m_digits; 
+    }
 
     // Return true if the absolute value fits in a UINT64
     static bool is_abs_uint64(mpz const & a) {
