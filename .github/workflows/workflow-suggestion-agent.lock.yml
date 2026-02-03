@@ -94,7 +94,7 @@ jobs:
       - name: Create cache-memory directory
         run: bash /opt/gh-aw/actions/create_cache_memory_dir.sh
       - name: Restore cache-memory file share data
-        uses: actions/cache/restore@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           key: memory-${{ github.workflow }}-${{ github.run_id }}
           path: /tmp/gh-aw/cache-memory
@@ -1403,7 +1403,7 @@ jobs:
           name: cache-memory
           path: /tmp/gh-aw/cache-memory
       - name: Save cache-memory to cache (default)
-        uses: actions/cache/save@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           key: memory-${{ github.workflow }}-${{ github.run_id }}
           path: /tmp/gh-aw/cache-memory
