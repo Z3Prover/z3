@@ -345,6 +345,7 @@ public:
     }
 
     void set_seed(unsigned s) { m_data = s; }
+    unsigned get_seed() const { return m_data; }
 
     int operator()() {
         return ((m_data = m_data * 214013L + 2531011L) >> 16) & 0x7fff; 
