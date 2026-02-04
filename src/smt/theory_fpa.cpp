@@ -455,8 +455,7 @@ namespace smt {
                     SASSERT(to_app(bv_val_e)->get_num_args() == 3);
                     app_ref bv_val_a(m);
                     bv_val_a = to_app(bv_val_e.get());
-                    expr * args[] = { bv_val_a->get_arg(0), bv_val_a->get_arg(1), bv_val_a->get_arg(2) };
-                    cc_args = m_bv_util.mk_concat(3, args);
+                    cc_args = m_bv_util.mk_concat({bv_val_a->get_arg(0), bv_val_a->get_arg(1), bv_val_a->get_arg(2)});
                     c = m.mk_eq(wrapped, cc_args);
                     assert_cnstr(c);
                     assert_cnstr(mk_side_conditions());
