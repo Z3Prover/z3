@@ -36,7 +36,8 @@ export type AnySort<Name extends string = 'main'> =
   | SMTArraySort<Name>
   | FPSort<Name>
   | FPRMSort<Name>
-  | SeqSort<Name>;
+  | SeqSort<Name>
+  | ReSort<Name>;
 /** @hidden */
 export type AnyExpr<Name extends string = 'main'> =
   | Expr<Name>
@@ -50,7 +51,8 @@ export type AnyExpr<Name extends string = 'main'> =
   | FP<Name>
   | FPNum<Name>
   | FPRM<Name>
-  | Seq<Name>;
+  | Seq<Name>
+  | Re<Name>;
 /** @hidden */
 export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
@@ -70,6 +72,8 @@ export type SortToExprMap<S extends AnySort<Name>, Name extends string = 'main'>
   ? FPRM<Name>
   : S extends SeqSort<Name>
   ? Seq<Name>
+  : S extends ReSort<Name>
+  ? Re<Name>
   : S extends Sort<Name>
   ? Expr<Name, S, Z3_ast>
   : never;
@@ -458,6 +462,8 @@ export interface Context<Name extends string = 'main'> {
   /** @category Expressions */
   readonly Seq: SeqCreation<Name>;
   /** @category Expressions */
+  readonly Re: ReCreation<Name>;
+  /** @category Expressions */
   readonly Array: SMTArrayCreation<Name>;
   /** @category Expressions */
   readonly Set: SMTSetCreation<Name>;
@@ -845,6 +851,55 @@ export interface Context<Name extends string = 'main'> {
 
   /** @category Operations */
   isSubset<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): Bool<Name>;
+
+  //////////////////////
+  // Regular Expressions
+  //////////////////////
+
+  /** @category RegularExpression */
+  InRe(seq: Seq<Name> | string, re: Re<Name>): Bool<Name>;
+
+  /** @category RegularExpression */
+  Union<SeqSortRef extends SeqSort<Name>>(...res: Re<Name, SeqSortRef>[]): Re<Name, SeqSortRef>;
+
+  /** @category RegularExpression */
+  Intersect<SeqSortRef extends SeqSort<Name>>(...res: Re<Name, SeqSortRef>[]): Re<Name, SeqSortRef>;
+
+  /** @category RegularExpression */
+  ReConcat<SeqSortRef extends SeqSort<Name>>(...res: Re<Name, SeqSortRef>[]): Re<Name, SeqSortRef>;
+
+  /** @category RegularExpression */
+  Plus<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+
+  /** @category RegularExpression */
+  Star<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+
+  /** @category RegularExpression */
+  Option<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+
+  /** @category RegularExpression */
+  Complement<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+
+  /** @category RegularExpression */
+  Diff<SeqSortRef extends SeqSort<Name>>(a: Re<Name, SeqSortRef>, b: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+
+  /** @category RegularExpression */
+  Range<SeqSortRef extends SeqSort<Name>>(lo: Seq<Name, SeqSortRef> | string, hi: Seq<Name, SeqSortRef> | string): Re<Name, SeqSortRef>;
+
+  /** @category RegularExpression */
+  Loop<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>, lo: number, hi?: number): Re<Name, SeqSortRef>;
+
+  /** @category RegularExpression */
+  Power<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>, n: number): Re<Name, SeqSortRef>;
+
+  /** @category RegularExpression */
+  AllChar<SeqSortRef extends SeqSort<Name>>(reSort: ReSort<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+
+  /** @category RegularExpression */
+  Empty<SeqSortRef extends SeqSort<Name>>(reSort: ReSort<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+
+  /** @category RegularExpression */
+  Full<SeqSortRef extends SeqSort<Name>>(reSort: ReSort<Name, SeqSortRef>): Re<Name, SeqSortRef>;
 
   /**
    * Create a partial order relation over a sort.
@@ -1641,7 +1696,8 @@ export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
     | DatatypeSort['__typename']
     | FPSort['__typename']
     | FPRMSort['__typename']
-    | SeqSort['__typename'];
+    | SeqSort['__typename']
+    | ReSort['__typename'];
 
   kind(): Z3_sort_kind;
 
@@ -1768,6 +1824,7 @@ export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySo
     | FP['__typename']
     | FPRM['__typename']
     | Seq['__typename']
+    | Re['__typename']
     | SMTArray['__typename']
     | DatatypeExpr['__typename'];
 
@@ -3127,6 +3184,80 @@ export interface Seq<Name extends string = 'main', ElemSort extends Sort<Name> =
 
   /** @category Operations */
   replaceAll(src: Seq<Name, ElemSort> | string, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort>;
+}
+
+///////////////////////
+// Regular Expressions
+///////////////////////
+
+/**
+ * Regular expression sort
+ * @category RegularExpression
+ */
+export interface ReSort<Name extends string = 'main', SeqSortRef extends SeqSort<Name> = SeqSort<Name>> extends Sort<Name> {
+  /** @hidden */
+  readonly __typename: 'ReSort';
+
+  /**
+   * Get the basis (underlying sequence sort) of this regular expression sort
+   */
+  basis(): SeqSortRef;
+
+  cast(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+  cast(other: CoercibleToExpr<Name>): Expr<Name>;
+}
+
+/** @category RegularExpression */
+export interface ReCreation<Name extends string> {
+  /**
+   * Create a regular expression sort over the given sequence sort
+   */
+  sort<SeqSortRef extends SeqSort<Name>>(seqSort: SeqSortRef): ReSort<Name, SeqSortRef>;
+
+  /**
+   * Convert a sequence to a regular expression that accepts exactly that sequence
+   */
+  toRe(seq: Seq<Name> | string): Re<Name>;
+}
+
+/**
+ * Regular expression expression
+ * @category RegularExpression
+ */
+export interface Re<Name extends string = 'main', SeqSortRef extends SeqSort<Name> = SeqSort<Name>>
+  extends Expr<Name, ReSort<Name, SeqSortRef>, Z3_ast> {
+  /** @hidden */
+  readonly __typename: 'Re';
+
+  /** @category Operations */
+  plus(): Re<Name, SeqSortRef>;
+
+  /** @category Operations */
+  star(): Re<Name, SeqSortRef>;
+
+  /** @category Operations */
+  option(): Re<Name, SeqSortRef>;
+
+  /** @category Operations */
+  complement(): Re<Name, SeqSortRef>;
+
+  /** @category Operations */
+  union(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+
+  /** @category Operations */
+  intersect(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+
+  /** @category Operations */
+  diff(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+
+  /** @category Operations */
+  concat(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+
+  /** @category Operations */
+  loop(lo: number, hi?: number): Re<Name, SeqSortRef>;
+
+  /** @category Operations */
+  power(n: number): Re<Name, SeqSortRef>;
 }
 
 /**
