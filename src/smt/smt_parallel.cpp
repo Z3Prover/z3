@@ -123,11 +123,16 @@ namespace smt {
             job.reset();
         }
     }
+
+    void parallel::backbones_worker::cancel() {
+        IF_VERBOSE(1, verbose_stream() << " BACKBONES WORKER cancelling\n");
+        m.limit().cancel();
+    }
     
-    void parallel::batch_manager::collect_global_backbones(expr_ref_vector const& backbones) {
+    void parallel::batch_manager::collect_global_backbones(ast_translation& l2g, expr_ref_vector const& backbones) {
         std::scoped_lock lock(mux);
         for (expr* e : backbones) {
-            m_global_backbones.push_back(e);
+            m_global_backbones.push_back(l2g(e));
         }
     }
 
@@ -878,7 +883,7 @@ namespace smt {
             sl.push_child(&(m_sls_worker->limit()));
         }
         if (m_should_run_backbones) {
-            m_backbones_worker = alloc(backbones_worker, *this);
+            m_backbones_worker = alloc(backbones_worker, *this, asms);
             sl.push_child(&(m_backbones_worker->limit()));
         }
 

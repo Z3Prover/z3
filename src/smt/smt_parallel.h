@@ -134,7 +134,7 @@ namespace smt {
             void collect_statistics(::statistics& st) const;
 
             void collect_backbone_candidates(ast_translation& l2g, unsigned worker_id, svector<bb_candidate>& bb_candidates);
-            void collect_global_backbones(expr_ref_vector const& backbones);
+            void collect_global_backbones(ast_translation& l2g, expr_ref_vector const& backbones);
             bool wait_for_backbone_job(ast_translation& g2l, svector<smt::parallel::bb_candidate>& out, reslimit& lim);
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
