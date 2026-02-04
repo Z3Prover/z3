@@ -3259,11 +3259,11 @@ export interface Re<Name extends string = 'main', SeqSortRef extends SeqSort<Nam
   /** @category Operations */
   concat(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
 
-  /** @category Operations */
   /**
    * Create a bounded repetition of this regex
    * @param lo Minimum number of repetitions
    * @param hi Maximum number of repetitions (0 means unbounded, i.e., at least lo)
+   * @category Operations
    */
   loop(lo: number, hi?: number): Re<Name, SeqSortRef>;
 
