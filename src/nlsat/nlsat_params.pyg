@@ -22,7 +22,7 @@ def_module_params('nlsat',
                           ('add_all_coeffs', BOOL, False, "add all polynomial coefficients during projection."),
                           ('zero_disc', BOOL, False, "add_zero_assumption to the vanishing discriminant."),
                           ('known_sat_assignment_file_name', STRING, "", "the file name of a known solution: used for debugging only"),
-                          ('lws', BOOL, False, "apply levelwise."),
+                          ('lws', BOOL, True, "apply levelwise."),
                           ('lws_spt_threshold', UINT, 2, "minimum both-side polynomial count to apply spanning tree optimization; < 2 disables spanning tree"),
                           ('canonicalize', BOOL, True, "canonicalize polynomials.")
                           ))                  
