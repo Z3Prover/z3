@@ -23,6 +23,7 @@ Revision History:
 #include "ast/sls/sls_smt_solver.h"
 #include <thread>
 #include <mutex>
+#include <condition_variable>
 
 
 namespace smt {
@@ -35,8 +36,9 @@ namespace smt {
 
     class parallel {
         context& ctx;
-        unsigned num_threads;
+        unsigned num_workers;
         bool m_should_run_sls = false;
+        bool m_should_run_backbones = false;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -83,6 +85,11 @@ namespace smt {
             unsigned m_bb_max = 10;
             expr_ref_vector m_global_backbones;
 
+            // Backbone job queue
+            std::condition_variable m_bb_cv;
+            bool m_bb_stop = false;
+            svector<bb_candidate> m_bb_pending;   // all candidates waiting to be checked
+
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
                 IF_VERBOSE(1, verbose_stream() << "Canceling workers\n");
@@ -102,7 +109,15 @@ namespace smt {
 
             void cancel_background_threads() {
                 cancel_workers();
-                if (p.m_should_run_sls) cancel_sls_worker();    
+                if (p.m_should_run_sls) cancel_sls_worker();
+                if (p.m_should_run_backbones) {
+                    cancel_backbones_worker();
+                    {
+                        std::scoped_lock lock(mux);
+                        m_bb_stop = true;
+                    }
+                    m_bb_cv.notify_all();
+                }
             }
 
             void init_parameters_state();
@@ -117,8 +132,10 @@ namespace smt {
             void set_exception(std::string const& msg);
             void set_exception(unsigned error_code);
             void collect_statistics(::statistics& st) const;
+
             void collect_backbone_candidates(ast_translation& l2g, unsigned worker_id, svector<bb_candidate>& bb_candidates);
-            expr_ref_vector collect_global_backbones(expr_ref_vector const& backbones);
+            void collect_global_backbones(expr_ref_vector const& backbones);
+            bool wait_for_backbone_job(ast_translation& g2l, svector<smt::parallel::bb_candidate>& out, reslimit& lim);
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
@@ -223,6 +240,7 @@ namespace smt {
                 void cancel();
                 expr_ref_vector get_backbones_from_candidates(svector<parallel::bb_candidate> const& bb_candidates);
                 void collect_statistics(::statistics& st) const;
+                void run();
 
                 reslimit &limit() {
                     return m.limit();
@@ -237,7 +255,7 @@ namespace smt {
     public:
         parallel(context& ctx) : 
             ctx(ctx),
-            num_threads(std::min(
+            num_workers(std::min(
                 (unsigned)std::thread::hardware_concurrency(),
                 ctx.get_fparams().m_threads)),
             m_batch_manager(ctx.m, *this) {}

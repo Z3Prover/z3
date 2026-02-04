@@ -29,6 +29,7 @@ Author:
 
 #include <cmath>
 #include <mutex>
+#include <condition_variable>
 
 class bounded_pp_exprs {
     expr_ref_vector const &es;
@@ -96,6 +97,37 @@ namespace smt {
         if (res == l_true) {            
             model_ref mdl = m_sls->get_model();
             b.set_sat(m_l2g, *mdl);
+        }
+    }
+
+    void parallel::backbones_worker::run() {
+        svector<bb_candidate> job;
+
+        while (m.inc()) {
+
+            // Sleep until a job exists
+            if (!b.wait_for_backbone_job(m_g2l, job, m.limit()))
+                return;
+
+            if (job.empty())
+                continue;
+
+            IF_VERBOSE(1, verbose_stream()
+                << "Backbones worker processing job of size "
+                << job.size() << "\n");
+
+            // Process exactly this job
+            expr_ref_vector backbones = get_backbones_from_candidates(job);
+            b.collect_global_backbones(m_l2g, backbones);
+
+            job.reset();
+        }
+    }
+    
+    void parallel::batch_manager::collect_global_backbones(expr_ref_vector const& backbones) {
+        std::scoped_lock lock(mux);
+        for (expr* e : backbones) {
+            m_global_backbones.push_back(e);
         }
     }
 
@@ -364,7 +396,7 @@ namespace smt {
                 }                
             }
         }
-        
+
         return backbones;
     }
 
@@ -596,7 +628,53 @@ namespace smt {
             if (score > worst_score) 
                 m_bb_candidates[worst_idx] = bb_candidate(m, g_lit.get(), score, 1);
         }
+        
+        // Done merging: notify consumer
+        if (!m_bb_candidates.empty())
+            m_bb_cv.notify_one();
     }
+
+    bool parallel::batch_manager::wait_for_backbone_job(
+        ast_translation& g2l,
+        svector<smt::parallel::bb_candidate>& out,
+        reslimit& lim)
+    {
+        out.reset();
+        std::unique_lock<std::mutex> lock(mux);
+
+        // Wait until there is something to check
+        m_bb_cv.wait(lock, [&]() {
+            return m_bb_stop ||
+                lim.is_canceled() ||
+                m_state != state::is_running ||
+                !m_bb_candidates.empty();
+        });
+
+        // Exit conditions
+        if (lim.is_canceled())
+            return false;
+
+        if (m_bb_stop || m_state != state::is_running)
+            return false;
+
+        if (m_bb_candidates.empty())
+            return true; // spurious wakeup
+
+        // -------------------------------------------------
+        // TAKE the entire candidate pool and RESET it
+        // -------------------------------------------------
+        out = std::move(m_bb_candidates);
+        m_bb_candidates.reset();
+
+        // Translate GLOBAL -> LOCAL for the backbone thread
+        for (auto& c : out) {
+            expr_ref l_lit(g2l(c.lit.get()), g2l.to());
+            c.lit = l_lit;
+        }
+
+        return true;
+    }
+
 
     expr_ref_vector parallel::batch_manager::return_shared_clauses(ast_translation &g2l, unsigned &worker_limit,
                                                                    unsigned worker_id) {
@@ -754,7 +832,9 @@ namespace smt {
 
     void parallel::batch_manager::initialize() {
         m_state = state::is_running;
+        m_bb_stop = false;
         m_search_tree.reset();
+        m_bb_candidates.reset();
     }
 
     void parallel::batch_manager::collect_statistics(::statistics &st) const {
@@ -763,7 +843,7 @@ namespace smt {
     }
 
     lbool parallel::operator()(expr_ref_vector const &asms) {
-        IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << num_threads << " threads\n";);
+        IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << num_workers << " threads\n";);
         ast_manager &m = ctx.m;
 
         if (m.has_trace_stream())
@@ -784,11 +864,12 @@ namespace smt {
 
         smt_parallel_params pp(ctx.m_params);
         m_should_run_sls = pp.sls();
+        m_should_run_backbones = pp.backbones();
         
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
-        SASSERT(num_threads > 1);
-        for (unsigned i = 0; i < num_threads; ++i)
+        SASSERT(num_workers > 1);
+        for (unsigned i = 0; i < num_workers; ++i)
             m_workers.push_back(alloc(worker, i, *this, asms));
         for (auto w : m_workers)
             sl.push_child(&(w->limit()));
@@ -796,16 +877,24 @@ namespace smt {
             m_sls_worker = alloc(sls_worker, *this);
             sl.push_child(&(m_sls_worker->limit()));
         }
+        if (m_should_run_backbones) {
+            m_backbones_worker = alloc(backbones_worker, *this);
+            sl.push_child(&(m_backbones_worker->limit()));
+        }
 
         // Launch threads
         vector<std::thread> threads;
-        threads.resize(m_should_run_sls ? num_threads + 1 : num_threads); // +1 for sls worker
-        for (unsigned i = 0; i < num_threads; ++i)
-            threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
+        unsigned total_threads = num_workers + (m_should_run_sls ? 1 : 0) + (m_should_run_backbones ? 1 : 0);
+        threads.resize(total_threads);
+        unsigned thread_idx = 0;
+        for (unsigned i = 0; i < num_workers; ++i) {
+            threads[thread_idx++] = std::thread([&, i]() { m_workers[i]->run(); });
+        }
         
-        // the final thread runs the sls worker
         if (m_should_run_sls)
-            threads[num_threads] = std::thread([&]() { m_sls_worker->run(); });
+            threads[thread_idx++] = std::thread([&]() { m_sls_worker->run(); });
+        if (m_should_run_backbones)
+            threads[thread_idx++] = std::thread([&]() { m_backbones_worker->run(); });
 
         // Wait for all threads to finish
         for (auto &th : threads)
