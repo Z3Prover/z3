@@ -112,10 +112,6 @@ namespace smt {
                 if (p.m_should_run_sls) cancel_sls_worker();
                 if (p.m_should_run_backbones) {
                     cancel_backbones_worker();
-                    {
-                        std::scoped_lock lock(mux);
-                        m_bb_stop = true;
-                    }
                     m_bb_cv.notify_all();
                 }
             }
@@ -145,6 +141,14 @@ namespace smt {
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
 
             lbool get_result() const;
+
+            bool is_global_backbone(expr* e) const {
+                for (expr* bb : m_global_backbones) {
+                    if (bb == e)
+                        return true;
+                }
+                return false;
+            }
         };
 
         class worker {

@@ -118,7 +118,8 @@ namespace smt {
 
             // Process exactly this job
             expr_ref_vector backbones = get_backbones_from_candidates(job);
-            b.collect_global_backbones(m_l2g, backbones);
+            if (!backbones.empty())
+                b.collect_global_backbones(m_l2g, backbones);
 
             job.reset();
         }
@@ -132,7 +133,11 @@ namespace smt {
     void parallel::batch_manager::collect_global_backbones(ast_translation& l2g, expr_ref_vector const& backbones) {
         std::scoped_lock lock(mux);
         for (expr* e : backbones) {
-            m_global_backbones.push_back(l2g(e));
+            expr* local_e = l2g(e);
+            if (!is_global_backbone(local_e)) {
+                IF_VERBOSE(1, verbose_stream() << " New global backbone: " << mk_bounded_pp(local_e, m, 3) << "\n");
+                m_global_backbones.push_back(local_e);
+            } 
         }
     }
 
@@ -165,7 +170,7 @@ namespace smt {
                 svector<smt::parallel::bb_candidate> backbone_candidates = find_backbone_candidates();
                 for (smt::parallel::bb_candidate const& bb : backbone_candidates) {
                     // Set the phase of the candidates to the negation of their assumed values
-                    LOG_WORKER(1, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
+                    LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
                     expr* atom = bb.lit.get();
                     bool phase = false;
 
@@ -176,7 +181,7 @@ namespace smt {
 
                     sat::bool_var v = ctx->get_bool_var(atom);
                     ctx->force_phase(v, phase);
-                    LOG_WORKER(1, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
+                    LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
 
                     auto const& activities = ctx->get_activity_vector();
                     double max_activity = 0.0;
@@ -189,7 +194,7 @@ namespace smt {
                     double eps = 1.0;
                     ctx->set_activity(v, max_activity + eps);
 
-                    LOG_WORKER(1, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
+                    LOG_WORKER(2, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
                 }
 
                 b.collect_backbone_candidates(m_l2g, id, backbone_candidates);
@@ -338,6 +343,9 @@ namespace smt {
                 // score_ratio *= -1; // insert by absolute value
             }
 
+            if (b.is_global_backbone(candidate))
+                continue;
+
             // insert into top_k. linear scan since k is very small
             if (top_k.size() < k) {
                 top_k.push_back({score_ratio, candidate});
@@ -373,7 +381,7 @@ namespace smt {
         for (auto& bb : bb_candidates) {
             asms.push_back(m.mk_not(bb.lit.get()));
 
-            ctx->get_fparams().m_max_conflicts = 100;
+            ctx->get_fparams().m_max_conflicts = 1000;
             lbool r = l_undef;
             try {
                 r = ctx->check(asms.size(), asms.data());
@@ -388,12 +396,11 @@ namespace smt {
                 b.set_exception("unknown exception");
             }
 
-            asms.shrink(sz); // restore assumptions
+            asms.shrink(sz);
 
-            IF_VERBOSE(1, verbose_stream() << " BACKBONE CHECK RESULT: " << r << " FOR CANDIDATE: " << bb.lit << "\n");
+            IF_VERBOSE(1, verbose_stream() << " BACKBONE CHECK RESULT: " << r << " FOR CANDIDATE: " << mk_bounded_pp(bb.lit.get(), m, 3) << "\n");
 
             if (r == l_false) {
-                // c must be true in all models → backbone
                 auto core = ctx->unsat_core();
                 if (core.size() == 1) {
                     expr* e = core.get(0);
