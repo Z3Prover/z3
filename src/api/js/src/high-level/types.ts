@@ -886,7 +886,13 @@ export interface Context<Name extends string = 'main'> {
   /** @category RegularExpression */
   Range<SeqSortRef extends SeqSort<Name>>(lo: Seq<Name, SeqSortRef> | string, hi: Seq<Name, SeqSortRef> | string): Re<Name, SeqSortRef>;
 
-  /** @category RegularExpression */
+  /**
+   * Create a bounded repetition regex
+   * @param re The regex to repeat
+   * @param lo Minimum number of repetitions
+   * @param hi Maximum number of repetitions (0 means unbounded, i.e., at least lo)
+   * @category RegularExpression
+   */
   Loop<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>, lo: number, hi?: number): Re<Name, SeqSortRef>;
 
   /** @category RegularExpression */
@@ -3254,6 +3260,11 @@ export interface Re<Name extends string = 'main', SeqSortRef extends SeqSort<Nam
   concat(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
 
   /** @category Operations */
+  /**
+   * Create a bounded repetition of this regex
+   * @param lo Minimum number of repetitions
+   * @param hi Maximum number of repetitions (0 means unbounded, i.e., at least lo)
+   */
   loop(lo: number, hi?: number): Re<Name, SeqSortRef>;
 
   /** @category Operations */

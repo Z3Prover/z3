@@ -1860,6 +1860,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new ReImpl<SeqSortRef>(check(Z3.mk_re_range(contextPtr, loSeq.ast, hiSeq.ast)));
     }
 
+    /**
+     * Create a bounded repetition regex.
+     * @param re The regex to repeat
+     * @param lo Minimum number of repetitions
+     * @param hi Maximum number of repetitions (0 means unbounded, i.e., at least lo)
+     */
     function Loop<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>, lo: number, hi: number = 0): Re<Name, SeqSortRef> {
       return new ReImpl<SeqSortRef>(check(Z3.mk_re_loop(contextPtr, re.ast, lo, hi)));
     }
@@ -4195,6 +4201,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new ReImpl<SeqSortRef>(check(Z3.mk_re_concat(contextPtr, [this.ast, other.ast])));
       }
 
+      /**
+       * Create a bounded repetition of this regex
+       * @param lo Minimum number of repetitions
+       * @param hi Maximum number of repetitions (0 means unbounded, i.e., at least lo)
+       */
       loop(lo: number, hi: number = 0): Re<Name, SeqSortRef> {
         return new ReImpl<SeqSortRef>(check(Z3.mk_re_loop(contextPtr, this.ast, lo, hi)));
       }
