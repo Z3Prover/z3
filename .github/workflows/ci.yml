@@ -38,7 +38,7 @@ jobs:
             runRegressions: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -81,7 +81,7 @@ jobs:
     container: "quay.io/pypa/manylinux_2_34_x86_64:latest"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Python virtual environment
         run: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
@@ -113,7 +113,7 @@ jobs:
     container: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Download ARM toolchain
         run: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz'
@@ -149,7 +149,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Setup OCaml
         uses: ocaml/setup-ocaml@v3
@@ -204,7 +204,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Setup OCaml
         uses: ocaml/setup-ocaml@v3
@@ -298,7 +298,7 @@ jobs:
             runTests: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -369,7 +369,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -405,7 +405,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Python
         uses: actions/setup-python@v6

@@ -74,13 +74,13 @@ namespace simplex {
            with the column entry.
         */
         struct col_entry {
-            int m_row_id;
+            int m_row_id = 0;
             union {
                 int m_row_idx;
                 int m_next_free_col_entry_idx;
             };
             col_entry(int r, int i): m_row_id(r), m_row_idx(i) {}
-            col_entry(): m_row_id(0), m_row_idx(0) {}            
+            col_entry(): m_row_idx(0) {}            
             bool is_dead() const { return (unsigned) m_row_id == dead_id; }
         };
      
@@ -115,11 +115,10 @@ namespace simplex {
         */
         struct column {
             svector<col_entry> m_entries;
-            unsigned           m_size; 
-            int                m_first_free_idx;
-            mutable unsigned   m_refs;
+            unsigned           m_size = 0; 
+            int                m_first_free_idx = -1;
+            mutable unsigned   m_refs = 0;
             
-            column():m_size(0), m_first_free_idx(-1), m_refs(0) {}
             unsigned size() const { return m_size; }
             unsigned num_entries() const { return m_entries.size(); }
             void reset();

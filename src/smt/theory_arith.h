@@ -111,13 +111,13 @@ namespace smt {
         */
         struct row_entry {
             numeral     m_coeff;
-            theory_var  m_var;
+            theory_var  m_var = 0;
             union {
                 int       m_col_idx;
                 int       m_next_free_row_entry_idx;
             };
             
-            row_entry():m_var(0), m_col_idx(0) {}
+            row_entry(): m_col_idx(0) {}
             row_entry(numeral const & c, theory_var v): m_coeff(c), m_var(v), m_col_idx(0) {}
             bool is_dead() const { return m_var == null_theory_var; }
         };
@@ -128,14 +128,14 @@ namespace smt {
            with the column entry.
         */
         struct col_entry {
-            int m_row_id;
+            int m_row_id = 0;
             union {
                 int m_row_idx;
                 int m_next_free_row_entry_idx;
             };
             
             col_entry(int r, int i): m_row_id(r), m_row_idx(i) {}
-            col_entry(): m_row_id(0), m_row_idx(0) {}
+            col_entry(): m_row_idx(0) {}
             bool is_dead() const { return m_row_id == dead_row_id; }
         };
      
@@ -189,10 +189,9 @@ namespace smt {
         */
         struct column {
             svector<col_entry> m_entries;
-            unsigned           m_size; 
-            int                m_first_free_idx;
+            unsigned           m_size = 0; 
+            int                m_first_free_idx = -1;
             
-            column():m_size(0), m_first_free_idx(-1) {}
             unsigned size() const { return m_size; }
             unsigned num_entries() const { return m_entries.size(); }
             void reset();
@@ -236,7 +235,7 @@ namespace smt {
             vector<numeral>   m_lit_coeffs;
             vector<numeral>   m_eq_coeffs;
             vector<parameter> m_params;
-            bool m_init;
+            bool m_init = false;
 
             bool empty() const { 
                 return m_eq_coeffs.empty() && m_lit_coeffs.empty(); 
@@ -245,7 +244,6 @@ namespace smt {
             void init();
 
         public:
-            antecedents_t(): m_init(false) {}
             void reset();
             literal_vector const& lits() const { return m_lits; }
             eq_vector const& eqs() const { return m_eqs; }

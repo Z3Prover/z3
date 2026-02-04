@@ -554,6 +554,38 @@ namespace Microsoft.Z3
 	}
 
         /// <summary>
+        /// Retrieve the trail and their associated decision levels after a <c>Check</c> call.
+        /// The trail contains Boolean literals (decisions and propagations), and the levels
+        /// array contains the corresponding decision levels at which each literal was assigned.
+        /// </summary>
+        public uint[] TrailLevels
+        {
+            get
+            {
+                using ASTVector trail = new ASTVector(Context, Native.Z3_solver_get_trail(Context.nCtx, NativeObject));
+                uint[] levels = new uint[trail.Size];
+                Native.Z3_solver_get_levels(Context.nCtx, NativeObject, trail.NativeObject, (uint)trail.Size, levels);
+                return levels;
+            }
+        }
+
+        /// <summary>
+        /// Set an initial value for a variable to guide the solver's search heuristics.
+        /// This can improve performance when good initial values are known for the problem domain.
+        /// </summary>
+        /// <param name="var">The variable to set an initial value for</param>
+        /// <param name="value">The initial value for the variable</param>
+        public void SetInitialValue(Expr var, Expr value)
+        {
+            Debug.Assert(var != null);
+            Debug.Assert(value != null);
+
+            Context.CheckContextMatch(var);
+            Context.CheckContextMatch(value);
+            Native.Z3_solver_set_initial_value(Context.nCtx, NativeObject, var.NativeObject, value.NativeObject);
+        }
+
+        /// <summary>
         /// Create a clone of the current solver with respect to <c>ctx</c>.
         /// </summary>
         public Solver Translate(Context ctx) 

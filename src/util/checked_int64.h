@@ -34,14 +34,14 @@ class overflow_exception : public z3_exception {
 
 template<bool CHECK>
 class checked_int64 {
-    int64_t m_value;
+    int64_t m_value = 0;
     typedef checked_int64 ci;
     
     rational r64(int64_t i) const { return rational(i, rational::i64()); }
 
 public:
 
-    checked_int64(): m_value(0) {}
+    checked_int64() = default;
     checked_int64(int64_t v): m_value(v) {}
 
     bool is_zero() const { return m_value == 0; }

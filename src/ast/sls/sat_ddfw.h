@@ -226,8 +226,6 @@ namespace sat {
 
         ddfw() {}
 
-        ~ddfw() = default;
-
         void set_plugin(local_search_plugin* p) { m_plugin = p; }
 
         lbool check(unsigned sz, literal const* assumptions);

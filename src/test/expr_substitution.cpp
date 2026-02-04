@@ -16,10 +16,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include <iostream>
 
 expr* mk_bv_xor(bv_util& bv, expr* a, expr* b) {
-    expr* args[2];
-    args[0] = a;
-    args[1] = b;
-    return bv.mk_bv_xor(2, args);
+    return bv.mk_bv_xor({a, b});
 }
 
 expr* mk_bv_and(bv_util& bv, expr* a, expr* b) {

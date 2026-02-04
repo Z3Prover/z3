@@ -66,7 +66,6 @@ public:
             return p.decide(*cb);
         };
     }
-    ~preferred_value_propagator() = default;
     void set_preferred(expr *e) {
         m_preferred.push_back(e);
         if (m_trail.get_num_scopes() > 0)

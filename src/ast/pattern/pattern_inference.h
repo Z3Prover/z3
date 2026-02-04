@@ -50,8 +50,6 @@ class smaller_pattern {
 
 public:
 
-    smaller_pattern() = default;
-
     smaller_pattern & operator=(smaller_pattern const &) = delete;
 
     bool operator()(unsigned num_bindings, expr * p1, expr * p2);

@@ -391,6 +391,96 @@ public class Solver extends Z3Object {
     }
 
     /**
+     * Retrieve the decision levels for each literal in the solver's trail after a {@code check} call.
+     * The trail contains Boolean literals (decisions and propagations) in the order they were assigned.
+     * The returned array has one entry per trail literal, indicating at which decision level it was assigned.
+     * Use {@link #getTrail()} to retrieve the trail literals themselves.
+     * 
+     * @return An array where element i contains the decision level for the i-th trail literal
+     * @throws Z3Exception
+     **/
+    public int[] getTrailLevels()
+    {
+        ASTVector trailVector = new ASTVector(getContext(), Native.solverGetTrail(getContext().nCtx(), getNativeObject()));
+        int[] levels = new int[trailVector.size()];
+        Native.solverGetLevels(getContext().nCtx(), getNativeObject(), trailVector.getNativeObject(), trailVector.size(), levels);
+        return levels;
+    }
+
+    /**
+     * Return a sequence of cubes (conjunctions of literals) for partitioning the search space.
+     * Each cube represents a partial assignment that can be used as a starting point for parallel solving.
+     * This is primarily useful for cube-and-conquer parallel SAT solving strategies, where different
+     * cubes can be solved independently by different workers.
+     * The iterator yields cubes until the search space is exhausted.
+     * 
+     * @param vars Optional array of variables to use as initial cube variables. If null, solver decides.
+     * @param cutoff Backtrack level cutoff for cube generation
+     * @return Iterator over arrays of Boolean expressions representing cubes
+     * @throws Z3Exception
+     **/
+    public java.util.Iterator<BoolExpr[]> cube(Expr<?>[] vars, int cutoff)
+    {
+        ASTVector cubeVars = new ASTVector(getContext());
+        if (vars != null) {
+            for (Expr<?> v : vars) {
+                cubeVars.push(v);
+            }
+        }
+        
+        return new java.util.Iterator<BoolExpr[]>() {
+            private BoolExpr[] nextCube = computeNext();
+            
+            private BoolExpr[] computeNext() {
+                ASTVector result = new ASTVector(getContext(), 
+                    Native.solverCube(getContext().nCtx(), getNativeObject(), 
+                                     cubeVars.getNativeObject(), cutoff));
+                BoolExpr[] cube = result.ToBoolExprArray();
+                
+                // Check for termination conditions
+                if (cube.length == 1 && cube[0].isFalse()) {
+                    return null; // No more cubes
+                }
+                if (cube.length == 0) {
+                    return null; // Search space exhausted
+                }
+                return cube;
+            }
+            
+            @Override
+            public boolean hasNext() {
+                return nextCube != null;
+            }
+            
+            @Override
+            public BoolExpr[] next() {
+                if (nextCube == null) {
+                    throw new java.util.NoSuchElementException();
+                }
+                BoolExpr[] current = nextCube;
+                nextCube = computeNext();
+                return current;
+            }
+        };
+    }
+
+    /**
+     * Set an initial value for a variable to guide the solver's search heuristics.
+     * This can improve performance when good initial values are known for the problem domain.
+     * 
+     * @param var The variable to set an initial value for
+     * @param value The initial value for the variable
+     * @throws Z3Exception
+     **/
+    public void setInitialValue(Expr<?> var, Expr<?> value)
+    {
+        getContext().checkContextMatch(var);
+        getContext().checkContextMatch(value);
+        Native.solverSetInitialValue(getContext().nCtx(), getNativeObject(), 
+                                     var.getNativeObject(), value.getNativeObject());
+    }
+
+    /**
      * Create a clone of the current solver with respect to{@code ctx}.
      */
     public Solver translate(Context ctx) 
