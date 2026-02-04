@@ -4628,6 +4628,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return _toExpr(check(Z3.substitute_funs(contextPtr, t.ast, from, to)));
     }
 
+    function updateField(t: DatatypeExpr<Name>, fieldAccessor: FuncDecl<Name>, newValue: Expr<Name>): DatatypeExpr<Name> {
+      _assertContext(t);
+      _assertContext(fieldAccessor);
+      _assertContext(newValue);
+      return _toExpr(check(Z3.datatype_update_field(contextPtr, fieldAccessor.ptr, t.ast, newValue.ast))) as DatatypeExpr<Name>;
+    }
+
     function ast_from_string(s: string): Ast<Name> {
       const sort_names: Z3_symbol[] = [];
       const sorts: Z3_sort[] = [];
@@ -4806,6 +4813,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       substitute,
       substituteVars,
       substituteFuns,
+      updateField,
       simplify,
 
       /////////////
