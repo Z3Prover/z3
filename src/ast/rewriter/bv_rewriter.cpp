@@ -924,9 +924,7 @@ br_status bv_rewriter::mk_bv_shl(expr * arg1, expr * arg2, expr_ref & result) {
         SASSERT(r2 < numeral(bv_size));
         // (bvshl x k) -> (concat (extract [n-1-k:0] x) bv0:k)
         unsigned k = r2.get_unsigned();
-        expr * new_args[2] = { m_mk_extract(bv_size - k - 1, 0, arg1),
-                               mk_zero(k) };
-        result = m_util.mk_concat(2, new_args);
+        result = m_util.mk_concat({m_mk_extract(bv_size - k - 1, 0, arg1), mk_zero(k)});
         return BR_REWRITE2;
     }
 
@@ -983,9 +981,7 @@ br_status bv_rewriter::mk_bv_lshr(expr * arg1, expr * arg2, expr_ref & result) {
         // (bvlshr x k) -> (concat bv0:k (extract [n-1:k] x))
         SASSERT(r2.is_unsigned());
         unsigned k = r2.get_unsigned();
-        expr * new_args[2] = { mk_zero(k),
-                               m_mk_extract(bv_size - 1, k, arg1) };
-        result = m_util.mk_concat(2, new_args);
+        result = m_util.mk_concat({mk_zero(k), m_mk_extract(bv_size - 1, k, arg1)});
         return BR_REWRITE2;
     }
 
@@ -1327,11 +1323,7 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
 
         unsigned shift;
         if (r2.is_power_of_two(shift)) {
-            expr * args[2] = {
-                mk_zero(bv_size - shift),
-                m_mk_extract(shift-1, 0, arg1)
-            };
-            result = m_util.mk_concat(2, args);
+            result = m_util.mk_concat({mk_zero(bv_size - shift), m_mk_extract(shift-1, 0, arg1)});
             return BR_REWRITE2;
         }
 
@@ -1714,8 +1706,7 @@ br_status bv_rewriter::mk_zero_extend(unsigned n, expr * arg, expr_ref & result)
         return BR_DONE;
     }
     else {
-        expr * args[2] = { mk_zero(n), arg };
-        result = m_util.mk_concat(2, args);
+        result = m_util.mk_concat({mk_zero(n), arg});
         return BR_REWRITE1;
     }
 }
@@ -2245,8 +2236,7 @@ br_status bv_rewriter::mk_bv_rotate_left(unsigned n, expr * arg, expr_ref & resu
         result = arg;
         return BR_DONE;
     }
-    expr * args[2] = { m_mk_extract(sz - n - 1, 0, arg), m_mk_extract(sz - 1, sz - n, arg) };
-    result = m_util.mk_concat(2, args);
+    result = m_util.mk_concat({m_mk_extract(sz - n - 1, 0, arg), m_mk_extract(sz - 1, sz - n, arg)});
     return BR_REWRITE2;
 }
 
@@ -2496,11 +2486,7 @@ br_status bv_rewriter::mk_bv_mul(unsigned num_args, expr * const * args, expr_re
         unsigned shift;
         if (is_numeral(x, v, bv_size) && v.is_power_of_two(shift)) {
             SASSERT(shift >= 1);
-            expr * args[2] = {
-                m_mk_extract(bv_size-shift-1, 0, y),
-                mk_zero(shift)
-            };
-            result = m_util.mk_concat(2, args);
+            result = m_util.mk_concat({m_mk_extract(bv_size-shift-1, 0, y), mk_zero(shift)});
             return BR_REWRITE2;
         }
     }
