@@ -57,12 +57,12 @@ namespace sat {
         svector<std::pair<literal, clause*>> m_units;
         vector<watch>           m_watches;
         svector<lbool>          m_assignment;
-        bool                    m_inconsistent = false;
-        bool                    m_check_unsat = false;
-        bool                    m_check_sat = false;
-        bool                    m_check = false;
-        bool                    m_activity = false;
         stats                   m_stats;
+        unsigned                m_inconsistent:1 = 0;
+        unsigned                m_check_unsat:1 = 0;
+        unsigned                m_check_sat:1 = 0;
+        unsigned                m_check:1 = 0;
+        unsigned                m_activity:1 = 0;
 
 
         void dump_activity();
