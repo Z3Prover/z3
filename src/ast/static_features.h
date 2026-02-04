@@ -75,16 +75,6 @@ struct static_features {
     unsigned                 m_num_uninterpreted_constants; //
     unsigned                 m_num_uninterpreted_functions; //
     unsigned                 m_num_eqs;         //
-    bool                     m_has_rational;    //
-    bool                     m_has_int;         //
-    bool                     m_has_real;        //
-    bool                     m_has_bv;          //
-    bool                     m_has_fpa;         //
-    bool                     m_has_sr;          // has special relations
-    bool                     m_has_str;         // has String-typed terms
-    bool                     m_has_seq_non_str; // has non-String-typed Sequence terms
-    bool                     m_has_arrays;      //
-    bool                     m_has_ext_arrays;  // does this use extended array theory.
     rational                 m_arith_k_sum;     // sum of the numerals in arith atoms.
     unsigned                 m_num_arith_terms;
     unsigned                 m_num_arith_eqs;   // equalities of the form t = k where k is a numeral
@@ -98,6 +88,16 @@ struct static_features {
     unsigned_vector          m_num_apps;             // mapping decl_id   -> num_apps;
     unsigned_vector          m_num_theory_terms;     // mapping family_id -> num_terms
     unsigned_vector          m_num_theory_atoms;     // mapping family_id -> num_atoms
+    unsigned                 m_has_rational:1;    //
+    unsigned                 m_has_int:1;         //
+    unsigned                 m_has_real:1;        //
+    unsigned                 m_has_bv:1;          //
+    unsigned                 m_has_fpa:1;         //
+    unsigned                 m_has_sr:1;          // has special relations
+    unsigned                 m_has_str:1;         // has String-typed terms
+    unsigned                 m_has_seq_non_str:1; // has non-String-typed Sequence terms
+    unsigned                 m_has_arrays:1;      //
+    unsigned                 m_has_ext_arrays:1;  // does this use extended array theory.
     unsigned_vector          m_num_theory_constants; // mapping family_id -> num_exprs
     unsigned_vector          m_num_theory_eqs;       // mapping family_id -> num_eqs
     unsigned                 m_num_aliens;            //
