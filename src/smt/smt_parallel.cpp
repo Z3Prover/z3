@@ -254,14 +254,14 @@ namespace smt {
         m_sls = alloc(sls::smt_solver, m, m_params);
     }
 
-    parallel::backbones_worker::backbones_worker(parallel& p)
-        : p(p), b(p.m_batch_manager), m(), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m), m_l2g(m, p.ctx.m) {
+    parallel::backbones_worker::backbones_worker(parallel &p, expr_ref_vector const &_asms)
+        : p(p), b(p.m_batch_manager), m(), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m), m_l2g(m, p.ctx.m) {
+        for (auto e : _asms)
+            asms.push_back(m_g2l(e));
         IF_VERBOSE(1, verbose_stream() << "Initialized backbones thread\n");
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
-
-        ctx->get_fparams().m_preprocess = false;
     }
 
     svector<smt::parallel::bb_candidate> parallel::worker::find_backbone_candidates(unsigned k) {
@@ -329,14 +329,12 @@ namespace smt {
     // run the solver with a low budget of conflicts
     // if the unsat core contains a single candidate we have found a backbone literal
     // 
-    expr_ref_vector parallel::batch_manager::get_global_backbones_from_candidates() {
+    expr_ref_vector parallel::backbones_worker::get_backbones_from_candidates(svector<parallel::bb_candidate> const& bb_candidates) {
         expr_ref_vector backbones(m);
         unsigned sz = asms.size();
 
-        for (auto& bb : m_bb_candidates) 
+        for (auto& bb : bb_candidates) {
             asms.push_back(m.mk_not(bb.lit.get()));
-
-            LOG_WORKER(1, "PUSHED BACKBONES TO ASMS\n");
 
             ctx->get_fparams().m_max_conflicts = 100;
             lbool r = l_undef;
@@ -355,19 +353,18 @@ namespace smt {
 
             asms.shrink(sz); // restore assumptions
 
-            LOG_WORKER(1, " BACKBONE CHECK RESULT: " << r << "\n");
+            IF_VERBOSE(1, verbose_stream() << " BACKBONE CHECK RESULT: " << r << " FOR CANDIDATE: " << bb.lit << "\n");
 
             if (r == l_false) {
                 // c must be true in all models → backbone
                 auto core = ctx->unsat_core();
-                LOG_WORKER(1, "core: " << core << "\n");
                 if (core.size() == 1) {
                     expr* e = core.get(0);
                     backbones.push_back(mk_not(m, e));
                 }                
             }
+        }
         
-
         return backbones;
     }
 

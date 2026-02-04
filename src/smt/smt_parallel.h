@@ -95,6 +95,11 @@ namespace smt {
                 p.m_sls_worker->cancel();
             }
 
+            void cancel_backbones_worker() {
+                IF_VERBOSE(1, verbose_stream() << "Canceling backbones worker\n");
+                p.m_backbones_worker->cancel();
+            }
+
             void cancel_background_threads() {
                 cancel_workers();
                 if (p.m_should_run_sls) cancel_sls_worker();    
@@ -113,7 +118,7 @@ namespace smt {
             void set_exception(unsigned error_code);
             void collect_statistics(::statistics& st) const;
             void collect_backbone_candidates(ast_translation& l2g, unsigned worker_id, svector<bb_candidate>& bb_candidates);
-            expr_ref_vector get_global_backbones_from_candidates(expr_ref_vector const& candidates);
+            expr_ref_vector collect_global_backbones(expr_ref_vector const& backbones);
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
@@ -204,9 +209,30 @@ namespace smt {
                 }
         };
 
+        class backbones_worker {
+            parallel& p;
+            batch_manager& b;
+            ast_manager m;
+            expr_ref_vector asms;
+            smt_params m_smt_params;
+            scoped_ptr<context> ctx;
+            ast_translation m_g2l, m_l2g;
+
+            public:
+                backbones_worker(parallel &p, expr_ref_vector const &_asms);
+                void cancel();
+                expr_ref_vector get_backbones_from_candidates(svector<parallel::bb_candidate> const& bb_candidates);
+                void collect_statistics(::statistics& st) const;
+
+                reslimit &limit() {
+                    return m.limit();
+                }
+        };
+
         batch_manager m_batch_manager;
         scoped_ptr_vector<worker> m_workers;
         scoped_ptr<sls_worker> m_sls_worker;
+        scoped_ptr<backbones_worker> m_backbones_worker;
 
     public:
         parallel(context& ctx) : 
