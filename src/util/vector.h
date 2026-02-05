@@ -405,7 +405,14 @@ public:
         if (CallDestructors) {
             back().~T(); 
         }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
         reinterpret_cast<SZ *>(m_data)[SIZE_IDX]--; 
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
     }
 
     vector& push_back(T const & elem) {

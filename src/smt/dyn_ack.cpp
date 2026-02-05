@@ -357,7 +357,7 @@ namespace smt {
         m_context.m_stats.m_num_del_dyn_ack++;
         app_pair p((app*)nullptr,(app*)nullptr);
         if (m_clause2app_pair.find(cls, p)) {
-            auto [a1, a2] = p;
+            [[maybe_unused]] auto [a1, a2] = p;
             SASSERT(a1 && a2);
             m_instantiated.erase(p);
             m_clause2app_pair.erase(cls);
@@ -366,7 +366,7 @@ namespace smt {
         }
         app_triple tr(0,0,0);
         if (m_triple.m_clause2apps.find(cls, tr)) {
-            auto [a1, a2, a3] = tr;
+            [[maybe_unused]] auto [a1, a2, a3] = tr;
             SASSERT(a1 && a2 && a3);
             m_triple.m_instantiated.erase(tr);
             m_triple.m_clause2apps.erase(cls);
