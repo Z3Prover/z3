@@ -35,8 +35,7 @@ class nlsat_tactic : public tactic {
         std::ostream& operator()(std::ostream & out, nlsat::var x) const override {
             if (x < m_var2expr.size())
                 return out << mk_ismt2_pp(m_var2expr.get(x), m); 
-            else
-                return out << "x!" << x;
+            return out << "x!" << x;
         }
     };
 

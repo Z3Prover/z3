@@ -567,8 +567,7 @@ namespace nlsat {
             atom * a  = m_atoms[l.var()];
             if (a != nullptr)
                 return a->max_var();
-            else
-                return null_var;
+            return null_var;
         }
 
         /**

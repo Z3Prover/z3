@@ -422,8 +422,7 @@ namespace nlsat {
         var max_var(bool_var b) const {
             if (!is_arith_atom(b))
                 return null_var;
-            else
-                return m_atoms[b]->max_var();
+            return m_atoms[b]->max_var();
         }
 
         var max_var(literal l) const {
@@ -1439,8 +1438,7 @@ namespace nlsat {
             bool_var b = l.var();
             if (l.sign())
                 return ~m_bvalues[b];
-            else
-                return m_bvalues[b];
+            return m_bvalues[b];
         }
 
         /**
@@ -1747,8 +1745,7 @@ namespace nlsat {
                 return true;
             if (m_xk == null_var)
                 return process_boolean_clause(cls);
-            else
-                return process_arith_clause(cls, satisfy_learned);
+            return process_arith_clause(cls, satisfy_learned);
         }
 
         /**
@@ -3880,8 +3877,7 @@ namespace nlsat {
             std::ostream& operator()(std::ostream & out, var x) const override {
                 if (m_x == x)
                     return out << "#1";
-                else
-                    return out << "x" << x; 
+                return out << "x" << x; 
             }
         };
 
@@ -3904,8 +3900,7 @@ namespace nlsat {
         std::ostream& display(std::ostream & out, atom const & a, display_var_proc const & proc) const {
             if (a.is_ineq_atom())
                 return display_ineq(out, static_cast<ineq_atom const &>(a), proc);
-            else
-                return display_root(out, static_cast<root_atom const &>(a), proc);
+            return display_root(out, static_cast<root_atom const &>(a), proc);
         }
 
         std::ostream& display(std::ostream & out, atom const & a) const {
@@ -3915,15 +3910,13 @@ namespace nlsat {
         std::ostream& display_mathematica(std::ostream & out, atom const & a) const {
             if (a.is_ineq_atom())
                 return display_mathematica(out, static_cast<ineq_atom const &>(a));
-            else
-                return display_mathematica(out, static_cast<root_atom const &>(a));
+            return display_mathematica(out, static_cast<root_atom const &>(a));
         }
 
         std::ostream& display_smt2(std::ostream & out, atom const & a, display_var_proc const & proc) const {
             if (a.is_ineq_atom())
                 return display_ineq_smt2(out, static_cast<ineq_atom const &>(a), proc);
-            else
-                return display_root_smt2(out, static_cast<root_atom const &>(a), proc);
+            return display_root_smt2(out, static_cast<root_atom const &>(a), proc);
         }
 
         std::ostream& display_atom(std::ostream & out, bool_var b, display_var_proc const & proc) const {

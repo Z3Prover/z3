@@ -180,8 +180,7 @@ struct goal2nlsat::imp {
         if (m.is_eq(f)) {
             if (m_util.is_int_real(to_app(f)->get_arg(0)))
                 return process_eq(to_app(f));
-            else
-                return nlsat::literal(process_bvar(f), false);                
+            return nlsat::literal(process_bvar(f), false);                
         }
         else if (m_util.is_le(f)) {
             return process_le(to_app(f));
