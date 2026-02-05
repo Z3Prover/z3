@@ -214,6 +214,24 @@ namespace z3 {
     public:
         context() { config c; init(c); }
         context(config & c) { init(c); }
+        
+        context(context && other) noexcept 
+            : m_enable_exceptions(other.m_enable_exceptions),
+              m_rounding_mode(other.m_rounding_mode),
+              m_ctx(other.m_ctx) {
+            other.m_ctx = nullptr;
+        }
+        
+        context & operator=(context && other) noexcept {
+            if (this != &other) {
+                if (m_ctx) Z3_del_context(m_ctx);
+                m_enable_exceptions = other.m_enable_exceptions;
+                m_rounding_mode = other.m_rounding_mode;
+                m_ctx = other.m_ctx;
+                other.m_ctx = nullptr;
+            }
+            return *this;
+        }
         ~context() { if (m_ctx) Z3_del_context(m_ctx); }
         operator Z3_context() const { return m_ctx; }
 
