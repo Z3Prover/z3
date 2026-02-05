@@ -130,7 +130,7 @@ extern "C" {
         for (unsigned i = 0; i < sz; ++i) {
             buffer << "\n  " << mk_ismt2_pp(to_ast_vector_ref(v).get(i), mk_c(c)->m(), 2);
         }
-        buffer << ")";
+        buffer << ')';
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN(nullptr);
     }

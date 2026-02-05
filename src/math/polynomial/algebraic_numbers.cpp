@@ -1989,7 +1989,7 @@ namespace algebraic_numbers {
             // make sure that intervals of a and b have the same magnitude
             int a_m      = magnitude(a_lower, a_upper);
             int b_m      = magnitude(b_lower, b_upper);
-            int target_m = std::max(m_min_magnitude, std::min(a_m, b_m));
+            int target_m = std::clamp(std::min(a_m, b_m), m_min_magnitude, INT_MAX);
             if (b_m > target_m) {
                 if (!refine(b, b_m - target_m))
                     return compare(a, b);

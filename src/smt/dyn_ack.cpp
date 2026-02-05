@@ -155,8 +155,7 @@ namespace smt {
             proof* ps[2] = { p3, p4 };
             p5 = m.mk_unit_resolution(2, ps);
             SASSERT(m.get_fact(p5) == m.mk_false());
-            expr* eqs[3] = { m.mk_not(m_eq1), m.mk_not(m_eq2), m_eq3 };
-            expr_ref conclusion(m.mk_or(3, eqs), m);
+            expr_ref conclusion(m.mk_or({m.mk_not(m_eq1), m.mk_not(m_eq2), m_eq3}), m);
             p6 = m.mk_lemma(p5, conclusion);
             return p6;
         }
