@@ -3530,7 +3530,7 @@ public:
             break;
         }
         case equality_source: {
-            auto [n1, n2] = m_equalities[idx];
+            [[maybe_unused]] auto [n1, n2] = m_equalities[idx];
             SASSERT(n1 != nullptr);
             SASSERT(n2 != nullptr);
             m_eqs.push_back(m_equalities[idx]);          
