@@ -1969,7 +1969,7 @@ void pred_transformer::update_solver_with_rfs(prop_solver *solver,
             e = m.mk_or(m.mk_not(rule_tag), rf->get(), rf->tag());
         }
         else {
-            e = m.mk_or({not_rule_tag, last_tag, rf->get(), rf->tag()});
+            e = m.mk_or(not_rule_tag, last_tag, rf->get(), rf->tag());
         }
         last_tag = m.mk_not(rf->tag());
         pm.formula_n2o(e.get(), e, pos);
