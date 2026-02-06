@@ -808,6 +808,9 @@ export interface Context<Name extends string = 'main'> {
   /** @category Operations */
   substituteFuns(t: Expr<Name>, ...substitutions: [FuncDecl<Name>, Expr<Name>][]): Expr<Name>;
 
+  /** @category Operations */
+  updateField(t: DatatypeExpr<Name>, fieldAccessor: FuncDecl<Name>, newValue: Expr<Name>): DatatypeExpr<Name>;
+
   simplify(expr: Expr<Name>): Promise<Expr<Name>>;
 
   /** @category Operations */
