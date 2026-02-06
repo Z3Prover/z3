@@ -44,6 +44,7 @@ namespace lp {
         dioph_eq            m_dio;  
         int_gcd_test        m_gcd;
         unsigned            m_initial_dio_calls_period;
+        unsigned            m_patch_period = 1;
         
         bool column_is_int_inf(unsigned j) const {
             return lra.column_is_int(j) && (!lia.value_is_int(j));
@@ -52,6 +53,7 @@ namespace lp {
         imp(int_solver& lia): lia(lia), lra(lia.lra), lrac(lia.lrac), m_hnf_cutter(lia), m_dio(lia), m_gcd(lia) {
             m_hnf_cut_period = settings().hnf_cut_period();
             m_initial_dio_calls_period = settings().dio_calls_period();
+            m_patch_period = settings().m_int_patch_period;
         } 
 
         bool has_lower(unsigned j) const {
@@ -156,6 +158,11 @@ namespace lp {
                     try_patch_column(v, c.var(), delta_plus);
         }
         
+        bool should_patch() {
+            // period == 0 means no throttling (old behavior)
+            return settings().m_int_patch_period == 0 || m_number_of_calls % m_patch_period == 0;
+        }
+
         lia_move patch_basic_columns() {
             lia.settings().stats().m_patches++;
             lra.remove_fixed_vars_from_base();
@@ -165,8 +172,12 @@ namespace lp {
                     patch_basic_column(j);
             if (!lra.has_inf_int()) {
                 lia.settings().stats().m_patches_success++;
+                m_patch_period = std::max(1u, settings().m_int_patch_period);
                 return lia_move::sat;
             }
+            // Only throttle if enabled (period > 0)
+            if (settings().m_int_patch_period > 0 && m_patch_period < 16)
+                m_patch_period *= 2;
             return lia_move::undef;     
         }
 
@@ -244,7 +255,7 @@ namespace lp {
                 return lia_move::undef;
 
             ++m_number_of_calls;
-            if (r == lia_move::undef) r = patch_basic_columns();
+            if (r == lia_move::undef && should_patch()) r = patch_basic_columns();
             if (r == lia_move::undef && should_find_cube()) r = int_cube(lia)();
             if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
             if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
