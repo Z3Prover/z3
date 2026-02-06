@@ -112,11 +112,15 @@ namespace smt {
             if (bb_candidates.empty())
                 continue;
 
+            m_batch_total += bb_candidates.size();
             expr_ref_vector likely_backbones = check_backbone_batch(bb_candidates);
+            m_batch_likely += likely_backbones.size();
             
             for (expr* bb : likely_backbones) {
+                m_candidates_tested++;
                 expr_ref bb_ref(bb, m);
                 if (check_backbone(bb_ref)) {
+                    m_candidates_confirmed++;
                     IF_VERBOSE(1, verbose_stream() << " determined global backbone: " << mk_bounded_pp(bb_ref, m, 3) << "\n");
                     b.collect_global_backbone(m_l2g, bb_ref);
                 }
@@ -171,6 +175,25 @@ namespace smt {
             backtrack(l2g, core, t);
         }
     }
+
+    void parallel::backbones_worker::collect_statistics(::statistics& st) const {
+        st.update("bb-batch-total", m_batch_total);
+        st.update("bb-batch-likely", m_batch_likely);
+        st.update("bb-candidates-tested", m_candidates_tested);
+        st.update("bb-confirmed", m_candidates_confirmed);
+
+        double batch_pct = 0.0;
+        if (m_batch_total > 0)
+            batch_pct = 100.0 * (double)m_batch_likely / (double)m_batch_total;
+
+        double confirm_pct = 0.0;
+        if (m_candidates_tested > 0)
+            confirm_pct = 100.0 * (double)m_candidates_confirmed / (double)m_candidates_tested;
+
+        st.update("bb-batch-filter-pct", batch_pct);
+        st.update("bb-success-rate-pct", confirm_pct);
+    }
+
 
     void parallel::sls_worker::cancel() {
         IF_VERBOSE(1, verbose_stream() << " SLS WORKER cancelling\n");
@@ -981,6 +1004,8 @@ namespace smt {
         m_batch_manager.collect_statistics(ctx.m_aux_stats);
         if (m_should_run_sls)
             m_sls_worker->collect_statistics(ctx.m_aux_stats);
+        if (m_should_run_backbones)
+            m_backbones_worker->collect_statistics(ctx.m_aux_stats);
 
         return m_batch_manager.get_result();
     }

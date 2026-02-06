@@ -239,6 +239,11 @@ namespace smt {
             scoped_ptr<context> ctx;
             ast_translation m_g2l, m_l2g;
 
+            mutable unsigned m_batch_total = 0;
+            mutable unsigned m_batch_likely = 0;
+            mutable unsigned m_candidates_tested = 0;
+            mutable unsigned m_candidates_confirmed = 0;
+
             public:
                 backbones_worker(parallel &p, expr_ref_vector const &_asms);
                 void cancel();
