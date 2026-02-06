@@ -132,13 +132,31 @@ namespace smt {
     }
     
     void parallel::batch_manager::collect_global_backbone(ast_translation& l2g, expr_ref const& backbone) {
-        std::scoped_lock lock(mux);
-        expr* local_e = l2g(backbone.get());
-        if (!is_global_backbone(local_e)) {
-            IF_VERBOSE(1, verbose_stream() << " New global backbone: " << mk_bounded_pp(local_e, m, 3) << "\n");
-            m_global_backbones.push_back(local_e);
-        } 
+        expr_ref g_bb(m);
+        bool is_new_bb = false;
+
+        {
+            std::scoped_lock lock(mux);
+
+            expr* local_e = l2g(backbone.get());
+
+            if (!is_global_backbone(local_e)) {
+                IF_VERBOSE(1, verbose_stream() << " Found new global backbone: " << mk_bounded_pp(local_e, m, 3) << "\n");
+
+                m_global_backbones.push_back(local_e);
+
+                g_bb = expr_ref(local_e, m);
+                is_new_bb = true;
+            }
+        }
+
+        // avoid deadlock
+        if (is_new_bb) {
+            IF_VERBOSE(1, verbose_stream() << " Sharing new global backbone: " << mk_bounded_pp(g_bb, m, 3) << "\n");
+            collect_clause(l2g, /*source_worker_id=*/UINT_MAX, g_bb.get());
+        }
     }
+
 
     void parallel::sls_worker::cancel() {
         IF_VERBOSE(1, verbose_stream() << " SLS WORKER cancelling\n");
@@ -768,6 +786,10 @@ namespace smt {
                 continue;
             expr *e = ctx->bool_var2expr(v);
             if (!e)
+                continue;
+
+            // don't split on a backbone
+            if (b.is_global_backbone(e) || b.is_global_backbone(m.mk_not(e)))
                 continue;
 
             double new_score = ctx->m_lit_scores[0][v] * ctx->m_lit_scores[1][v];
