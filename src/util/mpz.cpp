@@ -1560,7 +1560,8 @@ void mpz_manager<SYNCH>::big_set(mpz & target, mpz const & source) {
     if (&target == &source)
         return;
     int src_sign = source.sign();
-    if (target.ptr() == nullptr) {
+    mpz_cell* target_cell = target.is_small() ? nullptr : target.ptr();
+    if (target_cell == nullptr) {
         mpz_cell* new_cell = allocate(capacity(source));
         new_cell->m_size     = size(source);
         new_cell->m_capacity = capacity(source);
