@@ -427,13 +427,13 @@ struct z3_replayer::imp {
             case 'R':
                 // reset
                 next();
-                TRACE(z3_replayer, tout << "[" << m_line << "] " << "R\n";);
+                TRACE(z3_replayer, tout << "[" << m_line << "] R\n";);
                 reset();
                 break;
             case 'P': {
                 // push pointer
                 next(); skip_blank(); read_ptr();
-                TRACE(z3_replayer, tout << "[" << m_line << "] " << "P " << m_ptr << "\n";);
+                TRACE(z3_replayer, tout << "[" << m_line << "] P " << m_ptr << "\n";);
                 if (m_ptr == 0) {
                     m_args.push_back(nullptr);
                 }
@@ -449,7 +449,7 @@ struct z3_replayer::imp {
             case 'S': {
                 // push string
                 next(); skip_blank(); read_string();
-                TRACE(z3_replayer, tout << "[" << m_line << "] "  << "S " << m_string.begin() << "\n";);
+                TRACE(z3_replayer, tout << "[" << m_line << "] S " << m_string.begin() << "\n";);
                 symbol sym(m_string.begin()); // save string
                 m_args.push_back(value(STRING, sym.bare_str()));
                 break;
@@ -457,7 +457,7 @@ struct z3_replayer::imp {
             case 'N':
                 // push null symbol
                 next();
-                TRACE(z3_replayer, tout << "[" << m_line << "] " << "N\n";);
+                TRACE(z3_replayer, tout << "[" << m_line << "] N\n";);
                 m_args.push_back(value(SYMBOL, symbol::null));
                 break;
             case '$': {

@@ -580,7 +580,7 @@ void substitution_tree::display(std::ostream & out, subst const & s) const {
             out << "(" << to_app(s.second)->get_decl()->get_name();
             for (unsigned i = 0; i < num; ++i)
                 out << " r!" << to_var(to_app(s.second)->get_arg(i))->get_idx();
-            out << ")";
+            out << ')';
         }
     }
     else {
