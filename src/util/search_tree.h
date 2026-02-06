@@ -404,6 +404,24 @@ namespace search_tree {
             return m_root->find_active_node();
         }
 
+        node<Config>* find_node_with_literal(literal const& lit) {
+            return find_node_with_literal_rec(m_root.get(), lit);
+        }
+
+        node<Config>* find_node_with_literal_rec(node<Config>* n, literal const& lit) {
+            if (!n)
+                return nullptr;
+
+            if (!Config::literal_is_null(n->get_literal()) &&
+                n->get_literal() == lit)
+                return n;
+
+            if (auto* l = find_node_with_literal_rec(n->left(), lit))
+                return l;
+
+            return find_node_with_literal_rec(n->right(), lit);
+        }
+
         vector<literal> const &get_core_from_root() const {
             return m_root->get_core();
         }

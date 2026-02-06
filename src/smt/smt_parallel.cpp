@@ -150,13 +150,27 @@ namespace smt {
             }
         }
 
-        // avoid deadlock
-        if (is_new_bb) {
-            IF_VERBOSE(1, verbose_stream() << " Sharing new global backbone: " << mk_bounded_pp(g_bb, m, 3) << "\n");
-            collect_clause(l2g, /*source_worker_id=*/UINT_MAX, g_bb.get());
+        if (!is_new_bb)
+            return;
+
+        IF_VERBOSE(1, verbose_stream() << " Sharing new global backbone: " << mk_bounded_pp(g_bb, m, 3) << "\n");
+        collect_clause(l2g, /*source_worker_id=*/UINT_MAX, g_bb.get());
+
+        node* t = nullptr;
+
+        {
+            std::scoped_lock lock(mux);
+            expr_ref neg_bb(mk_not(m, g_bb.get()), m);
+            t = m_search_tree.find_node_with_literal(neg_bb);
+        }
+
+        if (t) {
+            IF_VERBOSE(1, verbose_stream() << " Backtracking on new global backbone: " << mk_bounded_pp(g_bb, m, 3) << "\n");
+            expr_ref_vector core(m);
+            core.push_back(g_bb);
+            backtrack(l2g, core, t);
         }
     }
-
 
     void parallel::sls_worker::cancel() {
         IF_VERBOSE(1, verbose_stream() << " SLS WORKER cancelling\n");
