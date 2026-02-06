@@ -2206,6 +2206,7 @@ public:
     app * mk_xor(ref_buffer<expr, ast_manager> const& args) { return mk_xor(args.size(), args.data()); }
     app * mk_or(unsigned num_args, expr * const * args) { return mk_app(basic_family_id, OP_OR, num_args, args); }
     app * mk_and(std::span<expr* const> args) { return mk_app(basic_family_id, OP_AND, args); }
+    app * mk_or(std::span<expr* const> args) { return mk_app(basic_family_id, OP_OR, args); }
     app * mk_or(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_OR, arg1, arg2); }
     app * mk_and(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_AND, arg1, arg2); }
     app * mk_or(expr * arg1, expr * arg2, expr * arg3) { return mk_app(basic_family_id, OP_OR, arg1, arg2, arg3); }
@@ -2216,10 +2217,10 @@ public:
     app * mk_and(ptr_vector<expr> const& args) { return mk_and(std::span<expr* const>(args.data(), args.size())); }
     app * mk_and(ref_buffer<expr, ast_manager> const& args) { return mk_and(std::span<expr* const>(args.data(), args.size())); }
     app * mk_and(ptr_buffer<expr> const& args) { return mk_and(std::span<expr* const>(args.data(), args.size())); }
-    app * mk_or(ref_vector<expr, ast_manager> const& args) { return mk_or(args.size(), args.data()); }
-    app * mk_or(ptr_vector<expr> const& args) { return mk_or(args.size(), args.data()); }
-    app * mk_or(ref_buffer<expr, ast_manager> const& args) { return mk_or(args.size(), args.data()); }
-    app * mk_or(ptr_buffer<expr> const& args) { return mk_or(args.size(), args.data()); }
+    app * mk_or(ref_vector<expr, ast_manager> const& args) { return mk_or(std::span<expr* const>(args.data(), args.size())); }
+    app * mk_or(ptr_vector<expr> const& args) { return mk_or(std::span<expr* const>(args.data(), args.size())); }
+    app * mk_or(ref_buffer<expr, ast_manager> const& args) { return mk_or(std::span<expr* const>(args.data(), args.size())); }
+    app * mk_or(ptr_buffer<expr> const& args) { return mk_or(std::span<expr* const>(args.data(), args.size())); }
     app * mk_implies(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_IMPLIES, arg1, arg2); }
     app * mk_not(expr * n) { return mk_app(basic_family_id, OP_NOT, n); }
     app * mk_distinct(unsigned num_args, expr * const * args);
