@@ -1,15 +1,14 @@
 ---
 on:
-  schedule: daily
+  schedule:
+    - cron: "0 0 * * *"
   skip-if-match: is:pr is:open in:title "[code-simplifier]"
 permissions:
   contents: read
   issues: read
   pull-requests: read
-  discussions: read
 safe-outputs:
-  create-discussion:
-    category: "general"
+  create-issue:
     labels:
     - refactoring
     - code-quality
@@ -35,7 +34,7 @@ You are an expert code simplification specialist focused on enhancing code clari
 
 ## Your Mission
 
-Analyze recently modified code from the last 24 hours and apply refinements that improve code quality while preserving all functionality. Create a GitHub discussion with a properly formatted diff if improvements are found.
+Analyze recently modified code from the last 24 hours and apply refinements that improve code quality while preserving all functionality. Create a GitHub issue with a properly formatted diff if improvements are found.
 
 ## Current Context
 
@@ -239,11 +238,11 @@ npm run build
 python -m py_compile changed_files.py
 ```
 
-## Phase 4: Create GitHub Discussion with Diff
+## Phase 4: Create GitHub Issue with Diff
 
-### 4.1 Determine If Discussion Is Needed
+### 4.1 Determine If Issue Is Needed
 
-Only create a discussion if:
+Only create an issue if:
 - ✅ You made actual code simplifications
 - ✅ All tests pass
 - ✅ Linting is clean
@@ -259,7 +258,7 @@ No simplifications needed - code already meets quality standards.
 
 ### 4.2 Generate Git Diff
 
-Before creating the discussion, generate a properly formatted git diff that can be used to create a pull request:
+Before creating the issue, generate a properly formatted git diff that can be used to create a pull request:
 
 ```bash
 # Stage all changes if not already staged
@@ -285,9 +284,9 @@ This format is compatible with:
 - GitHub Copilot for suggesting PR creation
 - Manual copy-paste into PR creation interface
 
-### 4.3 Generate Discussion Description
+### 4.3 Generate Issue Description
 
-If creating a discussion, use this structure:
+If creating an issue, use this structure:
 
 ```markdown
 ## Code Simplification - [Date]
@@ -369,11 +368,10 @@ Please verify:
 
 ### 4.4 Use Safe Outputs
 
-Create the discussion using the safe-outputs configuration:
+Create the issue using the safe-outputs configuration:
 
 - Title will be prefixed with `[code-simplifier]`
 - Labeled with `refactoring`, `code-quality`, `automation`
-- Posted to the "General" discussion category
 - Contains complete git diff for easy PR creation
 
 ## Important Guidelines
@@ -391,7 +389,7 @@ Create the discussion using the safe-outputs configuration:
 - **Clear over clever**: Prioritize readability and maintainability
 
 ### Exit Conditions
-Exit gracefully without creating a discussion if:
+Exit gracefully without creating an issue if:
 - No code was changed in the last 24 hours
 - No simplifications are beneficial
 - Tests fail after changes
@@ -423,9 +421,9 @@ Your output MUST either:
    No simplifications needed - code already meets quality standards.
    ```
 
-3. **If simplifications made**: Create a discussion with the changes using safe-outputs, including:
+3. **If simplifications made**: Create an issue with the changes using safe-outputs, including:
    - Clear description of improvements
    - Complete git diff in proper format
    - Instructions for applying the diff or creating a PR
 
-Begin your code simplification analysis now. Find recently modified code, assess simplification opportunities, apply improvements while preserving functionality, validate changes, and create a discussion with a git diff if beneficial.
+Begin your code simplification analysis now. Find recently modified code, assess simplification opportunities, apply improvements while preserving functionality, validate changes, and create an issue with a git diff if beneficial.
