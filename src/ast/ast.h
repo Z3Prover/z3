@@ -123,7 +123,7 @@ private:
         ast*,      // for PARAM_AST
         symbol,    // for PARAM_SYMBOL
         zstring*,  // for PARAM_ZSTRING
-        rational*, // for PARAM_RATIONAL
+        rational,  // for PARAM_RATIONAL
         double,    // for PARAM_DOUBLE (remark: this is not used in float_decl_plugin)
         unsigned   // for PARAM_EXTERNAL
     > m_val;
@@ -135,8 +135,8 @@ public:
     explicit parameter(unsigned val): m_val((int)val) {}
     explicit parameter(ast * p): m_val(p) {}
     explicit parameter(symbol const & s): m_val(s) {}
-    explicit parameter(rational const & r): m_val(alloc(rational, r)) {}
-    explicit parameter(rational && r) : m_val(alloc(rational, std::move(r))) {} 
+    explicit parameter(rational const & r): m_val(r) {}
+    explicit parameter(rational && r) : m_val(std::move(r)) {} 
     explicit parameter(zstring const& s): m_val(alloc(zstring, s)) {}
     explicit parameter(zstring && s): m_val(alloc(zstring, std::move(s))) {}
     explicit parameter(double d): m_val(d) {}
@@ -188,7 +188,7 @@ public:
     int get_int() const { SASSERT(is_int()); return std::get<int>(m_val); }
     ast * get_ast() const { SASSERT(is_ast()); return std::get<ast*>(m_val); }
     symbol get_symbol() const { SASSERT(is_symbol()); return std::get<symbol>(m_val); }
-    rational const & get_rational() const { SASSERT(is_rational()); return *std::get<rational*>(m_val); }
+    rational const & get_rational() const { SASSERT(is_rational()); return std::get<rational>(m_val); }
     zstring const& get_zstring() const { SASSERT(is_zstring()); return *std::get<zstring*>(m_val); }
     double get_double() const { SASSERT(is_double()); return std::get<double>(m_val); }
     unsigned get_ext_id() const { SASSERT(is_external()); return std::get<unsigned>(m_val); }
