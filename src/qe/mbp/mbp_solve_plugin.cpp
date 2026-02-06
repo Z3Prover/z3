@@ -418,16 +418,13 @@ namespace mbp {
                 lhs = e;
                 unsigned sz = m_bv.get_bv_size(e);
                 if (lo > 0 && hi + 1 < sz) {
-                    expr* args[3] = { m_bv.mk_extract(sz-1, hi + 1, e), rhs, m_bv.mk_extract(lo - 1, 0, e)};
-                    rhs = m_bv.mk_concat(3, args);
+                    rhs = m_bv.mk_concat({m_bv.mk_extract(sz-1, hi + 1, e), rhs, m_bv.mk_extract(lo - 1, 0, e)});
                 }
                 else if (lo == 0 && hi + 1 < sz) {
-                    expr* args[2] = { m_bv.mk_extract(sz-1, hi + 1, e), rhs };
-                    rhs = m_bv.mk_concat(2, args);
+                    rhs = m_bv.mk_concat({m_bv.mk_extract(sz-1, hi + 1, e), rhs});
                 }
                 else if (lo > 0 && hi + 1 == sz) {
-                    expr* args[2] = { rhs, m_bv.mk_extract(lo - 1, 0, e) };
-                    rhs = m_bv.mk_concat(2, args);                    
+                    rhs = m_bv.mk_concat({rhs, m_bv.mk_extract(lo - 1, 0, e)});                    
                 }
                 else {
                     return false;

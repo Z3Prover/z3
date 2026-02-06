@@ -4367,8 +4367,7 @@ app_ref fpa2bv_converter_wrapped::wrap(expr* e) {
     app_ref res(m);
 
     if (m_util.is_fp(e)) {
-        expr* cargs[3] = { to_app(e)->get_arg(0), to_app(e)->get_arg(1), to_app(e)->get_arg(2) };
-        expr_ref tmp(m_bv_util.mk_concat(3, cargs), m);
+        expr_ref tmp(m_bv_util.mk_concat({to_app(e)->get_arg(0), to_app(e)->get_arg(1), to_app(e)->get_arg(2)}), m);
         m_rw(tmp);
         res = to_app(tmp);
     }

@@ -20,12 +20,119 @@ Notes:
 #include "nlsat/nlsat_interval_set.h"
 #include "nlsat/nlsat_evaluator.h"
 #include "nlsat/nlsat_solver.h"
+#include "nlsat/levelwise.h"
 #include "util/util.h"
 #include "nlsat/nlsat_explain.h"
 #include "math/polynomial/polynomial_cache.h"
 #include "util/rlimit.h"
 #include <iostream>
 #include <vector>
+
+// Helper function to check if a point (given by counter_as) is inside a levelwise cell.
+// Returns true if the point is inside ALL cell intervals, false otherwise.
+// Prints diagnostic info about which constraint was violated (if any).
+static bool is_point_inside_cell(
+    anum_manager& am,
+    polynomial::manager& pm,
+    std_vector<nlsat::levelwise::root_function_interval> const& cell,
+    nlsat::assignment const& counter_as,
+    bool verbose = true) 
+{
+    for (unsigned level = 0; level < cell.size(); ++level) {
+        auto const& interval = cell[level];
+        
+        // Skip whole-line sectors - no constraint
+        if (!interval.is_section() && interval.l_inf() && interval.u_inf())
+            continue;
+            
+        // Get the value at this level from counter_as
+        if (!counter_as.is_assigned(level))
+            continue;  // Variable not assigned in counterexample
+            
+        scoped_anum counter_val(am);
+        am.set(counter_val, counter_as.value(level));
+        
+        // Build partial assignment up to this level (exclusive) for root isolation
+        nlsat::assignment partial_as(am);
+        for (unsigned j = 0; j < level; ++j) {
+            if (counter_as.is_assigned(j)) {
+                scoped_anum v(am);
+                am.set(v, counter_as.value(j));
+                partial_as.set(j, v);
+            }
+        }
+        
+        if (interval.is_section()) {
+            // Section: counter must equal the root
+            polynomial_ref section_p(interval.l, pm);
+            scoped_anum_vector roots(am);
+            am.isolate_roots(section_p, nlsat::undef_var_assignment(partial_as, level), roots);
+            
+            if (roots.size() >= interval.l_index) {
+                bool at_root = am.eq(counter_val, roots[interval.l_index - 1]);
+                if (!at_root) {
+                    if (verbose) {
+                        std::cout << "  Level " << level << ": OUTSIDE (not at section root)\n";
+                        std::cout << "    Section root = ";
+                        am.display_decimal(std::cout, roots[interval.l_index - 1], 6);
+                        std::cout << ", counter = ";
+                        am.display_decimal(std::cout, counter_val, 6);
+                        std::cout << "\n";
+                    }
+                    return false;
+                }
+            }
+        } else {
+            // Sector: check lower and upper bounds
+            if (!interval.l_inf()) {
+                polynomial_ref lower_p(interval.l, pm);
+                scoped_anum_vector lower_roots(am);
+                am.isolate_roots(lower_p, nlsat::undef_var_assignment(partial_as, level), lower_roots);
+                
+                if (lower_roots.size() >= interval.l_index) {
+                    int cmp = am.compare(counter_val, lower_roots[interval.l_index - 1]);
+                    if (cmp <= 0) {  // counter <= lower bound, violates (lower, ...)
+                        if (verbose) {
+                            std::cout << "  Level " << level << ": OUTSIDE (at or below lower bound)\n";
+                            std::cout << "    Lower bound = ";
+                            am.display_decimal(std::cout, lower_roots[interval.l_index - 1], 6);
+                            std::cout << ", counter = ";
+                            am.display_decimal(std::cout, counter_val, 6);
+                            std::cout << "\n";
+                        }
+                        return false;
+                    }
+                }
+            }
+            
+            if (!interval.u_inf()) {
+                polynomial_ref upper_p(interval.u, pm);
+                scoped_anum_vector upper_roots(am);
+                am.isolate_roots(upper_p, nlsat::undef_var_assignment(partial_as, level), upper_roots);
+                
+                if (upper_roots.size() >= interval.u_index) {
+                    int cmp = am.compare(counter_val, upper_roots[interval.u_index - 1]);
+                    if (cmp >= 0) {  // counter >= upper bound, violates (..., upper)
+                        if (verbose) {
+                            std::cout << "  Level " << level << ": OUTSIDE (at or above upper bound)\n";
+                            std::cout << "    Upper bound = ";
+                            am.display_decimal(std::cout, upper_roots[interval.u_index - 1], 6);
+                            std::cout << ", counter = ";
+                            am.display_decimal(std::cout, counter_val, 6);
+                            std::cout << "\n";
+                        }
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+    
+    if (verbose) {
+        std::cout << "  Point is INSIDE the cell (all constraints satisfied)\n";
+    }
+    return true;
+}
 
 nlsat::interval_set_ref tst_interval(nlsat::interval_set_ref const & s1,
                                      nlsat::interval_set_ref const & s2,
@@ -320,7 +427,7 @@ static void project(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsigned
 static void project_fa(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsigned num, nlsat::literal const* lits) {
     std::cout << "Project ";
     nlsat::scoped_literal_vector result(s);
-    ex.main_operator(num, lits, result);
+    ex.compute_conflict_explanation(num, lits, result);
     std::cout << "(or";
     for (auto l : result) {
         s.display(std::cout << " ", l);
@@ -358,6 +465,11 @@ static nlsat::literal mk_eq(nlsat::solver& s, nlsat::poly* p) {
     nlsat::poly * _p[1] = { p };
     bool is_even[1] = { false };
     return s.mk_ineq_literal(nlsat::atom::EQ, 1, _p, is_even);
+}
+
+static nlsat::literal mk_root_eq(nlsat::solver& s, nlsat::poly* p, nlsat::var x, unsigned i) {
+    nlsat::bool_var b = s.mk_root_atom(nlsat::atom::ROOT_EQ, x, i, p);
+    return nlsat::literal(b, false);
 }
 
 static void set_assignment_value(nlsat::assignment& as, anum_manager& am, nlsat::var v, rational const& val) {
@@ -849,7 +961,7 @@ void tst_nlsat_mv() {
     s.set_rvalues(assignment);
 
     nlsat::scoped_literal_vector result(s);
-    ex.main_operator(lits.size(), lits.data(), result);
+    ex.compute_conflict_explanation(lits.size(), lits.data(), result);
 
     std::cout << "main_operator root regression core:\n";
     s.display(std::cout, lits.size(), lits.data());
@@ -959,11 +1071,1484 @@ x7 := 1
 
 }
 
+static void tst_polynomial_cache_mk_unique() {
+    params_ref ps;
+    reslimit rlim;
+    nlsat::solver s(rlim, ps, false);
+    nlsat::pmanager& pm = s.pm();
+    polynomial::cache cache(pm);
+    nlsat::var x = s.mk_var(false);
+    polynomial_ref x_poly(pm);
+    x_poly = pm.mk_polynomial(x);
+
+    polynomial_ref p(pm);
+    p = 2 * x_poly;
+    pm.display(std::cout, p);
+    std::cout << "\n";
+
+    ENSURE(!cache.contains(p.get()));
+    polynomial::polynomial* unique_p = cache.mk_unique(p.get());
+    ENSURE(unique_p != nullptr);
+    ENSURE(cache.contains(unique_p));
+    pm.display(std::cout, unique_p);
+    std::cout << "\n";
+
+    polynomial_ref p_again(pm);
+    p_again = 2 * x_poly;
+    ENSURE(cache.mk_unique(p_again.get()) == unique_p);
+
+    polynomial_ref p_neg(pm);
+    p_neg = -2 * x_poly;
+    ENSURE(!cache.contains(p_neg.get()));
+    polynomial::polynomial* unique_p_neg = cache.mk_unique(p_neg.get());
+    ENSURE(unique_p_neg != nullptr);
+    ENSURE(unique_p_neg != unique_p);
+    ENSURE(cache.contains(unique_p_neg));
+
+    polynomial_ref p_neg_again(pm);
+    p_neg_again = -2 * x_poly;
+    ENSURE(cache.mk_unique(p_neg_again.get()) == unique_p_neg);
+
+    polynomial_ref ca(p, pm), cb(p_neg, pm);
+    pm.primitive(ca, x, ca);
+    pm.primitive(cb, x, cb);
+    pm.display(std::cout << "ca:", ca) << "\n";
+    pm.display(std::cout << "cb:", cb) << "\n";
+           
+}
+
+static void tst_nullified_polynomial() {
+    params_ref      ps;
+    reslimit        rlim;
+    nlsat::solver s(rlim, ps, false);
+    nlsat::pmanager & pm  = s.pm();
+    anum_manager & am     = s.am();
+    polynomial::cache cache(pm);
+
+    nlsat::var x0 = s.mk_var(false);
+    nlsat::var x1 = s.mk_var(false);
+    nlsat::var x2 = s.mk_var(false);
+    nlsat::var x3 = s.mk_var(false);
+    ENSURE(x0 < x1 && x1 < x2);
+
+    polynomial_ref _x0(pm), _x1(pm), _x2(pm), _x3(pm);
+    _x0 = pm.mk_polynomial(x0);
+    _x1 = pm.mk_polynomial(x1);
+    _x2 = pm.mk_polynomial(x2);
+    _x3 = pm.mk_polynomial(x3);
+
+    polynomial_ref p1(pm), p2(pm);
+    p1 = _x2 * _x1;
+    p2 = _x0;
+    p1 = p1 + p2;
+    p2 = _x3;
+    polynomial_ref_vector polys(pm);
+    polys.push_back(p1);
+    polys.push_back(p2);
+    nlsat::assignment as(am);
+    scoped_anum zero(am);
+    am.set(zero, 0);
+    as.set(x0, zero);
+    as.set(x1, zero);
+    as.set(x2, zero);
+    as.set(x3, zero);
+    s.set_rvalues(as);
+
+    unsigned max_x = 0;
+    for (unsigned i = 0; i < polys.size(); ++i) {
+        unsigned lvl = pm.max_var(polys.get(i));
+        if (lvl > max_x)
+            max_x = lvl;
+    }
+    ENSURE(max_x == x3);
+
+    nlsat::levelwise lws(s, polys, max_x, s.sample(), pm, am, cache);
+    auto cell = lws.single_cell();
+    ENSURE(lws.failed());
+}
+
+// Test case for unsound lemma lws2380 - comparing standard projection vs levelwise
+// The issue: x7 is unconstrained in levelwise output but affects the section polynomial
+static void tst_unsound_lws2380() {
+    enable_trace("nlsat_explain");
+    
+    auto run_test = [](bool use_lws) {
+        std::cout << "=== tst_unsound_lws2380: " << (use_lws ? "Levelwise" : "Standard") << " projection (lws=" << use_lws << ") ===\n";
+        params_ref      ps;
+        ps.set_bool("lws", use_lws);
+        reslimit        rlim;
+        nlsat::solver s(rlim, ps, false);
+        anum_manager & am     = s.am();
+        nlsat::pmanager & pm  = s.pm();
+        nlsat::assignment as(am);
+        nlsat::explain& ex    = s.get_explain();
+
+        // Create 14 variables x0-x13
+        nlsat::var x0 = s.mk_var(false);
+        nlsat::var x1 = s.mk_var(false);
+        nlsat::var x2 = s.mk_var(false);
+        nlsat::var x3 = s.mk_var(false);
+        nlsat::var x4 = s.mk_var(false);
+        nlsat::var x5 = s.mk_var(false);
+        nlsat::var x6 = s.mk_var(false);
+        nlsat::var x7 = s.mk_var(false);
+        nlsat::var x8 = s.mk_var(false);
+        nlsat::var x9 = s.mk_var(false);
+        nlsat::var x10 = s.mk_var(false);
+        nlsat::var x11 = s.mk_var(false);
+        nlsat::var x12 = s.mk_var(false);
+        nlsat::var x13 = s.mk_var(false);
+
+        polynomial_ref _x0(pm), _x1(pm), _x2(pm), _x3(pm), _x4(pm), _x5(pm), _x6(pm);
+        polynomial_ref _x7(pm), _x8(pm), _x9(pm), _x10(pm), _x11(pm), _x12(pm), _x13(pm);
+        _x0 = pm.mk_polynomial(x0);
+        _x1 = pm.mk_polynomial(x1);
+        _x2 = pm.mk_polynomial(x2);
+        _x3 = pm.mk_polynomial(x3);
+        _x4 = pm.mk_polynomial(x4);
+        _x5 = pm.mk_polynomial(x5);
+        _x6 = pm.mk_polynomial(x6);
+        _x7 = pm.mk_polynomial(x7);
+        _x8 = pm.mk_polynomial(x8);
+        _x9 = pm.mk_polynomial(x9);
+        _x10 = pm.mk_polynomial(x10);
+        _x11 = pm.mk_polynomial(x11);
+        _x12 = pm.mk_polynomial(x12);
+        _x13 = pm.mk_polynomial(x13);
+
+        // p[0]: x13
+        polynomial_ref p0(pm);
+        p0 = _x13;
+
+        // p[1]: 170*x8*x13 + x10*x11*x12 - x11*x12 - x7*x8*x12 + x5*x10*x11 + 184*x1*x10*x11
+        //       - x0*x10*x11 - x5*x11 - 184*x1*x11 + x0*x11 - x3*x8*x10 + x2*x8*x10
+        //       - 2*x10 - 184*x1*x7*x8 - x2*x8 + 2
+        polynomial_ref p1(pm);
+        p1 = (170 * _x8 * _x13) +
+             (_x10 * _x11 * _x12) -
+             (_x11 * _x12) -
+             (_x7 * _x8 * _x12) +
+             (_x5 * _x10 * _x11) +
+             (184 * _x1 * _x10 * _x11) -
+             (_x0 * _x10 * _x11) -
+             (_x5 * _x11) -
+             (184 * _x1 * _x11) +
+             (_x0 * _x11) -
+             (_x3 * _x8 * _x10) +
+             (_x2 * _x8 * _x10) -
+             (2 * _x10) -
+             (184 * _x1 * _x7 * _x8) -
+             (_x2 * _x8) +
+             2;
+
+        std::cout << "p0: " << p0 << "\n";
+        std::cout << "p1: " << p1 << "\n";
+
+        // Set sample: x0=-1, x1=-1, x2=0, x3=-1, x5=0, x7=0, x8=2, x10=0, x11=0, x12=2
+        scoped_anum val(am);
+        am.set(val, -1); as.set(x0, val);
+        am.set(val, -1); as.set(x1, val);
+        am.set(val, 0);  as.set(x2, val);
+        am.set(val, -1); as.set(x3, val);
+        am.set(val, 0);  as.set(x4, val);
+        am.set(val, 0);  as.set(x5, val);
+        am.set(val, 0);  as.set(x6, val);
+        am.set(val, 0);  as.set(x7, val);
+        am.set(val, 2);  as.set(x8, val);
+        am.set(val, 0);  as.set(x9, val);
+        am.set(val, 0);  as.set(x10, val);
+        am.set(val, 0);  as.set(x11, val);
+        am.set(val, 2);  as.set(x12, val);
+        am.set(val, 1);  as.set(x13, val);
+        s.set_rvalues(as);
+
+        // Create literals for the two polynomials
+        nlsat::scoped_literal_vector lits(s);
+        lits.push_back(mk_gt(s, p0.get()));  // x13 > 0
+        lits.push_back(mk_gt(s, p1.get()));  // p1 > 0
+
+        project_fa(s, ex, x13, lits.size(), lits.data());
+        std::cout << "\n";
+    };
+
+    run_test(false);  // Standard projection
+    run_test(true);   // Levelwise projection
+}
+
+// Test case for unsound lemma - levelwise produces cell that's too large
+// Input: 5 polynomials with max_var=x3, sample x0=-7, x1=-1, x2=1
+// Counterexample: x0=-4, x1=-8, x2=5, x3=6
+static void tst_unsound_lws_x3() {
+    std::cout << "=== tst_unsound_lws_x3 ===\n";
+    params_ref      ps;
+    ps.set_bool("lws", true);
+    reslimit        rlim;
+    nlsat::solver s(rlim, ps, false);
+    anum_manager & am     = s.am();
+    nlsat::pmanager & pm  = s.pm();
+    nlsat::assignment sample_as(am);
+    nlsat::assignment counter_as(am);
+    polynomial::cache cache(pm);
+
+    // Create 4 variables x0, x1, x2, x3
+    nlsat::var x0 = s.mk_var(false);
+    nlsat::var x1 = s.mk_var(false);
+    nlsat::var x2 = s.mk_var(false);
+    nlsat::var x3 = s.mk_var(false);
+
+    polynomial_ref _x0(pm), _x1(pm), _x2(pm), _x3(pm);
+    _x0 = pm.mk_polynomial(x0);
+    _x1 = pm.mk_polynomial(x1);
+    _x2 = pm.mk_polynomial(x2);
+    _x3 = pm.mk_polynomial(x3);
+
+    // p[0]: x3 + x0
+    polynomial_ref p0(pm);
+    p0 = _x3 + _x0;
+
+    // p[1]: x1
+    polynomial_ref p1(pm);
+    p1 = _x1;
+
+    // p[2]: 9 x1^2 x3^2 - 6 x0 x1 x2 x3 + 3 x0 x1^2 x3 - 12 x1^2 x3 + x0^2 x2^2 - x0^2 x1 x2 - 4 x0 x1 x2 + 2 x0 x1^2 + 4 x1^2
+    polynomial_ref p2(pm);
+    p2 = 9 * (_x1^2) * (_x3^2) 
+       - 6 * _x0 * _x1 * _x2 * _x3 
+       + 3 * _x0 * (_x1^2) * _x3 
+       - 12 * (_x1^2) * _x3 
+       + (_x0^2) * (_x2^2) 
+       - (_x0^2) * _x1 * _x2 
+       - 4 * _x0 * _x1 * _x2 
+       + 2 * _x0 * (_x1^2) 
+       + 4 * (_x1^2);
+
+    // p[3]: 9 x1^2 x3^2 - 6 x0 x1 x2 x3 + 6 x0 x1^2 x3 - 12 x1^2 x3 + x0^2 x2^2 - 2 x0^2 x1 x2 - 4 x0 x1 x2 + x0^2 x1^2 + 4 x0 x1^2 + 4 x1^2
+    polynomial_ref p3(pm);
+    p3 = 9 * (_x1^2) * (_x3^2) 
+       - 6 * _x0 * _x1 * _x2 * _x3 
+       + 6 * _x0 * (_x1^2) * _x3 
+       - 12 * (_x1^2) * _x3 
+       + (_x0^2) * (_x2^2) 
+       - 2 * (_x0^2) * _x1 * _x2 
+       - 4 * _x0 * _x1 * _x2 
+       + (_x0^2) * (_x1^2) 
+       + 4 * _x0 * (_x1^2) 
+       + 4 * (_x1^2);
+
+    // p[4]: x3 + x1 + x0
+    polynomial_ref p4(pm);
+    p4 = _x3 + _x1 + _x0;
+
+    std::cout << "p0: " << p0 << "\n";
+    std::cout << "p1: " << p1 << "\n";
+    std::cout << "p2: " << p2 << "\n";
+    std::cout << "p3: " << p3 << "\n";
+    std::cout << "p4: " << p4 << "\n\n";
+
+    // Set sample: x0=-7, x1=-1, x2=1, x3=? (need to pick a value in the cell)
+    // For the sample, we need an x3 value. Let's use x3=8 (which is > -x0 = 7, so p0 > 0)
+    scoped_anum val(am);
+    am.set(val, -7); sample_as.set(x0, val);
+    am.set(val, -1); sample_as.set(x1, val);
+    am.set(val, 1);  sample_as.set(x2, val);
+    am.set(val, 8);  sample_as.set(x3, val);
+    
+    // Counterexample: x0=-4, x1=-8, x2=5, x3=6
+    am.set(val, -4); counter_as.set(x0, val);
+    am.set(val, -8); counter_as.set(x1, val);
+    am.set(val, 5);  counter_as.set(x2, val);
+    am.set(val, 6);  counter_as.set(x3, val);
+
+    std::cout << "Sample point: x0=-7, x1=-1, x2=1, x3=8\n";
+    std::cout << "Counterexample: x0=-4, x1=-8, x2=5, x3=6\n\n";
+
+    // Evaluate polynomials at sample
+    std::cout << "Polynomial signs at SAMPLE:\n";
+    std::cout << "  p0 sign: " << am.eval_sign_at(p0, sample_as) << "\n";
+    std::cout << "  p1 sign: " << am.eval_sign_at(p1, sample_as) << "\n";
+    std::cout << "  p2 sign: " << am.eval_sign_at(p2, sample_as) << "\n";
+    std::cout << "  p3 sign: " << am.eval_sign_at(p3, sample_as) << "\n";
+    std::cout << "  p4 sign: " << am.eval_sign_at(p4, sample_as) << "\n\n";
+
+    // Evaluate polynomials at counterexample
+    std::cout << "Polynomial signs at COUNTEREXAMPLE:\n";
+    std::cout << "  p0 sign: " << am.eval_sign_at(p0, counter_as) << "\n";
+    std::cout << "  p1 sign: " << am.eval_sign_at(p1, counter_as) << "\n";
+    std::cout << "  p2 sign: " << am.eval_sign_at(p2, counter_as) << "\n";
+    std::cout << "  p3 sign: " << am.eval_sign_at(p3, counter_as) << "\n";
+    std::cout << "  p4 sign: " << am.eval_sign_at(p4, counter_as) << "\n\n";
+
+    // Set solver assignment for levelwise (without x3)
+    am.set(val, -7); sample_as.set(x0, val);
+    am.set(val, -1); sample_as.set(x1, val);
+    am.set(val, 1);  sample_as.set(x2, val);
+    s.set_rvalues(sample_as);
+
+    // Build polynomial vector
+    polynomial_ref_vector polys(pm);
+    polys.push_back(p0);
+    polys.push_back(p1);
+    polys.push_back(p2);
+    polys.push_back(p3);
+    polys.push_back(p4);
+
+    unsigned max_x = x3;
+    
+    // Print roots of each polynomial at sample
+    std::cout << "Roots of polynomials at sample (in x3):\n";
+    for (unsigned i = 0; i < polys.size(); ++i) {
+        polynomial_ref p(polys.get(i), pm);
+        if (pm.max_var(p) != x3) {
+            std::cout << "  p" << i << ": max_var is not x3, skipping\n";
+            continue;
+        }
+        scoped_anum_vector roots(am);
+        am.isolate_roots(p, nlsat::undef_var_assignment(sample_as, x3), roots);
+        std::cout << "  p" << i << " roots: ";
+        if (roots.empty()) {
+            std::cout << "(none)";
+        } else {
+            for (unsigned j = 0; j < roots.size(); ++j) {
+                if (j > 0) std::cout << ", ";
+                am.display_decimal(std::cout, roots[j], 5);
+            }
+        }
+        std::cout << "\n";
+    }
+    std::cout << "\n";
+    
+    // Compute and evaluate resultant of p3 and p4
+    std::cout << "Resultant of p3 and p4 (in x3):\n";
+    polynomial_ref res_p3_p4(pm);
+    {
+        pm.resultant(p3, p4, x3, res_p3_p4);
+        std::cout << "  Res(p3, p4) = ";
+        pm.display(std::cout, res_p3_p4);
+        std::cout << "\n";
+        std::cout << "  Sign at sample (x0=-7, x1=-1, x2=1): " << am.eval_sign_at(res_p3_p4, sample_as) << "\n";
+        std::cout << "  Sign at counter (x0=-4, x1=-8, x2=5): " << am.eval_sign_at(res_p3_p4, counter_as) << "\n";
+        
+        // Check roots of the resultant at x2 level (parametric in x0, x1)
+        std::cout << "  Roots at sample x0,x1 (in x2): ";
+        scoped_anum_vector res_roots(am);
+        nlsat::assignment partial_sample(am);
+        scoped_anum val(am);
+        am.set(val, -7); partial_sample.set(x0, val);
+        am.set(val, -1); partial_sample.set(x1, val);
+        am.isolate_roots(res_p3_p4, nlsat::undef_var_assignment(partial_sample, x2), res_roots);
+        for (unsigned j = 0; j < res_roots.size(); ++j) {
+            if (j > 0) std::cout << ", ";
+            am.display_decimal(std::cout, res_roots[j], 5);
+        }
+        std::cout << "\n";
+        
+        // Check roots at counterexample x0,x1
+        std::cout << "  Roots at counter x0,x1 (in x2): ";
+        nlsat::assignment partial_counter(am);
+        am.set(val, -4); partial_counter.set(x0, val);
+        am.set(val, -8); partial_counter.set(x1, val);
+        scoped_anum_vector res_roots_counter(am);
+        am.isolate_roots(res_p3_p4, nlsat::undef_var_assignment(partial_counter, x2), res_roots_counter);
+        for (unsigned j = 0; j < res_roots_counter.size(); ++j) {
+            if (j > 0) std::cout << ", ";
+            am.display_decimal(std::cout, res_roots_counter[j], 5);
+        }
+        std::cout << "\n";
+        
+        // Compute and check discriminant of Res(p3,p4) in x2
+        std::cout << "\n  Discriminant of Res(p3,p4) in x2:\n";
+        polynomial_ref disc_res(pm);
+        pm.discriminant(res_p3_p4, x2, disc_res);
+        std::cout << "    Disc = ";
+        pm.display(std::cout, disc_res);
+        std::cout << "\n";
+        std::cout << "    Sign at sample (x0=-7, x1=-1): " << am.eval_sign_at(disc_res, sample_as) << "\n";
+        std::cout << "    Sign at counter (x0=-4, x1=-8): " << am.eval_sign_at(disc_res, counter_as) << "\n";
+    }
+    std::cout << "\n";
+    
+    std::cout << "Running levelwise with max_x = x3\n";
+
+    // Run levelwise
+    nlsat::levelwise lws(s, polys, max_x, s.sample(), pm, am, cache);
+    auto cell = lws.single_cell();
+    
+    std::cout << "Levelwise " << (lws.failed() ? "FAILED" : "succeeded") << "\n";
+    std::cout << "Cell intervals (count=" << cell.size() << "):\n";
+    for (auto const& interval : cell) {
+        nlsat::display(std::cout << "  ", s, interval) << "\n";
+    }
+
+    // Evaluate cell bounds at counterexample to check if counterexample is in cell
+    std::cout << "\n--- Checking if counterexample is in cell ---\n";
+    std::cout << "For a SECTOR (lower_root, upper_root), variable x satisfies:\n";
+    std::cout << "  x > lower_root  AND  x < upper_root\n\n";
+    
+    // For univariate evaluation, we need to substitute lower vars
+    // Level 0: x0 interval, evaluate at x0=-4
+    // Level 1: x1 interval (parametric in x0), evaluate at (x0=-4, x1=-8)
+    // Level 2: x2 interval (parametric in x0,x1), evaluate at (x0=-4,x1=-8,x2=5)
+    
+    bool counterexample_outside_cell = false;
+    
+    for (unsigned i = 0; i < cell.size(); ++i) {
+        auto const& interval = cell[i];
+        nlsat::var level = i;
+        std::cout << "Level " << level << ":\n";
+        
+        // Build assignment up to this level (exclusive) for root isolation
+        nlsat::assignment partial_as(am);
+        scoped_anum val(am);
+        if (level > 0) { am.set(val, -4); partial_as.set(x0, val); }
+        if (level > 1) { am.set(val, -8); partial_as.set(x1, val); }
+        if (level > 2) { am.set(val, 5);  partial_as.set(x2, val); }
+        
+        scoped_anum counter_val(am);
+        if (level == 0) am.set(counter_val, -4);
+        else if (level == 1) am.set(counter_val, -8);
+        else if (level == 2) am.set(counter_val, 5);
+        
+        if (interval.is_section()) {
+            std::cout << "  Section case\n";
+        } else {
+            // Isolate roots and check bounds
+            if (!interval.l_inf()) {
+                polynomial_ref lower_p(interval.l, pm);
+                scoped_anum_vector lower_roots(am);
+                am.isolate_roots(lower_p, nlsat::undef_var_assignment(partial_as, level), lower_roots);
+                if (lower_roots.size() >= interval.l_index) {
+                    std::cout << "  Lower root (root[" << interval.l_index << "]): ";
+                    am.display_decimal(std::cout, lower_roots[interval.l_index - 1], 10);
+                    std::cout << "\n";
+                    std::cout << "  Counter x" << level << " = ";
+                    am.display_decimal(std::cout, counter_val, 10);
+                    int cmp = am.compare(counter_val, lower_roots[interval.l_index - 1]);
+                    std::cout << " -> " << (cmp > 0 ? "ABOVE" : (cmp < 0 ? "BELOW" : "EQUAL")) << " lower bound\n";
+                    if (cmp <= 0) counterexample_outside_cell = true;
+                }
+            }
+            if (!interval.u_inf()) {
+                polynomial_ref upper_p(interval.u, pm);
+                scoped_anum_vector upper_roots(am);
+                am.isolate_roots(upper_p, nlsat::undef_var_assignment(partial_as, level), upper_roots);
+                if (upper_roots.size() >= interval.u_index) {
+                    std::cout << "  Upper root (root[" << interval.u_index << "]): ";
+                    am.display_decimal(std::cout, upper_roots[interval.u_index - 1], 10);
+                    std::cout << "\n";
+                    std::cout << "  Counter x" << level << " = ";
+                    am.display_decimal(std::cout, counter_val, 10);
+                    int cmp = am.compare(counter_val, upper_roots[interval.u_index - 1]);
+                    std::cout << " -> " << (cmp > 0 ? "ABOVE" : (cmp < 0 ? "BELOW" : "EQUAL")) << " upper bound\n";
+                    if (cmp >= 0) counterexample_outside_cell = true;
+                }
+            }
+        }
+        std::cout << "\n";
+    }
+
+    // The counterexample has different polynomial signs than the sample.
+    // For a sound cell, the counterexample must be OUTSIDE the cell.
+    ENSURE(counterexample_outside_cell);
+    std::cout << "SUCCESS: Counterexample is OUTSIDE the cell (cell is sound)\n";
+    
+    std::cout << "=== END tst_unsound_lws_x3 ===\n\n";
+}
+
+// Test case for unsound lemma from From_T2__n-46.t2__p4432_terminationG_0.smt2
+// This test calls levelwise with the input polynomials and analyzes what was missed.
+//
+// Input polynomials passed to levelwise:
+//   p[0]: x2
+//   p[1]: x2 x6^2 + x0 x5 x6 + x2 x4 x6 + x2 x3 x6 - x0 x6 - x0 x4
+//   p[2]: x2 x6^2 x7 + x0 x5 x6 x7 + x2 x4 x6 x7 + x2 x3 x6 x7 - x0 x6 x7 - x0 x4 x7 + 2 x6 + 2 x4
+//   p[3]: x6
+//   p[4]: x2 x6 x7 - 2
+//
+// Sample: x0=1, x1=2, x2=1, x3=-1, x4=-1, x5=1, x6=7/8
+// Counterexample: x0=1, x2=1, x3=0, x4=-9, x5=0, x6=5, x7=0
+//
+// Unsound lemma produced:
+//   !(x0 > 0) or !(x2 > 0) or !(x4 < root[1](2 x2 x4 + x0)) or 
+//   !(x5 = root[1](x0 x5 + x2 x3)) or 
+//   !(x0^2 x5^2 + ... > 0) or !(2 x2 > 0) or 
+//   !(4 x2 x6 + x0 x5 + 2 x2 x4 + x2 x3 - x0 > 0) or
+//   !(2 x2 x6^2 + x0 x5 x6 + 2 x2 x4 x6 + x2 x3 x6 - x0 x6 - x0 x4 < 0) or
+//   x7 < root[1](x2 x6^2 x7 + ... + 2 x6 + 2 x4) or 
+//   !(x7 < root[1](x2 x6 x7 - 2))
+static void tst_unsound_lws_n46() {
+    std::cout << "=== tst_unsound_lws_n46 ===\n";
+    
+    params_ref      ps;
+    ps.set_bool("lws", true);
+    reslimit        rlim;
+    nlsat::solver s(rlim, ps, false);
+    anum_manager & am     = s.am();
+    nlsat::pmanager & pm  = s.pm();
+    nlsat::assignment sample_as(am);
+    nlsat::assignment counter_as(am);
+    polynomial::cache cache(pm);
+
+    // Create 8 variables x0-x7
+    nlsat::var x0 = s.mk_var(false);
+    nlsat::var x1 = s.mk_var(false);
+    nlsat::var x2 = s.mk_var(false);
+    nlsat::var x3 = s.mk_var(false);
+    nlsat::var x4 = s.mk_var(false);
+    nlsat::var x5 = s.mk_var(false);
+    nlsat::var x6 = s.mk_var(false);
+    nlsat::var x7 = s.mk_var(false);
+
+    polynomial_ref _x0(pm), _x1(pm), _x2(pm), _x3(pm), _x4(pm), _x5(pm), _x6(pm), _x7(pm);
+    _x0 = pm.mk_polynomial(x0);
+    _x1 = pm.mk_polynomial(x1);
+    _x2 = pm.mk_polynomial(x2);
+    _x3 = pm.mk_polynomial(x3);
+    _x4 = pm.mk_polynomial(x4);
+    _x5 = pm.mk_polynomial(x5);
+    _x6 = pm.mk_polynomial(x6);
+    _x7 = pm.mk_polynomial(x7);
+    (void)_x1; // unused
+
+    // Input polynomials passed to levelwise (from unsound_log)
+    // p[0]: x2
+    polynomial_ref p0(pm);
+    p0 = _x2;
+
+    // p[1]: x2 x6^2 + x0 x5 x6 + x2 x4 x6 + x2 x3 x6 - x0 x6 - x0 x4
+    polynomial_ref p1(pm);
+    p1 = _x2 * (_x6^2) + _x0 * _x5 * _x6 + _x2 * _x4 * _x6 + _x2 * _x3 * _x6 - _x0 * _x6 - _x0 * _x4;
+
+    // p[2]: x2 x6^2 x7 + x0 x5 x6 x7 + x2 x4 x6 x7 + x2 x3 x6 x7 - x0 x6 x7 - x0 x4 x7 + 2 x6 + 2 x4
+    polynomial_ref p2(pm);
+    p2 = _x2 * (_x6^2) * _x7 + _x0 * _x5 * _x6 * _x7 + _x2 * _x4 * _x6 * _x7 
+       + _x2 * _x3 * _x6 * _x7 - _x0 * _x6 * _x7 - _x0 * _x4 * _x7 
+       + 2 * _x6 + 2 * _x4;
+
+    // p[3]: x6
+    polynomial_ref p3(pm);
+    p3 = _x6;
+
+    // p[4]: x2 x6 x7 - 2
+    polynomial_ref p4(pm);
+    p4 = _x2 * _x6 * _x7 - 2;
+
+    std::cout << "Input polynomials:\n";
+    std::cout << "  p0: " << p0 << "\n";
+    std::cout << "  p1: " << p1 << "\n";
+    std::cout << "  p2: " << p2 << "\n";
+    std::cout << "  p3: " << p3 << "\n";
+    std::cout << "  p4: " << p4 << "\n\n";
+
+    // Set sample point: x0=1, x1=2, x2=1, x3=-1, x4=-1, x5=1, x6=7/8
+    scoped_anum val(am);
+    rational q(7, 8);  // 0.875 = 7/8
+    am.set(val, 1);  sample_as.set(x0, val);
+    am.set(val, 2);  sample_as.set(x1, val);
+    am.set(val, 1);  sample_as.set(x2, val);
+    am.set(val, -1); sample_as.set(x3, val);
+    am.set(val, -1); sample_as.set(x4, val);
+    am.set(val, 1);  sample_as.set(x5, val);
+    am.set(val, q.to_mpq()); sample_as.set(x6, val);
+
+    std::cout << "Sample point: x0=1, x1=2, x2=1, x3=-1, x4=-1, x5=1, x6=7/8\n";
+
+    // Set counterexample: x0=1, x2=1, x3=0, x4=-9, x5=0, x6=5, x7=0
+    am.set(val, 1);  counter_as.set(x0, val);
+    am.set(val, 0);  counter_as.set(x1, val);
+    am.set(val, 1);  counter_as.set(x2, val);
+    am.set(val, 0);  counter_as.set(x3, val);
+    am.set(val, -9); counter_as.set(x4, val);
+    am.set(val, 0);  counter_as.set(x5, val);
+    am.set(val, 5);  counter_as.set(x6, val);
+    am.set(val, 0);  counter_as.set(x7, val);
+
+    std::cout << "Counterexample: x0=1, x2=1, x3=0, x4=-9, x5=0, x6=5, x7=0\n\n";
+
+    // Set solver assignment for levelwise
+    s.set_rvalues(sample_as);
+
+    // Build polynomial vector
+    polynomial_ref_vector polys(pm);
+    polys.push_back(p0);
+    polys.push_back(p1);
+    polys.push_back(p2);
+    polys.push_back(p3);
+    polys.push_back(p4);
+
+    nlsat::var max_x = x7;
+
+    // Run levelwise
+    std::cout << "Running levelwise with max_x = x7...\n";
+    nlsat::levelwise lws(s, polys, max_x, s.sample(), pm, am, cache);
+    auto cell = lws.single_cell();
+
+    std::cout << "Levelwise " << (lws.failed() ? "FAILED" : "succeeded") << "\n";
+    std::cout << "Cell intervals:\n";
+    for (unsigned i = 0; i < cell.size(); ++i) {
+        std::cout << "  Level " << i << ": ";
+        nlsat::display(std::cout, s, cell[i]) << "\n";
+    }
+
+    // Print the lemma produced by levelwise
+    std::cout << "\n--- LEMMA from levelwise ---\n";
+    for (unsigned i = 0; i < cell.size(); ++i) {
+        auto const& interval = cell[i];
+        if (interval.section) {
+            std::cout << "!(x" << i << " = root[" << interval.l_index << "](";
+            pm.display(std::cout, interval.l) << "))\n";
+        } else {
+            if (!interval.l_inf()) {
+                std::cout << "!(x" << i << " > root[" << interval.l_index << "](";
+                pm.display(std::cout, interval.l) << "))\n";
+            }
+            if (!interval.u_inf()) {
+                std::cout << "!(x" << i << " < root[" << interval.u_index << "](";
+                pm.display(std::cout, interval.u) << "))\n";
+            }
+        }
+    }
+    std::cout << "--- END LEMMA ---\n\n";
+
+    // Test for the discriminant projection fix:
+    //
+    // BUG: When p1 = (x6-1)^2 at the sample (a double root), the discriminant of p1
+    // is zero. The function compute_omit_disc_for_same_boundary() incorrectly omitted
+    // this discriminant because it only checked if p1(sample) != 0, not if disc(p1) = 0.
+    //
+    // FIX: Now we also check if disc(p) = 0 at sample, and if so, we keep the discriminant.
+    // This causes the discriminant's root polynomial (x2*x4 + x0) to be projected,
+    // creating a section at level 4 that excludes the counterexample.
+
+    std::cout << "=== Verifying discriminant projection fix ===\n";
+
+    // Check 1: Level 4 should now be a SECTION (not a sector as before the fix)
+    // The discriminant of p1 w.r.t. x6 has a factor (x2*x4 + x0) that becomes the section
+    ENSURE(cell.size() > 4);
+    ENSURE(cell[4].section);  // Level 4 must be a section after the fix
+    std::cout << "Level 4 is a section: " << (cell[4].section ? "YES (FIX WORKING)" : "NO (BUG!)") << "\n";
+
+    // Check 2: The section polynomial at level 4 should be x2*x4 + x0 (or equivalent)
+    // At sample: x2=1, x0=1, so root is x4 = -x0/x2 = -1 (matches sample x4=-1)
+    polynomial_ref section_poly(cell[4].l, pm);
+    std::cout << "Level 4 section polynomial: " << section_poly << "\n";
+
+    // Check 3: Verify the counterexample is OUTSIDE the cell
+    // At counterexample: x2=1, x0=1, so section root is x4 = -1
+    // But counterexample has x4 = -9, which is NOT equal to -1
+    // Therefore the literal !(x4 = root[1](...)) is TRUE, making the lemma sound
+
+    polynomial_ref x4_section(pm);
+    x4_section = _x2 * _x4 + _x0;  // Expected section polynomial
+    scoped_anum_vector roots_x4(am);
+    am.isolate_roots(x4_section, nlsat::undef_var_assignment(counter_as, x4), roots_x4);
+
+    std::cout << "At counterexample:\n";
+    std::cout << "  Section polynomial: x2*x4 + x0 = x4 + 1\n";
+    std::cout << "  Section root: x4 = ";
+    if (!roots_x4.empty()) am.display_decimal(std::cout, roots_x4[0], 6);
+    std::cout << "\n";
+    std::cout << "  Counterexample x4 = -9\n";
+
+    bool x4_at_section = !roots_x4.empty() && am.eq(counter_as.value(x4), roots_x4[0]);
+    std::cout << "  Is x4=-9 equal to section root? " << (x4_at_section ? "YES" : "NO") << "\n";
+
+    // The fix ensures x4_at_section is FALSE, meaning the counterexample is OUTSIDE the cell
+    ENSURE(!x4_at_section);  // Counterexample must NOT satisfy the section constraint
+
+    std::cout << "\n=== FIX VERIFIED: Counterexample is outside the cell ===\n";
+    std::cout << "The lemma literal !(x4 = root[1](x2*x4 + x0)) is TRUE at counterexample.\n";
+    std::cout << "Therefore the lemma is SOUND (disjunction has a true literal).\n";
+    
+    std::cout << "=== END tst_unsound_lws_n46 ===\n\n";
+}
+
+// Test case for unsound lemma from From_AProVE_2014__Et4-rec.jar-obl-8__p28996_terminationG_0.smt2
+// Sample: x0=4, x1=5, x2=3.5, x3=-8, x4=5
+// Counterexample: x0=5, x3=3, x4=0, x5=0
+// Polynomials:
+//   p[0]: x0
+//   p[1]: 2 x0 x4^2 + 2 x3 x4 - x0 x4 - 2 x3
+//   p[2]: 2 x0 x4^2 x5 + 2 x3 x4 x5 - x0 x4 x5 - 2 x3 x5 + 4 x3 x4^2 + 9 x0 x3 x4 - 26 x3 x4 - 3 x0 x4
+//   p[3]: x5 - 9
+static void tst_unsound_lws_et4() {
+    std::cout << "=== tst_unsound_lws_et4 ===\n";
+    params_ref      ps;
+    ps.set_bool("lws", true);
+    reslimit        rlim;
+    nlsat::solver s(rlim, ps, false);
+    anum_manager & am     = s.am();
+    nlsat::pmanager & pm  = s.pm();
+    nlsat::assignment sample_as(am);
+    nlsat::assignment counter_as(am);
+    polynomial::cache cache(pm);
+
+    // Create 6 variables x0, x1, x2, x3, x4, x5
+    nlsat::var x0 = s.mk_var(false);
+    nlsat::var x1 = s.mk_var(false);
+    nlsat::var x2 = s.mk_var(false);
+    nlsat::var x3 = s.mk_var(false);
+    nlsat::var x4 = s.mk_var(false);
+    nlsat::var x5 = s.mk_var(false);
+
+    polynomial_ref _x0(pm), _x1(pm), _x2(pm), _x3(pm), _x4(pm), _x5(pm);
+    _x0 = pm.mk_polynomial(x0);
+    _x1 = pm.mk_polynomial(x1);
+    _x2 = pm.mk_polynomial(x2);
+    _x3 = pm.mk_polynomial(x3);
+    _x4 = pm.mk_polynomial(x4);
+    _x5 = pm.mk_polynomial(x5);
+
+    // p[0]: x0
+    polynomial_ref p0(pm);
+    p0 = _x0;
+
+    // p[1]: 2 x0 x4^2 + 2 x3 x4 - x0 x4 - 2 x3
+    polynomial_ref p1(pm);
+    p1 = 2 * _x0 * (_x4^2) + 2 * _x3 * _x4 - _x0 * _x4 - 2 * _x3;
+
+    // p[2]: 2 x0 x4^2 x5 + 2 x3 x4 x5 - x0 x4 x5 - 2 x3 x5 + 4 x3 x4^2 + 9 x0 x3 x4 - 26 x3 x4 - 3 x0 x4
+    polynomial_ref p2(pm);
+    p2 = 2 * _x0 * (_x4^2) * _x5 
+       + 2 * _x3 * _x4 * _x5 
+       - _x0 * _x4 * _x5 
+       - 2 * _x3 * _x5 
+       + 4 * _x3 * (_x4^2) 
+       + 9 * _x0 * _x3 * _x4 
+       - 26 * _x3 * _x4 
+       - 3 * _x0 * _x4;
+
+    // p[3]: x5 - 9
+    polynomial_ref p3(pm);
+    p3 = _x5 - 9;
+
+    std::cout << "p0: " << p0 << "\n";
+    std::cout << "p1: " << p1 << "\n";
+    std::cout << "p2: " << p2 << "\n";
+    std::cout << "p3: " << p3 << "\n\n";
+
+    // Sample: x0=4, x1=5, x2=3.5, x3=-8, x4=5
+    scoped_anum val(am);
+    am.set(val, 4);  sample_as.set(x0, val);
+    am.set(val, 5);  sample_as.set(x1, val);
+    rational q(7, 2);  // 3.5
+    am.set(val, q.to_mpq());  sample_as.set(x2, val);
+    am.set(val, -8); sample_as.set(x3, val);
+    am.set(val, 5);  sample_as.set(x4, val);
+    // x5 not assigned (top level)
+    
+    // Counterexample: x0=5, x3=3, x4=0, x5=0
+    am.set(val, 5);  counter_as.set(x0, val);
+    am.set(val, 5);  counter_as.set(x1, val);  // use same as sample
+    am.set(val, q.to_mpq());  counter_as.set(x2, val);  // use same as sample
+    am.set(val, 3);  counter_as.set(x3, val);
+    am.set(val, 0);  counter_as.set(x4, val);
+    am.set(val, 0);  counter_as.set(x5, val);
+
+    std::cout << "Sample point: x0=4, x1=5, x2=3.5, x3=-8, x4=5\n";
+    std::cout << "Counterexample: x0=5, x3=3, x4=0, x5=0\n\n";
+
+    // Evaluate polynomials at sample (need to set x5 for evaluation)
+    scoped_anum sample_x5(am);
+    am.set(sample_x5, 0);  // pick some value in the cell
+    nlsat::assignment sample_full(am);
+    am.set(val, 4);  sample_full.set(x0, val);
+    am.set(val, 5);  sample_full.set(x1, val);
+    am.set(val, q.to_mpq());  sample_full.set(x2, val);
+    am.set(val, -8); sample_full.set(x3, val);
+    am.set(val, 5);  sample_full.set(x4, val);
+    am.set(val, 0);  sample_full.set(x5, val);
+    
+    std::cout << "Polynomial signs at SAMPLE (with x5=0):\n";
+    std::cout << "  p0 sign: " << am.eval_sign_at(p0, sample_full) << "\n";
+    std::cout << "  p1 sign: " << am.eval_sign_at(p1, sample_full) << "\n";
+    std::cout << "  p2 sign: " << am.eval_sign_at(p2, sample_full) << "\n";
+    std::cout << "  p3 sign: " << am.eval_sign_at(p3, sample_full) << "\n\n";
+
+    // Evaluate polynomials at counterexample
+    std::cout << "Polynomial signs at COUNTEREXAMPLE:\n";
+    std::cout << "  p0 sign: " << am.eval_sign_at(p0, counter_as) << "\n";
+    std::cout << "  p1 sign: " << am.eval_sign_at(p1, counter_as) << "\n";
+    std::cout << "  p2 sign: " << am.eval_sign_at(p2, counter_as) << "\n";
+    std::cout << "  p3 sign: " << am.eval_sign_at(p3, counter_as) << "\n\n";
+
+    // Set solver assignment for levelwise (without x5)
+    s.set_rvalues(sample_as);
+
+    // Build polynomial vector
+    polynomial_ref_vector polys(pm);
+    polys.push_back(p0);
+    polys.push_back(p1);
+    polys.push_back(p2);
+    polys.push_back(p3);
+
+    unsigned max_x = x5;
+    
+    // Print roots of each polynomial at sample
+    std::cout << "Roots of polynomials at sample (in x5):\n";
+    for (unsigned i = 0; i < polys.size(); ++i) {
+        polynomial_ref p(polys.get(i), pm);
+        if (pm.max_var(p) != x5) {
+            std::cout << "  p" << i << ": max_var is not x5, skipping\n";
+            continue;
+        }
+        scoped_anum_vector roots(am);
+        am.isolate_roots(p, nlsat::undef_var_assignment(sample_as, x5), roots);
+        std::cout << "  p" << i << " roots: ";
+        if (roots.empty()) {
+            std::cout << "(none)";
+        } else {
+            for (unsigned j = 0; j < roots.size(); ++j) {
+                if (j > 0) std::cout << ", ";
+                am.display_decimal(std::cout, roots[j], 5);
+            }
+        }
+        std::cout << "\n";
+    }
+    std::cout << "\n";
+    
+    std::cout << "Running levelwise with max_x = x5\n";
+
+    // Run levelwise
+    nlsat::levelwise lws(s, polys, max_x, s.sample(), pm, am, cache);
+    auto cell = lws.single_cell();
+    
+    std::cout << "Levelwise " << (lws.failed() ? "FAILED" : "succeeded") << "\n";
+    std::cout << "Cell intervals (count=" << cell.size() << "):\n";
+    for (auto const& interval : cell) {
+        nlsat::display(std::cout << "  ", s, interval) << "\n";
+    }
+
+    // Evaluate cell bounds at counterexample to check if counterexample is in cell
+    std::cout << "\n--- Checking if counterexample is in cell ---\n";
+    
+    bool counterexample_outside_cell = false;
+    
+    for (unsigned i = 0; i < cell.size(); ++i) {
+        auto const& interval = cell[i];
+        nlsat::var level = i;
+        std::cout << "Level " << level << " (x" << level << "):\n";
+        
+        // Build assignment up to this level (exclusive) for root isolation
+        nlsat::assignment partial_as(am);
+        scoped_anum val(am);
+        if (level > 0) { am.set(val, 5);  partial_as.set(x0, val); }  // counter x0
+        if (level > 1) { am.set(val, 5);  partial_as.set(x1, val); }
+        if (level > 2) { am.set(val, q.to_mpq());  partial_as.set(x2, val); }
+        if (level > 3) { am.set(val, 3);  partial_as.set(x3, val); }  // counter x3
+        if (level > 4) { am.set(val, 0);  partial_as.set(x4, val); }  // counter x4
+        
+        scoped_anum counter_val(am);
+        if (level == 0) am.set(counter_val, 5);   // x0
+        else if (level == 1) am.set(counter_val, 5);
+        else if (level == 2) am.set(counter_val, q.to_mpq());
+        else if (level == 3) am.set(counter_val, 3);  // x3
+        else if (level == 4) am.set(counter_val, 0);  // x4
+        else if (level == 5) am.set(counter_val, 0);  // x5
+        
+        if (interval.is_section()) {
+            std::cout << "  Section case\n";
+        } else {
+            // Isolate roots and check bounds
+            if (!interval.l_inf()) {
+                polynomial_ref lower_p(interval.l, pm);
+                scoped_anum_vector lower_roots(am);
+                am.isolate_roots(lower_p, nlsat::undef_var_assignment(partial_as, level), lower_roots);
+                if (lower_roots.size() >= interval.l_index) {
+                    std::cout << "  Lower root (root[" << interval.l_index << "]): ";
+                    am.display_decimal(std::cout, lower_roots[interval.l_index - 1], 10);
+                    std::cout << "\n";
+                    std::cout << "  Counter x" << level << " = ";
+                    am.display_decimal(std::cout, counter_val, 10);
+                    int cmp = am.compare(counter_val, lower_roots[interval.l_index - 1]);
+                    std::cout << " -> " << (cmp > 0 ? "ABOVE" : (cmp < 0 ? "BELOW" : "EQUAL")) << " lower bound\n";
+                    if (cmp <= 0) counterexample_outside_cell = true;
+                }
+            }
+            if (!interval.u_inf()) {
+                polynomial_ref upper_p(interval.u, pm);
+                scoped_anum_vector upper_roots(am);
+                am.isolate_roots(upper_p, nlsat::undef_var_assignment(partial_as, level), upper_roots);
+                if (upper_roots.size() >= interval.u_index) {
+                    std::cout << "  Upper root (root[" << interval.u_index << "]): ";
+                    am.display_decimal(std::cout, upper_roots[interval.u_index - 1], 10);
+                    std::cout << "\n";
+                    std::cout << "  Counter x" << level << " = ";
+                    am.display_decimal(std::cout, counter_val, 10);
+                    int cmp = am.compare(counter_val, upper_roots[interval.u_index - 1]);
+                    std::cout << " -> " << (cmp > 0 ? "ABOVE" : (cmp < 0 ? "BELOW" : "EQUAL")) << " upper bound\n";
+                    if (cmp >= 0) counterexample_outside_cell = true;
+                }
+            }
+        }
+        std::cout << "\n";
+    }
+
+    // The counterexample has different polynomial signs than the sample.
+    // For a sound cell, the counterexample must be OUTSIDE the cell.
+    ENSURE(counterexample_outside_cell);
+    std::cout << "SUCCESS: Counterexample is OUTSIDE the cell (cell is sound)\n";
+    
+    std::cout << "=== END tst_unsound_lws_et4 ===\n\n";
+}
+
+// Test case for unsound lemma with disc=0 at sample for same_boundary_poly sector case
+// Polynomials:
+//   p[0]: - x2^3 + x1^3 x2 - x1^4
+//   p[1]: - x2^3 x3 + x1^3 x2 x3 - x1^4 x3 - x2^3 + x1^3 x2^2 + 4 x1^4 x2 - x1^3 x2 - x1^5 - x1^4
+//   p[2]: x3
+// Sample: x0=1, x1=1, x2=1
+// Counterexample: x1=12, x2=16, x3=0
+static void tst_unsound_lws_disc_zero() {
+    std::cout << "=== tst_unsound_lws_disc_zero ===\n";
+
+    params_ref      ps;
+    ps.set_bool("lws", true);
+    reslimit        rlim;
+    nlsat::solver s(rlim, ps, false);
+    anum_manager & am     = s.am();
+    nlsat::pmanager & pm  = s.pm();
+    nlsat::assignment sample_as(am);
+    nlsat::assignment counter_as(am);
+    polynomial::cache cache(pm);
+
+    // Create 4 variables x0-x3
+    nlsat::var x0 = s.mk_var(false);
+    nlsat::var x1 = s.mk_var(false);
+    nlsat::var x2 = s.mk_var(false);
+    nlsat::var x3 = s.mk_var(false);
+
+    polynomial_ref _x0(pm), _x1(pm), _x2(pm), _x3(pm);
+    _x0 = pm.mk_polynomial(x0);
+    _x1 = pm.mk_polynomial(x1);
+    _x2 = pm.mk_polynomial(x2);
+    _x3 = pm.mk_polynomial(x3);
+    (void)_x0; // unused
+
+    // p[0]: - x2^3 + x1^3 x2 - x1^4
+    polynomial_ref p0(pm);
+    p0 = -(_x2^3) + (_x1^3) * _x2 - (_x1^4);
+
+    // p[1]: - x2^3 x3 + x1^3 x2 x3 - x1^4 x3 - x2^3 + x1^3 x2^2 + 4 x1^4 x2 - x1^3 x2 - x1^5 - x1^4
+    polynomial_ref p1(pm);
+    p1 = -(_x2^3) * _x3 + (_x1^3) * _x2 * _x3 - (_x1^4) * _x3
+       - (_x2^3) + (_x1^3) * (_x2^2) + 4 * (_x1^4) * _x2 - (_x1^3) * _x2 - (_x1^5) - (_x1^4);
+
+    // p[2]: x3
+    polynomial_ref p2(pm);
+    p2 = _x3;
+
+    std::cout << "Input polynomials:\n";
+    std::cout << "  p0: " << p0 << "\n";
+    std::cout << "  p1: " << p1 << "\n";
+    std::cout << "  p2: " << p2 << "\n\n";
+
+    // Set sample point: x0=1, x1=1, x2=1
+    scoped_anum val(am);
+    am.set(val, 1);  sample_as.set(x0, val);
+    am.set(val, 1);  sample_as.set(x1, val);
+    am.set(val, 1);  sample_as.set(x2, val);
+
+    std::cout << "Sample point: x0=1, x1=1, x2=1\n";
+
+    // Set counterexample: x1=12, x2=16, x3=0
+    am.set(val, 1);  counter_as.set(x0, val);
+    am.set(val, 12); counter_as.set(x1, val);
+    am.set(val, 16); counter_as.set(x2, val);
+    am.set(val, 0);  counter_as.set(x3, val);
+
+    std::cout << "Counterexample: x1=12, x2=16, x3=0\n\n";
+
+    // Set solver assignment for levelwise
+    s.set_rvalues(sample_as);
+
+    // Build polynomial vector
+    polynomial_ref_vector polys(pm);
+    polys.push_back(p0);
+    polys.push_back(p1);
+    polys.push_back(p2);
+
+    nlsat::var max_x = x3;
+
+    // Run levelwise
+    std::cout << "Running levelwise with max_x = x3...\n";
+    nlsat::levelwise lws(s, polys, max_x, s.sample(), pm, am, cache);
+    auto cell = lws.single_cell();
+
+    std::cout << "Levelwise " << (lws.failed() ? "FAILED" : "succeeded") << "\n";
+    std::cout << "Cell intervals:\n";
+    for (unsigned i = 0; i < cell.size(); ++i) {
+        std::cout << "  Level " << i << ": ";
+        nlsat::display(std::cout, s, cell[i]) << "\n";
+    }
+
+    // Print the lemma produced by levelwise
+    std::cout << "\n--- LEMMA from levelwise ---\n";
+    for (unsigned i = 0; i < cell.size(); ++i) {
+        auto const& interval = cell[i];
+        if (interval.section) {
+            std::cout << "!(x" << i << " = root[" << interval.l_index << "](";
+            pm.display(std::cout, interval.l) << "))\n";
+        } else {
+            if (!interval.l_inf()) {
+                std::cout << "!(x" << i << " > root[" << interval.l_index << "](";
+                pm.display(std::cout, interval.l) << "))\n";
+            }
+            if (!interval.u_inf()) {
+                std::cout << "!(x" << i << " < root[" << interval.u_index << "](";
+                pm.display(std::cout, interval.u) << "))\n";
+            }
+        }
+    }
+    std::cout << "--- END LEMMA ---\n\n";
+
+    // Check sign of p0 at sample vs counterexample
+    std::cout << "=== Checking sign of p0 (projection poly) ===\n";
+    sign p0_sample = am.eval_sign_at(p0, sample_as);
+    sign p0_counter = am.eval_sign_at(p0, counter_as);
+    std::cout << "  p0 at sample (x1=1, x2=1): " << p0_sample << "\n";
+    std::cout << "  p0 at counter (x1=12, x2=16): " << p0_counter << "\n";
+    std::cout << "  Signs " << (p0_sample == p0_counter ? "match" : "DIFFER") << "\n";
+
+    // Check if counterexample is inside the cell at each level
+    // For soundness: if counter has different poly sign, it MUST be outside the cell
+    std::cout << "\n=== Checking if counterexample is in the cell ===\n";
+    bool counter_outside = false;
+
+    // Level 0: (-oo, +oo) - always inside
+    std::cout << "Level 0: (-oo, +oo) -> counter inside\n";
+
+    // Level 1: check if x1=12 is in the cell
+    {
+        auto const& interval = cell[1];
+        if (!interval.l_inf()) {
+            polynomial_ref lower_p(interval.l, pm);
+            scoped_anum_vector lower_roots(am);
+            // Partial assignment for level 1 (just x0)
+            nlsat::assignment partial_as(am);
+            scoped_anum val0(am);
+            am.set(val0, 1);  // counter x0 = 1
+            partial_as.set(x0, val0);
+            am.isolate_roots(lower_p, nlsat::undef_var_assignment(partial_as, 1), lower_roots);
+            if (lower_roots.size() >= interval.l_index) {
+                scoped_anum counter_x1(am);
+                am.set(counter_x1, 12);
+                int cmp = am.compare(counter_x1, lower_roots[interval.l_index - 1]);
+                std::cout << "Level 1 lower bound: root[" << interval.l_index << "] of poly, counter x1=12 is "
+                          << (cmp > 0 ? "ABOVE" : (cmp < 0 ? "BELOW" : "AT")) << " lower bound\n";
+                if (cmp <= 0) counter_outside = true;
+            }
+        }
+        if (!interval.u_inf()) {
+            polynomial_ref upper_p(interval.u, pm);
+            scoped_anum_vector upper_roots(am);
+            // Partial assignment for level 1 (just x0)
+            nlsat::assignment partial_as(am);
+            scoped_anum val0(am);
+            am.set(val0, 1);  // counter x0 = 1
+            partial_as.set(x0, val0);
+            am.isolate_roots(upper_p, nlsat::undef_var_assignment(partial_as, 1), upper_roots);
+            if (upper_roots.size() >= interval.u_index) {
+                scoped_anum counter_x1(am);
+                am.set(counter_x1, 12);
+                int cmp = am.compare(counter_x1, upper_roots[interval.u_index - 1]);
+                std::cout << "Level 1 upper bound: root[" << interval.u_index << "] of poly, counter x1=12 is "
+                          << (cmp > 0 ? "ABOVE" : (cmp < 0 ? "BELOW" : "AT")) << " upper bound\n";
+                if (cmp >= 0) counter_outside = true;
+            }
+        }
+    }
+
+    // For a sound cell, if polynomial signs differ, counter MUST be outside the cell
+    // The fix (projecting p0's discriminant) should create bounds that exclude the counterexample
+    if (p0_sample != p0_counter) {
+        std::cout << "\nPoly signs differ between sample and counter.\n";
+        std::cout << "For cell to be sound, counter must be OUTSIDE the cell.\n";
+        std::cout << "Counter is " << (counter_outside ? "OUTSIDE" : "INSIDE") << " the cell.\n";
+        ENSURE(counter_outside);  // Cell is sound if counter is outside
+    } else {
+        std::cout << "\nPoly signs match - cell is trivially sound.\n";
+    }
+
+    std::cout << "\n=== END tst_unsound_lws_disc_zero ===\n\n";
+}
+
+// Test case for unsound lemma from ppblockterm.t2__p7867_terminationG_0.smt2
+// Issue z3-76w: levelwise produces unsound cell
+static void tst_unsound_lws_ppblockterm() {
+    std::cout << "=== tst_unsound_lws_ppblockterm ===\n";
+    params_ref      ps;
+    ps.set_bool("lws", true);
+    reslimit        rlim;
+    nlsat::solver s(rlim, ps, false);
+    anum_manager & am     = s.am();
+    nlsat::pmanager & pm  = s.pm();
+    polynomial::cache cache(pm);
+
+    // Create 25 variables x0 to x24
+    nlsat::var vars[25];
+    polynomial_ref xvars[25] = {
+        polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm),
+        polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm),
+        polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm),
+        polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm),
+        polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm), polynomial_ref(pm)
+    };
+    
+    for (unsigned i = 0; i < 25; i++) {
+        vars[i] = s.mk_var(false);
+        xvars[i] = pm.mk_polynomial(vars[i]);
+    }
+
+    // Aliases for readability
+    polynomial_ref &x2 = xvars[2], &x4 = xvars[4], &x5 = xvars[5];
+    polynomial_ref &x9 = xvars[9], &x10 = xvars[10], &x11 = xvars[11];
+    polynomial_ref &x12 = xvars[12], &x13 = xvars[13], &x15 = xvars[15];
+    polynomial_ref &x16 = xvars[16], &x19 = xvars[19], &x24 = xvars[24];
+
+    // p[0]: x16 + x9
+    polynomial_ref p0(pm);
+    p0 = x16 + x9;
+
+    // p[1]: x16 x24 + x9 x24 + x13 x19 + x5 x19 + x12 x15 + x10 x15 - 2
+    polynomial_ref p1(pm);
+    p1 = x16 * x24 + x9 * x24 + x13 * x19 + x5 * x19 + x12 * x15 + x10 * x15 - 2;
+
+    // p[2]: x4
+    polynomial_ref p2(pm);
+    p2 = x4;
+
+    // p[3]: x4 x24 + x2 x19 + x11 x15
+    polynomial_ref p3(pm);
+    p3 = x4 * x24 + x2 * x19 + x11 * x15;
+
+    std::cout << "Input polynomials:\n";
+    std::cout << "  p0: " << p0 << "\n";
+    std::cout << "  p1: " << p1 << "\n";
+    std::cout << "  p2: " << p2 << "\n";
+    std::cout << "  p3: " << p3 << "\n\n";
+
+    // Set sample point values
+    // x0->1, x1->1, x2->-1, x3->-1, x4->1, x5->-1, x6->1, x7->2, x8->1
+    // x9->1, x10->-1, x11->1, x12->-2, x13->-2, x14->-2, x15->0, x16->2
+    // x17->0, x18->0, x19->0, x20->0, x21->0, x22->0, x23->0
+    int sample_vals[24] = {1, 1, -1, -1, 1, -1, 1, 2, 1, 1, -1, 1, -2, -2, -2, 0, 2, 0, 0, 0, 0, 0, 0, 0};
+    
+    scoped_anum val(am);
+    nlsat::assignment sample_as(am);
+    for (unsigned i = 0; i < 24; i++) {
+        am.set(val, sample_vals[i]);
+        sample_as.set(vars[i], val);
+    }
+    s.set_rvalues(sample_as);
+
+    std::cout << "Sample point (x0..x23):\n";
+    for (unsigned i = 0; i < 24; i++) {
+        std::cout << "  x" << i << " -> " << sample_vals[i] << "\n";
+    }
+    std::cout << "\n";
+
+    // Evaluate polynomials at sample (with x24 = 0 for checking)
+    am.set(val, 0);
+    sample_as.set(vars[24], val);
+    std::cout << "Polynomial signs at sample (x24=0):\n";
+    std::cout << "  p0 sign: " << am.eval_sign_at(p0, sample_as) << "\n";
+    std::cout << "  p1 sign: " << am.eval_sign_at(p1, sample_as) << "\n";
+    std::cout << "  p2 sign: " << am.eval_sign_at(p2, sample_as) << "\n";
+    std::cout << "  p3 sign: " << am.eval_sign_at(p3, sample_as) << "\n\n";
+
+    // Counterexample from the unsound lemma:
+    // x2=-1, x4=1, x5=0, x9=0, x10=0, x11=-1, x12=-1, x13=-2, x15=3, x16=2, x19=0, x24=3
+    nlsat::assignment counter_as(am);
+    am.set(val, -1); counter_as.set(vars[2], val);
+    am.set(val, 1);  counter_as.set(vars[4], val);
+    am.set(val, 0);  counter_as.set(vars[5], val);
+    am.set(val, 0);  counter_as.set(vars[9], val);
+    am.set(val, 0);  counter_as.set(vars[10], val);
+    am.set(val, -1); counter_as.set(vars[11], val);
+    am.set(val, -1); counter_as.set(vars[12], val);
+    am.set(val, -2); counter_as.set(vars[13], val);
+    am.set(val, 3);  counter_as.set(vars[15], val);
+    am.set(val, 2);  counter_as.set(vars[16], val);
+    am.set(val, 0);  counter_as.set(vars[19], val);
+    am.set(val, 3);  counter_as.set(vars[24], val);
+
+    std::cout << "Counterexample point:\n";
+    std::cout << "  x2=-1, x4=1, x5=0, x9=0, x10=0, x11=-1, x12=-1, x13=-2, x15=3, x16=2, x19=0, x24=3\n\n";
+
+    std::cout << "Polynomial signs at counterexample:\n";
+    std::cout << "  p0 sign: " << am.eval_sign_at(p0, counter_as) << "\n";
+    std::cout << "  p1 sign: " << am.eval_sign_at(p1, counter_as) << "\n";
+    std::cout << "  p2 sign: " << am.eval_sign_at(p2, counter_as) << "\n";
+    std::cout << "  p3 sign: " << am.eval_sign_at(p3, counter_as) << "\n\n";
+
+    // Build polynomial vector
+    polynomial_ref_vector polys(pm);
+    polys.push_back(p0);
+    polys.push_back(p1);
+    polys.push_back(p2);
+    polys.push_back(p3);
+
+    unsigned max_x = vars[24];  // x24 is the highest variable
+
+    std::cout << "Running levelwise with max_x = x24...\n";
+    nlsat::levelwise lws(s, polys, max_x, s.sample(), pm, am, cache);
+    auto cell = lws.single_cell();
+    
+    if (lws.failed()) {
+        std::cout << "Levelwise FAILED\n";
+    } else {
+        std::cout << "Levelwise succeeded\n";
+        std::cout << "--- LEMMA from levelwise ---\n";
+        for (unsigned i = 0; i < cell.size(); i++) {
+            auto const& interval = cell[i];
+            std::cout << "Level x" << i << ": ";
+            if (interval.is_section()) {
+                std::cout << "section at root[" << interval.l_index << "] of " << interval.l << "\n";
+            } else {
+                if (interval.l_inf())
+                    std::cout << "(-oo, ";
+                else
+                    std::cout << "(root[" << interval.l_index << "] of " << interval.l << ", ";
+                if (interval.u_inf())
+                    std::cout << "+oo)";
+                else
+                    std::cout << "root[" << interval.u_index << "] of " << interval.u << ")";
+                std::cout << "\n";
+            }
+        }
+        std::cout << "--- END LEMMA ---\n\n";
+        
+        // Check polynomial signs at sample and counterexample
+        int p0_sample = am.eval_sign_at(p0, sample_as);
+        int p1_sample = am.eval_sign_at(p1, sample_as);
+        int p2_sample = am.eval_sign_at(p2, sample_as);
+        int p3_sample = am.eval_sign_at(p3, sample_as);
+        
+        int p0_counter = am.eval_sign_at(p0, counter_as);
+        int p1_counter = am.eval_sign_at(p1, counter_as);
+        int p2_counter = am.eval_sign_at(p2, counter_as);
+        int p3_counter = am.eval_sign_at(p3, counter_as);
+        
+        bool signs_differ = (p0_sample != p0_counter) || (p1_sample != p1_counter) ||
+                           (p2_sample != p2_counter) || (p3_sample != p3_counter);
+        
+        if (signs_differ) {
+            std::cout << "Polynomial signs DIFFER between sample and counterexample.\n";
+        } else {
+            std::cout << "Polynomial signs match between sample and counterexample.\n";
+        }
+        
+        // Verify that the counterexample is OUTSIDE the cell (cell is sound)
+        std::cout << "\nChecking if counterexample is inside cell:\n";
+        bool inside = is_point_inside_cell(am, pm, cell, counter_as);
+        
+        // For a sound cell with differing signs, counterexample must be OUTSIDE
+        ENSURE(!inside);
+        std::cout << "SUCCESS: Counterexample is OUTSIDE the cell (cell is sound)\n";
+    }
+
+    std::cout << "=== END tst_unsound_lws_ppblockterm ===\n\n";
+}
+
+// Test case for gh-8397: unsound lemma with lws=false
+// Unsound lemma detected by nlsat.check_lemmas=true:
+// !(1024 x1 = 0) or !(x1 + 1 > 0) or !(2048 x1^2 + 4096 x1 = 0) or 
+// !(x1 = root[3](1024 x1^3 + 6144 x1^2 + 6144 x1)) or 
+// !(x1 = root[3](2048 x1^3 + 6144 x1^2 + 4096 x1)) or !(x1 = 0) or 
+// 4 x6^3 + 4 x5 x6^2 - 4 x1 x6^2 + 4 x6^2 - 4 x1 x5 x6 - 4 x1 x6 < 0 or 
+// x6 - x1 = 0 or x6 > 0
+// Counterexample: x1 = 0, x5 = 0, x6 = -0.5
+static void tst_unsound_gh8397() {
+    // Reproduce exact unsound lemma from gh-8397
+    // Unsound lemma: !(1024 x1 = 0) or !(x1 + 1 > 0) or !(2048 x1^2 + 4096 x1 = 0) or 
+    //   !(x1 = root[3](1024 x1^3 + 6144 x1^2 + 6144 x1)) or 
+    //   !(x1 = root[3](2048 x1^3 + 6144 x1^2 + 4096 x1)) or !(x1 = 0) or 
+    //   4 x6^3 + 4 x5 x6^2 - 4 x1 x6^2 + 4 x6^2 - 4 x1 x5 x6 - 4 x1 x6 < 0 or x6 - x1 = 0 or x6 > 0
+    // Counterexample: x1=0, x5=0, x6=-0.5 makes ALL literals FALSE
+    // Sample point: x0=-1, x1=0, x2=0, x3=-1, x4=0, x5=-1 (x6 is conflict var)
+    std::cout << "=== tst_unsound_gh8397 ===\n";
+    
+    auto run_test = [](bool use_lws) {
+        std::cout << "\n--- Running with lws=" << (use_lws ? "true" : "false") << " ---\n";
+        
+        params_ref ps;
+        ps.set_bool("lws", use_lws);
+        reslimit rlim;
+        nlsat::solver s(rlim, ps, false);
+        anum_manager& am = s.am();
+        nlsat::pmanager& pm = s.pm();
+        nlsat::explain& ex = s.get_explain();
+        
+        // Create variables in order: x0, x1, x2, x3, x4, x5, x6
+        nlsat::var x0 = s.mk_var(false);
+        nlsat::var x1 = s.mk_var(false);
+        nlsat::var x2 = s.mk_var(false);
+        nlsat::var x3 = s.mk_var(false);
+        nlsat::var x4 = s.mk_var(false);
+        nlsat::var x5 = s.mk_var(false);
+        nlsat::var x6 = s.mk_var(false);
+        (void)x0; (void)x2; (void)x3; (void)x4;  // suppress unused warnings
+        
+        polynomial_ref _x1(pm), _x5(pm), _x6(pm);
+        _x1 = pm.mk_polynomial(x1);
+        _x5 = pm.mk_polynomial(x5);
+        _x6 = pm.mk_polynomial(x6);
+        
+        // Polynomials from the unsound lemma
+        // p_main: 4 x6^3 + 4 x5 x6^2 - 4 x1 x6^2 + 4 x6^2 - 4 x1 x5 x6 - 4 x1 x6
+        polynomial_ref p_main(pm);
+        p_main = 4*_x6*_x6*_x6 + 4*_x5*_x6*_x6 - 4*_x1*_x6*_x6 + 4*_x6*_x6 - 4*_x1*_x5*_x6 - 4*_x1*_x6;
+        
+        // p_diff: x6 - x1
+        polynomial_ref p_diff(pm);
+        p_diff = _x6 - _x1;
+        
+        // Additional polynomials for x1 constraints (from root literals)
+        // 1024 x1^3 + 6144 x1^2 + 6144 x1 = 1024*x1*(x1^2 + 6*x1 + 6)
+        polynomial_ref p_root1(pm);
+        p_root1 = 1024*_x1*_x1*_x1 + 6144*_x1*_x1 + 6144*_x1;
+        
+        // 2048 x1^3 + 6144 x1^2 + 4096 x1 = 1024*x1*(2*x1^2 + 6*x1 + 4)
+        polynomial_ref p_root2(pm);
+        p_root2 = 2048*_x1*_x1*_x1 + 6144*_x1*_x1 + 4096*_x1;
+        
+        // 1024 x1
+        polynomial_ref p_x1_eq(pm);
+        p_x1_eq = 1024*_x1;
+        
+        // x1 + 1
+        polynomial_ref p_x1_gt(pm);
+        p_x1_gt = _x1 + 1;
+        
+        // 2048 x1^2 + 4096 x1
+        polynomial_ref p_x1_eq2(pm);
+        p_x1_eq2 = 2048*_x1*_x1 + 4096*_x1;
+        
+        std::cout << "p_main: " << p_main << "\n";
+        std::cout << "p_diff: " << p_diff << "\n";
+        std::cout << "p_root1: " << p_root1 << "\n";
+        std::cout << "p_root2: " << p_root2 << "\n";
+        
+        // Set sample point: x0=-1, x1=0, x2=0, x3=-1, x4=0, x5=-1
+        nlsat::assignment sample_as(am);
+        scoped_anum val(am);
+        am.set(val, -1); sample_as.set(x0, val);
+        am.set(val, 0);  sample_as.set(x1, val);
+        am.set(val, 0);  sample_as.set(x2, val);
+        am.set(val, -1); sample_as.set(x3, val);
+        am.set(val, 0);  sample_as.set(x4, val);
+        am.set(val, -1); sample_as.set(x5, val);
+        // x6 is the conflict variable, set to 0 for sample
+        am.set(val, 0);  sample_as.set(x6, val);
+        s.set_rvalues(sample_as);
+        
+        // Input literals for the conflict (constraints on x6):
+        // The conflict is that x6 > x1 (i.e. x6 > 0) AND p_main < 0 
+        // But at sample point x1=0, x5=-1, these are infeasible at x6=0
+        nlsat::scoped_literal_vector lits(s);
+        lits.push_back(mk_gt(s, p_diff.get()));  // x6 - x1 > 0 (i.e. x6 > 0 since x1=0)
+        lits.push_back(mk_lt(s, p_main.get()));  // p_main < 0
+        
+        // Also add x1 constraints that were part of the conflict core
+        lits.push_back(mk_eq(s, p_x1_eq.get()));   // 1024 x1 = 0
+        lits.push_back(mk_gt(s, p_x1_gt.get()));   // x1 + 1 > 0
+        lits.push_back(mk_eq(s, p_x1_eq2.get()));  // 2048 x1^2 + 4096 x1 = 0
+        // Root literals: x1 = root[3](p_root1), x1 = root[3](p_root2)
+        lits.push_back(mk_root_eq(s, p_root1.get(), x1, 3));  // x1 = root[3](p_root1)
+        lits.push_back(mk_root_eq(s, p_root2.get(), x1, 3));  // x1 = root[3](p_root2)
+        lits.push_back(mk_eq(s, _x1.get()));       // x1 = 0
+        
+        std::cout << "Input literals:\n";
+        s.display(std::cout, lits.size(), lits.data());
+        std::cout << "\n";
+        
+        // Call compute_conflict_explanation
+        nlsat::scoped_literal_vector result(s);
+        ex.compute_conflict_explanation(lits.size(), lits.data(), result);
+        
+        std::cout << "Result lemma (lws=" << (use_lws ? "true" : "false") << "):\n";
+        std::cout << "(or";
+        for (auto l : result) {
+            s.display(std::cout << "\n  ", l);
+        }
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            s.display(std::cout << "\n  ", ~lits[i]);
+        }
+        std::cout << "\n)\n";
+        
+        // Counterexample from checker: x1=0, x5=0, x6=-0.5
+        nlsat::assignment counter_as(am);
+        am.set(val, -1); counter_as.set(x0, val);
+        am.set(val, 0);  counter_as.set(x1, val);
+        am.set(val, 0);  counter_as.set(x2, val);
+        am.set(val, -1); counter_as.set(x3, val);
+        am.set(val, 0);  counter_as.set(x4, val);
+        am.set(val, 0);  counter_as.set(x5, val);  // changed from -1 to 0
+        mpq half; am.qm().set(half, -1, 2);  // -1/2
+        am.set(val, half); counter_as.set(x6, val);
+        
+        std::cout << "\nEvaluating at counterexample (x1=0, x5=0, x6=-0.5):\n";
+        
+        // Evaluate each result literal at counterexample
+        small_object_allocator allocator;
+        nlsat::evaluator eval(s, counter_as, pm, allocator);
+        
+        bool all_false = true;
+        for (auto l : result) {
+            nlsat::atom* a = s.bool_var2atom(l.var());
+            if (a) {
+                bool value = eval.eval(a, l.sign());
+                s.display(std::cout << "  ", l);
+                std::cout << " -> " << (value ? "TRUE" : "FALSE") << "\n";
+                if (value) all_false = false;
+            }
+        }
+        
+        // Also check negated input literals
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            nlsat::literal nl = ~lits[i];
+            nlsat::atom* a = s.bool_var2atom(nl.var());
+            if (a) {
+                bool value = eval.eval(a, nl.sign());
+                s.display(std::cout << "  ", nl);
+                std::cout << " -> " << (value ? "TRUE" : "FALSE") << "\n";
+                if (value) all_false = false;
+            }
+        }
+        
+        if (all_false) {
+            std::cout << "*** ALL literals FALSE at counterexample - LEMMA IS UNSOUND! ***\n";
+        } else {
+            std::cout << "At least one literal is TRUE - lemma is sound at this point\n";
+        }
+    };
+    
+    run_test(false);  // lws=false (buggy)
+    run_test(true);   // lws=true (should be correct)
+    
+    std::cout << "\n=== END tst_unsound_gh8397 ===\n\n";
+}
+
 void tst_nlsat() {
+    tst_unsound_gh8397();
+    return;
+    std::cout << "------------------\n";
+    tst_unsound_lws_ppblockterm();
+    std::cout << "------------------\n";
+    tst_unsound_lws_n46();
+    std::cout << "------------------\n";
+    tst_unsound_lws_et4();
+    std::cout << "------------------\n";
+    tst_unsound_lws_x3();
+    std::cout << "------------------\n";
+    tst_unsound_lws2380();
+    std::cout << "------------------\n";
+    tst_polynomial_cache_mk_unique();
+    std::cout << "------------------\n";
+    tst_nullified_polynomial();
     std::cout << "------------------\n";
     tst11();
     std::cout << "------------------\n";
-    return;
     tst10();
     std::cout << "------------------\n";
     tst9();

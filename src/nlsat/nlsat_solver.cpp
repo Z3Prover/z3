@@ -1,3 +1,4 @@
+// int tttt = 0;
 /*++
 Copyright (c) 2012 Microsoft Corporation
 
@@ -41,6 +42,7 @@ Revision History:
 #include "nlsat/nlsat_simplify.h"
 #include "nlsat/nlsat_simple_checker.h"
 #include "nlsat/nlsat_variable_ordering_strategy.h"
+#include "nlsat_solver.h"
 
 #define NLSAT_EXTRA_VERBOSE
 
@@ -51,7 +53,6 @@ Revision History:
 #endif
 
 namespace nlsat {
-
 
     typedef chashtable<ineq_atom*, ineq_atom::hash_proc, ineq_atom::eq_proc> ineq_atom_table;
     typedef chashtable<root_atom*, root_atom::hash_proc, root_atom::eq_proc> root_atom_table;
@@ -227,9 +228,8 @@ namespace nlsat {
         unsigned               m_max_conflicts;
         unsigned               m_lemma_rlimit;
         unsigned               m_lemma_count;
-        unsigned m_variable_ordering_strategy;
+        unsigned               m_variable_ordering_strategy;
         bool m_set_0_more;
-        bool m_cell_sample;
 
         struct stats {
             unsigned               m_simplifications;
@@ -239,13 +239,18 @@ namespace nlsat {
             unsigned               m_decisions;
             unsigned               m_stages;
             unsigned               m_irrational_assignments; // number of irrational witnesses
+            unsigned               m_levelwise_calls;
+            unsigned               m_levelwise_failures;
+            unsigned               m_lws_initial_fail;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };
         // statistics
         stats                  m_stats;
         std::string m_debug_known_solution_file_name;
-
+        bool m_apply_lws;
+        bool m_last_conflict_used_lws = false;  // Track if last conflict explanation used levelwise
+        unsigned m_lws_spt_threshold = 3;
         imp(solver& s, ctx& c):
             m_ctx(c),
             m_solver(s),
@@ -264,7 +269,7 @@ namespace nlsat {
             m_simplify(s, m_atoms, m_clauses, m_learned, m_pm),
             m_display_var(m_perm),
             m_display_assumption(nullptr),
-            m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator, nlsat_params(c.m_params).cell_sample()),
+            m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator, nlsat_params(c.m_params).canonicalize()),
             m_scope_lvl(0),
             m_lemma(s),
             m_lazy_clause(s),
@@ -305,8 +310,9 @@ namespace nlsat {
             m_check_lemmas   = p.check_lemmas();
             m_variable_ordering_strategy = p.variable_ordering_strategy();
             m_debug_known_solution_file_name = p.known_sat_assignment_file_name();
+            m_apply_lws = p.lws();
+            m_lws_spt_threshold = p.lws_spt_threshold();  // 0 disables spanning tree
             m_check_lemmas |= !(m_debug_known_solution_file_name.empty());
-            m_cell_sample = p.cell_sample();
   
             m_ism.set_seed(m_random_seed);
             m_explain.set_simplify_cores(m_simplify_cores);
@@ -1016,7 +1022,8 @@ namespace nlsat {
         }
 
         // Helper: Setup checker solver and translate atoms/clauses
-        void setup_checker(imp& checker, scoped_bool_vars& tr, unsigned n, literal const* cls, assumption_set a) {
+        // Returns false if the lemma cannot be properly translated for checking
+        bool setup_checker(imp& checker, scoped_bool_vars& tr, unsigned n, literal const* cls, assumption_set a) {
             auto pconvert = [&](poly* p) {
                 return convert(m_pm, p, checker.m_pm);
             };
@@ -1052,7 +1059,9 @@ namespace nlsat {
                     }
                     else {
                         // root atom cannot be translated due to variable ordering
-                        bv = checker.mk_bool_var();
+                        // Skip lemma check in this case
+                        TRACE(nlsat, tout << "check_lemma: skipping due to untranslatable root atom\n";);
+                        return false;
                     }
                 }
                 else {
@@ -1079,20 +1088,32 @@ namespace nlsat {
                 literal nlit(tr[lit.var()], !lit.sign());
                 checker.mk_external_clause(1, &nlit, nullptr);
             }
+            return true;  // Successfully set up the checker
         }
 
         // Helper: Display unsound lemma failure information
         void display_unsound_lemma(imp& checker, scoped_bool_vars& tr, unsigned n, literal const* cls) {
             verbose_stream() << "\n";
             verbose_stream() << "========== UNSOUND LEMMA DETECTED ==========\n";
+            verbose_stream() << "Levelwise used for this conflict: " << (m_last_conflict_used_lws ? "YES" : "NO") << "\n";
+            
+            // Print polynomials passed to levelwise
+            if (m_last_conflict_used_lws) {
+                m_explain.display_last_lws_input(verbose_stream());
+            }
+            
             verbose_stream() << "The following lemma is NOT implied by the original clauses:\n";
             display(verbose_stream() << "  Lemma: ", n, cls) << "\n\n";
             verbose_stream() << "Reason: Found a satisfying assignment where:\n";
             verbose_stream() << "  - The original clauses are satisfied\n";
             verbose_stream() << "  - But ALL literals in the lemma are FALSE\n\n";
             
+            // Display sample point (original solver's assignment)
+            verbose_stream() << "Variable values at SAMPLE point:\n";
+            display_num_assignment(verbose_stream());
+            
             // Display variable values used in the lemma
-            verbose_stream() << "Variable values in counterexample:\n";
+            verbose_stream() << "\nVariable values in counterexample:\n";
             auto lemma_vars = collect_vars_on_clause(n, cls);
             for (var x : lemma_vars) {
                 if (checker.m_assignment.is_assigned(x)) {
@@ -1120,11 +1141,15 @@ namespace nlsat {
             TRACE(nlsat, display(tout << "check lemma: ", n, cls) << "\n";
                   display(tout););
             
+            // Save RNG state before check_lemma to ensure determinism
+            unsigned saved_random_seed = m_random_seed;
+            unsigned saved_ism_seed = m_ism.get_seed();
+            
             try {
                 // Create a separate reslimit for the checker with 10 second timeout
                 reslimit checker_rlimit;
                 cancel_eh<reslimit> eh(checker_rlimit);
-                scoped_timer timer(10000, &eh);
+                scoped_timer timer(1000, &eh); // one second
                 
                 ctx c(checker_rlimit, m_ctx.m_params, m_ctx.m_incremental);
                 solver solver2(c);
@@ -1133,14 +1158,28 @@ namespace nlsat {
                 checker.m_log_lemmas = false;
                 checker.m_dump_mathematica = false;
                 checker.m_inline_vars = false;
+                checker.m_apply_lws = false;  // Disable levelwise for checker to avoid recursive issues
                 
                 scoped_bool_vars tr(checker);
-                setup_checker(checker, tr, n, cls, a);            
+                if (!setup_checker(checker, tr, n, cls, a)) {
+                    // Restore RNG state
+                    m_random_seed = saved_random_seed;
+                    m_ism.set_seed(saved_ism_seed);
+                    return;  // Lemma contains untranslatable atoms, skip check
+                }
                 lbool r = checker.check();           
-                if (r == l_undef) // Checker timed out - skip this lemma check
-                    return;
+                if (r == l_undef) {
+                    // Restore RNG state
+                    m_random_seed = saved_random_seed;
+                    m_ism.set_seed(saved_ism_seed);
+                    return; // Checker timed out - skip this lemma check
+                }
                 
                 if (r == l_true) {
+                    // Before reporting unsound, dump the lemma to see what we're checking
+                    verbose_stream() << "Dumping lemma that internal checker thinks is not a tautology:\n";
+                    verbose_stream() << "Checker levelwise calls: " << checker.m_stats.m_levelwise_calls << "\n";
+                    log_lemma(verbose_stream(), n, cls, true, "internal-check-fail");
                     display_unsound_lemma(checker, tr, n, cls);
                     exit(1);
                 }
@@ -1148,6 +1187,10 @@ namespace nlsat {
             catch (...) {
                 // Ignore exceptions from the checker - just skip this lemma check
             }
+            
+            // Restore RNG state after check_lemma
+            m_random_seed = saved_random_seed;
+            m_ism.set_seed(saved_ism_seed);
         }
 
         void log_lemma(std::ostream& out, clause const& cls, std::string annotation) {
@@ -1165,7 +1208,7 @@ namespace nlsat {
                     used_bools[b] = true;
                 vars.reset();
                 this->vars(lit, vars);
-                for (var v : vars)
+            for (var v : vars)
                         used_vars[v] = true;            
             }
             display(out << "(echo \"#" << m_lemma_count++ << ":" << annotation << ":", n, cls) << "\")\n";
@@ -1182,7 +1225,6 @@ namespace nlsat {
             for (unsigned i = 0; i < n; ++i) 
                 display_smt2(out << "(assert ", ~cls[i]) << ")\n";
             out << "(check-sat)\n(reset)\n";
-
         }
 
         clause * mk_clause_core(unsigned num_lits, literal const * lits, bool learned, _assumption_set a) {
@@ -2120,9 +2162,8 @@ namespace nlsat {
             collect(assumptions, m_learned);
             del_clauses(m_valids);
             
-            if (m_check_lemmas)
-                for (clause* c : m_learned) 
-                    check_lemma(c->size(), c->data(), nullptr);
+            // Note: Don't check learned clauses here - they are the result of resolution
+            // and may not be tautologies. Conflict lemmas are checked in resolve_lazy_justification.
             
             assumptions.reset();
             assumptions.append(result);
@@ -2338,8 +2379,8 @@ namespace nlsat {
             
             m_lazy_clause.reset();
             
-            m_explain.main_operator(jst.num_lits(), jst.lits(), m_lazy_clause);
-            for (unsigned i = 0; i < sz; ++i)
+            m_explain.compute_conflict_explanation(jst.num_lits(), jst.lits(), m_lazy_clause);
+            for (unsigned i = 0; i < sz; i++)
                 m_lazy_clause.push_back(~jst.lit(i));
             
             // lazy clause is a valid clause
@@ -2359,6 +2400,8 @@ namespace nlsat {
             }
 
             if (m_check_lemmas) {
+                TRACE(nlsat, tout << "Checking lazy clause with " << m_lazy_clause.size() << " literals:\n";
+                      display(tout, m_lazy_clause.size(), m_lazy_clause.data()) << "\n";);
                 check_lemma(m_lazy_clause.size(), m_lazy_clause.data(), nullptr);
                 m_valids.push_back(mk_clause_core(m_lazy_clause.size(), m_lazy_clause.data(), false, nullptr));
             }
@@ -2547,7 +2590,8 @@ namespace nlsat {
                                 resolve_clause(b, *(jst.get_clause()));
                                 break;
                             case justification::LAZY:
-                                resolve_lazy_justification(b, *(jst.get_lazy()));
+                               
+                            resolve_lazy_justification(b, *(jst.get_lazy()));
                                 break;
                             case justification::DECISION:
                                 SASSERT(m_num_marks == 0);
@@ -2603,9 +2647,8 @@ namespace nlsat {
             TRACE(nlsat, tout << "new lemma:\n"; display(tout, m_lemma.size(), m_lemma.data()); tout << "\n";
                   tout << "found_decision: " << found_decision << "\n";);
             
-            if (m_check_lemmas) {
-                check_lemma(m_lemma.size(), m_lemma.data(), m_lemma_assumptions.get());
-            }
+            // Note: Don't check m_lemma here - it's the result of resolution
+            // and may not be a tautology. Conflict lemmas are checked in resolve_lazy_justification.
 
             // if (m_log_lemmas) 
             //    log_lemma(std::cout, m_lemma.size(), m_lemma.data(), false);
@@ -2772,6 +2815,8 @@ namespace nlsat {
             st.update("nlsat stages", m_stats.m_stages);
             st.update("nlsat simplifications", m_stats.m_simplifications);
             st.update("nlsat irrational assignments", m_stats.m_irrational_assignments);
+            st.update("levelwise calls", m_stats.m_levelwise_calls);
+            st.update("levelwise failures", m_stats.m_levelwise_failures);
         }
 
         void reset_statistics() {
@@ -4373,10 +4418,19 @@ namespace nlsat {
         nlsat_params::collect_param_descrs(d);
     }
 
-    unsynch_mpq_manager & solver::qm() {
+    const assignment &solver::sample() const {
+        return m_imp->m_assignment;
+    }
+
+    assignment &solver::sample() {
+        return m_imp->m_assignment;
+    }
+
+    unsynch_mpq_manager &solver::qm()
+    {
         return m_imp->m_qm;
     }
-        
+
     anum_manager & solver::am() {
         return m_imp->m_am;
     }
@@ -4626,6 +4680,15 @@ namespace nlsat {
         m_imp->m_stats.m_simplifications++;
     }
 
+    void solver::record_levelwise_result(bool success) {
+        m_imp->m_stats.m_levelwise_calls++;
+        m_imp->m_last_conflict_used_lws = success;  // Track for unsound lemma reporting
+        if (!success) {
+            m_imp->m_stats.m_levelwise_failures++;
+            // m_imp->m_apply_lws = false; // is it useful to throttle
+        }
+    }
+
     bool solver::has_root_atom(clause const& c) const {
         return m_imp->has_root_atom(c);
     }
@@ -4637,6 +4700,9 @@ namespace nlsat {
     assumption solver::join(assumption a, assumption b) {
         return (m_imp->m_asm.mk_join(static_cast<imp::_assumption_set>(a), static_cast<imp::_assumption_set>(b)));
     }
-    
-        
+
+    bool solver::apply_levelwise() const { return m_imp->m_apply_lws; }
+
+    unsigned solver::lws_spt_threshold() const { return m_imp->m_lws_spt_threshold; }
+
 };

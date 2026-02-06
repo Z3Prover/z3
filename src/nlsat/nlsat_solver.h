@@ -194,6 +194,7 @@ namespace nlsat {
         assumption join(assumption a, assumption b);
 
         void inc_simplify();
+        void record_levelwise_result(bool success);
         void add_bound(bound_constraint const& c);
 
         /**
@@ -244,7 +245,10 @@ namespace nlsat {
         // -----------------------
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
-
+        const assignment& sample() const;
+        assignment& sample(); 
+        bool apply_levelwise() const;
+        unsigned lws_spt_threshold() const;
         void reset();
         void collect_statistics(statistics & st);
         void reset_statistics();
@@ -294,8 +298,7 @@ namespace nlsat {
         std::ostream& display_assignment(std::ostream& out) const;
 
         std::ostream& display_var(std::ostream& out, unsigned j) const;
-        
+
     };
 
 };
-

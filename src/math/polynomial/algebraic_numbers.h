@@ -170,6 +170,19 @@ namespace algebraic_numbers {
         void isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots);
 
         /**
+           \brief Isolate the closest real roots of a multivariate polynomial p around the rational point s.
+
+           The method behaves like isolate_roots(p, x2v, roots) but only returns:
+           - the last root r such that r <= s (if it exists), and
+           - the first root r such that r >  s (if it exists),
+           or a single root if s itself is a root.
+
+           The returned roots are sorted increasingly. The associated 1-based root indices
+           (with respect to the full increasing root list) are stored in \c indices.
+        */
+        void isolate_roots_closest(polynomial_ref const & p, polynomial::var2anum const & x2v, mpq const & s, numeral_vector & roots, svector<unsigned> & indices);
+
+        /**
            \brief Isolate the roots of the given polynomial, and compute its sign between them.
         */
         void isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots, svector<sign> & signs);
