@@ -96,6 +96,9 @@ import {
   RatNum,
   RCFNum,
   RCFNumCreation,
+  Re,
+  ReSort,
+  ReCreation,
   Seq,
   SeqSort,
   Simplifier,
@@ -297,6 +300,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           return new FPRMSortImpl(ast);
         case Z3_sort_kind.Z3_SEQ_SORT:
           return new SeqSortImpl(ast);
+        case Z3_sort_kind.Z3_RE_SORT:
+          return new ReSortImpl(ast);
         case Z3_sort_kind.Z3_ARRAY_SORT:
           return new ArraySortImpl(ast);
         default:
@@ -340,6 +345,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           return new FPRMImpl(ast);
         case Z3_sort_kind.Z3_SEQ_SORT:
           return new SeqImpl(ast);
+        case Z3_sort_kind.Z3_RE_SORT:
+          return new ReImpl(ast);
         case Z3_sort_kind.Z3_ARRAY_SORT:
           return new ArrayImpl(ast);
         default:
@@ -607,6 +614,18 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function isSeq(obj: unknown): obj is Seq<Name> {
       const r = obj instanceof SeqImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isReSort(obj: unknown): obj is ReSort<Name> {
+      const r = obj instanceof ReSortImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isRe(obj: unknown): obj is Re<Name> {
+      const r = obj instanceof ReImpl;
       r && _assertContext(obj);
       return r;
     }
@@ -997,6 +1016,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       unit<ElemSort extends Sort<Name>>(elem: Expr<Name>): Seq<Name, ElemSort> {
         return new SeqImpl<ElemSort>(check(Z3.mk_seq_unit(contextPtr, elem.ast)));
+      },
+    };
+
+    const Re = {
+      sort<SeqSortRef extends SeqSort<Name>>(seqSort: SeqSortRef): ReSort<Name, SeqSortRef> {
+        return new ReSortImpl<SeqSortRef>(Z3.mk_re_sort(contextPtr, seqSort.ptr));
+      },
+
+      toRe(seq: Seq<Name> | string): Re<Name> {
+        const seqExpr = isSeq(seq) ? seq : String.val(seq);
+        return new ReImpl(check(Z3.mk_seq_to_re(contextPtr, seqExpr.ast)));
       },
     };
 
@@ -1763,6 +1793,97 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       b: SMTSet<Name, ElemSort>,
     ): Bool<Name> {
       return new BoolImpl(check(Z3.mk_set_subset(contextPtr, a.ast, b.ast)));
+    }
+
+    //////////////////////
+    // Regular Expressions
+    //////////////////////
+
+    function InRe(seq: Seq<Name> | string, re: Re<Name>): Bool<Name> {
+      const seqExpr = isSeq(seq) ? seq : String.val(seq);
+      return new BoolImpl(check(Z3.mk_seq_in_re(contextPtr, seqExpr.ast, re.ast)));
+    }
+
+    function Union<SeqSortRef extends SeqSort<Name>>(...res: Re<Name, SeqSortRef>[]): Re<Name, SeqSortRef> {
+      if (res.length === 0) {
+        throw new Error('Union requires at least one argument');
+      }
+      if (res.length === 1) {
+        return res[0];
+      }
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_union(contextPtr, res.map(r => r.ast))));
+    }
+
+    function Intersect<SeqSortRef extends SeqSort<Name>>(...res: Re<Name, SeqSortRef>[]): Re<Name, SeqSortRef> {
+      if (res.length === 0) {
+        throw new Error('Intersect requires at least one argument');
+      }
+      if (res.length === 1) {
+        return res[0];
+      }
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_intersect(contextPtr, res.map(r => r.ast))));
+    }
+
+    function ReConcat<SeqSortRef extends SeqSort<Name>>(...res: Re<Name, SeqSortRef>[]): Re<Name, SeqSortRef> {
+      if (res.length === 0) {
+        throw new Error('ReConcat requires at least one argument');
+      }
+      if (res.length === 1) {
+        return res[0];
+      }
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_concat(contextPtr, res.map(r => r.ast))));
+    }
+
+    function Plus<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_plus(contextPtr, re.ast)));
+    }
+
+    function Star<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_star(contextPtr, re.ast)));
+    }
+
+    function Option<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_option(contextPtr, re.ast)));
+    }
+
+    function Complement<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_complement(contextPtr, re.ast)));
+    }
+
+    function Diff<SeqSortRef extends SeqSort<Name>>(a: Re<Name, SeqSortRef>, b: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_diff(contextPtr, a.ast, b.ast)));
+    }
+
+    function Range<SeqSortRef extends SeqSort<Name>>(lo: Seq<Name, SeqSortRef> | string, hi: Seq<Name, SeqSortRef> | string): Re<Name, SeqSortRef> {
+      const loSeq = isSeq(lo) ? lo : String.val(lo);
+      const hiSeq = isSeq(hi) ? hi : String.val(hi);
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_range(contextPtr, loSeq.ast, hiSeq.ast)));
+    }
+
+    /**
+     * Create a bounded repetition regex.
+     * @param re The regex to repeat
+     * @param lo Minimum number of repetitions
+     * @param hi Maximum number of repetitions (0 means unbounded, i.e., at least lo)
+     */
+    function Loop<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>, lo: number, hi: number = 0): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_loop(contextPtr, re.ast, lo, hi)));
+    }
+
+    function Power<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>, n: number): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_power(contextPtr, re.ast, n)));
+    }
+
+    function AllChar<SeqSortRef extends SeqSort<Name>>(reSort: ReSort<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_allchar(contextPtr, reSort.ptr)));
+    }
+
+    function Empty<SeqSortRef extends SeqSort<Name>>(reSort: ReSort<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_empty(contextPtr, reSort.ptr)));
+    }
+
+    function Full<SeqSortRef extends SeqSort<Name>>(reSort: ReSort<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_full(contextPtr, reSort.ptr)));
     }
 
     function mkPartialOrder(sort: Sort<Name>, index: number): FuncDecl<Name> {
@@ -4024,6 +4145,76 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
+    class ReSortImpl<SeqSortRef extends SeqSort<Name> = SeqSort<Name>> extends SortImpl implements ReSort<Name, SeqSortRef> {
+      declare readonly __typename: ReSort['__typename'];
+
+      basis(): SeqSortRef {
+        return _toSort(check(Z3.get_re_sort_basis(contextPtr, this.ptr))) as SeqSortRef;
+      }
+
+      cast(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+      cast(other: CoercibleToExpr<Name>): Expr<Name>;
+      cast(other: any): any {
+        if (isRe(other)) {
+          _assertContext(other);
+          return other;
+        }
+        throw new Error("Can't cast to ReSort");
+      }
+    }
+
+    class ReImpl<SeqSortRef extends SeqSort<Name> = SeqSort<Name>>
+      extends ExprImpl<Z3_ast, ReSortImpl<SeqSortRef>>
+      implements Re<Name, SeqSortRef>
+    {
+      declare readonly __typename: Re['__typename'];
+
+      plus(): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_plus(contextPtr, this.ast)));
+      }
+
+      star(): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_star(contextPtr, this.ast)));
+      }
+
+      option(): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_option(contextPtr, this.ast)));
+      }
+
+      complement(): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_complement(contextPtr, this.ast)));
+      }
+
+      union(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_union(contextPtr, [this.ast, other.ast])));
+      }
+
+      intersect(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_intersect(contextPtr, [this.ast, other.ast])));
+      }
+
+      diff(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_diff(contextPtr, this.ast, other.ast)));
+      }
+
+      concat(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_concat(contextPtr, [this.ast, other.ast])));
+      }
+
+      /**
+       * Create a bounded repetition of this regex
+       * @param lo Minimum number of repetitions
+       * @param hi Maximum number of repetitions (0 means unbounded, i.e., at least lo)
+       */
+      loop(lo: number, hi: number = 0): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_loop(contextPtr, this.ast, lo, hi)));
+      }
+
+      power(n: number): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_power(contextPtr, this.ast, n)));
+      }
+    }
+
     class ArraySortImpl<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>
       extends SortImpl
       implements SMTArraySort<Name, DomainSort, RangeSort>
@@ -4731,6 +4922,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       FloatRM,
       String,
       Seq,
+      Re,
       Array,
       Set,
       Datatype,
@@ -4823,6 +5015,23 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       FullSet,
       isMember,
       isSubset,
+
+      InRe,
+      Union,
+      Intersect,
+      ReConcat,
+      Plus,
+      Star,
+      Option,
+      Complement,
+      Diff,
+      Range,
+      Loop,
+      Power,
+      AllChar,
+      Empty,
+      Full,
+
       mkPartialOrder,
       mkTransitiveClosure,
       polynomialSubresultants,
