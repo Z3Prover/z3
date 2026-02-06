@@ -80,14 +80,14 @@ static_assert(sizeof(int64_t) == 8, "64 bits");
 # define Z3_fallthrough
 #endif
 
-inline bool is_power_of_two(unsigned v) { return !(v & (v - 1)) && v; }
+static inline bool is_power_of_two(unsigned v) { return !(v & (v - 1)) && v; }
 
 /**
    \brief Return the next power of two that is greater than or equal to v.
    
    \warning This function returns 0 for v == 0.
 */
-inline unsigned next_power_of_two(unsigned v) {
+static inline unsigned next_power_of_two(unsigned v) {
     v--;
     v |= v >> 1;
     v |= v >> 2;
