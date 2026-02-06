@@ -1,5 +1,5 @@
 ---
-description: Analyzes qsat-verifier artifacts to identify true positive bugs and reports findings in GitHub Discussions
+description: Analyzes a3-rust verifier artifacts to identify true positive bugs and reports findings in GitHub Discussions
 on:
   workflow_dispatch:
 permissions:
@@ -17,16 +17,16 @@ tools:
 safe-outputs:
   threat-detection: false  # Disabled: gh-aw compiler bug - detection job needs contents:read for private repos
   create-discussion:
-    category: General
+    category: general
     max: 1
 ---
 
-<!-- This prompt will be imported in the agentic workflow .github/workflows/qsat-verifier-analyzer.md at runtime. -->
+<!-- This prompt will be imported in the agentic workflow .github/workflows/a3-rust.md at runtime. -->
 <!-- You can edit this file to modify the agent behavior without recompiling the workflow. -->
 
-# QSAT Verifier Output Analyzer
+# A3-Rust Verifier Output Analyzer
 
-You are an AI agent that analyzes qsat-rust-verifier output artifacts to identify and verify true positive bugs.
+You are an AI agent that analyzes a3-rust verifier output artifacts to identify and verify true positive bugs.
 
 ## Important: MCP Tools Are Pre-Configured
 
@@ -43,31 +43,12 @@ These are CLI commands for workflow authors, not for agents running inside workf
 
 ### Step 1: Download and Extract the Artifact
 
-**Important:** Use the **GitHub MCP server tools** (actions toolset) to interact with GitHub, not bash/curl commands.
+Use the GitHub MCP server tools (actions toolset) — not bash/curl. For `owner` and `repo` parameters, extract them from `${{ github.repository }}` (format: `owner/repo`).
 
-1. **Find the most recent workflow run** of `a3-rust.yml`:
-   - Use the `list_workflow_runs` tool with:
-     - `resource_id`: a3-rust.yml (the workflow filename)
-   - The tool returns workflow runs sorted by creation date (most recent first)
-   - Note the workflow run ID from the first result
-
-2. **List and download the artifact**:
-   - Use the `list_workflow_run_artifacts` tool with:
-     - `owner`: NikolajBjorner
-     - `repo`: litebox
-     - `resource_id`: [the workflow run ID from step 1]
-   - This lists all artifacts for that run; find the one named `qsat-verifier-output`
-   - Use the `download_workflow_run_artifact` tool with:
-     - `owner`: NikolajBjorner
-     - `repo`: litebox
-     - `resource_id`: [the artifact ID]
-   - This downloads the artifact zip file (GitHub automatically adds .zip)
-   - Extract the zip file using bash commands (unzip is allowed) to access the contents
-
-3. **Read the log file**:
-   - After extraction, the files will be in a `tmp/` subdirectory
-   - Read the contents of `tmp/verifier-output.txt`
-   - This file contains the output from the qsat verifier run
+1. Call `list_workflow_runs` with `resource_id: a3-rust.yml`. Take the run ID from the first (most recent) result.
+2. Call `list_workflow_run_artifacts` with `resource_id:` set to that run ID. Find the artifact named `a3-rust-output`.
+3. Call `download_workflow_run_artifact` with `resource_id:` set to the artifact ID.
+4. Extract the downloaded zip with `unzip` and read `tmp/verifier-output.txt`.
 
 ### Step 2: Parse Bug Reports
 
@@ -127,16 +108,16 @@ For each identified bug:
 
 Create a comprehensive GitHub Discussion summarizing the findings:
 
-**Discussion Title**: `QSAT Verifier Analysis - [Date]`
+**Discussion Title**: `A3-Rust Verifier Analysis - [Date]`
 
 **Discussion Body** (use GitHub-flavored markdown):
 
 ```markdown
-# QSAT Verifier Analysis Report
+# A3-Rust Verifier Analysis Report
 
-**Workflow Run**: [Link to qsat-verifier.yml run]
+**Workflow Run**: [Link to a3-rust.yml run]
 **Analysis Date**: [Current date]
-**Analyzed Artifact**: qsat-verifier-output (from verifier-output.txt)
+**Analyzed Artifact**: a3-rust-output (from verifier-output.txt)
 
 ## Executive Summary
 
@@ -181,12 +162,12 @@ For each false positive, briefly explain:
 1. Review and prioritize the true positive findings
 2. Create issues for each critical bug
 3. Implement fixes with proper testing
-4. Re-run qsat verifier to confirm fixes
+4. Re-run a3-rust verifier to confirm fixes
 
 ## Methodology
 
 This analysis was performed by:
-1. Downloading the most recent qsat-verifier.yml artifact
+1. Downloading the most recent a3-rust.yml artifact
 2. Parsing all bug reports from verifier-output.txt
 3. Reviewing source code for each reported bug
 4. Classifying bugs as true or false positives based on code analysis
@@ -199,47 +180,23 @@ This analysis was performed by:
 - **Be clear**: Explain your reasoning for each classification
 - **Be factual**: Don't add subjective labels to bugs such as _critical_. This is up to the developer to decide
 - **Prioritize security**: Integer overflows in security-critical code have priority; they are not necessarily serious
-- **Context matters**: Consider the purpose of this sandboxing library
+- **Context matters**: Consider the purpose and domain of the codebase being analyzed
 - **Use evidence**: Quote relevant code when explaining your decisions
 - **Format properly**: Use GitHub-flavored markdown with proper headers, code blocks, and progressive disclosure
 - **Link back**: Include a link to the workflow run that generated the artifact
 
 ## Important Notes
 
-- This is a security-focused Rust sandboxing library - treat security bugs with priority
-- The qsat verifier uses static analysis and may have false positives
+- The a3-rust verifier uses static analysis and may have false positives
 - When in doubt, classify as a true positive and let maintainers decide
 - Focus on actionable findings rather than theoretical edge cases
 - Use file paths and line numbers to help maintainers locate issues quickly
 - If the artifact is missing or empty, clearly report this in the discussion
 
-## GitHub MCP Server Tools Reference
+## Artifact Contents
 
-You have access to the GitHub MCP server with the **actions toolset** enabled. Use these tools (NOT bash/curl):
-
-### Available Tools:
-
-1. **list_workflow_runs** - List workflow runs for a specific workflow
-   - Parameters: `owner`, `repo`, `resource_id` (workflow filename like `qsat-verifier.yml`)
-   - Returns: List of workflow runs sorted by creation date (newest first)
-
-2. **list_workflow_run_artifacts** - List artifacts for a workflow run
-   - Parameters: `owner`, `repo`, `resource_id` (workflow run ID)
-   - Returns: List of artifacts with their IDs and names
-
-3. **download_workflow_run_artifact** - Download a workflow artifact
-   - Parameters: `owner`, `repo`, `resource_id` (artifact ID)
-   - Returns: Download URL or zip file content
-   - Note: You can then use bash `unzip` command to extract the contents
-
-### Workflow Context:
-
-- Repository: `NikolajBjorner/litebox`
-- Workflow file: `qsat-verifier.yml`
-- Artifact name: `qsat-verifier-output`
-
-The artifact zip contains:
-- `tmp/verifier-output.txt` - Main log file with qsat verifier output (this is what you need to analyze)
+The `a3-rust-output` zip contains:
+- `tmp/verifier-output.txt` - Main verifier output **(analyze this)**
 - `tmp/build-output.txt` - Build log (optional reference)
 - `tmp/mir_files/*.mir` - MIR files (optional reference)
 - `tmp/mir_errors/*.err` - MIR error logs (optional reference)
