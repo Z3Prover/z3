@@ -129,7 +129,7 @@ namespace smt {
             void set_exception(unsigned error_code);
             void collect_statistics(::statistics& st) const;
 
-            void collect_backbone_candidates(ast_translation& l2g, unsigned worker_id, svector<bb_candidate>& bb_candidates);
+            void collect_backbone_candidates(ast_translation& l2g, svector<bb_candidate>& bb_candidates);
             void collect_global_backbone(ast_translation& l2g, expr_ref const& backbone);
             bool wait_for_backbone_job(ast_translation& g2l, svector<smt::parallel::bb_candidate>& out, reslimit& lim);
 

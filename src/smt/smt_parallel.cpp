@@ -228,7 +228,7 @@ namespace smt {
                     LOG_WORKER(2, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
                 }
 
-                b.collect_backbone_candidates(m_l2g, id, backbone_candidates);
+                b.collect_backbone_candidates(m_l2g, backbone_candidates);
 
                 if (!m.inc()) {
                     b.set_exception("context cancelled");
@@ -650,15 +650,8 @@ namespace smt {
         }
     }
 
-    void parallel::batch_manager::collect_backbone_candidates(ast_translation& l2g, unsigned worker_id, svector<smt::parallel::bb_candidate>& bb_candidates) {
+    void parallel::batch_manager::collect_backbone_candidates(ast_translation& l2g, svector<smt::parallel::bb_candidate>& bb_candidates) {
         std::scoped_lock lock(mux);
-        auto is_global_backbone = [&](expr* e) -> bool {
-            for (expr* bb : m_global_backbones) {
-                if (bb == e)
-                    return true;
-            }
-            return false;
-        };
 
         auto find_existing_candidate_idx = [&](expr* e) -> int {
             for (unsigned i = 0; i < m_bb_candidates.size(); ++i) {
@@ -666,6 +659,10 @@ namespace smt {
                     return i;
             }
             return -1;
+        };
+
+        auto rank_of = [&](bb_candidate const& c) {
+            return c.score * std::log2(2.0 + c.hits);
         };
 
         for (auto const& c : bb_candidates) {
@@ -677,16 +674,12 @@ namespace smt {
             int idx = find_existing_candidate_idx(g_lit.get());
 
             if (idx >= 0) {
-                // Existing candidate: bump hits + maybe improve score
                 auto& existing = m_bb_candidates[idx];
+                existing.score = (existing.score * existing.hits + score) / (existing.hits + 1);
                 existing.hits++;
-
-                if (score > existing.score)
-                    existing.score = score;
-
                 continue;
             }
-            
+
             if (m_bb_candidates.size() < m_bb_max) {
                 m_bb_candidates.push_back(bb_candidate(m, g_lit.get(), score, 1));
                 continue;
@@ -694,21 +687,21 @@ namespace smt {
 
             // Find worst candidate to evict
             unsigned worst_idx = 0;
-            double worst_score = m_bb_candidates[0].score;
+            double worst_rank = rank_of(m_bb_candidates[0]);
 
             for (unsigned i = 1; i < m_bb_candidates.size(); ++i) {
-                if (m_bb_candidates[i].score < worst_score) {
-                    worst_score = m_bb_candidates[i].score;
+                double r = rank_of(m_bb_candidates[i]);
+                if (r < worst_rank) {
+                    worst_rank = r;
                     worst_idx = i;
                 }
             }
 
-            // Only replace if strictly better
-            if (score > worst_score) 
-                m_bb_candidates[worst_idx] = bb_candidate(m, g_lit.get(), score, 1);
+            bb_candidate new_bb_candidate = bb_candidate(m, g_lit.get(), score, 1);
+            if (rank_of(new_bb_candidate) > worst_rank)
+                m_bb_candidates[worst_idx] = new_bb_candidate;
         }
-        
-        // Done merging: notify consumer
+
         if (!m_bb_candidates.empty())
             m_bb_cv.notify_one();
     }
