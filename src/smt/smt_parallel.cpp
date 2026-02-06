@@ -101,27 +101,28 @@ namespace smt {
     }
 
     void parallel::backbones_worker::run() {
-        svector<bb_candidate> job;
+        svector<bb_candidate> bb_candidates;
 
         while (m.inc()) {
 
             // Sleep until a job exists
-            if (!b.wait_for_backbone_job(m_g2l, job, m.limit()))
+            if (!b.wait_for_backbone_job(m_g2l, bb_candidates, m.limit()))
                 return;
 
-            if (job.empty())
+            if (bb_candidates.empty())
                 continue;
 
-            IF_VERBOSE(1, verbose_stream()
-                << "Backbones worker processing job of size "
-                << job.size() << "\n");
+            expr_ref_vector likely_backbones = check_backbone_batch(bb_candidates);
+            
+            for (expr* bb : likely_backbones) {
+                expr_ref bb_ref(bb, m);
+                if (check_backbone(bb_ref)) {
+                    IF_VERBOSE(1, verbose_stream() << " determined global backbone: " << mk_bounded_pp(bb_ref, m, 3) << "\n");
+                    b.collect_global_backbone(m_l2g, bb_ref);
+                }
+            }
 
-            // Process exactly this job
-            expr_ref_vector backbones = get_backbones_from_candidates(job);
-            if (!backbones.empty())
-                b.collect_global_backbones(m_l2g, backbones);
-
-            job.reset();
+            bb_candidates.reset();
         }
     }
 
@@ -130,15 +131,13 @@ namespace smt {
         m.limit().cancel();
     }
     
-    void parallel::batch_manager::collect_global_backbones(ast_translation& l2g, expr_ref_vector const& backbones) {
+    void parallel::batch_manager::collect_global_backbone(ast_translation& l2g, expr_ref const& backbone) {
         std::scoped_lock lock(mux);
-        for (expr* e : backbones) {
-            expr* local_e = l2g(e);
-            if (!is_global_backbone(local_e)) {
-                IF_VERBOSE(1, verbose_stream() << " New global backbone: " << mk_bounded_pp(local_e, m, 3) << "\n");
-                m_global_backbones.push_back(local_e);
-            } 
-        }
+        expr* local_e = l2g(backbone.get());
+        if (!is_global_backbone(local_e)) {
+            IF_VERBOSE(1, verbose_stream() << " New global backbone: " << mk_bounded_pp(local_e, m, 3) << "\n");
+            m_global_backbones.push_back(local_e);
+        } 
     }
 
     void parallel::sls_worker::cancel() {
@@ -374,42 +373,78 @@ namespace smt {
     // run the solver with a low budget of conflicts
     // if the unsat core contains a single candidate we have found a backbone literal
     // 
-    expr_ref_vector parallel::backbones_worker::get_backbones_from_candidates(svector<parallel::bb_candidate> const& bb_candidates) {
-        expr_ref_vector backbones(m);
+    bool parallel::backbones_worker::check_backbone(expr_ref const& bb_candidate) {
         unsigned sz = asms.size();
+        asms.push_back(m.mk_not(bb_candidate.get()));
+        ctx->get_fparams().m_max_conflicts = 2000;
+        
+        lbool r = l_undef;
+        try {
+            r = ctx->check(asms.size(), asms.data());
+        }
+        catch (z3_error& err) {
+            b.set_exception(err.error_code());
+        }
+        catch (z3_exception& ex) {
+            b.set_exception(ex.what());
+        }
+        catch (...) {
+            b.set_exception("unknown exception");
+        }
 
-        for (auto& bb : bb_candidates) {
-            asms.push_back(m.mk_not(bb.lit.get()));
+        asms.shrink(sz);
 
-            ctx->get_fparams().m_max_conflicts = 1000;
-            lbool r = l_undef;
-            try {
-                r = ctx->check(asms.size(), asms.data());
-            }
-            catch (z3_error& err) {
-                b.set_exception(err.error_code());
-            }
-            catch (z3_exception& ex) {
-                b.set_exception(ex.what());
-            }
-            catch (...) {
-                b.set_exception("unknown exception");
-            }
+        IF_VERBOSE(1, verbose_stream() << " BACKBONE CHECK RESULT: " << r << " FOR CANDIDATE: " << mk_bounded_pp(bb_candidate.get(), m, 3) << "\n");
 
-            asms.shrink(sz);
+        if (r == l_false) {
+            auto core = ctx->unsat_core();
+            if (core.size() == 1) {
+                return true;
+            }                
+        }
 
-            IF_VERBOSE(1, verbose_stream() << " BACKBONE CHECK RESULT: " << r << " FOR CANDIDATE: " << mk_bounded_pp(bb.lit.get(), m, 3) << "\n");
+        return false;
+    }
 
-            if (r == l_false) {
-                auto core = ctx->unsat_core();
-                if (core.size() == 1) {
-                    expr* e = core.get(0);
-                    backbones.push_back(mk_not(m, e));
-                }                
+    expr_ref_vector parallel::backbones_worker::check_backbone_batch(svector<bb_candidate> const& candidates) {
+        expr_ref_vector likely_backbones(m);
+        unsigned base_sz = asms.size();
+        ctx->get_fparams().m_max_conflicts = 1000;
+
+        for (auto const& c : candidates)
+            asms.push_back(m.mk_not(c.lit.get()));
+
+        lbool r = l_undef;
+        try {
+            r = ctx->check(asms.size(), asms.data());
+        }
+        catch (z3_error& err) {
+            b.set_exception(err.error_code());
+        }
+        catch (z3_exception& ex) {
+            b.set_exception(ex.what());
+        }
+        catch (...) {
+            b.set_exception("unknown exception");
+        }
+
+        asms.shrink(base_sz);
+
+        IF_VERBOSE(1, verbose_stream() << " BACKBONE BATCH CHECK RESULT: " << r << "\n");
+
+        if (r == l_false) {
+            expr_ref_vector core = ctx->unsat_core();
+
+            IF_VERBOSE(1, verbose_stream() << "BACKBONE BATCH UNSAT CORE SIZE: " << core.size() << "\n");
+
+            for (expr* a : core) {
+                // core contains assumption literal: ¬c
+                expr* backbone = to_app(a)->get_arg(0);
+                likely_backbones.push_back(backbone);
             }
         }
 
-        return backbones;
+        return likely_backbones;
     }
 
     void parallel::worker::share_units() {
