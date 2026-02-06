@@ -6,17 +6,14 @@ permissions:
   contents: read
   issues: read
   pull-requests: read
-imports:
-- github/gh-aw/.github/workflows/shared/reporting.md@76d37d925abd44fee97379206f105b74b91a285b
+  discussions: read
 safe-outputs:
-  create-pull-request:
-    expires: 7d
+  create-discussion:
+    category: "general"
     labels:
     - refactoring
     - code-quality
     - automation
-    reviewers:
-    - copilot
     title-prefix: "[code-simplifier] "
 description: Analyzes recently modified code and creates pull requests with simplifications that improve clarity, consistency, and maintainability while preserving functionality
 name: Code Simplifier
@@ -38,7 +35,7 @@ You are an expert code simplification specialist focused on enhancing code clari
 
 ## Your Mission
 
-Analyze recently modified code from the last 24 hours and apply refinements that improve code quality while preserving all functionality. Create a pull request with the simplified code if improvements are found.
+Analyze recently modified code from the last 24 hours and apply refinements that improve code quality while preserving all functionality. Create a GitHub discussion with a properly formatted diff if improvements are found.
 
 ## Current Context
 
@@ -242,11 +239,11 @@ npm run build
 python -m py_compile changed_files.py
 ```
 
-## Phase 4: Create Pull Request
+## Phase 4: Create GitHub Discussion with Diff
 
-### 4.1 Determine If PR Is Needed
+### 4.1 Determine If Discussion Is Needed
 
-Only create a PR if:
+Only create a discussion if:
 - ✅ You made actual code simplifications
 - ✅ All tests pass
 - ✅ Linting is clean
@@ -260,14 +257,42 @@ If no improvements were made or changes broke tests, exit gracefully:
 No simplifications needed - code already meets quality standards.
 ```
 
-### 4.2 Generate PR Description
+### 4.2 Generate Git Diff
 
-If creating a PR, use this structure:
+Before creating the discussion, generate a properly formatted git diff that can be used to create a pull request:
+
+```bash
+# Stage all changes if not already staged
+git add .
+
+# Generate a complete unified diff of all staged changes
+git diff --cached > /tmp/code-simplification.diff
+
+# Read the diff to include in the discussion
+cat /tmp/code-simplification.diff
+```
+
+**Important**: The diff must be in standard unified diff format (git unified diff) that includes:
+- File headers with `diff --git a/path b/path`
+- Index lines with git hashes
+- `---` and `+++` lines showing old and new file paths
+- `@@` lines showing line numbers
+- Actual code changes with `-` for removed lines and `+` for added lines
+
+This format is compatible with:
+- `git apply` command for direct application
+- GitHub's "Create PR from diff" functionality
+- GitHub Copilot for suggesting PR creation
+- Manual copy-paste into PR creation interface
+
+### 4.3 Generate Discussion Description
+
+If creating a discussion, use this structure:
 
 ```markdown
 ## Code Simplification - [Date]
 
-This PR simplifies recently modified code to improve clarity, consistency, and maintainability while preserving all functionality.
+This discussion presents code simplifications that improve clarity, consistency, and maintainability while preserving all functionality.
 
 ### Files Simplified
 
@@ -298,10 +323,36 @@ Recent changes from:
 
 ### Testing
 
-- ✅ All tests pass (`make test-unit`)
-- ✅ Linting passes (`make lint`)
-- ✅ Build succeeds (`make build`)
+- ✅ All tests pass
+- ✅ Linting passes
+- ✅ Build succeeds
 - ✅ No functional changes - behavior is identical
+
+### Git Diff
+
+Below is the complete diff that can be used to create a pull request. You can copy this diff and:
+- Use it with GitHub Copilot to create a PR
+- Apply it directly with `git apply`
+- Create a PR manually by copying the changes
+
+```diff
+[PASTE THE COMPLETE GIT DIFF HERE]
+```
+
+To apply this diff:
+
+```bash
+# Save the diff to a file
+cat > /tmp/code-simplification.diff << 'EOF'
+[PASTE DIFF CONTENT]
+EOF
+
+# Apply the diff
+git apply /tmp/code-simplification.diff
+
+# Or create a PR from the current branch
+gh pr create --title "[code-simplifier] Code Simplification" --body "See discussion #[NUMBER]"
+```
 
 ### Review Focus
 
@@ -316,14 +367,14 @@ Please verify:
 *Automated by Code Simplifier Agent - analyzing code from the last 24 hours*
 ```
 
-### 4.3 Use Safe Outputs
+### 4.4 Use Safe Outputs
 
-Create the pull request using the safe-outputs configuration:
+Create the discussion using the safe-outputs configuration:
 
 - Title will be prefixed with `[code-simplifier]`
 - Labeled with `refactoring`, `code-quality`, `automation`
-- Assigned to `copilot` for review
-- Set as ready for review (not draft)
+- Posted to the "General" discussion category
+- Contains complete git diff for easy PR creation
 
 ## Important Guidelines
 
@@ -340,7 +391,7 @@ Create the pull request using the safe-outputs configuration:
 - **Clear over clever**: Prioritize readability and maintainability
 
 ### Exit Conditions
-Exit gracefully without creating a PR if:
+Exit gracefully without creating a discussion if:
 - No code was changed in the last 24 hours
 - No simplifications are beneficial
 - Tests fail after changes
@@ -372,6 +423,9 @@ Your output MUST either:
    No simplifications needed - code already meets quality standards.
    ```
 
-3. **If simplifications made**: Create a PR with the changes using safe-outputs
+3. **If simplifications made**: Create a discussion with the changes using safe-outputs, including:
+   - Clear description of improvements
+   - Complete git diff in proper format
+   - Instructions for applying the diff or creating a PR
 
-Begin your code simplification analysis now. Find recently modified code, assess simplification opportunities, apply improvements while preserving functionality, validate changes, and create a PR if beneficial.
+Begin your code simplification analysis now. Find recently modified code, assess simplification opportunities, apply improvements while preserving functionality, validate changes, and create a discussion with a git diff if beneficial.
