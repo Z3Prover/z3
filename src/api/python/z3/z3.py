@@ -5523,6 +5523,32 @@ class DatatypeRef(ExprRef):
         """Return the datatype sort of the datatype expression `self`."""
         return DatatypeSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
 
+    def update_field(self, field_accessor, new_value):
+        """Return a new datatype expression with the specified field updated.
+        
+        Args:
+            field_accessor: The accessor function declaration for the field to update
+            new_value: The new value for the field
+            
+        Returns:
+            A new datatype expression with the field updated, other fields unchanged
+            
+        Example:
+            >>> Person = Datatype('Person')
+            >>> Person.declare('person', ('name', StringSort()), ('age', IntSort()))
+            >>> Person = Person.create()
+            >>> person_age = Person.accessor(0, 1)  # age accessor
+            >>> p = Const('p', Person)
+            >>> p2 = p.update_field(person_age, IntVal(30))
+        """
+        if z3_debug():
+            _z3_assert(is_func_decl(field_accessor), "Z3 function declaration expected")
+            _z3_assert(is_expr(new_value), "Z3 expression expected")
+        return _to_expr_ref(
+            Z3_datatype_update_field(self.ctx_ref(), field_accessor.ast, self.as_ast(), new_value.as_ast()),
+            self.ctx
+        )
+
 def DatatypeSort(name, params=None, ctx=None):
     """Create a reference to a sort that was declared, or will be declared, as a recursive datatype.
     
