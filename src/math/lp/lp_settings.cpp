@@ -43,6 +43,5 @@ void lp::lp_settings::updt_params(params_ref const& _p) {
     m_dio_ignore_big_nums = lp_p.dio_ignore_big_nums();
     m_dio_calls_period = lp_p.dio_calls_period();
     m_dio_run_gcd = lp_p.dio_run_gcd();
-    m_int_patch_period = lp_p.int_patch_period();
     m_max_conflicts = p.max_conflicts();
 }
