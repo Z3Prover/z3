@@ -177,7 +177,7 @@ expr * mk_or(ast_manager & m, unsigned num_args, expr * const * args) {
     else if (num_args == 1)
         return args[0];
     else
-        return m.mk_or(num_args, args);
+        return m.mk_or(std::span<expr* const>(args, num_args));
 }
 
 app* mk_or(ast_manager & m, unsigned num_args, app * const * args) {
