@@ -54,6 +54,7 @@ namespace lp {
             m_hnf_cut_period = settings().hnf_cut_period();
             m_initial_dio_calls_period = settings().dio_calls_period();
             m_patch_period = settings().m_int_patch_period;
+            SASSERT(m_patch_period > 0);
         } 
 
         bool has_lower(unsigned j) const {
@@ -159,8 +160,7 @@ namespace lp {
         }
         
         bool should_patch() {
-            // period == 0 means no throttling (old behavior)
-            return settings().m_int_patch_period == 0 || m_number_of_calls % m_patch_period == 0;
+            return m_number_of_calls % m_patch_period == 0;
         }
 
         lia_move patch_basic_columns() {
@@ -172,12 +172,8 @@ namespace lp {
                     patch_basic_column(j);
             if (!lra.has_inf_int()) {
                 lia.settings().stats().m_patches_success++;
-                m_patch_period = std::max(1u, settings().m_int_patch_period);
                 return lia_move::sat;
             }
-            // Only throttle if enabled (period > 0)
-            if (settings().m_int_patch_period > 0 && m_patch_period < 16)
-                m_patch_period *= 2;
             return lia_move::undef;     
         }
 
