@@ -239,7 +239,7 @@ public:
     unsigned         column_number_threshold_for_using_lu_in_lar_solver = 4000;
     unsigned         m_int_gomory_cut_period = 4;
     unsigned         m_int_find_cube_period = 4;
-    unsigned         m_int_patch_period = 1;
+    unsigned         m_int_patch_period = 0;
 private:
     unsigned         m_hnf_cut_period = 4;
     bool             m_int_run_gcd_test = true;
