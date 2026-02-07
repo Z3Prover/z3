@@ -3502,7 +3502,7 @@ void scoped_mark::pop_scope(unsigned num_scopes) {
 
 // show an expr_ref on stdout
 
-static void prexpr(expr_ref &e){
+void prexpr(expr_ref &e){
     std::cout << mk_pp(e.get(), e.get_manager()) << std::endl;
 }
 
