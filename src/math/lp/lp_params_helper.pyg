@@ -9,6 +9,6 @@ def_module_params(module_name='lp',
                           ('dio_ignore_big_nums', BOOL, True, 'Ignore the terms with big numbers in the Diophantine handler, only relevant when dioph_eq is true'),
                           ('dio_calls_period', UINT, 1, 'Period of calling the Diophantine handler in the final_check()'),
                           ('dio_run_gcd', BOOL, False, 'Run the GCD heuristic if dio is on, if dio is disabled the option is not used'),
-                          ('int_patch_period', UINT, 0, 'Period for patching integer columns (0 = no throttling, 1 = throttle adaptively)'),
+                          ('int_patch_period', UINT, 1, 'Skip int_patch_period - 1 calls and then call the patching'),
                          ))
                          
