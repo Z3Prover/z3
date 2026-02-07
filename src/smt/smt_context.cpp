@@ -2408,7 +2408,7 @@ namespace smt {
        \warning This method will not invoke reset_cache_generation.
     */
     unsigned context::pop_scope_core(unsigned num_scopes) {
-        unsigned units_to_reassert_lim;
+        unsigned units_to_reassert_lim = 0;
 
         try {
             if (m.has_trace_stream() && !m_is_auxiliary)
