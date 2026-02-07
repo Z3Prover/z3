@@ -9,6 +9,7 @@ Version 4.next
  
 Version 4.15.5
 ==============
+- NLSAT now uses the Level wise algorithm for projection. https://arxiv.org/abs/2212.09309
 - Add RCF (Real Closed Field) API to TypeScript bindings, achieving feature parity with Python, Java, C++, and C# implementations. 
   The API includes 38 functions for exact real arithmetic with support for π, e, algebraic roots, and infinitesimals.
   https://github.com/Z3Prover/z3/pull/8225
@@ -41,11 +42,7 @@ Version 4.15.5
   https://github.com/Z3Prover/z3/pull/8464
 - Add polymorphic datatype APIs to Java and ML bindings for creating and manipulating parameterized datatypes.
   https://github.com/Z3Prover/z3/pull/8438, https://github.com/Z3Prover/z3/pull/8378
-- Add std::initializer_list and std::span overloads to C++ API for mk_or, mk_and, mk_concat and bit-vector/arithmetic operations,
-  enabling more ergonomic expression construction with brace initialization.
   https://github.com/Z3Prover/z3/pull/8507, https://github.com/Z3Prover/z3/pull/8467, https://github.com/Z3Prover/z3/pull/8494
-- Add static linkage to internal functions in header files to reduce symbol pollution and binary size. Thanks to code optimization efforts.
-  https://github.com/Z3Prover/z3/pull/8519, https://github.com/Z3Prover/z3/pull/8521
 - Add SLS (Stochastic Local Search) tactic as a separate worker thread for parallel solving. Thanks to Ilana Shapiro.
   https://github.com/Z3Prover/z3/pull/8263
 - Add Windows ARM64 platform support for Python wheels, expanding platform coverage for ARM-based Windows systems.
@@ -65,16 +62,7 @@ Version 4.15.5
   https://github.com/Z3Prover/z3/pull/8474
 - Preserve initial solver state with push/pop operations for multiple objectives optimization. Thanks to Lev Nachmanson.
   https://github.com/Z3Prover/z3/pull/8264
-- Migrate PyPI publishing to Trusted Publishing (OIDC) for improved security and authentication.
-  https://github.com/Z3Prover/z3/pull/8420
-- Add DeepTest agentic workflow for automated test generation from soundness bugs.
-  https://github.com/Z3Prover/z3/pull/8432
-- Add SpecBot workflow for automated code annotation with runtime assertions.
-  https://github.com/Z3Prover/z3/pull/8388
-- Dependency updates including actions/checkout (v6.0.2), actions/cache (v5), actions/download-artifact (v7.0.0), 
-  actions/setup-dotnet (v5), and gh-aw (0.40.0).
-- Code modernization with C++17 structured bindings adoption across multiple modules including smt_context, sat_solver, 
-  theory_lra, theory_seq, and others for improved readability.
+
 
 Version 4.15.4
 ==============
