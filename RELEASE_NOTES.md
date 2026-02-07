@@ -26,6 +26,55 @@ Version 4.15.5
   before accessing empty column vectors. https://github.com/Z3Prover/z3/pull/8218, fixes #8208
 - Migrate build and release infrastructure from Azure Pipelines to GitHub Actions, including CI workflows, nightly builds, and release packaging.
 - Bug fixes including #8195
+- Add functional datatype update operation to language bindings. The `datatype_update_field` function enables immutable updates
+  to datatype fields, returning a modified copy while preserving the original datatype value.
+  https://github.com/Z3Prover/z3/pull/8500
+- Add comprehensive regex support to TypeScript API with 21 functions including Re, Loop, Range, Union, Intersect, Complement, 
+  and character class operations. Enables pattern matching and regular expression constraints in TypeScript applications.
+  https://github.com/Z3Prover/z3/pull/8499
+- Add move constructor and move assignment operator to z3::context class for efficient resource transfer. Enables move semantics
+  for context objects while maintaining safety with explicit checks against moved-from usage.
+  https://github.com/Z3Prover/z3/pull/8508
+- Add solve_for and import_model_converter functions to C++ solver API, achieving parity with Python API for LRA variable solving.
+  https://github.com/Z3Prover/z3/pull/8465
+- Add missing solver APIs to Java and C# bindings including add_string, set_phase, get_units, get_non_units, and get_levels methods.
+  https://github.com/Z3Prover/z3/pull/8464
+- Add polymorphic datatype APIs to Java and ML bindings for creating and manipulating parameterized datatypes.
+  https://github.com/Z3Prover/z3/pull/8438, https://github.com/Z3Prover/z3/pull/8378
+- Add std::initializer_list and std::span overloads to C++ API for mk_or, mk_and, mk_concat and bit-vector/arithmetic operations,
+  enabling more ergonomic expression construction with brace initialization.
+  https://github.com/Z3Prover/z3/pull/8507, https://github.com/Z3Prover/z3/pull/8467, https://github.com/Z3Prover/z3/pull/8494
+- Add static linkage to internal functions in header files to reduce symbol pollution and binary size. Thanks to code optimization efforts.
+  https://github.com/Z3Prover/z3/pull/8519, https://github.com/Z3Prover/z3/pull/8521
+- Add SLS (Stochastic Local Search) tactic as a separate worker thread for parallel solving. Thanks to Ilana Shapiro.
+  https://github.com/Z3Prover/z3/pull/8263
+- Add Windows ARM64 platform support for Python wheels, expanding platform coverage for ARM-based Windows systems.
+  https://github.com/Z3Prover/z3/pull/8280
+- Optimize bitvector operations for large bitwidths by avoiding unnecessary power-of-two computations in has_sign_bit and mod2k operations.
+  Thanks to Nuno Lopes.
+- Optimize linear arithmetic solver with throttled patch_basic_columns() calls, especially beneficial for unsatisfiable cases. 
+  Thanks to Lev Nachmanson.
+- Fix memory leak in undo_fixed_column when handling big number cleanup. Thanks to Lev Nachmanson.
+- Fix assertion violation in mpzzp_manager::eq from non-normalized values during fresh variable peeking.
+  https://github.com/Z3Prover/z3/pull/8439
+- Fix memory corruption in Z3_polynomial_subresultants API where allocating result vector corrupted internal converter mappings.
+  Restructured to complete polynomial computation before allocation. https://github.com/Z3Prover/z3/pull/8264, thanks to Lev Nachmanson.
+- Fix missing newline after attributes in benchmark_to_smtlib_string output formatting. Thanks to Josh Berdine.
+  https://github.com/Z3Prover/z3/pull/8276
+- Fix NuGet packaging to handle dynamic glibc versions across different Linux distributions.
+  https://github.com/Z3Prover/z3/pull/8474
+- Preserve initial solver state with push/pop operations for multiple objectives optimization. Thanks to Lev Nachmanson.
+  https://github.com/Z3Prover/z3/pull/8264
+- Migrate PyPI publishing to Trusted Publishing (OIDC) for improved security and authentication.
+  https://github.com/Z3Prover/z3/pull/8420
+- Add DeepTest agentic workflow for automated test generation from soundness bugs.
+  https://github.com/Z3Prover/z3/pull/8432
+- Add SpecBot workflow for automated code annotation with runtime assertions.
+  https://github.com/Z3Prover/z3/pull/8388
+- Dependency updates including actions/checkout (v6.0.2), actions/cache (v5), actions/download-artifact (v7.0.0), 
+  actions/setup-dotnet (v5), and gh-aw (0.40.0).
+- Code modernization with C++17 structured bindings adoption across multiple modules including smt_context, sat_solver, 
+  theory_lra, theory_seq, and others for improved readability.
 
 Version 4.15.4
 ==============
