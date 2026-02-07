@@ -472,6 +472,7 @@ public:
     app * mk_divides(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_IDIVIDES, arg1, arg2); }
 
     app * mk_add(unsigned num_args, expr * const * args) const { return num_args == 1 && is_app(args[0]) ? to_app(args[0]) : m_manager.mk_app(arith_family_id, OP_ADD, num_args, args); }
+    app * mk_add(std::initializer_list<expr*> args) const { return mk_add(args.size(), args.begin()); }
     app * mk_add(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_ADD, arg1, arg2); }
     app * mk_add(expr * arg1, expr * arg2, expr* arg3) const { return m_manager.mk_app(arith_family_id, OP_ADD, arg1, arg2, arg3); }
     app * mk_add(expr_ref_vector const& args) const { return mk_add(args.size(), args.data()); }
@@ -481,9 +482,11 @@ public:
 
     app * mk_sub(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_SUB, arg1, arg2); }
     app * mk_sub(unsigned num_args, expr * const * args) const { return m_manager.mk_app(arith_family_id, OP_SUB, num_args, args); }
+    app * mk_sub(std::initializer_list<expr*> args) const { return mk_sub(args.size(), args.begin()); }
     app * mk_mul(expr * arg1, expr * arg2) const { return m_manager.mk_app(arith_family_id, OP_MUL, arg1, arg2); }
     app * mk_mul(expr * arg1, expr * arg2, expr* arg3) const { return m_manager.mk_app(arith_family_id, OP_MUL, arg1, arg2, arg3); }
     app * mk_mul(unsigned num_args, expr * const * args) const { return num_args == 1 && is_app(args[0]) ? to_app(args[0]) : m_manager.mk_app(arith_family_id, OP_MUL, num_args, args); }
+    app * mk_mul(std::initializer_list<expr*> args) const { return mk_mul(args.size(), args.begin()); }
     app * mk_mul(ptr_buffer<expr> const& args) const { return mk_mul(args.size(), args.data()); }
     app * mk_mul(ptr_vector<expr> const& args) const { return mk_mul(args.size(), args.data()); }
     app * mk_mul(expr_ref_vector const& args) const { return mk_mul(args.size(), args.data()); }
@@ -502,13 +505,13 @@ public:
     app * mk_power(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_POWER, arg1, arg2); }
     app * mk_power0(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_POWER0, arg1, arg2); }
 
-    app* mk_band(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_BAND, 1, &p, 2, args); }
+    app* mk_band(unsigned n, expr* arg1, expr* arg2) { return mk_band(n, {arg1, arg2}); }
     app* mk_band(unsigned n, std::initializer_list<expr*> args) { parameter p(n); return m_manager.mk_app(arith_family_id, OP_ARITH_BAND, 1, &p, args.size(), args.begin()); }
-    app* mk_shl(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_SHL, 1, &p, 2, args); }
+    app* mk_shl(unsigned n, expr* arg1, expr* arg2) { return mk_shl(n, {arg1, arg2}); }
     app* mk_shl(unsigned n, std::initializer_list<expr*> args) { parameter p(n); return m_manager.mk_app(arith_family_id, OP_ARITH_SHL, 1, &p, args.size(), args.begin()); }
-    app* mk_ashr(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_ASHR, 1, &p, 2, args); }
+    app* mk_ashr(unsigned n, expr* arg1, expr* arg2) { return mk_ashr(n, {arg1, arg2}); }
     app* mk_ashr(unsigned n, std::initializer_list<expr*> args) { parameter p(n); return m_manager.mk_app(arith_family_id, OP_ARITH_ASHR, 1, &p, args.size(), args.begin()); }
-    app* mk_lshr(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_LSHR, 1, &p, 2, args); }
+    app* mk_lshr(unsigned n, expr* arg1, expr* arg2) { return mk_lshr(n, {arg1, arg2}); }
     app* mk_lshr(unsigned n, std::initializer_list<expr*> args) { parameter p(n); return m_manager.mk_app(arith_family_id, OP_ARITH_LSHR, 1, &p, args.size(), args.begin()); }
 
     app * mk_sin(expr * arg) { return m_manager.mk_app(arith_family_id, OP_SIN, arg); }

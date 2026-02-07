@@ -2201,16 +2201,19 @@ public:
     app * mk_xor(expr * lhs, expr * rhs) { return mk_app(basic_family_id, OP_XOR, lhs, rhs); }
     app * mk_ite(expr * c, expr * t, expr * e) { return mk_app(basic_family_id, OP_ITE, c, t, e); }
     app * mk_xor(unsigned num_args, expr * const * args) { return mk_app(basic_family_id, OP_XOR, num_args, args); }
+    app * mk_xor(std::initializer_list<expr*> args) { return mk_xor(args.size(), args.begin()); }
     app * mk_xor(ptr_buffer<expr> const& args) { return mk_xor(args.size(), args.data()); }
     app * mk_xor(ptr_vector<expr> const& args) { return mk_xor(args.size(), args.data()); }
     app * mk_xor(ref_buffer<expr, ast_manager> const& args) { return mk_xor(args.size(), args.data()); }
     app * mk_or(unsigned num_args, expr * const * args) { return mk_app(basic_family_id, OP_OR, num_args, args); }
+    app * mk_or(std::initializer_list<expr*> args) { return mk_or(std::span<expr* const>(args.begin(), args.size())); }
     app * mk_and(std::span<expr* const> args) { return mk_app(basic_family_id, OP_AND, args); }
+    app * mk_and(std::initializer_list<expr*> args) { return mk_and(std::span<expr* const>(args.begin(), args.size())); }
     app * mk_or(std::span<expr* const> args) { return mk_app(basic_family_id, OP_OR, args); }
     app * mk_or(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_OR, arg1, arg2); }
     app * mk_and(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_AND, arg1, arg2); }
     app * mk_or(expr * arg1, expr * arg2, expr * arg3) { return mk_app(basic_family_id, OP_OR, arg1, arg2, arg3); }
-    app * mk_or(expr* a, expr* b, expr* c, expr* d) { expr* args[4] = { a, b, c, d }; return mk_app(basic_family_id, OP_OR, 4, args); }
+    app * mk_or(expr* a, expr* b, expr* c, expr* d) { return mk_or({a, b, c, d}); }
     app * mk_and(expr * arg1, expr * arg2, expr * arg3) { return mk_app(basic_family_id, OP_AND, arg1, arg2, arg3); }
 
     app * mk_and(ref_vector<expr, ast_manager> const& args) { return mk_and(std::span<expr* const>(args.data(), args.size())); }
