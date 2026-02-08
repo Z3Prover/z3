@@ -672,3 +672,111 @@ jobs:
           $wheel = Get-ChildItem wheels/*.whl | Select-Object -First 1
           pip install $wheel.FullName
           python -c "import z3; x = z3.Int('x'); s = z3.Solver(); s.add(x > 0); print('Result:', s.check()); print('Model:', s.model())"
+
+  # ============================================================================
+  # MACOS DYLIB HEADERPAD VALIDATION
+  # ============================================================================
+
+  validate-macos-headerpad-x64:
+    name: "Validate macOS x64 dylib headerpad"
+    runs-on: macos-13
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download macOS x64 build from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*x64-osx*.zip" --dir downloads
+      
+      - name: Extract build
+        run: |
+          cd downloads
+          unzip *x64-osx*.zip
+          Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
+          echo "Z3_DIR=$Z3_DIR" >> $GITHUB_ENV
+      
+      - name: Test install_name_tool with headerpad
+        run: |
+          cd downloads/$Z3_DIR/bin
+          
+          # Get the original install name
+          ORIGINAL_NAME=$(otool -D libz3.dylib | tail -n 1)
+          echo "Original install name: $ORIGINAL_NAME"
+          
+          # Create a test path with same length as typical setup-z3 usage
+          # This simulates what setup-z3 does: changing to absolute path
+          TEST_PATH="/Users/runner/hostedtoolcache/z3/latest/x64/z3-4.15.5-x64-osx-15.7.3/bin/libz3.dylib"
+          
+          # Try to change the install name - this will fail if headerpad is insufficient
+          install_name_tool -id "$TEST_PATH" -change libz3.dylib "$TEST_PATH" libz3.dylib
+          
+          # Verify the change was successful
+          NEW_NAME=$(otool -D libz3.dylib | tail -n 1)
+          echo "New install name: $NEW_NAME"
+          
+          if [ "$NEW_NAME" = "$TEST_PATH" ]; then
+            echo "✓ install_name_tool succeeded - headerpad is sufficient"
+          else
+            echo "✗ install_name_tool failed to update install name"
+            exit 1
+          fi
+
+  validate-macos-headerpad-arm64:
+    name: "Validate macOS ARM64 dylib headerpad"
+    runs-on: macos-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download macOS ARM64 build from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*arm64-osx*.zip" --dir downloads
+      
+      - name: Extract build
+        run: |
+          cd downloads
+          unzip *arm64-osx*.zip
+          Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
+          echo "Z3_DIR=$Z3_DIR" >> $GITHUB_ENV
+      
+      - name: Test install_name_tool with headerpad
+        run: |
+          cd downloads/$Z3_DIR/bin
+          
+          # Get the original install name
+          ORIGINAL_NAME=$(otool -D libz3.dylib | tail -n 1)
+          echo "Original install name: $ORIGINAL_NAME"
+          
+          # Create a test path with same length as typical setup-z3 usage
+          # This simulates what setup-z3 does: changing to absolute path
+          TEST_PATH="/Users/runner/hostedtoolcache/z3/latest/arm64/z3-4.15.5-arm64-osx-15.7.3/bin/libz3.dylib"
+          
+          # Try to change the install name - this will fail if headerpad is insufficient
+          install_name_tool -id "$TEST_PATH" -change libz3.dylib "$TEST_PATH" libz3.dylib
+          
+          # Verify the change was successful
+          NEW_NAME=$(otool -D libz3.dylib | tail -n 1)
+          echo "New install name: $NEW_NAME"
+          
+          if [ "$NEW_NAME" = "$TEST_PATH" ]; then
+            echo "✓ install_name_tool succeeded - headerpad is sufficient"
+          else
+            echo "✗ install_name_tool failed to update install name"
+            exit 1
+          fi
