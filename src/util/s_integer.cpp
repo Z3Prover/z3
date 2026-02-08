@@ -52,7 +52,7 @@ s_integer gcd(const s_integer & r1, const s_integer & r2) {
         tmp2.neg();
     }
     if (tmp1 < tmp2) {
-        tmp1.swap(tmp2);
+        std::swap(tmp1, tmp2);
     }
     for(;;) {
         s_integer aux = tmp1 % tmp2;

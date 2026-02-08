@@ -388,7 +388,7 @@ namespace qe {
                 new_result.reset();
                 ex.project(vars[i], result.size(), result.data(), new_result);
                 TRACE(qe, display_project(tout, vars[i], result, new_result););
-                result.swap(new_result);
+                result = std::move(new_result);
             }
             negate_clause(result);
         }
