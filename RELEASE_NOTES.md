@@ -6,7 +6,17 @@ Version 4.next
   - sat.euf 
     - CDCL core for SMT queries. It extends the SAT engine with theory solver plugins.
   - add global incremental pre-processing for the legacy core.
- 
+
+Version 4.15.6
+==============
+- Optimize mpz (multi-precision integer) implementation using pointer tagging to reduce memory footprint and improve performance.
+  https://github.com/Z3Prover/z3/pull/8447, thanks to Nuno Lopes.
+- Fix macOS install_name_tool issue by adding -Wl,-headerpad_max_install_names linker flag to all dylib builds. Resolves
+  "larger updated load commands do not fit" errors when modifying library install names on macOS.
+  https://github.com/Z3Prover/z3/pull/8535, `fixes #7623`
+- Optimize parameter storage by storing rational values directly in variant instead of using pointers. Thanks to Nuno Lopes.
+  https://github.com/Z3Prover/z3/pull/8518
+   
 Version 4.15.5
 ==============
 - NLSAT now uses the Level wise algorithm for projection. https://arxiv.org/abs/2212.09309
