@@ -668,40 +668,6 @@ public:
         return true;
     }
 #endif
-
-#ifdef HASHTABLE_STATISTICS
-    unsigned long long get_num_collision() const { return m_st_collision; }
-#else
-    unsigned long long get_num_collision() const { return 0; }
-#endif
-
-#define COLL_LOOP_BODY() {                                              \
-    if (curr->is_used()) {                                          \
-        if (curr->get_hash() == hash && equals(curr->get_data(), e)) return; \
-        collisions.push_back(curr->get_data());                         \
-        continue;                                                       \
-    }                                                                   \
-    else if (curr->is_free()) {                                         \
-        continue;                                                       \
-    }                                                                   \
-    collisions.push_back(curr->get_data());                             \
-    } ((void) 0);    
-
-    void get_collisions(data const& e, vector<data>& collisions) {        
-        unsigned hash = get_hash(e);
-        unsigned mask = m_capacity - 1;
-        unsigned idx  = hash & mask;
-        entry * begin = m_table + idx;
-        entry * end   = m_table + m_capacity;
-        entry * curr  = begin;
-        for (; curr != end; ++curr) {
-            COLL_LOOP_BODY();
-        }
-        for (curr = m_table; curr != begin; ++curr) {
-            COLL_LOOP_BODY();
-        }
-
-    }
 };
 
 template<typename T, typename HashProc, typename EqProc>

@@ -169,8 +169,6 @@ public:
         remove(k);
     }
 
-    unsigned long long get_num_collision() const { return m_table.get_num_collision(); }
-
     void swap(table2map & other) noexcept {
         m_table.swap(other.m_table);
     }

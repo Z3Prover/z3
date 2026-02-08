@@ -196,16 +196,6 @@ public:
     void erase(Key * k) {
         remove(k);
     }
-
-    unsigned long long get_num_collision() const { return m_table.get_num_collision(); }
-
-    void get_collisions(Key * k, vector<Key*>& collisions) {
-        vector<key_data> cs;
-        m_table.get_collisions(key_data(k), cs);
-        for (key_data const& kd : cs) {
-            collisions.push_back(kd.m_key);
-        }
-    }
 };
 
 /**
@@ -219,17 +209,6 @@ void reset_dealloc_values(obj_map<Key, Value*> & m) {
     m.reset();
 }
 
-/**
-   \brief Remove the key k from the mapping m, and delete the value associated with k.
-*/
-template<typename Key, typename Value>
-void erase_dealloc_value(obj_map<Key, Value*> & m, Key * k) {
-    Value * v = 0;
-    bool contains = m.find(k, v);
-    m.erase(k);
-    if (contains) {
-        dealloc(v);
-    }
-}
+
 
 

@@ -100,7 +100,6 @@ public:
     unsigned hit_count() const { return m_hit_count; }
     unsigned miss_count() const { return m_miss_count; }
     unsigned insert_count() const { return m_insert_count; }
-    unsigned long long get_num_collision() const { return m_cache.get_num_collision(); }
 };
 
 // Translation with non-persistent cache.
