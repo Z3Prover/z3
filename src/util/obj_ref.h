@@ -52,8 +52,8 @@ public:
         inc_ref();
     }
 
-    obj_ref(obj_ref && other) noexcept : m_obj(nullptr), m_manager(other.m_manager) {
-        std::swap(m_obj, other.m_obj);
+    obj_ref(obj_ref && other) noexcept : m_obj(other.m_obj), m_manager(other.m_manager) {
+        other.m_obj = nullptr;
     }
 
     ~obj_ref() { dec_ref(); }
@@ -95,8 +95,11 @@ public:
 
     obj_ref & operator=(obj_ref && n) noexcept {
         SASSERT(&m_manager == &n.m_manager);
-        std::swap(m_obj, n.m_obj);
-        n.reset();
+        if (this != &n) {
+            dec_ref();
+            m_obj = n.m_obj;
+            n.m_obj = nullptr;
+        }
         return *this;
     }
 
