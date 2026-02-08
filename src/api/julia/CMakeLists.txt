@@ -39,6 +39,11 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
   target_link_options(z3jl PRIVATE "-Wl,-headerpad_max_install_names")
 endif()
 
+# On macOS, add headerpad for install_name_tool compatibility
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  target_link_options(z3jl PRIVATE "-Wl,-headerpad_max_install_names")
+endif()
+
 option(Z3_INSTALL_JULIA_BINDINGS "Install Julia bindings when invoking install target" ON)
 if(Z3_INSTALL_JULIA_BINDINGS)
     install(TARGETS z3jl
