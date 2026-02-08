@@ -418,7 +418,7 @@ namespace dd {
     public:
         pdd(pdd_manager& m): pdd(0, m) { SASSERT(is_zero()); }
         pdd(pdd const& other): pdd(other.root, other.m) { m->inc_ref(root); }
-        pdd(pdd && other) noexcept : pdd(0, other.m) { std::swap(root, other.root); }
+        pdd(pdd && other) noexcept : root(other.root), m(other.m) { other.root = 0; }
         pdd& operator=(pdd const& other);
         pdd& operator=(unsigned k);
         pdd& operator=(rational const& k);

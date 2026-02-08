@@ -34,6 +34,10 @@ target_include_directories(z3jl PRIVATE
     "${PROJECT_BINARY_DIR}/src/api"
     "${PROJECT_SOURCE_DIR}/src/api/c++"
 )
+# Add header padding for macOS to allow install_name_tool to modify the dylib
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  target_link_options(z3jl PRIVATE "-Wl,-headerpad_max_install_names")
+endif()
 
 # On macOS, add headerpad for install_name_tool compatibility
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")

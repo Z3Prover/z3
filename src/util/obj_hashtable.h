@@ -206,10 +206,6 @@ public:
             collisions.push_back(kd.m_key);
         }
     }
-
-    void swap(obj_map & other) noexcept {
-        m_table.swap(other.m_table);
-    }
 };
 
 /**

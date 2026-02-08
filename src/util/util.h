@@ -231,8 +231,8 @@ public:
         m_ptr(ptr) {
     }
 
-    scoped_ptr(scoped_ptr &&other) noexcept : m_ptr(nullptr) {
-        std::swap(m_ptr, other.m_ptr);
+    scoped_ptr(scoped_ptr &&other) noexcept : m_ptr(other.m_ptr) {
+        other.m_ptr = nullptr;
     }
 
     ~scoped_ptr() {
