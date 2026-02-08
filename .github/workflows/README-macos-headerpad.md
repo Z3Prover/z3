@@ -64,11 +64,14 @@ Each validation job:
 
 #### Test Path Selection
 
-The validation uses paths that match the length and structure of real-world usage by setup-z3:
+The validation uses paths that match the length and structure of real-world usage by setup-z3. The actual test paths used are:
 - x64: `/Users/runner/hostedtoolcache/z3/latest/x64/z3-test-dir/bin/libz3.dylib`
 - ARM64: `/Users/runner/hostedtoolcache/z3/latest/arm64/z3-test-dir/bin/libz3.dylib`
 
-These paths are representative of the GitHub Actions hosted tool cache paths that would be used in practice.
+These paths are representative of the GitHub Actions hosted tool cache paths. For example, setup-z3 might use paths like:
+- `/Users/runner/hostedtoolcache/z3/latest/x64/z3-4.15.5-x64-osx-15.7.3/bin/libz3.dylib`
+
+The test paths use `z3-test-dir` instead of actual version numbers to remain version-agnostic while maintaining the same path length characteristics.
 
 ## Impact
 
