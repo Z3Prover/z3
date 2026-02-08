@@ -1,0 +1,635 @@
+Installing dependencies...
+Reading package lists...
+Building dependency tree...
+Reading state information...
+python3 is already the newest version (3.12.3-0ubuntu2).
+python3-pip is already the newest version (24.0+dfsg-1ubuntu1.2).
+git is already the newest version (1:2.51.0-0ppa2~ubuntu24.04.1).
+git set to manually installed.
+Suggested packages:
+  cmake-doc cmake-format elpa-cmake-mode
+The following NEW packages will be installed:
+  build-essential cmake cmake-data libjsoncpp25 librhash0 ninja-build
+0 upgraded, 6 newly installed, 0 to remove and 27 not upgraded.
+Need to get 13.7 MB of archives.
+After this operation, 49.5 MB of additional disk space will be used.
+Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+Get:2 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 build-essential amd64 12.10ubuntu1 [4928 B]
+Get:3 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 libjsoncpp25 amd64 1.9.5-6build1 [82.8 kB]
+Get:4 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 librhash0 amd64 1.4.3-3build1 [129 kB]
+Get:5 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 cmake-data all 3.28.3-1build7 [2155 kB]
+Get:6 http://azure.archive.ubuntu.com/ubuntu noble/main amd64 cmake amd64 3.28.3-1build7 [11.2 MB]
+Get:7 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 ninja-build amd64 1.11.1-2 [129 kB]
+Fetched 13.7 MB in 0s (54.5 MB/s)
+Selecting previously unselected package build-essential.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 218657 files and directories currently installed.)
+Preparing to unpack .../0-build-essential_12.10ubuntu1_amd64.deb ...
+Unpacking build-essential (12.10ubuntu1) ...
+Selecting previously unselected package libjsoncpp25:amd64.
+Preparing to unpack .../1-libjsoncpp25_1.9.5-6build1_amd64.deb ...
+Unpacking libjsoncpp25:amd64 (1.9.5-6build1) ...
+Selecting previously unselected package librhash0:amd64.
+Preparing to unpack .../2-librhash0_1.4.3-3build1_amd64.deb ...
+Unpacking librhash0:amd64 (1.4.3-3build1) ...
+Selecting previously unselected package cmake-data.
+Preparing to unpack .../3-cmake-data_3.28.3-1build7_all.deb ...
+Unpacking cmake-data (3.28.3-1build7) ...
+Selecting previously unselected package cmake.
+Preparing to unpack .../4-cmake_3.28.3-1build7_amd64.deb ...
+Unpacking cmake (3.28.3-1build7) ...
+Selecting previously unselected package ninja-build.
+Preparing to unpack .../5-ninja-build_1.11.1-2_amd64.deb ...
+Unpacking ninja-build (1.11.1-2) ...
+Setting up ninja-build (1.11.1-2) ...
+Setting up libjsoncpp25:amd64 (1.9.5-6build1) ...
+Setting up librhash0:amd64 (1.4.3-3build1) ...
+Setting up build-essential (12.10ubuntu1) ...
+Setting up cmake-data (3.28.3-1build7) ...
+Setting up cmake (3.28.3-1build7) ...
+Processing triggers for man-db (2.12.0-4build2) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.5) ...
+
+Running kernel seems to be up-to-date.
+
+Restarting services...
+
+Service restarts being deferred:
+ systemctl restart hosted-compute-agent.service
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+Dependencies installed successfully
+Verifying build tools...
+cmake version 3.31.6
+
+CMake suite maintained and supported by Kitware (kitware.com/cmake).
+1.13.1
+Python 3.12.3
+gcc (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0
+Copyright (C) 2023 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+Build tools verified successfully
+Creating build directory...
+Configuring CMake for performance development...
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Z3 version 4.15.4.0
+-- Found simple git working directory
+-- Found git directory "/home/runner/work/z3/z3/.git"
+-- Adding git dependency "/home/runner/work/z3/z3/.git/HEAD"
+-- Adding git dependency "/home/runner/work/z3/z3/.git/refs/heads/master"
+-- Found Git: /usr/bin/git (found version "2.51.0")
+-- Using Git hash in version output: ce81aa90786efb4d1aec28e63df611bb3c0e7212
+fatal: No names found, cannot describe anything.
+CMake Warning at cmake/git_utils.cmake:215 (message):
+  Failed to execute git
+Call Stack (most recent call first):
+  CMakeLists.txt:83 (get_git_head_describe)
+
+
+CMake Warning at CMakeLists.txt:85 (message):
+  Failed to get Git description
+
+
+CMake Warning at CMakeLists.txt:50 (message):
+  Disabling Z3_INCLUDE_GIT_DESCRIBE
+Call Stack (most recent call first):
+  CMakeLists.txt:86 (disable_git_describe)
+
+
+-- Using Git description in version output: NOTFOUND
+-- CMake generator: Ninja
+-- Build type: RelWithDebInfo
+-- Found Python3: /usr/bin/python3.12 (found version "3.12.3") found components: Interpreter
+-- Python3_EXECUTABLE: /usr/bin/python3.12
+-- Detected target architecture: x86_64
+-- Not using libgmp
+-- Not using Z3_API_LOG_SYNC
+-- Thread-safe build
+-- Performing Test HAS_SSE2
+-- Performing Test HAS_SSE2 - Success
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE
+-- Performing Test HAS__Wall
+-- Performing Test HAS__Wall - Success
+-- C++ compiler supports -Wall
+-- Treating only serious compiler warnings as errors
+-- Performing Test HAS__Werror_odr
+-- Performing Test HAS__Werror_odr - Success
+-- C++ compiler supports -Werror=odr
+-- Performing Test HAS__Werror_return_type
+-- Performing Test HAS__Werror_return_type - Success
+-- C++ compiler supports -Werror=return-type
+-- LTO disabled
+-- Performing Test BUILTIN_ATOMIC
+-- Performing Test BUILTIN_ATOMIC - Success
+-- CMAKE_CXX_FLAGS: "-fno-omit-frame-pointer -Werror=odr  -Werror=return-type "
+-- CMAKE_EXE_LINKER_FLAGS: ""
+-- CMAKE_STATIC_LINKER_FLAGS: ""
+-- CMAKE_SHARED_LINKER_FLAGS: ""
+-- CMAKE_CXX_FLAGS_RELWITHDEBINFO: "-O2 -g -DNDEBUG"
+-- CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO: ""
+-- CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO: ""
+-- CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO: ""
+-- Z3_COMPONENT_CXX_DEFINES: $<$<CONFIG:Debug>:Z3DEBUG>;$<$<CONFIG:Release>:_EXTERNAL_RELEASE>;$<$<CONFIG:RelWithDebInfo>:_EXTERNAL_RELEASE>;-D_MP_INTERNAL;-D_TRACE
+-- Z3_COMPONENT_CXX_FLAGS: -mfpmath=sse;-msse;-msse2;-Wall
+-- Z3_DEPENDENT_LIBS: Threads::Threads
+-- Z3_COMPONENT_EXTRA_INCLUDE_DIRS: /home/runner/work/z3/z3/build/src;/home/runner/work/z3/z3/src
+-- Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS: 
+-- CMAKE_INSTALL_LIBDIR: "lib"
+-- CMAKE_INSTALL_BINDIR: "bin"
+-- CMAKE_INSTALL_INCLUDEDIR: "include"
+-- CMAKE_INSTALL_PKGCONFIGDIR: "lib/pkgconfig"
+-- CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR: "lib/cmake/z3"
+-- Adding component util
+-- Adding component polynomial
+-- Adding rule to generate "algebraic_params.hpp"
+-- Adding component dd
+-- Adding component hilbert
+-- Adding component simplex
+-- Adding component interval
+-- Adding component realclosure
+-- Adding rule to generate "rcf_params.hpp"
+-- Adding component subpaving
+-- Adding component ast
+-- Adding rule to generate "pp_params.hpp"
+-- Adding component params
+-- Adding rule to generate "arith_rewriter_params.hpp"
+-- Adding rule to generate "array_rewriter_params.hpp"
+-- Adding rule to generate "bool_rewriter_params.hpp"
+-- Adding rule to generate "bv_rewriter_params.hpp"
+-- Adding rule to generate "fpa_rewriter_params.hpp"
+-- Adding rule to generate "fpa2bv_rewriter_params.hpp"
+-- Adding rule to generate "pattern_inference_params_helper.hpp"
+-- Adding rule to generate "poly_rewriter_params.hpp"
+-- Adding rule to generate "rewriter_params.hpp"
+-- Adding rule to generate "sat_params.hpp"
+-- Adding rule to generate "seq_rewriter_params.hpp"
+-- Adding rule to generate "sls_params.hpp"
+-- Adding rule to generate "smt_params_helper.hpp"
+-- Adding rule to generate "solver_params.hpp"
+-- Adding rule to generate "tactic_params.hpp"
+-- Adding component rewriter
+-- Adding component bit_blaster
+-- Adding component normal_forms
+-- Adding rule to generate "nnf_params.hpp"
+-- Adding component macros
+-- Adding component model
+-- Adding rule to generate "model_evaluator_params.hpp"
+-- Adding rule to generate "model_params.hpp"
+-- Adding component euf
+-- Adding component converters
+-- Adding component substitution
+-- Adding component simplifiers
+-- Adding component tactic
+-- Adding component mbp
+-- Adding component qe_lite
+-- Adding component parser_util
+-- Adding rule to generate "parser_params.hpp"
+-- Adding component grobner
+-- Adding component sat
+-- Adding rule to generate "sat_asymm_branch_params.hpp"
+-- Adding rule to generate "sat_scc_params.hpp"
+-- Adding rule to generate "sat_simplifier_params.hpp"
+-- Adding component nlsat
+-- Adding rule to generate "nlsat_params.hpp"
+-- Adding component core_tactics
+-- Adding component subpaving_tactic
+-- Adding component aig_tactic
+-- Adding component arith_tactics
+-- Adding component solver
+-- Adding rule to generate "combined_solver_params.hpp"
+-- Adding rule to generate "parallel_params.hpp"
+-- Adding component cmd_context
+-- Adding component extra_cmds
+-- Adding component smt2parser
+-- Adding component solver_assertions
+-- Adding component pattern
+-- Adding component lp
+-- Adding rule to generate "lp_params_helper.hpp"
+-- Adding component ast_sls
+-- Adding component sat_smt
+-- Adding component sat_tactic
+-- Adding component nlsat_tactic
+-- Adding component ackermannization
+-- Adding rule to generate "ackermannization_params.hpp"
+-- Adding rule to generate "ackermannize_bv_tactic_params.hpp"
+-- Adding component proofs
+-- Adding component fpa
+-- Adding component proto_model
+-- Adding component smt
+-- Adding component bv_tactics
+-- Adding component smt_tactic
+-- Adding component sls_tactic
+-- Adding component qe
+-- Adding component muz
+-- Adding rule to generate "fp_params.hpp"
+-- Adding component dataflow
+-- Adding component transforms
+-- Adding component rel
+-- Adding component clp
+-- Adding component tab
+-- Adding component bmc
+-- Adding component ddnf
+-- Adding component spacer
+-- Adding component fp
+-- Adding component ufbv_tactic
+-- Adding component sat_solver
+-- Adding component smtlogic_tactics
+-- Adding rule to generate "qfufbv_tactic_params.hpp"
+-- Adding component fpa_tactics
+-- Adding component fd_solver
+-- Adding component portfolio
+-- Adding component opt
+-- Adding rule to generate "opt_params.hpp"
+-- Adding component api
+-- Adding component api_dll
+-- Adding component fuzzing
+-- Building documentation disabled
+-- Configuring done (3.3s)
+-- Generating done (0.3s)
+-- Build files have been written to: /home/runner/work/z3/z3/build
+[1/881] Building CXX object src/util/CMakeFiles/util.dir/common_msgs.cpp.o
+[2/881] Building CXX object src/util/CMakeFiles/util.dir/approx_nat.cpp.o
+[3/881] Building CXX object src/util/CMakeFiles/util.dir/approx_set.cpp.o
+[4/881] Building CXX object src/util/CMakeFiles/util.dir/cmd_context_types.cpp.o
+[5/881] Building CXX object src/util/CMakeFiles/util.dir/bit_util.cpp.o
+[6/881] Building CXX object src/util/CMakeFiles/util.dir/env_params.cpp.o
+[7/881] Building CXX object src/util/CMakeFiles/util.dir/bit_vector.cpp.o
+[8/881] Building CXX object src/util/CMakeFiles/util.dir/fixed_bit_vector.cpp.o
+[9/881] Building CXX object src/util/CMakeFiles/util.dir/debug.cpp.o
+[10/881] Building CXX object src/util/CMakeFiles/util.dir/hash.cpp.o
+[11/881] Building CXX object src/util/CMakeFiles/util.dir/inf_s_integer.cpp.o
+[12/881] Building CXX object src/util/CMakeFiles/util.dir/inf_int_rational.cpp.o
+[13/881] Building CXX object src/util/CMakeFiles/util.dir/lbool.cpp.o
+[14/881] Building CXX object src/util/CMakeFiles/util.dir/luby.cpp.o
+[15/881] Building CXX object src/util/CMakeFiles/util.dir/hwf.cpp.o
+[16/881] Building CXX object src/util/CMakeFiles/util.dir/memory_manager.cpp.o
+[17/881] Building CXX object src/util/CMakeFiles/util.dir/gparams.cpp.o
+[18/881] Building CXX object src/util/CMakeFiles/util.dir/inf_rational.cpp.o
+[19/881] Building CXX object src/util/CMakeFiles/util.dir/min_cut.cpp.o
+[20/881] Building CXX object src/util/CMakeFiles/util.dir/mpbq.cpp.o
+[21/881] Building CXX object src/util/CMakeFiles/util.dir/mpn.cpp.o
+[22/881] Building CXX object src/util/CMakeFiles/util.dir/mpfx.cpp.o
+[23/881] Building CXX object src/util/CMakeFiles/util.dir/page.cpp.o
+[24/881] Building CXX object src/util/CMakeFiles/util.dir/mpff.cpp.o
+[25/881] Building CXX object src/util/CMakeFiles/util.dir/permutation.cpp.o
+[26/881] Building CXX object src/util/CMakeFiles/util.dir/mpq_inf.cpp.o
+[27/881] Building CXX object src/util/CMakeFiles/util.dir/mpq.cpp.o
+[28/881] Building CXX object src/util/CMakeFiles/util.dir/prime_generator.cpp.o
+[29/881] Building CXX object src/util/CMakeFiles/util.dir/region.cpp.o
+[30/881] Building CXX object src/util/CMakeFiles/util.dir/params.cpp.o
+[31/881] Building CXX object src/util/CMakeFiles/util.dir/scoped_ctrl_c.cpp.o
+[32/881] Building CXX object src/util/CMakeFiles/util.dir/rational.cpp.o
+[33/881] Building CXX object src/util/CMakeFiles/util.dir/rlimit.cpp.o
+[34/881] Building CXX object src/util/CMakeFiles/util.dir/s_integer.cpp.o
+[35/881] Building CXX object src/util/CMakeFiles/util.dir/mpf.cpp.o
+[36/881] Building CXX object src/util/CMakeFiles/util.dir/sexpr.cpp.o
+[37/881] Building CXX object src/util/CMakeFiles/util.dir/scoped_timer.cpp.o
+[38/881] Building CXX object src/util/CMakeFiles/util.dir/mpz.cpp.o
+/home/runner/work/z3/z3/src/util/mpz.cpp: In instantiation of ‘bool mpz_manager<SYNCH>::is_perfect_square(const mpz&, mpz&) [with bool SYNCH = true]’:
+/home/runner/work/z3/z3/src/util/mpz.cpp:2587:16:   required from here
+/home/runner/work/z3/z3/src/util/mpz.cpp:2335:10: warning: unused variable ‘first’ [-Wunused-variable]
+ 2335 |     bool first = true;
+      |          ^~~~~
+/home/runner/work/z3/z3/src/util/mpz.cpp: In instantiation of ‘bool mpz_manager<SYNCH>::is_perfect_square(const mpz&, mpz&) [with bool SYNCH = false]’:
+/home/runner/work/z3/z3/src/util/mpz.cpp:2589:16:   required from here
+/home/runner/work/z3/z3/src/util/mpz.cpp:2335:10: warning: unused variable ‘first’ [-Wunused-variable]
+[39/881] Building CXX object src/util/CMakeFiles/util.dir/small_object_allocator.cpp.o
+[40/881] Building CXX object src/util/CMakeFiles/util.dir/stack.cpp.o
+[41/881] Building CXX object src/util/CMakeFiles/util.dir/smt2_util.cpp.o
+[42/881] Building CXX object src/util/CMakeFiles/util.dir/symbol.cpp.o
+[43/881] Building CXX object src/util/CMakeFiles/util.dir/timeout.cpp.o
+[44/881] Building CXX object src/util/CMakeFiles/util.dir/timeit.cpp.o
+[45/881] Building CXX object src/util/CMakeFiles/util.dir/tbv.cpp.o
+[46/881] Building CXX object src/util/CMakeFiles/util.dir/state_graph.cpp.o
+[47/881] Building CXX object src/util/CMakeFiles/util.dir/z3_exception.cpp.o
+[48/881] Building CXX object src/util/CMakeFiles/util.dir/util.cpp.o
+[49/881] Building CXX object src/util/CMakeFiles/util.dir/warning.cpp.o
+[50/881] Building CXX object src/util/CMakeFiles/util.dir/statistics.cpp.o
+[51/881] Building CXX object src/util/CMakeFiles/util.dir/zstring.cpp.o
+[52/881] Building CXX object src/math/dd/CMakeFiles/dd.dir/dd_fdd.cpp.o
+[53/881] Building CXX object src/util/CMakeFiles/util.dir/trace.cpp.o
+[53/881] Generating "/home/runner/work/z3/z3/build/src/math/polynomial/algebraic_params.hpp" from "algebraic_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/math/polynomial/algebraic_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/math/polynomial/algebraic_params.hpp"
+[55/881] Building CXX object src/math/simplex/CMakeFiles/simplex.dir/bit_matrix.cpp.o
+[56/881] Building CXX object src/math/dd/CMakeFiles/dd.dir/dd_bdd.cpp.o
+[57/881] Building CXX object src/math/polynomial/CMakeFiles/polynomial.dir/polynomial_cache.cpp.o
+[58/881] Building CXX object src/math/dd/CMakeFiles/dd.dir/dd_pdd.cpp.o
+[59/881] Building CXX object src/math/simplex/CMakeFiles/simplex.dir/model_based_opt.cpp.o
+[60/881] Building CXX object src/math/polynomial/CMakeFiles/polynomial.dir/rpolynomial.cpp.o
+[61/881] Building CXX object src/math/simplex/CMakeFiles/simplex.dir/simplex.cpp.o
+[62/881] Building CXX object src/math/polynomial/CMakeFiles/polynomial.dir/sexpr2upolynomial.cpp.o
+[63/881] Building CXX object src/math/polynomial/CMakeFiles/polynomial.dir/algebraic_numbers.cpp.o
+[64/881] Building CXX object src/math/interval/CMakeFiles/interval.dir/interval_mpq.cpp.o
+[65/881] Building CXX object src/math/polynomial/CMakeFiles/polynomial.dir/upolynomial_factorization.cpp.o
+[66/881] Building CXX object src/math/interval/CMakeFiles/interval.dir/dep_intervals.cpp.o
+[66/881] Generating "/home/runner/work/z3/z3/build/src/math/realclosure/rcf_params.hpp" from "rcf_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/math/realclosure/rcf_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/math/realclosure/rcf_params.hpp"
+[68/881] Building CXX object src/math/polynomial/CMakeFiles/polynomial.dir/upolynomial.cpp.o
+[69/881] Building CXX object src/math/hilbert/CMakeFiles/hilbert.dir/hilbert_basis.cpp.o
+[70/881] Building CXX object src/math/subpaving/CMakeFiles/subpaving.dir/subpaving.cpp.o
+[71/881] Building CXX object src/math/realclosure/CMakeFiles/realclosure.dir/mpz_matrix.cpp.o
+[72/881] Building CXX object src/math/subpaving/CMakeFiles/subpaving.dir/subpaving_hwf.cpp.o
+[73/881] Building CXX object src/math/polynomial/CMakeFiles/polynomial.dir/polynomial.cpp.o
+[73/881] Generating "/home/runner/work/z3/z3/build/src/ast/pp_params.hpp" from "pp_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/ast/pp_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/ast/pp_params.hpp"
+[75/881] Building CXX object src/math/subpaving/CMakeFiles/subpaving.dir/subpaving_mpf.cpp.o
+[76/881] Building CXX object src/math/subpaving/CMakeFiles/subpaving.dir/subpaving_mpfx.cpp.o
+[77/881] Building CXX object src/math/subpaving/CMakeFiles/subpaving.dir/subpaving_mpff.cpp.o
+[78/881] Building CXX object src/ast/CMakeFiles/ast.dir/act_cache.cpp.o
+[79/881] Building CXX object src/math/realclosure/CMakeFiles/realclosure.dir/realclosure.cpp.o
+[80/881] Building CXX object src/ast/CMakeFiles/ast.dir/array_peq.cpp.o
+[81/881] Building CXX object src/ast/CMakeFiles/ast.dir/array_decl_plugin.cpp.o
+[82/881] Building CXX object src/ast/CMakeFiles/ast.dir/arith_decl_plugin.cpp.o
+[83/881] Building CXX object src/ast/CMakeFiles/ast.dir/ast_ll_pp.cpp.o
+[84/881] Building CXX object src/ast/CMakeFiles/ast.dir/ast_lt.cpp.o
+[85/881] Building CXX object src/math/subpaving/CMakeFiles/subpaving.dir/subpaving_mpq.cpp.o
+[86/881] Building CXX object src/ast/CMakeFiles/ast.dir/ast_printer.cpp.o
+[87/881] Building CXX object src/ast/CMakeFiles/ast.dir/ast_pp_util.cpp.o
+[88/881] Building CXX object src/ast/CMakeFiles/ast.dir/ast_pp_dot.cpp.o
+[89/881] Building CXX object src/ast/CMakeFiles/ast.dir/ast_smt_pp.cpp.o
+[90/881] Building CXX object src/ast/CMakeFiles/ast.dir/ast_translation.cpp.o
+[91/881] Building CXX object src/ast/CMakeFiles/ast.dir/ast_util.cpp.o
+[92/881] Building CXX object src/ast/CMakeFiles/ast.dir/ast_smt2_pp.cpp.o
+[93/881] Building CXX object src/ast/CMakeFiles/ast.dir/ast.cpp.o
+[94/881] Building CXX object src/ast/CMakeFiles/ast.dir/char_decl_plugin.cpp.o
+[95/881] Building CXX object src/ast/CMakeFiles/ast.dir/cost_evaluator.cpp.o
+[96/881] Building CXX object src/ast/CMakeFiles/ast.dir/bv_decl_plugin.cpp.o
+[97/881] Building CXX object src/ast/CMakeFiles/ast.dir/display_dimacs.cpp.o
+[98/881] Building CXX object src/ast/CMakeFiles/ast.dir/decl_collector.cpp.o
+[99/881] Building CXX object src/ast/CMakeFiles/ast.dir/dl_decl_plugin.cpp.o
+[100/881] Building CXX object src/ast/CMakeFiles/ast.dir/expr2var.cpp.o
+[101/881] Building CXX object src/ast/CMakeFiles/ast.dir/expr2polynomial.cpp.o
+[102/881] Building CXX object src/ast/CMakeFiles/ast.dir/expr_functors.cpp.o
+[103/881] Building CXX object src/ast/CMakeFiles/ast.dir/expr_abstract.cpp.o
+[104/881] Building CXX object src/ast/CMakeFiles/ast.dir/expr_map.cpp.o
+[105/881] Building CXX object src/ast/CMakeFiles/ast.dir/expr_stat.cpp.o
+[106/881] Building CXX object src/ast/CMakeFiles/ast.dir/datatype_decl_plugin.cpp.o
+[107/881] Building CXX object src/ast/CMakeFiles/ast.dir/for_each_ast.cpp.o
+[108/881] Building CXX object src/ast/CMakeFiles/ast.dir/for_each_expr.cpp.o
+[109/881] Building CXX object src/ast/CMakeFiles/ast.dir/expr_substitution.cpp.o
+[110/881] Building CXX object src/ast/CMakeFiles/ast.dir/format.cpp.o
+[111/881] Building CXX object src/ast/CMakeFiles/ast.dir/has_free_vars.cpp.o
+[112/881] Building CXX object src/ast/CMakeFiles/ast.dir/func_decl_dependencies.cpp.o
+[113/881] Building CXX object src/ast/CMakeFiles/ast.dir/num_occurs.cpp.o
+[114/881] Building CXX object src/ast/CMakeFiles/ast.dir/macro_substitution.cpp.o
+[115/881] Building CXX object src/ast/CMakeFiles/ast.dir/fpa_decl_plugin.cpp.o
+[116/881] Building CXX object src/ast/CMakeFiles/ast.dir/occurs.cpp.o
+[117/881] Building CXX object src/ast/CMakeFiles/ast.dir/pb_decl_plugin.cpp.o
+[118/881] Building CXX object src/ast/CMakeFiles/ast.dir/pp.cpp.o
+[119/881] Building CXX object src/ast/CMakeFiles/ast.dir/polymorphism_inst.cpp.o
+[120/881] Building CXX object src/ast/CMakeFiles/ast.dir/quantifier_stat.cpp.o
+[121/881] Building CXX object src/ast/CMakeFiles/ast.dir/polymorphism_util.cpp.o
+[122/881] Building CXX object src/ast/CMakeFiles/ast.dir/reg_decl_plugins.cpp.o
+[123/881] Building CXX object src/ast/CMakeFiles/ast.dir/shared_occs.cpp.o
+[124/881] Building CXX object src/ast/CMakeFiles/ast.dir/special_relations_decl_plugin.cpp.o
+[125/881] Building CXX object src/ast/CMakeFiles/ast.dir/recfun_decl_plugin.cpp.o
+[126/881] Building CXX object src/ast/CMakeFiles/ast.dir/used_vars.cpp.o
+[127/881] Building CXX object src/ast/CMakeFiles/ast.dir/static_features.cpp.o
+[128/881] Building CXX object src/ast/CMakeFiles/ast.dir/well_sorted.cpp.o
+[129/881] Building CXX object src/ast/CMakeFiles/ast.dir/seq_decl_plugin.cpp.o
+[130/881] Building CXX object src/ast/CMakeFiles/ast.dir/value_generator.cpp.o
+[130/881] Generating "/home/runner/work/z3/z3/build/src/params/arith_rewriter_params.hpp" from "arith_rewriter_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/arith_rewriter_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/arith_rewriter_params.hpp"
+[131/881] Generating "/home/runner/work/z3/z3/build/src/params/array_rewriter_params.hpp" from "array_rewriter_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/array_rewriter_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/array_rewriter_params.hpp"
+[132/881] Generating "/home/runner/work/z3/z3/build/src/params/bool_rewriter_params.hpp" from "bool_rewriter_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/bool_rewriter_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/bool_rewriter_params.hpp"
+[133/881] Generating "/home/runner/work/z3/z3/build/src/params/bv_rewriter_params.hpp" from "bv_rewriter_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/bv_rewriter_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/bv_rewriter_params.hpp"
+[134/881] Generating "/home/runner/work/z3/z3/build/src/params/fpa_rewriter_params.hpp" from "fpa_rewriter_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/fpa_rewriter_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/fpa_rewriter_params.hpp"
+[135/881] Generating "/home/runner/work/z3/z3/build/src/params/fpa2bv_rewriter_params.hpp" from "fpa2bv_rewriter_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/fpa2bv_rewriter_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/fpa2bv_rewriter_params.hpp"
+[136/881] Generating "/home/runner/work/z3/z3/build/src/params/pattern_inference_params_helper.hpp" from "pattern_inference_params_helper.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/pattern_inference_params_helper.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/pattern_inference_params_helper.hpp"
+[137/881] Generating "/home/runner/work/z3/z3/build/src/params/poly_rewriter_params.hpp" from "poly_rewriter_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/poly_rewriter_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/poly_rewriter_params.hpp"
+[138/881] Generating "/home/runner/work/z3/z3/build/src/params/rewriter_params.hpp" from "rewriter_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/rewriter_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/rewriter_params.hpp"
+[139/881] Generating "/home/runner/work/z3/z3/build/src/params/sat_params.hpp" from "sat_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/sat_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/sat_params.hpp"
+[140/881] Generating "/home/runner/work/z3/z3/build/src/params/seq_rewriter_params.hpp" from "seq_rewriter_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/seq_rewriter_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/seq_rewriter_params.hpp"
+[141/881] Generating "/home/runner/work/z3/z3/build/src/params/sls_params.hpp" from "sls_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/sls_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/sls_params.hpp"
+[142/881] Generating "/home/runner/work/z3/z3/build/src/params/smt_params_helper.hpp" from "smt_params_helper.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/smt_params_helper.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/smt_params_helper.hpp"
+[143/881] Generating "/home/runner/work/z3/z3/build/src/params/solver_params.hpp" from "solver_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/solver_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/solver_params.hpp"
+[144/881] Generating "/home/runner/work/z3/z3/build/src/params/tactic_params.hpp" from "tactic_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/params/tactic_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/params/tactic_params.hpp"
+[146/881] Building CXX object src/test/fuzzing/CMakeFiles/fuzzing.dir/expr_delta.cpp.o
+[147/881] Building CXX object src/params/CMakeFiles/params.dir/context_params.cpp.o
+[148/881] Building CXX object src/math/grobner/CMakeFiles/grobner.dir/pdd_simplifier.cpp.o
+[149/881] Building CXX object src/math/grobner/CMakeFiles/grobner.dir/pdd_solver.cpp.o
+[150/881] Building CXX object src/params/CMakeFiles/params.dir/dyn_ack_params.cpp.o
+[151/881] Building CXX object src/params/CMakeFiles/params.dir/pattern_inference_params.cpp.o
+[152/881] Building CXX object src/math/grobner/CMakeFiles/grobner.dir/grobner.cpp.o
+[153/881] Building CXX object src/params/CMakeFiles/params.dir/preprocessor_params.cpp.o
+[154/881] Building CXX object src/params/CMakeFiles/params.dir/qi_params.cpp.o
+[155/881] Building CXX object src/test/fuzzing/CMakeFiles/fuzzing.dir/expr_rand.cpp.o
+[156/881] Building CXX object src/params/CMakeFiles/params.dir/theory_array_params.cpp.o
+[157/881] Building CXX object src/params/CMakeFiles/params.dir/theory_bv_params.cpp.o
+[158/881] Building CXX object src/params/CMakeFiles/params.dir/theory_arith_params.cpp.o
+[159/881] Building CXX object src/params/CMakeFiles/params.dir/theory_seq_params.cpp.o
+[160/881] Building CXX object src/params/CMakeFiles/params.dir/theory_pb_params.cpp.o
+[161/881] Building CXX object src/params/CMakeFiles/params.dir/smt_params.cpp.o
+[162/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/ast_counter.cpp.o
+[163/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/bit2int.cpp.o
+[164/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/array_rewriter.cpp.o
+[165/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/bv2int_translator.cpp.o
+[166/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/bv_elim.cpp.o
+[167/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/cached_var_subst.cpp.o
+[168/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/bool_rewriter.cpp.o
+[169/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/bv_bounds.cpp.o
+[170/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/char_rewriter.cpp.o
+[171/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/arith_rewriter.cpp.o
+[172/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/datatype_rewriter.cpp.o
+[173/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/distribute_forall.cpp.o
+[174/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/dl_rewriter.cpp.o
+[175/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/dom_simplifier.cpp.o
+[176/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/elim_bounds.cpp.o
+[177/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/der.cpp.o
+[178/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/bv_rewriter.cpp.o
+[179/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/expr_replacer.cpp.o
+[180/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/factor_equivs.cpp.o
+[181/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/enum2bv_rewriter.cpp.o
+[182/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/expr_safe_replace.cpp.o
+[183/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/func_decl_replace.cpp.o
+[184/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/inj_axiom.cpp.o
+[185/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/fpa_rewriter.cpp.o
+[186/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/factor_rewriter.cpp.o
+[187/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/maximize_ac_sharing.cpp.o
+[188/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/label_rewriter.cpp.o
+[189/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/mk_simplified_app.cpp.o
+[190/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/macro_replacer.cpp.o
+[191/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/recfun_rewriter.cpp.o
+[192/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/push_app_ite.cpp.o
+[193/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/quant_hoist.cpp.o
+[194/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/pb_rewriter.cpp.o
+[195/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/seq_eq_solver.cpp.o
+[196/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/seq_skolem.cpp.o
+[197/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/seq_axioms.cpp.o
+[198/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/pb2bv_rewriter.cpp.o
+[199/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/value_sweep.cpp.o
+[200/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/mk_extract_proc.cpp.o
+[201/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/rewriter.cpp.o
+[202/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/var_subst.cpp.o
+[203/881] Building CXX object src/ast/macros/CMakeFiles/macros.dir/quantifier_macro_info.cpp.o
+[204/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/th_rewriter.cpp.o
+[205/881] Building CXX object src/ast/macros/CMakeFiles/macros.dir/macro_finder.cpp.o
+[206/881] Building CXX object src/ast/macros/CMakeFiles/macros.dir/macro_util.cpp.o
+[207/881] Building CXX object src/ast/macros/CMakeFiles/macros.dir/macro_manager.cpp.o
+[208/881] Building CXX object src/ast/macros/CMakeFiles/macros.dir/quasi_macros.cpp.o
+[209/881] Building CXX object src/ast/rewriter/CMakeFiles/rewriter.dir/seq_rewriter.cpp.o
+[210/881] Building CXX object src/ast/rewriter/bit_blaster/CMakeFiles/bit_blaster.dir/bit_blaster.cpp.o
+[211/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_arith_plugin.cpp.o
+/home/runner/work/z3/z3/src/ast/euf/euf_arith_plugin.cpp: In member function ‘virtual void euf::arith_plugin::register_node(euf::enode*)’:
+/home/runner/work/z3/z3/src/ast/euf/euf_arith_plugin.cpp:62:19: warning: unused variable ‘m’ [-Wunused-variable]
+   62 |             auto& m = g.get_manager();
+      |                   ^
+[212/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_enode.cpp.o
+[213/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_bv_plugin.cpp.o
+[214/881] Building CXX object src/ast/rewriter/bit_blaster/CMakeFiles/bit_blaster.dir/bit_blaster_rewriter.cpp.o
+[215/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_ac_plugin.cpp.o
+/home/runner/work/z3/z3/src/ast/euf/euf_ac_plugin.cpp: In member function ‘void euf::ac_plugin::rewrite1(const ref_counts&, const monomial_t&, ref_counts&, ptr_vector<node>&)’:
+/home/runner/work/z3/z3/src/ast/euf/euf_ac_plugin.cpp:1060:14: warning: unused variable ‘change’ [-Wunused-variable]
+ 1060 |         bool change = false;
+      |              ^~~~~~
+[216/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_justification.cpp.o
+[217/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_egraph.cpp.o
+[218/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_etable.cpp.o
+[219/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_plugin.cpp.o
+[220/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_specrel_plugin.cpp.o
+[221/881] Building CXX object src/ast/substitution/CMakeFiles/substitution.dir/matcher.cpp.o
+[222/881] Building CXX object src/ast/substitution/CMakeFiles/substitution.dir/substitution.cpp.o
+[222/881] Generating "/home/runner/work/z3/z3/build/src/parsers/util/parser_params.hpp" from "parser_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/parsers/util/parser_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/parsers/util/parser_params.hpp"
+[223/881] Generating "/home/runner/work/z3/z3/build/src/ast/normal_forms/nnf_params.hpp" from "nnf_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/ast/normal_forms/nnf_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/ast/normal_forms/nnf_params.hpp"
+[224/881] Generating "/home/runner/work/z3/z3/build/src/model/model_evaluator_params.hpp" from "model_evaluator_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/model/model_evaluator_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/model/model_evaluator_params.hpp"
+[225/881] Generating "/home/runner/work/z3/z3/build/src/model/model_params.hpp" from "model_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/model/model_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/model/model_params.hpp"
+[226/881] Building CXX object src/ast/substitution/CMakeFiles/substitution.dir/unifier.cpp.o
+[227/881] Generating "/home/runner/work/z3/z3/build/src/sat/sat_asymm_branch_params.hpp" from "sat_asymm_branch_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/sat/sat_asymm_branch_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/sat/sat_asymm_branch_params.hpp"
+[228/881] Generating "/home/runner/work/z3/z3/build/src/sat/sat_scc_params.hpp" from "sat_scc_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/sat/sat_scc_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/sat/sat_scc_params.hpp"
+[229/881] Generating "/home/runner/work/z3/z3/build/src/sat/sat_simplifier_params.hpp" from "sat_simplifier_params.pyg"
+INFO:root:Using /home/runner/work/z3/z3/src/sat/sat_simplifier_params.pyg
+INFO:root:Generated "/home/runner/work/z3/z3/build/src/sat/sat_simplifier_params.hpp"
+[231/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/ho_matcher.cpp.o
+/home/runner/work/z3/z3/src/ast/euf/ho_matcher.cpp: In member function ‘bool euf::ho_matcher::consume_work(euf::match_goal&)’:
+/home/runner/work/z3/z3/src/ast/euf/ho_matcher.cpp:296:18: warning: unused variable ‘idx’ [-Wunused-variable]
+  296 |             auto idx = v->get_idx() - wi.pat_offset();
+      |                  ^~~
+[232/881] Building CXX object src/ast/substitution/CMakeFiles/substitution.dir/substitution_tree.cpp.o
+[233/881] Building CXX object src/ast/substitution/CMakeFiles/substitution.dir/demodulator_rewriter.cpp.o
+[234/881] Building CXX object src/ast/euf/CMakeFiles/euf.dir/euf_mam.cpp.o
+[235/881] Building CXX object src/ast/normal_forms/CMakeFiles/normal_forms.dir/defined_names.cpp.o
+[236/881] Building CXX object src/ast/normal_forms/CMakeFiles/normal_forms.dir/name_exprs.cpp.o
+[237/881] Building CXX object src/model/CMakeFiles/model.dir/array_factory.cpp.o
+[238/881] Building CXX object src/ast/normal_forms/CMakeFiles/normal_forms.dir/nnf.cpp.o
+[239/881] Building CXX object src/ast/normal_forms/CMakeFiles/normal_forms.dir/elim_term_ite.cpp.o
+[240/881] Building CXX object src/model/CMakeFiles/model.dir/datatype_factory.cpp.o
+[241/881] Building CXX object src/ast/normal_forms/CMakeFiles/normal_forms.dir/pull_quant.cpp.o
+[242/881] Building CXX object src/model/CMakeFiles/model.dir/model_core.cpp.o
+[243/881] Building CXX object src/model/CMakeFiles/model.dir/model2expr.cpp.o
+[244/881] Building CXX object src/model/CMakeFiles/model.dir/func_interp.cpp.o
+[245/881] Building CXX object src/model/CMakeFiles/model.dir/model_pp.cpp.o
+[246/881] Building CXX object src/model/CMakeFiles/model.dir/model.cpp.o
+[247/881] Building CXX object src/model/CMakeFiles/model.dir/model_smt2_pp.cpp.o
+[248/881] Building CXX object src/model/CMakeFiles/model.dir/model_v2_pp.cpp.o
+[249/881] Building CXX object src/model/CMakeFiles/model.dir/model_macro_solver.cpp.o
+[250/881] Building CXX object src/model/CMakeFiles/model.dir/model_implicant.cpp.o
+[251/881] Building CXX object src/model/CMakeFiles/model.dir/struct_factory.cpp.o
+[252/881] Building CXX object src/model/CMakeFiles/model.dir/numeral_factory.cpp.o
+[253/881] Building CXX object src/model/CMakeFiles/model.dir/model_evaluator.cpp.o
+[254/881] Building CXX object src/model/CMakeFiles/model.dir/value_factory.cpp.o
+[255/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/equiv_proof_converter.cpp.o
+[256/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/expr_inverter.cpp.o
+[257/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/model_converter.cpp.o
+[258/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/proof_converter.cpp.o
+[259/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/generic_model_converter.cpp.o
+[260/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/horn_subsume_model_converter.cpp.o
+[261/881] Building CXX object src/ast/converters/CMakeFiles/converters.dir/replace_proof_converter.cpp.o
+[262/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/bit_blaster.cpp.o
+[263/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/bound_manager.cpp.o
+[264/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/bound_propagator.cpp.o
+[265/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/bv_slice.cpp.o
+[266/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/bv_bounds_simplifier.cpp.o
+[267/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/card2bv.cpp.o
+[268/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/dependent_expr_state.cpp.o
+[269/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/bound_simplifier.cpp.o
+[270/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/demodulator_simplifier.cpp.o
+[271/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/dominator_simplifier.cpp.o
+[272/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/elim_unconstrained.cpp.o
+[273/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/distribute_forall.cpp.o
+[274/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/linear_equation.cpp.o
+[275/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/extract_eqs.cpp.o
+[276/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/eliminate_predicates.cpp.o
+[277/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/propagate_values.cpp.o
+[278/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/euf_completion.cpp.o
+/home/runner/work/z3/z3/src/ast/simplifiers/euf_completion.cpp: In member function ‘expr_ref euf::completion::get_canonical(quantifier*, proof_ref&, expr_dependency_ref&)’:
+/home/runner/work/z3/z3/src/ast/simplifiers/euf_completion.cpp:1091:14: warning: unused variable ‘n’ [-Wunused-variable]
+ 1091 |         auto n = m_egraph.find(q);
+      |              ^
+[279/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/model_reconstruction_trail.cpp.o
+[280/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/max_bv_sharing.cpp.o
+[281/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/dependency_converter.cpp.o
+[282/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/solve_context_eqs.cpp.o
+[283/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/goal_num_occurs.cpp.o
+[284/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/solve_eqs.cpp.o
+[285/881] Building CXX object src/ast/simplifiers/CMakeFiles/simplifiers.dir/reduce_args_simplifier.cpp.o
+[286/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/goal.cpp.o
+[287/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/goal_shared_occs.cpp.o
+[288/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/goal_util.cpp.o
+[289/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/probe.cpp.o
+[290/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/tactic.cpp.o
+[291/881] Building CXX object src/tactic/CMakeFiles/tactic.dir/tactical.cpp.o
+[292/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_arrays_tg.cpp.o
+[293/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_basic_tg.cpp.o
+[294/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_datatypes.cpp.o
+[295/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_arith.cpp.o
+[296/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_dt_tg.cpp.o
+[297/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_arrays.cpp.o
+[298/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_euf.cpp.o
+[299/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_qel_util.cpp.o
+[300/881] Building CXX object src/qe/mbp/CMakeFiles/mbp.dir/mbp_qel.cpp.o
