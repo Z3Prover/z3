@@ -95,9 +95,11 @@ public:
 
     obj_ref & operator=(obj_ref && n) noexcept {
         SASSERT(&m_manager == &n.m_manager);
-        dec_ref();
-        m_obj = n.m_obj;
-        n.m_obj = nullptr;
+        if (this != &n) {
+            dec_ref();
+            m_obj = n.m_obj;
+            n.m_obj = nullptr;
+        }
         return *this;
     }
 
