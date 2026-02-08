@@ -134,6 +134,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     # Enable RPATH support
     MACOSX_RPATH TRUE
   )
+  # Add header padding to allow install_name_tool to modify the dylib
+  # This fixes issues where install_name_tool fails with "larger updated load commands do not fit"
+  # See: https://github.com/Z3Prover/z3/issues/7623
+  target_link_options(libz3 PRIVATE "-Wl,-headerpad_max_install_names")
 endif()
 
 if (NOT MSVC)
