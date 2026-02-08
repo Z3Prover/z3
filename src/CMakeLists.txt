@@ -151,6 +151,11 @@ endif()
 # so that if those are also shared libraries they are referenced by `libz3.so`.
 target_link_libraries(libz3 PRIVATE ${Z3_DEPENDENT_LIBS})
 
+# On macOS, add headerpad for install_name_tool compatibility
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND BUILD_LIBZ3_SHARED)
+  target_link_options(libz3 PRIVATE "-Wl,-headerpad_max_install_names")
+endif()
+
 ################################################################################
 # Create include directory with headers for easier developer integration
 ################################################################################
