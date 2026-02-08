@@ -95,6 +95,86 @@ def update_github_nightly_yml(version):
     except IOError as e:
         print(f"Error updating .github/workflows/nightly.yml: {e}")
 
+
+def update_github_nuget_build_yml(version):
+    """Update .github/workflows/nuget-build.yml example version and default."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    nuget_build_file = os.path.join(os.path.dirname(script_dir), '.github', 'workflows', 'nuget-build.yml')
+    
+    if not os.path.exists(nuget_build_file):
+        print(f"Warning: {nuget_build_file} does not exist, skipping")
+        return
+    
+    version_parts = version.split('.')
+    if len(version_parts) >= 3:
+        display_version = f"{version_parts[0]}.{version_parts[1]}.{version_parts[2]}"
+    else:
+        display_version = version
+    
+    try:
+        with open(nuget_build_file, 'r') as f:
+            content = f.read()
+        
+        # Update example version in description and default value
+        content = re.sub(
+            r"(description:\s*'Version number for the NuGet package \(e\.g\.,\s*)[0-9]+\.[0-9]+\.[0-9]+(\)')",
+            r"\g<1>" + display_version + r"\g<2>",
+            content
+        )
+        content = re.sub(
+            r"(default:\s*')[0-9]+\.[0-9]+\.[0-9]+(')",
+            r"\g<1>" + display_version + r"\g<2>",
+            content
+        )
+        # Update fallback versions in assembly-version parameters
+        content = re.sub(
+            r"(\|\|\s*')[0-9]+\.[0-9]+\.[0-9]+(')",
+            r"\g<1>" + display_version + r"\g<2>",
+            content
+        )
+        
+        with open(nuget_build_file, 'w') as f:
+            f.write(content)
+        
+        print(f"Updated .github/workflows/nuget-build.yml version references to {display_version}")
+    except IOError as e:
+        print(f"Error updating .github/workflows/nuget-build.yml: {e}")
+
+
+
+def update_github_release_yml(version):
+    """Update .github/workflows/release.yml example version in description."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    release_file = os.path.join(os.path.dirname(script_dir), '.github', 'workflows', 'release.yml')
+    
+    if not os.path.exists(release_file):
+        print(f"Warning: {release_file} does not exist, skipping")
+        return
+    
+    version_parts = version.split('.')
+    if len(version_parts) >= 3:
+        display_version = f"{version_parts[0]}.{version_parts[1]}.{version_parts[2]}"
+    else:
+        display_version = version
+    
+    try:
+        with open(release_file, 'r') as f:
+            content = f.read()
+        
+        # Update example version in description
+        content = re.sub(
+            r"(description:\s*'Release version \(e\.g\.,\s*)[0-9]+\.[0-9]+\.[0-9]+(\)')",
+            r"\g<1>" + display_version + r"\g<2>",
+            content
+        )
+        
+        with open(release_file, 'w') as f:
+            f.write(content)
+        
+        print(f"Updated .github/workflows/release.yml example version to {display_version}")
+    except IOError as e:
+        print(f"Error updating .github/workflows/release.yml: {e}")
+
 def main():
     """Main function."""
     print("Z3 Version Update Script")
@@ -107,13 +187,16 @@ def main():
     
     update_bazel_module(version)
     update_github_nightly_yml(version)
+    update_github_release_yml(version)
+    update_github_nuget_build_yml(version)
     
     print("\nUpdate complete!")
     print("\nNote: The following files automatically read from VERSION.txt:")
     print("  - CMakeLists.txt")
     print("  - scripts/mk_project.py")
     print("\nThese do not need manual updates.")
-    print("\nNote: .github/workflows/release.yml uses input parameters, not hardcoded versions.")
+    print("\nNote: .github/workflows/release.yml uses input parameters for actual releases,")
+    print("but the example version in the description has been updated.")
 
 if __name__ == "__main__":
     main()
