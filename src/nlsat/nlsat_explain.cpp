@@ -100,8 +100,8 @@ namespace nlsat {
             m_simplify_cores   = false;
             m_full_dimensional = false;
             m_minimize_cores   = false;
-            m_add_all_coeffs   = true;
-            m_add_zero_disc = true;
+            m_add_all_coeffs   = false;
+            m_add_zero_disc    = false;
         }
 
     // display helpers moved to free functions in nlsat_common.h
@@ -901,11 +901,11 @@ namespace nlsat {
             yy = m_pm.mk_polynomial(y);
             p_diff = 2*A*yy + B;
             p_diff = m_pm.normalize(p_diff);
-            int sq = ensure_sign(q); 
+            int sq = ensure_sign_quad(q); 
             if (sq < 0) {
                 return false;
             }
-            int sa = ensure_sign(A);
+            int sa = ensure_sign_quad(A);
             if (sa == 0) {
                 q = B*yy + C;
                 return mk_plinear_root(k, y, i, q);
@@ -918,12 +918,23 @@ namespace nlsat {
             return true;
         }
 
-        int ensure_sign(polynomial_ref & p) {
+        void ensure_sign(polynomial_ref & p) {
+            if (is_const(p) || m_processed.contains(p))
+                return;
             int s = sign(p);
-            if (!is_const(p)) {
+            TRACE(nlsat_explain, tout << p << "\n";);
+            add_assumption(s == 0 ? atom::EQ : (s < 0 ? atom::LT : atom::GT), p);
+            // Also add p to the projection to ensure proper cell construction
+            insert_fresh_factors_in_todo(p);
+        }
+
+        // Specialized version for quadratic root handling.
+        // Returns the sign value (-1, 0, or 1).
+        int ensure_sign_quad(polynomial_ref & p) {
+            int s = sign(p);
+            if (!is_const(p) && !m_processed.contains(p)) {
                 TRACE(nlsat_explain, tout << p << "\n";);
                 add_assumption(s == 0 ? atom::EQ : (s < 0 ? atom::LT : atom::GT), p);
-                // Also add p to the projection to ensure proper cell construction
                 insert_fresh_factors_in_todo(p);
             }
             return s;
@@ -1101,7 +1112,6 @@ namespace nlsat {
                 use_all_coeffs = true;
             }
             // Set m_add_all_coeffs for the rest of the projection, restore on function exit
-            flet<bool> _set_all_coeffs(m_add_all_coeffs, use_all_coeffs || m_add_all_coeffs);
             
             var x = m_todo.extract_max_polys(ps);
             collect_to_processed(ps);
@@ -1665,6 +1675,7 @@ namespace nlsat {
         void compute_conflict_explanation(unsigned num, literal const * ls, scoped_literal_vector & result) {
             SASSERT(check_already_added());
             SASSERT(num > 0);
+            flet<bool> _restore_add_all_coeffs(m_add_all_coeffs, false);
             TRACE(nlsat_explain, 
                   tout << "the infeasible clause:\n"; 
                   display(tout, m_solver, num, ls) << "\n";
