@@ -2749,8 +2749,6 @@ def mk_config():
             CXXFLAGS = '%s -arch arm64' % CXXFLAGS
             LDFLAGS = '%s -arch arm64' % LDFLAGS
             SLIBEXTRAFLAGS = '%s -arch arm64' % SLIBEXTRAFLAGS
-        # Add header padding for macOS to allow install_name_tool to modify the dylib
-        # This fixes issues where install_name_tool fails with "larger updated load commands do not fit"
         if IS_OSX:
             SLIBFLAGS += ' -Wl,-headerpad_max_install_names'
 

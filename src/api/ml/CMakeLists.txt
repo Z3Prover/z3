@@ -1,3 +1,4 @@
+
 find_package(OCaml REQUIRED)
 
 set(exe_ext ${CMAKE_EXECUTABLE_SUFFIX})
@@ -159,9 +160,8 @@ endif()
 
 if( APPLE )
   # set(ocaml_rpath "@executable_path/../libz3${so_ext}")
-  # Add header padding to allow install_name_tool to modify the dylib
-  # This fixes issues where install_name_tool fails with "larger updated load commands do not fit"
-  list(APPEND c_lib_deps "-ldopt" "-Wl,-headerpad_max_install_names")
+  # Add headerpad for install_name_tool compatibility on macOS
+  list(APPEND c_lib_deps "-Wl,-headerpad_max_install_names")
 elseif( UNIX )
   set(ocaml_rpath "\\$ORIGIN/../libz3${so_ext}")
   list(APPEND c_lib_deps "-dllpath" ${ocaml_rpath})
