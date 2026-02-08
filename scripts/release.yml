@@ -6,7 +6,7 @@
 trigger: none
 
 variables:
-  ReleaseVersion: '4.15.5'  # TODO: Auto-read from VERSION.txt when Azure DevOps supports it better
+  ReleaseVersion: '4.15.6'  # TODO: Auto-read from VERSION.txt when Azure DevOps supports it better
 
 stages:
 
