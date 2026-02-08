@@ -96,7 +96,7 @@ jobs:
   validate-macos-headerpad-x64:
     name: "Validate macOS x64 dylib headerpad"
     needs: [mac-build-x64]
-    runs-on: macos-13
+    runs-on: macos-15
     timeout-minutes: 15
     steps:
       - name: Checkout code
