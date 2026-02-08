@@ -165,8 +165,8 @@ public:
         SASSERT(size() == source.size());
     }
 
-    vector(vector&& other) noexcept {
-        std::swap(m_data, other.m_data);
+    vector(vector&& other) noexcept : m_data(other.m_data) {
+        other.m_data = nullptr;
     }
 
     vector(SZ s, T const * data) {
@@ -225,8 +225,8 @@ public:
             return *this;
         }
         destroy();
-        m_data = nullptr;
-        std::swap(m_data, source.m_data);
+        m_data = source.m_data;
+        source.m_data = nullptr;
         return *this;
     }
 
