@@ -193,11 +193,6 @@ public:
     TManager & m() const { 
         return get_manager();
     }
-
-    void swap(ref_pair_vector & other) noexcept {
-        SASSERT(&(this->m_manager) == &(other.m_manager));
-        this->m_nodes.swap(other.m_nodes);
-    }
     
     class element_ref {
         elem_t &       m_ref;
