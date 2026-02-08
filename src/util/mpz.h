@@ -299,7 +299,6 @@ class mpz_manager {
 
     void set_i64(mpz & c, int64_t v) {
         if (v >= INT_MIN && v <= INT_MAX) {
-            deallocate(c);  // Free any existing large value before setting small
             c.set(static_cast<int>(v));             
         }
         else {
@@ -590,7 +589,6 @@ public:
 
     void set(mpz & target, mpz const & source) {
         if (is_small(source)) {
-            deallocate(target);  // Free any existing large value before setting small
             target.set(source.value());
         }
         else {
@@ -599,7 +597,6 @@ public:
     }
 
     void set(mpz & a, int val) {
-        deallocate(a);  // Free any existing large value before setting small
         a.set(val);
     }
 
@@ -618,7 +615,6 @@ public:
 
     void set(mpz & a, uint64_t val) {
         if (val < INT_MAX) {
-            deallocate(a);  // Free any existing large value before setting small
             a.set(static_cast<int>(val));
         }
         else {
