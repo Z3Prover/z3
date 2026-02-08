@@ -96,7 +96,7 @@ jobs:
   validate-macos-headerpad-x64:
     name: "Validate macOS x64 dylib headerpad"
     needs: [mac-build-x64]
-    runs-on: macos-15
+    runs-on: macos-13
     timeout-minutes: 15
     steps:
       - name: Checkout code
@@ -128,7 +128,7 @@ jobs:
           TEST_PATH="/Users/runner/hostedtoolcache/z3/latest/x64/z3-test-dir/bin/libz3.dylib"
           
           # Try to change the install name - this will fail if headerpad is insufficient
-          install_name_tool -id "$TEST_PATH" -change libz3.dylib "$TEST_PATH" libz3.dylib
+          install_name_tool -id "$TEST_PATH" -change "$ORIGINAL_NAME" "$TEST_PATH" libz3.dylib
           
           # Verify the change was successful
           NEW_NAME=$(otool -D libz3.dylib | tail -n 1)
@@ -176,7 +176,7 @@ jobs:
           TEST_PATH="/Users/runner/hostedtoolcache/z3/latest/arm64/z3-test-dir/bin/libz3.dylib"
           
           # Try to change the install name - this will fail if headerpad is insufficient
-          install_name_tool -id "$TEST_PATH" -change libz3.dylib "$TEST_PATH" libz3.dylib
+          install_name_tool -id "$TEST_PATH" -change "$ORIGINAL_NAME" "$TEST_PATH" libz3.dylib
           
           # Verify the change was successful
           NEW_NAME=$(otool -D libz3.dylib | tail -n 1)
