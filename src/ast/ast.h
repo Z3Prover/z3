@@ -126,11 +126,11 @@ private:
         rational*, // for PARAM_RATIONAL
         double,    // for PARAM_DOUBLE (remark: this is not used in float_decl_plugin)
         unsigned   // for PARAM_EXTERNAL
-    > m_val;
+    > m_val = 0;
 
 public:
 
-    parameter() : m_val(0) {}
+    parameter() noexcept = default;
     explicit parameter(int val): m_val(val) {}
     explicit parameter(unsigned val): m_val((int)val) {}
     explicit parameter(ast * p): m_val(p) {}
