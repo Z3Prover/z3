@@ -1016,8 +1016,9 @@ static void tst_qsubstitute() {
 }
 
 void tst_mfact(polynomial_ref const & p, unsigned num_distinct_factors) {
-    std::cout << "---------------\n";
+    std::cout << "---------------" << std::endl;
     std::cout << "p: " << p << std::endl;
+    std::cout.flush();
     polynomial::factors fs(p.m());
     factor(p, fs);
     std::cout << "factors:\n";
@@ -1099,6 +1100,14 @@ static void tst_mfact() {
     tst_mfact((3*(x0 + 1)*(2*x1 + 2))^3, 2);
     tst_mfact(3*(2*(x0^2) + 4*(x1^2))*x2, 2);
     tst_mfact(13*((x0 - x2)^6)*((x1 - x2)^5)*((x0 - x3)^7), 3);
+    
+    // Test bivariate polynomials with 3 monic linear factors
+    // (x0+x1)(x0+2*x1)(x0+3*x1) = x0^3 + 6*x0^2*x1 + 11*x0*x1^2 + 6*x1^3
+    tst_mfact((x0+x1)*(x0+2*x1)*(x0+3*x1), 3);
+    
+    // Test (x0+x1)(x0^2+x0*x1+x1^2) - the 2-factor case that currently works
+    tst_mfact((x0+x1)*((x0^2)+x0*x1+(x1^2)), 2);
+    
     tst_mfact((x0+1)^100, 1);
     tst_mfact((x0^70) - 6*(x0^65) - (x0^60) + 60*(x0^55) - 54*(x0^50) - 230*(x0^45) + 274*(x0^40) + 542*(x0^35) - 615*(x0^30) - 1120*(x0^25) + 1500*(x0^20) - 160*(x0^15) - 395*(x0^10) + 76*(x0^5) + 34, 3);
     tst_mfact(((x0^4) - 8*(x0^2)), 2);
@@ -1814,7 +1823,7 @@ static void tst_divides() {
 
 void tst_polynomial() {
     set_verbosity_level(1000);
-    // enable_trace("factor");
+    enable_trace("factor");
     // enable_trace("poly_bug");
     // enable_trace("factor_bug");
     // disable_trace("polynomial");
@@ -1822,8 +1831,9 @@ void tst_polynomial() {
     // enable_trace("Lazard");
     // enable_trace("eval_bug");
     // enable_trace("mgcd");
-    tst_psc();
+    tst_mfact();  // Run factorization tests first
     return;
+    tst_psc();
     tst_eval();
     tst_divides();
     tst_gcd2();

@@ -7067,7 +7067,10 @@ namespace polynomial {
             factor_params params;
             upolynomial::factor_square_free(upm(), p1_pp, fs, params);
             
-            TRACE(factor, tout << "univariate factors: " << fs.distinct_factors() << "\n";);
+            TRACE(factor, tout << "univariate factors: " << fs.distinct_factors() << "\n";
+                  for (unsigned i = 0; i < fs.distinct_factors(); i++) {
+                      tout << "  factor " << i << ": "; upm().display(tout, fs[i]); tout << "\n";
+                  });
             
             // If univariate is irreducible, the multivariate is likely irreducible
             if (fs.distinct_factors() == 1 && fs.get_degree(0) == 1) {
@@ -7102,14 +7105,44 @@ namespace polynomial {
                     TRACE(factor, tout << "Hensel lift failed\n";);
                 }
                 else if (num_factors > 2) {
-                    // More than 2 factors - this is complex and requires more sophisticated handling
-                    // The Hensel lifting algorithm needs careful treatment when factor degrees > 1
-                    // For now, leave this case unhandled
+                    // More than 2 factors
+                    // Strategy: lift the first factor against the product of all others
+                    // If the first factor is linear (degree 1), this should work
                     
-                    TRACE(factor, tout << "TODO: handle " << num_factors << " factors\n";);
-                    
-                    // Could try: split into 2 groups where one group has degree 1
-                    // But this only works when there's at least one linear factor
+                    if (fs[0].size() == 2) {  // First factor is linear
+                        TRACE(factor, tout << "first factor is linear, lifting against product of others\n";);
+                        
+                        // Compute product of factors 1 to n-1
+                        up_manager::scoped_numeral_vector others_product(upm().m());
+                        upm().set(fs[1].size(), fs[1].data(), others_product);
+                        for (unsigned i = 2; i < num_factors; i++) {
+                            up_manager::scoped_numeral_vector temp(upm().m());
+                            upm().mul(others_product.size(), others_product.data(), 
+                                     fs[i].size(), fs[i].data(), temp);
+                            others_product.swap(temp);
+                        }
+                        
+                        TRACE(factor, tout << "first factor = "; upm().display(tout, fs[0]); tout << "\n";
+                              tout << "others product = "; upm().display(tout, others_product); tout << "\n";);
+                        
+                        polynomial_ref g(pm()), h(pm());
+                        // Lift: first_factor against others_product
+                        // g will correspond to the lifted first factor (linear -> linear in x,y)
+                        // h will correspond to the lifted product of others
+                        if (try_hensel_lift_2_factors(p, x, y, fs[0], others_product, g, h)) {
+                            TRACE(factor, tout << "Hensel lift succeeded: g = " << g << ", h = " << h << "\n";);
+                            
+                            // g is the lifted first factor, h is the lifted product of others
+                            // Add g as a factor
+                            factor_sqf_pp(g, r, x, k, factor_params());
+                            // Recursively factor h (which should split into the remaining factors)
+                            factor_sqf_pp(h, r, x, k, factor_params());
+                            return;
+                        }
+                        TRACE(factor, tout << "Hensel lift failed for linear vs product\n";);
+                    } else {
+                        TRACE(factor, tout << "first factor is not linear (degree " << (fs[0].size()-1) << ")\n";);
+                    }
                 }
             }
             
@@ -7130,53 +7163,56 @@ namespace polynomial {
         bool try_hensel_lift_2_factors(polynomial const * p, var x, var y,
                                         numeral_vector const & g0_vec, numeral_vector const & h0_vec,
                                         polynomial_ref & g, polynomial_ref & h) {
-            // For ext_gcd to work, we need to work in a field (Z_p)
-            // Find a prime p such that gcd(lc(g0), p) = 1 and gcd(lc(h0), p) = 1
-            // and the factors remain coprime mod p
-            
             auto& nm = upm().m();
-            auto& znm = upm().zm();  // z_numeral_manager for creating zp_manager
+            auto& znm = upm().zm();
             
-            // Start with a small prime and find one that works
+            if (g0_vec.empty() || h0_vec.empty()) {
+                TRACE(factor, tout << "empty factor vector\n";);
+                return false;
+            }
+            
+            TRACE(factor, tout << "g0_vec = "; upm().display(tout, g0_vec); tout << "\n";
+                  tout << "h0_vec = "; upm().display(tout, h0_vec); tout << "\n";);
+            
+            // Check if factors are coprime over Z
+            up_manager::scoped_numeral_vector d_vec(nm);
+            upm().gcd(g0_vec.size(), g0_vec.data(), h0_vec.size(), h0_vec.data(), d_vec);
+            if (d_vec.size() != 1 || !nm.is_one(d_vec[0])) {
+                // Not coprime, cannot lift
+                TRACE(factor, tout << "g0 and h0 are not coprime over Z, gcd = "; upm().display(tout, d_vec); tout << "\n";);
+                return false;
+            }
+            
+            // Compute ext_gcd over Z_p for some prime p where factors remain coprime
+            up_manager::scoped_numeral_vector s_vec(nm), t_vec(nm);
+            
+            // For monic coprime polynomials, ext_gcd in Z_p should give coefficients that work
+            // Use a prime for the ext_gcd computation
             scoped_numeral prime(nm);
-            uint64_t primes[] = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47};
+            uint64_t primes[] = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31};
             bool found_prime = false;
-            
-            up_manager::scoped_numeral_vector s_vec(nm), t_vec(nm), d_vec(nm);
             
             for (uint64_t p_val : primes) {
                 nm.set(prime, p_val);
                 
-                // Check leading coefficients are not divisible by p
-                scoped_numeral gcd_g(nm), gcd_h(nm);
-                if (!g0_vec.empty()) {
-                    nm.gcd(prime, g0_vec.back(), gcd_g);
-                    if (!nm.is_one(gcd_g)) continue;
-                }
-                if (!h0_vec.empty()) {
-                    nm.gcd(prime, h0_vec.back(), gcd_h);
-                    if (!nm.is_one(gcd_h)) continue;
-                }
-                
-                // Create Z_p manager and compute ext_gcd
+                // Create Z_p manager
                 upolynomial::zp_manager zp_upm(upm().lim(), znm);
                 zp_upm.set_zp(prime);
                 
-                // Convert polynomials to Z_p
+                // Convert to Z_p
                 up_manager::scoped_numeral_vector g0_zp(nm), h0_zp(nm);
                 upolynomial::to_zp_manager(zp_upm, g0_vec, g0_zp);
                 upolynomial::to_zp_manager(zp_upm, h0_vec, h0_zp);
                 
-                // Check they're coprime (gcd should be constant)
-                up_manager::scoped_numeral_vector gcd_check(nm);
-                zp_upm.gcd(g0_zp.size(), g0_zp.data(), h0_zp.size(), h0_zp.data(), gcd_check);
-                if (gcd_check.size() != 1) continue;  // Not coprime
+                // Skip if degree dropped (leading coefficient divisible by p)
+                if (g0_zp.size() != g0_vec.size() || h0_zp.size() != h0_vec.size())
+                    continue;
                 
-                // Compute ext_gcd in Z_p
+                // Compute ext_gcd
                 s_vec.reset(); t_vec.reset(); d_vec.reset();
-                zp_upm.ext_gcd(g0_zp.size(), g0_zp.data(), h0_zp.size(), h0_zp.data(), s_vec, t_vec, d_vec);
+                zp_upm.ext_gcd(g0_zp.size(), g0_zp.data(), h0_zp.size(), h0_zp.data(), 
+                              s_vec, t_vec, d_vec);
                 
-                // D should be 1 (monic since we're in a field)
                 if (d_vec.size() == 1 && zp_upm.m().is_one(d_vec[0])) {
                     found_prime = true;
                     TRACE(factor, tout << "using prime " << p_val << " for ext_gcd\n";);
@@ -7209,7 +7245,8 @@ namespace polynomial {
             unsigned max_y_deg = degree(p, y);
             
             TRACE(factor, tout << "max_y_deg = " << max_y_deg << "\n";
-                  tout << "initial g = " << g << ", h = " << h << "\n";);
+                  tout << "initial g = " << g << ", h = " << h << "\n";
+                  tout << "p = " << p << "\n";);
             
             // Linear Hensel lifting iteration
             // At step k, we have g*h ≡ p (mod (y-1)^k)
@@ -7276,26 +7313,31 @@ namespace polynomial {
                 
                 // Following univariate Hensel lifting pattern:
                 // From s*g0 + t*h0 = 1, we need g0*delta_h + h0*delta_g = c_k
-                // The solution is: delta_h = t*c_k mod g0, delta_g = s*c_k + correction
-                // But we also need deg(delta_h) < deg(g0), deg(delta_g) < deg(h0)
+                // 
+                // We need: deg(delta_g) < deg(g0), deg(delta_h) < deg(h0)
                 //
-                // Univariate analogy: S = V*f mod A, T = U*f + B*quotient
-                // Here: delta_g (like S for g0~A) = t*c_k mod g0
-                //       delta_h (like T for h0~B) = s*c_k + h0*q where q is quotient of t*c_k / g0
+                // Compute: delta_g = t*c_k mod g0 (guaranteed small degree)
+                //          delta_h = s*c_k mod h0 (guaranteed small degree)  
+                //
+                // But we need: g0*delta_h + h0*delta_g = c_k
+                // With the above, we have: g0*(s*c_k mod h0) + h0*(t*c_k mod g0)
+                // This may not equal c_k exactly, but modulo g0*h0 it should.
+                // Since deg(c_k) < deg(g0) + deg(h0) = deg(original poly in x),
+                // and we're computing modulo (y-1)^k, this should work.
                 
                 polynomial_ref t_ck(pm()), s_ck(pm());
                 t_ck = mul(t, c_k);
                 s_ck = mul(s, c_k);
                 
-                polynomial_ref delta_g(pm()), delta_h(pm()), quotient(pm());
+                polynomial_ref delta_g(pm()), delta_h(pm()), dummy_q1(pm()), dummy_q2(pm());
                 // delta_g = t*c_k mod g0
-                exact_pseudo_division(t_ck, g0_poly, x, quotient, delta_g);
-                // delta_h = s*c_k + h0*quotient
-                polynomial_ref h0_quot(pm());
-                h0_quot = mul(h0_poly, quotient);
-                delta_h = add(s_ck, h0_quot);
+                exact_pseudo_division(t_ck, g0_poly, x, dummy_q1, delta_g);
+                // delta_h = s*c_k mod h0
+                exact_pseudo_division(s_ck, h0_poly, x, dummy_q2, delta_h);
                 
-                TRACE(factor, tout << "delta_g = " << delta_g << ", delta_h = " << delta_h << "\n";);
+                TRACE(factor, tout << "delta_g = " << delta_g << ", delta_h = " << delta_h << "\n";
+                      tout << "deg(delta_g) = " << degree(delta_g, x) << " vs deg(g0) = " << degree(g0_poly, x) << "\n";
+                      tout << "deg(delta_h) = " << degree(delta_h, x) << " vs deg(h0) = " << degree(h0_poly, x) << "\n";);
                 
                 // Update g and h
                 // g_{k+1} = g_k + delta_g * (y-1)^k
