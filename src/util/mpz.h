@@ -136,7 +136,6 @@ protected:
     friend class mpz_stack;
 public:
     mpz(int v = 0) noexcept : m_value(static_cast<uintptr_t>(static_cast<intptr_t>(v)) << 1) {}
-    }
     
     mpz(mpz_type* ptr) noexcept {
         SASSERT(ptr);
@@ -155,15 +154,11 @@ public:
     }
 
     void set(int v) {
-        if (is_small()) {
-            m_value = static_cast<uintptr_t>(static_cast<intptr_t>(v)) << 1;
-        } else {
-            bool is_negative = v < 0;
-            c.set_sign(is_negative ? -1 : 1);
-            auto *p = ptr();
-            p->m_digits[0] = static_cast<digit_t>(is_negative ? -v : v);
-            p->m_size = 1;
-        }
+        m_value = static_cast<uintptr_t>(static_cast<intptr_t>(v)) << 1;
+    }
+
+    void swap(mpz & other) noexcept {
+        std::swap(m_value, other.m_value);
     }
 
     inline bool is_small() const { 
@@ -598,6 +593,9 @@ public:
     }
 
     void set(mpz & a, int val) {
+        if (!is_small(a)) {
+            deallocate(a);
+        }
         a.set(val);
     }
 
