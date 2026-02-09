@@ -239,7 +239,7 @@ void proto_model::cleanup() {
                 unregister_decl(faux);
             }
         }
-        m_aux_decls.swap(found_aux_fs);
+        m_aux_decls = std::move(found_aux_fs);
     }
     TRACE(model_bug, model_v2_pp(tout, *this););
 }
