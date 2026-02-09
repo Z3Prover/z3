@@ -25,6 +25,7 @@ Notes:
 #include "util/buffer.h"
 #include "util/scoped_ptr_vector.h"
 #include "math/polynomial/upolynomial_factorization.h"
+#include "math/polynomial/upolynomial_factorization_int.h"
 #include "math/polynomial/polynomial_primes.h"
 #include "util/permutation.h"
 #include "math/polynomial/algebraic_numbers.h"
@@ -7078,29 +7079,39 @@ namespace polynomial {
             // We found multiple factors in the univariate case.
             // Try to lift them back to multivariate factors using Hensel lifting.
             
-            if (other_vars.size() == 1 && fs.distinct_factors() == 2) {
-                // Exactly 2 factors - use Hensel lifting
+            if (other_vars.size() == 1) {
                 var y = other_vars[0];
+                unsigned num_factors = fs.distinct_factors();
                 
-                numeral_vector const & g0_vec = fs[0];
-                numeral_vector const & h0_vec = fs[1];
-                
-                TRACE(factor, tout << "trying Hensel lift with 2 factors, y = x" << y << "\n";
-                      tout << "g0 = "; upm().display(tout, g0_vec); tout << "\n";
-                      tout << "h0 = "; upm().display(tout, h0_vec); tout << "\n";);
-                
-                polynomial_ref g(pm()), h(pm());
-                if (try_hensel_lift_2_factors(p, x, y, g0_vec, h0_vec, g, h)) {
-                    TRACE(factor, tout << "Hensel lift succeeded: g = " << g << ", h = " << h << "\n";);
-                    factor_sqf_pp(g, r, x, k, factor_params());
-                    factor_sqf_pp(h, r, x, k, factor_params());
-                    return;
+                if (num_factors == 2) {
+                    // Exactly 2 factors - use Hensel lifting directly
+                    numeral_vector const & g0_vec = fs[0];
+                    numeral_vector const & h0_vec = fs[1];
+                    
+                    TRACE(factor, tout << "trying Hensel lift with 2 factors, y = x" << y << "\n";
+                          tout << "g0 = "; upm().display(tout, g0_vec); tout << "\n";
+                          tout << "h0 = "; upm().display(tout, h0_vec); tout << "\n";);
+                    
+                    polynomial_ref g(pm()), h(pm());
+                    if (try_hensel_lift_2_factors(p, x, y, g0_vec, h0_vec, g, h)) {
+                        TRACE(factor, tout << "Hensel lift succeeded: g = " << g << ", h = " << h << "\n";);
+                        factor_sqf_pp(g, r, x, k, factor_params());
+                        factor_sqf_pp(h, r, x, k, factor_params());
+                        return;
+                    }
+                    TRACE(factor, tout << "Hensel lift failed\n";);
                 }
-                TRACE(factor, tout << "Hensel lift failed\n";);
+                else if (num_factors > 2) {
+                    // More than 2 factors - this is complex and requires more sophisticated handling
+                    // The Hensel lifting algorithm needs careful treatment when factor degrees > 1
+                    // For now, leave this case unhandled
+                    
+                    TRACE(factor, tout << "TODO: handle " << num_factors << " factors\n";);
+                    
+                    // Could try: split into 2 groups where one group has degree 1
+                    // But this only works when there's at least one linear factor
+                }
             }
-            
-            // TODO: Handle more than 2 factors by combining pairs
-            // This requires working in a field (e.g., Z_p) for ext_gcd to work correctly
             
             // Hensel lifting not implemented or failed for this case
             // Return original polynomial unfactored
@@ -7119,13 +7130,62 @@ namespace polynomial {
         bool try_hensel_lift_2_factors(polynomial const * p, var x, var y,
                                         numeral_vector const & g0_vec, numeral_vector const & h0_vec,
                                         polynomial_ref & g, polynomial_ref & h) {
-            // Compute ext_gcd: s*g0 + t*h0 = 1 (as univariate polynomials)
-            up_manager::scoped_numeral_vector s_vec(upm().m()), t_vec(upm().m()), d_vec(upm().m());
-            upm().ext_gcd(g0_vec, h0_vec, s_vec, t_vec, d_vec);
+            // For ext_gcd to work, we need to work in a field (Z_p)
+            // Find a prime p such that gcd(lc(g0), p) = 1 and gcd(lc(h0), p) = 1
+            // and the factors remain coprime mod p
             
-            // Check that gcd is 1
-            if (d_vec.size() != 1 || !upm().m().is_one(d_vec[0])) {
-                TRACE(factor, tout << "ext_gcd(g0, h0) != 1, cannot lift\n";);
+            auto& nm = upm().m();
+            auto& znm = upm().zm();  // z_numeral_manager for creating zp_manager
+            
+            // Start with a small prime and find one that works
+            scoped_numeral prime(nm);
+            uint64_t primes[] = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47};
+            bool found_prime = false;
+            
+            up_manager::scoped_numeral_vector s_vec(nm), t_vec(nm), d_vec(nm);
+            
+            for (uint64_t p_val : primes) {
+                nm.set(prime, p_val);
+                
+                // Check leading coefficients are not divisible by p
+                scoped_numeral gcd_g(nm), gcd_h(nm);
+                if (!g0_vec.empty()) {
+                    nm.gcd(prime, g0_vec.back(), gcd_g);
+                    if (!nm.is_one(gcd_g)) continue;
+                }
+                if (!h0_vec.empty()) {
+                    nm.gcd(prime, h0_vec.back(), gcd_h);
+                    if (!nm.is_one(gcd_h)) continue;
+                }
+                
+                // Create Z_p manager and compute ext_gcd
+                upolynomial::zp_manager zp_upm(upm().lim(), znm);
+                zp_upm.set_zp(prime);
+                
+                // Convert polynomials to Z_p
+                up_manager::scoped_numeral_vector g0_zp(nm), h0_zp(nm);
+                upolynomial::to_zp_manager(zp_upm, g0_vec, g0_zp);
+                upolynomial::to_zp_manager(zp_upm, h0_vec, h0_zp);
+                
+                // Check they're coprime (gcd should be constant)
+                up_manager::scoped_numeral_vector gcd_check(nm);
+                zp_upm.gcd(g0_zp.size(), g0_zp.data(), h0_zp.size(), h0_zp.data(), gcd_check);
+                if (gcd_check.size() != 1) continue;  // Not coprime
+                
+                // Compute ext_gcd in Z_p
+                s_vec.reset(); t_vec.reset(); d_vec.reset();
+                zp_upm.ext_gcd(g0_zp.size(), g0_zp.data(), h0_zp.size(), h0_zp.data(), s_vec, t_vec, d_vec);
+                
+                // D should be 1 (monic since we're in a field)
+                if (d_vec.size() == 1 && zp_upm.m().is_one(d_vec[0])) {
+                    found_prime = true;
+                    TRACE(factor, tout << "using prime " << p_val << " for ext_gcd\n";);
+                    break;
+                }
+            }
+            
+            if (!found_prime) {
+                TRACE(factor, tout << "could not find suitable prime for ext_gcd\n";);
                 return false;
             }
             
