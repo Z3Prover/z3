@@ -236,10 +236,10 @@ namespace smt {
                     // Set the phase of the candidates to the negation of their assumed values
                     LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
                     expr* atom = bb.lit.get();
-                    bool phase = false;
+                    bool phase = true;
 
                     if (m.is_not(atom)) {
-                        phase = true;
+                        phase = false;
                         atom = to_app(atom)->get_arg(0);
                     }
 
