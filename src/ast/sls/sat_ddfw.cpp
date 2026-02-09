@@ -271,7 +271,7 @@ namespace sat {
 
     void ddfw::flip(bool_var v) {
         ++m_flips;
-        m_vars[v].m_timestamp = m_flips;
+        m_vars[v].m_timestamp = static_cast<unsigned>(m_flips);
         m_limit.inc();
         literal lit = literal(v, !value(v));
         literal nlit = ~lit;

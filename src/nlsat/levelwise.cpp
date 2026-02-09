@@ -155,7 +155,7 @@ namespace nlsat {
         // Every root function on each side must be connected to the boundary through edges.
         bool relation_invariant() const {
             auto const& rfs = m_rel.m_rfunc;
-            unsigned n = rfs.size();
+            unsigned n = static_cast<unsigned>(rfs.size());
             if (n == 0) return true;
 
             // Build adjacency list from pairs (using ps_idx)
@@ -602,7 +602,7 @@ namespace nlsat {
 
         void fill_relation_pairs_for_section_biggest_cell() {
             auto const& rfs = m_rel.m_rfunc;
-            unsigned n = rfs.size();
+            unsigned n = static_cast<unsigned>(rfs.size());
             if (n == 0)
                 return;
             SASSERT(is_set(m_l_rf));
@@ -624,7 +624,7 @@ namespace nlsat {
         // K = lower rfunc positions, f = upper rfunc positions
         void build_both_side_spanning_tree() {
             auto const& rfs = m_rel.m_rfunc;
-            unsigned n = rfs.size();
+            unsigned n = static_cast<unsigned>(rfs.size());
             SASSERT(n > 0 && is_set(m_l_rf) && is_set(m_u_rf));
             SASSERT(!is_section());
             SASSERT(!same_boundary_poly());
@@ -791,7 +791,7 @@ namespace nlsat {
         // Helper: Connect non-tree (single-side) polynomials to their respective boundaries
         void connect_non_tree_to_bounds() {
             auto const& rfs = m_rel.m_rfunc;
-            unsigned n = rfs.size();
+            unsigned n = static_cast<unsigned>(rfs.size());
             
             // Lower side: connect single-side polys to lower boundary
             for (unsigned j = 0; j < m_l_rf; ++j)
@@ -807,7 +807,7 @@ namespace nlsat {
         // Helper: Connect spanning tree extremes to boundaries (when boundaries are different polys)
         void connect_tree_extremes_to_bounds() {
             auto const& rfs = m_rel.m_rfunc;
-            unsigned n = rfs.size();
+            unsigned n = static_cast<unsigned>(rfs.size());
             
             // Find max lower both-side poly (closest to lower boundary from below)
             unsigned max_lower_both = UINT_MAX;
