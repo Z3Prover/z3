@@ -2129,8 +2129,7 @@ namespace polynomial {
                 for (unsigned i = 0; i < sz; ++i) {
                     monomial * m = m_tmp_ms[i];
                     unsigned pos = m_m2pos.get(m);
-                    new_as.push_back(numeral());
-                    swap(new_as.back(), m_tmp_as[pos]);
+                    new_as.push_back(std::move(m_tmp_as[pos]));
                     m_m2pos.reset(m);
                     m_m2pos.set(m, i);
                 }
