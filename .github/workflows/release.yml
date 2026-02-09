@@ -3,10 +3,6 @@ name: Release Build
 on:
   workflow_dispatch:
     inputs:
-      release_version:
-        description: 'Release version (e.g., 4.15.8)'
-        required: true
-        type: string
       publish_github:
         description: 'Publish to GitHub Releases'
         required: false
@@ -27,7 +23,7 @@ permissions:
   contents: write
 
 env:
-  RELEASE_VERSION: ${{ github.event.inputs.release_version }}
+  RELEASE_VERSION: '4.15.8'
 
 jobs:
   # ============================================================================
