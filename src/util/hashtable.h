@@ -129,11 +129,11 @@ template<typename Entry, typename HashProc, typename EqProc>
 class core_hashtable : private HashProc, private EqProc {
 protected:
     Entry *  m_table;
-    unsigned m_capacity;
-    unsigned m_size;
-    unsigned m_num_deleted;
+    unsigned m_capacity = 0;
+    unsigned m_size = 0;
+    unsigned m_num_deleted = 0;
 #ifdef HASHTABLE_STATISTICS
-    unsigned long long m_st_collision;
+    unsigned long long m_st_collision = 0;
 #endif
 
     Entry* alloc_table(unsigned size) {
@@ -243,15 +243,10 @@ public:
                    HashProc const & h = HashProc(), 
                    EqProc const & e = EqProc()):
         HashProc(h),
-        EqProc(e) {
+        EqProc(e),
+        m_capacity(initial_capacity) {
         SASSERT(is_power_of_two(initial_capacity));
-        m_table       = alloc_table(initial_capacity);
-        m_capacity    = initial_capacity;
-        m_size        = 0;
-        m_num_deleted = 0;
-        HS_CODE({
-            m_st_collision = 0;
-        });
+        m_table = alloc_table(initial_capacity);
     }
 
     core_hashtable(const core_hashtable & source):
@@ -261,20 +256,16 @@ public:
         m_table       = alloc_table(m_capacity);
         copy_table(source.m_table, m_capacity, m_table, m_capacity);
         m_size        = source.m_size;
-        m_num_deleted = 0;
-        HS_CODE({
-            m_st_collision = 0;
-        });
     }
 
     core_hashtable(core_hashtable && source) noexcept :
         HashProc(source),
         EqProc(source),
-        m_table(nullptr) {
-        m_capacity    = source.m_capacity;
-        std::swap(m_table, source.m_table);
-        m_size        = source.m_size;
-        m_num_deleted = source.m_num_deleted;
+        m_table(source.m_table),
+        m_capacity(source.m_capacity),
+        m_size(source.m_size),
+        m_num_deleted(source.m_num_deleted) {
+        source.m_table = nullptr;
         HS_CODE({
             m_st_collision = source.m_st_collision;
         });
@@ -285,13 +276,7 @@ public:
     }
 
     void swap(core_hashtable & source) noexcept {
-        std::swap(m_table,       source.m_table);
-        std::swap(m_capacity,    source.m_capacity);
-        std::swap(m_size,        source.m_size);
-        std::swap(m_num_deleted, source.m_num_deleted);
-        HS_CODE({
-            std::swap(m_st_collision, source.m_st_collision);
-        });
+        std::swap(*this, source);
     }
 
     void reset() {
