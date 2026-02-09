@@ -68,15 +68,15 @@ class mpz_cell {
 
 /**
    \brief Multi-precision integer.
-   
-   If m_kind == mpz_small, it is a small number and the value is stored in m_val.
-   If m_kind == mpz_large,   the value is stored in m_ptr and m_ptr != nullptr.
-                           m_val contains the sign (-1 negative, 1 positive)   
-                           under winodws, m_ptr points to a mpz_cell that store the value. 
-*/
 
-enum mpz_kind { mpz_small = 0, mpz_large = 1};
-enum mpz_owner { mpz_self = 0, mpz_ext = 1};
+   m_value encodes either a small integer (if the least significant bit is 1)
+   or a pointer to a mpz_cell structure (if the least significant bit is 0).
+   The last 3 bits of pointers are always 0 due to alignment, so we use them
+   to store additional information:
+        - bit 0: small/large info (0 = small, 1 = large)
+        - bit 1: sign bit (0 = non-negative, 1 = negative)
+        - bit 2: owner info (0 = owned, 1 = external)
+*/
 
 class mpz {
 #ifndef _MP_GMP
@@ -84,11 +84,48 @@ class mpz {
 #else
     typedef mpz_t mpz_type;
 #endif
+private:
+    uintptr_t m_value = 0;
+
+    static constexpr uintptr_t LARGE_BIT = 0x1;
+    static constexpr uintptr_t SIGN_BIT  = 0x2;
+    static constexpr uintptr_t OWNER_BIT = 0x4;
+    static constexpr uintptr_t MPZ_PTR_MASK  = ~static_cast<uintptr_t>(0x7);
+
+    mpz_type * ptr() const {
+        SASSERT(!is_small());
+        return reinterpret_cast<mpz_type*>(m_value & MPZ_PTR_MASK);
+    }
+
+    void set_ptr(mpz_type* p, bool is_negative, bool is_external) {
+        SASSERT(is_small());
+        SASSERT((reinterpret_cast<uintptr_t>(p) & 0x7) == 0); // Check alignment
+        m_value = reinterpret_cast<uintptr_t>(p) | LARGE_BIT;
+        if (is_negative)
+            m_value |= SIGN_BIT;
+        if (is_external)
+            m_value |= OWNER_BIT;
+    }
+
+    int get_sign() const {
+        SASSERT(!is_small());
+        return (m_value & SIGN_BIT) ? -1 : 1;
+    }
+
+    void set_sign(int s) {
+        SASSERT(!is_small());
+        if (s < 0)
+            m_value |= SIGN_BIT;
+        else
+            m_value &= ~SIGN_BIT;
+    }
+
+    bool is_external() const {
+        SASSERT(!is_small());
+        return (m_value & OWNER_BIT) != 0;
+    }
+
 protected:
-    int        m_val; 
-    unsigned   m_kind:1;
-    unsigned   m_owner:1;
-    mpz_type * m_ptr;
     friend class mpz_manager<true>;
     friend class mpz_manager<false>;
     friend class mpq_manager<true>;
@@ -98,42 +135,60 @@ protected:
     friend class mpbq_manager;
     friend class mpz_stack;
 public:
-    mpz(int v = 0) noexcept : m_val(v), m_kind(mpz_small), m_owner(mpz_self), m_ptr(nullptr) {}
-    mpz(mpz_type* ptr) noexcept : m_val(0), m_kind(mpz_small), m_owner(mpz_ext), m_ptr(ptr) { SASSERT(ptr); }
-    mpz(mpz && other) noexcept : mpz() { swap(other); }
+    mpz(int v = 0) noexcept : m_value(static_cast<uintptr_t>(static_cast<intptr_t>(v)) << 1) {}
+    }
+    
+    mpz(mpz_type* ptr) noexcept {
+        SASSERT(ptr);
+        set_ptr(ptr, false, true); // external pointer, non-negative
+    }
+    
+    mpz(mpz && other) noexcept : m_value(other.m_value) {
+        other.m_value = 0; // reset other to small
+    }
 
     mpz& operator=(mpz const& other) = delete;
+    
     mpz& operator=(mpz &&other) noexcept {
-        swap(other);
+        std::swap(m_value, other.m_value);
         return *this;
     }
 
-    void swap(mpz & other) noexcept {
-        std::swap(m_val, other.m_val);
-        std::swap(m_ptr, other.m_ptr);
-        unsigned o = m_owner; m_owner = other.m_owner; other.m_owner = o;
-        unsigned k = m_kind; m_kind = other.m_kind; other.m_kind = k;
-    }
-
     void set(int v) {
-        m_val = v;
-        m_kind = mpz_small;
+        if (is_small()) {
+            m_value = static_cast<uintptr_t>(static_cast<intptr_t>(v)) << 1;
+        } else {
+            bool is_negative = v < 0;
+            c.set_sign(is_negative ? -1 : 1);
+            auto *p = ptr();
+            p->m_digits[0] = static_cast<digit_t>(is_negative ? -v : v);
+            p->m_size = 1;
+        }
     }
 
-    inline bool is_small() const { return m_kind == mpz_small; }
+    inline bool is_small() const { 
+        return (m_value & LARGE_BIT) == 0; 
+    }
 
-    inline int value() const { SASSERT(is_small());  return m_val; }
+    inline int value() const { 
+        SASSERT(is_small());
+        // Decode small integer: shift right by 1 (arithmetic shift to preserve sign)
+        return static_cast<int>(static_cast<intptr_t>(m_value) >> 1);
+    }
 
-    inline int sign() const { SASSERT(!is_small()); return m_val; }
+    inline int sign() const { 
+        SASSERT(!is_small()); 
+        return get_sign();
+    }
 };
 
 #ifndef _MP_GMP
 class mpz_stack : public mpz {
     static const unsigned capacity = 8;
-    unsigned char m_bytes[sizeof(mpz_cell) + sizeof(digit_t) * capacity];
+    alignas(8) unsigned char m_bytes[sizeof(mpz_cell) + sizeof(digit_t) * capacity];
 public:
     mpz_stack():mpz(reinterpret_cast<mpz_cell*>(m_bytes)) {
-        m_ptr->m_capacity = capacity;
+        ptr()->m_capacity = capacity;
     }
 };
 #else
@@ -169,16 +224,11 @@ class mpz_manager {
     // make sure that n is a big number and has capacity equal to at least c.
     void allocate_if_needed(mpz & n, unsigned c) {
         if (m_init_cell_capacity > c) c = m_init_cell_capacity;
-        if (n.m_ptr == nullptr || capacity(n) < c) {
+        if (n.is_small() || n.ptr() == nullptr || capacity(n) < c) {
             deallocate(n);
-            n.m_val             = 1;
-            n.m_kind            = mpz_large;
-            n.m_owner           = mpz_self;
-            n.m_ptr             = allocate(c);
+            n.set_ptr(allocate(c), false, false); // positive, owned
         }
-        else {
-            n.m_kind = mpz_large;
-        }
+        // else already has enough capacity, keep as large
     }
 
     void deallocate(bool is_heap, mpz_cell * ptr);
@@ -230,14 +280,16 @@ class mpz_manager {
         }
     }
 
-    void clear(mpz& n) { if (n.m_ptr) { mpz_clear(*n.m_ptr); }}
+    void clear(mpz& n) { if (!n.is_small() && n.ptr()) { mpz_clear(*n.ptr()); }}
 #endif
 
     void deallocate(mpz& n) {
-        if (n.m_ptr) {
-            deallocate(n.m_owner == mpz_self, n.m_ptr);
-            n.m_ptr = nullptr;
-            n.m_kind = mpz_small;
+        if (!n.is_small()) {
+            auto* p = n.ptr();
+            if (p) {
+                deallocate(!n.is_external(), p);
+                n.m_value = 0; // reset to small
+            }
         }
     }
 
@@ -262,11 +314,20 @@ class mpz_manager {
 
 #ifndef _MP_GMP
 
-    static unsigned capacity(mpz const & c) { return c.m_ptr->m_capacity; }
+    static unsigned capacity(mpz const & c) {
+        SASSERT(!c.is_small());
+        return c.ptr()->m_capacity;
+    }
 
-    static unsigned size(mpz const & c) { return c.m_ptr->m_size; }
+    static unsigned size(mpz const & c) {
+        SASSERT(!c.is_small());
+        return c.ptr()->m_size;
+    }
 
-    static digit_t * digits(mpz const & c) { return c.m_ptr->m_digits; }
+    static digit_t * digits(mpz const & c) {
+        SASSERT(!c.is_small());
+        return c.ptr()->m_digits;
+    }
 
     // Return true if the absolute value fits in a UINT64
     static bool is_abs_uint64(mpz const & a) {
@@ -282,7 +343,7 @@ class mpz_manager {
     static uint64_t big_abs_to_uint64(mpz const & a) {
         SASSERT(is_abs_uint64(a));
         SASSERT(!is_small(a));
-        if (a.m_ptr->m_size == 1)
+        if (a.ptr()->m_size == 1)
             return digits(a)[0];
         if (sizeof(digit_t) == sizeof(uint64_t))
             // 64-bit machine
@@ -309,7 +370,7 @@ class mpz_manager {
         if (is_small(a)) {
             if (a.value() == INT_MIN) {
                 sign = -1;
-                cell = m_int_min.m_ptr;
+                cell = m_int_min.ptr();
             }
             else {
                 cell = reserve;
@@ -326,7 +387,7 @@ class mpz_manager {
         }
         else {
             sign = a.sign();
-            cell = a.m_ptr;
+            cell = a.ptr();
         }
     }
 
@@ -343,12 +404,10 @@ class mpz_manager {
     };
     
     void mk_big(mpz & a) {
-        if (a.m_ptr == nullptr) {
-            a.m_val = 0;
-            a.m_ptr = allocate();
-            a.m_owner = mpz_self;
+        if (a.is_small()) {
+            a.set_ptr(allocate(), false, false); // positive, owned
         }
-        a.m_kind = mpz_large;
+        // else already large with valid pointer
     }
 
 
@@ -448,13 +507,15 @@ public:
     static bool is_zero(mpz const & a) { return sign(a) == 0; }
 
     static int sign(mpz const & a) {
-#ifndef _MP_GMP
-        return a.m_val;
-#else
-        if (is_small(a))
-            return a.m_val;
+        if (is_small(a)) {
+            int v = a.value();
+            return (v > 0) - (v < 0); // Returns -1, 0, or 1
+        }
         else
-            return mpz_sgn(*a.m_ptr);
+#ifndef _MP_GMP
+            return a.sign();
+#else
+            return mpz_sgn(*a.ptr());
 #endif
     }
     
@@ -625,7 +686,7 @@ public:
 #else
         if (is_small(a))
             return a.value() == 1;
-        return mpz_cmp_si(*a.m_ptr, 1) == 0;
+        return mpz_cmp_si(*a.ptr(), 1) == 0;
 #endif
     }
 
@@ -635,7 +696,7 @@ public:
 #else
         if (is_small(a))
             return a.value() == -1;
-        return mpz_cmp_si(*a.m_ptr, -1) == 0;
+        return mpz_cmp_si(*a.ptr(), -1) == 0;
 #endif
     }
 
@@ -713,7 +774,7 @@ public:
 #ifndef _MP_GMP
         return !(0x1 & digits(a)[0]);
 #else
-        return mpz_even_p(*a.m_ptr);
+        return mpz_even_p(*a.ptr());
 #endif        
     }
 
