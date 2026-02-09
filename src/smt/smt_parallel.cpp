@@ -236,10 +236,10 @@ namespace smt {
                     // Set the phase of the candidates to the negation of their assumed values
                     LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
                     expr* atom = bb.lit.get();
-                    bool phase = true;
+                    bool phase = false;
 
                     if (m.is_not(atom)) {
-                        phase = false;
+                        phase = true;
                         atom = to_app(atom)->get_arg(0);
                     }
 
@@ -281,7 +281,7 @@ namespace smt {
                 // Restore activities of backbone candidates to old values after the search
                 for (auto const& [v, act] : original_activities) {
                     ctx->set_activity(v, act);
-                    ctx->unforce_phase(v); // can do ablation study here to see if it's necessary
+                    // ctx->unforce_phase(v); // can do ablation study here to see if it's necessary
                 }
             }
 
