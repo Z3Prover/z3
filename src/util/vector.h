@@ -650,6 +650,17 @@ public:
     svector(SZ s):vector<T, false, SZ>(s) {}
     svector(SZ s, T const & elem):vector<T, false, SZ>(s, elem) {}
     svector(SZ s, T const * data):vector<T, false, SZ>(s, data) {}
+    svector(const svector&) = default;
+    svector(svector&&) noexcept = default;
+
+    svector & operator=(const svector & source) {
+        vector<T, false, SZ>::operator=(source);
+        return *this;
+    }
+    svector & operator=(svector && source) noexcept {
+        vector<T, false, SZ>::operator=(std::move(source));
+        return *this;
+    }
 };
 
 

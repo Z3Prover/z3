@@ -208,7 +208,7 @@ namespace sat {
                 lits2.insert(*it);
             }
         }
-        lits1 = lits3;
+        lits1 = std::move(lits3);
     }
 
     literal_vector& mus::get_core() {

@@ -385,7 +385,6 @@ namespace qe {
             // They are sorted by size, so we project the largest variables first to avoid 
             // renaming variables. 
             for (unsigned i = vars.size(); i-- > 0;) {
-                new_result.reset();
                 ex.project(vars[i], result.size(), result.data(), new_result);
                 TRACE(qe, display_project(tout, vars[i], result, new_result););
                 result = std::move(new_result);
