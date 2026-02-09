@@ -99,9 +99,8 @@ private:
     static constexpr int SMALL_BITS = sizeof(uintptr_t) * 8 - 1;
     
     // Maximum and minimum values that can be stored as small integers
-    // Use unsigned arithmetic to avoid undefined behavior on left shift
-    static constexpr int64_t SMALL_INT_MAX = (static_cast<uint64_t>(1) << (SMALL_BITS - 1)) - 1;
-    static constexpr int64_t SMALL_INT_MIN = -(static_cast<int64_t>(static_cast<uint64_t>(1) << (SMALL_BITS - 1)));
+    static constexpr int64_t SMALL_INT_MAX = (static_cast<int64_t>(1) << (SMALL_BITS - 1)) - 1;
+    static constexpr int64_t SMALL_INT_MIN = -(static_cast<int64_t>(1) << (SMALL_BITS - 1));
 
     static bool fits_in_small(int64_t v) {
         return v >= SMALL_INT_MIN && v <= SMALL_INT_MAX;
