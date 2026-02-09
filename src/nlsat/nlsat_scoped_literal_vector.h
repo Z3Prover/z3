@@ -30,11 +30,8 @@ namespace nlsat {
         scoped_literal_vector(solver & s):m_solver(s) {}
         ~scoped_literal_vector() { reset(); }
         
-        // Move constructor
-        scoped_literal_vector(scoped_literal_vector && other) noexcept
-            : m_solver(other.m_solver), m_lits(std::move(other.m_lits)) {
-            // other.m_lits is now empty, so its destructor won't dec_ref anything
-        }
+        // Move constructor - use default (copies reference, moves m_lits)
+        scoped_literal_vector(scoped_literal_vector && other) noexcept = default;
         
         // Move assignment operator
         scoped_literal_vector & operator=(scoped_literal_vector && other) noexcept {
