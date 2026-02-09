@@ -7076,14 +7076,198 @@ namespace polynomial {
             }
             
             // We found multiple factors in the univariate case.
-            // TODO: Implement Hensel lifting for multivariate case
-            // This requires lifting factors from Z[x] to Z[x,y1,...,yn]
-            // by iteratively lifting one variable at a time.
+            // Try to lift them back to multivariate factors using Hensel lifting.
             //
-            // For now, return the original polynomial unfactored.
-            // The univariate factorization shows the potential factors exist.
-            TRACE(factor, tout << "found " << fs.distinct_factors() << " univariate factors - Hensel lifting not yet implemented\n";);
+            // For simplicity, we'll handle the case of exactly 2 factors first.
+            // More factors require combining pairs iteratively.
+            
+            if (fs.distinct_factors() == 2 && other_vars.size() == 1) {
+                // Try Hensel lifting for 2 factors and 1 extra variable
+                var y = other_vars[0];
+                
+                // Get univariate factors as numeral vectors
+                numeral_vector const & g0_vec = fs[0];
+                numeral_vector const & h0_vec = fs[1];
+                
+                TRACE(factor, tout << "trying Hensel lift with 2 factors, y = x" << y << "\n";
+                      tout << "g0 = "; upm().display(tout, g0_vec); tout << "\n";
+                      tout << "h0 = "; upm().display(tout, h0_vec); tout << "\n";);
+                
+                // Attempt Hensel lifting
+                polynomial_ref g(pm()), h(pm());
+                if (try_hensel_lift_2_factors(p, x, y, g0_vec, h0_vec, g, h)) {
+                    TRACE(factor, tout << "Hensel lift succeeded: g = " << g << ", h = " << h << "\n";);
+                    // Successfully lifted - add factors recursively
+                    factor_sqf_pp(g, r, x, k, factor_params());
+                    factor_sqf_pp(h, r, x, k, factor_params());
+                    return;
+                }
+                TRACE(factor, tout << "Hensel lift failed\n";);
+            }
+            
+            // Hensel lifting not implemented or failed for this case
+            // Return original polynomial unfactored
+            TRACE(factor, tout << "found " << fs.distinct_factors() << " univariate factors - Hensel lifting not applicable\n";);
             r.push_back(const_cast<polynomial*>(p), k);
+        }
+        
+        /**
+         * \brief Try to lift univariate factors g0, h0 to multivariate factors g, h
+         * such that p(x,y) = g(x,y) * h(x,y) where g(x,1) = g0 and h(x,1) = h0.
+         *
+         * Uses linear Hensel lifting step by step.
+         *
+         * Returns true if lifting succeeds, false otherwise.
+         */
+        bool try_hensel_lift_2_factors(polynomial const * p, var x, var y,
+                                        numeral_vector const & g0_vec, numeral_vector const & h0_vec,
+                                        polynomial_ref & g, polynomial_ref & h) {
+            // Compute ext_gcd: s*g0 + t*h0 = 1 (as univariate polynomials)
+            up_manager::scoped_numeral_vector s_vec(upm().m()), t_vec(upm().m()), d_vec(upm().m());
+            upm().ext_gcd(g0_vec, h0_vec, s_vec, t_vec, d_vec);
+            
+            // Check that gcd is 1
+            if (d_vec.size() != 1 || !upm().m().is_one(d_vec[0])) {
+                TRACE(factor, tout << "ext_gcd(g0, h0) != 1, cannot lift\n";);
+                return false;
+            }
+            
+            TRACE(factor, tout << "ext_gcd computed: s = "; upm().display(tout, s_vec);
+                  tout << ", t = "; upm().display(tout, t_vec); tout << "\n";);
+            
+            // Convert univariate factors to polynomials (initially just in x)
+            g = to_polynomial(g0_vec.size(), g0_vec.data(), x);
+            h = to_polynomial(h0_vec.size(), h0_vec.data(), x);
+            
+            // Convert s and t to polynomials
+            polynomial_ref s(pm()), t(pm());
+            s = to_polynomial(s_vec.size(), s_vec.data(), x);
+            t = to_polynomial(t_vec.size(), t_vec.data(), x);
+            
+            polynomial_ref g0_poly(pm()), h0_poly(pm());
+            g0_poly = to_polynomial(g0_vec.size(), g0_vec.data(), x);
+            h0_poly = to_polynomial(h0_vec.size(), h0_vec.data(), x);
+            
+            // Determine the maximum degree of y in p
+            unsigned max_y_deg = degree(p, y);
+            
+            TRACE(factor, tout << "max_y_deg = " << max_y_deg << "\n";
+                  tout << "initial g = " << g << ", h = " << h << "\n";);
+            
+            // Linear Hensel lifting iteration
+            // At step k, we have g*h ≡ p (mod (y-1)^k)
+            // We compute g_{k+1}, h_{k+1} such that g_{k+1}*h_{k+1} ≡ p (mod (y-1)^{k+1})
+            
+            polynomial_ref y_minus_1(pm());
+            y_minus_1 = sub(mk_polynomial(y, 1), mk_one());  // y - 1
+            
+            polynomial_ref y_minus_1_power(pm());
+            y_minus_1_power = mk_one();  // (y-1)^0 = 1
+            
+            // Numeral 1 for substitution
+            numeral one_val;
+            m().set(one_val, 1);
+            
+            for (unsigned k = 0; k <= max_y_deg; k++) {
+                // Compute error = p - g*h
+                polynomial_ref gh(pm()), error(pm());
+                gh = mul(g, h);
+                error = sub(p, gh);
+                
+                TRACE(factor, tout << "lift step " << k << ": g = " << g << ", h = " << h << "\n";
+                      tout << "error = " << error << "\n";);
+                
+                if (is_zero(error)) {
+                    // Perfect factorization found!
+                    TRACE(factor, tout << "perfect factorization at step " << k << "\n";);
+                    m().del(one_val);
+                    return true;
+                }
+                
+                // Bail out after max_y_deg+1 iterations
+                if (k == max_y_deg) {
+                    TRACE(factor, tout << "max iterations reached\n";);
+                    m().del(one_val);
+                    return false;
+                }
+                
+                // Extract c_k = coefficient of (y-1)^k in error
+                polynomial_ref c_k(pm());
+                if (k == 0) {
+                    // c_0 is error evaluated at y=1
+                    c_k = substitute(error, 1, &y, &one_val);
+                } else {
+                    // Check divisibility by (y-1)^k
+                    if (!divides(y_minus_1_power, error)) {
+                        TRACE(factor, tout << "error not divisible by (y-1)^" << k << "\n";);
+                        m().del(one_val);
+                        return false;
+                    }
+                    polynomial_ref quotient(pm());
+                    quotient = exact_div(error, y_minus_1_power);
+                    c_k = substitute(quotient, 1, &y, &one_val);
+                }
+                
+                TRACE(factor, tout << "c_" << k << " = " << c_k << "\n";);
+                
+                if (is_zero(c_k)) {
+                    // Update (y-1)^k for next iteration
+                    TRACE(factor, tout << "c_k is zero, continuing to k=" << (k+1) << "\n";);
+                    y_minus_1_power = mul(y_minus_1_power, y_minus_1);
+                    continue;
+                }
+                
+                // Following univariate Hensel lifting pattern:
+                // From s*g0 + t*h0 = 1, we need g0*delta_h + h0*delta_g = c_k
+                // The solution is: delta_h = t*c_k mod g0, delta_g = s*c_k + correction
+                // But we also need deg(delta_h) < deg(g0), deg(delta_g) < deg(h0)
+                //
+                // Univariate analogy: S = V*f mod A, T = U*f + B*quotient
+                // Here: delta_g (like S for g0~A) = t*c_k mod g0
+                //       delta_h (like T for h0~B) = s*c_k + h0*q where q is quotient of t*c_k / g0
+                
+                polynomial_ref t_ck(pm()), s_ck(pm());
+                t_ck = mul(t, c_k);
+                s_ck = mul(s, c_k);
+                
+                polynomial_ref delta_g(pm()), delta_h(pm()), quotient(pm());
+                // delta_g = t*c_k mod g0
+                exact_pseudo_division(t_ck, g0_poly, x, quotient, delta_g);
+                // delta_h = s*c_k + h0*quotient
+                polynomial_ref h0_quot(pm());
+                h0_quot = mul(h0_poly, quotient);
+                delta_h = add(s_ck, h0_quot);
+                
+                TRACE(factor, tout << "delta_g = " << delta_g << ", delta_h = " << delta_h << "\n";);
+                
+                // Update g and h
+                // g_{k+1} = g_k + delta_g * (y-1)^k
+                // h_{k+1} = h_k + delta_h * (y-1)^k
+                polynomial_ref delta_g_term(pm()), delta_h_term(pm());
+                delta_g_term = mul(delta_g, y_minus_1_power);
+                delta_h_term = mul(delta_h, y_minus_1_power);
+                
+                g = add(g, delta_g_term);
+                h = add(h, delta_h_term);
+                
+                // Update (y-1)^k for next iteration
+                y_minus_1_power = mul(y_minus_1_power, y_minus_1);
+            }
+            
+            m().del(one_val);
+            
+            // Final check
+            polynomial_ref gh(pm());
+            gh = mul(g, h);
+            bool success = eq(gh, p);
+            TRACE(factor, tout << "final check: g*h = " << gh << ", p = " << mk_polynomial_ref(p) << ", success = " << success << "\n";);
+            return success;
+        }
+        
+        polynomial_ref mk_polynomial_ref(polynomial const * p) {
+            polynomial_ref r(pm());
+            r = const_cast<polynomial*>(p);
+            return r;
         }
 
         void factor_sqf_pp(polynomial const * p, factors & r, var x, unsigned k, factor_params const & params) {
