@@ -281,7 +281,7 @@ namespace smt {
                 // Restore activities of backbone candidates to old values after the search
                 for (auto const& [v, act] : original_activities) {
                     ctx->set_activity(v, act);
-                    // ctx->unforce_phase(v); // can do ablation study here to see if it's necessary
+                    ctx->unforce_phase(v); // can do ablation study here to see if it's necessary
                 }
             }
 
