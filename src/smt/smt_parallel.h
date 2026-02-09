@@ -38,7 +38,7 @@ namespace smt {
         context& ctx;
         unsigned num_workers;
         bool m_should_run_sls = false;
-        bool m_should_run_backbones = false;
+        bool m_should_run_global_backbones = false;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -104,13 +104,13 @@ namespace smt {
 
             void cancel_backbones_worker() {
                 IF_VERBOSE(1, verbose_stream() << "Canceling backbones worker\n");
-                p.m_backbones_worker->cancel();
+                p.m_global_backbones_worker->cancel();
             }
 
             void cancel_background_threads() {
                 cancel_workers();
                 if (p.m_should_run_sls) cancel_sls_worker();
-                if (p.m_should_run_backbones) {
+                if (p.m_should_run_global_backbones) {
                     cancel_backbones_worker();
                     m_bb_cv.notify_all();
                 }
@@ -160,7 +160,8 @@ namespace smt {
                 bool m_share_units_initial_only = true;
                 double m_max_conflict_mul = 1.5;
                 bool m_inprocessing = false;
-                bool m_backbones = false;
+                bool m_global_backbones = false;
+                bool m_local_backbones = false;
                 bool m_sls = false;
                 unsigned m_inprocessing_delay = 1;
                 unsigned m_max_cube_depth = 20;
@@ -231,7 +232,6 @@ namespace smt {
         };
 
         class backbones_worker {
-            parallel& p;
             batch_manager& b;
             ast_manager m;
             expr_ref_vector asms;
@@ -260,7 +260,7 @@ namespace smt {
         batch_manager m_batch_manager;
         scoped_ptr_vector<worker> m_workers;
         scoped_ptr<sls_worker> m_sls_worker;
-        scoped_ptr<backbones_worker> m_backbones_worker;
+        scoped_ptr<backbones_worker> m_global_backbones_worker;
 
     public:
         parallel(context& ctx) : 

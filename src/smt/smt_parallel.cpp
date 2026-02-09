@@ -194,7 +194,6 @@ namespace smt {
         st.update("bb-success-rate-pct", confirm_pct);
     }
 
-
     void parallel::sls_worker::cancel() {
         IF_VERBOSE(1, verbose_stream() << " SLS WORKER cancelling\n");
         m.limit().cancel();
@@ -219,7 +218,7 @@ namespace smt {
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
 
             u_map<double> original_activities;
-            if (m_config.m_backbones) {
+            if (m_config.m_local_backbones) {
                 LOG_WORKER(1, " BACKBONE DETECTION\n");
                 svector<smt::parallel::bb_candidate> backbone_candidates = find_backbone_candidates();
                 for (smt::parallel::bb_candidate const& bb : backbone_candidates) {
@@ -251,7 +250,8 @@ namespace smt {
                     LOG_WORKER(2, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
                 }
 
-                b.collect_backbone_candidates(m_l2g, backbone_candidates);
+                if (m_config.m_global_backbones)
+                    b.collect_backbone_candidates(m_l2g, backbone_candidates);
 
                 if (!m.inc()) {
                     b.set_exception("context cancelled");
@@ -266,11 +266,11 @@ namespace smt {
                 return;
             }
 
-            if (m_config.m_backbones) {
+            if (m_config.m_local_backbones) {
                 // Restore activities of backbone candidates to old values after the search
                 for (auto const& [v, act] : original_activities) {
                     ctx->set_activity(v, act);
-                    ctx->unforce_phase(v); // TODO: is this needed?
+                    ctx->unforce_phase(v); // can do ablation study here to see if it's necessary
                 }
             }
 
@@ -340,7 +340,8 @@ namespace smt {
 
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_inprocessing = pp.inprocessing();
-        m_config.m_backbones = pp.backbones();
+        m_config.m_global_backbones = pp.global_backbones();
+        m_config.m_local_backbones = pp.local_backbones();
     }
 
     parallel::sls_worker::sls_worker(parallel& p)
@@ -351,7 +352,7 @@ namespace smt {
     }
 
     parallel::backbones_worker::backbones_worker(parallel &p, expr_ref_vector const &_asms)
-        : p(p), b(p.m_batch_manager), m(), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m), m_l2g(m, p.ctx.m) {
+        : b(p.m_batch_manager), m(), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m), m_l2g(m, p.ctx.m) {
         for (auto e : _asms)
             asms.push_back(m_g2l(e));
         IF_VERBOSE(1, verbose_stream() << "Initialized backbones thread\n");
@@ -493,8 +494,7 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << "BACKBONE BATCH UNSAT CORE SIZE: " << core.size() << "\n");
 
             for (expr* a : core) {
-                // core contains assumption literal: ¬c
-                expr* backbone = to_app(a)->get_arg(0);
+                expr* backbone = mk_not(m, a); // core contains assumption literal: ¬c, negate to get the backbone candidate c
                 likely_backbones.push_back(backbone);
             }
         }
@@ -963,7 +963,7 @@ namespace smt {
 
         smt_parallel_params pp(ctx.m_params);
         m_should_run_sls = pp.sls();
-        m_should_run_backbones = pp.backbones();
+        m_should_run_global_backbones = pp.global_backbones();
         
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
@@ -976,14 +976,14 @@ namespace smt {
             m_sls_worker = alloc(sls_worker, *this);
             sl.push_child(&(m_sls_worker->limit()));
         }
-        if (m_should_run_backbones) {
-            m_backbones_worker = alloc(backbones_worker, *this, asms);
-            sl.push_child(&(m_backbones_worker->limit()));
+        if (m_should_run_global_backbones) {
+            m_global_backbones_worker = alloc(backbones_worker, *this, asms);
+            sl.push_child(&(m_global_backbones_worker->limit()));
         }
 
         // Launch threads
         vector<std::thread> threads;
-        unsigned total_threads = num_workers + (m_should_run_sls ? 1 : 0) + (m_should_run_backbones ? 1 : 0);
+        unsigned total_threads = num_workers + (m_should_run_sls ? 1 : 0) + (m_should_run_global_backbones ? 1 : 0);
         threads.resize(total_threads);
         unsigned thread_idx = 0;
         for (unsigned i = 0; i < num_workers; ++i) {
@@ -992,8 +992,8 @@ namespace smt {
         
         if (m_should_run_sls)
             threads[thread_idx++] = std::thread([&]() { m_sls_worker->run(); });
-        if (m_should_run_backbones)
-            threads[thread_idx++] = std::thread([&]() { m_backbones_worker->run(); });
+        if (m_should_run_global_backbones)
+            threads[thread_idx++] = std::thread([&]() { m_global_backbones_worker->run(); });
 
         // Wait for all threads to finish
         for (auto &th : threads)
@@ -1004,8 +1004,8 @@ namespace smt {
         m_batch_manager.collect_statistics(ctx.m_aux_stats);
         if (m_should_run_sls)
             m_sls_worker->collect_statistics(ctx.m_aux_stats);
-        if (m_should_run_backbones)
-            m_backbones_worker->collect_statistics(ctx.m_aux_stats);
+        if (m_should_run_global_backbones)
+            m_global_backbones_worker->collect_statistics(ctx.m_aux_stats);
 
         return m_batch_manager.get_result();
     }
