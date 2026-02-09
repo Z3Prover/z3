@@ -92,6 +92,32 @@ private:
     static constexpr uintptr_t OWNER_BIT = 0x4;
     static constexpr uintptr_t MPZ_PTR_MASK  = ~static_cast<uintptr_t>(0x7);
 
+    // Small integers are stored shifted left by 1, so we have (sizeof(uintptr_t)*8 - 1) bits available
+    // This gives us:
+    //   - On 32-bit platforms: 31 bits, range [-2^30, 2^30-1]
+    //   - On 64-bit platforms: 63 bits, range [-2^62, 2^62-1]
+    static constexpr int SMALL_BITS = sizeof(uintptr_t) * 8 - 1;
+    
+    // Maximum and minimum values that can be stored as small integers
+    static constexpr int64_t SMALL_INT_MAX = (static_cast<int64_t>(1) << (SMALL_BITS - 1)) - 1;
+    static constexpr int64_t SMALL_INT_MIN = -(static_cast<int64_t>(1) << (SMALL_BITS - 1));
+
+    static bool fits_in_small(int64_t v) {
+        return v >= SMALL_INT_MIN && v <= SMALL_INT_MAX;
+    }
+
+    static bool fits_in_small(uint64_t v) {
+        return v <= static_cast<uint64_t>(SMALL_INT_MAX);
+    }
+
+    static bool fits_in_small(int v) {
+        return fits_in_small(static_cast<int64_t>(v));
+    }
+
+    static bool fits_in_small(unsigned int v) {
+        return fits_in_small(static_cast<uint64_t>(v));
+    }
+
     mpz_type * ptr() const {
         SASSERT(!is_small());
         return reinterpret_cast<mpz_type*>(m_value & MPZ_PTR_MASK);
@@ -135,7 +161,11 @@ protected:
     friend class mpbq_manager;
     friend class mpz_stack;
 public:
-    mpz(int v = 0) noexcept : m_value(static_cast<uintptr_t>(static_cast<intptr_t>(v)) << 1) {}
+    mpz(int v = 0) noexcept : m_value(static_cast<uintptr_t>(static_cast<intptr_t>(v)) << 1) {
+        // On 32-bit platforms, INT_MIN doesn't fit in 31 bits. This constructor should only be used
+        // with values that fit, or the caller should use set_big_i64.
+        SASSERT(fits_in_small(v));
+    }
     
     mpz(mpz_type* ptr) noexcept {
         SASSERT(ptr);
@@ -157,6 +187,11 @@ public:
         m_value = static_cast<uintptr_t>(static_cast<intptr_t>(v)) << 1;
     }
 
+    void set64(int64_t v) {
+        SASSERT(fits_in_small(v));
+        m_value = static_cast<uintptr_t>(static_cast<intptr_t>(v)) << 1;
+    }
+
     void swap(mpz & other) noexcept {
         std::swap(m_value, other.m_value);
     }
@@ -168,7 +203,14 @@ public:
     inline int value() const { 
         SASSERT(is_small());
         // Decode small integer: shift right by 1 (arithmetic shift to preserve sign)
+        // Note: On 64-bit platforms, this may truncate if the value doesn't fit in int
         return static_cast<int>(static_cast<intptr_t>(m_value) >> 1);
+    }
+
+    inline int64_t value64() const { 
+        SASSERT(is_small());
+        // Decode small integer: shift right by 1 (arithmetic shift to preserve sign)
+        return static_cast<int64_t>(static_cast<intptr_t>(m_value) >> 1);
     }
 
     inline int sign() const { 
@@ -291,13 +333,16 @@ class mpz_manager {
     mpz                     m_two64;
 
 
-    static int64_t i64(mpz const & a) { return static_cast<int64_t>(a.value()); }
+    static int64_t i64(mpz const & a) { return a.value64(); }
 
     void set_big_i64(mpz & c, int64_t v);
 
     void set_i64(mpz & c, int64_t v) {
-        if (v >= INT_MIN && v <= INT_MAX) {
-            c.set(static_cast<int>(v));             
+        if (mpz::fits_in_small(v)) {
+            if (!is_small(c)) {
+                deallocate(c);
+            }
+            c.set64(v);
         }
         else {
             set_big_i64(c, v);
@@ -363,20 +408,44 @@ class mpz_manager {
 
     void get_sign_cell(mpz const & a, int & sign, mpz_cell * & cell, mpz_cell* reserve) {
         if (is_small(a)) {
-            if (a.value() == INT_MIN) {
+            int64_t val = a.value64();
+            cell = reserve;
+            if (val == mpz::SMALL_INT_MIN) {
                 sign = -1;
-                cell = m_int_min.ptr();
-            }
-            else {
-                cell = reserve;
-                cell->m_size = 1;
-                if (a.value() < 0) {
-                    sign = -1;
-                    cell->m_digits[0] = -a.value();
+                uint64_t abs_val = static_cast<uint64_t>(-val);
+                if (sizeof(digit_t) == sizeof(uint64_t)) {
+                    cell->m_size = 1;
+                    cell->m_digits[0] = static_cast<digit_t>(abs_val);
                 }
                 else {
-                    sign = 1;
-                    cell->m_digits[0] = a.value();
+                    cell->m_digits[0] = static_cast<unsigned>(abs_val);
+                    cell->m_digits[1] = static_cast<unsigned>(abs_val >> 32);
+                    cell->m_size = (abs_val >> 32) == 0 ? 1 : 2;
+                }
+            }
+            else if (val < 0) {
+                sign = -1;
+                uint64_t abs_val = static_cast<uint64_t>(-val);
+                if (sizeof(digit_t) == sizeof(uint64_t)) {
+                    cell->m_size = 1;
+                    cell->m_digits[0] = static_cast<digit_t>(abs_val);
+                }
+                else {
+                    cell->m_digits[0] = static_cast<unsigned>(abs_val);
+                    cell->m_digits[1] = static_cast<unsigned>(abs_val >> 32);
+                    cell->m_size = (abs_val >> 32) == 0 ? 1 : 2;
+                }
+            }
+            else {
+                sign = 1;
+                if (sizeof(digit_t) == sizeof(uint64_t)) {
+                    cell->m_size = 1;
+                    cell->m_digits[0] = static_cast<digit_t>(val);
+                }
+                else {
+                    cell->m_digits[0] = static_cast<unsigned>(val);
+                    cell->m_digits[1] = static_cast<unsigned>(val >> 32);
+                    cell->m_size = (val >> 32) == 0 ? 1 : 2;
                 }
             }
         }
@@ -593,17 +662,28 @@ public:
     }
 
     void set(mpz & a, int val) {
-        if (!is_small(a)) {
-            deallocate(a);
+        // On 32-bit platforms, int can be outside small range
+        if (mpz::fits_in_small(val)) {
+            if (!is_small(a)) {
+                deallocate(a);
+            }
+            a.set(val);
         }
-        a.set(val);
+        else {
+            set_i64(a, val);
+        }
     }
 
     void set(mpz & a, unsigned val) {
-        if (val <= INT_MAX)
-            set(a, static_cast<int>(val));
-        else
-            set(a, static_cast<int64_t>(static_cast<uint64_t>(val)));
+        if (mpz::fits_in_small(val)) {
+            if (!is_small(a)) {
+                deallocate(a);
+            }
+            a.set(static_cast<int>(val));
+        }
+        else {
+            set_i64(a, static_cast<int64_t>(val));
+        }
     }
 
     void set(mpz & a, char const * val);
@@ -613,8 +693,11 @@ public:
     }
 
     void set(mpz & a, uint64_t val) {
-        if (val < INT_MAX) {
-            a.set(static_cast<int>(val));
+        if (mpz::fits_in_small(val)) {
+            if (!is_small(a)) {
+                deallocate(a);
+            }
+            a.set64(static_cast<int64_t>(val));
         }
         else {
             set_big_ui64(a, val);
