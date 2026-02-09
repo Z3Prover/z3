@@ -240,7 +240,8 @@ namespace smt {
             ast_translation m_g2l, m_l2g;
 
             mutable unsigned m_batch_total = 0;
-            mutable unsigned m_batch_likely = 0;
+            mutable unsigned m_num_total_batches = 0;
+            mutable unsigned m_num_viable_batches = 0;
             mutable unsigned m_candidates_tested = 0;
             mutable unsigned m_candidates_confirmed = 0;
 

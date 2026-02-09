@@ -114,7 +114,17 @@ namespace smt {
 
             m_batch_total += bb_candidates.size();
             expr_ref_vector likely_backbones = check_backbone_batch(bb_candidates);
-            m_batch_likely += likely_backbones.size();
+            ++m_num_total_batches;
+            m_num_viable_batches += !likely_backbones.empty();
+
+            // if likely_backbones has size 1, this is a global backbone
+            if (likely_backbones.size() == 1) {
+                expr_ref bb_ref(likely_backbones.get(0), m);
+                IF_VERBOSE(1, verbose_stream() << " determined global backbone: " << mk_bounded_pp(bb_ref, m, 3) << "\n");
+                b.collect_global_backbone(m_l2g, bb_ref);
+                bb_candidates.reset();
+                continue;
+            }
             
             for (expr* bb : likely_backbones) {
                 m_candidates_tested++;
@@ -178,13 +188,14 @@ namespace smt {
 
     void parallel::backbones_worker::collect_statistics(::statistics& st) const {
         st.update("bb-batch-total", m_batch_total);
-        st.update("bb-batch-likely", m_batch_likely);
+        st.update("bb-num-total-batches", m_num_total_batches);
+        st.update("bb-num-viable-batches", m_num_viable_batches);
         st.update("bb-candidates-tested", m_candidates_tested);
         st.update("bb-confirmed", m_candidates_confirmed);
 
         double batch_pct = 0.0;
         if (m_batch_total > 0)
-            batch_pct = 100.0 * (double)m_batch_likely / (double)m_batch_total;
+            batch_pct = 100.0 * (double)m_candidates_tested / (double)m_batch_total;
 
         double confirm_pct = 0.0;
         if (m_candidates_tested > 0)
@@ -467,8 +478,12 @@ namespace smt {
         unsigned base_sz = asms.size();
         ctx->get_fparams().m_max_conflicts = 1000;
 
-        for (auto const& c : candidates)
-            asms.push_back(m.mk_not(c.lit.get()));
+        expr_ref_vector backbone_asms(m);
+        for (auto const& c : candidates) {
+            expr_ref a(mk_not(m, c.lit.get()), m);
+            backbone_asms.push_back(a);
+            asms.push_back(a);
+        }
 
         lbool r = l_undef;
         try {
@@ -494,8 +509,10 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << "BACKBONE BATCH UNSAT CORE SIZE: " << core.size() << "\n");
 
             for (expr* a : core) {
-                expr* backbone = mk_not(m, a); // core contains assumption literal: ¬c, negate to get the backbone candidate c
-                likely_backbones.push_back(backbone);
+                if (backbone_asms.contains(a)) { // make sure we're not including external assumptions that are not backbone candidates
+                    expr* backbone = mk_not(m, a); // core contains assumption literal: ¬c, negate to get the backbone candidate c
+                    likely_backbones.push_back(backbone);
+                }
             }
         }
 
