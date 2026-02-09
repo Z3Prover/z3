@@ -143,7 +143,7 @@ def update_github_nuget_build_yml(version):
 
 
 def update_github_release_yml(version):
-    """Update .github/workflows/release.yml example version in description."""
+    """Update .github/workflows/release.yml release_version input default and description example."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     release_file = os.path.join(os.path.dirname(script_dir), '.github', 'workflows', 'release.yml')
     
@@ -161,6 +161,52 @@ def update_github_release_yml(version):
         with open(release_file, 'r') as f:
             content = f.read()
         
+        # Update RELEASE_VERSION environment variable and input parameter default
+        # Handle both quoted values and input parameter references
+        content = re.sub(
+            r"(\s+RELEASE_VERSION:\s*')([^']*)'",
+            r"\g<1>" + display_version + "'",
+            content
+        )
+        content = re.sub(
+            r"(\s+RELEASE_VERSION:\s*)\$\{\{\s*github\.event\.inputs\.release_version\s*\}\}",
+            r"\g<1>'" + display_version + "'",
+            content
+        )
+        
+        # Update example version in release_version input description  
+        content = re.sub(
+            r"(description:\s*'Release version \(e\.g\.,\s*)[0-9]+\.[0-9]+\.[0-9]+(\)')",
+            r"\g<1>" + display_version + r"\g<2>",
+            content
+        )
+        
+        # Add or update default value for release_version input parameter
+        # Look for the release_version input section and add/update default
+        lines = content.split('\n')
+        in_release_version_input = False
+        for i, line in enumerate(lines):
+            if 'release_version:' in line and 'inputs:' in lines[max(0, i-5):i]:
+                in_release_version_input = True
+            elif in_release_version_input:
+                if line.strip().startswith('default:'):
+                    # Update existing default
+                    lines[i] = re.sub(r"(default:\s*')([^']*)'", r"\g<1>" + display_version + "'", line)
+                    lines[i] = re.sub(r"(default:\s*)('[^']*'|[0-9.]+)", r"\g<1>'" + display_version + "'", line)
+                    in_release_version_input = False
+                    break
+                elif line.strip() and not line.startswith('    ') and not line.startswith('\t'):
+                    # We've moved to the next input, insert default before this line
+                    lines.insert(i, f"        default: '{display_version}'")
+                    in_release_version_input = False
+                    break
+                elif i == len(lines) - 1:
+                    # End of file, add default
+                    lines.insert(i, f"        default: '{display_version}'")
+                    break
+        
+        content = '\n'.join(lines)
+        
         # Update example version in description
         content = re.sub(
             r"(description:\s*'Release version \(e\.g\.,\s*)[0-9]+\.[0-9]+\.[0-9]+(\)')",
@@ -171,7 +217,7 @@ def update_github_release_yml(version):
         with open(release_file, 'w') as f:
             f.write(content)
         
-        print(f"Updated .github/workflows/release.yml example version to {display_version}")
+        print(f"Updated .github/workflows/release.yml input parameter default and example version to {display_version}")
     except IOError as e:
         print(f"Error updating .github/workflows/release.yml: {e}")
 
@@ -196,7 +242,7 @@ def main():
     print("  - scripts/mk_project.py")
     print("\nThese do not need manual updates.")
     print("\nNote: .github/workflows/release.yml uses input parameters for actual releases,")
-    print("but the example version in the description has been updated.")
+    print("but the release_version input parameter default and example version in the description have been updated.")
 
 if __name__ == "__main__":
     main()
