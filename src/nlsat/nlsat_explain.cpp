@@ -58,7 +58,7 @@ namespace nlsat {
         todo_set                m_todo;
         
         // Track polynomials already processed in current projection to avoid cycles
-        todo_set                m_processed;
+        todo_set                m_todo_extracted;
 
         // temporary fields for preprocessing core
         scoped_literal_vector   m_core1;
@@ -91,7 +91,7 @@ namespace nlsat {
             m_factors_save(m_pm),
             m_roots_tmp(m_am),
             m_todo(u, canonicalize),
-            m_processed(u, canonicalize),
+            m_todo_extracted(u, canonicalize),
             m_core1(s),
             m_core2(s),
             m_lower_stage_polys(m_pm),
@@ -613,7 +613,7 @@ namespace nlsat {
         */
         void insert_fresh_factors_in_todo(polynomial_ref & p) {
             // Skip if already processed in this projection (prevents cycles)
-            if (m_processed.contains(p))
+            if (m_todo_extracted.contains(p))
                 return;
             
             if (is_const(p))
@@ -629,7 +629,7 @@ namespace nlsat {
                 for (unsigned i = 0; i < m_factors.size(); ++i) {
                     f = m_factors.get(i);
                     elim_vanishing(f);
-                    if (!is_const(f) && !m_processed.contains(f)) {
+                    if (!is_const(f) && !m_todo_extracted.contains(f)) {
                         TRACE(nlsat_explain, tout << "adding factor:\n"; display(tout, m_solver, f); tout << "\n";);
                         m_todo.insert(f);
                     }
@@ -919,7 +919,7 @@ namespace nlsat {
         }
 
         void ensure_sign(polynomial_ref & p) {
-            if (is_const(p) || m_processed.contains(p))
+            if (is_const(p))
                 return;
             int s = sign(p);
             TRACE(nlsat_explain, tout << p << "\n";);
@@ -932,7 +932,7 @@ namespace nlsat {
         // Returns the sign value (-1, 0, or 1).
         int ensure_sign_quad(polynomial_ref & p) {
             int s = sign(p);
-            if (!is_const(p) && !m_processed.contains(p)) {
+            if (!is_const(p)) {
                 TRACE(nlsat_explain, tout << p << "\n";);
                 add_assumption(s == 0 ? atom::EQ : (s < 0 ? atom::LT : atom::GT), p);
                 insert_fresh_factors_in_todo(p);
@@ -1073,6 +1073,13 @@ namespace nlsat {
             return true;
         }
 
+        var extract_max_polys(polynomial_ref_vector & ps) {
+            var x = m_todo.extract_max_polys(ps);
+            for (unsigned i = 0; i < ps.size(); ++i)
+                m_todo_extracted.insert(ps.get(i));
+            return x;
+        }
+
         /**
          * Sample Projection
          * Reference:
@@ -1080,17 +1087,12 @@ namespace nlsat {
          * "Solving Satisfiability of Polynomial Formulas By Sample - Cell Projection"
          * https://arxiv.org/abs/2003.00409 
          */
-        void collect_to_processed(polynomial_ref_vector & ps) {
-            for (unsigned i = 0; i < ps.size(); ++i)
-                m_processed.insert(ps.get(i));
-        }
-
         void project_cdcac(polynomial_ref_vector & ps, var max_x) {
             bool first = true;
             if (ps.empty())
                 return;
             m_todo.reset();
-            m_processed.reset();
+            m_todo_extracted.reset();
             for (unsigned i = 0; i < ps.size(); ++i) {
                 polynomial_ref p(m_pm);
                 p = ps.get(i);
@@ -1101,20 +1103,16 @@ namespace nlsat {
             for (auto p: m_todo.m_set)
                 ps.push_back(p);
 
-            bool use_all_coeffs = false;
-            
             if (m_solver.apply_levelwise()) {
                 bool levelwise_ok = levelwise_single_cell(ps, max_x, m_cache);
                 m_solver.record_levelwise_result(levelwise_ok);
                 if (levelwise_ok)
                     return;
                 // Levelwise failed, use add_all_coeffs mode for fallback projection
-                use_all_coeffs = true;
+                m_add_all_coeffs = true;
             }
-            // Set m_add_all_coeffs for the rest of the projection, restore on function exit
             
-            var x = m_todo.extract_max_polys(ps);
-            collect_to_processed(ps);
+            var x = extract_max_polys(ps);
             polynomial_ref_vector samples(m_pm);
             if (x < max_x)
                 cac_add_cell_lits(ps, x, samples);
@@ -1141,8 +1139,7 @@ namespace nlsat {
                 
                 if (m_todo.empty())
                     break;
-                x = m_todo.extract_max_polys(ps);
-                collect_to_processed(ps);
+                x = extract_max_polys(ps);
                 cac_add_cell_lits(ps, x, samples);
             }
             
@@ -1675,7 +1672,7 @@ namespace nlsat {
         void compute_conflict_explanation(unsigned num, literal const * ls, scoped_literal_vector & result) {
             SASSERT(check_already_added());
             SASSERT(num > 0);
-            flet<bool> _restore_add_all_coeffs(m_add_all_coeffs, false);
+            flet<bool> _restore_add_all_coeffs(m_add_all_coeffs, m_add_all_coeffs);
             TRACE(nlsat_explain, 
                   tout << "the infeasible clause:\n"; 
                   display(tout, m_solver, num, ls) << "\n";
