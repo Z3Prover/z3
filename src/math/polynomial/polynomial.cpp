@@ -6970,7 +6970,119 @@ namespace polynomial {
             SASSERT(is_square_free(p, x));
             TRACE(factor, tout << "factor square free (degree > 2):\n"; p->display(tout, m_manager); tout << "\n";);
 
-            // TODO: invoke Dejan's procedure
+            // Multivariate factorization via evaluation and Hensel lifting
+            // 
+            // Algorithm outline:
+            // 1. Collect all variables except x
+            // 2. Evaluate p at y1=1, y2=1, ... to get univariate p0(x)
+            // 3. Factor p0(x) using univariate factorization
+            // 4. If p0 is irreducible, p is likely irreducible
+            // 5. Otherwise, use Hensel lifting to lift factors
+            
+            // Get all variables in p
+            var_vector vars;
+            begin_vars_incremental();
+            this->vars(p, vars);
+            end_vars_incremental(vars);
+            
+            TRACE(factor, tout << "variables in polynomial: ";
+                  for (unsigned i = 0; i < vars.size(); i++) tout << "x" << vars[i] << " ";
+                  tout << "\nmain var x = x" << x << "\n";);
+            
+            // Separate main variable x from other variables
+            var_vector other_vars;
+            for (unsigned i = 0; i < vars.size(); i++) {
+                if (vars[i] != x)
+                    other_vars.push_back(vars[i]);
+            }
+            
+            TRACE(factor, tout << "other variables: ";
+                  for (unsigned i = 0; i < other_vars.size(); i++) tout << "x" << other_vars[i] << " ";
+                  tout << "\n";);
+            
+            // If no other variables, this should have been caught earlier
+            if (other_vars.empty()) {
+                // Univariate case - should not reach here
+                TRACE(factor, tout << "no other variables - returning unfactored\n";);
+                r.push_back(const_cast<polynomial*>(p), k);
+                return;
+            }
+            
+            // Evaluate at y1=1, y2=1, ... to get univariate polynomial
+            _scoped_numeral_buffer<numeral_manager, 8> eval_vals(m_manager);
+            for (unsigned i = 0; i < other_vars.size(); i++) {
+                eval_vals.push_back(numeral());
+                m_manager.set(eval_vals.back(), 1);
+            }
+            
+            polynomial_ref p_univ(pm());
+            p_univ = substitute(p, other_vars.size(), other_vars.data(), eval_vals.data());
+            
+            TRACE(factor, tout << "evaluated polynomial: "; 
+                  if (p_univ) p_univ->display(tout, m_manager); 
+                  else tout << "(null)";
+                  tout << "\n";);
+            
+            // Check if the result is valid
+            if (!p_univ || is_zero(p_univ)) {
+                TRACE(factor, tout << "evaluation resulted in zero - returning unfactored\n";);
+                r.push_back(const_cast<polynomial*>(p), k);
+                return;
+            }
+            
+            // Check if evaluation gave us a univariate polynomial
+            if (!is_univariate(p_univ)) {
+                TRACE(factor, tout << "evaluation did not reduce to univariate - returning unfactored\n";);
+                r.push_back(const_cast<polynomial*>(p), k);
+                return;
+            }
+            
+            // Check if the evaluated polynomial has the same degree
+            // (leading coefficient didn't vanish)
+            unsigned deg_univ = degree(p_univ, x);
+            unsigned deg_orig = degree(p, x);
+            TRACE(factor, tout << "degree of univariate: " << deg_univ << ", original degree: " << deg_orig << "\n";);
+            
+            if (deg_univ != deg_orig) {
+                // Leading coefficient vanished - need different evaluation point
+                TRACE(factor, tout << "LC vanished at evaluation point - returning unfactored\n";);
+                r.push_back(const_cast<polynomial*>(p), k);
+                return;
+            }
+            
+            // Factor the univariate polynomial
+            // First, convert to numeral vector and make primitive
+            up_manager::scoped_numeral_vector p1(upm().m());
+            upm().to_numeral_vector(p_univ, p1);
+            
+            // Make primitive (content = 1) before factoring
+            up_manager::scoped_numeral_vector p1_pp(upm().m());
+            scoped_numeral cont(upm().m());
+            upm().get_primitive_and_content(p1, p1_pp, cont);
+            
+            TRACE(factor, tout << "univariate as numeral vector, size: " << p1_pp.size() << ", content: " << upm().m().to_string(cont) << "\n";);
+            
+            up_manager::factors fs(upm());
+            factor_params params;
+            upolynomial::factor_square_free(upm(), p1_pp, fs, params);
+            
+            TRACE(factor, tout << "univariate factors: " << fs.distinct_factors() << "\n";);
+            
+            // If univariate is irreducible, the multivariate is likely irreducible
+            if (fs.distinct_factors() == 1 && fs.get_degree(0) == 1) {
+                TRACE(factor, tout << "univariate is irreducible - returning unfactored\n";);
+                r.push_back(const_cast<polynomial*>(p), k);
+                return;
+            }
+            
+            // We found multiple factors in the univariate case.
+            // TODO: Implement Hensel lifting for multivariate case
+            // This requires lifting factors from Z[x] to Z[x,y1,...,yn]
+            // by iteratively lifting one variable at a time.
+            //
+            // For now, return the original polynomial unfactored.
+            // The univariate factorization shows the potential factors exist.
+            TRACE(factor, tout << "found " << fs.distinct_factors() << " univariate factors - Hensel lifting not yet implemented\n";);
             r.push_back(const_cast<polynomial*>(p), k);
         }
 
@@ -6981,6 +7093,8 @@ namespace polynomial {
             SASSERT(!is_zero(p));
 
             unsigned deg_x = degree(p, x);
+            TRACE(factor, tout << "factor_sqf_pp: deg_x=" << deg_x << ", is_univariate=" << is_univariate(p) << "\n";
+                  p->display(tout, m_manager); tout << "\n";);
             if (deg_x == 1)
                 factor_1_sqf_pp(p, r, x, k);
             else if (is_univariate(p))
