@@ -75,7 +75,8 @@ namespace smt {
             if (!m.inc())
                 return;
             res = m_sls->check();
-        } catch (z3_exception& ex) {
+        } 
+        catch (z3_exception& ex) {
             // Cancellation is normal in portfolio mode
             if (m.limit().is_canceled()) {
                 IF_VERBOSE(1, verbose_stream() << "SLS worker canceled\n");
@@ -93,7 +94,8 @@ namespace smt {
             return;
         }
 
-        if (res == l_true) {            
+        if (res == l_true) {         
+            IF_VERBOSE(2, verbose_stream() << "SLS worker found SAT\n");
             model_ref mdl = m_sls->get_model();
             b.set_sat(m_l2g, *mdl);
         }
@@ -181,10 +183,10 @@ namespace smt {
         for (auto e : _asms)
             asms.push_back(m_g2l(e));
         LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");
+        m_smt_params.m_random_seed += id;  // ensure different random seed for each worker
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
-        ctx->set_random_seed(id + m_smt_params.m_random_seed);
         // don't share initial units
         ctx->pop_to_base_lvl();
         m_num_shared_units = ctx->assigned_literals().size();
