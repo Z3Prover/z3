@@ -185,6 +185,7 @@ public:
     }
 
     void set(int v) {
+        SASSERT(is_small());
         m_value = static_cast<uintptr_t>(static_cast<intptr_t>(v)) << 1;
     }
 
@@ -408,20 +409,7 @@ class mpz_manager {
         if (is_small(a)) {
             int64_t val = a.value64();
             cell = reserve;
-            if (val == mpz::SMALL_INT_MIN) {
-                sign = -1;
-                uint64_t abs_val = static_cast<uint64_t>(-val);
-                if (sizeof(digit_t) == sizeof(uint64_t)) {
-                    cell->m_size = 1;
-                    cell->m_digits[0] = static_cast<digit_t>(abs_val);
-                }
-                else {
-                    cell->m_digits[0] = static_cast<unsigned>(abs_val);
-                    cell->m_digits[1] = static_cast<unsigned>(abs_val >> 32);
-                    cell->m_size = (abs_val >> 32) == 0 ? 1 : 2;
-                }
-            }
-            else if (val < 0) {
+            if (val < 0) {
                 sign = -1;
                 uint64_t abs_val = static_cast<uint64_t>(-val);
                 if (sizeof(digit_t) == sizeof(uint64_t)) {
