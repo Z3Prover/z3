@@ -7077,15 +7077,11 @@ namespace polynomial {
             
             // We found multiple factors in the univariate case.
             // Try to lift them back to multivariate factors using Hensel lifting.
-            //
-            // For simplicity, we'll handle the case of exactly 2 factors first.
-            // More factors require combining pairs iteratively.
             
-            if (fs.distinct_factors() == 2 && other_vars.size() == 1) {
-                // Try Hensel lifting for 2 factors and 1 extra variable
+            if (other_vars.size() == 1 && fs.distinct_factors() == 2) {
+                // Exactly 2 factors - use Hensel lifting
                 var y = other_vars[0];
                 
-                // Get univariate factors as numeral vectors
                 numeral_vector const & g0_vec = fs[0];
                 numeral_vector const & h0_vec = fs[1];
                 
@@ -7093,17 +7089,18 @@ namespace polynomial {
                       tout << "g0 = "; upm().display(tout, g0_vec); tout << "\n";
                       tout << "h0 = "; upm().display(tout, h0_vec); tout << "\n";);
                 
-                // Attempt Hensel lifting
                 polynomial_ref g(pm()), h(pm());
                 if (try_hensel_lift_2_factors(p, x, y, g0_vec, h0_vec, g, h)) {
                     TRACE(factor, tout << "Hensel lift succeeded: g = " << g << ", h = " << h << "\n";);
-                    // Successfully lifted - add factors recursively
                     factor_sqf_pp(g, r, x, k, factor_params());
                     factor_sqf_pp(h, r, x, k, factor_params());
                     return;
                 }
                 TRACE(factor, tout << "Hensel lift failed\n";);
             }
+            
+            // TODO: Handle more than 2 factors by combining pairs
+            // This requires working in a field (e.g., Z_p) for ext_gcd to work correctly
             
             // Hensel lifting not implemented or failed for this case
             // Return original polynomial unfactored
