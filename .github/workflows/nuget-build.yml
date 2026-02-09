@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number for the NuGet package (e.g., 4.15.7)'
+        description: 'Version number for the NuGet package (e.g., 4.15.8)'
         required: true
-        default: '4.15.7'
+        default: '4.15.8'
   push:
     tags:
       - 'z3-*'
@@ -31,7 +31,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.15.7' }} --zip
+          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.15.8' }} --zip
       
       - name: Upload Windows x64 artifact
         uses: actions/upload-artifact@v6
@@ -55,7 +55,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
-          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.15.7' }} --zip
+          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.15.8' }} --zip
       
       - name: Upload Windows x86 artifact
         uses: actions/upload-artifact@v6
@@ -79,7 +79,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64_arm64
-          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.15.7' }} --zip
+          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.15.8' }} --zip
       
       - name: Upload Windows ARM64 artifact
         uses: actions/upload-artifact@v6
@@ -189,7 +189,7 @@ jobs:
         shell: cmd
         run: |
           cd package-files
-          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '4.15.7' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols
+          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '4.15.8' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols
       
       - name: Pack NuGet package
         shell: cmd
@@ -238,7 +238,7 @@ jobs:
         shell: cmd
         run: |
           cd packages
-          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '4.15.7' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols x86
+          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '4.15.8' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols x86
       
       - name: Pack NuGet package
         shell: cmd

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_version:
-        description: 'Release version (e.g., 4.15.7)'
+        description: 'Release version (e.g., 4.15.8)'
         required: true
         type: string
       publish_github:
