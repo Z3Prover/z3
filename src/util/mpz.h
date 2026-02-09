@@ -338,10 +338,7 @@ class mpz_manager {
     void set_big_i64(mpz & c, int64_t v);
 
     void set_i64(mpz & c, int64_t v) {
-        if (mpz::fits_in_small(v)) {
-            if (!is_small(c)) {
-                deallocate(c);
-            }
+        if (mpz::fits_in_small(v) && is_small(c)) {
             c.set64(v);
         }
         else {
@@ -663,10 +660,7 @@ public:
 
     void set(mpz & a, int val) {
         // On 32-bit platforms, int can be outside small range
-        if (mpz::fits_in_small(val)) {
-            if (!is_small(a)) {
-                deallocate(a);
-            }
+        if (mpz::fits_in_small(val) && is_small(a)) {
             a.set(val);
         }
         else {
@@ -675,10 +669,7 @@ public:
     }
 
     void set(mpz & a, unsigned val) {
-        if (mpz::fits_in_small(val)) {
-            if (!is_small(a)) {
-                deallocate(a);
-            }
+        if (mpz::fits_in_small(val) && is_small(a)) {
             a.set(static_cast<int>(val));
         }
         else {
@@ -693,10 +684,7 @@ public:
     }
 
     void set(mpz & a, uint64_t val) {
-        if (mpz::fits_in_small(val)) {
-            if (!is_small(a)) {
-                deallocate(a);
-            }
+        if (mpz::fits_in_small(val) && is_small(a)) {
             a.set64(static_cast<int64_t>(val));
         }
         else {
