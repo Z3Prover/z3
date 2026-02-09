@@ -636,6 +636,13 @@ public:
         return *this;
     }
 
+    core_hashtable& operator=(core_hashtable && other) {
+        if (this == &other) return *this;
+        delete_table();
+        std::swap(*this, other);
+        return *this;
+    }
+
 #ifdef Z3DEBUG
     bool check_invariant() {
         // The capacity must always be a power of two.
