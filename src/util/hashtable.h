@@ -624,7 +624,12 @@ public:
     core_hashtable& operator=(core_hashtable && other) {
         if (this == &other) return *this;
         delete_table();
-        std::swap(*this, other);
+        m_table = other.m_table;
+        m_capacity = other.m_capacity;
+        m_size = other.m_size;
+        m_num_deleted = other.m_num_deleted;
+        HS_CODE(m_st_collision = other.m_st_collision);
+        other.m_table = nullptr;
         return *this;
     }
 
@@ -703,6 +708,10 @@ public:
               HashProc const & h = HashProc(), 
               EqProc const & e = EqProc()):
         core_hashtable<default_hash_entry<T>, HashProc, EqProc>(initial_capacity, h, e) {}
+    hashtable(const hashtable & source) = delete;
+    hashtable(hashtable && source) noexcept = default;
+    hashtable& operator=(const hashtable & other) = default;
+    hashtable& operator=(hashtable && other) noexcept = default;
 };
 
 template<typename T, typename HashProc, typename EqProc>
@@ -712,6 +721,10 @@ public:
                   HashProc const & h = HashProc(), 
                   EqProc const & e = EqProc()):
         core_hashtable<ptr_hash_entry<T>, HashProc, EqProc>(initial_capacity, h, e) {}
+    ptr_hashtable(const ptr_hashtable & source) = delete;
+    ptr_hashtable(ptr_hashtable && source) noexcept = default;
+    ptr_hashtable& operator=(const ptr_hashtable & other) = delete;
+    ptr_hashtable& operator=(ptr_hashtable && other) noexcept = default;
 };
 
 /**
@@ -723,6 +736,10 @@ public:
     typedef typename core_hashtable<ptr_addr_hash_entry<T>, ptr_hash<T>, ptr_eq<T> >::iterator iterator;
     ptr_addr_hashtable(unsigned initial_capacity = DEFAULT_HASHTABLE_INITIAL_CAPACITY):
         core_hashtable<ptr_addr_hash_entry<T>, ptr_hash<T>, ptr_eq<T> >(initial_capacity) {}
+    ptr_addr_hashtable(const ptr_addr_hashtable & source) = delete;
+    ptr_addr_hashtable(ptr_addr_hashtable && source) noexcept = default;
+    ptr_addr_hashtable& operator=(const ptr_addr_hashtable & other) = delete;
+    ptr_addr_hashtable& operator=(ptr_addr_hashtable && other) noexcept = default;
 
     iterator begin() const { 
         UNREACHABLE();
@@ -748,4 +765,8 @@ public:
                   HashProc const & h = HashProc(), 
                   EqProc const & e = EqProc()):
         core_hashtable<int_hash_entry<INT_MIN, INT_MIN + 1>, HashProc, EqProc>(initial_capacity, h, e) {}
+    int_hashtable(const int_hashtable & source) = delete;
+    int_hashtable(int_hashtable && source) noexcept = default;
+    int_hashtable& operator=(const int_hashtable & other) = delete;
+    int_hashtable& operator=(int_hashtable && other) noexcept = default;
 };
