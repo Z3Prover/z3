@@ -1351,19 +1351,19 @@ namespace pb {
     constraint* solver::add_at_least(literal lit, literal_vector const& lits, unsigned k, bool learned) {
         // Normalize literals: remove duplicates and handle complementary literals
         literal_vector normalized_lits;
-        unsigned offset = 0;  // tracks true literals from complementary pairs
+        unsigned offset = 0;  // tracks count of complementary pairs found (each pair contributes 1 to satisfiability)
         {
-            sat::literal_set seen;
+            sat::literal_set seen_literals;
             for (literal l : lits) {
-                if (seen.contains(l))
+                if (seen_literals.contains(l))
                     continue;  // skip duplicate
-                if (seen.contains(~l)) {
+                if (seen_literals.contains(~l)) {
                     // Found complementary pair: one of {l, ~l} is always true
                     offset++;
                     continue;
                 }
                 normalized_lits.push_back(l);
-                seen.insert(l);
+                seen_literals.insert(l);
             }
         }
         
