@@ -1349,33 +1349,102 @@ namespace pb {
     }
 
     constraint* solver::add_at_least(literal lit, literal_vector const& lits, unsigned k, bool learned) {
-        // Normalize literals: remove duplicates and handle complementary literals
-        literal_vector normalized_lits;
-        unsigned offset = 0;  // tracks count of complementary pairs found (each pair contributes 1 to satisfiability)
-        {
-            sat::literal_set seen_literals;
-            for (literal l : lits) {
-                if (seen_literals.contains(l))
-                    continue;  // skip duplicate
-                if (seen_literals.contains(~l)) {
-                    // Found complementary pair: one of {l, ~l} is always true
-                    offset++;
-                    continue;
+        // Normalize literals: count occurrences and handle duplicates/complementary literals
+        // This follows the same logic as recompile() to maintain correct semantics
+        m_weights.resize(2 * s().num_vars(), 0);
+        
+        // Count occurrences of each literal
+        for (literal l : lits) {
+            ++m_weights[l.index()];
+        }
+        
+        // Build normalized constraint with merged coefficients
+        svector<wliteral> wlits;
+        unsigned_vector seen_vars;
+        for (literal l : lits) {
+            unsigned w = m_weights[l.index()];
+            unsigned w_neg = m_weights[(~l).index()];
+            
+            if (w == 0) 
+                continue;  // Already processed
+            
+            // Handle complementary pairs
+            if (w_neg > 0) {
+                unsigned min_w = std::min(w, w_neg);
+                // Complementary pair contributes min_w to satisfiability
+                if (k <= min_w) {
+                    // Clear weights
+                    for (literal l2 : lits) {
+                        m_weights[l2.index()] = 0;
+                    }
+                    // Constraint is trivially satisfied
+                    if (lit != sat::null_literal)
+                        s().add_clause(lit, sat::status::th(false, get_id()));
+                    return nullptr;
                 }
-                normalized_lits.push_back(l);
-                seen_literals.insert(l);
+                k -= min_w;
+                w -= min_w;
+                w_neg -= min_w;
+                m_weights[l.index()] = 0;
+                m_weights[(~l).index()] = 0;
+                
+                if (w > 0)
+                    wlits.push_back(std::make_pair(w, l));
+                else if (w_neg > 0)
+                    wlits.push_back(std::make_pair(w_neg, ~l));
+            }
+            else if (w > 0) {
+                m_weights[l.index()] = 0;
+                wlits.push_back(std::make_pair(w, l));
             }
         }
         
-        // Adjust k based on offset from complementary pairs
-        if (k <= offset) {
-            // Constraint is always satisfied
-            if (lit != sat::null_literal)
-                s().add_clause(lit, sat::status::th(false, get_id()));
-            return nullptr;
+        // Clear any remaining weights
+        for (literal l : lits) {
+            m_weights[l.index()] = 0;
         }
-        k -= offset;
         
+        // Check if all coefficients are 1 (pure cardinality)
+        bool all_units = true;
+        literal_vector normalized_lits;
+        for (auto [w, l] : wlits) {
+            if (w != 1) {
+                all_units = false;
+                break;
+            }
+            normalized_lits.push_back(l);
+        }
+        
+        // If we have non-unit coefficients, create a PB constraint
+        if (!all_units) {
+            if (k == 0) {
+                if (lit != sat::null_literal)
+                    s().add_clause(lit, sat::status::th(false, get_id()));
+                return nullptr;
+            }
+            rational weight(0);
+            for (auto [w, l] : wlits)
+                weight += w;
+            if (weight < k) {
+                if (lit == sat::null_literal)
+                    s().add_clause(0, nullptr, sat::status::th(false, get_id()));
+                else
+                    s().add_clause(~lit, sat::status::th(false, get_id()));
+                return nullptr;
+            }
+            if (!learned) {
+                for (auto [w, l] : wlits) 
+                    s().set_external(l.var()); 
+            }
+            void * mem = m_allocator.allocate(pbc::get_obj_size(wlits.size()));
+            sat::constraint_base::initialize(mem, this);
+            pbc* p = new (sat::constraint_base::ptr2mem(mem)) pbc(next_id(), lit, wlits, k);
+            p->set_learned(learned);
+            add_constraint(p);
+            return p;
+        }
+        
+        // Pure cardinality constraint - continue with original logic
         if (k == 1 && lit == sat::null_literal) {
             s().mk_clause(normalized_lits.size(), normalized_lits.data(), sat::status::th(learned, get_id()));
             return nullptr;
