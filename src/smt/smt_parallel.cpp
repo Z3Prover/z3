@@ -106,41 +106,114 @@ namespace smt {
         svector<bb_candidate> bb_candidates;
 
         while (m.inc()) {
-
-            // Sleep until a job exists
             if (!b.wait_for_backbone_job(m_g2l, bb_candidates, m.limit()))
                 return;
 
             if (bb_candidates.empty())
                 continue;
 
-            m_batch_total += bb_candidates.size();
-            expr_ref_vector likely_backbones = check_backbone_batch(bb_candidates);
-            ++m_num_total_batches;
-            m_num_viable_batches += !likely_backbones.empty();
+            // Γ = candidates
+            expr_ref_vector gamma(m);
+            for (auto const& c : bb_candidates)
+                gamma.push_back(c.lit);
 
-            // if likely_backbones has size 1, this is a global backbone
-            if (likely_backbones.size() == 1) {
-                expr_ref bb_ref(likely_backbones.get(0), m);
-                IF_VERBOSE(1, verbose_stream() << " determined global backbone: " << mk_bounded_pp(bb_ref, m, 3) << "\n");
-                b.collect_global_backbone(m_l2g, bb_ref);
-                bb_candidates.reset();
-                continue;
-            }
-            
-            for (expr* bb : likely_backbones) {
-                m_candidates_tested++;
-                expr_ref bb_ref(bb, m);
-                if (check_backbone(bb_ref)) {
-                    m_candidates_confirmed++;
-                    IF_VERBOSE(1, verbose_stream() << " determined global backbone: " << mk_bounded_pp(bb_ref, m, 3) << "\n");
+            // ω = negated assumptions
+            expr_ref_vector omega(m);
+            for (expr* e : gamma)
+                omega.push_back(m.mk_not(e));
+
+            unsigned base_sz = asms.size();
+
+            while (!gamma.empty()) {
+
+                // push ω
+                for (expr* a : omega)
+                    asms.push_back(a);
+
+                ctx->get_fparams().m_max_conflicts = 1000;
+
+                lbool r = l_undef;
+                try {
+                    r = ctx->check(asms.size(), asms.data());
+                } catch (...) {
+                    asms.shrink(base_sz);
+                    throw;
+                }
+
+                asms.shrink(base_sz);
+
+                if (r == l_true) {
+                    expr_ref_vector new_gamma(m);
+
+                    for (expr* e : gamma) {
+                        sat::bool_var v = ctx->get_bool_var(e);
+
+                        if (v == sat::null_bool_var)
+                            continue;
+
+                        lbool val = ctx->get_assignment(v);
+
+                        if (val == l_true) {
+                            // still could be backbone
+                            new_gamma.push_back(e);
+                        }
+                        // if false → cannot be backbone
+                    }
+
+                    gamma.reset();
+                    gamma.append(new_gamma);
+
+                    break;
+                }
+                // UNSAT → inspect core
+                expr_ref_vector core = ctx->unsat_core();
+
+                expr_ref_vector core_in_omega(m);
+                for (expr* a : core)
+                    if (omega.contains(a))
+                        core_in_omega.push_back(a);
+
+                if (core_in_omega.size() == 1) {
+                    // singleton core → backbone found
+                    expr* a = core_in_omega[0].get();
+                    expr* bb = mk_not(m, a);
+
+                    expr_ref bb_ref(bb, m);
+
+                    IF_VERBOSE(1, verbose_stream()
+                        << "Algorithm7 backbone: "
+                        << mk_bounded_pp(bb_ref, m, 3) << "\n");
+
                     b.collect_global_backbone(m_l2g, bb_ref);
+
+                    // remove from gamma
+                    gamma.erase(bb);
+
+                    // remove from omega
+                    omega.erase(a);
+
+                    continue;
+                }
+
+                // shrink ω
+                for (expr* a : core_in_omega)
+                    omega.erase(a);
+
+                if (omega.empty()) {
+                    // fallback → individual checks
+                    for (expr* e : gamma) {
+                        expr_ref bb_ref(e, m);
+                        if (check_backbone(bb_ref))
+                            b.collect_global_backbone(m_l2g, bb_ref);
+                    }
+                    break;
                 }
             }
 
             bb_candidates.reset();
         }
     }
+
 
     void parallel::backbones_worker::cancel() {
         IF_VERBOSE(1, verbose_stream() << " BACKBONES WORKER cancelling\n");
