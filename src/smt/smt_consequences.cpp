@@ -60,7 +60,6 @@ namespace smt {
         else {
             justify(lit, s);
         }
-        m_antecedents.insert(lit.var(), std::move(s));
         bool found = false;
         if (m_var2val.contains(e)) {
             found = true;
@@ -94,6 +93,7 @@ namespace smt {
             fml = m.mk_implies(antecedent2fml(s), fml);
             conseq.push_back(fml);
         }
+        m_antecedents.insert(lit.var(), std::move(s));
     }
 
     void context::justify(literal lit, index_set& s) {
