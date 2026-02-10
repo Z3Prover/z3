@@ -786,7 +786,7 @@ namespace smt {
                 continue;
             }
 
-            if (m_bb_candidates.size() < m_bb_max) {
+            if (m_bb_candidates.size() < m_max_global_bb_candidates) {
                 m_bb_candidates.push_back(bb_candidate(m, g_lit.get(), score, 1));
                 continue;
             }
@@ -812,15 +812,10 @@ namespace smt {
             m_bb_cv.notify_one();
     }
 
-    bool parallel::batch_manager::wait_for_backbone_job(
-        ast_translation& g2l,
-        svector<smt::parallel::bb_candidate>& out,
-        reslimit& lim)
-    {
+    bool parallel::batch_manager::wait_for_backbone_job(ast_translation& g2l, svector<smt::parallel::bb_candidate>& out, reslimit& lim) {
         out.reset();
         std::unique_lock<std::mutex> lock(mux);
 
-        // Wait until there is something to check
         m_bb_cv.wait(lock, [&]() {
             return m_bb_stop ||
                 lim.is_canceled() ||
@@ -828,7 +823,6 @@ namespace smt {
                 !m_bb_candidates.empty();
         });
 
-        // Exit conditions
         if (lim.is_canceled())
             return false;
 
@@ -838,13 +832,14 @@ namespace smt {
         if (m_bb_candidates.empty())
             return true; // spurious wakeup
 
-        // -------------------------------------------------
-        // TAKE the entire candidate pool and RESET it
-        // -------------------------------------------------
-        out = std::move(m_bb_candidates);
-        m_bb_candidates.reset();
-
-        // Translate GLOBAL -> LOCAL for the backbone thread
+        // ------------------------------
+        // TAKE up to m_bb_batch_size candidates
+        // ------------------------------
+        unsigned n = std::min<unsigned>(m_bb_batch_size, m_bb_candidates.size());
+        for (unsigned i = 0; i < n; ++i) {
+            out.push_back(m_bb_candidates.back());
+            m_bb_candidates.pop_back();
+        }
         for (auto& c : out) {
             expr_ref l_lit(g2l(c.lit.get()), g2l.to());
             c.lit = l_lit;

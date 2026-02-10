@@ -82,7 +82,8 @@ namespace smt {
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
 
             svector<bb_candidate> m_bb_candidates;
-            unsigned m_bb_max = 10;
+            unsigned m_max_global_bb_candidates = 10;
+            unsigned m_bb_batch_size = 10;
             expr_ref_vector m_global_backbones;
 
             // Backbone job queue
