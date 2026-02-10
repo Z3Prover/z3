@@ -1351,7 +1351,13 @@ namespace pb {
     constraint* solver::add_at_least(literal lit, literal_vector const& lits, unsigned k, bool learned) {
         // Normalize literals: count occurrences and handle duplicates/complementary literals
         // This follows the same logic as recompile() to maintain correct semantics
-        m_weights.resize(2 * s().num_vars(), 0);
+        
+        // Ensure m_weights is large enough (reused across calls for efficiency)
+        unsigned max_idx = 0;
+        for (literal l : lits)
+            max_idx = std::max(max_idx, l.index());
+        if (m_weights.size() <= max_idx)
+            m_weights.resize(max_idx + 1, 0);
         
         // Count occurrences of each literal
         for (literal l : lits) {
@@ -1360,7 +1366,6 @@ namespace pb {
         
         // Build normalized constraint with merged coefficients
         svector<wliteral> wlits;
-        unsigned_vector seen_vars;
         for (literal l : lits) {
             unsigned w = m_weights[l.index()];
             unsigned w_neg = m_weights[(~l).index()];
@@ -1373,11 +1378,11 @@ namespace pb {
                 unsigned min_w = std::min(w, w_neg);
                 // Complementary pair contributes min_w to satisfiability
                 if (k <= min_w) {
-                    // Clear weights
+                    // Clear weights and return - constraint is trivially satisfied
                     for (literal l2 : lits) {
                         m_weights[l2.index()] = 0;
+                        m_weights[(~l2).index()] = 0;
                     }
-                    // Constraint is trivially satisfied
                     if (lit != sat::null_literal)
                         s().add_clause(lit, sat::status::th(false, get_id()));
                     return nullptr;
@@ -1397,11 +1402,6 @@ namespace pb {
                 m_weights[l.index()] = 0;
                 wlits.push_back(std::make_pair(w, l));
             }
-        }
-        
-        // Clear any remaining weights
-        for (literal l : lits) {
-            m_weights[l.index()] = 0;
         }
         
         // Check if all coefficients are 1 (pure cardinality)
