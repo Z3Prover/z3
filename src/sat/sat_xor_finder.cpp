@@ -210,7 +210,7 @@ namespace sat {
                 }
                 bv.push_back(parity);
             }
-            m_parity.push_back(bv);
+            m_parity.push_back(std::move(bv));
         }
     }
 

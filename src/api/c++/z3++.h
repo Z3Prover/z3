@@ -214,6 +214,24 @@ namespace z3 {
     public:
         context() { config c; init(c); }
         context(config & c) { init(c); }
+        
+        context(context && other) noexcept 
+            : m_enable_exceptions(other.m_enable_exceptions),
+              m_rounding_mode(other.m_rounding_mode),
+              m_ctx(other.m_ctx) {
+            other.m_ctx = nullptr;
+        }
+        
+        context & operator=(context && other) noexcept {
+            if (this != &other) {
+                if (m_ctx) Z3_del_context(m_ctx);
+                m_enable_exceptions = other.m_enable_exceptions;
+                m_rounding_mode = other.m_rounding_mode;
+                m_ctx = other.m_ctx;
+                other.m_ctx = nullptr;
+            }
+            return *this;
+        }
         ~context() { if (m_ctx) Z3_del_context(m_ctx); }
         operator Z3_context() const { return m_ctx; }
 
@@ -1277,6 +1295,17 @@ namespace z3 {
            \pre args.size() == num_args()
         */
         expr update(expr_vector const& args) const;
+
+        /**
+           \brief Update a datatype field.
+           Return a new datatype expression with the specified field updated to the new value.
+           The remaining fields are unchanged.
+
+           \pre is_datatype()
+           \param field_access The accessor function declaration for the field to update
+           \param new_value The new value for the field
+        */
+        expr update_field(func_decl const& field_access, expr const& new_value) const;
 
         /**
            \brief Return the 'body' of this quantifier.
@@ -4449,6 +4478,13 @@ namespace z3 {
             _args[i] = args[i];
         }
         Z3_ast r = Z3_update_term(ctx(), m_ast, args.size(), _args.ptr());
+        check_error();
+        return expr(ctx(), r);
+    }
+
+    inline expr expr::update_field(func_decl const& field_access, expr const& new_value) const {
+        assert(is_datatype());
+        Z3_ast r = Z3_datatype_update_field(ctx(), field_access, m_ast, new_value);
         check_error();
         return expr(ctx(), r);
     }

@@ -522,7 +522,7 @@ struct nnf::imp {
 
         app * r;
         if (fr.m_pol)
-            r = m.mk_or(2, m_result_stack.data() + fr.m_spos);
+            r = m.mk_or(std::span<expr* const>(m_result_stack.data() + fr.m_spos, 2));
         else
             r = m.mk_and(std::span<expr* const>(m_result_stack.data() + fr.m_spos, 2));
         

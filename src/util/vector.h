@@ -165,8 +165,8 @@ public:
         SASSERT(size() == source.size());
     }
 
-    vector(vector&& other) noexcept {
-        std::swap(m_data, other.m_data);
+    vector(vector&& other) noexcept : m_data(other.m_data) {
+        other.m_data = nullptr;
     }
 
     vector(SZ s, T const * data) {
@@ -225,8 +225,8 @@ public:
             return *this;
         }
         destroy();
-        m_data = nullptr;
-        std::swap(m_data, source.m_data);
+        m_data = source.m_data;
+        source.m_data = nullptr;
         return *this;
     }
 
@@ -405,7 +405,14 @@ public:
         if (CallDestructors) {
             back().~T(); 
         }
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
         reinterpret_cast<SZ *>(m_data)[SIZE_IDX]--; 
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
     }
 
     vector& push_back(T const & elem) {
@@ -643,6 +650,17 @@ public:
     svector(SZ s):vector<T, false, SZ>(s) {}
     svector(SZ s, T const & elem):vector<T, false, SZ>(s, elem) {}
     svector(SZ s, T const * data):vector<T, false, SZ>(s, data) {}
+    svector(const svector&) = default;
+    svector(svector&&) noexcept = default;
+
+    svector & operator=(const svector & source) {
+        vector<T, false, SZ>::operator=(source);
+        return *this;
+    }
+    svector & operator=(svector && source) noexcept {
+        vector<T, false, SZ>::operator=(std::move(source));
+        return *this;
+    }
 };
 
 

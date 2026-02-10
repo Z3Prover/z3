@@ -2749,7 +2749,7 @@ def mk_config():
             CXXFLAGS = '%s -arch arm64' % CXXFLAGS
             LDFLAGS = '%s -arch arm64' % LDFLAGS
             SLIBEXTRAFLAGS = '%s -arch arm64' % SLIBEXTRAFLAGS
-        if IS_OSX and is_ml_enabled():
+        if IS_OSX:
             SLIBFLAGS += ' -Wl,-headerpad_max_install_names'
 
         config.write('PREFIX=%s\n' % PREFIX)

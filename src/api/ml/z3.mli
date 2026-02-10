@@ -1130,6 +1130,12 @@ sig
 
   (** The constructor accessors. *)
   val get_accessors : Sort.sort -> FuncDecl.func_decl list list
+
+  (** Update a datatype field at expression [t] with value [v].
+      The function performs a record update at [t]. The field
+      that is passed in as argument is updated with value [v],
+      the remaining fields of [t] are unchanged. *)
+  val update_field : context -> FuncDecl.func_decl -> Expr.expr -> Expr.expr -> Expr.expr
 end
 
 (** Functions to manipulate Enumeration expressions *)

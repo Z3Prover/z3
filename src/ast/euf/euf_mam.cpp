@@ -284,14 +284,14 @@ namespace euf {
         out << " " << c.m_label->get_name() << " " << c.m_oreg;
         for (unsigned i = 0; i < c.m_num_args; ++i)
             out << " " << c.m_iregs[i];
-        out << ")";
+        out << ')';
     }
 
     void display_is_cgr(std::ostream & out, const is_cgr & c) {
         out << "(IS_CGR " << c.m_label->get_name() << " " << c.m_ireg;
         for (unsigned i = 0; i < c.m_num_args; ++i)
             out << " " << c.m_iregs[i];
-        out << ")";
+        out << ')';
     }
 
     void display_yield(std::ostream & out, const yield & y) {

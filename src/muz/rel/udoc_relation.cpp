@@ -282,7 +282,6 @@ namespace datalog {
         return false;
     }
     unsigned udoc_plugin::num_sort_bits(sort* s) const {
-        unsigned num_bits = 0;
         if (bv.is_bv_sort(s))
             return bv.get_bv_size(s);
         if (m.is_bool(s)) 

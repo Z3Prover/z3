@@ -1953,8 +1953,8 @@ namespace nlarith {
             for (; i + 1 < mat.size(); i += 2) {
                 if (mat[i+1].contains(Zero)) {
                     if (i != j) {
-                        mat[j] = mat[i];
-                        mat[j+1] = mat[i+1];
+                        mat[j] = std::move(mat[i]);
+                        mat[j+1] = std::move(mat[i+1]);
                     }
                     j += 2;
                 }

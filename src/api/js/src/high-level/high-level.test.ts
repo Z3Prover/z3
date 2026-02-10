@@ -1844,6 +1844,252 @@ describe('high-level', () => {
     });
   });
 
+  describe('regular expressions', () => {
+    it('can create regex sort', () => {
+      const { Re, String: Str, eqIdentity } = api.Context('main');
+
+      const reSort = Re.sort(Str.sort());
+      expect(eqIdentity(reSort.basis(), Str.sort())).toBe(true);
+    });
+
+    it('can convert string to regex', async () => {
+      const { Re, String: Str, InRe, Solver } = api.Context('main');
+
+      const hello = Str.val('hello');
+      const re = Re.toRe(hello);
+
+      const solver = new Solver();
+      solver.add(InRe('hello', re));
+
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+
+    it('can use star operator', async () => {
+      const { Re, String: Str, InRe, Star, Solver } = api.Context('main');
+
+      const a = Re.toRe('a');
+      const aStar = Star(a);
+
+      const solver = new Solver();
+      // Empty string matches a*
+      solver.add(InRe('', aStar));
+
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+
+    it('can use plus operator', async () => {
+      const { Re, String: Str, InRe, Plus, Solver } = api.Context('main');
+
+      const a = Re.toRe('a');
+      const aPlus = Plus(a);
+
+      const solver = new Solver();
+      // "aa" matches a+
+      solver.add(InRe('aa', aPlus));
+
+      const result = await solver.check();
+      expect(result).toBe('sat');
+    });
+
+    it('can use option operator', async () => {
+      const { Re, InRe, Option, Solver } = api.Context('main');
+
+      const a = Re.toRe('a');
+      const aOpt = Option(a);
+
+      const solver1 = new Solver();
+      // Empty string matches a?
+      solver1.add(InRe('', aOpt));
+      expect(await solver1.check()).toBe('sat');
+
+      const solver2 = new Solver();
+      // "a" matches a?
+      solver2.add(InRe('a', aOpt));
+      expect(await solver2.check()).toBe('sat');
+    });
+
+    it('can use union operator', async () => {
+      const { Re, InRe, Union, Solver } = api.Context('main');
+
+      const a = Re.toRe('a');
+      const b = Re.toRe('b');
+      const aOrB = Union(a, b);
+
+      const solver1 = new Solver();
+      solver1.add(InRe('a', aOrB));
+      expect(await solver1.check()).toBe('sat');
+
+      const solver2 = new Solver();
+      solver2.add(InRe('b', aOrB));
+      expect(await solver2.check()).toBe('sat');
+
+      const solver3 = new Solver();
+      solver3.add(InRe('c', aOrB));
+      expect(await solver3.check()).toBe('unsat');
+    });
+
+    it('can use intersect operator', async () => {
+      const { Re, InRe, Intersect, Star, Solver } = api.Context('main');
+
+      const a = Re.toRe('a');
+      const b = Re.toRe('b');
+      const aStar = Star(a);
+      const bStar = Star(b);
+      const both = Intersect(aStar, bStar);
+
+      const solver = new Solver();
+      // Only empty string matches both a* and b*
+      solver.add(InRe('', both));
+      expect(await solver.check()).toBe('sat');
+    });
+
+    it('can use range operator', async () => {
+      const { Range, InRe, Solver } = api.Context('main');
+
+      const azRange = Range('a', 'z');
+
+      const solver1 = new Solver();
+      solver1.add(InRe('m', azRange));
+      expect(await solver1.check()).toBe('sat');
+
+      const solver2 = new Solver();
+      solver2.add(InRe('1', azRange));
+      expect(await solver2.check()).toBe('unsat');
+    });
+
+    it('can use loop operator', async () => {
+      const { Re, InRe, Loop, Solver } = api.Context('main');
+
+      const a = Re.toRe('a');
+      const a2to3 = Loop(a, 2, 3);
+
+      const solver1 = new Solver();
+      solver1.add(InRe('aa', a2to3));
+      expect(await solver1.check()).toBe('sat');
+
+      const solver2 = new Solver();
+      solver2.add(InRe('aaa', a2to3));
+      expect(await solver2.check()).toBe('sat');
+
+      const solver3 = new Solver();
+      solver3.add(InRe('a', a2to3));
+      expect(await solver3.check()).toBe('unsat');
+
+      const solver4 = new Solver();
+      solver4.add(InRe('aaaa', a2to3));
+      expect(await solver4.check()).toBe('unsat');
+    });
+
+    it('can use power operator', async () => {
+      const { Re, InRe, Power, Solver } = api.Context('main');
+
+      const a = Re.toRe('a');
+      const a3 = Power(a, 3);
+
+      const solver1 = new Solver();
+      solver1.add(InRe('aaa', a3));
+      expect(await solver1.check()).toBe('sat');
+
+      const solver2 = new Solver();
+      solver2.add(InRe('aa', a3));
+      expect(await solver2.check()).toBe('unsat');
+    });
+
+    it('can use complement operator', async () => {
+      const { Re, InRe, Complement, Solver } = api.Context('main');
+
+      const a = Re.toRe('a');
+      const notA = Complement(a);
+
+      const solver1 = new Solver();
+      solver1.add(InRe('a', notA));
+      expect(await solver1.check()).toBe('unsat');
+
+      const solver2 = new Solver();
+      solver2.add(InRe('b', notA));
+      expect(await solver2.check()).toBe('sat');
+    });
+
+    it('can use diff operator', async () => {
+      const { Re, InRe, Diff, Star, Solver } = api.Context('main');
+
+      const a = Re.toRe('a');
+      const b = Re.toRe('b');
+      const aStar = Star(a);
+      const diff = Diff(aStar, b);
+
+      const solver1 = new Solver();
+      solver1.add(InRe('aaa', diff));
+      expect(await solver1.check()).toBe('sat');
+
+      const solver2 = new Solver();
+      solver2.add(InRe('b', diff));
+      expect(await solver2.check()).toBe('unsat');
+    });
+
+    it('can use ReConcat operator', async () => {
+      const { Re, InRe, ReConcat, Solver } = api.Context('main');
+
+      const hello = Re.toRe('hello');
+      const world = Re.toRe('world');
+      const helloworld = ReConcat(hello, world);
+
+      const solver1 = new Solver();
+      solver1.add(InRe('helloworld', helloworld));
+      expect(await solver1.check()).toBe('sat');
+
+      const solver2 = new Solver();
+      solver2.add(InRe('hello', helloworld));
+      expect(await solver2.check()).toBe('unsat');
+    });
+
+    it('can use method chaining', async () => {
+      const { Re, InRe, Solver } = api.Context('main');
+
+      const a = Re.toRe('a');
+      const aStar = a.star();
+      const aPlus = a.plus();
+
+      const solver1 = new Solver();
+      solver1.add(InRe('', aStar));
+      expect(await solver1.check()).toBe('sat');
+
+      const solver2 = new Solver();
+      solver2.add(InRe('', aPlus));
+      expect(await solver2.check()).toBe('unsat');
+    });
+
+    it('can solve complex regex constraints', async () => {
+      const { Re, String: Str, InRe, Union, Star, Solver } = api.Context('main');
+
+      const x = Str.const('x');
+      const a = Re.toRe('a');
+      const b = Re.toRe('b');
+      const pattern = Star(Union(a, b));
+
+      const solver = new Solver();
+      solver.add(InRe(x, pattern));
+      solver.add(x.length().eq(5));
+
+      const result = await solver.check();
+      expect(result).toBe('sat');
+      
+      if (result === 'sat') {
+        const model = solver.model();
+        const xVal = model.eval(x);
+        // Check if it's a string using the isString method if available
+        if ('isString' in xVal && typeof xVal.isString === 'function' && xVal.isString()) {
+          const strVal = (xVal as any).asString();
+          expect(strVal.length).toBe(5);
+          // Verify it only contains 'a' and 'b'
+          expect(/^[ab]+$/.test(strVal)).toBe(true);
+        }
+      }
+    });
+  });
+
   describe('Params API', () => {
     it('can create params', () => {
       const { Params } = api.Context('main');

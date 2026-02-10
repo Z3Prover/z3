@@ -48,7 +48,16 @@ target_include_directories(z3java PRIVATE
   "${PROJECT_BINARY_DIR}/src/api"
   ${JNI_INCLUDE_DIRS}
 )
+# Add header padding for macOS to allow install_name_tool to modify the dylib
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  target_link_options(z3java PRIVATE "-Wl,-headerpad_max_install_names")
+endif()
 # FIXME: Should this library have SONAME and VERSION set?
+
+# On macOS, add headerpad for install_name_tool compatibility
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  target_link_options(z3java PRIVATE "-Wl,-headerpad_max_install_names")
+endif()
 
 # This prevents CMake from automatically defining ``z3java_EXPORTS``
 set_property(TARGET z3java PROPERTY DEFINE_SYMBOL "")

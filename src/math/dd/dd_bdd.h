@@ -278,7 +278,7 @@ namespace dd {
         bdd(unsigned root, bdd_manager* m): root(root), m(m) { m->inc_ref(root); }
     public:
         bdd(bdd const & other): root(other.root), m(other.m) { m->inc_ref(root); }
-        bdd(bdd && other) noexcept : root(0), m(other.m) { std::swap(root, other.root); }
+        bdd(bdd && other) noexcept : root(other.root), m(other.m) { other.root = 0; }
         bdd& operator=(bdd const& other);
         ~bdd() { m->dec_ref(root); }
         bdd lo() const { return bdd(m->lo(root), m); }

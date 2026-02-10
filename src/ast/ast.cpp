@@ -41,18 +41,12 @@ Revision History:
 // -----------------------------------
 
 parameter::~parameter() {
-    if (auto p = std::get_if<rational*>(&m_val)) {
-        dealloc(*p);
-    }
     if (auto p = std::get_if<zstring*>(&m_val)) {
         dealloc(*p);
     }
 }
 
 parameter::parameter(parameter const& other) : m_val(other.m_val) {
-    if (auto p = std::get_if<rational*>(&m_val)) {
-        m_val = alloc(rational, **p);
-    }
     if (auto p = std::get_if<zstring*>(&m_val)) {
         m_val = alloc(zstring, **p);
     }

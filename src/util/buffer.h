@@ -178,14 +178,12 @@ public:
     }
 
     const T & back() const { 
-        SASSERT(!empty()); 
-        SASSERT(m_pos > 0);
+        SASSERT(!empty());
         return m_buffer[m_pos - 1]; 
     }
 
     T & back() { 
-        SASSERT(!empty()); 
-        SASSERT(m_pos > 0);
+        SASSERT(!empty());
         return m_buffer[m_pos - 1]; 
     }
     

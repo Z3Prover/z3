@@ -44,17 +44,17 @@ Revision History:
 #define UNBOXINT(PTR) static_cast<int>(reinterpret_cast<uintptr_t>(PTR) >> PTR_ALIGNMENT)
 
 template <typename U, typename T>
-U unbox(T* ptr) {
+inline U unbox(T* ptr) {
     return static_cast<U>(reinterpret_cast<std::uintptr_t>(ptr) >> PTR_ALIGNMENT);
 }
 
 template <typename T>
-unsigned get_tag(T* ptr) {
+inline unsigned get_tag(T* ptr) {
     return reinterpret_cast<std::uintptr_t>(ptr) & TAG_MASK;
 }
 
 template <typename T, typename U>
-T* box(U val, std::uintptr_t tag = 0) {
+inline T* box(U val, std::uintptr_t tag = 0) {
     static_assert( sizeof(T*) >= sizeof(U) + PTR_ALIGNMENT );
     SASSERT_EQ(tag & PTR_MASK, 0);
     T* ptr = reinterpret_cast<T*>((static_cast<std::uintptr_t>(val) << PTR_ALIGNMENT) | tag);

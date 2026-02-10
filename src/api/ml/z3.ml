@@ -961,6 +961,9 @@ struct
       let g j = Z3native.get_datatype_sort_constructor_accessor (Sort.gc x) x i j in
       List.init ds g) in
     List.init n f
+
+  let update_field (ctx:context) (field_access:FuncDecl.func_decl) (t:Expr.expr) (v:Expr.expr) =
+    Z3native.datatype_update_field ctx field_access t v
 end
 
 

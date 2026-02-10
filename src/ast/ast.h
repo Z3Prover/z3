@@ -123,20 +123,20 @@ private:
         ast*,      // for PARAM_AST
         symbol,    // for PARAM_SYMBOL
         zstring*,  // for PARAM_ZSTRING
-        rational*, // for PARAM_RATIONAL
+        rational,  // for PARAM_RATIONAL
         double,    // for PARAM_DOUBLE (remark: this is not used in float_decl_plugin)
         unsigned   // for PARAM_EXTERNAL
-    > m_val;
+    > m_val = 0;
 
 public:
 
-    parameter() : m_val(0) {}
+    parameter() noexcept = default;
     explicit parameter(int val): m_val(val) {}
     explicit parameter(unsigned val): m_val((int)val) {}
     explicit parameter(ast * p): m_val(p) {}
     explicit parameter(symbol const & s): m_val(s) {}
-    explicit parameter(rational const & r): m_val(alloc(rational, r)) {}
-    explicit parameter(rational && r) : m_val(alloc(rational, std::move(r))) {} 
+    explicit parameter(rational const & r): m_val(r) {}
+    explicit parameter(rational && r) : m_val(std::move(r)) {} 
     explicit parameter(zstring const& s): m_val(alloc(zstring, s)) {}
     explicit parameter(zstring && s): m_val(alloc(zstring, std::move(s))) {}
     explicit parameter(double d): m_val(d) {}
@@ -188,7 +188,7 @@ public:
     int get_int() const { SASSERT(is_int()); return std::get<int>(m_val); }
     ast * get_ast() const { SASSERT(is_ast()); return std::get<ast*>(m_val); }
     symbol get_symbol() const { SASSERT(is_symbol()); return std::get<symbol>(m_val); }
-    rational const & get_rational() const { SASSERT(is_rational()); return *std::get<rational*>(m_val); }
+    rational const & get_rational() const { SASSERT(is_rational()); return std::get<rational>(m_val); }
     zstring const& get_zstring() const { SASSERT(is_zstring()); return *std::get<zstring*>(m_val); }
     double get_double() const { SASSERT(is_double()); return std::get<double>(m_val); }
     unsigned get_ext_id() const { SASSERT(is_external()); return std::get<unsigned>(m_val); }
@@ -2206,6 +2206,7 @@ public:
     app * mk_xor(ref_buffer<expr, ast_manager> const& args) { return mk_xor(args.size(), args.data()); }
     app * mk_or(unsigned num_args, expr * const * args) { return mk_app(basic_family_id, OP_OR, num_args, args); }
     app * mk_and(std::span<expr* const> args) { return mk_app(basic_family_id, OP_AND, args); }
+    app * mk_or(std::span<expr* const> args) { return mk_app(basic_family_id, OP_OR, args); }
     app * mk_or(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_OR, arg1, arg2); }
     app * mk_and(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_AND, arg1, arg2); }
     app * mk_or(expr * arg1, expr * arg2, expr * arg3) { return mk_app(basic_family_id, OP_OR, arg1, arg2, arg3); }
@@ -2216,10 +2217,10 @@ public:
     app * mk_and(ptr_vector<expr> const& args) { return mk_and(std::span<expr* const>(args.data(), args.size())); }
     app * mk_and(ref_buffer<expr, ast_manager> const& args) { return mk_and(std::span<expr* const>(args.data(), args.size())); }
     app * mk_and(ptr_buffer<expr> const& args) { return mk_and(std::span<expr* const>(args.data(), args.size())); }
-    app * mk_or(ref_vector<expr, ast_manager> const& args) { return mk_or(args.size(), args.data()); }
-    app * mk_or(ptr_vector<expr> const& args) { return mk_or(args.size(), args.data()); }
-    app * mk_or(ref_buffer<expr, ast_manager> const& args) { return mk_or(args.size(), args.data()); }
-    app * mk_or(ptr_buffer<expr> const& args) { return mk_or(args.size(), args.data()); }
+    app * mk_or(ref_vector<expr, ast_manager> const& args) { return mk_or(std::span<expr* const>(args.data(), args.size())); }
+    app * mk_or(ptr_vector<expr> const& args) { return mk_or(std::span<expr* const>(args.data(), args.size())); }
+    app * mk_or(ref_buffer<expr, ast_manager> const& args) { return mk_or(std::span<expr* const>(args.data(), args.size())); }
+    app * mk_or(ptr_buffer<expr> const& args) { return mk_or(std::span<expr* const>(args.data(), args.size())); }
     app * mk_implies(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_IMPLIES, arg1, arg2); }
     app * mk_not(expr * n) { return mk_app(basic_family_id, OP_NOT, n); }
     app * mk_distinct(unsigned num_args, expr * const * args);

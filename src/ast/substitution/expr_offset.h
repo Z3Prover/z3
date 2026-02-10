@@ -31,6 +31,11 @@ class expr_offset {
 public:
     expr_offset() = default;
     expr_offset(expr * e, unsigned o):m_expr(e), m_offset(o) {}
+    expr_offset(const expr_offset&) = default;
+    expr_offset(expr_offset&&) noexcept = default;
+
+    expr_offset& operator=(expr_offset const & other) = default;
+    expr_offset& operator=(expr_offset&&) noexcept = default;
     
     expr * get_expr() const { return m_expr; }
     unsigned get_offset() const { return m_offset; }
