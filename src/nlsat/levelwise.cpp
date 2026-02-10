@@ -155,7 +155,7 @@ namespace nlsat {
         // Every root function on each side must be connected to the boundary through edges.
         bool relation_invariant() const {
             auto const& rfs = m_rel.m_rfunc;
-            unsigned n = rfs.size();
+            auto n = rfs.size();
             if (n == 0) return true;
 
             // Build adjacency list from pairs (using ps_idx)
@@ -602,7 +602,7 @@ namespace nlsat {
 
         void fill_relation_pairs_for_section_biggest_cell() {
             auto const& rfs = m_rel.m_rfunc;
-            unsigned n = rfs.size();
+            auto n = rfs.size();
             if (n == 0)
                 return;
             SASSERT(is_set(m_l_rf));
@@ -624,7 +624,7 @@ namespace nlsat {
         // K = lower rfunc positions, f = upper rfunc positions
         void build_both_side_spanning_tree() {
             auto const& rfs = m_rel.m_rfunc;
-            unsigned n = rfs.size();
+            auto n = rfs.size();
             SASSERT(n > 0 && is_set(m_l_rf) && is_set(m_u_rf));
             SASSERT(!is_section());
             SASSERT(!same_boundary_poly());
@@ -695,7 +695,7 @@ namespace nlsat {
             
             // Check arborescence invariants (used in debug via SASSERT)
             DEBUG_CODE(
-            unsigned lower_root_idx = both.size() - 1;
+            auto lower_root_idx = both.size() - 1;
             auto arb_invariant = [&]() {
                 // Reconstruct parent[] from the algorithm logic
                 std_vector<unsigned> parent(both.size(), UINT_MAX);

@@ -86,7 +86,7 @@ namespace sls {
         virtual void force_restart() = 0;
         virtual std::ostream& display(std::ostream& out) = 0;
         virtual reslimit& rlimit() = 0;
-        virtual unsigned timestamp(sat::bool_var v) = 0;
+        virtual uint64_t timestamp(sat::bool_var v) = 0;
     };
     
     class context {
@@ -196,7 +196,7 @@ namespace sls {
         void shift_weights() { s.shift_weights(); }
         bool try_rotate(sat::bool_var v, sat::bool_var_set& rotated, unsigned& budget) { return s.try_rotate(v, rotated, budget); }
         double reward(sat::bool_var v) { return s.reward(v); }
-        unsigned timestamp(sat::bool_var v) { return s.timestamp(v); }
+        uint64_t timestamp(sat::bool_var v) { return s.timestamp(v); }
         indexed_uint_set const& unsat() const { return s.unsat(); }
         indexed_uint_set const& unsat_vars() const { return s.unsat_vars(); }
         unsigned num_external_in_unsat_vars() const { return s.num_external_in_unsat_vars(); }
