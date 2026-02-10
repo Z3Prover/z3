@@ -21,7 +21,7 @@
 #
 # Analyzes Python code using a3-python tool to identify bugs and issues
 #
-# frontmatter-hash: 90645704e266a14a387350c34c82183714aacb0f35b8f3c84751c7c3423c599b
+# frontmatter-hash: b28623d981cfd27a56b446f031b6feb05132230b3b3d3e15b16e61db65920d78
 
 name: "A3 Python Code Analysis"
 "on":
@@ -46,7 +46,7 @@ jobs:
       comment_repo: ""
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@v0.43.2
+        uses: github/gh-aw/actions/setup@89170286f206675f5608efd9f7d8d1dae9b9f41e # v0.43.2
         with:
           destination: /opt/gh-aw/actions
       - name: Check workflow file timestamps
@@ -87,7 +87,7 @@ jobs:
       secret_verification_result: ${{ steps.validate-secret.outputs.verification_result }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@v0.43.2
+        uses: github/gh-aw/actions/setup@89170286f206675f5608efd9f7d8d1dae9b9f41e # v0.43.2
         with:
           destination: /opt/gh-aw/actions
       - name: Checkout .github and .agents folders
@@ -775,7 +775,7 @@ jobs:
       total_count: ${{ steps.missing_tool.outputs.total_count }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@v0.43.2
+        uses: github/gh-aw/actions/setup@89170286f206675f5608efd9f7d8d1dae9b9f41e # v0.43.2
         with:
           destination: /opt/gh-aw/actions
       - name: Debug job inputs
@@ -898,7 +898,7 @@ jobs:
       success: ${{ steps.parse_results.outputs.success }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@v0.43.2
+        uses: github/gh-aw/actions/setup@89170286f206675f5608efd9f7d8d1dae9b9f41e # v0.43.2
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent artifacts
@@ -1009,7 +1009,7 @@ jobs:
       process_safe_outputs_temporary_id_map: ${{ steps.process_safe_outputs.outputs.temporary_id_map }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@v0.43.2
+        uses: github/gh-aw/actions/setup@89170286f206675f5608efd9f7d8d1dae9b9f41e # v0.43.2
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent output artifact
