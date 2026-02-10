@@ -620,12 +620,14 @@ jobs:
         run: |
           cd artifacts
           ls
-          mkdir -p osx-x64-bin osx-arm64-bin win32-bin win64-bin win-arm64-bin
+          mkdir -p osx-x64-bin osx-arm64-bin win32-bin win64-bin win-arm64-bin linux-x64-bin linux-arm64-bin
           cd osx-x64-bin && unzip ../z3-*-x64-osx*.zip && cd ..
           cd osx-arm64-bin && unzip ../z3-*-arm64-osx*.zip && cd ..
           cd win32-bin && unzip ../z3-*-x86-win*.zip && cd ..
           cd win64-bin && unzip ../z3-*-x64-win*.zip && cd ..
           cd win-arm64-bin && unzip ../z3-*-arm64-win*.zip && cd ..
+          cd linux-arm64-bin && unzip ../z3-*-2_38_aarch64*.zip && cd ..
+          cd linux-x64-bin && unzip ../z3-*-27_x86_64*.zip && cd ..  
       
       - name: Build Python packages
         run: |
@@ -637,6 +639,8 @@ jobs:
           echo $PWD/../../../artifacts/win-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+          echo $PWD/../../../artifacts/linux-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+          echo $PWD/../../../artifacts/linux-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel          
       
       - name: Upload artifact
         uses: actions/upload-artifact@v6
