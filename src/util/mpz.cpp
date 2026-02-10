@@ -1318,7 +1318,7 @@ void mpz_manager<SYNCH>::bitwise_or(mpz const & a, mpz const & b, mpz & c) {
     SASSERT(is_nonneg(b));
     TRACE(mpz, tout << "is_small(a): " << is_small(a) << ", is_small(b): " << is_small(b) << "\n";);
     if (is_small(a) && is_small(b)) {
-        c.set(a.value() | b.value());
+        c.set64(a.value64() | b.value64());
     }
     else {
 #ifndef _MP_GMP
@@ -1363,7 +1363,7 @@ void mpz_manager<SYNCH>::bitwise_and(mpz const & a, mpz const & b, mpz & c) {
     SASSERT(is_nonneg(a));
     SASSERT(is_nonneg(b));
     if (is_small(a) && is_small(b)) {
-        c.set(a.value() & b.value());
+        c.set64(a.value64() & b.value64());
     }
     else {
 #ifndef _MP_GMP
@@ -2257,11 +2257,16 @@ template<bool SYNCH>
 unsigned mpz_manager<SYNCH>::mlog2(mpz const & a) {
     if (is_nonneg(a))
         return 0;
-    if (is_small(a) && a.value() == INT_MIN)
-        return ::log2((unsigned)a.value());
-        
-    if (is_small(a))
-        return ::log2((unsigned)-a.value());
+    if (is_small(a)) {
+        int64_t v = a.value64();
+        if (v == mpz::SMALL_INT_MIN) {
+            // Special case: negating SMALL_INT_MIN would overflow
+            // For 32-bit: SMALL_INT_MIN = -2^30, so log2(2^30) = 30
+            // For 64-bit: SMALL_INT_MIN = -2^62, so log2(2^62) = 62
+            return mpz::SMALL_BITS - 1;
+        }
+        return uint64_log2(static_cast<uint64_t>(-v));
+    }
 #ifndef _MP_GMP
     static_assert(sizeof(digit_t) == 8 || sizeof(digit_t) == 4, "");
     mpz_cell * c     = a.ptr();
