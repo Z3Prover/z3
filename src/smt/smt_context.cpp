@@ -287,7 +287,17 @@ namespace smt {
                 m_agility         += (1.0 - m_fparams.m_agility_factor);
         }
         d.m_phase_available        = true;
-        d.m_phase                  = !l.sign();
+        // only when we change the phase of the variable do we update the birthdate. 
+        // the birthdate should be some tick/counter that's updated whenever we do the assignment
+        // if d.m_phase != l.sign() {
+        //     m_birthdate[l.var()] = m_restart_counter;
+        // }
+        // get rid of m_phase_scores, add m_birthdate and m_restart_counter to the context
+        // then the older m_birthdate is, the score is higher. so the score (i.e. the age) is today's date minus the birthdate
+        // also need to add a counter that's incremented every time we assign the core (i.e. assign a variable) to get the current date at the end
+        // right now, can simply use m_stats.m_num_decisions or I can add my own counter m_num_assignments to m_stats (since there's always at least as many desisions as assignments)
+        // or, take num_bin_propagations or num_propagations
+        d.m_phase                  = !l.sign(); 
         TRACE(assign_core, tout << (decision?"decision: ":"propagating: ") << l << " ";
               display_literal_smt2(tout, l) << "\n";
               tout << "relevant: " << is_relevant_core(l) << " level: " << m_scope_lvl << " is atom " << d.is_atom() << "\n";

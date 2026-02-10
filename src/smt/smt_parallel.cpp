@@ -384,6 +384,8 @@ namespace smt {
             if (!candidate)
                 continue;
 
+            // get rid of all this, this is an old heuristic about proportions of assignments
+            // replace with new note in context about using birthdates and just rank by age from that (none of this weird phase score proportion stuff)
             auto score_pos = ctx->m_phase_scores[0][v]; // assigned to true
             auto score_neg = ctx->m_phase_scores[1][v]; // assigned to false
 
