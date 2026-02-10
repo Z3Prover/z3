@@ -378,47 +378,36 @@ namespace smt {
         svector<smt::parallel::bb_candidate> backbone_candidates;
         vector<std::pair<double, expr_ref>> top_k; // will hold at most k elements
         expr_ref candidate(m);
+        unsigned curr_time = ctx->m_stats.m_num_assignments;
 
         for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
-            if (ctx->get_assignment(v) != l_undef)
+            if (ctx->get_assignment(v) != l_undef) 
                 continue;
+
+            auto const& d = ctx->get_bdata(v);
+            if (!d.m_phase_available)
+                continue;
+
+            unsigned birth = ctx->m_birthdate[v];
+            unsigned age = curr_time - birth;
+
+            bool phase = d.m_phase;
+
             candidate = ctx->bool_var2expr(v);
             if (!candidate)
                 continue;
 
-            // get rid of all this, this is an old heuristic about proportions of assignments
-            // replace with new note in context about using birthdates and just rank by age from that (none of this weird phase score proportion stuff)
-            auto score_pos = ctx->m_phase_scores[0][v]; // assigned to true
-            auto score_neg = ctx->m_phase_scores[1][v]; // assigned to false
-
-            ctx->m_phase_scores[0][v] /= 2; // decay the scores
-            ctx->m_phase_scores[1][v] /= 2;
-
-            if (score_pos == score_neg)
-                continue;
-
-            double score_ratio = INFINITY; // score_pos / score_neg;
-
-            // if score_neg is zero (and thus score_pos > 0 since at this point score_pos != score_neg)
-            // then not(e) is a backbone candidate with score_ratio=infinity
-            if (score_neg == 0) { 
-                candidate = mk_not(candidate);
-            } 
-            else {
-                score_ratio = score_pos / score_neg;
-            }
-
-            if (score_ratio < 1) { // so score_pos < score_neg
-                candidate = mk_not(candidate);
-                // score_ratio *= -1; // insert by absolute value
-            }
+            if (!phase)
+                candidate = m.mk_not(candidate);
 
             if (b.is_global_backbone(candidate))
                 continue;
 
+            double score = age;
+
             // insert into top_k. linear scan since k is very small
             if (top_k.size() < k) {
-                top_k.push_back({score_ratio, candidate});
+                top_k.push_back({score, candidate});
             } 
             else {
                 // find the smallest in top_k and replace if we found a new element bigger than the min
@@ -427,8 +416,8 @@ namespace smt {
                     if (top_k[i].first < top_k[min_idx].first)
                         min_idx = i;
 
-                if (score_ratio > top_k[min_idx].first) {
-                    top_k[min_idx] = {score_ratio, candidate};
+                if (score > top_k[min_idx].first) {
+                    top_k[min_idx] = {score, candidate};
                 }
             }
         }

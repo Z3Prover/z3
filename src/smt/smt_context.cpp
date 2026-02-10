@@ -279,25 +279,19 @@ namespace smt {
         m_assignment[(~l).index()] = l_false;
         bool_var_data & d          = get_bdata(l.var());
         set_justification(l.var(), d, j);
-        ++m_phase_scores[l.sign()][l.var()];
         d.m_scope_lvl              = m_scope_lvl;
         if (m_fparams.m_restart_adaptive && d.m_phase_available) {
             m_agility             *= m_fparams.m_agility_factor;
             if (!decision && d.m_phase == l.sign())
                 m_agility         += (1.0 - m_fparams.m_agility_factor);
         }
+        bool new_phase = !l.sign();
+        m_stats.m_num_assignments++;
+        if (d.m_phase_available && d.m_phase != new_phase)
+            m_birthdate[l.var()] = m_stats.m_num_assignments; // reset birthdate when phase changes
         d.m_phase_available        = true;
-        // only when we change the phase of the variable do we update the birthdate. 
-        // the birthdate should be some tick/counter that's updated whenever we do the assignment
-        // if d.m_phase != l.sign() {
-        //     m_birthdate[l.var()] = m_restart_counter;
-        // }
-        // get rid of m_phase_scores, add m_birthdate and m_restart_counter to the context
-        // then the older m_birthdate is, the score is higher. so the score (i.e. the age) is today's date minus the birthdate
-        // also need to add a counter that's incremented every time we assign the core (i.e. assign a variable) to get the current date at the end
-        // right now, can simply use m_stats.m_num_decisions or I can add my own counter m_num_assignments to m_stats (since there's always at least as many desisions as assignments)
-        // or, take num_bin_propagations or num_propagations
-        d.m_phase                  = !l.sign(); 
+        d.m_phase = new_phase;
+
         TRACE(assign_core, tout << (decision?"decision: ":"propagating: ") << l << " ";
               display_literal_smt2(tout, l) << "\n";
               tout << "relevant: " << is_relevant_core(l) << " level: " << m_scope_lvl << " is atom " << d.is_atom() << "\n";
