@@ -2133,7 +2133,7 @@ namespace polynomial {
                     m_m2pos.reset(m);
                     m_m2pos.set(m, i);
                 }
-                m_tmp_as = std::move(new_as);
+                m_tmp_as.swap(new_as);
             }
 
             // For each monomial m

@@ -249,7 +249,7 @@ namespace upolynomial {
 
     void core_manager::neg(unsigned sz, numeral const * p, numeral_vector & buffer) {
         neg_core(sz, p, m_basic_tmp);
-        buffer = std::move(m_basic_tmp);
+        buffer.swap(m_basic_tmp);
     }
 
     // buffer := p1 + p2
@@ -274,7 +274,7 @@ namespace upolynomial {
 
     void core_manager::add(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & buffer) {
         add_core(sz1, p1, sz2, p2, m_basic_tmp);
-        buffer = std::move(m_basic_tmp);
+        buffer.swap(m_basic_tmp);
     }
 
     // buffer := p1 - p2
@@ -802,7 +802,7 @@ namespace upolynomial {
                 TRACE(mgcd, tout << "found GCD\n";);
                 mul(candidate, c_g);
                 flip_sign_if_lm_neg(candidate);
-                result = std::move(candidate);
+                candidate.swap(result);
                 TRACE(mgcd, tout << "r: "; display_star(tout, result); tout << "\n";);
                 return;
             }
@@ -1009,7 +1009,7 @@ namespace upolynomial {
         set(sz, p, result);
         for (unsigned i = 1; i < k; ++i)
             mul(m_pw_tmp.size(), m_pw_tmp.data(), sz, p, m_pw_tmp);
-        r = std::move(result);
+        r.swap(result);
 #if 0
         unsigned mask  = 1;
         numeral_vector & p2 = m_pw_tmp;
