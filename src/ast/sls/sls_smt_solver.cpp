@@ -102,7 +102,7 @@ namespace sls {
         void add_input_assertion(expr* f) { m_context.add_input_assertion(f); }
         reslimit& rlimit() override { return m_ddfw.rlimit(); }
         void shift_weights() override { m_ddfw.shift_weights(); }
-        unsigned timestamp(sat::bool_var v) override { return m_ddfw.timestamp(v); }
+        uint64_t timestamp(sat::bool_var v) override { return m_ddfw.timestamp(v); }
 
         void force_restart() override { m_ddfw.force_restart(); }
 
