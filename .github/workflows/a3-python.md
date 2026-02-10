@@ -8,7 +8,7 @@ permissions:
   issues: read
   pull-requests: read
 network:
-   allowed: [default, python]
+  allowed: [default, python]
 safe-outputs:
   create-issue:
     labels:
