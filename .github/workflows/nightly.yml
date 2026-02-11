@@ -10,6 +10,11 @@ on:
         description: 'Force nightly build'
         required: false
         default: 'true'
+      publish_test_pypi:
+        description: 'Publish to Test PyPI'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -706,3 +711,27 @@ jobs:
             --prerelease \
             --target ${{ github.sha }} \
             $(cat release_files.txt | tr '\n' ' ')
+
+
+publish-test.pypi:
+    name: "Publish to test.PyPI"
+    if: ${{ github.event.inputs.publish_test_pypi == 'true' }}
+    needs: [python-package]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download Python packages
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: PythonPackage
+          path: dist
+      
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          repository-url: https://test.pypi.org/legacy/
+
