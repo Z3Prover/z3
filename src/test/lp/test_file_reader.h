@@ -59,7 +59,7 @@ class test_file_reader {
     std::ifstream m_file_stream;
 public:
     // constructor
-    test_file_reader(std::string file_name) :  m_file_stream(file_name) {
+    test_file_reader(const std::string& file_name) :  m_file_stream(file_name) {
         if (!m_file_stream.is_open()) {
             std::cout << "cannot open file " << "\'" << file_name << "\'" << std::endl;
         }

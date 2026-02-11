@@ -457,7 +457,7 @@ public:
     void get_rid_of_inf_eps();
     void get_model_do_not_care_about_diff_vars(std::unordered_map<lpvar, mpq>& variable_values) const;
     std::string get_variable_name(lpvar vi) const override;
-    void set_variable_name(lpvar vi, std::string);
+    void set_variable_name(lpvar vi, const std::string&);
     unsigned number_of_vars() const;
     inline bool is_base(unsigned j) const { return get_core_solver().m_r_heading[j] >= 0; }
     inline const impq& column_lower_bound(unsigned j) const {
