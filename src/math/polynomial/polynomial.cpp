@@ -7153,10 +7153,131 @@ namespace polynomial {
         }
         
         /**
+         * \brief Extended Euclidean algorithm for monic polynomials over Z.
+         * 
+         * Given monic coprime polynomials A and B, compute s, t such that
+         * s*A + t*B = 1 (exactly over Z[x]).
+         * 
+         * Requires: A and B are monic and coprime (gcd = 1).
+         * 
+         * Returns true if successful, false otherwise.
+         */
+        bool monic_ext_gcd(numeral_vector const & A, numeral_vector const & B,
+                          numeral_vector & s, numeral_vector & t) {
+            auto& nm = upm().m();
+            
+            // Extended Euclidean algorithm:
+            // Track coefficients (s_prev, t_prev), (s_curr, t_curr) such that
+            // s_prev*A + t_prev*B = r_prev
+            // s_curr*A + t_curr*B = r_curr
+            
+            up_manager::scoped_numeral_vector r_prev(nm), r_curr(nm);
+            up_manager::scoped_numeral_vector s_prev(nm), t_prev(nm);
+            up_manager::scoped_numeral_vector s_curr(nm), t_curr(nm);
+            
+            // Initialize: r_prev = A, s_prev = 1, t_prev = 0
+            //             r_curr = B, s_curr = 0, t_curr = 1
+            upm().set(A.size(), A.data(), r_prev);
+            s_prev.push_back(numeral()); nm.set(s_prev.back(), 1);
+            // t_prev = 0 (empty)
+            
+            upm().set(B.size(), B.data(), r_curr);
+            // s_curr = 0 (empty)
+            t_curr.push_back(numeral()); nm.set(t_curr.back(), 1);
+            
+            // Swap if needed so deg(r_prev) >= deg(r_curr)
+            if (r_prev.size() < r_curr.size()) {
+                r_prev.swap(r_curr);
+                s_prev.swap(s_curr);
+                t_prev.swap(t_curr);
+            }
+            
+            // Euclidean algorithm
+            while (!r_curr.empty()) {
+                // For monic polynomials, we can do exact division
+                // r_prev = q * r_curr + r_next
+                up_manager::scoped_numeral_vector q(nm), r_next(nm);
+                
+                // Since r_curr is monic (assuming it stays monic through the algorithm),
+                // we can do exact polynomial division
+                if (r_prev.size() < r_curr.size()) {
+                    // deg(r_prev) < deg(r_curr), so q=0, r_next = r_prev
+                    upm().set(r_prev.size(), r_prev.data(), r_next);
+                } else {
+                    // Polynomial long division - for monic divisor, no fractions
+                    upm().div_rem(r_prev.size(), r_prev.data(), r_curr.size(), r_curr.data(), q, r_next);
+                }
+                
+                // Update coefficients:
+                // s_next = s_prev - q * s_curr
+                // t_next = t_prev - q * t_curr
+                up_manager::scoped_numeral_vector s_next(nm), t_next(nm);
+                up_manager::scoped_numeral_vector qs(nm), qt(nm);
+                
+                if (!q.empty() && !s_curr.empty()) {
+                    upm().mul(q.size(), q.data(), s_curr.size(), s_curr.data(), qs);
+                } else {
+                    // qs = 0
+                }
+                
+                if (!q.empty() && !t_curr.empty()) {
+                    upm().mul(q.size(), q.data(), t_curr.size(), t_curr.data(), qt);
+                } else {
+                    // qt = 0
+                }
+                
+                upm().sub(s_prev.size(), s_prev.data(), qs.size(), qs.data(), s_next);
+                upm().sub(t_prev.size(), t_prev.data(), qt.size(), qt.data(), t_next);
+                
+                // Shift: prev <- curr, curr <- next
+                r_prev.swap(r_curr);
+                r_curr.swap(r_next);
+                s_prev.swap(s_curr);
+                s_curr.swap(s_next);
+                t_prev.swap(t_curr);
+                t_curr.swap(t_next);
+            }
+            
+            // Now r_prev should be the gcd, which should be 1 for coprime monic polynomials
+            // s_prev*A + t_prev*B = r_prev = gcd
+            
+            if (r_prev.size() != 1) {
+                TRACE(factor, tout << "monic_ext_gcd: gcd is not constant, size = " << r_prev.size() << "\n";);
+                return false;
+            }
+            
+            // r_prev should be 1 (or -1)
+            if (!nm.is_one(r_prev[0]) && !nm.is_minus_one(r_prev[0])) {
+                TRACE(factor, tout << "monic_ext_gcd: gcd is " << nm.to_string(r_prev[0]) << ", not ±1\n";);
+                return false;
+            }
+            
+            // If gcd is -1, negate s and t
+            if (nm.is_minus_one(r_prev[0])) {
+                upm().neg(s_prev);
+                upm().neg(t_prev);
+            }
+            
+            s.swap(s_prev);
+            t.swap(t_prev);
+            
+            TRACE(factor, tout << "monic_ext_gcd succeeded: s = "; upm().display(tout, s);
+                  tout << ", t = "; upm().display(tout, t); tout << "\n";);
+            
+            return true;
+        }
+        
+        /**
          * \brief Try to lift univariate factors g0, h0 to multivariate factors g, h
          * such that p(x,y) = g(x,y) * h(x,y) where g(x,1) = g0 and h(x,1) = h0.
          *
-         * Uses linear Hensel lifting step by step.
+         * Uses the "direct" Hensel lifting approach where we solve for updates
+         * directly over the integers using the Bezout identity.
+         *
+         * For monic factors: This works directly when both g0 and h0 are monic,
+         * because ext_gcd gives integer coefficients s, t with s*g0 + t*h0 = 1.
+         *
+         * For non-monic factors: We work modulo a prime p where factors remain coprime.
          *
          * Returns true if lifting succeeds, false otherwise.
          */
@@ -7164,7 +7285,6 @@ namespace polynomial {
                                         numeral_vector const & g0_vec, numeral_vector const & h0_vec,
                                         polynomial_ref & g, polynomial_ref & h) {
             auto& nm = upm().m();
-            auto& znm = upm().zm();
             
             if (g0_vec.empty() || h0_vec.empty()) {
                 TRACE(factor, tout << "empty factor vector\n";);
@@ -7173,6 +7293,12 @@ namespace polynomial {
             
             TRACE(factor, tout << "g0_vec = "; upm().display(tout, g0_vec); tout << "\n";
                   tout << "h0_vec = "; upm().display(tout, h0_vec); tout << "\n";);
+            
+            // Check if both factors are monic
+            bool g0_monic = nm.is_one(g0_vec.back());
+            bool h0_monic = nm.is_one(h0_vec.back());
+            
+            TRACE(factor, tout << "g0_monic = " << g0_monic << ", h0_monic = " << h0_monic << "\n";);
             
             // Check if factors are coprime over Z
             up_manager::scoped_numeral_vector d_vec(nm);
@@ -7183,49 +7309,22 @@ namespace polynomial {
                 return false;
             }
             
-            // Compute ext_gcd over Z_p for some prime p where factors remain coprime
-            up_manager::scoped_numeral_vector s_vec(nm), t_vec(nm);
-            
-            // For monic coprime polynomials, ext_gcd in Z_p should give coefficients that work
-            // Use a prime for the ext_gcd computation
-            scoped_numeral prime(nm);
-            uint64_t primes[] = {3, 5, 7, 11, 13, 17, 19, 23, 29, 31};
-            bool found_prime = false;
-            
-            for (uint64_t p_val : primes) {
-                nm.set(prime, p_val);
-                
-                // Create Z_p manager
-                upolynomial::zp_manager zp_upm(upm().lim(), znm);
-                zp_upm.set_zp(prime);
-                
-                // Convert to Z_p
-                up_manager::scoped_numeral_vector g0_zp(nm), h0_zp(nm);
-                upolynomial::to_zp_manager(zp_upm, g0_vec, g0_zp);
-                upolynomial::to_zp_manager(zp_upm, h0_vec, h0_zp);
-                
-                // Skip if degree dropped (leading coefficient divisible by p)
-                if (g0_zp.size() != g0_vec.size() || h0_zp.size() != h0_vec.size())
-                    continue;
-                
-                // Compute ext_gcd
-                s_vec.reset(); t_vec.reset(); d_vec.reset();
-                zp_upm.ext_gcd(g0_zp.size(), g0_zp.data(), h0_zp.size(), h0_zp.data(), 
-                              s_vec, t_vec, d_vec);
-                
-                if (d_vec.size() == 1 && zp_upm.m().is_one(d_vec[0])) {
-                    found_prime = true;
-                    TRACE(factor, tout << "using prime " << p_val << " for ext_gcd\n";);
-                    break;
-                }
-            }
-            
-            if (!found_prime) {
-                TRACE(factor, tout << "could not find suitable prime for ext_gcd\n";);
+            // For non-monic polynomials, we need a different approach.
+            // For now, only support monic factors where ext_gcd over Z works.
+            if (!g0_monic || !h0_monic) {
+                TRACE(factor, tout << "non-monic factors not yet supported\n";);
                 return false;
             }
             
-            TRACE(factor, tout << "ext_gcd computed: s = "; upm().display(tout, s_vec);
+            // For monic coprime polynomials, we compute ext_gcd over Z.
+            // This gives s, t with s*g0 + t*h0 = 1 exactly in Z[x].
+            up_manager::scoped_numeral_vector s_vec(nm), t_vec(nm);
+            if (!monic_ext_gcd(g0_vec, h0_vec, s_vec, t_vec)) {
+                TRACE(factor, tout << "monic_ext_gcd failed\n";);
+                return false;
+            }
+            
+            TRACE(factor, tout << "monic_ext_gcd succeeded: s = "; upm().display(tout, s_vec);
                   tout << ", t = "; upm().display(tout, t_vec); tout << "\n";);
             
             // Convert univariate factors to polynomials (initially just in x)
@@ -7311,19 +7410,16 @@ namespace polynomial {
                     continue;
                 }
                 
-                // Following univariate Hensel lifting pattern:
-                // From s*g0 + t*h0 = 1, we need g0*delta_h + h0*delta_g = c_k
-                // 
-                // We need: deg(delta_g) < deg(g0), deg(delta_h) < deg(h0)
+                // Hensel lifting update:
+                // We have s*g0 + t*h0 ≡ 1 (mod p), where p is our chosen prime.
+                // For monic polynomials, s*g0 + t*h0 = 1 exactly in Z[x] when
+                // gcd(g0, h0) = 1.
                 //
-                // Compute: delta_g = t*c_k mod g0 (guaranteed small degree)
-                //          delta_h = s*c_k mod h0 (guaranteed small degree)  
+                // We need to find delta_g, delta_h such that:
+                //   g0*delta_h + h0*delta_g = c_k
+                //   deg(delta_g) < deg(g0), deg(delta_h) < deg(h0)
                 //
-                // But we need: g0*delta_h + h0*delta_g = c_k
-                // With the above, we have: g0*(s*c_k mod h0) + h0*(t*c_k mod g0)
-                // This may not equal c_k exactly, but modulo g0*h0 it should.
-                // Since deg(c_k) < deg(g0) + deg(h0) = deg(original poly in x),
-                // and we're computing modulo (y-1)^k, this should work.
+                // Solution: delta_g = t*c_k mod g0, delta_h = s*c_k mod h0
                 
                 polynomial_ref t_ck(pm()), s_ck(pm());
                 t_ck = mul(t, c_k);

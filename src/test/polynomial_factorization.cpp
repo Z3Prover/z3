@@ -448,8 +448,8 @@ void test_factorization_bivariate_2factors() {
     std::cout << "  reconstructed = " << reconstructed << std::endl;
     VERIFY(eq(reconstructed, p));
     
-    // This case should work because factors are monic in x0
-    // VERIFY(fs.distinct_factors() == 2);  // TODO: enable when confirmed working
+    // This case works because factors are monic in x0
+    VERIFY(fs.distinct_factors() == 2);
 }
 
 void test_univariate_factor_output() {
