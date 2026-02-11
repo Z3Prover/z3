@@ -209,7 +209,7 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
 
     vector<std::pair<expr*,rational> > vec;
     for (unsigned i = 0; i < num_args; ++i) {
-        vec.push_back(std::make_pair(args[i], m_util.get_coeff(f, i)));
+        vec.push_back(std::move(std::make_pair(args[i], m_util.get_coeff(f, i))));
     }
     
     switch(f->get_decl_kind()) {

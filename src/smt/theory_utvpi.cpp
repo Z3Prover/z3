@@ -85,14 +85,14 @@ namespace smt {
 
     bool utvpi_tester::linearize(expr* e) {
         m_terms.reset();
-        m_terms.push_back(std::make_pair(e, rational(1)));
+        m_terms.push_back(std::move(std::make_pair(e, rational(1))));
         return linearize();
     }
 
     bool utvpi_tester::linearize(expr* e1, expr* e2) {
         m_terms.reset();
-        m_terms.push_back(std::make_pair(e1, rational(1)));
-        m_terms.push_back(std::make_pair(e2, rational(-1)));
+        m_terms.push_back(std::move(std::make_pair(e1, rational(1))));
+        m_terms.push_back(std::move(std::make_pair(e2, rational(-1))));
         return linearize();
     }
 
@@ -109,21 +109,21 @@ namespace smt {
             m_terms.pop_back();
             if (a.is_add(e)) {
                 for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
-                    m_terms.push_back(std::make_pair(to_app(e)->get_arg(i), mul));
+                    m_terms.push_back(std::move(std::make_pair(to_app(e)->get_arg(i), mul)));
                 }
             }
             else if (a.is_mul(e, e1, e2) && a.is_numeral(e1, num)) {
-                m_terms.push_back(std::make_pair(e2, mul*num));
+                m_terms.push_back(std::move(std::make_pair(e2, mul*num)));
             }
             else if (a.is_mul(e, e2, e1) && a.is_numeral(e1, num)) {
-                m_terms.push_back(std::make_pair(e2, mul*num));
+                m_terms.push_back(std::move(std::make_pair(e2, mul*num)));
             }
             else if (a.is_sub(e, e1, e2)) {
-                m_terms.push_back(std::make_pair(e1, mul));
-                m_terms.push_back(std::make_pair(e2, -mul));                
+                m_terms.push_back(std::move(std::make_pair(e1, mul)));
+                m_terms.push_back(std::move(std::make_pair(e2, -mul)));                
             }
             else if (a.is_uminus(e, e1)) {
-                m_terms.push_back(std::make_pair(e1, -mul));
+                m_terms.push_back(std::move(std::make_pair(e1, -mul)));
             }
             else if (a.is_numeral(e, num)) {
                 m_weight += num*mul;
@@ -140,7 +140,7 @@ namespace smt {
             if (r.is_zero()) {
                 continue;
             }
-            m_terms.push_back(std::make_pair(kv.m_key, r));
+            m_terms.push_back(std::move(std::make_pair(kv.m_key, r)));
             if (m_terms.size() > 2) {
                 return false;
             }
