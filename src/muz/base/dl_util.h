@@ -595,7 +595,7 @@ namespace datalog {
     //
     // -----------------------------------
 
-    void get_file_names(std::string directory, const std::string & extension, bool traverse_subdirs, 
+    void get_file_names(const std::string& directory, const std::string & extension, bool traverse_subdirs, 
         string_vector & res);
 
     bool file_exists(const std::string & name);

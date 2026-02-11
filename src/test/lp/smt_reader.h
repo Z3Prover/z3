@@ -66,7 +66,7 @@ namespace lp {
             lconstraint_kind m_kind;
             std::vector<std::pair<mpq, std::string>> m_coeffs;
             mpq m_right_side;
-            void add_pair(mpq c, std::string name) {
+            void add_pair(mpq c, const std::string& name) {
                 m_coeffs.push_back(make_pair(c, name));
             }
             formula_constraint() : m_right_side(numeric_traits<mpq>::zero()) {}
@@ -81,7 +81,7 @@ namespace lp {
         std::string                               m_file_name;
         std::ifstream                             m_file_stream;
         std::string                               m_line;
-        smt_reader(std::string file_name):
+        smt_reader(const std::string& file_name):
             m_is_OK(true),
             m_line_number(0),
             m_file_name(file_name), 
@@ -372,7 +372,7 @@ namespace lp {
         }
         */
 
-        unsigned register_name(std::string s) {
+        unsigned register_name(const std::string& s) {
             auto it = m_name_to_var_index.find(s);
             if (it!= m_name_to_var_index.end())
                 return it->second;

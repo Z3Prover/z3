@@ -559,9 +559,10 @@ namespace datalog {
     //
     // -----------------------------------
 
-    void get_file_names(std::string directory, const std::string & extension, bool traverse_subdirs,
+    void get_file_names(const std::string& directory_param, const std::string & extension, bool traverse_subdirs,
             string_vector & res) {
-
+        
+        std::string directory = directory_param;
         if(directory[directory.size()-1]!='\\' && directory[directory.size()-1]!='/') {
 #ifdef _WINDOWS
             directory+='\\';

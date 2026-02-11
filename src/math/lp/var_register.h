@@ -31,11 +31,11 @@ public:
     ext_var_info() = default;
     ext_var_info(unsigned j): ext_var_info(j, true) {}
     ext_var_info(unsigned j , bool is_int) : m_external_j(j), m_is_integer(is_int) {}
-    ext_var_info(unsigned j , bool is_int, std::string name) : m_external_j(j), m_is_integer(is_int), m_name(name) {}
+    ext_var_info(unsigned j , bool is_int, const std::string& name) : m_external_j(j), m_is_integer(is_int), m_name(name) {}
     
     unsigned external_j() const { return m_external_j;}
     bool is_integer() const {return m_is_integer;}
-    void set_name(std::string name) { m_name = name; }
+    void set_name(const std::string& name) { m_name = name; }
     std::string get_name() const { return m_name; }
 };
 
@@ -44,7 +44,7 @@ class var_register {
     std::unordered_map<unsigned, unsigned> m_external_to_local;
 public:
     
-    void set_name(unsigned j, std::string name) {
+    void set_name(unsigned j, const std::string& name) {
         m_local_to_external[j].set_name(name);
     }
 
