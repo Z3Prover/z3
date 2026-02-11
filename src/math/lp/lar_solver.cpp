@@ -1583,7 +1583,7 @@ namespace lp {
         }
     }
 
-    void lar_solver::set_variable_name(lpvar vi, std::string name) {
+    void lar_solver::set_variable_name(lpvar vi, const std::string& name) {
         m_imp->m_var_register.set_name(vi, name);
     }
 

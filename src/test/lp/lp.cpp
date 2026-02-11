@@ -684,11 +684,11 @@ std::string create_output_file_name(bool minimize, std::string file_name,
 }
 
 std::string create_output_file_name_for_glpsol(bool minimize,
-                                               std::string file_name) {
+                                               const std::string& file_name) {
     return file_name + (minimize ? "_min" : "_max") + "_glpk_out";
 }
 
-int run_glpk(std::string file_name, std::string glpk_out_file_name,
+int run_glpk(const std::string& file_name, const std::string& glpk_out_file_name,
              bool minimize, unsigned time_limit) {
     std::string minmax(minimize ? "--min" : "--max");
     std::string tmlim = time_limit > 0 ? std::string(" --tmlim ") +
@@ -700,7 +700,7 @@ int run_glpk(std::string file_name, std::string glpk_out_file_name,
     return system(command_line.c_str());
 }
 
-std::string get_status(std::string file_name) {
+std::string get_status(const std::string& file_name) {
     std::ifstream f(file_name);
     if (!f.is_open()) {
         std::cout << "cannot open " << file_name << std::endl;
@@ -728,7 +728,7 @@ struct sort_pred {
     }
 };
 
-vector<std::string> get_file_names_from_file_list(std::string filelist) {
+vector<std::string> get_file_names_from_file_list(const std::string& filelist) {
     std::ifstream file(filelist);
     if (!file.is_open()) {
         std::cout << "cannot open " << filelist << std::endl;
