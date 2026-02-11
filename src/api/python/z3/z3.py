@@ -870,7 +870,7 @@ class FuncDeclRef(AstRef):
             elif k == Z3_PARAMETER_ZSTRING:
                 result[i] = "internal string"
             else:
-                assert(False)
+                raise Z3Exception("unknown parameter kind %s" % k)
         return result
 
     def __call__(self, *args):
@@ -3374,6 +3374,9 @@ def RatVal(a, b, ctx=None):
     if z3_debug():
         _z3_assert(_is_int(a) or isinstance(a, str), "First argument cannot be converted into an integer")
         _z3_assert(_is_int(b) or isinstance(b, str), "Second argument cannot be converted into an integer")
+    # Check for zero denominator
+    if (_is_int(b) and b == 0) or (isinstance(b, str) and b == "0"):
+        raise ValueError("RatVal: denominator cannot be zero")
     return simplify(RealVal(a, ctx) / RealVal(b, ctx))
 
 
@@ -6138,7 +6141,9 @@ class AstVector(Z3PPObject):
         >>> A[0]
         x
         """
-        if i >= self.__len__():
+        if i < 0:
+            i += self.__len__()
+        if i < 0 or i >= self.__len__():
             raise IndexError
         Z3_ast_vector_set(self.ctx.ref(), self.vector, i, v.as_ast())
 
@@ -6827,7 +6832,9 @@ class ModelRef(Z3PPObject):
         f -> [else -> 0]
         """
         if _is_int(idx):
-            if idx >= len(self):
+            if idx < 0:
+                idx += len(self)
+            if idx < 0 or idx >= len(self):
                 raise IndexError
             num_consts = Z3_model_get_num_consts(self.ctx.ref(), self.model)
             if (idx < num_consts):
@@ -12008,43 +12015,55 @@ class UserPropagateBase:
         return self.ctx().ref()
 
     def add_fixed(self, fixed):
-        assert not self.fixed
-        assert not self._ctx
+        if self.fixed:
+            raise Z3Exception("add_fixed: callback already registered")
+        if self._ctx:
+            raise Z3Exception("add_fixed: propagator already has a context")
         if self.solver:
             Z3_solver_propagate_fixed(self.ctx_ref(), self.solver.solver, _user_prop_fixed)
         self.fixed = fixed
 
     def add_created(self, created):
-        assert not self.created
-        assert not self._ctx
+        if self.created:
+            raise Z3Exception("add_created: callback already registered")
+        if self._ctx:
+            raise Z3Exception("add_created: propagator already has a context")
         if self.solver:
             Z3_solver_propagate_created(self.ctx_ref(), self.solver.solver, _user_prop_created)
         self.created = created
         
     def add_final(self, final):
-        assert not self.final
-        assert not self._ctx
+        if self.final:
+            raise Z3Exception("add_final: callback already registered")
+        if self._ctx:
+            raise Z3Exception("add_final: propagator already has a context")
         if self.solver:
             Z3_solver_propagate_final(self.ctx_ref(), self.solver.solver, _user_prop_final)
         self.final = final
 
     def add_eq(self, eq):
-        assert not self.eq
-        assert not self._ctx
+        if self.eq:
+            raise Z3Exception("add_eq: callback already registered")
+        if self._ctx:
+            raise Z3Exception("add_eq: propagator already has a context")
         if self.solver:
             Z3_solver_propagate_eq(self.ctx_ref(), self.solver.solver, _user_prop_eq)
         self.eq = eq
 
     def add_diseq(self, diseq):
-        assert not self.diseq
-        assert not self._ctx
+        if self.diseq:
+            raise Z3Exception("add_diseq: callback already registered")
+        if self._ctx:
+            raise Z3Exception("add_diseq: propagator already has a context")
         if self.solver:
             Z3_solver_propagate_diseq(self.ctx_ref(), self.solver.solver, _user_prop_diseq)
         self.diseq = diseq
 
     def add_decide(self, decide):
-        assert not self.decide
-        assert not self._ctx
+        if self.decide:
+            raise Z3Exception("add_decide: callback already registered")
+        if self._ctx:
+            raise Z3Exception("add_decide: propagator already has a context")
         if self.solver:
             Z3_solver_propagate_decide(self.ctx_ref(), self.solver.solver, _user_prop_decide)
         self.decide = decide   

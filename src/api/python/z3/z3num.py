@@ -104,7 +104,8 @@ class Numeral:
             self.ast = v.ast
             self.ctx = v.ctx
         Z3_inc_ref(self.ctx_ref(), self.as_ast())
-        assert Z3_algebraic_is_value(self.ctx_ref(), self.ast)
+        if not Z3_algebraic_is_value(self.ctx_ref(), self.ast):
+            raise TypeError("Numeral: argument must be a Z3 numeric value")
 
     def __del__(self):
         Z3_dec_ref(self.ctx_ref(), self.as_ast())
@@ -142,7 +143,8 @@ class Numeral:
         >>> Numeral("2/3").denominator()
         3
         """
-        assert(self.is_rational())
+        if not self.is_rational():
+            raise TypeError("Numeral.denominator: numeral is not rational")
         return Numeral(Z3_get_denominator(self.ctx_ref(), self.as_ast()), self.ctx)
 
     def numerator(self):
@@ -151,7 +153,8 @@ class Numeral:
         >>> Numeral("2/3").numerator()
         2
         """
-        assert(self.is_rational())
+        if not self.is_rational():
+            raise TypeError("Numeral.numerator: numeral is not rational")
         return Numeral(Z3_get_numerator(self.ctx_ref(), self.as_ast()), self.ctx)
 
     def is_irrational(self):
@@ -170,7 +173,8 @@ class Numeral:
         """ Return a numeral (that is an integer) as a Python long.
 
         """
-        assert(self.is_integer())
+        if not self.is_integer():
+            raise TypeError("Numeral.as_long: numeral is not an integer")
         if sys.version_info.major >= 3:
             return int(Z3_get_numeral_string(self.ctx_ref(), self.as_ast()))
         else:
@@ -181,7 +185,8 @@ class Numeral:
         >>> Numeral("1/5").as_fraction()
         Fraction(1, 5)
         """
-        assert(self.is_rational())
+        if not self.is_rational():
+            raise TypeError("Numeral.as_fraction: numeral is not rational")
         return Fraction(self.numerator().as_long(), self.denominator().as_long())
 
     def approx(self, precision=10):
