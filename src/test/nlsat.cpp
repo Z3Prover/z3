@@ -2824,9 +2824,7 @@ static void tst_factor_discriminant() {
     fs.multiply(reconstructed);
     VERIFY(eq(reconstructed, disc));
 
-    // Discriminant that factors: (2*x0)^2 - 4*1*x0^2 = 4*x0^2 - 4*x0^2 = 0
-    // Let's try b^2 - 4ac = (2x1)^2 - 4*1*(x1^2 - 1) = 4x1^2 - 4x1^2 + 4 = 4
-    // Better: p = x2^2 + 2*x1*x2 + x1^2 - x0 which is (x2 + x1)^2 - x0
+    // p = x2^2 + 2*x1*x2 + x1^2 - x0 which is (x2 + x1)^2 - x0
     polynomial_ref p2(pm);
     p2 = (_x2 ^ 2) + 2 * _x1 * _x2 + (_x1 ^ 2) - _x0;
 
@@ -2866,7 +2864,7 @@ static void tst_factor_throughput() {
 
     for (unsigned i = 0; i < num_polys; ++i) {
         polynomial_ref p(pm);
-        // Create x0^2 + (2i+1)*x0*x1 + i^2*x1^2 = (x0 + i*x1)(x0 + (i+... )*x1) or irreducible
+        // Create x0^2 + (2i+1)*x0*x1 + i^2*x1^2 = (x0 + i*x1)(x0 + (i+1)*x1)
         int c = static_cast<int>(i);
         p = (_x0 ^ 2) + (2 * c + 1) * _x0 * _x1 + (c * c) * (_x1 ^ 2);
 
