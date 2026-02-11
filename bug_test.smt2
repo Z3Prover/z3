@@ -1,0 +1,5 @@
+(set-logic QF_S)
+(declare-fun a () String)
+(assert (= (str.substr (str.++ a a "0") 0 6) (str.++ a "a")))
+(check-sat)
+(get-model)
