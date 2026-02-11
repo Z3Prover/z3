@@ -29,16 +29,14 @@ namespace nlsat {
     public:
         scoped_literal_vector(solver & s):m_solver(s) {}
         ~scoped_literal_vector() { reset(); }
-        
+
         scoped_literal_vector(scoped_literal_vector && other) noexcept = default;
-        
-        // Move assignment operator
+
         scoped_literal_vector & operator=(scoped_literal_vector && other) noexcept {
             if (this != &other) {
                 SASSERT(&m_solver == &other.m_solver);
                 reset();  // dec_ref our current literals
-                m_lits = std::move(other.m_lits);  // take ownership of other's literals
-                // other.m_lits is now empty
+                m_lits = std::move(other.m_lits);
             }
             return *this;
         }

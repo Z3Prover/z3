@@ -201,7 +201,7 @@ struct mus::imp {
                 }
                 if (!min_core_valid || core.size() < min_core.size()) {
                     // The current core is smallest so far, so we get fewer unknowns from it.
-                    min_core = core;
+                    min_core = std::move(core);
                     min_core_valid = true;
                     min_lit = lit;
                 }
