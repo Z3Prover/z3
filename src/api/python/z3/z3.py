@@ -3374,8 +3374,8 @@ def RatVal(a, b, ctx=None):
     if z3_debug():
         _z3_assert(_is_int(a) or isinstance(a, str), "First argument cannot be converted into an integer")
         _z3_assert(_is_int(b) or isinstance(b, str), "Second argument cannot be converted into an integer")
-    # Check for zero denominator
-    if (_is_int(b) and b == 0) or (isinstance(b, str) and b == "0"):
+    # Check for zero denominator to catch obvious user errors early
+    if _is_int(b) and b == 0:
         raise ValueError("RatVal: denominator cannot be zero")
     return simplify(RealVal(a, ctx) / RealVal(b, ctx))
 
@@ -5899,9 +5899,10 @@ class Goal(Z3PPObject):
         >>> g[1]
         y > x
         """
+        length = len(self)
         if arg < 0:
-            arg += len(self)
-        if arg < 0 or arg >= len(self):
+            arg += length
+        if arg < 0 or arg >= length:
             raise IndexError
         return self.get(arg)
 
@@ -6143,9 +6144,10 @@ class AstVector(Z3PPObject):
         >>> A[0]
         x
         """
+        length = self.__len__()
         if i < 0:
-            i += self.__len__()
-        if i < 0 or i >= self.__len__():
+            i += length
+        if i < 0 or i >= length:
             raise IndexError
         Z3_ast_vector_set(self.ctx.ref(), self.vector, i, v.as_ast())
 
@@ -6834,9 +6836,10 @@ class ModelRef(Z3PPObject):
         f -> [else -> 0]
         """
         if _is_int(idx):
+            length = len(self)
             if idx < 0:
-                idx += len(self)
-            if idx < 0 or idx >= len(self):
+                idx += length
+            if idx < 0 or idx >= length:
                 raise IndexError
             num_consts = Z3_model_get_num_consts(self.ctx.ref(), self.model)
             if (idx < num_consts):
@@ -8443,9 +8446,10 @@ class ApplyResult(Z3PPObject):
         >>> r[1]
         [a == 1, Or(b == 0, b == 1), a > b]
         """
+        length = len(self)
         if idx < 0:
-            idx += len(self)
-        if idx < 0 or idx >= len(self):
+            idx += length
+        if idx < 0 or idx >= length:
             raise IndexError
         return Goal(goal=Z3_apply_result_get_subgoal(self.ctx.ref(), self.result, idx), ctx=self.ctx)
 
