@@ -5899,7 +5899,9 @@ class Goal(Z3PPObject):
         >>> g[1]
         y > x
         """
-        if arg >= len(self):
+        if arg < 0:
+            arg += len(self)
+        if arg < 0 or arg >= len(self):
             raise IndexError
         return self.get(arg)
 
@@ -8441,7 +8443,9 @@ class ApplyResult(Z3PPObject):
         >>> r[1]
         [a == 1, Or(b == 0, b == 1), a > b]
         """
-        if idx >= len(self):
+        if idx < 0:
+            idx += len(self)
+        if idx < 0 or idx >= len(self):
             raise IndexError
         return Goal(goal=Z3_apply_result_get_subgoal(self.ctx.ref(), self.result, idx), ctx=self.ctx)
 
