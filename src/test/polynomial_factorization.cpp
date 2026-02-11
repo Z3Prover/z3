@@ -539,8 +539,8 @@ void test_univariate_factor_output() {
     std::cout << "  product = "; upm.display(std::cout, prod); std::cout << std::endl;
 }
 
-// Test: 3 non-monic bivariate factors where first univariate factor is NOT linear.
-// p = (2x0 + x1)(3x0^2 + x1) -- non-linear first factor, non-monic
+// Test: non-linear bivariate factors where factors are quadratic.
+// p = (x0^2 + x1)(x0^2 - x1) = x0^4 - x1^2
 void test_factorization_nonlinear_first_factor() {
     std::cout << "test_factorization_nonlinear_first_factor\n";
 
@@ -604,7 +604,7 @@ void test_factorization_trivariate() {
 }
 
 // Test: factorization where eval point 0 makes LC vanish
-// p = (x0*x1 + 1)(x0 + x1) -- LC in x0 is x1+1, vanishes at x1=0 but not x1=1
+// p = (x0*x1 + 1)(x0 + x1) -- LC in x0 is x1, vanishes at x1=0 but not x1=1
 void test_factorization_lc_vanishes_at_zero() {
     std::cout << "test_factorization_lc_vanishes_at_zero\n";
 
