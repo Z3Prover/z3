@@ -103,120 +103,150 @@ namespace smt {
     }
 
     void parallel::backbones_worker::run() {
-        svector<bb_candidate> bb_candidates;
+    svector<bb_candidate> bb_candidates;
 
-        while (m.inc()) {
-            if (!b.wait_for_backbone_job(m_g2l, bb_candidates, m.limit()))
-                return;
+    while (m.inc()) {
+        if (!b.wait_for_backbone_job(m_g2l, bb_candidates, m.limit()))
+            return;
 
-            if (bb_candidates.empty())
-                continue;
+        if (bb_candidates.empty())
+            continue;
 
-            expr_ref_vector bb_candidate_lits(m);
-            for (auto const& c : bb_candidates)
-                bb_candidate_lits.push_back(c.lit);
+        m_stats_batches_total++;
+        m_stats_candidates_total += bb_candidates.size();
 
-            unsigned base_sz = asms.size();
+        expr_ref_vector bb_candidate_lits(m);
+        for (auto const& c : bb_candidates)
+            bb_candidate_lits.push_back(c.lit);
 
-            while (!bb_candidate_lits.empty()) {
-                unsigned chunk_size = std::min(m_bb_chunk_size, bb_candidate_lits.size());
-                expr_ref_vector chunk_lits(m);
-                expr_ref_vector negated_chunk_lits(m);
+        unsigned base_sz = asms.size();
 
-                for (unsigned i = 0; i < chunk_size; ++i) {
-                    expr *e = bb_candidate_lits[i].get();
-                    chunk_lits.push_back(e);
-                    negated_chunk_lits.push_back(mk_not(m, e));
-                }
+        while (!bb_candidate_lits.empty()) {
+            unsigned chunk_size = std::min(m_bb_chunk_size, bb_candidate_lits.size());
+            expr_ref_vector chunk_lits(m);
+            expr_ref_vector negated_chunk_lits(m);
 
-                while (true) {
-                    asms.shrink(base_sz);
-                    for (expr* a : negated_chunk_lits)
-                        asms.push_back(a);
-
-                    lbool r = l_undef;
-                    try {
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: checking batch of " << negated_chunk_lits.size() << " candidates\n");  
-                        r = ctx->check(asms.size(), asms.data());
-                    } catch (...) {
-                        asms.shrink(base_sz);
-                        throw;
-                    }
-                    asms.shrink(base_sz);
-
-                    if (r == l_undef) {
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned UNDEF, fallback to individual checks\n");
-                    }
-
-                    if (r == l_true) {
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned SAT, filtering candidates\n");
-                        expr_ref_vector new_bb_candidate(m);
-                        for (expr* e : bb_candidate_lits) {
-                            bool_var v = ctx->get_bool_var(e);
-                            if (ctx->get_assignment(v) == l_true) {
-                                new_bb_candidate.push_back(e);
-                            }
-                        }
-                        bb_candidate_lits.reset();
-                        bb_candidate_lits.append(new_bb_candidate);
-                        break;
-                    }
-
-                    // ----- UNSAT: inspect core -----
-                    expr_ref_vector negated_in_core(m);
-                    expr_ref_vector unsat_core = ctx->unsat_core();
-                    
-                    for (expr* a : unsat_core)
-                        if (negated_chunk_lits.contains(a))
-                            negated_in_core.push_back(a);
-
-                    // ---- singleton core → backbone ----
-                    if (negated_in_core.size() == 1) {
-                        expr* a = negated_in_core[0].get();
-                        expr_ref bb_ref(mk_not(m, a), m);
-
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: found single backbone: " << mk_bounded_pp(bb_ref, m, 3) << "\n");
-
-                        b.collect_global_backbone(m_l2g, bb_ref);
-                        bb_candidate_lits.erase(bb_ref.get());
-                        chunk_lits.erase(bb_ref.get());
-                        negated_chunk_lits.erase(a);
-                        continue;
-                    }
-
-                    if (negated_in_core.empty()) {
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned UNSAT but no candidates in the unsat core, fallback to individual checks\n");
-                        // fallback to individual checks
-                        for (expr* c : chunk_lits) {
-                            expr_ref bb_ref(c, m);
-                            if (check_backbone(bb_ref))
-                                b.collect_global_backbone(m_l2g, bb_ref);
-
-                            bb_candidate_lits.erase(bb_ref.get());
-                        }
-                        break;
-                    }
-
-                    for (expr* a : negated_in_core)
-                        negated_chunk_lits.erase(a);
-
-                    // fallback
-                    if (negated_chunk_lits.empty()) {
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: no more negated chunk literals, fallback to individual checks\n");
-                        for (expr* c : chunk_lits) {
-                            expr_ref bb_ref(c, m);
-                            if (check_backbone(bb_ref))
-                                b.collect_global_backbone(m_l2g, bb_ref);
-                            bb_candidate_lits.erase(bb_ref.get());
-                        }
-                        break;
-                    }
-                }
+            for (unsigned i = 0; i < chunk_size; ++i) {
+                expr *e = bb_candidate_lits[i].get();
+                chunk_lits.push_back(e);
+                negated_chunk_lits.push_back(mk_not(m, e));
             }
 
-            bb_candidates.reset();
+            while (true) {
+                m_stats_core_refinement_rounds++;
+
+                asms.shrink(base_sz);
+                for (expr* a : negated_chunk_lits)
+                    asms.push_back(a);
+
+                lbool r = l_undef;
+                try {
+                    IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: checking batch of " << negated_chunk_lits.size() << " candidates\n");  
+                    r = ctx->check(asms.size(), asms.data());
+                } catch (...) {
+                    asms.shrink(base_sz);
+                    throw;
+                }
+                asms.shrink(base_sz);
+
+                if (r == l_undef) {
+                    m_stats_fallback_singleton_checks++;
+                    m_stats_fallback_reason_undef++;
+                    IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned UNDEF, fallback to individual checks\n");
+                    for (expr* c : chunk_lits) {
+                        expr_ref bb_ref(c, m);
+                        if (check_backbone(bb_ref)) {
+                            b.collect_global_backbone(m_l2g, bb_ref);
+                            m_stats_backbones_found++;
+                        }
+                        bb_candidate_lits.erase(bb_ref.get());
+                    }
+                    continue;
+                }
+
+                if (r == l_true) {
+                    IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned SAT, filtering candidates\n");
+                    expr_ref_vector new_bb_candidate(m);
+                    for (expr* e : bb_candidate_lits) {
+                        bool_var v = ctx->get_bool_var(e);
+                        if (ctx->get_assignment(v) == l_true) {
+                            new_bb_candidate.push_back(e);
+                        }
+                    }
+                    bb_candidate_lits.reset();
+                    bb_candidate_lits.append(new_bb_candidate);
+                    break;
+                }
+
+                // ----- UNSAT: inspect core -----
+                expr_ref_vector negated_in_core(m);
+                expr_ref_vector unsat_core = ctx->unsat_core();
+                
+                for (expr* a : unsat_core)
+                    if (negated_chunk_lits.contains(a))
+                        negated_in_core.push_back(a);
+
+                // ---- singleton core → backbone ----
+                if (negated_in_core.size() == 1) {
+                    expr* a = negated_in_core[0].get();
+                    expr_ref bb_ref(mk_not(m, a), m);
+
+                    IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: found single backbone: " << mk_bounded_pp(bb_ref, m, 3) << "\n");
+
+                    m_stats_singleton_backbones++;
+                    m_stats_backbones_found++;
+                    b.collect_global_backbone(m_l2g, bb_ref);
+                    bb_candidate_lits.erase(bb_ref.get());
+                    chunk_lits.erase(bb_ref.get());
+                    negated_chunk_lits.erase(a);
+                    continue;
+                }
+
+                if (negated_in_core.empty()) {
+                    m_stats_fallback_singleton_checks++;
+                    m_stats_fallback_reason_empty_core++;
+
+                    IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned UNSAT but no candidates in the unsat core, fallback to individual checks\n");
+                    
+                    // fallback to individual checks
+                    for (expr* c : chunk_lits) {
+                        expr_ref bb_ref(c, m);
+                        if (check_backbone(bb_ref)) {
+                            b.collect_global_backbone(m_l2g, bb_ref);
+                            m_stats_backbones_found++;
+                        }
+                        bb_candidate_lits.erase(bb_ref.get());
+                    }
+                    break;
+                }
+
+                unsigned sz_before = negated_chunk_lits.size();
+                for (expr* a : negated_in_core)
+                    negated_chunk_lits.erase(a);
+                m_stats_lits_removed_by_core += sz_before - negated_chunk_lits.size();
+
+                // fallback
+                if (negated_chunk_lits.empty()) {
+                    m_stats_fallback_singleton_checks++;
+                    m_stats_fallback_reason_chunk_exhausted++;
+
+                    IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: no more negated chunk literals, fallback to individual checks\n");
+                    for (expr* c : chunk_lits) {
+                        expr_ref bb_ref(c, m);
+                        if (check_backbone(bb_ref)) {
+                            b.collect_global_backbone(m_l2g, bb_ref);
+                            m_stats_backbones_found++;
+                        }
+                        bb_candidate_lits.erase(bb_ref.get());
+                    }
+                    break;
+                }
+            }
         }
+
+        bb_candidates.reset();
     }
+}
 
 
     void parallel::backbones_worker::cancel() {
@@ -265,23 +295,35 @@ namespace smt {
         }
     }
 
-    void parallel::backbones_worker::collect_statistics(::statistics& st) const {
-        st.update("bb-batch-total", m_batch_total);
-        st.update("bb-num-total-batches", m_num_total_batches);
-        st.update("bb-num-viable-batches", m_num_viable_batches);
-        st.update("bb-candidates-tested", m_candidates_tested);
-        st.update("bb-confirmed", m_candidates_confirmed);
+   void parallel::backbones_worker::collect_statistics(::statistics& st) const {
+        st.update("bb-batches-total", m_stats_batches_total);
+        st.update("bb-candidates-total", m_stats_candidates_total);
+        st.update("bb-backbones-found", m_stats_backbones_found);
+        st.update("bb-core-refinement-rounds", m_stats_core_refinement_rounds);
+        st.update("bb-singleton-backbones", m_stats_singleton_backbones);
+        st.update("bb-fallback-singleton-checks", m_stats_fallback_singleton_checks);
+        st.update("bb-fallback-empty-core", m_stats_fallback_reason_empty_core);
+        st.update("bb-fallback-chunk-exhausted", m_stats_fallback_reason_chunk_exhausted);
+        st.update("bb-fallback-undef", m_stats_fallback_reason_undef);
+        st.update("bb-literals-removed-by-core", m_stats_lits_removed_by_core);
 
-        double batch_pct = 0.0;
-        if (m_batch_total > 0)
-            batch_pct = 100.0 * (double)m_candidates_tested / (double)m_batch_total;
+        double backbone_yield = 0.0;
+        if (m_stats_candidates_total > 0)
+            backbone_yield = 100.0 * (double)m_stats_backbones_found / (double)m_stats_candidates_total;
+        double avg_backbones_per_batch = 0.0;
+        if (m_stats_batches_total > 0)
+            avg_backbones_per_batch = (double)m_stats_backbones_found / (double)m_stats_batches_total;
+        double core_refinement_cost = 0.0;
+        if (m_stats_batches_total > 0)
+            core_refinement_cost = (double)m_stats_core_refinement_rounds / (double)m_stats_batches_total;
+        double core_effectiveness = 0.0;
+        if (m_stats_core_refinement_rounds > 0)
+            core_effectiveness = (double)m_stats_lits_removed_by_core / (double)m_stats_core_refinement_rounds;
 
-        double confirm_pct = 0.0;
-        if (m_candidates_tested > 0)
-            confirm_pct = 100.0 * (double)m_candidates_confirmed / (double)m_candidates_tested;
-
-        st.update("bb-batch-filter-pct", batch_pct);
-        st.update("bb-success-rate-pct", confirm_pct);
+        st.update("bb-backbone-yield-pct", backbone_yield);
+        st.update("bb-avg-backbones-per-batch", avg_backbones_per_batch);
+        st.update("bb-core-refinement-rounds-per-batch", core_refinement_cost);
+        st.update("bb-core-effectiveness-lit-removed-per-round", core_effectiveness);
     }
 
     void parallel::sls_worker::cancel() {

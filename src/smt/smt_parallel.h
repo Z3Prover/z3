@@ -242,11 +242,16 @@ namespace smt {
             unsigned m_bb_chunk_size = 10;
             unsigned m_bb_conflicts_per_chunk = 1000;
 
-            mutable unsigned m_batch_total = 0;
-            mutable unsigned m_num_total_batches = 0;
-            mutable unsigned m_num_viable_batches = 0;
-            mutable unsigned m_candidates_tested = 0;
-            mutable unsigned m_candidates_confirmed = 0;
+            mutable unsigned m_stats_batches_total = 0;
+            mutable unsigned m_stats_candidates_total = 0;
+            mutable unsigned m_stats_singleton_backbones = 0;
+            mutable unsigned m_stats_backbones_found = 0;
+            mutable unsigned m_stats_fallback_singleton_checks = 0;
+            mutable unsigned m_stats_fallback_reason_empty_core = 0;
+            mutable unsigned m_stats_fallback_reason_chunk_exhausted = 0;
+            mutable unsigned m_stats_fallback_reason_undef = 0;
+            mutable unsigned m_stats_core_refinement_rounds = 0;
+            mutable unsigned m_stats_lits_removed_by_core = 0;
 
             public:
                 backbones_worker(parallel &p, expr_ref_vector const &_asms);
