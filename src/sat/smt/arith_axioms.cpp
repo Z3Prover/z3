@@ -578,7 +578,7 @@ namespace arith {
         TRACE(artih, tout << mk_bounded_pp(e.eq()->get_expr(), m) << "\n");
         ensure_column(e.v1());
         ensure_column(e.v2());
-        m_delayed_eqs.push_back(std::make_pair(e, false));
+        m_delayed_eqs.push_back(std::move(std::make_pair(e, false)));
         ctx.push(push_back_vector<svector<std::pair<euf::th_eq, bool>>>(m_delayed_eqs));
     }
 

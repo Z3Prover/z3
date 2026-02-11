@@ -534,10 +534,10 @@ namespace datalog {
             }
             uint_set2& src = (*m_elems)[j];
             for (unsigned idx : src.lt) {
-                m_todo.push_back(std::make_pair(idx, true));
+                m_todo.push_back(std::move(std::make_pair(idx, true)));
             }
             for (unsigned idx : src.le) {
-                m_todo.push_back(std::make_pair(idx, strict));
+                m_todo.push_back(std::move(std::make_pair(idx, strict)));
             }
             if (strict) {
                 dst.lt.insert(j);
@@ -551,14 +551,14 @@ namespace datalog {
     void bound_relation::mk_lt(unsigned i, unsigned j) {
         m_todo.reset();
         i = find(i);
-        m_todo.push_back(std::make_pair(find(j), true));
+        m_todo.push_back(std::move(std::make_pair(find(j), true)));
         mk_lt(i);
     }
 
     void bound_relation::mk_le(unsigned i, unsigned j) {
         m_todo.reset();
         i = find(i);
-        m_todo.push_back(std::make_pair(find(j), false));
+        m_todo.push_back(std::move(std::make_pair(find(j), false)));
         mk_lt(i);
     }
 

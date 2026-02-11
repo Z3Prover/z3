@@ -1985,7 +1985,7 @@ namespace dd {
                     continue;
                 }
                 while (!m.is_val(n)) {
-                    m_nodes.push_back(std::make_pair(true, n));
+                    m_nodes.push_back(std::move(std::make_pair(true, n)));
                     m_mono.vars.push_back(m.var(n));
                     n = m.hi(n);
                 }
@@ -2002,14 +2002,14 @@ namespace dd {
         unsigned n = m_pdd.root;
         auto& m = m_pdd.manager();
         while (!m.is_val(n)) {
-            m_nodes.push_back(std::make_pair(true, n));
+            m_nodes.push_back(std::move(std::make_pair(true, n)));
             m_mono.vars.push_back(m.var(n));
             n = m.hi(n);
         }
         m_mono.coeff = m.val(n);
         // if m_pdd is constant and non-zero, the iterator should return a single monomial
         if (m_nodes.empty() && !m_mono.coeff.is_zero())
-            m_nodes.push_back(std::make_pair(false, n));
+            m_nodes.push_back(std::move(std::make_pair(false, n)));
     }
 
     pdd_iterator pdd::begin() const { return pdd_iterator(*this, true); }

@@ -774,7 +774,7 @@ std::unordered_map<unsigned, unsigned_vector> core::get_rm_by_arity() {
         unsigned arity = mon.vars().size();
         auto it = m.find(arity);
         if (it == m.end()) {
-            it = m.insert(it, std::make_pair(arity, unsigned_vector()));
+            it = m.insert(it, std::move(std::make_pair(arity, unsigned_vector())));
         }
         it->second.push_back(mon.var());
     }

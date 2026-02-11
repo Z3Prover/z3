@@ -3025,7 +3025,7 @@ namespace euf {
                     m_compiler.insert(tree, qa, mp, first_idx, false);
             }
             DEBUG_CODE(if (first_idx == 0) {
-                m_trees[lbl_id]->get_patterns().push_back(std::make_pair(qa, mp));
+                m_trees[lbl_id]->get_patterns().push_back(std::move(std::make_pair(qa, mp)));
                 ctx.get_trail().push(push_back_trail<std::pair<quantifier*, app*>, false>(m_trees[lbl_id]->get_patterns()));
             });
             TRACE(trigger_bug, tout << "after add_pattern, first_idx: " << first_idx << "\n"; m_trees[lbl_id]->display(tout););

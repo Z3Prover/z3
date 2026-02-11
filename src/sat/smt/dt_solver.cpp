@@ -93,8 +93,8 @@ namespace dt {
     }
 
     void solver::oc_push_stack(enode* n) {
-        m_dfs.push_back(std::make_pair(EXIT, n));
-        m_dfs.push_back(std::make_pair(ENTER, n));
+        m_dfs.push_back(std::move(std::make_pair(EXIT, n)));
+        m_dfs.push_back(std::move(std::make_pair(ENTER, n)));
     }
 
     /**

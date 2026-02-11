@@ -4984,7 +4984,7 @@ void seq_rewriter::elim_condition(expr* elem, expr_ref& cond) {
         all_ranges = true;
         unsigned ch = 0, ch2 = 0;
         svector<std::pair<unsigned, unsigned>> ranges, ranges1;
-        ranges.push_back(std::make_pair(0, u().max_char()));
+        ranges.push_back(std::move(std::make_pair(0, u().max_char())));
         auto exclude_range = [&](unsigned lower, unsigned upper) {
             SASSERT(lower <= upper);
             if (lower == 0) {

@@ -187,7 +187,7 @@ proof *ground_sat_answer_op::mk_proof_step(frame &fr) {
     for (auto &k : fr.m_kids) {premises.push_back(m_cache.find(k));}
 
     for (unsigned i = 0; i < premises.size(); ++i) {
-        positions.push_back(std::make_pair(0,i));
+        positions.push_back(std::move(std::make_pair(0,i)));
     }
     for (unsigned i = 0; i <= premises.size(); ++i) {
         substs.push_back(expr_ref_vector(m));

@@ -319,7 +319,7 @@ namespace datalog {
                     }
                     proof* premises[2] = { pr, p };
 
-                    positions.push_back(std::make_pair(0, 1));
+                    positions.push_back(std::move(std::make_pair(0, 1)));
 
                     substs.push_back(sub1);
                     substs.push_back(sub);
@@ -547,7 +547,7 @@ namespace datalog {
                 app* body_j = r->get_tail(j);
                 prop_body = vs(body_j, sub.size(), sub.data());
                 prs.push_back(get_proof(md, head_j, to_app(prop_body), level-1));
-                positions.push_back(std::make_pair(j+1,0));
+                positions.push_back(std::move(std::make_pair(j+1,0)));
                 substs.push_back(expr_ref_vector(m));
             }
             pr = m.mk_hyper_resolve(sz+1, prs.data(), prop, positions, substs);
@@ -1082,7 +1082,7 @@ namespace datalog {
                         }
 
                         prs.push_back(get_proof(md, to_app(trace->get_arg(j)), path1));
-                        positions.push_back(std::make_pair(j+1,0));
+                        positions.push_back(std::move(std::make_pair(j+1,0)));
                         substs.push_back(expr_ref_vector(m));
                     }
                     head = rl->get_head();
@@ -1256,7 +1256,7 @@ namespace datalog {
                     scoped_proof _sp(m);
                     proof* premises[2] = { pr, p };
 
-                    positions.push_back(std::make_pair(0, 1));
+                    positions.push_back(std::move(std::make_pair(0, 1)));
 
                     substs.push_back(sub1);
                     substs.push_back(sub);

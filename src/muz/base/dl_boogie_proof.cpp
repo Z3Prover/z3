@@ -107,7 +107,7 @@ namespace datalog {
                     for (unsigned k = 1; k < premises1.size(); ++k) {
                         if (m.get_fact(premises1[k].get()) == lit) {
                             premises2.push_back(premises1[k].get());
-                            positions2.push_back(std::make_pair(j+1,0));
+                            positions2.push_back(std::move(std::make_pair(j+1,0)));
                             substs2.push_back(expr_ref_vector(m));
                             break;
                         }
@@ -220,7 +220,7 @@ namespace datalog {
                     unsigned sz = sub.size();
                     SASSERT(sz == q->get_num_decls());
                     for (unsigned i = 0; i < sz; ++i) {
-                        s.push_back(std::make_pair(q->get_decl_name(sz-1-i), sub[i]));
+                        s.push_back(std::move(std::make_pair(q->get_decl_name(sz-1-i), sub[i])));
                     }
                     return;
                 }

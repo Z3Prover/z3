@@ -521,7 +521,7 @@ namespace q {
                 unsigned i = 0;
                 for (expr* arg : *to_app(s)) {
                     if (!is_ground(arg) && !is_uninterp(arg) && !qb.is_free(arg))
-                        qb.var_args.push_back(std::make_pair(to_app(s), i));
+                        qb.var_args.push_back(std::move(std::make_pair(to_app(s), i)));
                     ++i;
                 }
             }

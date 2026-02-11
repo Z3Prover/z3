@@ -1166,7 +1166,7 @@ namespace smt {
             relation& r = *kv.m_value;
             if (r.m_property != sr_po) continue;
             for (atom* ap : r.m_asserted_atoms) {
-                atoms.push_back(std::make_pair(ap->var(), ap->phase()));
+                atoms.push_back(std::move(std::make_pair(ap->var(), ap->phase())));
             }
         }
     }

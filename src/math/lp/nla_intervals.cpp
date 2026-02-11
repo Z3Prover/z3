@@ -112,7 +112,7 @@ void intervals::add_mul_of_degree_one_to_vector(const nex_mul* e, vector<std::pa
     SASSERT((*e)[0].pow() == 1);
     const nex *ev = (*e)[0].e();
     lpvar j = to_var(ev)->var();
-    v.push_back(std::make_pair(e->coeff(), j));
+    v.push_back(std::move(std::make_pair(e->coeff(), j)));
 }
 
 void intervals::add_linear_to_vector(const nex* e, vector<std::pair<rational, lpvar>> &v) {
@@ -122,7 +122,7 @@ void intervals::add_linear_to_vector(const nex* e, vector<std::pair<rational, lp
         add_mul_of_degree_one_to_vector(to_mul(e), v);
         break; 
     case expr_type::VAR:
-        v.push_back(std::make_pair(rational(1), to_var(e)->var()));
+        v.push_back(std::move(std::make_pair(rational(1), to_var(e)->var())));
         break;
     default:
         SASSERT(!e->is_sum());

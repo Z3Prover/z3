@@ -154,7 +154,7 @@ namespace spacer {
                     if (m_ctx.is_b_pure (premise)) {
                         if (!m_use_constant_from_a) {
                             rational coefficient = params[i].get_rational();
-                            coeff_lits.push_back(std::make_pair(abs(coefficient), (app*)m.get_fact(premise)));
+                            coeff_lits.push_back(std::move(std::make_pair(abs(coefficient), (app*)m.get_fact(premise))));
                         }
                     }
                     else {
@@ -163,14 +163,14 @@ namespace spacer {
 
                         if (m_use_constant_from_a) {
                             rational coefficient = params[i].get_rational();
-                            coeff_lits.push_back(std::make_pair(abs(coefficient), (app*)m.get_fact(premise)));
+                            coeff_lits.push_back(std::move(std::make_pair(abs(coefficient), (app*)m.get_fact(premise))));
                         }
                     }
                 }
                 else {
                     if (m_use_constant_from_a) {
                         rational coefficient = params[i].get_rational();
-                        coeff_lits.push_back(std::make_pair(abs(coefficient), (app*)m.get_fact(premise)));
+                        coeff_lits.push_back(std::move(std::make_pair(abs(coefficient), (app*)m.get_fact(premise))));
                     }
                 }
             }
@@ -199,7 +199,7 @@ namespace spacer {
                         brw.mk_not(premise, negatedPremise);
                         pinned.push_back(negatedPremise);
                         rational coefficient = params[i].get_rational();
-                        coeff_lits.push_back(std::make_pair(abs(coefficient), to_app(negatedPremise)));
+                        coeff_lits.push_back(std::move(std::make_pair(abs(coefficient), to_app(negatedPremise))));
                     }
                 }
             }
@@ -341,7 +341,7 @@ namespace spacer {
             coeff_lits_t coeff_lits;
             for (unsigned l = 0; l < matrix.num_cols(); ++l) {
                 if (!matrix.get(k,l).is_zero()) {
-                    coeff_lits.push_back(std::make_pair(matrix.get(k, l), ordered_basis[l]));
+                    coeff_lits.push_back(std::move(std::make_pair(matrix.get(k, l), ordered_basis[l])));
                 }
             }
             SASSERT(!coeff_lits.empty());
@@ -472,7 +472,7 @@ namespace spacer {
 
                         evaluation = (*model)(bounded_vectors[j][k].get());
                         if (!util.is_zero(evaluation)) {
-                            coeff_lits.push_back(std::make_pair(rational(1), ordered_basis[j]));
+                            coeff_lits.push_back(std::move(std::make_pair(rational(1), ordered_basis[j])));
                         }
                     }
                     SASSERT(!coeff_lits.empty()); // since then previous outer loop would have found solution already

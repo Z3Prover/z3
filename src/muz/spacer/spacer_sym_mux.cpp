@@ -54,14 +54,14 @@ void sym_mux::register_decl(func_decl *fdecl) {
     entry->m_variants.push_back(mk_variant(fdecl, 1));
 
     m_entries.insert(fdecl, entry);
-    m_muxes.insert(entry->m_variants.get(0), std::make_pair(entry, 0));
-    m_muxes.insert(entry->m_variants.get(1), std::make_pair(entry, 1));
+    m_muxes.insert(entry->m_variants.get(0), std::move(std::make_pair(entry, 0)));
+    m_muxes.insert(entry->m_variants.get(1), std::move(std::make_pair(entry, 1)));
 }
 void sym_mux::ensure_capacity(sym_mux_entry &entry, unsigned sz) const {
     while (entry.m_variants.size() < sz) {
         unsigned idx = entry.m_variants.size();
         entry.m_variants.push_back (mk_variant(entry.m_main, idx));
-        m_muxes.insert(entry.m_variants.back(), std::make_pair(&entry, idx));
+        m_muxes.insert(entry.m_variants.back(), std::move(std::make_pair(&entry, idx)));
     }
 }
 

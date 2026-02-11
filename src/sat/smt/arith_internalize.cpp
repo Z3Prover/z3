@@ -557,7 +557,7 @@ namespace arith {
             rational const& r = m_columns[var];
             if (!r.is_zero()) {
                 auto vi = register_theory_var_in_lar_solver(var);
-                m_left_side.push_back(std::make_pair(r, vi));
+                m_left_side.push_back(std::move(std::make_pair(r, vi)));
                 m_columns[var].reset();
             }
         }
