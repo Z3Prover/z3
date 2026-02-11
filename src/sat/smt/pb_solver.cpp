@@ -1335,12 +1335,10 @@ namespace pb {
 
     solver::~solver() {
         m_stats.reset();
-        for (constraint* c : m_constraints) {
-            c->deallocate(m_allocator);
-        }
-        for (constraint* c : m_learned) {
-            c->deallocate(m_allocator);
-        }
+        for (constraint* c : m_constraints) 
+            c->deallocate(m_allocator);        
+        for (constraint* c : m_learned) 
+            c->deallocate(m_allocator);        
     }
 
     void solver::add_at_least(bool_var v, literal_vector const& lits, unsigned k) {
@@ -1371,6 +1369,17 @@ namespace pb {
 
         if (!learned && clausify(lit, lits.size(), lits.data(), k)) {
             return nullptr;
+        }
+        init_visited();
+        for (literal l : lits) {
+            auto v = l.var();
+            if (is_visited(v)) {
+                svector<wliteral> wlits;
+                for (literal l : lits) 
+                    wlits.push_back(wliteral(1, l));
+                return add_pb_ge(lit, wlits, k, learned);
+            }
+            mark_visited(v);
         }
         void * mem = m_allocator.allocate(card::get_obj_size(lits.size()));
         sat::constraint_base::initialize(mem, this);
@@ -1449,6 +1458,14 @@ namespace pb {
             else
                 s().add_clause(~lit, sat::status::th(false, get_id()));
             return nullptr;
+        }
+        init_visited();
+        for (auto const&[w, l] : wlits) {
+            auto v = l.var();
+            if (is_visited(v)) {
+                throw default_exception("malformed constraint: variable appears more than once - is pre-processing disabled?");
+            }
+            mark_visited(v);
         }
         if (!learned) {
             for (auto [w, l] : wlits) 
