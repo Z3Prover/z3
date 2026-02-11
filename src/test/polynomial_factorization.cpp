@@ -382,8 +382,8 @@ void test_factorization_multivariate_missing_factors() {
     std::cout << "  reconstructed = " << reconstructed << std::endl;
     VERIFY(eq(reconstructed, p));
     
-    // Goal: should find 3 factors. Currently may find 1.
-    // VERIFY(fs.distinct_factors() == 3);  // TODO: enable when Hensel lifting works
+    // Goal: should find 3 factors.
+    VERIFY(fs.distinct_factors() == 3);
 }
 
 void test_factorization_bivariate_3factors_monic() {
