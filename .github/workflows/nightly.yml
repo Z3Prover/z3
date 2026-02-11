@@ -325,37 +325,29 @@ jobs:
           retention-days: 2
 
   manylinux-python-arm64:
-    name: "Python bindings (manylinux ARM64 cross)"
+    name: "Python bindings (manylinux ARM64)"
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    container: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v6.0.2
       
-      - name: Download ARM toolchain
-        run: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz'
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
       
-      - name: Extract ARM toolchain
+      - name: Build and repair wheel in native ARM64 container
         run: |
-          mkdir -p /tmp/arm-toolchain/
-          tar xf /tmp/arm-toolchain.tar.xz -C /tmp/arm-toolchain/ --strip-components=1
-      
-      - name: Setup Python environment
-        run: |
-          /opt/python/cp38-cp38/bin/python -m venv $PWD/env
-          echo "$PWD/env/bin" >> $GITHUB_PATH
-          echo "/tmp/arm-toolchain/bin" >> $GITHUB_PATH
-          echo "/tmp/arm-toolchain/aarch64-none-linux-gnu/libc/usr/bin" >> $GITHUB_PATH
-      
-      - name: Install build tools
-        run: |
-          echo $PATH
-          stat $(which aarch64-none-linux-gnu-gcc)
-          pip install build git+https://github.com/rhelmot/auditwheel
-      
-      - name: Build wheels
-        run: cd src/api/python && CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld Z3_CROSS_COMPILING=aarch64 python -m build && AUDITWHEEL_PLAT=manylinux_2_28_aarch64 auditwheel repair --plat manylinux_2_28_aarch64 dist/*.whl && cd ../../..
+          docker run --platform linux/arm64 --rm \
+            -v $PWD:/workspace -w /workspace \
+            quay.io/pypa/manylinux_2_28_aarch64:latest \
+            /bin/bash -c "
+              /opt/python/cp38-cp38/bin/python -m venv /tmp/env && \
+              source /tmp/env/bin/activate && \
+              pip install build git+https://github.com/rhelmot/auditwheel && \
+              cd src/api/python && \
+              python -m build && \
+              AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl
+            "
       
       - name: Upload artifact
         uses: actions/upload-artifact@v6
