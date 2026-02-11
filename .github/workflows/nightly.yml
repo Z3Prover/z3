@@ -355,7 +355,7 @@ jobs:
           pip install build git+https://github.com/rhelmot/auditwheel
       
       - name: Build wheels
-        run: cd src/api/python && CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld Z3_CROSS_COMPILING=aarch64 python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../..
+        run: cd src/api/python && CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld Z3_CROSS_COMPILING=aarch64 python -m build && AUDITWHEEL_PLAT=manylinux_2_28_aarch64 auditwheel repair --plat manylinux_2_28_aarch64 dist/*.whl && cd ../../..
       
       - name: Upload artifact
         uses: actions/upload-artifact@v6
@@ -625,27 +625,27 @@ jobs:
         run: |
           cd artifacts
           ls
-          mkdir -p osx-x64-bin osx-arm64-bin win32-bin win64-bin win-arm64-bin linux-x64-bin linux-arm64-bin
+          mkdir -p osx-x64-bin osx-arm64-bin win32-bin win64-bin win-arm64-bin
           cd osx-x64-bin && unzip ../z3-*-x64-osx*.zip && cd ..
           cd osx-arm64-bin && unzip ../z3-*-arm64-osx*.zip && cd ..
           cd win32-bin && unzip ../z3-*-x86-win*.zip && cd ..
           cd win64-bin && unzip ../z3-*-x64-win*.zip && cd ..
           cd win-arm64-bin && unzip ../z3-*-arm64-win*.zip && cd ..
-          cd linux-arm64-bin && cp ../z3*_2_38_aarch64.whl . && cd ..
-          cd linux-x64-bin && cp ../z3*_27_x86_64.whl . && cd ..  
       
       - name: Build Python packages
         run: |
           python3 -m pip install --user -U setuptools
           cd src/api/python
+          # Build source distribution
           python3 setup.py sdist
+          # Build wheels from macOS and Windows release zips
           echo $PWD/../../../artifacts/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/win-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-          echo $PWD/../../../artifacts/linux-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-          echo $PWD/../../../artifacts/linux-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel          
+          # Copy pre-built manylinux wheels directly (already repaired by manylinux-python-* jobs)
+          cp ../../../artifacts/*.whl dist/          
       
       - name: Upload artifact
         uses: actions/upload-artifact@v6
@@ -726,7 +726,7 @@ jobs:
       - name: Download Python packages
         uses: actions/download-artifact@v7.0.0
         with:
-          name: PythonPackage
+          name: PythonPackages
           path: dist
       
       - name: Publish to PyPI
