@@ -21,6 +21,11 @@ name: A3 Python Code Analysis
 strict: true
 timeout-minutes: 45
 tracker-id: a3-python-analysis
+steps:
+  - name: Checkout Python source files
+    run: |
+      git sparse-checkout add src
+      echo "Python source files checked out from src directory"
 ---
 
 # A3 Python Code Analysis Agent
@@ -59,28 +64,36 @@ a3 --help || python -m a3 --help
 
 ### 2.1 Identify Python Files
 
-Find all Python files in the src directory:
+The Z3 repository contains Python source files primarily in `src/api/python/z3/`. Verify these files are available:
 
 ```bash
-find ${{ github.workspace }}/src -name "*.py" -type f | head -20
+# Check that src directory was checked out
+ls -la ${{ github.workspace }}/src/api/python/z3/
+
+# List Python files
+find ${{ github.workspace }}/src -name "*.py" -type f | head -30
 ```
 
 ### 2.2 Run a3-python Analysis
 
-Run the a3 analyze command on the src directory and save output to a file:
+Run the a3 scan command on the repository to analyze all Python files, particularly those in `src/api/python/z3/`:
 
 ```bash
 cd ${{ github.workspace }}
 
-# Try different command variations based on what's available
+# Ensure PATH includes a3 command
+export PATH="$PATH:/home/runner/.local/bin"
+
+# Run a3 scan on the repository with focus on src directory
 if command -v a3 &> /dev/null; then
-    a3 analyze ./src --generate-docs --dependency-graph > a3-python-output.txt 2>&1 || \
-    a3 analyze ./src > a3-python-output.txt 2>&1 || \
-    a3 debug ./src --execute-tests --validate-imports > a3-python-output.txt 2>&1 || \
-    echo "a3 analyze command failed with all variations" > a3-python-output.txt
+    # Run with multiple options for comprehensive analysis
+    a3 scan . --verbose --dse-verify --deduplicate --consolidate-variants > a3-python-output.txt 2>&1 || \
+    a3 scan src --verbose --functions --dse-verify > a3-python-output.txt 2>&1 || \
+    a3 scan src/api/python --verbose > a3-python-output.txt 2>&1 || \
+    echo "a3 scan command failed with all variations" > a3-python-output.txt
 elif python -m a3 --help &> /dev/null; then
-    python -m a3 analyze ./src > a3-python-output.txt 2>&1 || \
-    echo "python -m a3 analyze command failed" > a3-python-output.txt
+    python -m a3 scan src > a3-python-output.txt 2>&1 || \
+    echo "python -m a3 scan command failed" > a3-python-output.txt
 else
     echo "ERROR: a3-python tool not available" > a3-python-output.txt
 fi
@@ -90,7 +103,11 @@ ls -lh a3-python-output.txt
 cat a3-python-output.txt
 ```
 
-**Important**: Capture the complete output including any errors, warnings, and findings.
+**Important**: The a3-python tool should analyze the Python files in `src/api/python/z3/` which include:
+- `z3.py` - Main Z3 Python API (350KB+)
+- `z3printer.py` - Pretty printing functionality
+- `z3num.py`, `z3poly.py`, `z3rcf.py` - Numeric and polynomial modules
+- `z3types.py`, `z3util.py` - Type definitions and utilities
 
 ## Phase 3: Post-Process and Analyze Results
 
@@ -268,6 +285,7 @@ Create the issue using the safe-outputs configuration:
 
 Exit gracefully without creating an issue if:
 - Analysis tool failed to run or install
+- Python source files in `src/api/python/z3` were not checked out (sparse checkout issue)
 - No Python files found in src directory
 - Output file is empty or invalid
 - Zero or one true positive identified
