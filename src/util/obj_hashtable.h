@@ -50,9 +50,9 @@ public:
     obj_hashtable(unsigned initial_capacity = DEFAULT_HASHTABLE_INITIAL_CAPACITY):
         core_hashtable<obj_hash_entry<T>, obj_ptr_hash<T>, ptr_eq<T> >(initial_capacity) {}
 
-    obj_hashtable(const obj_hashtable & source) = delete;
+    obj_hashtable(const obj_hashtable & source) = default;
     obj_hashtable(obj_hashtable && source) noexcept = default;
-    obj_hashtable& operator=(const obj_hashtable & other) = delete;
+    obj_hashtable& operator=(const obj_hashtable & other) = default;
     obj_hashtable& operator=(obj_hashtable && other) noexcept = default;
 };
 
@@ -62,13 +62,6 @@ public:
     struct key_data {
         Key *  m_key = nullptr;
         Value  m_value;
-        key_data() {}
-        key_data(Key *key) : m_key(key) {}
-        key_data(Key *k, Value const &v) : m_key(k), m_value(v) {}
-        key_data(key_data &&kd) noexcept = default;
-        key_data(key_data const &kd) noexcept = default;
-        key_data &operator=(key_data const &kd)  = default;
-        key_data &operator=(key_data &&kd) = default;
         Value const & get_value() const { return m_value; }
         Key & get_key () const { return *m_key; }
         unsigned hash() const { return m_key->hash(); }
@@ -143,6 +136,10 @@ public:
     
     Value& insert_if_not_there(Key * k, Value const & v) {
         return m_table.insert_if_not_there2(key_data(k, v))->get_data().m_value;
+    }
+
+    Value& insert_if_not_there(Key * k, Value && v) {
+        return m_table.insert_if_not_there2(key_data(k, std::move(v)))->get_data().m_value;
     }
 
     bool insert_if_not_there_core(Key * k, Value const & v, obj_map_entry * & et) {
