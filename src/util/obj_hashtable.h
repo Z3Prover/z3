@@ -50,6 +50,10 @@ public:
     obj_hashtable(unsigned initial_capacity = DEFAULT_HASHTABLE_INITIAL_CAPACITY):
         core_hashtable<obj_hash_entry<T>, obj_ptr_hash<T>, ptr_eq<T> >(initial_capacity) {}
 
+    obj_hashtable(const obj_hashtable & source) = delete;
+    obj_hashtable(obj_hashtable && source) noexcept = default;
+    obj_hashtable& operator=(const obj_hashtable & other) = delete;
+    obj_hashtable& operator=(obj_hashtable && other) noexcept = default;
 };
 
 template<typename Key, typename Value>
@@ -94,7 +98,7 @@ public:
 public:
     obj_map(unsigned initial_capacity = DEFAULT_HASHTABLE_INITIAL_CAPACITY):
         m_table(initial_capacity) {}
-    
+
     typedef typename table::iterator iterator;
     typedef typename table::data data;
     typedef typename table::entry entry;
