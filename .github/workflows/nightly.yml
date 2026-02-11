@@ -713,7 +713,7 @@ jobs:
             $(cat release_files.txt | tr '\n' ' ')
 
 
-publish-test-pypi:
+  publish-test-pypi:
     name: "Publish to test.PyPI"
     if: ${{ github.event.inputs.publish_test_pypi == 'true' }}
     needs: [python-package]
