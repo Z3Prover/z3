@@ -239,6 +239,8 @@ namespace smt {
             smt_params m_smt_params;
             scoped_ptr<context> ctx;
             ast_translation m_g2l, m_l2g;
+            unsigned m_bb_chunk_size = 10;
+            unsigned m_bb_conflicts_per_chunk = 1000;
 
             mutable unsigned m_batch_total = 0;
             mutable unsigned m_num_total_batches = 0;

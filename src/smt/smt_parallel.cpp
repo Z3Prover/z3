@@ -112,101 +112,105 @@ namespace smt {
             if (bb_candidates.empty())
                 continue;
 
-            // Γ = candidates
-            expr_ref_vector gamma(m);
+            expr_ref_vector bb_candidate_lits(m);
             for (auto const& c : bb_candidates)
-                gamma.push_back(c.lit);
-
-            // ω = negated assumptions
-            expr_ref_vector omega(m);
-            for (expr* e : gamma)
-                omega.push_back(m.mk_not(e));
+                bb_candidate_lits.push_back(c.lit);
 
             unsigned base_sz = asms.size();
 
-            while (!gamma.empty()) {
+            while (!bb_candidate_lits.empty()) {
+                unsigned chunk_size = std::min(m_bb_chunk_size, bb_candidate_lits.size());
+                expr_ref_vector chunk_lits(m);
+                expr_ref_vector negated_chunk_lits(m);
 
-                // push ω
-                for (expr* a : omega)
-                    asms.push_back(a);
+                for (unsigned i = 0; i < chunk_size; ++i) {
+                    expr *e = bb_candidate_lits[i].get();
+                    chunk_lits.push_back(e);
+                    negated_chunk_lits.push_back(mk_not(m, e));
+                }
 
-                ctx->get_fparams().m_max_conflicts = 1000;
-
-                lbool r = l_undef;
-                try {
-                    r = ctx->check(asms.size(), asms.data());
-                } catch (...) {
+                while (true) {
                     asms.shrink(base_sz);
-                    throw;
-                }
+                    for (expr* a : negated_chunk_lits)
+                        asms.push_back(a);
 
-                asms.shrink(base_sz);
+                    lbool r = l_undef;
+                    try {
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: checking batch of " << negated_chunk_lits.size() << " candidates\n");  
+                        r = ctx->check(asms.size(), asms.data());
+                    } catch (...) {
+                        asms.shrink(base_sz);
+                        throw;
+                    }
+                    asms.shrink(base_sz);
 
-                if (r == l_true) {
-                    expr_ref_vector new_gamma(m);
+                    if (r == l_undef) {
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned UNDEF, fallback to individual checks\n");
+                    }
 
-                    for (expr* e : gamma) {
-                        sat::bool_var v = ctx->get_bool_var(e);
-
-                        if (v == sat::null_bool_var)
-                            continue;
-
-                        lbool val = ctx->get_assignment(v);
-
-                        if (val == l_true) {
-                            // still could be backbone
-                            new_gamma.push_back(e);
+                    if (r == l_true) {
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned SAT, filtering candidates\n");
+                        expr_ref_vector new_bb_candidate(m);
+                        for (expr* e : bb_candidate_lits) {
+                            bool_var v = ctx->get_bool_var(e);
+                            if (ctx->get_assignment(v) == l_true) {
+                                new_bb_candidate.push_back(e);
+                            }
                         }
-                        // if false → cannot be backbone
+                        bb_candidate_lits.reset();
+                        bb_candidate_lits.append(new_bb_candidate);
+                        break;
                     }
 
-                    gamma.reset();
-                    gamma.append(new_gamma);
+                    // ----- UNSAT: inspect core -----
+                    expr_ref_vector negated_in_core(m);
+                    expr_ref_vector unsat_core = ctx->unsat_core();
+                    
+                    for (expr* a : unsat_core)
+                        if (negated_chunk_lits.contains(a))
+                            negated_in_core.push_back(a);
 
-                    break;
-                }
-                // UNSAT → inspect core
-                expr_ref_vector core = ctx->unsat_core();
+                    // ---- singleton core → backbone ----
+                    if (negated_in_core.size() == 1) {
+                        expr* a = negated_in_core[0].get();
+                        expr_ref bb_ref(mk_not(m, a), m);
 
-                expr_ref_vector core_in_omega(m);
-                for (expr* a : core)
-                    if (omega.contains(a))
-                        core_in_omega.push_back(a);
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: found single backbone: " << mk_bounded_pp(bb_ref, m, 3) << "\n");
 
-                if (core_in_omega.size() == 1) {
-                    // singleton core → backbone found
-                    expr* a = core_in_omega[0].get();
-                    expr* bb = mk_not(m, a);
-
-                    expr_ref bb_ref(bb, m);
-
-                    IF_VERBOSE(1, verbose_stream()
-                        << "Algorithm7 backbone: "
-                        << mk_bounded_pp(bb_ref, m, 3) << "\n");
-
-                    b.collect_global_backbone(m_l2g, bb_ref);
-
-                    // remove from gamma
-                    gamma.erase(bb);
-
-                    // remove from omega
-                    omega.erase(a);
-
-                    continue;
-                }
-
-                // shrink ω
-                for (expr* a : core_in_omega)
-                    omega.erase(a);
-
-                if (omega.empty()) {
-                    // fallback → individual checks
-                    for (expr* e : gamma) {
-                        expr_ref bb_ref(e, m);
-                        if (check_backbone(bb_ref))
-                            b.collect_global_backbone(m_l2g, bb_ref);
+                        b.collect_global_backbone(m_l2g, bb_ref);
+                        bb_candidate_lits.erase(bb_ref.get());
+                        chunk_lits.erase(bb_ref.get());
+                        negated_chunk_lits.erase(a);
+                        continue;
                     }
-                    break;
+
+                    if (negated_in_core.empty()) {
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned UNSAT but no candidates in the unsat core, fallback to individual checks\n");
+                        // fallback to individual checks
+                        for (expr* c : chunk_lits) {
+                            expr_ref bb_ref(c, m);
+                            if (check_backbone(bb_ref))
+                                b.collect_global_backbone(m_l2g, bb_ref);
+
+                            bb_candidate_lits.erase(bb_ref.get());
+                        }
+                        break;
+                    }
+
+                    for (expr* a : negated_in_core)
+                        negated_chunk_lits.erase(a);
+
+                    // fallback
+                    if (negated_chunk_lits.empty()) {
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: no more negated chunk literals, fallback to individual checks\n");
+                        for (expr* c : chunk_lits) {
+                            expr_ref bb_ref(c, m);
+                            if (check_backbone(bb_ref))
+                                b.collect_global_backbone(m_l2g, bb_ref);
+                            bb_candidate_lits.erase(bb_ref.get());
+                        }
+                        break;
+                    }
                 }
             }
 
@@ -444,6 +448,7 @@ namespace smt {
         IF_VERBOSE(1, verbose_stream() << "Initialized backbones thread\n");
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         ctx->set_logic(p.ctx.m_setup.get_logic());
+        ctx->get_fparams().m_max_conflicts = m_bb_conflicts_per_chunk;
         context::copy(p.ctx, *ctx, true);
     }
 
