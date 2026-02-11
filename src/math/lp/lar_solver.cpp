@@ -957,7 +957,7 @@ namespace lp {
 
         for (auto& [v, c] : coeffs)
             if (!is_zero(c))
-                left_side.push_back(std::move(std::make_pair(c, v)));        
+                left_side.push_back(std::make_pair(c, v));        
     }
 
     void lar_solver::add_touched_row(unsigned rid) {
@@ -2731,8 +2731,8 @@ namespace lp {
 
     bool lar_solver::are_equal(lpvar j, lpvar k) {
         vector<std::pair<mpq, lpvar>> coeffs;        
-        coeffs.push_back(std::move(std::make_pair(mpq(1), j)));
-        coeffs.push_back(std::move(std::make_pair(mpq(-1), k)));
+        coeffs.push_back(std::make_pair(mpq(1), j));
+        coeffs.push_back(std::make_pair(mpq(-1), k));
         lar_term t(coeffs);
         subst_known_terms(&t);
         return t.is_empty();
@@ -2741,8 +2741,8 @@ namespace lp {
     std::pair<constraint_index, constraint_index> lar_solver::add_equality(lpvar j, lpvar k) {
         vector<std::pair<mpq, lpvar>> coeffs;
         
-        coeffs.push_back(std::move(std::make_pair(mpq(1), j)));
-        coeffs.push_back(std::move(std::make_pair(mpq(-1), k)));
+        coeffs.push_back(std::make_pair(mpq(1), j));
+        coeffs.push_back(std::make_pair(mpq(-1), k));
         unsigned ej = add_term(coeffs, UINT_MAX); // UINT_MAX is the external null var
             
 

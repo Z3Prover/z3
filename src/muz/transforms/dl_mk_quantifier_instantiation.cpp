@@ -119,7 +119,7 @@ namespace datalog {
                     if (a1->get_decl() == a2->get_decl() &&
                         a1->get_num_args() == a2->get_num_args()) {
                         for (unsigned k = 0; k < a1->get_num_args(); ++k) {
-                            todo.push_back(std::move(std::make_pair(a1->get_arg(k), a2->get_arg(k))));
+                            todo.push_back(std::make_pair(a1->get_arg(k), a2->get_arg(k)));
                         }
                         match(i, pat, j + 1, todo, q, conjs);
                         todo.resize(sz);
@@ -140,7 +140,7 @@ namespace datalog {
     
         if (m_funs.find(to_app(arg)->get_decl(), terms)) {
             for (unsigned k = 0; k < terms->size(); ++k) {
-                todo.push_back(std::move(std::make_pair(arg, (*terms)[k])));
+                todo.push_back(std::make_pair(arg, (*terms)[k]));
                 match(i + 1, pat, j, todo, q, conjs);
                 todo.pop_back();
             }

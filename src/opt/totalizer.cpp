@@ -75,7 +75,7 @@ namespace opt {
                 m_clauses.push_back(mk_or(clause));
             }
             def = mk_not(m, mk_and(ors));
-            m_defs.push_back(std::move(std::make_pair(c, def)));            
+            m_defs.push_back(std::make_pair(c, def));            
         }
     }
 

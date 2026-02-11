@@ -71,7 +71,7 @@ void pp(std::ostream & out, format * f, ast_manager & m, params_ref const & _p) 
     unsigned i;
     int space_left;
     svector<std::pair<format *, unsigned> > todo;
-    todo.push_back(std::move(std::make_pair(f, 0)));
+    todo.push_back(std::make_pair(f, 0));
     app_ref  space(mk_string(m, " "), fm(m));
     while (!todo.empty()) {
         if (line >= max_num_lines)
@@ -94,28 +94,28 @@ void pp(std::ostream & out, format * f, ast_manager & m, params_ref const & _p) 
             out << f->get_decl()->get_parameter(0).get_symbol();
             break;
         case OP_INDENT:
-            todo.push_back(std::move(std::make_pair(to_app(f->get_arg(0)), 
+            todo.push_back(std::make_pair(to_app(f->get_arg(0)), 
                                           std::min(indent + f->get_decl()->get_parameter(0).get_int(),
-                                                   max_indent))));
+                                                   max_indent)));
             break;
         case OP_COMPOSE:
             i = f->get_num_args();
             while (i > 0) {
                 --i;
-                todo.push_back(std::move(std::make_pair(to_app(f->get_arg(i)), indent)));
+                todo.push_back(std::make_pair(to_app(f->get_arg(i)), indent));
             }
             break;
         case OP_CHOICE:
             space_left = std::min(max_width - pos, max_ribbon - pos);
             if (space_left > 0 && fits(m, to_app(f->get_arg(0)), space_left)) 
-                todo.push_back(std::move(std::make_pair(to_app(f->get_arg(0)), indent)));
+                todo.push_back(std::make_pair(to_app(f->get_arg(0)), indent));
             else
-                todo.push_back(std::move(std::make_pair(to_app(f->get_arg(1)), indent)));
+                todo.push_back(std::make_pair(to_app(f->get_arg(1)), indent));
             break;
         case OP_LINE_BREAK:
         case OP_LINE_BREAK_EXT:
             if (single_line) {
-                todo.push_back(std::move(std::make_pair(space, indent)));
+                todo.push_back(std::make_pair(space, indent));
                 break;
             }
             pos = indent;

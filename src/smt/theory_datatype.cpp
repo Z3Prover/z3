@@ -71,8 +71,8 @@ namespace smt {
     }
 
     void theory_datatype::oc_push_stack(enode * n) {
-        m_stack.push_back(std::move(std::make_pair(EXIT, n)));
-        m_stack.push_back(std::move(std::make_pair(ENTER, n)));
+        m_stack.push_back(std::make_pair(EXIT, n));
+        m_stack.push_back(std::make_pair(ENTER, n));
     }
 
 

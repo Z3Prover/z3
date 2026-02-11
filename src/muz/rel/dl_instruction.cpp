@@ -76,7 +76,7 @@ namespace datalog {
         for(unsigned i = 0; i < n; ++i) {
             unsigned sz = reg(i) ? reg(i)->get_size_estimate_bytes() : 0;
             total_bytes += sz;
-            sizes.push_back(std::move(std::make_pair(i, sz)));
+            sizes.push_back(std::make_pair(i, sz));
         }
         std::sort(sizes.begin(), sizes.end(), compare_size_proc());        
 

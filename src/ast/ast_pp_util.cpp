@@ -57,7 +57,7 @@ void ast_pp_util::display_decls(std::ostream& out) {
     recfun::util u(m);
     for (unsigned i = m_rec_decls; i < n; ++i) {
         func_decl* f = coll.get_rec_decls()[i];
-        recfuns.push_back(std::move(std::make_pair(f, u.get_def(f).get_rhs())));
+        recfuns.push_back(std::make_pair(f, u.get_def(f).get_rhs()));
     }
     if (!recfuns.empty())
         ast_smt2_pp_recdefs(out, recfuns, m_env);

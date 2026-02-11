@@ -547,7 +547,7 @@ namespace datalog {
         get_rmanager().reset_saturated_marks();
         get_relation(pred).add_fact(fact);
         if (!m_context.print_aig().is_null()) {
-            m_table_facts.push_back(std::move(std::make_pair(pred, fact)));
+            m_table_facts.push_back(std::make_pair(pred, fact));
         }
     }
 

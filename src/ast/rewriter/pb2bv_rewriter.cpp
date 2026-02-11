@@ -93,7 +93,7 @@ struct pb2bv_rewriter::imp {
         void sort_args() {
             vector<ca> cas;
             for (unsigned i = 0; i < m_args.size(); ++i) {
-                cas.push_back(std::move(std::make_pair(m_coeffs[i], expr_ref(m_args.get(i), m))));
+                cas.push_back(std::make_pair(m_coeffs[i], expr_ref(m_args.get(i), m)));
             }
             std::sort(cas.begin(), cas.end(), compare_coeffs());
             m_coeffs.reset();

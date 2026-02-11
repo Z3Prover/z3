@@ -1210,7 +1210,7 @@ namespace smt {
                 }
                 
                 m_diseq_watch.reserve(watch_var+1);
-                m_diseq_watch[watch_var].push_back(std::move(std::make_pair(v1, v2)));
+                m_diseq_watch[watch_var].push_back(std::make_pair(v1, v2));
                 m_diseq_watch_trail.push_back(watch_var);
                 return;
             }

@@ -3238,14 +3238,14 @@ namespace smt {
     void context::internalize_proxies(expr_ref_vector const& asms, vector<std::pair<expr*,expr_ref>>& asm2proxy) {
         for (expr* e : asms) {
             if (is_valid_assumption(m, e)) {
-                asm2proxy.push_back(std::move(std::make_pair(e, expr_ref(e, m))));
+                asm2proxy.push_back(std::make_pair(e, expr_ref(e, m)));
             }
             else {
                 expr_ref proxy(m), fml(m);
                 proxy = m.mk_fresh_const(symbol(), m.mk_bool_sort());
                 fml = m.mk_implies(proxy, e);
                 m_asserted_formulas.assert_expr(fml);
-                asm2proxy.push_back(std::move(std::make_pair(e, proxy)));
+                asm2proxy.push_back(std::make_pair(e, proxy));
             }
         }
         // The new assertions are of the form 'proxy => assumption'
@@ -3332,7 +3332,7 @@ namespace smt {
             }
             clausep = clause::mk(m, lits.size(), lits.data(), CLS_AUX, js);
         }
-        m_tmp_clauses.push_back(std::move(std::make_pair(clausep, lits)));
+        m_tmp_clauses.push_back(std::make_pair(clausep, lits));
     }
 
     void context::reset_tmp_clauses() {

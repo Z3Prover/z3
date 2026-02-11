@@ -1083,7 +1083,7 @@ namespace arith {
             m_nla->am().set(r, m_nla->am_value(t));
         }
         else {
-            m_todo_terms.push_back(std::move(std::make_pair(t, rational::one())));
+            m_todo_terms.push_back(std::make_pair(t, rational::one()));
             TRACE(nl_value, tout << "v" << v << " " << t << "\n";);
             TRACE(nl_value, tout << "v" << v << " := w" << t << "\n";
             lp().print_term(lp().get_term(t), tout) << "\n";);
@@ -1103,7 +1103,7 @@ namespace arith {
                     auto wi = arg.j();
                     c1 = arg.coeff() * wcoeff;
                     if (lp().column_has_term(wi)) {
-                        m_todo_terms.push_back(std::move(std::make_pair(wi, c1)));
+                        m_todo_terms.push_back(std::make_pair(wi, c1));
                     }
                     else {
                         m_nla->am().set(r1, c1.to_mpq());

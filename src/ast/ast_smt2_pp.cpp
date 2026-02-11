@@ -538,7 +538,7 @@ class smt2_printer {
         m_expr2alias->insert(n, idx);
         m_aliased_exprs.push_back(n);
         m_aliased_pps.push_back(nf);
-        m_aliased_lvls_names.push_back(std::move(std::make_pair(lvl, name)));
+        m_aliased_lvls_names.push_back(std::make_pair(lvl, name));
     }
 
     void push_frame(expr * n, bool use_alias) {

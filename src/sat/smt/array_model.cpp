@@ -237,7 +237,7 @@ namespace array {
                 if (i < num_args) {
                     SASSERT(!parent_sel_set->contains(sel) || (*(parent_sel_set->find(sel)))->get_root() == sel->get_root());
                     parent_sel_set->insert(sel);
-                    todo.push_back(std::move(std::make_pair(parent_root, sel)));
+                    todo.push_back(std::make_pair(parent_root, sel));
                 }
             }
         }

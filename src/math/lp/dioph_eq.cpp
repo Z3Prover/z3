@@ -285,7 +285,7 @@ namespace lp {
         std::ostream& print_lar_term_L(const std_vector<iv>& t, std::ostream& out) const {
             vector<std::pair<mpq, unsigned>> tp;
             for (const auto& p : t) {
-                tp.push_back(std::move(std::make_pair(p.coeff(), p.var())));
+                tp.push_back(std::make_pair(p.coeff(), p.var()));
             }
             return print_linear_combination_customized(
                 tp, [](int j) -> std::string { return "x" + std::to_string(j); }, out);

@@ -91,7 +91,7 @@ namespace euf {
         unsigned sz = m_clauses.size();
         m_clauses.push_back(cl);
         m_roots.push_back(true);
-        m_trail.push_back(std::move(std::make_pair(update::add_clause, 0)));
+        m_trail.push_back(std::make_pair(update::add_clause, 0));
         for (sat::literal lit : *cl) {
             ctx.s().set_external(lit.var());
             occurs(lit).push_back(sz);
@@ -113,7 +113,7 @@ namespace euf {
         unsigned sz = m_clauses.size();
         m_clauses.push_back(cl);
         m_roots.push_back(false);
-        m_trail.push_back(std::move(std::make_pair(update::add_clause, 0)));
+        m_trail.push_back(std::make_pair(update::add_clause, 0));
         for (sat::literal lit : *cl) {
             ctx.s().set_external(lit.var());
             occurs(lit).push_back(sz);
@@ -121,8 +121,8 @@ namespace euf {
     }
 
     void relevancy::add_to_propagation_queue(sat::literal lit) {
-        m_trail.push_back(std::move(std::make_pair(update::add_queue, lit.var())));
-        m_queue.push_back(std::move(std::make_pair(lit, nullptr)));
+        m_trail.push_back(std::make_pair(update::add_queue, lit.var()));
+        m_queue.push_back(std::make_pair(lit, nullptr));
     }
 
     void relevancy::set_relevant(sat::literal lit) {
@@ -130,7 +130,7 @@ namespace euf {
         if (n)
             mark_relevant(n);        
         m_relevant_var_ids.setx(lit.var(), true, false);
-        m_trail.push_back(std::move(std::make_pair(update::relevant_var, lit.var())));
+        m_trail.push_back(std::make_pair(update::relevant_var, lit.var()));
     }
 
     void relevancy::set_asserted(sat::literal lit) {
@@ -197,7 +197,7 @@ namespace euf {
         flush();
         if (m_qhead == m_queue.size())
             return;
-        m_trail.push_back(std::move(std::make_pair(update::set_qhead, m_qhead)));
+        m_trail.push_back(std::make_pair(update::set_qhead, m_qhead));
         while (m_qhead < m_queue.size() && !ctx.s().inconsistent() && ctx.get_manager().inc()) {
             auto const& [lit, n] = m_queue[m_qhead++];
             SASSERT(n || lit != sat::null_literal);
@@ -224,8 +224,8 @@ namespace euf {
         if (is_relevant(n))
             return;
         TRACE(relevancy, tout << "mark #" << ctx.bpp(n) << "\n");
-        m_trail.push_back(std::move(std::make_pair(update::add_queue, 0)));
-        m_queue.push_back(std::move(std::make_pair(sat::null_literal, n)));
+        m_trail.push_back(std::make_pair(update::add_queue, 0));
+        m_queue.push_back(std::make_pair(sat::null_literal, n));
     }
 
     void relevancy::mark_relevant(sat::literal lit) {
@@ -272,7 +272,7 @@ namespace euf {
             if (true_lit != sat::null_literal) 
                 set_asserted(true_lit);            
             else {
-                m_trail.push_back(std::move(std::make_pair(update::set_root, idx)));
+                m_trail.push_back(std::make_pair(update::set_root, idx));
                 m_roots[idx] = true;
             }
         next:

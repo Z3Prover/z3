@@ -228,7 +228,7 @@ namespace smt {
             return false;
         if (ctx.add_fingerprint(store, store->get_owner_id(), select->get_num_args() - 1, select->get_args() + 1)) {
             TRACE(array, tout << "adding axiom2 to todo queue\n";);
-            m_axiom2_todo.push_back(std::move(std::make_pair(store, select))); 
+            m_axiom2_todo.push_back(std::make_pair(store, select)); 
             return true;
         }
         TRACE(array, tout << "axiom already instantiated: #" << store->get_owner_id() << " #" << select->get_owner_id() << "\n";);
@@ -315,7 +315,7 @@ namespace smt {
             return false; // axiom was already instantiated
         if (already_diseq(n1, n2))
             return false;
-        m_extensionality_todo.push_back(std::move(std::make_pair(n1, n2)));         
+        m_extensionality_todo.push_back(std::make_pair(n1, n2));         
         return true;
     }
 
@@ -328,7 +328,7 @@ namespace smt {
         enode * nodes[2] = { a1, a2 };
         if (!ctx.add_fingerprint(this, 1, 2, nodes))
             return; // axiom was already instantiated
-        m_congruent_todo.push_back(std::move(std::make_pair(a1, a2)));         
+        m_congruent_todo.push_back(std::make_pair(a1, a2));         
     }
 
    
@@ -838,7 +838,7 @@ namespace smt {
                 if (i < num_args) {
                     SASSERT(!parent_sel_set->contains(sel) || (*(parent_sel_set->find(sel)))->get_root() == sel->get_root());
                     parent_sel_set->insert(sel);
-                    todo.push_back(std::move(std::make_pair(parent_root, sel)));
+                    todo.push_back(std::make_pair(parent_root, sel));
                 }
             }
         }

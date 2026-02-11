@@ -1157,7 +1157,7 @@ bool theory_seq::solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& 
             return false;
         m.inc_ref(rhs);
         m.inc_ref(ls[0]);
-        m_nth_eq2_cache.insert(std::move(std::make_pair(rhs, ls[0])));
+        m_nth_eq2_cache.insert(std::make_pair(rhs, ls[0]));
         get_trail_stack().push(remove_obj_pair_map(m, m_nth_eq2_cache, rhs, ls[0]));
         ls1.push_back(s);        
         if (!idx_is_zero) rs1.push_back(m_sk.mk_pre(s, idx)); 

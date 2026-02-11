@@ -513,7 +513,7 @@ void non_auf_macro_solver::collect_candidates(ptr_vector<quantifier> const& qs, 
                 TRACE(model_finder, tout << "considering macro for: " << f->get_name() << "\n";
                 m->display(tout); tout << "\n";);
                 if (m->is_unconditional() && (!qi->is_auf() || m->get_weight() >= m_mbqi_force_template)) {
-                    full_macros.insert(f, std::move(std::make_pair(m, q)));
+                    full_macros.insert(f, std::make_pair(m, q));
                     cond_macros.erase(f);
                 }
                 else if (!full_macros.contains(f) && !qi->is_auf())

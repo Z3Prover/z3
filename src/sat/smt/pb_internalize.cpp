@@ -82,7 +82,7 @@ namespace pb {
         for (unsigned i = 0; i < lits.size(); ++i) {
             rational c = m_pb.get_coeff(t, i);
             check_unsigned(c);
-            wlits.push_back(std::move(std::make_pair(c.get_unsigned(), lits[i])));
+            wlits.push_back(std::make_pair(c.get_unsigned(), lits[i]));
         }
     }
 

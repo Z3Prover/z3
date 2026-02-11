@@ -1623,7 +1623,7 @@ namespace datalog {
             proof_ref_vector premises(m);
             premises.push_back(m.mk_asserted(r1.to_formula()));
             premises.push_back(m.mk_asserted(r2.to_formula()));
-            positions.push_back(std::move(std::make_pair(idx+1, 0)));
+            positions.push_back(std::make_pair(idx+1, 0));
             pr = m.mk_hyper_resolve(2, premises.data(), fml, positions, substs);
             pc.insert(pr);
         }

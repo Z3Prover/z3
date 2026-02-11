@@ -531,7 +531,7 @@ namespace smt {
             case l_false:
                 break;
             default:
-                args.push_back(std::move(std::make_pair(l, c)));
+                args.push_back(std::make_pair(l, c));
                 break;
             }
         }

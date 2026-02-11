@@ -896,10 +896,10 @@ namespace datalog {
                 for (unsigned j = i + 1; j < r.size(); ++j) {
                     relation_mutator_fn& m2 = *(m_mutators[j]);  
                     if (m1.supports_attachment(r[j])) {
-                        m_attach.push_back(std::move(std::make_pair(i,j)));
+                        m_attach.push_back(std::make_pair(i,j));
                     }
                     if (m2.supports_attachment(r[i])) {
-                        m_attach.push_back(std::move(std::make_pair(j,i)));
+                        m_attach.push_back(std::make_pair(j,i));
                     }
                 }
             }

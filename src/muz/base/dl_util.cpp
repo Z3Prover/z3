@@ -334,7 +334,7 @@ namespace datalog {
         proof_ref_vector premises(m);
         premises.push_back(m.mk_asserted(fml1));
         premises.push_back(m.mk_asserted(fml2));
-        positions.push_back(std::move(std::make_pair(idx+1, 0)));
+        positions.push_back(std::make_pair(idx+1, 0));
 
         TRACE(dl, 
               tout << premises[0]->get_id() << " " << mk_pp(premises[0].get(), m) << "\n";
@@ -372,7 +372,7 @@ namespace datalog {
         proof_ref_vector premises(m);
         premises.push_back(r1.get_proof());
         premises.push_back(r2.get_proof());
-        positions.push_back(std::move(std::make_pair(idx+1, 0)));
+        positions.push_back(std::make_pair(idx+1, 0));
 
         TRACE(dl, 
               tout << premises[0]->get_id() << " " << mk_pp(premises[0].get(), m) << "\n";

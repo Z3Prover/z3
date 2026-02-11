@@ -156,8 +156,8 @@ void factor_rewriter::mk_is_negative(expr_ref& result, expr_ref_vector& eqs) {
 // m_muls: list of products
 void factor_rewriter::mk_adds(expr* arg1, expr* arg2) {
     m_adds.reset();
-    m_adds.push_back(std::move(std::make_pair(arg1, true)));
-    m_adds.push_back(std::move(std::make_pair(arg2, false)));
+    m_adds.push_back(std::make_pair(arg1, true));
+    m_adds.push_back(std::make_pair(arg2, false));
     rational k;
     for (unsigned i = 0; i < m_adds.size();) {
         bool sign = m_adds[i].second;
@@ -173,13 +173,13 @@ void factor_rewriter::mk_adds(expr* arg1, expr* arg2) {
         if (a().is_add(e) && e->get_num_args() > 0) {
             m_adds[i].first = e->get_arg(0);
             for (unsigned j = 1; j < e->get_num_args(); ++j) {
-                m_adds.push_back(std::move(std::make_pair(e->get_arg(j),sign)));
+                m_adds.push_back(std::make_pair(e->get_arg(j),sign));
             }            
         }
         else if (a().is_sub(e) && e->get_num_args() > 0) {
             m_adds[i].first = e->get_arg(0);
             for (unsigned j = 1; j < e->get_num_args(); ++j) {
-                m_adds.push_back(std::move(std::make_pair(e->get_arg(j),!sign)));
+                m_adds.push_back(std::make_pair(e->get_arg(j),!sign));
             }
         }
         else if (a().is_uminus(e)) {
