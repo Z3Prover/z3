@@ -21,7 +21,7 @@
 #
 # Analyzes Python code using a3-python tool to identify bugs and issues
 #
-# frontmatter-hash: b28623d981cfd27a56b446f031b6feb05132230b3b3d3e15b16e61db65920d78
+# frontmatter-hash: 7348eb5596739e4071fab41ddb1f89d640e825c30d6a7c1a2ffc325cb76bf1ac
 
 name: "A3 Python Code Analysis"
 "on":
@@ -100,6 +100,11 @@ jobs:
           persist-credentials: false
       - name: Create gh-aw temp directory
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
+      - name: Checkout Python source files
+        run: |-
+          git sparse-checkout add src
+          echo "Python source files checked out from src directory"
+
       - name: Configure Git credentials
         env:
           REPO_NAME: ${{ github.repository }}
