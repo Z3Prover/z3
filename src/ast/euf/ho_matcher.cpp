@@ -727,7 +727,7 @@ namespace euf {
         m_hopat2pat.insert(p1, p);
         m_q2hoq.insert(q, q1);
         m_hoq2q.insert(q1, q);
-        m_hopat2free_vars.insert(p1, free_vars);
+        m_hopat2free_vars.insert(p1, std::move(free_vars));
         m_ho_patterns.push_back(p1);
         m_ho_qs.push_back(q1);
         trail().push(push_back_vector(m_ho_patterns));

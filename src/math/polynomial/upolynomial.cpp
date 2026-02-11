@@ -301,7 +301,6 @@ namespace upolynomial {
 
     void core_manager::sub(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & buffer) {
         sub_core(sz1, p1, sz2, p2, m_basic_tmp);
-        // buffer = std::move(m_basic_tmp);
         buffer.swap(m_basic_tmp);
     }
 
@@ -343,7 +342,6 @@ namespace upolynomial {
 
     void core_manager::mul(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & buffer) {
         mul_core(sz1, p1, sz2, p2, m_basic_tmp);
-        // buffer = std::move(m_basic_tmp);
         buffer.swap(m_basic_tmp);
     }
 
