@@ -25,6 +25,7 @@ Notes:
 #include "util/buffer.h"
 #include "util/scoped_ptr_vector.h"
 #include "math/polynomial/upolynomial_factorization.h"
+#include "math/polynomial/upolynomial_factorization_int.h"
 #include "math/polynomial/polynomial_primes.h"
 #include "util/permutation.h"
 #include "math/polynomial/algebraic_numbers.h"
@@ -2129,11 +2130,12 @@ namespace polynomial {
                 for (unsigned i = 0; i < sz; ++i) {
                     monomial * m = m_tmp_ms[i];
                     unsigned pos = m_m2pos.get(m);
-                    new_as.push_back(std::move(m_tmp_as[pos]));
+                    new_as.push_back(numeral());
+                    swap(new_as.back(), m_tmp_as[pos]);
                     m_m2pos.reset(m);
                     m_m2pos.set(m, i);
                 }
-                m_tmp_as = std::move(new_as);
+                m_tmp_as.swap(new_as);
             }
 
             // For each monomial m
@@ -6963,14 +6965,1407 @@ namespace polynomial {
             }
         }
 
+        /**
+         * \brief Try to factor using a specific evaluation point.
+         * 
+         * Evaluates all "other" variables at the given value, factors the resulting
+         * univariate, and attempts Hensel lifting. Returns true on success.
+         */
+        bool try_factor_at_eval_point(polynomial const * p, factors & r, var x, unsigned k,
+                                      var_vector const & other_vars, int eval_point) {
+            unsigned deg_orig = degree(p, x);
+            
+            TRACE(factor, tout << "trying evaluation point " << eval_point << " for " << other_vars.size() << " variables\n";);
+            
+            // Evaluate at y1=a, y2=a, ... to get univariate polynomial
+            _scoped_numeral_buffer<numeral_manager, 8> eval_vals(m_manager);
+            for (unsigned i = 0; i < other_vars.size(); i++) {
+                eval_vals.push_back(numeral());
+                m_manager.set(eval_vals.back(), eval_point);
+            }
+            
+            polynomial_ref p_univ(pm());
+            p_univ = substitute(p, other_vars.size(), other_vars.data(), eval_vals.data());
+            
+            TRACE(factor, tout << "evaluated polynomial: "; 
+                  if (p_univ) p_univ->display(tout, m_manager); 
+                  else tout << "(null)";
+                  tout << "\n";);
+            
+            // Check if the result is valid
+            if (!p_univ || is_zero(p_univ)) {
+                TRACE(factor, tout << "evaluation resulted in zero\n";);
+                return false;
+            }
+            
+            // Check if evaluation gave us a univariate polynomial
+            if (!is_univariate(p_univ)) {
+                TRACE(factor, tout << "evaluation did not reduce to univariate\n";);
+                return false;
+            }
+            
+            // Check if the evaluated polynomial has the same degree
+            // (leading coefficient didn't vanish)
+            unsigned deg_univ = degree(p_univ, x);
+            TRACE(factor, tout << "degree of univariate: " << deg_univ << ", original degree: " << deg_orig << "\n";);
+            
+            if (deg_univ != deg_orig) {
+                TRACE(factor, tout << "LC vanished at evaluation point\n";);
+                return false;
+            }
+            
+            // Factor the univariate polynomial
+            up_manager::scoped_numeral_vector p1(upm().m());
+            upm().to_numeral_vector(p_univ, p1);
+            
+            // Make primitive (content = 1) before factoring
+            up_manager::scoped_numeral_vector p1_pp(upm().m());
+            scoped_numeral cont(upm().m());
+            upm().get_primitive_and_content(p1, p1_pp, cont);
+            
+            TRACE(factor, tout << "univariate as numeral vector, size: " << p1_pp.size() << ", content: " << upm().m().to_string(cont) << "\n";);
+            
+            // Check if the evaluated univariate is still square-free.
+            // Evaluation at a "bad" point can introduce repeated factors.
+            // E.g., (x+y)(x+2y)(x+3y) at y=0 gives x^3 which is not square-free.
+            if (!upm().is_square_free(p1_pp)) {
+                TRACE(factor, tout << "evaluated univariate is not square-free - try another point\n";);
+                return false;
+            }
+            
+            up_manager::factors fs(upm());
+            factor_params params;
+            upolynomial::factor_square_free(upm(), p1_pp, fs, params);
+            
+            TRACE(factor, tout << "univariate factors: " << fs.distinct_factors() << "\n";
+                  for (unsigned i = 0; i < fs.distinct_factors(); i++) {
+                      tout << "  factor " << i << ": "; upm().display(tout, fs[i]); tout << "\n";
+                  });
+            
+            // If univariate is irreducible (one factor of full degree), 
+            // the multivariate is likely irreducible
+            unsigned total_degree = 0;
+            for (unsigned i = 0; i < fs.distinct_factors(); i++) {
+                total_degree += (fs[i].size() - 1) * fs.get_degree(i);
+            }
+            
+            if (fs.distinct_factors() == 1 && total_degree == deg_univ) {
+                TRACE(factor, tout << "univariate is irreducible - returning unfactored\n";);
+                r.push_back(const_cast<polynomial*>(p), k);
+                return true;  // Success: proved irreducible
+            }
+            
+            // Check if factorization is degenerate (e.g., x^3 at eval point 0)
+            // In this case, we can't lift - try another evaluation point
+            if (total_degree != deg_univ) {
+                TRACE(factor, tout << "degenerate factorization (total degree " << total_degree 
+                      << " != " << deg_univ << ") - try another point\n";);
+                return false;
+            }
+            
+            // We found multiple factors in the univariate case.
+            // Try to lift them back to multivariate factors using Hensel lifting.
+            // For n variables, we lift one variable at a time. The recursive call
+            // to factor_sqf_pp will handle lifting the remaining variables.
+            
+            // Pick the first "other" variable to lift
+            var y = other_vars[0];
+            unsigned num_factors = fs.distinct_factors();
+            
+            TRACE(factor, tout << "lifting variable x" << y << " (out of " << other_vars.size() << " other vars)\n";);
+            
+            if (num_factors == 2) {
+                // Exactly 2 factors - use Hensel lifting directly
+                numeral_vector const & g0_vec = fs[0];
+                numeral_vector const & h0_vec = fs[1];
+                
+                TRACE(factor, tout << "trying Hensel lift with 2 factors, y = x" << y << "\n";
+                      tout << "g0 = "; upm().display(tout, g0_vec); tout << "\n";
+                      tout << "h0 = "; upm().display(tout, h0_vec); tout << "\n";);
+                
+                polynomial_ref g(pm()), h(pm());
+                if (try_hensel_lift_2_factors(p, x, y, g0_vec, h0_vec, g, h, eval_point)) {
+                    TRACE(factor, tout << "Hensel lift succeeded: g = " << g << ", h = " << h << "\n";);
+                    // Recursively factor g and h
+                    factor_sqf_pp(g, r, x, k, factor_params());
+                    factor_sqf_pp(h, r, x, k, factor_params());
+                    return true;
+                }
+                TRACE(factor, tout << "Hensel lift failed\n";);
+            }
+            else if (num_factors > 2) {
+                // More than 2 factors
+                // Strategy: lift the first factor against the product of all others
+                // If the first factor is linear (degree 1), this should work
+                
+                if (fs[0].size() == 2) {  // First factor is linear
+                    TRACE(factor, tout << "first factor is linear, lifting against product of others\n";);
+                    
+                    // Compute product of factors 1 to n-1
+                    up_manager::scoped_numeral_vector others_product(upm().m());
+                    upm().set(fs[1].size(), fs[1].data(), others_product);
+                    for (unsigned i = 2; i < num_factors; i++) {
+                        up_manager::scoped_numeral_vector temp(upm().m());
+                        upm().mul(others_product.size(), others_product.data(), 
+                                 fs[i].size(), fs[i].data(), temp);
+                        others_product.swap(temp);
+                    }
+                    
+                    TRACE(factor, tout << "first factor = "; upm().display(tout, fs[0]); tout << "\n";
+                          tout << "others product = "; upm().display(tout, others_product); tout << "\n";);
+                    
+                    polynomial_ref g(pm()), h(pm());
+                    if (try_hensel_lift_2_factors(p, x, y, fs[0], others_product, g, h, eval_point)) {
+                        TRACE(factor, tout << "Hensel lift succeeded: g = " << g << ", h = " << h << "\n";);
+                        
+                        // g is the lifted first factor, h is the lifted product of others
+                        // Recursively factor both
+                        factor_sqf_pp(g, r, x, k, factor_params());
+                        factor_sqf_pp(h, r, x, k, factor_params());
+                        return true;
+                    }
+                    TRACE(factor, tout << "Hensel lift failed for linear vs product\n";);
+                } else {
+                    TRACE(factor, tout << "first factor is not linear (degree " << (fs[0].size()-1) << ")\n";);
+                }
+            }
+            
+            return false;  // Hensel lifting failed at this evaluation point
+        }
+
         void factor_n_sqf_pp(polynomial const * p, factors & r, var x, unsigned k) {
             SASSERT(degree(p, x) > 2);
             SASSERT(is_primitive(p, x));
             SASSERT(is_square_free(p, x));
             TRACE(factor, tout << "factor square free (degree > 2):\n"; p->display(tout, m_manager); tout << "\n";);
 
-            // TODO: invoke Dejan's procedure
+            // Multivariate factorization via evaluation and Hensel lifting
+            // 
+            // Algorithm outline:
+            // 1. Collect all variables except x
+            // 2. Evaluate p at y1=a, y2=a, ... to get univariate p0(x)
+            // 3. Factor p0(x) using univariate factorization
+            // 4. If p0 is irreducible, p is likely irreducible
+            // 5. Otherwise, use Hensel lifting to lift factors
+            // 6. If lifting fails, try another evaluation point
+            
+            // Get all variables in p
+            var_vector vars;
+            begin_vars_incremental();
+            this->vars(p, vars);
+            end_vars_incremental(vars);
+            
+            TRACE(factor, tout << "variables in polynomial: ";
+                  for (unsigned i = 0; i < vars.size(); i++) tout << "x" << vars[i] << " ";
+                  tout << "\nmain var x = x" << x << "\n";);
+            
+            // Separate main variable x from other variables
+            var_vector other_vars;
+            for (unsigned i = 0; i < vars.size(); i++) {
+                if (vars[i] != x)
+                    other_vars.push_back(vars[i]);
+            }
+            
+            TRACE(factor, tout << "other variables: ";
+                  for (unsigned i = 0; i < other_vars.size(); i++) tout << "x" << other_vars[i] << " ";
+                  tout << "\n";);
+            
+            // If no other variables, this should have been caught earlier
+            if (other_vars.empty()) {
+                // Univariate case - should not reach here
+                TRACE(factor, tout << "no other variables - returning unfactored\n";);
+                r.push_back(const_cast<polynomial*>(p), k);
+                return;
+            }
+            
+            // Evaluation points to try, in order of preference
+            // Small values first to avoid coefficient explosion
+            // Mix of positive/negative, include 0 and some primes
+            static const int eval_candidates[] = {
+                1, 0, -1, 2, -2, 3, -3, 5, -5, 7, -7
+            };
+            static const unsigned num_candidates = sizeof(eval_candidates) / sizeof(eval_candidates[0]);
+            
+            for (unsigned i = 0; i < num_candidates; i++) {
+                if (try_factor_at_eval_point(p, r, x, k, other_vars, eval_candidates[i])) {
+                    TRACE(factor, tout << "factorization succeeded at eval point " << eval_candidates[i] << "\n";);
+                    return;
+                }
+            }
+            
+            // All evaluation points failed - return unfactored
+            TRACE(factor, tout << "all " << num_candidates << " evaluation points failed - returning unfactored\n";);
             r.push_back(const_cast<polynomial*>(p), k);
+        }
+        
+        /**
+         * \brief Extended Euclidean algorithm for coprime polynomials over Z.
+         * 
+         * Given coprime polynomials A and B, compute s, t, d such that
+         * s*A + t*B = d (exactly over Z[x]) where d is a nonzero constant.
+         * 
+         * For monic coprime polynomials, d = 1.
+         * For non-monic coprime polynomials, d is related to the resultant.
+         * 
+         * Requires: A and B are coprime (no common factor of positive degree).
+         * 
+         * Returns true if successful (d is a nonzero constant), false otherwise.
+         */
+        bool poly_ext_gcd(numeral_vector const & A, numeral_vector const & B,
+                          numeral_vector & s, numeral_vector & t, numeral & d) {
+            auto& nm = upm().m();
+            
+            // Use extended Euclidean algorithm with pseudo-division
+            // Track coefficients such that s_i*A + t_i*B = r_i
+            
+            up_manager::scoped_numeral_vector r_prev(nm), r_curr(nm);
+            up_manager::scoped_numeral_vector s_prev(nm), t_prev(nm);
+            up_manager::scoped_numeral_vector s_curr(nm), t_curr(nm);
+            
+            // Initialize: r_prev = A, s_prev = 1, t_prev = 0
+            //             r_curr = B, s_curr = 0, t_curr = 1
+            upm().set(A.size(), A.data(), r_prev);
+            s_prev.push_back(numeral()); nm.set(s_prev.back(), 1);
+            // t_prev = 0 (empty)
+            
+            upm().set(B.size(), B.data(), r_curr);
+            // s_curr = 0 (empty)
+            t_curr.push_back(numeral()); nm.set(t_curr.back(), 1);
+            
+            // Swap if needed so deg(r_prev) >= deg(r_curr)
+            if (r_prev.size() < r_curr.size()) {
+                r_prev.swap(r_curr);
+                s_prev.swap(s_curr);
+                t_prev.swap(t_curr);
+            }
+            
+            // Euclidean algorithm with pseudo-division
+            while (!r_curr.empty()) {
+                // Pseudo-division: lc^delta * r_prev = q * r_curr + r_next
+                // where delta = deg(r_prev) - deg(r_curr) + 1
+                up_manager::scoped_numeral_vector q(nm), r_next(nm);
+                
+                if (r_prev.size() < r_curr.size()) {
+                    // deg(r_prev) < deg(r_curr), so q=0, r_next = r_prev
+                    upm().set(r_prev.size(), r_prev.data(), r_next);
+                } else {
+                    // Use pseudo-division for non-monic polynomials
+                    unsigned delta = r_prev.size() - r_curr.size() + 1;
+                    scoped_numeral lc_power(nm);
+                    nm.power(r_curr.back(), delta, lc_power);
+                    
+                    // Copy and scale r_prev by lc^delta
+                    up_manager::scoped_numeral_vector scaled_prev(nm);
+                    upm().set(r_prev.size(), r_prev.data(), scaled_prev);
+                    upm().mul(scaled_prev, lc_power);  // in-place multiplication
+                    
+                    // Also scale s_prev and t_prev (in place since they'll be swapped anyway)
+                    upm().mul(s_prev, lc_power);
+                    upm().mul(t_prev, lc_power);
+                    
+                    // Now do exact polynomial division (should work since we scaled)
+                    upm().div_rem(scaled_prev.size(), scaled_prev.data(), 
+                                  r_curr.size(), r_curr.data(), q, r_next);
+                }
+                
+                // Update coefficients:
+                // s_next = s_prev - q * s_curr
+                // t_next = t_prev - q * t_curr
+                up_manager::scoped_numeral_vector s_next(nm), t_next(nm);
+                up_manager::scoped_numeral_vector qs(nm), qt(nm);
+                
+                if (!q.empty() && !s_curr.empty()) {
+                    upm().mul(q.size(), q.data(), s_curr.size(), s_curr.data(), qs);
+                }
+                
+                if (!q.empty() && !t_curr.empty()) {
+                    upm().mul(q.size(), q.data(), t_curr.size(), t_curr.data(), qt);
+                }
+                
+                upm().sub(s_prev.size(), s_prev.data(), qs.size(), qs.data(), s_next);
+                upm().sub(t_prev.size(), t_prev.data(), qt.size(), qt.data(), t_next);
+                
+                // Shift: prev <- curr, curr <- next
+                r_prev.swap(r_curr);
+                r_curr.swap(r_next);
+                s_prev.swap(s_curr);
+                s_curr.swap(s_next);
+                t_prev.swap(t_curr);
+                t_curr.swap(t_next);
+            }
+            
+            // Now r_prev should be the gcd, which should be a constant for coprime polynomials
+            // s_prev*A + t_prev*B = r_prev = d
+            
+            if (r_prev.size() != 1) {
+                TRACE(factor, tout << "poly_ext_gcd: gcd is not constant, size = " << r_prev.size() << "\n";);
+                return false;
+            }
+            
+            if (nm.is_zero(r_prev[0])) {
+                TRACE(factor, tout << "poly_ext_gcd: gcd is zero\n";);
+                return false;
+            }
+            
+            nm.set(d, r_prev[0]);
+            s.swap(s_prev);
+            t.swap(t_prev);
+            
+            TRACE(factor, tout << "poly_ext_gcd succeeded: s = "; upm().display(tout, s);
+                  tout << ", t = "; upm().display(tout, t); 
+                  tout << ", d = " << nm.to_string(d) << "\n";);
+            
+            return true;
+        }
+        
+        /**
+         * \brief Extended Euclidean algorithm for monic polynomials over Z.
+         * 
+         * Given monic coprime polynomials A and B, compute s, t such that
+         * s*A + t*B = 1 (exactly over Z[x]).
+         * 
+         * Requires: A and B are monic and coprime (gcd = 1).
+         * 
+         * Returns true if successful, false otherwise.
+         */
+        bool monic_ext_gcd(numeral_vector const & A, numeral_vector const & B,
+                          numeral_vector & s, numeral_vector & t) {
+            auto& nm = upm().m();
+            
+            // Extended Euclidean algorithm:
+            // Track coefficients (s_prev, t_prev), (s_curr, t_curr) such that
+            // s_prev*A + t_prev*B = r_prev
+            // s_curr*A + t_curr*B = r_curr
+            
+            up_manager::scoped_numeral_vector r_prev(nm), r_curr(nm);
+            up_manager::scoped_numeral_vector s_prev(nm), t_prev(nm);
+            up_manager::scoped_numeral_vector s_curr(nm), t_curr(nm);
+            
+            // Initialize: r_prev = A, s_prev = 1, t_prev = 0
+            //             r_curr = B, s_curr = 0, t_curr = 1
+            upm().set(A.size(), A.data(), r_prev);
+            s_prev.push_back(numeral()); nm.set(s_prev.back(), 1);
+            // t_prev = 0 (empty)
+            
+            upm().set(B.size(), B.data(), r_curr);
+            // s_curr = 0 (empty)
+            t_curr.push_back(numeral()); nm.set(t_curr.back(), 1);
+            
+            // Swap if needed so deg(r_prev) >= deg(r_curr)
+            if (r_prev.size() < r_curr.size()) {
+                r_prev.swap(r_curr);
+                s_prev.swap(s_curr);
+                t_prev.swap(t_curr);
+            }
+            
+            // Euclidean algorithm
+            while (!r_curr.empty()) {
+                // For monic polynomials, we can do exact division
+                // r_prev = q * r_curr + r_next
+                up_manager::scoped_numeral_vector q(nm), r_next(nm);
+                
+                // Since r_curr is monic (assuming it stays monic through the algorithm),
+                // we can do exact polynomial division
+                if (r_prev.size() < r_curr.size()) {
+                    // deg(r_prev) < deg(r_curr), so q=0, r_next = r_prev
+                    upm().set(r_prev.size(), r_prev.data(), r_next);
+                } else {
+                    // Polynomial long division - for monic divisor, no fractions
+                    upm().div_rem(r_prev.size(), r_prev.data(), r_curr.size(), r_curr.data(), q, r_next);
+                }
+                
+                // Update coefficients:
+                // s_next = s_prev - q * s_curr
+                // t_next = t_prev - q * t_curr
+                up_manager::scoped_numeral_vector s_next(nm), t_next(nm);
+                up_manager::scoped_numeral_vector qs(nm), qt(nm);
+                
+                if (!q.empty() && !s_curr.empty()) {
+                    upm().mul(q.size(), q.data(), s_curr.size(), s_curr.data(), qs);
+                } else {
+                    // qs = 0
+                }
+                
+                if (!q.empty() && !t_curr.empty()) {
+                    upm().mul(q.size(), q.data(), t_curr.size(), t_curr.data(), qt);
+                } else {
+                    // qt = 0
+                }
+                
+                upm().sub(s_prev.size(), s_prev.data(), qs.size(), qs.data(), s_next);
+                upm().sub(t_prev.size(), t_prev.data(), qt.size(), qt.data(), t_next);
+                
+                // Shift: prev <- curr, curr <- next
+                r_prev.swap(r_curr);
+                r_curr.swap(r_next);
+                s_prev.swap(s_curr);
+                s_curr.swap(s_next);
+                t_prev.swap(t_curr);
+                t_curr.swap(t_next);
+            }
+            
+            // Now r_prev should be the gcd, which should be a constant for coprime polynomials
+            // s_prev*A + t_prev*B = r_prev = gcd
+            
+            if (r_prev.size() != 1) {
+                TRACE(factor, tout << "monic_ext_gcd: gcd is not constant, size = " << r_prev.size() << "\n";);
+                return false;
+            }
+            
+            if (nm.is_zero(r_prev[0])) {
+                TRACE(factor, tout << "monic_ext_gcd: gcd is zero\n";);
+                return false;
+            }
+            
+            // For monic coprime polynomials over Z[x], the gcd is an integer d.
+            // We have s_prev*A + t_prev*B = d
+            // We need s*A + t*B = 1, so we need to check if d divides all coefficients of s_prev and t_prev.
+            // For monic polynomials, this should always be possible.
+            
+            scoped_numeral d(nm);
+            nm.set(d, r_prev[0]);
+            
+            // Make d positive
+            if (nm.is_neg(d)) {
+                nm.neg(d);
+                upm().neg(s_prev);
+                upm().neg(t_prev);
+            }
+            
+            if (!nm.is_one(d)) {
+                // Check if d divides all coefficients of s_prev and t_prev
+                bool s_divisible = true;
+                for (unsigned i = 0; i < s_prev.size() && s_divisible; i++) {
+                    if (!nm.divides(d, s_prev[i])) s_divisible = false;
+                }
+                
+                // Check if d divides all coefficients of t_prev
+                bool t_divisible = true;
+                for (unsigned i = 0; i < t_prev.size() && t_divisible; i++) {
+                    if (!nm.divides(d, t_prev[i])) t_divisible = false;
+                }
+                
+                if (s_divisible && t_divisible) {
+                    // Divide s_prev and t_prev by d to get s*A + t*B = 1
+                    for (unsigned i = 0; i < s_prev.size(); i++) {
+                        nm.div(s_prev[i], d, s_prev[i]);
+                    }
+                    for (unsigned i = 0; i < t_prev.size(); i++) {
+                        nm.div(t_prev[i], d, t_prev[i]);
+                    }
+                    TRACE(factor, tout << "monic_ext_gcd: scaled by d = " << nm.to_string(d) << "\n";);
+                } else {
+                    TRACE(factor, tout << "monic_ext_gcd: gcd is " << nm.to_string(d) << ", cannot scale to 1\n";
+                          tout << "s_divisible = " << s_divisible << ", t_divisible = " << t_divisible << "\n";);
+                    return false;
+                }
+            }
+            
+            s.swap(s_prev);
+            t.swap(t_prev);
+            
+            TRACE(factor, tout << "monic_ext_gcd succeeded: s = "; upm().display(tout, s);
+                  tout << ", t = "; upm().display(tout, t); tout << "\n";);
+            
+            return true;
+        }
+        
+        /**
+         * \brief Make a univariate polynomial monic by scaling.
+         * 
+         * Given f(x) with leading coefficient a and degree n,
+         * compute f*(x) = a^(n-1) * f(x/a) which is monic.
+         * 
+         * The coefficients transform as: c_i -> a^(n-1-i) * c_i
+         */
+        void make_monic_by_scaling(numeral_vector const & f, numeral_vector & f_star) {
+            auto& nm = upm().m();
+            unsigned n = f.size();
+            if (n == 0) {
+                f_star.reset();
+                return;
+            }
+            
+            f_star.reset();
+            scoped_numeral a(nm);  // leading coefficient
+            nm.set(a, f[n-1]);
+            
+            if (nm.is_one(a)) {
+                // Already monic, just copy
+                upm().set(n, f.data(), f_star);
+                return;
+            }
+            
+            // f*(x) = a^(n-1) * f(x/a)
+            // Coefficient of x^i in f* is: a^(n-1-i) * f_i
+            scoped_numeral a_power(nm), coeff(nm);
+            nm.set(a_power, 1);  // a^0
+            
+            for (unsigned i = 0; i < n; i++) {
+                // Compute a^(n-1-i) * f_i
+                // At this point a_power = a^(n-1-i) when computed from high to low
+                // But we're going low to high, so we need a^(n-1-i)
+                f_star.push_back(numeral());
+                
+                // Compute a^(n-1-i)
+                scoped_numeral a_exp(nm);
+                nm.power(a, n - 1 - i, a_exp);
+                nm.mul(a_exp, f[i], f_star.back());
+            }
+            
+            // The leading coefficient should now be a^0 * a = a, but we want 1
+            // Actually: f*[n-1] = a^(n-1-(n-1)) * f[n-1] = a^0 * a = a
+            // Wait, that's wrong. Let me recalculate.
+            // f*(x) = a^(n-1) * f(x/a)
+            // f(x/a) = sum_i f_i * (x/a)^i = sum_i f_i * x^i / a^i
+            // f*(x) = a^(n-1) * sum_i f_i * x^i / a^i = sum_i f_i * a^(n-1-i) * x^i
+            // For i = n-1: f_{n-1} * a^0 = a * 1 = a  -- still not 1!
+            //
+            // Hmm, the formula should give monic... Let me reconsider.
+            // Actually for degree n polynomial (highest power is x^{n-1} if n is size):
+            // No wait, for a polynomial of degree d, we have d+1 coefficients.
+            // So if f has size n, degree is n-1.
+            // 
+            // Standard formula: for f(x) = a*x^d + ... with leading coeff a,
+            // f*(x) = a^{d-1} * f(x/a) is monic.
+            // 
+            // But this doesn't work directly. The correct formula is:
+            // f*(x) = f(x/a) * a^d where the x is replaced, then multiply.
+            // f(x/a) = a*(x/a)^d + a_{d-1}*(x/a)^{d-1} + ... + a_0
+            //        = a*x^d/a^d + a_{d-1}*x^{d-1}/a^{d-1} + ... + a_0
+            //        = x^d/a^{d-1} + a_{d-1}*x^{d-1}/a^{d-1} + ... + a_0
+            // f*(x) = a^{d-1} * f(x/a) 
+            //       = x^d + a_{d-1}*x^{d-1}/a^{d-1} * a^{d-1} + ... + a_0 * a^{d-1}
+            //       = x^d + a_{d-1}*x^{d-1} + ... + a_0 * a^{d-1}
+            //
+            // Hmm, the x^{d-1} term gets coeff a_{d-1}, not modified. That's not right either.
+            //
+            // Let me look this up properly. The standard transformation is:
+            // If f(x) = a_n*x^n + a_{n-1}*x^{n-1} + ... + a_0
+            // Then f*(x) = x^n + (a_{n-1}/a_n)*x^{n-1} + ... + (a_0/a_n^n) * a_n^{n-1}
+            //            = x^n + a_{n-1}*x^{n-1}/a_n + ... 
+            //
+            // Actually the correct integer transformation is:
+            // f*(x) = a_n^{n-1} * f(x/a_n)
+            // 
+            // f(x/a_n) = a_n*(x/a_n)^n + a_{n-1}*(x/a_n)^{n-1} + ... + a_0
+            //          = x^n/a_n^{n-1} + a_{n-1}*x^{n-1}/a_n^{n-1} + ... + a_0
+            //
+            // f*(x) = a_n^{n-1} * f(x/a_n)
+            //       = x^n + a_{n-1}*x^{n-1}/a_n^{n-1} * a_n^{n-1} + ...
+            //
+            // Wait I keep getting confused. Let me be very explicit.
+            // degree = n (so highest power is x^n, we have n+1 coefficients)
+            // f(x) = a_n*x^n + a_{n-1}*x^{n-1} + ... + a_1*x + a_0
+            // 
+            // f(x/a_n) = a_n*(x/a_n)^n + a_{n-1}*(x/a_n)^{n-1} + ... + a_0
+            //          = a_n * x^n / a_n^n + a_{n-1} * x^{n-1} / a_n^{n-1} + ... + a_0
+            //          = x^n / a_n^{n-1} + a_{n-1} * x^{n-1} / a_n^{n-1} + ... + a_0
+            //
+            // f*(x) = a_n^{n-1} * f(x/a_n)
+            //       = a_n^{n-1} * [x^n / a_n^{n-1} + a_{n-1} * x^{n-1} / a_n^{n-1} + ... + a_0]
+            //       = x^n + a_{n-1} * x^{n-1} + a_{n-2} * a_n * x^{n-2} + ... + a_0 * a_n^{n-1}
+            //
+            // So coefficient of x^i in f* is: a_i * a_n^{n-1-i} for i < n, and 1 for i = n.
+            // 
+            // In terms of array index (0-based), if degree = d = n-1 where n is array size:
+            // f*[i] = f[i] * lc^{d-i} = f[i] * f[n-1]^{(n-1-1)-i} = f[i] * f[n-1]^{n-2-i}
+            //
+            // Hmm this is getting confusing with indexing. Let me redo.
+            
+            // Clear and redo properly
+            f_star.reset();
+            unsigned deg = n - 1;  // degree of polynomial
+            
+            for (unsigned i = 0; i < n; i++) {
+                f_star.push_back(numeral());
+                if (i == deg) {
+                    // Leading coefficient becomes 1
+                    nm.set(f_star.back(), 1);
+                } else {
+                    // Coefficient of x^i becomes f[i] * a^{deg - i - 1} ... no wait
+                    // Let me just use: coeff[i] = f[i] * a^{deg-i} / a = f[i] * a^{deg-i-1}... 
+                    // 
+                    // Actually from the derivation above:
+                    // f*[i] = f[i] * a^{deg-i}  for i < deg
+                    // f*[deg] = 1
+                    // But that gives f*[deg-1] = f[deg-1] * a^1 = a_{d-1} * a, not a_{d-1}
+                    //
+                    // I think I made an error. Let me redo from scratch.
+                    // f*(x) = a^{d} * f(x/a) / a = a^{d-1} * f(x/a)  where d is degree
+                    //
+                    // Nope, the correct formula for making monic is:
+                    // If f(x) = a*x^d + lower terms
+                    // Then y = a*x satisfies: f(y/a) = f(x) has leading term a*x^d
+                    // We want g(y) = a^{d-1} * f(y/a) so that leading term is y^d
+                    //
+                    // g(y) = a^{d-1} * f(y/a) 
+                    //      = a^{d-1} * [a*(y/a)^d + a_{d-1}*(y/a)^{d-1} + ...]
+                    //      = a^{d-1} * [y^d/a^{d-1} + a_{d-1}*y^{d-1}/a^{d-1} + a_{d-2}*y^{d-2}/a^{d-2} + ...]
+                    //      = y^d + a_{d-1}*y^{d-1} + a_{d-2}*a*y^{d-2} + a_{d-3}*a^2*y^{d-3} + ... + a_0*a^{d-1}
+                    //
+                    // So: g[d] = 1
+                    //     g[d-1] = a_{d-1}
+                    //     g[d-2] = a_{d-2} * a
+                    //     g[d-k] = a_{d-k} * a^{k-1}  for k >= 1
+                    //     g[i] = f[i] * a^{d-1-i}     for i <= d-1
+                    //
+                    // So for 0 <= i < d: g[i] = f[i] * a^{d-1-i}
+                    //    for i = d: g[d] = 1
+                    
+                    scoped_numeral a_exp(nm);
+                    nm.power(a, deg - 1 - i, a_exp);
+                    nm.mul(f[i], a_exp, f_star.back());
+                }
+            }
+            
+            TRACE(factor, tout << "make_monic_by_scaling: "; upm().display(tout, f); 
+                  tout << " -> "; upm().display(tout, f_star); tout << "\n";);
+        }
+        
+        /**
+         * \brief Hensel lifting with monic scaling for non-monic factors.
+         * 
+         * Given p(x,y) and non-monic univariate factors g0, h0 (where g0*h0 = p(x,1)),
+         * we scale to make them monic, lift, then unscale.
+         */
+        bool try_hensel_lift_with_monic_scaling(polynomial const * p, var x, var y,
+                                                 numeral_vector const & g0_vec, numeral_vector const & h0_vec,
+                                                 polynomial_ref & g, polynomial_ref & h) {
+            auto& nm = upm().m();
+            
+            // Get leading coefficients
+            scoped_numeral a(nm), b(nm);
+            nm.set(a, g0_vec.back());  // lc(g0)
+            nm.set(b, h0_vec.back());  // lc(h0)
+            
+            unsigned deg_g = g0_vec.size() - 1;
+            unsigned deg_h = h0_vec.size() - 1;
+            
+            TRACE(factor, tout << "monic scaling: a = " << nm.to_string(a) << ", b = " << nm.to_string(b) << "\n";
+                  tout << "deg_g = " << deg_g << ", deg_h = " << deg_h << "\n";);
+            
+            // Scale g0 and h0 to be monic
+            up_manager::scoped_numeral_vector g0_star(nm), h0_star(nm);
+            make_monic_by_scaling(g0_vec, g0_star);
+            make_monic_by_scaling(h0_vec, h0_star);
+            
+            TRACE(factor, tout << "g0* = "; upm().display(tout, g0_star); tout << "\n";
+                  tout << "h0* = "; upm().display(tout, h0_star); tout << "\n";);
+            
+            // Now we need to scale the polynomial p accordingly.
+            // If g0*(x) = a^{d_g-1} * g0(x/a) and h0*(x) = b^{d_h-1} * h0(x/b)
+            // Then g0*(x) * h0*(x) = a^{d_g-1} * b^{d_h-1} * g0(x/a) * h0(x/b)
+            //
+            // For this to equal p*(x,1) for some scaled p*, we need:
+            // p*(x,1) = a^{d_g-1} * b^{d_h-1} * p(x/(a*b), 1) * (a*b)^{d_g+d_h}... 
+            //
+            // This is getting complicated. Let's try a simpler approach:
+            // Scale x -> c*x in the polynomial where c = lcm(a,b) or c = a*b
+            //
+            // Actually, the cleanest approach is:
+            // 1. Compute c = a * b (product of leading coefficients)  
+            // 2. Scale p: p*(x,y) = c^{n-1} * p(x/c, y) where n = deg_x(p)
+            // 3. The univariate p*(x,1) should factor as g0*(x) * h0*(x) up to constant
+            
+            scoped_numeral c(nm);
+            nm.mul(a, b, c);  // c = a * b
+            
+            unsigned deg_p = degree(p, x);
+            TRACE(factor, tout << "c = a*b = " << nm.to_string(c) << ", deg_p = " << deg_p << "\n";);
+            
+            // Scale p: p*(x,y) = c^{deg_p-1} * p(x/c, y)
+            // In terms of coefficients: if p = sum p_i(y) * x^i
+            // then p* = sum p_i(y) * c^{deg_p-1-i} * x^i
+            polynomial_ref p_star(pm());
+            p_star = scale_polynomial_in_x(p, x, c, deg_p);
+            
+            TRACE(factor, tout << "p* = " << p_star << "\n";);
+            
+            // Verify: p*(x,1) should be g0*(x) * h0*(x) (up to constant)
+            numeral one_val;
+            m().set(one_val, 1);
+            polynomial_ref p_star_univ(pm());
+            p_star_univ = substitute(p_star, 1, &y, &one_val);
+            m().del(one_val);
+            
+            up_manager::scoped_numeral_vector p_star_vec(nm);
+            upm().to_numeral_vector(p_star_univ, p_star_vec);
+            
+            up_manager::scoped_numeral_vector expected_product(nm);
+            upm().mul(g0_star.size(), g0_star.data(), h0_star.size(), h0_star.data(), expected_product);
+            
+            TRACE(factor, tout << "p*(x,1) = "; upm().display(tout, p_star_vec); tout << "\n";
+                  tout << "g0* * h0* = "; upm().display(tout, expected_product); tout << "\n";);
+            
+            // Check if they match (up to constant factor)
+            if (p_star_vec.size() != expected_product.size()) {
+                TRACE(factor, tout << "degree mismatch after scaling\n";);
+                return false;
+            }
+            
+            // They should be equal (both monic of same degree)
+            // But there might be a constant factor difference
+            if (!upm().eq(p_star_vec, expected_product)) {
+                // Check if they differ by a constant
+                scoped_numeral ratio(nm);
+                bool have_ratio = false;
+                for (unsigned i = 0; i < p_star_vec.size(); i++) {
+                    if (!nm.is_zero(expected_product[i])) {
+                        if (!have_ratio) {
+                            nm.set(ratio, p_star_vec[i]);
+                            nm.div(ratio, expected_product[i], ratio);
+                            have_ratio = true;
+                        } else {
+                            scoped_numeral r2(nm);
+                            nm.set(r2, p_star_vec[i]);
+                            nm.div(r2, expected_product[i], r2);
+                            if (!nm.eq(ratio, r2)) {
+                                TRACE(factor, tout << "scaled products don't match by constant\n";);
+                                return false;
+                            }
+                        }
+                    }
+                }
+                // Adjust g0_star by the ratio
+                if (have_ratio && !nm.is_one(ratio)) {
+                    TRACE(factor, tout << "adjusting by constant ratio " << nm.to_string(ratio) << "\n";);
+                    // Scale g0_star by ratio
+                    for (unsigned i = 0; i < g0_star.size(); i++) {
+                        nm.mul(g0_star[i], ratio, g0_star[i]);
+                    }
+                }
+            }
+            
+            // Now lift g0_star and h0_star for p_star
+            polynomial_ref g_star(pm()), h_star(pm());
+            if (!try_hensel_lift_2_factors(p_star, x, y, g0_star, h0_star, g_star, h_star)) {
+                TRACE(factor, tout << "Hensel lift failed for scaled polynomial\n";);
+                return false;
+            }
+            
+            TRACE(factor, tout << "scaled lift succeeded: g* = " << g_star << ", h* = " << h_star << "\n";);
+            
+            // Now we need to unscale: g(x,y) = g*(c*x, y) / c^{deg_g-1}
+            // But this might not give integer coefficients!
+            // Let's try it and see if it divides evenly.
+            
+            g = unscale_polynomial_in_x(g_star, x, c, a, deg_g);
+            h = unscale_polynomial_in_x(h_star, x, c, b, deg_h);
+            
+            if (!g || !h) {
+                TRACE(factor, tout << "unscaling failed\n";);
+                return false;
+            }
+            
+            // Verify: g * h should equal p
+            polynomial_ref product(pm());
+            product = mul(g, h);
+            
+            if (!eq(product, p)) {
+                TRACE(factor, tout << "verification failed: g*h = " << product << " != p\n";);
+                return false;
+            }
+            
+            TRACE(factor, tout << "monic scaling succeeded: g = " << g << ", h = " << h << "\n";);
+            return true;
+        }
+        
+        /**
+         * \brief Scale polynomial in x: p*(x,y) = c^{deg-1} * p(x/c, y)
+         * Coefficient of x^i becomes: p_i(y) * c^{deg-1-i}
+         */
+        polynomial_ref scale_polynomial_in_x(polynomial const * p, var x, numeral const & c, unsigned deg) {
+            auto& nm = upm().m();
+            
+            m_som_buffer.reset();
+            
+            // Iterate through monomials of p
+            for (unsigned i = 0; i < p->size(); i++) {
+                monomial * mon = p->m(i);
+                numeral const & coeff = p->a(i);
+                
+                // Get the power of x in this monomial
+                unsigned x_power = mon->degree_of(x);
+                
+                // New coefficient = old_coeff * c^{deg-1-x_power}
+                scoped_numeral new_coeff(nm);
+                if (x_power <= deg - 1) {
+                    scoped_numeral c_exp(nm);
+                    nm.power(c, deg - 1 - x_power, c_exp);
+                    nm.mul(coeff, c_exp, new_coeff);
+                } else {
+                    nm.set(new_coeff, coeff);
+                }
+                
+                // Accumulate terms in som_buffer
+                m_som_buffer.add(new_coeff, mon);
+            }
+            
+            polynomial_ref result(pm());
+            result = m_som_buffer.mk();
+            return result;
+        }
+        
+        /**
+         * \brief Unscale polynomial: given g*(x,y), compute g(x,y) = g*(lc*x, y) / lc^{deg-1}
+         * where lc is the original leading coefficient.
+         */
+        polynomial_ref unscale_polynomial_in_x(polynomial const * g_star, var x, 
+                                                numeral const & c, numeral const & lc,
+                                                unsigned orig_deg) {
+            auto& nm = upm().m();
+            
+            // g*(x,y) was obtained by scaling with c = a*b
+            // Original g0(x) satisfied: g0*(x) = lc^{deg-1} * g0(x/lc)
+            // So g0(x) = g0*(lc*x) / lc^{deg-1}
+            //
+            // For multivariate: g(x,y) = g*(c*x, y) then adjust for the lc factor
+            // Actually the relationship is more complex...
+            //
+            // Let me think again:
+            // p*(x,y) = c^{n-1} * p(x/c, y)  where n = deg_x(p)
+            // g0*(x) = lc_g^{d_g-1} * g0(x/lc_g)
+            // h0*(x) = lc_h^{d_h-1} * h0(x/lc_h)
+            // 
+            // p(x/c,y) = g(x/c,y) * h(x/c,y)  (original factorization we want)
+            // p*(x,y) = c^{n-1} * g(x/c,y) * h(x/c,y)
+            //
+            // After lifting: p*(x,y) = g*(x,y) * h*(x,y)
+            //
+            // So g*(x,y) * h*(x,y) = c^{n-1} * g(x/c,y) * h(x/c,y)
+            //
+            // For univariate at y=1:
+            // g0*(x) * h0*(x) = c^{n-1} * g0(x/c) * h0(x/c)
+            // 
+            // We have g0*(x) = lc_g^{d_g-1} * g0(x/lc_g) 
+            // So g0(x/lc_g) = g0*(x) / lc_g^{d_g-1}
+            // And g0(x) = g0*(lc_g * x) / lc_g^{d_g-1}
+            //
+            // For multivariate, we want g(x,y) such that g(x/c,y) relates to g*(x,y)
+            // Hmm, the relationship depends on how the y terms enter.
+            //
+            // Simplest approach: substitute x -> x/c in g* and clear denominators
+            
+            m_som_buffer.reset();
+            
+            unsigned max_x_deg = degree(g_star, x);
+            
+            for (unsigned i = 0; i < g_star->size(); i++) {
+                monomial * mon = g_star->m(i);
+                numeral const & coeff = g_star->a(i);
+                
+                unsigned x_power = mon->degree_of(x);
+                
+                // After substituting x -> x/c, the term c_i * x^k becomes c_i * x^k / c^k
+                // To clear denominators (multiply by c^{max_deg}), we get c_i * c^{max_deg-k} * x^k
+                // Then divide by c^{deg-1} to get the actual coefficient
+                
+                scoped_numeral new_coeff(nm);
+                if (max_x_deg >= x_power) {
+                    scoped_numeral c_exp(nm);
+                    nm.power(c, max_x_deg - x_power, c_exp);
+                    nm.mul(coeff, c_exp, new_coeff);
+                } else {
+                    nm.set(new_coeff, coeff);
+                }
+                
+                m_som_buffer.add(new_coeff, mon);
+            }
+            
+            polynomial_ref result(pm());
+            result = m_som_buffer.mk();
+            
+            // Now divide by c^{max_x_deg - 1} to complete the unscaling
+            // This should give us the actual factor g(x,y)
+            
+            // Actually we need to be more careful. The content might not divide evenly.
+            // Let's compute the content in x and check.
+            
+            polynomial_ref cont(pm());
+            pm().content(result, x, cont);
+            
+            TRACE(factor, tout << "unscale intermediate: " << result << "\n";
+                  tout << "content: " << cont << "\n";);
+            
+            if (!is_const(cont)) {
+                // Content has y terms - might need to factor those out
+                if (divides(cont, result)) {
+                    result = exact_div(result, cont);
+                }
+            } else if (!is_zero(cont)) {
+                // Constant content - divide by it
+                result = exact_div(result, cont);
+            }
+            
+            return result;
+        }
+        
+        /**
+         * \brief General Hensel lifting for coprime (not necessarily monic) polynomials.
+         * 
+         * Given s*g0 + t*h0 = d where d is a nonzero constant, lift g0, h0 to g, h.
+         * The error terms at each step must be divisible by d for the lift to succeed.
+         */
+        bool try_hensel_lift_2_factors_general(polynomial const * p, var x, var y,
+                                               numeral_vector const & g0_vec, numeral_vector const & h0_vec,
+                                               numeral_vector const & s_vec, numeral_vector const & t_vec,
+                                               numeral const & bezout_d,
+                                               polynomial_ref & g, polynomial_ref & h,
+                                               int eval_point = 1) {
+            auto& nm = upm().m();
+            
+            // Convert univariate factors to polynomials (initially just in x)
+            g = to_polynomial(g0_vec.size(), g0_vec.data(), x);
+            h = to_polynomial(h0_vec.size(), h0_vec.data(), x);
+            
+            // Convert s and t to polynomials
+            polynomial_ref s_poly(pm()), t_poly(pm());
+            s_poly = to_polynomial(s_vec.size(), s_vec.data(), x);
+            t_poly = to_polynomial(t_vec.size(), t_vec.data(), x);
+            
+            polynomial_ref g0_poly(pm()), h0_poly(pm());
+            g0_poly = to_polynomial(g0_vec.size(), g0_vec.data(), x);
+            h0_poly = to_polynomial(h0_vec.size(), h0_vec.data(), x);
+            
+            // Determine the maximum degree of y in p
+            unsigned max_y_deg = degree(p, y);
+            
+            TRACE(factor, tout << "general Hensel lift: max_y_deg = " << max_y_deg << "\n";
+                  tout << "initial g = " << g << ", h = " << h << "\n";
+                  tout << "bezout_d = " << nm.to_string(bezout_d) << "\n";
+                  tout << "eval_point = " << eval_point << "\n";);
+            
+            polynomial_ref y_minus_a(pm());
+            y_minus_a = sub(mk_polynomial(y, 1), mk_const(rational(eval_point)));  // y - a
+            
+            polynomial_ref y_minus_a_power(pm());
+            y_minus_a_power = mk_one();  // (y-a)^0 = 1
+            
+            // Numeral for substitution (y = a)
+            numeral a_val;
+            m().set(a_val, eval_point);
+            
+            // d as a polynomial for division
+            polynomial_ref d_poly(pm());
+            scoped_numeral d_copy(nm);
+            nm.set(d_copy, bezout_d);
+            d_poly = mk_const(d_copy);
+            
+            for (unsigned k = 0; k <= max_y_deg; k++) {
+                // Compute error = p - g*h
+                polynomial_ref gh(pm()), error(pm());
+                gh = mul(g, h);
+                error = sub(p, gh);
+                
+                TRACE(factor, tout << "general lift step " << k << ": g = " << g << ", h = " << h << "\n";
+                      tout << "error = " << error << "\n";);
+                
+                if (is_zero(error)) {
+                    // Perfect factorization found!
+                    TRACE(factor, tout << "perfect factorization at step " << k << "\n";);
+                    m().del(a_val);
+                    return true;
+                }
+                
+                if (k == max_y_deg) {
+                    TRACE(factor, tout << "max iterations reached, error = " << error << "\n";);
+                    m().del(a_val);
+                    return false;
+                }
+                
+                // Extract c_k = coefficient of (y-a)^k in error
+                polynomial_ref c_k(pm());
+                if (k == 0) {
+                    c_k = substitute(error, 1, &y, &a_val);
+                } else {
+                    if (!divides(y_minus_a_power, error)) {
+                        TRACE(factor, tout << "error not divisible by (y-a)^" << k << "\n";);
+                        m().del(a_val);
+                        return false;
+                    }
+                    polynomial_ref quotient(pm());
+                    quotient = exact_div(error, y_minus_a_power);
+                    c_k = substitute(quotient, 1, &y, &a_val);
+                }
+                
+                TRACE(factor, tout << "c_" << k << " = " << c_k << "\n";);
+                
+                if (is_zero(c_k)) {
+                    TRACE(factor, tout << "c_k is zero, continuing to k=" << (k+1) << "\n";);
+                    y_minus_a_power = mul(y_minus_a_power, y_minus_a);
+                    continue;
+                }
+                
+                // For general case: we need delta_g, delta_h such that g0*delta_h + h0*delta_g = c_k
+                // with deg(delta_g) < deg(g0), deg(delta_h) < deg(h0)
+                //
+                // For the special case where g0 is linear (degree 1) and monic:
+                // delta_g is a constant a
+                // delta_h = b_{d-1}*x^{d-1} + ... + b_0 where d = deg(h0)
+                //
+                // Solve by coefficient matching.
+                
+                unsigned deg_g0 = g0_vec.size() - 1;  // degree of g0
+                (void)deg_g0;  // used in conditional below
+                
+                // Special case: g0 is linear (degree 1) and monic
+                // This case admits a direct formula
+                if (g0_vec.size() == 2 && nm.is_one(g0_vec.back())) {
+                    // g0 = x + c for some constant c
+                    // delta_g = constant a
+                    // delta_h = polynomial of degree < deg_h0
+                    // g0 * delta_h + h0 * a = c_k
+                    
+                    // Evaluate c_k at x = -c (where g0 = 0)
+                    // This gives: h0(-c) * a = c_k(-c)
+                    // So a = c_k(-c) / h0(-c)
+                    
+                    scoped_numeral neg_c(nm);
+                    nm.set(neg_c, g0_vec[0]);
+                    nm.neg(neg_c);  // neg_c = -c
+                    
+                    // Evaluate c_k at neg_c
+                    polynomial_ref c_k_eval(pm());
+                    numeral neg_c_val;
+                    nm.set(neg_c_val, neg_c);
+                    c_k_eval = substitute(c_k, 1, &x, &neg_c_val);
+                    
+                    // Evaluate h0 at neg_c
+                    polynomial_ref h0_eval(pm());
+                    h0_eval = substitute(h0_poly, 1, &x, &neg_c_val);
+                    nm.del(neg_c_val);
+                    
+                    TRACE(factor, tout << "c_k at x=" << nm.to_string(neg_c) << ": " << c_k_eval << "\n";
+                          tout << "h0 at x=" << nm.to_string(neg_c) << ": " << h0_eval << "\n";);
+                    
+                    if (is_zero(h0_eval)) {
+                        TRACE(factor, tout << "h0 is zero at root of g0\n";);
+                        m().del(a_val);
+                        return false;
+                    }
+                    
+                    // Check divisibility
+                    if (!divides(h0_eval, c_k_eval)) {
+                        TRACE(factor, tout << "c_k(-c) not divisible by h0(-c)\n";);
+                        m().del(a_val);
+                        return false;
+                    }
+                    
+                    polynomial_ref delta_g(pm());
+                    delta_g = exact_div(c_k_eval, h0_eval);
+                    
+                    // Now compute delta_h = (c_k - h0*delta_g) / g0
+                    polynomial_ref h0_delta_g(pm()), c_k_minus(pm());
+                    h0_delta_g = mul(h0_poly, delta_g);
+                    c_k_minus = sub(c_k, h0_delta_g);
+                    
+                    // c_k - h0*delta_g should be divisible by g0
+                    if (!divides(g0_poly, c_k_minus)) {
+                        TRACE(factor, tout << "c_k - h0*delta_g not divisible by g0\n";);
+                        m().del(a_val);
+                        return false;
+                    }
+                    
+                    polynomial_ref delta_h(pm());
+                    delta_h = exact_div(c_k_minus, g0_poly);
+                    
+                    TRACE(factor, tout << "delta_g = " << delta_g << ", delta_h = " << delta_h << "\n";);
+                    
+                    // Verify: g0*delta_h + h0*delta_g should equal c_k
+                    polynomial_ref verify(pm());
+                    verify = add(mul(g0_poly, delta_h), mul(h0_poly, delta_g));
+                    if (!eq(verify, c_k)) {
+                        TRACE(factor, tout << "verification failed: g0*delta_h + h0*delta_g = " << verify << "\n";);
+                        m().del(a_val);
+                        return false;
+                    }
+                    
+                    // Update g and h
+                    polynomial_ref delta_g_term(pm()), delta_h_term(pm());
+                    delta_g_term = mul(delta_g, y_minus_a_power);
+                    delta_h_term = mul(delta_h, y_minus_a_power);
+                    
+                    g = add(g, delta_g_term);
+                    h = add(h, delta_h_term);
+                } else {
+                    // General case: use the Bezout-based approach if d | c_k
+                    if (!divides(d_poly, c_k)) {
+                        TRACE(factor, tout << "c_k not divisible by d = " << nm.to_string(bezout_d) << "\n";);
+                        m().del(a_val);
+                        return false;
+                    }
+                    
+                    polynomial_ref c_k_div_d(pm());
+                    c_k_div_d = exact_div(c_k, d_poly);
+                    
+                    TRACE(factor, tout << "c_k/d = " << c_k_div_d << "\n";);
+                    
+                    polynomial_ref t_ck(pm()), s_ck(pm());
+                    t_ck = mul(t_poly, c_k_div_d);
+                    s_ck = mul(s_poly, c_k_div_d);
+                    
+                    // delta_g = t*(c_k/d) mod g0, delta_h = s*(c_k/d) mod h0
+                    // Use pseudo-division for non-monic case
+                    polynomial_ref delta_g(pm()), delta_h(pm()), dummy_q1(pm()), dummy_q2(pm());
+                    exact_pseudo_division(t_ck, g0_poly, x, dummy_q1, delta_g);
+                    exact_pseudo_division(s_ck, h0_poly, x, dummy_q2, delta_h);
+                    
+                    TRACE(factor, tout << "delta_g = " << delta_g << ", delta_h = " << delta_h << "\n";);
+                    
+                    // Update g and h
+                    polynomial_ref delta_g_term(pm()), delta_h_term(pm());
+                    delta_g_term = mul(delta_g, y_minus_a_power);
+                    delta_h_term = mul(delta_h, y_minus_a_power);
+                    
+                    g = add(g, delta_g_term);
+                    h = add(h, delta_h_term);
+                }
+                
+                y_minus_a_power = mul(y_minus_a_power, y_minus_a);
+            }
+            
+            m().del(a_val);
+            
+            // Final check
+            polynomial_ref gh(pm());
+            gh = mul(g, h);
+            bool success = eq(gh, p);
+            TRACE(factor, tout << "general lift final: g*h = " << gh << ", success = " << success << "\n";);
+            return success;
+        }
+        
+        /**
+         * \brief Try to lift univariate factors g0, h0 to multivariate factors g, h
+         * such that p(x,y) = g(x,y) * h(x,y) where g(x,1) = g0 and h(x,1) = h0.
+         *
+         * Uses the "direct" Hensel lifting approach where we solve for updates
+         * directly over the integers using the Bezout identity.
+         *
+         * For monic factors: This works directly when both g0 and h0 are monic,
+         * because ext_gcd gives integer coefficients s, t with s*g0 + t*h0 = 1.
+         *
+         * For non-monic factors: We work modulo a prime p where factors remain coprime.
+         *
+         * Returns true if lifting succeeds, false otherwise.
+         */
+        bool try_hensel_lift_2_factors(polynomial const * p, var x, var y,
+                                        numeral_vector const & g0_vec, numeral_vector const & h0_vec,
+                                        polynomial_ref & g, polynomial_ref & h,
+                                        int eval_point = 1) {
+            auto& nm = upm().m();
+            
+            if (g0_vec.empty() || h0_vec.empty()) {
+                TRACE(factor, tout << "empty factor vector\n";);
+                return false;
+            }
+            
+            TRACE(factor, tout << "g0_vec = "; upm().display(tout, g0_vec); tout << "\n";
+                  tout << "h0_vec = "; upm().display(tout, h0_vec); tout << "\n";
+                  tout << "eval_point = " << eval_point << "\n";);
+            
+            // Check if both factors are monic
+            bool g0_monic = nm.is_one(g0_vec.back());
+            bool h0_monic = nm.is_one(h0_vec.back());
+            
+            TRACE(factor, tout << "g0_monic = " << g0_monic << ", h0_monic = " << h0_monic << "\n";);
+            
+            // Check if factors are coprime over Z
+            up_manager::scoped_numeral_vector d_vec(nm);
+            upm().gcd(g0_vec.size(), g0_vec.data(), h0_vec.size(), h0_vec.data(), d_vec);
+            if (d_vec.size() != 1 || !nm.is_one(d_vec[0])) {
+                // Not coprime, cannot lift
+                TRACE(factor, tout << "g0 and h0 are not coprime over Z, gcd = "; upm().display(tout, d_vec); tout << "\n";);
+                return false;
+            }
+            
+            // For non-monic polynomials, we use the general extended GCD.
+            // This gives s, t, d where s*g0 + t*h0 = d (d is a nonzero constant).
+            // The Hensel lifting then requires error terms to be divisible by d.
+            
+            if (!g0_monic || !h0_monic) {
+                TRACE(factor, tout << "using general ext_gcd for non-monic factors\n";);
+                
+                up_manager::scoped_numeral_vector s_vec(nm), t_vec(nm);
+                scoped_numeral bezout_d(nm);
+                
+                if (!poly_ext_gcd(g0_vec, h0_vec, s_vec, t_vec, bezout_d)) {
+                    TRACE(factor, tout << "poly_ext_gcd failed\n";);
+                    return false;
+                }
+                
+                TRACE(factor, tout << "poly_ext_gcd: s = "; upm().display(tout, s_vec);
+                      tout << ", t = "; upm().display(tout, t_vec);
+                      tout << ", d = " << nm.to_string(bezout_d) << "\n";);
+                
+                // Use the general Hensel lifting with bezout_d
+                return try_hensel_lift_2_factors_general(p, x, y, g0_vec, h0_vec, 
+                                                          s_vec, t_vec, bezout_d, g, h, eval_point);
+            }
+            
+            // For monic coprime polynomials, we first try ext_gcd over Z.
+            // This gives s, t with s*g0 + t*h0 = d. If d = 1, we can proceed directly.
+            // If d > 1 and d divides s and t, we can scale to get s*g0 + t*h0 = 1.
+            // Otherwise, fall back to the general approach.
+            up_manager::scoped_numeral_vector s_vec(nm), t_vec(nm);
+            if (monic_ext_gcd(g0_vec, h0_vec, s_vec, t_vec)) {
+                // monic_ext_gcd succeeded - we have s*g0 + t*h0 = 1
+                TRACE(factor, tout << "monic_ext_gcd succeeded: s = "; upm().display(tout, s_vec);
+                      tout << ", t = "; upm().display(tout, t_vec); tout << "\n";);
+            
+                // Convert univariate factors to polynomials (initially just in x)
+                g = to_polynomial(g0_vec.size(), g0_vec.data(), x);
+                h = to_polynomial(h0_vec.size(), h0_vec.data(), x);
+                
+                // Convert s and t to polynomials
+                polynomial_ref s(pm()), t(pm());
+                s = to_polynomial(s_vec.size(), s_vec.data(), x);
+                t = to_polynomial(t_vec.size(), t_vec.data(), x);
+                
+                polynomial_ref g0_poly(pm()), h0_poly(pm());
+                g0_poly = to_polynomial(g0_vec.size(), g0_vec.data(), x);
+                h0_poly = to_polynomial(h0_vec.size(), h0_vec.data(), x);
+                
+                // Determine the maximum degree of y in p
+                unsigned max_y_deg = degree(p, y);
+                
+                TRACE(factor, tout << "max_y_deg = " << max_y_deg << "\n";
+                      tout << "initial g = " << g << ", h = " << h << "\n";
+                      tout << "p = " << p << "\n";);
+                
+                // Linear Hensel lifting iteration
+                // At step k, we have g*h ≡ p (mod (y-a)^k) where a = eval_point
+                // We compute g_{k+1}, h_{k+1} such that g_{k+1}*h_{k+1} ≡ p (mod (y-a)^{k+1})
+                
+                polynomial_ref y_minus_a(pm());
+                y_minus_a = sub(mk_polynomial(y, 1), mk_const(rational(eval_point)));  // y - a
+                
+                polynomial_ref y_minus_a_power(pm());
+                y_minus_a_power = mk_one();  // (y-a)^0 = 1
+                
+                // Numeral for substitution (y = a)
+                numeral a_val;
+                m().set(a_val, eval_point);
+                
+                for (unsigned k = 0; k <= max_y_deg; k++) {
+                    // Compute error = p - g*h
+                    polynomial_ref gh(pm()), error(pm());
+                    gh = mul(g, h);
+                    error = sub(p, gh);
+                    
+                    TRACE(factor, tout << "lift step " << k << ": g = " << g << ", h = " << h << "\n";
+                          tout << "error = " << error << "\n";);
+                    
+                    if (is_zero(error)) {
+                        // Perfect factorization found!
+                        TRACE(factor, tout << "perfect factorization at step " << k << "\n";);
+                        m().del(a_val);
+                        return true;
+                    }
+                    
+                    // Bail out after max_y_deg+1 iterations
+                    if (k == max_y_deg) {
+                        TRACE(factor, tout << "max iterations reached\n";);
+                        m().del(a_val);
+                        return false;
+                    }
+                    
+                    // Extract c_k = coefficient of (y-a)^k in error
+                    polynomial_ref c_k(pm());
+                    if (k == 0) {
+                        // c_0 is error evaluated at y=a
+                        c_k = substitute(error, 1, &y, &a_val);
+                    } else {
+                        // Check divisibility by (y-a)^k
+                        if (!divides(y_minus_a_power, error)) {
+                            TRACE(factor, tout << "error not divisible by (y-a)^" << k << "\n";);
+                            m().del(a_val);
+                            return false;
+                        }
+                        polynomial_ref quotient(pm());
+                        quotient = exact_div(error, y_minus_a_power);
+                        c_k = substitute(quotient, 1, &y, &a_val);
+                    }
+                    
+                    TRACE(factor, tout << "c_" << k << " = " << c_k << "\n";);
+                    
+                    if (is_zero(c_k)) {
+                        // Update (y-a)^k for next iteration
+                        TRACE(factor, tout << "c_k is zero, continuing to k=" << (k+1) << "\n";);
+                        y_minus_a_power = mul(y_minus_a_power, y_minus_a);
+                        continue;
+                    }
+                    
+                    // Hensel lifting update:
+                    // We have s*g0 + t*h0 ≡ 1 (mod p), where p is our chosen prime.
+                    // For monic polynomials, s*g0 + t*h0 = 1 exactly in Z[x] when
+                    // gcd(g0, h0) = 1.
+                    //
+                    // We need to find delta_g, delta_h such that:
+                    //   g0*delta_h + h0*delta_g = c_k
+                    //   deg(delta_g) < deg(g0), deg(delta_h) < deg(h0)
+                    //
+                    // Solution: delta_g = t*c_k mod g0, delta_h = s*c_k mod h0
+                    
+                    polynomial_ref t_ck(pm()), s_ck(pm());
+                    t_ck = mul(t, c_k);
+                    s_ck = mul(s, c_k);
+                    
+                    polynomial_ref delta_g(pm()), delta_h(pm()), dummy_q1(pm()), dummy_q2(pm());
+                    // delta_g = t*c_k mod g0
+                    exact_pseudo_division(t_ck, g0_poly, x, dummy_q1, delta_g);
+                    // delta_h = s*c_k mod h0
+                    exact_pseudo_division(s_ck, h0_poly, x, dummy_q2, delta_h);
+                    
+                    TRACE(factor, tout << "delta_g = " << delta_g << ", delta_h = " << delta_h << "\n";
+                          tout << "deg(delta_g) = " << degree(delta_g, x) << " vs deg(g0) = " << degree(g0_poly, x) << "\n";
+                          tout << "deg(delta_h) = " << degree(delta_h, x) << " vs deg(h0) = " << degree(h0_poly, x) << "\n";);
+                    
+                    // Update g and h
+                    // g_{k+1} = g_k + delta_g * (y-a)^k
+                    // h_{k+1} = h_k + delta_h * (y-a)^k
+                    polynomial_ref delta_g_term(pm()), delta_h_term(pm());
+                    delta_g_term = mul(delta_g, y_minus_a_power);
+                    delta_h_term = mul(delta_h, y_minus_a_power);
+                    
+                    g = add(g, delta_g_term);
+                    h = add(h, delta_h_term);
+                    
+                    // Update (y-a)^k for next iteration
+                    y_minus_a_power = mul(y_minus_a_power, y_minus_a);
+                }
+                
+                m().del(a_val);
+                
+                // Final check
+                polynomial_ref gh(pm());
+                gh = mul(g, h);
+                bool success = eq(gh, p);
+                TRACE(factor, tout << "final check: g*h = " << gh << ", p = " << mk_polynomial_ref(p) << ", success = " << success << "\n";);
+                return success;
+            }
+            
+            // monic_ext_gcd failed - fall back to general approach with non-unit Bezout constant
+            TRACE(factor, tout << "monic_ext_gcd failed, falling back to general approach\n";);
+            
+            scoped_numeral bezout_d(nm);
+            if (!poly_ext_gcd(g0_vec, h0_vec, s_vec, t_vec, bezout_d)) {
+                TRACE(factor, tout << "poly_ext_gcd also failed\n";);
+                return false;
+            }
+            
+            TRACE(factor, tout << "poly_ext_gcd: s = "; upm().display(tout, s_vec);
+                  tout << ", t = "; upm().display(tout, t_vec);
+                  tout << ", d = " << nm.to_string(bezout_d) << "\n";);
+            
+            return try_hensel_lift_2_factors_general(p, x, y, g0_vec, h0_vec, 
+                                                      s_vec, t_vec, bezout_d, g, h, eval_point);
+        }
+        
+        polynomial_ref mk_polynomial_ref(polynomial const * p) {
+            polynomial_ref r(pm());
+            r = const_cast<polynomial*>(p);
+            return r;
         }
 
         void factor_sqf_pp(polynomial const * p, factors & r, var x, unsigned k, factor_params const & params) {
@@ -6980,6 +8375,8 @@ namespace polynomial {
             SASSERT(!is_zero(p));
 
             unsigned deg_x = degree(p, x);
+            TRACE(factor, tout << "factor_sqf_pp: deg_x=" << deg_x << ", is_univariate=" << is_univariate(p) << "\n";
+                  p->display(tout, m_manager); tout << "\n";);
             if (deg_x == 1)
                 factor_1_sqf_pp(p, r, x, k);
             else if (is_univariate(p))
