@@ -7095,39 +7095,54 @@ namespace polynomial {
             }
             else if (num_factors > 2) {
                 // More than 2 factors
-                // Strategy: lift the first factor against the product of all others
-                // If the first factor is linear (degree 1), this should work
+                // Strategy: find a linear factor to lift against the product of all others.
+                // If no factor is linear, lift the first factor against the product of the rest.
                 
-                if (fs[0].size() == 2) {  // First factor is linear
-                    TRACE(factor, tout << "first factor is linear, lifting against product of others\n";);
-                    
-                    // Compute product of factors 1 to n-1
-                    up_manager::scoped_numeral_vector others_product(upm().m());
-                    upm().set(fs[1].size(), fs[1].data(), others_product);
-                    for (unsigned i = 2; i < num_factors; i++) {
+                // Find a linear factor to use (preferring linear for simpler lifting)
+                int linear_idx = -1;
+                for (unsigned i = 0; i < num_factors; i++) {
+                    if (fs[i].size() == 2) {  // degree 1 = linear
+                        linear_idx = static_cast<int>(i);
+                        break;
+                    }
+                }
+                
+                // Determine which factor to split off
+                unsigned split_idx = (linear_idx >= 0) ? static_cast<unsigned>(linear_idx) : 0;
+                
+                TRACE(factor, tout << "splitting factor " << split_idx 
+                      << " (degree " << (fs[split_idx].size()-1) << ") against product of others\n";);
+                
+                // Compute product of all factors except the chosen one
+                up_manager::scoped_numeral_vector others_product(upm().m());
+                bool first = true;
+                for (unsigned i = 0; i < num_factors; i++) {
+                    if (i == split_idx) continue;
+                    if (first) {
+                        upm().set(fs[i].size(), fs[i].data(), others_product);
+                        first = false;
+                    } else {
                         up_manager::scoped_numeral_vector temp(upm().m());
                         upm().mul(others_product.size(), others_product.data(), 
                                  fs[i].size(), fs[i].data(), temp);
                         others_product.swap(temp);
                     }
-                    
-                    TRACE(factor, tout << "first factor = "; upm().display(tout, fs[0]); tout << "\n";
-                          tout << "others product = "; upm().display(tout, others_product); tout << "\n";);
-                    
-                    polynomial_ref g(pm()), h(pm());
-                    if (try_hensel_lift_2_factors(p, x, y, fs[0], others_product, g, h, eval_point)) {
-                        TRACE(factor, tout << "Hensel lift succeeded: g = " << g << ", h = " << h << "\n";);
-                        
-                        // g is the lifted first factor, h is the lifted product of others
-                        // Recursively factor both
-                        factor_sqf_pp(g, r, x, k, factor_params());
-                        factor_sqf_pp(h, r, x, k, factor_params());
-                        return true;
-                    }
-                    TRACE(factor, tout << "Hensel lift failed for linear vs product\n";);
-                } else {
-                    TRACE(factor, tout << "first factor is not linear (degree " << (fs[0].size()-1) << ")\n";);
                 }
+                
+                TRACE(factor, tout << "split factor = "; upm().display(tout, fs[split_idx]); tout << "\n";
+                      tout << "others product = "; upm().display(tout, others_product); tout << "\n";);
+                
+                polynomial_ref g(pm()), h(pm());
+                if (try_hensel_lift_2_factors(p, x, y, fs[split_idx], others_product, g, h, eval_point)) {
+                    TRACE(factor, tout << "Hensel lift succeeded: g = " << g << ", h = " << h << "\n";);
+                    
+                    // g is the lifted split factor, h is the lifted product of others
+                    // Recursively factor both
+                    factor_sqf_pp(g, r, x, k, factor_params());
+                    factor_sqf_pp(h, r, x, k, factor_params());
+                    return true;
+                }
+                TRACE(factor, tout << "Hensel lift failed for factor " << split_idx << " vs product\n";);
             }
             
             return false;  // Hensel lifting failed at this evaluation point
@@ -7473,10 +7488,12 @@ namespace polynomial {
         /**
          * \brief Make a univariate polynomial monic by scaling.
          * 
-         * Given f(x) with leading coefficient a and degree n,
-         * compute f*(x) = a^(n-1) * f(x/a) which is monic.
+         * Given f(x) = a*x^d + a_{d-1}*x^{d-1} + ... + a_0 with leading coefficient a,
+         * compute f*(x) = a^{d-1} * f(x/a) which is monic.
          * 
-         * The coefficients transform as: c_i -> a^(n-1-i) * c_i
+         * The coefficients transform as:
+         *   f*[i] = f[i] * a^{d-1-i}  for i = 0, ..., d-1
+         *   f*[d] = 1
          */
         void make_monic_by_scaling(numeral_vector const & f, numeral_vector & f_star) {
             auto& nm = upm().m();
@@ -7496,85 +7513,6 @@ namespace polynomial {
                 return;
             }
             
-            // f*(x) = a^(n-1) * f(x/a)
-            // Coefficient of x^i in f* is: a^(n-1-i) * f_i
-            scoped_numeral a_power(nm), coeff(nm);
-            nm.set(a_power, 1);  // a^0
-            
-            for (unsigned i = 0; i < n; i++) {
-                // Compute a^(n-1-i) * f_i
-                // At this point a_power = a^(n-1-i) when computed from high to low
-                // But we're going low to high, so we need a^(n-1-i)
-                f_star.push_back(numeral());
-                
-                // Compute a^(n-1-i)
-                scoped_numeral a_exp(nm);
-                nm.power(a, n - 1 - i, a_exp);
-                nm.mul(a_exp, f[i], f_star.back());
-            }
-            
-            // The leading coefficient should now be a^0 * a = a, but we want 1
-            // Actually: f*[n-1] = a^(n-1-(n-1)) * f[n-1] = a^0 * a = a
-            // Wait, that's wrong. Let me recalculate.
-            // f*(x) = a^(n-1) * f(x/a)
-            // f(x/a) = sum_i f_i * (x/a)^i = sum_i f_i * x^i / a^i
-            // f*(x) = a^(n-1) * sum_i f_i * x^i / a^i = sum_i f_i * a^(n-1-i) * x^i
-            // For i = n-1: f_{n-1} * a^0 = a * 1 = a  -- still not 1!
-            //
-            // Hmm, the formula should give monic... Let me reconsider.
-            // Actually for degree n polynomial (highest power is x^{n-1} if n is size):
-            // No wait, for a polynomial of degree d, we have d+1 coefficients.
-            // So if f has size n, degree is n-1.
-            // 
-            // Standard formula: for f(x) = a*x^d + ... with leading coeff a,
-            // f*(x) = a^{d-1} * f(x/a) is monic.
-            // 
-            // But this doesn't work directly. The correct formula is:
-            // f*(x) = f(x/a) * a^d where the x is replaced, then multiply.
-            // f(x/a) = a*(x/a)^d + a_{d-1}*(x/a)^{d-1} + ... + a_0
-            //        = a*x^d/a^d + a_{d-1}*x^{d-1}/a^{d-1} + ... + a_0
-            //        = x^d/a^{d-1} + a_{d-1}*x^{d-1}/a^{d-1} + ... + a_0
-            // f*(x) = a^{d-1} * f(x/a) 
-            //       = x^d + a_{d-1}*x^{d-1}/a^{d-1} * a^{d-1} + ... + a_0 * a^{d-1}
-            //       = x^d + a_{d-1}*x^{d-1} + ... + a_0 * a^{d-1}
-            //
-            // Hmm, the x^{d-1} term gets coeff a_{d-1}, not modified. That's not right either.
-            //
-            // Let me look this up properly. The standard transformation is:
-            // If f(x) = a_n*x^n + a_{n-1}*x^{n-1} + ... + a_0
-            // Then f*(x) = x^n + (a_{n-1}/a_n)*x^{n-1} + ... + (a_0/a_n^n) * a_n^{n-1}
-            //            = x^n + a_{n-1}*x^{n-1}/a_n + ... 
-            //
-            // Actually the correct integer transformation is:
-            // f*(x) = a_n^{n-1} * f(x/a_n)
-            // 
-            // f(x/a_n) = a_n*(x/a_n)^n + a_{n-1}*(x/a_n)^{n-1} + ... + a_0
-            //          = x^n/a_n^{n-1} + a_{n-1}*x^{n-1}/a_n^{n-1} + ... + a_0
-            //
-            // f*(x) = a_n^{n-1} * f(x/a_n)
-            //       = x^n + a_{n-1}*x^{n-1}/a_n^{n-1} * a_n^{n-1} + ...
-            //
-            // Wait I keep getting confused. Let me be very explicit.
-            // degree = n (so highest power is x^n, we have n+1 coefficients)
-            // f(x) = a_n*x^n + a_{n-1}*x^{n-1} + ... + a_1*x + a_0
-            // 
-            // f(x/a_n) = a_n*(x/a_n)^n + a_{n-1}*(x/a_n)^{n-1} + ... + a_0
-            //          = a_n * x^n / a_n^n + a_{n-1} * x^{n-1} / a_n^{n-1} + ... + a_0
-            //          = x^n / a_n^{n-1} + a_{n-1} * x^{n-1} / a_n^{n-1} + ... + a_0
-            //
-            // f*(x) = a_n^{n-1} * f(x/a_n)
-            //       = a_n^{n-1} * [x^n / a_n^{n-1} + a_{n-1} * x^{n-1} / a_n^{n-1} + ... + a_0]
-            //       = x^n + a_{n-1} * x^{n-1} + a_{n-2} * a_n * x^{n-2} + ... + a_0 * a_n^{n-1}
-            //
-            // So coefficient of x^i in f* is: a_i * a_n^{n-1-i} for i < n, and 1 for i = n.
-            // 
-            // In terms of array index (0-based), if degree = d = n-1 where n is array size:
-            // f*[i] = f[i] * lc^{d-i} = f[i] * f[n-1]^{(n-1-1)-i} = f[i] * f[n-1]^{n-2-i}
-            //
-            // Hmm this is getting confusing with indexing. Let me redo.
-            
-            // Clear and redo properly
-            f_star.reset();
             unsigned deg = n - 1;  // degree of polynomial
             
             for (unsigned i = 0; i < n; i++) {
@@ -7583,36 +7521,7 @@ namespace polynomial {
                     // Leading coefficient becomes 1
                     nm.set(f_star.back(), 1);
                 } else {
-                    // Coefficient of x^i becomes f[i] * a^{deg - i - 1} ... no wait
-                    // Let me just use: coeff[i] = f[i] * a^{deg-i} / a = f[i] * a^{deg-i-1}... 
-                    // 
-                    // Actually from the derivation above:
-                    // f*[i] = f[i] * a^{deg-i}  for i < deg
-                    // f*[deg] = 1
-                    // But that gives f*[deg-1] = f[deg-1] * a^1 = a_{d-1} * a, not a_{d-1}
-                    //
-                    // I think I made an error. Let me redo from scratch.
-                    // f*(x) = a^{d} * f(x/a) / a = a^{d-1} * f(x/a)  where d is degree
-                    //
-                    // Nope, the correct formula for making monic is:
-                    // If f(x) = a*x^d + lower terms
-                    // Then y = a*x satisfies: f(y/a) = f(x) has leading term a*x^d
-                    // We want g(y) = a^{d-1} * f(y/a) so that leading term is y^d
-                    //
-                    // g(y) = a^{d-1} * f(y/a) 
-                    //      = a^{d-1} * [a*(y/a)^d + a_{d-1}*(y/a)^{d-1} + ...]
-                    //      = a^{d-1} * [y^d/a^{d-1} + a_{d-1}*y^{d-1}/a^{d-1} + a_{d-2}*y^{d-2}/a^{d-2} + ...]
-                    //      = y^d + a_{d-1}*y^{d-1} + a_{d-2}*a*y^{d-2} + a_{d-3}*a^2*y^{d-3} + ... + a_0*a^{d-1}
-                    //
-                    // So: g[d] = 1
-                    //     g[d-1] = a_{d-1}
-                    //     g[d-2] = a_{d-2} * a
-                    //     g[d-k] = a_{d-k} * a^{k-1}  for k >= 1
-                    //     g[i] = f[i] * a^{d-1-i}     for i <= d-1
-                    //
-                    // So for 0 <= i < d: g[i] = f[i] * a^{d-1-i}
-                    //    for i = d: g[d] = 1
-                    
+                    // f*[i] = f[i] * a^{deg-1-i}
                     scoped_numeral a_exp(nm);
                     nm.power(a, deg - 1 - i, a_exp);
                     nm.mul(f[i], a_exp, f_star.back());
@@ -8005,9 +7914,6 @@ namespace polynomial {
                 // delta_h = b_{d-1}*x^{d-1} + ... + b_0 where d = deg(h0)
                 //
                 // Solve by coefficient matching.
-                
-                unsigned deg_g0 = g0_vec.size() - 1;  // degree of g0
-                (void)deg_g0;  // used in conditional below
                 
                 // Special case: g0 is linear (degree 1) and monic
                 // This case admits a direct formula
