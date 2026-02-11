@@ -134,6 +134,8 @@ For each issue reported in the output, determine:
    - Test-related code patterns
    - Generated code or third-party code
    - Overly strict warnings without merit
+   - **Assertion violations at the beginning of functions** (these are pre-conditions and intentional design)
+   - Parameter validation checks in function entry points
 
 ### 3.3 Extract Source Code Context
 
@@ -194,7 +196,7 @@ done
 
 ### 3.5 Enhanced Analysis Workflow
 
-Create an enhanced analysis workflow that automatically extracts source code context:
+Create an enhanced analysis workflow that automatically extracts source code context. **IMPORTANT**: Limit detailed examples to top 5 high-severity findings only.
 
 ```bash
 # Parse a3-python output and extract file/line information
@@ -202,7 +204,8 @@ parse_findings() {
     local output_file="$1"
     
     # Create arrays to store findings
-    declare -a true_positives=()
+    declare -a high_severity=()
+    declare -a medium_severity=()
     declare -a false_positives=()
     
     # Parse the output file and extract findings with file/line info
@@ -216,29 +219,42 @@ parse_findings() {
             
             echo "Found potential issue: $file:$line_num - $description"
             
-            # Add logic here to classify as true positive or false positive
-            # For now, store all as potential true positives for manual review
-            true_positives+=("File: $file, Line: $line_num, Description: $description")
+            # Classify by severity and type
+            # High severity: NULL_PTR, DIV_ZERO
+            # Medium severity: BOUNDS, ASSERT_FAIL (except pre-condition assertions)
+            # False positives: Assertion violations at function start (pre-conditions)
+            
+            if [[ "$description" =~ ASSERT_FAIL ]] && [[ $line_num -lt 10 ]]; then
+                # Likely a pre-condition assertion at start of function
+                false_positives+=("File: $file, Line: $line_num, Description: $description")
+            elif [[ "$description" =~ (NULL_PTR|DIV_ZERO) ]]; then
+                high_severity+=("File: $file, Line: $line_num, Description: $description")
+            else
+                medium_severity+=("File: $file, Line: $line_num, Description: $description")
+            fi
         fi
     done < "$output_file"
     
-    # Generate contexts for all true positives
+    # Generate enhanced report with TOP 5 HIGH-SEVERITY findings only in detail
     echo "# Enhanced Analysis Report" > enhanced_report.md
     echo "" >> enhanced_report.md
-    echo "## True Positives with Source Context" >> enhanced_report.md
+    echo "## Sample High-Severity Findings (Top 5)" >> enhanced_report.md
     echo "" >> enhanced_report.md
     
     local counter=1
-    for finding in "${true_positives[@]}"; do
+    local max_samples=5
+    for finding in "${high_severity[@]}"; do
+        if [ $counter -gt $max_samples ]; then
+            break
+        fi
+        
         file=$(echo "$finding" | grep -o 'File: [^,]*' | cut -d' ' -f2)
         line_num=$(echo "$finding" | grep -o 'Line: [^,]*' | cut -d' ' -f2)
         desc=$(echo "$finding" | grep -o 'Description: .*' | cut -d' ' -f2-)
         
-        echo "### Issue $counter: $desc" >> enhanced_report.md
-        echo "- **File**: \`$file\`" >> enhanced_report.md
-        echo "- **Line**: $line_num" >> enhanced_report.md
+        echo "### $counter. $desc" >> enhanced_report.md
+        echo "**Location**: \`$file:$line_num\`" >> enhanced_report.md
         echo "" >> enhanced_report.md
-        echo "**Source Code Context:**" >> enhanced_report.md
         
         if [[ -f "$file" ]]; then
             extract_code_context "$file" "$line_num" 5 >> enhanced_report.md
@@ -252,6 +268,12 @@ parse_findings() {
         ((counter++))
     done
     
+    # Add summary statistics
+    echo "## Summary Statistics" >> enhanced_report.md
+    echo "- High Severity: ${#high_severity[@]}" >> enhanced_report.md
+    echo "- Medium Severity: ${#medium_severity[@]}" >> enhanced_report.md
+    echo "- False Positives: ${#false_positives[@]}" >> enhanced_report.md
+    
     # Display the enhanced report
     echo "=== Enhanced Analysis Report ==="
     cat enhanced_report.md
@@ -261,6 +283,8 @@ parse_findings() {
 parse_findings "a3-python-output.txt"
 ```
 
+**Note**: The complete list of all findings should be added to a collapsible `<details>` section in the GitHub issue, not shown in full detail.
+
 ### 3.4 Categorize and Count
 
 Create a structured analysis with source code context:
@@ -268,50 +292,38 @@ Create a structured analysis with source code context:
 ```markdown
 ## Analysis Results
 
-### True Positives (Likely Issues):
-1. [Issue 1 Description] - File: path/to/file.py, Line: X
-   **Source Code Context:**
-   ```python
-   [Line numbers with context - error line marked with ❌]
-   ```
+### 3.4 Categorize and Count
 
-2. [Issue 2 Description] - File: path/to/file.py, Line: Y
-   **Source Code Context:**
-   ```python
-   [Line numbers with context - error line marked with ❌]
-   ```
-....
-
-### False Positives:
-1. [FP 1 Description] - Reason for dismissal
-2. [FP 2 Description] - Reason for dismissal
-....
-
-### Summary:
-- Total findings: X
-- True positives: Y
-- False positives: Z
-```
-
-Create a structured analysis:
+Create a structured analysis with source code context:
 
 ```markdown
 ## Analysis Results
 
-### True Positives (Likely Issues):
+### High-Severity Issues (for detailed examples):
 1. [Issue 1 Description] - File: path/to/file.py, Line: X
+   **Source Code Context:**
+   ```python
+   [Line numbers with context - error line marked with ❌]
+   ```
+
 2. [Issue 2 Description] - File: path/to/file.py, Line: Y
-...
+   **Source Code Context:**
+   ```python
+   [Line numbers with context - error line marked with ❌]
+   ```
+
+(Limit to top 5 high-severity for detailed display)
 
 ### False Positives:
-1. [FP 1 Description] - Reason for dismissal
+1. [FP 1 Description] - Reason: Pre-condition assertion at function start
 2. [FP 2 Description] - Reason for dismissal
 ...
 
 ### Summary:
 - Total findings: X
-- True positives: Y
-- False positives: Z
+- High severity (NULL_PTR, DIV_ZERO): Y
+- Medium severity (BOUNDS, ASSERT_FAIL): Z
+- False positives (including pre-conditions): W
 ```
 
 ## Phase 4: Create GitHub Issue (Conditional)
@@ -338,24 +350,31 @@ If creating an issue, use this structure:
 ```markdown
 ## A3 Python Code Analysis - [Date]
 
-This issue reports bugs and code quality issues identified by the a3-python analysis tool.
+This issue reports **[number]** DSE-confirmed bugs identified by a3-python analysis tool across the Z3 Python API.
 
-### Summary
+### Executive Summary
 
-- **Analysis Date**: [Date]
-- **Total Findings**: X
-- **True Positives (Likely Issues)**: Y
-- **False Positives**: Z
+- **Total Findings**: X confirmed bugs
+- **High Severity**: Y (NULL_PTR: N1, DIV_ZERO: N2)
+- **Medium Severity**: Z (BOUNDS: N3, ASSERT_FAIL: N4)
+- **Analysis Method**: Deep Symbolic Execution (DSE) verification
 
-### True Positives (Issues to Address)
+### Files Most Affected
 
-#### Issue 1: [Short Description]
-- **File**: `path/to/file.py`
-- **Line**: X
-- **Severity**: [High/Medium/Low]
-- **Description**: [Detailed description of the issue]
+| File | Issues |
+|------|--------|
+| `path/to/file1.py` | X |
+| `path/to/file2.py` | Y |
+| `path/to/file3.py` | Z |
 
-**Source Code Context:**
+(Show only top 3-5 files)
+
+### Sample High-Severity Findings
+
+#### 1. [BUG_TYPE] in `function_name`
+
+**Location**: `path/to/file.py:line_number`
+
 ```python
   10:   def some_function():
   11:       value = None
@@ -364,60 +383,86 @@ This issue reports bugs and code quality issues identified by the a3-python anal
   14:   # Rest of function...
 ```
 
-- **Recommendation**: [How to fix it]
+#### 2. [BUG_TYPE] in `function_name`
 
-#### Issue 2: [Short Description]
-- **File**: `path/to/file.py`
-- **Line**: Y
-- **Severity**: [High/Medium/Low]
-- **Description**: [Detailed description of the issue]
+**Location**: `path/to/file.py:line_number`
 
-**Source Code Context:**
 ```python
   25:   if condition:
   26:       result = process_data()
   27: ❌     return result  # Error: 'result' may be undefined
   28:   # Missing else clause
-  29:   
 ```
 
-- **Recommendation**: [How to fix it]
+(Show only top 5 high-severity examples with code context)
 
-[Continue for all true positives]
+### Bug Type Analysis
 
-### Analysis Details
+| Type | Count | Description |
+|------|-------|-------------|
+| NULL_PTR | X | Potential None/null dereferences |
+| BOUNDS | Y | Array/string index out of bounds |
+| ASSERT_FAIL | Z | Assertion violations |
+| DIV_ZERO | W | Division by zero errors |
+
+### Methodology
+
+This analysis used **a3-python** with:
+- ✅ **Deep Symbolic Execution (DSE)**: Confirms bug reachability via concrete paths
+- ✅ **Barrier Theory**: Attempts to prove safety before flagging
+- ✅ **Multi-strategy verification**: 7+ verification techniques
+
+All [number] issues are **DSE-confirmed**, meaning the tool verified these errors are reachable through real execution paths.
+
+### Recommended Actions
+
+**Immediate Priority** (High Severity - X issues):
+1. Add null/None checks before dereferences in core API functions
+2. Validate division denominators to prevent DIV_ZERO
+3. Focus on `most_affected_file.py` (N issues)
+
+**Medium Priority** (Y issues):
+1. Add bounds checking for array/string indexing
+2. Review and strengthen assertion conditions
+3. Add comprehensive error handling
+
+**Long-term**:
+1. Adopt comprehensive input validation across Python API
+2. Use Python type hints consistently (e.g., `Optional[T]`)
+3. Consider defensive programming patterns for C API wrappers
+
+### Complete Analysis Data
 
 <details>
-<summary>False Positives (Click to expand)</summary>
+<summary>All [number] findings grouped by file (click to expand)</summary>
 
-These findings were classified as false positives because:
+**path/to/file1.py** (X issues)
+- BUG_TYPE: N issues
+  - Line Y: `function_name`
+  - Line Z: `function_name`
+  ...
 
-1. **[FP 1]**: [Reason for dismissal]
-2. **[FP 2]**: [Reason for dismissal]
-...
+**path/to/file2.py** (X issues)
+- BUG_TYPE: N issues
+  - Line Y: `function_name`
+  ...
+
+(List ALL findings in collapsed section)
 
 </details>
 
-### Raw Output
-
 <details>
-<summary>Complete a3-python output (Click to expand)</summary>
+<summary>Raw a3-python output excerpt (click to expand)</summary>
 
 ```
-[PASTE COMPLETE CONTENTS OF a3-python-output.txt HERE]
+[PASTE FIRST 50-100 LINES OF a3-python-output.txt HERE FOR REFERENCE]
 ```
 
 </details>
-
-### Recommendations
-
-1. Prioritize fixing high-severity issues first
-2. Review medium-severity issues for improvement opportunities
-3. Consider low-severity issues as code quality enhancements
 
 ---
 
-*Automated by A3 Python Analysis Agent - Weekly code quality analysis*
+*Note: All findings have been DSE-confirmed by a3-python's deep symbolic execution engine. For questions about specific findings, run `a3 scan` locally for detailed analysis.*
 ```
 
 ### 4.3 Use Safe Outputs
@@ -435,6 +480,14 @@ Create the issue using the safe-outputs configuration:
 - **Be accurate**: Distinguish real issues from false positives
 - **Be specific**: Provide file names, line numbers, and descriptions
 - **Be actionable**: Include recommendations for fixes
+- **Be concise**: Focus on the most critical findings in the main issue body
+
+### Issue Formatting Best Practices
+- **Limit sample findings**: Show only top 5 high-severity examples with code context
+- **Use collapsible sections**: Put complete analysis data in `<details>` tags
+- **Prioritize readability**: Organize by severity and actionability, not just by file
+- **Avoid duplication**: Don't repeat the same information in multiple formats
+- **Keep it focused**: The issue should be scannable in under 2 minutes
 
 ### Classification Criteria
 
@@ -450,6 +503,8 @@ Create the issue using the safe-outputs configuration:
 - Test code patterns that look unusual but are valid
 - Generated or vendored code
 - Overly pedantic warnings
+- **Assertion violations at the beginning of functions** (these are pre-conditions)
+- Parameter validation checks (assert statements checking input parameters)
 
 ### Threshold for Issue Creation
 - **2+ true positives**: Create an issue with all findings
@@ -487,12 +542,16 @@ Your output MUST either:
    ```
 
 2. **If 2+ true positives found**: Create an issue with:
-   - Clear summary of findings
-   - Detailed breakdown of each true positive with source code context
-   - Visual representation of error lines with surrounding code
-   - Severity classifications
-   - Actionable recommendations
-   - Complete raw output in collapsible section
+   - Clear executive summary with statistics
+   - Files most affected table (top 3-5 only)
+   - **ONLY top 5 high-severity findings** with detailed source code context
+   - Bug type analysis summary table
+   - Methodology explanation
+   - Recommended actions (prioritized)
+   - **Complete findings list** in collapsed `<details>` section
+   - **Raw output excerpt** (first 50-100 lines) in collapsed `<details>` section
+   
+**Critical**: Do NOT list all findings in the main issue body. Keep sample findings to 5 maximum and put comprehensive data in collapsible sections.
 
 ## Enhanced Workflow Summary
 
@@ -500,7 +559,10 @@ The enhanced workflow now includes:
 
 1. **Automated Source Code Context Extraction**: The `extract_code_context` function automatically extracts 5 lines before and after each error location
 2. **Visual Error Highlighting**: Error lines are marked with ❌ for easy identification
-3. **Structured Reporting**: Each finding includes the actual source code with line numbers for better understanding
-4. **Enhanced GitHub Issues**: Issues now contain source code snippets making them much more readable and actionable
+3. **Severity-Based Classification**: Automatically categorizes findings as high/medium severity
+4. **False Positive Detection**: Identifies pre-condition assertions at function entry points
+5. **Concise Reporting**: Limits detailed examples to top 5 high-severity findings
+6. **Progressive Disclosure**: Uses collapsible sections for complete data
+7. **Enhanced GitHub Issues**: Issues are scannable, actionable, and well-organized
 
-Begin the analysis now. Install a3-python, run analysis on the repository, save output to a3-python-output.txt, extract source code context for findings, and create a GitHub issue if 2 or more likely issues are found.
+Begin the analysis now. Install a3-python, run analysis on the repository, save output to a3-python-output.txt, extract source code context for findings, classify by severity, and create a GitHub issue if 2 or more likely issues are found. **Remember to keep the main issue body concise with only top 5 examples and put complete findings in a collapsed section.**
