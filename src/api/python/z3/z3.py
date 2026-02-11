@@ -870,7 +870,7 @@ class FuncDeclRef(AstRef):
             elif k == Z3_PARAMETER_ZSTRING:
                 result[i] = "internal string"
             else:
-                raise Z3Exception("unknown parameter kind %s" % k)
+                raise Z3Exception(f"unknown parameter kind {k}")
         return result
 
     def __call__(self, *args):
@@ -3375,7 +3375,7 @@ def RatVal(a, b, ctx=None):
         _z3_assert(_is_int(a) or isinstance(a, str), "First argument cannot be converted into an integer")
         _z3_assert(_is_int(b) or isinstance(b, str), "Second argument cannot be converted into an integer")
     # Check for zero denominator to catch obvious user errors early
-    if _is_int(b) and b == 0:
+    if (_is_int(b) and b == 0) or (isinstance(b, str) and b == "0"):
         raise ValueError("RatVal: denominator cannot be zero")
     return simplify(RealVal(a, ctx) / RealVal(b, ctx))
 
