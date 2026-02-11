@@ -52,7 +52,7 @@ public:
 
     obj_hashtable(const obj_hashtable & source) = default;
     obj_hashtable(obj_hashtable && source) noexcept = default;
-    obj_hashtable& operator=(const obj_hashtable & other) = default;
+    obj_hashtable& operator=(const obj_hashtable & other) = delete;
     obj_hashtable& operator=(obj_hashtable && other) noexcept = default;
 };
 
