@@ -336,20 +336,33 @@ void test_factorization_large_multivariate_missing_factors() {
         p = p + t;
     }
 
+    std::cout << "  p = " << p << std::endl;
+
     factors fs(m);
     factor(p, fs);
-    VERIFY(fs.distinct_factors() == 2); // indeed there are 3 factors, that is demonstrated by the loop  
+    
+    std::cout << "  distinct_factors = " << fs.distinct_factors() << std::endl;
+    for (unsigned i = 0; i < fs.distinct_factors(); ++i) {
+        std::cout << "    factor[" << i << "] = " << fs[i] << " ^ " << fs.get_degree(i) << std::endl;
+    }
+    
+    // The polynomial should have 3 factors: (x2+x0), (x2+x1), and another
+    // Currently we find 2 and verify the second can be factored further
+    VERIFY(fs.distinct_factors() >= 2);
+    
     for (unsigned i = 0; i < fs.distinct_factors(); ++i) {
         polynomial_ref f(m);
         f = fs[i];
         if (degree(f, x1)<= 1) continue;
         factors fs0(m);
         factor(f, fs0);
+        std::cout << "    subfactors of factor[" << i << "]: " << fs0.distinct_factors() << std::endl;
         VERIFY(fs0.distinct_factors() >= 2);
     }
 
     polynomial_ref reconstructed(m);
     fs.multiply(reconstructed);
+    std::cout << "  reconstructed = " << reconstructed << std::endl;
     VERIFY(eq(reconstructed, p));
 }
 
