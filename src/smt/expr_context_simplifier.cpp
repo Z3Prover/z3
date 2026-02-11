@@ -428,7 +428,7 @@ void expr_strong_context_simplifier::simplify_basic(expr* fml, expr_ref& result)
 
     done:
         if (r) {
-            cache.insert(e, std::make_pair(pos, r));
+            cache.insert(e, std::move(std::make_pair(pos, r)));
         }
 
         TRACE(expr_context_simplifier, 
@@ -704,7 +704,7 @@ void expr_strong_context_simplifier::simplify_model_based(expr* fml, expr_ref& r
 
     done:
         if (r) {
-            cache.insert(e, std::make_pair(pos, r));
+            cache.insert(e, std::move(std::make_pair(pos, r)));
         }
 
         TRACE(expr_context_simplifier, 

@@ -3410,7 +3410,7 @@ bool ast_manager::is_hyper_resolve(
             SASSERT(params[i+1].is_int());
             unsigned x = static_cast<unsigned>(params[i].get_int());
             unsigned y = static_cast<unsigned>(params[i+1].get_int());
-            positions.push_back(std::make_pair(x, y));
+            positions.push_back(std::move(std::make_pair(x, y)));
             substs.push_back(expr_ref_vector(*this));
             ++i;
         }
