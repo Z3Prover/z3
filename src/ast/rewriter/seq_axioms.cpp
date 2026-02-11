@@ -122,8 +122,12 @@ namespace seq {
     
     expr_ref axioms::mk_len(expr* s) {
         expr_ref result(seq.str.mk_length(s), m); 
-        m_rewrite(result);
-        return result;
+        expr_ref len(result, m);
+        m_rewrite(len);
+        if (len != result) {
+            add_clause(mk_eq(result, len));
+        }
+        return len;
     }
 
     void axioms::add_clause(expr_ref const& a) {
