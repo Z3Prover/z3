@@ -539,6 +539,194 @@ void test_univariate_factor_output() {
     std::cout << "  product = "; upm.display(std::cout, prod); std::cout << std::endl;
 }
 
+// Test: 3 non-monic bivariate factors where first univariate factor is NOT linear.
+// p = (2x0 + x1)(3x0^2 + x1) -- non-linear first factor, non-monic
+void test_factorization_nonlinear_first_factor() {
+    std::cout << "test_factorization_nonlinear_first_factor\n";
+
+    reslimit rl;
+    numeral_manager nm;
+    manager m(rl, nm);
+
+    polynomial_ref x0(m), x1(m);
+    x0 = m.mk_polynomial(m.mk_var());
+    x1 = m.mk_polynomial(m.mk_var());
+
+    // (x0^2 + x1)(x0^2 - x1) = x0^4 - x1^2
+    // This has two non-linear factors
+    polynomial_ref p(m);
+    p = ((x0^2) + x1) * ((x0^2) - x1);
+    std::cout << "  p = " << p << std::endl;
+
+    factors fs(m);
+    factor(p, fs);
+
+    std::cout << "  distinct_factors = " << fs.distinct_factors() << std::endl;
+    for (unsigned i = 0; i < fs.distinct_factors(); ++i)
+        std::cout << "    factor[" << i << "] = " << fs[i] << " ^ " << fs.get_degree(i) << std::endl;
+
+    polynomial_ref reconstructed(m);
+    fs.multiply(reconstructed);
+    VERIFY(eq(reconstructed, p));
+    // Should find 2 factors
+    VERIFY(fs.distinct_factors() == 2);
+}
+
+// Test: trivariate factorization requiring multi-step lifting
+void test_factorization_trivariate() {
+    std::cout << "test_factorization_trivariate\n";
+
+    reslimit rl;
+    numeral_manager nm;
+    manager m(rl, nm);
+
+    polynomial_ref x0(m), x1(m), x2(m);
+    x0 = m.mk_polynomial(m.mk_var());
+    x1 = m.mk_polynomial(m.mk_var());
+    x2 = m.mk_polynomial(m.mk_var());
+
+    // (x0 + x1 + x2)(x0 + 1) -- simple trivariate
+    polynomial_ref p(m);
+    p = (x0 + x1 + x2) * (x0 + 1);
+    std::cout << "  p = " << p << std::endl;
+
+    factors fs(m);
+    factor(p, fs);
+
+    std::cout << "  distinct_factors = " << fs.distinct_factors() << std::endl;
+    for (unsigned i = 0; i < fs.distinct_factors(); ++i)
+        std::cout << "    factor[" << i << "] = " << fs[i] << " ^ " << fs.get_degree(i) << std::endl;
+
+    polynomial_ref reconstructed(m);
+    fs.multiply(reconstructed);
+    VERIFY(eq(reconstructed, p));
+    VERIFY(fs.distinct_factors() == 2);
+}
+
+// Test: factorization where eval point 0 makes LC vanish
+// p = (x0*x1 + 1)(x0 + x1) -- LC in x0 is x1+1, vanishes at x1=0 but not x1=1
+void test_factorization_lc_vanishes_at_zero() {
+    std::cout << "test_factorization_lc_vanishes_at_zero\n";
+
+    reslimit rl;
+    numeral_manager nm;
+    manager m(rl, nm);
+
+    polynomial_ref x0(m), x1(m);
+    x0 = m.mk_polynomial(m.mk_var());
+    x1 = m.mk_polynomial(m.mk_var());
+
+    // (x1*x0 + 1)(x0 + x1) -- degree 2 in x0, LC in x0 involves x1
+    polynomial_ref p(m);
+    p = (x1 * x0 + 1) * (x0 + x1);
+    std::cout << "  p = " << p << std::endl;
+
+    factors fs(m);
+    factor(p, fs);
+
+    std::cout << "  distinct_factors = " << fs.distinct_factors() << std::endl;
+    for (unsigned i = 0; i < fs.distinct_factors(); ++i)
+        std::cout << "    factor[" << i << "] = " << fs[i] << " ^ " << fs.get_degree(i) << std::endl;
+
+    polynomial_ref reconstructed(m);
+    fs.multiply(reconstructed);
+    VERIFY(eq(reconstructed, p));
+    VERIFY(fs.distinct_factors() == 2);
+}
+
+// Test: irreducible multivariate polynomial should return single factor
+void test_factorization_irreducible_multivariate() {
+    std::cout << "test_factorization_irreducible_multivariate\n";
+
+    reslimit rl;
+    numeral_manager nm;
+    manager m(rl, nm);
+
+    polynomial_ref x0(m), x1(m);
+    x0 = m.mk_polynomial(m.mk_var());
+    x1 = m.mk_polynomial(m.mk_var());
+
+    // x0^3 + x1^3 + 1 is irreducible over Q (and Z)
+    polynomial_ref p(m);
+    p = (x0^3) + (x1^3) + 1;
+    std::cout << "  p = " << p << std::endl;
+
+    factors fs(m);
+    factor(p, fs);
+
+    std::cout << "  distinct_factors = " << fs.distinct_factors() << std::endl;
+    for (unsigned i = 0; i < fs.distinct_factors(); ++i)
+        std::cout << "    factor[" << i << "] = " << fs[i] << " ^ " << fs.get_degree(i) << std::endl;
+
+    polynomial_ref reconstructed(m);
+    fs.multiply(reconstructed);
+    VERIFY(eq(reconstructed, p));
+    VERIFY(fs.distinct_factors() == 1);
+}
+
+// Test: polynomial where all small eval points give non-square-free images
+// p = (x0 + x1)(x0 + 2*x1)(x0 + 3*x1) has degree 3 in x0
+// At x1=0: x0^3 (not square-free) -- tests that we skip bad eval points
+void test_factorization_bad_eval_point_zero() {
+    std::cout << "test_factorization_bad_eval_point_zero\n";
+
+    reslimit rl;
+    numeral_manager nm;
+    manager m(rl, nm);
+
+    polynomial_ref x0(m), x1(m);
+    x0 = m.mk_polynomial(m.mk_var());
+    x1 = m.mk_polynomial(m.mk_var());
+
+    // (x0 + x1)(x0 + 2*x1)(x0 + 3*x1) -- at x1=0 gives x0^3 (not sqf)
+    polynomial_ref p(m);
+    p = (x0 + x1) * (x0 + 2*x1) * (x0 + 3*x1);
+    std::cout << "  p = " << p << std::endl;
+
+    factors fs(m);
+    factor(p, fs);
+
+    std::cout << "  distinct_factors = " << fs.distinct_factors() << std::endl;
+    for (unsigned i = 0; i < fs.distinct_factors(); ++i)
+        std::cout << "    factor[" << i << "] = " << fs[i] << " ^ " << fs.get_degree(i) << std::endl;
+
+    polynomial_ref reconstructed(m);
+    fs.multiply(reconstructed);
+    VERIFY(eq(reconstructed, p));
+    VERIFY(fs.distinct_factors() == 3);
+}
+
+// Test: larger non-monic factors
+// (2*x0 + x1)(3*x0 + 2*x1) -- non-monic in x0
+void test_factorization_nonmonic_bivariate() {
+    std::cout << "test_factorization_nonmonic_bivariate\n";
+
+    reslimit rl;
+    numeral_manager nm;
+    manager m(rl, nm);
+
+    polynomial_ref x0(m), x1(m);
+    x0 = m.mk_polynomial(m.mk_var());
+    x1 = m.mk_polynomial(m.mk_var());
+
+    // (2*x0 + x1)(3*x0 + 2*x1) = 6*x0^2 + 7*x0*x1 + 2*x1^2
+    polynomial_ref p(m);
+    p = (2*x0 + x1) * (3*x0 + 2*x1);
+    std::cout << "  p = " << p << std::endl;
+
+    factors fs(m);
+    factor(p, fs);
+
+    std::cout << "  distinct_factors = " << fs.distinct_factors() << std::endl;
+    for (unsigned i = 0; i < fs.distinct_factors(); ++i)
+        std::cout << "    factor[" << i << "] = " << fs[i] << " ^ " << fs.get_degree(i) << std::endl;
+
+    polynomial_ref reconstructed(m);
+    fs.multiply(reconstructed);
+    VERIFY(eq(reconstructed, p));
+    VERIFY(fs.distinct_factors() == 2);
+}
+
 void test_polynomial_factorization() {
     test_univariate_factor_output();
     test_factorization_bivariate_3factors_monic();
@@ -552,6 +740,12 @@ void test_polynomial_factorization() {
     test_factorization_constant();
     test_factorization_zero();
     test_factorization_gcd();
+    test_factorization_nonlinear_first_factor();
+    test_factorization_trivariate();
+    test_factorization_lc_vanishes_at_zero();
+    test_factorization_irreducible_multivariate();
+    test_factorization_bad_eval_point_zero();
+    test_factorization_nonmonic_bivariate();
 }
 
 } // namespace polynomial
