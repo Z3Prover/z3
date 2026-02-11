@@ -631,8 +631,8 @@ jobs:
           cd win32-bin && unzip ../z3-*-x86-win*.zip && cd ..
           cd win64-bin && unzip ../z3-*-x64-win*.zip && cd ..
           cd win-arm64-bin && unzip ../z3-*-arm64-win*.zip && cd ..
-          cd linux-arm64-bin && cp ../z3*-2_38_aarch64.whl . && cd ..
-          cd linux-x64-bin && cp ../z3*-27_x86_64.whl . && cd ..  
+          cd linux-arm64-bin && cp ../z3*_2_38_aarch64.whl . && cd ..
+          cd linux-x64-bin && cp ../z3*_27_x86_64.whl . && cd ..  
       
       - name: Build Python packages
         run: |
