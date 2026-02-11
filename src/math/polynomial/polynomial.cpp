@@ -7081,10 +7081,15 @@ namespace polynomial {
             
             // We found multiple factors in the univariate case.
             // Try to lift them back to multivariate factors using Hensel lifting.
+            // For n variables, we lift one variable at a time. The recursive call
+            // to factor_sqf_pp will handle lifting the remaining variables.
             
-            if (other_vars.size() == 1) {
+            if (other_vars.size() >= 1) {
+                // Pick the first "other" variable to lift
                 var y = other_vars[0];
                 unsigned num_factors = fs.distinct_factors();
+                
+                TRACE(factor, tout << "lifting variable x" << y << " (out of " << other_vars.size() << " other vars)\n";);
                 
                 if (num_factors == 2) {
                     // Exactly 2 factors - use Hensel lifting directly
@@ -7098,6 +7103,8 @@ namespace polynomial {
                     polynomial_ref g(pm()), h(pm());
                     if (try_hensel_lift_2_factors(p, x, y, g0_vec, h0_vec, g, h)) {
                         TRACE(factor, tout << "Hensel lift succeeded: g = " << g << ", h = " << h << "\n";);
+                        // Recursively factor g and h
+                        // If there are more variables to lift, the recursive call will handle them
                         factor_sqf_pp(g, r, x, k, factor_params());
                         factor_sqf_pp(h, r, x, k, factor_params());
                         return;
@@ -7133,9 +7140,10 @@ namespace polynomial {
                             TRACE(factor, tout << "Hensel lift succeeded: g = " << g << ", h = " << h << "\n";);
                             
                             // g is the lifted first factor, h is the lifted product of others
-                            // Add g as a factor
+                            // Recursively factor both - this will:
+                            // 1. Lift remaining variables if any
+                            // 2. Split h into its component factors
                             factor_sqf_pp(g, r, x, k, factor_params());
-                            // Recursively factor h (which should split into the remaining factors)
                             factor_sqf_pp(h, r, x, k, factor_params());
                             return;
                         }
@@ -7358,7 +7366,7 @@ namespace polynomial {
                 t_curr.swap(t_next);
             }
             
-            // Now r_prev should be the gcd, which should be 1 for coprime monic polynomials
+            // Now r_prev should be the gcd, which should be a constant for coprime polynomials
             // s_prev*A + t_prev*B = r_prev = gcd
             
             if (r_prev.size() != 1) {
@@ -7366,16 +7374,53 @@ namespace polynomial {
                 return false;
             }
             
-            // r_prev should be 1 (or -1)
-            if (!nm.is_one(r_prev[0]) && !nm.is_minus_one(r_prev[0])) {
-                TRACE(factor, tout << "monic_ext_gcd: gcd is " << nm.to_string(r_prev[0]) << ", not ±1\n";);
+            if (nm.is_zero(r_prev[0])) {
+                TRACE(factor, tout << "monic_ext_gcd: gcd is zero\n";);
                 return false;
             }
             
-            // If gcd is -1, negate s and t
-            if (nm.is_minus_one(r_prev[0])) {
+            // For monic coprime polynomials over Z[x], the gcd is an integer d.
+            // We have s_prev*A + t_prev*B = d
+            // We need s*A + t*B = 1, so we need to check if d divides all coefficients of s_prev and t_prev.
+            // For monic polynomials, this should always be possible.
+            
+            scoped_numeral d(nm);
+            nm.set(d, r_prev[0]);
+            
+            // Make d positive
+            if (nm.is_neg(d)) {
+                nm.neg(d);
                 upm().neg(s_prev);
                 upm().neg(t_prev);
+            }
+            
+            if (!nm.is_one(d)) {
+                // Check if d divides all coefficients of s_prev and t_prev
+                bool s_divisible = true;
+                for (unsigned i = 0; i < s_prev.size() && s_divisible; i++) {
+                    if (!nm.divides(d, s_prev[i])) s_divisible = false;
+                }
+                
+                // Check if d divides all coefficients of t_prev
+                bool t_divisible = true;
+                for (unsigned i = 0; i < t_prev.size() && t_divisible; i++) {
+                    if (!nm.divides(d, t_prev[i])) t_divisible = false;
+                }
+                
+                if (s_divisible && t_divisible) {
+                    // Divide s_prev and t_prev by d to get s*A + t*B = 1
+                    for (unsigned i = 0; i < s_prev.size(); i++) {
+                        nm.div(s_prev[i], d, s_prev[i]);
+                    }
+                    for (unsigned i = 0; i < t_prev.size(); i++) {
+                        nm.div(t_prev[i], d, t_prev[i]);
+                    }
+                    TRACE(factor, tout << "monic_ext_gcd: scaled by d = " << nm.to_string(d) << "\n";);
+                } else {
+                    TRACE(factor, tout << "monic_ext_gcd: gcd is " << nm.to_string(d) << ", cannot scale to 1\n";
+                          tout << "s_divisible = " << s_divisible << ", t_divisible = " << t_divisible << "\n";);
+                    return false;
+                }
             }
             
             s.swap(s_prev);
