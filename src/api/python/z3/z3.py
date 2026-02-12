@@ -6138,7 +6138,9 @@ class AstVector(Z3PPObject):
         >>> A[0]
         x
         """
-        if i >= self.__len__():
+        if i < 0:
+            i += self.__len__()
+        if i < 0 or i >= self.__len__():
             raise IndexError
         Z3_ast_vector_set(self.ctx.ref(), self.vector, i, v.as_ast())
 
@@ -6827,7 +6829,9 @@ class ModelRef(Z3PPObject):
         f -> [else -> 0]
         """
         if _is_int(idx):
-            if idx >= len(self):
+            if idx < 0:
+                idx += len(self)
+            if idx < 0 or idx >= len(self):
                 raise IndexError
             num_consts = Z3_model_get_num_consts(self.ctx.ref(), self.model)
             if (idx < num_consts):
@@ -8434,7 +8438,9 @@ class ApplyResult(Z3PPObject):
         >>> r[1]
         [a == 1, Or(b == 0, b == 1), a > b]
         """
-        if idx >= len(self):
+        if idx < 0:
+            idx += len(self)
+        if idx < 0 or idx >= len(self):
             raise IndexError
         return Goal(goal=Z3_apply_result_get_subgoal(self.ctx.ref(), self.result, idx), ctx=self.ctx)
 
