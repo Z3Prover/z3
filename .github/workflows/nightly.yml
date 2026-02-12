@@ -706,15 +706,36 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls
-          find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) > release_files.txt
+          find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
           
-          gh release create Nightly \
-            --title "Nightly" \
-            --notes "Automated nightly build from commit ${{ github.sha }}" \
-            --prerelease \
-            --target ${{ github.sha }} \
-            --clobber \
-            $(cat release_files.txt | tr '\n' ' ')
+          # Deduplicate files - keep only first occurrence of each basename
+          # Use NUL-delimited input/output to handle spaces in filenames safely
+          declare -A seen_basenames
+          declare -a unique_files
+          
+          while IFS= read -r -d $'\0' filepath || [ -n "$filepath" ]; do
+            [ -z "$filepath" ] && continue
+            basename="${filepath##*/}"
+            
+            # Keep only first occurrence of each basename
+            if [ -z "${seen_basenames[$basename]}" ]; then
+              seen_basenames[$basename]=1
+              unique_files+=("$filepath")
+            fi
+          done < release_files.txt
+          
+          # Create release with properly quoted file arguments
+          if [ ${#unique_files[@]} -gt 0 ]; then
+            gh release create Nightly \
+              --title "Nightly" \
+              --notes "Automated nightly build from commit ${{ github.sha }}" \
+              --prerelease \
+              --target ${{ github.sha }} \
+              "${unique_files[@]}"
+          else
+            echo "No files to release after deduplication"
+            exit 1
+          fi
 
 
   publish-test-pypi:
