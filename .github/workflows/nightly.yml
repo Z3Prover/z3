@@ -713,6 +713,7 @@ jobs:
             --notes "Automated nightly build from commit ${{ github.sha }}" \
             --prerelease \
             --target ${{ github.sha }} \
+            --clobber \
             $(cat release_files.txt | tr '\n' ' ')
 
 
