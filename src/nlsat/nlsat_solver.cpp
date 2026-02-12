@@ -1208,8 +1208,8 @@ namespace nlsat {
                     used_bools[b] = true;
                 vars.reset();
                 this->vars(lit, vars);
-            for (var v : vars)
-                        used_vars[v] = true;            
+                for (var v : vars)
+                    used_vars[v] = true;            
             }
             display(out << "(echo \"#" << m_lemma_count++ << ":" << annotation << ":", n, cls) << "\")\n";
             if (m_log_lemma_smtrat)

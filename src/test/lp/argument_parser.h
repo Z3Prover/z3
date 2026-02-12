@@ -82,11 +82,8 @@ public:
         return status_is_ok;
     }
 
-    bool contains(std::unordered_map<std::string, std::string> & m, const std::string& s) {
-        return m.find(s) != m.end();
-    }
-
-    bool contains(std::set<std::string> & m, const std::string& s) {
+    template<typename Container>
+    bool contains(const Container& m, const std::string& s) const {
         return m.find(s) != m.end();
     }
 
@@ -94,20 +91,20 @@ public:
         return contains(m_used_options, option) || contains(m_used_options_with_after_string, option);
     }
 
-    std::string get_option_value(const std::string& option) {
+    std::string get_option_value(const std::string& option) const {
         auto t = m_used_options_with_after_string.find(option);
-        if (t != m_used_options_with_after_string.end()){
+        if (t != m_used_options_with_after_string.end()) {
             return t->second;
         }
-        return std::string();
+        return "";
     }
 
-    bool starts_with(const std::string& s, char const * prefix) {
+    bool starts_with(const std::string& s, const std::string& prefix) const {
+        return s.size() >= prefix.size() && s.compare(0, prefix.size(), prefix) == 0;
+    }
+
+    bool starts_with(const std::string& s, const char* prefix) const {
         return starts_with(s, std::string(prefix));
-    }
-
-    bool starts_with(const std::string& s, const std::string& prefix) {
-        return s.substr(0, prefix.size()) == prefix;
     }
 
     std::string usage_string() {

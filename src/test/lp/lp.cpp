@@ -732,7 +732,7 @@ vector<std::string> get_file_names_from_file_list(const std::string& filelist) {
     std::ifstream file(filelist);
     if (!file.is_open()) {
         std::cout << "cannot open " << filelist << std::endl;
-        return vector<std::string>();
+        return {};
     }
     vector<std::string> ret;
     bool end;
