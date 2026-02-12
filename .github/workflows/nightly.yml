@@ -648,7 +648,7 @@ jobs:
 
       - name: Copy Linux Python packages
         run: |          
-          cp artifacts/*.whl src/api/python/dist/*.*
+          cp artifacts/*.whl src/api/python/dist/.
       
       - name: Upload artifact
         uses: actions/upload-artifact@v6
