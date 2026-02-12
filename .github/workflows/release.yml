@@ -652,6 +652,10 @@ jobs:
           echo $PWD/../../../artifacts/win-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+
+      - name: Copy Linux Python packages
+        run: |          
+          cp artifacts/*.whl src/api/python/dist/.
             
       - name: Upload artifact
         uses: actions/upload-artifact@v6
@@ -699,17 +703,40 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) > release_files.txt
 
-          less release_files.txt
+          ls
+          find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
           
-          gh release create z3-${{ env.RELEASE_VERSION }} \
-            --title "z3-${{ env.RELEASE_VERSION }}" \
-            --notes "${{ env.RELEASE_VERSION }} release" \
-            --draft \
-            --prerelease \
-            --target ${{ github.sha }} \
-            $(cat release_files.txt | tr '\n' ' ')
+          # Deduplicate files - keep only first occurrence of each basename
+          # Use NUL-delimited input/output to handle spaces in filenames safely
+          declare -A seen_basenames
+          declare -a unique_files
+          
+          while IFS= read -r -d $'\0' filepath || [ -n "$filepath" ]; do
+            [ -z "$filepath" ] && continue
+            basename="${filepath##*/}"
+            
+            # Keep only first occurrence of each basename
+            if [ -z "${seen_basenames[$basename]}" ]; then
+              seen_basenames[$basename]=1
+              unique_files+=("$filepath")
+            fi
+          done < release_files.txt
+
+          # Create release with properly quoted file arguments
+          if [ ${#unique_files[@]} -gt 0 ]; then
+            gh release create z3-${{ env.RELEASE_VERSION }} \
+              --title "z3-${{ env.RELEASE_VERSION }}" \
+              --notes "${{ env.RELEASE_VERSION }} release" \
+              --draft \
+              --prerelease \
+              --target ${{ github.sha }} \
+                 "${unique_files[@]}"
+          else
+            echo "No files to release after deduplication"
+            exit 1
+          fi
+          
 
   publish-nuget:
     name: "Publish to NuGet.org"
