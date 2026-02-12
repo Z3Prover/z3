@@ -2566,11 +2566,14 @@ namespace smt {
                     eqs.push_back(m.mk_eq(sk, val));
                 }
             }
-            expr_ref new_cnstr(m);
-            new_cnstr = m.mk_or(eqs);
-            TRACE(model_finder, tout << "assert_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
-            aux_ctx->assert_expr(new_cnstr);
-            asserted_something = true;
+            // Only assert a constraint if we have at least one valid equality
+            if (!eqs.empty()) {
+                expr_ref new_cnstr(m);
+                new_cnstr = m.mk_or(eqs);
+                TRACE(model_finder, tout << "assert_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
+                aux_ctx->assert_expr(new_cnstr);
+                asserted_something = true;
+            }
         }
         return asserted_something;
     }
