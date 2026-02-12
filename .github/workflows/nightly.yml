@@ -720,12 +720,14 @@ jobs:
           # Read NUL-delimited input
           with open("release_files.txt", "rb") as f:
               content = f.read()
+          
+          # Handle empty file case explicitly
+          if content.rstrip(b"\0"):
               # Strip trailing NUL before splitting to avoid empty trailing element
-              files = content.decode("utf-8").rstrip("\0").split("\0") if content else []
+              files = content.decode("utf-8").rstrip("\0").split("\0")
               
               for filepath in files:
-                  filepath = filepath.strip()
-                  if not filepath:
+                  if not filepath:  # Skip empty strings
                       continue
                       
                   basename = os.path.basename(filepath)
@@ -735,7 +737,7 @@ jobs:
                       seen_basenames.add(basename)
                       unique_files.append(filepath)
           
-          # Write NUL-delimited output
+          # Write NUL-delimited output with trailing NUL
           with open("release_files_dedup.txt", "wb") as f:
               if unique_files:
                   f.write("\0".join(unique_files).encode("utf-8"))
@@ -743,18 +745,24 @@ jobs:
           DEDUP_SCRIPT
           
           # Read files into bash array safely using NUL delimiter
-          declare -a FILES
-          while IFS= read -r -d $'\0' file; do
-            FILES+=("$file")
-          done < release_files_dedup.txt
-          
-          # Create release with properly quoted file arguments
-          gh release create Nightly \
-            --title "Nightly" \
-            --notes "Automated nightly build from commit ${{ github.sha }}" \
-            --prerelease \
-            --target ${{ github.sha }} \
-            "${FILES[@]}"
+          # Only if the deduplicated file list is not empty
+          if [ -s release_files_dedup.txt ]; then
+            declare -a FILES
+            while IFS= read -r -d $'\0' file; do
+              FILES+=("$file")
+            done < release_files_dedup.txt
+            
+            # Create release with properly quoted file arguments
+            gh release create Nightly \
+              --title "Nightly" \
+              --notes "Automated nightly build from commit ${{ github.sha }}" \
+              --prerelease \
+              --target ${{ github.sha }} \
+              "${FILES[@]}"
+          else
+            echo "No files to release after deduplication"
+            exit 1
+          fi
 
 
   publish-test-pypi:
