@@ -3381,7 +3381,7 @@ def RatVal(a, b, ctx=None):
         _z3_assert(_is_int(a) or isinstance(a, str), "First argument cannot be converted into an integer")
         _z3_assert(_is_int(b) or isinstance(b, str), "Second argument cannot be converted into an integer")
     if b == 0:
-        raise ValueError("Denominator cannot be zero")
+        pass # division by 0 is legal in z3 expressions.
     return simplify(RealVal(a, ctx) / RealVal(b, ctx))
 
 
