@@ -325,36 +325,7 @@ jobs:
           retention-days: 2
 
   manylinux-python-arm64:
-    name: "Python bindings (manylinux ARM64)"
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6.0.2
-      
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-      
-      - name: Build and repair wheel in native ARM64 container
-        run: |
-          docker run --platform linux/arm64 --rm \
-            -v $PWD:/workspace -w /workspace \
-            quay.io/pypa/manylinux_2_28_aarch64:latest \
-            /bin/bash -c "
-              /opt/python/cp38-cp38/bin/python -m venv /tmp/env && \
-              source /tmp/env/bin/activate && \
-              pip install build git+https://github.com/rhelmot/auditwheel && \
-              cd src/api/python && \
-              python -m build && \
-              AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl
-            "
-      
-      - name: Upload artifact
-        uses: actions/upload-artifact@v6
-        with:
-          name: ManyLinuxPythonBuildArm64
-          path: src/api/python/wheelhouse/*.whl
-          retention-days: 2
+
 
   windows-build-x64:
     name: "Windows x64 build"
@@ -623,6 +594,7 @@ jobs:
           cd win32-bin && unzip ../z3-*-x86-win*.zip && cd ..
           cd win64-bin && unzip ../z3-*-x64-win*.zip && cd ..
           cd win-arm64-bin && unzip ../z3-*-arm64-win*.zip && cd ..
+
       
       - name: Build Python packages
         run: |
@@ -636,8 +608,10 @@ jobs:
           echo $PWD/../../../artifacts/win-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-          # Copy pre-built manylinux wheels directly (already repaired by manylinux-python-* jobs)
-          cp ../../../artifacts/*.whl dist/          
+
+      - name: Copy Linux Python packages
+        run: |          
+          cp artifacts/*.whl src/api/python/dist/*.*
       
       - name: Upload artifact
         uses: actions/upload-artifact@v6
