@@ -398,7 +398,6 @@ namespace pb {
     }
 
     std::pair<unsigned, unsigned> solver::normalize(wliteral* begin, wliteral* end, unsigned k) {
-        SASSERT(p.num_watch() == 0);
         m_weights.resize(2 * s().num_vars(), 0);
         for (auto it = begin; it != end; ++it) {
             auto [w, lit] = *it;        
