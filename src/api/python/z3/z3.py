@@ -870,7 +870,7 @@ class FuncDeclRef(AstRef):
             elif k == Z3_PARAMETER_ZSTRING:
                 result[i] = "internal string"
             else:
-                assert(False)
+                raise Z3Exception("Unexpected parameter kind")
         return result
 
     def __call__(self, *args):
@@ -3374,6 +3374,8 @@ def RatVal(a, b, ctx=None):
     if z3_debug():
         _z3_assert(_is_int(a) or isinstance(a, str), "First argument cannot be converted into an integer")
         _z3_assert(_is_int(b) or isinstance(b, str), "Second argument cannot be converted into an integer")
+    if b == 0:
+        raise ValueError("Denominator cannot be zero")
     return simplify(RealVal(a, ctx) / RealVal(b, ctx))
 
 
@@ -5896,7 +5898,9 @@ class Goal(Z3PPObject):
         >>> g[1]
         y > x
         """
-        if arg >= len(self):
+        if arg < 0:
+            arg += len(self)
+        if arg < 0 or arg >= len(self):
             raise IndexError
         return self.get(arg)
 
@@ -12014,50 +12018,64 @@ class UserPropagateBase:
         return self.ctx().ref()
 
     def add_fixed(self, fixed):
-        assert not self.fixed
-        assert not self._ctx
+        if self.fixed:
+            raise Z3Exception("Fixed callback already registered")
+        if self._ctx:
+            raise Z3Exception("Context already initialized")
         if self.solver:
             Z3_solver_propagate_fixed(self.ctx_ref(), self.solver.solver, _user_prop_fixed)
         self.fixed = fixed
 
     def add_created(self, created):
-        assert not self.created
-        assert not self._ctx
+        if self.created:
+            raise Z3Exception("Created callback already registered")
+        if self._ctx:
+            raise Z3Exception("Context already initialized")
         if self.solver:
             Z3_solver_propagate_created(self.ctx_ref(), self.solver.solver, _user_prop_created)
         self.created = created
         
     def add_final(self, final):
-        assert not self.final
-        assert not self._ctx
+        if self.final:
+            raise Z3Exception("Final callback already registered")
+        if self._ctx:
+            raise Z3Exception("Context already initialized")
         if self.solver:
             Z3_solver_propagate_final(self.ctx_ref(), self.solver.solver, _user_prop_final)
         self.final = final
 
     def add_eq(self, eq):
-        assert not self.eq
-        assert not self._ctx
+        if self.eq:
+            raise Z3Exception("Eq callback already registered")
+        if self._ctx:
+            raise Z3Exception("Context already initialized")
         if self.solver:
             Z3_solver_propagate_eq(self.ctx_ref(), self.solver.solver, _user_prop_eq)
         self.eq = eq
 
     def add_diseq(self, diseq):
-        assert not self.diseq
-        assert not self._ctx
+        if self.diseq:
+            raise Z3Exception("Diseq callback already registered")
+        if self._ctx:
+            raise Z3Exception("Context already initialized")
         if self.solver:
             Z3_solver_propagate_diseq(self.ctx_ref(), self.solver.solver, _user_prop_diseq)
         self.diseq = diseq
 
     def add_decide(self, decide):
-        assert not self.decide
-        assert not self._ctx
+        if self.decide:
+            raise Z3Exception("Decide callback already registered")
+        if self._ctx:
+            raise Z3Exception("Context already initialized")
         if self.solver:
             Z3_solver_propagate_decide(self.ctx_ref(), self.solver.solver, _user_prop_decide)
         self.decide = decide   
         
     def add_on_binding(self, binding):
-        assert not self.binding
-        assert not self._ctx
+        if self.binding:
+            raise Z3Exception("Binding callback already registered")
+        if self._ctx:
+            raise Z3Exception("Context already initialized")
         if self.solver:
             Z3_solver_propagate_on_binding(self.ctx_ref(), self.solver.solver, _user_prop_binding)
         self.binding = binding
@@ -12072,7 +12090,8 @@ class UserPropagateBase:
         raise Z3Exception("fresh needs to be overwritten")
 
     def add(self, e):
-        assert not self._ctx
+        if self._ctx:
+            raise Z3Exception("Context already initialized")
         if self.solver:
             Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
         else:
