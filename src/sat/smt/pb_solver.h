@@ -235,6 +235,7 @@ namespace pb {
         void simplify(constraint& p);
         void simplify2(pbc& p);
         bool is_cardinality(pbc const& p);
+        std::pair<unsigned, unsigned> normalize(wliteral *begin, wliteral *end, unsigned k);
         void flush_roots(pbc& p);
         void recompile(pbc& p);
         bool clausify(pbc& p);
