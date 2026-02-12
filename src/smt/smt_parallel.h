@@ -80,13 +80,15 @@ namespace smt {
             }
 
             void cancel_sls_worker() {
+                if (!p.m_sls_worker)
+                    return;
                 IF_VERBOSE(1, verbose_stream() << "Canceling SLS worker\n");
                 p.m_sls_worker->cancel();
             }
 
             void cancel_background_threads() {
                 cancel_workers();
-                if (p.m_should_run_sls) cancel_sls_worker();    
+                cancel_sls_worker();  
             }
 
             void init_parameters_state();
