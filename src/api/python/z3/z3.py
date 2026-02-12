@@ -12019,63 +12019,63 @@ class UserPropagateBase:
 
     def add_fixed(self, fixed):
         if self.fixed:
-            raise Z3Exception("Fixed callback already registered")
+            raise Z3Exception("fixed callback already registered")
         if self._ctx:
-            raise Z3Exception("Context already initialized")
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_fixed(self.ctx_ref(), self.solver.solver, _user_prop_fixed)
         self.fixed = fixed
 
     def add_created(self, created):
         if self.created:
-            raise Z3Exception("Created callback already registered")
+            raise Z3Exception("created callback already registered")
         if self._ctx:
-            raise Z3Exception("Context already initialized")
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_created(self.ctx_ref(), self.solver.solver, _user_prop_created)
         self.created = created
         
     def add_final(self, final):
         if self.final:
-            raise Z3Exception("Final callback already registered")
+            raise Z3Exception("final callback already registered")
         if self._ctx:
-            raise Z3Exception("Context already initialized")
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_final(self.ctx_ref(), self.solver.solver, _user_prop_final)
         self.final = final
 
     def add_eq(self, eq):
         if self.eq:
-            raise Z3Exception("Eq callback already registered")
+            raise Z3Exception("eq callback already registered")
         if self._ctx:
-            raise Z3Exception("Context already initialized")
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_eq(self.ctx_ref(), self.solver.solver, _user_prop_eq)
         self.eq = eq
 
     def add_diseq(self, diseq):
         if self.diseq:
-            raise Z3Exception("Diseq callback already registered")
+            raise Z3Exception("diseq callback already registered")
         if self._ctx:
-            raise Z3Exception("Context already initialized")
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_diseq(self.ctx_ref(), self.solver.solver, _user_prop_diseq)
         self.diseq = diseq
 
     def add_decide(self, decide):
         if self.decide:
-            raise Z3Exception("Decide callback already registered")
+            raise Z3Exception("decide callback already registered")
         if self._ctx:
-            raise Z3Exception("Context already initialized")
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_decide(self.ctx_ref(), self.solver.solver, _user_prop_decide)
         self.decide = decide   
         
     def add_on_binding(self, binding):
         if self.binding:
-            raise Z3Exception("Binding callback already registered")
+            raise Z3Exception("binding callback already registered")
         if self._ctx:
-            raise Z3Exception("Context already initialized")
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_on_binding(self.ctx_ref(), self.solver.solver, _user_prop_binding)
         self.binding = binding
@@ -12091,7 +12091,7 @@ class UserPropagateBase:
 
     def add(self, e):
         if self._ctx:
-            raise Z3Exception("Context already initialized")
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
         else:
