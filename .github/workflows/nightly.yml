@@ -710,56 +710,28 @@ jobs:
           
           # Deduplicate files - keep only first occurrence of each basename
           # Use NUL-delimited input/output to handle spaces in filenames safely
-          python3 << 'DEDUP_SCRIPT'
-          import sys
-          import os
+          declare -A seen_basenames
+          declare -a unique_files
           
-          seen_basenames = set()
-          unique_files = []
-          
-          # Read NUL-delimited input
-          with open("release_files.txt", "rb") as f:
-              content = f.read()
-          
-          # Handle empty file case - check if there's meaningful content after removing NULs
-          if content.strip(b"\0"):
-              # Strip trailing NUL before splitting to avoid empty trailing element
-              files = content.decode("utf-8").rstrip("\0").split("\0")
-              
-              for filepath in files:
-                  if not filepath:  # Skip empty strings
-                      continue
-                      
-                  basename = os.path.basename(filepath)
-                  
-                  # Keep only first occurrence of each basename
-                  if basename not in seen_basenames:
-                      seen_basenames.add(basename)
-                      unique_files.append(filepath)
-          
-          # Write NUL-delimited output with trailing NUL
-          with open("release_files_dedup.txt", "wb") as f:
-              if unique_files:
-                  f.write("\0".join(unique_files).encode("utf-8"))
-                  f.write(b"\0")  # Add trailing NUL for proper NUL-delimited format
-          DEDUP_SCRIPT
-          
-          # Read files into bash array safely using NUL delimiter
-          # Only if the deduplicated file list is not empty
-          if [ -s release_files_dedup.txt ]; then
-            declare -a FILES
-            # Handle the case where read returns non-zero at EOF after successfully reading last entry
-            while IFS= read -r -d $'\0' file || [ -n "$file" ]; do
-              FILES+=("$file")
-            done < release_files_dedup.txt
+          while IFS= read -r -d $'\0' filepath || [ -n "$filepath" ]; do
+            [ -z "$filepath" ] && continue
+            basename="${filepath##*/}"
             
-            # Create release with properly quoted file arguments
+            # Keep only first occurrence of each basename
+            if [ -z "${seen_basenames[$basename]}" ]; then
+              seen_basenames[$basename]=1
+              unique_files+=("$filepath")
+            fi
+          done < release_files.txt
+          
+          # Create release with properly quoted file arguments
+          if [ ${#unique_files[@]} -gt 0 ]; then
             gh release create Nightly \
               --title "Nightly" \
               --notes "Automated nightly build from commit ${{ github.sha }}" \
               --prerelease \
               --target ${{ github.sha }} \
-              "${FILES[@]}"
+              "${unique_files[@]}"
           else
             echo "No files to release after deduplication"
             exit 1
