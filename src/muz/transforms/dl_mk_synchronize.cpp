@@ -169,9 +169,9 @@ namespace datalog {
                     dst_vector.push_back(new_rule.get());
                 }
             }
-            result.push_back(dst_vector);
+            result.push_back(std::move(dst_vector));
         }
-        return result;
+        return std::move(result);
     }
 
     void mk_synchronize::add_rec_tail(vector< ptr_vector<app> > & recursive_calls,

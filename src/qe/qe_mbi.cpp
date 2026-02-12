@@ -333,7 +333,7 @@ namespace qe {
         (void)ok;
         CTRACE(qe, !ok, tout << "projection failure ignored!!!!\n");
         fix_non_shared(*mdl, lits);
-        return defs;
+        return std::move(defs);
     }
 
     mbi_result uflia_mbi::operator()(expr_ref_vector& lits, model_ref& mdl) {

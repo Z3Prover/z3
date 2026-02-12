@@ -695,7 +695,7 @@ namespace smt {
         for (enode* n : f) 
             result.push_back(n);        
         f.reset();
-        return result;
+        return std::move(result);
     }
 
     void theory_datatype::relevant_eh(app * n) {

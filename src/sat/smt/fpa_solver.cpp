@@ -78,7 +78,7 @@ namespace fpa {
             conds.push_back(mk_literal(t));
         }
         m_converter.m_extra_assertions.reset();
-        return conds;
+        return std::move(conds);
     }
 
     sat::check_result solver::check() {
