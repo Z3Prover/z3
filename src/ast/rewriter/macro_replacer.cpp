@@ -96,7 +96,7 @@ struct macro_replacer::macro_replacer_cfg : public default_rewriter_cfg {
             var_subst s(m);
             expr_ref rr = s(def, num, subst_args.data());
             r = rr;
-            m_trail.push_back(std::move(rr));
+            m_trail.push_back(rr);
             m_used_macro_dependencies = m.mk_join(m_used_macro_dependencies, dep);
             // skip proof terms for simplifiers
             return true;
