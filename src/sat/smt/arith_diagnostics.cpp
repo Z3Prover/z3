@@ -220,7 +220,7 @@ namespace arith {
             expr_ref eq(m.mk_eq(x->get_expr(), y->get_expr()), m);
             if (!is_eq) eq = m.mk_not(eq);
             args.push_back(arith.mk_int(1));
-            args.push_back(eq);
+            args.push_back(std::move(eq));
         };
         rational lc(1);
         for (unsigned i = m_lit_head; i < m_lit_tail; ++i) 

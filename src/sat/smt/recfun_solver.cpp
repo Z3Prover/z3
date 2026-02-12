@@ -141,7 +141,7 @@ namespace recfun {
         SASSERT(!is_enabled_guard(guard));
         app_ref dlimit = m_util.mk_num_rounds_pred(m_num_rounds);
         expr_ref_vector core(m);
-        core.push_back(dlimit);
+        core.push_back(std::move(dlimit));
         core.push_back(guard);
         if (!m_guard2pending.contains(guard)) {
             m_disabled_guards.push_back(guard);
