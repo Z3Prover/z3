@@ -146,7 +146,7 @@ namespace opt {
         for (expr* f : fmls)
             fmls[i++] = mk_not(m, f);
 
-        return std::move(new_soft);
+        return new_soft;
     }
 
     bool preprocess::find_mutexes(vector<soft>& softs, rational& lower) {

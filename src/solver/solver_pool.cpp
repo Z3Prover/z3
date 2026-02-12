@@ -351,7 +351,7 @@ ptr_vector<solver> solver_pool::get_base_solvers() const {
             solvers.push_back(s->base_solver());
         }
     }
-    return std::move(solvers);
+    return solvers;
 }
 
 void solver_pool::updt_params(const params_ref &p) {
