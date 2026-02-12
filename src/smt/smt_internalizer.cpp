@@ -589,7 +589,7 @@ namespace smt {
         app_ref lam_name(m.mk_fresh_const("lambda", q->get_sort()), m);
         app_ref eq(m), lam_app(m);
         expr_ref_vector vars(m);
-        vars.push_back(std::move(lam_name));
+        vars.push_back(lam_name);
         unsigned sz = q->get_num_decls();
         for (unsigned i = 0; i < sz; ++i) 
             vars.push_back(m.mk_var(sz - i - 1, q->get_decl_sort(i)));
