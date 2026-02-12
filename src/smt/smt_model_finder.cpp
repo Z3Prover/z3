@@ -2559,7 +2559,10 @@ namespace smt {
             ptr_buffer<expr> eqs;
             for (auto const& kv : inv) {
                 expr* val = kv.m_key;
-                eqs.push_back(m.mk_eq(sk, val));
+                // Only create equality if sorts match
+                if (sk->get_sort() == val->get_sort()) {
+                    eqs.push_back(m.mk_eq(sk, val));
+                }
             }
             expr_ref new_cnstr(m);
             new_cnstr = m.mk_or(eqs);
