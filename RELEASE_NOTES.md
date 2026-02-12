@@ -7,6 +7,15 @@ Version 4.next
     - CDCL core for SMT queries. It extends the SAT engine with theory solver plugins.
   - add global incremental pre-processing for the legacy core.
 
+Version 4.15.8
+==============
+- Fix release pipeline to publish all supported python wheels properly.
+- Re-enable npm tokens for publishing npm pacages.
+
+Version 4.15.7
+==============
+- Bug fix release
+
 Version 4.15.6
 ==============
 - Optimize mpz (multi-precision integer) implementation using pointer tagging to reduce memory footprint and improve performance.
