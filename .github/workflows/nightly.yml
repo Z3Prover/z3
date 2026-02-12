@@ -721,8 +721,8 @@ jobs:
           with open("release_files.txt", "rb") as f:
               content = f.read()
           
-          # Handle empty file case explicitly
-          if content.rstrip(b"\0"):
+          # Handle empty file case - check if there's meaningful content after removing NULs
+          if content.strip(b"\0"):
               # Strip trailing NUL before splitting to avoid empty trailing element
               files = content.decode("utf-8").rstrip("\0").split("\0")
               
@@ -748,7 +748,8 @@ jobs:
           # Only if the deduplicated file list is not empty
           if [ -s release_files_dedup.txt ]; then
             declare -a FILES
-            while IFS= read -r -d $'\0' file; do
+            # Handle the case where read returns non-zero at EOF after successfully reading last entry
+            while IFS= read -r -d $'\0' file || [ -n "$file" ]; do
               FILES+=("$file")
             done < release_files_dedup.txt
             
