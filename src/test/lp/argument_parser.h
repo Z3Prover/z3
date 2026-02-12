@@ -73,7 +73,7 @@ public:
                 i++;
                 m_used_options_with_after_string[ar] = m_args[i];
             } else {
-                 if (starts_with(ar, "-") || starts_with(ar, "//")) 
+                 if (ar.starts_with("-") || ar.starts_with("//")) 
                      status_is_ok = false;
 
                 m_free_args.push_back(ar);
@@ -99,19 +99,11 @@ public:
         return "";
     }
 
-    bool starts_with(const std::string& s, const std::string& prefix) const {
-        return s.size() >= prefix.size() && s.compare(0, prefix.size(), prefix) == 0;
-    }
-
-    bool starts_with(const std::string& s, const char* prefix) const {
-        return starts_with(s, std::string(prefix));
-    }
-
     std::string usage_string() {
         std::string ret = "";
         std::vector<std::string> unknown_options;
         for (const auto & t : m_free_args) {
-            if (starts_with(t, "-") || starts_with(t, "\\")) {
+            if (t.starts_with("-") || t.starts_with("\\")) {
                 unknown_options.push_back(t);
             }
         }
