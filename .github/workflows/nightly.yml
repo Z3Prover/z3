@@ -720,7 +720,8 @@ jobs:
           # Read NUL-delimited input
           with open("release_files.txt", "rb") as f:
               content = f.read()
-              files = content.decode("utf-8").split("\0") if content else []
+              # Strip trailing NUL before splitting to avoid empty trailing element
+              files = content.decode("utf-8").rstrip("\0").split("\0") if content else []
               
               for filepath in files:
                   filepath = filepath.strip()
@@ -736,19 +737,24 @@ jobs:
           
           # Write NUL-delimited output
           with open("release_files_dedup.txt", "wb") as f:
-              f.write("\0".join(unique_files).encode("utf-8"))
+              if unique_files:
+                  f.write("\0".join(unique_files).encode("utf-8"))
+                  f.write(b"\0")  # Add trailing NUL for proper NUL-delimited format
           DEDUP_SCRIPT
           
-          # Convert NUL-delimited list to space-separated for gh command
-          # Use printf to safely handle filenames with spaces
-          RELEASE_FILES=$(cat release_files_dedup.txt | tr '\0' '\n' | grep -v '^$')
+          # Read files into bash array safely using NUL delimiter
+          declare -a FILES
+          while IFS= read -r -d $'\0' file; do
+            FILES+=("$file")
+          done < release_files_dedup.txt
           
+          # Create release with properly quoted file arguments
           gh release create Nightly \
             --title "Nightly" \
             --notes "Automated nightly build from commit ${{ github.sha }}" \
             --prerelease \
             --target ${{ github.sha }} \
-            $RELEASE_FILES
+            "${FILES[@]}"
 
 
   publish-test-pypi:
