@@ -11,10 +11,8 @@ These tests validate:
 import sys
 import os
 
-# Add the z3 module to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'z3'))
-
-import z3
+# Make sure we can import z3 from the build directory
+from z3 import z3
 
 
 def test_ratval_division_by_zero():
@@ -98,6 +96,9 @@ def test_user_propagate_double_registration():
     try:
         # Create a minimal UserPropagateBase subclass
         class TestPropagator(z3.UserPropagateBase):
+            def __init__(self, s=None):
+                super().__init__(s, ctx=z3.Context() if s is None else None)
+                
             def push(self):
                 pass
             def pop(self, num_scopes):
