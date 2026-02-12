@@ -325,7 +325,44 @@ jobs:
           retention-days: 2
 
   manylinux-python-arm64:
-
+    name: "Python bindings (manylinux ARM64 cross)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container: quay.io/pypa/manylinux_2_28_x86_64:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download ARM toolchain
+        run: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz'
+      
+      - name: Extract ARM toolchain
+        run: |
+          mkdir -p /tmp/arm-toolchain/
+          tar xf /tmp/arm-toolchain.tar.xz -C /tmp/arm-toolchain/ --strip-components=1
+      
+      - name: Setup Python environment
+        run: |
+          /opt/python/cp38-cp38/bin/python -m venv $PWD/env
+          echo "$PWD/env/bin" >> $GITHUB_PATH
+          echo "/tmp/arm-toolchain/bin" >> $GITHUB_PATH
+          echo "/tmp/arm-toolchain/aarch64-none-linux-gnu/libc/usr/bin" >> $GITHUB_PATH
+      
+      - name: Install build tools
+        run: |
+          echo $PATH
+          stat $(which aarch64-none-linux-gnu-gcc)
+          pip install build git+https://github.com/rhelmot/auditwheel
+      
+      - name: Build wheels
+        run: cd src/api/python && CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld Z3_CROSS_COMPILING=aarch64 python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../..
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ManyLinuxPythonBuildArm64
+          path: src/api/python/wheelhouse/*.whl
+          retention-days: 2
 
   windows-build-x64:
     name: "Windows x64 build"
