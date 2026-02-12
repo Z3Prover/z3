@@ -2,6 +2,8 @@ name: Documentation
 
 on:
   workflow_dispatch:
+  release:
+    types: [published] 
 
 permissions:
   contents: read
