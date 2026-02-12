@@ -81,7 +81,7 @@ namespace smt {
                     app * eq  = m.mk_eq(arg1, arg2);
                     app_ref neq(m.mk_not(eq), m);
                     if (std::find(lits.begin(), lits.end(), neq.get()) == lits.end()) {
-                        lits.push_back(neq);
+                        lits.push_back(std::move(neq));
                         prs.push_back(mk_hypothesis(m, eq, false, arg1, arg2));
                     }
                 }
