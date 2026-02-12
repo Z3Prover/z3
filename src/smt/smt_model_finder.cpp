@@ -2559,7 +2559,9 @@ namespace smt {
             ptr_buffer<expr> eqs;
             for (auto const& kv : inv) {
                 expr* val = kv.m_key;
-                // Only create equality if sorts match
+                // When quantifiers are flattened, the instantiation set may contain
+                // values from nested quantifiers with incompatible sorts. Only create
+                // equality constraints when sorts match to avoid well-sortedness violations.
                 if (sk->get_sort() == val->get_sort()) {
                     eqs.push_back(m.mk_eq(sk, val));
                 }
