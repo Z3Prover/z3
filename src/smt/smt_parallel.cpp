@@ -171,12 +171,18 @@ namespace smt {
                     if (r == l_true) {
                         IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned SAT, filtering candidates\n");
                         expr_ref_vector new_bb_candidate(m);
+                        
                         for (expr* e : bb_candidate_lits) {
-                            bool_var v = ctx->get_bool_var(e);
-                            if (ctx->get_assignment(v) == l_true) {
-                                new_bb_candidate.push_back(e);
+                            expr* a = e;
+                            bool neg = m.is_not(e, a);
+                            bool_var v = ctx->get_bool_var(a);
+                            if (v != null_bool_var) {
+                                lbool val = ctx->get_assignment(v);
+                                if (val != l_undef && (neg ? val == l_false : val == l_true))
+                                    new_bb_candidate.push_back(e);
                             }
                         }
+                        
                         bb_candidate_lits.reset();
                         bb_candidate_lits.append(new_bb_candidate);
                         break;
@@ -291,7 +297,7 @@ namespace smt {
             t = m_search_tree.find_node_with_literal(neg_bb);
         }
 
-        if (t && t->get_status() != search_tree::status::closed) {
+        if (t) {
             IF_VERBOSE(1, verbose_stream() << " Closing negation of the following new global backbone: " << mk_bounded_pp(g_bb, m, 3) << "\n");
             expr_ref_vector core(m);
             core.push_back(neg_bb);
