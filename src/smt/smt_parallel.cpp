@@ -104,6 +104,17 @@ namespace smt {
 
     void parallel::backbones_worker::run() {
         svector<bb_candidate> bb_candidates;
+        auto fallback_singletons = [&](expr_ref_vector const& lits, expr_ref_vector& bb_candidate_lits) {
+            m_stats_fallback_singleton_checks++;
+            for (expr* c : lits) {
+                expr_ref bb_ref(c, m);
+                if (check_backbone(bb_ref)) {
+                    b.collect_global_backbone(m_l2g, bb_ref);
+                    m_stats_backbones_found++;
+                }
+                bb_candidate_lits.erase(bb_ref.get());
+            }
+        };
 
         while (m.inc()) {
             if (!b.wait_for_backbone_job(m_g2l, bb_candidates, m.limit()))
@@ -154,17 +165,9 @@ namespace smt {
                     asms.shrink(base_sz);
 
                     if (r == l_undef) {
-                        m_stats_fallback_singleton_checks++;
-                        m_stats_fallback_reason_undef++;
                         IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned UNDEF, fallback to individual checks\n");
-                        for (expr* c : chunk_lits) {
-                            expr_ref bb_ref(c, m);
-                            if (check_backbone(bb_ref)) {
-                                b.collect_global_backbone(m_l2g, bb_ref);
-                                m_stats_backbones_found++;
-                            }
-                            bb_candidate_lits.erase(bb_ref.get());
-                        }
+                        fallback_singletons(chunk_lits, bb_candidate_lits);
+                        m_stats_fallback_reason_undef++;
                         continue;
                     }
 
@@ -213,20 +216,9 @@ namespace smt {
                     }
 
                     if (negated_in_core.empty()) {
-                        m_stats_fallback_singleton_checks++;
-                        m_stats_fallback_reason_empty_core++;
-
                         IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned UNSAT but no candidates in the unsat core, fallback to individual checks\n");
-                        
-                        // fallback to individual checks
-                        for (expr* c : chunk_lits) {
-                            expr_ref bb_ref(c, m);
-                            if (check_backbone(bb_ref)) {
-                                b.collect_global_backbone(m_l2g, bb_ref);
-                                m_stats_backbones_found++;
-                            }
-                            bb_candidate_lits.erase(bb_ref.get());
-                        }
+                        fallback_singletons(chunk_lits, bb_candidate_lits);
+                        m_stats_fallback_reason_empty_core++;
                         break;
                     }
 
@@ -237,18 +229,9 @@ namespace smt {
 
                     // fallback
                     if (negated_chunk_lits.empty()) {
-                        m_stats_fallback_singleton_checks++;
-                        m_stats_fallback_reason_chunk_exhausted++;
-
                         IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: no more negated chunk literals, fallback to individual checks\n");
-                        for (expr* c : chunk_lits) {
-                            expr_ref bb_ref(c, m);
-                            if (check_backbone(bb_ref)) {
-                                b.collect_global_backbone(m_l2g, bb_ref);
-                                m_stats_backbones_found++;
-                            }
-                            bb_candidate_lits.erase(bb_ref.get());
-                        }
+                        fallback_singletons(chunk_lits, bb_candidate_lits);
+                        m_stats_fallback_reason_chunk_exhausted++;
                         break;
                     }
                 }
@@ -257,7 +240,6 @@ namespace smt {
             bb_candidates.reset();
         }
     }
-
 
     void parallel::backbones_worker::cancel() {
         IF_VERBOSE(1, verbose_stream() << " BACKBONES WORKER cancelling\n");
