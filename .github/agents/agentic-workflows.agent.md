@@ -27,7 +27,7 @@ Workflows may optionally include:
 - Workflow files: `.github/workflows/*.md` and `.github/workflows/**/*.md`
 - Workflow lock files: `.github/workflows/*.lock.yml`
 - Shared components: `.github/workflows/shared/*.md`
-- Configuration: https://github.com/github/gh-aw/blob/v0.42.2/.github/aw/github-agentic-workflows.md
+- Configuration: https://github.com/github/gh-aw/blob/v0.43.15/.github/aw/github-agentic-workflows.md
 
 ## Problems This Solves
 
@@ -49,7 +49,7 @@ When you interact with this agent, it will:
 ### Create New Workflow
 **Load when**: User wants to create a new workflow from scratch, add automation, or design a workflow that doesn't exist yet
 
-**Prompt file**: https://github.com/github/gh-aw/blob/v0.42.2/.github/aw/create-agentic-workflow.md
+**Prompt file**: https://github.com/github/gh-aw/blob/v0.43.15/.github/aw/create-agentic-workflow.md
 
 **Use cases**:
 - "Create a workflow that triages issues"
@@ -59,7 +59,7 @@ When you interact with this agent, it will:
 ### Update Existing Workflow  
 **Load when**: User wants to modify, improve, or refactor an existing workflow
 
-**Prompt file**: https://github.com/github/gh-aw/blob/v0.42.2/.github/aw/update-agentic-workflow.md
+**Prompt file**: https://github.com/github/gh-aw/blob/v0.43.15/.github/aw/update-agentic-workflow.md
 
 **Use cases**:
 - "Add web-fetch tool to the issue-classifier workflow"
@@ -69,7 +69,7 @@ When you interact with this agent, it will:
 ### Debug Workflow  
 **Load when**: User needs to investigate, audit, debug, or understand a workflow, troubleshoot issues, analyze logs, or fix errors
 
-**Prompt file**: https://github.com/github/gh-aw/blob/v0.42.2/.github/aw/debug-agentic-workflow.md
+**Prompt file**: https://github.com/github/gh-aw/blob/v0.43.15/.github/aw/debug-agentic-workflow.md
 
 **Use cases**:
 - "Why is this workflow failing?"
@@ -79,7 +79,7 @@ When you interact with this agent, it will:
 ### Upgrade Agentic Workflows
 **Load when**: User wants to upgrade workflows to a new gh-aw version or fix deprecations
 
-**Prompt file**: https://github.com/github/gh-aw/blob/v0.42.2/.github/aw/upgrade-agentic-workflows.md
+**Prompt file**: https://github.com/github/gh-aw/blob/v0.43.15/.github/aw/upgrade-agentic-workflows.md
 
 **Use cases**:
 - "Upgrade all workflows to the latest version"
@@ -89,7 +89,7 @@ When you interact with this agent, it will:
 ### Create Shared Agentic Workflow
 **Load when**: User wants to create a reusable workflow component or wrap an MCP server
 
-**Prompt file**: https://github.com/github/gh-aw/blob/v0.42.2/.github/aw/create-shared-agentic-workflow.md
+**Prompt file**: https://github.com/github/gh-aw/blob/v0.43.15/.github/aw/create-shared-agentic-workflow.md
 
 **Use cases**:
 - "Create a shared component for Notion integration"
@@ -100,7 +100,7 @@ When you interact with this agent, it will:
 
 **Load when**: Creating or updating workflows that coordinate multiple agents or dispatch work to other workflows
 
-**Prompt file**: https://github.com/github/gh-aw/blob/v0.42.2/.github/aw/orchestration.md
+**Prompt file**: https://github.com/github/gh-aw/blob/v0.43.15/.github/aw/orchestration.md
 
 **Use cases**:
 - Assigning work to AI coding agents
@@ -112,7 +112,7 @@ When you interact with this agent, it will:
 
 **Load when**: Creating or updating workflows that manage GitHub Projects v2
 
-**Prompt file**: https://github.com/github/gh-aw/blob/v0.42.2/.github/aw/projects.md
+**Prompt file**: https://github.com/github/gh-aw/blob/v0.43.15/.github/aw/projects.md
 
 **Use cases**:
 - Tracking items and fields with update-project
@@ -160,7 +160,7 @@ gh aw compile --validate
 
 ## Important Notes
 
-- Always reference the instructions file at https://github.com/github/gh-aw/blob/v0.42.2/.github/aw/github-agentic-workflows.md for complete documentation
+- Always reference the instructions file at https://github.com/github/gh-aw/blob/v0.43.15/.github/aw/github-agentic-workflows.md for complete documentation
 - Use the MCP tool `agentic-workflows` when running in GitHub Copilot Cloud
 - Workflows must be compiled to `.lock.yml` files before running in GitHub Actions
 - **Bash tools are enabled by default** - Don't restrict bash commands unnecessarily since workflows are sandboxed by the AWF
