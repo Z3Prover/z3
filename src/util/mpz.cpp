@@ -2277,7 +2277,8 @@ unsigned mpz_manager<SYNCH>::power_of_two_multiple(mpz const & a) {
         uint64_t v;
         if (val == mpz::SMALL_INT_MIN) {
             // SMALL_INT_MIN = -2^(SMALL_BITS-1), so it has (SMALL_BITS-1) trailing zeros
-            return mpz::SMALL_BITS - 1;
+            // On 32-bit: return 30, on 64-bit: return 62
+            return (sizeof(uintptr_t) * 8 - 1) - 1;
         } else if (val < 0) {
             v = static_cast<uint64_t>(-val);
         } else {
@@ -2389,7 +2390,7 @@ unsigned mpz_manager<SYNCH>::mlog2(mpz const & a) {
             // Special case: negating SMALL_INT_MIN would overflow
             // For 32-bit: SMALL_INT_MIN = -2^30, so log2(2^30) = 30
             // For 64-bit: SMALL_INT_MIN = -2^62, so log2(2^62) = 62
-            return mpz::SMALL_BITS - 1;
+            return (sizeof(uintptr_t) * 8 - 1) - 1;
         }
         return uint64_log2(static_cast<uint64_t>(-v));
     }
