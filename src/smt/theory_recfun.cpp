@@ -161,9 +161,8 @@ namespace smt {
      */
     void theory_recfun::disable_guard(expr* guard, expr_ref_vector const& guards) {
         SASSERT(!is_enabled_guard(guard));
-        app_ref dlimit = m_util.mk_num_rounds_pred(m_num_rounds);
         expr_ref_vector core(m);
-        core.push_back(dlimit);
+        core.push_back(m_util.mk_num_rounds_pred(m_num_rounds));
         core.push_back(guard);
         if (!m_guard2pending.contains(guard)) {
             m_disabled_guards.push_back(guard);
@@ -418,7 +417,7 @@ namespace smt {
         if (u().has_rec_defs() || !m_disabled_guards.empty()) {
             app_ref dlimit = m_util.mk_num_rounds_pred(m_num_rounds);
             TRACEFN("add_theory_assumption " << dlimit);
-            assumptions.push_back(dlimit);
+            assumptions.push_back(std::move(dlimit));
             for (expr* e : m_disabled_guards)
                 assumptions.push_back(m.mk_not(e));
         }

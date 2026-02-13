@@ -523,7 +523,7 @@ namespace smt {
                 break;
             expr_ref lit(g2l.to());
             lit = g2l(t->get_literal().get());
-            cube.push_back(lit);
+            cube.push_back(std::move(lit));
             t = t->parent();
         }
         return true;
