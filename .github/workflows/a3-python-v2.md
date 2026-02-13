@@ -26,7 +26,8 @@ tracker-id: a3-python-analysis
 steps:
   - name: Checkout Python source files
     run: |
-      git sparse-checkout add src
+      git sparse-checkout init --cone
+      git sparse-checkout set src
       echo "Source files checked out for Python analysis"
 source: z3prover/z3/a3/a3-python-v2.md@a91c5c58bd975f336bf5b744885ffd4b36b2d2ec
 ---
