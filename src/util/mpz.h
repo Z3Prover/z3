@@ -201,14 +201,7 @@ public:
         return (m_value & LARGE_BIT) == 0; 
     }
 
-    inline int value() const { 
-        SASSERT(is_small());
-        // Decode small integer: shift right by 1 (arithmetic shift to preserve sign)
-        // Note: On 64-bit platforms, this may truncate if the value doesn't fit in int
-        return static_cast<int>(static_cast<intptr_t>(m_value) >> 1);
-    }
-
-    inline int64_t value64() const { 
+    inline int64_t value() const { 
         SASSERT(is_small());
         // Decode small integer: shift right by 1 (arithmetic shift to preserve sign)
         return static_cast<int64_t>(static_cast<intptr_t>(m_value) >> 1);
@@ -334,7 +327,7 @@ class mpz_manager {
     mpz                     m_two64;
 
 
-    static int64_t i64(mpz const & a) { return a.value64(); }
+    static int64_t i64(mpz const & a) { return a.value(); }
 
     void set_big_i64(mpz & c, int64_t v);
 
@@ -406,7 +399,7 @@ class mpz_manager {
 
     void get_sign_cell(mpz const & a, int & sign, mpz_cell * & cell, mpz_cell* reserve) {
         if (is_small(a)) {
-            int64_t val = a.value64();
+            int64_t val = a.value();
             cell = reserve;
             if (val < 0) {
                 sign = -1;

@@ -705,7 +705,7 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::neg(mpz & a) {
     STRACE(mpz, tout << "[mpz] 0 - " << to_string(a) << " == ";); 
     if (is_small(a)) {
-        int64_t v = a.value64();
+        int64_t v = a.value();
         if (v == mpz::SMALL_INT_MIN) {
             // neg(SMALL_INT_MIN) overflows small range
             set_big_i64(a, -v); 
@@ -728,7 +728,7 @@ void mpz_manager<SYNCH>::neg(mpz & a) {
 template<bool SYNCH>
 void mpz_manager<SYNCH>::abs(mpz & a) {
     if (is_small(a)) {
-        int64_t v = a.value64();
+        int64_t v = a.value();
         if (v < 0) {
             if (v == mpz::SMALL_INT_MIN) {
                 // abs(SMALL_INT_MIN) overflows small range
@@ -941,8 +941,8 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
     static_assert(sizeof(mpz) <= 16, "mpz size overflow");
     if (is_small(a) && is_small(b)) {
-        int64_t _a = a.value64();
-        int64_t _b = b.value64();
+        int64_t _a = a.value();
+        int64_t _b = b.value();
         // Check if absolute values fit in uint64 (they always do for small integers)
         // and won't overflow when negating
         if (_a != mpz::SMALL_INT_MIN && _b != mpz::SMALL_INT_MIN) {
@@ -1004,7 +1004,7 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
             
             // reset least significant bit
             if (is_small(v))
-                v.set64(v.value64() & ~1);
+                v.set64(v.value() & ~1);
             else
                 v.ptr()->m_digits[0] &= ~static_cast<digit_t>(1);
             k_v = power_of_two_multiple(v);
@@ -1121,7 +1121,7 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
             SASSERT(ge(a1, b1));
             if (is_small(b1)) {
                 if (is_small(a1)) {
-                    uint64_t r = u64_gcd(static_cast<uint64_t>(a1.value64()), static_cast<uint64_t>(b1.value64()));
+                    uint64_t r = u64_gcd(static_cast<uint64_t>(a1.value()), static_cast<uint64_t>(b1.value()));
                     set(c, r);
                     break;
                 }
@@ -1401,7 +1401,7 @@ void mpz_manager<SYNCH>::bitwise_or(mpz const & a, mpz const & b, mpz & c) {
     SASSERT(is_nonneg(b));
     TRACE(mpz, tout << "is_small(a): " << is_small(a) << ", is_small(b): " << is_small(b) << "\n";);
     if (is_small(a) && is_small(b)) {
-        c.set64(a.value64() | b.value64());
+        c.set64(a.value() | b.value());
     }
     else {
 #ifndef _MP_GMP
@@ -1446,7 +1446,7 @@ void mpz_manager<SYNCH>::bitwise_and(mpz const & a, mpz const & b, mpz & c) {
     SASSERT(is_nonneg(a));
     SASSERT(is_nonneg(b));
     if (is_small(a) && is_small(b)) {
-        c.set64(a.value64() & b.value64());
+        c.set64(a.value() & b.value());
     }
     else {
 #ifndef _MP_GMP
@@ -1676,7 +1676,7 @@ bool mpz_manager<SYNCH>::is_int64(mpz const & a) const {
 template<bool SYNCH>
 uint64_t mpz_manager<SYNCH>::get_uint64(mpz const & a) const {
     if (is_small(a)) 
-        return static_cast<uint64_t>(a.value64());
+        return static_cast<uint64_t>(a.value());
 #ifndef _MP_GMP
     SASSERT(a.ptr()->m_size > 0);
     return big_abs_to_uint64(a);
@@ -1703,7 +1703,7 @@ uint64_t mpz_manager<SYNCH>::get_uint64(mpz const & a) const {
 template<bool SYNCH>
 int64_t mpz_manager<SYNCH>::get_int64(mpz const & a) const {
     if (is_small(a))
-        return a.value64();
+        return a.value();
 #ifndef _MP_GMP
     SASSERT(is_int64(a));
     uint64_t num = big_abs_to_uint64(a);
@@ -2031,7 +2031,7 @@ void mpz_manager<SYNCH>::ensure_capacity(mpz & a, unsigned capacity) {
         capacity = m_init_cell_capacity;
     
     if (is_small(a)) {
-        int64_t val = a.value64();
+        int64_t val = a.value();
         allocate_if_needed(a, capacity);
         SASSERT(a.ptr()->m_capacity >= capacity);
         // Check if this is SMALL_INT_MIN which needs special handling
@@ -2125,7 +2125,7 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
     if (is_small(a)) {
         if (k < 32) {
             int64_t twok = 1ull << ((int64_t)k);
-            int64_t val = a.value64();
+            int64_t val = a.value();
             int64_t result = val / twok;
             // Division by power of 2 should keep us in small range
             SASSERT(mpz::fits_in_small(result));
@@ -2133,7 +2133,7 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
         }
         else if (k < 64) {
             int64_t twok = 1ull << ((int64_t)k);
-            int64_t val = a.value64();
+            int64_t val = a.value();
             a.set64(val/twok);
         }
         else {
@@ -2345,7 +2345,7 @@ unsigned mpz_manager<SYNCH>::mlog2(mpz const & a) {
     if (is_nonneg(a))
         return 0;
     if (is_small(a)) {
-        int64_t v = a.value64();
+        int64_t v = a.value();
         if (v == mpz::SMALL_INT_MIN) {
             // Special case: negating SMALL_INT_MIN would overflow
             // For 32-bit: SMALL_INT_MIN = -2^30, so log2(2^30) = 30
@@ -2588,35 +2588,21 @@ template<bool SYNCH>
 bool mpz_manager<SYNCH>::decompose(mpz const & a, svector<digit_t> & digits) {
     digits.reset();
     if (is_small(a)) {
-        int64_t v = a.value64();
-        if (v < 0) {
-            // Decompose negative value into digits
-            uint64_t abs_v = static_cast<uint64_t>(-v);
-            if (sizeof(digit_t) == sizeof(uint64_t)) {
-                digits.push_back(static_cast<digit_t>(abs_v));
-            } else {
-                // digit_t is 32-bit, need to split 64-bit value
-                digits.push_back(static_cast<digit_t>(abs_v));
-                if (abs_v >> 32) {
-                    digits.push_back(static_cast<digit_t>(abs_v >> 32));
-                }
+        int64_t v = a.value();
+        bool is_neg = v < 0;
+        uint64_t abs_v = is_neg ? static_cast<uint64_t>(-v) : static_cast<uint64_t>(v);
+        
+        // Decompose absolute value into digits
+        if (sizeof(digit_t) == sizeof(uint64_t)) {
+            digits.push_back(static_cast<digit_t>(abs_v));
+        } else {
+            // digit_t is 32-bit, need to split 64-bit value
+            digits.push_back(static_cast<digit_t>(abs_v));
+            if (abs_v >> 32) {
+                digits.push_back(static_cast<digit_t>(abs_v >> 32));
             }
-            return true;
         }
-        else {
-            // Decompose positive value into digits
-            uint64_t abs_v = static_cast<uint64_t>(v);
-            if (sizeof(digit_t) == sizeof(uint64_t)) {
-                digits.push_back(static_cast<digit_t>(abs_v));
-            } else {
-                // digit_t is 32-bit, need to split 64-bit value
-                digits.push_back(static_cast<digit_t>(abs_v));
-                if (abs_v >> 32) {
-                    digits.push_back(static_cast<digit_t>(abs_v >> 32));
-                }
-            }
-            return false;
-        }
+        return is_neg;
     }
     else {
 #ifndef _MP_GMP
@@ -2646,7 +2632,7 @@ bool mpz_manager<SYNCH>::decompose(mpz const & a, svector<digit_t> & digits) {
 template<bool SYNCH>
 bool mpz_manager<SYNCH>::get_bit(mpz const & a, unsigned index) {
     if (is_small(a)) {
-        int64_t v = a.value64();
+        int64_t v = a.value();
         SASSERT(v >= 0);
         if (index >= 64)
             return false;
