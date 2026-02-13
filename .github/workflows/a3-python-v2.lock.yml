@@ -100,7 +100,8 @@ jobs:
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
       - name: Checkout Python source files
         run: |-
-          git sparse-checkout add src
+          git sparse-checkout init --cone
+          git sparse-checkout set src
           echo "Source files checked out for Python analysis"
 
       - name: Configure Git credentials

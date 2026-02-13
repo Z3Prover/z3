@@ -24,7 +24,8 @@ tracker-id: a3-python-analysis
 steps:
   - name: Checkout Python source files
     run: |
-      git sparse-checkout add src
+      git sparse-checkout init --cone
+      git sparse-checkout set src
       echo "Python source files checked out from src directory"
 ---
 
