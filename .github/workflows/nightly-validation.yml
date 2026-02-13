@@ -165,10 +165,23 @@ jobs:
           cd test-nuget
           dotnet new console
           dotnet add package Microsoft.Z3 --source ../nuget-packages --prerelease
-          # Add RuntimeIdentifier to ensure native library is loaded correctly
-          sed -i '' '/<\/PropertyGroup>/i\
-          <RuntimeIdentifier>osx-x64</RuntimeIdentifier>\
-          ' test-nuget.csproj
+          # Configure project to properly load native dependencies on macOS x64
+          # Use AnyCPU without RuntimeIdentifier to avoid architecture mismatch
+          # The .NET runtime will automatically select the correct native library from runtimes/osx-x64/native/
+          cat > test-nuget.csproj << 'CSPROJ'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net8.0</TargetFramework>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+              <PlatformTarget>AnyCPU</PlatformTarget>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="Microsoft.Z3" Version="*" />
+            </ItemGroup>
+          </Project>
+          CSPROJ
       
       - name: Create test code
         run: |
@@ -224,10 +237,23 @@ jobs:
           cd test-nuget
           dotnet new console
           dotnet add package Microsoft.Z3 --source ../nuget-packages --prerelease
-          # Add RuntimeIdentifier to ensure native library is loaded correctly
-          sed -i '' '/<\/PropertyGroup>/i\
-          <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>\
-          ' test-nuget.csproj
+          # Configure project to properly load native dependencies on macOS ARM64
+          # Use AnyCPU without RuntimeIdentifier to avoid architecture mismatch
+          # The .NET runtime will automatically select the correct native library from runtimes/osx-arm64/native/
+          cat > test-nuget.csproj << 'CSPROJ'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net8.0</TargetFramework>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+              <PlatformTarget>AnyCPU</PlatformTarget>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="Microsoft.Z3" Version="*" />
+            </ItemGroup>
+          </Project>
+          CSPROJ
       
       - name: Create test code
         run: |
