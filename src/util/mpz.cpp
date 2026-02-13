@@ -33,6 +33,11 @@ Revision History:
 #error No multi-precision library selected.
 #endif
 
+// Out-of-line definitions for static constexpr members (required for ODR-use in C++14 and earlier)
+constexpr int mpz::SMALL_BITS;
+constexpr int64_t mpz::SMALL_INT_MAX;
+constexpr int64_t mpz::SMALL_INT_MIN;
+
 // Available GCD algorithms
 // #define EUCLID_GCD
 // #define BINARY_GCD
