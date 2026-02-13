@@ -1986,8 +1986,9 @@ bool mpz_manager<SYNCH>::is_power_of_two(mpz const & a, unsigned & shift) {
     if (is_nonpos(a))
         return false;
     if (is_small(a)) {
-        if (::is_power_of_two(a.value())) {
-            shift = ::log2((unsigned)a.value());
+        int64_t v = a.value();
+        if (v > 0 && (v & (v - 1)) == 0) {  // Check if power of 2
+            shift = uint64_log2(static_cast<uint64_t>(v));
             return true;
         }
         else {
@@ -2267,28 +2268,36 @@ unsigned mpz_manager<SYNCH>::power_of_two_multiple(mpz const & a) {
         return 0;
     if (is_small(a)) {
         unsigned r = 0;
-        int v      = a.value();
-#define COUNT_DIGIT_RIGHT_ZEROS()               \
-        if (v % (1 << 16) == 0) {               \
-            r += 16;                            \
-            v /= (1 << 16);                     \
-        }                                       \
-        if (v % (1 << 8) == 0) {                \
-            r += 8;                             \
-            v /= (1 << 8);                      \
-        }                                       \
-        if (v % (1 << 4) == 0) {                \
-            r += 4;                             \
-            v /= (1 << 4);                      \
-        }                                       \
-        if (v % (1 << 2) == 0) {                \
-            r += 2;                             \
-            v /= (1 << 2);                      \
-        }                                       \
-        if (v % 2 == 0) {                       \
-            r++;                                \
+        int64_t val = a.value();
+        // Count trailing zeros in 64-bit value
+        if (val == 0) return 0;
+        
+        // Work with absolute value for counting trailing zeros
+        uint64_t v = (val < 0) ? static_cast<uint64_t>(-val) : static_cast<uint64_t>(val);
+        
+        if ((v & 0xFFFFFFFF) == 0) {
+            r += 32;
+            v >>= 32;
         }
-        COUNT_DIGIT_RIGHT_ZEROS();
+        if ((v & 0xFFFF) == 0) {
+            r += 16;
+            v >>= 16;
+        }
+        if ((v & 0xFF) == 0) {
+            r += 8;
+            v >>= 8;
+        }
+        if ((v & 0xF) == 0) {
+            r += 4;
+            v >>= 4;
+        }
+        if ((v & 0x3) == 0) {
+            r += 2;
+            v >>= 2;
+        }
+        if ((v & 0x1) == 0) {
+            r++;
+        }
         return r;
     }
 #ifndef _MP_GMP
@@ -2307,7 +2316,26 @@ unsigned mpz_manager<SYNCH>::power_of_two_multiple(mpz const & a) {
                     v = static_cast<digit_t>(static_cast<uint64_t>(v) / (static_cast<uint64_t>(1) << 32));
                 }                                
             }
-            COUNT_DIGIT_RIGHT_ZEROS();
+            // Count trailing zeros in digit_t
+            if (v % (1 << 16) == 0) {
+                r += 16;
+                v /= (1 << 16);
+            }
+            if (v % (1 << 8) == 0) {
+                r += 8;
+                v /= (1 << 8);
+            }
+            if (v % (1 << 4) == 0) {
+                r += 4;
+                v /= (1 << 4);
+            }
+            if (v % (1 << 2) == 0) {
+                r += 2;
+                v /= (1 << 2);
+            }
+            if (v % 2 == 0) {
+                r++;
+            }
             return r;
         }
         r += (8 * sizeof(digit_t));
@@ -2322,8 +2350,10 @@ template<bool SYNCH>
 unsigned mpz_manager<SYNCH>::log2(mpz const & a) {
     if (is_nonpos(a))
         return 0;
-    if (is_small(a))
-        return ::log2((unsigned)a.value());
+    if (is_small(a)) {
+        int64_t v = a.value();
+        return uint64_log2(static_cast<uint64_t>(v));
+    }
 #ifndef _MP_GMP
     static_assert(sizeof(digit_t) == 8 || sizeof(digit_t) == 4, "");
     mpz_cell * c     = a.ptr();
