@@ -2126,11 +2126,10 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
         if (k < 32) {
             int64_t twok = 1ull << ((int64_t)k);
             int64_t val = a.value64();
-            if (mpz::fits_in_small(val/twok)) {
-                a.set64(val/twok);
-            } else {
-                a.set((int)(val/twok));
-            }
+            int64_t result = val / twok;
+            // Division by power of 2 should keep us in small range
+            SASSERT(mpz::fits_in_small(result));
+            a.set64(result);
         }
         else if (k < 64) {
             int64_t twok = 1ull << ((int64_t)k);
