@@ -9,6 +9,8 @@ permissions:
   pull-requests: read
 network:
   allowed: [default, python]
+tools:
+  serena: ["python"]
 safe-outputs:
   create-issue:
     labels:
