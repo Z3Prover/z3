@@ -278,9 +278,9 @@ bool naive_convex_closure::compute_closure(anti_unifier& au, ast_manager& m,
     substitute_vars_by_const(m, au.get_generalization(), const_ref, lit3);
 
     expr_ref_vector args(m);
-    args.push_back(lit1);
-    args.push_back(lit2);
-    args.push_back(lit3);
+    args.push_back(std::move(lit1));
+    args.push_back(std::move(lit2));
+    args.push_back(std::move(lit3));
     expr_ref body_with_consts = mk_and(args);
 
     // 3. replace const by var
