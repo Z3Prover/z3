@@ -2273,7 +2273,16 @@ unsigned mpz_manager<SYNCH>::power_of_two_multiple(mpz const & a) {
         if (val == 0) return 0;
         
         // Work with absolute value for counting trailing zeros
-        uint64_t v = (val < 0) ? static_cast<uint64_t>(-val) : static_cast<uint64_t>(val);
+        // Handle SMALL_INT_MIN specially to avoid overflow
+        uint64_t v;
+        if (val == mpz::SMALL_INT_MIN) {
+            // SMALL_INT_MIN = -2^(SMALL_BITS-1), so it has (SMALL_BITS-1) trailing zeros
+            return mpz::SMALL_BITS - 1;
+        } else if (val < 0) {
+            v = static_cast<uint64_t>(-val);
+        } else {
+            v = static_cast<uint64_t>(val);
+        }
         
         if ((v & 0xFFFFFFFF) == 0) {
             r += 32;
