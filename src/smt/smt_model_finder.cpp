@@ -2559,13 +2559,21 @@ namespace smt {
             ptr_buffer<expr> eqs;
             for (auto const& kv : inv) {
                 expr* val = kv.m_key;
-                eqs.push_back(m.mk_eq(sk, val));
+                // When quantifiers are flattened, the instantiation set may contain
+                // values from nested quantifiers with incompatible sorts. Only create
+                // equality constraints when sorts match to avoid well-sortedness violations.
+                if (sk->get_sort() == val->get_sort()) {
+                    eqs.push_back(m.mk_eq(sk, val));
+                }
             }
-            expr_ref new_cnstr(m);
-            new_cnstr = m.mk_or(eqs);
-            TRACE(model_finder, tout << "assert_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
-            aux_ctx->assert_expr(new_cnstr);
-            asserted_something = true;
+            // Only assert a constraint if we have at least one valid equality
+            if (!eqs.empty()) {
+                expr_ref new_cnstr(m);
+                new_cnstr = m.mk_or(eqs);
+                TRACE(model_finder, tout << "assert_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
+                aux_ctx->assert_expr(new_cnstr);
+                asserted_something = true;
+            }
         }
         return asserted_something;
     }
