@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 GitHub Discussions
+    url: https://github.com/Z3Prover/z3/discussions
+    about: For general questions, usage help, and community discussions
+  - name: 📚 Stack Overflow
+    url: https://stackoverflow.com/questions/tagged/z3
+    about: For specific programming questions and code examples with Z3 APIs
+  - name: 📖 Z3 Guide
+    url: https://microsoft.github.io/z3guide/
+    about: Comprehensive tutorials and documentation for learning Z3
+  - name: 📝 API Documentation
+    url: https://z3prover.github.io/api/html/index.html
+    about: Complete API reference for all Z3 language bindings
+  - name: 🔬 Z3 Theory and Research
+    url: https://theory.stanford.edu/~nikolaj/programmingz3.html
+    about: Academic resources and theory behind Z3's algorithms
