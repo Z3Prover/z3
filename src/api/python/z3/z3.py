@@ -2810,6 +2810,17 @@ class ArithRef(ExprRef):
         a, b = _coerce_exprs(self, other)
         return BoolRef(Z3_mk_ge(self.ctx_ref(), a.as_ast(), b.as_ast()), self.ctx)
 
+    def __abs__(self):
+        """Return an expression representing `abs(self)`.
+
+        >>> x = Int('x')
+        >>> abs(x)
+        If(x > 0, x, -x)
+        >>> eq(abs(x), Abs(x))
+        True
+        """
+        return Abs(self)
+
 
 def is_arith(a):
     """Return `True` if `a` is an arithmetical expression.
