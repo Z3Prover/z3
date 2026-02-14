@@ -6849,7 +6849,7 @@ class ModelRef(Z3PPObject):
         if isinstance(idx, SortRef):
             return self.get_universe(idx)
         if z3_debug():
-            _z3_assert(False, "Integer, Z3 declaration, or Z3 constant expected")
+            _z3_assert(False, "Integer, Z3 declaration, or Z3 constant expected. Use model.eval instead for complicated expressions")
         return None
 
     def decls(self):
