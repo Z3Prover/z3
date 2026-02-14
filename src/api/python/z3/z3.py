@@ -4772,6 +4772,33 @@ class ArrayRef(ExprRef):
         return _to_expr_ref(Z3_mk_array_default(self.ctx_ref(), self.as_ast()), self.ctx)
 
 
+def ArrayRef__eq__(self, vals):
+    """Transforms the list of ints into a list of expr to initialize a solver with.
+
+    >>> a = Array('a', IntSort(), IntSort())
+    >>> a == [1, 2, 3]
+    [1 == a[0], 2 == a[1], 3 == a[2]]
+    >>> s = Solver()
+    >>> s.add(a == [1, 2, 3])
+    >>> s.check(a[0] == 2)
+    unsat
+    >>> s.check(a[0] == 1)
+    sat
+    >>> solve(*(a == [1, 2, 3]), a[0] == 1)
+    [a = Store(Store(K(Int, 2), 0, 1), 2, 3)]
+    """
+    if not isinstance(vals, (list, tuple)):
+        return self._super__eq__(vals)
+    if self.domain() != IntSort():
+        raise ValueError
+    return [self[i] == x for i, x in enumerate(vals)]
+
+
+ArrayRef._super__eq__ = ArrayRef.__eq__  # super() wouldn't work when evaluating Store(a, i, j) == a
+ArrayRef.__eq__ = ArrayRef__eq__
+del ArrayRef__eq__
+
+
 def _array_select(ar, arg):
     if isinstance(arg, tuple):
         args = [ar.sort().domain_n(i).cast(arg[i]) for i in range(len(arg))]
