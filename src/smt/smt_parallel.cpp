@@ -104,9 +104,9 @@ namespace smt {
 
     void parallel::backbones_worker::run() {
         svector<bb_candidate> bb_candidates;
-        auto fallback_singletons = [&](expr_ref_vector const& lits, expr_ref_vector& bb_candidate_lits) {
+        auto fallback_singletons = [&](expr_ref_vector const& chunk_lits, expr_ref_vector& bb_candidate_lits) {
             m_stats_fallback_singleton_checks++;
-            for (expr* c : lits) {
+            for (expr* c : chunk_lits) {
                 expr_ref bb_ref(c, m);
                 if (check_backbone(bb_ref)) {
                     b.collect_global_backbone(m_l2g, bb_ref);
@@ -168,7 +168,7 @@ namespace smt {
                         IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned UNDEF, fallback to individual checks\n");
                         fallback_singletons(chunk_lits, bb_candidate_lits);
                         m_stats_fallback_reason_undef++;
-                        continue;
+                        break;
                     }
 
                     if (r == l_true) {
@@ -179,11 +179,15 @@ namespace smt {
                             expr* a = e;
                             bool neg = m.is_not(e, a);
                             bool_var v = ctx->get_bool_var(a);
-                            if (v != null_bool_var) {
-                                lbool val = ctx->get_assignment(v);
-                                if (val != l_undef && (neg ? val == l_false : val == l_true))
-                                    new_bb_candidate.push_back(e);
-                            }
+                            if (v == null_bool_var)
+                                continue;
+
+                            lbool val = ctx->get_assignment(v);
+                            if (val == l_undef)
+                                continue;
+
+                            if (neg ? val == l_false : val == l_true)
+                                new_bb_candidate.push_back(e);
                         }
                         
                         bb_candidate_lits.reset();
@@ -202,24 +206,14 @@ namespace smt {
                     // ---- singleton core → backbone ----
                     if (negated_in_core.size() == 1) {
                         expr* a = negated_in_core[0].get();
-                        expr_ref bb_ref(mk_not(m, a), m);
+                        expr_ref backbone_lit(mk_not(m, a), m);
 
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: found single backbone: " << mk_bounded_pp(bb_ref, m, 3) << "\n");
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: found single backbone: " << mk_bounded_pp(backbone_lit, m, 3) << "\n");
 
                         m_stats_singleton_backbones++;
                         m_stats_backbones_found++;
-                        b.collect_global_backbone(m_l2g, bb_ref);
-                        bb_candidate_lits.erase(bb_ref.get());
-                        chunk_lits.erase(bb_ref.get());
-                        negated_chunk_lits.erase(a);
-                        continue;
-                    }
-
-                    if (negated_in_core.empty()) {
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned UNSAT but no candidates in the unsat core, fallback to individual checks\n");
-                        fallback_singletons(chunk_lits, bb_candidate_lits);
-                        m_stats_fallback_reason_empty_core++;
-                        break;
+                        b.collect_global_backbone(m_l2g, backbone_lit);
+                        bb_candidate_lits.erase(backbone_lit.get());
                     }
 
                     unsigned sz_before = negated_chunk_lits.size();
@@ -548,7 +542,6 @@ namespace smt {
     bool parallel::backbones_worker::check_backbone(expr_ref const& bb_candidate) {
         unsigned sz = asms.size();
         asms.push_back(m.mk_not(bb_candidate.get()));
-        ctx->get_fparams().m_max_conflicts = 2000;
         
         lbool r = l_undef;
         try {
