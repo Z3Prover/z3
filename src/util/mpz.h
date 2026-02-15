@@ -178,7 +178,7 @@ public:
         std::swap(m_value, other.m_value);
     }
 
-    void set64(int64_t v) {
+    void set(int64_t v) {
         SASSERT(is_small());
         SASSERT(fits_in_small(v));
         m_value = static_cast<uintptr_t>(v) << 1;
@@ -602,7 +602,7 @@ public:
 
     void set(mpz & a, int64_t val) {
         if (mpz::fits_in_small(v) && is_small(c)) {
-            c.set64(v);
+            c.set(v);
         }
         else {
             set_big_i64(c, v);
@@ -611,7 +611,7 @@ public:
 
     void set(mpz & a, uint64_t val) {
         if (mpz::fits_in_small(val) && is_small(a)) {
-            a.set64(static_cast<int64_t>(val));
+            a.set(static_cast<int64_t>(val));
         }
         else {
             set_big_ui64(a, val);
