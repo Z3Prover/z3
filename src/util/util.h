@@ -21,6 +21,7 @@ Revision History:
 #include "util/debug.h"
 #include "util/memory_manager.h"
 #include <ostream>
+#include <bit>
 #include <climits>
 #include <limits>
 #include <stdint.h>
@@ -80,7 +81,8 @@ static_assert(sizeof(int64_t) == 8, "64 bits");
 # define Z3_fallthrough
 #endif
 
-static inline bool is_power_of_two(unsigned v) { return !(v & (v - 1)) && v; }
+static inline bool is_power_of_two(unsigned v) { return std::has_single_bit(v); }
+static inline bool is_power_of_two(uint64_t v) { return std::has_single_bit(v); }
 
 /**
    \brief Return the next power of two that is greater than or equal to v.
@@ -101,8 +103,8 @@ static inline unsigned next_power_of_two(unsigned v) {
 /**
    \brief Return the position of the most significant bit.
 */
-unsigned log2(unsigned v);
-unsigned uint64_log2(uint64_t v);
+static inline unsigned log2(unsigned v) { return std::bit_width(x) - 1; }
+static inline unsigned log2(uint64_t v) { return std::bit_width(x) - 1; }
 
 static_assert(sizeof(unsigned) == 4, "unsigned are 32 bits");
 
