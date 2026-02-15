@@ -259,6 +259,10 @@ void mpz_manager<SYNCH>::sub(mpz const & a, mpz const & b, mpz & c) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
+    if (v == 0) {
+        set(c, 0);
+        return;
+    }
     uint64_t _v;
     bool sign = v < 0;
     if (v == std::numeric_limits<int64_t>::min()) {
@@ -309,6 +313,10 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::set_big_ui64(mpz & c, uint64_t v) {
+    if (v == 0) {
+        set(c, 0);
+        return;
+    }
 #ifndef _MP_GMP
     if (c.is_small()) {
         c.set_ptr(allocate(m_init_cell_capacity), false, false); // positive, owned
