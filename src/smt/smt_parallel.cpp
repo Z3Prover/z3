@@ -112,7 +112,13 @@ namespace smt {
                     b.collect_global_backbone(m_l2g, bb_ref);
                     m_stats_backbones_found++;
                 }
-                bb_candidate_lits.erase(bb_ref.get());
+                // bb_candidate_lits.erase(bb_ref.get());
+                for (unsigned i = 0; i < bb_candidate_lits.size(); ++i) {
+                    if (bb_candidate_lits[i].get() == c) {
+                        bb_candidate_lits.erase(i);
+                        break;
+                    }
+                }
             }
         };
 
@@ -213,12 +219,26 @@ namespace smt {
                         m_stats_singleton_backbones++;
                         m_stats_backbones_found++;
                         b.collect_global_backbone(m_l2g, backbone_lit);
-                        bb_candidate_lits.erase(backbone_lit.get());
+                        for (unsigned i = 0; i < bb_candidate_lits.size(); ++i) {
+                            if (bb_candidate_lits[i].get() == backbone_lit.get()) {
+                                bb_candidate_lits.erase(i);
+                                break;
+                            }
+                        }
+                        // bb_candidate_lits.erase(backbone_lit.get());
                     }
 
                     unsigned sz_before = negated_chunk_lits.size();
-                    for (expr* a : negated_in_core)
-                        negated_chunk_lits.erase(a);
+                    // for (expr* a : negated_in_core)
+                    //     negated_chunk_lits.erase(a);
+                    for (expr* a : negated_in_core) {
+                        for (unsigned i = 0; i < negated_chunk_lits.size(); ++i) {
+                            if (negated_chunk_lits[i].get() == a) {
+                                negated_chunk_lits.erase(i);
+                                break;
+                            }
+                        }
+                    }
                     m_stats_lits_removed_by_core += sz_before - negated_chunk_lits.size();
 
                     // fallback
