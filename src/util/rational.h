@@ -50,8 +50,8 @@ public:
     explicit rational(unsigned n) { m().set(m_val, n); }
     explicit rational(int64_t n) { m().set(m_val, n); }
     explicit rational(uint64_t n) { m().set(m_val, n); }
-
-    rational(int64_t n, int d) { m().set(m_val, n, d); }
+      
+    rational(int64_t n, int64_t d) { m().set(m_val, n, d); }
     rational(mpq const & q) { m().set(m_val, q); }
     rational(mpq && q) noexcept : m_val(std::move(q)) {}
     rational(mpz const & z) { m().set(m_val, z); }
@@ -292,7 +292,7 @@ public:
         rational r = mod(a,b);
         SASSERT(r.is_nonneg());
         rational r2 = r;
-        r2 *= rational(2);
+        r2 *= rational(2ull);
         if (operator<(b, r2)) {
             r -= b;
         }
@@ -512,11 +512,11 @@ public:
     }
 
     unsigned get_num_bits() const {
-        return get_num_digits(rational(2));
+        return get_num_digits(rational(2ull));
     }
 
     unsigned get_num_decimal() const {
-        return get_num_digits(rational(10));
+        return get_num_digits(rational(10ull));
     }
 
     /**
@@ -648,14 +648,14 @@ inline rational operator*(rational const & r1, rational const & r2) {
 
 inline rational operator*(rational const & r1, bool r2) {
     UNREACHABLE();
-    return r1 * rational(r2);
+    return r1 * rational((uint64_t)r2);
 }
 inline rational operator*(rational const & r1, int64_t r2) {
     return r1 * rational(r2);
 }
-inline rational operator*(bool  r1, rational const & r2) {
+inline rational operator*(bool r1, rational const & r2) {
     UNREACHABLE();
-    return rational(r1) * r2;
+    return rational((uint64_t)r1) * r2;
 }
 
 inline rational operator*(int64_t r1, rational const & r2) {
