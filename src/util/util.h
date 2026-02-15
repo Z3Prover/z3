@@ -21,6 +21,7 @@ Revision History:
 #include "util/debug.h"
 #include "util/memory_manager.h"
 #include <ostream>
+#include <bit>
 #include <climits>
 #include <limits>
 #include <stdint.h>
