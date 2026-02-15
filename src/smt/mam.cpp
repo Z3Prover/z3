@@ -378,6 +378,14 @@ namespace {
         return e;
     }
 
+    // For lambda/quantifier expressions in patterns: internalize and return enode
+    inline enode * mk_enode_for_quantifier(context & ctx, quantifier * qa, expr * n) {
+        ctx.internalize(n, false, ctx.get_generation(qa));
+        enode * e = ctx.get_enode(n);
+        SASSERT(e);
+        return e;
+    }
+
     class code_tree {
         label_hasher &             m_lbl_hasher;
         func_decl *                m_root_lbl;
@@ -912,8 +920,16 @@ namespace {
             // generate first the non-BIND operations
             for (unsigned reg : m_todo) {
                 expr *  p    = m_registers[reg];
-                SASSERT(!is_quantifier(p));
                 TRACE(mam, tout << "lin: " << reg << " " << get_check_mark(reg) << " " << is_var(p) << "\n";);
+                // Quantifiers (including lambdas) can appear in patterns when
+                // lambda terms are used as data (e.g., as arguments to uninterpreted functions).
+                // Treat them as ground terms by eagerly converting to enodes.
+                if (is_quantifier(p)) {
+                    enode * e = mk_enode_for_quantifier(m_context, m_qa, p);
+                    m_seq.push_back(m_ct_manager.mk_check(reg, e));
+                    set_check_mark(reg, NOT_CHECKED);
+                    continue;
+                }
                 if (is_var(p)) {
                     unsigned var_id = to_var(p)->get_idx();
                     if (m_vars[var_id] != -1)
@@ -1074,6 +1090,14 @@ namespace {
                         verbose_stream() << "BUG.....\n";
                     iregs.push_back(m_vars[to_var(arg)->get_idx()]);
                 }
+                else if (is_quantifier(arg)) {
+                    // Lambda/quantifier as data in a pattern: treat as ground constant
+                    unsigned oreg2       = m_tree->m_num_regs;
+                    m_tree->m_num_regs  += 1;
+                    enode * e = mk_enode_for_quantifier(m_context, m_qa, arg);
+                    m_seq.push_back(m_ct_manager.mk_get_enode(oreg2, e));
+                    iregs.push_back(oreg2);
+                }
                 else {
                     iregs.push_back(gen_mp_filter(to_app(arg)));
                 }
@@ -1134,11 +1158,12 @@ namespace {
                     bool has_depth1_joint   = false; // VAR_TAG or GROUND_TERM_TAG
                     for (unsigned j = 0; j < num_args; ++j) {
                         expr * curr = p->get_arg(j);
-                        SASSERT(!is_quantifier(curr));
                         set_register(oreg + j, curr);
                         m_todo.push_back(oreg + j);
 
                         if ((is_var(curr) && m_vars[to_var(curr)->get_idx()] >= 0)
+                            ||
+                            is_quantifier(curr)
                             ||
                             (is_app(curr) && (to_app(curr)->is_ground())))
                             has_depth1_joint = true;
@@ -1154,6 +1179,13 @@ namespace {
                                     joints.push_back(BOXTAGINT(enode *, m_vars[var_id], VAR_TAG));
                                 else
                                     joints.push_back(NULL_TAG);
+                                continue;
+                            }
+
+                            // Quantifiers (lambdas) are treated as ground terms
+                            if (is_quantifier(curr)) {
+                                enode * e = mk_enode_for_quantifier(m_context, m_qa, curr);
+                                joints.push_back(TAG(enode *, e, GROUND_TERM_TAG));
                                 continue;
                             }
 
@@ -3435,6 +3467,16 @@ namespace {
 
                 if (is_var(child)) {
                     update_vars(to_var(child)->get_idx(), new_path, qa, mp);
+                    continue;
+                }
+
+                // Quantifiers (lambdas) used as data in patterns: treat as ground terms
+                if (is_quantifier(child)) {
+                    enode * n = mk_enode_for_quantifier(m_context, qa, child);
+                    update_plbls(plbl);
+                    if (!n->has_lbl_hash())
+                        n->set_lbl_hash(m_context);
+                    update_pc(m_lbl_hasher(plbl), n->get_lbl_hash(), new_path, qa, mp);
                     continue;
                 }
 
