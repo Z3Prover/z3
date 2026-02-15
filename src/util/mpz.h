@@ -159,6 +159,14 @@ public:
         SASSERT(fits_in_small(v));
     }
 
+    mpz(int v) noexcept : m_value(static_cast<uintptr_t>(v) << 1) {
+        SASSERT(fits_in_small(v));
+    }
+
+    mpz(unsigned v) noexcept : m_value(static_cast<uintptr_t>(v) << 1) {
+        SASSERT(fits_in_small(v));
+    }
+
     mpz(mpz_type* ptr) noexcept {
         set_ptr(ptr, false, true); // external pointer, non-negative
     }
@@ -599,6 +607,9 @@ public:
     }
 
     void set(mpz & a, char const * val);
+
+    void set(mpz & a, int val)      { set(a, (int64_t)val); }
+    void set(mpz & a, unsigned val) { set(a, (uint64_t)val); }
 
     void set(mpz & a, int64_t val) {
         if (mpz::fits_in_small(val) && is_small(a)) {
