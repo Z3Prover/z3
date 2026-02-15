@@ -292,7 +292,7 @@ public:
         rational r = mod(a,b);
         SASSERT(r.is_nonneg());
         rational r2 = r;
-        r2 *= rational(uint64_t(2));
+        r2 *= rational(2);
         if (operator<(b, r2)) {
             r -= b;
         }
@@ -512,11 +512,11 @@ public:
     }
 
     unsigned get_num_bits() const {
-        return get_num_digits(rational(uint64_t(2)));
+        return get_num_digits(rational(2));
     }
 
     unsigned get_num_decimal() const {
-        return get_num_digits(rational(uint64_t(10)));
+        return get_num_digits(rational(10));
     }
 
     /**
