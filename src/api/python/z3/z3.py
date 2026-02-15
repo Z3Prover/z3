@@ -7905,7 +7905,11 @@ class Solver(Z3PPObject):
         >>> s = Solver()
         >>> s.add(x > 0)
         >>> s.add(x < 2)
-        >>> r = s.sexpr()
+        >>> print(s.sexpr())
+        (declare-fun x () Int)
+        (assert (> x 0))
+        (assert (< x 2))
+
         """
         return Z3_solver_to_string(self.ctx.ref(), self.solver)
 
