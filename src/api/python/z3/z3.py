@@ -7931,6 +7931,39 @@ class Solver(Z3PPObject):
             self.ctx.ref(), "benchmark generated from python API", "", "unknown", "", sz1, v, e,
         )
 
+    def solutions(self, t):
+        """Returns an iterator over solutions that satisfy the constraints.
+
+        The parameter `t` is an expression whose values should be returned.
+
+        >>> s = Solver()
+        >>> x, y, z = Ints("x y z")
+        >>> s.add(x * x == 4)
+        >>> print(list(s.solutions(x)))
+        [-2, 2]
+        >>> s.reset()
+        >>> s.add(x >= 0, x < 10)
+        >>> print(list(s.solutions(x)))
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        >>> s.reset()
+        >>> s.add(x >= 0, y < 10, y == 2*x)
+        >>> print(list(s.solutions([x, y])))
+        [[0, 0], [1, 2], [2, 4], [3, 6], [4, 8]]
+        """
+        s = Solver()
+        s.add(self.assertions())
+        t = _get_args(t)
+        if isinstance(t, (list, tuple)):
+            while s.check() == sat:
+                result = [s.model().eval(t_, model_completion=True) for t_ in t]
+                yield result
+                s.add(*(t_ != result_ for t_, result_ in zip(t, result)))
+        else:
+            while s.check() == sat:
+                result = s.model().eval(t, model_completion=True)
+                yield result
+                s.add(t != result)
+
 
 def SolverFor(logic, ctx=None, logFile=None):
     """Create a solver customized for the given logic.
