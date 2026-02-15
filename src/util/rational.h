@@ -509,11 +509,11 @@ public:
     }
 
     unsigned get_num_bits() const {
-        return get_num_digits(uint64_t(2));
+        return get_num_digits(rational(uint64_t(2)));
     }
 
     unsigned get_num_decimal() const {
-        return get_num_digits(uint64_t(10));
+        return get_num_digits(rational(uint64_t(10)));
     }
 
     /**
