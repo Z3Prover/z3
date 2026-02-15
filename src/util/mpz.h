@@ -601,11 +601,11 @@ public:
     void set(mpz & a, char const * val);
 
     void set(mpz & a, int64_t val) {
-        if (mpz::fits_in_small(v) && is_small(c)) {
-            c.set(v);
+        if (mpz::fits_in_small(val) && is_small(a)) {
+            a.set(v);
         }
         else {
-            set_big_i64(c, v);
+            set_big_i64(a, v);
         }
     }
 
