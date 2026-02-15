@@ -669,7 +669,7 @@ inline rational operator/(rational const & r1, int64_t r2) {
 
 inline rational operator/(rational const & r1, bool r2) {
     UNREACHABLE();
-    return r1 / rational(r2);
+    return r1 / rational((uint64_t)r2);
 }
 
 inline rational operator/(int64_t r1, rational const &    r2) {
