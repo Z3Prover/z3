@@ -103,8 +103,8 @@ static inline unsigned next_power_of_two(unsigned v) {
 /**
    \brief Return the position of the most significant bit.
 */
-static inline unsigned log2(unsigned v) { return std::bit_width(x) - 1; }
-static inline unsigned log2(uint64_t v) { return std::bit_width(x) - 1; }
+static inline unsigned log2(unsigned v) { return std::bit_width(v) - 1; }
+static inline unsigned log2(uint64_t v) { return std::bit_width(v) - 1; }
 
 static_assert(sizeof(unsigned) == 4, "unsigned are 32 bits");
 
