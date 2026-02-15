@@ -672,7 +672,7 @@ public:
         set(target.m_den, source.m_den);
     }
 
-    void set(mpz & a, int val) { mpz_manager<SYNCH>::set(a, val); }
+    void set(mpz & a, int64_t val) { mpz_manager<SYNCH>::set(a, val); }
 
     void set(mpq & a, int val) {
         set(a.m_num, val);
