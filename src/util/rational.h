@@ -172,7 +172,7 @@ public:
     rational & operator=(bool) = delete;
     rational operator*(bool  r1) const = delete;
 
-    rational & operator=(int v) {
+    rational & operator=(int64_t v) {
         m().set(m_val, v);
         return *this;
     }
@@ -193,7 +193,7 @@ public:
         return *this; 
     }
 
-    rational & operator+=(int r) {
+    rational & operator+=(int64_t r) {
         (*this) += rational(r);
         return *this;
     }
@@ -203,7 +203,7 @@ public:
         return *this; 
     }
 
-    rational& operator-=(int r) {
+    rational& operator-=(int64_t r) {
         (*this) -= rational(r);
         return *this;
     }
@@ -223,15 +223,15 @@ public:
         return *this; 
     }    
 
-    rational & operator%=(int v) {
+    rational & operator%=(int64_t v) {
         return *this %= rational(v);
     }    
 
-    rational & operator/=(int v) {
+    rational & operator/=(int64_t v) {
         return *this /= rational(v);
     }    
 
-    rational & operator*=(int v) {
+    rational & operator*=(int64_t v) {
         return *this *= rational(v);
     }    
 
@@ -561,11 +561,11 @@ inline bool operator>(rational const & r1, rational const & r2) {
     return operator<(r2, r1); 
 }
 
-inline bool operator<(int r1, rational const & r2) {
+inline bool operator<(int64_t r1, rational const & r2) {
     return rational(r1) < r2;
 }
 
-inline bool operator<(rational const & r1, int r2) {
+inline bool operator<(rational const & r1, int64_t r2) {
     return r1 < rational(r2);
 }
 
@@ -577,35 +577,35 @@ inline bool operator>=(rational const & r1, rational const & r2) {
     return !operator<(r1, r2); 
 }
 
-inline bool operator>(rational const & a, int b) {
+inline bool operator>(rational const & a, int64_t b) {
     return a > rational(b);
 }
 
-inline bool operator>(int a, rational const & b) {
+inline bool operator>(int64_t a, rational const & b) {
     return rational(a) > b;
 }
 
-inline bool operator>=(rational const& a, int b) {
+inline bool operator>=(rational const& a, int64_t b) {
     return a >= rational(b);
 }
 
-inline bool operator>=(int a, rational const& b) {
+inline bool operator>=(int64_t a, rational const& b) {
     return rational(a) >= b;
 }
 
-inline bool operator<=(rational const& a, int b) {
+inline bool operator<=(rational const& a, int64_t b) {
     return a <= rational(b);
 }
 
-inline bool operator<=(int a, rational const& b) {
+inline bool operator<=(int64_t a, rational const& b) {
     return rational(a) <= b;
 }
 
-inline bool operator!=(rational const& a, int b) {
+inline bool operator!=(rational const& a, int64_t b) {
     return !(a == rational(b));
 }
 
-inline bool operator==(rational const & a, int b) {
+inline bool operator==(rational const & a, int64_t b) {
     return a == rational(b);
 }
 
@@ -613,11 +613,11 @@ inline rational operator+(rational const & r1, rational const & r2) {
     return rational(r1) += r2; 
 }
 
-inline rational operator+(int r1, rational const & r2) {
+inline rational operator+(int64_t r1, rational const & r2) {
     return rational(r1) + r2;
 }
 
-inline rational operator+(rational const & r1, int r2) {
+inline rational operator+(rational const & r1, int64_t r2) {
     return r1 + rational(r2);
 }
 
@@ -626,11 +626,11 @@ inline rational operator-(rational const & r1, rational const & r2) {
     return rational(r1) -= r2; 
 }
 
-inline rational operator-(rational const & r1, int r2) {
+inline rational operator-(rational const & r1, int64_t r2) {
     return r1 - rational(r2);
 }
 
-inline rational operator-(int r1, rational const & r2) {
+inline rational operator-(int64_t r1, rational const & r2) {
     return rational(r1) - r2;
 }
 
@@ -648,7 +648,7 @@ inline rational operator*(rational const & r1, bool r2) {
     UNREACHABLE();
     return r1 * rational(r2);
 }
-inline rational operator*(rational const & r1, int r2) {
+inline rational operator*(rational const & r1, int64_t r2) {
     return r1 * rational(r2);
 }
 inline rational operator*(bool  r1, rational const & r2) {
@@ -656,7 +656,7 @@ inline rational operator*(bool  r1, rational const & r2) {
     return rational(r1) * r2;
 }
 
-inline rational operator*(int  r1, rational const & r2) {
+inline rational operator*(int64_t r1, rational const & r2) {
     return rational(r1) * r2;
 }
 
@@ -664,7 +664,7 @@ inline rational operator/(rational const & r1, rational const & r2) {
     return rational(r1) /= r2; 
 }
 
-inline rational operator/(rational const & r1, int r2) {
+inline rational operator/(rational const & r1, int64_t r2) {
     return r1 / rational(r2);
 }
 
@@ -673,7 +673,7 @@ inline rational operator/(rational const & r1, bool r2) {
     return r1 / rational(r2);
 }
 
-inline rational operator/(int r1, rational const &    r2) {
+inline rational operator/(int64_t r1, rational const &    r2) {
     return rational(r1) / r2;
 }
 
