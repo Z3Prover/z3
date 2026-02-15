@@ -48,7 +48,7 @@ public:
 
     explicit rational(int64_t n) { m().set(m_val, n); }
 
-    explicit rational(unsigned n) { m().set(m_val, n); }
+    explicit rational(uint64_t n) { m().set(m_val, n); }
       
     rational(int n, int d) { m().set(m_val, n, d); }
     rational(mpq const & q) { m().set(m_val, q); }
