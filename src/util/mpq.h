@@ -679,11 +679,11 @@ public:
         reset_denominator(a);
     }
 
-    void set(mpq & a, int n, int d) {
+    void set(mpq & a, int64_t n, int64_t d) {
         SASSERT(d != 0);
         if (d < 0) {
-            SASSERT(d != INT_MIN);
-            SASSERT(n != INT_MIN);
+            SASSERT(d != std::numeric_limits<int64_t>());
+            SASSERT(n != std::numeric_limits<int64_t>());
             n = -n;
             d = -d;
         }
