@@ -96,7 +96,7 @@ private:
     // This gives us:
     //   - On 32-bit platforms: 31 bits, range [-2^30, 2^30-1]
     //   - On 64-bit platforms: 63 bits, range [-2^62, 2^62-1]
-    static constexpr unaigned SMALL_BITS = sizeof(uintptr_t) * 8 - 1;
+    static constexpr unsigned SMALL_BITS = sizeof(uintptr_t) * 8 - 1;
 
     // Maximum and minimum values that can be stored as small integers
     static constexpr int64_t SMALL_INT_MAX = (static_cast<int64_t>(1) << (SMALL_BITS - 1)) - 1;
@@ -172,6 +172,10 @@ public:
     mpz& operator=(mpz &&other) noexcept {
         std::swap(m_value, other.m_value);
         return *this;
+    }
+
+    void swap(mpz & other) noexcept {
+        std::swap(m_value, other.m_value);
     }
 
     void set64(int64_t v) {
