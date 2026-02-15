@@ -28,7 +28,6 @@ Revision History:
 #include "util/mpn.h"
 
 unsigned u_gcd(unsigned u, unsigned v);
-uint64_t u64_gcd(uint64_t u, uint64_t v);
 unsigned trailing_zeros(uint64_t);
 unsigned trailing_zeros(uint32_t);
 
@@ -158,14 +157,8 @@ public:
         // with values that fit, or the caller should use set_big_i64.
         SASSERT(fits_in_small(v));
     }
-
-    mpz(int v) noexcept : m_value(static_cast<uintptr_t>(v) << 1) {
-        SASSERT(fits_in_small(v));
-    }
-
-    mpz(unsigned v) noexcept : m_value(static_cast<uintptr_t>(v) << 1) {
-        SASSERT(fits_in_small(v));
-    }
+    mpz(int v) : mpz(int64_t(v)) {}
+    mpz(unsigned v) : mpz(int64_t(v)) {}
 
     mpz(mpz_type* ptr) noexcept {
         set_ptr(ptr, false, true); // external pointer, non-negative
@@ -364,7 +357,7 @@ class mpz_manager {
 
     class sign_cell {
         static const unsigned capacity = 2;
-        unsigned char m_bytes[sizeof(mpz_cell) + sizeof(digit_t) * capacity];
+        alignas(8) unsigned char m_bytes[sizeof(mpz_cell) + sizeof(digit_t) * capacity];
         mpz m_local;
         mpz const& m_a;
         int m_sign;
@@ -430,8 +423,6 @@ class mpz_manager {
     void big_sub(mpz const & a, mpz const & b, mpz & c);
 
     void big_mul(mpz const & a, mpz const & b, mpz & c);
-
-    void big_set(mpz & target, mpz const & source);
 
 #ifndef _MP_GMP
 
@@ -511,11 +502,15 @@ public:
 
     static bool is_neg(mpz const & a) { return sign(a) < 0; }
     
-    static bool is_zero(mpz const & a) { return sign(a) == 0; }
+    static bool is_zero(mpz const & a) {
+        if (a.is_small())
+            return a.value() == 0;
+        return size(a) == 1 && digits(a)[0] == 0;
+    }
 
     static int sign(mpz const & a) {
         if (is_small(a)) {
-            int v = a.value();
+            int64_t v = a.value();
             return (v > 0) - (v < 0); // Returns -1, 0, or 1
         }
         else
@@ -597,10 +592,10 @@ public:
 
     void set(mpz & target, mpz const & source) {
         if (is_small(source)) {
-            target.set(source.value());
+            set(target, source.value());
         }
         else {
-            big_set(target, source);
+            set(*source.ptr(), target, source.sign(), size(source));
         }
     }
 
@@ -685,21 +680,21 @@ public:
     static unsigned hash(mpz const & a);
 
     static bool is_one(mpz const & a) {
-#ifndef _MP_GMP
-        return is_small(a) && a.value() == 1;
-#else
         if (is_small(a))
             return a.value() == 1;
+#ifndef _MP_GMP
+        return size(a) == 1 && digits(a)[0] == 1 && a.sign() > 0;
+#else
         return mpz_cmp_si(*a.ptr(), 1) == 0;
 #endif
     }
 
     static bool is_minus_one(mpz const & a) {
-#ifndef _MP_GMP
-        return is_small(a) && a.value() == -1;
-#else
         if (is_small(a))
             return a.value() == -1;
+#ifndef _MP_GMP
+        return size(a) == 1 && digits(a)[0] == 1 && a.sign() < 0;
+#else
         return mpz_cmp_si(*a.ptr(), -1) == 0;
 #endif
     }
