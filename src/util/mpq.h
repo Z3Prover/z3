@@ -674,7 +674,7 @@ public:
 
     void set(mpz & a, int64_t val) { mpz_manager<SYNCH>::set(a, val); }
 
-    void set(mpq & a, int val) {
+    void set(mpq & a, int64_t val) {
         set(a.m_num, val);
         reset_denominator(a);
     }
@@ -723,13 +723,6 @@ public:
     void set(mpz & a, char const * val) { mpz_manager<SYNCH>::set(a, val); }
 
     void set(mpq & a, char const * val);
-
-    void set(mpz & a, int64_t val) { mpz_manager<SYNCH>::set(a, val); }
-
-    void set(mpq & a, int64_t val) {
-        set(a.m_num, val);
-        reset_denominator(a);
-    }
 
     void set(mpz & a, uint64_t val) { mpz_manager<SYNCH>::set(a, val); }
     

@@ -602,10 +602,10 @@ public:
 
     void set(mpz & a, int64_t val) {
         if (mpz::fits_in_small(val) && is_small(a)) {
-            a.set(v);
+            a.set(val);
         }
         else {
-            set_big_i64(a, v);
+            set_big_i64(a, val);
         }
     }
 
