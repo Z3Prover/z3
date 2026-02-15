@@ -377,7 +377,7 @@ void mpz_manager<SYNCH>::set(mpz_cell& src, mpz & a, int sign, unsigned sz) {
     unsigned d = src.m_digits[0];
     if (i == 1 && d <= mpz::SMALL_INT_MAX) {
         // src fits in small integer range
-        a.set64(sign < 0 ? -static_cast<int64_t>(d) : static_cast<int64_t>(d));
+        a.set(sign < 0 ? -static_cast<int64_t>(d) : static_cast<int64_t>(d));
         return;
     }
 
@@ -665,7 +665,7 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::neg(mpz & a) {
     STRACE(mpz, tout << "[mpz] 0 - " << to_string(a) << " == ";); 
     if (is_small(a)) {
-        a.set64(-a.value());
+        a.set(-a.value());
     }
 #ifndef _MP_GMP
     else {
@@ -684,7 +684,7 @@ void mpz_manager<SYNCH>::abs(mpz & a) {
     if (is_small(a)) {
         int64_t v = a.value();
         if (v < 0) {
-            a.set64(-v);
+            a.set(-v);
         }
     }
     else {
@@ -949,7 +949,7 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
             
             // reset least significant bit
             if (is_small(v))
-                v.set64(v.value() & ~1);
+                v.set(v.value() & ~1);
             else
                 v.ptr()->m_digits[0] &= ~static_cast<digit_t>(1);
             k_v = power_of_two_multiple(v);
@@ -1346,7 +1346,7 @@ void mpz_manager<SYNCH>::bitwise_or(mpz const & a, mpz const & b, mpz & c) {
     SASSERT(is_nonneg(b));
     TRACE(mpz, tout << "is_small(a): " << is_small(a) << ", is_small(b): " << is_small(b) << "\n";);
     if (is_small(a) && is_small(b)) {
-        c.set64(a.value() | b.value());
+        c.set(a.value() | b.value());
     }
     else {
 #ifndef _MP_GMP
@@ -1391,7 +1391,7 @@ void mpz_manager<SYNCH>::bitwise_and(mpz const & a, mpz const & b, mpz & c) {
     SASSERT(is_nonneg(a));
     SASSERT(is_nonneg(b));
     if (is_small(a) && is_small(b)) {
-        c.set64(a.value() & b.value());
+        c.set(a.value() & b.value());
     }
     else {
 #ifndef _MP_GMP
@@ -1996,10 +1996,10 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
         if (k < 64) {
             int64_t twok = 1ull << ((int64_t)k);
             int64_t val = a.value();
-            a.set64(val/twok);
+            a.set(val/twok);
         }
         else {
-            a.set64(0);
+            a.set(0);
         }
         return;
     }
