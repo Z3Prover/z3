@@ -236,7 +236,7 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::add(mpz const & a, mpz const & b, mpz & c) {
     STRACE(mpz, tout << "[mpz] " << to_string(a) << " + " << to_string(b) << " == ";); 
     if (is_small(a) && is_small(b)) {
-        set_i64(c, i64(a) + i64(b));
+        set(c, a.value() + b.value());
     }
     else {
         big_add(a, b, c);
@@ -248,7 +248,7 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::sub(mpz const & a, mpz const & b, mpz & c) {
     STRACE(mpz, tout << "[mpz] " << to_string(a) << " - " << to_string(b) << " == ";); 
     if (is_small(a) && is_small(b)) {
-        set_i64(c, i64(a) - i64(b));
+        set(c, a.value() - b.value());
     }
     else {
         big_sub(a, b, c);
@@ -425,7 +425,7 @@ void mpz_manager<SYNCH>::set_digits(mpz & target, unsigned sz, digit_t const * d
 #ifndef _MP_GMP
         allocate_if_needed(target, sz);
         memcpy(target.ptr()->m_digits, digits, sizeof(digit_t) * sz);
-        target.set_sign(1):
+        target.set_sign(1);
 #else
         mk_big(target);
         // reset
@@ -448,7 +448,7 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::mul(mpz const & a, mpz const & b, mpz & c) {
     STRACE(mpz, tout << "[mpz] " << to_string(a) << " * " << to_string(b) << " == ";); 
     if (is_small(a) && is_small(b)) {
-        set_i64(c, i64(a) * i64(b));
+        set(c, a.value() * b.value());
     }
     else {
         big_mul(a, b, c);
@@ -496,10 +496,10 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::machine_div_rem(mpz const & a, mpz const & b, mpz & q, mpz & r) {
     STRACE(mpz, tout << "[mpz-ext] divrem(" << to_string(a) << ",  " << to_string(b) << ") == ";); 
     if (is_small(a) && is_small(b)) {
-        int64_t _a = i64(a);
-        int64_t _b = i64(b);
-        set_i64(q, _a / _b);
-        set_i64(r, _a % _b);
+        int64_t _a = a.value();
+        int64_t _b = b.value();
+        set(q, _a / _b);
+        set(r, _a % _b);
     }
     else {
         big_div_rem(a, b, q, r);
@@ -510,11 +510,11 @@ void mpz_manager<SYNCH>::machine_div_rem(mpz const & a, mpz const & b, mpz & q, 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::machine_div(mpz const & a, mpz const & b, mpz & c) {
     STRACE(mpz, tout << "[mpz-ext] machine-div(" << to_string(a) << ",  " << to_string(b) << ") == ";); 
-    if (is_small(b) && i64(b) == 0)
+    if (is_small(b) && b.value() == 0)
         throw default_exception("division by 0"); 
 
     if (is_small(a) && is_small(b)) 
-        set_i64(c, i64(a) / i64(b));
+        set(c, a.value() / b.value());
     else 
         big_div(a, b, c);
     STRACE(mpz, tout << to_string(c) << "\n";);
@@ -530,7 +530,7 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::rem(mpz const & a, mpz const & b, mpz & c) {
     STRACE(mpz, tout << "[mpz-ext] rem(" << to_string(a) << ",  " << to_string(b) << ") == ";); 
     if (is_small(a) && is_small(b)) {
-        set_i64(c, i64(a) % i64(b));
+        set(c, a.value() % b.value());
     }
     else {
         big_rem(a, b, c);
@@ -597,8 +597,8 @@ mpz mpz_manager<SYNCH>::mod2k(mpz const & a, unsigned k) {
 
     if (is_small(a) && k < 64) {
         uint64_t mask = ((1ULL << k) - 1);
-        uint64_t uval = static_cast<uint64_t>(i64(a));
-        set_i64(result, static_cast<int64_t>(uval & mask));
+        uint64_t uval = static_cast<uint64_t>(a.value());
+        set(result, static_cast<int64_t>(uval & mask));
         return result;
     }
 
@@ -1425,7 +1425,7 @@ void mpz_manager<SYNCH>::bitwise_xor(mpz const & a, mpz const & b, mpz & c) {
     SASSERT(is_nonneg(a));
     SASSERT(is_nonneg(b));
     if (is_small(a) && is_small(b)) {
-        set_i64(c, i64(a) ^ i64(b));
+        set(c, a.value() ^ b.value());
     }
     else {
 #ifndef _MP_GMP
@@ -1902,9 +1902,9 @@ bool mpz_manager<SYNCH>::is_power_of_two(mpz const & a, unsigned & shift) {
     if (is_nonpos(a))
         return false;
     if (is_small(a)) {
-        int64_t v = a.value();
+        auto v = static_cast<uint64_t>(a.value());
         if (::is_power_of_two(v)) {
-            shift = log2(static_cast<uint64_t>(v));
+            shift = ::log2(v);
             return true;
         }
         else {
@@ -1968,7 +1968,7 @@ void mpz_manager<SYNCH>::ensure_capacity(mpz & a, unsigned capacity) {
         unsigned old_sz  = a.ptr()->m_size;
         SASSERT(capacity >= old_sz);
         new_cell->m_size = old_sz;
-        memcpy(new_cell->m_digits, digits(a), sizeof(digit_t) * old_sz)
+        memcpy(new_cell->m_digits, digits(a), sizeof(digit_t) * old_sz);
         bool is_neg = a.sign() < 0;
         deallocate(a);
         a.set_ptr(new_cell, is_neg, false);
@@ -2063,7 +2063,7 @@ void mpz_manager<SYNCH>::mul2k(mpz & a, unsigned k) {
     if (k == 0 || is_zero(a))
         return;
     if (is_small(a) && k < 32) {
-        set_i64(a, i64(a) * (static_cast<int64_t>(1) << k));
+        set(a, a.value() * (static_cast<int64_t>(1) << k));
         return;
     }
 #ifndef _MP_GMP
@@ -2177,7 +2177,7 @@ unsigned mpz_manager<SYNCH>::mlog2(mpz const & a) {
     if (is_nonneg(a))
         return 0;
     if (is_small(a)) {
-        return ::log2(static_cast<uint64_t>(-va.value()));
+        return ::log2(static_cast<uint64_t>(-a.value()));
     }
 #ifndef _MP_GMP
     static_assert(sizeof(digit_t) == 8 || sizeof(digit_t) == 4, "");

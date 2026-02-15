@@ -673,20 +673,17 @@ public:
     }
 
     void set(mpz & a, int val) { mpz_manager<SYNCH>::set(a, val); }
-    void set(mpz & a, int64_t val) { mpz_manager<SYNCH>::set(a, val); }
 
-    void set(mpq & a, int val) { set(a, (int64_t)val); }
-
-    void set(mpq & a, int64_t val) {
+    void set(mpq & a, int val) {
         set(a.m_num, val);
         reset_denominator(a);
     }
 
-    void set(mpq & a, int64_t n, int64_t d) {
+    void set(mpq & a, int n, int d) {
         SASSERT(d != 0);
         if (d < 0) {
-            SASSERT(d != std::numeric_limits<int64_t>());
-            SASSERT(n != std::numeric_limits<int64_t>());
+            SASSERT(d != INT_MIN);
+            SASSERT(n != INT_MIN);
             n = -n;
             d = -d;
         }
@@ -726,6 +723,13 @@ public:
     void set(mpz & a, char const * val) { mpz_manager<SYNCH>::set(a, val); }
 
     void set(mpq & a, char const * val);
+
+    void set(mpz & a, int64_t val) { mpz_manager<SYNCH>::set(a, val); }
+
+    void set(mpq & a, int64_t val) {
+        set(a.m_num, val);
+        reset_denominator(a);
+    }
 
     void set(mpz & a, uint64_t val) { mpz_manager<SYNCH>::set(a, val); }
     

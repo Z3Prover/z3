@@ -317,8 +317,6 @@ class mpz_manager {
 
     mpz m_two64;
 
-    static int64_t i64(mpz const & a) { return a.value(); }
-
     void set_big_i64(mpz & c, int64_t v);
     void set_big_ui64(mpz & c, uint64_t v);
 
