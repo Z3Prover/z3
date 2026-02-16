@@ -28,7 +28,7 @@ func OpenLog(filename string) bool {
 	defer C.free(unsafe.Pointer(cFilename))
 	
 	result := C.Z3_open_log(cFilename)
-	if result != 0 {
+	if bool(result) {
 		isLogOpen = true
 		return true
 	}

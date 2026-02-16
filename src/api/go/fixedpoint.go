@@ -70,7 +70,7 @@ func (f *Fixedpoint) AddRule(rule *Expr, name *Symbol) {
 	if name != nil {
 		namePtr = name.ptr
 	} else {
-		namePtr = 0
+		namePtr = nil
 	}
 	C.Z3_fixedpoint_add_rule(f.ctx.ptr, f.ptr, rule.ptr, namePtr)
 }
@@ -132,7 +132,7 @@ func (f *Fixedpoint) UpdateRule(rule *Expr, name *Symbol) {
 	if name != nil {
 		namePtr = name.ptr
 	} else {
-		namePtr = 0
+		namePtr = nil
 	}
 	C.Z3_fixedpoint_update_rule(f.ctx.ptr, f.ptr, rule.ptr, namePtr)
 }
@@ -253,12 +253,12 @@ func (s *Statistics) GetKey(idx int) string {
 
 // IsUint returns true if the statistical data at the given index is unsigned integer
 func (s *Statistics) IsUint(idx int) bool {
-	return C.Z3_stats_is_uint(s.ctx.ptr, s.ptr, C.uint(idx)) != 0
+	return bool(C.Z3_stats_is_uint(s.ctx.ptr, s.ptr, C.uint(idx))) 
 }
 
 // IsDouble returns true if the statistical data at the given index is double
 func (s *Statistics) IsDouble(idx int) bool {
-	return C.Z3_stats_is_double(s.ctx.ptr, s.ptr, C.uint(idx)) != 0
+	return bool(C.Z3_stats_is_double(s.ctx.ptr, s.ptr, C.uint(idx))) 
 }
 
 // GetUintValue returns the unsigned integer value at the given index
