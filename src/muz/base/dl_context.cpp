@@ -787,13 +787,13 @@ namespace datalog {
                     return true;
             }
             if (is_app(e)) {
-                unsigned sz = 0;
                 for (auto arg : *to_app(e)) {
-                    if (bv.is_bv(arg))
-                        sz += bv.get_bv_size(arg->get_sort());
+                    if (bv.is_bv(arg)) {
+                        unsigned sz = bv.get_bv_size(arg->get_sort());
+                        if (sz > 24)
+                            return true;
+                    }
                 }
-                if (sz > 24)
-                    return true;
             }
             return false;
         }
