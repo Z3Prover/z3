@@ -230,11 +230,13 @@ public:
     }
 
     app * mk_select(expr* a, expr* i) const {
-        return mk_select(std::array<expr*, 2>{a, i}.size(), std::array<expr*, 2>{a, i}.data());
+        auto args = std::array<expr*, 2>{a, i};
+        return mk_select(args.size(), args.data());
     }
 
     app* mk_select(expr* a, expr* i, expr* j) const {
-        return mk_select(std::array<expr*, 3>{a, i, j}.size(), std::array<expr*, 3>{a, i, j}.data());
+        auto args = std::array<expr*, 3>{a, i, j};
+        return mk_select(args.size(), args.data());
     }
 
     app * mk_select(unsigned num_args, expr * const * args) const {
