@@ -547,12 +547,12 @@ return newExpr(q.ctx, q.ptr)
 
 // IsUniversal returns true if this is a universal quantifier (forall)
 func (q *Quantifier) IsUniversal() bool {
-return bool(C.Z3_is_quantifier_forall(q.ctx.ptr, q.ptr)) 
+return bool(C.Z3_is_quantifier_forall(q.ctx.ptr, q.ptr))
 }
 
 // IsExistential returns true if this is an existential quantifier (exists)
 func (q *Quantifier) IsExistential() bool {
-return bool(C.Z3_is_quantifier_exists(q.ctx.ptr, q.ptr)) 
+return bool(C.Z3_is_quantifier_exists(q.ctx.ptr, q.ptr))
 }
 
 // GetWeight returns the weight of the quantifier
