@@ -7,6 +7,7 @@ package z3
 import "C"
 import (
 	"runtime"
+	"unsafe"
 )
 
 // Status represents the result of a satisfiability check.
@@ -156,6 +157,52 @@ func (s *Solver) UnsatCore() []*Expr {
 // ReasonUnknown returns the reason why the result is unknown.
 func (s *Solver) ReasonUnknown() string {
 	return C.GoString(C.Z3_solver_get_reason_unknown(s.ctx.ptr, s.ptr))
+}
+
+// GetStatistics returns the statistics for the solver.
+// Statistics include performance metrics, memory usage, and decision statistics.
+func (s *Solver) GetStatistics() *Statistics {
+	ptr := C.Z3_solver_get_statistics(s.ctx.ptr, s.ptr)
+	return newStatistics(s.ctx, ptr)
+}
+
+// FromFile parses and asserts SMT-LIB2 formulas from a file.
+// The solver will contain the assertions from the file after this call.
+func (s *Solver) FromFile(filename string) {
+	cFilename := C.CString(filename)
+	defer C.free(unsafe.Pointer(cFilename))
+	C.Z3_solver_from_file(s.ctx.ptr, s.ptr, cFilename)
+}
+
+// FromString parses and asserts SMT-LIB2 formulas from a string.
+// The solver will contain the assertions from the string after this call.
+func (s *Solver) FromString(str string) {
+	cStr := C.CString(str)
+	defer C.free(unsafe.Pointer(cStr))
+	C.Z3_solver_from_string(s.ctx.ptr, s.ptr, cStr)
+}
+
+// GetHelp returns a string describing all available solver parameters.
+func (s *Solver) GetHelp() string {
+	return C.GoString(C.Z3_solver_get_help(s.ctx.ptr, s.ptr))
+}
+
+// SetParams sets solver parameters.
+// Parameters control solver behavior such as timeout, proof generation, etc.
+func (s *Solver) SetParams(params *Params) {
+	C.Z3_solver_set_params(s.ctx.ptr, s.ptr, params.ptr)
+}
+
+// GetParamDescrs returns parameter descriptions for the solver.
+func (s *Solver) GetParamDescrs() *ParamDescrs {
+	ptr := C.Z3_solver_get_param_descrs(s.ctx.ptr, s.ptr)
+	return newParamDescrs(s.ctx, ptr)
+}
+
+// Interrupt interrupts the solver execution.
+// This is useful for stopping long-running solver operations gracefully.
+func (s *Solver) Interrupt() {
+	C.Z3_solver_interrupt(s.ctx.ptr, s.ptr)
 }
 
 // Model represents a Z3 model (satisfying assignment).
