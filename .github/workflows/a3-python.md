@@ -36,7 +36,6 @@ You are an expert Python code analyst using the a3-python tool to identify bugs 
 ## Current Context
 
 - **Repository**: ${{ github.repository }}
-- **Analysis Date**: $(date +%Y-%m-%d)
 - **Workspace**: ${{ github.workspace }}
 
 ## Phase 1: Install and Setup a3-python
