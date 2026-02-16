@@ -19,9 +19,10 @@ type Constructor struct {
 // newConstructor creates a new Constructor and manages its reference count.
 func newConstructor(ctx *Context, ptr C.Z3_constructor) *Constructor {
 	c := &Constructor{ctx: ctx, ptr: ptr}
-	C.Z3_constructor_inc_ref(ctx.ptr, ptr)
+	// Note: Z3_constructor doesn't use inc_ref/dec_ref pattern
+	// It uses Z3_del_constructor for cleanup
 	runtime.SetFinalizer(c, func(cons *Constructor) {
-		C.Z3_constructor_dec_ref(cons.ctx.ptr, cons.ptr)
+		C.Z3_del_constructor(cons.ctx.ptr, cons.ptr)
 	})
 	return c
 }
@@ -90,9 +91,10 @@ type ConstructorList struct {
 // newConstructorList creates a new ConstructorList and manages its reference count.
 func newConstructorList(ctx *Context, ptr C.Z3_constructor_list) *ConstructorList {
 	cl := &ConstructorList{ctx: ctx, ptr: ptr}
-	C.Z3_constructor_list_inc_ref(ctx.ptr, ptr)
+	// Note: Z3_constructor_list doesn't use inc_ref/dec_ref pattern
+	// It uses Z3_del_constructor_list for cleanup
 	runtime.SetFinalizer(cl, func(list *ConstructorList) {
-		C.Z3_constructor_list_dec_ref(list.ctx.ptr, list.ptr)
+		C.Z3_del_constructor_list(list.ctx.ptr, list.ptr)
 	})
 	return cl
 }
@@ -152,7 +154,7 @@ func (c *Context) MkDatatypeSorts(names []string, constructorLists [][]*Construc
 
 	// Clean up constructor lists
 	for i := range cLists {
-		C.Z3_constructor_list_dec_ref(c.ptr, cLists[i])
+		C.Z3_del_constructor_list(c.ptr, cLists[i])
 	}
 
 	sorts := make([]*Sort, numTypes)
