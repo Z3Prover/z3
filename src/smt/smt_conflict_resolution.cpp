@@ -1333,9 +1333,7 @@ namespace smt {
         }
         else {
             pr = get_proof(consequent, conflict);
-            proof * prs[2] = { m_lit2proof[not_l], pr};
-            SASSERT(prs[0] && prs[1]);
-            pr = m.mk_unit_resolution(2, prs);
+            pr = m.mk_unit_resolution({ m_lit2proof[not_l], pr });
         }
         expr_ref_buffer lits(m);
         for (literal lit : m_lemma) {

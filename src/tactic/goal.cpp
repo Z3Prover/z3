@@ -549,10 +549,8 @@ void goal::elim_redundancies() {
                 continue;
             if (pos_lits.is_marked(atom)) {
                 proof * p = nullptr;
-                if (proofs_enabled()) {
-                    proof * prs[2] = { pr(get_idx(atom)), pr(i) };
-                    p = m().mk_unit_resolution(2, prs);
-                }
+                if (proofs_enabled())
+                    p = m().mk_unit_resolution({ pr(get_idx(atom)), pr(i) });
                 expr_dependency_ref d(m());
                 if (unsat_core_enabled())
                     d = m().mk_join(dep(get_idx(atom)), dep(i));
@@ -566,10 +564,8 @@ void goal::elim_redundancies() {
                 continue;
             if (neg_lits.is_marked(f)) {
                 proof * p = nullptr;
-                if (proofs_enabled()) {
-                    proof * prs[2] = { pr(get_not_idx(f)), pr(i) };
-                    p = m().mk_unit_resolution(2, prs);
-                }
+                if (proofs_enabled())
+                    p = m().mk_unit_resolution({ pr(get_not_idx(f)), pr(i) });
                 expr_dependency_ref d(m());
                 if (unsat_core_enabled())
                     d = m().mk_join(dep(get_not_idx(f)), dep(i));
