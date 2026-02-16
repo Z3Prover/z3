@@ -53,26 +53,32 @@ func main() {
 	fmt.Println("\nExample 3: FromFile() - Load SMT-LIB2 from file")
 	
 	// Create a temporary SMT-LIB2 file
-	tmpFile := "/tmp/test.smt2"
-	content := `(declare-const p Bool)
-(declare-const q Bool)
-(assert (or p q))
-(assert (or (not p) (not q)))`
-	
-	err := os.WriteFile(tmpFile, []byte(content), 0644)
+	tmpFile, err := os.CreateTemp("", "test-*.smt2")
 	if err != nil {
 		fmt.Println("Error creating temp file:", err)
 	} else {
-		solver3 := ctx.NewSolver()
-		solver3.FromFile(tmpFile)
-		fmt.Println("Loaded SMT-LIB2 assertions from file")
+		content := `(declare-const p Bool)
+(declare-const q Bool)
+(assert (or p q))
+(assert (or (not p) (not q)))`
 		
-		status3 := solver3.Check()
-		fmt.Println("Status:", status3.String())
-		if status3 == z3.Satisfiable {
-			fmt.Println("Found satisfying assignment")
+		_, err = tmpFile.WriteString(content)
+		tmpFile.Close()
+		
+		if err != nil {
+			fmt.Println("Error writing temp file:", err)
+		} else {
+			solver3 := ctx.NewSolver()
+			solver3.FromFile(tmpFile.Name())
+			fmt.Println("Loaded SMT-LIB2 assertions from file")
+			
+			status3 := solver3.Check()
+			fmt.Println("Status:", status3.String())
+			if status3 == z3.Satisfiable {
+				fmt.Println("Found satisfying assignment")
+			}
 		}
-		os.Remove(tmpFile) // Clean up
+		os.Remove(tmpFile.Name()) // Clean up
 	}
 
 	// Example 4: Parameter configuration
