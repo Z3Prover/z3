@@ -70,7 +70,7 @@ func (f *Fixedpoint) AddRule(rule *Expr, name *Symbol) {
 	if name != nil {
 		namePtr = name.ptr
 	} else {
-		namePtr = 0
+		namePtr = nil
 	}
 	C.Z3_fixedpoint_add_rule(f.ctx.ptr, f.ptr, rule.ptr, namePtr)
 }
@@ -81,7 +81,7 @@ func (f *Fixedpoint) AddFact(pred *FuncDecl, args []int) {
 		C.Z3_fixedpoint_add_fact(f.ctx.ptr, f.ptr, pred.ptr, 0, nil)
 		return
 	}
-	
+
 	cArgs := make([]C.uint, len(args))
 	for i, arg := range args {
 		cArgs[i] = C.uint(arg)
@@ -109,12 +109,12 @@ func (f *Fixedpoint) QueryRelations(relations []*FuncDecl) Status {
 	if len(relations) == 0 {
 		return Unknown
 	}
-	
+
 	cRelations := make([]C.Z3_func_decl, len(relations))
 	for i, rel := range relations {
 		cRelations[i] = rel.ptr
 	}
-	
+
 	result := C.Z3_fixedpoint_query_relations(f.ctx.ptr, f.ptr, C.uint(len(relations)), &cRelations[0])
 	switch result {
 	case C.Z3_L_TRUE:
@@ -132,7 +132,7 @@ func (f *Fixedpoint) UpdateRule(rule *Expr, name *Symbol) {
 	if name != nil {
 		namePtr = name.ptr
 	} else {
-		namePtr = 0
+		namePtr = nil
 	}
 	C.Z3_fixedpoint_update_rule(f.ctx.ptr, f.ptr, rule.ptr, namePtr)
 }
@@ -195,16 +195,6 @@ func (f *Fixedpoint) GetAssertions() *ASTVector {
 	return newASTVector(f.ctx, ptr)
 }
 
-// Push creates a backtracking point
-func (f *Fixedpoint) Push() {
-	C.Z3_fixedpoint_push(f.ctx.ptr, f.ptr)
-}
-
-// Pop backtracks one backtracking point
-func (f *Fixedpoint) Pop() {
-	C.Z3_fixedpoint_pop(f.ctx.ptr, f.ptr)
-}
-
 // SetPredicateRepresentation sets the predicate representation for a given relation
 func (f *Fixedpoint) SetPredicateRepresentation(funcDecl *FuncDecl, kinds []C.Z3_symbol) {
 	if len(kinds) == 0 {
@@ -263,12 +253,12 @@ func (s *Statistics) GetKey(idx int) string {
 
 // IsUint returns true if the statistical data at the given index is unsigned integer
 func (s *Statistics) IsUint(idx int) bool {
-	return C.Z3_stats_is_uint(s.ctx.ptr, s.ptr, C.uint(idx)) != 0
+	return bool(C.Z3_stats_is_uint(s.ctx.ptr, s.ptr, C.uint(idx)))
 }
 
 // IsDouble returns true if the statistical data at the given index is double
 func (s *Statistics) IsDouble(idx int) bool {
-	return C.Z3_stats_is_double(s.ctx.ptr, s.ptr, C.uint(idx)) != 0
+	return bool(C.Z3_stats_is_double(s.ctx.ptr, s.ptr, C.uint(idx)))
 }
 
 // GetUintValue returns the unsigned integer value at the given index
