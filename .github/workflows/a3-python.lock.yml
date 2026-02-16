@@ -23,7 +23,7 @@
 #
 # Analyzes Python code using a3-python tool to identify bugs and issues
 #
-# frontmatter-hash: 78c6f1b8d2b73100b4f2481152d146354737e02d4120064ea9e6bd1978c062c8
+# frontmatter-hash: f888b1dc3ab134d21d4f939aa04437af1351d089f930204b921154a18c887936
 
 name: "A3 Python Code Analysis"
 "on":
@@ -48,7 +48,7 @@ jobs:
       comment_repo: ""
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@58d1d157fbac0f1204798500faefc4f7461ebe28 # v0.45.0
+        uses: github/gh-aw/actions/setup@v0.45.0
         with:
           destination: /opt/gh-aw/actions
       - name: Check workflow file timestamps
@@ -90,7 +90,7 @@ jobs:
       secret_verification_result: ${{ steps.validate-secret.outputs.verification_result }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@58d1d157fbac0f1204798500faefc4f7461ebe28 # v0.45.0
+        uses: github/gh-aw/actions/setup@v0.45.0
         with:
           destination: /opt/gh-aw/actions
       - name: Checkout repository
@@ -101,7 +101,8 @@ jobs:
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
       - name: Checkout Python source files
         run: |-
-          git sparse-checkout add src
+          git sparse-checkout init --cone
+          git sparse-checkout set src
           echo "Python source files checked out from src directory"
 
       - name: Configure Git credentials
@@ -797,7 +798,7 @@ jobs:
       total_count: ${{ steps.missing_tool.outputs.total_count }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@58d1d157fbac0f1204798500faefc4f7461ebe28 # v0.45.0
+        uses: github/gh-aw/actions/setup@v0.45.0
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent output artifact
@@ -890,7 +891,7 @@ jobs:
       success: ${{ steps.parse_results.outputs.success }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@58d1d157fbac0f1204798500faefc4f7461ebe28 # v0.45.0
+        uses: github/gh-aw/actions/setup@v0.45.0
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent artifacts
@@ -1001,7 +1002,7 @@ jobs:
       process_safe_outputs_temporary_id_map: ${{ steps.process_safe_outputs.outputs.temporary_id_map }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@58d1d157fbac0f1204798500faefc4f7461ebe28 # v0.45.0
+        uses: github/gh-aw/actions/setup@v0.45.0
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent output artifact
