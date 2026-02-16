@@ -4,7 +4,7 @@
 # Go bindings use CGO and are typically built using the Go toolchain directly.
 # However, we can set up installation targets here.
 
-if(BUILD_GO_BINDINGS)
+if(Z3_BUILD_GO_BINDINGS)
     message(STATUS "Z3 Go bindings will be installed")
     
     # Install Go source files
@@ -27,26 +27,29 @@ if(BUILD_GO_BINDINGS)
         message(STATUS "Found Go: ${GO_EXECUTABLE}")
         
         # Custom target to build Go bindings
+        set(CGO_LDFLAGS_VALUE "-L${CMAKE_BINARY_DIR} -lz3")
         add_custom_target(go-bindings
             COMMAND ${CMAKE_COMMAND} -E env
                 CGO_CFLAGS=-I${CMAKE_SOURCE_DIR}/src/api
-                CGO_LDFLAGS=-L${CMAKE_BINARY_DIR} -lz3
+                CGO_LDFLAGS=${CGO_LDFLAGS_VALUE}
                 ${GO_EXECUTABLE} build -v
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             COMMENT "Building Go bindings"
             DEPENDS libz3
+            VERBATIM
         )
         
         # Custom target to test Go examples
         add_custom_target(test-go-examples
             COMMAND ${CMAKE_COMMAND} -E env
                 CGO_CFLAGS=-I${CMAKE_SOURCE_DIR}/src/api
-                CGO_LDFLAGS=-L${CMAKE_BINARY_DIR} -lz3
+                CGO_LDFLAGS=${CGO_LDFLAGS_VALUE}
                 LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}
-                PATH=${CMAKE_BINARY_DIR}\;$ENV{PATH}
+                PATH=${CMAKE_BINARY_DIR}$<SEMICOLON>$ENV{PATH}
                 ${GO_EXECUTABLE} run ${CMAKE_SOURCE_DIR}/examples/go/basic_example.go
             COMMENT "Running Go examples"
             DEPENDS libz3
+            VERBATIM
         )
     else()
         message(STATUS "Go not found - Go bindings can be built manually")

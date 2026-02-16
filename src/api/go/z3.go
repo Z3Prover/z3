@@ -341,36 +341,6 @@ func (c *Context) MkXor(lhs, rhs *Expr) *Expr {
 return newExpr(c, C.Z3_mk_xor(c.ptr, lhs.ptr, rhs.ptr))
 }
 
-if len(exprs) == 1 {
-return exprs[0]
-}
-cExprs := make([]C.Z3_ast, len(exprs))
-for i, e := range exprs {
-cExprs[i] = e.ptr
-}
-return newExpr(c, C.Z3_mk_add(c.ptr, C.uint(len(exprs)), &cExprs[0]))
-}
-
-if len(exprs) == 1 {
-return newExpr(c, C.Z3_mk_unary_minus(c.ptr, exprs[0].ptr))
-}
-cExprs := make([]C.Z3_ast, len(exprs))
-for i, e := range exprs {
-cExprs[i] = e.ptr
-}
-return newExpr(c, C.Z3_mk_sub(c.ptr, C.uint(len(exprs)), &cExprs[0]))
-}
-
-if len(exprs) == 1 {
-return exprs[0]
-}
-cExprs := make([]C.Z3_ast, len(exprs))
-for i, e := range exprs {
-cExprs[i] = e.ptr
-}
-return newExpr(c, C.Z3_mk_mul(c.ptr, C.uint(len(exprs)), &cExprs[0]))
-}
-
 // Comparison operations
 
 // MkEq creates an equality.

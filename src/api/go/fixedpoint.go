@@ -195,16 +195,6 @@ func (f *Fixedpoint) GetAssertions() *ASTVector {
 	return newASTVector(f.ctx, ptr)
 }
 
-// Push creates a backtracking point
-func (f *Fixedpoint) Push() {
-	C.Z3_fixedpoint_push(f.ctx.ptr, f.ptr)
-}
-
-// Pop backtracks one backtracking point
-func (f *Fixedpoint) Pop() {
-	C.Z3_fixedpoint_pop(f.ctx.ptr, f.ptr)
-}
-
 // SetPredicateRepresentation sets the predicate representation for a given relation
 func (f *Fixedpoint) SetPredicateRepresentation(funcDecl *FuncDecl, kinds []C.Z3_symbol) {
 	if len(kinds) == 0 {
