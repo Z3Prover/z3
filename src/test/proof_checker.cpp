@@ -53,17 +53,23 @@ void tst_initializer_list_overloads() {
     VERIFY(m.get_fact(p4.get()) == b.get());
     
     // Test mk_transitivity with initializer_list
-    expr_ref c(m), eq_ab(m), eq_bc(m);
+    // Create a simple transitivity chain: a = b, b = c => a = c
+    expr_ref c(m);
     c = m.mk_const(symbol("c"), m.mk_bool_sort());
-    eq_ab = m.mk_eq(a.get(), b.get());
-    eq_bc = m.mk_eq(b.get(), c.get());
     
-    proof_ref pr1(m.mk_reflexivity(eq_ab.get()), m);
-    proof_ref pr2(m.mk_reflexivity(eq_bc.get()), m);
+    // Create rewrite proofs for a = b and b = c
+    proof_ref pr_ab(m.mk_rewrite(a.get(), b.get()), m);
+    proof_ref pr_bc(m.mk_rewrite(b.get(), c.get()), m);
     
     // Test the new initializer_list overload for transitivity
-    proof_ref p5(m.mk_transitivity({ pr1.get(), pr2.get() }), m);
+    // This should create a proof of a = c
+    proof_ref p5(m.mk_transitivity({ pr_ab.get(), pr_bc.get() }), m);
     VERIFY(p5.get() != nullptr);
+    // Verify the result is a proof with the expected fact (a = c)
+    expr* trans_fact = m.get_fact(p5.get());
+    VERIFY(m.is_eq(trans_fact));
+    VERIFY(to_app(trans_fact)->get_arg(0) == a.get());
+    VERIFY(to_app(trans_fact)->get_arg(1) == c.get());
     
     std::cout << "Initializer list overloads test passed!" << std::endl;
 }
