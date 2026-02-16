@@ -2368,6 +2368,12 @@ public:
     proof * mk_transitivity(proof * p1, proof * p2, proof * p3, proof * p4);
     proof * mk_transitivity(unsigned num_proofs, proof * const * proofs);
     proof * mk_transitivity(unsigned num_proofs, proof * const * proofs, expr * n1, expr * n2);
+    proof * mk_transitivity(std::initializer_list<proof*> const& proofs) {
+        return mk_transitivity(proofs.size(), proofs.begin());
+    }
+    proof * mk_transitivity(std::initializer_list<proof*> const& proofs, expr * n1, expr * n2) {
+        return mk_transitivity(proofs.size(), proofs.begin(), n1, n2);
+    }
     proof * mk_monotonicity(func_decl * R, app * f1, app * f2, unsigned num_proofs, proof * const * proofs);
     proof * mk_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs);
     proof * mk_oeq_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs);
@@ -2398,6 +2404,12 @@ public:
     proof * mk_def_axiom(expr * ax);
     proof * mk_unit_resolution(unsigned num_proofs, proof * const * proofs);
     proof * mk_unit_resolution(unsigned num_proofs, proof * const * proofs, expr * new_fact);
+    proof * mk_unit_resolution(std::initializer_list<proof*> const& proofs) {
+        return mk_unit_resolution(proofs.size(), proofs.begin());
+    }
+    proof * mk_unit_resolution(std::initializer_list<proof*> const& proofs, expr * new_fact) {
+        return mk_unit_resolution(proofs.size(), proofs.begin(), new_fact);
+    }
     proof * mk_hypothesis(expr * h);
     proof * mk_lemma(proof * p, expr * lemma);
 
