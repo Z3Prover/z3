@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include "ast/ast.h"
+#include <array>
 
 
 inline sort* get_array_range(sort const * s) {
@@ -229,13 +230,11 @@ public:
     }
 
     app * mk_select(expr* a, expr* i) const {
-        expr* args[2] = { a, i };
-        return mk_select(2, args);
+        return mk_select(std::array<expr*, 2>{a, i}.size(), std::array<expr*, 2>{a, i}.data());
     }
 
     app* mk_select(expr* a, expr* i, expr* j) const {
-        expr* args[3] = { a, i, j };
-        return mk_select(3, args);
+        return mk_select(std::array<expr*, 3>{a, i, j}.size(), std::array<expr*, 3>{a, i, j}.data());
     }
 
     app * mk_select(unsigned num_args, expr * const * args) const {

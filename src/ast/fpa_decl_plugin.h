@@ -23,6 +23,7 @@ Revision History:
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "util/mpf.h"
+#include <array>
 
 enum fpa_sort_kind {
     FLOATING_POINT_SORT,
@@ -322,8 +323,8 @@ public:
     app * mk_sqrt(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FPA_SQRT, arg1, arg2); }
     app * mk_round_to_integral(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FPA_ROUND_TO_INTEGRAL, arg1, arg2); }
     app * mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg4) {
-        expr * args[4] = { arg1, arg2, arg3, arg4 };
-        return m().mk_app(m_fid, OP_FPA_FMA, 4, args);
+        auto args = std::array<expr*, 4>{arg1, arg2, arg3, arg4};
+        return m().mk_app(m_fid, OP_FPA_FMA, args.size(), args.data());
     }
 
     app * mk_float_eq(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FPA_EQ, arg1, arg2); }

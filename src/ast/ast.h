@@ -50,6 +50,7 @@ Revision History:
 #include <variant>
 #include <span>
 #include <initializer_list>
+#include <array>
 
 #define RECYCLE_FREE_AST_INDICES
 
@@ -2217,7 +2218,7 @@ public:
     app * mk_or(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_OR, arg1, arg2); }
     app * mk_and(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_AND, arg1, arg2); }
     app * mk_or(expr * arg1, expr * arg2, expr * arg3) { return mk_app(basic_family_id, OP_OR, arg1, arg2, arg3); }
-    app * mk_or(expr* a, expr* b, expr* c, expr* d) { expr* args[4] = { a, b, c, d }; return mk_app(basic_family_id, OP_OR, 4, args); }
+    app * mk_or(expr* a, expr* b, expr* c, expr* d) { return mk_or(std::span<expr* const>(std::array<expr*, 4>{a, b, c, d})); }
     app * mk_and(expr * arg1, expr * arg2, expr * arg3) { return mk_app(basic_family_id, OP_AND, arg1, arg2, arg3); }
 
     app * mk_and(ref_vector<expr, ast_manager> const& args) { return mk_and(std::span<expr* const>(args.data(), args.size())); }

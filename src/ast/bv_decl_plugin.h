@@ -512,10 +512,10 @@ public:
     app * mk_bv_xor(unsigned num, expr * const * args) { return m_manager.mk_app(get_fid(), OP_BXOR, num, args);  }
     app * mk_bv_xor(std::initializer_list<expr*> args) { return m_manager.mk_app(get_fid(), OP_BXOR, static_cast<unsigned>(args.size()), args.begin());  }
 
-    app * mk_concat(expr * arg1, expr * arg2) { expr * args[2] = { arg1, arg2 }; return mk_concat(2, args); }
-    app * mk_bv_and(expr* x, expr* y) { expr* args[2] = { x, y }; return mk_bv_and(2, args); }
-    app * mk_bv_or(expr* x, expr* y) { expr* args[2] = { x, y }; return mk_bv_or(2, args); }
-    app * mk_bv_xor(expr* x, expr* y) { expr* args[2] = { x, y }; return mk_bv_xor(2, args); }
+    app * mk_concat(expr * arg1, expr * arg2) { return mk_concat({arg1, arg2}); }
+    app * mk_bv_and(expr* x, expr* y) { return mk_bv_and({x, y}); }
+    app * mk_bv_or(expr* x, expr* y) { return mk_bv_or({x, y}); }
+    app * mk_bv_xor(expr* x, expr* y) { return mk_bv_xor({x, y}); }
 
     app * mk_bv_not(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNOT, arg); }
     app * mk_bv_neg(expr * arg) { return m_manager.mk_app(get_fid(), OP_BNEG, arg); }
