@@ -1,7 +1,7 @@
 API documentation
 -----------------
 
-To generate the API documentation for the C, C++, .NET, Java and Python APIs, we must execute
+To generate the API documentation for the C, C++, .NET, Java, Python, and Go APIs, we must execute
 
    python mk_api_doc.py
 
@@ -9,6 +9,12 @@ We must have doxygen installed in our system.
 
 The documentation will be stored in the subdirectory './api/html'.
 The main file is './api/html/index.html'
+
+To include Go API documentation, use:
+
+   python mk_api_doc.py --go
+
+Note: Go documentation requires Go to be installed (for godoc support).
 
 Code documentation
 ------------------

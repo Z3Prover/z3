@@ -355,4 +355,16 @@ if (Z3_BUILD_JULIA_BINDINGS)
   add_subdirectory(api/julia)
 endif()
 
+################################################################################
+# Go bindings
+################################################################################
+option(Z3_BUILD_GO_BINDINGS "Build Go bindings for Z3" OFF)
+if (Z3_BUILD_GO_BINDINGS)
+  if (NOT Z3_BUILD_LIBZ3_SHARED)
+    message(FATAL_ERROR "The Go bindings will not work with a static libz3. "
+      "You either need to disable Z3_BUILD_GO_BINDINGS or enable Z3_BUILD_LIBZ3_SHARED")
+  endif()
+  add_subdirectory(api/go)
+endif()
+
 # TODO: Implement support for other bindigns
