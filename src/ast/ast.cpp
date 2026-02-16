@@ -2586,6 +2586,15 @@ quantifier * ast_manager::update_quantifier(quantifier * q, quantifier_kind k, u
                          num_patterns == 0 ? q->get_no_patterns() : nullptr);
 }
 
+quantifier * ast_manager::update_quantifier(quantifier * q, std::initializer_list<expr*> patterns, expr * body) {
+    return update_quantifier(q, static_cast<unsigned>(patterns.size()), patterns.begin(), body);
+}
+
+quantifier * ast_manager::update_quantifier(quantifier * q, std::initializer_list<expr*> patterns, std::initializer_list<expr*> no_patterns, expr * body) {
+    return update_quantifier(q, static_cast<unsigned>(patterns.size()), patterns.begin(), 
+                           static_cast<unsigned>(no_patterns.size()), no_patterns.begin(), body);
+}
+
 app * ast_manager::mk_distinct(unsigned num_args, expr * const * args) {
     return mk_app(basic_family_id, OP_DISTINCT, num_args, args);
 }
