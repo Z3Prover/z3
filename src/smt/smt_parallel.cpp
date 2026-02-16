@@ -117,7 +117,7 @@ namespace smt {
         };
 
         while (m.inc()) {
-            if (!b.wait_for_backbone_job(m_g2l, bb_candidates, m.limit()))
+            if (!b.wait_for_backbone_job(id, m_g2l, bb_candidates, m.limit()))
                 return;
 
             if (bb_candidates.empty())
@@ -469,11 +469,11 @@ namespace smt {
         m_sls = alloc(sls::smt_solver, m, m_params);
     }
 
-    parallel::backbones_worker::backbones_worker(parallel &p, expr_ref_vector const &_asms)
-        : b(p.m_batch_manager), m(), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m), m_l2g(m, p.ctx.m) {
+    parallel::backbones_worker::backbones_worker(unsigned id, parallel &p, expr_ref_vector const &_asms)
+        : id(id), b(p.m_batch_manager), m(), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m), m_l2g(m, p.ctx.m) {
         for (auto e : _asms)
             asms.push_back(m_g2l(e));
-        IF_VERBOSE(1, verbose_stream() << "Initialized backbones thread\n");
+        IF_VERBOSE(1, verbose_stream() << "Initialized backbones thread " << id << "\n");
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         ctx->set_logic(p.ctx.m_setup.get_logic());
         ctx->get_fparams().m_max_conflicts = m_bb_conflicts_per_chunk;
@@ -844,14 +844,17 @@ namespace smt {
             m_bb_cv.notify_one();
     }
 
-    bool parallel::batch_manager::wait_for_backbone_job(ast_translation& g2l, svector<smt::parallel::bb_candidate>& out, reslimit& lim) {
+    bool parallel::batch_manager::wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, svector<smt::parallel::bb_candidate>& out, reslimit& lim) {
         out.reset();
         std::unique_lock<std::mutex> lock(mux);
 
+        // ---- WAIT UNTIL:
+        // new batch available OR we haven't seen current batch
         m_bb_cv.wait(lock, [&]() {
             return m_bb_stop ||
                 lim.is_canceled() ||
                 m_state != state::is_running ||
+                m_bb_last_batch_processed[bb_thread_id] < m_bb_batch_id ||
                 !m_bb_candidates.empty();
         });
 
@@ -861,18 +864,37 @@ namespace smt {
         if (m_bb_stop || m_state != state::is_running)
             return false;
 
-        if (m_bb_candidates.empty())
-            return true; // spurious wakeup
+        // ---- NEED NEW BATCH? ----
+        if (m_bb_last_batch_processed[bb_thread_id] == m_bb_batch_id) {
 
-        unsigned n = std::min<unsigned>(m_bb_batch_size, m_bb_candidates.size());
-        for (unsigned i = 0; i < n; ++i) {
-            out.push_back(m_bb_candidates.back());
-            m_bb_candidates.pop_back();
+            if (m_bb_candidates.empty())
+                return true; // spurious wakeup
+
+            // pop new batch once
+            unsigned n = std::min<unsigned>(m_bb_batch_size, m_bb_candidates.size());
+
+            m_bb_current_batch.reset();
+            for (unsigned i = 0; i < n; ++i) {
+                m_bb_current_batch.push_back(m_bb_candidates.back());
+                m_bb_candidates.pop_back();
+            }
+
+            m_bb_batch_id++;
+
+            // wake all threads to see new batch
+            m_bb_cv.notify_all();
         }
+
+        // ---- COPY CURRENT BATCH ----
+        for (auto& c : m_bb_current_batch)
+            out.push_back(c);
+
         for (auto& c : out) {
             expr_ref l_lit(g2l(c.lit.get()), g2l.to());
             c.lit = l_lit;
         }
+
+        m_bb_last_batch_processed[bb_thread_id] = m_bb_batch_id;
 
         return true;
     }
@@ -1061,6 +1083,7 @@ namespace smt {
             ~scoped_clear() {
                 p.m_workers.reset();
                 p.m_sls_worker = nullptr;
+                p.m_global_backbones_workers.reset();
             }
         };
         scoped_clear clear(*this);
@@ -1084,13 +1107,18 @@ namespace smt {
             sl.push_child(&(m_sls_worker->limit()));
         }
         if (m_should_run_global_backbones) {
-            m_global_backbones_worker = alloc(backbones_worker, *this, asms);
-            sl.push_child(&(m_global_backbones_worker->limit()));
+            unsigned num_bb_threads = 2;
+            for (unsigned i = 0; i < num_bb_threads; ++i) {
+                auto *w = alloc(backbones_worker, i, *this, asms);
+                m_global_backbones_workers.push_back(w);
+                sl.push_child(&(w->limit()));
+            }
+            m_batch_manager.set_num_backbone_threads(num_bb_threads);
         }
 
         // Launch threads
         vector<std::thread> threads;
-        unsigned total_threads = num_workers + (m_should_run_sls ? 1 : 0) + (m_should_run_global_backbones ? 1 : 0);
+        unsigned total_threads = num_workers + (m_should_run_sls ? 1 : 0) + (m_should_run_global_backbones ? m_global_backbones_workers.size() : 0);
         threads.resize(total_threads);
         unsigned thread_idx = 0;
         for (unsigned i = 0; i < num_workers; ++i) {
@@ -1099,8 +1127,11 @@ namespace smt {
         
         if (m_should_run_sls)
             threads[thread_idx++] = std::thread([&]() { m_sls_worker->run(); });
-        if (m_should_run_global_backbones)
-            threads[thread_idx++] = std::thread([&]() { m_global_backbones_worker->run(); });
+        if (m_should_run_global_backbones) {
+            for (auto* w : m_global_backbones_workers) {
+                threads[thread_idx++] = std::thread([&, w]() { w->run(); });
+            }
+        }
 
         // Wait for all threads to finish
         for (auto &th : threads)
@@ -1112,7 +1143,8 @@ namespace smt {
         if (m_should_run_sls)
             m_sls_worker->collect_statistics(ctx.m_aux_stats);
         if (m_should_run_global_backbones)
-            m_global_backbones_worker->collect_statistics(ctx.m_aux_stats);
+            for (auto* bb_w : m_global_backbones_workers)
+                bb_w->collect_statistics(ctx.m_aux_stats);
 
         return m_batch_manager.get_result();
     }

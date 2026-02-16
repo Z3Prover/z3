@@ -89,7 +89,10 @@ namespace smt {
             // Backbone job queue
             std::condition_variable m_bb_cv;
             bool m_bb_stop = false;
-            svector<bb_candidate> m_bb_pending;   // all candidates waiting to be checked
+            svector<bb_candidate> m_bb_current_batch;
+            unsigned m_bb_batch_id = 0;
+            unsigned m_num_bb_threads = 0;
+            svector<unsigned> m_bb_last_batch_processed;
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
@@ -104,8 +107,9 @@ namespace smt {
             }
 
             void cancel_backbones_worker() {
-                IF_VERBOSE(1, verbose_stream() << "Canceling backbones worker\n");
-                p.m_global_backbones_worker->cancel();
+                IF_VERBOSE(1, verbose_stream() << "Canceling backbones workers\n");
+                for (auto* w : p.m_global_backbones_workers)
+                    w->cancel();
             }
 
             void cancel_background_threads() {
@@ -132,7 +136,7 @@ namespace smt {
 
             void collect_backbone_candidates(ast_translation& l2g, svector<bb_candidate>& bb_candidates);
             void collect_global_backbone(ast_translation& l2g, expr_ref const& backbone);
-            bool wait_for_backbone_job(ast_translation& g2l, svector<smt::parallel::bb_candidate>& out, reslimit& lim);
+            bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, svector<parallel::bb_candidate>& out, reslimit& lim);
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
@@ -149,6 +153,12 @@ namespace smt {
                         return true;
                 }
                 return false;
+            }
+
+            void set_num_backbone_threads(unsigned n) {
+                m_num_bb_threads = n;
+                m_bb_last_batch_processed.reset();
+                m_bb_last_batch_processed.resize(n);
             }
         };
 
@@ -233,6 +243,7 @@ namespace smt {
         };
 
         class backbones_worker {
+            unsigned id; // unique identifier for the worker
             batch_manager& b;
             ast_manager m;
             expr_ref_vector asms;
@@ -254,7 +265,7 @@ namespace smt {
             mutable unsigned m_stats_lits_removed_by_core = 0;
 
             public:
-                backbones_worker(parallel &p, expr_ref_vector const &_asms);
+                backbones_worker(unsigned id, parallel &p, expr_ref_vector const &_asms);
                 void cancel();
                 bool check_backbone(expr_ref const& bb_candidate);
                 expr_ref_vector check_backbone_batch(svector<bb_candidate> const& candidates);
@@ -269,7 +280,7 @@ namespace smt {
         batch_manager m_batch_manager;
         scoped_ptr_vector<worker> m_workers;
         scoped_ptr<sls_worker> m_sls_worker;
-        scoped_ptr<backbones_worker> m_global_backbones_worker;
+        vector<backbones_worker*> m_global_backbones_workers;
 
     public:
         parallel(context& ctx) : 
