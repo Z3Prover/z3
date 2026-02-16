@@ -1333,6 +1333,7 @@ namespace smt {
         }
         else {
             pr = get_proof(consequent, conflict);
+            SASSERT(m_lit2proof[not_l] && pr);
             pr = m.mk_unit_resolution({ m_lit2proof[not_l], pr });
         }
         expr_ref_buffer lits(m);
