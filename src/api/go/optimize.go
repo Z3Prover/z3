@@ -128,6 +128,10 @@ func (o *Optimize) GetUpper(index uint) *Expr {
 // otherwise it's represented as value + eps * EPSILON.
 func (o *Optimize) GetLowerAsVector(index uint) []*Expr {
 	vec := C.Z3_optimize_get_lower_as_vector(o.ctx.ptr, o.ptr, C.uint(index))
+	// Increment reference count for the vector since we're using it
+	C.Z3_ast_vector_inc_ref(o.ctx.ptr, vec)
+	defer C.Z3_ast_vector_dec_ref(o.ctx.ptr, vec)
+	
 	size := uint(C.Z3_ast_vector_size(o.ctx.ptr, vec))
 	if size != 3 {
 		return nil
@@ -144,6 +148,10 @@ func (o *Optimize) GetLowerAsVector(index uint) []*Expr {
 // otherwise it's represented as value + eps * EPSILON.
 func (o *Optimize) GetUpperAsVector(index uint) []*Expr {
 	vec := C.Z3_optimize_get_upper_as_vector(o.ctx.ptr, o.ptr, C.uint(index))
+	// Increment reference count for the vector since we're using it
+	C.Z3_ast_vector_inc_ref(o.ctx.ptr, vec)
+	defer C.Z3_ast_vector_dec_ref(o.ctx.ptr, vec)
+	
 	size := uint(C.Z3_ast_vector_size(o.ctx.ptr, vec))
 	if size != 3 {
 		return nil
@@ -173,34 +181,19 @@ func (o *Optimize) SetParams(params *Params) {
 // Assertions returns the assertions in the optimizer.
 func (o *Optimize) Assertions() []*Expr {
 	vec := C.Z3_optimize_get_assertions(o.ctx.ptr, o.ptr)
-	size := uint(C.Z3_ast_vector_size(o.ctx.ptr, vec))
-	result := make([]*Expr, size)
-	for i := uint(0); i < size; i++ {
-		result[i] = newExpr(o.ctx, C.Z3_ast_vector_get(o.ctx.ptr, vec, C.uint(i)))
-	}
-	return result
+	return astVectorToExprs(o.ctx, vec)
 }
 
 // Objectives returns the objectives in the optimizer.
 func (o *Optimize) Objectives() []*Expr {
 	vec := C.Z3_optimize_get_objectives(o.ctx.ptr, o.ptr)
-	size := uint(C.Z3_ast_vector_size(o.ctx.ptr, vec))
-	result := make([]*Expr, size)
-	for i := uint(0); i < size; i++ {
-		result[i] = newExpr(o.ctx, C.Z3_ast_vector_get(o.ctx.ptr, vec, C.uint(i)))
-	}
-	return result
+	return astVectorToExprs(o.ctx, vec)
 }
 
 // UnsatCore returns the unsat core if the constraints are unsatisfiable.
 func (o *Optimize) UnsatCore() []*Expr {
 	vec := C.Z3_optimize_get_unsat_core(o.ctx.ptr, o.ptr)
-	size := uint(C.Z3_ast_vector_size(o.ctx.ptr, vec))
-	result := make([]*Expr, size)
-	for i := uint(0); i < size; i++ {
-		result[i] = newExpr(o.ctx, C.Z3_ast_vector_get(o.ctx.ptr, vec, C.uint(i)))
-	}
-	return result
+	return astVectorToExprs(o.ctx, vec)
 }
 
 // FromFile parses an SMT-LIB2 file with optimization objectives and constraints.
