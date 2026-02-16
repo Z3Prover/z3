@@ -53,7 +53,7 @@ func main() {
 	fmt.Println("\nExample 3: FromFile() - Load SMT-LIB2 from file")
 	
 	// Create a temporary SMT-LIB2 file
-	tmpFile, err := os.CreateTemp("", "test-*.smt2")
+	tempFile, err := os.CreateTemp("", "test-*.smt2")
 	if err != nil {
 		fmt.Println("Error creating temp file:", err)
 	} else {
@@ -62,14 +62,14 @@ func main() {
 (assert (or p q))
 (assert (or (not p) (not q)))`
 		
-		_, err = tmpFile.WriteString(content)
-		tmpFile.Close()
+		_, err = tempFile.WriteString(content)
+		tempFile.Close()
 		
 		if err != nil {
 			fmt.Println("Error writing temp file:", err)
 		} else {
 			solver3 := ctx.NewSolver()
-			solver3.FromFile(tmpFile.Name())
+			solver3.FromFile(tempFile.Name())
 			fmt.Println("Loaded SMT-LIB2 assertions from file")
 			
 			status3 := solver3.Check()
@@ -78,7 +78,7 @@ func main() {
 				fmt.Println("Found satisfying assignment")
 			}
 		}
-		os.Remove(tmpFile.Name()) // Clean up
+		os.Remove(tempFile.Name()) // Clean up
 	}
 
 	// Example 4: Parameter configuration
