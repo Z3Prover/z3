@@ -133,9 +133,11 @@ namespace smt {
                 bb_candidate_lits.push_back(c.lit);
 
             unsigned base_sz = asms.size();
+            unsigned chunk_delta = 1;
 
             while (!bb_candidate_lits.empty()) {
-                unsigned chunk_size = std::min(m_bb_chunk_size, bb_candidate_lits.size());
+                unsigned chunk_size = std::min(m_bb_chunk_size * chunk_delta, bb_candidate_lits.size());
+
                 expr_ref_vector chunk_lits(m);
                 expr_ref_vector negated_chunk_lits(m);
 
@@ -165,7 +167,16 @@ namespace smt {
                     asms.shrink(base_sz);
 
                     if (r == l_undef) {
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned UNDEF, fallback to individual checks\n");
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: UNDEF at chunk_size=" << chunk_size << "\n");
+
+                        if (chunk_size < bb_candidate_lits.size()) {
+                            chunk_delta++; // try again with a bigger chunk
+                            m_stats_num_chunk_increases++;
+                            break;
+                        }
+
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: UNDEF and max chunk → fallback\n");
+
                         fallback_singletons(chunk_lits, bb_candidate_lits);
                         m_stats_fallback_reason_undef++;
                         break;
@@ -292,6 +303,7 @@ namespace smt {
         st.update("bb-fallback-chunk-exhausted", m_stats_fallback_reason_chunk_exhausted);
         st.update("bb-fallback-undef", m_stats_fallback_reason_undef);
         st.update("bb-literals-removed-by-core", m_stats_lits_removed_by_core);
+        st.update("bb-num-chunk-increases", m_stats_num_chunk_increases);
 
         double backbone_yield = 0.0;
         if (m_stats_candidates_total > 0)
