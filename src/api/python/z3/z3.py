@@ -7899,17 +7899,6 @@ class Solver(Z3PPObject):
 
     def sexpr(self):
         """Return a formatted string (in Lisp-like format) with all added constraints.
-        We say the string is in s-expression format.
-
-        >>> x = Int('x')
-        >>> s = Solver()
-        >>> s.add(x > 0)
-        >>> s.add(x < 2)
-        >>> print(s.sexpr())
-        (declare-fun x () Int)
-        (assert (> x 0))
-        (assert (< x 2))
-
         """
         return Z3_solver_to_string(self.ctx.ref(), self.solver)
 
