@@ -8,7 +8,7 @@ permissions:
   issues: read
   pull-requests: read
 network:
-  allowed: [default, python]
+  allowed: [defaults, python]
 safe-outputs:
   create-issue:
     labels:
@@ -24,8 +24,7 @@ tracker-id: a3-python-analysis
 steps:
   - name: Checkout Python source files
     run: |
-      git sparse-checkout init --cone
-      git sparse-checkout set src
+      git sparse-checkout add src
       echo "Python source files checked out from src directory"
 ---
 
@@ -36,6 +35,7 @@ You are an expert Python code analyst using the a3-python tool to identify bugs 
 ## Current Context
 
 - **Repository**: ${{ github.repository }}
+- **Analysis Date**: $(date +%Y-%m-%d)
 - **Workspace**: ${{ github.workspace }}
 
 ## Phase 1: Install and Setup a3-python
