@@ -423,6 +423,7 @@ The following useful options can be passed to CMake whilst configuring.
 * ``Z3_INSTALL_JAVA_BINDINGS`` - BOOL. If set to ``TRUE`` and ``Z3_BUILD_JAVA_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's Java bindings.
 * ``Z3_JAVA_JAR_INSTALLDIR`` - STRING. The path to directory to install the Z3 Java ``.jar`` file. This path should be relative to ``CMAKE_INSTALL_PREFIX``.
 * ``Z3_JAVA_JNI_LIB_INSTALLDIRR`` - STRING. The path to directory to install the Z3 Java JNI bridge library. This path should be relative to ``CMAKE_INSTALL_PREFIX``.
+* ``Z3_BUILD_GO_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's Go bindings will be built. Requires Go 1.20+ and ``Z3_BUILD_LIBZ3_SHARED=ON``.
 * ``Z3_BUILD_OCAML_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's OCaml bindings will be built.
 * ``Z3_BUILD_JULIA_BINDINGS`` - BOOL. If set to ``TRUE`` then Z3's Julia bindings will be built.
 * ``Z3_INSTALL_JULIA_BINDINGS`` - BOOL. If set to ``TRUE`` and ``Z3_BUILD_JULIA_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's Julia bindings.
@@ -522,6 +523,41 @@ Note that the built ``.jar`` file is named ``com.microsoft.z3-VERSION.jar``
 where ``VERSION`` is the Z3 version. Under non Windows systems a
 symbolic link named ``com.microsoft.z3.jar`` is provided. This symbolic
 link is not created when building under Windows.
+
+### Go bindings
+
+Go bindings can be built by setting ``Z3_BUILD_GO_BINDINGS=ON``. The Go bindings use CGO to wrap
+the Z3 C API, so you'll need:
+
+* Go 1.20 or later installed on your system
+* ``Z3_BUILD_LIBZ3_SHARED=ON`` (Go bindings require the shared library)
+
+Example:
+
+```
+mkdir build
+cd build
+cmake -DZ3_BUILD_GO_BINDINGS=ON -DZ3_BUILD_LIBZ3_SHARED=ON ../
+make
+```
+
+If CMake detects a Go installation (via ``go`` executable in PATH), it will create two optional targets:
+
+* ``go-bindings`` - Builds the Go bindings
+* ``test-go-examples`` - Runs the Go examples
+
+Note that the Go bindings are installed as source files (not compiled) since Go packages are
+typically distributed as source and compiled by the user's Go toolchain.
+
+To use the installed Go bindings, set the appropriate CGO flags:
+
+```
+export CGO_CFLAGS="-I/path/to/z3/include"
+export CGO_LDFLAGS="-L/path/to/z3/lib -lz3"
+export LD_LIBRARY_PATH="/path/to/z3/lib:$LD_LIBRARY_PATH"  # Linux/macOS
+```
+
+For detailed usage examples and API documentation, see ``src/api/go/README.md`` and ``examples/go/``.
 
 ## Developer/packager notes
 

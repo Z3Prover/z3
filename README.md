@@ -195,6 +195,14 @@ For IDE setup instructions (Eclipse, IntelliJ IDEA, Visual Studio Code) and trou
 
 See [``examples/java``](examples/java) for examples.
 
+### ``Go``
+
+Use the ``--go`` command line flag with ``mk_make.py`` to enable building these. Note that Go bindings use CGO and require a Go toolchain (Go 1.20 or later) to build.
+
+With CMake, use the ``-DZ3_BUILD_GO_BINDINGS=ON`` option.
+
+See [``examples/go``](examples/go) for examples and [``src/api/go/README.md``](src/api/go/README.md) for complete API documentation.
+
 ### ``OCaml``
 
 Use the ``--ml`` command line flag with ``mk_make.py`` to enable building these.
