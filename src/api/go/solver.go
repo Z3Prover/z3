@@ -135,23 +135,13 @@ func (s *Solver) NumScopes() uint {
 // Assertions returns the assertions in the solver.
 func (s *Solver) Assertions() []*Expr {
 	vec := C.Z3_solver_get_assertions(s.ctx.ptr, s.ptr)
-	size := uint(C.Z3_ast_vector_size(s.ctx.ptr, vec))
-	result := make([]*Expr, size)
-	for i := uint(0); i < size; i++ {
-		result[i] = newExpr(s.ctx, C.Z3_ast_vector_get(s.ctx.ptr, vec, C.uint(i)))
-	}
-	return result
+	return astVectorToExprs(s.ctx, vec)
 }
 
 // UnsatCore returns the unsat core if the constraints are unsatisfiable.
 func (s *Solver) UnsatCore() []*Expr {
 	vec := C.Z3_solver_get_unsat_core(s.ctx.ptr, s.ptr)
-	size := uint(C.Z3_ast_vector_size(s.ctx.ptr, vec))
-	result := make([]*Expr, size)
-	for i := uint(0); i < size; i++ {
-		result[i] = newExpr(s.ctx, C.Z3_ast_vector_get(s.ctx.ptr, vec, C.uint(i)))
-	}
-	return result
+	return astVectorToExprs(s.ctx, vec)
 }
 
 // ReasonUnknown returns the reason why the result is unknown.

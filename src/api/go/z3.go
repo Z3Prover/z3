@@ -787,3 +787,20 @@ boundPtr = &cBound[0]
 ptr := C.Z3_mk_lambda_const(c.ptr, C.uint(numBound), boundPtr, body.ptr)
 return newLambda(c, ptr)
 }
+
+// astVectorToExprs converts a Z3_ast_vector to a slice of Expr.
+// This function properly manages the reference count of the vector by
+// incrementing it on entry and decrementing it on exit.
+// The individual AST elements are already reference counted by newExpr.
+func astVectorToExprs(ctx *Context, vec C.Z3_ast_vector) []*Expr {
+// Increment reference count for the vector since we're using it
+C.Z3_ast_vector_inc_ref(ctx.ptr, vec)
+defer C.Z3_ast_vector_dec_ref(ctx.ptr, vec)
+
+size := uint(C.Z3_ast_vector_size(ctx.ptr, vec))
+result := make([]*Expr, size)
+for i := uint(0); i < size; i++ {
+result[i] = newExpr(ctx, C.Z3_ast_vector_get(ctx.ptr, vec, C.uint(i)))
+}
+return result
+}
