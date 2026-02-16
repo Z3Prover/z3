@@ -46,7 +46,8 @@ if(Z3_BUILD_GO_BINDINGS)
                 CGO_LDFLAGS=${CGO_LDFLAGS_VALUE}
                 LD_LIBRARY_PATH=${CMAKE_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}
                 PATH=${CMAKE_BINARY_DIR}$<SEMICOLON>$ENV{PATH}
-                ${GO_EXECUTABLE} run ${CMAKE_SOURCE_DIR}/examples/go/basic_example.go
+                ${GO_EXECUTABLE} run basic_example.go
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/examples/go
             COMMENT "Running Go examples"
             DEPENDS libz3
             VERBATIM

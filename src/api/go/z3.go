@@ -119,6 +119,11 @@ ctx *Context
 ptr C.Z3_symbol
 }
 
+// newSymbol creates a new Symbol.
+func newSymbol(ctx *Context, ptr C.Z3_symbol) *Symbol {
+	return &Symbol{ctx: ctx, ptr: ptr}
+}
+
 // MkIntSymbol creates an integer symbol.
 func (c *Context) MkIntSymbol(i int) *Symbol {
 return &Symbol{
@@ -251,6 +256,55 @@ return bool(C.Z3_is_eq_ast(e.ctx.ptr, e.ptr, other.ptr))
 // GetSort returns the sort of the expression.
 func (e *Expr) GetSort() *Sort {
 return newSort(e.ctx, C.Z3_get_sort(e.ctx.ptr, e.ptr))
+}
+
+// Pattern represents a Z3 pattern for quantifier instantiation.
+type Pattern struct {
+	ctx *Context
+	ptr C.Z3_pattern
+}
+
+// newPattern creates a new Pattern and manages its reference count.
+func newPattern(ctx *Context, ptr C.Z3_pattern) *Pattern {
+	p := &Pattern{ctx: ctx, ptr: ptr}
+	// Patterns are ASTs in the C API
+	C.Z3_inc_ref(ctx.ptr, (C.Z3_ast)(unsafe.Pointer(ptr)))
+	runtime.SetFinalizer(p, func(pat *Pattern) {
+		C.Z3_dec_ref(pat.ctx.ptr, (C.Z3_ast)(unsafe.Pointer(pat.ptr)))
+	})
+	return p
+}
+
+// ASTVector represents a vector of Z3 ASTs.
+type ASTVector struct {
+	ctx *Context
+	ptr C.Z3_ast_vector
+}
+
+// newASTVector creates a new ASTVector and manages its reference count.
+func newASTVector(ctx *Context, ptr C.Z3_ast_vector) *ASTVector {
+	v := &ASTVector{ctx: ctx, ptr: ptr}
+	C.Z3_ast_vector_inc_ref(ctx.ptr, ptr)
+	runtime.SetFinalizer(v, func(vec *ASTVector) {
+		C.Z3_ast_vector_dec_ref(vec.ctx.ptr, vec.ptr)
+	})
+	return v
+}
+
+// ParamDescrs represents parameter descriptions for Z3 objects.
+type ParamDescrs struct {
+	ctx *Context
+	ptr C.Z3_param_descrs
+}
+
+// newParamDescrs creates a new ParamDescrs and manages its reference count.
+func newParamDescrs(ctx *Context, ptr C.Z3_param_descrs) *ParamDescrs {
+	pd := &ParamDescrs{ctx: ctx, ptr: ptr}
+	C.Z3_param_descrs_inc_ref(ctx.ptr, ptr)
+	runtime.SetFinalizer(pd, func(descrs *ParamDescrs) {
+		C.Z3_param_descrs_dec_ref(descrs.ctx.ptr, descrs.ptr)
+	})
+	return pd
 }
 
 // MkTrue creates the Boolean constant true.
@@ -434,28 +488,30 @@ return newExpr(c, C.Z3_mk_app(c.ptr, decl.ptr, C.uint(len(args)), argsPtr))
 
 // MkForall creates a universal quantifier.
 func (c *Context) MkForall(bound []*Expr, body *Expr) *Expr {
-cBound := make([]C.Z3_ast, len(bound))
-for i, b := range bound {
-cBound[i] = b.ptr
-}
-var boundPtr *C.Z3_ast
-if len(bound) > 0 {
-boundPtr = &cBound[0]
-}
-return newExpr(c, C.Z3_mk_forall_const(c.ptr, 0, C.uint(len(bound)), boundPtr, 0, nil, body.ptr))
+	cBound := make([]C.Z3_app, len(bound))
+	for i, b := range bound {
+		// Z3_app is a subtype of Z3_ast; constants are apps
+		cBound[i] = (C.Z3_app)(unsafe.Pointer(b.ptr))
+	}
+	var boundPtr *C.Z3_app
+	if len(bound) > 0 {
+		boundPtr = &cBound[0]
+	}
+	return newExpr(c, C.Z3_mk_forall_const(c.ptr, 0, C.uint(len(bound)), boundPtr, 0, nil, body.ptr))
 }
 
 // MkExists creates an existential quantifier.
 func (c *Context) MkExists(bound []*Expr, body *Expr) *Expr {
-cBound := make([]C.Z3_ast, len(bound))
-for i, b := range bound {
-cBound[i] = b.ptr
-}
-var boundPtr *C.Z3_ast
-if len(bound) > 0 {
-boundPtr = &cBound[0]
-}
-return newExpr(c, C.Z3_mk_exists_const(c.ptr, 0, C.uint(len(bound)), boundPtr, 0, nil, body.ptr))
+	cBound := make([]C.Z3_app, len(bound))
+	for i, b := range bound {
+		// Z3_app is a subtype of Z3_ast; constants are apps
+		cBound[i] = (C.Z3_app)(unsafe.Pointer(b.ptr))
+	}
+	var boundPtr *C.Z3_app
+	if len(bound) > 0 {
+		boundPtr = &cBound[0]
+	}
+	return newExpr(c, C.Z3_mk_exists_const(c.ptr, 0, C.uint(len(bound)), boundPtr, 0, nil, body.ptr))
 }
 
 // Simplify simplifies an expression.
@@ -491,12 +547,12 @@ return newExpr(q.ctx, q.ptr)
 
 // IsUniversal returns true if this is a universal quantifier (forall)
 func (q *Quantifier) IsUniversal() bool {
-return C.Z3_is_quantifier_forall(q.ctx.ptr, q.ptr) != 0
+return bool(C.Z3_is_quantifier_forall(q.ctx.ptr, q.ptr)) 
 }
 
 // IsExistential returns true if this is an existential quantifier (exists)
 func (q *Quantifier) IsExistential() bool {
-return C.Z3_is_quantifier_exists(q.ctx.ptr, q.ptr) != 0
+return bool(C.Z3_is_quantifier_exists(q.ctx.ptr, q.ptr)) 
 }
 
 // GetWeight returns the weight of the quantifier
@@ -523,7 +579,7 @@ return int(C.Z3_get_quantifier_num_no_patterns(q.ctx.ptr, q.ptr))
 // GetNoPattern returns the no-pattern at the given index
 func (q *Quantifier) GetNoPattern(idx int) *Pattern {
 ptr := C.Z3_get_quantifier_no_pattern_ast(q.ctx.ptr, q.ptr, C.uint(idx))
-return newPattern(q.ctx, ptr)
+return newPattern(q.ctx, (C.Z3_pattern)(unsafe.Pointer(ptr)))
 }
 
 // GetNumBound returns the number of bound variables
@@ -556,11 +612,11 @@ return q.AsExpr().String()
 
 // MkQuantifier creates a quantifier with patterns
 func (c *Context) MkQuantifier(isForall bool, weight int, sorts []*Sort, names []*Symbol, body *Expr, patterns []*Pattern) *Quantifier {
-var forallInt C.int
+var forallInt C.bool
 if isForall {
-forallInt = 1
+forallInt = true
 } else {
-forallInt = 0
+forallInt = false
 }
 
 numBound := len(sorts)
@@ -604,11 +660,11 @@ return newQuantifier(c, ptr)
 
 // MkQuantifierConst creates a quantifier using constant bound variables
 func (c *Context) MkQuantifierConst(isForall bool, weight int, bound []*Expr, body *Expr, patterns []*Pattern) *Quantifier {
-var forallInt C.int
+var forallInt C.bool
 if isForall {
-forallInt = 1
+forallInt = true
 } else {
-forallInt = 0
+forallInt = false
 }
 
 numBound := len(bound)
@@ -617,7 +673,7 @@ var boundPtr *C.Z3_app
 if numBound > 0 {
 cBound = make([]C.Z3_app, numBound)
 for i := 0; i < numBound; i++ {
-cBound[i] = C.Z3_app(bound[i].ptr)
+cBound[i] = (C.Z3_app)(unsafe.Pointer(bound[i].ptr))
 }
 boundPtr = &cBound[0]
 }
@@ -723,7 +779,7 @@ var boundPtr *C.Z3_app
 if numBound > 0 {
 cBound = make([]C.Z3_app, numBound)
 for i := 0; i < numBound; i++ {
-cBound[i] = C.Z3_app(bound[i].ptr)
+cBound[i] = (C.Z3_app)(unsafe.Pointer(bound[i].ptr))
 }
 boundPtr = &cBound[0]
 }

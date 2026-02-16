@@ -82,7 +82,6 @@ func main() {
 	fmt.Println("\nExample 4: Checking unsatisfiability")
 	solver.Reset()
 	a := ctx.MkIntConst("a")
-	one := ctx.MkInt(1, ctx.MkIntSort())
 	
 	// a > 0 ∧ a < 0 (unsatisfiable)
 	solver.Assert(ctx.MkGt(a, zero))

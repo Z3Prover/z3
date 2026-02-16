@@ -7,7 +7,6 @@ package z3
 import "C"
 import (
 	"runtime"
-	"unsafe"
 )
 
 // Status represents the result of a satisfiability check.
