@@ -89,7 +89,7 @@ func main() {
 	solver.Reset()
 	
 	intSort := ctx.MkIntSort()
-	listSort, nilDecl, consDecl, isNilDecl, isConsDecl, headDecl, tailDecl := 
+	listSort, nilDecl, consDecl, _, _, headDecl, _ := 
 		ctx.MkListSort("IntList", intSort)
 	
 	// Create list: cons(1, cons(2, nil))
@@ -136,14 +136,12 @@ func main() {
 	fmt.Println("\nExample 6: Enumeration types")
 	solver.Reset()
 	
-	colorSort, colorConsts, colorTesters := ctx.MkEnumSort(
+	colorSort, colorConsts, _ := ctx.MkEnumSort(
 		"Color",
 		[]string{"Red", "Green", "Blue"},
 	)
 	
 	red := ctx.MkApp(colorConsts[0])
-	green := ctx.MkApp(colorConsts[1])
-	blue := ctx.MkApp(colorConsts[2])
 	
 	c1 := ctx.MkConst(ctx.MkStringSymbol("c1"), colorSort)
 	c2 := ctx.MkConst(ctx.MkStringSymbol("c2"), colorSort)
@@ -201,18 +199,18 @@ func main() {
 	str := ctx.MkConst(ctx.MkStringSymbol("str"), ctx.MkStringSort())
 	
 	// Create regex: (a|b)*c+ (zero or more 'a' or 'b', followed by one or more 'c')
-	a := ctx.MkToRe(ctx.MkString("a"))
-	b := ctx.MkToRe(ctx.MkString("b"))
-	c := ctx.MkToRe(ctx.MkString("c"))
+	reA := ctx.MkToRe(ctx.MkString("a"))
+	reB := ctx.MkToRe(ctx.MkString("b"))
+	reC := ctx.MkToRe(ctx.MkString("c"))
 	
 	// (a|b)
-	aOrB := ctx.MkReUnion(a, b)
+	aOrB := ctx.MkReUnion(reA, reB)
 	
 	// (a|b)*
 	aOrBStar := ctx.MkReStar(aOrB)
 	
 	// c+
-	cPlus := ctx.MkRePlus(c)
+	cPlus := ctx.MkRePlus(reC)
 	
 	// (a|b)*c+
 	regex := ctx.MkReConcat(aOrBStar, cPlus)
@@ -224,44 +222,6 @@ func main() {
 	strLen := ctx.MkSeqLength(str)
 	ten := ctx.MkInt(10, ctx.MkIntSort())
 	solver.Assert(ctx.MkLt(strLen, ten))
-	
-	if solver.Check() == z3.Satisfiable {
-		model := solver.Model()
-		fmt.Println("Satisfiable!")
-		if strVal, ok := model.Eval(str, true); ok {
-			fmt.Println("String matching (a|b)*c+:", strVal.String())
-		}
-	}
-
-	// Example 8: Regular expressions
-	fmt.Println("\nExample 8: Regular expressions")
-	solver.Reset()
-	
-	// Create a string variable
-	str := ctx.MkConst(ctx.MkStringSymbol("str"), ctx.MkStringSort())
-	
-	// Create regex: (a|b)*c+ (zero or more 'a' or 'b', followed by one or more 'c')
-	a := ctx.MkToRe(ctx.MkString("a"))
-	b := ctx.MkToRe(ctx.MkString("b"))
-	c := ctx.MkToRe(ctx.MkString("c"))
-	
-	// (a|b)*
-	aOrB := ctx.MkReUnion(a, b)
-	aOrBStar := ctx.MkReStar(aOrB)
-	
-	// c+
-	cPlus := ctx.MkRePlus(c)
-	
-	// (a|b)*c+
-	regex := ctx.MkReConcat(aOrBStar, cPlus)
-	
-	// Assert that string matches the regex
-	solver.Assert(ctx.MkInRe(str, regex))
-	
-	// Also assert that length is less than 10
-	strLen := ctx.MkSeqLength(str)
-	tenStr := ctx.MkInt(10, ctx.MkIntSort())
-	solver.Assert(ctx.MkLt(strLen, tenStr))
 	
 	if solver.Check() == z3.Satisfiable {
 		model := solver.Model()
