@@ -605,11 +605,7 @@ public:
     void set(mpz & a, unsigned val) { set(a, (uint64_t)val); }
 
     void set(mpz & a, int64_t val) {
-        if (val == 0) {
-            // Zero is always represented as small
-            reset(a);
-        }
-        else if (mpz::fits_in_small(val) && is_small(a)) {
+        if (mpz::fits_in_small(val) && is_small(a)) {
             a.set(val);
         }
         else {
@@ -618,11 +614,7 @@ public:
     }
 
     void set(mpz & a, uint64_t val) {
-        if (val == 0) {
-            // Zero is always represented as small
-            reset(a);
-        }
-        else if (mpz::fits_in_small(val) && is_small(a)) {
+        if (mpz::fits_in_small(val) && is_small(a)) {
             a.set(static_cast<int64_t>(val));
         }
         else {
