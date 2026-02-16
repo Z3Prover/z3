@@ -89,10 +89,8 @@ func main() {
 	solver.Reset()
 	
 	intSort := ctx.MkIntSort()
-	listSort, nilDecl, consDecl, isNilDecl, isConsDecl, headDecl, tailDecl := 
+	listSort, nilDecl, consDecl, _, _, headDecl, _ := 
 		ctx.MkListSort("IntList", intSort)
-	// Silence unused warnings (these constructors may be needed in more complex examples)
-	_, _, _ = isNilDecl, isConsDecl, tailDecl
 	
 	// Create list: cons(1, cons(2, nil))
 	nilList := ctx.MkApp(nilDecl)
@@ -138,16 +136,12 @@ func main() {
 	fmt.Println("\nExample 6: Enumeration types")
 	solver.Reset()
 	
-	colorSort, colorConsts, colorTesters := ctx.MkEnumSort(
+	colorSort, colorConsts, _ := ctx.MkEnumSort(
 		"Color",
 		[]string{"Red", "Green", "Blue"},
 	)
-	_ = colorTesters // Silence unused warning
 	
 	red := ctx.MkApp(colorConsts[0])
-	green := ctx.MkApp(colorConsts[1])
-	blue := ctx.MkApp(colorConsts[2])
-	_, _ = green, blue // Silence unused warning
 	
 	c1 := ctx.MkConst(ctx.MkStringSymbol("c1"), colorSort)
 	c2 := ctx.MkConst(ctx.MkStringSymbol("c2"), colorSort)
