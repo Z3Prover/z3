@@ -8,9 +8,7 @@ permissions:
   issues: read
   pull-requests: read
 network:
-  allowed: [default, python]
-tools:
-  serena: ["python"]
+  allowed: [defaults, python]
 safe-outputs:
   create-issue:
     labels:
@@ -26,9 +24,9 @@ tracker-id: a3-python-analysis
 steps:
   - name: Checkout Python source files
     run: |
-      git sparse-checkout add src
+      git sparse-checkout init --cone
+      git sparse-checkout set src
       echo "Source files checked out for Python analysis"
-source: z3prover/z3/a3/a3-python-v2.md@a91c5c58bd975f336bf5b744885ffd4b36b2d2ec
 ---
 
 # A3 Python Code Analysis Agent
@@ -38,7 +36,6 @@ You are an expert Python code analyst using the a3-python tool to identify bugs 
 ## Current Context
 
 - **Repository**: ${{ github.repository }}
-- **Analysis Date**: $(date +%Y-%m-%d)
 - **Workspace**: ${{ github.workspace }}
 
 ## Phase 1: Install and Setup a3-python

@@ -2804,6 +2804,17 @@ class ArithRef(ExprRef):
         a, b = _coerce_exprs(self, other)
         return BoolRef(Z3_mk_ge(self.ctx_ref(), a.as_ast(), b.as_ast()), self.ctx)
 
+    def __abs__(self):
+        """Return an expression representing `abs(self)`.
+
+        >>> x = Int('x')
+        >>> abs(x)
+        If(x > 0, x, -x)
+        >>> eq(abs(x), Abs(x))
+        True
+        """
+        return Abs(self)
+
 
 def is_arith(a):
     """Return `True` if `a` is an arithmetical expression.
@@ -6849,7 +6860,7 @@ class ModelRef(Z3PPObject):
         if isinstance(idx, SortRef):
             return self.get_universe(idx)
         if z3_debug():
-            _z3_assert(False, "Integer, Z3 declaration, or Z3 constant expected")
+            _z3_assert(False, "Integer, Z3 declaration, or Z3 constant expected. Use model.eval instead for complicated expressions")
         return None
 
     def decls(self):
@@ -7657,7 +7668,11 @@ class Solver(Z3PPObject):
         >>> s = Solver()
         >>> s.add(x > 0)
         >>> s.add(x < 2)
-        >>> r = s.sexpr()
+        >>> print(s.sexpr())
+        (declare-fun x () Int)
+        (assert (> x 0))
+        (assert (< x 2))
+
         """
         return Z3_solver_to_string(self.ctx.ref(), self.solver)
 
@@ -7682,6 +7697,39 @@ class Solver(Z3PPObject):
         return Z3_benchmark_to_smtlib_string(
             self.ctx.ref(), "benchmark generated from python API", "", "unknown", "", sz1, v, e,
         )
+
+    def solutions(self, t):
+        """Returns an iterator over solutions that satisfy the constraints.
+
+        The parameter `t` is an expression whose values should be returned.
+
+        >>> s = Solver()
+        >>> x, y, z = Ints("x y z")
+        >>> s.add(x * x == 4)
+        >>> print(list(s.solutions(x)))
+        [-2, 2]
+        >>> s.reset()
+        >>> s.add(x >= 0, x < 10)
+        >>> print(list(s.solutions(x)))
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        >>> s.reset()
+        >>> s.add(x >= 0, y < 10, y == 2*x)
+        >>> print(list(s.solutions([x, y])))
+        [[0, 0], [1, 2], [2, 4], [3, 6], [4, 8]]
+        """
+        s = Solver()
+        s.add(self.assertions())
+        t = _get_args(t)
+        if isinstance(t, (list, tuple)):
+            while s.check() == sat:
+                result = [s.model().eval(t_, model_completion=True) for t_ in t]
+                yield result
+                s.add(*(t_ != result_ for t_, result_ in zip(t, result)))
+        else:
+            while s.check() == sat:
+                result = s.model().eval(t, model_completion=True)
+                yield result
+                s.add(t != result)
 
 
 def SolverFor(logic, ctx=None, logFile=None):
