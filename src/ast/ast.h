@@ -49,6 +49,7 @@ Revision History:
 #include "util/rlimit.h"
 #include <variant>
 #include <span>
+#include <initializer_list>
 
 #define RECYCLE_FREE_AST_INDICES
 
@@ -2070,6 +2071,12 @@ public:
     quantifier * update_quantifier(quantifier * q, quantifier_kind new_kind, expr * new_body);
 
     quantifier * update_quantifier(quantifier * q, quantifier_kind new_kind, unsigned new_num_patterns, expr * const * new_patterns, expr * new_body);
+
+    // Convenience overloads with std::initializer_list
+    [[nodiscard]] quantifier * update_quantifier(quantifier * q, std::initializer_list<expr*> new_patterns, expr * new_body);
+    
+    [[nodiscard]] quantifier * update_quantifier(quantifier * q, std::initializer_list<expr*> new_patterns, std::initializer_list<expr*> new_no_patterns, expr * new_body);
+
 
 // -----------------------------------
 //
