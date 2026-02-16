@@ -39,7 +39,6 @@ Analyze recently modified code from the last 24 hours and apply refinements that
 ## Current Context
 
 - **Repository**: ${{ github.repository }}
-- **Analysis Date**: $(date +%Y-%m-%d)
 - **Workspace**: ${{ github.workspace }}
 
 ## Phase 1: Identify Recently Modified Code
