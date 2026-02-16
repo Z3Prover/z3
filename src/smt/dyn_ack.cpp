@@ -89,8 +89,7 @@ namespace smt {
             app_ref eq(m.mk_eq(m_app1, m_app2), m);
             proof_ref a1(m.mk_congruence(m_app1, m_app2, prs.size(), prs.data()), m);
             proof_ref a2(mk_hypothesis(m, eq, true, m_app1, m_app2), m);
-            proof * antecedents[2] = { a1.get(), a2.get() };
-            proof_ref false_pr(m.mk_unit_resolution(2, antecedents), m);
+            proof_ref false_pr(m.mk_unit_resolution({ a1.get(), a2.get() }), m);
             lits.push_back(eq);
             SASSERT(lits.size() >= 2);
             app_ref lemma(m.mk_or(lits), m);
@@ -152,8 +151,7 @@ namespace smt {
             if (m.get_fact(p3) != m_eq3) p3 = m.mk_symmetry(p3);
             SASSERT(m.get_fact(p3) == m_eq3);
             p4 = m.mk_hypothesis(m.mk_not(m_eq3));
-            proof* ps[2] = { p3, p4 };
-            p5 = m.mk_unit_resolution(2, ps);
+            p5 = m.mk_unit_resolution({ p3, p4 });
             SASSERT(m.get_fact(p5) == m.mk_false());
             expr_ref conclusion(m.mk_or(m.mk_not(m_eq1), m.mk_not(m_eq2), m_eq3), m);
             p6 = m.mk_lemma(p5, conclusion);
