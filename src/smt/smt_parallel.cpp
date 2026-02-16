@@ -521,8 +521,7 @@ namespace smt {
         while (t) {
             if (cube_config::literal_is_null(t->get_literal()))
                 break;
-            expr_ref lit(g2l.to());
-            lit = g2l(t->get_literal().get());
+            expr_ref lit(g2l(t->get_literal().get()), g2l.to());
             cube.push_back(std::move(lit));
             t = t->parent();
         }
