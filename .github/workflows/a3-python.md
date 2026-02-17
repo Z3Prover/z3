@@ -1,7 +1,6 @@
 ---
 on:
-  schedule:
-    - cron: "0 0 * * 0"  # Weekly on Sundays at midnight UTC
+  schedule: weekly on sunday
   workflow_dispatch:  # Allow manual trigger
 permissions:
   contents: read
