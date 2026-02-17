@@ -44,9 +44,11 @@ func main() {
 			fmt.Printf("  NonUnit %d: %s\n", i, nu.String())
 		}
 		
-		// Note: Trail() and TrailLevels() only work with SimpleSolver
-		// For default solvers created with NewSolver(), these may not be available
-		fmt.Println("Note: Trail() and TrailLevels() are available primarily for SimpleSolver")
+		// Note: Trail() and TrailLevels() work primarily with SimpleSolver.
+		// With default solvers (created with NewSolver()), they may return
+		// errors like "cannot retrieve trail from solvers created using tactics".
+		// For those use cases, Units() and NonUnits() provide similar diagnostic info.
+		fmt.Println("Note: Trail() and TrailLevels() work primarily with SimpleSolver")
 	}
 
 	// Test congruence closure APIs

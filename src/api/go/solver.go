@@ -214,6 +214,8 @@ func (s *Solver) NonUnits() []*Expr {
 // Trail returns the decision trail of the solver.
 // The trail contains the sequence of literals assigned during search.
 // This is useful for understanding the solver's decision history.
+// Note: This function works primarily with SimpleSolver. For solvers created
+// using tactics (e.g., NewSolver()), it may return an error.
 func (s *Solver) Trail() []*Expr {
 	vec := C.Z3_solver_get_trail(s.ctx.ptr, s.ptr)
 	return astVectorToExprs(s.ctx, vec)
@@ -223,6 +225,8 @@ func (s *Solver) Trail() []*Expr {
 // The returned slice has the same length as the trail, where each element
 // indicates the decision level at which the corresponding trail literal was assigned.
 // This is useful for understanding the structure of the search tree.
+// Note: This function works primarily with SimpleSolver. For solvers created
+// using tactics (e.g., NewSolver()), it may return an error.
 func (s *Solver) TrailLevels() []uint {
 	// Get the trail vector directly from the C API
 	trailVec := C.Z3_solver_get_trail(s.ctx.ptr, s.ptr)
@@ -250,8 +254,8 @@ func (s *Solver) TrailLevels() []uint {
 
 // CongruenceRoot returns the congruence class representative of the given expression.
 // This returns the root element in the congruence closure for the term.
-// The function primarily works for SimpleSolver. Terms and variables that are
-// eliminated during pre-processing are not visible to the congruence closure.
+// Note: This function works primarily with SimpleSolver. Terms and variables that
+// are eliminated during pre-processing are not visible to the congruence closure.
 func (s *Solver) CongruenceRoot(expr *Expr) *Expr {
 	ast := C.Z3_solver_congruence_root(s.ctx.ptr, s.ptr, expr.ptr)
 	return newExpr(s.ctx, ast)
@@ -259,8 +263,8 @@ func (s *Solver) CongruenceRoot(expr *Expr) *Expr {
 
 // CongruenceNext returns the next element in the congruence class of the given expression.
 // This allows iteration through all elements in a congruence class.
-// The function primarily works for SimpleSolver. Terms and variables that are
-// eliminated during pre-processing are not visible to the congruence closure.
+// Note: This function works primarily with SimpleSolver. Terms and variables that
+// are eliminated during pre-processing are not visible to the congruence closure.
 func (s *Solver) CongruenceNext(expr *Expr) *Expr {
 	ast := C.Z3_solver_congruence_next(s.ctx.ptr, s.ptr, expr.ptr)
 	return newExpr(s.ctx, ast)
@@ -268,8 +272,8 @@ func (s *Solver) CongruenceNext(expr *Expr) *Expr {
 
 // CongruenceExplain returns an explanation for why two expressions are congruent.
 // The result is an expression that justifies the congruence between a and b.
-// The function primarily works for SimpleSolver. Terms and variables that are
-// eliminated during pre-processing are not visible to the congruence closure.
+// Note: This function works primarily with SimpleSolver. Terms and variables that
+// are eliminated during pre-processing are not visible to the congruence closure.
 func (s *Solver) CongruenceExplain(a, b *Expr) *Expr {
 	ast := C.Z3_solver_congruence_explain(s.ctx.ptr, s.ptr, a.ptr, b.ptr)
 	return newExpr(s.ctx, ast)
