@@ -54,7 +54,7 @@ func (o *Optimize) AssertSoft(constraint *Expr, weight string, group string) uin
 	cGroup := C.CString(group)
 	defer C.free(unsafe.Pointer(cWeight))
 	defer C.free(unsafe.Pointer(cGroup))
-	
+
 	sym := o.ctx.MkStringSymbol(group)
 	return uint(C.Z3_optimize_assert_soft(o.ctx.ptr, o.ptr, constraint.ptr, cWeight, sym.ptr))
 }
@@ -128,19 +128,11 @@ func (o *Optimize) GetUpper(index uint) *Expr {
 // otherwise it's represented as value + eps * EPSILON.
 func (o *Optimize) GetLowerAsVector(index uint) []*Expr {
 	vec := C.Z3_optimize_get_lower_as_vector(o.ctx.ptr, o.ptr, C.uint(index))
-	// Increment reference count for the vector since we're using it
-	C.Z3_ast_vector_inc_ref(o.ctx.ptr, vec)
-	defer C.Z3_ast_vector_dec_ref(o.ctx.ptr, vec)
-	
-	size := uint(C.Z3_ast_vector_size(o.ctx.ptr, vec))
-	if size != 3 {
+	result := astVectorToExprs(o.ctx, vec)
+	if len(result) != 3 {
 		return nil
 	}
-	return []*Expr{
-		newExpr(o.ctx, C.Z3_ast_vector_get(o.ctx.ptr, vec, 0)),
-		newExpr(o.ctx, C.Z3_ast_vector_get(o.ctx.ptr, vec, 1)),
-		newExpr(o.ctx, C.Z3_ast_vector_get(o.ctx.ptr, vec, 2)),
-	}
+	return result
 }
 
 // GetUpperAsVector retrieves an upper bound as a vector (inf, value, eps).
@@ -148,19 +140,11 @@ func (o *Optimize) GetLowerAsVector(index uint) []*Expr {
 // otherwise it's represented as value + eps * EPSILON.
 func (o *Optimize) GetUpperAsVector(index uint) []*Expr {
 	vec := C.Z3_optimize_get_upper_as_vector(o.ctx.ptr, o.ptr, C.uint(index))
-	// Increment reference count for the vector since we're using it
-	C.Z3_ast_vector_inc_ref(o.ctx.ptr, vec)
-	defer C.Z3_ast_vector_dec_ref(o.ctx.ptr, vec)
-	
-	size := uint(C.Z3_ast_vector_size(o.ctx.ptr, vec))
-	if size != 3 {
+	result := astVectorToExprs(o.ctx, vec)
+	if len(result) != 3 {
 		return nil
 	}
-	return []*Expr{
-		newExpr(o.ctx, C.Z3_ast_vector_get(o.ctx.ptr, vec, 0)),
-		newExpr(o.ctx, C.Z3_ast_vector_get(o.ctx.ptr, vec, 1)),
-		newExpr(o.ctx, C.Z3_ast_vector_get(o.ctx.ptr, vec, 2)),
-	}
+	return result
 }
 
 // ReasonUnknown returns the reason why the result is unknown.
