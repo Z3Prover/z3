@@ -57,6 +57,7 @@ class mpz_cell {
     unsigned  m_size;
     unsigned  m_capacity;
     digit_t   m_digits[0];
+    friend class mpz;
     friend class mpz_manager<true>;
     friend class mpz_manager<false>;
     friend class mpz_stack;
@@ -110,12 +111,12 @@ private:
     }
 
     mpz_type * ptr() const {
-        SASSERT(!is_small());
+        SASSERT(has_ptr());
         return reinterpret_cast<mpz_type*>(m_value & MPZ_PTR_MASK);
     }
 
     void set_ptr(mpz_type* p, bool is_negative, bool is_external) {
-        SASSERT(is_small());
+        SASSERT(!has_ptr());
         SASSERT((reinterpret_cast<uintptr_t>(p) & 0x7) == 0); // Check alignment
         m_value = reinterpret_cast<uintptr_t>(p) | LARGE_BIT;
         if (is_negative)
@@ -124,13 +125,8 @@ private:
             m_value |= EXTERNAL_BIT;
     }
 
-    int get_sign() const {
-        SASSERT(!is_small());
-        return (m_value & SIGN_BIT) ? -1 : 1;
-    }
-
     void set_sign(int s) {
-        SASSERT(!is_small());
+        SASSERT(has_ptr());
         if (s < 0)
             m_value |= SIGN_BIT;
         else
@@ -138,7 +134,7 @@ private:
     }
 
     bool is_external() const {
-        SASSERT(!is_small());
+        SASSERT(has_ptr());
         return (m_value & EXTERNAL_BIT) != 0;
     }
 
@@ -180,24 +176,33 @@ public:
     }
 
     void set(int64_t v) {
-        SASSERT(is_small());
+        SASSERT(!has_ptr());
         SASSERT(fits_in_small(v));
         m_value = static_cast<uintptr_t>(v) << 1;
     }
 
+    inline bool has_ptr() const {
+        return (m_value & LARGE_BIT) != 0;
+    }
+
     inline bool is_small() const {
-        return (m_value & LARGE_BIT) == 0;
+        return !has_ptr() || ptr()->m_size == 1;
     }
 
     inline int64_t value() const {
         SASSERT(is_small());
+        if (has_ptr()) {
+            // Small value stored in a single digit
+            int64_t v = static_cast<int64_t>(ptr()->m_digits[0]);
+            return sign() < 0 ? -v : v;
+        }
         // Decode small integer: shift right by 1 (arithmetic shift to preserve sign)
         return static_cast<int64_t>(static_cast<intptr_t>(m_value) >> 1);
     }
 
     inline int sign() const {
-        SASSERT(!is_small());
-        return get_sign();
+        SASSERT(has_ptr());
+        return (m_value & SIGN_BIT) ? -1 : 1;
     }
 };
 
@@ -243,7 +248,7 @@ class mpz_manager {
     // make sure that n is a big number and has capacity equal to at least c.
     void allocate_if_needed(mpz & n, unsigned c) {
         if (m_init_cell_capacity > c) c = m_init_cell_capacity;
-        if (n.is_small() || capacity(n) < c) {
+        if (!n.has_ptr() || capacity(n) < c) {
             deallocate(n);
             n.set_ptr(allocate(c), false, false); // positive, owned
         }
@@ -298,11 +303,11 @@ class mpz_manager {
         }
     }
 
-    void clear(mpz& n) { if (!n.is_small()) { mpz_clear(*n.ptr()); }}
+    void clear(mpz& n) { if (n.has_ptr()) { mpz_clear(*n.ptr()); }}
 #endif
 
     void deallocate(mpz& n) {
-        if (!n.is_small()) {
+        if (n.has_ptr()) {
             deallocate(!n.is_external(), n.ptr());
             n.m_value = 0; // reset to small
         }
@@ -317,17 +322,17 @@ class mpz_manager {
 #ifndef _MP_GMP
 
     static unsigned capacity(mpz const & c) {
-        SASSERT(!c.is_small());
+        SASSERT(c.has_ptr());
         return c.ptr()->m_capacity;
     }
 
     static unsigned size(mpz const & c) {
-        SASSERT(!c.is_small());
+        SASSERT(c.has_ptr());
         return c.ptr()->m_size;
     }
 
     static digit_t * digits(mpz const & c) {
-        SASSERT(!c.is_small());
+        SASSERT(c.has_ptr());
         return c.ptr()->m_digits;
     }
 
@@ -369,7 +374,7 @@ class mpz_manager {
     };
 
     void get_sign_cell(mpz const & a, int & sign, mpz_cell * & cell, mpz_cell* reserve) {
-        if (is_small(a)) {
+        if (!a.has_ptr()) {
             int64_t val = a.value();
             bool neg = val < 0;
             uint64_t abs_val = static_cast<uint64_t>(neg ? -val : val);
@@ -405,7 +410,7 @@ class mpz_manager {
     };
     
     void mk_big(mpz & a) {
-        if (a.is_small()) {
+        if (!a.has_ptr()) {
             a.set_ptr(allocate(), false, false); // positive, owned
         }
     }
@@ -503,13 +508,11 @@ public:
     static bool is_neg(mpz const & a) { return sign(a) < 0; }
     
     static bool is_zero(mpz const & a) {
-        if (a.is_small())
-            return a.value() == 0;
-        return size(a) == 1 && digits(a)[0] == 0;
+        return a.is_small() && a.value() == 0;
     }
 
     static int sign(mpz const & a) {
-        if (is_small(a)) {
+        if (a.is_small()) {
             int64_t v = a.value();
             return (v > 0) - (v < 0); // Returns -1, 0, or 1
         }
@@ -605,7 +608,7 @@ public:
     void set(mpz & a, unsigned val) { set(a, (uint64_t)val); }
 
     void set(mpz & a, int64_t val) {
-        if (mpz::fits_in_small(val) && is_small(a)) {
+        if (mpz::fits_in_small(val) && !a.has_ptr()) {
             a.set(val);
         }
         else {
@@ -614,7 +617,7 @@ public:
     }
 
     void set(mpz & a, uint64_t val) {
-        if (mpz::fits_in_small(val) && is_small(a)) {
+        if (mpz::fits_in_small(val) && !a.has_ptr()) {
             a.set(static_cast<int64_t>(val));
         }
         else {
@@ -683,17 +686,19 @@ public:
         if (is_small(a))
             return a.value() == 1;
 #ifndef _MP_GMP
-        return size(a) == 1 && digits(a)[0] == 1 && a.sign() > 0;
+        return false;
 #else
         return mpz_cmp_si(*a.ptr(), 1) == 0;
 #endif
     }
 
+    // best effort
     static bool is_minus_one(mpz const & a) {
         if (is_small(a))
             return a.value() == -1;
 #ifndef _MP_GMP
-        return size(a) == 1 && digits(a)[0] == 1 && a.sign() < 0;
+        //return eq(a, mpz(-1));
+        return false;
 #else
         return mpz_cmp_si(*a.ptr(), -1) == 0;
 #endif
