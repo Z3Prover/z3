@@ -204,7 +204,7 @@ func (s *Solver) Units() []*Expr {
 }
 
 // NonUnits returns the non-unit clauses in the solver's current state.
-// These are atomic formulas that are not unit clauses.
+// These are clauses that have not been reduced to unit clauses.
 // This is useful for debugging and understanding solver behavior.
 func (s *Solver) NonUnits() []*Expr {
 	vec := C.Z3_solver_get_non_units(s.ctx.ptr, s.ptr)
@@ -224,33 +224,25 @@ func (s *Solver) Trail() []*Expr {
 // indicates the decision level at which the corresponding trail literal was assigned.
 // This is useful for understanding the structure of the search tree.
 func (s *Solver) TrailLevels() []uint {
-	trail := s.Trail()
-	n := len(trail)
+	// Get the trail vector directly from the C API
+	trailVec := C.Z3_solver_get_trail(s.ctx.ptr, s.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, trailVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, trailVec)
+
+	n := uint(C.Z3_ast_vector_size(s.ctx.ptr, trailVec))
 	if n == 0 {
 		return []uint{}
 	}
 
-	// Create C arrays for the literals and levels
-	literals := make([]C.Z3_ast, n)
-	for i, expr := range trail {
-		literals[i] = expr.ptr
-	}
+	// Allocate the levels array
 	levels := make([]C.uint, n)
 
-	// Create a temporary ast_vector from the trail literals
-	vec := C.Z3_mk_ast_vector(s.ctx.ptr)
-	C.Z3_ast_vector_inc_ref(s.ctx.ptr, vec)
-	for _, lit := range literals {
-		C.Z3_ast_vector_push(s.ctx.ptr, vec, lit)
-	}
-
-	// Get the levels
-	C.Z3_solver_get_levels(s.ctx.ptr, s.ptr, vec, C.uint(n), &levels[0])
-	C.Z3_ast_vector_dec_ref(s.ctx.ptr, vec)
+	// Get the levels using the trail vector directly
+	C.Z3_solver_get_levels(s.ctx.ptr, s.ptr, trailVec, C.uint(n), &levels[0])
 
 	// Convert to Go slice
 	result := make([]uint, n)
-	for i := 0; i < n; i++ {
+	for i := uint(0); i < n; i++ {
 		result[i] = uint(levels[i])
 	}
 	return result
