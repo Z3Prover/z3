@@ -35,6 +35,7 @@ Notes:
 #include "util/ref_buffer.h"
 #include "util/common_msgs.h"
 #include <memory>
+#include <numeric>
 
 namespace polynomial {
 

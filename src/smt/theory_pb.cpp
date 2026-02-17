@@ -29,7 +29,7 @@ Notes:
 #include "ast/rewriter/pb_rewriter_def.h"
 #include "math/simplex/sparse_matrix_def.h"
 #include "math/simplex/simplex_def.h"
-
+#include <numeric>
 
 namespace smt {
 
