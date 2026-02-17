@@ -844,8 +844,16 @@ namespace smt {
                 m_bb_candidates[worst_idx] = new_bb_candidate;
         }
 
-        if (!m_bb_candidates.empty())
-            m_bb_cv.notify_one();
+        if (!m_bb_candidates.empty()) {
+            std::sort(
+                m_bb_candidates.begin(),
+                m_bb_candidates.end(),
+                [&](bb_candidate const& a, bb_candidate const& b) {
+                    return rank_of(a) > rank_of(b);
+                }
+            );
+            m_bb_cv.notify_all();
+        }
     }
 
     bool parallel::batch_manager::wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, svector<smt::parallel::bb_candidate>& out, reslimit& lim) {

@@ -82,8 +82,8 @@ namespace smt {
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
 
             svector<bb_candidate> m_bb_candidates;
-            unsigned m_max_global_bb_candidates = 50;
-            unsigned m_bb_batch_size = 50;
+            unsigned m_max_global_bb_candidates = 75;
+            unsigned m_bb_batch_size = 75;
             expr_ref_vector m_global_backbones;
 
             // Backbone job queue
@@ -293,7 +293,7 @@ namespace smt {
             smt_params m_smt_params;
             scoped_ptr<context> ctx;
             ast_translation m_g2l, m_l2g;
-            unsigned m_bb_chunk_size = 20;
+            unsigned m_bb_chunk_size = 25;
             unsigned m_bb_conflicts_per_chunk = 1000;
             stats m_stats;
             bb_mode m_mode;
