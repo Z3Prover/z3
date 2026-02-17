@@ -4,7 +4,6 @@
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/polynomial.h"
 #include "nlsat_common.h"
-#include "util/z3_exception.h"
 #include "util/vector.h"
 #include "util/trace.h"
 
@@ -44,7 +43,6 @@ namespace nlsat {
         sector_spanning_tree
     };
 
-    struct nullified_poly_exception {};
 
     struct levelwise::impl {
         solver&                      m_solver;
@@ -265,7 +263,41 @@ namespace nlsat {
             m_spanning_tree_threshold = m_solver.lws_spt_threshold();
         }
 
-        void fail() { throw nullified_poly_exception(); }
+        // Handle a polynomial whose every coefficient evaluates to zero at the sample.
+        // Compute partial derivatives level by level. If all derivatives at a level vanish,
+        // request_factorized each of them and continue to the next level.
+        // When a non-vanishing derivative is found, request_factorized it and stop.
+        void handle_nullified_poly(polynomial_ref const& p) {
+            m_fail = true;
+            polynomial_ref_vector current(m_pm);
+            current.push_back(p);
+            while (!current.empty()) {
+                polynomial_ref_vector next_derivs(m_pm);
+                for (unsigned i = 0; i < current.size(); ++i) {
+                    polynomial_ref q(current.get(i), m_pm);
+                    unsigned mv = m_pm.max_var(q);
+                    if (mv == null_var)
+                        continue;
+                    for (unsigned x = 0; x <= mv; ++x) {
+                        if (m_pm.degree(q, x) == 0)
+                            continue;
+                        polynomial_ref dq = derivative(q, x);
+                        if (!dq || is_zero(dq) || is_const(dq))
+                            continue;
+                        if (m_am.eval_sign_at(dq, sample()) != 0) {
+                            request_factorized(dq);
+                            return;
+                        }
+                        next_derivs.push_back(dq);
+                    }
+                }
+                for (unsigned i = 0; i < next_derivs.size(); ++i) {
+                    polynomial_ref dq(next_derivs.get(i), m_pm);
+                    request_factorized(dq);
+                }
+                current = std::move(next_derivs);
+            }
+        }
 
         static void reset_interval(root_function_interval& I) {
             I.section = false;
@@ -1180,7 +1212,7 @@ namespace nlsat {
                 polynomial_ref p(m_level_ps.get(i), m_pm);
                 polynomial_ref w = choose_nonzero_coeff(p, m_level);
                 if (!w)
-                    fail();
+                    handle_nullified_poly(p);
                 m_witnesses.push_back(w);
             }
         }
@@ -1246,7 +1278,7 @@ namespace nlsat {
             }
         }
 
-        std_vector<root_function_interval> single_cell_work() {
+        std_vector<root_function_interval> single_cell() {
             TRACE(lws,             
                   tout << "Input polynomials (" << m_P.size() << "):\n";
                   for (unsigned i = 0; i < m_P.size(); ++i)
@@ -1292,16 +1324,6 @@ namespace nlsat {
                 );
 
             return m_I;
-        }
-
-        std_vector<root_function_interval> single_cell() {
-            try {
-                return single_cell_work();
-            }
-            catch (nullified_poly_exception&) {
-                m_fail = true;
-                return m_I;
-            }
         }
     };
 
