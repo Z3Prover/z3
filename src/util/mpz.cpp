@@ -36,7 +36,7 @@ static bool mul_overflows(int64_t a, int64_t b, int64_t & result) {
     __int64 high;
     result = _mul128(a, b, &high);
     // Overflow if high bits are not the sign extension of result
-    return high != 0 && high != -1;
+    return high != (result >> 63);
 #else
     static_assert(false);
 #endif
@@ -62,71 +62,6 @@ static bool mul_overflows(int64_t a, int64_t b, int64_t & result) {
 #else
 #define LEHMER_GCD
 #endif
-
-#ifdef __has_builtin
-    #define HAS_BUILTIN(X) __has_builtin(X)
-#else
-    #define HAS_BUILTIN(X) 0
-#endif
-#if HAS_BUILTIN(__builtin_ctz)
-#define _trailing_zeros32(X) __builtin_ctz(X)
-#elif defined(_WINDOWS) && (defined(_M_X86) || (defined(_M_X64) && !defined(_M_ARM64EC))) && !defined(__clang__)
-// This is needed for _tzcnt_u32 and friends.
-#include <immintrin.h>
-#define _trailing_zeros32(X) _tzcnt_u32(X)
-#else
-static uint32_t _trailing_zeros32(uint32_t x) {
-    uint32_t r = 0;
-    for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
-    return r;
-}
-#endif
-
-#if (defined(__LP64__) || defined(_WIN64)) && defined(_M_X64) && !defined(_M_ARM64EC)
-#if HAS_BUILTIN(__builtin_ctzll)
-#define _trailing_zeros64(X) __builtin_ctzll(X)
-#elif !defined(__clang__)
-#define _trailing_zeros64(X) _tzcnt_u64(X)
-#endif
-#else
-static uint64_t _trailing_zeros64(uint64_t x) {
-    uint64_t r = 0;
-    for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
-    return r;
-}
-#endif
-
-#undef HAS_BUILTIN
-
-unsigned trailing_zeros(uint32_t x) {
-    return static_cast<unsigned>(_trailing_zeros32(x));
-}
-
-unsigned trailing_zeros(uint64_t x) {
-    return static_cast<unsigned>(_trailing_zeros64(x));
-}
-
-#define _bit_min(x, y) (y + ((x - y) & ((int)(x - y) >> 31)))
-#define _bit_max(x, y) (x - ((x - y) & ((int)(x - y) >> 31)))
-
-
-unsigned u_gcd(unsigned u, unsigned v) { 
-    if (u == 0) return v;
-    if (v == 0) return u;
-    unsigned shift = _trailing_zeros32(u | v);
-    u >>= _trailing_zeros32(u);
-    if (u == 1 || v == 1) return 1 << shift; 
-    if (u == v) return u << shift;
-    do {
-        v >>= _trailing_zeros32(v);        
-        unsigned diff = u - v;
-        unsigned mdiff = diff & (unsigned)((int)diff >> 31);
-        u = v + mdiff; // min
-        v = diff - 2 * mdiff;   // if v <= u: u - v, if v > u: v - u = u - v - 2 * (u - v)
-    }
-    while (v != 0);
-    return u << shift;
-}
 
 
 template<bool SYNCH>
@@ -242,7 +177,7 @@ void mpz_manager<SYNCH>::add(mpz const & a, mpz const & b, mpz & c) {
     else {
         big_add(a, b, c);
     }
-    STRACE(mpz, tout << to_string(c) << "\n";);
+    STRACE(mpz, tout << to_string(c) << '\n';);
 }
 
 template<bool SYNCH>
@@ -254,7 +189,7 @@ void mpz_manager<SYNCH>::sub(mpz const & a, mpz const & b, mpz & c) {
     else {
         big_sub(a, b, c);
     }
-    STRACE(mpz, tout << to_string(c) << "\n";);
+    STRACE(mpz, tout << to_string(c) << '\n';);
 }
 
 template<bool SYNCH>
@@ -384,7 +319,6 @@ void mpz_manager<SYNCH>::set(mpz_cell& src, mpz & a, int sign, unsigned sz) {
 
     set_digits(a, i, src.m_digits);
     a.set_sign(sign);
-    
     SASSERT(a.has_ptr());
 }
 #endif
@@ -456,12 +390,13 @@ void mpz_manager<SYNCH>::mul(mpz const & a, mpz const & b, mpz & c) {
     else {
         big_mul(a, b, c);
     }
-    STRACE(mpz, tout << to_string(c) << "\n";);
+    STRACE(mpz, tout << to_string(c) << '\n';);
 }
 
 // d <- a + b*c
 template<bool SYNCH>
 void mpz_manager<SYNCH>::addmul(mpz const & a, mpz const & b, mpz const & c, mpz & d) {
+    STRACE(mpz, tout << "[mpz] " << to_string(a) << " + " << to_string(b) << " * " << to_string(c) << " == ";); 
     if (is_one(b)) {
         add(a, c, d);
     }
@@ -474,12 +409,14 @@ void mpz_manager<SYNCH>::addmul(mpz const & a, mpz const & b, mpz const & c, mpz
         add(a,tmp,d);
         del(tmp);
     }
+    STRACE(mpz, tout << to_string(d) << '\n';);
 }
 
 
 // d <- a - b*c
 template<bool SYNCH>
 void mpz_manager<SYNCH>::submul(mpz const & a, mpz const & b, mpz const & c, mpz & d) {
+    STRACE(mpz, tout << "[mpz] " << to_string(a) << " - " << to_string(b) << " * " << to_string(c) << " == ";);
     if (is_one(b)) {
         sub(a, c, d);
     }
@@ -492,6 +429,7 @@ void mpz_manager<SYNCH>::submul(mpz const & a, mpz const & b, mpz const & c, mpz
         sub(a,tmp,d);
         del(tmp);
     }
+    STRACE(mpz, tout << to_string(d) << '\n';);
 }
 
 
@@ -520,7 +458,7 @@ void mpz_manager<SYNCH>::machine_div(mpz const & a, mpz const & b, mpz & c) {
         set(c, a.value() / b.value());
     else 
         big_div(a, b, c);
-    STRACE(mpz, tout << to_string(c) << "\n";);
+    STRACE(mpz, tout << to_string(c) << '\n';);
 }
 
 template<bool SYNCH>
@@ -538,7 +476,7 @@ void mpz_manager<SYNCH>::rem(mpz const & a, mpz const & b, mpz & c) {
     else {
         big_rem(a, b, c);
     }
-    STRACE(mpz, tout << to_string(c) << "\n";);
+    STRACE(mpz, tout << to_string(c) << '\n';);
 }
 
 
@@ -551,7 +489,7 @@ void mpz_manager<SYNCH>::div_gcd(mpz const& a, mpz const& b, mpz & c) {
     else {
         machine_div(a, b, c);
     }
-    STRACE(mpz, tout << to_string(c) << "\n";);    
+    STRACE(mpz, tout << to_string(c) << '\n';);    
 }
 
 template<bool SYNCH>
@@ -575,7 +513,7 @@ void mpz_manager<SYNCH>::div(mpz const & a, mpz const & b, mpz & c) {
     else {
         machine_div(a, b, c);
     }
-    STRACE(mpz, tout << to_string(c) << "\n";);
+    STRACE(mpz, tout << to_string(c) << '\n';);
 }
 
 template<bool SYNCH>
@@ -588,13 +526,16 @@ void mpz_manager<SYNCH>::mod(mpz const & a, mpz const & b, mpz & c) {
         else
             sub(c, b, c);
     }
-    STRACE(mpz, tout << to_string(c) << "\n";);
+    STRACE(mpz, tout << to_string(c) << '\n';);
 }
 
 template<bool SYNCH>
 mpz mpz_manager<SYNCH>::mod2k(mpz const & a, unsigned k) {
-    if (is_zero(a))
+    STRACE(mpz, tout << "[mpz] " << to_string(a) << " mod 2^" << k << " == ";);
+    if (is_zero(a)) {
+        STRACE(mpz, tout << "0\n";);
         return 0;
+    }
 
     mpz result;
 
@@ -602,10 +543,12 @@ mpz mpz_manager<SYNCH>::mod2k(mpz const & a, unsigned k) {
         uint64_t mask = ((1ULL << k) - 1);
         uint64_t uval = static_cast<uint64_t>(a.value());
         set(result, static_cast<int64_t>(uval & mask));
+        STRACE(mpz, tout << to_string(result) << '\n';);
         return result;
     }
 
     if (is_nonneg(a) && bitsize(a) <= k) {
+        STRACE(mpz, tout << to_string(a) << '\n';);
         return dup(a);
     }
 
@@ -661,6 +604,7 @@ mpz mpz_manager<SYNCH>::mod2k(mpz const & a, unsigned k) {
     mpz_tdiv_r_2exp(*result.ptr(), a1(), k);
     MPZ_END_CRITICAL();
 #endif
+    STRACE(mpz, tout << to_string(result) << '\n';);
     return result;
 }
 
@@ -679,11 +623,12 @@ void mpz_manager<SYNCH>::neg(mpz & a) {
         mpz_neg(*a.ptr(), *a.ptr());
     }
 #endif
-    STRACE(mpz, tout << to_string(a) << "\n";); 
+    STRACE(mpz, tout << to_string(a) << '\n';); 
 }
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::abs(mpz & a) {
+    STRACE(mpz, tout << "[mpz] abs(" << to_string(a) << ") == ";);
     if (is_small(a)) {
         int64_t v = a.value();
         if (v < 0) {
@@ -697,6 +642,7 @@ void mpz_manager<SYNCH>::abs(mpz & a) {
         mpz_abs(*a.ptr(), *a.ptr());
 #endif
     }
+    STRACE(mpz, tout << to_string(a) << '\n';);
 }
 
 
@@ -891,9 +837,11 @@ void mpz_manager<SYNCH>::big_rem(mpz const & a, mpz const & b, mpz & c) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
+    STRACE(mpz, tout << "[mpz] gcd(" << to_string(a) << ",  " << to_string(b) << ") == ";);
     static_assert(sizeof(mpz) <= 16, "mpz size overflow");
     if (is_small(a) && is_small(b)) {
         set(c, std::gcd(a.value(), b.value()));
+        STRACE(mpz, tout << to_string(c) << '\n';);
         return;
     }
     else {
@@ -906,11 +854,13 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
         if (is_zero(a)) {
             set(c, b);
             abs(c);
+            STRACE(mpz, tout << to_string(c) << '\n';);
             return;
         }
         if (is_zero(b)) {
             set(c, a);
             abs(c);
+            STRACE(mpz, tout << to_string(c) << '\n';);
             return;
         }
 #ifdef BINARY_GCD
@@ -1141,6 +1091,7 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
         del(a1); del(b1); del(r); del(t); del(tmp);
 #endif // LEHMER_GCD
     }
+    STRACE(mpz, tout << to_string(c) << '\n';);
 }
 
 template<bool SYNCH>
@@ -1195,7 +1146,7 @@ void mpz_manager<SYNCH>::gcd(unsigned sz, mpz const * as, mpz & g) {
         for (i = 0; i < sz; ++i)
             p.push_back(i);
         std::sort(p.begin(), p.end(), sz_lt{as});
-        TRACE(mpz_gcd, for (unsigned i = 0; i < sz; ++i) tout << p[i] << ":" << size_info(as[p[i]]) << " "; tout << "\n";);
+        TRACE(mpz_gcd, for (unsigned i = 0; i < sz; ++i) tout << p[i] << ":" << size_info(as[p[i]]) << " "; tout << '\n';);
         gcd(as[p[0]], as[p[1]], g);
         for (i = 2; i < sz; ++i) {
             if (is_one(g))
@@ -1236,6 +1187,7 @@ void mpz_manager<SYNCH>::gcd(unsigned sz, mpz const * as, mpz & g) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::gcd(mpz const & r1, mpz const & r2, mpz & a, mpz & b, mpz & r) {
+    STRACE(mpz, tout << "[mpz-ext] extended gcd of " << to_string(r1) << " and " << to_string(r2) << '\n';);
     mpz tmp1, tmp2;
     mpz aux, quot;
     set(tmp1, r1);
@@ -1308,30 +1260,30 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::lcm(mpz const & a, mpz const & b, mpz & c) {
     if (is_one(b)) {
         set(c, a);
-        TRACE(lcm_bug, tout << "1. lcm(" << to_string(a) << ", " << to_string(b) << ") = " << to_string(c) << "\n";);
+        TRACE(lcm_bug, tout << "1. lcm(" << to_string(a) << ", " << to_string(b) << ") = " << to_string(c) << '\n';);
     }
     else if (is_one(a) || eq(a, b)) {
         set(c, b);
-        TRACE(lcm_bug, tout << "2. lcm(" << to_string(a) << ", " << to_string(b) << ") = " << to_string(c) << "\n";);
+        TRACE(lcm_bug, tout << "2. lcm(" << to_string(a) << ", " << to_string(b) << ") = " << to_string(c) << '\n';);
     }
     else {
         mpz r;
         gcd(a, b, r);
-        TRACE(lcm_bug, tout << "gcd(" << to_string(a) << ", " << to_string(b) << ") = " << to_string(r) << "\n";);
+        TRACE(lcm_bug, tout << "gcd(" << to_string(a) << ", " << to_string(b) << ") = " << to_string(r) << '\n';);
         if (eq(r, a)) {
             set(c, b);
-            TRACE(lcm_bug, tout << "3. lcm(" << to_string(a) << ", " << to_string(b) << ") = " << to_string(c) << "\n";);
+            TRACE(lcm_bug, tout << "3. lcm(" << to_string(a) << ", " << to_string(b) << ") = " << to_string(c) << '\n';);
         }
         else if (eq(r, b)) {
             set(c, a);
-            TRACE(lcm_bug, tout << "4. lcm(" << to_string(a) << ", " << to_string(b) << ") = " << to_string(c) << "\n";);
+            TRACE(lcm_bug, tout << "4. lcm(" << to_string(a) << ", " << to_string(b) << ") = " << to_string(c) << '\n';);
         }
         else {
             // c contains gcd(a, b)   
             // so c divides a, and machine_div(a, c) is equal to div(a, c)
             machine_div(a, r, r);
             mul(r, b, c);
-            TRACE(lcm_bug, tout << "5. lcm(" << to_string(a) << ", " << to_string(b) << ") = " << to_string(c) << "\n";);
+            TRACE(lcm_bug, tout << "5. lcm(" << to_string(a) << ", " << to_string(b) << ") = " << to_string(c) << '\n';);
         }
         del(r);
     }
@@ -1339,9 +1291,9 @@ void mpz_manager<SYNCH>::lcm(mpz const & a, mpz const & b, mpz & c) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::bitwise_or(mpz const & a, mpz const & b, mpz & c) {
+    STRACE(mpz, tout << "[mpz] bitwise_or(" << to_string(a) << ", " << to_string(b) << ") == ";);
     SASSERT(is_nonneg(a));
     SASSERT(is_nonneg(b));
-    TRACE(mpz, tout << "is_small(a): " << is_small(a) << ", is_small(b): " << is_small(b) << "\n";);
     if (is_small(a) && is_small(b)) {
         set(c, a.value() | b.value());
     }
@@ -1353,12 +1305,11 @@ void mpz_manager<SYNCH>::bitwise_or(mpz const & a, mpz const & b, mpz & c) {
         set(m, 1);
         set(c, 0);
         while (!is_zero(a1) && !is_zero(b1)) {
-            TRACE(mpz, tout << "a1: " << to_string(a1) << ", b1: " << to_string(b1) << "\n";);
             mod(a1, m_two64, a2);
             mod(b1, m_two64, b2);
-            TRACE(mpz, tout << "a2: " << to_string(a2) << ", b2: " << to_string(b2) << "\n";);
+            TRACE(mpz, tout << "a2: " << to_string(a2) << ", b2: " << to_string(b2) << '\n';);
             uint64_t v = get_uint64(a2) | get_uint64(b2);
-            TRACE(mpz, tout << "uint(a2): " << get_uint64(a2) << ", uint(b2): " << get_uint64(b2) << "\n";);
+            TRACE(mpz, tout << "uint(a2): " << get_uint64(a2) << ", uint(b2): " << get_uint64(b2) << '\n';);
             set(tmp, v);
             mul(tmp, m, tmp);
             add(c, tmp, c); // c += m * v
@@ -1381,10 +1332,12 @@ void mpz_manager<SYNCH>::bitwise_or(mpz const & a, mpz const & b, mpz & c) {
         mpz_ior(*c.ptr(), a1(), b1());
 #endif
     }
+    STRACE(mpz, tout << to_string(c) << '\n';);
 }
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::bitwise_and(mpz const & a, mpz const & b, mpz & c) {
+    STRACE(mpz, tout << "[mpz] bitwise_and(" << to_string(a) << ", " << to_string(b) << ") == ";);
     SASSERT(is_nonneg(a));
     SASSERT(is_nonneg(b));
     if (is_small(a) && is_small(b)) {
@@ -1415,10 +1368,12 @@ void mpz_manager<SYNCH>::bitwise_and(mpz const & a, mpz const & b, mpz & c) {
         mpz_and(*c.ptr(), a1(), b1());
 #endif
     }
+    STRACE(mpz, tout << to_string(c) << '\n';);
 }
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::bitwise_xor(mpz const & a, mpz const & b, mpz & c) {
+    STRACE(mpz, tout << "[mpz] bitwise_xor(" << to_string(a) << ", " << to_string(b) << ") == ";);
     SASSERT(is_nonneg(a));
     SASSERT(is_nonneg(b));
     if (is_small(a) && is_small(b)) {
@@ -1457,10 +1412,12 @@ void mpz_manager<SYNCH>::bitwise_xor(mpz const & a, mpz const & b, mpz & c) {
         mpz_xor(*c.ptr(), a1(), b1());
 #endif
     }
+    STRACE(mpz, tout << to_string(c) << '\n';);
 }
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::bitwise_not(unsigned sz, mpz const & a, mpz & c) {
+    STRACE(mpz, tout << "[mpz] bitwise_not(" << to_string(a) << ", sz=" << sz << ") == ";);
     SASSERT(is_nonneg(a));
     if (is_small(a) && sz <= 64) {
         uint64_t v = ~get_uint64(a);
@@ -1482,7 +1439,6 @@ void mpz_manager<SYNCH>::bitwise_not(unsigned sz, mpz const & a, mpz & c) {
                 uint64_t mask = (1ull << static_cast<uint64_t>(sz)) - 1ull;
                 v = mask & v;
             }
-            TRACE(bitwise_not, tout << "sz: " << sz << ", v: " << v << ", n: " << n << "\n";);
             set(tmp, v);
             SASSERT(get_uint64(tmp) == v);
             mul(tmp, m, tmp);
@@ -1492,14 +1448,13 @@ void mpz_manager<SYNCH>::bitwise_not(unsigned sz, mpz const & a, mpz & c) {
             sz -= (sz<64) ? sz : 64; 
         }
         del(a1); del(a2); del(m); del(tmp);
-        TRACE(bitwise_not, tout << "sz: " << sz << " a: " << to_string(a) << " c: " << to_string(c) << "\n";);
     }
+    STRACE(mpz, tout << to_string(c) << '\n';);
 }
 
 template<bool SYNCH>
 int mpz_manager<SYNCH>::big_compare(mpz const & a, mpz const & b) {
 #ifndef _MP_GMP
-
     if (sign(a) > 0) {
         // a is positive
         if (sign(b) > 0) {
@@ -1743,13 +1698,13 @@ void mpz_manager<SYNCH>::display_hex(std::ostream & out, mpz const & a, unsigned
 }
 
 static void display_binary_data(std::ostream &out, uint64_t val, uint64_t numBits) {
-    for (uint64_t shift = numBits; shift-- > 64ull; ) out << "0";
+    for (uint64_t shift = numBits; shift-- > 64ull; ) out << '0';
     if (numBits > 64) numBits = 64;
     for (uint64_t shift = numBits; shift-- > 0; ) {
         if (val & (1ull << shift)) {
-            out << "1";
+            out << '1';
         } else {
-            out << "0";
+            out << '0';
         }
     }
  }
@@ -1818,6 +1773,7 @@ unsigned mpz_manager<SYNCH>::hash(mpz const & a) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::power(mpz const & a, unsigned p, mpz & b) {
+    STRACE(mpz, tout << "power(" << to_string(a) << ", " << p << ") == ";);
 #ifdef _MP_GMP
     if (!is_small(a)) {
         mk_big(b);
@@ -1827,8 +1783,8 @@ void mpz_manager<SYNCH>::power(mpz const & a, unsigned p, mpz & b) {
 #else
     if (is_small(a)) {
         if (a.value() == 2) {
-            if (p < 8 * sizeof(int) - 1) {
-                set(b, 1 << p);
+            if (p < 63) {
+                set(b, int64_t(1ull << p));
             }
             else {
                 unsigned sz    = p/(8 * sizeof(digit_t)) + 1;
@@ -1838,20 +1794,19 @@ void mpz_manager<SYNCH>::power(mpz const & a, unsigned p, mpz & b) {
                 b.ptr()->m_size = sz;
                 for (unsigned i = 0; i < sz - 1; ++i)
                     b.ptr()->m_digits[i] = 0;
-                b.ptr()->m_digits[sz-1] = 1 << shift;
+                b.ptr()->m_digits[sz-1] = digit_t(1ULL << shift);
                 b.set_sign(1);
             }
-            return;
         }
-        if (a.value() == 0) {
+        else if (a.value() == 0) {
             SASSERT(p != 0);
             set(b, 0);
-            return;
         }
-        if (a.value() == 1) {
+        else if (a.value() == 1) {
             set(b, 1);
-            return;
         }
+        STRACE(mpz, tout << to_string(b) << '\n';);
+        return;
     }
 #endif
     // general purpose
@@ -1866,6 +1821,7 @@ void mpz_manager<SYNCH>::power(mpz const & a, unsigned p, mpz & b) {
         mask = mask << 1;
     }
     del(power);
+    STRACE(mpz, tout << to_string(b) << '\n';);
 }
 
 template<bool SYNCH>
@@ -1968,14 +1924,7 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
     if (k == 0 || is_zero(a))
         return;
     if (is_small(a)) {
-        if (k < 64) {
-            int64_t twok = 1ull << ((int64_t)k);
-            int64_t val = a.value();
-            set(a, val/twok);
-        }
-        else {
-            set(a, 0);
-        }
+        set(a, k < 64 ? (a.value() >> k) : 0);
         return;
     }
 #ifndef _MP_GMP
@@ -1991,7 +1940,7 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
     unsigned new_sz      = sz - digit_shift;
     SASSERT(new_sz >= 1);
     digit_t * ds = c->m_digits;
-    TRACE(mpz_2k, tout << "bit_shift: " << bit_shift << ", comp_shift: " << comp_shift << ", new_sz: " << new_sz << ", sz: " << sz << "\n";);
+    TRACE(mpz_2k, tout << "bit_shift: " << bit_shift << ", comp_shift: " << comp_shift << ", new_sz: " << new_sz << ", sz: " << sz << '\n';);
     if (new_sz < sz) {
         unsigned i       = 0;
         unsigned j       = digit_shift;
@@ -2035,23 +1984,25 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::mul2k(mpz & a, unsigned k) {
+    STRACE(mpz, tout << "[mpz-mul2k] a=" << to_string(a) << " k=" << k << '\n';);
     if (k == 0 || is_zero(a))
         return;
 
     int64_t result;
-    if (is_small(a) && k < 64 && !mul_overflows(a.value(), static_cast<int64_t>(1) << k, result)) {
+    if (is_small(a) && k < 63 && !mul_overflows(a.value(), 1ULL << k, result)) {
         set(a, result);
+        TRACE(mpz_mul2k, tout << "mul2k result:\n" << to_string(a) << '\n';);
         return;
     }
 #ifndef _MP_GMP
-    TRACE(mpz_mul2k, tout << "mul2k\na: " << to_string(a) << "\nk: " << k << "\n";);
+    TRACE(mpz_mul2k, tout << "mul2k\na: " << to_string(a) << "\nk: " << k << '\n';);
     unsigned word_shift  = k / (8 * sizeof(digit_t));
     unsigned bit_shift   = k % (8 * sizeof(digit_t));
     unsigned old_sz      = a.has_ptr() ? size(a) : (sizeof(int64_t) / sizeof(digit_t));
     unsigned new_sz      = old_sz + word_shift + 1;
     ensure_capacity(a, new_sz);
     TRACE(mpz_mul2k, tout << "word_shift: " << word_shift << "\nbit_shift: " << bit_shift << "\nold_sz: " << old_sz << "\nnew_sz: " << new_sz 
-          << "\na after ensure capacity:\n" << to_string(a) << "\n";);
+          << "\na after ensure capacity:\n" << to_string(a) << '\n';);
     SASSERT(a.has_ptr());
     mpz_cell * cell_a    = a.ptr();
     old_sz = cell_a->m_size;
@@ -2088,7 +2039,7 @@ void mpz_manager<SYNCH>::mul2k(mpz & a, unsigned k) {
         }
     }
     normalize(a);
-    TRACE(mpz_mul2k, tout << "mul2k result:\n" << to_string(a) << "\n";);
+    TRACE(mpz_mul2k, tout << "mul2k result:\n" << to_string(a) << '\n';);
 #else
     ensure_mpz_t a1(a);
     mk_big(a);
@@ -2340,7 +2291,7 @@ bool mpz_manager<SYNCH>::root(mpz & a, unsigned n) {
         while (true) {
             add(upper, lower, mid);
             machine_div2k(mid, 1);
-            TRACE(mpz, tout << "upper: "; display(tout, upper); tout << "\nlower: "; display(tout, lower); tout << "\nmid: "; display(tout, mid); tout << "\n";);
+            TRACE(mpz, tout << "upper: "; display(tout, upper); tout << "\nlower: "; display(tout, lower); tout << "\nmid: "; display(tout, mid); tout << '\n';);
             power(mid, n, mid_n);
             if (eq(mid_n, a)) {
                 swap(a, mid);
@@ -2389,7 +2340,7 @@ digit_t mpz_manager<SYNCH>::get_least_significant(mpz const& a) {
 template<bool SYNCH>
 bool mpz_manager<SYNCH>::decompose(mpz const & a, svector<digit_t> & digits) {
     digits.reset();
-    if (is_small(a)) {
+    if (!a.has_ptr()) {
         int64_t v = a.value();
         bool is_neg = v < 0;
         uint64_t abs_v = static_cast<uint64_t>(is_neg ? -v : v);
@@ -2473,8 +2424,8 @@ bool mpz_manager<SYNCH>::divides(mpz const & a, mpz const & b) {
         rem(b, a, tmp);
         r = is_zero(tmp);
     }
-    STRACE(divides, tout << "[mpz] Divisible["; display(tout, b); tout << ", "; display(tout, a); tout << "] == " << (r?"True":"False") << "\n";);
-    TRACE(divides_bug, tout << "tmp: "; display(tout, tmp); tout << "\n";);
+    STRACE(divides, tout << "[mpz] Divisible["; display(tout, b); tout << ", "; display(tout, a); tout << "] == " << (r?"True":"False") << '\n';);
+    TRACE(divides_bug, tout << "tmp: "; display(tout, tmp); tout << '\n';);
     return r;
 }
 

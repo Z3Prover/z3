@@ -1250,7 +1250,7 @@ namespace pb {
                 g = coeff;
             }
             else {
-                g = u_gcd(g, coeff);
+                g = std::gcd(g, coeff);
             }
         }
 

@@ -1788,7 +1788,7 @@ namespace smt {
                 g = static_cast<unsigned>(coeff);
             }
             else {
-                g = u_gcd(g, static_cast<unsigned>(coeff));
+                g = std::gcd(g, static_cast<unsigned>(coeff));
             }
         }
         if (g >= 2) {

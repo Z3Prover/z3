@@ -18,18 +18,17 @@ Revision History:
 --*/
 #pragma once
 
-#include<string>
+#include <bit>
+#include <string>
 #include "util/mutex.h"
 #include "util/util.h"
 #include "util/small_object_allocator.h"
-#include "util/trace.h"
 #include "util/scoped_numeral.h"
 #include "util/scoped_numeral_vector.h"
 #include "util/mpn.h"
 
-unsigned u_gcd(unsigned u, unsigned v);
-unsigned trailing_zeros(uint64_t);
-unsigned trailing_zeros(uint32_t);
+static inline unsigned trailing_zeros(uint64_t x) { return std::countr_zero(x); }
+static inline unsigned trailing_zeros(uint32_t x) { return std::countr_zero(x); }
 
 
 #ifdef _MP_GMP
