@@ -19,10 +19,6 @@ Revision History:
 
 #include "util/s_integer.h"
 
-s_integer s_integer::m_zero(0);
-s_integer s_integer::m_one(1);
-s_integer s_integer::m_minus_one(-1);
-
 s_integer::s_integer(const char * str) {
     m_val = static_cast<int>(strtol(str, nullptr, 10));
 }

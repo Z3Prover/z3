@@ -247,7 +247,7 @@ private:
                );
         m_app2val.insert(a, result.get()); // memoize
         m_pinned.push_back(a);
-        m_pinned.push_back(result);
+        m_pinned.push_back(std::move(result));
         return true;
     }
     

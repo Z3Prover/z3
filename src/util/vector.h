@@ -653,14 +653,8 @@ public:
     svector(const svector&) = default;
     svector(svector&&) noexcept = default;
 
-    svector & operator=(const svector & source) {
-        vector<T, false, SZ>::operator=(source);
-        return *this;
-    }
-    svector & operator=(svector && source) noexcept {
-        vector<T, false, SZ>::operator=(std::move(source));
-        return *this;
-    }
+    svector & operator=(const svector &) = default;
+    svector & operator=(svector &&) noexcept = default;
 };
 
 

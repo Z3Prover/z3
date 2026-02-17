@@ -46,9 +46,9 @@ namespace sat {
             IF_VERBOSE(1, verbose_stream() << "Decomposed set " << f.m_L.size() << " rest: " << f.m_R.size() << "\n";);
             TRACE(sat,
                   tout << "Decomposed set " << f.m_L.size() << "\n";
-                  for (bclause b : f.m_L) tout << b.lit << ": " << *b.cls << "\n";
+                  for (const bclause& b : f.m_L) tout << b.lit << ": " << *b.cls << "\n";
                   tout << "Remainder " << f.m_R.size() << "\n";
-                  for (bclause b : f.m_R) tout << b.lit << ": " << *b.cls << "\n";);            
+                  for (const bclause& b : f.m_R) tout << b.lit << ": " << *b.cls << "\n";);            
         }
     };
 
@@ -66,7 +66,7 @@ namespace sat {
         report _report(*this);
         pure_decompose();
         post_decompose();
-        for (bclause bc : m_L) {
+        for (const bclause& bc : m_L) {
             if (bc.cls->size() == 2) 
                 bins.push_back(bin_clause((*bc.cls)[0], (*bc.cls)[1]));
             else 
@@ -83,7 +83,7 @@ namespace sat {
         }
         bin_clauses bc;
         s.collect_bin_clauses(bc, false, false); // exclude roots.
-        for (auto b : bc) {
+        for (const auto& b : bc) {
             literal lits[2] = { b.first, b.second };
             clause* cls = s.cls_allocator().mk_clause(2, lits, false);
             ul.insert(*cls);
@@ -148,7 +148,7 @@ namespace sat {
         m_marked.resize(2*s.num_vars(), false);
         use_list ul;
         ul.init(s.num_vars());
-        for (bclause bc : m_L) {
+        for (const bclause& bc : m_L) {
             ul.insert(*bc.cls);
         }
 
@@ -201,7 +201,7 @@ namespace sat {
         m_new_L.push_back(bclause(cls0[0], &cls0));
         bool removed = false;
         reset_removed();
-        for (bclause bc : m_L) {
+        for (const bclause& bc : m_L) {
             literal lit = find_blocked(ul, *bc.cls);
             if (lit == null_literal) {
                 live_clauses.push_back(bc);
@@ -215,7 +215,7 @@ namespace sat {
         while (removed) {
             removed = false;
             unsigned j = 0;
-            for (bclause bc : live_clauses) {
+            for (const bclause& bc : live_clauses) {
                 literal lit = find_blocked(ul, *bc.cls);
                 if (lit == null_literal) {
                     live_clauses[j++] = bc;

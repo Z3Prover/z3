@@ -1145,7 +1145,7 @@ namespace datalog {
         set_difference(local_deltas, global_deltas);
         */
         func_decl_set local_deltas;
-        func_decl_set global_deltas(head_preds);
+        const func_decl_set & global_deltas = head_preds;
 
         pred2idx d_global_src;  //these deltas serve as sources of tuples for rule evaluation inside the loop
         get_fresh_registers(global_deltas, d_global_src);

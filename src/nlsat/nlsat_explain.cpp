@@ -1755,9 +1755,11 @@ namespace nlsat {
                     }
 #ifdef Z3DEBUG
                     TRACE(nlsat, m_solver.display(tout, result.size(), result.data()) << "\n"; );
-                    for (literal l : result) {
-                        CTRACE(nlsat, l_true != m_solver.value(l), m_solver.display(tout, l) << " " << m_solver.value(l) << "\n";);
-                        SASSERT(l_true == m_solver.value(l));
+                    if (max_var(result.size(), result.data()) > 0) { // avoid checking something like that x0 = 0 & x0 > 0 with empty sample
+                        for (literal l : result) {
+                            CTRACE(nlsat, l_true != m_solver.value(l), m_solver.display(tout, l) << " " << m_solver.value(l) << "\n";);
+                            SASSERT(l_true == m_solver.value(l));
+                        }
                     }
 #endif                
                     break;

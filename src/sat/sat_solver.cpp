@@ -4651,7 +4651,6 @@ namespace sat {
             }
             add_assumption(lit);
         }
-        m_antecedents.insert(lit.var(), s);
         if (unfixed.contains(lit.var())) {
             literal_vector cons;
             cons.push_back(lit);
@@ -4659,8 +4658,9 @@ namespace sat {
                 cons.push_back(to_literal(idx));
             }
             unfixed.remove(lit.var());
-            conseq.push_back(cons);
+            conseq.push_back(std::move(cons));
         }
+        m_antecedents.insert(lit.var(), std::move(s));
         return true;
     }
 

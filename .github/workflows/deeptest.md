@@ -25,8 +25,6 @@ tools:
   bash: [":*"]
   edit: {}
   glob: {}
-  grep: {}
-
 safe-outputs:
   create-pull-request:
     title-prefix: "[DeepTest] "

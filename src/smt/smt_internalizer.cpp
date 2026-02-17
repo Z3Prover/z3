@@ -1657,8 +1657,7 @@ namespace smt {
                 proof * def = mk_clause_def_axiom(num_lits, lits, m.get_fact(pr));
                 TRACE(gate_clause, tout << mk_ll_pp(def, m) << "\n";
                       tout << mk_ll_pp(pr, m););
-                proof * prs[2] = { def, pr };
-                pr  = m.mk_unit_resolution(2, prs);
+                pr  = m.mk_unit_resolution({ def, pr });
             }
             mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
         }

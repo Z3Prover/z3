@@ -99,12 +99,15 @@ static void tst2() {
 }
 
 static void tst3() {
-    int_set      h1;
+    int_set h1, h2;
     h1.insert(10);
     h1.insert(20);
     h1.insert(30);
     h1.erase(20);
-    int_set    h2(h1);
+    h2.insert(10);
+    h2.insert(20);
+    h2.insert(30);
+    h2.erase(20);
     ENSURE(h1.contains(10));
     ENSURE(!h1.contains(20));
     ENSURE(h1.contains(30));
@@ -129,17 +132,11 @@ void test_hashtable_constructors() {
     VERIFY(ht.size() == 0);
     VERIFY(ht.capacity() == DEFAULT_HASHTABLE_INITIAL_CAPACITY);
 
-    // Copy constructor
-    hashtable<int, my_hash, my_eq> ht_copy(ht);
-    VERIFY(ht_copy.empty());
-    VERIFY(ht_copy.size() == 0);
-    VERIFY(ht_copy.capacity() == ht.capacity());
-
     // Move constructor
     hashtable<int, my_hash, my_eq> ht_move(std::move(ht));
     VERIFY(ht_move.empty());
     VERIFY(ht_move.size() == 0);
-    VERIFY(ht_move.capacity() == ht_copy.capacity());
+    VERIFY(ht_move.capacity() == DEFAULT_HASHTABLE_INITIAL_CAPACITY);
 }
 
 void test_hashtable_insert() {

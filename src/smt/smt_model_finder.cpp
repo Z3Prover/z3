@@ -2545,11 +2545,11 @@ namespace smt {
         // Since we only care about q (and its bindings), it only makes sense to restrict the variables of q.
         bool asserted_something = false;
         unsigned num_decls = q->get_num_decls();
-        // Remark: sks were created for the flat version of q.
+        // Remark: sks were created for the flat version of q.  
         SASSERT(get_flat_quantifier(q)->get_num_decls() == sks.size());
         SASSERT(sks.size() >= num_decls);
         for (unsigned i = 0; i < num_decls; ++i) {
-            expr* sk = sks.get(num_decls - i - 1);
+            expr *sk = sks.get(sks.size() - i - 1);
             instantiation_set const* s = get_uvar_inst_set(q, i);
             if (s == nullptr)
                 continue; // nothing to do
@@ -2557,15 +2557,17 @@ namespace smt {
             if (inv.empty())
                 continue; // nothing to do
             ptr_buffer<expr> eqs;
-            for (auto const& kv : inv) {
-                expr* val = kv.m_key;
-                eqs.push_back(m.mk_eq(sk, val));
+            for (auto const& [val, _] : inv) {
+                if (val->get_sort() == sk->get_sort())
+                    eqs.push_back(m.mk_eq(sk, val));
             }
-            expr_ref new_cnstr(m);
-            new_cnstr = m.mk_or(eqs);
-            TRACE(model_finder, tout << "assert_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
-            aux_ctx->assert_expr(new_cnstr);
-            asserted_something = true;
+            if (!eqs.empty()) {
+                expr_ref new_cnstr(m);
+                new_cnstr = m.mk_or(eqs);
+                TRACE(model_finder, tout << "assert_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
+                aux_ctx->assert_expr(new_cnstr);
+                asserted_something = true;
+            }
         }
         return asserted_something;
     }

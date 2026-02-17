@@ -42,19 +42,19 @@ public:
         }
     }
 
-    void add_option(std::string s) {
+    void add_option(const std::string& s) {
         add_option_with_help_string(s, "");
     }
 
-    void add_option_with_help_string(std::string s, std::string help_string) {
+    void add_option_with_help_string(const std::string& s, const std::string& help_string) {
         m_options[s]=help_string;
     }
 
-    void add_option_with_after_string(std::string s) {
+    void add_option_with_after_string(const std::string& s) {
         add_option_with_after_string_with_help(s, "");
     }
 
-    void add_option_with_after_string_with_help(std::string s, std::string help_string) {
+    void add_option_with_after_string_with_help(const std::string& s, const std::string& help_string) {
         m_options_with_after_string[s]=help_string;
     }
 
@@ -82,19 +82,19 @@ public:
         return status_is_ok;
     }
 
-    bool contains(std::unordered_map<std::string, std::string> & m, std::string s) {
+    bool contains(std::unordered_map<std::string, std::string> & m, const std::string& s) {
         return m.find(s) != m.end();
     }
 
-    bool contains(std::set<std::string> & m, std::string s) {
+    bool contains(std::set<std::string> & m, const std::string& s) {
         return m.find(s) != m.end();
     }
 
-    bool option_is_used(std::string option) {
+    bool option_is_used(const std::string& option) {
         return contains(m_used_options, option) || contains(m_used_options_with_after_string, option);
     }
 
-    std::string get_option_value(std::string option) {
+    std::string get_option_value(const std::string& option) {
         auto t = m_used_options_with_after_string.find(option);
         if (t != m_used_options_with_after_string.end()){
             return t->second;
@@ -102,11 +102,11 @@ public:
         return std::string();
     }
 
-    bool starts_with(std::string s, char const * prefix) {
+    bool starts_with(const std::string& s, char const * prefix) {
         return starts_with(s, std::string(prefix));
     }
 
-    bool starts_with(std::string s, std::string prefix) {
+    bool starts_with(const std::string& s, const std::string& prefix) {
         return s.substr(0, prefix.size()) == prefix;
     }
 

@@ -43,6 +43,11 @@ public:
 
     checked_int64() = default;
     checked_int64(int64_t v): m_value(v) {}
+    checked_int64(checked_int64 const& other) = default;
+    checked_int64(checked_int64&&) = default;
+
+    checked_int64& operator=(checked_int64 const& other) = default;
+    checked_int64& operator=(checked_int64&&) = default;
 
     bool is_zero() const { return m_value == 0; }
     bool is_pos() const { return m_value > 0; }

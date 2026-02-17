@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z3 Go API Documentation</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; line-height: 1.6; }
+        header { background: #2d3748; color: white; padding: 2rem; }
+        header h1 { margin: 0; font-size: 2.5rem; }
+        header p { margin: 0.5rem 0 0 0; font-size: 1.1rem; opacity: 0.9; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        .section { margin: 2rem 0; }
+        .section h2 { color: #2d3748; border-bottom: 2px solid #4299e1; padding-bottom: 0.5rem; }
+        .file-list { list-style: none; padding: 0; }
+        .file-item { background: #f7fafc; border-left: 4px solid #4299e1; margin: 1rem 0; padding: 1rem; border-radius: 4px; }
+        .file-item h3 { margin: 0 0 0.5rem 0; color: #2d3748; }
+        .file-item h3 a { color: #2b6cb0; text-decoration: none; }
+        .file-item h3 a:hover { color: #4299e1; text-decoration: underline; }
+        .file-item p { margin: 0; color: #4a5568; }
+        .code-block { background: #2d3748; color: #e2e8f0; padding: 1.5rem; border-radius: 4px; overflow-x: auto; }
+        .code-block pre { margin: 0; }
+        .install-section { background: #edf2f7; padding: 1.5rem; border-radius: 4px; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #2b6cb0; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Z3 Go API Documentation</h1>
+        <p>Go bindings for the Z3 Theorem Prover</p>
+    </header>
+    <div class="container">
+        <div class="section">
+            <h2>Overview</h2>
+            <p>The Z3 Go bindings provide idiomatic Go access to the Z3 SMT solver. These bindings use CGO to wrap the Z3 C API and provide automatic memory management through Go finalizers.</p>
+            <p><strong>Package:</strong> <code>github.com/Z3Prover/z3/src/api/go</code></p>
+        </div>
+        <div class="section">
+            <h2>Quick Start</h2>
+            <div class="code-block">
+                <pre>package main
+
+import (
+    "fmt"
+    "github.com/Z3Prover/z3/src/api/go"
+)
+
+func main() {
+    // Create a context
+    ctx := z3.NewContext()
+
+    // Create integer variable
+    x := ctx.MkIntConst("x")
+
+    // Create solver
+    solver := ctx.NewSolver()
+
+    // Add constraint: x > 0
+    zero := ctx.MkInt(0, ctx.MkIntSort())
+    solver.Assert(ctx.MkGt(x, zero))
+
+    // Check satisfiability
+    if solver.Check() == z3.Satisfiable {
+        fmt.Println("sat")
+        model := solver.Model()
+        if val, ok := model.Eval(x, true); ok {
+            fmt.Println("x =", val.String())
+        }
+    }
+}</pre>
+            </div>
+        </div>
+        <div class="section">
+            <h2>Installation</h2>
+            <div class="install-section">
+                <p><strong>Prerequisites:</strong></p>
+                <ul>
+                    <li>Go 1.20 or later</li>
+                    <li>Z3 built as a shared library</li>
+                    <li>CGO enabled (default)</li>
+                </ul>
+                <p><strong>Build Z3 with Go bindings:</strong></p>
+                <div class="code-block">
+                    <pre># Using CMake
+mkdir build && cd build
+cmake -DZ3_BUILD_GO_BINDINGS=ON -DZ3_BUILD_LIBZ3_SHARED=ON ..
+make
+
+# Using Python build script
+python scripts/mk_make.py --go
+cd build && make</pre>
+                </div>
+                <p><strong>Set environment variables:</strong></p>
+                <div class="code-block">
+                    <pre>export CGO_CFLAGS="-I${Z3_ROOT}/src/api"
+export CGO_LDFLAGS="-L${Z3_ROOT}/build -lz3"
+export LD_LIBRARY_PATH="${Z3_ROOT}/build:$LD_LIBRARY_PATH"</pre>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <h2>API Modules</h2>
+            <ul class="file-list">
+                <li class="file-item">
+                    <h3><a href="#z3.go">z3.go</a></h3>
+                    <p>Package z3 provides Go bindings for the Z3 theorem prover. It wraps the Z3 C API using CGO.</p>
+                </li>
+                <li class="file-item">
+                    <h3><a href="#solver.go">solver.go</a></h3>
+                    <p>Solver and Model API for SMT solving</p>
+                </li>
+                <li class="file-item">
+                    <h3><a href="#tactic.go">tactic.go</a></h3>
+                    <p>Tactics, Goals, Probes, and Parameters for goal-based solving</p>
+                </li>
+                <li class="file-item">
+                    <h3><a href="#bitvec.go">bitvec.go</a></h3>
+                    <p>Bit-vector operations and constraints</p>
+                </li>
+                <li class="file-item">
+                    <h3><a href="#fp.go">fp.go</a></h3>
+                    <p>IEEE 754 floating-point operations</p>
+                </li>
+                <li class="file-item">
+                    <h3><a href="#seq.go">seq.go</a></h3>
+                    <p>Sequences, strings, and regular expressions</p>
+                </li>
+                <li class="file-item">
+                    <h3><a href="#datatype.go">datatype.go</a></h3>
+                    <p>Algebraic datatypes, tuples, and enumerations</p>
+                </li>
+                <li class="file-item">
+                    <h3><a href="#optimize.go">optimize.go</a></h3>
+                    <p>Optimization with maximize/minimize objectives</p>
+                </li>
+            </ul>
+        </div>
+        <div class="section">
+            <h2>Features</h2>
+            <ul>
+                <li><strong>Core SMT:</strong> Boolean logic, arithmetic, arrays, quantifiers</li>
+                <li><strong>Bit-vectors:</strong> Fixed-size bit-vector arithmetic and operations</li>
+                <li><strong>Floating-point:</strong> IEEE 754 floating-point arithmetic</li>
+                <li><strong>Strings & Sequences:</strong> String constraints and sequence operations</li>
+                <li><strong>Regular Expressions:</strong> Pattern matching and regex constraints</li>
+                <li><strong>Datatypes:</strong> Algebraic datatypes, tuples, enumerations</li>
+                <li><strong>Tactics:</strong> Goal-based solving with tactic combinators</li>
+                <li><strong>Optimization:</strong> MaxSMT with maximize/minimize objectives</li>
+                <li><strong>Memory Management:</strong> Automatic via Go finalizers</li>
+            </ul>
+        </div>
+        <div class="section">
+            <h2>Resources</h2>
+            <ul>
+                <li><a href="https://github.com/Z3Prover/z3">Z3 GitHub Repository</a></li>
+                <li><a href="../index.html">All API Documentation</a></li>
+                <li><a href="README.html">Go API README</a></li>
+            </ul>
+        </div>
+        <a href="../index.html" class="back-link">← Back to main API documentation</a>
+    </div>
+</body>
+</html>

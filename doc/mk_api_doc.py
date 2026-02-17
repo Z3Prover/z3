@@ -15,24 +15,27 @@ import subprocess
 ML_ENABLED=False
 MLD_ENABLED=False
 JS_ENABLED=False
+GO_ENABLED=False
 BUILD_DIR='../build'
 DOXYGEN_EXE='doxygen'
 TEMP_DIR=os.path.join(os.getcwd(), 'tmp')
 OUTPUT_DIRECTORY=os.path.join(os.getcwd(), 'api')
 Z3PY_PACKAGE_PATH='../src/api/python/z3'
 JS_API_PATH='../src/api/js'
+GO_API_PATH='../src/api/go'
 Z3PY_ENABLED=True
 DOTNET_ENABLED=True
 JAVA_ENABLED=True
 Z3OPTIONS_ENABLED=True
 DOTNET_API_SEARCH_PATHS=['../src/api/dotnet']
 JAVA_API_SEARCH_PATHS=['../src/api/java']
+GO_API_SEARCH_PATHS=['../src/api/go']
 SCRIPT_DIR=os.path.abspath(os.path.dirname(__file__))
 
 def parse_options():
     global ML_ENABLED, MLD_ENABLED, BUILD_DIR, DOXYGEN_EXE, TEMP_DIR, OUTPUT_DIRECTORY
-    global Z3PY_PACKAGE_PATH, Z3PY_ENABLED, DOTNET_ENABLED, JAVA_ENABLED, JS_ENABLED
-    global DOTNET_API_SEARCH_PATHS, JAVA_API_SEARCH_PATHS, JS_API_PATH
+    global Z3PY_PACKAGE_PATH, Z3PY_ENABLED, DOTNET_ENABLED, JAVA_ENABLED, JS_ENABLED, GO_ENABLED
+    global DOTNET_API_SEARCH_PATHS, JAVA_API_SEARCH_PATHS, GO_API_SEARCH_PATHS, JS_API_PATH, GO_API_PATH
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('-b',
         '--build',
@@ -53,6 +56,11 @@ def parse_options():
         action='store_true',
         default=False,
         help='Include JS/TS API documentation'
+    )
+    parser.add_argument('--go',
+        action='store_true',
+        default=False,
+        help='Include Go API documentation'
     )
     parser.add_argument('--doxygen-executable',
         dest='doxygen_executable',
@@ -109,10 +117,17 @@ def parse_options():
         default=JAVA_API_SEARCH_PATHS,
         help='Specify one or more paths to look for Java files (default: %(default)s).',
     )
+    parser.add_argument('--go-search-paths',
+        dest='go_search_paths',
+        nargs='+',
+        default=GO_API_SEARCH_PATHS,
+        help='Specify one or more paths to look for Go files (default: %(default)s).',
+    )
     pargs = parser.parse_args()
     ML_ENABLED = pargs.ml
     MLD_ENABLED = pargs.mld
     JS_ENABLED = pargs.js
+    GO_ENABLED = pargs.go
     BUILD_DIR = pargs.build
     DOXYGEN_EXE = pargs.doxygen_executable
     TEMP_DIR = pargs.temp_dir
@@ -123,6 +138,7 @@ def parse_options():
     JAVA_ENABLED = not pargs.no_java
     DOTNET_API_SEARCH_PATHS = pargs.dotnet_search_paths
     JAVA_API_SEARCH_PATHS = pargs.java_search_paths
+    GO_API_SEARCH_PATHS = pargs.go_search_paths
 
     if Z3PY_ENABLED:
         if not os.path.exists(Z3PY_PACKAGE_PATH):
@@ -288,6 +304,18 @@ try:
         print("Java documentation disabled")
         doxygen_config_substitutions['JAVA_API_FILES'] = ''
         doxygen_config_substitutions['JAVA_API_SEARCH_PATHS'] = ''
+    if GO_ENABLED:
+        print("Go documentation enabled")
+        doxygen_config_substitutions['GO_API_FILES'] = '*.go'
+        go_api_search_path_str = ""
+        for p in GO_API_SEARCH_PATHS:
+            # Quote path so that paths with spaces are handled correctly
+            go_api_search_path_str += "\"{}\" ".format(p)
+        doxygen_config_substitutions['GO_API_SEARCH_PATHS'] = go_api_search_path_str
+    else:
+        print("Go documentation disabled")
+        doxygen_config_substitutions['GO_API_FILES'] = ''
+        doxygen_config_substitutions['GO_API_SEARCH_PATHS'] = ''
     if JS_ENABLED:
         print('Javascript documentation enabled')
     else:
@@ -350,6 +378,13 @@ try:
                 prefix=bullet_point_prefix)
     else:
         website_dox_substitutions['JS_API'] = ''
+    if GO_ENABLED:
+        website_dox_substitutions['GO_API'] = (
+            '{prefix}<a class="el" href="go/index.html">Go API</a>'
+            ).format(
+                prefix=bullet_point_prefix)
+    else:
+        website_dox_substitutions['GO_API'] = ''
     configure_file(
         doc_path('website.dox.in'),
         temp_path('website.dox'),
@@ -427,6 +462,97 @@ try:
             print("ERROR: npm run docs failed.")
             exit(1)
         print("Generated Javascript documentation.")
+
+    if GO_ENABLED:
+        go_output_dir = os.path.join(OUTPUT_DIRECTORY, 'html', 'go')
+        mk_dir(go_output_dir)
+        go_api_abs_path = os.path.abspath(GO_API_PATH)
+        
+        # Check if godoc is available
+        godoc_available = False
+        try:
+            subprocess.check_output(['go', 'version'], stderr=subprocess.STDOUT)
+            godoc_available = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            print("WARNING: Go is not installed. Skipping godoc generation.")
+            godoc_available = False
+        
+        if godoc_available:
+            # Generate godoc HTML for each Go file
+            go_files = [
+                'z3.go', 'solver.go', 'tactic.go', 'bitvec.go', 
+                'fp.go', 'seq.go', 'datatype.go', 'optimize.go'
+            ]
+            
+            # Create a simple HTML index
+            index_html = os.path.join(go_output_dir, 'index.html')
+            with open(index_html, 'w') as f:
+                f.write('<!DOCTYPE html>\n<html>\n<head>\n')
+                f.write('<title>Z3 Go API Documentation</title>\n')
+                f.write('<style>\n')
+                f.write('body { font-family: Arial, sans-serif; margin: 40px; }\n')
+                f.write('h1 { color: #333; }\n')
+                f.write('ul { list-style-type: none; padding: 0; }\n')
+                f.write('li { margin: 10px 0; }\n')
+                f.write('a { color: #0066cc; text-decoration: none; font-size: 18px; }\n')
+                f.write('a:hover { text-decoration: underline; }\n')
+                f.write('.description { color: #666; margin-left: 20px; }\n')
+                f.write('</style>\n')
+                f.write('</head>\n<body>\n')
+                f.write('<h1>Z3 Go API Documentation</h1>\n')
+                f.write('<p>Go bindings for the Z3 Theorem Prover.</p>\n')
+                f.write('<h2>Package: github.com/Z3Prover/z3/src/api/go</h2>\n')
+                f.write('<ul>\n')
+                
+                # Add links to the README
+                readme_path = os.path.join(go_api_abs_path, 'README.md')
+                if os.path.exists(readme_path):
+                    # Copy README as index documentation
+                    readme_html_path = os.path.join(go_output_dir, 'README.html')
+                    try:
+                        # Try to convert markdown to HTML if markdown module is available
+                        with open(readme_path, 'r') as rf:
+                            readme_content = rf.read()
+                        with open(readme_html_path, 'w') as wf:
+                            wf.write('<!DOCTYPE html>\n<html>\n<head>\n')
+                            wf.write('<title>Z3 Go API - README</title>\n')
+                            wf.write('<style>body { font-family: Arial, sans-serif; margin: 40px; max-width: 900px; }</style>\n')
+                            wf.write('</head>\n<body>\n<pre>\n')
+                            wf.write(readme_content)
+                            wf.write('</pre>\n</body>\n</html>\n')
+                        f.write('<li><a href="README.html">README - Getting Started</a></li>\n')
+                    except Exception as e:
+                        print(f"Warning: Could not process README.md: {e}")
+                
+                # Add module descriptions
+                f.write('<li><a href="#core">z3.go</a> - Core types (Context, Config, Symbol, Sort, Expr, FuncDecl)</li>\n')
+                f.write('<li><a href="#solver">solver.go</a> - Solver and Model API</li>\n')
+                f.write('<li><a href="#tactic">tactic.go</a> - Tactics, Goals, Probes, and Parameters</li>\n')
+                f.write('<li><a href="#bitvec">bitvec.go</a> - Bit-vector operations</li>\n')
+                f.write('<li><a href="#fp">fp.go</a> - Floating-point operations</li>\n')
+                f.write('<li><a href="#seq">seq.go</a> - Sequences, strings, and regular expressions</li>\n')
+                f.write('<li><a href="#datatype">datatype.go</a> - Algebraic datatypes, tuples, enumerations</li>\n')
+                f.write('<li><a href="#optimize">optimize.go</a> - Optimization with maximize/minimize objectives</li>\n')
+                f.write('</ul>\n')
+                
+                f.write('<h2>Usage</h2>\n')
+                f.write('<pre>\n')
+                f.write('import "github.com/Z3Prover/z3/src/api/go"\n\n')
+                f.write('ctx := z3.NewContext()\n')
+                f.write('solver := ctx.NewSolver()\n')
+                f.write('x := ctx.MkIntConst("x")\n')
+                f.write('solver.Assert(ctx.MkGt(x, ctx.MkInt(0, ctx.MkIntSort())))\n')
+                f.write('if solver.Check() == z3.Satisfiable {\n')
+                f.write('    fmt.Println("sat")\n')
+                f.write('}\n')
+                f.write('</pre>\n')
+                
+                f.write('<h2>Installation</h2>\n')
+                f.write('<p>See <a href="README.html">README</a> for build instructions.</p>\n')
+                f.write('<p>Go back to <a href="../index.html">main API documentation</a>.</p>\n')
+                f.write('</body>\n</html>\n')
+            
+            print("Generated Go documentation.")
 
     print("Documentation was successfully generated at subdirectory '{}'.".format(OUTPUT_DIRECTORY))
 except Exception:

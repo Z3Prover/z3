@@ -97,8 +97,7 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, bool deps_valid, expr_de
     expr * body1    = m.mk_eq(head, new_rhs2);
     expr * body2    = m.mk_app(new_body->get_decl(), k_app, m_autil.mk_int(0));
     quantifier * q1 = m.update_quantifier(new_q, body1);
-    expr * patterns[1] = { m.mk_pattern(k_app) };
-    quantifier * q2 = m.update_quantifier(new_q, 1, patterns, body2);
+    quantifier * q2 = m.update_quantifier(new_q, { m.mk_pattern(k_app) }, body2);
     new_exprs.push_back(q1);
     new_exprs.push_back(q2);
     if (m.proofs_enabled()) {
@@ -169,8 +168,7 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, vector<justified_expr>& 
     expr * body1    = m.mk_eq(head, new_rhs2);
     expr * body2    = m.mk_app(new_body->get_decl(), k_app, m_autil.mk_int(0));
     quantifier * q1 = m.update_quantifier(new_q, body1);
-    expr * patterns[1] = { m.mk_pattern(k_app) };
-    quantifier * q2 = m.update_quantifier(new_q, 1, patterns, body2);
+    quantifier * q2 = m.update_quantifier(new_q, { m.mk_pattern(k_app) }, body2);
     proof* pr1 = nullptr, *pr2 = nullptr;
     if (m.proofs_enabled()) {
         // new_pr  : new_q
@@ -210,8 +208,7 @@ static void pseudo_predicate_macro2macro(ast_manager & m, app * head, app * t, e
     app * body_1  = m.mk_eq(head, ite);
     app * body_2  = m.mk_not(m.mk_eq(k_app, t));
     quantifier * q1 = m.update_quantifier(q, body_1);
-    expr * pats[1] = { m.mk_pattern(k_app) };
-    quantifier * q2 = m.update_quantifier(q, 1, pats, body_2); // erase patterns
+    quantifier * q2 = m.update_quantifier(q, { m.mk_pattern(k_app) }, body_2); // erase patterns
     new_exprs.push_back(q1);
     new_exprs.push_back(q2);
     if (m.proofs_enabled()) {
@@ -244,8 +241,7 @@ static void pseudo_predicate_macro2macro(ast_manager & m, app * head, app * t, e
     app * body_2  = m.mk_not(m.mk_eq(k_app, t));
     quantifier * q1 = m.update_quantifier(q, body_1);
     proof * pr1 = nullptr, *pr2 = nullptr;
-    expr * pats[1] = { m.mk_pattern(k_app) };
-    quantifier * q2 = m.update_quantifier(q, 1, pats, body_2); // erase patterns
+    quantifier * q2 = m.update_quantifier(q, { m.mk_pattern(k_app) }, body_2); // erase patterns
     if (m.proofs_enabled()) {
         // r  : [rewrite] q ~ q1 & q2
         // pr : q

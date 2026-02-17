@@ -55,7 +55,7 @@ const char* lp_status_to_string(lp_status status) {
     return "UNKNOWN";  // it is unreachable
 }
 
-lp_status lp_status_from_string(std::string status) {
+lp_status lp_status_from_string(const std::string& status) {
     if (status == "UNKNOWN") return  lp_status::UNKNOWN;
     if (status == "INFEASIBLE") return lp_status::INFEASIBLE;
     if (status == "UNBOUNDED") return lp_status::UNBOUNDED;

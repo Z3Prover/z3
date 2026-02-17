@@ -3350,7 +3350,7 @@ void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
         expr_ref dlimit = m_sk.mk_max_unfolding_depth(m_max_unfolding_depth);
         m_trail_stack.push(value_trail<literal>(m_max_unfolding_lit));
         m_max_unfolding_lit = mk_literal(dlimit);        
-        assumptions.push_back(dlimit);
+        assumptions.push_back(std::move(dlimit));
         for (auto const& kv : m_length_limit_map) {
             if (kv.m_value > 0)
                 assumptions.push_back(m_sk.mk_length_limit(kv.m_key, kv.m_value));

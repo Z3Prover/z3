@@ -10,14 +10,19 @@ on:
         description: 'Force nightly build'
         required: false
         default: 'true'
+      publish_test_pypi:
+        description: 'Publish to Test PyPI'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 env:
   MAJOR: '4'
-  MINOR: '15'
-  PATCH: '7'
+  MINOR: '16'
+  PATCH: '0'
 
 jobs:
   # ============================================================================
@@ -626,17 +631,24 @@ jobs:
           cd win32-bin && unzip ../z3-*-x86-win*.zip && cd ..
           cd win64-bin && unzip ../z3-*-x64-win*.zip && cd ..
           cd win-arm64-bin && unzip ../z3-*-arm64-win*.zip && cd ..
+
       
       - name: Build Python packages
         run: |
           python3 -m pip install --user -U setuptools
           cd src/api/python
+          # Build source distribution
           python3 setup.py sdist
+          # Build wheels from macOS and Windows release zips
           echo $PWD/../../../artifacts/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/win-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
           echo $PWD/../../../artifacts/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+
+      - name: Copy Linux Python packages
+        run: |          
+          cp artifacts/*.whl src/api/python/dist/.
       
       - name: Upload artifact
         uses: actions/upload-artifact@v6
@@ -694,11 +706,57 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls
-          find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) > release_files.txt
+          find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
           
-          gh release create Nightly \
-            --title "Nightly" \
-            --notes "Automated nightly build from commit ${{ github.sha }}" \
-            --prerelease \
-            --target ${{ github.sha }} \
-            $(cat release_files.txt | tr '\n' ' ')
+          # Deduplicate files - keep only first occurrence of each basename
+          # Use NUL-delimited input/output to handle spaces in filenames safely
+          declare -A seen_basenames
+          declare -a unique_files
+          
+          while IFS= read -r -d $'\0' filepath || [ -n "$filepath" ]; do
+            [ -z "$filepath" ] && continue
+            basename="${filepath##*/}"
+            
+            # Keep only first occurrence of each basename
+            if [ -z "${seen_basenames[$basename]}" ]; then
+              seen_basenames[$basename]=1
+              unique_files+=("$filepath")
+            fi
+          done < release_files.txt
+          
+          # Create release with properly quoted file arguments
+          if [ ${#unique_files[@]} -gt 0 ]; then
+            gh release create Nightly \
+              --title "Nightly" \
+              --notes "Automated nightly build from commit ${{ github.sha }}" \
+              --prerelease \
+              --target ${{ github.sha }} \
+              "${unique_files[@]}"
+          else
+            echo "No files to release after deduplication"
+            exit 1
+          fi
+
+
+  publish-test-pypi:
+    name: "Publish to test.PyPI"
+    if: ${{ github.event.inputs.publish_test_pypi == 'true' }}
+    needs: [python-package]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download Python packages
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: PythonPackages
+          path: dist
+      
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+          repository-url: https://test.pypi.org/legacy/
+

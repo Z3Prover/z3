@@ -8,5 +8,5 @@
 
    This website hosts the automatically generated documentation for the Z3 APIs.
 
-   @C_API@ @CPP_API@ @DOTNET_API@ @JAVA_API@ @PYTHON_API@ @OCAML_API@ @JS_API@
+   @C_API@ @CPP_API@ @DOTNET_API@ @JAVA_API@ @PYTHON_API@ @OCAML_API@ @JS_API@ @GO_API@
 */

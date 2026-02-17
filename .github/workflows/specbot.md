@@ -29,7 +29,6 @@ tools:
     toolsets: [default]
   view: {}
   glob: {}
-  grep: {}
   edit: {}
   bash:
     - ":*"

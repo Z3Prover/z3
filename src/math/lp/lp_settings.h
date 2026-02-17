@@ -90,7 +90,7 @@ inline std::ostream& operator<<(std::ostream& out, lp_status status) {
     return out << lp_status_to_string(status);
 }
 
-lp_status lp_status_from_string(std::string status);
+lp_status lp_status_from_string(const std::string& status);
 
 
 class lp_resource_limit {

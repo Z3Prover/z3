@@ -870,7 +870,7 @@ class FuncDeclRef(AstRef):
             elif k == Z3_PARAMETER_ZSTRING:
                 result[i] = "internal string"
             else:
-                assert(False)
+                raise Z3Exception("Unexpected parameter kind")
         return result
 
     def __call__(self, *args):
@@ -2804,6 +2804,17 @@ class ArithRef(ExprRef):
         a, b = _coerce_exprs(self, other)
         return BoolRef(Z3_mk_ge(self.ctx_ref(), a.as_ast(), b.as_ast()), self.ctx)
 
+    def __abs__(self):
+        """Return an expression representing `abs(self)`.
+
+        >>> x = Int('x')
+        >>> abs(x)
+        If(x > 0, x, -x)
+        >>> eq(abs(x), Abs(x))
+        True
+        """
+        return Abs(self)
+
 
 def is_arith(a):
     """Return `True` if `a` is an arithmetical expression.
@@ -3374,6 +3385,8 @@ def RatVal(a, b, ctx=None):
     if z3_debug():
         _z3_assert(_is_int(a) or isinstance(a, str), "First argument cannot be converted into an integer")
         _z3_assert(_is_int(b) or isinstance(b, str), "Second argument cannot be converted into an integer")
+    if b == 0:
+        pass # division by 0 is legal in z3 expressions.
     return simplify(RealVal(a, ctx) / RealVal(b, ctx))
 
 
@@ -5896,7 +5909,9 @@ class Goal(Z3PPObject):
         >>> g[1]
         y > x
         """
-        if arg >= len(self):
+        if arg < 0:
+            arg += len(self)
+        if arg < 0 or arg >= len(self):
             raise IndexError
         return self.get(arg)
 
@@ -6138,7 +6153,9 @@ class AstVector(Z3PPObject):
         >>> A[0]
         x
         """
-        if i >= self.__len__():
+        if i < 0:
+            i += self.__len__()
+        if i < 0 or i >= self.__len__():
             raise IndexError
         Z3_ast_vector_set(self.ctx.ref(), self.vector, i, v.as_ast())
 
@@ -6827,7 +6844,9 @@ class ModelRef(Z3PPObject):
         f -> [else -> 0]
         """
         if _is_int(idx):
-            if idx >= len(self):
+            if idx < 0:
+                idx += len(self)
+            if idx < 0 or idx >= len(self):
                 raise IndexError
             num_consts = Z3_model_get_num_consts(self.ctx.ref(), self.model)
             if (idx < num_consts):
@@ -6841,7 +6860,7 @@ class ModelRef(Z3PPObject):
         if isinstance(idx, SortRef):
             return self.get_universe(idx)
         if z3_debug():
-            _z3_assert(False, "Integer, Z3 declaration, or Z3 constant expected")
+            _z3_assert(False, "Integer, Z3 declaration, or Z3 constant expected. Use model.eval instead for complicated expressions")
         return None
 
     def decls(self):
@@ -7643,13 +7662,6 @@ class Solver(Z3PPObject):
 
     def sexpr(self):
         """Return a formatted string (in Lisp-like format) with all added constraints.
-        We say the string is in s-expression format.
-
-        >>> x = Int('x')
-        >>> s = Solver()
-        >>> s.add(x > 0)
-        >>> s.add(x < 2)
-        >>> r = s.sexpr()
         """
         return Z3_solver_to_string(self.ctx.ref(), self.solver)
 
@@ -7674,6 +7686,39 @@ class Solver(Z3PPObject):
         return Z3_benchmark_to_smtlib_string(
             self.ctx.ref(), "benchmark generated from python API", "", "unknown", "", sz1, v, e,
         )
+
+    def solutions(self, t):
+        """Returns an iterator over solutions that satisfy the constraints.
+
+        The parameter `t` is an expression whose values should be returned.
+
+        >>> s = Solver()
+        >>> x, y, z = Ints("x y z")
+        >>> s.add(x * x == 4)
+        >>> print(list(s.solutions(x)))
+        [-2, 2]
+        >>> s.reset()
+        >>> s.add(x >= 0, x < 10)
+        >>> print(list(s.solutions(x)))
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        >>> s.reset()
+        >>> s.add(x >= 0, y < 10, y == 2*x)
+        >>> print(list(s.solutions([x, y])))
+        [[0, 0], [1, 2], [2, 4], [3, 6], [4, 8]]
+        """
+        s = Solver()
+        s.add(self.assertions())
+        t = _get_args(t)
+        if isinstance(t, (list, tuple)):
+            while s.check() == sat:
+                result = [s.model().eval(t_, model_completion=True) for t_ in t]
+                yield result
+                s.add(*(t_ != result_ for t_, result_ in zip(t, result)))
+        else:
+            while s.check() == sat:
+                result = s.model().eval(t, model_completion=True)
+                yield result
+                s.add(t != result)
 
 
 def SolverFor(logic, ctx=None, logFile=None):
@@ -8434,7 +8479,9 @@ class ApplyResult(Z3PPObject):
         >>> r[1]
         [a == 1, Or(b == 0, b == 1), a > b]
         """
-        if idx >= len(self):
+        if idx < 0:
+            idx += len(self)
+        if idx < 0 or idx >= len(self):
             raise IndexError
         return Goal(goal=Z3_apply_result_get_subgoal(self.ctx.ref(), self.result, idx), ctx=self.ctx)
 
@@ -12008,50 +12055,64 @@ class UserPropagateBase:
         return self.ctx().ref()
 
     def add_fixed(self, fixed):
-        assert not self.fixed
-        assert not self._ctx
+        if self.fixed:
+            raise Z3Exception("fixed callback already registered")
+        if self._ctx:
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_fixed(self.ctx_ref(), self.solver.solver, _user_prop_fixed)
         self.fixed = fixed
 
     def add_created(self, created):
-        assert not self.created
-        assert not self._ctx
+        if self.created:
+            raise Z3Exception("created callback already registered")
+        if self._ctx:
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_created(self.ctx_ref(), self.solver.solver, _user_prop_created)
         self.created = created
         
     def add_final(self, final):
-        assert not self.final
-        assert not self._ctx
+        if self.final:
+            raise Z3Exception("final callback already registered")
+        if self._ctx:
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_final(self.ctx_ref(), self.solver.solver, _user_prop_final)
         self.final = final
 
     def add_eq(self, eq):
-        assert not self.eq
-        assert not self._ctx
+        if self.eq:
+            raise Z3Exception("eq callback already registered")
+        if self._ctx:
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_eq(self.ctx_ref(), self.solver.solver, _user_prop_eq)
         self.eq = eq
 
     def add_diseq(self, diseq):
-        assert not self.diseq
-        assert not self._ctx
+        if self.diseq:
+            raise Z3Exception("diseq callback already registered")
+        if self._ctx:
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_diseq(self.ctx_ref(), self.solver.solver, _user_prop_diseq)
         self.diseq = diseq
 
     def add_decide(self, decide):
-        assert not self.decide
-        assert not self._ctx
+        if self.decide:
+            raise Z3Exception("decide callback already registered")
+        if self._ctx:
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_decide(self.ctx_ref(), self.solver.solver, _user_prop_decide)
         self.decide = decide   
         
     def add_on_binding(self, binding):
-        assert not self.binding
-        assert not self._ctx
+        if self.binding:
+            raise Z3Exception("binding callback already registered")
+        if self._ctx:
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_on_binding(self.ctx_ref(), self.solver.solver, _user_prop_binding)
         self.binding = binding
@@ -12066,7 +12127,8 @@ class UserPropagateBase:
         raise Z3Exception("fresh needs to be overwritten")
 
     def add(self, e):
-        assert not self._ctx
+        if self._ctx:
+            raise Z3Exception("context already initialized")
         if self.solver:
             Z3_solver_propagate_register(self.ctx_ref(), self.solver.solver, e.ast)
         else:

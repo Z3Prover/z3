@@ -841,7 +841,8 @@ WARN_LOGFILE           =
 INPUT                  = "@TEMP_DIR@" \
                          "@CXX_API_SEARCH_PATHS@" \
                          @DOTNET_API_SEARCH_PATHS@ \
-                         @JAVA_API_SEARCH_PATHS@
+                         @JAVA_API_SEARCH_PATHS@ \
+                         @GO_API_SEARCH_PATHS@
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -879,7 +880,8 @@ FILE_PATTERNS          = website.dox \
                          z3++.h \
                          @PYTHON_API_FILES@ \
                          @DOTNET_API_FILES@ \
-                         @JAVA_API_FILES@
+                         @JAVA_API_FILES@ \
+                         @GO_API_FILES@
 
 # The RECURSIVE tag can be used to specify whether or not subdirectories should
 # be searched for input files as well.

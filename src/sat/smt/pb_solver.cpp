@@ -397,19 +397,16 @@ namespace pb {
         return l_undef;
     }
 
-    void solver::recompile(pbc& p) {
-        // IF_VERBOSE(2, verbose_stream() << "re: " << p << "\n";);
-        SASSERT(p.num_watch() == 0);
-        m_weights.resize(2*s().num_vars(), 0);
-        for (auto [w, lit] : p) {
+    std::pair<unsigned, unsigned> solver::normalize(wliteral* begin, wliteral* end, unsigned k) {
+        m_weights.resize(2 * s().num_vars(), 0);
+        for (auto it = begin; it != end; ++it) {
+            auto [w, lit] = *it;        
             m_weights[lit.index()] += w;
-        }
-        unsigned k = p.k();
-        unsigned sz = p.size();
-        bool all_units = true;
-        unsigned j = 0;
-        for (unsigned i = 0; i < sz && 0 < k; ++i) {
-            auto [w, l] = p[i];
+        }        
+        auto j = begin;
+        unsigned sz = 0;
+        for (auto it = begin; it != end; ++it) {
+            auto [w, l] = *it;
             unsigned w1 = m_weights[l.index()];
             unsigned w2 = m_weights[(~l).index()];
             if (w1 == 0 || w1 < w2) {
@@ -424,23 +421,33 @@ namespace pb {
                 k -= w2;
                 w1 -= w2;
                 m_weights[l.index()] = 0;
-                m_weights[(~l).index()] = 0;        
+                m_weights[(~l).index()] = 0;
                 if (w1 == 0) {
                     continue;
-                }    
+                }
                 else {
-                    p[j] = wliteral(w1, l);            
-                    all_units &= w1 == 1;
+                    *j = wliteral(w1, l);
                     ++j;
+                    ++sz;
                 }
             }
         }
-        sz = j;
         // clear weights
-        for (auto [w, lit] : p) {
-            m_weights[lit.index()] = 0;
-            m_weights[(~lit).index()] = 0;
+        while (begin != end) {
+            auto [w, l] = *begin;
+            m_weights[l.index()] = 0;
+            m_weights[(~l).index()] = 0;
+            ++begin;
         }
+        return {sz, k};
+    }
+
+    void solver::recompile(pbc& p) {
+        // IF_VERBOSE(2, verbose_stream() << "re: " << p << "\n";);
+
+        auto [sz, k] = normalize(p.data(), p.data() + p.size(), p.k());
+        p.set_size(sz);
+        auto all_units = all_of(p, [](wliteral const& wl) { return wl.first == 1; });
 
         if (k == 0) {
             if (p.lit() != sat::null_literal) {
@@ -463,8 +470,7 @@ namespace pb {
             remove_constraint(p, "recompiled to cardinality");
             return;
         }
-        else {
-            p.set_size(sz);
+        else {            
             p.update_max_sum();
             if (p.max_sum() < k) {
                 if (p.lit() == sat::null_literal) {
@@ -1335,12 +1341,10 @@ namespace pb {
 
     solver::~solver() {
         m_stats.reset();
-        for (constraint* c : m_constraints) {
-            c->deallocate(m_allocator);
-        }
-        for (constraint* c : m_learned) {
-            c->deallocate(m_allocator);
-        }
+        for (constraint* c : m_constraints) 
+            c->deallocate(m_allocator);        
+        for (constraint* c : m_learned) 
+            c->deallocate(m_allocator);        
     }
 
     void solver::add_at_least(bool_var v, literal_vector const& lits, unsigned k) {
@@ -1371,6 +1375,17 @@ namespace pb {
 
         if (!learned && clausify(lit, lits.size(), lits.data(), k)) {
             return nullptr;
+        }
+        init_visited();
+        for (literal l : lits) {
+            auto v = l.var();
+            if (is_visited(v)) {
+                svector<wliteral> wlits;
+                for (literal l : lits) 
+                    wlits.push_back(wliteral(1, l));
+                return add_pb_ge(lit, wlits, k, learned);
+            }
+            mark_visited(v);
         }
         void * mem = m_allocator.allocate(card::get_obj_size(lits.size()));
         sat::constraint_base::initialize(mem, this);
@@ -1449,6 +1464,17 @@ namespace pb {
             else
                 s().add_clause(~lit, sat::status::th(false, get_id()));
             return nullptr;
+        }
+        init_visited();
+        for (auto const&[w, l] : wlits) {
+            auto v = l.var();
+            if (is_visited(v)) {
+                svector<wliteral> wlits2(wlits);
+                auto [sz, k2] = normalize(wlits2.data(), wlits2.data() + wlits2.size(), k);
+                wlits2.shrink(sz);
+                return add_pb_ge(lit, wlits2, k2, learned);
+            }
+            mark_visited(v);
         }
         if (!learned) {
             for (auto [w, l] : wlits) 

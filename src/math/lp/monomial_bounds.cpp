@@ -423,8 +423,7 @@ namespace nla {
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, rational(0), dep);
         
         // propagate fixed equality
-        auto exp = get_explanation(dep);        
-        c().add_fixed_equality(m.var(), rational(0), exp);
+        c().add_fixed_equality(m.var(), rational(0), get_explanation(dep));
     }
 
     void monomial_bounds::propagate_fixed(monic const& m, rational const& k) {
@@ -433,8 +432,7 @@ namespace nla {
         c().lra.update_column_type_and_bound(m.var(), lp::lconstraint_kind::EQ, k, dep);
         
         // propagate fixed equality
-        auto exp = get_explanation(dep);        
-        c().add_fixed_equality(m.var(), k, exp);
+        c().add_fixed_equality(m.var(), k, get_explanation(dep));
     }
 
     void monomial_bounds::propagate_nonfixed(monic const& m, rational const& k, lpvar w) {
@@ -447,8 +445,7 @@ namespace nla {
         c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::EQ, mpq(0), dep);
 
         if (k == 1) {
-            lp::explanation exp = get_explanation(dep);
-            c().add_equality(m.var(), w, exp);
+            c().add_equality(m.var(), w, get_explanation(dep));
         }
     }
 

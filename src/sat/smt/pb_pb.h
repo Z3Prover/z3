@@ -34,6 +34,7 @@ namespace pb {
         literal lit() const { return m_lit; }
         wliteral operator[](unsigned i) const { return m_wlits[i]; }
         wliteral& operator[](unsigned i) { return m_wlits[i]; }
+        wliteral *data() { return m_wlits; }
         wliteral const* begin() const { return m_wlits; }
         wliteral const* end() const { return begin() + m_size; }
 

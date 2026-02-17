@@ -1193,11 +1193,11 @@ namespace nlsat {
             m_ism.set_seed(saved_ism_seed);
         }
 
-        void log_lemma(std::ostream& out, clause const& cls, std::string annotation) {
+        void log_lemma(std::ostream& out, clause const& cls, const std::string& annotation) {
             log_lemma(out, cls.size(), cls.data(), true, annotation);
         }
 
-        void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid, std::string annotation) {
+        void log_lemma(std::ostream& out, unsigned n, literal const* cls, bool is_valid, const std::string& annotation) {
             bool_vector used_vars(num_vars(), false);
             bool_vector used_bools(usize(m_atoms), false);
             var_vector vars;

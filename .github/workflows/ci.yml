@@ -279,22 +279,22 @@ jobs:
           - name: releaseClang
             setupCmd1: ''
             setupCmd2: ''
-            buildCmd: 'CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
+            buildCmd: 'CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True -G "Ninja" ../'
             runTests: true
           - name: debugClang
             setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\"))"'
             setupCmd2: 'JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")'
-            buildCmd: 'CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
+            buildCmd: 'CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True -G "Ninja" ../'
             runTests: true
           - name: debugGcc
             setupCmd1: ''
             setupCmd2: ''
-            buildCmd: 'CC=gcc CXX=g++ cmake -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
+            buildCmd: 'CC=gcc CXX=g++ cmake -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True -G "Ninja" ../'
             runTests: true
           - name: releaseSTGcc
             setupCmd1: ''
             setupCmd2: ''
-            buildCmd: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DZ3_SINGLE_THREADED=ON -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
+            buildCmd: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DZ3_SINGLE_THREADED=ON -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True -G "Ninja" ../'
             runTests: false
     steps:
       - name: Checkout code
@@ -307,6 +307,11 @@ jobs:
 
       - name: Install Ninja
         run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20'
 
       - name: Setup Julia (if needed)
         if: matrix.name == 'debugClang'
@@ -350,6 +355,20 @@ jobs:
           examples/cpp_example_build_dir/cpp_example
           examples/tptp_build_dir/z3_tptp5 -help
           examples/c_maxsat_example_build_dir/c_maxsat_example ../examples/maxsat/ex.smt
+          cd ..
+
+      - name: Build Go bindings
+        if: matrix.runTests
+        run: |
+          cd build
+          ninja go-bindings
+          cd ..
+
+      - name: Test Go bindings
+        if: matrix.runTests
+        run: |
+          cd build
+          ninja test-go-examples
           cd ..
 
       - name: Clone z3test

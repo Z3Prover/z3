@@ -103,6 +103,8 @@ namespace smt {
             }
 
             void cancel_sls_worker() {
+                if (!p.m_sls_worker)
+                    return;
                 IF_VERBOSE(1, verbose_stream() << "Canceling SLS worker\n");
                 p.m_sls_worker->cancel();
             }

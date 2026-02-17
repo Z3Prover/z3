@@ -49,6 +49,7 @@ Revision History:
 #include "util/rlimit.h"
 #include <variant>
 #include <span>
+#include <initializer_list>
 
 #define RECYCLE_FREE_AST_INDICES
 
@@ -2071,6 +2072,12 @@ public:
 
     quantifier * update_quantifier(quantifier * q, quantifier_kind new_kind, unsigned new_num_patterns, expr * const * new_patterns, expr * new_body);
 
+    // Convenience overloads with std::initializer_list
+    [[nodiscard]] quantifier * update_quantifier(quantifier * q, std::initializer_list<expr*> new_patterns, expr * new_body);
+    
+    [[nodiscard]] quantifier * update_quantifier(quantifier * q, std::initializer_list<expr*> new_patterns, std::initializer_list<expr*> new_no_patterns, expr * new_body);
+
+
 // -----------------------------------
 //
 // expr_array
@@ -2361,6 +2368,12 @@ public:
     proof * mk_transitivity(proof * p1, proof * p2, proof * p3, proof * p4);
     proof * mk_transitivity(unsigned num_proofs, proof * const * proofs);
     proof * mk_transitivity(unsigned num_proofs, proof * const * proofs, expr * n1, expr * n2);
+    proof * mk_transitivity(std::initializer_list<proof*> const& proofs) {
+        return mk_transitivity(static_cast<unsigned>(proofs.size()), proofs.begin());
+    }
+    proof * mk_transitivity(std::initializer_list<proof*> const& proofs, expr * n1, expr * n2) {
+        return mk_transitivity(static_cast<unsigned>(proofs.size()), proofs.begin(), n1, n2);
+    }
     proof * mk_monotonicity(func_decl * R, app * f1, app * f2, unsigned num_proofs, proof * const * proofs);
     proof * mk_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs);
     proof * mk_oeq_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs);
@@ -2391,6 +2404,12 @@ public:
     proof * mk_def_axiom(expr * ax);
     proof * mk_unit_resolution(unsigned num_proofs, proof * const * proofs);
     proof * mk_unit_resolution(unsigned num_proofs, proof * const * proofs, expr * new_fact);
+    proof * mk_unit_resolution(std::initializer_list<proof*> const& proofs) {
+        return mk_unit_resolution(static_cast<unsigned>(proofs.size()), proofs.begin());
+    }
+    proof * mk_unit_resolution(std::initializer_list<proof*> const& proofs, expr * new_fact) {
+        return mk_unit_resolution(static_cast<unsigned>(proofs.size()), proofs.begin(), new_fact);
+    }
     proof * mk_hypothesis(expr * h);
     proof * mk_lemma(proof * p, expr * lemma);
 
