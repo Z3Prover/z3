@@ -44,11 +44,15 @@ func main() {
 			fmt.Printf("  NonUnit %d: %s\n", i, nu.String())
 		}
 		
-		// Note: Trail() and TrailLevels() work primarily with SimpleSolver.
-		// With default solvers (created with NewSolver()), they may return
-		// errors like "cannot retrieve trail from solvers created using tactics".
-		// For those use cases, Units() and NonUnits() provide similar diagnostic info.
-		fmt.Println("Note: Trail() and TrailLevels() work primarily with SimpleSolver")
+		// Note: Trail() and TrailLevels() work primarily with SimpleSolver,
+		// which is used internally by Z3 but not directly exposed in the Go API.
+		// With default solvers (created with NewSolver()), they return errors like
+		// "cannot retrieve trail from solvers created using tactics".
+		// Units() and NonUnits() provide similar diagnostic information without
+		// this limitation and work with all solver types.
+		fmt.Println("\nNote: Trail() and TrailLevels() work primarily with SimpleSolver")
+		fmt.Println("      These functions may return errors with default solvers")
+		fmt.Println("      For general diagnostic purposes, Units() and NonUnits() are more reliable")
 	}
 
 	// Test congruence closure APIs

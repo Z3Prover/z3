@@ -242,6 +242,7 @@ func (s *Solver) TrailLevels() []uint {
 	levels := make([]C.uint, n)
 
 	// Get the levels using the trail vector directly
+	// Safe to pass &levels[0] because we checked n > 0 above
 	C.Z3_solver_get_levels(s.ctx.ptr, s.ptr, trailVec, C.uint(n), &levels[0])
 
 	// Convert to Go slice
