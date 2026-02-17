@@ -19,11 +19,10 @@ Revision History:
 #pragma once
 
 #include <bit>
-#include<string>
+#include <string>
 #include "util/mutex.h"
 #include "util/util.h"
 #include "util/small_object_allocator.h"
-#include "util/trace.h"
 #include "util/scoped_numeral.h"
 #include "util/scoped_numeral_vector.h"
 #include "util/mpn.h"
