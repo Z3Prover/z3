@@ -1775,14 +1775,15 @@ template<bool SYNCH>
 void mpz_manager<SYNCH>::power(mpz const & a, unsigned p, mpz & b) {
     STRACE(mpz, tout << "power(" << to_string(a) << ", " << p << ") == ";);
 #ifdef _MP_GMP
-    if (!is_small(a)) {
+    if (a.has_ptr()) {
         mk_big(b);
         mpz_pow_ui(*b.ptr(), *a.ptr(), p);
         return;
     }
 #else
     if (is_small(a)) {
-        if (a.value() == 2) {
+        int64_t v = a.value();
+        if (v == 2) {
             if (p < 63) {
                 set(b, int64_t(1ull << p));
             }
@@ -1797,16 +1798,20 @@ void mpz_manager<SYNCH>::power(mpz const & a, unsigned p, mpz & b) {
                 b.ptr()->m_digits[sz-1] = digit_t(1ULL << shift);
                 b.set_sign(1);
             }
+            STRACE(mpz, tout << to_string(b) << '\n';);
+            return;
         }
-        else if (a.value() == 0) {
+        else if (v == 0) {
             SASSERT(p != 0);
             set(b, 0);
+            STRACE(mpz, tout << to_string(b) << '\n';);
+            return;
         }
-        else if (a.value() == 1) {
+        else if (v == 1) {
             set(b, 1);
+            STRACE(mpz, tout << to_string(b) << '\n';);
+            return;
         }
-        STRACE(mpz, tout << to_string(b) << '\n';);
-        return;
     }
 #endif
     // general purpose
@@ -1921,10 +1926,20 @@ void mpz_manager<SYNCH>::normalize(mpz & a) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
+    STRACE(mpz, tout << "[mpz-machine-div2k] a=" << to_string(a) << " k=" << k << '\n';);
     if (k == 0 || is_zero(a))
         return;
     if (is_small(a)) {
-        set(a, k < 64 ? (a.value() >> k) : 0);
+        if (k >= 64) {
+            set(a, 0);
+        }
+        else if (k == 63) {
+            // Only possible non-zero result is for INT64_MIN
+            set(a, a.value() == std::numeric_limits<int64_t>::min() ? -1 : 0);
+        }
+        else {
+            set(a, a.value() / int64_t(1ULL << k));
+        }
         return;
     }
 #ifndef _MP_GMP
