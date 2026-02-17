@@ -44,22 +44,6 @@ namespace nlsat {
         sector_spanning_tree
     };
 
-// Tag indicating what kind of invariance we need to preserve for a polynomial on the cell:
-// - SIGN: sign-invariance is sufficient (polynomial doesn't change sign within the cell)
-// - ORD:  order-invariance is required (root multiplicities are constant within the cell)
-//
-// Order-invariance is stronger than sign-invariance and is needed for:
-// - Discriminants: to ensure root functions remain continuous and ordered (Theorem 2.1 in [1])
-// - Resultants: to ensure relative ordering of roots from different polynomials (Theorem 2.2 in [1])
-// Sign-invariance suffices for leading coefficients (ensures polynomial degree doesn't drop).
-//
-// [1] Nalbach et al., "Projective Delineability for Single Cell Construction", SC² 2025
-    enum class inv_req : uint8_t { none = 0, sign = 1, ord = 2 };
-
-    static inline inv_req max_req(inv_req a, inv_req b) {
-        return static_cast<uint8_t>(a) < static_cast<uint8_t>(b) ? b : a;
-    }
-
     struct nullified_poly_exception {};
 
     struct levelwise::impl {
@@ -84,9 +68,6 @@ namespace nlsat {
 
         polynomial_ref_vector  m_psc_tmp;        // scratch for PSC chains
         bool                   m_fail = false;
-        // Current requirement tag for polynomials stored in the todo_set, keyed by pm.id(poly*).
-        // Entries are upgraded SIGN -> ORD as needed and cleared when a polynomial is extracted.
-        std_vector<uint8_t>    m_req;
 
         // Vectors indexed by position in m_level_ps (more cache-friendly than maps)
         mutable std_vector<uint8_t> m_side_mask;       // bit0 = lower, bit1 = upper, 3 = both
@@ -339,51 +320,13 @@ namespace nlsat {
             return polynomial_ref(m_pm);
         }
 
-        poly* request(poly* p, inv_req req) {
-            if (!p || req == inv_req::none)
-                return p;
-            p = m_todo.insert(p);
-            unsigned id = m_pm.id(p);
-            auto cur = static_cast<inv_req>(vec_get(m_req, id, static_cast<uint8_t>(inv_req::none)));
-            inv_req nxt = max_req(cur, req);
-            if (nxt != cur)
-                vec_setx(m_req, id, static_cast<uint8_t>(nxt), static_cast<uint8_t>(inv_req::none));
-            return p;
-        }
-
-        void request_factorized(polynomial_ref const& poly, inv_req req) {
+        void request_factorized(polynomial_ref const& poly) {
             for_each_distinct_factor(poly, [&](polynomial_ref const& f) {
                 TRACE(lws,
                       m_pm.display(tout << "      request_factorized: factor=", f) << " at level " << m_pm.max_var(f) << "\n";
                     );
-                // Each irreducible factor inherits the invariance requirement.
-                // If already requested with a weaker tag, upgrade to the stronger one.
-                request(f.get(), req);
+                m_todo.insert(f.get());
             });
-        }
-
-        // Extract polynomials at max level from m_todo into m_level_ps.
-        // Sets m_level to the extracted level. Requirements remain in m_req.
-        void extract_max_tagged() {
-            m_level = m_todo.extract_max_polys(m_level_ps);
-            // Ensure all extracted polynomials have at least SIGN requirement
-            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
-                unsigned id = m_pm.id(m_level_ps.get(i));
-                if (vec_get(m_req, id, static_cast<uint8_t>(inv_req::none)) == static_cast<uint8_t>(inv_req::none))
-                    vec_setx(m_req, id, static_cast<uint8_t>(inv_req::sign), static_cast<uint8_t>(inv_req::none));
-            }
-        }
-
-        // Get the requirement for polynomial at index i in m_level_ps
-        inv_req get_req(unsigned i) const {
-            unsigned id = m_pm.id(m_level_ps.get(i));
-            return static_cast<inv_req>(vec_get(m_req, id, static_cast<uint8_t>(inv_req::sign)));
-        }
-
-        // Set the requirement for polynomial at index i in m_level_ps
-        void set_req(unsigned i, inv_req req) {
-            unsigned id = m_pm.id(m_level_ps.get(i));
-            vec_setx(m_req, id, static_cast<uint8_t>(req), static_cast<uint8_t>(inv_req::none));
         }
 
         // Select a coefficient c of p (wrt x) such that c(s) != 0, or return null.
@@ -437,17 +380,17 @@ namespace nlsat {
                 );
             // Line 11 (non-null witness coefficient)
             if (nonzero_coeff && !is_const(nonzero_coeff))
-                request_factorized(nonzero_coeff, inv_req::sign);
+                request_factorized(nonzero_coeff);
 
             // Line 12 (disc + leading coefficient)
             if (add_discriminant)
-                request_factorized(psc_discriminant(p, x), inv_req::ord);
+                request_factorized(psc_discriminant(p, x));
             if (add_leading_coeff) {
                 unsigned deg = m_pm.degree(p, x);
                 polynomial_ref lc(m_pm);
                 lc = m_pm.coeff(p, x, deg);
                 TRACE(lws, m_pm.display(tout << "    adding lc: ", lc) << "\n";);
-                request_factorized(lc, inv_req::sign);
+                request_factorized(lc);
             }
         }
 
@@ -469,8 +412,8 @@ namespace nlsat {
         // - Even if p's degree drops (LC becomes zero), existing roots remain ordered
         // - New roots can only appear "at infinity", outside the bounded cell
         //
-        // [1] Michel et al., "On Projective Delineability", arXiv:2411.13300, 2024
-        // [2] Nalbach et al., "Projective Delineability for Single Cell Construction", SC² 2025
+        // Michel et al., "On Projective Delineability", arXiv:2411.13300, 2024
+        // Nalbach et al., "Projective Delineability for Single Cell Construction", SC² 2025
         // ============================================================================
 
         // Compute side_mask: track which side(s) each polynomial appears on
@@ -1037,7 +980,7 @@ namespace nlsat {
                           tout << "(null)";
                       tout << "\n";
                     );
-                request_factorized(res, inv_req::ord);
+                request_factorized(res);
             }
         }
 
@@ -1092,17 +1035,7 @@ namespace nlsat {
                 TRACE(lws,
                       m_pm.display(m_pm.display(tout << "  Adjacent resultant pair: ", p1) << " and ", p2) << "\n";
                     );
-                request_factorized(psc_resultant(p1, p2, m_n), inv_req::ord);
-            }
-        }
-
-        void upgrade_bounds_to_ord() {
-            poly* lb = m_I[m_level].l;
-            poly* ub = m_I[m_level].u;
-            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
-                poly* p = m_level_ps.get(i);
-                if (p == lb || p == ub)
-                    set_req(i, inv_req::ord);
+                request_factorized(psc_resultant(p1, p2, m_n));
             }
         }
 
@@ -1135,7 +1068,7 @@ namespace nlsat {
                 else if (has_roots.find(i) == has_roots.end())
                     add_projection_for_poly(p, m_level, witness, true, true); // no roots: need LC+disc for delineability
                 else if (witness && !is_const(witness))
-                    request_factorized(witness, inv_req::sign); // has roots: witness only
+                    request_factorized(witness); // has roots: witness only
             }
         }
 
@@ -1231,8 +1164,6 @@ namespace nlsat {
                 SASSERT(relation_invariant());
             }
 
-            upgrade_bounds_to_ord();
-            
             if (mode == projection_mode::section_biggest_cell)
                 add_section_projections();
             else
@@ -1332,22 +1263,20 @@ namespace nlsat {
             // Initialize m_todo with distinct irreducible factors of the input polynomials.
             for (unsigned i = 0; i < m_P.size(); ++i) {
                 polynomial_ref pi(m_P.get(i), m_pm);
-                for_each_distinct_factor(pi, [&](polynomial_ref const& f) {
-                    request(f.get(), inv_req::sign);
-                });
+                request_factorized(pi);
             }
 
             if (m_todo.empty()) return m_I;
 
-            // Process top level m_n (we project from x_{m_n} and do not return an interval for it).
+            // Process top level m_n :we project out from x_{m_n} and do not return an interval for it.
             if (m_todo.max_var() == m_n) {
-                extract_max_tagged();
+                m_level = m_todo.extract_max_polys(m_level_ps);
                 process_top_level();
             }
 
-            // Now iteratively process remaining levels (descending).
+            // Now iteratively process remaining levels
             while (!m_todo.empty()) {
-                extract_max_tagged();
+                m_level = m_todo.extract_max_polys(m_level_ps);                
                 SASSERT(m_level < m_n);
                 process_level();
                 TRACE(lws,
