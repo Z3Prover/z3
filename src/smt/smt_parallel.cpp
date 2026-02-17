@@ -121,26 +121,13 @@ namespace smt {
                 for (expr* c : chunk_lits) {
                     expr_ref bb_ref(c, m);
                     if (canceled()) return;
+                    if (m_mode == bb_mode::bb_positive)
+                        bb_ref = mk_not(bb_ref); // F ∧ U since check_backbone flips it back
                     if (!b.is_global_backbone(m_l2g, bb_ref) && check_backbone(bb_ref)) {
                         m_stats.m_backbones_detected++;
                         bool is_new_bb = b.collect_global_backbone(m_l2g, bb_ref);
                         if (is_new_bb) m_stats.m_backbones_found++;
                     }
-                    // TODO: something feels off about this
-                    if (m_mode == bb_mode::bb_negated) {
-                        if (!b.is_global_backbone(m_l2g, bb_ref) && check_backbone(bb_ref)) {
-                            m_stats.m_backbones_detected++;
-                            bool is_new_bb = b.collect_global_backbone(m_l2g, bb_ref);
-                            if (is_new_bb) m_stats.m_backbones_found++;
-                        }
-                    }
-                    else {
-                        // POSITIVE mode: check if it's NOT backbone
-                        if (!check_backbone(bb_ref)) {
-                            bb_candidate_lits.erase(bb_ref.get());
-                        }
-                    }
-
                     bb_candidate_lits.erase(bb_ref.get());
                 }
             };
@@ -172,12 +159,14 @@ namespace smt {
                 for (unsigned i = 0; i < chunk_size; ++i) {
                     expr *e = bb_candidate_lits[i].get();
                     chunk_lits.push_back(e);
-
-                    if (m_mode == bb_mode::bb_negated)
-                        negated_chunk_lits.push_back(mk_not(m, e));   // F ∧ ¬U
-                    else
-                        negated_chunk_lits.push_back(e);               // F ∧ U
+                    negated_chunk_lits.push_back(mk_not(m, e));
                 }
+
+                expr_ref_vector bb_asms(m);
+                if (m_mode == bb_mode::bb_negated)
+                    bb_asms.append(negated_chunk_lits); // F ∧ ¬U
+                else
+                    bb_asms.append(chunk_lits); // F ∧ U
 
                 while (true) {
                     if (!m.inc()) return;
@@ -186,12 +175,13 @@ namespace smt {
                     m_stats.m_core_refinement_rounds++;
 
                     asms.shrink(base_asms_sz);
-                    for (expr* a : negated_chunk_lits)
+
+                    for (expr* a : bb_asms)
                         asms.push_back(a);
 
                     lbool r = l_undef;
                     try {
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: checking batch of " << negated_chunk_lits.size() << " candidates\n"); 
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: checking batch of " << bb_asms.size() << " candidates\n"); 
                         if (canceled()) break;
                         r = ctx->check(asms.size(), asms.data());
                         if (canceled()) break;
@@ -242,16 +232,16 @@ namespace smt {
                     }
 
                     // ----- UNSAT: inspect core -----
-                    expr_ref_vector negated_in_core(m);
+                    expr_ref_vector bb_asms_in_core(m);
                     expr_ref_vector unsat_core = ctx->unsat_core();
                     
                     for (expr* a : unsat_core)
-                        if (negated_chunk_lits.contains(a))
-                            negated_in_core.push_back(a);
+                        if (bb_asms.contains(a))
+                            bb_asms_in_core.push_back(a);
 
                     // ---- singleton core → backbone ----
-                    if (negated_in_core.size() == 1) {
-                        expr* a = negated_in_core[0].get();
+                    if (bb_asms_in_core.size() == 1) {
+                        expr* a = bb_asms_in_core[0].get();
 
                         if (m_mode == bb_mode::bb_negated) {
                             expr_ref backbone_lit(mk_not(m, a), m);
@@ -273,13 +263,13 @@ namespace smt {
                         }
                     }
 
-                    unsigned sz_before = negated_chunk_lits.size();
-                    for (expr* a : negated_in_core)
-                        negated_chunk_lits.erase(a);
-                    m_stats.m_lits_removed_by_core += sz_before - negated_chunk_lits.size();
+                    unsigned sz_before = bb_asms.size();
+                    for (expr* a : bb_asms_in_core)
+                        bb_asms.erase(a);
+                    m_stats.m_lits_removed_by_core += sz_before - bb_asms.size();
 
                     // fallback
-                    if (negated_chunk_lits.empty()) {
+                    if (bb_asms.empty()) {
                         IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: no more negated chunk literals, fallback to individual checks\n");
                         fallback_singletons(chunk_lits, bb_candidate_lits);
                         m_stats.m_fallback_reason_chunk_exhausted++;
