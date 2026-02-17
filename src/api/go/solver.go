@@ -195,6 +195,94 @@ func (s *Solver) Interrupt() {
 	C.Z3_solver_interrupt(s.ctx.ptr, s.ptr)
 }
 
+// Units returns the unit clauses (literals) learned by the solver.
+// Unit clauses are assertions that have been simplified to single literals.
+// This is useful for debugging and understanding solver behavior.
+func (s *Solver) Units() []*Expr {
+	vec := C.Z3_solver_get_units(s.ctx.ptr, s.ptr)
+	return astVectorToExprs(s.ctx, vec)
+}
+
+// NonUnits returns the non-unit clauses in the solver's current state.
+// These are atomic formulas that are not unit clauses.
+// This is useful for debugging and understanding solver behavior.
+func (s *Solver) NonUnits() []*Expr {
+	vec := C.Z3_solver_get_non_units(s.ctx.ptr, s.ptr)
+	return astVectorToExprs(s.ctx, vec)
+}
+
+// Trail returns the decision trail of the solver.
+// The trail contains the sequence of literals assigned during search.
+// This is useful for understanding the solver's decision history.
+func (s *Solver) Trail() []*Expr {
+	vec := C.Z3_solver_get_trail(s.ctx.ptr, s.ptr)
+	return astVectorToExprs(s.ctx, vec)
+}
+
+// TrailLevels returns the decision levels for each literal in the trail.
+// The returned slice has the same length as the trail, where each element
+// indicates the decision level at which the corresponding trail literal was assigned.
+// This is useful for understanding the structure of the search tree.
+func (s *Solver) TrailLevels() []uint {
+	trail := s.Trail()
+	n := len(trail)
+	if n == 0 {
+		return []uint{}
+	}
+
+	// Create C arrays for the literals and levels
+	literals := make([]C.Z3_ast, n)
+	for i, expr := range trail {
+		literals[i] = expr.ptr
+	}
+	levels := make([]C.uint, n)
+
+	// Create a temporary ast_vector from the trail literals
+	vec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, vec)
+	for _, lit := range literals {
+		C.Z3_ast_vector_push(s.ctx.ptr, vec, lit)
+	}
+
+	// Get the levels
+	C.Z3_solver_get_levels(s.ctx.ptr, s.ptr, vec, C.uint(n), &levels[0])
+	C.Z3_ast_vector_dec_ref(s.ctx.ptr, vec)
+
+	// Convert to Go slice
+	result := make([]uint, n)
+	for i := 0; i < n; i++ {
+		result[i] = uint(levels[i])
+	}
+	return result
+}
+
+// CongruenceRoot returns the congruence class representative of the given expression.
+// This returns the root element in the congruence closure for the term.
+// The function primarily works for SimpleSolver. Terms and variables that are
+// eliminated during pre-processing are not visible to the congruence closure.
+func (s *Solver) CongruenceRoot(expr *Expr) *Expr {
+	ast := C.Z3_solver_congruence_root(s.ctx.ptr, s.ptr, expr.ptr)
+	return newExpr(s.ctx, ast)
+}
+
+// CongruenceNext returns the next element in the congruence class of the given expression.
+// This allows iteration through all elements in a congruence class.
+// The function primarily works for SimpleSolver. Terms and variables that are
+// eliminated during pre-processing are not visible to the congruence closure.
+func (s *Solver) CongruenceNext(expr *Expr) *Expr {
+	ast := C.Z3_solver_congruence_next(s.ctx.ptr, s.ptr, expr.ptr)
+	return newExpr(s.ctx, ast)
+}
+
+// CongruenceExplain returns an explanation for why two expressions are congruent.
+// The result is an expression that justifies the congruence between a and b.
+// The function primarily works for SimpleSolver. Terms and variables that are
+// eliminated during pre-processing are not visible to the congruence closure.
+func (s *Solver) CongruenceExplain(a, b *Expr) *Expr {
+	ast := C.Z3_solver_congruence_explain(s.ctx.ptr, s.ptr, a.ptr, b.ptr)
+	return newExpr(s.ctx, ast)
+}
+
 // Model represents a Z3 model (satisfying assignment).
 type Model struct {
 	ctx *Context
