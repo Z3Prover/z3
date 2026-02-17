@@ -93,6 +93,7 @@ namespace smt {
             unsigned m_bb_batch_id = 0;
             unsigned m_num_bb_threads = 0;
             svector<unsigned> m_bb_last_batch_processed;
+            unsigned m_bb_cancel_epoch = 0; // When a backbone worker finishes early, it increments m_bb_cancel_epoch and notifies all
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
@@ -121,7 +122,14 @@ namespace smt {
                 }
             }
 
-            void init_parameters_state();
+            // to avoid deadlock
+            bool is_global_backbone_unsafe(ast_translation& l2g, expr_ref const& bb_cand) {
+                for (expr* bb : m_global_backbones) {
+                    if (bb == l2g(bb_cand.get()))
+                        return true;
+                }
+                return false;
+            }
 
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)), m_global_backbones(m) { }
@@ -135,7 +143,7 @@ namespace smt {
             void collect_statistics(::statistics& st) const;
 
             void collect_backbone_candidates(ast_translation& l2g, svector<bb_candidate>& bb_candidates);
-            void collect_global_backbone(ast_translation& l2g, expr_ref const& backbone);
+            bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone);
             bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, svector<parallel::bb_candidate>& out, reslimit& lim);
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
@@ -147,18 +155,31 @@ namespace smt {
 
             lbool get_result() const;
 
-            bool is_global_backbone(expr* e) const {
+            bool is_global_backbone(ast_translation& l2g, expr_ref const& bb_cand) {
+                std::scoped_lock lock(mux);
                 for (expr* bb : m_global_backbones) {
-                    if (bb == e)
+                    if (bb == l2g(bb_cand.get()))
                         return true;
                 }
                 return false;
             }
 
             void set_num_backbone_threads(unsigned n) {
+                std::scoped_lock lock(mux);
                 m_num_bb_threads = n;
                 m_bb_last_batch_processed.reset();
                 m_bb_last_batch_processed.resize(n);
+            }
+
+            void cancel_current_backbone_batch() {
+                std::scoped_lock lock(mux);
+                m_bb_cancel_epoch++;
+                m_bb_cv.notify_all();
+            }
+
+            unsigned get_cancel_epoch() {
+                std::scoped_lock lock(mux);
+                return m_bb_cancel_epoch;
             }
         };
 
@@ -256,6 +277,7 @@ namespace smt {
             mutable unsigned m_stats_batches_total = 0;
             mutable unsigned m_stats_candidates_total = 0;
             mutable unsigned m_stats_singleton_backbones = 0;
+            mutable unsigned m_stats_backbones_detected = 0;
             mutable unsigned m_stats_backbones_found = 0;
             mutable unsigned m_stats_fallback_singleton_checks = 0;
             mutable unsigned m_stats_fallback_reason_empty_core = 0;

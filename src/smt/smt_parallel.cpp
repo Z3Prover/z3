@@ -104,17 +104,6 @@ namespace smt {
 
     void parallel::backbones_worker::run() {
         svector<bb_candidate> bb_candidates;
-        auto fallback_singletons = [&](expr_ref_vector const& chunk_lits, expr_ref_vector& bb_candidate_lits) {
-            m_stats_fallback_singleton_checks++;
-            for (expr* c : chunk_lits) {
-                expr_ref bb_ref(c, m);
-                if (check_backbone(bb_ref)) {
-                    b.collect_global_backbone(m_l2g, bb_ref);
-                    m_stats_backbones_found++;
-                }
-                bb_candidate_lits.erase(bb_ref.get());
-            }
-        };
 
         while (m.inc()) {
             if (!b.wait_for_backbone_job(id, m_g2l, bb_candidates, m.limit()))
@@ -124,7 +113,23 @@ namespace smt {
                 continue;
 
             IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: received batch of " << bb_candidates.size() << " candidates\n");
-
+            
+            unsigned local_cancel_epoch = b.get_cancel_epoch();
+            auto canceled = [&] { return local_cancel_epoch != b.get_cancel_epoch(); };
+            auto fallback_singletons = [&](expr_ref_vector const& chunk_lits, expr_ref_vector& bb_candidate_lits) {
+                m_stats_fallback_singleton_checks++;
+                for (expr* c : chunk_lits) {
+                    expr_ref bb_ref(c, m);
+                    if (canceled()) return;
+                    if (!b.is_global_backbone(m_l2g, bb_ref) && check_backbone(bb_ref)) {
+                        m_stats_backbones_detected++;
+                        bool is_new_bb = b.collect_global_backbone(m_l2g, bb_ref);
+                        if (is_new_bb) m_stats_backbones_found++;
+                    }
+                    bb_candidate_lits.erase(bb_ref.get());
+                }
+            };
+            
             m_stats_batches_total++;
             m_stats_candidates_total += bb_candidates.size();
 
@@ -132,12 +137,20 @@ namespace smt {
             for (auto const& c : bb_candidates)
                 bb_candidate_lits.push_back(c.lit);
 
-            unsigned base_sz = asms.size();
-            unsigned chunk_delta = 1;
+            unsigned base_asms_sz = asms.size();
 
-            while (!bb_candidate_lits.empty()) {
+            while (!bb_candidate_lits.empty() && !canceled()) {
+                // remove candidates that the other bacbone thread found to be backbones
+                for (unsigned i = 0; i < bb_candidate_lits.size();) {
+                    expr_ref tmp(bb_candidate_lits[i].get(), m);
+                    if (b.is_global_backbone(m_l2g, tmp))
+                        bb_candidate_lits.erase(i);
+                    else
+                        ++i;
+                }
+
+                unsigned chunk_delta = 1;
                 unsigned chunk_size = std::min(m_bb_chunk_size * chunk_delta, bb_candidate_lits.size());
-
                 expr_ref_vector chunk_lits(m);
                 expr_ref_vector negated_chunk_lits(m);
 
@@ -148,23 +161,26 @@ namespace smt {
                 }
 
                 while (true) {
-                    if (!m.inc())
-                        return;
+                    if (!m.inc()) return;
+                    if (canceled()) break;
+
                     m_stats_core_refinement_rounds++;
 
-                    asms.shrink(base_sz);
+                    asms.shrink(base_asms_sz);
                     for (expr* a : negated_chunk_lits)
                         asms.push_back(a);
 
                     lbool r = l_undef;
                     try {
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: checking batch of " << negated_chunk_lits.size() << " candidates\n");  
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: checking batch of " << negated_chunk_lits.size() << " candidates\n"); 
+                        if (canceled()) break;
                         r = ctx->check(asms.size(), asms.data());
+                        if (canceled()) break;
                     } catch (...) {
-                        asms.shrink(base_sz);
+                        asms.shrink(base_asms_sz);
                         throw;
                     }
-                    asms.shrink(base_sz);
+                    asms.shrink(base_asms_sz);
 
                     if (r == l_undef) {
                         IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: UNDEF at chunk_size=" << chunk_size << "\n");
@@ -222,8 +238,9 @@ namespace smt {
                         IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: found single backbone: " << mk_bounded_pp(backbone_lit, m, 3) << "\n");
 
                         m_stats_singleton_backbones++;
-                        m_stats_backbones_found++;
-                        b.collect_global_backbone(m_l2g, backbone_lit);
+                        m_stats_backbones_detected++;
+                        bool is_new_bb = b.collect_global_backbone(m_l2g, backbone_lit);
+                        if (is_new_bb) m_stats_backbones_found++;
                         bb_candidate_lits.erase(backbone_lit.get());
                     }
 
@@ -242,6 +259,9 @@ namespace smt {
                 }
             }
 
+            if (!canceled()) {
+                b.cancel_current_backbone_batch();
+            }
             bb_candidates.reset();
         }
     }
@@ -251,50 +271,50 @@ namespace smt {
         m.limit().cancel();
     }
     
-    void parallel::batch_manager::collect_global_backbone(ast_translation& l2g, expr_ref const& backbone) {
-        expr_ref g_bb(m);
+    bool parallel::batch_manager::collect_global_backbone(ast_translation& l2g, expr_ref const& backbone) {
+        expr_ref g_bb_ref(m);
         bool is_new_bb = false;
 
         {
             std::scoped_lock lock(mux);
 
-            expr* local_e = l2g(backbone.get());
-
-            if (!is_global_backbone(local_e)) {
-                IF_VERBOSE(1, verbose_stream() << " Found new global backbone: " << mk_bounded_pp(local_e, m, 3) << "\n");
-
-                m_global_backbones.push_back(local_e);
-
-                g_bb = expr_ref(local_e, m);
+            if (!is_global_backbone_unsafe(l2g, backbone)) {
+                expr* g_bb = l2g(backbone.get());
+                m_global_backbones.push_back(g_bb);
+                g_bb_ref = expr_ref(g_bb, m);
                 is_new_bb = true;
+                
+                IF_VERBOSE(1, verbose_stream() << " Found new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");    
             }
         }
 
         if (!is_new_bb)
-            return;
+            return is_new_bb;
 
-        IF_VERBOSE(1, verbose_stream() << " Sharing new global backbone: " << mk_bounded_pp(g_bb, m, 3) << "\n");
-        collect_clause(l2g, /*source_worker_id=*/UINT_MAX, g_bb.get());
+        IF_VERBOSE(1, verbose_stream() << " Sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
+        collect_clause(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
 
         node* t = nullptr;
-        expr_ref neg_bb(mk_not(m, g_bb.get()), m); // always false since g_bb is a backbone
-
+        expr_ref neg_bb_ref(mk_not(g_bb_ref), m); // always false since g_bb is a backbone
         {
             std::scoped_lock lock(mux);
-            t = m_search_tree.find_node_with_literal(neg_bb);
+            t = m_search_tree.find_node_with_literal(neg_bb_ref);
         }
 
         if (t) {
-            IF_VERBOSE(1, verbose_stream() << " Closing negation of the following new global backbone: " << mk_bounded_pp(g_bb, m, 3) << "\n");
+            IF_VERBOSE(1, verbose_stream() << " Closing negation of the following new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
             expr_ref_vector core(m);
-            core.push_back(neg_bb);
+            core.push_back(neg_bb_ref);
             backtrack(l2g, core, t);
         }
+
+        return is_new_bb;
     }
 
    void parallel::backbones_worker::collect_statistics(::statistics& st) const {
         st.update("bb-batches-total", m_stats_batches_total);
         st.update("bb-candidates-total", m_stats_candidates_total);
+        st.update("bb-backbones-detected", m_stats_backbones_detected);
         st.update("bb-backbones-found", m_stats_backbones_found);
         st.update("bb-core-refinement-rounds", m_stats_core_refinement_rounds);
         st.update("bb-singleton-backbones", m_stats_singleton_backbones);
@@ -518,7 +538,7 @@ namespace smt {
             if (!phase)
                 candidate = m.mk_not(candidate);
 
-            if (b.is_global_backbone(candidate))
+            if (b.is_global_backbone(m_l2g, candidate))
                 continue;
 
             double score = age;
@@ -553,7 +573,7 @@ namespace smt {
     // 
     bool parallel::backbones_worker::check_backbone(expr_ref const& bb_candidate) {
         unsigned sz = asms.size();
-        asms.push_back(m.mk_not(bb_candidate.get()));
+        asms.push_back(mk_not(m, bb_candidate.get()));
         
         lbool r = l_undef;
         try {
@@ -583,52 +603,6 @@ namespace smt {
         return false;
     }
 
-    expr_ref_vector parallel::backbones_worker::check_backbone_batch(svector<bb_candidate> const& candidates) {
-        expr_ref_vector likely_backbones(m);
-        unsigned base_sz = asms.size();
-        ctx->get_fparams().m_max_conflicts = 1000;
-
-        expr_ref_vector backbone_asms(m);
-        for (auto const& c : candidates) {
-            expr_ref a(mk_not(m, c.lit.get()), m);
-            backbone_asms.push_back(a);
-            asms.push_back(a);
-        }
-
-        lbool r = l_undef;
-        try {
-            r = ctx->check(asms.size(), asms.data());
-        }
-        catch (z3_error& err) {
-            b.set_exception(err.error_code());
-        }
-        catch (z3_exception& ex) {
-            b.set_exception(ex.what());
-        }
-        catch (...) {
-            b.set_exception("unknown exception");
-        }
-
-        asms.shrink(base_sz);
-
-        IF_VERBOSE(1, verbose_stream() << " BACKBONE BATCH CHECK RESULT: " << r << "\n");
-
-        if (r == l_false) {
-            expr_ref_vector core = ctx->unsat_core();
-
-            IF_VERBOSE(1, verbose_stream() << "BACKBONE BATCH UNSAT CORE SIZE: " << core.size() << "\n");
-
-            for (expr* a : core) {
-                if (backbone_asms.contains(a)) { // make sure we're not including external assumptions that are not backbone candidates
-                    expr* backbone = mk_not(m, a); // core contains assumption literal: ¬c, negate to get the backbone candidate c
-                    likely_backbones.push_back(backbone);
-                }
-            }
-        }
-
-        return likely_backbones;
-    }
-
     void parallel::worker::share_units() {
         // Collect new units learned locally by this worker and send to batch manager
         
@@ -653,7 +627,7 @@ namespace smt {
                 continue;
 
             if (lit.sign())
-                e = m.mk_not(e);  // negate if literal is negative
+                e = mk_not(e);  // negate if literal is negative
             b.collect_clause(m_l2g, id, e);
         }
         m_num_shared_units = sz;
@@ -816,10 +790,10 @@ namespace smt {
         };
 
         for (auto const& c : bb_candidates) {
-            expr_ref g_lit(l2g(c.lit.get()), m);
-            if (is_global_backbone(g_lit.get()))
+            if (is_global_backbone_unsafe(l2g, c.lit))
                 continue;
 
+            expr_ref g_lit(l2g(c.lit.get()), m);
             double score = c.score;
             int idx = find_existing_candidate_idx(g_lit.get());
 
@@ -960,7 +934,9 @@ namespace smt {
                 continue;
 
             // don't split on a backbone
-            if (b.is_global_backbone(e) || b.is_global_backbone(m.mk_not(e)))
+            expr_ref e_ref(e, m);
+            expr_ref neg_e_ref(mk_not(e_ref), m);
+            if (b.is_global_backbone(m_l2g, e_ref) || b.is_global_backbone(m_l2g, neg_e_ref))
                 continue;
 
             double new_score = ctx->m_lit_scores[0][v] * ctx->m_lit_scores[1][v];
