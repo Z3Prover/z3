@@ -117,21 +117,21 @@ namespace smt {
             unsigned local_cancel_epoch = b.get_cancel_epoch();
             auto canceled = [&] { return local_cancel_epoch != b.get_cancel_epoch(); };
             auto fallback_singletons = [&](expr_ref_vector const& chunk_lits, expr_ref_vector& bb_candidate_lits) {
-                m_stats_fallback_singleton_checks++;
+                m_stats.m_fallback_singleton_checks++;
                 for (expr* c : chunk_lits) {
                     expr_ref bb_ref(c, m);
                     if (canceled()) return;
                     if (!b.is_global_backbone(m_l2g, bb_ref) && check_backbone(bb_ref)) {
-                        m_stats_backbones_detected++;
+                        m_stats.m_backbones_detected++;
                         bool is_new_bb = b.collect_global_backbone(m_l2g, bb_ref);
-                        if (is_new_bb) m_stats_backbones_found++;
+                        if (is_new_bb) m_stats.m_backbones_found++;
                     }
                     bb_candidate_lits.erase(bb_ref.get());
                 }
             };
             
-            m_stats_batches_total++;
-            m_stats_candidates_total += bb_candidates.size();
+            m_stats.m_batches_total++;
+            m_stats.m_candidates_total += bb_candidates.size();
 
             expr_ref_vector bb_candidate_lits(m);
             for (auto const& c : bb_candidates)
@@ -164,7 +164,7 @@ namespace smt {
                     if (!m.inc()) return;
                     if (canceled()) break;
 
-                    m_stats_core_refinement_rounds++;
+                    m_stats.m_core_refinement_rounds++;
 
                     asms.shrink(base_asms_sz);
                     for (expr* a : negated_chunk_lits)
@@ -187,14 +187,14 @@ namespace smt {
 
                         if (chunk_size < bb_candidate_lits.size()) {
                             chunk_delta++; // try again with a bigger chunk
-                            m_stats_num_chunk_increases++;
+                            m_stats.m_num_chunk_increases++;
                             break;
                         }
 
                         IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: UNDEF and max chunk → fallback\n");
 
                         fallback_singletons(chunk_lits, bb_candidate_lits);
-                        m_stats_fallback_reason_undef++;
+                        m_stats.m_fallback_reason_undef++;
                         break;
                     }
 
@@ -237,23 +237,23 @@ namespace smt {
 
                         IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: found single backbone: " << mk_bounded_pp(backbone_lit, m, 3) << "\n");
 
-                        m_stats_singleton_backbones++;
-                        m_stats_backbones_detected++;
+                        m_stats.m_singleton_backbones++;
+                        m_stats.m_backbones_detected++;
                         bool is_new_bb = b.collect_global_backbone(m_l2g, backbone_lit);
-                        if (is_new_bb) m_stats_backbones_found++;
+                        if (is_new_bb) m_stats.m_backbones_found++;
                         bb_candidate_lits.erase(backbone_lit.get());
                     }
 
                     unsigned sz_before = negated_chunk_lits.size();
                     for (expr* a : negated_in_core)
                         negated_chunk_lits.erase(a);
-                    m_stats_lits_removed_by_core += sz_before - negated_chunk_lits.size();
+                    m_stats.m_lits_removed_by_core += sz_before - negated_chunk_lits.size();
 
                     // fallback
                     if (negated_chunk_lits.empty()) {
                         IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: no more negated chunk literals, fallback to individual checks\n");
                         fallback_singletons(chunk_lits, bb_candidate_lits);
-                        m_stats_fallback_reason_chunk_exhausted++;
+                        m_stats.m_fallback_reason_chunk_exhausted++;
                         break;
                     }
                 }
@@ -312,31 +312,31 @@ namespace smt {
     }
 
    void parallel::backbones_worker::collect_statistics(::statistics& st) const {
-        st.update("bb-batches-total", m_stats_batches_total);
-        st.update("bb-candidates-total", m_stats_candidates_total);
-        st.update("bb-backbones-detected", m_stats_backbones_detected);
-        st.update("bb-backbones-found", m_stats_backbones_found);
-        st.update("bb-core-refinement-rounds", m_stats_core_refinement_rounds);
-        st.update("bb-singleton-backbones", m_stats_singleton_backbones);
-        st.update("bb-fallback-singleton-checks", m_stats_fallback_singleton_checks);
-        st.update("bb-fallback-empty-core", m_stats_fallback_reason_empty_core);
-        st.update("bb-fallback-chunk-exhausted", m_stats_fallback_reason_chunk_exhausted);
-        st.update("bb-fallback-undef", m_stats_fallback_reason_undef);
-        st.update("bb-literals-removed-by-core", m_stats_lits_removed_by_core);
-        st.update("bb-num-chunk-increases", m_stats_num_chunk_increases);
+        st.update("bb-batches-total", m_stats.m_batches_total);
+        st.update("bb-candidates-total", m_stats.m_candidates_total);
+        st.update("bb-backbones-detected", m_stats.m_backbones_detected);
+        st.update("bb-backbones-found", m_stats.m_backbones_found);
+        st.update("bb-core-refinement-rounds", m_stats.m_core_refinement_rounds);
+        st.update("bb-singleton-backbones", m_stats.m_singleton_backbones);
+        st.update("bb-fallback-singleton-checks", m_stats.m_fallback_singleton_checks);
+        st.update("bb-fallback-empty-core", m_stats.m_fallback_reason_empty_core);
+        st.update("bb-fallback-chunk-exhausted", m_stats.m_fallback_reason_chunk_exhausted);
+        st.update("bb-fallback-undef", m_stats.m_fallback_reason_undef);
+        st.update("bb-literals-removed-by-core", m_stats.m_lits_removed_by_core);
+        st.update("bb-num-chunk-increases", m_stats.m_num_chunk_increases);
 
         double backbone_yield = 0.0;
-        if (m_stats_candidates_total > 0)
-            backbone_yield = 100.0 * (double)m_stats_backbones_found / (double)m_stats_candidates_total;
+        if (m_stats.m_candidates_total > 0)
+            backbone_yield = 100.0 * (double)m_stats.m_backbones_found / (double)m_stats.m_candidates_total;
         double avg_backbones_per_batch = 0.0;
-        if (m_stats_batches_total > 0)
-            avg_backbones_per_batch = (double)m_stats_backbones_found / (double)m_stats_batches_total;
+        if (m_stats.m_batches_total > 0)
+            avg_backbones_per_batch = (double)m_stats.m_backbones_found / (double)m_stats.m_batches_total;
         double core_refinement_cost = 0.0;
-        if (m_stats_batches_total > 0)
-            core_refinement_cost = (double)m_stats_core_refinement_rounds / (double)m_stats_batches_total;
+        if (m_stats.m_batches_total > 0)
+            core_refinement_cost = (double)m_stats.m_core_refinement_rounds / (double)m_stats.m_batches_total;
         double core_effectiveness = 0.0;
-        if (m_stats_core_refinement_rounds > 0)
-            core_effectiveness = (double)m_stats_lits_removed_by_core / (double)m_stats_core_refinement_rounds;
+        if (m_stats.m_core_refinement_rounds > 0)
+            core_effectiveness = (double)m_stats.m_lits_removed_by_core / (double)m_stats.m_core_refinement_rounds;
 
         st.update("bb-backbone-yield-pct", backbone_yield);
         st.update("bb-avg-backbones-per-batch", avg_backbones_per_batch);
