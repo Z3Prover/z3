@@ -128,7 +128,7 @@ namespace smt {
                         bool is_new_bb = b.collect_global_backbone(m_l2g, bb_ref);
                         if (is_new_bb) m_stats.m_backbones_found++;
                     }
-                    bb_candidate_lits.erase(bb_ref.get());
+                    bb_candidate_lits.erase(c);
                 }
             };
             
@@ -140,6 +140,7 @@ namespace smt {
                 bb_candidate_lits.push_back(c.lit);
 
             unsigned base_asms_sz = asms.size();
+            unsigned chunk_delta = 1;
 
             while (!bb_candidate_lits.empty() && !canceled()) {
                 // remove candidates that the other bacbone thread found to be backbones
@@ -151,7 +152,6 @@ namespace smt {
                         ++i;
                 }
 
-                unsigned chunk_delta = 1;
                 unsigned chunk_size = std::min(m_bb_chunk_size * chunk_delta, bb_candidate_lits.size());
                 expr_ref_vector chunk_lits(m);
                 expr_ref_vector negated_chunk_lits(m);
@@ -204,6 +204,7 @@ namespace smt {
 
                         fallback_singletons(chunk_lits, bb_candidate_lits);
                         m_stats.m_fallback_reason_undef++;
+                        chunk_delta = 1;
                         break;
                     }
 
@@ -228,6 +229,7 @@ namespace smt {
                         
                         bb_candidate_lits.reset();
                         bb_candidate_lits.append(new_bb_candidate);
+                        chunk_delta = 1;
                         break;
                     }
 
@@ -242,31 +244,27 @@ namespace smt {
                     // ---- singleton core → backbone ----
                     if (bb_asms_in_core.size() == 1) {
                         expr* a = bb_asms_in_core[0].get();
+                        expr_ref backbone_lit(a, m);
 
-                        if (m_mode == bb_mode::bb_negated) {
-                            expr_ref backbone_lit(mk_not(m, a), m);
-                            
-                            IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER(-): found single backbone: " << mk_bounded_pp(backbone_lit, m, 3) << "\n");
-                            
-                            m_stats.m_singleton_backbones++;
-                            m_stats.m_backbones_detected++;
-                           
-                            bool is_new_bb = b.collect_global_backbone(m_l2g, backbone_lit);
-                            if (is_new_bb) m_stats.m_backbones_found++;
-                            
-                            bb_candidate_lits.erase(backbone_lit.get());
-                        }
-                        else { // literal cannot be backbone
-                            expr_ref non_backbone(a, m);
-                            IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER(+): removing non-backbone " << mk_bounded_pp(non_backbone, m, 3) << "\n");
-                            bb_candidate_lits.erase(non_backbone.get());
-                        }
+                        if (m_mode == bb_mode::bb_negated)
+                            backbone_lit = mk_not(backbone_lit);
+
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: found single backbone: " << mk_bounded_pp(backbone_lit, m, 3) << "\n");
+
+                        m_stats.m_singleton_backbones++;
+                        m_stats.m_backbones_detected++;
+                        
+                        bool is_new_bb = b.collect_global_backbone(m_l2g, backbone_lit);
+                        if (is_new_bb) m_stats.m_backbones_found++;
+                        
+                        bb_candidate_lits.erase(backbone_lit.get());
                     }
 
                     unsigned sz_before = bb_asms.size();
                     for (expr* a : bb_asms_in_core)
                         bb_asms.erase(a);
                     m_stats.m_lits_removed_by_core += sz_before - bb_asms.size();
+                    chunk_delta = 1;
 
                     // fallback
                     if (bb_asms.empty()) {
