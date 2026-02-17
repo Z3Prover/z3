@@ -153,7 +153,7 @@ jobs:
           </system>
           GH_AW_PROMPT_EOF
           cat << 'GH_AW_PROMPT_EOF' >> "$GH_AW_PROMPT"
-          {{#runtime-import a3-python-v2.md}}
+          {{#runtime-import .github/workflows/a3-python-v2.md}}
           GH_AW_PROMPT_EOF
       - name: Interpolate variables and render templates
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
