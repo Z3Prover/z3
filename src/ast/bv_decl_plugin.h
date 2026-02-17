@@ -118,26 +118,6 @@ enum bv_op_kind {
     LAST_BV_OP
 };
 
-// Assume k is a "div" operator. It returns the div0 uninterpreted function that
-// models the value of "div" it is underspecified (i.e., when the denominator is zero).
-inline bv_op_kind get_div0_op(bv_op_kind k) {
-    switch (k) {
-    case OP_BSDIV: return OP_BSDIV0;
-    case OP_BUDIV: return OP_BUDIV0;
-    case OP_BSREM: return OP_BSREM0;
-    case OP_BUREM: return OP_BUREM0;
-    case OP_BSMOD: return OP_BSMOD0;
-    default: UNREACHABLE(); return LAST_BV_OP;
-    }
-}
-
-// Assume decl is the declaration of a "div" operator. It returns the div0 declaration that
-// models the value of "div" it is underspecified (i.e., when the denominator is zero).
-inline func_decl * get_div0_decl(ast_manager & m, func_decl * decl) {
-    return m.mk_func_decl(decl->get_family_id(), get_div0_op(static_cast<bv_op_kind>(decl->get_decl_kind())),
-                          0, nullptr, 1, decl->get_domain());
-}
-
 class bv_decl_plugin : public decl_plugin {
     friend class bv_util;
 protected:
