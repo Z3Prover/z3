@@ -21,12 +21,6 @@ name: A3 Python Code Analysis
 strict: true
 timeout-minutes: 45
 tracker-id: a3-python-analysis
-steps:
-  - name: Checkout Python source files
-    run: |
-      git sparse-checkout init --cone
-      git sparse-checkout set src
-      echo "Python source files checked out from src directory"
 ---
 
 # A3 Python Code Analysis Agent
