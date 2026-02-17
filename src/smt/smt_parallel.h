@@ -279,6 +279,11 @@ namespace smt {
                 unsigned m_num_chunk_increases = 0;
             };
 
+            enum bb_mode {
+                bb_negated,
+                bb_positive
+            };
+
             unsigned id; // unique identifier for the worker
             batch_manager& b;
             ast_manager m;
@@ -289,6 +294,7 @@ namespace smt {
             unsigned m_bb_chunk_size = 20;
             unsigned m_bb_conflicts_per_chunk = 1000;
             stats m_stats;
+            bb_mode m_mode;
 
             public:
                 backbones_worker(unsigned id, parallel &p, expr_ref_vector const &_asms);

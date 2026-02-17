@@ -126,6 +126,21 @@ namespace smt {
                         bool is_new_bb = b.collect_global_backbone(m_l2g, bb_ref);
                         if (is_new_bb) m_stats.m_backbones_found++;
                     }
+                    // TODO: something feels off about this
+                    if (m_mode == bb_mode::bb_negated) {
+                        if (!b.is_global_backbone(m_l2g, bb_ref) && check_backbone(bb_ref)) {
+                            m_stats.m_backbones_detected++;
+                            bool is_new_bb = b.collect_global_backbone(m_l2g, bb_ref);
+                            if (is_new_bb) m_stats.m_backbones_found++;
+                        }
+                    }
+                    else {
+                        // POSITIVE mode: check if it's NOT backbone
+                        if (!check_backbone(bb_ref)) {
+                            bb_candidate_lits.erase(bb_ref.get());
+                        }
+                    }
+
                     bb_candidate_lits.erase(bb_ref.get());
                 }
             };
@@ -157,7 +172,11 @@ namespace smt {
                 for (unsigned i = 0; i < chunk_size; ++i) {
                     expr *e = bb_candidate_lits[i].get();
                     chunk_lits.push_back(e);
-                    negated_chunk_lits.push_back(mk_not(m, e));
+
+                    if (m_mode == bb_mode::bb_negated)
+                        negated_chunk_lits.push_back(mk_not(m, e));   // F ∧ ¬U
+                    else
+                        negated_chunk_lits.push_back(e);               // F ∧ U
                 }
 
                 while (true) {
@@ -233,15 +252,25 @@ namespace smt {
                     // ---- singleton core → backbone ----
                     if (negated_in_core.size() == 1) {
                         expr* a = negated_in_core[0].get();
-                        expr_ref backbone_lit(mk_not(m, a), m);
 
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: found single backbone: " << mk_bounded_pp(backbone_lit, m, 3) << "\n");
-
-                        m_stats.m_singleton_backbones++;
-                        m_stats.m_backbones_detected++;
-                        bool is_new_bb = b.collect_global_backbone(m_l2g, backbone_lit);
-                        if (is_new_bb) m_stats.m_backbones_found++;
-                        bb_candidate_lits.erase(backbone_lit.get());
+                        if (m_mode == bb_mode::bb_negated) {
+                            expr_ref backbone_lit(mk_not(m, a), m);
+                            
+                            IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER(-): found single backbone: " << mk_bounded_pp(backbone_lit, m, 3) << "\n");
+                            
+                            m_stats.m_singleton_backbones++;
+                            m_stats.m_backbones_detected++;
+                           
+                            bool is_new_bb = b.collect_global_backbone(m_l2g, backbone_lit);
+                            if (is_new_bb) m_stats.m_backbones_found++;
+                            
+                            bb_candidate_lits.erase(backbone_lit.get());
+                        }
+                        else { // literal cannot be backbone
+                            expr_ref non_backbone(a, m);
+                            IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER(+): removing non-backbone " << mk_bounded_pp(non_backbone, m, 3) << "\n");
+                            bb_candidate_lits.erase(non_backbone.get());
+                        }
                     }
 
                     unsigned sz_before = negated_chunk_lits.size();
@@ -506,6 +535,7 @@ namespace smt {
         for (auto e : _asms)
             asms.push_back(m_g2l(e));
         IF_VERBOSE(1, verbose_stream() << "Initialized backbones thread " << id << "\n");
+        m_mode = id == 0 ? bb_mode::bb_negated : bb_mode::bb_positive;
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         ctx->set_logic(p.ctx.m_setup.get_logic());
         ctx->get_fparams().m_max_conflicts = m_bb_conflicts_per_chunk;
