@@ -2562,9 +2562,11 @@ static void tst_explain_p6236() {
     //   jst lit[0]: !(x15 < root[1](p1))  =>  literal(root_lt_bvar, true)
     //   jst lit[1]: !(p2 > 0)             =>  literal(gt_bvar, true)
     nlsat::bool_var root_lt_bvar = s.mk_root_atom(nlsat::atom::ROOT_LT, x15, 1, p1.get());
+    s.inc_ref(root_lt_bvar);
     nlsat::literal jst_lit0(root_lt_bvar, true);  // negated: !(x15 < root[1](p1))
 
     nlsat::literal gt_lit = mk_gt(s, p2.get());
+    s.inc_ref(gt_lit);
     nlsat::literal jst_lit1 = ~gt_lit;            // negated: !(p2 > 0)
 
     nlsat::literal jst_lits[2] = { jst_lit0, jst_lit1 };
@@ -2642,6 +2644,9 @@ static void tst_explain_p6236() {
     }
 
     ENSURE(unsat);
+
+    s.dec_ref(root_lt_bvar);
+    s.dec_ref(gt_lit);
     std::cout << "=== END tst_explain_p6236 ===\n\n";
 }
 
