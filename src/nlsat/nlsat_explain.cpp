@@ -1084,7 +1084,7 @@ namespace nlsat {
          * "Solving Satisfiability of Polynomial Formulas By Sample - Cell Projection"
          * https://arxiv.org/abs/2003.00409 
          */
-        void project_cdcac(polynomial_ref_vector & ps, var max_x) {
+        void project(polynomial_ref_vector & ps, var max_x) {
             bool first = true;
             if (ps.empty())
                 return;
@@ -1140,10 +1140,6 @@ namespace nlsat {
                 cac_add_cell_lits(ps, x, samples);
             }
             
-        }
-
-        void project(polynomial_ref_vector & ps, var max_x) {
-            project_cdcac(ps, max_x);
         }
 
         bool check_already_added() const {

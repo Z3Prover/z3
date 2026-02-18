@@ -2505,11 +2505,13 @@ static void tst_unsound_lws_nullified2() {
 }
 
 void tst_nlsat() {
+    tst_unsound_lws_p6236();
+    std::cout << "------------------\n";
+    tst_unsound_lws_disc_zero();
+    std::cout << "------------------\n";    
     tst_unsound_lws_nullified2();
     std::cout << "------------------\n";
     tst_unsound_lws_nullified();
-    std::cout << "------------------\n";
-    tst_unsound_lws_p6236();
     std::cout << "------------------\n";
     tst_unsound_lws_ppblockterm();
     std::cout << "------------------\n";
