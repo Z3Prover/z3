@@ -257,7 +257,7 @@ namespace smt {
                         bool is_new_bb = b.collect_global_backbone(m_l2g, backbone_lit);
                         if (is_new_bb) m_stats.m_backbones_found++;
                         
-                        bb_candidate_lits.erase(backbone_lit.get());
+                        bb_candidate_lits.erase(m_mode == bb_mode::bb_negated ? mk_not(m, a) : a);
                     }
 
                     unsigned sz_before = bb_asms.size();
@@ -861,13 +861,12 @@ namespace smt {
         std::unique_lock<std::mutex> lock(mux);
 
         // ---- WAIT UNTIL:
-        // new batch available OR we haven't seen current batch
+        // new batch available that we haven't seen yet
         m_bb_cv.wait(lock, [&]() {
             return m_bb_stop ||
                 lim.is_canceled() ||
                 m_state != state::is_running ||
-                m_bb_last_batch_processed[bb_thread_id] < m_bb_batch_id ||
-                !m_bb_candidates.empty();
+                m_bb_last_batch_processed[bb_thread_id] < m_bb_batch_id;
         });
 
         if (lim.is_canceled())
