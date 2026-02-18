@@ -93,11 +93,12 @@ jobs:
           which clang++
           npm run build:wasm     
  
-      - name: Generate JS Documentation (from doc directory)
+      - name: Generate JS and Go Documentation (from doc directory)
         working-directory: doc
         run: |
            eval $(opam env)
            python3 mk_api_doc.py --js --go --output-dir=api --mld --z3py-package-path=../build-x64/python/z3 --build=../build-x64
+           python3 mk_go_doc.py
 
       - name: Deploy to z3prover.github.io
         uses: peaceiris/actions-gh-pages@v4

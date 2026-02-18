@@ -507,22 +507,13 @@ try:
                 # Add links to the README
                 readme_path = os.path.join(go_api_abs_path, 'README.md')
                 if os.path.exists(readme_path):
-                    # Copy README as index documentation
-                    readme_html_path = os.path.join(go_output_dir, 'README.html')
+                    # Copy README as documentation
+                    readme_md_path = os.path.join(go_output_dir, 'README.md')
                     try:
-                        # Try to convert markdown to HTML if markdown module is available
-                        with open(readme_path, 'r') as rf:
-                            readme_content = rf.read()
-                        with open(readme_html_path, 'w') as wf:
-                            wf.write('<!DOCTYPE html>\n<html>\n<head>\n')
-                            wf.write('<title>Z3 Go API - README</title>\n')
-                            wf.write('<style>body { font-family: Arial, sans-serif; margin: 40px; max-width: 900px; }</style>\n')
-                            wf.write('</head>\n<body>\n<pre>\n')
-                            wf.write(readme_content)
-                            wf.write('</pre>\n</body>\n</html>\n')
-                        f.write('<li><a href="README.html">README - Getting Started</a></li>\n')
+                        shutil.copy(readme_path, readme_md_path)
+                        f.write('<li><a href="README.md">README - Getting Started</a></li>\n')
                     except Exception as e:
-                        print(f"Warning: Could not process README.md: {e}")
+                        print(f"Warning: Could not copy README.md: {e}")
                 
                 # Add module descriptions
                 f.write('<li><a href="#core">z3.go</a> - Core types (Context, Config, Symbol, Sort, Expr, FuncDecl)</li>\n')
@@ -548,7 +539,7 @@ try:
                 f.write('</pre>\n')
                 
                 f.write('<h2>Installation</h2>\n')
-                f.write('<p>See <a href="README.html">README</a> for build instructions.</p>\n')
+                f.write('<p>See <a href="README.md">README</a> for build instructions.</p>\n')
                 f.write('<p>Go back to <a href="../index.html">main API documentation</a>.</p>\n')
                 f.write('</body>\n</html>\n')
             
