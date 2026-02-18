@@ -466,16 +466,6 @@ static void project_fa(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsig
     std::cout << ")\n";
 }
 
-static bool literal_holds(nlsat::solver& s, nlsat::evaluator& eval, nlsat::literal l) {
-    if (l == nlsat::true_literal)
-        return true;
-    if (l == nlsat::false_literal)
-        return false;
-    nlsat::atom* a = s.bool_var2atom(l.var());
-    ENSURE(a != nullptr);
-    return eval.eval(a, l.sign());
-}
-
 static nlsat::literal mk_gt(nlsat::solver& s, nlsat::poly* p) {
     nlsat::poly * _p[1] = { p };
     bool is_even[1] = { false };
@@ -2492,6 +2482,8 @@ static void tst_explain_p6236() {
 }
 
 void tst_nlsat() {
+    tst_unsound_gh8397();
+    std::cout << "------------------\n";    
     tst_explain_p6236();
     std::cout << "------------------\n";
     tst_unsound_lws_disc_zero();
