@@ -3376,6 +3376,9 @@ def RatVal(a, b, ctx=None):
     """Return a Z3 rational a/b.
 
     If `ctx=None`, then the global context is used.
+    
+    Note: Division by zero (b == 0) is allowed in Z3 symbolic expressions.
+    Z3 can reason about such expressions symbolically.
 
     >>> RatVal(3,5)
     3/5
@@ -3385,8 +3388,7 @@ def RatVal(a, b, ctx=None):
     if z3_debug():
         _z3_assert(_is_int(a) or isinstance(a, str), "First argument cannot be converted into an integer")
         _z3_assert(_is_int(b) or isinstance(b, str), "Second argument cannot be converted into an integer")
-    if b == 0:
-        pass # division by 0 is legal in z3 expressions.
+    # Division by 0 is intentionally allowed - Z3 handles it symbolically
     return simplify(RealVal(a, ctx) / RealVal(b, ctx))
 
 
