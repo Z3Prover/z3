@@ -55,6 +55,8 @@ namespace nlsat {
 
         unsigned               m_level = 0;      // current level being processed
         unsigned               m_spanning_tree_threshold = 3; // minimum both-side count for spanning tree
+        bool                   m_null_coeffs = true;
+        bool                   m_null_derivs = true;
         unsigned               m_l_rf = UINT_MAX; // position of lower bound in m_rel.m_rfunc
         unsigned               m_u_rf = UINT_MAX; // position of upper bound in m_rel.m_rfunc, UINT_MAX in section case
 
@@ -260,6 +262,8 @@ namespace nlsat {
                 m_I.emplace_back(m_pm);
 
             m_spanning_tree_threshold = m_solver.lws_spt_threshold();
+            m_null_coeffs = m_solver.lws_null_coeffs();
+            m_null_derivs = m_solver.lws_null_derivs();
         }
 
         // Handle a polynomial whose every coefficient evaluates to zero at the sample.
@@ -268,43 +272,47 @@ namespace nlsat {
         // When a non-vanishing derivative is found, request_factorized it and stop.
         void handle_nullified_poly(polynomial_ref const& p) {
             // Add all coefficients of p (w.r.t. m_level) to m_todo.
-            unsigned deg = m_pm.degree(p, m_level);
-            for (unsigned j = 0; j <= deg; ++j) {
-                polynomial_ref coeff(m_pm.coeff(p, m_level, j), m_pm);
-                if (!coeff || is_zero(coeff) || is_const(coeff))
-                    continue;
-                request_factorized(coeff);
+            if (m_null_coeffs) {
+                unsigned deg = m_pm.degree(p, m_level);
+                for (unsigned j = 0; j <= deg; ++j) {
+                    polynomial_ref coeff(m_pm.coeff(p, m_level, j), m_pm);
+                    if (!coeff || is_zero(coeff) || is_const(coeff))
+                        continue;
+                    request_factorized(coeff);
+                }
             }
             // Compute partial derivatives level by level. If all derivatives at a level vanish,
             // request_factorized each of them and continue to the next level.
             // When a non-vanishing derivative is found, request_factorized it and stop.
-            polynomial_ref_vector current(m_pm);
-            current.push_back(p);
-            while (!current.empty()) {
-                polynomial_ref_vector next_derivs(m_pm);
-                for (unsigned i = 0; i < current.size(); ++i) {
-                    polynomial_ref q(current.get(i), m_pm);
-                    unsigned mv = m_pm.max_var(q);
-                    if (mv == null_var)
-                        continue;
-                    for (unsigned x = 0; x <= mv; ++x) {
-                        if (m_pm.degree(q, x) == 0)
+            if (m_null_derivs) {
+                polynomial_ref_vector current(m_pm);
+                current.push_back(p);
+                while (!current.empty()) {
+                    polynomial_ref_vector next_derivs(m_pm);
+                    for (unsigned i = 0; i < current.size(); ++i) {
+                        polynomial_ref q(current.get(i), m_pm);
+                        unsigned mv = m_pm.max_var(q);
+                        if (mv == null_var)
                             continue;
-                        polynomial_ref dq = derivative(q, x);
-                        if (!dq || is_zero(dq) || is_const(dq))
-                            continue;
-                        if (m_am.eval_sign_at(dq, sample()) != 0) {
-                            request_factorized(dq);
-                            return;
+                        for (unsigned x = 0; x <= mv; ++x) {
+                            if (m_pm.degree(q, x) == 0)
+                                continue;
+                            polynomial_ref dq = derivative(q, x);
+                            if (!dq || is_zero(dq) || is_const(dq))
+                                continue;
+                            if (m_am.eval_sign_at(dq, sample()) != 0) {
+                                request_factorized(dq);
+                                return;
+                            }
+                            next_derivs.push_back(dq);
                         }
-                        next_derivs.push_back(dq);
                     }
+                    for (unsigned i = 0; i < next_derivs.size(); ++i) {
+                        polynomial_ref dq(next_derivs.get(i), m_pm);
+                        request_factorized(dq);
+                    }
+                    current = std::move(next_derivs);
                 }
-                for (unsigned i = 0; i < next_derivs.size(); ++i) {
-                    polynomial_ref dq(next_derivs.get(i), m_pm);
-                    request_factorized(dq);
-                }
-                current = std::move(next_derivs);
             }
         }
 
@@ -1225,7 +1233,7 @@ namespace nlsat {
                 polynomial_ref w = choose_nonzero_coeff(p, m_level);
                 if (!w)
                     handle_nullified_poly(p);
-                m_witnesses.push_back(w);
+                m_witnesses.push_back(w); // need to push anyway since m_witnesses is accessed by the index
                 // Absorb any same-level polys that handle_nullified_poly added to m_todo
                 if (i + 1 == m_level_ps.size())
                     m_todo.extract_polys_at_level(m_level, m_level_ps);
