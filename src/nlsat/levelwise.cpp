@@ -1217,12 +1217,18 @@ namespace nlsat {
             // Line 10/11: detect nullification + pick a non-zero coefficient witness per p.
             m_witnesses.clear();
             m_witnesses.reserve(m_level_ps.size());
-            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
+            // Fixpoint loop: handle_nullified_poly may add more polynomials back at m_level
+            // via request_factorized. Drain them from m_todo into m_level_ps and
+            // compute witnesses for the new entries until no more appear.
+            for (unsigned i = 0; i < m_level_ps.size(); i++) {
                 polynomial_ref p(m_level_ps.get(i), m_pm);
                 polynomial_ref w = choose_nonzero_coeff(p, m_level);
                 if (!w)
                     handle_nullified_poly(p);
                 m_witnesses.push_back(w);
+                // Absorb any same-level polys that handle_nullified_poly added to m_todo
+                if (i + 1 == m_level_ps.size())
+                    m_todo.extract_polys_at_level(m_level, m_level_ps);
             }
         }
 
