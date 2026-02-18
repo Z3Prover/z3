@@ -1,14 +1,13 @@
 ---
 on:
-  schedule:
-    - cron: "0 0 * * 0"  # Weekly on Sundays at midnight UTC
+  schedule: weekly on sunday
   workflow_dispatch:  # Allow manual trigger
 permissions:
   contents: read
   issues: read
   pull-requests: read
 network:
-  allowed: [default, python]
+  allowed: [defaults, python]
 safe-outputs:
   create-issue:
     labels:
@@ -21,11 +20,6 @@ name: A3 Python Code Analysis
 strict: true
 timeout-minutes: 45
 tracker-id: a3-python-analysis
-steps:
-  - name: Checkout Python source files
-    run: |
-      git sparse-checkout add src
-      echo "Source files checked out for Python analysis"
 ---
 
 # A3 Python Code Analysis Agent
@@ -35,7 +29,6 @@ You are an expert Python code analyst using the a3-python tool to identify bugs 
 ## Current Context
 
 - **Repository**: ${{ github.repository }}
-- **Analysis Date**: $(date +%Y-%m-%d)
 - **Workspace**: ${{ github.workspace }}
 
 ## Phase 1: Install and Setup a3-python
@@ -64,14 +57,14 @@ a3 --help || python -m a3 --help
 
 ### 2.1 Identify Python Files
 
-Find and verify Python source files in the repository:
+Discover Python source files in the repository:
 
 ```bash
-# Check common source directories 
-find ${{ github.workspace }} -name "*.py" -type f | grep -E "(src/|lib/|app/|project/)" | head -20
-
-# List all Python files in the repository
+# Check for Python files in common locations
 find ${{ github.workspace }} -name "*.py" -type f | head -30
+
+# Count total Python files
+echo "Total Python files found: $(find ${{ github.workspace }} -name "*.py" -type f | wc -l)"
 ```
 
 ### 2.2 Run a3-python Analysis
@@ -103,7 +96,7 @@ ls -lh a3-python-output.txt
 cat a3-python-output.txt
 ```
 
-**Important**: The a3-python tool will analyze all Python files found in the repository, focusing on source code directories.
+**Important**: The a3-python tool should analyze the Python files in the repository, which may include various Python modules and packages depending on the project structure.
 
 ## Phase 3: Post-Process and Analyze Results
 
@@ -134,163 +127,7 @@ For each issue reported in the output, determine:
    - Generated code or third-party code
    - Overly strict warnings without merit
 
-### 3.3 Extract Source Code Context
-
-For each true positive finding, extract the relevant source code context to make the report more readable:
-
-```bash
-# Function to extract source code context around a specific line
-extract_code_context() {
-    local file="$1"
-    local line_num="$2"
-    local context_lines="${3:-5}"  # Default to 5 lines before/after
-    
-    if [[ -f "$file" ]]; then
-        echo "```python"
-        # Show line numbers and context
-        sed -n "$((line_num - context_lines)),$((line_num + context_lines))p" "$file" | \
-        awk -v start=$((line_num - context_lines)) -v target=$line_num '{
-            line_number = NR + start - 1
-            if (line_number == target) {
-                printf "%4d:❌ %s\n", line_number, $0
-            } else {
-                printf "%4d:   %s\n", line_number, $0
-            }
-        }'
-        echo "```"
-    else
-        echo "File not found: $file"
-    fi
-}
-
-# Export the function for use in subshells
-export -f extract_code_context
-```
-
-For each true positive, collect the source code context:
-
-```bash
-# Example usage for each finding:
-# extract_code_context "path/to/file.py" "line_number" 5
-
-# Store contexts in a temporary file for later use in the issue
-echo "# Source Code Contexts" > source_contexts.md
-echo "" >> source_contexts.md
-
-# For each true positive finding, extract context and append to file
-# Example workflow:
-for finding in "${true_positives[@]}"; do
-    file=$(echo "$finding" | grep -o 'File: [^,]*' | cut -d' ' -f2)
-    line=$(echo "$finding" | grep -o 'Line: [0-9]*' | cut -d' ' -f2)
-    
-    if [[ -n "$file" && -n "$line" ]]; then
-        echo "## Finding in $file at line $line" >> source_contexts.md
-        extract_code_context "$file" "$line" 5 >> source_contexts.md
-        echo "" >> source_contexts.md
-    fi
-done
-```
-
-### 3.5 Enhanced Analysis Workflow
-
-Create an enhanced analysis workflow that automatically extracts source code context:
-
-```bash
-# Parse a3-python output and extract file/line information
-parse_findings() {
-    local output_file="$1"
-    
-    # Create arrays to store findings
-    declare -a true_positives=()
-    declare -a false_positives=()
-    
-    # Parse the output file and extract findings with file/line info
-    # This is a template - adjust parsing based on actual a3-python output format
-    while IFS= read -r line; do
-        if [[ "$line" =~ ^.*\.py:[0-9]+:.* ]]; then
-            # Extract file and line number from the finding
-            file=$(echo "$line" | grep -oP '[\w/.-]+\.py')
-            line_num=$(echo "$line" | grep -oP '\.py:\K[0-9]+')
-            description=$(echo "$line" | cut -d':' -f3-)
-            
-            echo "Found potential issue: $file:$line_num - $description"
-            
-            # Add logic here to classify as true positive or false positive
-            # For now, store all as potential true positives for manual review
-            true_positives+=("File: $file, Line: $line_num, Description: $description")
-        fi
-    done < "$output_file"
-    
-    # Generate contexts for all true positives
-    echo "# Enhanced Analysis Report" > enhanced_report.md
-    echo "" >> enhanced_report.md
-    echo "## True Positives with Source Context" >> enhanced_report.md
-    echo "" >> enhanced_report.md
-    
-    local counter=1
-    for finding in "${true_positives[@]}"; do
-        file=$(echo "$finding" | grep -o 'File: [^,]*' | cut -d' ' -f2)
-        line_num=$(echo "$finding" | grep -o 'Line: [^,]*' | cut -d' ' -f2)
-        desc=$(echo "$finding" | grep -o 'Description: .*' | cut -d' ' -f2-)
-        
-        echo "### Issue $counter: $desc" >> enhanced_report.md
-        echo "- **File**: \`$file\`" >> enhanced_report.md
-        echo "- **Line**: $line_num" >> enhanced_report.md
-        echo "" >> enhanced_report.md
-        echo "**Source Code Context:**" >> enhanced_report.md
-        
-        if [[ -f "$file" ]]; then
-            extract_code_context "$file" "$line_num" 5 >> enhanced_report.md
-        else
-            echo "```" >> enhanced_report.md
-            echo "File not found: $file" >> enhanced_report.md
-            echo "```" >> enhanced_report.md
-        fi
-        
-        echo "" >> enhanced_report.md
-        ((counter++))
-    done
-    
-    # Display the enhanced report
-    echo "=== Enhanced Analysis Report ==="
-    cat enhanced_report.md
-}
-
-# Run the enhanced analysis
-parse_findings "a3-python-output.txt"
-```
-
-### 3.4 Categorize and Count
-
-Create a structured analysis with source code context:
-
-```markdown
-## Analysis Results
-
-### True Positives (Likely Issues):
-1. [Issue 1 Description] - File: path/to/file.py, Line: X
-   **Source Code Context:**
-   ```python
-   [Line numbers with context - error line marked with ❌]
-   ```
-
-2. [Issue 2 Description] - File: path/to/file.py, Line: Y
-   **Source Code Context:**
-   ```python
-   [Line numbers with context - error line marked with ❌]
-   ```
-....
-
-### False Positives:
-1. [FP 1 Description] - Reason for dismissal
-2. [FP 2 Description] - Reason for dismissal
-....
-
-### Summary:
-- Total findings: X
-- True positives: Y
-- False positives: Z
-```
+### 3.3 Categorize and Count
 
 Create a structured analysis:
 
@@ -330,8 +167,6 @@ Create a GitHub issue **ONLY IF**:
 
 ### 4.2 Generate Issue Description
 
-**Important**: Use the enhanced report generated in Phase 3.5 to populate the issue with source code context.
-
 If creating an issue, use this structure:
 
 ```markdown
@@ -353,16 +188,6 @@ This issue reports bugs and code quality issues identified by the a3-python anal
 - **Line**: X
 - **Severity**: [High/Medium/Low]
 - **Description**: [Detailed description of the issue]
-
-**Source Code Context:**
-```python
-  10:   def some_function():
-  11:       value = None
-  12: ❌     return value.upper()  # Error: NoneType has no attribute 'upper'
-  13:   
-  14:   # Rest of function...
-```
-
 - **Recommendation**: [How to fix it]
 
 #### Issue 2: [Short Description]
@@ -370,16 +195,6 @@ This issue reports bugs and code quality issues identified by the a3-python anal
 - **Line**: Y
 - **Severity**: [High/Medium/Low]
 - **Description**: [Detailed description of the issue]
-
-**Source Code Context:**
-```python
-  25:   if condition:
-  26:       result = process_data()
-  27: ❌     return result  # Error: 'result' may be undefined
-  28:   # Missing else clause
-  29:   
-```
-
 - **Recommendation**: [How to fix it]
 
 [Continue for all true positives]
@@ -459,7 +274,7 @@ Create the issue using the safe-outputs configuration:
 
 Exit gracefully without creating an issue if:
 - Analysis tool failed to run or install
-- Python source files were not found or checked out properly
+- Python source files were not checked out (sparse checkout issue)
 - No Python files found in repository
 - Output file is empty or invalid
 - Zero or one true positive identified
@@ -469,11 +284,10 @@ Exit gracefully without creating an issue if:
 
 A successful analysis:
 - ✅ Completes without errors
-- ✅ Generates comprehensive output with source code context
+- ✅ Generates comprehensive output
 - ✅ Accurately classifies findings
 - ✅ Creates actionable issue when appropriate
-- ✅ Provides clear recommendations with visual code examples
-- ✅ Shows error lines with surrounding context for better understanding
+- ✅ Provides clear recommendations
 
 ## Output Requirements
 
@@ -487,19 +301,9 @@ Your output MUST either:
 
 2. **If 2+ true positives found**: Create an issue with:
    - Clear summary of findings
-   - Detailed breakdown of each true positive with source code context
-   - Visual representation of error lines with surrounding code
+   - Detailed breakdown of each true positive
    - Severity classifications
    - Actionable recommendations
    - Complete raw output in collapsible section
 
-## Enhanced Workflow Summary
-
-The enhanced workflow now includes:
-
-1. **Automated Source Code Context Extraction**: The `extract_code_context` function automatically extracts 5 lines before and after each error location
-2. **Visual Error Highlighting**: Error lines are marked with ❌ for easy identification
-3. **Structured Reporting**: Each finding includes the actual source code with line numbers for better understanding
-4. **Enhanced GitHub Issues**: Issues now contain source code snippets making them much more readable and actionable
-
-Begin the analysis now. Install a3-python, run analysis on the repository, save output to a3-python-output.txt, extract source code context for findings, and create a GitHub issue if 2 or more likely issues are found.
+Begin the analysis now. Install a3-python, run analysis on the repository, save output to a3-python-output.txt, post-process to identify true positives, and create a GitHub issue if 2 or more likely issues are found.
