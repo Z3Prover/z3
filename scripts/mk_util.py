@@ -3594,10 +3594,11 @@ class MakeRuleCmd(object):
 def strip_path_prefix(path, prefix):
     if path.startswith(prefix):
         stripped_path = path[len(prefix):]
-        stripped_path.replace('//','/')
-        if stripped_path[0] == '/':
+        stripped_path = stripped_path.replace('//','/')
+        if len(stripped_path) > 0 and stripped_path[0] == '/':
             stripped_path = stripped_path[1:]
-        assert not os.path.isabs(stripped_path)
+        if os.path.isabs(stripped_path):
+            raise ValueError(f"Path '{path}' after stripping prefix '{prefix}' is still absolute: '{stripped_path}'")
         return stripped_path
     else:
         return path

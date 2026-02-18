@@ -561,9 +561,7 @@ def param2java(p):
         elif param_type(p) == BOOL:
             return "BoolPtr"
         else:
-            print("ERROR: unreachable code")
-            assert(False)
-            exit(1)
+            raise ValueError(f"ERROR: unreachable code - unexpected param_type: {param_type(p)}")
     elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
         return "%s[]" % type2java(param_type(p))
     elif k == OUT_MANAGED_ARRAY:
@@ -2024,7 +2022,8 @@ def generate_files(api_files,
   # existing code is designed to always emit these files.
   def mk_file_or_temp(output_dir, file_name, mode='w'):
     if output_dir != None:
-      assert os.path.exists(output_dir) and os.path.isdir(output_dir)
+      if not (os.path.exists(output_dir) and os.path.isdir(output_dir)):
+        raise ValueError(f"Output directory '{output_dir}' does not exist or is not a directory")
       return open(os.path.join(output_dir, file_name), mode)
     else:
       # Return a file that we can write to without caring
