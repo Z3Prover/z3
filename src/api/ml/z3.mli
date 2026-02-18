@@ -3389,6 +3389,46 @@ sig
       it is more convenient to cancel a specific solver. Solvers
       that are not selected for interrupts are left alone.*)
   val interrupt: context -> solver -> unit
+
+  (** Retrieve the set of units from the solver.
+      Units are clauses of size 1 learned by the solver during solving. *)
+  val get_units : solver -> Expr.expr list
+
+  (** Retrieve the set of non-units from the solver.
+      Non-units are clauses of size greater than 1 learned by the solver. *)
+  val get_non_units : solver -> Expr.expr list
+
+  (** Retrieve the trail (sequence of assignments) from the solver.
+      The trail shows the sequence of literal assignments made by the solver. *)
+  val get_trail : solver -> Expr.expr list
+
+  (** Retrieve the decision levels of trail literals.
+      Given a list of literals from the trail, returns an array of their decision levels.
+      @param literals List of literals from the trail
+      @return Array of decision levels corresponding to the input literals *)
+  val get_levels : solver -> Expr.expr list -> int array
+
+  (** Retrieve the congruence closure root of an expression.
+      Returns the representative of the equivalence class containing the expression. *)
+  val congruence_root : solver -> Expr.expr -> Expr.expr
+
+  (** Retrieve the next element in the congruence closure equivalence class.
+      Congruence classes form a circular list; this returns the next element. *)
+  val congruence_next : solver -> Expr.expr -> Expr.expr
+
+  (** Retrieve an explanation for why two expressions are congruent.
+      Returns an expression that justifies the congruence between a and b. *)
+  val congruence_explain : solver -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Parse SMT-LIB2 formulas from a file and assert them into the solver. *)
+  val from_file : solver -> string -> unit
+
+  (** Parse SMT-LIB2 formulas from a string and assert them into the solver. *)
+  val from_string : solver -> string -> unit
+
+  (** Provide an initial value hint for a variable to the solver.
+      This can help guide the solver to find solutions more efficiently. *)
+  val set_initial_value : solver -> Expr.expr -> Expr.expr -> unit
 end
 
 (** Fixedpoint solving *)

@@ -280,6 +280,14 @@ func (s *Solver) CongruenceExplain(a, b *Expr) *Expr {
 	return newExpr(s.ctx, ast)
 }
 
+// SetInitialValue provides an initial value hint for a variable to the solver.
+// This can help guide the solver to find solutions more efficiently.
+// The variable must be a constant or function application, and the value must be
+// compatible with the variable's sort.
+func (s *Solver) SetInitialValue(variable, value *Expr) {
+	C.Z3_solver_set_initial_value(s.ctx.ptr, s.ptr, variable.ptr, value.ptr)
+}
+
 // Model represents a Z3 model (satisfying assignment).
 type Model struct {
 	ctx *Context
@@ -381,4 +389,15 @@ func (fi *FuncInterp) GetElse() *Expr {
 // GetArity returns the arity of the function interpretation.
 func (fi *FuncInterp) GetArity() uint {
 	return uint(C.Z3_func_interp_get_arity(fi.ctx.ptr, fi.ptr))
+}
+
+// SortUniverse returns the universe of values for an uninterpreted sort in the model.
+// The universe is represented as a list of distinct expressions.
+// Returns nil if the sort is not an uninterpreted sort in this model.
+func (m *Model) SortUniverse(sort *Sort) []*Expr {
+	vec := C.Z3_model_get_sort_universe(m.ctx.ptr, m.ptr, sort.ptr)
+	if vec == nil {
+		return nil
+	}
+	return astVectorToExprs(m.ctx, vec)
 }
