@@ -1108,8 +1108,8 @@ namespace nlsat {
                     add_projection_for_poly(p, m_level, witness, true, true); // section poly: full projection
                 else if (has_roots.find(i) == has_roots.end())
                     add_projection_for_poly(p, m_level, witness, true, true); // no roots: need LC+disc for delineability
-                else if (witness && !is_const(witness))
-                    request_factorized(witness); // has roots: witness only
+                else 
+                    add_projection_for_poly(p, m_level, witness, false, true);
             }
         }
 
