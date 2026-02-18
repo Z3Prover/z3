@@ -88,7 +88,7 @@ jobs:
         working-directory: doc
         run: |
            eval $(opam env)
-           python3 mk_api_doc.py --mld --output-dir=api --z3py-package-path=../build-x64/python/z3 --build=../build-x64
+           python3 mk_api_doc.py --mld --go --output-dir=api --z3py-package-path=../build-x64/python/z3 --build=../build-x64
            Z3BUILD=build-x64 python3 mk_params_doc.py 
            mkdir api/html/ml
            ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build-x64/api/ml ../build-x64/api/ml/z3enums.mli ../build-x64/api/ml/z3.mli
@@ -122,7 +122,7 @@ jobs:
         working-directory: doc
         run: |
            eval $(opam env)
-           python3 mk_api_doc.py --js --output-dir=api --mld --z3py-package-path=../build-x64/python/z3 --build=../build-x64
+           python3 mk_api_doc.py --js --go --output-dir=api --mld --z3py-package-path=../build-x64/python/z3 --build=../build-x64
 
       - name: Download Go Documentation
         uses: actions/download-artifact@v4
