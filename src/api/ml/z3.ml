@@ -1955,11 +1955,10 @@ struct
 
   let get_levels x literals =
     let n = List.length literals in
-    let levels = Array.make n 0 in
     let av = Z3native.mk_ast_vector (gc x) in
     List.iter (fun e -> Z3native.ast_vector_push (gc x) av e) literals;
-    Z3native.solver_get_levels (gc x) x av n levels;
-    levels
+    let level_list = Z3native.solver_get_levels (gc x) x av n in
+    Array.of_list level_list
 
   let congruence_root x a = Z3native.solver_congruence_root (gc x) x a
 
