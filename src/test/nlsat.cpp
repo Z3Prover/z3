@@ -2504,7 +2504,150 @@ static void tst_unsound_lws_nullified2() {
     std::cout << "=== END tst_unsound_lws_nullified2 ===\n\n";
 }
 
+// Test that compute_conflict_explanation produces a lemma where the counterexample
+// falsifies at least one literal. Reproducer from p6236_terminationG_0.smt2.
+static void tst_explain_p6236() {
+    std::cout << "=== tst_explain_p6236 ===\n";
+
+    params_ref      ps;
+    ps.set_bool("lws", true);
+    reslimit        rlim;
+    nlsat::solver s(rlim, ps, false);
+    anum_manager & am     = s.am();
+    nlsat::pmanager & pm  = s.pm();
+    nlsat::assignment sample_as(am);
+    nlsat::assignment counter_as(am);
+
+    // Create 16 variables x0-x15
+    nlsat::var x0  = s.mk_var(false);
+    nlsat::var x1  = s.mk_var(false);
+    nlsat::var x2  = s.mk_var(false);
+    nlsat::var x3  = s.mk_var(false);
+    nlsat::var x4  = s.mk_var(false);
+    nlsat::var x5  = s.mk_var(false);
+    nlsat::var x6  = s.mk_var(false);
+    nlsat::var x7  = s.mk_var(false);
+    nlsat::var x8  = s.mk_var(false);
+    nlsat::var x9  = s.mk_var(false);
+    nlsat::var x10 = s.mk_var(false);
+    nlsat::var x11 = s.mk_var(false);
+    nlsat::var x12 = s.mk_var(false);
+    nlsat::var x13 = s.mk_var(false);
+    nlsat::var x14 = s.mk_var(false);
+    nlsat::var x15 = s.mk_var(false);
+
+    polynomial_ref _x0(pm), _x3(pm), _x4(pm), _x5(pm), _x6(pm);
+    polynomial_ref _x9(pm), _x10(pm), _x11(pm), _x13(pm), _x14(pm), _x15(pm);
+    _x0  = pm.mk_polynomial(x0);
+    _x3  = pm.mk_polynomial(x3);
+    _x4  = pm.mk_polynomial(x4);
+    _x5  = pm.mk_polynomial(x5);
+    _x6  = pm.mk_polynomial(x6);
+    _x9  = pm.mk_polynomial(x9);
+    _x10 = pm.mk_polynomial(x10);
+    _x11 = pm.mk_polynomial(x11);
+    _x13 = pm.mk_polynomial(x13);
+    _x14 = pm.mk_polynomial(x14);
+    _x15 = pm.mk_polynomial(x15);
+
+    // p1: -x9*x15 - x10*x14 + x5*x11*x13 + x3*x4*x11 + 2
+    polynomial_ref p1(pm);
+    p1 = -_x9 * _x15 - _x10 * _x14 + _x5 * _x11 * _x13 + _x3 * _x4 * _x11 + 2;
+
+    // p2: x15 + x6*x13 + x0*x4
+    polynomial_ref p2(pm);
+    p2 = _x15 + _x6 * _x13 + _x0 * _x4;
+
+    // Build justification literals:
+    //   jst lit[0]: !(x15 < root[1](p1))  =>  literal(root_lt_bvar, true)
+    //   jst lit[1]: !(p2 > 0)             =>  literal(gt_bvar, true)
+    nlsat::bool_var root_lt_bvar = s.mk_root_atom(nlsat::atom::ROOT_LT, x15, 1, p1.get());
+    nlsat::literal jst_lit0(root_lt_bvar, true);  // negated: !(x15 < root[1](p1))
+
+    nlsat::literal gt_lit = mk_gt(s, p2.get());
+    nlsat::literal jst_lit1 = ~gt_lit;            // negated: !(p2 > 0)
+
+    nlsat::literal jst_lits[2] = { jst_lit0, jst_lit1 };
+
+    // Sample: x0=1,x1=-1,x2=1,x3=-1,x4=2,x5=0,x6=0,x7=0,x8=0,x9=1,x10=0,x11=1/2,x12=1,x13=-4,x14=2
+    scoped_anum val(am);
+    rational half(1, 2);
+    set_assignment_value(sample_as, am, x0, rational(1));
+    set_assignment_value(sample_as, am, x1, rational(-1));
+    set_assignment_value(sample_as, am, x2, rational(1));
+    set_assignment_value(sample_as, am, x3, rational(-1));
+    set_assignment_value(sample_as, am, x4, rational(2));
+    set_assignment_value(sample_as, am, x5, rational(0));
+    set_assignment_value(sample_as, am, x6, rational(0));
+    set_assignment_value(sample_as, am, x7, rational(0));
+    set_assignment_value(sample_as, am, x8, rational(0));
+    set_assignment_value(sample_as, am, x9, rational(1));
+    set_assignment_value(sample_as, am, x10, rational(0));
+    set_assignment_value(sample_as, am, x11, half);
+    set_assignment_value(sample_as, am, x12, rational(1));
+    set_assignment_value(sample_as, am, x13, rational(-4));
+    set_assignment_value(sample_as, am, x14, rational(2));
+
+    s.set_rvalues(sample_as);
+
+    // Compute conflict explanation
+    nlsat::explain& ex = s.get_explain();
+    nlsat::scoped_literal_vector result(s);
+    ex.compute_conflict_explanation(2, jst_lits, result);
+
+    // Build the full lemma: result literals + ~jst_lits
+    nlsat::literal_vector lemma;
+    for (unsigned i = 0; i < result.size(); ++i)
+        lemma.push_back(result[i]);
+    lemma.push_back(~jst_lits[0]);  // x15 < root[1](p1)
+    lemma.push_back(~jst_lits[1]);  // p2 > 0
+
+    std::cout << "Lemma (" << lemma.size() << " literals):\n";
+    s.display(std::cout << "  ", lemma.size(), lemma.data()) << "\n";
+
+    // Counterexample: x0=0,x3=-1,x4=1,x5=0,x6=0,x9=1,x10=0,x11=3,x13=0,x14=0,x15=0
+    set_assignment_value(counter_as, am, x0, rational(0));
+    set_assignment_value(counter_as, am, x1, rational(-1));
+    set_assignment_value(counter_as, am, x2, rational(1));
+    set_assignment_value(counter_as, am, x3, rational(-1));
+    set_assignment_value(counter_as, am, x4, rational(1));
+    set_assignment_value(counter_as, am, x5, rational(0));
+    set_assignment_value(counter_as, am, x6, rational(0));
+    set_assignment_value(counter_as, am, x7, rational(0));
+    set_assignment_value(counter_as, am, x8, rational(0));
+    set_assignment_value(counter_as, am, x9, rational(1));
+    set_assignment_value(counter_as, am, x10, rational(0));
+    set_assignment_value(counter_as, am, x11, rational(3));
+    set_assignment_value(counter_as, am, x12, rational(1));
+    set_assignment_value(counter_as, am, x13, rational(0));
+    set_assignment_value(counter_as, am, x14, rational(0));
+    set_assignment_value(counter_as, am, x15, rational(0));
+
+    // Set counterexample as the solver's assignment for evaluation
+    s.set_rvalues(counter_as);
+    nlsat::evaluator& ev = s.get_evaluator();
+
+    // Check unsat
+    bool unsat = true;
+    for (unsigned i = 0; i < lemma.size(); ++i) {
+        nlsat::literal lit = lemma[i];
+        nlsat::atom* a = s.bool_var2atom(lit.var());
+        if (a == nullptr)
+            continue;
+        bool sat = ev.eval(a, lit.sign());
+        std::cout << "  lit[" << i << "]: ";
+        s.display(std::cout, lit) << " = " << (sat ? "true" : "false") << "\n";
+        if (sat)
+            unsat = false;
+    }
+
+    ENSURE(unsat);
+    std::cout << "=== END tst_explain_p6236 ===\n\n";
+}
+
 void tst_nlsat() {
+    tst_explain_p6236();
+    std::cout << "------------------\n";
     tst_unsound_lws_p6236();
     std::cout << "------------------\n";
     tst_unsound_lws_disc_zero();
