@@ -2629,21 +2629,21 @@ static void tst_explain_p6236() {
     s.set_rvalues(counter_as);
     nlsat::evaluator& ev = s.get_evaluator();
 
-    // Check unsat
-    bool unsat = true;
+    // At least one lemma literal must be true at the counterexample for soundness
+    bool some_true = false;
     for (unsigned i = 0; i < lemma.size(); ++i) {
         nlsat::literal lit = lemma[i];
         nlsat::atom* a = s.bool_var2atom(lit.var());
         if (a == nullptr)
             continue;
-        bool sat = ev.eval(a, lit.sign());
+        bool v = ev.eval(a, lit.sign());
         std::cout << "  lit[" << i << "]: ";
-        s.display(std::cout, lit) << " = " << (sat ? "true" : "false") << "\n";
-        if (sat)
-            unsat = false;
+        s.display(std::cout, lit) << " = " << (v ? "true" : "false") << "\n";
+        if (v)
+            some_true = true;
     }
 
-    ENSURE(unsat);
+    ENSURE(some_true);
 
     s.dec_ref(root_lt_bvar);
     s.dec_ref(gt_lit);
