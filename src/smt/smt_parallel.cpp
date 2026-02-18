@@ -126,6 +126,13 @@ namespace smt {
                     if (!b.is_global_backbone(m_l2g, bb_ref) && check_backbone(bb_ref)) {
                         m_stats.m_backbones_detected++;
                         bool is_new_bb = b.collect_global_backbone(m_l2g, bb_ref);
+                        auto mode_str = (m_mode == bb_mode::bb_negated) ? "NEGATED" : "POSITIVE";
+
+                        IF_VERBOSE(1, verbose_stream()
+                            << "BACKBONES WORKER[" << id << "][" << mode_str
+                            << "]: fallback found backbone: "
+                            << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
+
                         if (is_new_bb) m_stats.m_backbones_found++;
                     }
                     bb_candidate_lits.erase(c);
@@ -249,7 +256,12 @@ namespace smt {
                         if (m_mode == bb_mode::bb_negated)
                             backbone_lit = mk_not(backbone_lit);
 
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: found single backbone: " << mk_bounded_pp(backbone_lit, m, 3) << "\n");
+                        auto mode_str = (m_mode == bb_mode::bb_negated) ? "NEGATED" : "POSITIVE";
+
+                        IF_VERBOSE(1, verbose_stream()
+                            << "BACKBONES WORKER[" << id << "][" << mode_str << "]: found backbone: "
+                            << mk_bounded_pp(backbone_lit, m, 3) << "\n");
+
 
                         m_stats.m_singleton_backbones++;
                         m_stats.m_backbones_detected++;
@@ -1121,7 +1133,7 @@ namespace smt {
             sl.push_child(&(m_sls_worker->limit()));
         }
         if (m_should_run_global_backbones) {
-            unsigned num_bb_threads = 2;
+            unsigned num_bb_threads = 1;
             for (unsigned i = 0; i < num_bb_threads; ++i) {
                 auto *w = alloc(backbones_worker, i, *this, asms);
                 m_global_backbones_workers.push_back(w);
