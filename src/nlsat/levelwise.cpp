@@ -267,6 +267,17 @@ namespace nlsat {
         // request_factorized each of them and continue to the next level.
         // When a non-vanishing derivative is found, request_factorized it and stop.
         void handle_nullified_poly(polynomial_ref const& p) {
+            // Add all coefficients of p (w.r.t. m_level) to m_todo.
+            unsigned deg = m_pm.degree(p, m_level);
+            for (unsigned j = 0; j <= deg; ++j) {
+                polynomial_ref coeff(m_pm.coeff(p, m_level, j), m_pm);
+                if (!coeff || is_zero(coeff) || is_const(coeff))
+                    continue;
+                request_factorized(coeff);
+            }
+            // Compute partial derivatives level by level. If all derivatives at a level vanish,
+            // request_factorized each of them and continue to the next level.
+            // When a non-vanishing derivative is found, request_factorized it and stop.
             polynomial_ref_vector current(m_pm);
             current.push_back(p);
             while (!current.empty()) {
