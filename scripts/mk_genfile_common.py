@@ -534,7 +534,7 @@ def mk_z3consts_ml_internal(api_files, output_dir):
     #                 raise ValueError("Invalid %s, line: %s" % (api_file, linenum))
     #         else:
     #             if mode != IN_ENUM:
-                 raise ValueError(f"Expected IN_ENUM mode, got mode {mode} in {api_file}, line: {linenum}")
+    #                 raise ValueError(f"Expected IN_ENUM mode, got mode {mode} in {api_file}, line: {linenum}")
     #             words = re.split('[^\-a-zA-Z0-9_]+', line)
     #             m = closebrace_pat.match(line)
     #             if m:
