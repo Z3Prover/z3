@@ -251,6 +251,7 @@ namespace nlsat {
         bool m_apply_lws;
         bool m_last_conflict_used_lws = false;  // Track if last conflict explanation used levelwise
         unsigned m_lws_spt_threshold = 3;
+        bool m_lws_null_fail = false;
         imp(solver& s, ctx& c):
             m_ctx(c),
             m_solver(s),
@@ -312,6 +313,7 @@ namespace nlsat {
             m_debug_known_solution_file_name = p.known_sat_assignment_file_name();
             m_apply_lws = p.lws();
             m_lws_spt_threshold = p.lws_spt_threshold();  // 0 disables spanning tree
+            m_lws_null_fail = p.lws_null_fail();
             m_check_lemmas |= !(m_debug_known_solution_file_name.empty());
   
             m_ism.set_seed(m_random_seed);
@@ -4719,5 +4721,7 @@ namespace nlsat {
     bool solver::apply_levelwise() const { return m_imp->m_apply_lws; }
     
     unsigned solver::lws_spt_threshold() const { return m_imp->m_lws_spt_threshold; }
-    
+
+    bool solver::lws_null_fail() const { return m_imp->m_lws_null_fail; }
+
 };
