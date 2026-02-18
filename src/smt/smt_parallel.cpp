@@ -866,6 +866,7 @@ namespace smt {
             return m_bb_stop ||
                 lim.is_canceled() ||
                 m_state != state::is_running ||
+                !m_bb_candidates.empty() ||
                 m_bb_last_batch_processed[bb_thread_id] < m_bb_batch_id;
         });
 
