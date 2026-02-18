@@ -1940,6 +1940,38 @@ struct
 
   let interrupt (ctx:context) (s:solver) =
     Z3native.solver_interrupt ctx s
+
+  let get_units x =
+    let av = Z3native.solver_get_units (gc x) x in
+    AST.ASTVector.to_expr_list av
+
+  let get_non_units x =
+    let av = Z3native.solver_get_non_units (gc x) x in
+    AST.ASTVector.to_expr_list av
+
+  let get_trail x =
+    let av = Z3native.solver_get_trail (gc x) x in
+    AST.ASTVector.to_expr_list av
+
+  let get_levels x literals =
+    let n = List.length literals in
+    let levels = Array.make n 0 in
+    let av = Z3native.mk_ast_vector (gc x) in
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) av e) literals;
+    Z3native.solver_get_levels (gc x) x av n levels;
+    levels
+
+  let congruence_root x a = Z3native.solver_congruence_root (gc x) x a
+
+  let congruence_next x a = Z3native.solver_congruence_next (gc x) x a
+
+  let congruence_explain x a b = Z3native.solver_congruence_explain (gc x) x a b
+
+  let from_file x = Z3native.solver_from_file (gc x) x
+
+  let from_string x = Z3native.solver_from_string (gc x) x
+
+  let set_initial_value x var value = Z3native.solver_set_initial_value (gc x) x var value
 end
 
 
