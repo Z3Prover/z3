@@ -491,7 +491,6 @@ static void tst_vandermond() {
     nlsat::var x0 = s.mk_var(false);
     nlsat::var x1 = s.mk_var(false);
     nlsat::var x2 = s.mk_var(false);
-    nlsat::var x3 = s.mk_var(false);
     am.set(one, 1);
     am.set(two, 2);
     as.set(x0, one);
@@ -1164,7 +1163,6 @@ static void tst_nullified_polynomial() {
 
     nlsat::levelwise lws(s, polys, max_x, s.sample(), pm, am, cache);
     auto cell = lws.single_cell();
-    ENSURE(lws.failed());
 }
 
 // Test case for unsound lemma lws2380 - comparing standard projection vs levelwise
@@ -1473,7 +1471,6 @@ static void tst_unsound_lws_x3() {
     nlsat::levelwise lws(s, polys, max_x, s.sample(), pm, am, cache);
     auto cell = lws.single_cell();
     
-    std::cout << "Levelwise " << (lws.failed() ? "FAILED" : "succeeded") << "\n";
     std::cout << "Cell intervals (count=" << cell.size() << "):\n";
     for (auto const& interval : cell) {
         nlsat::display(std::cout << "  ", s, interval) << "\n";
@@ -1682,7 +1679,6 @@ static void tst_unsound_lws_n46() {
     nlsat::levelwise lws(s, polys, max_x, s.sample(), pm, am, cache);
     auto cell = lws.single_cell();
 
-    std::cout << "Levelwise " << (lws.failed() ? "FAILED" : "succeeded") << "\n";
     std::cout << "Cell intervals:\n";
     for (unsigned i = 0; i < cell.size(); ++i) {
         std::cout << "  Level " << i << ": ";
@@ -1912,7 +1908,6 @@ static void tst_unsound_lws_et4() {
     nlsat::levelwise lws(s, polys, max_x, s.sample(), pm, am, cache);
     auto cell = lws.single_cell();
     
-    std::cout << "Levelwise " << (lws.failed() ? "FAILED" : "succeeded") << "\n";
     std::cout << "Cell intervals (count=" << cell.size() << "):\n";
     for (auto const& interval : cell) {
         nlsat::display(std::cout << "  ", s, interval) << "\n";
@@ -2074,7 +2069,6 @@ static void tst_unsound_lws_disc_zero() {
     nlsat::levelwise lws(s, polys, max_x, s.sample(), pm, am, cache);
     auto cell = lws.single_cell();
 
-    std::cout << "Levelwise " << (lws.failed() ? "FAILED" : "succeeded") << "\n";
     std::cout << "Cell intervals:\n";
     for (unsigned i = 0; i < cell.size(); ++i) {
         std::cout << "  Level " << i << ": ";
@@ -2294,28 +2288,25 @@ static void tst_unsound_lws_ppblockterm() {
     nlsat::levelwise lws(s, polys, max_x, s.sample(), pm, am, cache);
     auto cell = lws.single_cell();
     
-    if (lws.failed()) {
-        std::cout << "Levelwise FAILED\n";
-    } else {
-        std::cout << "Levelwise succeeded\n";
-        std::cout << "--- LEMMA from levelwise ---\n";
-        for (unsigned i = 0; i < cell.size(); i++) {
-            auto const& interval = cell[i];
-            std::cout << "Level x" << i << ": ";
-            if (interval.is_section()) {
-                std::cout << "section at root[" << interval.l_index << "] of " << interval.l << "\n";
-            } else {
-                if (interval.l_inf())
-                    std::cout << "(-oo, ";
-                else
-                    std::cout << "(root[" << interval.l_index << "] of " << interval.l << ", ";
-                if (interval.u_inf())
-                    std::cout << "+oo)";
-                else
-                    std::cout << "root[" << interval.u_index << "] of " << interval.u << ")";
-                std::cout << "\n";
-            }
+    std::cout << "Levelwise succeeded\n";
+    std::cout << "--- LEMMA from levelwise ---\n";
+    for (unsigned i = 0; i < cell.size(); i++) {
+        auto const& interval = cell[i];
+        std::cout << "Level x" << i << ": ";
+        if (interval.is_section()) {
+            std::cout << "section at root[" << interval.l_index << "] of " << interval.l << "\n";
+        } else {
+            if (interval.l_inf())
+                std::cout << "(-oo, ";
+            else
+                std::cout << "(root[" << interval.l_index << "] of " << interval.l << ", ";
+            if (interval.u_inf())
+                std::cout << "+oo)";
+            else
+                std::cout << "root[" << interval.u_index << "] of " << interval.u << ")";
+            std::cout << "\n";
         }
+
         std::cout << "--- END LEMMA ---\n\n";
         
         // Check polynomial signs at sample and counterexample
@@ -2531,7 +2522,6 @@ static void tst_unsound_gh8397() {
 
 void tst_nlsat() {
     tst_unsound_gh8397();
-    return;
     std::cout << "------------------\n";
     tst_unsound_lws_ppblockterm();
     std::cout << "------------------\n";

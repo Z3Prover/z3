@@ -65,7 +65,6 @@ namespace nlsat {
         std_vector<bool>                m_poly_has_roots;
 
         polynomial_ref_vector  m_psc_tmp;        // scratch for PSC chains
-        bool                   m_fail = false;
 
         // Vectors indexed by position in m_level_ps (more cache-friendly than maps)
         mutable std_vector<uint8_t> m_side_mask;       // bit0 = lower, bit1 = upper, 3 = both
@@ -268,7 +267,6 @@ namespace nlsat {
         // request_factorized each of them and continue to the next level.
         // When a non-vanishing derivative is found, request_factorized it and stop.
         void handle_nullified_poly(polynomial_ref const& p) {
-            m_fail = true;
             polynomial_ref_vector current(m_pm);
             current.push_back(p);
             while (!current.empty()) {
@@ -1343,7 +1341,6 @@ namespace nlsat {
         return m_impl->single_cell();
     }
 
-    bool levelwise::failed() const { return m_impl->m_fail; }
 
 } // namespace nlsat
 
