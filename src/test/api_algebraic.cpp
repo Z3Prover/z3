@@ -193,5 +193,42 @@ void tst_api_algebraic() {
         ENSURE(Z3_algebraic_eq(ctx, result, neg_quarter));
     }
 
+    // Test Z3_algebraic_eval: evaluate the sign of a polynomial at algebraic values.
+    // The mutation swapped "r > 0" with "r < 0", so tests must distinguish positive
+    // from negative results.
+    //
+    // Polynomial p(x0) = x0 - 2.  Built using a free variable (de Bruijn index 0).
+    //   p(3)  = 1  > 0  → should return  1
+    //   p(1)  = -1 < 0  → should return -1
+    //   p(2)  = 0  = 0  → should return  0
+    {
+        Z3_sort real_sort = Z3_mk_real_sort(ctx);
+
+        // x0 is the free variable at de Bruijn index 0.
+        Z3_ast x0   = Z3_mk_bound(ctx, 0, real_sort);
+        Z3_ast c2   = Z3_mk_real(ctx, 2, 1);
+        Z3_ast poly_args[2] = { x0, c2 };
+        // p = x0 - 2
+        Z3_ast poly = Z3_mk_sub(ctx, 2, poly_args);
+
+        // Evaluate at 3: p(3) = 1 > 0 → +1
+        Z3_ast val3 = Z3_mk_real(ctx, 3, 1);
+        ENSURE(Z3_algebraic_is_value(ctx, val3));
+        int sign3 = Z3_algebraic_eval(ctx, poly, 1, &val3);
+        ENSURE(sign3 == 1);
+
+        // Evaluate at 1: p(1) = -1 < 0 → -1
+        Z3_ast val1 = Z3_mk_real(ctx, 1, 1);
+        ENSURE(Z3_algebraic_is_value(ctx, val1));
+        int sign1 = Z3_algebraic_eval(ctx, poly, 1, &val1);
+        ENSURE(sign1 == -1);
+
+        // Evaluate at 2: p(2) = 0 → 0
+        Z3_ast val2 = Z3_mk_real(ctx, 2, 1);
+        ENSURE(Z3_algebraic_is_value(ctx, val2));
+        int sign2 = Z3_algebraic_eval(ctx, poly, 1, &val2);
+        ENSURE(sign2 == 0);
+    }
+
     Z3_del_context(ctx);
 }
