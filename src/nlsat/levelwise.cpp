@@ -4,7 +4,6 @@
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/polynomial.h"
 #include "nlsat_common.h"
-#include "util/z3_exception.h"
 #include "util/vector.h"
 #include "util/trace.h"
 
@@ -44,7 +43,6 @@ namespace nlsat {
         sector_spanning_tree
     };
 
-    struct nullified_poly_exception {};
 
     struct levelwise::impl {
         solver&                      m_solver;
@@ -67,7 +65,6 @@ namespace nlsat {
         std_vector<bool>                m_poly_has_roots;
 
         polynomial_ref_vector  m_psc_tmp;        // scratch for PSC chains
-        bool                   m_fail = false;
 
         // Vectors indexed by position in m_level_ps (more cache-friendly than maps)
         mutable std_vector<uint8_t> m_side_mask;       // bit0 = lower, bit1 = upper, 3 = both
@@ -265,7 +262,53 @@ namespace nlsat {
             m_spanning_tree_threshold = m_solver.lws_spt_threshold();
         }
 
-        void fail() { throw nullified_poly_exception(); }
+        // Handle a polynomial whose every coefficient evaluates to zero at the sample.
+        // Compute partial derivatives level by level. If all derivatives at a level vanish,
+        // request_factorized each of them and continue to the next level.
+        // When a non-vanishing derivative is found, request_factorized it and stop.
+        void handle_nullified_poly(polynomial_ref const& p) {
+            // Add all coefficients of p as a polynomial of x_{m_level} to m_todo.
+            unsigned deg = m_pm.degree(p, m_level);
+            for (unsigned j = 0; j <= deg; ++j) {
+                polynomial_ref coeff(m_pm.coeff(p, m_level, j), m_pm);
+                if (!coeff || is_zero(coeff) || is_const(coeff))
+                    continue;
+                request_factorized(coeff);
+            }
+
+            // Compute partial derivatives level by level. If all derivatives at a level vanish,
+            // request_factorized each of them and continue to the next level.
+            // When a non-vanishing derivative is found, request_factorized it and stop.
+            polynomial_ref_vector current(m_pm);
+            current.push_back(p);
+            while (!current.empty()) {
+                polynomial_ref_vector next_derivs(m_pm);
+                for (unsigned i = 0; i < current.size(); ++i) {
+                    polynomial_ref q(current.get(i), m_pm);
+                    unsigned mv = m_pm.max_var(q);
+                    if (mv == null_var)
+                        continue;
+                    for (unsigned x = 0; x <= mv; ++x) {
+                        if (m_pm.degree(q, x) == 0)
+                            continue;
+                        polynomial_ref dq = derivative(q, x);
+                        if (!dq || is_zero(dq) || is_const(dq))
+                            continue;
+                        if (m_am.eval_sign_at(dq, sample()) != 0) {
+                            request_factorized(dq);
+                            return;
+                        }
+                        next_derivs.push_back(dq);
+                    }
+                }
+                for (unsigned i = 0; i < next_derivs.size(); ++i) {
+                    polynomial_ref dq(next_derivs.get(i), m_pm);
+                    request_factorized(dq);
+                }
+                current = std::move(next_derivs);
+            }
+            
+        }
 
         static void reset_interval(root_function_interval& I) {
             I.section = false;
@@ -1067,8 +1110,8 @@ namespace nlsat {
                     add_projection_for_poly(p, m_level, witness, true, true); // section poly: full projection
                 else if (has_roots.find(i) == has_roots.end())
                     add_projection_for_poly(p, m_level, witness, true, true); // no roots: need LC+disc for delineability
-                else if (witness && !is_const(witness))
-                    request_factorized(witness); // has roots: witness only
+                else 
+                    add_projection_for_poly(p, m_level, witness, false, true);
             }
         }
 
@@ -1176,12 +1219,18 @@ namespace nlsat {
             // Line 10/11: detect nullification + pick a non-zero coefficient witness per p.
             m_witnesses.clear();
             m_witnesses.reserve(m_level_ps.size());
-            for (unsigned i = 0; i < m_level_ps.size(); ++i) {
+            // Fixpoint loop: handle_nullified_poly may add more polynomials back at m_level
+            // via request_factorized. Drain them from m_todo into m_level_ps and
+            // compute witnesses for the new entries until no more appear.
+            for (unsigned i = 0; i < m_level_ps.size(); i++) {
                 polynomial_ref p(m_level_ps.get(i), m_pm);
                 polynomial_ref w = choose_nonzero_coeff(p, m_level);
                 if (!w)
-                    fail();
-                m_witnesses.push_back(w);
+                    handle_nullified_poly(p);
+                m_witnesses.push_back(w); // need to push anyway since m_witnesses is accessed by the index
+                // Absorb any same-level polys that handle_nullified_poly added to m_todo
+                if (i + 1 == m_level_ps.size())
+                    m_todo.extract_polys_at_level(m_level, m_level_ps);
             }
         }
 
@@ -1246,7 +1295,7 @@ namespace nlsat {
             }
         }
 
-        std_vector<root_function_interval> single_cell_work() {
+        std_vector<root_function_interval> single_cell() {
             TRACE(lws,             
                   tout << "Input polynomials (" << m_P.size() << "):\n";
                   for (unsigned i = 0; i < m_P.size(); ++i)
@@ -1294,15 +1343,6 @@ namespace nlsat {
             return m_I;
         }
 
-        std_vector<root_function_interval> single_cell() {
-            try {
-                return single_cell_work();
-            }
-            catch (nullified_poly_exception&) {
-                m_fail = true;
-                return m_I;
-            }
-        }
     };
 
     levelwise::levelwise(
@@ -1320,9 +1360,6 @@ namespace nlsat {
     std_vector<levelwise::root_function_interval> levelwise::single_cell() {
         return m_impl->single_cell();
     }
-
-    bool levelwise::failed() const { return m_impl->m_fail; }
-
 } // namespace nlsat
 
 // Free pretty-printer for symbolic_interval

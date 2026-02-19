@@ -44,6 +44,9 @@ namespace nlsat {
            them in max_polys. Return the maximal variable
          */
         var extract_max_polys(polynomial_ref_vector& max_polys);
+        // Extract polynomials whose max_var equals \c x, appending them to \c out.
+        // Returns the number of polynomials extracted.
+        unsigned extract_polys_at_level(var x, polynomial_ref_vector& out);
     };
 
     inline std::ostream& display(std::ostream& out, pmanager& pm, polynomial_ref const& p, display_var_proc const& proc) {
