@@ -57,8 +57,6 @@ namespace nlsat {
 
         unsigned               m_level = 0;      // current level being processed
         unsigned               m_spanning_tree_threshold = 3; // minimum both-side count for spanning tree
-        bool                   m_null_fail = false;
-        bool                   m_fail = false;
         unsigned               m_l_rf = UINT_MAX; // position of lower bound in m_rel.m_rfunc
         unsigned               m_u_rf = UINT_MAX; // position of upper bound in m_rel.m_rfunc, UINT_MAX in section case
 
@@ -264,7 +262,6 @@ namespace nlsat {
                 m_I.emplace_back(m_pm);
 
             m_spanning_tree_threshold = m_solver.lws_spt_threshold();
-            m_null_fail = m_solver.lws_null_fail();
         }
 
         // Handle a polynomial whose every coefficient evaluates to zero at the sample.
@@ -272,9 +269,7 @@ namespace nlsat {
         // request_factorized each of them and continue to the next level.
         // When a non-vanishing derivative is found, request_factorized it and stop.
         void handle_nullified_poly(polynomial_ref const& p) {
-            if (m_null_fail)
-                throw nullified_poly_exception();
-            // Add all coefficients of p (w.r.t. m_level) to m_todo.
+            // Add all coefficients of p as a polynomial of x_{m_level} to m_todo.
             unsigned deg = m_pm.degree(p, m_level);
             for (unsigned j = 0; j <= deg; ++j) {
                 polynomial_ref coeff(m_pm.coeff(p, m_level, j), m_pm);
@@ -1302,7 +1297,7 @@ namespace nlsat {
             }
         }
 
-        std_vector<root_function_interval> single_cell_work() {
+        std_vector<root_function_interval> single_cell() {
             TRACE(lws,             
                   tout << "Input polynomials (" << m_P.size() << "):\n";
                   for (unsigned i = 0; i < m_P.size(); ++i)
@@ -1350,15 +1345,6 @@ namespace nlsat {
             return m_I;
         }
 
-        std_vector<root_function_interval> single_cell() {
-            try {
-                return single_cell_work();
-            }
-            catch (nullified_poly_exception&) {
-                m_fail = true;
-                return m_I;
-            }
-        }
     };
 
     levelwise::levelwise(
@@ -1376,9 +1362,6 @@ namespace nlsat {
     std_vector<levelwise::root_function_interval> levelwise::single_cell() {
         return m_impl->single_cell();
     }
-
-    bool levelwise::failed() const { return m_impl->m_fail; }
-
 } // namespace nlsat
 
 // Free pretty-printer for symbolic_interval

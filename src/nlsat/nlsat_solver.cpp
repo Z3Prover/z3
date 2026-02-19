@@ -313,7 +313,6 @@ namespace nlsat {
             m_debug_known_solution_file_name = p.known_sat_assignment_file_name();
             m_apply_lws = p.lws();
             m_lws_spt_threshold = p.lws_spt_threshold();  // 0 disables spanning tree
-            m_lws_null_fail = p.lws_null_fail();
             m_check_lemmas |= !(m_debug_known_solution_file_name.empty());
   
             m_ism.set_seed(m_random_seed);
