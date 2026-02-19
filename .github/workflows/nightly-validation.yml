@@ -390,7 +390,7 @@ jobs:
 
   validate-exe-macos-x64:
     name: "Validate executable on macOS x64"
-    runs-on: macos-13
+    runs-on: macos-15-intel
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     timeout-minutes: 30
     steps:
@@ -640,7 +640,7 @@ jobs:
 
   validate-python-wheel-macos-x64:
     name: "Validate Python wheel on macOS x64"
-    runs-on: macos-13
+    runs-on: macos-15-intel
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     timeout-minutes: 30
     steps:
