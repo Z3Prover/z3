@@ -5438,7 +5438,7 @@ def FiniteSetSubset(s1, s2):
 
 def FiniteSetMap(f, set):
     """Apply function f to all elements of the finite set.
-    >>> f = Function('f', IntSort(), IntSort())
+    >>> f = Array('f', IntSort(), IntSort())
     >>> a = Const('a', FiniteSetSort(IntSort()))
     >>> FiniteSetMap(f, a)
     set.map(f, a)
@@ -5451,7 +5451,7 @@ def FiniteSetMap(f, set):
 
 def FiniteSetFilter(f, set):
     """Filter a finite set using predicate f.
-    >>> f = Function('f', IntSort(), BoolSort())
+    >>> f = Array('f', IntSort(), BoolSort())
     >>> a = Const('a', FiniteSetSort(IntSort()))
     >>> FiniteSetFilter(f, a)
     set.filter(f, a)
