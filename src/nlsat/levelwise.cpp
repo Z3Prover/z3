@@ -279,16 +279,22 @@ namespace nlsat {
             // Compute partial derivatives level by level. If all derivatives at a level vanish,
             // request_factorized each of them and continue to the next level.
             // When a non-vanishing derivative is found, request_factorized it and stop.
-            polynomial_ref_vector current(m_pm);
-            current.push_back(p);
-            while (!current.empty()) {
-                polynomial_ref_vector next_derivs(m_pm);
-                for (unsigned i = 0; i < current.size(); ++i) {
-                    polynomial_ref q(current.get(i), m_pm);
+            // Parallel vectors: cur_polys owns the polynomials, cur_min_var tracks the
+            // minimum variable index to differentiate by, ensuring each mixed partial
+            // is computed in non-decreasing variable order, to try avoiding the duplication of the dxdy = dydx kind.
+            polynomial_ref_vector cur_polys(m_pm);
+            svector<unsigned> cur_min_var;
+            cur_polys.push_back(p);
+            cur_min_var.push_back(0);
+            while (!cur_polys.empty()) {
+                polynomial_ref_vector next_polys(m_pm);
+                svector<unsigned> next_min_var;
+                for (unsigned i = 0; i < cur_polys.size(); ++i) {
+                    polynomial_ref q(cur_polys.get(i), m_pm);
                     unsigned mv = m_pm.max_var(q);
                     if (mv == null_var)
                         continue;
-                    for (unsigned x = 0; x <= mv; ++x) {
+                    for (unsigned x = cur_min_var[i]; x <= mv; ++x) {
                         if (m_pm.degree(q, x) == 0)
                             continue;
                         polynomial_ref dq = derivative(q, x);
@@ -298,14 +304,16 @@ namespace nlsat {
                             request_factorized(dq);
                             return;
                         }
-                        next_derivs.push_back(dq);
+                        next_polys.push_back(dq);
+                        next_min_var.push_back(x);
                     }
                 }
-                for (unsigned i = 0; i < next_derivs.size(); ++i) {
-                    polynomial_ref dq(next_derivs.get(i), m_pm);
+                for (unsigned i = 0; i < next_polys.size(); ++i) {
+                    polynomial_ref dq(next_polys.get(i), m_pm);
                     request_factorized(dq);
                 }
-                current = std::move(next_derivs);
+                cur_polys = std::move(next_polys);
+                cur_min_var = std::move(next_min_var);
             }
             
         }
