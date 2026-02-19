@@ -312,7 +312,7 @@ namespace smt {
      * - membership axioms
      * - assume eqs axioms
     */
-    final_check_status theory_finite_set::final_check_eh() {
+    final_check_status theory_finite_set::final_check_eh(unsigned) {
         TRACE(finite_set, tout << "final_check_eh\n";);
 
         if (activate_unasserted_clause())

@@ -156,7 +156,7 @@ namespace smt {
         void new_eq_eh(theory_var v1, theory_var v2) override;
         void new_diseq_eh(theory_var v1, theory_var v2) override;
         void apply_sort_cnstr(enode *n, sort *s) override; 
-        final_check_status final_check_eh() override;
+        final_check_status final_check_eh(unsigned) override;
         bool can_propagate() override;
         void propagate() override;
         void assign_eh(bool_var v, bool is_true) override;
