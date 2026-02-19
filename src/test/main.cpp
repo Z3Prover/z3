@@ -221,6 +221,7 @@ int main(int argc, char ** argv) {
     TST(upolynomial);
     TST(algebraic);
     TST(algebraic_numbers);
+    TST(ackermannize);
     TST(monomial_bounds);
     TST(nla_intervals);
     TST(horner);
