@@ -251,7 +251,6 @@ namespace nlsat {
         bool m_apply_lws;
         bool m_last_conflict_used_lws = false;  // Track if last conflict explanation used levelwise
         unsigned m_lws_spt_threshold = 3;
-        bool m_lws_null_fail = false;
         imp(solver& s, ctx& c):
             m_ctx(c),
             m_solver(s),
@@ -4718,9 +4717,5 @@ namespace nlsat {
         return (m_imp->m_asm.mk_join(static_cast<imp::_assumption_set>(a), static_cast<imp::_assumption_set>(b)));
     }
     bool solver::apply_levelwise() const { return m_imp->m_apply_lws; }
-    
     unsigned solver::lws_spt_threshold() const { return m_imp->m_lws_spt_threshold; }
-
-    bool solver::lws_null_fail() const { return m_imp->m_lws_null_fail; }
-
 };

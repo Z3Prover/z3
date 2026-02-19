@@ -496,7 +496,7 @@ static void set_assignment_value(nlsat::assignment& as, anum_manager& am, nlsat:
     as.set(v, tmp);
 }
 
-static void tst_vandermond() {
+static void tst_12() {
     params_ref      ps;
     reslimit        rlim;
     nlsat::solver   s(rlim, ps, false);
@@ -914,7 +914,7 @@ static void tst10() {
     std::cout << "\n";
 }
 
-void tst_nlsat_mv() {
+void tst_13() {
     params_ref      ps;
     reslimit        rlim;
     nlsat::solver s(rlim, ps, false);
@@ -923,7 +923,7 @@ void tst_nlsat_mv() {
     nlsat::assignment assignment(am);
     nlsat::explain& ex    = s.get_explain();
 
-    tst_vandermond();
+    tst_12();
     return;
 
     // Regression: reproduce lemma 114 where main_operator adds spurious bounds.
@@ -1088,7 +1088,7 @@ x7 := 1
 
 }
 
-static void tst_polynomial_cache_mk_unique() {
+static void tst_14() {
     params_ref ps;
     reslimit rlim;
     nlsat::solver s(rlim, ps, false);
@@ -1134,7 +1134,7 @@ static void tst_polynomial_cache_mk_unique() {
            
 }
 
-static void tst_nullified_polynomial() {
+static void tst_15() {
     params_ref      ps;
     reslimit        rlim;
     nlsat::solver s(rlim, ps, false);
@@ -1185,11 +1185,11 @@ static void tst_nullified_polynomial() {
 
 // Test case for unsound lemma lws2380 - comparing standard projection vs levelwise
 // The issue: x7 is unconstrained in levelwise output but affects the section polynomial
-static void tst_unsound_lws2380() {
+static void tst_16() {
     // enable_trace("nlsat_explain");
     
     auto run_test = [](bool use_lws) {
-        std::cout << "=== tst_unsound_lws2380: " << (use_lws ? "Levelwise" : "Standard") << " projection (lws=" << use_lws << ") ===\n";
+        std::cout << "=== tst_16: " << (use_lws ? "Levelwise" : "Standard") << " projection (lws=" << use_lws << ") ===\n";
         params_ref      ps;
         ps.set_bool("lws", use_lws);
         reslimit        rlim;
@@ -1294,8 +1294,8 @@ static void tst_unsound_lws2380() {
 // Test case for unsound lemma - levelwise produces cell that's too large
 // Input: 5 polynomials with max_var=x3, sample x0=-7, x1=-1, x2=1
 // Counterexample: x0=-4, x1=-8, x2=5, x3=6
-static void tst_unsound_lws_x3() {
-    std::cout << "=== tst_unsound_lws_x3 ===\n";
+static void tst_17() {
+    std::cout << "=== tst_17 ===\n";
     params_ref      ps;
     ps.set_bool("lws", true);
     reslimit        rlim;
@@ -1391,7 +1391,7 @@ static void tst_unsound_lws_x3() {
     // Counterexample must be OUTSIDE the cell
     ENSURE(!is_point_inside_cell(am, pm, cell, counter_as));
     
-    std::cout << "=== END tst_unsound_lws_x3 ===\n\n";
+    std::cout << "=== END tst_17 ===\n\n";
 }
 
 // Test case for unsound lemma from From_T2__n-46.t2__p4432_terminationG_0.smt2
@@ -1415,8 +1415,8 @@ static void tst_unsound_lws_x3() {
 //   !(2 x2 x6^2 + x0 x5 x6 + 2 x2 x4 x6 + x2 x3 x6 - x0 x6 - x0 x4 < 0) or
 //   x7 < root[1](x2 x6^2 x7 + ... + 2 x6 + 2 x4) or 
 //   !(x7 < root[1](x2 x6 x7 - 2))
-static void tst_unsound_lws_n46() {
-    std::cout << "=== tst_unsound_lws_n46 ===\n";
+static void tst_18() {
+    std::cout << "=== tst_18 ===\n";
     
     params_ref      ps;
     ps.set_bool("lws", true);
@@ -1521,7 +1521,7 @@ static void tst_unsound_lws_n46() {
     // Counterexample must be OUTSIDE the cell
     ENSURE(!is_point_inside_cell(am, pm, cell, counter_as));
     
-    std::cout << "=== END tst_unsound_lws_n46 ===\n\n";
+    std::cout << "=== END tst_18 ===\n\n";
 }
 
 // Test case for unsound lemma from From_AProVE_2014__Et4-rec.jar-obl-8__p28996_terminationG_0.smt2
@@ -1532,8 +1532,8 @@ static void tst_unsound_lws_n46() {
 //   p[1]: 2 x0 x4^2 + 2 x3 x4 - x0 x4 - 2 x3
 //   p[2]: 2 x0 x4^2 x5 + 2 x3 x4 x5 - x0 x4 x5 - 2 x3 x5 + 4 x3 x4^2 + 9 x0 x3 x4 - 26 x3 x4 - 3 x0 x4
 //   p[3]: x5 - 9
-static void tst_unsound_lws_et4() {
-    std::cout << "=== tst_unsound_lws_et4 ===\n";
+static void tst_19() {
+    std::cout << "=== tst_19 ===\n";
     params_ref      ps;
     ps.set_bool("lws", true);
     reslimit        rlim;
@@ -1632,7 +1632,7 @@ static void tst_unsound_lws_et4() {
     // Counterexample must be OUTSIDE the cell
     ENSURE(!is_point_inside_cell(am, pm, cell, counter_as));
     
-    std::cout << "=== END tst_unsound_lws_et4 ===\n\n";
+    std::cout << "=== END tst_19 ===\n\n";
 }
 
 // Test case for unsound lemma with disc=0 at sample for same_boundary_poly sector case
@@ -1642,8 +1642,8 @@ static void tst_unsound_lws_et4() {
 //   p[2]: x3
 // Sample: x0=1, x1=1, x2=1
 // Counterexample: x1=12, x2=16, x3=0
-static void tst_unsound_lws_disc_zero() {
-    std::cout << "=== tst_unsound_lws_disc_zero ===\n";
+static void tst_20() {
+    std::cout << "=== tst_20 ===\n";
 
     params_ref      ps;
     ps.set_bool("lws", true);
@@ -1816,13 +1816,13 @@ static void tst_unsound_lws_disc_zero() {
         std::cout << "\nPoly signs match - cell is trivially sound.\n";
     }
 
-    std::cout << "\n=== END tst_unsound_lws_disc_zero ===\n\n";
+    std::cout << "\n=== END tst_20 ===\n\n";
 }
 
 // Test case for unsound lemma from ppblockterm.t2__p7867_terminationG_0.smt2
 // Issue z3-76w: levelwise produces unsound cell
-static void tst_unsound_lws_ppblockterm() {
-    std::cout << "=== tst_unsound_lws_ppblockterm ===\n";
+static void tst_21() {
+    std::cout << "=== tst_21 ===\n";
     params_ref      ps;
     ps.set_bool("lws", true);
     reslimit        rlim;
@@ -1975,7 +1975,7 @@ static void tst_unsound_lws_ppblockterm() {
         std::cout << "SUCCESS: Counterexample is OUTSIDE the cell (cell is sound)\n";
     }
 
-    std::cout << "=== END tst_unsound_lws_ppblockterm ===\n\n";
+    std::cout << "=== END tst_21 ===\n\n";
 }
 
 // Test case for gh-8397: unsound lemma with lws=false
@@ -1986,7 +1986,7 @@ static void tst_unsound_lws_ppblockterm() {
 // 4 x6^3 + 4 x5 x6^2 - 4 x1 x6^2 + 4 x6^2 - 4 x1 x5 x6 - 4 x1 x6 < 0 or 
 // x6 - x1 = 0 or x6 > 0
 // Counterexample: x1 = 0, x5 = 0, x6 = -0.5
-static void tst_unsound_gh8397() {
+static void tst_22() {
     // Reproduce exact unsound lemma from gh-8397
     // Unsound lemma: !(1024 x1 = 0) or !(x1 + 1 > 0) or !(2048 x1^2 + 4096 x1 = 0) or 
     //   !(x1 = root[3](1024 x1^3 + 6144 x1^2 + 6144 x1)) or 
@@ -1994,7 +1994,7 @@ static void tst_unsound_gh8397() {
     //   4 x6^3 + 4 x5 x6^2 - 4 x1 x6^2 + 4 x6^2 - 4 x1 x5 x6 - 4 x1 x6 < 0 or x6 - x1 = 0 or x6 > 0
     // Counterexample: x1=0, x5=0, x6=-0.5 makes ALL literals FALSE
     // Sample point: x0=-1, x1=0, x2=0, x3=-1, x4=0, x5=-1 (x6 is conflict var)
-    std::cout << "=== tst_unsound_gh8397 ===\n";
+    std::cout << "=== tst_22 ===\n";
     
     auto run_test = [](bool use_lws) {
         std::cout << "\n--- Running with lws=" << (use_lws ? "true" : "false") << " ---\n";
@@ -2154,7 +2154,7 @@ static void tst_unsound_gh8397() {
     run_test(false);  // lws=false (buggy)
     run_test(true);   // lws=true (should be correct)
     
-    std::cout << "\n=== END tst_unsound_gh8397 ===\n\n";
+    std::cout << "\n=== END tst_22 ===\n\n";
 }
 
 
@@ -2165,8 +2165,8 @@ static void tst_unsound_gh8397() {
 //   p[2]: - 2 x2 x6^2 + 2 x3 x5 x6 - 2 x2 x5 x6 + x4 x5^3 + 2 x3 x5^2
 // Sample: x0=4, x1=1, x2=1, x3=5/2, x4=0, x5=1
 // Counterexample: x2=4, x3=-3, x4=0, x5=1, x6=-1
-static void tst_unsound_lws_nullified() {
-    std::cout << "=== tst_unsound_lws_nullified ===\n";
+static void tst_23() {
+    std::cout << "=== tst_23 ===\n";
 
     params_ref      ps;
     ps.set_bool("lws", true);
@@ -2236,9 +2236,8 @@ static void tst_unsound_lws_nullified() {
 
     bool inside = is_point_inside_cell(am, pm, cell, counter_as);
     // The counterexample should be OUTSIDE the cell for soundness.
-    // This ENSURE will fail, demonstrating the bug.
     ENSURE(!inside);
-    std::cout << "=== END tst_unsound_lws_nullified ===\n\n";
+    std::cout << "=== END tst_23 ===\n\n";
 }
 
 // Test case for unsound lemma - nullified polynomial with x4=3/4
@@ -2250,8 +2249,8 @@ static void tst_unsound_lws_nullified() {
 //   p[4]: x2 x5 x6 - x0 x1 x5 - x0 x5 + x0 x2 x4
 // Sample: x0=1, x1=0, x2=-1, x3=0, x4=3/4, x5=1
 // Counterexample: x0=1, x1=-1, x2=-1, x3=2, x4=1, x5=1, x6=-2
-static void tst_unsound_lws_nullified2() {
-    std::cout << "=== tst_unsound_lws_nullified2 ===\n";
+static void tst_24() {
+    std::cout << "=== tst_24 ===\n";
 
     params_ref      ps;
     ps.set_bool("lws", true);
@@ -2330,15 +2329,14 @@ static void tst_unsound_lws_nullified2() {
 
     bool inside = is_point_inside_cell(am, pm, cell, counter_as);
     // The counterexample should be OUTSIDE the cell for soundness.
-    // This ENSURE will fail, demonstrating the bug.
     ENSURE(!inside);
-    std::cout << "=== END tst_unsound_lws_nullified2 ===\n\n";
+    std::cout << "=== END tst_24 ===\n\n";
 }
 
 // Test that compute_conflict_explanation produces a lemma where the counterexample
 // falsifies at least one literal. Reproducer from p6236_terminationG_0.smt2.
-static void tst_explain_p6236() {
-    std::cout << "=== tst_explain_p6236 ===\n";
+static void tst_25() {
+    std::cout << "=== tst_25 ===\n";
 
     params_ref      ps;
     ps.set_bool("lws", true);
@@ -2478,33 +2476,33 @@ static void tst_explain_p6236() {
 
     s.dec_ref(root_lt_bvar);
     s.dec_ref(gt_lit);
-    std::cout << "=== END tst_explain_p6236 ===\n\n";
+    std::cout << "=== END tst_25 ===\n\n";
 }
 
 void tst_nlsat() {
-    tst_unsound_gh8397();
+    tst_22();
     std::cout << "------------------\n";    
-    tst_explain_p6236();
+    tst_25();
     std::cout << "------------------\n";
-    tst_unsound_lws_disc_zero();
+    tst_20();
     std::cout << "------------------\n";    
-    tst_unsound_lws_nullified2();
+    tst_24();
     std::cout << "------------------\n";
-    tst_unsound_lws_nullified();
+    tst_23();
     std::cout << "------------------\n";
-    tst_unsound_lws_ppblockterm();
+    tst_21();
     std::cout << "------------------\n";
-    tst_unsound_lws_n46();
+    tst_18();
     std::cout << "------------------\n";
-    tst_unsound_lws_et4();
+    tst_19();
     std::cout << "------------------\n";
-    tst_unsound_lws_x3();
+    tst_17();
     std::cout << "------------------\n";
-    tst_unsound_lws2380();
+    tst_16();
     std::cout << "------------------\n";
-    tst_polynomial_cache_mk_unique();
+    tst_14();
     std::cout << "------------------\n";
-    tst_nullified_polynomial();
+    tst_15();
     std::cout << "------------------\n";
     tst11();
     std::cout << "------------------\n";

@@ -32,8 +32,6 @@ static void vec_setx(std_vector<T>& v, unsigned idx, T val, T def) {
 
 namespace nlsat {
 
-    struct nullified_poly_exception {};
-
     // The three projection modes for a level:
     // 1. section_biggest_cell: Sample is on a root. All disc/lc added.
     // 2. sector_biggest_cell:  Sample between roots. noLdcf optimization only.
