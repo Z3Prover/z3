@@ -1128,7 +1128,7 @@ namespace smt {
             sl.push_child(&(m_sls_worker->limit()));
         }
         if (m_should_run_global_backbones) {
-            unsigned num_bb_threads = 1;
+            unsigned num_bb_threads = 2;
             for (unsigned i = 0; i < num_bb_threads; ++i) {
                 auto *w = alloc(backbones_worker, i, *this, asms);
                 m_global_backbones_workers.push_back(w);
