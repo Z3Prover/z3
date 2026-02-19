@@ -47,8 +47,6 @@ namespace smt {
         expr_ref get_lo(expr* e) const;
         expr_ref get_up(expr* e) const;
         expr_ref get_fixed(expr* e) const;
-        lbool check_lp_feasible(vector<std::pair<bool, expr_ref>> &ineqs, literal_vector &lit_core,
-                                enode_pair_vector &eq_core);
         final_check_status final_check(unsigned );
         lbool check_lp_feasible(vector<std::pair<bool, expr_ref>> &ineqs, literal_vector &lit_core,
                                 enode_pair_vector &eq_core);
