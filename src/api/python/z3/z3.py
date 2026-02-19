@@ -5072,6 +5072,25 @@ def Ext(a, b):
         _z3_assert(is_array_sort(a) and (is_array(b) or b.is_lambda()), "arguments must be arrays")
     return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
 
+
+def AsArray(f):
+    """Return a Z3 as-array expression for the given function declaration.
+    
+    >>> f = Function('f', IntSort(), IntSort())
+    >>> a = AsArray(f)
+    >>> a.sort()
+    Array(Int, Int)
+    >>> is_as_array(a)
+    True
+    >>> get_as_array_func(a) == f
+    True
+    """
+    if z3_debug():
+        _z3_assert(isinstance(f, FuncDeclRef), "function declaration expected")
+    ctx = f.ctx
+    return ArrayRef(Z3_mk_as_array(ctx.ref(), f.ast), ctx)
+
+
 def is_select(a):
     """Return `True` if `a` is a Z3 array select application.
 
@@ -5424,6 +5443,8 @@ def FiniteSetMap(f, set):
     >>> FiniteSetMap(f, a)
     set.map(f, a)
     """
+    if isinstance(f, FuncDeclRef):
+       f = AsArray(f)
     ctx = _ctx_from_ast_arg_list([f, set])
     return FiniteSetRef(Z3_mk_finite_set_map(ctx.ref(), f.as_ast(), set.as_ast()), ctx)
 
@@ -5435,6 +5456,8 @@ def FiniteSetFilter(f, set):
     >>> FiniteSetFilter(f, a)
     set.filter(f, a)
     """
+    if isinstance(f, FuncDeclRef):
+       f = AsArray(f)
     ctx = _ctx_from_ast_arg_list([f, set])
     return FiniteSetRef(Z3_mk_finite_set_filter(ctx.ref(), f.as_ast(), set.as_ast()), ctx)
 
