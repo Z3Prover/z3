@@ -121,18 +121,15 @@ namespace smt {
                 for (expr* c : chunk_lits) {
                     expr_ref bb_ref(c, m);
                     if (canceled()) return;
+                    
                     if (m_mode == bb_mode::bb_positive)
                         bb_ref = mk_not(bb_ref); // F ∧ U since check_backbone flips it back
+                    
                     if (!b.is_global_backbone(m_l2g, bb_ref) && check_backbone(bb_ref)) {
                         m_stats.m_backbones_detected++;
                         bool is_new_bb = b.collect_global_backbone(m_l2g, bb_ref);
                         auto mode_str = (m_mode == bb_mode::bb_negated) ? "NEGATED" : "POSITIVE";
-
-                        IF_VERBOSE(1, verbose_stream()
-                            << "BACKBONES WORKER[" << id << "][" << mode_str
-                            << "]: fallback found backbone: "
-                            << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
-
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER[" << id << "][" << mode_str << "]: fallback found backbone: " << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
                         if (is_new_bb) m_stats.m_backbones_found++;
                     }
                     bb_candidate_lits.erase(c);
@@ -252,16 +249,10 @@ namespace smt {
                     if (bb_asms_in_core.size() == 1) {
                         expr* a = bb_asms_in_core[0].get();
                         expr_ref backbone_lit(a, m);
-
-                        if (m_mode == bb_mode::bb_negated)
-                            backbone_lit = mk_not(backbone_lit);
+                        backbone_lit = mk_not(backbone_lit);
 
                         auto mode_str = (m_mode == bb_mode::bb_negated) ? "NEGATED" : "POSITIVE";
-
-                        IF_VERBOSE(1, verbose_stream()
-                            << "BACKBONES WORKER[" << id << "][" << mode_str << "]: found backbone: "
-                            << mk_bounded_pp(backbone_lit, m, 3) << "\n");
-
+                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER[" << id << "][" << mode_str << "]: found backbone: " << mk_bounded_pp(backbone_lit, m, 3) << "\n");
 
                         m_stats.m_singleton_backbones++;
                         m_stats.m_backbones_detected++;
