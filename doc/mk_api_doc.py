@@ -468,7 +468,6 @@ try:
         # We just need to register that it exists for the link in the index
         print("Go documentation link will be included in index.")
 
-
     print("Documentation was successfully generated at subdirectory '{}'.".format(OUTPUT_DIRECTORY))
 except Exception:
     exctype, value = sys.exc_info()[:2]
