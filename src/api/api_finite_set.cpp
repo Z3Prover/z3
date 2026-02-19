@@ -70,6 +70,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_finite_set_singleton(c, elem);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(elem, nullptr);
         app* a = mk_c(c)->fsutil().mk_singleton(to_expr(elem));
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -80,6 +81,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_finite_set_union(c, s1, s2);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(s1, nullptr);
+        CHECK_IS_EXPR(s2, nullptr);
         app* a = mk_c(c)->fsutil().mk_union(to_expr(s1), to_expr(s2));
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -90,6 +93,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_finite_set_intersect(c, s1, s2);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(s1, nullptr);
+        CHECK_IS_EXPR(s2, nullptr);
         app* a = mk_c(c)->fsutil().mk_intersect(to_expr(s1), to_expr(s2));
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -100,6 +105,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_finite_set_difference(c, s1, s2);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(s1, nullptr);
+        CHECK_IS_EXPR(s2, nullptr);
         app* a = mk_c(c)->fsutil().mk_difference(to_expr(s1), to_expr(s2));
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -110,6 +117,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_finite_set_member(c, elem, set);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(elem, nullptr);
+        CHECK_IS_EXPR(set, nullptr);
         app* a = mk_c(c)->fsutil().mk_in(to_expr(elem), to_expr(set));
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -120,6 +129,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_finite_set_size(c, set);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(set, nullptr);
         app* a = mk_c(c)->fsutil().mk_size(to_expr(set));
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -130,6 +140,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_finite_set_subset(c, s1, s2);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(s1, nullptr);
+        CHECK_IS_EXPR(s2, nullptr);
         app* a = mk_c(c)->fsutil().mk_subset(to_expr(s1), to_expr(s2));
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -140,6 +152,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_finite_set_map(c, f, set);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(f, nullptr);
+        CHECK_IS_EXPR(set, nullptr);
         app* a = mk_c(c)->fsutil().mk_map(to_expr(f), to_expr(set));
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -150,6 +164,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_finite_set_filter(c, f, set);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(f, nullptr);
+        CHECK_IS_EXPR(set, nullptr);
         app* a = mk_c(c)->fsutil().mk_filter(to_expr(f), to_expr(set));
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
@@ -160,6 +176,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_finite_set_range(c, low, high);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(low, nullptr);
+        CHECK_IS_EXPR(high, nullptr);
         app* a = mk_c(c)->fsutil().mk_range(to_expr(low), to_expr(high));
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
