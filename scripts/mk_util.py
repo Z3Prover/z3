@@ -2756,6 +2756,11 @@ def mk_config():
             CXXFLAGS = '%s -arch arm64' % CXXFLAGS
             LDFLAGS = '%s -arch arm64' % LDFLAGS
             SLIBEXTRAFLAGS = '%s -arch arm64' % SLIBEXTRAFLAGS
+        elif IS_OSX and os.uname()[4] == 'arm64':
+            # Cross-compiling from ARM64 host to x86_64: ensure the shared library
+            # linker also targets x86_64 (LDFLAGS already contains -arch x86_64
+            # from the environment, but SLIBEXTRAFLAGS is independent)
+            SLIBEXTRAFLAGS = '%s -arch x86_64' % SLIBEXTRAFLAGS
         if IS_OSX:
             SLIBFLAGS += ' -Wl,-headerpad_max_install_names'
 
