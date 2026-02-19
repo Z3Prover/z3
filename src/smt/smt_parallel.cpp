@@ -905,16 +905,12 @@ namespace smt {
         }
 
         // ---- COPY CURRENT BATCH ----
-        for (auto& c : m_bb_current_batch)
-            out.push_back(c);
-
-        for (auto& c : out) {
-            expr_ref l_lit(g2l(c.lit.get()), g2l.to());
-            c.lit = l_lit;
+        for (auto const& gc : m_bb_current_batch) {
+            expr* l_lit = g2l(gc.lit.get());
+            out.push_back(bb_candidate(g2l.to(), l_lit, gc.score, gc.hits));
         }
 
         m_bb_last_batch_processed[bb_thread_id] = m_bb_batch_id;
-
         return true;
     }
 
@@ -1128,7 +1124,7 @@ namespace smt {
             sl.push_child(&(m_sls_worker->limit()));
         }
         if (m_should_run_global_backbones) {
-            unsigned num_bb_threads = 2;
+            unsigned num_bb_threads = 1;
             for (unsigned i = 0; i < num_bb_threads; ++i) {
                 auto *w = alloc(backbones_worker, i, *this, asms);
                 m_global_backbones_workers.push_back(w);
