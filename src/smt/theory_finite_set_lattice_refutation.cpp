@@ -19,10 +19,10 @@ const int MAX_DECISION_LITERALS = 10;
 
 namespace smt {
     reachability_matrix::reachability_matrix(context &ctx, theory_finite_set_lattice_refutation &t_lattice)
-        : reachable(NUM_WORDS * NUM_WORDS * 64, 0ull), 
+        : reachable(NUM_WORDS * NUM_WORDS * 64, (uint64_t)0), 
         links(NUM_WORDS * NUM_WORDS * 64 * 64, {nullptr, nullptr}),
-        link_dls(NUM_WORDS * NUM_WORDS * 64 * 64, 0ull), 
-        non_links(NUM_WORDS * NUM_WORDS * 64, 0ull),
+        link_dls(NUM_WORDS * NUM_WORDS * 64 * 64, (uint64_t)0), 
+        non_links(NUM_WORDS * NUM_WORDS * 64, (uint64_t)0),
         non_link_justifications(NUM_WORDS * NUM_WORDS * 64 * 64, {nullptr, nullptr}), 
         largest_var(0),
         max_size(NUM_WORDS * 64), 
