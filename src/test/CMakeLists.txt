@@ -11,7 +11,6 @@ foreach (component ${z3_test_expanded_deps})
 endforeach()
 add_executable(test-z3
   EXCLUDE_FROM_ALL
-  ackermannize.cpp
   algebraic.cpp
   algebraic_numbers.cpp
   api_ast_map.cpp
