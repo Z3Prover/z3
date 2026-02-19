@@ -146,6 +146,7 @@ int main(int argc, char ** argv) {
     bool do_display_usage = false;
     bool test_all = false;
     parse_cmd_line_args(argc, argv, do_display_usage, test_all);
+    TST(ackermannize);
     TST(random);
     TST(symbol_table);
     TST(region);
