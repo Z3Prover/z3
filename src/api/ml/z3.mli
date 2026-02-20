@@ -3439,7 +3439,7 @@ sig
   (** Retrieve fixed assignments to variables as consequences given assumptions.
       Returns the solver status and a list of consequence expressions.
       Each consequence is an implication: assumptions => variable = value. *)
-  val get_consequences : solver -> Expr.expr list -> Expr.expr list -> solver_result * Expr.expr list
+  val get_consequences : solver -> Expr.expr list -> Expr.expr list -> status * Expr.expr list
 
   (** Solve constraints treating given variables symbolically.
       variables are the variables to solve for, terms are the substitution terms,
