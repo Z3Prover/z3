@@ -2147,6 +2147,79 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new AstVectorImpl(check(Z3.solver_get_trail(contextPtr, this.ptr)));
       }
 
+      trailLevels(): number[] {
+        const trailVec = check(Z3.solver_get_trail(contextPtr, this.ptr));
+        const n = Z3.ast_vector_size(contextPtr, trailVec);
+        return check(Z3.solver_get_levels(contextPtr, this.ptr, trailVec, n));
+      }
+
+      async cube(vars?: AstVector<Name, Bool<Name>>, cutoff: number = 0xFFFFFFFF): Promise<AstVector<Name, Bool<Name>>> {
+        const tempVars = vars ?? new AstVectorImpl();
+        const result = await asyncMutex.runExclusive(() =>
+          check(Z3.solver_cube(contextPtr, this.ptr, tempVars.ptr, cutoff)),
+        );
+        return new AstVectorImpl(result);
+      }
+
+      async getConsequences(
+        assumptions: (Bool<Name> | AstVector<Name, Bool<Name>>)[],
+        variables: Expr<Name>[],
+      ): Promise<[CheckSatResult, AstVector<Name, Bool<Name>>]> {
+        const asmsVec = new AstVectorImpl();
+        const varsVec = new AstVectorImpl();
+        const consVec = new AstVectorImpl<Bool<Name>>();
+        _flattenArgs(assumptions).forEach(expr => {
+          _assertContext(expr);
+          Z3.ast_vector_push(contextPtr, asmsVec.ptr, expr.ast);
+        });
+        variables.forEach(v => {
+          _assertContext(v);
+          Z3.ast_vector_push(contextPtr, varsVec.ptr, v.ast);
+        });
+        const r = await asyncMutex.runExclusive(() =>
+          check(Z3.solver_get_consequences(contextPtr, this.ptr, asmsVec.ptr, varsVec.ptr, consVec.ptr)),
+        );
+        let status: CheckSatResult;
+        switch (r) {
+          case Z3_lbool.Z3_L_FALSE:
+            status = 'unsat';
+            break;
+          case Z3_lbool.Z3_L_TRUE:
+            status = 'sat';
+            break;
+          default:
+            status = 'unknown';
+        }
+        return [status, consVec];
+      }
+
+      solveFor(variables: Expr<Name>[], terms: Expr<Name>[], guards: Bool<Name>[]): void {
+        const varsVec = new AstVectorImpl();
+        const termsVec = new AstVectorImpl();
+        const guardsVec = new AstVectorImpl();
+        variables.forEach(v => {
+          _assertContext(v);
+          Z3.ast_vector_push(contextPtr, varsVec.ptr, v.ast);
+        });
+        terms.forEach(t => {
+          _assertContext(t);
+          Z3.ast_vector_push(contextPtr, termsVec.ptr, t.ast);
+        });
+        guards.forEach(g => {
+          _assertContext(g);
+          Z3.ast_vector_push(contextPtr, guardsVec.ptr, g.ast);
+        });
+        Z3.solver_solve_for(contextPtr, this.ptr, varsVec.ptr, termsVec.ptr, guardsVec.ptr);
+        throwIfError();
+      }
+
+      setInitialValue(variable: Expr<Name>, value: Expr<Name>): void {
+        _assertContext(variable);
+        _assertContext(value);
+        Z3.solver_set_initial_value(contextPtr, this.ptr, variable.ast, value.ast);
+        throwIfError();
+      }
+
       congruenceRoot(expr: Expr<Name>): Expr<Name> {
         _assertContext(expr);
         return _toExpr(check(Z3.solver_congruence_root(contextPtr, this.ptr, expr.ast)));
@@ -2265,6 +2338,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       statistics(): Statistics<Name> {
         return new StatisticsImpl(check(Z3.optimize_get_statistics(contextPtr, this.ptr)));
+      }
+
+      setInitialValue(variable: Expr<Name>, value: Expr<Name>): void {
+        _assertContext(variable);
+        _assertContext(value);
+        Z3.optimize_set_initial_value(contextPtr, this.ptr, variable.ast, value.ast);
+        throwIfError();
       }
 
       toString() {

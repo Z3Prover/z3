@@ -288,6 +288,68 @@ func (s *Solver) SetInitialValue(variable, value *Expr) {
 	C.Z3_solver_set_initial_value(s.ctx.ptr, s.ptr, variable.ptr, value.ptr)
 }
 
+// Cube extracts a cube (conjunction of literals) from the solver state.
+// vars is an optional list of variables to use as cube variables; if nil, the solver decides.
+// cutoff specifies the backtrack level cutoff for cube generation.
+// Returns a slice of expressions representing the cube, or nil when the search space is exhausted.
+func (s *Solver) Cube(vars []*Expr, cutoff uint) []*Expr {
+	varVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, varVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, varVec)
+	for _, v := range vars {
+		C.Z3_ast_vector_push(s.ctx.ptr, varVec, v.ptr)
+	}
+	result := C.Z3_solver_cube(s.ctx.ptr, s.ptr, varVec, C.uint(cutoff))
+	return astVectorToExprs(s.ctx, result)
+}
+
+// GetConsequences retrieves fixed assignments for variables given assumptions.
+// Returns the status and the set of consequences as implications.
+func (s *Solver) GetConsequences(assumptions []*Expr, variables []*Expr) (Status, []*Expr) {
+	asmVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, asmVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, asmVec)
+	varVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, varVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, varVec)
+	consVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, consVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, consVec)
+	for _, a := range assumptions {
+		C.Z3_ast_vector_push(s.ctx.ptr, asmVec, a.ptr)
+	}
+	for _, v := range variables {
+		C.Z3_ast_vector_push(s.ctx.ptr, varVec, v.ptr)
+	}
+	r := Status(C.Z3_solver_get_consequences(s.ctx.ptr, s.ptr, asmVec, varVec, consVec))
+	return r, astVectorToExprs(s.ctx, consVec)
+}
+
+// SolveFor solves constraints treating given variables symbolically.
+// variables are the variables to solve for, terms are the substitution terms,
+// and guards are the Boolean guards for the substitutions.
+func (s *Solver) SolveFor(variables []*Expr, terms []*Expr, guards []*Expr) {
+	varVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, varVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, varVec)
+	termVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, termVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, termVec)
+	guardVec := C.Z3_mk_ast_vector(s.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(s.ctx.ptr, guardVec)
+	defer C.Z3_ast_vector_dec_ref(s.ctx.ptr, guardVec)
+	for _, v := range variables {
+		C.Z3_ast_vector_push(s.ctx.ptr, varVec, v.ptr)
+	}
+	for _, t := range terms {
+		C.Z3_ast_vector_push(s.ctx.ptr, termVec, t.ptr)
+	}
+	for _, g := range guards {
+		C.Z3_ast_vector_push(s.ctx.ptr, guardVec, g.ptr)
+	}
+	C.Z3_solver_solve_for(s.ctx.ptr, s.ptr, varVec, termVec, guardVec)
+}
+
 // Model represents a Z3 model (satisfying assignment).
 type Model struct {
 	ctx *Context
