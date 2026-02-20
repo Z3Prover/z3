@@ -300,7 +300,7 @@ namespace nlsat {
                         polynomial_ref dq = derivative(q, x);
                         if (!dq || is_zero(dq) || is_const(dq))
                             continue;
-                        if (m_am.eval_sign_at(dq, sample()) != 0) {
+                        if (sign(dq)) {
                             request_factorized(dq);
                             return;
                         }
@@ -405,7 +405,7 @@ namespace nlsat {
                 coeff = m_pm.coeff(p, x, j);
                 if (!coeff || is_zero(coeff))
                     continue;
-                if (m_am.eval_sign_at(coeff, sample()) == 0)
+                if (sign(coeff) == 0)
                     continue;
 
                 unsigned td = total_degree(coeff);
@@ -424,25 +424,44 @@ namespace nlsat {
             return best;
         }
 
+        ::sign sign(polynomial_ref const & p) {
+             return ::nlsat::sign(p, m_solver.sample(), m_am);
+        }
+
+        
         void add_projection_for_poly(polynomial_ref const& p, unsigned x, polynomial_ref const& nonzero_coeff, bool add_leading_coeff, bool add_discriminant) {
-            TRACE(lws,
+               TRACE(lws,
                   m_pm.display(tout << "  add_projection_for_poly: p=", p)
                       << " x=" << x << " add_lc=" << add_leading_coeff << " add_disc=" << add_discriminant << "\n";
                 );
-            // Line 11 (non-null witness coefficient)
-            if (nonzero_coeff && !is_const(nonzero_coeff))
-                request_factorized(nonzero_coeff);
 
-            // Line 12 (disc + leading coefficient)
-            if (add_discriminant)
-                request_factorized(psc_discriminant(p, x));
+            bool add_nzero_coeff = nonzero_coeff && !is_const(nonzero_coeff);
+            
             if (add_leading_coeff) {
                 unsigned deg = m_pm.degree(p, x);
                 polynomial_ref lc(m_pm);
                 lc = m_pm.coeff(p, x, deg);
                 TRACE(lws, m_pm.display(tout << "    adding lc: ", lc) << "\n";);
                 request_factorized(lc);
+                if (add_nzero_coeff && lc && sign(lc))
+                    add_nzero_coeff = false;
             }
+
+            if (add_discriminant) {
+                polynomial_ref disc(m_pm);
+                disc = psc_discriminant(p, x);
+                if (disc) {
+                    request_factorized(disc);
+                    // If p is nullified at some point then at this point discriminant well be evaluated
+                    // to zero, as can be seen from the Sylvester matrix which would
+                    // have at least one zero row.
+                    if (add_nzero_coeff && sign(disc)) // we can avoid adding a nonzero_coeff if sign(disc) != 0
+                        add_nzero_coeff = false;
+                }
+            }
+
+            if (add_nzero_coeff)
+                request_factorized(nonzero_coeff);
         }
 
         // ============================================================================
@@ -1026,7 +1045,7 @@ namespace nlsat {
                 TRACE(lws,
                       tout << "      resultant poly: ";
                       if (res)
-                          m_pm.display(tout, res) << "\n      resultant sign at sample: " << m_am.eval_sign_at(res, sample());
+                          m_pm.display(tout, res) << "\n      resultant sign at sample: " << sign(res);
                       else
                           tout << "(null)";
                       tout << "\n";
@@ -1146,7 +1165,7 @@ namespace nlsat {
                 // No need for an additional coefficient witness in this case.
                 polynomial_ref witness = m_witnesses[i];
                 if (add_lc && witness && !is_const(witness))
-                    if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
+                    if (lc && !is_zero(lc) && sign(lc))
                         witness = polynomial_ref(m_pm);
 
                 add_projection_for_poly(p, m_level, witness, add_lc, add_disc);
@@ -1290,14 +1309,14 @@ namespace nlsat {
 
                 bool add_lc = true;  
                 if (!poly_has_roots(i))
-                    if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
+                    if (lc && !is_zero(lc) && sign(lc))
                         add_lc = false;
 
                 // if the leading coefficient is already non-zero at the sample
                 // AND we're adding lc, we do not need to project an additional non-null coefficient witness.
                 polynomial_ref witness = m_witnesses[i];
                 if (add_lc && witness && !is_const(witness))
-                    if (lc && !is_zero(lc) && m_am.eval_sign_at(lc, sample()) != 0)
+                    if (lc && !is_zero(lc) && sign(lc))
                         witness = polynomial_ref(m_pm); // zero the witnsee as lc will be the witness
                 add_projection_for_poly(p, m_n, witness, add_lc, true); //true to add the discriminant
             }
