@@ -88,7 +88,6 @@ namespace smt {
 
             // Backbone job queue
             std::condition_variable m_bb_cv;
-            bool m_bb_stop = false;
             svector<bb_candidate> m_bb_current_batch;
             unsigned m_bb_batch_id = 0;
             unsigned m_num_bb_threads = 0;
@@ -297,6 +296,7 @@ namespace smt {
             unsigned m_bb_conflicts_per_chunk = 1000;
             stats m_stats;
             bb_mode m_mode;
+            unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
 
             public:
                 backbones_worker(unsigned id, parallel &p, expr_ref_vector const &_asms);
@@ -305,6 +305,7 @@ namespace smt {
                 expr_ref_vector check_backbone_batch(svector<bb_candidate> const& candidates);
                 void collect_statistics(::statistics& st) const;
                 void run();
+                void collect_shared_clauses();
 
                 reslimit &limit() {
                     return m.limit();

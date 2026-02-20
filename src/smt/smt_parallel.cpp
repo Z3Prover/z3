@@ -130,7 +130,10 @@ namespace smt {
                         m_stats.m_backbones_detected++;
                         LOG_BB_WORKER(1, " fallback found backbone: " << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
                         bool is_new_bb = b.collect_global_backbone(m_l2g, bb_ref);
-                        if (is_new_bb) m_stats.m_backbones_found++;
+                        if (is_new_bb) {
+                            m_stats.m_backbones_found++;
+                            ctx->assert_expr(bb_ref.get()); // since bb workers don't collect clauses they themselves shared
+                        }
                     }
                     bb_candidate_lits.erase(c);
                 }
@@ -171,6 +174,8 @@ namespace smt {
                     bb_asms.append(negated_chunk_lits); // F ∧ ¬U
                 else
                     bb_asms.append(chunk_lits); // F ∧ U
+
+                collect_shared_clauses();
 
                 while (true) {
                     if (!m.inc()) return;
@@ -254,7 +259,10 @@ namespace smt {
                         m_stats.m_backbones_detected++;
 
                         bool is_new_bb = b.collect_global_backbone(m_l2g, backbone_lit);
-                        if (is_new_bb) m_stats.m_backbones_found++;
+                        if (is_new_bb) {
+                            m_stats.m_backbones_found++;
+                            ctx->assert_expr(backbone_lit.get()); // since bb workers don't collect clauses they themselves shared
+                        }
 
                         expr* candidate_to_remove =
                             (m_mode == bb_mode::bb_negated)
@@ -796,6 +804,15 @@ namespace smt {
         }
     }
 
+    void parallel::backbones_worker::collect_shared_clauses() {
+        expr_ref_vector new_clauses = b.return_shared_clauses(m_g2l, m_shared_clause_limit, UINT_MAX);
+        // iterate over new clauses and assert them in the local context
+        for (expr *e : new_clauses) {
+            ctx->assert_expr(e);
+            LOG_BB_WORKER(4, " asserting shared clause: " << mk_bounded_pp(e, m, 3) << "\n");
+        }
+    }
+
     void parallel::batch_manager::collect_backbone_candidates(ast_translation& l2g, svector<smt::parallel::bb_candidate>& bb_candidates) {
         std::scoped_lock lock(mux);
 
@@ -869,8 +886,7 @@ namespace smt {
         // ---- WAIT UNTIL:
         // new batch available that we haven't seen yet
         m_bb_cv.wait(lock, [&]() {
-            return m_bb_stop ||
-                lim.is_canceled() ||
+            return lim.is_canceled() ||
                 m_state != state::is_running ||
                 !m_bb_candidates.empty() ||
                 m_bb_last_batch_processed[bb_thread_id] < m_bb_batch_id;
@@ -879,7 +895,7 @@ namespace smt {
         if (lim.is_canceled())
             return false;
 
-        if (m_bb_stop || m_state != state::is_running)
+        if (m_state != state::is_running)
             return false;
 
         // ---- NEED NEW BATCH? ----
@@ -1073,7 +1089,6 @@ namespace smt {
 
     void parallel::batch_manager::initialize() {
         m_state = state::is_running;
-        m_bb_stop = false;
         m_search_tree.reset();
         m_bb_candidates.reset();
     }
