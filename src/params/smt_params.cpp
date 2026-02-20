@@ -51,7 +51,6 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_core_validate = p.core_validate();
     m_sls_enable = p.sls_enable();
     m_sls_parallel = p.sls_parallel();
-    m_finite_set_lattice_refutation = p.finite_set_lattice_refutation();
     m_logic = _p.get_sym("logic", m_logic);
     m_string_solver = p.string_solver();
     m_up_persist_clauses = p.up_persist_clauses();
