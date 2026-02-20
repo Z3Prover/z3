@@ -137,7 +137,7 @@ jobs:
 
   validate-nuget-macos-x64:
     name: "Validate NuGet on macOS x64"
-    runs-on: macos-13
+    runs-on: macos-15-intel
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     timeout-minutes: 30
     steps:
@@ -705,7 +705,7 @@ jobs:
 
   validate-macos-headerpad-x64:
     name: "Validate macOS x64 dylib headerpad"
-    runs-on: macos-13
+    runs-on: macos-15-intel
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     timeout-minutes: 30
     steps:
