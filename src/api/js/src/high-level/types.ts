@@ -52,7 +52,8 @@ export type AnyExpr<Name extends string = 'main'> =
   | FPNum<Name>
   | FPRM<Name>
   | Seq<Name>
-  | Re<Name>;
+  | Re<Name>
+  | FiniteSet<Name>;
 /** @hidden */
 export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
@@ -331,6 +332,12 @@ export interface Context<Name extends string = 'main'> {
   isString(obj: unknown): obj is Seq<Name>;
 
   /** @category Functions */
+  isFiniteSetSort(obj: unknown): obj is FiniteSetSort<Name>;
+
+  /** @category Functions */
+  isFiniteSet(obj: unknown): obj is FiniteSet<Name>;
+
+  /** @category Functions */
   isProbe(obj: unknown): obj is Probe<Name>;
 
   /** @category Functions */
@@ -467,6 +474,8 @@ export interface Context<Name extends string = 'main'> {
   readonly Array: SMTArrayCreation<Name>;
   /** @category Expressions */
   readonly Set: SMTSetCreation<Name>;
+  /** @category Expressions */
+  readonly FiniteSet: FiniteSetCreation<Name>;
   /** @category Expressions */
   readonly Datatype: DatatypeCreation<Name>;
 
@@ -1750,7 +1759,8 @@ export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
     | FPSort['__typename']
     | FPRMSort['__typename']
     | SeqSort['__typename']
-    | ReSort['__typename'];
+    | ReSort['__typename']
+    | FiniteSetSort['__typename'];
 
   kind(): Z3_sort_kind;
 
@@ -1879,7 +1889,8 @@ export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySo
     | Seq['__typename']
     | Re['__typename']
     | SMTArray['__typename']
-    | DatatypeExpr['__typename'];
+    | DatatypeExpr['__typename']
+    | FiniteSet['__typename'];
 
   get sort(): S;
 
@@ -2783,6 +2794,60 @@ export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<N
   contains(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): Bool<Name>;
   subsetOf(b: SMTSet<Name, ElemSort>): Bool<Name>;
 }
+//////////////////////////////////////////
+//
+// Finite Sets
+//
+//////////////////////////////////////////
+
+/**
+ * Represents a finite set sort
+ *
+ * @typeParam ElemSort The sort of elements in the finite set
+ * @category Finite Sets
+ */
+export interface FiniteSetSort<Name extends string = 'main', ElemSort extends Sort<Name> = Sort<Name>>
+  extends Sort<Name> {
+  readonly __typename: 'FiniteSetSort';
+  /** Returns the element sort of this finite set sort */
+  elemSort(): ElemSort;
+}
+
+/** @category Finite Sets */
+export interface FiniteSetCreation<Name extends string> {
+  sort<ElemSort extends Sort<Name>>(elemSort: ElemSort): FiniteSetSort<Name, ElemSort>;
+
+  const<ElemSort extends Sort<Name>>(name: string, elemSort: ElemSort): FiniteSet<Name, ElemSort>;
+
+  consts<ElemSort extends Sort<Name>>(names: string | string[], elemSort: ElemSort): FiniteSet<Name, ElemSort>[];
+
+  empty<ElemSort extends Sort<Name>>(sort: ElemSort): FiniteSet<Name, ElemSort>;
+
+  singleton<ElemSort extends Sort<Name>>(elem: Expr<Name>): FiniteSet<Name, ElemSort>;
+
+  range(low: Expr<Name>, high: Expr<Name>): FiniteSet<Name, Sort<Name>>;
+}
+
+/**
+ * Represents a finite set expression
+ *
+ * @typeParam ElemSort The sort of elements in the finite set
+ * @category Finite Sets
+ */
+export interface FiniteSet<Name extends string = 'main', ElemSort extends Sort<Name> = Sort<Name>>
+  extends Expr<Name, FiniteSetSort<Name, ElemSort>, Z3_ast> {
+  readonly __typename: 'FiniteSet';
+
+  union(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort>;
+  intersect(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort>;
+  diff(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort>;
+  contains(elem: Expr<Name>): Bool<Name>;
+  size(): Expr<Name>;
+  subsetOf(other: FiniteSet<Name, ElemSort>): Bool<Name>;
+  map(f: Expr<Name>): FiniteSet<Name, Sort<Name>>;
+  filter(f: Expr<Name>): FiniteSet<Name, ElemSort>;
+}
+
 //////////////////////////////////////////
 //
 // Datatypes

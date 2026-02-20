@@ -123,6 +123,9 @@ import {
   DatatypeSort,
   DatatypeExpr,
   DatatypeCreation,
+  FiniteSet,
+  FiniteSetSort,
+  FiniteSetCreation,
 } from './types';
 import { allSatisfy, assert, assertExhaustive } from './utils';
 
@@ -305,6 +308,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         case Z3_sort_kind.Z3_ARRAY_SORT:
           return new ArraySortImpl(ast);
         default:
+          if (Z3.is_finite_set_sort(contextPtr, ast)) {
+            return new FiniteSetSortImpl(ast);
+          }
           return new SortImpl(ast);
       }
     }
@@ -350,6 +356,9 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         case Z3_sort_kind.Z3_ARRAY_SORT:
           return new ArrayImpl(ast);
         default:
+          if (Z3.is_finite_set_sort(contextPtr, Z3.get_sort(contextPtr, ast))) {
+            return new FiniteSetImpl(ast);
+          }
           return new ExprImpl(ast);
       }
     }
@@ -636,6 +645,18 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function isString(obj: unknown): obj is Seq<Name> {
       return isSeq(obj) && obj.isString();
+    }
+
+    function isFiniteSetSort(obj: unknown): obj is FiniteSetSort<Name> {
+      const r = obj instanceof FiniteSetSortImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isFiniteSet(obj: unknown): obj is FiniteSet<Name> {
+      const r = obj instanceof FiniteSetImpl;
+      r && _assertContext(obj);
+      return r;
     }
 
     function isProbe(obj: unknown): obj is Probe<Name> {
@@ -1101,6 +1122,32 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           result = SetAdd(result, value);
         }
         return result;
+      },
+    };
+
+    const FiniteSet = {
+      sort<ElemSort extends Sort<Name>>(elemSort: ElemSort): FiniteSetSort<Name, ElemSort> {
+        return new FiniteSetSortImpl<ElemSort>(check(Z3.mk_finite_set_sort(contextPtr, elemSort.ptr)));
+      },
+      const<ElemSort extends Sort<Name>>(name: string, elemSort: ElemSort): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(
+          check(Z3.mk_const(contextPtr, _toSymbol(name), FiniteSet.sort(elemSort).ptr)),
+        );
+      },
+      consts<ElemSort extends Sort<Name>>(names: string | string[], elemSort: ElemSort): FiniteSet<Name, ElemSort>[] {
+        if (typeof names === 'string') {
+          names = names.split(' ');
+        }
+        return names.map(name => FiniteSet.const(name, elemSort));
+      },
+      empty<ElemSort extends Sort<Name>>(sort: ElemSort): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(check(Z3.mk_finite_set_empty(contextPtr, FiniteSet.sort(sort).ptr)));
+      },
+      singleton<ElemSort extends Sort<Name>>(elem: Expr<Name>): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(check(Z3.mk_finite_set_singleton(contextPtr, elem.ast)));
+      },
+      range(low: Expr<Name>, high: Expr<Name>): FiniteSet<Name, Sort<Name>> {
+        return new FiniteSetImpl(check(Z3.mk_finite_set_range(contextPtr, low.ast, high.ast)));
       },
     };
 
@@ -4311,6 +4358,65 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     }
 
     ////////////////////////////
+    // Finite Sets
+    ////////////////////////////
+
+    class FiniteSetSortImpl<ElemSort extends Sort<Name> = Sort<Name>>
+      extends SortImpl
+      implements FiniteSetSort<Name, ElemSort>
+    {
+      declare readonly __typename: 'FiniteSetSort';
+
+      elemSort(): ElemSort {
+        return _toSort(check(Z3.get_finite_set_sort_basis(contextPtr, this.ptr))) as ElemSort;
+      }
+
+      cast(other: Expr<Name>): Expr<Name> {
+        _assertContext(other);
+        return other;
+      }
+    }
+
+    class FiniteSetImpl<ElemSort extends Sort<Name> = Sort<Name>>
+      extends ExprImpl<Z3_ast, FiniteSetSortImpl<ElemSort>>
+      implements FiniteSet<Name, ElemSort>
+    {
+      declare readonly __typename: 'FiniteSet';
+
+      union(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(check(Z3.mk_finite_set_union(contextPtr, this.ast, other.ast)));
+      }
+
+      intersect(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(check(Z3.mk_finite_set_intersect(contextPtr, this.ast, other.ast)));
+      }
+
+      diff(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(check(Z3.mk_finite_set_difference(contextPtr, this.ast, other.ast)));
+      }
+
+      contains(elem: Expr<Name>): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_finite_set_member(contextPtr, elem.ast, this.ast)));
+      }
+
+      size(): Expr<Name> {
+        return new ExprImpl(check(Z3.mk_finite_set_size(contextPtr, this.ast)));
+      }
+
+      subsetOf(other: FiniteSet<Name, ElemSort>): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_finite_set_subset(contextPtr, this.ast, other.ast)));
+      }
+
+      map(f: Expr<Name>): FiniteSet<Name, Sort<Name>> {
+        return new FiniteSetImpl(check(Z3.mk_finite_set_map(contextPtr, f.ast, this.ast)));
+      }
+
+      filter(f: Expr<Name>): FiniteSet<Name, ElemSort> {
+        return new FiniteSetImpl<ElemSort>(check(Z3.mk_finite_set_filter(contextPtr, f.ast, this.ast)));
+      }
+    }
+
+    ////////////////////////////
     // Datatypes
     ////////////////////////////
 
@@ -4902,6 +5008,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       isSeq,
       isStringSort,
       isString,
+      isFiniteSetSort,
+      isFiniteSet,
       isArraySort,
       isArray,
       isConstArray,
@@ -4932,6 +5040,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Re,
       Array,
       Set,
+      FiniteSet,
       Datatype,
 
       ////////////////

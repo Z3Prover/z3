@@ -2058,6 +2058,53 @@ sig
 
 end
 
+(** Finite Sets *)
+module FiniteSet :
+sig
+  (** Create a finite set sort with the given element sort. *)
+  val mk_sort : context -> Sort.sort -> Sort.sort
+
+  (** Test if a sort is a finite set sort. *)
+  val is_finite_set_sort : context -> Sort.sort -> bool
+
+  (** Get the element sort of a finite set sort. *)
+  val get_sort_basis : context -> Sort.sort -> Sort.sort
+
+  (** Create an empty finite set of the given sort. *)
+  val mk_empty : context -> Sort.sort -> Expr.expr
+
+  (** Create a singleton finite set containing the given element. *)
+  val mk_singleton : context -> Expr.expr -> Expr.expr
+
+  (** Create the union of two finite sets. *)
+  val mk_union : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create the intersection of two finite sets. *)
+  val mk_intersect : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create the set difference of two finite sets (s1 \ s2). *)
+  val mk_difference : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create a membership predicate: elem ∈ set. *)
+  val mk_member : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create an expression for the cardinality of a finite set. *)
+  val mk_size : context -> Expr.expr -> Expr.expr
+
+  (** Create a subset predicate: s1 ⊆ s2. *)
+  val mk_subset : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Apply a function to all elements of a finite set. *)
+  val mk_map : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Filter a finite set using a predicate function. *)
+  val mk_filter : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create a finite set of integers in the range [low, high]. *)
+  val mk_range : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+end
+
 (** Floating-Point Arithmetic *)
 module FloatingPoint :
 sig
