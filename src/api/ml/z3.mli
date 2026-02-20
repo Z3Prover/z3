@@ -3429,6 +3429,22 @@ sig
   (** Provide an initial value hint for a variable to the solver.
       This can help guide the solver to find solutions more efficiently. *)
   val set_initial_value : solver -> Expr.expr -> Expr.expr -> unit
+
+  (** Extract cubes from the solver for cube-and-conquer parallel solving.
+      vars is a list of variables to use as cube variables; use an empty list for automatic selection.
+      cutoff is the backtrack level cutoff for cube generation.
+      Returns a list of expressions representing the cube literals. *)
+  val cube : solver -> Expr.expr list -> int -> Expr.expr list
+
+  (** Retrieve fixed assignments to variables as consequences given assumptions.
+      Returns the solver status and a list of consequence expressions.
+      Each consequence is an implication: assumptions => variable = value. *)
+  val get_consequences : solver -> Expr.expr list -> Expr.expr list -> solver_result * Expr.expr list
+
+  (** Solve constraints treating given variables symbolically.
+      variables are the variables to solve for, terms are the substitution terms,
+      and guards are Boolean guards for the substitutions. *)
+  val solve_for : solver -> Expr.expr list -> Expr.expr list -> Expr.expr list -> unit
 end
 
 (** Fixedpoint solving *)

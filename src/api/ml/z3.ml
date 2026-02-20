@@ -1971,6 +1971,35 @@ struct
   let from_string x = Z3native.solver_from_string (gc x) x
 
   let set_initial_value x var value = Z3native.solver_set_initial_value (gc x) x var value
+
+  let cube x variables cutoff =
+    let av = Z3native.mk_ast_vector (gc x) in
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) av e) variables;
+    let result = Z3native.solver_cube (gc x) x av cutoff in
+    AST.ASTVector.to_expr_list result
+
+  let get_consequences x assumptions variables =
+    let asms = Z3native.mk_ast_vector (gc x) in
+    let vars = Z3native.mk_ast_vector (gc x) in
+    let cons = Z3native.mk_ast_vector (gc x) in
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) asms e) assumptions;
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) vars e) variables;
+    let r = Z3native.solver_get_consequences (gc x) x asms vars cons in
+    let status = match lbool_of_int r with
+      | L_TRUE -> SATISFIABLE
+      | L_FALSE -> UNSATISFIABLE
+      | _ -> UNKNOWN
+    in
+    (status, AST.ASTVector.to_expr_list cons)
+
+  let solve_for x variables terms guards =
+    let var_vec = Z3native.mk_ast_vector (gc x) in
+    let term_vec = Z3native.mk_ast_vector (gc x) in
+    let guard_vec = Z3native.mk_ast_vector (gc x) in
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) var_vec e) variables;
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) term_vec e) terms;
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) guard_vec e) guards;
+    Z3native.solver_solve_for (gc x) x var_vec term_vec guard_vec
 end
 
 

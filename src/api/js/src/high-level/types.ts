@@ -1159,6 +1159,105 @@ export interface Solver<Name extends string = 'main'> {
   trail(): AstVector<Name, Bool<Name>>;
 
   /**
+   * Retrieve the decision levels for each literal in the solver's trail.
+   * The returned array has one entry per trail literal, indicating at which
+   * decision level it was assigned.
+   *
+   * @returns An array of numbers where element i is the decision level of the i-th trail literal
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * solver.add(x);
+   * await solver.check();
+   * const levels = solver.trailLevels();
+   * console.log('Trail levels:', levels);
+   * ```
+   */
+  trailLevels(): number[];
+
+  /**
+   * Extract cubes from the solver for cube-and-conquer parallel solving.
+   * Each call returns the next cube (conjunction of literals) from the solver.
+   * Returns an empty AstVector when the search space is exhausted.
+   *
+   * @param vars - Optional vector of variables to use as cube variables
+   * @param cutoff - Backtrack level cutoff for cube generation (default: 0xFFFFFFFF)
+   * @returns A promise resolving to an AstVector containing the cube literals
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * const y = Bool.const('y');
+   * solver.add(x.or(y));
+   * const cube = await solver.cube(undefined, 1);
+   * console.log('Cube length:', cube.length());
+   * ```
+   */
+  cube(vars?: AstVector<Name, Bool<Name>>, cutoff?: number): Promise<AstVector<Name, Bool<Name>>>;
+
+  /**
+   * Retrieve fixed assignments to a set of variables as consequences given assumptions.
+   * Each consequence is an implication: assumptions => variable = value.
+   *
+   * @param assumptions - Assumptions to use during consequence finding
+   * @param variables - Variables to find consequences for
+   * @returns A promise resolving to the status and a vector of consequence expressions
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * const y = Bool.const('y');
+   * solver.add(x.implies(y));
+   * const [status, consequences] = await solver.getConsequences([], [x, y]);
+   * ```
+   */
+  getConsequences(
+    assumptions: (Bool<Name> | AstVector<Name, Bool<Name>>)[],
+    variables: Expr<Name>[],
+  ): Promise<[CheckSatResult, AstVector<Name, Bool<Name>>]>;
+
+  /**
+   * Solve constraints treating given variables symbolically, replacing their
+   * occurrences by terms. Guards condition the substitutions.
+   *
+   * @param variables - Variables to solve for
+   * @param terms - Substitution terms for the variables
+   * @param guards - Boolean guards for the substitutions
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * const y = Int.const('y');
+   * solver.add(x.eq(y.add(1)));
+   * solver.solveFor([x], [y.add(1)], []);
+   * ```
+   */
+  solveFor(variables: Expr<Name>[], terms: Expr<Name>[], guards: Bool<Name>[]): void;
+
+  /**
+   * Set an initial value hint for a variable to guide the solver's search heuristics.
+   * This can improve performance when a good initial value is known.
+   *
+   * @param variable - The variable to set an initial value for
+   * @param value - The initial value for the variable
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * solver.setInitialValue(x, Int.val(42));
+   * solver.add(x.gt(0));
+   * await solver.check();
+   * ```
+   */
+  setInitialValue(variable: Expr<Name>, value: Expr<Name>): void;
+
+  /**
    * Retrieve the root of the congruence class containing the given expression.
    * This is useful for understanding equality reasoning in the solver.
    *
@@ -1303,6 +1402,25 @@ export interface Optimize<Name extends string = 'main'> {
   model(): Model<Name>;
 
   statistics(): Statistics<Name>;
+
+  /**
+   * Set an initial value hint for a variable to guide the optimizer's search heuristics.
+   * This can improve performance when a good initial value is known.
+   *
+   * @param variable - The variable to set an initial value for
+   * @param value - The initial value for the variable
+   *
+   * @example
+   * ```typescript
+   * const opt = new Optimize();
+   * const x = Int.const('x');
+   * opt.setInitialValue(x, Int.val(42));
+   * opt.add(x.gt(0));
+   * opt.maximize(x);
+   * await opt.check();
+   * ```
+   */
+  setInitialValue(variable: Expr<Name>, value: Expr<Name>): void;
 
   /**
    * Manually decrease the reference count of the optimize

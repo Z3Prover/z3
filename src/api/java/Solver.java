@@ -465,6 +465,74 @@ public class Solver extends Z3Object {
     }
 
     /**
+     * Return the congruence class representative of the given expression.
+     * This is useful for querying the equality reasoning performed by the solver.
+     *
+     * @param t The expression to find the congruence root for
+     * @return The root expression of the congruence class
+     * @throws Z3Exception
+     **/
+    public Expr<?> getCongruenceRoot(Expr<?> t)
+    {
+        getContext().checkContextMatch(t);
+        return Expr.create(getContext(),
+            Native.solverCongruenceRoot(getContext().nCtx(), getNativeObject(), t.getNativeObject()));
+    }
+
+    /**
+     * Return the next element in the congruence class of the given expression.
+     * The congruence class forms a circular linked list.
+     *
+     * @param t The expression to find the next congruent expression for
+     * @return The next expression in the congruence class
+     * @throws Z3Exception
+     **/
+    public Expr<?> getCongruenceNext(Expr<?> t)
+    {
+        getContext().checkContextMatch(t);
+        return Expr.create(getContext(),
+            Native.solverCongruenceNext(getContext().nCtx(), getNativeObject(), t.getNativeObject()));
+    }
+
+    /**
+     * Return an explanation for why two expressions are congruent.
+     *
+     * @param a First expression
+     * @param b Second expression
+     * @return An expression explaining the congruence between a and b
+     * @throws Z3Exception
+     **/
+    public Expr<?> getCongruenceExplain(Expr<?> a, Expr<?> b)
+    {
+        getContext().checkContextMatch(a);
+        getContext().checkContextMatch(b);
+        return Expr.create(getContext(),
+            Native.solverCongruenceExplain(getContext().nCtx(), getNativeObject(),
+                a.getNativeObject(), b.getNativeObject()));
+    }
+
+    /**
+     * Solve constraints for given variables, replacing their occurrences by terms.
+     * Guards are used to guard substitutions.
+     *
+     * @param variables Array of variables to solve for
+     * @param terms Array of terms to substitute for the variables
+     * @param guards Array of Boolean guards for the substitutions
+     * @throws Z3Exception
+     **/
+    public void solveFor(Expr<?>[] variables, Expr<?>[] terms, BoolExpr[] guards)
+    {
+        ASTVector vars = new ASTVector(getContext());
+        ASTVector termVec = new ASTVector(getContext());
+        ASTVector guardVec = new ASTVector(getContext());
+        for (Expr<?> v : variables) vars.push(v);
+        for (Expr<?> t : terms) termVec.push(t);
+        for (BoolExpr g : guards) guardVec.push(g);
+        Native.solverSolveFor(getContext().nCtx(), getNativeObject(),
+            vars.getNativeObject(), termVec.getNativeObject(), guardVec.getNativeObject());
+    }
+
+    /**
      * Set an initial value for a variable to guide the solver's search heuristics.
      * This can improve performance when good initial values are known for the problem domain.
      * 
