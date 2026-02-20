@@ -30,8 +30,8 @@ expr * datatype_factory::get_some_value(sort * s) {
     if (!m_util.is_datatype(s))
         return m_model.get_some_value(s);
     value_set * set = nullptr;
-    if (m_sort2value_set.find(s, set) && !set->empty())
-        return *(set->begin());
+    if (m_sort2value_set.find(s, set) && !set->set.empty())
+        return *(set->set.begin());
     func_decl * c = m_util.get_non_rec_constructor(s);
     ptr_vector<expr> args;
     unsigned num  = c->get_arity();
@@ -50,11 +50,11 @@ expr * datatype_factory::get_last_fresh_value(sort * s) {
     expr * val = nullptr;
     if (m_last_fresh_value.find(s, val)) 
         return val;
-    value_set * set = get_value_set(s);
-    if (set->empty())
+    auto& [set, values] = get_value_set(s);
+    if (set.empty())
         val = get_some_value(s);
     else 
-        val = *(set->begin());
+        val = *(set.begin());
     if (m_util.is_recursive(s))
         m_last_fresh_value.insert(s, val);
     return val;
@@ -78,8 +78,8 @@ bool datatype_factory::is_subterm_of_last_value(app* e) {
 expr * datatype_factory::get_almost_fresh_value(sort * s) {
     if (!m_util.is_datatype(s))
         return m_model.get_some_value(s);
-    value_set * set = get_value_set(s);
-    if (set->empty()) {
+    auto& [set, values] = get_value_set(s);
+    if (set.empty()) {
         expr * val = get_some_value(s);
         SASSERT(val);
         if (m_util.is_recursive(s))
@@ -117,7 +117,7 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
         }
         if (recursive || found_fresh_arg) {
             app * new_value = m_manager.mk_app(constructor, args);
-            SASSERT(!found_fresh_arg || !set->contains(new_value));
+            SASSERT(!found_fresh_arg || !set.contains(new_value));
             register_value(new_value);
             if (m_util.is_recursive(s)) {
                 if (is_subterm_of_last_value(new_value)) {
@@ -140,10 +140,10 @@ expr * datatype_factory::get_fresh_value(sort * s) {
     if (!m_util.is_datatype(s))
         return m_model.get_fresh_value(s);
     TRACE(datatype, tout << "generating fresh value for: " << s->get_name() << "\n";);
-    value_set * set = get_value_set(s);
+    auto& [set, values] = get_value_set(s);
     // Approach 0) 
     // if no value for s was generated so far, then used get_some_value
-    if (set->empty()) {
+    if (set.empty()) {
         expr * val = get_some_value(s);
         if (m_util.is_recursive(s))
             m_last_fresh_value.insert(s, val);
@@ -178,12 +178,11 @@ expr * datatype_factory::get_fresh_value(sort * s) {
             expr * some_arg = m_model.get_some_value(s_arg);
             args.push_back(some_arg);
         }
-
         new_value = m_manager.mk_app(constructor, args);
-        CTRACE(datatype, found_fresh_arg && set->contains(new_value), tout << "seen: " << new_value << "\n";);
-        if (found_fresh_arg && set->contains(new_value))
+        CTRACE(datatype, found_fresh_arg && set.contains(new_value), tout << "seen: " << new_value << "\n";);
+        if (found_fresh_arg && set.contains(new_value))
             goto retry_value;
-        if (!set->contains(new_value)) {
+        if (!set.contains(new_value)) {
             register_value(new_value);
             if (m_util.is_recursive(s))
                 m_last_fresh_value.insert(s, new_value);
@@ -241,7 +240,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
                     new_value = m_manager.mk_app(constructor, args);
                     TRACE(datatype, tout << "potential new value: " << mk_pp(new_value, m_manager) << "\n";);
                     m_last_fresh_value.insert(s, new_value);
-                    if (!set->contains(new_value)) {
+                    if (!set.contains(new_value)) {
                         register_value(new_value);
                         TRACE(datatype, tout << "2. result: " << mk_pp(new_value, m_manager) << "\n";);
                         return new_value;

@@ -1465,6 +1465,25 @@ extern "C" {
             }
         }
 
+        if (mk_c(c)->fsutil().get_family_id() == _d->get_family_id()) {
+            switch(_d->get_decl_kind()) {
+            case OP_FINITE_SET_EMPTY: return Z3_OP_FINITE_SET_EMPTY;
+            case OP_FINITE_SET_SINGLETON: return Z3_OP_FINITE_SET_SINGLETON;
+            case OP_FINITE_SET_UNION: return Z3_OP_FINITE_SET_UNION;
+            case OP_FINITE_SET_INTERSECT: return Z3_OP_FINITE_SET_INTERSECT;
+            case OP_FINITE_SET_DIFFERENCE: return Z3_OP_FINITE_SET_DIFFERENCE;
+            case OP_FINITE_SET_IN: return Z3_OP_FINITE_SET_IN;
+            case OP_FINITE_SET_SIZE: return Z3_OP_FINITE_SET_SIZE;
+            case OP_FINITE_SET_SUBSET: return Z3_OP_FINITE_SET_SUBSET;
+            case OP_FINITE_SET_MAP: return Z3_OP_FINITE_SET_MAP;
+            case OP_FINITE_SET_FILTER: return Z3_OP_FINITE_SET_FILTER;
+            case OP_FINITE_SET_RANGE: return Z3_OP_FINITE_SET_RANGE;
+            case OP_FINITE_SET_EXT: return Z3_OP_FINITE_SET_EXT;
+            case OP_FINITE_SET_MAP_INVERSE: return Z3_OP_FINITE_SET_MAP_INVERSE;
+            default: return Z3_OP_INTERNAL;
+            }
+        }
+
         if (mk_c(c)->recfun().get_family_id() == _d->get_family_id())
             return Z3_OP_RECURSIVE;
 

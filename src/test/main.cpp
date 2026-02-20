@@ -285,4 +285,6 @@ int main(int argc, char ** argv) {
     TST(scoped_vector);
     TST(sls_seq_plugin);
     TST(ho_matcher);
+    TST(finite_set);
+    TST(finite_set_rewriter);
 }

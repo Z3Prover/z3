@@ -1817,8 +1817,12 @@ namespace smt2 {
         void check_qualifier(expr * t, bool has_as) {
             if (has_as) {
                 sort * s = sort_stack().back();
-                if (s != t->get_sort())
-                    throw parser_exception("invalid qualified identifier, sort mismatch");
+                if (s != t->get_sort()) {
+                    std::ostringstream str;
+                    str << "sort mismatch in qualified identifier, expected: " << mk_pp(s, m())
+                        << ", got: " << mk_pp(t->get_sort(), m());
+                    throw parser_exception(str.str());
+                }
                 sort_stack().pop_back();
             }
         }

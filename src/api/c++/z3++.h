@@ -324,6 +324,10 @@ namespace z3 {
          */
         sort re_sort(sort& seq_sort);
         /**
+           \brief Return a finite set sort over element sort \c s.
+         */
+        sort finite_set_sort(sort& s);
+        /**
            \brief Return an array sort for arrays from \c d to \c r.
 
            Example: Given a context \c c, <tt>c.array_sort(c.int_sort(), c.bool_sort())</tt> is an array sort from integer to Boolean.
@@ -3663,6 +3667,7 @@ namespace z3 {
     inline sort context::char_sort() { Z3_sort s = Z3_mk_char_sort(m_ctx); check_error(); return sort(*this, s); }
     inline sort context::seq_sort(sort& s) { Z3_sort r = Z3_mk_seq_sort(m_ctx, s); check_error(); return sort(*this, r); }
     inline sort context::re_sort(sort& s) { Z3_sort r = Z3_mk_re_sort(m_ctx, s); check_error(); return sort(*this, r); }
+    inline sort context::finite_set_sort(sort& s) { Z3_sort r = Z3_mk_finite_set_sort(m_ctx, s); check_error(); return sort(*this, r); }
     inline sort context::fpa_sort(unsigned ebits, unsigned sbits) { Z3_sort s = Z3_mk_fpa_sort(m_ctx, ebits, sbits); check_error(); return sort(*this, s); }
 
     template<>
@@ -4262,6 +4267,54 @@ namespace z3 {
 
     inline expr set_subset(expr const& a, expr const& b) {
         MK_EXPR2(Z3_mk_set_subset, a, b);
+    }
+
+    // finite set operations
+
+    inline expr finite_set_empty(sort const& s) {
+        Z3_ast r = Z3_mk_finite_set_empty(s.ctx(), s);
+        s.check_error();
+        return expr(s.ctx(), r);
+    }
+
+    inline expr finite_set_singleton(expr const& e) {
+        MK_EXPR1(Z3_mk_finite_set_singleton, e);
+    }
+
+    inline expr finite_set_union(expr const& a, expr const& b) {
+        MK_EXPR2(Z3_mk_finite_set_union, a, b);
+    }
+
+    inline expr finite_set_intersect(expr const& a, expr const& b) {
+        MK_EXPR2(Z3_mk_finite_set_intersect, a, b);
+    }
+
+    inline expr finite_set_difference(expr const& a, expr const& b) {
+        MK_EXPR2(Z3_mk_finite_set_difference, a, b);
+    }
+
+    inline expr finite_set_member(expr const& e, expr const& s) {
+        MK_EXPR2(Z3_mk_finite_set_member, e, s);
+    }
+
+    inline expr finite_set_size(expr const& s) {
+        MK_EXPR1(Z3_mk_finite_set_size, s);
+    }
+
+    inline expr finite_set_subset(expr const& a, expr const& b) {
+        MK_EXPR2(Z3_mk_finite_set_subset, a, b);
+    }
+
+    inline expr finite_set_map(expr const& f, expr const& s) {
+        MK_EXPR2(Z3_mk_finite_set_map, f, s);
+    }
+
+    inline expr finite_set_filter(expr const& f, expr const& s) {
+        MK_EXPR2(Z3_mk_finite_set_filter, f, s);
+    }
+
+    inline expr finite_set_range(expr const& low, expr const& high) {
+        MK_EXPR2(Z3_mk_finite_set_range, low, high);
     }
 
     // sequence and regular expression operations.

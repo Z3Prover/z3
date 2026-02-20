@@ -124,6 +124,7 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   FiniteDomainExpr.java
   FiniteDomainNum.java
   FiniteDomainSort.java
+  FiniteSetSort.java
   Fixedpoint.java
   FPExpr.java
   FPNum.java

@@ -354,12 +354,20 @@ namespace smt {
             for (unsigned i = 0; i < num_args; ++i) {
                 enode * arg = e->get_arg(i);
                 sort * s    = arg->get_sort();
+                sort *e_sort = nullptr;
                 if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
                     app_ref def(m_autil.mk_default(arg->get_expr()), m);
                     if (!ctx.e_internalized(def)) {
                         ctx.internalize(def, false);
                     }
                     arg = ctx.get_enode(def);       
+                }
+                if (m_fsutil.is_finite_set(s, e_sort) && m_util.is_datatype(e_sort)) {
+                    app_ref def(m_fsutil.mk_empty(s), m);
+                    if (!ctx.e_internalized(def)) {
+                        ctx.internalize(def, false);
+                    }
+                    arg = ctx.get_enode(def);      
                 }
                 if (!m_util.is_datatype(s) && !m_sutil.is_seq(s))
                     continue;
@@ -799,8 +807,9 @@ namespace smt {
                 found = true;
             }
             sort * s = arg->get_sort();
-            if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
-                for (enode* aarg : get_array_args(arg)) {
+            sort *se = nullptr;
+            auto add_args = [&](ptr_vector<enode> const &args) {
+                for (enode *aarg : args) {
                     if (aarg->get_root() == child->get_root()) {
                         if (aarg != child) {
                             m_used_eqs.push_back(enode_pair(aarg, child));
@@ -808,17 +817,16 @@ namespace smt {
                         found = true;
                     }
                 }
+            };
+            if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
+                add_args(get_array_args(arg));
             }
-            sort* se = nullptr;
+            if (m_fsutil.is_finite_set(s, se) && m_util.is_datatype(se)) {
+                add_args(get_finite_set_args(arg));
+            }
             if (m_sutil.is_seq(s, se) && m_util.is_datatype(se)) {
-                enode* sibling;
-                for (enode* aarg : get_seq_args(arg, sibling)) {
-                    if (aarg->get_root() == child->get_root()) {
-                        if (aarg != child) 
-                            m_used_eqs.push_back(enode_pair(aarg, child));
-                        found = true;
-                    }
-                }
+                enode *sibling = nullptr;
+                add_args(get_seq_args(arg, sibling));
                 if (sibling && sibling != arg)
                     m_used_eqs.push_back(enode_pair(arg, sibling));
 
@@ -907,6 +915,11 @@ namespace smt {
                         return true;
                 }
             }
+            else if (m_fsutil.is_finite_set(s, se) && m_util.is_datatype(se)) {
+                for (enode *aarg : get_finite_set_args(arg))
+                    if (process_arg(aarg))
+                        return true;
+            }
             else if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
                 for (enode* aarg : get_array_args(arg)) 
                     if (process_arg(aarg))
@@ -915,6 +928,33 @@ namespace smt {
         }
         return false;
     }
+
+    ptr_vector<enode> const &theory_datatype::get_finite_set_args(enode *n) {
+        m_args.reset();
+        m_todo.reset();
+        auto add_todo = [&](enode *n) {
+            if (!n->is_marked()) {
+                n->set_mark();
+                m_todo.push_back(n);
+            }
+        };
+        add_todo(n);
+
+        for (unsigned i = 0; i < m_todo.size(); ++i) {
+            enode *n = m_todo[i];
+            expr *e = n->get_expr();
+            if (m_fsutil.is_singleton(e))
+                m_args.push_back(n->get_arg(0));
+            else if (m_fsutil.is_union(e))
+                for (auto k : enode::args(n))
+                    add_todo(k);
+        }
+        for (enode *n : m_todo)
+            n->unset_mark();
+
+        return m_args;
+    }
+
 
     ptr_vector<enode> const& theory_datatype::get_seq_args(enode* n, enode*& sibling) {
         m_args.reset();
@@ -1028,6 +1068,7 @@ namespace smt {
         m_util(m),
         m_autil(m),
         m_sutil(m),
+        m_fsutil(m),
         m_find(*this) {
     }
 

@@ -40,6 +40,7 @@ Revision History:
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
 #include "smt/theory_polymorphism.h"
+#include "smt/theory_finite_set.h"
 
 namespace smt {
 
@@ -784,6 +785,10 @@ namespace smt {
         m_context.register_plugin(alloc(smt::theory_char, m_context));        
     }
 
+    void setup::setup_finite_set() {
+        m_context.register_plugin(alloc(smt::theory_finite_set, m_context));
+    }
+
     void setup::setup_special_relations() {
         m_context.register_plugin(alloc(smt::theory_special_relations, m_context, m_manager));
     }
@@ -807,6 +812,7 @@ namespace smt {
         setup_dl();
         setup_seq_str(st);
         setup_fpa();
+        setup_finite_set();
         setup_special_relations();
         setup_polymorphism();
         setup_relevancy(st);
@@ -839,6 +845,7 @@ namespace smt {
             setup_bv();
             setup_dl();
             setup_seq_str(st);
+            setup_finite_set();
             setup_fpa();
             setup_recfuns();
             setup_special_relations();

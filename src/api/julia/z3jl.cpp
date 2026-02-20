@@ -309,6 +309,17 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     m.method("sqrt", static_cast<expr (*)(expr const &, expr const &)>(&sqrt));
     m.method("fma", static_cast<expr (*)(expr const &, expr const &, expr const &, expr const &)>(&fma));
     m.method("range", &range);
+    m.method("finite_set_empty", &finite_set_empty);
+    m.method("finite_set_singleton", &finite_set_singleton);
+    m.method("finite_set_union", &finite_set_union);
+    m.method("finite_set_intersect", &finite_set_intersect);
+    m.method("finite_set_difference", &finite_set_difference);
+    m.method("finite_set_member", &finite_set_member);
+    m.method("finite_set_size", &finite_set_size);
+    m.method("finite_set_subset", &finite_set_subset);
+    m.method("finite_set_map", &finite_set_map);
+    m.method("finite_set_filter", &finite_set_filter);
+    m.method("finite_set_range", &finite_set_range);
 
     // -------------------------------------------------------------------------
 
@@ -618,6 +629,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(context, string_sort)
         .MM(context, seq_sort)
         .MM(context, re_sort)
+        .MM(context, finite_set_sort)
         .method("array_sort", static_cast<sort (context::*)(sort, sort)>(&context::array_sort))
         .method("array_sort", static_cast<sort (context::*)(sort_vector const&, sort)>(&context::array_sort))
         .method("fpa_sort", static_cast<sort (context::*)(unsigned, unsigned)>(&context::fpa_sort))

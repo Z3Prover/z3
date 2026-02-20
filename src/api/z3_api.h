@@ -980,6 +980,32 @@ typedef enum
             3 = 011 = Z3_OP_FPA_RM_TOWARD_NEGATIVE,
             4 = 100 = Z3_OP_FPA_RM_TOWARD_ZERO.
 
+   - Z3_OP_FINITE_SET_EMPTY: Empty finite set.
+
+   - Z3_OP_FINITE_SET_SINGLETON: Finite set containing a single element.
+
+   - Z3_OP_FINITE_SET_UNION: Union of two finite sets.
+
+   - Z3_OP_FINITE_SET_INTERSECT: Intersection of two finite sets.
+
+   - Z3_OP_FINITE_SET_DIFFERENCE: Difference of two finite sets.
+
+   - Z3_OP_FINITE_SET_IN: Membership predicate for finite sets.
+
+   - Z3_OP_FINITE_SET_SIZE: Cardinality of a finite set.
+
+   - Z3_OP_FINITE_SET_SUBSET: Subset predicate for finite sets.
+
+   - Z3_OP_FINITE_SET_MAP: Map operation on finite sets.
+
+   - Z3_OP_FINITE_SET_FILTER: Filter operation on finite sets.
+
+   - Z3_OP_FINITE_SET_RANGE: Range operation for finite sets of integers.
+
+   - Z3_OP_FINITE_SET_EXT: Finite set extensionality. Returns a witness element that is in one set but not the other, demonstrating that two sets are different.
+
+   - Z3_OP_FINITE_SET_MAP_INVERSE: Inverse image under a finite set map operation. Related to reasoning about the pre-image of elements under set mappings.
+
    - Z3_OP_INTERNAL: internal (often interpreted) symbol, but no additional
         information is exposed. Tools may use the string representation of the
         function declaration to obtain more information.
@@ -1312,6 +1338,21 @@ typedef enum {
 
     Z3_OP_FPA_BVWRAP,
     Z3_OP_FPA_BV2RM,
+
+    // Finite Sets
+    Z3_OP_FINITE_SET_EMPTY = 0xc000,
+    Z3_OP_FINITE_SET_SINGLETON,
+    Z3_OP_FINITE_SET_UNION,
+    Z3_OP_FINITE_SET_INTERSECT,
+    Z3_OP_FINITE_SET_DIFFERENCE,
+    Z3_OP_FINITE_SET_IN,
+    Z3_OP_FINITE_SET_SIZE,
+    Z3_OP_FINITE_SET_SUBSET,
+    Z3_OP_FINITE_SET_MAP,
+    Z3_OP_FINITE_SET_FILTER,
+    Z3_OP_FINITE_SET_RANGE,
+    Z3_OP_FINITE_SET_EXT,
+    Z3_OP_FINITE_SET_MAP_INVERSE,
 
     Z3_OP_INTERNAL,
     Z3_OP_RECURSIVE,
@@ -3411,6 +3452,107 @@ extern "C" {
     */
 
     Z3_ast Z3_API Z3_mk_array_ext(Z3_context c, Z3_ast arg1, Z3_ast arg2);
+    /**@}*/
+
+    /** @name Finite Sets */
+    /**@{*/
+    /**
+       \brief Create a finite set sort.
+
+       def_API('Z3_mk_finite_set_sort', SORT, (_in(CONTEXT), _in(SORT)))
+    */
+    Z3_sort Z3_API Z3_mk_finite_set_sort(Z3_context c, Z3_sort elem_sort);
+
+    /**
+       \brief Check if a sort is a finite set sort.
+
+       def_API('Z3_is_finite_set_sort', BOOL, (_in(CONTEXT), _in(SORT)))
+    */
+    bool Z3_API Z3_is_finite_set_sort(Z3_context c, Z3_sort s);
+
+    /**
+       \brief Get the element sort of a finite set sort.
+
+       def_API('Z3_get_finite_set_sort_basis', SORT, (_in(CONTEXT), _in(SORT)))
+    */
+    Z3_sort Z3_API Z3_get_finite_set_sort_basis(Z3_context c, Z3_sort s);
+
+    /**
+       \brief Create an empty finite set of the given sort.
+
+       def_API('Z3_mk_finite_set_empty', AST, (_in(CONTEXT), _in(SORT)))
+    */
+    Z3_ast Z3_API Z3_mk_finite_set_empty(Z3_context c, Z3_sort set_sort);
+
+    /**
+       \brief Create a singleton finite set.
+
+       def_API('Z3_mk_finite_set_singleton', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_finite_set_singleton(Z3_context c, Z3_ast elem);
+
+    /**
+       \brief Create the union of two finite sets.
+
+       def_API('Z3_mk_finite_set_union', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_finite_set_union(Z3_context c, Z3_ast s1, Z3_ast s2);
+
+    /**
+       \brief Create the intersection of two finite sets.
+
+       def_API('Z3_mk_finite_set_intersect', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_finite_set_intersect(Z3_context c, Z3_ast s1, Z3_ast s2);
+
+    /**
+       \brief Create the set difference of two finite sets.
+
+       def_API('Z3_mk_finite_set_difference', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_finite_set_difference(Z3_context c, Z3_ast s1, Z3_ast s2);
+
+    /**
+       \brief Check if an element is a member of a finite set.
+
+       def_API('Z3_mk_finite_set_member', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_finite_set_member(Z3_context c, Z3_ast elem, Z3_ast set);
+
+    /**
+       \brief Get the size (cardinality) of a finite set.
+
+       def_API('Z3_mk_finite_set_size', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_finite_set_size(Z3_context c, Z3_ast set);
+
+    /**
+       \brief Check if one finite set is a subset of another.
+
+       def_API('Z3_mk_finite_set_subset', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_finite_set_subset(Z3_context c, Z3_ast s1, Z3_ast s2);
+
+    /**
+       \brief Apply a function to all elements of a finite set.
+
+       def_API('Z3_mk_finite_set_map', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_finite_set_map(Z3_context c, Z3_ast f, Z3_ast set);
+
+    /**
+       \brief Filter a finite set using a predicate.
+
+       def_API('Z3_mk_finite_set_filter', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_finite_set_filter(Z3_context c, Z3_ast f, Z3_ast set);
+
+    /**
+       \brief Create a finite set of integers in the range [low, high].
+
+       def_API('Z3_mk_finite_set_range', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_finite_set_range(Z3_context c, Z3_ast low, Z3_ast high);
     /**@}*/
 
     /** @name Numerals */
