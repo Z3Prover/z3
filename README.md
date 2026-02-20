@@ -34,7 +34,7 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 ### Manual & Release Workflows
 | Documentation | Release Build | WASM Release | NuGet Build |
 |---------------|---------------|--------------|-------------|
-| [![Documentation](https://github.com/Z3Prover/z3/actions/workflows/docs.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/docs.yml) | [![Release Build](https://github.com/Z3Prover/z3/actions/workflows/release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/release.yml) | [![WebAssembly Publish](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml/badge.svg)](https://www.npmjs.com/package/z3-solver) | [![Build NuGet Package](https://github.com/Z3Prover/z3/actions/workflows/nuget-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/nuget-build.yml) |
+| [![Documentation](https://github.com/Z3Prover/z3/actions/workflows/docs.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/docs.yml) | [![Release Build](https://github.com/Z3Prover/z3/actions/workflows/release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/release.yml) | [![WebAssembly Publish](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml) | [![Build NuGet Package](https://github.com/Z3Prover/z3/actions/workflows/nuget-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/nuget-build.yml) |
 
 ### Specialized Workflows
 | Nightly Validation | Copilot Setup | Agentics Maintenance |
