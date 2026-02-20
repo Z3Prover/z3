@@ -1311,6 +1311,24 @@ struct
   let mk_char_is_digit = Z3native.mk_char_is_digit
 end
 
+module FiniteSet =
+struct
+  let mk_sort = Z3native.mk_finite_set_sort
+  let is_finite_set_sort = Z3native.is_finite_set_sort
+  let get_sort_basis = Z3native.get_finite_set_sort_basis
+  let mk_empty = Z3native.mk_finite_set_empty
+  let mk_singleton = Z3native.mk_finite_set_singleton
+  let mk_union = Z3native.mk_finite_set_union
+  let mk_intersect = Z3native.mk_finite_set_intersect
+  let mk_difference = Z3native.mk_finite_set_difference
+  let mk_member = Z3native.mk_finite_set_member
+  let mk_size = Z3native.mk_finite_set_size
+  let mk_subset = Z3native.mk_finite_set_subset
+  let mk_map = Z3native.mk_finite_set_map
+  let mk_filter = Z3native.mk_finite_set_filter
+  let mk_range = Z3native.mk_finite_set_range
+end
+
 module FloatingPoint =
 struct
   module RoundingMode =
