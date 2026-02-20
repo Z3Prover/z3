@@ -2120,7 +2120,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       ): Promise<[CheckSatResult, AstVector<Name, Bool<Name>>]> {
         const asmsVec = new AstVectorImpl();
         const varsVec = new AstVectorImpl();
-        const consVec = new AstVectorImpl();
+        const consVec = new AstVectorImpl<Bool<Name>>();
         _flattenArgs(assumptions).forEach(expr => {
           _assertContext(expr);
           Z3.ast_vector_push(contextPtr, asmsVec.ptr, expr.ast);
