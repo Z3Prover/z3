@@ -62,6 +62,7 @@ namespace smt {
 #include <thread>
 
 #define LOG_WORKER(lvl, s) IF_VERBOSE(lvl, verbose_stream() << "Worker " << id << s)
+#define LOG_BB_WORKER(lvl, s) IF_VERBOSE(lvl, verbose_stream() << "Backbones Worker " << id << s)
 
 namespace smt {
 
@@ -112,7 +113,7 @@ namespace smt {
             if (bb_candidates.empty())
                 continue;
 
-            IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: received batch of " << bb_candidates.size() << " candidates\n");
+            LOG_BB_WORKER(1, " received batch of " << bb_candidates.size() << " candidates\n");
             
             unsigned local_cancel_epoch = b.get_cancel_epoch();
             auto canceled = [&] { return local_cancel_epoch != b.get_cancel_epoch(); };
@@ -127,11 +128,8 @@ namespace smt {
                     
                     if (!b.is_global_backbone(m_l2g, bb_ref) && check_backbone(bb_ref)) {
                         m_stats.m_backbones_detected++;
+                        LOG_BB_WORKER(1, " fallback found backbone: " << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
                         bool is_new_bb = b.collect_global_backbone(m_l2g, bb_ref);
-                        
-                        auto mode_str = (m_mode == bb_mode::bb_negated) ? "NEGATED" : "POSITIVE";
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER[" << id << "][" << mode_str << "]: fallback found backbone: " << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
-                        
                         if (is_new_bb) m_stats.m_backbones_found++;
                     }
                     bb_candidate_lits.erase(c);
@@ -187,7 +185,7 @@ namespace smt {
 
                     lbool r = l_undef;
                     try {
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: checking batch of " << bb_asms.size() << " candidates\n"); 
+                        LOG_BB_WORKER(1, " checking batch of " << bb_asms.size() << " candidates\n"); 
                         if (canceled()) break;
                         r = ctx->check(asms.size(), asms.data());
                         if (canceled()) break;
@@ -198,7 +196,7 @@ namespace smt {
                     asms.shrink(base_asms_sz);
 
                     if (r == l_undef) {
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: UNDEF at chunk_size=" << chunk_size << "\n");
+                        LOG_BB_WORKER(1, " UNDEF at chunk_size=" << chunk_size << "\n");
 
                         if (chunk_size < bb_candidate_lits.size()) {
                             chunk_delta++; // try again with a bigger chunk
@@ -206,7 +204,7 @@ namespace smt {
                             break;
                         }
 
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: UNDEF and max chunk → fallback\n");
+                        LOG_BB_WORKER(1, " UNDEF and max chunk → fallback\n");
 
                         fallback_singletons(chunk_lits, bb_candidate_lits);
                         m_stats.m_fallback_reason_undef++;
@@ -215,7 +213,7 @@ namespace smt {
                     }
 
                     if (r == l_true) {
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: batch check returned SAT, filtering candidates\n");
+                        LOG_BB_WORKER(1, " batch check returned SAT, filtering candidates\n");
                         expr_ref_vector new_bb_candidate(m);
                         
                         for (expr* e : bb_candidate_lits) {
@@ -266,7 +264,6 @@ namespace smt {
                         bb_candidate_lits.erase(candidate_to_remove);
                     }
 
-
                     unsigned sz_before = bb_asms.size();
                     for (expr* a : bb_asms_in_core)
                         bb_asms.erase(a);
@@ -275,7 +272,7 @@ namespace smt {
 
                     // fallback
                     if (bb_asms.empty()) {
-                        IF_VERBOSE(1, verbose_stream() << "BACKBONES WORKER: no more negated chunk literals, fallback to individual checks\n");
+                        LOG_BB_WORKER(1, " no more negated chunk literals, fallback to individual checks\n");
                         fallback_singletons(chunk_lits, bb_candidate_lits);
                         m_stats.m_fallback_reason_chunk_exhausted++;
                         break;
@@ -291,7 +288,7 @@ namespace smt {
     }
 
     void parallel::backbones_worker::cancel() {
-        IF_VERBOSE(1, verbose_stream() << " BACKBONES WORKER cancelling\n");
+        LOG_BB_WORKER(1, " BACKBONES WORKER cancelling\n");
         m.limit().cancel();
     }
     
@@ -616,7 +613,7 @@ namespace smt {
 
         asms.shrink(sz);
 
-        IF_VERBOSE(1, verbose_stream() << " BACKBONE CHECK RESULT: " << r << " FOR CANDIDATE: " << mk_bounded_pp(bb_candidate.get(), m, 3) << "\n");
+        LOG_BB_WORKER(1, " RESULT: " << r << " FOR CANDIDATE: " << mk_bounded_pp(bb_candidate.get(), m, 3) << "\n");
 
         if (r == l_false) {
             auto core = ctx->unsat_core();
@@ -818,7 +815,9 @@ namespace smt {
             if (is_global_backbone_unsafe(l2g, c.lit))
                 continue;
 
-            expr_ref g_lit(l2g(c.lit.get()), m);
+            
+            expr* worker_lit = c.lit.get();
+            expr_ref g_lit(l2g(worker_lit), m);
             double score = c.score;
             int idx = find_existing_candidate_idx(g_lit.get());
 
@@ -885,9 +884,6 @@ namespace smt {
 
         // ---- NEED NEW BATCH? ----
         if (m_bb_last_batch_processed[bb_thread_id] == m_bb_batch_id) {
-
-            if (m_bb_candidates.empty())
-                return true; // spurious wakeup
 
             // pop new batch once
             unsigned n = std::min<unsigned>(m_bb_batch_size, m_bb_candidates.size());
