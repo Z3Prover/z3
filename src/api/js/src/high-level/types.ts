@@ -987,6 +987,29 @@ export interface Solver<Name extends string = 'main'> {
 
   add(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): void;
 
+  /**
+   * Assert a constraint and associate it with a tracking literal (Boolean constant).
+   * This is the TypeScript equivalent of `assertAndTrack` in other Z3 language bindings.
+   *
+   * When the solver returns `unsat`, the tracked literals that contributed to
+   * unsatisfiability can be retrieved via {@link unsatCore}.
+   *
+   * @param expr - The Boolean expression to assert
+   * @param constant - A Boolean constant (or its name as a string) used as the tracking literal
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * const p1 = Bool.const('p1');
+   * const p2 = Bool.const('p2');
+   * solver.addAndTrack(x.gt(0), p1);
+   * solver.addAndTrack(x.lt(0), p2);
+   * if (await solver.check() === 'unsat') {
+   *   const core = solver.unsatCore(); // contains p1 and p2
+   * }
+   * ```
+   */
   addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string): void;
 
   /**
@@ -1288,6 +1311,27 @@ export interface Optimize<Name extends string = 'main'> {
 
   addSoft(expr: Bool<Name>, weight: number | bigint | string | CoercibleRational, id?: number | string): void;
 
+  /**
+   * Assert a constraint and associate it with a tracking literal (Boolean constant).
+   * This is the TypeScript equivalent of `assertAndTrack` in other Z3 language bindings.
+   *
+   * When the optimizer returns `unsat`, the tracked literals that contributed to
+   * unsatisfiability can be used to identify which constraints caused the conflict.
+   *
+   * @param expr - The Boolean expression to assert
+   * @param constant - A Boolean constant (or its name as a string) used as the tracking literal
+   *
+   * @example
+   * ```typescript
+   * const opt = new Optimize();
+   * const x = Int.const('x');
+   * const p1 = Bool.const('p1');
+   * const p2 = Bool.const('p2');
+   * opt.addAndTrack(x.gt(0), p1);
+   * opt.addAndTrack(x.lt(0), p2);
+   * const result = await opt.check(); // 'unsat'
+   * ```
+   */
   addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string): void;
 
   assertions(): AstVector<Name, Bool<Name>>;
