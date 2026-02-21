@@ -63,3 +63,7 @@ public:
 
     void pop(unsigned n) override { dependent_expr_simplifier::pop(n); m_defined_names.pop(n); }
 };
+
+/*
+  ADD_SIMPLIFIER("nnf", "put goal in negation normal form.", "alloc(cnf_nnf_simplifier, m, p, s)")
+*/
