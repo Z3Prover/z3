@@ -53,6 +53,8 @@ namespace smt {
             bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : lit(e, m), score(s), hits(h) {}
         };
 
+        using bb_candidates = vector<bb_candidate>;
+
         class batch_manager {        
 
             enum state {
@@ -81,14 +83,14 @@ namespace smt {
             vector<shared_clause> shared_clause_trail; // store all shared clauses with worker IDs
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
 
-            svector<bb_candidate> m_bb_candidates;
+            bb_candidates m_bb_candidates;
             unsigned m_max_global_bb_candidates = 75;
             unsigned m_bb_batch_size = 75;
             expr_ref_vector m_global_backbones;
 
             // Backbone job queue
             std::condition_variable m_bb_cv;
-            svector<bb_candidate> m_bb_current_batch;
+            bb_candidates m_bb_current_batch;
             unsigned m_bb_batch_id = 0;
             unsigned m_num_bb_threads = 0;
             svector<unsigned> m_bb_last_batch_processed;
@@ -124,12 +126,9 @@ namespace smt {
             }
 
             // to avoid deadlock
-            bool is_global_backbone_unsafe(ast_translation& l2g, expr_ref const& bb_cand) {
-                for (expr* bb : m_global_backbones) {
-                    if (bb == l2g(bb_cand.get()))
-                        return true;
-                }
-                return false;
+            bool is_global_backbone_unsafe(ast_translation& l2g, expr* bb_cand) {
+                expr_ref cand(l2g(bb_cand), l2g.to());
+                return any_of(m_global_backbones, [&](expr *bb) { return bb == cand.get(); });
             }
 
         public:
@@ -143,9 +142,9 @@ namespace smt {
             void set_exception(unsigned error_code);
             void collect_statistics(::statistics& st) const;
 
-            void collect_backbone_candidates(ast_translation& l2g, svector<bb_candidate>& bb_candidates);
+            void collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates);
             bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone);
-            bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, svector<parallel::bb_candidate>& out, reslimit& lim);
+            bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, vector<parallel::bb_candidate>& out, reslimit& lim);
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
@@ -156,13 +155,9 @@ namespace smt {
 
             lbool get_result() const;
 
-            bool is_global_backbone(ast_translation& l2g, expr_ref const& bb_cand) {
+            bool is_global_backbone(ast_translation& l2g, expr* bb_cand) {
                 std::scoped_lock lock(mux);
-                for (expr* bb : m_global_backbones) {
-                    if (bb == l2g(bb_cand.get()))
-                        return true;
-                }
-                return false;
+                return is_global_backbone_unsafe(l2g, bb_cand);
             }
 
             void set_num_backbone_threads(unsigned n) {
@@ -228,7 +223,7 @@ namespace smt {
             } // allow for backoff scheme of conflicts within the thread for cube timeouts.
 
             void simplify();
-            svector<bb_candidate> find_backbone_candidates(unsigned k = 10);
+            bb_candidates find_backbone_candidates(unsigned k = 10);
 
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
@@ -302,7 +297,7 @@ namespace smt {
                 backbones_worker(unsigned id, parallel &p, expr_ref_vector const &_asms);
                 void cancel();
                 bool check_backbone(expr_ref const& bb_candidate);
-                expr_ref_vector check_backbone_batch(svector<bb_candidate> const& candidates);
+                expr_ref_vector check_backbone_batch(bb_candidates const& candidates);
                 void collect_statistics(::statistics& st) const;
                 void run();
                 void collect_shared_clauses();
