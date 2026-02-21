@@ -56,7 +56,7 @@ enum finite_set_op_kind {
 class finite_set_decl_plugin : public decl_plugin {
     ptr_vector<polymorphism::psig>   m_sigs;
     svector<char const*>             m_names;
-    bool                             m_init = false;
+    bool                             m_init{false};
 
     void init();
     func_decl * mk_empty(sort* set_sort);
