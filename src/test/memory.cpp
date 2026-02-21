@@ -39,7 +39,7 @@ static void hit_me(char const* wm) {
                 Z3_mk_bv_sort(ctx,i);      
                 
             }
-            catch (std::bad_alloc) {
+            catch (std::bad_alloc&) {
                 std::cout << "caught\n";
             }
         }
