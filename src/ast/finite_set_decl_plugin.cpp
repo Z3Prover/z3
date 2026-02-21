@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include<sstream>
+#include <sstream>
 #include "ast/finite_set_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
@@ -24,8 +24,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "util/warning.h"
 
-finite_set_decl_plugin::finite_set_decl_plugin():
-    m_init(false) {
+finite_set_decl_plugin::finite_set_decl_plugin() {
     m_names.resize(LAST_FINITE_SET_OP, nullptr);
     m_names[OP_FINITE_SET_EMPTY] = "set.empty";
     m_names[OP_FINITE_SET_SINGLETON] = "set.singleton";
@@ -279,11 +278,11 @@ bool finite_set_decl_plugin::is_value(app * e) const {
             continue;
         }
         
+        // Check if it's a union, intersection, or difference
         bool is_setop = 
             is_app_of(a, m_family_id, OP_FINITE_SET_UNION) 
             || is_app_of(a, m_family_id, OP_FINITE_SET_INTERSECT)
             || is_app_of(a, m_family_id, OP_FINITE_SET_DIFFERENCE);
-        // Check if it's a union
         if (is_setop) {
             // Add arguments to todo list
             for (auto arg : *a) 
@@ -297,8 +296,6 @@ bool finite_set_decl_plugin::is_value(app * e) const {
                     return false;
             continue;
         }
-
-        // can add also ranges where lo and hi are values.
         
         // If it's none of the above, it's not a value
         return false;
