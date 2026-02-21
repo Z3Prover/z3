@@ -1,0 +1,163 @@
+name: ⚡ Performance Issue
+description: Report performance problems or regressions in Z3
+title: "[Performance] "
+labels: ["performance"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a performance issue! This helps us keep Z3 fast and efficient.
+
+  - type: dropdown
+    id: performance-type
+    attributes:
+      label: Performance Issue Type
+      description: What kind of performance problem are you experiencing?
+      options:
+        - Slow solving (takes too long)
+        - Memory usage (uses too much memory)
+        - Timeout/infinite loop
+        - Regression (was faster in previous version)
+        - Scalability issue (doesn't scale well)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      description: Describe the performance problem
+      placeholder: Z3 takes much longer than expected to solve this formula...
+    validations:
+      required: true
+
+  - type: textarea
+    id: formula
+    attributes:
+      label: Input Formula
+      description: Please provide the formula that exhibits the performance issue. For large files, consider attaching or linking to them.
+      placeholder: |
+        (set-logic QF_BV)
+        (declare-fun x () (_ BitVec 32))
+        ; ... large formula here
+      render: smt2
+    validations:
+      required: true
+
+  - type: textarea
+    id: timing-info
+    attributes:
+      label: Performance Measurements
+      description: Provide timing and memory usage information
+      placeholder: |
+        Current behavior: Takes 300+ seconds, uses 8GB memory
+        Expected: Should complete in <10 seconds based on similar formulas
+
+        Command used: z3 -smt2 formula.smt2
+        System specs: Intel i7, 16GB RAM
+      value: |
+        **Current performance:**
+        - Time:
+        - Memory:
+        - Command:
+
+        **Expected performance:**
+        -
+
+        **System specifications:**
+        - CPU:
+        - Memory:
+        - Other relevant specs:
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Z3 Version
+      description: What version of Z3 are you using?
+      placeholder: Z3 version 4.13.0 - 64 bit
+    validations:
+      required: true
+
+  - type: dropdown
+    id: regression-info
+    attributes:
+      label: Is this a regression?
+      description: Did this work better in a previous version?
+      options:
+        - "No, this has always been slow"
+        - "Yes, this is slower than a previous version"
+        - "I don't know"
+    validations:
+      required: true
+
+  - type: input
+    id: last-working-version
+    attributes:
+      label: Last Working Version (if regression)
+      description: If this is a regression, what was the last version that performed well?
+      placeholder: e.g., Z3 4.12.6
+
+  - type: dropdown
+    id: theory
+    attributes:
+      label: Primary Theory
+      description: What's the main theory used in your formula?
+      options:
+        - Linear Arithmetic (LIA/LRA)
+        - Bit-vectors (QF_BV)
+        - Arrays
+        - Strings
+        - Uninterpreted Functions
+        - Quantifiers
+        - Mixed/Multiple theories
+        - Other/Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: solver-options
+    attributes:
+      label: Solver Configuration
+      description: Are you using any specific solver options or tactics?
+      placeholder: |
+        Command line: z3 -smt2 -T:300 formula.smt2
+        Options: sat.max_memory=4096
+        Tactics: None / Custom tactic used
+
+  - type: textarea
+    id: workarounds
+    attributes:
+      label: Workarounds Found
+      description: Have you found any parameter changes or tactics that improve performance?
+      placeholder: Setting rewriter.bv_sort_ac=true helps significantly
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other details that might help (related formulas, use case, etc.)
+
+  - type: checkboxes
+    id: testing
+    attributes:
+      label: Testing Information
+      description: Help us understand your testing approach
+      options:
+        - label: I tested with the latest Z3 version
+          required: false
+        - label: I can provide the input file separately if it's too large
+          required: false
+        - label: This is blocking my work/research
+          required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Before submitting
+        - [ ] I searched existing performance issues
+        - [ ] I provided timing/memory measurements
+        - [ ] I specified the Z3 version and system specs
+
+        For very large input files, consider uploading them separately or providing a link.

@@ -1,0 +1,140 @@
+name: 🐛 Bug Report
+description: Report a bug or incorrect behavior in Z3
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! This helps make Z3 better.
+
+        Please provide as much detail as possible to help us reproduce and fix the issue.
+
+  - type: dropdown
+    id: bug-category
+    attributes:
+      label: Bug Category
+      description: What type of bug are you experiencing?
+      options:
+        - Crash/Assertion failure
+        - Incorrect result (SAT/UNSAT/Unknown)
+        - Performance regression
+        - Memory issue/leak
+        - API behavior
+        - Build/Installation issue
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of the bug
+      placeholder: Describe what happens vs what you expected...
+    validations:
+      required: true
+
+  - type: textarea
+    id: minimal-example
+    attributes:
+      label: Minimal Reproduction
+      description: Please provide the smallest possible example that reproduces the issue
+      placeholder: |
+        (set-logic QF_LIA)
+        (declare-fun x () Int)
+        (assert (> x 5))
+        (check-sat)
+      render: smt2
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include full error messages/output
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Z3 Version
+      description: What version of Z3 are you using? (run `z3 --version`)
+      placeholder: Z3 version 4.13.0 - 64 bit
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: What platform are you running Z3 on?
+      options:
+        - Linux x86_64
+        - macOS ARM64 (Apple Silicon)
+        - macOS Intel x86_64
+        - Windows x86_64
+        - Windows ARM64
+        - Other (specify in additional context)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: interface
+    attributes:
+      label: Interface Used
+      description: How are you using Z3?
+      options:
+        - Command line (z3 executable)
+        - Python API
+        - C++ API
+        - C API
+        - Java API
+        - .NET API
+        - OCaml API
+        - JavaScript/WASM API
+        - Other (specify below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: installation-method
+    attributes:
+      label: Installation Method
+      description: How did you install Z3?
+      placeholder: "e.g., pip install z3-solver, built from source, downloaded from releases, package manager, etc."
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other information that might be helpful (stack traces, related issues, workarounds, etc.)
+
+  - type: checkboxes
+    id: regression
+    attributes:
+      label: Regression Check
+      description: Help us identify if this is a recent regression
+      options:
+        - label: This worked in a previous version of Z3
+          required: false
+        - label: I can provide the last working version
+          required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Before submitting
+        - [ ] I searched existing issues and couldn't find a duplicate
+        - [ ] I provided a minimal reproduction case
+        - [ ] I included the Z3 version and platform information

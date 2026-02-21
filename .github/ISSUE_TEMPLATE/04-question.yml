@@ -1,0 +1,111 @@
+name: ❓ Question
+description: Ask a question about using Z3 or understanding its behavior
+title: "[Question] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### ⚠️ Before asking a question
+
+        For general Z3 usage questions, tutorials, and discussions, please consider using:
+        - **[GitHub Discussions](../../discussions)** - Best for open-ended discussions
+        - **[Stack Overflow](https://stackoverflow.com/questions/tagged/z3)** - Great for specific coding questions
+        - **[Z3 Guide](https://microsoft.github.io/z3guide/)** - Comprehensive tutorials and documentation
+
+        Use this issue template only for questions that are:
+        - Specific to Z3's internal behavior or design decisions
+        - Related to undocumented behavior that might be a bug
+        - Questions that could lead to documentation improvements
+
+  - type: dropdown
+    id: question-type
+    attributes:
+      label: Question Type
+      description: What kind of question is this?
+      options:
+        - Usage/API question
+        - Behavior clarification
+        - Theory/algorithm question
+        - Build/installation question
+        - Documentation gap
+        - Design/architectural question
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What would you like to know?
+      placeholder: I'm trying to understand why Z3 behaves differently when...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Provide relevant background about what you're trying to achieve
+      placeholder: |
+        I'm working on...
+        My goal is to...
+        I expected... but saw...
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example (if applicable)
+      description: If relevant, provide a minimal example that illustrates your question
+      placeholder: |
+        (set-logic QF_LIA)
+        (declare-fun x () Int)
+        (assert (> x 0))
+        (check-sat)
+        ; Why does this return sat instead of unsat?
+      render: smt2
+
+  - type: input
+    id: version
+    attributes:
+      label: Z3 Version
+      description: What version are you using?
+      placeholder: Z3 version 4.13.0 - 64 bit
+
+  - type: textarea
+    id: research-done
+    attributes:
+      label: Research Done
+      description: What have you already tried or looked at?
+      placeholder: |
+        I checked the documentation at...
+        I searched for similar questions and found...
+        I tried using the following approaches...
+
+  - type: checkboxes
+    id: question-check
+    attributes:
+      label: Question Guidelines
+      description: Please confirm
+      options:
+        - label: This is specific to Z3's behavior/design and not a general SMT question
+          required: true
+        - label: I searched existing issues and discussions for similar questions
+          required: true
+        - label: I considered whether Stack Overflow or GitHub Discussions might be more appropriate
+          required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Alternative places for questions:
+
+        - 💬 **[GitHub Discussions](../../discussions)** - For open-ended discussions about Z3 usage, best practices, and community Q&A
+        - 📚 **[Stack Overflow (z3 tag)](https://stackoverflow.com/questions/tagged/z3)** - For specific programming questions with Z3 APIs
+        - 📖 **[Z3 Guide](https://microsoft.github.io/z3guide/)** - For tutorials and comprehensive documentation
+        - 📝 **[Z3 API Documentation](https://z3prover.github.io/api/html/index.html)** - For API reference
+
+        Questions asked here should ideally lead to:
+        - Documentation improvements
+        - Bug reports (if the behavior is unexpected)
+        - Feature requests (if functionality is missing)
