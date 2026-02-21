@@ -472,7 +472,7 @@ public class Solver extends Z3Object {
      * @return The root expression of the congruence class
      * @throws Z3Exception
      **/
-    public Expr<?> getCongruenceRoot(Expr<?> t)
+    public Expr<?> congruenceRoot(Expr<?> t)
     {
         getContext().checkContextMatch(t);
         return Expr.create(getContext(),
@@ -487,7 +487,7 @@ public class Solver extends Z3Object {
      * @return The next expression in the congruence class
      * @throws Z3Exception
      **/
-    public Expr<?> getCongruenceNext(Expr<?> t)
+    public Expr<?> congruenceNext(Expr<?> t)
     {
         getContext().checkContextMatch(t);
         return Expr.create(getContext(),
@@ -502,7 +502,7 @@ public class Solver extends Z3Object {
      * @return An expression explaining the congruence between a and b
      * @throws Z3Exception
      **/
-    public Expr<?> getCongruenceExplain(Expr<?> a, Expr<?> b)
+    public Expr<?> congruenceExplain(Expr<?> a, Expr<?> b)
     {
         getContext().checkContextMatch(a);
         getContext().checkContextMatch(b);
