@@ -49,12 +49,24 @@ equality resolution rule takes the form:
 --*/
 #pragma once
 
+#include "tactic/dependent_expr_state_tactic.h"
+#include "ast/simplifiers/der_simplifier.h"
+
 class ast_manager;
 class tactic;
 
 tactic * mk_der_tactic(ast_manager & m);
 
+inline tactic * mk_der2_tactic(ast_manager & m, params_ref const & p = params_ref()) {
+    return alloc(dependent_expr_state_tactic, m, p,
+        [](auto& m, auto& p, auto& s) -> dependent_expr_simplifier* {
+            return alloc(der_simplifier, m, p, s);
+        });
+}
+
 /*
   ADD_TACTIC("der", "destructive equality resolution.", "mk_der_tactic(m)")
+  ADD_TACTIC("der2", "destructive equality resolution.", "mk_der2_tactic(m, p)")
+  ADD_SIMPLIFIER("der", "destructive equality resolution.", "alloc(der_simplifier, m, p, s)")
 */
 
