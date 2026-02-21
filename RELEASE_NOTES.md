@@ -12,6 +12,15 @@ Version 4.17.0
   It is possible to map a function over elements of a set using set.map.
   Support for set.range, set.map is partial.
   Support for set.size exists, but is without any optimization. The source code contains comments on ways to make it more efficient. File a GitHub issue if you want to contribute.s
+- Add Python API convenience methods for improved usability. Thanks to Daniel Tang.
+  - Solver.solutions(t) method for finding all solutions to constraints, https://github.com/Z3Prover/z3/pull/8633
+  - ArithRef.__abs__ alias to integrate with Python's abs() builtin, https://github.com/Z3Prover/z3/pull/8623
+  - Improved error message in ModelRef.__getitem__ to suggest using eval(), https://github.com/Z3Prover/z3/pull/8626
+  - Documentation example for Solver.sexpr(), https://github.com/Z3Prover/z3/pull/8631
+- Performance improvements by replacing unnecessary copy operations with std::move semantics for better efficiency.
+  Thanks to Nuno Lopes, https://github.com/Z3Prover/z3/pull/8583
+- Fix spurious sort error with nested quantifiers in model finder. `Fixes #8563`
+- NLSAT optimizations including improvements to handle_nullified_poly and levelwise algorithm. Thanks to Lev Nachmanson.
 
 Version 4.16.0
 ==============
