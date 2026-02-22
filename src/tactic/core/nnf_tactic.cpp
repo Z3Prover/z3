@@ -104,10 +104,3 @@ public:
 tactic * mk_snf_tactic(ast_manager & m, params_ref const & p) {
     return alloc(nnf_tactic, p);
 }
-
-tactic * mk_nnf_tactic(ast_manager & m, params_ref const & p) {
-    params_ref new_p(p);
-    new_p.set_sym("mode", symbol("full"));
-    TRACE(nnf, tout << "mk_nnf: " << new_p << "\n";);
-    return using_params(mk_snf_tactic(m, p), new_p);
-}
