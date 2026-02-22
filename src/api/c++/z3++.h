@@ -868,6 +868,44 @@ namespace z3 {
 
     };
 
+    class parser_context : public object {
+        Z3_parser_context m_pc;
+    public:
+        explicit parser_context(context & c):object(c), m_pc(Z3_mk_parser_context(c)) { Z3_parser_context_inc_ref(ctx(), m_pc); }
+        ~parser_context() override { if (m_pc) Z3_parser_context_dec_ref(ctx(), m_pc); }
+        explicit operator bool() const { return m_pc; }
+        operator Z3_parser_context() const { return m_pc; }
+        parser_context(const parser_context &o):object(o), m_pc(o.m_pc) { Z3_parser_context_inc_ref(ctx(), m_pc); }
+        parser_context &operator=(const parser_context &o) {
+            if (this != &o) {
+                if (m_pc) Z3_parser_context_dec_ref(*m_ctx, m_pc);
+                Z3_parser_context_inc_ref(*o.m_ctx, o.m_pc);
+                object::operator=(o);
+                m_pc = o.m_pc;
+            }
+            return *this;
+        }
+
+        /**
+            \brief Add a sort declaration.
+         */
+        void add_sort(const sort & s) { Z3_parser_context_add_sort(ctx(), m_pc, s); check_error(); }
+
+        /**
+            \brief Add a function declaration.
+         */
+        void add_sort(const func_decl & f) { Z3_parser_context_add_decl(ctx(), m_pc, f); check_error(); }
+
+        /**
+            \brief Parse a string of SMTLIB2 commands. Return assertions.
+         */
+        expr_vector parse_string(const char * s) {
+            auto result = Z3_parser_context_from_string(ctx(), m_pc, s);
+            m_ctx->check_error();
+            return expr_vector(ctx(), result);
+        }
+    };
+
     /**
        \brief forward declarations
      */
