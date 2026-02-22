@@ -301,18 +301,19 @@ namespace smt {
     }
     
     bool parallel::batch_manager::collect_global_backbone(ast_translation& l2g, expr_ref const& backbone) {
-        std::scoped_lock lock(mux);
         expr_ref g_bb_ref(m);
 
-        if (is_global_backbone_unsafe(l2g, backbone))
+        if (is_global_backbone(l2g, backbone))
             return false;
-
         expr *g_bb = l2g(backbone.get());
-        m_global_backbones.push_back(g_bb);
-        g_bb_ref = expr_ref(g_bb, m);
-        IF_VERBOSE(1, verbose_stream() << " Found new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
 
-        IF_VERBOSE(1, verbose_stream() << " Sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
+        {
+            std::scoped_lock lock(mux);
+            m_global_backbones.push_back(g_bb);
+        }
+
+        g_bb_ref = expr_ref(g_bb, m);
+        IF_VERBOSE(1, verbose_stream() << " Found and sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
         collect_clause(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
 
         node* t = nullptr;
@@ -323,7 +324,7 @@ namespace smt {
         }
 
         if (t) {
-            IF_VERBOSE(1, verbose_stream() << " Closing negation of the following new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
+            IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
             expr_ref_vector core(m);
             core.push_back(neg_bb_ref);
             backtrack(l2g, core, t);
@@ -919,7 +920,6 @@ namespace smt {
         m_bb_last_batch_processed[bb_thread_id] = m_bb_batch_id;
         return true;
     }
-
 
     expr_ref_vector parallel::batch_manager::return_shared_clauses(ast_translation &g2l, unsigned &worker_limit,
                                                                    unsigned worker_id) {
