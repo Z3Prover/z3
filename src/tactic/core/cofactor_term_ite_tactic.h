@@ -71,15 +71,12 @@ inline dependent_expr_simplifier* mk_cofactor_term_ite_simplifier(
     return alloc(cofactor_term_ite_simplifier, m, p, s);
 }
 
-inline tactic* mk_cofactor_term_ite2_tactic(ast_manager& m, params_ref const& p = params_ref()) {
+inline tactic* mk_cofactor_term_ite_tactic(ast_manager& m, params_ref const& p = params_ref()) {
     return alloc(dependent_expr_state_tactic, m, p, mk_cofactor_term_ite_simplifier);
 }
 
-tactic * mk_cofactor_term_ite_tactic(ast_manager & m, params_ref const & p = params_ref());
-
 /*
   ADD_TACTIC("cofactor-term-ite", "eliminate term if-then-else using cofactors.", "mk_cofactor_term_ite_tactic(m, p)")
-  ADD_TACTIC("cofactor-term-ite2", "eliminate term if-then-else using cofactors.", "mk_cofactor_term_ite2_tactic(m, p)")
   ADD_SIMPLIFIER("cofactor-term-ite", "eliminate term if-then-else using cofactors.", "mk_cofactor_term_ite_simplifier(m, p, s)")
 */
 
