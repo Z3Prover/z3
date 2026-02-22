@@ -2,7 +2,6 @@ z3_add_component(core_tactics
   SOURCES
     blast_term_ite_tactic.cpp
     cofactor_elim_term_ite.cpp
-    cofactor_term_ite_tactic.cpp
     collect_statistics_tactic.cpp
     ctx_simplify_tactic.cpp
     der_tactic.cpp
