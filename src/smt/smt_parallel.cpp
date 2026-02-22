@@ -224,6 +224,9 @@ namespace smt {
                         break;
                     }
 
+                    // When r == l_true, the solver gives a model M. From M, any candidate literal not
+                    // satisfied in M cannot be a backbone and can be filtered (removed), since every backbone 
+                    // literal must be true in every model
                     if (r == l_true) {
                         LOG_BB_WORKER(1, " batch check returned SAT, filtering candidates\n");
                         // NSB: do we expect this to happen? If it really happens are we done then because the entire
