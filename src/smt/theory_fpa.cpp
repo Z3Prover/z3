@@ -414,6 +414,12 @@ namespace smt {
     void theory_fpa::pop_scope_eh(unsigned num_scopes) {
         m_trail_stack.pop_scope(num_scopes);
         TRACE(t_fpa, tout << "pop " << num_scopes << "; now " << m_trail_stack.get_num_scopes() << "\n";);
+        // Reset the fpa2bv rewriter cache so that expressions re-converted after
+        // a pop regenerate their side conditions (extra_assertions). Without this,
+        // the rewriter returns cached results without invoking mk_uf/mk_const and
+        // the axioms connecting FP UFs to their BV counterparts are never re-emitted,
+        // causing a soundness issue in incremental mode.
+        m_rw.reset();
         theory::pop_scope_eh(num_scopes);
     }
 
