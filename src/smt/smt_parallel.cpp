@@ -104,7 +104,7 @@ namespace smt {
     }
 
     void parallel::backbones_worker::run() {
-        svector<bb_candidate> bb_candidates;
+        bb_candidates bb_candidates;
 
         while (m.inc()) {
             if (!b.wait_for_backbone_job(id, m_g2l, bb_candidates, m.limit()))
@@ -121,7 +121,8 @@ namespace smt {
                 m_stats.m_fallback_singleton_checks++;
                 for (expr* c : chunk_lits) {
                     expr_ref bb_ref(c, m);
-                    if (canceled()) return;
+                    if (canceled()) 
+                        return;
                     
                     if (m_mode == bb_mode::bb_positive)
                         bb_ref = mk_not(bb_ref); // F ∧ U since check_backbone flips it back
@@ -152,7 +153,7 @@ namespace smt {
             while (!bb_candidate_lits.empty() && !canceled()) {
                 // remove candidates that the other bacbone thread found to be backbones
                 for (unsigned i = 0; i < bb_candidate_lits.size();) {
-                    expr_ref tmp(bb_candidate_lits[i].get(), m);
+                    expr* tmp = bb_candidate_lits.get(i);
                     if (b.is_global_backbone(m_l2g, tmp))
                         bb_candidate_lits.erase(i);
                     else
@@ -164,9 +165,9 @@ namespace smt {
                 expr_ref_vector negated_chunk_lits(m);
 
                 for (unsigned i = 0; i < chunk_size; ++i) {
-                    expr *e = bb_candidate_lits[i].get();
+                    expr *e = bb_candidate_lits.get(i);
                     chunk_lits.push_back(e);
-                    negated_chunk_lits.push_back(mk_not(m, e));
+                    negated_chunk_lits.push_back(m.mk_not(e));
                 }
 
                 expr_ref_vector bb_asms(m);
@@ -178,8 +179,12 @@ namespace smt {
                 collect_shared_clauses();
 
                 while (true) {
-                    if (!m.inc()) return;
-                    if (canceled()) break;
+
+                    if (!m.inc()) 
+                        return;
+
+                    if (canceled()) 
+                        break;
 
                     m_stats.m_core_refinement_rounds++;
 
@@ -190,10 +195,12 @@ namespace smt {
 
                     lbool r = l_undef;
                     try {
+
                         LOG_BB_WORKER(1, " checking batch of " << bb_asms.size() << " candidates\n"); 
                         if (canceled()) break;
                         r = ctx->check(asms.size(), asms.data());
-                        if (canceled()) break;
+                        if (canceled()) 
+                            break;
                     } catch (...) {
                         asms.shrink(base_asms_sz);
                         throw;
@@ -219,22 +226,14 @@ namespace smt {
 
                     if (r == l_true) {
                         LOG_BB_WORKER(1, " batch check returned SAT, filtering candidates\n");
+                        // NSB: do we expect this to happen? If it really happens are we done then because the entire
+                        // formula is SAT?
+
                         expr_ref_vector new_bb_candidate(m);
                         
-                        for (expr* e : bb_candidate_lits) {
-                            expr* a = e;
-                            bool neg = m.is_not(e, a);
-                            bool_var v = ctx->get_bool_var(a);
-                            if (v == null_bool_var)
-                                continue;
-
-                            lbool val = ctx->get_assignment(v);
-                            if (val == l_undef)
-                                continue;
-
-                            if (neg ? val == l_false : val == l_true)
-                                new_bb_candidate.push_back(e);
-                        }
+                        for (expr* e : bb_candidate_lits) 
+                            if (ctx->find_assignment(e) == l_true)
+                                new_bb_candidate.push_back(e);                        
                         
                         bb_candidate_lits.reset();
                         bb_candidate_lits.append(new_bb_candidate);
@@ -244,7 +243,7 @@ namespace smt {
 
                     // ----- UNSAT: inspect core -----
                     expr_ref_vector bb_asms_in_core(m);
-                    expr_ref_vector unsat_core = ctx->unsat_core();
+                    auto const& unsat_core = ctx->unsat_core();
                     
                     for (expr* a : unsat_core)
                         if (bb_asms.contains(a))
@@ -252,13 +251,14 @@ namespace smt {
 
                     // ---- singleton core → backbone ----
                     if (bb_asms_in_core.size() == 1) {
-                        expr* a = bb_asms_in_core[0].get();
+                        expr* a = bb_asms_in_core.back();
                         expr_ref backbone_lit(mk_not(m, a), m);
 
                         m_stats.m_singleton_backbones++;
                         m_stats.m_backbones_detected++;
 
                         bool is_new_bb = b.collect_global_backbone(m_l2g, backbone_lit);
+
                         if (is_new_bb) {
                             m_stats.m_backbones_found++;
                             ctx->assert_expr(backbone_lit.get()); // since bb workers don't collect clauses they themselves shared
@@ -301,24 +301,16 @@ namespace smt {
     }
     
     bool parallel::batch_manager::collect_global_backbone(ast_translation& l2g, expr_ref const& backbone) {
+        std::scoped_lock lock(mux);
         expr_ref g_bb_ref(m);
-        bool is_new_bb = false;
 
-        {
-            std::scoped_lock lock(mux);
+        if (is_global_backbone_unsafe(l2g, backbone))
+            return false;
 
-            if (!is_global_backbone_unsafe(l2g, backbone)) {
-                expr* g_bb = l2g(backbone.get());
-                m_global_backbones.push_back(g_bb);
-                g_bb_ref = expr_ref(g_bb, m);
-                is_new_bb = true;
-                
-                IF_VERBOSE(1, verbose_stream() << " Found new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");    
-            }
-        }
-
-        if (!is_new_bb)
-            return is_new_bb;
+        expr *g_bb = l2g(backbone.get());
+        m_global_backbones.push_back(g_bb);
+        g_bb_ref = expr_ref(g_bb, m);
+        IF_VERBOSE(1, verbose_stream() << " Found new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
 
         IF_VERBOSE(1, verbose_stream() << " Sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
         collect_clause(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
@@ -337,7 +329,7 @@ namespace smt {
             backtrack(l2g, core, t);
         }
 
-        return is_new_bb;
+        return true;
     }
 
    void parallel::backbones_worker::collect_statistics(::statistics& st) const {
@@ -398,7 +390,7 @@ namespace smt {
 
             u_map<double> original_activities;
             if (m_config.m_local_backbones || m_config.m_global_backbones) {
-                svector<smt::parallel::bb_candidate> backbone_candidates = find_backbone_candidates();
+                bb_candidates backbone_candidates = find_backbone_candidates();
                 if (m_config.m_global_backbones)
                     b.collect_backbone_candidates(m_l2g, backbone_candidates);
                 if (m_config.m_local_backbones) {
@@ -542,8 +534,8 @@ namespace smt {
         context::copy(p.ctx, *ctx, true);
     }
 
-    svector<smt::parallel::bb_candidate> parallel::worker::find_backbone_candidates(unsigned k) {
-        svector<smt::parallel::bb_candidate> backbone_candidates;
+    parallel::bb_candidates parallel::worker::find_backbone_candidates(unsigned k) {
+        bb_candidates backbone_candidates;
         vector<std::pair<double, expr_ref>> top_k; // will hold at most k elements
         expr_ref candidate(m);
         unsigned curr_time = ctx->m_stats.m_num_assignments;
@@ -556,8 +548,8 @@ namespace smt {
             if (!d.m_phase_available)
                 continue;
 
-            unsigned birth = ctx->m_birthdate[v];
-            unsigned age = curr_time - birth;
+            auto birth = ctx->m_birthdate[v];
+            auto age = curr_time - birth;
 
             bool phase = d.m_phase;
 
@@ -579,8 +571,8 @@ namespace smt {
             } 
             else {
                 // find the smallest in top_k and replace if we found a new element bigger than the min
-                size_t min_idx = 0;
-                for (size_t i = 1; i < k; ++i)
+                unsigned min_idx = 0;
+                for (unsigned i = 1; i < k; ++i)
                     if (top_k[i].first < top_k[min_idx].first)
                         min_idx = i;
 
@@ -804,6 +796,7 @@ namespace smt {
         }
     }
 
+
     void parallel::backbones_worker::collect_shared_clauses() {
         expr_ref_vector new_clauses = b.return_shared_clauses(m_g2l, m_shared_clause_limit, UINT_MAX);
         // iterate over new clauses and assert them in the local context
@@ -813,7 +806,8 @@ namespace smt {
         }
     }
 
-    void parallel::batch_manager::collect_backbone_candidates(ast_translation& l2g, svector<smt::parallel::bb_candidate>& bb_candidates) {
+    void parallel::batch_manager::collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates) {
+
         std::scoped_lock lock(mux);
 
         auto find_existing_candidate_idx = [&](expr* e) -> int {
@@ -868,7 +862,7 @@ namespace smt {
         }
 
         if (!m_bb_candidates.empty()) {
-            std::sort(
+            std::stable_sort(
                 m_bb_candidates.begin(),
                 m_bb_candidates.end(),
                 [&](bb_candidate const& a, bb_candidate const& b) {
@@ -879,7 +873,7 @@ namespace smt {
         }
     }
 
-    bool parallel::batch_manager::wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, svector<smt::parallel::bb_candidate>& out, reslimit& lim) {
+    bool parallel::batch_manager::wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, bb_candidates& out, reslimit& lim) {
         out.reset();
         std::unique_lock<std::mutex> lock(mux);
 
@@ -1153,13 +1147,10 @@ namespace smt {
             threads[thread_idx++] = std::thread([&, i]() { m_workers[i]->run(); });
         }
         
-        if (m_should_run_sls)
+        if (m_sls_worker)
             threads[thread_idx++] = std::thread([&]() { m_sls_worker->run(); });
-        if (m_should_run_global_backbones) {
-            for (auto* w : m_global_backbones_workers) {
-                threads[thread_idx++] = std::thread([&, w]() { w->run(); });
-            }
-        }
+        for (auto* w : m_global_backbones_workers) 
+            threads[thread_idx++] = std::thread([&, w]() { w->run(); });                    
 
         // Wait for all threads to finish
         for (auto &th : threads)
@@ -1168,11 +1159,10 @@ namespace smt {
         for (auto w : m_workers)
             w->collect_statistics(ctx.m_aux_stats);
         m_batch_manager.collect_statistics(ctx.m_aux_stats);
-        if (m_should_run_sls)
+        if (m_sls_worker)
             m_sls_worker->collect_statistics(ctx.m_aux_stats);
-        if (m_should_run_global_backbones)
-            for (auto* bb_w : m_global_backbones_workers)
-                bb_w->collect_statistics(ctx.m_aux_stats);
+        for (auto* bb_w : m_global_backbones_workers)
+            bb_w->collect_statistics(ctx.m_aux_stats);
 
         return m_batch_manager.get_result();
     }
