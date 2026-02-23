@@ -23,6 +23,7 @@ Revision History:
 #include "ast/sls/sls_smt_solver.h"
 #include <thread>
 #include <mutex>
+#include <unordered_map>
 
 
 namespace smt {
@@ -43,7 +44,8 @@ namespace smt {
             expr_ref clause;
         };
 
-        class batch_manager {        
+        class batch_manager {
+            friend class worker;  // worker accesses AriParti tracking helpers
 
             enum state {
                 is_running,
@@ -66,7 +68,14 @@ namespace smt {
             stats m_stats;
             using node = search_tree::node<cube_config>;
             search_tree::tree<cube_config> m_search_tree;
-            
+
+            // AriParti-style split tracking (protected by mux):
+            // How many times each arithmetic expression has been chosen as a split variable.
+            obj_map<expr, unsigned> m_var_split_cnt;
+            // Per-node key ordering for 5-key AriParti variable selection.
+            // Key ordering for node n's children is derived from n's ordering via rotation.
+            std::unordered_map<node*, svector<unsigned>> m_node_key_rank;
+
             unsigned m_exception_code = 0;
             std::string m_exception_msg;
             vector<shared_clause> shared_clause_trail; // store all shared clauses with worker IDs
@@ -108,6 +117,14 @@ namespace smt {
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
             void split(ast_translation& l2g, unsigned id, node* n, expr* atom);
 
+            // AriParti-style split-tracking helpers (thread-safe; called by workers).
+            // Returns the 5-element key ordering for node n (initialises to [0..4] if absent).
+            svector<unsigned> get_node_key_rank(node * n);
+            // Returns global split count for the given arithmetic expression.
+            unsigned get_var_split_cnt(expr * var);
+            // Computes the child key ordering from parent using AriParti's rotation rule.
+            static svector<unsigned> compute_child_key_rank(svector<unsigned> const & parent);
+
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
 
@@ -146,8 +163,8 @@ namespace smt {
             unsigned m_num_initial_atoms = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             
-            expr_ref get_split_atom();
-            expr_ref get_arith_split_atom();
+            expr_ref get_split_atom(node * n);
+            expr_ref get_arith_split_atom(node * n);
 
             lbool check_cube(expr_ref_vector const& cube);
             void share_units();

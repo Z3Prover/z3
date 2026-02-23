@@ -461,7 +461,13 @@ public:
        \brief Return true if x is a definition.
     */
     bool is_definition(var x) const { return m_defs[x] != 0; }
-    
+
+    /**
+       \brief Return the number of clauses/definitions that watch variable x.
+       Used as an occurrence-count approximation by AriParti-style variable selectors.
+    */
+    unsigned num_watches(var x) const { return m_wlist[x].size(); }
+
     typedef svector<watched> watch_list;
     typedef _scoped_numeral_vector<numeral_manager> scoped_numeral_vector;
 

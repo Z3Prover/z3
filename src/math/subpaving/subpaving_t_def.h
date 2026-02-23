@@ -184,6 +184,216 @@ public:
     }
 };
 
+/**
+   \brief Variable selector implementing AriParti's multi-key heuristic (Section 4.2).
+
+   Uses four ranking keys applied in a dynamically-rotated order:
+     Key 0 (split_cnt): fewer previous splits → preferred (avoids re-splitting the same variable)
+     Key 1 (cz):        interval contains zero → preferred (zero-split heuristic)
+     Key 2 (occ):       more watch-list entries → preferred (more constrained variable)
+     Key 3 (width):     wider interval → preferred (more room to bisect)
+
+   Width is encoded with AriParti-style penalties so that bounded, half-bounded, and
+   fully-unbounded variables can all be compared on a single scale:
+     - Fully unbounded:            width = PENALTY^2    (= 1 048 576)
+     - Half-bounded [lo, +∞), lo>0: width = PENALTY / max(1,lo)
+     - Half-bounded [lo, +∞), lo≤0: width = PENALTY + (-lo)
+     - Half-bounded (-∞, up], up≥0: width = PENALTY + up
+     - Half-bounded (-∞, up], up<0: width = PENALTY / max(1,-up)
+     - Fully bounded [lo, up]:      width = up - lo
+
+   Key ordering for a child node is derived from its parent's ordering by the same
+   rotation rule as AriParti: find the first consecutive pair (i-1,i) where
+   key_rank[i-1] < key_rank[i] and swap them; if no such pair exists reset to [0,1,2,3].
+*/
+template<typename C>
+class ariparti_var_selector : public context_t<C>::var_selector {
+    typedef typename context_t<C>::numeral_manager numeral_manager;
+    typedef typename numeral_manager::numeral      numeral;
+    typedef typename context_t<C>::bound           bound;
+    typedef typename context_t<C>::node            node;
+
+    static const unsigned NUM_KEYS = 4;
+    static const unsigned PENALTY  = 1024;
+
+    // Per-variable split counts (incremented each time operator() selects a variable)
+    unsigned_vector m_split_cnt;
+
+    // Per-node key ordering (indexed by node id)
+    vector<svector<unsigned>> m_key_rank;
+
+    svector<unsigned> default_key_rank() const {
+        svector<unsigned> r;
+        for (unsigned i = 0; i < NUM_KEYS; ++i) r.push_back(i);
+        return r;
+    }
+
+    svector<unsigned> child_key_rank(svector<unsigned> const & parent) const {
+        svector<unsigned> r = parent;
+        unsigned pos = 0;
+        for (unsigned i = 1; i < NUM_KEYS; ++i) {
+            if (r[i - 1] < r[i]) { pos = i; break; }
+        }
+        if (pos == 0) {
+            // no out-of-order consecutive pair: reset to identity
+            for (unsigned i = 0; i < NUM_KEYS; ++i) r[i] = i;
+        } else {
+            std::swap(r[pos - 1], r[pos]);
+        }
+        return r;
+    }
+
+    svector<unsigned> const & key_rank_for(node * n) {
+        unsigned id = n->id();
+        if (id >= m_key_rank.size()) {
+            m_key_rank.resize(id + 1);
+            m_key_rank[id] = default_key_rank();
+        }
+        if (m_key_rank[id].empty())
+            m_key_rank[id] = default_key_rank();
+        return m_key_rank[id];
+    }
+
+public:
+    ariparti_var_selector(context_t<C> * ctx) : context_t<C>::var_selector(ctx) {}
+
+    void new_var_eh(var x) override {
+        if (x >= m_split_cnt.size())
+            m_split_cnt.resize(x + 1, 0);
+    }
+
+    void new_node_eh(node * n) override {
+        unsigned id = n->id();
+        if (id >= m_key_rank.size())
+            m_key_rank.resize(id + 1);
+        node * parent = n->parent();
+        if (parent == nullptr) {
+            m_key_rank[id] = default_key_rank();
+        } else {
+            m_key_rank[id] = child_key_rank(key_rank_for(parent));
+        }
+    }
+
+    void del_node_eh(node * n) override {
+        unsigned id = n->id();
+        if (id < m_key_rank.size())
+            m_key_rank[id].reset();
+    }
+
+    var operator()(node * n) override {
+        numeral_manager & nm = this->ctx()->nm();
+        unsigned num = this->ctx()->num_vars();
+        if (num == 0) return null_var;
+
+        svector<unsigned> const & rank = key_rank_for(n);
+
+        // Ensure split_cnt vector is large enough
+        if (m_split_cnt.size() < num) m_split_cnt.resize(num, 0);
+
+        var best = null_var;
+        unsigned best_split = 0, best_occ = 0;
+        bool best_cz = false;
+        _scoped_numeral<numeral_manager> best_width(nm), curr_width(nm);
+
+        auto key_lt = [&](var a, var b) {
+            // Returns true if a is strictly better than b for key k.
+            // For use inside the selection loop where we compare 'a' against 'best'.
+            (void)a; (void)b; return false; // placeholder – inlined below
+        };
+        (void)key_lt;
+
+        for (var x = 0; x < num; ++x) {
+            if (this->ctx()->is_definition(x)) continue;
+            bound * lo = n->lower(x);
+            bound * up = n->upper(x);
+            if (lo != nullptr && up != nullptr && nm.eq(lo->value(), up->value()))
+                continue; // already fixed
+
+            unsigned split = (x < m_split_cnt.size()) ? m_split_cnt[x] : 0;
+            bool cz = ((lo == nullptr || nm.is_neg(lo->value())) &&
+                       (up == nullptr || nm.is_pos(up->value())));
+            unsigned occ = this->ctx()->num_watches(x);
+            if (occ == 0) continue; // variable not in any constraint
+
+            // Compute width with penalty encoding
+            if (lo == nullptr && up == nullptr) {
+                nm.set(curr_width, (int)(PENALTY * PENALTY));
+            } else if (lo == nullptr) {
+                // (-∞, up]
+                if (nm.is_neg(up->value())) {
+                    // up < 0: width = PENALTY / max(1, -up)
+                    _scoped_numeral<numeral_manager> neg_up(nm);
+                    nm.set(neg_up, up->value());
+                    nm.neg(neg_up);
+                    if (nm.is_zero(neg_up) || nm.lt(neg_up, 1)) nm.set(neg_up, 1);
+                    nm.set(curr_width, (int)PENALTY);
+                    nm.div(curr_width, neg_up, curr_width);
+                } else {
+                    // up >= 0: width = PENALTY + up
+                    nm.set(curr_width, (int)PENALTY);
+                    nm.add(curr_width, up->value(), curr_width);
+                }
+            } else if (up == nullptr) {
+                // [lo, +∞)
+                if (nm.is_pos(lo->value())) {
+                    // lo > 0: width = PENALTY / max(1, lo)
+                    _scoped_numeral<numeral_manager> pos_lo(nm);
+                    nm.set(pos_lo, lo->value());
+                    if (nm.lt(pos_lo, 1)) nm.set(pos_lo, 1);
+                    nm.set(curr_width, (int)PENALTY);
+                    nm.div(curr_width, pos_lo, curr_width);
+                } else {
+                    // lo <= 0: width = PENALTY + (-lo)
+                    _scoped_numeral<numeral_manager> neg_lo(nm);
+                    nm.set(neg_lo, lo->value());
+                    nm.neg(neg_lo);
+                    nm.set(curr_width, (int)PENALTY);
+                    nm.add(curr_width, neg_lo, curr_width);
+                }
+            } else {
+                // Fully bounded: width = up - lo
+                C::round_to_plus_inf(nm);
+                nm.sub(up->value(), lo->value(), curr_width);
+            }
+
+            if (best == null_var) {
+                best = x;
+                best_split = split; best_cz = cz;
+                best_occ = occ; nm.set(best_width, curr_width);
+                continue;
+            }
+
+            // Multi-key comparison using the node's key ordering
+            bool prefer = false;
+            for (unsigned ki = 0; ki < NUM_KEYS; ++ki) {
+                unsigned key = rank[ki];
+                bool lt = false, eq = false;
+                switch (key) {
+                case 0: lt = split < best_split; eq = split == best_split; break;
+                case 1: lt = cz && !best_cz;     eq = cz == best_cz;       break;
+                case 2: lt = occ > best_occ;     eq = occ == best_occ;     break;
+                case 3: lt = nm.gt(curr_width, best_width);
+                        eq = nm.eq(curr_width, best_width);                 break;
+                default: break;
+                }
+                if (lt) { prefer = true; break; }
+                if (!eq) break; // x is strictly worse on this key
+            }
+            if (prefer) {
+                best = x;
+                best_split = split; best_cz = cz;
+                best_occ = occ; nm.set(best_width, curr_width);
+            }
+        }
+
+        if (best != null_var) {
+            if (best >= m_split_cnt.size()) m_split_cnt.resize(best + 1, 0);
+            ++m_split_cnt[best];
+        }
+        return best;
+    }
+};
+
 template<typename C>
 class midpoint_node_splitter : public context_t<C>::node_splitter {
     typedef typename context_t<C>::numeral_manager numeral_manager;
