@@ -377,7 +377,7 @@ namespace smt {
         m_sls->collect_statistics(st);
     }
 
-    bb_candidates parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities) {
+    void parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities) {
         bb_candidates backbone_candidates = find_backbone_candidates();
         if (m_config.m_global_backbones)
             b.collect_backbone_candidates(m_l2g, backbone_candidates);
@@ -412,10 +412,8 @@ namespace smt {
                 LOG_WORKER(2, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
             }
         }
-        if (!m.inc()) {
+        if (!m.inc())
             b.set_exception("context cancelled");
-            return;
-        }
     }
 
     void parallel::worker::run() {
@@ -543,22 +541,17 @@ namespace smt {
 
     parallel::bb_candidates parallel::worker::find_backbone_candidates(unsigned k) {
         bb_candidates backbone_candidates;
-        vector<std::pair<double, expr_ref>> top_k; // will hold at most k elements
         expr_ref candidate(m);
         unsigned curr_time = ctx->m_stats.m_num_assignments;
 
         for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
-            // TODO: condition isn't whether it's undef, but whether it's assigned AT BASE LEVEL or not (we need it to NOT be assigned at base level)
             if (ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl)
                 continue;
-
-            auto const& d = ctx->get_bdata(v);
-            // if (!d.m_phase_available) // TODO: erase this since the phase can be made unavailable just via backtracking
-            //     continue;
 
             auto birth = ctx->m_birthdate[v];
             auto age = curr_time - birth;
 
+            auto const& d = ctx->get_bdata(v);
             bool phase = d.m_phase;
 
             candidate = ctx->bool_var2expr(v);
@@ -571,28 +564,22 @@ namespace smt {
             if (b.is_global_backbone(m_l2g, candidate))
                 continue;
 
-            double score = age;
-
-            // insert into top_k. linear scan since k is very small
-            if (top_k.size() < k) {
-                top_k.push_back({score, candidate});
-            } 
-            else {
-                // find the smallest in top_k and replace if we found a new element bigger than the min
-                // TODO: delete the specialized heap, just put everything in 1 vector, then sort it afterwards and shink it to max_size
-                unsigned min_idx = 0;
-                for (unsigned i = 1; i < k; ++i)
-                    if (top_k[i].first < top_k[min_idx].first)
-                        min_idx = i;
-
-                if (score > top_k[min_idx].first) {
-                    top_k[min_idx] = {score, candidate};
-                }
-            }
+            bb_candidate bb_cand(m, candidate, age, 1);
+            backbone_candidates.push_back(bb_cand);
         }
+        
+        // sort from oldest to youngest
+        std::stable_sort(
+            backbone_candidates.begin(), 
+            backbone_candidates.end(), 
+            [](bb_candidate const& a, bb_candidate const& b) {
+                return a.age > b.age;
+            }
+        );
 
-        for (auto& p : top_k)
-            backbone_candidates.push_back(bb_candidate(m, p.second.get(), p.first, 1));
+        // take top-k oldest 
+        if (backbone_candidates.size() > k)
+            backbone_candidates.shrink(k);
         
         return backbone_candidates;
     }
@@ -816,7 +803,6 @@ namespace smt {
     }
 
     void parallel::batch_manager::collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates) {
-
         std::scoped_lock lock(mux);
 
         auto find_existing_candidate_idx = [&](expr* e) -> int {
@@ -828,28 +814,27 @@ namespace smt {
         };
 
         auto rank_of = [&](bb_candidate const& c) {
-            return c.score * std::log2(2.0 + c.hits);
+            return c.age * std::log2(2.0 + c.hits);
         };
 
         for (auto const& c : bb_candidates) {
             if (is_global_backbone_unsafe(l2g, c.lit))
                 continue;
 
-            
             expr* worker_lit = c.lit.get();
             expr_ref g_lit(l2g(worker_lit), m);
-            double score = c.score;
+            double age = c.age;
             int idx = find_existing_candidate_idx(g_lit.get());
 
             if (idx >= 0) {
                 auto& existing = m_bb_candidates[idx];
-                existing.score = (existing.score * existing.hits + score) / (existing.hits + 1);
+                existing.age = (existing.age * existing.hits + age) / (existing.hits + 1);
                 existing.hits++;
                 continue;
             }
 
             if (m_bb_candidates.size() < m_max_global_bb_candidates) {
-                m_bb_candidates.push_back(bb_candidate(m, g_lit.get(), score, 1));
+                m_bb_candidates.push_back(bb_candidate(m, g_lit.get(), age, 1));
                 continue;
             }
 
@@ -865,7 +850,7 @@ namespace smt {
                 }
             }
 
-            bb_candidate new_bb_candidate = bb_candidate(m, g_lit.get(), score, 1);
+            bb_candidate new_bb_candidate = bb_candidate(m, g_lit.get(), age, 1);
             if (rank_of(new_bb_candidate) > worst_rank)
                 m_bb_candidates[worst_idx] = new_bb_candidate;
         }
@@ -922,7 +907,7 @@ namespace smt {
         // ---- COPY CURRENT BATCH ----
         for (auto const& gc : m_bb_current_batch) {
             expr* l_lit = g2l(gc.lit.get());
-            out.push_back(bb_candidate(g2l.to(), l_lit, gc.score, gc.hits));
+            out.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
         }
 
         m_bb_last_batch_processed[bb_thread_id] = m_bb_batch_id;

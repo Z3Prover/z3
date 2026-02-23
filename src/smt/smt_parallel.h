@@ -46,11 +46,11 @@ namespace smt {
         };
 
         struct bb_candidate {
-            expr_ref lit;      // global literal (in batch manager AST)
-            double score;      // age / dominance score
-            unsigned hits;     // how many times reported
+            expr_ref lit;
+            double age;
+            unsigned hits;     // how many cubes reported it
 
-            bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : lit(e, m), score(s), hits(h) {}
+            bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : lit(e, m), age(s), hits(h) {}
         };
 
         using bb_candidates = vector<bb_candidate>;
@@ -224,7 +224,7 @@ namespace smt {
 
             void simplify();
             bb_candidates find_backbone_candidates(unsigned k = 10);
-            bb_candidates prepare_backbone_candidates(u_map<double>& original_activities)
+            void prepare_backbone_candidates(u_map<double>& original_activities);
 
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
