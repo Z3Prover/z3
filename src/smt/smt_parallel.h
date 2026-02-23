@@ -224,6 +224,7 @@ namespace smt {
 
             void simplify();
             bb_candidates find_backbone_candidates(unsigned k = 10);
+            bb_candidates prepare_backbone_candidates(u_map<double>& original_activities)
 
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);

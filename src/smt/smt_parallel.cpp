@@ -304,18 +304,17 @@ namespace smt {
     }
     
     bool parallel::batch_manager::collect_global_backbone(ast_translation& l2g, expr_ref const& backbone) {
-        expr_ref g_bb_ref(m);
-
         if (is_global_backbone(l2g, backbone))
             return false;
-        expr *g_bb = l2g(backbone.get());
 
+        expr *g_bb = nullptr;
         {
             std::scoped_lock lock(mux);
+            g_bb = l2g(backbone.get());
             m_global_backbones.push_back(g_bb);
         }
 
-        g_bb_ref = expr_ref(g_bb, m);
+        expr_ref g_bb_ref(g_bb, m);
         IF_VERBOSE(1, verbose_stream() << " Found and sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
         collect_clause(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
 
@@ -378,6 +377,47 @@ namespace smt {
         m_sls->collect_statistics(st);
     }
 
+    bb_candidates parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities) {
+        bb_candidates backbone_candidates = find_backbone_candidates();
+        if (m_config.m_global_backbones)
+            b.collect_backbone_candidates(m_l2g, backbone_candidates);
+        if (m_config.m_local_backbones) {
+            LOG_WORKER(1, " LOCAL BACKBONE DETECTION\n");
+            for (smt::parallel::bb_candidate const& bb : backbone_candidates) {
+                // Set the phase of the candidates to the negation of their assumed values
+                LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
+                expr* atom = bb.lit.get();
+                bool phase = false;
+
+                if (m.is_not(atom)) {
+                    phase = true;
+                    atom = to_app(atom)->get_arg(0);
+                }
+
+                sat::bool_var v = ctx->get_bool_var(atom);
+                ctx->force_phase(v, phase);
+                LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
+
+                auto const& activities = ctx->get_activity_vector();
+                double max_activity = 0.0;
+                for (unsigned i = 0; i < activities.size(); ++i)
+                    max_activity = std::max(max_activity, activities[i]);
+
+                original_activities.insert(v, ctx->get_activity(v));
+
+                // Promote this candidate above all others
+                double eps = 1.0;
+                ctx->set_activity(v, max_activity + eps);
+
+                LOG_WORKER(2, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
+            }
+        }
+        if (!m.inc()) {
+            b.set_exception("context cancelled");
+            return;
+        }
+    }
+
     void parallel::worker::run() {
         search_tree::node<cube_config> *node = nullptr;
         expr_ref_vector cube(m);
@@ -393,45 +433,8 @@ namespace smt {
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
 
             u_map<double> original_activities;
-            if (m_config.m_local_backbones || m_config.m_global_backbones) {
-                bb_candidates backbone_candidates = find_backbone_candidates();
-                if (m_config.m_global_backbones)
-                    b.collect_backbone_candidates(m_l2g, backbone_candidates);
-                if (m_config.m_local_backbones) {
-                    LOG_WORKER(1, " LOCAL BACKBONE DETECTION\n");
-                    for (smt::parallel::bb_candidate const& bb : backbone_candidates) {
-                        // Set the phase of the candidates to the negation of their assumed values
-                        LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
-                        expr* atom = bb.lit.get();
-                        bool phase = false;
-
-                        if (m.is_not(atom)) {
-                            phase = true;
-                            atom = to_app(atom)->get_arg(0);
-                        }
-
-                        sat::bool_var v = ctx->get_bool_var(atom);
-                        ctx->force_phase(v, phase);
-                        LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
-
-                        auto const& activities = ctx->get_activity_vector();
-                        double max_activity = 0.0;
-                        for (unsigned i = 0; i < activities.size(); ++i)
-                            max_activity = std::max(max_activity, activities[i]);
-
-                        original_activities.insert(v, ctx->get_activity(v));
-
-                        // Promote this candidate above all others
-                        double eps = 1.0;
-                        ctx->set_activity(v, max_activity + eps);
-
-                        LOG_WORKER(2, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
-                    }
-                }
-                if (!m.inc()) {
-                    b.set_exception("context cancelled");
-                    return;
-                }
+            if (m_config.m_local_backbones || m_config.m_global_backbones) { 
+                prepare_backbone_candidates(original_activities);
             }
 
             lbool r = check_cube(cube);
@@ -545,12 +548,13 @@ namespace smt {
         unsigned curr_time = ctx->m_stats.m_num_assignments;
 
         for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
-            if (ctx->get_assignment(v) != l_undef) 
+            // TODO: condition isn't whether it's undef, but whether it's assigned AT BASE LEVEL or not (we need it to NOT be assigned at base level)
+            if (ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl)
                 continue;
 
             auto const& d = ctx->get_bdata(v);
-            if (!d.m_phase_available)
-                continue;
+            // if (!d.m_phase_available) // TODO: erase this since the phase can be made unavailable just via backtracking
+            //     continue;
 
             auto birth = ctx->m_birthdate[v];
             auto age = curr_time - birth;
@@ -575,6 +579,7 @@ namespace smt {
             } 
             else {
                 // find the smallest in top_k and replace if we found a new element bigger than the min
+                // TODO: delete the specialized heap, just put everything in 1 vector, then sort it afterwards and shink it to max_size
                 unsigned min_idx = 0;
                 for (unsigned i = 1; i < k; ++i)
                     if (top_k[i].first < top_k[min_idx].first)
