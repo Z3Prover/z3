@@ -999,11 +999,23 @@ namespace nlsat {
         }
 
 
-        void mk_linear_poly_from_root(anum const& a, polynomial_ref& p) {
+        void add_linear_poly_from_root(anum const& a, bool lower, polynomial_ref& p) {
             rational r;
             m_am.to_rational(a, r);
             p = m_pm.mk_polynomial(m_level);
             p = denominator(r)*p - numerator(r);
+
+            if (lower) {
+                m_I[m_level].l = p;
+                m_I[m_level].l_index = 1;
+            } else {
+                m_I[m_level].u = p;
+                m_I[m_level].u_index = 1;
+            }
+            m_level_ps.push_back(p);
+            m_poly_has_roots.push_back(true);
+            polynomial_ref w = choose_nonzero_coeff(p, m_level);
+            m_witnesses.push_back(w);
         }
 
         // Ensure that the interval bounds will be described by linear polynomials.
@@ -1016,17 +1028,12 @@ namespace nlsat {
             auto& r = m_rel.m_rfunc;
             if (m_I[m_level].is_section()) {
                 if (!m_am.is_rational(v)) {
-                    // TODO: FAIL
                     NOT_IMPLEMENTED_YET();
                 } 
                 else if (m_pm.total_degree(m_I[m_level].l) > 1) {
-                    mk_linear_poly_from_root(v, p_lower);
-                    // add p_lower and according i.r.e. to relevant places
-                    m_I[m_level].l = p_lower;
-                    m_I[m_level].l_index = 1;
-                    m_level_ps.push_back(p_lower);
+                    add_linear_poly_from_root(v, true, p_lower);
+                    // update root function ordering
                     r.emplace((r.begin() + m_l_rf), m_am, p_lower, 1, v, m_level_ps.size()-1);
-                    m_poly_has_roots.push_back(true);
                 }
                 return;
             }
@@ -1035,26 +1042,19 @@ namespace nlsat {
             if (!m_I[m_level].l_inf() && m_pm.total_degree(m_I[m_level].l) > 1) {
                 scoped_anum between(m_am);
                 m_am.select(r[m_l_rf].val, v, between);
-                mk_linear_poly_from_root(between, p_lower);
-                // add p_lower and according i.r.e. to relevant places
-                m_I[m_level].l = p_lower;
-                m_I[m_level].l_index = 1;
-                m_level_ps.push_back(p_lower);
+                add_linear_poly_from_root(between, true, p_lower);
+                // update root function ordering
                 r.emplace((r.begin() + m_l_rf + 1), m_am, p_lower, 1, between, m_level_ps.size()-1);
-                m_poly_has_roots.push_back(true);
                 ++m_l_rf;
-                ++m_u_rf;
+                if (is_set(m_u_rf))
+                    ++m_u_rf;
             }
             if (!m_I[m_level].u_inf() && m_pm.total_degree(m_I[m_level].u) > 1) {
                 scoped_anum between(m_am);
                 m_am.select(v, r[m_u_rf].val, between);
-                mk_linear_poly_from_root(between, p_upper);
-                // add p_lower and according i.r.e. to relevant places
-                m_I[m_level].u = p_upper;
-                m_I[m_level].u_index = 1;
-                m_level_ps.push_back(p_lower);
+                // update root function ordering
+                add_linear_poly_from_root(between, false, p_upper);
                 r.emplace((r.begin() + m_u_rf), m_am, p_upper, 1, between, m_level_ps.size()-1);
-                m_poly_has_roots.push_back(true);
             }
         }
 
