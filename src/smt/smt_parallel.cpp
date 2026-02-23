@@ -121,7 +121,7 @@ namespace smt {
                 m_stats.m_fallback_singleton_checks++;
                 for (expr* c : chunk_lits) {
                     expr_ref bb_ref(c, m);
-                    if (canceled()) 
+                    if (!m.inc() || canceled()) 
                         return;
                     
                     if (m_mode == bb_mode::bb_positive)
@@ -150,7 +150,8 @@ namespace smt {
             unsigned base_asms_sz = asms.size();
             unsigned chunk_delta = 1;
 
-            while (!bb_candidate_lits.empty() && !canceled()) {
+            // in mode bb_neg this is Algorithm 7 from https://sat.inesc-id.pt/~mikolas/bb-aicom-preprint.pdf
+            while (!bb_candidate_lits.empty() && !canceled() && m.inc()) {
                 // remove candidates that the other bacbone thread found to be backbones
                 for (unsigned i = 0; i < bb_candidate_lits.size();) {
                     expr* tmp = bb_candidate_lits.get(i);
@@ -182,7 +183,6 @@ namespace smt {
 
                     if (!m.inc()) 
                         return;
-
                     if (canceled()) 
                         break;
 
@@ -195,10 +195,11 @@ namespace smt {
 
                     lbool r = l_undef;
                     try {
-
                         LOG_BB_WORKER(1, " checking batch of " << bb_asms.size() << " candidates\n"); 
-                        if (canceled()) break;
                         r = ctx->check(asms.size(), asms.data());
+
+                        if (!m.inc()) 
+                            return;
                         if (canceled()) 
                             break;
                     } catch (...) {
@@ -224,14 +225,19 @@ namespace smt {
                         break;
                     }
 
-                    // When r == l_true, the solver gives a model M. From M, any candidate literal not
-                    // satisfied in M cannot be a backbone and can be filtered (removed), since every backbone 
-                    // literal must be true in every model
                     if (r == l_true) {
-                        LOG_BB_WORKER(1, " batch check returned SAT, filtering candidates\n");
-                        // NSB: do we expect this to happen? If it really happens are we done then because the entire
-                        // formula is SAT?
+                        if (m_mode == bb_mode::bb_positive) {
+                            LOG_BB_WORKER(1, " batch check returned SAT, thus entire formula is SAT\n");
+                            model_ref mdl;
+                            ctx->get_model(mdl);
+                            b.set_sat(m_l2g, *mdl);
+                            return;
+                        }
 
+                        // When r == l_true and we're in mode bb_neg, the solver gives a model M. From M, any candidate literal not
+                        // satisfied in M cannot be a backbone and can be filtered (removed), since every backbone 
+                        // literal must be true in every model
+                        LOG_BB_WORKER(1, " batch check returned SAT, filtering candidates\n");
                         expr_ref_vector new_bb_candidate(m);
                         
                         for (expr* e : bb_candidate_lits) 
@@ -281,7 +287,6 @@ namespace smt {
                     m_stats.m_lits_removed_by_core += sz_before - bb_asms.size();
                     chunk_delta = 1;
 
-                    // fallback
                     if (bb_asms.empty()) {
                         LOG_BB_WORKER(1, " no more negated chunk literals, fallback to individual checks\n");
                         fallback_singletons(chunk_lits, bb_candidate_lits);
@@ -792,7 +797,6 @@ namespace smt {
         }
     }
 
-
     void parallel::backbones_worker::collect_shared_clauses() {
         expr_ref_vector new_clauses = b.return_shared_clauses(m_g2l, m_shared_clause_limit, UINT_MAX);
         // iterate over new clauses and assert them in the local context
@@ -1122,7 +1126,7 @@ namespace smt {
             sl.push_child(&(m_sls_worker->limit()));
         }
         if (m_should_run_global_backbones) {
-            unsigned num_bb_threads = 1;
+            unsigned num_bb_threads = 2;
             for (unsigned i = 0; i < num_bb_threads; ++i) {
                 auto *w = alloc(backbones_worker, i, *this, asms);
                 m_global_backbones_workers.push_back(w);
