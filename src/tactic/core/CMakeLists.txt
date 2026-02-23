@@ -9,7 +9,6 @@ z3_add_component(core_tactics
     elim_term_ite_tactic.cpp
     elim_uncnstr_tactic.cpp
     injectivity_tactic.cpp
-    nnf_tactic.cpp
     occf_tactic.cpp
     pb_preprocess_tactic.cpp
     propagate_values_tactic.cpp

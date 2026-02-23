@@ -26,18 +26,24 @@ class cnf_nnf_simplifier : public dependent_expr_simplifier {
 
     defined_names m_defined_names;
     th_rewriter   m_rewriter;
+    params_ref    m_params;
     
 public:
     cnf_nnf_simplifier(ast_manager& m, params_ref const& p, dependent_expr_state& fmls):
         dependent_expr_simplifier(m, fmls),
         m_defined_names(m),
-        m_rewriter(m, p){
+        m_rewriter(m, p),
+        m_params(p) {
     }
 
     char const* name() const override { return "cnf-nnf"; }
+
+    void updt_params(params_ref const& p) override { m_params.append(p); m_rewriter.updt_params(p); }
+
+    void collect_param_descrs(param_descrs& r) override { nnf::get_param_descrs(r); }
     
     void reduce() override {
-        nnf apply_nnf(m, m_defined_names);
+        nnf apply_nnf(m, m_defined_names, m_params);
         expr_ref_vector  push_todo(m);
         proof_ref_vector push_todo_prs(m);
         proof_ref pr(m);
