@@ -24,6 +24,7 @@ Author:
 #include "ast/simplifiers/then_simplifier.h"
 #include "smt/smt_parallel.h"
 #include "smt/smt_lookahead.h"
+#include "smt/smt_arith_value.h"
 #include "solver/solver_preprocess.h"
 #include "params/smt_parallel_params.hpp"
 
@@ -410,11 +411,144 @@ namespace smt {
         return r;
     }
 
+    expr_ref parallel::worker::get_arith_split_atom() {
+        arith_util a(m);
+        arith_value av(m);
+        av.init(ctx.get());
+
+        // For each arithmetic constant (arity-0 variable of Int/Real sort) collect:
+        //   - occurrence count: number of arithmetic-comparison parent enodes
+        //   - current theory bounds from arith_value (may be absent for unbounded vars)
+        //
+        // Variables without theory-propagated bounds are still valid split candidates:
+        // they will be split at 0 (AriParti's zero-split heuristic, paper Section 4.2).
+        struct VarInfo {
+            unsigned occ        = 0;
+            bool     has_lo     = false, has_up = false;
+            rational lo, up;
+            bool     lo_strict  = false, up_strict = false;
+        };
+        obj_map<expr, VarInfo> vars;
+
+        for (enode *n : ctx->enodes()) {
+            expr *e = n->get_expr();
+            if (!is_app(e))
+                continue;
+            if (to_app(e)->get_num_args() != 0)
+                continue; // only 0-arity constant declarations
+            if (!a.is_int_real(e))
+                continue;
+            VarInfo &info = vars.insert_if_not_there(e, VarInfo{});
+            for (enode *p : n->get_parents()) {
+                expr *pe = p->get_expr();
+                if (a.is_le(pe) || a.is_ge(pe) || a.is_lt(pe) || a.is_gt(pe) ||
+                        m.is_eq(pe))
+                    ++info.occ;
+            }
+            if (info.occ == 0)
+                info.occ = 1;
+            info.has_lo = av.get_lo(e, info.lo, info.lo_strict);
+            info.has_up = av.get_up(e, info.up, info.up_strict);
+        }
+        if (vars.empty())
+            return expr_ref(m);
+
+        // Select the best variable using AriParti's heuristic (Section 4.2):
+        //   1. More occurrences in arithmetic atoms is better.
+        //   2. Among ties, wider interval is better.
+        //   3. Among ties, interval containing zero is better.
+        //   Fully-bounded variables are preferred over half-bounded or unbounded
+        //   because the interval width is more meaningful.
+        expr    *best_term    = nullptr;
+        rational best_width   = rational(-1);
+        unsigned best_occ     = 0;
+        bool     best_cz      = false;
+        bool     best_bounded = false;
+
+        for (auto const &[term, info] : vars) {
+            if (info.has_lo && info.has_up && info.lo >= info.up)
+                continue; // already fixed — nothing useful to split
+
+            bool fully_bounded = info.has_lo && info.has_up;
+            rational width = fully_bounded ? (info.up - info.lo) : rational(-1);
+            bool cz;
+            if (fully_bounded)
+                cz = (info.lo <= rational::zero() && rational::zero() <= info.up);
+            else if (info.has_lo)
+                cz = (info.lo <= rational::zero());
+            else if (info.has_up)
+                cz = (rational::zero() <= info.up);
+            else
+                cz = true; // unbounded: split at 0 is always valid
+
+            bool prefer = !best_term;
+            if (!prefer) {
+                if (info.occ > best_occ)
+                    prefer = true;
+                else if (info.occ == best_occ) {
+                    if (fully_bounded && !best_bounded)
+                        prefer = true;
+                    else if (fully_bounded == best_bounded) {
+                        if (width > best_width)
+                            prefer = true;
+                        else if (width == best_width && cz && !best_cz)
+                            prefer = true;
+                    }
+                }
+            }
+            if (prefer) {
+                best_term    = term;
+                best_width   = width;
+                best_occ     = info.occ;
+                best_cz      = cz;
+                best_bounded = fully_bounded;
+            }
+        }
+        if (!best_term)
+            return expr_ref(m);
+
+        VarInfo bi;
+        vars.find(best_term, bi);
+
+        // Compute split midpoint following AriParti Section 4.2.
+        rational mid;
+        if (best_cz) {
+            mid = rational::zero();
+        } else if (bi.has_lo && bi.has_up) {
+            mid = (bi.lo + bi.up) / rational(2);
+            if (a.is_int(best_term))
+                mid = floor(mid);
+        } else if (bi.has_lo) {
+            mid = bi.lo; // split at known lower bound
+        } else if (bi.has_up) {
+            mid = bi.up - rational(1);
+            if (!a.is_int(best_term))
+                mid = bi.up - rational(1, 2);
+        } else {
+            mid = rational::zero();
+        }
+
+        sort *srt = best_term->get_sort();
+        LOG_WORKER(2, " arith split on " << mk_bounded_pp(best_term, m, 2)
+                      << " at " << mid << "\n");
+        return expr_ref(a.mk_le(best_term, a.mk_numeral(mid, srt)), m);
+    }
+
     expr_ref parallel::worker::get_split_atom() {
         expr_ref result(m);
         double score = 0;
         unsigned n = 0;
         ctx->pop_to_search_lvl();
+
+        // Try AriParti-style arithmetic interval split first.
+        // This is particularly effective for arithmetic theories (QF_LRA, QF_LIA,
+        // QF_NRA, QF_NIA) where splitting at the midpoint of a variable's current
+        // interval is more informative than a Boolean variable split.
+        expr_ref arith_atom = get_arith_split_atom();
+        if (arith_atom)
+            return arith_atom;
+
+        // Fall back to Boolean variable score-based splitting (VSIDS-style).
         for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
             if (ctx->get_assignment(v) != l_undef)
                 continue;
