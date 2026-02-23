@@ -501,13 +501,23 @@ namespace smt {
         }
     }
 
-    parallel::worker::worker(unsigned id, parallel &p, expr_ref_vector const &_asms)
-        : id(id), p(p), b(p.m_batch_manager), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m),
+    parallel::worker::worker(unsigned id, parallel &p, expr_ref_vector const &_asms, lbool mode)
+        : id(id), mode(mode), p(p), b(p.m_batch_manager), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m),
           m_l2g(m, p.ctx.m) {
         for (auto e : _asms)
             asms.push_back(m_g2l(e));
         LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");
         m_smt_params.m_random_seed += id;  // ensure different random seed for each worker
+        switch (mode) {
+        case l_undef:
+            break;
+        case l_true:
+            // TODO set whatever is relevant for SAT mode
+            break;
+        case l_false:
+            // TODO set phase selection to random. m_smt_params.m_phase_selection = PS_RANDOM;
+            break;
+        }
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
@@ -1089,7 +1099,15 @@ namespace smt {
     }
 
     lbool parallel::operator()(expr_ref_vector const &asms) {
-        IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << num_workers << " threads\n";);
+        smt_parallel_params pp(ctx.m_params);
+        unsigned num_std_workers = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
+        unsigned num_sat_threads = pp.num_sat_threads();
+        unsigned num_unsat_threads = pp.num_unsat_threads();
+        unsigned num_sls_threads = (pp.sls() ? 1 : 0);
+        unsigned num_bb_threads = pp.num_bb_threads();          
+        unsigned total_threads = num_std_workers + num_sat_threads + num_unsat_threads + num_sls_threads + num_bb_threads;
+
+        IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << total_threads << " threads\n";);
         ast_manager &m = ctx.m;
 
         if (m.has_trace_stream())
@@ -1108,45 +1126,49 @@ namespace smt {
 
         m_batch_manager.initialize();
         m_workers.reset();
-
-        smt_parallel_params pp(ctx.m_params);
-        m_should_run_sls = pp.sls();
-        m_should_run_global_backbones = pp.global_backbones();
-        m_num_bb_threads = pp.num_bb_threads();
         
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
-        SASSERT(num_workers > 1);
-        for (unsigned i = 0; i < num_workers; ++i)
-            m_workers.push_back(alloc(worker, i, *this, asms));
-        for (auto w : m_workers)
+        SASSERT(num_std_workers > 1);
+        for (unsigned i = 0; i < num_std_workers; ++i) {
+            auto *w = alloc(worker, i, *this, asms, l_undef);
+            m_workers.push_back(w);
             sl.push_child(&(w->limit()));
-        if (m_should_run_sls) {
+        }
+        for (unsigned i = 0; i < num_sat_threads; ++i) {
+            auto *w = alloc(worker, i, *this, asms, l_true);
+            m_workers.push_back(w);
+            sl.push_child(&(w->limit()));
+        }
+        for (unsigned i = 0; i < num_unsat_threads; ++i) {
+            auto *w = alloc(worker, i, *this, asms, l_false);
+            m_workers.push_back(w);
+            sl.push_child(&(w->limit()));
+        }
+
+        if (num_sls_threads == 1) {
             m_sls_worker = alloc(sls_worker, *this);
             sl.push_child(&(m_sls_worker->limit()));
         }
-        if (m_should_run_global_backbones) {
-            for (unsigned i = 0; i < m_num_bb_threads; ++i) {
-                auto *w = alloc(backbones_worker, i, *this, asms);
-                m_global_backbones_workers.push_back(w);
-                sl.push_child(&(w->limit()));
-            }
-            m_batch_manager.set_num_backbone_threads(m_num_bb_threads);
+        for (unsigned i = 0; i < num_bb_threads; ++i) {
+            auto *w = alloc(backbones_worker, i, *this, asms);
+            m_global_backbones_workers.push_back(w);
+            sl.push_child(&(w->limit()));
         }
+        m_batch_manager.set_num_backbone_threads(num_bb_threads);
+        
 
         // Launch threads
         vector<std::thread> threads;
-        unsigned total_threads = num_workers + (m_should_run_sls ? 1 : 0) + (m_should_run_global_backbones ? m_global_backbones_workers.size() : 0);
         threads.resize(total_threads);
         unsigned thread_idx = 0;
-        for (unsigned i = 0; i < num_workers; ++i) {
-            threads[thread_idx++] = std::thread([&, i]() { m_workers[i]->run(); });
-        }
-        
+        for (auto* w : m_workers) 
+            threads[thread_idx++] = std::thread([&, w]() { w->run(); });                
         if (m_sls_worker)
             threads[thread_idx++] = std::thread([&]() { m_sls_worker->run(); });
         for (auto* w : m_global_backbones_workers) 
-            threads[thread_idx++] = std::thread([&, w]() { w->run(); });                    
+            threads[thread_idx++] = std::thread([&, w]() { w->run(); });                   
+
 
         // Wait for all threads to finish
         for (auto &th : threads)

@@ -36,10 +36,6 @@ namespace smt {
 
     class parallel {
         context& ctx;
-        unsigned num_workers;
-        bool m_should_run_sls = false;
-        bool m_should_run_global_backbones = false;
-        unsigned m_num_bb_threads = 1;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -119,8 +115,8 @@ namespace smt {
 
             void cancel_background_threads() {
                 cancel_workers();
-                if (p.m_should_run_sls) cancel_sls_worker();
-                if (p.m_should_run_global_backbones) {
+                cancel_sls_worker();
+                if (!p.m_global_backbones_workers.empty()) {
                     cancel_backbones_worker();
                     m_bb_cv.notify_all();
                 }
@@ -200,6 +196,7 @@ namespace smt {
             using node = search_tree::node<cube_config>;
 
             unsigned id; // unique identifier for the worker
+            lbool mode; // l_undef - standard mode, l_true - sat mode, l_false - unsat mode
             parallel& p;
             batch_manager& b;
             ast_manager m;
@@ -228,7 +225,7 @@ namespace smt {
             void prepare_backbone_candidates(u_map<double>& original_activities);
 
         public:
-            worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
+            worker(unsigned id, parallel& p, expr_ref_vector const& _asms, lbool mode);
             void run();
             
             void collect_shared_clauses();
@@ -317,9 +314,6 @@ namespace smt {
     public:
         parallel(context& ctx) : 
             ctx(ctx),
-            num_workers(std::min(
-                (unsigned)std::thread::hardware_concurrency(),
-                ctx.get_fparams().m_threads)),
             m_batch_manager(ctx.m, *this) {}
 
         lbool operator()(expr_ref_vector const& asms);
