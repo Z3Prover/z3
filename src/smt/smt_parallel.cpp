@@ -261,7 +261,7 @@ namespace smt {
                     // ---- singleton core → backbone ----
                     if (bb_asms_in_core.size() == 1) {
                         expr* a = bb_asms_in_core.back();
-                        expr_ref backbone_lit(mk_not(m, a), m);
+                        expr_ref backbone_lit(m.mk_not(a), m);
 
                         m_stats.m_singleton_backbones++;
                         m_stats.m_backbones_detected++;
@@ -596,7 +596,7 @@ namespace smt {
     // 
     bool parallel::backbones_worker::check_backbone(expr_ref const& bb_candidate) {
         unsigned sz = asms.size();
-        asms.push_back(mk_not(m, bb_candidate.get()));
+        asms.push_back(m.mk_not(bb_candidate.get()));
         
         lbool r = l_undef;
         try {
