@@ -392,14 +392,13 @@ namespace smt {
                 // Set the phase of the candidates to the negation of their assumed values
                 LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
                 expr* atom = bb.lit.get();
-                bool phase = false;
+                bool phase = false;  // set to false if tuning for UNSAT, set to true if tuning for SAT
 
-                if (m.is_not(atom)) {
-                    phase = true;
-                    atom = to_app(atom)->get_arg(0);
-                }
+                if (m.is_not(atom, atom)) 
+                    phase = !phase;
 
                 sat::bool_var v = ctx->get_bool_var(atom);
+                SASSERT(v != sat::null_bool_var); // because these candidates come from the current context, they must be internalized
                 ctx->force_phase(v, phase);
                 LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
 
@@ -1113,6 +1112,7 @@ namespace smt {
         smt_parallel_params pp(ctx.m_params);
         m_should_run_sls = pp.sls();
         m_should_run_global_backbones = pp.global_backbones();
+        m_num_bb_threads = pp.num_bb_threads();
         
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
@@ -1126,13 +1126,12 @@ namespace smt {
             sl.push_child(&(m_sls_worker->limit()));
         }
         if (m_should_run_global_backbones) {
-            unsigned num_bb_threads = 1;
-            for (unsigned i = 0; i < num_bb_threads; ++i) {
+            for (unsigned i = 0; i < m_num_bb_threads; ++i) {
                 auto *w = alloc(backbones_worker, i, *this, asms);
                 m_global_backbones_workers.push_back(w);
                 sl.push_child(&(w->limit()));
             }
-            m_batch_manager.set_num_backbone_threads(num_bb_threads);
+            m_batch_manager.set_num_backbone_threads(m_num_bb_threads);
         }
 
         // Launch threads

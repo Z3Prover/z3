@@ -39,6 +39,7 @@ namespace smt {
         unsigned num_workers;
         bool m_should_run_sls = false;
         bool m_should_run_global_backbones = false;
+        unsigned m_num_bb_threads = 1;
 
         struct shared_clause {
             unsigned source_worker_id;
