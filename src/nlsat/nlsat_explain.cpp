@@ -1048,9 +1048,6 @@ namespace nlsat {
             
             levelwise lws(m_solver, ps, max_x, sample(), m_pm, m_am, cache);
             auto cell = lws.single_cell();
-            if (lws.failed())
-                return false;
-
             TRACE(lws, for (unsigned i = 0; i < cell.size(); i++)
                                  display(tout << "I[" << i << "]:", m_solver, cell[i]) << "\n";);
             // Enumerate all intervals in the computed cell and add literals for each non-trivial interval.
@@ -1087,7 +1084,7 @@ namespace nlsat {
          * "Solving Satisfiability of Polynomial Formulas By Sample - Cell Projection"
          * https://arxiv.org/abs/2003.00409 
          */
-        void project_cdcac(polynomial_ref_vector & ps, var max_x) {
+        void project(polynomial_ref_vector & ps, var max_x) {
             bool first = true;
             if (ps.empty())
                 return;
@@ -1143,10 +1140,6 @@ namespace nlsat {
                 cac_add_cell_lits(ps, x, samples);
             }
             
-        }
-
-        void project(polynomial_ref_vector & ps, var max_x) {
-            project_cdcac(ps, max_x);
         }
 
         bool check_already_added() const {

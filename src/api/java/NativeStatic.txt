@@ -241,3 +241,40 @@ DLL_VIS JNIEXPORT jboolean JNICALL Java_com_microsoft_z3_Native_propagateNextSpl
   Z3_solver_callback cb = info->cb;
   return (jboolean) Z3_solver_next_split((Z3_context)ctx, cb, (Z3_ast)e, idx, Z3_lbool(phase));
 }
+
+struct JavaOnClauseInfo {
+  JNIEnv *jenv = nullptr;
+  jobject jobj = nullptr;
+  jmethodID on_clause = nullptr;
+};
+
+static void java_on_clause_eh(void* _p, Z3_ast proof_hint, unsigned n, unsigned const* deps, Z3_ast_vector literals) {
+  JavaOnClauseInfo *info = static_cast<JavaOnClauseInfo*>(_p);
+  jintArray jdeps = info->jenv->NewIntArray((jsize)n);
+  info->jenv->SetIntArrayRegion(jdeps, 0, (jsize)n, (jint*)deps);
+  info->jenv->CallVoidMethod(info->jobj, info->on_clause, (jlong)proof_hint, jdeps, (jlong)literals);
+  info->jenv->DeleteLocalRef(jdeps);
+}
+
+DLL_VIS JNIEXPORT jlong JNICALL Java_com_microsoft_z3_Native_onClauseInit(JNIEnv *jenv, jclass cls, jobject jobj, jlong ctx, jlong solver) {
+  JavaOnClauseInfo *info = new JavaOnClauseInfo;
+  info->jenv = jenv;
+  info->jobj = jenv->NewGlobalRef(jobj);
+  jclass jcls = jenv->GetObjectClass(info->jobj);
+  info->on_clause = jenv->GetMethodID(jcls, "onClauseWrapper", "(J[IJ)V");
+  if (!info->on_clause) {
+    jenv->DeleteGlobalRef(info->jobj);
+    delete info;
+    return 0;
+  }
+  Z3_solver_register_on_clause((Z3_context)ctx, (Z3_solver)solver, info, java_on_clause_eh);
+  return (jlong)info;
+}
+
+DLL_VIS JNIEXPORT void JNICALL Java_com_microsoft_z3_Native_onClauseDestroy(JNIEnv *jenv, jclass cls, jlong javainfo) {
+  JavaOnClauseInfo *info = (JavaOnClauseInfo*)javainfo;
+  if (info) {
+    info->jenv->DeleteGlobalRef(info->jobj);
+    delete info;
+  }
+}

@@ -23,3 +23,7 @@ Author:
 #include "ast/simplifiers/dependent_expr_state.h"
 
 dependent_expr_simplifier * mk_max_bv_sharing(ast_manager & m, params_ref const & p, dependent_expr_state& fmls);
+
+/*
+  ADD_SIMPLIFIER("max-bv-sharing", "use heuristics to maximize the sharing of bit-vector expressions such as adders and multipliers.", "mk_max_bv_sharing(m, p, s)")
+*/

@@ -278,6 +278,10 @@ public:
         SASSERT(&(this->m_manager) == &(other.m_manager));
         this->m_nodes.swap(other.m_nodes);
     }
+
+    void swap(unsigned idx1, unsigned idx2) noexcept {
+        this->super::swap(idx1, idx2);
+    }
     
     class element_ref {
         T * &       m_ref;

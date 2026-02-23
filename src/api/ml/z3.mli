@@ -2058,6 +2058,53 @@ sig
 
 end
 
+(** Finite Sets *)
+module FiniteSet :
+sig
+  (** Create a finite set sort with the given element sort. *)
+  val mk_sort : context -> Sort.sort -> Sort.sort
+
+  (** Test if a sort is a finite set sort. *)
+  val is_finite_set_sort : context -> Sort.sort -> bool
+
+  (** Get the element sort of a finite set sort. *)
+  val get_sort_basis : context -> Sort.sort -> Sort.sort
+
+  (** Create an empty finite set of the given sort. *)
+  val mk_empty : context -> Sort.sort -> Expr.expr
+
+  (** Create a singleton finite set containing the given element. *)
+  val mk_singleton : context -> Expr.expr -> Expr.expr
+
+  (** Create the union of two finite sets. *)
+  val mk_union : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create the intersection of two finite sets. *)
+  val mk_intersect : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create the set difference of two finite sets (s1 \ s2). *)
+  val mk_difference : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create a membership predicate: elem ∈ set. *)
+  val mk_member : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create an expression for the cardinality of a finite set. *)
+  val mk_size : context -> Expr.expr -> Expr.expr
+
+  (** Create a subset predicate: s1 ⊆ s2. *)
+  val mk_subset : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Apply a function to all elements of a finite set. *)
+  val mk_map : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Filter a finite set using a predicate function. *)
+  val mk_filter : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create a finite set of integers in the range [low, high]. *)
+  val mk_range : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+end
+
 (** Floating-Point Arithmetic *)
 module FloatingPoint :
 sig
@@ -3389,6 +3436,62 @@ sig
       it is more convenient to cancel a specific solver. Solvers
       that are not selected for interrupts are left alone.*)
   val interrupt: context -> solver -> unit
+
+  (** Retrieve the set of units from the solver.
+      Units are clauses of size 1 learned by the solver during solving. *)
+  val get_units : solver -> Expr.expr list
+
+  (** Retrieve the set of non-units from the solver.
+      Non-units are clauses of size greater than 1 learned by the solver. *)
+  val get_non_units : solver -> Expr.expr list
+
+  (** Retrieve the trail (sequence of assignments) from the solver.
+      The trail shows the sequence of literal assignments made by the solver. *)
+  val get_trail : solver -> Expr.expr list
+
+  (** Retrieve the decision levels of trail literals.
+      Given a list of literals from the trail, returns an array of their decision levels.
+      @param literals List of literals from the trail
+      @return Array of decision levels corresponding to the input literals *)
+  val get_levels : solver -> Expr.expr list -> int array
+
+  (** Retrieve the congruence closure root of an expression.
+      Returns the representative of the equivalence class containing the expression. *)
+  val congruence_root : solver -> Expr.expr -> Expr.expr
+
+  (** Retrieve the next element in the congruence closure equivalence class.
+      Congruence classes form a circular list; this returns the next element. *)
+  val congruence_next : solver -> Expr.expr -> Expr.expr
+
+  (** Retrieve an explanation for why two expressions are congruent.
+      Returns an expression that justifies the congruence between a and b. *)
+  val congruence_explain : solver -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Parse SMT-LIB2 formulas from a file and assert them into the solver. *)
+  val from_file : solver -> string -> unit
+
+  (** Parse SMT-LIB2 formulas from a string and assert them into the solver. *)
+  val from_string : solver -> string -> unit
+
+  (** Provide an initial value hint for a variable to the solver.
+      This can help guide the solver to find solutions more efficiently. *)
+  val set_initial_value : solver -> Expr.expr -> Expr.expr -> unit
+
+  (** Extract cubes from the solver for cube-and-conquer parallel solving.
+      vars is a list of variables to use as cube variables; use an empty list for automatic selection.
+      cutoff is the backtrack level cutoff for cube generation.
+      Returns a list of expressions representing the cube literals. *)
+  val cube : solver -> Expr.expr list -> int -> Expr.expr list
+
+  (** Retrieve fixed assignments to variables as consequences given assumptions.
+      Returns the solver status and a list of consequence expressions.
+      Each consequence is an implication: assumptions => variable = value. *)
+  val get_consequences : solver -> Expr.expr list -> Expr.expr list -> status * Expr.expr list
+
+  (** Solve constraints treating given variables symbolically.
+      variables are the variables to solve for, terms are the substitution terms,
+      and guards are Boolean guards for the substitutions. *)
+  val solve_for : solver -> Expr.expr list -> Expr.expr list -> Expr.expr list -> unit
 end
 
 (** Fixedpoint solving *)

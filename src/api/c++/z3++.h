@@ -324,6 +324,10 @@ namespace z3 {
          */
         sort re_sort(sort& seq_sort);
         /**
+           \brief Return a finite set sort over element sort \c s.
+         */
+        sort finite_set_sort(sort& s);
+        /**
            \brief Return an array sort for arrays from \c d to \c r.
 
            Example: Given a context \c c, <tt>c.array_sort(c.int_sort(), c.bool_sort())</tt> is an array sort from integer to Boolean.
@@ -862,6 +866,44 @@ namespace z3 {
 
         func_decl_vector accessors();
 
+    };
+
+    class parser_context : public object {
+        Z3_parser_context m_pc;
+    public:
+        explicit parser_context(context & c):object(c), m_pc(Z3_mk_parser_context(c)) { Z3_parser_context_inc_ref(ctx(), m_pc); }
+        ~parser_context() override { if (m_pc) Z3_parser_context_dec_ref(ctx(), m_pc); }
+        explicit operator bool() const { return m_pc; }
+        operator Z3_parser_context() const { return m_pc; }
+        parser_context(const parser_context &o):object(o), m_pc(o.m_pc) { Z3_parser_context_inc_ref(ctx(), m_pc); }
+        parser_context &operator=(const parser_context &o) {
+            if (this != &o) {
+                if (m_pc) Z3_parser_context_dec_ref(*m_ctx, m_pc);
+                Z3_parser_context_inc_ref(*o.m_ctx, o.m_pc);
+                object::operator=(o);
+                m_pc = o.m_pc;
+            }
+            return *this;
+        }
+
+        /**
+            \brief Add a sort declaration.
+         */
+        void add_sort(const sort & s) { Z3_parser_context_add_sort(ctx(), m_pc, s); check_error(); }
+
+        /**
+            \brief Add a function declaration.
+         */
+        void add_sort(const func_decl & f) { Z3_parser_context_add_decl(ctx(), m_pc, f); check_error(); }
+
+        /**
+            \brief Parse a string of SMTLIB2 commands. Return assertions.
+         */
+        expr_vector parse_string(const char * s) {
+            auto result = Z3_parser_context_from_string(ctx(), m_pc, s);
+            m_ctx->check_error();
+            return expr_vector(ctx(), result);
+        }
     };
 
     /**
@@ -3663,6 +3705,7 @@ namespace z3 {
     inline sort context::char_sort() { Z3_sort s = Z3_mk_char_sort(m_ctx); check_error(); return sort(*this, s); }
     inline sort context::seq_sort(sort& s) { Z3_sort r = Z3_mk_seq_sort(m_ctx, s); check_error(); return sort(*this, r); }
     inline sort context::re_sort(sort& s) { Z3_sort r = Z3_mk_re_sort(m_ctx, s); check_error(); return sort(*this, r); }
+    inline sort context::finite_set_sort(sort& s) { Z3_sort r = Z3_mk_finite_set_sort(m_ctx, s); check_error(); return sort(*this, r); }
     inline sort context::fpa_sort(unsigned ebits, unsigned sbits) { Z3_sort s = Z3_mk_fpa_sort(m_ctx, ebits, sbits); check_error(); return sort(*this, s); }
 
     template<>
@@ -4262,6 +4305,54 @@ namespace z3 {
 
     inline expr set_subset(expr const& a, expr const& b) {
         MK_EXPR2(Z3_mk_set_subset, a, b);
+    }
+
+    // finite set operations
+
+    inline expr finite_set_empty(sort const& s) {
+        Z3_ast r = Z3_mk_finite_set_empty(s.ctx(), s);
+        s.check_error();
+        return expr(s.ctx(), r);
+    }
+
+    inline expr finite_set_singleton(expr const& e) {
+        MK_EXPR1(Z3_mk_finite_set_singleton, e);
+    }
+
+    inline expr finite_set_union(expr const& a, expr const& b) {
+        MK_EXPR2(Z3_mk_finite_set_union, a, b);
+    }
+
+    inline expr finite_set_intersect(expr const& a, expr const& b) {
+        MK_EXPR2(Z3_mk_finite_set_intersect, a, b);
+    }
+
+    inline expr finite_set_difference(expr const& a, expr const& b) {
+        MK_EXPR2(Z3_mk_finite_set_difference, a, b);
+    }
+
+    inline expr finite_set_member(expr const& e, expr const& s) {
+        MK_EXPR2(Z3_mk_finite_set_member, e, s);
+    }
+
+    inline expr finite_set_size(expr const& s) {
+        MK_EXPR1(Z3_mk_finite_set_size, s);
+    }
+
+    inline expr finite_set_subset(expr const& a, expr const& b) {
+        MK_EXPR2(Z3_mk_finite_set_subset, a, b);
+    }
+
+    inline expr finite_set_map(expr const& f, expr const& s) {
+        MK_EXPR2(Z3_mk_finite_set_map, f, s);
+    }
+
+    inline expr finite_set_filter(expr const& f, expr const& s) {
+        MK_EXPR2(Z3_mk_finite_set_filter, f, s);
+    }
+
+    inline expr finite_set_range(expr const& low, expr const& high) {
+        MK_EXPR2(Z3_mk_finite_set_range, low, high);
     }
 
     // sequence and regular expression operations.

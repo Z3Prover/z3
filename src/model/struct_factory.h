@@ -20,6 +20,7 @@ Revision History:
 
 #include "model/value_factory.h"
 #include "util/obj_hashtable.h"
+#include "util/scoped_ptr_vector.h"
 
 class model_core;
 
@@ -28,16 +29,19 @@ class model_core;
 */
 class struct_factory : public value_factory {
 protected:
-    typedef obj_hashtable<expr> value_set;
-    typedef obj_map<sort, value_set *> sort2value_set;
+    struct value_set {
+        obj_hashtable<expr> set;
+        expr_ref_vector values;
+        value_set(ast_manager &m) : values(m) {}
+    };
+    using sort2value_set = obj_map<sort, value_set *>;
 
     model_core &          m_model;
     sort2value_set        m_sort2value_set;
-    expr_ref_vector       m_values;
     sort_ref_vector       m_sorts;
-    ptr_vector<value_set> m_sets;
+    scoped_ptr_vector<value_set> m_sets;
     
-    value_set * get_value_set(sort * s);
+    value_set& get_value_set(sort * s);
 
 public:
     struct_factory(ast_manager & m, family_id fid, model_core & md);

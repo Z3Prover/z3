@@ -5,7 +5,6 @@ z3_add_component(core_tactics
     cofactor_term_ite_tactic.cpp
     collect_statistics_tactic.cpp
     ctx_simplify_tactic.cpp
-    der_tactic.cpp
     elim_term_ite_tactic.cpp
     elim_uncnstr_tactic.cpp
     injectivity_tactic.cpp

@@ -428,6 +428,8 @@ namespace smt {
 
         smt_params const& get_fparams() const;
 
+        virtual void updt_params() {}
+
         enode * get_enode(theory_var v) const {
             SASSERT(v < static_cast<int>(m_var2enode.size()));
             return m_var2enode[v];

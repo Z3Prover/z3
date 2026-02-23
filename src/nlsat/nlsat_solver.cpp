@@ -1092,7 +1092,7 @@ namespace nlsat {
         }
 
         // Helper: Display unsound lemma failure information
-        void display_unsound_lemma(imp& checker, scoped_bool_vars& tr, unsigned n, literal const* cls) {
+        void display_unsound_lemma(imp& checker, scoped_bool_vars& tr, unsigned n, literal const* cls, lazy_justification const* jst = nullptr) {
             verbose_stream() << "\n";
             verbose_stream() << "========== UNSOUND LEMMA DETECTED ==========\n";
             verbose_stream() << "Levelwise used for this conflict: " << (m_last_conflict_used_lws ? "YES" : "NO") << "\n";
@@ -1134,10 +1134,26 @@ namespace nlsat {
                 verbose_stream() << " = " << checker.value(tlit) << "\n";
             }
             verbose_stream() << "=============================================\n";
+            if (jst) {
+                verbose_stream() << "Initial justification (lazy_justification):\n";
+                verbose_stream() << "  Num literals: " << jst->num_lits() << "\n";
+                for (unsigned i = 0; i < jst->num_lits(); ++i) {
+                    verbose_stream() << "  jst lit[" << i << "]: ";
+                    display(verbose_stream(), jst->lit(i));
+                    verbose_stream() << "\n";
+                }
+                verbose_stream() << "  Num clauses: " << jst->num_clauses() << "\n";
+                for (unsigned i = 0; i < jst->num_clauses(); ++i) {
+                    verbose_stream() << "  jst clause[" << i << "]: ";
+                    display(verbose_stream(), jst->clause(i));
+                    verbose_stream() << "\n";
+                }
+                verbose_stream() << "=============================================\n";
+            }
             verbose_stream() << "ABORTING: Unsound lemma detected!\n";
         }
 
-        void check_lemma(unsigned n, literal const* cls, assumption_set a) {
+        void check_lemma(unsigned n, literal const* cls, assumption_set a, lazy_justification const* jst = nullptr) {
             TRACE(nlsat, display(tout << "check lemma: ", n, cls) << "\n";
                   display(tout););
             
@@ -1180,7 +1196,7 @@ namespace nlsat {
                     verbose_stream() << "Dumping lemma that internal checker thinks is not a tautology:\n";
                     verbose_stream() << "Checker levelwise calls: " << checker.m_stats.m_levelwise_calls << "\n";
                     log_lemma(verbose_stream(), n, cls, true, "internal-check-fail");
-                    display_unsound_lemma(checker, tr, n, cls);
+                    display_unsound_lemma(checker, tr, n, cls, jst);
                     exit(1);
                 }
             }
@@ -2402,7 +2418,7 @@ namespace nlsat {
             if (m_check_lemmas) {
                 TRACE(nlsat, tout << "Checking lazy clause with " << m_lazy_clause.size() << " literals:\n";
                       display(tout, m_lazy_clause.size(), m_lazy_clause.data()) << "\n";);
-                check_lemma(m_lazy_clause.size(), m_lazy_clause.data(), nullptr);
+                check_lemma(m_lazy_clause.size(), m_lazy_clause.data(), nullptr, &jst);
                 m_valids.push_back(mk_clause_core(m_lazy_clause.size(), m_lazy_clause.data(), false, nullptr));
             }
             
@@ -4700,9 +4716,6 @@ namespace nlsat {
     assumption solver::join(assumption a, assumption b) {
         return (m_imp->m_asm.mk_join(static_cast<imp::_assumption_set>(a), static_cast<imp::_assumption_set>(b)));
     }
-
     bool solver::apply_levelwise() const { return m_imp->m_apply_lws; }
-
     unsigned solver::lws_spt_threshold() const { return m_imp->m_lws_spt_threshold; }
-
 };

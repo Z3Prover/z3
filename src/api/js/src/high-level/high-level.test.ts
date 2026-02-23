@@ -824,6 +824,41 @@ describe('high-level', () => {
       expect(core.length()).toBeGreaterThan(0);
       expect(core.length()).toBeLessThanOrEqual(3);
     });
+
+    it('can use addAndTrack to extract unsat core', async () => {
+      const { Solver, Int, Bool } = api.Context('main');
+      const solver = new Solver();
+      const x = Int.const('x');
+      const p1 = Bool.const('p1');
+      const p2 = Bool.const('p2');
+
+      // Track conflicting constraints using addAndTrack
+      solver.addAndTrack(x.gt(0), p1);
+      solver.addAndTrack(x.lt(0), p2);
+
+      const result = await solver.check();
+      expect(result).toStrictEqual('unsat');
+
+      // The unsat core should contain the tracking literals
+      const core = solver.unsatCore();
+      expect(core.length()).toBeGreaterThan(0);
+    });
+
+    it('can use addAndTrack with string constant name', async () => {
+      const { Solver, Int } = api.Context('main');
+      const solver = new Solver();
+      const x = Int.const('x');
+
+      // addAndTrack accepts a string as the tracking constant name
+      solver.addAndTrack(x.gt(0), 'p1');
+      solver.addAndTrack(x.lt(0), 'p2');
+
+      const result = await solver.check();
+      expect(result).toStrictEqual('unsat');
+
+      const core = solver.unsatCore();
+      expect(core.length()).toBeGreaterThan(0);
+    });
   });
 
   describe('AstVector', () => {
@@ -942,6 +977,22 @@ describe('high-level', () => {
       expect(model.eval(x).eqIdentity(Int.val(1))).toBeTruthy();
       expect(model.eval(y).eqIdentity(Int.val(0))).toBeTruthy();
       expect(model.eval(z).eqIdentity(Int.val(5))).toBeTruthy();
+    });
+
+    it('can use addAndTrack with Optimize', async () => {
+      const { Int, Bool, Optimize } = api.Context('main');
+
+      const opt = new Optimize();
+      const x = Int.const('x');
+      const p1 = Bool.const('p1');
+      const p2 = Bool.const('p2');
+
+      // Track conflicting constraints using addAndTrack
+      opt.addAndTrack(x.gt(0), p1);
+      opt.addAndTrack(x.lt(0), p2);
+
+      const result = await opt.check();
+      expect(result).toStrictEqual('unsat');
     });
   });
 

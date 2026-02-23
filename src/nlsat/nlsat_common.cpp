@@ -112,6 +112,27 @@ namespace nlsat {
         return x;
     }
 
+    unsigned todo_set::extract_polys_at_level(var x, polynomial_ref_vector& out) {
+        pmanager& pm = m_set.m();
+        unsigned sz = m_set.size();
+        unsigned j = 0;
+        unsigned count = 0;
+        for (unsigned i = 0; i < sz; i++) {
+            poly* p = m_set.get(i);
+            if (pm.max_var(p) == x) {
+                out.push_back(p);
+                m_in_set[pm.id(p)] = false;
+                ++count;
+            }
+            else {
+                m_set.set(j, p);
+                j++;
+            }
+        }
+        m_set.shrink(j);
+        return count;
+    }
+
     /**
        \brief Wrapper for factorization
     */

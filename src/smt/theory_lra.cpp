@@ -870,15 +870,10 @@ public:
         get_zero(true);
         get_zero(false);
 
+
         lp().updt_params(ctx().get_params());
         lp().settings().set_resource_limit(m_resource_limit);
         lp().settings().bound_propagation() = bound_prop_mode::BP_NONE != propagation_mode();
-
-        // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
-        unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;
-        lp().set_cut_strategy(branch_cut_ratio);
-        
-        lp().settings().set_run_gcd_test(ctx().get_fparams().m_arith_gcd_test);
         lp().settings().set_random_seed(ctx().get_fparams().m_random_seed);
         m_lia = alloc(lp::int_solver, *m_solver.get());
     }
@@ -889,6 +884,9 @@ public:
         if (!ctx().relevancy())
             mk_is_int_axiom(n);        
     }
+
+    ptr_vector<expr> m_delay_ineqs;
+    unsigned m_delay_ineqs_qhead = 0;
 
     bool internalize_atom(app * atom, bool gate_ctx) {
         TRACE(arith_internalize, tout << bpp(atom) << "\n";);
@@ -918,6 +916,11 @@ public:
         }
         else if (a.is_is_int(atom)) {
             internalize_is_int(atom);
+            return true;
+        }
+        else if (a.is_le(atom) || a.is_ge(atom)) {
+            m_delay_ineqs.push_back(atom);   
+            ctx().push_trail(push_back_vector<ptr_vector<expr>>(m_delay_ineqs));
             return true;
         }
         else {
@@ -1629,6 +1632,61 @@ public:
             return FC_DONE;
         return FC_GIVEUP;
     }
+
+    /**
+    * Check if a set of equalities are lp feasible.
+    * push local scope
+    * internalize ineqs
+    * assert ineq constraints
+    * check lp feasibility
+    * extract core
+    * pop local scope
+    * return verdict
+    */
+
+    lbool check_lp_feasible(vector<std::pair<bool, expr_ref>> &ineqs, literal_vector& lit_core, enode_pair_vector& eq_core) {
+        lbool st = l_undef;
+        push_scope_eh(); // pushes an arithmetic scope
+        u_map<unsigned> ci2index;
+        unsigned index = 0;        
+        for (auto &[in_core, f] : ineqs) {
+            expr *x, *y;
+            rational r;
+            in_core = false;
+            if (m.is_eq(f, x, y) && a.is_numeral(y, r)) {
+                internalize_term(to_app(x));                
+                auto j = get_lpvar(th.get_th_var(x));
+                auto ci = lp().add_var_bound(j, lp::EQ, r);
+                ci2index.insert(ci, index);
+                lp().activate(ci);
+                if (is_infeasible()) {
+                    st = l_false;
+                    break;
+                }
+            }
+            else {
+                NOT_IMPLEMENTED_YET();
+            }
+            ++index;
+        }
+        if (st != l_false) {
+            st = make_feasible();
+            SASSERT(st != l_false || is_infeasible());
+        }
+        if (st == l_false) {
+            m_explanation.clear();
+            lp().get_infeasibility_explanation(m_explanation);
+            for (auto ev : m_explanation) {
+                unsigned index;
+                if (ci2index.find(ev.ci(), index)) 
+                    ineqs[index].first = true;   
+                else
+                    set_evidence(ev.ci(), lit_core, eq_core);
+            }
+        }
+        pop_scope_eh(1);
+        return st;
+    }
     
     final_check_status final_check_eh(unsigned level) {
         if (propagate_core())
@@ -2126,6 +2184,8 @@ public:
         unsigned total_conflicts = ctx().get_num_conflicts();
         if (total_conflicts < 10)
             return true;
+        if (m_delay_ineqs_qhead < m_delay_ineqs.size())
+            return true;
         double f = static_cast<double>(m_num_conflicts)/static_cast<double>(total_conflicts);
         return f >= adaptive_assertion_threshold();
     }
@@ -2135,7 +2195,8 @@ public:
     }
     
     bool can_propagate_core() {
-        return m_asserted_atoms.size() > m_asserted_qhead || m_new_def || lp().has_changed_columns();
+        return m_asserted_atoms.size() > m_asserted_qhead || m_new_def || lp().has_changed_columns() ||
+               m_delay_ineqs_qhead < m_delay_ineqs.size();
     }
 
     bool propagate() {
@@ -2150,6 +2211,29 @@ public:
             return true;
         if (!can_propagate_core()) 
             return false;
+
+        for (; m_delay_ineqs_qhead < m_delay_ineqs.size() && !ctx().inconsistent() && m.inc(); ++m_delay_ineqs_qhead) {
+            auto atom = m_delay_ineqs[m_delay_ineqs_qhead];
+            ctx().push_trail(value_trail(m_delay_ineqs_qhead));
+            if (!ctx().is_relevant(atom))
+                continue;
+            expr *x, *y;
+            if (a.is_le(atom, x, y)) {
+                auto lit1 = mk_literal(atom);
+                auto lit2 = mk_literal(a.mk_le(a.mk_sub(x, y), a.mk_numeral(rational(0), a.is_int(x->get_sort()))));
+                mk_axiom(~lit1, lit2);
+                mk_axiom(lit1, ~lit2);                
+            }
+            else if (a.is_ge(atom, x, y)) {
+                auto lit1 = mk_literal(atom);
+                auto lit2 = mk_literal(a.mk_ge(a.mk_sub(x, y), a.mk_numeral(rational(0), a.is_int(x->get_sort()))));
+                mk_axiom(~lit1, lit2);
+                mk_axiom(lit1, ~lit2);                
+            }
+            else {
+                UNREACHABLE();
+            }
+        }
         
         m_new_def = false;        
         while (m_asserted_qhead < m_asserted_atoms.size() && !ctx().inconsistent() && m.inc()) {
@@ -4201,6 +4285,13 @@ public:
         m_bound_predicate = nullptr;
     }
 
+    void updt_params() {
+        if (m_solver)
+            m_solver->updt_params(ctx().get_params());
+        if (m_nla)
+            m_nla->updt_params(ctx().get_params());
+    }
+
 
     void validate_model(proto_model& mdl) {
 
@@ -4361,8 +4452,16 @@ void theory_lra::setup() {
     m_imp->setup();
 }
 
+void theory_lra::updt_params() {
+    m_imp->updt_params();
+}
+
 void theory_lra::validate_model(proto_model& mdl) {
     m_imp->validate_model(mdl);
+}
+
+lbool theory_lra::check_lp_feasible(vector<std::pair<bool, expr_ref>>& ineqs, literal_vector& lit_core, enode_pair_vector& eq_core) {
+    return m_imp->check_lp_feasible(ineqs, lit_core, eq_core);
 }
 
 }

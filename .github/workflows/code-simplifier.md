@@ -1,7 +1,6 @@
 ---
 on:
-  schedule:
-    - cron: "0 0 * * *"
+  schedule: daily
   skip-if-match: is:pr is:open in:title "[code-simplifier]"
 permissions:
   contents: read

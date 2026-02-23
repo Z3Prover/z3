@@ -52,7 +52,8 @@ export type AnyExpr<Name extends string = 'main'> =
   | FPNum<Name>
   | FPRM<Name>
   | Seq<Name>
-  | Re<Name>;
+  | Re<Name>
+  | FiniteSet<Name>;
 /** @hidden */
 export type AnyAst<Name extends string = 'main'> = AnyExpr<Name> | AnySort<Name> | FuncDecl<Name>;
 
@@ -331,6 +332,12 @@ export interface Context<Name extends string = 'main'> {
   isString(obj: unknown): obj is Seq<Name>;
 
   /** @category Functions */
+  isFiniteSetSort(obj: unknown): obj is FiniteSetSort<Name>;
+
+  /** @category Functions */
+  isFiniteSet(obj: unknown): obj is FiniteSet<Name>;
+
+  /** @category Functions */
   isProbe(obj: unknown): obj is Probe<Name>;
 
   /** @category Functions */
@@ -467,6 +474,8 @@ export interface Context<Name extends string = 'main'> {
   readonly Array: SMTArrayCreation<Name>;
   /** @category Expressions */
   readonly Set: SMTSetCreation<Name>;
+  /** @category Expressions */
+  readonly FiniteSet: FiniteSetCreation<Name>;
   /** @category Expressions */
   readonly Datatype: DatatypeCreation<Name>;
 
@@ -987,6 +996,29 @@ export interface Solver<Name extends string = 'main'> {
 
   add(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): void;
 
+  /**
+   * Assert a constraint and associate it with a tracking literal (Boolean constant).
+   * This is the TypeScript equivalent of `assertAndTrack` in other Z3 language bindings.
+   *
+   * When the solver returns `unsat`, the tracked literals that contributed to
+   * unsatisfiability can be retrieved via {@link unsatCore}.
+   *
+   * @param expr - The Boolean expression to assert
+   * @param constant - A Boolean constant (or its name as a string) used as the tracking literal
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * const p1 = Bool.const('p1');
+   * const p2 = Bool.const('p2');
+   * solver.addAndTrack(x.gt(0), p1);
+   * solver.addAndTrack(x.lt(0), p2);
+   * if (await solver.check() === 'unsat') {
+   *   const core = solver.unsatCore(); // contains p1 and p2
+   * }
+   * ```
+   */
   addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string): void;
 
   /**
@@ -1159,6 +1191,105 @@ export interface Solver<Name extends string = 'main'> {
   trail(): AstVector<Name, Bool<Name>>;
 
   /**
+   * Retrieve the decision levels for each literal in the solver's trail.
+   * The returned array has one entry per trail literal, indicating at which
+   * decision level it was assigned.
+   *
+   * @returns An array of numbers where element i is the decision level of the i-th trail literal
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * solver.add(x);
+   * await solver.check();
+   * const levels = solver.trailLevels();
+   * console.log('Trail levels:', levels);
+   * ```
+   */
+  trailLevels(): number[];
+
+  /**
+   * Extract cubes from the solver for cube-and-conquer parallel solving.
+   * Each call returns the next cube (conjunction of literals) from the solver.
+   * Returns an empty AstVector when the search space is exhausted.
+   *
+   * @param vars - Optional vector of variables to use as cube variables
+   * @param cutoff - Backtrack level cutoff for cube generation (default: 0xFFFFFFFF)
+   * @returns A promise resolving to an AstVector containing the cube literals
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * const y = Bool.const('y');
+   * solver.add(x.or(y));
+   * const cube = await solver.cube(undefined, 1);
+   * console.log('Cube length:', cube.length());
+   * ```
+   */
+  cube(vars?: AstVector<Name, Bool<Name>>, cutoff?: number): Promise<AstVector<Name, Bool<Name>>>;
+
+  /**
+   * Retrieve fixed assignments to a set of variables as consequences given assumptions.
+   * Each consequence is an implication: assumptions => variable = value.
+   *
+   * @param assumptions - Assumptions to use during consequence finding
+   * @param variables - Variables to find consequences for
+   * @returns A promise resolving to the status and a vector of consequence expressions
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Bool.const('x');
+   * const y = Bool.const('y');
+   * solver.add(x.implies(y));
+   * const [status, consequences] = await solver.getConsequences([], [x, y]);
+   * ```
+   */
+  getConsequences(
+    assumptions: (Bool<Name> | AstVector<Name, Bool<Name>>)[],
+    variables: Expr<Name>[],
+  ): Promise<[CheckSatResult, AstVector<Name, Bool<Name>>]>;
+
+  /**
+   * Solve constraints treating given variables symbolically, replacing their
+   * occurrences by terms. Guards condition the substitutions.
+   *
+   * @param variables - Variables to solve for
+   * @param terms - Substitution terms for the variables
+   * @param guards - Boolean guards for the substitutions
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * const y = Int.const('y');
+   * solver.add(x.eq(y.add(1)));
+   * solver.solveFor([x], [y.add(1)], []);
+   * ```
+   */
+  solveFor(variables: Expr<Name>[], terms: Expr<Name>[], guards: Bool<Name>[]): void;
+
+  /**
+   * Set an initial value hint for a variable to guide the solver's search heuristics.
+   * This can improve performance when a good initial value is known.
+   *
+   * @param variable - The variable to set an initial value for
+   * @param value - The initial value for the variable
+   *
+   * @example
+   * ```typescript
+   * const solver = new Solver();
+   * const x = Int.const('x');
+   * solver.setInitialValue(x, Int.val(42));
+   * solver.add(x.gt(0));
+   * await solver.check();
+   * ```
+   */
+  setInitialValue(variable: Expr<Name>, value: Expr<Name>): void;
+
+  /**
    * Retrieve the root of the congruence class containing the given expression.
    * This is useful for understanding equality reasoning in the solver.
    *
@@ -1288,6 +1419,27 @@ export interface Optimize<Name extends string = 'main'> {
 
   addSoft(expr: Bool<Name>, weight: number | bigint | string | CoercibleRational, id?: number | string): void;
 
+  /**
+   * Assert a constraint and associate it with a tracking literal (Boolean constant).
+   * This is the TypeScript equivalent of `assertAndTrack` in other Z3 language bindings.
+   *
+   * When the optimizer returns `unsat`, the tracked literals that contributed to
+   * unsatisfiability can be used to identify which constraints caused the conflict.
+   *
+   * @param expr - The Boolean expression to assert
+   * @param constant - A Boolean constant (or its name as a string) used as the tracking literal
+   *
+   * @example
+   * ```typescript
+   * const opt = new Optimize();
+   * const x = Int.const('x');
+   * const p1 = Bool.const('p1');
+   * const p2 = Bool.const('p2');
+   * opt.addAndTrack(x.gt(0), p1);
+   * opt.addAndTrack(x.lt(0), p2);
+   * const result = await opt.check(); // 'unsat'
+   * ```
+   */
   addAndTrack(expr: Bool<Name>, constant: Bool<Name> | string): void;
 
   assertions(): AstVector<Name, Bool<Name>>;
@@ -1303,6 +1455,25 @@ export interface Optimize<Name extends string = 'main'> {
   model(): Model<Name>;
 
   statistics(): Statistics<Name>;
+
+  /**
+   * Set an initial value hint for a variable to guide the optimizer's search heuristics.
+   * This can improve performance when a good initial value is known.
+   *
+   * @param variable - The variable to set an initial value for
+   * @param value - The initial value for the variable
+   *
+   * @example
+   * ```typescript
+   * const opt = new Optimize();
+   * const x = Int.const('x');
+   * opt.setInitialValue(x, Int.val(42));
+   * opt.add(x.gt(0));
+   * opt.maximize(x);
+   * await opt.check();
+   * ```
+   */
+  setInitialValue(variable: Expr<Name>, value: Expr<Name>): void;
 
   /**
    * Manually decrease the reference count of the optimize
@@ -1706,7 +1877,8 @@ export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
     | FPSort['__typename']
     | FPRMSort['__typename']
     | SeqSort['__typename']
-    | ReSort['__typename'];
+    | ReSort['__typename']
+    | FiniteSetSort['__typename'];
 
   kind(): Z3_sort_kind;
 
@@ -1835,7 +2007,8 @@ export interface Expr<Name extends string = 'main', S extends Sort<Name> = AnySo
     | Seq['__typename']
     | Re['__typename']
     | SMTArray['__typename']
-    | DatatypeExpr['__typename'];
+    | DatatypeExpr['__typename']
+    | FiniteSet['__typename'];
 
   get sort(): S;
 
@@ -2739,6 +2912,60 @@ export interface SMTSet<Name extends string = 'main', ElemSort extends AnySort<N
   contains(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): Bool<Name>;
   subsetOf(b: SMTSet<Name, ElemSort>): Bool<Name>;
 }
+//////////////////////////////////////////
+//
+// Finite Sets
+//
+//////////////////////////////////////////
+
+/**
+ * Represents a finite set sort
+ *
+ * @typeParam ElemSort The sort of elements in the finite set
+ * @category Finite Sets
+ */
+export interface FiniteSetSort<Name extends string = 'main', ElemSort extends Sort<Name> = Sort<Name>>
+  extends Sort<Name> {
+  readonly __typename: 'FiniteSetSort';
+  /** Returns the element sort of this finite set sort */
+  elemSort(): ElemSort;
+}
+
+/** @category Finite Sets */
+export interface FiniteSetCreation<Name extends string> {
+  sort<ElemSort extends Sort<Name>>(elemSort: ElemSort): FiniteSetSort<Name, ElemSort>;
+
+  const<ElemSort extends Sort<Name>>(name: string, elemSort: ElemSort): FiniteSet<Name, ElemSort>;
+
+  consts<ElemSort extends Sort<Name>>(names: string | string[], elemSort: ElemSort): FiniteSet<Name, ElemSort>[];
+
+  empty<ElemSort extends Sort<Name>>(sort: ElemSort): FiniteSet<Name, ElemSort>;
+
+  singleton<ElemSort extends Sort<Name>>(elem: Expr<Name>): FiniteSet<Name, ElemSort>;
+
+  range(low: Expr<Name>, high: Expr<Name>): FiniteSet<Name, Sort<Name>>;
+}
+
+/**
+ * Represents a finite set expression
+ *
+ * @typeParam ElemSort The sort of elements in the finite set
+ * @category Finite Sets
+ */
+export interface FiniteSet<Name extends string = 'main', ElemSort extends Sort<Name> = Sort<Name>>
+  extends Expr<Name, FiniteSetSort<Name, ElemSort>, Z3_ast> {
+  readonly __typename: 'FiniteSet';
+
+  union(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort>;
+  intersect(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort>;
+  diff(other: FiniteSet<Name, ElemSort>): FiniteSet<Name, ElemSort>;
+  contains(elem: Expr<Name>): Bool<Name>;
+  size(): Expr<Name>;
+  subsetOf(other: FiniteSet<Name, ElemSort>): Bool<Name>;
+  map(f: Expr<Name>): FiniteSet<Name, Sort<Name>>;
+  filter(f: Expr<Name>): FiniteSet<Name, ElemSort>;
+}
+
 //////////////////////////////////////////
 //
 // Datatypes

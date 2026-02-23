@@ -151,15 +151,16 @@ namespace smt {
         update(st, m_lits, pr);
     }
 
-    void clause_proof::propagate(literal lit, justification const& jst, literal_vector const& ante) {
+    void clause_proof::propagate(literal lit, justification * jst, literal_vector const& ante) {
         if (!is_enabled())
             return;
         m_lits.reset();
         for (literal l : ante)
             m_lits.push_back(ctx.literal2expr(~l));
         m_lits.push_back(ctx.literal2expr(lit));
-        proof_ref pr(m.mk_app(symbol("smt"), 0, nullptr, m.mk_proof_sort()), m);
-        update(clause_proof::status::th_lemma, m_lits, pr);
+        auto st = clause_proof::status::th_lemma;
+        auto pr = justification2proof(st, jst);
+        update(st, m_lits, pr);
     }
 
     void clause_proof::del(clause& c) {

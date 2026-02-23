@@ -31,6 +31,7 @@ Revision History:
 #include "ast/fpa_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/special_relations_decl_plugin.h"
+#include "ast/finite_set_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "params/smt_params.h"
 #include "smt/smt_kernel.h"
@@ -77,6 +78,7 @@ namespace api {
         fpa_util                   m_fpa_util;
         seq_util                   m_sutil;
         recfun::util               m_recfun;
+        finite_set_util            m_finite_set_util;
 
         // Support for old solver API
         smt_params                 m_fparams;
@@ -146,6 +148,7 @@ namespace api {
         datatype_util& dtutil() { return m_dt_plugin->u(); }
         seq_util& sutil() { return m_sutil; }
         recfun::util& recfun() { return m_recfun; }
+        finite_set_util& fsutil() { return m_finite_set_util; }
         family_id get_basic_fid() const { return basic_family_id; }
         family_id get_array_fid() const { return m_array_fid; }
         family_id get_arith_fid() const { return arith_family_id; }

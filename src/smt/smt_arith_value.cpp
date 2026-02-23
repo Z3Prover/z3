@@ -163,4 +163,10 @@ namespace smt {
         return th->final_check_eh(level);
     }
 
+    lbool arith_value::check_lp_feasible(vector<std::pair<bool, expr_ref>>& ineqs, literal_vector& lit_core,
+        enode_pair_vector& eq_core) {
+        if (!m_thr)
+            return l_undef;
+        return m_thr->check_lp_feasible(ineqs, lit_core, eq_core);      
+    }
 };

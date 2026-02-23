@@ -4,7 +4,6 @@ z3_add_component(bv_tactics
     bit_blaster_tactic.cpp
     bv1_blaster_tactic.cpp
     bvarray2uf_rewriter.cpp
-    bvarray2uf_tactic.cpp
     bv_bound_chk_tactic.cpp
     bv_bounds_tactic.cpp
     bv_size_reduction_tactic.cpp

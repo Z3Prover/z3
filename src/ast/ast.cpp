@@ -1,3 +1,4 @@
+
 /*++
 Copyright (c) 2006 Microsoft Corporation
 
@@ -1669,7 +1670,7 @@ bool ast_manager::slow_not_contains(ast const * n) {
 }
 #endif
 
-#if 0
+#if 1
 static unsigned s_count = 0;
 
 static void track_id(ast_manager& m, ast* n, unsigned id) {
@@ -1708,9 +1709,8 @@ ast * ast_manager::register_node_core(ast * n) {
 
     n->m_id = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();        
 
-  //  track_id(*this, n, 9213);
-    
-//    TRACE(ast, tout << (s_count++) << " Object " << n->m_id << " was created.\n";);
+
+        //    TRACE(ast, tout << (s_count++) << " Object " << n->m_id << " was created.\n";);
     TRACE(mk_var_bug, tout << "mk_ast: " << n->m_id << "\n";);
     // increment reference counters
     switch (n->get_kind()) {
@@ -3343,15 +3343,14 @@ proof * ast_manager::mk_th_lemma(
     if (proofs_disabled())
         return nullptr;
 
-    ptr_buffer<expr> args;
     vector<parameter> parameters;
     parameters.push_back(parameter(get_family_name(tid)));
-    for (unsigned i = 0; i < num_params; ++i) {
-        parameters.push_back(params[i]);
-    }
+    for (unsigned i = 0; i < num_params; ++i) 
+        parameters.push_back(params[i]);        
+    ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
     args.push_back(fact);
-    return mk_app(basic_family_id, PR_TH_LEMMA, num_params+1, parameters.data(), args.size(), args.data());
+    return mk_app(basic_family_id, PR_TH_LEMMA, parameters.size(), parameters.data(), args.size(), args.data());
 }
 
 proof* ast_manager::mk_hyper_resolve(unsigned num_premises, proof* const* premises, expr* concl,

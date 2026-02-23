@@ -64,6 +64,7 @@ set(Z3_DOTNET_ASSEMBLY_SOURCES_IN_SRC_TREE
     FiniteDomainExpr.cs
     FiniteDomainNum.cs
     FiniteDomainSort.cs
+    FiniteSetSort.cs
     Fixedpoint.cs
     FPExpr.cs
     FPNum.cs
