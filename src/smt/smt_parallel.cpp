@@ -392,7 +392,7 @@ namespace smt {
                 // Set the phase of the candidates to the negation of their assumed values
                 LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
                 expr* atom = bb.lit.get();
-                bool phase = false;  // set to false if tuning for UNSAT, set to true if tuning for SAT
+                bool phase = mode == l_true;  // set to false if tuning for UNSAT, set to true if tuning for SAT
 
                 if (m.is_not(atom, atom)) 
                     phase = !phase;

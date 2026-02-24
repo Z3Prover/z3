@@ -7,6 +7,6 @@ def_module_params('smt_parallel',
                         ('local_backbones', BOOL, False, 'enable local backbones experiment within the search tree parallelism'),
                         ('global_backbones', BOOL, False, 'add global backbones experiment as a separate worker thread outside the search tree parallelism'),
                         ('num_bb_threads', UINT, 1, 'default is 1 (neg only), can configure to 2 (add bb_positive mode)'),
-			('num_sat_threads', UINT, 0, 'number of threads in pure SAT mode'),
-			('num_unsat_threads', UINT, 0, 'number of threads in pure UNSAT mode'),
+                        ('num_sat_threads', UINT, 0, 'number of threads in pure SAT mode'),
+                        ('num_unsat_threads', UINT, 0, 'number of threads in pure UNSAT mode'),
               ))
