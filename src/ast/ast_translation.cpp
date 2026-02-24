@@ -38,9 +38,9 @@ void ast_translation::cleanup() {
 }
 
 void ast_translation::reset_cache() {
-    for (auto & kv : m_cache) {
-        m_from_manager.dec_ref(kv.m_key);
-        m_to_manager.dec_ref(kv.m_value);
+    for (auto &[k, v] : m_cache) {
+        m_from_manager.dec_ref(k);
+        m_to_manager.dec_ref(v);
     }
     m_cache.reset();
 }
