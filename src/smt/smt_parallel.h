@@ -46,7 +46,6 @@ namespace smt {
             expr_ref lit;
             double age;
             unsigned hits;     // how many cubes reported it
-
             bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : lit(e, m), age(s), hits(h) {}
         };
 
@@ -90,7 +89,7 @@ namespace smt {
             bb_candidates m_bb_current_batch;
             unsigned m_bb_batch_id = 0;
             unsigned m_num_bb_threads = 0;
-            svector<unsigned> m_bb_last_batch_processed;
+            unsigned_vector m_bb_last_batch_processed;
             unsigned m_bb_cancel_epoch = 0; // When a backbone worker finishes early, it increments m_bb_cancel_epoch and notifies all
 
             // called from batch manager to cancel other workers if we've reached a verdict
@@ -123,10 +122,14 @@ namespace smt {
             }
 
             // to avoid deadlock
-            bool is_global_backbone_unsafe(ast_translation& l2g, expr* bb_cand) {
+            bool is_global_backbone_locked(ast_translation& l2g, expr* bb_cand) {
                 expr_ref cand(l2g(bb_cand), l2g.to());
                 return any_of(m_global_backbones, [&](expr *bb) { return bb == cand.get(); });
             }
+
+            void backtrack_locked(ast_translation &l2g, expr_ref_vector const &core, node *n);
+            void collect_clause_locked(ast_translation &l2g, unsigned source_worker_id, expr *clause);
+
 
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)), m_global_backbones(m) { }
@@ -145,6 +148,7 @@ namespace smt {
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
+
             void split(ast_translation& l2g, unsigned id, node* n, expr* atom);
 
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);
@@ -154,7 +158,7 @@ namespace smt {
 
             bool is_global_backbone(ast_translation& l2g, expr* bb_cand) {
                 std::scoped_lock lock(mux);
-                return is_global_backbone_unsafe(l2g, bb_cand);
+                return is_global_backbone_locked(l2g, bb_cand);
             }
 
             void set_num_backbone_threads(unsigned n) {
@@ -291,25 +295,20 @@ namespace smt {
             stats m_stats;
             bb_mode m_mode;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
-
-            public:
-                backbones_worker(unsigned id, parallel &p, expr_ref_vector const &_asms);
-                void cancel();
-                bool check_backbone(expr_ref const& bb_candidate);
-                expr_ref_vector check_backbone_batch(bb_candidates const& candidates);
-                void collect_statistics(::statistics& st) const;
-                void run();
-                void collect_shared_clauses();
-
-                reslimit &limit() {
-                    return m.limit();
-                }
+            bool check_backbone(expr* bb_candidate);
+        public:
+            backbones_worker(unsigned id, parallel &p, expr_ref_vector const &_asms);
+            void cancel();
+            void collect_statistics(::statistics& st) const;
+            void run();
+            void collect_shared_clauses();
+            reslimit &limit() { return m.limit(); }            
         };
 
         batch_manager m_batch_manager;
         scoped_ptr_vector<worker> m_workers;
         scoped_ptr<sls_worker> m_sls_worker;
-        vector<backbones_worker*> m_global_backbones_workers;
+        scoped_ptr_vector<backbones_worker> m_global_backbones_workers;
 
     public:
         parallel(context& ctx) : 
