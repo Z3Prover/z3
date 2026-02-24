@@ -392,7 +392,8 @@ int STD_CALL main(int argc, char ** argv) {
         switch (g_input_kind) {
         case IN_SMTLIB_2:
             memory::exit_when_out_of_memory(true, "(error \"out of memory\")");
-            return_value = read_smtlib2_commands(g_input_file);
+            while (true) 
+                return_value = read_smtlib2_commands(g_input_file);
             break;
         case IN_DIMACS:
             return_value = read_dimacs(g_input_file);
