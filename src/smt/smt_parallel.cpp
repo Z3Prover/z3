@@ -150,13 +150,15 @@ namespace smt {
 
             // in mode bb_neg this is Algorithm 7 from https://sat.inesc-id.pt/~mikolas/bb-aicom-preprint.pdf
             while (!bb_candidate_lits.empty() && !canceled() && m.inc()) {
-                // remove candidates that the other bacbone thread found to be backbones
-                for (unsigned i = 0; i < bb_candidate_lits.size();) {
-                    expr* tmp = bb_candidate_lits.get(i);
-                    if (b.is_global_backbone(m_l2g, tmp)) 
-                        bb_candidate_lits.erase(i);                    
-                    else
-                        ++i;
+                // remove candidates that the other backbone thread found to be backbones
+                if (m_num_bb_threads > 1) {
+                    for (unsigned i = 0; i < bb_candidate_lits.size();) {
+                        expr* tmp = bb_candidate_lits.get(i);
+                        if (b.is_global_backbone(m_l2g, tmp)) 
+                            bb_candidate_lits.erase(i);                    
+                        else
+                            ++i;
+                    }
                 }
 
                 unsigned chunk_size = std::min(m_bb_chunk_size * chunk_delta, bb_candidate_lits.size());
@@ -294,7 +296,7 @@ namespace smt {
     bool parallel::batch_manager::collect_global_backbone(ast_translation &l2g, expr_ref const &backbone) {
         IF_VERBOSE(1, verbose_stream() << "collect-global-backbone\n");
         std::scoped_lock lock(mux);
-        if (is_global_backbone_locked(l2g, backbone))
+        if (is_global_backbone_unlocked(l2g, backbone))
             return false;
         expr_ref g_bb_ref(m);
         expr_ref neg_bb_ref(m);
@@ -308,7 +310,7 @@ namespace smt {
         IF_VERBOSE(1, verbose_stream() << " Found and sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3)
                                        << "\n");
 
-        collect_clause_locked(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
+        collect_clause_unlocked(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
 
         node *t = nullptr;
 
@@ -316,7 +318,7 @@ namespace smt {
         IF_VERBOSE(1, if (t) verbose_stream()
                           << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
         if (t)
-            backtrack_locked(l2g, core, t);
+            backtrack_unlocked(l2g, core, t);
 
         return true;
     }
@@ -511,7 +513,7 @@ namespace smt {
 
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_inprocessing = pp.inprocessing();
-        m_config.m_global_backbones = pp.global_backbones();
+        m_config.m_global_backbones = pp.num_bb_threads() > 0;
         m_config.m_local_backbones = pp.local_backbones();
     }
 
@@ -532,6 +534,9 @@ namespace smt {
         ctx->set_logic(p.ctx.m_setup.get_logic());
         ctx->get_fparams().m_max_conflicts = m_bb_conflicts_per_chunk;
         context::copy(p.ctx, *ctx, true);
+
+        smt_parallel_params pp(p.ctx.m_params);
+        m_num_bb_threads = pp.num_bb_threads();
     }
 
     parallel::bb_candidates parallel::worker::find_backbone_candidates(unsigned k) {
@@ -729,10 +734,10 @@ namespace smt {
     void parallel::batch_manager::backtrack(ast_translation &l2g, expr_ref_vector const &core,
                                             search_tree::node<cube_config> *node) {
         std::scoped_lock lock(mux);
-        backtrack_locked(l2g, core, node);
+        backtrack_unlocked(l2g, core, node);
     }
 
-    void parallel::batch_manager::backtrack_locked(ast_translation &l2g, expr_ref_vector const &core,
+    void parallel::batch_manager::backtrack_unlocked(ast_translation &l2g, expr_ref_vector const &core,
                                             search_tree::node<cube_config> *node) {
 
         IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
@@ -776,10 +781,10 @@ namespace smt {
 
     void parallel::batch_manager::collect_clause(ast_translation &l2g, unsigned source_worker_id, expr *clause) {
         std::scoped_lock lock(mux);
-        collect_clause_locked(l2g, source_worker_id, clause);
+        collect_clause_unlocked(l2g, source_worker_id, clause);
     }
 
-    void parallel::batch_manager::collect_clause_locked(ast_translation &l2g, unsigned source_worker_id, expr *clause) {
+    void parallel::batch_manager::collect_clause_unlocked(ast_translation &l2g, unsigned source_worker_id, expr *clause) {
         expr_ref g_clause(l2g(clause), m);
         if (!shared_clause_set.contains(g_clause)) {
             shared_clause_set.insert(g_clause);
@@ -823,7 +828,7 @@ namespace smt {
         };
 
         for (auto const& c : bb_candidates) {
-            if (is_global_backbone_locked(l2g, c.lit))
+            if (is_global_backbone_unlocked(l2g, c.lit))
                 continue;
 
             expr* worker_lit = c.lit.get();
@@ -911,7 +916,7 @@ namespace smt {
 
         // ---- COPY CURRENT BATCH ----
         for (auto const& gc : m_bb_current_batch) {
-            expr_ref l_lit(g2l(gc.lit.get()), g2l.to());
+            expr_ref l_lit(g2l(gc.lit.get()), m);
             out.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
         }
         m_bb_current_batch.reset();

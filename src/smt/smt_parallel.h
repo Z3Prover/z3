@@ -122,13 +122,13 @@ namespace smt {
             }
 
             // to avoid deadlock
-            bool is_global_backbone_locked(ast_translation& l2g, expr* bb_cand) {
+            bool is_global_backbone_unlocked(ast_translation& l2g, expr* bb_cand) {
                 expr_ref cand(l2g(bb_cand), l2g.to());
                 return any_of(m_global_backbones, [&](expr *bb) { return bb == cand.get(); });
             }
 
-            void backtrack_locked(ast_translation &l2g, expr_ref_vector const &core, node *n);
-            void collect_clause_locked(ast_translation &l2g, unsigned source_worker_id, expr *clause);
+            void backtrack_unlocked(ast_translation &l2g, expr_ref_vector const &core, node *n);
+            void collect_clause_unlocked(ast_translation &l2g, unsigned source_worker_id, expr *clause);
 
 
         public:
@@ -158,7 +158,7 @@ namespace smt {
 
             bool is_global_backbone(ast_translation& l2g, expr* bb_cand) {
                 std::scoped_lock lock(mux);
-                return is_global_backbone_locked(l2g, bb_cand);
+                return is_global_backbone_unlocked(l2g, bb_cand);
             }
 
             void set_num_backbone_threads(unsigned n) {
@@ -294,6 +294,7 @@ namespace smt {
             unsigned m_bb_conflicts_per_chunk = 1000;
             stats m_stats;
             bb_mode m_mode;
+            unsigned m_num_bb_threads = 1; // used to toggle behavior when testing bb candidates 
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             bool check_backbone(expr* bb_candidate);
         public:
