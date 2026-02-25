@@ -105,8 +105,6 @@ namespace smt {
 
     void parallel::backbones_worker::run() {
         bb_candidates bb_candidates;
-
-
         while (m.inc()) {
             if (!b.wait_for_backbone_job(id, m_g2l, bb_candidates, m.limit()))
                 return;
@@ -148,7 +146,6 @@ namespace smt {
             for (auto const& c : bb_candidates)
                 bb_candidate_lits.push_back(c.lit);
 
-            unsigned base_asms_sz = asms.size();
             unsigned chunk_delta = 1;
 
             // in mode bb_neg this is Algorithm 7 from https://sat.inesc-id.pt/~mikolas/bb-aicom-preprint.pdf
@@ -189,29 +186,26 @@ namespace smt {
 
                     m_stats.m_core_refinement_rounds++;
 
-                    asms.shrink(base_asms_sz);
-
+                    unsigned base_asms_sz = asms.size();
                     for (expr* a : bb_asms)
                         asms.push_back(a);
 
                     lbool r = l_undef;
                     try {
-                        LOG_BB_WORKER(1, " checking batch of " << bb_asms.size() << " candidates\n"); 
                         r = ctx->check(asms.size(), asms.data());
-
-                        if (!m.inc()) 
-                            return;
-                        if (canceled()) 
-                            break;
-                    } 
-                    catch (...) {
-                        asms.shrink(base_asms_sz);
-                        throw;
+                    } catch (z3_error &err) {
+                        b.set_exception(err.error_code());
+                    } catch (z3_exception &ex) {
+                        b.set_exception(ex.what());
+                    } catch (...) {
+                        b.set_exception("unknown exception");
                     }
                     asms.shrink(base_asms_sz);
 
-                    if (!m.inc())
+                    if (!m.inc()) 
                         return;
+                    if (canceled()) 
+                        break;
 
                     if (r == l_undef) {
                         LOG_BB_WORKER(1, " UNDEF at chunk_size=" << chunk_size << "\n");
