@@ -119,6 +119,8 @@ namespace smt {
             auto fallback_singletons = [&](expr_ref_vector const& chunk_lits, expr_ref_vector& bb_candidate_lits) {
                 m_stats.m_fallback_singleton_checks++;
                 for (expr* c : chunk_lits) {
+                    if (!bb_candidate_lits.contains(c)) continue; // already handled in singleton core → backbone case below
+                    
                     expr_ref bb_ref(c, m);
                     if (!m.inc() || canceled()) 
                         return;
@@ -152,13 +154,14 @@ namespace smt {
             while (!bb_candidate_lits.empty() && !canceled() && m.inc()) {
                 // remove candidates that the other backbone thread found to be backbones
                 if (m_num_bb_threads > 1) {
-                    for (unsigned i = 0; i < bb_candidate_lits.size();) {
-                        expr* tmp = bb_candidate_lits.get(i);
-                        if (b.is_global_backbone(m_l2g, tmp)) 
-                            bb_candidate_lits.erase(i);                    
-                        else
-                            ++i;
-                    }
+                    expr_ref_vector local_global_bbs = b.snapshot_global_backbones(m_g2l);
+
+                    auto keep = [&](expr* e) {
+                        return !local_global_bbs.contains(e);
+                    };
+
+                    std::function<bool(expr*)> pred = keep;
+                    bb_candidate_lits = bb_candidate_lits.filter_pure(pred);
                 }
 
                 unsigned chunk_size = std::min(m_bb_chunk_size * chunk_delta, bb_candidate_lits.size());
@@ -176,8 +179,6 @@ namespace smt {
                     bb_asms.append(negated_chunk_lits); // F ∧ ¬U
                 else
                     bb_asms.append(chunk_lits); // F ∧ U
-
-                collect_shared_clauses();
 
                 while (true) {
 
@@ -243,6 +244,15 @@ namespace smt {
                         if (bb_asms.contains(a))
                             bb_asms_in_core.push_back(a);
 
+                    // ---- empty core intersection → formula is UNSAT independent of backbone assumptions ----
+                    if (bb_asms_in_core.empty()) {
+                        expr_ref_vector core_vec(m);
+                        for (expr* e : unsat_core)
+                            core_vec.push_back(e);
+                        b.set_unsat(m_l2g, core_vec);
+                        return;
+                    }
+
                     // ---- singleton core → backbone ----
                     if (bb_asms_in_core.size() == 1) {
                         expr* a = bb_asms_in_core.back();
@@ -279,6 +289,8 @@ namespace smt {
                         break;
                     }
                 }
+
+                collect_shared_clauses();
             }
 
             if (!canceled()) {
@@ -331,7 +343,6 @@ namespace smt {
         st.update("bb-core-refinement-rounds", m_stats.m_core_refinement_rounds);
         st.update("bb-singleton-backbones", m_stats.m_singleton_backbones);
         st.update("bb-fallback-singleton-checks", m_stats.m_fallback_singleton_checks);
-        st.update("bb-fallback-empty-core", m_stats.m_fallback_reason_empty_core);
         st.update("bb-fallback-chunk-exhausted", m_stats.m_fallback_reason_chunk_exhausted);
         st.update("bb-fallback-undef", m_stats.m_fallback_reason_undef);
         st.update("bb-literals-removed-by-core", m_stats.m_lits_removed_by_core);
@@ -815,12 +826,12 @@ namespace smt {
     void parallel::batch_manager::collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates) {
         std::scoped_lock lock(mux);
 
+        obj_map<expr, unsigned> candidate_index_map;
+        for (unsigned i = 0; i < m_bb_candidates.size(); ++i)
+            candidate_index_map.insert(m_bb_candidates[i].lit.get(), i);
         auto find_existing_candidate_idx = [&](expr* e) -> int {
-            for (unsigned i = 0; i < m_bb_candidates.size(); ++i) {
-                if (m_bb_candidates[i].lit.get() == e)
-                    return i;
-            }
-            return -1;
+            unsigned idx;
+            return candidate_index_map.find(e, idx) ? static_cast<int>(idx) : -1;
         };
 
         auto rank_of = [&](bb_candidate const& c) {
@@ -914,12 +925,10 @@ namespace smt {
             m_bb_cv.notify_all();
         }
 
-        // ---- COPY CURRENT BATCH ----
         for (auto const& gc : m_bb_current_batch) {
             expr_ref l_lit(g2l(gc.lit.get()), m);
             out.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
         }
-        m_bb_current_batch.reset();
 
         m_bb_last_batch_processed[bb_thread_id] = m_bb_batch_id;
         return true;
