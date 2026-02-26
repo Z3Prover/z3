@@ -72,7 +72,7 @@ def replace(src, dst):
     """
     try:
         os.remove(dst)
-    except:
+    except Exception:
         pass
     shutil.move(src, dst)
     
@@ -110,13 +110,13 @@ def unpack(packages, symbols, arch):
                         zip_ref.extract(file1, f"{tmp}")
                         replace(f"{tmp}/{file1}", f"out/lib/netstandard2.0/{b}")
                         found_path = True
-                    except:
+                    except Exception:
                         pass
                     try:
                         zip_ref.extract(file2, f"{tmp}")
                         replace(f"{tmp}/{file2}", f"out/lib/netstandard2.0/{b}")
                         found_path = True
-                    except:
+                    except Exception:
                         pass
                     if not found_path:
                         print(f"Could not find file path {file1} nor {file2}")

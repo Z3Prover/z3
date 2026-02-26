@@ -283,7 +283,7 @@ def generate_godoc_markdown(go_cmd, go_api_path, output_dir):
         print(f"Error generating godoc markdown: {e}")
         try:
             os.chdir(orig_dir)
-        except:
+        except Exception:
             pass
         return False
 
