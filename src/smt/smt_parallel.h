@@ -162,14 +162,6 @@ namespace smt {
                 return is_global_backbone_unlocked(l2g, bb_cand);
             }
 
-            expr_ref_vector snapshot_global_backbones(ast_translation& g2l) {
-                std::scoped_lock lock(mux);
-                expr_ref_vector bb_snapshot(g2l.to());
-                for (expr* bb : m_global_backbones)
-                    bb_snapshot.push_back(expr_ref(g2l(bb), g2l.to()));
-                return bb_snapshot;
-            }
-
             void set_num_backbone_threads(unsigned n) {
                 std::scoped_lock lock(mux);
                 m_num_bb_threads = n;

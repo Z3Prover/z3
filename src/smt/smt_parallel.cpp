@@ -154,14 +154,13 @@ namespace smt {
             while (!bb_candidate_lits.empty() && !canceled() && m.inc()) {
                 // remove candidates that the other backbone thread found to be backbones
                 if (m_num_bb_threads > 1) {
-                    expr_ref_vector local_global_bbs = b.snapshot_global_backbones(m_g2l);
-
-                    auto keep = [&](expr* e) {
-                        return !local_global_bbs.contains(e);
-                    };
-
-                    std::function<bool(expr*)> pred = keep;
-                    bb_candidate_lits = bb_candidate_lits.filter_pure(pred);
+                    for (unsigned i = 0; i < bb_candidate_lits.size();) {
+                        expr* tmp = bb_candidate_lits.get(i);
+                        if (b.is_global_backbone(m_l2g, tmp)) 
+                            bb_candidate_lits.erase(i);                    
+                        else
+                            ++i;
+                    }
                 }
 
                 unsigned chunk_size = std::min(m_bb_chunk_size * chunk_delta, bb_candidate_lits.size());
@@ -826,12 +825,12 @@ namespace smt {
     void parallel::batch_manager::collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates) {
         std::scoped_lock lock(mux);
 
-        obj_map<expr, unsigned> candidate_index_map;
-        for (unsigned i = 0; i < m_bb_candidates.size(); ++i)
-            candidate_index_map.insert(m_bb_candidates[i].lit.get(), i);
         auto find_existing_candidate_idx = [&](expr* e) -> int {
-            unsigned idx;
-            return candidate_index_map.find(e, idx) ? static_cast<int>(idx) : -1;
+            for (unsigned i = 0; i < m_bb_candidates.size(); ++i) {
+                if (m_bb_candidates[i].lit.get() == e)
+                    return i;
+            }
+            return -1;
         };
 
         auto rank_of = [&](bb_candidate const& c) {
