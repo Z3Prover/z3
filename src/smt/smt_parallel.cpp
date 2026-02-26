@@ -893,12 +893,13 @@ namespace smt {
         std::unique_lock<std::mutex> lock(mux);
 
         // ---- WAIT UNTIL:
-        // new batch available that we haven't seen yet
+        // (a) a new batch is ready that this thread hasn't seen yet, OR
+        // (b) candidates are available AND the previous batch is finished (not in progress)
         m_bb_cv.wait(lock, [&]() {
             return lim.is_canceled() ||
                 m_state != state::is_running ||
-                !m_bb_candidates.empty() ||
-                m_bb_last_batch_processed[bb_thread_id] < m_bb_batch_id;
+                m_bb_last_batch_processed[bb_thread_id] < m_bb_batch_id ||
+                (!m_bb_candidates.empty() && !m_batch_in_progress);
         });
 
         if (lim.is_canceled())
@@ -908,6 +909,8 @@ namespace smt {
             return false;
 
         // ---- NEED NEW BATCH? ----
+        // Only create a new batch if the previous one is done (!m_batch_in_progress)
+        // and this thread has already seen the current batch.
         if (m_bb_last_batch_processed[bb_thread_id] == m_bb_batch_id) {
 
             // pop new batch once
@@ -920,6 +923,7 @@ namespace smt {
             }
 
             m_bb_batch_id++;
+            m_batch_in_progress = true;
 
             // wake all threads to see new batch
             m_bb_cv.notify_all();
