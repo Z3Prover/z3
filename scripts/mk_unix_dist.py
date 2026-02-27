@@ -188,7 +188,7 @@ def mk_z3():
     with cd(BUILD_DIR):
         try:
             return subprocess.call(['make', '-j', MAKEJOBS])
-        except:
+        except Exception:
             return 1
 
 def get_os_name():
@@ -277,7 +277,7 @@ def mk_zip():
                 zipout.write(os.path.join(root, f))
         if is_verbose():
             print("Generated '%s'" % zfname)
-    except:
+    except Exception:
         pass
     os.chdir(old)
 

@@ -20,7 +20,7 @@ from fnmatch import fnmatch
 def getenv(name, default):
     try:
         return os.environ[name].strip(' "\'')
-    except:
+    except Exception:
         return default
 
 BUILD_DIR = 'build-dist'
@@ -187,7 +187,7 @@ def get_git_hash():
     try:
         branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
         r = check_output(['git', 'show-ref', '--abbrev=12', 'refs/heads/%s' % branch])
-    except:
+    except Exception:
         raise MKException("Failed to retrieve git hash")
     ls = r.split(' ')
     if len(ls) != 2:
@@ -245,7 +245,7 @@ def check_vc_cmd_prompt():
     try:
         DEVNULL = open(os.devnull, 'wb')
         subprocess.call(['cl'], stdout=DEVNULL, stderr=DEVNULL)
-    except:
+    except Exception:
         raise MKException("You must execute the mk_win_dist.py script on a Visual Studio Command Prompt")
 
 def exec_cmds(cmds):
@@ -258,11 +258,11 @@ def exec_cmds(cmds):
     res = 0
     try:
         res = subprocess.call(cmd_file, shell=True)
-    except:
+    except Exception:
         res = 1
     try:
         os.erase(cmd_file)
-    except:
+    except Exception:
         pass
     return res
 
@@ -305,7 +305,7 @@ def mk_zip(arch):
                 zipout.write(os.path.join(root, f))
         if is_verbose():
             print("Generated '%s'" % zfname)
-    except:
+    except Exception:
         pass
     os.chdir(old)
 

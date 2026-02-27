@@ -407,7 +407,7 @@ try:
         if subprocess.call([DOXYGEN_EXE, doxygen_config_file]) != 0:
             print("ERROR: doxygen returned nonzero return code")
             exit(1)
-    except:
+    except Exception:
         print("ERROR: failed to execute 'doxygen', make sure doxygen (http://www.doxygen.org) is available in your system.")
         exit(1)
     print("Generated Doxygen based documentation")

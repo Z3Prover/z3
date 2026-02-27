@@ -166,7 +166,7 @@ def check_vc_cmd_prompt():
     try:
         DEVNULL = open(os.devnull, 'wb')
         subprocess.call(['cl'], stdout=DEVNULL, stderr=DEVNULL)
-    except:
+    except Exception:
         raise MKException("You must execute the mk_win_dist.py script on a Visual Studio Command Prompt")
 
 def exec_cmds(cmds):
@@ -179,11 +179,11 @@ def exec_cmds(cmds):
     res = 0
     try:
         res = subprocess.call(cmd_file, shell=True)
-    except:
+    except Exception:
         res = 1
     try:
         os.erase(cmd_file)
-    except:
+    except Exception:
         pass
     return res
 
@@ -248,7 +248,7 @@ def mk_zip(x64):
                 zipout.write(os.path.join(root, f))
         if is_verbose():
             print("Generated '%s'" % zfname)
-    except:
+    except Exception:
         pass
     os.chdir(old)
 

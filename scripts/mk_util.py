@@ -22,7 +22,7 @@ import subprocess
 def getenv(name, default):
     try:
         return os.environ[name].strip(' "\'')
-    except:
+    except Exception:
         return default
 
 CXX=getenv("CXX", None)
@@ -133,7 +133,7 @@ def git_hash():
     try:
         branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
         r = check_output(['git', 'show-ref', '--abbrev=12', 'refs/heads/%s' % branch])
-    except:
+    except Exception:
         raise MKException("Failed to retrieve git hash")
     ls = r.split(' ')
     if len(ls) != 2:
@@ -197,7 +197,7 @@ class TempFile:
         try:
             self.name  = name
             self.fname = open(name, 'w')
-        except:
+        except Exception:
             raise MKException("Failed to create temporary file '%s'" % self.name)
 
     def add(self, s):
@@ -210,7 +210,7 @@ class TempFile:
         self.fname.close()
         try:
             os.remove(self.name)
-        except:
+        except Exception:
             pass
 
 def exec_cmd(cmd):
@@ -235,7 +235,7 @@ def exec_cmd(cmd):
     null = open(os.devnull, 'wb')
     try:
         return subprocess.call(cmd, stdout=null, stderr=null)
-    except:
+    except Exception:
         # Failed to create process
         return 1
     finally:
@@ -402,7 +402,7 @@ def check_java():
         subprocess.call([JAVAC, 'Hello.java', '-verbose', '-source', '1.8', '-target', '1.8' ], stdout=oo.fname, stderr=eo.fname)
         oo.commit()
         eo.commit()
-    except:
+    except Exception:
         raise MKException('Found, but failed to run Java compiler at %s' % (JAVAC))
 
     os.remove('Hello.class')
@@ -459,7 +459,7 @@ def test_csc_compiler(c):
     try:
         rmf('hello.cs')
         rmf('hello.exe')
-    except:
+    except Exception:
         pass
     return r == 0
 
@@ -490,7 +490,7 @@ def check_ml():
         rmf('hello.cmx')
         rmf('a.out')
         rmf('hello.o')
-    except:
+    except Exception:
         pass
     find_ml_lib()
     find_ocaml_find()
@@ -512,7 +512,7 @@ def find_ml_lib():
     try:
         subprocess.call([OCAMLC, '-where'], stdout=t.fname, stderr=null)
         t.commit()
-    except:
+    except Exception:
         raise MKException('Failed to find Ocaml library; please set OCAML_LIB')
     finally:
         null.close()
@@ -756,7 +756,7 @@ def parse_options():
                                                ['build=', 'debug', 'silent', 'x64', 'arm64=', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf', 'no-guardcf',
                                                 'trace', 'dotnet', 'dotnet-key=', 'assembly-version=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
                                                 'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'pypkgdir=', 'python', 'staticbin', 'log-sync', 'single-threaded'])
-    except:
+    except Exception:
         print("ERROR: Invalid command line option")
         display_help(1)
 
@@ -999,7 +999,7 @@ def is_clang_in_gpp_form(cc):
     str = check_output([cc, '--version'])
     try:
        version_string = str.encode('utf-8')
-    except:
+    except Exception:
        version_string = str
     clang = 'clang'.encode('utf-8')
     return version_string.find(clang) != -1
