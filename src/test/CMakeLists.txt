@@ -119,6 +119,7 @@ add_executable(test-z3
   rational.cpp
   rcf.cpp
   region.cpp
+  rw_rule.cpp
   sat_local_search.cpp
   sat_lookahead.cpp
   sat_user_scope.cpp

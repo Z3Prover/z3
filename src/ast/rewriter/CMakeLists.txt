@@ -1,6 +1,7 @@
 z3_add_component(rewriter
   SOURCES
     arith_rewriter.cpp
+    rw_rule.cpp
     array_rewriter.cpp
     ast_counter.cpp
     bit2int.cpp
