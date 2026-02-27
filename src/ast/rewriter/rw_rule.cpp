@@ -145,6 +145,25 @@ void rw_table::populate_rules() {
     add_rule(1, arith.mk_uminus(arith.mk_uminus(v0i)), v0i); // -(-x) -> x  (Int)
     add_rule(1, arith.mk_uminus(arith.mk_uminus(v0r)), v0r); // -(-x) -> x  (Real)
 
+    // Arithmetic: unary minus of zero  -(0) -> 0
+    add_rule(0, arith.mk_uminus(zero_i), zero_i); // -(0_i) -> 0  (Int)
+    add_rule(0, arith.mk_uminus(zero_r), zero_r); // -(0_r) -> 0  (Real)
+
+    // Arithmetic: integer division by 1  x div 1 -> x
+    add_rule(1, arith.mk_idiv(v0i, one_i), v0i); // x div 1 -> x  (Int)
+
+    // Arithmetic: mod by 1  x mod 1 -> 0
+    add_rule(1, arith.mk_mod(v0i, one_i), zero_i); // x mod 1 -> 0  (Int)
+
+    // Arithmetic: rem by 1  x rem 1 -> 0
+    add_rule(1, arith.mk_rem(v0i, one_i), zero_i); // x rem 1 -> 0  (Int)
+
+    // Arithmetic: reflexive inequality  x <= x -> true, x >= x -> true
+    add_rule(1, arith.mk_le(v0i, v0i), t_true); // x <= x -> true  (Int)
+    add_rule(1, arith.mk_ge(v0i, v0i), t_true); // x >= x -> true  (Int)
+    add_rule(1, arith.mk_le(v0r, v0r), t_true); // x <= x -> true  (Real)
+    add_rule(1, arith.mk_ge(v0r, v0r), t_true); // x >= x -> true  (Real)
+
     // ------------------------------------------------------------------
     // Boolean: and/or identities and annihilators
     // ------------------------------------------------------------------
@@ -158,12 +177,30 @@ void rw_table::populate_rules() {
     add_rule(1, m.mk_or(t_true,  v0b), t_true);  // true  \/ x -> true
     add_rule(1, m.mk_or(v0b, t_true),  t_true);  // x \/ true  -> true
 
+    // Boolean: idempotency  x /\ x -> x,  x \/ x -> x
+    add_rule(1, m.mk_and(v0b, v0b), v0b);  // x /\ x -> x
+    add_rule(1, m.mk_or(v0b, v0b),  v0b);  // x \/ x -> x
+
+    // Boolean: complementation  x /\ not(x) -> false, x \/ not(x) -> true
+    add_rule(1, m.mk_and(v0b, m.mk_not(v0b)), t_false); // x /\ not(x) -> false
+    add_rule(1, m.mk_and(m.mk_not(v0b), v0b), t_false); // not(x) /\ x -> false
+    add_rule(1, m.mk_or(v0b,  m.mk_not(v0b)), t_true);  // x \/ not(x) -> true
+    add_rule(1, m.mk_or(m.mk_not(v0b), v0b),  t_true);  // not(x) \/ x -> true
+
     // Boolean: double negation  not(not(x)) -> x
     add_rule(1, m.mk_not(m.mk_not(v0b)), v0b);
 
     // Boolean: negation of constants
     add_rule(0, m.mk_not(m.mk_true()),  m.mk_false()); // not(true)  -> false
     add_rule(0, m.mk_not(m.mk_false()), m.mk_true());  // not(false) -> true
+
+    // Boolean: equality with true/false
+    //   (= true  x) -> x,  (= x true)  -> x
+    //   (= false x) -> not(x),  (= x false) -> not(x)
+    add_rule(1, m.mk_eq(t_true,  v0b), v0b);           // (= true x) -> x
+    add_rule(1, m.mk_eq(v0b, t_true),  v0b);           // (= x true) -> x
+    add_rule(1, m.mk_eq(t_false, v0b), m.mk_not(v0b)); // (= false x) -> not(x)
+    add_rule(1, m.mk_eq(v0b, t_false), m.mk_not(v0b)); // (= x false) -> not(x)
 
     // ------------------------------------------------------------------
     // ITE simplifications (Bool, Int, Real branches)
@@ -182,6 +219,10 @@ void rw_table::populate_rules() {
     add_rule(2, m.mk_ite(v0b, v1b, v1b), v1b); // Bool
     add_rule(2, m.mk_ite(v0b, v1i, v1i), v1i); // Int
     add_rule(2, m.mk_ite(v0b, v1r, v1r), v1r); // Real
+
+    // ite(c, true, false) -> c  and  ite(c, false, true) -> not(c)
+    add_rule(1, m.mk_ite(v0b, t_true,  t_false), v0b);           // Bool
+    add_rule(1, m.mk_ite(v0b, t_false, t_true),  m.mk_not(v0b)); // Bool
 
     // ------------------------------------------------------------------
     // Equality: x = x -> true

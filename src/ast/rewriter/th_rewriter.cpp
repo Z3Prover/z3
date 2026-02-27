@@ -33,6 +33,7 @@ Notes:
 #include "ast/rewriter/finite_set_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/rw_rule.h"
 #include "ast/rewriter/der.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/expr_substitution.h"
@@ -57,6 +58,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     char_rewriter       m_char_rw;
     recfun_rewriter     m_rec_rw;
     finite_set_rewriter m_fs_rw;
+    rw_table            m_rw_table;
     arith_util          m_a_util;
     bv_util             m_bv_util;
     der                 m_der;
@@ -157,6 +159,12 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     }
 
     br_status reduce_app_core(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+        // Try abstract machine rules first: catches simple Bool/arith identities cheaply.
+        {
+            br_status st = m_rw_table.apply(f, num, args, result);
+            if (st != BR_FAILED)
+                return st;
+        }
         family_id fid = f->get_family_id();
         if (fid == null_family_id)
             return BR_FAILED;
@@ -891,6 +899,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_char_rw(m),
         m_rec_rw(m), 
         m_fs_rw(m),
+        m_rw_table(m),
         m_a_util(m),
         m_bv_util(m),
         m_der(m),
@@ -899,6 +908,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         m_pinned(m),
         m_used_dependencies(m) {
         updt_local_params(p);
+        m_rw_table.populate_rules();
     }
 
     void set_substitution(expr_substitution * s) {
