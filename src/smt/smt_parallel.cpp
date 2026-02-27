@@ -932,7 +932,6 @@ namespace smt {
             expr_ref l_lit(g2l(gc.lit.get()), m);
             out.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
         }
-        m_bb_current_batch.reset();
 
         m_bb_last_batch_processed[bb_thread_id] = m_bb_batch_id;
         return true;
