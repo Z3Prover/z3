@@ -179,6 +179,8 @@ namespace smt {
                 else
                     bb_asms.append(chunk_lits); // F ∧ U
 
+                collect_shared_clauses();
+
                 while (true) {
 
                     if (!m.inc()) 
@@ -288,8 +290,6 @@ namespace smt {
                         break;
                     }
                 }
-
-                collect_shared_clauses();
             }
 
             if (!canceled()) {
