@@ -33,6 +33,7 @@ namespace smt {
           m_sk(ctx.get_manager(), m_rewrite),
           m_arith_value(ctx.get_manager()),
           m_state(ctx.get_manager(), m_util),
+          m_nielsen(ctx.get_manager(), m_seq_rewrite),
           m_find(*this),
           m_has_seq(false),
           m_new_propagation(false) {
@@ -53,6 +54,7 @@ namespace smt {
         if (!m_has_seq)
             return FC_DONE;
 
+        m_new_propagation = false;
         TRACE(seq, display(tout << "final_check level=" << ctx.get_scope_level() << "\n"););
 
         // Process pending axioms
@@ -65,9 +67,16 @@ namespace smt {
             return FC_CONTINUE;
         }
 
-        // TODO: implement Nielsen transformation-based solving
+        // Solve word equations using Nielsen transformations
+        if (solve_eqs())
+            return FC_CONTINUE;
+
         // TODO: implement regex membership checking
         // TODO: implement length/Parikh reasoning
+
+        if (all_eqs_solved() && m_state.mems().empty())
+            return FC_DONE;
+
         return FC_GIVEUP;
     }
 
@@ -370,6 +379,226 @@ namespace smt {
         return expr_ref(m_util.str.mk_concat(es.size(), es.data(), s), m);
     }
 
+    // Canonize an equation side using current e-graph equivalences.
+    // Replaces each element with its canonical representative, decomposing
+    // concatenations and string constants as needed.
+    bool theory_nseq::canonize(expr_ref_vector const& src, expr_ref_vector& dst,
+                                nseq_dependency*& dep) {
+        dst.reset();
+        for (expr* e : src) {
+            if (!ctx.e_internalized(e)) {
+                dst.push_back(e);
+                continue;
+            }
+            enode* n = ctx.get_enode(e);
+            enode* r = n->get_root();
+            expr* re = r->get_expr();
+            if (re != e) {
+                // Track the dependency for the equality
+                dep = m_state.mk_join(dep, m_state.mk_dep(n, r));
+            }
+            // Decompose the canonical representative into concat components
+            m_util.str.get_concat_units(re, dst);
+        }
+        return true;
+    }
+
+    // Check if all equations are satisfied in the current e-graph.
+    bool theory_nseq::all_eqs_solved() {
+        for (auto const& eq : m_state.eqs()) {
+            expr_ref_vector lhs(m), rhs(m);
+            nseq_dependency* dep = eq.dep();
+            if (!canonize(eq.lhs(), lhs, dep) || !canonize(eq.rhs(), rhs, dep))
+                return false;
+            seq::nielsen_result result = m_nielsen.simplify(lhs, rhs);
+            TRACE(seq, tout << "all_eqs_solved [" << eq.id() << "]: ";
+                  for (auto* e : lhs) tout << mk_bounded_pp(e, m, 2) << " ";
+                  tout << "= ";
+                  for (auto* e : rhs) tout << mk_bounded_pp(e, m, 2) << " ";
+                  tout << " -> " << (int)result << "\n";);
+            if (result != seq::nielsen_result::solved)
+                return false;
+        }
+        return true;
+    }
+
+    // -------------------------------------------------------
+    // Nielsen equation solving
+    // -------------------------------------------------------
+
+    bool theory_nseq::solve_eqs() {
+        auto const& eqs = m_state.eqs();
+        for (unsigned i = 0; !ctx.inconsistent() && i < eqs.size(); ++i)
+            solve_eq(eqs[i]);
+        return m_new_propagation || ctx.inconsistent();
+    }
+
+    bool theory_nseq::solve_eq(nseq_eq const& eq) {
+        expr_ref_vector lhs(m), rhs(m);
+        nseq_dependency* dep = eq.dep();
+
+        // Canonize using current e-graph equivalences
+        if (!canonize(eq.lhs(), lhs, dep) || !canonize(eq.rhs(), rhs, dep))
+            return false;
+
+        TRACE(seq, tout << "solve_eq [" << eq.id() << "]: ";
+              for (auto* e : lhs) tout << mk_bounded_pp(e, m, 2) << " ";
+              tout << "= ";
+              for (auto* e : rhs) tout << mk_bounded_pp(e, m, 2) << " ";
+              tout << "\n";);
+
+        // Apply Nielsen simplification
+        seq::nielsen_result result = m_nielsen.simplify(lhs, rhs);
+
+        switch (result) {
+        case seq::nielsen_result::solved: {
+            // Propagate solved form: either both empty, var = empty, or var = ground term
+            bool changed = false;
+            if (lhs.size() == 1 && m_nielsen.is_var(lhs.get(0)) && !rhs.empty()) {
+                sort* s = lhs.get(0)->get_sort();
+                expr_ref rhs_concat = mk_concat(rhs, s);
+                changed = propagate_eq(dep, lhs.get(0), rhs_concat);
+            }
+            else if (rhs.size() == 1 && m_nielsen.is_var(rhs.get(0)) && !lhs.empty()) {
+                sort* s = rhs.get(0)->get_sort();
+                expr_ref lhs_concat = mk_concat(lhs, s);
+                changed = propagate_eq(dep, rhs.get(0), lhs_concat);
+            }
+            else {
+                // All remaining vars must be empty
+                for (unsigned i = 0; i < lhs.size(); ++i)
+                    if (m_nielsen.is_var(lhs.get(i)))
+                        changed |= propagate_eq(dep, lhs.get(i), expr_ref(m_util.str.mk_empty(lhs.get(i)->get_sort()), m));
+                for (unsigned i = 0; i < rhs.size(); ++i)
+                    if (m_nielsen.is_var(rhs.get(i)))
+                        changed |= propagate_eq(dep, rhs.get(i), expr_ref(m_util.str.mk_empty(rhs.get(i)->get_sort()), m));
+            }
+            TRACE(seq, tout << "solved" << (changed ? " (propagated)" : " (no change)") << "\n";);
+            return changed;
+        }
+
+        case seq::nielsen_result::conflict:
+            TRACE(seq, tout << "conflict\n";);
+            set_conflict(dep);
+            return true;
+
+        case seq::nielsen_result::reduced: {
+            if (lhs.empty() && rhs.empty())
+                return false; // already equal
+            bool changed = false;
+            if (!lhs.empty() && !rhs.empty()) {
+                sort* s = lhs[0]->get_sort();
+                expr_ref l = mk_concat(lhs, s);
+                expr_ref r = mk_concat(rhs, s);
+                changed = propagate_eq(dep, l, r);
+            }
+            else {
+                expr_ref_vector& nonempty = lhs.empty() ? rhs : lhs;
+                for (expr* e : nonempty) {
+                    if (m_util.is_seq(e)) {
+                        expr_ref emp(m_util.str.mk_empty(e->get_sort()), m);
+                        changed |= propagate_eq(dep, e, emp);
+                    }
+                }
+            }
+            TRACE(seq, tout << "reduced" << (changed ? " (propagated)" : " (no change)") << "\n";);
+            return changed;
+        }
+
+        case seq::nielsen_result::split:
+        case seq::nielsen_result::unchanged:
+            break;
+        }
+
+        // Try branching: find a variable and decide x = "" or x ≠ ""
+        return branch_eq(lhs, rhs, dep);
+    }
+
+    bool theory_nseq::branch_eq(expr_ref_vector const& lhs, expr_ref_vector const& rhs,
+                                 nseq_dependency* dep) {
+        // Try branching on variables from the LHS first, then RHS
+        for (unsigned side = 0; side < 2; ++side) {
+            expr_ref_vector const& es = (side == 0) ? lhs : rhs;
+            for (expr* e : es) {
+                if (!m_nielsen.is_var(e))
+                    continue;
+                // Check if this variable is already known to be empty
+                enode* n = ctx.get_enode(e);
+                expr_ref emp(m_util.str.mk_empty(e->get_sort()), m);
+                if (ctx.e_internalized(emp)) {
+                    enode* n_emp = ctx.get_enode(emp);
+                    if (n->get_root() == n_emp->get_root())
+                        continue; // already equal to empty, skip
+                }
+
+                // Decide: x = "" or x ≠ ""
+                literal eq_empty = mk_eq(e, emp, false);
+                switch (ctx.get_assignment(eq_empty)) {
+                case l_undef:
+                    // Force the empty branch first
+                    TRACE(seq, tout << "branch " << mk_bounded_pp(e, m) << " = \"\"\n";);
+                    ctx.force_phase(eq_empty);
+                    ctx.mark_as_relevant(eq_empty);
+                    m_new_propagation = true;
+                    m_state.stats().m_num_splits++;
+                    return true;
+                case l_true:
+                    // Variable assigned to empty but EQ not yet merged
+                    // Propagate the equality
+                    propagate_eq(dep, e, emp);
+                    return true;
+                case l_false:
+                    // x ≠ "": try to find a prefix from the other side
+                    break;
+                }
+            }
+        }
+
+        // If all variables on one side are decided non-empty,
+        // try to match against the other side using prefix enumeration
+        return branch_eq_prefix(lhs, rhs, dep);
+    }
+
+    bool theory_nseq::branch_eq_prefix(expr_ref_vector const& lhs, expr_ref_vector const& rhs,
+                                        nseq_dependency* dep) {
+        // Find a leading variable on either side
+        if (!lhs.empty() && m_nielsen.is_var(lhs[0]) && !rhs.empty())
+            return branch_var_prefix(lhs[0], rhs, dep);
+        if (!rhs.empty() && m_nielsen.is_var(rhs[0]) && !lhs.empty())
+            return branch_var_prefix(rhs[0], lhs, dep);
+        return false;
+    }
+
+    bool theory_nseq::branch_var_prefix(expr* x, expr_ref_vector const& other,
+                                         nseq_dependency* dep) {
+        // For x starting one side, try x = prefix of other side
+        // x = "" was already tried (assigned false)
+        // Now enumerate: x = other[0], x = other[0]·other[1], ...
+        expr_ref candidate(m);
+        for (unsigned len = 1; len <= other.size(); ++len) {
+            if (len == 1)
+                candidate = other[0];
+            else
+                candidate = expr_ref(m_util.str.mk_concat(len, other.data(), x->get_sort()), m);
+            literal eq = mk_eq(x, candidate, false);
+            switch (ctx.get_assignment(eq)) {
+            case l_undef:
+                TRACE(seq, tout << "branch " << mk_bounded_pp(x, m) << " = " << mk_bounded_pp(candidate, m) << "\n";);
+                ctx.force_phase(eq);
+                ctx.mark_as_relevant(eq);
+                m_new_propagation = true;
+                m_state.stats().m_num_splits++;
+                return true;
+            case l_true:
+                propagate_eq(dep, x, candidate);
+                return true;
+            case l_false:
+                continue;
+            }
+        }
+        return false;
+    }
+
     // -------------------------------------------------------
     // Display and statistics
     // -------------------------------------------------------
@@ -396,6 +625,35 @@ namespace smt {
     // -------------------------------------------------------
 
     model_value_proc* theory_nseq::mk_value(enode* n, model_generator& mg) {
+        app* e = n->get_expr();
+        TRACE(seq, tout << "mk_value: " << mk_bounded_pp(e, m) << "\n";);
+
+        if (m_util.is_seq(e)) {
+            // Walk the equivalence class looking for a concrete string value
+            enode* root = n->get_root();
+            enode* curr = root;
+            do {
+                expr* ce = curr->get_expr();
+                zstring s;
+                if (m_util.str.is_string(ce, s))
+                    return alloc(expr_wrapper_proc, to_app(ce));
+                if (m_util.str.is_empty(ce))
+                    return alloc(expr_wrapper_proc, to_app(ce));
+                curr = curr->get_next();
+            } while (curr != root);
+
+            // No concrete value found: use seq_factory to get a fresh value
+            expr_ref val(m);
+            val = mg.get_model().get_fresh_value(e->get_sort());
+            if (val)
+                return alloc(expr_wrapper_proc, to_app(val));
+            // Fallback: empty string
+            return alloc(expr_wrapper_proc, to_app(m_util.str.mk_empty(e->get_sort())));
+        }
+        if (m_util.is_re(e)) {
+            return alloc(expr_wrapper_proc, to_app(m_util.re.mk_full_seq(e->get_sort())));
+        }
+        UNREACHABLE();
         return nullptr;
     }
 

@@ -23,6 +23,7 @@ Author:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/nseq_nielsen.h"
 #include "model/seq_factory.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
@@ -39,6 +40,7 @@ namespace smt {
         seq::skolem      m_sk;
         arith_value      m_arith_value;
         nseq_state       m_state;
+        seq::nielsen     m_nielsen;
         nseq_union_find  m_find;
         bool             m_has_seq;
         bool             m_new_propagation;
@@ -85,6 +87,15 @@ namespace smt {
         literal mk_eq_empty(expr* e, bool phase = true);
         expr_ref mk_len(expr* s);
         expr_ref mk_concat(expr_ref_vector const& es, sort* s);
+
+        // Nielsen equation solving
+        bool solve_eqs();
+        bool solve_eq(nseq_eq const& eq);
+        bool branch_eq(expr_ref_vector const& lhs, expr_ref_vector const& rhs, nseq_dependency* dep);
+        bool branch_eq_prefix(expr_ref_vector const& lhs, expr_ref_vector const& rhs, nseq_dependency* dep);
+        bool branch_var_prefix(expr* x, expr_ref_vector const& other, nseq_dependency* dep);
+        bool canonize(expr_ref_vector const& src, expr_ref_vector& dst, nseq_dependency*& dep);
+        bool all_eqs_solved();
 
     public:
         theory_nseq(context& ctx);
