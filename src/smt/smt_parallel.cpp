@@ -491,6 +491,8 @@ namespace smt {
             }
             if (m_config.m_share_units)
                 share_units();
+            if (m_config.m_share_theory_lemmas)
+                share_theory_lemmas();
         }
     }
 
@@ -517,6 +519,7 @@ namespace smt {
         // don't share initial units
         ctx->pop_to_base_lvl();
         m_num_shared_units = ctx->assigned_literals().size();
+        m_num_shared_lemmas = ctx->get_lemmas().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
         ctx->m_phase_cache_on = true; // not sure if this is needed, ensure phase caching is on for backbone detection for now
@@ -525,6 +528,7 @@ namespace smt {
         m_config.m_inprocessing = pp.inprocessing();
         m_config.m_global_backbones = pp.num_bb_threads() > 0;
         m_config.m_local_backbones = pp.local_backbones();
+        m_config.m_share_theory_lemmas = pp.share_theory_lemmas();
     }
 
     parallel::sls_worker::sls_worker(parallel& p)
@@ -661,6 +665,35 @@ namespace smt {
         m_num_shared_units = sz;
     }
 
+    void parallel::worker::share_theory_lemmas() {
+        // Share new theory lemmas (CLS_TH_LEMMA) with other workers via the batch manager.
+        // Theory lemmas are universally valid consequences of the input formula and are
+        // safe to inject into any parallel worker regardless of its current cube assignment.
+        LOG_WORKER(1, " sharing theory lemmas\n");
+        clause_vector const& lemmas = ctx->get_lemmas();
+        unsigned sz = lemmas.size();
+        for (unsigned j = m_num_shared_lemmas; j < sz; ++j) {
+            clause* cls = lemmas.get(j);
+            if (!cls->is_th_lemma())
+                continue;
+            
+            if (cls->get_num_literals() > m_config.m_share_theory_lemmas_max_lits)
+                continue;
+            
+            expr_ref_vector lits(m);
+            for (literal lit : *cls) {
+                expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);
+                if (lit.sign())
+                    e = mk_not(e);
+                lits.push_back(std::move(e));
+            }
+            
+            expr_ref clause_expr = mk_or(lits);
+            b.collect_clause(m_l2g, id, clause_expr);
+        }
+        m_num_shared_lemmas = sz;
+    }
+
     void parallel::worker::simplify() {
         if (!m.inc())
             return;
@@ -728,6 +761,7 @@ namespace smt {
         ctx->internalize_assertions();
         auto old_atoms = m_num_initial_atoms;
         m_num_shared_units = ctx->assigned_literals().size();
+        m_num_shared_lemmas = ctx->get_lemmas().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
         LOG_WORKER(1, " inprocess " << old_atoms << " -> " << m_num_initial_atoms << "\n");
     }
