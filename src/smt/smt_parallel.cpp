@@ -376,12 +376,20 @@ namespace smt {
     }
 
     void parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities) {
-        bb_candidates backbone_candidates = find_backbone_candidates();
+        bb_candidates local_candidates = find_backbone_candidates();
         if (m_config.m_global_backbones)
-            b.collect_backbone_candidates(m_l2g, backbone_candidates);
+            b.collect_backbone_candidates(m_l2g, local_candidates);
         if (m_config.m_local_backbones) {
             LOG_WORKER(1, " LOCAL BACKBONE DETECTION\n");
-            for (smt::parallel::bb_candidate const& bb : backbone_candidates) {
+
+            // Pull candidates from the global batch manager pool so that
+            // backbone signals discovered by other workers inform this experiment.
+            // Fall back to locally-derived candidates if the global pool is empty yet.
+            bb_candidates bb_cands = b.return_global_bb_candidates(m_g2l);
+            if (bb_cands.empty())
+                bb_cands = local_candidates;
+
+            for (smt::parallel::bb_candidate const& bb : bb_cands) {
                 // Set the phase of the candidates to the negation of their assumed values
                 LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
                 expr* atom = bb.lit.get();
@@ -391,7 +399,9 @@ namespace smt {
                     phase = !phase;
 
                 sat::bool_var v = ctx->get_bool_var(atom);
-                SASSERT(v != sat::null_bool_var); // because these candidates come from the current context, they must be internalized
+                // Candidates from other workers may not be internalized in this context; skip them.
+                if (v == sat::null_bool_var)
+                    continue;
                 ctx->force_phase(v, phase);
                 LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
 
@@ -507,10 +517,17 @@ namespace smt {
         case l_undef:
             break;
         case l_true:
-            // TODO set whatever is relevant for SAT mode
+            // SAT mode: let the solver explore longer before restarting to give more
+            // opportunity to find a satisfying assignment.
+            m_smt_params.m_restart_initial = 200;
             break;
         case l_false:
-            // TODO set phase selection to random. m_smt_params.m_phase_selection = PS_RANDOM;
+            // UNSAT mode: maximize early small conflicts.
+            // Random phase diversifies polarity choices so conflicts arise quickly and
+            // are small; a lower restart threshold flushes the search state often,
+            // producing many independent conflict clauses that can be shared.
+            m_smt_params.m_phase_selection = PS_RANDOM;
+            m_smt_params.m_restart_initial = 40;
             break;
         }
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
@@ -919,6 +936,16 @@ namespace smt {
             );
             m_bb_cv.notify_all();
         }
+    }
+
+    parallel::bb_candidates parallel::batch_manager::return_global_bb_candidates(ast_translation& g2l) {
+        bb_candidates bb_candidates_local;
+        std::scoped_lock lock(mux);
+        for (auto const& gc : m_bb_candidates) {
+            expr_ref l_lit(g2l(gc.lit.get()), g2l.to());
+            bb_candidates_local.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
+        }
+        return bb_candidates_local;
     }
 
     bool parallel::batch_manager::wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, bb_candidates& out, reslimit& lim) {

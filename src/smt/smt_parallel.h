@@ -145,6 +145,7 @@ namespace smt {
             void collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates);
             bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone);
             bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, vector<parallel::bb_candidate>& out, reslimit& lim);
+            bb_candidates return_global_bb_candidates(ast_translation& g2l);
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
@@ -188,7 +189,7 @@ namespace smt {
                 bool m_share_units_relevant_only = true;
                 bool m_share_units_initial_only = true;
                 bool m_share_theory_lemmas = false;
-                unsigned m_share_theory_lemmas_max_lits = 15;
+                unsigned m_share_theory_lemmas_max_lits = 8;
                 double m_max_conflict_mul = 1.5;
                 bool m_inprocessing = false;
                 bool m_global_backbones = false;
