@@ -27,6 +27,7 @@ Author:
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
 #include "smt/smt_model_generator.h"
+#include "smt/nseq_state.h"
 
 namespace smt {
 
@@ -37,8 +38,12 @@ namespace smt {
         th_rewriter      m_rewrite;
         seq::skolem      m_sk;
         arith_value      m_arith_value;
+        nseq_state       m_state;
+        nseq_union_find  m_find;
         bool             m_has_seq;
+        bool             m_new_propagation;
 
+        // Theory interface
         final_check_status final_check_eh(unsigned) override;
         bool internalize_atom(app* atom, bool) override;
         bool internalize_term(app*) override;
@@ -62,9 +67,35 @@ namespace smt {
         theory_var mk_var(enode* n) override;
         void apply_sort_cnstr(enode* n, sort* s) override;
 
+        // Axiom management
+        void enque_axiom(expr* e);
+        void deque_axiom(expr* e);
+        void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal,
+                        literal l4 = null_literal, literal l5 = null_literal);
+
+        // Propagation helpers
+        bool propagate_eq(nseq_dependency* dep, enode* n1, enode* n2);
+        bool propagate_eq(nseq_dependency* dep, expr* e1, expr* e2, bool add_to_eqs = true);
+        bool propagate_lit(nseq_dependency* dep, literal lit);
+        void set_conflict(nseq_dependency* dep, literal_vector const& lits = literal_vector());
+
+        // Helpers
+        void add_length(expr* l);
+        literal mk_literal(expr* e);
+        literal mk_eq_empty(expr* e, bool phase = true);
+        expr_ref mk_len(expr* s);
+        expr_ref mk_concat(expr_ref_vector const& es, sort* s);
+
     public:
         theory_nseq(context& ctx);
         ~theory_nseq() override;
         void init() override;
+
+        // union_find callbacks
+        trail_stack& get_trail_stack() { return m_state.trail(); }
+        void merge_eh(theory_var, theory_var, theory_var, theory_var) {}
+        void after_merge_eh(theory_var, theory_var, theory_var, theory_var) {}
+        void unmerge_eh(theory_var, theory_var) {}
     };
 }
+

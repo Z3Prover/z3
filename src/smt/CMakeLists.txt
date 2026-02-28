@@ -69,6 +69,7 @@ z3_add_component(smt
     theory_recfun.cpp
     theory_seq.cpp
     theory_nseq.cpp
+    nseq_state.cpp
     theory_sls.cpp
     theory_special_relations.cpp    
     theory_user_propagator.cpp
