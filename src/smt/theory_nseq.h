@@ -44,6 +44,7 @@ namespace smt {
         nseq_union_find  m_find;
         bool             m_has_seq;
         bool             m_new_propagation;
+        expr_ref_vector  m_fresh_values;  // keep model fresh values alive
 
         // Theory interface
         final_check_status final_check_eh(unsigned) override;
@@ -83,6 +84,7 @@ namespace smt {
 
         // Helpers
         void add_length(expr* l);
+        void ensure_length_axiom(expr* e);
         literal mk_literal(expr* e);
         literal mk_eq_empty(expr* e, bool phase = true);
         expr_ref mk_len(expr* s);
@@ -96,6 +98,15 @@ namespace smt {
         bool branch_var_prefix(expr* x, expr_ref_vector const& other, nseq_dependency* dep);
         bool canonize(expr_ref_vector const& src, expr_ref_vector& dst, nseq_dependency*& dep);
         bool all_eqs_solved();
+        bool check_length_conflict(expr* x, expr_ref_vector const& es, nseq_dependency* dep);
+
+        // Length reasoning
+        void add_length_axiom(expr* n);
+        bool check_zero_length();
+        bool propagate_length_eqs();
+        bool get_length(expr* e, rational& val);
+        bool lower_bound(expr* e, rational& lo);
+        bool upper_bound(expr* e, rational& hi);
 
     public:
         theory_nseq(context& ctx);

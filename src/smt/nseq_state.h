@@ -71,6 +71,7 @@ namespace smt {
         // Length tracking
         obj_hashtable<expr>      m_has_length;
         expr_ref_vector          m_length_apps;
+        expr_ref_vector          m_length_exprs;  // corresponding string exprs
 
         // Trail for undo
         trail_stack              m_trail;
@@ -107,6 +108,27 @@ namespace smt {
         // Length tracking
         bool has_length(expr* e) const { return m_has_length.contains(e); }
         void add_length(expr* len_app, expr* e, trail_stack& ts);
+        unsigned length_count() const { return m_length_apps.size(); }
+
+        struct length_pair { expr* len_app; expr* str_expr; };
+        class length_pair_iter {
+            expr_ref_vector const& m_apps;
+            expr_ref_vector const& m_exprs;
+        public:
+            length_pair_iter(expr_ref_vector const& a, expr_ref_vector const& e) : m_apps(a), m_exprs(e) {}
+            struct iterator {
+                expr_ref_vector const& m_apps;
+                expr_ref_vector const& m_exprs;
+                unsigned m_idx;
+                iterator(expr_ref_vector const& a, expr_ref_vector const& e, unsigned i) : m_apps(a), m_exprs(e), m_idx(i) {}
+                length_pair operator*() const { return { m_apps[m_idx], m_exprs[m_idx] }; }
+                iterator& operator++() { ++m_idx; return *this; }
+                bool operator!=(iterator const& o) const { return m_idx != o.m_idx; }
+            };
+            iterator begin() const { return iterator(m_apps, m_exprs, 0); }
+            iterator end() const { return iterator(m_apps, m_exprs, m_apps.size()); }
+        };
+        length_pair_iter length_pairs() const { return length_pair_iter(m_length_apps, m_length_exprs); }
 
         // Accessors
         scoped_vector<nseq_eq> const& eqs() const { return m_eqs; }

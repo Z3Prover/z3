@@ -28,7 +28,8 @@ namespace smt {
           m_eq_id(0),
           m_axioms(m),
           m_axioms_head(0),
-          m_length_apps(m) {
+          m_length_apps(m),
+          m_length_exprs(m) {
     }
 
     void nseq_state::push_scope() {
@@ -56,6 +57,7 @@ namespace smt {
         m_axioms_head = 0;
         m_has_length.reset();
         m_length_apps.reset();
+        m_length_exprs.reset();
         m_eq_id = 0;
     }
 
@@ -99,8 +101,10 @@ namespace smt {
         if (m_has_length.contains(e))
             return;
         m_length_apps.push_back(len_app);
+        m_length_exprs.push_back(e);
         m_has_length.insert(e);
         ts.push(push_back_vector<expr_ref_vector>(m_length_apps));
+        ts.push(push_back_vector<expr_ref_vector>(m_length_exprs));
         ts.push(insert_obj_trail<expr>(m_has_length, e));
     }
 
