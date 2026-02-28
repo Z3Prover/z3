@@ -57,6 +57,7 @@ namespace smt {
 
         m_new_propagation = false;
         TRACE(seq, display(tout << "final_check level=" << ctx.get_scope_level() << "\n"););
+        IF_VERBOSE(3, verbose_stream() << "nseq final_check level=" << ctx.get_scope_level() << "\n");
 
         // Process pending axioms
         if (m_state.has_pending_axioms()) {
@@ -321,6 +322,7 @@ namespace smt {
         literal_vector lits;
         m_state.linearize(dep, eqs, lits);
         TRACE(seq, tout << "propagate eq: " << mk_bounded_pp(n1->get_expr(), m) << " = " << mk_bounded_pp(n2->get_expr(), m) << "\n";);
+        IF_VERBOSE(3, verbose_stream() << "  propagate_eq: " << mk_bounded_pp(n1->get_expr(), m) << " = " << mk_bounded_pp(n2->get_expr(), m) << "\n";);
         justification* js = ctx.mk_justification(
             ext_theory_eq_propagation_justification(get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data(), n1, n2));
         ctx.assign_eq(n1, n2, eq_justification(js));
@@ -442,19 +444,55 @@ namespace smt {
         expr_ref_vector units(m);
         for (expr* e : src)
             m_util.str.get_concat_units(e, units);
-        // Step 2: follow e-graph roots for each atomic component
-        for (expr* u : units) {
-            if (!ctx.e_internalized(u)) {
-                dst.push_back(u);
-                continue;
+        // Step 2: follow e-graph roots for each atomic component, recursively
+        // Repeat until fixpoint to handle chains like a → concat(b, t1), t1 → concat(a, t2)
+        bool changed = true;
+        while (changed) {
+            changed = false;
+            expr_ref_vector next(m);
+            for (expr* u : units) {
+                if (!ctx.e_internalized(u)) {
+                    next.push_back(u);
+                    continue;
+                }
+                enode* n = ctx.get_enode(u);
+                enode* r = n->get_root();
+                expr* re = r->get_expr();
+                // If root differs from u, decompose the root
+                if (re != u) {
+                    dep = m_state.mk_join(dep, m_state.mk_dep(n, r));
+                    unsigned old_sz = next.size();
+                    m_util.str.get_concat_units(re, next);
+                    if (next.size() != old_sz + 1 || next.back() != u)
+                        changed = true;
+                    continue;
+                }
+                // Root == u: if u is a variable, search equivalence class
+                // for a concat/string/unit that gives a better decomposition
+                if (m_nielsen.is_var(u)) {
+                    expr* best = nullptr;
+                    for (enode* p = r->get_next(); p != r; p = p->get_next()) {
+                        expr* pe = p->get_expr();
+                        if (m_util.str.is_concat(pe) || m_util.str.is_string(pe) ||
+                            m_util.str.is_unit(pe) || m_util.str.is_empty(pe)) {
+                            best = pe;
+                            dep = m_state.mk_join(dep, m_state.mk_dep(n, p));
+                            break;
+                        }
+                    }
+                    if (best) {
+                        unsigned old_sz = next.size();
+                        m_util.str.get_concat_units(best, next);
+                        if (next.size() != old_sz + 1 || next.back() != u)
+                            changed = true;
+                        continue;
+                    }
+                }
+                next.push_back(u);
             }
-            enode* n = ctx.get_enode(u);
-            enode* r = n->get_root();
-            expr* re = r->get_expr();
-            if (re != u)
-                dep = m_state.mk_join(dep, m_state.mk_dep(n, r));
-            m_util.str.get_concat_units(re, dst);
+            units.swap(next);
         }
+        dst.append(units);
         return true;
     }
 
@@ -499,9 +537,22 @@ namespace smt {
               tout << "= ";
               for (auto* e : rhs) tout << mk_bounded_pp(e, m, 2) << " ";
               tout << "\n";);
+        IF_VERBOSE(3, verbose_stream() << "solve_eq [" << eq.id() << "]: ";
+              for (auto* e : lhs) verbose_stream() << mk_bounded_pp(e, m, 2) << " ";
+              verbose_stream() << "= ";
+              for (auto* e : rhs) verbose_stream() << mk_bounded_pp(e, m, 2) << " ";
+              verbose_stream() << "\n";);
 
         // Apply Nielsen simplification
         seq::nielsen_result result = m_nielsen.simplify(lhs, rhs);
+        IF_VERBOSE(3, verbose_stream() << "  nielsen=" << (int)result;
+              if (result != seq::nielsen_result::solved) {
+                  verbose_stream() << " reduced: ";
+                  for (auto* e : lhs) verbose_stream() << mk_bounded_pp(e, m, 2) << " ";
+                  verbose_stream() << "= ";
+                  for (auto* e : rhs) verbose_stream() << mk_bounded_pp(e, m, 2) << " ";
+              }
+              verbose_stream() << "\n";);
 
         switch (result) {
         case seq::nielsen_result::solved: {
@@ -512,6 +563,7 @@ namespace smt {
                     return true;
                 sort* s = lhs.get(0)->get_sort();
                 expr_ref rhs_concat = mk_concat(rhs, s);
+                ensure_enode(rhs_concat);
                 ensure_length_axiom(rhs_concat);
                 changed = propagate_eq(dep, lhs.get(0), rhs_concat);
             }
@@ -520,6 +572,7 @@ namespace smt {
                     return true;
                 sort* s = rhs.get(0)->get_sort();
                 expr_ref lhs_concat = mk_concat(lhs, s);
+                ensure_enode(lhs_concat);
                 ensure_length_axiom(lhs_concat);
                 changed = propagate_eq(dep, rhs.get(0), lhs_concat);
             }
@@ -538,22 +591,16 @@ namespace smt {
 
         case seq::nielsen_result::conflict:
             TRACE(seq, tout << "conflict\n";);
+            IF_VERBOSE(3, verbose_stream() << "  CONFLICT on eq " << eq.id() << "\n";);
             set_conflict(dep);
             return true;
 
         case seq::nielsen_result::reduced: {
             if (lhs.empty() && rhs.empty())
-                return false; // already equal
-            bool changed = false;
-            if (!lhs.empty() && !rhs.empty()) {
-                sort* s = lhs[0]->get_sort();
-                expr_ref l = mk_concat(lhs, s);
-                expr_ref r = mk_concat(rhs, s);
-                ensure_length_axiom(l);
-                ensure_length_axiom(r);
-                changed = propagate_eq(dep, l, r);
-            }
-            else {
+                return false;
+            // If one side is empty, propagate: remaining must be empty
+            if (lhs.empty() || rhs.empty()) {
+                bool changed = false;
                 expr_ref_vector& nonempty = lhs.empty() ? rhs : lhs;
                 for (expr* e : nonempty) {
                     if (m_util.is_seq(e)) {
@@ -561,9 +608,27 @@ namespace smt {
                         changed |= propagate_eq(dep, e, emp);
                     }
                 }
+                return changed;
             }
-            TRACE(seq, tout << "reduced" << (changed ? " (propagated)" : " (no change)") << "\n";);
-            return changed;
+            // For single var = ground, propagate
+            if (lhs.size() == 1 && m_nielsen.is_var(lhs.get(0))) {
+                sort* s = lhs.get(0)->get_sort();
+                expr_ref rhs_concat = mk_concat(rhs, s);
+                ensure_enode(rhs_concat);
+                ensure_length_axiom(rhs_concat);
+                bool changed = propagate_eq(dep, lhs.get(0), rhs_concat);
+                if (changed) return true;
+            }
+            else if (rhs.size() == 1 && m_nielsen.is_var(rhs.get(0))) {
+                sort* s = rhs.get(0)->get_sort();
+                expr_ref lhs_concat = mk_concat(lhs, s);
+                ensure_enode(lhs_concat);
+                ensure_length_axiom(lhs_concat);
+                bool changed = propagate_eq(dep, rhs.get(0), lhs_concat);
+                if (changed) return true;
+            }
+            // Fall through to branch/split on the reduced equation
+            break;
         }
 
         case seq::nielsen_result::split:
@@ -572,7 +637,11 @@ namespace smt {
         }
 
         // Try branching: find a variable and decide x = "" or x ≠ ""
-        return branch_eq(lhs, rhs, dep);
+        if (branch_eq(lhs, rhs, dep))
+            return true;
+
+        // Try Nielsen splitting: x · α = c · β where x is non-empty variable, c is unit
+        return split_variable(lhs, rhs, dep);
     }
 
     bool theory_nseq::branch_eq(expr_ref_vector const& lhs, expr_ref_vector const& rhs,
@@ -598,6 +667,7 @@ namespace smt {
                 case l_undef:
                     // Force the empty branch first
                     TRACE(seq, tout << "branch " << mk_bounded_pp(e, m) << " = \"\"\n";);
+                    IF_VERBOSE(3, verbose_stream() << "  branch " << mk_bounded_pp(e, m) << " = \"\"\n";);
                     ctx.force_phase(eq_empty);
                     ctx.mark_as_relevant(eq_empty);
                     m_new_propagation = true;
@@ -605,11 +675,11 @@ namespace smt {
                     return true;
                 case l_true:
                     // Variable assigned to empty but EQ not yet merged
-                    // Propagate the equality
+                    IF_VERBOSE(3, verbose_stream() << "  branch_eq: " << mk_bounded_pp(e, m) << " eq_empty=l_true, propagating\n";);
                     propagate_eq(dep, e, emp);
                     return true;
                 case l_false:
-                    // x ≠ "": try to find a prefix from the other side
+                    IF_VERBOSE(3, verbose_stream() << "  branch_eq: " << mk_bounded_pp(e, m) << " eq_empty=l_false (non-empty)\n";);
                     break;
                 }
             }
@@ -635,8 +705,23 @@ namespace smt {
         // For x starting one side, try x = prefix of other side
         // x = "" was already tried (assigned false)
         // Now enumerate: x = other[0], x = other[0]·other[1], ...
+        //
+        // Only use length when we have PROVEN tight bounds (lo == hi)
+        // to avoid suggesting candidates based on tentative arithmetic values
         rational x_len;
-        bool has_x_len = get_length(x, x_len);
+        bool has_x_len = false;
+        {
+            rational lo, hi;
+            expr_ref len_x = mk_len(x);
+            if (lower_bound(len_x, lo) && upper_bound(len_x, hi) && lo == hi) {
+                x_len = lo;
+                has_x_len = true;
+            }
+        }
+        // Only enumerate candidates when we know the variable's length
+        // Otherwise let split_variable handle it (peel one char at a time)
+        if (!has_x_len || x_len.is_zero())
+            return false;
 
         // Find the range of valid prefix lengths
         // Stop before we include x itself (cyclic candidate)
@@ -689,6 +774,83 @@ namespace smt {
             }
         }
         return false;
+    }
+
+    // -------------------------------------------------------
+    // Nielsen splitting: x · α = c · β → x = c · x_tail
+    // -------------------------------------------------------
+
+    bool theory_nseq::split_variable(expr_ref_vector const& lhs, expr_ref_vector const& rhs,
+                                      nseq_dependency* dep) {
+        if (lhs.empty() || rhs.empty())
+            return false;
+
+        // Find: variable on one side facing a unit/constant on the other
+        expr* var = nullptr;
+        expr* head = nullptr;
+        bool var_on_left = false;
+
+        if (m_nielsen.is_var(lhs[0]) && !m_nielsen.is_var(rhs[0])) {
+            var = lhs[0];
+            head = rhs[0];
+            var_on_left = true;
+        }
+        else if (m_nielsen.is_var(rhs[0]) && !m_nielsen.is_var(lhs[0])) {
+            var = rhs[0];
+            head = lhs[0];
+            var_on_left = false;
+        }
+        if (!var || !head)
+            return false;
+
+        // Check that var is known non-empty (branch_eq should have handled empty case)
+        expr_ref emp(m_util.str.mk_empty(var->get_sort()), m);
+        if (ctx.e_internalized(emp) && ctx.e_internalized(var)) {
+            enode* n_var = ctx.get_enode(var);
+            enode* n_emp = ctx.get_enode(emp);
+            if (n_var->get_root() == n_emp->get_root())
+                return false;
+        }
+        literal eq_empty = mk_eq(var, emp, false);
+        if (ctx.get_assignment(eq_empty) != l_false)
+            return false;
+
+        // var is non-empty and the equation forces var to start with head.
+        // Nielsen split: var = head · var_tail
+        expr_ref one(m_autil.mk_int(1), m);
+        expr_ref var_tail(m_sk.mk_tail(var, one), m);
+        ensure_enode(var_tail);
+        mk_var(ctx.get_enode(var_tail));
+        ensure_length_axiom(var_tail);
+
+        // Before committing to the split, ensure the tail's emptiness is decided.
+        // The SAT solver might default to tail ≠ "" without exploring tail = "".
+        // Force the empty case first.
+        expr_ref tail_emp(m_util.str.mk_empty(var_tail->get_sort()), m);
+        literal tail_eq_empty = mk_eq(var_tail, tail_emp, false);
+        if (ctx.get_assignment(tail_eq_empty) == l_undef) {
+            ctx.force_phase(tail_eq_empty);
+            ctx.mark_as_relevant(tail_eq_empty);
+            m_new_propagation = true;
+            return true;
+        }
+
+        expr_ref split_rhs(m_util.str.mk_concat(head, var_tail), m);
+        ensure_enode(split_rhs);
+        ensure_length_axiom(split_rhs);
+        // Don't add explicit length axioms here — CC will derive
+        // len(var) = len(head) + len(tail) from the merge, and
+        // this derivation is properly scoped (undone on backtrack).
+
+        TRACE(seq, tout << "nielsen split: " << mk_bounded_pp(var, m) << " = "
+              << mk_bounded_pp(head, m) << " · tail\n";);
+        IF_VERBOSE(3, verbose_stream() << "  split " << mk_bounded_pp(var, m) << " = "
+              << mk_bounded_pp(head, m) << " · tail\n";);
+
+        bool result = propagate_eq(dep, var, split_rhs);
+        if (result)
+            m_state.stats().m_num_splits++;
+        return result;
     }
 
     // -------------------------------------------------------

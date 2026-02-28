@@ -123,20 +123,51 @@ namespace seq {
                 rhs[j++] = rhs.get(i);
         rhs.resize(j);
 
-        // Check trivial cases
+        // Loop until fixpoint: strip prefix/suffix, then leading/trailing vars
+        bool progress = true;
+        while (progress) {
+            progress = false;
+
+            // Check trivial cases
+            if (lhs.empty() && rhs.empty())
+                return nielsen_result::solved;
+
+            // Strip common prefix and suffix (units and string constants)
+            progress |= strip_common_prefix(lhs, rhs);
+            progress |= strip_common_suffix(lhs, rhs);
+
+            if (lhs.empty() && rhs.empty())
+                return nielsen_result::solved;
+
+            // Check for conflict: both sides start with different constants
+            if (is_conflict(lhs, rhs))
+                return nielsen_result::conflict;
+
+            // Both sides start with the same variable: strip it
+            if (!lhs.empty() && !rhs.empty() && lhs.get(0) == rhs.get(0) && is_var(lhs.get(0))) {
+                expr_ref_vector new_lhs(m), new_rhs(m);
+                new_lhs.append(lhs.size() - 1, lhs.data() + 1);
+                new_rhs.append(rhs.size() - 1, rhs.data() + 1);
+                lhs.swap(new_lhs);
+                rhs.swap(new_rhs);
+                progress = true;
+                changed = true;
+            }
+
+            // Both sides end with the same variable: strip it
+            if (!lhs.empty() && !rhs.empty() &&
+                lhs.back() == rhs.back() && is_var(lhs.back())) {
+                lhs.pop_back();
+                rhs.pop_back();
+                progress = true;
+                changed = true;
+            }
+
+            changed |= progress;
+        }
+
         if (lhs.empty() && rhs.empty())
             return nielsen_result::solved;
-
-        // Strip common prefix and suffix
-        changed |= strip_common_prefix(lhs, rhs);
-        changed |= strip_common_suffix(lhs, rhs);
-
-        if (lhs.empty() && rhs.empty())
-            return nielsen_result::solved;
-
-        // Check for conflict: both sides start with different constants
-        if (is_conflict(lhs, rhs))
-            return nielsen_result::conflict;
 
         // Variable = empty: if one side is empty and other has single var
         if (lhs.empty() && rhs.size() == 1 && is_var(rhs.get(0)))
@@ -148,27 +179,6 @@ namespace seq {
         if (lhs.size() == 1 && is_var(lhs.get(0)) && !has_var(rhs))
             return nielsen_result::solved;
         if (rhs.size() == 1 && is_var(rhs.get(0)) && !has_var(lhs))
-            return nielsen_result::solved;
-
-        // Both sides start with the same variable: strip it
-        if (!lhs.empty() && !rhs.empty() && lhs.get(0) == rhs.get(0) && is_var(lhs.get(0))) {
-            expr_ref_vector new_lhs(m), new_rhs(m);
-            new_lhs.append(lhs.size() - 1, lhs.data() + 1);
-            new_rhs.append(rhs.size() - 1, rhs.data() + 1);
-            lhs.swap(new_lhs);
-            rhs.swap(new_rhs);
-            changed = true;
-        }
-
-        // Both sides end with the same variable: strip it
-        if (!lhs.empty() && !rhs.empty() &&
-            lhs.back() == rhs.back() && is_var(lhs.back())) {
-            lhs.pop_back();
-            rhs.pop_back();
-            changed = true;
-        }
-
-        if (changed && lhs.empty() && rhs.empty())
             return nielsen_result::solved;
 
         if (changed)
@@ -206,11 +216,10 @@ namespace seq {
                 return true;
         }
         if (is_unit(l) && is_unit(r) && l != r) {
-            // Different unit terms
-            expr* c1 = to_app(l)->get_arg(0);
-            expr* c2 = to_app(r)->get_arg(0);
-            rational v1, v2;
-            if (m_autil.is_numeral(c1, v1) && m_autil.is_numeral(c2, v2) && v1 != v2)
+            // Only conflict if both are concrete character values that differ
+            unsigned v1, v2;
+            if (m_util.is_const_char(to_app(l)->get_arg(0), v1) &&
+                m_util.is_const_char(to_app(r)->get_arg(0), v2) && v1 != v2)
                 return true;
         }
         return false;
