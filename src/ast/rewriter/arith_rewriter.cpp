@@ -913,19 +913,39 @@ bool arith_rewriter::mk_eq_mod(expr* arg1, expr* arg2, expr_ref& result) {
             return true;            
         }
     }
-    // (mod (+ a (* -1 b)) m) = 0 ==> (mod a m) = (mod b m)
+    // (mod (+ a (* -1 b)) m) = 0 ==> (mod a m) = (mod b m) when m != 0
+    // when m is symbolic, guard with ite(m = 0, original, rewritten) for soundness
     if (m_util.is_mod(arg1, x, y) && m_util.is_zero(arg2) && is_add(x) && to_app(x)->get_num_args() == 2) {
         expr* a = to_app(x)->get_arg(0);
         expr* b_neg = to_app(x)->get_arg(1);
         expr* b = nullptr;
         rational coeff;
+        bool y_is_numeral = m_util.is_numeral(y, p);
+        if (y_is_numeral && p.is_zero())
+            return false;
         if (m_util.is_mul(b_neg, z, b) && m_util.is_numeral(z, coeff) && coeff.is_minus_one()) {
-            result = m.mk_eq(m_util.mk_mod(a, y), m_util.mk_mod(b, y));
+            expr_ref rewritten(m.mk_eq(m_util.mk_mod(a, y), m_util.mk_mod(b, y)), m);
+            if (y_is_numeral)
+                result = rewritten;
+            else {
+                // use mk_int(0) as the modulus in the then-branch so the zero-guard
+                // in mk_eq_mod stops recursion when the rewriter normalizes the ite
+                expr_ref zero(m_util.mk_int(0), m);
+                expr_ref then_branch(m.mk_eq(m_util.mk_mod(x, zero), zero), m);
+                result = m.mk_ite(m.mk_eq(y, zero), then_branch, rewritten);
+            }
             return true;
         }
         // also handle (+ (* -1 a) b) = 0
         if (m_util.is_mul(a, z, u) && m_util.is_numeral(z, coeff) && coeff.is_minus_one()) {
-            result = m.mk_eq(m_util.mk_mod(u, y), m_util.mk_mod(b_neg, y));
+            expr_ref rewritten(m.mk_eq(m_util.mk_mod(u, y), m_util.mk_mod(b_neg, y)), m);
+            if (y_is_numeral)
+                result = rewritten;
+            else {
+                expr_ref zero(m_util.mk_int(0), m);
+                expr_ref then_branch(m.mk_eq(m_util.mk_mod(x, zero), zero), m);
+                result = m.mk_ite(m.mk_eq(y, zero), then_branch, rewritten);
+            }
             return true;
         }
     }
