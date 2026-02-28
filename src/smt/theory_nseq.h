@@ -101,11 +101,31 @@ namespace smt {
         bool all_eqs_solved();
         bool check_length_conflict(expr* x, expr_ref_vector const& es, nseq_dependency* dep);
 
+        // Predicate handling (prefix, suffix, contains)
+        bool reduce_predicates();
+        bool reduce_pred(nseq_pred const& pred);
+        bool reduce_prefix(expr* s, expr* t, bool sign, nseq_dependency* dep);
+        bool reduce_suffix(expr* s, expr* t, bool sign, nseq_dependency* dep);
+        bool reduce_contains(expr* haystack, expr* needle, bool sign, nseq_dependency* dep);
+
+        // Disequality checking
+        bool check_disequalities();
+        bool check_diseq(nseq_ne const& ne);
+
         // Regex membership
         bool check_regex_memberships();
         bool check_regex_mem(nseq_mem const& mem);
         bool is_ground_string(expr* e, zstring& s);
         expr_ref derive_regex(expr* regex, zstring const& prefix);
+
+        // String operation reductions
+        void reduce_op(expr* e);
+        void reduce_replace(expr* e);
+        void reduce_at(expr* e);
+        void reduce_extract(expr* e);
+        void reduce_index(expr* e);
+        void reduce_itos(expr* e);
+        void reduce_stoi(expr* e);
 
         // Length reasoning
         void add_length_axiom(expr* n);
@@ -114,6 +134,10 @@ namespace smt {
         bool get_length(expr* e, rational& val);
         bool lower_bound(expr* e, rational& lo);
         bool upper_bound(expr* e, rational& hi);
+
+        // Model construction
+        bool eval_string(expr* e, zstring& result);
+        bool eval_string_in_eclass(expr* e, zstring& result);
 
     public:
         theory_nseq(context& ctx);

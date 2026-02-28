@@ -69,6 +69,14 @@ namespace smt {
             return FC_CONTINUE;
         }
 
+        // Reduce predicates (prefix, suffix, contains) to word equations
+        if (reduce_predicates())
+            return FC_CONTINUE;
+
+        // Check zero-length variables before solving (uses arithmetic bounds)
+        if (check_zero_length())
+            return FC_CONTINUE;
+
         // Solve word equations using Nielsen transformations
         if (solve_eqs())
             return FC_CONTINUE;
@@ -77,12 +85,12 @@ namespace smt {
         if (propagate_length_eqs())
             return FC_CONTINUE;
 
-        // Check zero-length variables
-        if (check_zero_length())
-            return FC_CONTINUE;
-
         // Check regex membership constraints
         if (check_regex_memberships())
+            return FC_CONTINUE;
+
+        // Check disequalities
+        if (check_disequalities())
             return FC_CONTINUE;
 
         if (all_eqs_solved() && m_state.mems().empty())
@@ -112,6 +120,10 @@ namespace smt {
         if (m_util.str.is_length(term))
             mk_var(ensure_enode(term->get_arg(0)));
 
+        // Always ensure theory vars for all seq-type args
+        for (auto arg : *term)
+            mk_var(ensure_enode(arg));
+
         if (ctx.e_internalized(term)) {
             mk_var(ctx.get_enode(term));
             return true;
@@ -124,9 +136,6 @@ namespace smt {
             ctx.mark_as_relevant(bv);
             return true;
         }
-
-        for (auto arg : *term)
-            mk_var(ensure_enode(arg));
 
         if (m.is_bool(term)) {
             bool_var bv = ctx.mk_bool_var(term);
@@ -185,6 +194,8 @@ namespace smt {
             if (m_find.find(v1) != m_find.find(v2))
                 m_find.merge(v1, v2);
             m_state.add_eq(o1, o2, dep);
+            IF_VERBOSE(3, verbose_stream() << "new_eq_eh: " << mk_bounded_pp(o1, m) << " = " << mk_bounded_pp(o2, m)
+                  << " (total eqs: " << m_state.eqs().size() << ")\n");
             TRACE(seq, tout << "new eq: " << mk_bounded_pp(o1, m) << " = " << mk_bounded_pp(o2, m) << "\n";);
         }
     }
@@ -298,6 +309,8 @@ namespace smt {
         TRACE(seq, tout << "deque axiom: " << mk_bounded_pp(e, m) << "\n";);
         if (m_util.str.is_length(e))
             add_length_axiom(e);
+        else
+            reduce_op(e);
     }
 
     void theory_nseq::add_axiom(literal l1, literal l2, literal l3, literal l4, literal l5) {
@@ -334,7 +347,19 @@ namespace smt {
     bool theory_nseq::propagate_eq(nseq_dependency* dep, expr* e1, expr* e2, bool add_to_eqs) {
         enode* n1 = ensure_enode(e1);
         enode* n2 = ensure_enode(e2);
-        return propagate_eq(dep, n1, n2);
+        mk_var(n1);
+        mk_var(n2);
+        bool result = propagate_eq(dep, n1, n2);
+        // Explicitly propagate length equality for string terms
+        if (result && m_util.is_seq(e1)) {
+            expr_ref len1 = mk_len(e1);
+            expr_ref len2 = mk_len(e2);
+            enode* nl1 = ensure_enode(len1);
+            enode* nl2 = ensure_enode(len2);
+            if (nl1->get_root() != nl2->get_root())
+                propagate_eq(dep, nl1, nl2);
+        }
+        return result;
     }
 
     bool theory_nseq::propagate_lit(nseq_dependency* dep, literal lit) {
@@ -402,6 +427,11 @@ namespace smt {
             m_state.add_length(len, e, m_state.trail());
             enque_axiom(len);
         }
+        // Recursively ensure subterms have length axioms
+        if (m_util.str.is_concat(e)) {
+            for (auto arg : *to_app(e))
+                ensure_length_axiom(arg);
+        }
     }
 
     expr_ref theory_nseq::mk_concat(expr_ref_vector const& es, sort* s) {
@@ -410,7 +440,7 @@ namespace smt {
     }
 
     // Check if a propagation x = t would create a length inconsistency.
-    // If x has a known fixed length that differs from t's minimum length, return true (conflict).
+    // If x has a known fixed length that differs from t's length, return true (conflict).
     bool theory_nseq::check_length_conflict(expr* x, expr_ref_vector const& es, nseq_dependency* dep) {
         rational x_lo, x_hi;
         expr_ref x_len = mk_len(x);
@@ -418,18 +448,32 @@ namespace smt {
             return false;
         if (!lower_bound(x_len, x_lo) || !upper_bound(x_len, x_hi))
             return false;
-        // Compute minimum length of the other side
-        rational min_len(0);
+        // Compute min and max length of the other side
+        rational min_len(0), max_len(0);
+        bool max_known = true;
         for (expr* e : es) {
             zstring s;
-            if (m_util.str.is_string(e, s))
+            if (m_util.str.is_string(e, s)) {
                 min_len += rational(s.length());
-            else if (m_util.str.is_unit(e))
+                max_len += rational(s.length());
+            }
+            else if (m_util.str.is_unit(e)) {
                 min_len += rational(1);
-            // Variables contribute ≥ 0, so min remains unchanged
+                max_len += rational(1);
+            }
+            else {
+                // Variable or complex term: min is 0, max is unknown
+                rational lo, hi;
+                expr_ref elen = mk_len(e);
+                if (ctx.e_internalized(elen) && lower_bound(elen, lo))
+                    min_len += lo;
+                if (ctx.e_internalized(elen) && upper_bound(elen, hi))
+                    max_len += hi;
+                else
+                    max_known = false;
+            }
         }
-        if (x_hi < min_len) {
-            // x's max length is less than the minimum length of the term
+        if (x_hi < min_len || (max_known && x_lo > max_len)) {
             set_conflict(dep);
             return true;
         }
@@ -458,11 +502,25 @@ namespace smt {
                 enode* n = ctx.get_enode(u);
                 enode* r = n->get_root();
                 expr* re = r->get_expr();
-                // If root differs from u, decompose the root
+                // If root differs from u, check for the best representative:
+                // prefer string constants > empty > units > concat > variables
                 if (re != u) {
-                    dep = m_state.mk_join(dep, m_state.mk_dep(n, r));
+                    expr* best = re;
+                    enode* best_node = r;
+                    // If root is a concat or variable, scan for a more concrete repr
+                    if (m_util.str.is_concat(re) || m_nielsen.is_var(re)) {
+                        for (enode* p = r->get_next(); p != r; p = p->get_next()) {
+                            expr* pe = p->get_expr();
+                            if (m_util.str.is_string(pe) || m_util.str.is_empty(pe)) {
+                                best = pe;
+                                best_node = p;
+                                break;
+                            }
+                        }
+                    }
+                    dep = m_state.mk_join(dep, m_state.mk_dep(n, best_node));
                     unsigned old_sz = next.size();
-                    m_util.str.get_concat_units(re, next);
+                    m_util.str.get_concat_units(best, next);
                     if (next.size() != old_sz + 1 || next.back() != u)
                         changed = true;
                     continue;
@@ -471,16 +529,22 @@ namespace smt {
                 // for a concat/string/unit that gives a better decomposition
                 if (m_nielsen.is_var(u)) {
                     expr* best = nullptr;
+                    enode* best_node = nullptr;
+                    // Prefer string > empty > unit > concat
                     for (enode* p = r->get_next(); p != r; p = p->get_next()) {
                         expr* pe = p->get_expr();
-                        if (m_util.str.is_concat(pe) || m_util.str.is_string(pe) ||
-                            m_util.str.is_unit(pe) || m_util.str.is_empty(pe)) {
+                        if (m_util.str.is_string(pe) || m_util.str.is_empty(pe)) {
                             best = pe;
-                            dep = m_state.mk_join(dep, m_state.mk_dep(n, p));
+                            best_node = p;
                             break;
+                        }
+                        if (!best && (m_util.str.is_concat(pe) || m_util.str.is_unit(pe))) {
+                            best = pe;
+                            best_node = p;
                         }
                     }
                     if (best) {
+                        dep = m_state.mk_join(dep, m_state.mk_dep(n, best_node));
                         unsigned old_sz = next.size();
                         m_util.str.get_concat_units(best, next);
                         if (next.size() != old_sz + 1 || next.back() != u)
@@ -661,6 +725,18 @@ namespace smt {
                         continue; // already equal to empty, skip
                 }
 
+                // Check arithmetic: if len(e) is known to be 0, force empty
+                rational lo, hi;
+                expr_ref len_e = mk_len(e);
+                if (ctx.e_internalized(len_e) &&
+                    lower_bound(len_e, lo) && upper_bound(len_e, hi) &&
+                    lo.is_zero() && hi.is_zero()) {
+                    nseq_dependency* ldep = m_state.mk_join(dep, m_state.mk_dep(mk_eq(len_e, m_autil.mk_int(0), false)));
+                    propagate_eq(ldep, e, emp);
+                    m_new_propagation = true;
+                    return true;
+                }
+
                 // Decide: x = "" or x ≠ ""
                 literal eq_empty = mk_eq(e, emp, false);
                 switch (ctx.get_assignment(eq_empty)) {
@@ -800,6 +876,12 @@ namespace smt {
             head = lhs[0];
             var_on_left = false;
         }
+        // Also handle var vs var: pick either and peel one character
+        if (!var && !head && m_nielsen.is_var(lhs[0]) && m_nielsen.is_var(rhs[0]) && lhs[0] != rhs[0]) {
+            var = lhs[0];
+            head = rhs[0];
+            var_on_left = true;
+        }
         if (!var || !head)
             return false;
 
@@ -815,6 +897,13 @@ namespace smt {
         if (ctx.get_assignment(eq_empty) != l_false)
             return false;
 
+        // For multi-character string constants, extract only the first character
+        // so we peel one character at a time (Nielsen style)
+        zstring head_str;
+        if (m_util.str.is_string(head, head_str) && head_str.length() > 1) {
+            head = m_util.str.mk_unit(m_util.mk_char(head_str[0]));
+        }
+
         // var is non-empty and the equation forces var to start with head.
         // Nielsen split: var = head · var_tail
         expr_ref one(m_autil.mk_int(1), m);
@@ -824,8 +913,6 @@ namespace smt {
         ensure_length_axiom(var_tail);
 
         // Before committing to the split, ensure the tail's emptiness is decided.
-        // The SAT solver might default to tail ≠ "" without exploring tail = "".
-        // Force the empty case first.
         expr_ref tail_emp(m_util.str.mk_empty(var_tail->get_sort()), m);
         literal tail_eq_empty = mk_eq(var_tail, tail_emp, false);
         if (ctx.get_assignment(tail_eq_empty) == l_undef) {
@@ -838,9 +925,6 @@ namespace smt {
         expr_ref split_rhs(m_util.str.mk_concat(head, var_tail), m);
         ensure_enode(split_rhs);
         ensure_length_axiom(split_rhs);
-        // Don't add explicit length axioms here — CC will derive
-        // len(var) = len(head) + len(tail) from the merge, and
-        // this derivation is properly scoped (undone on backtrack).
 
         TRACE(seq, tout << "nielsen split: " << mk_bounded_pp(var, m) << " = "
               << mk_bounded_pp(head, m) << " · tail\n";);
@@ -851,6 +935,415 @@ namespace smt {
         if (result)
             m_state.stats().m_num_splits++;
         return result;
+    }
+
+    // -------------------------------------------------------
+    // Predicate reduction (prefix, suffix, contains → equations)
+    // -------------------------------------------------------
+
+    bool theory_nseq::reduce_predicates() {
+        bool progress = false;
+        unsigned head = m_state.preds_head();
+        auto const& preds = m_state.preds();
+        for (unsigned i = head; i < preds.size(); ++i) {
+            if (reduce_pred(preds[i]))
+                progress = true;
+            if (ctx.inconsistent())
+                break;
+        }
+        m_state.set_preds_head(preds.size());
+        return progress;
+    }
+
+    bool theory_nseq::reduce_pred(nseq_pred const& pred) {
+        switch (pred.kind()) {
+        case NSEQ_PREFIX:
+            return reduce_prefix(pred.arg1(), pred.arg2(), pred.sign(), pred.dep());
+        case NSEQ_SUFFIX:
+            return reduce_suffix(pred.arg1(), pred.arg2(), pred.sign(), pred.dep());
+        case NSEQ_CONTAINS:
+            return reduce_contains(pred.arg1(), pred.arg2(), pred.sign(), pred.dep());
+        }
+        UNREACHABLE();
+        return false;
+    }
+
+    // prefixof(s, t): s is a prefix of t
+    // positive: t = s · sk where sk is a fresh suffix variable
+    // negative: |s| > |t| or there exists a position where they differ
+    bool theory_nseq::reduce_prefix(expr* s, expr* t, bool sign, nseq_dependency* dep) {
+        if (sign) {
+            // Positive: t = s · z for some z
+            expr_ref z(m_sk.mk_prefix_inv(s, t), m);
+            expr_ref rhs(m_util.str.mk_concat(s, z), m);
+            ensure_enode(z);
+            mk_var(ctx.get_enode(z));
+            ensure_enode(rhs);
+            mk_var(ctx.get_enode(rhs));
+            ensure_length_axiom(z);
+            ensure_length_axiom(rhs);
+            // Add the word equation directly so it's available for solve_eqs
+            m_state.add_eq(t, rhs, dep);
+            return propagate_eq(dep, t, rhs);
+        }
+        else {
+            // Negative: |s| > |t| ∨ s ≠ extract(t, 0, |s|)
+            // Add as a theory axiom: ¬prefix(s,t) → |s| > |t| ∨ extract(t, 0, |s|) ≠ s
+            expr_ref len_s = mk_len(s);
+            expr_ref len_t = mk_len(t);
+            expr_ref zero(m_autil.mk_int(0), m);
+            expr_ref extract(m_util.str.mk_substr(t, zero, len_s), m);
+            ensure_enode(extract);
+            ensure_length_axiom(extract);
+            literal s_gt_t = mk_literal(m_autil.mk_ge(m_autil.mk_sub(len_s, len_t), m_autil.mk_int(1)));
+            literal neq = ~mk_eq(s, extract, false);
+            add_axiom(s_gt_t, neq);
+            return true;
+        }
+    }
+
+    // suffixof(s, t): s is a suffix of t
+    // positive: t = z · s for some z
+    bool theory_nseq::reduce_suffix(expr* s, expr* t, bool sign, nseq_dependency* dep) {
+        if (sign) {
+            // Positive: t = z · s for some fresh z
+            expr_ref z(m_sk.mk("seq.suffix.sk", s, t), m);
+            expr_ref rhs(m_util.str.mk_concat(z, s), m);
+            ensure_enode(z);
+            mk_var(ctx.get_enode(z));
+            ensure_enode(rhs);
+            mk_var(ctx.get_enode(rhs));
+            ensure_length_axiom(z);
+            ensure_length_axiom(rhs);
+            m_state.add_eq(t, rhs, dep);
+            return propagate_eq(dep, t, rhs);
+        }
+        else {
+            // Negative: |s| > |t| ∨ extract(t, |t|-|s|, |s|) ≠ s
+            expr_ref len_s = mk_len(s);
+            expr_ref len_t = mk_len(t);
+            expr_ref offset(m_autil.mk_sub(len_t, len_s), m);
+            expr_ref extract(m_util.str.mk_substr(t, offset, len_s), m);
+            ensure_enode(extract);
+            ensure_length_axiom(extract);
+            literal s_gt_t = mk_literal(m_autil.mk_ge(m_autil.mk_sub(len_s, len_t), m_autil.mk_int(1)));
+            literal neq = ~mk_eq(s, extract, false);
+            add_axiom(s_gt_t, neq);
+            return true;
+        }
+    }
+
+    // contains(haystack, needle)
+    // positive: haystack = u · needle · v for some u, v
+    bool theory_nseq::reduce_contains(expr* haystack, expr* needle, bool sign, nseq_dependency* dep) {
+        if (sign) {
+            // Positive: haystack = left · needle · right
+            expr_ref left(m_sk.mk_left(haystack, needle), m);
+            expr_ref right(m_sk.mk_right(haystack, needle), m);
+            expr_ref rhs(m_util.str.mk_concat(left, m_util.str.mk_concat(needle, right)), m);
+            ensure_enode(left);
+            mk_var(ctx.get_enode(left));
+            ensure_enode(right);
+            mk_var(ctx.get_enode(right));
+            ensure_enode(rhs);
+            mk_var(ctx.get_enode(rhs));
+            ensure_length_axiom(left);
+            ensure_length_axiom(right);
+            ensure_length_axiom(rhs);
+            m_state.add_eq(haystack, rhs, dep);
+            return propagate_eq(dep, haystack, rhs);
+        }
+        else {
+            // Negative contains: |needle| > |haystack| ∨ not_contains
+            // For now, add length constraint and let Nielsen handle the rest
+            expr_ref len_h = mk_len(haystack);
+            expr_ref len_n = mk_len(needle);
+            literal n_gt_h = mk_literal(m_autil.mk_ge(m_autil.mk_sub(len_n, len_h), m_autil.mk_int(1)));
+            // Simple case: if needle is longer than haystack, done
+            if (ctx.get_assignment(n_gt_h) == l_undef) {
+                ctx.mark_as_relevant(n_gt_h);
+                m_new_propagation = true;
+                return true;
+            }
+            return false;
+        }
+    }
+
+    // -------------------------------------------------------
+    // Disequality checking
+    // -------------------------------------------------------
+
+    bool theory_nseq::check_disequalities() {
+        bool progress = false;
+        for (auto const& ne : m_state.neqs()) {
+            if (check_diseq(ne))
+                progress = true;
+            if (ctx.inconsistent())
+                return true;
+        }
+        return progress;
+    }
+
+    bool theory_nseq::check_diseq(nseq_ne const& ne) {
+        expr* l = ne.l();
+        expr* r = ne.r();
+        nseq_dependency* dep = ne.dep();
+
+        // Canonize both sides
+        expr_ref_vector lhs(m), rhs_v(m);
+        nseq_dependency* ldep = dep, *rdep = dep;
+        canonize(expr_ref_vector(m, 1, &l), lhs, ldep);
+        canonize(expr_ref_vector(m, 1, &r), rhs_v, rdep);
+
+        // Check if they are the same after canonization → conflict
+        if (lhs.size() == rhs_v.size()) {
+            bool all_same = true;
+            for (unsigned i = 0; i < lhs.size() && all_same; ++i) {
+                if (lhs.get(i) != rhs_v.get(i)) {
+                    if (!ctx.e_internalized(lhs.get(i)) || !ctx.e_internalized(rhs_v.get(i)))
+                        all_same = false;
+                    else if (ctx.get_enode(lhs.get(i))->get_root() != ctx.get_enode(rhs_v.get(i))->get_root())
+                        all_same = false;
+                }
+            }
+            if (all_same) {
+                // LHS and RHS are equal but we need them different
+                nseq_dependency* jdep = m_state.mk_join(ldep, rdep);
+                set_conflict(jdep);
+                return true;
+            }
+        }
+
+        // Check if both sides are ground strings and compare
+        zstring s1, s2;
+        expr_ref lhs_concat(m), rhs_concat(m);
+        sort* srt = l->get_sort();
+        if (!lhs.empty())
+            lhs_concat = mk_concat(lhs, srt);
+        else
+            lhs_concat = m_util.str.mk_empty(srt);
+        if (!rhs_v.empty())
+            rhs_concat = mk_concat(rhs_v, srt);
+        else
+            rhs_concat = m_util.str.mk_empty(srt);
+
+        if (is_ground_string(lhs_concat, s1) && is_ground_string(rhs_concat, s2)) {
+            if (s1 == s2) {
+                nseq_dependency* jdep = m_state.mk_join(ldep, rdep);
+                set_conflict(jdep);
+                return true;
+            }
+            // They are concretely different, disequality is satisfied
+            return false;
+        }
+
+        // Use length difference to satisfy disequality
+        expr_ref len_l = mk_len(lhs_concat);
+        expr_ref len_r = mk_len(rhs_concat);
+        ensure_enode(len_l);
+        ensure_enode(len_r);
+        if (ctx.e_internalized(len_l) && ctx.e_internalized(len_r)) {
+            enode* nl = ctx.get_enode(len_l);
+            enode* nr = ctx.get_enode(len_r);
+            if (nl->get_root() != nr->get_root()) {
+                // Lengths are different, disequality is satisfied
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    // -------------------------------------------------------
+    // String operation reductions
+    // -------------------------------------------------------
+
+    void theory_nseq::reduce_op(expr* e) {
+        expr_ref result(m);
+        // Use the seq_rewriter to reduce the operation
+        if (m_util.str.is_index(e))
+            reduce_index(e);
+        else if (m_util.str.is_replace(e))
+            reduce_replace(e);
+        else if (m_util.str.is_extract(e))
+            reduce_extract(e);
+        else if (m_util.str.is_at(e))
+            reduce_at(e);
+        else if (m_util.str.is_itos(e))
+            reduce_itos(e);
+        else if (m_util.str.is_stoi(e))
+            reduce_stoi(e);
+        else if (m_util.str.is_nth_i(e) ||
+                 m_util.str.is_from_code(e) ||
+                 m_util.str.is_to_code(e)) {
+            // For these, add a definitional axiom via the rewriter
+            expr_ref r(e, m);
+            m_rewrite(r);
+            if (r != e) {
+                ensure_enode(r);
+                add_axiom(mk_eq(e, r, false));
+            }
+        }
+    }
+
+    // str.replace(s, src, dst)
+    // if contains(s, src): s = left · src · right ∧ result = left · dst · right
+    // else: result = s
+    void theory_nseq::reduce_replace(expr* e) {
+        expr* s = nullptr, *src = nullptr, *dst = nullptr;
+        VERIFY(m_util.str.is_replace(e, s, src, dst));
+        expr_ref contains(m_util.str.mk_contains(s, src), m);
+        literal contains_lit = mk_literal(contains);
+        ctx.mark_as_relevant(contains_lit);
+
+        // ¬contains(s, src) → replace(s, src, dst) = s
+        add_axiom(contains_lit, mk_eq(e, s, false));
+
+        // contains(s, src) → s = left · src · right
+        expr_ref left(m_sk.mk_left(s, src), m);
+        expr_ref right(m_sk.mk_right(s, src), m);
+        expr_ref decomp(m_util.str.mk_concat(left, m_util.str.mk_concat(src, right)), m);
+        ensure_enode(left);
+        mk_var(ctx.get_enode(left));
+        ensure_enode(right);
+        mk_var(ctx.get_enode(right));
+        ensure_enode(decomp);
+        ensure_length_axiom(left);
+        ensure_length_axiom(right);
+        add_axiom(~contains_lit, mk_eq(s, decomp, false));
+
+        // contains(s, src) → replace(s, src, dst) = left · dst · right
+        expr_ref result(m_util.str.mk_concat(left, m_util.str.mk_concat(dst, right)), m);
+        ensure_enode(result);
+        ensure_length_axiom(result);
+        add_axiom(~contains_lit, mk_eq(e, result, false));
+
+        // contains(s, src) → ¬contains(left, src)  (first occurrence)
+        expr_ref not_in_left(m_util.str.mk_contains(left, src), m);
+        add_axiom(~contains_lit, ~mk_literal(not_in_left));
+    }
+
+    // str.at(s, i) = extract(s, i, 1)
+    void theory_nseq::reduce_at(expr* e) {
+        expr* s = nullptr, *i = nullptr;
+        VERIFY(m_util.str.is_at(e, s, i));
+        expr_ref one(m_autil.mk_int(1), m);
+        expr_ref extract(m_util.str.mk_substr(s, i, one), m);
+        ensure_enode(extract);
+        add_axiom(mk_eq(e, extract, false));
+        enque_axiom(extract);
+    }
+
+    // str.substr(s, offset, length)
+    // offset >= 0 ∧ length >= 0 ∧ offset + length <= |s| → s = pre · result · post
+    //   where |pre| = offset, |result| = length
+    // offset < 0 ∨ length <= 0 ∨ offset >= |s| → result = ""
+    void theory_nseq::reduce_extract(expr* e) {
+        expr* s = nullptr, *offset = nullptr, *len = nullptr;
+        VERIFY(m_util.str.is_extract(e, s, offset, len));
+        expr_ref zero(m_autil.mk_int(0), m);
+        expr_ref len_s = mk_len(s);
+
+        expr_ref pre(m_sk.mk_pre(s, offset), m);
+        expr_ref post(m_sk.mk_post(s, m_autil.mk_add(offset, len)), m);
+        ensure_enode(pre);
+        mk_var(ctx.get_enode(pre));
+        ensure_enode(post);
+        mk_var(ctx.get_enode(post));
+        ensure_length_axiom(pre);
+        ensure_length_axiom(post);
+
+        // offset >= 0 ∧ len >= 0 ∧ offset + len <= |s| → s = pre · e · post
+        literal off_ge_0 = mk_literal(m_autil.mk_ge(offset, zero));
+        literal len_ge_0 = mk_literal(m_autil.mk_ge(len, zero));
+        literal in_bounds = mk_literal(m_autil.mk_ge(m_autil.mk_sub(len_s, m_autil.mk_add(offset, len)), zero));
+
+        expr_ref decomp(m_util.str.mk_concat(pre, m_util.str.mk_concat(e, post)), m);
+        ensure_enode(decomp);
+        add_axiom(~off_ge_0, ~len_ge_0, ~in_bounds, mk_eq(s, decomp, false));
+        add_axiom(~off_ge_0, ~len_ge_0, ~in_bounds, mk_eq(mk_len(pre), offset, false));
+        add_axiom(~off_ge_0, ~len_ge_0, ~in_bounds, mk_eq(mk_len(e), len, false));
+
+        // offset < 0 → result = ""
+        expr_ref emp(m_util.str.mk_empty(e->get_sort()), m);
+        add_axiom(off_ge_0, mk_eq(e, emp, false));
+        // len <= 0 → result = ""
+        add_axiom(len_ge_0, mk_eq(e, emp, false));
+        // offset >= |s| → result = ""
+        literal off_ge_len = mk_literal(m_autil.mk_ge(m_autil.mk_sub(offset, len_s), zero));
+        add_axiom(~off_ge_len, mk_eq(e, emp, false));
+
+        // offset + len > |s| ∧ offset < |s| → |result| = |s| - offset
+        add_axiom(~off_ge_0, ~len_ge_0, in_bounds, off_ge_len,
+                  mk_eq(mk_len(e), expr_ref(m_autil.mk_sub(len_s, offset), m), false));
+    }
+
+    // str.indexof(s, t, offset)
+    // offset >= 0 ∧ offset <= |s| ∧ contains(extract(s, offset, |s|-offset), t) →
+    //   result >= offset ∧ s = pre · t · post ∧ |pre| = result ∧ ¬contains(pre, t)
+    // else result = -1
+    void theory_nseq::reduce_index(expr* e) {
+        expr* s = nullptr, *t = nullptr, *offset = nullptr;
+        VERIFY(m_util.str.is_index(e, s, t, offset));
+        if (!offset)
+            offset = m_autil.mk_int(0);
+
+        expr_ref zero(m_autil.mk_int(0), m);
+        expr_ref minus_one(m_autil.mk_int(-1), m);
+        expr_ref len_s = mk_len(s);
+        expr_ref len_t = mk_len(t);
+
+        // Substr from offset
+        expr_ref sub(m_util.str.mk_substr(s, offset, m_autil.mk_sub(len_s, offset)), m);
+        expr_ref contains(m_util.str.mk_contains(sub, t), m);
+        literal contains_lit = mk_literal(contains);
+        ctx.mark_as_relevant(contains_lit);
+        literal off_ge_0 = mk_literal(m_autil.mk_ge(offset, zero));
+        literal off_le_len = mk_literal(m_autil.mk_ge(m_autil.mk_sub(len_s, offset), zero));
+
+        // ¬contains ∨ offset < 0 ∨ offset > |s| → result = -1
+        add_axiom(contains_lit, mk_eq(e, minus_one, false));
+        add_axiom(off_ge_0, mk_eq(e, minus_one, false));
+        add_axiom(off_le_len, mk_eq(e, minus_one, false));
+
+        // contains → result >= offset ∧ result >= 0
+        add_axiom(~contains_lit, ~off_ge_0, ~off_le_len,
+                  mk_literal(m_autil.mk_ge(e, offset)));
+        // result + |t| <= |s|
+        add_axiom(~contains_lit, ~off_ge_0, ~off_le_len,
+                  mk_literal(m_autil.mk_ge(m_autil.mk_sub(len_s, m_autil.mk_add(e, len_t)), zero)));
+    }
+
+    // str.from_int(i)
+    // i < 0 → result = ""
+    // i >= 0 → |result| >= 1
+    // i = 0 → result = "0"
+    void theory_nseq::reduce_itos(expr* e) {
+        expr* i = nullptr;
+        VERIFY(m_util.str.is_itos(e, i));
+        expr_ref zero(m_autil.mk_int(0), m);
+        expr_ref emp(m_util.str.mk_empty(e->get_sort()), m);
+        literal i_ge_0 = mk_literal(m_autil.mk_ge(i, zero));
+        add_axiom(i_ge_0, mk_eq(e, emp, false));
+        add_axiom(~i_ge_0, mk_literal(m_autil.mk_ge(mk_len(e), m_autil.mk_int(1))));
+        // i = 0 → result = "0"
+        literal i_eq_0 = mk_eq(i, zero, false);
+        expr_ref str_zero(m_util.str.mk_string(zstring("0")), m);
+        add_axiom(~i_eq_0, mk_eq(e, str_zero, false));
+    }
+
+    // str.to_int(s)
+    // s = "" → result = -1
+    // |s| = 0 → result = -1
+    void theory_nseq::reduce_stoi(expr* e) {
+        expr* s = nullptr;
+        VERIFY(m_util.str.is_stoi(e, s));
+        expr_ref emp(m_util.str.mk_empty(s->get_sort()), m);
+        expr_ref minus_one(m_autil.mk_int(-1), m);
+        literal s_empty = mk_eq(s, emp, false);
+        add_axiom(~s_empty, mk_eq(e, minus_one, false));
+        // result >= -1
+        add_axiom(mk_literal(m_autil.mk_ge(e, minus_one)));
     }
 
     // -------------------------------------------------------
@@ -1092,23 +1585,44 @@ namespace smt {
             do {
                 expr* ce = curr->get_expr();
                 zstring s;
-                if (m_util.str.is_string(ce, s)) {
+                if (m_util.str.is_string(ce, s))
                     return alloc(expr_wrapper_proc, to_app(ce));
-                }
-                if (m_util.str.is_empty(ce)) {
+                if (m_util.str.is_empty(ce))
                     return alloc(expr_wrapper_proc, to_app(ce));
+                curr = curr->get_next();
+            } while (curr != root);
+
+            // Try to build from concat/unit expressions in equivalence class
+            curr = root;
+            do {
+                zstring result;
+                if (eval_string(curr->get_expr(), result)) {
+                    expr_ref val(m_util.str.mk_string(result), m);
+                    m_fresh_values.push_back(val);
+                    return alloc(expr_wrapper_proc, to_app(val));
                 }
                 curr = curr->get_next();
             } while (curr != root);
 
-            // No concrete value found: use seq_factory to get a fresh value
+            // Try to construct a string of the correct length
+            rational len_val;
+            if (get_length(e, len_val) && len_val.is_nonneg() && len_val.is_unsigned()) {
+                unsigned len = len_val.get_unsigned();
+                zstring s;
+                for (unsigned i = 0; i < len; i++)
+                    s = s + zstring("A");
+                expr_ref val(m_util.str.mk_string(s), m);
+                m_fresh_values.push_back(val);
+                return alloc(expr_wrapper_proc, to_app(val));
+            }
+
+            // Fallback: fresh value
             expr_ref val(m);
             val = mg.get_model().get_fresh_value(e->get_sort());
             if (val) {
                 m_fresh_values.push_back(val);
                 return alloc(expr_wrapper_proc, to_app(val));
             }
-            // Fallback: empty string
             return alloc(expr_wrapper_proc, to_app(m_util.str.mk_empty(e->get_sort())));
         }
         if (m_util.is_re(e)) {
@@ -1116,6 +1630,62 @@ namespace smt {
         }
         UNREACHABLE();
         return nullptr;
+    }
+
+    bool theory_nseq::eval_string(expr* e, zstring& result) {
+        zstring s;
+        if (m_util.str.is_string(e, s)) {
+            result = s;
+            return true;
+        }
+        if (m_util.str.is_empty(e)) {
+            result = zstring();
+            return true;
+        }
+        expr* ch;
+        if (m_util.str.is_unit(e, ch)) {
+            unsigned c;
+            if (m_util.is_const_char(ch, c)) {
+                result = zstring(c);
+                return true;
+            }
+            return false;
+        }
+        if (m_util.str.is_concat(e)) {
+            result = zstring();
+            for (expr* arg : *to_app(e)) {
+                zstring sub;
+                if (!eval_string_in_eclass(arg, sub))
+                    return false;
+                result = result + sub;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    bool theory_nseq::eval_string_in_eclass(expr* e, zstring& result) {
+        if (eval_string(e, result))
+            return true;
+        if (!ctx.e_internalized(e))
+            return false;
+        enode* root = ctx.get_enode(e)->get_root();
+        enode* curr = root;
+        do {
+            if (eval_string(curr->get_expr(), result))
+                return true;
+            curr = curr->get_next();
+        } while (curr != root);
+        // If the expression has a known length, construct a default string
+        rational len_val;
+        if (get_length(root->get_expr(), len_val) && len_val.is_nonneg() && len_val.is_unsigned()) {
+            unsigned len = len_val.get_unsigned();
+            result = zstring();
+            for (unsigned i = 0; i < len; i++)
+                result = result + zstring("A");
+            return true;
+        }
+        return false;
     }
 
     void theory_nseq::init_model(model_generator& mg) {

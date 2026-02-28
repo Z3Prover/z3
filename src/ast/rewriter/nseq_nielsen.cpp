@@ -26,6 +26,25 @@ namespace seq {
         : m(m), m_util(m), m_autil(m), m_rw(rw), m_lhs(m), m_rhs(m) {
     }
 
+    bool nielsen::decompose_strings(expr_ref_vector& es) {
+        bool changed = false;
+        expr_ref_vector result(m);
+        for (unsigned i = 0; i < es.size(); ++i) {
+            zstring s;
+            if (m_util.str.is_string(es.get(i), s) && s.length() > 1) {
+                for (unsigned j = 0; j < s.length(); ++j)
+                    result.push_back(m_util.str.mk_unit(m_util.mk_char(s[j])));
+                changed = true;
+            }
+            else {
+                result.push_back(es.get(i));
+            }
+        }
+        if (changed)
+            es.swap(result);
+        return changed;
+    }
+
     bool nielsen::is_var(expr* e) const {
         return m_util.is_seq(e) &&
                !m_util.str.is_concat(e) &&
@@ -109,6 +128,10 @@ namespace seq {
 
     nielsen_result nielsen::simplify(expr_ref_vector& lhs, expr_ref_vector& rhs) {
         bool changed = false;
+
+        // Decompose multi-character string constants into unit characters
+        changed |= decompose_strings(lhs);
+        changed |= decompose_strings(rhs);
 
         // Remove empty strings from both sides
         unsigned j = 0;

@@ -26,6 +26,7 @@ namespace smt {
         : m(m),
           m_util(u),
           m_eq_id(0),
+          m_preds_head(0),
           m_axioms(m),
           m_axioms_head(0),
           m_length_apps(m),
@@ -36,6 +37,7 @@ namespace smt {
         m_dm.push_scope();
         m_trail.push_scope();
         m_trail.push(value_trail<unsigned>(m_axioms_head));
+        m_trail.push(value_trail<unsigned>(m_preds_head));
         m_eqs.push_scope();
         m_neqs.push_scope();
         m_mems.push_scope();
@@ -55,6 +57,7 @@ namespace smt {
         m_axioms.reset();
         m_axiom_set.reset();
         m_axioms_head = 0;
+        m_preds_head = 0;
         m_has_length.reset();
         m_length_apps.reset();
         m_length_exprs.reset();

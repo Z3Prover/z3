@@ -62,6 +62,7 @@ namespace smt {
         scoped_vector<nseq_ne>   m_neqs;
         scoped_vector<nseq_mem>  m_mems;
         scoped_vector<nseq_pred> m_preds;
+        unsigned                 m_preds_head;
 
         // Axiom queue
         expr_ref_vector          m_axioms;
@@ -135,6 +136,9 @@ namespace smt {
         scoped_vector<nseq_ne> const& neqs() const { return m_neqs; }
         scoped_vector<nseq_mem> const& mems() const { return m_mems; }
         scoped_vector<nseq_pred> const& preds() const { return m_preds; }
+        scoped_vector<nseq_pred>& preds() { return m_preds; }
+        unsigned preds_head() const { return m_preds_head; }
+        void set_preds_head(unsigned h) { m_preds_head = h; }
         trail_stack& trail() { return m_trail; }
         nseq_stats& stats() { return m_stats; }
         nseq_stats const& stats() const { return m_stats; }

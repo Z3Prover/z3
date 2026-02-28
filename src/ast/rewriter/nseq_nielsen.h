@@ -79,6 +79,9 @@ namespace seq {
         // Apply substitution x -> t in an expression vector
         void apply_subst(expr* var, expr* term, expr_ref_vector const& src, expr_ref_vector& dst);
 
+        // Decompose multi-character string constants into individual character units
+        bool decompose_strings(expr_ref_vector& es);
+
     public:
         nielsen(ast_manager& m, seq_rewriter& rw);
 
