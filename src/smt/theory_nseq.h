@@ -129,6 +129,7 @@ namespace smt {
 
         // Length reasoning
         void add_length_axiom(expr* n);
+        expr_ref build_length_sum(expr_ref_vector const& es);
         bool check_zero_length();
         bool propagate_length_eqs();
         bool get_length(expr* e, rational& val);

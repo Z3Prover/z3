@@ -73,16 +73,17 @@ namespace smt {
         if (reduce_predicates())
             return FC_CONTINUE;
 
+        // Propagate length equalities from equations before solving,
+        // so arithmetic bounds are available to guide branching
+        if (propagate_length_eqs())
+            return FC_CONTINUE;
+
         // Check zero-length variables before solving (uses arithmetic bounds)
         if (check_zero_length())
             return FC_CONTINUE;
 
         // Solve word equations using Nielsen transformations
         if (solve_eqs())
-            return FC_CONTINUE;
-
-        // Propagate length equalities from equations
-        if (propagate_length_eqs())
             return FC_CONTINUE;
 
         // Check regex membership constraints
@@ -741,6 +742,9 @@ namespace smt {
                 literal eq_empty = mk_eq(e, emp, false);
                 switch (ctx.get_assignment(eq_empty)) {
                 case l_undef:
+                    // If lower length bound is already > 0, skip the empty branch
+                    if (ctx.e_internalized(len_e) && lower_bound(len_e, lo) && lo > rational(0))
+                        break;
                     // Force the empty branch first
                     TRACE(seq, tout << "branch " << mk_bounded_pp(e, m) << " = \"\"\n";);
                     IF_VERBOSE(3, verbose_stream() << "  branch " << mk_bounded_pp(e, m) << " = \"\"\n";);
@@ -1526,25 +1530,53 @@ namespace smt {
         return progress;
     }
 
+    // Build an arithmetic expression for the sum of lengths of the given string terms.
+    // Collapses concrete lengths (units, string constants) to integer numerals,
+    // and uses mk_len(e) for variables/complex terms.
+    expr_ref theory_nseq::build_length_sum(expr_ref_vector const& es) {
+        rational total(0);
+        expr_ref_vector var_lens(m);
+        for (expr* e : es) {
+            zstring s;
+            if (m_util.str.is_string(e, s)) {
+                total += rational(s.length());
+            } else if (m_util.str.is_unit(e)) {
+                total += rational(1);
+            } else if (m_util.str.is_empty(e)) {
+                // contributes 0
+            } else {
+                ensure_length_axiom(e);
+                var_lens.push_back(mk_len(e));
+            }
+        }
+        if (var_lens.empty())
+            return expr_ref(m_autil.mk_numeral(total, true), m);
+        expr_ref var_sum(m);
+        if (var_lens.size() == 1)
+            var_sum = expr_ref(var_lens.get(0), m);
+        else
+            var_sum = expr_ref(m_autil.mk_add(var_lens.size(), var_lens.data()), m);
+        if (total.is_zero())
+            return var_sum;
+        return expr_ref(m_autil.mk_add(var_sum, m_autil.mk_numeral(total, true)), m);
+    }
+
     bool theory_nseq::propagate_length_eqs() {
         bool progress = false;
         for (auto const& eq : m_state.eqs()) {
             expr_ref_vector const& lhs = eq.lhs();
             expr_ref_vector const& rhs = eq.rhs();
-            if (lhs.empty() || rhs.empty())
+            // Build sum of lengths directly, using concrete integer values for
+            // units/strings to avoid creating fresh unregistered concat terms.
+            expr_ref lhs_sum = build_length_sum(lhs);
+            expr_ref rhs_sum = build_length_sum(rhs);
+            // Skip if both sums are syntactically identical (trivially equal)
+            if (lhs_sum.get() == rhs_sum.get())
                 continue;
-            sort* s = lhs[0]->get_sort();
-            expr_ref l = mk_concat(lhs, s);
-            expr_ref r = mk_concat(rhs, s);
-            expr_ref len_l = mk_len(l);
-            expr_ref len_r = mk_len(r);
-            if (ctx.e_internalized(len_l) && ctx.e_internalized(len_r)) {
-                enode* nl = ctx.get_enode(len_l);
-                enode* nr = ctx.get_enode(len_r);
-                if (nl->get_root() != nr->get_root()) {
-                    propagate_eq(eq.dep(), len_l, len_r, false);
-                    progress = true;
-                }
+            literal len_eq = mk_eq(lhs_sum, rhs_sum, false);
+            if (ctx.get_assignment(len_eq) != l_true) {
+                add_axiom(len_eq);
+                progress = true;
             }
         }
         return progress;
