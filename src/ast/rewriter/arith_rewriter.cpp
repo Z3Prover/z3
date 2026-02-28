@@ -913,6 +913,22 @@ bool arith_rewriter::mk_eq_mod(expr* arg1, expr* arg2, expr_ref& result) {
             return true;            
         }
     }
+    // (mod (+ a (* -1 b)) m) = 0 ==> (mod a m) = (mod b m)
+    if (m_util.is_mod(arg1, x, y) && m_util.is_zero(arg2) && is_add(x) && to_app(x)->get_num_args() == 2) {
+        expr* a = to_app(x)->get_arg(0);
+        expr* b_neg = to_app(x)->get_arg(1);
+        expr* b = nullptr;
+        rational coeff;
+        if (m_util.is_mul(b_neg, z, b) && m_util.is_numeral(z, coeff) && coeff.is_minus_one()) {
+            result = m.mk_eq(m_util.mk_mod(a, y), m_util.mk_mod(b, y));
+            return true;
+        }
+        // also handle (+ (* -1 a) b) = 0
+        if (m_util.is_mul(a, z, u) && m_util.is_numeral(z, coeff) && coeff.is_minus_one()) {
+            result = m.mk_eq(m_util.mk_mod(u, y), m_util.mk_mod(b_neg, y));
+            return true;
+        }
+    }
     return false;
 }
 
