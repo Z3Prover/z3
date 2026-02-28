@@ -100,6 +100,12 @@ namespace smt {
         bool all_eqs_solved();
         bool check_length_conflict(expr* x, expr_ref_vector const& es, nseq_dependency* dep);
 
+        // Regex membership
+        bool check_regex_memberships();
+        bool check_regex_mem(nseq_mem const& mem);
+        bool is_ground_string(expr* e, zstring& s);
+        expr_ref derive_regex(expr* regex, zstring const& prefix);
+
         // Length reasoning
         void add_length_axiom(expr* n);
         bool check_zero_length();

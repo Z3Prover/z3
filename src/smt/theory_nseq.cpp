@@ -80,7 +80,9 @@ namespace smt {
         if (check_zero_length())
             return FC_CONTINUE;
 
-        // TODO: implement regex membership checking
+        // Check regex membership constraints
+        if (check_regex_memberships())
+            return FC_CONTINUE;
 
         if (all_eqs_solved() && m_state.mems().empty())
             return FC_DONE;
@@ -685,6 +687,107 @@ namespace smt {
             case l_false:
                 continue;
             }
+        }
+        return false;
+    }
+
+    // -------------------------------------------------------
+    // Regex membership
+    // -------------------------------------------------------
+
+    bool theory_nseq::is_ground_string(expr* e, zstring& s) {
+        // Follow e-graph root and check if it's a ground string
+        if (!ctx.e_internalized(e))
+            return false;
+        enode* n = ctx.get_enode(e);
+        expr* root = n->get_root()->get_expr();
+        if (m_util.str.is_string(root, s))
+            return true;
+        // Check if root is a concat of units/strings
+        expr_ref_vector units(m);
+        m_util.str.get_concat_units(root, units);
+        s = zstring();
+        for (expr* u : units) {
+            if (ctx.e_internalized(u)) {
+                expr* ur = ctx.get_enode(u)->get_root()->get_expr();
+                zstring us;
+                if (m_util.str.is_string(ur, us)) {
+                    s = s + us;
+                    continue;
+                }
+                unsigned ch;
+                expr* arg;
+                if (m_util.str.is_unit(ur, arg) &&
+                    ctx.e_internalized(arg) &&
+                    m_util.is_const_char(ctx.get_enode(arg)->get_root()->get_expr(), ch)) {
+                    s = s + zstring(ch);
+                    continue;
+                }
+            }
+            return false;
+        }
+        return true;
+    }
+
+    expr_ref theory_nseq::derive_regex(expr* regex, zstring const& prefix) {
+        expr_ref r(regex, m);
+        for (unsigned i = 0; i < prefix.length(); ++i) {
+            expr_ref ch(m_util.mk_char(prefix[i]), m);
+            r = m_seq_rewrite.mk_derivative(ch, r);
+        }
+        return r;
+    }
+
+    bool theory_nseq::check_regex_memberships() {
+        bool progress = false;
+        for (auto const& mem : m_state.mems()) {
+            if (check_regex_mem(mem))
+                progress = true;
+            if (ctx.inconsistent())
+                return true;
+        }
+        return progress;
+    }
+
+    bool theory_nseq::check_regex_mem(nseq_mem const& mem) {
+        expr* s = mem.str();
+        expr* r = mem.regex();
+        bool sign = mem.sign();
+        nseq_dependency* dep = mem.dep();
+
+        // Try to determine the string value from the e-graph
+        zstring sval;
+        if (!is_ground_string(s, sval))
+            return false;
+
+        // Compute derivatives for the known string
+        expr_ref derived = derive_regex(r, sval);
+
+        // Check nullable: does the derived regex accept the empty word?
+        expr_ref nullable = m_seq_rewrite.is_nullable(derived);
+        m_rewrite(nullable);
+
+        if (sign) {
+            // Positive membership: s must be in r
+            if (m.is_false(nullable)) {
+                // String is fully determined but regex rejects → conflict
+                set_conflict(dep);
+                return true;
+            }
+        }
+        else {
+            // Negative membership: s must NOT be in r
+            if (m.is_true(nullable)) {
+                // String is fully determined and regex accepts → conflict
+                set_conflict(dep);
+                return true;
+            }
+        }
+
+        // Check if the derived regex is the empty set
+        if (sign && m_util.re.is_empty(derived)) {
+            set_conflict(dep);
+            return true;
         }
         return false;
     }
