@@ -627,18 +627,24 @@ namespace bv {
 
         switch (n->get_decl_kind()) {
         case OP_BUMUL_OVFL: {
+            SASSERT(n->get_num_args() == 2);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(n->get_arg(1)));
             expr_ref no_ovfl(bv.mk_bvumul_no_ovfl(arg0, n->get_arg(1)), m);
             def_expr = m.mk_not(no_ovfl);
             break;
         }
         case OP_BSMUL_OVFL: {
+            SASSERT(n->get_num_args() == 2);
             expr* arg1 = n->get_arg(1);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(arg1));
             expr_ref no_ovfl(bv.mk_bvsmul_no_ovfl(arg0, arg1), m);
             expr_ref no_udfl(bv.mk_bvsmul_no_udfl(arg0, arg1), m);
             def_expr = m.mk_or(m.mk_not(no_ovfl), m.mk_not(no_udfl));
             break;
         }
         case OP_BUADD_OVFL: {
+            SASSERT(n->get_num_args() == 2);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(n->get_arg(1)));
             unsigned sz = bv.get_bv_size(arg0);
             expr_ref a_ext(bv.mk_zero_extend(1, arg0), m);
             expr_ref b_ext(bv.mk_zero_extend(1, n->get_arg(1)), m);
@@ -649,8 +655,10 @@ namespace bv {
             break;
         }
         case OP_BSADD_OVFL: {
-            unsigned sz = bv.get_bv_size(arg0);
+            SASSERT(n->get_num_args() == 2);
             expr* arg1 = n->get_arg(1);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(arg1));
+            unsigned sz = bv.get_bv_size(arg0);
             expr_ref zero(bv.mk_zero(sz), m);
             expr_ref sum(bv.mk_bv_add(arg0, arg1), m);
             expr_ref a_pos(bv.mk_slt(zero, arg0), m);
@@ -665,13 +673,17 @@ namespace bv {
             break;
         }
         case OP_BUSUB_OVFL: {
+            SASSERT(n->get_num_args() == 2);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(n->get_arg(1)));
             expr_ref ule(bv.mk_ule(n->get_arg(1), arg0), m);
             def_expr = m.mk_not(ule);
             break;
         }
         case OP_BSSUB_OVFL: {
-            unsigned sz = bv.get_bv_size(arg0);
+            SASSERT(n->get_num_args() == 2);
             expr* arg1 = n->get_arg(1);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(arg1));
+            unsigned sz = bv.get_bv_size(arg0);
             expr_ref minSigned(bv.mk_numeral(rational::power_of_two(sz - 1), sz), m);
             expr_ref neg_b(bv.mk_bv_neg(arg1), m);
             expr_ref saddo(bv.mk_bvsadd_ovfl(arg0, neg_b), m);
@@ -682,6 +694,8 @@ namespace bv {
             break;
         }
         case OP_BSDIV_OVFL: {
+            SASSERT(n->get_num_args() == 2);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(n->get_arg(1)));
             unsigned sz = bv.get_bv_size(arg0);
             expr_ref minSigned(bv.mk_numeral(rational::power_of_two(sz - 1), sz), m);
             expr_ref minusOne(bv.mk_numeral(rational::power_of_two(sz) - 1, sz), m);
@@ -689,6 +703,7 @@ namespace bv {
             break;
         }
         case OP_BNEG_OVFL: {
+            SASSERT(n->get_num_args() == 1);
             unsigned sz = bv.get_bv_size(arg0);
             expr_ref minSigned(bv.mk_numeral(rational::power_of_two(sz - 1), sz), m);
             def_expr = m.mk_eq(arg0, minSigned.get());
