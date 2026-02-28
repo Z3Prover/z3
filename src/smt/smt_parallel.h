@@ -91,7 +91,6 @@ namespace smt {
             unsigned m_num_bb_threads = 0;
             unsigned_vector m_bb_last_batch_processed;
             unsigned m_bb_cancel_epoch = 0; // When a backbone worker finishes early, it increments m_bb_cancel_epoch and notifies all
-            bool m_batch_in_progress = false; // true while at least one bb thread is actively processing the current batch
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
@@ -172,7 +171,6 @@ namespace smt {
             void cancel_current_backbone_batch() {
                 std::scoped_lock lock(mux);
                 m_bb_cancel_epoch++;
-                m_batch_in_progress = false; // batch is done; allow next batch to be created
                 m_bb_cv.notify_all();
             }
 

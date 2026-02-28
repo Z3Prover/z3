@@ -898,7 +898,7 @@ namespace smt {
             return lim.is_canceled() ||
                 m_state != state::is_running ||
                 m_bb_last_batch_processed[bb_thread_id] < m_bb_batch_id ||
-                (!m_bb_candidates.empty() && !m_batch_in_progress);
+                !m_bb_candidates.empty();
         });
 
         if (lim.is_canceled())
@@ -908,8 +908,7 @@ namespace smt {
             return false;
 
         // ---- NEED NEW BATCH? ----
-        // Only create a new batch if the previous one is done (!m_batch_in_progress)
-        // and this thread has already seen the current batch.
+        // Only create a new batch if this thread has already seen the current batch.
         if (m_bb_last_batch_processed[bb_thread_id] == m_bb_batch_id) {
 
             // pop new batch once
@@ -922,7 +921,6 @@ namespace smt {
             }
 
             m_bb_batch_id++;
-            m_batch_in_progress = true;
 
             // wake all threads to see new batch
             m_bb_cv.notify_all();
