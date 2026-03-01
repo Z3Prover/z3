@@ -38,6 +38,9 @@ namespace smt {
         m_trail.push_scope();
         m_trail.push(value_trail<unsigned>(m_axioms_head));
         m_trail.push(value_trail<unsigned>(m_preds_head));
+        // Save axiom vector size so we can truncate it on pop
+        m_trail.push(value_trail<unsigned>(m_axioms_size_at_push));
+        m_axioms_size_at_push = m_axioms.size();
         m_eqs.push_scope();
         m_neqs.push_scope();
         m_mems.push_scope();
@@ -45,7 +48,14 @@ namespace smt {
     }
 
     void nseq_state::pop_scope(unsigned num_scopes) {
+        // m_trail.pop_scope will restore m_axioms_size_at_push to the value saved
+        // at the outermost of the popped scopes (i.e., the correct target size).
         m_trail.pop_scope(num_scopes);
+        // Now m_axioms_size_at_push is the size we should truncate back to.
+        unsigned target = m_axioms_size_at_push;
+        for (unsigned i = target; i < m_axioms.size(); ++i)
+            m_axiom_set.remove(m_axioms.get(i));
+        m_axioms.shrink(target);
         m_dm.pop_scope(num_scopes);
         m_eqs.pop_scope(num_scopes);
         m_neqs.pop_scope(num_scopes);

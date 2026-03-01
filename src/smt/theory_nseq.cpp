@@ -68,8 +68,6 @@ namespace smt {
             m_state.set_axioms_head(axioms.size());
             if (ctx.inconsistent())
                 return FC_CONTINUE;
-            // Fall through: call solve_eqs in the same round so force_phase is set
-            // before the SAT solver makes random phase decisions.
         }
 
         // Reduce predicates (prefix, suffix, contains) to word equations
@@ -996,9 +994,15 @@ namespace smt {
                 case l_true:
                     return propagate_eq(dep, var, head);
                 case l_false: {
-                    // |var| < |head|: head = var · z_rest
+                    // |var| < |head|: head = var · z_rest, |z_rest| = |head| - |var|
                     expr_ref z(m_sk.mk_post(head, len_var), m);
                     ensure_enode(z); mk_var(ctx.get_enode(z)); ensure_length_axiom(z);
+                    // Add len(z) = len(head) - len(var) as an explicit axiom so arithmetic
+                    // knows the exact length and terminates the split chain.
+                    expr_ref len_z = mk_len(z);
+                    expr_ref len_diff(m_autil.mk_sub(len_head, len_var), m);
+                    ensure_enode(len_z); ensure_enode(len_diff);
+                    add_axiom(mk_eq(len_z, len_diff, false));
                     expr_ref rhs_eq(m_util.str.mk_concat(var, z), m);
                     ensure_enode(rhs_eq); ensure_length_axiom(rhs_eq);
                     bool changed = propagate_eq(dep, head, rhs_eq);
@@ -1009,9 +1013,14 @@ namespace smt {
                 break;
             }
             case l_false: {
-                // |var| > |head|: var = head · z_rest
+                // |var| > |head|: var = head · z_rest, |z_rest| = |var| - |head|
                 expr_ref z(m_sk.mk_post(var, len_head), m);
                 ensure_enode(z); mk_var(ctx.get_enode(z)); ensure_length_axiom(z);
+                // Add len(z) = len(var) - len(head) as an explicit axiom.
+                expr_ref len_z = mk_len(z);
+                expr_ref len_diff(m_autil.mk_sub(len_var, len_head), m);
+                ensure_enode(len_z); ensure_enode(len_diff);
+                add_axiom(mk_eq(len_z, len_diff, false));
                 expr_ref rhs_eq(m_util.str.mk_concat(head, z), m);
                 ensure_enode(rhs_eq); ensure_length_axiom(rhs_eq);
                 bool changed = propagate_eq(dep, var, rhs_eq);
