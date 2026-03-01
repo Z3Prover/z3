@@ -40,21 +40,20 @@ Author:
 
 #include "ast/seq_decl_plugin.h"
 #include "ast/euf/euf_plugin.h"
-#include "ast/euf/euf_sgraph.h"
 
 namespace euf {
 
     class egraph;
+    class sgraph;
 
     class seq_plugin : public plugin {
 
         enum class undo_kind {
             undo_add_concat,
-            undo_push_scope
         };
 
         seq_util         m_seq;
-        sgraph           m_sg;
+        sgraph&          m_sg;
         svector<undo_kind> m_undo;
 
         // queue of merges and registrations to process
@@ -101,7 +100,7 @@ namespace euf {
         bool same_loop_body(enode* a, enode* b, unsigned& lo1, unsigned& hi1, unsigned& lo2, unsigned& hi2);
 
     public:
-        seq_plugin(egraph& g);
+        seq_plugin(egraph& g, sgraph& sg);
 
         theory_id get_id() const override { return m_seq.get_family_id(); }
 
@@ -114,8 +113,6 @@ namespace euf {
         void propagate() override;
 
         void undo() override;
-
-        void push_scope_eh() override;
 
         std::ostream& display(std::ostream& out) const override;
 

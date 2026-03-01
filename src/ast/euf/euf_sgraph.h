@@ -69,11 +69,28 @@ Author:
 
 #include "util/region.h"
 #include "util/statistics.h"
+#include "util/hashtable.h"
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/euf/euf_snode.h"
+#include "ast/euf/euf_egraph.h"
 
 namespace euf {
+
+    class seq_plugin;
+
+    // Associativity-respecting hash for concatenations.
+    // The hash function flattens concat trees so that
+    // concat(concat(a, b), c) and concat(a, concat(b, c))
+    // hash to the same value. This is how ZIPT ensures
+    // finding equal concatenations efficiently.
+    struct concat_hash {
+        unsigned operator()(snode const* n) const;
+    };
+
+    struct concat_eq {
+        bool operator()(snode const* a, snode const* b) const;
+    };
 
     class sgraph {
 
@@ -81,12 +98,14 @@ namespace euf {
             unsigned m_num_nodes;
             unsigned m_num_concat;
             unsigned m_num_power;
+            unsigned m_num_hash_hits;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
         ast_manager&     m;
         seq_util         m_seq;
+        egraph           m_egraph;
         region           m_region;
         snode_vector     m_nodes;
         expr_ref_vector  m_exprs;       // pin expressions
@@ -96,6 +115,9 @@ namespace euf {
 
         // maps expression id to snode
         ptr_vector<snode> m_expr2snode;
+
+        // hash table for finding equal concatenations modulo associativity
+        hashtable<snode*, concat_hash, concat_eq> m_concat_table;
 
         snode* mk_snode(expr* e, snode_kind k, unsigned num_args, snode* const* args);
         snode_kind classify(expr* e) const;
@@ -107,6 +129,8 @@ namespace euf {
 
         ast_manager& get_manager() const { return m; }
         seq_util& get_seq_util() { return m_seq; }
+        egraph& get_egraph() { return m_egraph; }
+        egraph const& get_egraph() const { return m_egraph; }
 
         // register an expression and return its snode
         snode* mk(expr* e);
@@ -114,10 +138,16 @@ namespace euf {
         // lookup an already-registered expression
         snode* find(expr* e) const;
 
+        // find an existing concat that is equal modulo associativity
+        snode* find_assoc_equal(snode* n) const;
+
         // build compound snodes
         snode* mk_empty(sort* s);
         snode* mk_concat(snode* a, snode* b);
         snode* mk_power(snode* base, snode* exp);
+
+        // register expression in both sgraph and egraph
+        enode* mk_enode(expr* e);
 
         // scope management for backtracking
         void push();

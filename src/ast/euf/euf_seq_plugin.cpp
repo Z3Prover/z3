@@ -21,15 +21,16 @@ Author:
 --*/
 
 #include "ast/euf/euf_seq_plugin.h"
+#include "ast/euf/euf_sgraph.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/ast_pp.h"
 
 namespace euf {
 
-    seq_plugin::seq_plugin(egraph& g):
+    seq_plugin::seq_plugin(egraph& g, sgraph& sg):
         plugin(g),
         m_seq(g.get_manager()),
-        m_sg(g.get_manager()) {
+        m_sg(sg) {
     }
 
     void seq_plugin::register_node(enode* n) {
@@ -232,25 +233,15 @@ namespace euf {
             if (m_qhead > m_queue.size())
                 m_qhead = m_queue.size();
             break;
-        case undo_kind::undo_push_scope:
-            m_sg.pop(1);
-            break;
         }
     }
 
-    void seq_plugin::push_scope_eh() {
-        m_sg.push();
-        m_undo.push_back(undo_kind::undo_push_scope);
-        push_plugin_undo(get_id());
-    }
-
     std::ostream& seq_plugin::display(std::ostream& out) const {
-        out << "seq\n";
-        m_sg.display(out);
+        out << "seq-plugin\n";
         return out;
     }
 
     void seq_plugin::collect_statistics(statistics& st) const {
-        m_sg.collect_statistics(st);
+        // statistics are collected by sgraph which owns us
     }
 }

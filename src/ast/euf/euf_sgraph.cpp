@@ -17,15 +17,58 @@ Author:
 --*/
 
 #include "ast/euf/euf_sgraph.h"
+#include "ast/euf/euf_seq_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 
 namespace euf {
 
+    // Associativity-respecting hash: flattens concat into leaf sequence
+    // concat(concat(a, b), c) and concat(a, concat(b, c)) hash identically
+    static void collect_leaves(snode const* n, ptr_vector<snode const>& leaves) {
+        if (n->is_concat()) {
+            collect_leaves(n->arg(0), leaves);
+            collect_leaves(n->arg(1), leaves);
+        }
+        else {
+            leaves.push_back(n);
+        }
+    }
+
+    unsigned concat_hash::operator()(snode const* n) const {
+        if (!n->is_concat())
+            return n->id();
+        ptr_vector<snode const> leaves;
+        collect_leaves(n, leaves);
+        unsigned h = 0;
+        for (snode const* l : leaves)
+            h = combine_hash(h, l->id());
+        return h;
+    }
+
+    bool concat_eq::operator()(snode const* a, snode const* b) const {
+        if (a == b) return true;
+        if (!a->is_concat() && !b->is_concat())
+            return a->id() == b->id();
+        ptr_vector<snode const> la, lb;
+        collect_leaves(a, la);
+        collect_leaves(b, lb);
+        if (la.size() != lb.size())
+            return false;
+        for (unsigned i = 0; i < la.size(); ++i)
+            if (la[i]->id() != lb[i]->id())
+                return false;
+        return true;
+    }
+
     sgraph::sgraph(ast_manager& m):
         m(m),
         m_seq(m),
+        m_egraph(m),
         m_exprs(m) {
+        // create seq_plugin and register it with the egraph
+        // the seq_plugin gets a reference back to this sgraph
+        m_egraph.add_plugin(alloc(seq_plugin, m_egraph, *this));
     }
 
     sgraph::~sgraph() {
@@ -263,6 +306,9 @@ namespace euf {
             m_expr2snode.reserve(eid + 1, nullptr);
             m_expr2snode[eid] = n;
         }
+        // insert concats into the associativity-respecting hash table
+        if (k == snode_kind::s_concat)
+            m_concat_table.insert(n);
         ++m_stats.m_num_nodes;
         return n;
     }
@@ -303,6 +349,16 @@ namespace euf {
         return nullptr;
     }
 
+    snode* sgraph::find_assoc_equal(snode* n) const {
+        if (!n || !n->is_concat())
+            return nullptr;
+        snode* existing = nullptr;
+        if (m_concat_table.find(n, existing) && existing != n) {
+            return existing;
+        }
+        return nullptr;
+    }
+
     snode* sgraph::mk_empty(sort* s) {
         expr_ref e(m_seq.str.mk_empty(s), m);
         return mk(e);
@@ -328,9 +384,23 @@ namespace euf {
         return mk_snode(e, snode_kind::s_power, 2, args);
     }
 
+    enode* sgraph::mk_enode(expr* e) {
+        enode* n = m_egraph.find(e);
+        if (n) return n;
+        enode_vector args;
+        if (is_app(e)) {
+            for (expr* arg : *to_app(e)) {
+                enode* a = mk_enode(arg);
+                args.push_back(a);
+            }
+        }
+        return m_egraph.mk(e, 0, args.size(), args.data());
+    }
+
     void sgraph::push() {
         m_scopes.push_back(m_nodes.size());
         ++m_num_scopes;
+        m_egraph.push();
     }
 
     void sgraph::pop(unsigned num_scopes) {
@@ -341,6 +411,8 @@ namespace euf {
         unsigned old_sz = m_scopes[new_lvl];
         for (unsigned i = m_nodes.size(); i-- > old_sz; ) {
             snode* n = m_nodes[i];
+            if (n->is_concat())
+                m_concat_table.remove(n);
             if (n->get_expr()) {
                 unsigned eid = n->get_expr()->get_id();
                 if (eid < m_expr2snode.size())
@@ -351,6 +423,7 @@ namespace euf {
         m_exprs.shrink(old_sz);
         m_scopes.shrink(new_lvl);
         m_num_scopes = new_lvl;
+        m_egraph.pop(num_scopes);
     }
 
     std::ostream& sgraph::display(std::ostream& out) const {
@@ -403,6 +476,8 @@ namespace euf {
         st.update("seq-graph-nodes", m_stats.m_num_nodes);
         st.update("seq-graph-concat", m_stats.m_num_concat);
         st.update("seq-graph-power", m_stats.m_num_power);
+        st.update("seq-graph-hash-hits", m_stats.m_num_hash_hits);
+        m_egraph.collect_statistics(st);
     }
 
 }
