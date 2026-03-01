@@ -66,24 +66,32 @@ namespace smt {
             for (unsigned i = head; i < axioms.size(); ++i)
                 deque_axiom(axioms[i]);
             m_state.set_axioms_head(axioms.size());
-            return FC_CONTINUE;
+            if (ctx.inconsistent())
+                return FC_CONTINUE;
+            // Fall through: call solve_eqs in the same round so force_phase is set
+            // before the SAT solver makes random phase decisions.
         }
 
         // Reduce predicates (prefix, suffix, contains) to word equations
         if (reduce_predicates())
             return FC_CONTINUE;
 
-        // Propagate length equalities from equations before solving,
-        // so arithmetic bounds are available to guide branching
-        if (propagate_length_eqs())
+        // Propagate length equalities and zero-length variables.
+        // Don't short-circuit: continue to solve_eqs so force_phase is set on
+        // branching variables before the SAT solver makes its next decision.
+        propagate_length_eqs();
+        if (ctx.inconsistent())
             return FC_CONTINUE;
-
-        // Check zero-length variables before solving (uses arithmetic bounds)
-        if (check_zero_length())
+        check_zero_length();
+        if (ctx.inconsistent())
             return FC_CONTINUE;
 
         // Solve word equations using Nielsen transformations
         if (solve_eqs())
+            return FC_CONTINUE;
+
+        // After a successful solve pass, pick up any freshly-added length axioms
+        if (m_state.has_pending_axioms())
             return FC_CONTINUE;
 
         // Check regex membership constraints
@@ -866,7 +874,10 @@ namespace smt {
     }
 
     // -------------------------------------------------------
-    // Nielsen splitting: x · α = c · β → x = c · x_tail
+    // Nielsen splitting
+    // -------------------------------------------------------
+    // var-vs-unit: x · α = c · β → x = c · x_tail (peel one char)
+    // var-vs-var:  x · α = y · β → determine |x| vs |y| and split
     // -------------------------------------------------------
 
     bool theory_nseq::split_variable(expr_ref_vector const& lhs, expr_ref_vector const& rhs,
@@ -874,7 +885,7 @@ namespace smt {
         if (lhs.empty() || rhs.empty())
             return false;
 
-        // Find: variable on one side facing a unit/constant on the other
+        // Find: variable on one side facing a non-variable on the other
         expr* var = nullptr;
         expr* head = nullptr;
         bool var_on_left = false;
@@ -889,11 +900,13 @@ namespace smt {
             head = lhs[0];
             var_on_left = false;
         }
-        // Also handle var vs var: pick either and peel one character
+        // var vs var case
+        bool both_var = false;
         if (!var && !head && m_nielsen.is_var(lhs[0]) && m_nielsen.is_var(rhs[0]) && lhs[0] != rhs[0]) {
             var = lhs[0];
             head = rhs[0];
             var_on_left = true;
+            both_var = true;
         }
         if (!var || !head)
             return false;
@@ -910,30 +923,114 @@ namespace smt {
         if (ctx.get_assignment(eq_empty) != l_false)
             return false;
 
+        // ---- var-vs-var: length-guided split ----
+        if (both_var) {
+            expr_ref len_var = mk_len(var);
+            expr_ref len_head = mk_len(head);
+            rational var_len, head_len;
+            bool has_var_len  = get_length(var,  var_len);
+            bool has_head_len = get_length(head, head_len);
+
+            if (has_var_len && has_head_len) {
+                if (var_len == head_len) {
+                    // Same length → must be equal
+                    IF_VERBOSE(3, verbose_stream() << "  var-var-split: |" << mk_bounded_pp(var, m, 1)
+                               << "|=|" << mk_bounded_pp(head, m, 1) << "| → unify\n";);
+                    bool changed = propagate_eq(dep, var, head);
+                    if (changed) m_state.stats().m_num_splits++;
+                    return changed;
+                }
+                else if (var_len < head_len) {
+                    // head = var · z_rest, |z_rest| = head_len - var_len
+                    IF_VERBOSE(3, verbose_stream() << "  var-var-split: |" << mk_bounded_pp(var, m, 1)
+                               << "| < |" << mk_bounded_pp(head, m, 1) << "| → split head\n";);
+                    expr_ref z(m_sk.mk_post(head, len_var), m);
+                    ensure_enode(z); mk_var(ctx.get_enode(z)); ensure_length_axiom(z);
+                    expr_ref rhs_eq(m_util.str.mk_concat(var, z), m);
+                    ensure_enode(rhs_eq); ensure_length_axiom(rhs_eq);
+                    bool changed = propagate_eq(dep, head, rhs_eq);
+                    if (changed) m_state.stats().m_num_splits++;
+                    return changed;
+                }
+                else {
+                    // var = head · z_rest, |z_rest| = var_len - head_len
+                    IF_VERBOSE(3, verbose_stream() << "  var-var-split: |" << mk_bounded_pp(var, m, 1)
+                               << "| > |" << mk_bounded_pp(head, m, 1) << "| → split var\n";);
+                    expr_ref z(m_sk.mk_post(var, len_head), m);
+                    ensure_enode(z); mk_var(ctx.get_enode(z)); ensure_length_axiom(z);
+                    expr_ref rhs_eq(m_util.str.mk_concat(head, z), m);
+                    ensure_enode(rhs_eq); ensure_length_axiom(rhs_eq);
+                    bool changed = propagate_eq(dep, var, rhs_eq);
+                    if (changed) m_state.stats().m_num_splits++;
+                    return changed;
+                }
+            }
+
+            // Lengths not fully determined: branch on |var| vs |head| via SAT
+            // First try: |var| ≤ |head| (use as a SAT decision)
+            literal len_le = mk_literal(
+                m_autil.mk_ge(m_autil.mk_sub(len_head, len_var), m_autil.mk_int(0)));
+            switch (ctx.get_assignment(len_le)) {
+            case l_undef:
+                IF_VERBOSE(3, verbose_stream() << "  var-var-split: branching |"
+                           << mk_bounded_pp(var, m, 1) << "| ≤ |" << mk_bounded_pp(head, m, 1) << "|\n";);
+                ctx.force_phase(len_le);
+                ctx.mark_as_relevant(len_le);
+                m_new_propagation = true;
+                m_state.stats().m_num_splits++;
+                return true;
+            case l_true: {
+                // |var| ≤ |head|: check if equal
+                literal len_eq_lit = mk_eq(len_var, len_head, false);
+                switch (ctx.get_assignment(len_eq_lit)) {
+                case l_undef:
+                    ctx.force_phase(len_eq_lit);
+                    ctx.mark_as_relevant(len_eq_lit);
+                    m_new_propagation = true;
+                    return true;
+                case l_true:
+                    return propagate_eq(dep, var, head);
+                case l_false: {
+                    // |var| < |head|: head = var · z_rest
+                    expr_ref z(m_sk.mk_post(head, len_var), m);
+                    ensure_enode(z); mk_var(ctx.get_enode(z)); ensure_length_axiom(z);
+                    expr_ref rhs_eq(m_util.str.mk_concat(var, z), m);
+                    ensure_enode(rhs_eq); ensure_length_axiom(rhs_eq);
+                    bool changed = propagate_eq(dep, head, rhs_eq);
+                    if (changed) m_state.stats().m_num_splits++;
+                    return changed;
+                }
+                }
+                break;
+            }
+            case l_false: {
+                // |var| > |head|: var = head · z_rest
+                expr_ref z(m_sk.mk_post(var, len_head), m);
+                ensure_enode(z); mk_var(ctx.get_enode(z)); ensure_length_axiom(z);
+                expr_ref rhs_eq(m_util.str.mk_concat(head, z), m);
+                ensure_enode(rhs_eq); ensure_length_axiom(rhs_eq);
+                bool changed = propagate_eq(dep, var, rhs_eq);
+                if (changed) m_state.stats().m_num_splits++;
+                return changed;
+            }
+            }
+            return false;
+        }
+
+        // ---- var-vs-unit/constant: peel one character ----
         // For multi-character string constants, extract only the first character
-        // so we peel one character at a time (Nielsen style)
         zstring head_str;
         if (m_util.str.is_string(head, head_str) && head_str.length() > 1) {
             head = m_util.str.mk_unit(m_util.mk_char(head_str[0]));
         }
 
-        // var is non-empty and the equation forces var to start with head.
-        // Nielsen split: var = head · var_tail
+        // var is non-empty and the equation forces var to start with head (a single char).
+        // Nielsen split: var = head · var_tail  where var_tail = seq.tail(var, 1)
         expr_ref one(m_autil.mk_int(1), m);
         expr_ref var_tail(m_sk.mk_tail(var, one), m);
         ensure_enode(var_tail);
         mk_var(ctx.get_enode(var_tail));
         ensure_length_axiom(var_tail);
-
-        // Before committing to the split, ensure the tail's emptiness is decided.
-        expr_ref tail_emp(m_util.str.mk_empty(var_tail->get_sort()), m);
-        literal tail_eq_empty = mk_eq(var_tail, tail_emp, false);
-        if (ctx.get_assignment(tail_eq_empty) == l_undef) {
-            ctx.force_phase(tail_eq_empty);
-            ctx.mark_as_relevant(tail_eq_empty);
-            m_new_propagation = true;
-            return true;
-        }
 
         expr_ref split_rhs(m_util.str.mk_concat(head, var_tail), m);
         ensure_enode(split_rhs);
