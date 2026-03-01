@@ -96,7 +96,8 @@ namespace smt {
         bool branch_eq(expr_ref_vector const& lhs, expr_ref_vector const& rhs, nseq_dependency* dep);
         bool branch_eq_prefix(expr_ref_vector const& lhs, expr_ref_vector const& rhs, nseq_dependency* dep);
         bool branch_var_prefix(expr* x, expr_ref_vector const& other, nseq_dependency* dep);
-        bool split_variable(expr_ref_vector const& lhs, expr_ref_vector const& rhs, nseq_dependency* dep);        bool canonize(expr_ref_vector const& src, expr_ref_vector& dst, nseq_dependency*& dep);
+        bool split_variable(expr_ref_vector const& lhs, expr_ref_vector const& rhs, nseq_dependency* dep);
+        bool canonize(expr_ref_vector const& src, expr_ref_vector& dst, nseq_dependency*& dep);
         bool all_eqs_solved();
         bool check_length_conflict(expr* x, expr_ref_vector const& es, nseq_dependency* dep);
 
