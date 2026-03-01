@@ -67,7 +67,7 @@ namespace euf {
         unsigned    m_level      = 0;      // tree depth/level (0 for empty, 1 for singletons)
         unsigned    m_length     = 0;      // token count, number of leaf tokens in the tree
 
-        snode*      m_args[0];
+        snode*      m_args[0]; // variable-length array, allocated via get_snode_size(num_args)
 
         friend class sgraph;
 
@@ -129,18 +129,32 @@ namespace euf {
         }
 
         // analogous to ZIPT's Str.First / Str.Last
-        snode* first() const {
+        snode const* first() const {
             snode const* s = this;
             while (s->is_concat())
                 s = s->arg(0);
-            return const_cast<snode*>(s);
+            return s;
         }
 
-        snode* last() const {
+        snode const* last() const {
             snode const* s = this;
             while (s->is_concat())
                 s = s->arg(1);
-            return const_cast<snode*>(s);
+            return s;
+        }
+
+        snode* first() {
+            snode* s = this;
+            while (s->is_concat())
+                s = s->arg(0);
+            return s;
+        }
+
+        snode* last() {
+            snode* s = this;
+            while (s->is_concat())
+                s = s->arg(1);
+            return s;
         }
     };
 

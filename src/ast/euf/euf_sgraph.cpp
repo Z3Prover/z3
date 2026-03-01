@@ -142,6 +142,8 @@ namespace euf {
         }
 
         case snode_kind::s_power: {
+            // s^n: nullable follows base, consistent with ZIPT's PowerToken
+            // the exponent n is assumed to be a symbolic integer, may or may not be zero
             SASSERT(n->num_args() >= 1);
             snode* base = n->arg(0);
             n->m_ground = base->is_ground();
@@ -278,14 +280,14 @@ namespace euf {
         app* a = to_app(e);
         unsigned arity = a->get_num_args();
 
-        // recursively register children that are sequences or regexes
+        // recursively register children
+        // for seq/re children, create classified snodes
+        // for other children (e.g. integer exponents), create s_other snodes
         snode_vector child_nodes;
         for (unsigned i = 0; i < arity; ++i) {
             expr* ch = a->get_arg(i);
-            if (m_seq.is_seq(ch) || m_seq.is_re(ch)) {
-                snode* cn = mk(ch);
-                child_nodes.push_back(cn);
-            }
+            snode* cn = mk(ch);
+            child_nodes.push_back(cn);
         }
 
         return mk_snode(e, k, child_nodes.size(), child_nodes.data());
