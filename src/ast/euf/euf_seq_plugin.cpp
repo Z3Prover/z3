@@ -237,6 +237,8 @@ namespace euf {
     }
 
     std::ostream& seq_plugin::display(std::ostream& out) const {
+        // sgraph contents are displayed by sgraph::display, not here,
+        // since sgraph owns the seq_plugin (not the other way around)
         out << "seq-plugin\n";
         return out;
     }

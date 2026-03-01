@@ -25,6 +25,9 @@ namespace euf {
 
     // Associativity-respecting hash: flattens concat into leaf sequence
     // concat(concat(a, b), c) and concat(a, concat(b, c)) hash identically
+    // Recursively flatten a concatenation tree into a sequence of leaf nodes.
+    // This produces the same leaf order regardless of tree associativity,
+    // so concat(concat(a,b),c) and concat(a,concat(b,c)) yield [a,b,c].
     static void collect_leaves(snode const* n, ptr_vector<snode const>& leaves) {
         if (n->is_concat()) {
             collect_leaves(n->arg(0), leaves);
@@ -353,9 +356,10 @@ namespace euf {
         if (!n || !n->is_concat())
             return nullptr;
         snode* existing = nullptr;
-        if (m_concat_table.find(n, existing) && existing != n) {
+        // find returns true when a matching entry exists,
+        // check that it is a different node to report a genuine match
+        if (m_concat_table.find(n, existing) && existing != n)
             return existing;
-        }
         return nullptr;
     }
 
