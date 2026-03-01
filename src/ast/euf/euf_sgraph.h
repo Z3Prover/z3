@@ -17,9 +17,51 @@ Abstract:
     This provides a layer that maps Z3 AST expressions (from seq_decl_plugin)
     to snode structures with metadata for ground, regex-free, nullable, etc.
 
+    ZIPT features not yet ported to snode/sgraph:
+    
+    -- Str operations (from StrManager):
+       Normalisation: union-find style representative tracking (Normalised/IsNormalised)
+       with cache migration (MoveCache) for equal strings with different tree structures.
+       Balanced tree maintenance: DegenerationLevel tracking with rebalancing
+       (Balanced/BalancedTrans properties on TupleStr).
+       Concat simplification: merging adjacent Kleene stars (u.v* + v*w = u.v*w),
+       merging adjacent loops (v{l1,h1} + v{l2,h2} = v{l1+l2,h1+h2}),
+       absorbing nullable tokens next to .* (u.* + vw = u.*w when v nullable).
+       Drop operations: DropLeft/DropRight for removing prefix/suffix tokens,
+       with caching (DropLeftCache/DropRightCache on TupleStr).
+       Substitution: Subst(var, replacement) and SubstChar operations with caching.
+       Indexed access: GetIndex/GetIndexFwd/GetIndexBwd for token-level random access.
+       Forward/reverse iteration: GetEnumerator/GetRevEnumerator over leaf tokens.
+       ToList with caching: flattened token array with ListCache on TupleStr.
+       Simplification: OptSimplify that unfolds constant powers and simplifies tokens.
+       Derivative computation: Derivative(CharacterSet, fwd) for regex derivative construction.
+       Equality: structural equality with associative hashing (TriangleMatrix-based rolling hash).
+       Rotation equality: RotationEquals for detecting cyclic permutations.
+       Expression reconstruction: ToExpr for converting back to Z3 AST.
+       Graphviz export: ToDot for debugging visualisation.
+    
+    -- StrToken subclasses not yet mapped:
+       SymCharToken: symbolic character variables (for regex unwinding).
+       StrAtToken: str.at(s, i) as a named token with parent tracking.
+       SubStrToken: str.substr(s, from, len) as a named token.
+       SetToken: character set ranges (used for regex character classes).
+       PostToken/PreToken: auxiliary regex position markers.
+    
+    -- StrToken features:
+       GetDecomposition: Nielsen-style prefix/postfix decomposition with
+       side constraints (IntConstraint) and variable substitutions (Subst).
+       NamedStrToken parent/child extension tracking (Extension1/Extension2)
+       for variable splitting (x = x'x'') with PowerExtension for x / u^n u'.
+       CollectSymbols: gathering non-terminals and alphabet for Parikh analysis.
+       MinTerms: FirstMinTerms/LastMinTerms for character class analysis.
+       Token ordering: StrTokenOrder for deterministic comparison.
+       Derivable flag: tracking which tokens support regex derivatives.
+       BasicRegex flag: distinguishing basic vs extended regex constructs.
+
 Author:
 
     Nikolaj Bjorner (nbjorner) 2025-03-01
+    Clemens Eisenhofer 2025-03-01
 
 --*/
 
