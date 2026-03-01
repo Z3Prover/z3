@@ -50,8 +50,6 @@ namespace euf {
     void seq_plugin::propagate() {
         if (m_qhead == m_queue.size())
             return;
-        // save qhead for undo
-        unsigned old_qhead = m_qhead;
         for (; m_qhead < m_queue.size(); ++m_qhead) {
             if (g.inconsistent())
                 break;
@@ -64,7 +62,6 @@ namespace euf {
                 propagate_merge(a, b);
             }
         }
-        (void)old_qhead;
     }
 
     void seq_plugin::propagate_register_node(enode* n) {
