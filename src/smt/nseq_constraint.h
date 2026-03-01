@@ -60,25 +60,19 @@ namespace smt {
     // A disequality constraint: lhs != rhs
     // with decomposed sub-equations and justification literals.
     class nseq_ne {
-    public:
-        typedef std::pair<expr_ref_vector, expr_ref_vector> decomposed_eq;
-    private:
-        expr_ref                 m_lhs;
-        expr_ref                 m_rhs;
-        vector<decomposed_eq>    m_eqs;
+        eq_ref                   m_eq;
+        eq_refs                  m_eqs;
         literal_vector           m_lits;
         nseq_dependency*         m_dep;
     public:
         nseq_ne(expr_ref const& l, expr_ref const& r, nseq_dependency* dep)
-            : m_lhs(l), m_rhs(r), m_dep(dep) {
-            expr_ref_vector ls(l.get_manager()); ls.push_back(l);
-            expr_ref_vector rs(r.get_manager()); rs.push_back(r);
-            m_eqs.push_back(std::make_pair(ls, rs));
+            : m_eq(l, r), m_dep(dep) {
+            m_eqs.push_back(eq_ref(l, r));
         }
 
-        expr_ref const& l() const { return m_lhs; }
-        expr_ref const& r() const { return m_rhs; }
-        vector<decomposed_eq> const& eqs() const { return m_eqs; }
+        expr_ref const& l() const { return m_eq.left; }
+        expr_ref const& r() const { return m_eq.right; }
+        eq_refs const& eqs() const { return m_eqs; }
         literal_vector const& lits() const { return m_lits; }
         nseq_dependency* dep() const { return m_dep; }
     };

@@ -2517,6 +2517,14 @@ typedef app_ref_vector                     proof_ref_vector;
 
 typedef ref_pair_vector<expr, ast_manager> expr_ref_pair_vector;
 
+struct eq_ref {
+    expr_ref left;
+    expr_ref right;
+    eq_ref(ast_manager& m): left(m), right(m) {}
+    eq_ref(expr_ref const& l, expr_ref const& r): left(l), right(r) {}
+    eq_ref(expr* l, expr* r, ast_manager& m): left(l, m), right(r, m) {}
+};
+using eq_refs = vector<eq_ref>;
 
 // -----------------------------------
 //
