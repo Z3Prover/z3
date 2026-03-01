@@ -70,8 +70,14 @@ namespace euf {
         m_egraph(m),
         m_exprs(m) {
         // create seq_plugin and register it with the egraph
-        // the seq_plugin gets a reference back to this sgraph
-        m_egraph.add_plugin(alloc(seq_plugin, m_egraph, *this));
+        m_egraph.add_plugin(alloc(seq_plugin, m_egraph));
+        // register on_make callback so sgraph creates snodes for new enodes
+        std::function<void(enode*)> on_make = [this](enode* n) {
+            expr* e = n->get_expr();
+            if (m_seq.is_seq(e) || m_seq.is_re(e))
+                mk(e);
+        };
+        m_egraph.set_on_make(on_make);
     }
 
     sgraph::~sgraph() {

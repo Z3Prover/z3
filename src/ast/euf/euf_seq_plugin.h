@@ -26,8 +26,9 @@ Abstract:
     -- Nullable absorption: a nullable token adjacent to .*
        is absorbed, u.*.v.w = u.*.w when v is nullable.
 
-    The plugin integrates with euf_egraph for congruence closure
-    and with sgraph for snode-based string representation.
+    The plugin integrates with euf_egraph for congruence closure.
+    Node registration in sgraph is handled by sgraph itself via
+    the egraph's on_make callback, not by the plugin.
 
 Author:
 
@@ -44,7 +45,6 @@ Author:
 namespace euf {
 
     class egraph;
-    class sgraph;
 
     class seq_plugin : public plugin {
 
@@ -53,7 +53,6 @@ namespace euf {
         };
 
         seq_util         m_seq;
-        sgraph&          m_sg;
         svector<undo_kind> m_undo;
 
         // queue of merges and registrations to process
@@ -90,8 +89,9 @@ namespace euf {
         // merging Kleene stars, merging loops, absorbing nullables
         void propagate_simplify(enode* n);
 
-        // check if snode is nullable via sgraph metadata
-        bool is_nullable(enode* n);
+        // check if expression is nullable, computed from expression structure
+        bool is_nullable(expr* e);
+        bool is_nullable(enode* n) { return is_nullable(n->get_expr()); }
 
         // check if two enodes have congruent star bodies
         bool same_star_body(enode* a, enode* b);
@@ -100,7 +100,7 @@ namespace euf {
         bool same_loop_body(enode* a, enode* b, unsigned& lo1, unsigned& hi1, unsigned& lo2, unsigned& hi2);
 
     public:
-        seq_plugin(egraph& g, sgraph& sg);
+        seq_plugin(egraph& g);
 
         theory_id get_id() const override { return m_seq.get_family_id(); }
 
@@ -117,8 +117,5 @@ namespace euf {
         std::ostream& display(std::ostream& out) const override;
 
         void collect_statistics(statistics& st) const override;
-
-        sgraph& get_sgraph() { return m_sg; }
-        sgraph const& get_sgraph() const { return m_sg; }
     };
 }

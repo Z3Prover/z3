@@ -21,16 +21,14 @@ Author:
 --*/
 
 #include "ast/euf/euf_seq_plugin.h"
-#include "ast/euf/euf_sgraph.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/ast_pp.h"
 
 namespace euf {
 
-    seq_plugin::seq_plugin(egraph& g, sgraph& sg):
+    seq_plugin::seq_plugin(egraph& g):
         plugin(g),
-        m_seq(g.get_manager()),
-        m_sg(sg) {
+        m_seq(g.get_manager()) {
     }
 
     void seq_plugin::register_node(enode* n) {
@@ -70,9 +68,6 @@ namespace euf {
             return;
 
         TRACE(seq, tout << "seq register " << g.bpp(n) << "\n");
-
-        // register in sgraph
-        m_sg.mk(n->get_expr());
 
         if (is_concat(n)) {
             m_concats.push_back(n);
@@ -178,13 +173,34 @@ namespace euf {
         }
     }
 
-    bool seq_plugin::is_nullable(enode* n) {
-        snode* s = m_sg.find(n->get_expr());
-        if (s)
-            return s->is_nullable();
-        // empty string is nullable
-        if (is_empty(n))
+    bool seq_plugin::is_nullable(expr* e) {
+        // compute nullable from expression structure without sgraph dependency
+        if (m_seq.str.is_empty(e))
             return true;
+        if (m_seq.re.is_full_seq(e))
+            return true;
+        if (m_seq.re.is_star(e))
+            return true;
+        if (m_seq.str.is_concat(e)) {
+            SASSERT(to_app(e)->get_num_args() == 2);
+            return is_nullable(to_app(e)->get_arg(0)) && is_nullable(to_app(e)->get_arg(1));
+        }
+        if (m_seq.re.is_union(e)) {
+            SASSERT(to_app(e)->get_num_args() == 2);
+            return is_nullable(to_app(e)->get_arg(0)) || is_nullable(to_app(e)->get_arg(1));
+        }
+        if (m_seq.re.is_intersection(e)) {
+            SASSERT(to_app(e)->get_num_args() == 2);
+            return is_nullable(to_app(e)->get_arg(0)) && is_nullable(to_app(e)->get_arg(1));
+        }
+        if (m_seq.re.is_complement(e)) {
+            SASSERT(to_app(e)->get_num_args() == 1);
+            return !is_nullable(to_app(e)->get_arg(0));
+        }
+        if (m_seq.re.is_to_re(e)) {
+            SASSERT(to_app(e)->get_num_args() == 1);
+            return is_nullable(to_app(e)->get_arg(0));
+        }
         return false;
     }
 
@@ -237,8 +253,6 @@ namespace euf {
     }
 
     std::ostream& seq_plugin::display(std::ostream& out) const {
-        // sgraph contents are displayed by sgraph::display, not here,
-        // since sgraph owns the seq_plugin (not the other way around)
         out << "seq-plugin\n";
         return out;
     }
