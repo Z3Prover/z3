@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2025 Microsoft Corporation
+Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
@@ -60,8 +60,8 @@ Abstract:
 
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2025-03-01
-    Clemens Eisenhofer 2025-03-01
+    Nikolaj Bjorner (nbjorner) 2026-03-01
+    Clemens Eisenhofer 2026-03-01
 
 --*/
 
