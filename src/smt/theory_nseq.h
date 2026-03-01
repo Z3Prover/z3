@@ -115,8 +115,14 @@ namespace smt {
         // Regex membership
         bool check_regex_memberships();
         bool check_regex_mem(nseq_mem const& mem);
+        bool add_regex_length_axioms(nseq_mem const& mem);
+        bool synthesize_regex_string(expr* regex, unsigned len, zstring& result);
+        bool dfs_regex(expr* r, unsigned target_len, unsigned cur_len, zstring& result);
         bool is_ground_string(expr* e, zstring& s);
         expr_ref derive_regex(expr* regex, zstring const& prefix);
+        bool all_mems_checked();
+        expr* find_regex_for(expr* e);
+        expr* find_substr_regex(expr* base, unsigned pos, unsigned total_len, unsigned& cover_len);
 
         // String operation reductions
         void reduce_op(expr* e);
