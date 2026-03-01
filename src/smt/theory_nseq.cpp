@@ -718,6 +718,11 @@ namespace smt {
             break;
         }
 
+        // Optimization: if one side is a pure ground string and the other side
+        // has variables with fully-known lengths, directly propagate substr values.
+        if (propagate_ground_split(lhs, rhs, dep))
+            return true;
+
         // Try branching: find a variable and decide x = "" or x ≠ ""
         if (branch_eq(lhs, rhs, dep))
             return true;
@@ -762,7 +767,7 @@ namespace smt {
                     // If lower length bound is already > 0, skip the empty branch
                     if (ctx.e_internalized(len_e) && lower_bound(len_e, lo) && lo > rational(0))
                         break;
-                    // Force the empty branch first
+                    // Force the empty branch first.
                     TRACE(seq, tout << "branch " << mk_bounded_pp(e, m) << " = \"\"\n";);
                     IF_VERBOSE(3, verbose_stream() << "  branch " << mk_bounded_pp(e, m) << " = \"\"\n";);
                     ctx.force_phase(eq_empty);
@@ -1192,6 +1197,62 @@ namespace smt {
                 return true;
         }
         return progress;
+    }
+
+    // If one side is a pure ground string and the other side has variables with
+    // fully known lengths, directly propagate each variable's value as a substr.
+    // E.g. x·y = "abcdef" with len(x)=2, len(y)=4 → x="ab", y="cdef"
+    bool theory_nseq::propagate_ground_split(expr_ref_vector const& lhs,
+                                              expr_ref_vector const& rhs,
+                                              nseq_dependency* dep) {
+        // Determine which side is pure-variable and which is pure-ground
+        auto has_var = [&](expr_ref_vector const& v) {
+            for (expr* e : v) if (m_nielsen.is_var(e)) return true;
+            return false;
+        };
+        auto all_var = [&](expr_ref_vector const& v) {
+            for (expr* e : v) if (!m_nielsen.is_var(e)) return false;
+            return true;
+        };
+        expr_ref_vector const* ground_side = nullptr;
+        expr_ref_vector const* var_side = nullptr;
+        if (!has_var(lhs) && all_var(rhs) && !rhs.empty()) {
+            ground_side = &lhs; var_side = &rhs;
+        }
+        else if (!has_var(rhs) && all_var(lhs) && !lhs.empty()) {
+            ground_side = &rhs; var_side = &lhs;
+        }
+        if (!ground_side)
+            return false;
+
+        // Build the ground string
+        zstring ground;
+        {
+            sort* s = var_side->get(0)->get_sort();
+            expr_ref gc = mk_concat(*ground_side, s);
+            if (!is_ground_string(gc, ground))
+                return false;
+        }
+
+        // Collect vars and their known lengths
+        unsigned offset = 0;
+        bool changed = false;
+        for (expr* e : *var_side) {
+            rational len_v;
+            if (!get_length(e, len_v) || !len_v.is_nonneg() || !len_v.is_unsigned())
+                return false; // length unknown, can't propagate
+            unsigned len = len_v.get_unsigned();
+            if (offset + len > ground.length())
+                return false; // length conflict, let solve_eq handle it
+            zstring substr = ground.extract(offset, len);
+            expr_ref val(m_util.str.mk_string(substr), m);
+            ensure_enode(val);
+            changed |= propagate_eq(dep, e, val);
+            offset += len;
+        }
+        if (offset != ground.length())
+            return false; // leftover ground chars, conflict
+        return changed;
     }
 
     bool theory_nseq::check_diseq(nseq_ne const& ne) {
