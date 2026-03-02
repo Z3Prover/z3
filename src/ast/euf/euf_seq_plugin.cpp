@@ -26,10 +26,16 @@ Author:
 
 namespace euf {
 
+    // Check if enode is any kind of concat (str.++ or re.++)
+    static bool is_any_concat(enode* n, seq_util const& seq) {
+        return (seq.str.is_concat(n->get_expr()) || seq.re.is_concat(n->get_expr())) && n->num_args() == 2;
+    }
+
     // Collect leaves of a concat tree in left-to-right order.
     // For non-concat nodes, the node itself is a leaf.
+    // Handles both str.++ and re.++.
     static void collect_enode_leaves(enode* n, seq_util const& seq, enode_vector& leaves) {
-        if (seq.str.is_concat(n->get_expr()) && n->num_args() == 2) {
+        if (is_any_concat(n, seq)) {
             collect_enode_leaves(n->get_arg(0), seq, leaves);
             collect_enode_leaves(n->get_arg(1), seq, leaves);
         }
@@ -39,7 +45,7 @@ namespace euf {
     }
 
     unsigned enode_concat_hash::operator()(enode* n) const {
-        if (!seq.str.is_concat(n->get_expr()))
+        if (!is_any_concat(n, seq))
             return n->get_id();
         enode_vector leaves;
         collect_enode_leaves(n, seq, leaves);
@@ -51,7 +57,7 @@ namespace euf {
 
     bool enode_concat_eq::operator()(enode* a, enode* b) const {
         if (a == b) return true;
-        if (!seq.str.is_concat(a->get_expr()) && !seq.str.is_concat(b->get_expr()))
+        if (!is_any_concat(a, seq) && !is_any_concat(b, seq))
             return a->get_id() == b->get_id();
         enode_vector la, lb;
         collect_enode_leaves(a, seq, la);
@@ -124,13 +130,26 @@ namespace euf {
             push_merge(last, n);
         }
 
-        // empty concat: concat(a, empty) = a, concat(empty, b) = b
+        // str.++ identity: concat(a, ε) = a, concat(ε, b) = b
         enode* a, *b;
-        if (is_concat(n, a, b)) {
-            if (is_empty(a))
+        if (is_str_concat(n, a, b)) {
+            if (is_str_empty(a))
                 push_merge(n, b);
-            else if (is_empty(b))
+            else if (is_str_empty(b))
                 push_merge(n, a);
+        }
+
+        // re.++ identity: concat(a, epsilon) = a, concat(epsilon, b) = b
+        // re.++ absorption: concat(a, ∅) = ∅, concat(∅, b) = ∅
+        if (is_re_concat(n, a, b)) {
+            if (is_re_epsilon(a))
+                push_merge(n, b);
+            else if (is_re_epsilon(b))
+                push_merge(n, a);
+            else if (is_re_empty(a))
+                push_merge(n, a);
+            else if (is_re_empty(b))
+                push_merge(n, b);
         }
     }
 
@@ -248,14 +267,31 @@ namespace euf {
         return na->get_root() == nb->get_root();
     }
 
-    enode* seq_plugin::mk_concat(enode* a, enode* b) {
+    enode* seq_plugin::mk_str_concat(enode* a, enode* b) {
         expr* e = m_seq.str.mk_concat(a->get_expr(), b->get_expr());
         enode* args[2] = { a, b };
         return mk(e, 2, args);
     }
 
-    enode* seq_plugin::mk_empty(sort* s) {
+    enode* seq_plugin::mk_re_concat(enode* a, enode* b) {
+        expr* e = m_seq.re.mk_concat(a->get_expr(), b->get_expr());
+        enode* args[2] = { a, b };
+        return mk(e, 2, args);
+    }
+
+    enode* seq_plugin::mk_concat(enode* a, enode* b) {
+        if (m_seq.is_re(a->get_expr()))
+            return mk_re_concat(a, b);
+        return mk_str_concat(a, b);
+    }
+
+    enode* seq_plugin::mk_str_empty(sort* s) {
         expr* e = m_seq.str.mk_empty(s);
+        return mk(e, 0, nullptr);
+    }
+
+    enode* seq_plugin::mk_re_epsilon(sort* seq_sort) {
+        expr* e = m_seq.re.mk_epsilon(seq_sort);
         return mk(e, 0, nullptr);
     }
 

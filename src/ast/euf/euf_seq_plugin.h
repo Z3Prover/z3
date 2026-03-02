@@ -51,6 +51,7 @@ namespace euf {
     // Associativity-respecting hash for enode concat trees.
     // Flattens concat(concat(a,b),c) and concat(a,concat(b,c))
     // to the same leaf sequence [a,b,c] before hashing.
+    // Handles both str.++ (OP_SEQ_CONCAT) and re.++ (OP_RE_CONCAT).
     struct enode_concat_hash {
         seq_util const& seq;
         enode_concat_hash(seq_util const& s) : seq(s) {}
@@ -58,6 +59,7 @@ namespace euf {
     };
 
     // Associativity-respecting equality for enode concat trees.
+    // Handles both str.++ (OP_SEQ_CONCAT) and re.++ (OP_RE_CONCAT).
     struct enode_concat_eq {
         seq_util const& seq;
         enode_concat_eq(seq_util const& s) : seq(s) {}
@@ -87,19 +89,44 @@ namespace euf {
         enode_concat_eq   m_concat_eq;
         hashtable<enode*, enode_concat_hash, enode_concat_eq> m_concat_table;
 
-        bool is_concat(enode* n) const { return m_seq.str.is_concat(n->get_expr()); }
-        bool is_concat(enode* n, enode*& a, enode*& b) {
-            return is_concat(n) && n->num_args() == 2 &&
+        // string concat predicates
+        bool is_str_concat(enode* n) const { return m_seq.str.is_concat(n->get_expr()); }
+        bool is_str_concat(enode* n, enode*& a, enode*& b) {
+            return is_str_concat(n) && n->num_args() == 2 &&
                    (a = n->get_arg(0), b = n->get_arg(1), true);
         }
+
+        // regex concat predicates
+        bool is_re_concat(enode* n) const { return m_seq.re.is_concat(n->get_expr()); }
+        bool is_re_concat(enode* n, enode*& a, enode*& b) {
+            return is_re_concat(n) && n->num_args() == 2 &&
+                   (a = n->get_arg(0), b = n->get_arg(1), true);
+        }
+
+        // any concat, string or regex
+        bool is_concat(enode* n) const { return is_str_concat(n) || is_re_concat(n); }
+        bool is_concat(enode* n, enode*& a, enode*& b) {
+            return is_str_concat(n, a, b) || is_re_concat(n, a, b);
+        }
+
         bool is_star(enode* n) const { return m_seq.re.is_star(n->get_expr()); }
         bool is_loop(enode* n) const { return m_seq.re.is_loop(n->get_expr()); }
-        bool is_empty(enode* n) const { return m_seq.str.is_empty(n->get_expr()); }
+
+        // string empty: ε for str.++
+        bool is_str_empty(enode* n) const { return m_seq.str.is_empty(n->get_expr()); }
+        // regex empty set: ∅ for re.++ (absorbing element)
+        bool is_re_empty(enode* n) const { return m_seq.re.is_empty(n->get_expr()); }
+        // regex epsilon: to_re("") for re.++ (identity element)
+        bool is_re_epsilon(enode* n) const { return m_seq.re.is_epsilon(n->get_expr()); }
+
         bool is_to_re(enode* n) const { return m_seq.re.is_to_re(n->get_expr()); }
         bool is_full_seq(enode* n) const { return m_seq.re.is_full_seq(n->get_expr()); }
 
+        enode* mk_str_concat(enode* a, enode* b);
+        enode* mk_re_concat(enode* a, enode* b);
         enode* mk_concat(enode* a, enode* b);
-        enode* mk_empty(sort* s);
+        enode* mk_str_empty(sort* s);
+        enode* mk_re_epsilon(sort* seq_sort);
 
         void push_undo(undo_kind k);
 
