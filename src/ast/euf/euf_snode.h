@@ -109,7 +109,9 @@ namespace euf {
         unsigned level()     const { return m_level; }
         unsigned length()    const { return m_length; }
 
-        // associativity-respecting hash: cached if the 2x2 matrix is non-zero
+        // associativity-respecting hash: cached if the 2x2 matrix is non-zero.
+        // M[0][0] = HASH_BASE^(num_leaves) which is always nonzero since HASH_BASE
+        // is odd and gcd(odd, 2^32) = 1, so the check is safe.
         bool has_cached_hash() const { return m_hash_matrix[0][0] != 0; }
         unsigned assoc_hash()  const { return m_hash_matrix[0][1]; }
 

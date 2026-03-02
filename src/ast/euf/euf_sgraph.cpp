@@ -289,6 +289,10 @@ namespace euf {
 
     static const unsigned HASH_BASE = 31;
 
+    // Compute a 2x2 polynomial hash matrix for associativity-respecting hashing.
+    // Unsigned overflow is intentional and well-defined (mod 2^32).
+    // M[0][0] tracks HASH_BASE^(num_leaves), which is always nonzero since
+    // HASH_BASE is odd. M[0][1] is the actual hash value.
     void sgraph::compute_hash_matrix(snode* n) {
         if (n->is_empty()) {
             // identity matrix: concat with empty is identity
@@ -310,6 +314,7 @@ namespace euf {
         }
         else {
             // leaf/token: [[HASH_BASE, value], [0, 1]]
+            // +1 avoids zero hash values; wraps safely on unsigned overflow
             unsigned v = n->get_expr() ? n->get_expr()->get_id() + 1 : n->id() + 1;
             n->m_hash_matrix[0][0] = HASH_BASE;
             n->m_hash_matrix[0][1] = v;
