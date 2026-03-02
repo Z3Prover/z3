@@ -49,7 +49,7 @@ jobs:
       comment_repo: ""
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@v0.50.4
+        uses: github/gh-aw/actions/setup@v0.51.6
         with:
           destination: /opt/gh-aw/actions
       - name: Validate context variables
@@ -238,7 +238,7 @@ jobs:
       secret_verification_result: ${{ steps.validate-secret.outputs.verification_result }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@v0.50.4
+        uses: github/gh-aw/actions/setup@v0.51.6
         with:
           destination: /opt/gh-aw/actions
       - name: Create gh-aw temp directory
@@ -949,7 +949,7 @@ jobs:
       total_count: ${{ steps.missing_tool.outputs.total_count }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@v0.50.4
+        uses: github/gh-aw/actions/setup@v0.51.6
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent output artifact
@@ -1053,7 +1053,7 @@ jobs:
       process_safe_outputs_temporary_id_map: ${{ steps.process_safe_outputs.outputs.temporary_id_map }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@v0.50.4
+        uses: github/gh-aw/actions/setup@v0.51.6
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent output artifact
@@ -1097,7 +1097,7 @@ jobs:
       GH_AW_WORKFLOW_ID_SANITIZED: csaanalysis
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@v0.50.4
+        uses: github/gh-aw/actions/setup@v0.51.6
         with:
           destination: /opt/gh-aw/actions
       - name: Download cache-memory artifact (default)
