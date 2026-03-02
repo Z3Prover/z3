@@ -511,3 +511,9 @@ func (m *Model) SortUniverse(sort *Sort) []*Expr {
 	}
 	return astVectorToExprs(m.ctx, vec)
 }
+
+// Translate creates a copy of the model in the target context.
+func (m *Model) Translate(target *Context) *Model {
+	ptr := C.Z3_model_translate(m.ctx.ptr, m.ptr, target.ptr)
+	return newModel(target, ptr)
+}

@@ -1692,6 +1692,8 @@ struct
     let av = Z3native.model_get_sort_universe (gc x) x s in
     AST.ASTVector.to_expr_list av
 
+  let translate (x:model) (to_ctx:context) = Z3native.model_translate (gc x) x to_ctx
+
   let to_string (x:model) = Z3native.model_to_string (gc x) x
 end
 

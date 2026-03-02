@@ -1093,6 +1093,9 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       ): SMTArray<Name, [DomainSort], RangeSort> {
         return new ArrayImpl<[DomainSort], RangeSort>(check(Z3.mk_const_array(contextPtr, domain.ptr, value.ptr)));
       },
+      fromFunc(f: FuncDecl<Name>): SMTArray<Name> {
+        return new ArrayImpl(check(Z3.mk_as_array(contextPtr, f.ast)));
+      },
     };
     const Set = {
       // reference: https://z3prover.github.io/api/html/namespacez3py.html#a545f894afeb24caa1b88b7f2a324ee7e
@@ -2810,6 +2813,11 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
 
       sortUniverse(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>> {
         return this.getUniverse(sort) as AstVector<Name, AnyExpr<Name>>;
+      }
+
+      translate(target: Context<Name>): Model<Name> {
+        const ptr = check(Z3.model_translate(contextPtr, this.ptr, target.ptr));
+        return new (target.Model as unknown as new (ptr: Z3_model) => Model<Name>)(ptr);
       }
 
       release() {
