@@ -26,9 +26,51 @@ Author:
 
 namespace euf {
 
+    // Collect leaves of a concat tree in left-to-right order.
+    // For non-concat nodes, the node itself is a leaf.
+    static void collect_enode_leaves(enode* n, seq_util const& seq, enode_vector& leaves) {
+        if (seq.str.is_concat(n->get_expr()) && n->num_args() == 2) {
+            collect_enode_leaves(n->get_arg(0), seq, leaves);
+            collect_enode_leaves(n->get_arg(1), seq, leaves);
+        }
+        else {
+            leaves.push_back(n);
+        }
+    }
+
+    unsigned enode_concat_hash::operator()(enode* n) const {
+        if (!seq.str.is_concat(n->get_expr()))
+            return n->get_id();
+        enode_vector leaves;
+        collect_enode_leaves(n, seq, leaves);
+        unsigned h = 0;
+        for (enode* l : leaves)
+            h = combine_hash(h, l->get_id());
+        return h;
+    }
+
+    bool enode_concat_eq::operator()(enode* a, enode* b) const {
+        if (a == b) return true;
+        if (!seq.str.is_concat(a->get_expr()) && !seq.str.is_concat(b->get_expr()))
+            return a->get_id() == b->get_id();
+        enode_vector la, lb;
+        collect_enode_leaves(a, seq, la);
+        collect_enode_leaves(b, seq, lb);
+        if (la.size() != lb.size())
+            return false;
+        for (unsigned i = 0; i < la.size(); ++i)
+            if (la[i]->get_id() != lb[i]->get_id())
+                return false;
+        return true;
+    }
+
     seq_plugin::seq_plugin(egraph& g):
         plugin(g),
-        m_seq(g.get_manager()) {
+        m_seq(g.get_manager()),
+        m_rewriter(g.get_manager()),
+        m_concat_hash(m_seq),
+        m_concat_eq(m_seq),
+        m_concat_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_concat_hash, m_concat_eq) {
     }
 
     void seq_plugin::register_node(enode* n) {
@@ -70,7 +112,6 @@ namespace euf {
         TRACE(seq, tout << "seq register " << g.bpp(n) << "\n");
 
         if (is_concat(n)) {
-            m_concats.push_back(n);
             propagate_assoc(n);
             propagate_simplify(n);
         }
@@ -108,21 +149,22 @@ namespace euf {
 
     //
     // Concat associativity:
-    // concat(concat(a, b), c) = concat(a, concat(b, c))
-    //
-    // This normalizes to right-associated form.
+    // Instead of creating new expressions, maintain a hash table
+    // that respects associativity. When a concat is registered,
+    // look up existing concats with the same leaf sequence.
+    // If found, merge the existing node with the new one.
     //
     void seq_plugin::propagate_assoc(enode* n) {
-        enode* a, *b;
-        if (!is_concat(n, a, b))
+        if (!is_concat(n))
             return;
 
-        enode* a1, *a2;
-        if (is_concat(a, a1, a2)) {
-            // concat(concat(a1, a2), b) => concat(a1, concat(a2, b))
-            enode* inner = mk_concat(a2, b);
-            enode* outer = mk_concat(a1, inner);
-            push_merge(outer, n);
+        enode* existing = nullptr;
+        if (m_concat_table.find(n, existing) && existing != n)
+            push_merge(n, existing);
+        else if (!existing) {
+            m_concat_table.insert(n);
+            m_concats.push_back(n);
+            push_undo(undo_kind::undo_add_to_table);
         }
     }
 
@@ -174,34 +216,10 @@ namespace euf {
     }
 
     bool seq_plugin::is_nullable(expr* e) {
-        // compute nullable from expression structure without sgraph dependency
-        if (m_seq.str.is_empty(e))
-            return true;
-        if (m_seq.re.is_full_seq(e))
-            return true;
-        if (m_seq.re.is_star(e))
-            return true;
-        if (m_seq.str.is_concat(e)) {
-            SASSERT(to_app(e)->get_num_args() == 2);
-            return is_nullable(to_app(e)->get_arg(0)) && is_nullable(to_app(e)->get_arg(1));
-        }
-        if (m_seq.re.is_union(e)) {
-            SASSERT(to_app(e)->get_num_args() == 2);
-            return is_nullable(to_app(e)->get_arg(0)) || is_nullable(to_app(e)->get_arg(1));
-        }
-        if (m_seq.re.is_intersection(e)) {
-            SASSERT(to_app(e)->get_num_args() == 2);
-            return is_nullable(to_app(e)->get_arg(0)) && is_nullable(to_app(e)->get_arg(1));
-        }
-        if (m_seq.re.is_complement(e)) {
-            SASSERT(to_app(e)->get_num_args() == 1);
-            return !is_nullable(to_app(e)->get_arg(0));
-        }
-        if (m_seq.re.is_to_re(e)) {
-            SASSERT(to_app(e)->get_num_args() == 1);
-            return is_nullable(to_app(e)->get_arg(0));
-        }
-        return false;
+        // use existing seq_rewriter::is_nullable which handles all cases
+        ast_manager& m = g.get_manager();
+        expr_ref result = m_rewriter.is_nullable(e);
+        return m.is_true(result);
     }
 
     bool seq_plugin::same_star_body(enode* a, enode* b) {
@@ -248,6 +266,11 @@ namespace euf {
             m_queue.pop_back();
             if (m_qhead > m_queue.size())
                 m_qhead = m_queue.size();
+            break;
+        case undo_kind::undo_add_to_table:
+            SASSERT(!m_concats.empty());
+            m_concat_table.remove(m_concats.back());
+            m_concats.pop_back();
             break;
         }
     }

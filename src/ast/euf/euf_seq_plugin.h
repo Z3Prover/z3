@@ -40,19 +40,39 @@ Author:
 #pragma once
 
 #include "ast/seq_decl_plugin.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "ast/euf/euf_plugin.h"
+#include "util/hashtable.h"
 
 namespace euf {
 
     class egraph;
 
+    // Associativity-respecting hash for enode concat trees.
+    // Flattens concat(concat(a,b),c) and concat(a,concat(b,c))
+    // to the same leaf sequence [a,b,c] before hashing.
+    struct enode_concat_hash {
+        seq_util const& seq;
+        enode_concat_hash(seq_util const& s) : seq(s) {}
+        unsigned operator()(enode* n) const;
+    };
+
+    // Associativity-respecting equality for enode concat trees.
+    struct enode_concat_eq {
+        seq_util const& seq;
+        enode_concat_eq(seq_util const& s) : seq(s) {}
+        bool operator()(enode* a, enode* b) const;
+    };
+
     class seq_plugin : public plugin {
 
         enum class undo_kind {
             undo_add_concat,
+            undo_add_to_table,
         };
 
         seq_util         m_seq;
+        seq_rewriter     m_rewriter;
         svector<undo_kind> m_undo;
 
         // queue of merges and registrations to process
@@ -61,6 +81,11 @@ namespace euf {
 
         // track registered concat nodes for simplification
         enode_vector     m_concats;
+
+        // associativity-respecting hash table for concat nodes
+        enode_concat_hash m_concat_hash;
+        enode_concat_eq   m_concat_eq;
+        hashtable<enode*, enode_concat_hash, enode_concat_eq> m_concat_table;
 
         bool is_concat(enode* n) const { return m_seq.str.is_concat(n->get_expr()); }
         bool is_concat(enode* n, enode*& a, enode*& b) {
@@ -81,15 +106,15 @@ namespace euf {
         void propagate_register_node(enode* n);
         void propagate_merge(enode* a, enode* b);
 
-        // concat associativity: ensure right-associated normal form
-        // concat(concat(a, b), c) = concat(a, concat(b, c))
+        // concat associativity: maintain hash table of concat nodes,
+        // merge nodes that are equal modulo associativity
         void propagate_assoc(enode* n);
 
         // concat simplification:
         // merging Kleene stars, merging loops, absorbing nullables
         void propagate_simplify(enode* n);
 
-        // check if expression is nullable, computed from expression structure
+        // check if expression is nullable using existing seq_rewriter
         bool is_nullable(expr* e);
         bool is_nullable(enode* n) { return is_nullable(n->get_expr()); }
 
