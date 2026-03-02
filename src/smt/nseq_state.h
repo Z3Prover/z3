@@ -68,6 +68,7 @@ namespace smt {
         expr_ref_vector          m_axioms;
         obj_hashtable<expr>      m_axiom_set;
         unsigned                 m_axioms_head;
+        unsigned                 m_axioms_size_at_push { 0 }; // saved on push, restored on pop
 
         // Length tracking
         obj_hashtable<expr>      m_has_length;

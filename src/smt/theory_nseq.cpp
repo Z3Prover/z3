@@ -66,23 +66,30 @@ namespace smt {
             for (unsigned i = head; i < axioms.size(); ++i)
                 deque_axiom(axioms[i]);
             m_state.set_axioms_head(axioms.size());
-            return FC_CONTINUE;
+            if (ctx.inconsistent())
+                return FC_CONTINUE;
         }
 
         // Reduce predicates (prefix, suffix, contains) to word equations
         if (reduce_predicates())
             return FC_CONTINUE;
 
-        // Check zero-length variables before solving (uses arithmetic bounds)
-        if (check_zero_length())
+        // Propagate length equalities and zero-length variables.
+        // Don't short-circuit: continue to solve_eqs so force_phase is set on
+        // branching variables before the SAT solver makes its next decision.
+        propagate_length_eqs();
+        if (ctx.inconsistent())
+            return FC_CONTINUE;
+        check_zero_length();
+        if (ctx.inconsistent())
             return FC_CONTINUE;
 
         // Solve word equations using Nielsen transformations
         if (solve_eqs())
             return FC_CONTINUE;
 
-        // Propagate length equalities from equations
-        if (propagate_length_eqs())
+        // After a successful solve pass, pick up any freshly-added length axioms
+        if (m_state.has_pending_axioms())
             return FC_CONTINUE;
 
         // Check regex membership constraints
@@ -93,8 +100,11 @@ namespace smt {
         if (check_disequalities())
             return FC_CONTINUE;
 
-        if (all_eqs_solved() && m_state.mems().empty())
-            return FC_DONE;
+        if (all_eqs_solved()) {
+            // All word equations solved; check if remaining memberships are handled
+            if (all_mems_checked())
+                return FC_DONE;
+        }
 
         return FC_GIVEUP;
     }
@@ -194,6 +204,12 @@ namespace smt {
             if (m_find.find(v1) != m_find.find(v2))
                 m_find.merge(v1, v2);
             m_state.add_eq(o1, o2, dep);
+            // Propagate length equality: len(o1) = len(o2)
+            ensure_length_axiom(o1);
+            ensure_length_axiom(o2);
+            expr_ref len1 = mk_len(o1);
+            expr_ref len2 = mk_len(o2);
+            add_axiom(mk_eq(len1, len2, false));
             IF_VERBOSE(3, verbose_stream() << "new_eq_eh: " << mk_bounded_pp(o1, m) << " = " << mk_bounded_pp(o2, m)
                   << " (total eqs: " << m_state.eqs().size() << ")\n");
             TRACE(seq, tout << "new eq: " << mk_bounded_pp(o1, m) << " = " << mk_bounded_pp(o2, m) << "\n";);
@@ -700,6 +716,11 @@ namespace smt {
             break;
         }
 
+        // Optimization: if one side is a pure ground string and the other side
+        // has variables with fully-known lengths, directly propagate substr values.
+        if (propagate_ground_split(lhs, rhs, dep))
+            return true;
+
         // Try branching: find a variable and decide x = "" or x ≠ ""
         if (branch_eq(lhs, rhs, dep))
             return true;
@@ -741,7 +762,10 @@ namespace smt {
                 literal eq_empty = mk_eq(e, emp, false);
                 switch (ctx.get_assignment(eq_empty)) {
                 case l_undef:
-                    // Force the empty branch first
+                    // If lower length bound is already > 0, skip the empty branch
+                    if (ctx.e_internalized(len_e) && lower_bound(len_e, lo) && lo > rational(0))
+                        break;
+                    // Force the empty branch first.
                     TRACE(seq, tout << "branch " << mk_bounded_pp(e, m) << " = \"\"\n";);
                     IF_VERBOSE(3, verbose_stream() << "  branch " << mk_bounded_pp(e, m) << " = \"\"\n";);
                     ctx.force_phase(eq_empty);
@@ -853,7 +877,10 @@ namespace smt {
     }
 
     // -------------------------------------------------------
-    // Nielsen splitting: x · α = c · β → x = c · x_tail
+    // Nielsen splitting
+    // -------------------------------------------------------
+    // var-vs-unit: x · α = c · β → x = c · x_tail (peel one char)
+    // var-vs-var:  x · α = y · β → determine |x| vs |y| and split
     // -------------------------------------------------------
 
     bool theory_nseq::split_variable(expr_ref_vector const& lhs, expr_ref_vector const& rhs,
@@ -861,7 +888,7 @@ namespace smt {
         if (lhs.empty() || rhs.empty())
             return false;
 
-        // Find: variable on one side facing a unit/constant on the other
+        // Find: variable on one side facing a non-variable on the other
         expr* var = nullptr;
         expr* head = nullptr;
         bool var_on_left = false;
@@ -876,11 +903,13 @@ namespace smt {
             head = lhs[0];
             var_on_left = false;
         }
-        // Also handle var vs var: pick either and peel one character
+        // var vs var case
+        bool both_var = false;
         if (!var && !head && m_nielsen.is_var(lhs[0]) && m_nielsen.is_var(rhs[0]) && lhs[0] != rhs[0]) {
             var = lhs[0];
             head = rhs[0];
             var_on_left = true;
+            both_var = true;
         }
         if (!var || !head)
             return false;
@@ -897,30 +926,125 @@ namespace smt {
         if (ctx.get_assignment(eq_empty) != l_false)
             return false;
 
+        // ---- var-vs-var: length-guided split ----
+        if (both_var) {
+            expr_ref len_var = mk_len(var);
+            expr_ref len_head = mk_len(head);
+            rational var_len, head_len;
+            bool has_var_len  = get_length(var,  var_len);
+            bool has_head_len = get_length(head, head_len);
+
+            if (has_var_len && has_head_len) {
+                if (var_len == head_len) {
+                    // Same length → must be equal
+                    IF_VERBOSE(3, verbose_stream() << "  var-var-split: |" << mk_bounded_pp(var, m, 1)
+                               << "|=|" << mk_bounded_pp(head, m, 1) << "| → unify\n";);
+                    bool changed = propagate_eq(dep, var, head);
+                    if (changed) m_state.stats().m_num_splits++;
+                    return changed;
+                }
+                else if (var_len < head_len) {
+                    // head = var · z_rest, |z_rest| = head_len - var_len
+                    IF_VERBOSE(3, verbose_stream() << "  var-var-split: |" << mk_bounded_pp(var, m, 1)
+                               << "| < |" << mk_bounded_pp(head, m, 1) << "| → split head\n";);
+                    expr_ref z(m_sk.mk_post(head, len_var), m);
+                    ensure_enode(z); mk_var(ctx.get_enode(z)); ensure_length_axiom(z);
+                    expr_ref rhs_eq(m_util.str.mk_concat(var, z), m);
+                    ensure_enode(rhs_eq); ensure_length_axiom(rhs_eq);
+                    bool changed = propagate_eq(dep, head, rhs_eq);
+                    if (changed) m_state.stats().m_num_splits++;
+                    return changed;
+                }
+                else {
+                    // var = head · z_rest, |z_rest| = var_len - head_len
+                    IF_VERBOSE(3, verbose_stream() << "  var-var-split: |" << mk_bounded_pp(var, m, 1)
+                               << "| > |" << mk_bounded_pp(head, m, 1) << "| → split var\n";);
+                    expr_ref z(m_sk.mk_post(var, len_head), m);
+                    ensure_enode(z); mk_var(ctx.get_enode(z)); ensure_length_axiom(z);
+                    expr_ref rhs_eq(m_util.str.mk_concat(head, z), m);
+                    ensure_enode(rhs_eq); ensure_length_axiom(rhs_eq);
+                    bool changed = propagate_eq(dep, var, rhs_eq);
+                    if (changed) m_state.stats().m_num_splits++;
+                    return changed;
+                }
+            }
+
+            // Lengths not fully determined: branch on |var| vs |head| via SAT
+            // First try: |var| ≤ |head| (use as a SAT decision)
+            literal len_le = mk_literal(
+                m_autil.mk_ge(m_autil.mk_sub(len_head, len_var), m_autil.mk_int(0)));
+            switch (ctx.get_assignment(len_le)) {
+            case l_undef:
+                IF_VERBOSE(3, verbose_stream() << "  var-var-split: branching |"
+                           << mk_bounded_pp(var, m, 1) << "| ≤ |" << mk_bounded_pp(head, m, 1) << "|\n";);
+                ctx.force_phase(len_le);
+                ctx.mark_as_relevant(len_le);
+                m_new_propagation = true;
+                m_state.stats().m_num_splits++;
+                return true;
+            case l_true: {
+                // |var| ≤ |head|: check if equal
+                literal len_eq_lit = mk_eq(len_var, len_head, false);
+                switch (ctx.get_assignment(len_eq_lit)) {
+                case l_undef:
+                    ctx.force_phase(len_eq_lit);
+                    ctx.mark_as_relevant(len_eq_lit);
+                    m_new_propagation = true;
+                    return true;
+                case l_true:
+                    return propagate_eq(dep, var, head);
+                case l_false: {
+                    // |var| < |head|: head = var · z_rest, |z_rest| = |head| - |var|
+                    expr_ref z(m_sk.mk_post(head, len_var), m);
+                    ensure_enode(z); mk_var(ctx.get_enode(z)); ensure_length_axiom(z);
+                    // Add len(z) = len(head) - len(var) as an explicit axiom so arithmetic
+                    // knows the exact length and terminates the split chain.
+                    expr_ref len_z = mk_len(z);
+                    expr_ref len_diff(m_autil.mk_sub(len_head, len_var), m);
+                    ensure_enode(len_z); ensure_enode(len_diff);
+                    add_axiom(mk_eq(len_z, len_diff, false));
+                    expr_ref rhs_eq(m_util.str.mk_concat(var, z), m);
+                    ensure_enode(rhs_eq); ensure_length_axiom(rhs_eq);
+                    bool changed = propagate_eq(dep, head, rhs_eq);
+                    if (changed) m_state.stats().m_num_splits++;
+                    return changed;
+                }
+                }
+                break;
+            }
+            case l_false: {
+                // |var| > |head|: var = head · z_rest, |z_rest| = |var| - |head|
+                expr_ref z(m_sk.mk_post(var, len_head), m);
+                ensure_enode(z); mk_var(ctx.get_enode(z)); ensure_length_axiom(z);
+                // Add len(z) = len(var) - len(head) as an explicit axiom.
+                expr_ref len_z = mk_len(z);
+                expr_ref len_diff(m_autil.mk_sub(len_var, len_head), m);
+                ensure_enode(len_z); ensure_enode(len_diff);
+                add_axiom(mk_eq(len_z, len_diff, false));
+                expr_ref rhs_eq(m_util.str.mk_concat(head, z), m);
+                ensure_enode(rhs_eq); ensure_length_axiom(rhs_eq);
+                bool changed = propagate_eq(dep, var, rhs_eq);
+                if (changed) m_state.stats().m_num_splits++;
+                return changed;
+            }
+            }
+            return false;
+        }
+
+        // ---- var-vs-unit/constant: peel one character ----
         // For multi-character string constants, extract only the first character
-        // so we peel one character at a time (Nielsen style)
         zstring head_str;
         if (m_util.str.is_string(head, head_str) && head_str.length() > 1) {
             head = m_util.str.mk_unit(m_util.mk_char(head_str[0]));
         }
 
-        // var is non-empty and the equation forces var to start with head.
-        // Nielsen split: var = head · var_tail
+        // var is non-empty and the equation forces var to start with head (a single char).
+        // Nielsen split: var = head · var_tail  where var_tail = seq.tail(var, 1)
         expr_ref one(m_autil.mk_int(1), m);
         expr_ref var_tail(m_sk.mk_tail(var, one), m);
         ensure_enode(var_tail);
         mk_var(ctx.get_enode(var_tail));
         ensure_length_axiom(var_tail);
-
-        // Before committing to the split, ensure the tail's emptiness is decided.
-        expr_ref tail_emp(m_util.str.mk_empty(var_tail->get_sort()), m);
-        literal tail_eq_empty = mk_eq(var_tail, tail_emp, false);
-        if (ctx.get_assignment(tail_eq_empty) == l_undef) {
-            ctx.force_phase(tail_eq_empty);
-            ctx.mark_as_relevant(tail_eq_empty);
-            m_new_propagation = true;
-            return true;
-        }
 
         expr_ref split_rhs(m_util.str.mk_concat(head, var_tail), m);
         ensure_enode(split_rhs);
@@ -1082,6 +1206,62 @@ namespace smt {
                 return true;
         }
         return progress;
+    }
+
+    // If one side is a pure ground string and the other side has variables with
+    // fully known lengths, directly propagate each variable's value as a substr.
+    // E.g. x·y = "abcdef" with len(x)=2, len(y)=4 → x="ab", y="cdef"
+    bool theory_nseq::propagate_ground_split(expr_ref_vector const& lhs,
+                                              expr_ref_vector const& rhs,
+                                              nseq_dependency* dep) {
+        // Determine which side is pure-variable and which is pure-ground
+        auto has_var = [&](expr_ref_vector const& v) {
+            for (expr* e : v) if (m_nielsen.is_var(e)) return true;
+            return false;
+        };
+        auto all_var = [&](expr_ref_vector const& v) {
+            for (expr* e : v) if (!m_nielsen.is_var(e)) return false;
+            return true;
+        };
+        expr_ref_vector const* ground_side = nullptr;
+        expr_ref_vector const* var_side = nullptr;
+        if (!has_var(lhs) && all_var(rhs) && !rhs.empty()) {
+            ground_side = &lhs; var_side = &rhs;
+        }
+        else if (!has_var(rhs) && all_var(lhs) && !lhs.empty()) {
+            ground_side = &rhs; var_side = &lhs;
+        }
+        if (!ground_side)
+            return false;
+
+        // Build the ground string
+        zstring ground;
+        {
+            sort* s = var_side->get(0)->get_sort();
+            expr_ref gc = mk_concat(*ground_side, s);
+            if (!is_ground_string(gc, ground))
+                return false;
+        }
+
+        // Collect vars and their known lengths
+        unsigned offset = 0;
+        bool changed = false;
+        for (expr* e : *var_side) {
+            rational len_v;
+            if (!get_length(e, len_v) || !len_v.is_nonneg() || !len_v.is_unsigned())
+                return false; // length unknown, can't propagate
+            unsigned len = len_v.get_unsigned();
+            if (offset + len > ground.length())
+                return false; // length conflict, let solve_eq handle it
+            zstring substr = ground.extract(offset, len);
+            expr_ref val(m_util.str.mk_string(substr), m);
+            ensure_enode(val);
+            changed |= propagate_eq(dep, e, val);
+            offset += len;
+        }
+        if (offset != ground.length())
+            return false; // leftover ground chars, conflict
+        return changed;
     }
 
     bool theory_nseq::check_diseq(nseq_ne const& ne) {
@@ -1393,6 +1573,84 @@ namespace smt {
         return r;
     }
 
+    // DFS: find a string of exactly target_len in regex r.
+    // On success, appends characters to 'result' and returns true.
+    // cur_len is how many characters have already been appended.
+    bool theory_nseq::dfs_regex(expr* r, unsigned target_len, unsigned cur_len, zstring& result) {
+        if (cur_len == target_len) {
+            expr_ref nullable = m_seq_rewrite.is_nullable(expr_ref(r, m));
+            m_rewrite(nullable);
+            return m.is_true(nullable);
+        }
+        // Try printable characters: lowercase, uppercase, digits, then common punctuation
+        static const unsigned char priority[] = {
+            'a','b','c','d','e','f','g','h','i','j','k','l','m',
+            'n','o','p','q','r','s','t','u','v','w','x','y','z',
+            '0','1','2','3','4','5','6','7','8','9',
+            'A','B','C','D','E','F','G','H','I','J','K','L','M',
+            'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+            ' ','.', ',', '!', '?', '-', '_', '@', '#', '$', '%', '&', '*'
+        };
+        for (unsigned c : priority) {
+            expr_ref ch(m_util.mk_char(c), m);
+            expr_ref dr = m_seq_rewrite.mk_derivative(ch, expr_ref(r, m));
+            m_rewrite(dr);
+            if (m_util.re.is_empty(dr))
+                continue;
+            result = result + zstring(c);
+            if (dfs_regex(dr, target_len, cur_len + 1, result))
+                return true;
+            // Backtrack: remove last character
+            result = result.extract(0, result.length() - 1);
+        }
+        return false;
+    }
+
+    // Synthesize a concrete string of exactly `len` accepted by `regex`.
+    // Returns true and sets `result` on success.
+    bool theory_nseq::synthesize_regex_string(expr* regex, unsigned len, zstring& result) {
+        result = zstring();
+        return dfs_regex(regex, len, 0, result);
+    }
+
+    // Add length-bound axioms from regex structure: len(s) >= min_length(r).
+    // Also adds: len(s) = 0 → nullable(r) (otherwise conflict).
+    bool theory_nseq::add_regex_length_axioms(nseq_mem const& mem) {
+        expr* s = mem.str();
+        expr* r = mem.regex();
+        bool sign = mem.sign();
+        nseq_dependency* dep = mem.dep();
+        bool progress = false;
+
+        if (sign) {
+            // s ∈ r → len(s) >= min_length(r)
+            unsigned minlen = m_util.re.min_length(r);
+            if (minlen > 0) {
+                expr_ref len_s = mk_len(s);
+                ensure_length_axiom(s);
+                literal lb = mk_literal(m_autil.mk_ge(len_s, m_autil.mk_int(minlen)));
+                if (ctx.get_assignment(lb) != l_true) {
+                    add_axiom(lb);
+                    progress = true;
+                }
+            }
+            // If r is not nullable and len(s) = 0, conflict
+            expr_ref nullable = m_seq_rewrite.is_nullable(expr_ref(r, m));
+            m_rewrite(nullable);
+            if (m.is_false(nullable)) {
+                // s ∈ r → s ≠ ""
+                expr_ref emp(m_util.str.mk_empty(s->get_sort()), m);
+                ensure_enode(emp);
+                literal s_empty = mk_eq(s, emp, false);
+                if (ctx.get_assignment(~s_empty) != l_true) {
+                    add_axiom(~s_empty);
+                    progress = true;
+                }
+            }
+        }
+        return progress;
+    }
+
     bool theory_nseq::check_regex_memberships() {
         bool progress = false;
         for (auto const& mem : m_state.mems()) {
@@ -1410,41 +1668,97 @@ namespace smt {
         bool sign = mem.sign();
         nseq_dependency* dep = mem.dep();
 
+        // Add structural length axioms from the regex
+        if (add_regex_length_axioms(mem))
+            return true;
+
         // Try to determine the string value from the e-graph
         zstring sval;
-        if (!is_ground_string(s, sval))
+        if (is_ground_string(s, sval)) {
+            // Compute derivatives for the known string
+            expr_ref derived = derive_regex(r, sval);
+
+            // Check nullable: does the derived regex accept the empty word?
+            expr_ref nullable = m_seq_rewrite.is_nullable(derived);
+            m_rewrite(nullable);
+
+            if (sign) {
+                // Positive membership: s must be in r
+                if (m.is_false(nullable) || m_util.re.is_empty(derived)) {
+                    set_conflict(dep);
+                    return true;
+                }
+            }
+            else {
+                // Negative membership: s must NOT be in r
+                if (m.is_true(nullable)) {
+                    set_conflict(dep);
+                    return true;
+                }
+            }
             return false;
+        }
 
-        // Compute derivatives for the known string
-        expr_ref derived = derive_regex(r, sval);
-
-        // Check nullable: does the derived regex accept the empty word?
-        expr_ref nullable = m_seq_rewrite.is_nullable(derived);
-        m_rewrite(nullable);
-
+        // String is not yet ground. For positive membership:
+        // if we know the exact length, synthesize a concrete string.
         if (sign) {
-            // Positive membership: s must be in r
-            if (m.is_false(nullable)) {
-                // String is fully determined but regex rejects → conflict
-                set_conflict(dep);
-                return true;
-            }
-        }
-        else {
-            // Negative membership: s must NOT be in r
-            if (m.is_true(nullable)) {
-                // String is fully determined and regex accepts → conflict
-                set_conflict(dep);
-                return true;
+            rational len_val;
+            if (get_length(s, len_val) && len_val.is_nonneg() && len_val.is_unsigned()) {
+                unsigned len = len_val.get_unsigned();
+                // Feasibility check only: detect conflicts but don't force a specific value.
+                // Model generation (mk_value) will synthesize the actual string.
+                zstring synth;
+                if (!synthesize_regex_string(r, len, synth)) {
+                    // No string of that length accepted by regex - conflict
+                    IF_VERBOSE(3, verbose_stream() << "  regex conflict: no string of len=" << len
+                               << " in " << mk_bounded_pp(r, m, 2) << "\n";);
+                    set_conflict(dep);
+                    return true;
+                }
+                IF_VERBOSE(3, verbose_stream() << "  regex feasible: len=" << len
+                           << " has witness \"" << synth << "\"\n";);
             }
         }
 
-        // Check if the derived regex is the empty set
-        if (sign && m_util.re.is_empty(derived)) {
-            set_conflict(dep);
-            return true;
-        }
         return false;
+    }
+
+    // Returns true if every membership constraint is already verified
+    // (ground strings checked) or provably feasible (non-ground with known length).
+    bool theory_nseq::all_mems_checked() {
+        for (auto const& mem : m_state.mems()) {
+            expr* s = mem.str();
+            expr* r = mem.regex();
+            bool sign = mem.sign();
+            nseq_dependency* dep = mem.dep();
+            zstring sval;
+            if (is_ground_string(s, sval)) {
+                // Verify the ground string
+                expr_ref derived = derive_regex(r, sval);
+                expr_ref nullable = m_seq_rewrite.is_nullable(derived);
+                m_rewrite(nullable);
+                if (sign && !m.is_true(nullable))
+                    return false;
+                if (!sign && !m.is_false(nullable))
+                    return false;
+            }
+            else if (sign) {
+                // Non-ground positive membership: check feasibility by length
+                rational len_val;
+                if (get_length(s, len_val) && len_val.is_nonneg() && len_val.is_unsigned()) {
+                    zstring synth;
+                    if (!synthesize_regex_string(r, len_val.get_unsigned(), synth))
+                        return false;  // infeasible; conflict should have been set by check_regex_mem
+                    // Feasible - model generator will assign the right value
+                }
+                else {
+                    // Length unknown and regex is empty: unconditionally infeasible
+                    if (m_util.re.is_empty(r))
+                        return false;
+                }
+            }
+        }
+        return true;
     }
 
     // -------------------------------------------------------
@@ -1491,7 +1805,34 @@ namespace smt {
 
     bool theory_nseq::get_length(expr* e, rational& val) {
         expr_ref len = mk_len(e);
-        return m_arith_value.get_value(len, val);
+        if (m_arith_value.get_value(len, val))
+            return true;
+        // Structural fallback: for str.substr(s, off, n) with concrete off and n,
+        // use the explicit length argument if it's a numeral and s has sufficient length.
+        expr* s = nullptr, *offset = nullptr, *len_arg = nullptr;
+        if (m_util.str.is_extract(e, s, offset, len_arg)) {
+            rational len_n;
+            if (m_autil.is_numeral(len_arg, len_n) && len_n.is_nonneg()) {
+                rational off_n;
+                if (m_autil.is_numeral(offset, off_n) && off_n.is_nonneg()) {
+                    rational parent_len;
+                    if (get_length(s, parent_len) &&
+                        off_n + len_n <= parent_len) {
+                        val = len_n;
+                        return true;
+                    }
+                }
+            }
+        }
+        // Fallback via lower/upper bound: if lo == hi, that's the value
+        rational lo, hi;
+        bool s_lo, s_hi;
+        if (m_arith_value.get_lo(len, lo, s_lo) && !s_lo &&
+            m_arith_value.get_up(len, hi, s_hi) && !s_hi && lo == hi) {
+            val = lo;
+            return true;
+        }
+        return false;
     }
 
     bool theory_nseq::lower_bound(expr* e, rational& lo) {
@@ -1526,25 +1867,53 @@ namespace smt {
         return progress;
     }
 
+    // Build an arithmetic expression for the sum of lengths of the given string terms.
+    // Collapses concrete lengths (units, string constants) to integer numerals,
+    // and uses mk_len(e) for variables/complex terms.
+    expr_ref theory_nseq::build_length_sum(expr_ref_vector const& es) {
+        rational total(0);
+        expr_ref_vector var_lens(m);
+        for (expr* e : es) {
+            zstring s;
+            if (m_util.str.is_string(e, s)) {
+                total += rational(s.length());
+            } else if (m_util.str.is_unit(e)) {
+                total += rational(1);
+            } else if (m_util.str.is_empty(e)) {
+                // contributes 0
+            } else {
+                ensure_length_axiom(e);
+                var_lens.push_back(mk_len(e));
+            }
+        }
+        if (var_lens.empty())
+            return expr_ref(m_autil.mk_numeral(total, true), m);
+        expr_ref var_sum(m);
+        if (var_lens.size() == 1)
+            var_sum = expr_ref(var_lens.get(0), m);
+        else
+            var_sum = expr_ref(m_autil.mk_add(var_lens.size(), var_lens.data()), m);
+        if (total.is_zero())
+            return var_sum;
+        return expr_ref(m_autil.mk_add(var_sum, m_autil.mk_numeral(total, true)), m);
+    }
+
     bool theory_nseq::propagate_length_eqs() {
         bool progress = false;
         for (auto const& eq : m_state.eqs()) {
             expr_ref_vector const& lhs = eq.lhs();
             expr_ref_vector const& rhs = eq.rhs();
-            if (lhs.empty() || rhs.empty())
+            // Build sum of lengths directly, using concrete integer values for
+            // units/strings to avoid creating fresh unregistered concat terms.
+            expr_ref lhs_sum = build_length_sum(lhs);
+            expr_ref rhs_sum = build_length_sum(rhs);
+            // Skip if both sums are syntactically identical (trivially equal)
+            if (lhs_sum.get() == rhs_sum.get())
                 continue;
-            sort* s = lhs[0]->get_sort();
-            expr_ref l = mk_concat(lhs, s);
-            expr_ref r = mk_concat(rhs, s);
-            expr_ref len_l = mk_len(l);
-            expr_ref len_r = mk_len(r);
-            if (ctx.e_internalized(len_l) && ctx.e_internalized(len_r)) {
-                enode* nl = ctx.get_enode(len_l);
-                enode* nr = ctx.get_enode(len_r);
-                if (nl->get_root() != nr->get_root()) {
-                    propagate_eq(eq.dep(), len_l, len_r, false);
-                    progress = true;
-                }
+            literal len_eq = mk_eq(lhs_sum, rhs_sum, false);
+            if (ctx.get_assignment(len_eq) != l_true) {
+                add_axiom(len_eq);
+                progress = true;
             }
         }
         return progress;
@@ -1571,8 +1940,60 @@ namespace smt {
         st.update("nseq axioms", s.m_num_axioms);
     }
 
+    // Find the most constrained regex for a given string expression
+    // by scanning memberships that apply to e or its equivalence class root.
+    expr* theory_nseq::find_regex_for(expr* e) {
+        if (!ctx.e_internalized(e))
+            return nullptr;
+        enode* root = ctx.get_enode(e)->get_root();
+        for (auto const& mem : m_state.mems()) {
+            if (!mem.sign()) continue;
+            expr* ms = mem.str();
+            if (!ctx.e_internalized(ms)) continue;
+            if (ctx.get_enode(ms)->get_root() == root)
+                return mem.regex();
+        }
+        return nullptr;
+    }
+
+    // Find any positive membership for a string expression whose base
+    // is `base` and which starts at position `pos`. Returns the regex
+    // and sets `cover_len` to how many characters it covers.
+    // Used to synthesize sub-range values during model generation.
+    expr* theory_nseq::find_substr_regex(expr* base, unsigned pos,
+                                          unsigned total_len, unsigned& cover_len) {
+        if (!ctx.e_internalized(base))
+            return nullptr;
+        enode* base_root = ctx.get_enode(base)->get_root();
+        for (auto const& mem : m_state.mems()) {
+            if (!mem.sign()) continue;
+            expr* ms = mem.str();
+            if (!ctx.e_internalized(ms)) continue;
+            // Check if ms is str.substr(base, pos, k) for some k
+            expr* s = nullptr, *off = nullptr, *len_arg = nullptr;
+            if (!m_util.str.is_extract(ms, s, off, len_arg)) continue;
+            if (!ctx.e_internalized(s)) continue;
+            if (ctx.get_enode(s)->get_root() != base_root) continue;
+            // Check offset matches
+            rational off_v;
+            if (!m_autil.is_numeral(off, off_v) || !off_v.is_nonneg() ||
+                !off_v.is_unsigned() || off_v.get_unsigned() != pos) continue;
+            // Get the length (may be symbolic, use get_length)
+            rational len_v;
+            if (m_autil.is_numeral(len_arg, len_v) && len_v.is_nonneg() && len_v.is_unsigned()) {
+                cover_len = len_v.get_unsigned();
+                return mem.regex();
+            }
+            if (get_length(ms, len_v) && len_v.is_nonneg() && len_v.is_unsigned()) {
+                cover_len = len_v.get_unsigned();
+                return mem.regex();
+            }
+        }
+        return nullptr;
+    }
+
     // -------------------------------------------------------
-    // Model generation (stub)
+    // Model generation
     // -------------------------------------------------------
 
     model_value_proc* theory_nseq::mk_value(enode* n, model_generator& mg) {
@@ -1604,11 +2025,57 @@ namespace smt {
                 curr = curr->get_next();
             } while (curr != root);
 
-            // Try to construct a string of the correct length
+            // Try to construct a string satisfying any regex membership constraint
             rational len_val;
             if (get_length(e, len_val) && len_val.is_nonneg() && len_val.is_unsigned()) {
                 unsigned len = len_val.get_unsigned();
+                // Check if there's a direct regex constraint for this string
+                expr* regex = find_regex_for(e);
+                if (regex) {
+                    zstring synth;
+                    if (synthesize_regex_string(regex, len, synth)) {
+                        expr_ref val(m_util.str.mk_string(synth), m);
+                        m_fresh_values.push_back(val);
+                        return alloc(expr_wrapper_proc, to_app(val));
+                    }
+                }
+                // Try to synthesize character by character from str.at(e, i) memberships.
+                // Preprocessors often split x ∈ r into (str.at x 0) ∈ r0, (str.substr x 1 k) ∈ r1, etc.
                 zstring s;
+                bool from_chars = true;
+                unsigned pos = 0;
+                while (pos < len && from_chars) {
+                    // Option A: there's a membership for str.at(e, pos) (length-1 char)
+                    expr_ref at_i(m_util.str.mk_at(e, m_autil.mk_int(pos)), m);
+                    expr* r = find_regex_for(at_i);
+                    if (r) {
+                        zstring ch;
+                        if (synthesize_regex_string(r, 1, ch)) {
+                            s = s + ch;
+                            pos++;
+                            continue;
+                        }
+                    }
+                    // Option B: find a membership for str.substr(e, pos, k) and synthesize k chars
+                    unsigned cover_len = 0;
+                    expr* rs = find_substr_regex(e, pos, len, cover_len);
+                    if (rs && cover_len > 0) {
+                        zstring piece;
+                        if (synthesize_regex_string(rs, cover_len, piece)) {
+                            s = s + piece;
+                            pos += cover_len;
+                            continue;
+                        }
+                    }
+                    from_chars = false;
+                }
+                if (from_chars && s.length() == len) {
+                    expr_ref val(m_util.str.mk_string(s), m);
+                    m_fresh_values.push_back(val);
+                    return alloc(expr_wrapper_proc, to_app(val));
+                }
+                // No regex constraint (or synthesis failed): use default fill
+                s = zstring();
                 for (unsigned i = 0; i < len; i++)
                     s = s + zstring("A");
                 expr_ref val(m_util.str.mk_string(s), m);

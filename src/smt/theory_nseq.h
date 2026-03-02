@@ -97,6 +97,7 @@ namespace smt {
         bool branch_eq_prefix(expr_ref_vector const& lhs, expr_ref_vector const& rhs, nseq_dependency* dep);
         bool branch_var_prefix(expr* x, expr_ref_vector const& other, nseq_dependency* dep);
         bool split_variable(expr_ref_vector const& lhs, expr_ref_vector const& rhs, nseq_dependency* dep);
+        bool propagate_ground_split(expr_ref_vector const& lhs, expr_ref_vector const& rhs, nseq_dependency* dep);
         bool canonize(expr_ref_vector const& src, expr_ref_vector& dst, nseq_dependency*& dep);
         bool all_eqs_solved();
         bool check_length_conflict(expr* x, expr_ref_vector const& es, nseq_dependency* dep);
@@ -115,8 +116,14 @@ namespace smt {
         // Regex membership
         bool check_regex_memberships();
         bool check_regex_mem(nseq_mem const& mem);
+        bool add_regex_length_axioms(nseq_mem const& mem);
+        bool synthesize_regex_string(expr* regex, unsigned len, zstring& result);
+        bool dfs_regex(expr* r, unsigned target_len, unsigned cur_len, zstring& result);
         bool is_ground_string(expr* e, zstring& s);
         expr_ref derive_regex(expr* regex, zstring const& prefix);
+        bool all_mems_checked();
+        expr* find_regex_for(expr* e);
+        expr* find_substr_regex(expr* base, unsigned pos, unsigned total_len, unsigned& cover_len);
 
         // String operation reductions
         void reduce_op(expr* e);
@@ -129,6 +136,7 @@ namespace smt {
 
         // Length reasoning
         void add_length_axiom(expr* n);
+        expr_ref build_length_sum(expr_ref_vector const& es);
         bool check_zero_length();
         bool propagate_length_eqs();
         bool get_length(expr* e, rational& val);
