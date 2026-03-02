@@ -89,7 +89,7 @@ jobs:
         uses: actions/checkout@v6.0.2
       
       - name: Download macOS x64 Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: macOsBuild
           path: artifacts
@@ -137,7 +137,7 @@ jobs:
         uses: actions/checkout@v6.0.2
       
       - name: Download macOS ARM64 Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: MacArm64
           path: artifacts
@@ -460,37 +460,37 @@ jobs:
           python-version: '3.x'
       
       - name: Download Win64 Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: WindowsBuild-x64
           path: package
       
       - name: Download Win ARM64 Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: WindowsBuild-arm64
           path: package
       
       - name: Download Ubuntu Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: UbuntuBuild
           path: package
       
       - name: Download Ubuntu ARM64 Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: UbuntuArm64
           path: package
       
       - name: Download macOS Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: macOsBuild
           path: package
       
       - name: Download macOS Arm64 Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: MacArm64
           path: package
@@ -535,7 +535,7 @@ jobs:
           python-version: '3.x'
       
       - name: Download artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: WindowsBuild-x86
           path: package
@@ -580,43 +580,43 @@ jobs:
           python-version: '3.x'
       
       - name: Download macOS x64 Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: macOsBuild
           path: artifacts
       
       - name: Download macOS Arm64 Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: MacArm64
           path: artifacts
       
       - name: Download Win64 Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: WindowsBuild-x64
           path: artifacts
       
       - name: Download Win32 Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: WindowsBuild-x86
           path: artifacts
 
       - name: Download Win ARM64 Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: WindowsBuild-arm64
           path: artifacts
 
       - name: Download ManyLinux AMD64 Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: ManyLinuxPythonBuildAMD64
           path: artifacts
       
       - name: Download ManyLinux Arm64 Build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: ManyLinuxPythonBuildArm64
           path: artifacts
@@ -684,7 +684,7 @@ jobs:
         uses: actions/checkout@v6.0.2
       
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           path: tmp
       
@@ -749,7 +749,7 @@ jobs:
       contents: read
     steps:
       - name: Download Python packages
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8.0.0
         with:
           name: PythonPackages
           path: dist
