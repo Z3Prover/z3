@@ -1094,7 +1094,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         return new ArrayImpl<[DomainSort], RangeSort>(check(Z3.mk_const_array(contextPtr, domain.ptr, value.ptr)));
       },
       fromFunc(f: FuncDecl<Name>): SMTArray<Name> {
-        return new ArrayImpl(check(Z3.mk_as_array(contextPtr, f.ast)));
+        return new ArrayImpl(check(Z3.mk_as_array(contextPtr, f.ptr)));
       },
     };
     const Set = {
