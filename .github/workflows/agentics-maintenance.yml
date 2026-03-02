@@ -49,7 +49,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@v0.45.6
+        uses: github/gh-aw/actions/setup@v0.51.6
         with:
           destination: /opt/gh-aw/actions
 
