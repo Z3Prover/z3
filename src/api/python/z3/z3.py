@@ -4652,6 +4652,45 @@ def BVRedOr(a):
     return BitVecRef(Z3_mk_bvredor(a.ctx_ref(), a.as_ast()), a.ctx)
 
 
+def BvNand(a, b):
+    """Return the bitwise NAND of `a` and `b`.
+
+    >>> x = BitVec('x', 8)
+    >>> y = BitVec('y', 8)
+    >>> BvNand(x, y)
+    bvnand(x, y)
+    """
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BitVecRef(Z3_mk_bvnand(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+
+def BvNor(a, b):
+    """Return the bitwise NOR of `a` and `b`.
+
+    >>> x = BitVec('x', 8)
+    >>> y = BitVec('y', 8)
+    >>> BvNor(x, y)
+    bvnor(x, y)
+    """
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BitVecRef(Z3_mk_bvnor(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+
+def BvXnor(a, b):
+    """Return the bitwise XNOR of `a` and `b`.
+
+    >>> x = BitVec('x', 8)
+    >>> y = BitVec('y', 8)
+    >>> BvXnor(x, y)
+    bvxnor(x, y)
+    """
+    _check_bv_args(a, b)
+    a, b = _coerce_exprs(a, b)
+    return BitVecRef(Z3_mk_bvxnor(a.ctx_ref(), a.as_ast(), b.as_ast()), a.ctx)
+
+
 def BVAddNoOverflow(a, b, signed):
     """A predicate the determines that bit-vector addition does not overflow"""
     _check_bv_args(a, b)

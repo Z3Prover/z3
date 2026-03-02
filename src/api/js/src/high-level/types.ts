@@ -1884,6 +1884,14 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
   sortUniverse(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>>;
 
   /**
+   * Translate the model to a different context.
+   *
+   * @param target - The target context
+   * @returns A new model in the target context
+   */
+  translate(target: Context<Name>): Model<Name>;
+
+  /**
    * Manually decrease the reference count of the model
    * This is automatically done when the model is garbage collected,
    * but calling this eagerly can help release memory sooner.
@@ -2915,6 +2923,12 @@ export interface SMTArrayCreation<Name extends string> {
     domain: DomainSort,
     value: SortToExprMap<RangeSort, Name>,
   ): SMTArray<Name, [DomainSort], RangeSort>;
+
+  /**
+   * Create an array from a function declaration.
+   * The resulting array maps each input to the output of the function.
+   */
+  fromFunc(f: FuncDecl<Name>): SMTArray<Name>;
 }
 
 export type NonEmptySortArray<Name extends string = 'main'> = [Sort<Name>, ...Array<Sort<Name>>];

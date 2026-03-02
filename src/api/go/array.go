@@ -64,3 +64,9 @@ func (c *Context) MkArrayDefault(array *Expr) *Expr {
 func (c *Context) MkArrayExt(a1, a2 *Expr) *Expr {
 	return newExpr(c, C.Z3_mk_array_ext(c.ptr, a1.ptr, a2.ptr))
 }
+
+// MkAsArray creates an array from a function declaration.
+// The resulting array maps each input to the output of the function.
+func (c *Context) MkAsArray(f *FuncDecl) *Expr {
+	return newExpr(c, C.Z3_mk_as_array(c.ptr, f.ptr))
+}
