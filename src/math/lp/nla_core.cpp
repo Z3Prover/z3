@@ -539,6 +539,7 @@ bool core::is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &
     bool seen_minus = false;
     bool seen_plus = false;
     i = null_lpvar;
+    j = null_lpvar;
     for(lp::lar_term::ival p : t) {
         const auto & c = p.coeff();
         if (c == 1) {
