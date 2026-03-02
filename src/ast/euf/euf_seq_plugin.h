@@ -92,14 +92,18 @@ namespace euf {
         // string concat predicates
         bool is_str_concat(enode* n) const { return m_seq.str.is_concat(n->get_expr()); }
         bool is_str_concat(enode* n, enode*& a, enode*& b) {
-            return is_str_concat(n) && n->num_args() == 2 &&
+            expr* ea = nullptr, *eb = nullptr;
+            return m_seq.str.is_concat(n->get_expr(), ea, eb) &&
+                   n->num_args() == 2 &&
                    (a = n->get_arg(0), b = n->get_arg(1), true);
         }
 
         // regex concat predicates
         bool is_re_concat(enode* n) const { return m_seq.re.is_concat(n->get_expr()); }
         bool is_re_concat(enode* n, enode*& a, enode*& b) {
-            return is_re_concat(n) && n->num_args() == 2 &&
+            expr* ea = nullptr, *eb = nullptr;
+            return m_seq.re.is_concat(n->get_expr(), ea, eb) &&
+                   n->num_args() == 2 &&
                    (a = n->get_arg(0), b = n->get_arg(1), true);
         }
 
@@ -121,12 +125,6 @@ namespace euf {
 
         bool is_to_re(enode* n) const { return m_seq.re.is_to_re(n->get_expr()); }
         bool is_full_seq(enode* n) const { return m_seq.re.is_full_seq(n->get_expr()); }
-
-        enode* mk_str_concat(enode* a, enode* b);
-        enode* mk_re_concat(enode* a, enode* b);
-        enode* mk_concat(enode* a, enode* b);
-        enode* mk_str_empty(sort* s);
-        enode* mk_re_epsilon(sort* seq_sort);
 
         void push_undo(undo_kind k);
 

@@ -141,11 +141,6 @@ namespace euf {
         // find an existing concat that is equal modulo associativity
         snode* find_assoc_equal(snode* n) const;
 
-        // build compound snodes
-        snode* mk_empty(sort* s);
-        snode* mk_concat(snode* a, snode* b);
-        snode* mk_power(snode* base, snode* exp);
-
         // register expression in both sgraph and egraph
         enode* mk_enode(expr* e);
 

@@ -112,12 +112,14 @@ static void test_assoc_hash() {
     euf::snode* sc = sg.mk(c);
 
     // build concat(concat(a,b),c)
-    euf::snode* sab = sg.mk_concat(sa, sb);
-    euf::snode* sab_c = sg.mk_concat(sab, sc);
+    expr_ref ab(seq.str.mk_concat(a, b), m);
+    expr_ref ab_c(seq.str.mk_concat(ab, c), m);
+    euf::snode* sab_c = sg.mk(ab_c);
 
     // build concat(a,concat(b,c))
-    euf::snode* sbc = sg.mk_concat(sb, sc);
-    euf::snode* sa_bc = sg.mk_concat(sa, sbc);
+    expr_ref bc(seq.str.mk_concat(b, c), m);
+    expr_ref a_bc(seq.str.mk_concat(a, bc), m);
+    euf::snode* sa_bc = sg.mk(a_bc);
 
     // they should hash to the same value via the assoc hash
     euf::concat_hash h;
@@ -126,8 +128,9 @@ static void test_assoc_hash() {
     SASSERT(eq(sab_c, sa_bc));
 
     // different concat should not be equal
-    euf::snode* sac = sg.mk_concat(sa, sc);
-    euf::snode* sac_b = sg.mk_concat(sac, sb);
+    expr_ref ac(seq.str.mk_concat(a, c), m);
+    expr_ref ac_b(seq.str.mk_concat(ac, b), m);
+    euf::snode* sac_b = sg.mk(ac_b);
     SASSERT(!eq(sab_c, sac_b));
 
     // find_assoc_equal should find the first with same leaves

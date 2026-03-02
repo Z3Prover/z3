@@ -28,7 +28,8 @@ namespace euf {
 
     // Check if enode is any kind of concat (str.++ or re.++)
     static bool is_any_concat(enode* n, seq_util const& seq) {
-        return (seq.str.is_concat(n->get_expr()) || seq.re.is_concat(n->get_expr())) && n->num_args() == 2;
+        expr* a = nullptr, *b = nullptr;
+        return seq.str.is_concat(n->get_expr(), a, b) || seq.re.is_concat(n->get_expr(), a, b);
     }
 
     // Collect leaves of a concat tree in left-to-right order.
@@ -57,8 +58,8 @@ namespace euf {
 
     bool enode_concat_eq::operator()(enode* a, enode* b) const {
         if (a == b) return true;
-        if (!is_any_concat(a, seq) && !is_any_concat(b, seq))
-            return a->get_id() == b->get_id();
+        if (!is_any_concat(a, seq) || !is_any_concat(b, seq))
+            return false;
         enode_vector la, lb;
         collect_enode_leaves(a, seq, la);
         collect_enode_leaves(b, seq, lb);
@@ -101,11 +102,11 @@ namespace euf {
             if (g.inconsistent())
                 break;
             if (std::holds_alternative<enode*>(m_queue[m_qhead])) {
-                auto n = *std::get_if<enode*>(&m_queue[m_qhead]);
+                auto n = std::get<enode*>(m_queue[m_qhead]);
                 propagate_register_node(n);
             }
             else {
-                auto [a, b] = *std::get_if<enode_pair>(&m_queue[m_qhead]);
+                auto [a, b] = std::get<enode_pair>(m_queue[m_qhead]);
                 propagate_merge(a, b);
             }
         }
@@ -120,14 +121,6 @@ namespace euf {
         if (is_concat(n)) {
             propagate_assoc(n);
             propagate_simplify(n);
-        }
-
-        // n-ary concat: concat(a, b, c) => concat(a, concat(b, c))
-        if (is_concat(n) && n->num_args() > 2) {
-            auto last = n->get_arg(n->num_args() - 1);
-            for (unsigned i = n->num_args() - 1; i-- > 0; )
-                last = mk_concat(n->get_arg(i), last);
-            push_merge(last, n);
         }
 
         // str.++ identity: concat(a, ε) = a, concat(ε, b) = b
@@ -223,24 +216,15 @@ namespace euf {
             push_merge(n, b);
 
         // concat(.*, concat(v, w)) = concat(.*, w) when v nullable
-        if (is_full_seq(a) && is_concat(b, b1, b2) && is_nullable(b1)) {
-            enode* simplified = mk_concat(a, b2);
-            push_merge(n, simplified);
-        }
+        // handled by associativity + nullable absorption on sub-concats
 
         // concat(concat(u, v), .*) = concat(u, .*) when v nullable
-        enode* a1, *a2;
-        if (is_concat(a, a1, a2) && is_nullable(a2) && is_full_seq(b)) {
-            enode* simplified = mk_concat(a1, b);
-            push_merge(n, simplified);
-        }
+        // handled by associativity + nullable absorption on sub-concats
     }
 
     bool seq_plugin::is_nullable(expr* e) {
-        // use existing seq_rewriter::is_nullable which handles all cases
-        ast_manager& m = g.get_manager();
         expr_ref result = m_rewriter.is_nullable(e);
-        return m.is_true(result);
+        return g.get_manager().is_true(result);
     }
 
     bool seq_plugin::same_star_body(enode* a, enode* b) {
@@ -265,34 +249,6 @@ namespace euf {
         if (!na || !nb)
             return false;
         return na->get_root() == nb->get_root();
-    }
-
-    enode* seq_plugin::mk_str_concat(enode* a, enode* b) {
-        expr* e = m_seq.str.mk_concat(a->get_expr(), b->get_expr());
-        enode* args[2] = { a, b };
-        return mk(e, 2, args);
-    }
-
-    enode* seq_plugin::mk_re_concat(enode* a, enode* b) {
-        expr* e = m_seq.re.mk_concat(a->get_expr(), b->get_expr());
-        enode* args[2] = { a, b };
-        return mk(e, 2, args);
-    }
-
-    enode* seq_plugin::mk_concat(enode* a, enode* b) {
-        if (m_seq.is_re(a->get_expr()))
-            return mk_re_concat(a, b);
-        return mk_str_concat(a, b);
-    }
-
-    enode* seq_plugin::mk_str_empty(sort* s) {
-        expr* e = m_seq.str.mk_empty(s);
-        return mk(e, 0, nullptr);
-    }
-
-    enode* seq_plugin::mk_re_epsilon(sort* seq_sort) {
-        expr* e = m_seq.re.mk_epsilon(seq_sort);
-        return mk(e, 0, nullptr);
     }
 
     void seq_plugin::undo() {

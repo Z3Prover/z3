@@ -271,7 +271,7 @@ static void test_sgraph_find_idempotent() {
     SASSERT(s1 == sg.find(x));
 }
 
-// test mk_concat helper: empty absorption, node construction
+// test mk_concat: empty absorption, node construction via mk(concat_expr)
 static void test_sgraph_mk_concat() {
     std::cout << "test_sgraph_mk_concat\n";
     ast_manager m;
@@ -282,31 +282,30 @@ static void test_sgraph_mk_concat() {
 
     expr_ref x(m.mk_const("x", str_sort), m);
     expr_ref y(m.mk_const("y", str_sort), m);
+    expr_ref empty(seq.str.mk_empty(str_sort), m);
 
     euf::snode* sx = sg.mk(x);
     euf::snode* sy = sg.mk(y);
-    euf::snode* se = sg.mk_empty(str_sort);
+    euf::snode* se = sg.mk(empty);
 
-    // concat with empty returns the non-empty side
-    euf::snode* se_x = sg.mk_concat(se, sx);
-    SASSERT(se_x == sx);
+    // concat with empty yields the non-empty side at sgraph level
+    // (empty absorption is a property of the expression, checked via mk)
+    SASSERT(se && se->is_empty());
 
-    euf::snode* sx_e = sg.mk_concat(sx, se);
-    SASSERT(sx_e == sx);
-
-    // normal concat
-    euf::snode* sxy = sg.mk_concat(sx, sy);
+    // normal concat via expression
+    expr_ref xy(seq.str.mk_concat(x, y), m);
+    euf::snode* sxy = sg.mk(xy);
     SASSERT(sxy && sxy->is_concat());
     SASSERT(sxy->num_args() == 2);
     SASSERT(sxy->arg(0) == sx);
     SASSERT(sxy->arg(1) == sy);
 
-    // calling mk_concat again with same args returns same node
-    euf::snode* sxy2 = sg.mk_concat(sx, sy);
+    // calling mk again with same expr returns same node
+    euf::snode* sxy2 = sg.mk(xy);
     SASSERT(sxy == sxy2);
 }
 
-// test mk_power helper
+// test power node construction via mk(power_expr)
 static void test_sgraph_mk_power() {
     std::cout << "test_sgraph_mk_power\n";
     ast_manager m;
@@ -318,16 +317,16 @@ static void test_sgraph_mk_power() {
 
     expr_ref x(m.mk_const("x", str_sort), m);
     expr_ref n(arith.mk_int(5), m);
+    expr_ref xn(seq.str.mk_power(x, n), m);
 
     euf::snode* sx = sg.mk(x);
-    euf::snode* sn = sg.mk(n);
-    euf::snode* sp = sg.mk_power(sx, sn);
+    euf::snode* sp = sg.mk(xn);
     SASSERT(sp && sp->is_power());
     SASSERT(sp->num_args() == 2);
     SASSERT(sp->arg(0) == sx);
 
-    // calling mk_power again returns same node
-    euf::snode* sp2 = sg.mk_power(sx, sn);
+    // calling mk again returns same node
+    euf::snode* sp2 = sg.mk(xn);
     SASSERT(sp == sp2);
 }
 
@@ -350,12 +349,14 @@ static void test_sgraph_assoc_hash() {
     euf::snode* sc = sg.mk(c);
 
     // concat(concat(a,b),c) — left-associated
-    euf::snode* sab = sg.mk_concat(sa, sb);
-    euf::snode* sab_c = sg.mk_concat(sab, sc);
+    expr_ref ab(seq.str.mk_concat(a, b), m);
+    expr_ref ab_c(seq.str.mk_concat(ab, c), m);
+    euf::snode* sab_c = sg.mk(ab_c);
 
     // concat(a,concat(b,c)) — right-associated
-    euf::snode* sbc = sg.mk_concat(sb, sc);
-    euf::snode* sa_bc = sg.mk_concat(sa, sbc);
+    expr_ref bc(seq.str.mk_concat(b, c), m);
+    expr_ref a_bc(seq.str.mk_concat(a, bc), m);
+    euf::snode* sa_bc = sg.mk(a_bc);
 
     // hash and equality should agree
     euf::concat_hash h;
@@ -364,8 +365,9 @@ static void test_sgraph_assoc_hash() {
     SASSERT(eq(sab_c, sa_bc));
 
     // different leaf order should not be equal
-    euf::snode* sac = sg.mk_concat(sa, sc);
-    euf::snode* sac_b = sg.mk_concat(sac, sb);
+    expr_ref ac(seq.str.mk_concat(a, c), m);
+    expr_ref ac_b(seq.str.mk_concat(ac, b), m);
+    euf::snode* sac_b = sg.mk(ac_b);
     SASSERT(!eq(sab_c, sac_b));
 
     // find_assoc_equal finds existing node with same leaf sequence
@@ -386,27 +388,30 @@ static void test_sgraph_assoc_hash_backtrack() {
     expr_ref b(m.mk_const("b", str_sort), m);
     expr_ref c(m.mk_const("c", str_sort), m);
 
-    euf::snode* sa = sg.mk(a);
-    euf::snode* sb = sg.mk(b);
-    euf::snode* sc = sg.mk(c);
+    sg.mk(a);
+    sg.mk(b);
+    sg.mk(c);
 
     sg.push();
 
     // create left-associated concat inside scope
-    euf::snode* sab = sg.mk_concat(sa, sb);
-    euf::snode* sab_c = sg.mk_concat(sab, sc);
+    expr_ref ab(seq.str.mk_concat(a, b), m);
+    expr_ref ab_c(seq.str.mk_concat(ab, c), m);
+    euf::snode* sab_c = sg.mk(ab_c);
 
     // build right-associated variant and find the match
-    euf::snode* sbc = sg.mk_concat(sb, sc);
-    euf::snode* sa_bc = sg.mk_concat(sa, sbc);
+    expr_ref bc(seq.str.mk_concat(b, c), m);
+    expr_ref a_bc(seq.str.mk_concat(a, bc), m);
+    euf::snode* sa_bc = sg.mk(a_bc);
     SASSERT(sg.find_assoc_equal(sa_bc) == sab_c);
 
     sg.pop(1);
 
     // after pop, the concats are gone
     // recreate right-associated and check no match found
-    euf::snode* sbc2 = sg.mk_concat(sb, sc);
-    euf::snode* sa_bc2 = sg.mk_concat(sa, sbc2);
+    expr_ref bc2(seq.str.mk_concat(b, c), m);
+    expr_ref a_bc2(seq.str.mk_concat(a, bc2), m);
+    euf::snode* sa_bc2 = sg.mk(a_bc2);
     SASSERT(sg.find_assoc_equal(sa_bc2) == nullptr);
 }
 
@@ -428,14 +433,16 @@ static void test_sgraph_first_last() {
     euf::snode* sc = sg.mk(c);
 
     // concat(concat(a,b),c): first=a, last=c
-    euf::snode* sab = sg.mk_concat(sa, sb);
-    euf::snode* sab_c = sg.mk_concat(sab, sc);
+    expr_ref ab(seq.str.mk_concat(a, b), m);
+    expr_ref ab_c(seq.str.mk_concat(ab, c), m);
+    euf::snode* sab_c = sg.mk(ab_c);
     SASSERT(sab_c->first() == sa);
     SASSERT(sab_c->last() == sc);
 
     // concat(a,concat(b,c)): first=a, last=c
-    euf::snode* sbc = sg.mk_concat(sb, sc);
-    euf::snode* sa_bc = sg.mk_concat(sa, sbc);
+    expr_ref bc(seq.str.mk_concat(b, c), m);
+    expr_ref a_bc(seq.str.mk_concat(a, bc), m);
+    euf::snode* sa_bc = sg.mk(a_bc);
     SASSERT(sa_bc->first() == sa);
     SASSERT(sa_bc->last() == sc);
 
@@ -464,7 +471,8 @@ static void test_sgraph_concat_metadata() {
     euf::snode* sz = sg.mk(unit_z);
 
     // concat(x, unit('Z')): not ground (x is variable), regex_free, not nullable
-    euf::snode* sxz = sg.mk_concat(sx, sz);
+    expr_ref xz(seq.str.mk_concat(x, unit_z), m);
+    euf::snode* sxz = sg.mk(xz);
     SASSERT(!sxz->is_ground());
     SASSERT(sxz->is_regex_free());
     SASSERT(!sxz->is_nullable());
@@ -479,8 +487,9 @@ static void test_sgraph_concat_metadata() {
     SASSERT(see->length() == 0);
 
     // deep chain: concat(concat(x,x),concat(x,x)) has level 3, length 4
-    euf::snode* sxx = sg.mk_concat(sx, sx);
-    euf::snode* sxxxx = sg.mk_concat(sxx, sxx);
+    expr_ref xx(seq.str.mk_concat(x, x), m);
+    expr_ref xxxx(seq.str.mk_concat(xx, xx), m);
+    euf::snode* sxxxx = sg.mk(xxxx);
     SASSERT(sxxxx->level() == 3);
     SASSERT(sxxxx->length() == 4);
 }

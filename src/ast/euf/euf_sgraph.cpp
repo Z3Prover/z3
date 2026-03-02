@@ -369,31 +369,6 @@ namespace euf {
         return nullptr;
     }
 
-    snode* sgraph::mk_empty(sort* s) {
-        expr_ref e(m_seq.str.mk_empty(s), m);
-        return mk(e);
-    }
-
-    snode* sgraph::mk_concat(snode* a, snode* b) {
-        SASSERT(a && b);
-        if (a->is_empty()) return b;
-        if (b->is_empty()) return a;
-        expr_ref e(m_seq.str.mk_concat(a->get_expr(), b->get_expr()), m);
-        snode* n = find(e);
-        if (n) return n;
-        snode* args[2] = { a, b };
-        return mk_snode(e, snode_kind::s_concat, 2, args);
-    }
-
-    snode* sgraph::mk_power(snode* base, snode* exp) {
-        SASSERT(base && exp);
-        expr_ref e(m_seq.str.mk_power(base->get_expr(), exp->get_expr()), m);
-        snode* n = find(e);
-        if (n) return n;
-        snode* args[2] = { base, exp };
-        return mk_snode(e, snode_kind::s_power, 2, args);
-    }
-
     enode* sgraph::mk_enode(expr* e) {
         enode* n = m_egraph.find(e);
         if (n) return n;
