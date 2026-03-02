@@ -159,9 +159,11 @@ namespace euf {
             return;
 
         enode* existing = nullptr;
-        if (m_concat_table.find(n, existing) && existing != n)
-            push_merge(n, existing);
-        else if (!existing) {
+        if (m_concat_table.find(n, existing)) {
+            if (existing != n)
+                push_merge(n, existing);
+        }
+        else {
             m_concat_table.insert(n);
             m_concats.push_back(n);
             push_undo(undo_kind::undo_add_to_table);
