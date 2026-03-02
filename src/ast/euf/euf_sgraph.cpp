@@ -477,6 +477,9 @@ namespace euf {
         // generate minterms as conjunctions/negations of predicates
         // for n predicates, there are up to 2^n minterms
         unsigned n = preds.size();
+        // cap at reasonable size to prevent exponential blowup
+        if (n > 20)
+            n = 20;
         for (unsigned mask = 0; mask < (1u << n); ++mask) {
             expr_ref_vector conj(m);
             for (unsigned i = 0; i < n; ++i) {
@@ -485,6 +488,7 @@ namespace euf {
                 else
                     conj.push_back(m_seq.re.mk_complement(preds.get(i)));
             }
+            SASSERT(!conj.empty());
             // intersect all terms
             expr_ref mt(conj.get(0), m);
             for (unsigned i = 1; i < conj.size(); ++i)
