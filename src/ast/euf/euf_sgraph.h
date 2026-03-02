@@ -9,21 +9,24 @@ Abstract:
 
     Sequence/string graph layer
 
-    Encapsulates string expressions in the style of euf_egraph.h.
+    Encapsulates string and regex expressions for the string solver.
     The sgraph maps Z3 sequence/regex AST expressions to snode structures
     organized as binary concatenation trees with metadata, and owns an
     egraph with a seq_plugin for congruence closure.
 
-    Implemented:
     -- snode classification: empty, char, variable, unit, concat, power,
        star, loop, union, intersection, complement, fail, full_char,
        full_seq, to_re, in_re, other.
     -- Metadata computation: ground, regex_free, nullable, level, length.
-    -- Expression registration via mk, lookup via find.
+    -- Expression registration via mk(expr*), lookup via find(expr*).
     -- Scope management: push/pop with backtracking.
-    -- egraph ownership with seq_plugin for concat associativity,
-       Kleene star merging, and nullable absorption.
-    -- enode registration via mk_enode.
+    -- egraph ownership with seq_plugin for:
+       * concat associativity via associativity-respecting hash table,
+       * Kleene star merging (u.v*.v*.w = u.v*.w),
+       * nullable absorption next to .* (u.*.v.w = u.*.w when v nullable),
+       * str.++ identity elimination (concat(a, ε) = a),
+       * re.++ identity/absorption (concat(a, epsilon) = a, concat(a, ∅) = ∅).
+    -- enode registration via mk_enode(expr*).
 
     ZIPT features not yet ported:
 

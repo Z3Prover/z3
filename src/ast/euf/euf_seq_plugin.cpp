@@ -66,7 +66,7 @@ namespace euf {
         if (la.size() != lb.size())
             return false;
         for (unsigned i = 0; i < la.size(); ++i)
-            if (la[i]->get_id() != lb[i]->get_id())
+            if (la[i] != lb[i])
                 return false;
         return true;
     }
