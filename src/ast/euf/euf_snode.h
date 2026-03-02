@@ -157,6 +157,31 @@ namespace euf {
                 s = s->arg(1);
             return s;
         }
+
+        // collect all leaf tokens in left-to-right order
+        void collect_tokens(snode_vector& tokens) const {
+            if (is_concat()) {
+                arg(0)->collect_tokens(tokens);
+                arg(1)->collect_tokens(tokens);
+            }
+            else if (!is_empty()) {
+                tokens.push_back(const_cast<snode*>(this));
+            }
+        }
+
+        // access the i-th token (0-based, left-to-right order)
+        // returns nullptr if i >= length()
+        snode* at(unsigned i) const {
+            if (is_concat()) {
+                unsigned left_len = arg(0)->length();
+                if (i < left_len)
+                    return arg(0)->at(i);
+                return arg(1)->at(i - left_len);
+            }
+            if (is_empty())
+                return nullptr;
+            return i == 0 ? const_cast<snode*>(this) : nullptr;
+        }
     };
 
 }
