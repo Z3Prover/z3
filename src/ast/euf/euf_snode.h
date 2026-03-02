@@ -32,6 +32,7 @@ namespace euf {
 
     class sgraph;
     class snode;
+    struct snode_subst_cache;
 
     typedef ptr_vector<snode> snode_vector;
 
@@ -68,6 +69,13 @@ namespace euf {
         unsigned    m_level      = 0;      // tree depth/level (0 for empty, 1 for singletons)
         unsigned    m_length     = 0;      // token count, number of leaf tokens in the tree
 
+        // hash matrix for associativity-respecting hashing (2x2 polynomial hash matrix)
+        // all zeros means not cached, non-zero means cached
+        unsigned    m_hash_matrix[2][2] = {{0,0},{0,0}};
+
+        // substitution cache (lazy-initialized, owned by sgraph)
+        snode_subst_cache* m_subst_cache = nullptr;
+
         snode*      m_args[0]; // variable-length array, allocated via get_snode_size(num_args)
 
         friend class sgraph;
@@ -100,6 +108,10 @@ namespace euf {
         bool is_nullable()   const { return m_nullable; }
         unsigned level()     const { return m_level; }
         unsigned length()    const { return m_length; }
+
+        // associativity-respecting hash: cached if the 2x2 matrix is non-zero
+        bool has_cached_hash() const { return m_hash_matrix[0][0] != 0; }
+        unsigned assoc_hash()  const { return m_hash_matrix[0][1]; }
 
         bool is_empty()   const { return m_kind == snode_kind::s_empty; }
         bool is_char()    const { return m_kind == snode_kind::s_char; }

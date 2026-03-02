@@ -22,6 +22,7 @@ Author:
 
 #include "ast/euf/euf_seq_plugin.h"
 #include "ast/euf/euf_egraph.h"
+#include "ast/euf/euf_sgraph.h"
 #include "ast/ast_pp.h"
 
 namespace euf {
@@ -46,6 +47,12 @@ namespace euf {
     }
 
     unsigned enode_concat_hash::operator()(enode* n) const {
+        sgraph* sg = sg_ptr ? *sg_ptr : nullptr;
+        if (sg) {
+            snode* sn = sg->find(n->get_expr());
+            if (sn && sn->has_cached_hash())
+                return sn->assoc_hash();
+        }
         if (!is_any_concat(n, seq))
             return n->get_id();
         enode_vector leaves;
@@ -71,13 +78,22 @@ namespace euf {
         return true;
     }
 
-    seq_plugin::seq_plugin(egraph& g):
+    seq_plugin::seq_plugin(egraph& g, sgraph* sg):
         plugin(g),
         m_seq(g.get_manager()),
         m_rewriter(g.get_manager()),
-        m_concat_hash(m_seq),
+        m_sg(sg),
+        m_sg_owned(sg == nullptr),
+        m_concat_hash(m_seq, &m_sg),
         m_concat_eq(m_seq),
         m_concat_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_concat_hash, m_concat_eq) {
+        if (!m_sg)
+            m_sg = alloc(sgraph, g.get_manager(), g, false);
+    }
+
+    seq_plugin::~seq_plugin() {
+        if (m_sg_owned && m_sg)
+            dealloc(m_sg);
     }
 
     void seq_plugin::register_node(enode* n) {

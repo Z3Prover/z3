@@ -23,15 +23,35 @@ Author:
 
 namespace euf {
 
-    sgraph::sgraph(ast_manager& m):
+    // substitution cache stored on snode for ZIPT-style optimization
+    struct snode_subst_cache {
+        struct entry {
+            unsigned var_id;
+            unsigned repl_id;
+            snode* result;
+        };
+        svector<entry> m_entries;
+        snode* find(unsigned var_id, unsigned repl_id) const {
+            for (auto const& e : m_entries)
+                if (e.var_id == var_id && e.repl_id == repl_id)
+                    return e.result;
+            return nullptr;
+        }
+        void insert(unsigned var_id, unsigned repl_id, snode* result) {
+            m_entries.push_back({var_id, repl_id, result});
+        }
+    };
+
+    sgraph::sgraph(ast_manager& m, egraph& eg, bool add_plugin):
         m(m),
         m_seq(m),
         m_rewriter(m),
-        m_egraph(m),
-        m_exprs(m),
-        m_str_sort(m_seq.str.mk_string_sort(), m) {
+        m_egraph(eg),
+        m_str_sort(m_seq.str.mk_string_sort(), m),
+        m_add_plugin(add_plugin) {
         // create seq_plugin and register it with the egraph
-        m_egraph.add_plugin(alloc(seq_plugin, m_egraph));
+        if (add_plugin)
+            m_egraph.add_plugin(alloc(seq_plugin, m_egraph, this));
         // register on_make callback so sgraph creates snodes for new enodes
         std::function<void(enode*)> on_make = [this](enode* n) {
             expr* e = n->get_expr();
@@ -42,6 +62,8 @@ namespace euf {
     }
 
     sgraph::~sgraph() {
+        for (auto* c : m_subst_caches)
+            dealloc(c);
     }
 
     snode_kind sgraph::classify(expr* e) const {
@@ -265,16 +287,49 @@ namespace euf {
         }
     }
 
+    static const unsigned HASH_BASE = 31;
+
+    void sgraph::compute_hash_matrix(snode* n) {
+        if (n->is_empty()) {
+            // identity matrix: concat with empty is identity
+            n->m_hash_matrix[0][0] = 1;
+            n->m_hash_matrix[0][1] = 0;
+            n->m_hash_matrix[1][0] = 0;
+            n->m_hash_matrix[1][1] = 1;
+        }
+        else if (n->is_concat()) {
+            snode* l = n->arg(0);
+            snode* r = n->arg(1);
+            if (l->has_cached_hash() && r->has_cached_hash()) {
+                // 2x2 matrix multiplication: M(L) * M(R)
+                n->m_hash_matrix[0][0] = l->m_hash_matrix[0][0] * r->m_hash_matrix[0][0] + l->m_hash_matrix[0][1] * r->m_hash_matrix[1][0];
+                n->m_hash_matrix[0][1] = l->m_hash_matrix[0][0] * r->m_hash_matrix[0][1] + l->m_hash_matrix[0][1] * r->m_hash_matrix[1][1];
+                n->m_hash_matrix[1][0] = l->m_hash_matrix[1][0] * r->m_hash_matrix[0][0] + l->m_hash_matrix[1][1] * r->m_hash_matrix[1][0];
+                n->m_hash_matrix[1][1] = l->m_hash_matrix[1][0] * r->m_hash_matrix[0][1] + l->m_hash_matrix[1][1] * r->m_hash_matrix[1][1];
+            }
+        }
+        else {
+            // leaf/token: [[HASH_BASE, value], [0, 1]]
+            unsigned v = n->get_expr() ? n->get_expr()->get_id() + 1 : n->id() + 1;
+            n->m_hash_matrix[0][0] = HASH_BASE;
+            n->m_hash_matrix[0][1] = v;
+            n->m_hash_matrix[1][0] = 0;
+            n->m_hash_matrix[1][1] = 1;
+        }
+    }
+
     snode* sgraph::mk_snode(expr* e, snode_kind k, unsigned num_args, snode* const* args) {
         unsigned id = m_nodes.size();
         snode* n = snode::mk(m_region, e, k, id, num_args, args);
         compute_metadata(n);
+        compute_hash_matrix(n);
         m_nodes.push_back(n);
-        m_exprs.push_back(e);
         if (e) {
             unsigned eid = e->get_id();
             m_expr2snode.reserve(eid + 1, nullptr);
             m_expr2snode[eid] = n;
+            // pin expression via egraph (the egraph has an expr trail)
+            mk_enode(e);
         }
         ++m_stats.m_num_nodes;
         return n;
@@ -350,7 +405,6 @@ namespace euf {
             }
         }
         m_nodes.shrink(old_sz);
-        m_exprs.shrink(old_sz);
         m_scopes.shrink(new_lvl);
         m_num_scopes = new_lvl;
         m_egraph.pop(num_scopes);
@@ -418,9 +472,23 @@ namespace euf {
             return replacement;
         if (n->is_empty() || n->is_char())
             return n;
-        if (n->is_concat())
-            return mk_concat(subst(n->arg(0), var, replacement),
-                             subst(n->arg(1), var, replacement));
+        if (n->is_concat()) {
+            // check substitution cache (ZIPT-style optimization)
+            if (n->m_subst_cache) {
+                snode* cached = n->m_subst_cache->find(var->id(), replacement->id());
+                if (cached)
+                    return cached;
+            }
+            snode* result = mk_concat(subst(n->arg(0), var, replacement),
+                                      subst(n->arg(1), var, replacement));
+            // cache the result
+            if (!n->m_subst_cache) {
+                n->m_subst_cache = alloc(snode_subst_cache);
+                m_subst_caches.push_back(n->m_subst_cache);
+            }
+            n->m_subst_cache->insert(var->id(), replacement->id(), result);
+            return result;
+        }
         // for non-concat compound nodes (power, star, etc.), no substitution into children
         return n;
     }
