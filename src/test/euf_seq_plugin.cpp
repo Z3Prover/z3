@@ -94,50 +94,6 @@ static void test_sgraph_backtrack() {
     SASSERT(sg.find(x));
 }
 
-// test assoc hash: concat(concat(a,b),c) hashes same as concat(a,concat(b,c))
-static void test_assoc_hash() {
-    std::cout << "test_assoc_hash\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    euf::sgraph sg(m);
-    seq_util seq(m);
-    sort_ref str_sort(seq.str.mk_string_sort(), m);
-
-    expr_ref a(m.mk_const("a", str_sort), m);
-    expr_ref b(m.mk_const("b", str_sort), m);
-    expr_ref c(m.mk_const("c", str_sort), m);
-
-    euf::snode* sa = sg.mk(a);
-    euf::snode* sb = sg.mk(b);
-    euf::snode* sc = sg.mk(c);
-
-    // build concat(concat(a,b),c)
-    expr_ref ab(seq.str.mk_concat(a, b), m);
-    expr_ref ab_c(seq.str.mk_concat(ab, c), m);
-    euf::snode* sab_c = sg.mk(ab_c);
-
-    // build concat(a,concat(b,c))
-    expr_ref bc(seq.str.mk_concat(b, c), m);
-    expr_ref a_bc(seq.str.mk_concat(a, bc), m);
-    euf::snode* sa_bc = sg.mk(a_bc);
-
-    // they should hash to the same value via the assoc hash
-    euf::concat_hash h;
-    euf::concat_eq eq;
-    SASSERT(h(sab_c) == h(sa_bc));
-    SASSERT(eq(sab_c, sa_bc));
-
-    // different concat should not be equal
-    expr_ref ac(seq.str.mk_concat(a, c), m);
-    expr_ref ac_b(seq.str.mk_concat(ac, b), m);
-    euf::snode* sac_b = sg.mk(ac_b);
-    SASSERT(!eq(sab_c, sac_b));
-
-    // find_assoc_equal should find the first with same leaves
-    euf::snode* found = sg.find_assoc_equal(sa_bc);
-    SASSERT(found == sab_c);
-}
-
 // test seq_plugin: concat associativity is normalized by the plugin
 static void test_seq_plugin_assoc() {
     std::cout << "test_seq_plugin_assoc\n";
@@ -270,7 +226,6 @@ static void test_sgraph_egraph_sync() {
 void tst_euf_seq_plugin() {
     s_var = 0; test_sgraph_basic();
     s_var = 0; test_sgraph_backtrack();
-    s_var = 0; test_assoc_hash();
     s_var = 0; test_seq_plugin_assoc();
     s_var = 0; test_seq_plugin_empty();
     s_var = 0; test_seq_plugin_star_merge();

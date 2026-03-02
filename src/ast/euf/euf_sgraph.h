@@ -10,53 +10,38 @@ Abstract:
     Sequence/string graph layer
 
     Encapsulates string expressions in the style of euf_egraph.h.
-    The sgraph registers sequence expressions and classifies them
-    into a ZIPT-style representation of string tokens organized
-    as binary concatenation trees.
+    The sgraph maps Z3 sequence/regex AST expressions to snode structures
+    organized as binary concatenation trees with metadata, and owns an
+    egraph with a seq_plugin for congruence closure.
 
-    This provides a layer that maps Z3 AST expressions (from seq_decl_plugin)
-    to snode structures with metadata for ground, regex-free, nullable, etc.
+    Implemented:
+    -- snode classification: empty, char, variable, unit, concat, power,
+       star, loop, union, intersection, complement, fail, full_char,
+       full_seq, to_re, in_re, other.
+    -- Metadata computation: ground, regex_free, nullable, level, length.
+    -- Expression registration via mk, lookup via find.
+    -- Scope management: push/pop with backtracking.
+    -- egraph ownership with seq_plugin for concat associativity,
+       Kleene star merging, and nullable absorption.
+    -- enode registration via mk_enode.
 
-    ZIPT features not yet ported to snode/sgraph:
-    
-    -- Str operations (from StrManager):
-       Normalisation: union-find style representative tracking (Normalised/IsNormalised)
-       with cache migration (MoveCache) for equal strings with different tree structures.
-       Balanced tree maintenance: DegenerationLevel tracking with rebalancing
-       (Balanced/BalancedTrans properties on TupleStr).
-       Concat simplification: merging adjacent Kleene stars (u.v* + v*w = u.v*w),
-       merging adjacent loops (v{l1,h1} + v{l2,h2} = v{l1+l2,h1+h2}),
-       absorbing nullable tokens next to .* (u.* + vw = u.*w when v nullable).
-       Drop operations: DropLeft/DropRight for removing prefix/suffix tokens,
-       with caching (DropLeftCache/DropRightCache on TupleStr).
-       Substitution: Subst(var, replacement) and SubstChar operations with caching.
-       Indexed access: GetIndex/GetIndexFwd/GetIndexBwd for token-level random access.
-       Forward/reverse iteration: GetEnumerator/GetRevEnumerator over leaf tokens.
-       ToList with caching: flattened token array with ListCache on TupleStr.
-       Simplification: OptSimplify that unfolds constant powers and simplifies tokens.
-       Derivative computation: Derivative(CharacterSet, fwd) for regex derivative construction.
-       Equality: structural equality with associative hashing (TriangleMatrix-based rolling hash).
-       Rotation equality: RotationEquals for detecting cyclic permutations.
-       Expression reconstruction: ToExpr for converting back to Z3 AST.
-       Graphviz export: ToDot for debugging visualisation.
-    
-    -- StrToken subclasses not yet mapped:
-       SymCharToken: symbolic character variables (for regex unwinding).
-       StrAtToken: str.at(s, i) as a named token with parent tracking.
-       SubStrToken: str.substr(s, from, len) as a named token.
-       SetToken: character set ranges (used for regex character classes).
-       PostToken/PreToken: auxiliary regex position markers.
-    
-    -- StrToken features:
-       GetDecomposition: Nielsen-style prefix/postfix decomposition with
-       side constraints (IntConstraint) and variable substitutions (Subst).
-       NamedStrToken parent/child extension tracking (Extension1/Extension2)
-       for variable splitting (x = x'x'') with PowerExtension for x / u^n u'.
-       CollectSymbols: gathering non-terminals and alphabet for Parikh analysis.
-       MinTerms: FirstMinTerms/LastMinTerms for character class analysis.
-       Token ordering: StrTokenOrder for deterministic comparison.
-       Derivable flag: tracking which tokens support regex derivatives.
-       BasicRegex flag: distinguishing basic vs extended regex constructs.
+    ZIPT features not yet ported:
+
+    -- Str operations: normalisation with union-find representatives and
+       cache migration, balanced tree maintenance, drop left/right with
+       caching, substitution, indexed access, iteration, ToList caching,
+       simplification, derivative computation, structural equality with
+       associative hashing, rotation equality, expression reconstruction,
+       Graphviz export.
+
+    -- StrToken subclasses: SymCharToken, StrAtToken, SubStrToken,
+       SetToken, PostToken/PreToken.
+
+    -- StrToken features: Nielsen-style GetDecomposition with side
+       constraints, NamedStrToken extension tracking for variable
+       splitting with PowerExtension, CollectSymbols for Parikh analysis,
+       MinTerms for character class analysis, token ordering, Derivable
+       and BasicRegex flags.
 
 Author:
 
@@ -69,7 +54,6 @@ Author:
 
 #include "util/region.h"
 #include "util/statistics.h"
-#include "util/hashtable.h"
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/euf/euf_snode.h"
@@ -78,19 +62,6 @@ Author:
 namespace euf {
 
     class seq_plugin;
-
-    // Associativity-respecting hash for concatenations.
-    // The hash function flattens concat trees so that
-    // concat(concat(a, b), c) and concat(a, concat(b, c))
-    // hash to the same value. This is how ZIPT ensures
-    // finding equal concatenations efficiently.
-    struct concat_hash {
-        unsigned operator()(snode const* n) const;
-    };
-
-    struct concat_eq {
-        bool operator()(snode const* a, snode const* b) const;
-    };
 
     class sgraph {
 
@@ -116,9 +87,6 @@ namespace euf {
         // maps expression id to snode
         ptr_vector<snode> m_expr2snode;
 
-        // hash table for finding equal concatenations modulo associativity
-        hashtable<snode*, concat_hash, concat_eq> m_concat_table;
-
         snode* mk_snode(expr* e, snode_kind k, unsigned num_args, snode* const* args);
         snode_kind classify(expr* e) const;
         void compute_metadata(snode* n);
@@ -137,9 +105,6 @@ namespace euf {
 
         // lookup an already-registered expression
         snode* find(expr* e) const;
-
-        // find an existing concat that is equal modulo associativity
-        snode* find_assoc_equal(snode* n) const;
 
         // register expression in both sgraph and egraph
         enode* mk_enode(expr* e);

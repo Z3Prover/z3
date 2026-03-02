@@ -330,91 +330,6 @@ static void test_sgraph_mk_power() {
     SASSERT(sp == sp2);
 }
 
-// test associativity-respecting hash: concat trees with same
-// leaf order hash and compare equal regardless of tree structure
-static void test_sgraph_assoc_hash() {
-    std::cout << "test_sgraph_assoc_hash\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    euf::sgraph sg(m);
-    seq_util seq(m);
-    sort_ref str_sort(seq.str.mk_string_sort(), m);
-
-    expr_ref a(m.mk_const("a", str_sort), m);
-    expr_ref b(m.mk_const("b", str_sort), m);
-    expr_ref c(m.mk_const("c", str_sort), m);
-
-    euf::snode* sa = sg.mk(a);
-    euf::snode* sb = sg.mk(b);
-    euf::snode* sc = sg.mk(c);
-
-    // concat(concat(a,b),c) — left-associated
-    expr_ref ab(seq.str.mk_concat(a, b), m);
-    expr_ref ab_c(seq.str.mk_concat(ab, c), m);
-    euf::snode* sab_c = sg.mk(ab_c);
-
-    // concat(a,concat(b,c)) — right-associated
-    expr_ref bc(seq.str.mk_concat(b, c), m);
-    expr_ref a_bc(seq.str.mk_concat(a, bc), m);
-    euf::snode* sa_bc = sg.mk(a_bc);
-
-    // hash and equality should agree
-    euf::concat_hash h;
-    euf::concat_eq eq;
-    SASSERT(h(sab_c) == h(sa_bc));
-    SASSERT(eq(sab_c, sa_bc));
-
-    // different leaf order should not be equal
-    expr_ref ac(seq.str.mk_concat(a, c), m);
-    expr_ref ac_b(seq.str.mk_concat(ac, b), m);
-    euf::snode* sac_b = sg.mk(ac_b);
-    SASSERT(!eq(sab_c, sac_b));
-
-    // find_assoc_equal finds existing node with same leaf sequence
-    euf::snode* found = sg.find_assoc_equal(sa_bc);
-    SASSERT(found == sab_c);
-}
-
-// test that concat table is cleaned up on pop
-static void test_sgraph_assoc_hash_backtrack() {
-    std::cout << "test_sgraph_assoc_hash_backtrack\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    euf::sgraph sg(m);
-    seq_util seq(m);
-    sort_ref str_sort(seq.str.mk_string_sort(), m);
-
-    expr_ref a(m.mk_const("a", str_sort), m);
-    expr_ref b(m.mk_const("b", str_sort), m);
-    expr_ref c(m.mk_const("c", str_sort), m);
-
-    sg.mk(a);
-    sg.mk(b);
-    sg.mk(c);
-
-    sg.push();
-
-    // create left-associated concat inside scope
-    expr_ref ab(seq.str.mk_concat(a, b), m);
-    expr_ref ab_c(seq.str.mk_concat(ab, c), m);
-    euf::snode* sab_c = sg.mk(ab_c);
-
-    // build right-associated variant and find the match
-    expr_ref bc(seq.str.mk_concat(b, c), m);
-    expr_ref a_bc(seq.str.mk_concat(a, bc), m);
-    euf::snode* sa_bc = sg.mk(a_bc);
-    SASSERT(sg.find_assoc_equal(sa_bc) == sab_c);
-
-    sg.pop(1);
-
-    // after pop, the concats are gone
-    // recreate right-associated and check no match found
-    expr_ref bc2(seq.str.mk_concat(b, c), m);
-    expr_ref a_bc2(seq.str.mk_concat(a, bc2), m);
-    euf::snode* sa_bc2 = sg.mk(a_bc2);
-    SASSERT(sg.find_assoc_equal(sa_bc2) == nullptr);
-}
-
 // test snode first/last navigation on concat trees
 static void test_sgraph_first_last() {
     std::cout << "test_sgraph_first_last\n";
@@ -525,8 +440,6 @@ void tst_euf_sgraph() {
     test_sgraph_find_idempotent();
     test_sgraph_mk_concat();
     test_sgraph_mk_power();
-    test_sgraph_assoc_hash();
-    test_sgraph_assoc_hash_backtrack();
     test_sgraph_first_last();
     test_sgraph_concat_metadata();
     test_sgraph_display();

@@ -23,47 +23,6 @@ Author:
 
 namespace euf {
 
-    // Associativity-respecting hash: flattens concat into leaf sequence
-    // concat(concat(a, b), c) and concat(a, concat(b, c)) hash identically
-    // Recursively flatten a concatenation tree into a sequence of leaf nodes.
-    // This produces the same leaf order regardless of tree associativity,
-    // so concat(concat(a,b),c) and concat(a,concat(b,c)) yield [a,b,c].
-    static void collect_leaves(snode const* n, ptr_vector<snode const>& leaves) {
-        if (n->is_concat()) {
-            collect_leaves(n->arg(0), leaves);
-            collect_leaves(n->arg(1), leaves);
-        }
-        else {
-            leaves.push_back(n);
-        }
-    }
-
-    unsigned concat_hash::operator()(snode const* n) const {
-        if (!n->is_concat())
-            return n->id();
-        ptr_vector<snode const> leaves;
-        collect_leaves(n, leaves);
-        unsigned h = 0;
-        for (snode const* l : leaves)
-            h = combine_hash(h, l->id());
-        return h;
-    }
-
-    bool concat_eq::operator()(snode const* a, snode const* b) const {
-        if (a == b) return true;
-        if (!a->is_concat() && !b->is_concat())
-            return a->id() == b->id();
-        ptr_vector<snode const> la, lb;
-        collect_leaves(a, la);
-        collect_leaves(b, lb);
-        if (la.size() != lb.size())
-            return false;
-        for (unsigned i = 0; i < la.size(); ++i)
-            if (la[i]->id() != lb[i]->id())
-                return false;
-        return true;
-    }
-
     sgraph::sgraph(ast_manager& m):
         m(m),
         m_seq(m),
@@ -315,9 +274,6 @@ namespace euf {
             m_expr2snode.reserve(eid + 1, nullptr);
             m_expr2snode[eid] = n;
         }
-        // insert concats into the associativity-respecting hash table
-        if (k == snode_kind::s_concat)
-            m_concat_table.insert(n);
         ++m_stats.m_num_nodes;
         return n;
     }
@@ -358,17 +314,6 @@ namespace euf {
         return nullptr;
     }
 
-    snode* sgraph::find_assoc_equal(snode* n) const {
-        if (!n || !n->is_concat())
-            return nullptr;
-        snode* existing = nullptr;
-        // find returns true when a matching entry exists,
-        // check that it is a different node to report a genuine match
-        if (m_concat_table.find(n, existing) && existing != n)
-            return existing;
-        return nullptr;
-    }
-
     enode* sgraph::mk_enode(expr* e) {
         enode* n = m_egraph.find(e);
         if (n) return n;
@@ -396,8 +341,6 @@ namespace euf {
         unsigned old_sz = m_scopes[new_lvl];
         for (unsigned i = m_nodes.size(); i-- > old_sz; ) {
             snode* n = m_nodes[i];
-            if (n->is_concat())
-                m_concat_table.remove(n);
             if (n->get_expr()) {
                 unsigned eid = n->get_expr()->get_id();
                 if (eid < m_expr2snode.size())
