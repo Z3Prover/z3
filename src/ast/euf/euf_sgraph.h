@@ -10,7 +10,7 @@ Abstract:
     Sequence/string graph layer
 
     Encapsulates string and regex expressions for the string solver.
-    Implements the string graph layer from ZIPT (https://github.com/CEisenhofer/ZIPT).
+    Implements the string graph layer from ZIPT (https://github.com/CEisenhofer/ZIPT/tree/parikh/ZIPT).
     The sgraph maps Z3 sequence/regex AST expressions to snode structures
     organized as binary concatenation trees with metadata, and owns an
     egraph with a seq_plugin for congruence closure.
