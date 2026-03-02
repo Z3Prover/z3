@@ -281,6 +281,8 @@ int main(int argc, char ** argv) {
     TST(distribution);
     TST(euf_bv_plugin);
     TST(euf_arith_plugin);
+    TST(euf_sgraph);
+    TST(euf_seq_plugin);
     TST(sls_test);
     TST(scoped_vector);
     TST(sls_seq_plugin);
