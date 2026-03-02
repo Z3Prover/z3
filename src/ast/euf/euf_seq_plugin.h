@@ -93,22 +93,18 @@ namespace euf {
         bool is_str_concat(enode* n) const { return m_seq.str.is_concat(n->get_expr()); }
         bool is_str_concat(enode* n, enode*& a, enode*& b) {
             expr* ea = nullptr, *eb = nullptr;
-            if (!m_seq.str.is_concat(n->get_expr(), ea, eb))
-                return false;
-            a = n->get_arg(0);
-            b = n->get_arg(1);
-            return true;
+            return m_seq.str.is_concat(n->get_expr(), ea, eb) &&
+                   n->num_args() == 2 &&
+                   (a = n->get_arg(0), b = n->get_arg(1), true);
         }
 
         // regex concat predicates
         bool is_re_concat(enode* n) const { return m_seq.re.is_concat(n->get_expr()); }
         bool is_re_concat(enode* n, enode*& a, enode*& b) {
             expr* ea = nullptr, *eb = nullptr;
-            if (!m_seq.re.is_concat(n->get_expr(), ea, eb))
-                return false;
-            a = n->get_arg(0);
-            b = n->get_arg(1);
-            return true;
+            return m_seq.re.is_concat(n->get_expr(), ea, eb) &&
+                   n->num_args() == 2 &&
+                   (a = n->get_arg(0), b = n->get_arg(1), true);
         }
 
         // any concat, string or regex

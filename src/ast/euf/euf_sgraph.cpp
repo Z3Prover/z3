@@ -26,8 +26,10 @@ namespace euf {
     sgraph::sgraph(ast_manager& m):
         m(m),
         m_seq(m),
+        m_rewriter(m),
         m_egraph(m),
-        m_exprs(m) {
+        m_exprs(m),
+        m_str_sort(m_seq.str.mk_string_sort(), m) {
         // create seq_plugin and register it with the egraph
         m_egraph.add_plugin(alloc(seq_plugin, m_egraph));
         // register on_make callback so sgraph creates snodes for new enodes
@@ -352,6 +354,143 @@ namespace euf {
         m_scopes.shrink(new_lvl);
         m_num_scopes = new_lvl;
         m_egraph.pop(num_scopes);
+    }
+
+    snode* sgraph::mk_var(symbol const& name) {
+        expr_ref e(m.mk_const(name, m_str_sort), m);
+        return mk(e);
+    }
+
+    snode* sgraph::mk_char(unsigned ch) {
+        expr_ref c(m_seq.str.mk_char(ch), m);
+        expr_ref u(m_seq.str.mk_unit(c), m);
+        return mk(u);
+    }
+
+    snode* sgraph::mk_empty() {
+        expr_ref e(m_seq.str.mk_empty(m_str_sort), m);
+        return mk(e);
+    }
+
+    snode* sgraph::mk_concat(snode* a, snode* b) {
+        if (a->is_empty()) return b;
+        if (b->is_empty()) return a;
+        expr_ref e(m_seq.str.mk_concat(a->get_expr(), b->get_expr()), m);
+        return mk(e);
+    }
+
+    snode* sgraph::drop_first(snode* n) {
+        if (n->is_empty() || n->is_token())
+            return mk_empty();
+        SASSERT(n->is_concat());
+        snode* l = n->arg(0);
+        snode* r = n->arg(1);
+        if (l->is_token() || l->is_empty())
+            return r;
+        return mk_concat(drop_first(l), r);
+    }
+
+    snode* sgraph::drop_last(snode* n) {
+        if (n->is_empty() || n->is_token())
+            return mk_empty();
+        SASSERT(n->is_concat());
+        snode* l = n->arg(0);
+        snode* r = n->arg(1);
+        if (r->is_token() || r->is_empty())
+            return l;
+        return mk_concat(l, drop_last(r));
+    }
+
+    snode* sgraph::drop_left(snode* n, unsigned count) {
+        for (unsigned i = 0; i < count && !n->is_empty(); ++i)
+            n = drop_first(n);
+        return n;
+    }
+
+    snode* sgraph::drop_right(snode* n, unsigned count) {
+        for (unsigned i = 0; i < count && !n->is_empty(); ++i)
+            n = drop_last(n);
+        return n;
+    }
+
+    snode* sgraph::subst(snode* n, snode* var, snode* replacement) {
+        if (n == var)
+            return replacement;
+        if (n->is_empty() || n->is_char())
+            return n;
+        if (n->is_concat())
+            return mk_concat(subst(n->arg(0), var, replacement),
+                             subst(n->arg(1), var, replacement));
+        // for non-concat compound nodes (power, star, etc.), no substitution into children
+        return n;
+    }
+
+    snode* sgraph::brzozowski_deriv(snode* re, snode* elem) {
+        expr* re_expr = re->get_expr();
+        expr* elem_expr = elem->get_expr();
+        if (!re_expr || !elem_expr)
+            return nullptr;
+        // unwrap str.unit to get the character expression
+        expr* ch = nullptr;
+        if (m_seq.str.is_unit(elem_expr, ch))
+            elem_expr = ch;
+        expr_ref result = m_rewriter.mk_derivative(elem_expr, re_expr);
+        if (!result)
+            return nullptr;
+        return mk(result);
+    }
+
+    void sgraph::collect_re_predicates(snode* re, expr_ref_vector& preds) {
+        if (!re || !re->get_expr())
+            return;
+        expr* e = re->get_expr();
+        expr* ch = nullptr, *lo = nullptr, *hi = nullptr;
+        // leaf regex predicates: character ranges and single characters
+        if (m_seq.re.is_range(e, lo, hi)) {
+            preds.push_back(e);
+            return;
+        }
+        if (m_seq.re.is_to_re(e))
+            return;
+        if (m_seq.re.is_full_char(e))
+            return;
+        if (m_seq.re.is_full_seq(e))
+            return;
+        if (m_seq.re.is_empty(e))
+            return;
+        // recurse into compound regex operators
+        for (unsigned i = 0; i < re->num_args(); ++i)
+            collect_re_predicates(re->arg(i), preds);
+    }
+
+    void sgraph::compute_minterms(snode* re, snode_vector& minterms) {
+        // extract character predicates from the regex
+        expr_ref_vector preds(m);
+        collect_re_predicates(re, preds);
+        if (preds.empty()) {
+            // no predicates means the whole alphabet is one minterm
+            // represented by full_char
+            expr_ref fc(m_seq.re.mk_full_char(m_str_sort), m);
+            minterms.push_back(mk(fc));
+            return;
+        }
+        // generate minterms as conjunctions/negations of predicates
+        // for n predicates, there are up to 2^n minterms
+        unsigned n = preds.size();
+        for (unsigned mask = 0; mask < (1u << n); ++mask) {
+            expr_ref_vector conj(m);
+            for (unsigned i = 0; i < n; ++i) {
+                if (mask & (1u << i))
+                    conj.push_back(preds.get(i));
+                else
+                    conj.push_back(m_seq.re.mk_complement(preds.get(i)));
+            }
+            // intersect all terms
+            expr_ref mt(conj.get(0), m);
+            for (unsigned i = 1; i < conj.size(); ++i)
+                mt = m_seq.re.mk_inter(mt, conj.get(i));
+            minterms.push_back(mk(mt));
+        }
     }
 
     std::ostream& sgraph::display(std::ostream& out) const {

@@ -10,6 +10,7 @@ Abstract:
     Sequence/string graph layer
 
     Encapsulates string and regex expressions for the string solver.
+    Implements the string graph layer from ZIPT (https://github.com/CEisenhofer/ZIPT).
     The sgraph maps Z3 sequence/regex AST expressions to snode structures
     organized as binary concatenation trees with metadata, and owns an
     egraph with a seq_plugin for congruence closure.
@@ -59,6 +60,7 @@ Author:
 #include "util/statistics.h"
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "ast/euf/euf_snode.h"
 #include "ast/euf/euf_egraph.h"
 
@@ -79,10 +81,12 @@ namespace euf {
 
         ast_manager&     m;
         seq_util         m_seq;
+        seq_rewriter     m_rewriter;
         egraph           m_egraph;
         region           m_region;
         snode_vector     m_nodes;
         expr_ref_vector  m_exprs;       // pin expressions
+        sort_ref         m_str_sort;    // cached string sort
         unsigned_vector  m_scopes;
         unsigned         m_num_scopes = 0;
         stats            m_stats;
@@ -93,6 +97,7 @@ namespace euf {
         snode* mk_snode(expr* e, snode_kind k, unsigned num_args, snode* const* args);
         snode_kind classify(expr* e) const;
         void compute_metadata(snode* n);
+        void collect_re_predicates(snode* re, expr_ref_vector& preds);
 
     public:
         sgraph(ast_manager& m);
@@ -111,6 +116,27 @@ namespace euf {
 
         // register expression in both sgraph and egraph
         enode* mk_enode(expr* e);
+
+        // factory methods for creating snodes with corresponding expressions
+        snode* mk_var(symbol const& name);
+        snode* mk_char(unsigned ch);
+        snode* mk_empty();
+        snode* mk_concat(snode* a, snode* b);
+
+        // drop operations: remove tokens from the front/back of a concat tree
+        snode* drop_first(snode* n);
+        snode* drop_last(snode* n);
+        snode* drop_left(snode* n, unsigned count);
+        snode* drop_right(snode* n, unsigned count);
+
+        // substitution: replace all occurrences of var in n by replacement
+        snode* subst(snode* n, snode* var, snode* replacement);
+
+        // Brzozowski derivative of regex re with respect to element elem
+        snode* brzozowski_deriv(snode* re, snode* elem);
+
+        // compute minterms (character class partition) from a regex
+        void compute_minterms(snode* re, snode_vector& minterms);
 
         // scope management for backtracking
         void push();

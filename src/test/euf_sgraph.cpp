@@ -431,6 +431,303 @@ static void test_sgraph_display() {
     std::cout << out;
 }
 
+// test sgraph factory methods: mk_var, mk_char, mk_empty, mk_concat
+static void test_sgraph_factory() {
+    std::cout << "test_sgraph_factory\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::sgraph sg(m);
+
+    // mk_var
+    euf::snode* x = sg.mk_var(symbol("x"));
+    SASSERT(x && x->is_var());
+    SASSERT(!x->is_ground());
+    SASSERT(x->length() == 1);
+
+    // mk_char
+    euf::snode* a = sg.mk_char('A');
+    SASSERT(a && a->is_char());
+    SASSERT(a->is_ground());
+    SASSERT(a->length() == 1);
+
+    // mk_empty
+    euf::snode* e = sg.mk_empty();
+    SASSERT(e && e->is_empty());
+    SASSERT(e->is_nullable());
+    SASSERT(e->length() == 0);
+
+    // mk_concat with empty absorption
+    euf::snode* xe = sg.mk_concat(x, e);
+    SASSERT(xe == x);
+    euf::snode* ex = sg.mk_concat(e, x);
+    SASSERT(ex == x);
+
+    // mk_concat of two variables
+    euf::snode* y = sg.mk_var(symbol("y"));
+    euf::snode* xy = sg.mk_concat(x, y);
+    SASSERT(xy && xy->is_concat());
+    SASSERT(xy->length() == 2);
+    SASSERT(xy->arg(0) == x);
+    SASSERT(xy->arg(1) == y);
+
+    // mk_concat of multiple characters
+    euf::snode* b = sg.mk_char('B');
+    euf::snode* c = sg.mk_char('C');
+    euf::snode* abc = sg.mk_concat(sg.mk_concat(a, b), c);
+    SASSERT(abc->length() == 3);
+    SASSERT(abc->is_ground());
+    SASSERT(abc->first() == a);
+    SASSERT(abc->last() == c);
+}
+
+// test snode::at() and snode::collect_tokens()
+static void test_sgraph_indexing() {
+    std::cout << "test_sgraph_indexing\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::sgraph sg(m);
+
+    euf::snode* a = sg.mk_char('A');
+    euf::snode* b = sg.mk_char('B');
+    euf::snode* c = sg.mk_char('C');
+    euf::snode* x = sg.mk_var(symbol("x"));
+
+    // build concat(concat(a, b), concat(c, x)) => [A, B, C, x]
+    euf::snode* ab = sg.mk_concat(a, b);
+    euf::snode* cx = sg.mk_concat(c, x);
+    euf::snode* abcx = sg.mk_concat(ab, cx);
+
+    SASSERT(abcx->length() == 4);
+
+    // test at()
+    SASSERT(abcx->at(0) == a);
+    SASSERT(abcx->at(1) == b);
+    SASSERT(abcx->at(2) == c);
+    SASSERT(abcx->at(3) == x);
+    SASSERT(abcx->at(4) == nullptr); // out of bounds
+
+    // test collect_tokens()
+    euf::snode_vector tokens;
+    abcx->collect_tokens(tokens);
+    SASSERT(tokens.size() == 4);
+    SASSERT(tokens[0] == a);
+    SASSERT(tokens[1] == b);
+    SASSERT(tokens[2] == c);
+    SASSERT(tokens[3] == x);
+
+    // single token: at(0) is self
+    SASSERT(a->at(0) == a);
+    SASSERT(a->at(1) == nullptr);
+
+    // empty: at(0) is nullptr
+    euf::snode* e = sg.mk_empty();
+    SASSERT(e->at(0) == nullptr);
+    euf::snode_vector empty_tokens;
+    e->collect_tokens(empty_tokens);
+    SASSERT(empty_tokens.empty());
+}
+
+// test sgraph drop operations
+static void test_sgraph_drop() {
+    std::cout << "test_sgraph_drop\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::sgraph sg(m);
+
+    euf::snode* a = sg.mk_char('A');
+    euf::snode* b = sg.mk_char('B');
+    euf::snode* c = sg.mk_char('C');
+    euf::snode* d = sg.mk_char('D');
+
+    // build concat(concat(a, b), concat(c, d)) => [A, B, C, D]
+    euf::snode* ab = sg.mk_concat(a, b);
+    euf::snode* cd = sg.mk_concat(c, d);
+    euf::snode* abcd = sg.mk_concat(ab, cd);
+
+    SASSERT(abcd->length() == 4);
+
+    // drop_first: [A, B, C, D] => [B, C, D]
+    euf::snode* bcd = sg.drop_first(abcd);
+    SASSERT(bcd->length() == 3);
+    SASSERT(bcd->first() == b);
+    SASSERT(bcd->last() == d);
+
+    // drop_last: [A, B, C, D] => [A, B, C]
+    euf::snode* abc = sg.drop_last(abcd);
+    SASSERT(abc->length() == 3);
+    SASSERT(abc->first() == a);
+    SASSERT(abc->last() == c);
+
+    // drop_left(2): [A, B, C, D] => [C, D]
+    euf::snode* cd2 = sg.drop_left(abcd, 2);
+    SASSERT(cd2->length() == 2);
+    SASSERT(cd2->first() == c);
+
+    // drop_right(2): [A, B, C, D] => [A, B]
+    euf::snode* ab2 = sg.drop_right(abcd, 2);
+    SASSERT(ab2->length() == 2);
+    SASSERT(ab2->last() == b);
+
+    // drop all: [A, B, C, D] => empty
+    euf::snode* empty = sg.drop_left(abcd, 4);
+    SASSERT(empty->is_empty());
+
+    // drop from single token: [A] => empty
+    euf::snode* e = sg.drop_first(a);
+    SASSERT(e->is_empty());
+
+    // drop from empty: no change
+    euf::snode* ee = sg.drop_first(sg.mk_empty());
+    SASSERT(ee->is_empty());
+}
+
+// test sgraph substitution
+static void test_sgraph_subst() {
+    std::cout << "test_sgraph_subst\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::sgraph sg(m);
+
+    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* y = sg.mk_var(symbol("y"));
+    euf::snode* a = sg.mk_char('A');
+    euf::snode* b = sg.mk_char('B');
+
+    // concat(x, concat(a, x)) with x -> b gives concat(b, concat(a, b))
+    euf::snode* ax = sg.mk_concat(a, x);
+    euf::snode* xax = sg.mk_concat(x, ax);
+    SASSERT(xax->length() == 3);
+
+    euf::snode* result = sg.subst(xax, x, b);
+    SASSERT(result->length() == 3);
+    SASSERT(result->first() == b);
+    SASSERT(result->last() == b);
+    SASSERT(result->at(1) == a); // middle is still 'A'
+
+    // substitution of non-occurring variable is identity
+    euf::snode* same = sg.subst(xax, y, b);
+    SASSERT(same == xax);
+
+    // substitution of variable with empty
+    euf::snode* e = sg.mk_empty();
+    euf::snode* collapsed = sg.subst(xax, x, e);
+    SASSERT(collapsed->length() == 1); // just 'a' remains
+    SASSERT(collapsed == a);
+}
+
+// test complex concatenation creation, merging and simplification
+static void test_sgraph_complex_concat() {
+    std::cout << "test_sgraph_complex_concat\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::sgraph sg(m);
+
+    // build a string "HELLO" = concat(H, concat(E, concat(L, concat(L, O))))
+    euf::snode* h = sg.mk_char('H');
+    euf::snode* e = sg.mk_char('E');
+    euf::snode* l = sg.mk_char('L');
+    euf::snode* o = sg.mk_char('O');
+
+    euf::snode* lo = sg.mk_concat(l, o);
+    euf::snode* llo = sg.mk_concat(l, lo);
+    euf::snode* ello = sg.mk_concat(e, llo);
+    euf::snode* hello = sg.mk_concat(h, ello);
+
+    SASSERT(hello->length() == 5);
+    SASSERT(hello->is_ground());
+    SASSERT(hello->first() == h);
+    SASSERT(hello->last() == o);
+
+    // index into "HELLO"
+    SASSERT(hello->at(0) == h);
+    SASSERT(hello->at(1) == e);
+    SASSERT(hello->at(2) == l);
+    SASSERT(hello->at(3) == l);
+    SASSERT(hello->at(4) == o);
+
+    // drop first 2 from "HELLO" => "LLO"
+    euf::snode* llo2 = sg.drop_left(hello, 2);
+    SASSERT(llo2->length() == 3);
+    SASSERT(llo2->first() == l);
+
+    // drop last 3 from "HELLO" => "HE"
+    euf::snode* he = sg.drop_right(hello, 3);
+    SASSERT(he->length() == 2);
+    SASSERT(he->first() == h);
+    SASSERT(he->last() == e);
+
+    // mixed variables and characters: concat(x, "AB", y)
+    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* y = sg.mk_var(symbol("y"));
+    euf::snode* a = sg.mk_char('A');
+    euf::snode* b = sg.mk_char('B');
+    euf::snode* ab = sg.mk_concat(a, b);
+    euf::snode* xab = sg.mk_concat(x, ab);
+    euf::snode* xaby = sg.mk_concat(xab, y);
+
+    SASSERT(xaby->length() == 4);
+    SASSERT(!xaby->is_ground());
+    SASSERT(xaby->at(0) == x);
+    SASSERT(xaby->at(1) == a);
+    SASSERT(xaby->at(2) == b);
+    SASSERT(xaby->at(3) == y);
+}
+
+// test Brzozowski derivative computation
+static void test_sgraph_brzozowski() {
+    std::cout << "test_sgraph_brzozowski\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::sgraph sg(m);
+    seq_util seq(m);
+    sort_ref str_sort(seq.str.mk_string_sort(), m);
+
+    // derivative of re.star(to_re("a")) w.r.t. 'a'
+    // d/da (a*) = a*
+    expr_ref ch_a(seq.str.mk_char('a'), m);
+    expr_ref unit_a(seq.str.mk_unit(ch_a), m);
+    expr_ref to_re_a(seq.re.mk_to_re(unit_a), m);
+    expr_ref star_a(seq.re.mk_star(to_re_a), m);
+
+    euf::snode* s_star_a = sg.mk(star_a);
+    euf::snode* s_unit_a = sg.mk(unit_a);
+
+    euf::snode* deriv = sg.brzozowski_deriv(s_star_a, s_unit_a);
+    SASSERT(deriv != nullptr);
+    std::cout << "  d/da(a*) kind: " << (int)deriv->kind() << "\n";
+
+    // derivative of re.empty w.r.t. 'a' should be re.empty
+    sort_ref re_sort(seq.re.mk_re(str_sort), m);
+    expr_ref re_empty(seq.re.mk_empty(re_sort), m);
+    euf::snode* s_empty = sg.mk(re_empty);
+    euf::snode* deriv_empty = sg.brzozowski_deriv(s_empty, s_unit_a);
+    SASSERT(deriv_empty != nullptr);
+    SASSERT(deriv_empty->is_fail()); // derivative of empty set is empty set
+    std::cout << "  d/da(empty) kind: " << (int)deriv_empty->kind() << "\n";
+
+    sg.display(std::cout);
+}
+
+// test minterm computation
+static void test_sgraph_minterms() {
+    std::cout << "test_sgraph_minterms\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::sgraph sg(m);
+    seq_util seq(m);
+    sort_ref str_sort(seq.str.mk_string_sort(), m);
+
+    // simple regex with no character predicates: re.all (.*)
+    expr_ref re_all(seq.re.mk_full_seq(str_sort), m);
+    euf::snode* s_re_all = sg.mk(re_all);
+
+    euf::snode_vector minterms;
+    sg.compute_minterms(s_re_all, minterms);
+    // no predicates => single minterm (full_char)
+    SASSERT(minterms.size() == 1);
+    std::cout << "  re.all minterms: " << minterms.size() << "\n";
+}
+
 void tst_euf_sgraph() {
     test_sgraph_classify();
     test_sgraph_regex();
@@ -443,4 +740,11 @@ void tst_euf_sgraph() {
     test_sgraph_first_last();
     test_sgraph_concat_metadata();
     test_sgraph_display();
+    test_sgraph_factory();
+    test_sgraph_indexing();
+    test_sgraph_drop();
+    test_sgraph_subst();
+    test_sgraph_complex_concat();
+    test_sgraph_brzozowski();
+    test_sgraph_minterms();
 }
