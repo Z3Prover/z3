@@ -31,7 +31,8 @@ static void test_sgraph_basic() {
     std::cout << "test_sgraph_basic\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -72,7 +73,8 @@ static void test_sgraph_backtrack() {
     std::cout << "test_sgraph_backtrack\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -99,7 +101,8 @@ static void test_seq_plugin_assoc() {
     std::cout << "test_seq_plugin_assoc\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     euf::egraph& g = sg.get_egraph();
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
@@ -125,7 +128,8 @@ static void test_seq_plugin_empty() {
     std::cout << "test_seq_plugin_empty\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     euf::egraph& g = sg.get_egraph();
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
@@ -150,7 +154,8 @@ static void test_seq_plugin_star_merge() {
     std::cout << "test_seq_plugin_star_merge\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     euf::egraph& g = sg.get_egraph();
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
@@ -178,7 +183,8 @@ static void test_seq_plugin_nullable_absorb() {
     std::cout << "test_seq_plugin_nullable_absorb\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     euf::egraph& g = sg.get_egraph();
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
@@ -202,7 +208,8 @@ static void test_sgraph_egraph_sync() {
     std::cout << "test_sgraph_egraph_sync\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     euf::egraph& g = sg.get_egraph();
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
