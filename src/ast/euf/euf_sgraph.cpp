@@ -200,13 +200,18 @@ namespace euf {
             n->m_length = 1;
             break;
 
-        case snode_kind::s_loop:
+        case snode_kind::s_loop: {
+            bool body_nullable = n->num_args() > 0 && n->arg(0)->is_nullable();
+            unsigned lo = 0, hi = 0;
+            expr* body = nullptr;
+            bool lo_zero = n->get_expr() && m_seq.re.is_loop(n->get_expr(), body, lo, hi) && lo == 0;
             n->m_ground = n->num_args() > 0 ? n->arg(0)->is_ground() : true;
             n->m_regex_free = false;
-            n->m_nullable = false; // depends on lower bound
+            n->m_nullable = lo_zero || body_nullable;
             n->m_level = 1;
             n->m_length = 1;
             break;
+        }
 
         case snode_kind::s_union:
             SASSERT(n->num_args() == 2);
@@ -461,13 +466,17 @@ namespace euf {
     }
 
     snode* sgraph::drop_left(snode* n, unsigned count) {
-        for (unsigned i = 0; i < count && !n->is_empty(); ++i)
+        if (count == 0 || n->is_empty()) return n;
+        if (count >= n->length()) return mk_empty();
+        for (unsigned i = 0; i < count; ++i)
             n = drop_first(n);
         return n;
     }
 
     snode* sgraph::drop_right(snode* n, unsigned count) {
-        for (unsigned i = 0; i < count && !n->is_empty(); ++i)
+        if (count == 0 || n->is_empty()) return n;
+        if (count >= n->length()) return mk_empty();
+        for (unsigned i = 0; i < count; ++i)
             n = drop_last(n);
         return n;
     }
