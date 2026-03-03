@@ -288,4 +288,5 @@ int main(int argc, char ** argv) {
     TST(finite_set);
     TST(finite_set_rewriter);
     TST(fpa);
+    TST(user_propagator_fresh);
 }
