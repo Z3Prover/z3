@@ -27,7 +27,8 @@ static void test_sgraph_classify() {
     std::cout << "test_sgraph_classify\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -85,7 +86,8 @@ static void test_sgraph_regex() {
     std::cout << "test_sgraph_regex\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -160,7 +162,8 @@ static void test_sgraph_power() {
     std::cout << "test_sgraph_power\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     arith_util arith(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
@@ -185,7 +188,8 @@ static void test_sgraph_push_pop() {
     std::cout << "test_sgraph_push_pop\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -221,7 +225,8 @@ static void test_sgraph_nested_scopes() {
     std::cout << "test_sgraph_nested_scopes\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -260,7 +265,8 @@ static void test_sgraph_find_idempotent() {
     std::cout << "test_sgraph_find_idempotent\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -276,7 +282,8 @@ static void test_sgraph_mk_concat() {
     std::cout << "test_sgraph_mk_concat\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -310,7 +317,8 @@ static void test_sgraph_mk_power() {
     std::cout << "test_sgraph_mk_power\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     arith_util arith(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
@@ -335,7 +343,8 @@ static void test_sgraph_first_last() {
     std::cout << "test_sgraph_first_last\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -372,7 +381,8 @@ static void test_sgraph_concat_metadata() {
     std::cout << "test_sgraph_concat_metadata\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -414,7 +424,8 @@ static void test_sgraph_display() {
     std::cout << "test_sgraph_display\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -436,7 +447,8 @@ static void test_sgraph_factory() {
     std::cout << "test_sgraph_factory\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
 
     // mk_var
     euf::snode* x = sg.mk_var(symbol("x"));
@@ -485,7 +497,8 @@ static void test_sgraph_indexing() {
     std::cout << "test_sgraph_indexing\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
 
     euf::snode* a = sg.mk_char('A');
     euf::snode* b = sg.mk_char('B');
@@ -532,7 +545,8 @@ static void test_sgraph_drop() {
     std::cout << "test_sgraph_drop\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
 
     euf::snode* a = sg.mk_char('A');
     euf::snode* b = sg.mk_char('B');
@@ -586,7 +600,8 @@ static void test_sgraph_subst() {
     std::cout << "test_sgraph_subst\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
 
     euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* y = sg.mk_var(symbol("y"));
@@ -620,7 +635,8 @@ static void test_sgraph_complex_concat() {
     std::cout << "test_sgraph_complex_concat\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
 
     // build a string "HELLO" = concat(H, concat(E, concat(L, concat(L, O))))
     euf::snode* h = sg.mk_char('H');
@@ -678,7 +694,8 @@ static void test_sgraph_brzozowski() {
     std::cout << "test_sgraph_brzozowski\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -713,7 +730,8 @@ static void test_sgraph_minterms() {
     std::cout << "test_sgraph_minterms\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 

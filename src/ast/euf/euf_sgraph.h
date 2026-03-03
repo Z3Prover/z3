@@ -10,7 +10,7 @@ Abstract:
     Sequence/string graph layer
 
     Encapsulates string and regex expressions for the string solver.
-    Implements the string graph layer from ZIPT (https://github.com/CEisenhofer/ZIPT).
+    Implements the string graph layer from ZIPT (https://github.com/CEisenhofer/ZIPT/tree/parikh/ZIPT).
     The sgraph maps Z3 sequence/regex AST expressions to snode structures
     organized as binary concatenation trees with metadata, and owns an
     egraph with a seq_plugin for congruence closure.
@@ -82,14 +82,17 @@ namespace euf {
         ast_manager&     m;
         seq_util         m_seq;
         seq_rewriter     m_rewriter;
-        egraph           m_egraph;
+        egraph&          m_egraph;
         region           m_region;
         snode_vector     m_nodes;
-        expr_ref_vector  m_exprs;       // pin expressions
         sort_ref         m_str_sort;    // cached string sort
         unsigned_vector  m_scopes;
         unsigned         m_num_scopes = 0;
         stats            m_stats;
+        bool             m_add_plugin; // whether sgraph created the seq_plugin
+
+        // tracks allocated subst caches for cleanup
+        ptr_vector<snode_subst_cache> m_subst_caches;
 
         // maps expression id to snode
         ptr_vector<snode> m_expr2snode;
@@ -97,10 +100,11 @@ namespace euf {
         snode* mk_snode(expr* e, snode_kind k, unsigned num_args, snode* const* args);
         snode_kind classify(expr* e) const;
         void compute_metadata(snode* n);
+        void compute_hash_matrix(snode* n);
         void collect_re_predicates(snode* re, expr_ref_vector& preds);
 
     public:
-        sgraph(ast_manager& m);
+        sgraph(ast_manager& m, egraph& eg, bool add_plugin = true);
         ~sgraph();
 
         ast_manager& get_manager() const { return m; }
