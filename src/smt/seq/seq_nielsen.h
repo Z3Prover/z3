@@ -11,7 +11,7 @@ Abstract:
 
     Ports the constraint types and Nielsen graph structures from
     ZIPT (https://github.com/CEisenhofer/ZIPT/tree/parikh/ZIPT/Constraints)
-    into Z3's rewriter framework.
+    into Z3's smt/seq framework.
 
     The Nielsen graph is used for solving word equations and regex
     membership constraints via Nielsen transformations. Each node

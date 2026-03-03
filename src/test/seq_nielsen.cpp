@@ -15,7 +15,7 @@ Abstract:
 
 #include "util/util.h"
 #include "ast/euf/euf_sgraph.h"
-#include "ast/rewriter/seq_nielsen.h"
+#include "smt/seq/seq_nielsen.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
 #include <iostream>

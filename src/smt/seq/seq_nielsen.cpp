@@ -19,7 +19,7 @@ Author:
 
 --*/
 
-#include "ast/rewriter/seq_nielsen.h"
+#include "smt/seq/seq_nielsen.h"
 #include "ast/ast_pp.h"
 
 namespace seq {
