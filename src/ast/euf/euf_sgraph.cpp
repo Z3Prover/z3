@@ -80,7 +80,7 @@ namespace euf {
             return snode_kind::s_other;
         }
 
-        if (m_seq.str.is_concat(e))
+        if (m_seq.str.is_concat(e) || m_seq.re.is_concat(e))
             return snode_kind::s_concat;
 
         if (m_seq.str.is_unit(e)) {
@@ -200,13 +200,20 @@ namespace euf {
             n->m_length = 1;
             break;
 
-        case snode_kind::s_loop:
+        case snode_kind::s_loop: {
             n->m_ground = n->num_args() > 0 ? n->arg(0)->is_ground() : true;
             n->m_regex_free = false;
-            n->m_nullable = false; // depends on lower bound
+            // nullable iff lower bound is 0: r{0,n} accepts the empty string
+            unsigned lo = 1, hi = 0;
+            expr* loop_body = nullptr;
+            if (n->get_expr() &&
+                !m_seq.re.is_loop(n->get_expr(), loop_body, lo, hi))
+                m_seq.re.is_loop(n->get_expr(), loop_body, lo);
+            n->m_nullable = (lo == 0);
             n->m_level = 1;
             n->m_length = 1;
             break;
+        }
 
         case snode_kind::s_union:
             SASSERT(n->num_args() == 2);
