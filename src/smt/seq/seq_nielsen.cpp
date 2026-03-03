@@ -552,7 +552,8 @@ namespace seq {
             // Const Nielsen modifier: lhs starts with char, rhs starts with var
             // -> substitute rhs_var = char . fresh_var
             if (lhead->is_char() && rhead->is_var()) {
-                symbol fresh_name(("v!" + std::to_string(node->id())).c_str());
+                std::string fresh_str = "v!" + std::to_string(node->id());
+                symbol fresh_name(fresh_str.c_str());
                 euf::snode* fresh = m_sg.mk_var(fresh_name);
                 euf::snode* replacement = m_sg.mk_concat(lhead, fresh);
 
@@ -565,7 +566,8 @@ namespace seq {
             }
 
             if (rhead->is_char() && lhead->is_var()) {
-                symbol fresh_name(("v!" + std::to_string(node->id())).c_str());
+                std::string fresh_str = "v!" + std::to_string(node->id());
+                symbol fresh_name(fresh_str.c_str());
                 euf::snode* fresh = m_sg.mk_var(fresh_name);
                 euf::snode* replacement = m_sg.mk_concat(rhead, fresh);
 
