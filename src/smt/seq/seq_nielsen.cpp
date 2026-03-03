@@ -308,4 +308,325 @@ namespace seq {
         return out;
     }
 
+    // -----------------------------------------------------------------------
+    // nielsen_node: simplify_and_init
+    // -----------------------------------------------------------------------
+
+    simplify_result nielsen_node::simplify_and_init(nielsen_graph& g) {
+        euf::sgraph& sg = g.sg();
+        bool changed = true;
+
+        while (changed) {
+            changed = false;
+
+            // pass 1: remove trivially satisfied equalities
+            unsigned wi = 0;
+            for (unsigned i = 0; i < m_str_eq.size(); ++i) {
+                str_eq& eq = m_str_eq[i];
+                if (eq.is_trivial())
+                    continue;
+                m_str_eq[wi++] = eq;
+            }
+            if (wi < m_str_eq.size()) {
+                m_str_eq.shrink(wi);
+                changed = true;
+            }
+
+            // pass 2: detect symbol clashes and empty-propagation
+            for (str_eq& eq : m_str_eq) {
+                if (!eq.m_lhs || !eq.m_rhs)
+                    continue;
+
+                // both sides start with a concrete character: check match
+                if (eq.m_lhs->is_char() && eq.m_rhs->is_char()) {
+                    if (eq.m_lhs->id() != eq.m_rhs->id()) {
+                        // symbol clash
+                        m_is_general_conflict = true;
+                        m_reason = backtrack_reason::symbol_clash;
+                        return simplify_result::conflict;
+                    }
+                    // same char: drop from both sides
+                    eq.m_lhs = sg.drop_first(eq.m_lhs);
+                    eq.m_rhs = sg.drop_first(eq.m_rhs);
+                    changed = true;
+                    continue;
+                }
+
+                // one side empty, the other not empty => conflict or substitution
+                if (eq.m_lhs->is_empty() && !eq.m_rhs->is_empty()) {
+                    // rhs must also be empty; if it is a concrete non-empty string => conflict
+                    if (eq.m_rhs->is_char() || eq.m_rhs->is_concat()) {
+                        // check if rhs has any non-variable tokens
+                        euf::snode_vector tokens;
+                        eq.m_rhs->collect_tokens(tokens);
+                        bool all_vars = true;
+                        for (euf::snode* t : tokens)
+                            if (!t->is_var()) { all_vars = false; break; }
+                        if (!all_vars) {
+                            m_is_general_conflict = true;
+                            m_reason = backtrack_reason::symbol_clash;
+                            return simplify_result::conflict;
+                        }
+                        // substitute: every variable in rhs -> empty
+                        for (euf::snode* t : tokens) {
+                            if (t->is_var()) {
+                                nielsen_subst s(t, sg.mk_empty(), eq.m_dep);
+                                apply_subst(sg, s);
+                                changed = true;
+                            }
+                        }
+                    }
+                    continue;
+                }
+                if (eq.m_rhs->is_empty() && !eq.m_lhs->is_empty()) {
+                    euf::snode_vector tokens;
+                    eq.m_lhs->collect_tokens(tokens);
+                    bool all_vars = true;
+                    for (euf::snode* t : tokens)
+                        if (!t->is_var()) { all_vars = false; break; }
+                    if (!all_vars) {
+                        m_is_general_conflict = true;
+                        m_reason = backtrack_reason::symbol_clash;
+                        return simplify_result::conflict;
+                    }
+                    for (euf::snode* t : tokens) {
+                        if (t->is_var()) {
+                            nielsen_subst s(t, sg.mk_empty(), eq.m_dep);
+                            apply_subst(sg, s);
+                            changed = true;
+                        }
+                    }
+                    continue;
+                }
+
+                // prefix matching: lhs and rhs both start with the same char => cancel
+                {
+                    euf::snode_vector lhs_toks, rhs_toks;
+                    eq.m_lhs->collect_tokens(lhs_toks);
+                    eq.m_rhs->collect_tokens(rhs_toks);
+                    unsigned prefix = 0;
+                    while (prefix < lhs_toks.size() && prefix < rhs_toks.size() &&
+                           lhs_toks[prefix]->is_char() && rhs_toks[prefix]->is_char()) {
+                        if (lhs_toks[prefix]->id() != rhs_toks[prefix]->id()) {
+                            m_is_general_conflict = true;
+                            m_reason = backtrack_reason::symbol_clash;
+                            return simplify_result::conflict;
+                        }
+                        ++prefix;
+                    }
+                    if (prefix > 0) {
+                        eq.m_lhs = sg.drop_left(eq.m_lhs, prefix);
+                        eq.m_rhs = sg.drop_left(eq.m_rhs, prefix);
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        // check for regex memberships that are immediately infeasible
+        for (str_mem& mem : m_str_mem) {
+            if (!mem.m_str || !mem.m_regex)
+                continue;
+            if (mem.m_str->is_empty() && !mem.m_regex->is_nullable()) {
+                m_is_general_conflict = true;
+                m_reason = backtrack_reason::regex;
+                return simplify_result::conflict;
+            }
+        }
+
+        if (is_satisfied())
+            return simplify_result::satisfied;
+
+        return simplify_result::proceed;
+    }
+
+    bool nielsen_node::is_satisfied() const {
+        for (str_eq const& eq : m_str_eq)
+            if (!eq.is_trivial()) return false;
+        return m_str_mem.empty();
+    }
+
+    bool nielsen_node::is_subsumed_by(nielsen_node const& other) const {
+        // check if every constraint in 'other' also appears in 'this'
+        for (str_eq const& oeq : other.m_str_eq) {
+            bool found = false;
+            for (str_eq const& teq : m_str_eq)
+                if (teq == oeq) { found = true; break; }
+            if (!found) return false;
+        }
+        for (str_mem const& omem : other.m_str_mem) {
+            bool found = false;
+            for (str_mem const& tmem : m_str_mem)
+                if (tmem == omem) { found = true; break; }
+            if (!found) return false;
+        }
+        return true;
+    }
+
+    // -----------------------------------------------------------------------
+    // nielsen_graph: search
+    // -----------------------------------------------------------------------
+
+    nielsen_graph::search_result nielsen_graph::solve() {
+        if (!m_root)
+            return search_result::sat;
+
+        m_depth_bound = 10;
+        for (unsigned iter = 0; iter < 6; ++iter, m_depth_bound *= 2) {
+            inc_run_idx();
+            search_result r = search_dfs(m_root, 0);
+            if (r != search_result::unknown)
+                return r;
+            // depth limit hit – increase bound
+        }
+        return search_result::unknown;
+    }
+
+    nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node, unsigned depth) {
+        simplify_result sr = node->simplify_and_init(*this);
+
+        if (sr == simplify_result::conflict)
+            return search_result::unsat;
+        if (sr == simplify_result::satisfied || node->is_satisfied())
+            return search_result::sat;
+
+        if (depth >= m_depth_bound)
+            return search_result::unknown;
+
+        if (!generate_extensions(node, depth))
+            return search_result::unsat;
+
+        bool any_unknown = false;
+        for (nielsen_edge* e : node->outgoing()) {
+            nielsen_node* child = e->tgt();
+            search_result r = search_dfs(child, depth + 1);
+            if (r == search_result::sat)
+                return search_result::sat;
+            if (r == search_result::unknown)
+                any_unknown = true;
+        }
+        return any_unknown ? search_result::unknown : search_result::unsat;
+    }
+
+    simplify_result nielsen_graph::simplify_node(nielsen_node* node) {
+        return node->simplify_and_init(*this);
+    }
+
+    bool nielsen_graph::generate_extensions(nielsen_node* node, unsigned /*depth*/) {
+        // find the first non-trivial string equality to split on
+        for (str_eq const& eq : node->str_eqs()) {
+            if (eq.is_trivial())
+                continue;
+            if (!eq.m_lhs || !eq.m_rhs)
+                continue;
+
+            euf::snode_vector lhs_toks, rhs_toks;
+            eq.m_lhs->collect_tokens(lhs_toks);
+            eq.m_rhs->collect_tokens(rhs_toks);
+
+            if (lhs_toks.empty() || rhs_toks.empty())
+                continue;
+
+            euf::snode* lhead = lhs_toks[0];
+            euf::snode* rhead = rhs_toks[0];
+
+            // Det modifier: if one side starts with a variable whose other side is empty
+            if (lhead->is_var() && eq.m_rhs->is_empty()) {
+                // substitute lhead -> empty
+                nielsen_node* child = mk_child(node);
+                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_subst s(lhead, m_sg.mk_empty(), eq.m_dep);
+                e->add_subst(s);
+                child->apply_subst(m_sg, s);
+                return true;
+            }
+            if (rhead->is_var() && eq.m_lhs->is_empty()) {
+                nielsen_node* child = mk_child(node);
+                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_subst s(rhead, m_sg.mk_empty(), eq.m_dep);
+                e->add_subst(s);
+                child->apply_subst(m_sg, s);
+                return true;
+            }
+
+            // Const Nielsen modifier: lhs starts with char, rhs starts with var
+            // -> substitute rhs_var = char . fresh_var
+            if (lhead->is_char() && rhead->is_var()) {
+                symbol fresh_name(("v!" + std::to_string(node->id())).c_str());
+                euf::snode* fresh = m_sg.mk_var(fresh_name);
+                euf::snode* replacement = m_sg.mk_concat(lhead, fresh);
+
+                nielsen_node* child = mk_child(node);
+                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_subst s(rhead, replacement, eq.m_dep);
+                e->add_subst(s);
+                child->apply_subst(m_sg, s);
+                return true;
+            }
+
+            if (rhead->is_char() && lhead->is_var()) {
+                symbol fresh_name(("v!" + std::to_string(node->id())).c_str());
+                euf::snode* fresh = m_sg.mk_var(fresh_name);
+                euf::snode* replacement = m_sg.mk_concat(rhead, fresh);
+
+                nielsen_node* child = mk_child(node);
+                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_subst s(lhead, replacement, eq.m_dep);
+                e->add_subst(s);
+                child->apply_subst(m_sg, s);
+                return true;
+            }
+
+            // Eq split modifier: both sides start with variables x.A = y.B
+            // Produce three children:
+            //   1) x = eps, A = y.B
+            //   2) x = y, A = B  (when len(x) = len(y))
+            //   3) y = eps, x.A = B
+            if (lhead->is_var() && rhead->is_var()) {
+                // child 1: lhead -> eps
+                {
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, true);
+                    nielsen_subst s(lhead, m_sg.mk_empty(), eq.m_dep);
+                    e->add_subst(s);
+                    child->apply_subst(m_sg, s);
+                }
+                // child 2: lhead = rhead (if different vars, substitute lhead -> rhead)
+                if (lhead->id() != rhead->id()) {
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, false);
+                    nielsen_subst s(lhead, rhead, eq.m_dep);
+                    e->add_subst(s);
+                    child->apply_subst(m_sg, s);
+                }
+                // child 3: rhead -> eps
+                {
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, true);
+                    nielsen_subst s(rhead, m_sg.mk_empty(), eq.m_dep);
+                    e->add_subst(s);
+                    child->apply_subst(m_sg, s);
+                }
+                return true;
+            }
+
+            // no applicable modifier for this equality; try next
+        }
+
+        // no extension was generated
+        return false;
+    }
+
+    void nielsen_graph::collect_conflict_deps(dep_tracker& deps) const {
+        for (nielsen_node const* n : m_nodes) {
+            if (!n->is_currently_conflict())
+                continue;
+            for (str_eq const& eq : n->str_eqs())
+                deps.merge(eq.m_dep);
+            for (str_mem const& mem : n->str_mems())
+                deps.merge(mem.m_dep);
+        }
+    }
+
 }
+

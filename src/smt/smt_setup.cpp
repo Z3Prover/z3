@@ -35,6 +35,7 @@ Revision History:
 #include "smt/theory_seq_empty.h"
 #include "smt/theory_seq.h"
 #include "smt/theory_char.h"
+#include "smt/theory_nseq.h"
 #include "smt/theory_special_relations.h"
 #include "smt/theory_sls.h"
 #include "smt/theory_pb.h"
@@ -571,7 +572,9 @@ namespace smt {
         else if (m_params.m_string_solver == "auto") {
             setup_unknown();
         }
- 
+        else if (m_params.m_string_solver == "nseq") {
+            setup_nseq();
+        }
         else if (m_params.m_string_solver == "empty") {
             setup_seq();
         }
@@ -579,7 +582,7 @@ namespace smt {
             // don't register any solver.
         }
         else {
-            throw default_exception("invalid parameter for smt.string_solver, valid options are 'seq', 'auto'");
+            throw default_exception("invalid parameter for smt.string_solver, valid options are 'seq', 'auto', 'nseq'");
         }
     }
 
@@ -754,11 +757,14 @@ namespace smt {
         else if (m_params.m_string_solver == "none") {
             // don't register any solver.
         }
+        else if (m_params.m_string_solver == "nseq") {
+            setup_nseq();
+        }
         else if (m_params.m_string_solver == "auto") {            
                 setup_seq();
         } 
         else {
-            throw default_exception("invalid parameter for smt.string_solver, valid options are 'seq', 'auto'");
+            throw default_exception("invalid parameter for smt.string_solver, valid options are 'seq', 'auto', 'nseq'");
         }
     }
 
@@ -783,6 +789,11 @@ namespace smt {
 
     void setup::setup_char() {
         m_context.register_plugin(alloc(smt::theory_char, m_context));        
+    }
+
+    void setup::setup_nseq() {
+        m_context.register_plugin(alloc(smt::theory_nseq, m_context));
+        setup_char();
     }
 
     void setup::setup_finite_set() {
