@@ -212,10 +212,15 @@ namespace euf {
         if (same_star_body(a, b))
             push_merge(n, a);
 
-        // Rule 1 extended: concat(v*, concat(v*, c)) = concat(v*, c)
+        // Rule 1 extended (right): concat(v*, concat(v*, c)) = concat(v*, c)
         enode* b1, *b2;
         if (is_concat(b, b1, b2) && same_star_body(a, b1))
             push_merge(n, b);
+
+        // Rule 1 extended (left): concat(concat(c, v*), v*) = concat(c, v*)
+        enode* a1, *a2;
+        if (is_concat(a, a1, a2) && same_star_body(a2, b))
+            push_merge(n, a);
 
         // Rule 2: Nullable absorption by .*
         // concat(.*, v) = .* when v is nullable
