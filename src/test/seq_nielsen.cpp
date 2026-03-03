@@ -14,6 +14,7 @@ Abstract:
 --*/
 
 #include "util/util.h"
+#include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_sgraph.h"
 #include "smt/seq/seq_nielsen.h"
 #include "ast/reg_decl_plugins.h"
@@ -55,7 +56,8 @@ static void test_str_eq() {
     std::cout << "test_str_eq\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
 
     euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* y = sg.mk_var(symbol("y"));
@@ -97,7 +99,8 @@ static void test_str_mem() {
     std::cout << "test_str_mem\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -128,7 +131,8 @@ static void test_nielsen_subst() {
     std::cout << "test_nielsen_subst\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
 
     euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* y = sg.mk_var(symbol("y"));
@@ -160,7 +164,8 @@ static void test_nielsen_node() {
     std::cout << "test_nielsen_node\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -203,7 +208,8 @@ static void test_nielsen_edge() {
     std::cout << "test_nielsen_edge\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
 
     seq::nielsen_graph ng(sg);
 
@@ -235,7 +241,8 @@ static void test_nielsen_graph_populate() {
     std::cout << "test_nielsen_graph_populate\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -273,7 +280,8 @@ static void test_nielsen_subst_apply() {
     std::cout << "test_nielsen_subst_apply\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -308,7 +316,8 @@ static void test_nielsen_graph_reset() {
     std::cout << "test_nielsen_graph_reset\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
 
     seq::nielsen_graph ng(sg);
 
@@ -330,7 +339,8 @@ static void test_nielsen_expansion() {
     std::cout << "test_nielsen_expansion\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
 
     seq::nielsen_graph ng(sg);
 
@@ -378,7 +388,8 @@ static void test_run_idx() {
     std::cout << "test_run_idx\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
 
     seq::nielsen_graph ng(sg);
     SASSERT(ng.run_idx() == 0);
@@ -395,7 +406,8 @@ static void test_multiple_memberships() {
     std::cout << "test_multiple_memberships\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
@@ -432,7 +444,8 @@ static void test_backedge() {
     std::cout << "test_backedge\n";
     ast_manager m;
     reg_decl_plugins(m);
-    euf::sgraph sg(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
 
     seq::nielsen_graph ng(sg);
 
