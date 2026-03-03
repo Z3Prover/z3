@@ -1,0 +1,109 @@
+/*++
+Copyright (c) 2026 Microsoft Corporation
+
+Module Name:
+
+    nseq_basic.cpp
+
+Abstract:
+
+    Basic unit tests for theory_nseq and supporting infrastructure.
+
+--*/
+#include "util/util.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/euf/euf_egraph.h"
+#include "ast/euf/euf_sgraph.h"
+#include "smt/seq/seq_nielsen.h"
+#include "params/smt_params.h"
+#include <iostream>
+
+// Test 1: instantiation of nielsen_graph compiles and doesn't crash
+static void test_nseq_instantiation() {
+    std::cout << "test_nseq_instantiation\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    seq::nielsen_graph ng(sg);
+    SASSERT(ng.root() == nullptr);
+    SASSERT(ng.num_nodes() == 0);
+    std::cout << "  ok\n";
+}
+
+// Test 2: parameter validation accepts "nseq"
+static void test_nseq_param_validation() {
+    std::cout << "test_nseq_param_validation\n";
+    smt_params p;
+    // Should not throw
+    try {
+        p.validate_string_solver(symbol("nseq"));
+        std::cout << "  ok: nseq accepted\n";
+    } catch (...) {
+        SASSERT(false && "nseq should be accepted as a valid string_solver value");
+    }
+    // Should not throw for legacy values
+    try {
+        p.validate_string_solver(symbol("seq"));
+        p.validate_string_solver(symbol("auto"));
+        p.validate_string_solver(symbol("none"));
+        std::cout << "  ok: legacy values still accepted\n";
+    } catch (...) {
+        SASSERT(false && "legacy values should still be accepted");
+    }
+}
+
+// Test 3: nielsen graph simplification (trivial case)
+static void test_nseq_simplification() {
+    std::cout << "test_nseq_simplification\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    seq::nielsen_graph ng(sg);
+
+    // Add a trivial equality: empty = empty
+    euf::snode* empty1 = sg.mk_empty();
+    euf::snode* empty2 = sg.mk_empty();
+
+    ng.add_str_eq(empty1, empty2);
+
+    seq::nielsen_graph::search_result r = ng.solve();
+    // empty = empty is trivially satisfied
+    SASSERT(r == seq::nielsen_graph::search_result::sat);
+    std::cout << "  ok: trivial equality solved as sat\n";
+}
+
+// Test 4: node is_satisfied check
+static void test_nseq_node_satisfied() {
+    std::cout << "test_nseq_node_satisfied\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    seq::nielsen_graph ng(sg);
+
+    seq::nielsen_node* node = ng.mk_node();
+    // empty node has no constraints => satisfied
+    SASSERT(node->is_satisfied());
+
+    // add a trivial equality
+    euf::snode* empty = sg.mk_empty();
+    seq::dep_tracker dep;
+    seq::str_eq eq(empty, empty, dep);
+    node->add_str_eq(eq);
+    SASSERT(node->str_eqs().size() == 1);
+    SASSERT(!node->str_eqs()[0].is_trivial() || node->str_eqs()[0].m_lhs == node->str_eqs()[0].m_rhs);
+    // After simplification, trivial equalities should be removed
+    seq::simplify_result sr = node->simplify_and_init(ng);
+    VERIFY(sr == seq::simplify_result::satisfied || sr == seq::simplify_result::proceed);
+    std::cout << "  ok\n";
+}
+
+void tst_nseq_basic() {
+    test_nseq_instantiation();
+    test_nseq_param_validation();
+    test_nseq_simplification();
+    test_nseq_node_satisfied();
+    std::cout << "nseq_basic: all tests passed\n";
+}

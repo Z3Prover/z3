@@ -459,6 +459,16 @@ namespace seq {
 
         // apply a substitution to all constraints
         void apply_subst(euf::sgraph& sg, nielsen_subst const& s);
+
+        // simplify all constraints at this node and initialize status.
+        // Returns proceed, conflict, satisfied, or restart.
+        simplify_result simplify_and_init(nielsen_graph& g);
+
+        // true if all str_eqs are trivial and there are no str_mems
+        bool is_satisfied() const;
+
+        // true if other's constraint set is a subset of this node's
+        bool is_subsumed_by(nielsen_node const& other) const;
     };
 
     // the overall Nielsen transformation graph
@@ -514,6 +524,25 @@ namespace seq {
 
         // reset all nodes and state
         void reset();
+
+        // search result returned by solve() / search_dfs()
+        enum class search_result { sat, unsat, unknown };
+
+        // main search entry point: iterative deepening DFS
+        search_result solve();
+
+        // simplify a node's constraints (delegate to node)
+        simplify_result simplify_node(nielsen_node* node);
+
+        // generate child nodes by applying modifier rules
+        // returns true if at least one child was generated
+        bool generate_extensions(nielsen_node* node, unsigned depth);
+
+        // collect dependency information from conflicting constraints
+        void collect_conflict_deps(dep_tracker& deps) const;
+
+    private:
+        search_result search_dfs(nielsen_node* node, unsigned depth);
     };
 
 }
