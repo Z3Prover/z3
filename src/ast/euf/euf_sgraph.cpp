@@ -204,8 +204,10 @@ namespace euf {
             n->m_ground = n->num_args() > 0 ? n->arg(0)->is_ground() : true;
             n->m_regex_free = false;
             // nullable iff lower bound is 0: r{0,n} accepts the empty string
-            unsigned lo = 1, hi = 0;
+            // default lo=1 (non-nullable) in case extraction fails
+            unsigned lo = 1, hi = 1;
             expr* loop_body = nullptr;
+            // try bounded r{lo,hi} first; fall back to unbounded r{lo,}
             if (n->get_expr() &&
                 !m_seq.re.is_loop(n->get_expr(), loop_body, lo, hi))
                 m_seq.re.is_loop(n->get_expr(), loop_body, lo);
