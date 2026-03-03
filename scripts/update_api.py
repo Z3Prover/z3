@@ -852,31 +852,23 @@ def mk_java(java_src, java_dir, package_name):
                     java_wrapper.write('  RELEASELONGAELEMS(a%s, _a%s);\n' % (i, i))
 
             elif k == OUT or k == INOUT:
-                if param_type(param) == INT or param_type(param) == UINT:
-                    java_wrapper.write('  {\n')
-                    java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
-                    java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "I");\n')
-                    java_wrapper.write('     jenv->SetIntField(a%s, fid, (jint) _a%s);\n' % (i, i))
-                    java_wrapper.write('  }\n')
-                elif param_type(param) == BOOL:
-                    java_wrapper.write('  {\n')
-                    java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
-                    java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "Z");\n')
-                    java_wrapper.write('     jenv->SetBooleanField(a%s, fid, (jboolean) _a%s);\n' % (i, i))
-                    java_wrapper.write('  }\n')
-                elif param_type(param) == STRING:
-                    java_wrapper.write('  {\n')
-                    java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
+                ptype = param_type(param)
+                if ptype == INT or ptype == UINT:
+                    descriptor, setter, cast = 'I', 'SetIntField', 'jint'
+                elif ptype == BOOL:
+                    descriptor, setter, cast = 'Z', 'SetBooleanField', 'jboolean'
+                elif ptype != STRING:
+                    descriptor, setter, cast = 'J', 'SetLongField', 'jlong'
+                java_wrapper.write('  {\n')
+                java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
+                if ptype == STRING:
                     java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "Ljava/lang/String;");')
                     java_wrapper.write('     jstring fval = jenv->NewStringUTF(_a%s);\n' % i)
                     java_wrapper.write('     jenv->SetObjectField(a%s, fid, fval);\n' % i)
-                    java_wrapper.write('  }\n')
                 else:
-                    java_wrapper.write('  {\n')
-                    java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
-                    java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "J");\n')
-                    java_wrapper.write('     jenv->SetLongField(a%s, fid, (jlong) _a%s);\n' % (i, i))
-                    java_wrapper.write('  }\n')
+                    java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "%s");\n' % descriptor)
+                    java_wrapper.write('     jenv->%s(a%s, fid, (%s) _a%s);\n' % (setter, i, cast, i))
+                java_wrapper.write('  }\n')
             elif k == OUT_MANAGED_ARRAY:
                 java_wrapper.write('  *(jlong**)a%s = (jlong*)_a%s;\n' % (i, i))
 
