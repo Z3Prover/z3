@@ -68,6 +68,7 @@ def init_project_def():
     add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'math/subpaving/tactic')
 
     add_lib('proto_model', ['model', 'rewriter', 'params'], 'smt/proto_model')
+    add_lib('smt_seq', ['rewriter', 'euf'], 'smt/seq')
     add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model', 'solver_assertions',
                     'substitution', 'grobner', 'simplex', 'proofs', 'pattern', 'parser_util', 'fpa', 'lp'])
     add_lib('sat_smt', ['sat', 'ast_sls', 'euf', 'smt', 'tactic', 'solver', 'params', 'bit_blaster', 'fpa', 'mbp', 'normal_forms', 'lp', 'pattern', 'qe_lite'], 'sat/smt')
@@ -100,7 +101,7 @@ def init_project_def():
     add_lib('api', ['portfolio',  'realclosure', 'opt', 'extra_cmds'],
             includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)
     add_exe('shell', ['api', 'sat', 'extra_cmds', 'opt'], exe_name='z3')
-    add_exe('test', ['api', 'fuzzing', 'simplex', 'sat_smt'], exe_name='test-z3', install=False)
+    add_exe('test', ['api', 'fuzzing', 'simplex', 'sat_smt', 'smt_seq'], exe_name='test-z3', install=False)
     _libz3Component = add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll',
                               reexports=['api'],
                               dll_name='libz3',
