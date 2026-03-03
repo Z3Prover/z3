@@ -222,6 +222,7 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_NTH_I]     = alloc(psig, m, "seq.nth_i",    1, 2, seqAintT, A);
     m_sigs[OP_SEQ_NTH_U]     = alloc(psig, m, "seq.nth_u",    1, 2, seqAintT, A);
     m_sigs[OP_SEQ_LENGTH]    = alloc(psig, m, "seq.len",      1, 1, &seqA, intT);
+    m_sigs[OP_SEQ_POWER]     = alloc(psig, m, "seq.power",    1, 2, seqAintT, seqA);
     m_sigs[OP_RE_PLUS]       = alloc(psig, m, "re.+",         1, 1, &reA, reA);
     m_sigs[OP_RE_STAR]       = alloc(psig, m, "re.*",         1, 1, &reA, reA);
     m_sigs[OP_RE_OPTION]     = alloc(psig, m, "re.opt",       1, 1, &reA, reA);
@@ -590,6 +591,10 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case OP_SEQ_FOLDLI:
         add_map_sig();
         return mk_str_fun(k, arity, domain, range, k);    
+
+    case OP_SEQ_POWER:
+        match(*m_sigs[k], arity, domain, range, rng);
+        return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
     case OP_SEQ_TO_RE:
         m_has_re = true;
