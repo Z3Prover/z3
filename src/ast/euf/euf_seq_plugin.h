@@ -50,14 +50,12 @@ namespace euf {
     class sgraph;
 
     // Associativity-respecting hash for enode concat trees.
-    // Flattens concat(concat(a,b),c) and concat(a,concat(b,c))
-    // to the same leaf sequence [a,b,c] before hashing.
+    // Uses cached snode hash matrices from the sgraph for O(1) hashing.
     // Handles both str.++ (OP_SEQ_CONCAT) and re.++ (OP_RE_CONCAT).
-    // When an sgraph is available, uses cached snode hash matrices.
     struct enode_concat_hash {
         seq_util const& seq;
-        sgraph* const* sg_ptr;  // pointer to the sgraph* member in seq_plugin
-        enode_concat_hash(seq_util const& s, sgraph* const* sg = nullptr) : seq(s), sg_ptr(sg) {}
+        sgraph& sg;
+        enode_concat_hash(seq_util const& s, sgraph& sg) : seq(s), sg(sg) {}
         unsigned operator()(enode* n) const;
     };
 
@@ -78,7 +76,7 @@ namespace euf {
 
         seq_util         m_seq;
         seq_rewriter     m_rewriter;
-        sgraph*          m_sg = nullptr;   // sgraph (may or may not be owned)
+        sgraph&          m_sg;
         bool             m_sg_owned = false; // whether we own the sgraph
         svector<undo_kind> m_undo;
 

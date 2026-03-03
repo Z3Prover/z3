@@ -47,12 +47,9 @@ namespace euf {
     }
 
     unsigned enode_concat_hash::operator()(enode* n) const {
-        sgraph* sg = sg_ptr ? *sg_ptr : nullptr;
-        if (sg) {
-            snode* sn = sg->find(n->get_expr());
-            if (sn && sn->has_cached_hash())
-                return sn->assoc_hash();
-        }
+        snode* sn = sg.find(n->get_expr());
+        if (sn && sn->has_cached_hash())
+            return sn->assoc_hash();
         if (!is_any_concat(n, seq))
             return n->get_id();
         enode_vector leaves;
@@ -82,18 +79,16 @@ namespace euf {
         plugin(g),
         m_seq(g.get_manager()),
         m_rewriter(g.get_manager()),
-        m_sg(sg),
+        m_sg(sg ? *sg : *alloc(sgraph, g.get_manager(), g, false)),
         m_sg_owned(sg == nullptr),
-        m_concat_hash(m_seq, &m_sg),
+        m_concat_hash(m_seq, m_sg),
         m_concat_eq(m_seq),
         m_concat_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_concat_hash, m_concat_eq) {
-        if (!m_sg)
-            m_sg = alloc(sgraph, g.get_manager(), g, false);
     }
 
     seq_plugin::~seq_plugin() {
-        if (m_sg_owned && m_sg)
-            dealloc(m_sg);
+        if (m_sg_owned)
+            dealloc(&m_sg);
     }
 
     void seq_plugin::register_node(enode* n) {
