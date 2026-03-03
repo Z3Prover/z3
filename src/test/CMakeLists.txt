@@ -3,7 +3,7 @@ add_subdirectory(lp)
 ################################################################################
 # z3-test executable
 ################################################################################
-set(z3_test_deps api fuzzing simplex)
+set(z3_test_deps api fuzzing simplex smt_seq)
 z3_expand_dependencies(z3_test_expanded_deps ${z3_test_deps})
 set (z3_test_extra_object_files "")
 foreach (component ${z3_test_expanded_deps})
@@ -51,6 +51,8 @@ add_executable(test-z3
   escaped.cpp
   euf_bv_plugin.cpp
   euf_arith_plugin.cpp
+  euf_sgraph.cpp
+  euf_seq_plugin.cpp
   ex.cpp
   expr_rand.cpp
   expr_substitution.cpp
@@ -129,6 +131,7 @@ add_executable(test-z3
   simplifier.cpp
   sls_test.cpp
   sls_seq_plugin.cpp
+  seq_nielsen.cpp
   small_object_allocator.cpp
   smt2print_parse.cpp
   smt_context.cpp
