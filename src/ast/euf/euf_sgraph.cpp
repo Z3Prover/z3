@@ -470,13 +470,17 @@ namespace euf {
     }
 
     snode* sgraph::drop_left(snode* n, unsigned count) {
-        for (unsigned i = 0; i < count && !n->is_empty(); ++i)
+        if (count == 0 || n->is_empty()) return n;
+        if (count >= n->length()) return mk_empty();
+        for (unsigned i = 0; i < count; ++i)
             n = drop_first(n);
         return n;
     }
 
     snode* sgraph::drop_right(snode* n, unsigned count) {
-        for (unsigned i = 0; i < count && !n->is_empty(); ++i)
+        if (count == 0 || n->is_empty()) return n;
+        if (count >= n->length()) return mk_empty();
+        for (unsigned i = 0; i < count; ++i)
             n = drop_last(n);
         return n;
     }

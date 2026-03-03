@@ -27,6 +27,198 @@ Abstract:
     -- nielsen_node: graph node with constraint set and outgoing edges
     -- nielsen_graph: the overall Nielsen transformation graph
 
+    -----------------------------------------------------------------------
+    ZIPT PORT COMPARISON SUMMARY
+    -----------------------------------------------------------------------
+
+    The ZIPT reference is organized as follows (all under ZIPT/Constraints/):
+      NielsenGraph.cs          -- the graph manager class
+      NielsenNode.cs           -- node class + BacktrackReasons enum
+      NielsenEdge.cs           -- edge class with string and character substitutions
+      ConstraintElement/
+        Constraint.cs          -- abstract base for all constraints
+        StrEqBase.cs           -- abstract base for StrEq and StrMem
+        StrEq.cs               -- string equality with full simplification/splitting
+        StrMem.cs              -- regex membership with Brzozowski derivatives
+        IntEq.cs               -- integer equality over length polynomials
+        IntLe.cs               -- integer inequality over length polynomials
+      Modifier/                -- ~15 modifier types driving graph expansion
+
+    A. PORTED FAITHFULLY
+    --------------------
+    1. backtrack_reason enum (BacktrackReasons): all eleven values (Unevaluated,
+       Extended, SymbolClash, ParikhImage, Subsumption, Arithmetic, Regex,
+       RegexWidening, CharacterRange, SMT, ChildrenFailed) are present with
+       identical semantics.
+
+    2. simplify_result enum (SimplifyResult): all five values (Proceed, Conflict,
+       Satisfied, Restart, RestartAndSatisfied) are present with identical semantics.
+       Note: RestartAndSatisfied is declared but not yet exercised in this port.
+
+    3. nielsen_node status fields and accessors: m_is_general_conflict,
+       m_is_extended, m_reason, m_eval_idx map directly to IsGeneralConflict,
+       IsExtended, CurrentReason, evalIdx. The is_currently_conflict() predicate
+       faithfully mirrors IsCurrentlyConflict (GeneralConflict || (reason !=
+       Unevaluated && IsExtended)).
+
+    4. nielsen_node::reset_counter() mirrors NielsenNode.ResetCounter() exactly.
+
+    5. nielsen_node::clone_from() mirrors the copy constructor
+       NielsenNode(graph, parent) for str_eq and str_mem constraints.
+
+    6. nielsen_edge identity (operator==) mirrors NielsenEdge.Equals(): both
+       compare by source and target node pointer identity.
+
+    7. nielsen_graph::inc_run_idx() mirrors the RunIdx increment in NielsenGraph.
+       Check(), including the UINT_MAX overflow guard that calls reset_counter()
+       on all nodes.
+
+    8. str_eq::sort() mirrors StrEqBase.SortStr(): swaps lhs/rhs when lhs > rhs.
+       (Z3 compares by snode id; ZIPT compares Str lexicographically.)
+
+    9. str_eq::is_trivial() mirrors the trivially-satisfied check when both sides
+       are empty.
+
+    10. str_mem fields (m_str, m_regex, m_history, m_id, m_dep) mirror StrMem
+        fields (Str, Regex, History, Id, Reason) faithfully, including the unique
+        identifier used for cycle tracking.
+
+    11. str_mem::is_primitive() mirrors StrMem.IsPrimitiveRegex(): single variable
+        on the left side of the membership constraint.
+
+    12. nielsen_subst::is_eliminating() mirrors the logic behind
+        NielsenEdge.BumpedModCount: a substitution is non-eliminating (bumps the
+        modification counter) when the substituted variable appears in the
+        replacement.
+
+    13. nielsen_graph::mk_edge() faithfully mirrors NielsenEdge construction: it
+        links src to tgt and registers the outgoing edge.
+
+    B. PORTED WITH ALGORITHMIC CHANGES
+    ------------------------------------
+    1. dep_tracker (DependencyTracker): ZIPT's DependencyTracker is a .NET
+       class using a BitArray-like structure for tracking constraint origins.
+       Z3's dep_tracker uses a dense bitvector stored as svector<unsigned>
+       (32-bit words). The merge/is_superset/empty semantics are equivalent,
+       but the representation is more cache-friendly and avoids managed-heap
+       allocation.
+
+    2. Substitution application (nielsen_node::apply_subst): ZIPT uses an
+       immutable, functional style -- Apply() returns a new constraint if
+       changed, using C# reference equality to detect no-ops. Z3 uses
+       in-place mutation via sgraph::subst(), modifying the constraint vectors
+       directly. The functional change also propagates the substitution's
+       dependency to the merged constraint.
+
+    3. Node constraint containers: ZIPT's NielsenNode stores str_eq constraints
+       in NList<StrEq> (a sorted list for O(log n) subsumption lookup) and str_mem
+       constraints in Dictionary<uint, StrMem> (keyed by id for O(1) cycle lookup).
+       Z3 uses plain vector<str_eq> and vector<str_mem>, which is simpler but
+       loses the sorted-list subsumption candidate structure.
+
+    4. nielsen_edge substitution list: ZIPT's NielsenEdge carries two substitution
+       lists -- Subst (string-level, mapping string variables to strings) and
+       SubstC (character-level, mapping symbolic character variables to concrete
+       characters). Z3's nielsen_edge carries a single vector<nielsen_subst>,
+       covering only string-level substitutions; character substitutions are not
+       represented.
+
+    5. nielsen_graph node registry: ZIPT keeps nodes in a HashSet<NielsenNode> plus
+       a Dictionary<NList<StrEq>, List<NielsenNode>> for subsumption candidate
+       lookup. Z3 uses a ptr_vector<nielsen_node> without any subsumption map,
+       simplifying memory management at the cost of subsumption checking.
+
+    6. nielsen_graph::display() vs NielsenGraph.ToDot(): ZIPT outputs a DOT-format
+       graph with color highlighting for the current satisfying path. Z3 outputs
+       plain human-readable text with node/edge details but no DOT syntax or path
+       highlighting.
+
+    7. str_eq::contains_var() / str_mem::contains_var(): ZIPT performs occurrence
+       checks through StrManager.Subst() (which uses hash-consing and reference
+       equality). Z3 walks the snode tree via collect_tokens(), which is correct
+       but re-traverses the DAG on every call.
+
+    C. NOT PORTED
+    -------------
+    The following ZIPT components are absent from this implementation.
+    They represent the algorithmic core of the search procedure and
+    are expected to be ported in subsequent work.
+
+    Constraint simplification and propagation:
+    - Constraint.SimplifyAndPropagate() / SimplifyAndPropagateInternal(): the
+      main constraint-driven simplification loop is not ported. str_eq and
+      str_mem have no Simplify methods.
+    - StrEq.SimplifyDir() / SimplifyFinal() / AddDefinition(): forward/backward
+      simplification passes, including Makanin-style prefix cancellation, power
+      token handling, and variable definition propagation.
+    - StrEq.GetNielsenDep() / SplitEq(): the Nielsen dependency analysis and
+      equation-splitting heuristic used to choose the best split point.
+    - StrMem.SimplifyCharRegex() / SimplifyDir(): Brzozowski derivative-based
+      simplification consuming ground prefixes/suffixes of the string.
+    - StrMem.TrySubsume(): stabilizer-based subsumption that drops leading
+      variables already covered by regex stabilizers.
+    - StrMem.ExtractCycle() / StabilizerFromCycle(): cycle detection over the
+      search path and extraction of a Kleene-star stabilizer to generalize the
+      cycle. This is the key termination argument for regex membership.
+    - StrMem.Extend(): the splitting driver that produces the next modifier
+      (RegexVarSplitModifier, RegexCharSplitModifier, StarIntrModifier, etc.).
+
+    Integer constraints:
+    - IntEq / IntLe: integer equality and inequality constraints over Presburger
+      arithmetic polynomials (PDD<BigInteger>) are entirely absent. The Z3 port
+      has no ConstraintsIntEq or ConstraintsIntLe in nielsen_node.
+    - IntBounds / VarBoundWatcher: per-variable integer interval bounds and the
+      watcher mechanism that reruns bound propagation when a string variable is
+      substituted are not ported.
+    - AddLowerIntBound() / AddHigherIntBound(): incremental interval tightening
+      with restart signaling is not ported.
+
+    Character-level handling:
+    - CharSubst: character-level variable substitution (symbolic char -> concrete
+      char) is absent. ZIPT uses this to handle symbolic character tokens
+      (SymCharToken) that represent a single unknown character.
+    - SymCharToken / CharacterSet: symbolic character tokens with associated
+      character range constraints (CharRanges) are not ported.
+    - DisEqualities: per-node character disequality constraints used for conflict
+      detection during character substitution are not ported.
+
+    Modifier hierarchy (Constraints/Modifier/):
+    - All ~15 Modifier subclasses driving graph expansion are not ported:
+      VarNielsenModifier, ConstNielsenModifier, DirectedNielsenModifier,
+      EqSplitModifier, RegexVarSplitModifier, RegexCharSplitModifier,
+      StarIntrModifier, PowerSplitModifier, GPowerIntrModifier,
+      NumCmpModifier, NumUnwindingModifier, PowerEpsilonModifier,
+      DecomposeModifier, CombinedModifier, DetModifier.
+    - The modifier pattern (each Modifier produces one or more child nodes by
+      applying substitutions + side conditions to the parent node) is not ported.
+
+    Search procedure:
+    - NielsenNode.GraphExpansion(): the recursive search with iterative deepening
+      (depth-bounded DFS with SAT/UNSAT/CYCLIC return codes) is not ported.
+    - NielsenNode.SimplifyAndInit(): the simplification-and-initialization pass
+      run at node creation is not ported.
+    - NielsenGraph.Check(): the top-level entry point with iterative deepening,
+      inner solver setup and subsumption-node lookup is not ported.
+    - NielsenGraph.FindExisting(): the subsumption cache lookup over
+      subsumptionCandidates is not ported.
+
+    Auxiliary infrastructure:
+    - LocalInfo: thread-local search bookkeeping (current path, modification
+      counts, regex occurrence cache for cycle detection, current node pointer)
+      is not ported.
+    - NielsenGraph.SubSolver / InnerStringPropagator: the auxiliary Z3 solver
+      for arithmetic lemma generation and the inner string propagator for
+      model-based refinement are not ported.
+    - PowerToken: word-repetition tokens of the form u^n (distinct from regex
+      Kleene star) are not represented in Z3's snode.
+    - GetSignature(): the constraint-pair signature used for subsumption
+      candidate matching is not ported.
+    - Constraint.Shared: the flag indicating whether a constraint should be
+      forwarded to the outer solver is not ported.
+    - Interpretation: the model-extraction class mapping string and integer
+      variables to concrete values is not ported.
+    -----------------------------------------------------------------------
+
 Author:
 
     Nikolaj Bjorner (nbjorner) 2026-03-02
