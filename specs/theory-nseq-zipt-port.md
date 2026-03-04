@@ -24,26 +24,28 @@ The ZIPT algorithm (reference C# implementation at [github.com/CEisenhofer/ZIPT]
 - ✅ `seq_plugin` — Egraph plugin for associativity, identity, absorption, star merge (`src/ast/euf/euf_seq_plugin.h/.cpp`)
 - ✅ Nielsen graph data structures — `str_eq`, `str_mem`, `nielsen_subst`, `nielsen_edge`, `nielsen_node`, `nielsen_graph`, `dep_tracker` (`src/smt/seq/seq_nielsen.h/.cpp`)
 - ✅ 38 unit tests (18 sgraph + 7 seq_plugin + 13 nielsen)
+- ✅ `theory_nseq` skeleton and SMT integration (`src/smt/theory_nseq.h/.cpp`)
+- ✅ Parameter integration — `smt.string_solver=nseq` and `smt.nseq.max_depth` (`src/params/smt_params*.{cpp,h,pyg}`, `src/smt/smt_setup.cpp`)
+- ✅ Build system — `theory_nseq.cpp`, `nseq_state.cpp`, `nseq_regex.cpp`, `nseq_model.cpp` in `src/smt/CMakeLists.txt`
+- ✅ All 13 Nielsen modifiers (`apply_det_modifier`, `apply_const_nielsen`, `apply_var_nielsen`, `apply_eq_split`, `apply_regex_char_split`, `apply_power_epsilon`, `apply_num_cmp`, `apply_const_num_unwinding`, `apply_star_intr`, `apply_gpower_intr`, `apply_regex_var_split`, `apply_power_split`, `apply_var_num_unwinding`)
+- ✅ Graph expansion / iterative deepening DFS — `nielsen_graph::solve()` + `search_dfs()` (depth 3, +1/failure, bounded by `smt.nseq.max_depth`)
+- ✅ Constraint simplification engine — `nielsen_node::simplify_and_init()`
+- ✅ Conflict detection and explanation — `dep_tracker`-based conflict clauses
+- ✅ Propagation engine — `theory_nseq::propagate()`, eq/diseq/regex membership wiring
+- ✅ Model generation — `nseq_model` (`src/smt/nseq_model.h/.cpp`), wired via `init_model()` / `mk_value()` / `finalize_model()`
+- ✅ Regex membership processing — `nseq_regex` (`src/smt/nseq_regex.h/.cpp`)
+- ✅ Constraint state management — `nseq_state` (`src/smt/nseq_state.h/.cpp`) with push/pop backtracking
+- ✅ Integration unit tests — `tst_nseq_basic` (`src/test/nseq_basic.cpp`), `tst_nseq_regex` (`src/test/nseq_regex.cpp`)
+- ✅ Length constraint generation — `nielsen_graph::generate_length_constraints()` (length equalities, power non-negativity, regex bounds)
 
-**Not yet implemented:**
-- ❌ `theory_nseq` skeleton and SMT integration
-- ❌ Parameter integration (`smt.string_solver=nseq`)
-- ❌ Nielsen transformation algorithms (modifier chain, 13 modifiers)
-- ❌ Graph expansion / iterative deepening DFS
-- ❌ Constraint simplification engine
-- ❌ Conflict detection and explanation
-- ❌ Subsumption checking (not needed)
-- ❌ Parikh image / PDD / Interval reasoning
-- ❌ Regex splitting modifiers
-- ❌ Propagation engine
-- ❌ Model generation
+**Not yet implemented / incomplete:**
+- ❌ Integer constraint reasoning via `lp::int_solver` — length constraints are generated but not yet discharged through `lp::int_solver`; currently propagated as theory lemmas via `arith_value`
+- ❌ Correct results on Z3's full string regression suite (`C:\z3test\regressions\smt2\string*.smt2`)
 
 ### 2.2 The Problem
 
-- **Algorithmic gap**: The core solving algorithms — the "brain" of ZIPT — have not been ported. Only the "bones" (data structures) exist.
-- **No solver entry point**: There is no `theory_nseq` class, so the ZIPT algorithm cannot be invoked from Z3.
-- **Missing search**: Iterative deepening and conflict detection are absent.
-- **Missing reasoning**: Parikh image (length constraints via polynomial decision diagrams) and regex splitting modifiers are absent.
+- **Algorithmic gap**: The core solving algorithms are implemented. The main remaining gap is full `lp::int_solver` integration for integer subproblems.
+- **Regression coverage**: The solver has not yet been validated against Z3's full string regression suite.
 
 ### 2.3 Reference Documents
 
@@ -56,14 +58,14 @@ The ZIPT algorithm (reference C# implementation at [github.com/CEisenhofer/ZIPT]
 
 ### 3.1 Functional Goals
 
-- [ ] `theory_nseq` theory solver class implementing `smt::theory` interface
-- [ ] Selectable via `smt.string_solver=nseq` parameter
-- [ ] Nielsen transformation-based word equation solving
-- [ ] Lazy regex membership via Brzozowski derivatives (reusing `sgraph::brzozowski_deriv`)
+- [x] `theory_nseq` theory solver class implementing `smt::theory` interface
+- [x] Selectable via `smt.string_solver=nseq` parameter
+- [x] Nielsen transformation-based word equation solving
+- [x] Lazy regex membership via Brzozowski derivatives (reusing `sgraph::brzozowski_deriv`)
 - [ ] Integer constraint reasoning via `lp::int_solver` (length, power terms, Parikh image)
-- [ ] Iterative deepening search: initial depth 3, +1 per failure, upper bound via `smt.nseq.max_depth` (0 = infinity)
-- [ ] Conflict detection with dependency-tracked explanations
-- [ ] Model generation for satisfiable instances
+- [x] Iterative deepening search: initial depth 3, +1 per failure, upper bound via `smt.nseq.max_depth` (0 = infinity)
+- [x] Conflict detection with dependency-tracked explanations
+- [x] Model generation for satisfiable instances
 - [ ] Correct results on Z3's existing string regression suite (`C:\z3test\regressions\smt2\string*.smt2`)
 
 ### 3.2 Non-Goals (Out of Scope)

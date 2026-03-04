@@ -554,16 +554,12 @@ namespace seq {
 
         ++m_stats.m_num_solve_calls;
 
-        // iterative deepening: 6 iterations starting at depth 10, doubling
-        // mirrors ZIPT's NielsenGraph.Check()
-        // If m_max_search_depth is set, clamp the initial bound and stop
-        // once the bound has hit the cap (further iterations are identical).
-        m_depth_bound = 10;
-        if (m_max_search_depth > 0 && m_depth_bound > m_max_search_depth)
-            m_depth_bound = m_max_search_depth;
-        for (unsigned iter = 0; iter < 6; ++iter, m_depth_bound *= 2) {
+        // Iterative deepening: start at depth 3, increment by 1 on each failure.
+        // m_max_search_depth == 0 means unlimited; otherwise stop when bound exceeds it.
+        m_depth_bound = 3;
+        while (true) {
             if (m_max_search_depth > 0 && m_depth_bound > m_max_search_depth)
-                m_depth_bound = m_max_search_depth;
+                break;
             inc_run_idx();
             search_result r = search_dfs(m_root, 0);
             if (r == search_result::sat) {
@@ -574,10 +570,10 @@ namespace seq {
                 ++m_stats.m_num_unsat;
                 return r;
             }
-            // depth limit hit – increase bound and retry
-            // if already at max, no further growth is possible
+            // depth limit hit – increment bound by 1 and retry
             if (m_max_search_depth > 0 && m_depth_bound >= m_max_search_depth)
                 break;
+            ++m_depth_bound;
         }
         ++m_stats.m_num_unknown;
         return search_result::unknown;
@@ -631,7 +627,7 @@ namespace seq {
 
         // generate extensions only once per node; children persist across runs
         if (!node->is_extended()) {
-            bool ext = generate_extensions(node, depth);
+            bool ext = generate_extensions(node);
             if (!ext) {
                 node->set_extended(true);
                 // No extensions could be generated. If the node still has
@@ -1039,7 +1035,7 @@ namespace seq {
         return false;
     }
 
-    bool nielsen_graph::generate_extensions(nielsen_node* node, unsigned /*depth*/) {
+    bool nielsen_graph::generate_extensions(nielsen_node *node) {
         // Modifier priority chain mirrors ZIPT's ModifierBase.TypeOrder.
         // The first modifier that produces edges is used and returned immediately.
 

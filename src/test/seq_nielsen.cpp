@@ -486,7 +486,7 @@ static void test_eq_split_basic() {
 
     // eq_split fires: both heads are distinct vars
     // produces 3 children: x→ε (progress), x→y·z (non-progress), y→x·z (non-progress)
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     SASSERT(root->outgoing().size() == 3);
 
@@ -597,7 +597,7 @@ static void test_const_nielsen_char_var() {
     ng.add_str_eq(a, y);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     SASSERT(root->outgoing().size() == 2);
     // both branches are progress
@@ -623,7 +623,7 @@ static void test_const_nielsen_var_char() {
     ng.add_str_eq(x, by);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     SASSERT(root->outgoing().size() == 2);
     SASSERT(root->outgoing()[0]->is_progress());
@@ -694,7 +694,7 @@ static void test_const_nielsen_priority_over_eq_split() {
     ng.add_str_eq(ax, yb);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // const_nielsen produces 2 children, not eq_split's 3
     SASSERT(root->outgoing().size() == 2);
@@ -721,7 +721,7 @@ static void test_const_nielsen_not_applicable_both_vars() {
     ng.add_str_eq(xa, yb);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     SASSERT(root->outgoing().size() == 3);
 }
@@ -780,7 +780,7 @@ static void test_regex_char_split_basic() {
     auto sr = ng.root()->simplify_and_init(ng);
     SASSERT(sr != seq::simplify_result::conflict);
 
-    bool extended = ng.generate_extensions(ng.root(), 0);
+    bool extended = ng.generate_extensions(ng.root());
     SASSERT(extended);
     // should have at least 2 children: x→'A'·z and x→ε
     SASSERT(ng.root()->outgoing().size() >= 2);
@@ -994,7 +994,7 @@ static void test_var_nielsen_basic() {
     ng.add_str_eq(x, y);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     SASSERT(root->outgoing().size() == 3);
     SASSERT(root->outgoing()[0]->is_progress());
@@ -1039,7 +1039,7 @@ static void test_var_nielsen_not_applicable_char() {
     ng.add_str_eq(a, y);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     SASSERT(root->outgoing().size() == 2);
 }
@@ -1126,7 +1126,7 @@ static void test_var_nielsen_priority() {
     ng.add_str_eq(x, y);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // eq_split produces 3 children
     SASSERT(root->outgoing().size() == 3);
@@ -1155,7 +1155,7 @@ static void test_generate_extensions_det_priority() {
     ng.add_str_eq(xa, xy);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // det modifier produces 1 child (head cancel), not 2 (const) or 3 (var)
     SASSERT(root->outgoing().size() == 1);
@@ -1181,7 +1181,7 @@ static void test_generate_extensions_no_applicable() {
     ng.add_str_eq(a, b);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(!extended);
     SASSERT(root->outgoing().empty());
 }
@@ -1211,7 +1211,7 @@ static void test_generate_extensions_regex_only() {
 
     root->simplify_and_init(ng);
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // at least 1 child (epsilon branch) + possibly char branches
     SASSERT(root->outgoing().size() >= 1);
@@ -1246,7 +1246,7 @@ static void test_generate_extensions_mixed_det_first() {
     ng.add_str_mem(y, re_node);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // det modifier (same-head x cancel) produces 1 child
     SASSERT(root->outgoing().size() == 1);
@@ -2017,7 +2017,7 @@ static void test_det_cancel_child_eq() {
     ng.add_str_eq(xa, xb);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     SASSERT(root->outgoing().size() == 1);
 
@@ -2044,7 +2044,7 @@ static void test_const_nielsen_child_substitutions() {
     ng.add_str_eq(a, y);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     SASSERT(root->outgoing().size() == 2);
 
@@ -2076,7 +2076,7 @@ static void test_var_nielsen_substitution_types() {
     ng.add_str_eq(x, y);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     SASSERT(root->outgoing().size() == 3);
 
@@ -2554,7 +2554,7 @@ static void test_power_epsilon_no_power() {
 
     // det fires (x = single char → const_nielsen fires eventually),
     // but power_epsilon (priority 2) should not fire; det (priority 1) fires.
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // det catches x = A first (single token eq, but actually ConstNielsen fires):
     // x is var, A is char → ConstNielsen: 2 children (x→ε, x→A)
@@ -2578,7 +2578,7 @@ static void test_num_cmp_no_power() {
     ng.add_str_eq(x, y);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // eq_split fires (priority 5): 3 children
     SASSERT(root->outgoing().size() == 3);
@@ -2611,7 +2611,7 @@ static void test_star_intr_no_backedge() {
     auto sr = root->simplify_and_init(ng);
     SASSERT(sr != seq::simplify_result::conflict);
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // regex_char_split fires (priority 9): at least 2 children (x→A·z, x→ε)
     SASSERT(root->outgoing().size() >= 2);
@@ -2650,7 +2650,7 @@ static void test_star_intr_with_backedge() {
         return; // OK, the regex is nullable so it was removed
     }
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     if (extended) {
         // star_intr should have generated at least 1 child
         SASSERT(root->outgoing().size() >= 1);
@@ -2678,7 +2678,7 @@ static void test_gpower_intr_repeated_chars() {
     ng.add_str_eq(x, aab);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // gpower_intr should fire (priority 7), producing 1 child: x = fresh_power · fresh_suffix
     SASSERT(root->outgoing().size() == 1);
@@ -2704,7 +2704,7 @@ static void test_gpower_intr_no_repeat() {
     ng.add_str_eq(x, ab);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // gpower_intr should NOT fire (< 2 repeats)
     // const_nielsen (priority 8) fires for var vs char: 2 children
@@ -2741,7 +2741,7 @@ static void test_regex_var_split_basic() {
     auto sr = root->simplify_and_init(ng);
     SASSERT(sr != seq::simplify_result::conflict);
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // Should produce children via regex_char_split or regex_var_split
     SASSERT(root->outgoing().size() >= 2);
@@ -2767,7 +2767,7 @@ static void test_power_split_no_power() {
     ng.add_str_eq(xa, y);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // eq_split or const_nielsen fires
     SASSERT(root->outgoing().size() >= 2);
@@ -2790,7 +2790,7 @@ static void test_var_num_unwinding_no_power() {
     ng.add_str_eq(x, y);
     seq::nielsen_node* root = ng.root();
 
-    bool extended = ng.generate_extensions(root, 0);
+    bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // eq_split fires: 3 children
     SASSERT(root->outgoing().size() == 3);
@@ -2839,7 +2839,7 @@ static void test_priority_chain_order() {
 
         ng.add_str_eq(xa, xb);
         seq::nielsen_node* root = ng.root();
-        bool extended = ng.generate_extensions(root, 0);
+        bool extended = ng.generate_extensions(root);
         SASSERT(extended);
         SASSERT(root->outgoing().size() == 1); // Det: single child (cancel)
     }
@@ -2855,7 +2855,7 @@ static void test_priority_chain_order() {
 
         ng.add_str_eq(x, y);
         seq::nielsen_node* root = ng.root();
-        bool extended = ng.generate_extensions(root, 0);
+        bool extended = ng.generate_extensions(root);
         SASSERT(extended);
         SASSERT(root->outgoing().size() == 3); // EqSplit: 3 children
     }
@@ -2871,7 +2871,7 @@ static void test_priority_chain_order() {
 
         ng.add_str_eq(a, y);
         seq::nielsen_node* root = ng.root();
-        bool extended = ng.generate_extensions(root, 0);
+        bool extended = ng.generate_extensions(root);
         SASSERT(extended);
         SASSERT(root->outgoing().size() == 2); // ConstNielsen: 2 children
     }

@@ -113,8 +113,7 @@ Abstract:
     3. Node constraint containers: ZIPT's NielsenNode stores str_eq constraints
        in NList<StrEq> (a sorted list for O(log n) subsumption lookup) and str_mem
        constraints in Dictionary<uint, StrMem> (keyed by id for O(1) cycle lookup).
-       Z3 uses plain vector<str_eq> and vector<str_mem>, which is simpler but
-       loses the sorted-list subsumption candidate structure.
+       Z3 uses plain vector<str_eq> and vector<str_mem>, which is simpler.
 
     4. nielsen_edge substitution list: ZIPT's NielsenEdge carries two substitution
        lists -- Subst (string-level, mapping string variables to strings) and
@@ -125,8 +124,7 @@ Abstract:
 
     5. nielsen_graph node registry: ZIPT keeps nodes in a HashSet<NielsenNode> plus
        a Dictionary<NList<StrEq>, List<NielsenNode>> for subsumption candidate
-       lookup. Z3 uses a ptr_vector<nielsen_node> without any subsumption map,
-       simplifying memory management at the cost of subsumption checking.
+       lookup. Z3 uses a ptr_vector<nielsen_node>, simplifying memory management.
 
     6. nielsen_graph::display() vs NielsenGraph.ToDot(): ZIPT outputs a DOT-format
        graph with color highlighting for the current satisfying path. Z3 outputs
@@ -155,8 +153,7 @@ Abstract:
       equation-splitting heuristic used to choose the best split point.
     - StrMem.SimplifyCharRegex() / SimplifyDir(): Brzozowski derivative-based
       simplification consuming ground prefixes/suffixes of the string.
-    - StrMem.TrySubsume(): stabilizer-based subsumption that drops leading
-      variables already covered by regex stabilizers.
+    - StrMem.TrySubsume(): stabilizer-based subsumption (not ported, not needed).
     - StrMem.ExtractCycle() / StabilizerFromCycle(): cycle detection over the
       search path and extraction of a Kleene-star stabilizer to generalize the
       cycle. This is the key termination argument for regex membership.
@@ -197,15 +194,15 @@ Abstract:
 
     Search procedure:
     - NielsenGraph.Check() / NielsenNode.GraphExpansion(): ported as
-      nielsen_graph::solve() (iterative deepening, 6 rounds starting at
-      depth 10, doubling) and search_dfs() (depth-bounded DFS with
-      eval_idx cycle detection and node status tracking). The inner solver
-      setup and subsumption-node lookup within Check() are not ported.
+      nielsen_graph::solve() (iterative deepening, starting at depth 3,
+      incrementing by 1 per failure, bounded by smt.nseq.max_depth) and
+      search_dfs() (depth-bounded DFS with eval_idx cycle detection and
+      node status tracking).
     - NielsenNode.SimplifyAndInit(): ported as
       nielsen_node::simplify_and_init() with prefix matching, symbol clash,
       empty propagation, and Brzozowski derivative consumption.
-    - NielsenGraph.FindExisting(): the subsumption cache lookup over
-      subsumptionCandidates is not ported.
+    - NielsenGraph.FindExisting() / subsumption cache lookup: not ported,
+      not needed.
 
     Auxiliary infrastructure:
     - LocalInfo: thread-local search bookkeeping (current path, modification
@@ -264,7 +261,7 @@ namespace seq {
         extended,
         symbol_clash,
         parikh_image,
-        subsumption,
+        subsumption,  // not used; retained for enum completeness
         arithmetic,
         regex,
         regex_widening,
@@ -494,9 +491,6 @@ namespace seq {
         // true if all str_eqs are trivial and there are no str_mems
         bool is_satisfied() const;
 
-        // true if other's constraint set is a subset of this node's
-        bool is_subsumed_by(nielsen_node const& other) const;
-
         // true if any constraint has opaque (s_other) terms that
         // the Nielsen graph cannot decompose
         bool has_opaque_terms() const;
@@ -510,7 +504,6 @@ namespace seq {
         unsigned m_num_unsat           = 0;
         unsigned m_num_unknown         = 0;
         unsigned m_num_simplify_conflict = 0;
-        unsigned m_num_subsumptions    = 0;
         unsigned m_num_extensions      = 0;
         unsigned m_num_fresh_vars      = 0;
         unsigned m_max_depth           = 0;
@@ -609,7 +602,7 @@ namespace seq {
 
         // generate child nodes by applying modifier rules
         // returns true if at least one child was generated
-        bool generate_extensions(nielsen_node* node, unsigned depth);
+        bool generate_extensions(nielsen_node *node);
 
         // collect dependency information from conflicting constraints
         void collect_conflict_deps(dep_tracker& deps) const;
