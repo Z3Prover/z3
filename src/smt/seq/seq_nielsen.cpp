@@ -23,6 +23,8 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "util/bit_util.h"
+#include "util/hashtable.h"
+#include <sstream>
 
 namespace seq {
 
@@ -325,6 +327,186 @@ namespace seq {
                 out << "    backedge -> node[" << n->backedge()->id() << "]\n";
         }
 
+        return out;
+    }
+
+    // -----------------------------------------------------------------------
+    // nielsen_node: display_html
+    // Render constraint set as an HTML fragment for DOT labels.
+    // Mirrors ZIPT's NielsenNode.ToHtmlString().
+    // -----------------------------------------------------------------------
+
+    // Helper: HTML-escape a string and replace literal \n with <br/>.
+    static std::string dot_html_escape(std::string const& s) {
+        std::string r;
+        r.reserve(s.size());
+        for (char c : s) {
+            switch (c) {
+            case '&': r += "&amp;"; break;
+            case '<': r += "&lt;";  break;
+            case '>': r += "&gt;";  break;
+            default:  r += c;       break;
+            }
+        }
+        // replace literal "\n" two-char sequence with <br/>
+        std::string result;
+        result.reserve(r.size());
+        for (std::size_t i = 0; i < r.size(); ) {
+            if (i + 1 < r.size() && r[i] == '\\' && r[i+1] == 'n') {
+                result += "<br/>";
+                i += 2;
+            } else {
+                result += r[i++];
+            }
+        }
+        return result;
+    }
+
+    // Helper: render an snode as a short label (expression text or id).
+    static std::string snode_label(euf::snode const* n, ast_manager& m) {
+        if (!n) return "null";
+        if (n->get_expr()) {
+            std::ostringstream os;
+            os << mk_pp(n->get_expr(), m);
+            return os.str();
+        }
+        return "#" + std::to_string(n->id());
+    }
+
+    std::ostream& nielsen_node::display_html(std::ostream& out, ast_manager& m) const {
+        bool any = false;
+
+        // string equalities
+        for (auto const& eq : m_str_eq) {
+            if (!any) { out << "Cnstr:<br/>"; any = true; }
+            out << dot_html_escape(snode_label(eq.m_lhs, m))
+                << " = "
+                << dot_html_escape(snode_label(eq.m_rhs, m))
+                << "<br/>";
+        }
+        // regex memberships
+        for (auto const& mem : m_str_mem) {
+            if (!any) { out << "Cnstr:<br/>"; any = true; }
+            out << dot_html_escape(snode_label(mem.m_str, m))
+                << " &#8712; "
+                << dot_html_escape(snode_label(mem.m_regex, m))
+                << "<br/>";
+        }
+
+        if (!any)
+            out << "&#8868;"; // ⊤ (trivially satisfied)
+        return out;
+    }
+
+    // -----------------------------------------------------------------------
+    // nielsen_graph: to_dot
+    // Output the graph in graphviz DOT format, optionally colour-highlighting
+    // the satisfying path.  Mirrors ZIPT's NielsenGraph.ToDot().
+    // -----------------------------------------------------------------------
+
+    // Convert a backtrack_reason to a short display string.
+    static char const* reason_to_str(backtrack_reason r) {
+        switch (r) {
+        case backtrack_reason::unevaluated:      return "Unevaluated";
+        case backtrack_reason::extended:         return "Extended";
+        case backtrack_reason::symbol_clash:     return "Symbol Clash";
+        case backtrack_reason::parikh_image:     return "Parikh Image";
+        case backtrack_reason::subsumption:      return "Subsumption";
+        case backtrack_reason::arithmetic:       return "Arithmetic";
+        case backtrack_reason::regex:            return "Regex";
+        case backtrack_reason::regex_widening:   return "RegexWidening";
+        case backtrack_reason::character_range:  return "Character Range";
+        case backtrack_reason::smt:              return "SMT";
+        case backtrack_reason::children_failed:  return "Children Failed";
+        default:                                 return "?";
+        }
+    }
+
+    // Returns true when the reason is a direct (non-propagated) conflict.
+    // Mirrors ZIPT's NielsenNode.IsActualConflict(): all conflicts except ChildrenFailed.
+    static bool is_actual_conflict(backtrack_reason r) {
+        return r == backtrack_reason::symbol_clash
+            || r == backtrack_reason::parikh_image
+            || r == backtrack_reason::subsumption
+            || r == backtrack_reason::arithmetic
+            || r == backtrack_reason::regex
+            || r == backtrack_reason::regex_widening
+            || r == backtrack_reason::character_range
+            || r == backtrack_reason::smt;
+    }
+
+    std::ostream& nielsen_graph::to_dot(std::ostream& out) const {
+        ast_manager& m = m_sg.get_manager();
+
+        // collect sat-path nodes and edges for green highlighting
+        ptr_addr_hashtable<nielsen_node> sat_nodes;
+        ptr_addr_hashtable<nielsen_edge> sat_edges;
+        for (nielsen_edge* e : m_sat_path) {
+            if (e->src()) sat_nodes.insert(e->src());
+            if (e->tgt()) sat_nodes.insert(e->tgt());
+            sat_edges.insert(e);
+        }
+
+        out << "digraph G {\n";
+
+        // --- nodes ---
+        for (nielsen_node const* n : m_nodes) {
+            out << "\t" << n->id() << " [label=<"
+                << n->id() << ": ";
+            n->display_html(out, m);
+            // append conflict reason if this is a direct conflict
+            if (is_actual_conflict(n->reason()))
+                out << "<br/>" << reason_to_str(n->reason());
+            out << ">";
+
+            // colour
+            if (sat_nodes.contains(const_cast<nielsen_node*>(n)))
+                out << ", color=green";
+            else if (n->is_general_conflict())
+                out << ", color=darkred";
+            else if (n->eval_idx() != m_run_idx)  // inactive (not visited this run)
+                out << ", color=blue";
+            else if (n->is_currently_conflict())
+                out << ", color=red";
+
+            out << "];\n";
+        }
+
+        // --- edges ---
+        for (nielsen_node const* n : m_nodes) {
+            for (nielsen_edge const* e : n->outgoing()) {
+                out << "\t" << n->id() << " -> " << e->tgt()->id() << " [label=<";
+
+                // edge label: substitutions joined by <br/>
+                bool first = true;
+                for (auto const& s : e->subst()) {
+                    if (!first) out << "<br/>";
+                    first = false;
+                    out << dot_html_escape(snode_label(s.m_var, m))
+                        << " &#8594; "          // →
+                        << dot_html_escape(snode_label(s.m_replacement, m));
+                }
+                out << ">";
+
+                // colour
+                nielsen_edge* ep = const_cast<nielsen_edge*>(e);
+                if (sat_edges.contains(ep))
+                    out << ", color=green";
+                else if (e->tgt()->eval_idx() != m_run_idx)
+                    out << ", color=blue";
+                else if (e->tgt()->is_currently_conflict())
+                    out << ", color=red";
+
+                out << "];\n";
+            }
+
+            // backedge as dotted arrow
+            if (n->backedge())
+                out << "\t" << n->id() << " -> " << n->backedge()->id()
+                    << " [style=dotted];\n";
+        }
+
+        out << "}\n";
         return out;
     }
 

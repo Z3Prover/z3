@@ -498,6 +498,10 @@ namespace seq {
         // true if any constraint has opaque (s_other) terms that
         // the Nielsen graph cannot decompose
         bool has_opaque_terms() const;
+
+        // render constraint set as an HTML fragment for DOT node labels.
+        // mirrors ZIPT's NielsenNode.ToHtmlString()
+        std::ostream& display_html(std::ostream& out, ast_manager& m) const;
     };
 
     // search statistics collected during Nielsen graph solving
@@ -598,6 +602,11 @@ namespace seq {
 
         // display for debugging
         std::ostream& display(std::ostream& out) const;
+
+        // output the graph in graphviz DOT format.
+        // nodes on the sat_path are highlighted green; conflict nodes red/darkred.
+        // mirrors ZIPT's NielsenGraph.ToDot()
+        std::ostream& to_dot(std::ostream& out) const;
 
         // reset all nodes and state
         void reset();
