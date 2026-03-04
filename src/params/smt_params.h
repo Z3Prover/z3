@@ -248,6 +248,7 @@ struct smt_params : public preprocessor_params,
     //
     // -----------------------------------
     symbol m_string_solver;
+    unsigned m_nseq_max_depth = 0;
 
     smt_params(params_ref const & p = params_ref()):
         m_string_solver(symbol("auto")){
