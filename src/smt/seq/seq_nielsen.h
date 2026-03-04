@@ -541,6 +541,7 @@ namespace seq {
         nielsen_node*                 m_root = nullptr;
         unsigned                      m_run_idx = 0;
         unsigned                      m_depth_bound = 0;
+        unsigned                      m_max_search_depth = 0;
         unsigned                      m_next_mem_id = 0;
         unsigned                      m_fresh_cnt = 0;
         unsigned                      m_num_input_eqs = 0;
@@ -579,6 +580,10 @@ namespace seq {
         // depth bound for iterative deepening
         unsigned depth_bound() const { return m_depth_bound; }
         void set_depth_bound(unsigned d) { m_depth_bound = d; }
+
+        // maximum overall search depth (0 = unlimited)
+        unsigned max_search_depth() const { return m_max_search_depth; }
+        void set_max_search_depth(unsigned d) { m_max_search_depth = d; }
 
         // generate next unique regex membership id
         unsigned next_mem_id() { return m_next_mem_id++; }

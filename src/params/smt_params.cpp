@@ -53,6 +53,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_sls_parallel = p.sls_parallel();
     m_logic = _p.get_sym("logic", m_logic);
     m_string_solver = p.string_solver();
+    m_nseq_max_depth = p.nseq_max_depth();
     m_up_persist_clauses = p.up_persist_clauses();
     validate_string_solver(m_string_solver);
     if (_p.get_bool("arith.greatest_error_pivot", false))

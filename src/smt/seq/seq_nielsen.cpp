@@ -556,8 +556,14 @@ namespace seq {
 
         // iterative deepening: 6 iterations starting at depth 10, doubling
         // mirrors ZIPT's NielsenGraph.Check()
+        // If m_max_search_depth is set, clamp the initial bound and stop
+        // once the bound has hit the cap (further iterations are identical).
         m_depth_bound = 10;
+        if (m_max_search_depth > 0 && m_depth_bound > m_max_search_depth)
+            m_depth_bound = m_max_search_depth;
         for (unsigned iter = 0; iter < 6; ++iter, m_depth_bound *= 2) {
+            if (m_max_search_depth > 0 && m_depth_bound > m_max_search_depth)
+                m_depth_bound = m_max_search_depth;
             inc_run_idx();
             search_result r = search_dfs(m_root, 0);
             if (r == search_result::sat) {
@@ -569,6 +575,9 @@ namespace seq {
                 return r;
             }
             // depth limit hit – increase bound and retry
+            // if already at max, no further growth is possible
+            if (m_max_search_depth > 0 && m_depth_bound >= m_max_search_depth)
+                break;
         }
         ++m_stats.m_num_unknown;
         return search_result::unknown;

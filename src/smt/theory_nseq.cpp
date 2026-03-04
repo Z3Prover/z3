@@ -423,6 +423,7 @@ namespace smt {
 
         ++m_num_final_checks;
 
+        m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
         auto result = m_nielsen.solve();
 
         if (result == seq::nielsen_graph::search_result::sat) {
