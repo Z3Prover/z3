@@ -32,7 +32,7 @@ The ZIPT algorithm (reference C# implementation at [github.com/CEisenhofer/ZIPT]
 - ❌ Graph expansion / iterative deepening DFS
 - ❌ Constraint simplification engine
 - ❌ Conflict detection and explanation
-- ❌ Subsumption checking
+- ❌ Subsumption checking (not needed)
 - ❌ Parikh image / PDD / Interval reasoning
 - ❌ Regex splitting modifiers
 - ❌ Propagation engine
@@ -42,7 +42,7 @@ The ZIPT algorithm (reference C# implementation at [github.com/CEisenhofer/ZIPT]
 
 - **Algorithmic gap**: The core solving algorithms — the "brain" of ZIPT — have not been ported. Only the "bones" (data structures) exist.
 - **No solver entry point**: There is no `theory_nseq` class, so the ZIPT algorithm cannot be invoked from Z3.
-- **Missing search**: Iterative deepening, subsumption, and conflict detection are absent.
+- **Missing search**: Iterative deepening and conflict detection are absent.
 - **Missing reasoning**: Parikh image (length constraints via polynomial decision diagrams) and regex splitting modifiers are absent.
 
 ### 2.3 Reference Documents
@@ -61,8 +61,7 @@ The ZIPT algorithm (reference C# implementation at [github.com/CEisenhofer/ZIPT]
 - [ ] Nielsen transformation-based word equation solving
 - [ ] Lazy regex membership via Brzozowski derivatives (reusing `sgraph::brzozowski_deriv`)
 - [ ] Parikh image / length constraint reasoning
-- [ ] Iterative deepening search with depth bounds
-- [ ] Subsumption-based pruning
+- [ ] Iterative deepening search: initial depth 3, +1 per failure, upper bound via `smt.nseq.max_depth` (0 = infinity)
 - [ ] Conflict detection with dependency-tracked explanations
 - [ ] Model generation for satisfiable instances
 - [ ] Correct results on Z3's existing string regression suite (`C:\z3test\regressions\smt2\string*.smt2`)
@@ -73,6 +72,9 @@ The ZIPT algorithm (reference C# implementation at [github.com/CEisenhofer/ZIPT]
 - [ ] Polymorphic sequences — focus on strings (`Seq[Char]`) initially; generic `Seq[T]` can follow later
 - [ ] Higher-order sequence ops (`seq.map`, `seq.foldl`) — defer to `theory_seq` or axiomatize minimally
 - [ ] Bitvector-to-string conversions (`ubv2s`, `sbv2s`) — defer
+- [ ] Integer-to-string / string-to-integer conversions (`str.to_int`, `int.to_str`) — defer
+- [ ] Extended string predicates: containment (`str.contains`), prefix/suffix (`str.prefixof`, `str.suffixof`) — defer
+- [ ] String ordering (`str.<`, `str.<=`) — defer
 - [ ] New Z3 API surface — `theory_nseq` is internal only, selected by parameter
 - [ ] Performance parity with `theory_seq` on all benchmarks in Phase 1 — correctness first
 
@@ -95,10 +97,10 @@ The ZIPT algorithm (reference C# implementation at [github.com/CEisenhofer/ZIPT]
 │  │         │             │                            │  │
 │  │  ┌──────┴─────────────┴────────────────────────┐  │  │
 │  │  │          nielsen_graph (search engine)       │  │  │
-│  │  │  ┌──────────┐ ┌──────────┐ ┌─────────────┐ │  │  │
-│  │  │  │ modifier │ │ simplify │ │ subsumption │ │  │  │
-│  │  │  │  chain   │ │  engine  │ │   checker   │ │  │  │
-│  │  │  └──────────┘ └──────────┘ └─────────────┘ │  │  │
+│  │  │  ┌──────────┐ ┌──────────┐                       │  │  │
+│  │  │  │ modifier │ │ simplify │                       │  │  │
+│  │  │  │  chain   │ │  engine  │                       │  │  │
+│  │  │  └──────────┘ └──────────┘                       │  │  │
 │  │  └───────────────────┬─────────────────────────┘  │  │
 │  │                      │                             │  │
 │  │  ┌───────────────────┴─────────────────────────┐  │  │
@@ -119,7 +121,7 @@ The ZIPT algorithm (reference C# implementation at [github.com/CEisenhofer/ZIPT]
 1. **Internalization**: String terms/atoms are registered, creating theory variables and snode representations.
 2. **Propagation**: Equality/disequality merges and boolean assignments update the constraint store.
 3. **Final check**: Build a nielsen_graph from active constraints, run iterative deepening search.
-4. **Search**: At each node, apply the modifier chain (13 modifiers in priority order) to generate child nodes. Check for conflicts, subsumption, and satisfaction.
+4. **Search**: At each node, apply the modifier chain (13 modifiers in priority order) to generate child nodes. Check for conflicts and satisfaction.
 5. **Conflict/Satisfaction**: If all leaves are satisfied → FC_DONE. If a conflict is found → generate explanation clause and return FC_CONTINUE. If stuck → increase depth bound and retry.
 
 ### 4.3 Key Components
@@ -187,7 +189,7 @@ class theory_nseq : public theory {
 
 **Internalization pattern** (following `theory_seq`):
 - `internalize_term`: For string-sorted terms, create theory variable, register with egraph/sgraph. For `str.++`, `str.len`, `str.in_re`, etc., recursively internalize children.
-- `internalize_atom`: For `str.in_re`, `str.contains`, `str.prefixof`, `str.suffixof`, `str.<`, `str.<=` — create boolean variable.
+- `internalize_atom`: For `str.in_re` — create boolean variable. (`str.contains`, `str.prefixof`, `str.suffixof`, `str.<`, `str.<=` are out of scope for `theory_nseq`.)
 
 #### 5.1.2 Parameter integration
 
@@ -217,7 +219,11 @@ void setup::setup_nseq() {
 
 **`src/smt/smt_setup.h`** — Declare `setup_nseq()`.
 
-**`src/params/smt_params_helper.pyg`** — Document `nseq` in the `string_solver` parameter description.
+**`src/params/smt_params_helper.pyg`** — Document `nseq` in the `string_solver` parameter description, and add:
+```python
+def_param("nseq.max_depth", UINT, 0,
+    "Maximum Nielsen search depth for theory_nseq (0 = unlimited)")
+```
 
 #### 5.1.3 Build system
 
@@ -339,24 +345,14 @@ search_result expand_node(nielsen_node* node, unsigned depth);
 ```
 
 **Algorithm** (matching ZIPT's `NielsenGraph.Run()`):
-1. Set initial depth bound (e.g., 10)
-2. Run DFS from root with depth bound
+1. Set initial depth bound to **3**
+2. Run DFS from root with current depth bound
 3. If all branches conflict → UNSAT
 4. If a leaf is satisfied (all constraints trivial) → SAT
-5. If depth bound hit → increase bound, restart (iterative deepening)
-6. Cap total iterations to prevent non-termination
+5. If depth bound hit → increase bound by **1**, restart (iterative deepening)
+6. If `smt.nseq.max_depth > 0` and bound exceeds it → give up (`FC_GIVEUP`); if `smt.nseq.max_depth == 0` (default) → no upper limit
 
-#### 5.3.4 Subsumption Checking
-
-Add to `nielsen_node`:
-
-```cpp
-bool is_subsumed_by(nielsen_node const& other) const;
-```
-
-A node N₁ is subsumed by N₂ if every constraint in N₂ also appears in N₁ (via snode pointer equality after canonicalization). Subsumption prevents exploring redundant branches.
-
-#### 5.3.5 Conflict Detection & Explanation
+#### 5.3.4 Conflict Detection & Explanation
 
 Add to `nielsen_graph`:
 
@@ -638,7 +634,7 @@ Create focused test files in `tests/nseq/`:
 
 | File | Phase | Change |
 |------|-------|--------|
-| `src/smt/seq/seq_nielsen.h` | 3 | Add simplification, modifier chain, search, subsumption methods |
+| `src/smt/seq/seq_nielsen.h` | 3 | Add simplification, modifier chain, search methods |
 | `src/smt/seq/seq_nielsen.cpp` | 3 | Implement above methods |
 
 ### Files to Modify (Integration)
@@ -657,7 +653,7 @@ Create focused test files in `tests/nseq/`:
 
 1. **Phase 1** — Skeleton (`theory_nseq` class, parameter integration, build system) — compilable stub returning `FC_GIVEUP`
 2. **Phase 2** — State management (`nseq_state`) — constraint store with backtracking
-3. **Phase 3** — Nielsen algorithms (simplification, modifiers, search, subsumption, conflict) — core solver
+3. **Phase 3** — Nielsen algorithms (simplification, modifiers, search, conflict) — core solver
 4. **Phase 4** — Length/Parikh reasoning — arithmetic integration
 5. **Phase 5** — Regex membership (`nseq_regex`) — lazy derivatives
 6. **Phase 6** — Propagation wiring — connect all components in `final_check_eh`

@@ -16,6 +16,9 @@ Abstract:
 #include "ast/euf/euf_sgraph.h"
 #include "smt/seq/seq_nielsen.h"
 #include "params/smt_params.h"
+#include "ast/seq_decl_plugin.h"
+#include "smt/smt_context.h"
+#include "smt/theory_nseq.h"
 #include <iostream>
 
 // Test 1: instantiation of nielsen_graph compiles and doesn't crash
@@ -51,6 +54,26 @@ static void test_nseq_param_validation() {
     } catch (...) {
         SASSERT(false && "legacy values should still be accepted");
     }
+}
+
+// Test 2b: parameter validation rejects invalid variants of "nseq"
+static void test_nseq_param_validation_rejects_invalid() {
+    std::cout << "test_nseq_param_validation_rejects_invalid\n";
+    smt_params p;
+    static const char* invalid_variants[] = { "nseq2", "NSEQ", "nseqq", "nse", "Nseq", "nseq ", "" };
+    for (auto s : invalid_variants) {
+        bool threw = false;
+        try {
+            p.validate_string_solver(symbol(s));
+        } catch (...) {
+            threw = true;
+        }
+        if (!threw) {
+            std::cerr << "  FAIL: '" << s << "' should have been rejected\n";
+            SASSERT(false && "invalid string solver variant was accepted");
+        }
+    }
+    std::cout << "  ok: all invalid variants rejected\n";
 }
 
 // Test 3: nielsen graph simplification (trivial case)
@@ -204,9 +227,36 @@ static void test_nseq_length_mismatch() {
     std::cout << "  ok: ab = a detected as unsat\n";
 }
 
+// Test 10: setup_seq_str dispatches to setup_nseq() when string_solver == "nseq"
+static void test_setup_seq_str_dispatches_nseq() {
+    std::cout << "test_setup_seq_str_dispatches_nseq\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+
+    smt_params params;
+    params.m_string_solver = symbol("nseq");
+
+    smt::context ctx(m, params);
+
+    // Assert a string equality to trigger string theory setup during check()
+    seq_util su(m);
+    sort* str_sort = su.str.mk_string_sort();
+    app_ref x(m.mk_const(symbol("x_setup_test"), str_sort), m);
+    app_ref eq(m.mk_eq(x.get(), x.get()), m);
+    ctx.assert_expr(eq);
+    ctx.check();
+
+    // Verify that theory_nseq (not theory_seq) was registered for the "seq" family
+    family_id seq_fid = m.mk_family_id("seq");
+    SASSERT(ctx.get_theory(seq_fid) != nullptr);
+    SASSERT(dynamic_cast<smt::theory_nseq*>(ctx.get_theory(seq_fid)) != nullptr);
+    std::cout << "  ok: setup_seq_str dispatched to setup_nseq for 'nseq'\n";
+}
+
 void tst_nseq_basic() {
     test_nseq_instantiation();
     test_nseq_param_validation();
+    test_nseq_param_validation_rejects_invalid();
     test_nseq_simplification();
     test_nseq_node_satisfied();
     test_nseq_symbol_clash();
@@ -214,5 +264,6 @@ void tst_nseq_basic() {
     test_nseq_prefix_clash();
     test_nseq_const_nielsen_solvable();
     test_nseq_length_mismatch();
+    test_setup_seq_str_dispatches_nseq();
     std::cout << "nseq_basic: all tests passed\n";
 }
