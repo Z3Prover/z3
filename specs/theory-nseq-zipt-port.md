@@ -60,7 +60,7 @@ The ZIPT algorithm (reference C# implementation at [github.com/CEisenhofer/ZIPT]
 - [ ] Selectable via `smt.string_solver=nseq` parameter
 - [ ] Nielsen transformation-based word equation solving
 - [ ] Lazy regex membership via Brzozowski derivatives (reusing `sgraph::brzozowski_deriv`)
-- [ ] Parikh image / length constraint reasoning
+- [ ] Integer constraint reasoning via `lp::int_solver` (length, power terms, Parikh image)
 - [ ] Iterative deepening search: initial depth 3, +1 per failure, upper bound via `smt.nseq.max_depth` (0 = infinity)
 - [ ] Conflict detection with dependency-tracked explanations
 - [ ] Model generation for satisfiable instances
@@ -134,7 +134,8 @@ The ZIPT algorithm (reference C# implementation at [github.com/CEisenhofer/ZIPT]
 | Nielsen modifiers | 13 transformation rules (per ZIPT modifier chain) | `src/smt/seq/seq_nielsen.h/.cpp` | New (in existing files) |
 | `nseq_regex` | Regex membership processing, derivative dispatch | `src/smt/nseq_regex.h/.cpp` | New |
 | `nseq_model` | Model construction from solved constraints | `src/smt/nseq_model.h/.cpp` | New |
-| Parikh/length | Length reasoning, polynomial constraints | `src/smt/seq/seq_nielsen.h/.cpp` | New (in existing) |
+| Parikh/length | Length reasoning, integer subproblems | `src/smt/seq/seq_nielsen.h/.cpp` | New (in existing) |
+| `lp::int_solver` | Integer subproblem solving (replaces ZIPT's PDD subsolver) | `src/math/lp/int_solver.h` | Existing ✅ |
 | sgraph | String representation, substitution, derivatives | `src/ast/euf/euf_sgraph.*` | Existing ✅ |
 | seq_plugin | Egraph associativity/simplification | `src/ast/euf/euf_seq_plugin.*` | Existing ✅ |
 | seq_util | Sort/op declarations and utilities | `src/ast/seq_decl_plugin.*` | Existing ✅ |
@@ -363,16 +364,19 @@ void explain_conflict(nielsen_node const& conflict_node, svector<unsigned>& deps
 
 The `dep_tracker` bitvectors on each constraint track which original input constraints contributed. On conflict, OR together the dep_trackers of the conflicting constraints to get the minimal explanation.
 
-### 5.4 Phase 4: Parikh Image / Length Reasoning
+### 5.4 Phase 4: Integer Constraint Reasoning
 
-#### 5.4.1 Length Constraint Generation
+Each Nielsen node accumulates integer constraints from all sources:
+- **Length constraints**: from word equations `lhs = rhs` → `|lhs| = |rhs|`
+- **Power terms**: `x^n` with symbolic exponent → `n ≥ 0`, `|x^n| = n * |x|`
+- **Parikh image**: from regex membership `x ∈ L(r)` → length bounds/modular constraints (e.g. `x ∈ (ab)*` → `|x| mod 2 = 0`)
 
-For each word equation `lhs = rhs`, derive `|lhs| = |rhs|` as a linear arithmetic constraint. For each regex membership `x ∈ L(r)`, derive length bounds from the regex structure.
+All of these are collected together into a single integer constraint system per node and discharged uniformly via Z3's `lp::int_solver` (`src/math/lp/int_solver.h`). This replaces ZIPT's PDD-based integer subsolver. There is no separate treatment per source — they are all integer constraints over the same set of length variables.
 
 ```cpp
 // In nielsen_graph or a helper:
-void generate_length_constraints(nielsen_node const& node,
-                                 vector<expr_ref>& arith_constraints);
+void generate_integer_constraints(nielsen_node const& node,
+                                  vector<expr_ref>& int_constraints);
 ```
 
 **Length computation from snode**:
@@ -382,16 +386,7 @@ void generate_length_constraints(nielsen_node const& node,
 - `|x^n|` = `n * |x|` (power)
 - `|x|` = length variable for x
 
-**Integration with arithmetic solver**: Use `arith_value` to query current length assignments and check feasibility. Propagate new length equalities/inequalities via `theory_nseq::propagate()`.
-
-#### 5.4.2 Parikh Image (Advanced)
-
-For regex membership `x ∈ L(r)`, extract Parikh constraints on the length:
-- `x ∈ a*` → `|x| ≥ 0`
-- `x ∈ a{3,5}` → `3 ≤ |x| ≤ 5`
-- `x ∈ (ab)*` → `|x| mod 2 = 0`
-
-Initially use simple interval-based reasoning from regex structure. Full PDD (Polynomial Decision Diagram) support from ZIPT can be deferred — use Z3's existing arithmetic solver for polynomial reasoning.
+**Integration**: Use `arith_value` to query current assignments and check feasibility. Propagate derived equalities/inequalities via `theory_nseq::propagate()`.
 
 ### 5.5 Phase 5: Regex Membership
 
@@ -521,7 +516,7 @@ class nseq_model {
 | Extend `theory_seq` with Nielsen | Single solver, shared infrastructure | Massive refactor, high risk to production solver | **Rejected**: Too risky to production |
 | Port ZIPT as standalone user propagator | Minimal Z3 changes | Poor integration, no sharing of Z3 infrastructure, slower | **Rejected**: Misses optimization opportunities |
 | New `theory_nseq` (selected) | Clean separation, reuses infrastructure, safe coexistence | New code to maintain, some duplication | **Selected**: Best balance of risk and benefit |
-| PDD for Parikh (full ZIPT port) | Exact polynomial reasoning | Complex, Z3 has arithmetic solver already | **Deferred**: Use Z3 arithmetic initially, add PDD later if needed |
+| PDD for Parikh (full ZIPT port) | Exact polynomial reasoning | Complex, Z3 has `lp::int_solver` already | **Rejected**: Use `lp::int_solver` instead of porting ZIPT's PDD subsolver |
 
 ## 7. Cross-Cutting Concerns
 
@@ -602,7 +597,7 @@ Create focused test files in `tests/nseq/`:
 
 - [x] **Q1: egraph ownership** — `theory_nseq` creates its own **private egraph/sgraph**, matching the ZIPT pattern where the string manager is independent. This avoids interference with other theories and keeps the string representation self-contained.
 
-- [x] **Q2: Parikh implementation approach** — Use **Z3's existing arithmetic solver** via `arith_value` for length constraints. Generate linear length constraints from word equations and regex membership, propagate them as theory lemmas. ZIPT's PDD is deferred — Z3 already has a full arithmetic solver that theory_nseq can leverage directly.
+- [x] **Q2: Parikh implementation approach** — Use **Z3's built-in `lp::int_solver`** (`src/math/lp/int_solver.h`) for integer subproblems arising from Parikh/length constraints. Generate linear length constraints from word equations and regex membership, propagate them as theory lemmas via `arith_value`. ZIPT's PDD subsolver is **not ported** — `lp::int_solver` directly replaces it.
 
 - [x] **Q3: Nielsen graph persistence** — The Nielsen graph will be **maintained incrementally with backtracking support**. The graph persists across `final_check_eh()` calls with push/pop scope synchronization. This avoids redundant re-exploration of previously visited nodes when the SMT solver backtracks.
 
@@ -654,7 +649,7 @@ Create focused test files in `tests/nseq/`:
 1. **Phase 1** — Skeleton (`theory_nseq` class, parameter integration, build system) — compilable stub returning `FC_GIVEUP`
 2. **Phase 2** — State management (`nseq_state`) — constraint store with backtracking
 3. **Phase 3** — Nielsen algorithms (simplification, modifiers, search, conflict) — core solver
-4. **Phase 4** — Length/Parikh reasoning — arithmetic integration
+4. **Phase 4** — Integer constraint reasoning (`lp::int_solver`) — length, power, Parikh
 5. **Phase 5** — Regex membership (`nseq_regex`) — lazy derivatives
 6. **Phase 6** — Propagation wiring — connect all components in `final_check_eh`
 7. **Phase 7** — Model generation (`nseq_model`) — satisfying assignments
