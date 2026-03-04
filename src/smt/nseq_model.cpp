@@ -86,8 +86,8 @@ namespace smt {
             val = snode_to_value(sn);
 
         if (!val) {
-            // no assignment found — generate fresh value
-            val = m_factory->get_fresh_value(e->get_sort());
+            // no assignment found — default to empty string
+            val = m_seq.str.mk_empty(e->get_sort());
         }
 
         if (val) {
@@ -254,11 +254,11 @@ namespace smt {
             }
         }
 
-        // no regex constraint or witness generation failed: plain fresh value
+        // no regex constraint or witness generation failed: use empty string
         sort* srt = m_seq.str.mk_string_sort();
         if (var->get_expr())
             srt = var->get_expr()->get_sort();
-        return m_factory->get_fresh_value(srt);
+        return m_seq.str.mk_empty(srt);
     }
 
     void nseq_model::collect_var_regex_constraints(nseq_state const& state) {
