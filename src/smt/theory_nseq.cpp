@@ -193,10 +193,15 @@ namespace smt {
             m_prop_queue.push_back({prop_item::pos_mem_prop, idx});
         }
         else {
-            unsigned idx = m_state.neg_mems().size();
+            // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
+            // so the Nielsen graph sees it uniformly; the original negative literal
+            // is kept in mem_source for conflict reporting.
+            expr_ref re_compl(m_seq.re.mk_complement(re), get_manager());
+            euf::snode* sn_re_compl = get_snode(re_compl.get());
+            unsigned idx = m_state.str_mems().size();
             literal lit(v, true);
-            m_state.add_neg_mem(sn_str, sn_re, lit);
-            m_prop_queue.push_back({prop_item::neg_mem_prop, idx});
+            m_state.add_str_mem(sn_str, sn_re_compl, lit);
+            m_prop_queue.push_back({prop_item::pos_mem_prop, idx});
         }
 
         TRACE(seq, tout << "nseq assign_eh: " << (is_true ? "" : "¬")
@@ -256,9 +261,6 @@ namespace smt {
             case prop_item::pos_mem_prop:
                 propagate_pos_mem(item.m_idx);
                 break;
-            case prop_item::neg_mem_prop:
-                propagate_neg_mem(item.m_idx);
-                break;
             }
         }
     }
@@ -311,31 +313,6 @@ namespace smt {
         expr* s_expr = mem.m_str->get_expr();
         if (s_expr)
             ensure_length_var(s_expr);
-    }
-
-    void theory_nseq::propagate_neg_mem(unsigned idx) {
-        auto const& entry = m_state.get_neg_mem(idx);
-
-        if (!entry.m_str || !entry.m_regex)
-            return;
-
-        // ¬(s in Σ*) is always false → conflict
-        if (m_regex.is_full_regex(entry.m_regex)) {
-            enode_pair_vector eqs;
-            literal_vector lits;
-            lits.push_back(entry.m_lit);
-            set_conflict(eqs, lits);
-            return;
-        }
-
-        // ¬(ε in R) where R is nullable → conflict
-        if (entry.m_str->is_empty() && entry.m_regex->is_nullable()) {
-            enode_pair_vector eqs;
-            literal_vector lits;
-            lits.push_back(entry.m_lit);
-            set_conflict(eqs, lits);
-            return;
-        }
     }
 
     void theory_nseq::ensure_length_var(expr* e) {
@@ -397,49 +374,67 @@ namespace smt {
     final_check_status theory_nseq::final_check_eh(unsigned /*final_check_round*/) {
         // Always assert non-negativity for all string theory vars,
         // even when there are no string equations/memberships.
-        if (assert_nonneg_for_all_vars())
+        if (assert_nonneg_for_all_vars()) {
+            IF_VERBOSE(1, verbose_stream() << "nseq final_check: nonneg assertions added, FC_CONTINUE\n";);
             return FC_CONTINUE;
+        }
 
         // If there are unhandled boolean string predicates (prefixof, contains, etc.)
         // we cannot declare sat — return unknown.
-        if (has_unhandled_preds())
+        if (has_unhandled_preds()) {
+            IF_VERBOSE(1, verbose_stream() << "nseq final_check: unhandled preds, FC_GIVEUP\n";);
             return FC_GIVEUP;
+        }
 
-        if (m_state.empty() && m_ho_terms.empty())
+        if (m_state.empty() && m_ho_terms.empty()) {
+            IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state+ho, FC_DONE (no solve)\n";);
             return FC_DONE;
+        }
 
         // unfold higher-order terms when sequence structure is known
-        if (unfold_ho_terms())
+        if (unfold_ho_terms()) {
+            IF_VERBOSE(1, verbose_stream() << "nseq final_check: unfolded ho_terms, FC_CONTINUE\n";);
             return FC_CONTINUE;
+        }
 
-        if (m_state.empty())
+        if (m_state.empty()) {
+            IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state (after ho), FC_DONE (no solve)\n";);
             return FC_DONE;
+        }
 
+        IF_VERBOSE(1, verbose_stream() << "nseq final_check: populating graph with "
+            << m_state.str_eqs().size() << " eqs, " << m_state.str_mems().size() << " mems\n";);
         populate_nielsen_graph();
 
         // assert length constraints derived from string equalities
-        if (assert_length_constraints())
+        if (assert_length_constraints()) {
+            IF_VERBOSE(1, verbose_stream() << "nseq final_check: length constraints asserted, FC_CONTINUE\n";);
             return FC_CONTINUE;
+        }
 
         ++m_num_final_checks;
 
         m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
+        IF_VERBOSE(1, verbose_stream() << "nseq final_check: calling solve()\n";);
         auto result = m_nielsen.solve();
 
         if (result == seq::nielsen_graph::search_result::sat) {
+            IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve SAT, sat_node="
+                << (m_nielsen.sat_node() ? "set" : "null") << "\n";);
             // Nielsen found a consistent assignment for positive constraints.
-            // If there are negative memberships or disequalities we haven't verified,
-            // we cannot soundly declare sat.
-            if (!m_state.neg_mems().empty() || !m_state.diseqs().empty())
+            // If there are disequalities we haven't verified, we cannot soundly declare sat.
+            if (!m_state.diseqs().empty())
                 return FC_GIVEUP;
             return FC_DONE;
         }
 
         if (result == seq::nielsen_graph::search_result::unsat) {
+            IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNSAT\n";);
             explain_nielsen_conflict();
             return FC_CONTINUE;
         }
 
+        IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNKNOWN, FC_GIVEUP\n";);
         return FC_GIVEUP;
     }
 
@@ -556,7 +551,6 @@ namespace smt {
         out << "  str_eqs:    " << m_state.str_eqs().size() << "\n";
         out << "  str_mems:   " << m_state.str_mems().size() << "\n";
         out << "  diseqs:     " << m_state.diseqs().size() << "\n";
-        out << "  neg_mems:   " << m_state.neg_mems().size() << "\n";
         out << "  prop_queue: " << m_prop_qhead << "/" << m_prop_queue.size() << "\n";
         out << "  ho_terms:   " << m_ho_terms.size() << "\n";
     }

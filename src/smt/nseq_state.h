@@ -44,13 +44,6 @@ namespace smt {
         enode* m_n2;
     };
 
-    // negative regex membership: ¬(str in regex)
-    struct neg_mem_entry {
-        euf::snode* m_str;
-        euf::snode* m_regex;
-        literal     m_lit;
-    };
-
     class nseq_state {
         euf::sgraph&            m_sg;
         vector<seq::str_eq>     m_str_eqs;
@@ -58,11 +51,9 @@ namespace smt {
         vector<eq_source>       m_eq_sources;
         vector<mem_source>      m_mem_sources;
         vector<diseq_source>    m_diseqs;
-        vector<neg_mem_entry>   m_neg_mems;
         unsigned_vector         m_str_eq_lim;
         unsigned_vector         m_str_mem_lim;
         unsigned_vector         m_diseq_lim;
-        unsigned_vector         m_neg_mem_lim;
         unsigned                m_next_mem_id = 0;
 
     public:
@@ -72,7 +63,6 @@ namespace smt {
             m_str_eq_lim.push_back(m_str_eqs.size());
             m_str_mem_lim.push_back(m_str_mems.size());
             m_diseq_lim.push_back(m_diseqs.size());
-            m_neg_mem_lim.push_back(m_neg_mems.size());
         }
 
         void pop(unsigned n) {
@@ -85,8 +75,6 @@ namespace smt {
                 m_str_mem_lim.pop_back();
                 m_diseqs.shrink(m_diseq_lim.back());
                 m_diseq_lim.pop_back();
-                m_neg_mems.shrink(m_neg_mem_lim.back());
-                m_neg_mem_lim.pop_back();
             }
         }
 
@@ -106,21 +94,15 @@ namespace smt {
             m_diseqs.push_back({n1, n2});
         }
 
-        void add_neg_mem(euf::snode* str, euf::snode* regex, literal lit) {
-            m_neg_mems.push_back({str, regex, lit});
-        }
-
         vector<seq::str_eq> const&  str_eqs()  const { return m_str_eqs; }
         vector<seq::str_mem> const& str_mems() const { return m_str_mems; }
         vector<diseq_source> const& diseqs()   const { return m_diseqs; }
-        vector<neg_mem_entry> const& neg_mems() const { return m_neg_mems; }
 
         eq_source const& get_eq_source(unsigned i) const { return m_eq_sources[i]; }
         mem_source const& get_mem_source(unsigned i) const { return m_mem_sources[i]; }
         diseq_source const& get_diseq(unsigned i) const { return m_diseqs[i]; }
-        neg_mem_entry const& get_neg_mem(unsigned i) const { return m_neg_mems[i]; }
 
-        bool empty() const { return m_str_eqs.empty() && m_str_mems.empty() && m_neg_mems.empty() && m_diseqs.empty(); }
+        bool empty() const { return m_str_eqs.empty() && m_str_mems.empty() && m_diseqs.empty(); }
 
         void reset() {
             m_str_eqs.reset();
@@ -128,11 +110,9 @@ namespace smt {
             m_eq_sources.reset();
             m_mem_sources.reset();
             m_diseqs.reset();
-            m_neg_mems.reset();
             m_str_eq_lim.reset();
             m_str_mem_lim.reset();
             m_diseq_lim.reset();
-            m_neg_mem_lim.reset();
         }
     };
 

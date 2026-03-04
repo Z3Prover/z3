@@ -260,6 +260,8 @@ namespace seq {
         m_nodes.reset();
         m_edges.reset();
         m_root = nullptr;
+        m_sat_node = nullptr;
+        m_sat_path.reset();
         m_run_idx = 0;
         m_depth_bound = 0;
         m_next_mem_id = 0;
@@ -533,6 +535,8 @@ namespace seq {
             return search_result::sat;
 
         ++m_stats.m_num_solve_calls;
+        m_sat_node = nullptr;
+        m_sat_path.reset();
 
         // Iterative deepening: start at depth 3, increment by 1 on each failure.
         // m_max_search_depth == 0 means unlimited; otherwise stop when bound exceeds it.
@@ -541,7 +545,8 @@ namespace seq {
             if (m_max_search_depth > 0 && m_depth_bound > m_max_search_depth)
                 break;
             inc_run_idx();
-            search_result r = search_dfs(m_root, 0);
+            svector<nielsen_edge*> cur_path;
+            search_result r = search_dfs(m_root, 0, cur_path);
             if (r == search_result::sat) {
                 ++m_stats.m_num_sat;
                 return r;
@@ -559,7 +564,7 @@ namespace seq {
         return search_result::unknown;
     }
 
-    nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node, unsigned depth) {
+    nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path) {
         ++m_stats.m_num_dfs_nodes;
         if (depth > m_stats.m_max_depth)
             m_stats.m_max_depth = depth;
@@ -567,8 +572,11 @@ namespace seq {
         // cycle/revisit detection: if already visited this run, return cached status.
         // mirrors ZIPT's NielsenNode.GraphExpansion() evalIdx check.
         if (node->eval_idx() == m_run_idx) {
-            if (node->is_satisfied())
+            if (node->is_satisfied()) {
+                m_sat_node = node;
+                m_sat_path = cur_path;
                 return search_result::sat;
+            }
             if (node->is_currently_conflict())
                 return search_result::unsat;
             return search_result::unknown;
@@ -583,8 +591,11 @@ namespace seq {
             node->set_general_conflict(true);
             return search_result::unsat;
         }
-        if (sr == simplify_result::satisfied || node->is_satisfied())
+        if (sr == simplify_result::satisfied || node->is_satisfied()) {
+            m_sat_node = node;
+            m_sat_path = cur_path;
             return search_result::sat;
+        }
 
         // depth bound check
         if (depth >= m_depth_bound)
@@ -611,10 +622,11 @@ namespace seq {
         // explore children
         bool any_unknown = false;
         for (nielsen_edge* e : node->outgoing()) {
-            nielsen_node* child = e->tgt();
-            search_result r = search_dfs(child, depth + 1);
+            cur_path.push_back(e);
+            search_result r = search_dfs(e->tgt(), depth + 1, cur_path);
             if (r == search_result::sat)
                 return search_result::sat;
+            cur_path.pop_back();
             if (r == search_result::unknown)
                 any_unknown = true;
         }

@@ -45,7 +45,7 @@ namespace smt {
 
         // propagation queue
         struct prop_item {
-            enum kind_t { eq_prop, diseq_prop, pos_mem_prop, neg_mem_prop } m_kind;
+            enum kind_t { eq_prop, diseq_prop, pos_mem_prop } m_kind;
             unsigned m_idx;
         };
         svector<prop_item>  m_prop_queue;
@@ -112,7 +112,6 @@ namespace smt {
         void propagate_eq(unsigned idx);
         void propagate_diseq(unsigned idx);
         void propagate_pos_mem(unsigned idx);
-        void propagate_neg_mem(unsigned idx);
         void ensure_length_var(expr* e);
 
         // higher-order term unfolding

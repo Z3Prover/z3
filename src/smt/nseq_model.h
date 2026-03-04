@@ -88,9 +88,9 @@ namespace smt {
         bool validate_regex(nseq_state const& state, ::proto_model& mdl);
 
     private:
-        // extract variable assignments from a satisfying Nielsen node.
-        // Walks str_eqs looking for x = value patterns and records them.
-        void extract_assignments(seq::nielsen_node const* node);
+        // extract variable assignments from the sat path (root-to-leaf edges).
+        // Composes substitutions along the path to compute final var values.
+        void extract_assignments(svector<seq::nielsen_edge*> const& sat_path);
 
         // recursively substitute known variable assignments into an snode tree.
         // Returns a concrete Z3 expression.

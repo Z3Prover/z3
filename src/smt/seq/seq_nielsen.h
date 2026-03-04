@@ -425,6 +425,7 @@ namespace seq {
         // edges
         ptr_vector<nielsen_edge> m_outgoing;
         nielsen_node*           m_backedge = nullptr;
+        nielsen_edge*           m_parent_edge = nullptr;
 
         // status flags
         bool                    m_is_general_conflict = false;
@@ -456,6 +457,9 @@ namespace seq {
 
         nielsen_node* backedge() const { return m_backedge; }
         void set_backedge(nielsen_node* n) { m_backedge = n; }
+
+        nielsen_edge* parent_edge() const { return m_parent_edge; }
+        void set_parent_edge(nielsen_edge* e) { m_parent_edge = e; }
 
         // status
         bool is_general_conflict() const { return m_is_general_conflict; }
@@ -532,6 +536,8 @@ namespace seq {
         ptr_vector<nielsen_node>      m_nodes;
         ptr_vector<nielsen_edge>      m_edges;
         nielsen_node*                 m_root = nullptr;
+        nielsen_node*                 m_sat_node = nullptr;
+        svector<nielsen_edge*>        m_sat_path;
         unsigned                      m_run_idx = 0;
         unsigned                      m_depth_bound = 0;
         unsigned                      m_max_search_depth = 0;
@@ -557,6 +563,11 @@ namespace seq {
         // root node access
         nielsen_node* root() const { return m_root; }
         void set_root(nielsen_node* n) { m_root = n; }
+
+        // satisfying leaf node (set by solve() when result is sat)
+        nielsen_node* sat_node() const { return m_sat_node; }
+        // path of edges from root to sat_node (set when sat_node is set)
+        svector<nielsen_edge*> const& sat_path() const { return m_sat_path; }
 
         // add constraints to the root node from external solver
         void add_str_eq(euf::snode* lhs, euf::snode* rhs);
@@ -625,7 +636,7 @@ namespace seq {
         void generate_length_constraints(vector<length_constraint>& constraints);
 
     private:
-        search_result search_dfs(nielsen_node* node, unsigned depth);
+        search_result search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path);
 
         // create a fresh variable with a unique name
         euf::snode* mk_fresh_var();

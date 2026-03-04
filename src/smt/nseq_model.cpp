@@ -42,11 +42,12 @@ namespace smt {
         register_existing_values(nielsen);
         collect_var_regex_constraints(state);
 
-        // if the last solve returned sat, extract assignments from the
-        // satisfying leaf node found during DFS.
-        seq::nielsen_node const* root = nielsen.root();
-        if (root && root->is_satisfied())
-            extract_assignments(root);
+        // extract variable assignments from the satisfying leaf's substitution path
+        seq::nielsen_node const* sat = nielsen.sat_node();
+        IF_VERBOSE(1, verbose_stream() << "nseq model init: sat_node=" << (sat ? "set" : "null")
+            << " path_len=" << nielsen.sat_path().size() << "\n";);
+        extract_assignments(nielsen.sat_path());
+        IF_VERBOSE(1, verbose_stream() << "nseq model: m_var_values has " << m_var_values.size() << " entries\n";);
     }
 
     model_value_proc* nseq_model::mk_value(enode* n, model_generator& mg) {
@@ -74,6 +75,12 @@ namespace smt {
 
         // look up snode for this expression
         euf::snode* sn = m_sg.find(e);
+        IF_VERBOSE(2, {
+            verbose_stream() << "nseq mk_value: expr=" << mk_bounded_pp(e, m, 2);
+            if (sn) verbose_stream() << " snode[" << sn->id() << "] kind=" << (int)sn->kind();
+            else verbose_stream() << " snode=null";
+            verbose_stream() << "\n";
+        });
         expr_ref val(m);
         if (sn)
             val = snode_to_value(sn);
@@ -99,25 +106,46 @@ namespace smt {
         m_factory = nullptr;
     }
 
-    void nseq_model::extract_assignments(seq::nielsen_node const* node) {
-        if (!node)
-            return;
-        for (auto const& eq : node->str_eqs()) {
-            if (!eq.m_lhs || !eq.m_rhs)
-                continue;
-            if (eq.m_lhs->is_var() && !m_var_values.contains(eq.m_lhs->id())) {
-                expr_ref val = snode_to_value(eq.m_rhs);
-                if (val) {
-                    m_trail.push_back(val);
-                    m_var_values.insert(eq.m_lhs->id(), val);
-                }
+    void nseq_model::extract_assignments(svector<seq::nielsen_edge*> const& sat_path) {
+        IF_VERBOSE(1, verbose_stream() << "nseq extract_assignments: path length=" << sat_path.size() << "\n";);
+
+        // compose substitutions root-to-leaf.
+        // bindings[i] = (var_snode, current_value_snode).
+        // When a new substitution (s.m_var -> s.m_replacement) is applied,
+        // substitute s.m_var in all existing values, then record the new binding.
+        vector<std::pair<euf::snode*, euf::snode*>> bindings;
+        for (seq::nielsen_edge* e : sat_path) {
+            for (seq::nielsen_subst const& s : e->subst()) {
+                if (!s.m_var) continue;
+                IF_VERBOSE(1, {
+                    verbose_stream() << "  subst: snode[" << s.m_var->id() << "]";
+                    if (s.m_var->get_expr()) verbose_stream() << "=" << mk_bounded_pp(s.m_var->get_expr(), m, 2);
+                    verbose_stream() << " -> snode[" << (s.m_replacement ? (int)s.m_replacement->id() : -1) << "]";
+                    if (s.m_replacement && s.m_replacement->get_expr()) verbose_stream() << "=" << mk_bounded_pp(s.m_replacement->get_expr(), m, 2);
+                    verbose_stream() << "\n";
+                });
+                for (auto& b : bindings)
+                    b.second = m_sg.subst(b.second, s.m_var, s.m_replacement);
+                bindings.push_back({s.m_var, s.m_replacement});
             }
-            if (eq.m_rhs->is_var() && !m_var_values.contains(eq.m_rhs->id())) {
-                expr_ref val = snode_to_value(eq.m_lhs);
-                if (val) {
-                    m_trail.push_back(val);
-                    m_var_values.insert(eq.m_rhs->id(), val);
-                }
+        }
+
+        IF_VERBOSE(1, verbose_stream() << "nseq extract_assignments: " << bindings.size() << " bindings\n";);
+        for (auto const& b : bindings) {
+            unsigned id = b.first->id();
+            if (m_var_values.contains(id))
+                continue;
+            expr_ref val = snode_to_value(b.second);
+            IF_VERBOSE(1, {
+                verbose_stream() << "  var snode[" << id << "]";
+                if (b.first->get_expr()) verbose_stream() << "=" << mk_bounded_pp(b.first->get_expr(), m, 2);
+                verbose_stream() << " -> ";
+                if (val) verbose_stream() << mk_bounded_pp(val, m, 3); else verbose_stream() << "(null)";
+                verbose_stream() << "\n";
+            });
+            if (val) {
+                m_trail.push_back(val);
+                m_var_values.insert(id, val);
             }
         }
     }
@@ -277,26 +305,6 @@ namespace smt {
                 IF_VERBOSE(0, verbose_stream() << "nseq model: positive membership violated: "
                            << mk_bounded_pp(s_expr, m, 3)
                            << " in " << mk_bounded_pp(r_expr, m, 3) << "\n";);
-                ok = false;
-            }
-        }
-
-        // validate negative memberships: str ∉ regex
-        for (auto const& entry : state.neg_mems()) {
-            if (!entry.m_str || !entry.m_regex)
-                continue;
-            expr* s_expr = entry.m_str->get_expr();
-            expr* r_expr = entry.m_regex->get_expr();
-            if (!s_expr || !r_expr)
-                continue;
-
-            expr_ref in_re(m_seq.re.mk_in_re(s_expr, r_expr), m);
-            expr_ref val(m);
-            mdl.eval(in_re, val, true);
-            if (val && m.is_true(val)) {
-                IF_VERBOSE(0, verbose_stream() << "nseq model: negative membership violated: "
-                           << mk_bounded_pp(s_expr, m, 3)
-                           << " not in " << mk_bounded_pp(r_expr, m, 3) << "\n";);
                 ok = false;
             }
         }
