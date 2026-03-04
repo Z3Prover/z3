@@ -530,7 +530,6 @@ namespace smt {
         st.update("nseq unsat",           ns.m_num_unsat);
         st.update("nseq unknown",         ns.m_num_unknown);
         st.update("nseq simplify clash",  ns.m_num_simplify_conflict);
-        st.update("nseq subsumptions",    ns.m_num_subsumptions);
         st.update("nseq extensions",      ns.m_num_extensions);
         st.update("nseq fresh vars",      ns.m_num_fresh_vars);
         st.update("nseq max depth",       ns.m_max_depth);

@@ -505,26 +505,6 @@ namespace seq {
         return m_str_mem.empty();
     }
 
-    bool nielsen_node::is_subsumed_by(nielsen_node const& other) const {
-        // check if every non-trivial constraint in 'other' also appears in 'this'.
-        // trivial str_eqs (both sides empty/equal) are always satisfied and
-        // do not affect subsumption.
-        for (str_eq const& oeq : other.m_str_eq) {
-            if (oeq.is_trivial()) continue;
-            bool found = false;
-            for (str_eq const& teq : m_str_eq)
-                if (teq == oeq) { found = true; break; }
-            if (!found) return false;
-        }
-        for (str_mem const& omem : other.m_str_mem) {
-            bool found = false;
-            for (str_mem const& tmem : m_str_mem)
-                if (tmem == omem) { found = true; break; }
-            if (!found) return false;
-        }
-        return true;
-    }
-
     bool nielsen_node::has_opaque_terms() const {
         auto is_opaque = [](euf::snode* n) { return n && n->kind() == euf::snode_kind::s_other; };
         for (str_eq const& eq : m_str_eq) {
@@ -605,21 +585,6 @@ namespace seq {
         }
         if (sr == simplify_result::satisfied || node->is_satisfied())
             return search_result::sat;
-
-        // subsumption pruning: if any previously explored node has a subset
-        // of our constraints and was found to be a conflict, this node must
-        // also be a conflict.  Mirrors ZIPT's FindExisting() lookup.
-        for (nielsen_node* other : m_nodes) {
-            if (other == node) continue;
-            if (other->eval_idx() != m_run_idx) continue;
-            if (!other->is_general_conflict()) continue;
-            if (node->is_subsumed_by(*other)) {
-                ++m_stats.m_num_subsumptions;
-                node->set_general_conflict(true);
-                node->set_reason(backtrack_reason::subsumption);
-                return search_result::unsat;
-            }
-        }
 
         // depth bound check
         if (depth >= m_depth_bound)
