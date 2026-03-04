@@ -97,6 +97,10 @@ namespace euf {
         // maps expression id to snode
         ptr_vector<snode> m_expr2snode;
 
+        // trail of alias entries (string constant → decomposed snode) for pop
+        unsigned_vector  m_alias_trail;       // expression ids
+        unsigned_vector  m_alias_trail_lim;   // scope boundaries
+
         snode* mk_snode(expr* e, snode_kind k, unsigned num_args, snode* const* args);
         snode_kind classify(expr* e) const;
         void compute_metadata(snode* n);

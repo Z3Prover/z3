@@ -288,6 +288,7 @@ int main(int argc, char ** argv) {
     TST(sls_seq_plugin);
     TST(seq_nielsen);
     TST(nseq_basic);
+    TST(nseq_regex);
     TST(ho_matcher);
     TST(finite_set);
     TST(finite_set_rewriter);

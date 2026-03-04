@@ -355,6 +355,22 @@ namespace euf {
         if (n)
             return n;
 
+        // decompose non-empty string constants into character chains
+        // so that Nielsen graph can do prefix matching on them
+        zstring s;
+        if (m_seq.str.is_string(e, s) && !s.empty()) {
+            snode* result = mk_char(s[s.length() - 1]);
+            for (unsigned i = s.length() - 1; i-- > 0; )
+                result = mk_concat(mk_char(s[i]), result);
+            // register the original string expression as an alias
+            unsigned eid = e->get_id();
+            m_expr2snode.reserve(eid + 1, nullptr);
+            m_expr2snode[eid] = result;
+            m_alias_trail.push_back(eid);
+            mk_enode(e);
+            return result;
+        }
+
         snode_kind k = classify(e);
 
         if (!is_app(e))
@@ -400,6 +416,7 @@ namespace euf {
 
     void sgraph::push() {
         m_scopes.push_back(m_nodes.size());
+        m_alias_trail_lim.push_back(m_alias_trail.size());
         ++m_num_scopes;
         m_egraph.push();
     }
@@ -420,6 +437,15 @@ namespace euf {
         }
         m_nodes.shrink(old_sz);
         m_scopes.shrink(new_lvl);
+        // undo alias entries (string constant decompositions)
+        unsigned alias_old = m_alias_trail_lim[new_lvl];
+        for (unsigned i = m_alias_trail.size(); i-- > alias_old; ) {
+            unsigned eid = m_alias_trail[i];
+            if (eid < m_expr2snode.size())
+                m_expr2snode[eid] = nullptr;
+        }
+        m_alias_trail.shrink(alias_old);
+        m_alias_trail_lim.shrink(new_lvl);
         m_num_scopes = new_lvl;
         m_egraph.pop(num_scopes);
     }
@@ -520,6 +546,25 @@ namespace euf {
         expr* ch = nullptr;
         if (m_seq.str.is_unit(elem_expr, ch))
             elem_expr = ch;
+
+        // If elem is a regex predicate (e.g., re.allchar from compute_minterms),
+        // extract a representative character for the derivative.
+        sort* seq_sort = nullptr, *ele_sort = nullptr;
+        if (m_seq.is_re(re_expr, seq_sort) && m_seq.is_seq(seq_sort, ele_sort)) {
+            if (ele_sort != elem_expr->get_sort()) {
+                expr* lo = nullptr, *hi = nullptr;
+                if (m_seq.re.is_full_char(elem_expr)) {
+                    // re.allchar represents the entire alphabet; computing a derivative
+                    // w.r.t. a single character would be imprecise and could incorrectly
+                    // report fail. Return nullptr to prevent incorrect pruning.
+                    return nullptr;
+                }
+                else if (m_seq.re.is_range(elem_expr, lo, hi) && lo)
+                    elem_expr = lo;
+                else
+                    return nullptr;
+            }
+        }
         expr_ref result = m_rewriter.mk_derivative(elem_expr, re_expr);
         if (!result)
             return nullptr;

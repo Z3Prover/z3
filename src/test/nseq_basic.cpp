@@ -100,10 +100,119 @@ static void test_nseq_node_satisfied() {
     std::cout << "  ok\n";
 }
 
+// Test 5: symbol clash conflict ("a" = "b" is unsat)
+static void test_nseq_symbol_clash() {
+    std::cout << "test_nseq_symbol_clash\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    seq::nielsen_graph ng(sg);
+
+    euf::snode* a = sg.mk_char('a');
+    euf::snode* b = sg.mk_char('b');
+    ng.add_str_eq(a, b);
+
+    auto r = ng.solve();
+    SASSERT(r == seq::nielsen_graph::search_result::unsat);
+
+    // verify conflict explanation returns the equality index
+    unsigned_vector eq_idx, mem_idx;
+    ng.explain_conflict(eq_idx, mem_idx);
+    SASSERT(eq_idx.size() == 1);
+    SASSERT(eq_idx[0] == 0);
+    SASSERT(mem_idx.empty());
+    std::cout << "  ok: symbol clash detected as unsat\n";
+}
+
+// Test 6: variable equality x = x is sat
+static void test_nseq_var_eq_self() {
+    std::cout << "test_nseq_var_eq_self\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    seq::nielsen_graph ng(sg);
+
+    euf::snode* x = sg.mk_var(symbol("x"));
+    ng.add_str_eq(x, x);
+
+    auto r = ng.solve();
+    SASSERT(r == seq::nielsen_graph::search_result::sat);
+    std::cout << "  ok: x = x solved as sat\n";
+}
+
+// Test 7: x·a = x·b is unsat (prefix match then clash)
+static void test_nseq_prefix_clash() {
+    std::cout << "test_nseq_prefix_clash\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    seq::nielsen_graph ng(sg);
+
+    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* a = sg.mk_char('a');
+    euf::snode* b = sg.mk_char('b');
+    euf::snode* xa = sg.mk_concat(x, a);
+    euf::snode* xb = sg.mk_concat(x, b);
+
+    ng.add_str_eq(xa, xb);
+    auto r = ng.solve();
+    SASSERT(r == seq::nielsen_graph::search_result::unsat);
+    std::cout << "  ok: x·a = x·b detected as unsat\n";
+}
+
+// Test 8: a·x = a·y has solutions (not unsat)
+static void test_nseq_const_nielsen_solvable() {
+    std::cout << "test_nseq_const_nielsen_solvable\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    seq::nielsen_graph ng(sg);
+
+    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* y = sg.mk_var(symbol("y"));
+    euf::snode* a = sg.mk_char('a');
+    euf::snode* ax = sg.mk_concat(a, x);
+    euf::snode* ay = sg.mk_concat(a, y);
+
+    ng.add_str_eq(ax, ay);
+    auto r = ng.solve();
+    // a·x = a·y simplifies to x = y which is satisfiable (x = y = ε)
+    SASSERT(r == seq::nielsen_graph::search_result::sat);
+    std::cout << "  ok: a·x = a·y solved as sat\n";
+}
+
+// Test 9: length mismatch - "ab" = "a" is unsat
+static void test_nseq_length_mismatch() {
+    std::cout << "test_nseq_length_mismatch\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    seq::nielsen_graph ng(sg);
+
+    euf::snode* a = sg.mk_char('a');
+    euf::snode* b = sg.mk_char('b');
+    euf::snode* ab = sg.mk_concat(a, b);
+
+    ng.add_str_eq(ab, a);
+    auto r = ng.solve();
+    SASSERT(r == seq::nielsen_graph::search_result::unsat);
+    std::cout << "  ok: ab = a detected as unsat\n";
+}
+
 void tst_nseq_basic() {
     test_nseq_instantiation();
     test_nseq_param_validation();
     test_nseq_simplification();
     test_nseq_node_satisfied();
+    test_nseq_symbol_clash();
+    test_nseq_var_eq_self();
+    test_nseq_prefix_clash();
+    test_nseq_const_nielsen_solvable();
+    test_nseq_length_mismatch();
     std::cout << "nseq_basic: all tests passed\n";
 }

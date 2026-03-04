@@ -183,22 +183,27 @@ Abstract:
       detection during character substitution are not ported.
 
     Modifier hierarchy (Constraints/Modifier/):
-    - All ~15 Modifier subclasses driving graph expansion are not ported:
-      VarNielsenModifier, ConstNielsenModifier, DirectedNielsenModifier,
-      EqSplitModifier, RegexVarSplitModifier, RegexCharSplitModifier,
-      StarIntrModifier, PowerSplitModifier, GPowerIntrModifier,
-      NumCmpModifier, NumUnwindingModifier, PowerEpsilonModifier,
-      DecomposeModifier, CombinedModifier, DetModifier.
-    - The modifier pattern (each Modifier produces one or more child nodes by
-      applying substitutions + side conditions to the parent node) is not ported.
+    - 13 Modifier subclasses driving graph expansion are ported as
+      apply_* methods in generate_extensions, matching ZIPT's TypeOrder
+      priority: DetModifier(1), PowerEpsilonModifier(2), NumCmpModifier(3),
+      ConstNumUnwindingModifier(4), EqSplitModifier(5), StarIntrModifier(6),
+      GPowerIntrModifier(7), ConstNielsenModifier(8), RegexCharSplitModifier(9),
+      RegexVarSplitModifier(10), PowerSplitModifier(11), VarNielsenModifier(12),
+      VarNumUnwindingModifier(13).
+    - NOT PORTED: DirectedNielsenModifier, DecomposeModifier, CombinedModifier.
+    - NumCmp, ConstNumUnwinding, VarNumUnwinding are approximated (no PDD
+      integer polynomial infrastructure; power tokens are replaced with ε
+      or peeled with fresh variables instead of exact exponent arithmetic).
 
     Search procedure:
-    - NielsenNode.GraphExpansion(): the recursive search with iterative deepening
-      (depth-bounded DFS with SAT/UNSAT/CYCLIC return codes) is not ported.
-    - NielsenNode.SimplifyAndInit(): the simplification-and-initialization pass
-      run at node creation is not ported.
-    - NielsenGraph.Check(): the top-level entry point with iterative deepening,
-      inner solver setup and subsumption-node lookup is not ported.
+    - NielsenGraph.Check() / NielsenNode.GraphExpansion(): ported as
+      nielsen_graph::solve() (iterative deepening, 6 rounds starting at
+      depth 10, doubling) and search_dfs() (depth-bounded DFS with
+      eval_idx cycle detection and node status tracking). The inner solver
+      setup and subsumption-node lookup within Check() are not ported.
+    - NielsenNode.SimplifyAndInit(): ported as
+      nielsen_node::simplify_and_init() with prefix matching, symbol clash,
+      empty propagation, and Brzozowski derivative consumption.
     - NielsenGraph.FindExisting(): the subsumption cache lookup over
       subsumptionCandidates is not ported.
 
@@ -231,6 +236,7 @@ Author:
 #include "util/vector.h"
 #include "util/uint_set.h"
 #include "ast/ast.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/euf/euf_sgraph.h"
 
@@ -280,6 +286,9 @@ namespace seq {
         void merge(dep_tracker const& other);
         bool is_superset(dep_tracker const& other) const;
         bool empty() const;
+
+        // collect indices of all set bits into 'indices'
+        void get_set_bits(unsigned_vector& indices) const;
 
         bool operator==(dep_tracker const& other) const { return m_bits == other.m_bits; }
         bool operator!=(dep_tracker const& other) const { return !(*this == other); }
@@ -351,6 +360,24 @@ namespace seq {
         bool operator==(nielsen_subst const& other) const {
             return m_var == other.m_var && m_replacement == other.m_replacement;
         }
+    };
+
+    // kind of length constraint determines propagation strategy
+    enum class length_kind {
+        nonneg,   // len(x) >= 0: unconditional axiom
+        eq,       // len(lhs) = len(rhs): conditional on string equality
+        bound     // Parikh bound: conditional on regex membership
+    };
+
+    // arithmetic length constraint derived from string equations
+    struct length_constraint {
+        expr_ref    m_expr;  // arithmetic expression (e.g., len(x) + len(y) = len(a) + 1)
+        dep_tracker m_dep;   // tracks which input constraints contributed
+        length_kind m_kind;  // determines propagation strategy
+
+        length_constraint(ast_manager& m): m_expr(m), m_kind(length_kind::nonneg) {}
+        length_constraint(expr* e, dep_tracker const& dep, length_kind kind, ast_manager& m):
+            m_expr(e, m), m_dep(dep), m_kind(kind) {}
     };
 
     // edge in the Nielsen graph connecting two nodes
@@ -469,6 +496,39 @@ namespace seq {
 
         // true if other's constraint set is a subset of this node's
         bool is_subsumed_by(nielsen_node const& other) const;
+
+        // true if any constraint has opaque (s_other) terms that
+        // the Nielsen graph cannot decompose
+        bool has_opaque_terms() const;
+    };
+
+    // search statistics collected during Nielsen graph solving
+    struct nielsen_stats {
+        unsigned m_num_solve_calls     = 0;
+        unsigned m_num_dfs_nodes       = 0;
+        unsigned m_num_sat             = 0;
+        unsigned m_num_unsat           = 0;
+        unsigned m_num_unknown         = 0;
+        unsigned m_num_simplify_conflict = 0;
+        unsigned m_num_subsumptions    = 0;
+        unsigned m_num_extensions      = 0;
+        unsigned m_num_fresh_vars      = 0;
+        unsigned m_max_depth           = 0;
+        // modifier application counts
+        unsigned m_mod_det             = 0;
+        unsigned m_mod_power_epsilon   = 0;
+        unsigned m_mod_num_cmp         = 0;
+        unsigned m_mod_const_num_unwinding = 0;
+        unsigned m_mod_eq_split        = 0;
+        unsigned m_mod_star_intr       = 0;
+        unsigned m_mod_gpower_intr     = 0;
+        unsigned m_mod_const_nielsen   = 0;
+        unsigned m_mod_regex_char_split = 0;
+        unsigned m_mod_regex_var_split = 0;
+        unsigned m_mod_power_split     = 0;
+        unsigned m_mod_var_nielsen     = 0;
+        unsigned m_mod_var_num_unwinding = 0;
+        void reset() { memset(this, 0, sizeof(nielsen_stats)); }
     };
 
     // the overall Nielsen transformation graph
@@ -482,6 +542,10 @@ namespace seq {
         unsigned                      m_run_idx = 0;
         unsigned                      m_depth_bound = 0;
         unsigned                      m_next_mem_id = 0;
+        unsigned                      m_fresh_cnt = 0;
+        unsigned                      m_num_input_eqs = 0;
+        unsigned                      m_num_input_mems = 0;
+        nielsen_stats                 m_stats;
 
     public:
         nielsen_graph(euf::sgraph& sg);
@@ -519,6 +583,10 @@ namespace seq {
         // generate next unique regex membership id
         unsigned next_mem_id() { return m_next_mem_id++; }
 
+        // number of input constraints (for dep_tracker bit mapping)
+        unsigned num_input_eqs() const { return m_num_input_eqs; }
+        unsigned num_input_mems() const { return m_num_input_mems; }
+
         // display for debugging
         std::ostream& display(std::ostream& out) const;
 
@@ -541,8 +609,111 @@ namespace seq {
         // collect dependency information from conflicting constraints
         void collect_conflict_deps(dep_tracker& deps) const;
 
+        // explain a conflict: partition the set bits into str_eq indices
+        // (bits 0..num_eqs-1) and str_mem indices (bits num_eqs..num_eqs+num_mems-1).
+        // Must be called after solve() returns unsat.
+        void explain_conflict(unsigned_vector& eq_indices, unsigned_vector& mem_indices) const;
+
+        // accumulated search statistics
+        nielsen_stats const& stats() const { return m_stats; }
+        void reset_stats() { m_stats.reset(); }
+
+        // generate arithmetic length constraints from the root node's string
+        // equalities and regex memberships. For each non-trivial equation lhs = rhs,
+        // produces len(lhs) = len(rhs) by expanding concatenations into sums.
+        // For each regex membership str in regex, produces Parikh interval
+        // constraints: len(str) >= min_len and len(str) <= max_len.
+        // Also generates len(x) >= 0 for each variable appearing in the equations.
+        void generate_length_constraints(vector<length_constraint>& constraints);
+
     private:
         search_result search_dfs(nielsen_node* node, unsigned depth);
+
+        // create a fresh variable with a unique name
+        euf::snode* mk_fresh_var();
+
+        // deterministic modifier: var = ε, same-head cancel
+        bool apply_det_modifier(nielsen_node* node);
+
+        // const nielsen modifier: char vs var (2 branches per case)
+        bool apply_const_nielsen(nielsen_node* node);
+
+        // variable Nielsen modifier: var vs var, all progress (3 branches)
+        bool apply_var_nielsen(nielsen_node* node);
+
+        // eq split modifier: var vs var (3 branches)
+        bool apply_eq_split(nielsen_node* node);
+
+        // apply regex character split modifier to a node.
+        // for a str_mem constraint x·s ∈ R where x is a variable:
+        //   (1) x → c·z for each char c accepted by R at first position
+        //   (2) x → ε (x is empty)
+        // returns true if children were generated.
+        bool apply_regex_char_split(nielsen_node* node);
+
+        // power epsilon modifier: for a power token u^n in an equation,
+        // branch: (1) base u = ε, (2) power is empty (n = 0 semantics).
+        // mirrors ZIPT's PowerEpsilonModifier
+        bool apply_power_epsilon(nielsen_node* node);
+
+        // numeric comparison modifier: for equations involving power tokens
+        // u^m and u^n with the same base, branch on m < n vs n <= m.
+        // mirrors ZIPT's NumCmpModifier
+        bool apply_num_cmp(nielsen_node* node);
+
+        // constant numeric unwinding: for a power token u^n vs a constant
+        // (non-variable), branch: (1) n = 0 (u^n = ε), (2) n >= 1 (peel one u).
+        // mirrors ZIPT's ConstNumUnwindingModifier
+        bool apply_const_num_unwinding(nielsen_node* node);
+
+        // star introduction: for a str_mem x·s ∈ R where a cycle is detected
+        // (backedge exists), introduce stabilizer: x ∈ base* with x split.
+        // mirrors ZIPT's StarIntrModifier
+        bool apply_star_intr(nielsen_node* node);
+
+        // generalized power introduction: for a variable x matched against
+        // a ground repeated pattern, introduce x = base^n · prefix(base)
+        // with fresh power variable n and side constraint n >= 0.
+        // mirrors ZIPT's GPowerIntrModifier
+        bool apply_gpower_intr(nielsen_node* node);
+
+        // regex variable split: for str_mem x·s ∈ R where x is a variable,
+        // split using minterms: x → ε, or x → c·x' for each minterm c.
+        // More general than regex_char_split, uses minterm partitioning.
+        // mirrors ZIPT's RegexVarSplitModifier
+        bool apply_regex_var_split(nielsen_node* node);
+
+        // power split: for a variable x facing a power token u^n,
+        // branch: x = u^m · prefix(u) with m < n, or x = u^n · x.
+        // mirrors ZIPT's PowerSplitModifier
+        bool apply_power_split(nielsen_node* node);
+
+        // variable numeric unwinding: for a power token u^n vs a variable,
+        // branch: (1) n = 0 (u^n = ε), (2) n >= 1 (peel one u).
+        // mirrors ZIPT's VarNumUnwindingModifier
+        bool apply_var_num_unwinding(nielsen_node* node);
+
+        // collect concrete first-position characters from a regex snode
+        void collect_first_chars(euf::snode* re, euf::snode_vector& chars);
+
+        // find the first power token in any str_eq at this node
+        euf::snode* find_power_token(nielsen_node* node) const;
+
+        // find a power token facing a constant (char) head
+        bool find_power_vs_const(nielsen_node* node, euf::snode*& power, euf::snode*& other_head, str_eq const*& eq_out) const;
+
+        // find a power token facing a variable head
+        bool find_power_vs_var(nielsen_node* node, euf::snode*& power, euf::snode*& var_head, str_eq const*& eq_out) const;
+
+        // build an arithmetic expression representing the length of an snode tree.
+        // concatenations are expanded to sums, chars to 1, empty to 0,
+        // variables to (str.len var_expr).
+        expr_ref compute_length_expr(euf::snode* n);
+
+        // compute Parikh length interval [min_len, max_len] for a regex snode.
+        // uses seq_util::rex min_length/max_length on the underlying expression.
+        // max_len == UINT_MAX means unbounded.
+        void compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len);
     };
 
 }
