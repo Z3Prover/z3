@@ -1546,7 +1546,7 @@ namespace seq {
 
     // -----------------------------------------------------------------------
     // Modifier: apply_gpower_intr
-    // Generalized power introduction: for a variable x matched against a
+    // Ground power introduction: for a variable x matched against a
     // ground repeated pattern, introduce x = base^n · prefix with fresh n.
     // Approximated: for each non-trivial equation with a variable head vs
     // a ground concatenation, introduce power decomposition.
