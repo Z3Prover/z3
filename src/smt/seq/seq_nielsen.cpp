@@ -868,10 +868,6 @@ namespace seq {
         return search_result::unknown;
     }
 
-    simplify_result nielsen_graph::simplify_node(nielsen_node* node) {
-        return node->simplify_and_init(*this);
-    }
-
     bool nielsen_graph::apply_det_modifier(nielsen_node* node) {
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())

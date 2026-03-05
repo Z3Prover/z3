@@ -575,7 +575,7 @@ namespace euf {
         if (!re || !re->get_expr())
             return;
         expr* e = re->get_expr();
-        expr* ch = nullptr, *lo = nullptr, *hi = nullptr;
+        expr* lo = nullptr, *hi = nullptr;
         // leaf regex predicates: character ranges and single characters
         if (m_seq.re.is_range(e, lo, hi)) {
             preds.push_back(e);

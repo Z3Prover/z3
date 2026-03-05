@@ -594,12 +594,7 @@ namespace seq {
         ptr_vector<nielsen_node> const& nodes() const { return m_nodes; }
         unsigned num_nodes() const { return m_nodes.size(); }
 
-        // depth bound for iterative deepening
-        unsigned depth_bound() const { return m_depth_bound; }
-        void set_depth_bound(unsigned d) { m_depth_bound = d; }
-
         // maximum overall search depth (0 = unlimited)
-        unsigned max_search_depth() const { return m_max_search_depth; }
         void set_max_search_depth(unsigned d) { m_max_search_depth = d; }
 
         // generate next unique regex membership id
@@ -625,9 +620,6 @@ namespace seq {
 
         // main search entry point: iterative deepening DFS
         search_result solve();
-
-        // simplify a node's constraints (delegate to node)
-        simplify_result simplify_node(nielsen_node* node);
 
         // generate child nodes by applying modifier rules
         // returns true if at least one child was generated
