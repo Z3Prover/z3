@@ -88,7 +88,7 @@ namespace smt {
             std::condition_variable m_bb_cv;
             bb_candidates m_bb_current_batch;
             unsigned m_bb_batch_id = 0;
-            unsigned m_num_bb_threads = 0;
+            unsigned num_global_bb_threads = 0;
             unsigned_vector m_bb_last_batch_processed;
             unsigned m_bb_cancel_epoch = 0; // When a backbone worker finishes early, it increments m_bb_cancel_epoch and notifies all
 
@@ -164,7 +164,7 @@ namespace smt {
 
             void set_num_backbone_threads(unsigned n) {
                 std::scoped_lock lock(mux);
-                m_num_bb_threads = n;
+                num_global_bb_threads = n;
                 m_bb_last_batch_processed.reset();
                 m_bb_last_batch_processed.resize(n);
             }
@@ -298,7 +298,7 @@ namespace smt {
             unsigned m_bb_conflicts_per_chunk = 1000;
             stats m_stats;
             bb_mode m_mode;
-            unsigned m_num_bb_threads = 1; // used to toggle behavior when testing bb candidates 
+            unsigned num_global_bb_threads = 1; // used to toggle behavior when testing bb candidates 
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             bool check_backbone(expr* bb_candidate);
         public:

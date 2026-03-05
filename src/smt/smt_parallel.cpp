@@ -153,7 +153,7 @@ namespace smt {
             // in mode bb_neg this is Algorithm 7 from https://sat.inesc-id.pt/~mikolas/bb-aicom-preprint.pdf
             while (!bb_candidate_lits.empty() && !canceled() && m.inc()) {
                 // remove candidates that the other backbone thread found to be backbones
-                if (m_num_bb_threads > 1) {
+                if (num_global_bb_threads > 1) {
                     for (unsigned i = 0; i < bb_candidate_lits.size();) {
                         expr* tmp = bb_candidate_lits.get(i);
                         if (b.is_global_backbone(m_l2g, tmp)) 
@@ -543,7 +543,7 @@ namespace smt {
 
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_inprocessing = pp.inprocessing();
-        m_config.m_global_backbones = pp.num_bb_threads() > 0;
+        m_config.m_global_backbones = pp.num_global_bb_threads() > 0;
         m_config.m_local_backbones = pp.local_backbones();
         m_config.m_share_theory_lemmas = pp.share_theory_lemmas();
     }
@@ -567,7 +567,7 @@ namespace smt {
         context::copy(p.ctx, *ctx, true);
 
         smt_parallel_params pp(p.ctx.m_params);
-        m_num_bb_threads = pp.num_bb_threads();
+        num_global_bb_threads = pp.num_global_bb_threads();
     }
 
     parallel::bb_candidates parallel::worker::find_backbone_candidates(unsigned k) {
@@ -1173,8 +1173,8 @@ namespace smt {
         unsigned num_sat_threads = pp.num_sat_threads();
         unsigned num_unsat_threads = pp.num_unsat_threads();
         unsigned num_sls_threads = (pp.sls() ? 1 : 0);
-        unsigned num_bb_threads = pp.num_bb_threads();          
-        unsigned total_threads = num_std_workers + num_sat_threads + num_unsat_threads + num_sls_threads + num_bb_threads;
+        unsigned num_global_bb_threads = pp.num_global_bb_threads();          
+        unsigned total_threads = num_std_workers + num_sat_threads + num_unsat_threads + num_sls_threads + num_global_bb_threads;
 
         IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << total_threads << " threads\n";);
         ast_manager &m = ctx.m;
@@ -1219,12 +1219,12 @@ namespace smt {
             m_sls_worker = alloc(sls_worker, *this);
             sl.push_child(&(m_sls_worker->limit()));
         }
-        for (unsigned i = 0; i < num_bb_threads; ++i) {
+        for (unsigned i = 0; i < num_global_bb_threads; ++i) {
             auto *w = alloc(backbones_worker, i, *this, asms);
             m_global_backbones_workers.push_back(w);
             sl.push_child(&(w->limit()));
         }
-        m_batch_manager.set_num_backbone_threads(num_bb_threads);
+        m_batch_manager.set_num_backbone_threads(num_global_bb_threads);
         
 
         // Launch threads
