@@ -349,7 +349,11 @@ namespace seq {
 
         nielsen_subst(): m_var(nullptr), m_replacement(nullptr) {}
         nielsen_subst(euf::snode* var, euf::snode* repl, dep_tracker const& dep):
-            m_var(var), m_replacement(repl), m_dep(dep) {}
+            m_var(var), m_replacement(repl), m_dep(dep) {
+            SASSERT(var != nullptr);
+            SASSERT(repl != nullptr);
+            SASSERT(var->is_var());
+        }
 
         // an eliminating substitution does not contain the variable in the replacement
         bool is_eliminating() const;

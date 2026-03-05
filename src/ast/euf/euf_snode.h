@@ -178,9 +178,8 @@ namespace euf {
                 arg(0)->collect_tokens(tokens);
                 arg(1)->collect_tokens(tokens);
             }
-            else if (!is_empty()) {
+            else if (!is_empty())
                 tokens.push_back(const_cast<snode*>(this));
-            }
         }
 
         // access the i-th token (0-based, left-to-right order)

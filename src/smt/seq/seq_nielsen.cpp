@@ -879,6 +879,19 @@ namespace seq {
         return search_result::unknown;
     }
 
+    // Returns true if variable snode `var` appears anywhere in the token list of `n`.
+    static bool snode_contains_var(euf::snode const* n, euf::snode const* var) {
+        if (!n || !var)
+            return false;
+        euf::snode_vector tokens;
+        n->collect_tokens(tokens);
+        for (const euf::snode* t : tokens) {
+            if (t == var)
+                return true;
+        }
+        return false;
+    }
+
     bool nielsen_graph::apply_det_modifier(nielsen_node* node) {
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())
@@ -886,28 +899,23 @@ namespace seq {
             if (!eq.m_lhs || !eq.m_rhs)
                 continue;
 
-            euf::snode_vector lhs_toks, rhs_toks;
-            eq.m_lhs->collect_tokens(lhs_toks);
-            eq.m_rhs->collect_tokens(rhs_toks);
-            if (lhs_toks.empty() || rhs_toks.empty())
-                continue;
-
-            euf::snode* lhead = lhs_toks[0];
-            euf::snode* rhead = rhs_toks[0];
-
-            // variable definition: x = t where x ∉ vars(t) → subst x → t
-            if (lhead->is_var() && eq.m_rhs->is_empty()) {
-                nielsen_node* child = mk_child(node);
-                nielsen_edge* e = mk_edge(node, child, true);
-                nielsen_subst s(lhead, m_sg.mk_empty(), eq.m_dep);
-                e->add_subst(s);
-                child->apply_subst(m_sg, s);
-                return true;
+            // variable definition: x = t where x is a single var and x ∉ vars(t)
+            // → deterministically substitute x → t throughout the node
+            euf::snode* var = nullptr;
+            euf::snode* def;
+            if (eq.m_lhs->is_var() && !snode_contains_var(eq.m_rhs, eq.m_lhs)) {
+                var = eq.m_lhs;
+                def = eq.m_rhs;
             }
-            if (rhead->is_var() && eq.m_lhs->is_empty()) {
+            else if (eq.m_rhs->is_var() && !snode_contains_var(eq.m_lhs, eq.m_rhs)) {
+                var = eq.m_rhs;
+                def = eq.m_lhs;
+            }
+
+            if (var) {
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
-                nielsen_subst s(rhead, m_sg.mk_empty(), eq.m_dep);
+                nielsen_subst s(var, def, eq.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
                 return true;
