@@ -635,22 +635,22 @@ namespace seq {
                     continue;
                 }
 
-                // prefix cancellation: strip any common leading tokens.
+                // prefix/suffix cancellation: strip common leading and trailing tokens.
                 // Same char or same variable on both sides can always be cancelled.
                 // Two different concrete characters is a symbol clash.
                 {
                     euf::snode_vector lhs_toks, rhs_toks;
                     eq.m_lhs->collect_tokens(lhs_toks);
                     eq.m_rhs->collect_tokens(rhs_toks);
+
+                    // --- prefix ---
                     unsigned prefix = 0;
                     while (prefix < lhs_toks.size() && prefix < rhs_toks.size()) {
                         euf::snode* lt = lhs_toks[prefix];
                         euf::snode* rt = rhs_toks[prefix];
                         if (lt->id() == rt->id() && (lt->is_char() || lt->is_var())) {
-                            // identical token on both sides: cancel
                             ++prefix;
                         } else if (lt->is_char() && rt->is_char()) {
-                            // different concrete characters: symbol clash
                             m_is_general_conflict = true;
                             m_reason = backtrack_reason::symbol_clash;
                             return simplify_result::conflict;
@@ -658,9 +658,27 @@ namespace seq {
                             break;
                         }
                     }
-                    if (prefix > 0) {
-                        eq.m_lhs = sg.drop_left(eq.m_lhs, prefix);
-                        eq.m_rhs = sg.drop_left(eq.m_rhs, prefix);
+
+                    // --- suffix (only among the tokens not already consumed by prefix) ---
+                    unsigned lsz = lhs_toks.size(), rsz = rhs_toks.size();
+                    unsigned suffix = 0;
+                    while (suffix < lsz - prefix && suffix < rsz - prefix) {
+                        euf::snode* lt = lhs_toks[lsz - 1 - suffix];
+                        euf::snode* rt = rhs_toks[rsz - 1 - suffix];
+                        if (lt->id() == rt->id() && (lt->is_char() || lt->is_var())) {
+                            ++suffix;
+                        } else if (lt->is_char() && rt->is_char()) {
+                            m_is_general_conflict = true;
+                            m_reason = backtrack_reason::symbol_clash;
+                            return simplify_result::conflict;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    if (prefix > 0 || suffix > 0) {
+                        eq.m_lhs = sg.drop_left(sg.drop_right(eq.m_lhs, suffix), prefix);
+                        eq.m_rhs = sg.drop_left(sg.drop_right(eq.m_rhs, suffix), prefix);
                         changed = true;
                     }
                 }
