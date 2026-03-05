@@ -894,8 +894,7 @@ namespace seq {
 
     bool nielsen_graph::apply_det_modifier(nielsen_node* node) {
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial())
-                continue;
+            SASSERT(!eq.is_trivial()); // We should have simplified it away before
             if (!eq.m_lhs || !eq.m_rhs)
                 continue;
 

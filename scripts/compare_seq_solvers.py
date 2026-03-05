@@ -3,7 +3,7 @@
 Compare z3 string solvers: smt.string_solver=nseq (new) vs smt.string_solver=seq (old).
 
 Usage:
-    python compare_solvers.py <path-to-smtlib-files> [--ext .smt2]
+    python compare_solvers.py <path-to-smtlib-files> --z3 /path/to/z3 [--ext .smt2]
 
 Finds all .smt2 files under the given path, runs both solvers with a 5s timeout,
 and reports:
@@ -20,7 +20,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-Z3_BIN = r"C:\Users\Clemens\source\repos\z3-nseq\debug\z3"
 TIMEOUT = 5  # seconds
 COMMON_ARGS = ["model_validate=true"]
 
@@ -30,11 +29,11 @@ SOLVERS = {
 }
 
 
-def run_z3(smt_file: Path, solver_arg: str) -> tuple[str, float]:
+def run_z3(z3_bin: str, smt_file: Path, solver_arg: str) -> tuple[str, float]:
     """Run z3 on a file with the given solver argument.
     Returns (result, elapsed) where result is 'sat', 'unsat', 'unknown', or 'timeout'/'error'.
     """
-    cmd = [Z3_BIN, solver_arg] + COMMON_ARGS + [str(smt_file)]
+    cmd = [z3_bin, solver_arg] + COMMON_ARGS + [str(smt_file)]
     start = time.monotonic()
     try:
         proc = subprocess.run(
@@ -78,9 +77,9 @@ def classify(res_nseq: str, res_seq: str) -> str:
     return "diverge"
 
 
-def process_file(smt_file: Path) -> dict:
-    res_nseq, t_nseq = run_z3(smt_file, SOLVERS["nseq"])
-    res_seq,  t_seq  = run_z3(smt_file, SOLVERS["seq"])
+def process_file(z3_bin: str, smt_file: Path) -> dict:
+    res_nseq, t_nseq = run_z3(z3_bin, smt_file, SOLVERS["nseq"])
+    res_seq,  t_seq  = run_z3(z3_bin, smt_file, SOLVERS["seq"])
     cat = classify(res_nseq, res_seq)
     return {
         "file":     smt_file,
@@ -95,10 +94,13 @@ def process_file(smt_file: Path) -> dict:
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("path", help="Directory containing SMT-LIB2 files")
+    parser.add_argument("--z3", required=True, metavar="PATH", help="Path to z3 binary")
     parser.add_argument("--ext", default=".smt2", help="File extension to search for (default: .smt2)")
     parser.add_argument("--jobs", type=int, default=4, help="Parallel workers (default: 4)")
     parser.add_argument("--csv", metavar="FILE", help="Also write results to a CSV file")
     args = parser.parse_args()
+
+    z3_bin = args.z3
 
     root = Path(args.path)
     if not root.exists():
@@ -114,7 +116,7 @@ def main():
 
     results = []
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = {pool.submit(process_file, f): f for f in files}
+        futures = {pool.submit(process_file, z3_bin, f): f for f in files}
         done = 0
         for fut in as_completed(futures):
             done += 1
