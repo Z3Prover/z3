@@ -514,6 +514,33 @@ namespace seq {
     // nielsen_node: simplify_and_init
     // -----------------------------------------------------------------------
 
+    bool nielsen_node::handle_empty_side(euf::sgraph& sg, euf::snode* non_empty_side,
+                                         dep_tracker const& dep, bool& changed) {
+        euf::snode_vector tokens;
+        non_empty_side->collect_tokens(tokens);
+        bool all_vars_or_opaque = true;
+        bool has_char = false;
+        for (euf::snode* t : tokens) {
+            if (t->is_char()) has_char = true;
+            else if (!t->is_var() && t->kind() != euf::snode_kind::s_other) {
+                all_vars_or_opaque = false; break;
+            }
+        }
+        if (has_char || !all_vars_or_opaque) {
+            m_is_general_conflict = true;
+            m_reason = backtrack_reason::symbol_clash;
+            return true;
+        }
+        for (euf::snode* t : tokens) {
+            if (t->is_var()) {
+                nielsen_subst s(t, sg.mk_empty(), dep);
+                apply_subst(sg, s);
+                changed = true;
+            }
+        }
+        return false;
+    }
+
     simplify_result nielsen_node::simplify_and_init(nielsen_graph& g) {
         euf::sgraph& sg = g.sg();
         bool changed = true;
@@ -556,53 +583,13 @@ namespace seq {
 
                 // one side empty, the other not empty => conflict or substitution
                 if (eq.m_lhs->is_empty() && !eq.m_rhs->is_empty()) {
-                    euf::snode_vector tokens;
-                    eq.m_rhs->collect_tokens(tokens);
-                    bool all_vars_or_opaque = true;
-                    bool has_char = false;
-                    for (euf::snode* t : tokens) {
-                        if (t->is_char()) has_char = true;
-                        else if (!t->is_var() && t->kind() != euf::snode_kind::s_other) {
-                            all_vars_or_opaque = false; break;
-                        }
-                    }
-                    if (has_char || !all_vars_or_opaque) {
-                        m_is_general_conflict = true;
-                        m_reason = backtrack_reason::symbol_clash;
+                    if (handle_empty_side(sg, eq.m_rhs, eq.m_dep, changed))
                         return simplify_result::conflict;
-                    }
-                    for (euf::snode* t : tokens) {
-                        if (t->is_var()) {
-                            nielsen_subst s(t, sg.mk_empty(), eq.m_dep);
-                            apply_subst(sg, s);
-                            changed = true;
-                        }
-                    }
                     continue;
                 }
                 if (eq.m_rhs->is_empty() && !eq.m_lhs->is_empty()) {
-                    euf::snode_vector tokens;
-                    eq.m_lhs->collect_tokens(tokens);
-                    bool all_vars_or_opaque = true;
-                    bool has_char = false;
-                    for (euf::snode* t : tokens) {
-                        if (t->is_char()) has_char = true;
-                        else if (!t->is_var() && t->kind() != euf::snode_kind::s_other) {
-                            all_vars_or_opaque = false; break;
-                        }
-                    }
-                    if (has_char || !all_vars_or_opaque) {
-                        m_is_general_conflict = true;
-                        m_reason = backtrack_reason::symbol_clash;
+                    if (handle_empty_side(sg, eq.m_lhs, eq.m_dep, changed))
                         return simplify_result::conflict;
-                    }
-                    for (euf::snode* t : tokens) {
-                        if (t->is_var()) {
-                            nielsen_subst s(t, sg.mk_empty(), eq.m_dep);
-                            apply_subst(sg, s);
-                            changed = true;
-                        }
-                    }
                     continue;
                 }
 
