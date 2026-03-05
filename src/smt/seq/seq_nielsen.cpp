@@ -691,6 +691,7 @@ namespace seq {
                 }
                 mem.m_str = sg.drop_first(mem.m_str);
                 mem.m_regex = deriv;
+                mem.m_history = sg.mk_concat(mem.m_history, first);
                 changed = true;
             }
         }
@@ -707,18 +708,16 @@ namespace seq {
         }
 
         // remove satisfied str_mem constraints (ε ∈ nullable regex)
-        {
-            unsigned wi = 0;
-            for (unsigned i = 0; i < m_str_mem.size(); ++i) {
-                str_mem& mem = m_str_mem[i];
-                if (mem.m_str && mem.m_str->is_empty() && mem.m_regex && mem.m_regex->is_nullable())
-                    continue;  // satisfied, drop
-                m_str_mem[wi++] = mem;
-            }
-            if (wi < m_str_mem.size()) {
-                m_str_mem.shrink(wi);
-                changed = true;
-            }
+        unsigned wi = 0;
+        for (unsigned i = 0; i < m_str_mem.size(); ++i) {
+            str_mem& mem = m_str_mem[i];
+            if (mem.m_str && mem.m_str->is_empty() && mem.m_regex && mem.m_regex->is_nullable())
+                continue;  // satisfied, drop
+            m_str_mem[wi++] = mem;
+        }
+        if (wi < m_str_mem.size()) {
+            m_str_mem.shrink(wi);
+            changed = true;
         }
 
         if (is_satisfied())
@@ -728,8 +727,10 @@ namespace seq {
     }
 
     bool nielsen_node::is_satisfied() const {
-        for (str_eq const& eq : m_str_eq)
-            if (!eq.is_trivial()) return false;
+        for (str_eq const& eq : m_str_eq) {
+            if (!eq.is_trivial())
+                return false;
+        }
         return m_str_mem.empty();
     }
 
@@ -792,10 +793,9 @@ namespace seq {
 
     nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path) {
         ++m_stats.m_num_dfs_nodes;
-        if (depth > m_stats.m_max_depth)
-            m_stats.m_max_depth = depth;
+        m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth);
 
-        // cycle/revisit detection: if already visited this run, return cached status.
+        // revisit detection: if already visited this run, return cached status.
         // mirrors ZIPT's NielsenNode.GraphExpansion() evalIdx check.
         if (node->eval_idx() == m_run_idx) {
             if (node->is_satisfied()) {
