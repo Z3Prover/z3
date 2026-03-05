@@ -37,9 +37,7 @@ namespace seq {
         m_bits.resize(words, 0);
     }
 
-    dep_tracker::dep_tracker(unsigned num_bits, unsigned set_bit) {
-        unsigned words = (num_bits + 31) / 32;
-        m_bits.resize(words, 0);
+    dep_tracker::dep_tracker(unsigned num_bits, unsigned set_bit) : dep_tracker(num_bits) {
         if (set_bit < num_bits) {
             unsigned word_idx = set_bit / 32;
             unsigned bit_idx = set_bit % 32;
