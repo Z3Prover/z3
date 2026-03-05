@@ -134,6 +134,7 @@ add_executable(test-z3
   seq_nielsen.cpp
   nseq_basic.cpp
   nseq_regex.cpp
+  nseq_zipt.cpp
   small_object_allocator.cpp
   smt2print_parse.cpp
   smt_context.cpp
