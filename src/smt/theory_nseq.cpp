@@ -416,7 +416,12 @@ namespace smt {
 
         m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
         IF_VERBOSE(1, verbose_stream() << "nseq final_check: calling solve()\n";);
+
+        // here the actual Nielsen solving happens
         auto result = m_nielsen.solve();
+        std::cout << "Result: " << (result == seq::nielsen_graph::search_result::sat ? "SAT" : result == seq::nielsen_graph::search_result::unsat ? "UNSAT" : "UNKNOWN") << "\n";
+        m_nielsen.to_dot(std::cout);
+        std::cout << std::endl;
 
         if (result == seq::nielsen_graph::search_result::sat) {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve SAT, sat_node="

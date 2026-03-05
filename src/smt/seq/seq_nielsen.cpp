@@ -362,15 +362,71 @@ namespace seq {
         return result;
     }
 
-    // Helper: render an snode as a short label (expression text or id).
+    // Helper: render an snode as a human-readable label.
+    // Groups consecutive s_char tokens into quoted strings, renders s_var by name,
+    // and falls back to mk_pp for other token kinds.
     static std::string snode_label(euf::snode const* n, ast_manager& m) {
         if (!n) return "null";
-        if (n->get_expr()) {
-            std::ostringstream os;
-            os << mk_pp(n->get_expr(), m);
-            return os.str();
+        seq_util seq(m);
+
+        // collect all leaf tokens left-to-right
+        euf::snode_vector tokens;
+        n->collect_tokens(tokens);
+
+        if (tokens.empty())
+            return "\"\""; // empty string
+
+        std::string result;
+        std::string char_acc;   // accumulator for consecutive printable chars
+        bool first = true;
+
+        // flush accumulated chars as a quoted string
+        auto flush_chars = [&]() {
+            if (char_acc.empty()) return;
+            if (!first) result += " + ";
+            result += "\"" + char_acc + "\"";
+            first = false;
+            char_acc.clear();
+        };
+
+        for (euf::snode const* tok : tokens) {
+            expr* e = tok->get_expr();
+
+            // s_char: seq.unit(const_char) – extract char code and accumulate
+            if (tok->is_char() && e) {
+                expr* ch_expr = to_app(e)->get_arg(0);
+                unsigned code = 0;
+                if (seq.is_const_char(ch_expr, code)) {
+                    if (code >= 32 && code < 127 && code != '"' && code != '\\') {
+                        char_acc += static_cast<char>(code);
+                    } else {
+                        flush_chars();
+                        char buf[16];
+                        snprintf(buf, sizeof(buf), "'\\x%x'", code);
+                        if (!first) result += " + ";
+                        result += buf;
+                        first = false;
+                    }
+                    continue;
+                }
+            }
+
+            flush_chars();
+            if (!first) result += " + ";
+            first = false;
+
+            if (!e) {
+                result += "#" + std::to_string(tok->id());
+            } else if (tok->is_var()) {
+                result += to_app(e)->get_decl()->get_name().str();
+            } else {
+                std::ostringstream os;
+                os << mk_pp(e, m);
+                result += os.str();
+            }
         }
-        return "#" + std::to_string(n->id());
+        flush_chars();
+        return result;
     }
 
     std::ostream& nielsen_node::display_html(std::ostream& out, ast_manager& m) const {
@@ -435,6 +491,7 @@ namespace seq {
             || r == backtrack_reason::smt;
     }
 
+    // gives a graphviz graph representation of the Nielsen graph (for debugging)
     std::ostream& nielsen_graph::to_dot(std::ostream& out) const {
         ast_manager& m = m_sg.get_manager();
 
@@ -483,7 +540,7 @@ namespace seq {
                     if (!first) out << "<br/>";
                     first = false;
                     out << dot_html_escape(snode_label(s.m_var, m))
-                        << " &#8594; "          // →
+                        << " &#8594; " // mapping arrow
                         << dot_html_escape(snode_label(s.m_replacement, m));
                 }
                 out << ">";
