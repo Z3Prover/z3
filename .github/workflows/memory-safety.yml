@@ -140,8 +140,8 @@ jobs:
           cd build-ubsan
           CC=clang CXX=clang++ cmake \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -fno-sanitize-recover=all" \
-            -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -fno-sanitize-recover=all" \
+            -DCMAKE_C_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -fsanitize-recover=all" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -fsanitize-recover=all" \
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined" \
             -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=undefined" \
             -G Ninja ../
