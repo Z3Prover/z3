@@ -42,7 +42,7 @@ public:
     // run the replacements the inverse direction.
     void invert() { m_proofs.reverse(); }
 
-    void display(std::ostream & out) override {}
+    void display(std::ostream &) override { }
 
 };
 

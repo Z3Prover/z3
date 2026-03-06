@@ -26,7 +26,7 @@ namespace nlsat {
     ineq_atom::ineq_atom(kind k, unsigned sz, poly * const * ps, bool const * is_even, var max_var):
         atom(k, max_var),
         m_size(sz) {
-        for (unsigned i = 0; i < m_size; i++) {
+        for (unsigned i = 0; i < m_size; ++i) {
             m_ps[i] = TAG(poly *, ps[i], is_even[i] ? 1 : 0);
         }
         SASSERT(is_ineq_atom());
@@ -40,7 +40,7 @@ namespace nlsat {
         if (a1->m_size != a2->m_size || a1->m_kind != a2->m_kind)
             return false;
         unsigned sz = a1->m_size;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (a1->m_ps[i] != a2->m_ps[i])
                 return false;
         }

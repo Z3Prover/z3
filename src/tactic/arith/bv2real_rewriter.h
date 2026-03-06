@@ -48,7 +48,7 @@ class bv2real_util {
     struct bvr_hash {
         unsigned operator()(bvr_sig const& x) const {
             unsigned a[3] = { x.m_msz, x.m_nsz, x.m_d.hash() };            
-            return string_hash((char const*)a, 12, x.m_r.hash());
+            return string_hash(std::string_view((char const*)a, 12), x.m_r.hash());
         }
     };
 

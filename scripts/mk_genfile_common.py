@@ -58,12 +58,17 @@ def sorted_headers_by_component(l):
         _logger.debug("get_key({})".format(path))
         path_components = []
         stripped_path = path
-        assert 'src' in stripped_path.split(os.path.sep) or 'src' in stripped_path.split('/')
+        if not ('src' in stripped_path.split(os.path.sep) or 'src' in stripped_path.split('/')):
+            raise ValueError(f"Path '{path}' does not contain 'src' directory component")
         # Keep stripping off directory components until we hit ``src``
         while os.path.basename(stripped_path) != 'src':
             path_components.append(os.path.basename(stripped_path))
             stripped_path = os.path.dirname(stripped_path)
-        assert len(path_components) > 0
+            # Prevent infinite loop if 'src' is never found
+            if not stripped_path or stripped_path == os.path.dirname(stripped_path):
+                raise ValueError(f"Could not find 'src' directory in path '{path}'")
+        if len(path_components) == 0:
+            raise ValueError(f"Path '{path}' has no components after 'src' directory")
         path_components.reverse()
         # For consistency across platforms use ``/`` rather than ``os.sep``.
         # This is a sorting key so it doesn't need to a platform suitable
@@ -136,9 +141,10 @@ def mk_z3consts_py_internal(api_files, output_dir):
                     decls = {}
                     idx   = 0
                 else:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
+                    raise ValueError("Invalid %s, line: %s" % (api_file, linenum))
             else:
-                assert mode == IN_ENUM
+                if mode != IN_ENUM:
+                    raise ValueError(f"Expected IN_ENUM mode, got mode {mode} in {api_file}, line: {linenum}")
                 words = re.split('[^-a-zA-Z0-9_]+', line)
                 m = closebrace_pat.match(line)
                 if m:
@@ -150,7 +156,7 @@ def mk_z3consts_py_internal(api_files, output_dir):
                     z3consts.write('\n')
                     mode = SEARCHING
                 elif len(words) <= 2:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
+                    raise ValueError("Invalid %s, line: %s" % (api_file, linenum))
                 else:
                     if words[2] != '':
                         if len(words[2]) > 1 and words[2][1] == 'x':
@@ -224,9 +230,10 @@ def mk_z3consts_dotnet_internal(api_files, output_dir):
                     decls = {}
                     idx   = 0
                 else:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
+                    raise ValueError("Invalid %s, line: %s" % (api_file, linenum))
             else:
-                assert mode == IN_ENUM
+                if mode != IN_ENUM:
+                    raise ValueError(f"Expected IN_ENUM mode, got mode {mode} in {api_file}, line: {linenum}")
                 words = re.split('[^-a-zA-Z0-9_]+', line)
                 m = closebrace_pat.match(line)
                 if m:
@@ -241,7 +248,7 @@ def mk_z3consts_dotnet_internal(api_files, output_dir):
                         z3consts.write('  }\n\n')
                     mode = SEARCHING
                 elif len(words) <= 2:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
+                    raise ValueError("Invalid %s, line: %s" % (api_file, linenum))
                 else:
                     if words[2] != '':
                         if len(words[2]) > 1 and words[2][1] == 'x':
@@ -312,9 +319,10 @@ def mk_z3consts_java_internal(api_files, package_name, output_dir):
                     decls = {}
                     idx   = 0
                 else:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
+                    raise ValueError("Invalid %s, line: %s" % (api_file, linenum))
             else:
-                assert mode == IN_ENUM
+                if mode != IN_ENUM:
+                    raise ValueError(f"Expected IN_ENUM mode, got mode {mode} in {api_file}, line: {linenum}")
                 words = re.split('[^-a-zA-Z0-9_]+', line)
                 m = closebrace_pat.match(line)
                 if m:
@@ -438,9 +446,10 @@ def mk_z3consts_ml_internal(api_files, output_dir):
                     decls = {}
                     idx   = 0
                 else:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
+                    raise ValueError("Invalid %s, line: %s" % (api_file, linenum))
             else:
-                assert mode == IN_ENUM
+                if mode != IN_ENUM:
+                    raise ValueError(f"Expected IN_ENUM mode, got mode {mode} in {api_file}, line: {linenum}")
                 words = re.split('[^-a-zA-Z0-9_]+', line)
                 m = closebrace_pat.match(line)
                 if m:
@@ -518,9 +527,10 @@ def mk_z3consts_ml_internal(api_files, output_dir):
     #                 decls = {}
     #                 idx   = 0
     #             else:
-    #                 assert False, "Invalid %s, line: %s" % (api_file, linenum)
+    #                 raise ValueError("Invalid %s, line: %s" % (api_file, linenum))
     #         else:
-    #             assert mode == IN_ENUM
+    #             if mode != IN_ENUM:
+    #                 raise ValueError(f"Expected IN_ENUM mode, got mode {mode} in {api_file}, line: {linenum}")
     #             words = re.split('[^\-a-zA-Z0-9_]+', line)
     #             m = closebrace_pat.match(line)
     #             if m:
@@ -610,7 +620,8 @@ def mk_gparams_register_modules_internal(h_files_full_path, path):
         This procedure is invoked by gparams::init()
     """
     assert isinstance(h_files_full_path, list)
-    assert check_dir_exists(path)
+    if not check_dir_exists(path):
+        raise ValueError(f"Output directory '{path}' does not exist")
     cmds = []    
     mod_cmds = []
     mod_descrs = []
@@ -690,7 +701,8 @@ def mk_install_tactic_cpp_internal(h_files_full_path, path):
     }
 
     assert isinstance(h_files_full_path, list)
-    assert check_dir_exists(path)
+    if not check_dir_exists(path):
+        raise ValueError(f"Output directory '{path}' does not exist")
     fullname = os.path.join(path, 'install_tactic.cpp')
     fout  = open(fullname, 'w')
     fout.write('// Automatically generated file.\n')
@@ -774,7 +786,8 @@ def mk_mem_initializer_cpp_internal(h_files_full_path, path):
        These procedures are invoked by the Z3 memory_manager
     """
     assert isinstance(h_files_full_path, list)
-    assert check_dir_exists(path)
+    if not check_dir_exists(path):
+        raise ValueError(f"Output directory '{path}' does not exist")
     initializer_cmds = []
     finalizer_cmds   = []
     fullname = os.path.join(path, 'mem_initializer.cpp')

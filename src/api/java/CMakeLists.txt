@@ -48,7 +48,16 @@ target_include_directories(z3java PRIVATE
   "${PROJECT_BINARY_DIR}/src/api"
   ${JNI_INCLUDE_DIRS}
 )
+# Add header padding for macOS to allow install_name_tool to modify the dylib
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  target_link_options(z3java PRIVATE "-Wl,-headerpad_max_install_names")
+endif()
 # FIXME: Should this library have SONAME and VERSION set?
+
+# On macOS, add headerpad for install_name_tool compatibility
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+  target_link_options(z3java PRIVATE "-Wl,-headerpad_max_install_names")
+endif()
 
 # This prevents CMake from automatically defining ``z3java_EXPORTS``
 set_property(TARGET z3java PROPERTY DEFINE_SYMBOL "")
@@ -115,6 +124,7 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   FiniteDomainExpr.java
   FiniteDomainNum.java
   FiniteDomainSort.java
+  FiniteSetSort.java
   Fixedpoint.java
   FPExpr.java
   FPNum.java
@@ -158,6 +168,7 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   Symbol.java
   Tactic.java
   TupleSort.java
+  TypeVarSort.java
   UninterpretedSort.java
   UserPropagatorBase.java
   Version.java
@@ -186,6 +197,8 @@ add_custom_target(build_z3_java_bindings
 # Rule to build ``com.microsoft.z3.jar``
 # TODO: Should we set ``CMAKE_JNI_TARGET`` to ``TRUE``?
 # REMARK: removed VERSION to fix issue with using this to create installations.
+
+set(CMAKE_JAVA_COMPILE_FLAGS -source 1.8 -target 1.8)
 
 add_jar(z3JavaJar
   SOURCES ${Z3_JAVA_JAR_SOURCE_FILES_FULL_PATH}

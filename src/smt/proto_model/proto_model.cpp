@@ -239,7 +239,7 @@ void proto_model::cleanup() {
                 unregister_decl(faux);
             }
         }
-        m_aux_decls.swap(found_aux_fs);
+        m_aux_decls = std::move(found_aux_fs);
     }
     TRACE(model_bug, model_v2_pp(tout, *this););
 }
@@ -386,7 +386,7 @@ model * proto_model::mk_model() {
     m_finterp.reset(); // m took the ownership of the func_interp's
 
     unsigned sz = get_num_uninterpreted_sorts();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         sort * s = get_uninterpreted_sort(i);
         TRACE(proto_model, tout << "copying uninterpreted sorts...\n" << mk_pp(s, m) << "\n";);
         ptr_vector<expr> const& buf = get_universe(s);

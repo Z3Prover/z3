@@ -901,7 +901,7 @@ extern "C" {
         expr * const * from = to_exprs(num_exprs, _from);
         expr * const * to   = to_exprs(num_exprs, _to);
         expr * r = nullptr;
-        for (unsigned i = 0; i < num_exprs; i++) {
+        for (unsigned i = 0; i < num_exprs; ++i) {
             if (from[i]->get_sort() != to[i]->get_sort()) {
                 SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
                 RETURN_Z3(of_expr(nullptr));
@@ -910,7 +910,7 @@ extern "C" {
             SASSERT(to[i]->get_ref_count() > 0);
         }
         expr_safe_replace subst(m);
-        for (unsigned i = 0; i < num_exprs; i++) {
+        for (unsigned i = 0; i < num_exprs; ++i) {
             subst.insert(from[i], to[i]);
         }
         expr_ref   new_a(m);
@@ -940,7 +940,7 @@ extern "C" {
         obj_map<func_decl, expr*> rep;
         obj_map<expr, expr*> cache;
 
-        for (unsigned i = 0; i < num_funs; i++) {
+        for (unsigned i = 0; i < num_funs; ++i) {
             if (from[i]->get_range() != to[i]->get_sort()) {
                 SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
                 RETURN_Z3(of_expr(nullptr));
@@ -1461,6 +1461,25 @@ extern "C" {
             case OP_PB_EQ: return Z3_OP_PB_EQ;
             case OP_AT_MOST_K: return Z3_OP_PB_AT_MOST;
             case OP_AT_LEAST_K: return Z3_OP_PB_AT_LEAST;
+            default: return Z3_OP_INTERNAL;
+            }
+        }
+
+        if (mk_c(c)->fsutil().get_family_id() == _d->get_family_id()) {
+            switch(_d->get_decl_kind()) {
+            case OP_FINITE_SET_EMPTY: return Z3_OP_FINITE_SET_EMPTY;
+            case OP_FINITE_SET_SINGLETON: return Z3_OP_FINITE_SET_SINGLETON;
+            case OP_FINITE_SET_UNION: return Z3_OP_FINITE_SET_UNION;
+            case OP_FINITE_SET_INTERSECT: return Z3_OP_FINITE_SET_INTERSECT;
+            case OP_FINITE_SET_DIFFERENCE: return Z3_OP_FINITE_SET_DIFFERENCE;
+            case OP_FINITE_SET_IN: return Z3_OP_FINITE_SET_IN;
+            case OP_FINITE_SET_SIZE: return Z3_OP_FINITE_SET_SIZE;
+            case OP_FINITE_SET_SUBSET: return Z3_OP_FINITE_SET_SUBSET;
+            case OP_FINITE_SET_MAP: return Z3_OP_FINITE_SET_MAP;
+            case OP_FINITE_SET_FILTER: return Z3_OP_FINITE_SET_FILTER;
+            case OP_FINITE_SET_RANGE: return Z3_OP_FINITE_SET_RANGE;
+            case OP_FINITE_SET_EXT: return Z3_OP_FINITE_SET_EXT;
+            case OP_FINITE_SET_MAP_INVERSE: return Z3_OP_FINITE_SET_MAP_INVERSE;
             default: return Z3_OP_INTERNAL;
             }
         }

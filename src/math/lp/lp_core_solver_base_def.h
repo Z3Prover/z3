@@ -209,7 +209,7 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::calc_current_x
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::inf_heap_is_correct() const {
-    for (unsigned j = 0; j < this->m_n(); j++) {
+    for (unsigned j = 0; j < this->m_n(); ++j) {
         bool belongs_to_set = m_inf_heap.contains(j);
         bool is_feas = column_is_feasible(j);
         if (is_feas == belongs_to_set) {
@@ -226,7 +226,7 @@ divide_row_by_pivot(unsigned pivot_row, unsigned pivot_col) {
     int pivot_index = -1;
     auto & row = m_A.m_rows[pivot_row];
     unsigned size = static_cast<unsigned>(row.size());
-    for (unsigned j = 0; j < size; j++) {
+    for (unsigned j = 0; j < size; ++j) {
         auto & c = row[j];
         if (c.var() == pivot_col) {
             pivot_index = static_cast<int>(j);
@@ -241,7 +241,7 @@ divide_row_by_pivot(unsigned pivot_row, unsigned pivot_col) {
         return false;
     
     // this->m_b[pivot_row] /= coeff;
-    for (unsigned j = 0; j < size; j++) {
+    for (unsigned j = 0; j < size; ++j) {
         auto & c = row[j];
         if (c.var() != pivot_col) {
             c.coeff() /= coeff;
@@ -257,7 +257,7 @@ pivot_column_tableau(unsigned j, unsigned piv_row_index) {
         return false;
     auto &column = m_A.m_columns[j];
     int pivot_col_cell_index = -1;
-    for (unsigned k = 0; k < column.size(); k++) {
+    for (unsigned k = 0; k < column.size(); ++k) {
         if (column[k].var() == piv_row_index) {
             pivot_col_cell_index = k;
             break;
@@ -295,7 +295,7 @@ pivot_column_tableau(unsigned j, unsigned piv_row_index) {
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 basis_has_no_doubles() const {
     std::set<unsigned> bm;
-    for (unsigned i = 0; i < m_m(); i++) {
+    for (unsigned i = 0; i < m_m(); ++i) {
         bm.insert(m_basis[i]);
     }
     return bm.size() == m_m();
@@ -311,18 +311,18 @@ non_basis_has_no_doubles() const {
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 basis_is_correctly_represented_in_heading() const {
-    for (unsigned i = 0; i < m_m(); i++) 
+    for (unsigned i = 0; i < m_m(); ++i) 
         if (m_basis_heading[m_basis[i]] != static_cast<int>(i))
             return false;    
     return true;
 }
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
 non_basis_is_correctly_represented_in_heading(std::list<unsigned>* non_basis_list) const {
-    for (unsigned i = 0; i < m_nbasis.size(); i++) 
+    for (unsigned i = 0; i < m_nbasis.size(); ++i) 
         if (m_basis_heading[m_nbasis[i]] !=  - static_cast<int>(i) - 1)
             return false;
     
-    for (unsigned j = 0; j < m_A.column_count(); j++) 
+    for (unsigned j = 0; j < m_A.column_count(); ++j) 
         if (m_basis_heading[j] >= 0)
             SASSERT(static_cast<unsigned>(m_basis_heading[j]) < m_A.row_count() && m_basis[m_basis_heading[j]] == j);
 
@@ -336,7 +336,7 @@ non_basis_is_correctly_represented_in_heading(std::list<unsigned>* non_basis_lis
         TRACE(lp_core, tout << "non_basis_list.size() = " << non_basis_list->size() << ", nbasis_set.size() = " << nbasis_set.size() << "\n";);
         return false;
     }
-    for (auto it = non_basis_list->begin(); it != non_basis_list->end(); it++) {
+    for (auto it = non_basis_list->begin(); it != non_basis_list->end(); ++it) {
         if (nbasis_set.find(*it) == nbasis_set.end()) {
             TRACE(lp_core, tout << "column " << *it << " is in m_non_basis_list but not in m_nbasis\n";);
             return false;
@@ -345,7 +345,7 @@ non_basis_is_correctly_represented_in_heading(std::list<unsigned>* non_basis_lis
 
     // check for duplicates in m_non_basis_list
     nbasis_set.clear();
-    for (auto it = non_basis_list->begin(); it != non_basis_list->end(); it++) {
+    for (auto it = non_basis_list->begin(); it != non_basis_list->end(); ++it) {
         if (nbasis_set.find(*it) != nbasis_set.end()) {
             TRACE(lp_core, tout << "column " << *it << " is in m_non_basis_list twice\n";);
             return false;

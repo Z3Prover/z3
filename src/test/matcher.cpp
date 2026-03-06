@@ -42,7 +42,7 @@ void tst_match(ast_manager & m, app * t, app * i) {
         std::cout << "Are the arguments of " << mk_pp(i, m) << " an instance of the arguments of " << mk_pp(t, m) << "\n";
         unsigned num_args = t->get_num_args();
         unsigned j;
-        for (j = 0; j < num_args; j++) {
+        for (j = 0; j < num_args; ++j) {
             if (!match(t->get_arg(j), i->get_arg(j), s))
                 break;
         }

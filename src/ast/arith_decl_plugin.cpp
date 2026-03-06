@@ -490,14 +490,14 @@ static bool use_coercion(decl_kind k) {
 }
 
 static bool has_real_arg(unsigned arity, sort * const * domain, sort * real_sort) {
-    for (unsigned i = 0; i < arity; i++)
+    for (unsigned i = 0; i < arity; ++i)
         if (domain[i] == real_sort)
             return true;
     return false;
 }
 
 static bool has_real_arg(ast_manager * m, unsigned num_args, expr * const * args, sort * real_sort) {
-    for (unsigned i = 0; i < num_args; i++)
+    for (unsigned i = 0; i < num_args; ++i)
         if (args[i]->get_sort() == real_sort)
             return true;
     return false;

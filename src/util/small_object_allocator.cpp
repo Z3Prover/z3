@@ -30,7 +30,7 @@ Revision History:
 
 
 small_object_allocator::small_object_allocator(char const * id) {
-    for (unsigned i = 0; i < NUM_SLOTS; i++) {
+    for (unsigned i = 0; i < NUM_SLOTS; ++i) {
         m_chunks[i] = nullptr;
         m_free_list[i] = nullptr;
     }
@@ -41,7 +41,7 @@ small_object_allocator::small_object_allocator(char const * id) {
 }
 
 small_object_allocator::~small_object_allocator() {
-    for (unsigned i = 0; i < NUM_SLOTS; i++) {
+    for (unsigned i = 0; i < NUM_SLOTS; ++i) {
         chunk * c = m_chunks[i];
         while (c) {
             chunk * next = c->m_next;
@@ -57,7 +57,7 @@ small_object_allocator::~small_object_allocator() {
 }
 
 void small_object_allocator::reset() {
-    for (unsigned i = 0; i < NUM_SLOTS; i++) {
+    for (unsigned i = 0; i < NUM_SLOTS; ++i) {
         chunk * c = m_chunks[i];
         while (c) {
             chunk * next = c->m_next;
@@ -148,7 +148,7 @@ void * small_object_allocator::allocate(size_t size) {
 
 size_t small_object_allocator::get_wasted_size() const {
     size_t r = 0;
-    for (unsigned slot_id = 0; slot_id < NUM_SLOTS; slot_id++) {
+    for (unsigned slot_id = 0; slot_id < NUM_SLOTS; ++slot_id) {
         size_t slot_obj_size = slot_id << PTR_ALIGNMENT;
         void ** ptr = reinterpret_cast<void **>(const_cast<small_object_allocator*>(this)->m_free_list[slot_id]);
         while (ptr != nullptr) {
@@ -161,7 +161,7 @@ size_t small_object_allocator::get_wasted_size() const {
 
 size_t small_object_allocator::get_num_free_objs() const {
     size_t r = 0;
-    for (unsigned slot_id = 0; slot_id < NUM_SLOTS; slot_id++) {
+    for (unsigned slot_id = 0; slot_id < NUM_SLOTS; ++slot_id) {
         void ** ptr = reinterpret_cast<void **>(const_cast<small_object_allocator*>(this)->m_free_list[slot_id]);
         while (ptr != nullptr) {
             r ++;
@@ -185,7 +185,7 @@ void small_object_allocator::consolidate() {
                static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024) << ")" << std::endl;);
     ptr_vector<chunk> chunks;
     ptr_vector<char> free_objs;
-    for (unsigned slot_id = 1; slot_id < NUM_SLOTS; slot_id++) {
+    for (unsigned slot_id = 1; slot_id < NUM_SLOTS; ++slot_id) {
         if (m_free_list[slot_id] == nullptr)
             continue;
         chunks.reset();
@@ -232,7 +232,7 @@ void small_object_allocator::consolidate() {
             else {
                 curr_chunk->m_next = last_chunk;
                 last_chunk = curr_chunk;
-                for (unsigned i = saved_obj_idx; i < obj_idx; i++) {
+                for (unsigned i = saved_obj_idx; i < obj_idx; ++i) {
                     // relink objects
                     void * free_obj = free_objs[i];
                     *(reinterpret_cast<void**>(free_obj)) = last_free_obj;

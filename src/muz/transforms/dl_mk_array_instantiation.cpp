@@ -53,7 +53,7 @@ namespace datalog {
         dst = result.get();
         unsigned nbrules = source.get_num_rules();
         src_manager = &source.get_rule_manager();
-        for(unsigned i = 0; i < nbrules; i++) {
+        for(unsigned i = 0; i < nbrules; ++i) {
             rule & r = *source.get_rule(i);
             instantiate_rule(r, *result);
         }
@@ -77,41 +77,41 @@ namespace datalog {
         expr_ref new_head = create_head(to_app(r.get_head()));
         unsigned nb_predicates = r.get_uninterpreted_tail_size();
         unsigned tail_size = r.get_tail_size();
-        for(unsigned i=0;i<nb_predicates;i++) {
+        for(unsigned i=0;i<nb_predicates;++i) {
             preds.push_back(r.get_tail(i));
         }
-        for(unsigned i=nb_predicates;i<tail_size;i++) {
+        for(unsigned i=nb_predicates;i<tail_size;++i) {
             phi.push_back(r.get_tail(i));
         }
 
         //Retrieve selects
-        for(unsigned i=0;i<phi.size();i++)
+        for(unsigned i=0;i<phi.size();++i)
             retrieve_selects(phi[i].get());
 
         //Rewrite the predicates
         expr_ref_vector new_tail(m);
-        for(unsigned i=0;i<preds.size();i++) {
+        for(unsigned i=0;i<preds.size();++i) {
             new_tail.append(instantiate_pred(to_app(preds[i].get())));
         }
         new_tail.append(phi);
-        for(obj_map<expr, var*>::iterator it = done_selects.begin(); it!=done_selects.end(); ++it)  {
+        for (auto const& kv : done_selects)  {
             expr_ref tmp(m);
-            tmp = &it->get_key();
-            new_tail.push_back(m.mk_eq(it->get_value(), tmp));
+            tmp = kv.m_key;
+            new_tail.push_back(m.mk_eq(kv.m_value, tmp));
         }
         proof_ref pr(m);
-        src_manager->mk_rule(m.mk_implies(m.mk_and(new_tail.size(), new_tail.data()), new_head), pr, dest, r.name());
+        src_manager->mk_rule(m.mk_implies(m.mk_and(new_tail), new_head), pr, dest, r.name());
     }
 
     expr_ref mk_array_instantiation::create_head(app* old_head)  {
         expr_ref_vector new_args(m);
-        for(unsigned i=0;i<old_head->get_num_args();i++) {
+        for(unsigned i=0;i<old_head->get_num_args();++i) {
             expr*arg = old_head->get_arg(i);
             if(m_a.is_array(arg->get_sort())) {
-                for(unsigned k=0; k< m_ctx.get_params().xform_instantiate_arrays_nb_quantifier();k++)  {
+                for(unsigned k=0; k< m_ctx.get_params().xform_instantiate_arrays_nb_quantifier();++k)  {
                     expr_ref_vector dummy_args(m);
                     dummy_args.push_back(arg);
-                    for(unsigned i=0;i<get_array_arity(arg->get_sort());i++) {
+                    for(unsigned i=0;i<get_array_arity(arg->get_sort());++i) {
                         dummy_args.push_back(m.mk_var(cnt, get_array_domain(arg->get_sort(), i)));
                         cnt++;
                     }
@@ -139,7 +139,7 @@ namespace datalog {
         app*f=to_app(e);
         //Call the function recursively on all arguments
         unsigned nbargs = f->get_num_args();
-        for(unsigned i=0;i<nbargs;i++) {
+        for(unsigned i=0;i<nbargs;++i) {
             retrieve_selects(f->get_arg(i));
         }
         //If it is a select, then add it to selects
@@ -161,10 +161,10 @@ namespace datalog {
     expr_ref_vector mk_array_instantiation::getId(app*old_pred, const expr_ref_vector& n_args)
     {
         expr_ref_vector res(m);
-        for(unsigned i=0;i<n_args.size(); i++) {
+        for(unsigned i=0;i<n_args.size(); ++i) {
             if(m_a.is_select(n_args[i])) {
                 app*select = to_app(n_args[i]);
-                for(unsigned j=1;j<select->get_num_args();j++) {
+                for(unsigned j=1;j<select->get_num_args();++j) {
                     res.push_back(select->get_arg(j));
                 }
             }
@@ -177,13 +177,13 @@ namespace datalog {
         expr_ref_vector new_args(m);
         new_args.append(n_args);
         new_args.append(getId(old_pred, n_args));
-        for(unsigned i=0;i<new_args.size();i++) {
+        for(unsigned i=0;i<new_args.size();++i) {
                 if(m_a.is_select(new_args[i].get())) {
                     new_args[i] = mk_select_var(new_args[i].get());
                 }
         }
         sort_ref_vector new_sorts(m);
-        for(unsigned i=0;i<new_args.size();i++)
+        for(unsigned i=0;i<new_args.size();++i)
             new_sorts.push_back(new_args.get(i)->get_sort());
         expr_ref res(m);
         func_decl_ref fun_decl(m);
@@ -213,7 +213,7 @@ namespace datalog {
         expr_ref res(m);
         expr_ref_vector args(m);
         args.push_back(array);
-        for(unsigned i=1; i<s->get_num_args();i++)   {
+        for(unsigned i=1; i<s->get_num_args();++i)   {
             args.push_back(s->get_arg(i));
         }
         res = m_a.mk_select(args.size(), args.data());
@@ -227,14 +227,14 @@ namespace datalog {
             it != eq_classes.end(array); ++it) {
             selects.insert_if_not_there(*it, ptr_vector<expr>());
             ptr_vector<expr>& select_ops = selects[*it];
-            for(unsigned i=0;i<select_ops.size();i++) {
+            for(unsigned i=0;i<select_ops.size();++i) {
                 all_selects.push_back(rewrite_select(array, select_ops[i]));
             }
         }
         if(all_selects.empty()) {
             expr_ref_vector dummy_args(m);
             dummy_args.push_back(array);
-            for(unsigned i=0;i<get_array_arity(array->get_sort());i++) {
+            for(unsigned i=0;i<get_array_arity(array->get_sort());++i) {
                 dummy_args.push_back(m.mk_var(cnt, get_array_domain(array->get_sort(), i)));
                 cnt++;
             }
@@ -249,7 +249,7 @@ namespace datalog {
         unsigned nb_old_args=old_pred->get_num_args();
         //Stores, for each old position, the list of a new possible arguments
         vector<expr_ref_vector> arg_correspondance;
-        for(unsigned i=0;i<nb_old_args;i++) {
+        for(unsigned i=0;i<nb_old_args;++i) {
             expr_ref arg(old_pred->get_arg(i), m);
             if(m_a.is_array(arg->get_sort())) {
                 vector<expr_ref_vector> arg_possibilities(m_ctx.get_params().xform_instantiate_arrays_nb_quantifier(), retrieve_all_selects(arg));
@@ -273,11 +273,11 @@ namespace datalog {
         svector<unsigned> chosen(arg_correspondance.size(), 0u);
         while(true) {
             expr_ref_vector new_args(m);
-            for(unsigned i=0;i<chosen.size();i++) {
+            for(unsigned i=0;i<chosen.size();++i) {
                 new_args.push_back(arg_correspondance[i][chosen[i]].get());
             }
             res.push_back(create_pred(old_pred, new_args));
-            unsigned pos=-1;
+            unsigned pos = UINT_MAX;
             do {
                 pos++;
                 if(pos==chosen.size()){

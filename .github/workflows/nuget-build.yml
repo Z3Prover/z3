@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version number for the NuGet package (e.g., 4.15.5)'
+        description: 'Version number for the NuGet package (e.g., 4.17.0)'
         required: true
-        default: '4.15.5'
+        default: '4.17.0'
   push:
     tags:
       - 'z3-*'
@@ -20,7 +20,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -31,7 +31,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.15.5' }} --zip
+          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.17.0' }} --zip
       
       - name: Upload Windows x64 artifact
         uses: actions/upload-artifact@v6
@@ -44,7 +44,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -55,7 +55,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
-          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.15.5' }} --zip
+          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.17.0' }} --zip
       
       - name: Upload Windows x86 artifact
         uses: actions/upload-artifact@v6
@@ -68,7 +68,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -79,7 +79,7 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64_arm64
-          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.15.5' }} --zip
+          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.17.0' }} --zip
       
       - name: Upload Windows ARM64 artifact
         uses: actions/upload-artifact@v6
@@ -92,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -110,10 +110,10 @@ jobs:
           retention-days: 1
 
   build-macos-x64:
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -131,10 +131,10 @@ jobs:
           retention-days: 1
 
   build-macos-arm64:
-    runs-on: macos-13
+    runs-on: macos-14
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -157,7 +157,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -165,7 +165,7 @@ jobs:
           python-version: '3.x'
       
       - name: Download all artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v7.0.0
         with:
           path: packages
       
@@ -189,7 +189,7 @@ jobs:
         shell: cmd
         run: |
           cd package-files
-          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '4.15.5' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols
+          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '4.17.0' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols
       
       - name: Pack NuGet package
         shell: cmd
@@ -212,7 +212,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -220,7 +220,7 @@ jobs:
           python-version: '3.x'
       
       - name: Download x86 artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v7.0.0
         with:
           name: windows-x86
           path: packages
@@ -238,7 +238,7 @@ jobs:
         shell: cmd
         run: |
           cd packages
-          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '4.15.5' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols x86
+          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '4.17.0' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols x86
       
       - name: Pack NuGet package
         shell: cmd
@@ -254,3 +254,4 @@ jobs:
             packages/*.nupkg
             packages/*.snupkg
           retention-days: 30
+

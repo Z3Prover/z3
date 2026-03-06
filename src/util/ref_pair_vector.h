@@ -75,7 +75,7 @@ public:
             m_nodes.shrink(sz); 
         }
         else {
-            for (unsigned i = m_nodes.size(); i < sz; i++)
+            for (unsigned i = m_nodes.size(); i < sz; ++i)
                 push_back(d);
         }
     }
@@ -192,11 +192,6 @@ public:
     
     TManager & m() const { 
         return get_manager();
-    }
-
-    void swap(ref_pair_vector & other) noexcept {
-        SASSERT(&(this->m_manager) == &(other.m_manager));
-        this->m_nodes.swap(other.m_nodes);
     }
     
     class element_ref {

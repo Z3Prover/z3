@@ -76,7 +76,7 @@ br_status bool_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * co
 
 void bool_rewriter::mk_and_as_or(unsigned num_args, expr * const * args, expr_ref & result) {
     expr_ref_buffer new_args(m());
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         expr_ref tmp(m());
         mk_not(args[i], tmp);
         new_args.push_back(tmp);
@@ -93,7 +93,7 @@ br_status bool_rewriter::mk_nflat_and_core(unsigned num_args, expr * const * arg
     expr_fast_mark2 pos_lits;
     expr* atom = nullptr;
 
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         expr * arg  = args[i];
         if (m().is_true(arg)) {
             s = true;
@@ -156,7 +156,7 @@ br_status bool_rewriter::mk_nflat_and_core(unsigned num_args, expr * const * arg
 
 br_status bool_rewriter::mk_flat_and_core(unsigned num_args, expr * const * args, expr_ref & result) {
     unsigned i;
-    for (i = 0; i < num_args; i++) {
+    for (i = 0; i < num_args; ++i) {
         if (m().is_and(args[i]))
             break;
     }
@@ -164,7 +164,7 @@ br_status bool_rewriter::mk_flat_and_core(unsigned num_args, expr * const * args
         // has nested ANDs
         ptr_buffer<expr> flat_args;
         flat_args.append(i, args);
-        for (; i < num_args; i++) {
+        for (; i < num_args; ++i) {
             expr * arg = args[i];
             // Remark: all rewrites are depth 1.
             if (m().is_and(arg)) {
@@ -188,7 +188,7 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
     expr_fast_mark1 neg_lits;
     expr_fast_mark2 pos_lits;
     expr* prev = nullptr;
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         expr * arg  = args[i];
         if (m().is_true(arg)) {
             neg_lits.reset();
@@ -284,7 +284,7 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
 
 br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args, expr_ref & result) {
     unsigned i;
-    for (i = 0; i < num_args; i++) {
+    for (i = 0; i < num_args; ++i) {
         if (m().is_or(args[i]))
             break;
     }
@@ -294,7 +294,7 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
         // has nested ORs
         ptr_buffer<expr> flat_args;
         flat_args.append(i, args);
-        for (; i < num_args; i++) {
+        for (; i < num_args; ++i) {
             expr * arg = args[i];
             // Remark: all rewrites are depth 1.
             if (m().is_or(arg)) {
@@ -339,7 +339,7 @@ bool bool_rewriter::simp_nested_not_or(unsigned num_args, expr * const * args,
     ptr_buffer<expr> new_args;
     bool simp = false;
     m_local_ctx_cost += num_args;
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         expr * arg = args[i];
         if (neg_lits.is_marked(arg)) {
             result = m().mk_false();
@@ -590,7 +590,7 @@ bool bool_rewriter::local_ctx_simp(unsigned num_args, expr * const * args, expr_
 #endif
 
         if (forward) {
-            for (unsigned i = 0; i < num_args; i++) {
+            for (unsigned i = 0; i < num_args; ++i) {
                 PROCESS_ARG();
             }
             forward = false;
@@ -868,7 +868,7 @@ br_status bool_rewriter::mk_distinct_core(unsigned num_args, expr * const * args
 
     expr_fast_mark1 visited;
     bool all_value = true, all_diff = true;
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         expr * arg = args[i];
         if (visited.is_marked(arg)) {
             result = m().mk_false();
@@ -902,8 +902,8 @@ br_status bool_rewriter::mk_distinct_core(unsigned num_args, expr * const * args
 
     if (m_blast_distinct && num_args < m_blast_distinct_threshold) {
         expr_ref_vector new_diseqs(m());
-        for (unsigned i = 0; i < num_args; i++) {
-            for (unsigned j = i + 1; j < num_args; j++)
+        for (unsigned i = 0; i < num_args; ++i) {
+            for (unsigned j = i + 1; j < num_args; ++j)
                 new_diseqs.push_back(m().mk_not(m().mk_eq(args[i], args[j])));
         }
         result = m().mk_and(new_diseqs);

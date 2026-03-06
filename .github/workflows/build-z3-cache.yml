@@ -1,0 +1,79 @@
+name: Build and Cache Z3
+
+on:
+  # Allow manual trigger
+  workflow_dispatch:
+  # Run on schedule to keep cache fresh (daily at 2 AM UTC)
+  schedule:
+    - cron: '0 2 * * *'
+  # Run on pushes to main to update cache with latest changes
+  push:
+    branches: [ "master", "main" ]
+  # Make this callable as a reusable workflow
+  workflow_call:
+    outputs:
+      cache-key:
+        description: "The cache key for the built Z3 binary"
+        value: ${{ jobs.build-z3.outputs.cache-key }}
+
+permissions:
+  contents: read
+
+jobs:
+  build-z3:
+    name: "Build Z3 for caching"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Generate cache key
+        id: cache-key
+        run: |
+          # Create a cache key based on git SHA and relevant source files
+          echo "key=z3-build-${{ runner.os }}-${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "fallback-key=z3-build-${{ runner.os }}-" >> $GITHUB_OUTPUT
+
+      - name: Restore or create cache
+        id: cache-z3
+        uses: actions/cache@v5.0.3
+        with:
+          path: |
+            build/z3
+            build/libz3.so
+            build/libz3.a
+            build/*.so
+            build/*.a
+            build/python
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: |
+            z3-build-${{ runner.os }}-
+
+      - name: Configure Z3
+        if: steps.cache-z3.outputs.cache-hit != 'true'
+        run: python scripts/mk_make.py
+
+      - name: Build Z3
+        if: steps.cache-z3.outputs.cache-hit != 'true'
+        run: |
+          cd build
+          make -j$(nproc)
+
+      - name: Display build info
+        run: |
+          echo "Cache key: ${{ steps.cache-key.outputs.key }}"
+          echo "Build directory contents:"
+          ls -lh build/ || echo "Build directory not found"
+          if [ -f build/z3 ]; then
+            echo "Z3 version:"
+            build/z3 --version
+          fi

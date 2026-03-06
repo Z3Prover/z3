@@ -73,7 +73,7 @@ namespace smt {
     */
     void model_generator::mk_bool_model() {
         unsigned sz = m_context->get_num_b_internalized();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * p = m_context->get_b_internalized(i);
             if (is_uninterp_const(p) && m_context->is_relevant(p)) {
                 SASSERT(m.is_bool(p));
@@ -423,7 +423,7 @@ namespace smt {
     */
     void model_generator::mk_func_interps() {
         unsigned sz = m_context->get_num_e_internalized();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * t  = m_context->get_e_internalized(i);
             if (!m_context->is_relevant(t))
                 continue;
@@ -437,7 +437,7 @@ namespace smt {
                 ptr_buffer<expr> args;
                 expr * result = get_value(n);
                 SASSERT(result);
-                for (unsigned j = 0; j < num_args; j++) {
+                for (unsigned j = 0; j < num_args; ++j) {
                     app * arg = get_value(n->get_arg(j));
                     SASSERT(arg);
                     args.push_back(arg);
@@ -452,7 +452,7 @@ namespace smt {
                 // The entry must be new because n->get_cg() == n
                 TRACE(model, 
                       tout << "insert new entry for:\n" << mk_ismt2_pp(n->get_expr(), m) << "\nargs: ";
-                      for (unsigned i = 0; i < num_args; i++) {
+                      for (unsigned i = 0; i < num_args; ++i) {
                           tout << "#" << n->get_arg(i)->get_owner_id() << " ";
                       }
                       tout << "\n";
@@ -508,7 +508,7 @@ namespace smt {
         unsigned num = m_context->get_num_macros();
         TRACE(model, tout << "num. macros: " << num << "\n";);
         expr_ref v(m);
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             func_decl * f    = m_context->get_macro_interpretation(i, v);
             func_interp * fi = alloc(func_interp, m, f->get_arity());
             fi->set_else(v);

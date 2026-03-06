@@ -1,11 +1,97 @@
 RELEASE NOTES
 
-Version 4.next
-================
-- Planned features
-  - sat.euf 
-    - CDCL core for SMT queries. It extends the SAT engine with theory solver plugins.
-  - add global incremental pre-processing for the legacy core.
+
+Version 4.17.0
+==============
+- A FiniteSets theory solver
+  FiniteSets is a theory with a sort (FiniteSet S) for base sort S.
+  Inhabitants of (FiniteSet S) are finite sets of elements over S.
+  The main operations are creating empty sets, singleton sets, union, intersection, set difference, ranges of integers, subset modulo a predicate.
+  Constraints are: membership, subset.
+  The size of a set is obtained using set.size.
+  It is possible to map a function over elements of a set using set.map.
+  Support for set.range, set.map is partial.
+  Support for set.size exists, but is without any optimization. The source code contains comments on ways to make it more efficient. File a GitHub issue if you want to contribute.s
+
+Version 4.16.0
+==============
+- Add Go bindings to supported APIs
+
+Version 4.15.8
+==============
+- Fix release pipeline to publish all supported python wheels properly.
+- Re-enable npm tokens for publishing npm pacages.
+
+Version 4.15.7
+==============
+- Bug fix release
+
+Version 4.15.6
+==============
+- Optimize mpz (multi-precision integer) implementation using pointer tagging to reduce memory footprint and improve performance.
+  https://github.com/Z3Prover/z3/pull/8447, thanks to Nuno Lopes.
+- Fix macOS install_name_tool issue by adding -Wl,-headerpad_max_install_names linker flag to all dylib builds. Resolves
+  "larger updated load commands do not fit" errors when modifying library install names on macOS.
+  https://github.com/Z3Prover/z3/pull/8535, `fixes #7623`
+- Optimize parameter storage by storing rational values directly in variant instead of using pointers. Thanks to Nuno Lopes.
+  https://github.com/Z3Prover/z3/pull/8518
+   
+Version 4.15.5
+==============
+- NLSAT now uses the Level wise algorithm for projection. https://arxiv.org/abs/2212.09309
+- Add RCF (Real Closed Field) API to TypeScript bindings, achieving feature parity with Python, Java, C++, and C# implementations. 
+  The API includes 38 functions for exact real arithmetic with support for π, e, algebraic roots, and infinitesimals.
+  https://github.com/Z3Prover/z3/pull/8225
+- Add sequence higher-order functions (map, fold) to Java, C#, and TypeScript APIs. Functions include SeqMap, SeqMapi, SeqFoldl, and SeqFoldli
+  for functional programming patterns over sequences.
+  - Java API: https://github.com/Z3Prover/z3/pull/8226
+  - C# API: https://github.com/Z3Prover/z3/pull/8227
+  - TypeScript API included in https://github.com/Z3Prover/z3/pull/8228
+- Add benchmark export functionality to C# and TypeScript APIs for exporting solver problems as SMTLIB2 benchmarks.
+  https://github.com/Z3Prover/z3/pull/8228
+- Fix UNKNOWN bug in search tree with inconsistent end state during nonchronological backjumping. The fix ensures all node closing
+  occurs in backtrack to maintain consistency between search tree and batch manager state. Thanks to Ilana Shapiro.
+  https://github.com/Z3Prover/z3/pull/8214
+- Fix segmentation fault in dioph_eq.cpp when processing UFNIRA problems without explicit set-logic declarations. Added bounds checks
+  before accessing empty column vectors. https://github.com/Z3Prover/z3/pull/8218, fixes #8208
+- Migrate build and release infrastructure from Azure Pipelines to GitHub Actions, including CI workflows, nightly builds, and release packaging.
+- Bug fixes including #8195
+- Add functional datatype update operation to language bindings. The `datatype_update_field` function enables immutable updates
+  to datatype fields, returning a modified copy while preserving the original datatype value.
+  https://github.com/Z3Prover/z3/pull/8500
+- Add comprehensive regex support to TypeScript API with 21 functions including Re, Loop, Range, Union, Intersect, Complement, 
+  and character class operations. Enables pattern matching and regular expression constraints in TypeScript applications.
+  https://github.com/Z3Prover/z3/pull/8499
+- Add move constructor and move assignment operator to z3::context class for efficient resource transfer. Enables move semantics
+  for context objects while maintaining safety with explicit checks against moved-from usage.
+  https://github.com/Z3Prover/z3/pull/8508
+- Add solve_for and import_model_converter functions to C++ solver API, achieving parity with Python API for LRA variable solving.
+  https://github.com/Z3Prover/z3/pull/8465
+- Add missing solver APIs to Java and C# bindings including add_string, set_phase, get_units, get_non_units, and get_levels methods.
+  https://github.com/Z3Prover/z3/pull/8464
+- Add polymorphic datatype APIs to Java and ML bindings for creating and manipulating parameterized datatypes.
+  https://github.com/Z3Prover/z3/pull/8438, https://github.com/Z3Prover/z3/pull/8378
+  https://github.com/Z3Prover/z3/pull/8507, https://github.com/Z3Prover/z3/pull/8467, https://github.com/Z3Prover/z3/pull/8494
+- Add SLS (Stochastic Local Search) tactic as a separate worker thread for parallel solving. Thanks to Ilana Shapiro.
+  https://github.com/Z3Prover/z3/pull/8263
+- Add Windows ARM64 platform support for Python wheels, expanding platform coverage for ARM-based Windows systems.
+  https://github.com/Z3Prover/z3/pull/8280
+- Optimize bitvector operations for large bitwidths by avoiding unnecessary power-of-two computations in has_sign_bit and mod2k operations.
+  Thanks to Nuno Lopes.
+- Optimize linear arithmetic solver with throttled patch_basic_columns() calls, especially beneficial for unsatisfiable cases. 
+  Thanks to Lev Nachmanson.
+- Fix memory leak in undo_fixed_column when handling big number cleanup. Thanks to Lev Nachmanson.
+- Fix assertion violation in mpzzp_manager::eq from non-normalized values during fresh variable peeking.
+  https://github.com/Z3Prover/z3/pull/8439
+- Fix memory corruption in Z3_polynomial_subresultants API where allocating result vector corrupted internal converter mappings.
+  Restructured to complete polynomial computation before allocation. https://github.com/Z3Prover/z3/pull/8264, thanks to Lev Nachmanson.
+- Fix missing newline after attributes in benchmark_to_smtlib_string output formatting. Thanks to Josh Berdine.
+  https://github.com/Z3Prover/z3/pull/8276
+- Fix NuGet packaging to handle dynamic glibc versions across different Linux distributions.
+  https://github.com/Z3Prover/z3/pull/8474
+- Preserve initial solver state with push/pop operations for multiple objectives optimization. Thanks to Lev Nachmanson.
+  https://github.com/Z3Prover/z3/pull/8264
+
 
 Version 4.15.4
 ==============

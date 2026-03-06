@@ -238,9 +238,8 @@ bv_bounds::conv_res bv_bounds::convert(expr * e, vector<ninterval>& nis, bool ne
 }
 
 void bv_bounds::reset() {
-    intervals_map::iterator it = m_negative_intervals.begin();
-    const intervals_map::iterator end = m_negative_intervals.end();
-    for (; it != end; ++it) dealloc(it->m_value);
+    for (auto& [key, value] : m_negative_intervals)
+        dealloc(value);
 }
 
 br_status bv_bounds::rewrite(unsigned limit, func_decl * f, unsigned num, expr * const * args, expr_ref& result) {
@@ -312,9 +311,7 @@ br_status bv_bounds::rewrite(unsigned limit, func_decl * f, unsigned num, expr *
     if (nargs.size() == num && !has_singls) return BR_FAILED;
 
     expr_ref eq(m_m);
-    for (bv_bounds::bound_map::iterator i = m_singletons.begin(); i != m_singletons.end(); ++i) {
-        app * const v = i->m_key;
-        const rational val = i->m_value;
+    for (auto& [v, val] : m_singletons) {
         eq = m_m.mk_eq(v, bvu().mk_numeral(val, v->get_decl()->get_range()));
         if (negated) eq = m_m.mk_not(eq);
         nargs.push_back(eq);
@@ -323,8 +320,8 @@ br_status bv_bounds::rewrite(unsigned limit, func_decl * f, unsigned num, expr *
     switch (nargs.size()) {
         case 0: result = negated ? m_m.mk_false() : m_m.mk_true(); return BR_DONE;
         case 1: result = nargs.get(0); return BR_DONE;
-        default: result = negated ? m_m.mk_or(nargs.size(), nargs.data())
-                                  : m_m.mk_and(nargs.size(), nargs.data());
+        default: result = negated ? m_m.mk_or(nargs)
+                                  : m_m.mk_and(nargs);
                  return BR_DONE;
     }
 }
@@ -568,20 +565,17 @@ bool bv_bounds::is_sat() {
     obj_hashtable<app>   seen;
     obj_hashtable<app>::entry *dummy;
 
-    for (bound_map::iterator i = m_unsigned_lowers.begin(); i != m_unsigned_lowers.end(); ++i) {
-        app * const v = i->m_key;
+    for (auto& [v, _] : m_unsigned_lowers) {
         if (!seen.insert_if_not_there_core(v, dummy)) continue;
         if (!is_sat(v)) return false;
     }
 
-    for (bound_map::iterator i = m_unsigned_uppers.begin(); i != m_unsigned_uppers.end(); ++i) {
-        app * const v = i->m_key;
+    for (auto& [v, _] : m_unsigned_uppers) {
         if (!seen.insert_if_not_there_core(v, dummy)) continue;
         if (!is_sat(v)) return false;
     }
 
-    for (intervals_map::iterator i = m_negative_intervals.begin(); i != m_negative_intervals.end(); ++i) {
-        app * const v = i->m_key;
+    for (auto& [v, _] : m_negative_intervals) {
         if (!seen.insert_if_not_there_core(v, dummy)) continue;
         if (!is_sat(v)) return false;
     }

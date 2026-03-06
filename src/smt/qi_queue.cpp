@@ -113,7 +113,7 @@ namespace smt {
         m_vals[SCOPE]              = static_cast<float>(m_context.get_scope_level());
         m_vals[NESTED_QUANTIFIERS] = static_cast<float>(stat->get_num_nested_quantifiers());
         m_vals[CS_FACTOR]          = static_cast<float>(stat->get_case_split_factor());
-        TRACE(qi_queue_detail, for (unsigned i = 0; i < m_vals.size(); i++) { tout << m_vals[i] << " "; } tout << "\n";);
+        TRACE(qi_queue_detail, for (unsigned i = 0; i < m_vals.size(); ++i) { tout << m_vals[i] << " "; } tout << "\n";);
         return stat;
     }
 
@@ -139,7 +139,7 @@ namespace smt {
         TRACE(qi_queue_detail,
               tout << "new instance of " << q->get_qid() << ", weight " << q->get_weight()
               << ", generation: " << generation << ", scope_level: " << m_context.get_scope_level() << ", cost: " << cost << "\n";
-              for (unsigned i = 0; i < f->get_num_args(); i++) {
+              for (unsigned i = 0; i < f->get_num_args(); ++i) {
                   tout << "#" << f->get_arg(i)->get_expr_id() << " d:" << f->get_arg(i)->get_expr()->get_depth() << " ";
               }
               tout << "\n";);
@@ -273,7 +273,7 @@ namespace smt {
             ptr_vector<expr> args;
             args.push_back(m.mk_not(q));
             args.append(to_app(s_instance)->get_num_args(), to_app(s_instance)->get_args());
-            lemma = m.mk_or(args.size(), args.data());
+            lemma = m.mk_or(args);
         }
         else if (m.is_false(s_instance)) {
             lemma = m.mk_not(q);
@@ -340,7 +340,7 @@ namespace smt {
                 app * n = to_app(lemma);
                 bool has_unassigned = false;
                 expr * true_child = 0;
-                for (unsigned i = 0; i < n->get_num_args(); i++) {
+                for (unsigned i = 0; i < n->get_num_args(); ++i) {
                     expr * arg = n->get_arg(i);
                     switch(m_context.get_assignment(arg)) {
                     case l_undef: has_unassigned = true; break;
@@ -379,7 +379,7 @@ namespace smt {
         scope & s           = m_scopes[new_lvl];
         unsigned old_sz     = s.m_instantiated_trail_lim;
         unsigned sz         = m_instantiated_trail.size();
-        for (unsigned i = old_sz; i < sz; i++)
+        for (unsigned i = old_sz; i < sz; ++i)
             m_delayed_entries[m_instantiated_trail[i]].m_instantiated = false;
         m_instantiated_trail.shrink(old_sz);
         m_delayed_entries.shrink(s.m_delayed_entries_lim);
@@ -409,7 +409,7 @@ namespace smt {
             bool  init = false;
             float min_cost = 0.0;
             unsigned sz = m_delayed_entries.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 entry & e       = m_delayed_entries[i];
                 TRACE(qi_queue, tout << e.m_qb << ", cost: " << e.m_cost << ", instantiated: " << e.m_instantiated << "\n";);
                 if (!e.m_instantiated && e.m_cost <= m_params.m_qi_lazy_threshold && (!init || e.m_cost < min_cost)) {
@@ -419,7 +419,7 @@ namespace smt {
             }
             TRACE(qi_queue_min_cost, tout << "min_cost: " << min_cost << ", scope_level: " << m_context.get_scope_level() << "\n";);
             bool result = true;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 entry & e       = m_delayed_entries[i];
                 TRACE(qi_queue, tout << e.m_qb << ", cost: " << e.m_cost << " min-cost: " << min_cost << ", instantiated: " << e.m_instantiated << "\n";);
                 if (!e.m_instantiated && e.m_cost <= min_cost) {
@@ -435,7 +435,7 @@ namespace smt {
         }
 
         bool result = true;
-        for (unsigned i = 0; i < m_delayed_entries.size(); i++) {
+        for (unsigned i = 0; i < m_delayed_entries.size(); ++i) {
             entry & e       = m_delayed_entries[i];
             TRACE(qi_queue, tout << e.m_qb << ", cost: " << e.m_cost << ", instantiated: " << e.m_instantiated << "\n";);
             if (!e.m_instantiated && e.m_cost <= m_params.m_qi_lazy_threshold)  {
@@ -489,7 +489,7 @@ namespace smt {
         min = 0.0f;
         max = 0.0f;
         bool found = false;
-        for (unsigned i = 0; i < m_delayed_entries.size(); i++) {
+        for (unsigned i = 0; i < m_delayed_entries.size(); ++i) {
             if (!m_delayed_entries[i].m_instantiated) {
                 float c = m_delayed_entries[i].m_cost;
                 if (found) {

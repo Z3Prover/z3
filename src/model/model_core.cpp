@@ -22,7 +22,8 @@ Revision History:
 model_core::~model_core() {
     for (auto & kv : m_interp) {
         m.dec_ref(kv.m_key);
-        m.dec_ref(kv.m_value.second);
+        auto [idx, e] = kv.m_value;
+        m.dec_ref(e);
     }
 
     for (auto & kv : m_finterp) {

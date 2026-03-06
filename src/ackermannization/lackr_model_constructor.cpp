@@ -47,7 +47,7 @@ public:
     //
     bool check() {
         bool retv = true;
-        for (unsigned i = 0; i < m_abstr_model->get_num_constants(); i++) {
+        for (unsigned i = 0; i < m_abstr_model->get_num_constants(); ++i) {
             func_decl * const c = m_abstr_model->get_constant(i);
             app * const  _term = m_info->find_term(c);
             expr * const term  = _term ? _term : m.mk_const(c);
@@ -58,13 +58,13 @@ public:
     
     
     void make_model(model_ref& destination) {
-        for (unsigned i = 0; i < m_abstr_model->get_num_uninterpreted_sorts(); i++) {
+        for (unsigned i = 0; i < m_abstr_model->get_num_uninterpreted_sorts(); ++i) {
             sort * const s = m_abstr_model->get_uninterpreted_sort(i);
             ptr_vector<expr> u = m_abstr_model->get_universe(s);
             destination->register_usort(s, u.size(), u.data());
         }
         
-        for (unsigned i = 0; i < m_abstr_model->get_num_functions(); i++) {
+        for (unsigned i = 0; i < m_abstr_model->get_num_functions(); ++i) {
             func_decl * const fd = m_abstr_model->get_function(i);
             func_interp * const fi = m_abstr_model->get_func_interp(fd);
             destination->register_decl(fd, fi);
@@ -247,7 +247,7 @@ private:
                );
         m_app2val.insert(a, result.get()); // memoize
         m_pinned.push_back(a);
-        m_pinned.push_back(result);
+        m_pinned.push_back(std::move(result));
         return true;
     }
     

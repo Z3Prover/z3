@@ -116,7 +116,9 @@ namespace qe {
     private:
 
         bool is_small_domain(contains_app& x, eq_atoms& eqs, uint64_t& domain_size) {
-            VERIFY(m_util.try_get_size(x.x()->get_sort(), domain_size));
+            auto opt_size = m_util.try_get_size(x.x()->get_sort());
+            VERIFY(opt_size);
+            domain_size = *opt_size;
             return domain_size < eqs.num_eqs() + eqs.num_neqs();
         }
 

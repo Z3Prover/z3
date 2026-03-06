@@ -29,13 +29,13 @@ Revision History:
 */
 template<typename T>
 class obj_hash_entry {
-    T *             m_ptr = nullptr;
+    T * m_ptr = nullptr;
 public:
     typedef T * data;
     unsigned get_hash() const { return m_ptr->hash(); }
     bool is_free() const { return m_ptr == nullptr; }
     bool is_deleted() const { return m_ptr == reinterpret_cast<T *>(1); }
-    bool is_used() const { return m_ptr != reinterpret_cast<T *>(0) && m_ptr != reinterpret_cast<T *>(1); }
+    bool is_used() const { return m_ptr != nullptr && m_ptr != reinterpret_cast<T *>(1); }
     T * get_data() const { return m_ptr; }
     T * & get_data() { return m_ptr; }
     void set_data(T * d) { m_ptr = d; }
@@ -50,21 +50,18 @@ public:
     obj_hashtable(unsigned initial_capacity = DEFAULT_HASHTABLE_INITIAL_CAPACITY):
         core_hashtable<obj_hash_entry<T>, obj_ptr_hash<T>, ptr_eq<T> >(initial_capacity) {}
 
+    obj_hashtable(const obj_hashtable & source) = default;
+    obj_hashtable(obj_hashtable && source) noexcept = default;
+    obj_hashtable& operator=(const obj_hashtable & other) = delete;
+    obj_hashtable& operator=(obj_hashtable && other) noexcept = default;
 };
 
 template<typename Key, typename Value>
 class obj_map {
 public:
     struct key_data {
-        Key *  m_key = nullptr;
-        Value  m_value;
-        key_data() {}
-        key_data(Key *key) : m_key(key) {}
-        key_data(Key *k, Value const &v) : m_key(k), m_value(v) {}
-        key_data(key_data &&kd) noexcept = default;
-        key_data(key_data const &kd) noexcept = default;
-        key_data &operator=(key_data const &kd)  = default;
-        key_data &operator=(key_data &&kd) = default;
+        Key * m_key = nullptr;
+        Value m_value;
         Value const & get_value() const { return m_value; }
         Key & get_key () const { return *m_key; }
         unsigned hash() const { return m_key->hash(); }
@@ -94,7 +91,12 @@ public:
 public:
     obj_map(unsigned initial_capacity = DEFAULT_HASHTABLE_INITIAL_CAPACITY):
         m_table(initial_capacity) {}
-    
+
+    obj_map(const obj_map & source) = default;
+    obj_map(obj_map && source) noexcept = default;
+    obj_map& operator=(const obj_map & other) = delete;
+    obj_map& operator=(obj_map && other) noexcept = default;
+
     typedef typename table::iterator iterator;
     typedef typename table::data data;
     typedef typename table::entry entry;
@@ -141,16 +143,22 @@ public:
         return m_table.insert_if_not_there2(key_data(k, v))->get_data().m_value;
     }
 
+    Value& insert_if_not_there(Key * k, Value && v) {
+        obj_map_entry * e = nullptr;
+        m_table.insert_if_not_there_core({k, std::move(v)}, e);
+        return e->get_data().m_value;
+    }
+
     bool insert_if_not_there_core(Key * k, Value const & v, obj_map_entry * & et) {
         return m_table.insert_if_not_there_core({k, v}, et);
     }
 
     obj_map_entry * insert_if_not_there3(Key * k, Value const & v) {
-        return m_table.insert_if_not_there2(key_data(k, v));
+        return m_table.insert_if_not_there2({k, v});
     }
     
     obj_map_entry * find_core(Key * k) const {
-        return m_table.find_core(key_data(k));
+        return m_table.find_core({k});
     }
 
     bool find(Key * const k, Value & v) const {
@@ -205,10 +213,6 @@ public:
         for (key_data const& kd : cs) {
             collisions.push_back(kd.m_key);
         }
-    }
-
-    void swap(obj_map & other) noexcept {
-        m_table.swap(other.m_table);
     }
 };
 

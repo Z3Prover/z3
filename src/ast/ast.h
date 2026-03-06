@@ -26,7 +26,7 @@ Revision History:
 #include "util/symbol.h"
 #include "util/rational.h"
 #include "util/hash.h"
-#include "util/optional.h"
+#include <optional>
 #include "util/trace.h"
 #include "util/bit_vector.h"
 #include "util/symbol_table.h"
@@ -48,6 +48,8 @@ Revision History:
 #include "util/dependency.h"
 #include "util/rlimit.h"
 #include <variant>
+#include <span>
+#include <initializer_list>
 
 #define RECYCLE_FREE_AST_INDICES
 
@@ -122,20 +124,20 @@ private:
         ast*,      // for PARAM_AST
         symbol,    // for PARAM_SYMBOL
         zstring*,  // for PARAM_ZSTRING
-        rational*, // for PARAM_RATIONAL
+        rational,  // for PARAM_RATIONAL
         double,    // for PARAM_DOUBLE (remark: this is not used in float_decl_plugin)
         unsigned   // for PARAM_EXTERNAL
-    > m_val;
+    > m_val = 0;
 
 public:
 
-    parameter() : m_val(0) {}
+    parameter() noexcept = default;
     explicit parameter(int val): m_val(val) {}
     explicit parameter(unsigned val): m_val((int)val) {}
     explicit parameter(ast * p): m_val(p) {}
     explicit parameter(symbol const & s): m_val(s) {}
-    explicit parameter(rational const & r): m_val(alloc(rational, r)) {}
-    explicit parameter(rational && r) : m_val(alloc(rational, std::move(r))) {} 
+    explicit parameter(rational const & r): m_val(r) {}
+    explicit parameter(rational && r) : m_val(std::move(r)) {} 
     explicit parameter(zstring const& s): m_val(alloc(zstring, s)) {}
     explicit parameter(zstring && s): m_val(alloc(zstring, std::move(s))) {}
     explicit parameter(double d): m_val(d) {}
@@ -187,7 +189,7 @@ public:
     int get_int() const { SASSERT(is_int()); return std::get<int>(m_val); }
     ast * get_ast() const { SASSERT(is_ast()); return std::get<ast*>(m_val); }
     symbol get_symbol() const { SASSERT(is_symbol()); return std::get<symbol>(m_val); }
-    rational const & get_rational() const { SASSERT(is_rational()); return *std::get<rational*>(m_val); }
+    rational const & get_rational() const { SASSERT(is_rational()); return std::get<rational>(m_val); }
     zstring const& get_zstring() const { SASSERT(is_zstring()); return *std::get<zstring*>(m_val); }
     double get_double() const { SASSERT(is_double()); return std::get<double>(m_val); }
     unsigned get_ext_id() const { SASSERT(is_external()); return std::get<unsigned>(m_val); }
@@ -314,12 +316,12 @@ class sort_size {
         // of elements is at least bigger than 2^64.
         SS_FINITE_VERY_BIG,
         SS_INFINITE
-    } m_kind;
-    uint64_t m_size; // It is only meaningful if m_kind == SS_FINITE
+    } m_kind = SS_INFINITE;
+    uint64_t m_size = 0; // It is only meaningful if m_kind == SS_FINITE
     sort_size(kind_t k, uint64_t r):m_kind(k), m_size(r) {}
 public:
-    sort_size():m_kind(SS_INFINITE), m_size(0) {}
-    sort_size(uint64_t const & sz):m_kind(SS_FINITE), m_size(sz) {}
+    sort_size() = default;
+    sort_size(uint64_t sz):m_kind(SS_FINITE), m_size(sz) {}
     explicit sort_size(rational const& r) {
         if (r.is_uint64()) {
             m_kind = SS_FINITE;
@@ -1667,17 +1669,29 @@ public:
     }
 
     template<typename T>
-    void inc_array_ref(unsigned sz, T * const * a) {
-        for(unsigned i = 0; i < sz; i++) {
-            inc_ref(a[i]);
+    void inc_array_ref(std::span<T * const> a) {
+        for(auto elem : a) {
+            inc_ref(elem);
         }
     }
 
+    // Backward compatibility overload
+    template<typename T>
+    void inc_array_ref(unsigned sz, T * const * a) {
+        inc_array_ref(std::span<T * const>(a, sz));
+    }
+
+    template<typename T>
+    void dec_array_ref(std::span<T * const> a) {
+        for(auto elem : a) {
+            dec_ref(elem);
+        }
+    }
+
+    // Backward compatibility overload
     template<typename T>
     void dec_array_ref(unsigned sz, T * const * a) {
-        for(unsigned i = 0; i < sz; i++) {
-            dec_ref(a[i]);
-        }
+        dec_array_ref(std::span<T * const>(a, sz));
     }
 
     static unsigned get_node_size(ast const * n);
@@ -1719,13 +1733,13 @@ private:
     sort * mk_sort(symbol const & name, sort_info * info);
 
 public:
-    sort * mk_uninterpreted_sort(symbol const & name, unsigned num_parameters, parameter const * parameters);
+    [[nodiscard]] sort * mk_uninterpreted_sort(symbol const & name, unsigned num_parameters, parameter const * parameters);
 
-    sort * mk_uninterpreted_sort(symbol const & name) { return mk_uninterpreted_sort(name, 0, nullptr); }
+    [[nodiscard]] sort * mk_uninterpreted_sort(symbol const & name) { return mk_uninterpreted_sort(name, 0, nullptr); }
 
-    sort * mk_type_var(symbol const& name);
+    [[nodiscard]] sort * mk_type_var(symbol const& name);
 
-    sort * mk_sort(symbol const & name, sort_info const & info) {
+    [[nodiscard]] sort * mk_sort(symbol const & name, sort_info const & info) {
         if (info.get_family_id() == null_family_id) {
             return mk_uninterpreted_sort(name);
         }
@@ -1734,15 +1748,15 @@ public:
         }
     }
 
-    sort * mk_sort(family_id fid, decl_kind k, unsigned num_parameters = 0, parameter const * parameters = nullptr);
+    [[nodiscard]] sort * mk_sort(family_id fid, decl_kind k, unsigned num_parameters = 0, parameter const * parameters = nullptr);
 
-    sort * substitute(sort* s, unsigned n, sort * const * src, sort * const * dst);
+    [[nodiscard]] sort * substitute(sort* s, unsigned n, sort * const * src, sort * const * dst);
 
-    sort * mk_bool_sort() const { return m_bool_sort; }
+    [[nodiscard]] sort * mk_bool_sort() const { return m_bool_sort; }
 
-    sort * mk_proof_sort() const { return m_proof_sort; }
+    [[nodiscard]] sort * mk_proof_sort() const { return m_proof_sort; }
 
-    sort * mk_fresh_sort(char const * prefix = "");
+    [[nodiscard]] sort * mk_fresh_sort(char const * prefix = "");
 
     bool is_uninterp(sort const * s) const { return s->get_family_id() == null_family_id || s->get_family_id() == user_sort_family_id; }
 
@@ -1767,24 +1781,26 @@ public:
 
     bool has_type_var(unsigned n, sort* const* domain, sort* range) const;
 
-    func_decl * mk_func_decl(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters,
+    [[nodiscard]] func_decl * mk_func_decl(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters,
                              unsigned arity, sort * const * domain, sort * range = nullptr);
 
-    func_decl * mk_func_decl(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters,
+    [[nodiscard]] func_decl * mk_func_decl(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters,
                              unsigned num_args, expr * const * args, sort * range = nullptr);
 
-    app * mk_app(family_id fid, decl_kind k, unsigned num_parameters = 0, parameter const * parameters = nullptr,
+    [[nodiscard]] app * mk_app(family_id fid, decl_kind k, unsigned num_parameters = 0, parameter const * parameters = nullptr,
                  unsigned num_args = 0, expr * const * args = nullptr, sort * range = nullptr);
 
-    app * mk_app(family_id fid, decl_kind k, unsigned num_args, expr * const * args);
+    [[nodiscard]] app * mk_app(family_id fid, decl_kind k, unsigned num_args, expr * const * args);
 
-    app * mk_app(family_id fid, decl_kind k, expr * arg);
+    [[nodiscard]] app * mk_app(family_id fid, decl_kind k, std::span<expr* const> args);
 
-    app * mk_app(family_id fid, decl_kind k, expr * arg1, expr * arg2);
+    [[nodiscard]] app * mk_app(family_id fid, decl_kind k, expr * arg);
 
-    app * mk_app(family_id fid, decl_kind k, expr * arg1, expr * arg2, expr * arg3);
+    [[nodiscard]] app * mk_app(family_id fid, decl_kind k, expr * arg1, expr * arg2);
 
-    app * mk_const(family_id fid, decl_kind k) { return mk_app(fid, k, 0, static_cast<expr * const *>(nullptr)); }
+    [[nodiscard]] app * mk_app(family_id fid, decl_kind k, expr * arg1, expr * arg2, expr * arg3);
+
+    [[nodiscard]] app * mk_const(family_id fid, decl_kind k) { return mk_app(fid, k, 0, static_cast<expr * const *>(nullptr)); }
 private:
     func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range,
                              func_decl_info * info);
@@ -1793,12 +1809,14 @@ private:
 
     app * mk_app_core(func_decl * decl, unsigned num_args, expr * const * args);
 
+    app * mk_and(unsigned num_args, expr * const * args) { return mk_app(basic_family_id, OP_AND, num_args, args); }
+
 public:
-    func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range) {
+    [[nodiscard]] func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range) {
         return mk_func_decl(name, arity, domain, range, static_cast<func_decl_info *>(nullptr));
     }
 
-    func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range,
+    [[nodiscard]] func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range,
                              func_decl_info const & info) {
         if (info.is_null()) {
             return mk_func_decl(name, arity, domain, range, static_cast<func_decl_info *>(nullptr));
@@ -1808,55 +1826,55 @@ public:
         }
     }
 
-    func_decl * mk_func_decl(unsigned arity, sort * const * domain, func_decl_info const & info) {
+    [[nodiscard]] func_decl * mk_func_decl(unsigned arity, sort * const * domain, func_decl_info const & info) {
         return mk_func_decl(info.get_family_id(), info.get_decl_kind(), info.get_num_parameters(), info.get_parameters(),
                             arity, domain);
     }
 
-    func_decl * mk_skolem_const_decl(symbol const& name, sort* s) {
+    [[nodiscard]] func_decl * mk_skolem_const_decl(symbol const& name, sort* s) {
         func_decl_info info;
         info.set_skolem(true);
         return mk_func_decl(name, static_cast<unsigned>(0), nullptr, s, info);
     }
 
-    func_decl * mk_const_decl(const char* name, sort * s) {
+    [[nodiscard]] func_decl * mk_const_decl(const char* name, sort * s) {
         return mk_func_decl(symbol(name), static_cast<unsigned>(0), nullptr, s);
     }
 
-    func_decl * mk_const_decl(std::string const& name, sort * s) {
+    [[nodiscard]] func_decl * mk_const_decl(std::string const& name, sort * s) {
         return mk_func_decl(symbol(name.c_str()), static_cast<unsigned>(0), nullptr, s);
     }
 
-    func_decl * mk_const_decl(symbol const & name, sort * s) {
+    [[nodiscard]] func_decl * mk_const_decl(symbol const & name, sort * s) {
         return mk_func_decl(name, static_cast<unsigned>(0), nullptr, s);
     }
 
-    func_decl * mk_const_decl(symbol const & name, sort * s, func_decl_info const & info) {
+    [[nodiscard]] func_decl * mk_const_decl(symbol const & name, sort * s, func_decl_info const & info) {
         return mk_func_decl(name, static_cast<unsigned>(0), nullptr, s, info);
     }
 
-    func_decl * mk_func_decl(symbol const & name, sort * domain, sort * range, func_decl_info const & info) {
+    [[nodiscard]] func_decl * mk_func_decl(symbol const & name, sort * domain, sort * range, func_decl_info const & info) {
         return mk_func_decl(name, 1, &domain, range, info);
     }
 
-    func_decl * mk_func_decl(symbol const & name, sort * domain, sort * range) {
+    [[nodiscard]] func_decl * mk_func_decl(symbol const & name, sort * domain, sort * range) {
         return mk_func_decl(name, 1, &domain, range);
     }
 
-    func_decl * mk_func_decl(symbol const & name, sort * domain1, sort * domain2, sort * range, func_decl_info const & info) {
+    [[nodiscard]] func_decl * mk_func_decl(symbol const & name, sort * domain1, sort * domain2, sort * range, func_decl_info const & info) {
         sort * d[2] = { domain1, domain2 };
         return mk_func_decl(name, 2, d, range, info);
     }
 
-    func_decl * mk_func_decl(symbol const & name, sort * domain1, sort * domain2, sort * range) {
+    [[nodiscard]] func_decl * mk_func_decl(symbol const & name, sort * domain1, sort * domain2, sort * range) {
         sort * d[2] = { domain1, domain2 };
         return mk_func_decl(name, 2, d, range);
     }
 
-    func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range,
+    [[nodiscard]] func_decl * mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range,
                              bool assoc, bool comm = false, bool inj = false);
 
-    func_decl * mk_func_decl(symbol const & name, sort * domain1, sort * domain2, sort * range, bool assoc, bool comm = false) {
+    [[nodiscard]] func_decl * mk_func_decl(symbol const & name, sort * domain1, sort * domain2, sort * range, bool assoc, bool comm = false) {
         sort * d[2] = { domain1, domain2 };
         return mk_func_decl(name, 2, d, range, assoc, comm, false);
     }
@@ -1869,113 +1887,113 @@ public:
         return !p || p->is_considered_uninterpreted(f);        
     }
 
-    app * mk_app(func_decl * decl, unsigned num_args, expr * const * args);
+    [[nodiscard]] app * mk_app(func_decl * decl, unsigned num_args, expr * const * args);
 
-    app* mk_app(func_decl* decl, ref_vector<expr, ast_manager> const& args) {
+    [[nodiscard]] app* mk_app(func_decl* decl, ref_vector<expr, ast_manager> const& args) {
         return mk_app(decl, args.size(), args.data());
     }
 
-    app* mk_app(func_decl* decl, ref_buffer<expr, ast_manager> const& args) {
+    [[nodiscard]] app* mk_app(func_decl* decl, ref_buffer<expr, ast_manager> const& args) {
         return mk_app(decl, args.size(), args.data());
     }
 
-    app* mk_app(func_decl* decl, ref_vector<app, ast_manager> const& args) {
+    [[nodiscard]] app* mk_app(func_decl* decl, ref_vector<app, ast_manager> const& args) {
         return mk_app(decl, args.size(), (expr*const*)args.data());
     }
 
-    app * mk_app(func_decl * decl, ptr_vector<expr> const& args) {
+    [[nodiscard]] app * mk_app(func_decl * decl, ptr_vector<expr> const& args) {
         return mk_app(decl, args.size(), args.data());
     }
 
-    app * mk_app(func_decl * decl, ptr_buffer<expr> const& args) {
+    [[nodiscard]] app * mk_app(func_decl * decl, ptr_buffer<expr> const& args) {
         return mk_app(decl, args.size(), args.data());
     }
 
-    app * mk_app(func_decl * decl, ptr_vector<app> const& args) {
+    [[nodiscard]] app * mk_app(func_decl * decl, ptr_vector<app> const& args) {
         return mk_app(decl, args.size(), (expr*const*)args.data());
     }
 
-    app * mk_app(func_decl * decl, expr * const * args) {
+    [[nodiscard]] app * mk_app(func_decl * decl, expr * const * args) {
         return mk_app(decl, decl->get_arity(), args);
     }
 
-    app * mk_app(func_decl * decl, expr * arg) {
+    [[nodiscard]] app * mk_app(func_decl * decl, expr * arg) {
         SASSERT(decl->get_arity() == 1);
         return mk_app(decl, 1, &arg);
     }
 
-    app * mk_app(func_decl * decl, expr * arg1, expr * arg2) {
+    [[nodiscard]] app * mk_app(func_decl * decl, expr * arg1, expr * arg2) {
         SASSERT(decl->get_arity() == 2);
         expr * args[2] = { arg1, arg2 };
         return mk_app(decl, 2, args);
     }
 
-    app * mk_app(func_decl * decl, expr * arg1, expr * arg2, expr * arg3) {
+    [[nodiscard]] app * mk_app(func_decl * decl, expr * arg1, expr * arg2, expr * arg3) {
         SASSERT(decl->get_arity() == 3);
         expr * args[3] = { arg1, arg2, arg3 };
         return mk_app(decl, 3, args);
     }
 
-    app * mk_app(symbol const& name, unsigned n, expr* const* args, sort* range);
+    [[nodiscard]] app * mk_app(symbol const& name, unsigned n, expr* const* args, sort* range);
 
-    app * mk_const(func_decl * decl) {
+    [[nodiscard]] app * mk_const(func_decl * decl) {
         SASSERT(decl->get_arity() == 0);
         return mk_app(decl, static_cast<unsigned>(0), static_cast<expr**>(nullptr));
     }
 
-    app * mk_skolem_const(symbol const & name, sort * s) {
+    [[nodiscard]] app * mk_skolem_const(symbol const & name, sort * s) {
         return mk_const(mk_skolem_const_decl(name, s));
     }
 
-    app * mk_const(symbol const & name, sort * s) {
+    [[nodiscard]] app * mk_const(symbol const & name, sort * s) {
         return mk_const(mk_const_decl(name, s));
     }
 
-    app * mk_const(std::string const & name, sort * s) {
+    [[nodiscard]] app * mk_const(std::string const & name, sort * s) {
         return mk_const(mk_const_decl(name, s));
     }
 
-    app * mk_const(char const* name, sort * s) {
+    [[nodiscard]] app * mk_const(char const* name, sort * s) {
         return mk_const(mk_const_decl(name, s));
     }
 
-    func_decl * mk_fresh_func_decl(symbol const & prefix, symbol const & suffix, unsigned arity,
+    [[nodiscard]] func_decl * mk_fresh_func_decl(symbol const & prefix, symbol const & suffix, unsigned arity,
                                    sort * const * domain, sort * range, bool skolem = true);
 
-    func_decl * mk_fresh_func_decl(unsigned arity, sort * const * domain, sort * range, bool skolem = true) { 
+    [[nodiscard]] func_decl * mk_fresh_func_decl(unsigned arity, sort * const * domain, sort * range, bool skolem = true) { 
         return mk_fresh_func_decl(symbol::null, symbol::null, arity, domain, range, skolem); 
     }
 
-    func_decl * mk_fresh_func_decl(char const * prefix, char const * suffix, unsigned arity,
+    [[nodiscard]] func_decl * mk_fresh_func_decl(char const * prefix, char const * suffix, unsigned arity,
                                    sort * const * domain, sort * range, bool skolem = true) {
         return mk_fresh_func_decl(symbol(prefix), symbol(suffix), arity, domain, range, skolem);
     }
 
-    func_decl * mk_fresh_func_decl(char const * prefix, unsigned arity, sort * const * domain, sort * range, bool skolem = true) {
+    [[nodiscard]] func_decl * mk_fresh_func_decl(char const * prefix, unsigned arity, sort * const * domain, sort * range, bool skolem = true) {
         return mk_fresh_func_decl(symbol(prefix), symbol::null, arity, domain, range, skolem);
     }
 
     bool is_parametric_function(func_decl* f, func_decl *& g) const;
 
-    app * mk_fresh_const(char const * prefix, sort * s, bool skolem = true) { 
+    [[nodiscard]] app * mk_fresh_const(char const * prefix, sort * s, bool skolem = true) { 
         return mk_const(mk_fresh_func_decl(prefix, 0, nullptr, s, skolem)); 
     }
 
-    app * mk_fresh_const(std::string const& prefix, sort * s, bool skolem = true) { 
+    [[nodiscard]] app * mk_fresh_const(std::string const& prefix, sort * s, bool skolem = true) { 
         return mk_fresh_const(prefix.c_str(), s, skolem);        
     }
 
-    app * mk_fresh_const(symbol const& prefix, sort * s, bool skolem = true) {
+    [[nodiscard]] app * mk_fresh_const(symbol const& prefix, sort * s, bool skolem = true) {
         return mk_const(mk_fresh_func_decl(prefix, symbol::null, 0, nullptr, s, skolem));
     }
 
-    symbol mk_fresh_var_name(char const * prefix = nullptr);
+    [[nodiscard]] symbol mk_fresh_var_name(char const * prefix = nullptr);
 
-    var * mk_var(unsigned idx, sort * ty);
+    [[nodiscard]] var * mk_var(unsigned idx, sort * ty);
 
-    app * mk_label(bool pos, unsigned num_names, symbol const * names, expr * n);
+    [[nodiscard]] app * mk_label(bool pos, unsigned num_names, symbol const * names, expr * n);
 
-    app * mk_label(bool pos, symbol const & name, expr * n);
+    [[nodiscard]] app * mk_label(bool pos, symbol const & name, expr * n);
 
     bool is_label(expr const * n, bool & pos, buffer<symbol> & names) const;
 
@@ -1999,9 +2017,9 @@ public:
         }
     }
 
-    app * mk_label_lit(unsigned num_names, symbol const * names);
+    [[nodiscard]] app * mk_label_lit(unsigned num_names, symbol const * names);
 
-    app * mk_label_lit(symbol const & name);
+    [[nodiscard]] app * mk_label_lit(symbol const & name);
 
     bool is_label_lit(expr const * n, buffer<symbol> & names) const;
 
@@ -2009,9 +2027,9 @@ public:
 
     family_id get_label_family_id() const { return label_family_id; }
 
-    app * mk_pattern(unsigned num_exprs, app * const * exprs);
+    [[nodiscard]] app * mk_pattern(unsigned num_exprs, app * const * exprs);
 
-    app * mk_pattern(app * expr) { return mk_pattern(1, &expr); }
+    [[nodiscard]] app * mk_pattern(app * expr) { return mk_pattern(1, &expr); }
 
     bool is_pattern(expr const * n) const;
 
@@ -2019,12 +2037,12 @@ public:
 
 public:
 
-    quantifier * mk_quantifier(quantifier_kind k, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body, 
+    [[nodiscard]] quantifier * mk_quantifier(quantifier_kind k, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body, 
                                int weight = 0, symbol const & qid = symbol::null, symbol const & skid = symbol::null,
                                unsigned num_patterns = 0, expr * const * patterns = nullptr,
                                unsigned num_no_patterns = 0, expr * const * no_patterns = nullptr);
 
-    quantifier * mk_forall(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
+    [[nodiscard]] quantifier * mk_forall(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
                            int weight = 0, symbol const & qid = symbol::null, symbol const & skid = symbol::null,
                            unsigned num_patterns = 0, expr * const * patterns = nullptr,
                            unsigned num_no_patterns = 0, expr * const * no_patterns = nullptr) {
@@ -2032,7 +2050,7 @@ public:
                              num_no_patterns, no_patterns);
     }
 
-    quantifier * mk_exists(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
+    [[nodiscard]] quantifier * mk_exists(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
                            int weight = 0, symbol const & qid = symbol::null, symbol const & skid = symbol::null,
                            unsigned num_patterns = 0, expr * const * patterns = nullptr,
                            unsigned num_no_patterns = 0, expr * const * no_patterns = nullptr) {
@@ -2040,19 +2058,25 @@ public:
                              num_no_patterns, no_patterns);
     }
 
-    quantifier * mk_lambda(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body);
+    [[nodiscard]] quantifier * mk_lambda(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body);
 
-    quantifier * update_quantifier(quantifier * q, unsigned new_num_patterns, expr * const * new_patterns, expr * new_body);
+    [[nodiscard]] quantifier * update_quantifier(quantifier * q, unsigned new_num_patterns, expr * const * new_patterns, expr * new_body);
 
-    quantifier * update_quantifier(quantifier * q, unsigned new_num_patterns, expr * const * new_patterns, unsigned new_num_no_patterns, expr * const * new_no_patterns, expr * new_body);
+    [[nodiscard]] quantifier * update_quantifier(quantifier * q, unsigned new_num_patterns, expr * const * new_patterns, unsigned new_num_no_patterns, expr * const * new_no_patterns, expr * new_body);
 
-    quantifier * update_quantifier(quantifier * q, expr * new_body);
+    [[nodiscard]] quantifier * update_quantifier(quantifier * q, expr * new_body);
 
     quantifier * update_quantifier_weight(quantifier * q, int new_weight);
 
     quantifier * update_quantifier(quantifier * q, quantifier_kind new_kind, expr * new_body);
 
     quantifier * update_quantifier(quantifier * q, quantifier_kind new_kind, unsigned new_num_patterns, expr * const * new_patterns, expr * new_body);
+
+    // Convenience overloads with std::initializer_list
+    [[nodiscard]] quantifier * update_quantifier(quantifier * q, std::initializer_list<expr*> new_patterns, expr * new_body);
+    
+    [[nodiscard]] quantifier * update_quantifier(quantifier * q, std::initializer_list<expr*> new_patterns, std::initializer_list<expr*> new_no_patterns, expr * new_body);
+
 
 // -----------------------------------
 //
@@ -2188,21 +2212,22 @@ public:
     app * mk_xor(ptr_vector<expr> const& args) { return mk_xor(args.size(), args.data()); }
     app * mk_xor(ref_buffer<expr, ast_manager> const& args) { return mk_xor(args.size(), args.data()); }
     app * mk_or(unsigned num_args, expr * const * args) { return mk_app(basic_family_id, OP_OR, num_args, args); }
-    app * mk_and(unsigned num_args, expr * const * args) { return mk_app(basic_family_id, OP_AND, num_args, args); }
+    app * mk_and(std::span<expr* const> args) { return mk_app(basic_family_id, OP_AND, args); }
+    app * mk_or(std::span<expr* const> args) { return mk_app(basic_family_id, OP_OR, args); }
     app * mk_or(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_OR, arg1, arg2); }
     app * mk_and(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_AND, arg1, arg2); }
     app * mk_or(expr * arg1, expr * arg2, expr * arg3) { return mk_app(basic_family_id, OP_OR, arg1, arg2, arg3); }
     app * mk_or(expr* a, expr* b, expr* c, expr* d) { expr* args[4] = { a, b, c, d }; return mk_app(basic_family_id, OP_OR, 4, args); }
     app * mk_and(expr * arg1, expr * arg2, expr * arg3) { return mk_app(basic_family_id, OP_AND, arg1, arg2, arg3); }
 
-    app * mk_and(ref_vector<expr, ast_manager> const& args) { return mk_and(args.size(), args.data()); }
-    app * mk_and(ptr_vector<expr> const& args) { return mk_and(args.size(), args.data()); }
-    app * mk_and(ref_buffer<expr, ast_manager> const& args) { return mk_and(args.size(), args.data()); }
-    app * mk_and(ptr_buffer<expr> const& args) { return mk_and(args.size(), args.data()); }
-    app * mk_or(ref_vector<expr, ast_manager> const& args) { return mk_or(args.size(), args.data()); }
-    app * mk_or(ptr_vector<expr> const& args) { return mk_or(args.size(), args.data()); }
-    app * mk_or(ref_buffer<expr, ast_manager> const& args) { return mk_or(args.size(), args.data()); }
-    app * mk_or(ptr_buffer<expr> const& args) { return mk_or(args.size(), args.data()); }
+    app * mk_and(ref_vector<expr, ast_manager> const& args) { return mk_and(std::span<expr* const>(args.data(), args.size())); }
+    app * mk_and(ptr_vector<expr> const& args) { return mk_and(std::span<expr* const>(args.data(), args.size())); }
+    app * mk_and(ref_buffer<expr, ast_manager> const& args) { return mk_and(std::span<expr* const>(args.data(), args.size())); }
+    app * mk_and(ptr_buffer<expr> const& args) { return mk_and(std::span<expr* const>(args.data(), args.size())); }
+    app * mk_or(ref_vector<expr, ast_manager> const& args) { return mk_or(std::span<expr* const>(args.data(), args.size())); }
+    app * mk_or(ptr_vector<expr> const& args) { return mk_or(std::span<expr* const>(args.data(), args.size())); }
+    app * mk_or(ref_buffer<expr, ast_manager> const& args) { return mk_or(std::span<expr* const>(args.data(), args.size())); }
+    app * mk_or(ptr_buffer<expr> const& args) { return mk_or(std::span<expr* const>(args.data(), args.size())); }
     app * mk_implies(expr * arg1, expr * arg2) { return mk_app(basic_family_id, OP_IMPLIES, arg1, arg2); }
     app * mk_not(expr * n) { return mk_app(basic_family_id, OP_NOT, n); }
     app * mk_distinct(unsigned num_args, expr * const * args);
@@ -2343,6 +2368,12 @@ public:
     proof * mk_transitivity(proof * p1, proof * p2, proof * p3, proof * p4);
     proof * mk_transitivity(unsigned num_proofs, proof * const * proofs);
     proof * mk_transitivity(unsigned num_proofs, proof * const * proofs, expr * n1, expr * n2);
+    proof * mk_transitivity(std::initializer_list<proof*> const& proofs) {
+        return mk_transitivity(static_cast<unsigned>(proofs.size()), proofs.begin());
+    }
+    proof * mk_transitivity(std::initializer_list<proof*> const& proofs, expr * n1, expr * n2) {
+        return mk_transitivity(static_cast<unsigned>(proofs.size()), proofs.begin(), n1, n2);
+    }
     proof * mk_monotonicity(func_decl * R, app * f1, app * f2, unsigned num_proofs, proof * const * proofs);
     proof * mk_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs);
     proof * mk_oeq_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs);
@@ -2373,6 +2404,12 @@ public:
     proof * mk_def_axiom(expr * ax);
     proof * mk_unit_resolution(unsigned num_proofs, proof * const * proofs);
     proof * mk_unit_resolution(unsigned num_proofs, proof * const * proofs, expr * new_fact);
+    proof * mk_unit_resolution(std::initializer_list<proof*> const& proofs) {
+        return mk_unit_resolution(static_cast<unsigned>(proofs.size()), proofs.begin());
+    }
+    proof * mk_unit_resolution(std::initializer_list<proof*> const& proofs, expr * new_fact) {
+        return mk_unit_resolution(static_cast<unsigned>(proofs.size()), proofs.begin(), new_fact);
+    }
     proof * mk_hypothesis(expr * h);
     proof * mk_lemma(proof * p, expr * lemma);
 
@@ -2405,10 +2442,16 @@ private:
     }
 
     template<typename T>
-    void push_dec_array_ref(unsigned sz, T * const * a) {
-        for(unsigned i = 0; i < sz; i++) {
-            push_dec_ref(a[i]);
+    void push_dec_array_ref(std::span<T * const> a) {
+        for(auto elem : a) {
+            push_dec_ref(elem);
         }
+    }
+
+    // Backward compatibility overload
+    template<typename T>
+    void push_dec_array_ref(unsigned sz, T * const * a) {
+        push_dec_array_ref(std::span<T * const>(a, sz));
     }
 };
 

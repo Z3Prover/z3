@@ -77,7 +77,7 @@ namespace lp {
     bool int_gcd_test::gcd_test() {
         reset_test();
         const auto & A = lra.A_r(); // getting the matrix
-        for (unsigned i = 0; i < A.row_count(); i++) {
+        for (unsigned i = 0; i < A.row_count(); ++i) {
             unsigned basic_var = lra.r_basis()[i];
             if (!lia.column_is_int(basic_var))
                 continue;

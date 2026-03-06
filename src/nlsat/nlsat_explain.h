@@ -35,7 +35,7 @@ namespace nlsat {
         imp * m_imp;
     public:
         explain(solver & s, assignment const & x2v, polynomial::cache & u, 
-                atom_vector const& atoms, atom_vector const& x2eq, evaluator & ev, bool use_cell_sample_proj);
+                atom_vector const& atoms, atom_vector const& x2eq, evaluator & ev, bool canonicalize);
 
         ~explain();
 
@@ -44,7 +44,6 @@ namespace nlsat {
         void set_full_dimensional(bool f);
         void set_minimize_cores(bool f);
         void set_factor(bool f);
-        void set_linear_project(bool f);
         void set_add_all_coeffs(bool f);
         void set_add_zero_disc(bool f);
 
@@ -65,8 +64,14 @@ namespace nlsat {
                  - s_1, ..., s_m do not contain variable x.
                  - s_1, ..., s_m are false in the current interpretation
         */
-        void main_operator(unsigned n, literal const * ls, scoped_literal_vector & result);
+        void compute_conflict_explanation(unsigned n, literal const * ls, scoped_literal_vector & result);
 
+        /**
+           \brief A variant of compute_conflict_explanation, but all resulting literals s_i are linear.
+           This is achieved by adding new polynomials during the projection, thereby under-approximating
+           the computed cell.
+        */
+        void compute_linear_explanation(unsigned n, literal const * ls, scoped_literal_vector & result);
         
         /**
            \brief projection for a given variable.
@@ -103,6 +108,11 @@ namespace nlsat {
            the signs delineated by the roots of the polynomials in ls.
          */
         void maximize(var x, unsigned n, literal const * ls, scoped_anum& val, bool& unbounded);
+
+        /**
+           Print the polynomials that were passed to levelwise in the last call (for debugging).
+         */
+        void display_last_lws_input(std::ostream& out);
 
         /**
            Unit test routine.

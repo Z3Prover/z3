@@ -330,7 +330,7 @@ public:
                 bool print_dependencies = p.get_bool("print_dependencies", false);
                 ctx.regular_stream() << "(goals\n";
                 unsigned sz = result_goals.size();
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     if (print_dependencies)
                         result_goals[i]->display_with_dependencies(ctx);
                     else
@@ -353,7 +353,7 @@ public:
                     goal * fg = result_goals[0];
                     unsigned sz = fg->size();
                     ptr_buffer<expr> assertions;
-                    for (unsigned i = 0; i < sz; i++) {
+                    for (unsigned i = 0; i < sz; ++i) {
                         assertions.push_back(fg->form(i));
                     }
                     ctx.display_smt2_benchmark(ctx.regular_stream(), assertions.size(), assertions.data());
@@ -362,16 +362,16 @@ public:
                     // create a big OR
                     expr_ref_buffer or_args(m);
                     ptr_vector<expr> formulas;
-                    for (unsigned i = 0; i < num_goals; i++) {
+                    for (unsigned i = 0; i < num_goals; ++i) {
                         formulas.reset();
                         result_goals[i]->get_formulas(formulas);
                         if (formulas.size() == 1)
                             or_args.push_back(formulas[0]);
                         else
-                            or_args.push_back(m.mk_and(formulas.size(), formulas.data()));
+                            or_args.push_back(m.mk_and(formulas));
                     }
                     expr_ref assertion_ref(m);
-                    assertion_ref = m.mk_or(or_args.size(), or_args.data());
+                    assertion_ref = m.mk_or(or_args);
                     expr * assertions[1] = { assertion_ref.get() };
                     ctx.display_smt2_benchmark(ctx.regular_stream(), 1, assertions);
                 }
@@ -407,7 +407,7 @@ static tactic * mk_and_then(cmd_context & ctx, sexpr * n) {
     if (num_children == 2)
         return sexpr2tactic(ctx, n->get_child(1));
     tactic_ref_buffer args;
-    for (unsigned i = 1; i < num_children; i++)
+    for (unsigned i = 1; i < num_children; ++i)
         args.push_back(sexpr2tactic(ctx, n->get_child(i)));
     return and_then(args.size(), args.data());
 }
@@ -420,7 +420,7 @@ static tactic * mk_or_else(cmd_context & ctx, sexpr * n) {
     if (num_children == 2)
         return sexpr2tactic(ctx, n->get_child(1));
     tactic_ref_buffer args;
-    for (unsigned i = 1; i < num_children; i++)
+    for (unsigned i = 1; i < num_children; ++i)
         args.push_back(sexpr2tactic(ctx, n->get_child(i)));
     return or_else(args.size(), args.data());
 }
@@ -433,7 +433,7 @@ static tactic * mk_par(cmd_context & ctx, sexpr * n) {
     if (num_children == 2)
         return sexpr2tactic(ctx, n->get_child(1));
     tactic_ref_buffer args;
-    for (unsigned i = 1; i < num_children; i++)
+    for (unsigned i = 1; i < num_children; ++i)
         args.push_back(sexpr2tactic(ctx, n->get_child(i)));
     return par(args.size(), args.data());
 }
@@ -446,7 +446,7 @@ static tactic * mk_par_then(cmd_context & ctx, sexpr * n) {
     if (num_children == 2)
         return sexpr2tactic(ctx, n->get_child(1));
     tactic_ref_buffer args;
-    for (unsigned i = 1; i < num_children; i++)
+    for (unsigned i = 1; i < num_children; ++i)
         args.push_back(sexpr2tactic(ctx, n->get_child(i)));
     return par_and_then(args.size(), args.data());
 }
@@ -580,7 +580,7 @@ static tactic * mk_echo(cmd_context & ctx, sexpr * n) {
     if (num_children < 2)
         throw cmd_exception("invalid echo tactic, must have at least one argument", n->get_line(), n->get_pos());
     tactic_ref res;
-    for (unsigned i = 1; i < num_children; i++) {
+    for (unsigned i = 1; i < num_children; ++i) {
         sexpr * curr = n->get_child(i);
         bool last = (i == num_children - 1);
         tactic * t;

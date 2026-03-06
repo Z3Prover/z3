@@ -189,7 +189,7 @@ void bound_propagator::init_eq(linear_equation * eq) {
     new_c.m_counter     = 0;
     new_c.m_eq          = eq;
     unsigned sz = eq->size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         m_watches[eq->x(i)].push_back(c_idx);
     }
     if (propagate(c_idx) && scope_lvl() > 0)
@@ -248,7 +248,7 @@ void bound_propagator::pop(unsigned num_scopes) {
     unsigned i  = reinit_stack_sz;
     unsigned j  = reinit_stack_sz;
     unsigned sz = m_reinit_stack.size();
-    for (; i < sz; i++) {
+    for (; i < sz; ++i) {
         unsigned c_idx = m_reinit_stack[i];
         bool p = propagate(c_idx);
         if (new_lvl > 0 && p) {
@@ -391,7 +391,7 @@ bool bound_propagator::relevant_bound(var x, double new_k) const {
         if (abs_k < 0.0) 
             abs_k -= abs_k;
         if (bounded)
-            improvement = m_threshold * std::max(std::min(interval_size, abs_k), 1.0);
+            improvement = m_threshold * std::clamp(interval_size, 1.0, abs_k);
         else
             improvement = m_threshold * std::max(abs_k, 1.0);
         
@@ -520,7 +520,7 @@ bool bound_propagator::propagate_eq(unsigned c_idx) {
     double ll = 0.0;
     double uu = 0.0;
     unsigned sz = eq->size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         var x_i     = eq->x(i);
         double a_i  = eq->approx_a(i);
         bound * l_i = m_lowers[x_i];
@@ -583,7 +583,7 @@ bool bound_propagator::propagate_eq(unsigned c_idx) {
 
     SASSERT(!ll_failed || !uu_failed);
     if (ll_i == UINT_MAX || uu_i == UINT_MAX) {
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             var x_i     = eq->x(i);
             double a_i  = eq->approx_a(i);
             bound * l_i = m_lowers[x_i];
@@ -672,7 +672,7 @@ bool bound_propagator::propagate_lower(unsigned c_idx, unsigned i) {
     mpq k;
     bool strict = false;
     bool neg_a_i = m.is_neg(a_i);
-    for (unsigned j = 0; j < sz; j++) {
+    for (unsigned j = 0; j < sz; ++j) {
         if (i == j)
             continue;
         var x_j = eq->x(j);
@@ -709,7 +709,7 @@ bool bound_propagator::propagate_upper(unsigned c_idx, unsigned i) {
     mpq k;
     bool strict = false;
     bool neg_a_i = m.is_neg(a_i);
-    for (unsigned j = 0; j < sz; j++) {
+    for (unsigned j = 0; j < sz; ++j) {
         if (i == j)
             continue;
         var x_j = eq->x(j);
@@ -821,7 +821,7 @@ void bound_propagator::explain(var x, bound * b, unsigned ts, assumption_vector 
             if (!is_a_i_pos(*eq, x))
                 is_lower = !is_lower;
             unsigned sz = eq->size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 var x_i = eq->x(i);
                 if (x_i == x)
                     continue;
@@ -854,7 +854,7 @@ template<bool LOWER, typename Numeral>
 bool bound_propagator::get_bound(unsigned sz, Numeral const * as, var const * xs, mpq & r, bool & st) const {
     st = false;
     m.reset(r);
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         var x_i = xs[i];
         Numeral const & a_i = as[i];
         if (m.is_zero(a_i))
@@ -880,7 +880,7 @@ bool bound_propagator::upper(unsigned sz, mpq const * as, var const * xs, mpq & 
 }
 
 void bound_propagator::display_bounds_of(std::ostream & out, linear_equation const & eq) const {
-    for (unsigned i = 0; i < eq.size(); i++) {
+    for (unsigned i = 0; i < eq.size(); ++i) {
         display_var_bounds(out, eq.x(i));
         out << "\n";
     }
@@ -916,7 +916,7 @@ void bound_propagator::display_var_bounds(std::ostream & out, var x, bool approx
 
 void bound_propagator::display_bounds(std::ostream & out, bool approx, bool precise) const {
     unsigned num_vars = m_dead.size();
-    for (unsigned x = 0; x < num_vars; x++) {
+    for (unsigned x = 0; x < num_vars; ++x) {
         if (!is_dead(x)) {
             display_var_bounds(out, x, approx, precise);
             out << "\n";

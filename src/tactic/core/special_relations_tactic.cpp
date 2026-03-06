@@ -128,7 +128,7 @@ void special_relations_tactic::operator()(goal_ref const & g, goal_ref_buffer & 
     initialize();
     obj_map<func_decl, sp_axioms> goal_features;
     unsigned size = g->size();
-    for (unsigned idx = 0; idx < size; idx++) {
+    for (unsigned idx = 0; idx < size; ++idx) {
         collect_feature(*g, idx, goal_features);
     }
     special_relations_util u(m);
@@ -159,7 +159,7 @@ void special_relations_tactic::operator()(goal_ref const & g, goal_ref_buffer & 
         }
     }
     if (!replace.empty()) {
-        for (unsigned idx = 0; idx < size; idx++) {
+        for (unsigned idx = 0; idx < size; ++idx) {
             if (to_delete.contains(idx)) {
                 g->update(idx, m.mk_true());
             }

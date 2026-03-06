@@ -58,7 +58,7 @@ struct bv_bound_chk_rewriter_cfg : public default_rewriter_cfg {
         const br_status st = reduce_app_core(f, num, args, result, result_pr);
         CTRACE(bv_bound_chk_step, st != BR_FAILED,
             tout << f->get_name() << "\n";
-        for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << "\n";
+        for (unsigned i = 0; i < num; ++i) tout << mk_ismt2_pp(args[i], m()) << "\n";
         tout << "---------->\n" << mk_ismt2_pp(result, m()) << "\n";);
         return st;
     }
@@ -151,7 +151,7 @@ public:
         ast_manager& m(g->m());
         expr_ref   new_curr(m);
         const unsigned size = g->size();
-        for (unsigned idx = 0; idx < size; idx++) {
+        for (unsigned idx = 0; idx < size; ++idx) {
             if (g->inconsistent()) break;
             expr * curr = g->form(idx);
             m_rw(curr, new_curr);

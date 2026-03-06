@@ -9,6 +9,7 @@ set(MK_API_DOC_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/mk_api_doc.py")
 set(PYTHON_API_OPTIONS "")
 set(DOTNET_API_OPTIONS "")
 set(JAVA_API_OPTIONS "")
+set(GO_API_OPTIONS "")
 SET(DOC_EXTRA_DEPENDS "")
 
 if (Z3_BUILD_PYTHON_BINDINGS)
@@ -41,6 +42,15 @@ else()
   list(APPEND JAVA_API_OPTIONS "--no-java")
 endif()
 
+if (Z3_BUILD_GO_BINDINGS)
+  list(APPEND GO_API_OPTIONS "--go")
+  list(APPEND GO_API_OPTIONS "--go-search-paths"
+    "${PROJECT_SOURCE_DIR}/src/api/go"
+  )
+else()
+  # Go bindings don't have a --no-go option, just omit --go
+endif()
+
 option(Z3_ALWAYS_BUILD_DOCS "Always build documentation for API bindings" ON)
 if (Z3_ALWAYS_BUILD_DOCS)
   set(ALWAYS_BUILD_DOCS_ARG "ALL")
@@ -66,11 +76,25 @@ add_custom_target(api_docs ${ALWAYS_BUILD_DOCS_ARG}
   ${PYTHON_API_OPTIONS}
   ${DOTNET_API_OPTIONS}
   ${JAVA_API_OPTIONS}
+  ${GO_API_OPTIONS}
   DEPENDS
     ${DOC_EXTRA_DEPENDS}
   COMMENT "Generating documentation"
   USES_TERMINAL
 )
+
+# Add separate target for Go documentation
+if (Z3_BUILD_GO_BINDINGS)
+  set(MK_GO_DOC_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/mk_go_doc.py")
+  add_custom_target(go_docs
+    COMMAND
+    "${Python3_EXECUTABLE}" "${MK_GO_DOC_SCRIPT}"
+    --output-dir "${DOC_DEST_DIR}/html/go"
+    --go-api-path "${PROJECT_SOURCE_DIR}/src/api/go"
+    COMMENT "Generating Go API documentation"
+    USES_TERMINAL
+  )
+endif()
 
 # Remove generated documentation when running `clean` target.
 set_property(DIRECTORY APPEND PROPERTY

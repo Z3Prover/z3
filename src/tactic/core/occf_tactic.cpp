@@ -51,7 +51,7 @@ class occf_tactic : public tactic {
             SASSERT(m.is_or(cls));
             bool found = false;
             unsigned num = cls->get_num_args();
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 if (is_constraint(cls->get_arg(i))) {
                     if (found)
                         return true;
@@ -138,7 +138,7 @@ class occf_tactic : public tactic {
             cnstr2bvar c2b;
             
             unsigned sz = g->size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 checkpoint();
                 expr * f = g->form(i);
                 expr_dependency * d = g->dep(i);
@@ -154,7 +154,7 @@ class occf_tactic : public tactic {
                 expr * keep = nullptr;
                 new_lits.reset();
                 unsigned num = cls->get_num_args();
-                for (unsigned j = 0; j < num; j++) {
+                for (unsigned j = 0; j < num; ++j) {
                     expr * l = cls->get_arg(j);
                     if (is_constraint(l)) {
                         expr * new_l = get_aux_lit(c2b, l, g);
@@ -175,7 +175,7 @@ class occf_tactic : public tactic {
                 }
                 if (keep != nullptr)
                     new_lits.push_back(keep);
-                g->update(i, m.mk_or(new_lits.size(), new_lits.data()), nullptr, d);
+                g->update(i, m.mk_or(new_lits), nullptr, d);
             }
             g->inc_depth();
             result.push_back(g.get());

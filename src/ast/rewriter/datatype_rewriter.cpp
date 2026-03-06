@@ -121,6 +121,9 @@ br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr 
         result = m().mk_app(c_decl, num, new_args.data());
         return BR_DONE;        
     }
+    case OP_DT_SUBTERM:
+        // No rewrite yet for subterms
+        return BR_FAILED;
     default:
         UNREACHABLE();
     }
@@ -167,6 +170,6 @@ br_status datatype_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & resul
     for (unsigned i = 0; i < num; ++i) {            
         eqs.push_back(m().mk_eq(to_app(lhs)->get_arg(i), to_app(rhs)->get_arg(i)));
     }
-    result = m().mk_and(eqs.size(), eqs.data());
+    result = m().mk_and(std::span<expr* const>(eqs.data(), eqs.size()));
     return BR_REWRITE2;
 }

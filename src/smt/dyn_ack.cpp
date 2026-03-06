@@ -74,14 +74,14 @@ namespace smt {
             unsigned num_args = m_app1->get_num_args();
             proof_ref_vector prs(m);
             expr_ref_vector lits(m);
-            for (unsigned i = 0; i < num_args; i++) {
+            for (unsigned i = 0; i < num_args; ++i) {
                 expr * arg1 = m_app1->get_arg(i);
                 expr * arg2 = m_app2->get_arg(i);
                 if (arg1 != arg2) {
                     app * eq  = m.mk_eq(arg1, arg2);
                     app_ref neq(m.mk_not(eq), m);
                     if (std::find(lits.begin(), lits.end(), neq.get()) == lits.end()) {
-                        lits.push_back(neq);
+                        lits.push_back(std::move(neq));
                         prs.push_back(mk_hypothesis(m, eq, false, arg1, arg2));
                     }
                 }
@@ -89,8 +89,7 @@ namespace smt {
             app_ref eq(m.mk_eq(m_app1, m_app2), m);
             proof_ref a1(m.mk_congruence(m_app1, m_app2, prs.size(), prs.data()), m);
             proof_ref a2(mk_hypothesis(m, eq, true, m_app1, m_app2), m);
-            proof * antecedents[2] = { a1.get(), a2.get() };
-            proof_ref false_pr(m.mk_unit_resolution(2, antecedents), m);
+            proof_ref false_pr(m.mk_unit_resolution({ a1.get(), a2.get() }), m);
             lits.push_back(eq);
             SASSERT(lits.size() >= 2);
             app_ref lemma(m.mk_or(lits), m);
@@ -152,11 +151,9 @@ namespace smt {
             if (m.get_fact(p3) != m_eq3) p3 = m.mk_symmetry(p3);
             SASSERT(m.get_fact(p3) == m_eq3);
             p4 = m.mk_hypothesis(m.mk_not(m_eq3));
-            proof* ps[2] = { p3, p4 };
-            p5 = m.mk_unit_resolution(2, ps);
+            p5 = m.mk_unit_resolution({ p3, p4 });
             SASSERT(m.get_fact(p5) == m.mk_false());
-            expr* eqs[3] = { m.mk_not(m_eq1), m.mk_not(m_eq2), m_eq3 };
-            expr_ref conclusion(m.mk_or(3, eqs), m);
+            expr_ref conclusion(m.mk_or(m.mk_not(m_eq1), m.mk_not(m_eq2), m_eq3), m);
             p6 = m.mk_lemma(p5, conclusion);
             return p6;
         }
@@ -175,8 +172,9 @@ namespace smt {
 
     void dyn_ack_manager::reset_app_pairs() {
         for (app_pair& p : m_app_pairs) {
-            m.dec_ref(p.first);
-            m.dec_ref(p.second);
+            auto [a1, a2] = p;
+            m.dec_ref(a1);
+            m.dec_ref(a2);
         }
         m_app_pairs.reset();
     }
@@ -282,10 +280,12 @@ namespace smt {
         }
         
         bool operator()(app_pair const & p1, app_pair const & p2) const {
+            auto [a1_1, a1_2] = p1;
+            auto [a2_1, a2_2] = p2;
             unsigned n1 = 0;
             unsigned n2 = 0;
-            m_app_pair2num_occs.find(p1.first, p1.second, n1);
-            m_app_pair2num_occs.find(p2.first, p2.second, n2);
+            m_app_pair2num_occs.find(a1_1, a1_2, n1);
+            m_app_pair2num_occs.find(a2_1, a2_2, n2);
             SASSERT(n1 > 0);
             SASSERT(n2 > 0);
             return n1 > n2;
@@ -301,32 +301,33 @@ namespace smt {
         svector<app_pair>::iterator it2 = it;
         for (; it != end; ++it) {
             app_pair & p = *it;
+            auto [a1, a2] = p;
             if (m_instantiated.contains(p)) {
-                TRACE(dyn_ack, tout << "1) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
-                m.dec_ref(p.first);
-                m.dec_ref(p.second);
-                SASSERT(!m_app_pair2num_occs.contains(p.first, p.second));
+                TRACE(dyn_ack, tout << "1) erasing:\n" << mk_pp(a1, m) << "\n" << mk_pp(a2, m) << "\n";);
+                m.dec_ref(a1);
+                m.dec_ref(a2);
+                SASSERT(!m_app_pair2num_occs.contains(a1, a2));
                 continue;
             }
             unsigned num_occs = 0;
-            m_app_pair2num_occs.find(p.first, p.second, num_occs);
-            // The following invariant is not true. p.first and
-            // p.second may have been instantiated, and removed from
+            m_app_pair2num_occs.find(a1, a2, num_occs);
+            // The following invariant is not true. a1 and
+            // a2 may have been instantiated, and removed from
             // m_app_pair2num_occs, but not from m_app_pairs.
             //
             // SASSERT(num_occs > 0);
             num_occs = static_cast<unsigned>(num_occs * m_params.m_dack_gc_inv_decay);
             if (num_occs <= 1) {
-                TRACE(dyn_ack, tout << "2) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
-                m_app_pair2num_occs.erase(p.first, p.second);
-                m.dec_ref(p.first);
-                m.dec_ref(p.second);
+                TRACE(dyn_ack, tout << "2) erasing:\n" << mk_pp(a1, m) << "\n" << mk_pp(a2, m) << "\n";);
+                m_app_pair2num_occs.erase(a1, a2);
+                m.dec_ref(a1);
+                m.dec_ref(a2);
                 continue;
             }
             *it2 = p;
             ++it2;
             SASSERT(num_occs > 0);
-            m_app_pair2num_occs.insert(p.first, p.second, num_occs);
+            m_app_pair2num_occs.insert(a1, a2, num_occs);
             if (num_occs >= m_params.m_dack_threshold)
                 m_to_instantiate.push_back(p);
         }
@@ -353,18 +354,20 @@ namespace smt {
         m_context.m_stats.m_num_del_dyn_ack++;
         app_pair p((app*)nullptr,(app*)nullptr);
         if (m_clause2app_pair.find(cls, p)) {
-            SASSERT(p.first && p.second);
+            [[maybe_unused]] auto [a1, a2] = p;
+            SASSERT(a1 && a2);
             m_instantiated.erase(p);
             m_clause2app_pair.erase(cls);
-            SASSERT(!m_app_pair2num_occs.contains(p.first, p.second));
+            SASSERT(!m_app_pair2num_occs.contains(a1, a2));
             return;
         }
         app_triple tr(0,0,0);
         if (m_triple.m_clause2apps.find(cls, tr)) {
-            SASSERT(tr.first && tr.second && tr.third);
+            [[maybe_unused]] auto [a1, a2, a3] = tr;
+            SASSERT(a1 && a2 && a3);
             m_triple.m_instantiated.erase(tr);
             m_triple.m_clause2apps.erase(cls);
-            SASSERT(!m_triple.m_app2num_occs.contains(tr.first, tr.second, tr.third));
+            SASSERT(!m_triple.m_app2num_occs.contains(a1, a2, a3));
             return;
         }
     }
@@ -379,16 +382,16 @@ namespace smt {
         }
         unsigned max_instances  = static_cast<unsigned>(m_context.get_num_conflicts() * m_params.m_dack_factor);
         while (m_num_instances < max_instances && m_qhead < m_to_instantiate.size()) {
-            app_pair & p = m_to_instantiate[m_qhead];
+            auto& [first, second] = m_to_instantiate[m_qhead];
             m_qhead++;
             m_num_instances++;
-            instantiate(p.first, p.second);
+            instantiate(first, second);
         }
         while (m_num_instances < max_instances && m_triple.m_qhead < m_triple.m_to_instantiate.size()) {
-            app_triple & p = m_triple.m_to_instantiate[m_triple.m_qhead];
+            auto& [first, second, third] = m_triple.m_to_instantiate[m_triple.m_qhead];
             m_triple.m_qhead++;
             m_num_instances++;
-            instantiate(p.first, p.second, p.third);
+            instantiate(first, second, third);
         }
     }
 
@@ -411,7 +414,7 @@ namespace smt {
         TRACE(dyn_ack, tout << "expanding Ackermann's rule for:\n" << mk_pp(n1, m) << "\n" << mk_pp(n2, m) << "\n";);
         unsigned num_args = n1->get_num_args();
         literal_buffer lits;
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             expr * arg1 = n1->get_arg(i);
             expr * arg2 = n2->get_arg(i);
             if (arg1 != arg2)
@@ -450,9 +453,10 @@ namespace smt {
 
     void dyn_ack_manager::reset_app_triples() {
         for (app_triple& p : m_triple.m_apps) {
-            m.dec_ref(p.first);
-            m.dec_ref(p.second);
-            m.dec_ref(p.third);
+            auto [a1, a2, a3] = p;
+            m.dec_ref(a1);
+            m.dec_ref(a2);
+            m.dec_ref(a3);
         }
         m_triple.m_apps.reset();
     }
@@ -510,10 +514,12 @@ namespace smt {
         }
         
         bool operator()(app_triple const & p1, app_triple const & p2) const {
+            auto [a1_1, a1_2, a1_3] = p1;
+            auto [a2_1, a2_2, a2_3] = p2;
             unsigned n1 = 0;
             unsigned n2 = 0;
-            m_app_triple2num_occs.find(p1.first, p1.second, p1.third, n1);
-            m_app_triple2num_occs.find(p2.first, p2.second, p2.third, n2);
+            m_app_triple2num_occs.find(a1_1, a1_2, a1_3, n1);
+            m_app_triple2num_occs.find(a2_1, a2_2, a2_3, n2);
             SASSERT(n1 > 0);
             SASSERT(n2 > 0);
             return n1 > n2;
@@ -529,34 +535,35 @@ namespace smt {
         svector<app_triple>::iterator it2 = it;
         for (; it != end; ++it) {
             app_triple & p = *it;
+            auto [a1, a2, a3] = p;
             if (m_triple.m_instantiated.contains(p)) {
-                TRACE(dyn_ack, tout << "1) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
-                m.dec_ref(p.first);
-                m.dec_ref(p.second);
-                m.dec_ref(p.third);
-                SASSERT(!m_triple.m_app2num_occs.contains(p.first, p.second, p.third));
+                TRACE(dyn_ack, tout << "1) erasing:\n" << mk_pp(a1, m) << "\n" << mk_pp(a2, m) << "\n";);
+                m.dec_ref(a1);
+                m.dec_ref(a2);
+                m.dec_ref(a3);
+                SASSERT(!m_triple.m_app2num_occs.contains(a1, a2, a3));
                 continue;
             }
             unsigned num_occs = 0;
-            m_triple.m_app2num_occs.find(p.first, p.second, p.third, num_occs);
-            // The following invariant is not true. p.first and
-            // p.second may have been instantiated, and removed from
+            m_triple.m_app2num_occs.find(a1, a2, a3, num_occs);
+            // The following invariant is not true. a1 and
+            // a2 may have been instantiated, and removed from
             // m_app_triple2num_occs, but not from m_app_triples.
             //
             // SASSERT(num_occs > 0);
             num_occs = static_cast<unsigned>(num_occs * m_params.m_dack_gc_inv_decay);
             if (num_occs <= 1) {
-                TRACE(dyn_ack, tout << "2) erasing:\n" << mk_pp(p.first, m) << "\n" << mk_pp(p.second, m) << "\n";);
-                m_triple.m_app2num_occs.erase(p.first, p.second, p.third);
-                m.dec_ref(p.first);
-                m.dec_ref(p.second);
-                m.dec_ref(p.third);
+                TRACE(dyn_ack, tout << "2) erasing:\n" << mk_pp(a1, m) << "\n" << mk_pp(a2, m) << "\n";);
+                m_triple.m_app2num_occs.erase(a1, a2, a3);
+                m.dec_ref(a1);
+                m.dec_ref(a2);
+                m.dec_ref(a3);
                 continue;
             }
             *it2 = p;
             ++it2;
             SASSERT(num_occs > 0);
-            m_triple.m_app2num_occs.insert(p.first, p.second, p.third, num_occs);
+            m_triple.m_app2num_occs.insert(a1, a2, a3, num_occs);
             if (num_occs >= m_params.m_dack_threshold)
                 m_triple.m_to_instantiate.push_back(p);
         }
@@ -572,8 +579,9 @@ namespace smt {
     bool dyn_ack_manager::check_invariant() const {
         for (auto const& kv : m_clause2app_pair) {
             app_pair const & p = kv.get_value();
+            auto [a1, a2] = p;
             SASSERT(m_instantiated.contains(p));
-            SASSERT(!m_app_pair2num_occs.contains(p.first, p.second));
+            SASSERT(!m_app_pair2num_occs.contains(a1, a2));
         }
 
         return true;

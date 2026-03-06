@@ -39,7 +39,7 @@ namespace datalog {
         for (unsigned i = 0; i < sig.size(); ++i) {
             conjs.push_back(m.mk_eq(m.mk_var(i, sig[i]), f[i]));
         }
-        return expr_ref(mk_and(m, conjs.size(), conjs.data()), m);
+        return expr_ref(mk_and(conjs), m);
     }
 
     expr_ref check_relation::ground(expr* fml) const {
@@ -535,7 +535,7 @@ namespace datalog {
                 unsigned c2 = m_cols[i];
                 conds.push_back(m.mk_eq(m.mk_var(c1, sig[c1]), m.mk_var(c2, sig[c2])));
             }
-            cond = mk_and(m, conds.size(), conds.data());
+            cond = mk_and(conds);
             r.consistent_formula();
             (*m_filter)(r.rb());
             p.verify_filter(r.m_fml, r.rb(), cond);
@@ -720,7 +720,7 @@ namespace datalog {
             v2 = m.mk_var(c2, sig2[c2]);
             eqs.push_back(m.mk_eq(v1, v2));
         }
-        negf = mk_and(m, eqs.size(), eqs.data());
+        negf = mk_and(eqs);
         ptr_vector<sort> rev_sig2(sig2.size(), sig2.data());
         rev_sig2.reverse();
         svector<symbol> names;

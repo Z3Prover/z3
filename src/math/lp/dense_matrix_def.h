@@ -34,7 +34,7 @@ dense_matrix<T, X>::operator=(matrix<T, X> const & other){
         return *this;
     m_values = new T[m_m * m_n];
     for (unsigned i = 0; i < m_m; i ++)
-        for (unsigned j = 0; j < m_n; j++)
+        for (unsigned j = 0; j < m_n; ++j)
             m_values[i * m_n + j] = other.get_elem(i, j);
     return *this;
 }
@@ -47,7 +47,7 @@ dense_matrix<T, X>::operator=(dense_matrix const & other){
     m_n = other.m_n;
     m_values.resize(m_m * m_n);
     for (unsigned i = 0; i < m_m; i ++)
-        for (unsigned j = 0; j < m_n; j++)
+        for (unsigned j = 0; j < m_n; ++j)
             m_values[i * m_n + j] = other.get_elem(i, j);
     return *this;
 }
@@ -56,8 +56,8 @@ template <typename T, typename X> dense_matrix<T, X>::dense_matrix(matrix<T, X> 
     m_m(other->row_count()),
     m_n(other->column_count()) {
     m_values.resize(m_m*m_n);
-    for (unsigned i = 0; i < m_m; i++)
-        for (unsigned j = 0; j < m_n; j++)
+    for (unsigned i = 0; i < m_m; ++i)
+        for (unsigned j = 0; j < m_n; ++j)
             m_values[i * m_n + j] = other->get_elem(i, j);
 }
 
@@ -65,13 +65,13 @@ template <typename T, typename X> void dense_matrix<T, X>::apply_from_right(T * 
     T * t = new T[m_m];
     for (int i = 0; i < m_m; i ++) {
         T v = numeric_traits<T>::zero();
-        for (int j = 0; j < m_m; j++) {
+        for (int j = 0; j < m_m; ++j) {
             v += w[j]* get_elem(j, i);
         }
         t[i] = v;
     }
 
-    for (int i = 0; i < m_m; i++) {
+    for (int i = 0; i < m_m; ++i) {
         w[i] = t[i];
     }
     delete [] t;
@@ -81,11 +81,11 @@ template <typename T, typename X> void dense_matrix<T, X>::apply_from_right(vect
     vector<T> t(m_m, numeric_traits<T>::zero());
     for (unsigned i = 0; i < m_m; i ++) {
         auto & v = t[i];
-        for (unsigned j = 0; j < m_m; j++)
+        for (unsigned j = 0; j < m_m; ++j)
             v += w[j]* get_elem(j, i);
     }
 
-    for (unsigned i = 0; i < m_m; i++)
+    for (unsigned i = 0; i < m_m; ++i)
         w[i] = t[i];
 }
 
@@ -94,7 +94,7 @@ apply_from_left_with_different_dims(vector<T> &  w) {
     T * t = new T[m_m];
     for (int i = 0; i < m_m; i ++) {
         T v = numeric_traits<T>::zero();
-        for (int j = 0; j < m_n; j++) {
+        for (int j = 0; j < m_n; ++j) {
             v += w[j]* get_elem(i, j);
         }
         t[i] = v;
@@ -107,7 +107,7 @@ template <typename T, typename X> void dense_matrix<T, X>::apply_from_left(vecto
     T * t = new T[m_m];
     for (unsigned i = 0; i < m_m; i ++) {
         T v = numeric_traits<T>::zero();
-        for (unsigned j = 0; j < m_m; j++) {
+        for (unsigned j = 0; j < m_m; ++j) {
             v += w[j]* get_elem(i, j);
         }
         t[i] = v;
@@ -123,7 +123,7 @@ template <typename T, typename X> void dense_matrix<T, X>::apply_from_left(X * w
     T * t = new T[m_m];
     for (int i = 0; i < m_m; i ++) {
         T v = numeric_traits<T>::zero();
-        for (int j = 0; j < m_m; j++) {
+        for (int j = 0; j < m_m; ++j) {
             v += w[j]* get_elem(i, j);
         }
         t[i] = v;
@@ -139,7 +139,7 @@ template <typename T, typename X> void dense_matrix<T, X>::apply_from_left_to_X(
     vector<X> t(m_m);
     for (int i = 0; i < m_m; i ++) {
         X v = zero_of_type<X>();
-        for (int j = 0; j < m_m; j++) {
+        for (int j = 0; j < m_m; ++j) {
             v += w[j]* get_elem(i, j);
         }
         t[i] = v;
@@ -152,7 +152,7 @@ template <typename T, typename X> void dense_matrix<T, X>::apply_from_left_to_X(
 
 
 template <typename T, typename X> void dense_matrix<T, X>::swap_columns(unsigned a, unsigned b) {
-    for (unsigned i = 0; i < m_m; i++) {
+    for (unsigned i = 0; i < m_m; ++i) {
         T t = get_elem(i, a);
         set_elem(i, a, get_elem(i, b));
         set_elem(i, b, t);
@@ -160,7 +160,7 @@ template <typename T, typename X> void dense_matrix<T, X>::swap_columns(unsigned
 }
 
 template <typename T, typename X> void dense_matrix<T, X>::swap_rows(unsigned a, unsigned b) {
-    for (unsigned i = 0; i < m_n; i++) {
+    for (unsigned i = 0; i < m_n; ++i) {
         T t = get_elem(a, i);
         set_elem(a, i, get_elem(b, i));
         set_elem(b, i, t);
@@ -168,7 +168,7 @@ template <typename T, typename X> void dense_matrix<T, X>::swap_rows(unsigned a,
 }
 
 template <typename T, typename X> void dense_matrix<T, X>::multiply_row_by_constant(unsigned row, T & t) {
-    for (unsigned i = 0; i < m_n; i++) {
+    for (unsigned i = 0; i < m_n; ++i) {
         set_elem(row, i, t * get_elem(row, i));
     }
 }
@@ -177,8 +177,8 @@ template <typename T, typename X>
 dense_matrix<T, X> operator* (matrix<T, X> & a, matrix<T, X> & b){
     SASSERT(a.column_count() == b.row_count());
     dense_matrix<T, X> ret(a.row_count(), b.column_count());
-    for (unsigned i = 0; i < ret.m_m; i++)
-        for (unsigned j = 0; j< ret.m_n; j++) {
+    for (unsigned i = 0; i < ret.m_m; ++i)
+        for (unsigned j = 0; j< ret.m_n; ++j) {
             T v = numeric_traits<T>::zero();
             for (unsigned k = 0; k < a.column_count(); k ++){
                 v += (a.get_elem(i, k) * b.get_elem(k, j));

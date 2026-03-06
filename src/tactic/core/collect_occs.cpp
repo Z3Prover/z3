@@ -80,7 +80,7 @@ void collect_occs::process(expr * t) {
     
 void collect_occs::operator()(goal const & g, obj_hashtable<expr> & r) {
     unsigned sz = g.size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr * t = g.form(i);
         process(t);
     }

@@ -161,7 +161,7 @@ namespace sat {
         unsigned sz     = m_learned.size();
         unsigned new_sz = sz/2; // std::min(sz/2, m_clauses.size()*2);
         unsigned j      = new_sz;
-        for (unsigned i = new_sz; i < sz; i++) {
+        for (unsigned i = new_sz; i < sz; ++i) {
             clause & c = *(m_learned[i]);
             if (can_delete(c)) {
                 detach_clause(c);
@@ -200,7 +200,7 @@ namespace sat {
         // d_tk
         unsigned h = 0;
         unsigned V_tk = 0;
-        for (bool_var v = 0; v < num_vars(); v++) {
+        for (bool_var v = 0; v < num_vars(); ++v) {
             if (m_assigned_since_gc[v]) {
                 V_tk++;
                 m_assigned_since_gc[v] = false;
@@ -289,7 +289,7 @@ namespace sat {
         // do some cleanup
         unsigned sz = c.size();
         unsigned j  = 0;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             literal l = c[i];
             switch (value(l)) {
             case l_true:

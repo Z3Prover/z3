@@ -231,8 +231,7 @@ namespace fpa {
                 else if (m_fpa_util.is_numeral(n, val)) {
                     expr_ref bv_val_e(convert(n), m);
                     VERIFY(m_fpa_util.is_fp(bv_val_e, a, b, c));
-                    expr* args[] = { a, b, c };
-                    expr_ref cc_args(m_bv_util.mk_concat(3, args), m);
+                    expr_ref cc_args(m_bv_util.mk_concat({a, b, c}), m);
                     // Require
                     // wrap(n) = bvK
                     // fp(extract(wrap(n)) = n
@@ -429,12 +428,12 @@ namespace fpa {
         for (func_decl* f : seen)
             mdl.unregister_decl(f);
 
-        for (unsigned i = 0; i < new_model.get_num_constants(); i++) {
+        for (unsigned i = 0; i < new_model.get_num_constants(); ++i) {
             func_decl* f = new_model.get_constant(i);
             mdl.register_decl(f, new_model.get_const_interp(f));
         }
 
-        for (unsigned i = 0; i < new_model.get_num_functions(); i++) {
+        for (unsigned i = 0; i < new_model.get_num_functions(); ++i) {
             func_decl* f = new_model.get_function(i);
             func_interp* fi = new_model.get_func_interp(f)->copy();
             mdl.register_decl(f, fi);

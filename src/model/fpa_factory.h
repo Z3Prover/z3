@@ -62,7 +62,7 @@ class fpa_value_factory : public value_factory {
     }
     
     expr * get_fresh_value(sort * s) override { return get_some_value(s); }
-    void register_value(expr * n) override { /* Ignore */ }
+    void register_value(expr *) override { /* Ignore */ }
     
     app * mk_value(mpf const & x) {
         return m_util.mk_value(x);

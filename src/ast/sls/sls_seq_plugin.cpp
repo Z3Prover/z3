@@ -103,7 +103,7 @@ namespace sls {
     struct zstring_hash_proc {
         unsigned operator()(zstring const & s) const {
             auto str = s.encode();
-            return string_hash(str.c_str(), static_cast<unsigned>(s.length()), 17);
+            return string_hash(std::string_view(str), 17);
         }
     };
     
@@ -1624,13 +1624,13 @@ namespace sls {
 
         if (offset_val.is_neg() || offset_val.get_unsigned() >= r.length()) {
             has_empty = true;
-            for (unsigned i = 0; i < r.length(); i++)
+            for (unsigned i = 0; i < r.length(); ++i)
                 m_int_updates.push_back({ offset, rational(i), 1 });
         }
 
         if (!len_val.is_pos()) {
             has_empty = true;
-            for (unsigned i = 1; i + offset_u < r.length(); i++)
+            for (unsigned i = 1; i + offset_u < r.length(); ++i)
                 m_int_updates.push_back({ len, rational(i), 1 });
         }
 

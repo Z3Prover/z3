@@ -367,9 +367,8 @@ namespace datalog {
         }
 
         void add_table(ddnf_nodes& dst, ddnf_nodes const& src) {
-            ddnf_nodes::iterator it = src.begin(), end = src.end();
-            for (; it != end; ++it) {
-                dst.insert(*it);
+            for (ddnf_node* node : src) {
+                dst.insert(node);
             }
         }        
     };
@@ -428,9 +427,8 @@ namespace datalog {
         u_map<ddnf_mgr*> m_mgrs;
     public:
         ~ddnfs() {
-            u_map<ddnf_mgr*>::iterator it = m_mgrs.begin(), end = m_mgrs.end();
-            for (; it != end; ++it) {
-                dealloc(it->m_value);
+            for (auto const& kv : m_mgrs) {
+                dealloc(kv.m_value);
             }
         }
         
@@ -838,11 +836,10 @@ namespace datalog {
             compile_var(v, w);
             unsigned num_bits = bv.get_bv_size(c);
             ddnf_nodes const& ns = m_ddnfs.lookup(num_bits, *t);
-            ddnf_nodes::iterator it = ns.begin(), end = ns.end();
             expr_ref_vector eqs(m);
             sort* s = w->get_sort();
-            for (; it != end; ++it) {
-                eqs.push_back(m.mk_eq(w, bv.mk_numeral(rational((*it)->get_id()), s)));
+            for (ddnf_node* node : ns) {
+                eqs.push_back(m.mk_eq(w, bv.mk_numeral(rational(node->get_id()), s)));
             }
             switch (eqs.size()) {
             case 0:
@@ -853,7 +850,7 @@ namespace datalog {
                 result = eqs[0].get();
                 break;
             default:
-                result = m.mk_or(eqs.size(), eqs.data());
+                result = m.mk_or(eqs);
                 break;
             }
         }

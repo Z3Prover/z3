@@ -206,7 +206,7 @@ public:
             unsigned m_index;
             iterator(constraint_set const& cs, unsigned idx): cs(cs), m_index(idx) { forward(); }
             void next() { ++m_index; forward(); }
-            void forward() { for (; m_index < cs.m_constraints.size() && !cs.is_active(m_index); m_index++) ; }
+            void forward() { for (; m_index < cs.m_constraints.size() && !cs.is_active(m_index); ++m_index) ; }
         public:
             lar_base_constraint const& operator*() { return cs[m_index]; }
             lar_base_constraint const* operator->() const { return &cs[m_index]; }
@@ -231,7 +231,7 @@ public:
             unsigned m_index;
             iterator(constraint_set const& cs, unsigned idx): cs(cs), m_index(idx) { forward(); }
             void next() { ++m_index; forward(); }
-            void forward() { for (; m_index < cs.m_constraints.size() && !cs.is_active(m_index); m_index++) ; }
+            void forward() { for (; m_index < cs.m_constraints.size() && !cs.is_active(m_index); ++m_index) ; }
         public:
             constraint_index operator*() { return m_index; }
             constraint_index const* operator->() const { return &m_index; }

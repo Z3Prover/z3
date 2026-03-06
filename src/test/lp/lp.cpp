@@ -61,7 +61,7 @@ void test_patching();
 bool my_white_space(const char &a) { return a == ' ' || a == '\t'; }
 size_t number_of_whites(const std::string &s) {
     size_t i = 0;
-    for (; i < s.size(); i++)
+    for (; i < s.size(); ++i)
         if (!my_white_space(s[i]))
             return i;
     return i;
@@ -144,7 +144,7 @@ void test_nex_order() {
     enable_trace("nla_test");
     nex_creator r;
     r.set_number_of_vars(3);
-    for (unsigned j = 0; j < r.get_number_of_vars(); j++)
+    for (unsigned j = 0; j < r.get_number_of_vars(); ++j)
         r.set_var_weight(j, 10 - j);
     nex_var *a = r.mk_var(0);
     nex_var *b = r.mk_var(1);
@@ -197,7 +197,7 @@ void test_simplify() {
     enable_trace("nla_test");
 
     r.set_number_of_vars(3);
-    for (unsigned j = 0; j < r.get_number_of_vars(); j++)
+    for (unsigned j = 0; j < r.get_number_of_vars(); ++j)
         r.set_var_weight(j, j);
     nex_var *a = r.mk_var(0);
     nex_var *b = r.mk_var(1);
@@ -277,7 +277,7 @@ void test_cn_shorter() {
     //     //    enable_trace("nla_cn_details_");
     //     enable_trace("nla_test_details");
     //     cr.set_number_of_vars(20);
-    //     for (unsigned j = 0; j < cr.get_number_of_vars(); j++)
+    //     for (unsigned j = 0; j < cr.get_number_of_vars(); ++j)
     //         cr.set_var_weight(j,j);
 
     //     nex_var* a = cr.mk_var(0);
@@ -320,7 +320,7 @@ void test_cn() {
     //     //    enable_trace("nla_cn");
     //     //   enable_trace("nla_test_details");
     //     cr.set_number_of_vars(20);
-    //     for (unsigned j = 0; j < cr.get_number_of_vars(); j++)
+    //     for (unsigned j = 0; j < cr.get_number_of_vars(); ++j)
     //         cr.set_var_weight(j, j);
 
     //     nex_var* a = cr.mk_var(0);
@@ -389,7 +389,7 @@ void init_basic_part_of_basis_heading(vector<unsigned> &basis,
                                       vector<int> &basis_heading) {
     SASSERT(basis_heading.size() >= basis.size());
     unsigned m = basis.size();
-    for (unsigned i = 0; i < m; i++) {
+    for (unsigned i = 0; i < m; ++i) {
         unsigned column = basis[i];
         basis_heading[column] = i;
     }
@@ -643,7 +643,7 @@ char *find_home_dir() {
 
 template <typename T>
 void print_chunk(T *arr, unsigned len) {
-    for (unsigned i = 0; i < len; i++) {
+    for (unsigned i = 0; i < len; ++i) {
         std::cout << arr[i] << ", ";
     }
     std::cout << std::endl;
@@ -684,11 +684,11 @@ std::string create_output_file_name(bool minimize, std::string file_name,
 }
 
 std::string create_output_file_name_for_glpsol(bool minimize,
-                                               std::string file_name) {
+                                               const std::string& file_name) {
     return file_name + (minimize ? "_min" : "_max") + "_glpk_out";
 }
 
-int run_glpk(std::string file_name, std::string glpk_out_file_name,
+int run_glpk(const std::string& file_name, const std::string& glpk_out_file_name,
              bool minimize, unsigned time_limit) {
     std::string minmax(minimize ? "--min" : "--max");
     std::string tmlim = time_limit > 0 ? std::string(" --tmlim ") +
@@ -700,7 +700,7 @@ int run_glpk(std::string file_name, std::string glpk_out_file_name,
     return system(command_line.c_str());
 }
 
-std::string get_status(std::string file_name) {
+std::string get_status(const std::string& file_name) {
     std::ifstream f(file_name);
     if (!f.is_open()) {
         std::cout << "cannot open " << file_name << std::endl;
@@ -728,7 +728,7 @@ struct sort_pred {
     }
 };
 
-vector<std::string> get_file_names_from_file_list(std::string filelist) {
+vector<std::string> get_file_names_from_file_list(const std::string& filelist) {
     std::ifstream file(filelist);
     if (!file.is_open()) {
         std::cout << "cannot open " << filelist << std::endl;
@@ -1096,20 +1096,20 @@ void test_rationals_no_numeric_pairs() {
     stopwatch sw;
 
     vector<mpq> c;
-    for (unsigned j = 0; j < 10; j++)
+    for (unsigned j = 0; j < 10; ++j)
         c.push_back(mpq(my_random() % 100, 1 + my_random() % 100));
 
     vector<mpq> x;
-    for (unsigned j = 0; j < 10; j++)
+    for (unsigned j = 0; j < 10; ++j)
         x.push_back(mpq(my_random() % 100, 1 + my_random() % 100));
 
     unsigned k = 500000;
     mpq r = zero_of_type<mpq>();
     sw.start();
 
-    for (unsigned j = 0; j < k; j++) {
+    for (unsigned j = 0; j < k; ++j) {
         mpq val = zero_of_type<mpq>();
-        for (unsigned j = 0; j < c.size(); j++) {
+        for (unsigned j = 0; j < c.size(); ++j) {
             val += c[j] * x[j];
         }
 
@@ -1126,20 +1126,20 @@ void test_rationals_no_numeric_pairs_plus() {
     stopwatch sw;
 
     vector<mpq> c;
-    for (unsigned j = 0; j < 10; j++)
+    for (unsigned j = 0; j < 10; ++j)
         c.push_back(mpq(my_random() % 100, 1 + my_random() % 100));
 
     vector<mpq> x;
-    for (unsigned j = 0; j < 10; j++)
+    for (unsigned j = 0; j < 10; ++j)
         x.push_back(mpq(my_random() % 100, 1 + my_random() % 100));
 
     unsigned k = 500000;
     mpq r = zero_of_type<mpq>();
     sw.start();
 
-    for (unsigned j = 0; j < k; j++) {
+    for (unsigned j = 0; j < k; ++j) {
         mpq val = zero_of_type<mpq>();
-        for (unsigned j = 0; j < c.size(); j++) {
+        for (unsigned j = 0; j < c.size(); ++j) {
             val = val + c[j] * x[j];
         }
 
@@ -1156,11 +1156,11 @@ void test_rationals() {
     stopwatch sw;
 
     vector<rational> c;
-    for (unsigned j = 0; j < 10; j++)
+    for (unsigned j = 0; j < 10; ++j)
         c.push_back(rational(my_random() % 100, 1 + my_random() % 100));
 
     vector<numeric_pair<rational>> x;
-    for (unsigned j = 0; j < 10; j++)
+    for (unsigned j = 0; j < 10; ++j)
         x.push_back(numeric_pair<rational>(
             rational(my_random() % 100, 1 + my_random() % 100)));
 
@@ -1171,8 +1171,8 @@ void test_rationals() {
     numeric_pair<rational> r = zero_of_type<numeric_pair<rational>>();
     sw.start();
 
-    for (unsigned j = 0; j < k; j++) {
-        for (unsigned i = 0; i < c.size(); i++) {
+    for (unsigned j = 0; j < k; ++j) {
+        for (unsigned i = 0; i < c.size(); ++i) {
             r += c[i] * x[i];
         }
     }
@@ -1427,8 +1427,8 @@ void cutting_the_mix_example_1() {
 void fill_general_matrix(general_matrix &M) {
     unsigned m = M.row_count();
     unsigned n = M.column_count();
-    for (unsigned i = 0; i < m; i++)
-        for (unsigned j = 0; j < n; j++)
+    for (unsigned i = 0; i < m; ++i)
+        for (unsigned j = 0; j < n; ++j)
             M[i][j] = mpq(static_cast<int>(my_random() % 13) - 6);
 }
 
@@ -1724,7 +1724,7 @@ void test_hnf() {
     test_hnf_5_5();
     test_hnf_2_2();
     for (unsigned k = 1000; k > 0; k--)
-        for (int i = 1; i < 8; i++)
+        for (int i = 1; i < 8; ++i)
             test_hnf_for_dim(i);
     cutting_the_mix_example_1();
     //    test_hnf_m_less_than_n();
@@ -2009,7 +2009,7 @@ void test_patching() {
     // repeat the test 100 times
 
     int range = 40;
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 100; ++i) {
         int a1;
         int a2 = std::max((int)rand() % range, (int)range / 3);
 

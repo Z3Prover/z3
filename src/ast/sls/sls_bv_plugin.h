@@ -38,7 +38,6 @@ namespace sls {
 
     public:
         bv_plugin(context& ctx);
-        ~bv_plugin() override {}
         void register_term(expr* e) override;
         expr_ref get_value(expr* e) override;
         void start_propagation() override;

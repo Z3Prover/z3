@@ -503,9 +503,13 @@ public:
     app * mk_power0(expr* arg1, expr* arg2) { return m_manager.mk_app(arith_family_id, OP_POWER0, arg1, arg2); }
 
     app* mk_band(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_BAND, 1, &p, 2, args); }
+    app* mk_band(unsigned n, std::initializer_list<expr*> args) { parameter p(n); return m_manager.mk_app(arith_family_id, OP_ARITH_BAND, 1, &p, static_cast<unsigned>(args.size()), args.begin()); }
     app* mk_shl(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_SHL, 1, &p, 2, args); }
+    app* mk_shl(unsigned n, std::initializer_list<expr*> args) { parameter p(n); return m_manager.mk_app(arith_family_id, OP_ARITH_SHL, 1, &p, static_cast<unsigned>(args.size()), args.begin()); }
     app* mk_ashr(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_ASHR, 1, &p, 2, args); }
+    app* mk_ashr(unsigned n, std::initializer_list<expr*> args) { parameter p(n); return m_manager.mk_app(arith_family_id, OP_ARITH_ASHR, 1, &p, static_cast<unsigned>(args.size()), args.begin()); }
     app* mk_lshr(unsigned n, expr* arg1, expr* arg2) { parameter p(n); expr* args[2] = { arg1, arg2 }; return m_manager.mk_app(arith_family_id, OP_ARITH_LSHR, 1, &p, 2, args); }
+    app* mk_lshr(unsigned n, std::initializer_list<expr*> args) { parameter p(n); return m_manager.mk_app(arith_family_id, OP_ARITH_LSHR, 1, &p, static_cast<unsigned>(args.size()), args.begin()); }
 
     app * mk_sin(expr * arg) { return m_manager.mk_app(arith_family_id, OP_SIN, arg); }
     app * mk_cos(expr * arg) { return m_manager.mk_app(arith_family_id, OP_COS, arg); }

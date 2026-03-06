@@ -28,6 +28,7 @@ Revision History:
 #include <iostream>
 
 namespace smt {
+
     
     class dt_eq_justification : public ext_theory_eq_propagation_justification {
     public:
@@ -260,6 +261,21 @@ namespace smt {
         ctx.mk_th_axiom(get_id(), 2, lits);
     }
 
+    void theory_datatype::assert_subterm_axioms(enode * n) {
+        sort * s = n->get_sort();
+        if (m_util.is_datatype(s)) {
+            func_decl * sub_decl = m_util.get_datatype_subterm(s);
+            if (sub_decl) {
+                TRACE(datatype, tout << "asserting reflexivity for #" << n->get_owner_id() << " " << mk_pp(n->get_expr(), m) << "\n";);
+                app_ref reflex(m.mk_app(sub_decl, n->get_expr(), n->get_expr()), m);
+                ctx.internalize(reflex, false);
+                literal l(ctx.get_bool_var(reflex));
+                ctx.mark_as_relevant(l);
+                ctx.mk_th_axiom(get_id(), 1, &l);
+            }
+        }
+    }
+
     theory_var theory_datatype::mk_var(enode * n) {
         theory_var r  = theory::mk_var(n);
         VERIFY(r == static_cast<theory_var>(m_find.mk_var()));
@@ -267,6 +283,9 @@ namespace smt {
         m_var_data.push_back(alloc(var_data));
         var_data * d  = m_var_data[r];
         ctx.attach_th_var(n, this, r);
+
+        assert_subterm_axioms(n);
+
         if (is_constructor(n)) {
             d->m_constructor = n;
             assert_accessor_axioms(n);
@@ -297,7 +316,7 @@ namespace smt {
         force_push();
         TRACE(datatype, tout << "internalizing term:\n" << mk_pp(term, m) << "\n";);
         unsigned num_args = term->get_num_args();
-        for (unsigned i = 0; i < num_args; i++)
+        for (unsigned i = 0; i < num_args; ++i)
             ctx.internalize(term->get_arg(i), m.is_bool(term) && has_quantifiers(term));
         // the internalization of the arguments may trigger the internalization of term.
         if (ctx.e_internalized(term))
@@ -327,20 +346,28 @@ namespace smt {
             // it.
             // Moreover, fresh variables of sort S can only be created after the
             // interpretation for each (relevant) expression of sort S in the
-            // logical context is created.  Returning to the example,
+            // logical context is created. Returning to the example,
             // to create the interpretation of x1 we need the
             // interpretation for x2.  So, x2 cannot be a fresh value,
             // since it would have to be created after x1.
             //
-            for (unsigned i = 0; i < num_args; i++) {
+            for (unsigned i = 0; i < num_args; ++i) {
                 enode * arg = e->get_arg(i);
                 sort * s    = arg->get_sort();
+                sort *e_sort = nullptr;
                 if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
                     app_ref def(m_autil.mk_default(arg->get_expr()), m);
                     if (!ctx.e_internalized(def)) {
                         ctx.internalize(def, false);
                     }
                     arg = ctx.get_enode(def);       
+                }
+                if (m_fsutil.is_finite_set(s, e_sort) && m_util.is_datatype(e_sort)) {
+                    app_ref def(m_fsutil.mk_empty(s), m);
+                    if (!ctx.e_internalized(def)) {
+                        ctx.internalize(def, false);
+                    }
+                    arg = ctx.get_enode(def);      
                 }
                 if (!m_util.is_datatype(s) && !m_sutil.is_seq(s))
                     continue;
@@ -349,6 +376,18 @@ namespace smt {
                 mk_var(arg);
             }
             mk_var(e);
+        }
+        else if (m_util.is_subterm_predicate(term)) {
+            SASSERT(term->get_num_args() == 2);
+            enode * arg1 = e->get_arg(0);
+            if (!is_attached_to_var(arg1))
+                mk_var(arg1);
+            enode * arg2 = e->get_arg(1);
+            if (!is_attached_to_var(arg2))
+                mk_var(arg2);
+            SASSERT(is_attached_to_var(arg1));
+            SASSERT(is_attached_to_var(arg2));
+            // Axiom generation logic for subterm can be added here.
         }
         else {
             SASSERT(is_accessor(term) || is_recognizer(term));
@@ -413,35 +452,258 @@ namespace smt {
 
     void theory_datatype::assign_eh(bool_var v, bool is_true) {
         force_push();
-        enode * n     = ctx.bool_var2enode(v);
-        if (!is_recognizer(n))
-            return;
-        TRACE(datatype, tout << "assigning recognizer: #" << n->get_owner_id() << " is_true: " << is_true << "\n" 
-              << enode_pp(n, ctx) << "\n";);
-        SASSERT(n->get_num_args() == 1);
-        enode * arg   = n->get_arg(0);
-        theory_var tv = arg->get_th_var(get_id());
-        tv = m_find.find(tv);
-        var_data * d  = m_var_data[tv];
-        func_decl * r = n->get_decl();
-        func_decl * c = m_util.get_recognizer_constructor(r);
-        if (is_true) {
-            SASSERT(tv != null_theory_var);
-            if (d->m_constructor != nullptr && d->m_constructor->get_decl() == c)
-                return; // do nothing
-            assert_is_constructor_axiom(arg, c, literal(v));
-        }
-        else {
-            if (d->m_constructor != nullptr) {
-                if (d->m_constructor->get_decl() == c) {
-                    // conflict
-                    sign_recognizer_conflict(d->m_constructor, n);
-                }
+        enode *n = ctx.bool_var2enode(v);
+        if (is_recognizer(n)) {
+            TRACE(datatype, tout << "assigning recognizer: #" << n->get_owner_id() << " is_true: " << is_true << "\n"
+                                 << enode_pp(n, ctx) << "\n";);
+            SASSERT(n->get_num_args() == 1);
+            enode *arg = n->get_arg(0);
+            theory_var tv = arg->get_th_var(get_id());
+            tv = m_find.find(tv);
+            var_data *d = m_var_data[tv];
+            func_decl *r = n->get_decl();
+            func_decl *c = m_util.get_recognizer_constructor(r);
+            if (is_true) {
+                SASSERT(tv != null_theory_var);
+                if (d->m_constructor != nullptr && d->m_constructor->get_decl() == c)
+                    return;  // do nothing
+                assert_is_constructor_axiom(arg, c, literal(v));
+                propagate_subterm_with_constructor(tv);
             }
             else {
-                propagate_recognizer(tv, n);
+                if (d->m_constructor != nullptr) {
+                    if (d->m_constructor->get_decl() == c) {
+                        // conflict
+                        sign_recognizer_conflict(d->m_constructor, n);
+                    }
+                }
+                else {
+                    propagate_recognizer(tv, n);
+                }
             }
         }
+        else if (is_subterm_predicate(n)) {
+            TRACE(datatype, tout << "assigning subterm: #" << n->get_owner_id() << " is_true: " << is_true << "\n"
+                                 << enode_pp(n, ctx) << "\n";);
+            SASSERT(n->get_num_args() == 2);
+
+            propagate_subterm(n, is_true);
+        }
+    }
+
+    void theory_datatype::propagate_subterm_with_constructor(theory_var v) {
+        v = m_find.find(v);
+        var_data *d = m_var_data[v];
+        if (!d->m_constructor)
+            return;
+
+        ptr_vector<enode> subs(d->m_subterms);
+        for (enode *n : subs) {
+            lbool val = ctx.get_assignment(n);
+            switch (val) {
+            case l_undef: continue;
+            case l_true: propagate_subterm(n, true); break;
+            case l_false: propagate_subterm(n, false); break;
+            }
+        }
+    }
+
+    void theory_datatype::propagate_subterm(enode *n, bool is_true) {
+        force_push(); // I am fairly sure I need that here
+        if (is_true) {
+            propagate_is_subterm(n);
+        }
+        else {
+            propagate_not_is_subterm(n);
+        }
+    }
+
+    void theory_datatype::propagate_is_subterm(enode *n) {
+        SASSERT(is_subterm_predicate(n));
+        enode *arg1 = n->get_arg(0);
+        enode *arg2 = n->get_arg(1);
+
+        // If we are here, n is assigned true.
+        SASSERT(ctx.get_assignment(n) == l_true);
+
+        TRACE(datatype, tout << "propagate_is_subterm: " << enode_pp(n, ctx) << "\n";);
+
+        if (arg1->get_root() == arg2->get_root()) {
+            TRACE(datatype, tout << "subterm reflexivity, skipping " << "\n";);
+            return;
+        }
+
+        literal_vector lits;
+        lits.push_back(literal(ctx.enode2bool_var(n), true));  // antecedent: ~n
+
+        bool found_possible = false;
+        bool has_leaf_root = false;
+
+        ptr_vector<enode> candidates = list_subterms(arg2);
+
+        for (enode *s : candidates) {
+            bool is_leaf = !m_util.is_constructor(s->get_expr());
+
+            // Case 1: Equality check (arg1 == s)
+            // Valid if sorts are compatible.
+            if (s->get_sort() == arg1->get_sort()) {
+                // trying to be smarter about this causes other problems
+                TRACE(datatype, tout << "adding equality case: " << mk_pp(arg1->get_expr(), m)
+                                     << " == " << mk_pp(s->get_expr(), m) << "\n";);
+                lits.push_back(mk_eq(arg1->get_expr(), s->get_expr(), false));
+                found_possible = true;
+            }
+
+            // Case 2: Recursive subterm check (arg1 ⊑ s)
+            // Only if s is a leaf (unexpanded) and not the root itself (to avoid tautology).
+            if (is_leaf) {
+                if (s->get_root() == arg2->get_root()) {
+                    // If arg2 is a leaf, we haven't explored its possibilities yet.
+                    has_leaf_root = true;
+                    found_possible = true;
+                    continue;
+                }
+
+                if (m_util.is_datatype(s->get_sort())) {
+                    // arg1 ⊑ s
+                    func_decl *sub_decl = m_util.get_datatype_subterm(s->get_sort());
+                    if (sub_decl) {
+                        TRACE(datatype, tout << "adding recursive case: " << mk_pp(arg1->get_expr(), m) << " ⊑ "
+                                             << mk_pp(s->get_expr(), m) << "\n";);
+                        auto tmp = m.mk_not(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()));
+                        lits.push_back(mk_literal(tmp));
+                        found_possible = true;
+                    }
+                }
+            }
+        }
+
+        if (has_leaf_root) {
+            split_leaf_root(arg2);
+        }
+
+        if (lits.size() > 1) {
+            if (!has_leaf_root) {
+                ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+            }
+        }
+        else if (!found_possible) {
+            // Conflict: arg1 cannot be subterm of arg2 (no path matches)
+            TRACE(datatype, tout << "conflict: no path matches\n";);
+            ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+        }
+    }
+
+    void theory_datatype::propagate_not_is_subterm(enode *n) {
+        SASSERT(is_subterm_predicate(n));
+        enode *arg1 = n->get_arg(0);
+        enode *arg2 = n->get_arg(1);
+
+        // If we are here, n is assigned false.
+        SASSERT(ctx.get_assignment(n) == l_false);
+
+        if (arg1->get_root() == arg2->get_root()) {
+            // ~ (a ⊑ a) is a conflict
+            literal l(ctx.enode2bool_var(n));
+            ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), ctx, 1, &l, 0, nullptr)));
+            return;
+        }
+
+        TRACE(datatype, tout << "propagate_not_is_subterm: " << enode_pp(n, ctx) << "\n";);
+
+        literal antecedent = literal(ctx.enode2bool_var(n), false);
+        bool has_leaf_root = false;
+
+        ptr_vector<enode> candidates = list_subterms(arg2);
+
+        for (enode *s : candidates) {
+            bool is_leaf = !m_util.is_constructor(s->get_expr());
+
+            if (s->get_sort() == arg1->get_sort()) {
+                TRACE(datatype,
+                      tout << "asserting " << mk_pp(arg1->get_expr(), m) << " != " << mk_pp(s->get_expr(), m) << "\n";);
+                literal eq = mk_eq(arg1->get_expr(), s->get_expr(), true);
+                literal lits[2] = {antecedent, ~eq};
+                ctx.mk_th_axiom(get_id(), 2, lits);
+            }
+
+            if (is_leaf) {
+                if (s->get_root() == arg2->get_root()) {
+                    has_leaf_root = true;
+                    continue;
+                }
+
+                if (m_util.is_datatype(s->get_sort())) {
+                    func_decl *sub_decl = m_util.get_datatype_subterm(s->get_sort());
+                    if (sub_decl) {
+                        TRACE(datatype, tout << "asserting NOT " << mk_pp(arg1->get_expr(), m) << " subterm "
+                                             << mk_pp(s->get_expr(), m) << "\n";);
+                        auto sub_app = m.mk_app(sub_decl, arg1->get_expr(), s->get_expr());
+                        literal sub_lit = mk_literal(sub_app);
+                        literal lits[2] = {antecedent, ~sub_lit};
+                        ctx.mk_th_axiom(get_id(), 2, lits);
+                    }
+                }
+            }
+        }
+
+        if (has_leaf_root) {
+            split_leaf_root(arg2);
+        }
+    }
+
+    // requesting to split on arg2
+    void theory_datatype::split_leaf_root(smt::enode *arg2) {
+        TRACE(datatype, tout << "arg is a leaf: " << enode_pp(arg2, ctx) << "\n";);
+        theory_var v = arg2->get_th_var(get_id());
+        if (v != null_theory_var) {
+            v = m_find.find(v);
+            if (m_var_data[v]->m_constructor == nullptr) {
+                mk_split(v);
+            }
+        }
+    }
+
+    void theory_datatype::subterm_iterator::next() {
+        m_current = nullptr;
+
+        while (!m_todo.empty()) {
+            enode *curr = m_todo.back();
+            m_todo.pop_back();
+            enode *root = curr->get_root();
+            if (root->is_marked())
+                continue;
+            root->set_mark();
+            f.m_marked.push_back(root);
+            enode *ctor = nullptr;
+            enode *iter = root;
+            do {
+                if (f.th.m_util.is_constructor(iter->get_expr())) {
+                    ctor = iter;
+                    break;
+                }
+                iter = iter->get_next();
+            } 
+            while (iter != root);
+
+            if (ctor) {
+                m_current = ctor;
+                for (enode *child : enode::args(ctor)) 
+                    m_todo.push_back(child);                
+            }
+            else 
+                m_current = root;            
+            return;
+        }
+    }
+
+    ptr_vector<enode> theory_datatype::list_subterms(enode* arg) {
+        ptr_vector<enode> result;
+        auto f = iterate_subterms(arg);
+        for (enode* n : f) 
+            result.push_back(n);        
+        f.reset();
+        return result;
     }
 
     void theory_datatype::relevant_eh(app * n) {
@@ -454,6 +716,19 @@ namespace smt {
             theory_var v = e->get_arg(0)->get_th_var(get_id());
             SASSERT(v != null_theory_var);
             add_recognizer(v, e);
+        }
+        else if (is_subterm_predicate(n)) {
+            SASSERT(ctx.e_internalized(n));
+            
+            enode * e = ctx.get_enode(n);
+            theory_var a = e->get_arg(0)->get_th_var(get_id()); // e is 'a ⊑ b'
+            theory_var b = e->get_arg(1)->get_th_var(get_id()); // e is 'a ⊑ b'
+            SASSERT(a != null_theory_var && b != null_theory_var);
+
+            add_subterm_predicate(a, e);
+            add_subterm_predicate(b, e);
+
+            // propagating potentially adds a lot of literals, avoid it if we can
         }
     }
 
@@ -481,7 +756,7 @@ namespace smt {
         int num_vars = get_num_vars();
         final_check_status r = FC_DONE;
         final_check_st _guard(this); 
-        for (int v = 0; v < num_vars; v++) {
+        for (int v = 0; v < num_vars; ++v) {
             if (v == static_cast<int>(m_find.find(v))) {
                 enode * node = get_enode(v);
                 sort* s = node->get_sort();
@@ -532,8 +807,9 @@ namespace smt {
                 found = true;
             }
             sort * s = arg->get_sort();
-            if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
-                for (enode* aarg : get_array_args(arg)) {
+            sort *se = nullptr;
+            auto add_args = [&](ptr_vector<enode> const &args) {
+                for (enode *aarg : args) {
                     if (aarg->get_root() == child->get_root()) {
                         if (aarg != child) {
                             m_used_eqs.push_back(enode_pair(aarg, child));
@@ -541,17 +817,16 @@ namespace smt {
                         found = true;
                     }
                 }
+            };
+            if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
+                add_args(get_array_args(arg));
             }
-            sort* se = nullptr;
+            if (m_fsutil.is_finite_set(s, se) && m_util.is_datatype(se)) {
+                add_args(get_finite_set_args(arg));
+            }
             if (m_sutil.is_seq(s, se) && m_util.is_datatype(se)) {
-                enode* sibling;
-                for (enode* aarg : get_seq_args(arg, sibling)) {
-                    if (aarg->get_root() == child->get_root()) {
-                        if (aarg != child) 
-                            m_used_eqs.push_back(enode_pair(aarg, child));
-                        found = true;
-                    }
-                }
+                enode *sibling = nullptr;
+                add_args(get_seq_args(arg, sibling));
                 if (sibling && sibling != arg)
                     m_used_eqs.push_back(enode_pair(arg, sibling));
 
@@ -640,6 +915,11 @@ namespace smt {
                         return true;
                 }
             }
+            else if (m_fsutil.is_finite_set(s, se) && m_util.is_datatype(se)) {
+                for (enode *aarg : get_finite_set_args(arg))
+                    if (process_arg(aarg))
+                        return true;
+            }
             else if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
                 for (enode* aarg : get_array_args(arg)) 
                     if (process_arg(aarg))
@@ -648,6 +928,33 @@ namespace smt {
         }
         return false;
     }
+
+    ptr_vector<enode> const &theory_datatype::get_finite_set_args(enode *n) {
+        m_args.reset();
+        m_todo.reset();
+        auto add_todo = [&](enode *n) {
+            if (!n->is_marked()) {
+                n->set_mark();
+                m_todo.push_back(n);
+            }
+        };
+        add_todo(n);
+
+        for (unsigned i = 0; i < m_todo.size(); ++i) {
+            enode *n = m_todo[i];
+            expr *e = n->get_expr();
+            if (m_fsutil.is_singleton(e))
+                m_args.push_back(n->get_arg(0));
+            else if (m_fsutil.is_union(e))
+                for (auto k : enode::args(n))
+                    add_todo(k);
+        }
+        for (enode *n : m_todo)
+            n->unset_mark();
+
+        return m_args;
+    }
+
 
     ptr_vector<enode> const& theory_datatype::get_seq_args(enode* n, enode*& sibling) {
         m_args.reset();
@@ -708,8 +1015,7 @@ namespace smt {
 
         // DFS traversal from `n`. Look at top element and explore it.
         while (!res && !m_stack.empty()) {
-            stack_op op = m_stack.back().first;
-            enode * app = m_stack.back().second;
+            auto [op, app] = m_stack.back();
             m_stack.pop_back();
 
             if (oc_cycle_free(app))
@@ -762,6 +1068,7 @@ namespace smt {
         m_util(m),
         m_autil(m),
         m_sutil(m),
+        m_fsutil(m),
         m_find(*this) {
     }
 
@@ -774,7 +1081,7 @@ namespace smt {
         unsigned num_vars = get_num_vars();
         if (num_vars == 0) return;
         out << "Theory datatype:\n";
-        for (unsigned v = 0; v < num_vars; v++) 
+        for (unsigned v = 0; v < num_vars; ++v) 
             display_var(out, v);
     }
 
@@ -872,11 +1179,16 @@ namespace smt {
                     }
                 }
                 d1->m_constructor = d2->m_constructor;
+                propagate_subterm_with_constructor(v1);
             }
         }
         for (enode* e : d2->m_recognizers) 
             if (e)
                 add_recognizer(v1, e);
+
+        for (enode* e : d2->m_subterms) {
+            add_subterm_predicate(v1, e);
+        }
     }
 
     void theory_datatype::unmerge_eh(theory_var v1, theory_var v2) {
@@ -919,6 +1231,26 @@ namespace smt {
                 propagate_recognizer(v, recognizer);
             }
         }
+    }
+
+    /** \brief register `predicate` to `v`'s `var_data`
+     *
+     * With `predicate:='a ⊑ b'` this should be called with `v:='a'` and `v:='b'`.
+     * 
+     * This doesn't handle potential propagation. The responsibility for it
+     * falls on the caller.
+     */
+    void theory_datatype::add_subterm_predicate(theory_var v, enode * predicate) {
+        SASSERT(is_subterm_predicate(predicate));
+        v = m_find.find(v);
+        var_data * d = m_var_data[v];
+        
+        if (d->m_subterms.contains(predicate)) return;
+
+        TRACE(datatype, tout << "add subterm predicate\n" << enode_pp(predicate, ctx) << "\n";);
+
+        m_trail_stack.push(restore_vector(d->m_subterms));
+        d->m_subterms.push_back(predicate);
     }
 
     /**
@@ -984,9 +1316,8 @@ namespace smt {
             if (!r) {
                 ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(dt);
                 func_decl * rec = m_util.get_constructor_is(constructors[unassigned_idx]);
-                app_ref rec_app(m.mk_app(rec, n->get_expr()), m);
-                ctx.internalize(rec_app, false);
-                consequent = literal(ctx.get_bool_var(rec_app));
+                auto rec_app = m.mk_app(rec, n->get_expr());
+                consequent = mk_literal(rec_app);
             }
             else {
                 consequent = literal(ctx.enode2bool_var(r));

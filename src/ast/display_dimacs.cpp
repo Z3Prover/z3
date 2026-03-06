@@ -45,7 +45,7 @@ struct dimacs_pp {
             num_lits = 1;
             lits     = &f;
         }
-        for (unsigned j = 0; j < num_lits; j++) {
+        for (unsigned j = 0; j < num_lits; ++j) {
             expr * l = lits[j];
             if (m.is_false(l))
                 continue;
@@ -78,7 +78,7 @@ struct dimacs_pp {
             num_lits = 1;
             lits     = &f;
         }
-        for (unsigned j = 0; j < num_lits; j++) {
+        for (unsigned j = 0; j < num_lits; ++j) {
             expr * l = lits[j];
             if (m.is_not(l))
                 l = to_app(l)->get_arg(0);
@@ -101,7 +101,7 @@ struct dimacs_pp {
             num_lits = 1;
             lits     = &f;
         }
-        for (unsigned j = 0; j < num_lits; j++) {
+        for (unsigned j = 0; j < num_lits; ++j) {
             expr * l = lits[j];
             if (m.is_false(l))
                 continue;

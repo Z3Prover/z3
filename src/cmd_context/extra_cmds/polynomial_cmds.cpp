@@ -67,7 +67,7 @@ static void factor(cmd_context & ctx, expr * t, polynomial::factor_params const 
     ctx.regular_stream() << std::endl << f0;
     unsigned num_factors = fs.distinct_factors();
     expr_ref f(ctx.m());
-    for (unsigned i = 0; i < num_factors; i++) {
+    for (unsigned i = 0; i < num_factors; ++i) {
         ctx.regular_stream() << std::endl;
         if (fs.get_degree(i) > 1)
             ctx.regular_stream() << "(^ ";
@@ -137,7 +137,7 @@ class poly_isolate_roots_cmd : public cmd {
             polynomial::var_vector xs;
             m_pm.vars(m_p, xs);
             unsigned num_assigned = 0;
-            for (unsigned i = 0; i < xs.size(); i++) {
+            for (unsigned i = 0; i < xs.size(); ++i) {
                 if (m_x2v.contains(xs[i]))
                     num_assigned++;
             }
@@ -148,7 +148,7 @@ class poly_isolate_roots_cmd : public cmd {
             ctx.regular_stream() << "(roots";
             pp_params params;
             bool pp_decimal = params.decimal();
-            for (unsigned i = 0; i < rs.size(); i++) {
+            for (unsigned i = 0; i < rs.size(); ++i) {
                 ctx.regular_stream() << std::endl;
                 if (!pp_decimal)
                     m_am.display_root_smt2(ctx.regular_stream(), rs[i]);

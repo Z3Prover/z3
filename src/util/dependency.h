@@ -56,7 +56,7 @@ public:
                 vs.push_back(to_leaf(d)->m_value);
             }
             else {
-                for (unsigned i = 0; i < 2; i++) {
+                for (unsigned i = 0; i < 2; ++i) {
                     dependency* child = to_join(d)->m_children[i];
                     if (!child->is_marked()) {
                         todo.push_back(child);
@@ -125,7 +125,7 @@ private:
                 m_allocator.deallocate(sizeof(leaf), to_leaf(d));
             }
             else {
-                for (unsigned i = 0; i < 2; i++) {
+                for (unsigned i = 0; i < 2; ++i) {
                     dependency * c = to_join(d)->m_children[i];
                     SASSERT(c->m_ref_count > 0);
                     c->m_ref_count--;
@@ -208,7 +208,7 @@ public:
                     }
                 }
                 else {
-                    for (unsigned i = 0; i < 2; i++) {
+                    for (unsigned i = 0; i < 2; ++i) {
                         dependency * child = to_join(d)->m_children[i];
                         if (!child->is_marked()) {
                             m_todo.push_back(child);

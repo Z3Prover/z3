@@ -230,7 +230,7 @@ namespace mbp {
             expr_ref val (m);
             unsigned num_diff = diff_val_consts.size ();
             SASSERT (num_diff == I.size ());
-            for (unsigned i = 0; i < num_diff; i++) {
+            for (unsigned i = 0; i < num_diff; ++i) {
                 // mk val term
                 ptr_vector<expr> sel_args;
                 sel_args.push_back (arr);
@@ -276,7 +276,7 @@ namespace mbp {
                     expr_ref_vector idx_diseq (m);
                     if (!I.empty ()) {
                         expr_ref_vector vals = (*m_mev)(idxs);
-                        for (unsigned i = 0; i < I.size () && !idx_in_I; i++) {
+                        for (unsigned i = 0; i < I.size () && !idx_in_I; ++i) {
                             if (is_eq(idxs, I.get(i))) {
                                 idx_in_I = true;
                             }
@@ -351,7 +351,7 @@ namespace mbp {
                 TRACE(qe,
                         tout << "after factoring selects:\n";
                         tout << mk_pp (p_exp, m) << "\n";
-                        for (unsigned i = m_aux_lits_v.size () - m_aux_vars.size (); i < m_aux_lits_v.size (); i++) {
+                        for (unsigned i = m_aux_lits_v.size () - m_aux_vars.size (); i < m_aux_lits_v.size (); ++i) {
                             tout << mk_pp (m_aux_lits_v.get (i), m) << "\n";
                         }
                       );
@@ -402,7 +402,7 @@ namespace mbp {
             }
 
             unsigned nd = 0; // nesting depth
-            for (nd = 1; m_arr_u.is_store (store); nd++, store = to_app (store->get_arg (0))) {
+            for (nd = 1; m_arr_u.is_store (store); ++nd, store = to_app (store->get_arg (0))) {
                 /* empty */ ;
             }
             if (store != m_v) {
@@ -445,7 +445,7 @@ namespace mbp {
             DEBUG_CODE(for (unsigned i = 0; i + 1 < true_eqs.size(); ++i) SASSERT(true_eqs[i].first <= true_eqs[i+1].first););
 
             // search for subst term
-            for (unsigned i = 0; !m_subst_term_v && i < true_eqs.size(); i++) {
+            for (unsigned i = 0; !m_subst_term_v && i < true_eqs.size(); ++i) {
                 app* eq = true_eqs[i].second;
                 m_true_sub_v.insert (eq, m.mk_true ());
                 // try to find subst term
@@ -502,7 +502,7 @@ namespace mbp {
             m_mev = &mev;
 
             unsigned j = 0;
-            for (unsigned i = 0; i < arr_vars.size (); i++) {
+            for (unsigned i = 0; i < arr_vars.size (); ++i) {
                 reset_v ();
                 m_v = arr_vars.get (i);
                 if (!m_arr_u.is_array (m_v)) {
@@ -898,7 +898,7 @@ namespace mbp {
                 expr_ref_vector idxs(m, arity, a->get_args() + 1);
                 expr_ref_vector vals = (*m_mev)(idxs);
                 bool is_new = true;
-                for (unsigned j = start; j < m_idxs.size (); j++) {
+                for (unsigned j = start; j < m_idxs.size (); ++j) {
                     if (!is_eq(m_idxs[j].val, vals)) continue;
                     // idx belongs to the jth equivalence class;
                     // substitute sel term with ith sel const

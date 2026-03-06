@@ -102,13 +102,13 @@ void bit_vector::shift_right(unsigned k) {
     }
     if (bit_shift > 0) {
         DEBUG_CODE({
-            for (unsigned i = 0; i < word_shift; i++) {
+            for (unsigned i = 0; i < word_shift; ++i) {
                 SASSERT(m_data[i] == 0);
             }
         });
         unsigned comp_shift = (8 * sizeof(unsigned)) - bit_shift;
         unsigned prev = 0;
-        for (unsigned i = word_shift; i < new_num_words; i++) {
+        for (unsigned i = word_shift; i < new_num_words; ++i) {
             unsigned new_prev = (m_data[i] >> comp_shift);
             m_data[i] <<= bit_shift;
             m_data[i] |= prev;
@@ -124,7 +124,7 @@ bool bit_vector::operator==(bit_vector const & source) const {
     if (n == 0)
         return true;
     unsigned i;
-    for (i = 0; i < n - 1; i++) {
+    for (i = 0; i < n - 1; ++i) {
         if (m_data[i] != source.m_data[i])
             return false;
     }
@@ -142,12 +142,12 @@ bit_vector & bit_vector::operator|=(bit_vector const & source) {
     unsigned bit_rest = source.m_num_bits % 32;
     if (bit_rest == 0) {
         unsigned i = 0;
-        for (i = 0; i < n2; i++)
+        for (i = 0; i < n2; ++i)
             m_data[i] |= source.m_data[i];
     }
     else {
         unsigned i = 0;
-        for (i = 0; i < n2 - 1; i++)
+        for (i = 0; i < n2 - 1; ++i)
             m_data[i] |= source.m_data[i];
         unsigned mask = MK_MASK(bit_rest);
         m_data[i] |= source.m_data[i] & mask;
@@ -161,7 +161,7 @@ bit_vector & bit_vector::operator&=(bit_vector const & source) {
     if (n1 == 0)
         return *this;
     if (n2 > n1) {
-        for (unsigned i = 0; i < n1; i++)
+        for (unsigned i = 0; i < n1; ++i)
             m_data[i] &= source.m_data[i];
     }
     else {
@@ -169,17 +169,17 @@ bit_vector & bit_vector::operator&=(bit_vector const & source) {
         unsigned bit_rest = source.m_num_bits % 32;
         unsigned i = 0;
         if (bit_rest == 0) {
-            for (i = 0; i < n2; i++)
+            for (i = 0; i < n2; ++i)
                 m_data[i] &= source.m_data[i];
         }
         else {
-            for (i = 0; i < n2 - 1; i++)
+            for (i = 0; i < n2 - 1; ++i)
                 m_data[i] &= source.m_data[i];
             unsigned mask = MK_MASK(bit_rest);
             m_data[i] &= (source.m_data[i] & mask);
             
         }
-        for (i = n2; i < n1; i++)
+        for (i = n2; i < n1; ++i)
             m_data[i] = 0;
     }
     return *this;
@@ -196,7 +196,7 @@ void bit_vector::display(std::ostream & out) const {
             out << "0";
     }
 #else
-    for (unsigned i = 0; i < m_num_bits; i++) {
+    for (unsigned i = 0; i < m_num_bits; ++i) {
         if (get(i))
             out << "1";
         else
@@ -223,7 +223,7 @@ bool bit_vector::contains(bit_vector const& other) const {
 }
 
 unsigned bit_vector::get_hash() const {
-    return string_hash(reinterpret_cast<char const* const>(m_data), size()/8,  0);
+    return string_hash(std::string_view(reinterpret_cast<char const* const>(m_data), size()/8),  0);
 }
 
 bit_vector& bit_vector::neg() {

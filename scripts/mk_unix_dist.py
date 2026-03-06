@@ -29,6 +29,8 @@ GIT_HASH=False
 PYTHON_ENABLED=True
 MAKEJOBS=getenv("MAKEJOBS", '8')
 OS_NAME=None
+LINUX_X64=mk_util.LINUX_X64
+HOST_IS_ARM64=mk_util.IS_ARCH_ARM64  # Save the original host architecture
 
 def set_verbose(flag):
     global VERBOSE
@@ -57,7 +59,7 @@ def display_help():
     print("  -f, --force                   force script to regenerate Makefiles.")
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
     print("  --dotnet-key=<file>           sign the .NET assembly with the private key in <file>.")
-    print("  --arch=<arch>                 set architecture (to arm64) to force arm64 build")
+    print("  --arch=<arch>                 set architecture (arm64 or x64) to force cross-compilation")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
     print("  --os=<os>                     set OS version.")
     print("  --nopython                    do not include Python bindings in the binary distribution files.")
@@ -66,7 +68,7 @@ def display_help():
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, OS_NAME
+    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, OS_NAME, LINUX_X64
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=',
                                                                    'help',
@@ -104,8 +106,11 @@ def parse_options():
         elif opt == '--arch':
             if arg == "arm64":
                 mk_util.IS_ARCH_ARM64 = True
+            elif arg == "x64":
+                mk_util.IS_ARCH_ARM64 = False
+                LINUX_X64 = True
             else:
-                raise MKException("Invalid architecture directive '%s'. Legal directives: arm64" % arg)
+                raise MKException("Invalid architecture directive '%s'. Legal directives: arm64, x64" % arg)
         elif opt == '--os':
             OS_NAME = arg
         else:
@@ -118,7 +123,7 @@ def check_build_dir(path):
 
 # Create a build directory using mk_make.py
 def mk_build_dir(path):
-    global LINUX_X64
+    global LINUX_X64, HOST_IS_ARM64
     if not check_build_dir(path) or FORCE_MK:
         env = os.environ
         opts = [sys.executable, os.path.join('scripts', 'mk_make.py'), "-b", path, "--staticlib"]
@@ -135,16 +140,32 @@ def mk_build_dir(path):
             opts.append('--python')
         if mk_util.IS_ARCH_ARM64:
             opts.append('--arm64=true')
+        elif HOST_IS_ARM64:
+            # Explicitly disable arm64 when cross-compiling from ARM64 host to x64;
+            # without this, mk_make.py detects the ARM64 host and adds -arch arm64 flags
+            opts.append('--arm64=false')
         if mk_util.IS_ARCH_ARM64 and LINUX_X64:
-            # we are machine x64 but build against arm64
-            # so we have to do cross compiling
-            # the cross compiler is download from ARM GNU
-            # toolchain
+            # we are on x64 machine but build for arm64
+            # so we have to do cross compiling on Linux
+            # the cross compiler is downloaded from ARM GNU toolchain
             myvar = {
                 "CC":  "aarch64-none-linux-gnu-gcc",
                 "CXX": "aarch64-none-linux-gnu-g++"
             }
             env.update(myvar)
+        elif HOST_IS_ARM64 and not mk_util.IS_ARCH_ARM64:
+            # we are on arm64 machine but build for x64
+            # handle cross compilation on macOS (or other Unix systems)
+            import platform
+            if platform.system() == 'Darwin':
+                # On macOS, we can cross-compile using -arch flag
+                target_arch_flag = ' -arch x86_64'
+                myvar = {
+                    "CXXFLAGS": (os.environ.get("CXXFLAGS", "").strip() + target_arch_flag).strip(),
+                    "CFLAGS": (os.environ.get("CFLAGS", "").strip() + target_arch_flag).strip(),
+                    "LDFLAGS": (os.environ.get("LDFLAGS", "").strip() + target_arch_flag).strip()
+                }
+                env.update(myvar)
         if subprocess.call(opts, env=env) != 0:
             raise MKException("Failed to generate build directory at '%s'" % path)
 

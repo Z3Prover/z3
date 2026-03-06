@@ -20,6 +20,7 @@ Revision History:
 
 #include "smt/smt_context.h"
 #include "util/search_tree.h"
+#include "ast/sls/sls_smt_solver.h"
 #include <thread>
 #include <mutex>
 
@@ -35,6 +36,7 @@ namespace smt {
     class parallel {
         context& ctx;
         unsigned num_threads;
+        bool m_should_run_sls = false;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -77,6 +79,18 @@ namespace smt {
                     w->cancel();
             }
 
+            void cancel_sls_worker() {
+                if (!p.m_sls_worker)
+                    return;
+                IF_VERBOSE(1, verbose_stream() << "Canceling SLS worker\n");
+                p.m_sls_worker->cancel();
+            }
+
+            void cancel_background_threads() {
+                cancel_workers();
+                cancel_sls_worker();  
+            }
+
             void init_parameters_state();
 
         public:
@@ -104,11 +118,12 @@ namespace smt {
             struct config {
                 unsigned m_threads_max_conflicts = 1000;
                 bool m_share_units = true;
+                bool m_share_conflicts = true;
                 bool m_share_units_relevant_only = true;
                 bool m_share_units_initial_only = true;
                 double m_max_conflict_mul = 1.5;
-                bool m_cube_initial_only = true;
-                bool m_inprocessing = true;
+                bool m_inprocessing = false;
+                bool m_sls = false;
                 unsigned m_inprocessing_delay = 1;
                 unsigned m_max_cube_depth = 20;
                 unsigned m_max_conflicts = UINT_MAX;
@@ -157,8 +172,28 @@ namespace smt {
 
         };
 
+        class sls_worker {
+            parallel &p;
+            batch_manager &b;
+            ast_manager m;
+            ast_translation m_g2l, m_l2g;
+            scoped_ptr<sls::smt_solver> m_sls;
+            params_ref m_params;
+
+            public:
+                sls_worker(parallel &p);
+                void cancel();
+                void run();
+                void collect_statistics(::statistics& st) const;
+
+                reslimit &limit() {
+                    return m.limit();
+                }
+        };
+
         batch_manager m_batch_manager;
         scoped_ptr_vector<worker> m_workers;
+        scoped_ptr<sls_worker> m_sls_worker;
 
     public:
         parallel(context& ctx) : 

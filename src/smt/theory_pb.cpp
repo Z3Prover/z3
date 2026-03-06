@@ -552,7 +552,7 @@ namespace smt {
         switch (is_true) {
         case l_false: 
             lit.neg();
-            // fall-through
+            Z3_fallthrough;
         case l_true: 
             ctx.mk_th_axiom(get_id(), 1, &lit);
             return true;
@@ -1280,7 +1280,7 @@ namespace smt {
                 ctx.literal2expr(lits[i], tmp);
                 es.push_back(tmp);
             }
-            tmp = m.mk_or(es.size(), es.data());
+            tmp = m.mk_or(es);
             bool_var v = ctx.b_internalized(tmp)?ctx.get_bool_var(tmp):ctx.mk_bool_var(tmp);
             return literal(v);
         }
@@ -1292,7 +1292,7 @@ namespace smt {
                 ctx.literal2expr(lits[i], tmp);
                 es.push_back(tmp);
             }
-            tmp = m.mk_and(es.size(), es.data());
+            tmp = m.mk_and(es);
             bool_var v = ctx.b_internalized(tmp)?ctx.get_bool_var(tmp):ctx.mk_bool_var(tmp);
             return literal(v);
         }
@@ -1624,7 +1624,7 @@ namespace smt {
                 literal lit = cls.get_literal(i);
                 args.push_back(literal2expr(lit));
             }
-            result = m.mk_or(args.size(), args.data());
+            result = m.mk_or(args);
             break;
         }
         case b_justification::BIN_CLAUSE:
@@ -2025,7 +2025,7 @@ namespace smt {
             for (literal lit : m_antecedents) {
                 args.push_back(literal2expr(lit));
             }
-            B = m.mk_not(m.mk_and(args.size(), args.data()));
+            B = m.mk_not(m.mk_and(args));
             validate_implies(A, B); );
         return true;
     }

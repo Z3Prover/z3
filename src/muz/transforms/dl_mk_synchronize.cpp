@@ -290,7 +290,7 @@ namespace datalog {
         bool_vector new_tail_neg;
         new_tail.resize(product_tail_length);
         new_tail_neg.resize(product_tail_length);
-        unsigned tail_idx = -1;
+        unsigned tail_idx = UINT_MAX;
         if (has_recursion) {
             add_rec_tail(recursive_calls, new_tail, new_tail_neg, tail_idx);
         }

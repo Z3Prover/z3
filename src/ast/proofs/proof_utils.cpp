@@ -556,7 +556,7 @@ public:
                     clause = m_literals[0];
                 }
                 else {
-                    clause = m.mk_or(m_literals.size(), m_literals.data());
+                    clause = m.mk_or(m_literals);
                 }
                 tmp = m.mk_lemma(tmp, clause);
                 m_refs.push_back(tmp);

@@ -35,7 +35,7 @@ bool is_smt2_quoted_symbol(char const * s) {
         return true;
     unsigned len = static_cast<unsigned>(strlen(s));
     if (len >= 2 && s[0] == '|' && s[len-1] == '|') {
-        for (unsigned i = 1; i + 1 < len; i++) {
+        for (unsigned i = 1; i + 1 < len; ++i) {
             if (s[i] == '\\' && i + 2 < len && (s[i+1] == '\\' || s[i+1] == '|')) {
                 i++;
             }
@@ -44,7 +44,7 @@ bool is_smt2_quoted_symbol(char const * s) {
         }
         return false;
     }
-    for (unsigned i = 0; i < len; i++)
+    for (unsigned i = 0; i < len; ++i)
         if (!is_smt2_simple_symbol_char(s[i]))
             return true;
     return false;

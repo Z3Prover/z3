@@ -188,7 +188,7 @@ public:
             return;
         }
         
-        for (unsigned i = 0; i < g->size(); i++) {            
+        for (unsigned i = 0; i < g->size(); ++i) {            
             collect_fd(g->form(i));
         }
         cleanup_fd(mc1);
@@ -198,7 +198,7 @@ public:
             return;
         }
 
-        for (unsigned i = 0; !g->inconsistent() && i < g->size(); i++) {            
+        for (unsigned i = 0; !g->inconsistent() && i < g->size(); ++i) {            
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);  
             app_ref var(m);

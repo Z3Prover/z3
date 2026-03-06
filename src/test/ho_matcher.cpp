@@ -111,12 +111,12 @@ namespace euf {
             s = m_arith.mk_add(s, m.mk_app(f.get(), zero));
 
 
-            pat = m_arith.mk_add(m.mk_app(sum, 3, args), m_array.mk_select(F, L1));
+            pat = m_arith.mk_add(m.mk_app(sum, (unsigned)3, args), m_array.mk_select(F, L1));
             IF_VERBOSE(0, verbose_stream() << "test5a: " << pat << " =?= " << s << "\n";);
             m_matcher.add_pattern(pat.get());
             m_matcher(pat, s, 4);
 
-            pat = m_arith.mk_add(m_array.mk_select(F, L1), m.mk_app(sum, 3, args));
+            pat = m_arith.mk_add(m_array.mk_select(F, L1), m.mk_app(sum, (unsigned)3, args));
             IF_VERBOSE(0, verbose_stream() << "test5b: " << pat << " =?= " << s << "\n";);
             m_matcher.add_pattern(pat.get());
             m_matcher(pat, s, 4);

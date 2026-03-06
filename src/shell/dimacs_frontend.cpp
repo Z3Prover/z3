@@ -68,7 +68,7 @@ static void STD_CALL on_ctrl_c(int) {
 static void display_model(sat::solver const & s) {
     sat::model const & m = s.get_model();
     std::cout << "v ";
-    for (unsigned i = 1; i < m.size(); i++) {
+    for (unsigned i = 1; i < m.size(); ++i) {
         switch (m[i]) {
         case l_false: std::cout << "-" << i << " ";  break;
         case l_undef: break;
@@ -151,7 +151,7 @@ void verify_solution(char const * file_name) {
     parse_dimacs(in, std::cerr, solver);
     
     sat::model const & m = g_solver->get_model();
-    for (unsigned i = 1; i < m.size(); i++) {
+    for (unsigned i = 1; i < m.size(); ++i) {
         sat::literal lit(i, false);
         switch (m[i]) {
         case l_false: lit.neg(); break;

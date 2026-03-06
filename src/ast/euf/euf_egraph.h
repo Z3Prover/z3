@@ -88,15 +88,15 @@ namespace euf {
 
         typedef ptr_vector<trail> trail_stack;
 
-        enum to_merge_t { to_merge_plain, to_merge_comm, to_justified, to_add_literal };
+        enum class to_merge_t { to_merge_plain, to_merge_comm, to_justified, to_add_literal };
         struct to_merge {
             enode* a, * b;
             to_merge_t t;
             justification j;
-            bool commutativity() const { return t == to_merge_comm; }
-            to_merge(enode* a, enode* b, bool c) : a(a), b(b), t(c ? to_merge_comm : to_merge_plain) {}
-            to_merge(enode* a, enode* b, justification j): a(a), b(b), t(to_justified), j(j) {}
-            to_merge(enode* p, enode* ante): a(p), b(ante), t(to_add_literal) {}
+            bool commutativity() const { return t == to_merge_t::to_merge_comm; }
+            to_merge(enode* a, enode* b, bool c) : a(a), b(b), t(c ? to_merge_t::to_merge_comm : to_merge_t::to_merge_plain) {}
+            to_merge(enode* a, enode* b, justification j): a(a), b(b), t(to_merge_t::to_justified), j(j) {}
+            to_merge(enode* p, enode* ante): a(p), b(ante), t(to_merge_t::to_add_literal) {}
         };
 
         struct stats {

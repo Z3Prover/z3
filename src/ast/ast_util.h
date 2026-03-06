@@ -27,7 +27,7 @@ void remove_duplicates(C & v) {
     if (!v.empty()) {
         unsigned sz = v.size();
         unsigned j = 0;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             auto curr = v.get(i);
             if (!visited.is_marked(curr)) {
                 visited.mark(curr);
@@ -47,7 +47,7 @@ bool is_well_formed_vars(ptr_vector<sort>& bound, expr* n);
 
 inline bool args_are_vars(app const * n) {
     unsigned sz = n->get_num_args();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         if (!is_var(n->get_arg(i)))
             return false;
     }
@@ -56,7 +56,7 @@ inline bool args_are_vars(app const * n) {
 
 inline bool depth_leq_one(app * n) {
     unsigned sz = n->get_num_args();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr * arg = n->get_arg(i);
         if (is_app(arg) && to_app(arg)->get_num_args() > 0)
             return false;

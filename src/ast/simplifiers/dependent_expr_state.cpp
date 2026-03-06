@@ -18,7 +18,7 @@ Author:
 unsigned dependent_expr_state::num_exprs() {
     expr_fast_mark1 visited;
     unsigned r = 0;
-    for (unsigned i = 0; i < qtail(); i++) 
+    for (unsigned i = 0; i < qtail(); ++i) 
         r += get_num_exprs((*this)[i].fml(), visited);
     return r;
 }

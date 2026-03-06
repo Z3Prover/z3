@@ -302,7 +302,7 @@ public:
     void collect_more_rows_for_lp_propagation();
     template <typename T>
     void check_missed_propagations(lp_bound_propagator<T>& bp) {
-        for (unsigned i = 0; i < A_r().row_count(); i++)
+        for (unsigned i = 0; i < A_r().row_count(); ++i)
             if (!touched_rows().contains(i))
                 if (0 < calculate_implied_bounds_for_row(i, bp)) {
                     verbose_stream() << i << ": " << get_row(i) << "\n";
@@ -457,7 +457,7 @@ public:
     void get_rid_of_inf_eps();
     void get_model_do_not_care_about_diff_vars(std::unordered_map<lpvar, mpq>& variable_values) const;
     std::string get_variable_name(lpvar vi) const override;
-    void set_variable_name(lpvar vi, std::string);
+    void set_variable_name(lpvar vi, const std::string&);
     unsigned number_of_vars() const;
     inline bool is_base(unsigned j) const { return get_core_solver().m_r_heading[j] >= 0; }
     inline const impq& column_lower_bound(unsigned j) const {
@@ -522,7 +522,7 @@ public:
     bool has_int_var() const;
 
     inline bool has_inf_int() const {
-        for (unsigned j = 0; j < column_count(); j++) {
+        for (unsigned j = 0; j < column_count(); ++j) {
             if (column_is_int(j) && !column_value_is_int(j))
                 return true;
         }

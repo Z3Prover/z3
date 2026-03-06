@@ -216,6 +216,8 @@ sig
   val to_string : sort -> string
   val mk_uninterpreted : context -> Symbol.symbol -> sort
   val mk_uninterpreted_s : context -> string -> sort
+  val mk_type_variable : context -> Symbol.symbol -> sort
+  val mk_type_variable_s : context -> string -> sort
 end = struct
   type sort = Z3native.sort
   let gc a = Z3native.context_of_ast a
@@ -228,6 +230,8 @@ end = struct
   let to_string (x:sort) = Z3native.sort_to_string (gc x) x
   let mk_uninterpreted ctx s = Z3native.mk_uninterpreted_sort ctx s
   let mk_uninterpreted_s (ctx:context) (s:string) = mk_uninterpreted ctx (Symbol.mk_string ctx s)
+  let mk_type_variable ctx s = Z3native.mk_type_variable ctx s
+  let mk_type_variable_s (ctx:context) (s:string) = mk_type_variable ctx (Symbol.mk_string ctx s)
 end
 
 and FuncDecl :
@@ -908,6 +912,13 @@ struct
   let mk_sort_s (ctx:context) (name:string) (constructors:Constructor.constructor list) =
     mk_sort ctx (Symbol.mk_string ctx name) constructors
 
+  let mk_polymorphic_sort (ctx:context) (name:Symbol.symbol) (type_params:Sort.sort list) (constructors:Constructor.constructor list) =
+    let (x,_) = Z3native.mk_polymorphic_datatype ctx name (List.length type_params) type_params (List.length constructors) constructors in
+    x
+
+  let mk_polymorphic_sort_s (ctx:context) (name:string) (type_params:Sort.sort list) (constructors:Constructor.constructor list) =
+    mk_polymorphic_sort ctx (Symbol.mk_string ctx name) type_params constructors
+
   let mk_sort_ref (ctx: context) (name:Symbol.symbol) =
     Z3native.mk_datatype_sort ctx name 0 []
 
@@ -950,6 +961,9 @@ struct
       let g j = Z3native.get_datatype_sort_constructor_accessor (Sort.gc x) x i j in
       List.init ds g) in
     List.init n f
+
+  let update_field (ctx:context) (field_access:FuncDecl.func_decl) (t:Expr.expr) (v:Expr.expr) =
+    Z3native.datatype_update_field ctx field_access t v
 end
 
 
@@ -1926,6 +1940,37 @@ struct
 
   let interrupt (ctx:context) (s:solver) =
     Z3native.solver_interrupt ctx s
+
+  let get_units x =
+    let av = Z3native.solver_get_units (gc x) x in
+    AST.ASTVector.to_expr_list av
+
+  let get_non_units x =
+    let av = Z3native.solver_get_non_units (gc x) x in
+    AST.ASTVector.to_expr_list av
+
+  let get_trail x =
+    let av = Z3native.solver_get_trail (gc x) x in
+    AST.ASTVector.to_expr_list av
+
+  let get_levels x literals =
+    let n = List.length literals in
+    let av = Z3native.mk_ast_vector (gc x) in
+    List.iter (fun e -> Z3native.ast_vector_push (gc x) av e) literals;
+    let level_list = Z3native.solver_get_levels (gc x) x av n in
+    Array.of_list level_list
+
+  let congruence_root x a = Z3native.solver_congruence_root (gc x) x a
+
+  let congruence_next x a = Z3native.solver_congruence_next (gc x) x a
+
+  let congruence_explain x a b = Z3native.solver_congruence_explain (gc x) x a b
+
+  let from_file x = Z3native.solver_from_file (gc x) x
+
+  let from_string x = Z3native.solver_from_string (gc x) x
+
+  let set_initial_value x var value = Z3native.solver_set_initial_value (gc x) x var value
 end
 
 

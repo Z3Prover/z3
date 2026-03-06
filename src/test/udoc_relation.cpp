@@ -900,7 +900,7 @@ public:
             repl(tmp);
             disj.push_back(tmp);
         }
-        fml = mk_or(m, disj.size(), disj.data());
+        fml = mk_or(disj);
     }
 
     void apply_filter(udoc_relation& t, app* cond) {

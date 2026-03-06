@@ -93,7 +93,7 @@ namespace simplex {
         unsigned i  = 0;
         unsigned j  = 0;
         unsigned sz = m_entries.size();
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             _row_entry & t1 = m_entries[i];
             if (!t1.is_dead()) {
                 if (i != j) {
@@ -178,7 +178,7 @@ namespace simplex {
         unsigned i  = 0;
         unsigned j  = 0;
         unsigned sz = m_entries.size();
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             col_entry & e1 = m_entries[i];
             if (!e1.is_dead()) {
                 if (i != j) {

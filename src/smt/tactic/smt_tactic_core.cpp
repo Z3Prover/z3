@@ -195,13 +195,13 @@ public:
             }
             else if (in->proofs_enabled()) {
                 unsigned sz = in->size();
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     m_ctx.load()->assert_expr(in->form(i), in->pr(i));
                 }
             }
             else {
                 unsigned sz = in->size();
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     m_ctx.load()->assert_expr(in->form(i));
                 }
             }
@@ -259,7 +259,7 @@ public:
                 expr_dependency * lcore = nullptr;
                 if (in->unsat_core_enabled()) {
                     unsigned sz = m_ctx.load()->get_unsat_core_size();
-                    for (unsigned i = 0; i < sz; i++) {
+                    for (unsigned i = 0; i < sz; ++i) {
                         expr * b = m_ctx.load()->get_unsat_core_expr(i);
                         SASSERT(is_uninterp_const(b) && m.is_bool(b));
                         expr * d = bool2dep.find(b);

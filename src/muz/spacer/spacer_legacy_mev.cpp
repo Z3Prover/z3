@@ -63,7 +63,7 @@ void model_evaluator::setup_model(const model_ref& model)
     m_model = model.get();
     rational r;
     unsigned sz = model->get_num_constants();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         func_decl * d = model->get_constant(i);
         expr* val = model->get_const_interp(d);
         expr* e = m.mk_const(d);

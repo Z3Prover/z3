@@ -59,7 +59,7 @@ class factor_tactic : public tactic {
         void mk_eq(polynomial::factors const & fs, expr_ref & result) {
             expr_ref_buffer args(m);
             expr_ref arg(m);
-            for (unsigned i = 0; i < fs.distinct_factors(); i++) {
+            for (unsigned i = 0; i < fs.distinct_factors(); ++i) {
                 m_expr2poly.to_expr(fs[i], true, arg);
                 args.push_back(arg);
             }
@@ -70,14 +70,14 @@ class factor_tactic : public tactic {
         void mk_split_eq(polynomial::factors const & fs, expr_ref & result) {
             expr_ref_buffer args(m);
             expr_ref arg(m);
-            for (unsigned i = 0; i < fs.distinct_factors(); i++) {
+            for (unsigned i = 0; i < fs.distinct_factors(); ++i) {
                 m_expr2poly.to_expr(fs[i], true, arg);
                 args.push_back(m.mk_eq(arg, mk_zero_for(arg)));
             }
             if (args.size() == 1)
                 result = args[0];
             else
-                result = m.mk_or(args.size(), args.data());
+                result = m.mk_or(args);
         }
 
         decl_kind flip(decl_kind k) {
@@ -100,7 +100,7 @@ class factor_tactic : public tactic {
             SASSERT(k == OP_LT || k == OP_GT || k == OP_LE || k == OP_GE);
             expr_ref_buffer args(m);
             expr_ref arg(m);
-            for (unsigned i = 0; i < fs.distinct_factors(); i++) {
+            for (unsigned i = 0; i < fs.distinct_factors(); ++i) {
                 m_expr2poly.to_expr(fs[i], true, arg);
                 if (fs.get_degree(i) % 2 == 0)
                     arg = m_util.mk_power(arg, m_util.mk_numeral(rational(2), m_util.is_int(arg)));
@@ -113,7 +113,7 @@ class factor_tactic : public tactic {
         // See mk_split_strict_comp and mk_split_nonstrict_comp
         void split_even_odd(bool strict, polynomial::factors const & fs, expr_ref_buffer & even_eqs, expr_ref_buffer & odd_factors) {
             expr_ref arg(m);
-            for (unsigned i = 0; i < fs.distinct_factors(); i++) {
+            for (unsigned i = 0; i < fs.distinct_factors(); ++i) {
                 m_expr2poly.to_expr(fs[i], true, arg);
                 if (fs.get_degree(i) % 2 == 0) {
                     expr * eq = m.mk_eq(arg, mk_zero_for(arg));
@@ -161,9 +161,9 @@ class factor_tactic : public tactic {
             if (args.size() == 1)
                 result = args[0];
             else if (strict)
-                result = m.mk_and(args.size(), args.data());
+                result = m.mk_and(args);
             else
-                result = m.mk_or(args.size(), args.data());
+                result = m.mk_or(args);
         }
 
         br_status factor(func_decl * f, expr * lhs, expr * rhs, expr_ref & result) {
@@ -264,7 +264,7 @@ class factor_tactic : public tactic {
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);
             unsigned   size = g->size();
-            for (unsigned idx = 0; !g->inconsistent() && idx < size; idx++) {
+            for (unsigned idx = 0; !g->inconsistent() && idx < size; ++idx) {
                 expr * curr = g->form(idx);
                 m_rw(curr, new_curr, new_pr);
                 if (produce_proofs) {

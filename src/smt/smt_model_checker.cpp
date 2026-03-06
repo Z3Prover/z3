@@ -152,7 +152,7 @@ namespace smt {
         for (expr * e : universe) {
             eqs.push_back(m.mk_eq(sk, e));
         }
-        expr_ref fml(m.mk_or(eqs.size(), eqs.data()), m);
+        expr_ref fml(m.mk_or(eqs), m);
         m_aux_context->assert_expr(fml);
     }
 
@@ -175,7 +175,7 @@ namespace smt {
         unsigned num_decls = q->get_num_decls();
         subst_args.resize(num_decls, nullptr);
         sks.resize(num_decls, nullptr);
-        for (unsigned i = 0; i < num_decls; i++) {
+        for (unsigned i = 0; i < num_decls; ++i) {
             sort * s  = q->get_decl_sort(num_decls - i - 1);
             expr * sk = m.mk_fresh_const(nullptr, s);
             sks[num_decls - i - 1]        = sk;
@@ -207,7 +207,7 @@ namespace smt {
         expr_ref def(m);
         bindings.resize(num_decls);
         unsigned max_generation = 0;
-        for (unsigned i = 0; i < num_decls; i++) {
+        for (unsigned i = 0; i < num_decls; ++i) {
             expr * sk = sks.get(num_decls - i - 1);
             func_decl * sk_d = to_app(sk)->get_decl();
             expr_ref sk_value(cex->get_some_const_interp(sk_d), m);
@@ -319,7 +319,7 @@ namespace smt {
             diseqs.push_back(m.mk_not(m.mk_eq(sk, sk_value)));
         }
         expr_ref blocking_clause(m);
-        blocking_clause = m.mk_or(diseqs.size(), diseqs.data());
+        blocking_clause = m.mk_or(diseqs);
         TRACE(model_checker, tout << "blocking clause:\n" << mk_ismt2_pp(blocking_clause, m) << "\n";);
         m_aux_context->assert_expr(blocking_clause);
         return true;
@@ -579,7 +579,7 @@ namespace smt {
                 unsigned num_decls = q->get_num_decls();
                 unsigned gen       = inst.m_generation;
                 unsigned offset    = inst.m_bindings_offset;
-                for (unsigned i = 0; i < num_decls; i++) {
+                for (unsigned i = 0; i < num_decls; ++i) {
                     expr * b = m_pinned_exprs.get(offset + i);
                     if (!m_context->e_internalized(b)) {
                         TRACE(model_checker, tout << "internalizing b:\n" << mk_pp(b, m) << "\n";);

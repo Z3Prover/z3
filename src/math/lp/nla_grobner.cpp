@@ -307,7 +307,7 @@ namespace nla {
                 continue;
             bool gcd_fail = true;
             dd::pdd kx = m.mk_var(x) * m.mk_val(k); 
-            for (unsigned r = 0; gcd_fail && r < k; r++) {
+            for (unsigned r = 0; gcd_fail && r < k; ++r) {
                 dd::pdd kx_plus_r = kx + m.mk_val(r);
                 auto q = p.subst_pdd(x, kx_plus_r);
                 if (!fails_gcd_test(q))
@@ -917,13 +917,13 @@ namespace nla {
     void grobner::set_level2var() {
         unsigned n = lra.column_count();
         unsigned_vector sorted_vars(n), weighted_vars(n);
-        for (unsigned j = 0; j < n; j++) {
+        for (unsigned j = 0; j < n; ++j) {
             sorted_vars[j] = j;
             weighted_vars[j] = c().get_var_weight(j);
         }
 #if 1
         // potential update to weights
-        for (unsigned j = 0; j < n; j++) {
+        for (unsigned j = 0; j < n; ++j) {
             if (c().is_monic_var(j) && c().m_to_refine.contains(j)) {
                 for (lpvar k : c().m_emons[j].vars()) {
                     weighted_vars[k] += 6;
@@ -938,7 +938,7 @@ namespace nla {
             return wa < wb || (wa == wb && a < b); });
 
         unsigned_vector l2v(n);
-        for (unsigned j = 0; j < n; j++)
+        for (unsigned j = 0; j < n; ++j)
             l2v[j] = sorted_vars[j];
 
         m_pdd_manager.reset(l2v);

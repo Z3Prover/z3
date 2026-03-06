@@ -145,7 +145,7 @@ public:
         nm.set(penalty, m_penalty);
         nm.set(one, 1);
         unsigned num   = this->ctx()->num_vars();
-        for (var x = 0; x < num; x++) {
+        for (var x = 0; x < num; ++x) {
             if (m_only_non_def && this->ctx()->is_definition(x))
                 continue;
             typename context_t<C>::bound * l = n->lower(x);
@@ -283,7 +283,7 @@ void context_t<C>::bound::display(std::ostream & out, numeral_manager & nm, disp
 
 template<typename C>
 void context_t<C>::clause::display(std::ostream & out, numeral_manager & nm, display_var_proc const & proc) {
-    for (unsigned i = 0; i < size(); i++) {
+    for (unsigned i = 0; i < size(); ++i) {
         if (i > 0)
             out << " or ";
         m_atoms[i]->display(out, nm, proc);
@@ -305,7 +305,7 @@ context_t<C>::node::node(context_t & s, unsigned id):
     m_next            = nullptr;
     bm().mk(m_lowers);
     bm().mk(m_uppers);
-    for (unsigned i = 0; i < num_vars; i++) {
+    for (unsigned i = 0; i < num_vars; ++i) {
         bm().push_back(m_lowers, nullptr);
         bm().push_back(m_uppers, nullptr);
     }
@@ -378,7 +378,7 @@ context_t<C>::monomial::monomial(unsigned sz, power const * pws):
 template<typename C>
 void context_t<C>::monomial::display(std::ostream & out, display_var_proc const & proc, bool use_star) const {
     SASSERT(m_size > 0);
-    for (unsigned i = 0; i < m_size; i++) {
+    for (unsigned i = 0; i < m_size; ++i) {
         if (i > 0) {
             if (use_star)
                 out << "*";
@@ -399,7 +399,7 @@ void context_t<C>::polynomial::display(std::ostream & out, numeral_manager & nm,
         first = false;
     }
 
-    for (unsigned i = 0; i < m_size; i++) {
+    for (unsigned i = 0; i < m_size; ++i) {
         if (first)
             first = false;
         else
@@ -637,7 +637,7 @@ void context_t<C>::display(std::ostream & out, constraint * c, bool use_star) co
 template<typename C>
 void context_t<C>::display_bounds(std::ostream & out, node * n) const {
     unsigned num = num_vars();
-    for (unsigned x = 0; x < num; x++) {
+    for (unsigned x = 0; x < num; ++x) {
         bound * l = n->lower(x);
         bound * u = n->upper(x);
         if (l != nullptr) {
@@ -657,7 +657,7 @@ void context_t<C>::display_bounds(std::ostream & out, node * n) const {
 */
 template<typename C>
 bool context_t<C>::is_int(monomial const * m) const {
-    for (unsigned i = 0; i < m->size(); i++) {
+    for (unsigned i = 0; i < m->size(); ++i) {
         if (is_int(m->x(i)))
             return true;
     }
@@ -669,7 +669,7 @@ bool context_t<C>::is_int(monomial const * m) const {
 */
 template<typename C>
 bool context_t<C>::is_int(polynomial const * p) const {
-    for (unsigned i = 0; i < p->size(); i++) {
+    for (unsigned i = 0; i < p->size(); ++i) {
         if (!is_int(p->x(i)) || !nm().is_int(p->a(i))) {
             TRACE(subpaving_is_int, tout << "polynomial is not integer due to monomial at i: " << i << "\n"; tout.flush();
                   display(tout, p->x(i)); tout << " "; nm().display(tout, p->a(i)); tout << "\n";);
@@ -703,7 +703,7 @@ var context_t<C>::mk_monomial(unsigned sz, power const * pws) {
     m_pws.append(sz, pws);
     std::sort(m_pws.begin(), m_pws.end(), power::lt_proc());
     unsigned j = 0;
-    for (unsigned i = 1; i < sz; i++) {
+    for (unsigned i = 1; i < sz; ++i) {
         if (m_pws[j].x() == m_pws[i].x()) {
             m_pws[j].degree() += m_pws[i].degree();
         }
@@ -720,7 +720,7 @@ var context_t<C>::mk_monomial(unsigned sz, power const * pws) {
     monomial * r     = new (mem) monomial(sz, pws);
     var new_var      = mk_var(is_int(r));
     m_defs[new_var]  = r;
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         var x = pws[i].x();
         m_wlist[x].push_back(watched(new_var));
     }
@@ -731,7 +731,7 @@ template<typename C>
 void context_t<C>::del_sum(polynomial * p) {
     unsigned sz = p->size();
     unsigned mem_sz = polynomial::get_obj_size(sz);
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         nm().del(p->m_as[i]);
     }
     nm().del(p->m_c);
@@ -742,7 +742,7 @@ void context_t<C>::del_sum(polynomial * p) {
 template<typename C>
 var context_t<C>::mk_sum(numeral const & c, unsigned sz, numeral const * as, var const * xs) {
     m_num_buffer.reserve(num_vars());
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         SASSERT(xs[i] < num_vars());
         nm().set(m_num_buffer[xs[i]], as[i]);
     }
@@ -755,7 +755,7 @@ var context_t<C>::mk_sum(numeral const & c, unsigned sz, numeral const * as, var
     p->m_xs          = reinterpret_cast<var*>(reinterpret_cast<char*>(p->m_as) + sizeof(numeral)*sz);
     memcpy(p->m_xs, xs, sizeof(var)*sz);
     std::sort(p->m_xs, p->m_xs+sz);
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         numeral * curr = p->m_as + i;
         new (curr) numeral();
         var x = p->m_xs[i];
@@ -763,7 +763,7 @@ var context_t<C>::mk_sum(numeral const & c, unsigned sz, numeral const * as, var
     }
     TRACE(subpaving_mk_sum, tout << "new variable is integer: " << is_int(p) << "\n";);
     var new_var      = mk_var(is_int(p));
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         var x = p->m_xs[i];
         m_wlist[x].push_back(watched(new_var));
     }
@@ -819,13 +819,13 @@ void context_t<C>::add_clause_core(unsigned sz, ineq * const * atoms, bool lemma
     void * mem = allocator().allocate(clause::get_obj_size(sz));
     clause * c = new (mem) clause();
     c->m_size  = sz;
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         inc_ref(atoms[i]);
         c->m_atoms[i] = atoms[i];
     }
     std::stable_sort(c->m_atoms, c->m_atoms + sz, typename ineq::lt_var_proc());
     if (watch) {
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             var x = c->m_atoms[i]->x();
             if (x != null_var && (i == 0 || x != c->m_atoms[i-1]->x()))
                 m_wlist[x].push_back(watched(c));
@@ -849,7 +849,7 @@ void context_t<C>::del_clause(clause * c) {
     bool watch  = c->watched();
     var prev_x  = null_var;
     unsigned sz = c->size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         var x = c->m_atoms[i]->x();
         if (watch) {
             if (x != prev_x)
@@ -1092,7 +1092,7 @@ void context_t<C>::collect_leaves(ptr_vector<node> & leaves) const {
 template<typename C>
 void context_t<C>::del_unit_clauses() {
     unsigned sz = m_unit_clauses.size();
-    for (unsigned i = 0; i < sz; i++)
+    for (unsigned i = 0; i < sz; ++i)
         dec_ref(UNTAG(ineq*, m_unit_clauses[i]));
     m_unit_clauses.reset();
 }
@@ -1100,7 +1100,7 @@ void context_t<C>::del_unit_clauses() {
 template<typename C>
 void context_t<C>::del_clauses(ptr_vector<clause> & cs) {
     unsigned sz = cs.size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         del_clause(cs[i]);
     }
     cs.reset();
@@ -1115,7 +1115,7 @@ void context_t<C>::del_clauses() {
 template<typename C>
 void context_t<C>::del_definitions() {
     unsigned sz = num_vars();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         definition * d = m_defs[i];
         if (d == nullptr)
             continue;
@@ -1136,7 +1136,7 @@ void context_t<C>::del_definitions() {
 template<typename C>
 void context_t<C>::display_constraints(std::ostream & out, bool use_star) const {
     // display definitions
-    for (unsigned i = 0; i < num_vars(); i++) {
+    for (unsigned i = 0; i < num_vars(); ++i) {
         if (is_definition(i)) {
             (*m_display_proc)(out, i);
             out << " = ";
@@ -1145,12 +1145,12 @@ void context_t<C>::display_constraints(std::ostream & out, bool use_star) const 
         }
     }
     // display units
-    for (unsigned i = 0; i < m_unit_clauses.size(); i++) {
+    for (unsigned i = 0; i < m_unit_clauses.size(); ++i) {
         ineq * a = UNTAG(ineq*, m_unit_clauses[i]);
         a->display(out, nm(), *m_display_proc); out << "\n";
     }
     // display clauses
-    for (unsigned i = 0; i < m_clauses.size(); i++) {
+    for (unsigned i = 0; i < m_clauses.size(); ++i) {
         m_clauses[i]->display(out, nm(), *m_display_proc); out << "\n";
     }
 }
@@ -1380,7 +1380,7 @@ void context_t<C>::propagate_clause(clause * c, node * n) {
     c->set_visited(m_timestamp);
     unsigned sz = c->size();
     unsigned j  = UINT_MAX;
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         ineq * atom = (*c)[i];
         switch (value(atom, n)) {
         case l_true:
@@ -1416,7 +1416,7 @@ void context_t<C>::propagate_polynomial(var x, node * n, var y) {
     interval & v   = m_i_tmp2;
     interval & av  = m_i_tmp3; av.set_mutable();
     if (x == y) {
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             var z = p->x(i);
             v.set_constant(n, z);
             im().mul(p->a(i), v, av);
@@ -1431,7 +1431,7 @@ void context_t<C>::propagate_polynomial(var x, node * n, var y) {
         v.set_constant(n, x);
         numeral & a = m_tmp1;
         im().set(r, v);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             var z = p->x(i);
             if (z != y) {
                 v.set_constant(n, z);
@@ -1475,7 +1475,7 @@ void context_t<C>::propagate_polynomial(var x, node * n) {
     if (is_unbounded(x, n))
         unbounded_var = x;
     unsigned sz = p->size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         var y = p->x(i);
         if (is_unbounded(y, n)) {
             if (unbounded_var != null_var)
@@ -1490,7 +1490,7 @@ void context_t<C>::propagate_polynomial(var x, node * n) {
     }
     else {
         propagate_polynomial(x, n, x);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (inconsistent(n))
                 return;
             propagate_polynomial(x, n, p->x(i));
@@ -1509,7 +1509,7 @@ void context_t<C>::propagate_monomial(var x, node * n) {
     bool found_zero      = false;
     bool x_is_unbounded  = false;
     unsigned sz = m->size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         var y = m->x(i);
         if (is_zero(y, n)) {
             found_zero = true;
@@ -1546,7 +1546,7 @@ void context_t<C>::propagate_monomial(var x, node * n) {
     if (!x_is_unbounded) {
         unsigned bad_pos = UINT_MAX;
         interval & aux   = m_i_tmp1;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             aux.set_constant(n, m->x(i));
             if (im().contains_zero(aux)) {
                 if (bad_pos != UINT_MAX)
@@ -1556,7 +1556,7 @@ void context_t<C>::propagate_monomial(var x, node * n) {
         }
         if (bad_pos == UINT_MAX) {
             // we can use all variables for downward propagation.
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 if (inconsistent(n))
                     return;
                 propagate_monomial_downward(x, n, i);
@@ -1576,7 +1576,7 @@ void context_t<C>::propagate_monomial_upward(var x, node * n) {
     interval & r  = m_i_tmp1; r.set_mutable();
     interval & y  = m_i_tmp2;
     interval & yk = m_i_tmp3; yk.set_mutable();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         y.set_constant(n, m->x(i));
         im().power(y, m->degree(i), yk);
         if (i == 0)
@@ -1615,7 +1615,7 @@ void context_t<C>::propagate_monomial_downward(var x, node * n, unsigned j) {
         interval & y  = m_i_tmp2;
         interval & yk = m_i_tmp3; yk.set_mutable();
         bool first = true;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (i == j)
                 continue;
             y.set_constant(n, m->x(i));
@@ -1765,7 +1765,7 @@ void context_t<C>::propagate(node * n) {
 template<typename C>
 void context_t<C>::propagate_all_definitions(node * n) {
     unsigned num = num_vars();
-    for (unsigned x = 0; x < num; x++) {
+    for (unsigned x = 0; x < num; ++x) {
         if (inconsistent(n))
             break;
         if (is_definition(x))

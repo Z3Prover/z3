@@ -42,7 +42,7 @@ void sexpr2upolynomial(upolynomial::manager & m, sexpr const * s, upolynomial::n
                 throw sexpr2upolynomial_exception("invalid univariate polynomial, '+' operator expects at least one argument", s);
             sexpr2upolynomial(m, s->get_child(1), p, depth+1);
             upolynomial::scoped_numeral_vector arg(m);
-            for (unsigned i = 2; i < num; i++) {
+            for (unsigned i = 2; i < num; ++i) {
                 m.reset(arg);
                 sexpr2upolynomial(m, s->get_child(i), arg, depth+1);
                 m.add(arg.size(), arg.data(), p.size(), p.data(), p);
@@ -57,7 +57,7 @@ void sexpr2upolynomial(upolynomial::manager & m, sexpr const * s, upolynomial::n
                 return;
             }
             upolynomial::scoped_numeral_vector arg(m);
-            for (unsigned i = 2; i < num; i++) {
+            for (unsigned i = 2; i < num; ++i) {
                 m.reset(arg);
                 sexpr2upolynomial(m, s->get_child(i), arg, depth+1);
                 m.sub(p.size(), p.data(), arg.size(), arg.data(), p);
@@ -68,7 +68,7 @@ void sexpr2upolynomial(upolynomial::manager & m, sexpr const * s, upolynomial::n
                 throw sexpr2upolynomial_exception("invalid univariate polynomial, '*' operator expects at least one argument", s);
             sexpr2upolynomial(m, s->get_child(1), p, depth+1);
             upolynomial::scoped_numeral_vector arg(m);
-            for (unsigned i = 2; i < num; i++) {
+            for (unsigned i = 2; i < num; ++i) {
                 m.reset(arg);
                 sexpr2upolynomial(m, s->get_child(i), arg, depth+1);
                 m.mul(arg.size(), arg.data(), p.size(), p.data(), p);

@@ -458,6 +458,7 @@ namespace opt {
 
     void context::set_model(model_ref& m) { 
         m_model = m;
+        m_model_available = true;
         opt_params optp(m_params);
         symbol prefix = optp.solution_prefix();
         bool model2console = optp.dump_models();
@@ -490,6 +491,8 @@ namespace opt {
 
 
     void context::get_model_core(model_ref& mdl) {
+        if (!m_model_available)
+            throw default_exception("model is not available");
         mdl = m_model;
         CTRACE(opt, mdl, tout << *mdl;);
         fix_model(mdl);
@@ -741,11 +744,12 @@ namespace opt {
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
             display_objective(out, obj);
+            auto [lower, upper] = b[i];
             if (obj.m_type == O_MAXIMIZE) {
-                out << " |-> [" << b[i].first << ":" << b[i].second << "]\n";
+                out << " |-> [" << lower << ":" << upper << "]\n";
             }
             else {
-                out << " |-> [" << -b[i].second << ":" << -b[i].first << "]\n";
+                out << " |-> [" << -upper << ":" << -lower << "]\n";
             }
         }        
     }
@@ -797,7 +801,8 @@ namespace opt {
         if (!is_maxsat_query())
             return;
 
-        if (m_maxsat_engine != symbol("maxres") &&
+        if (m_maxsat_engine != symbol("maxres") && 
+            m_maxsat_engine != symbol("maxresw") &&
             m_maxsat_engine != symbol("rc2") &&
             m_maxsat_engine != symbol("rc2tot") &&
             m_maxsat_engine != symbol("rc2bin") &&
@@ -869,7 +874,7 @@ namespace opt {
                     quick_for_each_expr(proc, visited, ms[j]);
             }
             unsigned sz = get_solver().get_num_assertions();
-            for (unsigned i = 0; i < sz; i++) 
+            for (unsigned i = 0; i < sz; ++i) 
                 quick_for_each_expr(proc, visited, get_solver().get_assertion(i));
             for (expr* f : m_hard_constraints) 
                 quick_for_each_expr(proc, visited, f);
@@ -994,7 +999,7 @@ namespace opt {
             else if (is_objective(r->form(i)))
                 fmls.push_back(r->form(i));
             else
-                fmls.push_back(m.mk_implies(mk_and(m, deps.size(), deps.data()), r->form(i)));
+                fmls.push_back(m.mk_implies(mk_and(m, deps), r->form(i)));
         }        
         if (r->inconsistent()) {
             ptr_vector<expr> core_elems;
@@ -1730,6 +1735,7 @@ namespace opt {
         m_model.reset();
         m_model_fixed.reset();
         m_core.reset();
+        m_model_available = false;
     }
 
     void context::set_pareto(pareto_base* p) {

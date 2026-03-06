@@ -3,6 +3,7 @@ name: Pyodide Build
 on:
   schedule:
     - cron: '0 0 */2 * *'
+  workflow_dispatch:
 
 env:
   BUILD_TYPE: Release
@@ -19,7 +20,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v6.0.2
 
     - name: Setup packages
       run: sudo apt-get update && sudo apt-get install -y python3-dev python3-pip python3-venv 

@@ -358,7 +358,7 @@ namespace arith {
                     continue;                
                 m_ineqs_that_are_eqs.insert(j);
                 if (j < orig_size) {
-                    m_eqs.push_back(m_ineqs[j]);
+                    m_eqs.push_back(std::move(m_ineqs[j]));
                 }
                 else {
                     auto [a, b] = m_deps[j];

@@ -99,11 +99,11 @@ static void tst2() {
     int_array a1;
     int_array a2;
  
-    for (unsigned i = 0; i < 100; i++) 
+    for (unsigned i = 0; i < 100; ++i) 
         m.push_back(a1, i);
     ENSURE(m.size(a1) == 100);
     m.push_back(a1, 100, a2);
-    for (unsigned i = 0; i < 10; i++) 
+    for (unsigned i = 0; i < 10; ++i) 
         m.push_back(a2, i+101);
     TRACE(parray, 
           m.display_info(tout, a1); tout << "\n";
@@ -112,10 +112,10 @@ static void tst2() {
     TRACE(parray, 
           m.display_info(tout, a1); tout << "\n";
           m.display_info(tout, a2); tout << "\n";);
-    for (unsigned i = 0; i < m.size(a1); i++) {
+    for (unsigned i = 0; i < m.size(a1); ++i) {
         ENSURE(static_cast<unsigned>(m.get(a1, i)) == i);
     }
-    for (unsigned i = 0; i < m.size(a2); i++) {
+    for (unsigned i = 0; i < m.size(a2); ++i) {
         ENSURE(static_cast<unsigned>(m.get(a2, i)) == i);
     }
     TRACE(parray, 
@@ -144,11 +144,11 @@ static void tst3() {
     int_array a3;
     int_array a4;
  
-    for (unsigned i = 0; i < 20; i++) 
+    for (unsigned i = 0; i < 20; ++i) 
         m.push_back(a1, i);
     ENSURE(m.size(a1) == 20);
     m.set(a1, 0, 1, a2);
-    for (unsigned i = 1; i < 20; i++) {
+    for (unsigned i = 1; i < 20; ++i) {
         if (i == 6) {
             m.copy(a2, a3);
             m.pop_back(a3);
@@ -161,7 +161,7 @@ static void tst3() {
     m.pop_back(a4);
     m.push_back(a4, 30);
     
-    for (unsigned i = 0; i < 20; i++) {
+    for (unsigned i = 0; i < 20; ++i) {
         ENSURE(static_cast<unsigned>(m.get(a2, i)) == i+1);
     }
     TRACE(parray, 
@@ -182,7 +182,7 @@ static void tst3() {
     ENSURE(m.size(a2) == 20);
     ENSURE(m.size(a3) == 19);
     ENSURE(m.size(a4) == 19);
-    for (unsigned i = 0; i < 20; i++) {
+    for (unsigned i = 0; i < 20; ++i) {
         ENSURE(static_cast<unsigned>(m.get(a1, i)) == i);
         ENSURE(static_cast<unsigned>(m.get(a2, i)) == i+1);
         ENSURE(i >= 18 || static_cast<unsigned>(m.get(a4, i)) == i+1);
@@ -282,7 +282,7 @@ static void tst5() {
     expr_array  a2;
 
     m.mk(a1);
-    for (unsigned i = 0; i < 100; i++) {
+    for (unsigned i = 0; i < 100; ++i) {
         m.push_back(a1, m.mk_var(i, m.mk_bool_sort()));
     }
 
@@ -291,7 +291,7 @@ static void tst5() {
 
     m.copy(a1, a2);
     
-    for (unsigned i = 0; i < 1000000; i++) {
+    for (unsigned i = 0; i < 1000000; ++i) {
         m.set(a1, i % 100, m.mk_var(rand() % 100, m.mk_bool_sort()));
     }
 

@@ -73,7 +73,7 @@ bool uniform_le(const T& a, const T& b,  unsigned & strict_i) {
     strict_i = -1;
     bool z_b = false;
         
-    for (unsigned i = 0; i < a.size(); i++) {
+    for (unsigned i = 0; i < a.size(); ++i) {
         if (a[i] > b[i]){
             return false;
         }

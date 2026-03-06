@@ -19,6 +19,8 @@ Revision History:
 #pragma once
 
 #include<algorithm>
+#include<string_view>
+#include<span>
 #include "util/util.h"
 
 #define mix(a,b,c)              \
@@ -34,7 +36,7 @@ Revision History:
   c -= a; c -= b; c ^= (b>>15); \
 }
 
-inline unsigned hash_u(unsigned a) {
+static inline unsigned hash_u(unsigned a) {
    a = (a+0x7ed55d16) + (a<<12);
    a = (a^0xc761c23c) ^ (a>>19);
    a = (a+0x165667b1) + (a<<5);
@@ -44,7 +46,7 @@ inline unsigned hash_u(unsigned a) {
    return a;
 }
 
-inline unsigned hash_ull(unsigned long long a) {
+static inline unsigned hash_ull(unsigned long long a) {
   a  = (~a) + (a << 18); 
   a ^= (a >> 31);
   a += (a << 2) + (a << 4);
@@ -54,21 +56,26 @@ inline unsigned hash_ull(unsigned long long a) {
   return static_cast<unsigned>(a);
 }
 
-inline unsigned combine_hash(unsigned h1, unsigned h2) {
+static inline unsigned combine_hash(unsigned h1, unsigned h2) {
     h2 -= h1; h2 ^= (h1 << 8);
     h1 -= h2; h2 ^= (h1 << 16);
     h2 -= h1; h2 ^= (h1 << 10);
     return h2;
 }
 
-inline unsigned hash_u_u(unsigned a, unsigned b) {
+static inline unsigned hash_u_u(unsigned a, unsigned b) {
     return combine_hash(hash_u(a), hash_u(b));
 }
 
-unsigned string_hash(const char * str, unsigned len, unsigned init_value);
+unsigned string_hash(std::string_view str, unsigned init_value);
 
-inline unsigned unsigned_ptr_hash(unsigned const* vec, unsigned len, unsigned init_value) {
-    return string_hash((char const*)(vec), len*4, init_value);
+static inline unsigned unsigned_ptr_hash(std::span<unsigned const> vec, unsigned init_value) {
+    return string_hash(std::string_view(reinterpret_cast<char const*>(vec.data()), vec.size() * sizeof(unsigned)), init_value);
+}
+
+// Backward compatibility overload
+static inline unsigned unsigned_ptr_hash(unsigned const* vec, unsigned len, unsigned init_value) {
+    return unsigned_ptr_hash(std::span<unsigned const>(vec, len), init_value);
 }
 
 template<typename Composite, typename GetKindHashProc, typename GetChildHashProc>
@@ -244,7 +251,7 @@ struct ptr_hash {
     }
 };
 
-inline unsigned mk_mix(unsigned a, unsigned b, unsigned c) {
+static inline unsigned mk_mix(unsigned a, unsigned b, unsigned c) {
     mix(a, b, c);
     return c;
 }

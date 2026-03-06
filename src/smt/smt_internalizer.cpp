@@ -208,11 +208,10 @@ namespace smt {
 
         svector<expr_bool_pair> sorted_exprs;
         top_sort_expr(exprs, num_exprs, sorted_exprs);
-        TRACE(deep_internalize, for (auto & kv : sorted_exprs) tout << "#" << kv.first->get_id() << " " << kv.second << "\n"; );
-        for (auto & kv : sorted_exprs) {
-            expr* e = kv.first;
+        TRACE(deep_internalize, for (auto & [e, b] : sorted_exprs) tout << "#" << e->get_id() << " " << b << "\n"; );
+        for (auto & [e, b] : sorted_exprs) {
             SASSERT(should_internalize_rec(e));
-            internalize_rec(e, kv.second);
+            internalize_rec(e, b);
         }
     }
     void context::internalize_deep(expr* n) {
@@ -546,10 +545,10 @@ namespace smt {
     }
 
     static bool check_patterns(quantifier * q) {
-        for (unsigned i = 0; i < q->get_num_patterns(); i++) {
+        for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
             SASSERT(check_pattern(q->get_pattern(i)));
         }
-        for (unsigned i = 0; i < q->get_num_no_patterns(); i++) {
+        for (unsigned i = 0; i < q->get_num_no_patterns(); ++i) {
             SASSERT(check_pattern(q->get_no_pattern(i)));
         }
         return true;
@@ -608,7 +607,7 @@ namespace smt {
         m_lambdas.insert(lam_node, q);
         m_app2enode.setx(q->get_id(), lam_node, nullptr);
         m_l_internalized_stack.push_back(q);
-        m_trail_stack.push_back(&m_mk_lambda_trail);
+        m_trail_stack.push_ptr(&m_mk_lambda_trail);
         bool_var bv = get_bool_var(fa);
         assign(literal(bv, false), nullptr);
         mark_as_relevant(bv);
@@ -959,7 +958,7 @@ namespace smt {
             m_activity[v]      = 0.0;
         m_case_split_queue->mk_var_eh(v);
         m_b_internalized_stack.push_back(n);
-        m_trail_stack.push_back(&m_mk_bool_var_trail);
+        m_trail_stack.push_ptr(&m_mk_bool_var_trail);
         m_stats.m_num_mk_bool_var++;
         SASSERT(check_bool_var_vector_sizes());
         return v;
@@ -1010,7 +1009,8 @@ namespace smt {
             CTRACE(cached_generation, generation != m_generation,
                    tout << "cached_generation: #" << n->get_id() << " " << generation << " " << m_generation << "\n";);
         }
-        enode * e           = enode::mk(m, m_region, m_app2enode, n, generation, suppress_args, merge_tf, m_scope_lvl, cgc_enabled, true);
+        enode *e = enode::mk(m, get_region(), m_app2enode, n, generation, suppress_args, merge_tf, m_scope_lvl,
+                             cgc_enabled, true);
         TRACE(mk_enode_detail, tout << "e.get_num_args() = " << e->get_num_args() << "\n";);
         if (m.is_unique_value(n))
             e->mark_as_interpreted();
@@ -1018,7 +1018,7 @@ namespace smt {
         TRACE(generation, tout << "mk_enode: " << id << " " << generation << "\n";);
         m_app2enode.setx(id, e, nullptr);
         m_e_internalized_stack.push_back(n);
-        m_trail_stack.push_back(&m_mk_enode_trail);
+        m_trail_stack.push_ptr(&m_mk_enode_trail);
         m_enodes.push_back(e);
         if (e->get_num_args() > 0) {
             if (e->is_true_eq()) {
@@ -1029,11 +1029,9 @@ namespace smt {
             }
             else {
                 if (cgc_enabled) {
-                    enode_bool_pair pair = m_cg_table.insert(e);
-                    enode * e_prime      = pair.first;
+                    auto [e_prime, used_commutativity] = m_cg_table.insert(e);
                     if (e != e_prime) {
                         e->m_cg = e_prime;
-                        bool used_commutativity = pair.second;
                         push_new_congruence(e, e_prime, used_commutativity);
                     }
                     else {
@@ -1155,7 +1153,7 @@ namespace smt {
         std::sort(lits, lits + num_lits);
         literal prev = null_literal;
         unsigned j = 0;
-        for (unsigned i = 0; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; ++i) {
             literal curr = lits[i];
             lbool   val  = get_assignment(curr);
             switch (val) {
@@ -1166,7 +1164,6 @@ namespace smt {
                     simp_lits.push_back(~curr);
                 }
                 break; // ignore literal                
-                // fall through
             case l_undef:
                 if (curr == ~prev)
                     return false; // clause is equivalent to true
@@ -1213,7 +1210,7 @@ namespace smt {
         literal prev = null_literal;
         unsigned i = 0;
         unsigned j = 0;
-        for (; i < num_lits; i++) {
+        for (; i < num_lits; ++i) {
             literal curr = lits[i];
             bool_var var = curr.var();
             lbool   val  = l_undef;
@@ -1261,7 +1258,7 @@ namespace smt {
     */
     unsigned context::get_max_iscope_lvl(unsigned num_lits, literal const * lits) const {
         unsigned r = 0;
-        for (unsigned i = 0; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; ++i) {
             unsigned ilvl = get_intern_level(lits[i].var());
             if (ilvl > r)
                 r = ilvl;
@@ -1309,7 +1306,7 @@ namespace smt {
         int max_false_idx = -1;
         unsigned max_lvl  = UINT_MAX;
         int num_lits      = cls->get_num_literals();
-        for (int i = 1; i < num_lits; i++) {
+        for (int i = 1; i < num_lits; ++i) {
             literal l    = cls->get_literal(i);
             lbool val    = get_assignment(l);
             SASSERT(val == l_false || val == l_undef);
@@ -1352,7 +1349,7 @@ namespace smt {
         int max_false_idx = -1;
         int unknown_idx   = -1;
         int n = cls->get_num_literals();
-        for (int i = starting_at; i < n; i++) {
+        for (int i = starting_at; i < n; ++i) {
             literal l   = cls->get_literal(i);
             switch(get_assignment(l)) {
             case l_false:
@@ -1600,7 +1597,7 @@ namespace smt {
 
     proof * context::mk_clause_def_axiom(unsigned num_lits, literal * lits, expr * root_gate) {
         ptr_buffer<expr> new_lits;
-        for (unsigned i = 0; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; ++i) {
             literal l      = lits[i];
             bool_var v     = l.var();
             expr * atom    = m_bool_var2expr[v]; 
@@ -1609,7 +1606,7 @@ namespace smt {
         if (root_gate)
             new_lits.push_back(m.mk_not(root_gate));
         SASSERT(num_lits > 1);
-        expr * fact        = m.mk_or(new_lits.size(), new_lits.data());
+        expr * fact        = m.mk_or(new_lits);
         return m.mk_def_axiom(fact);
         
     }
@@ -1622,7 +1619,7 @@ namespace smt {
         }
         else if (clause_proof_active()) {
             ptr_buffer<expr> new_lits;
-            for (unsigned i = 0; i < num_lits; i++) {
+            for (unsigned i = 0; i < num_lits; ++i) {
                 literal l      = lits[i];
                 bool_var v     = l.var();
                 expr * atom    = m_bool_var2expr[v]; 
@@ -1660,8 +1657,7 @@ namespace smt {
                 proof * def = mk_clause_def_axiom(num_lits, lits, m.get_fact(pr));
                 TRACE(gate_clause, tout << mk_ll_pp(def, m) << "\n";
                       tout << mk_ll_pp(pr, m););
-                proof * prs[2] = { def, pr };
-                pr  = m.mk_unit_resolution(2, prs);
+                pr  = m.mk_unit_resolution({ def, pr });
             }
             mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
         }
@@ -1864,11 +1860,11 @@ namespace smt {
         if (old_v == null_theory_var) {
             enode * r     = n->get_root();
             theory_var v2 = r->get_th_var(th_id);
-            n->add_th_var(v, th_id, m_region);
+            n->add_th_var(v, th_id, get_region());
             push_trail(add_th_var_trail(n, th_id));
             if (v2 == null_theory_var) {
                 if (r != n)
-                    r->add_th_var(v, th_id, m_region);
+                    r->add_th_var(v, th_id, get_region());
                 push_new_th_diseqs(r, v, th);
             }
             else if (r != n) {

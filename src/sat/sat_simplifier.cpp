@@ -316,7 +316,7 @@ namespace sat {
             if (learned && vars_eliminated) {
                 unsigned sz = c.size();
                 unsigned i;
-                for (i = 0; i < sz; i++) {
+                for (i = 0; i < sz; ++i) {
                     if (was_eliminated(c[i].var()))
                         break;
                 }
@@ -585,7 +585,7 @@ namespace sat {
         bool r = false;
         unsigned sz = c.size();
         unsigned j  = 0;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             literal l = c[i];
             switch (value(l)) {
             case l_undef:
@@ -625,7 +625,7 @@ namespace sat {
     bool simplifier::cleanup_clause(literal_vector & c) {
         unsigned sz = c.size();
         unsigned j  = 0;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             literal l = c[i];
             switch (value(l)) {
             case l_undef:
@@ -653,7 +653,7 @@ namespace sat {
             return;
         m_use_list.reserve(s.num_vars());
         unsigned new_trail_sz = s.m_trail.size();
-        for (unsigned i = old_trail_sz; i < new_trail_sz; i++) {
+        for (unsigned i = old_trail_sz; i < new_trail_sz; ++i) {
             literal l = s.m_trail[i];
             // put clauses with literals assigned to false back into todo-list
             for (auto it = m_use_list.get(~l).mk_iterator(); !it.at_end(); it.next()) {
@@ -727,12 +727,12 @@ namespace sat {
     bool simplifier::subsume_with_binaries() {
         unsigned init = s.m_rand(); // start in a random place, since subsumption can be aborted
         unsigned num_lits = s.m_watches.size();
-        for (unsigned i = 0; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; ++i) {
             unsigned l_idx = (i + init) % num_lits;
             watch_list & wlist = get_wlist(to_literal(l_idx));
             literal l = ~to_literal(l_idx);
             // should not traverse wlist using iterators, since back_subsumption1 may add new binary clauses there
-            for (unsigned j = 0; j < wlist.size(); j++) {
+            for (unsigned j = 0; j < wlist.size(); ++j) {
                 watched w  = wlist[j];
                 if (w.is_binary_non_learned_clause()) {
                     literal l2 = w.get_literal();
@@ -1072,7 +1072,7 @@ namespace sat {
         void insert_queue() {
             m_queue.reset();
             unsigned num_vars = s.s.num_vars();
-            for (bool_var v = 0; v < num_vars; v++) {
+            for (bool_var v = 0; v < num_vars; ++v) {
                 if (process_var(v)) {
                     insert(literal(v, false));
                     insert(literal(v, true));
@@ -1656,7 +1656,7 @@ namespace sat {
                 m_counter -= c.size();
                 unsigned sz = c.size();
                 unsigned i;
-                for (i = 0; i < sz; i++) {
+                for (i = 0; i < sz; ++i) {
                     if (s.is_marked(~c[i]))
                         break;
                 }
@@ -1766,10 +1766,10 @@ namespace sat {
         m_elim_todo.reset();
         std::stable_sort(tmp.begin(), tmp.end(), bool_var_and_cost_lt());
         TRACE(sat_simplifier,
-              for (auto& p : tmp) tout << "(" << p.first << ", " << p.second << ") ";
+              for (auto& [v, c] : tmp) tout << "(" << v << ", " << c << ") ";
               tout << "\n";);
-        for (auto& p : tmp) 
-            r.push_back(p.first);
+        for (auto& [v, c] : tmp) 
+            r.push_back(v);
     }
 
     /**

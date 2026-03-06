@@ -229,7 +229,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
     }
     TRACE(tactic,
           tout << "r.size(): " << r.size() << "\n";
-          for (unsigned i = 0; i < r.size(); i++) r[i]->display_with_dependencies(tout););
+          for (unsigned i = 0; i < r.size(); ++i) r[i]->display_with_dependencies(tout););
 
     if (r.size() > 0) {
         pr = r[0]->pr(0);

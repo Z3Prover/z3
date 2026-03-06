@@ -77,7 +77,7 @@ namespace datalog {
 
         bool can_handle_signature(const relation_signature & s) override {
             unsigned n=s.size();
-            for (unsigned i=0; i<n; i++) 
+            for (unsigned i=0; i<n; ++i) 
                 if (!get_context().get_decl_util().is_rule_sort(s[i])) 
                     return false;
             return true;
@@ -138,7 +138,7 @@ namespace datalog {
                     
             DEBUG_CODE(
                 unsigned sz = s.size();
-                for (unsigned i=0;i<sz; i++) {
+                for (unsigned i=0;i<sz; ++i) {
                     SASSERT( p.get_context().get_decl_util().is_rule_sort(s[i]) );
                 }
                 );
@@ -165,7 +165,7 @@ namespace datalog {
             }
             unsigned n = get_signature().size();
             SASSERT(f.size()==n);
-            for (unsigned i=0; i<n; i++) {
+            for (unsigned i=0; i<n; ++i) {
                 SASSERT(!is_undefined(i));
                 m_data[i] = get_plugin().mk_union(m_data[i], f[i]);
             }
@@ -194,7 +194,7 @@ namespace datalog {
                 return true;
             }
             unsigned n = get_signature().size();
-            for (unsigned i=0; i<n; i++) {
+            for (unsigned i=0; i<n; ++i) {
                 if (is_undefined(i)) {
                     return false;
                 }
@@ -251,7 +251,7 @@ namespace datalog {
                 return;
             }
             unsigned sz = get_signature().size();
-            for (unsigned i=0; i<sz; i++) {
+            for (unsigned i=0; i<sz; ++i) {
                 if (i!=0) {
                     out << ", ";
                 }
@@ -469,7 +469,7 @@ namespace datalog {
             ptr_vector<expr> subst_arg;
             subst_arg.resize(sz);
             unsigned ofs = sz-1;
-            for (unsigned i=0; i<sz; i++) {
+            for (unsigned i=0; i<sz; ++i) {
                 if (r.is_undefined(i) && contains_var(m_new_rule, i))
                     not_handled();
                 subst_arg[ofs-i] = r.m_data.get(i);
@@ -549,7 +549,7 @@ namespace datalog {
                 return;
             }
             unsigned sz = tgt.get_signature().size();
-            for (unsigned i=0; i<sz; i++) {
+            for (unsigned i=0; i<sz; ++i) {
                 if (src.is_undefined(i)) {
                     continue;
                 }
@@ -585,7 +585,7 @@ namespace datalog {
         }
         counter ctr;
         ctr.count(joined_col_cnt, tgt_cols);
-        if (ctr.get_max_counter_value()>1 || (joined_col_cnt && ctr.get_max_positive()!=joined_col_cnt-1)) {
+        if (ctr.get_max_counter_value()>1 || (joined_col_cnt && ctr.get_max_positive().value_or(0)!=joined_col_cnt-1)) {
             return nullptr;
         }
         return alloc(intersection_filter_fn, *this);
@@ -712,21 +712,21 @@ namespace datalog {
     rule * mk_explanations::get_e_rule(rule * r) {
         rule_counter ctr;
         ctr.count_rule_vars(r);
-        unsigned max_var;
-        unsigned next_var = ctr.get_max_positive(max_var) ? (max_var+1) : 0;
+        auto max_var = ctr.get_max_positive();
+        unsigned next_var = max_var.has_value() ? (*max_var + 1) : 0;
         unsigned head_var = next_var++;
         app_ref e_head(get_e_lit(r->get_head(), head_var), m_manager);
 
         app_ref_vector e_tail(m_manager);
         bool_vector neg_flags;
         unsigned pos_tail_sz = r->get_positive_tail_size();
-        for (unsigned i=0; i<pos_tail_sz; i++) {
+        for (unsigned i=0; i<pos_tail_sz; ++i) {
             unsigned e_var = next_var++;
             e_tail.push_back(get_e_lit(r->get_tail(i), e_var));
             neg_flags.push_back(false);
         }
         unsigned tail_sz = r->get_tail_size();
-        for (unsigned i=pos_tail_sz; i<tail_sz; i++) {
+        for (unsigned i=pos_tail_sz; i<tail_sz; ++i) {
             e_tail.push_back(r->get_tail(i));
             neg_flags.push_back(r->is_neg_tail(i));
         }
@@ -734,7 +734,7 @@ namespace datalog {
         symbol rule_repr = get_rule_symbol(r);
 
         expr_ref_vector rule_expr_args(m_manager);
-        for (unsigned tail_idx=0; tail_idx<pos_tail_sz; tail_idx++) {
+        for (unsigned tail_idx=0; tail_idx<pos_tail_sz; ++tail_idx) {
             app * tail = e_tail.get(tail_idx);
             if (true || m_relation_level) {
                 //this adds the explanation term of the tail
@@ -776,7 +776,7 @@ namespace datalog {
 
             lit_args.reset();
             unsigned arity = orig_decl->get_arity();
-            for (unsigned i=0; i<arity; i++) {
+            for (unsigned i=0; i<arity; ++i) {
                 lit_args.push_back(m_manager.mk_var(i, orig_decl->get_domain(i)));
             }
             app_ref orig_lit(m_manager.mk_app(orig_decl, lit_args.data()), m_manager);
@@ -837,8 +837,8 @@ namespace datalog {
             SASSERT(&expl_singleton->get_plugin()==m_er_plugin);
             m_e_fact_relation = static_cast<explanation_relation *>(expl_singleton);
         }
-        func_decl_set predicates(m_context.get_predicates());
-        for (func_decl* orig_decl : predicates) {
+
+        for (func_decl* orig_decl : m_context.get_predicates()) {
             TRACE(dl, tout << mk_pp(orig_decl, m_manager) << "\n";);
             func_decl * e_decl = get_e_decl(orig_decl);
 

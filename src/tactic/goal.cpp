@@ -197,7 +197,7 @@ void goal::quick_process(bool save_first, expr_ref& f, expr_dependency * d) {
 
 void goal::process_and(bool save_first, app * f, proof * pr, expr_dependency * d, expr_ref & out_f, proof_ref & out_pr) {
     unsigned num = f->get_num_args();
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         if (m_inconsistent)
             return;
         slow_process(save_first && i == 0, f->get_arg(i), m().mk_and_elim(pr, i), d, out_f, out_pr);
@@ -206,7 +206,7 @@ void goal::process_and(bool save_first, app * f, proof * pr, expr_dependency * d
 
 void goal::process_not_or(bool save_first, app * f, proof * pr, expr_dependency * d, expr_ref & out_f, proof_ref & out_pr) {
     unsigned num = f->get_num_args();
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         if (m_inconsistent)
             return;
         expr * child = f->get_arg(i);
@@ -269,14 +269,14 @@ void goal::assert_expr(expr * f, expr_dependency * d) {
 
 void goal::get_formulas(ptr_vector<expr> & result) const {
     unsigned sz = size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         result.push_back(form(i));
     }
 }
 
 void goal::get_formulas(expr_ref_vector & result) const {
     unsigned sz = size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         result.push_back(form(i));
     }
 }
@@ -342,7 +342,7 @@ void goal::reset() {
 void goal::display(ast_printer & prn, std::ostream & out) const {
     out << "(goal";
     unsigned sz = size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         out << "\n  ";
         prn.display(out, form(i), 2);
     }
@@ -354,7 +354,7 @@ void goal::display_with_dependencies(ast_printer & prn, std::ostream & out) cons
     obj_hashtable<expr> to_pp;
     out << "(goal";
     unsigned sz = size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         out << "\n  |-";
         deps.reset();
         m().linearize(dep(i), deps);
@@ -386,7 +386,7 @@ void goal::display_with_dependencies(std::ostream & out) const {
     ptr_vector<expr> deps;
     out << "(goal";
     unsigned sz = size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         out << "\n  |-";
         deps.reset();
         m().linearize(dep(i), deps);
@@ -407,7 +407,7 @@ void goal::display_with_dependencies(std::ostream & out) const {
 void goal::display_with_proofs(std::ostream& out) const {
     out << "(goal";
     unsigned sz = size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         out << "\n  |-";
         if (pr(i)) {
             out << mk_ismt2_pp(pr(i), m(), 4);
@@ -428,7 +428,7 @@ void goal::display_with_dependencies(ast_printer_context & ctx) const {
 void goal::display(std::ostream & out) const {
     out << "(goal";
     unsigned sz = size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         out << "\n  ";
         out << mk_ismt2_pp(form(i), m(), 2);
     }
@@ -438,16 +438,16 @@ void goal::display(std::ostream & out) const {
 void goal::display_as_and(std::ostream & out) const {
     ptr_buffer<expr> args;
     unsigned sz = size();
-    for (unsigned i = 0; i < sz; i++)
+    for (unsigned i = 0; i < sz; ++i)
         args.push_back(form(i));
     expr_ref tmp(m());
-    tmp = m().mk_and(args.size(), args.data());
+    tmp = m().mk_and(std::span<expr* const>(args.data(), args.size()));
     out << mk_ismt2_pp(tmp, m()) << "\n";
 }
 
 void goal::display_ll(std::ostream & out) const {
     unsigned sz = size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         out << mk_ll_pp(form(i), m()) << "\n";
     }
 }
@@ -465,7 +465,7 @@ unsigned goal::num_exprs() const {
     expr_fast_mark1 visited;
     unsigned sz = size();
     unsigned r  = 0;
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         r += get_num_exprs(form(i), visited);
     }
     return r;
@@ -474,12 +474,12 @@ unsigned goal::num_exprs() const {
 void goal::shrink(unsigned j) {
     SASSERT(j <= size());
     unsigned sz = size();
-    for (unsigned i = j; i < sz; i++)
+    for (unsigned i = j; i < sz; ++i)
         m().pop_back(m_forms);
-    for (unsigned i = j; i < sz; i++)
+    for (unsigned i = j; i < sz; ++i)
         m().pop_back(m_proofs);
     if (unsat_core_enabled()) 
-        for (unsigned i = j; i < sz; i++)
+        for (unsigned i = j; i < sz; ++i)
             m().pop_back(m_dependencies);
 }
 
@@ -511,7 +511,7 @@ void goal::elim_true() {
 */
 unsigned goal::get_idx(expr * f) const {
     unsigned sz = size();
-    for (unsigned j = 0; j < sz; j++) {
+    for (unsigned j = 0; j < sz; ++j) {
         if (form(j) == f)
             return j;
     }
@@ -525,7 +525,7 @@ unsigned goal::get_idx(expr * f) const {
 unsigned goal::get_not_idx(expr * f) const {
     expr * atom;
     unsigned sz = size();
-    for (unsigned j = 0; j < sz; j++) {
+    for (unsigned j = 0; j < sz; ++j) {
         if (m().is_not(form(j), atom) && atom == f)
             return j;
     }
@@ -539,7 +539,7 @@ void goal::elim_redundancies() {
     expr_ref_fast_mark2 pos_lits(m());
     unsigned sz = size();
     unsigned j = 0;
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr * f = form(i);
         if (m().is_true(f))
             continue;
@@ -549,10 +549,8 @@ void goal::elim_redundancies() {
                 continue;
             if (pos_lits.is_marked(atom)) {
                 proof * p = nullptr;
-                if (proofs_enabled()) {
-                    proof * prs[2] = { pr(get_idx(atom)), pr(i) };
-                    p = m().mk_unit_resolution(2, prs);
-                }
+                if (proofs_enabled())
+                    p = m().mk_unit_resolution({ pr(get_idx(atom)), pr(i) });
                 expr_dependency_ref d(m());
                 if (unsat_core_enabled())
                     d = m().mk_join(dep(get_idx(atom)), dep(i));
@@ -566,10 +564,8 @@ void goal::elim_redundancies() {
                 continue;
             if (neg_lits.is_marked(f)) {
                 proof * p = nullptr;
-                if (proofs_enabled()) {
-                    proof * prs[2] = { pr(get_not_idx(f)), pr(i) };
-                    p = m().mk_unit_resolution(2, prs);
-                }
+                if (proofs_enabled())
+                    p = m().mk_unit_resolution({ pr(get_not_idx(f)), pr(i) });
                 expr_dependency_ref d(m());
                 if (unsat_core_enabled())
                     d = m().mk_join(dep(get_not_idx(f)), dep(i));
@@ -593,7 +589,7 @@ void goal::elim_redundancies() {
 
 bool goal::is_well_formed() const {
     unsigned sz = size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr * t = form(i);
         if (!::is_well_sorted(m(), t))
             return false;
@@ -618,7 +614,7 @@ goal * goal::translate(ast_translation & translator) const {
     goal * res = alloc(goal, m_to, m_to.proofs_enabled() && proofs_enabled(), models_enabled(), unsat_core_enabled());
 
     unsigned sz = m().size(m_forms);
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         res->m().push_back(res->m_forms, translator(m().get(m_forms, i)));
         res->m().push_back(res->m_proofs, translator(m().get(m_proofs, i)));
         if (res->unsat_core_enabled())
@@ -663,7 +659,7 @@ bool is_equal(goal const & s1, goal const & s2) {
     expr_fast_mark1 visited1;
     expr_fast_mark2 visited2;
     unsigned sz = s1.size();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr * f1 = s1.form(i);
         if (visited1.is_marked(f1))
             continue;
@@ -672,7 +668,7 @@ bool is_equal(goal const & s1, goal const & s2) {
     }
     SASSERT(num1 <= sz);
     SASSERT(0 <= num1);
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         expr * f2 = s2.form(i);
         if (visited2.is_marked(f2))
             continue;
@@ -688,7 +684,7 @@ bool is_equal(goal const & s1, goal const & s2) {
 }
 
 bool goal::is_cnf() const {
-    for (unsigned i = 0; i < size(); i++) {
+    for (unsigned i = 0; i < size(); ++i) {
         expr * f = form(i);
         if (m_manager.is_or(f)) {
             for (expr* lit : *to_app(f)) 

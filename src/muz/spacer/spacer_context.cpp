@@ -654,7 +654,7 @@ void lemma::add_binding(app_ref_vector const &binding) {
 
         TRACE(spacer,
               tout << "new binding: ";
-              for (unsigned i = 0; i < binding.size(); i++)
+              for (unsigned i = 0; i < binding.size(); ++i)
                   tout << mk_pp(binding.get(i), m) <<  " ";
               tout << "\n";);
     }
@@ -906,7 +906,7 @@ const datalog::rule *pred_transformer::find_rule(model &model,
             num_reuse_reach = 0;
             reach_pred_used.reset();
             unsigned tail_sz = r->get_uninterpreted_tail_size();
-            for (unsigned i = 0; i < tail_sz; i++) {
+            for (unsigned i = 0; i < tail_sz; ++i) {
                 bool used = false;
                 func_decl* d = r->get_tail(i)->get_decl();
                 const pred_transformer &pt = ctx.get_pred_transformer(d);
@@ -935,7 +935,7 @@ void pred_transformer::find_predecessors(datalog::rule const& r, ptr_vector<func
 {
     preds.reset();
     unsigned tail_sz = r.get_uninterpreted_tail_size();
-    for (unsigned ti = 0; ti < tail_sz; ti++) {
+    for (unsigned ti = 0; ti < tail_sz; ++ti) {
         preds.push_back(r.get_tail(ti)->get_decl());
     }
 }
@@ -1009,7 +1009,7 @@ void pred_transformer::add_lemma_from_child (pred_transformer& child,
             ground_expr(to_quantifier(l)->get_expr(), grnd_lemma, tmp);
             inst.push_back(grnd_lemma);
         }
-        for (unsigned j=0; j < inst.size(); j++) {
+        for (unsigned j=0; j < inst.size(); ++j) {
             inst.set(j, m.mk_implies(a, inst.get(j)));
         }
         if (lemma->is_ground() || (get_context().use_qlemmas() && !ground_only)) {
@@ -1256,7 +1256,7 @@ void pred_transformer::get_pred_bg_invs(expr_ref_vector& out) {
         datalog::rule const &r = kv.m_value->rule();
         find_predecessors (r, preds);
 
-        for (unsigned i = 0, preds_sz = preds.size(); i < preds_sz; i++) {
+        for (unsigned i = 0, preds_sz = preds.size(); i < preds_sz; ++i) {
             func_decl* pre = preds[i];
             pred_transformer &pt = ctx.get_pred_transformer(pre);
             const lemma_ref_vector &invs = pt.get_bg_invs();
@@ -1389,7 +1389,7 @@ lbool pred_transformer::is_reachable(pob& n, expr_ref_vector* core,
             datalog::rule const* r = &kv.m_value->rule();
             find_predecessors(*r, m_predicates);
             if (m_predicates.empty()) {continue;}
-            for (unsigned i = 0; i < m_predicates.size(); i++) {
+            for (unsigned i = 0; i < m_predicates.size(); ++i) {
                 const pred_transformer &pt =
                     ctx.get_pred_transformer(m_predicates[i]);
                 if (pt.has_rfs()) {
@@ -1578,7 +1578,7 @@ void pred_transformer::mk_assumptions(func_decl* head, expr* fml,
         expr* tag = kv.m_value->tag();
         datalog::rule const& r = kv.m_value->rule();
         find_predecessors(r, m_predicates);
-        for (unsigned i = 0; i < m_predicates.size(); i++) {
+        for (unsigned i = 0; i < m_predicates.size(); ++i) {
             func_decl* d = m_predicates[i];
             if (d == head) {
                 tmp1 = m.mk_implies(tag, fml);
@@ -1767,7 +1767,7 @@ void pred_transformer::init_atom(decl2rel const &pts, app *atom,
     unsigned arity = atom->get_num_args();
     func_decl* head = atom->get_decl();
     pred_transformer& pt = *pts.find(head);
-    for (unsigned i = 0; i < arity; i++) {
+    for (unsigned i = 0; i < arity; ++i) {
         app_ref rep(m);
 
         if (tail_idx == UINT_MAX) {
@@ -1969,8 +1969,7 @@ void pred_transformer::update_solver_with_rfs(prop_solver *solver,
             e = m.mk_or(m.mk_not(rule_tag), rf->get(), rf->tag());
         }
         else {
-            expr *args[4] = { not_rule_tag, last_tag, rf->get(), rf->tag() };
-            e = m.mk_or(4, args);
+            e = m.mk_or(not_rule_tag, last_tag, rf->get(), rf->tag());
         }
         last_tag = m.mk_not(rf->tag());
         pm.formula_n2o(e.get(), e, pos);
@@ -2592,7 +2591,7 @@ bool context::validate() {
                 for (unsigned j = utsz; j < tsz; ++j) {
                     fmls.push_back(r.get_tail(j));
                 }
-                tmp = m.mk_and(fmls.size(), fmls.data());
+                tmp = m.mk_and(fmls);
                 svector<symbol> names;
                 expr_free_vars fv;
                 fv (tmp);
@@ -2837,17 +2836,17 @@ unsigned context::get_cex_depth()
     SASSERT (preds.size () == 1);
     pts.push_back (&(get_pred_transformer (preds[0])));
 
-    pts.push_back (NULL); // cex depth marker
+    pts.push_back (nullptr); // cex depth marker
 
     // bfs traversal of the query derivation tree
-    for (unsigned curr = 0; curr < pts.size (); curr++) {
+    for (unsigned curr = 0; curr < pts.size (); ++curr) {
         // get current pt and fact
         pt = pts.get (curr);
         // check for depth marker
         if (pt == nullptr) {
             ++cex_depth;
             // insert new marker if there are pts at higher depth
-            if (curr + 1 < pts.size()) { pts.push_back(NULL); }
+            if (curr + 1 < pts.size()) { pts.push_back(nullptr); }
             continue;
         }
         fact = facts.get (curr - cex_depth); // discount the number of markers
@@ -2859,7 +2858,7 @@ unsigned context::get_cex_depth()
         // add child facts and pts
         facts.append (fact->get_justifications ());
         pt->find_predecessors (*r, preds);
-        for (unsigned j = 0; j < preds.size (); j++) {
+        for (unsigned j = 0; j < preds.size (); ++j) {
             pts.push_back (&(get_pred_transformer (preds[j])));
         }
     }
@@ -2915,7 +2914,7 @@ void context::get_rules_along_trace(datalog::rule_ref_vector& rules)
     pts.push_back (&(get_pred_transformer (preds[0])));
 
     // populate rules according to a preorder traversal of the query derivation tree
-    for (unsigned curr = 0; curr < pts.size (); curr++) {
+    for (unsigned curr = 0; curr < pts.size (); ++curr) {
         // get current pt and fact
         pt = pts.get (curr);
         fact = facts.get (curr);
@@ -2928,7 +2927,7 @@ void context::get_rules_along_trace(datalog::rule_ref_vector& rules)
         // add child facts and pts
         facts.append (fact->get_justifications ());
         pt->find_predecessors (*r, preds);
-        for (unsigned j = 0; j < preds.size (); j++) {
+        for (unsigned j = 0; j < preds.size (); ++j) {
             pts.push_back (&(get_pred_transformer (preds[j])));
         }
     }
@@ -3063,7 +3062,7 @@ lbool context::solve_core (unsigned from_lvl)
             return l_false;
         }
 
-        for (unsigned i = 0; i < m_callbacks.size(); i++){
+        for (unsigned i = 0; i < m_callbacks.size(); ++i){
             if (m_callbacks[i]->unfold())
                 m_callbacks[i]->unfold_eh();
         }
@@ -3398,7 +3397,7 @@ bool context::is_reachable(pob &n)
 
 void context::predecessor_eh()
 {
-    for (unsigned i = 0; i < m_callbacks.size(); i++) {
+    for (unsigned i = 0; i < m_callbacks.size(); ++i) {
         if (m_callbacks[i]->predecessor())
             m_callbacks[i]->predecessor_eh();
     }
@@ -3419,7 +3418,7 @@ bool pred_transformer::mk_mdl_rf_consistent(const datalog::rule *r,
     SASSERT(r != nullptr);
     ptr_vector<func_decl> preds;
     find_predecessors(*r, preds);
-    for (unsigned i = 0; i < preds.size(); i++) {
+    for (unsigned i = 0; i < preds.size(); ++i) {
         func_decl *pred = preds[i];
         bool atleast_one_true = false;
         pred_transformer &ch_pt = ctx.get_pred_transformer(pred);
@@ -3871,7 +3870,7 @@ bool context::propagate(unsigned min_prop_lvl,
     log_propagate();
 
 
-    for (unsigned lvl = min_prop_lvl; lvl <= full_prop_lvl; lvl++) {
+    for (unsigned lvl = min_prop_lvl; lvl <= full_prop_lvl; ++lvl) {
         IF_VERBOSE (1,
                     if (lvl > max_prop_lvl && lvl == max_prop_lvl + 1)
                         verbose_stream () << " ! ";
@@ -3932,7 +3931,7 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
     path_cons.push_back (get_transition (r));
     app_ref_vector vars (m);
 
-    for (unsigned i = 0; i < preds.size (); i++) {
+    for (unsigned i = 0; i < preds.size (); ++i) {
         func_decl* pred = preds[i];
         pred_transformer& ch_pt = ctx.get_pred_transformer (pred);
         // get a reach fact of body preds used in the model
@@ -3942,7 +3941,7 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
         pm.formula_n2o (kid->get (), o_ch_reach, i);
         path_cons.push_back (o_ch_reach);
         // collect o-vars to eliminate
-        for (unsigned j = 0; j < pred->get_arity (); j++)
+        for (unsigned j = 0; j < pred->get_arity (); ++j)
         { vars.push_back(m.mk_const(pm.o2o(ch_pt.sig(j), 0, i))); }
 
         const ptr_vector<app> &v = kid->aux_vars ();
@@ -4227,7 +4226,7 @@ bool context::check_invariant(unsigned lvl, func_decl* fn)
     if (m.is_true(inv)) { return true; }
     pt.add_premises(m_rels, lvl, conj);
     conj.push_back(m.mk_not(inv));
-    expr_ref fml(m.mk_and(conj.size(), conj.data()), m);
+    expr_ref fml(m.mk_and(conj), m);
     ctx->assert_expr(fml);
     lbool result = ctx->check_sat(0, nullptr);
     TRACE(spacer, tout << "Check invariant level: " << lvl << " " << result
@@ -4285,7 +4284,7 @@ void context::add_constraint (expr *c, unsigned level)
 
 void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
     bool handle=false;
-    for (unsigned i = 0; i < m_callbacks.size(); i++) {
+    for (unsigned i = 0; i < m_callbacks.size(); ++i) {
         handle|=m_callbacks[i]->new_lemma();
     }
     if (!handle)
@@ -4298,7 +4297,7 @@ void context::new_lemma_eh(pred_transformer &pt, lemma *lem) {
         }
         expr *app = m.mk_app(pt.head(), pt.sig_size(), args.data());
         expr *lemma = m.mk_implies(app, lem->get_expr());
-        for (unsigned i = 0; i < m_callbacks.size(); i++) {
+        for (unsigned i = 0; i < m_callbacks.size(); ++i) {
             if (m_callbacks[i]->new_lemma())
                 m_callbacks[i]->new_lemma_eh(lemma, lem->level());
         }

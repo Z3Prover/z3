@@ -1,0 +1,792 @@
+name: Release Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_github:
+        description: 'Publish to GitHub Releases'
+        required: false
+        type: boolean
+        default: true
+      publish_nuget:
+        description: 'Publish to NuGet.org'
+        required: false
+        type: boolean
+        default: false
+      publish_pypi:
+        description: 'Publish to PyPI'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_VERSION: '4.17.0'
+
+jobs:
+  # ============================================================================
+  # BUILD STAGE
+  # ============================================================================
+  
+  mac-build-x64:
+    name: "Mac Build x64"
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Build
+        run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=x64
+      
+      - name: Clone z3test
+        run: git clone https://github.com/z3prover/z3test z3test
+      
+      - name: Test
+        run: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: macOsBuild
+          path: dist/*.zip
+          retention-days: 7
+
+  mac-build-arm64:
+    name: "Mac ARM64 Build"
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Build
+        run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=arm64
+      
+      - name: Clone z3test
+        run: git clone https://github.com/z3prover/z3test z3test
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: MacArm64
+          path: dist/*.zip
+          retention-days: 7
+
+  # ============================================================================
+  # VALIDATION STAGE
+  # ============================================================================
+
+  validate-macos-headerpad-x64:
+    name: "Validate macOS x64 dylib headerpad"
+    needs: [mac-build-x64]
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download macOS x64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: macOsBuild
+          path: artifacts
+      
+      - name: Extract build
+        run: |
+          cd artifacts
+          unzip z3-*-x64-osx*.zip
+          Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
+          echo "Z3_DIR=$Z3_DIR" >> $GITHUB_ENV
+      
+      - name: Test install_name_tool with headerpad
+        run: |
+          cd artifacts/$Z3_DIR/bin
+          
+          # Get the original install name
+          ORIGINAL_NAME=$(otool -D libz3.dylib | tail -n 1)
+          echo "Original install name: $ORIGINAL_NAME"
+          
+          # Create a test path with same length as typical setup-z3 usage
+          # This simulates what setup-z3 does: changing to absolute path
+          TEST_PATH="/Users/runner/hostedtoolcache/z3/latest/x64/z3-test-dir/bin/libz3.dylib"
+          
+          # Try to change the install name - this will fail if headerpad is insufficient
+          install_name_tool -id "$TEST_PATH" -change "$ORIGINAL_NAME" "$TEST_PATH" libz3.dylib
+          
+          # Verify the change was successful
+          NEW_NAME=$(otool -D libz3.dylib | tail -n 1)
+          echo "New install name: $NEW_NAME"
+          
+          if [ "$NEW_NAME" = "$TEST_PATH" ]; then
+            echo "✓ install_name_tool succeeded - headerpad is sufficient"
+          else
+            echo "✗ install_name_tool failed to update install name"
+            exit 1
+          fi
+
+  validate-macos-headerpad-arm64:
+    name: "Validate macOS ARM64 dylib headerpad"
+    needs: [mac-build-arm64]
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download macOS ARM64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: MacArm64
+          path: artifacts
+      
+      - name: Extract build
+        run: |
+          cd artifacts
+          unzip z3-*-arm64-osx*.zip
+          Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
+          echo "Z3_DIR=$Z3_DIR" >> $GITHUB_ENV
+      
+      - name: Test install_name_tool with headerpad
+        run: |
+          cd artifacts/$Z3_DIR/bin
+          
+          # Get the original install name
+          ORIGINAL_NAME=$(otool -D libz3.dylib | tail -n 1)
+          echo "Original install name: $ORIGINAL_NAME"
+          
+          # Create a test path with same length as typical setup-z3 usage
+          # This simulates what setup-z3 does: changing to absolute path
+          TEST_PATH="/Users/runner/hostedtoolcache/z3/latest/arm64/z3-test-dir/bin/libz3.dylib"
+          
+          # Try to change the install name - this will fail if headerpad is insufficient
+          install_name_tool -id "$TEST_PATH" -change "$ORIGINAL_NAME" "$TEST_PATH" libz3.dylib
+          
+          # Verify the change was successful
+          NEW_NAME=$(otool -D libz3.dylib | tail -n 1)
+          echo "New install name: $NEW_NAME"
+          
+          if [ "$NEW_NAME" = "$TEST_PATH" ]; then
+            echo "✓ install_name_tool succeeded - headerpad is sufficient"
+          else
+            echo "✗ install_name_tool failed to update install name"
+            exit 1
+          fi
+
+  ubuntu-build:
+    name: "Ubuntu build"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Build
+        run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk
+      
+      - name: Clone z3test
+        run: git clone https://github.com/z3prover/z3test z3test
+      
+      - name: Test
+        run: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: UbuntuBuild
+          path: dist/*.zip
+          retention-days: 7
+
+  ubuntu-arm64:
+    name: "Ubuntu ARM64 build"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download ARM toolchain
+        run: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz'
+      
+      - name: Extract ARM toolchain
+        run: |
+          mkdir -p /tmp/arm-toolchain/
+          tar xf /tmp/arm-toolchain.tar.xz -C /tmp/arm-toolchain/ --strip-components=1
+      
+      - name: Build
+        run: |
+          export PATH="/tmp/arm-toolchain/bin:/tmp/arm-toolchain/aarch64-none-linux-gnu/libc/usr/bin:$PATH"
+          echo $PATH
+          stat /tmp/arm-toolchain/bin/aarch64-none-linux-gnu-gcc
+          python scripts/mk_unix_dist.py --nodotnet --arch=arm64
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: UbuntuArm64
+          path: dist/*.zip
+          retention-days: 7
+
+  ubuntu-doc:
+    name: "Ubuntu Doc build"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Install dependencies
+        run: |
+          pip3 install importlib-resources
+          sudo apt-get update
+          sudo apt-get install -y ocaml opam libgmp-dev doxygen graphviz
+      
+      - name: Setup OCaml
+        run: |
+          opam init -y
+          eval $(opam config env)
+          opam install zarith ocamlfind -y
+      
+      - name: Build
+        run: |
+          eval $(opam config env)
+          python scripts/mk_make.py --ml
+          cd build
+          make -j3
+          make -j3 examples
+          make -j3 test-z3
+          cd ..
+      
+      - name: Generate documentation
+        run: |
+          eval $(opam config env)
+          cd doc
+          python3 mk_api_doc.py --mld --z3py-package-path=../build/python/z3
+          python3 mk_params_doc.py
+          mkdir -p api/html/ml
+          ocamldoc -html -d api/html/ml -sort -hide Z3 -I $(ocamlfind query zarith) -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
+          cd ..
+      
+      - name: Create documentation archive
+        run: zip -r z3doc.zip doc/api
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: UbuntuDoc
+          path: z3doc.zip
+          retention-days: 7
+
+  manylinux-python-amd64:
+    name: "Python bindings (manylinux AMD64)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container: quay.io/pypa/manylinux_2_28_x86_64:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python environment
+        run: |
+          /opt/python/cp38-cp38/bin/python -m venv $PWD/env
+          echo "$PWD/env/bin" >> $GITHUB_PATH
+      
+      - name: Install build tools
+        run: pip install build git+https://github.com/rhelmot/auditwheel
+      
+      - name: Build wheels
+        run: cd src/api/python && python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../..
+      
+      - name: Test wheels
+        run: pip install ./src/api/python/wheelhouse/*.whl && python - <src/api/python/z3test.py z3 && python - <src/api/python/z3test.py z3num
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ManyLinuxPythonBuildAMD64
+          path: src/api/python/wheelhouse/*.whl
+          retention-days: 7
+
+  manylinux-python-arm64:
+    name: "Python bindings (manylinux ARM64 cross)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container: quay.io/pypa/manylinux_2_28_x86_64:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download ARM toolchain
+        run: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz'
+      
+      - name: Extract ARM toolchain
+        run: |
+          mkdir -p /tmp/arm-toolchain/
+          tar xf /tmp/arm-toolchain.tar.xz -C /tmp/arm-toolchain/ --strip-components=1
+      
+      - name: Setup Python environment
+        run: |
+          /opt/python/cp38-cp38/bin/python -m venv $PWD/env
+          echo "$PWD/env/bin" >> $GITHUB_PATH
+          echo "/tmp/arm-toolchain/bin" >> $GITHUB_PATH
+          echo "/tmp/arm-toolchain/aarch64-none-linux-gnu/libc/usr/bin" >> $GITHUB_PATH
+      
+      - name: Install build tools
+        run: |
+          echo $PATH
+          stat $(which aarch64-none-linux-gnu-gcc)
+          pip install build git+https://github.com/rhelmot/auditwheel
+      
+      - name: Build wheels
+        run: cd src/api/python && CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld Z3_CROSS_COMPILING=aarch64 python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../..
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: ManyLinuxPythonBuildArm64
+          path: src/api/python/wheelhouse/*.whl
+          retention-days: 7
+
+  windows-build-x64:
+    name: "Windows x64 build"
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Build
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --zip
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: WindowsBuild-x64
+          path: dist/*.zip
+          retention-days: 7
+
+  windows-build-x86:
+    name: "Windows x86 build"
+    runs-on: windows-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Build
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
+          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --zip
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: WindowsBuild-x86
+          path: dist/*.zip
+          retention-days: 7
+
+  windows-build-arm64:
+    name: "Windows ARM64 build"
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Build
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64_arm64
+          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ env.RELEASE_VERSION }} --zip
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: WindowsBuild-arm64
+          path: dist/arm64/*.zip
+          retention-days: 7
+
+  # ============================================================================
+  # PACKAGE STAGE
+  # ============================================================================
+  
+  nuget-package-x64:
+    name: "NuGet 64 packaging"
+    needs: [windows-build-x64, windows-build-arm64, ubuntu-build, ubuntu-arm64, mac-build-x64, mac-build-arm64]
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download Win64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: WindowsBuild-x64
+          path: package
+      
+      - name: Download Win ARM64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: WindowsBuild-arm64
+          path: package
+      
+      - name: Download Ubuntu Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: UbuntuBuild
+          path: package
+      
+      - name: Download Ubuntu ARM64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: UbuntuArm64
+          path: package
+      
+      - name: Download macOS Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: macOsBuild
+          path: package
+      
+      - name: Download macOS Arm64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: MacArm64
+          path: package
+      
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+        with:
+          nuget-version: 'latest'
+      
+      - name: Assemble NuGet package
+        shell: cmd
+        run: |
+          cd package
+          python ..\scripts\mk_nuget_task.py . ${{ env.RELEASE_VERSION }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols
+      
+      - name: Pack NuGet package
+        shell: cmd
+        run: |
+          cd package
+          nuget pack out\Microsoft.Z3.sym.nuspec -OutputDirectory . -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath out
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: NuGet
+          path: |
+            package/*.nupkg
+            package/*.snupkg
+          retention-days: 7
+
+  nuget-package-x86:
+    name: "NuGet 32 packaging"
+    needs: [windows-build-x86]
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: WindowsBuild-x86
+          path: package
+      
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+        with:
+          nuget-version: 'latest'
+      
+      - name: Assemble NuGet package
+        shell: cmd
+        run: |
+          cd package
+          python ..\scripts\mk_nuget_task.py . ${{ env.RELEASE_VERSION }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols x86
+      
+      - name: Pack NuGet package
+        shell: cmd
+        run: |
+          cd package
+          nuget pack out\Microsoft.Z3.x86.sym.nuspec -OutputDirectory . -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath out
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: NuGet32
+          path: |
+            package/*.nupkg
+            package/*.snupkg
+          retention-days: 7
+
+  python-package:
+    name: "Python packaging"
+    needs: [mac-build-x64, mac-build-arm64, windows-build-x64, windows-build-x86, windows-build-arm64, manylinux-python-amd64, manylinux-python-arm64]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download macOS x64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: macOsBuild
+          path: artifacts
+      
+      - name: Download macOS Arm64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: MacArm64
+          path: artifacts
+      
+      - name: Download Win64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: WindowsBuild-x64
+          path: artifacts
+      
+      - name: Download Win32 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: WindowsBuild-x86
+          path: artifacts
+      
+      - name: Download Win ARM64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: WindowsBuild-arm64
+          path: artifacts
+      
+      - name: Download ManyLinux AMD64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: ManyLinuxPythonBuildAMD64
+          path: artifacts
+      
+      - name: Download ManyLinux Arm64 Build
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: ManyLinuxPythonBuildArm64
+          path: artifacts
+      
+      - name: Extract builds
+        run: |
+          cd artifacts
+          ls
+          mkdir -p osx-x64-bin osx-arm64-bin win32-bin win64-bin win-arm64-bin
+          cd osx-x64-bin && unzip ../z3-*-x64-osx*.zip && cd ..
+          cd osx-arm64-bin && unzip ../z3-*-arm64-osx*.zip && cd ..
+          cd win32-bin && unzip ../z3-*-x86-win*.zip && cd ..
+          cd win64-bin && unzip ../z3-*-x64-win*.zip && cd ..
+          cd win-arm64-bin && unzip ../z3-*-arm64-win*.zip && cd ..
+      
+      - name: Build Python packages
+        run: |
+          python3 -m pip install --user -U setuptools
+          cd src/api/python
+          python3 setup.py sdist
+          echo $PWD/../../../artifacts/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+          echo $PWD/../../../artifacts/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+          echo $PWD/../../../artifacts/win-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+          echo $PWD/../../../artifacts/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+          echo $PWD/../../../artifacts/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+
+      - name: Copy Linux Python packages
+        run: |          
+          cp artifacts/*.whl src/api/python/dist/.
+            
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: PythonPackage
+          path: src/api/python/dist/*
+          retention-days: 7
+
+  # ============================================================================
+  # PUBLISH STAGE
+  # ============================================================================
+  
+  publish-github:
+    name: "Publish to GitHub Releases"
+    if: ${{ github.event.inputs.publish_github == 'true' }}
+    needs: [
+      windows-build-x86,
+      windows-build-x64,
+      windows-build-arm64,
+      mac-build-x64,
+      mac-build-arm64,
+      ubuntu-build,
+      ubuntu-arm64,
+      ubuntu-doc,
+      python-package,
+      nuget-package-x64,
+      nuget-package-x86,
+      validate-macos-headerpad-x64,
+      validate-macos-headerpad-arm64
+    ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v7.0.0
+        with:
+          path: tmp
+      
+      - name: Display structure of downloaded files
+        run: ls -R tmp
+      
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+
+          ls
+          find tmp -type f \( -name "*.zip" -o -name "*.whl" -o -name "*.tar.gz" -o -name "*.nupkg" -o -name "*.snupkg" \) -print0 > release_files.txt
+          
+          # Deduplicate files - keep only first occurrence of each basename
+          # Use NUL-delimited input/output to handle spaces in filenames safely
+          declare -A seen_basenames
+          declare -a unique_files
+          
+          while IFS= read -r -d $'\0' filepath || [ -n "$filepath" ]; do
+            [ -z "$filepath" ] && continue
+            basename="${filepath##*/}"
+            
+            # Keep only first occurrence of each basename
+            if [ -z "${seen_basenames[$basename]}" ]; then
+              seen_basenames[$basename]=1
+              unique_files+=("$filepath")
+            fi
+          done < release_files.txt
+
+          # Create release with properly quoted file arguments
+          if [ ${#unique_files[@]} -gt 0 ]; then
+            gh release create z3-${{ env.RELEASE_VERSION }} \
+              --title "z3-${{ env.RELEASE_VERSION }}" \
+              --notes "${{ env.RELEASE_VERSION }} release" \
+              --draft \
+              --prerelease \
+              --target ${{ github.sha }} \
+                 "${unique_files[@]}"
+          else
+            echo "No files to release after deduplication"
+            exit 1
+          fi
+          
+
+  publish-nuget:
+    name: "Publish to NuGet.org"
+    if: ${{ github.event.inputs.publish_nuget == 'true' }}
+    needs: [nuget-package-x64, nuget-package-x86]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download NuGet packages
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: NuGet
+          path: packages
+      
+      - name: Download NuGet32 packages
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: NuGet32
+          path: packages
+      
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+        with:
+          nuget-version: 'latest'
+      
+      - name: Publish to NuGet
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          nuget push packages/*.nupkg -Source https://api.nuget.org/v3/index.json -ApiKey $NUGET_API_KEY
+
+  publish-pypi:
+    name: "Publish to PyPI"
+    if: ${{ github.event.inputs.publish_pypi == 'true' }}
+    needs: [python-package]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download Python packages
+        uses: actions/download-artifact@v7.0.0
+        with:
+          name: PythonPackage
+          path: dist
+      
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist

@@ -1,6 +1,6 @@
 module(
     name = "z3",
-    version = "4.15.5",  # TODO: Read from VERSION.txt - currently manual sync required
+    version = "4.17.0",  # TODO: Read from VERSION.txt - currently manual sync required
     bazel_compatibility = [">=7.0.0"],
 )
 

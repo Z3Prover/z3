@@ -16,7 +16,7 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
                     unsigned dst_sz, unsigned const * dst, bool trace = true) {
     if (trace) {
         std::cout << "shl({";
-        for (unsigned i = 0; i < src_sz; i++) {
+        for (unsigned i = 0; i < src_sz; ++i) {
             if (i > 0) std::cout << ", ";
             std::cout << src[i];
         }
@@ -24,20 +24,20 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
     }
     svector<unsigned> actual_dst;
     actual_dst.resize(dst_sz, 0xAAAAAAAA);
-    for (unsigned sz = 1; sz <= dst_sz; sz++) {
+    for (unsigned sz = 1; sz <= dst_sz; ++sz) {
         if (trace)
             std::cout << "  for sz = " << sz << std::endl;
-        shl(src_sz, src, k, sz, actual_dst.data());
-        ENSURE(!has_one_at_first_k_bits(sz, actual_dst.data(), k));
-        for (unsigned i = 0; i < sz; i++) {
+        shl(std::span<unsigned const>(src, src_sz), k, std::span<unsigned>(actual_dst.data(), sz));
+        ENSURE(!has_one_at_first_k_bits(std::span<unsigned const>(actual_dst.data(), sz), k));
+        for (unsigned i = 0; i < sz; ++i) {
             if (trace && dst[i] != actual_dst[i])
                 std::cout << "UNEXPECTED RESULT at [" << i << "]: " << actual_dst[i] << ", expected: " << dst[i] << "\n";
             ENSURE(dst[i] == actual_dst[i]);
         }
         if (sz == src_sz) {
-            unsigned nz1 = nlz(sz, src);
-            if (nz1 >= k && !is_zero(sz, src)) {
-                unsigned nz2 = nlz(sz, actual_dst.data());
+            unsigned nz1 = nlz(std::span<unsigned const>(src, sz));
+            if (nz1 >= k && !is_zero(std::span<unsigned const>(src, sz))) {
+                unsigned nz2 = nlz(std::span<unsigned const>(actual_dst.data(), sz));
                 if (nz1 - k != nz2) {
                     if (trace)
                         std::cout << "nlz BUG, nlz1: " << nz1 << ", k: " << k << ", nlz2: " << nz2 << std::endl;
@@ -48,8 +48,8 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
         if (sz >= src_sz + (k/32) + 1) {
             svector<unsigned> new_src;
             new_src.resize(sz, 0xAAAAAAAA);
-            shr(sz, actual_dst.data(), k, new_src.data());
-            for (unsigned i = 0; i < src_sz; i++) {
+            shr(std::span<unsigned const>(actual_dst.data(), sz), k, std::span<unsigned>(new_src.data(), sz));
+            for (unsigned i = 0; i < src_sz; ++i) {
                 if (trace && src[i] != new_src[i]) {
                     std::cout << "shr BUG, inverting shl, at bit[" << i << "], " << new_src[i] << ", expected: " << src[i] << std::endl;
                 }
@@ -59,11 +59,11 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
     }
     if (trace)
         std::cout << "  shift by 1, k times" << std::endl;
-    copy(src_sz, src, dst_sz, actual_dst.data());
-    for (unsigned i = 0; i < k; i++) {
-        shl(dst_sz, actual_dst.data(), 1, dst_sz, actual_dst.data());
+    copy(std::span<unsigned const>(src, src_sz), std::span<unsigned>(actual_dst.data(), dst_sz));
+    for (unsigned i = 0; i < k; ++i) {
+        shl(std::span<unsigned const>(actual_dst.data(), dst_sz), 1, std::span<unsigned>(actual_dst.data(), dst_sz));
     }
-    for (unsigned i = 0; i < dst_sz; i++) {
+    for (unsigned i = 0; i < dst_sz; ++i) {
         if (trace && dst[i] != actual_dst[i])
             std::cout << "UNEXPECTED RESULT at [" << i << "]: " << actual_dst[i] << ", expected: " << dst[i] << "\n";
         ENSURE(dst[i] == actual_dst[i]);
@@ -71,8 +71,8 @@ static void tst_shl(unsigned src_sz, unsigned const * src, unsigned k,
     if (src_sz <= dst_sz) {
         if (trace)
             std::cout << "  self-shl" << std::endl;
-        shl(src_sz, src, k, src_sz, const_cast<unsigned*>(src));
-        for (unsigned i = 0; i < src_sz; i++) {
+        shl(std::span<unsigned const>(src, src_sz), k, std::span<unsigned>(const_cast<unsigned*>(src), src_sz));
+        for (unsigned i = 0; i < src_sz; ++i) {
             if (trace && src[i] != dst[i])
                 std::cout << "UNEXPECTED RESULT at [" << i << "]: " << src[i] << ", expected: " << dst[i] << "\n";
             ENSURE(src[i] == actual_dst[i]);
@@ -123,7 +123,7 @@ static void tst_shr(unsigned src_sz, unsigned const * src, unsigned k,
                     unsigned const * dst, bool trace = true) {
     if (trace) {
         std::cout << "shr({";
-        for (unsigned i = 0; i < src_sz; i++) {
+        for (unsigned i = 0; i < src_sz; ++i) {
             if (i > 0) std::cout << ", ";
             std::cout << src[i];
         }
@@ -131,8 +131,8 @@ static void tst_shr(unsigned src_sz, unsigned const * src, unsigned k,
     }
     svector<unsigned> actual_dst;
     actual_dst.resize(src_sz, 0xAAAAAAAA);
-    shr(src_sz, src, k, actual_dst.data());
-    for (unsigned i = 0; i < src_sz; i++) {
+    shr(std::span<unsigned const>(src, src_sz), k, std::span<unsigned>(actual_dst.data(), src_sz));
+    for (unsigned i = 0; i < src_sz; ++i) {
         if (trace && dst[i] != actual_dst[i])
             std::cout << "UNEXPECTED RESULT at [" << i << "]: " << actual_dst[i] << ", expected: " << dst[i] << "\n";
         ENSURE(dst[i] == actual_dst[i]);
@@ -149,7 +149,7 @@ static void tst_shr() {
 static void tst_shl_rand(unsynch_mpz_manager & m, unsigned sz, unsigned k, bool trace = true) {
     // create a random bitvector of of size sz
     svector<unsigned> src;
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         src.push_back(rand());
     }
     // convert src into a mpz number
@@ -181,14 +181,14 @@ static void tst_shl_rand(unsynch_mpz_manager & m, unsigned sz, unsigned k, bool 
         dst.push_back(0);
     dst.push_back(0);
     unsigned word_shift = (k / 32);
-    for (unsigned i = 0; i < word_shift; i++)
+    for (unsigned i = 0; i < word_shift; ++i)
         dst.push_back(0);
     tst_shl(src.size(), src.data(), k, dst.size(), dst.data(), trace);
 }
 
 static void tst_shl_rand(unsigned N, unsigned sz, unsigned k, bool trace = false) {
     unsynch_mpz_manager m;
-    for (unsigned i = 0; i < N; i++) {
+    for (unsigned i = 0; i < N; ++i) {
         unsigned _sz = rand() % sz;
         if (_sz == 0) 
             _sz = 1;

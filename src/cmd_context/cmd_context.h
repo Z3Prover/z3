@@ -97,7 +97,7 @@ public:
 
 class proof_cmds {
 public:
-    virtual ~proof_cmds() {}
+    virtual ~proof_cmds() = default;
     virtual void add_literal(expr* e) = 0;
     virtual void end_assumption() = 0;
     virtual void end_infer() = 0;
@@ -156,10 +156,10 @@ public:
 };
 
 struct builtin_decl {
-    family_id      m_fid;
-    decl_kind      m_decl;
-    builtin_decl * m_next;
-    builtin_decl():m_fid(null_family_id), m_decl(0), m_next(nullptr) {}
+    family_id      m_fid = null_family_id;
+    decl_kind      m_decl = 0;
+    builtin_decl * m_next = nullptr;
+    builtin_decl() = default;
     builtin_decl(family_id fid, decl_kind k, builtin_decl * n = nullptr):m_fid(fid), m_decl(k), m_next(n) {}
 };
 

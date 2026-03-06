@@ -233,7 +233,7 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
     for (expr* e : m_assertions) {
         g->assert_expr(e);
     }
-    for (unsigned i = 0; i < num_assumptions; i++) {
+    for (unsigned i = 0; i < num_assumptions; ++i) {
         proof_ref pr(m.mk_asserted(assumptions[i]), m);
         expr_dependency_ref ans(m.mk_leaf(assumptions[i]), m);    
         g->assert_expr(assumptions[i], pr, ans);

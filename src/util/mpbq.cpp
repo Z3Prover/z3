@@ -443,7 +443,7 @@ std::ostream& mpbq_manager::display_decimal(std::ostream & out, mpbq const & a, 
     SASSERT(!m_manager.is_zero(n1));
     out << m_manager.to_string(v1);
     out << ".";
-    for (unsigned i = 0; i < prec; i++) {
+    for (unsigned i = 0; i < prec; ++i) {
         m_manager.mul(n1, ten, n1);
         m_manager.div(n1, two_k, v1);
         m_manager.rem(n1, two_k, n1);
@@ -487,7 +487,7 @@ std::ostream& mpbq_manager::display_decimal(std::ostream & out, mpbq const & a, 
     if (m_manager.is_zero(n1) && m_manager.is_zero(n2))
         goto end; // number is an integer
     out << ".";
-    for (unsigned i = 0; i < prec; i++) {
+    for (unsigned i = 0; i < prec; ++i) {
         m_manager.mul(n1, ten, n1);
         m_manager.mul(n2, ten, n2);
         m_manager.div(n1, two_k1, v1);

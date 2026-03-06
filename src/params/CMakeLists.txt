@@ -28,6 +28,7 @@ z3_add_component(params
     seq_rewriter_params.pyg
     sls_params.pyg
     smt_params_helper.pyg
+    smt_parallel_params.pyg
     solver_params.pyg
     tactic_params.pyg
   EXTRA_REGISTER_MODULE_HEADERS

@@ -41,7 +41,7 @@ static void STD_CALL on_ctrl_c(int) {
 #if 0
 static void display_model(sat::solver const & s) {
     sat::model const & m = s.get_model();
-    for (unsigned i = 1; i < m.size(); i++) {
+    for (unsigned i = 1; i < m.size(); ++i) {
         switch (m[i]) {
         case l_false: std::cout << "-" << i << " ";  break;
         case l_undef: break;
@@ -158,7 +158,7 @@ static lbool core_chunking(sat::solver& s, sat::bool_var_vector& vars, sat::lite
     }
     sat::model const & m = s.get_model();
     sat::literal_vector lambda, backbones;
-    for (unsigned i = 0; i < vars.size(); i++) {
+    for (unsigned i = 0; i < vars.size(); ++i) {
         lambda.push_back(sat::literal(vars[i], m[vars[i]] == l_false));
     }
     while (!lambda.empty()) {

@@ -72,7 +72,7 @@ void num_occurs::operator()(expr * t) {
 
 void num_occurs::operator()(unsigned num, expr * const * ts) {
     expr_fast_mark1   visited;
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         process(ts[i], visited);
     }
 }

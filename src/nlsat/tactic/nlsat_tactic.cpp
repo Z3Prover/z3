@@ -60,13 +60,13 @@ class nlsat_tactic : public tactic {
         }
         
         bool contains_unsupported(expr_ref_vector & b2a, expr_ref_vector & x2t) {
-            for (unsigned x = 0; x < x2t.size(); x++) {
+            for (unsigned x = 0; x < x2t.size(); ++x) {
                 if (!is_uninterp_const(x2t.get(x))) {
                     TRACE(unsupported, tout << "unsupported atom:\n" << mk_ismt2_pp(x2t.get(x), m) << "\n";);
                     return true;
                 }
             }
-            for (unsigned b = 0; b < b2a.size(); b++) {
+            for (unsigned b = 0; b < b2a.size(); ++b) {
                 expr * a = b2a.get(b);
                 if (a == nullptr)
                     continue;
@@ -82,7 +82,7 @@ class nlsat_tactic : public tactic {
 
         bool eval_model(model& model, goal& g) {
             unsigned sz = g.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 if (model.is_false(g.form(i))) {
                     TRACE(nlsat, tout << mk_pp(g.form(i), m) << " -> " << model(g.form(i)) << "\n";);
                     IF_VERBOSE(0, verbose_stream() << mk_pp(g.form(i), m) << " -> " << model(g.form(i)) << "\n";);
@@ -99,7 +99,7 @@ class nlsat_tactic : public tactic {
             bool ok = true;
             model_ref md = alloc(model, m);
             arith_util util(m);
-            for (unsigned x = 0; x < x2t.size(); x++) {
+            for (unsigned x = 0; x < x2t.size(); ++x) {
                 expr * t = x2t.get(x);
                 if (!is_uninterp_const(t))
                     continue;
@@ -116,7 +116,7 @@ class nlsat_tactic : public tactic {
                 }
                 md->register_decl(to_app(t)->get_decl(), v);
             }
-            for (unsigned b = 0; b < b2a.size(); b++) {
+            for (unsigned b = 0; b < b2a.size(); ++b) {
                 expr * a = b2a.get(b);
                 if (a == nullptr || !is_uninterp_const(a))
                     continue;

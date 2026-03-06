@@ -177,9 +177,8 @@ void farkas_learner::get_lemmas(proof* root, expr_set const& bs, expr_ref_vector
     bool_rewriter brwr(m);
     func_decl_set Bsymbs;
     collect_pure_proc collect_proc(Bsymbs);
-    expr_set::iterator it = bs.begin(), end = bs.end();
-    for (; it != end; ++it) {
-        for_each_expr(collect_proc, *it);
+    for (expr* e : bs) {
+        for_each_expr(collect_proc, e);
     }
 
     proof_ref pr(root, m);

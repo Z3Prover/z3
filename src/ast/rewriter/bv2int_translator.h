@@ -18,7 +18,7 @@ Author:
 
 class bv2int_translator_trail {
 public:
-    virtual ~bv2int_translator_trail() {}
+    virtual ~bv2int_translator_trail() = default;
     virtual void push(push_back_vector<expr_ref_vector> const& c) = 0;
     virtual void push(push_back_vector<ptr_vector<app>> const& c) = 0;
     virtual void push_idx(set_vector_idx_trail<expr_ref_vector> const& c) = 0;

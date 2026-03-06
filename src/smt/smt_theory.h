@@ -428,6 +428,8 @@ namespace smt {
 
         smt_params const& get_fparams() const;
 
+        virtual void updt_params() {}
+
         enode * get_enode(theory_var v) const {
             SASSERT(v < static_cast<int>(m_var2enode.size()));
             return m_var2enode[v];
@@ -526,7 +528,7 @@ namespace smt {
             table.reset();
             bool result   = false;
             int num       = get_num_vars();
-            for (theory_var v = 0; v < num; v++) {
+            for (theory_var v = 0; v < num; ++v) {
                 enode * n        = get_enode(v);
                 theory_var other = null_theory_var;
                 TRACE(assume_eqs,

@@ -157,7 +157,7 @@ namespace array {
         unsigned num_args = select->get_num_args();
 
         bool has_diff = false;
-        for (unsigned i = 1; i < num_args; i++) 
+        for (unsigned i = 1; i < num_args; ++i) 
             has_diff |= expr2enode(select->get_arg(i))->get_root() != expr2enode(store->get_arg(i))->get_root();
         if (!has_diff)
             return false;
@@ -165,7 +165,7 @@ namespace array {
         sel1_args.push_back(store);
         sel2_args.push_back(store->get_arg(0));       
         
-        for (unsigned i = 1; i < num_args; i++) {
+        for (unsigned i = 1; i < num_args; ++i) {
             sel1_args.push_back(select->get_arg(i));
             sel2_args.push_back(select->get_arg(i));
         }
@@ -204,7 +204,7 @@ namespace array {
             return s().value(sel_eq) != l_true;
         };
 
-        for (unsigned i = 1; i < num_args; i++) {
+        for (unsigned i = 1; i < num_args; ++i) {
             expr* idx1 = store->get_arg(i);
             expr* idx2 = select->get_arg(i);
             euf::enode* r1 = expr2enode(idx1);
@@ -342,7 +342,7 @@ namespace array {
         else if (a.is_union(map)) 
             result = m.mk_or(n, args);
         else if (a.is_intersect(map)) 
-            result = m.mk_and(n, args);
+            result = m.mk_and(std::span<expr* const>(args, n));
         else if (a.is_difference(map)) {
             SASSERT(n > 0);
             result = args[0];
@@ -482,7 +482,7 @@ namespace array {
         args2.push_back(e2);
         svector<symbol> names;
         sort_ref_vector sorts(m);
-        for (unsigned i = 0; i < dimension; i++) {
+        for (unsigned i = 0; i < dimension; ++i) {
             sort * asrt = get_array_domain(srt, i);
             sorts.push_back(asrt);
             names.push_back(symbol(i));
@@ -547,7 +547,7 @@ namespace array {
             return false;
         unsigned num_vars = get_num_vars();
         bool change = false;
-        for (unsigned v = 0; v < num_vars; v++) {
+        for (unsigned v = 0; v < num_vars; ++v) {
             auto& d = get_var_data(v);
             if (!d.m_prop_upward)
                 continue;
@@ -634,7 +634,7 @@ namespace array {
     void solver::collect_shared_vars(sbuffer<theory_var>& roots) {
         ptr_buffer<euf::enode> to_unmark;
         unsigned num_vars = get_num_vars();
-        for (unsigned i = 0; i < num_vars; i++) {
+        for (unsigned i = 0; i < num_vars; ++i) {
             euf::enode * n = var2enode(i);            
             if (!is_array(n)) 
                 continue;
@@ -663,7 +663,7 @@ namespace array {
     */
     bool solver::check_lambdas() {
         unsigned num_vars = get_num_vars();
-        for (unsigned i = 0; i < num_vars; i++) {
+        for (unsigned i = 0; i < num_vars; ++i) {
             auto* n = var2enode(i);
             if (a.is_as_array(n->get_expr()) || is_lambda(n->get_expr()))
                 for (euf::enode* p : euf::enode_parents(n))

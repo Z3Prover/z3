@@ -345,7 +345,7 @@ bool asserted_formulas::invoke(simplify_fmls& s) {
 
 void asserted_formulas::display(std::ostream & out) const {
     out << "asserted formulas:\n";
-    for (unsigned i = 0; i < m_formulas.size(); i++) {
+    for (unsigned i = 0; i < m_formulas.size(); ++i) {
         if (i == m_qhead)
             out << "[HEAD] ==>\n";
         out << mk_pp(m_formulas[i].fml(), m) << "\n";
@@ -453,7 +453,7 @@ void asserted_formulas::nnf_cnf() {
     unsigned i  = m_qhead;
     unsigned sz = m_formulas.size();
     TRACE(nnf_bug, tout << "i: " << i << " sz: " << sz << "\n";);
-    for (; i < sz; i++) {
+    for (; i < sz; ++i) {
         expr * n    = m_formulas[i].fml();
         TRACE(nnf_bug, tout << "processing:\n" << mk_pp(n, m) << "\n";);
         proof_ref pr(m_formulas[i].pr(), m);
@@ -472,7 +472,7 @@ void asserted_formulas::nnf_cnf() {
             return;
         }
         unsigned sz2 = push_todo.size();
-        for (unsigned k = 0; k < sz2; k++) {
+        for (unsigned k = 0; k < sz2; ++k) {
             expr * n   = push_todo.get(k);
             pr = nullptr;
             m_rewriter(n, r1, pr1);
@@ -491,7 +491,7 @@ void asserted_formulas::nnf_cnf() {
 void asserted_formulas::simplify_fmls::operator()() {
     vector<justified_expr> new_fmls;
     unsigned sz = af.m_formulas.size();
-    for (unsigned i = af.m_qhead; i < sz; i++) {
+    for (unsigned i = af.m_qhead; i < sz; ++i) {
         auto& j = af.m_formulas[i];
         expr_ref result(m);
         proof_ref result_pr(m);
@@ -548,7 +548,7 @@ void asserted_formulas::propagate_values() {
         unsigned prop = num_prop;
         TRACE(propagate_values, display(tout << "before:\n"););
         unsigned i  = m_qhead;
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             prop += propagate_values(i);
         }
         flush_cache();

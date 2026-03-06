@@ -66,7 +66,7 @@ class dependent_expr_state {
     };
 public:
     dependent_expr_state(ast_manager& m) : m_frozen_trail(m) {}
-    virtual ~dependent_expr_state() {}
+    virtual ~dependent_expr_state() = default;
     unsigned qhead() const { return m_qhead; }
     virtual unsigned qtail() const = 0;
     virtual dependent_expr const& operator[](unsigned i) = 0;
@@ -227,7 +227,7 @@ protected:
     proof* tr(proof* a, proof* b) { return m.mk_transitivity(a, b); }
 public:
     dependent_expr_simplifier(ast_manager& m, dependent_expr_state& s) : m(m), m_fmls(s), m_trail(s.m_trail) {}
-    virtual ~dependent_expr_simplifier() {}
+    virtual ~dependent_expr_simplifier() = default;
     virtual char const* name() const = 0;
     virtual void push() { }
     virtual void pop(unsigned n) { }

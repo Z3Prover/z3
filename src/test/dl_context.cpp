@@ -26,7 +26,7 @@ void tst_dl_context() {
     const char * test_file = "c:\\tvm\\src\\benchmarks\\datalog\\t0.datalog";
 
     params_ref params;
-    for(unsigned rel_index=0; rel_index<rel_cnt; rel_index++) {
+    for(unsigned rel_index=0; rel_index<rel_cnt; ++rel_index) {
         params.set_sym("default_relation", relations[rel_index]);
         for(int eager_checking=1; eager_checking>=0; eager_checking--) {
             params.set_bool("eager_emptiness_checking", eager_checking!=0);

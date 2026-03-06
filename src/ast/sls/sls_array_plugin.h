@@ -115,14 +115,13 @@ namespace sls {
         
     public:
         array_plugin(context& ctx);
-        ~array_plugin() override {}
         void register_term(expr* e) override { if (a.is_array(e->get_sort())) m_has_arrays = true; }
         expr_ref get_value(expr* e) override;
         void initialize() override { m_g = nullptr; }
         void propagate_literal(sat::literal lit) override { m_g = nullptr; }
         bool propagate() override { return false; }
         bool repair_down(app* e) override { return true; }
-        void repair_up(app* e) override {}
+        void repair_up(app*) override { }
         void repair_literal(sat::literal lit) override { m_g = nullptr; }
         bool is_sat() override;
 

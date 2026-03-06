@@ -134,6 +134,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     # Enable RPATH support
     MACOSX_RPATH TRUE
   )
+  # Add header padding to allow install_name_tool to modify the dylib
+  # This fixes issues where install_name_tool fails with "larger updated load commands do not fit"
+  # See: https://github.com/Z3Prover/z3/issues/7623
+  target_link_options(libz3 PRIVATE "-Wl,-headerpad_max_install_names")
 endif()
 
 if (NOT MSVC)
@@ -150,6 +154,11 @@ endif()
 # shared library the dependent libraries are specified on the link command line
 # so that if those are also shared libraries they are referenced by `libz3.so`.
 target_link_libraries(libz3 PRIVATE ${Z3_DEPENDENT_LIBS})
+
+# On macOS, add headerpad for install_name_tool compatibility
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND Z3_BUILD_LIBZ3_SHARED)
+  target_link_options(libz3 PRIVATE "-Wl,-headerpad_max_install_names")
+endif()
 
 ################################################################################
 # Create include directory with headers for easier developer integration
@@ -344,6 +353,18 @@ if (Z3_BUILD_JULIA_BINDINGS)
       "You either need to disable Z3_BUILD_JULIA_BINDINGS or enable Z3_BUILD_LIBZ3_SHARED")
   endif()
   add_subdirectory(api/julia)
+endif()
+
+################################################################################
+# Go bindings
+################################################################################
+option(Z3_BUILD_GO_BINDINGS "Build Go bindings for Z3" OFF)
+if (Z3_BUILD_GO_BINDINGS)
+  if (NOT Z3_BUILD_LIBZ3_SHARED)
+    message(FATAL_ERROR "The Go bindings will not work with a static libz3. "
+      "You either need to disable Z3_BUILD_GO_BINDINGS or enable Z3_BUILD_LIBZ3_SHARED")
+  endif()
+  add_subdirectory(api/go)
 endif()
 
 # TODO: Implement support for other bindigns

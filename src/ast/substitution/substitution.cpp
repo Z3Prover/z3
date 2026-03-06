@@ -26,7 +26,7 @@ substitution::substitution(ast_manager & m):
     m_manager(m),
     m_refs(m),
     m_new_exprs(m),
-    m_state(CLEAN) {
+    m_state(state::CLEAN) {
 }
 
 void substitution::reset() {
@@ -40,11 +40,11 @@ void substitution::reset() {
 
 void substitution::reset_cache() {
     TRACE(subst_bug, tout << "substitution::reset_cache\n";
-          for (unsigned i = 0; i < m_new_exprs.size(); i++) { tout << mk_pp(m_new_exprs.get(i), m_manager) << "\nref_count: " << m_new_exprs.get(i)->get_ref_count() << "\n"; });
+          for (unsigned i = 0; i < m_new_exprs.size(); ++i) { tout << mk_pp(m_new_exprs.get(i), m_manager) << "\nref_count: " << m_new_exprs.get(i)->get_ref_count() << "\n"; });
 
     m_apply_cache.reset();
     m_new_exprs.reset();
-    m_state = CLEAN;
+    m_state = state::CLEAN;
 }
 
 void substitution::pop_scope(unsigned num_scopes) {
@@ -54,7 +54,7 @@ void substitution::pop_scope(unsigned num_scopes) {
     unsigned old_sz  = m_scopes[new_lvl];
     unsigned curr_sz = m_vars.size();
     SASSERT(old_sz <= curr_sz);
-    for (unsigned i = old_sz; i < curr_sz; i++) {
+    for (unsigned i = old_sz; i < curr_sz; ++i) {
         var_offset & curr = m_vars[i];
         m_subst.erase(curr.first, curr.second);
     }
@@ -79,10 +79,10 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
 
     // It is incorrect to cache results between different calls if we are applying a substitution
     // modulo a substitution s -> t.
-    if (m_state == INSERT || s != expr_offset(nullptr,0))
+    if (m_state == state::INSERT || s != expr_offset(nullptr,0))
         reset_cache();
 
-    m_state = APPLY;
+    m_state = state::APPLY;
 
     unsigned         j;
     expr *           e = nullptr;
@@ -144,7 +144,7 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
                 m_todo.pop_back();
                 new_args.reset();
                 bool has_new_args = false;
-                for (unsigned i = 0; i < num_args; i++) {
+                for (unsigned i = 0; i < num_args; ++i) {
                     expr * arg     = to_app(e)->get_arg(i);
                     expr * new_arg = nullptr;
                     
@@ -175,8 +175,8 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
             subst.reserve(m_subst.offsets_capacity(), m_subst.vars_capacity() + num_vars);
             var_shifter var_sh(m_manager);
             expr_offset r;
-            for (unsigned i = 0; i < m_subst.offsets_capacity(); i++) {
-                for (unsigned j = 0; j < m_subst.vars_capacity(); j++) {
+            for (unsigned i = 0; i < m_subst.offsets_capacity(); ++i) {
+                for (unsigned j = 0; j < m_subst.vars_capacity(); ++j) {
                     if (find(j, i, r)) {
                         var_sh(r.get_expr(), num_vars, er);
                         subst.insert(j + num_vars, i, expr_offset(er, r.get_offset()));
@@ -311,8 +311,8 @@ bool substitution::acyclic() {
 
 void substitution::display(std::ostream & out, unsigned num_actual_offsets, unsigned const * deltas) {
     reset_cache();
-    for (unsigned i = 0; i < num_actual_offsets; i++)
-        for (unsigned j = 0; j < m_subst.vars_capacity(); j++) {
+    for (unsigned i = 0; i < num_actual_offsets; ++i)
+        for (unsigned j = 0; j < m_subst.vars_capacity(); ++j) {
             expr_offset r;
             if (find(j, i, r)) {
                 expr_ref tmp(m_manager);
@@ -323,8 +323,8 @@ void substitution::display(std::ostream & out, unsigned num_actual_offsets, unsi
 }
 
 void substitution::display(std::ostream & out) {
-    for (unsigned i = 0; i < m_subst.offsets_capacity(); i++)
-        for (unsigned j = 0; j < m_subst.vars_capacity(); j++) {
+    for (unsigned i = 0; i < m_subst.offsets_capacity(); ++i)
+        for (unsigned j = 0; j < m_subst.vars_capacity(); ++j) {
             expr_offset r;
             if (find(j, i, r))
                 out << "VAR " << j << ":" << i << " --> " << r.get_offset() << "\n" << mk_pp(r.get_expr(), m_manager) << "\n";

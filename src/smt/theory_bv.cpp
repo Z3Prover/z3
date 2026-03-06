@@ -53,11 +53,11 @@ namespace smt {
         bits.reset();
         m_bits_expr.reset();
 
-        for (unsigned i = 0; i < bv_size; i++) 
+        for (unsigned i = 0; i < bv_size; ++i) 
             m_bits_expr.push_back(mk_bit2bool(owner, i));
         ctx.internalize(m_bits_expr.data(), bv_size, true);
 
-        for (unsigned i = 0; i < bv_size; i++) {
+        for (unsigned i = 0; i < bv_size; ++i) {
             bool_var b = ctx.get_bool_var(m_bits_expr[i]);
             bits.push_back(literal(b));
             if (is_relevant && !ctx.is_relevant(b)) {
@@ -66,7 +66,7 @@ namespace smt {
         }
 
         TRACE(bv, tout << "v" << v << " #" << owner->get_id() << "\n";
-              for (unsigned i = 0; i < bv_size; i++) 
+              for (unsigned i = 0; i < bv_size; ++i) 
                   tout << mk_bounded_pp(m_bits_expr[i], m) << "\n";
               );
 
@@ -324,7 +324,7 @@ namespace smt {
 
         ctx.internalize(bits.data(), sz, true);
 
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * bit          = bits.get(i);
             literal l           = ctx.get_literal(bit);
             TRACE(init_bits, tout << "bit " << i << " of #" << n->get_owner_id() << "\n" << mk_bounded_pp(bit, m) << "\n";);
@@ -341,7 +341,7 @@ namespace smt {
         unsigned sz                 = bits.size();
         unsigned & wpos             = m_wpos[v];
         unsigned init               = wpos;
-        for (; wpos < sz; wpos++) {
+        for (; wpos < sz; ++wpos) {
             TRACE(find_wpos, tout << "curr bit: " << bits[wpos] << "\n";);
             if (ctx.get_assignment(bits[wpos]) == l_undef) {
                 TRACE(find_wpos, tout << "moved wpos of v" << v << " to " << wpos << "\n";);
@@ -349,7 +349,7 @@ namespace smt {
             }
         }
         wpos = 0;
-        for (; wpos < init; wpos++) {
+        for (; wpos < init; ++wpos) {
             if (ctx.get_assignment(bits[wpos]) == l_undef) {
                 TRACE(find_wpos, tout << "moved wpos of v" << v << " to " << wpos << "\n";);
                 return;
@@ -572,7 +572,7 @@ namespace smt {
         m_bb.num2bits(val, sz, bits);
         SASSERT(bits.size() == sz);
         literal_vector & c_bits = m_bits[v];
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * l = bits.get(i);
             if (m.is_true(l)) {
                 c_bits.push_back(true_literal);
@@ -611,6 +611,9 @@ namespace smt {
         // create the axiom:
         // n = bv2int(k) = ite(bit2bool(k[sz-1],2^{sz-1},0) + ... + ite(bit2bool(k[0],1,0))
         // 
+        SASSERT(params().m_bv_enable_int2bv2int);
+        if (!ctx.e_internalized(n))
+            internalize_term(n);
         SASSERT(ctx.e_internalized(n));
         SASSERT(m_util.is_ubv2int(n));
         TRACE(bv2int_bug, tout << "bv2int:\n" << mk_pp(n, m) << "\n";);
@@ -686,6 +689,8 @@ namespace smt {
         //   bit2bool(i,n) == ((e div 2^i) mod 2 != 0)
         // for i = 0,.., sz-1
         //
+        if (!ctx.e_internalized(n))
+            internalize_term(n);
         SASSERT(ctx.e_internalized(n));
         SASSERT(m_util.is_int2bv(n));
 
@@ -889,7 +894,7 @@ namespace smt {
 
     bool theory_bv::internalize_term_core(app * term) {
         SASSERT(term->get_family_id() == get_family_id());
-        TRACE(bv, tout << "internalizing term: " << mk_bounded_pp(term, m) << "\n";);
+        TRACE(bv, tout << "internalizing term: #" << term->get_id() << " " << mk_bounded_pp(term, m) << "\n";);
         if (approximate_term(term)) {
             return false;
         }
@@ -1124,7 +1129,7 @@ namespace smt {
             return false;
         }
         unsigned num_args = n->get_num_args();
-        for (unsigned i = 0; i <= num_args; i++) {
+        for (unsigned i = 0; i <= num_args; ++i) {
             expr* arg = (i == num_args)?n:n->get_arg(i);
             sort* s = arg->get_sort();
             if (m_util.is_bv_sort(s) && m_util.get_bv_size(arg) > params().m_bv_blast_max_size) {                
@@ -1262,7 +1267,7 @@ namespace smt {
     }
     
     void theory_bv::propagate_bits() {
-        for (unsigned i = 0; i < m_prop_queue.size(); i++) {
+        for (unsigned i = 0; i < m_prop_queue.size(); ++i) {
             var_pos const & entry = m_prop_queue[i];
             theory_var v          = entry.first;
             unsigned idx          = entry.second;
@@ -1559,7 +1564,7 @@ namespace smt {
             // Remark: the assignment to b2 is marked as a bv theory propagation,
             // then it is not notified to the bv theory.
             changed                   = false;
-            for (unsigned idx = 0; idx < sz; idx++) {
+            for (unsigned idx = 0; idx < sz; ++idx) {
                 literal bit1  = m_bits[v1][idx];
                 literal bit2  = m_bits[v2][idx];
                 if (bit1 == ~bit2) {
@@ -1622,7 +1627,7 @@ namespace smt {
 
         auto reset_merge_aux = [&]() { for (auto & zo : bits1) m_merge_aux[zo.m_is_true][zo.m_idx] = null_theory_var; };
 
-        DEBUG_CODE(for (unsigned i = 0; i < bv_size; i++) { 
+        DEBUG_CODE(for (unsigned i = 0; i < bv_size; ++i) { 
                 SASSERT(m_merge_aux[0][i] == null_theory_var || m_merge_aux[1][i] == null_theory_var); }
             );
         // save info about bits1
@@ -1646,7 +1651,7 @@ namespace smt {
         }
         // reset m_merge_aux vector
         reset_merge_aux();
-        DEBUG_CODE(for (unsigned i = 0; i < bv_size; i++) { SASSERT(m_merge_aux[0][i] == null_theory_var || m_merge_aux[1][i] == null_theory_var); });
+        DEBUG_CODE(for (unsigned i = 0; i < bv_size; ++i) { SASSERT(m_merge_aux[0][i] == null_theory_var || m_merge_aux[1][i] == null_theory_var); });
         return true;
     }
 
@@ -1862,7 +1867,7 @@ namespace smt {
     void theory_bv::display_atoms(std::ostream & out) const {
         out << "atoms:\n";
         unsigned num  = ctx.get_num_bool_vars();
-        for (unsigned v = 0; v < num; v++) {
+        for (unsigned v = 0; v < num; ++v) {
             atom * a = get_bv2a(v);
             if (a && a->is_bit())
                 display_bit_atom(out, v, static_cast<bit_atom*>(a));
@@ -1873,7 +1878,7 @@ namespace smt {
         unsigned num_vars = get_num_vars();
         if (num_vars == 0) return;
         out << "Theory bv:\n";
-        for (unsigned v = 0; v < num_vars; v++) {
+        for (unsigned v = 0; v < num_vars; ++v) {
             display_var(out, v);
         }
         display_atoms(out);
@@ -1931,7 +1936,7 @@ namespace smt {
             SASSERT(bits1.size() == bits2.size());
             unsigned sz = bits1.size();
             VERIFY(ctx.is_relevant(get_enode(v1)));
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 literal bit1 = bits1[i];
                 literal bit2 = bits2[i];
                 lbool val1   = ctx.get_assignment(bit1);
@@ -1972,7 +1977,7 @@ namespace smt {
             theory_var curr = v;
             do {
                 literal_vector const & lits = m_bits[curr];
-                for (unsigned i = 0; i < lits.size(); i++) {
+                for (unsigned i = 0; i < lits.size(); ++i) {
                     literal l = lits[i];
                     if (l.var() == true_bool_var) {
                         unsigned is_true = (l == true_literal);
@@ -2011,7 +2016,7 @@ namespace smt {
         if (ctx.inconsistent())
             return true;
         unsigned num = get_num_vars();
-        for (unsigned v = 0; v < num; v++) {
+        for (unsigned v = 0; v < num; ++v) {
             check_assignment(v);
             check_zero_one_bits(v);
         }

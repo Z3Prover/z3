@@ -34,7 +34,7 @@ static simplifier_factory mk_and_then(cmd_context & ctx, sexpr * n) {
     if (num_children == 2)
         return sexpr2simplifier(ctx, n->get_child(1));
     std::vector<simplifier_factory> args;
-    for (unsigned i = 1; i < num_children; i++)
+    for (unsigned i = 1; i < num_children; ++i)
         args.push_back(sexpr2simplifier(ctx, n->get_child(i)));
     simplifier_factory result = [args](ast_manager& m, const params_ref& p, dependent_expr_state& st) {
         scoped_ptr<then_simplifier> s = alloc(then_simplifier, m, p, st);

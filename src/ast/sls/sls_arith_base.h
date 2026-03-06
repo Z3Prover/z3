@@ -18,7 +18,7 @@ Author:
 
 #include "util/obj_pair_set.h"
 #include "util/checked_int64.h"
-#include "util/optional.h"
+#include <optional>
 #include "ast/ast_trail.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/sls/sls_context.h"
@@ -115,7 +115,7 @@ namespace sls {
             sat::bool_var_vector m_bool_vars_of;
             unsigned_vector m_clauses_of;
             unsigned_vector m_muls, m_adds, m_ops, m_ifs;
-            optional<bound> m_lo, m_hi;
+            std::optional<bound> m_lo, m_hi;
             vector<num_t> m_finite_domain;
 
             num_t const& value() const { return m_value; }
@@ -348,7 +348,6 @@ namespace sls {
         bool update_num(var_t v, num_t const& delta);
     public:
         arith_base(context& ctx);
-        ~arith_base() override {}        
         void register_term(expr* e) override;
         bool set_value(expr* e, expr* v) override;
         expr_ref get_value(expr* e) override;

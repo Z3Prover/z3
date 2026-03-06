@@ -23,7 +23,7 @@ Notes:
 
 class generic_model_converter : public model_converter {
 public:
-    enum instruction { HIDE, ADD };
+    enum class instruction { HIDE, ADD };
     struct entry {
         func_decl_ref m_f;
         expr_ref      m_def;
@@ -44,13 +44,13 @@ public:
     
     void hide(expr* e) { SASSERT(is_app(e) && to_app(e)->get_num_args() == 0); hide(to_app(e)->get_decl()); }
 
-    void hide(func_decl * f) { m_entries.push_back(entry(f, nullptr, m, HIDE)); }
+    void hide(func_decl * f) { m_entries.push_back(entry(f, nullptr, m, instruction::HIDE)); }
 
     void add(func_decl * d, expr* e);
 
     void add(expr * d, expr* e) { SASSERT(is_app(d) && to_app(d)->get_num_args() == 0); add(to_app(d)->get_decl(), e); }
     
-    void operator()(labels_vec & labels) override {}
+    void operator()(labels_vec &) override { }
     
     void operator()(model_ref & md) override;
 

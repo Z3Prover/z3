@@ -70,6 +70,8 @@ X(eq_der, top_sort, "top sort")
 X(expr_substitution_simplifier, expr_substitution_simplifier, "expr substitution simplifier")
 X(expr_substitution_simplifier, propagate_values, "propagate values")
 
+X(finite_set, finite_set, "finite set")
+
 X(fm_model_converter, fm_model_converter, "fm model converter")
 X(fm_model_converter, fm_mc, "fm mc")
 
@@ -551,6 +553,8 @@ X(Global, linear_equation_mk, "linear equation mk")
 X(Global, list, "list")
 X(Global, literal_occ, "literal occ")
 X(Global, lp_core, "lp core")
+X(Global, lws, "levelwise")
+X(Global, lws_norm, "levelwise normalize")
 X(Global, macro_bug, "macro bug")
 X(Global, macro_finder, "macro finder")
 X(Global, macro_insert, "macro insert")

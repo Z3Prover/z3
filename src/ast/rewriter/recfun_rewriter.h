@@ -24,12 +24,16 @@ Author:
 class recfun_rewriter {
     ast_manager& m;
     recfun::util  m_rec;
+    bool m_recfun_unfold = false;
+
 public:
     recfun_rewriter(ast_manager& m): m(m), m_rec(m) {}
     
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
 
     family_id get_fid() const { return m_rec.get_family_id(); }
+
+    void updt_params(params_ref const &p);
 
 };
 

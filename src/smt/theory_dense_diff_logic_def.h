@@ -620,9 +620,9 @@ namespace smt {
 
     template<typename Ext>
     bool theory_dense_diff_logic<Ext>::check_matrix() const {
-        int sz = m_matrix.size();
-        for (theory_var i = 0; i < sz; i++) {
-            for (theory_var j = 0; j < sz; j++) {
+        int sz = static_cast<int>(m_matrix.size());
+        for (theory_var i = 0; i < sz; ++i) {
+            for (theory_var j = 0; j < sz; ++j) {
                 cell const & c = m_matrix[i][j];
                 if (c.m_edge_id == self_edge_id) {
                     SASSERT(i == j);
@@ -704,10 +704,10 @@ namespace smt {
         int num_vars = get_num_vars();
         m_assignment.reset();
         m_assignment.resize(num_vars);
-        for (int i = 0; i < num_vars; i++) {
+        for (int i = 0; i < num_vars; ++i) {
             row & r     = m_matrix[i];
             numeral & d = m_assignment[i];
-            for (int j = 0; j < num_vars; j++) {
+            for (int j = 0; j < num_vars; ++j) {
                 if (i != j) {
                     cell & c = r[j];
                     if (c.m_edge_id != null_edge_id && c.m_distance < d) {
@@ -716,11 +716,11 @@ namespace smt {
                 }
             }
         }
-        for (int i = 0; i < num_vars; i++)
+        for (int i = 0; i < num_vars; ++i)
             m_assignment[i].neg();
         TRACE(ddl_model, 
               tout << "ddl model\n";
-              for (theory_var v = 0; v < num_vars; v++) {
+              for (theory_var v = 0; v < num_vars; ++v) {
                   tout << "#" << mk_pp(get_enode(v)->get_expr(), m) << " = " << m_assignment[v] << "\n";
               });
     }
@@ -812,7 +812,7 @@ namespace smt {
         }
         TRACE(ddl_model, 
               tout << "ddl model\n";
-              for (theory_var v = 0; v < num_vars; v++) {
+              for (theory_var v = 0; v < num_vars; ++v) {
                   tout << "#" << mk_pp(get_enode(v)->get_expr(), m) << " = " << m_assignment[v] << "\n";
               });
     }
@@ -1093,7 +1093,7 @@ namespace smt {
         else {
             // 
             expr_ref_vector const& core = m_objective_assignments[v];
-            f = m.mk_and(core.size(), core.data());
+            f = m.mk_and(core);
             if (is_strict) {
                 f = m.mk_not(f);
             }
@@ -1109,7 +1109,7 @@ namespace smt {
             }
             else {
                 expr_ref_vector const& core = m_objective_assignments[v];
-                f = m.mk_and(core.size(), core.data());
+                f = m.mk_and(core);
             }
         }
         else {

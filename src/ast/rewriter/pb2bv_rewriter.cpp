@@ -324,20 +324,20 @@ struct pb2bv_rewriter::imp {
                 unsigned c = m_coeffs[i].get_unsigned();
                 v.push_back(c >= k ? k : c);
                 e.push_back(args[i]);   
-                es.push_back(e);
-                coeffs.push_back(v);
+                es.push_back(std::move(e));
+                coeffs.push_back(std::move(v));
             }
             while (es.size() > 1) {
                 for (unsigned i = 0; i + 1 < es.size(); i += 2) {
                     expr_ref_vector o(m);
                     unsigned_vector oc;
                     tot_adder(es[i], coeffs[i], es[i + 1], coeffs[i + 1], k, o, oc);
-                    es[i / 2].set(o);
-                    coeffs[i / 2] = oc;
+                    es[i / 2] = std::move(o);
+                    coeffs[i / 2] = std::move(oc);
                 }
                 if ((es.size() % 2) == 1) {
-                    es[es.size() / 2].set(es.back());
-                    coeffs[es.size() / 2] = coeffs.back();
+                    es[es.size() / 2] = std::move(es.back());
+                    coeffs[es.size() / 2] = std::move(coeffs.back());
                 }
                 es.shrink((1 + es.size())/2);
                 coeffs.shrink((1 + coeffs.size())/2);
@@ -945,7 +945,7 @@ struct pb2bv_rewriter::imp {
         pliteral mk_false() { return m.mk_false(); }
         pliteral mk_true() { return m.mk_true(); }
         pliteral mk_max(unsigned n, pliteral const* lits) { return trail(m.mk_or(n, lits)); }
-        pliteral mk_min(unsigned n, pliteral const* lits) { return trail(m.mk_and(n, lits)); }
+        pliteral mk_min(unsigned n, pliteral const* lits) { return trail(m.mk_and(std::span<expr* const>(lits, n))); }
         pliteral mk_not(pliteral a) { if (m.is_not(a,a)) return a; return trail(m.mk_not(a)); }
 
         std::ostream& pp(std::ostream& out, pliteral lit) {  return out << mk_ismt2_pp(lit, m);  }

@@ -309,6 +309,17 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     m.method("sqrt", static_cast<expr (*)(expr const &, expr const &)>(&sqrt));
     m.method("fma", static_cast<expr (*)(expr const &, expr const &, expr const &, expr const &)>(&fma));
     m.method("range", &range);
+    m.method("finite_set_empty", &finite_set_empty);
+    m.method("finite_set_singleton", &finite_set_singleton);
+    m.method("finite_set_union", &finite_set_union);
+    m.method("finite_set_intersect", &finite_set_intersect);
+    m.method("finite_set_difference", &finite_set_difference);
+    m.method("finite_set_member", &finite_set_member);
+    m.method("finite_set_size", &finite_set_size);
+    m.method("finite_set_subset", &finite_set_subset);
+    m.method("finite_set_map", &finite_set_map);
+    m.method("finite_set_filter", &finite_set_filter);
+    m.method("finite_set_range", &finite_set_range);
 
     // -------------------------------------------------------------------------
 
@@ -400,9 +411,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(solver, units)
         .method("trail", static_cast<expr_vector (solver::*)() const>(&solver::trail))
         .method("trail", [](solver &s, jlcxx::ArrayRef<unsigned> levels) {
-            int sz = levels.size();
+            int sz = static_cast<int>(levels.size());
             z3::array<unsigned> _levels(sz);
-            for (int i = 0; i < sz; i++) {
+            for (int i = 0; i < sz; ++i) {
                 _levels[i] = levels[i];
             }
             return s.trail(_levels);
@@ -618,6 +629,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(context, string_sort)
         .MM(context, seq_sort)
         .MM(context, re_sort)
+        .MM(context, finite_set_sort)
         .method("array_sort", static_cast<sort (context::*)(sort, sort)>(&context::array_sort))
         .method("array_sort", static_cast<sort (context::*)(sort_vector const&, sort)>(&context::array_sort))
         .method("fpa_sort", static_cast<sort (context::*)(unsigned, unsigned)>(&context::fpa_sort))
@@ -629,9 +641,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(context, set_rounding_mode)
         .method("enumeration_sort", 
             [](context& c, char const * name, jlcxx::ArrayRef<jl_value_t*,1> names, func_decl_vector &cs, func_decl_vector &ts) {
-                int sz = names.size();
+                int sz = static_cast<int>(names.size());
                 std::vector<const char *> _names;
-                for (int i = 0; i < sz; i++) {
+                for (int i = 0; i < sz; ++i) {
                     const char *x = jl_string_data(names[i]);
                     _names.push_back(x);
                 }
@@ -639,10 +651,10 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
             })
         .method("tuple_sort", 
             [](context& c, char const * name, jlcxx::ArrayRef<jl_value_t*,1> names, jlcxx::ArrayRef<jl_value_t*,1> sorts, func_decl_vector &projs) {
-                int sz = names.size();
+                int sz = static_cast<int>(names.size());
                 std::vector<sort> _sorts;
                 std::vector<const char *> _names;
-                for (int i = 0; i < sz; i++) {
+                for (int i = 0; i < sz; ++i) {
                     const sort &x = jlcxx::unbox<sort&>(sorts[i]);
                     const char *y = jl_string_data(names[i]);
                     _sorts.push_back(x);

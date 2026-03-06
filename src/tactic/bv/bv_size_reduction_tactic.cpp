@@ -134,7 +134,7 @@ public:
         };
 #endif
 
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             bool negated = false;
             f = g.form(i);            
             if (m.is_not(f)) {
@@ -327,11 +327,11 @@ public:
             if (!(m_unsigned_lowers.empty() && m_unsigned_uppers.empty())) {
                 TRACE(bv_size_reduction, 
                     tout << "m_unsigned_lowers: " << std::endl;
-                    for (obj_map<app, numeral>::iterator it = m_unsigned_lowers.begin(); it != m_unsigned_lowers.end(); it++)
-                        tout << mk_ismt2_pp(it->m_key, m) << " >= " << it->m_value.to_string() << std::endl;
+                    for (auto& [key, value] : m_unsigned_lowers)
+                        tout << mk_ismt2_pp(key, m) << " >= " << value.to_string() << std::endl;
                     tout << "m_unsigned_uppers: " << std::endl;
-                    for (obj_map<app, numeral>::iterator it = m_unsigned_uppers.begin(); it != m_unsigned_uppers.end(); it++)
-                        tout << mk_ismt2_pp(it->m_key, m) << " <= " << it->m_value.to_string() << std::endl;
+                    for (auto& [key, value] : m_unsigned_uppers)
+                        tout << mk_ismt2_pp(key, m) << " <= " << value.to_string() << std::endl;
                     );
 
                 obj_map<app, numeral>::iterator it  = m_unsigned_uppers.begin();
@@ -398,7 +398,7 @@ public:
             unsigned sz = g.size();
             expr * f;
             expr_ref new_f(m);
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 if (g.inconsistent())
                     return;
                 f = g.form(i);

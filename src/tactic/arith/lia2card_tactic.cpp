@@ -205,7 +205,7 @@ public:
                 TRACE(pb, tout << "add bound " << lo << " " << hi << ": " << mk_pp(x, m) << "\n";);
             }
         }
-        for (unsigned i = 0; !g->inconsistent() && i < g->size(); i++) {
+        for (unsigned i = 0; !g->inconsistent() && i < g->size(); ++i) {
             checkpoint();
 
             expr_ref   new_curr(m), tmp(m);
@@ -341,7 +341,7 @@ public:
         if (!m.is_true(e)) {
             es.push_back(e);
         }
-        result = mk_and(m, es.size(), es.data());
+        result = mk_and(es);
         if (!m.is_true(e)) {
             es.pop_back();
         }

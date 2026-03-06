@@ -60,7 +60,7 @@ class emonics {
             
         unsigned operator()(lpvar v) const {
             auto const& vec = v != UINT_MAX? em.m_monics[em.m_var2index[v]].rvars() : em.m_find_key;
-            return string_hash(reinterpret_cast<char const*>(vec.data()), sizeof(lpvar)*vec.size(), 10);
+            return string_hash(std::string_view(reinterpret_cast<char const*>(vec.data()), sizeof(lpvar)*vec.size()), 10);
         }
     };
         

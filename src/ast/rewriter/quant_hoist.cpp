@@ -217,7 +217,7 @@ private:
                 if (rewrite_ok) 
                     m_rewriter.mk_and(args.size(), args.data(), result);
                 else 
-                    result = m.mk_and (args.size (), args.data ());
+                    result = m.mk_and(std::span<expr* const>(args.data(), args.size()));
             }
             else if (m.is_or(fml)) {
                 num_args = to_app(fml)->get_num_args();

@@ -173,7 +173,7 @@ void test_ast_map_keys() {
 
     // Verify all keys are present (order may vary)
     bool found_x = false, found_y = false, found_z = false;
-    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, keys); i++) {
+    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, keys); ++i) {
         Z3_ast key = Z3_ast_vector_get(ctx, keys, i);
         if (Z3_is_eq_ast(ctx, key, x)) found_x = true;
         if (Z3_is_eq_ast(ctx, key, y)) found_y = true;

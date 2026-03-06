@@ -202,8 +202,29 @@ namespace opt {
     bool opt_solver::maximize_objectives1(expr_ref_vector& blockers) {
         expr_ref blocker(m);
         for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
-            if (!maximize_objective(i, blocker))
+            // Push context to isolate each objective's optimization.
+            // This prevents bounds created during one objective's optimization
+            // from affecting subsequent objectives (fixes issue #7677).
+            m_context.push();
+
+            if (!maximize_objective(i, blocker)) {
+                m_context.pop(1);
                 return false;
+            }
+
+            // Save results before popping
+            inf_eps val = m_objective_values[i];
+            model_ref mdl;
+            if (m_models[i])
+                mdl = m_models[i];
+
+            m_context.pop(1);
+
+            // Restore the computed values after pop
+            m_objective_values[i] = val;
+            if (mdl)
+                m_models.set(i, mdl.get());
+
             blockers.push_back(blocker);
         }
         return true;
@@ -339,7 +360,7 @@ namespace opt {
     void opt_solver::get_unsat_core(expr_ref_vector & r) {
         r.reset();
         unsigned sz = m_context.get_unsat_core_size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             r.push_back(m_context.get_unsat_core_expr(i));
         }
     }

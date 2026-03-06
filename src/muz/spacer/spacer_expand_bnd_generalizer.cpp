@@ -118,7 +118,7 @@ void lemma_expand_bnd_generalizer::operator()(lemma_ref &lemma) {
     expr_ref lit(m), new_lit(m);
     rational bnd;
     // for every literal
-    for (unsigned i = 0, sz = cube.size(); i < sz; i++) {
+    for (unsigned i = 0, sz = cube.size(); i < sz; ++i) {
         lit = cube.get(i);
         if (m.is_true(lit)) continue;
         if (!is_arith_comp(lit, bnd, m)) continue;

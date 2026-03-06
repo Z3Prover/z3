@@ -31,14 +31,13 @@ public:
     scoped_ptr_vector(scoped_ptr_vector& other) = delete;
     scoped_ptr_vector& operator=(scoped_ptr_vector& other) = delete;
 
-    scoped_ptr_vector(scoped_ptr_vector&& other) noexcept {
-        m_vector.swap(other.m_vector);
+    scoped_ptr_vector(scoped_ptr_vector&& other) noexcept : m_vector(std::move(other.m_vector)) {
     }
     scoped_ptr_vector& operator=(scoped_ptr_vector&& other) noexcept {
         if (this == &other)
             return *this;
         reset();
-        m_vector.swap(other.m_vector);
+        m_vector = std::move(other.m_vector);
         return *this;
     }
 
@@ -65,7 +64,7 @@ public:
             m_vector.shrink(sz); 
         }
         else {
-            for (unsigned i = m_vector.size(); i < sz; i++)
+            for (unsigned i = m_vector.size(); i < sz; ++i)
                 push_back(nullptr);
         }
     }

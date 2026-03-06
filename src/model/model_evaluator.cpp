@@ -96,6 +96,9 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_bv_rw.set_mkbv2num(true);
         m_ar_rw.set_expand_select_store(true);
         m_ar_rw.set_expand_select_ite(true);
+        params_ref rp;
+        rp.set_bool("unfold_recursive_functions", true);
+        m_rec_rw.updt_params(rp);
         updt_params(p);
         //add_unspecified_function_models(md);
     }
@@ -113,7 +116,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         func_interp * fi = m_model.get_func_interp(f);
         bool r = (fi != nullptr) && eval_fi(fi, num, args, result);
         CTRACE(model_evaluator, r, tout << "reduce_app " << f->get_name() << "\n";
-               for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m) << "\n";
+               for (unsigned i = 0; i < num; ++i) tout << mk_ismt2_pp(args[i], m) << "\n";
                tout << "---->\n" << mk_ismt2_pp(result, m) << "\n";);
         return r;
     }
@@ -127,7 +130,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
         bool actuals_are_values = true;
 
-        for (unsigned i = 0; actuals_are_values && i < num; i++)
+        for (unsigned i = 0; actuals_are_values && i < num; ++i)
             actuals_are_values = m.is_value(args[i]);
 
         if (!actuals_are_values)

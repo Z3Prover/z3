@@ -23,9 +23,8 @@ Notes:
 #include "ast/ast_translation.h"
 
 class converter {
-    unsigned m_ref_count;
+    unsigned m_ref_count = 0;
 public:
-    converter():m_ref_count(0) {}
     virtual ~converter() = default;
 
     void inc_ref() { ++m_ref_count;  }
@@ -90,7 +89,7 @@ protected:
 public:
     concat_star_converter(T * c1, unsigned num, T * const * c2s, unsigned * szs):
         m_c1(c1) {
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             T * c2 = c2s[i];
             if (c2)
                 c2->inc_ref();

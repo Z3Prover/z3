@@ -57,7 +57,7 @@ void ast_translation::cache(ast * s, ast * t) {
 
 void ast_translation::collect_decl_extra_children(decl * d) {
     unsigned num_params = d->get_num_parameters();
-    for (unsigned i = 0; i < num_params; i++) {
+    for (unsigned i = 0; i < num_params; ++i) {
         parameter const & p = d->get_parameter(i);
         if (p.is_ast())
             m_extra_children_stack.push_back(p.get_ast());
@@ -102,7 +102,7 @@ bool ast_translation::visit(ast * n) {
 void ast_translation::copy_params(decl * d, unsigned rpos, buffer<parameter> & ps) {
     unsigned num = d->get_num_parameters();
     unsigned j   = rpos;
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         parameter const & p = d->get_parameter(i);
         if (p.is_ast()) {
             ps.push_back(parameter(m_result_stack[j]));
@@ -365,7 +365,7 @@ expr_dependency * expr_dependency_translation::operator()(expr_dependency * d) {
     m_translation.from().linearize(d, m_buffer);
     unsigned sz = m_buffer.size();
     SASSERT(sz >= 1);
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         m_buffer[i] = m_translation(m_buffer[i]);
     }
     return m_translation.to().mk_join(sz, m_buffer.data());

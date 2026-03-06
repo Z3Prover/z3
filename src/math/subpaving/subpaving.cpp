@@ -69,7 +69,7 @@ namespace subpaving {
 
         var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) override {
             m_as.reserve(sz);
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 m_ctx.nm().set(m_as[i], as[i]);
             }
             m_ctx.nm().set(m_c, c);
@@ -110,7 +110,7 @@ namespace subpaving {
         var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) override {
             try {
                 m_as.reserve(sz);
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     int2mpf(as[i], m_as[i]);
                 }
                 int2mpf(c, m_c);
@@ -165,7 +165,7 @@ namespace subpaving {
         var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) override {
             try {
                 m_as.reserve(sz);
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     int2hwf(as[i], m_as[i]);
                 }
                 int2hwf(c, m_c);
@@ -221,7 +221,7 @@ namespace subpaving {
         var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) override {
             try {
                 m_as.reserve(sz);
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     int2fpoint(as[i], m_as[i]);
                 }
                 int2fpoint(c, m_c);

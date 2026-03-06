@@ -32,7 +32,7 @@ Notes:
 void generic_model_converter::add(func_decl * d, expr* e) {
     VERIFY(e);
     VERIFY(d->get_range() == e->get_sort());
-    m_entries.push_back(entry(d, e, m, ADD));
+    m_entries.push_back(entry(d, e, m, instruction::ADD));
 }
 
 void generic_model_converter::operator()(model_ref & md) {
@@ -138,9 +138,9 @@ void generic_model_converter::convert_initialize_value(vector<std::pair<expr_ref
         auto& [var, value] = var2value[i];
         for (auto const& e : m_entries) {
             switch (e.m_instruction) {
-            case HIDE: 
+            case instruction::HIDE: 
                 break;
-            case ADD: 
+            case instruction::ADD: 
                 if (is_uninterp_const(var) && e.m_f == to_app(var)->get_decl())
                     convert_initialize_value(e.m_def, i, var2value);                
                 break;
@@ -203,14 +203,14 @@ void generic_model_converter::get_units(obj_map<expr, bool>& units) {
     for (unsigned i = m_entries.size(); i-- > 0;) {
         entry const& e = m_entries[i];
         switch (e.m_instruction) {
-        case HIDE: 
+        case instruction::HIDE: 
             tmp = m.mk_const(e.m_f);
             if (units.contains(tmp)) {
                 m.dec_ref(tmp);
                 units.remove(tmp);
             }
             break;
-        case ADD:
+        case instruction::ADD:
             if (e.m_f->get_arity() == 0 && m.is_bool(e.m_f->get_range())) {
                 tmp = m.mk_const(e.m_f);
                 if (units.contains(tmp)) {

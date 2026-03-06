@@ -115,7 +115,7 @@ br_status factor_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
         eqs[i] = m().mk_not(eqs[i].get());
     }
     eqs.push_back(neg);
-    result = m().mk_and(eqs.size(), eqs.data());
+    result = m().mk_and(std::span<expr* const>(eqs.data(), eqs.size()));
     TRACE(factor_rewriter, tout << mk_pp(result.get(), m()) << "\n";);
     return BR_DONE;
 }

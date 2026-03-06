@@ -93,12 +93,12 @@ namespace dd {
                 m_index(0)
             {}
 
-            node(): m_refcount(0), m_level(0), m_lo(0), m_hi(0), m_index(0) {}
-            unsigned m_refcount : 10;
-            unsigned m_level : 22;
-            PDD      m_lo;
-            PDD      m_hi;
-            unsigned m_index;
+            node() = default;
+            unsigned m_refcount : 10 = 0;
+            unsigned m_level : 22 = 0;
+            PDD      m_lo = 0;
+            PDD      m_hi = 0;
+            unsigned m_index = 0;
             unsigned hash() const { return mk_mix(m_level, m_lo, m_hi); } 
             bool is_val() const { return m_hi == 0 && (m_lo != 0 || m_index == 0); }
             bool is_internal() const { return m_hi == 0 && m_lo == 0 && m_index != 0; }
@@ -160,13 +160,13 @@ namespace dd {
                 m_rest(UINT_MAX)
             {}
 
-            factor_entry(): m_p(0), m_v(0), m_degree(0), m_lc(UINT_MAX), m_rest(UINT_MAX) {}
+            factor_entry() = default;
 
-            PDD m_p;            // input
-            unsigned m_v;       // input
-            unsigned m_degree;  // input
-            PDD m_lc;           // output
-            PDD m_rest;         // output
+            PDD m_p = 0;            // input
+            unsigned m_v = 0;       // input
+            unsigned m_degree = 0;  // input
+            PDD m_lc = UINT_MAX;           // output
+            PDD m_rest = UINT_MAX;         // output
 
             bool is_valid() { return m_lc != UINT_MAX; }
 
@@ -418,7 +418,7 @@ namespace dd {
     public:
         pdd(pdd_manager& m): pdd(0, m) { SASSERT(is_zero()); }
         pdd(pdd const& other): pdd(other.root, other.m) { m->inc_ref(root); }
-        pdd(pdd && other) noexcept : pdd(0, other.m) { std::swap(root, other.root); }
+        pdd(pdd && other) noexcept : root(other.root), m(other.m) { other.root = 0; }
         pdd& operator=(pdd const& other);
         pdd& operator=(unsigned k);
         pdd& operator=(rational const& k);

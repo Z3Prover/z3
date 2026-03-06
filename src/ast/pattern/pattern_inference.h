@@ -50,8 +50,6 @@ class smaller_pattern {
 
 public:
 
-    smaller_pattern() = default;
-
     smaller_pattern & operator=(smaller_pattern const &) = delete;
 
     bool operator()(unsigned num_bindings, expr * p1, expr * p2);
@@ -239,7 +237,7 @@ public:
                            expr_ref & result,
                            proof_ref & result_pr);
 
-    void register_preferred(unsigned num, func_decl * const * fs) { for (unsigned i = 0; i < num; i++) register_preferred(fs[i]); }
+    void register_preferred(unsigned num, func_decl * const * fs) { for (unsigned i = 0; i < num; ++i) register_preferred(fs[i]); }
     
     bool is_forbidden(func_decl const * decl) const {
         family_id fid = decl->get_family_id();

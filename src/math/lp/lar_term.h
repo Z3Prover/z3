@@ -99,7 +99,6 @@ public:
     lar_term& operator=(const lar_term& other) = default;
     // move assignment operator
     lar_term& operator=(lar_term&& other) noexcept = default;
-    ~lar_term() = default;
     lar_term(const lar_term& a) {
         for (auto const& p : a) {
             add_monomial(p.coeff(), p.var());
@@ -310,7 +309,7 @@ public:
         auto it = m_coeffs.begin();
         r.add_var(it->m_key);
         it++;
-        for(;it != m_coeffs.end(); it++) {
+        for(;it != m_coeffs.end(); ++it) {
             r.add_monomial(it->m_value / a, it->m_key);
         }
         return r;        

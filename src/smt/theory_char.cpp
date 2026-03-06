@@ -314,11 +314,11 @@ namespace smt {
 
         // extract the initial set of constants.
         uint_set values;
-        unsigned c = 0, d = 0;
         for (unsigned v = get_num_vars(); v-- > 0; ) {
             expr* e = get_expr(v);
-            if (seq.is_char(e) && m_var2value[v] == UINT_MAX && get_char_value(v, c)) {
-                CTRACE(seq_verbose, seq.is_char(e), tout << mk_pp(e, m) << " root: " << get_enode(v)->is_root() << " is_value: " << get_char_value(v, c) << "\n";);
+            if (auto c_opt = std::as_const(*this).get_char_value(v); seq.is_char(e) && m_var2value[v] == UINT_MAX && c_opt) {
+                unsigned c = *c_opt;
+                CTRACE(seq_verbose, seq.is_char(e), tout << mk_pp(e, m) << " root: " << get_enode(v)->is_root() << " is_value: " << c << "\n";);
                 enode* r = get_enode(v)->get_root();
                 m_value2var.reserve(c + 1, null_theory_var);
                 theory_var u = m_value2var[c];
@@ -334,7 +334,7 @@ namespace smt {
                     u = n->get_th_var(get_id());
                     if (u == null_theory_var)
                         continue;
-                    if (get_char_value(u, d) && d != c) {
+                    if (auto d_opt = std::as_const(*this).get_char_value(u); d_opt && *d_opt != c) {
                         enforce_ackerman(u, v);
                         return false;
                     }
@@ -346,11 +346,11 @@ namespace smt {
         }
         
         // assign values to other unassigned nodes
-        c = 'A';
+        unsigned c = 'A';
         for (unsigned v = get_num_vars(); v-- > 0; ) {
             expr* e = get_expr(v);
             if (seq.is_char(e) && m_var2value[v] == UINT_MAX) {
-                d = c;
+                unsigned d = c;
                 while (values.contains(c)) {
                     c = (c + 1) % seq.max_char();
                     if (d == c) {
@@ -420,18 +420,18 @@ namespace smt {
         return m_var2value[v];
     }
 
-    bool theory_char::get_char_value(theory_var v, unsigned& c) {
+    std::optional<unsigned> theory_char::get_char_value(theory_var v) const {
         if (!has_bits(v))
-            return false;
-        auto const & b = get_bits(v);
-        c = 0;
+            return std::nullopt;
+        auto const & b = m_bits[v];
+        unsigned c = 0;
         unsigned p = 1;
         for (literal lit : b) {
             if (ctx.get_assignment(lit) == l_true)
                 c += p;
             p *= 2;
         }
-        return true;
+        return c;
     }
 
     // a stand-alone theory.

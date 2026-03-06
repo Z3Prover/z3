@@ -91,7 +91,7 @@ class ll_printer {
 
     template<typename T>
     void display_children(unsigned num_children, T * const * children) {
-        for (unsigned i = 0; i < num_children; i++) {
+        for (unsigned i = 0; i < num_children; ++i) {
             if (i > 0) {
                 m_out << " ";
             }
@@ -213,7 +213,7 @@ public:
                 m_out << n->get_decl()->get_parameter(i);
             }
             unsigned num_parents = m_manager.get_num_parents(n);
-            for (unsigned i = 0; i < num_parents; i++) {
+            for (unsigned i = 0; i < num_parents; ++i) {
                 m_out << " ";
                 display_child(m_manager.get_parent(n, i));
             }
@@ -256,7 +256,7 @@ public:
         m_out << "(" << (n->get_kind() == forall_k ? "forall" : (n->get_kind() == exists_k ? "exists" : "lambda")) << " ";
         unsigned num_decls = n->get_num_decls();
         m_out << "(vars ";
-        for (unsigned i = 0; i < num_decls; i++) {
+        for (unsigned i = 0; i < num_decls; ++i) {
             if (i > 0) {
                 m_out << " ";
             }
@@ -307,7 +307,7 @@ public:
             m_out << "(";
         display_name(to_app(n)->get_decl());
         display_params(to_app(n)->get_decl());
-        for (unsigned i = 0; i < num_args && i < 16; i++) {
+        for (unsigned i = 0; i < num_args && i < 16; ++i) {
             m_out << " ";
             display(to_app(n)->get_arg(i), depth-1);
         }

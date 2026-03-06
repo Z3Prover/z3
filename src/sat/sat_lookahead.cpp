@@ -2200,7 +2200,7 @@ namespace sat {
                 backtrack(m_cube_state.m_cube, m_cube_state.m_is_decision);
                 return l_undef;
             }
-            int prev_nfreevars = m_freevars.size();
+            int prev_nfreevars = static_cast<int>(m_freevars.size());
             double prev_psat = m_config.m_cube_cutoff == adaptive_psat_cutoff ? psat_heur() : dbl_max;  // MN. only compute PSAT if enabled
             literal lit = choose();
             if (inconsistent()) {

@@ -155,12 +155,12 @@ public:
         double sum = 0.0;
         unsigned count = 0;
 
-        for (unsigned i = 0; i < g->size(); i++)
+        for (unsigned i = 0; i < g->size(); ++i)
         {
             m_temp_constants.reset();
             ptr_vector<func_decl> const & this_decls = m_constants_occ.find(g->form(i));
             unsigned sz = this_decls.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 func_decl * fd = this_decls[i];
                 m_temp_constants.push_back(fd);
                 sort * srt = fd->get_range();
@@ -294,7 +294,7 @@ public:
             expr * e;
             unsigned touched_old, touched_new;
 
-            for (unsigned i = 0; i < as.size(); i++)
+            for (unsigned i = 0; i < as.size(); ++i)
             {
                 e = as[i];
                 touched_old = m_scores.find(e).touched;
@@ -380,7 +380,7 @@ public:
         // precondition: m_scores is set up.
         unsigned sz = as.size();
         ptr_vector<app> stack;
-        for (unsigned i = 0; i < sz; i++)
+        for (unsigned i = 0; i < sz; ++i)
             stack.push_back(to_app(as[i]));
         while (!stack.empty()) {
             app * cur = stack.back();
@@ -388,7 +388,7 @@ public:
                 
             unsigned d = get_distance(cur);
 
-            for (unsigned i = 0; i < cur->get_num_args(); i++) {
+            for (unsigned i = 0; i < cur->get_num_args(); ++i) {
                 app * child = to_app(cur->get_arg(i));                    
                 unsigned d_child = get_distance(child);
                 if (d >= d_child) {
@@ -406,7 +406,7 @@ public:
             app * a = to_app(e);
             expr * const * args = a->get_args();
             unsigned int sz = a->get_num_args();
-            for (unsigned int i = 0; i < sz; i++) {
+            for (unsigned int i = 0; i < sz; ++i) {
                 expr * q = args[i];
                 initialize_recursive(proc, visited, q);
             }
@@ -419,7 +419,7 @@ public:
             app * a = to_app(e);
             expr * const * args = a->get_args();
             unsigned int sz = a->get_num_args();
-            for (unsigned int i = 0; i < sz; i++) {
+            for (unsigned int i = 0; i < sz; ++i) {
                 expr * q = args[i];
                 initialize_recursive(q);
             }
@@ -458,7 +458,7 @@ public:
         if (m_track_unsat)
         {
             m_list_false = new expr*[sz];
-            for (unsigned i = 0; i < sz; i++)
+            for (unsigned i = 0; i < sz; ++i)
             {
                 if (m_mpz_manager.eq(get_value(as[i]), m_zero))
                     break_assertion(as[i]);
@@ -529,14 +529,14 @@ public:
 
     void show_model(std::ostream & out) {
         unsigned sz = get_num_constants();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             func_decl * fd = get_constant(i);
             out << fd->get_name() << " = " << m_mpz_manager.to_string(get_value(fd)) << std::endl;
         }
     }
 
     void set_model(model_ref const & mdl) {
-        for (unsigned i = 0; i < mdl->get_num_constants(); i++) {
+        for (unsigned i = 0; i < mdl->get_num_constants(); ++i) {
             func_decl * fd = mdl->get_constant(i);
             expr * val = mdl->get_const_interp(fd);
             if (m_entry_points.contains(fd)) {
@@ -560,7 +560,7 @@ public:
     model_ref get_model() {
         model_ref res = alloc(model, m_manager);
         unsigned sz = get_num_constants();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             func_decl * fd = get_constant(i);
             res->register_decl(fd, mpz2value(fd->get_range(), get_value(fd)));
         }
@@ -648,11 +648,10 @@ public:
     void randomize(ptr_vector<expr> const & as) {
         TRACE(sls_verbose, tout << "Abandoned model:" << std::endl; show_model(tout); );
 
-        for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
-            func_decl * fd = it->m_key;
+        for (auto& [fd, ep] : m_entry_points) {
             sort * s = fd->get_range();
             mpz temp = get_random(s);
-            set_value(it->m_value, temp);
+            set_value(ep, temp);
             m_mpz_manager.del(temp);
         }
 
@@ -662,8 +661,8 @@ public:
     void reset(ptr_vector<expr> const & as) {
         TRACE(sls_verbose, tout << "Abandoned model:" << std::endl; show_model(tout); );
 
-        for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
-            set_value(it->m_value, m_zero);
+        for (auto& [fd, ep] : m_entry_points) {
+            set_value(ep, m_zero);
         }
     }              
 
@@ -720,7 +719,7 @@ public:
         else if (m_manager.is_and(n) && !negated) {
             /* Andreas: Seems to have no effect. But maybe you want to try it again at some point.
             double sum = 0.0;
-            for (unsigned i = 0; i < a->get_num_args(); i++)
+            for (unsigned i = 0; i < a->get_num_args(); ++i)
                 sum += get_score(args[i]);
             res = sum / (double) a->get_num_args(); */
             double min = 1.0;
@@ -892,8 +891,8 @@ public:
             app * a = to_app(n);
             unsigned pairs = 0, distinct_pairs = 0;
             unsigned sz = a->get_num_args();
-            for (unsigned i = 0; i < sz; i++) {
-                for (unsigned j = i+1; j < sz; j++) {
+            for (unsigned i = 0; i < sz; ++i) {
+                for (unsigned j = i+1; j < sz; ++j) {
                     // pair i/j
                     const mpz & v0 = get_value(a->get_arg(0));
                     const mpz & v1 = get_value(a->get_arg(1));
@@ -970,7 +969,7 @@ public:
     ptr_vector<func_decl> & get_constants(expr * e) {
         ptr_vector<func_decl> const & this_decls = m_constants_occ.find(e);
         unsigned sz = this_decls.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             func_decl * fd = this_decls[i];
             if (!m_temp_constants.contains(fd))
                 m_temp_constants.push_back(fd);
@@ -1038,14 +1037,14 @@ public:
         }
         m_temp_constants.reset();
 
-        unsigned pos = -1;
+        unsigned pos = UINT_MAX;
         if (m_ucb)
         {
             double max = -1.0;
             // Andreas: Commented things here might be used for track_unsat data structures as done in SLS for SAT. But seems to have no benefit.
-            /* for (unsigned i = 0; i < m_where_false.size(); i++) {
+            /* for (unsigned i = 0; i < m_where_false.size(); ++i) {
                 expr * e = m_list_false[i]; */
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 expr * e = as[i];
                 if (m_mpz_manager.neq(get_value(e), m_one))
                 {
@@ -1075,7 +1074,7 @@ public:
             return m_list_false[get_random_uint(16) % sz]; */
 
             unsigned cnt_unsat = 0;
-            for (unsigned i = 0; i < sz; i++)
+            for (unsigned i = 0; i < sz; ++i)
                 if (m_mpz_manager.neq(get_value(as[i]), m_one) && (get_random_uint(16) % ++cnt_unsat == 0)) pos = i;    
             if (pos == static_cast<unsigned>(-1))
                 return nullptr;
@@ -1091,8 +1090,8 @@ public:
             return nullptr;
         m_temp_constants.reset();
         
-        unsigned cnt_unsat = 0, pos = -1;
-        for (unsigned i = 0; i < sz; i++)
+        unsigned cnt_unsat = 0, pos = UINT_MAX;
+        for (unsigned i = 0; i < sz; ++i)
             if ((i != m_last_pos) && m_mpz_manager.neq(get_value(as[i]), m_one) && (get_random_uint(16) % ++cnt_unsat == 0)) pos = i;
 
         if (pos == static_cast<unsigned>(-1))

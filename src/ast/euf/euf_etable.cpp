@@ -55,7 +55,7 @@ namespace euf {
         if (num != n2->num_args()) {
             return false;
         }
-        for (unsigned i = 0; i < num; i++) 
+        for (unsigned i = 0; i < num; ++i) 
             if (get_root(n1, i) != get_root(n2, i))
                 return false;
         return true;

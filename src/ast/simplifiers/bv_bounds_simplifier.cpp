@@ -25,9 +25,6 @@ public:
         updt_params(p);
     }
     
-    ~dom_bv_bounds_simplifier() override {
-    }
-    
     void updt_params(params_ref const & p) override {
         m_propagate_eq = p.get_bool("propagate_eq", false);
     }

@@ -112,7 +112,7 @@ namespace opt {
         pliteral mk_false() { return m.mk_false(); }
         pliteral mk_true() { return m.mk_true(); }
         pliteral mk_max(unsigned n, pliteral const* as) { return trail(m.mk_or(n, as)); }
-        pliteral mk_min(unsigned n, pliteral const* as) { return trail(m.mk_and(n, as)); }
+        pliteral mk_min(unsigned n, pliteral const* as) { return trail(m.mk_and(std::span<expr* const>(as, n))); }
         pliteral mk_not(pliteral a) { if (m.is_not(a,a)) return a; return trail(m.mk_not(a)); }
 
         std::ostream& pp(std::ostream& out, pliteral lit) {  return out << mk_pp(lit, m);  }

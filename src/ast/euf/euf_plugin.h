@@ -39,7 +39,7 @@ namespace euf {
             g(g)
         {}
 
-        virtual ~plugin() {}
+        virtual ~plugin() = default;
 
         virtual theory_id get_id() const = 0;
 

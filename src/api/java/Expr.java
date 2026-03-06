@@ -189,6 +189,30 @@ public class Expr<R extends Sort> extends AST
     }
 
     /**
+     * Substitute functions in {@code from} with the expressions in {@code to}.
+     * The expressions in {@code to} can have free variables. The free variable
+     * in {@code to[i]} at de-Bruijn index 0 refers to the first argument of
+     * {@code from[i]}, the free variable at index 1 corresponds to the second
+     * argument, and so on.
+     * Remarks: The arrays {@code from} and {@code to} must have the same size.
+     * @param from Array of function declarations to be substituted
+     * @param to Array of expressions to substitute with
+     * @throws Z3Exception on error
+     * @return an Expr
+     **/
+    public Expr<R> substituteFuns(FuncDecl<?>[] from, Expr<?>[] to)
+    {
+        getContext().checkContextMatch(from);
+        getContext().checkContextMatch(to);
+        if (from.length != to.length) {
+            throw new Z3Exception("Arrays 'from' and 'to' must have the same length");
+        }
+        return (Expr<R>) Expr.create(getContext(), Native.substituteFuns(getContext().nCtx(),
+                getNativeObject(), from.length, AST.arrayToNative(from),
+                Expr.arrayToNative(to)));
+    }
+
+    /**
      * Translates (copies) the term to the Context {@code ctx}.
      * 
      * @param ctx A context

@@ -53,12 +53,12 @@ struct bit_blaster_model_converter : public model_converter {
 
     void collect_bits(obj_hashtable<func_decl> & bits) {
         unsigned sz = m_bits.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * bs = m_bits.get(i);
             SASSERT(!TO_BOOL || is_app_of(bs, m().get_family_id("bv"), OP_MKBV));
             SASSERT(TO_BOOL  || is_app_of(bs, m().get_family_id("bv"), OP_CONCAT));
             unsigned num_args = to_app(bs)->get_num_args();
-            for (unsigned j = 0; j < num_args; j++) {
+            for (unsigned j = 0; j < num_args; ++j) {
                 expr * bit = to_app(bs)->get_arg(j);
                 SASSERT(!TO_BOOL || m().is_bool(bit)); 
                 SASSERT(TO_BOOL ||  is_sort_of(bit->get_sort(), m().get_family_id("bv"), BV_SORT));
@@ -77,7 +77,7 @@ struct bit_blaster_model_converter : public model_converter {
     
     void copy_non_bits(obj_hashtable<func_decl> & bits, model * old_model, model * new_model) {
         unsigned num = old_model->get_num_constants();
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             func_decl * f = old_model->get_constant(i);
             if (bits.contains(f))
                 continue;
@@ -97,7 +97,7 @@ struct bit_blaster_model_converter : public model_converter {
         rational two(2);
         SASSERT(m_vars.size() == m_bits.size());
         unsigned sz = m_vars.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr* new_val = old_model->get_const_interp(m_vars.get(i));
             if (new_val) {
                 new_model->register_decl(m_vars.get(i), new_val);
@@ -125,7 +125,7 @@ struct bit_blaster_model_converter : public model_converter {
             }
             else {
                 SASSERT(is_app_of(bs, m().get_family_id("bv"), OP_CONCAT));
-                for (unsigned j = 0; j < bv_sz; j++) {
+                for (unsigned j = 0; j < bv_sz; ++j) {
                     val *= two;
                     expr * bit = to_app(bs)->get_arg(j);
                     SASSERT(util.is_bv(bit));
@@ -196,7 +196,7 @@ struct bit_blaster_model_converter : public model_converter {
         for (func_decl * f : m_newbits) 
             display_del(out, f);
         unsigned sz = m_vars.size();
-        for (unsigned i = 0; i < sz; i++) 
+        for (unsigned i = 0; i < sz; ++i) 
             display_add(out, m(), m_vars.get(i), m_bits.get(i));
     }
 
@@ -216,7 +216,7 @@ struct bit_blaster_model_converter : public model_converter {
             if (!util.is_numeral(value, r))
                 continue;
             unsigned sz = m_vars.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 if (m_vars.get(i) != to_app(var)->get_decl())
                     continue;
                 unsigned k = 0;

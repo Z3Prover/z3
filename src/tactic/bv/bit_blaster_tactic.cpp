@@ -67,7 +67,7 @@ class bit_blaster_tactic : public tactic {
             proof_ref  new_pr(m());
             unsigned size = g->size();
             bool change = false;
-            for (unsigned idx = 0; idx < size; idx++) {
+            for (unsigned idx = 0; idx < size; ++idx) {
                 if (g->inconsistent())
                     break;
                 expr * curr = g->form(idx);

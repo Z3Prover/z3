@@ -69,7 +69,7 @@ inline unsigned to_idx(aig * p) { SASSERT(!is_var(p)); return p->m_id - FIRST_NO
 
 
 static void unmark(unsigned sz, aig * const * ns) {
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         ns[i]->m_mark = false;
     }
 }
@@ -507,7 +507,7 @@ struct aig_manager::imp {
         void restore_result_stack(unsigned old_sz) {
             unsigned sz = m_result_stack.size();
             SASSERT(old_sz <= sz);
-            for (unsigned i = old_sz; i < sz; i++)
+            for (unsigned i = old_sz; i < sz; ++i)
                 m.dec_ref(m_result_stack[i]);
             m_result_stack.shrink(old_sz);
         }
@@ -972,7 +972,7 @@ struct aig_manager::imp {
                     continue;
                 }
                 bool ok = true;
-                for (unsigned i = 0; i < 2; i++) {
+                for (unsigned i = 0; i < 2; ++i) {
                     aig * c = t->m_children[i].ptr();
                     if (!is_var(c) && cache.get(to_idx(c), nullptr) == nullptr) {
                         todo.push_back(c);
@@ -982,7 +982,7 @@ struct aig_manager::imp {
                 if (!ok) 
                     continue;
                 expr * args[2];
-                for (unsigned i = 0; i < 2; i++) {
+                for (unsigned i = 0; i < 2; ++i) {
                     aig_lit l = t->m_children[i];
                     aig *   c = l.ptr();
                     if (is_var(c))
@@ -1341,7 +1341,7 @@ public:
     void dec_ref(aig_lit const & r) { dec_ref(r.ptr()); }
 
     void dec_array_ref(unsigned sz, aig * const * ns) {
-        for (unsigned i = 0; i < sz; i++)
+        for (unsigned i = 0; i < sz; ++i)
             if (ns[i]) 
                 dec_ref(ns[i]);
     }
@@ -1371,7 +1371,7 @@ public:
             std::sort(args, args+num, aig_lit_lt());
             aig_lit r = mk_and(args[0], args[1]);
             inc_ref(r);
-            for (unsigned i = 2; i < num; i++) {
+            for (unsigned i = 2; i < num; ++i) {
                 aig_lit new_r = mk_and(r, args[i]);
                 inc_ref(new_r);
                 dec_ref(r);
@@ -1402,7 +1402,7 @@ public:
             std::sort(args, args+num, aig_lit_lt());
             aig_lit r = mk_or(args[0], args[1]);
             inc_ref(r);
-            for (unsigned i = 2; i < num; i++) {
+            for (unsigned i = 2; i < num; ++i) {
                 aig_lit new_r = mk_or(r, args[i]);
                 inc_ref(new_r);
                 dec_ref(r);
@@ -1515,7 +1515,7 @@ public:
         try {
         expr2aig proc(*this);
             unsigned sz = s.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 SASSERT(ref_count(r) >= 1);
                 expr * t = s.form(i);
                 aig_lit n = proc(t);
@@ -1625,7 +1625,7 @@ public:
                 continue;
             }
             bool visited = true;
-            for (unsigned i = 0; i < 2; i++) {
+            for (unsigned i = 0; i < 2; ++i) {
                 aig_lit c = t->m_children[i];
                 aig * data = c.ptr();
                 if (!data->m_mark) {
@@ -1638,7 +1638,7 @@ public:
             to_unmark.push_back(t);
             t->m_mark = true;
             out << "(define-fun aig" << to_idx(t) << " () Bool (and";
-            for (unsigned i = 0; i < 2; i++) {
+            for (unsigned i = 0; i < 2; ++i) {
                 out << " ";
                 display_smt2_ref(out, t->m_children[i]);
             }

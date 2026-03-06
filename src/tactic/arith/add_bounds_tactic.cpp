@@ -117,7 +117,7 @@ class add_bounds_tactic : public tactic {
             expr_fast_mark1 visited;
             add_bound_proc proc(bm, *(g.get()), m_lower, m_upper);
             unsigned sz = g->size();
-            for (unsigned i = 0; i < sz; i++)
+            for (unsigned i = 0; i < sz; ++i)
                 quick_for_each_expr(proc, visited, g->form(i));
             visited.reset();
             g->inc_depth();

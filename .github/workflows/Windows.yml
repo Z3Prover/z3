@@ -3,6 +3,12 @@ name: Windows
 on:
   push:
     branches: [ master ]
+  pull_request:
+    branches: [ master]
+    
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true     
 
 jobs:               
   build:
@@ -22,7 +28,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v2
       - run: |

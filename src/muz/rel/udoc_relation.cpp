@@ -109,7 +109,7 @@ namespace datalog {
         for (unsigned i = 0; i < m_elems.size(); ++i) {
             disj.push_back(to_formula(m_elems[i]));
         }
-        fml = mk_or(m, disj.size(), disj.data());
+        fml = mk_or(disj);
     }
     expr_ref udoc_relation::to_formula(doc const& d) const {
         ast_manager& m = get_plugin().get_ast_manager();
@@ -119,7 +119,7 @@ namespace datalog {
         for (unsigned i = 0; i < d.neg().size(); ++i) {
             conjs.push_back(m.mk_not(to_formula(d.neg()[i])));
         }
-        result = mk_and(m, conjs.size(), conjs.data());
+        result = mk_and(conjs);
         return result;
     }
     expr_ref udoc_relation::to_formula(tbv const& t) const {
@@ -168,7 +168,7 @@ namespace datalog {
                 }
             }
         }
-        result = mk_and(m, conjs.size(), conjs.data());
+        result = mk_and(conjs);
         return result;
     }
 
@@ -194,9 +194,8 @@ namespace datalog {
         m_disable_fast_pass(false) {
     }
     udoc_plugin::~udoc_plugin() {
-        u_map<doc_manager*>::iterator it = m_dms.begin(), end = m_dms.end();
-        for (; it != end; ++it) {
-            dealloc(it->m_value);
+        for (auto const& kv : m_dms) {
+            dealloc(kv.m_value);
         }
     }
     udoc_relation& udoc_plugin::get(relation_base& r) {
@@ -249,6 +248,17 @@ namespace datalog {
         SASSERT(dl.is_finite_sort(s));
         return dl.mk_numeral(r.get_uint64(), s);
     }
+
+    // Helper function to count bits needed to represent a size
+    unsigned udoc_plugin::count_bits_for_size(uint64_t size) const {
+        unsigned num_bits = 0;
+        while (size > 0) {
+            ++num_bits;
+            size /= 2;
+        }
+        return num_bits;
+    }
+
     bool udoc_plugin::is_numeral(expr* e, rational& r, unsigned& num_bits) {
         if (bv.is_numeral(e, r, num_bits)) return true;
         if (m.is_true(e)) {
@@ -261,25 +271,23 @@ namespace datalog {
             num_bits = 1;
             return true;
         }
-        uint64_t n, sz;
-        if (dl.is_numeral(e, n) && dl.try_get_size(e->get_sort(), sz)) {
-            num_bits = 0;
-            while (sz > 0) ++num_bits, sz = sz/2;
-            r = rational(n, rational::ui64());
-            return true;
+        uint64_t n;
+        if (dl.is_numeral(e, n)) {
+            if (auto sz = dl.try_get_size(e->get_sort())) {
+                num_bits = count_bits_for_size(*sz);
+                r = rational(n, rational::ui64());
+                return true;
+            }
         }
         return false;
     }
     unsigned udoc_plugin::num_sort_bits(sort* s) const {
-        unsigned num_bits = 0;
         if (bv.is_bv_sort(s))
             return bv.get_bv_size(s);
         if (m.is_bool(s)) 
             return 1;
-        uint64_t sz;
-        if (dl.try_get_size(s, sz)) {
-            while (sz > 0) ++num_bits, sz /= 2;
-            return num_bits;
+        if (auto sz = dl.try_get_size(s)) {
+            return count_bits_for_size(*sz);
         }
         UNREACHABLE();
         return 0;
@@ -655,8 +663,8 @@ namespace datalog {
                 rests.push_back(g);
             }
         }
-        guard = mk_and(m, guards.size(), guards.data());
-        rest  = mk_and(m, rests.size(),  rests.data());        
+        guard = mk_and(guards);
+        rest  = mk_and(rests);        
     }
     void udoc_relation::extract_equalities(expr* g, expr_ref& rest, subset_ints& equalities,
                                            unsigned_vector& roots) const {
@@ -674,7 +682,7 @@ namespace datalog {
                 conds.pop_back();
             }
         }
-        rest = mk_and(m, conds.size(), conds.data());
+        rest = mk_and(conds);
     }
 
     void udoc_relation::extract_equalities(

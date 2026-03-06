@@ -105,7 +105,7 @@ class total_order {
                 curr_gap  = ideal_gap;
             c = a->m_next;
             uint64_t inc    = curr_gap;
-            for (unsigned i = 0; i < j; i++) {
+            for (unsigned i = 0; i < j; ++i) {
                 c->m_val  = v0 + inc;
                 c         = c->m_next;
                 inc      += curr_gap;

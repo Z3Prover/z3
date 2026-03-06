@@ -108,7 +108,7 @@ namespace datalog {
     var_idx_set& rule_manager::collect_tail_vars(rule * r) {
         reset_collect_vars();
         unsigned n = r->get_tail_size();
-        for (unsigned i=0;i<n;i++) {
+        for (unsigned i=0;i<n;++i) {
             accumulate_vars(r->get_tail(i));
         }
         return finalize_collect_vars();
@@ -118,7 +118,7 @@ namespace datalog {
         reset_collect_vars();
         unsigned n = r->get_tail_size();
         accumulate_vars(r->get_head());
-        for (unsigned i=0;i<n;i++) {
+        for (unsigned i=0;i<n;++i) {
             if (r->get_tail(i) != t) {
                 accumulate_vars(r->get_tail(i));
             }
@@ -130,7 +130,7 @@ namespace datalog {
         reset_collect_vars();
         unsigned n = r->get_tail_size();
         accumulate_vars(r->get_head());
-        for (unsigned i=0;i<n;i++) {
+        for (unsigned i=0;i<n;++i) {
             accumulate_vars(r->get_tail(i));
         }
         return finalize_collect_vars();
@@ -305,7 +305,7 @@ namespace datalog {
         body.push_back(to_app(q));
         flatten_body(body);
         func_decl* body_pred = nullptr;
-        for (unsigned i = 0; i < body.size(); i++) {
+        for (unsigned i = 0; i < body.size(); ++i) {
             if (is_uninterp(body[i].get())) {
                 body_pred = body[i]->get_decl();
                 break;
@@ -330,7 +330,7 @@ namespace datalog {
         }
 
         expr_ref_vector qhead_args(m);
-        for (unsigned i = 0; i < vars.size(); i++) {
+        for (unsigned i = 0; i < vars.size(); ++i) {
             qhead_args.push_back(m.mk_var(vars.size()-i-1, vars[i]));
         }
         app_ref qhead(m.mk_app(qpred, qhead_args.data()), m);
@@ -475,7 +475,7 @@ namespace datalog {
 
         bool has_neg = false;
 
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             bool  is_neg = (is_negated != nullptr && is_negated[i]);
             app * curr = tail[i];
 
@@ -544,7 +544,7 @@ namespace datalog {
         r->m_uninterp_cnt = source->m_uninterp_cnt;
         r->m_proof        = nullptr;
         m.inc_ref(r->m_head);
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             r->m_tail[i] = source->m_tail[i];
             m.inc_ref(r->get_tail(i));
         }
@@ -554,7 +554,7 @@ namespace datalog {
     void rule_manager::to_formula(rule const& r, expr_ref& fml) {
         ast_manager & m = fml.get_manager();
         expr_ref_vector body(m);
-        for (unsigned i = 0; i < r.get_tail_size(); i++) {
+        for (unsigned i = 0; i < r.get_tail_size(); ++i) {
             body.push_back(r.get_tail(i));
             if (r.is_neg_tail(i)) {
                 body[body.size()-1] = m.mk_not(body.back());
@@ -564,7 +564,7 @@ namespace datalog {
         switch (body.size()) {
         case 0:  break;
         case 1:  fml = m.mk_implies(body[0].get(), fml); break;
-        default: fml = m.mk_implies(m.mk_and(body.size(), body.data()), fml); break;
+        default: fml = m.mk_implies(m.mk_and(body), fml); break;
         }
 
         m_free_vars.reset();        
@@ -663,7 +663,7 @@ namespace datalog {
 
         vctr.count_vars(head);
 
-        for (unsigned i = 0; i < ut_len; i++) {
+        for (unsigned i = 0; i < ut_len; ++i) {
             app * t = r->get_tail(i);
             vctr.count_vars(t);
             tail.push_back(t);
@@ -673,12 +673,12 @@ namespace datalog {
         var_idx_set unbound_vars;
         expr_ref_vector tails_with_unbound(m);
 
-        for (unsigned i = ut_len; i < t_len; i++) {
+        for (unsigned i = ut_len; i < t_len; ++i) {
             app * t = r->get_tail(i);
             m_free_vars(t);
             bool has_unbound = false;
             unsigned iv_size = m_free_vars.size();
-            for (unsigned i=0; i<iv_size; i++) {
+            for (unsigned i=0; i<iv_size; ++i) {
                 if (!m_free_vars[i]) { continue; }
                 if (vctr.get(i)==0) {
                     has_unbound = true;
@@ -730,7 +730,7 @@ namespace datalog {
         SASSERT(q_idx == q_var_cnt);
 
         svector<symbol> qnames;
-        for (unsigned i = 0; i < q_var_cnt; i++) {
+        for (unsigned i = 0; i < q_var_cnt; ++i) {
             qnames.push_back(symbol(i));
         }
         //quantifiers take this reversed
@@ -838,7 +838,7 @@ namespace datalog {
             throw default_exception(out.str());
         }
         unsigned num_args = to_app(head)->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             expr * arg = to_app(head)->get_arg(i);
             if (!is_var(arg) && !m.is_value(arg)) {
                 std::ostringstream out;
@@ -850,7 +850,7 @@ namespace datalog {
 
     bool rule_manager::is_fact(app * head) const {
         unsigned num_args = head->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             if (!m.is_value(head->get_arg(i)))
                 return false;
         }
@@ -860,7 +860,7 @@ namespace datalog {
     void rule::deallocate(ast_manager & m) {
         m.dec_ref(m_head);
         unsigned n = get_tail_size();
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             m.dec_ref(get_tail(i));
         }
         if (m_proof) {
@@ -882,7 +882,7 @@ namespace datalog {
 
     bool rule::is_in_tail(const func_decl * p, bool only_positive) const {
         unsigned len = only_positive ? get_positive_tail_size() : get_uninterpreted_tail_size();
-        for (unsigned i = 0; i < len; i++) {
+        for (unsigned i = 0; i < len; ++i) {
             if (get_tail(i)->get_decl()==p) {
                 return true;
             }
@@ -1003,7 +1003,7 @@ namespace datalog {
         m.dec_ref(m_head);
         m_head = new_head_a;
 
-        for (unsigned i = 0; i < m_tail_size; i++) {
+        for (unsigned i = 0; i < m_tail_size; ++i) {
             app * old_tail = get_tail(i);
             app_ref new_tail_a = rm.ensure_app(vs(old_tail, subst_vals.size(), subst_vals.data()));
             bool  sign     = is_neg_tail(i);
@@ -1025,7 +1025,7 @@ namespace datalog {
             return;
         }
         out << " :- ";
-        for (unsigned i = 0; i < m_tail_size; i++) {
+        for (unsigned i = 0; i < m_tail_size; ++i) {
             if (i > 0)
                 out << ",";
             if (!compact)

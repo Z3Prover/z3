@@ -179,7 +179,7 @@ struct ctx_simplify_tactic::imp {
         restore_cache(0);
         dealloc(m_simp);
         DEBUG_CODE({
-            for (unsigned i = 0; i < m_cache.size(); i++) {
+            for (unsigned i = 0; i < m_cache.size(); ++i) {
                 CTRACE(ctx_simplify_tactic_bug, m_cache[i].m_from,
                        tout << "i: " << i << "\n" << mk_ismt2_pp(m_cache[i].m_from, m) << "\n";
                        tout << "m_result: " << m_cache[i].m_result << "\n";
@@ -210,7 +210,7 @@ struct ctx_simplify_tactic::imp {
     }
 
     bool check_cache() {
-        for (unsigned i = 0; i < m_cache.size(); i++) {
+        for (unsigned i = 0; i < m_cache.size(); ++i) {
             cache_cell & cell = m_cache[i];
             if (cell.m_from != nullptr) {
                 SASSERT(cell.m_result != 0);
@@ -294,7 +294,7 @@ struct ctx_simplify_tactic::imp {
         m_simp->pop(num_scopes);
 
         // restore cache
-        for (unsigned i = 0; i < num_scopes; i++) {
+        for (unsigned i = 0; i < num_scopes; ++i) {
             restore_cache(lvl);
             lvl--;
         }
@@ -354,7 +354,7 @@ struct ctx_simplify_tactic::imp {
         unsigned old_lvl = scope_level();
         bool modified = false;
         unsigned num_args = t->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             expr * arg = t->get_arg(i);
             expr_ref new_arg(m);
             simplify(arg, new_arg);
@@ -479,7 +479,7 @@ struct ctx_simplify_tactic::imp {
         expr_ref_buffer new_args(m);
         bool modified = false;
         unsigned num_args = t->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             expr * arg = t->get_arg(i);
             expr_ref new_arg(m);
             simplify(arg, new_arg);
@@ -566,6 +566,8 @@ struct ctx_simplify_tactic::imp {
     }
 
     void operator()(goal & g) {
+        if (g.inconsistent())
+            return;
         m_occs.reset();
         m_occs(g);
         m_num_steps = 0;
@@ -578,6 +580,8 @@ struct ctx_simplify_tactic::imp {
                 proof_ref new_pr(m.mk_rewrite(t, r), m);
                 new_pr = m.mk_modus_ponens(pr, new_pr);
                 g.update(idx++, r, new_pr, dep);
+                if (g.inconsistent())
+                    break;
             }
         }
         else {

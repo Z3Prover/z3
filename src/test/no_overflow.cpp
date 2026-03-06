@@ -23,7 +23,7 @@ Revision History:
 
 #define TEST(TEST_NAME, TEST_OUTCOME, NEG_TEST_OUTCOME) \
     do { \
-        if (TEST_NAME != NULL) \
+        if (TEST_NAME != nullptr) \
         { \
             Z3_solver_push(ctx, s);            \
             Z3_solver_assert(ctx, s, TEST_NAME);     \

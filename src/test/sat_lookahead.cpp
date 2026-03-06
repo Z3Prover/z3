@@ -6,7 +6,7 @@
 #include <iostream>
 
 static void display_model(sat::model const & m) {
-    for (unsigned i = 1; i < m.size(); i++) {
+    for (unsigned i = 1; i < m.size(); ++i) {
         switch (m[i]) {
         case l_false: std::cout << "-" << i << " ";  break;
         case l_undef: break;

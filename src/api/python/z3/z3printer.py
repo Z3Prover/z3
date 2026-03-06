@@ -760,6 +760,8 @@ class Formatter:
             return seq1("Seq", (self.pp_sort(s.basis()), ))
         elif isinstance(s, z3.CharSortRef):
             return to_format("Char")
+        elif isinstance(s, z3.FiniteSetSortRef):
+            return seq1("FiniteSet", (self.pp_sort(s.element_sort()), ))
         else:
             return to_format(s.name())
 

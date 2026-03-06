@@ -32,7 +32,6 @@ namespace sls {
         
     public:
         smt_solver(ast_manager& m, params_ref const& p);
-        ~smt_solver();
         void assert_expr(expr* e);
         lbool check();
         model_ref get_model();

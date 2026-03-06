@@ -89,7 +89,7 @@ namespace smt {
         unsigned i  = 0;
         unsigned j  = 0;
         unsigned sz = m_entries.size();
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             row_entry & t1 = m_entries[i];
             if (!t1.is_dead()) {
                 if (i != j) {
@@ -226,7 +226,7 @@ namespace smt {
         unsigned i  = 0;
         unsigned j  = 0;
         unsigned sz = m_entries.size();
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             col_entry & e1 = m_entries[i];
             if (!e1.is_dead()) {
                 if (i != j) {
@@ -318,10 +318,10 @@ namespace smt {
     void theory_arith<Ext>::antecedents_t::init() {
         if (!m_init && !empty()) {
             m_params.push_back(parameter(symbol("unknown-arith")));
-            for (unsigned i = 0; i < m_lits.size(); i++) {
+            for (unsigned i = 0; i < m_lits.size(); ++i) {
                 m_params.push_back(parameter(m_lit_coeffs[i].to_rational()));
             }
-            for (unsigned i = 0; i < m_eqs.size(); i++) {
+            for (unsigned i = 0; i < m_eqs.size(); ++i) {
                 m_params.push_back(parameter(m_eq_coeffs[i].to_rational()));
             }
             m_init = true;
@@ -571,7 +571,7 @@ namespace smt {
             return;
         TRACE(move_unconstrained_to_base, tout << "before...\n"; display(tout););
         int num = get_num_vars();
-        for (theory_var v = 0; v < num; v++) {
+        for (theory_var v = 0; v < num; ++v) {
             if (m_var_occs[v].empty() && is_free(v)) {
                 switch (get_var_kind(v)) {
                 case QUASI_BASE:
@@ -611,7 +611,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::elim_quasi_base_rows() {
         int num = get_num_vars();
-        for (theory_var v = 0; v < num; v++) {
+        for (theory_var v = 0; v < num; ++v) {
             if (is_quasi_base(v)) {
                 quasi_base_row2base_row(get_var_row(v));
             }
@@ -624,7 +624,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::remove_fixed_vars_from_base() {
         int num = get_num_vars();
-        for (theory_var v = 0; v < num; v++) {
+        for (theory_var v = 0; v < num; ++v) {
             if (is_base(v) && is_fixed(v)) {
                 row const & r = m_rows[get_var_row(v)];
                 typename vector<row_entry>::const_iterator it  = r.begin_entries();
@@ -659,7 +659,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::try_to_minimize_rational_coeffs() {
         int num = get_num_vars();
-        for (theory_var v = 0; v < num; v++) {
+        for (theory_var v = 0; v < num; ++v) {
             if (!is_base(v) || !is_int(v))
                 continue;
             numeral max_den;
@@ -1511,7 +1511,7 @@ namespace smt {
     bool theory_arith<Ext>::has_interface_equality(theory_var x) {
         theory_var num = get_num_vars();
         enode* r = get_enode(x)->get_root();
-        for (theory_var v = 0; v < num; v++) {
+        for (theory_var v = 0; v < num; ++v) {
             if (v == x) continue;
             enode* n = get_enode(v);
             if (ctx.is_shared(n) && n->get_root() == r) {
@@ -2120,7 +2120,7 @@ namespace smt {
         m_var_value_table.reset();
         m_tmp_var_set.reset();
         sbuffer<theory_var> candidates;
-        for (theory_var v = 0; v < num_vars; v++) {
+        for (theory_var v = 0; v < num_vars; ++v) {
             enode * n1        = get_enode(v);
             if (!is_relevant_and_shared(n1))
                 continue;
@@ -2206,7 +2206,7 @@ namespace smt {
         m_var_value_table.reset();
         bool result   = false;
         int num       = get_num_vars();
-        for (theory_var v = 0; v < num; v++) {
+        for (theory_var v = 0; v < num; ++v) {
             enode * n        = get_enode(v);
             if (!is_relevant_and_shared(n)) 
                 continue;

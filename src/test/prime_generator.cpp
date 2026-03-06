@@ -26,7 +26,7 @@ void tst_prime_generator() {
 
     prime_generator gen;
     gen.initialize();
-    for (unsigned i = 0; i < 10000; i++) {
+    for (unsigned i = 0; i < 10000; ++i) {
         uint64_t p = gen(i);
         std::cout << p << ", ";
         if (i % 11 == 0) std::cout << "\n";
@@ -36,7 +36,7 @@ void tst_prime_generator() {
         m.set(sqrt_p, p);
         m.root(sqrt_p, 2);
         uint64_t k = m.get_uint64(sqrt_p);
-        for (uint64_t i = 2; i <= k; i++) {
+        for (uint64_t i = 2; i <= k; ++i) {
             ENSURE(p % i != 0);
         }
     }

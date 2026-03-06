@@ -38,6 +38,15 @@ namespace opt {
             m_core(c), m_weight(w) {}
     };
 
+    struct weighted_soft {
+        expr_ref  soft;
+        expr_ref  conj;
+        expr_ref  disj;
+        rational  weight;
+        weighted_soft(expr_ref const& s, expr_ref const& c, expr_ref const& d, rational const& w): soft(s), conj(c), disj(d), weight(w) {}
+    };
+    using weighted_softs = vector<weighted_soft>;
+
     class maxsat_context;
 
     class maxsmt_solver {
@@ -88,7 +97,7 @@ namespace opt {
         rational get_lower() const override { return m_lower; }
         rational get_upper() const override { return m_upper; }
         bool get_assignment(unsigned index) const override { return m_soft[index].is_true(); }
-        void collect_statistics(statistics& st) const override { }
+        void collect_statistics(statistics&) const override { }
         void get_model(model_ref& mdl, svector<symbol>& labels) override { mdl = m_model.get(); labels = m_labels;}
         virtual void commit_assignment();
         void set_model() { s().get_model(m_model); s().get_labels(m_labels); }
@@ -188,7 +197,7 @@ namespace opt {
             for (expr* e : soft) _soft.push_back(std::make_pair(e, rational::one()));
             lbool r = (*this)(_soft);
             soft.reset();
-            for (auto const& p : _soft) soft.push_back(p.first);
+            for (auto const& [e, w] : _soft) soft.push_back(e);
             return r;
         }
 

@@ -111,7 +111,7 @@ public:
         auto common_vars = get_vars_of_expr(ch[0]);
         for (lpvar j : common_vars) {
             bool divides_the_rest = true;
-            for (unsigned i = 1; i < ch.size() && divides_the_rest; i++) {
+            for (unsigned i = 1; i < ch.size() && divides_the_rest; ++i) {
                 if (!ch[i]->contains(j))
                     divides_the_rest = false;
             }
@@ -156,7 +156,7 @@ public:
 
     static void restore_front(const vector<nex*> &copy, vector<nex**>& front) {
         SASSERT(copy.size() == front.size());
-        for (unsigned i = 0; i < front.size(); i++)
+        for (unsigned i = 0; i < front.size(); ++i)
             *(front[i]) = copy[i];
     }
 
@@ -168,7 +168,7 @@ public:
         TRACE(nla_cn, tout << "save c=" << **c << "; front:"; print_front(front, tout) << "\n";);           
         nex* copy_of_c = *c;
         auto copy_of_front = copy_front(front);
-        int alloc_size = m_nex_creator.size();
+        int alloc_size = static_cast<int>(m_nex_creator.size());
         for (lpvar j : vars) {
             if (m_var_is_fixed(j)) {
                 // it does not make sense to explore fixed multupliers

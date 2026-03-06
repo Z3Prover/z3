@@ -152,7 +152,7 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
         }
         else {
             unsigned bv_size = butil().get_bv_size(t);
-            for (unsigned i = 0; i < bv_size; i++) {
+            for (unsigned i = 0; i < bv_size; ++i) {
                 parameter p(i);
                 out_bits.push_back(m().mk_app(butil().get_family_id(), OP_BIT2BOOL, 1, &p, 1, &t));
             }
@@ -226,7 +226,7 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
         unsigned bv_size = butil().get_bv_size(s);
         sort * b = m().mk_bool_sort();
         m_out.reset();
-        for (unsigned i = 0; i < bv_size; i++) {
+        for (unsigned i = 0; i < bv_size; ++i) {
             m_out.push_back(m().mk_fresh_const(nullptr, b));
             m_newbits.push_back(to_app(m_out.back())->get_decl());
         }
@@ -277,7 +277,7 @@ void OP(unsigned num_args, expr * const * args, expr_ref & result) {    \
     SASSERT(num_args > 0);                                              \
     result = args[0];                                                   \
     expr_ref new_result(m_manager);                                     \
-    for (unsigned i = 1; i < num_args; i++) {                           \
+    for (unsigned i = 1; i < num_args; ++i) {                           \
         BIN_OP(result.get(), args[i], new_result);                      \
         result = new_result;                                            \
     }                                                                   \
@@ -369,7 +369,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
     void blast_bv_term(expr * t, expr_ref & result, proof_ref & result_pr) {
         ptr_buffer<expr> bits;
         unsigned bv_size = butil().get_bv_size(t);
-        for (unsigned i = 0; i < bv_size; i++) {
+        for (unsigned i = 0; i < bv_size; ++i) {
             parameter p(i);
             bits.push_back(m().mk_app(butil().get_family_id(), OP_BIT2BOOL, 1, &p, 1, &t));
         }
@@ -553,7 +553,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
                 return BR_FAILED;
             default:                
                 TRACE(bit_blaster, tout << "non-supported operator: " << f->get_name() << "\n";
-                      for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << std::endl;);
+                      for (unsigned i = 0; i < num; ++i) tout << mk_ismt2_pp(args[i], m()) << std::endl;);
                 {
                     expr_ref r(m().mk_app(f, num, args), m());
                     result = r;
@@ -588,7 +588,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
                 if (butil().is_bv_sort(s)) {
                     unsigned bv_size = butil().get_bv_size(s);
                     new_args.reset();
-                    for (unsigned k = 0; k < bv_size; k++) {
+                    for (unsigned k = 0; k < bv_size; ++k) {
                         new_args.push_back(m().mk_var(j, m().mk_bool_sort()));
                         j++;
                     }
@@ -660,12 +660,12 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
         string_buffer<> name_buffer;
         ptr_buffer<sort> new_decl_sorts;
         sbuffer<symbol>  new_decl_names;
-        for (unsigned i = 0; i < num_decls; i++) {
+        for (unsigned i = 0; i < num_decls; ++i) {
             symbol const & n = old_q->get_decl_name(i);
             sort * s         = old_q->get_decl_sort(i);
             if (butil().is_bv_sort(s)) {
                 unsigned bv_size = butil().get_bv_size(s);
-                for (unsigned j = 0; j < bv_size; j++) {
+                for (unsigned j = 0; j < bv_size; ++j) {
                     name_buffer.reset();
                     name_buffer << n << "." << j;
                     new_decl_names.push_back(symbol(name_buffer.c_str()));

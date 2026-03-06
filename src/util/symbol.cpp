@@ -109,7 +109,7 @@ struct internal_symbol_tables {
     }
 
     char const * get_str(char const * d) {
-        auto* table = tables[string_hash(d, static_cast<unsigned>(strlen(d)), 251) % sz];
+        auto* table = tables[string_hash(std::string_view(d), 251) % sz];
         return table->get_str(d);
     }
 };

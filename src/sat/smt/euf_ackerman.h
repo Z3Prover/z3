@@ -29,10 +29,10 @@ namespace euf {
     class ackerman {
 
         struct inference : dll_base<inference>{
-            expr* a, *b, *c;
+            expr* a = nullptr, *b = nullptr, *c = nullptr;
             unsigned   m_count{ 0 };
-            bool is_cc;
-            inference(): a(nullptr), b(nullptr), c(nullptr), is_cc(false) {}
+            bool is_cc = false;
+            inference() = default;
             inference(app* a, app* b): a(a), b(b), c(nullptr), is_cc(true) {}
             inference(expr* a, expr* b, expr* c): a(a), b(b), c(c), is_cc(false) {}
         };

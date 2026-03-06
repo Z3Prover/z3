@@ -189,10 +189,8 @@ namespace datalog {
         if (!m_ctx.karr()) {
             return nullptr;
         }
-        rule_set::iterator it = source.begin(), end = source.end();
-        for (; it != end; ++it) {
-            rule const& r = **it;
-            if (r.has_negation()) {
+        for (rule* r : source) {
+            if (r->has_negation()) {
                 return nullptr;
             }
         }
@@ -225,8 +223,8 @@ namespace datalog {
         rel_context_base& rctx = *m_inner_ctx.get_rel_context();
         ptr_vector<func_decl> heads;
         func_decl_set const& predicates = m_ctx.get_predicates();
-        for (func_decl_set::iterator fit = predicates.begin(); fit != predicates.end(); ++fit) {
-            m_inner_ctx.register_predicate(*fit, false);
+        for (func_decl* pred : predicates) {
+            m_inner_ctx.register_predicate(pred, false);
         }
         m_inner_ctx.ensure_opened();
         m_inner_ctx.replace_rules(src);
@@ -256,9 +254,8 @@ namespace datalog {
 
     rule_set* mk_karr_invariants::update_rules(rule_set const& src) {
         scoped_ptr<rule_set> dst = alloc(rule_set, m_ctx);
-        rule_set::iterator it = src.begin(), end = src.end();
-        for (; it != end; ++it) {
-            update_body(*dst, **it);
+        for (rule* r : src) {
+            update_body(*dst, *r);
         }
         if (m_ctx.get_model_converter()) {
             add_invariant_model_converter* kmc = alloc(add_invariant_model_converter, m);

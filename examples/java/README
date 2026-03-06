@@ -1,5 +1,21 @@
 A small example using the Z3 Java bindings.   
 
+## Examples
+
+- **JavaExample.java** - General examples demonstrating various Z3 features
+- **JavaGenericExample.java** - Examples using generic Z3 types
+- **PolymorphicDatatypeExample.java** - Examples of parametric/polymorphic datatypes with type variables
+- **SeqOperationsExample.java** - Examples of sequence operations
+- **RCFExample.java** - Examples using real closed fields
+
+## IDE Setup
+
+For detailed instructions on setting up Z3 Java bindings in Eclipse, IntelliJ IDEA, 
+or Visual Studio Code, see:
+   ../../doc/JAVA_IDE_SETUP.md
+
+## Building and Running Examples
+
 To build the example, configure Z3 with the --java option to scripts/mk_make.py, build via  
    make examples
 in the build directory.
@@ -17,4 +33,38 @@ By default, Z3 Java bindings are automatically loading the required native libra
 In certain environments, depending on the developing process, the Z3 library is not available in the given library path.
 To disable the automated loading process, the user can set the environment variable "z3.skipLibraryLoad=true".
 In that case, the calling application should directly load the corresponding libraries before any interaction with Z3.
+
+## Polymorphic Datatypes
+
+Z3's Java API now supports polymorphic (parametric) datatypes, similar to generic types in Java or templates in C++.
+These allow you to define datatypes that are parameterized by type variables.
+
+### Creating Type Variables
+
+```java
+Context ctx = new Context();
+TypeVarSort T = ctx.mkTypeVariable("T");
+TypeVarSort U = ctx.mkTypeVariable("U");
+```
+
+### Creating Polymorphic Datatypes
+
+Example: Polymorphic List[T]
+```java
+// Create type variable
+TypeVarSort T = ctx.mkTypeVariable("T");
+
+// Define constructors
+Constructor<Object> nil = ctx.mkConstructor("nil", "is_nil", null, null, null);
+Constructor<Object> cons = ctx.mkConstructor("cons", "is_cons",
+    new String[]{"head", "tail"},
+    new Sort[]{T, null},  // null means recursive reference to List[T]
+    new int[]{0, 0});
+
+// Create the polymorphic datatype
+DatatypeSort<Object> listSort = ctx.mkPolymorphicDatatypeSort("List",
+    new Sort[]{T}, new Constructor[]{nil, cons});
+```
+
+See `PolymorphicDatatypeExample.java` for complete working examples.
 

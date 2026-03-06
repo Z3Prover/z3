@@ -1,14 +1,12 @@
 name: Documentation
 
 on:
-  push:
-    branches: [master]
   workflow_dispatch:
+  release:
+    types: [published] 
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: "pages"
@@ -18,28 +16,82 @@ env:
   EM_VERSION: 3.1.73
 
 jobs:
-  build-docs:
-    name: Build Documentation
+  build-go-docs:
+    name: Build Go Documentation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Generate Go Documentation
+        working-directory: doc
+        run: |
+          python3 mk_go_doc.py --output-dir=api/html/go --go-api-path=../src/api/go
+
+      - name: Upload Go Documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-docs
+          path: doc/api/html/go/
+          retention-days: 1
+
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    needs: build-go-docs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2
 
       - name: Setup node
         uses: actions/setup-node@v6
         with:
           node-version: "lts/*"
 
+      # Setup OCaml via action
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5
+          opam-disable-sandboxing: true
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y doxygen graphviz python3
+          sudo apt-get install -y doxygen graphviz python3 python3-pip     
+          sudo apt-get install -y \
+            bubblewrap m4 libgmp-dev pkg-config 
 
-      - name: Build Z3 for ubuntu-latest x64
+      - name: Install required opam packages
+        run: opam install -y ocamlfind zarith
+
+      - name: Build Z3 natively for Python documentation
         run: |
-          python3 scripts/mk_make.py
-          cd build
+          eval $(opam env)
+          echo "CC: $CC"
+          echo "CXX: $CXX"
+          echo "OCAMLFIND: $(which ocamlfind)"
+          echo "OCAMLC:     $(which ocamlc)"
+          echo "OCAMLOPT:     $(which ocamlopt)"
+          echo "OCAML_VERSION: $(ocamlc -version)"
+          echo "OCAMLLIB: $OCAMLLIB"
+          mkdir build-x64
+          python3 scripts/mk_make.py --python --ml --build=build-x64
+          cd build-x64
           make -j$(nproc)
+
+      - name: Generate Documentation (from doc directory)
+        working-directory: doc
+        run: |
+           eval $(opam env)
+           python3 mk_api_doc.py --mld --go --output-dir=api --z3py-package-path=../build-x64/python/z3 --build=../build-x64
+           Z3BUILD=build-x64 python3 mk_params_doc.py 
+           mkdir api/html/ml
+           ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build-x64/api/ml ../build-x64/api/ml/z3enums.mli ../build-x64/api/ml/z3.mli
 
       - name: Setup emscripten
         uses: mymindstorm/setup-emsdk@v14
@@ -49,45 +101,42 @@ jobs:
           actions-cache-folder: "emsdk-cache"
 
       - name: Install dependencies
-        run: npm ci
         working-directory: src/api/js
+        run: npm ci
 
       - name: Build TypeScript
-        run: npm run build:ts
         working-directory: src/api/js
+        run: npm run build:ts
 
       - name: Build wasm
+        working-directory: src/api/js
         run: |
           emsdk install ${EM_VERSION}
           emsdk activate ${EM_VERSION}
           source $(dirname $(which emsdk))/emsdk_env.sh
           which node
           which clang++
-          npm run build:wasm
-        working-directory: src/api/js
-          
-      - name: Generate Documentation (from doc directory)
+          npm run build:wasm     
+ 
+      - name: Generate JS Documentation (from doc directory)
         working-directory: doc
         run: |
-          source $(dirname $(which emsdk))/emsdk_env.sh
-          python3 mk_api_doc.py --js --output-dir=api
+           eval $(opam env)
+           python3 mk_api_doc.py --js --go --output-dir=api --mld --z3py-package-path=../build-x64/python/z3 --build=../build-x64
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Download Go Documentation
+        uses: actions/download-artifact@v4
         with:
-          path: 'doc/api/html'
+          name: go-docs
+          path: doc/api/html/go/
 
-  deploy:
-    name: Deploy to GitHub Pages
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build-docs
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to z3prover.github.io
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.ACTIONS_DEPLOY_KEY }}
+          external_repository: Z3Prover/z3prover.github.io
+          destination_dir: ./api
+          publish_branch: master
+          publish_dir: ./doc/api
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com

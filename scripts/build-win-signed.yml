@@ -5,7 +5,7 @@ parameters:
 jobs:
 - job: WindowsBuild${{parameters.BuildArchitecture}}
   displayName: "Windows build (${{parameters.BuildArchitecture}})"
-  timeoutInMinutes: 90
+  timeoutInMinutes: 120
   pool:
     vmImage: "windows-latest"
   steps:

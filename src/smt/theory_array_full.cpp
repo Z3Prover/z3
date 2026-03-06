@@ -333,6 +333,8 @@ namespace smt {
             SASSERT(n->get_num_args() == 2);
             instantiate_extensionality(ctx.get_enode(n->get_arg(0)), ctx.get_enode(n->get_arg(1)));
         }
+        if (!ctx.relevancy())
+            relevant_eh(n);
         return true;
     }
 
@@ -565,24 +567,6 @@ namespace smt {
 
     bool theory_array_full::instantiate_default_as_array_axiom(enode* arr) {
         return false;
-#if 0
-        if (!ctx.add_fingerprint(this, m_default_as_array_fingerprint, 1, &arr)) {
-            return false;
-        }
-        m_stats.m_num_default_as_array_axiom++;
-        SASSERT(is_as_array(arr));
-        TRACE(array, tout << mk_bounded_pp(arr->get_owner(), m) << "\n";);
-        expr* def = mk_default(arr->get_owner());
-        func_decl * f = array_util(m).get_as_array_func_decl(arr->get_owner());
-        ptr_vector<expr> args;
-        for (unsigned i = 0; i < f->get_arity(); ++i) {
-            args.push_back(mk_epsilon(f->get_domain(i)));
-        }
-        expr_ref val(m.mk_app(f, args.size(), args.c_ptr()), m);
-        ctx.internalize(def, false);
-        ctx.internalize(val.get(), false);
-        return try_assign_eq(val.get(), def);
-#endif
     }
 
     bool theory_array_full::instantiate_default_lambda_def_axiom(enode* arr) {
@@ -610,41 +594,6 @@ namespace smt {
         ctx.internalize(def, false);
         ctx.internalize(val.get(), false);
         return try_assign_eq(val.get(), def);
-    }
-
-
-    bool theory_array_full::has_unitary_domain(app* array_term) {
-        SASSERT(is_array_sort(array_term));
-        sort* s = array_term->get_sort();
-        unsigned dim = get_dimension(s);
-        parameter const * params = s->get_info()->get_parameters();
-        for (unsigned i = 0; i < dim; ++i) {
-            SASSERT(params[i].is_ast());
-            sort* d = to_sort(params[i].get_ast());
-            if (d->is_infinite() || d->is_very_big() || 1 != d->get_num_elements().size())
-                return false;
-        }
-        return true;        
-    }
-
-   bool theory_array_full::has_large_domain(app* array_term) {
-        SASSERT(is_array_sort(array_term));
-        sort* s = array_term->get_sort();
-        unsigned dim = get_dimension(s);
-        parameter const *  params = s->get_info()->get_parameters();
-        rational sz(1);
-        for (unsigned i = 0; i < dim; ++i) {
-            SASSERT(params[i].is_ast());
-            sort* d = to_sort(params[i].get_ast());
-            if (d->is_infinite() || d->is_very_big()) {
-                return true;
-            }
-            sz *= rational(d->get_num_elements().size(),rational::ui64());
-            if (sz >= rational(1 << 14)) {
-                return true;
-            }
-        }
-        return false;        
     }
 
     //
@@ -737,11 +686,12 @@ namespace smt {
         def2 = mk_default(store_app->get_arg(0));
 
         bool is_new = false;
+        rational sz;
 
         if (has_unitary_domain(store_app)) {
             def2 = store_app->get_arg(num_args - 1);
         }        
-        else if (!has_large_domain(store_app)) {
+        else if (!has_large_domain(store_app, sz)) {
             //
             // let A = store(B, i, v)
             // 
@@ -750,16 +700,20 @@ namespace smt {
             //  default(B) = B[epsilon]
             //
             //
-            expr_ref_vector args1(m), args2(m);
+            expr_ref_vector args1(m), args2(m), args3(m), args4(m);
             args1.push_back(store_app);
             args2.push_back(store_app->get_arg(0));
+            args3.push_back(store_app);
+            args4.push_back(store_app->get_arg(0));
 
             for (unsigned i = 1; i + 1 < num_args; ++i) {
                 expr* arg = store_app->get_arg(i);
                 sort* srt = arg->get_sort();
-                auto ep = mk_epsilon(srt);
-                args1.push_back(ep.first);
-                args2.push_back(ep.first);
+                auto [ep, diag] = mk_epsilon(srt);
+                args1.push_back(ep);
+                args2.push_back(ep);
+                args3.push_back(m.mk_app(diag, arg));
+                args4.push_back(m.mk_app(diag, arg));
             }            
             app_ref sel1(m), sel2(m);
             sel1 = mk_select(args1);
@@ -767,6 +721,10 @@ namespace smt {
             ctx.internalize(def1, false);
             ctx.internalize(def2, false);
             is_new = try_assign_eq(def1, sel1) || try_assign_eq(def2, sel2);
+            sel1 = mk_select(args3);
+            sel2 = mk_select(args4);
+            is_new = try_assign_eq(sel1, sel2) || is_new;
+            
             return is_new;
         }
 
@@ -775,18 +733,18 @@ namespace smt {
         return try_assign_eq(def1, def2) || is_new;
     }
 
-    std::pair<app*,func_decl*> theory_array_full::mk_epsilon(sort* s) {
-        app* eps = nullptr;
-        func_decl* diag = nullptr;
+    std::pair<app *, func_decl *> theory_array_full::mk_epsilon(sort *s) {
+        app *eps = nullptr;
+        func_decl *diag = nullptr;
         if (!m_sort2epsilon.find(s, eps)) {
             eps = m.mk_fresh_const("epsilon", s);
-            m_trail_stack.push(ast2ast_trail<sort, app>(m_sort2epsilon, s, eps));   
+            m_trail_stack.push(ast2ast_trail<sort, app>(m_sort2epsilon, s, eps));
         }
         if (!m_sort2diag.find(s, diag)) {
             diag = m.mk_fresh_func_decl("diag", 1, &s, s);
-            m_trail_stack.push(ast2ast_trail<sort, func_decl>(m_sort2diag, s, diag));   
+            m_trail_stack.push(ast2ast_trail<sort, func_decl>(m_sort2diag, s, diag));
         }
-        return std::make_pair(eps, diag);
+        return {eps, diag};
     }
 
     final_check_status theory_array_full::assert_delayed_axioms() {        
@@ -797,7 +755,7 @@ namespace smt {
         else { 
             r = theory_array::assert_delayed_axioms();
             unsigned num_vars = get_num_vars();
-            for (unsigned v = 0; v < num_vars; v++) {
+            for (unsigned v = 0; v < num_vars; ++v) {
                 var_data * d = m_var_data[v];
                 if (d->m_prop_upward && instantiate_axiom_map_for(v))
                     r = FC_CONTINUE;

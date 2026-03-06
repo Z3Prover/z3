@@ -164,7 +164,7 @@ expr * mk_and(ast_manager & m, unsigned num_args, expr * const * args) {
     else if (num_args == 1)
         return args[0];
     else
-        return m.mk_and(num_args, args);
+        return m.mk_and(std::span<expr* const>(args, num_args));
 }
 
 app* mk_and(ast_manager & m, unsigned num_args, app * const * args) {
@@ -232,8 +232,8 @@ expr_ref push_not(const expr_ref& e, unsigned limit) {
 
 expr * expand_distinct(ast_manager & m, unsigned num_args, expr * const * args) {
     expr_ref_buffer new_diseqs(m);
-    for (unsigned i = 0; i < num_args; i++) {
-        for (unsigned j = i + 1; j < num_args; j++)
+    for (unsigned i = 0; i < num_args; ++i) {
+        for (unsigned j = i + 1; j < num_args; ++j)
             new_diseqs.push_back(m.mk_not(m.mk_eq(args[i], args[j])));
     }
     return mk_and(m, new_diseqs.size(), new_diseqs.data());

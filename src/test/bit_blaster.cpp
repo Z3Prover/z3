@@ -35,7 +35,7 @@ void mk_bits(ast_manager & m, char const * prefix, unsigned sz, expr_ref_vector 
 }
 
 void display(std::ostream & out, expr_ref_vector & r, bool ll=true) {
-    for (unsigned i = 0; i < r.size(); i++) {
+    for (unsigned i = 0; i < r.size(); ++i) {
         out << "bit " << i << ":\n";
         if (ll)
             ast_ll_pp(out, r.get_manager(), r.get(i));
@@ -50,7 +50,7 @@ static unsigned to_int(model_core & mdl, expr_ref_vector & out) {
     model_evaluator eval(mdl);
     expr_ref bit(m);
     unsigned actual = 0;
-    for (unsigned i = 0; i < out.size(); i++) {
+    for (unsigned i = 0; i < out.size(); ++i) {
         eval(out.get(i), bit);
         if (m.is_true(bit))
             actual |= 1 << i;

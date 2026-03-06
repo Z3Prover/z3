@@ -43,7 +43,7 @@ namespace smt {
             // TODO: it will be replaced with assertion_stack.display
             unsigned num = m_kernel.get_num_asserted_formulas();
             out << "(kernel";
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 expr* f = m_kernel.get_asserted_formula(i);
                 out << "\n  " << mk_ismt2_pp(f, m(), 2);
             }

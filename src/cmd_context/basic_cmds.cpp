@@ -273,7 +273,7 @@ ATOMIC_CMD(labels_cmd, "labels", "retrieve Simplify-like labels", {
     svector<symbol> labels;
     ctx.get_check_sat_result()->get_labels(labels);
     ctx.regular_stream() << "(labels";
-    for (unsigned i = 0; i < labels.size(); i++) {
+    for (unsigned i = 0; i < labels.size(); ++i) {
         ctx.regular_stream() << " " << labels[i];
     }
     ctx.regular_stream() << ")" << std::endl;
@@ -893,7 +893,7 @@ public:
         ptr_vector<sort> & array_sort_args = m_domain;
         sort_ref_buffer domain(ctx.m());
         unsigned arity = m_f->get_arity();
-        for (unsigned i = 0; i < arity; i++) {
+        for (unsigned i = 0; i < arity; ++i) {
             array_sort_args.push_back(m_f->get_domain(i));
             domain.push_back(array_sort->instantiate(ctx.pm(), array_sort_args.size(), array_sort_args.data()));
             array_sort_args.pop_back();

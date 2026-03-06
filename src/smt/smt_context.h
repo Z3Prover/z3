@@ -101,6 +101,7 @@ namespace smt {
         setup                       m_setup;
         unsigned                    m_relevancy_lvl;
         timer                       m_timer;
+        region                      m_region;
         asserted_formulas           m_asserted_formulas;
         th_rewriter                 m_rewriter;
         scoped_ptr<quantifier_manager>   m_qmanager;
@@ -113,7 +114,6 @@ namespace smt {
         progress_callback *         m_progress_callback;
         unsigned                    m_next_progress_sample;
         clause_proof                m_clause_proof;
-        region                      m_region;
         fingerprint_set             m_fingerprints;
 
         expr_ref_vector             m_b_internalized_stack; // stack of the boolean expressions already internalized.
@@ -153,6 +153,7 @@ namespace smt {
         vector<enode_vector>        m_decl2enodes;  // decl -> enode (for decls with arity > 0)
         enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
+
         struct new_eq {
             enode *                 m_lhs;
             enode *                 m_rhs;
@@ -643,7 +644,6 @@ namespace smt {
         //
         // -----------------------------------
     protected:
-        typedef ptr_vector<trail >   trail_stack;
         trail_stack                           m_trail_stack;
 #ifdef Z3DEBUG
         bool                                  m_trail_enabled { true };
@@ -653,11 +653,15 @@ namespace smt {
         template<typename TrailObject>
         void push_trail(const TrailObject & obj) {
             SASSERT(m_trail_enabled);
-            m_trail_stack.push_back(new (m_region) TrailObject(obj));
+            m_trail_stack.push(obj);
         }
 
         void push_trail_ptr(trail * ptr) {
-            m_trail_stack.push_back(ptr);
+            m_trail_stack.push_ptr(ptr);
+        }
+
+        trail_stack& get_trail_stack() {
+            return m_trail_stack;
         }
 
     protected:
@@ -667,7 +671,6 @@ namespace smt {
         unsigned                    m_search_lvl { 0 }; // It is greater than m_base_lvl when assumptions are used.  Otherwise, it is equals to m_base_lvl
         struct scope {
             unsigned                m_assigned_literals_lim;
-            unsigned                m_trail_stack_lim;
             unsigned                m_aux_clauses_lim;
             unsigned                m_justifications_lim;
             unsigned                m_units_to_reassert_lim;
@@ -686,8 +689,6 @@ namespace smt {
         unsigned pop_scope_core(unsigned num_scopes);
 
         void pop_scope(unsigned num_scopes);
-
-        void undo_trail_stack(unsigned old_size);
 
         void unassign_vars(unsigned old_lim);
 
@@ -1021,7 +1022,7 @@ namespace smt {
 
         template<typename Justification>
         justification * mk_justification(Justification const & j) {
-            justification * js = new (m_region) Justification(j);
+            justification * js = new (get_region()) Justification(j);
             SASSERT(js->in_region());
             if (js->has_del_eh())
                 m_justifications.push_back(js);
@@ -1231,7 +1232,7 @@ namespace smt {
            \brief Return true if the give clause is justifying some literal.
         */
         bool is_justifying(clause * cls) const {
-            for (unsigned i = 0; i < 2; i++) {
+            for (unsigned i = 0; i < 2; ++i) {
                 b_justification js;
                 js = get_justification((*cls)[i].var());
                 if (js.get_kind() == b_justification::CLAUSE && js.get_clause() == cls)

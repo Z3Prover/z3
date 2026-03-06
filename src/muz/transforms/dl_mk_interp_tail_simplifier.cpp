@@ -75,7 +75,7 @@ namespace datalog {
         m_neg.reset();
 
         unsigned tail_len = m_rule->get_tail_size();
-        for (unsigned i=0; i<tail_len; i++) {
+        for (unsigned i=0; i<tail_len; ++i) {
             app_ref new_tail_el(m);
             apply(m_rule->get_tail(i), new_tail_el);
             m_tail.push_back(new_tail_el);
@@ -142,7 +142,7 @@ namespace datalog {
 
                 unsigned neg_comparison = 0;
 
-                for (unsigned i=0; i<arg_cnt; i++) {
+                for (unsigned i=0; i<arg_cnt; ++i) {
                     expr * arg_a = a->get_arg(i);
                     expr * arg_b = b->get_arg(i);
 
@@ -347,11 +347,11 @@ namespace datalog {
             }
             else {
                 if (m.is_and(f)) {
-                    result = m.mk_and(m_app_args.size(), m_app_args.data());
+                    result = m.mk_and(m_app_args);
                 }
                 else {
                     SASSERT(m.is_or(f));
-                    result = m.mk_or(m_app_args.size(), m_app_args.data());
+                    result = m.mk_or(m_app_args);
                 }
             }
 
@@ -408,7 +408,7 @@ namespace datalog {
 
         m_todo.reset();
         m_leqs.reset();
-        for (unsigned i = u_len; i < len; i++) {
+        for (unsigned i = u_len; i < len; ++i) {
             m_todo.push_back(r->get_tail(i));
             SASSERT(!r->is_neg_tail(i));
         }
@@ -510,7 +510,7 @@ namespace datalog {
         m_tail.reset();
         m_tail_neg.reset();
 
-        for (unsigned i=0; i<u_len; i++) {
+        for (unsigned i=0; i<u_len; ++i) {
             m_tail.push_back(r->get_tail(i));
             m_tail_neg.push_back(r->is_neg_tail(i));
         }
@@ -525,11 +525,11 @@ namespace datalog {
         }
         else {
             m_itail_members.reset();
-            for (unsigned i=u_len; i<len; i++) {
+            for (unsigned i=u_len; i<len; ++i) {
                 m_itail_members.push_back(r->get_tail(i));
                 SASSERT(!r->is_neg_tail(i));
             }
-            itail = m.mk_and(m_itail_members.size(), m_itail_members.data());
+            itail = m.mk_and(m_itail_members);
             modified = true;
         }
 

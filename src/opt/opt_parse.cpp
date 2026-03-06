@@ -134,7 +134,26 @@ class wcnf {
             if (parsed_lit < 0) p = m.mk_not(p);
             ors.push_back(p);
         }
-        result = to_app(mk_or(m, ors.size(), ors.data()));
+        result = to_app(mk_or(ors));
+        return result;
+    }
+
+    app_ref read_hard_clause() {
+        int parsed_lit;
+        int var;
+        app_ref result(m), p(m);
+        expr_ref_vector ors(m);
+        while (true) {
+            parsed_lit = in.parse_int();
+            if (parsed_lit == 0)
+                break;
+            var = abs(parsed_lit);
+            p = m.mk_const(symbol((unsigned)var), m.mk_bool_sort());
+            if (parsed_lit < 0)
+                p = m.mk_not(p);
+            ors.push_back(p);
+        }
+        result = to_app(mk_or(ors));
         return result;
     }
     
@@ -152,7 +171,7 @@ public:
     }
     
     void parse() {
-        unsigned num_vars = 0, num_clauses = 0, max_weight = 0;
+        unsigned num_vars = 0, num_clauses = 0, max_weight = UINT_MAX;
         while (true) {
             in.skip_whitespace();
             if (in.eof()) {
@@ -164,6 +183,11 @@ public:
             else if (*in == 'p') {
                 ++in;
                 parse_spec(num_vars, num_clauses, max_weight);
+            }
+            else if (*in == 'h') {
+                in.next();                
+                app_ref cls = read_hard_clause();
+                opt.add_hard_constraint(cls);
             }
             else {
                 unsigned weight = 0;
@@ -526,7 +550,7 @@ class lp_parse {
     };
 
     struct bound {
-        optional<rational>  m_lo, m_hi;
+        std::optional<rational>  m_lo, m_hi;
         bool m_int;
         bound() : m_int(false) {}
     };

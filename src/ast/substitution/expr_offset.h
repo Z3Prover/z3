@@ -26,11 +26,16 @@ Revision History:
 #include "ast/ast.h"
 
 class expr_offset {
-    expr *    m_expr;
-    unsigned  m_offset;
+    expr *    m_expr = nullptr;
+    unsigned  m_offset = 0;
 public:
-    expr_offset():m_expr(nullptr), m_offset(0) {}
+    expr_offset() = default;
     expr_offset(expr * e, unsigned o):m_expr(e), m_offset(o) {}
+    expr_offset(const expr_offset&) = default;
+    expr_offset(expr_offset&&) noexcept = default;
+
+    expr_offset& operator=(expr_offset const & other) = default;
+    expr_offset& operator=(expr_offset&&) noexcept = default;
     
     expr * get_expr() const { return m_expr; }
     unsigned get_offset() const { return m_offset; }

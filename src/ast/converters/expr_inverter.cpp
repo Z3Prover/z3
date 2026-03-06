@@ -183,7 +183,7 @@ public:
             return false;
         unsigned i;
         expr* v = nullptr;
-        for (i = 0; i < num; i++) {
+        for (i = 0; i < num; ++i) {
             expr* arg = args[i];
             if (uncnstr(arg)) {
                 v = arg;
@@ -196,7 +196,7 @@ public:
         if (!m_mc)
             return true;
         ptr_buffer<expr> new_args;
-        for (unsigned j = 0; j < num; j++) 
+        for (unsigned j = 0; j < num; ++j) 
             if (j != i)
                 new_args.push_back(args[j]);
         
@@ -270,7 +270,7 @@ class bv_expr_inverter : public iexpr_inverter {
             return false;
         unsigned i;
         expr* v = nullptr;
-        for (i = 0; i < num; i++) {
+        for (i = 0; i < num; ++i) {
             expr* arg = args[i];
             if (uncnstr(arg)) {
                 v = arg;
@@ -283,7 +283,7 @@ class bv_expr_inverter : public iexpr_inverter {
         if (!m_mc)
             return true;
         ptr_buffer<expr> new_args;
-        for (unsigned j = 0; j < num; j++)
+        for (unsigned j = 0; j < num; ++j)
             if (j != i)
                 new_args.push_back(args[j]);
 
@@ -648,7 +648,7 @@ public:
         if (m.is_uninterp(get_array_range(s)))
             return false;
         unsigned arity = get_array_arity(s);
-        for (unsigned i = 0; i < arity; i++)
+        for (unsigned i = 0; i < arity; ++i)
             if (m.is_uninterp(get_array_domain(s, i)))
                 return false;
         // building 
@@ -657,7 +657,7 @@ public:
         // and d is a term different from (select t i1 ... in)
         expr_ref_vector new_args(m);
         new_args.push_back(t);
-        for (unsigned i = 0; i < arity; i++)
+        for (unsigned i = 0; i < arity; ++i)
             new_args.push_back(m.get_some_value(get_array_domain(s, i)));
         expr_ref sel(m);
         sel = a.mk_select(new_args);
@@ -692,13 +692,13 @@ public:
                     return true;
                 }
                 func_decl* c = dt.get_accessor_constructor(f);
-                for (unsigned i = 0; i < c->get_arity(); i++)
+                for (unsigned i = 0; i < c->get_arity(); ++i)
                     if (!m.is_fully_interp(c->get_domain(i)))
                         return false;
                 mk_fresh_uncnstr_var_for(f, r);
                 ptr_vector<func_decl> const& accs = *dt.get_constructor_accessors(c);
                 ptr_buffer<expr> new_args;
-                for (unsigned i = 0; i < accs.size(); i++) {
+                for (unsigned i = 0; i < accs.size(); ++i) {
                     if (accs[i] == f)
                         new_args.push_back(r);
                     else
@@ -719,7 +719,7 @@ public:
         for (func_decl* constructor : constructors) {
             unsigned num = constructor->get_arity();
             unsigned target = UINT_MAX;
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 sort* s_arg = constructor->get_domain(i);
                 if (s == s_arg) {
                     target = i;
@@ -732,7 +732,7 @@ public:
                 continue;
             // use the constructor the distinct term constructor(...,t,...)
             ptr_buffer<expr> new_args;
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 if (i == target) 
                     new_args.push_back(t);
                 else 
@@ -823,6 +823,47 @@ public:
 };
 #endif
 
+class finite_set_inverter : public iexpr_inverter {
+    finite_set_util fs;
+public:
+    finite_set_inverter(ast_manager& m): iexpr_inverter(m), fs(m) {}
+
+    family_id get_fid() const override { return fs.get_family_id(); }
+
+    bool operator()(func_decl* f, unsigned num, expr* const* args, expr_ref& r) override {
+        switch (f->get_decl_kind()) {
+        case OP_FINITE_SET_UNION:
+            // x union y -> x
+            // y := x
+            if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
+                r = args[0];
+                if (m_mc) {
+                    add_def(args[1], r);
+                }
+                return true;
+            }
+            return false;
+        case OP_FINITE_SET_INTERSECT:
+            // x intersect y -> x
+            // y := x
+            if (num == 2 && uncnstr(args[0]) && uncnstr(args[1])) {
+                r = args[0];
+                if (m_mc) {
+                    add_def(args[1], r);
+                }
+                return true;
+            }
+            return false;
+        default:
+            break;
+        }
+        return false;
+    }
+    
+    bool mk_diff(expr* t, expr_ref& r) override {
+        return false;
+    }
+};
 
 class seq_expr_inverter : public iexpr_inverter {
     seq_util seq;
@@ -924,7 +965,7 @@ expr_inverter::~expr_inverter() {
 
 
 bool iexpr_inverter::uncnstr(unsigned num, expr * const * args) const {
-    for (unsigned i = 0; i < num; i++)
+    for (unsigned i = 0; i < num; ++i)
         if (!m_is_var(args[i]))
             return false;
     return true;
@@ -956,7 +997,7 @@ void iexpr_inverter::add_defs(unsigned num, expr* const* args, expr* u, expr* id
     if (!m_mc)
         return;
     add_def(args[0], u);
-    for (unsigned i = 1; i < num; i++)
+    for (unsigned i = 1; i < num; ++i)
         add_def(args[i], identity);
 }
 
@@ -972,6 +1013,7 @@ expr_inverter::expr_inverter(ast_manager& m): iexpr_inverter(m) {
     add(alloc(basic_expr_inverter, m, *this));
     add(alloc(seq_expr_inverter, m));
     //add(alloc(pb_expr_inverter, m));
+    add(alloc(finite_set_inverter, m));
 }
 
 
@@ -979,7 +1021,7 @@ bool expr_inverter::operator()(func_decl* f, unsigned num, expr* const* args, ex
     if (num == 0)
         return false;
             
-    for (unsigned i = 0; i < num; i++) 
+    for (unsigned i = 0; i < num; ++i) 
         if (!is_ground(args[i]))
             return false;
 

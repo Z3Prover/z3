@@ -57,10 +57,8 @@ protected:
     mpz top_score() {
         mpz res(0);
         obj_hashtable<expr> const & top_exprs = m_obj_tracker.get_top_exprs();
-        for (obj_hashtable<expr>::iterator it = top_exprs.begin();
-             it != top_exprs.end();
-             it++)
-             m_mpz_manager.add(res, m_obj_tracker.get_value(*it), res);
+        for (auto* e : top_exprs)
+            m_mpz_manager.add(res, m_obj_tracker.get_value(e), res);
         return res;
     }
 

@@ -1353,7 +1353,7 @@ expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_eps const& val, bool 
     else {
         // 
         expr_ref_vector const& core = m_objective_assignments[v];
-        f = m.mk_and(core.size(), core.data());
+        f = m.mk_and(core);
         if (is_strict) {
             f = m.mk_not(f);
         }
@@ -1369,7 +1369,7 @@ expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_eps const& val, bool 
         }
         else {
             expr_ref_vector const& core = m_objective_assignments[v];
-            f = m.mk_and(core.size(), core.data());            
+            f = m.mk_and(core);            
         }
     }
     else {
@@ -1399,7 +1399,7 @@ expr_ref theory_diff_logic<Ext>::mk_ge(generic_model_converter& fm, theory_var v
     ptr_vector<expr> formulas(ctx.get_num_asserted_formulas(), ctx.get_asserted_formulas());
     model_implicant impl_extractor(m);
     expr_ref_vector implicants = impl_extractor.minimize_literals(formulas, mdl);
-    return m.mk_and(o, m.mk_not(m.mk_and(implicants.size(), implicants.c_ptr())));
+    return m.mk_and(o, m.mk_not(m.mk_and(implicants)));
 #endif
 
 template<typename Ext>

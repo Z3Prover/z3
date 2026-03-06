@@ -430,7 +430,7 @@ namespace q {
             expr_ref meq = mk_or(meqs);
             expr_ref veq = mk_or(veqs);
             assert_expr(meq);
-            qb.domain_eqs.push_back(veq);
+            qb.domain_eqs.push_back(std::move(veq));
         }
     }
 

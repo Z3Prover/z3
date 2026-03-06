@@ -224,8 +224,8 @@ class dl_graph {
         SASSERT(m_assignment.size() == m_parent.size());
         SASSERT(m_assignment.size() <= m_heap.get_bounds());
         SASSERT(m_in_edges.size() == m_out_edges.size());
-        int n = m_out_edges.size();
-        for (dl_var id = 0; id < n; id++) {
+        int n = static_cast<int>(m_out_edges.size());
+        for (dl_var id = 0; id < n; ++id) {
             const edge_id_vector & e_ids = m_out_edges[id];
             for (edge_id e_id : e_ids) {
                 SASSERT(static_cast<unsigned>(e_id) <= m_edges.size());
@@ -233,7 +233,7 @@ class dl_graph {
                 SASSERT(e.get_source() == id);
             }
         }
-        for (dl_var id = 0; id < n; id++) {
+        for (dl_var id = 0; id < n; ++id) {
             const edge_id_vector & e_ids = m_in_edges[id];
             for (edge_id e_id : e_ids) {
                 SASSERT(static_cast<unsigned>(e_id) <= m_edges.size());
@@ -242,7 +242,7 @@ class dl_graph {
             }
         }
         n = m_edges.size();
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < n; ++i) {
             const edge & e = m_edges[i];
             SASSERT(std::find(m_out_edges[e.get_source()].begin(), m_out_edges[e.get_source()].end(), i)
                     != m_out_edges[e.get_source()].end());
@@ -884,7 +884,7 @@ public:
         unsigned num_edges     = m_edges.size();
         SASSERT(old_num_edges <= num_edges);
         unsigned to_delete     = num_edges - old_num_edges;
-        for (unsigned i = 0; i < to_delete; i++) {
+        for (unsigned i = 0; i < to_delete; ++i) {
             const edge & e = m_edges.back();
             TRACE(dl_bug, tout << "deleting edge:\n"; display_edge(tout, e););
             dl_var source  = e.get_source();
@@ -990,7 +990,7 @@ public:
         out << "digraph "" {\n";
         
         unsigned n = m_assignment.size();
-        for (unsigned v = 0; v < n; v++) {
+        for (unsigned v = 0; v < n; ++v) {
             if (vars.contains(v)) {
                 out << "\"" << v << "\" [label=\"" << v << ":" << m_assignment[v] << "\"]\n";
             }
@@ -1029,7 +1029,7 @@ public:
     template<typename FilterAssignmentProc>
     void display_assignment(std::ostream & out, FilterAssignmentProc p) const {
         unsigned n = m_assignment.size();
-        for (unsigned v = 0; v < n; v++) {
+        for (unsigned v = 0; v < n; ++v) {
             if (p(v)) {
                 out << "$" << v << " := " << m_assignment[v] << "\n";
             }
@@ -1195,19 +1195,19 @@ public:
         scc_id.reset();
         m_roots.reset();
         m_unfinished.reset();
-        int n = m_assignment.size();
+        int n = static_cast<int>(m_assignment.size());
         m_unfinished_set.resize(n, false);
         m_dfs_time.resize(n, -1);
         scc_id.resize(n, -1);
         m_next_dfs_time = 0;
         m_next_scc_id = 0;
-        for (dl_var v = 0; v < n; v++) {
+        for (dl_var v = 0; v < n; ++v) {
             if (m_dfs_time[v] == -1) {
                 dfs(v, scc_id);
             }        
         }
         TRACE(eq_scc,
-              for (dl_var v = 0; v < n; v++) {
+              for (dl_var v = 0; v < n; ++v) {
                   tout << "$" << v << " -> " << scc_id[v] << "\n";
               });
     }    
@@ -1884,7 +1884,7 @@ public:
                 switch(m_mark[w]) {
                 case DL_UNMARKED:
                     m_visited.push_back(w);
-                    // fall through
+                    Z3_fallthrough;
                 case DL_PROCESSED:
                     m_mark[w] = DL_FOUND;
                     m_heap.insert(w);

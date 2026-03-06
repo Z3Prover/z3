@@ -30,6 +30,7 @@ import {
   Z3_solver,
   Z3_sort,
   Z3_sort_kind,
+  Z3_stats,
   Z3_symbol,
   Z3_symbol_kind,
   Z3_tactic,
@@ -38,6 +39,13 @@ import {
   Z3_params,
   Z3_func_entry,
   Z3_optimize,
+  Z3_fixedpoint,
+  Z3_goal,
+  Z3_apply_result,
+  Z3_goal_prec,
+  Z3_param_descrs,
+  Z3_simplifier,
+  Z3_rcf_num,
 } from '../low-level';
 import {
   AnyAst,
@@ -63,26 +71,47 @@ import {
   CoercibleToBitVec,
   CoercibleToExpr,
   CoercibleFromMap,
+  CoercibleToFP,
   Context,
   ContextCtor,
   Expr,
+  FP,
+  FPNum,
+  FPSort,
+  FPRM,
+  FPRMSort,
+  Fixedpoint,
   FuncDecl,
   FuncDeclSignature,
   FuncInterp,
   IntNum,
   Model,
   Optimize,
+  Params,
+  ParamDescrs,
   Pattern,
   Probe,
   Quantifier,
   BodyT,
   RatNum,
+  RCFNum,
+  RCFNumCreation,
+  Re,
+  ReSort,
+  ReCreation,
+  Seq,
+  SeqSort,
+  Simplifier,
   SMTArray,
   SMTArraySort,
   Solver,
   Sort,
   SortToExprMap,
+  Statistics,
+  StatisticsEntry,
   Tactic,
+  Goal,
+  ApplyResult,
   Z3Error,
   Z3HighLevel,
   CoercibleToArith,
@@ -265,6 +294,14 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
           return new ArithSortImpl(ast);
         case Z3_sort_kind.Z3_BV_SORT:
           return new BitVecSortImpl(ast);
+        case Z3_sort_kind.Z3_FLOATING_POINT_SORT:
+          return new FPSortImpl(ast);
+        case Z3_sort_kind.Z3_ROUNDING_MODE_SORT:
+          return new FPRMSortImpl(ast);
+        case Z3_sort_kind.Z3_SEQ_SORT:
+          return new SeqSortImpl(ast);
+        case Z3_sort_kind.Z3_RE_SORT:
+          return new ReSortImpl(ast);
         case Z3_sort_kind.Z3_ARRAY_SORT:
           return new ArraySortImpl(ast);
         default:
@@ -299,6 +336,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             return new BitVecNumImpl(ast);
           }
           return new BitVecImpl(ast);
+        case Z3_sort_kind.Z3_FLOATING_POINT_SORT:
+          if (kind === Z3_ast_kind.Z3_NUMERAL_AST || kind === Z3_ast_kind.Z3_APP_AST) {
+            return new FPNumImpl(ast);
+          }
+          return new FPImpl(ast);
+        case Z3_sort_kind.Z3_ROUNDING_MODE_SORT:
+          return new FPRMImpl(ast);
+        case Z3_sort_kind.Z3_SEQ_SORT:
+          return new SeqImpl(ast);
+        case Z3_sort_kind.Z3_RE_SORT:
+          return new ReImpl(ast);
         case Z3_sort_kind.Z3_ARRAY_SORT:
           return new ArrayImpl(ast);
         default:
@@ -342,6 +390,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
     ///////////////
     function interrupt(): void {
       check(Z3.interrupt(contextPtr));
+    }
+
+    function setPrintMode(mode: Z3_ast_print_mode): void {
+      Z3.set_ast_print_mode(contextPtr, mode);
     }
 
     function isModel(obj: unknown): obj is Model<Name> {
@@ -484,6 +536,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return isSort(obj) && obj.kind() === Z3_sort_kind.Z3_REAL_SORT;
     }
 
+    function isRCFNum(obj: unknown): obj is RCFNum<Name> {
+      const r = obj instanceof RCFNumImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
     function isBitVecSort(obj: unknown): obj is BitVecSort<number, Name> {
       const r = obj instanceof BitVecSortImpl;
       r && _assertContext(obj);
@@ -518,6 +576,68 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return isAppOf(obj, Z3_decl_kind.Z3_OP_CONST_ARRAY);
     }
 
+    function isFPRMSort(obj: unknown): obj is FPRMSort<Name> {
+      const r = obj instanceof FPRMSortImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isFPRM(obj: unknown): obj is FPRM<Name> {
+      const r = obj instanceof FPRMImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isFPSort(obj: unknown): obj is FPSort<Name> {
+      const r = obj instanceof FPSortImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isFP(obj: unknown): obj is FP<Name> {
+      const r = obj instanceof FPImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isFPVal(obj: unknown): obj is FPNum<Name> {
+      const r = obj instanceof FPNumImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isSeqSort(obj: unknown): obj is SeqSort<Name> {
+      const r = obj instanceof SeqSortImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isSeq(obj: unknown): obj is Seq<Name> {
+      const r = obj instanceof SeqImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isReSort(obj: unknown): obj is ReSort<Name> {
+      const r = obj instanceof ReSortImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isRe(obj: unknown): obj is Re<Name> {
+      const r = obj instanceof ReImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isStringSort(obj: unknown): obj is SeqSort<Name> {
+      return isSeqSort(obj) && obj.isString();
+    }
+
+    function isString(obj: unknown): obj is Seq<Name> {
+      return isSeq(obj) && obj.isString();
+    }
+
     function isProbe(obj: unknown): obj is Probe<Name> {
       const r = obj instanceof ProbeImpl;
       r && _assertContext(obj);
@@ -526,6 +646,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
     function isTactic(obj: unknown): obj is Tactic<Name> {
       const r = obj instanceof TacticImpl;
+      r && _assertContext(obj);
+      return r;
+    }
+
+    function isGoal(obj: unknown): obj is Goal<Name> {
+      const r = obj instanceof GoalImpl;
       r && _assertContext(obj);
       return r;
     }
@@ -727,6 +853,26 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new RatNumImpl(Z3.mk_numeral(contextPtr, value.toString(), Real.sort().ptr));
       },
     };
+
+    const RCFNum = Object.assign((value: string | number) => new RCFNumImpl(value), {
+      pi: () => new RCFNumImpl(check(Z3.rcf_mk_pi(contextPtr))),
+
+      e: () => new RCFNumImpl(check(Z3.rcf_mk_e(contextPtr))),
+
+      infinitesimal: () => new RCFNumImpl(check(Z3.rcf_mk_infinitesimal(contextPtr))),
+
+      roots: (coefficients: RCFNum<Name>[]) => {
+        assert(coefficients.length > 0, 'Polynomial coefficients cannot be empty');
+        const coeffPtrs = coefficients.map(c => (c as RCFNumImpl).ptr);
+        const { rv: numRoots, roots: rootPtrs } = Z3.rcf_mk_roots(contextPtr, coeffPtrs);
+        const result: RCFNum<Name>[] = [];
+        for (let i = 0; i < numRoots; i++) {
+          result.push(new RCFNumImpl(rootPtrs[i]));
+        }
+        return result;
+      },
+    }) as RCFNumCreation<Name>;
+
     const BitVec = {
       sort<Bits extends number>(bits: Bits): BitVecSort<Bits, Name> {
         assert(Number.isSafeInteger(bits), 'number of bits must be an integer');
@@ -760,6 +906,130 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         );
       },
     };
+
+    const Float = {
+      sort(ebits: number, sbits: number): FPSort<Name> {
+        assert(Number.isSafeInteger(ebits) && ebits > 0, 'ebits must be a positive integer');
+        assert(Number.isSafeInteger(sbits) && sbits > 0, 'sbits must be a positive integer');
+        return new FPSortImpl(Z3.mk_fpa_sort(contextPtr, ebits, sbits));
+      },
+
+      sort16(): FPSort<Name> {
+        return new FPSortImpl(Z3.mk_fpa_sort_16(contextPtr));
+      },
+
+      sort32(): FPSort<Name> {
+        return new FPSortImpl(Z3.mk_fpa_sort_32(contextPtr));
+      },
+
+      sort64(): FPSort<Name> {
+        return new FPSortImpl(Z3.mk_fpa_sort_64(contextPtr));
+      },
+
+      sort128(): FPSort<Name> {
+        return new FPSortImpl(Z3.mk_fpa_sort_128(contextPtr));
+      },
+
+      const(name: string, sort: FPSort<Name>): FP<Name> {
+        return new FPImpl(check(Z3.mk_const(contextPtr, _toSymbol(name), sort.ptr)));
+      },
+
+      consts(names: string | string[], sort: FPSort<Name>): FP<Name>[] {
+        if (typeof names === 'string') {
+          names = names.split(' ');
+        }
+        return names.map(name => Float.const(name, sort));
+      },
+
+      val(value: number, sort: FPSort<Name>): FPNum<Name> {
+        return new FPNumImpl(check(Z3.mk_fpa_numeral_double(contextPtr, value, sort.ptr)));
+      },
+
+      NaN(sort: FPSort<Name>): FPNum<Name> {
+        return new FPNumImpl(check(Z3.mk_fpa_nan(contextPtr, sort.ptr)));
+      },
+
+      inf(sort: FPSort<Name>, negative: boolean = false): FPNum<Name> {
+        return new FPNumImpl(check(Z3.mk_fpa_inf(contextPtr, sort.ptr, negative)));
+      },
+
+      zero(sort: FPSort<Name>, negative: boolean = false): FPNum<Name> {
+        return new FPNumImpl(check(Z3.mk_fpa_zero(contextPtr, sort.ptr, negative)));
+      },
+    };
+
+    const FloatRM = {
+      sort(): FPRMSort<Name> {
+        return new FPRMSortImpl(Z3.mk_fpa_rounding_mode_sort(contextPtr));
+      },
+
+      RNE(): FPRM<Name> {
+        return new FPRMImpl(check(Z3.mk_fpa_rne(contextPtr)));
+      },
+
+      RNA(): FPRM<Name> {
+        return new FPRMImpl(check(Z3.mk_fpa_rna(contextPtr)));
+      },
+
+      RTP(): FPRM<Name> {
+        return new FPRMImpl(check(Z3.mk_fpa_rtp(contextPtr)));
+      },
+
+      RTN(): FPRM<Name> {
+        return new FPRMImpl(check(Z3.mk_fpa_rtn(contextPtr)));
+      },
+
+      RTZ(): FPRM<Name> {
+        return new FPRMImpl(check(Z3.mk_fpa_rtz(contextPtr)));
+      },
+    };
+
+    const String = {
+      sort(): SeqSort<Name> {
+        return new SeqSortImpl(Z3.mk_string_sort(contextPtr));
+      },
+
+      const(name: string): Seq<Name> {
+        return new SeqImpl(check(Z3.mk_const(contextPtr, _toSymbol(name), String.sort().ptr)));
+      },
+
+      consts(names: string | string[]): Seq<Name>[] {
+        if (typeof names === 'string') {
+          names = names.split(' ');
+        }
+        return names.map(name => String.const(name));
+      },
+
+      val(value: string): Seq<Name> {
+        return new SeqImpl(check(Z3.mk_string(contextPtr, value)));
+      },
+    };
+
+    const Seq = {
+      sort<ElemSort extends Sort<Name>>(elemSort: ElemSort): SeqSort<Name, ElemSort> {
+        return new SeqSortImpl<ElemSort>(Z3.mk_seq_sort(contextPtr, elemSort.ptr));
+      },
+
+      empty<ElemSort extends Sort<Name>>(elemSort: ElemSort): Seq<Name, ElemSort> {
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_empty(contextPtr, Seq.sort(elemSort).ptr)));
+      },
+
+      unit<ElemSort extends Sort<Name>>(elem: Expr<Name>): Seq<Name, ElemSort> {
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_unit(contextPtr, elem.ast)));
+      },
+    };
+
+    const Re = {
+      sort<SeqSortRef extends SeqSort<Name>>(seqSort: SeqSortRef): ReSort<Name, SeqSortRef> {
+        return new ReSortImpl<SeqSortRef>(Z3.mk_re_sort(contextPtr, seqSort.ptr));
+      },
+
+      toRe(seq: Seq<Name> | string): Re<Name> {
+        const seqExpr = isSeq(seq) ? seq : String.val(seq);
+        return new ReImpl(check(Z3.mk_seq_to_re(contextPtr, seqExpr.ast)));
+      },
+    };
+
     const Array = {
       sort<DomainSort extends NonEmptySortArray<Name>, RangeSort extends AnySort<Name>>(
         ...sig: [...DomainSort, RangeSort]
@@ -808,12 +1078,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       sort<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSetSort<Name, ElemSort> {
         return Array.sort(sort, Bool.sort());
       },
-      const<ElemSort extends AnySort<Name>>(name: string, sort: ElemSort) : SMTSet<Name, ElemSort> {
+      const<ElemSort extends AnySort<Name>>(name: string, sort: ElemSort): SMTSet<Name, ElemSort> {
         return new SetImpl<ElemSort>(
           check(Z3.mk_const(contextPtr, _toSymbol(name), Array.sort(sort, Bool.sort()).ptr)),
         );
       },
-      consts<ElemSort extends AnySort<Name>>(names: string | string[], sort: ElemSort) : SMTSet<Name, ElemSort>[] {
+      consts<ElemSort extends AnySort<Name>>(names: string | string[], sort: ElemSort): SMTSet<Name, ElemSort>[] {
         if (typeof names === 'string') {
           names = names.split(' ');
         }
@@ -822,14 +1092,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       empty<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort> {
         return EmptySet(sort);
       },
-      val<ElemSort extends AnySort<Name>>(values: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>[], sort: ElemSort): SMTSet<Name, ElemSort> {
+      val<ElemSort extends AnySort<Name>>(
+        values: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>[],
+        sort: ElemSort,
+      ): SMTSet<Name, ElemSort> {
         var result = EmptySet(sort);
         for (const value of values) {
           result = SetAdd(result, value);
         }
         return result;
-      }
-    }
+      },
+    };
 
     const Datatype = Object.assign(
       (name: string): DatatypeImpl => {
@@ -838,8 +1111,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       {
         createDatatypes(...datatypes: DatatypeImpl[]): DatatypeSortImpl[] {
           return createDatatypes(...datatypes);
-        }
-      }
+        },
+      },
     );
 
     ////////////////
@@ -1058,6 +1331,32 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       );
     }
 
+    function AtMost(args: [Bool<Name>, ...Bool<Name>[]], k: number): Bool<Name> {
+      _assertContext(...args);
+      return new BoolImpl(
+        check(
+          Z3.mk_atmost(
+            contextPtr,
+            args.map(arg => arg.ast),
+            k,
+          ),
+        ),
+      );
+    }
+
+    function AtLeast(args: [Bool<Name>, ...Bool<Name>[]], k: number): Bool<Name> {
+      _assertContext(...args);
+      return new BoolImpl(
+        check(
+          Z3.mk_atleast(
+            contextPtr,
+            args.map(arg => arg.ast),
+            k,
+          ),
+        ),
+      );
+    }
+
     function ForAll<QVarSorts extends NonEmptySortArray<Name>>(
       quantifiers: ArrayIndexType<Name, QVarSorts>,
       body: Bool<Name>,
@@ -1200,6 +1499,127 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return new TacticImpl(check(Z3.tactic_cond(contextPtr, probe.ptr, onTrue.ptr, onFalse.ptr)));
     }
 
+    function _toTactic(t: Tactic<Name> | string): Tactic<Name> {
+      return typeof t === 'string' ? new TacticImpl(t) : t;
+    }
+
+    function AndThen(
+      t1: Tactic<Name> | string,
+      t2: Tactic<Name> | string,
+      ...ts: (Tactic<Name> | string)[]
+    ): Tactic<Name> {
+      let result = _toTactic(t1);
+      let current = _toTactic(t2);
+      _assertContext(result, current);
+      result = new TacticImpl(check(Z3.tactic_and_then(contextPtr, result.ptr, current.ptr)));
+
+      for (const t of ts) {
+        current = _toTactic(t);
+        _assertContext(result, current);
+        result = new TacticImpl(check(Z3.tactic_and_then(contextPtr, result.ptr, current.ptr)));
+      }
+
+      return result;
+    }
+
+    function OrElse(
+      t1: Tactic<Name> | string,
+      t2: Tactic<Name> | string,
+      ...ts: (Tactic<Name> | string)[]
+    ): Tactic<Name> {
+      let result = _toTactic(t1);
+      let current = _toTactic(t2);
+      _assertContext(result, current);
+      result = new TacticImpl(check(Z3.tactic_or_else(contextPtr, result.ptr, current.ptr)));
+
+      for (const t of ts) {
+        current = _toTactic(t);
+        _assertContext(result, current);
+        result = new TacticImpl(check(Z3.tactic_or_else(contextPtr, result.ptr, current.ptr)));
+      }
+
+      return result;
+    }
+
+    const UINT_MAX = 4294967295;
+
+    function Repeat(t: Tactic<Name> | string, max?: number): Tactic<Name> {
+      const tactic = _toTactic(t);
+      _assertContext(tactic);
+      const maxVal = max !== undefined ? max : UINT_MAX;
+      return new TacticImpl(check(Z3.tactic_repeat(contextPtr, tactic.ptr, maxVal)));
+    }
+
+    function TryFor(t: Tactic<Name> | string, ms: number): Tactic<Name> {
+      const tactic = _toTactic(t);
+      _assertContext(tactic);
+      return new TacticImpl(check(Z3.tactic_try_for(contextPtr, tactic.ptr, ms)));
+    }
+
+    function When(p: Probe<Name>, t: Tactic<Name> | string): Tactic<Name> {
+      const tactic = _toTactic(t);
+      _assertContext(p, tactic);
+      return new TacticImpl(check(Z3.tactic_when(contextPtr, p.ptr, tactic.ptr)));
+    }
+
+    function Skip(): Tactic<Name> {
+      return new TacticImpl(check(Z3.tactic_skip(contextPtr)));
+    }
+
+    function Fail(): Tactic<Name> {
+      return new TacticImpl(check(Z3.tactic_fail(contextPtr)));
+    }
+
+    function FailIf(p: Probe<Name>): Tactic<Name> {
+      _assertContext(p);
+      return new TacticImpl(check(Z3.tactic_fail_if(contextPtr, p.ptr)));
+    }
+
+    function ParOr(...tactics: (Tactic<Name> | string)[]): Tactic<Name> {
+      assert(tactics.length > 0, 'ParOr requires at least one tactic');
+      const tacticImpls = tactics.map(t => _toTactic(t));
+      _assertContext(...tacticImpls);
+      const tacticPtrs = tacticImpls.map(t => t.ptr);
+      return new TacticImpl(check(Z3.tactic_par_or(contextPtr, tacticPtrs)));
+    }
+
+    function ParAndThen(t1: Tactic<Name> | string, t2: Tactic<Name> | string): Tactic<Name> {
+      const tactic1 = _toTactic(t1);
+      const tactic2 = _toTactic(t2);
+      _assertContext(tactic1, tactic2);
+      return new TacticImpl(check(Z3.tactic_par_and_then(contextPtr, tactic1.ptr, tactic2.ptr)));
+    }
+
+    function With(t: Tactic<Name> | string, params: Record<string, any>): Tactic<Name> {
+      const tactic = _toTactic(t);
+      _assertContext(tactic);
+      // Convert params to Z3_params
+      const z3params = check(Z3.mk_params(contextPtr));
+      Z3.params_inc_ref(contextPtr, z3params);
+      try {
+        for (const [key, value] of Object.entries(params)) {
+          const sym = _toSymbol(key);
+          if (typeof value === 'boolean') {
+            Z3.params_set_bool(contextPtr, z3params, sym, value);
+          } else if (typeof value === 'number') {
+            if (Number.isInteger(value)) {
+              Z3.params_set_uint(contextPtr, z3params, sym, value);
+            } else {
+              Z3.params_set_double(contextPtr, z3params, sym, value);
+            }
+          } else if (typeof value === 'string') {
+            Z3.params_set_symbol(contextPtr, z3params, sym, _toSymbol(value));
+          } else {
+            throw new Error(`Unsupported parameter type for ${key}`);
+          }
+        }
+        const result = new TacticImpl(check(Z3.tactic_using_params(contextPtr, tactic.ptr, z3params)));
+        return result;
+      } finally {
+        Z3.params_dec_ref(contextPtr, z3params);
+      }
+    }
+
     function LT(a: Arith<Name>, b: CoercibleToArith<Name>): Bool<Name> {
       return new BoolImpl(check(Z3.mk_lt(contextPtr, a.ast, a.sort.cast(b).ast)));
     }
@@ -1295,43 +1715,192 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       >;
     }
 
+    /**
+     * Create array extensionality index given two arrays with the same sort.
+     * The meaning is given by the axiom:
+     * (=> (= (select A (array-ext A B)) (select B (array-ext A B))) (= A B))
+     * Two arrays are equal if and only if they are equal on the index returned by this function.
+     */
+    function Ext<DomainSort extends NonEmptySortArray<Name>, RangeSort extends Sort<Name>>(
+      a: SMTArray<Name, DomainSort, RangeSort>,
+      b: SMTArray<Name, DomainSort, RangeSort>,
+    ): SortToExprMap<DomainSort[0], Name> {
+      return _toExpr(check(Z3.mk_array_ext(contextPtr, a.ast, b.ast))) as SortToExprMap<DomainSort[0], Name>;
+    }
+
     function SetUnion<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort> {
-      return new SetImpl<ElemSort>(check(Z3.mk_set_union(contextPtr, args.map(arg => arg.ast))));
+      return new SetImpl<ElemSort>(
+        check(
+          Z3.mk_set_union(
+            contextPtr,
+            args.map(arg => arg.ast),
+          ),
+        ),
+      );
     }
-    
+
     function SetIntersect<ElemSort extends AnySort<Name>>(...args: SMTSet<Name, ElemSort>[]): SMTSet<Name, ElemSort> {
-      return new SetImpl<ElemSort>(check(Z3.mk_set_intersect(contextPtr, args.map(arg => arg.ast))));
+      return new SetImpl<ElemSort>(
+        check(
+          Z3.mk_set_intersect(
+            contextPtr,
+            args.map(arg => arg.ast),
+          ),
+        ),
+      );
     }
-    
-    function SetDifference<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort> {
+
+    function SetDifference<ElemSort extends AnySort<Name>>(
+      a: SMTSet<Name, ElemSort>,
+      b: SMTSet<Name, ElemSort>,
+    ): SMTSet<Name, ElemSort> {
       return new SetImpl<ElemSort>(check(Z3.mk_set_difference(contextPtr, a.ast, b.ast)));
     }
-    
 
-    function SetAdd<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort> {
+    function SetAdd<ElemSort extends AnySort<Name>>(
+      set: SMTSet<Name, ElemSort>,
+      elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>,
+    ): SMTSet<Name, ElemSort> {
       const arg = set.elemSort().cast(elem as any);
       return new SetImpl<ElemSort>(check(Z3.mk_set_add(contextPtr, set.ast, arg.ast)));
     }
-    function SetDel<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>, elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>): SMTSet<Name, ElemSort> {
+    function SetDel<ElemSort extends AnySort<Name>>(
+      set: SMTSet<Name, ElemSort>,
+      elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>,
+    ): SMTSet<Name, ElemSort> {
       const arg = set.elemSort().cast(elem as any);
       return new SetImpl<ElemSort>(check(Z3.mk_set_del(contextPtr, set.ast, arg.ast)));
     }
     function SetComplement<ElemSort extends AnySort<Name>>(set: SMTSet<Name, ElemSort>): SMTSet<Name, ElemSort> {
       return new SetImpl<ElemSort>(check(Z3.mk_set_complement(contextPtr, set.ast)));
     }
-    
+
     function EmptySet<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort> {
       return new SetImpl<ElemSort>(check(Z3.mk_empty_set(contextPtr, sort.ptr)));
     }
     function FullSet<ElemSort extends AnySort<Name>>(sort: ElemSort): SMTSet<Name, ElemSort> {
       return new SetImpl<ElemSort>(check(Z3.mk_full_set(contextPtr, sort.ptr)));
     }
-    function isMember<ElemSort extends AnySort<Name>>(elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>, set: SMTSet<Name, ElemSort>): Bool<Name> {
+    function isMember<ElemSort extends AnySort<Name>>(
+      elem: CoercibleToMap<SortToExprMap<ElemSort, Name>, Name>,
+      set: SMTSet<Name, ElemSort>,
+    ): Bool<Name> {
       const arg = set.elemSort().cast(elem as any);
       return new BoolImpl(check(Z3.mk_set_member(contextPtr, arg.ast, set.ast)));
     }
-    function isSubset<ElemSort extends AnySort<Name>>(a: SMTSet<Name, ElemSort>, b: SMTSet<Name, ElemSort>): Bool<Name> {
+    function isSubset<ElemSort extends AnySort<Name>>(
+      a: SMTSet<Name, ElemSort>,
+      b: SMTSet<Name, ElemSort>,
+    ): Bool<Name> {
       return new BoolImpl(check(Z3.mk_set_subset(contextPtr, a.ast, b.ast)));
+    }
+
+    //////////////////////
+    // Regular Expressions
+    //////////////////////
+
+    function InRe(seq: Seq<Name> | string, re: Re<Name>): Bool<Name> {
+      const seqExpr = isSeq(seq) ? seq : String.val(seq);
+      return new BoolImpl(check(Z3.mk_seq_in_re(contextPtr, seqExpr.ast, re.ast)));
+    }
+
+    function Union<SeqSortRef extends SeqSort<Name>>(...res: Re<Name, SeqSortRef>[]): Re<Name, SeqSortRef> {
+      if (res.length === 0) {
+        throw new Error('Union requires at least one argument');
+      }
+      if (res.length === 1) {
+        return res[0];
+      }
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_union(contextPtr, res.map(r => r.ast))));
+    }
+
+    function Intersect<SeqSortRef extends SeqSort<Name>>(...res: Re<Name, SeqSortRef>[]): Re<Name, SeqSortRef> {
+      if (res.length === 0) {
+        throw new Error('Intersect requires at least one argument');
+      }
+      if (res.length === 1) {
+        return res[0];
+      }
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_intersect(contextPtr, res.map(r => r.ast))));
+    }
+
+    function ReConcat<SeqSortRef extends SeqSort<Name>>(...res: Re<Name, SeqSortRef>[]): Re<Name, SeqSortRef> {
+      if (res.length === 0) {
+        throw new Error('ReConcat requires at least one argument');
+      }
+      if (res.length === 1) {
+        return res[0];
+      }
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_concat(contextPtr, res.map(r => r.ast))));
+    }
+
+    function Plus<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_plus(contextPtr, re.ast)));
+    }
+
+    function Star<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_star(contextPtr, re.ast)));
+    }
+
+    function Option<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_option(contextPtr, re.ast)));
+    }
+
+    function Complement<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_complement(contextPtr, re.ast)));
+    }
+
+    function Diff<SeqSortRef extends SeqSort<Name>>(a: Re<Name, SeqSortRef>, b: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_diff(contextPtr, a.ast, b.ast)));
+    }
+
+    function Range<SeqSortRef extends SeqSort<Name>>(lo: Seq<Name, SeqSortRef> | string, hi: Seq<Name, SeqSortRef> | string): Re<Name, SeqSortRef> {
+      const loSeq = isSeq(lo) ? lo : String.val(lo);
+      const hiSeq = isSeq(hi) ? hi : String.val(hi);
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_range(contextPtr, loSeq.ast, hiSeq.ast)));
+    }
+
+    /**
+     * Create a bounded repetition regex.
+     * @param re The regex to repeat
+     * @param lo Minimum number of repetitions
+     * @param hi Maximum number of repetitions (0 means unbounded, i.e., at least lo)
+     */
+    function Loop<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>, lo: number, hi: number = 0): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_loop(contextPtr, re.ast, lo, hi)));
+    }
+
+    function Power<SeqSortRef extends SeqSort<Name>>(re: Re<Name, SeqSortRef>, n: number): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_power(contextPtr, re.ast, n)));
+    }
+
+    function AllChar<SeqSortRef extends SeqSort<Name>>(reSort: ReSort<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_allchar(contextPtr, reSort.ptr)));
+    }
+
+    function Empty<SeqSortRef extends SeqSort<Name>>(reSort: ReSort<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_empty(contextPtr, reSort.ptr)));
+    }
+
+    function Full<SeqSortRef extends SeqSort<Name>>(reSort: ReSort<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+      return new ReImpl<SeqSortRef>(check(Z3.mk_re_full(contextPtr, reSort.ptr)));
+    }
+
+    function mkPartialOrder(sort: Sort<Name>, index: number): FuncDecl<Name> {
+      return new FuncDeclImpl(check(Z3.mk_partial_order(contextPtr, sort.ptr, index)));
+    }
+
+    function mkTransitiveClosure(f: FuncDecl<Name>): FuncDecl<Name> {
+      return new FuncDeclImpl(check(Z3.mk_transitive_closure(contextPtr, f.ptr)));
+    }
+
+    async function polynomialSubresultants(
+      p: Arith<Name>,
+      q: Arith<Name>,
+      x: Arith<Name>,
+    ): Promise<AstVector<Name, Arith<Name>>> {
+      const result = await Z3.polynomial_subresultants(contextPtr, p.ast, q.ast, x.ast);
+      return new AstVectorImpl<ArithImpl>(check(result));
     }
 
     class AstImpl<Ptr extends Z3_ast> implements Ast<Name, Ptr> {
@@ -1435,6 +2004,11 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         check(Z3.solver_assert_and_track(contextPtr, this.ptr, expr.ast, constant.ast));
       }
 
+      addSimplifier(simplifier: Simplifier<Name>): void {
+        _assertContext(simplifier);
+        check(Z3.solver_add_simplifier(contextPtr, this.ptr, simplifier.ptr));
+      }
+
       assertions(): AstVector<Name, Bool<Name>> {
         return new AstVectorImpl(check(Z3.solver_get_assertions(contextPtr, this.ptr)));
       }
@@ -1459,16 +2033,91 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         }
       }
 
+      unsatCore(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.solver_get_unsat_core(contextPtr, this.ptr)));
+      }
+
       model() {
         return new ModelImpl(check(Z3.solver_get_model(contextPtr, this.ptr)));
+      }
+
+      statistics(): Statistics<Name> {
+        return new StatisticsImpl(check(Z3.solver_get_statistics(contextPtr, this.ptr)));
+      }
+
+      reasonUnknown(): string {
+        return check(Z3.solver_get_reason_unknown(contextPtr, this.ptr));
       }
 
       toString() {
         return check(Z3.solver_to_string(contextPtr, this.ptr));
       }
 
+      toSmtlib2(status: string = 'unknown'): string {
+        const assertionsVec = this.assertions();
+        const numAssertions = assertionsVec.length();
+        let formula: Z3_ast;
+        let assumptions: Z3_ast[];
+
+        if (numAssertions > 0) {
+          // Use last assertion as formula and rest as assumptions
+          assumptions = [];
+          for (let i = 0; i < numAssertions - 1; i++) {
+            assumptions.push(assertionsVec.get(i).ast);
+          }
+          formula = assertionsVec.get(numAssertions - 1).ast;
+        } else {
+          // No assertions, use true
+          assumptions = [];
+          formula = ctx.Bool.val(true).ast;
+        }
+
+        return check(Z3.benchmark_to_smtlib_string(
+          contextPtr,
+          '',
+          '',
+          status,
+          '',
+          assumptions,
+          formula
+        ));
+      }
+
       fromString(s: string) {
         Z3.solver_from_string(contextPtr, this.ptr, s);
+        throwIfError();
+      }
+
+      units(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.solver_get_units(contextPtr, this.ptr)));
+      }
+
+      nonUnits(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.solver_get_non_units(contextPtr, this.ptr)));
+      }
+
+      trail(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.solver_get_trail(contextPtr, this.ptr)));
+      }
+
+      congruenceRoot(expr: Expr<Name>): Expr<Name> {
+        _assertContext(expr);
+        return _toExpr(check(Z3.solver_congruence_root(contextPtr, this.ptr, expr.ast)));
+      }
+
+      congruenceNext(expr: Expr<Name>): Expr<Name> {
+        _assertContext(expr);
+        return _toExpr(check(Z3.solver_congruence_next(contextPtr, this.ptr, expr.ast)));
+      }
+
+      congruenceExplain(a: Expr<Name>, b: Expr<Name>): Expr<Name> {
+        _assertContext(a);
+        _assertContext(b);
+        return _toExpr(check(Z3.solver_congruence_explain(contextPtr, this.ptr, a.ast, b.ast)));
+      }
+
+      fromFile(filename: string) {
+        Z3.solver_from_file(contextPtr, this.ptr, filename);
         throwIfError();
       }
 
@@ -1567,6 +2216,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new ModelImpl(check(Z3.optimize_get_model(contextPtr, this.ptr)));
       }
 
+      statistics(): Statistics<Name> {
+        return new StatisticsImpl(check(Z3.optimize_get_statistics(contextPtr, this.ptr)));
+      }
+
       toString() {
         return check(Z3.optimize_to_string(contextPtr, this.ptr));
       }
@@ -1578,6 +2231,160 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       release() {
         Z3.optimize_dec_ref(contextPtr, this.ptr);
+        this._ptr = null;
+        cleanup.unregister(this);
+      }
+    }
+
+    class FixedpointImpl implements Fixedpoint<Name> {
+      declare readonly __typename: Fixedpoint['__typename'];
+
+      readonly ctx: Context<Name>;
+      private _ptr: Z3_fixedpoint | null;
+      get ptr(): Z3_fixedpoint {
+        _assertPtr(this._ptr);
+        return this._ptr;
+      }
+
+      constructor(ptr: Z3_fixedpoint = Z3.mk_fixedpoint(contextPtr)) {
+        this.ctx = ctx;
+        let myPtr: Z3_fixedpoint;
+        myPtr = ptr;
+        this._ptr = myPtr;
+        Z3.fixedpoint_inc_ref(contextPtr, myPtr);
+        cleanup.register(this, () => Z3.fixedpoint_dec_ref(contextPtr, myPtr), this);
+      }
+
+      set(key: string, value: any): void {
+        Z3.fixedpoint_set_params(contextPtr, this.ptr, _toParams(key, value));
+      }
+
+      help(): string {
+        return check(Z3.fixedpoint_get_help(contextPtr, this.ptr));
+      }
+
+      add(...constraints: Bool<Name>[]) {
+        constraints.forEach(constraint => {
+          _assertContext(constraint);
+          check(Z3.fixedpoint_assert(contextPtr, this.ptr, constraint.ast));
+        });
+      }
+
+      registerRelation(pred: FuncDecl<Name>): void {
+        _assertContext(pred);
+        check(Z3.fixedpoint_register_relation(contextPtr, this.ptr, pred.ptr));
+      }
+
+      addRule(rule: Bool<Name>, name?: string): void {
+        _assertContext(rule);
+        const symbol = _toSymbol(name ?? '');
+        check(Z3.fixedpoint_add_rule(contextPtr, this.ptr, rule.ast, symbol));
+      }
+
+      addFact(pred: FuncDecl<Name>, ...args: number[]): void {
+        _assertContext(pred);
+        check(Z3.fixedpoint_add_fact(contextPtr, this.ptr, pred.ptr, args));
+      }
+
+      updateRule(rule: Bool<Name>, name: string): void {
+        _assertContext(rule);
+        const symbol = _toSymbol(name);
+        check(Z3.fixedpoint_update_rule(contextPtr, this.ptr, rule.ast, symbol));
+      }
+
+      async query(query: Bool<Name>): Promise<CheckSatResult> {
+        _assertContext(query);
+        const result = await asyncMutex.runExclusive(() => check(Z3.fixedpoint_query(contextPtr, this.ptr, query.ast)));
+        switch (result) {
+          case Z3_lbool.Z3_L_FALSE:
+            return 'unsat';
+          case Z3_lbool.Z3_L_TRUE:
+            return 'sat';
+          case Z3_lbool.Z3_L_UNDEF:
+            return 'unknown';
+          default:
+            assertExhaustive(result);
+        }
+      }
+
+      async queryRelations(...relations: FuncDecl<Name>[]): Promise<CheckSatResult> {
+        relations.forEach(rel => _assertContext(rel));
+        const decls = relations.map(rel => rel.ptr);
+        const result = await asyncMutex.runExclusive(() =>
+          check(Z3.fixedpoint_query_relations(contextPtr, this.ptr, decls)),
+        );
+        switch (result) {
+          case Z3_lbool.Z3_L_FALSE:
+            return 'unsat';
+          case Z3_lbool.Z3_L_TRUE:
+            return 'sat';
+          case Z3_lbool.Z3_L_UNDEF:
+            return 'unknown';
+          default:
+            assertExhaustive(result);
+        }
+      }
+
+      getAnswer(): Expr<Name> | null {
+        const ans = check(Z3.fixedpoint_get_answer(contextPtr, this.ptr));
+        return ans ? _toExpr(ans) : null;
+      }
+
+      getReasonUnknown(): string {
+        return check(Z3.fixedpoint_get_reason_unknown(contextPtr, this.ptr));
+      }
+
+      getNumLevels(pred: FuncDecl<Name>): number {
+        _assertContext(pred);
+        return check(Z3.fixedpoint_get_num_levels(contextPtr, this.ptr, pred.ptr));
+      }
+
+      getCoverDelta(level: number, pred: FuncDecl<Name>): Expr<Name> | null {
+        _assertContext(pred);
+        const res = check(Z3.fixedpoint_get_cover_delta(contextPtr, this.ptr, level, pred.ptr));
+        return res ? _toExpr(res) : null;
+      }
+
+      addCover(level: number, pred: FuncDecl<Name>, property: Expr<Name>): void {
+        _assertContext(pred);
+        _assertContext(property);
+        check(Z3.fixedpoint_add_cover(contextPtr, this.ptr, level, pred.ptr, property.ast));
+      }
+
+      getRules(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.fixedpoint_get_rules(contextPtr, this.ptr)));
+      }
+
+      getAssertions(): AstVector<Name, Bool<Name>> {
+        return new AstVectorImpl(check(Z3.fixedpoint_get_assertions(contextPtr, this.ptr)));
+      }
+
+      setPredicateRepresentation(pred: FuncDecl<Name>, kinds: string[]): void {
+        _assertContext(pred);
+        const symbols = kinds.map(kind => _toSymbol(kind));
+        check(Z3.fixedpoint_set_predicate_representation(contextPtr, this.ptr, pred.ptr, symbols));
+      }
+
+      toString(): string {
+        return check(Z3.fixedpoint_to_string(contextPtr, this.ptr, []));
+      }
+
+      fromString(s: string): AstVector<Name, Bool<Name>> {
+        const av = check(Z3.fixedpoint_from_string(contextPtr, this.ptr, s));
+        return new AstVectorImpl(av);
+      }
+
+      fromFile(file: string): AstVector<Name, Bool<Name>> {
+        const av = check(Z3.fixedpoint_from_file(contextPtr, this.ptr, file));
+        return new AstVectorImpl(av);
+      }
+
+      statistics(): Statistics<Name> {
+        return new StatisticsImpl(check(Z3.fixedpoint_get_statistics(contextPtr, this.ptr)));
+      }
+
+      release() {
+        Z3.fixedpoint_dec_ref(contextPtr, this.ptr);
         this._ptr = null;
         cleanup.unregister(this);
       }
@@ -1759,8 +2566,104 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new AstVectorImpl(check(Z3.model_get_sort_universe(contextPtr, this.ptr, sort.ptr)));
       }
 
+      numSorts(): number {
+        return check(Z3.model_get_num_sorts(contextPtr, this.ptr));
+      }
+
+      getSort(i: number): Sort<Name> {
+        return _toSort(check(Z3.model_get_sort(contextPtr, this.ptr, i)));
+      }
+
+      getSorts(): Sort<Name>[] {
+        const n = this.numSorts();
+        const result: Sort<Name>[] = [];
+        for (let i = 0; i < n; i++) {
+          result.push(this.getSort(i));
+        }
+        return result;
+      }
+
+      sortUniverse(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>> {
+        return this.getUniverse(sort) as AstVector<Name, AnyExpr<Name>>;
+      }
+
       release() {
         Z3.model_dec_ref(contextPtr, this.ptr);
+        this._ptr = null;
+        cleanup.unregister(this);
+      }
+    }
+
+    class StatisticsImpl implements Statistics<Name> {
+      declare readonly __typename: Statistics['__typename'];
+      readonly ctx: Context<Name>;
+      private _ptr: Z3_stats | null;
+      get ptr(): Z3_stats {
+        _assertPtr(this._ptr);
+        return this._ptr;
+      }
+
+      constructor(ptr: Z3_stats) {
+        this.ctx = ctx;
+        this._ptr = ptr;
+        Z3.stats_inc_ref(contextPtr, ptr);
+        cleanup.register(this, () => Z3.stats_dec_ref(contextPtr, ptr), this);
+      }
+
+      size(): number {
+        return Z3.stats_size(contextPtr, this.ptr);
+      }
+
+      keys(): string[] {
+        const result: string[] = [];
+        const sz = this.size();
+        for (let i = 0; i < sz; i++) {
+          result.push(Z3.stats_get_key(contextPtr, this.ptr, i));
+        }
+        return result;
+      }
+
+      get(key: string): number {
+        const sz = this.size();
+        for (let i = 0; i < sz; i++) {
+          if (Z3.stats_get_key(contextPtr, this.ptr, i) === key) {
+            if (Z3.stats_is_uint(contextPtr, this.ptr, i)) {
+              return Z3.stats_get_uint_value(contextPtr, this.ptr, i);
+            } else {
+              return Z3.stats_get_double_value(contextPtr, this.ptr, i);
+            }
+          }
+        }
+        throw new Error(`Statistics key not found: ${key}`);
+      }
+
+      entries(): StatisticsEntry<Name>[] {
+        const result: StatisticsEntry<Name>[] = [];
+        const sz = this.size();
+        for (let i = 0; i < sz; i++) {
+          const key = Z3.stats_get_key(contextPtr, this.ptr, i);
+          const isUint = Z3.stats_is_uint(contextPtr, this.ptr, i);
+          const isDouble = Z3.stats_is_double(contextPtr, this.ptr, i);
+          const value = isUint
+            ? Z3.stats_get_uint_value(contextPtr, this.ptr, i)
+            : Z3.stats_get_double_value(contextPtr, this.ptr, i);
+          result.push({
+            __typename: 'StatisticsEntry' as const,
+            key,
+            value,
+            isUint,
+            isDouble,
+          });
+        }
+        return result;
+      }
+
+      [Symbol.iterator](): Iterator<StatisticsEntry<Name>> {
+        return this.entries()[Symbol.iterator]();
+      }
+
+      release() {
+        Z3.stats_dec_ref(contextPtr, this.ptr);
         this._ptr = null;
         cleanup.unregister(this);
       }
@@ -2076,7 +2979,153 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       constructor(readonly ptr: Z3_probe) {
         this.ctx = ctx;
       }
+
+      apply(goal: Goal<Name>): number {
+        _assertContext(goal);
+        return Z3.probe_apply(contextPtr, this.ptr, goal.ptr);
+      }
     }
+
+    class GoalImpl implements Goal<Name> {
+      declare readonly __typename: Goal['__typename'];
+      readonly ctx: Context<Name>;
+      readonly ptr: Z3_goal;
+
+      constructor(models: boolean = true, unsat_cores: boolean = false, proofs: boolean = false) {
+        this.ctx = ctx;
+        const myPtr = check(Z3.mk_goal(contextPtr, models, unsat_cores, proofs));
+        this.ptr = myPtr;
+        Z3.goal_inc_ref(contextPtr, myPtr);
+        cleanup.register(this, () => Z3.goal_dec_ref(contextPtr, myPtr), this);
+      }
+
+      // Factory method for creating from existing Z3_goal pointer
+      static fromPtr(goalPtr: Z3_goal): GoalImpl {
+        const goal = Object.create(GoalImpl.prototype) as GoalImpl;
+        (goal as any).ctx = ctx;
+        (goal as any).ptr = goalPtr;
+        Z3.goal_inc_ref(contextPtr, goalPtr);
+        cleanup.register(goal, () => Z3.goal_dec_ref(contextPtr, goalPtr), goal);
+        return goal;
+      }
+
+      add(...constraints: (Bool<Name> | boolean)[]): void {
+        for (const constraint of constraints) {
+          const boolConstraint = isBool(constraint) ? constraint : Bool.val(constraint);
+          _assertContext(boolConstraint);
+          Z3.goal_assert(contextPtr, this.ptr, boolConstraint.ast);
+        }
+      }
+
+      size(): number {
+        return Z3.goal_size(contextPtr, this.ptr);
+      }
+
+      get(i: number): Bool<Name> {
+        assert(i >= 0 && i < this.size(), 'Index out of bounds');
+        const ast = check(Z3.goal_formula(contextPtr, this.ptr, i));
+        return new BoolImpl(ast);
+      }
+
+      depth(): number {
+        return Z3.goal_depth(contextPtr, this.ptr);
+      }
+
+      inconsistent(): boolean {
+        return Z3.goal_inconsistent(contextPtr, this.ptr);
+      }
+
+      precision(): Z3_goal_prec {
+        return Z3.goal_precision(contextPtr, this.ptr);
+      }
+
+      reset(): void {
+        Z3.goal_reset(contextPtr, this.ptr);
+      }
+
+      numExprs(): number {
+        return Z3.goal_num_exprs(contextPtr, this.ptr);
+      }
+
+      isDecidedSat(): boolean {
+        return Z3.goal_is_decided_sat(contextPtr, this.ptr);
+      }
+
+      isDecidedUnsat(): boolean {
+        return Z3.goal_is_decided_unsat(contextPtr, this.ptr);
+      }
+
+      convertModel(model: Model<Name>): Model<Name> {
+        _assertContext(model);
+        const convertedModel = check(Z3.goal_convert_model(contextPtr, this.ptr, model.ptr));
+        return new ModelImpl(convertedModel);
+      }
+
+      asExpr(): Bool<Name> {
+        const sz = this.size();
+        if (sz === 0) {
+          return Bool.val(true);
+        } else if (sz === 1) {
+          return this.get(0);
+        } else {
+          const constraints: Bool<Name>[] = [];
+          for (let i = 0; i < sz; i++) {
+            constraints.push(this.get(i));
+          }
+          return And(...constraints);
+        }
+      }
+
+      toString(): string {
+        return Z3.goal_to_string(contextPtr, this.ptr);
+      }
+
+      dimacs(includeNames: boolean = true): string {
+        return Z3.goal_to_dimacs_string(contextPtr, this.ptr, includeNames);
+      }
+    }
+
+    class ApplyResultImpl implements ApplyResult<Name> {
+      declare readonly __typename: ApplyResult['__typename'];
+      readonly ctx: Context<Name>;
+      readonly ptr: Z3_apply_result;
+
+      constructor(ptr: Z3_apply_result) {
+        this.ctx = ctx;
+        this.ptr = ptr;
+        Z3.apply_result_inc_ref(contextPtr, ptr);
+        cleanup.register(this, () => Z3.apply_result_dec_ref(contextPtr, ptr), this);
+      }
+
+      length(): number {
+        return Z3.apply_result_get_num_subgoals(contextPtr, this.ptr);
+      }
+
+      getSubgoal(i: number): Goal<Name> {
+        assert(i >= 0 && i < this.length(), 'Index out of bounds');
+        const goalPtr = check(Z3.apply_result_get_subgoal(contextPtr, this.ptr, i));
+        return GoalImpl.fromPtr(goalPtr);
+      }
+
+      toString(): string {
+        return Z3.apply_result_to_string(contextPtr, this.ptr);
+      }
+
+      [index: number]: Goal<Name>;
+    }
+
+    // Add indexer support to ApplyResultImpl
+    const applyResultHandler = {
+      get(target: ApplyResultImpl, prop: string | symbol): any {
+        if (typeof prop === 'string') {
+          const index = parseInt(prop, 10);
+          if (!isNaN(index) && index >= 0 && index < target.length()) {
+            return target.getSubgoal(index);
+          }
+        }
+        return (target as any)[prop];
+      },
+    };
 
     class TacticImpl implements Tactic<Name> {
       declare readonly __typename: Tactic['__typename'];
@@ -2097,6 +3146,165 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
         Z3.tactic_inc_ref(contextPtr, myPtr);
         cleanup.register(this, () => Z3.tactic_dec_ref(contextPtr, myPtr), this);
+      }
+
+      async apply(goal: Goal<Name> | Bool<Name>): Promise<ApplyResult<Name>> {
+        let goalToUse: Goal<Name>;
+
+        if (isBool(goal)) {
+          // Convert Bool expression to Goal
+          goalToUse = new GoalImpl();
+          goalToUse.add(goal);
+        } else {
+          goalToUse = goal;
+        }
+
+        _assertContext(goalToUse);
+        const result = await Z3.tactic_apply(contextPtr, this.ptr, goalToUse.ptr);
+        const applyResult = new ApplyResultImpl(check(result));
+        // Wrap with Proxy to enable indexer access
+        return new Proxy(applyResult, applyResultHandler) as ApplyResult<Name>;
+      }
+
+      solver(): Solver<Name> {
+        const solverPtr = check(Z3.mk_solver_from_tactic(contextPtr, this.ptr));
+        return new SolverImpl(solverPtr);
+      }
+
+      help(): string {
+        return Z3.tactic_get_help(contextPtr, this.ptr);
+      }
+
+      paramDescrs(): ParamDescrs<Name> {
+        const descrs = check(Z3.tactic_get_param_descrs(contextPtr, this.ptr));
+        return new ParamDescrsImpl(descrs);
+      }
+
+      usingParams(params: Params<Name>): Tactic<Name> {
+        _assertContext(params);
+        const newTactic = check(Z3.tactic_using_params(contextPtr, this.ptr, params.ptr));
+        return new TacticImpl(newTactic);
+      }
+    }
+
+    class ParamsImpl implements Params<Name> {
+      declare readonly __typename: Params['__typename'];
+
+      readonly ptr: Z3_params;
+      readonly ctx: Context<Name>;
+
+      constructor(params?: Z3_params) {
+        this.ctx = ctx;
+        if (params) {
+          this.ptr = params;
+        } else {
+          this.ptr = Z3.mk_params(contextPtr);
+        }
+        Z3.params_inc_ref(contextPtr, this.ptr);
+        cleanup.register(this, () => Z3.params_dec_ref(contextPtr, this.ptr), this);
+      }
+
+      set(name: string, value: boolean | number | string): void {
+        const sym = _toSymbol(name);
+        if (typeof value === 'boolean') {
+          Z3.params_set_bool(contextPtr, this.ptr, sym, value);
+        } else if (typeof value === 'number') {
+          if (Number.isInteger(value)) {
+            check(Z3.params_set_uint(contextPtr, this.ptr, sym, value));
+          } else {
+            check(Z3.params_set_double(contextPtr, this.ptr, sym, value));
+          }
+        } else if (typeof value === 'string') {
+          check(Z3.params_set_symbol(contextPtr, this.ptr, sym, _toSymbol(value)));
+        }
+      }
+
+      validate(descrs: ParamDescrs<Name>): void {
+        _assertContext(descrs);
+        Z3.params_validate(contextPtr, this.ptr, descrs.ptr);
+      }
+
+      toString(): string {
+        return Z3.params_to_string(contextPtr, this.ptr);
+      }
+    }
+
+    class ParamDescrsImpl implements ParamDescrs<Name> {
+      declare readonly __typename: ParamDescrs['__typename'];
+
+      readonly ptr: Z3_param_descrs;
+      readonly ctx: Context<Name>;
+
+      constructor(paramDescrs: Z3_param_descrs) {
+        this.ctx = ctx;
+        this.ptr = paramDescrs;
+        Z3.param_descrs_inc_ref(contextPtr, this.ptr);
+        cleanup.register(this, () => Z3.param_descrs_dec_ref(contextPtr, this.ptr), this);
+      }
+
+      size(): number {
+        return Z3.param_descrs_size(contextPtr, this.ptr);
+      }
+
+      getName(i: number): string {
+        const sym = Z3.param_descrs_get_name(contextPtr, this.ptr, i);
+        const name = _fromSymbol(sym);
+        return typeof name === 'string' ? name : `${name}`;
+      }
+
+      getKind(name: string): number {
+        return Z3.param_descrs_get_kind(contextPtr, this.ptr, _toSymbol(name));
+      }
+
+      getDocumentation(name: string): string {
+        return Z3.param_descrs_get_documentation(contextPtr, this.ptr, _toSymbol(name));
+      }
+
+      toString(): string {
+        return Z3.param_descrs_to_string(contextPtr, this.ptr);
+      }
+    }
+
+    class SimplifierImpl implements Simplifier<Name> {
+      declare readonly __typename: Simplifier['__typename'];
+
+      readonly ptr: Z3_simplifier;
+      readonly ctx: Context<Name>;
+
+      constructor(simplifier: string | Z3_simplifier) {
+        this.ctx = ctx;
+        let myPtr: Z3_simplifier;
+        if (typeof simplifier === 'string') {
+          myPtr = check(Z3.mk_simplifier(contextPtr, simplifier));
+        } else {
+          myPtr = simplifier;
+        }
+
+        this.ptr = myPtr;
+
+        Z3.simplifier_inc_ref(contextPtr, myPtr);
+        cleanup.register(this, () => Z3.simplifier_dec_ref(contextPtr, myPtr), this);
+      }
+
+      help(): string {
+        return Z3.simplifier_get_help(contextPtr, this.ptr);
+      }
+
+      paramDescrs(): ParamDescrs<Name> {
+        const descrs = check(Z3.simplifier_get_param_descrs(contextPtr, this.ptr));
+        return new ParamDescrsImpl(descrs);
+      }
+
+      usingParams(params: Params<Name>): Simplifier<Name> {
+        _assertContext(params);
+        const newSimplifier = check(Z3.simplifier_using_params(contextPtr, this.ptr, params.ptr));
+        return new SimplifierImpl(newSimplifier);
+      }
+
+      andThen(other: Simplifier<Name>): Simplifier<Name> {
+        _assertContext(other);
+        const newSimplifier = check(Z3.simplifier_and_then(contextPtr, this.ptr, other.ptr));
+        return new SimplifierImpl(newSimplifier);
       }
     }
 
@@ -2347,6 +3555,114 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       }
     }
 
+    class RCFNumImpl implements RCFNum<Name> {
+      declare readonly __typename: RCFNum['__typename'];
+      readonly ctx: Context<Name>;
+      readonly ptr: Z3_rcf_num;
+
+      constructor(value: string | number);
+      constructor(ptr: Z3_rcf_num);
+      constructor(valueOrPtr: string | number | Z3_rcf_num) {
+        this.ctx = ctx;
+        let myPtr: Z3_rcf_num;
+        if (typeof valueOrPtr === 'string') {
+          myPtr = check(Z3.rcf_mk_rational(contextPtr, valueOrPtr));
+        } else if (typeof valueOrPtr === 'number') {
+          myPtr = check(Z3.rcf_mk_small_int(contextPtr, valueOrPtr));
+        } else {
+          myPtr = valueOrPtr;
+        }
+        this.ptr = myPtr;
+        cleanup.register(this, () => Z3.rcf_del(contextPtr, myPtr), this);
+      }
+
+      add(other: RCFNum<Name>): RCFNum<Name> {
+        _assertContext(other);
+        return new RCFNumImpl(check(Z3.rcf_add(contextPtr, this.ptr, (other as RCFNumImpl).ptr)));
+      }
+
+      sub(other: RCFNum<Name>): RCFNum<Name> {
+        _assertContext(other);
+        return new RCFNumImpl(check(Z3.rcf_sub(contextPtr, this.ptr, (other as RCFNumImpl).ptr)));
+      }
+
+      mul(other: RCFNum<Name>): RCFNum<Name> {
+        _assertContext(other);
+        return new RCFNumImpl(check(Z3.rcf_mul(contextPtr, this.ptr, (other as RCFNumImpl).ptr)));
+      }
+
+      div(other: RCFNum<Name>): RCFNum<Name> {
+        _assertContext(other);
+        return new RCFNumImpl(check(Z3.rcf_div(contextPtr, this.ptr, (other as RCFNumImpl).ptr)));
+      }
+
+      neg(): RCFNum<Name> {
+        return new RCFNumImpl(check(Z3.rcf_neg(contextPtr, this.ptr)));
+      }
+
+      inv(): RCFNum<Name> {
+        return new RCFNumImpl(check(Z3.rcf_inv(contextPtr, this.ptr)));
+      }
+
+      power(k: number): RCFNum<Name> {
+        return new RCFNumImpl(check(Z3.rcf_power(contextPtr, this.ptr, k)));
+      }
+
+      lt(other: RCFNum<Name>): boolean {
+        _assertContext(other);
+        return check(Z3.rcf_lt(contextPtr, this.ptr, (other as RCFNumImpl).ptr));
+      }
+
+      gt(other: RCFNum<Name>): boolean {
+        _assertContext(other);
+        return check(Z3.rcf_gt(contextPtr, this.ptr, (other as RCFNumImpl).ptr));
+      }
+
+      le(other: RCFNum<Name>): boolean {
+        _assertContext(other);
+        return check(Z3.rcf_le(contextPtr, this.ptr, (other as RCFNumImpl).ptr));
+      }
+
+      ge(other: RCFNum<Name>): boolean {
+        _assertContext(other);
+        return check(Z3.rcf_ge(contextPtr, this.ptr, (other as RCFNumImpl).ptr));
+      }
+
+      eq(other: RCFNum<Name>): boolean {
+        _assertContext(other);
+        return check(Z3.rcf_eq(contextPtr, this.ptr, (other as RCFNumImpl).ptr));
+      }
+
+      neq(other: RCFNum<Name>): boolean {
+        _assertContext(other);
+        return check(Z3.rcf_neq(contextPtr, this.ptr, (other as RCFNumImpl).ptr));
+      }
+
+      isRational(): boolean {
+        return check(Z3.rcf_is_rational(contextPtr, this.ptr));
+      }
+
+      isAlgebraic(): boolean {
+        return check(Z3.rcf_is_algebraic(contextPtr, this.ptr));
+      }
+
+      isInfinitesimal(): boolean {
+        return check(Z3.rcf_is_infinitesimal(contextPtr, this.ptr));
+      }
+
+      isTranscendental(): boolean {
+        return check(Z3.rcf_is_transcendental(contextPtr, this.ptr));
+      }
+
+      toString(compact: boolean = false): string {
+        return check(Z3.rcf_num_to_string(contextPtr, this.ptr, compact, false));
+      }
+
+      toDecimal(precision: number): string {
+        return check(Z3.rcf_num_to_decimal_string(contextPtr, this.ptr, precision));
+      }
+    }
+
     class BitVecSortImpl<Bits extends number> extends SortImpl implements BitVecSort<Bits, Name> {
       declare readonly __typename: BitVecSort['__typename'];
 
@@ -2525,7 +3841,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new BoolImpl(check(Z3.mk_bvsub_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
 
-      subNoUndeflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name> {
+      subNoUnderflow(other: CoercibleToBitVec<Bits, Name>, isSigned: boolean): Bool<Name> {
         return new BoolImpl(check(Z3.mk_bvsub_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned)));
       }
 
@@ -2537,7 +3853,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         return new BoolImpl(check(Z3.mk_bvmul_no_overflow(contextPtr, this.ast, this.sort.cast(other).ast, isSigned)));
       }
 
-      mulNoUndeflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
+      mulNoUnderflow(other: CoercibleToBitVec<Bits, Name>): Bool<Name> {
         return new BoolImpl(check(Z3.mk_bvmul_no_underflow(contextPtr, this.ast, this.sort.cast(other).ast)));
       }
 
@@ -2571,6 +3887,331 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
       asBinaryString() {
         return Z3.get_numeral_binary_string(contextPtr, this.ast);
+      }
+    }
+
+    class FPRMSortImpl extends SortImpl implements FPRMSort<Name> {
+      declare readonly __typename: FPRMSort['__typename'];
+
+      cast(other: FPRM<Name>): FPRM<Name>;
+      cast(other: CoercibleToExpr<Name>): never;
+      cast(other: any): any {
+        if (isFPRM(other)) {
+          _assertContext(other);
+          return other;
+        }
+        throw new Error("Can't cast to FPRMSort");
+      }
+    }
+
+    class FPRMImpl extends ExprImpl<Z3_ast, FPRMSortImpl> implements FPRM<Name> {
+      declare readonly __typename: FPRM['__typename'];
+    }
+
+    class FPSortImpl extends SortImpl implements FPSort<Name> {
+      declare readonly __typename: FPSort['__typename'];
+
+      ebits() {
+        return Z3.fpa_get_ebits(contextPtr, this.ptr);
+      }
+
+      sbits() {
+        return Z3.fpa_get_sbits(contextPtr, this.ptr);
+      }
+
+      cast(other: CoercibleToFP<Name>): FP<Name>;
+      cast(other: CoercibleToExpr<Name>): Expr<Name>;
+      cast(other: CoercibleToExpr<Name>): Expr<Name> {
+        if (isExpr(other)) {
+          _assertContext(other);
+          return other;
+        }
+        if (typeof other === 'number') {
+          return Float.val(other, this);
+        }
+        throw new Error("Can't cast to FPSort");
+      }
+    }
+
+    class FPImpl extends ExprImpl<Z3_ast, FPSortImpl> implements FP<Name> {
+      declare readonly __typename: FP['__typename'];
+
+      add(rm: FPRM<Name>, other: CoercibleToFP<Name>): FP<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new FPImpl(check(Z3.mk_fpa_add(contextPtr, rm.ast, this.ast, otherFP.ast)));
+      }
+
+      sub(rm: FPRM<Name>, other: CoercibleToFP<Name>): FP<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new FPImpl(check(Z3.mk_fpa_sub(contextPtr, rm.ast, this.ast, otherFP.ast)));
+      }
+
+      mul(rm: FPRM<Name>, other: CoercibleToFP<Name>): FP<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new FPImpl(check(Z3.mk_fpa_mul(contextPtr, rm.ast, this.ast, otherFP.ast)));
+      }
+
+      div(rm: FPRM<Name>, other: CoercibleToFP<Name>): FP<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new FPImpl(check(Z3.mk_fpa_div(contextPtr, rm.ast, this.ast, otherFP.ast)));
+      }
+
+      neg(): FP<Name> {
+        return new FPImpl(check(Z3.mk_fpa_neg(contextPtr, this.ast)));
+      }
+
+      abs(): FP<Name> {
+        return new FPImpl(check(Z3.mk_fpa_abs(contextPtr, this.ast)));
+      }
+
+      sqrt(rm: FPRM<Name>): FP<Name> {
+        return new FPImpl(check(Z3.mk_fpa_sqrt(contextPtr, rm.ast, this.ast)));
+      }
+
+      rem(other: CoercibleToFP<Name>): FP<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new FPImpl(check(Z3.mk_fpa_rem(contextPtr, this.ast, otherFP.ast)));
+      }
+
+      fma(rm: FPRM<Name>, y: CoercibleToFP<Name>, z: CoercibleToFP<Name>): FP<Name> {
+        const yFP = isFP(y) ? y : Float.val(y, this.sort);
+        const zFP = isFP(z) ? z : Float.val(z, this.sort);
+        return new FPImpl(check(Z3.mk_fpa_fma(contextPtr, rm.ast, this.ast, yFP.ast, zFP.ast)));
+      }
+
+      lt(other: CoercibleToFP<Name>): Bool<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new BoolImpl(check(Z3.mk_fpa_lt(contextPtr, this.ast, otherFP.ast)));
+      }
+
+      gt(other: CoercibleToFP<Name>): Bool<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new BoolImpl(check(Z3.mk_fpa_gt(contextPtr, this.ast, otherFP.ast)));
+      }
+
+      le(other: CoercibleToFP<Name>): Bool<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new BoolImpl(check(Z3.mk_fpa_leq(contextPtr, this.ast, otherFP.ast)));
+      }
+
+      ge(other: CoercibleToFP<Name>): Bool<Name> {
+        const otherFP = isFP(other) ? other : Float.val(other, this.sort);
+        return new BoolImpl(check(Z3.mk_fpa_geq(contextPtr, this.ast, otherFP.ast)));
+      }
+
+      isNaN(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_nan(contextPtr, this.ast)));
+      }
+
+      isInf(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_infinite(contextPtr, this.ast)));
+      }
+
+      isZero(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_zero(contextPtr, this.ast)));
+      }
+
+      isNormal(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_normal(contextPtr, this.ast)));
+      }
+
+      isSubnormal(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_subnormal(contextPtr, this.ast)));
+      }
+
+      isNegative(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_negative(contextPtr, this.ast)));
+      }
+
+      isPositive(): Bool<Name> {
+        return new BoolImpl(check(Z3.mk_fpa_is_positive(contextPtr, this.ast)));
+      }
+    }
+
+    class FPNumImpl extends FPImpl implements FPNum<Name> {
+      declare readonly __typename: FPNum['__typename'];
+
+      value(): number {
+        // Get the floating-point numeral as a JavaScript number
+        // Note: This may lose precision for values outside JavaScript number range
+        return Z3.get_numeral_double(contextPtr, this.ast);
+      }
+    }
+
+    class SeqSortImpl<ElemSort extends Sort<Name> = Sort<Name>> extends SortImpl implements SeqSort<Name, ElemSort> {
+      declare readonly __typename: SeqSort['__typename'];
+
+      isString(): boolean {
+        return Z3.is_string_sort(contextPtr, this.ptr);
+      }
+
+      basis(): Sort<Name> {
+        return _toSort(check(Z3.get_seq_sort_basis(contextPtr, this.ptr)));
+      }
+
+      cast(other: Seq<Name>): Seq<Name>;
+      cast(other: string): Seq<Name>;
+      cast(other: CoercibleToExpr<Name>): Expr<Name>;
+      cast(other: any): any {
+        if (isSeq(other)) {
+          _assertContext(other);
+          return other;
+        }
+        if (typeof other === 'string') {
+          return String.val(other);
+        }
+        throw new Error("Can't cast to SeqSort");
+      }
+    }
+
+    class SeqImpl<ElemSort extends Sort<Name> = Sort<Name>>
+      extends ExprImpl<Z3_ast, SeqSortImpl<ElemSort>>
+      implements Seq<Name, ElemSort>
+    {
+      declare readonly __typename: Seq['__typename'];
+
+      isString(): boolean {
+        return Z3.is_string_sort(contextPtr, Z3.get_sort(contextPtr, this.ast));
+      }
+
+      asString(): string {
+        if (!Z3.is_string(contextPtr, this.ast)) {
+          throw new Error('Not a string value');
+        }
+        return Z3.get_string(contextPtr, this.ast);
+      }
+
+      concat(other: Seq<Name, ElemSort> | string): Seq<Name, ElemSort> {
+        const otherSeq = isSeq(other) ? other : String.val(other);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_concat(contextPtr, [this.ast, otherSeq.ast])));
+      }
+
+      length(): Arith<Name> {
+        return new ArithImpl(check(Z3.mk_seq_length(contextPtr, this.ast)));
+      }
+
+      at(index: Arith<Name> | number | bigint): Seq<Name, ElemSort> {
+        const indexExpr = isArith(index) ? index : Int.val(index);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_at(contextPtr, this.ast, indexExpr.ast)));
+      }
+
+      nth(index: Arith<Name> | number | bigint): Expr<Name> {
+        const indexExpr = isArith(index) ? index : Int.val(index);
+        return _toExpr(check(Z3.mk_seq_nth(contextPtr, this.ast, indexExpr.ast)));
+      }
+
+      extract(offset: Arith<Name> | number | bigint, length: Arith<Name> | number | bigint): Seq<Name, ElemSort> {
+        const offsetExpr = isArith(offset) ? offset : Int.val(offset);
+        const lengthExpr = isArith(length) ? length : Int.val(length);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_extract(contextPtr, this.ast, offsetExpr.ast, lengthExpr.ast)));
+      }
+
+      indexOf(substr: Seq<Name, ElemSort> | string, offset?: Arith<Name> | number | bigint): Arith<Name> {
+        const substrSeq = isSeq(substr) ? substr : String.val(substr);
+        const offsetExpr = offset !== undefined ? (isArith(offset) ? offset : Int.val(offset)) : Int.val(0);
+        return new ArithImpl(check(Z3.mk_seq_index(contextPtr, this.ast, substrSeq.ast, offsetExpr.ast)));
+      }
+
+      lastIndexOf(substr: Seq<Name, ElemSort> | string): Arith<Name> {
+        const substrSeq = isSeq(substr) ? substr : String.val(substr);
+        return new ArithImpl(check(Z3.mk_seq_last_index(contextPtr, this.ast, substrSeq.ast)));
+      }
+
+      contains(substr: Seq<Name, ElemSort> | string): Bool<Name> {
+        const substrSeq = isSeq(substr) ? substr : String.val(substr);
+        return new BoolImpl(check(Z3.mk_seq_contains(contextPtr, this.ast, substrSeq.ast)));
+      }
+
+      prefixOf(s: Seq<Name, ElemSort> | string): Bool<Name> {
+        const sSeq = isSeq(s) ? s : String.val(s);
+        return new BoolImpl(check(Z3.mk_seq_prefix(contextPtr, this.ast, sSeq.ast)));
+      }
+
+      suffixOf(s: Seq<Name, ElemSort> | string): Bool<Name> {
+        const sSeq = isSeq(s) ? s : String.val(s);
+        return new BoolImpl(check(Z3.mk_seq_suffix(contextPtr, this.ast, sSeq.ast)));
+      }
+
+      replace(src: Seq<Name, ElemSort> | string, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort> {
+        const srcSeq = isSeq(src) ? src : String.val(src);
+        const dstSeq = isSeq(dst) ? dst : String.val(dst);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_replace(contextPtr, this.ast, srcSeq.ast, dstSeq.ast)));
+      }
+
+      replaceAll(src: Seq<Name, ElemSort> | string, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort> {
+        const srcSeq = isSeq(src) ? src : String.val(src);
+        const dstSeq = isSeq(dst) ? dst : String.val(dst);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_replace_all(contextPtr, this.ast, srcSeq.ast, dstSeq.ast)));
+      }
+    }
+
+    class ReSortImpl<SeqSortRef extends SeqSort<Name> = SeqSort<Name>> extends SortImpl implements ReSort<Name, SeqSortRef> {
+      declare readonly __typename: ReSort['__typename'];
+
+      basis(): SeqSortRef {
+        return _toSort(check(Z3.get_re_sort_basis(contextPtr, this.ptr))) as SeqSortRef;
+      }
+
+      cast(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef>;
+      cast(other: CoercibleToExpr<Name>): Expr<Name>;
+      cast(other: any): any {
+        if (isRe(other)) {
+          _assertContext(other);
+          return other;
+        }
+        throw new Error("Can't cast to ReSort");
+      }
+    }
+
+    class ReImpl<SeqSortRef extends SeqSort<Name> = SeqSort<Name>>
+      extends ExprImpl<Z3_ast, ReSortImpl<SeqSortRef>>
+      implements Re<Name, SeqSortRef>
+    {
+      declare readonly __typename: Re['__typename'];
+
+      plus(): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_plus(contextPtr, this.ast)));
+      }
+
+      star(): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_star(contextPtr, this.ast)));
+      }
+
+      option(): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_option(contextPtr, this.ast)));
+      }
+
+      complement(): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_complement(contextPtr, this.ast)));
+      }
+
+      union(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_union(contextPtr, [this.ast, other.ast])));
+      }
+
+      intersect(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_intersect(contextPtr, [this.ast, other.ast])));
+      }
+
+      diff(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_diff(contextPtr, this.ast, other.ast)));
+      }
+
+      concat(other: Re<Name, SeqSortRef>): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_concat(contextPtr, [this.ast, other.ast])));
+      }
+
+      /**
+       * Create a bounded repetition of this regex
+       * @param lo Minimum number of repetitions
+       * @param hi Maximum number of repetitions (0 means unbounded, i.e., at least lo)
+       */
+      loop(lo: number, hi: number = 0): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_loop(contextPtr, this.ast, lo, hi)));
+      }
+
+      power(n: number): Re<Name, SeqSortRef> {
+        return new ReImpl<SeqSortRef>(check(Z3.mk_re_power(contextPtr, this.ast, n)));
       }
     }
 
@@ -2623,9 +4264,21 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       ): SMTArray<Name, DomainSort, RangeSort> {
         return Store(this, ...indicesAndValue);
       }
+
+      /**
+       * Access the array default value.
+       * Produces the default range value, for arrays that can be represented as
+       * finite maps with a default range value.
+       */
+      default(): SortToExprMap<RangeSort, Name> {
+        return _toExpr(check(Z3.mk_array_default(contextPtr, this.ast))) as SortToExprMap<RangeSort, Name>;
+      }
     }
 
-    class SetImpl<ElemSort extends Sort<Name>> extends ExprImpl<Z3_ast, ArraySortImpl<[ElemSort], BoolSort<Name>>> implements SMTSet<Name, ElemSort> {
+    class SetImpl<ElemSort extends Sort<Name>>
+      extends ExprImpl<Z3_ast, ArraySortImpl<[ElemSort], BoolSort<Name>>>
+      implements SMTSet<Name, ElemSort>
+    {
       declare readonly __typename: 'Array';
 
       elemSort(): ElemSort {
@@ -2753,7 +4406,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
 
             for (const [fieldName, fieldSort] of fields) {
               fieldNames.push(fieldName);
-              
+
               if (fieldSort instanceof DatatypeImpl) {
                 // Reference to another datatype being defined
                 const refIndex = datatypes.indexOf(fieldSort);
@@ -2776,7 +4429,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
               Z3.mk_string_symbol(contextPtr, `is_${constructorName}`),
               fieldNames.map(name => Z3.mk_string_symbol(contextPtr, name)),
               fieldSorts,
-              fieldRefs
+              fieldRefs,
             );
             constructors.push(constructor);
             scopedConstructors.push(constructor);
@@ -2794,14 +4447,14 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         const results: DatatypeSortImpl[] = [];
         for (let i = 0; i < resultSorts.length; i++) {
           const sortImpl = new DatatypeSortImpl(resultSorts[i]);
-          
+
           // Attach constructor, recognizer, and accessor functions dynamically
           const numConstructors = sortImpl.numConstructors();
           for (let j = 0; j < numConstructors; j++) {
             const constructor = sortImpl.constructorDecl(j);
             const recognizer = sortImpl.recognizer(j);
             const constructorName = constructor.name().toString();
-            
+
             // Attach constructor function
             if (constructor.arity() === 0) {
               // Nullary constructor (constant)
@@ -2809,10 +4462,10 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
             } else {
               (sortImpl as any)[constructorName] = constructor;
             }
-            
+
             // Attach recognizer function
             (sortImpl as any)[`is_${constructorName}`] = recognizer;
-            
+
             // Attach accessor functions
             for (let k = 0; k < constructor.arity(); k++) {
               const accessor = sortImpl.accessor(j, k);
@@ -2820,7 +4473,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
               (sortImpl as any)[accessorName] = accessor;
             }
           }
-          
+
           results.push(sortImpl);
         }
 
@@ -2961,6 +4614,15 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
         ]
       ): SMTArray<Name, DomainSort, RangeSort> {
         return Store(this, ...indicesAndValue);
+      }
+
+      /**
+       * Access the array default value.
+       * Produces the default range value, for arrays that can be represented as
+       * finite maps with a default range value.
+       */
+      default(): SortToExprMap<RangeSort, Name> {
+        return _toExpr(check(Z3.mk_array_default(contextPtr, this.ast))) as SortToExprMap<RangeSort, Name>;
       }
     }
 
@@ -3134,6 +4796,36 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       return _toExpr(check(Z3.substitute(contextPtr, t.ast, from, to)));
     }
 
+    function substituteVars(t: Expr<Name>, ...to: Expr<Name>[]): Expr<Name> {
+      _assertContext(t);
+      const toAsts: Z3_ast[] = [];
+      for (const expr of to) {
+        _assertContext(expr);
+        toAsts.push(expr.ast);
+      }
+      return _toExpr(check(Z3.substitute_vars(contextPtr, t.ast, toAsts)));
+    }
+
+    function substituteFuns(t: Expr<Name>, ...substitutions: [FuncDecl<Name>, Expr<Name>][]): Expr<Name> {
+      _assertContext(t);
+      const from: Z3_func_decl[] = [];
+      const to: Z3_ast[] = [];
+      for (const [f, body] of substitutions) {
+        _assertContext(f);
+        _assertContext(body);
+        from.push(f.ptr);
+        to.push(body.ast);
+      }
+      return _toExpr(check(Z3.substitute_funs(contextPtr, t.ast, from, to)));
+    }
+
+    function updateField(t: DatatypeExpr<Name>, fieldAccessor: FuncDecl<Name>, newValue: Expr<Name>): DatatypeExpr<Name> {
+      _assertContext(t);
+      _assertContext(fieldAccessor);
+      _assertContext(newValue);
+      return _toExpr(check(Z3.datatype_update_field(contextPtr, fieldAccessor.ptr, t.ast, newValue.ast))) as DatatypeExpr<Name>;
+    }
+
     function ast_from_string(s: string): Ast<Name> {
       const sort_names: Z3_symbol[] = [];
       const sorts: Z3_sort[] = [];
@@ -3155,8 +4847,12 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       /////////////
       Solver: SolverImpl,
       Optimize: OptimizeImpl,
+      Fixedpoint: FixedpointImpl,
       Model: ModelImpl,
       Tactic: TacticImpl,
+      Goal: GoalImpl,
+      Params: ParamsImpl,
+      Simplifier: SimplifierImpl,
       AstVector: AstVectorImpl as AstVectorCtor<Name>,
       AstMap: AstMapImpl as AstMapCtor<Name>,
 
@@ -3164,6 +4860,7 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       // Functions //
       ///////////////
       interrupt,
+      setPrintMode,
       isModel,
       isAst,
       isSort,
@@ -3192,14 +4889,25 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       isReal,
       isRealVal,
       isRealSort,
+      isRCFNum,
       isBitVecSort,
       isBitVec,
       isBitVecVal, // TODO fix ordering
+      isFPRMSort,
+      isFPRM,
+      isFPSort,
+      isFP,
+      isFPVal,
+      isSeqSort,
+      isSeq,
+      isStringSort,
+      isString,
       isArraySort,
       isArray,
       isConstArray,
       isProbe,
       isTactic,
+      isGoal,
       isAstVector,
       eqIdentity,
       getVarIndex,
@@ -3215,7 +4923,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Bool,
       Int,
       Real,
+      RCFNum,
       BitVec,
+      Float,
+      FloatRM,
+      String,
+      Seq,
+      Re,
       Array,
       Set,
       Datatype,
@@ -3239,6 +4953,8 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       PbEq,
       PbGe,
       PbLe,
+      AtMost,
+      AtLeast,
       ForAll,
       Exists,
       Lambda,
@@ -3251,6 +4967,17 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Int2BV,
       Concat,
       Cond,
+      AndThen,
+      OrElse,
+      Repeat,
+      TryFor,
+      When,
+      Skip,
+      Fail,
+      FailIf,
+      ParOr,
+      ParAndThen,
+      With,
       LT,
       GT,
       LE,
@@ -3272,9 +4999,13 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       Mod,
       Select,
       Store,
+      Ext,
       Extract,
 
       substitute,
+      substituteVars,
+      substituteFuns,
+      updateField,
       simplify,
 
       /////////////
@@ -3292,6 +5023,26 @@ export function createApi(Z3: Z3Core): Z3HighLevel {
       FullSet,
       isMember,
       isSubset,
+
+      InRe,
+      Union,
+      Intersect,
+      ReConcat,
+      Plus,
+      Star,
+      Option,
+      Complement,
+      Diff,
+      Range,
+      Loop,
+      Power,
+      AllChar,
+      Empty,
+      Full,
+
+      mkPartialOrder,
+      mkTransitiveClosure,
+      polynomialSubresultants,
     };
     cleanup.register(ctx, () => Z3.del_context(contextPtr));
     return ctx;

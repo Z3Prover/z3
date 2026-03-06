@@ -92,7 +92,7 @@ peq::peq(app *p, ast_manager &m)
     VERIFY(is_partial_eq(p));
     SASSERT(m_arr_u.is_array(m_lhs) && m_arr_u.is_array(m_rhs) &&
             ast_eq_proc()(m_lhs->get_sort(), m_rhs->get_sort()));
-    for (unsigned i = 2; i < p->get_num_args(); i++) {
+    for (unsigned i = 2; i < p->get_num_args(); ++i) {
         m_diff_indices.push_back(p->get_arg(i));
     }
 }
@@ -106,7 +106,7 @@ peq::peq(expr *lhs, expr *rhs, unsigned num_indices, expr *const *diff_indices,
     ptr_vector<sort> sorts;
     sorts.push_back(m_lhs->get_sort());
     sorts.push_back(m_rhs->get_sort());
-    for (unsigned i = 0; i < num_indices; i++) {
+    for (unsigned i = 0; i < num_indices; ++i) {
         sorts.push_back(diff_indices[i]->get_sort());
         m_diff_indices.push_back(diff_indices[i]);
     }
@@ -119,7 +119,7 @@ void peq::lhs(expr_ref &result) { result = m_lhs; }
 void peq::rhs(expr_ref &result) { result = m_rhs; }
 
 void peq::get_diff_indices(expr_ref_vector &result) {
-    for (unsigned i = 0; i < m_diff_indices.size(); i++) {
+    for (unsigned i = 0; i < m_diff_indices.size(); ++i) {
         result.push_back(m_diff_indices.get(i));
     }
 }
@@ -531,12 +531,12 @@ class arith_project_util {
         rational lcm_coeffs(1), lcm_divs(1);
         if (a.is_int(m_var->x())) {
             // lcm of (absolute values of) coeffs
-            for (unsigned i = 0; i < m_lits.size(); i++) {
+            for (unsigned i = 0; i < m_lits.size(); ++i) {
                 lcm_coeffs = lcm(lcm_coeffs, abs(m_coeffs[i]));
             }
             // normalize coeffs of x to +/-lcm_coeffs and scale terms and divs
             // appropriately; find lcm of scaled-up divs
-            for (unsigned i = 0; i < m_lits.size(); i++) {
+            for (unsigned i = 0; i < m_lits.size(); ++i) {
                 rational factor(lcm_coeffs / abs(m_coeffs[i]));
                 if (!factor.is_one() && !a.is_zero(m_terms.get(i)))
                     m_terms[i] = a.mk_mul(a.mk_numeral(factor, a.mk_int()),
@@ -631,7 +631,7 @@ class arith_project_util {
                 TRACE(qe, tout << "Substitution for (lcm_coeffs * x): "
                                  << mk_pp(x_term_val, m) << "\n";);
             }
-            for (unsigned i = 0; i < m_lits.size(); i++) {
+            for (unsigned i = 0; i < m_lits.size(); ++i) {
                 if (!m_divs[i].is_zero()) {
                     // m_divs[i] | (x_term_val + m_terms[i])
 
@@ -952,7 +952,7 @@ class arith_project_util {
         if (new_fml) {
             fml = new_fml;
             // add in eqs
-            fml = m.mk_and(fml, m.mk_and(eqs.size(), eqs.data()));
+            fml = m.mk_and(fml, m.mk_and(eqs));
         } else {
             // unchanged
             SASSERT(eqs.empty());
@@ -1023,7 +1023,7 @@ class arith_project_util {
                 lits.push_back(
                     a.mk_lt(t2, a.mk_numeral(abs(num_val), a.mk_int())));
 
-                new_fml = m.mk_and(lits.size(), lits.data());
+                new_fml = m.mk_and(lits);
             }
         } else if (!is_app(fml)) {
             new_fml = fml;
@@ -1031,7 +1031,7 @@ class arith_project_util {
             app *a = to_app(fml);
             expr_ref_vector children(m);
             expr_ref ch(m);
-            for (unsigned i = 0; i < a->get_num_args(); i++) {
+            for (unsigned i = 0; i < a->get_num_args(); ++i) {
                 ch = a->get_arg(i);
                 mod2div(ch, map);
                 children.push_back(ch);
@@ -1114,7 +1114,7 @@ class arith_project_util {
     void substitute(expr_ref &fml, app_ref_vector &lits, expr_map &map) {
         expr_substitution sub(m);
         // literals
-        for (unsigned i = 0; i < lits.size(); i++) {
+        for (unsigned i = 0; i < lits.size(); ++i) {
             expr *new_lit = nullptr;
             proof *pr = nullptr;
             app *old_lit = lits.get(i);
@@ -1400,7 +1400,7 @@ class array_project_eqs_util {
         expr_ref val(m);
         unsigned num_diff = diff_val_consts.size();
         SASSERT(num_diff == I.size());
-        for (unsigned i = 0; i < num_diff; i++) {
+        for (unsigned i = 0; i < num_diff; ++i) {
             // mk val term
             ptr_vector<expr> sel_args;
             sel_args.push_back(arr);
@@ -1458,7 +1458,7 @@ class array_project_eqs_util {
                 if (!I.empty()) {
                     expr_ref val(m);
                     m_mev.eval(*M, idx, val);
-                    for (unsigned i = 0; i < I.size() && !idx_in_I; i++) {
+                    for (unsigned i = 0; i < I.size() && !idx_in_I; ++i) {
                         if (idx == I.get(i)) {
                             idx_in_I = true;
                         } else {
@@ -1525,7 +1525,7 @@ class array_project_eqs_util {
                 tout << mk_pp(p_exp, m) << "\n";
                 for (unsigned i = m_aux_lits_v.size() - m_aux_vars.size();
                      i < m_aux_lits_v.size();
-                     i++) { tout << mk_pp(m_aux_lits_v.get(i), m) << "\n"; });
+                     ++i) { tout << mk_pp(m_aux_lits_v.get(i), m) << "\n"; });
 
             // find subst_term
             bool stores_on_rhs = true;
@@ -1553,10 +1553,10 @@ class array_project_eqs_util {
         TRACE(
             qe, tout << "array equalities:\n";
             for (unsigned i = 0; i < eqs.size();
-                 i++) { tout << mk_pp(eqs.get(i), m) << "\n"; });
+                 ++i) { tout << mk_pp(eqs.get(i), m) << "\n"; });
 
         // evaluate eqs in M
-        for (unsigned i = 0; i < eqs.size(); i++) {
+        for (unsigned i = 0; i < eqs.size(); ++i) {
             TRACE(qe, tout << "array equality:\n";
                   tout << mk_pp(eqs.get(i), m) << "\n";);
 
@@ -1586,7 +1586,7 @@ class array_project_eqs_util {
         // ...
         unsigned num_true_eqs = true_eqs.size();
         vector<unsigned> nds(num_true_eqs);
-        for (unsigned i = 0; i < num_true_eqs; i++) {
+        for (unsigned i = 0; i < num_true_eqs; ++i) {
             app *eq = true_eqs.get(i);
             expr *lhs = eq->get_arg(0);
             expr *rhs = eq->get_arg(1);
@@ -1607,7 +1607,7 @@ class array_project_eqs_util {
             unsigned nd = 0; // nesting depth
             if (store) {
                 for (nd = 1; m_arr_u.is_store(store);
-                     nd++, store = to_app(store->get_arg(0)))
+                     ++nd, store = to_app(store->get_arg(0)))
                     /* empty */;
                 SASSERT(store == m_v);
             }
@@ -1618,7 +1618,7 @@ class array_project_eqs_util {
 
         // sort true_eqs according to nesting depth
         // use insertion sort
-        for (unsigned i = 1; i < num_true_eqs; i++) {
+        for (unsigned i = 1; i < num_true_eqs; ++i) {
             app_ref eq(m);
             eq = true_eqs.get(i);
             unsigned nd = nds.get(i);
@@ -1635,7 +1635,7 @@ class array_project_eqs_util {
         }
 
         // search for subst term
-        for (unsigned i = 0; !m_subst_term_v && i < num_true_eqs; i++) {
+        for (unsigned i = 0; !m_subst_term_v && i < num_true_eqs; ++i) {
             app *eq = true_eqs.get(i);
             m_true_sub_v.insert(eq, m.mk_true());
             // try to find subst term
@@ -1656,7 +1656,7 @@ class array_project_eqs_util {
         lits.append(m_idx_lits_v);
         lits.append(m_aux_lits_v);
         lits.push_back(fml);
-        fml = m.mk_and(lits.size(), lits.data());
+        fml = m.mk_and(lits);
 
         if (m_subst_term_v) {
             m_true_sub_v.insert(m_v, m_subst_term_v);
@@ -1681,7 +1681,7 @@ class array_project_eqs_util {
         app_ref_vector rem_arr_vars(m); // remaining arr vars
         M = &mdl;
 
-        for (unsigned i = 0; i < arr_vars.size(); i++) {
+        for (unsigned i = 0; i < arr_vars.size(); ++i) {
             reset_v();
             m_v = arr_vars.get(i);
             if (!m_arr_u.is_array(m_v)) {
@@ -1859,7 +1859,7 @@ class array_select_reducer {
         expr_ref_vector lits(m);
         lits.append(m_idx_lits);
         lits.push_back(fml);
-        fml = m.mk_and(lits.size(), lits.data());
+        fml = m.mk_and(lits);
         // simplify all trivial expressions introduced
         m_rw(fml);
 
@@ -1881,7 +1881,7 @@ class array_select_reducer {
         m_reduce_all_selects = reduce_all_selects;
 
         // mark vars to eliminate
-        for (unsigned i = 0; i < arr_vars.size(); i++) {
+        for (unsigned i = 0; i < arr_vars.size(); ++i) {
             m_arr_test.mark(arr_vars.get(i), true);
         }
 
@@ -1990,7 +1990,7 @@ class array_project_selects_util {
         for (app *a : sel_terms) {
             vals.reset();
             idxs.reset();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 expr *idx = a->get_arg(i + 1);
                 m_mev.eval(*M, idx, val);
                 vals.push_back(val);
@@ -1998,7 +1998,7 @@ class array_project_selects_util {
             }
 
             bool is_new = true;
-            for (unsigned j = start; j < m_idx_vals.size(); j++) {
+            for (unsigned j = start; j < m_idx_vals.size(); ++j) {
                 if (m_idx_vals.get(j) == vals) {
                     // idx belongs to the jth equivalence class;
                     // substitute sel term with ith sel const
@@ -2036,7 +2036,7 @@ class array_project_selects_util {
             (m_ari_u.is_real(idx_sort) || m_ari_u.is_int(idx_sort))) {
             // using insertion sort
             unsigned end = start + num_reprs;
-            for (unsigned i = start + 1; i < end; i++) {
+            for (unsigned i = start + 1; i < end; ++i) {
                 auto repr = m_idx_reprs.get(i).get(0);
                 auto val = m_idx_vals.get(i).get(0);
                 unsigned j = i;
@@ -2053,7 +2053,7 @@ class array_project_selects_util {
                 m_idx_vals[j][0] = val;
             }
 
-            for (unsigned i = start; i < end - 1; i++) {
+            for (unsigned i = start; i < end - 1; ++i) {
                 m_idx_lits.push_back(m_ari_u.mk_lt(m_idx_reprs[i].get(0),
                                                    m_idx_reprs[i + 1].get(0)));
             }
@@ -2074,7 +2074,7 @@ class array_project_selects_util {
         expr_ref_vector lits(m);
         lits.append(m_idx_lits);
         lits.push_back(fml);
-        fml = m.mk_and(lits.size(), lits.data());
+        fml = m.mk_and(lits);
 
         // substitute for sel terms
         m_sub(fml);
@@ -2101,7 +2101,7 @@ class array_project_selects_util {
         TRACE(
             qe, tout << "idx lits:\n";
             for (unsigned i = 0; i < m_idx_lits.size();
-                 i++) { tout << mk_pp(m_idx_lits.get(i), m) << "\n"; });
+                 ++i) { tout << mk_pp(m_idx_lits.get(i), m) << "\n"; });
 
         return true;
     }
@@ -2117,12 +2117,12 @@ class array_project_selects_util {
         M = &mdl;
 
         // mark vars to eliminate
-        for (unsigned i = 0; i < arr_vars.size(); i++) {
+        for (unsigned i = 0; i < arr_vars.size(); ++i) {
             m_arr_test.mark(arr_vars.get(i), true);
         }
 
         // alloc empty map from array var to sel terms over it
-        for (unsigned i = 0; i < arr_vars.size(); i++) {
+        for (unsigned i = 0; i < arr_vars.size(); ++i) {
             ptr_vector<app> *lst = alloc(ptr_vector<app>);
             m_sel_terms.insert(arr_vars.get(i), lst);
         }
@@ -2139,10 +2139,8 @@ class array_project_selects_util {
         }
 
         // dealloc
-        sel_map::iterator begin = m_sel_terms.begin(), end = m_sel_terms.end();
-        for (sel_map::iterator it = begin; it != end; it++) {
-            dealloc(it->m_value);
-        }
+        for (auto& [key, value] : m_sel_terms)
+            dealloc(value);
         m_sel_terms.reset();
     }
 };

@@ -153,7 +153,7 @@ struct purify_arith_proc {
         find_unsafe_proc proc(*this);
         expr_fast_mark1 visited;
         unsigned sz = m_goal.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * curr = m_goal.form(i);
             for_each_expr_core<find_unsafe_proc, expr_fast_mark1, true, true>(proc, visited, curr);
         }        
@@ -243,7 +243,7 @@ struct purify_arith_proc {
             expr_fast_mark1 visited;
             proc p(*this);
             unsigned sz = m_owner.m_goal.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 expr* f = m_owner.m_goal.form(i);
                 for_each_expr_core<proc, expr_fast_mark1, true, true>(p, visited, f);
             }
@@ -523,7 +523,7 @@ struct purify_arith_proc {
             unsigned sz = p.size();
             SASSERT(sz > 2);
             ptr_buffer<expr> args;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 if (am.qm().is_zero(p[i]))
                     continue;
                 rational coeff = rational(p[i]);
@@ -780,7 +780,7 @@ struct purify_arith_proc {
         expr_ref   new_curr(m());
         proof_ref  new_pr(m());
         unsigned sz = m_goal.size();
-        for (unsigned i = 0; !m_goal.inconsistent() && i < sz; i++) {
+        for (unsigned i = 0; !m_goal.inconsistent() && i < sz; ++i) {
             expr * curr = m_goal.form(i);
             r(curr, new_curr, new_pr);
             if (m_produce_proofs) {
@@ -794,7 +794,7 @@ struct purify_arith_proc {
         sz = r.cfg().m_new_cnstrs.size();
         TRACE(purify_arith, tout << r.cfg().m_new_cnstrs << "\n";);
         TRACE(purify_arith, tout << r.cfg().m_new_cnstr_prs << "\n";);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             m_goal.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : nullptr, nullptr);
         }
         auto const& divs  = r.cfg().m_divs;

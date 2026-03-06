@@ -89,10 +89,10 @@ bool bv_elim_cfg::reduce_quantifier(quantifier * q,
 
     new_body = subst(old_body, sub_size, sub);
 
-    for (unsigned j = 0; j < q->get_num_patterns(); j++) {
+    for (unsigned j = 0; j < q->get_num_patterns(); ++j) {
         pats.push_back(subst(new_patterns[j], sub_size, sub));
     }
-    for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
+    for (unsigned j = 0; j < q->get_num_no_patterns(); ++j) {
         no_pats.push_back(subst(new_no_patterns[j], sub_size, sub));
     }
 

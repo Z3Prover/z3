@@ -179,7 +179,7 @@ bool nex_creator::gt_on_mul_nex(nex_mul const& m, nex const& b) const {
 
 bool nex_creator::gt_on_sum_sum(const nex_sum& a, const nex_sum& b) const {
     unsigned size = std::min(a.size(), b.size());
-    for (unsigned j = 0; j < size; j++) {
+    for (unsigned j = 0; j < size; ++j) {
         if (gt(a[j], b[j]))
             return true;
         if (gt(b[j], a[j]))
@@ -248,7 +248,7 @@ bool nex_creator::gt(const nex& a, const nex& b) const {
 }
 
 bool nex_creator::is_sorted(const nex_mul& e) const {
-    for (unsigned j = 0; j < e.size() - 1; j++) {
+    for (unsigned j = 0; j < e.size() - 1; ++j) {
         if (!(gt_on_nex_pow(e[j], e[j+1]))) {
             TRACE(grobner_d, tout << "not sorted e " << e << "\norder is incorrect " <<
                   e[j] << " >= " << e[j + 1]<< "\n";);
@@ -425,24 +425,24 @@ void nex_creator::sort_join_sum(nex_sum& sum) {
     rational common_scalar(0);
     fill_join_map_for_sum(sum, map, allocated_nexs, common_scalar);
 
-    TRACE(grobner_d, for (auto & p : map ) { tout << "(" << *p.first << ", " << p.second << ") ";});
+    TRACE(grobner_d, for (auto & [nex_ptr, coeff] : map ) { tout << "(" << *nex_ptr << ", " << coeff << ") ";});
     sum.m_children.reset();
-    for (auto& p : map) {
-        process_map_pair(const_cast<nex*>(p.first), p.second, sum, allocated_nexs);
+    for (auto& [nex_ptr, coeff] : map) {
+        process_map_pair(const_cast<nex*>(nex_ptr), coeff, sum, allocated_nexs);
     }
     if (!common_scalar.is_zero()) {
         sum.m_children.push_back(mk_scalar(common_scalar));
     }
     TRACE(grobner_d,
           tout << "map=";
-          for (auto & p : map ) tout << "(" << *p.first << ", " << p.second << ") "; 
+          for (auto & [nex_ptr, coeff] : map ) tout << "(" << *nex_ptr << ", " << coeff << ") "; 
           tout << "\nchildren=" << sum << "\n";);    
 }
 
 void nex_creator::simplify_children_of_sum(nex_sum& s) {
     ptr_vector<nex> to_promote;
     unsigned k = 0;
-    for (unsigned j = 0; j < s.size(); j++) {
+    for (unsigned j = 0; j < s.size(); ++j) {
         nex* e = s[j] = simplify(s[j]);
         if (e->is_sum()) {
             to_promote.push_back(e);
@@ -594,7 +594,7 @@ bool nex_creator::is_simplified(const nex& e) const {
 }
 
 unsigned nex_creator::find_sum_in_mul(const nex_mul* a) const {
-    for (unsigned j = 0; j < a->size(); j++)
+    for (unsigned j = 0; j < a->size(); ++j)
         if ((*a)[j].e()->is_sum())
             return j;
 
@@ -617,7 +617,7 @@ nex* nex_creator::canonize_mul(nex_mul *a) {
         if (power > 1)
             mf *= nex_pow(sclone, power - 1);
         mf *= nex_pow(e, 1);
-        for (unsigned k = 0; k < a->size(); k++) {
+        for (unsigned k = 0; k < a->size(); ++k) {
             if (k == j)
                 continue;
             mf *= nex_pow(clone((*a)[k].e()), (*a)[k].pow());
@@ -636,7 +636,7 @@ nex* nex_creator::canonize(const nex *a) {
     nex *t = simplify(clone(a));
     if (t->is_sum()) {
         nex_sum & s = t->to_sum();
-        for (unsigned j = 0; j < s.size(); j++) {
+        for (unsigned j = 0; j < s.size(); ++j) {
             s[j] = canonize(s[j]);
         }
         t = simplify(&s);
@@ -657,7 +657,7 @@ bool nex_creator::equal(const nex* a, const nex* b) {
         n = std::max(j + 1, n);
     }
     cn.set_number_of_vars(n);
-    for (lpvar j = 0; j < n; j++) {
+    for (lpvar j = 0; j < n; ++j) {
         cn.set_var_weight(j, j);
     }
     nex * ca = cn.canonize(a);

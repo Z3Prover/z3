@@ -76,7 +76,7 @@ void mpfx_manager::del(mpfx & n) {
     if (sig_idx != 0) {
         m_id_gen.recycle(sig_idx);
         unsigned * w = words(n);
-        for (unsigned i = 0; i < m_total_sz; i++)
+        for (unsigned i = 0; i < m_total_sz; ++i)
             w[i] = 0;
     }
 }
@@ -90,7 +90,7 @@ void mpfx_manager::reset(mpfx & n) {
 
 bool mpfx_manager::is_int(mpfx const & n) const {
     unsigned * w = words(n);
-    for (unsigned i = 0; i < m_frac_part_sz; i++)
+    for (unsigned i = 0; i < m_frac_part_sz; ++i)
         if (w[i] != 0)
             return false;
     return true;
@@ -109,7 +109,7 @@ bool mpfx_manager::is_int64(mpfx const & a) const {
     unsigned * w = words(a);
     w += m_frac_part_sz;
     if (w[1] < 0x80000000u || (w[1] == 0x80000000u && is_neg(a))) {
-        for (unsigned i = 2; i < m_int_part_sz; i++)
+        for (unsigned i = 2; i < m_int_part_sz; ++i)
             if (w[i] != 0)
                 return false;
         return true;
@@ -125,7 +125,7 @@ bool mpfx_manager::is_uint64(mpfx const & a) const {
     if (is_zero(a) || m_int_part_sz <= 2)
         return true;
     unsigned * w = words(a);
-    for (unsigned i = m_frac_part_sz + 2; i < m_total_sz; i++)
+    for (unsigned i = m_frac_part_sz + 2; i < m_total_sz; ++i)
         if (w[i] != 0)
             return false;
     return true;
@@ -156,7 +156,7 @@ void mpfx_manager::set(mpfx & n, unsigned v) {
         allocate_if_needed(n);
         n.m_sign              = 0;
         unsigned * w          = words(n);
-        for (unsigned i = 0; i < m_total_sz; i++) 
+        for (unsigned i = 0; i < m_total_sz; ++i) 
             w[i] = 0;
         w[m_frac_part_sz]     = v;
     }
@@ -204,7 +204,7 @@ void mpfx_manager::set(mpfx & n, uint64_t v) {
         uint64_t * _vp        = &v;
         unsigned * _v         = nullptr;
         memcpy(&_v, &_vp, sizeof(unsigned*));
-        for (unsigned i = 0; i < m_total_sz; i++) 
+        for (unsigned i = 0; i < m_total_sz; ++i) 
             w[i] = 0;
         w[m_frac_part_sz]     = _v[0];
         if (m_int_part_sz == 1) {
@@ -244,7 +244,7 @@ void mpfx_manager::set(mpfx & n, mpfx const & v) {
     n.m_sign      = v.m_sign;
     unsigned * w1 = words(n);
     unsigned * w2 = words(v);
-    for (unsigned i = 0; i < m_total_sz; i++)
+    for (unsigned i = 0; i < m_total_sz; ++i)
         w1[i] = w2[i];
     SASSERT(check(n));
 }
@@ -262,7 +262,7 @@ void mpfx_manager::set_core(mpfx & n, mpz_manager<SYNCH> & m, mpz const & v) {
         if (sz > m_int_part_sz)
             throw overflow_exception();
         unsigned * w = words(n);
-        for (unsigned i = 0; i < m_frac_part_sz; i++) 
+        for (unsigned i = 0; i < m_frac_part_sz; ++i) 
             w[i] = 0;
         ::copy(sz, m_tmp_digits.data(), m_int_part_sz, w + m_frac_part_sz);
     }
@@ -327,7 +327,7 @@ bool mpfx_manager::eq(mpfx const & a, mpfx const & b) const {
         return false;
     unsigned * w1 = words(a);
     unsigned * w2 = words(b);
-    for (unsigned i = 0; i < m_total_sz; i++) 
+    for (unsigned i = 0; i < m_total_sz; ++i) 
         if (w1[i] != w2[i])
             return false;
     return true;
@@ -442,7 +442,7 @@ void mpfx_manager::mul(mpfx const & a, mpfx const & b, mpfx & c) {
             throw overflow_exception();
         // copy result to c
         unsigned * w_c = words(c);
-        for (unsigned i = 0; i < m_total_sz; i++)
+        for (unsigned i = 0; i < m_total_sz; ++i)
             w_c[i] = _r[i];
     }
     STRACE(mpfx_trace, display(tout, c); tout << "\n";);  
@@ -463,9 +463,9 @@ void mpfx_manager::div(mpfx const & a, mpfx const & b, mpfx & c) {
         unsigned * w_a_shft  = m_buffer0.data();
         unsigned a_shft_sz   = sz(w_a) + m_frac_part_sz; 
         // copy a to buffer 0, and shift by m_frac_part_sz
-        for (unsigned i = 0; i < m_frac_part_sz; i++) 
+        for (unsigned i = 0; i < m_frac_part_sz; ++i) 
             w_a_shft[i] = 0;
-        for (unsigned i = 0; i < m_total_sz; i++)
+        for (unsigned i = 0; i < m_total_sz; ++i)
             w_a_shft[i+m_frac_part_sz] = w_a[i];
         unsigned * w_b       = words(b);
         unsigned b_sz        = sz(w_b);
@@ -484,7 +484,7 @@ void mpfx_manager::div(mpfx const & a, mpfx const & b, mpfx & c) {
                               w_b,      b_sz,
                               w_q, 
                               w_r);
-            for (unsigned i = m_total_sz; i < q_sz; i++)
+            for (unsigned i = m_total_sz; i < q_sz; ++i)
                 if (w_q[i] != 0)
                     throw overflow_exception();
             if  (((c.m_sign == 1) != m_to_plus_inf) && !::is_zero(r_sz, w_r)) {
@@ -496,16 +496,16 @@ void mpfx_manager::div(mpfx const & a, mpfx const & b, mpfx & c) {
             bool zero_q = true;
             if (m_total_sz >= q_sz) {
                 unsigned i;
-                for (i = 0; i < q_sz; i++)  {
+                for (i = 0; i < q_sz; ++i)  {
                     if (w_q[i] != 0)
                         zero_q = false;
                     w_c[i] = w_q[i];
                 }
-                for (; i < m_total_sz; i++) 
+                for (; i < m_total_sz; ++i) 
                     w_c[i] = 0;
             }
             else {
-                for (unsigned i = 0; i < m_total_sz; i++) {
+                for (unsigned i = 0; i < m_total_sz; ++i) {
                     if (w_q[i] != 0)
                         zero_q = false;
                     w_c[i] = w_q[i];
@@ -544,7 +544,7 @@ void mpfx_manager::div2k(mpfx & a, unsigned k) {
 void mpfx_manager::set_epsilon(mpfx & n) {
     unsigned * w = words(n);
     w[0] = 1;
-    for (unsigned i = 1; i < m_total_sz; i++)
+    for (unsigned i = 1; i < m_total_sz; ++i)
         w[i] = 0;
 }
 
@@ -565,7 +565,7 @@ void mpfx_manager::floor(mpfx & n) {
     unsigned * w = words(n);
     if (is_neg(n)) {
         bool is_int = true;
-        for (unsigned i = 0; i < m_frac_part_sz; i++) {
+        for (unsigned i = 0; i < m_frac_part_sz; ++i) {
             if (w[i] != 0) {
                 is_int = false;
                 w[i] = 0;
@@ -575,7 +575,7 @@ void mpfx_manager::floor(mpfx & n) {
             throw overflow_exception();
     }
     else {
-        for (unsigned i = 0; i < m_frac_part_sz; i++)
+        for (unsigned i = 0; i < m_frac_part_sz; ++i)
             w[i] = 0;
     }
     if (::is_zero(m_int_part_sz, w + m_frac_part_sz))
@@ -589,7 +589,7 @@ void mpfx_manager::ceil(mpfx & n) {
     unsigned * w = words(n);
     if (is_pos(n)) {
         bool is_int = true;
-        for (unsigned i = 0; i < m_frac_part_sz; i++) {
+        for (unsigned i = 0; i < m_frac_part_sz; ++i) {
             if (w[i] != 0) {
                 is_int = false;
                 w[i] = 0;
@@ -599,7 +599,7 @@ void mpfx_manager::ceil(mpfx & n) {
             throw overflow_exception();
     }
     else {
-        for (unsigned i = 0; i < m_frac_part_sz; i++)
+        for (unsigned i = 0; i < m_frac_part_sz; ++i)
             w[i] = 0;
     }
     if (::is_zero(m_int_part_sz, w + m_frac_part_sz))
@@ -812,7 +812,7 @@ void mpfx_manager::display_smt2(std::ostream & out, mpfx const & n) const {
     if (!is_int(n)) {
         out << " ";
         unsigned * w = m_buffer0.data();
-        for (unsigned i = 0; i < m_frac_part_sz; i++)
+        for (unsigned i = 0; i < m_frac_part_sz; ++i)
             w[i] = 0;
         w[m_frac_part_sz] = 1;
         sbuffer<char, 1024> str_buffer2(11*(m_frac_part_sz+1), 0);

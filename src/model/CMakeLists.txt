@@ -2,6 +2,7 @@ z3_add_component(model
   SOURCES
     array_factory.cpp
     datatype_factory.cpp
+    finite_set_factory.cpp
     func_interp.cpp
     model2expr.cpp
     model_core.cpp

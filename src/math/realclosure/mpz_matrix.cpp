@@ -47,8 +47,8 @@ void mpz_matrix_manager::mk(unsigned m, unsigned n, mpz_matrix & A) {
 
 void mpz_matrix_manager::del(mpz_matrix & A) {
     if (A.a_ij != nullptr) {
-        for (unsigned i = 0; i < A.m; i++)
-            for (unsigned j = 0; j < A.n; j++)
+        for (unsigned i = 0; i < A.m; ++i)
+            for (unsigned j = 0; j < A.n; ++j)
                 nm().del(A(i,j));
         unsigned sz = sizeof(mpz) * A.m * A.n;
         m_allocator.deallocate(sz, A.a_ij);
@@ -66,16 +66,16 @@ void mpz_matrix_manager::set(mpz_matrix & A, mpz_matrix const & B) {
         mk(B.m, B.n, A);
     }
     SASSERT(A.m == B.m && A.n == B.n);
-    for (unsigned i = 0; i < B.m; i++)
-        for (unsigned j = 0; j < B.n; j++)
+    for (unsigned i = 0; i < B.m; ++i)
+        for (unsigned j = 0; j < B.n; ++j)
             nm().set(A(i, j), B(i, j));
 }
 
 void mpz_matrix_manager::tensor_product(mpz_matrix const & A, mpz_matrix const & B, mpz_matrix & C) {
     scoped_mpz_matrix CC(*this);
     mk(A.m * B.m, A.n * B.n, CC);
-    for (unsigned i = 0; i < CC.m(); i++)
-        for (unsigned j = 0; j < CC.n(); j++)
+    for (unsigned i = 0; i < CC.m(); ++i)
+        for (unsigned j = 0; j < CC.n(); ++j)
             nm().mul(A(i / B.m, j / B.n), 
                      B(i % B.m, j % B.n), 
                      CC(i, j));
@@ -84,7 +84,7 @@ void mpz_matrix_manager::tensor_product(mpz_matrix const & A, mpz_matrix const &
 
 void mpz_matrix_manager::swap_rows(mpz_matrix & A, unsigned i, unsigned j) {
     if (i != j) {
-        for (unsigned k = 0; k < A.n; k++) 
+        for (unsigned k = 0; k < A.n; ++k) 
             ::swap(A(i, k), A(j, k));
     }
 }
@@ -98,7 +98,7 @@ void mpz_matrix_manager::swap_rows(mpz_matrix & A, unsigned i, unsigned j) {
 bool mpz_matrix_manager::normalize_row(mpz * A_i, unsigned n, mpz * b_i, bool int_solver) {
     scoped_mpz g(nm());
     bool first = true;
-    for (unsigned j = 0; j < n; j++) {
+    for (unsigned j = 0; j < n; ++j) {
         if (nm().is_zero(A_i[j]))
             continue;
         if (first) {
@@ -117,7 +117,7 @@ bool mpz_matrix_manager::normalize_row(mpz * A_i, unsigned n, mpz * b_i, bool in
     if (!nm().is_one(g)) {
         if (b_i) {
             if (nm().divides(g, *b_i)) {
-                for (unsigned j = 0; j < n; j++) {
+                for (unsigned j = 0; j < n; ++j) {
                     nm().div(A_i[j], g, A_i[j]);
                 }
                 nm().div(*b_i, g, *b_i);
@@ -128,7 +128,7 @@ bool mpz_matrix_manager::normalize_row(mpz * A_i, unsigned n, mpz * b_i, bool in
             }
         }
         else {
-            for (unsigned j = 0; j < n; j++) {
+            for (unsigned j = 0; j < n; ++j) {
                 nm().div(A_i[j], g, A_i[j]);
             }
         }
@@ -174,15 +174,15 @@ k1=> 0 0 ... 0 X ... X
 */
 bool mpz_matrix_manager::eliminate(mpz_matrix & A, mpz * b, unsigned k1, unsigned k2, bool int_solver) {
     // check if first k2-1 positions of row k1 are 0
-    DEBUG_CODE(for (unsigned j = 0; j < k2; j++) { SASSERT(nm().is_zero(A(k1, j))); });
+    DEBUG_CODE(for (unsigned j = 0; j < k2; ++j) { SASSERT(nm().is_zero(A(k1, j))); });
     mpz & a_kk = A(k1, k2);
     SASSERT(!nm().is_zero(a_kk));
     scoped_mpz t1(nm()), t2(nm());
     scoped_mpz a_ik_prime(nm()), a_kk_prime(nm()), lcm_a_kk_a_ik(nm());
     // for all rows below pivot
-    for (unsigned i = k1+1; i < A.m; i++) {
+    for (unsigned i = k1+1; i < A.m; ++i) {
         // check if first k-1 positions of row k are 0
-        DEBUG_CODE(for (unsigned j = 0; j < k2; j++) { SASSERT(nm().is_zero(A(i, j))); });
+        DEBUG_CODE(for (unsigned j = 0; j < k2; ++j) { SASSERT(nm().is_zero(A(i, j))); });
         mpz & a_ik = A(i, k2);
         if (!nm().is_zero(a_ik)) {
             // a_ik' = lcm(a_kk, a_ik)/a_kk
@@ -190,7 +190,7 @@ bool mpz_matrix_manager::eliminate(mpz_matrix & A, mpz * b, unsigned k1, unsigne
             nm().lcm(a_kk, a_ik, lcm_a_kk_a_ik);
             nm().div(lcm_a_kk_a_ik, a_kk, a_ik_prime);
             nm().div(lcm_a_kk_a_ik, a_ik, a_kk_prime);
-            for (unsigned j = k2+1; j < A.n; j++) {
+            for (unsigned j = k2+1; j < A.n; ++j) {
                 // a_ij <- a_kk' * a_ij - a_ik' * a_kj
                 nm().mul(a_ik_prime, A(k1, j), t1);
                 nm().mul(a_kk_prime, A(i, j), t2);
@@ -217,18 +217,18 @@ bool mpz_matrix_manager::solve_core(mpz_matrix const & _A, mpz * b, bool int_sol
     SASSERT(_A.n == _A.m);
     scoped_mpz_matrix A(*this);
     set(A, _A);
-    for (unsigned k = 0; k < A.m(); k++) {
+    for (unsigned k = 0; k < A.m(); ++k) {
         TRACE(mpz_matrix, 
               tout << "k: " << k << "\n" << A;
               tout << "b:";
-              for (unsigned i = 0; i < A.m(); i++) {
+              for (unsigned i = 0; i < A.m(); ++i) {
                   tout << " ";
                   nm().display(tout, b[i]); 
               }
               tout << "\n";);
         // find pivot
         unsigned i = k;
-        for (; i < A.m(); i++) {
+        for (; i < A.m(); ++i) {
             if (!nm().is_zero(A(i, k)))
                 break;
         }
@@ -245,7 +245,7 @@ bool mpz_matrix_manager::solve_core(mpz_matrix const & _A, mpz * b, bool int_sol
     unsigned k = A.m();
     while (k > 0) {
         --k;
-        DEBUG_CODE(for (unsigned j = 0; j < A.n(); j++) { SASSERT(j == k || nm().is_zero(A(k, j))); });
+        DEBUG_CODE(for (unsigned j = 0; j < A.n(); ++j) { SASSERT(j == k || nm().is_zero(A(k, j))); });
         SASSERT(!nm().is_zero(A(k, k)));
         if (nm().divides(A(k, k), b[k])) {
             nm().div(b[k], A(k, k), b[k]);
@@ -283,7 +283,7 @@ bool mpz_matrix_manager::solve_core(mpz_matrix const & _A, mpz * b, bool int_sol
 }
 
 bool mpz_matrix_manager::solve(mpz_matrix const & A, mpz * b, mpz const * c) {
-    for (unsigned i = 0; i < A.n; i++)
+    for (unsigned i = 0; i < A.n; ++i)
         nm().set(b[i], c[i]);
     return solve_core(A, b, true);
 }
@@ -291,11 +291,11 @@ bool mpz_matrix_manager::solve(mpz_matrix const & A, mpz * b, mpz const * c) {
 bool mpz_matrix_manager::solve(mpz_matrix const & A, int * b, int const * c) {
     scoped_mpz_matrix _b(*this);
     mk(A.n, 1, _b);
-    for (unsigned i = 0; i < A.n; i++)
+    for (unsigned i = 0; i < A.n; ++i)
         nm().set(_b(i,0), c[i]);
     bool r = solve_core(A, _b.A.a_ij, true);
     if (r) {
-        for (unsigned i = 0; i < A.n; i++)
+        for (unsigned i = 0; i < A.n; ++i)
             b[i] = _b.get_int(i, 0);
     }
     return r;
@@ -321,8 +321,8 @@ void mpz_matrix_manager::filter_cols(mpz_matrix const & A, unsigned num_cols, un
         SASSERT(num_cols < A.n);
         scoped_mpz_matrix C(*this);
         mk(A.m, num_cols, C);
-        for (unsigned i = 0; i < A.m; i++) 
-            for (unsigned j = 0; j < num_cols; j++) 
+        for (unsigned i = 0; i < A.m; ++i) 
+            for (unsigned j = 0; j < num_cols; ++j) 
                 nm().set(C(i, j), A(i, cols[j]));
         B.swap(C);
     }
@@ -333,7 +333,7 @@ void mpz_matrix_manager::permute_rows(mpz_matrix const & A, unsigned const * p, 
     DEBUG_CODE({ 
             buffer<bool> seen;
             seen.resize(A.m, false);
-            for (unsigned i = 0; i < A.m; i++) {
+            for (unsigned i = 0; i < A.m; ++i) {
                 SASSERT(p[i] < A.m);
                 SASSERT(!seen[p[i]]);
                 seen[p[i]] = true;
@@ -341,8 +341,8 @@ void mpz_matrix_manager::permute_rows(mpz_matrix const & A, unsigned const * p, 
         });
     scoped_mpz_matrix C(*this);
     mk(A.m, A.n, C);
-    for (unsigned i = 0; i < A.m; i++) 
-        for (unsigned j = 0; j < A.n; j++)
+    for (unsigned i = 0; i < A.m; ++i) 
+        for (unsigned j = 0; j < A.n; ++j)
             nm().set(C(i, j), A(p[i], j));
     B.swap(C);
 }
@@ -356,13 +356,13 @@ unsigned mpz_matrix_manager::linear_independent_rows(mpz_matrix const & _A, unsi
     set(A, _A);
     sbuffer<unsigned, 128> rows;
     rows.resize(A.m(), 0);
-    for (unsigned i = 0; i < A.m(); i++)
+    for (unsigned i = 0; i < A.m(); ++i)
         rows[i] = i;
-    for (unsigned k1 = 0, k2 = 0; k1 < A.m(); k1++) {
+    for (unsigned k1 = 0, k2 = 0; k1 < A.m(); ++k1) {
         TRACE(mpz_matrix, tout << "k1: " << k1 << ", k2: " << k2 << "\n" << A;);
         // find pivot
         unsigned pivot = UINT_MAX;
-        for (unsigned i = k1; i < A.m(); i++) {
+        for (unsigned i = k1; i < A.m(); ++i) {
             if (!nm().is_zero(A(i, k2))) {
                 if (pivot == UINT_MAX) {
                     pivot = i;
@@ -390,8 +390,8 @@ unsigned mpz_matrix_manager::linear_independent_rows(mpz_matrix const & _A, unsi
     // Copy linear independent rows to B
     mpz_matrix & C = A;
     mk(r_sz, _A.n, C);
-    for (unsigned i = 0; i < r_sz; i++ ) {
-        for (unsigned j = 0; j < _A.n; j++) {
+    for (unsigned i = 0; i < r_sz; ++i ) {
+        for (unsigned j = 0; j < _A.n; ++j) {
             nm().set(C(i, j), _A(r[i], j));
         }
     }
@@ -401,14 +401,14 @@ unsigned mpz_matrix_manager::linear_independent_rows(mpz_matrix const & _A, unsi
 
 void mpz_matrix_manager::display(std::ostream & out, mpz_matrix const & A, unsigned cell_width) const {
     out << A.m << " x " << A.n << " Matrix\n";
-    for (unsigned i = 0; i < A.m; i++) {
-        for (unsigned j = 0; j < A.n; j++) {
+    for (unsigned i = 0; i < A.m; ++i) {
+        for (unsigned j = 0; j < A.n; ++j) {
             if (j > 0)
                 out << " ";
             std::string s = nm().to_string(A(i, j));
             if (s.size() < cell_width) {
                 unsigned space = cell_width - static_cast<unsigned>(s.size());
-                for (unsigned k = 0; k < space; k++) 
+                for (unsigned k = 0; k < space; ++k) 
                     out << " ";
             }
             out << s;

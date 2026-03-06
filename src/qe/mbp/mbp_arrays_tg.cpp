@@ -409,10 +409,10 @@ struct mbp_array_tg::impl {
         }
         if (!m_use_mdl) 
             return progress;        
-        for (unsigned i = 0; i < rdTerms.size(); i++) {
+        for (unsigned i = 0; i < rdTerms.size(); ++i) {
             app* e1 = rdTerms.get(i);
             expr* a1 = e1->get_arg(0);
-            for (unsigned j = i + 1; j < rdTerms.size(); j++) {
+            for (unsigned j = i + 1; j < rdTerms.size(); ++j) {
                 app* e2 = rdTerms.get(j);
                 if (!is_seen(e1, e2) && a1 == e2) {
                     mark_seen(e1, e2);

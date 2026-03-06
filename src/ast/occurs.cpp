@@ -30,12 +30,12 @@ Revision History:
 namespace {
     struct found {}; 
     
-    struct proc {
+    struct proc_z3 {
         expr * m_n;
 
 #define CHECK() { if (n == m_n) throw found(); }
 
-        proc(expr * n):m_n(n) {}
+        proc_z3(expr * n):m_n(n) {}
         void operator()(var const * n) { CHECK(); }
         void operator()(app const * n) { CHECK(); }
         void operator()(quantifier const * n) { CHECK(); }
@@ -63,7 +63,7 @@ namespace {
 
 // Return true if n1 occurs in n2
 bool occurs(expr * n1, expr * n2) {
-    proc p(n1);
+    proc_z3 p(n1);
     try {
         quick_for_each_expr(p, n2);
     }

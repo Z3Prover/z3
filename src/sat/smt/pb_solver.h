@@ -74,7 +74,7 @@ namespace pb {
             unsigned bv_coeff(bool_var v) const;
             void divide(unsigned c);
             void weaken(unsigned i);
-            bool contains(literal l) const { for (auto wl : m_wlits) if (wl.second == l) return true; return false; }
+            bool contains(literal l) const { for (auto [w, lit] : m_wlits) if (lit == l) return true; return false; }
         };
 
         sat::sat_internalizer&      si;
@@ -235,6 +235,7 @@ namespace pb {
         void simplify(constraint& p);
         void simplify2(pbc& p);
         bool is_cardinality(pbc const& p);
+        std::pair<unsigned, unsigned> normalize(wliteral *begin, wliteral *end, unsigned k);
         void flush_roots(pbc& p);
         void recompile(pbc& p);
         bool clausify(pbc& p);

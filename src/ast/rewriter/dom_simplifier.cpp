@@ -140,7 +140,7 @@ bool expr_dominators::compile(expr * e) {
 }
 
 bool expr_dominators::compile(unsigned sz, expr * const* es) {
-    expr_ref e(m.mk_and(sz, es), m);
+    expr_ref e(m.mk_and(std::span<expr* const>(es, sz)), m);
     return compile(e);
 }
 

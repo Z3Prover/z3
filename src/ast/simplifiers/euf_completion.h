@@ -226,7 +226,6 @@ namespace euf {
         bool is_gt(expr* a, expr* b) const;
     public:
         completion(ast_manager& m, dependent_expr_state& fmls);
-        ~completion() override;
         char const* name() const override { return "euf-completion"; }
         void push() override;
         void pop(unsigned n) override;

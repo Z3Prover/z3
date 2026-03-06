@@ -158,7 +158,7 @@ struct gomory_test {
             TRACE(gomory_cut_detail, tout << "pol.size() > 1" << std::endl;);
             lcm_den = lcm(lcm_den, denominator(k));
             TRACE(gomory_cut_detail, tout << "k: " << k << " lcm_den: " << lcm_den << "\n";
-                  for (unsigned i = 0; i < pol.size(); i++) {
+                  for (unsigned i = 0; i < pol.size(); ++i) {
                       tout << pol[i].first << " " << pol[i].second << "\n";
                   }
                   tout << "k: " << k << "\n";);
@@ -172,7 +172,7 @@ struct gomory_test {
                 k *= lcm_den;
             }
             TRACE(gomory_cut_detail, tout << "after *lcm\n";
-                  for (unsigned i = 0; i < pol.size(); i++) {
+                  for (unsigned i = 0; i < pol.size(); ++i) {
                       tout << pol[i].first << " * v" << pol[i].second << "\n";
                   }
                   tout << "k: " << k << "\n";);

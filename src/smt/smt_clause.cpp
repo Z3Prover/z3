@@ -51,7 +51,7 @@ namespace smt {
         if (js)
             *(const_cast<justification **>(cls->get_justification_addr())) = js;
         if (save_atoms) {
-            for (unsigned i = 0; i < num_lits; i++) {
+            for (unsigned i = 0; i < num_lits; ++i) {
                 expr * atom = bool_var2expr_map[lits[i].var()];
                 m.inc_ref(atom);
                 const_cast<expr**>(cls->get_atoms_addr())[i] = TAG(expr*, atom, lits[i].sign());
@@ -62,7 +62,7 @@ namespace smt {
             SASSERT(!cls->is_lemma() || cls->get_activity() == 1);
             SASSERT(cls->get_del_eh() == del_eh);
             SASSERT(cls->get_justification() == js);
-            for (unsigned i = 0; i < num_lits; i++) {
+            for (unsigned i = 0; i < num_lits; ++i) {
                 SASSERT((*cls)[i] == lits[i]);
                 SASSERT(!save_atoms || cls->get_atom(i) == bool_var2expr_map[lits[i].var()]);
             }});
@@ -82,7 +82,7 @@ namespace smt {
             }
         }
         unsigned num_atoms = get_num_atoms();
-        for (unsigned i = 0; i < num_atoms; i++) {
+        for (unsigned i = 0; i < num_atoms; ++i) {
             SASSERT(m_reinit || get_atom(i) == 0);
             m.dec_ref(get_atom(i));
         }
@@ -91,7 +91,7 @@ namespace smt {
 
     void clause::release_atoms(ast_manager & m) {
         unsigned num_atoms = get_num_atoms();
-        for (unsigned i = 0; i < num_atoms; i++) {
+        for (unsigned i = 0; i < num_atoms; ++i) {
             m.dec_ref(get_atom(i));
             const_cast<expr**>(get_atoms_addr())[i] = nullptr;
         }
@@ -99,7 +99,7 @@ namespace smt {
 
     std::ostream& clause::display(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const {
         out << "(clause";
-        for (unsigned i = 0; i < m_num_literals; i++) {
+        for (unsigned i = 0; i < m_num_literals; ++i) {
             out << " ";
             smt::display(out, m_lits[i], m, bool_var2expr_map);
         }
@@ -108,7 +108,7 @@ namespace smt {
 
     std::ostream& clause::display_compact(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const {
         out << "(clause";
-        for (unsigned i = 0; i < m_num_literals; i++) {
+        for (unsigned i = 0; i < m_num_literals; ++i) {
             out << " ";
             smt::display_compact(out, m_lits[i], bool_var2expr_map);
         }
@@ -117,12 +117,12 @@ namespace smt {
 
     std::ostream& clause::display_smt2(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const {
         expr_ref_vector args(m);
-        for (unsigned i = 0; i < m_num_literals; i++) {
+        for (unsigned i = 0; i < m_num_literals; ++i) {
             literal lit = m_lits[i];
             args.push_back(bool_var2expr_map[lit.var()]);
             if (lit.sign()) args[args.size()-1] = m.mk_not(args.back());
         }
-        expr_ref disj(m.mk_or(args.size(), args.data()), m);
+        expr_ref disj(m.mk_or(args), m);
         return out << mk_pp(disj, m, 3);
     }
 

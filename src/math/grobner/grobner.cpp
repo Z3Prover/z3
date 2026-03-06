@@ -126,7 +126,7 @@ void grobner::display_var(std::ostream & out, expr * var) const {
 }
 
 void grobner::display_vars(std::ostream & out, unsigned num_vars, expr * const * vars) const {
-    for (unsigned i = 0; i < num_vars; i++) {
+    for (unsigned i = 0; i < num_vars; ++i) {
         display_var(out, vars[i]); 
         out << " ";
     }
@@ -167,7 +167,7 @@ void grobner::display_monomial(std::ostream & out, monomial const & m, std::func
 
 void grobner::display_monomials(std::ostream & out, unsigned num_monomials, monomial * const * monomials, std::function<void(std::ostream&, expr*)>& display_var) const {
     bool first = true;
-    for (unsigned i = 0; i < num_monomials; i++) {
+    for (unsigned i = 0; i < num_monomials; ++i) {
         monomial const * m = monomials[i];
         if (first)
             first = false;
@@ -277,7 +277,7 @@ inline void grobner::add_var(monomial * m, expr * v) {
 grobner::monomial * grobner::mk_monomial(rational const & coeff, unsigned num_vars, expr * const * vars) {
     monomial * r = alloc(monomial);
     r->m_coeff   = coeff;
-    for (unsigned i = 0; i < num_vars; i++)
+    for (unsigned i = 0; i < num_vars; ++i)
         add_var(r, vars[i]);
     std::stable_sort(r->m_vars.begin(), r->m_vars.end(), m_var_lt);
     return r;
@@ -341,7 +341,7 @@ void grobner::assert_eq_0(unsigned num_monomials, monomial * const * monomials, 
 void grobner::assert_eq_0(unsigned num_monomials, rational const * coeffs, expr * const * monomials, v_dependency * ex) {
 #define MK_EQ(COEFF)                                    \
     ptr_vector<monomial> ms;                            \
-    for (unsigned i = 0; i < num_monomials; i++)        \
+    for (unsigned i = 0; i < num_monomials; ++i)        \
         ms.push_back(mk_monomial(COEFF, monomials[i])); \
     std::stable_sort(ms.begin(), ms.end(), m_monomial_lt);     \
     merge_monomials(ms);                                \
@@ -473,14 +473,14 @@ void grobner::normalize_coeff(ptr_vector<monomial> & monomials) {
     if (c.is_one())
         return;
     if (c.is_minus_one()) {
-        for (unsigned i = 0; i < sz && m_manager.inc(); i++) 
+        for (unsigned i = 0; i < sz && m_manager.inc(); ++i) 
             monomials[i]->m_coeff.neg();        
         return;
     }
     if (c.bitsize() > 1000)
         return;
         
-    for (unsigned i = 0; i < sz && m_manager.inc(); i++) {
+    for (unsigned i = 0; i < sz && m_manager.inc(); ++i) {
         if (monomials[i]->m_coeff.bitsize() > 1000)
             continue;
         monomials[i]->m_coeff /= c;
@@ -536,7 +536,7 @@ bool grobner::is_subset(monomial const * m1, monomial const * m2, ptr_vector<exp
     if (sz1 <= sz2) {
         while (true) {
             if (i1 >= sz1) {
-                for (; i2 < sz2; i2++) 
+                for (; i2 < sz2; ++i2) 
                     rest.push_back(m2->m_vars[i2]);
                 TRACE(grobner, 
                       tout << "monomial: "; display_monomial(tout, *m1); tout << " is a subset of "; 
@@ -574,7 +574,7 @@ bool grobner::is_subset(monomial const * m1, monomial const * m2, ptr_vector<exp
 */
 void grobner::mul_append(unsigned start_idx, equation const * source, rational const & coeff, ptr_vector<expr> const & vars, ptr_vector<monomial> & result) {
     unsigned sz = source->get_num_monomials();
-    for (unsigned i = start_idx; i < sz; i++) {
+    for (unsigned i = start_idx; i < sz; ++i) {
         monomial const * m = source->get_monomial(i);
         monomial * new_m   = alloc(monomial);
         new_m->m_coeff     = m->m_coeff;
@@ -605,7 +605,7 @@ grobner::monomial * grobner::copy_monomial(monomial const * m) {
 grobner::equation * grobner::copy_equation(equation const * eq) {
     equation * r   = alloc(equation);
     unsigned sz    = eq->get_num_monomials();
-    for (unsigned i = 0; i < sz; i++) 
+    for (unsigned i = 0; i < sz; ++i) 
         r->m_monomials.push_back(copy_monomial(eq->get_monomial(i)));
     init_equation(r, eq->m_dep);
     r->m_lc        = eq->m_lc;
@@ -636,7 +636,7 @@ grobner::equation * grobner::simplify(equation const * source, equation * target
         ptr_vector<monomial> & new_monomials = m_tmp_monomials;
         new_monomials.reset();
         ptr_vector<expr>  & rest = m_tmp_vars1;
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             monomial * curr = target->m_monomials[i];
             rest.reset();
             if (is_subset(LT, curr, rest)) {
@@ -828,7 +828,7 @@ bool grobner::unify(monomial const * m1, monomial const * m2, ptr_vector<expr> &
     while (true) {
         if (i1 >= sz1) {
             if (found_M) {
-                for (; i2 < sz2; i2++) 
+                for (; i2 < sz2; ++i2) 
                     rest2.push_back(m2->m_vars[i2]);
                 return true;
             }
@@ -836,7 +836,7 @@ bool grobner::unify(monomial const * m1, monomial const * m2, ptr_vector<expr> &
         }
         if (i2 >= sz2) {
             if (found_M) {
-                for (; i1 < sz1; i1++) 
+                for (; i1 < sz1; ++i1) 
                     rest1.push_back(m1->m_vars[i1]);
                 return true;
             }

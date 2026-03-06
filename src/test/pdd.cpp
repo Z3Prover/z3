@@ -95,7 +95,7 @@ public:
         pdd d = m.mk_var(3);
         
         pdd e = a + c;
-        for (unsigned i = 0; i < 5; i++) {
+        for (unsigned i = 0; i < 5; ++i) {
             e = e * e;
         }
         e = e * b;

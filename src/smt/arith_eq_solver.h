@@ -62,7 +62,6 @@ class arith_eq_solver {
 
 public:
     arith_eq_solver(ast_manager & m, params_ref const& p = params_ref());
-    ~arith_eq_solver() = default;
 
     // Integer linear solver for a single equation.
     // The array values contains integer coefficients

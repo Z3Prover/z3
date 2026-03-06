@@ -105,6 +105,7 @@ namespace smt2 {
         symbol               m_declare_type_var;
         symbol               m_declare_datatypes;
         symbol               m_declare_datatype;
+        symbol               m_subterm_keyword;
         symbol               m_par;
         symbol               m_push;
         symbol               m_pop;
@@ -941,7 +942,7 @@ namespace smt2 {
                 dts->commit(pm());
                 m_ctx.insert_aux_pdecl(dts.get());
             }
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 pdatatype_decl * d = new_dt_decls[i];
                 check_duplicate(d, line, pos);
                 if (!is_smt2_6) {
@@ -955,7 +956,7 @@ namespace smt2 {
             next();
         }
 
-        // ( declare-datatype symbol datatype_dec) 
+        // ( declare-datatype symbol datatype_dec [:subterm <subterm>]) 
         void parse_declare_datatype() {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id() == m_declare_datatype);
@@ -974,8 +975,15 @@ namespace smt2 {
             pdatatype_decl_ref d(pm());                
             pconstructor_decl_ref_buffer new_ct_decls(pm());
             parse_datatype_dec(&dt_name, new_ct_decls);
+            
+            symbol subterm_name = parse_subterm_decl();
+
             d = pm().mk_pdatatype_decl(m_sort_id2param_idx.size(), dt_name, new_ct_decls.size(), new_ct_decls.data());
             
+            if (subterm_name != symbol::null) {
+                d->set_subterm(subterm_name);
+            }
+
             check_missing(d, line, pos);
             check_duplicate(d, line, pos);
 
@@ -983,6 +991,18 @@ namespace smt2 {
             check_rparen("invalid end of datatype declaration, ')' expected");
             m_ctx.print_success();
             next();
+        }
+
+        // [:subterm <subterm>]
+        symbol parse_subterm_decl() {
+            symbol predicate_name = symbol::null;
+            if ((curr_is_identifier() || curr() == scanner::KEYWORD_TOKEN) && curr_id() == m_subterm_keyword) {
+                next(); // consume :subterm keyword
+                check_identifier("expected name for subterm predicate");
+                predicate_name = curr_id();
+                next();
+            }
+            return predicate_name;
         }
 
 
@@ -1797,8 +1817,12 @@ namespace smt2 {
         void check_qualifier(expr * t, bool has_as) {
             if (has_as) {
                 sort * s = sort_stack().back();
-                if (s != t->get_sort())
-                    throw parser_exception("invalid qualified identifier, sort mismatch");
+                if (s != t->get_sort()) {
+                    std::ostringstream str;
+                    str << "sort mismatch in qualified identifier, expected: " << mk_pp(s, m())
+                        << ", got: " << mk_pp(t->get_sort(), m());
+                    throw parser_exception(str.str());
+                }
                 sort_stack().pop_back();
             }
         }
@@ -2016,7 +2040,7 @@ namespace smt2 {
             unsigned begin_pats = fr->m_pat_spos;
             unsigned end_pats   = pattern_stack().size();
             unsigned j = begin_pats;
-            for (unsigned i = begin_pats; i < end_pats; i++) {
+            for (unsigned i = begin_pats; i < end_pats; ++i) {
                 expr * pat = pattern_stack().get(i);
                 if (!pat_validator()(num_decls, pat, m_scanner.get_line(), m_scanner.get_pos())) {
                     if (!ignore_bad_patterns())
@@ -2704,7 +2728,7 @@ namespace smt2 {
             expr ** expr_it  = expr_stack().data() + spos;
             expr ** expr_end = expr_it + m_cached_strings.size();
             md->compress();
-            for (unsigned i = 0; expr_it < expr_end; expr_it++, i++) {
+            for (unsigned i = 0; expr_it < expr_end; ++expr_it, ++i) {
                 model::scoped_model_completion _scm(md, true);
                 expr_ref v = (*md)(*expr_it);
                 if (i > 0)
@@ -3088,6 +3112,7 @@ namespace smt2 {
             m_declare_type_var("declare-type-var"),
             m_declare_datatypes("declare-datatypes"),
             m_declare_datatype("declare-datatype"),
+            m_subterm_keyword(":subterm"),
             m_par("par"),
             m_push("push"),
             m_pop("pop"),

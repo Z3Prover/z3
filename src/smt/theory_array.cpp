@@ -403,12 +403,47 @@ namespace smt {
             return FC_DONE;
         final_check_status r = FC_DONE;
         unsigned num_vars = get_num_vars();
-        for (unsigned v = 0; v < num_vars; v++) {
+        for (unsigned v = 0; v < num_vars; ++v) {
             var_data * d = m_var_data[v];
             if (d->m_prop_upward && instantiate_axiom2b_for(v))
                 r = FC_CONTINUE;
-        }
+        }      
         return r;
+    }
+
+    
+    bool theory_array::has_unitary_domain(app *array_term) {
+        SASSERT(is_array_sort(array_term));
+        sort *s = array_term->get_sort();
+        unsigned dim = get_dimension(s);
+        parameter const *params = s->get_info()->get_parameters();
+        for (unsigned i = 0; i < dim; ++i) {
+            SASSERT(params[i].is_ast());
+            sort *d = to_sort(params[i].get_ast());
+            if (d->is_infinite() || d->is_very_big() || 1 != d->get_num_elements().size())
+                return false;
+        }
+        return true;
+    }
+
+    bool theory_array::has_large_domain(app *array_term, rational& sz) {
+        SASSERT(is_array_sort(array_term));
+        sort *s = array_term->get_sort();
+        unsigned dim = get_dimension(s);
+        parameter const *params = s->get_info()->get_parameters();
+        sz = rational(1);
+        for (unsigned i = 0; i < dim; ++i) {
+            SASSERT(params[i].is_ast());
+            sort *d = to_sort(params[i].get_ast());
+            if (d->is_infinite() || d->is_very_big()) {
+                return true;
+            }
+            sz *= rational(d->get_num_elements().size(), rational::ui64());
+            if (sz >= rational(1 << 14)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     final_check_status theory_array::mk_interface_eqs_at_final_check() {
@@ -430,14 +465,14 @@ namespace smt {
         unsigned num_vars = get_num_vars();
         if (num_vars == 0) return;
         out << "Theory array:\n";
-        for (unsigned v = 0; v < num_vars; v++) {
+        for (unsigned v = 0; v < num_vars; ++v) {
             display_var(out, v);
         }
     }
 
     // TODO: move to another file
     void theory_array::display_ids(std::ostream & out, unsigned n, enode * const * v) {
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             if (i > 0) out << " ";
             out << "#" << v[i]->get_owner_id();
         }

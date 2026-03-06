@@ -93,6 +93,7 @@ DOTNET_CORE_ENABLED=False
 DOTNET_KEY_FILE=getenv("Z3_DOTNET_KEY_FILE", None)
 ASSEMBLY_VERSION=getenv("Z2_ASSEMBLY_VERSION", None)
 JAVA_ENABLED=False
+GO_ENABLED=False
 ML_ENABLED=False
 PYTHON_INSTALL_ENABLED=False
 STATIC_LIB=False
@@ -712,6 +713,7 @@ def display_help(exit_code):
     print("  --dotnet-key=<file>           sign the .NET assembly using the private key in <file>.")
     print("  --assembly-version=<x.x.x.x>  provide version number for build")
     print("  --java                        generate Java bindings.")
+    print("  --go                          generate Go bindings.")
     print("  --ml                          generate OCaml bindings.")
     print("  --js                          generate JScript bindings.")
     print("  --python                      generate Python bindings.")
@@ -745,7 +747,7 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, ASSEMBLY_VERSION, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
+    global DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, ASSEMBLY_VERSION, JAVA_ENABLED, GO_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
     global LINUX_X64, SLOW_OPTIMIZE, LOG_SYNC, SINGLE_THREADED
     global GUARD_CF, ALWAYS_DYNAMIC_BASE, IS_ARCH_ARM64
     try:
@@ -809,6 +811,8 @@ def parse_options():
             GMP = True
         elif opt in ('-j', '--java'):
             JAVA_ENABLED = True
+        elif opt in ('--go',):
+            GO_ENABLED = True
         elif opt == '--gprof':
             GPROF = True
         elif opt == '--githash':
@@ -952,6 +956,9 @@ def is_verbose():
 
 def is_java_enabled():
     return JAVA_ENABLED
+
+def is_go_enabled():
+    return GO_ENABLED
 
 def is_ml_enabled():
     return ML_ENABLED
@@ -2714,6 +2721,10 @@ def mk_config():
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -mimpure-text' % SLIBEXTRAFLAGS
+        elif sysname  == 'AIX':
+            SO_EXT         = '.so'
+            SLIBFLAGS      = '-shared'
+            SLIBEXTRAFLAGS = '%s' % LDFLAGS
         elif sysname.startswith('CYGWIN'):
             SO_EXT         = '.dll'
             SLIBFLAGS      = '-shared'
@@ -2745,7 +2756,12 @@ def mk_config():
             CXXFLAGS = '%s -arch arm64' % CXXFLAGS
             LDFLAGS = '%s -arch arm64' % LDFLAGS
             SLIBEXTRAFLAGS = '%s -arch arm64' % SLIBEXTRAFLAGS
-        if IS_OSX and is_ml_enabled():
+        elif IS_OSX and os.uname()[4] == 'arm64':
+            # Cross-compiling from ARM64 host to x86_64: ensure the shared library
+            # linker also targets x86_64 (LDFLAGS already contains -arch x86_64
+            # from the environment, but SLIBEXTRAFLAGS is independent)
+            SLIBEXTRAFLAGS = '%s -arch x86_64' % SLIBEXTRAFLAGS
+        if IS_OSX:
             SLIBFLAGS += ' -Wl,-headerpad_max_install_names'
 
         config.write('PREFIX=%s\n' % PREFIX)
@@ -3583,10 +3599,11 @@ class MakeRuleCmd(object):
 def strip_path_prefix(path, prefix):
     if path.startswith(prefix):
         stripped_path = path[len(prefix):]
-        stripped_path.replace('//','/')
-        if stripped_path[0] == '/':
+        stripped_path = stripped_path.replace('//','/')
+        if len(stripped_path) > 0 and stripped_path[0] == '/':
             stripped_path = stripped_path[1:]
-        assert not os.path.isabs(stripped_path)
+        if os.path.isabs(stripped_path):
+            raise ValueError(f"Path '{path}' after stripping prefix '{prefix}' is still absolute: '{stripped_path}'")
         return stripped_path
     else:
         return path

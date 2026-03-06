@@ -977,7 +977,7 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
         strm << "(set-logic " << m_logic << ")\n";
     }
     if (!m_attributes.empty()) {
-        strm << "; " << m_attributes;
+        strm << "; " << m_attributes << "\n";
     }
 
 #if 0

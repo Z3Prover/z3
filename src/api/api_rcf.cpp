@@ -115,7 +115,7 @@ extern "C" {
         reset_rcf_cancel(c);
         rcnumeral_vector av;
         unsigned rz = 0;
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             if (!rcfm(c).is_zero(to_rcnumeral(a[i])))
                 rz = i + 1;
             av.push_back(to_rcnumeral(a[i]));
@@ -129,7 +129,7 @@ extern "C" {
         rcnumeral_vector rs;
         rcfm(c).isolate_roots(av.size(), av.data(), rs);
         unsigned num_roots = rs.size();
-        for (unsigned i = 0; i < num_roots; i++) {
+        for (unsigned i = 0; i < num_roots; ++i) {
             roots[i] = from_rcnumeral(rs[i]);
         }
         RETURN_Z3_rcf_mk_roots num_roots;

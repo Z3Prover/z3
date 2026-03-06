@@ -280,7 +280,7 @@ namespace {
         ptr_vector<expr> undef_children;
         bool found_undef  = false;
         unsigned num_args = parent->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             expr * arg    = parent->get_arg(i);
             lbool arg_val = ctx.get_assignment(arg);
             if (arg_val == val)
@@ -420,7 +420,7 @@ namespace {
         void next_case_split_core(ptr_vector<expr> & queue, unsigned & head, bool_var & next, lbool & phase) {
             phase = l_undef;
             unsigned sz = queue.size();
-            for (; head < sz; head++) {
+            for (; head < sz; ++head) {
                 expr * curr = queue[head];
                 bool is_or  = m_manager.is_or(curr);
                 bool is_and = m_manager.is_and(curr);
@@ -480,7 +480,7 @@ namespace {
             if (queue.empty())
                 return;
             unsigned sz = queue.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 if (i == head) 
                     out << "[HEAD" << idx << "]=> ";
                 out << "#" << queue[i]->get_id() << " ";
@@ -614,7 +614,7 @@ namespace {
         void next_case_split_core(bool_var & next, lbool & phase) {
             phase = l_undef;
             unsigned sz = m_queue.size();
-            for (; m_head < sz; m_head++) {
+            for (; m_head < sz; ++m_head) {
                 expr * curr = m_queue[m_head];
                 bool is_or  = m_manager.is_or(curr);
                 bool is_and = m_manager.is_and(curr);
@@ -675,7 +675,7 @@ namespace {
             if (m_queue.empty())
                 return;
             unsigned sz = m_queue.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 if (i == m_head) 
                     out << "[HEAD]=> ";
                 out << "#" << m_queue[i]->get_id() << " ";
@@ -856,14 +856,14 @@ namespace {
             m_current_generation = s.m_generation;
             m_current_goal       = s.m_goal;
 
-            for (unsigned i = s.m_queue2_trail; i < m_queue2.size(); i++) {
+            for (unsigned i = s.m_queue2_trail; i < m_queue2.size(); ++i) {
                 //TRACE(case_split, tout << "ld[" << i << "] = " << m_queue2[i].m_last_decided << " cont " << 
                 SASSERT((m_queue2[i].m_last_decided == -1) == m_priority_queue2.contains(i));
                 if (m_priority_queue2.contains(i))
                     m_priority_queue2.erase(i);
             }
             
-            for (unsigned i = 0; i < s.m_queue2_trail; i++) {
+            for (unsigned i = 0; i < s.m_queue2_trail; ++i) {
                 queue_entry & e = m_queue2[i];
 
                 if (e.m_last_decided > static_cast<int>(new_lvl)) {
@@ -923,7 +923,7 @@ namespace {
             next = null_bool_var;
 
             unsigned sz = m_queue.size();
-            for (; m_head < sz; m_head++) {
+            for (; m_head < sz; ++m_head) {
                 expr * curr = m_queue[m_head];
                 next_case_split_core(curr, next, phase);
                 if (next != null_bool_var)
@@ -955,7 +955,7 @@ namespace {
             if (queue.empty())
                 return;
             unsigned sz = queue.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 if (i == head) 
                     out << "[HEAD" << idx << "]=> ";
                 out << "#" << queue[i]->get_id() << " ";
@@ -1030,7 +1030,7 @@ namespace {
 
         void add_to_queue2(expr * e)
         {
-            int      idx = m_queue2.size();
+            int      idx = static_cast<int>(m_queue2.size());
 
             GOAL_START();
             m_queue2.push_back(queue_entry(e, get_generation(e)));

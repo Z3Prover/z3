@@ -3,6 +3,7 @@ name: Android Build
 on:
   schedule:
     - cron: '0 0 */2 * *'
+  workflow_dispatch:
 
 env:
   BUILD_TYPE: Release
@@ -21,7 +22,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v6.0.2
 
     - name: Configure CMake and build
       run:  |

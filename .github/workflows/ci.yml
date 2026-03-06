@@ -1,0 +1,466 @@
+name: CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true  
+
+# This workflow migrates jobs from azure-pipelines.yml to GitHub Actions.
+# See .github/workflows/CI_MIGRATION.md for details on the migration.
+
+jobs:
+  # ============================================================================
+  # Linux Python Debug Builds
+  # ============================================================================
+  linux-python-debug:
+    name: "Ubuntu build - python make - ${{ matrix.variant }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [MT, ST]
+        include:
+          - variant: MT
+            cmdLine: 'python scripts/mk_make.py -d --java --dotnet'
+            runRegressions: true
+          - variant: ST
+            cmdLine: './configure --single-threaded'
+            runRegressions: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Configure
+        run: ${{ matrix.cmdLine }}
+
+      - name: Build
+        run: |
+          set -e
+          cd build
+          make -j3
+          make -j3 examples
+          make -j3 test-z3
+          cd ..
+
+      - name: Run unit tests
+        run: |
+          cd build
+          ./test-z3 -a
+          cd ..
+
+      - name: Clone z3test
+        if: matrix.runRegressions
+        run: git clone https://github.com/z3prover/z3test z3test
+
+      - name: Run regressions
+        if: matrix.runRegressions
+        run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
+
+  # ============================================================================
+  # Manylinux Python Builds
+  # ============================================================================
+  manylinux-python-amd64:
+    name: "Python bindings (manylinux Centos AMD64) build"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container: "quay.io/pypa/manylinux_2_34_x86_64:latest"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Python virtual environment
+        run: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
+
+      - name: Install build dependencies
+        run: |
+          source $PWD/env/bin/activate
+          pip install build git+https://github.com/rhelmot/auditwheel
+
+      - name: Build Python wheel
+        run: |
+          source $PWD/env/bin/activate
+          cd src/api/python
+          python -m build
+          AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl
+          cd ../../..
+
+      - name: Test Python wheel
+        run: |
+          source $PWD/env/bin/activate
+          pip install ./src/api/python/wheelhouse/*.whl
+          python - <src/api/python/z3test.py z3
+          python - <src/api/python/z3test.py z3num
+
+  manylinux-python-arm64:
+    name: "Python bindings (manylinux Centos ARM64 cross) build"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container: quay.io/pypa/manylinux_2_28_x86_64:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Download ARM toolchain
+        run: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz'
+
+      - name: Extract ARM toolchain
+        run: |
+          mkdir -p /tmp/arm-toolchain/
+          tar xf /tmp/arm-toolchain.tar.xz -C /tmp/arm-toolchain/ --strip-components=1
+
+      - name: Setup Python virtual environment
+        run: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
+
+      - name: Install build dependencies
+        run: |
+          source $PWD/env/bin/activate
+          pip install build git+https://github.com/rhelmot/auditwheel
+
+      - name: Build Python wheel (cross-compile)
+        run: |
+          source $PWD/env/bin/activate
+          export PATH="/tmp/arm-toolchain/bin:/tmp/arm-toolchain/aarch64-none-linux-gnu/libc/usr/bin:$PATH"
+          cd src/api/python
+          CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld python -m build
+          AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl
+          cd ../../..
+
+  # ============================================================================
+  # Ubuntu OCaml Builds
+  # ============================================================================
+  ubuntu-ocaml:
+    name: "Ubuntu with OCaml"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: '5'
+          opam-disable-sandboxing: true
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgmp-dev
+
+      - name: Install OCaml dependencies
+        run: opam install zarith ocamlfind -y
+
+      - name: Configure
+        run: eval `opam config env`; python scripts/mk_make.py --ml
+
+      - name: Build
+        run: |
+          set -e
+          cd build
+          eval `opam config env`
+          make -j3
+          make -j3 examples
+          make -j3 test-z3
+          cd ..
+
+      - name: Install Z3 OCaml package
+        run: eval `opam config env`; ocamlfind install z3 build/api/ml/* -dll build/libz3.*
+
+      - name: Run unit tests
+        run: |
+          cd build
+          ./test-z3 -a
+          cd ..
+
+      - name: Clone z3test
+        run: git clone https://github.com/z3prover/z3test z3test
+
+      - name: Run regressions
+        run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
+
+      - name: Generate documentation
+        run: |
+          cd doc
+          sudo apt-get install -y doxygen graphviz
+          python mk_api_doc.py --z3py-package-path=../build/python/z3
+          cd ..
+
+  ubuntu-ocaml-static:
+    name: "Ubuntu with OCaml on z3-static"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: '5'
+          opam-disable-sandboxing: true
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgmp-dev
+
+      - name: Install OCaml dependencies
+        run: opam install zarith ocamlfind -y
+
+      - name: Configure
+        run: eval `opam config env`; python scripts/mk_make.py --ml --staticlib
+
+      - name: Build
+        run: |
+          set -e
+          cd build
+          eval `opam config env`
+          make -j3
+          make -j3 examples
+          make -j3 test-z3
+          cd ..
+
+      - name: Install Z3 OCaml package
+        run: eval `opam config env`; ocamlfind install z3-static build/api/ml/* build/libz3-static.a
+
+      - name: Build and run OCaml examples
+        run: |
+          set -e
+          cd build
+          eval `opam config env`
+          make -j3
+          make -j3 _ex_ml_example_post_install
+          ./ml_example_static.byte
+          ./ml_example_static_custom.byte
+          ./ml_example_static
+          cd ..
+
+      - name: Run unit tests
+        run: |
+          cd build
+          ./test-z3 -a
+          cd ..
+
+      - name: Clone z3test
+        run: git clone https://github.com/z3prover/z3test z3test
+
+      - name: Run regressions
+        run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
+
+      - name: Generate documentation
+        run: |
+          cd doc
+          sudo apt-get install -y doxygen graphviz
+          python mk_api_doc.py --z3py-package-path=../build/python/z3
+          cd ..
+
+  # ============================================================================
+  # Ubuntu CMake Builds
+  # ============================================================================
+  ubuntu-cmake:
+    name: "Ubuntu build - cmake - ${{ matrix.name }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: releaseClang
+            setupCmd1: ''
+            setupCmd2: ''
+            buildCmd: 'CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True -G "Ninja" ../'
+            runTests: true
+          - name: debugClang
+            setupCmd1: 'julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\"))"'
+            setupCmd2: 'JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; print(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path))")'
+            buildCmd: 'CC=clang CXX=clang++ cmake -DJlCxx_DIR=$JlCxxDir/cmake/JlCxx -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True -G "Ninja" ../'
+            runTests: true
+          - name: debugGcc
+            setupCmd1: ''
+            setupCmd2: ''
+            buildCmd: 'CC=gcc CXX=g++ cmake -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True -G "Ninja" ../'
+            runTests: true
+          - name: releaseSTGcc
+            setupCmd1: ''
+            setupCmd2: ''
+            buildCmd: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DZ3_SINGLE_THREADED=ON -DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_GO_BINDINGS=True -G "Ninja" ../'
+            runTests: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.20'
+
+      - name: Setup Julia (if needed)
+        if: matrix.name == 'debugClang'
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+
+      - name: Configure
+        run: |
+          set -e
+          mkdir build
+          cd build
+          ${{ matrix.setupCmd1 }}
+          ${{ matrix.setupCmd2 }}
+          ${{ matrix.buildCmd }}
+
+      - name: Build
+        run: |
+          cd build
+          ninja
+          ninja test-z3
+          cd ..
+
+      - name: Run unit tests
+        if: matrix.runTests
+        run: |
+          cd build
+          ./test-z3 -a
+          cd ..
+
+      - name: Run examples
+        if: matrix.runTests
+        run: |
+          set -e
+          cd build
+          ninja c_example
+          ninja cpp_example
+          ninja z3_tptp5
+          ninja c_maxsat_example
+          examples/c_example_build_dir/c_example
+          examples/cpp_example_build_dir/cpp_example
+          examples/tptp_build_dir/z3_tptp5 -help
+          examples/c_maxsat_example_build_dir/c_maxsat_example ../examples/maxsat/ex.smt
+          cd ..
+
+      - name: Build Go bindings
+        if: matrix.runTests
+        run: |
+          cd build
+          ninja go-bindings
+          cd ..
+
+      - name: Test Go bindings
+        if: matrix.runTests
+        run: |
+          cd build
+          ninja test-go-examples
+          cd ..
+
+      - name: Clone z3test
+        if: matrix.runTests
+        run: git clone https://github.com/z3prover/z3test z3test
+
+      - name: Run regressions
+        if: matrix.runTests
+        run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
+
+  # ============================================================================
+  # macOS Python Builds
+  # ============================================================================
+  macos-python:
+    name: "MacOS build"
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Configure
+        run: python scripts/mk_make.py -d --java --dotnet
+
+      - name: Build
+        run: |
+          set -e
+          cd build
+          make -j3
+          make -j3 examples
+          make -j3 test-z3
+          ./cpp_example
+          ./c_example
+          cd ..
+
+      - name: Clone z3test
+        run: git clone https://github.com/z3prover/z3test z3test
+
+      - name: Run regressions
+        run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
+
+  # ============================================================================
+  # macOS CMake Builds
+  # ============================================================================
+  macos-cmake:
+    name: "MacOS build with CMake"
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          brew install ninja
+          brew install --cask julia
+
+      - name: Configure
+        run: |
+          julia -e "using Pkg; Pkg.add(PackageSpec(name=\"libcxxwrap_julia_jll\"))"
+          JlCxxDir=$(julia -e "using libcxxwrap_julia_jll; println(joinpath(dirname(libcxxwrap_julia_jll.libcxxwrap_julia_path), \"cmake\", \"JlCxx\"))")
+          set -e
+          mkdir build
+          cd build
+          cmake -DJlCxx_DIR=$JlCxxDir -DZ3_BUILD_JULIA_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False -G "Ninja" ../
+          cd ..
+
+      - name: Build
+        run: |
+          cd build
+          ninja
+          ninja test-z3
+          cd ..
+
+      - name: Run unit tests
+        run: |
+          cd build
+          ./test-z3 -a
+          cd ..
+
+      - name: Clone z3test
+        run: git clone https://github.com/z3prover/z3test z3test
+
+      - name: Run regressions
+        run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2

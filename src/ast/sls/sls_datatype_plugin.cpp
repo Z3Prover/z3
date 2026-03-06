@@ -91,8 +91,6 @@ namespace sls {
         m_eval(m) {
         m_fid = dt.get_family_id();
     }
-    
-    datatype_plugin::~datatype_plugin() {}
 
     void datatype_plugin::collect_path_axioms() {
         expr* t = nullptr, *z = nullptr;

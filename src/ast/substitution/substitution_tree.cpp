@@ -70,7 +70,7 @@ inline void substitution_tree::erase_reg_from_todo(unsigned ridx) {
 */
 void substitution_tree::linearize(svector<subst> & result) {
     ptr_buffer<expr> new_args;
-    for (unsigned i = 0; i < m_todo.size(); i++) {
+    for (unsigned i = 0; i < m_todo.size(); ++i) {
         unsigned ireg_idx = m_todo[i];
         expr * n          = get_reg_value(ireg_idx);
         var * ireg        = m_manager.mk_var(ireg_idx, n->get_sort());
@@ -83,7 +83,7 @@ void substitution_tree::linearize(svector<subst> & result) {
             if (num == 0)
                 new_app = to_app(n);
             else {
-                for (unsigned j = 0; j < num; j++) {
+                for (unsigned j = 0; j < num; ++j) {
                     unsigned oreg     = next_reg();
                     set_reg_value(oreg, to_app(n)->get_arg(j));
                     m_todo.push_back(oreg);
@@ -109,7 +109,7 @@ void substitution_tree::process_args(app * in, app * out) {
     CTRACE(subst_tree_bug, in->get_num_args() != out->get_num_args(), tout << mk_ismt2_pp(in, m_manager) << "\n" 
            << mk_ismt2_pp(out, m_manager) << "\n";);
     unsigned num = out->get_num_args();
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         expr * in_arg  = in->get_arg(i);
         expr * out_arg = out->get_arg(i);
         SASSERT(is_var(out_arg));
@@ -232,7 +232,7 @@ void substitution_tree::mark_used_regs(svector<subst> const & sv) {
         mark_used_reg(s.first->get_idx());
         if (is_app(s.second)) {
             unsigned num_args = to_app(s.second)->get_num_args();
-            for (unsigned i = 0; i < num_args; i++) {
+            for (unsigned i = 0; i < num_args; ++i) {
                 expr * arg = to_app(s.second)->get_arg(i);
                 SASSERT(is_var(arg));
                 mark_used_reg(to_var(arg)->get_idx());
@@ -578,9 +578,9 @@ void substitution_tree::display(std::ostream & out, subst const & s) const {
             out << to_app(s.second)->get_decl()->get_name();
         else {
             out << "(" << to_app(s.second)->get_decl()->get_name();
-            for (unsigned i = 0; i < num; i++)
+            for (unsigned i = 0; i < num; ++i)
                 out << " r!" << to_var(to_app(s.second)->get_arg(i))->get_idx();
-            out << ")";
+            out << ')';
         }
     }
     else {
@@ -600,7 +600,7 @@ void substitution_tree::display(std::ostream & out, svector<subst> const & sv) c
 }
 
 void substitution_tree::display(std::ostream & out, node * n, unsigned delta) const {
-    for (unsigned i = 0; i < delta; i++) 
+    for (unsigned i = 0; i < delta; ++i) 
         out << "  ";
     display(out, n->m_subst);
     if (n->m_leaf) {
@@ -734,7 +734,7 @@ bool substitution_tree::visit_vars(expr * e, st_visitor & st) {
         var_ref_vector * v = m_vars[s_id];
         if (v && !v->empty()) {
             unsigned sz = v->size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 var * curr = v->get(i);
                 m_subst->push_scope();
                 if (unify_match<Mode>(expr_offset(curr, m_st_offset), expr_offset(e, m_in_offset))) {
@@ -870,7 +870,7 @@ void substitution_tree::display(std::ostream & out) const {
         if (v == nullptr)
             continue; // m_vars may contain null pointers. See substitution_tree::insert.
         unsigned num = v->size();
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             if (!found_var) {
                 found_var = true;
                 out << "vars: ";

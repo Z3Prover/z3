@@ -37,7 +37,7 @@ static void tst1() {
 static void tst2(unsigned num, unsigned del_rate) {
     ptr_vector<char> ptrs;
     stack s;
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         ENSURE(ptrs.empty() == s.empty());
         ENSURE(s.empty() || ptrs.back() == s.top());
         if (!ptrs.empty() && rand() % del_rate == 0) {

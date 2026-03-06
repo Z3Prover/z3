@@ -57,7 +57,7 @@ public:
         expr_ref_vector forms(m_manager), new_forms(m_manager);
 
         unsigned size = g->size();
-        for (unsigned i = 0; i < size; i++) 
+        for (unsigned i = 0; i < size; ++i) 
             forms.push_back(g->form(i));
 
         dem(forms, new_forms);

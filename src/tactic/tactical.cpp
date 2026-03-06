@@ -128,7 +128,7 @@ public:
         }
         else {
             goal_ref_buffer r2;
-            for (unsigned i = 0; i < r1_size; i++) {                                                        
+            for (unsigned i = 0; i < r1_size; ++i) {                                                        
                 goal_ref g = r1[i];                                                                       
                 r2.reset();
                 m_t2->operator()(g, r2);
@@ -285,7 +285,7 @@ protected:
 
 public:
     nary_tactical(unsigned num, tactic * const * ts) {
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             SASSERT(ts[i]);
             m_ts.push_back(ts[i]);
         }
@@ -347,7 +347,7 @@ public:
         goal orig(*(in.get()));
         unsigned sz = m_ts.size();
         unsigned i;
-        for (i = 0; i < sz; i++) {
+        for (i = 0; i < sz; ++i) {
             tactic * t = m_ts[i];
             SASSERT(sz > 0);
             if (i < sz - 1) {
@@ -493,7 +493,7 @@ public:
         goal_ref_vector                in_copies;
         tactic_ref_vector              ts;
         unsigned sz = m_ts.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             ast_manager * new_m = alloc(ast_manager, m, !m.proof_mode());
             managers.push_back(new_m);
             ast_translation translator(m, *new_m);
@@ -523,7 +523,7 @@ public:
                     }
                 }                
                 if (first) {
-                    for (unsigned j = 0; j < sz; j++) {
+                    for (unsigned j = 0; j < sz; ++j) {
                         if (i != j) {
                             managers[j]->limit().cancel();
                         }
@@ -648,7 +648,7 @@ public:
             tactic_ref_vector              ts2;
             goal_ref_vector                g_copies;
 
-            for (unsigned i = 0; i < r1_size; i++) {
+            for (unsigned i = 0; i < r1_size; ++i) {
                 ast_manager * new_m = alloc(ast_manager, m, !m.proof_mode());
                 managers.push_back(new_m);
                 ast_translation translator(m, *new_m);
@@ -715,7 +715,7 @@ public:
                 }
 
                 if (curr_failed) {
-                    for (unsigned j = 0; j < r1_size; j++) {
+                    for (unsigned j = 0; j < r1_size; ++j) {
                         if (static_cast<unsigned>(i) != j) {
                             managers[j]->limit().cancel();
                         }
@@ -736,7 +736,7 @@ public:
                                 }
                             }
                             if (first) {
-                                for (unsigned j = 0; j < r1_size; j++) {
+                                for (unsigned j = 0; j < r1_size; ++j) {
                                     if (static_cast<unsigned>(i) != j) {
                                         managers[j]->limit().cancel();
                                     }
@@ -794,12 +794,12 @@ public:
                 return;
             
             expr_dependency_ref core(m);
-            for (unsigned i = 0; i < r1_size; i++) {
+            for (unsigned i = 0; i < r1_size; ++i) {
                 ast_translation translator(*(managers[i]), m, false);
                 goal_ref_buffer * r = goals_vect[i];
                 unsigned j = result.size();
                 if (r != nullptr) {
-                    for (unsigned k = 0; k < r->size(); k++) {
+                    for (unsigned k = 0; k < r->size(); ++k) {
                         result.push_back((*r)[k]->translate(translator));
                     }
                 }
@@ -940,7 +940,7 @@ class repeat_tactical : public unary_tactical {
         }                      
 
 		goal_ref_buffer            r2;
-		for (unsigned i = 0; i < r1_size; i++) {
+		for (unsigned i = 0; i < r1_size; ++i) {
 			goal_ref g = r1[i];
 			r2.reset();
 			operator()(depth + 1, g, r2);

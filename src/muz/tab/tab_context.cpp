@@ -567,7 +567,7 @@ namespace tb {
             }
             fml = vs(g.get_constraint(), vars.size(), vars.data());
             fmls.push_back(fml);
-            m_precond = m.mk_and(fmls.size(), fmls.data());
+            m_precond = m.mk_and(fmls);
             IF_VERBOSE(2,
                        verbose_stream() << "setup-match: ";
                        for (unsigned i = 0; i < m_preds.size(); ++i) {
@@ -756,9 +756,7 @@ namespace tb {
         void init(rules const& rs) {
             reset();
             double_vector& scores = m_scores;
-            rules::iterator it = rs.begin(), end = rs.end();
-            for (; it != end; ++it) {
-                ref<clause> g = *it;
+            for (ref<clause> g : rs) {
                 app* p = g->get_head();
                 scores.reset();
                 basic_score_predicate(p, scores);

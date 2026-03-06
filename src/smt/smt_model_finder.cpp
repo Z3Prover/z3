@@ -1069,7 +1069,7 @@ namespace smt {
 
                     expr_ref_vector args(m);
                     bool has_proj = false;
-                    for (unsigned i = 0; i < arity; i++) {
+                    for (unsigned i = 0; i < arity; ++i) {
                         var* v = m.mk_var(i, f->get_domain(i));
                         func_decl* pi = get_f_i_proj(f, i);
                         if (pi != nullptr) {
@@ -1205,7 +1205,7 @@ namespace smt {
                        n1->get_root()->display(tout, m);
                        n2->get_root()->display(tout, m);
                        tout << "f signature: ";
-                       for (unsigned i = 0; i < m_f->get_arity(); i++) tout << mk_pp(m_f->get_domain(i), m) << " ";
+                       for (unsigned i = 0; i < m_f->get_arity(); ++i) tout << mk_pp(m_f->get_domain(i), m) << " ";
                        tout << "-> " << mk_pp(m_f->get_range(), m) << "\n";
                 );
 
@@ -1726,7 +1726,7 @@ namespace smt {
             }
 
             void process_auf(auf_solver& s, context* ctx) {
-                for (unsigned i = 0; i < m_flat_q->get_num_decls(); i++) {
+                for (unsigned i = 0; i < m_flat_q->get_num_decls(); ++i) {
                     // make sure a node exists for each variable.
                     s.get_uvar(m_flat_q, i);
                 }
@@ -2007,7 +2007,7 @@ namespace smt {
             */
             void process_u_app(app* t) {
                 unsigned num_args = t->get_num_args();
-                for (unsigned i = 0; i < num_args; i++) {
+                for (unsigned i = 0; i < num_args; ++i) {
                     expr* arg = t->get_arg(i);
                     if (is_var(arg)) {
                         SASSERT(t->get_decl()->get_domain(i) == to_var(arg)->get_sort());
@@ -2057,7 +2057,7 @@ namespace smt {
                     unsigned num_args = t->get_num_args();
                     app* array = to_app(t->get_arg(0));
                     visit_term(array); // array may be a nested array.
-                    for (unsigned i = 1; i < num_args; i++) {
+                    for (unsigned i = 1; i < num_args; ++i) {
                         expr* arg = t->get_arg(i);
                         if (is_var(arg)) {
                             insert_qinfo(alloc(select_var, m, t, i, to_var(arg)->get_idx()));
@@ -2252,7 +2252,7 @@ namespace smt {
             void process_clause(expr* cls) {
                 SASSERT(is_clause(m, cls));
                 unsigned num_lits = get_clause_num_literals(m, cls);
-                for (unsigned i = 0; i < num_lits; i++) {
+                for (unsigned i = 0; i < num_lits; ++i) {
                     expr* lit = get_clause_literal(m, cls, i);
                     SASSERT(is_literal(m, lit));
                     expr* atom;
@@ -2365,7 +2365,7 @@ namespace smt {
     void model_finder::restore_quantifiers(unsigned old_size) {
         unsigned curr_size = m_quantifiers.size();
         SASSERT(old_size <= curr_size);
-        for (unsigned i = old_size; i < curr_size; i++) {
+        for (unsigned i = old_size; i < curr_size; ++i) {
             quantifier* q = m_quantifiers[i];
             SASSERT(m_q2info.contains(q));
             quantifier_info* info = get_quantifier_info(q);
@@ -2545,11 +2545,11 @@ namespace smt {
         // Since we only care about q (and its bindings), it only makes sense to restrict the variables of q.
         bool asserted_something = false;
         unsigned num_decls = q->get_num_decls();
-        // Remark: sks were created for the flat version of q.
+        // Remark: sks were created for the flat version of q.  
         SASSERT(get_flat_quantifier(q)->get_num_decls() == sks.size());
         SASSERT(sks.size() >= num_decls);
-        for (unsigned i = 0; i < num_decls; i++) {
-            expr* sk = sks.get(num_decls - i - 1);
+        for (unsigned i = 0; i < num_decls; ++i) {
+            expr *sk = sks.get(sks.size() - i - 1);
             instantiation_set const* s = get_uvar_inst_set(q, i);
             if (s == nullptr)
                 continue; // nothing to do
@@ -2557,15 +2557,17 @@ namespace smt {
             if (inv.empty())
                 continue; // nothing to do
             ptr_buffer<expr> eqs;
-            for (auto const& kv : inv) {
-                expr* val = kv.m_key;
-                eqs.push_back(m.mk_eq(sk, val));
+            for (auto const& [val, _] : inv) {
+                if (val->get_sort() == sk->get_sort())
+                    eqs.push_back(m.mk_eq(sk, val));
             }
-            expr_ref new_cnstr(m);
-            new_cnstr = m.mk_or(eqs.size(), eqs.data());
-            TRACE(model_finder, tout << "assert_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
-            aux_ctx->assert_expr(new_cnstr);
-            asserted_something = true;
+            if (!eqs.empty()) {
+                expr_ref new_cnstr(m);
+                new_cnstr = m.mk_or(eqs);
+                TRACE(model_finder, tout << "assert_restriction:\n" << mk_pp(new_cnstr, m) << "\n";);
+                aux_ctx->assert_expr(new_cnstr);
+                asserted_something = true;
+            }
         }
         return asserted_something;
     }
@@ -2573,7 +2575,7 @@ namespace smt {
     void model_finder::restart_eh() {
         unsigned sz = m_new_constraints.size();
         if (sz > 0) {
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 expr* c = m_new_constraints.get(i);
                 TRACE(model_finder_bug_detail, tout << "asserting new constraint: " << mk_pp(c, m) << "\n";);
                 m_context->internalize(c, true);

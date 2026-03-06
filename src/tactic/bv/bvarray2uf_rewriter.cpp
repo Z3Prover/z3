@@ -61,7 +61,7 @@ sort * bvarray2uf_rewriter_cfg::get_index_sort(expr * e) {
 sort * bvarray2uf_rewriter_cfg::get_index_sort(sort * s) {
     SASSERT(s->get_num_parameters() >= 2);
     unsigned total_width = 0;
-    for (unsigned i = 0; i < s->get_num_parameters() - 1; i++) {
+    for (unsigned i = 0; i < s->get_num_parameters() - 1; ++i) {
         parameter const & p = s->get_parameter(i);
         SASSERT(p.is_ast() && is_sort(to_sort(p.get_ast())));
         SASSERT(m_bv_util.is_bv_sort(to_sort(p.get_ast())));
@@ -90,7 +90,7 @@ bool bvarray2uf_rewriter_cfg::is_bv_array(sort * s) {
         return false;
 
     SASSERT(s->get_num_parameters() >= 2);
-    for (unsigned i = 0; i < s->get_num_parameters(); i++) {
+    for (unsigned i = 0; i < s->get_num_parameters(); ++i) {
         parameter const & p = s->get_parameter(i);
         if (!p.is_ast() || !is_sort(to_sort(p.get_ast())) ||
             !m_bv_util.is_bv_sort(to_sort(p.get_ast())))
@@ -201,7 +201,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
 
         bool has_bv_arrays = false;
         func_decl_ref f_t(m_manager);
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             if (is_bv_array(args[i])) {
                 SASSERT(m_array_util.is_as_array(args[i]));
                 has_bv_arrays = true;
@@ -279,7 +279,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                     func_decl_ref map_f(to_func_decl(f->get_parameter(0).get_ast()), m_manager);
 
                     func_decl_ref_vector ss(m_manager);
-                    for (unsigned i = 0; i < num; i++) {
+                    for (unsigned i = 0; i < num; ++i) {
                         SASSERT(m_array_util.is_array(args[i]));
                         func_decl_ref fd(mk_uf_for_array(args[i]), m_manager);
                         ss.push_back(fd);
@@ -291,7 +291,7 @@ br_status bvarray2uf_rewriter_cfg::reduce_app(func_decl * f, unsigned num, expr 
                     var_ref x(m_manager.mk_var(0, sorts[0]), m_manager);
 
                     expr_ref_vector new_args(m_manager);
-                    for (unsigned i = 0; i < num; i++)
+                    for (unsigned i = 0; i < num; ++i)
                         new_args.push_back(m_manager.mk_app(ss[i].get(), x.get()));
 
                     expr_ref body(m_manager);
@@ -362,7 +362,7 @@ bool bvarray2uf_rewriter_cfg::pre_visit(expr * t)
         quantifier * q = to_quantifier(t);
         TRACE(bvarray2uf_rw_q, tout << "pre_visit quantifier [" << q->get_id() << "]: " << mk_ismt2_pp(q->get_expr(), m()) << std::endl;);
         sort_ref_vector new_bindings(m_manager);
-        for (unsigned i = 0; i < q->get_num_decls(); i++)
+        for (unsigned i = 0; i < q->get_num_decls(); ++i)
             new_bindings.push_back(q->get_decl_sort(i));
         SASSERT(new_bindings.size() == q->get_num_decls());
         m_bindings.append(new_bindings);

@@ -118,7 +118,7 @@ namespace datalog {
         if(sz!=r2.size()) {
             return false;
         }
-        for(unsigned i=0; i<sz; i++) {
+        for(unsigned i=0; i<sz; ++i) {
             if(r1[i].get_kind()!=r2[i].get_kind()) {
                 return false;
             }
@@ -137,15 +137,11 @@ namespace datalog {
             std::sort(specs.back().begin(), specs.back().end());
         }
 
-        vector<rel_spec>::iterator sit = specs.begin(), send = specs.end();
-
         res.reset();
         for(;;) {
             family_id next = -1;
 
-            sit = specs.begin();
-            for(; sit!=send; ++sit) {
-                rel_spec & s = *sit;
+            for (rel_spec& s : specs) {
                 if(!s.empty() && s.back()>next) {
                     next = s.back();
                 }
@@ -155,9 +151,7 @@ namespace datalog {
                 break;
             }
             res.push_back(next);
-            sit = specs.begin();
-            for(; sit!=send; ++sit) {
-                rel_spec & s = *sit;
+            for (rel_spec& s : specs) {
                 while (!s.empty() && s.back()==next) {
                     s.pop_back();
                 }
@@ -175,7 +169,7 @@ namespace datalog {
         m_spec_store.get_relation_spec(s, kind, spec);
         relation_vector inner_rels;
         unsigned rel_cnt = spec.size();
-        for(unsigned i=0; i<rel_cnt; i++) {
+        for(unsigned i=0; i<rel_cnt; ++i) {
             inner_rels.push_back(get_manager().mk_empty_relation(s, spec[i]));
         }
         return alloc(product_relation,*this, s, inner_rels.size(), inner_rels.data());
@@ -192,7 +186,7 @@ namespace datalog {
         SASSERT(spec.well_formed());
         relation_vector inner_rels;
         unsigned rel_cnt = spec.size();
-        for(unsigned i=0; i<rel_cnt; i++) {
+        for(unsigned i=0; i<rel_cnt; ++i) {
             inner_rels.push_back(get_manager().mk_full_relation(s, p, spec[i]));
         }
         return alloc(product_relation,*this, s, inner_rels.size(), inner_rels.data());
@@ -245,7 +239,7 @@ namespace datalog {
             }
             unsigned sz = sig.size();
             tsig.reset();
-            for(unsigned i=0; i<sz; i++) {
+            for(unsigned i=0; i<sz; ++i) {
                 table_sort tsort;
                 if(rmgr.relation_sort_to_table(sig[i], tsort)) {
                     tsig.push_back(tsort);
@@ -630,7 +624,7 @@ namespace datalog {
 
         ~aligned_union_fn() override {
             unsigned sz = m_unions.size();
-            for(unsigned i=0; i<sz; i++) {
+            for(unsigned i=0; i<sz; ++i) {
                 dealloc_ptr_vector_content(m_unions[i]);
             }
         }
@@ -971,7 +965,7 @@ namespace datalog {
         if (spec_changed) {
             m_spec.resize(rel_cnt);
         }
-        for (unsigned i = 0; i < rel_cnt; i++) {
+        for (unsigned i = 0; i < rel_cnt; ++i) {
             family_id rkind = m_relations[i]->get_kind();
             spec_changed |= (m_spec[i] != rkind);
             m_spec[i] = rkind;
@@ -1006,11 +1000,11 @@ namespace datalog {
         relation_vector new_rels;
 
         //the loop is quadratic with the number of relations, maybe we want to fix it
-        for(unsigned i=0; i<new_sz; i++) {
+        for(unsigned i=0; i<new_sz; ++i) {
             family_id ikind = spec[i];
             relation_base * irel = nullptr;
             //we try to find the relation for the new specification among those we already have
-            for(unsigned j=0; j<old_sz; j++) {
+            for(unsigned j=0; j<old_sz; ++j) {
                 if(m_relations[j] && m_relations[j]->get_kind()==ikind) {
                     irel = m_relations[j];
                     m_relations[j] = 0;
@@ -1043,7 +1037,7 @@ namespace datalog {
         unsigned sz = size();
         bool found = false;
         unsigned candidate;
-        for(unsigned i=0; i<sz; i++) {
+        for(unsigned i=0; i<sz; ++i) {
             relation_base & r = (*this)[i];
             if(r.get_plugin().is_sieve_relation()) {
                 sieve_relation & sr = sieve_relation_plugin::get(r);

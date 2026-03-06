@@ -35,9 +35,7 @@ namespace smt {
         bv(m),
         a(m)
     {}
-    
-    theory_intblast::~theory_intblast() {}
-        
+
     final_check_status theory_intblast::final_check_eh(unsigned) {
         for (auto e : m_translator.bv2int()) {
             auto* n = ctx.get_enode(e);

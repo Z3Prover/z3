@@ -31,7 +31,7 @@ namespace euf {
 
     class theory_checker_plugin {
     public:
-        virtual ~theory_checker_plugin() {}
+        virtual ~theory_checker_plugin() = default;
         virtual bool check(app* jst) = 0;
         virtual expr_ref_vector clause(app* jst) = 0;
         virtual void register_plugins(theory_checker& pc) = 0;

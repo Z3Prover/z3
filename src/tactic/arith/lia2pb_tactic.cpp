@@ -151,7 +151,7 @@ class lia2pb_tactic : public tactic {
                 expr_fast_mark1 visited;
                 visitor proc(*this);
                 unsigned sz = g.size();
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     expr * f = g.form(i);
                     for_each_expr_core<visitor, expr_fast_mark1, true, true>(proc, visited, f);
                 }
@@ -236,7 +236,7 @@ class lia2pb_tactic : public tactic {
                     def_args.reset();
                     rational a(1);
                     unsigned num_bits = u.get_num_bits();
-                    for (unsigned i = 0; i < num_bits; i++) {           
+                    for (unsigned i = 0; i < num_bits; ++i) {           
                         app * x_prime = m.mk_fresh_const(nullptr, m_util.mk_int());
                         g->assert_expr(m_util.mk_le(zero, x_prime));
                         g->assert_expr(m_util.mk_le(x_prime, one));
@@ -271,7 +271,7 @@ class lia2pb_tactic : public tactic {
             expr_ref   new_curr(m);
             proof_ref  new_pr(m);
             unsigned size = g->size();
-            for (unsigned idx = 0; !g->inconsistent() && idx < size; idx++) {
+            for (unsigned idx = 0; !g->inconsistent() && idx < size; ++idx) {
                 expr * curr = g->form(idx);
                 expr_dependency * dep = nullptr;
                 m_rw(curr, new_curr, new_pr);

@@ -105,7 +105,7 @@ namespace rpolynomial {
                 p = todo.back();
                 todo.pop_back();
                 unsigned sz = p->size();
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     poly_or_num * pn = p->arg(i);
                     if (pn == nullptr)
                         continue;
@@ -152,7 +152,7 @@ namespace rpolynomial {
             if (is_const(p))
                 return false;
             unsigned sz = p->size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 poly_or_num * pn = p->arg(i);
                 if (pn == nullptr)
                     continue;
@@ -168,7 +168,7 @@ namespace rpolynomial {
             unsigned sz = p->size();
             SASSERT(sz > 0);
             SASSERT(p->arg(sz - 1) != 0);
-            for (unsigned i = 0; i < sz - 1; i++) {
+            for (unsigned i = 0; i < sz - 1; ++i) {
                 if (p->arg(i) != nullptr)
                     return false;
             }
@@ -192,7 +192,7 @@ namespace rpolynomial {
             if (p1->max_var() != p2->max_var())
                 return false;
             unsigned sz = p1->size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 poly_or_num * pn1 = p1->arg(i);
                 poly_or_num * pn2 = p2->arg(i);
                 if (pn1 == nullptr && pn2 == nullptr)
@@ -215,7 +215,7 @@ namespace rpolynomial {
         }
 
         void inc_ref_args(unsigned sz, poly_or_num * const * args) {
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 poly_or_num * pn = args[i];
                 if (pn == nullptr || is_num(pn))
                     continue;
@@ -224,7 +224,7 @@ namespace rpolynomial {
         }
 
         void dec_ref_args(unsigned sz, poly_or_num * const * args) {
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 poly_or_num * pn = args[i];
                 if (pn == nullptr || is_num(pn))
                     continue;
@@ -251,7 +251,7 @@ namespace rpolynomial {
             new_pol->m_ref_count = 0;
             new_pol->m_var       = max_var;
             new_pol->m_size      = sz;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 poly_or_num * pn = args[i];
                 if (is_poly(pn)) {
                     inc_ref(to_poly(pn));
@@ -313,7 +313,7 @@ namespace rpolynomial {
                 return mk_const(one);
             }
             ptr_buffer<poly_or_num> new_args;
-            for (unsigned i = 0; i < k; i++)
+            for (unsigned i = 0; i < k; ++i)
                 new_args.push_back(0);
             numeral * new_arg = mk_numeral();
             m_manager.set(*new_arg, 1);
@@ -358,7 +358,7 @@ namespace rpolynomial {
                 unsigned sz = _p->size();
                 SASSERT(sz > 1);
                 ptr_buffer<poly_or_num> new_args;
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     new_args.push_back(mul_core(c, _p->arg(i)));
                 }
                 return mk_poly_core(new_args.size(), new_args.data(), _p->max_var());
@@ -399,7 +399,7 @@ namespace rpolynomial {
                 SASSERT(sz > 1);
                 ptr_buffer<poly_or_num> new_args;
                 new_args.push_back(add_core(c, _p->arg(0)));
-                for (unsigned i = 1; i < sz; i++)
+                for (unsigned i = 1; i < sz; ++i)
                     new_args.push_back(_p->arg(1));
                 return mk_poly_core(new_args.size(), new_args.data(), _p->max_var());
             }
@@ -434,7 +434,7 @@ namespace rpolynomial {
                 polynomial * new_arg = add(p1, to_poly(pn0));
                 new_args.push_back(to_poly_or_num(new_arg));
             }
-            for (unsigned i = 1; i < sz; i++)
+            for (unsigned i = 1; i < sz; ++i)
                 new_args.push_back(p2->arg(i));
             return mk_poly(sz, new_args.c_ptr(), p2->max_var());
         }
@@ -463,7 +463,7 @@ namespace rpolynomial {
             unsigned sz2 = p2->size();
             unsigned msz = std::min(sz1, sz2);
             ptr_buffer<poly_or_num> new_args;
-            for (unsigned i = 0; i < msz; i++) {
+            for (unsigned i = 0; i < msz; ++i) {
                 poly_or_num * pn1 = p1->arg(i);
                 poly_or_num * pn2 = p2->arg(i);
                 if (pn1 == 0) {
@@ -506,10 +506,10 @@ namespace rpolynomial {
                 }
             }
             SASSERT(new_args.size() == sz1 || new_args.size() == sz2);
-            for (unsigned i = msz; i < sz1; i++) {
+            for (unsigned i = msz; i < sz1; ++i) {
                 new_args.push_back(p1->arg(i));
             }
-            for (unsigned i = msz; i < sz2; i++) {
+            for (unsigned i = msz; i < sz2; ++i) {
                 new_args.push_back(p2->arg(i));
             }
             SASSERT(new_args.size() == std::max(sz1, sz2));
@@ -612,11 +612,11 @@ namespace rpolynomial {
             mul_buffer.resize(sz);
             unsigned sz1 = p1->size();
             unsigned sz2 = p2->size();
-            for (unsigned i1 = 0; i1 < sz1; i1++) {
+            for (unsigned i1 = 0; i1 < sz1; ++i1) {
                 poly_or_num * pn1 = p1->arg(i1);
                 if (pn1 == 0)
                     continue;
-                for (unsigned i2 = 0; i2 < sz2; i2++) {
+                for (unsigned i2 = 0; i2 < sz2; ++i2) {
                     poly_or_num * pn2 = p2->arg(i2);
                     if (pn2 == 0)
                         continue;

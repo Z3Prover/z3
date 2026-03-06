@@ -25,15 +25,15 @@ namespace {
 
 #ifdef Z3DEBUG
 bool is_int_matrix(const spacer::spacer_matrix &matrix) {
-    for (unsigned i = 0, rows = matrix.num_rows(); i < rows; i++) 
-        for (unsigned j = 0, cols = matrix.num_cols(); j < cols; j++)
+    for (unsigned i = 0, rows = matrix.num_rows(); i < rows; ++i) 
+        for (unsigned j = 0, cols = matrix.num_cols(); j < cols; ++j)
             if (!matrix.get(i, j).is_int()) 
                 return false;
     return true;
 }
 
 bool is_sorted(const vector<rational> &data) {
-    for (unsigned i = 0; i < data.size() - 1; i++) 
+    for (unsigned i = 0; i < data.size() - 1; ++i) 
         if (!(data[i] >= data[i + 1])) 
             return false;
     return true;
@@ -201,7 +201,7 @@ void convex_closure::cc_col2eq(unsigned col, expr_ref_vector &out) {
     SASSERT(!has_bv());
 
     expr_ref_buffer sum(m);
-    for (unsigned row = 0, sz = m_data.num_rows(); row < sz; row++) {
+    for (unsigned row = 0, sz = m_data.num_rows(); row < sz; ++row) {
         expr_ref alpha(m);
         auto n = m_data.get(row, col);
         if (n.is_zero()) {
@@ -229,7 +229,7 @@ void convex_closure::cc2fmls(expr_ref_vector &out) {
     sort_ref real_sort(m_arith.mk_real(), m);
     expr_ref zero(m_arith.mk_real(rational::zero()), m);
 
-    for (unsigned row = 0, sz = m_data.num_rows(); row < sz; row++) {
+    for (unsigned row = 0, sz = m_data.num_rows(); row < sz; ++row) {
         if (row >= m_alphas.size()) {
             m_alphas.push_back(m.mk_fresh_const("a!cc", real_sort));
         }
@@ -238,7 +238,7 @@ void convex_closure::cc2fmls(expr_ref_vector &out) {
         out.push_back(m_arith.mk_ge(m_alphas.get(row), zero));
     }
 
-    for (unsigned k = 0, sz = m_col_vars.size(); k < sz; k++) {
+    for (unsigned k = 0, sz = m_col_vars.size(); k < sz; ++k) {
         if (m_col_vars.get(k) && !m_dead_cols[k]) cc_col2eq(k, out);
     }
 
@@ -276,7 +276,7 @@ bool convex_closure::infer_div_pred(const vector<rational> &data, rational &m,
     rational bnd(MAX_DIV_BOUND);
     rational big = data.back();
     // AG: why (m < big)?  Note that 'big' is the smallest element of data
-    for (; m < big && m < bnd; m++) {
+    for (; m < big && m < bnd; ++m) {
         if (is_congruent_mod(data, m)) break;
     }
     if (m >= big) return false;
@@ -362,7 +362,7 @@ void convex_closure::cc_1dim(const expr_ref &var, expr_ref_vector &out) {
     // -- compute divisibility constraints
     rational cr, off;
     // add div constraints for all variables.
-    for (unsigned j = 0; j < m_data.num_cols(); j++) {
+    for (unsigned j = 0; j < m_data.num_cols(); ++j) {
         auto *v = m_col_vars.get(j);
         if (v && (m_arith.is_int(v) || m_bv.is_bv(v))) {
             data.reset();

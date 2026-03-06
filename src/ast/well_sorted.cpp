@@ -55,7 +55,7 @@ struct well_sorted_proc {
             return;
         }
 
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             sort * actual_sort   = n->get_arg(i)->get_sort();
             sort * expected_sort = decl->is_associative() ? decl->get_domain(0) : decl->get_domain(i);
             if (expected_sort != actual_sort) {

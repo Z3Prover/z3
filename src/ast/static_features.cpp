@@ -184,7 +184,7 @@ void static_features::update_core(expr * e) {
             else {
                 m_num_ite_terms++;
                 // process then&else nodes
-                for (unsigned i = 1; i < 3; i++) {
+                for (unsigned i = 1; i < 3; ++i) {
                     expr * arg = to_app(e)->get_arg(i);
                     acc_num(arg);
                     // Must check whether arg is diff logic or not.
@@ -224,7 +224,7 @@ void static_features::update_core(expr * e) {
         unsigned num_patterns = to_quantifier(e)->get_num_patterns();
         if (num_patterns > 0) {
             m_num_quantifiers_with_patterns++;
-            for (unsigned i = 0; i < num_patterns; i++) {
+            for (unsigned i = 0; i < num_patterns; ++i) {
                 expr * p = to_quantifier(e)->get_pattern(i);
                 if (is_app(p) && to_app(p)->get_num_args() > 1) {
                     m_num_quantifiers_with_multi_patterns++;
@@ -332,7 +332,7 @@ void static_features::update_core(expr * e) {
             sort * ty = to_app(e)->get_decl()->get_range();
             mark_theory(ty->get_family_id());
             unsigned n = ty->get_num_parameters();
-            for (unsigned i = 0; i < n; i++) {
+            for (unsigned i = 0; i < n; ++i) {
                 sort * ds = to_sort(ty->get_parameter(i).get_ast());
                 update_core(ds);
             }
@@ -531,7 +531,7 @@ void static_features::process_root(expr * e) {
         if (num_args == 2)
             m_num_bin_clauses++;
         unsigned depth = 0;
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             expr * arg = to_app(e)->get_arg(i);
             if (m.is_not(arg))
                 arg = to_app(arg)->get_arg(0);
@@ -555,7 +555,7 @@ void static_features::process_root(expr * e) {
 }
 
 void static_features::collect(unsigned num_formulas, expr * const * formulas) {
-    for (unsigned i = 0; i < num_formulas; i++)
+    for (unsigned i = 0; i < num_formulas; ++i)
         process_root(formulas[i]);
 }
 
@@ -564,7 +564,7 @@ bool static_features::internal_family(symbol const & f_name) const {
 }
 
 void static_features::display_family_data(std::ostream & out, char const * prefix, unsigned_vector const & data) const {
-    for (unsigned fid = 0; fid < data.size(); fid++) {
+    for (unsigned fid = 0; fid < data.size(); ++fid) {
         symbol const & n = m.get_family_name(fid);
         if (!internal_family(n))
             out << prefix << "_" << n << " " << data[fid] << "\n";

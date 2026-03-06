@@ -277,7 +277,7 @@ namespace {
         void get_unsat_core(expr_ref_vector & r) override {
 
             unsigned sz = m_context.get_unsat_core_size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 r.push_back(m_context.get_unsat_core_expr(i));
             }
 
@@ -397,11 +397,11 @@ namespace {
                 collect_fds_proc p(m, m_fds);
 
                 unsigned sz = n->get_num_patterns();
-                for (unsigned i = 0; i < sz; i++)
+                for (unsigned i = 0; i < sz; ++i)
                     quick_for_each_expr(p, m_visited, n->get_pattern(i));
 
                 sz = n->get_num_no_patterns();
-                for (unsigned i = 0; i < sz; i++)
+                for (unsigned i = 0; i < sz; ++i)
                     quick_for_each_expr(p, m_visited, n->get_no_pattern(i));
             }
         };
@@ -440,7 +440,7 @@ namespace {
             func_decl_set pattern_fds;
             vector<func_decl_set> assrtn_fds;
 
-            for (unsigned d = 0; d < m_core_extend_patterns_max_distance; d++) {
+            for (unsigned d = 0; d < m_core_extend_patterns_max_distance; ++d) {
                 new_core_literals.reset();
 
                 for (expr* c : core) {

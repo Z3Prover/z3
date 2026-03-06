@@ -67,15 +67,15 @@ namespace lp  {
 
     void hnf_cutter::init_matrix_A() {
         m_A = general_matrix(terms_count(), vars().size());
-        for (unsigned i = 0; i < terms_count(); i++)
+        for (unsigned i = 0; i < terms_count(); ++i)
             initialize_row(i);
     }
 
     // todo: as we need only one row i with non integral b[i] need to optimize later
     void hnf_cutter::find_h_minus_1_b(const general_matrix& H, vector<mpq> & b) {
         // the solution will be put into b
-        for (unsigned i = 0; i < H.row_count() ;i++) {
-            for (unsigned j = 0; j < i; j++) {
+        for (unsigned i = 0; i < H.row_count() ;++i) {
+            for (unsigned j = 0; j < i; ++j) {
                 b[i] -= H[i][j]*b[j];
             }
             b[i] /= H[i][i];
@@ -95,7 +95,7 @@ namespace lp  {
     int hnf_cutter::find_cut_row_index(const vector<mpq> & b) {
         int ret = -1;
         int n = 0;
-        for (int i = 0; i < static_cast<int>(b.size()); i++) {
+        for (int i = 0; i < static_cast<int>(b.size()); ++i) {
             if (is_integer(b[i]))
                 continue;
             if (n == 0) {
@@ -114,13 +114,13 @@ namespace lp  {
         // we solve x = ei * H_min_1
         // or x * H = ei
         unsigned m = H.row_count();
-        for (unsigned k = i + 1; k < m; k++) {
+        for (unsigned k = i + 1; k < m; ++k) {
             row[k] = zero_of_type<mpq>();
         }
         row[i] = one_of_type<mpq>() / H[i][i];
         for(int k = i - 1; k >= 0; k--) {
             mpq t = zero_of_type<mpq>();
-            for (unsigned l = k + 1; l <= i; l++) {
+            for (unsigned l = k + 1; l <= i; ++l) {
                 t += H[l][k]*row[l];
             }
             row[k] = -t / H[k][k]; 
@@ -128,7 +128,7 @@ namespace lp  {
     }
 
     void hnf_cutter::fill_term(const vector<mpq> & row, lar_term& t) {
-        for (unsigned j = 0; j < row.size(); j++) {
+        for (unsigned j = 0; j < row.size(); ++j) {
             if (!is_zero(row[j]))
                 t.add_monomial(row[j], m_var_register.local_to_external(j));
         }
@@ -136,7 +136,7 @@ namespace lp  {
 #ifdef Z3DEBUG
     vector<mpq> hnf_cutter::transform_to_local_columns(const vector<impq> & x) const {
         vector<mpq> ret;
-        for (unsigned j = 0; j < vars().size(); j++) {
+        for (unsigned j = 0; j < vars().size(); ++j) {
              ret.push_back(x[m_var_register.local_to_external(j)].x);
         }
         return ret;

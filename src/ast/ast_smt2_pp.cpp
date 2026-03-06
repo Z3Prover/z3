@@ -79,7 +79,7 @@ bool smt2_pp_environment::is_indexed_fdecl(func_decl * f) const {
         return false;
     unsigned num = f->get_num_parameters();
     unsigned i;
-    for (i = 0; i < num; i++) {
+    for (i = 0; i < num; ++i) {
         if (f->get_parameter(i).is_int())
             continue;
         if (f->get_parameter(i).is_rational())
@@ -111,7 +111,7 @@ format * smt2_pp_environment::pp_fdecl_params(format * fname, func_decl * f) {
     unsigned num = f->get_num_parameters();
     ptr_buffer<format> fs;
     fs.push_back(fname);
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         SASSERT(f->get_parameter(i).is_int() ||
                 f->get_parameter(i).is_rational() ||
                 (f->get_parameter(i).is_ast() && is_func_decl(f->get_parameter(i).get_ast())));
@@ -149,7 +149,7 @@ format * smt2_pp_environment::pp_signature(format * f_name, func_decl * f) {
         f_name = pp_fdecl_params(f_name, f);
     }
     ptr_buffer<format> f_domain;
-    for (unsigned i = 0; i < f->get_arity(); i++)
+    for (unsigned i = 0; i < f->get_arity(); ++i)
         f_domain.push_back(pp_sort(f->get_domain(i)));
     ptr_buffer<format> args;
     args.push_back(f_name);
@@ -417,7 +417,7 @@ format_ns::format * smt2_pp_environment::pp_sort(sort * s) {
     if (get_arutil().is_array(s)) {
         ptr_buffer<format> fs;
         unsigned sz = get_array_arity(s);
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             fs.push_back(pp_sort(get_array_domain(s, i)));
         }
         fs.push_back(pp_sort(get_array_range(s)));
@@ -437,13 +437,18 @@ format_ns::format * smt2_pp_environment::pp_sort(sort * s) {
         fs.push_back(pp_sort(to_sort(s->get_parameter(0).get_ast())));
         return mk_seq1(m, fs.begin(), fs.end(), f2f(), get_sutil().is_seq(s)?"Seq":"RegEx");
     }
+    if ((get_fsutil().is_finite_set(s))) {
+        ptr_buffer<format> fs;
+        fs.push_back(pp_sort(to_sort(s->get_parameter(0).get_ast())));
+        return mk_seq1(m, fs.begin(), fs.end(), f2f(), "FiniteSet");
+    }   
     std::string name = ensure_quote(s->get_name());
     
     if (get_dtutil().is_datatype(s)) {
         unsigned sz = get_dtutil().get_datatype_num_parameter_sorts(s);
         if (sz > 0) {
             ptr_buffer<format> fs;            
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 fs.push_back(pp_sort(get_dtutil().get_datatype_parameter_sort(s, i)));
             }
             return mk_seq1(m, fs.begin(), fs.end(), f2f(), name);
@@ -804,7 +809,7 @@ class smt2_printer {
         if (old_sz == sz)
             return f;
         vector<ptr_vector<format> > decls;
-        for (unsigned i = old_sz; i < sz; i++) {
+        for (unsigned i = old_sz; i < sz; ++i) {
             unsigned lvl    = m_aliased_lvls_names[i].first;
             symbol   f_name = m_aliased_lvls_names[i].second;
             format * f_def[1] = { m_aliased_pps.get(i) };
@@ -828,7 +833,7 @@ class smt2_printer {
         if (num_op == 0)
             return f;
         buf.push_back(mk_indent(m(), SMALL_INDENT, mk_compose(m(), mk_line_break(m()), f)));
-        for (unsigned i = 0; i < num_op; i++)
+        for (unsigned i = 0; i < num_op; ++i)
             buf.push_back(mk_string(m(), ")"));
         return mk_compose(m(), buf.size(), buf.data());
     }
@@ -869,7 +874,7 @@ class smt2_printer {
 
     void register_var_names(quantifier * q) {
         unsigned num_decls = q->get_num_decls();
-        for (unsigned i = 0; i < num_decls; i++) {
+        for (unsigned i = 0; i < num_decls; ++i) {
             symbol name = ensure_quote_sym(q->get_decl_name(i));
             if (name.is_numerical()) {
                 unsigned idx = 1;
@@ -887,7 +892,7 @@ class smt2_printer {
 
     void register_var_names(unsigned n) {
         unsigned idx = 1;
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             symbol name = next_name("x", idx);            
             SASSERT(!m_var_names_set.contains(name));
             m_var_names.push_back(name);
@@ -900,7 +905,7 @@ class smt2_printer {
     }
 
     void unregister_var_names(unsigned num_decls) {
-        for (unsigned i = 0; i < num_decls; i++) {
+        for (unsigned i = 0; i < num_decls; ++i) {
             symbol s = m_var_names.back();
             m_var_names.pop_back();
             m_var_names_set.erase(s);
@@ -911,7 +916,7 @@ class smt2_printer {
         ptr_buffer<format> buf;
         SASSERT(num_decls <= m_var_names.size());
         symbol * it = m_var_names.end() - num_decls;
-        for (unsigned i = 0; i < num_decls; i++, it++) {
+        for (unsigned i = 0; i < num_decls; ++i, ++it) {
             format * fs[1] = { m_env.pp_sort(srts[i]) };
             std::string var_name;
             if (is_smt2_quoted_symbol (*it)) {
@@ -1110,7 +1115,7 @@ public:
             var_prefix = "_a";
         }
         unsigned idx = 0;
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0; i < num; ++i) {
             symbol name = next_name(var_prefix, idx);
             name = ensure_quote_sym(name);
             var_names.push_back(name);
@@ -1136,7 +1141,7 @@ public:
         format * args[3];
         args[0] = fname;
         ptr_buffer<format> buf;
-        for (unsigned i = 0; i < arity; i++) {
+        for (unsigned i = 0; i < arity; ++i) {
             buf.push_back(m_env.pp_sort(f->get_domain(i)));
         }
         args[1] = mk_seq5<format**, f2f>(m(), buf.begin(), buf.end(), f2f());

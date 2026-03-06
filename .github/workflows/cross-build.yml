@@ -3,6 +3,7 @@ name: RISC V and PowerPC 64
 on:
   schedule:
     - cron: '0 0 */2 * *'
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -10,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: ubuntu:jammy
+    container: ubuntu:noble
 
     strategy:
       fail-fast: false
@@ -19,15 +20,15 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v6.0.2
 
     - name: Install cross build tools
-      run:  apt update && apt install -y ninja-build cmake python3 g++-11-${{ matrix.arch }}-linux-gnu
+      run:  apt update && apt install -y ninja-build cmake python3 g++-13-${{ matrix.arch }}-linux-gnu
       env:
         DEBIAN_FRONTEND: noninteractive
 
     - name: Configure CMake and build
       run: |
           mkdir build && cd build
-          cmake -DCMAKE_CXX_COMPILER=${{ matrix.arch }}-linux-gnu-g++-11 ../
+          cmake -DCMAKE_CXX_COMPILER=${{ matrix.arch }}-linux-gnu-g++-13 ../
           make -j$(nproc)

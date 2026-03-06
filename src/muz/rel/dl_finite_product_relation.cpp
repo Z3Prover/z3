@@ -100,7 +100,7 @@ namespace datalog {
             const relation_signature & s, bool_vector & table_columns) {
         SASSERT(table_columns.empty());
         unsigned s_sz = s.size();
-        for(unsigned i=0; i<s_sz; i++) {
+        for(unsigned i=0; i<s_sz; ++i) {
             table_sort t_sort;
             //we don't care about the result of the conversion, just that it can be converted
             bool can_be_table_column = rmgr.relation_sort_to_table(s[i], t_sort);
@@ -112,7 +112,7 @@ namespace datalog {
             table_signature & table_sig, relation_signature & remaining_sig) {
         relation_manager & rmgr = get_manager();
         unsigned n = s.size();
-        for(unsigned i=0; i<n; i++) {
+        for(unsigned i=0; i<n; ++i) {
             table_sort t_sort;
             if(rmgr.relation_sort_to_table(s[i], t_sort)) {
                 table_sig.push_back(t_sort);
@@ -127,7 +127,7 @@ namespace datalog {
             table_signature & table_sig, relation_signature & remaining_sig) {
         relation_manager & rmgr = get_manager();
         unsigned n = s.size();
-        for(unsigned i=0; i<n; i++) {
+        for(unsigned i=0; i<n; ++i) {
             if(table_columns[i]) {
                 table_sort t_sort;
                 VERIFY( rmgr.relation_sort_to_table(s[i], t_sort) );
@@ -153,7 +153,7 @@ namespace datalog {
 #ifndef _EXTERNAL_RELEASE
         unsigned s_sz = s.size();
         unsigned rel_col_cnt = 0;
-        for(unsigned i=0; i<s_sz; i++) {
+        for(unsigned i=0; i<s_sz; ++i) {
             if(!table_columns[i]) {
                 rel_col_cnt++;
             }
@@ -165,7 +165,7 @@ namespace datalog {
             unsigned rel_sig_sz = s.size()-rel_sig_ofs;
             candidate_rel_sig.append(rel_sig_sz, s.data()+rel_sig_ofs);
             if(m_inner_plugin.can_handle_signature(candidate_rel_sig)) {
-                for(unsigned i=rel_sig_ofs; i<s_sz; i++) {
+                for(unsigned i=rel_sig_ofs; i<s_sz; ++i) {
                     table_columns[i] = false;
                 }
             }
@@ -406,7 +406,7 @@ namespace datalog {
                 : convenient_relation_join_fn(r1.get_signature(), r2.get_signature(), col_cnt, cols1, cols2) {
             unsigned second_table_after_join_ofs = r1.m_table2sig.size();
             unsigned second_inner_rel_after_join_ofs = r1.m_other2sig.size();
-            for(unsigned i=0;i<col_cnt; i++) {
+            for(unsigned i=0;i<col_cnt; ++i) {
                 if(!r1.is_table_column(cols1[i]) && !r2.is_table_column(cols2[i])) {
                     m_r_joined_cols1.push_back(r1.m_sig2other[cols1[i]]);
                     m_r_joined_cols2.push_back(r2.m_sig2other[cols2[i]]);
@@ -432,10 +432,10 @@ namespace datalog {
 
             unsigned r1_sig_sz = r1.get_signature().size();
             unsigned r2_sig_sz = r2.get_signature().size();
-            for(unsigned i=0; i<r1_sig_sz; i++) {
+            for(unsigned i=0; i<r1_sig_sz; ++i) {
                 m_res_table_columns.push_back(r1.is_table_column(i));
             }
-            for(unsigned i=0; i<r2_sig_sz; i++) {
+            for(unsigned i=0; i<r2_sig_sz; ++i) {
                 m_res_table_columns.push_back(r2.is_table_column(i));
             }
 
@@ -534,7 +534,7 @@ namespace datalog {
         project_fn(const finite_product_relation & r, unsigned col_cnt, const unsigned * removed_cols)
                 : convenient_relation_project_fn(r.get_signature(), col_cnt, removed_cols) {
             SASSERT(col_cnt>0);
-            for(unsigned i=0; i<col_cnt; i++) {
+            for(unsigned i=0; i<col_cnt; ++i) {
                 unsigned col = removed_cols[i];
                 if(r.is_table_column(col)) {
                     m_removed_table_cols.push_back(r.m_sig2table[col]);
@@ -546,7 +546,7 @@ namespace datalog {
 
             unsigned sig_sz = r.get_signature().size();
             unsigned removed_idx = 0;
-            for(unsigned i=0; i<sig_sz; i++) {
+            for(unsigned i=0; i<sig_sz; ++i) {
                 if(removed_idx<col_cnt && removed_cols[removed_idx]==i) {
                     removed_idx++;
                     continue;
@@ -587,7 +587,7 @@ namespace datalog {
             r.garbage_collect(false);
             relation_vector res_relations;
             unsigned orig_rel_cnt = r.m_others.size();
-            for(unsigned i=0; i<orig_rel_cnt; i++) {
+            for(unsigned i=0; i<orig_rel_cnt; ++i) {
                 relation_base * orig_rel = r.m_others[i];
                 res_relations.push_back(orig_rel ? orig_rel->clone() : nullptr);
             }
@@ -611,7 +611,7 @@ namespace datalog {
 
             if(!m_removed_rel_cols.empty()) {
                 unsigned res_rel_cnt = res_relations.size();
-                for(unsigned i=0; i<res_rel_cnt; i++) {
+                for(unsigned i=0; i<res_rel_cnt; ++i) {
                     if(res_relations[i]==0) {
                         continue;
                     }
@@ -680,7 +680,7 @@ namespace datalog {
 
             bool table_identity = true;
             m_rel_identity = true;
-            for(unsigned new_i=0; new_i<sig_sz; new_i++) {
+            for(unsigned new_i=0; new_i<sig_sz; ++new_i) {
                 unsigned idx = permutation[new_i];
                 bool is_orig_table = r.is_table_column(idx);
                 m_res_table_columns.push_back(is_orig_table);
@@ -702,14 +702,14 @@ namespace datalog {
             r.garbage_collect(false);
             relation_vector res_relations;
             unsigned orig_rel_cnt = r.m_others.size();
-            for(unsigned i=0; i<orig_rel_cnt; i++) {
+            for(unsigned i=0; i<orig_rel_cnt; ++i) {
                 relation_base * orig_rel = r.m_others[i];
                 res_relations.push_back(orig_rel ? orig_rel->clone() : nullptr);
             }
 
             if(!m_rel_identity) {
                 unsigned res_rel_cnt = res_relations.size();
-                for(unsigned i=0; i<res_rel_cnt; i++) {
+                for(unsigned i=0; i<res_rel_cnt; ++i) {
                     if(res_relations[i]==0) {
                         continue;
                     }
@@ -873,7 +873,7 @@ namespace datalog {
 
             if(!m_common_join) {
                 unsigned data_cols_cnt = tgt.m_table_sig.size()-1;
-                for(unsigned i=0; i<data_cols_cnt; i++) {
+                for(unsigned i=0; i<data_cols_cnt; ++i) {
                     m_data_cols.push_back(i);
                 }
                 m_common_join = rmgr.mk_join_project_fn(tgt.get_table(), tgt.get_table(), m_data_cols, m_data_cols,
@@ -1130,7 +1130,7 @@ namespace datalog {
         filter_identical_fn(const finite_product_relation & r, unsigned col_cnt, const unsigned * identical_cols)
                 : m_table_filter(nullptr), m_rel_filter(nullptr), m_tr_filter(nullptr) {
             finite_product_relation_plugin & plugin = r.get_plugin();
-            for(unsigned i=0; i<col_cnt; i++) {
+            for(unsigned i=0; i<col_cnt; ++i) {
                 unsigned col = identical_cols[i];
                 if(r.is_table_column(col)) {
                     m_table_cols.push_back(r.m_sig2table[col]);
@@ -1171,7 +1171,7 @@ namespace datalog {
             if(m_rel_cols.size()>1) {
                 r.garbage_collect(true);
                 unsigned rel_cnt = r.m_others.size();
-                for(unsigned rel_idx=0; rel_idx<rel_cnt; rel_idx++) {
+                for(unsigned rel_idx=0; rel_idx<rel_cnt; ++rel_idx) {
                     if(r.m_others[rel_idx]==0) {
                         continue;
                     }
@@ -1219,7 +1219,7 @@ namespace datalog {
             r.garbage_collect(false);
             relation_vector & inner_rels = r.m_others;
             unsigned rel_cnt = inner_rels.size();
-            for(unsigned i=0; i<rel_cnt; i++) {
+            for(unsigned i=0; i<rel_cnt; ++i) {
                 if(inner_rels[i]==0) {
                     continue;
                 }
@@ -1292,7 +1292,7 @@ namespace datalog {
             idx_set& cond_columns = rm.collect_vars(m_cond);
 
             unsigned sig_sz = r.get_signature().size();
-            for(unsigned i=0; i<sig_sz; i++) {
+            for(unsigned i=0; i<sig_sz; ++i) {
                 if(r.is_table_column(i)) {
                     m_table_cond_columns.insert(i);
                 }
@@ -1320,7 +1320,7 @@ namespace datalog {
                     //the rest of the condition on the inner relations.
                     unsigned_vector removed_cols;
                     unsigned table_data_col_cnt = r.m_table_sig.size()-1;
-                    for(unsigned i=0; i<table_data_col_cnt; i++) {
+                    for(unsigned i=0; i<table_data_col_cnt; ++i) {
                         if(m_table_local_cond_columns.contains(i)) {
                             m_global_origins_of_projected_columns.push_back(r.m_table2sig[i]);
                         }
@@ -1351,7 +1351,7 @@ namespace datalog {
             if(m_table_cond_columns.empty()) {
                 r.garbage_collect(false);
                 unsigned rel_cnt = r.m_others.size();
-                for(unsigned i=0; i<rel_cnt; i++) {
+                for(unsigned i=0; i<rel_cnt; ++i) {
                     relation_base * inner = r.m_others[i];
                     if(inner==nullptr) {
                         continue;
@@ -1396,7 +1396,7 @@ namespace datalog {
                 const relation_base & old_rel = r.get_inner_rel(old_rel_idx);
 
                 //put the table values into the substitution
-                for(unsigned i=0; i<projected_data_cols; i++) {
+                for(unsigned i=0; i<projected_data_cols; ++i) {
                     unsigned orig_col_idx = m_global_origins_of_projected_columns[i];
                     relation_element r_el;
                     rmgr.table_to_relation(osig[orig_col_idx], f[i], r_el);
@@ -1432,7 +1432,7 @@ namespace datalog {
 
             if(!m_assembling_join_project) {
                 unsigned_vector table_cond_columns_vect;
-                for(unsigned i=0; i<rsig_sz; i++) {
+                for(unsigned i=0; i<rsig_sz; ++i) {
                     if(m_table_local_cond_columns.contains(i)) {
                         table_cond_columns_vect.push_back(i);
                     }
@@ -1488,7 +1488,7 @@ namespace datalog {
             const table_base & rtable = r.get_table();
             relation_manager & rmgr = r.get_manager();
 
-            for(unsigned i=0; i<joined_col_cnt; i++) {
+            for(unsigned i=0; i<joined_col_cnt; ++i) {
                 if(r.is_table_column(r_cols[i]) && neg.is_table_column(neg_cols[i])) {
                     m_r_shared_table_cols.push_back(r.m_sig2table[r_cols[i]]);
                     m_neg_shared_table_cols.push_back(neg.m_sig2table[neg_cols[i]]);
@@ -1696,7 +1696,7 @@ namespace datalog {
                 unsigned old_rel_idx = static_cast<unsigned>(f.back());
                 const relation_base & old_rel = r.get_inner_rel(old_rel_idx);
                 relation_base * new_rel = old_rel.clone();
-                for(unsigned i=0; i<m_col_cnt; i++) {
+                for(unsigned i=0; i<m_col_cnt; ++i) {
                     relation_element_ref r_el(m);
                     rmgr.table_to_relation(osig[m_rel_cols[i]], f[i], r_el);
                     scoped_ptr<relation_mutator_fn> filter = rmgr.mk_filter_equal_fn(*new_rel, r_el, m_rel_cols[i]);
@@ -1783,7 +1783,7 @@ namespace datalog {
         unsigned sz = rel_sig.size();
         m_sig2table.resize(sz, UINT_MAX);
         m_sig2other.resize(sz, UINT_MAX);
-        for(unsigned i=0; i<sz; i++) {
+        for(unsigned i=0; i<sz; ++i) {
             if(table_columns[i]) {
                 m_sig2table[i]=m_table_sig.size();
                 table_sort srt;
@@ -1826,7 +1826,7 @@ namespace datalog {
             m_empty_rel_removal_filter() {
         //m_others is now just a shallow copy, we need use clone of the relations that in it now
         unsigned other_sz = m_others.size();
-        for(unsigned i=0; i<other_sz; i++) {
+        for(unsigned i=0; i<other_sz; ++i) {
             if(m_others[i]==0) {
                 //unreferenced relation index
                 continue;
@@ -1916,7 +1916,7 @@ namespace datalog {
 
         if(!contiguous) {
             unsigned rel_cnt = m_others.size();
-            for(unsigned i=0; i<rel_cnt; i++) {
+            for(unsigned i=0; i<rel_cnt; ++i) {
                 if(m_others[i]==0) {
                     m_available_rel_indexes.push_back(i);
                 }
@@ -1931,7 +1931,7 @@ namespace datalog {
         tf.reset();
         //this is m_table_sig.size()-1 since the last column in table signature if index of the other relation
         unsigned t_rel_sz = m_table2sig.size();
-        for(unsigned i=0; i<t_rel_sz; i++) {
+        for(unsigned i=0; i<t_rel_sz; ++i) {
             table_element el;
             unsigned sig_idx = m_table2sig[i];
             rmgr.relation_to_table(sig[sig_idx], rf[sig_idx], el);
@@ -1943,7 +1943,7 @@ namespace datalog {
     void finite_product_relation::extract_other_fact(const relation_fact & rf, relation_fact & of) const {
         of.reset();
         unsigned o_sz = m_other_sig.size();
-        for(unsigned i=0; i<o_sz; i++) {
+        for(unsigned i=0; i<o_sz; ++i) {
             unsigned sig_idx = m_other2sig[i];
             of.push_back(rf[sig_idx]);
         }
@@ -2015,7 +2015,7 @@ namespace datalog {
 
     void finite_product_relation::complement_self(func_decl* p) {
         unsigned other_sz = m_others.size();
-        for(unsigned i=0; i<other_sz; i++) {
+        for(unsigned i=0; i<other_sz; ++i) {
             if(m_others[i]==0) {
                 //unreferenced relation index
                 continue;
@@ -2067,7 +2067,7 @@ namespace datalog {
         if(!m_live_rel_collection_project) {
             buffer<unsigned, false> removed_cols;
             removed_cols.resize(table_data_col_cnt);
-            for(unsigned i=0; i<table_data_col_cnt; i++) {
+            for(unsigned i=0; i<table_data_col_cnt; ++i) {
                 removed_cols[i] = i;
             }
             live_rel_collection_reducer * reducer = alloc(live_rel_collection_reducer, m_live_rel_collection_acc);
@@ -2102,7 +2102,7 @@ namespace datalog {
 #if Z3DEBUG
         unsigned encountered_live_indexes = 0;
 #endif
-        for(unsigned rel_idx=0; rel_idx<rel_cnt; rel_idx++) {
+        for(unsigned rel_idx=0; rel_idx<rel_cnt; ++rel_idx) {
             if(m_others[rel_idx]==0) {
                 continue;
             }
@@ -2162,7 +2162,7 @@ namespace datalog {
         ptr_vector<finite_product_relation>::iterator end = rels.end();
         for(; it!=end; ++it) {
             finite_product_relation & rel = **it;
-            for(unsigned i=0; i<sig_sz; i++) {
+            for(unsigned i=0; i<sig_sz; ++i) {
                 table_cols[i] &= rel.is_table_column(i);
             }
         }
@@ -2185,7 +2185,7 @@ namespace datalog {
         unsigned_vector to_project_away; //in table signature
         relation_signature moved_cols_sig;
         unsigned sig_sz = get_signature().size();
-        for(unsigned i=0; i<sig_sz; i++) {
+        for(unsigned i=0; i<sig_sz; ++i) {
             if(table_cols[i] && !is_table_column(i)) {
                 //we cannot move columns from relation into the table, only the other way round
                 return false;
@@ -2246,7 +2246,7 @@ namespace datalog {
         unsigned moved_cols_cnt = new_rel_columns.size();
         unsigned next_replaced_idx = 0;
         unsigned next_orig_idx = 0;
-        for(unsigned i=0; i<sig_sz; i++) {
+        for(unsigned i=0; i<sig_sz; ++i) {
             if(next_replaced_idx<moved_cols_cnt && new_rel_columns[next_replaced_idx]==i) {
                 permutation.push_back(sig_sz-moved_cols_cnt+next_replaced_idx);
                 next_replaced_idx++;
@@ -2283,7 +2283,7 @@ namespace datalog {
         get_table().display(out);
 
         unsigned other_sz = m_others.size();
-        for(unsigned i=0; i<other_sz; i++) {
+        for(unsigned i=0; i<other_sz; ++i) {
             if(m_others[i]==0) {
                 //unreferenced relation index
                 continue;
@@ -2321,7 +2321,7 @@ namespace datalog {
                 oit->get_fact(ofact);
 
                 out << "\t(";
-                for(unsigned i=0; i<sig_sz; i++) {
+                for(unsigned i=0; i<sig_sz; ++i) {
                     if(i!=0) {
                         out << ',';
                     }
@@ -2367,7 +2367,7 @@ namespace datalog {
             }
             sh(tmp, fact_sz-1, tmp);
             conjs.push_back(tmp);
-            disjs.push_back(m.mk_and(conjs.size(), conjs.data()));
+            disjs.push_back(m.mk_and(conjs));
         }
         bool_rewriter(m).mk_or(disjs.size(), disjs.data(), fml);
     }

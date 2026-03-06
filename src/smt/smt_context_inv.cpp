@@ -206,7 +206,7 @@ namespace smt {
         check_relevancy(m_b_internalized_stack);
         check_relevancy(m_e_internalized_stack);
         unsigned sz = m_asserted_formulas.get_num_formulas();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * n = m_asserted_formulas.get_formula(i);
             if (m.is_or(n)) {
                 CTRACE(relevancy_bug, !is_relevant(n), tout << "n: " << mk_ismt2_pp(n, m) << "\n";);
@@ -267,7 +267,7 @@ namespace smt {
         if (inconsistent() || get_manager().limit().is_canceled()) {
             return true;
         }
-        for (bool_var v = 0; v < num; v++) {
+        for (bool_var v = 0; v < num; ++v) {
             if (has_enode(v)) {
                 enode * n = bool_var2enode(v);
                 if (n->is_eq() && is_relevant(n) && get_assignment(v) == l_false && !m.is_iff(n->get_expr())) {

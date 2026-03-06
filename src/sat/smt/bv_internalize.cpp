@@ -244,7 +244,7 @@ namespace bv {
         expr* e = var2expr(v);
         unsigned bv_size = get_bv_size(v);
         m_bits[v].reset();
-        for (unsigned i = 0; i < bv_size; i++) {
+        for (unsigned i = 0; i < bv_size; ++i) {
             expr_ref b2b(bv.mk_bit2bool(e, i), m);
             m_bits[v].push_back(sat::null_literal);
             sat::literal lit = ctx.internalize(b2b, false, false);
@@ -390,7 +390,7 @@ namespace bv {
         SASSERT(bits.size() == sz);
         SASSERT(m_bits[v].empty());
         sat::literal true_literal = mk_true();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr* l = bits.get(i);
             SASSERT(m.is_true(l) || m.is_false(l));
             m_bits[v].push_back(m.is_true(l) ? true_literal : ~true_literal);

@@ -33,17 +33,17 @@ namespace lp {
     template <typename T, typename X>
     void  static_matrix<T, X>::init_row_columns(unsigned m, unsigned n) {
         SASSERT(m_rows.size() == 0 && m_columns.size() == 0);
-        for (unsigned i = 0; i < m; i++) {
+        for (unsigned i = 0; i < m; ++i) {
             m_rows.push_back(row_strip<T>());
         }
-        for (unsigned j = 0; j < n; j++) {
+        for (unsigned j = 0; j < n; ++j) {
             m_columns.push_back(column_strip());
         }
     }
 
 
     template <typename T, typename X> void static_matrix<T, X>:: scan_row_strip_to_work_vector(const row_strip<T> & rvals) {
-        for (unsigned j = 0; j < rvals.size(); j++)
+        for (unsigned j = 0; j < rvals.size(); ++j)
             m_work_vector_of_row_offsets[rvals[j].var()] = j;
     }
 
@@ -73,7 +73,7 @@ namespace lp {
             }
         }
         // clean the work vector
-        for (unsigned k = 0; k < prev_size_ii; k++) {
+        for (unsigned k = 0; k < prev_size_ii; ++k) {
             m_work_vector_of_row_offsets[rowii[k].var()] = -1;
         }
 
@@ -104,7 +104,7 @@ namespace lp {
             }
         }
         // clean the work vector
-        for (unsigned k = 0; k < prev_size_k; k++) {
+        for (unsigned k = 0; k < prev_size_k; ++k) {
             m_work_vector_of_row_offsets[rowk[k].var()] = -1;
         }
 
@@ -142,7 +142,7 @@ namespace lp {
             }
         }
         // clean the work vector
-        for (unsigned k = 0; k < prev_size_ii; k++) {
+        for (unsigned k = 0; k < prev_size_ii; ++k) {
             m_work_vector_of_row_offsets[rowii[k].var()] = -1;
         }
 
@@ -175,7 +175,7 @@ namespace lp {
             }
         }
         // clean the work vector
-        for (unsigned k = 0; k < prev_size_ii; k++) {
+        for (unsigned k = 0; k < prev_size_ii; ++k) {
             m_work_vector_of_row_offsets[rowii[k].var()] = -1;
         }
 
@@ -211,7 +211,7 @@ namespace lp {
             }
         }
         // clean the work vector
-        for (unsigned k = 0; k < prev_size_ii; k++) {
+        for (unsigned k = 0; k < prev_size_ii; ++k) {
             m_work_vector_of_row_offsets[rowii[k].var()] = -1;
         }
 
@@ -265,7 +265,7 @@ namespace lp {
     template <typename T, typename X>
     std::set<std::pair<unsigned, unsigned>>  static_matrix<T, X>::get_domain() {
         std::set<std::pair<unsigned, unsigned>> ret;
-        for (unsigned i = 0; i < m_rows.size(); i++) {
+        for (unsigned i = 0; i < m_rows.size(); ++i) {
             for (auto &cell : m_rows[i]) {
                 ret.insert(std::make_pair(i, cell.var()));
             }
@@ -330,7 +330,7 @@ namespace lp {
 #ifdef Z3DEBUG
     template <typename T, typename X> void static_matrix<T, X>::check_consistency() {
         std::unordered_map<std::pair<unsigned, unsigned>, T> by_rows;
-        for (unsigned i = 0; i < m_rows.size(); i++) {
+        for (unsigned i = 0; i < m_rows.size(); ++i) {
             for (auto & t : m_rows[i]) {
                 std::pair<unsigned, unsigned> p(i, t.var());
                 SASSERT(by_rows.find(p) == by_rows.end());
@@ -338,7 +338,7 @@ namespace lp {
             }
         }
         std::unordered_map<std::pair<unsigned, unsigned>, T> by_cols;
-        for (unsigned i = 0; i < m_columns.size(); i++) {
+        for (unsigned i = 0; i < m_columns.size(); ++i) {
             for (auto & t : m_columns[i]) {
                 std::pair<unsigned, unsigned> p(t.var(), i);
                 SASSERT(by_cols.find(p) == by_cols.end());
@@ -384,7 +384,7 @@ namespace lp {
 
     template <typename T, typename X> void static_matrix<T, X>::cross_out_row_from_column(unsigned col, unsigned k) {
         auto & s = m_columns[col];
-        for (unsigned i = 0; i < s.size(); i++) {
+        for (unsigned i = 0; i < s.size(); ++i) {
             if (s[i].var() == k) {
                 s.erase(s.begin() + i);
                 break;
@@ -403,7 +403,7 @@ namespace lp {
 
     template <typename T, typename X> T static_matrix<T, X>::get_balance() const {
         T ret = zero_of_type<T>();
-        for (unsigned i = 0; i < row_count();  i++) {
+        for (unsigned i = 0; i < row_count();  ++i) {
             ret += get_row_balance(i);
         }
         return ret;

@@ -2442,6 +2442,180 @@ namespace Microsoft.Z3
 
         #endregion
 
+        #region Finite Sets
+
+        /// <summary>
+        /// Create a finite set sort over the given element sort.
+        /// </summary>
+        public FiniteSetSort MkFiniteSetSort(Sort elemSort)
+        {
+            Debug.Assert(elemSort != null);
+
+            CheckContextMatch(elemSort);
+            return new FiniteSetSort(this, elemSort);
+        }
+
+        /// <summary>
+        /// Check if a sort is a finite set sort.
+        /// </summary>
+        public bool IsFiniteSetSort(Sort s)
+        {
+            Debug.Assert(s != null);
+
+            CheckContextMatch(s);
+            return Native.Z3_is_finite_set_sort(nCtx, s.NativeObject) != 0;
+        }
+
+        /// <summary>
+        /// Get the element sort (basis) of a finite set sort.
+        /// </summary>
+        public Sort GetFiniteSetSortBasis(Sort s)
+        {
+            Debug.Assert(s != null);
+
+            CheckContextMatch(s);
+            return Sort.Create(this, Native.Z3_get_finite_set_sort_basis(nCtx, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Create an empty finite set.
+        /// </summary>
+        public Expr MkFiniteSetEmpty(Sort setSort)
+        {
+            Debug.Assert(setSort != null);
+
+            CheckContextMatch(setSort);
+            return Expr.Create(this, Native.Z3_mk_finite_set_empty(nCtx, setSort.NativeObject));
+        }
+
+        /// <summary>
+        /// Create a singleton finite set.
+        /// </summary>
+        public Expr MkFiniteSetSingleton(Expr elem)
+        {
+            Debug.Assert(elem != null);
+
+            CheckContextMatch(elem);
+            return Expr.Create(this, Native.Z3_mk_finite_set_singleton(nCtx, elem.NativeObject));
+        }
+
+        /// <summary>
+        /// Create the union of two finite sets.
+        /// </summary>
+        public Expr MkFiniteSetUnion(Expr s1, Expr s2)
+        {
+            Debug.Assert(s1 != null);
+            Debug.Assert(s2 != null);
+
+            CheckContextMatch(s1);
+            CheckContextMatch(s2);
+            return Expr.Create(this, Native.Z3_mk_finite_set_union(nCtx, s1.NativeObject, s2.NativeObject));
+        }
+
+        /// <summary>
+        /// Create the intersection of two finite sets.
+        /// </summary>
+        public Expr MkFiniteSetIntersect(Expr s1, Expr s2)
+        {
+            Debug.Assert(s1 != null);
+            Debug.Assert(s2 != null);
+
+            CheckContextMatch(s1);
+            CheckContextMatch(s2);
+            return Expr.Create(this, Native.Z3_mk_finite_set_intersect(nCtx, s1.NativeObject, s2.NativeObject));
+        }
+
+        /// <summary>
+        /// Create the difference of two finite sets.
+        /// </summary>
+        public Expr MkFiniteSetDifference(Expr s1, Expr s2)
+        {
+            Debug.Assert(s1 != null);
+            Debug.Assert(s2 != null);
+
+            CheckContextMatch(s1);
+            CheckContextMatch(s2);
+            return Expr.Create(this, Native.Z3_mk_finite_set_difference(nCtx, s1.NativeObject, s2.NativeObject));
+        }
+
+        /// <summary>
+        /// Check for membership in a finite set.
+        /// </summary>
+        public BoolExpr MkFiniteSetMember(Expr elem, Expr set)
+        {
+            Debug.Assert(elem != null);
+            Debug.Assert(set != null);
+
+            CheckContextMatch(elem);
+            CheckContextMatch(set);
+            return (BoolExpr)Expr.Create(this, Native.Z3_mk_finite_set_member(nCtx, elem.NativeObject, set.NativeObject));
+        }
+
+        /// <summary>
+        /// Get the cardinality of a finite set.
+        /// </summary>
+        public Expr MkFiniteSetSize(Expr set)
+        {
+            Debug.Assert(set != null);
+
+            CheckContextMatch(set);
+            return Expr.Create(this, Native.Z3_mk_finite_set_size(nCtx, set.NativeObject));
+        }
+
+        /// <summary>
+        /// Check if one finite set is a subset of another.
+        /// </summary>
+        public BoolExpr MkFiniteSetSubset(Expr s1, Expr s2)
+        {
+            Debug.Assert(s1 != null);
+            Debug.Assert(s2 != null);
+
+            CheckContextMatch(s1);
+            CheckContextMatch(s2);
+            return (BoolExpr)Expr.Create(this, Native.Z3_mk_finite_set_subset(nCtx, s1.NativeObject, s2.NativeObject));
+        }
+
+        /// <summary>
+        /// Map a function over all elements in a finite set.
+        /// </summary>
+        public Expr MkFiniteSetMap(Expr f, Expr set)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(set != null);
+
+            CheckContextMatch(f);
+            CheckContextMatch(set);
+            return Expr.Create(this, Native.Z3_mk_finite_set_map(nCtx, f.NativeObject, set.NativeObject));
+        }
+
+        /// <summary>
+        /// Filter a finite set with a predicate.
+        /// </summary>
+        public Expr MkFiniteSetFilter(Expr f, Expr set)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(set != null);
+
+            CheckContextMatch(f);
+            CheckContextMatch(set);
+            return Expr.Create(this, Native.Z3_mk_finite_set_filter(nCtx, f.NativeObject, set.NativeObject));
+        }
+
+        /// <summary>
+        /// Create a finite set containing integers in the range [low, high].
+        /// </summary>
+        public Expr MkFiniteSetRange(Expr low, Expr high)
+        {
+            Debug.Assert(low != null);
+            Debug.Assert(high != null);
+
+            CheckContextMatch(low);
+            CheckContextMatch(high);
+            return Expr.Create(this, Native.Z3_mk_finite_set_range(nCtx, low.NativeObject, high.NativeObject));
+        }
+
+        #endregion
+
         #region Sequence, string and regular expressions
 
         /// <summary>
@@ -2645,6 +2819,55 @@ namespace Microsoft.Z3
             Debug.Assert(dst != null);
             CheckContextMatch(s, src, dst);
             return new SeqExpr(this, Native.Z3_mk_seq_replace(nCtx, s.NativeObject, src.NativeObject, dst.NativeObject));
+        }
+
+        /// <summary>
+        /// Map function f over the sequence s.
+        /// </summary>
+        public Expr MkSeqMap(Expr f, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, s);
+            return Expr.Create(this, Native.Z3_mk_seq_map(nCtx, f.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Map function f over the sequence s at index i.
+        /// </summary>
+        public Expr MkSeqMapi(Expr f, Expr i, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(i != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, i, s);
+            return Expr.Create(this, Native.Z3_mk_seq_mapi(nCtx, f.NativeObject, i.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Fold left the function f over the sequence s with initial value a.
+        /// </summary>
+        public Expr MkSeqFoldLeft(Expr f, Expr a, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(a != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, a, s);
+            return Expr.Create(this, Native.Z3_mk_seq_foldl(nCtx, f.NativeObject, a.NativeObject, s.NativeObject));
+        }
+
+        /// <summary>
+        /// Fold left with index the function f over the sequence s with initial value a starting at index i.
+        /// </summary>
+        public Expr MkSeqFoldLeftI(Expr f, Expr i, Expr a, SeqExpr s)
+        {
+            Debug.Assert(f != null);
+            Debug.Assert(i != null);
+            Debug.Assert(a != null);
+            Debug.Assert(s != null);
+            CheckContextMatch(f, i, a);
+            CheckContextMatch(s, a);
+            return Expr.Create(this, Native.Z3_mk_seq_foldli(nCtx, f.NativeObject, i.NativeObject, a.NativeObject, s.NativeObject));
         }
 
         /// <summary>
@@ -3395,7 +3618,12 @@ namespace Microsoft.Z3
         /// <seealso cref="Sort.ToString()"/>
         public Z3_ast_print_mode PrintMode
         {
-            set { Native.Z3_set_ast_print_mode(nCtx, (uint)value); }
+            get { return m_print_mode; }
+            set 
+            { 
+                Native.Z3_set_ast_print_mode(nCtx, (uint)value);
+                m_print_mode = value;
+            }
         }
         #endregion
 
@@ -3437,6 +3665,32 @@ namespace Microsoft.Z3
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)));
             return assertions.ToBoolExprArray();
+        }
+
+        /// <summary>
+        /// Convert a benchmark into SMT-LIB2 formatted string.
+        /// </summary>
+        /// <param name="name">Name of the benchmark. May be null.</param>
+        /// <param name="logic">The benchmark logic. May be null.</param>
+        /// <param name="status">Status string, such as "sat", "unsat", or "unknown".</param>
+        /// <param name="attributes">Other attributes, such as source, difficulty or category. May be null.</param>
+        /// <param name="assumptions">Auxiliary assumptions.</param>
+        /// <param name="formula">Formula to be checked for consistency in conjunction with assumptions.</param>
+        /// <returns>A string representation of the benchmark in SMT-LIB2 format.</returns>
+        public string BenchmarkToSmtlibString(string name, string logic, string status, string attributes, BoolExpr[] assumptions, BoolExpr formula)
+        {
+            Debug.Assert(assumptions != null);
+            Debug.Assert(formula != null);
+
+            return Native.Z3_benchmark_to_smtlib_string(
+                nCtx,
+                name,
+                logic,
+                status,
+                attributes,
+                (uint)(assumptions?.Length ?? 0),
+                AST.ArrayToNative(assumptions),
+                formula.NativeObject);
         }
         #endregion
 
@@ -4850,6 +5104,44 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create a partial order relation over a sort.
+        /// </summary>
+        /// <param name="a">The sort of the relation.</param>
+        /// <param name="index">The index of the relation.</param>
+        public FuncDecl MkPartialOrder(Sort a, uint index)
+        {
+            return new FuncDecl(this, Native.Z3_mk_partial_order(this.nCtx, a.NativeObject, index));
+        }
+
+        /// <summary>
+        /// Create the transitive closure of a binary relation.
+        /// </summary>
+        /// <remarks>The resulting relation is recursive.</remarks>
+        /// <param name="f">A binary relation represented as a function declaration.</param>
+        public FuncDecl MkTransitiveClosure(FuncDecl f)
+        {
+            return new FuncDecl(this, Native.Z3_mk_transitive_closure(this.nCtx, f.NativeObject));
+        }
+
+        /// <summary>
+        /// Return the nonzero subresultants of p and q with respect to the "variable" x.
+        /// </summary>
+        /// <remarks>
+        /// p, q and x are Z3 expressions where p and q are arithmetic terms.
+        /// Note that any subterm that cannot be viewed as a polynomial is assumed to be a variable.
+        /// </remarks>
+        /// <param name="p">First arithmetic term.</param>
+        /// <param name="q">Second arithmetic term.</param>
+        /// <param name="x">The variable with respect to which subresultants are computed.</param>
+        public ASTVector PolynomialSubresultants(Expr p, Expr q, Expr x)
+        {
+            CheckContextMatch(p);
+            CheckContextMatch(q);
+            CheckContextMatch(x);
+            return new ASTVector(this, Native.Z3_polynomial_subresultants(this.nCtx, p.NativeObject, q.NativeObject, x.NativeObject));
+        }
+
+        /// <summary>
         /// Return a string describing all available parameters to <c>Expr.Simplify</c>.
         /// </summary>
         public string SimplifyHelp()
@@ -4905,6 +5197,7 @@ namespace Microsoft.Z3
         internal Native.Z3_error_handler m_n_err_handler = null;
         internal static Object creation_lock = new Object();
         internal IntPtr nCtx { get { return m_ctx; } }
+        private Z3_ast_print_mode m_print_mode = Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT;
 
         internal void NativeErrorHandler(IntPtr ctx, Z3_error_code errorCode)
         {

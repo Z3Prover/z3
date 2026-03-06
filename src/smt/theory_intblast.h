@@ -50,7 +50,6 @@ namespace smt {
 
     public:
         theory_intblast(context& ctx);
-        ~theory_intblast() override;
 
         char const* get_name() const override { return "bv-intblast"; }
         smt::theory* mk_fresh(context* new_ctx) override { return alloc(theory_intblast, *new_ctx); }

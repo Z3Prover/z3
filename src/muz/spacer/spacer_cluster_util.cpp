@@ -178,7 +178,7 @@ struct term_ordered_rpp : public default_rewriter_cfg {
             kids.append(num, args);
             std::stable_sort(kids.data(), kids.data() + kids.size(),
                              m_and_less);
-            result = m.mk_and(num, kids.data());
+            result = m.mk_and(std::span<expr* const>(kids.data(), num));
             return BR_DONE;
         }
         return st;

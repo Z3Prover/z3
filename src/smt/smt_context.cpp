@@ -66,7 +66,7 @@ namespace smt {
         m_progress_callback(nullptr),
         m_next_progress_sample(0),
         m_clause_proof(*this),
-        m_fingerprints(m, m_region),
+        m_fingerprints(m, get_region()),
         m_b_internalized_stack(m),
         m_e_internalized_stack(m),
         m_l_internalized_stack(m),
@@ -120,6 +120,9 @@ namespace smt {
         if (!m_setup.already_configured()) {
             m_fparams.updt_params(p);
         }
+        for (auto th : m_theory_set)
+            if (th)
+                th->updt_params();
     }
 
     unsigned context::relevancy_lvl() const {
@@ -653,8 +656,7 @@ namespace smt {
                 }
             }
             if (parent->is_cgc_enabled()) {
-                enode_bool_pair pair = m_cg_table.insert(parent);
-                enode * parent_prime = pair.first;
+                auto [parent_prime, used_commutativity] = m_cg_table.insert(parent);
                 if (parent_prime == parent) {
                     SASSERT(parent);
                     SASSERT(parent->is_cgr());
@@ -665,7 +667,6 @@ namespace smt {
                 parent->m_cg = parent_prime;
                 SASSERT(!m_cg_table.contains_ptr(parent));
                 if (parent_prime->m_root != parent->m_root) {
-                    bool used_commutativity = pair.second;
                     TRACE(cg, tout << "found new congruence: #" << parent->get_owner_id() << " = #" << parent_prime->get_owner_id()
                           << " used_commutativity: " << used_commutativity << "\n";);
                     push_new_congruence(parent, parent_prime, used_commutativity);
@@ -799,7 +800,7 @@ namespace smt {
                 }
                 else {
                     // uncommon case: r2 will have two theory_vars attached to it.
-                    r2->add_th_var(v1, t1, m_region);
+                    r2->add_th_var(v1, t1, get_region());
                     push_new_th_diseqs(r2, v1, get_theory(t1));
                     push_new_th_diseqs(r1, v2, get_theory(t2));
                 }
@@ -850,7 +851,7 @@ namespace smt {
                 theory_var v2 = r2->get_th_var(t1);
                 TRACE(merge_theory_vars, tout << get_theory(t1)->get_name() << ": " << v2 << " == " << v1 << "\n");
                 if (v2 == null_theory_var) {
-                    r2->add_th_var(v1, t1, m_region);
+                    r2->add_th_var(v1, t1, get_region());
                     push_new_th_diseqs(r2, v1, get_theory(t1));
                 }
                 l1 = l1->get_next();
@@ -972,8 +973,8 @@ namespace smt {
                     (parent == cg ||           // parent was root of the congruence class before and after the merge
                      !congruent(parent, cg)    // parent was root of the congruence class before but not after the merge
                      )) {
-                    enode_bool_pair p = m_cg_table.insert(parent);
-                    parent->m_cg = p.first;
+                    auto [parent_cg, used_commutativity] = m_cg_table.insert(parent);
+                    parent->m_cg = parent_cg;
                 }
             }
         }
@@ -1212,7 +1213,7 @@ namespace smt {
                     TRACE(is_ext_diseq, tout << "p2: " << enode_pp(p2, *this) << "\n";);
                     if (p1->get_root() != p2->get_root() && p2->get_decl() == f && p2->get_num_args() == num_args) {
                         unsigned j = 0;
-                        for (j = 0; j < num_args; j++) {
+                        for (j = 0; j < num_args; ++j) {
                             enode * arg1 = p1->get_arg(j)->get_root();
                             enode * arg2 = p2->get_arg(j)->get_root();
                             if (arg1 == arg2)
@@ -1235,7 +1236,7 @@ namespace smt {
             if (depth >= m_almost_cg_tables.size()) {
                 unsigned old_sz = m_almost_cg_tables.size();
                 m_almost_cg_tables.resize(depth+1);
-                for (unsigned i = old_sz; i < depth + 1; i++)
+                for (unsigned i = old_sz; i < depth + 1; ++i)
                     m_almost_cg_tables[i] = alloc(almost_cg_table);
             }
             almost_cg_table & table = *(m_almost_cg_tables[depth]);
@@ -1284,7 +1285,7 @@ namespace smt {
                 // TODO
             }
             else {
-                for (unsigned i = 0; i < num_args; i++) {
+                for (unsigned i = 0; i < num_args; ++i) {
                     expr * arg   = r->get_expr()->get_arg(i);
                     SASSERT(e_internalized(arg));
                     enode * _arg = get_enode(arg);
@@ -1308,7 +1309,7 @@ namespace smt {
     */
     bool context::propagate_eqs() {
         unsigned i = 0;
-        for (; i < m_eq_propagation_queue.size() && !get_cancel_flag(); i++) {
+        for (; i < m_eq_propagation_queue.size() && !get_cancel_flag(); ++i) {
             new_eq & entry = m_eq_propagation_queue[i];
             add_eq(entry.m_lhs, entry.m_rhs, entry.m_justification);
             if (inconsistent()) {
@@ -1326,7 +1327,7 @@ namespace smt {
     bool context::propagate_atoms() {
         SASSERT(!inconsistent());
         CTRACE(propagate_atoms, !m_atom_propagation_queue.empty(), tout << m_atom_propagation_queue << "\n";);
-        for (unsigned i = 0; i < m_atom_propagation_queue.size() && !get_cancel_flag(); i++) {
+        for (unsigned i = 0; i < m_atom_propagation_queue.size() && !get_cancel_flag(); ++i) {
             SASSERT(!inconsistent());
             literal  l = m_atom_propagation_queue[i];
             bool_var v = l.var();
@@ -1525,16 +1526,24 @@ namespace smt {
     }
 
     lbool context::find_assignment(expr * n) const {
-        if (m.is_false(n))
-            return l_false;
+
         expr* arg = nullptr;
         if (m.is_not(n, arg)) {
+
             if (b_internalized(arg))
                 return ~get_assignment_core(arg);
+            if (m.is_false(arg))
+                return l_true;
+            if (m.is_true(arg))
+                return l_false;
             return l_undef;
         }
         if (b_internalized(n))
             return get_assignment(n);
+        if (m.is_false(n))
+            return l_false;
+        if (m.is_true(n))
+            return l_true;
         return l_undef;
     }
 
@@ -1654,7 +1663,7 @@ namespace smt {
     }
 
     void context::propagate_th_eqs() {
-        for (unsigned i = 0; i < m_th_eq_propagation_queue.size() && !inconsistent(); i++) {
+        for (unsigned i = 0; i < m_th_eq_propagation_queue.size() && !inconsistent(); ++i) {
             new_th_eq curr = m_th_eq_propagation_queue[i];
             theory * th = get_theory(curr.m_th_id);
             SASSERT(th);
@@ -1667,7 +1676,7 @@ namespace smt {
     }
 
     void context::propagate_th_diseqs() {
-        for (unsigned i = 0; i < m_th_diseq_propagation_queue.size() && !inconsistent(); i++) {
+        for (unsigned i = 0; i < m_th_diseq_propagation_queue.size() && !inconsistent(); ++i) {
             new_th_eq curr = m_th_diseq_propagation_queue[i];
             theory * th = get_theory(curr.m_th_id);
             SASSERT(th);
@@ -1875,7 +1884,7 @@ namespace smt {
                 counter++;
                 if (counter % 100 == 0) {
                     TRACE(activity_profile,
-                          for (unsigned i=0; i<get_num_bool_vars(); i++) {
+                          for (unsigned i=0; i<get_num_bool_vars(); ++i) {
                               tout << get_activity(i) << " ";
                           }
                           tout << "\n";);
@@ -1940,13 +1949,13 @@ namespace smt {
 
         m_scope_lvl++;
         m_region.push_scope();
+        get_trail_stack().push_scope();
         m_scopes.push_back(scope());
         scope & s = m_scopes.back();
         // TRACE(context, tout << "push " << m_scope_lvl << "\n";);
 
         m_relevancy_propagator->push();
         s.m_assigned_literals_lim    = m_assigned_literals.size();
-        s.m_trail_stack_lim          = m_trail_stack.size();
         s.m_aux_clauses_lim          = m_aux_clauses.size();
         s.m_justifications_lim       = m_justifications.size();
         s.m_units_to_reassert_lim    = m_units_to_reassert.size();
@@ -1962,12 +1971,6 @@ namespace smt {
         CASSERT("context", check_invariant());
     }
 
-    /**
-       \brief Execute generic undo-objects.
-    */
-    void context::undo_trail_stack(unsigned old_size) {
-        ::undo_trail_stack(m_trail_stack, old_size);
-    }
 
     /**
        \brief Remove watch literal idx from the given clause.
@@ -2132,7 +2135,7 @@ namespace smt {
     */
     bool context::is_empty_clause(clause const * c) const {
         unsigned num_lits = c->get_num_literals();
-        for(unsigned i = 0; i < num_lits; i++) {
+        for(unsigned i = 0; i < num_lits; ++i) {
             literal l = c->get_literal(i);
             if (get_assignment(l) != l_false)
                 return false;
@@ -2146,7 +2149,7 @@ namespace smt {
     bool context::is_unit_clause(clause const * c) const {
         bool found        = false;
         unsigned num_lits = c->get_num_literals();
-        for(unsigned i = 0; i < num_lits; i++) {
+        for(unsigned i = 0; i < num_lits; ++i) {
             literal l = c->get_literal(i);
             switch (get_assignment(l)) {
             case l_false:
@@ -2179,7 +2182,7 @@ namespace smt {
                 SASSERT(!m_clauses_to_reinit.empty());
                 lim      = m_clauses_to_reinit.size() - 1;
             }
-            for (unsigned i = new_scope_lvl; i <= lim; i++) {
+            for (unsigned i = new_scope_lvl; i <= lim; ++i) {
                 clause_vector & v = m_clauses_to_reinit[i];
                 for (clause* cls : v) {
                     cache_generation(cls, new_scope_lvl);
@@ -2190,7 +2193,7 @@ namespace smt {
             scope & s   = m_scopes[new_scope_lvl];
             unsigned i  = s.m_units_to_reassert_lim;
             unsigned sz = m_units_to_reassert.size();
-            for (; i < sz; i++) {
+            for (; i < sz; ++i) {
                 expr* unit = m_units_to_reassert[i].m_unit.get();
                 cache_generation(unit, new_scope_lvl);
             }
@@ -2208,7 +2211,7 @@ namespace smt {
        \brief See cache_generation(unsigned new_scope_lvl)
     */
     void context::cache_generation(unsigned num_lits, literal const * lits, unsigned new_scope_lvl) {
-        for(unsigned i = 0; i < num_lits; i++) {
+        for(unsigned i = 0; i < num_lits; ++i) {
             bool_var v          = lits[i].var();
             unsigned ilvl       = get_intern_level(v);
             if (ilvl > new_scope_lvl)
@@ -2273,7 +2276,7 @@ namespace smt {
             SASSERT(!m_clauses_to_reinit.empty());
             lim      = m_clauses_to_reinit.size() - 1;
         }
-        for (unsigned i = m_scope_lvl+1; i <= lim; i++) {
+        for (unsigned i = m_scope_lvl+1; i <= lim; ++i) {
             clause_vector & v = m_clauses_to_reinit[i];
             for (clause* cls : v) {
                 if (cls->deleted()) {
@@ -2286,7 +2289,7 @@ namespace smt {
                 bool keep = false;
                 if (cls->reinternalize_atoms()) {
                     SASSERT(cls->get_num_atoms() == cls->get_num_literals());
-                    for (unsigned j = 0; j < 2; j++) {
+                    for (unsigned j = 0; j < 2; ++j) {
                         literal l           = cls->get_literal(j);
                         if (l.var() < num_bool_vars) {
                             // This boolean variable was not deleted during backtracking
@@ -2303,7 +2306,7 @@ namespace smt {
 
                     unsigned ilvl       = 0;
                     (void)ilvl;
-                    for (unsigned j = 0; j < num; j++) {
+                    for (unsigned j = 0; j < num; ++j) {
                         expr * atom     = cls->get_atom(j);
                         bool   sign     = cls->get_atom_sign(j);
                         // Atom can be (NOT foo). This can happen, for example, when
@@ -2386,7 +2389,7 @@ namespace smt {
     void context::reassert_units(unsigned units_to_reassert_lim) {
         unsigned i  = units_to_reassert_lim;
         unsigned sz = m_units_to_reassert.size();
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             auto [unit, sign, is_relevant] = m_units_to_reassert[i];
             bool gate_ctx = true;
             internalize(unit, gate_ctx);
@@ -2410,7 +2413,7 @@ namespace smt {
        \warning This method will not invoke reset_cache_generation.
     */
     unsigned context::pop_scope_core(unsigned num_scopes) {
-        unsigned units_to_reassert_lim;
+        unsigned units_to_reassert_lim = 0;
 
         try {
             if (m.has_trace_stream() && !m_is_auxiliary)
@@ -2454,23 +2457,25 @@ namespace smt {
             m_relevancy_propagator->pop(num_scopes);
 
             m_fingerprints.pop_scope(num_scopes);
+
+
+
             unassign_vars(s.m_assigned_literals_lim);
-            undo_trail_stack(s.m_trail_stack_lim);
+            m_trail_stack.pop_scope(num_scopes);
 
             for (theory* th : m_theory_set) 
                 th->pop_scope_eh(num_scopes);
-
             del_justifications(m_justifications, s.m_justifications_lim);
-
             m_asserted_formulas.pop_scope(num_scopes);
 
             CTRACE(propagate_atoms, !m_atom_propagation_queue.empty(), tout << m_atom_propagation_queue << "\n";);
 
+
             m_eq_propagation_queue.reset();
             m_th_eq_propagation_queue.reset();
+            m_region.pop_scope(num_scopes);
             m_th_diseq_propagation_queue.reset();
             m_atom_propagation_queue.reset();
-            m_region.pop_scope(num_scopes);
             m_scopes.shrink(new_lvl);
             m_conflict_resolution->reset();
 
@@ -2537,7 +2542,7 @@ namespace smt {
         unsigned i = 2;
         unsigned j = i;
         bool is_taut = false;
-        for(; i < s; i++) {
+        for(; i < s; ++i) {
             literal l = cls[i];
             switch(get_assignment(l)) {
             case l_false:
@@ -2547,7 +2552,7 @@ namespace smt {
                 break;
             case l_true:
                 is_taut = true;
-                // fallthrough
+                Z3_fallthrough;
             case l_undef:
                 if (i != j) {
                     cls.swap_lits(i, j);
@@ -2604,7 +2609,7 @@ namespace smt {
             }
             else if (simplify_clause(*cls)) {
                 TRACE(simplify_clauses_bug, display_clause_smt2(tout << "simplified\n", *cls) << "\n";);
-                for (unsigned idx = 0; idx < 2; idx++) {
+                for (unsigned idx = 0; idx < 2; ++idx) {
                     literal     l0        = (*cls)[idx];
                     b_justification l0_js = get_justification(l0.var());
                     if (l0_js != null_b_justification &&
@@ -2618,7 +2623,7 @@ namespace smt {
                             SASSERT(m_search_lvl == m_base_lvl);
                             literal_buffer simp_lits;
                             unsigned num_lits = cls->get_num_literals();
-                            for(unsigned i = 0; i < num_lits; i++) {
+                            for(unsigned i = 0; i < num_lits; ++i) {
                                 if (i != idx) {
                                     literal l = (*cls)[i];
                                     SASSERT(l != l0);
@@ -2762,7 +2767,7 @@ namespace smt {
         unsigned num_del_cls   = 0;
         TRACE(del_inactive_lemmas, tout << "sz: " << sz << ", start_at: " << start_at << ", end_at: " << end_at
               << ", start_del_at: " << start_del_at << "\n";);
-        for (; i < end_at; i++) {
+        for (; i < end_at; ++i) {
             clause * cls = m_lemmas[i];
             if (can_delete(cls)) {
                 TRACE(del_inactive_lemmas, tout << "deleting: "; display_clause(tout, cls); tout << ", activity: " <<
@@ -2776,7 +2781,7 @@ namespace smt {
             }
         }
         // keep recent clauses
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             clause * cls = m_lemmas[i];
             if (cls->deleted() && can_delete(cls)) {
                 del_clause(true, cls);
@@ -2789,7 +2794,7 @@ namespace smt {
         m_lemmas.shrink(j);
         if (m_fparams.m_clause_decay > 1) {
             // rescale activity
-            for (i = start_at; i < j; i++) {
+            for (i = start_at; i < j; ++i) {
                 clause * cls = m_lemmas[i];
                 cls->set_activity(cls->get_activity() / m_fparams.m_clause_decay);
             }
@@ -2816,7 +2821,7 @@ namespace smt {
         unsigned i             = start_at;
         unsigned j             = i;
         unsigned num_del_cls   = 0;
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             clause * cls = m_lemmas[i];
             if (can_delete(cls)) {
                 if (cls->deleted()) {
@@ -2879,7 +2884,7 @@ namespace smt {
         expr_mark visited;
         family_id fid = th->get_id();
         unsigned sz = s.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * n = s.get(i);
             if (uses_theory(n, fid, visited)) {
                 return true;
@@ -3058,7 +3063,7 @@ namespace smt {
         del_clauses(m_lemmas, 0);
         del_justifications(m_justifications, 0);
         reset_tmp_clauses();
-        undo_trail_stack(0);
+        m_trail_stack.reset();
         m_qmanager = nullptr;
         if (m_is_diseq_tmp) {
             m_is_diseq_tmp->del_eh(m, false);
@@ -3226,7 +3231,9 @@ namespace smt {
             return true;
         if (!is_app(a))
             return false;
-        if (m.is_true(a) || m.is_false(a))
+        if (m.is_false(a))
+            return false;
+        if (m.is_true(a))
             return true;
         if (is_app(a) && to_app(a)->get_family_id() == m.get_basic_family_id())
             return false;
@@ -3336,16 +3343,15 @@ namespace smt {
     }
 
     void context::reset_tmp_clauses() {
-        for (auto& p : m_tmp_clauses) {
-            if (p.first) del_clause(false, p.first);
+        for (auto& [clausep, lits] : m_tmp_clauses) {
+            if (clausep) del_clause(false, clausep);
         }
         m_tmp_clauses.reset();
     }
 
     lbool context::decide_clause() {
         if (m_tmp_clauses.empty()) return l_true;
-        for (auto & tmp_clause : m_tmp_clauses) {
-            literal_vector& lits = tmp_clause.second;
+        for (auto & [clausep, lits] : m_tmp_clauses) {
             literal unassigned = null_literal;
             for (literal l : lits) {
                 switch (get_assignment(l)) {
@@ -3369,7 +3375,7 @@ namespace smt {
                 set_conflict(b_justification(), ~lits[0]);
             }
             else {
-                set_conflict(b_justification(tmp_clause.first), null_literal);
+                set_conflict(b_justification(clausep), null_literal);
             }
             VERIFY(!resolve_conflict());
             return l_false;
@@ -3397,11 +3403,9 @@ namespace smt {
             push_scope();
             vector<std::pair<expr*,expr_ref>> asm2proxy;
             internalize_proxies(asms, asm2proxy);
-            for (auto const& p: asm2proxy) {
+            for (auto const& [orig_assumption, curr_assumption] : asm2proxy) {
                 if (inconsistent())
                     break;
-                expr_ref curr_assumption = p.second;
-                expr* orig_assumption = p.first;
                 if (m.is_true(curr_assumption)) continue;
                 SASSERT(is_valid_assumption(m, curr_assumption));
                 proof * pr = m.mk_asserted(curr_assumption);
@@ -4198,7 +4202,7 @@ namespace smt {
     void context::forget_phase_of_vars_in_current_level() {
         unsigned head = m_scope_lvl == 0 ? 0 : m_scopes[m_scope_lvl - 1].m_assigned_literals_lim;
         unsigned sz   = m_assigned_literals.size();
-        for (unsigned i = head; i < sz; i++) {
+        for (unsigned i = head; i < sz; ++i) {
             literal l  = m_assigned_literals[i];
             bool_var v = l.var();
             TRACE(forget_phase, tout << "forgetting phase of l: " << l << "\n";);
@@ -4265,7 +4269,7 @@ namespace smt {
             TRACE(resolve_conflict_bug,
                   tout << "m_scope_lvl: " << m_scope_lvl << ", new_lvl: " << new_lvl << ", lemma_intern_lvl: " << m_conflict_resolution->get_lemma_intern_lvl() << "\n";
                   tout << "num_lits: " << num_lits << "\n";
-                  for (unsigned i = 0; i < num_lits; i++) {
+                  for (unsigned i = 0; i < num_lits; ++i) {
                       literal l = lits[i];
                       tout << l << " ";
                       display_literal_smt2(tout, l);
@@ -4282,7 +4286,7 @@ namespace smt {
 #ifdef Z3DEBUG
             expr_ref_vector expr_lits(m);
             bool_vector   expr_signs;
-            for (unsigned i = 0; i < num_lits; i++) {
+            for (unsigned i = 0; i < num_lits; ++i) {
                 literal l = lits[i];
                 if (get_assignment(l) != l_false) {
                     std::cout << l << " " << get_assignment(l) << "\n";
@@ -4311,7 +4315,7 @@ namespace smt {
             // clauses are reinitialized in pop_scope.
             if (m_conflict_resolution->get_lemma_intern_lvl() > m_scope_lvl) {
                 expr * * atoms         = m_conflict_resolution->get_lemma_atoms();
-                for (unsigned i = 0; i < num_lits; i++) {
+                for (unsigned i = 0; i < num_lits; ++i) {
                     literal l   = lits[i];
                     if (l.var() >= num_bool_vars) {
                         // This boolean variable was deleted during backtracking, it need to be recreated.
@@ -4343,7 +4347,7 @@ namespace smt {
                   tout << "AFTER m_scope_lvl: " << m_scope_lvl << ", new_lvl: " << new_lvl << ", lemma_intern_lvl: " <<
                   m_conflict_resolution->get_lemma_intern_lvl() << "\n";
                   tout << "num_lits: " << num_lits << "\n";
-                  for (unsigned i = 0; i < num_lits; i++) {
+                  for (unsigned i = 0; i < num_lits; ++i) {
                       literal l = lits[i];
                       tout << l << " ";
                       display_literal(tout, l);
@@ -4351,7 +4355,7 @@ namespace smt {
                            << mk_pp(bool_var2expr(l.var()), m) << "\n";
                   });
 #ifdef Z3DEBUG
-            for (unsigned i = 0; i < num_lits; i++) {
+            for (unsigned i = 0; i < num_lits; ++i) {
                 literal l = lits[i];
                 if (expr_signs[i] != l.sign()) {
                     expr* real_atom;
@@ -4381,7 +4385,7 @@ namespace smt {
                 }
                 if (counter % 1000 == 0) {
                     verbose_stream() << "[sat] avg. clause size: " << ((double) total/(double) counter) << ", max: " << max << std::endl;
-                    for (unsigned i = 0; i < num_lits; i++) {
+                    for (unsigned i = 0; i < num_lits; ++i) {
                         literal l = lits[i];
                         verbose_stream() << l.sign() << " " << mk_pp(bool_var2expr(l.var()), m) << "\n";
                     }
@@ -4403,7 +4407,7 @@ namespace smt {
             TRACE(context_lemma, tout << "new lemma: ";
                   literal_vector v(num_lits, lits);
                   std::sort(v.begin(), v.end());
-                  for (unsigned i = 0; i < num_lits; i++) {
+                  for (unsigned i = 0; i < num_lits; ++i) {
                       display_literal(tout, v[i]);
                       tout << "\n";
                       smt::display(tout, v[i], m, m_bool_var2expr.data());
@@ -4512,7 +4516,7 @@ namespace smt {
     void context::get_relevant_literals(expr_ref_vector & result) {
         SASSERT(!inconsistent());
         unsigned sz = m_b_internalized_stack.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             expr * curr = m_b_internalized_stack.get(i);
             if (is_relevant(curr)) {
                 switch (get_assignment(curr)) {
@@ -4538,7 +4542,7 @@ namespace smt {
         if (m_search_lvl == m_scopes.size()) {
             // do nothing... there are guesses...
         }
-        for (unsigned i = m_search_lvl; i < m_scope_lvl; i++) {
+        for (unsigned i = m_search_lvl; i < m_scope_lvl; ++i) {
             // This method assumes the first literal assigned in a non base scope level is a guess.
             scope & s          = m_scopes[i];
             unsigned guess_idx = s.m_assigned_literals_lim;

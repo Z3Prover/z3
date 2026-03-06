@@ -27,7 +27,7 @@ static void tst1(unsigned n) {
     unsigned       size = 0;
 
     unsigned num_op = rand()%1000;
-    for (unsigned i = 0; i < num_op; i++) {
+    for (unsigned i = 0; i < num_op; ++i) {
         unsigned op = rand()%3;
         if (op < 2) {
             unsigned idx = rand() % n;
@@ -47,7 +47,7 @@ static void tst1(unsigned n) {
         }
         ENSURE(s1.num_elems() == size);
         ENSURE((size == 0) == s1.empty());
-        for (unsigned idx = 0; idx < n; idx++) {
+        for (unsigned idx = 0; idx < n; ++idx) {
             ENSURE(s2[idx] == s1.contains(idx));
         }
     }
@@ -60,7 +60,7 @@ static void tst2(unsigned n) {
     s.insert(val);
     ENSURE(!s.empty());
     ENSURE(s.num_elems() == 1);
-    for (unsigned i = 0; i < 100; i++) {
+    for (unsigned i = 0; i < 100; ++i) {
         unsigned val2 = rand()%n;
         if (val != val2) {
             ENSURE(!s.contains(val2));
@@ -113,7 +113,7 @@ static void tst3(unsigned n) {
     ENSURE(s2.subset_of(s4));
     ENSURE(s4.subset_of(s2));
     ENSURE(s2 != s3);
-    for (unsigned i = 0; i < n; i++) {
+    for (unsigned i = 0; i < n; ++i) {
         uint_set s5;
         s5.insert(i);
         ENSURE(s1.contains(i) == s5.subset_of(s1));
@@ -159,11 +159,11 @@ static void tst5() {
 }
 
 void tst_uint_set() {
-    for (unsigned i = 0; i < 100; i++) {
+    for (unsigned i = 0; i < 100; ++i) {
         tst1(1 + rand()%31);
         tst1(1 + rand()%100);
     }
-    for (unsigned i = 0; i < 1000; i++) {
+    for (unsigned i = 0; i < 1000; ++i) {
         tst2(1);
         tst2(10);
         tst2(31);

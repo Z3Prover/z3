@@ -122,7 +122,9 @@ public:
   
     expr * form(unsigned i) const { return inconsistent() ? m().mk_false() : m().get(m_forms, i); }
     proof * pr(unsigned i) const { return m().size(m_proofs) > i ? static_cast<proof*>(m().get(m_proofs, i)) : nullptr; }
-    expr_dependency * dep(unsigned i) const { return unsat_core_enabled() ? m().get(m_dependencies, i) : nullptr; }
+    expr_dependency *dep(unsigned i) const {
+        return unsat_core_enabled() && i < m().size(m_dependencies) ? m().get(m_dependencies, i) : nullptr;
+    }
 
     void update(unsigned i, expr * f, proof * pr = nullptr, expr_dependency * dep = nullptr);
 
@@ -232,7 +234,7 @@ bool test(goal const & g, Predicate & proc) {
     expr_fast_mark1 visited;
     try {
         unsigned sz = g.size();
-        for (unsigned i = 0; i < sz; i++)
+        for (unsigned i = 0; i < sz; ++i)
             quick_for_each_expr(proc, visited, g.form(i));
     }
     catch (const typename Predicate::found &) {

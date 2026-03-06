@@ -70,7 +70,7 @@ namespace sat {
 
     inline std::ostream & operator<<(std::ostream & out, model const & m) {
         bool first = true;
-        for (bool_var v = 0; v < m.size(); v++) {
+        for (bool_var v = 0; v < m.size(); ++v) {
             if (m[v] == l_undef) continue;
             if (first) first = false; else out << " ";
             if (m[v] == l_true) out << v; else out << "-" << v;
@@ -96,7 +96,7 @@ namespace sat {
 
     class proof_hint {
     public:
-        virtual ~proof_hint() {}
+        virtual ~proof_hint() = default;
     };
 
     class status {

@@ -200,14 +200,14 @@ extern "C" {
         LOG_Z3_param_descrs_to_string(c, p);
         RESET_ERROR_CODE();
         std::ostringstream buffer;
-        buffer << "(";
+        buffer << '(';
         unsigned sz = to_param_descrs_ptr(p)->size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (i > 0) 
                 buffer << ", ";
             buffer << to_param_descrs_ptr(p)->get_param_name(i);
         }
-        buffer << ")";
+        buffer << ')';
         return mk_c(c)->mk_external_string(std::move(buffer).str());
         Z3_CATCH_RETURN("");
     }

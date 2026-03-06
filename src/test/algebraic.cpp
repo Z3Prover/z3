@@ -190,7 +190,7 @@ void tst_refine_mpbq(int n, int d) {
     bqm.to_mpbq(q1, l);
     bqm.set(u, l);
     bqm.mul2(u);
-    for (unsigned i = 0; i < 20; i++) {
+    for (unsigned i = 0; i < 20; ++i) {
         std::cout << l << " < " << q1 << " < " << u << "\n";
         bqm.display_decimal(std::cout, l,  20); std::cout << " < ";
         qm.display_decimal(std::cout, q1, 20); std::cout << " < ";
@@ -201,7 +201,7 @@ void tst_refine_mpbq(int n, int d) {
     bqm.to_mpbq(q1, l);
     bqm.set(u, l);
     bqm.mul2(u);
-    for (unsigned i = 0; i < 20; i++) {
+    for (unsigned i = 0; i < 20; ++i) {
         std::cout << l << " < " << q1 << " < " << u << "\n";
         bqm.display_decimal(std::cout, l,  20); std::cout << " < ";
         qm.display_decimal(std::cout, q1, 20); std::cout << " < ";
@@ -230,7 +230,7 @@ static void tst_wilkinson() {
     polynomial_ref x(m);
     x = m.mk_polynomial(m.mk_var());
     polynomial_ref p(m);
-    for (int i = 1; i <= 20; i++) {
+    for (int i = 1; i <= 20; ++i) {
         if (i > 1)
             p = p*(x - i);
         else
@@ -244,7 +244,7 @@ static void tst_wilkinson() {
     am.isolate_roots(p, rs1);
     display_anums(std::cout, rs1);
     ENSURE(rs1.size() == 20);
-    for (unsigned i = 0; i < rs1.size(); i++) {
+    for (unsigned i = 0; i < rs1.size(); ++i) {
         ENSURE(am.is_int(rs1[i]));
     }
 }
@@ -402,11 +402,11 @@ static void tst_isolate_roots(polynomial_ref const & p, anum_manager & am,
     am.isolate_roots(p, x2v, roots, signs);
     ENSURE(roots.size() + 1 == signs.size());
     std::cout << "roots:\n";
-    for (unsigned i = 0; i < roots.size(); i++) {
+    for (unsigned i = 0; i < roots.size(); ++i) {
         am.display_root(std::cout, roots[i]); std::cout << " "; am.display_decimal(std::cout, roots[i]); std::cout << "\n";
     }
     std::cout << "signs:\n";
-    for (unsigned i = 0; i < signs.size(); i++) {
+    for (unsigned i = 0; i < signs.size(); ++i) {
         if (i > 0)
             std::cout << " 0 ";
         if (signs[i] < 0) std::cout << "-";
@@ -484,7 +484,7 @@ static void tst_isolate_roots() {
 
 static void pp(polynomial_ref const & p, polynomial::var x) {
     unsigned d = degree(p, x);
-    for (unsigned i = 0; i <= d; i++) {
+    for (unsigned i = 0; i <= d; ++i) {
         std::cout << "(" << coeff(p, x, i) << ") ";
     }
     std::cout << "\n";

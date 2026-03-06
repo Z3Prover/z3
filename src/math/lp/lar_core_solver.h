@@ -144,7 +144,7 @@ public:
         for (unsigned j : m_r_solver.m_basis) {
             SASSERT(m_r_solver.m_A.m_columns[j].size() == 1);
         }
-        for (unsigned j =0; j < m_r_solver.m_basis_heading.size(); j++) {
+        for (unsigned j =0; j < m_r_solver.m_basis_heading.size(); ++j) {
             if (m_r_solver.m_basis_heading[j] >= 0) continue;
             if (m_r_solver.m_column_types[j] == column_type::fixed) continue;
             SASSERT(static_cast<unsigned>(- m_r_solver.m_basis_heading[j] - 1) < m_r_solver.m_column_types.size());
@@ -199,7 +199,7 @@ public:
 
     mpq find_delta_for_strict_boxed_bounds() const{
         mpq delta = numeric_traits<mpq>::one();
-        for (unsigned j = 0; j < m_r_A.column_count(); j++ ) {
+        for (unsigned j = 0; j < m_r_A.column_count(); ++j ) {
             if (m_column_types()[j] != column_type::boxed)
                 continue;
             update_delta(delta, m_r_lower_bounds[j], m_r_upper_bounds[j]);
@@ -210,7 +210,7 @@ public:
     
     mpq find_delta_for_strict_bounds(const mpq & initial_delta) const{
         mpq delta = initial_delta;
-        for (unsigned j = 0; j < m_r_A.column_count(); j++ ) {
+        for (unsigned j = 0; j < m_r_A.column_count(); ++j ) {
             if (lower_bound_is_set(j))
                 update_delta(delta, m_r_lower_bounds[j], m_r_x[j]);
             if (upper_bound_is_set(j))

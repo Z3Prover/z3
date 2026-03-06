@@ -105,7 +105,7 @@ class bv1_blaster_tactic : public tactic {
             }
             sort * b = butil().mk_sort(1);
             ptr_buffer<expr> bits;
-            for (unsigned i = 0; i < bv_size; i++) {
+            for (unsigned i = 0; i < bv_size; ++i) {
                 bits.push_back(m().mk_fresh_const(nullptr, b));
                 m_newbits.push_back(to_app(bits.back())->get_decl());
                 m_saved.push_back(m_newbits.back());
@@ -155,7 +155,7 @@ class bv1_blaster_tactic : public tactic {
             SASSERT(t_bits.size() == e_bits.size());
             bit_buffer new_ites;
             unsigned num = t_bits.size();
-            for (unsigned i = 0; i < num; i++)             
+            for (unsigned i = 0; i < num; ++i)             
                 new_ites.push_back(t_bits[i] == e_bits[i] ? t_bits[i] : m().mk_ite(c, t_bits[i], e_bits[i]));
             result = butil().mk_concat(new_ites.size(), new_ites.data());
         }
@@ -168,7 +168,7 @@ class bv1_blaster_tactic : public tactic {
             rational v  = f->get_parameter(0).get_rational();
             rational two(2);
             unsigned sz = f->get_parameter(1).get_int();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 if ((v % two).is_zero())
                     bits.push_back(m_bit0);
                 else
@@ -189,7 +189,7 @@ class bv1_blaster_tactic : public tactic {
             unsigned start = sz - 1 - high;
             unsigned end   = sz - 1 - low;
             bit_buffer bits;
-            for (unsigned i = start; i <= end; i++) {
+            for (unsigned i = start; i <= end; ++i) {
                 bits.push_back(arg_bits[i]);
             }
             result = butil().mk_concat(bits.size(), bits.data());
@@ -198,7 +198,7 @@ class bv1_blaster_tactic : public tactic {
         void reduce_concat(unsigned num, expr * const * args, expr_ref & result) {
             bit_buffer bits;
             bit_buffer arg_bits;
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 expr * arg = args[i];
                 arg_bits.reset();
                 get_bits(arg, arg_bits);
@@ -215,7 +215,7 @@ class bv1_blaster_tactic : public tactic {
             SASSERT(bits1.size() == bits2.size());
             bit_buffer new_bits;
             unsigned num = bits1.size();
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 new_bits.push_back(m().mk_ite(m().mk_eq(bits1[i], bits2[i]), m_bit0, m_bit1));
             }
             result = butil().mk_concat(new_bits.size(), new_bits.data());
@@ -229,21 +229,21 @@ class bv1_blaster_tactic : public tactic {
                 return;
             }
             reduce_bin_xor(args[0], args[1], result);
-            for (unsigned i = 2; i < num_args; i++) {
+            for (unsigned i = 2; i < num_args; ++i) {
                 reduce_bin_xor(result, args[i], result);
             }
 #else
             ptr_buffer<bit_buffer> args_bits;
-            for (unsigned i = 0; i < num_args; i++) {
+            for (unsigned i = 0; i < num_args; ++i) {
                 bit_buffer * buff_i = alloc(bit_buffer);
                 get_bits(args[i], *buff_i);
                 args_bits.push_back(buff_i);
             }
             bit_buffer new_bits;
             unsigned sz = butil().get_bv_size(args[0]);
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 ptr_buffer<expr> eqs;
-                for (unsigned j = 0; j < num_args; j++) {
+                for (unsigned j = 0; j < num_args; ++j) {
                     bit_buffer * buff_j = args_bits[j];
                     eqs.push_back(m().mk_eq(buff_j->get(i), m_bit1));
                 }
@@ -367,7 +367,7 @@ class bv1_blaster_tactic : public tactic {
             unsigned sz = g.size();
             visitor proc(m_rw.cfg().butil().get_family_id());
             try {
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     expr * f = g.form(i);
                     for_each_expr_core<visitor, expr_fast_mark1, false, true>(proc, visited, f);
                 }
@@ -394,7 +394,7 @@ class bv1_blaster_tactic : public tactic {
             expr_ref   new_curr(m());
             proof_ref  new_pr(m());
             unsigned   size = g->size();
-            for (unsigned idx = 0; idx < size; idx++) {
+            for (unsigned idx = 0; idx < size; ++idx) {
                 if (g->inconsistent())
                     break;
                 expr * curr = g->form(idx);

@@ -303,7 +303,7 @@ struct check_logic::imp {
             return; // nothing to check
         unsigned num_args = n->get_num_args();
         bool found_non_numeral = false;
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             if (!is_numeral(n->get_arg(i))) {
                 if (found_non_numeral)
                     fail("logic does not support nonlinear arithmetic");
@@ -337,7 +337,7 @@ struct check_logic::imp {
         if (num_args == 0)
             return false;
         expr * arg = t->get_arg(0);
-        for (unsigned i = 1; i < num_args; i++) {
+        for (unsigned i = 1; i < num_args; ++i) {
             if (t->get_arg(i) != arg)
                 return false;
         }
@@ -352,7 +352,7 @@ struct check_logic::imp {
         while (true) {
             expr * non_numeral = nullptr;
             unsigned num_args = t->get_num_args();
-            for (unsigned i = 0; i < num_args; i++) {
+            for (unsigned i = 0; i < num_args; ++i) {
                 expr * arg = t->get_arg(i);
                 if (is_numeral(arg))
                     continue;
@@ -418,7 +418,7 @@ struct check_logic::imp {
     // Check if the arith args of n are of the form (t + k) where k is a numeral.
     void check_diff_args(app * n) {
         unsigned num_args = n->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             if (is_arith(n))
                 check_diff_arg(n);
         }
@@ -510,7 +510,7 @@ struct check_logic::imp {
             if (arity > 0) {
                 if (!m_uf && f->get_family_id() == null_family_id)
                     fail("logic does not support uninterpreted functions");
-                for (unsigned i = 0; i < arity; i++)
+                for (unsigned i = 0; i < arity; ++i)
                     check_sort(f->get_domain(i));
             }
             check_sort(f->get_range());

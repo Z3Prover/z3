@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include<span>
 #include "util/vector.h"
 #include "util/obj_ref.h"
 #include "util/ref.h"
@@ -84,7 +85,7 @@ public:
             m_nodes.shrink(sz); 
         }
         else {
-            for (unsigned i = m_nodes.size(); i < sz; i++)
+            for (unsigned i = m_nodes.size(); i < sz; ++i)
                 push_back(d);
         }
     }
@@ -167,7 +168,7 @@ public:
 
     void erase(T * elem) {
         unsigned sz = size();
-        for (unsigned idx = 0; idx < sz; idx++) {
+        for (unsigned idx = 0; idx < sz; ++idx) {
             if (m_nodes[idx] == elem) {
                 erase(idx);
                 return;
@@ -177,7 +178,7 @@ public:
 
     bool contains(T * elem) const {
         unsigned sz = size();
-        for (unsigned idx = 0; idx < sz; idx++)
+        for (unsigned idx = 0; idx < sz; ++idx)
             if (m_nodes[idx] == elem)
                 return true;
         return false;
@@ -192,9 +193,14 @@ public:
             push_back(other[i]);
     }
 
+    void append(std::span<T * const> data) {
+        for(auto elem : data)
+            push_back(elem);
+    }
+
+    // Backward compatibility overload
     void append(unsigned sz, T * const * data) {
-        for(unsigned i = 0; i < sz; ++i)
-            push_back(data[i]);
+        append(std::span<T * const>(data, sz));
     }
 
     void operator=(ref_vector_core && other) noexcept {
@@ -249,9 +255,15 @@ public:
 
     ref_vector(ref_vector &&) noexcept = default;
 
+    ref_vector(TManager & m, std::span<T * const> data):
+        super(ref_manager_wrapper<T, TManager>(m)) {
+        this->append(data);
+    }
+
+    // Backward compatibility overload
     ref_vector(TManager & m, unsigned sz, T * const * data):
         super(ref_manager_wrapper<T, TManager>(m)) {
-        this->append(sz, data);
+        this->append(std::span<T * const>(data, sz));
     }
     
     TManager & get_manager() const {
@@ -265,6 +277,10 @@ public:
     void swap(ref_vector & other) noexcept {
         SASSERT(&(this->m_manager) == &(other.m_manager));
         this->m_nodes.swap(other.m_nodes);
+    }
+
+    void swap(unsigned idx1, unsigned idx2) noexcept {
+        this->super::swap(idx1, idx2);
     }
     
     class element_ref {

@@ -1,0 +1,808 @@
+name: Nightly Build Validation
+
+on:
+  workflow_run:
+    workflows: ["Nightly Build"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to validate (default: Nightly)'
+        required: false
+        default: 'Nightly'
+
+permissions:
+  contents: read
+
+jobs:
+  # ============================================================================
+  # VALIDATION JOBS FOR NUGET PACKAGES
+  # ============================================================================
+  
+  validate-nuget-windows-x64:
+    name: "Validate NuGet on Windows x64"
+    runs-on: windows-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.x'
+      
+      - name: Download NuGet package from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.release_tag }}"
+          if ([string]::IsNullOrEmpty($tag)) {
+            $tag = "Nightly"
+          }
+          gh release download $tag --pattern "*.nupkg" --dir nuget-packages
+      
+      - name: Create test project
+        shell: pwsh
+        run: |
+          mkdir test-nuget
+          cd test-nuget
+          dotnet new console
+          $nupkgFile = Get-ChildItem ../nuget-packages/*.nupkg -Exclude *.symbols.nupkg | Select-Object -First 1
+          dotnet add package Microsoft.Z3 --source ../nuget-packages --prerelease
+      
+      - name: Create test code
+        shell: pwsh
+        run: |
+          @"
+          using Microsoft.Z3;
+          class Program {
+              static void Main() {
+                  using (Context ctx = new Context()) {
+                      IntExpr x = ctx.MkIntConst("x");
+                      Solver solver = ctx.MkSolver();
+                      solver.Assert(ctx.MkGt(x, ctx.MkInt(0)));
+                      if (solver.Check() == Status.SATISFIABLE) {
+                          System.Console.WriteLine("sat");
+                          System.Console.WriteLine(solver.Model);
+                      }
+                  }
+              }
+          }
+          "@ | Out-File -FilePath test-nuget/Program.cs -Encoding utf8
+      
+      - name: Run test
+        shell: pwsh
+        run: |
+          cd test-nuget
+          dotnet run
+
+  validate-nuget-ubuntu-x64:
+    name: "Validate NuGet on Ubuntu x64"
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.x'
+      
+      - name: Download NuGet package from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*.nupkg" --dir nuget-packages
+      
+      - name: Create test project
+        run: |
+          mkdir test-nuget
+          cd test-nuget
+          dotnet new console
+          dotnet add package Microsoft.Z3 --source ../nuget-packages --prerelease
+      
+      - name: Create test code
+        run: |
+          cat > test-nuget/Program.cs << 'EOF'
+          using Microsoft.Z3;
+          class Program {
+              static void Main() {
+                  using (Context ctx = new Context()) {
+                      IntExpr x = ctx.MkIntConst("x");
+                      Solver solver = ctx.MkSolver();
+                      solver.Assert(ctx.MkGt(x, ctx.MkInt(0)));
+                      if (solver.Check() == Status.SATISFIABLE) {
+                          System.Console.WriteLine("sat");
+                          System.Console.WriteLine(solver.Model);
+                      }
+                  }
+              }
+          }
+          EOF
+      
+      - name: Run test
+        run: |
+          cd test-nuget
+          dotnet run
+
+  validate-nuget-macos-x64:
+    name: "Validate NuGet on macOS x64"
+    runs-on: macos-15-intel
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.x'
+      
+      - name: Download NuGet package from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*.nupkg" --dir nuget-packages
+      
+      - name: Create test project
+        run: |
+          mkdir test-nuget
+          cd test-nuget
+          dotnet new console
+          dotnet add package Microsoft.Z3 --source ../nuget-packages --prerelease
+          # Configure project to properly load native dependencies on macOS x64
+          # Use AnyCPU without RuntimeIdentifier to avoid architecture mismatch
+          # The .NET runtime will automatically select the correct native library from runtimes/osx-x64/native/
+          cat > test-nuget.csproj << 'CSPROJ'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net8.0</TargetFramework>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+              <PlatformTarget>AnyCPU</PlatformTarget>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="Microsoft.Z3" Version="*" />
+            </ItemGroup>
+          </Project>
+          CSPROJ
+      
+      - name: Create test code
+        run: |
+          cat > test-nuget/Program.cs << 'EOF'
+          using Microsoft.Z3;
+          class Program {
+              static void Main() {
+                  using (Context ctx = new Context()) {
+                      IntExpr x = ctx.MkIntConst("x");
+                      Solver solver = ctx.MkSolver();
+                      solver.Assert(ctx.MkGt(x, ctx.MkInt(0)));
+                      if (solver.Check() == Status.SATISFIABLE) {
+                          System.Console.WriteLine("sat");
+                          System.Console.WriteLine(solver.Model);
+                      }
+                  }
+              }
+          }
+          EOF
+      
+      - name: Run test
+        run: |
+          cd test-nuget
+          dotnet run
+
+  validate-nuget-macos-arm64:
+    name: "Validate NuGet on macOS ARM64"
+    runs-on: macos-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.x'
+      
+      - name: Download NuGet package from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*.nupkg" --dir nuget-packages
+      
+      - name: Create test project
+        run: |
+          mkdir test-nuget
+          cd test-nuget
+          dotnet new console
+          dotnet add package Microsoft.Z3 --source ../nuget-packages --prerelease
+          # Configure project to properly load native dependencies on macOS ARM64
+          # Use AnyCPU without RuntimeIdentifier to avoid architecture mismatch
+          # The .NET runtime will automatically select the correct native library from runtimes/osx-arm64/native/
+          cat > test-nuget.csproj << 'CSPROJ'
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net8.0</TargetFramework>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+              <PlatformTarget>AnyCPU</PlatformTarget>
+            </PropertyGroup>
+            <ItemGroup>
+              <PackageReference Include="Microsoft.Z3" Version="*" />
+            </ItemGroup>
+          </Project>
+          CSPROJ
+      
+      - name: Create test code
+        run: |
+          cat > test-nuget/Program.cs << 'EOF'
+          using Microsoft.Z3;
+          class Program {
+              static void Main() {
+                  using (Context ctx = new Context()) {
+                      IntExpr x = ctx.MkIntConst("x");
+                      Solver solver = ctx.MkSolver();
+                      solver.Assert(ctx.MkGt(x, ctx.MkInt(0)));
+                      if (solver.Check() == Status.SATISFIABLE) {
+                          System.Console.WriteLine("sat");
+                          System.Console.WriteLine(solver.Model);
+                      }
+                  }
+              }
+          }
+          EOF
+      
+      - name: Run test
+        run: |
+          cd test-nuget
+          dotnet run
+
+  # ============================================================================
+  # VALIDATION JOBS FOR EXECUTABLES
+  # ============================================================================
+  
+  validate-exe-windows-x64:
+    name: "Validate executable on Windows x64"
+    runs-on: windows-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download Windows x64 build from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.release_tag }}"
+          if ([string]::IsNullOrEmpty($tag)) {
+            $tag = "Nightly"
+          }
+          gh release download $tag --pattern "*x64-win*.zip" --dir downloads
+      
+      - name: Extract and test
+        shell: pwsh
+        run: |
+          $zipFile = Get-ChildItem downloads/*x64-win*.zip | Select-Object -First 1
+          Expand-Archive -Path $zipFile -DestinationPath z3-test
+          $z3Dir = Get-ChildItem z3-test -Directory | Select-Object -First 1
+          & "$z3Dir/bin/z3.exe" --version
+          
+          # Test basic SMT solving
+          @"
+          (declare-const x Int)
+          (assert (> x 0))
+          (check-sat)
+          (get-model)
+          "@ | & "$z3Dir/bin/z3.exe" -in
+
+  validate-exe-windows-x86:
+    name: "Validate executable on Windows x86"
+    runs-on: windows-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download Windows x86 build from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.release_tag }}"
+          if ([string]::IsNullOrEmpty($tag)) {
+            $tag = "Nightly"
+          }
+          gh release download $tag --pattern "*x86-win*.zip" --dir downloads
+      
+      - name: Extract and test
+        shell: pwsh
+        run: |
+          $zipFile = Get-ChildItem downloads/*x86-win*.zip | Select-Object -First 1
+          Expand-Archive -Path $zipFile -DestinationPath z3-test
+          $z3Dir = Get-ChildItem z3-test -Directory | Select-Object -First 1
+          & "$z3Dir/bin/z3.exe" --version
+          
+          # Test basic SMT solving
+          @"
+          (declare-const x Int)
+          (assert (> x 0))
+          (check-sat)
+          (get-model)
+          "@ | & "$z3Dir/bin/z3.exe" -in
+
+  validate-exe-ubuntu-x64:
+    name: "Validate executable on Ubuntu x64"
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download Ubuntu x64 build from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*x64-glibc*.zip" --dir downloads
+      
+      - name: Extract and test
+        run: |
+          cd downloads
+          unzip *x64-glibc*.zip
+          Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
+          cd "$Z3_DIR"
+          ./bin/z3 --version
+          
+          # Test basic SMT solving
+          echo "(declare-const x Int)
+          (assert (> x 0))
+          (check-sat)
+          (get-model)" | ./bin/z3 -in
+
+  validate-exe-macos-x64:
+    name: "Validate executable on macOS x64"
+    runs-on: macos-15-intel
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download macOS x64 build from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*x64-osx*.zip" --dir downloads
+      
+      - name: Extract and test
+        run: |
+          cd downloads
+          unzip *x64-osx*.zip
+          Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
+          cd "$Z3_DIR"
+          ./bin/z3 --version
+          
+          # Test basic SMT solving
+          echo "(declare-const x Int)
+          (assert (> x 0))
+          (check-sat)
+          (get-model)" | ./bin/z3 -in
+
+  validate-exe-macos-arm64:
+    name: "Validate executable on macOS ARM64"
+    runs-on: macos-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download macOS ARM64 build from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*arm64-osx*.zip" --dir downloads
+      
+      - name: Extract and test
+        run: |
+          cd downloads
+          unzip *arm64-osx*.zip
+          Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
+          cd "$Z3_DIR"
+          ./bin/z3 --version
+          
+          # Test basic SMT solving
+          echo "(declare-const x Int)
+          (assert (> x 0))
+          (check-sat)
+          (get-model)" | ./bin/z3 -in
+
+  # ============================================================================
+  # REGRESSION TEST VALIDATION
+  # ============================================================================
+  
+  validate-regressions-ubuntu:
+    name: "Validate regression tests on Ubuntu"
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download Ubuntu x64 build from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*x64-glibc*.zip" --dir downloads
+      
+      - name: Extract build
+        run: |
+          cd downloads
+          unzip *x64-glibc*.zip
+          cd ..
+      
+      - name: Clone z3test repository
+        run: git clone https://github.com/z3prover/z3test z3test
+      
+      - name: Run regression tests
+        run: |
+          Z3_PATH=$(find downloads -name z3 -type f | head -n 1)
+          chmod +x $Z3_PATH
+          python z3test/scripts/test_benchmarks.py $Z3_PATH z3test/regressions/smt2
+
+  validate-regressions-windows:
+    name: "Validate regression tests on Windows"
+    runs-on: windows-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download Windows x64 build from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.release_tag }}"
+          if ([string]::IsNullOrEmpty($tag)) {
+            $tag = "Nightly"
+          }
+          gh release download $tag --pattern "*x64-win*.zip" --dir downloads
+      
+      - name: Extract build
+        shell: pwsh
+        run: |
+          $zipFile = Get-ChildItem downloads/*x64-win*.zip | Select-Object -First 1
+          Expand-Archive -Path $zipFile -DestinationPath downloads
+      
+      - name: Clone z3test repository
+        run: git clone https://github.com/z3prover/z3test z3test
+      
+      - name: Run regression tests
+        shell: pwsh
+        run: |
+          $z3Path = Get-ChildItem downloads -Filter z3.exe -Recurse | Select-Object -First 1
+          python z3test/scripts/test_benchmarks.py $z3Path.FullName z3test/regressions/smt2
+
+  validate-regressions-macos:
+    name: "Validate regression tests on macOS"
+    runs-on: macos-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 60
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download macOS ARM64 build from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*arm64-osx*.zip" --dir downloads
+      
+      - name: Extract build
+        run: |
+          cd downloads
+          unzip *arm64-osx*.zip
+          cd ..
+      
+      - name: Clone z3test repository
+        run: git clone https://github.com/z3prover/z3test z3test
+      
+      - name: Run regression tests
+        run: |
+          Z3_PATH=$(find downloads -name z3 -type f | head -n 1)
+          chmod +x $Z3_PATH
+          python z3test/scripts/test_benchmarks.py $Z3_PATH z3test/regressions/smt2
+
+  # ============================================================================
+  # PYTHON WHEEL VALIDATION
+  # ============================================================================
+  
+  validate-python-wheel-ubuntu-x64:
+    name: "Validate Python wheel on Ubuntu x64"
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download Python wheel from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*manylinux*x86_64.whl" --dir wheels
+      
+      - name: Install and test wheel
+        run: |
+          pip install wheels/*.whl
+          python -c "import z3; x = z3.Int('x'); s = z3.Solver(); s.add(x > 0); print('Result:', s.check()); print('Model:', s.model())"
+
+  validate-python-wheel-macos-arm64:
+    name: "Validate Python wheel on macOS ARM64"
+    runs-on: macos-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download Python wheel from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*macosx*arm64.whl" --dir wheels
+      
+      - name: Install and test wheel
+        run: |
+          pip install wheels/*.whl
+          python -c "import z3; x = z3.Int('x'); s = z3.Solver(); s.add(x > 0); print('Result:', s.check()); print('Model:', s.model())"
+
+  validate-python-wheel-macos-x64:
+    name: "Validate Python wheel on macOS x64"
+    runs-on: macos-15-intel
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download Python wheel from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*macosx*x86_64.whl" --dir wheels
+      
+      - name: Install and test wheel
+        run: |
+          pip install wheels/*.whl
+          python -c "import z3; x = z3.Int('x'); s = z3.Solver(); s.add(x > 0); print('Result:', s.check()); print('Model:', s.model())"
+
+  validate-python-wheel-windows-x64:
+    name: "Validate Python wheel on Windows x64"
+    runs-on: windows-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+      
+      - name: Download Python wheel from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.inputs.release_tag }}"
+          if ([string]::IsNullOrEmpty($tag)) {
+            $tag = "Nightly"
+          }
+          gh release download $tag --pattern "*win_amd64.whl" --dir wheels
+      
+      - name: Install and test wheel
+        shell: pwsh
+        run: |
+          $wheel = Get-ChildItem wheels/*.whl | Select-Object -First 1
+          pip install $wheel.FullName
+          python -c "import z3; x = z3.Int('x'); s = z3.Solver(); s.add(x > 0); print('Result:', s.check()); print('Model:', s.model())"
+
+  # ============================================================================
+  # MACOS DYLIB HEADERPAD VALIDATION
+  # ============================================================================
+
+  validate-macos-headerpad-x64:
+    name: "Validate macOS x64 dylib headerpad"
+    runs-on: macos-15-intel
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download macOS x64 build from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*x64-osx*.zip" --dir downloads
+      
+      - name: Extract build
+        run: |
+          cd downloads
+          unzip *x64-osx*.zip
+          Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
+          echo "Z3_DIR=$Z3_DIR" >> $GITHUB_ENV
+      
+      - name: Test install_name_tool with headerpad
+        run: |
+          cd downloads/$Z3_DIR/bin
+          
+          # Get the original install name
+          ORIGINAL_NAME=$(otool -D libz3.dylib | tail -n 1)
+          echo "Original install name: $ORIGINAL_NAME"
+          
+          # Create a test path with same length as typical setup-z3 usage
+          # This simulates what setup-z3 does: changing to absolute path
+          TEST_PATH="/Users/runner/hostedtoolcache/z3/latest/x64/z3-test-dir/bin/libz3.dylib"
+          
+          # Try to change the install name - this will fail if headerpad is insufficient
+          install_name_tool -id "$TEST_PATH" -change "$ORIGINAL_NAME" "$TEST_PATH" libz3.dylib
+          
+          # Verify the change was successful
+          NEW_NAME=$(otool -D libz3.dylib | tail -n 1)
+          echo "New install name: $NEW_NAME"
+          
+          if [ "$NEW_NAME" = "$TEST_PATH" ]; then
+            echo "✓ install_name_tool succeeded - headerpad is sufficient"
+          else
+            echo "✗ install_name_tool failed to update install name"
+            exit 1
+          fi
+
+  validate-macos-headerpad-arm64:
+    name: "Validate macOS ARM64 dylib headerpad"
+    runs-on: macos-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download macOS ARM64 build from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="Nightly"
+          fi
+          gh release download $TAG --pattern "*arm64-osx*.zip" --dir downloads
+      
+      - name: Extract build
+        run: |
+          cd downloads
+          unzip *arm64-osx*.zip
+          Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
+          echo "Z3_DIR=$Z3_DIR" >> $GITHUB_ENV
+      
+      - name: Test install_name_tool with headerpad
+        run: |
+          cd downloads/$Z3_DIR/bin
+          
+          # Get the original install name
+          ORIGINAL_NAME=$(otool -D libz3.dylib | tail -n 1)
+          echo "Original install name: $ORIGINAL_NAME"
+          
+          # Create a test path with same length as typical setup-z3 usage
+          # This simulates what setup-z3 does: changing to absolute path
+          TEST_PATH="/Users/runner/hostedtoolcache/z3/latest/arm64/z3-test-dir/bin/libz3.dylib"
+          
+          # Try to change the install name - this will fail if headerpad is insufficient
+          install_name_tool -id "$TEST_PATH" -change "$ORIGINAL_NAME" "$TEST_PATH" libz3.dylib
+          
+          # Verify the change was successful
+          NEW_NAME=$(otool -D libz3.dylib | tail -n 1)
+          echo "New install name: $NEW_NAME"
+          
+          if [ "$NEW_NAME" = "$TEST_PATH" ]; then
+            echo "✓ install_name_tool succeeded - headerpad is sufficient"
+          else
+            echo "✗ install_name_tool failed to update install name"
+            exit 1
+          fi

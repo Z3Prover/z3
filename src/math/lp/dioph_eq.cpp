@@ -26,7 +26,7 @@
   -- m_fresh_k2xt_terms: when a fresh definitions is created for a variable k in row s then the triple
   (k,xt,(t,s)) is added to m_fresh_k2xt_terms, where xt is the fresh variable, and t it the term defining the substitution: something like k - xt + 5z + 6y = 0.
   The set of pairs (k, xt) is a one to one mapping
-  m_row2fresh_defs[i]: is the list of all xt that were defined for row m_e_matrix[i].
+  m_row2fresh_defs[i]: is the list of all fresh xt that were defined for row m_e_matrix[i].
   Invariant: Every xt in m_row2fresh[i] must have a corresponding entry in m_fresh_k2xt_terms
 
   The mapping between the columns of lar_solver and m_e_matrix is controlled by m_var_register.
@@ -191,7 +191,7 @@ namespace lp {
         // This class represents a term with an added constant number c, in form sum
         // {x_i*a_i} + c.
         class term_o : public lar_term {
-            mpq m_c;
+            mpq m_ct;
 
         public:
             term_o clone() const {
@@ -203,16 +203,16 @@ namespace lp {
                 ret.set_j(j());
                 return ret;
             }
-            term_o(const lar_term& t) : lar_term(t), m_c(0) {
-                SASSERT(m_c.is_zero());
+            term_o(const lar_term& t) : lar_term(t), m_ct(0) {
+                SASSERT(m_ct.is_zero());
             }
             const mpq& c() const {
-                return m_c;
+                return m_ct;
             }
             mpq& c() {
-                return m_c;
+                return m_ct;
             }
-            term_o() : m_c(0) {}
+            term_o() : m_ct(0) {}
 
             friend term_o operator*(const mpq& k, const term_o& term) {
                 term_o r;
@@ -254,14 +254,14 @@ namespace lp {
                 for (const auto& p : t) {
                     add_monomial(p.coeff(), p.j());
                 }
-                m_c += t.c();
+                m_ct += t.c();
                 return *this;
             }
         };
 
         std::ostream& print_S(std::ostream& out) {
             out << "S:\n";
-            for (unsigned ei = 0 ; ei < m_e_matrix.row_count(); ei++) {
+            for (unsigned ei = 0 ; ei < m_e_matrix.row_count(); ++ei) {
                 print_entry(ei, out, false, false, true);
             }
             return out;
@@ -468,7 +468,7 @@ namespace lp {
             bool invariant() const {
                 // 1. For each j in [0..m_index.size()), if m_index[j] = -1, ensure no m_data[k].var() == j
                 //    otherwise verify m_data[m_index[j]].var() == j
-                for (unsigned j = 0; j < m_index.size(); j++) {
+                for (unsigned j = 0; j < m_index.size(); ++j) {
                     int idx = m_index[j];
                     if (idx == -1) {
                         // Check that j is not in m_data
@@ -654,13 +654,16 @@ namespace lp {
         struct undo_fixed_column : public trail {
             imp& m_imp;
             unsigned m_j;  // the column that has been added
-            const mpq m_fixed_val;
+            mpq m_fixed_val;  // not const: needs to be reset in undo() to free heap memory
             undo_fixed_column(imp& s, unsigned j) : m_imp(s), m_j(j), m_fixed_val(s.lra.get_lower_bound(j).x) {
                 SASSERT(s.lra.column_is_fixed(j));
             }
 
             void undo() override {
                 m_imp.add_changed_column(m_j);
+                // Free heap-allocated memory in m_fixed_val since this struct is region-allocated
+                // and its destructor won't be called
+                m_fixed_val.reset();
             }
         };
 
@@ -690,7 +693,7 @@ namespace lp {
 
             auto& column = m_l_matrix.m_columns[j];
             int pivot_col_cell_index = -1;
-            for (unsigned k = 0; k < column.size(); k++) {
+            for (unsigned k = 0; k < column.size(); ++k) {
                 if (column[k].var() == last_row_index) {
                     pivot_col_cell_index = k;
                     break;
@@ -733,14 +736,23 @@ namespace lp {
             eliminate_last_term_column();
             remove_last_row_in_matrix(m_l_matrix);
             remove_last_row_in_matrix(m_e_matrix);
-            while (m_l_matrix.column_count() && m_l_matrix.m_columns.back().size() == 0) {
+            // Recalculate rows that still reference fresh vars defined by the removed row.
+            auto it = m_row2fresh_defs.find(i);
+            if (it != m_row2fresh_defs.end()) 
+                for (unsigned xt : it->second) 
+                    if (xt < m_e_matrix.column_count())
+                        for (const auto& p : m_e_matrix.m_columns[xt])
+                            m_changed_rows.insert(p.var());
+            
+            while (m_l_matrix.column_count() && m_l_matrix.m_columns.back().size() == 0)
                 m_l_matrix.m_columns.pop_back();
-            }
-            while (m_e_matrix.column_count() && m_e_matrix.m_columns.back().size() == 0) {
+
+            while (m_e_matrix.column_count() && m_e_matrix.m_columns.back().size() == 0)
                 m_e_matrix.m_columns.pop_back();
-            }
+            
             m_var_register.shrink(m_e_matrix.column_count());
 
+            remove_out_of_bounds_fresh_defs();
             remove_irrelevant_fresh_defs_for_row(i);
 
             if (m_k2s.has_val(i)) 
@@ -896,7 +908,6 @@ namespace lp {
                 return;
             }
             substitute_on_q(ei);
-            SASSERT(entry_invariant(ei));
         }
 
         void substitute_on_q_with_entry_in_S(unsigned ei, unsigned j, const mpq& alpha) {
@@ -929,12 +940,10 @@ namespace lp {
                 unsigned j = m_q.pop_front();
                 mpq alpha = get_coeff_in_e_row(ei, j);
                 if (alpha.is_zero()) continue;
-                if (m_k2s.has_key(j)) {
+                if (m_k2s.has_key(j)) 
                     substitute_on_q_with_entry_in_S(ei, j, alpha);
-                }
-                else {
+                else
                     substitute_with_fresh_def(ei, j, alpha);
-                }
             }
         }
         bool term_is_in_range(const lar_term& t) const {
@@ -952,6 +961,7 @@ namespace lp {
 
         // adds entry i0 multiplied by coeff to entry i1
         void add_two_entries(const mpq& coeff, unsigned i0, unsigned i1) {
+            SASSERT(coeff.is_int());
             m_e_matrix.add_rows(coeff, i0, i1);
             m_l_matrix.add_rows(coeff, i0, i1);
             m_sum_of_fixed[i1] += coeff * m_sum_of_fixed[i0];
@@ -966,7 +976,7 @@ namespace lp {
         }
 
         void recalculate_entry(unsigned ei) {
-            TRACE(dio, print_entry(ei, tout) << std::endl;);
+            TRACE(dio, print_entry(ei, tout, true) << std::endl;);
             mpq& fixed_sum = m_sum_of_fixed[ei];
             fixed_sum = mpq(0);
             open_l_term_to_espace(ei, fixed_sum);
@@ -985,19 +995,19 @@ namespace lp {
                 m_l_matrix.multiply_row(ei, denom);
                 m_e_matrix.multiply_row(ei, denom);
             }
-            if (belongs_to_s(ei)) {
+            if (belongs_to_s(ei))
                 remove_from_S(ei);
-            }
-            SASSERT(entry_invariant(ei));
+            TRACE(dio, tout << "recalculated entry:\n"; print_entry(ei, tout, true) << std::endl;);
+
         }
 
         void find_changed_terms_and_more_changed_rows() {
             for (unsigned j : m_changed_f_columns) {
-                const auto it = m_columns_to_terms.find(j);
-                if (it != m_columns_to_terms.end())
-                    for (unsigned k : it->second) {
+                if (auto terms = try_get_value(m_columns_to_terms, j)) {
+                    for (unsigned k : *terms) {
                         mark_term_change(k);
                     }
+                }
                 if (!m_var_register.external_is_used(j))
                     continue;
                 for (const auto& p : m_e_matrix.column(this->lar_solver_to_local(j))) {
@@ -1006,17 +1016,86 @@ namespace lp {
             }
         }
 
-        void remove_irrelevant_fresh_defs_for_row(unsigned ei) {
-            auto it = m_row2fresh_defs.find(ei);
-            if (it == m_row2fresh_defs.end()) return;            
-            for (unsigned xt : it->second) {
-                if (m_fresh_k2xt_terms.has_second_key(xt))
-                    m_fresh_k2xt_terms.erase_by_second_key(xt);
-            }
-            m_row2fresh_defs.erase(it);
+        // Remove fresh definitions whose terms reference the given variable
+        // Mark rows containing stale fresh variable for recalculation
+        void handle_stale_var_in_matrix(unsigned xt) {
+            if (xt >= m_e_matrix.column_count())
+                return;
+            // Mark all rows containing xt for recalculation
+            for (const auto& cell : m_e_matrix.m_columns[xt])
+                m_changed_rows.insert(cell.var());
         }
 
-        void remove_irrelevant_fresh_defs() {
+        // Collect all fresh vars that directly or transitively reference removed_xt
+        void collect_dependent_fresh_vars(unsigned removed_xt, std_vector<unsigned>& to_remove) {
+            std_vector<unsigned> newly_found;
+            for (const auto& p : m_fresh_k2xt_terms.m_bij.key_val_pairs()) {
+                unsigned xt = p.second;
+                if (xt == removed_xt) continue;
+                if (std::find(to_remove.begin(), to_remove.end(), xt) != to_remove.end())
+                    continue; // already marked for removal
+                const lar_term& term = m_fresh_k2xt_terms.get_by_val(xt).first;
+                // Check if term contains removed_xt or any var already marked for removal
+                if (term.contains(removed_xt)) {
+                    newly_found.push_back(xt);
+                } else {
+                    for (unsigned marked : to_remove)
+                        if (term.contains(marked)) {
+                            newly_found.push_back(xt);
+                            break;
+                        }
+                }
+            }
+            for (unsigned xt : newly_found)
+                to_remove.push_back(xt);
+            // Recurse if we found new ones (they might have dependents too)
+            if (!newly_found.empty())
+                for (unsigned xt : newly_found)
+                    collect_dependent_fresh_vars(xt, to_remove);
+        }
+
+        // Deep clean: remove fresh var and all dependents, clean m_e_matrix
+        void deep_remove_fresh_var(unsigned removed_xt) {
+            if (!m_fresh_k2xt_terms.has_second_key(removed_xt))
+                return;
+            
+            // Collect all vars that need to be removed (removed_xt and its dependents)
+            std_vector<unsigned> to_remove;
+            to_remove.push_back(removed_xt);
+            collect_dependent_fresh_vars(removed_xt, to_remove);
+            
+            // Remove them all
+            for (unsigned xt : to_remove) {
+                if (!m_fresh_k2xt_terms.has_second_key(xt))
+                    continue;
+                // Get the row before erasing
+                unsigned row = m_fresh_k2xt_terms.get_by_val(xt).second;
+                m_fresh_k2xt_terms.erase_by_second_key(xt);
+                // Update m_row2fresh_defs
+                auto it = m_row2fresh_defs.find(row);
+                if (it != m_row2fresh_defs.end()) {
+                    it->second.erase(std::remove(it->second.begin(), it->second.end(), xt), it->second.end());
+                    if (it->second.empty())
+                        m_row2fresh_defs.erase(it);
+                }
+                // Mark rows containing xt for recalculation
+                handle_stale_var_in_matrix(xt);
+            }
+        }
+
+        void remove_irrelevant_fresh_defs_for_row(unsigned ei) {
+            auto it = m_row2fresh_defs.find(ei);
+            if (it == m_row2fresh_defs.end()) return;
+            // Copy the list since deep_remove_fresh_var modifies m_row2fresh_defs
+            std_vector<unsigned> xts_to_remove = it->second;
+            for (unsigned xt : xts_to_remove)
+                deep_remove_fresh_var(xt);
+            // Ensure the row entry is removed (might already be gone)
+            m_row2fresh_defs.erase(ei);
+        }
+
+        // Remove fresh definitions for columns that are out of bounds after shrinking
+        void remove_out_of_bounds_fresh_defs() {
             std_vector<unsigned> xt_to_remove;
             std_vector<unsigned> rows_to_remove_the_defs_from;
             for (const auto& p : m_fresh_k2xt_terms.m_bij.key_val_pairs()) {
@@ -1027,17 +1106,18 @@ namespace lp {
                 }
             }
 
-            for (unsigned xt : xt_to_remove) {
-                m_fresh_k2xt_terms.erase_by_second_key(xt);
-            }
+            for (unsigned xt : xt_to_remove)
+                deep_remove_fresh_var(xt);
 
-            for (unsigned ei : m_changed_rows) {
+            for (unsigned ei : rows_to_remove_the_defs_from)
                 remove_irrelevant_fresh_defs_for_row(ei);
-            }
+        }
 
-            for (unsigned ei : rows_to_remove_the_defs_from) {
+        void remove_irrelevant_fresh_defs() {
+            remove_out_of_bounds_fresh_defs();
+
+            for (unsigned ei : m_changed_rows)
                 remove_irrelevant_fresh_defs_for_row(ei);
-            }
         }
 
         // this is a non-const function - it can set m_some_terms_are_ignored to true
@@ -1079,6 +1159,9 @@ namespace lp {
             for (unsigned ei : more_changed_rows)
                 m_changed_rows.insert(ei);
             
+            // Remove irrelevant fresh defs first - this may add more rows to m_changed_rows
+            remove_irrelevant_fresh_defs();
+            
             for (unsigned ei : m_changed_rows) {
                 if (ei >= m_e_matrix.row_count())
                     continue;
@@ -1087,18 +1170,19 @@ namespace lp {
 
                 recalculate_entry(ei);
                 
-                if (m_e_matrix.m_columns.back().size() == 0) {
+                if (!m_e_matrix.m_columns.empty() && m_e_matrix.m_columns.back().size() == 0) {
                     m_e_matrix.m_columns.pop_back();
                     m_var_register.shrink(m_e_matrix.column_count());
+                    remove_out_of_bounds_fresh_defs();
                 }
-                if (m_l_matrix.m_columns.back().size() == 0)
+                if (!m_l_matrix.m_columns.empty() && m_l_matrix.m_columns.back().size() == 0)
                     m_l_matrix.m_columns.pop_back();
             }
-            remove_irrelevant_fresh_defs();
             eliminate_substituted_in_changed_rows();
             m_changed_f_columns.reset();
             m_changed_rows.reset();
             m_changed_terms.reset();
+            SASSERT(entries_are_ok());
         }
 
         int get_sign_in_e_row(unsigned ei, unsigned j) const {
@@ -1127,7 +1211,7 @@ namespace lp {
 
         bool entries_are_ok() {
             if (lra.settings().get_cancel_flag()) return true;
-            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
+            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ++ei) {
                 if (entry_invariant(ei) == false) {
                     TRACE(dio, tout << "bad entry:"; print_entry(ei, tout););
                     return false;
@@ -1220,13 +1304,13 @@ namespace lp {
         // The function returns true if and only if there is no conflict.
         bool normalize_e_by_gcd(unsigned ei, mpq& g) {
             mpq& e = m_sum_of_fixed[ei];
-            TRACE(dio, print_entry(ei, tout) << std::endl;);
-            g = gcd_of_coeffs(m_e_matrix.m_rows[ei], false);
+            TRACE(dio, print_entry(ei, tout, true) << std::endl;);
+            g = gcd_of_coeffs(m_e_matrix.m_rows[ei], true);
+            TRACE(dio, tout << "g:" << g << std::endl;);
             if (g.is_zero() || g.is_one()) {
                 SASSERT(g.is_one() || e.is_zero());
                 return true;
             }
-            TRACE(dio, tout << "g:" << g << std::endl;);
             mpq c_g = e / g;
             if (c_g.is_int()) {
                 for (auto& p : m_e_matrix.m_rows[ei]) {
@@ -1234,15 +1318,14 @@ namespace lp {
                 }
                 m_sum_of_fixed[ei] = c_g;
                 // e.m_l /= g
-                for (auto& p : m_l_matrix.m_rows[ei]) {
+                for (auto& p : m_l_matrix.m_rows[ei])
                     p.coeff() /= g;
-                }
 
-                TRACE(dio, tout << "ep_m_e:";
-                      print_entry(ei, tout) << std::endl;);
+                TRACE(dio, tout << "ep_m_e:"; print_entry(ei, tout, true) << std::endl;);
                 SASSERT(entry_invariant(ei));
                 return true;
             }
+            TRACE(dio, tout << "false\n";);
             // c_g is not integral
             return false;
         }
@@ -1288,6 +1371,7 @@ namespace lp {
                   print_term_o(create_term_from_espace(), tout) << std::endl;
                   tout << "subs with e:";
                   print_entry(m_k2s[k], tout) << std::endl;);
+            SASSERT(e.is_int());
             mpq coeff = m_espace[k];  // need to copy since it will be zeroed
             m_espace.erase(k);        // m_espace[k] = 0;
 
@@ -1313,6 +1397,7 @@ namespace lp {
                     q.push(j);
             }
             m_c += coeff * e;
+            SASSERT(m_c.is_int());
             add_l_row_to_term_with_index(coeff, sub_index(k));
             TRACE(dio, tout << "after subs k:" << k << "\n";
                   print_term_o(create_term_from_espace(), tout) << std::endl;
@@ -1457,8 +1542,6 @@ namespace lp {
             t1.add_monomial(mpq(1), j);
             term_o rs = fix_vars(t1);
             if (ls != rs) {
-                std::cout << "enabling trace dio\n";
-                enable_trace("dio");
                 TRACE(dio, tout << "ls:"; print_term_o(ls, tout) << "\n";
                       tout << "rs:"; print_term_o(rs, tout) << "\n";);
                 return false;
@@ -1564,6 +1647,7 @@ namespace lp {
                         break;
                     }
                     m_c += p.coeff() * b;
+                    SASSERT(m_c.is_int());
                 }
                 else {
                     unsigned lj = lar_solver_to_local(p.j());
@@ -1592,6 +1676,7 @@ namespace lp {
             }
             for (unsigned j : fixed_vars) {
                 m_c += m_espace[j] * lra.get_lower_bound(local_to_lar_solver(j)).x;
+                SASSERT(m_c.is_int());
                 m_espace.erase(j);
             }
         }
@@ -1900,7 +1985,7 @@ namespace lp {
         }
 
         void fill_f_vector(std_vector<unsigned> & f_vector) {
-            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
+            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ++ei) {
                 if (belongs_to_s(ei)) continue;
                 if (m_e_matrix.m_rows[ei].size() == 0) {
                     if (m_sum_of_fixed[ei].is_zero()) {
@@ -2002,7 +2087,7 @@ namespace lp {
 
         bool columns_to_terms_is_correct() const {
             std::unordered_map<unsigned, std::unordered_set<unsigned>> c2t;
-            for (unsigned k = 0; k < lra.terms().size(); k++) {
+            for (unsigned k = 0; k < lra.terms().size(); ++k) {
                 const lar_term* t = lra.terms()[k];
                 if (!lia.column_is_int(t->j())) continue;
                 SASSERT(t->j() != UINT_MAX);
@@ -2050,7 +2135,7 @@ namespace lp {
             return true;
         }
         bool is_in_sync() const {
-            for (unsigned j = 0; j < m_e_matrix.column_count(); j++) {
+            for (unsigned j = 0; j < m_e_matrix.column_count(); ++j) {
                 unsigned external_j = m_var_register.local_to_external(j);
                 if (external_j == UINT_MAX)
                     continue;
@@ -2060,7 +2145,7 @@ namespace lp {
 
             }
 
-            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
+            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ++ei) {
                 auto it = m_row2fresh_defs.find(ei);
                 if (it != m_row2fresh_defs.end()) {
                     for (unsigned xt : it->second) {
@@ -2099,7 +2184,7 @@ namespace lp {
         std::tuple<mpq, unsigned, int, unsigned> find_minimal_abs_coeff(unsigned ei) {
             bool first = true;
             mpq ahk;
-            unsigned k = -1;
+            unsigned k = UINT_MAX;
             int k_sign = 0;
             mpq t;
             for (const auto& p : m_e_matrix.m_rows[ei]) {
@@ -2163,9 +2248,10 @@ namespace lp {
                 m_sum_of_fixed[i] -= j_sign * coeff * e;
                 m_e_matrix.pivot_row_to_row_given_cell_with_sign(ei, c, j, j_sign);
                 // m_sum_of_fixed[i].m_l -= j_sign * coeff * e.m_l;
+                TRACE(dio, print_term_o(open_ml(m_l_matrix.m_rows[ei]), tout << "l row " << ei << ":") << "\n";);
                 m_l_matrix.add_rows(-j_sign * coeff, ei, i);
                 TRACE(dio, tout << "after pivoting c_row:";
-                      print_entry(i, tout););
+                      print_entry(i, tout, true););
                 CTRACE(
                     dio, !entry_invariant(i), tout << "invariant delta:"; {
                         print_term_o(get_term_from_entry(ei) -
@@ -2202,7 +2288,7 @@ namespace lp {
         }
 
         bool is_eliminated_from_f(unsigned j) const {
-            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ei++) {
+            for (unsigned ei = 0; ei < m_e_matrix.row_count(); ++ei) {
                 if (!belongs_to_f(ei))
                     continue;
                 const auto& row = m_e_matrix.m_rows[ei];
@@ -2237,8 +2323,11 @@ namespace lp {
                 if (var_is_fresh(p.var()))
                     continue;
                 unsigned j = local_to_lar_solver(p.var());
+                if (j == UINT_MAX) {
+                    TRACE(dio, tout << "(local: " << "x" << p.var() << ") is not registered \nbad entry:"; print_entry(ei, tout) << "\n";);
+                    return false;
+                }
                 if (is_fixed(j)) {
-                    enable_trace("dio");                    
                     TRACE(dio, tout << "x" << j << "(local: " << "x" << p.var() << ") should not be fixed\nbad entry:"; print_entry(ei, tout) << "\n";);
                     return false;
                 }
@@ -2247,8 +2336,6 @@ namespace lp {
             term_o ls = term_to_lar_solver(remove_fresh_vars(get_term_from_entry(ei)));
             mpq ls_val = get_term_value(ls);
             if (!ls_val.is_zero()) {
-                std::cout << "ls_val is not zero\n";
-                enable_trace("dio");
                 TRACE(dio, {
                         tout << "get_term_from_entry(" << ei << "):";
                         print_term_o(get_term_from_entry(ei), tout) << std::endl;
@@ -2266,7 +2353,6 @@ namespace lp {
             }
             bool ret = ls == fix_vars(open_ml(m_l_matrix.m_rows[ei]));
             if (!ret) {
-                enable_trace("dio");
                 CTRACE(dio, !ret,
                    {
                        tout << "get_term_from_entry(" << ei << "):";
@@ -2400,7 +2486,7 @@ namespace lp {
                 if (!q.is_zero())
                     fresh_t.add_monomial(q, i.var());
             }
-
+            TRACE(dio, print_term_o(fresh_t, tout << "fresh_t:"););
             m_fresh_k2xt_terms.add(k, xt, std::make_pair(fresh_t, h));
             SASSERT(var_is_fresh(xt));
             register_var_in_fresh_defs(h, xt);
@@ -2472,25 +2558,32 @@ namespace lp {
         lia_move rewrite_eqs(std_vector<unsigned>& f_vector) {
             if (f_vector.size() == 0)
                 return lia_move::undef;
-            unsigned h = -1, kh = 0; // the initial value of kh does not matter, assign to remove the warning
+            unsigned h = UINT_MAX, kh = 0; // the initial value of kh does not matter, assign to remove the warning
             unsigned n = 0;  // number of choices for a fresh variable
             mpq min_ahk;
             int kh_sign = 0; // the initial values of kh_sign and h_markovich_number do not matter, assign to remove the warning
             unsigned h_markovich_number = 0;
-            unsigned ih = -1; // f_vector[ih] = h
-            for (unsigned i = 0; i < f_vector.size(); i++) {
+            unsigned ih = UINT_MAX; // f_vector[ih] = h
+            for (unsigned i = 0; i < f_vector.size(); ++i) {
                 unsigned ei = f_vector[i];
                 SASSERT (belongs_to_f(ei));
                 if (m_e_matrix.m_rows[ei].size() == 0) {
-                    if (m_sum_of_fixed[ei].is_zero()) {
+                    if (m_sum_of_fixed[ei].is_zero()) 
                         continue;
-                    }
                     else {
+                        TRACE(dio, tout << "zero row with non_zero fixed sum conflict:\n";                              print_entry(ei, tout, true) << std::endl;);
                         set_rewrite_conflict(ei, mpq(0));
                         return lia_move::conflict;
                     }
                 }
 
+                if (!m_sum_of_fixed[ei].is_int()) {
+                        TRACE(dio, tout << "new conflict: early non-integral entry in S after move_entry_from_f_to_s\n";
+                              print_entry(ei, tout) << std::endl;);
+                        set_rewrite_conflict(ei, mpq(0));
+                        return lia_move::conflict;
+                }
+                
                 auto [ahk, k, k_sign, markovich_number] = find_minimal_abs_coeff(ei);
                 mpq gcd;
                 if (!normalize_e_by_gcd(ei, gcd)) {
@@ -2525,8 +2618,9 @@ namespace lp {
                 return lia_move::undef;
             }
             SASSERT(h == f_vector[ih]);
+            TRACE(dio, tout << "min_ahk:" << min_ahk<<'\n'; print_entry(h, tout););
             if (min_ahk.is_one()) {
-                TRACE(dio, tout << "push to S:\n"; print_entry(h, tout););
+                TRACE(dio, tout << "push to S:\n";);
                 move_entry_from_f_to_s(kh, h);
                 eliminate_var_in_f(h, kh, kh_sign);
                 f_vector[ih] = f_vector.back();                

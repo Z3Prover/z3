@@ -72,7 +72,7 @@ class bvarray2uf_tactic : public tactic {
             expr_ref   new_curr(m_manager);
             proof_ref  new_pr(m_manager);
             unsigned size = g->size();
-            for (unsigned idx = 0; idx < size; idx++) {
+            for (unsigned idx = 0; idx < size; ++idx) {
                 if (g->inconsistent())
                     break;
                 expr* curr = g->form(idx);

@@ -57,12 +57,12 @@ namespace dd {
                 m_hi(hi),
                 m_index(0)
             {}
-            bdd_node(): m_refcount(0), m_level(0), m_lo(0), m_hi(0), m_index(0) {}
-            unsigned m_refcount : 10;
-            unsigned m_level : 22;
-            BDD      m_lo;
-            BDD      m_hi;
-            unsigned m_index;
+            bdd_node() = default;
+            unsigned m_refcount : 10 = 0;
+            unsigned m_level : 22 = 0;
+            BDD      m_lo = 0;
+            BDD      m_hi = 0;
+            unsigned m_index = 0;
             unsigned hash() const { return mk_mix(m_level, m_lo, m_hi); }
             bool is_internal() const { return m_lo == 0 && m_hi == 0; }
             void set_internal() { m_lo = 0; m_hi = 0; }
@@ -278,7 +278,7 @@ namespace dd {
         bdd(unsigned root, bdd_manager* m): root(root), m(m) { m->inc_ref(root); }
     public:
         bdd(bdd const & other): root(other.root), m(other.m) { m->inc_ref(root); }
-        bdd(bdd && other) noexcept : root(0), m(other.m) { std::swap(root, other.root); }
+        bdd(bdd && other) noexcept : root(other.root), m(other.m) { other.root = 0; }
         bdd& operator=(bdd const& other);
         ~bdd() { m->dec_ref(root); }
         bdd lo() const { return bdd(m->lo(root), m); }

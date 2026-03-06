@@ -40,7 +40,7 @@ mpff_manager::mpff_manager(unsigned prec, unsigned initial_capacity) {
     m_capacity       = initial_capacity;
     m_to_plus_inf    = false;
     m_significands.resize(initial_capacity * prec, 0);
-    for (unsigned i = 0; i < MPFF_NUM_BUFFERS; i++)
+    for (unsigned i = 0; i < MPFF_NUM_BUFFERS; ++i)
         m_buffers[i].resize(2 * prec, 0);
     // Reserve space for zero
     VERIFY(m_id_gen.mk() == 0);
@@ -63,7 +63,7 @@ void mpff_manager::allocate(mpff & n) {
     n.m_sig_idx = sig_idx;
     DEBUG_CODE({
             unsigned * s = sig(n);
-            for (unsigned i = 0; i < m_precision; i++) {
+            for (unsigned i = 0; i < m_precision; ++i) {
                 SASSERT(s[i] == 0);
             }
         });
@@ -73,7 +73,7 @@ void mpff_manager::to_buffer(unsigned idx, mpff const & n) const {
     SASSERT(idx < MPFF_NUM_BUFFERS);
     svector<unsigned> & b = const_cast<mpff_manager*>(this)->m_buffers[idx];
     unsigned * s = sig(n);
-    for (unsigned i = 0; i < m_precision; i++)
+    for (unsigned i = 0; i < m_precision; ++i)
         b[i] = s[i];
 }
 
@@ -82,7 +82,7 @@ void mpff_manager::to_buffer_ext(unsigned idx, mpff const & n) const {
     svector<unsigned> & b = const_cast<mpff_manager*>(this)->m_buffers[idx];
     unsigned * s = sig(n);
     unsigned j = m_precision;
-    for (unsigned i = 0; i < m_precision; i++, j++) {
+    for (unsigned i = 0; i < m_precision; ++i, ++j) {
         b[i] = s[i];
         b[j] = 0;
     }
@@ -93,7 +93,7 @@ void mpff_manager::to_buffer_shifting(unsigned idx, mpff const & n) const {
     svector<unsigned> & b = const_cast<mpff_manager*>(this)->m_buffers[idx];
     unsigned * s = sig(n);
     unsigned j   = m_precision;
-    for (unsigned i = 0; i < m_precision; i++, j++) {
+    for (unsigned i = 0; i < m_precision; ++i, ++j) {
         b[i] = 0;
         b[j] = s[i];
     }
@@ -104,7 +104,7 @@ void mpff_manager::del(mpff & n) {
     if (sig_idx != 0) {
         m_id_gen.recycle(sig_idx);
         unsigned * s = sig(n);
-        for (unsigned i = 0; i < m_precision; i++)
+        for (unsigned i = 0; i < m_precision; ++i)
             s[i] = 0;
     }
 }
@@ -192,7 +192,7 @@ bool mpff_manager::is_abs_one(mpff const & n) const {
     unsigned * s = sig(n);
     if (s[m_precision - 1] != 0x80000000u)
         return false;
-    for (unsigned i = 0; i < m_precision - 1; i++) 
+    for (unsigned i = 0; i < m_precision - 1; ++i) 
         if (s[i] != 0)
             return false;
     return true;
@@ -209,7 +209,7 @@ bool mpff_manager::is_two(mpff const & n) const {
     unsigned * s = sig(n);
     if (s[m_precision - 1] != 0x80000000u)
         return false;
-    for (unsigned i = 0; i < m_precision - 1; i++) 
+    for (unsigned i = 0; i < m_precision - 1; ++i) 
         if (s[i] != 0)
             return false;
     return true;
@@ -243,7 +243,7 @@ void mpff_manager::set(mpff & n, unsigned v) {
         v <<= num_leading_zeros;
         unsigned * s          = sig(n);
         s[m_precision - 1]    = v;
-        for (unsigned i = 0; i < m_precision - 1; i++)
+        for (unsigned i = 0; i < m_precision - 1; ++i)
             s[i] = 0;
     }
     SASSERT(check(n));
@@ -284,7 +284,7 @@ void mpff_manager::set(mpff & n, uint64_t v) {
         unsigned * s          = sig(n);
         s[m_precision-1]      = _v[1];
         s[m_precision-2]      = _v[0];
-        for (unsigned i = 0; i < m_precision - 2; i++)
+        for (unsigned i = 0; i < m_precision - 2; ++i)
             s[i] = 0;
     }
     SASSERT(check(n));
@@ -319,7 +319,7 @@ void mpff_manager::set(mpff & n, mpff const & v) {
     n.m_exponent = v.m_exponent;
     unsigned * s1 = sig(n);
     unsigned * s2 = sig(v);
-    for (unsigned i = 0; i < m_precision; i++)
+    for (unsigned i = 0; i < m_precision; ++i)
         s1[i] = s2[i];
     SASSERT(check(n));
 }
@@ -342,7 +342,7 @@ void mpff_manager::set_core(mpff & n, mpz_manager<SYNCH> & m, mpz const & v) {
         while (w.size() < m_precision) {
             w.push_back(0);
         }
-        TRACE(mpff, tout << "w words: "; for (unsigned i = 0; i < w.size(); i++) tout << w[i] << " "; tout << "\n";);
+        TRACE(mpff, tout << "w words: "; for (unsigned i = 0; i < w.size(); ++i) tout << w[i] << " "; tout << "\n";);
         unsigned w_sz = w.size();
         SASSERT(w_sz >= m_precision);
         unsigned num_leading_zeros = nlz(w_sz, w.data());
@@ -415,7 +415,7 @@ bool mpff_manager::eq(mpff const & a, mpff const & b) const {
         return false;
     unsigned * s1 = sig(a);
     unsigned * s2 = sig(b);
-    for (unsigned i = 0; i < m_precision; i++) 
+    for (unsigned i = 0; i < m_precision; ++i) 
         if (s1[i] != s2[i])
             return false;
     return true;
@@ -500,7 +500,7 @@ void mpff_manager::inc_significand(mpff & a) {
 void mpff_manager::dec_significand(mpff & a) {
     SASSERT(!is_minus_epsilon(a) && !is_zero(a) && !is_plus_epsilon(a));
     unsigned * s = sig(a);
-    for (unsigned i = 0; i < m_precision - 1; i++) {
+    for (unsigned i = 0; i < m_precision - 1; ++i) {
         s[i]--;
         if (s[i] != UINT_MAX)
             return;
@@ -530,14 +530,14 @@ void mpff_manager::set_min_significand(mpff & a) {
     // we have that 0x8000..00 is the minimal significand
     unsigned * s = sig(a);
     s[m_precision - 1] = MIN_MSW;
-    for (unsigned i = 0; i < m_precision - 1; i++) 
+    for (unsigned i = 0; i < m_precision - 1; ++i) 
         s[i] = 0;
 }
 
 void mpff_manager::set_max_significand(mpff & a) {
     SASSERT(!is_zero(a));
     unsigned * s = sig(a);
-    for (unsigned i = 0; i < m_precision; i++) 
+    for (unsigned i = 0; i < m_precision; ++i) 
         s[i] = UINT_MAX;
 }
 
@@ -713,7 +713,7 @@ void mpff_manager::add_sub(bool is_sub, mpff const & a, mpff const & b, mpff & c
         if (num_leading_zeros == sizeof(unsigned) * 8) {
             // no shift is needed
             c.m_exponent = exp_a;
-            for (unsigned i = 0; i < m_precision; i++)
+            for (unsigned i = 0; i < m_precision; ++i)
                 sig_c[i] = sig_r[i];
         }
         else if (num_leading_zeros == sizeof(unsigned) * 8 - 1) {
@@ -1036,7 +1036,7 @@ void mpff_manager::power(mpff const & a, unsigned p, mpff & b) {
                 throw overflow_exception();
             unsigned * r = sig(b);
             r[m_precision - 1] = 0x80000000u;
-            for (unsigned i = 0; i < m_precision - 1; i++)
+            for (unsigned i = 0; i < m_precision - 1; ++i)
                 r[i] = 0;
             b.m_exponent = static_cast<int>(exp);
         }
@@ -1247,10 +1247,10 @@ void mpff_manager::display_decimal(std::ostream & out, mpff const & n, unsigned 
         sbuffer<unsigned, 1024> buffer;
         unsigned num_extra_words = 1 + static_cast<unsigned>(exp/word_sz);
         unsigned shift           = word_sz - exp%word_sz;
-        for (unsigned i = 0; i < num_extra_words; i++)
+        for (unsigned i = 0; i < num_extra_words; ++i)
             buffer.push_back(0);
         unsigned * s = sig(n);
-        for (unsigned i = 0; i < m_precision; i++) 
+        for (unsigned i = 0; i < m_precision; ++i) 
             buffer.push_back(s[i]);
         shr(buffer.size(), buffer.data(), shift, buffer.size(), buffer.data());
         sbuffer<char, 1024> str_buffer(11*buffer.size(), 0);
@@ -1264,12 +1264,12 @@ void mpff_manager::display_decimal(std::ostream & out, mpff const & n, unsigned 
         unsigned num_extra_words = m_precision < num_words ? num_words - m_precision : 0;
         num_extra_words++;
         unsigned * s = sig(n);
-        for (unsigned i = 0; i < m_precision; i++)  {
+        for (unsigned i = 0; i < m_precision; ++i)  {
             buffer1.push_back(s[i]);
             buffer2.push_back(0);
             buffer3.push_back(0);
         }
-        for (unsigned i = 0; i < num_extra_words; i++) {
+        for (unsigned i = 0; i < num_extra_words; ++i) {
             buffer1.push_back(0);
             buffer2.push_back(0);
         }

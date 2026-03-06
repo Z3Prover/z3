@@ -446,7 +446,7 @@ public:
         proc p(g.m(), m_bool, m_family);
         unsigned sz = g.size();
         expr_fast_mark1 visited;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             for_each_expr_core<proc, expr_fast_mark1, true, true>(p, visited, g.form(i));
         }
         return result(p.m_counter);
@@ -519,7 +519,7 @@ public:
             expr_fast_mark1 visited;
             proc p;
             unsigned sz = g.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 quick_for_each_expr(p, visited, g.form(i));
             }
             return false;
@@ -549,7 +549,7 @@ public:
             expr_fast_mark1 visited;
             proc p;
             unsigned sz = g.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 quick_for_each_expr(p, visited, g.form(i));
             }
             return false;

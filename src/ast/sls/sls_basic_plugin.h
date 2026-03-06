@@ -36,7 +36,6 @@ namespace sls {
             plugin(ctx) { 
             m_fid = basic_family_id;
         }
-        ~basic_plugin() override {}
         void register_term(expr* e) override;
         expr_ref get_value(expr* e) override;
         void initialize() override;
@@ -51,7 +50,7 @@ namespace sls {
         void on_restart() override {}
         std::ostream& display(std::ostream& out) const override;
         bool set_value(expr* e, expr* v) override;
-        void collect_statistics(statistics& st) const override {}
+        void collect_statistics(statistics&) const override { }
         void reset_statistics() override {}
     };
 

@@ -140,9 +140,6 @@ namespace euf {
 
     }
 
-    completion::~completion() {
-    }
-
     bool completion::should_stop() {
         return
             !m.inc() ||

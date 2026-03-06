@@ -32,7 +32,7 @@ std::string norm_param_name(char const* n) {
     if (sz == 0)
         return "_";
         
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         char curr = r[i];
         if ('A' <= curr && curr <= 'Z')
             r[i] = curr - 'A' + 'a';
@@ -50,12 +50,12 @@ std::string norm_param_name(symbol const & n) {
 
 struct param_descrs::imp {
     struct info {
-        param_kind   m_kind;
-        char const * m_descr;
-        char const * m_default;
-        char const * m_module;
+        param_kind         m_kind;
+        std::string_view   m_descr;
+        std::string_view   m_default;
+        std::string_view   m_module;
 
-        info(param_kind k, char const * descr, char const * def, char const* module):
+        info(param_kind k, std::string_view descr, std::string_view def, std::string_view module):
             m_kind(k),
             m_descr(descr),
             m_default(def),
@@ -64,16 +64,16 @@ struct param_descrs::imp {
 
         info():
             m_kind(CPK_INVALID), 
-            m_descr(nullptr),
-            m_default(nullptr),
-            m_module(nullptr) {
+            m_descr(),
+            m_default(),
+            m_module() {
         }
     };
 
     dictionary<info> m_info;
     svector<symbol> m_names;
 
-    void insert(symbol const & name, param_kind k, char const * descr, char const * def, char const* module) {
+    void insert(symbol const & name, param_kind k, std::string_view descr, std::string_view def, std::string_view module) {
         SASSERT(!name.is_numerical());
         info i;
         if (m_info.find(name, i)) {
@@ -82,6 +82,13 @@ struct param_descrs::imp {
         }
         m_info.insert(name, info(k, descr, def, module));
         m_names.push_back(name);
+    }
+    
+    void insert(symbol const & name, param_kind k, char const * descr, char const * def, char const* module) {
+        insert(name, k, 
+               descr ? std::string_view(descr) : std::string_view(),
+               def ? std::string_view(def) : std::string_view(),
+               module ? std::string_view(module) : std::string_view());
     }
 
     void erase(symbol const & name) {
@@ -127,25 +134,25 @@ struct param_descrs::imp {
         return k;
     }
 
-    char const* get_module(symbol const& name) const {
+    std::string_view get_module(symbol const& name) const {
         info i;
         if (m_info.find(name, i)) 
             return i.m_module;
-        return nullptr;
+        return {};
     }
 
-    char const * get_descr(symbol const & name) const {
+    std::string_view get_descr(symbol const & name) const {
         info i;
         if (m_info.find(name, i))
             return i.m_descr;
-        return nullptr;
+        return {};
     }
 
-    char const * get_default(symbol const & name) const {
+    std::string_view get_default(symbol const & name) const {
         info i;
         if (m_info.find(name, i))
             return i.m_default;
-        return nullptr;
+        return {};
     }
 
     unsigned size() const {
@@ -173,12 +180,12 @@ struct param_descrs::imp {
                    " ----------|------|-------------|--------\n";
         }
         for (symbol const& name : names) {
-            for (unsigned i = 0; i < indent; i++) out << " ";
+            for (unsigned i = 0; i < indent; ++i) out << " ";
             if (smt2_style)
                 out << ':';
             std::string s = name.str();
             unsigned n = static_cast<unsigned>(s.length());
-            for (unsigned i = 0; i < n; i++) {
+            for (unsigned i = 0; i < n; ++i) {
                 if (smt2_style && s[i] == '_')
                     out << '-';
                 else if (!smt2_style && s[i] == '-')
@@ -190,14 +197,14 @@ struct param_descrs::imp {
             }
             info d;
             m_info.find(name, d);
-            SASSERT(d.m_descr);
+            SASSERT(!d.m_descr.empty());
             if (markdown) 
                 out << " | " << d.m_kind << " ";
             else
                 out << " (" << d.m_kind << ")";
             if (markdown) {
                 out << " |  ";
-                for (auto ch : std::string_view(d.m_descr)) {
+                for (auto ch : d.m_descr) {
                     switch (ch) {
                     case '<': out << "&lt;"; break;
                     case '>': out << "&gt;"; break;
@@ -209,10 +216,10 @@ struct param_descrs::imp {
                 out << " " << d.m_descr;
             if (markdown) {
                 out << " | ";
-                if (d.m_default)
+                if (!d.m_default.empty())
                     out << d.m_default;
             }
-            else if (d.m_default != nullptr)
+            else if (!d.m_default.empty())
                 out << " (default: " << d.m_default << ")";
             out << "\n";
         }
@@ -259,7 +266,8 @@ char const * param_descrs::get_descr(char const * name) const {
 }
 
 char const * param_descrs::get_descr(symbol const & name) const {
-    return m_imp->get_descr(name);
+    auto sv = m_imp->get_descr(name);
+    return sv.empty() ? nullptr : sv.data();
 }
 
 char const * param_descrs::get_default(char const * name) const {
@@ -267,7 +275,8 @@ char const * param_descrs::get_default(char const * name) const {
 }
 
 char const * param_descrs::get_default(symbol const & name) const {
-    return m_imp->get_default(name);
+    auto sv = m_imp->get_default(name);
+    return sv.empty() ? nullptr : sv.data();
 }
 
 void param_descrs::erase(symbol const & name) {
@@ -299,7 +308,8 @@ symbol param_descrs::get_param_name(unsigned i) const {
 }
 
 char const* param_descrs::get_module(symbol const& name) const {
-    return m_imp->get_module(name);
+    auto sv = m_imp->get_module(name);
+    return sv.empty() ? nullptr : sv.data();
 }
 
 void param_descrs::display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) const {

@@ -32,7 +32,7 @@ void decl_collector::visit_sort(sort * n) {
             m_todo.push_back(cnstr);
             ptr_vector<func_decl> const & cnstr_acc = *m_dt_util.get_constructor_accessors(cnstr);
             unsigned num_cas = cnstr_acc.size();
-            for (unsigned j = 0; j < num_cas; j++) 
+            for (unsigned j = 0; j < num_cas; ++j) 
                 m_todo.push_back(cnstr_acc.get(j));            
         }
     }
@@ -163,7 +163,7 @@ void decl_collector::collect_deps(sort* s, sort_set& set) {
         for (unsigned i = 0; i < num_sorts; ++i) 
             set.insert(m_dt_util.get_datatype_parameter_sort(s, i));
         unsigned num_cnstr = m_dt_util.get_datatype_num_constructors(s);
-        for (unsigned i = 0; i < num_cnstr; i++) {
+        for (unsigned i = 0; i < num_cnstr; ++i) {
             func_decl * cnstr = m_dt_util.get_datatype_constructors(s)->get(i);
             set.insert(cnstr->get_range());
             for (unsigned j = 0; j < cnstr->get_arity(); ++j) {

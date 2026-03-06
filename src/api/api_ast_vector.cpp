@@ -112,7 +112,7 @@ extern "C" {
         Z3_ast_vector_ref * new_v = alloc(Z3_ast_vector_ref, *mk_c(t), mk_c(t)->m());
         mk_c(t)->save_object(new_v);
         unsigned sz = to_ast_vector_ref(v).size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             ast * new_ast = translator(to_ast_vector_ref(v).get(i));
             new_v->m_ast_vector.push_back(new_ast);
         }
@@ -127,10 +127,10 @@ extern "C" {
         std::ostringstream buffer;
         buffer << "(ast-vector";
         unsigned sz = to_ast_vector_ref(v).size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             buffer << "\n  " << mk_ismt2_pp(to_ast_vector_ref(v).get(i), mk_c(c)->m(), 2);
         }
-        buffer << ")";
+        buffer << ')';
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN(nullptr);
     }

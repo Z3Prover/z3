@@ -147,7 +147,7 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
             }
             i++;
             input_file = "";
-            for (; i < argc; i++) {
+            for (; i < argc; ++i) {
                 input_file += argv[i];
                 if (i < argc - 1)
                     input_file += " ";

@@ -123,7 +123,7 @@ namespace polymorphism {
                 expr_ref e_inst = new_sub(e);
                 if (!m_from_instantiation.contains(e_inst)) {
                     collect_instantiations(e_inst);
-                    auto* new_sub1 = alloc(substitution, new_sub);
+                    auto* new_sub1 = alloc(substitution, std::move(new_sub));
                     instances.push_back(instantiation(e, e_inst, new_sub1));
                     new_substs.insert(new_sub1);
                     m_from_instantiation.insert(e_inst);

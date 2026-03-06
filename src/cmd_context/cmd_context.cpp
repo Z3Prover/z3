@@ -32,6 +32,7 @@ Notes:
 #include "ast/pb_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
 #include "ast/special_relations_decl_plugin.h"
+#include "ast/finite_set_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/pp.h"
 #include "ast/ast_smt2_pp.h"
@@ -174,7 +175,7 @@ bool func_decls::clash(func_decl * f) const {
             continue;
         unsigned num = g->get_arity();
         unsigned i;
-        for (i = 0; i < num; i++)
+        for (i = 0; i < num; ++i)
             if (g->get_domain(i) != f->get_domain(i))
                 break;
         if (i == num)
@@ -208,7 +209,7 @@ bool func_decls::check_signature(ast_manager& m, func_decl* f, unsigned arity, s
     if (!domain)
         return true;
     coerced = false;
-    for (unsigned i = 0; i < arity; i++) {
+    for (unsigned i = 0; i < arity; ++i) {
         sort* s1 = f->get_domain(i);
         sort* s2 = domain[i];
         if (s1 == s2)
@@ -232,7 +233,7 @@ bool func_decls::check_poly_signature(ast_manager& m, func_decl* f, unsigned ari
         return false;
     if (f->get_arity() != arity)
         return false;
-    for (unsigned i = 0; i < arity; i++) 
+    for (unsigned i = 0; i < arity; ++i) 
         if (!sub.match(f->get_domain(i), domain[i]))
             return false;    
     if (!range)
@@ -290,7 +291,7 @@ func_decl * func_decls::find(ast_manager & m, unsigned num_args, expr * const * 
     if (!more_than_one())
         first();
     ptr_buffer<sort> sorts;
-    for (unsigned i = 0; i < num_args; i++) {
+    for (unsigned i = 0; i < num_args; ++i) {
         if (!args[i])
             return nullptr;
         sorts.push_back(args[i]->get_sort());
@@ -314,7 +315,7 @@ func_decl * func_decls::get_entry(unsigned inx) {
     else {
         func_decl_set * fs = UNTAG(func_decl_set *, m_decls);
         auto b = fs->begin();
-        for (unsigned i = 0; i < inx; i++)
+        for (unsigned i = 0; i < inx; ++i)
             b++;
         return *b;
     }
@@ -532,6 +533,7 @@ protected:
     fpa_util      m_futil;
     seq_util      m_sutil;
     datatype_util m_dtutil;
+    finite_set_util m_fsutil;
 
     datalog::dl_decl_util m_dlutil;
 
@@ -553,7 +555,8 @@ protected:
     }
 
 public:
-    pp_env(cmd_context & o):m_owner(o), m_autil(o.m()), m_bvutil(o.m()), m_arutil(o.m()), m_futil(o.m()), m_sutil(o.m()), m_dtutil(o.m()), m_dlutil(o.m()) {}
+    pp_env(cmd_context & o):m_owner(o), m_autil(o.m()), m_bvutil(o.m()), m_arutil(o.m()), m_futil(o.m()), 
+        m_sutil(o.m()), m_dtutil(o.m()), m_fsutil(o.m()), m_dlutil(o.m()) {}
     ast_manager & get_manager() const override { return m_owner.m(); }
     arith_util & get_autil() override { return m_autil; }
     bv_util & get_bvutil() override { return m_bvutil; }
@@ -561,6 +564,7 @@ public:
     fpa_util & get_futil() override { return m_futil; }
     seq_util & get_sutil() override { return m_sutil; }
     datatype_util & get_dtutil() override { return m_dtutil; }
+    finite_set_util &get_fsutil() override { return m_fsutil; }
 
     datalog::dl_decl_util& get_dlutil() override { return m_dlutil; }
     bool uses(symbol const & s) const override {
@@ -829,6 +833,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
         register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
         register_plugin(symbol("specrels"), alloc(special_relations_decl_plugin), !has_logic());
+        register_plugin(symbol("finite_set"), alloc(finite_set_decl_plugin), !has_logic() || smt_logics::logic_has_finite_sets(m_logic));
     }
     else {
         // the manager was created by an external module
@@ -845,6 +850,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("seq"),      logic_has_seq(), fids);
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
         load_plugin(symbol("pb"),       logic_has_pb(), fids);
+        load_plugin(symbol("finite_set"), smt_logics::logic_has_finite_sets(m_logic) || !has_logic(), fids);
 
         for (family_id fid : fids) {
             decl_plugin * p = m_manager->get_plugin(fid);
@@ -1149,7 +1155,7 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
         }
         else {
             buffer<parameter> ps;
-            for (unsigned i = 0; i < num_indices; i++)
+            for (unsigned i = 0; i < num_indices; ++i)
                 ps.push_back(parameter(indices[i]));
             f = m().mk_func_decl(fid, k, num_indices, ps.data(), arity, domain, range);
         }
@@ -1268,12 +1274,12 @@ bool cmd_context::try_mk_declared_app(symbol const &s, unsigned num_args, expr *
         unsigned sz = get_array_arity(s);
         if (sz != num_args)
             return false;
-        for (unsigned i = 0; i < sz; i++) 
+        for (unsigned i = 0; i < sz; ++i) 
             if (args[i]->get_sort() != get_array_domain(s, i))
                 return false;        
         expr_ref_vector new_args(m());
         new_args.push_back(m().mk_const(f));
-        for (unsigned i = 0; i < num_args; i++)
+        for (unsigned i = 0; i < num_args; ++i)
             new_args.push_back(args[i]);
         result = au.mk_select(new_args.size(), new_args.data());
         return true;
@@ -1290,7 +1296,7 @@ bool cmd_context::try_mk_macro_app(symbol const & s, unsigned num_args, expr * c
         TRACE(macro_bug, tout << "well_sorted_check_enabled(): " << well_sorted_check_enabled() << "\n";
               tout << "s: " << s << "\n";
               tout << "body:\n" << mk_ismt2_pp(_t, m()) << "\n";
-              tout << "args:\n"; for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(args[i]->get_sort(), m()) << "\n";);
+              tout << "args:\n"; for (unsigned i = 0; i < num_args; ++i) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(args[i]->get_sort(), m()) << "\n";);
         scoped_rlimit no_limit(m().limit(), 0);
         result = rev_subst()(_t, coerced_args);
         if (well_sorted_check_enabled() && !is_well_sorted(m(), result))
@@ -1649,7 +1655,7 @@ void cmd_context::push() {
 }
 
 void cmd_context::push(unsigned n) {
-    for (unsigned i = 0; i < n; i++)
+    for (unsigned i = 0; i < n; ++i)
         push();
 }
 
@@ -2123,7 +2129,7 @@ void cmd_context::complete_model(model_ref& md) const {
         }
     }
 
-    for (unsigned i = 0; i < md->get_num_functions(); i++) {
+    for (unsigned i = 0; i < md->get_num_functions(); ++i) {
         func_decl * f = md->get_function(i);
         func_interp * fi = md->get_func_interp(f);
         IF_VERBOSE(12, verbose_stream() << "(model.completion " << f->get_name() << ")\n"; );
@@ -2135,7 +2141,7 @@ void cmd_context::complete_model(model_ref& md) const {
 
     for (auto& [k, v] : m_func_decls) {
         IF_VERBOSE(12, verbose_stream() << "(model.completion " << k << ")\n"; );
-        for (unsigned i = 0; i < v.get_num_entries(); i++) {
+        for (unsigned i = 0; i < v.get_num_entries(); ++i) {
             func_decl * f = v.get_entry(i);
             
             if (md->has_interpretation(f))
@@ -2338,14 +2344,14 @@ void cmd_context::set_solver_factory(solver_factory * f) {
         // assert formulas and create scopes in the new solver.
         unsigned lim = 0;
         for (scope& s : m_scopes) {
-            for (unsigned i = lim; i < s.m_assertions_lim; i++) {
+            for (unsigned i = lim; i < s.m_assertions_lim; ++i) {
                 m_solver->assert_expr(m_assertions[i]);
             }
             lim = s.m_assertions_lim;
             m_solver->push();
         }
         unsigned sz = m_assertions.size();
-        for (unsigned i = lim; i < sz; i++) {
+        for (unsigned i = lim; i < sz; ++i) {
             m_solver->assert_expr(m_assertions[i]);
         }
     }
@@ -2493,7 +2499,7 @@ void cmd_context::display_smt2_benchmark(std::ostream & out, unsigned num, expr 
         out << "(set-logic " << logic << ")" << std::endl;
     // collect uninterpreted function declarations
     decl_collector decls(m());
-    for (unsigned i = 0; i < num; i++) 
+    for (unsigned i = 0; i < num; ++i) 
         decls.visit(assertions[i]);
 
     // TODO: display uninterpreted sort decls, and datatype decls.
@@ -2503,7 +2509,7 @@ void cmd_context::display_smt2_benchmark(std::ostream & out, unsigned num, expr 
         out << std::endl;
     }
 
-    for (unsigned i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; ++i) {
         out << "(assert ";
         display(out, assertions[i], 8);
         out << ")" << std::endl;
@@ -2545,6 +2551,9 @@ void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
             TRACE(new_dt_eh, tout << "new accessor: " << a->get_name() << "\n";);
             m_owner.insert(a);
         }
+    }
+    if (func_decl * sub = m_dt_util.get_datatype_subterm(dt)) {
+        m_owner.insert(sub);
     }
     if (!m_owner.m_scopes.empty() && !m_owner.m_global_decls) {
         m_owner.pm().inc_ref(pd);

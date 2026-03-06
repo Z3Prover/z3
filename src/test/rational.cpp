@@ -288,7 +288,7 @@ public:
 
     static void tst2() {
         tst_hash(0);
-        for (int i = 0; i <= 10000; i++) {
+        for (int i = 0; i <= 10000; ++i) {
             int r = rand() % INT_MAX;
             if (rand()%2 == 1) r = -r;
             tst_hash(r);
@@ -299,7 +299,7 @@ public:
 static void tst7() {
     rational p;
     p = power(rational(2), 32);
-    for (unsigned i = 1; i < 1000; i++) {
+    for (unsigned i = 1; i < 1000; ++i) {
         rational n(i);
         rational x;
         rational y;
@@ -396,7 +396,7 @@ static void tst10(bool use_ints) {
     vals.resize(NUM_RATIONALS);
     vals2.resize(NUM_RATIONALS);
     fvals.resize(NUM_RATIONALS);
-    for (unsigned i = 0; i < NUM_RATIONALS; i++) {
+    for (unsigned i = 0; i < NUM_RATIONALS; ++i) {
         int r1 = rand() % MAGNITUDE;
         int r2 = use_ints ? 1 : rand() % MAGNITUDE;
         if (r2 == 0) r2 = 1;
@@ -407,13 +407,13 @@ static void tst10(bool use_ints) {
     }
     {
         timeit t(true, "multiplication with rationals");
-        for (unsigned i = 0; i < NUM_RATIONALS - 1; i++) {
+        for (unsigned i = 0; i < NUM_RATIONALS - 1; ++i) {
             vals[i] *= vals[i+1];
         }
     }
     {
         timeit t(true, "multiplication with floats: ");
-        for (unsigned i = 0; i < NUM_RATIONALS - 1; i++) {
+        for (unsigned i = 0; i < NUM_RATIONALS - 1; ++i) {
             fvals[i] *= fvals[i+1];
         }
     }
@@ -428,7 +428,7 @@ static void tst11(bool use_ints) {
     vector<float>    fvals;
     vals.resize(NUM_RATIONALS2);
     fvals.resize(NUM_RATIONALS2);
-    for (unsigned i = 0; i < NUM_RATIONALS2; i++) {
+    for (unsigned i = 0; i < NUM_RATIONALS2; ++i) {
         int r1 = rand() % MAGNITUDE2;
         int r2 = use_ints ? 1 : rand() % MAGNITUDE2;
         if (r2 == 0) r2 = 1;
@@ -438,15 +438,15 @@ static void tst11(bool use_ints) {
     }
     {
         timeit t(true, "multiplication with big rationals");
-        for (unsigned j = 0; j < 10; j++)
-            for (unsigned i = 0; i < NUM_RATIONALS2-1; i++) {
+        for (unsigned j = 0; j < 10; ++j)
+            for (unsigned i = 0; i < NUM_RATIONALS2-1; ++i) {
                 vals[i] *= vals[i+1];
             }
     }
     {
         timeit t(true, "multiplication with floats: ");
-        for (unsigned j = 0; j < 10; j++)
-            for (unsigned i = 0; i < NUM_RATIONALS2-1; i++) {
+        for (unsigned j = 0; j < 10; ++j)
+            for (unsigned i = 0; i < NUM_RATIONALS2-1; ++i) {
                 fvals[i] *= fvals[i+1];
             }
     }

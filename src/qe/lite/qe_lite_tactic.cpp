@@ -121,7 +121,7 @@ namespace qel {
 
             // eliminate self loops, and definitions containing quantifiers.
             bool found = false;
-            for (unsigned i = 0; i < definitions.size(); i++) {
+            for (unsigned i = 0; i < definitions.size(); ++i) {
                 var * v  = vars[i];
                 expr * t = definitions[i];
                 if (t == nullptr || has_quantifiers(t) || strict_occurs_var(v->get_idx(), t))
@@ -141,7 +141,7 @@ namespace qel {
 
             unsigned vidx, num;
 
-            for (unsigned i = 0; i < definitions.size(); i++) {
+            for (unsigned i = 0; i < definitions.size(); ++i) {
                 if (definitions[i] == nullptr)
                     continue;
                 var * v = vars[i];
@@ -323,7 +323,7 @@ namespace qel {
         void get_elimination_order() {
             TRACE(top_sort,
                   tout << "DEFINITIONS: " << std::endl;
-                  for(unsigned i = 0; i < m_map.size(); i++)
+                  for(unsigned i = 0; i < m_map.size(); ++i)
                       if(m_map[i]) tout << "VAR " << i << " = " << mk_pp(m_map[i], m) << std::endl;
                   );
 
@@ -377,7 +377,7 @@ namespace qel {
 
             // get a new expression
             m_new_args.reset();
-            for(unsigned i = 0; i < num_args; i++) {
+            for(unsigned i = 0; i < num_args; ++i) {
                 int x = m_pos2var[i];
                 if (x == -1 || m_map[x] == 0) {
                     m_new_args.push_back(args[i]);
@@ -406,12 +406,12 @@ namespace qel {
             // don't forget to update the quantifier patterns
             expr_ref_buffer  new_patterns(m);
             expr_ref_buffer  new_no_patterns(m);
-            for (unsigned j = 0; j < q->get_num_patterns(); j++) {
+            for (unsigned j = 0; j < q->get_num_patterns(); ++j) {
                 expr_ref new_pat = m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.data());
                 new_patterns.push_back(new_pat);
             }
 
-            for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
+            for (unsigned j = 0; j < q->get_num_no_patterns(); ++j) {
                 expr_ref new_nopat = m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.data());
                 new_no_patterns.push_back(new_nopat);
             }
@@ -482,7 +482,7 @@ namespace qel {
             m_pos2var.reserve(num_args, -1);
 
             // Find all definitions
-            for (unsigned i = 0; i < num_args; i++) {
+            for (unsigned i = 0; i < num_args; ++i) {
                 checkpoint();
                 ptr_vector<var> vs;
                 expr_ref_vector ts(m);
@@ -550,7 +550,7 @@ namespace qel {
         void flatten_definitions(expr_ref_vector& conjs) {
             TRACE(qe_lite,
                   expr_ref tmp(m);
-                  tmp = m.mk_and(conjs.size(), conjs.data());
+                  tmp = m.mk_and(conjs);
                   tout << mk_pp(tmp, m) << "\n";);
             for (unsigned i = 0; i < conjs.size(); ++i) {
                 expr* c = conjs[i].get();
@@ -586,7 +586,7 @@ namespace qel {
             }
             TRACE(qe_lite,
                   expr_ref tmp(m);
-                  tmp = m.mk_and(conjs.size(), conjs.data());
+                  tmp = m.mk_and(conjs);
                   tout << "after flatten\n" << mk_pp(tmp, m) << "\n";);
         }
 
@@ -665,7 +665,7 @@ namespace qel {
 
                 if (!m_order.empty()) {
                     expr_ref r(m), new_r(m);
-                    r = m.mk_and(conjs.size(), conjs.data());
+                    r = m.mk_and(conjs);
                     create_substitution(largest_vinx + 1);
                     new_r = m_subst(r, m_subst_map.size(), m_subst_map.data());
                     m_rewriter(new_r);
@@ -1078,7 +1078,7 @@ namespace fm {
 
             expr_fast_mark2 visited;
             bool all_forbidden = true;
-            for (unsigned i = 0; i < num_mons; i++) {
+            for (unsigned i = 0; i < num_mons; ++i) {
                 expr * x;
                 if (!is_linear_mon_core(mons[i], x))
                     return false;
@@ -1108,7 +1108,7 @@ namespace fm {
             if (m_fm_occ && m.is_or(t)) {
                 unsigned num = to_app(t)->get_num_args();
                 bool found = false;
-                for (unsigned i = 0; i < num; i++) {
+                for (unsigned i = 0; i < num; ++i) {
                     expr * l = to_app(t)->get_arg(i);
                     if (is_literal(l)) {
                         continue;
@@ -1142,7 +1142,7 @@ namespace fm {
         }
 
         void del_constraints(unsigned sz, constraint * const * cs) {
-            for (unsigned i = 0; i < sz; i++)
+            for (unsigned i = 0; i < sz; ++i)
                 del_constraint(cs[i]);
         }
 
@@ -1166,18 +1166,18 @@ namespace fm {
             cnstr->m_strict     = strict;
             cnstr->m_num_vars   = num_vars;
             cnstr->m_lits       = reinterpret_cast<literal*>(mem_lits);
-            for (unsigned i = 0; i < num_lits; i++)
+            for (unsigned i = 0; i < num_lits; ++i)
                 cnstr->m_lits[i] = lits[i];
             cnstr->m_xs         = reinterpret_cast<var*>(mem_xs);
             cnstr->m_as         = reinterpret_cast<rational*>(mem_as);
-            for (unsigned i = 0; i < num_vars; i++) {
+            for (unsigned i = 0; i < num_vars; ++i) {
                 TRACE(qe_lite, tout << "xs[" << i << "]: " << xs[i] << "\n";);
                 cnstr->m_xs[i] = xs[i];
                 new (cnstr->m_as + i) rational(as[i]);
             }
             cnstr->m_c = c;
             DEBUG_CODE({
-                for (unsigned i = 0; i < num_vars; i++) {
+                for (unsigned i = 0; i < num_vars; ++i) {
                     SASSERT(cnstr->m_xs[i] == xs[i]);
                     SASSERT(cnstr->m_as[i] == as[i]);
                 }
@@ -1198,13 +1198,13 @@ namespace fm {
         // multiply as and c, by the lcm of their denominators
         void mk_int(unsigned num, rational * as, rational & c) {
             rational l = denominator(c);
-            for (unsigned i = 0; i < num; i++)
+            for (unsigned i = 0; i < num; ++i)
                 l = lcm(l, denominator(as[i]));
             if (l.is_one())
                 return;
             c *= l;
             SASSERT(c.is_int());
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 as[i] *= l;
                 SASSERT(as[i].is_int());
             }
@@ -1217,7 +1217,7 @@ namespace fm {
             rational g = c.m_c;
             if (g.is_neg())
                 g.neg();
-            for (unsigned i = 0; i < c.m_num_vars; i++) {
+            for (unsigned i = 0; i < c.m_num_vars; ++i) {
                 if (g.is_one())
                     break;
                 if (c.m_as[i].is_pos())
@@ -1228,12 +1228,12 @@ namespace fm {
             if (g.is_one())
                 return;
             c.m_c /= g;
-            for (unsigned i = 0; i < c.m_num_vars; i++)
+            for (unsigned i = 0; i < c.m_num_vars; ++i)
                 c.m_as[i] /= g;
         }
 
         void display(std::ostream & out, constraint const & c) const {
-            for (unsigned i = 0; i < c.m_num_lits; i++) {
+            for (unsigned i = 0; i < c.m_num_lits; ++i) {
                 literal l = c.m_lits[i];
                 if (sign(l))
                     out << "~";
@@ -1244,7 +1244,7 @@ namespace fm {
             out << "(";
             if (c.m_num_vars == 0)
                 out << "0";
-            for (unsigned i = 0; i < c.m_num_vars; i++) {
+            for (unsigned i = 0; i < c.m_num_vars; ++i) {
                 if (i > 0)
                     out << " + ";
                 if (!c.m_as[i].is_one())
@@ -1282,12 +1282,12 @@ namespace fm {
 
             m_counter += c1.m_num_lits + c2.m_num_lits;
 
-            for (unsigned i = 0; i < c1.m_num_vars; i++) {
+            for (unsigned i = 0; i < c1.m_num_vars; ++i) {
                 m_var2pos[c1.m_xs[i]] = i;
             }
 
             bool failed = false;
-            for (unsigned i = 0; i < c2.m_num_vars; i++) {
+            for (unsigned i = 0; i < c2.m_num_vars; ++i) {
                 unsigned pos1 = m_var2pos[c2.m_xs[i]];
                 if (pos1 == UINT_MAX || c1.m_as[pos1] != c2.m_as[i]) {
                     failed = true;
@@ -1295,21 +1295,21 @@ namespace fm {
                 }
             }
 
-            for (unsigned i = 0; i < c1.m_num_vars; i++) {
+            for (unsigned i = 0; i < c1.m_num_vars; ++i) {
                 m_var2pos[c1.m_xs[i]] = UINT_MAX;
             }
 
             if (failed)
                 return false;
 
-            for (unsigned i = 0; i < c2.m_num_lits; i++) {
+            for (unsigned i = 0; i < c2.m_num_lits; ++i) {
                 literal l = c2.m_lits[i];
                 bvar b    = lit2bvar(l);
                 SASSERT(m_bvar2sign[b] == 0);
                 m_bvar2sign[b] = sign(l) ? -1 : 1;
             }
 
-            for (unsigned i = 0; i < c1.m_num_lits; i++) {
+            for (unsigned i = 0; i < c1.m_num_lits; ++i) {
                 literal l = c1.m_lits[i];
                 bvar b    = lit2bvar(l);
                 char s    = sign(l) ? -1 : 1;
@@ -1319,7 +1319,7 @@ namespace fm {
                 }
             }
 
-            for (unsigned i = 0; i < c2.m_num_lits; i++) {
+            for (unsigned i = 0; i < c2.m_num_lits; ++i) {
                 literal l = c2.m_lits[i];
                 bvar b    = lit2bvar(l);
                 m_bvar2sign[b] = 0;
@@ -1337,7 +1337,7 @@ namespace fm {
             var      best       = UINT_MAX;
             unsigned best_sz    = UINT_MAX;
             bool     best_lower = false;
-            for (unsigned i = 0; i < c.m_num_vars; i++) {
+            for (unsigned i = 0; i < c.m_num_vars; ++i) {
                 var xi     = c.m_xs[i];
                 if (is_forbidden(xi))
                     continue; // variable is not in the index
@@ -1436,7 +1436,7 @@ namespace fm {
             expr_fast_mark1 visited;
             forbidden_proc  proc(*this);
             unsigned sz = g.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 expr * f = g[i];
                 if (is_occ(f)) {
                     TRACE(qe_lite, tout << "OCC: " << mk_ismt2_pp(f, m) << "\n";);
@@ -1488,7 +1488,7 @@ namespace fm {
         }
 
         bool all_int(constraint const & c) const {
-            for (unsigned i = 0; i < c.m_num_vars; i++) {
+            for (unsigned i = 0; i < c.m_num_vars; ++i) {
                 if (!is_int(c.m_xs[i]))
                     return false;
             }
@@ -1507,7 +1507,7 @@ namespace fm {
             else {
                 bool int_cnstr = all_int(c);
                 ptr_buffer<expr> ms;
-                for (unsigned i = 0; i < c.m_num_vars; i++) {
+                for (unsigned i = 0; i < c.m_num_vars; ++i) {
                     expr * x = m_var2expr.get(c.m_xs[i]);
                     if (!int_cnstr && is_int(c.m_xs[i]))
                         x = m_util.mk_to_real(x);
@@ -1538,7 +1538,7 @@ namespace fm {
             }
 
             ptr_buffer<expr> lits;
-            for (unsigned i = 0; i < c.m_num_lits; i++) {
+            for (unsigned i = 0; i < c.m_num_lits; ++i) {
                 literal l = c.m_lits[i];
                 if (sign(l))
                     lits.push_back(m.mk_not(m_bvar2expr.get(lit2bvar(l))));
@@ -1550,7 +1550,7 @@ namespace fm {
             if (lits.size() == 1)
                 return to_app(lits[0]);
             else
-                return m.mk_or(lits.size(), lits.data());
+                return m.mk_or(lits);
         }
 
         var mk_var(expr * t) {
@@ -1634,7 +1634,7 @@ namespace fm {
 #if Z3DEBUG
             bool found_ineq = false;
 #endif
-            for (unsigned i = 0; i < num; i++) {
+            for (unsigned i = 0; i < num; ++i) {
                 expr * l = args[i];
                 if (is_literal(l)) {
                     lits.push_back(to_literal(l));
@@ -1665,7 +1665,7 @@ namespace fm {
                     }
 
                     bool all_int = true;
-                    for (unsigned j = 0; j < num_mons; j++) {
+                    for (unsigned j = 0; j < num_mons; ++j) {
                         expr * monomial = mons[j];
                         expr * a;
                         rational a_val;
@@ -1693,7 +1693,7 @@ namespace fm {
                 }
             }
 
-            TRACE(qe_lite, tout << "before mk_constraint: "; for (unsigned i = 0; i < xs.size(); i++) tout << " " << xs[i]; tout << "\n";);
+            TRACE(qe_lite, tout << "before mk_constraint: "; for (unsigned i = 0; i < xs.size(); ++i) tout << " " << xs[i]; tout << "\n";);
 
             constraint * new_c = mk_constraint(lits.size(),
                                                lits.data(),
@@ -1723,7 +1723,7 @@ namespace fm {
 
             bool r = false;
 
-            for (unsigned i = 0; i < c->m_num_vars; i++) {
+            for (unsigned i = 0; i < c->m_num_vars; ++i) {
                 var x = c->m_xs[i];
                 if (!is_forbidden(x)) {
                     r = true;
@@ -1749,7 +1749,7 @@ namespace fm {
 
         void init_use_list(expr_ref_vector const & g) {
             unsigned sz = g.size();
-            for (unsigned i = 0; !m_inconsistent && i < sz; i++) {
+            for (unsigned i = 0; !m_inconsistent && i < sz; ++i) {
                 expr * f = g[i];
                 if (is_occ(f))
                     add_constraint(f, nullptr);
@@ -1787,7 +1787,7 @@ namespace fm {
         void sort_candidates(var_vector & xs) {
             svector<x_cost> x_cost_vector;
             unsigned num = num_vars();
-            for (var x = 0; x < num; x++) {
+            for (var x = 0; x < num; ++x) {
                 if (!is_forbidden(x)) {
                     x_cost_vector.push_back(x_cost(x, get_cost(x)));
                 }
@@ -1807,7 +1807,7 @@ namespace fm {
         void cleanup_constraints(constraints & cs) {
             unsigned j = 0;
             unsigned sz = cs.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 constraint * c = cs[i];
                 if (c->m_dead)
                     continue;
@@ -1823,7 +1823,7 @@ namespace fm {
         void analyze(constraint const & c, var x, bool & all_int, bool & unit_coeff) const {
             all_int    = true;
             unit_coeff = true;
-            for (unsigned i = 0; i < c.m_num_vars; i++) {
+            for (unsigned i = 0; i < c.m_num_vars; ++i) {
                 if (!is_int(c.m_xs[i])) {
                     all_int = false;
                     return;
@@ -1884,7 +1884,7 @@ namespace fm {
         }
 
         void get_coeff(constraint const & c, var x, rational & a) {
-            for (unsigned i = 0; i < c.m_num_vars; i++) {
+            for (unsigned i = 0; i < c.m_num_vars; ++i) {
                 if (c.m_xs[i] == x) {
                     a = c.m_as[i];
                     return;
@@ -1913,7 +1913,7 @@ namespace fm {
             rational         new_c = l.m_c*b + u.m_c*a;
             bool             new_strict = l.m_strict || u.m_strict;
 
-            for (unsigned i = 0; i < l.m_num_vars; i++) {
+            for (unsigned i = 0; i < l.m_num_vars; ++i) {
                 var xi = l.m_xs[i];
                 if (xi == x)
                     continue;
@@ -1926,7 +1926,7 @@ namespace fm {
                 SASSERT(new_xs.size() == new_as.size());
             }
 
-            for (unsigned i = 0; i < u.m_num_vars; i++) {
+            for (unsigned i = 0; i < u.m_num_vars; ++i) {
                 var xi = u.m_xs[i];
                 if (xi == x)
                     continue;
@@ -1944,7 +1944,7 @@ namespace fm {
             bool all_int = true;
             unsigned sz = new_xs.size();
             unsigned j  = 0;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 if (new_as[i].is_zero())
                     continue;
                 if (!is_int(new_xs[i]))
@@ -1964,7 +1964,7 @@ namespace fm {
             }
 
             // reset m_var2pos
-            for (unsigned i = 0; i < l.m_num_vars; i++) {
+            for (unsigned i = 0; i < l.m_num_vars; ++i) {
                 m_var2pos[l.m_xs[i]] = UINT_MAX;
             }
 
@@ -1978,7 +1978,7 @@ namespace fm {
             }
 
             new_lits.reset();
-            for (unsigned i = 0; i < l.m_num_lits; i++) {
+            for (unsigned i = 0; i < l.m_num_lits; ++i) {
                 literal lit = l.m_lits[i];
                 bvar    p   = lit2bvar(lit);
                 m_bvar2sign[p] = sign(lit) ? -1 : 1;
@@ -1986,7 +1986,7 @@ namespace fm {
             }
 
             bool tautology = false;
-            for (unsigned i = 0; i < u.m_num_lits && !tautology; i++) {
+            for (unsigned i = 0; i < u.m_num_lits && !tautology; ++i) {
                 literal lit = u.m_lits[i];
                 bvar    p   = lit2bvar(lit);
                 switch (m_bvar2sign[p]) {
@@ -2007,7 +2007,7 @@ namespace fm {
             }
 
             // reset m_bvar2sign
-            for (unsigned i = 0; i < l.m_num_lits; i++) {
+            for (unsigned i = 0; i < l.m_num_lits; ++i) {
                 literal lit = l.m_lits[i];
                 bvar    p   = lit2bvar(lit);
                 m_bvar2sign[p] = 0;
@@ -2090,8 +2090,8 @@ namespace fm {
             unsigned limit          = num_old_cnstrs + m_fm_extra;
             unsigned num_new_cnstrs = 0;
             new_constraints.reset();
-            for (unsigned i = 0; i < num_lowers; i++) {
-                for (unsigned j = 0; j < num_uppers; j++) {
+            for (unsigned i = 0; i < num_lowers; ++i) {
+                for (unsigned j = 0; j < num_uppers; ++j) {
                     if (m_inconsistent || num_new_cnstrs > limit) {
                         TRACE(qe_lite, tout << "too many new constraints: " << num_new_cnstrs << "\n";);
                         del_constraints(new_constraints.size(), new_constraints.data());
@@ -2113,7 +2113,7 @@ namespace fm {
 
             m_counter += sz;
 
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 constraint * c = new_constraints[i];
                 backward_subsumption(*c);
                 register_constraint(c);
@@ -2167,7 +2167,7 @@ namespace fm {
                 sort_candidates(candidates);
 
                 unsigned num = candidates.size();
-                for (unsigned i = 0; i < num; i++) {
+                for (unsigned i = 0; i < num; ++i) {
                     checkpoint();
                     if (m_counter > m_fm_limit)
                         break;
@@ -2199,7 +2199,7 @@ namespace fm {
 
         void display(std::ostream & out) const {
             unsigned num = num_vars();
-            for (var x = 0; x < num; x++) {
+            for (var x = 0; x < num; ++x) {
                 if (is_forbidden(x))
                     continue;
                 out << mk_ismt2_pp(m_var2expr.get(x), m) << "\n";

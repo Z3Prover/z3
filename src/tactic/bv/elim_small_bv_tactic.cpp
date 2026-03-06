@@ -79,7 +79,7 @@ class elim_small_bv_tactic : public tactic {
 
             // (VAR 0) is in the first position of substitution; (VAR num_decls-1) is in the last position.
 
-            for (unsigned i = 0; i < max_var_idx_p1; i++)
+            for (unsigned i = 0; i < max_var_idx_p1; ++i)
                 substitution.push_back(nullptr);
 
             // (VAR num_decls) ... (VAR num_decls+sz-1); are in positions num_decls .. num_decls+sz-1
@@ -89,7 +89,7 @@ class elim_small_bv_tactic : public tactic {
             // (VAR 0) should be in the last position of substitution.
 
             TRACE(elim_small_bv, tout << "substitution: " << std::endl;
-                                    for (unsigned k = 0; k < substitution.size(); k++) {
+                                    for (unsigned k = 0; k < substitution.size(); ++k) {
                                         expr * se = substitution[k];
                                         tout << k << " = ";
                                         if (se == 0) tout << "0";
@@ -151,7 +151,7 @@ class elim_small_bv_tactic : public tactic {
                     if (max_num > m_max_steps || max_num + num_steps > m_max_steps)
                         return false;
                     
-                    for (unsigned j = 0; j < max_num && !max_steps_exceeded(num_steps); j++) {
+                    for (unsigned j = 0; j < max_num && !max_steps_exceeded(num_steps); ++j) {
                         expr_ref n(m_util.mk_numeral(j, bv_sz), m);
                         new_bodies.push_back(replace_var(uv, num_decls, max_var_idx_p1, i, s, body, n));
                         num_steps++;
@@ -170,11 +170,11 @@ class elim_small_bv_tactic : public tactic {
                 }
                 
                 TRACE(elim_small_bv, tout << "new bodies: " << std::endl;
-                      for (unsigned k = 0; k < new_bodies.size(); k++)
+                      for (unsigned k = 0; k < new_bodies.size(); ++k)
                           tout << mk_ismt2_pp(new_bodies[k].get(), m) << std::endl; );
                 
-                body = is_forall(q) ? m.mk_and(new_bodies.size(), new_bodies.data()) :
-                    m.mk_or(new_bodies.size(), new_bodies.data());
+                body = is_forall(q) ? m.mk_and(new_bodies) :
+                    m.mk_or(new_bodies);
                 SASSERT(is_well_sorted(m, body));
                 
                 proof_ref pr(m);
@@ -200,7 +200,7 @@ class elim_small_bv_tactic : public tactic {
                 quantifier * q = to_quantifier(t);
                 TRACE(elim_small_bv, tout << "pre_visit quantifier [" << q->get_id() << "]: " << mk_ismt2_pp(q->get_expr(), m) << std::endl;);
                 sort_ref_vector new_bindings(m);
-                for (unsigned i = 0; i < q->get_num_decls(); i++)
+                for (unsigned i = 0; i < q->get_num_decls(); ++i)
                     new_bindings.push_back(q->get_decl_sort(i));
                 SASSERT(new_bindings.size() == q->get_num_decls());
                 m_bindings.append(new_bindings);

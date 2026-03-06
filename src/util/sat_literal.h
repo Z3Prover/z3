@@ -179,7 +179,7 @@ namespace sat {
     };
 
     inline std::ostream & operator<<(std::ostream & out, mk_lits_pp const & ls) {
-        for (unsigned i = 0; i < ls.m_num; i++) {
+        for (unsigned i = 0; i < ls.m_num; ++i) {
             if (i > 0) out << " ";
             out << ls.m_lits[i];
         }

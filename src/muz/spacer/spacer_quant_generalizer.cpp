@@ -165,7 +165,7 @@ void lemma_quantifier_generalizer::find_candidates(expr *e,
     expr_sparse_mark marked_args;
 
     // Make sure not to try and quantify already-quantified indices
-    for (unsigned idx=0, sz = indices.size(); idx < sz; idx++) {
+    for (unsigned idx=0, sz = indices.size(); idx < sz; ++idx) {
         // skip expressions that already contain a quantified variable
         if (has_zk_const(indices.get(idx))) {
             continue;
@@ -638,7 +638,7 @@ bool lemma_quantifier_generalizer::find_stride(expr_ref_vector &cube,
 
         unsigned size = p_index->get_num_args();
         unsigned matched = 0;
-        for (unsigned p = 0; p < size; p++) {
+        for (unsigned p = 0; p < size; ++p) {
             expr *arg = p_index->get_arg(p);
             if (is_var(arg)) {
                 rational val;
@@ -708,7 +708,7 @@ void lemma_quantifier_generalizer::operator()(lemma_ref &lemma) {
     m_offset = lemma->get_pob()->get_free_vars_size();
 
     // for every literal, find a candidate term to abstract
-    for (unsigned i=0; i < m_cube.size(); i++) {
+    for (unsigned i=0; i < m_cube.size(); ++i) {
         expr *r = m_cube.get(i);
 
         // generate candidates for abstraction
@@ -717,7 +717,7 @@ void lemma_quantifier_generalizer::operator()(lemma_ref &lemma) {
         if (candidates.empty()) continue;
 
         // for every candidate
-        for (unsigned arg=0, sz = candidates.size(); arg < sz; arg++) {
+        for (unsigned arg=0, sz = candidates.size(); arg < sz; ++arg) {
             if (generalize (lemma, candidates.get(arg))) {
                 return;
             }

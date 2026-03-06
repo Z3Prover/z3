@@ -128,7 +128,7 @@ namespace polynomial {
             m_factor_cache.reset();
         }
 
-        unsigned pid(polynomial * p) const { return m.id(p); }
+        unsigned pid(const polynomial * p) const { return m.id(p); }
         
         polynomial * mk_unique(polynomial * p) {
             if (m_in_cache.get(pid(p), false))
@@ -141,6 +141,28 @@ namespace polynomial {
             return p_prime;
         }
 
+        bool contains(const polynomial * p) const {
+            return m_in_cache.get(pid(p), false);
+        }
+
+        bool contains_chain(polynomial * p, polynomial * q, var x) const {
+            if (!m_in_cache.get(pid(p), false)) {
+                polynomial * const * p2 = m_poly_table.find_core(p);
+                if (!p2)
+                    return false;
+                p = *p2;
+            }
+            if (!m_in_cache.get(pid(q), false)) {
+                polynomial * const * q2 = m_poly_table.find_core(q);
+                if (!q2)
+                    return false;
+                q = *q2;
+            }
+            unsigned h = hash_u_u(pid(p), pid(q));
+            psc_chain_entry key(p, q, x, h);
+            return m_psc_chain_cache.contains(&key);
+        }
+
         void psc_chain(polynomial * p, polynomial * q, var x, polynomial_ref_vector & S) {
             p = mk_unique(p);
             q = mk_unique(q);
@@ -151,7 +173,7 @@ namespace polynomial {
                 entry->~psc_chain_entry();
                 m_allocator.deallocate(sizeof(psc_chain_entry), entry);
                 S.reset();
-                for (unsigned i = 0; i < old_entry->m_result_sz; i++) {
+                for (unsigned i = 0; i < old_entry->m_result_sz; ++i) {
                     S.push_back(old_entry->m_result[i]);
                 }
             }
@@ -160,7 +182,7 @@ namespace polynomial {
                 unsigned sz = S.size();
                 entry->m_result_sz = sz;
                 entry->m_result    = static_cast<polynomial**>(m_allocator.allocate(sizeof(polynomial*)*sz));
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     polynomial * h = mk_unique(S.get(i));
                     S.set(i, h);
                     entry->m_result[i] = h;
@@ -178,7 +200,7 @@ namespace polynomial {
                 entry->~factor_entry();
                 m_allocator.deallocate(sizeof(factor_entry), entry);
                 distinct_factors.reset();
-                for (unsigned i = 0; i < old_entry->m_result_sz; i++) {
+                for (unsigned i = 0; i < old_entry->m_result_sz; ++i) {
                     distinct_factors.push_back(old_entry->m_result[i]);
                 }
             }
@@ -188,7 +210,7 @@ namespace polynomial {
                 unsigned sz = fs.distinct_factors();
                 entry->m_result_sz = sz;
                 entry->m_result    = static_cast<polynomial**>(m_allocator.allocate(sizeof(polynomial*)*sz));
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     polynomial * h = mk_unique(fs[i]);
                     distinct_factors.push_back(h);
                     entry->m_result[i] = h;
@@ -211,6 +233,14 @@ namespace polynomial {
 
     polynomial * cache::mk_unique(polynomial * p) {
         return m_imp->mk_unique(p);
+    }
+
+    bool cache::contains(const polynomial * p) const {
+        return m_imp->contains(p);
+    }
+
+    bool cache::contains_chain(polynomial const * p, polynomial const * q, var x) const {
+        return m_imp->contains_chain(const_cast<polynomial*>(p), const_cast<polynomial*>(q), x);
     }
 
     void cache::psc_chain(polynomial const * p, polynomial const * q, var x, polynomial_ref_vector & S) {

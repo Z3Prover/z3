@@ -30,14 +30,13 @@ namespace sat {
     };
 
     class constraint_base {
-        extension* m_ex;
+        extension* m_ex = nullptr;
         unsigned   m_mem[0];
         static size_t ext_size() {
             return sizeof(((constraint_base*)nullptr)->m_ex);
         }
 
     public:
-        constraint_base(): m_ex(nullptr) {}
         void*  mem() { return m_mem; }
 
         static size_t obj_size(size_t sz) { 

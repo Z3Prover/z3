@@ -269,7 +269,7 @@ void sls_engine::mk_random_move(ptr_vector<func_decl> & unsat_constants)
         }
 
         TRACE(sls, tout << "Randomization candidates: ";
-        for (unsigned i = 0; i < unsat_constants.size(); i++)
+        for (unsigned i = 0; i < unsat_constants.size(); ++i)
             tout << unsat_constants[i]->get_name() << ", ";
         tout << std::endl;
         tout << "Random move: ";
@@ -302,17 +302,17 @@ double sls_engine::find_best_move(
     // Andreas: Introducting a bit of randomization by using a random offset and a random direction to go through the candidate list.
     unsigned sz = to_evaluate.size();
     unsigned offset = (m_random_offset) ? m_tracker.get_random_uint(16) % sz : 0;
-    for (unsigned j = 0; j < sz; j++) {
+    for (unsigned j = 0; j < sz; ++j) {
         unsigned i = j + offset;
         if (i >= sz) i -= sz;
-    //for (unsigned i = 0; i < to_evaluate.size(); i++) {
+    //for (unsigned i = 0; i < to_evaluate.size(); ++i) {
         func_decl * fd = to_evaluate[i];
         sort * srt = fd->get_range();
         bv_sz = (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);
         m_mpz_manager.set(old_value, m_tracker.get_value(fd));
 
         // first try to flip every bit
-        for (unsigned j = 0; j < bv_sz; j++) {
+        for (unsigned j = 0; j < bv_sz; ++j) {
             // What would happen if we flipped bit #i ?                
             mk_flip(srt, old_value, j, temp);
 
@@ -360,19 +360,19 @@ double sls_engine::find_best_move_mc(ptr_vector<func_decl> & to_evaluate, double
     // Andreas: Introducting a bit of randomization by using a random offset and a random direction to go through the candidate list.
     unsigned sz = to_evaluate.size();
     unsigned offset = (m_random_offset) ? m_tracker.get_random_uint(16) % sz : 0;
-    for (unsigned j = 0; j < sz; j++) {
+    for (unsigned j = 0; j < sz; ++j) {
         unsigned i = j + offset;
         if (i >= sz) i -= sz;
-    //for (unsigned i = 0; i < to_evaluate.size(); i++) {
+    //for (unsigned i = 0; i < to_evaluate.size(); ++i) {
         func_decl * fd = to_evaluate[i];
         sort * srt = fd->get_range();
         bv_sz = (m_manager.is_bool(srt)) ? 1 : m_bv_util.get_bv_size(srt);
         m_mpz_manager.set(old_value, m_tracker.get_value(fd));
 
         if (m_bv_util.is_bv_sort(srt) && bv_sz > 2) {
-            for (unsigned j = 0; j < bv_sz; j++) {
+            for (unsigned j = 0; j < bv_sz; ++j) {
                 mk_flip(srt, old_value, j, temp);
-                for (unsigned l = 0; l < m_vns_mc && l < bv_sz / 2; l++)
+                for (unsigned l = 0; l < m_vns_mc && l < bv_sz / 2; ++l)
                 {
                     unsigned k = m_tracker.get_random_uint(16) % bv_sz;
                     while (k == j)

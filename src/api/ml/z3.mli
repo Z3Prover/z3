@@ -290,6 +290,12 @@ sig
 
   (** Create a new uninterpreted sort. *)
   val mk_uninterpreted_s : context -> string -> sort
+
+  (** Create a type variable sort for use in polymorphic datatypes. *)
+  val mk_type_variable : context -> Symbol.symbol -> sort
+
+  (** Create a type variable sort for use in polymorphic datatypes. *)
+  val mk_type_variable_s : context -> string -> sort
 end
 
 (** Function declarations *)
@@ -1099,6 +1105,14 @@ sig
   (** Create a new datatype sort. *)
   val mk_sort_s : context -> string -> Constructor.constructor list -> Sort.sort
 
+  (** Create a new polymorphic datatype sort with type parameters.
+      Type parameters should be created using Sort.mk_type_variable. *)
+  val mk_polymorphic_sort : context -> Symbol.symbol -> Sort.sort list -> Constructor.constructor list -> Sort.sort
+
+  (** Create a new polymorphic datatype sort with type parameters.
+      Type parameters should be created using Sort.mk_type_variable. *)
+  val mk_polymorphic_sort_s : context -> string -> Sort.sort list -> Constructor.constructor list -> Sort.sort
+
   (** Create mutually recursive datatypes. *)
   val mk_sorts : context -> Symbol.symbol list -> Constructor.constructor list list -> Sort.sort list
 
@@ -1116,6 +1130,12 @@ sig
 
   (** The constructor accessors. *)
   val get_accessors : Sort.sort -> FuncDecl.func_decl list list
+
+  (** Update a datatype field at expression [t] with value [v].
+      The function performs a record update at [t]. The field
+      that is passed in as argument is updated with value [v],
+      the remaining fields of [t] are unchanged. *)
+  val update_field : context -> FuncDecl.func_decl -> Expr.expr -> Expr.expr -> Expr.expr
 end
 
 (** Functions to manipulate Enumeration expressions *)
@@ -3369,6 +3389,46 @@ sig
       it is more convenient to cancel a specific solver. Solvers
       that are not selected for interrupts are left alone.*)
   val interrupt: context -> solver -> unit
+
+  (** Retrieve the set of units from the solver.
+      Units are clauses of size 1 learned by the solver during solving. *)
+  val get_units : solver -> Expr.expr list
+
+  (** Retrieve the set of non-units from the solver.
+      Non-units are clauses of size greater than 1 learned by the solver. *)
+  val get_non_units : solver -> Expr.expr list
+
+  (** Retrieve the trail (sequence of assignments) from the solver.
+      The trail shows the sequence of literal assignments made by the solver. *)
+  val get_trail : solver -> Expr.expr list
+
+  (** Retrieve the decision levels of trail literals.
+      Given a list of literals from the trail, returns an array of their decision levels.
+      @param literals List of literals from the trail
+      @return Array of decision levels corresponding to the input literals *)
+  val get_levels : solver -> Expr.expr list -> int array
+
+  (** Retrieve the congruence closure root of an expression.
+      Returns the representative of the equivalence class containing the expression. *)
+  val congruence_root : solver -> Expr.expr -> Expr.expr
+
+  (** Retrieve the next element in the congruence closure equivalence class.
+      Congruence classes form a circular list; this returns the next element. *)
+  val congruence_next : solver -> Expr.expr -> Expr.expr
+
+  (** Retrieve an explanation for why two expressions are congruent.
+      Returns an expression that justifies the congruence between a and b. *)
+  val congruence_explain : solver -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Parse SMT-LIB2 formulas from a file and assert them into the solver. *)
+  val from_file : solver -> string -> unit
+
+  (** Parse SMT-LIB2 formulas from a string and assert them into the solver. *)
+  val from_string : solver -> string -> unit
+
+  (** Provide an initial value hint for a variable to the solver.
+      This can help guide the solver to find solutions more efficiently. *)
+  val set_initial_value : solver -> Expr.expr -> Expr.expr -> unit
 end
 
 (** Fixedpoint solving *)

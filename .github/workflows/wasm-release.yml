@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Setup node
         uses: actions/setup-node@v6
@@ -31,7 +31,7 @@ jobs:
 
       - name: Prepare for publish
         run: |
-          npm version $(node -e 'console.log(fs.readFileSync("../../../scripts/release.yml", "utf8").match(/ReleaseVersion:\s*\x27(\S+)\x27/)[1])')
+          npm version $(node -e 'console.log(fs.readFileSync("../../../.github/workflows/release.yml", "utf8").match(/RELEASE_VERSION:\s*\x27(\S+)\x27/)[1])')
           mv PUBLISHED_README.md README.md
           cp ../../../LICENSE.txt .
 

@@ -135,7 +135,7 @@ namespace smt {
                 mark_eq(lhs->get_arg(1), rhs->get_arg(0));
             }
             else {
-                for (unsigned i = 0; i < num_args; i++)
+                for (unsigned i = 0; i < num_args; ++i)
                     mark_eq(lhs->get_arg(i), rhs->get_arg(i));
             }
             break;
@@ -201,9 +201,9 @@ namespace smt {
                 js->get_antecedents(*this);
             }
             while (!m_todo_eqs.empty()) {
-                enode_pair p = m_todo_eqs.back();
+                auto [n1, n2] = m_todo_eqs.back();
                 m_todo_eqs.pop_back();
-                eq2literals(p.first, p.second);
+                eq2literals(n1, n2);
             }
             if (m_todo_js_qhead == m_todo_js.size()) {
                 m_antecedents = nullptr;
@@ -288,7 +288,7 @@ namespace smt {
                     i = 2;
                 }
             }
-            for(; i < num_lits; i++)
+            for(; i < num_lits; ++i)
                 r = std::max(r, m_ctx.get_assign_level((*cls)[i]));
             justification * js = cls->get_justification();
             if (js)
@@ -347,7 +347,7 @@ namespace smt {
         literal_vector & antecedents = m_tmp_literal_vector;
         antecedents.reset();
         justification2literals_core(js, antecedents);
-        m_ctx.get_clause_proof().propagate(consequent, *js, antecedents);
+        m_ctx.get_clause_proof().propagate(consequent, js, antecedents);
         for (literal l : antecedents)
             process_antecedent(l, num_marks);
         (void)consequent;
@@ -534,7 +534,7 @@ namespace smt {
                         i = 2;
                     }
                 }
-                for(; i < num_lits; i++) {
+                for(; i < num_lits; ++i) {
                     literal l = (*cls)[i];
                     SASSERT(consequent.var() != l.var());
                     process_antecedent(~l, num_marks);
@@ -619,7 +619,7 @@ namespace smt {
     */
     void conflict_resolution::reset_unmark(unsigned old_size) {
         unsigned curr_size = m_unmark.size();
-        for(unsigned i = old_size; i < curr_size; i++)
+        for(unsigned i = old_size; i < curr_size; ++i)
             m_ctx.unset_mark(m_unmark[i]);
         m_unmark.shrink(old_size);
     }
@@ -689,7 +689,7 @@ namespace smt {
                 clause * cls      = js.get_clause();
                 unsigned num_lits = cls->get_num_literals();
                 unsigned pos      = (*cls)[1].var() == var;
-                for (unsigned i = 0; i < num_lits; i++) {
+                for (unsigned i = 0; i < num_lits; ++i) {
                     if (pos != i) {
                         literal l = (*cls)[i];
                         SASSERT(l.var() != var);
@@ -743,7 +743,7 @@ namespace smt {
         unsigned sz   = m_lemma.size();
         unsigned i    = 1; // the first literal is the FUIP
         unsigned j    = 1;
-        for (; i < sz; i++) {
+        for (; i < sz; ++i) {
             literal l = m_lemma[i];
             if (implied_by_marked(l)) {
                 m_unmark.push_back(l.var());
@@ -898,7 +898,7 @@ namespace smt {
             else {
                 bool visited = true;
                 ptr_buffer<proof> prs;
-                for (unsigned i = 0; i < num_args; i++) {
+                for (unsigned i = 0; i < num_args; ++i) {
                     enode * c1 = n1->get_arg(i);
                     enode * c2 = n2->get_arg(i);
                     if (c1 != c2) {
@@ -998,7 +998,7 @@ namespace smt {
                         i = 2;
                     }
                 }
-                for (; i < num_lits; i++) {
+                for (; i < num_lits; ++i) {
                     proof * pr = get_proof(~cls->get_literal(i));
                     prs.push_back(pr);
                     if (!pr)
@@ -1010,28 +1010,28 @@ namespace smt {
                 m_ctx.literal2expr(l, l_exr);
                 TRACE(get_proof_bug,
                       tout << "clause:\n";
-                      for (unsigned i = 0; i < num_lits; i++) {
+                      for (unsigned i = 0; i < num_lits; ++i) {
                           tout << cls->get_literal(i).index() << "\n";
                           expr_ref l_expr(m);
                           m_ctx.literal2expr(cls->get_literal(i), l_expr);
                           tout << mk_pp(l_expr, m) << "\n";
                       }
                       tout << "antecedents:\n";
-                      for (unsigned i = 0; i < prs.size(); i++) {
+                      for (unsigned i = 0; i < prs.size(); ++i) {
                           tout << mk_pp(m.get_fact(prs[i]), m) << "\n";
                       }
                       tout << "consequent:\n" << mk_pp(l_exr, m) << "\n";);
                 CTRACE(get_proof_bug_after,
                        invocation_counter >= DUMP_AFTER_NUM_INVOCATIONS,
                        tout << "clause, num_lits: " << num_lits << ":\n";
-                       for (unsigned i = 0; i < num_lits; i++) {
+                       for (unsigned i = 0; i < num_lits; ++i) {
                            tout << cls->get_literal(i).index() << "\n";
                            expr_ref l_expr(m);
                            m_ctx.literal2expr(cls->get_literal(i), l_expr);
                            tout << mk_pp(l_expr, m) << "\n";
                        }
                        tout << "antecedents:\n";
-                       for (unsigned i = 0; i < prs.size(); i++) {
+                       for (unsigned i = 0; i < prs.size(); ++i) {
                            tout << mk_pp(m.get_fact(prs[i]), m) << "\n";
                        }
                        tout << "consequent:\n" << mk_pp(l_exr, m) << "\n";);
@@ -1107,7 +1107,7 @@ namespace smt {
                     i = 2;
                 }
             }
-            for (; i < num_lits; i++) {
+            for (; i < num_lits; ++i) {
                 SASSERT(cls->get_literal(i) != l);
                 if (get_proof(~cls->get_literal(i)) == nullptr)
                     visited = false;
@@ -1170,7 +1170,7 @@ namespace smt {
                         visited = false;
                 }
                 else {
-                    for (unsigned i = 0; i < num_args; i++) {
+                    for (unsigned i = 0; i < num_args; ++i) {
                         enode * c1 = n1->get_arg(i);
                         enode * c2 = n2->get_arg(i);
                         if (c1 != c2 && get_proof(c1, c2) == nullptr)
@@ -1249,7 +1249,7 @@ namespace smt {
         else {
             TRACE(mk_transitivity,
                   unsigned sz = prs1.size();
-                  for (unsigned i = 0; i < sz; i++) {
+                  for (unsigned i = 0; i < sz; ++i) {
                       tout << mk_ll_pp(prs1[i], m) << "\n";
                   });
             pr = m.mk_transitivity(prs1.size(), prs1.data(), lhs->get_expr(), rhs->get_expr());
@@ -1333,9 +1333,8 @@ namespace smt {
         }
         else {
             pr = get_proof(consequent, conflict);
-            proof * prs[2] = { m_lit2proof[not_l], pr};
-            SASSERT(prs[0] && prs[1]);
-            pr = m.mk_unit_resolution(2, prs);
+            SASSERT(m_lit2proof[not_l] && pr);
+            pr = m.mk_unit_resolution({ m_lit2proof[not_l], pr });
         }
         expr_ref_buffer lits(m);
         for (literal lit : m_lemma) {
@@ -1348,7 +1347,7 @@ namespace smt {
         switch (lits.size()) {
         case 0:  fact = nullptr; break;
         case 1:  fact = lits[0]; break;
-        default: fact = m.mk_or(lits.size(), lits.data());
+        default: fact = m.mk_or(lits);
         }
         if (fact == nullptr)
             m_lemma_proof = pr;
@@ -1425,7 +1424,7 @@ namespace smt {
                         i = 2;
                     }
                 }
-                for(; i < num_lits; i++) {
+                for(; i < num_lits; ++i) {
                     literal l = cls->get_literal(i);
                     process_antecedent_for_unsat_core(~l);
                 }

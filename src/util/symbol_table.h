@@ -165,7 +165,7 @@ public:
         m_trail_lims.pop_back();
         unsigned curr_size = m_trail_stack.size();
         SASSERT(old_size <= curr_size);
-        for (unsigned i = old_size; i < curr_size; i++) {
+        for (unsigned i = old_size; i < curr_size; ++i) {
             key_data & curr_entry = m_trail_stack.back();
             symbol key = curr_entry.m_key;
             if (key.is_marked()) {

@@ -80,7 +80,7 @@ namespace smt {
     }
 
     std::ostream& display_compact(std::ostream & out, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map) {
-        for (unsigned i = 0; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; ++i) {
             if (i > 0)
                 out << " ";
             display_compact(out, lits[i], bool_var2expr_map);
@@ -89,7 +89,7 @@ namespace smt {
     }
 
     std::ostream& display_verbose(std::ostream & out, ast_manager& m, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map, char const* sep) {
-        for (unsigned i = 0; i < num_lits; i++) {
+        for (unsigned i = 0; i < num_lits; ++i) {
             if (i > 0)
                 out << sep;
             display(out, lits[i], m, bool_var2expr_map);
@@ -103,10 +103,10 @@ namespace smt {
     */
     bool backward_subsumption(unsigned num_lits1, literal const * lits1, unsigned num_lits2, literal const * lits2) {
         unsigned i = 0;
-        for (; i < num_lits1; i++) {
+        for (; i < num_lits1; ++i) {
             literal l1 = lits1[i];
             unsigned j = 0;
-            for (; j < num_lits2; j++)
+            for (; j < num_lits2; ++j)
                 if (l1 == lits2[j])
                     break;
             if (j == num_lits2)

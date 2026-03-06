@@ -166,7 +166,7 @@ namespace array {
     bool solver::sel_eq::operator()(euf::enode * n1, euf::enode * n2) const {
         SASSERT(n1->num_args() == n2->num_args());
         unsigned num_args = n1->num_args();
-        for (unsigned i = 1; i < num_args; i++) 
+        for (unsigned i = 1; i < num_args; ++i) 
             if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root())
                 return false;
         return true;
@@ -199,7 +199,7 @@ namespace array {
         for (euf::enode * r : m_selects_domain)
             for (euf::enode* sel : *get_select_set(r))
                 propagate_select_to_store_parents(r, sel, todo);
-        for (unsigned qhead = 0; qhead < todo.size(); qhead++) {
+        for (unsigned qhead = 0; qhead < todo.size(); ++qhead) {
             euf::enode_pair & pair = todo[qhead];
             euf::enode * r   = pair.first;
             euf::enode * sel = pair.second;
@@ -229,7 +229,7 @@ namespace array {
                 // check whether the sel idx was overwritten by the store
                 unsigned num_args = sel->num_args();
                 unsigned i = 1;
-                for (; i < num_args; i++) {
+                for (; i < num_args; ++i) {
                     if (sel->get_arg(i)->get_root() != parent->get_arg(i)->get_root())
                         break;
                 }

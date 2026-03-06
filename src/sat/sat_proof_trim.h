@@ -40,7 +40,7 @@ namespace sat {
         
         struct hash {
             unsigned operator()(literal_vector const& v) const {
-                return string_hash((char const*)v.begin(), v.size()*sizeof(literal), 3);
+                return string_hash(std::string_view((char const*)v.begin(), v.size()*sizeof(literal)), 3);
             }
         };
         struct eq {

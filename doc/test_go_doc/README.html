@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Z3 Go API - README</title>
+    <style>body { font-family: monospace; margin: 40px; max-width: 1000px; white-space: pre-wrap; }</style>
+</head>
+<body>
+# Z3 Go Bindings
+
+This directory contains Go language bindings for the Z3 theorem prover.
+
+## Overview
+
+The Go bindings provide a comprehensive interface to Z3's C API using CGO. The bindings support:
+
+- **Core Z3 Types**: Context, Config, Symbol, AST, Sort, Expr, FuncDecl
+- **Solver Operations**: Creating solvers, asserting constraints, checking satisfiability
+- **Model Manipulation**: Extracting and evaluating models
+- **Boolean Logic**: And, Or, Not, Implies, Iff, Xor
+- **Arithmetic**: Add, Sub, Mul, Div, Mod, comparison operators
+- **Bit-vectors**: Full bit-vector arithmetic, bitwise operations, shifts, comparisons
+- **Floating Point**: IEEE 754 floating-point arithmetic with rounding modes
+- **Arrays**: Select, Store, constant arrays
+- **Sequences/Strings**: String operations, concatenation, contains, indexing
+- **Regular Expressions**: Pattern matching, Kleene star/plus, regex operations
+- **Quantifiers**: Forall, Exists
+- **Functions**: Function declarations and applications
+- **Tactics & Goals**: Goal-based solving and tactic combinators
+- **Probes**: Goal property checking
+- **Datatypes**: Algebraic datatypes, tuples, enumerations, lists
+- **Parameters**: Solver and tactic configuration
+- **Optimize**: Optimization problems with maximize/minimize objectives
+
+## Building
+
+### Prerequisites
+
+- Go 1.20 or later
+- Z3 library built and installed
+- CGO enabled
+
+### With CMake
+
+```bash
+mkdir build && cd build
+cmake -DBUILD_GO_BINDINGS=ON ..
+make
+```
+
+### With Python Build System
+
+```bash
+python scripts/mk_make.py --go
+cd build
+make
+```
+
+## Usage
+
+### Basic Example
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/Z3Prover/z3/src/api/go"
+)
+
+func main() {
+    // Create a context
+    ctx := z3.NewContext()
+    
+    // Create variables
+    x := ctx.MkIntConst("x")
+    y := ctx.MkIntConst("y")
+    
+    // Create constraints: x + y == 10 && x > y
+    ten := ctx.MkInt(10, ctx.MkIntSort())
+    eq := ctx.MkEq(ctx.MkAdd(x, y), ten)
+    gt := ctx.MkGt(x, y)
+    
+    // Create solver and check
+    solver := ctx.NewSolver()
+    solver.Assert(eq)
+    solver.Assert(gt)
+    
+    if solver.Check() == z3.Satisfiable {
+        model := solver.Model()
+        if xVal, ok := model.Eval(x, true); ok {
+            fmt.Println("x =", xVal.String())
+        }
+        if yVal, ok := model.Eval(y, true); ok {
+            fmt.Println("y =", yVal.String())
+        }
+    }
+}
+```
+
+### Running Examples
+
+```bash
+cd examples/go
+
+# Set library path (Linux/Mac)
+export LD_LIBRARY_PATH=../../build:$LD_LIBRARY_PATH
+export CGO_CFLAGS="-I../../src/api"
+export CGO_LDFLAGS="-L../../build -lz3"
+
+# Set library path (Windows)
+set PATH=..\..\build;%PATH%
+set CGO_CFLAGS=-I../../src/api
+set CGO_LDFLAGS=-L../../build -lz3
+
+# Run example
+go run basic_example.go
+```
+
+## API Reference
+
+### Context
+
+- `NewContext()` - Create a new Z3 context
+- `NewContextWithConfig(cfg *Config)` - Create context with configuration
+- `SetParam(key, value string)` - Set context parameters
+
+### Creating Expressions
+
+- `MkBoolConst(name string)` - Create Boolean variable
+- `MkIntConst(name string)` - Create integer variable
+- `MkRealConst(name string)` - Create real variable
+- `MkInt(value int, sort *Sort)` - Create integer constant
+- `MkReal(num, den int)` - Create rational constant
+
+### Boolean Operations
+
+- `MkAnd(exprs ...*Expr)` - Conjunction
+- `MkOr(exprs ...*Expr)` - Disjunction
+- `MkNot(expr *Expr)` - Negation
+- `MkImplies(lhs, rhs *Expr)` - Implication
+- `MkIff(lhs, rhs *Expr)` - If-and-only-if
+- `MkXor(lhs, rhs *Expr)` - Exclusive or
+
+### Arithmetic Operations
+
+- `MkAdd(exprs ...*Expr)` - Addition
+- `MkSub(exprs ...*Expr)` - Subtraction
+- `MkMul(exprs ...*Expr)` - Multiplication
+- `MkDiv(lhs, rhs *Expr)` - Division
+- `MkMod(lhs, rhs *Expr)` - Modulo
+- `MkRem(lhs, rhs *Expr)` - Remainder
+
+### Comparison Operations
+
+- `MkEq(lhs, rhs *Expr)` - Equality
+- `MkDistinct(exprs ...*Expr)` - Distinct
+- `MkLt(lhs, rhs *Expr)` - Less than
+- `MkLe(lhs, rhs *Expr)` - Less than or equal
+- `MkGt(lhs, rhs *Expr)` - Greater than
+- `MkGe(lhs, rhs *Expr)` - Greater than or equal
+
+### Solver Operations
+
+- `NewSolver()` - Create a new solver
+- `Assert(constraint *Expr)` - Add constraint
+- `Check()` - Check satisfiability (returns Satisfiable, Unsatisfiable, or Unknown)
+- `Model()` - Get model (if satisfiable)
+- `Push()` - Create backtracking point
+- `Pop(n uint)` - Remove backtracking points
+- `Reset()` - Remove all assertions
+
+### Model Operations
+
+- `Eval(expr *Expr, modelCompletion bool)` - Evaluate expression in model
+- `NumConsts()` - Number of constants in model
+- `NumFuncs()` - Number of functions in model
+- `String()` - Get string representation
+
+### Bit-vector Operations
+
+- `MkBvSort(sz uint)` - Create bit-vector sort
+- `MkBVConst(name string, size uint)` - Create bit-vector variable
+- `MkBVAdd/Sub/Mul/UDiv/SDiv(lhs, rhs *Expr)` - Arithmetic operations
+- `MkBVAnd/Or/Xor/Not(...)` - Bitwise operations
+- `MkBVShl/LShr/AShr(lhs, rhs *Expr)` - Shift operations
+- `MkBVULT/SLT/ULE/SLE/UGE/SGE/UGT/SGT(...)` - Comparisons
+- `MkConcat(lhs, rhs *Expr)` - Bit-vector concatenation
+- `MkExtract(high, low uint, expr *Expr)` - Extract bits
+- `MkSignExt/ZeroExt(i uint, expr *Expr)` - Extend bit-vectors
+
+### Floating-Point Operations
+
+- `MkFPSort(ebits, sbits uint)` - Create floating-point sort
+- `MkFPSort16/32/64/128()` - Standard IEEE 754 sorts
+- `MkFPInf/NaN/Zero(sort *Sort, ...)` - Special values
+- `MkFPAdd/Sub/Mul/Div(rm, lhs, rhs *Expr)` - Arithmetic with rounding
+- `MkFPNeg/Abs/Sqrt(...)` - Unary operations
+- `MkFPLT/GT/LE/GE/Eq(lhs, rhs *Expr)` - Comparisons
+- `MkFPIsNaN/IsInf/IsZero(expr *Expr)` - Predicates
+
+### Sequence/String Operations
+
+- `MkStringSort()` - Create string sort
+- `MkSeqSort(elemSort *Sort)` - Create sequence sort
+- `MkString(value string)` - Create string constant
+- `MkSeqConcat(exprs ...*Expr)` - Concatenation
+- `MkSeqLength(seq *Expr)` - Length
+- `MkSeqPrefix/Suffix/Contains(...)` - Predicates
+- `MkSeqAt(seq, index *Expr)` - Element access
+- `MkSeqExtract(seq, offset, length *Expr)` - Substring
+- `MkStrToInt/IntToStr(...)` - Conversions
+
+### Regular Expression Operations
+
+- `MkReSort(seqSort *Sort)` - Create regex sort
+- `MkToRe(seq *Expr)` - Convert string to regex
+- `MkInRe(seq, re *Expr)` - String matches regex predicate
+- `MkReStar(re *Expr)` - Kleene star (zero or more)
+- `MkRePlus(re *Expr)` - Kleene plus (one or more)
+- `MkReOption(re *Expr)` - Optional (zero or one)
+- `MkRePower(re *Expr, n uint)` - Exactly n repetitions
+- `MkReLoop(re *Expr, lo, hi uint)` - Bounded repetition
+- `MkReConcat(regexes ...*Expr)` - Concatenation
+- `MkReUnion(regexes ...*Expr)` - Alternation (OR)
+- `MkReIntersect(regexes ...*Expr)` - Intersection
+- `MkReComplement(re *Expr)` - Complement
+- `MkReDiff(a, b *Expr)` - Difference
+- `MkReEmpty/Full/Allchar(sort *Sort)` - Special regexes
+- `MkReRange(lo, hi *Expr)` - Character range
+- `MkSeqReplaceRe/ReAll(seq, re, replacement *Expr)` - Regex replace
+
+### Datatype Operations
+
+- `MkConstructor(name, recognizer string, ...)` - Create constructor
+- `MkDatatypeSort(name string, constructors []*Constructor)` - Create datatype
+- `MkDatatypeSorts(names []string, ...)` - Mutually recursive datatypes
+- `MkTupleSort(name string, fieldNames []string, fieldSorts []*Sort)` - Tuples
+- `MkEnumSort(name string, enumNames []string)` - Enumerations
+- `MkListSort(name string, elemSort *Sort)` - Lists
+
+### Tactic Operations
+
+- `MkTactic(name string)` - Create tactic by name
+- `MkGoal(models, unsatCores, proofs bool)` - Create goal
+- `Apply(g *Goal)` - Apply tactic to goal
+- `AndThen(t2 *Tactic)` - Sequential composition
+- `OrElse(t2 *Tactic)` - Try first, fallback to second
+- `Repeat(max uint)` - Repeat tactic
+- `TacticWhen/Cond(...)` - Conditional tactics
+
+### Probe Operations
+
+- `MkProbe(name string)` - Create probe by name
+- `Apply(g *Goal)` - Evaluate probe on goal
+- `Lt/Gt/Le/Ge/Eq(p2 *Probe)` - Probe comparisons
+- `And/Or/Not(...)` - Probe combinators
+
+### Parameter Operations
+
+- `MkParams()` - Create parameter set
+- `SetBool/Uint/Double/Symbol(key string, value ...)` - Set parameters
+
+### Optimize Operations
+
+- `NewOptimize()` - Create optimization context
+- `Assert(constraint *Expr)` - Add constraint
+- `AssertSoft(constraint *Expr, weight, group string)` - Add soft constraint
+- `Maximize(expr *Expr)` - Add maximization objective
+- `Minimize(expr *Expr)` - Add minimization objective
+- `Check(assumptions ...*Expr)` - Check and optimize
+- `Model()` - Get optimal model
+- `GetLower/Upper(index uint)` - Get objective bounds
+- `Push/Pop()` - Backtracking
+- `Assertions/Objectives()` - Get assertions and objectives
+- `UnsatCore()` - Get unsat core
+
+## Memory Management
+
+The Go bindings use `runtime.SetFinalizer` to automatically manage Z3 reference counts. You don't need to manually call inc_ref/dec_ref. However, be aware that finalizers run during garbage collection, so resources may not be freed immediately.
+
+## Thread Safety
+
+Z3 contexts are not thread-safe. Each goroutine should use its own context, or use appropriate synchronization when sharing a context.
+
+## License
+
+Z3 is licensed under the MIT License. See LICENSE.txt in the repository root.
+
+## Contributing
+
+Bug reports and contributions are welcome! Please submit issues and pull requests to the main Z3 repository.
+
+## References
+
+- [Z3 GitHub Repository](https://github.com/Z3Prover/z3)
+- [Z3 API Documentation](https://z3prover.github.io/api/html/index.html)
+- [Z3 Guide](https://microsoft.github.io/z3guide/)
+
+<hr>
+<p><a href="index.html">Back to Go API Documentation</a></p>
+</body>
+</html>

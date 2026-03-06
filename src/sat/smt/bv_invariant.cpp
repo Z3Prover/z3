@@ -74,7 +74,7 @@ namespace bv {
         theory_var curr = v;
         do {
             literal_vector const& lits = m_bits[curr];
-            for (unsigned i = 0; i < lits.size(); i++) {
+            for (unsigned i = 0; i < lits.size(); ++i) {
                 literal l = lits[i];
                 if (l.var() == mk_true().var()) {
                     assigned.push_back(l);

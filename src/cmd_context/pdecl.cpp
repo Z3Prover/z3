@@ -196,7 +196,7 @@ class psort_app : public psort {
         m.inc_ref(d);
         m.inc_ref(num_args, args);
         SASSERT(num_args == m_decl->get_num_params() || m_decl->has_var_params());
-        DEBUG_CODE(if (num_args == num_params) { for (unsigned i = 0; i < num_params; i++) args[i]->check_num_params(this); });
+        DEBUG_CODE(if (num_args == num_params) { for (unsigned i = 0; i < num_params; ++i) args[i]->check_num_params(this); });
     }
 
     void finalize(pdecl_manager & m) override {
@@ -247,7 +247,7 @@ public:
             return false;
         SASSERT(m_args.size() == _other->m_args.size());
         unsigned sz = m_args.size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             if (m_args[i] != _other->m_args[i])
                 return false;
         }
@@ -260,7 +260,7 @@ public:
         else {
             out << "(" << m_decl->get_name();
             unsigned sz = m_args.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 out << " ";
                 m_args[i]->display(out);
             }
@@ -319,7 +319,7 @@ sort * psort_user_decl::instantiate(pdecl_manager & m, unsigned n, sort * const 
         return r;
     if (m_def == nullptr) {
         buffer<parameter> ps;
-        for (unsigned i = 0; i < n; i++)
+        for (unsigned i = 0; i < n; ++i)
             ps.push_back(parameter(s[i]));
         r  = m.m().mk_uninterpreted_sort(m_name, ps.size(), ps.data());
     }
@@ -334,7 +334,7 @@ sort * psort_user_decl::instantiate(pdecl_manager & m, unsigned n, sort * const 
 void display_sort_args(std::ostream & out, unsigned num_params) {
     if (num_params > 0)
         out << " (";
-    for (unsigned i = 0; i < num_params; i++) {
+    for (unsigned i = 0; i < num_params; ++i) {
         if (i > 0) out << " ";
         out << "s_" << i;
     }
@@ -406,7 +406,7 @@ sort * psort_builtin_decl::instantiate(pdecl_manager & m, unsigned n, sort * con
     }
     else {
         buffer<parameter> params;
-        for (unsigned i = 0; i < n; i++)
+        for (unsigned i = 0; i < n; ++i)
             params.push_back(parameter(s[i]));
         sort * r = m.m().mk_sort(m_fid, m_kind, n, params.data());
         m.save_info(r, this, n, s);
@@ -422,7 +422,7 @@ sort * psort_builtin_decl::instantiate(pdecl_manager & m, unsigned n, unsigned c
     }
     else {
         buffer<parameter> params;
-        for (unsigned i = 0; i < n; i++)
+        for (unsigned i = 0; i < n; ++i)
             params.push_back(parameter(s[i]));
         sort * r = m.m().mk_sort(m_fid, m_kind, n, params.data());
         m.save_info(r, this, n, s);
@@ -541,6 +541,12 @@ void pconstructor_decl::display(std::ostream & out, pdatatype_decl const * const
     out << ")";
 }
 
+// ~~~~~~~~~~~~ psubterm_decl ~~~~~~~~~~~~ //
+std::ostream&  psubterm_decl::display(std::ostream & out) const {
+    return out << ":subterm " << m_name;
+}
+
+
 pdatatype_decl::pdatatype_decl(unsigned id, unsigned num_params, pdecl_manager & m,
                                symbol const & n, unsigned num_constructors, pconstructor_decl * const * constructors):
     psort_decl(id, num_params, m, n),
@@ -589,7 +595,11 @@ datatype_decl * pdatatype_decl::instantiate_decl(pdecl_manager & m, unsigned n, 
     for (auto c : m_constructors) 
         cs.push_back(c->instantiate_decl(m, n, s));
     datatype_util util(m.m());
-    return mk_datatype_decl(util, m_name, m_num_params, s, cs.size(), cs.data());
+    symbol subterm_name = symbol::null;
+    if (m_subterm.has_value()) {
+        subterm_name = m_subterm->get_name();
+    }
+    return mk_datatype_decl(util, m_name, m_num_params, s, cs.size(), cs.data(), subterm_name);
 }
 
 struct datatype_decl_buffer {
@@ -646,6 +656,9 @@ std::ostream& pdatatype_decl::display(std::ostream & out) const {
             c->display(out, dts);
         }
         first = false;
+    }
+    if (m_subterm.has_value()) {
+        m_subterm->display(out);
     }
     return out << ")";
 }
@@ -707,7 +720,7 @@ sort* pdecl_manager::instantiate_datatype(psort_decl* p, symbol const& name, uns
     }
     buffer<parameter> ps;
     ps.push_back(parameter(name));
-    for (unsigned i = 0; i < n; i++)
+    for (unsigned i = 0; i < n; ++i)
         ps.push_back(parameter(s[i]));
     datatype_util util(m.m());
     r = m.m().mk_sort(util.get_family_id(), DATATYPE_SORT, ps.size(), ps.data());

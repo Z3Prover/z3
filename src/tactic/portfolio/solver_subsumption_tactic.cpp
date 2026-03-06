@@ -155,7 +155,7 @@ public:
             result.push_back(g.get());
             return;
         }
-        for (unsigned i = 0; i < sz; i++)
+        for (unsigned i = 0; i < sz; ++i)
             fmls.push_back(std::make_pair(i, expr_ref(g->form(i), m)));
         if (!m_solver) {
             scoped_ptr<solver_factory> f = mk_smt_strategic_solver_factory();

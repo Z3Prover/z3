@@ -27,7 +27,7 @@ class powers : public u_map<mpz*> {
 public:
     powers(unsynch_mpz_manager & m) : m(m) {}
     ~powers() {
-        for (iterator it = begin(); it != end(); it++) {
+        for (iterator it = begin(); it != end(); ++it) {
             m.del(*it->m_value);
             dealloc(it->m_value);
         }

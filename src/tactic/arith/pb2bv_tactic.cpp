@@ -199,7 +199,7 @@ private:
             expr_fast_mark1 visited;
             only_01_visitor proc(m_arith_util, m_pb, m_bm);
             unsigned sz = g->size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 expr * f = g->form(i);
                 for_each_expr_core<only_01_visitor, expr_fast_mark1, true, true>(proc, visited, f);
             }
@@ -293,7 +293,7 @@ private:
                     switch (m_cls.size()) {
                     case 0:  m_result.push_back(m.mk_false()); break;
                     case 1:  m_result.push_back(m_cls[0]); break;
-                    default: m_result.push_back(m.mk_or(m_cls.size(), m_cls.data()));
+                    default: m_result.push_back(m.mk_or(m_cls));
                     }
                     return;
                 }
@@ -360,7 +360,7 @@ private:
         }
 
         static bool is_cardinality(polynomial const & m_p, numeral const & m_c) {
-            for (unsigned i = 0; i < m_p.size(); i++) {
+            for (unsigned i = 0; i < m_p.size(); ++i) {
                 if (!m_p[i].m_a.is_one())
                     return false;
             }
@@ -377,16 +377,16 @@ private:
 
             if (is_card && m_c.is_one()) {
                 ptr_buffer<expr> args;
-                for (unsigned i = 0; i < m_p.size(); i++) {
+                for (unsigned i = 0; i < m_p.size(); ++i) {
                     args.push_back(mon_lit2lit(m_p[i]));
                 }             
-                r = m.mk_or(args.size(), args.data());
+                r = m.mk_or(args);
                 return;
             }
         
             if (is_card && m_c == numeral(m_p.size())) {
                 ptr_buffer<expr> args;
-                for (unsigned i = 0; i < m_p.size(); i++) {
+                for (unsigned i = 0; i < m_p.size(); ++i) {
                     args.push_back(mon_lit2lit(m_p[i]));
                 }
                 m_b_rw.mk_and(args.size(), args.data(), r);
@@ -414,8 +414,8 @@ private:
                     expr_ref_vector tmp(m);
                     tmp.resize(rowsz, m.mk_true());
                 
-                    for (unsigned i = 0; i < k; i++) {
-                        for (unsigned j = 0; j < rowsz; j++) {
+                    for (unsigned i = 0; i < k; ++i) {
+                        for (unsigned j = 0; j < rowsz; ++j) {
                             expr_ref new_ite(m);
                             m_b_rw.mk_ite(mon_lit2lit(m_p[i + j]),
                                         tmp.get(j),
@@ -435,7 +435,7 @@ private:
             // [Leo] improving number of bits needed.
             // using (sum-of-coeffs).get_num_bits()
             numeral sum;
-            for (unsigned i = 0; i < m_p.size(); i++) {
+            for (unsigned i = 0; i < m_p.size(); ++i) {
                 monomial const & mo = m_p[i];            
                 SASSERT(mo.m_a.is_pos());
                 sum += mo.m_a;
@@ -458,7 +458,7 @@ private:
 
             ptr_buffer<expr> lhs_args;
         
-            for (unsigned i = 0; i < m_p.size(); i++) {
+            for (unsigned i = 0; i < m_p.size(); ++i) {
                 monomial const & mo = m_p[i];
                 // encode using if-then-else
                 expr * bv_monom =
@@ -483,7 +483,7 @@ private:
 
             unsigned sz = m_p.size();
             unsigned i;
-            for (i = 2; i < sz; i++) {
+            for (i = 2; i < sz; ++i) {
                 if (m_p[i].m_a != m_c)
                     break;
             }
@@ -494,7 +494,7 @@ private:
             }
 
             // copy lits [0, i) to m_clause
-            for (unsigned j = 0; j < i; j++)
+            for (unsigned j = 0; j < i; ++j)
                 m_clause.push_back(monomial(numeral(1), m_p[j].m_lit));
         
             app * new_var = m.mk_fresh_const(nullptr, m_arith_util.mk_int());
@@ -503,7 +503,7 @@ private:
             m_clause.push_back(monomial(numeral(1), lit(new_var,  true)));        
         
             // remove monomials [0, i) from m_p and add new_var in the beginning
-            for (unsigned j = i; j < sz; j++) {
+            for (unsigned j = i; j < sz; ++j) {
                 m_p[j - i + 1] = m_p[j];
             }
             m_p.shrink(sz - i + 1);
@@ -598,7 +598,7 @@ private:
             unsigned n = sz/2;
             if (c != rational::power_of_two(n) - numeral(1))
                 return false;
-            for (unsigned i = 0; i < n; i++) {
+            for (unsigned i = 0; i < n; ++i) {
                 monomial const & m1 = p[i*2];
                 monomial const & m2 = p[i*2+1];
                 if (m1.m_lit.sign() == m2.m_lit.sign())
@@ -745,7 +745,7 @@ private:
             unsigned sz = to_app(lhs)->get_num_args();
             expr * const * ms = to_app(lhs)->get_args();
             expr * a, * x;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 expr * m = ms[i];
                 if (is_uninterp_const(m))
                     continue;
@@ -759,7 +759,7 @@ private:
             polynomial m_p;
             numeral    m_c;
             m_c = c;
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 expr * m = ms[i];                
                 if (is_uninterp_const(m)) {
                     add_bounds_dependencies(m);
@@ -789,7 +789,7 @@ private:
             }
             else if (k == LE) {
                 m_c.neg();
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     monomial & m = m_p[i];
                     SASSERT(m.m_a.is_nonneg());
                     m_c += m.m_a;
@@ -818,7 +818,7 @@ private:
                 polynomial m_p2;
                 numeral    m_c2 = m_c;
                 m_c2.neg();
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     monomial m = m_p[i];
                     SASSERT(m.m_a.is_nonneg());
                     m_c2 += m.m_a;
@@ -914,7 +914,7 @@ private:
             }
 
             unsigned size = g->size();
-            for (unsigned i = 0; i < size; i++) 
+            for (unsigned i = 0; i < size; ++i) 
                 m_bm(g->form(i), g->dep(i), g->pr(i));
             
             TRACE(pb2bv, m_bm.display(tout););
@@ -933,7 +933,7 @@ private:
                 expr_ref  new_curr(m);
                 proof_ref new_pr(m);                
                 expr_ref new_f(m);
-                for (unsigned idx = 0; idx < size; idx++) {
+                for (unsigned idx = 0; idx < size; ++idx) {
                     expr * curr = g->form(idx);
                     expr * atom;
                     bool pos;
@@ -957,7 +957,7 @@ private:
                 throw_tactic(p.e);
             }
 
-            for (unsigned idx = 0; idx < size; idx++)
+            for (unsigned idx = 0; idx < size; ++idx)
                 g->update(idx, new_exprs.get(idx), nullptr, (m_produce_unsat_cores) ? new_deps.get(idx) : g->dep(idx));
 
             expr_ref_vector fmls(m);
@@ -974,7 +974,7 @@ private:
                     mc1->hide(f);
                 // store temp int constants in the filter
                 unsigned num_temps = m_temporary_ints.size();
-                for (unsigned i = 0; i < num_temps; i++)
+                for (unsigned i = 0; i < num_temps; ++i)
                     mc1->hide(m_temporary_ints.get(i));
                 pb2bv_model_converter * mc2 = alloc(pb2bv_model_converter, m, m_const2bit, m_bm);
                 mc = concat(mc1, mc2); 
@@ -1043,7 +1043,7 @@ struct is_pb_probe : public probe {
         try {
             ast_manager & m = g.m();
             bound_manager bm(m);
-            for (unsigned i = 0; i < g.size(); i++) 
+            for (unsigned i = 0; i < g.size(); ++i) 
                 bm(g.form(i), g.dep(i), g.pr(i));
             arith_util a_util(m);
             pb_util pb(m);
@@ -1051,7 +1051,7 @@ struct is_pb_probe : public probe {
             pb2bv_tactic::only_01_visitor proc(a_util, pb, bm);
             
             unsigned sz = g.size();
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 expr * f = g.form(i);
                 for_each_expr_core<pb2bv_tactic::only_01_visitor, expr_fast_mark1, true, true>(proc, visited, f);
             }

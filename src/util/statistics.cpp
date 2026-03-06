@@ -83,7 +83,7 @@ typedef map<char const *, double, str_hash_proc, str_eq_proc> key2dval;
 
 unsigned get_max_len(ptr_buffer<char> & keys) {
     unsigned max = 0;
-    for (unsigned i = 0; i < static_cast<unsigned>(keys.size()); i++) {
+    for (unsigned i = 0; i < static_cast<unsigned>(keys.size()); ++i) {
         char * k = keys.get(i);
         if (*k == ':')
             k++;
@@ -114,13 +114,13 @@ std::ostream& statistics::display_smt2(std::ostream & out) const {
             out << "\n ";                                       \
         display_smt2_key(out, k);                               \
         unsigned len = static_cast<unsigned>(strlen(k));        \
-        for (unsigned j = len; j < max; j++)                    \
+        for (unsigned j = len; j < max; ++j)                    \
             out << " ";                                         \
         first = false;                                          \
     }
     
     out << "(";
-    for (unsigned i = 0; i < keys.size(); i++) {
+    for (unsigned i = 0; i < keys.size(); ++i) {
         char * k = keys.get(i);
         unsigned val; 
         if (m_u.find(k, val)) {
@@ -147,11 +147,11 @@ std::ostream& statistics::display(std::ostream & out) const {
             k++;                                                \
         out << k << ":";                                        \
         unsigned len = static_cast<unsigned>(strlen(k));        \
-        for (unsigned j = len; j < max; j++)                    \
+        for (unsigned j = len; j < max; ++j)                    \
             out << " ";                                         \
     }
 
-    for (unsigned i = 0; i < keys.size(); i++) {
+    for (unsigned i = 0; i < keys.size(); ++i) {
         char * k = keys.get(i);
         unsigned val; 
         if (m_u.find(k, val)) {

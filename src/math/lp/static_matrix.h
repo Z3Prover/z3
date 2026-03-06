@@ -206,7 +206,7 @@ public:
 
     unsigned number_of_non_zeroes() const {
         unsigned ret = 0;
-        for (unsigned i = 0; i < row_count(); i++)
+        for (unsigned i = 0; i < row_count(); ++i)
             ret += number_of_non_zeroes_in_row(i);
         return ret;
     }

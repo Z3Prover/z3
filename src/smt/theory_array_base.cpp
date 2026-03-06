@@ -49,7 +49,7 @@ namespace smt {
     app * theory_array_base::mk_select(unsigned num_args, expr * const * args) {
         app * r = m.mk_app(get_family_id(), OP_SELECT, 0, nullptr, num_args, args);
         TRACE(mk_var_bug, tout << "mk_select: " << r->get_id() << " num_args: " << num_args;
-              for (unsigned i = 0; i < num_args; i++) tout << " " << args[i]->get_id();
+              for (unsigned i = 0; i < num_args; ++i) tout << " " << args[i]->get_id();
               tout << "\n";);
         return r;
     }
@@ -161,7 +161,7 @@ namespace smt {
         sel1_args.push_back(store->get_expr());
         sel2_args.push_back(a->get_expr());
 
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             sel1_args.push_back(is[i]->get_expr());
             sel2_args.push_back(is[i]->get_expr());
         }
@@ -171,7 +171,7 @@ namespace smt {
         literal conseq = null_literal;
         expr * conseq_expr = nullptr;
 
-        for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned i = 0; i < num_args; ++i) {
             enode * idx1 = js[i];
             enode * idx2 = is[i];
             
@@ -221,7 +221,7 @@ namespace smt {
     bool theory_array_base::assert_store_axiom2(enode * store, enode * select) { 
         unsigned num_args = select->get_num_args();
         unsigned        i = 1;
-        for (; i < num_args; i++) 
+        for (; i < num_args; ++i) 
             if (store->get_arg(i)->get_root() != select->get_arg(i)->get_root())
                 break;
         if (i == num_args)
@@ -259,7 +259,7 @@ namespace smt {
         SASSERT(n1->get_num_args() == n2->get_num_args());
         unsigned n = n1->get_num_args();
         // skipping first argument of the select.
-        for(unsigned i = 1; i < n; i++) {
+        for(unsigned i = 1; i < n; ++i) {
             if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root()) {
                 return false;
             }
@@ -346,7 +346,7 @@ namespace smt {
         expr_ref_vector args1(m), args2(m);
         args1.push_back(e1);
         args2.push_back(e2);
-        for (unsigned i = 0; i < dimension; i++) {
+        for (unsigned i = 0; i < dimension; ++i) {
             expr * k = m.mk_app(funcs->get(i), e1, e2);
             args1.push_back(k);
             args2.push_back(k);
@@ -382,7 +382,7 @@ namespace smt {
         args2.push_back(instantiate_lambda(e2));
         svector<symbol> names;
         sort_ref_vector sorts(m);
-        for (unsigned i = 0; i < dimension; i++) {
+        for (unsigned i = 0; i < dimension; ++i) {
             sort * srt = get_array_domain(s, i);
             sorts.push_back(srt);
             names.push_back(symbol(i));
@@ -425,16 +425,22 @@ namespace smt {
 
     void theory_array_base::propagate() {
         while (can_propagate()) {
-            for (unsigned i = 0; i < m_axiom1_todo.size(); i++)
+            for (unsigned i = 0; i < m_axiom1_todo.size(); ++i)
                 assert_store_axiom1_core(m_axiom1_todo[i]);
             m_axiom1_todo.reset();
-            for (unsigned i = 0; i < m_axiom2_todo.size(); i++)
-                assert_store_axiom2_core(m_axiom2_todo[i].first, m_axiom2_todo[i].second);
+            for (unsigned i = 0; i < m_axiom2_todo.size(); ++i) {
+                auto [store, select] = m_axiom2_todo[i];
+                assert_store_axiom2_core(store, select);
+            }
             m_axiom2_todo.reset();
-            for (unsigned i = 0; i < m_extensionality_todo.size(); i++)
-                assert_extensionality_core(m_extensionality_todo[i].first, m_extensionality_todo[i].second);
-            for (unsigned i = 0; i < m_congruent_todo.size(); i++)
-                assert_congruent_core(m_congruent_todo[i].first, m_congruent_todo[i].second);
+            for (unsigned i = 0; i < m_extensionality_todo.size(); ++i) {
+                auto [a1, a2] = m_extensionality_todo[i];
+                assert_extensionality_core(a1, a2);
+            }
+            for (unsigned i = 0; i < m_congruent_todo.size(); ++i) {
+                auto [a1, a2] = m_congruent_todo[i];
+                assert_congruent_core(a1, a2);
+            }
             m_extensionality_todo.reset();
             m_congruent_todo.reset();
             if (!ctx.get_fparams().m_array_weak && has_propagate_up_trail()) {
@@ -475,14 +481,14 @@ namespace smt {
             unsigned    num_args = parent->get_num_args();
             if (is_store(parent)) {
                 SET_ARRAY(parent->get_arg(0));
-                for (unsigned i = 1; i < num_args - 1; i++) {
+                for (unsigned i = 1; i < num_args - 1; ++i) {
                     SET_INDEX(parent->get_arg(i));
                 }
                 SET_VALUE(parent->get_arg(num_args - 1));
             }
             else if (is_select(parent)) {
                 SET_ARRAY(parent->get_arg(0));
-                for (unsigned i = 1; i < num_args; i++) {
+                for (unsigned i = 1; i < num_args; ++i) {
                     SET_INDEX(parent->get_arg(i));
                 }
             }
@@ -516,7 +522,7 @@ namespace smt {
     void theory_array_base::collect_shared_vars(sbuffer<theory_var> & result) {
         ptr_buffer<enode> to_unmark;
         unsigned num_vars = get_num_vars();
-        for (unsigned i = 0; i < num_vars; i++) {
+        for (unsigned i = 0; i < num_vars; ++i) {
             enode * n = get_enode(i);
             if (!ctx.is_relevant(n) || !is_array_sort(n)) {
                 continue;
@@ -758,7 +764,7 @@ namespace smt {
     bool theory_array_base::sel_eq::operator()(enode * n1, enode * n2) const {
         SASSERT(n1->get_num_args() == n2->get_num_args());
         unsigned num_args = n1->get_num_args();
-        for (unsigned i = 1; i < num_args; i++) {
+        for (unsigned i = 1; i < num_args; ++i) {
             if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root())
                 return false;
         }
@@ -824,7 +830,7 @@ namespace smt {
                 // check whether the sel idx was overwritten by the store
                 unsigned num_args = sel->get_num_args();
                 unsigned i = 1;
-                for (; i < num_args; i++) {
+                for (; i < num_args; ++i) {
                     if (sel->get_arg(i)->get_root() != parent->get_arg(i)->get_root())
                         break;
                 }
@@ -851,10 +857,8 @@ namespace smt {
         for (enode * r : m_selects_domain) {
             propagate_selects_to_store_parents(r, todo);
         }
-        for (unsigned qhead = 0; qhead < todo.size(); qhead++) {
-            enode_pair & pair = todo[qhead];
-            enode * r   = pair.first;
-            enode * sel = pair.second;
+        for (unsigned qhead = 0; qhead < todo.size(); ++qhead) {
+            auto [r, sel] = todo[qhead];
             propagate_select_to_store_parents(r, sel, todo);
         }
     }
@@ -916,7 +920,7 @@ namespace smt {
             SASSERT(m_dim == 0 || m_dim == num_args);
             m_dim = num_args;
             m_num_entries ++;
-            for (unsigned i = 0; i < num_args; i++) 
+            for (unsigned i = 0; i < num_args; ++i) 
                 m_dependencies.push_back(model_value_dependency(args[i]));
             m_dependencies.push_back(model_value_dependency(value));
         }
@@ -948,10 +952,10 @@ namespace smt {
             }
             
             ptr_buffer<expr> args;
-            for (unsigned i = 0; i < m_num_entries; i++) {
+            for (unsigned i = 0; i < m_num_entries; ++i) {
                 args.reset();
                 // copy indices
-                for (unsigned j = 0; j < m_dim; j++, idx++) 
+                for (unsigned j = 0; j < m_dim; ++j, ++idx) 
                     args.push_back(values[idx]);
                 expr * result = values[idx];
                 idx++;

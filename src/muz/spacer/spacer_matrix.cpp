@@ -128,7 +128,7 @@ bool spacer_matrix::is_lin_reltd(unsigned i, unsigned j, rational &coeff1,
     coeff2 = m_matrix[1][i] - m_matrix[0][i];
     off = (m_matrix[0][i] * m_matrix[1][j]) - (m_matrix[1][i] * m_matrix[0][j]);
 
-    for (unsigned k = 0; k < m_num_rows; k++) {
+    for (unsigned k = 0; k < m_num_rows; ++k) {
         if (((coeff1 * m_matrix[k][i]) + (coeff2 * m_matrix[k][j]) + off) !=
             rational::zero()) {
             TRACE(cvx_dbg_verb,
@@ -156,8 +156,8 @@ bool spacer_matrix::compute_linear_deps(spacer_matrix &eq) const {
     vector<rational> lin_dep;
     lin_dep.reserve(m_num_cols + 1);
 
-    for (unsigned i = 0; i < m_num_cols; i++) {
-        for (unsigned j = i + 1; j < m_num_cols; j++) {
+    for (unsigned i = 0; i < m_num_cols; ++i) {
+        for (unsigned j = i + 1; j < m_num_cols; ++j) {
             if (is_lin_reltd(i, j, coeff1, coeff2, off)) {
                 SASSERT(!(coeff1 == 0 && coeff2 == 0 && off == 0));
                 lin_dep[i] = coeff1;

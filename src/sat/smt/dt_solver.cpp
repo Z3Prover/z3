@@ -727,7 +727,7 @@ namespace dt {
         sat::check_result r = sat::check_result::CR_DONE;
         final_check_st _guard(*this);
         int start = s().rand()();
-        for (int i = 0; i < num_vars; i++) {
+        for (int i = 0; i < num_vars; ++i) {
             theory_var v = (i + start) % num_vars;
             if (v != static_cast<int>(m_find.find(v)))
                 continue;
@@ -881,7 +881,7 @@ namespace dt {
         unsigned num_vars = get_num_vars();
         if (num_vars > 0)
             out << "Theory datatype:\n";
-        for (unsigned v = 0; v < num_vars; v++)
+        for (unsigned v = 0; v < num_vars; ++v)
             display_var(out, v);
         return out;
     }

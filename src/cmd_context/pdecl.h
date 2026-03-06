@@ -229,11 +229,23 @@ public:
     void display(std::ostream & out, pdatatype_decl const * const * dts) const;
 };
 
+class psubterm_decl: public pdecl {
+    friend class pdecl_manager;
+    friend class pdatatype_decl;
+    symbol                     m_name;
+    ptype    m_type;
+    symbol const & get_name() const { return m_name; }
+public:
+    psubterm_decl(symbol const& n) : pdecl(0, 0), m_name(n) {}
+    std::ostream& display(std::ostream & out) const override;
+};
+
 class pdatatype_decl : public psort_decl {
     friend class pdecl_manager;
     friend class pdatatypes_decl;
     ptr_vector<pconstructor_decl> m_constructors;
     pdatatypes_decl *             m_parent;
+    std::optional<psubterm_decl>         m_subterm;
     pdatatype_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n,
                    unsigned num_constructors, pconstructor_decl * const * constructors);
     void finalize(pdecl_manager & m) override;
@@ -246,6 +258,7 @@ public:
     bool has_missing_refs(symbol & missing) const;
     bool has_duplicate_accessors(symbol & repeated) const;
     bool commit(pdecl_manager& m);
+    void set_subterm(symbol const& n) { m_subterm = psubterm_decl(n); }
 };
 
 /**
@@ -332,11 +345,11 @@ public:
 
     void lazy_dec_ref(pdecl * p) { p->dec_ref(); if (p->get_ref_count() == 0) m_to_delete.push_back(p); }
     template<typename T>
-    void lazy_dec_ref(unsigned num, T * const * ps) { for (unsigned i = 0; i < num; i++) lazy_dec_ref(ps[i]); }
+    void lazy_dec_ref(unsigned num, T * const * ps) { for (unsigned i = 0; i < num; ++i) lazy_dec_ref(ps[i]); }
     void inc_ref(pdecl * p) { if (p) { p->inc_ref(); } }
     void dec_ref(pdecl * p) { if (p) { lazy_dec_ref(p); del_decls(); } }
     template<typename T>
-    void inc_ref(unsigned num, T * const * ps) { for (unsigned i = 0; i < num; i++) inc_ref(ps[i]); }
+    void inc_ref(unsigned num, T * const * ps) { for (unsigned i = 0; i < num; ++i) inc_ref(ps[i]); }
     template<typename T>
     void dec_ref(unsigned num, T * const * ps) { lazy_dec_ref(num, ps); del_decls(); }
     psort_inst_cache * mk_inst_cache(unsigned num_params);

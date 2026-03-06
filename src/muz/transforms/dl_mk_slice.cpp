@@ -115,16 +115,14 @@ namespace datalog {
             if (!m_sliceform2rule.empty()) {
                 return;
             }
-            obj_map<rule, rule*>::iterator it  = m_rule2slice.begin();
-            obj_map<rule, rule*>::iterator end = m_rule2slice.end();
             expr_ref fml(m);
-            for (; it != end; ++it) {
-                rm.to_formula(*it->m_value, fml);
+            for (auto const& kv : m_rule2slice) {
+                rm.to_formula(*kv.m_value, fml);
                 m_pinned_exprs.push_back(fml);
                 TRACE(dl, 
                       tout << "orig: " << mk_pp(fml, m) << "\n";
-                      it->m_value->display(m_ctx, tout << "new:\n"););                
-                m_sliceform2rule.insert(fml, it->m_key);                
+                      kv.m_value->display(m_ctx, tout << "new:\n"););                
+                m_sliceform2rule.insert(fml, kv.m_key);                
             }
         }
 
@@ -714,14 +712,13 @@ namespace datalog {
     }
         
     void mk_slice::declare_predicates(rule_set const& src, rule_set& dst) {
-        obj_map<func_decl, bit_vector>::iterator it = m_sliceable.begin(), end = m_sliceable.end();
         ptr_vector<sort> domain;
         bool has_output = false;
         func_decl* f;
-        for (; it != end; ++it) {
+        for (auto const& kv : m_sliceable) {
             domain.reset();
-            func_decl* p = it->m_key;
-            bit_vector const& bv = it->m_value;
+            func_decl* p = kv.m_key;
+            bit_vector const& bv = kv.m_value;
             for (unsigned i = 0; i < bv.size(); ++i) {
                 if (!bv.get(i)) {
                     domain.push_back(p->get_domain(i));
@@ -848,9 +845,8 @@ namespace datalog {
         update_rules(src, *result);
         TRACE(dl, result->display(tout););
         if (m_mc) {
-            obj_map<func_decl, bit_vector>::iterator it = m_sliceable.begin(), end = m_sliceable.end();
-            for (; it != end; ++it) {
-                m_mc->add_sliceable(it->m_key, it->m_value);
+            for (auto const& kv : m_sliceable) {
+                m_mc->add_sliceable(kv.m_key, kv.m_value);
             }
         }
         m_ctx.add_proof_converter(spc.get());

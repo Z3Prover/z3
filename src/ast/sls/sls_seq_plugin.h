@@ -169,7 +169,6 @@ namespace sls {
         bool is_value(expr* e);
     public:
         seq_plugin(context& c);
-        ~seq_plugin() override {}
         expr_ref get_value(expr* e) override;
         void initialize() override;
         void start_propagation() override {}
@@ -185,7 +184,7 @@ namespace sls {
         bool repair_down(app* e) override;
         void repair_literal(sat::literal lit) override;
 
-        void collect_statistics(statistics& st) const override {}
+        void collect_statistics(statistics&) const override { }
         void reset_statistics() override {}
 
     };

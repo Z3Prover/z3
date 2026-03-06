@@ -42,7 +42,7 @@ public:
     }
 
     bool empty() const {
-        for (unsigned i = 0; i < size(); i++) {
+        for (unsigned i = 0; i < size(); ++i) {
             if ((*this)[i] != 0) {
                 return false;
             }
@@ -72,7 +72,7 @@ public:
 
     unsigned num_elems() const {
         unsigned r = 0;
-        for (unsigned i = 0; i < size(); i++) {
+        for (unsigned i = 0; i < size(); ++i) {
             r += get_num_1bits((*this)[i]);
         }
         return r;
@@ -84,7 +84,7 @@ public:
         if (source_size > size()) {
             resize(source_size + 1);
         }
-        for (unsigned i = 0; i < source_size; i++) {
+        for (unsigned i = 0; i < source_size; ++i) {
             (*this)[i] |= source[i];
         }
         return *this;
@@ -95,7 +95,7 @@ public:
         if (source_size < size()) {
             resize(source_size);
         }
-        for (unsigned i = 0; i < size(); i++) {
+        for (unsigned i = 0; i < size(); ++i) {
             (*this)[i] &= source[i];
         }
         return *this;
@@ -106,7 +106,7 @@ public:
         if (source.size() < min_size) {
             min_size = source.size();
         }
-        for (unsigned i = 0; i < min_size; i++) {
+        for (unsigned i = 0; i < min_size; ++i) {
             if ((*this)[i] != source[i]) {
                 return false;
             }
@@ -135,7 +135,7 @@ public:
         if (source.size() < min_size) {
             min_size = source.size();
         }
-        for (unsigned i = 0; i < min_size; i++) {
+        for (unsigned i = 0; i < min_size; ++i) {
             if (((*this)[i] & ~source[i]) != 0) {
                 return false;
             }
@@ -219,7 +219,7 @@ inline std::ostream & operator<<(std::ostream & target, const uint_set & s) {
     unsigned n = s.get_max_elem() + 1;
     target << "{";
     bool first = true;
-    for (unsigned i = 0; i < n; i++) {
+    for (unsigned i = 0; i < n; ++i) {
         if (s.contains(i)) {
             if (first) {
                 first = false;

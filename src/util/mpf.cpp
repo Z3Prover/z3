@@ -1197,7 +1197,7 @@ void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o
     mpf_exp_t e = (mpf_exp_t)t.exponent() - t.sbits() + 1;
     if (e < 0) {
         bool last = m_mpz_manager.is_odd(z), round = false, sticky = false;
-        for (; e != 0; e++) {
+        for (; e != 0; ++e) {
             m_mpz_manager.machine_div2k(z, 1);
             sticky |= round;
             round = last;
@@ -1662,7 +1662,7 @@ std::string mpf_manager::to_string_binary(mpf const & x, unsigned upper_extra, u
         }
 
         std::string tmp_str = "";
-        for (unsigned i = 0; i < x.ebits; i++) {
+        for (unsigned i = 0; i < x.ebits; ++i) {
             tmp_str += m_mpz_manager.is_odd(tmp) ? "1" : "0";
             tmp /= 2;
         }
@@ -1672,7 +1672,7 @@ std::string mpf_manager::to_string_binary(mpf const & x, unsigned upper_extra, u
         tmp_str = "";
         m_mpz_manager.set(tmp, sig(x));
         unsigned num_bits = upper_extra + x.sbits + lower_extra;
-        for (unsigned i = 0; i < num_bits || !tmp.is_zero(); i++) {
+        for (unsigned i = 0; i < num_bits || !tmp.is_zero(); ++i) {
             tmp_str += m_mpz_manager.is_odd(tmp) ? "1" : "0";
             tmp /= 2;
             if (i == lower_extra - 1)

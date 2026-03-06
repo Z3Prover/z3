@@ -24,7 +24,7 @@ Notes:
 #include "ast/pb_decl_plugin.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_replacer.h"
-#include "util/optional.h"
+#include <optional>
 #include "tactic/arith/bv2int_rewriter.h"
 #include "tactic/arith/bv2real_rewriter.h"
 #include "ast/converters/generic_model_converter.h"
@@ -209,7 +209,7 @@ class nla2bv_tactic : public tactic {
         void add_int_var(app* n) {
             expr_ref s_bv(m_manager);
             sort_ref bv_sort(m_manager);
-            optional<numeral> low, up;
+            std::optional<numeral> low, up;
             numeral tmp;
             bool is_strict;
             if (m_bounds.has_lower(n, tmp, is_strict)) {

@@ -63,7 +63,7 @@ namespace smt {
     app * theory_fpa::fpa_value_proc::mk_value(model_generator & mg, expr_ref_vector const & values) {
         TRACE(t_fpa_detail,
               ast_manager & m = m_th.get_manager();
-              for (unsigned i = 0; i < values.size(); i++)
+              for (unsigned i = 0; i < values.size(); ++i)
                   tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
 
         mpf_manager & mpfm = m_fu.fm();
@@ -140,7 +140,7 @@ namespace smt {
 
         TRACE(t_fpa_detail,
               ast_manager & m = m_th.get_manager();
-              for (unsigned i = 0; i < values.size(); i++)
+              for (unsigned i = 0; i < values.size(); ++i)
               tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
 
         app * result = nullptr;
@@ -455,8 +455,7 @@ namespace smt {
                     SASSERT(to_app(bv_val_e)->get_num_args() == 3);
                     app_ref bv_val_a(m);
                     bv_val_a = to_app(bv_val_e.get());
-                    expr * args[] = { bv_val_a->get_arg(0), bv_val_a->get_arg(1), bv_val_a->get_arg(2) };
-                    cc_args = m_bv_util.mk_concat(3, args);
+                    cc_args = m_bv_util.mk_concat({bv_val_a->get_arg(0), bv_val_a->get_arg(1), bv_val_a->get_arg(2)});
                     c = m.mk_eq(wrapped, cc_args);
                     assert_cnstr(c);
                     assert_cnstr(mk_side_conditions());
@@ -630,12 +629,12 @@ namespace smt {
         for (func_decl* f : seen)
             mdl.unregister_decl(f);
 
-        for (unsigned i = 0; i < new_model.get_num_constants(); i++) {
+        for (unsigned i = 0; i < new_model.get_num_constants(); ++i) {
             func_decl * f = new_model.get_constant(i);
             mdl.register_decl(f, new_model.get_const_interp(f));
         }
 
-        for (unsigned i = 0; i < new_model.get_num_functions(); i++) {
+        for (unsigned i = 0; i < new_model.get_num_functions(); ++i) {
             func_decl * f = new_model.get_function(i);
             func_interp * fi = new_model.get_func_interp(f)->copy();
             mdl.register_decl(f, fi);

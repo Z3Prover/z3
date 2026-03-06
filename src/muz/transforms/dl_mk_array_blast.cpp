@@ -227,10 +227,10 @@ namespace datalog {
                 for (unsigned j = 0; j < args1.size(); ++j) {
                     eqs.push_back(m.mk_eq(args1[j], args2[j]));
                 }
-                conjs.push_back(m.mk_implies(m.mk_and(eqs.size(), eqs.data()), m.mk_eq(v1, v2)));
+                conjs.push_back(m.mk_implies(m.mk_and(eqs), m.mk_eq(v1, v2)));
             }
         }
-        body = m.mk_and(conjs.size(), conjs.data());        
+        body = m.mk_and(conjs);        
         m_rewriter(body);   
         return true;
     }
@@ -278,7 +278,7 @@ namespace datalog {
             return false;        
         }
         expr_ref fml1(m), fml2(m), body(m), head(m);
-        body = m.mk_and(new_conjs.size(), new_conjs.data());
+        body = m.mk_and(new_conjs);
         head = r.get_head();
         sub(body);
         m_rewriter(body);

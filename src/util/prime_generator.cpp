@@ -32,12 +32,12 @@ void prime_generator::process_next_k_numbers(uint64_t k) {
     SASSERT(m_primes[j] == 3);
     while (!todo.empty()) {
         unsigned sz = m_primes.size();
-        for (; j < sz; j++) {
+        for (; j < sz; ++j) {
             uint64_t p = m_primes[j];
             unsigned todo_sz = todo.size();
             unsigned k1 = 0;
             unsigned k2 = 0;
-            for (; k1 < todo_sz; k1++) {
+            for (; k1 < todo_sz; ++k1) {
                 if (todo[k1] % p == 0)
                     continue;
                 todo[k2] = todo[k1];
@@ -48,7 +48,7 @@ void prime_generator::process_next_k_numbers(uint64_t k) {
                 return;
             if (p > (todo[k2-1] / p) + 1) {
                 // all numbers in todo are primes
-                for (unsigned k1 = 0; k1 < k2; k1++) {
+                for (unsigned k1 = 0; k1 < k2; ++k1) {
                     m_primes.push_back(todo[k1]);
                 }
                 return;
@@ -58,7 +58,7 @@ void prime_generator::process_next_k_numbers(uint64_t k) {
         p = p*p;
         unsigned todo_sz = todo.size();
         unsigned k1 = 0;
-        for (k1 = 0; k1 < todo_sz; k1++) {
+        for (k1 = 0; k1 < todo_sz; ++k1) {
             if (todo[k1] < p) {
                 m_primes.push_back(todo[k1]);
             }
@@ -67,7 +67,7 @@ void prime_generator::process_next_k_numbers(uint64_t k) {
             }
         }
         unsigned k2 = 0;
-        for (; k1 < todo_sz; k1++, k2++) {
+        for (; k1 < todo_sz; ++k1, ++k2) {
             todo[k2] = todo[k1];
         }
         todo.shrink(k2);

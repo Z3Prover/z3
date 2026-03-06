@@ -48,7 +48,7 @@ unsigned linear_equation::pos(unsigned x_i) const {
 
 void linear_equation_manager::display(std::ostream & out, linear_equation const & eq) const {
     unsigned sz = eq.m_size;
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         if (i > 0)
             out << " + ";
         out << m.to_string(eq.m_as[i]) << "*x" << eq.m_xs[i];
@@ -63,7 +63,7 @@ linear_equation * linear_equation_manager::mk(unsigned sz, mpq * as, var * xs, b
     mpz l;
     mpz r;
     m.set(l, as[0].denominator());
-    for (unsigned i = 1; i < sz; i++) {
+    for (unsigned i = 1; i < sz; ++i) {
         m.set(r, as[i].denominator());
         m.lcm(r, l, l);
     }
@@ -72,7 +72,7 @@ linear_equation * linear_equation_manager::mk(unsigned sz, mpq * as, var * xs, b
     
     // copy l * as to m_int_buffer.
     m_int_buffer.reset();
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         TRACE(linear_equation_mk, tout << "before as[" << i << "]: " << m.to_string(as[i]) << "\n";);
         m.mul(l, as[i], as[i]);
         TRACE(linear_equation_mk, tout << "after as[" << i << "]: " << m.to_string(as[i]) << "\n";);
@@ -91,16 +91,16 @@ linear_equation * linear_equation_manager::mk(unsigned sz, mpq * as, var * xs, b
 linear_equation * linear_equation_manager::mk_core(unsigned sz, mpz * as, var * xs) {
     SASSERT(sz > 0);
     DEBUG_CODE({
-        for (unsigned i = 1; i < sz; i++) {
+        for (unsigned i = 1; i < sz; ++i) {
             SASSERT(xs[i-1] < xs[i]);
         }
     });
 
-    TRACE(linear_equation_bug, for (unsigned i = 0; i < sz; i++) tout << m.to_string(as[i]) << "*x" << xs[i] << " "; tout << "\n";);
+    TRACE(linear_equation_bug, for (unsigned i = 0; i < sz; ++i) tout << m.to_string(as[i]) << "*x" << xs[i] << " "; tout << "\n";);
     
     mpz g;
     m.set(g, as[0]);
-    for (unsigned i = 1; i < sz; i++) {
+    for (unsigned i = 1; i < sz; ++i) {
         if (m.is_one(g))
             break;
         if (m.is_neg(as[i])) {
@@ -113,14 +113,14 @@ linear_equation * linear_equation_manager::mk_core(unsigned sz, mpz * as, var * 
         }
     }
     if (!m.is_one(g)) {
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             m.div(as[i], g, as[i]);
         }
     }
 
     TRACE(linear_equation_bug, 
           tout << "g: " << m.to_string(g) << "\n";
-          for (unsigned i = 0; i < sz; i++) tout << m.to_string(as[i]) << "*x" << xs[i] << " "; tout << "\n";);
+          for (unsigned i = 0; i < sz; ++i) tout << m.to_string(as[i]) << "*x" << xs[i] << " "; tout << "\n";);
 
     m.del(g);
 
@@ -130,7 +130,7 @@ linear_equation * linear_equation_manager::mk_core(unsigned sz, mpz * as, var * 
     mpz * new_as             = reinterpret_cast<mpz*>(reinterpret_cast<char*>(new_eq) + sizeof(linear_equation));
     double * new_app_as      = reinterpret_cast<double*>(reinterpret_cast<char*>(new_as) + sz * sizeof(mpz));
     var * new_xs             = reinterpret_cast<var *>(reinterpret_cast<char*>(new_app_as) + sz * sizeof(double));
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         new (new_as + i) mpz();
         m.set(new_as[i], as[i]);
         new_app_as[i] = m.get_double(as[i]);
@@ -146,7 +146,7 @@ linear_equation * linear_equation_manager::mk_core(unsigned sz, mpz * as, var * 
 
 linear_equation * linear_equation_manager::mk(unsigned sz, mpz * as, var * xs, bool normalized) {
     if (!normalized) {
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             var x = xs[i];
             m_mark.reserve(x+1, false);
             m_val_buffer.reserve(x+1);
@@ -161,7 +161,7 @@ linear_equation * linear_equation_manager::mk(unsigned sz, mpz * as, var * xs, b
         }
         
         unsigned j = 0;
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             var x = xs[i];
             if (m_mark[x]) {
                 if (!m.is_zero(m_val_buffer[x])) {
@@ -178,26 +178,26 @@ linear_equation * linear_equation_manager::mk(unsigned sz, mpz * as, var * xs, b
     }
     else {
         DEBUG_CODE({
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 var x = xs[i];
                 m_mark.reserve(x+1, false);
                 SASSERT(!m_mark[x]);
                 m_mark[x] = true;
             }
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 var x = xs[i];
                 m_mark[x] = false;
             }
         });
     }
     
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         var x = xs[i];
         m_val_buffer.reserve(x+1);
         m.swap(m_val_buffer[x], as[i]);
     }
     std::sort(xs, xs+sz);
-    for (unsigned i = 0; i < sz; i++) {
+    for (unsigned i = 0; i < sz; ++i) {
         var x = xs[i];
         m.swap(as[i], m_val_buffer[x]);
     }
@@ -270,7 +270,7 @@ linear_equation * linear_equation_manager::mk(mpz const & b1, linear_equation co
 }
 
 void linear_equation_manager::del(linear_equation * eq) {
-    for (unsigned i = 0; i < eq->m_size; i++) {
+    for (unsigned i = 0; i < eq->m_size; ++i) {
         m.del(eq->m_as[i]);
     }
     unsigned obj_sz = linear_equation::get_obj_size(eq->m_size);

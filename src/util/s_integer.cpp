@@ -19,10 +19,6 @@ Revision History:
 
 #include "util/s_integer.h"
 
-s_integer s_integer::m_zero(0);
-s_integer s_integer::m_one(1);
-s_integer s_integer::m_minus_one(-1);
-
 s_integer::s_integer(const char * str) {
     m_val = static_cast<int>(strtol(str, nullptr, 10));
 }
@@ -52,7 +48,7 @@ s_integer gcd(const s_integer & r1, const s_integer & r2) {
         tmp2.neg();
     }
     if (tmp1 < tmp2) {
-        tmp1.swap(tmp2);
+        std::swap(tmp1, tmp2);
     }
     for(;;) {
         s_integer aux = tmp1 % tmp2;

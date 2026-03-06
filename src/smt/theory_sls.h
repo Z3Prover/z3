@@ -30,7 +30,6 @@ namespace smt {
         model_ref m_model;
     public:
         theory_sls(context& ctx);
-        ~theory_sls() override {}
         model_ref get_model() { return m_model; }
         char const* get_name() const override { return "sls"; }
         smt::theory* mk_fresh(context* new_ctx) override { return alloc(theory_sls, *new_ctx); }

@@ -45,7 +45,7 @@ static void tst_sine(std::ostream & out, unsigned N, unsigned k) {
     scoped_mpq a(nm);
     nm.set(a, 0);
     tst_sine_core(out, nm, im, a, 1);
-    for (unsigned i = 0; i < N; i++) {
+    for (unsigned i = 0; i < N; ++i) {
         nm.set(a, 4 * (rand() % PREC), PREC);
         if (rand() % 2 == 0)
             nm.neg(a);
@@ -71,7 +71,7 @@ static void tst_cosine(std::ostream & out, unsigned N, unsigned k) {
     scoped_mpq a(nm);
     nm.set(a, 0);
     tst_cosine_core(out, nm, im, a, 1);
-    for (unsigned i = 0; i < N; i++) {
+    for (unsigned i = 0; i < N; ++i) {
         nm.set(a, 4 * (rand() % PREC), PREC);
         if (rand() % 2 == 0)
             nm.neg(a);
@@ -92,6 +92,10 @@ static void tst_float_sine_core(std::ostream & out,
     out << "Sin[" << fm.to_rational_string(a) << "] <= " << fm.to_rational_string(hi) << "\n";
 }
 
+#ifdef SBITS
+#undef SBITS
+#endif
+
 const unsigned EBITS = 11;
 const unsigned SBITS = 53;
 
@@ -107,7 +111,7 @@ static void tst_float_sine(std::ostream & out, unsigned N, unsigned k) {
     // fm.set(a, EBITS, SBITS, MPF_ROUND_TOWARD_POSITIVE, 25336, 100000);
     // tst_float_sine_core(out, fm, im, a, k);
     // return;
-    for (unsigned i = 0; i < N; i++) {
+    for (unsigned i = 0; i < N; ++i) {
         unsigned n = 4 * (rand() % PREC);
         unsigned d = PREC;
         TRACE(sine, tout << "next-val : " << n << "/" << d << "\n";);
@@ -136,7 +140,7 @@ static void tst_e(std::ostream & out) {
     unsynch_mpq_manager                 nm;
     interval_manager<im_default_config> im(rl, nm);
     im_default_config::interval         r;
-    for (unsigned i = 0; i < 64; i++) {
+    for (unsigned i = 0; i < 64; ++i) {
         im.e(i, r);
         out << nm.to_string(im.lower(r)) << " <= E\n";
         out << "E <= " << nm.to_string(im.upper(r)) << "\n";
@@ -152,7 +156,7 @@ static void tst_e_float(std::ostream & out) {
     interval_manager<im_float_config<mpf_manager> > im(rl, fm);
     scoped_mpq q(qm);
     im_float_config<mpf_manager>::interval r;
-    for (unsigned i = 0; i < 64; i++) {
+    for (unsigned i = 0; i < 64; ++i) {
         im.e(i, r);
         out << fm.to_rational_string(im.lower(r)) << " <= E\n";
         out << "E <= " << fm.to_rational_string(im.upper(r)) << "\n";

@@ -81,7 +81,7 @@ namespace sat {
         unsigned next_index = 0;
         svector<frame>   frames;
         
-        for (unsigned l_idx = 0; l_idx < num_lits; l_idx++) {
+        for (unsigned l_idx = 0; l_idx < num_lits; ++l_idx) {
             if (index[l_idx] != UINT_MAX)
                 continue;
             if (m_solver.was_eliminated(to_literal(l_idx).var()))
@@ -234,7 +234,7 @@ namespace sat {
         bool_var_vector to_elim;
         if (!extract_roots(roots, to_elim))
             return 0;
-        TRACE(scc, for (unsigned i = 0; i < roots.size(); i++) { tout << i << " -> " << roots[i] << "\n"; }
+        TRACE(scc, for (unsigned i = 0; i < roots.size(); ++i) { tout << i << " -> " << roots[i] << "\n"; }
               tout << "to_elim: "; for (unsigned v : to_elim) tout << v << " "; tout << "\n";);
         m_num_elim += to_elim.size();
         elim_eqs eliminator(m_solver);

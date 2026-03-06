@@ -5,7 +5,6 @@ def_module_params('nlsat',
                   params=(max_memory_param(),
                           ('simple_check', BOOL, False, "precheck polynomials using variables sign"),
                           ('variable_ordering_strategy', UINT, 0, "Variable Ordering Strategy, 0 for none, 1 for BROWN, 2 for TRIANGULAR, 3 for ONLYPOLY"),
-                          ('cell_sample', BOOL, True, "cell sample projection"),
                           ('lazy', UINT, 0, "how lazy the solver is."),
                           ('reorder', BOOL, True, "reorder variables."),
                           ('log_lemmas', BOOL, False, "display lemmas as self-contained SMT formulas"),
@@ -22,6 +21,8 @@ def_module_params('nlsat',
                           ('factor', BOOL, True, "factor polynomials produced during conflict resolution."),
                           ('add_all_coeffs', BOOL, False, "add all polynomial coefficients during projection."),
                           ('zero_disc', BOOL, False, "add_zero_assumption to the vanishing discriminant."),
-                          ('known_sat_assignment_file_name', STRING, "", "the file name of a known solution: used for debugging only")
-                          
-                          ))         
+                          ('known_sat_assignment_file_name', STRING, "", "the file name of a known solution: used for debugging only"),
+                          ('lws', BOOL, True, "apply levelwise."),
+                          ('lws_spt_threshold', UINT, 4, "minimum both-side polynomial count to apply spanning tree optimization; < 2 disables spanning tree"),
+                          ('canonicalize', BOOL, True, "canonicalize polynomials.")
+                          ))                  

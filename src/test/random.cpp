@@ -23,7 +23,7 @@ Revision History:
 static void tst1() {
     random_gen r(0);
     TRACE(random, 
-          for (unsigned i = 0; i < 1000; i++) {
+          for (unsigned i = 0; i < 1000; ++i) {
               tout << r() << "\n";
           });
 }

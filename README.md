@@ -17,9 +17,34 @@ See the [release notes](RELEASE_NOTES.md) for notes on various stable releases o
 
 ## Build status
 
-| Azure Pipelines |  Open Bugs | Android Build | WASM Build | Windows Build | Pyodide Build | OCaml Build |
-| --------------- | -----------|---------------|------------|---------------|---------------|-------------|
-| [![Build Status](https://dev.azure.com/Z3Public/Z3/_apis/build/status/Z3Prover.z3?branchName=master)](https://dev.azure.com/Z3Public/Z3/_build/latest?definitionId=1&branchName=master) |  [![Open Issues](https://github.com/Z3Prover/z3/actions/workflows/wip.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wip.yml) |[![Android Build](https://github.com/Z3Prover/z3/actions/workflows/android-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/android-build.yml) | [![WASM Build](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml) | [![Windows](https://github.com/Z3Prover/z3/actions/workflows/Windows.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/Windows.yml) | [![Pyodide Build](https://github.com/Z3Prover/z3/actions/workflows/pyodide.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/pyodide.yml) | [![OCaml Build](https://github.com/Z3Prover/z3/actions/workflows/ocaml-all.yaml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ocaml-all.yaml) |
+### Pull Request & Push Workflows
+| WASM Build | Windows Build | CI | OCaml Binding |
+| ------------|---------------|----|-----------| 
+| [![WASM Build](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm.yml) | [![Windows](https://github.com/Z3Prover/z3/actions/workflows/Windows.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/Windows.yml) | [![CI](https://github.com/Z3Prover/z3/actions/workflows/ci.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ci.yml) | [![OCaml Binding CI](https://github.com/Z3Prover/z3/actions/workflows/ocaml.yaml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/ocaml.yaml) |
+
+### Scheduled Workflows
+| Open Bugs | Android Build | Pyodide Build | Nightly Build | Cross Build |
+| -----------|---------------|---------------|---------------|-------------|
+| [![Open Issues](https://github.com/Z3Prover/z3/actions/workflows/wip.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wip.yml) | [![Android Build](https://github.com/Z3Prover/z3/actions/workflows/android-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/android-build.yml) | [![Pyodide Build](https://github.com/Z3Prover/z3/actions/workflows/pyodide.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/pyodide.yml) | [![Nightly Build](https://github.com/Z3Prover/z3/actions/workflows/nightly.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/nightly.yml) | [![RISC V and PowerPC 64](https://github.com/Z3Prover/z3/actions/workflows/cross-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/cross-build.yml) |
+
+| MSVC Static | MSVC Clang-CL | Build Z3 Cache |
+|-------------|---------------|----------------|
+| [![MSVC Static Build](https://github.com/Z3Prover/z3/actions/workflows/msvc-static-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/msvc-static-build.yml) | [![MSVC Clang-CL Static Build](https://github.com/Z3Prover/z3/actions/workflows/msvc-static-build-clang-cl.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/msvc-static-build-clang-cl.yml) | [![Build and Cache Z3](https://github.com/Z3Prover/z3/actions/workflows/build-z3-cache.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/build-z3-cache.yml) |
+
+### Manual & Release Workflows
+| Documentation | Release Build | WASM Release | NuGet Build |
+|---------------|---------------|--------------|-------------|
+| [![Documentation](https://github.com/Z3Prover/z3/actions/workflows/docs.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/docs.yml) | [![Release Build](https://github.com/Z3Prover/z3/actions/workflows/release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/release.yml) | [![WebAssembly Publish](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/wasm-release.yml) | [![Build NuGet Package](https://github.com/Z3Prover/z3/actions/workflows/nuget-build.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/nuget-build.yml) |
+
+### Specialized Workflows
+| Nightly Validation | Copilot Setup | Agentics Maintenance |
+|--------------------|---------------|----------------------|
+| [![Nightly Build Validation](https://github.com/Z3Prover/z3/actions/workflows/nightly-validation.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/nightly-validation.yml) | [![Copilot Setup Steps](https://github.com/Z3Prover/z3/actions/workflows/copilot-setup-steps.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/copilot-setup-steps.yml) | [![Agentics Maintenance](https://github.com/Z3Prover/z3/actions/workflows/agentics-maintenance.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/agentics-maintenance.yml) |
+
+### Agentic Workflows
+| A3 Python | API Coherence | Code Simplifier | Deeptest | Release Notes | Specbot | Workflow Suggestion |
+| ----------|---------------|-----------------|----------|---------------|---------|---------------------|
+| [![A3 Python Code Analysis](https://github.com/Z3Prover/z3/actions/workflows/a3-python.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/a3-python.lock.yml) | [![API Coherence Checker](https://github.com/Z3Prover/z3/actions/workflows/api-coherence-checker.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/api-coherence-checker.lock.yml) | [![Code Simplifier](https://github.com/Z3Prover/z3/actions/workflows/code-simplifier.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/code-simplifier.lock.yml) | [![Deeptest](https://github.com/Z3Prover/z3/actions/workflows/deeptest.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/deeptest.lock.yml) | [![Release Notes Updater](https://github.com/Z3Prover/z3/actions/workflows/release-notes-updater.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/release-notes-updater.lock.yml) | [![Specbot](https://github.com/Z3Prover/z3/actions/workflows/specbot.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/specbot.lock.yml) | [![Workflow Suggestion Agent](https://github.com/Z3Prover/z3/actions/workflows/workflow-suggestion-agent.lock.yml/badge.svg)](https://github.com/Z3Prover/z3/actions/workflows/workflow-suggestion-agent.lock.yml) |
 
 [1]: #building-z3-on-windows-using-visual-studio-command-prompt
 [2]: #building-z3-using-make-and-gccclang
@@ -166,7 +191,17 @@ See [``examples/c++``](examples/c++) for examples.
 
 Use the ``--java`` command line flag with ``mk_make.py`` to enable building these.
 
+For IDE setup instructions (Eclipse, IntelliJ IDEA, Visual Studio Code) and troubleshooting, see the [Java IDE Setup Guide](doc/JAVA_IDE_SETUP.md).
+
 See [``examples/java``](examples/java) for examples.
+
+### ``Go``
+
+Use the ``--go`` command line flag with ``mk_make.py`` to enable building these. Note that Go bindings use CGO and require a Go toolchain (Go 1.20 or later) to build.
+
+With CMake, use the ``-DZ3_BUILD_GO_BINDINGS=ON`` option.
+
+See [``examples/go``](examples/go) for examples and [``src/api/go/README.md``](src/api/go/README.md) for complete API documentation.
 
 ### ``OCaml``
 
@@ -229,6 +264,10 @@ A WebAssembly build with associated TypeScript typings is published on npm as [z
 
 Project [MachineArithmetic](https://github.com/shingarov/MachineArithmetic) provides a Smalltalk interface
 to Z3's C API. For more information, see [MachineArithmetic/README.md](https://github.com/shingarov/MachineArithmetic/blob/pure-z3/MachineArithmetic/README.md).
+
+### AIX
+
+[Build settings for AIX are described here.](https://github.com/Z3Prover/z3/pull/8113)
 
 ## System Overview
 

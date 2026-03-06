@@ -160,6 +160,28 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Substitute functions in <paramref name="from"/> with the expressions in <paramref name="to"/>.
+        /// </summary>
+        /// <remarks>
+        /// The expressions in <paramref name="to"/> can have free variables. The free variable in <c>to[i]</c> at de-Bruijn index 0 
+        /// refers to the first argument of <c>from[i]</c>, the free variable at index 1 corresponds to the second argument, and so on.
+        /// The arrays <paramref name="from"/> and <paramref name="to"/> must have the same size.
+        /// </remarks>
+        public Expr SubstituteFuns(FuncDecl[] from, Expr[] to)
+        {
+            Debug.Assert(from != null);
+            Debug.Assert(to != null);
+            Debug.Assert(from.All(f => f != null));
+            Debug.Assert(to.All(t => t != null));
+
+            Context.CheckContextMatch<FuncDecl>(from);
+            Context.CheckContextMatch<Expr>(to);
+            if (from.Length != to.Length)
+                throw new Z3Exception("Arrays 'from' and 'to' must have the same length");
+            return Expr.Create(Context, Native.Z3_substitute_funs(Context.nCtx, NativeObject, (uint)from.Length, FuncDecl.ArrayToNative(from), Expr.ArrayToNative(to)));
+        }
+
+        /// <summary>
         /// Translates (copies) the term to the Context <paramref name="ctx"/>.
         /// </summary>
         /// <param name="ctx">A context</param>

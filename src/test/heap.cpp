@@ -35,7 +35,7 @@ static void tst1() {
     int_heap h(N);
 //    int_set t;
     uint_set  t;
-    for (int i = 0; i < N * 3; i++) {
+    for (int i = 0; i < N * 3; ++i) {
         int val = heap_rand() % N;
         if (!h.contains(val)) {
             ENSURE(!t.contains(val));
@@ -69,7 +69,7 @@ struct lt_proc2 { bool operator()(int v1, int v2) const { ENSURE(v1 < N && v2 < 
 typedef heap<lt_proc2> int_heap2;
 
 static void init_values() {
-    for (unsigned i = 0; i < N; i++) 
+    for (unsigned i = 0; i < N; ++i) 
         g_value[i] = heap_rand();
 }
 
@@ -86,7 +86,7 @@ static void dump_heap(const int_heap2 & h, std::ostream & out) {
 
 static void tst2() {
     int_heap2 h(N);
-    for (int i = 0; i < N * 10; i++) {
+    for (int i = 0; i < N * 10; ++i) {
 
         // if (i % 1 == 0) std::cout << "i: " << i << std::endl;
         if (i % 1000 == 0) std::cout << "i: " << i << std::endl;

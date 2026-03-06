@@ -384,7 +384,7 @@ template<typename C>
 void interval_manager<C>::fact(unsigned n, numeral & o) {
     _scoped_numeral<numeral_manager> aux(m());
     m().set(o, 1);
-    for (unsigned i = 2; i <= n; i++) {
+    for (unsigned i = 2; i <= n; ++i) {
         m().set(aux, static_cast<int>(i));
         m().mul(aux, o, o);
         TRACE(fact_bug, tout << "i: " << i << ", o: " << m().to_rational_string(o) << "\n";);
@@ -1901,7 +1901,7 @@ void interval_manager<C>::pi(unsigned n, interval & r) {
     // compute lower bound
     numeral & l_val = m_result_lower;
     m().reset(l_val);
-    for (unsigned i = 0; i <= n; i++) {
+    for (unsigned i = 0; i <= n; ++i) {
         pi_series(i, p, false);
         round_to_minus_inf();
         m().add(l_val, p, l_val);
@@ -1916,7 +1916,7 @@ void interval_manager<C>::pi(unsigned n, interval & r) {
     else {
         // recompute the sum rounding to plus infinite
         m().reset(u_val);
-        for (unsigned i = 0; i <= n; i++) {
+        for (unsigned i = 0; i <= n; ++i) {
             pi_series(i, p, true);
             round_to_plus_inf();
             m().add(u_val, p, u_val);
@@ -1954,7 +1954,7 @@ void interval_manager<C>::e_series(unsigned k, bool upper, numeral & o) {
     _scoped_numeral<numeral_manager> d(m()), a(m());
     m().set(o, 2);
     m().set(d, 1);
-    for (unsigned i = 2; i <= k; i++) {
+    for (unsigned i = 2; i <= k; ++i) {
         set_rounding(!upper);
         m().set(a, static_cast<int>(i));
         m().mul(d, a, d); // d == i!

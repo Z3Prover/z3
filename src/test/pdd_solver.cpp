@@ -114,10 +114,10 @@ namespace dd {
                 for (unsigned i = 0; i < args.size(); ++i) {
                     args[i] = mk_not(m, args.get(i));
                 }
-                g = m.mk_not(m.mk_and(args.size(), args.data()));
+                g = m.mk_not(m.mk_and(args));
             }
             else if (m.is_and(a)) {
-                g = m.mk_and(args.size(), args.data());
+                g = m.mk_and(args);
                 trail.push_back(g);
             }
             else if (m.is_eq(a)) {

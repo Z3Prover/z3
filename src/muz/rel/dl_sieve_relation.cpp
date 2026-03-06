@@ -33,7 +33,7 @@ namespace datalog {
                 const bool * inner_columns, relation_base * inner) 
             : relation_base(p, s), m_inner_cols(s.size(), inner_columns), m_inner(inner) { 
         unsigned n = s.size();
-        for(unsigned i=0; i<n; i++) {
+        for(unsigned i=0; i<n; ++i) {
             if(inner_columns && inner_columns[i]) {
                 unsigned inner_idx = m_inner2sig.size();
                 SASSERT(get_inner().get_signature()[inner_idx]==s[i]);
@@ -153,7 +153,7 @@ namespace datalog {
         SASSERT(inner_columns.size()==s.size());
         unsigned n = s.size();
         relation_signature inner_sig_singleton;
-        for(unsigned i=0; i<n; i++) {
+        for(unsigned i=0; i<n; ++i) {
             inner_sig_singleton.reset();
             inner_sig_singleton.push_back(s[i]);
             inner_columns[i] = inner.can_handle_signature(inner_sig_singleton);
@@ -172,7 +172,7 @@ namespace datalog {
         SASSERT(inner_columns.size()==s.size());
         inner_sig.reset();
         unsigned n = s.size();
-        for(unsigned i=0; i<n; i++) {
+        for(unsigned i=0; i<n; ++i) {
             if(inner_columns[i]) {
                 inner_sig.push_back(s[i]);
             }
@@ -325,7 +325,7 @@ namespace datalog {
         unsigned_vector inner_cols1;
         unsigned_vector inner_cols2;
 
-        for(unsigned i=0; i<col_cnt; i++) {
+        for(unsigned i=0; i<col_cnt; ++i) {
             //if at least one end of an equality is not an inner column, we ignore that equality
             //(which introduces imprecision)
             if(r1_sieved && !sr1->is_inner_col(cols1[i])) {
@@ -376,7 +376,7 @@ namespace datalog {
         const sieve_relation & r = static_cast<const sieve_relation &>(r0);
         unsigned_vector inner_removed_cols;
 
-        for(unsigned i=0; i<col_cnt; i++) {
+        for(unsigned i=0; i<col_cnt; ++i) {
             unsigned col = removed_cols[i];
             if(r.is_inner_col(col)) {
                 inner_removed_cols.push_back(r.get_inner_col(col));
@@ -521,7 +521,7 @@ namespace datalog {
         unsigned_vector inner_icols;
 
         //we ignore the columns which do not belong to the inner relation (which introduces imprecision)
-        for(unsigned i=0; i<col_cnt; i++) {
+        for(unsigned i=0; i<col_cnt; ++i) {
             unsigned col = identical_cols[i];
             if(r.is_inner_col(col)) {
                 inner_icols.push_back(r.get_inner_col(col));
@@ -572,7 +572,7 @@ namespace datalog {
         expr_ref_vector subst_vect(m);
         subst_vect.resize(sz);
         unsigned subst_ofs = sz-1;
-        for(unsigned i=0; i<sz; i++) {
+        for(unsigned i=0; i<sz; ++i) {
             if(!cond_vars.contains(i)) {
                 continue;
             }
@@ -630,7 +630,7 @@ namespace datalog {
         unsigned_vector ir_cols;
         unsigned_vector ineg_cols;
 
-        for(unsigned i=0; i<col_cnt; i++) {
+        for(unsigned i=0; i<col_cnt; ++i) {
             //if at least one end of an equality is not an inner column, we ignore that equality
             //(which introduces imprecision)
             bool r_col_inner = r_sieved && !sr->is_inner_col(r_cols[i]);

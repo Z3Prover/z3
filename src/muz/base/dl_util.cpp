@@ -71,7 +71,7 @@ namespace datalog {
         SASSERT(is_uninterp(pred));
         unsigned res = 0;
         unsigned n = pred->get_num_args();
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             expr * arg = pred->get_arg(i);
             if (is_var(arg)) {
                 res++;
@@ -84,7 +84,7 @@ namespace datalog {
                           sort_ref_buffer & new_rule_domain, expr_ref_buffer & new_rule_args, app_ref & new_pred) {
         expr_ref_buffer new_args(m);
         unsigned n  = pred->get_num_args();
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             expr * arg = pred->get_arg(i);
             if (m.is_value(arg)) {
                 new_args.push_back(arg);
@@ -135,7 +135,7 @@ namespace datalog {
 
         out << pred_decl->get_name() << '(';
 
-        for (unsigned i = 0; i < arity; i++) {
+        for (unsigned i = 0; i < arity; ++i) {
             expr * arg = f->get_arg(i);
             if (i != 0) {
                 out << ',';
@@ -163,7 +163,7 @@ namespace datalog {
 
         out << "\t(";
 
-        for(unsigned i = 0; i < arity; i++) {
+        for(unsigned i = 0; i < arity; ++i) {
             if (i != 0) {
                 out << ',';
             }
@@ -198,7 +198,7 @@ namespace datalog {
     bool variable_intersection::args_match(const app * f1, const app * f2)
     {
         unsigned n=size();
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             unsigned f1_index, f2_index;
             get(i, f1_index, f2_index);
             if (!values_match(f1->get_arg(f1_index),f2->get_arg(f2_index))) {
@@ -215,7 +215,7 @@ namespace datalog {
         }
 
         unsigned n = m_const_indexes.size();
-        for(unsigned i=0; i<n; i++) {
+        for(unsigned i=0; i<n; ++i) {
             unsigned f_index = m_const_indexes[i];
             if(!values_match(f->get_arg(f_index), m_consts[i].get())) {
                 return false;
@@ -231,11 +231,11 @@ namespace datalog {
         //TODO: optimize quadratic complexity
         //TODO: optimize number of checks when variable occurs multiple times
         unsigned arity = a->get_num_args();
-        for(unsigned i1=0; i1<arity; i1++) {
+        for(unsigned i1=0; i1<arity; ++i1) {
             expr * e1=a->get_arg(i1);
             if(is_var(e1)) {
                 var* v1=to_var(e1);
-                for(unsigned i2=i1+1; i2<arity; i2++) {
+                for(unsigned i2=i1+1; i2<arity; ++i2) {
                     expr * e2=a->get_arg(i2);
                     if(!is_var(e2)) {
                         continue;
@@ -264,7 +264,7 @@ namespace datalog {
         reset();
         count_vars(r->get_head(), 1);
         unsigned n = r->get_tail_size();
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             count_vars(r->get_tail(i), coef);
         }
     }
@@ -274,7 +274,7 @@ namespace datalog {
         m_scopes.push_back(0);
         unsigned n = r.get_tail_size();
         bool has_var = false;
-        for (unsigned i = 0; i < n; i++) {
+        for (unsigned i = 0; i < n; ++i) {
             m_todo.push_back(r.get_tail(i));
             m_scopes.push_back(0);
         }
@@ -432,7 +432,7 @@ namespace datalog {
         unsigned src_ofs = src_sz - 1;
 
         unsigned max_var_idx = 0;
-        for(unsigned i=0; i<src_sz; i++) {
+        for(unsigned i=0; i<src_sz; ++i) {
             if (!src[i]) {
                 continue;
             }
@@ -445,7 +445,7 @@ namespace datalog {
         unsigned tgt_sz = max_var_idx+1;
         unsigned tgt_ofs = tgt_sz - 1;
         tgt.resize(tgt_sz, nullptr);
-        for(unsigned i = 0; i < src_sz; i++) {
+        for(unsigned i = 0; i < src_sz; ++i) {
             var* v = src[src_ofs-i];
             if (!v) {
                 continue;
@@ -486,11 +486,11 @@ namespace datalog {
         DEBUG_CODE(
             counter ctr;
             ctr.count(permutation);
-            SASSERT(permutation.empty() || ctr.get_max_positive()==permutation.size()-1);
+            SASSERT(permutation.empty() || ctr.get_max_positive().value_or(0)==permutation.size()-1);
             SASSERT(permutation.empty() || ctr.get_positive_count()==permutation.size());
             );
         unsigned sz = permutation.size();
-        for(unsigned i=0; i<sz; i++) {
+        for(unsigned i=0; i<sz; ++i) {
             if(i==permutation[i]) {
                 continue;
             }
@@ -514,7 +514,7 @@ namespace datalog {
         SASSERT(res.empty());
         identity = true;
         unsigned sz = permutation.size();
-        for(unsigned new_i=0; new_i<sz; new_i++) {
+        for(unsigned new_i=0; new_i<sz; ++new_i) {
             unsigned idx = permutation[new_i];
             bool is_selected = translation[idx]!=UINT_MAX;
             if(is_selected) {
@@ -546,7 +546,7 @@ namespace datalog {
 
     void add_sequence(unsigned start, unsigned count, unsigned_vector & v) {
         unsigned after_last = start+count;
-        for(unsigned i=start; i<after_last; i++) {
+        for(unsigned i=start; i<after_last; ++i) {
             v.push_back(i);
         }
     }

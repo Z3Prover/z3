@@ -815,7 +815,7 @@ namespace spacer {
 
         // make unit resolution proof step
         // expr_ref tmp(m);
-        // tmp = mk_or(m, pf_fact.size(), pf_fact.c_ptr());
+        // tmp = mk_or(m, pf_fact);
         // proof* res = m.mk_unit_resolution(pf_args.size(), pf_args.c_ptr(), tmp);
         proof *res = m.mk_unit_resolution(pf_args.size(), pf_args.data());
         m_pinned.push_back(res);

@@ -88,7 +88,7 @@ namespace nlsat {
                     m_max_degree[x] = k;
                 
                 if (m_vos_type == FEATURE){
-                    for (unsigned kl = 0; kl <= k; kl++) {
+                    for (unsigned kl = 0; kl <= k; ++kl) {
                         scoped_numeral curr(pm.m());
                         if (pm.const_coeff(p, x, kl, curr)) {
                             pm.m().abs(curr);
@@ -115,7 +115,7 @@ namespace nlsat {
                 return;
             if (a->is_ineq_atom()) {
                 unsigned sz = to_ineq_atom(a)->size();
-                for (unsigned i = 0; i < sz; i++) {
+                for (unsigned i = 0; i < sz; ++i) {
                     collect(to_ineq_atom(a)->p(i));
                 }
             }
@@ -126,13 +126,13 @@ namespace nlsat {
         
         void collect(clause const & c) {
             unsigned sz = c.size();
-            for (unsigned i = 0; i < sz; i++) 
+            for (unsigned i = 0; i < sz; ++i) 
                 collect(c[i]);
         }
 
         void collect(clause_vector const & cs) {
             unsigned sz = cs.size();
-            for (unsigned i = 0; i < sz; i++) 
+            for (unsigned i = 0; i < sz; ++i) 
                 collect(*(cs[i]));
         }
 
@@ -216,7 +216,7 @@ namespace nlsat {
         bool check_invariant() const {return true;} // what is the invariant
         void operator()(var_vector &perm) {
             var_vector new_order;
-            for (var x = 0; x < num_vars; x++) {
+            for (var x = 0; x < num_vars; ++x) {
                 new_order.push_back(x);
             }
             if (m_vos_type == BROWN) {
@@ -241,12 +241,12 @@ namespace nlsat {
             }
             TRACE(reorder, 
                 tout << "new order: ";
-                for (unsigned i = 0; i < num_vars; i++) 
+                for (unsigned i = 0; i < num_vars; ++i) 
                     tout << new_order[i] << " ";
                 tout << "\n";
             );
             perm.resize(num_vars, 0);
-            for (var x = 0; x < num_vars; x++) {
+            for (var x = 0; x < num_vars; ++x) {
                 perm[new_order[x]] = x;
             }
             
@@ -254,7 +254,7 @@ namespace nlsat {
         }
         // std::ostream& display(std::ostream & out, display_var_proc const & proc) {
         //     unsigned sz = m_num_occs.size();
-        //     for (unsigned i = 0; i < sz; i++) {
+        //     for (unsigned i = 0; i < sz; ++i) {
         //         proc(out, i); out << " -> " << m_max_degree[i] << " : " << m_num_occs[i] << "\n";
         //     }
         //     return out;

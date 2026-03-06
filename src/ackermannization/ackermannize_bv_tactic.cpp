@@ -38,8 +38,7 @@ public:
         TRACE(goal, g->display(tout << "in\n"););
 
         ptr_vector<expr> flas;
-        const unsigned sz = g->size();
-        for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
+        for (auto [f, dep, pr] : *g) flas.push_back(f);
         lackr lackr(m, m_p, m_st, flas, nullptr);
 
         // mk result

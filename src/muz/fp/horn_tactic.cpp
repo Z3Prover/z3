@@ -160,13 +160,13 @@ class horn_tactic : public tactic {
             }
             if (head) {
                 if (!is_implication(f)) {
-                    f = m.mk_and(body.size(), body.data());
+                    f = m.mk_and(body);
                     f = m.mk_implies(f, head);
                 }
                 return IS_RULE;
             }
             else {
-                f = m.mk_and(body.size(), body.data());
+                f = m.mk_and(body);
                 return IS_QUERY;
             }
         }
@@ -198,7 +198,7 @@ class horn_tactic : public tactic {
             m_ctx.reset();
             m_ctx.ensure_opened();
 
-            for (unsigned i = 0; i < sz; i++) {
+            for (unsigned i = 0; i < sz; ++i) {
                 f = g->form(i);
                 formula_kind k = get_formula_kind(f);
                 switch(k) {

@@ -37,8 +37,6 @@ namespace sat {
 
         ddfw_wrapper() {}
         
-        ~ddfw_wrapper() override {}
-
         void set_plugin(local_search_plugin* p) { m_ddfw.set_plugin(p); }
 
         lbool check(unsigned sz, literal const* assumptions, parallel* p) override;

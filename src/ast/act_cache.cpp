@@ -58,7 +58,7 @@ void act_cache::compress_queue() {
     SASSERT(m_qhead > 0);
     unsigned sz = m_queue.size();
     unsigned j = 0;
-    for (unsigned i = m_qhead; i < sz; i++, j++) { 
+    for (unsigned i = m_qhead; i < sz; ++i, ++j) { 
         m_queue[j] = m_queue[i];
     }
     m_queue.shrink(j);

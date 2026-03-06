@@ -34,7 +34,7 @@ public:
 
     void reset() {
         unsigned sz = this->size();
-        for (unsigned i = 0; i < sz; i++) {
+        for (unsigned i = 0; i < sz; ++i) {
             m().del(this->operator[](i));
         }
         super::reset();
@@ -51,7 +51,7 @@ public:
         unsigned old_sz = this->size();
         if (old_sz == sz)
             return;
-        for (unsigned i = sz; i < old_sz; i++)
+        for (unsigned i = sz; i < old_sz; ++i)
             m().del(this->operator[](i));
         super::shrink(sz);
     }

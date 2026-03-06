@@ -25,7 +25,7 @@ namespace euf {
     class egraph;
 
     class arith_plugin : public plugin {
-        enum undo_t { undo_add, undo_mul };
+        enum class undo_t { undo_add, undo_mul };
         arith_util a;
         svector<undo_t> m_undo;
         ac_plugin m_add, m_mul;
@@ -39,7 +39,7 @@ namespace euf {
 
         void merge_eh(enode* n1, enode* n2) override;
 
-        void diseq_eh(enode* eq) override {}
+        void diseq_eh(enode*) override { }
 
         void undo() override;
 
