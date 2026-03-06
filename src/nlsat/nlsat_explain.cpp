@@ -1733,7 +1733,7 @@ namespace nlsat {
             
             // We call levelwise directly without normalize, simplify, elim_vanishing to preserve the original polynomials
             var max_x = max_var(m_ps);
-            bool levelwise_ok = levelwise_single_cell(m_ps, max_x, m_cache, true);
+            bool levelwise_ok = levelwise_single_cell(m_ps, max_x+1, m_cache, true); // max_x+1 because we have a full sample
             SASSERT(levelwise_ok);
             m_solver.record_levelwise_result(levelwise_ok);
 
