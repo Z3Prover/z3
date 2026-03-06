@@ -4724,22 +4724,23 @@ namespace polynomial {
             scoped_numeral term(m_manager), pow_val(m_manager);
             zm.set(val, 0);
             unsigned sz = p->size();
-            // Build a quick position look-up for variables.
-            // xs is small (< HGCD_E_TOTAL_LIMIT variables), so linear search is fine.
+            // Build a position look-up table from variable id -> xs-index.
+            // Sized to the largest variable id that appears plus one.
+            unsigned_vector var2pos;
+            for (unsigned k = 0; k < num_vars; ++k) {
+                if (xs[k] >= var2pos.size())
+                    var2pos.resize(xs[k] + 1, UINT_MAX);
+                var2pos[xs[k]] = k;
+            }
             for (unsigned i = 0; i < sz; ++i) {
                 zm.set(term, p->a(i));
                 monomial * mon = p->m(i);
                 unsigned msz  = mon->size();
                 for (unsigned j = 0; j < msz; ++j) {
-                    var     x   = mon->get_var(j);
+                    var      x   = mon->get_var(j);
                     unsigned deg = mon->degree(j);
-                    // Locate x in xs.
-                    unsigned pos = UINT_MAX;
-                    for (unsigned k = 0; k < num_vars; ++k) {
-                        if (xs[k] == x) { pos = k; break; }
-                    }
-                    SASSERT(pos != UINT_MAX);
-                    zm.power(vs[pos], deg, pow_val);
+                    SASSERT(x < var2pos.size() && var2pos[x] != UINT_MAX);
+                    zm.power(vs[var2pos[x]], deg, pow_val);
                     zm.mul(term, pow_val, term);
                 }
                 zm.add(val, term, val);
@@ -4863,7 +4864,6 @@ namespace polynomial {
                     return false;
                 E_total = E[last] * (deg_bounds[last] + 1u);
             }
-            if (E_total > HGCD_E_TOTAL_LIMIT) return false;
 
             // ---- Step 2: Compute xi = max(||u||_inf, ||v||_inf) * 2 + 2.
             unsynch_mpz_manager & zm = m().m();

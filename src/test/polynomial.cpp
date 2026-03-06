@@ -1979,9 +1979,9 @@ void tst_polynomial() {
     // enable_trace("Lazard");
     // enable_trace("eval_bug");
     // enable_trace("mgcd");
-    tst_hgcd();
     tst_gcd2();
     tst_gcd();
+    tst_hgcd();
     tst_psc();
     return;
     tst_eval();
