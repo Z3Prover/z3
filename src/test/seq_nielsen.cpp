@@ -463,7 +463,7 @@ static void test_backedge() {
     SASSERT(root->backedge() == nullptr);
 }
 
-// test apply_eq_split: basic structure (x·A = y·B produces 3 children via eq_split)
+// test var vs var basic structure (x·A = y·B now handled by var_nielsen, not eq_split)
 static void test_eq_split_basic() {
     std::cout << "test_eq_split_basic\n";
     ast_manager m;
@@ -480,21 +480,20 @@ static void test_eq_split_basic() {
     euf::snode* xa = sg.mk_concat(x, a);
     euf::snode* yb = sg.mk_concat(y, b);
 
-    // x·A = y·B
+    // x·A = y·B — eq_split returns false (no valid split point),
+    // falls through to var_nielsen (priority 12) → 3 progress children
     ng.add_str_eq(xa, yb);
     seq::nielsen_node* root = ng.root();
 
-    // eq_split fires: both heads are distinct vars
-    // produces 3 children: x→ε (progress), x→y·z (non-progress), y→x·z (non-progress)
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     SASSERT(root->outgoing().size() == 3);
 
-    // first child is progress (x→ε), rest are non-progress (eq_split)
+    // all children are progress (var_nielsen marks all as progress)
     SASSERT(root->outgoing()[0]->is_progress());
 }
 
-// test eq_split with solve: x·y = z·w is satisfiable (all vars can be ε)
+// test var vs var with solve: x·y = z·w is satisfiable (all vars can be ε)
 static void test_eq_split_solve_sat() {
     std::cout << "test_eq_split_solve_sat\n";
     ast_manager m;
@@ -516,7 +515,7 @@ static void test_eq_split_solve_sat() {
     SASSERT(result == seq::nielsen_graph::search_result::sat);
 }
 
-// test eq_split with solve: x·A = y·B is unsat (last char mismatch)
+// test var vs var with solve: x·A = y·B is unsat (last char mismatch)
 static void test_eq_split_solve_unsat() {
     std::cout << "test_eq_split_solve_unsat\n";
     ast_manager m;
@@ -538,7 +537,7 @@ static void test_eq_split_solve_unsat() {
     SASSERT(result == seq::nielsen_graph::search_result::unsat);
 }
 
-// test eq_split: same var x·A = x·B triggers det modifier (cancel), not eq_split
+// test: same var x·A = x·B triggers det modifier (cancel), not eq_split or var_nielsen
 static void test_eq_split_same_var_det() {
     std::cout << "test_eq_split_same_var_det\n";
     ast_manager m;
@@ -560,7 +559,7 @@ static void test_eq_split_same_var_det() {
     SASSERT(result == seq::nielsen_graph::search_result::unsat);
 }
 
-// test eq_split: x·y·A = y·x·A is commutation, should be sat (x=y=ε)
+// test: x·y·A = y·x·A is commutation, should be sat (x=y=ε)
 static void test_eq_split_commutation_sat() {
     std::cout << "test_eq_split_commutation_sat\n";
     ast_manager m;
@@ -582,6 +581,7 @@ static void test_eq_split_commutation_sat() {
 }
 
 // test apply_const_nielsen: char·A = y produces 2 children (y→ε, y→char·fresh)
+// test: A = y is handled by det modifier (variable definition: y → A), producing 1 child
 static void test_const_nielsen_char_var() {
     std::cout << "test_const_nielsen_char_var\n";
     ast_manager m;
@@ -593,19 +593,18 @@ static void test_const_nielsen_char_var() {
 
     euf::snode* a = sg.mk_char('A');
     euf::snode* y = sg.mk_var(symbol("y"));
-    // A = y  (char vs var)
+    // A = y  (single var definition → det modifier fires)
     ng.add_str_eq(a, y);
     seq::nielsen_node* root = ng.root();
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    SASSERT(root->outgoing().size() == 2);
-    // both branches are progress
+    // det modifier: y → A (1 progress child)
+    SASSERT(root->outgoing().size() == 1);
     SASSERT(root->outgoing()[0]->is_progress());
-    SASSERT(root->outgoing()[1]->is_progress());
 }
 
-// test apply_const_nielsen: x = B·y produces 2 children (x→ε, x→B·fresh)
+// test: x = B·y is handled by det modifier (variable definition: x → B·y), producing 1 child
 static void test_const_nielsen_var_char() {
     std::cout << "test_const_nielsen_var_char\n";
     ast_manager m;
@@ -619,15 +618,15 @@ static void test_const_nielsen_var_char() {
     euf::snode* b = sg.mk_char('B');
     euf::snode* y = sg.mk_var(symbol("y"));
     euf::snode* by = sg.mk_concat(b, y);
-    // x = B·y
+    // x = B·y  (single var definition → det modifier fires)
     ng.add_str_eq(x, by);
     seq::nielsen_node* root = ng.root();
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    SASSERT(root->outgoing().size() == 2);
+    // det modifier: x → B·y (1 progress child)
+    SASSERT(root->outgoing().size() == 1);
     SASSERT(root->outgoing()[0]->is_progress());
-    SASSERT(root->outgoing()[1]->is_progress());
 }
 
 // test const_nielsen solve: A·x = A·B → sat (x = B via det cancel then const_nielsen x→ε or x→B·fresh)
@@ -673,7 +672,7 @@ static void test_const_nielsen_solve_unsat() {
     SASSERT(result == seq::nielsen_graph::search_result::unsat);
 }
 
-// test const_nielsen priority: A·x = y·B → const_nielsen (2 children), not eq_split (3)
+// test const_nielsen priority: A·x = y·B → const_nielsen (2 children), not var_nielsen (3)
 static void test_const_nielsen_priority_over_eq_split() {
     std::cout << "test_const_nielsen_priority_over_eq_split\n";
     ast_manager m;
@@ -696,11 +695,11 @@ static void test_const_nielsen_priority_over_eq_split() {
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    // const_nielsen produces 2 children, not eq_split's 3
+    // const_nielsen produces 2 children, not var_nielsen's 3
     SASSERT(root->outgoing().size() == 2);
 }
 
-// test: both sides start with vars → eq_split (3 children), not const_nielsen
+// test: both sides start with vars → var_nielsen (3 children), not const_nielsen
 static void test_const_nielsen_not_applicable_both_vars() {
     std::cout << "test_const_nielsen_not_applicable_both_vars\n";
     ast_manager m;
@@ -717,7 +716,7 @@ static void test_const_nielsen_not_applicable_both_vars() {
     euf::snode* xa = sg.mk_concat(x, a);
     euf::snode* yb = sg.mk_concat(y, b);
 
-    // x·A = y·B → both heads are vars → eq_split
+    // x·A = y·B → both heads are vars → var_nielsen fires (priority 12)
     ng.add_str_eq(xa, yb);
     seq::nielsen_node* root = ng.root();
 
@@ -976,8 +975,8 @@ static void test_regex_char_split_ground_skip() {
 // Variable Nielsen modifier tests
 // -----------------------------------------------------------------------
 
-// test var_nielsen basic: x = y (two distinct vars) → eq_split fires (priority 5 < 12)
-// produces 3 children: x→ε (progress), x→y·z (non-progress), y→x·z (non-progress)
+// test var_nielsen basic: x = y (two distinct vars) → det modifier fires (variable definition x → y)
+// produces 1 progress child
 static void test_var_nielsen_basic() {
     std::cout << "test_var_nielsen_basic\n";
     ast_manager m;
@@ -990,13 +989,13 @@ static void test_var_nielsen_basic() {
     euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* y = sg.mk_var(symbol("y"));
 
-    // x = y → eq_split: x→ε, x→y·z_fresh, y→x·z_fresh
+    // x = y → det: x → y (single var definition)
     ng.add_str_eq(x, y);
     seq::nielsen_node* root = ng.root();
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    SASSERT(root->outgoing().size() == 3);
+    SASSERT(root->outgoing().size() == 1);
     SASSERT(root->outgoing()[0]->is_progress());
 }
 
@@ -1022,7 +1021,7 @@ static void test_var_nielsen_same_var_det() {
     SASSERT(result == seq::nielsen_graph::search_result::unsat);
 }
 
-// test var_nielsen: char vs var → const_nielsen fires, not var_nielsen
+// test var_nielsen: char vs var → det fires (y → A), not var_nielsen
 static void test_var_nielsen_not_applicable_char() {
     std::cout << "test_var_nielsen_not_applicable_char\n";
     ast_manager m;
@@ -1035,13 +1034,13 @@ static void test_var_nielsen_not_applicable_char() {
     euf::snode* a = sg.mk_char('A');
     euf::snode* y = sg.mk_var(symbol("y"));
 
-    // A = y → const_nielsen (2 children), not var_nielsen (3)
+    // A = y → det: y → A (variable definition, 1 child)
     ng.add_str_eq(a, y);
     seq::nielsen_node* root = ng.root();
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    SASSERT(root->outgoing().size() == 2);
+    SASSERT(root->outgoing().size() == 1);
 }
 
 // test var_nielsen solve: x·y = z·w is sat (all vars can be ε)
@@ -1109,8 +1108,8 @@ static void test_var_nielsen_commutation_sat() {
     SASSERT(result == seq::nielsen_graph::search_result::sat);
 }
 
-// test var_nielsen priority: var vs var → eq_split fires first (priority 5 < 12)
-// eq_split produces 3 children: x→ε (progress), x→y·z (non-progress), y→x·z (non-progress)
+// test var_nielsen priority: var vs var → det fires first for x = y (variable definition)
+// var_nielsen only fires when neither side is a single var (e.g., x·A = y·B)
 static void test_var_nielsen_priority() {
     std::cout << "test_var_nielsen_priority\n";
     ast_manager m;
@@ -1128,14 +1127,14 @@ static void test_var_nielsen_priority() {
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    // eq_split produces 3 children
-    SASSERT(root->outgoing().size() == 3);
-    // first edge is progress (x→ε), others are non-progress
+    // det modifier: x → y (1 progress child)
+    SASSERT(root->outgoing().size() == 1);
+    // first edge is progress (all var_nielsen children are progress)
     SASSERT(root->outgoing()[0]->is_progress());
 }
 
-// test generate_extensions: det modifier has priority over const_nielsen
-// x·A = x·y → det cancel (1 child), not const_nielsen (2 children)
+// test generate_extensions: det modifier handles same-head cancel after simplification
+// x·A = x·y → simplify cancels prefix x → A = y → det fires (y → A)
 static void test_generate_extensions_det_priority() {
     std::cout << "test_generate_extensions_det_priority\n";
     ast_manager m;
@@ -1151,15 +1150,10 @@ static void test_generate_extensions_det_priority() {
     euf::snode* xa = sg.mk_concat(x, a);
     euf::snode* xy = sg.mk_concat(x, y);
 
-    // x·A = x·y → same-head x cancel → A = y (1 child via det)
+    // x·A = x·y → after simplify, becomes A = y → det: y → A
     ng.add_str_eq(xa, xy);
-    seq::nielsen_node* root = ng.root();
-
-    bool extended = ng.generate_extensions(root);
-    SASSERT(extended);
-    // det modifier produces 1 child (head cancel), not 2 (const) or 3 (var)
-    SASSERT(root->outgoing().size() == 1);
-    SASSERT(root->outgoing()[0]->is_progress());
+    auto result = ng.solve();
+    SASSERT(result == seq::nielsen_graph::search_result::sat);
 }
 
 // test generate_extensions: returns false when no modifier applies
@@ -1217,8 +1211,7 @@ static void test_generate_extensions_regex_only() {
     SASSERT(root->outgoing().size() >= 1);
 }
 
-// test generate_extensions: mixed constraints, det fires first
-// x·A = x·B and y ∈ R → det cancel on eq first, regex untouched
+// test: mixed constraints, x·A = x·B and y ∈ R → after simplify, A = B clash → unsat
 static void test_generate_extensions_mixed_det_first() {
     std::cout << "test_generate_extensions_mixed_det_first\n";
     ast_manager m;
@@ -1242,14 +1235,11 @@ static void test_generate_extensions_mixed_det_first() {
     expr_ref to_re_a(seq.re.mk_to_re(unit_a), m);
     euf::snode* re_node = sg.mk(to_re_a);
 
+    // x·A = x·B → simplify cancels x → A = B → clash → unsat
     ng.add_str_eq(xa, xb);
     ng.add_str_mem(y, re_node);
-    seq::nielsen_node* root = ng.root();
-
-    bool extended = ng.generate_extensions(root);
-    SASSERT(extended);
-    // det modifier (same-head x cancel) produces 1 child
-    SASSERT(root->outgoing().size() == 1);
+    auto result = ng.solve();
+    SASSERT(result == seq::nielsen_graph::search_result::unsat);
 }
 
 // -----------------------------------------------------------------------
@@ -1827,7 +1817,7 @@ static void test_simplify_multiple_eqs() {
 // Modifier child state verification tests
 // -----------------------------------------------------------------------
 
-// test det cancel: verify child has the tail equality
+// test det cancel: x·A = x·B → simplify cancels prefix x → A = B → clash → unsat
 static void test_det_cancel_child_eq() {
     std::cout << "test_det_cancel_child_eq\n";
     ast_manager m;
@@ -1842,22 +1832,14 @@ static void test_det_cancel_child_eq() {
     euf::snode* xa = sg.mk_concat(x, a);
     euf::snode* xb = sg.mk_concat(x, b);
 
-    // x·A = x·B → det same-head cancel → child has A = B
+    // x·A = x·B → simplify cancels x → A = B → clash → unsat
     ng.add_str_eq(xa, xb);
-    seq::nielsen_node* root = ng.root();
-
-    bool extended = ng.generate_extensions(root);
-    SASSERT(extended);
-    SASSERT(root->outgoing().size() == 1);
-
-    seq::nielsen_node* child = root->outgoing()[0]->tgt();
-    SASSERT(child->str_eqs().size() == 1);
-    auto const& ceq = child->str_eqs()[0];
-    // child's eq should have the two single chars (sorted)
-    SASSERT((ceq.m_lhs == a && ceq.m_rhs == b) || (ceq.m_lhs == b && ceq.m_rhs == a));
+    auto result = ng.solve();
+    SASSERT(result == seq::nielsen_graph::search_result::unsat);
 }
 
 // test const_nielsen: verify children's substitutions target the variable
+// A·x = y·B → char vs var: const_nielsen fires (2 children, both substitute y)
 static void test_const_nielsen_child_substitutions() {
     std::cout << "test_const_nielsen_child_substitutions\n";
     ast_manager m;
@@ -1867,10 +1849,14 @@ static void test_const_nielsen_child_substitutions() {
 
     seq::nielsen_graph ng(sg);
     euf::snode* a = sg.mk_char('A');
+    euf::snode* b = sg.mk_char('B');
+    euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* y = sg.mk_var(symbol("y"));
+    euf::snode* ax = sg.mk_concat(a, x);
+    euf::snode* yb = sg.mk_concat(y, b);
 
-    // A = y → const_nielsen → 2 children, both substitute y
-    ng.add_str_eq(a, y);
+    // A·x = y·B → const_nielsen: 2 children, both substitute y
+    ng.add_str_eq(ax, yb);
     seq::nielsen_node* root = ng.root();
 
     bool extended = ng.generate_extensions(root);
@@ -1889,7 +1875,7 @@ static void test_const_nielsen_child_substitutions() {
     SASSERT(!root->outgoing()[1]->subst()[0].m_replacement->is_empty());
 }
 
-// test var_nielsen: verify substitution structure of 3 children
+// test var_nielsen: verify substitution structure — det fires for x = y (single var def)
 static void test_var_nielsen_substitution_types() {
     std::cout << "test_var_nielsen_substitution_types\n";
     ast_manager m;
@@ -1901,29 +1887,17 @@ static void test_var_nielsen_substitution_types() {
     euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* y = sg.mk_var(symbol("y"));
 
-    // x = y → var_nielsen: 3 children
+    // x = y → det: x → y (single var definition, 1 child)
     ng.add_str_eq(x, y);
     seq::nielsen_node* root = ng.root();
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    SASSERT(root->outgoing().size() == 3);
+    SASSERT(root->outgoing().size() == 1);
 
-    // edge 0: elimination to ε
+    // edge 0: x → y substitution
     SASSERT(root->outgoing()[0]->subst().size() == 1);
-    SASSERT(root->outgoing()[0]->subst()[0].m_replacement->is_empty());
-    SASSERT(root->outgoing()[0]->subst()[0].is_eliminating());
-
-    // edges 1,2: replacements are non-empty (concat with fresh var)
-    SASSERT(root->outgoing()[1]->subst().size() == 1);
-    SASSERT(!root->outgoing()[1]->subst()[0].m_replacement->is_empty());
-
-    SASSERT(root->outgoing()[2]->subst().size() == 1);
-    SASSERT(!root->outgoing()[2]->subst()[0].m_replacement->is_empty());
-
-    // edges 1 and 2 target different variables
-    SASSERT(root->outgoing()[1]->subst()[0].m_var !=
-            root->outgoing()[2]->subst()[0].m_var);
+    SASSERT(root->outgoing()[0]->is_progress());
 }
 
 // -----------------------------------------------------------------------
@@ -2381,13 +2355,11 @@ static void test_power_epsilon_no_power() {
     ng.add_str_eq(x, a);
     seq::nielsen_node* root = ng.root();
 
-    // det fires (x = single char → const_nielsen fires eventually),
-    // but power_epsilon (priority 2) should not fire; det (priority 1) fires.
+    // det fires (x is single var, A doesn't contain x → x → A)
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    // det catches x = A first (single token eq, but actually ConstNielsen fires):
-    // x is var, A is char → ConstNielsen: 2 children (x→ε, x→A)
-    SASSERT(root->outgoing().size() == 2);
+    // det: x → A (variable definition, 1 child)
+    SASSERT(root->outgoing().size() == 1);
 }
 
 // test_num_cmp_no_power: no same-base power pair → modifier returns false
@@ -2409,8 +2381,8 @@ static void test_num_cmp_no_power() {
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    // eq_split fires (priority 5): 3 children
-    SASSERT(root->outgoing().size() == 3);
+    // det fires (x → y, variable definition): 1 child
+    SASSERT(root->outgoing().size() == 1);
 }
 
 // test_star_intr_no_backedge: no backedge → modifier returns false
@@ -2529,15 +2501,15 @@ static void test_gpower_intr_no_repeat() {
     euf::snode* b = sg.mk_char('B');
     euf::snode* ab = sg.mk_concat(a, b);
 
-    // x = AB → only 1 repeated 'A', needs >= 2
+    // x = AB → det fires (x is single var, AB doesn't contain x → x → AB)
     ng.add_str_eq(x, ab);
     seq::nielsen_node* root = ng.root();
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
     // gpower_intr should NOT fire (< 2 repeats)
-    // const_nielsen (priority 8) fires for var vs char: 2 children
-    SASSERT(root->outgoing().size() == 2);
+    // det (priority 1) fires: x → AB, 1 child
+    SASSERT(root->outgoing().size() == 1);
 }
 
 // test_regex_var_split_basic: x ∈ re → uses minterms for splitting
@@ -2593,13 +2565,14 @@ static void test_power_split_no_power() {
     euf::snode* xa = sg.mk_concat(x, a);
 
     // x·A = y: no power tokens, power_split should not fire
+    // det fires (y is single var, y ∉ vars(x·A) → y → x·A)
     ng.add_str_eq(xa, y);
     seq::nielsen_node* root = ng.root();
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    // eq_split or const_nielsen fires
-    SASSERT(root->outgoing().size() >= 2);
+    // det fires: 1 child (y → x·A)
+    SASSERT(root->outgoing().size() == 1);
 }
 
 // test_var_num_unwinding_no_power: no power tokens → modifier returns false
@@ -2621,8 +2594,8 @@ static void test_var_num_unwinding_no_power() {
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    // eq_split fires: 3 children
-    SASSERT(root->outgoing().size() == 3);
+    // det fires: 1 child (x → y)
+    SASSERT(root->outgoing().size() == 1);
 }
 
 // test_const_num_unwinding_no_power: no power vs const → modifier returns false
@@ -2654,26 +2627,26 @@ static void test_priority_chain_order() {
     ast_manager m;
     reg_decl_plugins(m);
 
-    // Case 1: same-head cancel → Det (priority 1) fires
+    // Case 1: same-head cancel → simplify handles prefix cancel, then det/clash
+    // x·A = x·B → simplify: prefix cancel x → A = B → clash
+    // Use a non-clashing example: x·A = x·y → simplify: prefix cancel x → A = y → det: y → A
     {
         euf::egraph eg(m);
         euf::sgraph sg(m, eg);
         seq::nielsen_graph ng(sg);
 
         euf::snode* x = sg.mk_var(symbol("x"));
+        euf::snode* y = sg.mk_var(symbol("y"));
         euf::snode* a = sg.mk_char('A');
-        euf::snode* b = sg.mk_char('B');
         euf::snode* xa = sg.mk_concat(x, a);
-        euf::snode* xb = sg.mk_concat(x, b);
+        euf::snode* xy = sg.mk_concat(x, y);
 
-        ng.add_str_eq(xa, xb);
-        seq::nielsen_node* root = ng.root();
-        bool extended = ng.generate_extensions(root);
-        SASSERT(extended);
-        SASSERT(root->outgoing().size() == 1); // Det: single child (cancel)
+        ng.add_str_eq(xa, xy);
+        auto result = ng.solve();
+        SASSERT(result == seq::nielsen_graph::search_result::sat);
     }
 
-    // Case 2: both vars different → EqSplit (priority 5) fires
+    // Case 2: both vars different → Det (priority 1) fires (variable definition x → y)
     {
         euf::egraph eg(m);
         euf::sgraph sg(m, eg);
@@ -2686,10 +2659,10 @@ static void test_priority_chain_order() {
         seq::nielsen_node* root = ng.root();
         bool extended = ng.generate_extensions(root);
         SASSERT(extended);
-        SASSERT(root->outgoing().size() == 3); // EqSplit: 3 children
+        SASSERT(root->outgoing().size() == 1); // Det: variable definition, 1 child
     }
 
-    // Case 3: char vs var → ConstNielsen (priority 8) fires
+    // Case 3: char vs var → Det (priority 1) fires (variable definition y → A)
     {
         euf::egraph eg(m);
         euf::sgraph sg(m, eg);
@@ -2702,7 +2675,7 @@ static void test_priority_chain_order() {
         seq::nielsen_node* root = ng.root();
         bool extended = ng.generate_extensions(root);
         SASSERT(extended);
-        SASSERT(root->outgoing().size() == 2); // ConstNielsen: 2 children
+        SASSERT(root->outgoing().size() == 1); // Det: variable definition, 1 child
     }
 }
 

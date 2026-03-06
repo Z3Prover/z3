@@ -237,6 +237,7 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/euf/euf_sgraph.h"
+#include "math/lp/lar_solver.h"
 
 namespace seq {
 
@@ -480,6 +481,34 @@ namespace seq {
             m_expr(e, m), m_dep(dep), m_kind(kind) {}
     };
 
+    // -----------------------------------------------
+    // integer constraint: equality or inequality over length expressions
+    // mirrors ZIPT's IntEq and IntLe
+    // -----------------------------------------------
+
+    enum class int_constraint_kind {
+        eq,   // lhs = rhs
+        le,   // lhs <= rhs
+        ge,   // lhs >= rhs
+    };
+
+    // integer constraint stored per nielsen_node, tracking arithmetic
+    // relationships between length variables and power exponents.
+    // mirrors ZIPT's IntEq / IntLe over Presburger arithmetic polynomials.
+    struct int_constraint {
+        expr_ref             m_lhs;    // left-hand side (arithmetic expression)
+        expr_ref             m_rhs;    // right-hand side (arithmetic expression)
+        int_constraint_kind  m_kind;   // eq, le, or ge
+        dep_tracker          m_dep;    // tracks which input constraints contributed
+
+        int_constraint(ast_manager& m):
+            m_lhs(m), m_rhs(m), m_kind(int_constraint_kind::eq) {}
+        int_constraint(expr* lhs, expr* rhs, int_constraint_kind kind, dep_tracker const& dep, ast_manager& m):
+            m_lhs(lhs, m), m_rhs(rhs, m), m_kind(kind), m_dep(dep) {}
+
+        std::ostream& display(std::ostream& out) const;
+    };
+
     // edge in the Nielsen graph connecting two nodes
     // mirrors ZIPT's NielsenEdge
     class nielsen_edge {
@@ -489,6 +518,7 @@ namespace seq {
         vector<char_subst>      m_char_subst;     // character-level substitutions (mirrors ZIPT's SubstC)
         ptr_vector<str_eq>      m_side_str_eq;    // side constraints: string equalities
         ptr_vector<str_mem>     m_side_str_mem;    // side constraints: regex memberships
+        vector<int_constraint>  m_side_int;        // side constraints: integer equalities/inequalities
         bool                    m_is_progress;     // does this edge represent progress?
     public:
         nielsen_edge(nielsen_node* src, nielsen_node* tgt, bool is_progress);
@@ -506,9 +536,11 @@ namespace seq {
 
         void add_side_str_eq(str_eq* eq) { m_side_str_eq.push_back(eq); }
         void add_side_str_mem(str_mem* mem) { m_side_str_mem.push_back(mem); }
+        void add_side_int(int_constraint const& ic) { m_side_int.push_back(ic); }
 
         ptr_vector<str_eq> const& side_str_eq() const { return m_side_str_eq; }
         ptr_vector<str_mem> const& side_str_mem() const { return m_side_str_mem; }
+        vector<int_constraint> const& side_int() const { return m_side_int; }
 
         bool is_progress() const { return m_is_progress; }
 
@@ -528,6 +560,7 @@ namespace seq {
         // constraints at this node
         vector<str_eq>          m_str_eq;     // string equalities
         vector<str_mem>         m_str_mem;    // regex memberships
+        vector<int_constraint>  m_int_constraints;  // integer equalities/inequalities (mirrors ZIPT's IntEq/IntLe)
 
         // character constraints (mirrors ZIPT's DisEqualities and CharRanges)
         // key: snode id of the s_unit symbolic character
@@ -562,6 +595,10 @@ namespace seq {
 
         void add_str_eq(str_eq const& eq) { m_str_eq.push_back(eq); }
         void add_str_mem(str_mem const& mem) { m_str_mem.push_back(mem); }
+        void add_int_constraint(int_constraint const& ic) { m_int_constraints.push_back(ic); }
+
+        vector<int_constraint> const& int_constraints() const { return m_int_constraints; }
+        vector<int_constraint>& int_constraints() { return m_int_constraints; }
 
         // character constraint access (mirrors ZIPT's DisEqualities / CharRanges)
         u_map<ptr_vector<euf::snode>> const& char_diseqs() const { return m_char_diseqs; }
@@ -687,6 +724,15 @@ namespace seq {
         unsigned                      m_num_input_mems = 0;
         nielsen_stats                 m_stats;
 
+        // -----------------------------------------------
+        // Integer subsolver using lp::lar_solver
+        // Replaces ZIPT's SubSolver (auxiliary Z3 instance)
+        // with Z3's native LP solver for integer feasibility.
+        // -----------------------------------------------
+        scoped_ptr<lp::lar_solver>    m_lp_solver;
+        u_map<lp::lpvar>              m_expr2lpvar;    // maps expr id → LP variable
+        unsigned                      m_lp_ext_cnt = 0; // external variable counter for LP solver
+
     public:
         nielsen_graph(euf::sgraph& sg);
         ~nielsen_graph();
@@ -791,8 +837,27 @@ namespace seq {
         // variable Nielsen modifier: var vs var, all progress (3 branches)
         bool apply_var_nielsen(nielsen_node* node);
 
-        // eq split modifier: var vs var (3 branches)
+        // eq split modifier: splits a regex-free equation at a chosen index into
+        // two shorter equalities with optional padding (single progress child).
+        // Mirrors ZIPT's EqSplitModifier + StrEq.SplitEq.
         bool apply_eq_split(nielsen_node* node);
+
+        // helper: classify whether a token has variable (symbolic) length
+        // returns true for variables, powers, etc.; false for chars, units, string literals
+        bool token_has_variable_length(euf::snode* tok) const;
+
+        // helper: get the constant length of a token (only valid when !token_has_variable_length)
+        unsigned token_const_length(euf::snode* tok) const;
+
+        // helper: find a split point in a regex-free equation.
+        // ports ZIPT's StrEq.SplitEq algorithm.
+        // returns true if a valid split point is found, with results in out params.
+        bool find_eq_split_point(
+            euf::snode_vector const& lhs_toks,
+            euf::snode_vector const& rhs_toks,
+            unsigned& out_lhs_idx,
+            unsigned& out_rhs_idx,
+            int& out_padding) const;
 
         // apply regex character split modifier to a node.
         // for a str_mem constraint x·s ∈ R where x is a variable:
@@ -864,6 +929,38 @@ namespace seq {
         // uses seq_util::rex min_length/max_length on the underlying expression.
         // max_len == UINT_MAX means unbounded.
         void compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len);
+
+        // -----------------------------------------------
+        // LP integer subsolver methods
+        // -----------------------------------------------
+
+        // initialize the LP solver fresh for a feasibility check
+        void lp_solver_reset();
+
+        // get or create an LP variable for an arithmetic expression
+        lp::lpvar lp_ensure_var(expr* e);
+
+        // add an int_constraint to the LP solver
+        void lp_add_constraint(int_constraint const& ic);
+
+        // collect int_constraints along the path from root to the given node,
+        // including constraints from edges and nodes.
+        void collect_path_int_constraints(nielsen_node* node,
+                                          svector<nielsen_edge*> const& cur_path,
+                                          vector<int_constraint>& out);
+
+        // check integer feasibility of the constraints along the current path.
+        // returns true if feasible, false if infeasible.
+        bool check_int_feasibility(nielsen_node* node, svector<nielsen_edge*> const& cur_path);
+
+        // create an integer constraint: lhs <kind> rhs
+        int_constraint mk_int_constraint(expr* lhs, expr* rhs, int_constraint_kind kind, dep_tracker const& dep);
+
+        // get the exponent expression from a power snode (arg(1))
+        expr* get_power_exponent(euf::snode* power);
+
+        // create a fresh integer variable expression (for power exponents)
+        expr_ref mk_fresh_int_var();
     };
 
 }
