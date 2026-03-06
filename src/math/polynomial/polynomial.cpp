@@ -4695,22 +4695,37 @@ namespace polynomial {
         // Heuristic GCD (GCDheu) for multivariate polynomials over Z.
         //
         // Algorithm by Char, Geddes, Gonnet (1989):
-        //   1. Choose a "large" evaluation base xi.
+        //   1. Choose evaluation base xi > 2 * max|coeff(u,v)|.
         //   2. Apply the Kronecker substitution: map variable x_j -> xi^{E_j}
         //      where E_0=1, E_{j+1} = E_j * (deg_bound_j + 1).
         //   3. Evaluate u and v at these integer points to get integers U, V.
         //   4. Compute G = gcd(U, V) using integer arithmetic.
         //   5. Reconstruct a polynomial g from G using balanced base-xi representation
         //      (inverse Kronecker substitution).
-        //   6. Check if g divides both u and v.  If yes, return it (scaled by
-        //      the GCD of the integer contents of u and v).
+        //   6. Check if g divides both u and v.  If yes, return it.
         //
         // The procedure is tried up to HGCD_MAX_ITERS times with increasing xi.
         // Returns true when the GCD was successfully computed, false otherwise.
         // -----------------------------------------------------------------------
 
-        static constexpr unsigned HGCD_MAX_ITERS      = 3;
-        static constexpr unsigned HGCD_E_TOTAL_LIMIT  = 1000; // max Kronecker "size"
+        static constexpr unsigned HGCD_MAX_ITERS       = 6;
+        static constexpr unsigned HGCD_E_TOTAL_LIMIT   = 1000; // max Kronecker "size"
+        // Maximum estimated bit-length of xi^E_total. Keeps integer GCD fast.
+        static constexpr unsigned HGCD_MAX_BITS         = 4096;
+
+        // Return max absolute coefficient of p (L∞ norm).
+        void max_abs_coeff(polynomial const * p, numeral & result) {
+            unsynch_mpz_manager & zm = m().m();
+            zm.reset(result);
+            scoped_numeral tmp(m_manager);
+            unsigned sz = p->size();
+            for (unsigned i = 0; i < sz; ++i) {
+                zm.set(tmp, p->a(i));
+                zm.abs(tmp);
+                if (zm.gt(tmp, result))
+                    zm.set(result, tmp);
+            }
+        }
 
         // Evaluate polynomial p at integer substitution xs[j] -> vs[j] for all j.
         // Stores the resulting integer in 'val'.
@@ -4837,6 +4852,10 @@ namespace polynomial {
 
             unsigned num_vars = u_var_degrees.size();
 
+            // Only apply heuristic GCD to genuinely multivariate polynomials.
+            // For univariate inputs, uni_mod_gcd is already efficient.
+            if (num_vars < 2) return false;
+
             // ---- Step 1: Compute per-variable degree bounds and Kronecker exponents.
             sbuffer<var,      32> vars(num_vars, null_var);
             sbuffer<unsigned, 32> deg_bounds(num_vars, 0u);
@@ -4865,18 +4884,40 @@ namespace polynomial {
                 E_total = E[last] * (deg_bounds[last] + 1u);
             }
 
-            // ---- Step 2: Compute xi = max(||u||_inf, ||v||_inf) * 2 + 2.
+            // ---- Step 2: Compute xi = 2 * max(max_abs_coeff(u), max_abs_coeff(v)) + 2.
+            //
+            // We use the L∞ norm (max absolute coefficient) rather than the L1 norm,
+            // so that xi is minimal.  Smaller xi means smaller integers throughout,
+            // which is the dominant cost driver.
             unsynch_mpz_manager & zm = m().m();
             scoped_numeral norm_u(m_manager), norm_v(m_manager), xi(m_manager);
-            abs_norm(u, norm_u);
-            abs_norm(v, norm_v);
+            max_abs_coeff(u, norm_u);
+            max_abs_coeff(v, norm_v);
             if (zm.lt(norm_u, norm_v))
                 zm.set(xi, norm_v);
             else
                 zm.set(xi, norm_u);
-            zm.mul2k(xi, 1);   // xi = 2 * max_norm
+            zm.mul2k(xi, 1);   // xi = 2 * max_coeff
             zm.inc(xi);
-            zm.inc(xi);        // xi = 2 * max_norm + 2  (ensures xi >= 2)
+            zm.inc(xi);        // xi = 2 * max_coeff + 2  (ensures xi >= 2)
+
+            // Safety check: make sure the integers we'll deal with are not astronomically
+            // large.  The evaluation image |U_val| is bounded by roughly xi^E_total.
+            // Estimate the bit length of xi^E_total and bail if it would exceed the limit.
+            {
+                // Approximate bit length of xi: log2(xi) ≈ number of significant bits.
+                // Use zm.log2 if available, otherwise fall back to a simpler check.
+                // If xi fits in 64 bits, compute precisely; otherwise it's already big.
+                if (zm.is_uint64(xi)) {
+                    uint64_t xi_val = zm.get_uint64(xi);
+                    unsigned xi_bits = 1;
+                    while (xi_val >>= 1) ++xi_bits;
+                    if ((uint64_t)xi_bits * E_total > HGCD_MAX_BITS)
+                        return false;
+                }
+                // If xi doesn't fit in 64 bits it's definitely too large.
+                else { return false; }
+            }
 
             // ---- Step 3: Extract integer contents of u and v so we work with
             //              primitive parts during the reconstruction.
@@ -4905,6 +4946,16 @@ namespace polynomial {
             for (unsigned iter = 0; iter < HGCD_MAX_ITERS; ++iter) {
                 checkpoint();
 
+                // Re-check bit-size safety after xi is doubled.
+                if (!zm.is_uint64(xi)) return false;
+                {
+                    uint64_t xi_val = zm.get_uint64(xi);
+                    unsigned xi_bits = 1;
+                    while (xi_val >>= 1) ++xi_bits;
+                    if ((uint64_t)xi_bits * E_total > HGCD_MAX_BITS)
+                        return false;
+                }
+
                 // Evaluate the primitive parts at the Kronecker substitution.
                 hgcd_eval(pp_u, num_vars, vars.data(), xi_pows.data(), U_val);
                 hgcd_eval(pp_v, num_vars, vars.data(), xi_pows.data(), V_val);
@@ -4917,7 +4968,7 @@ namespace polynomial {
                 // Stripping factors of xi exposes the "true" Kronecker encoding when
                 // the integer GCD has absorbed common xi-powers from both evaluations.
                 zm.set(G_try, G_val);
-                for (;;) {
+                for (unsigned strip = 0; strip <= E_total; ++strip) {
                     if (zm.is_zero(G_try)) break;
 
                     if (hgcd_reconstruct(G_try, xi, num_vars, vars.data(),
@@ -4933,7 +4984,7 @@ namespace polynomial {
                             r = mul(d_a, pp_cand);
                             flip_sign_if_lm_neg(r);
                             TRACE(hgcd, tout << "heuristic_gcd succeeded, iter=" << iter
-                                  << "\nr: " << r << "\n";);
+                                  << " strip=" << strip << "\nr: " << r << "\n";);
                             return true;
                         }
                     }
