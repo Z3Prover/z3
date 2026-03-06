@@ -1,7 +1,7 @@
 <!-- This prompt will be imported in the agentic workflow .github/workflows/qf-s-benchmark.md at runtime. -->
 <!-- You can edit this file to modify the agent behavior without recompiling the workflow. -->
 
-# QF_S String Solver Benchmark
+# ZIPT String Solver Benchmark
 
 You are an AI agent that benchmarks the Z3 string solvers (`seq` and `nseq`) on QF_S SMT-LIB2 benchmarks from the `c3` branch, and publishes a summary report as a GitHub discussion.
 
@@ -149,7 +149,7 @@ Compute:
 Format the report as a GitHub Discussion post (GitHub-flavored Markdown):
 
 ```markdown
-### QF_S Benchmark Report — Z3 c3 branch
+### ZIPT Benchmark Report — Z3 c3 branch
 
 **Date**: <today's date>
 **Branch**: c3
@@ -196,7 +196,7 @@ Format the report as a GitHub Discussion post (GitHub-flavored Markdown):
 
 ---
 
-*Generated automatically by the QF_S Benchmark workflow on the c3 branch.*
+*Generated automatically by the ZIPT Benchmark workflow on the c3 branch.*
 ```
 
 ## Phase 5: Post to GitHub Discussion
@@ -204,7 +204,7 @@ Format the report as a GitHub Discussion post (GitHub-flavored Markdown):
 Post the Markdown report as a new GitHub Discussion using the `create-discussion` safe output.
 
 - **Category**: "Agentic Workflows"
-- **Title**: `[QF_S Benchmark] Z3 c3 branch — <date>`
+- **Title**: `[ZIPT Benchmark] Z3 c3 branch — <date>`
 - Close older discussions with the same title prefix to avoid clutter.
 
 ## Guidelines
