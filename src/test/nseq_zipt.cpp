@@ -546,8 +546,95 @@ static void test_zipt_parikh() {
     std::cout << "  ok\n";
 }
 
+// -----------------------------------------------------------------------
+// Tricky string equation benchmarks (hand-crafted, beyond ZIPT suite).
+//
+// SAT witnesses are noted inline.  UNSAT arguments are grouped by type:
+//   [first-char]   — immediate first-character mismatch
+//   [after-cancel] — mismatch exposed after prefix/suffix cancellation
+//   [induction]    — recursive unrolling forces a = b contradiction
+//   [parity]       — length parity (odd vs even) rules out all solutions
+//   [midpoint]     — equal length forced by lengths; midpoint char differs
+// -----------------------------------------------------------------------
+static void test_tricky_str_equations() {
+    std::cout << "test_tricky_str_equations\n";
+
+    // --- SAT: commutativity / rotation / symmetry ---
+
+    // XY = YX   (classic commutativity; witness: X="ab", Y="abab")
+    VERIFY(eq_sat("XY", "YX"));
+
+    // Xab = abX   (X commutes with the word "ab"; witness: X="ab")
+    VERIFY(eq_sat("Xab", "abX"));
+
+    // XaY = YaX   (swap-symmetric; witness: X=Y=any, e.g. X=Y="b")
+    VERIFY(eq_sat("XaY", "YaX"));
+
+    // XYX = YXY   (Markov-type; witness: X=Y)
+    VERIFY(eq_sat("XYX", "YXY"));
+
+    // XYZ = ZYX   (reverse-palindrome; witness: X="a",Y="b",Z="a")
+    VERIFY(eq_sat("XYZ", "ZYX"));
+
+    // XabY = YabX   (rotation-like; witness: X="",Y="ab")
+    VERIFY(eq_sat("XabY", "YabX"));
+
+    // aXYa = aYXa   (cancel outer 'a'; reduces to XY=YX; witness: X=Y="")
+    VERIFY(eq_sat("aXYa", "aYXa"));
+
+    // XaXb = YaYb   (both halves share variable; witness: X=Y)
+    VERIFY(eq_sat("XaXb", "YaYb"));
+
+    // abXba = Xabba   (witness: X="" gives "abba"="abba")
+    VERIFY(eq_sat("abXba", "Xabba"));
+
+    // --- UNSAT: first-character mismatch ---
+
+    // abXba = baXab   (LHS starts 'a', RHS starts 'b')
+    VERIFY(eq_unsat("abXba", "baXab"));
+
+    // XabX = XbaX   (cancel X prefix/suffix → "ab"="ba"; 'a'≠'b')
+    VERIFY(eq_unsat("XabX",  "XbaX"));
+
+    // --- UNSAT: mismatch exposed after cancellation ---
+
+    // XaYb = XbYa   (cancel X prefix → aYb=bYa; first char 'a'≠'b')
+    VERIFY(eq_unsat("XaYb",  "XbYa"));
+
+    // XaYbX = XbYaX   (cancel X prefix+suffix → aYb=bYa; first char 'a'≠'b')
+    VERIFY(eq_unsat("XaYbX", "XbYaX"));
+
+    // XaXbX = XbXaX   (cancel X prefix+suffix → aXb=bXa; first char 'a'≠'b')
+    VERIFY(eq_unsat("XaXbX", "XbXaX"));
+
+    // --- UNSAT: induction ---
+
+    // aXb = Xba   (forces X=a^n; final step requires a=b)
+    VERIFY(eq_unsat("aXb",  "Xba"));
+
+    // XaY = YbX   (a≠b; recursive unrolling forces a=b)
+    VERIFY(eq_unsat("XaY",  "YbX"));
+
+    // --- UNSAT: length parity ---
+
+    // XaX = YY   (|XaX|=2|X|+1 is odd; |YY|=2|Y| is even)
+    VERIFY(eq_unsat("XaX",  "YY"));
+
+    // XaaX = YbY   (|XaaX|=2|X|+2 is even; |YbY|=2|Y|+1 is odd)
+    VERIFY(eq_unsat("XaaX", "YbY"));
+
+    // --- UNSAT: midpoint argument ---
+
+    // XaX = YbY   (equal length forces |X|=|Y|; midpoint position |X|
+    //              holds 'a' in LHS and 'b' in RHS, but 'a'≠'b')
+    VERIFY(eq_unsat("XaX",  "YbY"));
+
+    std::cout << "  ok\n";
+}
+
 void tst_nseq_zipt() {
     test_zipt_str_equations();
+    test_tricky_str_equations();
     test_zipt_regex_ground();
     test_zipt_str_membership();
     test_zipt_parikh();

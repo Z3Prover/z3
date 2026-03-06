@@ -232,6 +232,7 @@ Author:
 
 #include "util/vector.h"
 #include "util/uint_set.h"
+#include "util/map.h"
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
@@ -289,6 +290,104 @@ namespace seq {
 
         bool operator==(dep_tracker const& other) const { return m_bits == other.m_bits; }
         bool operator!=(dep_tracker const& other) const { return !(*this == other); }
+    };
+
+    // -----------------------------------------------
+    // character range and set types
+    // mirrors ZIPT's CharacterRange and CharacterSet
+    // -----------------------------------------------
+
+    // half-open character interval [lo, hi)
+    // mirrors ZIPT's CharacterRange
+    struct char_range {
+        unsigned m_lo;
+        unsigned m_hi; // exclusive
+
+        char_range(): m_lo(0), m_hi(0) {}
+        char_range(unsigned c): m_lo(c), m_hi(c + 1) {}
+        char_range(unsigned lo, unsigned hi): m_lo(lo), m_hi(hi) { SASSERT(lo <= hi); }
+
+        bool is_empty() const { return m_lo == m_hi; }
+        bool is_unit()  const { return m_hi == m_lo + 1; }
+        unsigned length() const { return m_hi - m_lo; }
+        bool contains(unsigned c) const { return c >= m_lo && c < m_hi; }
+
+        bool operator==(char_range const& o) const { return m_lo == o.m_lo && m_hi == o.m_hi; }
+        bool operator<(char_range const& o) const {
+            return m_lo < o.m_lo || (m_lo == o.m_lo && m_hi < o.m_hi);
+        }
+    };
+
+    // sorted list of non-overlapping character intervals
+    // mirrors ZIPT's CharacterSet
+    class char_set {
+        svector<char_range> m_ranges;
+    public:
+        char_set() = default;
+        explicit char_set(char_range const& r) { if (!r.is_empty()) m_ranges.push_back(r); }
+
+        static char_set full(unsigned max_char) { return char_set(char_range(0, max_char + 1)); }
+
+        bool is_empty() const { return m_ranges.empty(); }
+        bool is_full(unsigned max_char) const {
+            return m_ranges.size() == 1 && m_ranges[0].m_lo == 0 && m_ranges[0].m_hi == max_char + 1;
+        }
+        bool is_unit() const { return m_ranges.size() == 1 && m_ranges[0].is_unit(); }
+        unsigned first_char() const { SASSERT(!is_empty()); return m_ranges[0].m_lo; }
+
+        svector<char_range> const& ranges() const { return m_ranges; }
+
+        // total number of characters in the set
+        unsigned char_count() const;
+
+        // membership test via binary search
+        bool contains(unsigned c) const;
+
+        // add a single character
+        void add(unsigned c);
+
+        // union with another char_set
+        void add(char_set const& other);
+
+        // intersect with another char_set, returns the result
+        char_set intersect_with(char_set const& other) const;
+
+        // complement relative to [0, max_char]
+        char_set complement(unsigned max_char) const;
+
+        // check if two sets are disjoint
+        bool is_disjoint(char_set const& other) const;
+
+        bool operator==(char_set const& other) const { return m_ranges == other.m_ranges; }
+
+        char_set clone() const { char_set r; r.m_ranges = m_ranges; return r; }
+
+        std::ostream& display(std::ostream& out) const;
+    };
+
+    // -----------------------------------------------
+    // character-level substitution
+    // mirrors ZIPT's CharSubst
+    // -----------------------------------------------
+
+    // maps a symbolic char (s_unit snode) to a concrete or symbolic char
+    struct char_subst {
+        euf::snode* m_var;  // the symbolic char being substituted (s_unit)
+        euf::snode* m_val;  // replacement: s_char (concrete) or s_unit (symbolic)
+
+        char_subst(): m_var(nullptr), m_val(nullptr) {}
+        char_subst(euf::snode* var, euf::snode* val):
+            m_var(var), m_val(val) {
+            SASSERT(var && var->is_unit());
+            SASSERT(val && (val->is_char() || val->is_unit()));
+        }
+
+        // true when the replacement is a concrete character
+        bool is_eliminating() const { return m_val && m_val->is_char(); }
+
+        bool operator==(char_subst const& o) const {
+            return m_var == o.m_var && m_val == o.m_val;
+        }
     };
 
     // string equality constraint: lhs = rhs
@@ -387,6 +486,7 @@ namespace seq {
         nielsen_node*           m_src;
         nielsen_node*           m_tgt;
         vector<nielsen_subst>   m_subst;
+        vector<char_subst>      m_char_subst;     // character-level substitutions (mirrors ZIPT's SubstC)
         ptr_vector<str_eq>      m_side_str_eq;    // side constraints: string equalities
         ptr_vector<str_mem>     m_side_str_mem;    // side constraints: regex memberships
         bool                    m_is_progress;     // does this edge represent progress?
@@ -400,6 +500,9 @@ namespace seq {
 
         vector<nielsen_subst> const& subst() const { return m_subst; }
         void add_subst(nielsen_subst const& s) { m_subst.push_back(s); }
+
+        vector<char_subst> const& char_substs() const { return m_char_subst; }
+        void add_char_subst(char_subst const& s) { m_char_subst.push_back(s); }
 
         void add_side_str_eq(str_eq* eq) { m_side_str_eq.push_back(eq); }
         void add_side_str_mem(str_mem* mem) { m_side_str_mem.push_back(mem); }
@@ -425,6 +528,11 @@ namespace seq {
         // constraints at this node
         vector<str_eq>          m_str_eq;     // string equalities
         vector<str_mem>         m_str_mem;    // regex memberships
+
+        // character constraints (mirrors ZIPT's DisEqualities and CharRanges)
+        // key: snode id of the s_unit symbolic character
+        u_map<ptr_vector<euf::snode>>  m_char_diseqs;  // ?c != {?d, ?e, ...}
+        u_map<char_set>                m_char_ranges;   // ?c in [lo, hi)
 
         // edges
         ptr_vector<nielsen_edge> m_outgoing;
@@ -454,6 +562,21 @@ namespace seq {
 
         void add_str_eq(str_eq const& eq) { m_str_eq.push_back(eq); }
         void add_str_mem(str_mem const& mem) { m_str_mem.push_back(mem); }
+
+        // character constraint access (mirrors ZIPT's DisEqualities / CharRanges)
+        u_map<ptr_vector<euf::snode>> const& char_diseqs() const { return m_char_diseqs; }
+        u_map<char_set> const& char_ranges() const { return m_char_ranges; }
+
+        // add a character range constraint for a symbolic char.
+        // intersects with existing range; sets conflict if result is empty.
+        void add_char_range(euf::snode* sym_char, char_set const& range);
+
+        // add a character disequality: sym_char != other
+        void add_char_diseq(euf::snode* sym_char, euf::snode* other);
+
+        // apply a character-level substitution to all constraints.
+        // checks disequalities and ranges; sets conflict on violation.
+        void apply_char_subst(euf::sgraph& sg, char_subst const& s);
 
         // edge access
         ptr_vector<nielsen_edge> const& outgoing() const { return m_outgoing; }
@@ -654,6 +777,10 @@ namespace seq {
 
         // create a fresh variable with a unique name
         euf::snode* mk_fresh_var();
+
+        // create a fresh symbolic character: seq.unit(fresh_char_const)
+        // analogous to ZIPT's SymCharToken creation
+        euf::snode* mk_fresh_char_var();
 
         // deterministic modifier: var = ε, same-head cancel
         bool apply_det_modifier(nielsen_node* node);

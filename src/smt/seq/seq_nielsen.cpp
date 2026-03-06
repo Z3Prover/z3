@@ -24,6 +24,7 @@ Author:
 #include "ast/ast_pp.h"
 #include "util/bit_util.h"
 #include "util/hashtable.h"
+#include <algorithm>
 #include <sstream>
 
 namespace seq {
@@ -146,6 +147,149 @@ namespace seq {
     }
 
     // -----------------------------------------------
+    // char_set
+    // -----------------------------------------------
+
+    unsigned char_set::char_count() const {
+        unsigned count = 0;
+        for (auto const& r : m_ranges)
+            count += r.length();
+        return count;
+    }
+
+    bool char_set::contains(unsigned c) const {
+        // binary search over sorted non-overlapping ranges
+        int lo = 0, hi = static_cast<int>(m_ranges.size()) - 1;
+        while (lo <= hi) {
+            int mid = lo + (hi - lo) / 2;
+            if (c < m_ranges[mid].m_lo)
+                hi = mid - 1;
+            else if (c >= m_ranges[mid].m_hi)
+                lo = mid + 1;
+            else
+                return true;
+        }
+        return false;
+    }
+
+    void char_set::add(unsigned c) {
+        if (m_ranges.empty()) {
+            m_ranges.push_back(char_range(c));
+            return;
+        }
+        // binary search for insertion point
+        int lo = 0, hi = static_cast<int>(m_ranges.size()) - 1;
+        while (lo <= hi) {
+            int mid = lo + (hi - lo) / 2;
+            if (c < m_ranges[mid].m_lo)
+                hi = mid - 1;
+            else if (c >= m_ranges[mid].m_hi)
+                lo = mid + 1;
+            else
+                return; // already contained
+        }
+        // lo is the insertion point
+        unsigned idx = static_cast<unsigned>(lo);
+        bool merge_left  = idx > 0 && m_ranges[idx - 1].m_hi == c;
+        bool merge_right = idx < m_ranges.size() && m_ranges[idx].m_lo == c + 1;
+        if (merge_left && merge_right) {
+            m_ranges[idx - 1].m_hi = m_ranges[idx].m_hi;
+            m_ranges.erase(m_ranges.begin() + idx);
+        } else if (merge_left) {
+            m_ranges[idx - 1].m_hi = c + 1;
+        } else if (merge_right) {
+            m_ranges[idx].m_lo = c;
+        } else {
+            // positional insert: shift elements right and place new element
+            m_ranges.push_back(char_range());
+            for (unsigned k = m_ranges.size() - 1; k > idx; --k)
+                m_ranges[k] = m_ranges[k - 1];
+            m_ranges[idx] = char_range(c);
+        }
+    }
+
+    void char_set::add(char_set const& other) {
+        for (auto const& r : other.m_ranges) {
+            for (unsigned c = r.m_lo; c < r.m_hi; ++c)
+                add(c);
+        }
+    }
+
+    char_set char_set::intersect_with(char_set const& other) const {
+        char_set result;
+        unsigned i = 0, j = 0;
+        while (i < m_ranges.size() && j < other.m_ranges.size()) {
+            unsigned lo = std::max(m_ranges[i].m_lo, other.m_ranges[j].m_lo);
+            unsigned hi = std::min(m_ranges[i].m_hi, other.m_ranges[j].m_hi);
+            if (lo < hi)
+                result.m_ranges.push_back(char_range(lo, hi));
+            if (m_ranges[i].m_hi < other.m_ranges[j].m_hi)
+                ++i;
+            else
+                ++j;
+        }
+        return result;
+    }
+
+    char_set char_set::complement(unsigned max_char) const {
+        char_set result;
+        if (m_ranges.empty()) {
+            result.m_ranges.push_back(char_range(0, max_char + 1));
+            return result;
+        }
+        unsigned from = 0;
+        for (auto const& r : m_ranges) {
+            if (from < r.m_lo)
+                result.m_ranges.push_back(char_range(from, r.m_lo));
+            from = r.m_hi;
+        }
+        if (from <= max_char)
+            result.m_ranges.push_back(char_range(from, max_char + 1));
+        return result;
+    }
+
+    bool char_set::is_disjoint(char_set const& other) const {
+        unsigned i = 0, j = 0;
+        while (i < m_ranges.size() && j < other.m_ranges.size()) {
+            if (m_ranges[i].m_hi <= other.m_ranges[j].m_lo)
+                ++i;
+            else if (other.m_ranges[j].m_hi <= m_ranges[i].m_lo)
+                ++j;
+            else
+                return false;
+        }
+        return true;
+    }
+
+    std::ostream& char_set::display(std::ostream& out) const {
+        if (m_ranges.empty()) {
+            out << "{}";
+            return out;
+        }
+        out << "{ ";
+        bool first = true;
+        for (auto const& r : m_ranges) {
+            if (!first) out << ", ";
+            first = false;
+            if (r.is_unit()) {
+                unsigned c = r.m_lo;
+                if (c >= 'a' && c <= 'z')
+                    out << (char)c;
+                else if (c >= 'A' && c <= 'Z')
+                    out << (char)c;
+                else if (c >= '0' && c <= '9')
+                    out << (char)c;
+                else
+                    out << "#[" << c << "]";
+            } else {
+                out << "[" << r.m_lo << "-" << (r.m_hi - 1) << "]";
+            }
+        }
+        out << " }";
+        return out;
+    }
+
+    // -----------------------------------------------
     // nielsen_edge
     // -----------------------------------------------
 
@@ -164,10 +308,23 @@ namespace seq {
     void nielsen_node::clone_from(nielsen_node const& parent) {
         m_str_eq.reset();
         m_str_mem.reset();
+        m_char_diseqs.reset();
+        m_char_ranges.reset();
         for (auto const& eq : parent.m_str_eq)
             m_str_eq.push_back(str_eq(eq.m_lhs, eq.m_rhs, eq.m_dep));
         for (auto const& mem : parent.m_str_mem)
             m_str_mem.push_back(str_mem(mem.m_str, mem.m_regex, mem.m_history, mem.m_id, mem.m_dep));
+        // clone character disequalities
+        for (auto const& kv : parent.m_char_diseqs) {
+            ptr_vector<euf::snode> diseqs;
+            for (euf::snode* s : kv.m_value)
+                diseqs.push_back(s);
+            m_char_diseqs.insert(kv.m_key, diseqs);
+        }
+        // clone character ranges
+        for (auto const& kv : parent.m_char_ranges) {
+            m_char_ranges.insert(kv.m_key, kv.m_value.clone());
+        }
     }
 
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
@@ -185,6 +342,90 @@ namespace seq {
             // regex is typically ground, but apply subst for generality
             mem.m_regex = sg.subst(mem.m_regex, s.m_var, s.m_replacement);
             mem.m_dep.merge(s.m_dep);
+        }
+    }
+
+    void nielsen_node::add_char_range(euf::snode* sym_char, char_set const& range) {
+        SASSERT(sym_char && sym_char->is_unit());
+        unsigned id = sym_char->id();
+        if (m_char_ranges.contains(id)) {
+            char_set& existing = m_char_ranges.find(id);
+            char_set inter = existing.intersect_with(range);
+            existing = inter;
+            if (inter.is_empty()) {
+                m_is_general_conflict = true;
+                m_reason = backtrack_reason::character_range;
+            }
+        } else {
+            m_char_ranges.insert(id, range.clone());
+        }
+    }
+
+    void nielsen_node::add_char_diseq(euf::snode* sym_char, euf::snode* other) {
+        SASSERT(sym_char && sym_char->is_unit());
+        SASSERT(other && other->is_unit());
+        unsigned id = sym_char->id();
+        if (!m_char_diseqs.contains(id))
+            m_char_diseqs.insert(id, ptr_vector<euf::snode>());
+        ptr_vector<euf::snode>& existing = m_char_diseqs.find(id);
+        // check for duplicates
+        for (euf::snode* s : existing)
+            if (s == other) return;
+        existing.push_back(other);
+    }
+
+    void nielsen_node::apply_char_subst(euf::sgraph& sg, char_subst const& s) {
+        if (!s.m_var) return;
+
+        // replace occurrences of s.m_var with s.m_val in all string constraints
+        for (unsigned i = 0; i < m_str_eq.size(); ++i) {
+            str_eq& eq = m_str_eq[i];
+            eq.m_lhs = sg.subst(eq.m_lhs, s.m_var, s.m_val);
+            eq.m_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_val);
+            eq.sort();
+        }
+        for (unsigned i = 0; i < m_str_mem.size(); ++i) {
+            str_mem& mem = m_str_mem[i];
+            mem.m_str = sg.subst(mem.m_str, s.m_var, s.m_val);
+            mem.m_regex = sg.subst(mem.m_regex, s.m_var, s.m_val);
+        }
+
+        unsigned var_id = s.m_var->id();
+
+        if (s.m_val->is_unit()) {
+            // symbolic char → symbolic char: check disequalities
+            if (m_char_diseqs.contains(var_id)) {
+                ptr_vector<euf::snode>& diseqs = m_char_diseqs.find(var_id);
+                for (euf::snode* d : diseqs) {
+                    if (d == s.m_val) {
+                        m_is_general_conflict = true;
+                        m_reason = backtrack_reason::character_range;
+                        return;
+                    }
+                }
+                m_char_diseqs.remove(var_id);
+                m_char_ranges.remove(var_id);
+            }
+        } else {
+            SASSERT(s.m_val->is_char());
+            // symbolic char → concrete char: check range constraints
+            if (m_char_ranges.contains(var_id)) {
+                char_set& range = m_char_ranges.find(var_id);
+                // extract the concrete char value from the s_char snode
+                unsigned ch_val = 0;
+                seq_util& seq = sg.get_seq_util();
+                expr* unit_expr = s.m_val->get_expr();
+                expr* ch_expr = nullptr;
+                if (unit_expr && seq.str.is_unit(unit_expr, ch_expr))
+                    seq.is_const_char(ch_expr, ch_val);
+                if (!range.contains(ch_val)) {
+                    m_is_general_conflict = true;
+                    m_reason = backtrack_reason::character_range;
+                    return;
+                }
+                m_char_diseqs.remove(var_id);
+                m_char_ranges.remove(var_id);
+            }
         }
     }
 
@@ -446,6 +687,20 @@ namespace seq {
                 << dot_html_escape(snode_label(mem.m_regex, m))
                 << "<br/>";
         }
+        // character ranges
+        for (auto const& kv : m_char_ranges) {
+            if (!any) { out << "Cnstr:<br/>"; any = true; }
+            out << "?" << kv.m_key << " &#8712; ";
+            kv.m_value.display(out);
+            out << "<br/>";
+        }
+        // character disequalities
+        for (auto const& kv : m_char_diseqs) {
+            if (!any) { out << "Cnstr:<br/>"; any = true; }
+            for (euf::snode* d : kv.m_value) {
+                out << "?" << kv.m_key << " &#8800; ?" << d->id() << "<br/>";
+            }
+        }
 
         if (!any)
             out << "&#8868;"; // ⊤ (trivially satisfied)
@@ -540,6 +795,12 @@ namespace seq {
                     out << dot_html_escape(snode_label(s.m_var, m))
                         << " &#8594; " // mapping arrow
                         << dot_html_escape(snode_label(s.m_replacement, m));
+                }
+                for (auto const& cs : e->char_substs()) {
+                    if (!first) out << "<br/>";
+                    first = false;
+                    out << "?" << cs.m_var->id()
+                        << " &#8594; ?" << cs.m_val->id();
                 }
                 out << ">";
 
@@ -1104,6 +1365,17 @@ namespace seq {
         return m_sg.mk_var(symbol(name.c_str()));
     }
 
+    euf::snode* nielsen_graph::mk_fresh_char_var() {
+        ++m_stats.m_num_fresh_vars;
+        std::string name = "?c!" + std::to_string(m_fresh_cnt++);
+        seq_util& seq = m_sg.get_seq_util();
+        ast_manager& m = m_sg.get_manager();
+        sort* char_sort = seq.mk_char_sort();
+        expr_ref fresh_const(m.mk_fresh_const(name.c_str(), char_sort), m);
+        expr_ref unit(seq.str.mk_unit(fresh_const), m);
+        return m_sg.mk(unit);
+    }
+
     // -----------------------------------------------------------------------
     // nielsen_graph: apply_regex_char_split
     // -----------------------------------------------------------------------
@@ -1643,8 +1915,8 @@ namespace seq {
                 created = true;
             }
 
-            // Branch 2+: for each minterm m_i, x → fresh_char · x'
-            // where fresh_char is constrained by the minterm
+            // Branch 2+: for each minterm m_i, x → ?c · x'
+            // where ?c is a symbolic char constrained by the minterm
             for (euf::snode* mt : minterms) {
                 if (mt->is_fail()) continue;
 
@@ -1654,13 +1926,15 @@ namespace seq {
                 if (deriv && deriv->is_fail()) continue;
 
                 euf::snode* fresh_var = mk_fresh_var();
-                euf::snode* fresh_char = mk_fresh_var();
+                euf::snode* fresh_char = mk_fresh_char_var();
                 euf::snode* replacement = m_sg.mk_concat(fresh_char, fresh_var);
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
                 nielsen_subst s(first, replacement, mem.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
+                // TODO: derive char_set from minterm and add as range constraint
+                // child->add_char_range(fresh_char, minterm_to_char_set(mt));
                 created = true;
             }
 
