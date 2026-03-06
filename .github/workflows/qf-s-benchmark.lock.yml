@@ -25,7 +25,7 @@
 #
 # gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"11e7fe880a77098e320d93169917eed62c8c0c2288cd5d3e54f9251ed6edbf7e"}
 
-name: "Qf S Benchmark"
+name: "ZIPT Benchmark"
 "on":
   schedule:
   - cron: "52 4 * * 5"
@@ -37,7 +37,7 @@ permissions: {}
 concurrency:
   group: "gh-aw-${{ github.workflow }}"
 
-run-name: "Qf S Benchmark"
+run-name: "ZIPT Benchmark"
 
 jobs:
   activation:
@@ -293,7 +293,7 @@ jobs:
               version: "",
               agent_version: "0.0.410",
               cli_version: "v0.45.6",
-              workflow_name: "Qf S Benchmark",
+              workflow_name: "ZIPT Benchmark",
               experimental: false,
               supports_tools_allowlist: true,
               run_id: context.runId,
@@ -355,7 +355,7 @@ jobs:
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
             {
-              "description": "Create a GitHub discussion for announcements, Q\u0026A, reports, status updates, or community conversations. Use this for content that benefits from threaded replies, doesn't require task tracking, or serves as documentation. For actionable work items that need assignment and status tracking, use create_issue instead. CONSTRAINTS: Maximum 1 discussion(s) can be created. Title will be prefixed with \"[QF_S Benchmark] \". Discussions will be created in category \"agentic workflows\".",
+              "description": "Create a GitHub discussion for announcements, Q\u0026A, reports, status updates, or community conversations. Use this for content that benefits from threaded replies, doesn't require task tracking, or serves as documentation. For actionable work items that need assignment and status tracking, use create_issue instead. CONSTRAINTS: Maximum 1 discussion(s) can be created. Title will be prefixed with \"[ZIPT Benchmark] \". Discussions will be created in category \"agentic workflows\".",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
@@ -816,7 +816,7 @@ jobs:
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
           GH_AW_NOOP_MAX: 1
-          GH_AW_WORKFLOW_NAME: "Qf S Benchmark"
+          GH_AW_WORKFLOW_NAME: "ZIPT Benchmark"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -831,7 +831,7 @@ jobs:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
           GH_AW_MISSING_TOOL_CREATE_ISSUE: "true"
           GH_AW_MISSING_TOOL_TITLE_PREFIX: "[missing tool]"
-          GH_AW_WORKFLOW_NAME: "Qf S Benchmark"
+          GH_AW_WORKFLOW_NAME: "ZIPT Benchmark"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -844,7 +844,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "Qf S Benchmark"
+          GH_AW_WORKFLOW_NAME: "ZIPT Benchmark"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_WORKFLOW_ID: "qf-s-benchmark"
@@ -864,7 +864,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_WORKFLOW_NAME: "Qf S Benchmark"
+          GH_AW_WORKFLOW_NAME: "ZIPT Benchmark"
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
@@ -912,7 +912,7 @@ jobs:
       - name: Setup threat detection
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          WORKFLOW_NAME: "Qf S Benchmark"
+          WORKFLOW_NAME: "ZIPT Benchmark"
           WORKFLOW_DESCRIPTION: "Run Z3 string solver benchmarks (seq vs nseq) on QF_S test suite from the c3 branch and post results as a GitHub discussion"
           HAS_PATCH: ${{ needs.agent.outputs.has_patch }}
         with:
@@ -992,7 +992,7 @@ jobs:
     env:
       GH_AW_ENGINE_ID: "copilot"
       GH_AW_WORKFLOW_ID: "qf-s-benchmark"
-      GH_AW_WORKFLOW_NAME: "Qf S Benchmark"
+      GH_AW_WORKFLOW_NAME: "ZIPT Benchmark"
     outputs:
       create_discussion_error_count: ${{ steps.process_safe_outputs.outputs.create_discussion_error_count }}
       create_discussion_errors: ${{ steps.process_safe_outputs.outputs.create_discussion_errors }}
@@ -1019,7 +1019,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           GH_AW_AGENT_OUTPUT: ${{ env.GH_AW_AGENT_OUTPUT }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_discussion\":{\"category\":\"agentic workflows\",\"close_older_discussions\":true,\"expires\":168,\"fallback_to_issue\":true,\"max\":1,\"title_prefix\":\"[QF_S Benchmark] \"},\"missing_data\":{},\"missing_tool\":{}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_discussion\":{\"category\":\"agentic workflows\",\"close_older_discussions\":true,\"expires\":168,\"fallback_to_issue\":true,\"max\":1,\"title_prefix\":\"[ZIPT Benchmark] \"},\"missing_data\":{},\"missing_tool\":{}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

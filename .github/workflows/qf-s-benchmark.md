@@ -16,7 +16,7 @@ tools:
 
 safe-outputs:
   create-discussion:
-    title-prefix: "[QF_S Benchmark] "
+    title-prefix: "[ZIPT Benchmark] "
     category: "Agentic Workflows"
     close-older-discussions: true
   missing-tool:
