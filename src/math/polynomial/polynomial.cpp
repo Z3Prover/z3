@@ -4691,6 +4691,270 @@ namespace polynomial {
             gcd_prs(u, v, max_var(u), r);
         }
 
+        // -----------------------------------------------------------------------
+        // Heuristic GCD (GCDheu) for multivariate polynomials over Z.
+        //
+        // Algorithm by Char, Geddes, Gonnet (1989):
+        //   1. Choose a "large" evaluation base xi.
+        //   2. Apply the Kronecker substitution: map variable x_j -> xi^{E_j}
+        //      where E_0=1, E_{j+1} = E_j * (deg_bound_j + 1).
+        //   3. Evaluate u and v at these integer points to get integers U, V.
+        //   4. Compute G = gcd(U, V) using integer arithmetic.
+        //   5. Reconstruct a polynomial g from G using balanced base-xi representation
+        //      (inverse Kronecker substitution).
+        //   6. Check if g divides both u and v.  If yes, return it (scaled by
+        //      the GCD of the integer contents of u and v).
+        //
+        // The procedure is tried up to HGCD_MAX_ITERS times with increasing xi.
+        // Returns true when the GCD was successfully computed, false otherwise.
+        // -----------------------------------------------------------------------
+
+        static constexpr unsigned HGCD_MAX_ITERS      = 3;
+        static constexpr unsigned HGCD_E_TOTAL_LIMIT  = 1000; // max Kronecker "size"
+
+        // Evaluate polynomial p at integer substitution xs[j] -> vs[j] for all j.
+        // Stores the resulting integer in 'val'.
+        // xs must list every variable that appears in p.
+        void hgcd_eval(polynomial const * p,
+                       unsigned           num_vars,
+                       var const *        xs,
+                       numeral const *    vs,
+                       numeral &          val) {
+            unsynch_mpz_manager & zm = m().m();
+            scoped_numeral term(m_manager), pow_val(m_manager);
+            zm.set(val, 0);
+            unsigned sz = p->size();
+            // Build a quick position look-up for variables.
+            // xs is small (< HGCD_E_TOTAL_LIMIT variables), so linear search is fine.
+            for (unsigned i = 0; i < sz; ++i) {
+                zm.set(term, p->a(i));
+                monomial * mon = p->m(i);
+                unsigned msz  = mon->size();
+                for (unsigned j = 0; j < msz; ++j) {
+                    var     x   = mon->get_var(j);
+                    unsigned deg = mon->degree(j);
+                    // Locate x in xs.
+                    unsigned pos = UINT_MAX;
+                    for (unsigned k = 0; k < num_vars; ++k) {
+                        if (xs[k] == x) { pos = k; break; }
+                    }
+                    SASSERT(pos != UINT_MAX);
+                    zm.power(vs[pos], deg, pow_val);
+                    zm.mul(term, pow_val, term);
+                }
+                zm.add(val, term, val);
+            }
+        }
+
+        // Reconstruct a multivariate polynomial from an integer G obtained by the
+        // Kronecker substitution  x_j -> xi^{E_j}  with  E[j] = prod_{i<j}(D[i]+1).
+        //
+        // The reconstruction extracts balanced base-xi digits and maps each position
+        // back to a monomial via the mixed-radix counter.
+        //
+        // Returns true on success, false if the reconstruction overflows the degree
+        // bounds (indicating xi was too small or the GCD is larger than expected).
+        bool hgcd_reconstruct(numeral const &          G,
+                              numeral const &          xi,
+                              unsigned                 num_vars,
+                              var const *              vars,
+                              unsigned const *         degree_bounds,
+                              polynomial_ref &         result) {
+            unsynch_mpz_manager & zm = m().m();
+
+            // Half of xi used for balanced rounding.
+            scoped_numeral half_xi(m_manager);
+            zm.div(xi, 2, half_xi);   // half_xi = floor(xi / 2)
+
+            // Working copy of G.
+            scoped_numeral H(m_manager);
+            zm.set(H, G);
+
+            // Mixed-radix counter: counter[j] is the current degree of vars[j].
+            sbuffer<unsigned, 32> counter(num_vars, 0u);
+
+            // Temporary for building monomials.
+            sbuffer<power, 32> pws;
+
+            // Accumulate the polynomial in m_cheap_som_buffer.
+            SASSERT(m_cheap_som_buffer.empty());
+            scoped_numeral digit(m_manager);
+
+            while (!zm.is_zero(H)) {
+                // Extract balanced digit: digit = H mod xi, centered in (-xi/2, xi/2].
+                zm.mod(H, xi, digit);           // digit in [0, xi)
+                if (zm.gt(digit, half_xi))
+                    zm.sub(digit, xi, digit);   // bring into (-xi/2, xi/2]
+
+                // Advance H: H = (H - digit) / xi  (exact division).
+                zm.sub(H, digit, H);
+                zm.div(H, xi, H);
+
+                // If the digit is non-zero, add it to the result polynomial.
+                if (!zm.is_zero(digit)) {
+                    // Build monomial x_{vars[0]}^{counter[0]} * ... * x_{vars[k-1]}^{counter[k-1]}.
+                    pws.reset();
+                    for (unsigned j = 0; j < num_vars; ++j) {
+                        if (counter[j] > 0)
+                            pws.push_back(power(vars[j], counter[j]));
+                    }
+                    monomial * mon = mk_monomial(pws.size(), pws.data());
+                    m_cheap_som_buffer.add(digit, mon);
+                }
+
+                // Advance the mixed-radix counter.
+                for (unsigned j = 0; j < num_vars; ++j) {
+                    counter[j]++;
+                    if (counter[j] <= degree_bounds[j])
+                        break;                        // no carry
+                    counter[j] = 0;
+                    if (j + 1 == num_vars) {
+                        // Counter wrapped around: all positions exhausted.
+                        // If H is still non-zero the degree bound was violated.
+                        if (!zm.is_zero(H)) {
+                            m_cheap_som_buffer.reset();
+                            return false;
+                        }
+                    }
+                }
+            }
+
+            result = m_cheap_som_buffer.mk();
+            return true;
+        }
+
+        // Main Heuristic GCD entry point.
+        // pre: u and v share the same set of variables (non-modular mode).
+        // post: returns true and stores the GCD in r on success; false otherwise.
+        bool heuristic_gcd(polynomial const * u,
+                           polynomial const * v,
+                           power_buffer const & u_var_degrees,
+                           power_buffer const & v_var_degrees,
+                           polynomial_ref &     r) {
+            SASSERT(!m().modular());
+            SASSERT(u_var_degrees.size() == v_var_degrees.size());
+
+            unsigned num_vars = u_var_degrees.size();
+
+            // ---- Step 1: Compute per-variable degree bounds and Kronecker exponents.
+            sbuffer<var,      32> vars(num_vars, null_var);
+            sbuffer<unsigned, 32> deg_bounds(num_vars, 0u);
+            for (unsigned j = 0; j < num_vars; ++j) {
+                SASSERT(u_var_degrees[j].get_var() == v_var_degrees[j].get_var());
+                vars[j]       = u_var_degrees[j].get_var();
+                deg_bounds[j] = std::min(u_var_degrees[j].degree(),
+                                         v_var_degrees[j].degree());
+            }
+
+            // E[j] = product of (deg_bounds[i]+1) for i < j.
+            sbuffer<unsigned, 32> E(num_vars, 0u);
+            E[0] = 1u;
+            for (unsigned j = 1; j < num_vars; ++j) {
+                // Guard against overflow / excessively large evaluation points.
+                if (E[j-1] > HGCD_E_TOTAL_LIMIT / (deg_bounds[j-1] + 1u))
+                    return false;
+                E[j] = E[j-1] * (deg_bounds[j-1] + 1u);
+            }
+            // Total Kronecker size = E[num_vars-1] * (deg_bounds[num_vars-1]+1).
+            unsigned E_total;
+            {
+                unsigned last = num_vars - 1;
+                if (E[last] > HGCD_E_TOTAL_LIMIT / (deg_bounds[last] + 1u))
+                    return false;
+                E_total = E[last] * (deg_bounds[last] + 1u);
+            }
+            if (E_total > HGCD_E_TOTAL_LIMIT) return false;
+
+            // ---- Step 2: Compute xi = max(||u||_inf, ||v||_inf) * 2 + 2.
+            unsynch_mpz_manager & zm = m().m();
+            scoped_numeral norm_u(m_manager), norm_v(m_manager), xi(m_manager);
+            abs_norm(u, norm_u);
+            abs_norm(v, norm_v);
+            if (zm.lt(norm_u, norm_v))
+                zm.set(xi, norm_v);
+            else
+                zm.set(xi, norm_u);
+            zm.mul2k(xi, 1);   // xi = 2 * max_norm
+            zm.inc(xi);
+            zm.inc(xi);        // xi = 2 * max_norm + 2  (ensures xi >= 2)
+
+            // ---- Step 3: Extract integer contents of u and v so we work with
+            //              primitive parts during the reconstruction.
+            scoped_numeral c_u(m_manager), c_v(m_manager), d_a(m_manager);
+            polynomial_ref pp_u(m_wrapper), pp_v(m_wrapper);
+            ic(u, c_u, pp_u);
+            ic(v, c_v, pp_v);
+            zm.gcd(c_u, c_v, d_a);
+
+            // Pre-compute xi^{E[j]} for each variable substitution.
+            scoped_numeral_vector xi_pows(m_manager);
+            xi_pows.resize(num_vars);
+            for (unsigned j = 0; j < num_vars; ++j)
+                zm.power(xi, E[j], xi_pows[j]);
+
+            // ---- Step 4: Iterate with increasing xi.
+            // The integer GCD gcd(eval(pp_u), eval(pp_v)) may equal k * eval(gcd_pp)
+            // for some integer k that is a power of xi (arising from common factors in
+            // the Kronecker images).  We therefore try stripping leading powers of xi
+            // from the integer GCD before reconstruction, which peels off such spurious
+            // factors and recovers the true encoding of the polynomial GCD.
+            scoped_numeral U_val(m_manager), V_val(m_manager), G_val(m_manager);
+            scoped_numeral G_try(m_manager), rem_tmp(m_manager);
+            polynomial_ref candidate(m_wrapper);
+
+            for (unsigned iter = 0; iter < HGCD_MAX_ITERS; ++iter) {
+                checkpoint();
+
+                // Evaluate the primitive parts at the Kronecker substitution.
+                hgcd_eval(pp_u, num_vars, vars.data(), xi_pows.data(), U_val);
+                hgcd_eval(pp_v, num_vars, vars.data(), xi_pows.data(), V_val);
+
+                // Integer GCD.
+                zm.gcd(U_val, V_val, G_val);
+                zm.abs(G_val);
+
+                // Try reconstruction with G_try = G_val, G_val/xi, G_val/xi^2, ...
+                // Stripping factors of xi exposes the "true" Kronecker encoding when
+                // the integer GCD has absorbed common xi-powers from both evaluations.
+                zm.set(G_try, G_val);
+                for (;;) {
+                    if (zm.is_zero(G_try)) break;
+
+                    if (hgcd_reconstruct(G_try, xi, num_vars, vars.data(),
+                                         deg_bounds.data(), candidate)) {
+                        // Make the candidate primitive (remove integer content).
+                        scoped_numeral cont(m_manager);
+                        polynomial_ref pp_cand(m_wrapper);
+                        ic(candidate, cont, pp_cand);
+
+                        // Verify: pp_cand must divide both pp_u and pp_v.
+                        if (!is_zero(pp_cand) &&
+                            divides(pp_cand, pp_u) && divides(pp_cand, pp_v)) {
+                            r = mul(d_a, pp_cand);
+                            flip_sign_if_lm_neg(r);
+                            TRACE(hgcd, tout << "heuristic_gcd succeeded, iter=" << iter
+                                  << "\nr: " << r << "\n";);
+                            return true;
+                        }
+                    }
+
+                    // Divide G_try by xi for the next inner attempt.
+                    zm.rem(G_try, xi, rem_tmp);
+                    if (!zm.is_zero(rem_tmp)) break;   // xi no longer divides G_try
+                    zm.div(G_try, xi, G_try);
+                }
+
+                // Double xi for the next outer attempt.
+                zm.mul2k(xi, 1);
+                // Recompute xi_pows.
+                for (unsigned j = 0; j < num_vars; ++j)
+                    zm.power(xi, E[j], xi_pows[j]);
+            }
+
+            TRACE(hgcd, tout << "heuristic_gcd failed\n";);
+            return false;
+        }
+
         void gcd(polynomial const * u, polynomial const * v, polynomial_ref & r) {
             power_buffer u_var_degrees;
             power_buffer v_var_degrees;
@@ -4808,6 +5072,12 @@ namespace polynomial {
 #endif
             if (!m().modular() && !m_use_prs_gcd) {
                 SASSERT(max_var(u) == max_var(v));
+
+                // Fast path: try heuristic GCD first.
+                // It succeeds quickly for polynomials with small coefficients / low degree.
+                if (heuristic_gcd(u, v, u_var_degrees, v_var_degrees, r))
+                    return;
+
                 if (is_univariate(u)) {
                     SASSERT(is_univariate(v));
                     uni_mod_gcd(u, v, r);

@@ -23,6 +23,7 @@ Notes:
 #include "math/polynomial/linear_eq_solver.h"
 #include "util/rlimit.h"
 #include <iostream>
+#include <chrono>
 
 static void tst1() {
     std::cout << "\n----- Basic testing -------\n";
@@ -1812,6 +1813,162 @@ static void tst_divides() {
     std::cout << "divides(q, p): " << m.divides(q, p) << "\n";
 }
 
+// -----------------------------------------------------------------------
+// tst_hgcd: dedicated tests for the Heuristic GCD (GCDheu) algorithm.
+// These cover correctness for univariate and multivariate cases and provide
+// a simple timing comparison against the existing modular-GCD baseline.
+// -----------------------------------------------------------------------
+
+static void tst_hgcd() {
+    std::cout << "\n----- tst_hgcd -------\n";
+    polynomial::numeral_manager nm;
+    reslimit rl;
+    polynomial::manager m(rl, nm);
+
+    polynomial_ref x0(m), x1(m), x2(m), x3(m);
+    x0 = m.mk_polynomial(m.mk_var());
+    x1 = m.mk_polynomial(m.mk_var());
+    x2 = m.mk_polynomial(m.mk_var());
+    x3 = m.mk_polynomial(m.mk_var());
+
+    polynomial_ref one(m);
+    one = m.mk_const(mpz(1));
+
+    // ---- univariate tests ----
+
+    // gcd(x^2-1, x-1) = x-1
+    tst_gcd((x0^2) - 1, x0 - 1, x0 - 1);
+
+    // gcd(x^2 - 4x + 4, x^2 - 2x) = x-2  (factor (x-2)^2 vs x(x-2))
+    tst_gcd((x0^2) - 4*x0 + 4, (x0^2) - 2*x0, x0 - 2);
+
+    // gcd(x^3 - x, x^2 - 1) = x-1 ... wait, gcd(x(x-1)(x+1), (x-1)(x+1)) = (x-1)(x+1)
+    tst_gcd((x0^3) - x0, (x0^2) - 1, (x0^2) - 1);
+
+    // gcd with content: gcd(6x^2, 9x) = 3x
+    {
+        polynomial_ref three(m), three_x(m);
+        three = m.mk_const(mpz(3));
+        three_x = three * x0;
+        tst_gcd(6*(x0^2), 9*x0, three_x);
+    }
+
+    // gcd(f, f) = f
+    {
+        polynomial_ref f(m);
+        f = (x0^3) - 2*(x0^2) + x0 - 5;
+        tst_gcd(f, f, f);
+    }
+
+    // gcd(f, 1) = 1
+    tst_gcd((x0^5) + x0 + 1, one, one);
+
+    // gcd(f, 0) = f
+    {
+        polynomial_ref zero(m), f(m);
+        zero = m.mk_const(mpz(0));
+        f = (x0^3) + x0 + 7;
+        tst_gcd(f, zero, f);
+    }
+
+    // ---- bivariate tests ----
+
+    // gcd((x+y)*(x-y), (x+y)^2) = x+y
+    tst_gcd((x0 + x1)*(x0 - x1), (x0 + x1)*(x0 + x1), x0 + x1);
+
+    // gcd((x+y)(2x+3y), (x+y)(x-y)) = x+y
+    tst_gcd((x0 + x1)*(2*x0 + 3*x1), (x0 + x1)*(x0 - x1), x0 + x1);
+
+    // gcd(x^2 + 2xy + y^2, x^2 - y^2) = x+y  ((x+y)^2, (x+y)(x-y))
+    tst_gcd((x0^2) + 2*x0*x1 + (x1^2), (x0^2) - (x1^2), x0 + x1);
+
+    // gcd with non-trivial content: gcd(6(x+y)(x+1), 9(x+y)(y-1)) = 3(x+y)
+    {
+        polynomial_ref three(m), g_expected(m);
+        three = m.mk_const(mpz(3));
+        g_expected = three * (x0 + x1);
+        tst_gcd(6*(x0 + x1)*(x0 + 1), 9*(x0 + x1)*(x1 - 1), g_expected);
+    }
+
+    // gcd where result = 1
+    tst_gcd((x0^2) + x1 + 1, x0 + (x1^2) + 3, one);
+
+    // gcd of same polynomial (bivariate, leading monomial has positive coefficient)
+    {
+        polynomial_ref f(m);
+        f = x0*(x1^2) - (x0^2)*x1 + 3*x0 + 5;
+        tst_gcd(f, f, f);
+    }
+
+    // ---- trivariate tests ----
+
+    // gcd((x+y+z)(x-y), (x+y+z)(x+z)) = x+y+z
+    tst_gcd((x0+x1+x2)*(x0-x1), (x0+x1+x2)*(x0+x2), x0+x1+x2);
+
+    // gcd((x0+1)(x1+1)(x2+1), (x0+1)(x1-1)(x2+1)) = (x0+1)(x2+1)
+    tst_gcd((x0+1)*(x1+1)*(x2+1), (x0+1)*(x1-1)*(x2+1), (x0+1)*(x2+1));
+
+    // ---- 4-variable tests ----
+
+    // gcd((x0^2 + x1*x2 + 1)*(x3*x1 + 2), (x0^2 + x1*x2 + 1)*(x3*x1 - 3))
+    //   = x0^2 + x1*x2 + 1
+    tst_gcd(((x0^2) + x1*x2 + 1)*(x3*x1 + 2),
+            ((x0^2) + x1*x2 + 1)*(x3*x1 - 3),
+            (x0^2) + x1*x2 + 1);
+
+    // gcd with scalar content
+    tst_gcd(15*((x0^2) + x1*x2 + 1)*(x3*x1 + 2),
+            10*((x0^2) + x1*x2 + 1)*(x3*x1 - 3),
+            5*((x0^2) + x1*x2 + 1));
+
+    std::cout << "tst_hgcd: all correctness checks passed\n";
+
+    // ---- simple performance comparison ----
+    // Compute the same GCD 1000 times and report wall time.
+    {
+        std::cout << "\n--- Performance: GCD repeated 1000 times ---\n";
+        polynomial_ref u(m), v(m), g(m);
+        // Use a moderately complex 4-variable GCD:
+        // u = (x0^2 + x1*x2 + 1)*(x2*x2 + x3 + 2)*(x3*x1 + 2)*(x3*x1^2 + x1*x2 + 1)
+        // v = (x0^2 + x1*x2 + 1)*(x3*x1^2 + x1*x2 + 1)*(x3*x1 + x1*x2 + 17)
+        u = ((x0^2) + x1*x2 + 1)*(x2*x2 + x3 + 2)*(x3*x1 + 2)*(x3*(x1^2) + x1*x2 + 1);
+        v = ((x0^2) + x1*x2 + 1)*(x3*(x1^2) + x1*x2 + 1)*(x3*x1 + x1*x2 + 17);
+        unsigned N = 1000;
+        auto t0 = std::chrono::high_resolution_clock::now();
+        for (unsigned i = 0; i < N; ++i)
+            g = gcd(u, v);
+        auto t1 = std::chrono::high_resolution_clock::now();
+        double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+        std::cout << "GCD result: " << g << "\n";
+        std::cout << N << " GCD calls: " << ms << " ms  ("
+                  << ms/N << " ms/call)\n";
+    }
+
+    // ---- dense bivariate performance ----
+    {
+        std::cout << "\n--- Performance: dense bivariate GCD ---\n";
+        // Build u = A*B, v = A*C where A, B, C have moderate degree.
+        polynomial_ref A(m), B(m), C(m), u2(m), v2(m), g2(m);
+        // A = x0^4 + x1^3 + x0*x1^2 + 2
+        A = (x0^4) + (x1^3) + x0*(x1^2) + 2;
+        // B = x0^3 - x1^2 + x0*x1 + 1
+        B = (x0^3) - (x1^2) + x0*x1 + 1;
+        // C = x0^2 + x1^4 - x0*x1 + 3
+        C = (x0^2) + (x1^4) - x0*x1 + 3;
+        u2 = A * B;
+        v2 = A * C;
+        unsigned N2 = 500;
+        auto t0 = std::chrono::high_resolution_clock::now();
+        for (unsigned i = 0; i < N2; ++i)
+            g2 = gcd(u2, v2);
+        auto t1 = std::chrono::high_resolution_clock::now();
+        double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
+        std::cout << "GCD result: " << g2 << "\n";
+        std::cout << N2 << " dense-bivariate GCD calls: " << ms << " ms  ("
+                  << ms/N2 << " ms/call)\n";
+    }
+}
+
 void tst_polynomial() {
     set_verbosity_level(1000);
     // enable_trace("factor");
@@ -1822,6 +1979,9 @@ void tst_polynomial() {
     // enable_trace("Lazard");
     // enable_trace("eval_bug");
     // enable_trace("mgcd");
+    tst_hgcd();
+    tst_gcd2();
+    tst_gcd();
     tst_psc();
     return;
     tst_eval();
