@@ -1141,8 +1141,8 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
             SASSERT(ge(a1, b1));
             if (is_small(b1)) {
                 if (is_small(a1)) {
-                    unsigned r_val = u_gcd(a1.m_val, b1.m_val);
-                    set(c, r_val);
+                    unsigned r = u_gcd(a1.m_val, b1.m_val);
+                    set(c, r);
                     break;
                 }
                 else {
@@ -1196,6 +1196,10 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
 
             A = 1; B = 0; C = 0; D = 1;
             while (true) {
+                // Break if either denominator is zero or negative.
+                // With signed 64-bit approximations, cofactors C and D can
+                // become large negative values; a non-positive denominator
+                // would produce a wrong quotient and must be avoided.
                 if (b_hat + C <= 0 || b_hat + D <= 0)
                     break;
                 q = (a_hat + A) / (b_hat + C);
