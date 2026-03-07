@@ -1103,10 +1103,33 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
 #endif // LS_BINARY_GCD
 
 #ifdef LEHMER_GCD
-        // For now, it only works if sizeof(digit_t) == sizeof(unsigned)
+        // Works only when sizeof(digit_t) == sizeof(unsigned) (32-bit digits).
         static_assert(sizeof(digit_t) == sizeof(unsigned), "");
-        
-        int64_t a_hat, b_hat, A, B, C, D, T, q, a_sz, b_sz;
+
+        // -----------------------------------------------------------------------
+        // 2-digit Lehmer GCD
+        //
+        // Classic Lehmer's algorithm builds 1-digit (32-bit) approximations
+        // â and b̂ from the leading digits of a1 and b1, then simulates the
+        // Euclidean algorithm on those small values to accumulate a 2×2 matrix
+        // [A B; C D] that can be applied to the actual big integers in one shot,
+        // saving expensive big-integer divisions.
+        //
+        // This version extends that idea to 2-digit (64-bit) approximations,
+        // which roughly doubles the number of simulated Euclidean steps per outer
+        // iteration and thus halves the number of costly big-integer operations.
+        //
+        // Overflow safety:
+        //   With a 62-bit â (the 64-bit two-digit value shifted right by 2 to
+        //   fit in a signed int64_t), the Fibonacci-worst-case inner loop runs
+        //   for at most ~90 steps before b̂ reaches 0.  At that point the matrix
+        //   entries reach Fib(90) ≈ 2.88 × 10^18 < INT64_MAX.  The intermediate
+        //   PRODUCTS (q · C etc.), however, can exceed INT64_MAX in rare cases.
+        //   We use __int128 (available on GCC/Clang) for those multiplications
+        //   and check for overflow; on other compilers the 1-digit (original)
+        //   path is used as a safe fallback.
+        // -----------------------------------------------------------------------
+
         mpz a1, b1, t, r, tmp;
         set(a1, a);
         set(b1, b);
@@ -1118,8 +1141,8 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
             SASSERT(ge(a1, b1));
             if (is_small(b1)) {
                 if (is_small(a1)) {
-                    unsigned r = u_gcd(a1.m_val, b1.m_val);
-                    set(c, r);
+                    unsigned r_val = u_gcd(a1.m_val, b1.m_val);
+                    set(c, r_val);
                     break;
                 }
                 else {
@@ -1135,60 +1158,103 @@ void mpz_manager<SYNCH>::gcd(mpz const & a, mpz const & b, mpz & c) {
             }
             SASSERT(!is_small(a1));
             SASSERT(!is_small(b1));
-            a_sz  = a1.m_ptr->m_size;
-            b_sz  = b1.m_ptr->m_size;
+
+            int64_t a_sz = a1.m_ptr->m_size;
+            int64_t b_sz = b1.m_ptr->m_size;
             SASSERT(b_sz <= a_sz);
-            a_hat = a1.m_ptr->m_digits[a_sz - 1];
-            b_hat = (b_sz == a_sz) ? b1.m_ptr->m_digits[b_sz - 1] : 0;
-            A = 1; 
-            B = 0;
-            C = 0;
-            D = 1;
+
+            int64_t a_hat, b_hat, A, B, C, D, T, q;
+
+#if defined(__GNUC__) || defined(__clang__)
+            // ---- 2-digit (64-bit) path ----
+            // Build 62-bit approximations from the top two 32-bit digits.
+            // Shift right by 2 so they fit in int64_t (bit 63 unused for sign,
+            // bit 62 unused as arithmetic buffer).
+            {
+                uint64_t ah = (uint64_t)a1.m_ptr->m_digits[a_sz - 1];
+                uint64_t al = (a_sz >= 2) ? (uint64_t)a1.m_ptr->m_digits[a_sz - 2] : 0;
+                a_hat = (int64_t)(((ah << 32) | al) >> 2);
+            }
+            {
+                if (b_sz == a_sz) {
+                    // Same number of digits: take top two digits of b1.
+                    uint64_t bh = (uint64_t)b1.m_ptr->m_digits[b_sz - 1];
+                    uint64_t bl = (b_sz >= 2) ? (uint64_t)b1.m_ptr->m_digits[b_sz - 2] : 0;
+                    b_hat = (int64_t)(((bh << 32) | bl) >> 2);
+                } else if (b_sz == a_sz - 1) {
+                    // b1 has one fewer digit: its leading digit sits at the
+                    // same scale as a1's *second* digit.  In the 64-bit window
+                    // that is just a 32-bit value (upper half is 0).
+                    b_hat = (int64_t)((uint64_t)b1.m_ptr->m_digits[b_sz - 1] >> 2);
+                } else {
+                    // b1 is more than one digit smaller → b_hat ≈ 0.
+                    // The inner loop will immediately set B=0 and we fall
+                    // through to a single Euclidean step.
+                    b_hat = 0;
+                }
+            }
+
+            A = 1; B = 0; C = 0; D = 1;
             while (true) {
-                // Loop invariants
-                SASSERT(a_hat + A <= static_cast<int64_t>(UINT_MAX) + 1);
-                SASSERT(a_hat + B <  static_cast<int64_t>(UINT_MAX) + 1);
-                SASSERT(b_hat + C <  static_cast<int64_t>(UINT_MAX) + 1);
-                SASSERT(b_hat + D <= static_cast<int64_t>(UINT_MAX) + 1);
-                // overflows can't happen since I'm using int64
-                if (b_hat + C == 0 || b_hat + D == 0)
+                if (b_hat + C <= 0 || b_hat + D <= 0)
                     break;
-                q  = (a_hat + A)/(b_hat + C);
-                if (q != (a_hat + B)/(b_hat + D))
+                q = (a_hat + A) / (b_hat + C);
+                if (q != (a_hat + B) / (b_hat + D))
                     break;
-                T = A - q*C;
-                A = C;
-                C = T;
-                T = B - q*D;
-                B = D;
-                D = T;
-                T = a_hat - q*b_hat;
+                // Use __int128 for the cofactor updates to avoid int64_t
+                // overflow in the rare cases where q is large.
+                __int128 T128;
+                T128 = (__int128)A - (__int128)q * C;
+                if (T128 < INT64_MIN || T128 > INT64_MAX) break;
+                T = (int64_t)T128;
+                A = C; C = T;
+                T128 = (__int128)B - (__int128)q * D;
+                if (T128 < INT64_MIN || T128 > INT64_MAX) break;
+                T = (int64_t)T128;
+                B = D; D = T;
+                T = a_hat - q * b_hat;
                 a_hat = b_hat;
                 b_hat = T;
             }
+#else
+            // ---- 1-digit (32-bit) fallback for compilers without __int128 ----
+            a_hat = a1.m_ptr->m_digits[a_sz - 1];
+            b_hat = (b_sz == a_sz) ? b1.m_ptr->m_digits[b_sz - 1] : 0;
+            A = 1; B = 0; C = 0; D = 1;
+            while (true) {
+                if (b_hat + C == 0 || b_hat + D == 0)
+                    break;
+                q  = (a_hat + A) / (b_hat + C);
+                if (q != (a_hat + B) / (b_hat + D))
+                    break;
+                T = A - q*C; A = C; C = T;
+                T = B - q*D; B = D; D = T;
+                T = a_hat - q*b_hat;
+                a_hat = b_hat; b_hat = T;
+            }
+#endif // __GNUC__ || __clang__
+
             SASSERT(ge(a1, b1));
             if (B == 0) {
+                // No useful matrix was accumulated; do one Euclidean step.
                 rem(a1, b1, t);
                 swap(a1, b1);
                 swap(b1, t);
                 SASSERT(ge(a1, b1));
             }
             else {
-                // t <- A*a1
+                // Apply the accumulated 2×2 matrix to the actual big integers.
+                // t = A*a1 + B*b1
                 set(tmp, A);
-                mul(a1, tmp, t); 
-                // t <- t + B*b1
+                mul(a1, tmp, t);
                 set(tmp, B);
                 addmul(t, tmp, b1, t);
-                // r <- C*a1
+                // r = C*a1 + D*b1
                 set(tmp, C);
                 mul(a1, tmp, r);
-                // r <- r + D*b1
                 set(tmp, D);
                 addmul(r, tmp, b1, r);
-                // a <- t
                 swap(a1, t);
-                // b <- r
                 swap(b1, r);
                 SASSERT(ge(a1, b1));
             }
