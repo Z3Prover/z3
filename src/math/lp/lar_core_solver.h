@@ -81,8 +81,8 @@ public:
     void backup_x() { m_backup_x = m_r_x; }
 
     void restore_x() {
+        SASSERT(m_backup_x.size() == m_r_A.column_count());
         m_r_x = m_backup_x;
-        m_r_x.reserve(m_m());
     }
 
     vector<impq> const& r_x() const { return m_r_x; }

@@ -3988,6 +3988,7 @@ public:
         lp::impq term_max;
         lp::lp_status st;
         lpvar vi = 0;
+        unsigned size_of_backup = lp().column_count();
         if (has_int()) {
             lp().backup_x();
         }
@@ -4008,7 +4009,8 @@ public:
 
             if (has_int() && lp().has_inf_int()) {
                 st = lp::lp_status::FEASIBLE;
-                lp().restore_x();
+                if (lp().column_count() == size_of_backup)
+                    lp().restore_x();
             }
             if (m_nla && (st == lp::lp_status::OPTIMAL || st == lp::lp_status::UNBOUNDED)) {
                 switch (check_nla(level)) {
@@ -4020,7 +4022,8 @@ public:
                     st = lp::lp_status::UNBOUNDED;
                     break;
                 }                
-                lp().restore_x();
+                if (lp().column_count() == size_of_backup)
+                    lp().restore_x();
             }                
         }
         switch (st) {
