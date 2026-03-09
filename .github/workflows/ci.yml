@@ -415,6 +415,78 @@ jobs:
       - name: Run regressions
         run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
 
+      - name: Validate JNI library architecture matches host
+        run: |
+          echo "Checking libz3java.dylib architecture..."
+          ARCH=$(lipo -archs build/libz3java.dylib)
+          HOST_ARCH=$(uname -m)
+          echo "libz3java.dylib arch: $ARCH  |  host arch: $HOST_ARCH"
+          if [ "$ARCH" != "$HOST_ARCH" ]; then
+            echo "ERROR: libz3java.dylib has arch '$ARCH' but host is '$HOST_ARCH'"
+            exit 1
+          fi
+          echo "OK: libz3java.dylib correctly built for $HOST_ARCH"
+
+  # ============================================================================
+  # macOS JNI cross-compilation validation (ARM64 host -> x86_64 target)
+  # ============================================================================
+  macos-jni-cross-compile:
+    name: "MacOS JNI cross-compile (ARM64 -> x64) architecture validation"
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Configure (cross-compile ARM64 host -> x86_64 target)
+        run: |
+          CXXFLAGS="-arch x86_64" CFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" \
+            python scripts/mk_make.py --java --arm64=false
+
+      - name: Build
+        run: |
+          set -e
+          cd build
+          make -j3 libz3java.dylib
+          cd ..
+
+      - name: Validate libz3java.dylib is x86_64
+        run: |
+          echo "Checking libz3java.dylib architecture..."
+          ARCH=$(lipo -archs build/libz3java.dylib)
+          echo "libz3java.dylib architecture: $ARCH"
+          if [ "$ARCH" != "x86_64" ]; then
+            echo "ERROR: Expected x86_64 (cross-compiled target), got: $ARCH"
+            echo "This is the regression fixed in: JNI bindings use wrong architecture in macOS cross-compilation"
+            exit 1
+          fi
+          echo "OK: libz3java.dylib correctly built for x86_64 target on ARM64 host"
+
+  # ============================================================================
+  # Python script unit tests (build-script logic validation)
+  # ============================================================================
+  python-script-tests:
+    name: "Python build-script unit tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Run Python script unit tests
+        working-directory: ${{ github.workspace }}
+        run: python -m unittest discover -s scripts/tests -p "test_*.py" -v
+
   # ============================================================================
   # macOS CMake Builds
   # ============================================================================
