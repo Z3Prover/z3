@@ -15,7 +15,7 @@ timeout-minutes: 30
 permissions:
   actions: read
   contents: read
-  discussions: write
+  discussions: read
 
 network: defaults
 
