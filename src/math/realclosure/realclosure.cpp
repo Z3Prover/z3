@@ -3458,6 +3458,8 @@ namespace realclosure {
                 if (sc) sc = sc->prev();
                 i--;
             }
+            if (!sc)
+                return 0;
             return ext->sdt()->qs()[sc->qidx()].size();
         }
 
@@ -3474,6 +3476,8 @@ namespace realclosure {
                 if (sc) sc = sc->prev();
                 i--;
             }
+            if (!sc)
+                return 0;
             const polynomial & q = ext->sdt()->qs()[sc->qidx()];
             return q.size();
         }
@@ -3491,6 +3495,8 @@ namespace realclosure {
                 if (sc) sc = sc->prev();
                 i--;
             }
+            if (!sc)
+                return numeral();
             const polynomial & q = ext->sdt()->qs()[sc->qidx()];
             if (j >= q.size())
                 return numeral();
