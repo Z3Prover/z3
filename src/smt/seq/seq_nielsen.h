@@ -238,6 +238,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/euf/euf_sgraph.h"
 #include "math/lp/lar_solver.h"
+#include <functional>
 
 namespace seq {
 
@@ -452,7 +453,8 @@ namespace seq {
             m_var(var), m_replacement(repl), m_dep(dep) {
             SASSERT(var != nullptr);
             SASSERT(repl != nullptr);
-            SASSERT(var->is_var());
+            // var may be s_var or s_power; sgraph::subst uses pointer identity matching
+            SASSERT(var->is_var() || var->is_power());
         }
 
         // an eliminating substitution does not contain the variable in the replacement
@@ -724,6 +726,9 @@ namespace seq {
         unsigned                      m_num_input_mems = 0;
         nielsen_stats                 m_stats;
 
+        // external cancellation callback: returns true if solving should abort
+        std::function<bool()>         m_cancel_fn;
+
         // -----------------------------------------------
         // Integer subsolver using lp::lar_solver
         // Replaces ZIPT's SubSolver (auxiliary Z3 instance)
@@ -769,6 +774,9 @@ namespace seq {
 
         // maximum overall search depth (0 = unlimited)
         void set_max_search_depth(unsigned d) { m_max_search_depth = d; }
+
+        // set a cancellation callback; solve() checks this periodically
+        void set_cancel_fn(std::function<bool()> fn) { m_cancel_fn = std::move(fn); }
 
         // generate next unique regex membership id
         unsigned next_mem_id() { return m_next_mem_id++; }

@@ -967,7 +967,6 @@ namespace seq {
                 mem.m_str = sg.drop_first(mem.m_str);
                 mem.m_regex = deriv;
                 mem.m_history = sg.mk_concat(mem.m_history, first);
-                changed = true;
             }
         }
 
@@ -990,10 +989,8 @@ namespace seq {
                 continue;  // satisfied, drop
             m_str_mem[wi++] = mem;
         }
-        if (wi < m_str_mem.size()) {
+        if (wi < m_str_mem.size())
             m_str_mem.shrink(wi);
-            changed = true;
-        }
 
         if (is_satisfied())
             return simplify_result::satisfied;
@@ -1044,6 +1041,8 @@ namespace seq {
         // m_max_search_depth == 0 means unlimited; otherwise stop when bound exceeds it.
         m_depth_bound = 3;
         while (true) {
+            if (m_cancel_fn && m_cancel_fn())
+                break;
             if (m_max_search_depth > 0 && m_depth_bound > m_max_search_depth)
                 break;
             inc_run_idx();
@@ -1069,6 +1068,10 @@ namespace seq {
     nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path) {
         ++m_stats.m_num_dfs_nodes;
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth);
+
+        // check for external cancellation (timeout, user interrupt)
+        if (m_cancel_fn && m_cancel_fn())
+            return search_result::unknown;
 
         // revisit detection: if already visited this run, return cached status.
         // mirrors ZIPT's NielsenNode.GraphExpansion() evalIdx check.
@@ -1486,7 +1489,7 @@ namespace seq {
     // into two shorter equations with optional padding variable:
     //
     //   eq1: LHS[0..lhsIdx] · [pad if padding<0] = [pad if padding>0] · RHS[0..rhsIdx]
-    //   eq2: [pad if padding>0] · LHS[lhsIdx..] = RHS[rhsIdx..] · [pad if padding<0]
+    //   eq2: LHS[lhsIdx..] · [pad if padding>0] = [pad if padding<0] · RHS[rhsIdx..]
     //
     // Creates a single progress child.
     // -----------------------------------------------------------------------
@@ -1564,17 +1567,14 @@ namespace seq {
                 e->add_side_int(mk_int_constraint(len_pad, abs_pad, int_constraint_kind::eq, eq.m_dep));
             }
             // 2) len(eq1_lhs) = len(eq1_rhs)
-            {
-                expr_ref l1 = compute_length_expr(eq1_lhs);
-                expr_ref r1 = compute_length_expr(eq1_rhs);
-                e->add_side_int(mk_int_constraint(l1, r1, int_constraint_kind::eq, eq.m_dep));
-            }
+            expr_ref l1 = compute_length_expr(eq1_lhs);
+            expr_ref r1 = compute_length_expr(eq1_rhs);
+            e->add_side_int(mk_int_constraint(l1, r1, int_constraint_kind::eq, eq.m_dep));
+
             // 3) len(eq2_lhs) = len(eq2_rhs)
-            {
-                expr_ref l2 = compute_length_expr(eq2_lhs);
-                expr_ref r2 = compute_length_expr(eq2_rhs);
-                e->add_side_int(mk_int_constraint(l2, r2, int_constraint_kind::eq, eq.m_dep));
-            }
+            expr_ref l2 = compute_length_expr(eq2_lhs);
+            expr_ref r2 = compute_length_expr(eq2_rhs);
+            e->add_side_int(mk_int_constraint(l2, r2, int_constraint_kind::eq, eq.m_dep));
 
             return true;
         }
@@ -1732,7 +1732,6 @@ namespace seq {
     }
 
     bool nielsen_graph::generate_extensions(nielsen_node *node) {
-        // Modifier priority chain mirrors ZIPT's ModifierBase.TypeOrder.
         // The first modifier that produces edges is used and returned immediately.
 
         // Priority 1: deterministic modifiers (single child, always progress)
@@ -1751,7 +1750,7 @@ namespace seq {
         if (apply_const_num_unwinding(node))
             return ++m_stats.m_mod_const_num_unwinding, true;
 
-        // Priority 5: EqSplit - split regex-free equation into two (single progress child)
+        // Priority 5: EqSplit - split equations into two (single progress child)
         if (apply_eq_split(node))
             return ++m_stats.m_mod_eq_split, true;
 
@@ -1866,34 +1865,39 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_power_epsilon(nielsen_node* node) {
-        euf::snode* power = find_power_token(node);
+        euf::snode *power = find_power_token(node);
         if (!power)
             return false;
 
         SASSERT(power->is_power() && power->num_args() >= 1);
-        euf::snode* base = power->arg(0);
+        euf::snode *base = power->arg(0);
         dep_tracker dep;
-        for (str_eq const& eq : node->str_eqs())
-            if (!eq.is_trivial()) { dep = eq.m_dep; break; }
+        for (str_eq const &eq : node->str_eqs()) {
+            if (!eq.is_trivial()) {
+                dep = eq.m_dep;
+                break;
+            }
+        }
+
+        nielsen_node* child;
+        nielsen_edge* e;
 
         // Branch 1: base → ε (if base is a variable, substitute it to empty)
         // This makes u^n = ε^n = ε for any n.
         if (base->is_var()) {
-            nielsen_node* child = mk_child(node);
-            nielsen_edge* e = mk_edge(node, child, true);
-            nielsen_subst s(base, m_sg.mk_empty(), dep);
-            e->add_subst(s);
-            child->apply_subst(m_sg, s);
+            child = mk_child(node);
+            e = mk_edge(node, child, true);
+            nielsen_subst s1(base, m_sg.mk_empty(), dep);
+            e->add_subst(s1);
+            child->apply_subst(m_sg, s1);
         }
 
         // Branch 2: replace the power token itself with ε (n = 0 semantics)
-        {
-            nielsen_node* child = mk_child(node);
-            nielsen_edge* e = mk_edge(node, child, true);
-            nielsen_subst s(power, m_sg.mk_empty(), dep);
-            e->add_subst(s);
-            child->apply_subst(m_sg, s);
-        }
+        child = mk_child(node);
+        e = mk_edge(node, child, true);
+        nielsen_subst s2(power, m_sg.mk_empty(), dep);
+        e->add_subst(s2);
+        child->apply_subst(m_sg, s2);
 
         return true;
     }

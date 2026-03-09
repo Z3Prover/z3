@@ -27,6 +27,7 @@ Abstract:
 #include <iostream>
 #include <cassert>
 #include <functional>
+#include <chrono>
 
 // -----------------------------------------------------------------------
 // Helper: build a string snode from a notation string.
@@ -174,24 +175,40 @@ struct nseq_fixture {
     euf::snode* R(const char* s) { return rb.parse(s); }
 };
 
+static constexpr int TEST_TIMEOUT_SEC = 10;
+
+static void set_timeout(nseq_fixture& f) {
+    auto start = std::chrono::steady_clock::now();
+    f.ng.set_cancel_fn([start]() {
+        auto elapsed = std::chrono::steady_clock::now() - start;
+        return std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() >= TEST_TIMEOUT_SEC;
+    });
+}
+
 static bool eq_sat(const char* lhs, const char* rhs) {
+    std::cout << "Checking equation: " << lhs << " = " << rhs << std::endl;
     nseq_fixture f;
+    set_timeout(f);
     f.ng.add_str_eq(f.S(lhs), f.S(rhs));
     return f.ng.solve() == seq::nielsen_graph::search_result::sat;
 }
 static bool eq_unsat(const char* lhs, const char* rhs) {
+    std::cout << "Checking equation: " << lhs << " = " << rhs << std::endl;
     nseq_fixture f;
+    set_timeout(f);
     f.ng.add_str_eq(f.S(lhs), f.S(rhs));
     return f.ng.solve() == seq::nielsen_graph::search_result::unsat;
 }
 static bool mem_sat(std::initializer_list<std::pair<const char*, const char*>> mems) {
     nseq_fixture f;
+    set_timeout(f);
     for (auto& [str, re] : mems)
         f.ng.add_str_mem(f.S(str), f.R(re));
     return f.ng.solve() == seq::nielsen_graph::search_result::sat;
 }
 static bool mem_unsat(std::initializer_list<std::pair<const char*, const char*>> mems) {
     nseq_fixture f;
+    set_timeout(f);
     for (auto& [str, re] : mems)
         f.ng.add_str_mem(f.S(str), f.R(re));
     return f.ng.solve() == seq::nielsen_graph::search_result::unsat;
@@ -201,7 +218,7 @@ static bool mem_unsat(std::initializer_list<std::pair<const char*, const char*>>
 // String equation tests  (ZIPT: CheckStrEquations)
 // -----------------------------------------------------------------------
 static void test_zipt_str_equations() {
-    std::cout << "test_zipt_str_equations\n";
+    std::cout << "test_zipt_str_equations:" << std::endl;
 
     VERIFY(eq_sat  ("abab", "XX"));       // abab = XX  (X="ab")
     VERIFY(eq_sat  ("aX",   "YX"));       // aX = YX    (Y="a")
