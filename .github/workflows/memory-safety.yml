@@ -107,7 +107,7 @@ jobs:
 
       - name: Upload ASan reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: asan-reports
           path: /tmp/asan-reports/
@@ -197,7 +197,7 @@ jobs:
 
       - name: Upload UBSan reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ubsan-reports
           path: /tmp/ubsan-reports/

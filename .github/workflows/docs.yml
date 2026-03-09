@@ -34,7 +34,7 @@ jobs:
           python3 mk_go_doc.py --output-dir=api/html/go --go-api-path=../src/api/go
 
       - name: Upload Go Documentation
-        uses: actions/upload-artifact@v7.0.0
+        uses: actions/upload-artifact@v7
         with:
           name: go-docs
           path: doc/api/html/go/
