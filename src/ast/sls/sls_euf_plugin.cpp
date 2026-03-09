@@ -301,13 +301,21 @@ namespace sls {
                         //UNREACHABLE();
                     }
                 }
-                else if (to_app(e)->get_family_id() != basic_family_id && lit.sign() && g.find(e) && g.find(m.mk_false()) && g.find(e)->get_root() != g.find(m.mk_false())->get_root()) {
-                    IF_VERBOSE(0, verbose_stream() << "not alse " << lit << " " << mk_pp(e, m) << "\n");
-                    //UNREACHABLE();
+                else if (to_app(e)->get_family_id() != basic_family_id && lit.sign()) {
+                    auto* ne = g.find(e);
+                    auto* nf = g.find(m.mk_false());
+                    if (ne && nf && ne->get_root() != nf->get_root()) {
+                        IF_VERBOSE(0, verbose_stream() << "not false " << lit << " " << mk_pp(e, m) << "\n");
+                        //UNREACHABLE();
+                    }
                 }
-                else if (to_app(e)->get_family_id() != basic_family_id && !lit.sign() && g.find(e) && g.find(m.mk_true()) && g.find(e)->get_root() != g.find(m.mk_true())->get_root()) {
-                    IF_VERBOSE(0, verbose_stream() << "not true " << lit << " " << mk_pp(e, m) << "\n");
-                    //UNREACHABLE();
+                else if (to_app(e)->get_family_id() != basic_family_id && !lit.sign()) {
+                    auto* ne = g.find(e);
+                    auto* nt = g.find(m.mk_true());
+                    if (ne && nt && ne->get_root() != nt->get_root()) {
+                        IF_VERBOSE(0, verbose_stream() << "not true " << lit << " " << mk_pp(e, m) << "\n");
+                        //UNREACHABLE();
+                    }
                 }
             
         }
