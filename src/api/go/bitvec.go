@@ -159,6 +159,21 @@ func (c *Context) MkZeroExt(i uint, expr *Expr) *Expr {
 	return newExpr(c, C.Z3_mk_zero_ext(c.ptr, C.uint(i), expr.ptr))
 }
 
+// MkBVRotateLeft rotates the bits of t to the left by i positions.
+func (c *Context) MkBVRotateLeft(i uint, t *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_rotate_left(c.ptr, C.uint(i), t.ptr))
+}
+
+// MkBVRotateRight rotates the bits of t to the right by i positions.
+func (c *Context) MkBVRotateRight(i uint, t *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_rotate_right(c.ptr, C.uint(i), t.ptr))
+}
+
+// MkRepeat repeats the given bit-vector t a total of i times.
+func (c *Context) MkRepeat(i uint, t *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_repeat(c.ptr, C.uint(i), t.ptr))
+}
+
 // MkBVAddNoOverflow creates a predicate that checks that the bit-wise addition
 // of t1 and t2 does not overflow. If isSigned is true, checks for signed overflow.
 func (c *Context) MkBVAddNoOverflow(t1, t2 *Expr, isSigned bool) *Expr {
