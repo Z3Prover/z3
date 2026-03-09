@@ -2174,32 +2174,29 @@ namespace seq {
         euf::snode* power_snode = m_sg.mk(power_expr);
         if (!power_snode) return false;
 
-        // Create fresh suffix variable
-        euf::snode* fresh_suffix = mk_fresh_var();
-        euf::snode* replacement = m_sg.mk_concat(power_snode, fresh_suffix);
-
-        // Create child node with substitution var → base^n · suffix
-        nielsen_node* child = mk_child(node);
-        nielsen_edge* e = mk_edge(node, child, true);
-        nielsen_subst s(var, replacement, eq.m_dep);
-        e->add_subst(s);
-        child->apply_subst(m_sg, s);
-
-        // Side constraint: n >= 0
         expr* zero = arith.mk_int(0);
-        e->add_side_int(mk_int_constraint(fresh_n, zero, int_constraint_kind::ge, eq.m_dep));
 
-        // Side constraint: 0 <= len(suffix) < len(base)
-        if (fresh_suffix->get_expr()) {
-            expr_ref len_suffix(seq.str.mk_length(fresh_suffix->get_expr()), m);
-            if (base_len <= 1) {
-                // len(suffix) < 1 means len(suffix) = 0
-                e->add_side_int(mk_int_constraint(len_suffix, zero, int_constraint_kind::eq, eq.m_dep));
-            } else {
-                expr* max_val = arith.mk_int(base_len - 1);
-                e->add_side_int(mk_int_constraint(len_suffix, max_val, int_constraint_kind::le, eq.m_dep));
-                e->add_side_int(mk_int_constraint(len_suffix, zero, int_constraint_kind::ge, eq.m_dep));
+        // Generate one child per proper prefix of the base, mirroring ZIPT's
+        // GetDecompose. For base [t0, t1, ..., t_{k-1}], the proper prefixes
+        // are: ε, t0, t0·t1, ..., t0·t1·...·t_{k-2}.
+        // Child i substitutes var → base^n · prefix_i with n >= 0.
+        for (unsigned pfx_len = 0; pfx_len < base_len; ++pfx_len) {
+            euf::snode* replacement = power_snode;
+            if (pfx_len > 0) {
+                euf::snode* prefix_snode = ground_prefix[0];
+                for (unsigned j = 1; j < pfx_len; ++j)
+                    prefix_snode = m_sg.mk_concat(prefix_snode, ground_prefix[j]);
+                replacement = m_sg.mk_concat(power_snode, prefix_snode);
             }
+
+            nielsen_node* child = mk_child(node);
+            nielsen_edge* e = mk_edge(node, child, true);
+            nielsen_subst s(var, replacement, eq.m_dep);
+            e->add_subst(s);
+            child->apply_subst(m_sg, s);
+
+            // Side constraint: n >= 0
+            e->add_side_int(mk_int_constraint(fresh_n, zero, int_constraint_kind::ge, eq.m_dep));
         }
 
         return true;
