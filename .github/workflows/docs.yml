@@ -125,7 +125,7 @@ jobs:
            python3 mk_api_doc.py --js --go --output-dir=api --mld --z3py-package-path=../build-x64/python/z3 --build=../build-x64
 
       - name: Download Go Documentation
-        uses: actions/download-artifact@v8.0.0
+        uses: actions/download-artifact@v8
         with:
           name: go-docs
           path: doc/api/html/go/
