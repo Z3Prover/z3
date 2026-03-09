@@ -831,6 +831,12 @@ namespace seq {
         return out;
     }
 
+    std::string nielsen_graph::to_dot() const {
+        std::stringstream ss;
+        to_dot(ss);
+        return ss.str();
+    }
+
     // -----------------------------------------------------------------------
     // nielsen_node: simplify_and_init
     // -----------------------------------------------------------------------
@@ -1037,12 +1043,17 @@ namespace seq {
         m_sat_node = nullptr;
         m_sat_path.reset();
 
-        // Iterative deepening: start at depth 3, increment by 1 on each failure.
+        // Iterative deepening: increment by 1 on each failure.
         // m_max_search_depth == 0 means unlimited; otherwise stop when bound exceeds it.
         m_depth_bound = 3;
         while (true) {
-            if (m_cancel_fn && m_cancel_fn())
+            if (m_cancel_fn && m_cancel_fn()) {
+#ifdef Z3DEBUG
+                // Examining the Nielsen graph is probably the best way of debugging
+                std::string dot = to_dot();
+#endif
                 break;
+            }
             if (m_max_search_depth > 0 && m_depth_bound > m_max_search_depth)
                 break;
             inc_run_idx();
@@ -1758,7 +1769,7 @@ namespace seq {
         if (apply_star_intr(node))
             return ++m_stats.m_mod_star_intr, true;
 
-        // Priority 7: GPowerIntr - generalized power introduction
+        // Priority 7: GPowerIntr - ground power introduction
         if (apply_gpower_intr(node))
             return ++m_stats.m_mod_gpower_intr, true;
 
@@ -2078,10 +2089,12 @@ namespace seq {
 
     // -----------------------------------------------------------------------
     // Modifier: apply_gpower_intr
-    // Ground power introduction: for a variable x matched against a
-    // ground repeated pattern, introduce x = base^n · prefix with fresh n.
-    // Generates integer side constraint n >= 0 for the fresh exponent.
-    // mirrors ZIPT's GPowerIntrModifier
+    // Generalized power introduction: for an equation where one side's head
+    // is a variable v and the other side has a ground prefix followed by a
+    // variable x that forms a dependency cycle back to v, introduce
+    // v = base^n · suffix where base is the ground prefix.
+    // Generates side constraints n >= 0 and 0 <= len(suffix) < len(base).
+    // mirrors ZIPT's GPowerIntrModifier (SplitGroundPower + TryGetPowerSplitBase)
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_gpower_intr(nielsen_node* node) {
@@ -2093,82 +2106,103 @@ namespace seq {
             if (eq.is_trivial()) continue;
             if (!eq.m_lhs || !eq.m_rhs) continue;
 
-            euf::snode* var_side = nullptr;
-            euf::snode* ground_side = nullptr;
-
-            // One side must be a single variable, other side must be ground
             euf::snode* lhead = eq.m_lhs->first();
             euf::snode* rhead = eq.m_rhs->first();
+            if (!lhead || !rhead) continue;
 
-            if (lhead && lhead->is_var() && eq.m_lhs->length() == 1 && eq.m_rhs->is_ground()) {
-                var_side = lhead;
-                ground_side = eq.m_rhs;
+            // Try both orientations (mirrors ZIPT calling SplitGroundPower
+            // with (t2, LHS) and (t1, RHS) from ExtendDir)
+            // Orientation 1: RHS head is var, scan LHS for ground prefix + cycle var
+            if (rhead->is_var() && !lhead->is_var()) {
+                euf::snode_vector toks;
+                eq.m_lhs->collect_tokens(toks);
+                euf::snode_vector ground_prefix;
+                euf::snode* target_var = nullptr;
+                for (unsigned i = 0; i < toks.size(); ++i) {
+                    if (toks[i]->is_var()) { target_var = toks[i]; break; }
+                    ground_prefix.push_back(toks[i]);
+                }
+                if (target_var && !ground_prefix.empty() && target_var->id() == rhead->id()) {
+                    if (fire_gpower_intro(node, eq, rhead, ground_prefix))
+                        return true;
+                }
             }
-            else if (rhead && rhead->is_var() && eq.m_rhs->length() == 1 && eq.m_lhs->is_ground()) {
-                var_side = rhead;
-                ground_side = eq.m_lhs;
+            // Orientation 2: LHS head is var, scan RHS for ground prefix + cycle var
+            if (lhead->is_var() && !rhead->is_var()) {
+                euf::snode_vector toks;
+                eq.m_rhs->collect_tokens(toks);
+                euf::snode_vector ground_prefix;
+                euf::snode* target_var = nullptr;
+                for (unsigned i = 0; i < toks.size(); ++i) {
+                    if (toks[i]->is_var()) { target_var = toks[i]; break; }
+                    ground_prefix.push_back(toks[i]);
+                }
+                if (target_var && !ground_prefix.empty() && target_var->id() == lhead->id()) {
+                    if (fire_gpower_intro(node, eq, lhead, ground_prefix))
+                        return true;
+                }
             }
-            else continue;
-
-            if (!ground_side || ground_side->is_empty()) continue;
-            if (ground_side->length() < 2) continue; // need a repeated pattern
-
-            // Extract the first token as the "base" for power introduction
-            euf::snode* base_char = ground_side->first();
-            if (!base_char || !base_char->is_char()) continue;
-
-            // Check if the ground side has a repeated leading character
-            euf::snode_vector toks;
-            ground_side->collect_tokens(toks);
-            unsigned repeat_len = 0;
-            for (unsigned i = 0; i < toks.size(); ++i) {
-                if (toks[i]->id() == base_char->id())
-                    ++repeat_len;
-                else break;
-            }
-            if (repeat_len < 2) continue; // need at least 2 repetitions
-
-            // Introduce: x = base^n · fresh_suffix
-            // Create fresh integer variable n for the exponent
-            expr_ref fresh_n = mk_fresh_int_var();
-            expr* base_expr = base_char->get_expr();
-
-            // Create the power snode: base^n
-            euf::snode* fresh_suffix = mk_fresh_var();
-            euf::snode* fresh_power = nullptr;
-            if (base_expr) {
-                // Build the seq.power(base_str, n) expression and register it
-                expr_ref base_str(seq.str.mk_unit(base_expr), m);
-                expr_ref power_expr(seq.str.mk_power(base_str, fresh_n), m);
-                fresh_power = m_sg.mk(power_expr);
-            }
-            if (!fresh_power)
-                fresh_power = mk_fresh_var(); // fallback
-
-            euf::snode* replacement = m_sg.mk_concat(fresh_power, fresh_suffix);
-
-            nielsen_node* child = mk_child(node);
-            nielsen_edge* e = mk_edge(node, child, true);
-            nielsen_subst s(var_side, replacement, eq.m_dep);
-            e->add_subst(s);
-            child->apply_subst(m_sg, s);
-
-            // Side constraint: n >= 0
-            expr* zero = arith.mk_int(0);
-            e->add_side_int(mk_int_constraint(fresh_n, zero, int_constraint_kind::ge, eq.m_dep));
-
-            // Side constraint: len(fresh_suffix) < len(base) = 1
-            // This ensures the remainder is shorter than the base character
-            if (fresh_suffix->get_expr()) {
-                expr_ref len_suffix(seq.str.mk_length(fresh_suffix->get_expr()), m);
-                expr* one = arith.mk_int(1);
-                e->add_side_int(mk_int_constraint(len_suffix, one, int_constraint_kind::le, eq.m_dep));
-                e->add_side_int(mk_int_constraint(len_suffix, zero, int_constraint_kind::ge, eq.m_dep));
-            }
-
-            return true;
+            // TODO: Extend to transitive cycles across multiple equations
+            // (ZIPT's varDep + HasDepCycle). Currently only self-cycles are detected.
         }
         return false;
+    }
+
+    bool nielsen_graph::fire_gpower_intro(
+            nielsen_node* node, str_eq const& eq,
+            euf::snode* var, euf::snode_vector const& ground_prefix) {
+        ast_manager& m = m_sg.get_manager();
+        arith_util arith(m);
+        seq_util& seq = m_sg.get_seq_util();
+        unsigned base_len = ground_prefix.size();
+
+        // Build base string expression from ground prefix tokens.
+        // Each s_char snode's get_expr() is already seq.unit(ch) (a string).
+        expr_ref base_str(m);
+        for (unsigned i = 0; i < base_len; ++i) {
+            expr* tok_expr = ground_prefix[i]->get_expr();
+            if (!tok_expr) return false;
+            if (i == 0)
+                base_str = tok_expr;
+            else
+                base_str = seq.str.mk_concat(base_str, tok_expr);
+        }
+
+        // Create fresh exponent variable and power expression: base^n
+        expr_ref fresh_n = mk_fresh_int_var();
+        expr_ref power_expr(seq.str.mk_power(base_str, fresh_n), m);
+        euf::snode* power_snode = m_sg.mk(power_expr);
+        if (!power_snode) return false;
+
+        // Create fresh suffix variable
+        euf::snode* fresh_suffix = mk_fresh_var();
+        euf::snode* replacement = m_sg.mk_concat(power_snode, fresh_suffix);
+
+        // Create child node with substitution var → base^n · suffix
+        nielsen_node* child = mk_child(node);
+        nielsen_edge* e = mk_edge(node, child, true);
+        nielsen_subst s(var, replacement, eq.m_dep);
+        e->add_subst(s);
+        child->apply_subst(m_sg, s);
+
+        // Side constraint: n >= 0
+        expr* zero = arith.mk_int(0);
+        e->add_side_int(mk_int_constraint(fresh_n, zero, int_constraint_kind::ge, eq.m_dep));
+
+        // Side constraint: 0 <= len(suffix) < len(base)
+        if (fresh_suffix->get_expr()) {
+            expr_ref len_suffix(seq.str.mk_length(fresh_suffix->get_expr()), m);
+            if (base_len <= 1) {
+                // len(suffix) < 1 means len(suffix) = 0
+                e->add_side_int(mk_int_constraint(len_suffix, zero, int_constraint_kind::eq, eq.m_dep));
+            } else {
+                expr* max_val = arith.mk_int(base_len - 1);
+                e->add_side_int(mk_int_constraint(len_suffix, max_val, int_constraint_kind::le, eq.m_dep));
+                e->add_side_int(mk_int_constraint(len_suffix, zero, int_constraint_kind::ge, eq.m_dep));
+            }
+        }
+
+        return true;
     }
 
     // -----------------------------------------------------------------------

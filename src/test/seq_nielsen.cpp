@@ -2459,9 +2459,9 @@ static void test_star_intr_with_backedge() {
     }
 }
 
-// test_gpower_intr_repeated_chars: x = AAB → GPowerIntr fires (2+ repeated 'A')
-static void test_gpower_intr_repeated_chars() {
-    std::cout << "test_gpower_intr_repeated_chars\n";
+// test_gpower_intr_self_cycle: aX = Xa → self-cycle, GPowerIntr fires
+static void test_gpower_intr_self_cycle() {
+    std::cout << "test_gpower_intr_self_cycle\n";
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph eg(m);
@@ -2472,23 +2472,24 @@ static void test_gpower_intr_repeated_chars() {
     euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* a1 = sg.mk_char('A');
     euf::snode* a2 = sg.mk_char('A');
-    euf::snode* b = sg.mk_char('B');
-    euf::snode* aab = sg.mk_concat(a1, sg.mk_concat(a2, b));
+    euf::snode* lhs = sg.mk_concat(a1, x);  // Ax
+    euf::snode* rhs = sg.mk_concat(x, a2);  // xA
 
-    // x = AAB → single var vs ground with 2 repeated 'A' at front
-    ng.add_str_eq(x, aab);
+    // Ax = xA → variable x appears on both sides with ground prefix 'A'
+    // GPowerIntr detects self-cycle and introduces x = A^n · suffix
+    ng.add_str_eq(lhs, rhs);
     seq::nielsen_node* root = ng.root();
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    // gpower_intr should fire (priority 7), producing 1 child: x = fresh_power · fresh_suffix
+    SASSERT(ng.stats().m_mod_gpower_intr == 1);
     SASSERT(root->outgoing().size() == 1);
     std::cout << "  gpower_intr generated " << root->outgoing().size() << " children\n";
 }
 
-// test_gpower_intr_no_repeat: x = AB → no repeated pattern → GPowerIntr doesn't fire
-static void test_gpower_intr_no_repeat() {
-    std::cout << "test_gpower_intr_no_repeat\n";
+// test_gpower_intr_no_cycle: aX = Yb → no cycle (X ≠ Y), GPowerIntr doesn't fire
+static void test_gpower_intr_no_cycle() {
+    std::cout << "test_gpower_intr_no_cycle\n";
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph eg(m);
@@ -2497,19 +2498,21 @@ static void test_gpower_intr_no_repeat() {
     seq::nielsen_graph ng(sg);
 
     euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* y = sg.mk_var(symbol("y"));
     euf::snode* a = sg.mk_char('A');
     euf::snode* b = sg.mk_char('B');
-    euf::snode* ab = sg.mk_concat(a, b);
+    euf::snode* lhs = sg.mk_concat(a, x);  // Ax
+    euf::snode* rhs = sg.mk_concat(y, b);  // Yb
 
-    // x = AB → det fires (x is single var, AB doesn't contain x → x → AB)
-    ng.add_str_eq(x, ab);
+    // Ax = Yb → Y is head of RHS, scan LHS: prefix=[A], target=x, but x ≠ y → no cycle
+    // GPowerIntr does NOT fire; ConstNielsen (priority 8) fires instead
+    ng.add_str_eq(lhs, rhs);
     seq::nielsen_node* root = ng.root();
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
-    // gpower_intr should NOT fire (< 2 repeats)
-    // det (priority 1) fires: x → AB, 1 child
-    SASSERT(root->outgoing().size() == 1);
+    SASSERT(ng.stats().m_mod_gpower_intr == 0);
+    std::cout << "  gpower_intr did not fire (no cycle)\n";
 }
 
 // test_regex_var_split_basic: x ∈ re → uses minterms for splitting
@@ -3167,8 +3170,8 @@ void tst_seq_nielsen() {
     test_num_cmp_no_power();
     test_star_intr_no_backedge();
     test_star_intr_with_backedge();
-    test_gpower_intr_repeated_chars();
-    test_gpower_intr_no_repeat();
+    test_gpower_intr_self_cycle();
+    test_gpower_intr_no_cycle();
     test_regex_var_split_basic();
     test_power_split_no_power();
     test_var_num_unwinding_no_power();

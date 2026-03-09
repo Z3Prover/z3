@@ -175,7 +175,7 @@ struct nseq_fixture {
     euf::snode* R(const char* s) { return rb.parse(s); }
 };
 
-static constexpr int TEST_TIMEOUT_SEC = 10;
+static constexpr int TEST_TIMEOUT_SEC = 2;
 
 static void set_timeout(nseq_fixture& f) {
     auto start = std::chrono::steady_clock::now();

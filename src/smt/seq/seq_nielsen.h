@@ -793,6 +793,8 @@ namespace seq {
         // mirrors ZIPT's NielsenGraph.ToDot()
         std::ostream& to_dot(std::ostream& out) const;
 
+        std::string to_dot() const;
+
         // reset all nodes and state
         void reset();
 
@@ -894,11 +896,15 @@ namespace seq {
         // mirrors ZIPT's StarIntrModifier
         bool apply_star_intr(nielsen_node* node);
 
-        // generalized power introduction: for a variable x matched against
-        // a ground repeated pattern, introduce x = base^n · prefix(base)
-        // with fresh power variable n and side constraint n >= 0.
+        // generalized power introduction: for an equation where one head is
+        // a variable v and the other side has ground prefix + a variable x
+        // forming a cycle back to v, introduce v = base^n · suffix.
         // mirrors ZIPT's GPowerIntrModifier
         bool apply_gpower_intr(nielsen_node* node);
+
+        // helper for apply_gpower_intr: fires the substitution
+        bool fire_gpower_intro(nielsen_node* node, str_eq const& eq,
+                               euf::snode* var, euf::snode_vector const& ground_prefix);
 
         // regex variable split: for str_mem x·s ∈ R where x is a variable,
         // split using minterms: x → ε, or x → c·x' for each minterm c.
