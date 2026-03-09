@@ -17,6 +17,9 @@ permissions:
   contents: read
   discussions: write
 
+env:
+  GH_TOKEN: ${{ github.token }}
+
 network: defaults
 
 tools:
