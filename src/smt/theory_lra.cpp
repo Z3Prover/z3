@@ -3988,7 +3988,7 @@ public:
         lp::impq term_max;
         lp::lp_status st;
         lpvar vi = 0;
-        if (has_int()) {
+        if (has_int() || m_nla) {
             lp().backup_x();
         }
         if (!is_registered_var(v)) {
