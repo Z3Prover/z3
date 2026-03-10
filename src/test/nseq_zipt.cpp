@@ -29,6 +29,15 @@ Abstract:
 #include <functional>
 #include <chrono>
 
+// Trivial solver that always returns sat and ignores all assertions.
+class nseq_zipt_dummy_solver : public seq::simple_solver {
+public:
+    void push() override {}
+    void pop(unsigned) override {}
+    void assert_expr(expr*) override {}
+    lbool check() override { return l_true; }
+};
+
 // -----------------------------------------------------------------------
 // Helper: build a string snode from a notation string.
 // Uppercase = fresh variable, lowercase/digit = concrete character.
@@ -159,6 +168,7 @@ struct nseq_fixture {
     ast_manager m;
     euf::egraph eg;
     euf::sgraph sg;
+    nseq_zipt_dummy_solver solver;
     seq::nielsen_graph ng;
     seq_util su;
     str_builder sb;
@@ -168,7 +178,7 @@ struct nseq_fixture {
     static ast_manager& init(ast_manager& m) { reg_decl_plugins(m); return m; }
 
     nseq_fixture()
-        : eg(init(m)), sg(m, eg), ng(sg), su(m), sb(sg), rb(m, su, sg)
+        : eg(init(m)), sg(m, eg), ng(sg, solver), su(m), sb(sg), rb(m, su, sg)
     {}
 
     euf::snode* S(const char* s) { return sb.parse(s); }
