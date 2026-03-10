@@ -331,7 +331,7 @@ namespace smt {
             // Semi-linear: lengths are {base + k * period : k >= 0}
             // Assert:
             //   (s in R) => |s| >= base
-            //   (s in R) => |s| mod period = base mod period
+            //   (s in R) => |s| mod period = base mod period  (only when period >= 2)
 
             // |s| >= base
             expr_ref ge_base(m_autil.mk_ge(len, m_autil.mk_int(base)), m);
@@ -347,22 +347,26 @@ namespace smt {
             }
 
             // |s| mod period = base mod period
-            expr_ref mod_len(m_autil.mk_mod(len, m_autil.mk_int(period)), m);
-            expr_ref eq_mod(m.mk_eq(mod_len, m_autil.mk_int(base % period)), m);
-            if (!ctx.b_internalized(eq_mod))
-                ctx.internalize(eq_mod, true);
-            literal eq_mod_lit = ctx.get_literal(eq_mod);
-            ctx.mark_as_relevant(eq_mod_lit);
-            {
-                literal_vector lits;
-                lits.push_back(~lit);
-                lits.push_back(eq_mod_lit);
-                assert_axiom(lits);
+            // Skip when period <= 1: period == 0 is already handled above;
+            // period == 1 makes the constraint trivially true (n mod 1 = 0).
+            if (period >= 2) {
+                expr_ref mod_len(m_autil.mk_mod(len, m_autil.mk_int(period)), m);
+                expr_ref eq_mod(m.mk_eq(mod_len, m_autil.mk_int(base % period)), m);
+                if (!ctx.b_internalized(eq_mod))
+                    ctx.internalize(eq_mod, true);
+                literal eq_mod_lit = ctx.get_literal(eq_mod);
+                ctx.mark_as_relevant(eq_mod_lit);
+                {
+                    literal_vector lits;
+                    lits.push_back(~lit);
+                    lits.push_back(eq_mod_lit);
+                    assert_axiom(lits);
+                }
             }
 
-            TRACE(seq, tout << "seq_len: (s in R) => |s| >= " << base << " && |s| mod "
-                            << period << " = " << (base % period) << " for s=" << mk_pp(s, m)
-                            << " r=" << mk_pp(r, m) << "\n";);
+            TRACE(seq, tout << "seq_len: (s in R) => |s| >= " << base
+                            << (period >= 2 ? " && |s| mod " + std::to_string(period) + " = " + std::to_string(base % period) : "")
+                            << " for s=" << mk_pp(s, m) << " r=" << mk_pp(r, m) << "\n";);
         }
     }
 
