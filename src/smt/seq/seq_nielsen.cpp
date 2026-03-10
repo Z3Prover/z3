@@ -116,6 +116,8 @@ namespace seq {
         m_int_constraints.reset();
         m_char_diseqs.reset();
         m_char_ranges.reset();
+        m_var_lb.reset();
+        m_var_ub.reset();
         for (auto const& eq : parent.m_str_eq)
             m_str_eq.push_back(str_eq(eq.m_lhs, eq.m_rhs, eq.m_dep));
         for (auto const& mem : parent.m_str_mem)
@@ -133,6 +135,11 @@ namespace seq {
         for (auto const& kv : parent.m_char_ranges) {
             m_char_ranges.insert(kv.m_key, kv.m_value.clone());
         }
+        // clone per-variable integer bounds
+        for (auto const& kv : parent.m_var_lb)
+            m_var_lb.insert(kv.m_key, kv.m_value);
+        for (auto const& kv : parent.m_var_ub)
+            m_var_ub.insert(kv.m_key, kv.m_value);
     }
 
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
@@ -151,6 +158,8 @@ namespace seq {
             mem.m_regex = sg.subst(mem.m_regex, s.m_var, s.m_replacement);
             mem.m_dep |= s.m_dep;
         }
+        // VarBoundWatcher: propagate bounds on s.m_var to variables in s.m_replacement
+        watch_var_bounds(s);
     }
 
     void nielsen_node::add_char_range(euf::snode* sym_char, char_set const& range) {
@@ -180,6 +189,185 @@ namespace seq {
         for (euf::snode* s : existing)
             if (s == other) return;
         existing.push_back(other);
+    }
+
+    // -----------------------------------------------
+    // nielsen_node: IntBounds methods
+    // mirrors ZIPT's AddLowerIntBound / AddHigherIntBound
+    // -----------------------------------------------
+
+    unsigned nielsen_node::var_lb(euf::snode* var) const {
+        if (!var) return 0;
+        unsigned v = 0;
+        m_var_lb.find(var->id(), v);
+        return v;
+    }
+
+    unsigned nielsen_node::var_ub(euf::snode* var) const {
+        if (!var) return UINT_MAX;
+        unsigned v = UINT_MAX;
+        m_var_ub.find(var->id(), v);
+        return v;
+    }
+
+    bool nielsen_node::add_lower_int_bound(euf::snode* var, unsigned lb, dep_tracker const& dep) {
+        if (!var || !var->is_var()) return false;
+        unsigned id = var->id();
+        // check against existing lower bound
+        unsigned cur_lb = 0;
+        m_var_lb.find(id, cur_lb);
+        if (lb <= cur_lb) return false;  // no tightening
+        m_var_lb.insert(id, lb);
+        // conflict if lb > current upper bound
+        unsigned cur_ub = UINT_MAX;
+        m_var_ub.find(id, cur_ub);
+        if (lb > cur_ub) {
+            m_is_general_conflict = true;
+            m_reason = backtrack_reason::arithmetic;
+            return true;
+        }
+        // add int_constraint: len(var) >= lb
+        ast_manager& m = m_graph->sg().get_manager();
+        seq_util& seq = m_graph->sg().get_seq_util();
+        arith_util arith(m);
+        expr_ref len_var(seq.str.mk_length(var->get_expr()), m);
+        expr_ref bound(arith.mk_int(lb), m);
+        m_int_constraints.push_back(int_constraint(len_var, bound, int_constraint_kind::ge, dep, m));
+        return true;
+    }
+
+    bool nielsen_node::add_upper_int_bound(euf::snode* var, unsigned ub, dep_tracker const& dep) {
+        if (!var || !var->is_var()) return false;
+        unsigned id = var->id();
+        // check against existing upper bound
+        unsigned cur_ub = UINT_MAX;
+        m_var_ub.find(id, cur_ub);
+        if (ub >= cur_ub) return false;  // no tightening
+        m_var_ub.insert(id, ub);
+        // conflict if current lower bound > ub
+        unsigned cur_lb = 0;
+        m_var_lb.find(id, cur_lb);
+        if (cur_lb > ub) {
+            m_is_general_conflict = true;
+            m_reason = backtrack_reason::arithmetic;
+            return true;
+        }
+        // add int_constraint: len(var) <= ub
+        ast_manager& m = m_graph->sg().get_manager();
+        seq_util& seq = m_graph->sg().get_seq_util();
+        arith_util arith(m);
+        expr_ref len_var(seq.str.mk_length(var->get_expr()), m);
+        expr_ref bound(arith.mk_int(ub), m);
+        m_int_constraints.push_back(int_constraint(len_var, bound, int_constraint_kind::le, dep, m));
+        return true;
+    }
+
+    // VarBoundWatcher: after applying substitution s, propagate bounds on s.m_var
+    // to variables in s.m_replacement.
+    // If s.m_var has bounds [lo, hi], and the replacement decomposes into
+    // const_len concrete chars plus a list of variable tokens, then:
+    //   - for a single variable y: lo-const_len <= len(y) <= hi-const_len
+    //   - for multiple variables: each gets an upper bound hi-const_len
+    // Mirrors ZIPT's VarBoundWatcher mechanism.
+    void nielsen_node::watch_var_bounds(nielsen_subst const& s) {
+        if (!s.m_var) return;
+        unsigned id = s.m_var->id();
+        unsigned lo = 0, hi = UINT_MAX;
+        m_var_lb.find(id, lo);
+        m_var_ub.find(id, hi);
+        if (lo == 0 && hi == UINT_MAX) return;  // no bounds to propagate
+
+        // decompose replacement into constant length + variable tokens
+        if (!s.m_replacement) return;
+        euf::snode_vector tokens;
+        s.m_replacement->collect_tokens(tokens);
+
+        unsigned const_len = 0;
+        euf::snode_vector var_tokens;
+        for (euf::snode* t : tokens) {
+            if (t->is_char() || t->is_unit()) {
+                ++const_len;
+            } else if (t->is_var()) {
+                var_tokens.push_back(t);
+            } else {
+                // power or unknown token: cannot propagate simply, abort
+                return;
+            }
+        }
+
+        if (var_tokens.empty()) {
+            // all concrete: check if const_len is within [lo, hi]
+            if (const_len < lo || (hi != UINT_MAX && const_len > hi)) {
+                m_is_general_conflict = true;
+                m_reason = backtrack_reason::arithmetic;
+            }
+            return;
+        }
+
+        if (var_tokens.size() == 1) {
+            euf::snode* y = var_tokens[0];
+            // lo <= const_len + len(y) => len(y) >= lo - const_len (if lo > const_len)
+            if (lo > const_len)
+                add_lower_int_bound(y, lo - const_len, s.m_dep);
+            // const_len + len(y) <= hi => len(y) <= hi - const_len
+            if (hi != UINT_MAX) {
+                if (const_len > hi) {
+                    m_is_general_conflict = true;
+                    m_reason = backtrack_reason::arithmetic;
+                } else {
+                    add_upper_int_bound(y, hi - const_len, s.m_dep);
+                }
+            }
+        } else {
+            // multiple variables: propagate upper bound to each
+            // (each variable contributes >= 0, so each <= hi - const_len)
+            if (hi != UINT_MAX) {
+                if (const_len > hi) {
+                    m_is_general_conflict = true;
+                    m_reason = backtrack_reason::arithmetic;
+                    return;
+                }
+                unsigned each_ub = hi - const_len;
+                for (euf::snode* y : var_tokens)
+                    add_upper_int_bound(y, each_ub, s.m_dep);
+            }
+        }
+    }
+
+    // Initialize per-variable Parikh bounds from this node's regex memberships.
+    // For each str_mem (str ∈ regex) with bounded regex length [min_len, max_len],
+    // calls add_lower/upper_int_bound for the primary string variable (if str is
+    // a single variable) or stores a bound on the length expression otherwise.
+    void nielsen_node::init_var_bounds_from_mems() {
+        for (str_mem const& mem : m_str_mem) {
+            if (!mem.m_str || !mem.m_regex) continue;
+            unsigned min_len = 0, max_len = UINT_MAX;
+            m_graph->compute_regex_length_interval(mem.m_regex, min_len, max_len);
+            if (min_len == 0 && max_len == UINT_MAX) continue;
+
+            // if str is a single variable, apply bounds directly
+            if (mem.m_str->is_var()) {
+                if (min_len > 0)
+                    add_lower_int_bound(mem.m_str, min_len, mem.m_dep);
+                if (max_len < UINT_MAX)
+                    add_upper_int_bound(mem.m_str, max_len, mem.m_dep);
+            } else {
+                // str is a concatenation or other term: add as general int_constraints
+                ast_manager& m = m_graph->sg().get_manager();
+                arith_util arith(m);
+                expr_ref len_str = m_graph->compute_length_expr(mem.m_str);
+                if (min_len > 0) {
+                    expr_ref bound(arith.mk_int(min_len), m);
+                    m_int_constraints.push_back(
+                        int_constraint(len_str, bound, int_constraint_kind::ge, mem.m_dep, m));
+                }
+                if (max_len < UINT_MAX) {
+                    expr_ref bound(arith.mk_int(max_len), m);
+                    m_int_constraints.push_back(
+                        int_constraint(len_str, bound, int_constraint_kind::le, mem.m_dep, m));
+                }
+            }
+        }
     }
 
     void nielsen_node::apply_char_subst(euf::sgraph& sg, char_subst const& s) {
@@ -318,6 +506,7 @@ namespace seq {
         m_fresh_cnt = 0;
         m_num_input_eqs = 0;
         m_num_input_mems = 0;
+        m_root_constraints_asserted = false;
     }
 
     std::ostream& nielsen_graph::display(std::ostream& out) const {
@@ -802,6 +991,10 @@ namespace seq {
         if (wi < m_str_mem.size())
             m_str_mem.shrink(wi);
 
+        // IntBounds initialization: derive per-variable Parikh length bounds from
+        // remaining regex memberships and add to m_int_constraints.
+        init_var_bounds_from_mems();
+
         if (is_satisfied())
             return simplify_result::satisfied;
 
@@ -839,6 +1032,22 @@ namespace seq {
     // nielsen_graph: search
     // -----------------------------------------------------------------------
 
+    void nielsen_graph::assert_root_constraints_to_solver() {
+        if (m_root_constraints_asserted) return;
+        m_root_constraints_asserted = true;
+        // Constraint.Shared: assert all root-level length/Parikh constraints
+        // to m_solver at the base level (no push/pop). These include:
+        //   - len(lhs) = len(rhs) for each non-trivial string equality
+        //   - len(str) >= min_len and len(str) <= max_len for each regex membership
+        //   - len(x) >= 0 for each variable appearing in the root constraints
+        // Making these visible to the solver before the DFS allows arithmetic
+        // pruning at every node, not just the root.
+        vector<length_constraint> constraints;
+        generate_length_constraints(constraints);
+        for (auto const& lc : constraints)
+            m_solver.assert_expr(lc.m_expr);
+    }
+
     nielsen_graph::search_result nielsen_graph::solve() {
         if (!m_root)
             return search_result::sat;
@@ -846,6 +1055,10 @@ namespace seq {
         ++m_stats.m_num_solve_calls;
         m_sat_node = nullptr;
         m_sat_path.reset();
+
+        // Constraint.Shared: assert root-level length/Parikh constraints to the
+        // solver at the base level, so they are visible during all feasibility checks.
+        assert_root_constraints_to_solver();
 
         // Iterative deepening: increment by 1 on each failure.
         // m_max_search_depth == 0 means unlimited; otherwise stop when bound exceeds it.

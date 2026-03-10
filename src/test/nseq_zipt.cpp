@@ -29,6 +29,15 @@ Abstract:
 #include <functional>
 #include <chrono>
 
+// Trivial solver that always returns sat and ignores all assertions.
+class nseq_zipt_dummy_solver : public seq::simple_solver {
+public:
+    void push() override {}
+    void pop(unsigned) override {}
+    void assert_expr(expr*) override {}
+    lbool check() override { return l_true; }
+};
+
 // -----------------------------------------------------------------------
 // Trivial simple_solver stub: optimistically assumes integer constraints
 // are always feasible (returns l_true without actually checking).

@@ -164,9 +164,10 @@ Abstract:
       has no ConstraintsIntEq or ConstraintsIntLe in nielsen_node.
     - IntBounds / VarBoundWatcher: per-variable integer interval bounds and the
       watcher mechanism that reruns bound propagation when a string variable is
-      substituted are not ported.
+      substituted — PORTED as nielsen_node::{add_lower_int_bound,
+      add_upper_int_bound, watch_var_bounds, init_var_bounds_from_mems}.
     - AddLowerIntBound() / AddHigherIntBound(): incremental interval tightening
-      with restart signaling is not ported.
+      — PORTED as the above add_lower/upper_int_bound methods.
 
     Character-level handling:
     - CharSubst: character-level variable substitution (symbolic char -> concrete
@@ -214,7 +215,10 @@ Abstract:
     - GetSignature(): the constraint-pair signature used for subsumption
       candidate matching is not ported.
     - Constraint.Shared: the flag indicating whether a constraint should be
-      forwarded to the outer solver is not ported.
+      forwarded to the outer solver — PORTED as
+      nielsen_graph::assert_root_constraints_to_solver(), called at the start
+      of solve() to make all root-level length/Parikh constraints immediately
+      visible to m_solver.
     - Interpretation: the model-extraction class mapping string and integer
       variables to concrete values is not ported.
     -----------------------------------------------------------------------
@@ -490,6 +494,12 @@ namespace seq {
         vector<str_mem>         m_str_mem;    // regex memberships
         vector<int_constraint>  m_int_constraints;  // integer equalities/inequalities (mirrors ZIPT's IntEq/IntLe)
 
+        // per-variable integer bounds for len(var). Mirrors ZIPT's IntBounds.
+        // key: snode id of the string variable.
+        // default lb = 0 (unrestricted); default ub = UINT_MAX (unrestricted).
+        u_map<unsigned>                m_var_lb;   // lower bound: lb <= len(var)
+        u_map<unsigned>                m_var_ub;   // upper bound: len(var) <= ub
+
         // character constraints (mirrors ZIPT's DisEqualities and CharRanges)
         // key: snode id of the s_unit symbolic character
         u_map<ptr_vector<euf::snode>>  m_char_diseqs;  // ?c != {?d, ?e, ...}
@@ -527,6 +537,28 @@ namespace seq {
 
         vector<int_constraint> const& int_constraints() const { return m_int_constraints; }
         vector<int_constraint>& int_constraints() { return m_int_constraints; }
+
+        // IntBounds: tighten the lower bound for len(var).
+        // Returns true if the bound was tightened (lb > current lower bound).
+        // When tightened without conflict, adds an int_constraint len(var) >= lb.
+        // When lb > current upper bound, sets arithmetic conflict (no constraint added)
+        // and still returns true (the bound value changed). Check is_general_conflict()
+        // separately to distinguish tightening-with-conflict from normal tightening.
+        // Mirrors ZIPT's AddLowerIntBound().
+        bool add_lower_int_bound(euf::snode* var, unsigned lb, dep_tracker const& dep);
+
+        // IntBounds: tighten the upper bound for len(var).
+        // Returns true if the bound was tightened (ub < current upper bound).
+        // When tightened without conflict, adds an int_constraint len(var) <= ub.
+        // When current lower bound > ub, sets arithmetic conflict (no constraint added)
+        // and still returns true (the bound value changed). Check is_general_conflict()
+        // separately to distinguish tightening-with-conflict from normal tightening.
+        // Mirrors ZIPT's AddHigherIntBound().
+        bool add_upper_int_bound(euf::snode* var, unsigned ub, dep_tracker const& dep);
+
+        // Query current bounds for a variable (default: 0 / UINT_MAX if not set).
+        unsigned var_lb(euf::snode* var) const;
+        unsigned var_ub(euf::snode* var) const;
 
         // character constraint access (mirrors ZIPT's DisEqualities / CharRanges)
         u_map<ptr_vector<euf::snode>> const& char_diseqs() const { return m_char_diseqs; }
@@ -603,6 +635,19 @@ namespace seq {
         // sets changed=true, and returns false.
         bool handle_empty_side(euf::sgraph& sg, euf::snode* non_empty_side,
                                dep_tracker const& dep, bool& changed);
+
+        // VarBoundWatcher: after applying substitution s, propagate the bounds
+        // of s.m_var to variables appearing in s.m_replacement.
+        // When var has bounds [lo, hi], derives bounds for variables in replacement
+        // using the known constant-length contribution of non-variable tokens.
+        // Mirrors ZIPT's VarBoundWatcher re-check mechanism.
+        void watch_var_bounds(nielsen_subst const& s);
+
+        // Initialize per-variable Parikh bounds from this node's regex memberships.
+        // For each str_mem constraint (str ∈ regex) where regex has length bounds
+        // [min_len, max_len], adds lower/upper bound constraints for len(str).
+        // Called from simplify_and_init to populate IntBounds at node creation.
+        void init_var_bounds_from_mems();
     };
 
     // search statistics collected during Nielsen graph solving
@@ -661,6 +706,10 @@ namespace seq {
         // and optimistically assumes feasibility.
         // -----------------------------------------------
         simple_solver&                m_solver;
+
+        // Constraint.Shared: guards re-assertion of root-level constraints.
+        // Set to true after assert_root_constraints_to_solver() is first called.
+        bool                          m_root_constraints_asserted = false;
 
     public:
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
@@ -753,6 +802,16 @@ namespace seq {
         // constraints: len(str) >= min_len and len(str) <= max_len.
         // Also generates len(x) >= 0 for each variable appearing in the equations.
         void generate_length_constraints(vector<length_constraint>& constraints);
+
+        // build an arithmetic expression representing the length of an snode tree.
+        // concatenations are expanded to sums, chars to 1, empty to 0,
+        // variables to (str.len var_expr).
+        expr_ref compute_length_expr(euf::snode* n);
+
+        // compute Parikh length interval [min_len, max_len] for a regex snode.
+        // uses seq_util::rex min_length/max_length on the underlying expression.
+        // max_len == UINT_MAX means unbounded.
+        void compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len);
 
     private:
         search_result search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path);
@@ -860,19 +919,16 @@ namespace seq {
         // find a power token facing a variable head
         bool find_power_vs_var(nielsen_node* node, euf::snode*& power, euf::snode*& var_head, str_eq const*& eq_out) const;
 
-        // build an arithmetic expression representing the length of an snode tree.
-        // concatenations are expanded to sums, chars to 1, empty to 0,
-        // variables to (str.len var_expr).
-        expr_ref compute_length_expr(euf::snode* n);
-
-        // compute Parikh length interval [min_len, max_len] for a regex snode.
-        // uses seq_util::rex min_length/max_length on the underlying expression.
-        // max_len == UINT_MAX means unbounded.
-        void compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len);
-
         // -----------------------------------------------
         // Integer feasibility subsolver methods
         // -----------------------------------------------
+
+        // Constraint.Shared: assert all root-level length/Parikh constraints to
+        // m_solver at the base level (outside push/pop). Called once at the start
+        // of solve(). Makes derived constraints immediately visible to m_solver
+        // for arithmetic pruning at every DFS node, not just the root.
+        // Mirrors ZIPT's Constraint.Shared forwarding mechanism.
+        void assert_root_constraints_to_solver();
 
         // collect int_constraints along the path from root to the given node,
         // including constraints from edges and nodes.
