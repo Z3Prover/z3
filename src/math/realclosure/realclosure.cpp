@@ -3448,16 +3448,21 @@ namespace realclosure {
             return true;
         }
 
-        unsigned get_sign_condition_size(numeral const &a, unsigned i) {
-            algebraic * ext = to_algebraic(to_rational_function(a)->ext());
+        sign_condition* get_ith_sign_condition(algebraic* ext, unsigned i) {
             const sign_det * sdt = ext->sdt();
             if (!sdt)
-                return 0;
+                return nullptr;
             sign_condition * sc = sdt->sc(ext->sc_idx());
-            while (i) {
-                if (sc) sc = sc->prev();
+            while (i && sc) {
+                sc = sc->prev();
                 i--;
             }
+            return sc;
+        }
+
+        unsigned get_sign_condition_size(numeral const &a, unsigned i) {
+            algebraic * ext = to_algebraic(to_rational_function(a)->ext());
+            sign_condition * sc = get_ith_sign_condition(ext, i);
             if (!sc)
                 return 0;
             return ext->sdt()->qs()[sc->qidx()].size();
@@ -3468,14 +3473,7 @@ namespace realclosure {
             if (!is_algebraic(a))
                 return 0;
             algebraic * ext = to_algebraic(to_rational_function(a)->ext());
-            const sign_det * sdt = ext->sdt();
-            if (!sdt)
-                return 0;
-            sign_condition * sc = sdt->sc(ext->sc_idx());
-            while (i) {
-                if (sc) sc = sc->prev();
-                i--;
-            }
+            sign_condition * sc = get_ith_sign_condition(ext, i);
             if (!sc)
                 return 0;
             const polynomial & q = ext->sdt()->qs()[sc->qidx()];
@@ -3487,14 +3485,7 @@ namespace realclosure {
             if (!is_algebraic(a))
                 return numeral();
             algebraic * ext = to_algebraic(to_rational_function(a)->ext());
-            const sign_det * sdt = ext->sdt();
-            if (!sdt)
-                return numeral();
-            sign_condition * sc = sdt->sc(ext->sc_idx());
-            while (i) {
-                if (sc) sc = sc->prev();
-                i--;
-            }
+            sign_condition * sc = get_ith_sign_condition(ext, i);
             if (!sc)
                 return numeral();
             const polynomial & q = ext->sdt()->qs()[sc->qidx()];
