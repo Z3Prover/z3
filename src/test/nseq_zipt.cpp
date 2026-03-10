@@ -33,7 +33,7 @@ Abstract:
 // Trivial simple_solver stub: optimistically assumes integer constraints
 // are always feasible (returns l_true without actually checking).
 // -----------------------------------------------------------------------
-class dummy_simple_solver : public seq::simple_solver {
+class zipt_dummy_simple_solver : public seq::simple_solver {
 public:
     void push() override {}
     void pop(unsigned) override {}
@@ -171,7 +171,7 @@ struct nseq_fixture {
     ast_manager m;
     euf::egraph eg;
     euf::sgraph sg;
-    dummy_simple_solver dummy_solver;
+    zipt_dummy_simple_solver dummy_solver;
     seq::nielsen_graph ng;
     seq_util su;
     str_builder sb;
