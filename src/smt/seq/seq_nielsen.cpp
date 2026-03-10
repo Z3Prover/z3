@@ -620,7 +620,7 @@ namespace seq {
 
     nielsen_graph::nielsen_graph(euf::sgraph& sg, simple_solver* solver):
         m_sg(sg),
-        m_solver(solver ? solver : nullptr) {
+        m_solver(solver) {
         if (!m_solver) {
             m_owned_solver = alloc(lp_simple_solver, sg.get_manager());
             m_solver = m_owned_solver.get();
@@ -2742,6 +2742,7 @@ namespace seq {
         case int_constraint_kind::ge:
             return expr_ref(arith.mk_ge(ic.m_lhs, ic.m_rhs), m);
         }
+        UNREACHABLE();
         return expr_ref(m.mk_true(), m);
     }
 
