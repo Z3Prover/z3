@@ -54,7 +54,6 @@ namespace smt {
 
     bool theory_nseq::internalize_atom(app* atom, bool /*gate_ctx*/) {
         context& ctx = get_context();
-        ast_manager& m = get_manager();
 
         // str.in_re atoms are boolean predicates: register as bool_var
         // so that assign_eh fires when the SAT solver assigns them.
@@ -761,7 +760,6 @@ namespace smt {
 
     bool theory_nseq::propagate_length_lemma(literal lit, seq::length_constraint const& lc) {
         context& ctx = get_context();
-        ast_manager& m = get_manager();
 
         // unconditional constraints: assert as theory axiom
         if (lc.m_kind == seq::length_kind::nonneg) {
@@ -783,7 +781,7 @@ namespace smt {
                 lit));
         ctx.assign(lit, js);
 
-        TRACE(seq, tout << "nseq length propagation: " << mk_pp(lc.m_expr, m)
+        TRACE(seq, tout << "nseq length propagation: " << mk_pp(lc.m_expr, get_manager())
                         << " (" << eqs.size() << " eqs, " << lits.size() << " lits)\n";);
         ++m_num_length_axioms;
         return true;
@@ -813,7 +811,6 @@ namespace smt {
     }
 
     bool theory_nseq::assert_length_constraints() {
-        ast_manager& m = get_manager();
         context& ctx = get_context();
         vector<seq::length_constraint> constraints;
         m_nielsen.generate_length_constraints(constraints);
@@ -825,7 +822,7 @@ namespace smt {
                 ctx.internalize(e, true);
             literal lit = ctx.get_literal(e);
             if (ctx.get_assignment(lit) != l_true) {
-                TRACE(seq, tout << "nseq length lemma: " << mk_pp(e, m) << "\n";);
+                TRACE(seq, tout << "nseq length lemma: " << mk_pp(e, get_manager()) << "\n";);
                 propagate_length_lemma(lit, lc);
                 new_axiom = true;
             }
