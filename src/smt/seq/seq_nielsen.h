@@ -540,15 +540,19 @@ namespace seq {
 
         // IntBounds: tighten the lower bound for len(var).
         // Returns true if the bound was tightened (lb > current lower bound).
-        // When tightened, adds an int_constraint len(var) >= lb to this node.
-        // Sets arithmetic conflict if lb > current upper bound.
+        // When tightened without conflict, adds an int_constraint len(var) >= lb.
+        // When lb > current upper bound, sets arithmetic conflict (no constraint added)
+        // and still returns true (the bound value changed). Check is_general_conflict()
+        // separately to distinguish tightening-with-conflict from normal tightening.
         // Mirrors ZIPT's AddLowerIntBound().
         bool add_lower_int_bound(euf::snode* var, unsigned lb, dep_tracker const& dep);
 
         // IntBounds: tighten the upper bound for len(var).
         // Returns true if the bound was tightened (ub < current upper bound).
-        // When tightened, adds an int_constraint len(var) <= ub to this node.
-        // Sets arithmetic conflict if current lower bound > ub.
+        // When tightened without conflict, adds an int_constraint len(var) <= ub.
+        // When current lower bound > ub, sets arithmetic conflict (no constraint added)
+        // and still returns true (the bound value changed). Check is_general_conflict()
+        // separately to distinguish tightening-with-conflict from normal tightening.
         // Mirrors ZIPT's AddHigherIntBound().
         bool add_upper_int_bound(euf::snode* var, unsigned ub, dep_tracker const& dep);
 

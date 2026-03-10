@@ -3477,7 +3477,7 @@ static void test_assert_root_constraints_once() {
     // we can verify the count is stable between iterations by checking
     // that the same constraints weren't added multiple times.
     // The simplest check: count > 0 (constraints were asserted)
-    SASSERT(count_first >= 0);  // at least some constraints asserted
+    SASSERT(count_first > 0);  // x=y produces at least len(x)=len(y) and non-neg constraints
     std::cout << "  asserted " << count_first << " constraints total during solve\n";
     std::cout << "  ok\n";
 }
