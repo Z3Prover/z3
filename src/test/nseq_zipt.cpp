@@ -30,6 +30,18 @@ Abstract:
 #include <chrono>
 
 // -----------------------------------------------------------------------
+// Trivial simple_solver stub: optimistically assumes integer constraints
+// are always feasible (returns l_true without actually checking).
+// -----------------------------------------------------------------------
+class zipt_dummy_simple_solver : public seq::simple_solver {
+public:
+    void push() override {}
+    void pop(unsigned) override {}
+    void assert_expr(expr*) override {}
+    lbool check() override { return l_true; }
+};
+
+// -----------------------------------------------------------------------
 // Helper: build a string snode from a notation string.
 // Uppercase = fresh variable, lowercase/digit = concrete character.
 // Variables with the same letter share the same snode (memoised per call).
@@ -159,6 +171,7 @@ struct nseq_fixture {
     ast_manager m;
     euf::egraph eg;
     euf::sgraph sg;
+    zipt_dummy_simple_solver dummy_solver;
     seq::nielsen_graph ng;
     seq_util su;
     str_builder sb;
@@ -168,7 +181,7 @@ struct nseq_fixture {
     static ast_manager& init(ast_manager& m) { reg_decl_plugins(m); return m; }
 
     nseq_fixture()
-        : eg(init(m)), sg(m, eg), ng(sg), su(m), sb(sg), rb(m, su, sg)
+        : eg(init(m)), sg(m, eg), ng(sg, dummy_solver), su(m), sb(sg), rb(m, su, sg)
     {}
 
     euf::snode* S(const char* s) { return sb.parse(s); }
