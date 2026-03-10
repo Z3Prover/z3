@@ -204,58 +204,6 @@ namespace seq {
     };
 
     // -----------------------------------------------
-    // dep_tracker
-    // -----------------------------------------------
-
-    dep_tracker::dep_tracker(unsigned num_bits) {
-        unsigned words = (num_bits + 31) / 32;
-        m_bits.resize(words, 0);
-    }
-
-    dep_tracker::dep_tracker(unsigned num_bits, unsigned set_bit) : dep_tracker(num_bits) {
-        if (set_bit < num_bits) {
-            unsigned word_idx = set_bit / 32;
-            unsigned bit_idx = set_bit % 32;
-            m_bits[word_idx] = 1u << bit_idx;
-        }
-    }
-
-    void dep_tracker::merge(dep_tracker const& other) {
-        if (other.m_bits.empty())
-            return;
-        if (m_bits.size() < other.m_bits.size())
-            m_bits.resize(other.m_bits.size(), 0);
-        for (unsigned i = 0; i < other.m_bits.size(); ++i)
-            m_bits[i] |= other.m_bits[i];
-    }
-
-    bool dep_tracker::is_superset(dep_tracker const& other) const {
-        for (unsigned i = 0; i < other.m_bits.size(); ++i) {
-            unsigned my_bits = (i < m_bits.size()) ? m_bits[i] : 0;
-            if ((my_bits & other.m_bits[i]) != other.m_bits[i])
-                return false;
-        }
-        return true;
-    }
-
-    bool dep_tracker::empty() const {
-        for (unsigned b : m_bits)
-            if (b != 0) return false;
-        return true;
-    }
-
-    void dep_tracker::get_set_bits(unsigned_vector& indices) const {
-        for (unsigned i = 0; i < m_bits.size(); ++i) {
-            unsigned word = m_bits[i];
-            while (word != 0) {
-                unsigned bit = i * 32 + ntz_core(word);
-                indices.push_back(bit);
-                word &= word - 1; // clear lowest set bit
-            }
-        }
-    }
-
-    // -----------------------------------------------
     // str_eq
     // -----------------------------------------------
 
