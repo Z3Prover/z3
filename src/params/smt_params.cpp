@@ -188,9 +188,9 @@ void smt_params::display(std::ostream & out) const {
 }
 
 void smt_params::validate_string_solver(symbol const& s) const {
-    if (s == "z3str3" || s == "seq" || s == "empty" || s == "auto" || s == "none" || s == "nseq")
+    if (s == "z3str3" || s == "seq" || s == "empty" || s == "auto" || s == "none" || s == "nseq" || s == "seq_len")
         return;
-    throw default_exception("Invalid string solver value. Legal values are z3str3, seq, empty, auto, none, nseq");
+    throw default_exception("Invalid string solver value. Legal values are z3str3, seq, empty, auto, none, nseq, seq_len");
 }
 
 void smt_params::setup_QF_UF() {
