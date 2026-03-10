@@ -98,10 +98,8 @@ Abstract:
     ------------------------------------
     1. dep_tracker (DependencyTracker): ZIPT's DependencyTracker is a .NET
        class using a BitArray-like structure for tracking constraint origins.
-       Z3's dep_tracker uses a dense bitvector stored as svector<unsigned>
-       (32-bit words). The merge/is_superset/empty semantics are equivalent,
-       but the representation is more cache-friendly and avoids managed-heap
-       allocation.
+       Z3 uses uint_set (a dense bitvector from util/uint_set.h) for the same
+       purpose. The |=/subset_of/empty semantics are equivalent.
 
     2. Substitution application (nielsen_node::apply_subst): ZIPT uses an
        immutable, functional style -- Apply() returns a new constraint if
@@ -276,23 +274,7 @@ namespace seq {
     // dependency tracker: bitvector tracking which input constraints
     // contributed to deriving a given constraint
     // mirrors ZIPT's DependencyTracker
-    class dep_tracker {
-        svector<unsigned> m_bits;
-    public:
-        dep_tracker() = default;
-        explicit dep_tracker(unsigned num_bits);
-        dep_tracker(unsigned num_bits, unsigned set_bit);
-
-        void merge(dep_tracker const& other);
-        bool is_superset(dep_tracker const& other) const;
-        bool empty() const;
-
-        // collect indices of all set bits into 'indices'
-        void get_set_bits(unsigned_vector& indices) const;
-
-        bool operator==(dep_tracker const& other) const { return m_bits == other.m_bits; }
-        bool operator!=(dep_tracker const& other) const { return !(*this == other); }
-    };
+    using dep_tracker = uint_set;
 
     // -----------------------------------------------
     // character range and set types
