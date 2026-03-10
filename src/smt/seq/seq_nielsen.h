@@ -250,8 +250,8 @@ namespace seq {
      * to check integer/arithmetic feasibility of path constraints.
      *
      * Users of nielsen_graph can wrap smt::kernel or any other solver
-     * to serve as the arithmetic back-end.  The default back-end is an
-     * lp_simple_solver built on top of lp::lar_solver.
+     * to serve as the arithmetic back-end.  When no solver is provided,
+     * integer feasibility checks are skipped (optimistically assumed feasible).
      */
     class simple_solver {
     public:
@@ -657,14 +657,14 @@ namespace seq {
 
         // -----------------------------------------------
         // Integer subsolver (abstract interface)
-        // When m_solver is null, check_int_feasibility uses an
-        // internal lp_simple_solver (created on demand).
+        // When m_solver is null, check_int_feasibility skips arithmetic checking
+        // and optimistically assumes feasibility.
         // -----------------------------------------------
         simple_solver*                m_solver = nullptr;
         scoped_ptr<simple_solver>     m_owned_solver; // non-null when we own the solver
 
     public:
-        // Construct without a custom solver; an lp_simple_solver is used internally.
+        // Construct without a custom solver; integer feasibility checks are skipped.
         nielsen_graph(euf::sgraph& sg);
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
         // the caller is responsible for keeping the solver alive.

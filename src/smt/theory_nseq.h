@@ -28,6 +28,7 @@ Author:
 #include "smt/nseq_state.h"
 #include "smt/nseq_regex.h"
 #include "smt/nseq_model.h"
+#include "smt/nseq_context_solver.h"
 
 namespace smt {
 
@@ -38,6 +39,9 @@ namespace smt {
         arith_value    m_arith_value;
         euf::egraph    m_egraph;  // private egraph (not shared with smt context)
         euf::sgraph    m_sgraph;  // private sgraph
+        // m_context_solver must be declared before m_nielsen: its address is passed
+        // to the m_nielsen constructor and must remain stable for the object's lifetime.
+        context_solver m_context_solver;
         seq::nielsen_graph m_nielsen;
         nseq_state     m_state;
         nseq_regex     m_regex;   // regex membership pre-processing
