@@ -660,15 +660,12 @@ namespace seq {
         // When m_solver is null, check_int_feasibility skips arithmetic checking
         // and optimistically assumes feasibility.
         // -----------------------------------------------
-        simple_solver*                m_solver = nullptr;
-        scoped_ptr<simple_solver>     m_owned_solver; // non-null when we own the solver
+        simple_solver&                m_solver;
 
     public:
-        // Construct without a custom solver; integer feasibility checks are skipped.
-        nielsen_graph(euf::sgraph& sg);
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
         // the caller is responsible for keeping the solver alive.
-        nielsen_graph(euf::sgraph& sg, simple_solver* solver);
+        nielsen_graph(euf::sgraph& sg, simple_solver& solver);
         ~nielsen_graph();
 
         euf::sgraph& sg() { return m_sg; }

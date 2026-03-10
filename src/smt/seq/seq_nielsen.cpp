@@ -241,11 +241,7 @@ namespace seq {
     // nielsen_graph
     // -----------------------------------------------
 
-    nielsen_graph::nielsen_graph(euf::sgraph& sg):
-        m_sg(sg) {
-    }
-
-    nielsen_graph::nielsen_graph(euf::sgraph& sg, simple_solver* solver):
+    nielsen_graph::nielsen_graph(euf::sgraph& sg, simple_solver& solver):
         m_sg(sg),
         m_solver(solver) {
     }
@@ -2394,20 +2390,13 @@ namespace seq {
         if (constraints.empty())
             return true; // no integer constraints, trivially feasible
 
-        if (!m_solver) {
-            // No solver provided: skip arithmetic feasibility checking.
-            // This makes the Nielsen graph unsound with respect to integer constraints
-            // but is acceptable for contexts (e.g., unit tests) that only exercise
-            // string equality patterns without arithmetic path constraints.
-            return true;
-        }
 
-        m_solver->push();
+        m_solver.push();
         for (auto const& ic : constraints)
-            m_solver->assert_expr(int_constraint_to_expr(ic));
+            m_solver.assert_expr(int_constraint_to_expr(ic));
 
-        lbool result = m_solver->check();
-        m_solver->pop(1);
+        lbool result = m_solver.check();
+        m_solver.pop(1);
         return result != l_false;
     }
 
