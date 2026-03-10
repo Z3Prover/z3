@@ -27,7 +27,7 @@ public:
     dummy_simple_solver() : seq::simple_solver() {}
     void push() override {}
     void pop(unsigned n) override {}
-    void assert(expr *constraint) override {}
+    void assert_expr(expr *constraint) override {}
     lbool check() override {
         return l_true;
     }
