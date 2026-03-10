@@ -31,6 +31,231 @@ Author:
 namespace seq {
 
     // -----------------------------------------------
+    // lp_simple_solver
+    // Concrete simple_solver built on top of lp::lar_solver.
+    // This is the default back-end used by nielsen_graph when no
+    // custom solver is provided.  It translates each asserted
+    // arithmetic expression into LP bounds / terms and delegates
+    // feasibility checking to lp::lar_solver::find_feasible_solution().
+    // -----------------------------------------------
+
+    class lp_simple_solver : public simple_solver {
+        ast_manager&                  m;
+        scoped_ptr<lp::lar_solver>    m_lp;
+        u_map<lp::lpvar>              m_expr2lpvar;
+        unsigned                      m_ext_cnt = 0;
+
+        // Stack of assertion counts for push/pop.
+        svector<unsigned>             m_scope_stack;
+        expr_ref_vector               m_asserted;
+
+    public:
+        lp_simple_solver(ast_manager& m_) : m(m_), m_asserted(m_) {}
+
+        lbool check() override {
+            // Rebuild LP solver from current assertions
+            m_lp = alloc(lp::lar_solver);
+            m_expr2lpvar.reset();
+            m_ext_cnt = 0;
+
+            arith_util arith(m);
+            for (expr* e : m_asserted)
+                add_to_lp(e, arith);
+
+            lp::lp_status status = m_lp->find_feasible_solution();
+            return (status == lp::lp_status::INFEASIBLE) ? l_false : l_true;
+        }
+
+        void assert_expr(expr* e) override {
+            m_asserted.push_back(e);
+        }
+
+        void push() override {
+            m_scope_stack.push_back(m_asserted.size());
+        }
+
+        void pop(unsigned num_scopes) override {
+            for (unsigned i = 0; i < num_scopes && !m_scope_stack.empty(); ++i) {
+                unsigned sz = m_scope_stack.back();
+                m_scope_stack.pop_back();
+                m_asserted.shrink(sz);
+            }
+        }
+
+    private:
+        lp::lpvar ensure_var(expr* e, arith_util& arith) {
+            if (!e) return lp::null_lpvar;
+            unsigned eid = e->get_id();
+            lp::lpvar j;
+            if (m_expr2lpvar.find(eid, j))
+                return j;
+
+            rational val;
+            if (arith.is_numeral(e, val)) {
+                j = m_lp->add_var(m_ext_cnt++, true);
+                m_lp->add_var_bound(j, lp::EQ, lp::mpq(val));
+                m_expr2lpvar.insert(eid, j);
+                return j;
+            }
+            expr* e1 = nullptr, *e2 = nullptr;
+            if (arith.is_add(e, e1, e2)) {
+                lp::lpvar j1 = ensure_var(e1, arith);
+                lp::lpvar j2 = ensure_var(e2, arith);
+                if (j1 == lp::null_lpvar || j2 == lp::null_lpvar) return lp::null_lpvar;
+                vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
+                coeffs.push_back({lp::mpq(1), j1});
+                coeffs.push_back({lp::mpq(1), j2});
+                j = m_lp->add_term(coeffs, m_ext_cnt++);
+                m_expr2lpvar.insert(eid, j);
+                return j;
+            }
+            if (arith.is_sub(e, e1, e2)) {
+                lp::lpvar j1 = ensure_var(e1, arith);
+                lp::lpvar j2 = ensure_var(e2, arith);
+                if (j1 == lp::null_lpvar || j2 == lp::null_lpvar) return lp::null_lpvar;
+                vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
+                coeffs.push_back({lp::mpq(1), j1});
+                coeffs.push_back({lp::mpq(-1), j2});
+                j = m_lp->add_term(coeffs, m_ext_cnt++);
+                m_expr2lpvar.insert(eid, j);
+                return j;
+            }
+            if (arith.is_mul(e, e1, e2)) {
+                rational coeff;
+                if (arith.is_numeral(e1, coeff)) {
+                    lp::lpvar jx = ensure_var(e2, arith);
+                    if (jx == lp::null_lpvar) return lp::null_lpvar;
+                    vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
+                    coeffs.push_back({lp::mpq(coeff), jx});
+                    j = m_lp->add_term(coeffs, m_ext_cnt++);
+                    m_expr2lpvar.insert(eid, j);
+                    return j;
+                }
+                if (arith.is_numeral(e2, coeff)) {
+                    lp::lpvar jx = ensure_var(e1, arith);
+                    if (jx == lp::null_lpvar) return lp::null_lpvar;
+                    vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
+                    coeffs.push_back({lp::mpq(coeff), jx});
+                    j = m_lp->add_term(coeffs, m_ext_cnt++);
+                    m_expr2lpvar.insert(eid, j);
+                    return j;
+                }
+            }
+            if (arith.is_uminus(e, e1)) {
+                lp::lpvar jx = ensure_var(e1, arith);
+                if (jx == lp::null_lpvar) return lp::null_lpvar;
+                vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
+                coeffs.push_back({lp::mpq(-1), jx});
+                j = m_lp->add_term(coeffs, m_ext_cnt++);
+                m_expr2lpvar.insert(eid, j);
+                return j;
+            }
+            // Leaf: fresh LP integer variable
+            j = m_lp->add_var(m_ext_cnt++, true);
+            m_expr2lpvar.insert(eid, j);
+            return j;
+        }
+
+        void add_to_lp(expr* e, arith_util& arith) {
+            // Expected forms: (= lhs rhs), (<= lhs rhs), (>= lhs rhs)
+            expr* lhs = nullptr, *rhs = nullptr;
+            rational val;
+
+            auto add_var_bound = [&](lp::lpvar j, lp::lconstraint_kind kind, lp::mpq const& bound) {
+                if (j != lp::null_lpvar)
+                    m_lp->add_var_bound(j, kind, bound);
+            };
+
+            auto add_diff_bound = [&](expr* a, expr* b, lp::lconstraint_kind kind) {
+                lp::lpvar ja = ensure_var(a, arith);
+                lp::lpvar jb = ensure_var(b, arith);
+                if (ja == lp::null_lpvar || jb == lp::null_lpvar) return;
+                vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
+                coeffs.push_back({lp::mpq(1), ja});
+                coeffs.push_back({lp::mpq(-1), jb});
+                lp::lpvar term = m_lp->add_term(coeffs, m_ext_cnt++);
+                m_lp->add_var_bound(term, kind, lp::mpq(0));
+            };
+
+            if (m.is_eq(e, lhs, rhs) && arith.is_int(lhs)) {
+                if (arith.is_numeral(rhs, val))
+                    add_var_bound(ensure_var(lhs, arith), lp::EQ, lp::mpq(val));
+                else if (arith.is_numeral(lhs, val))
+                    add_var_bound(ensure_var(rhs, arith), lp::EQ, lp::mpq(val));
+                else
+                    add_diff_bound(lhs, rhs, lp::EQ);
+            } else if (arith.is_le(e, lhs, rhs)) {
+                if (arith.is_numeral(rhs, val))
+                    add_var_bound(ensure_var(lhs, arith), lp::LE, lp::mpq(val));
+                else if (arith.is_numeral(lhs, val))
+                    add_var_bound(ensure_var(rhs, arith), lp::GE, lp::mpq(val));
+                else
+                    add_diff_bound(lhs, rhs, lp::LE);
+            } else if (arith.is_ge(e, lhs, rhs)) {
+                if (arith.is_numeral(rhs, val))
+                    add_var_bound(ensure_var(lhs, arith), lp::GE, lp::mpq(val));
+                else if (arith.is_numeral(lhs, val))
+                    add_var_bound(ensure_var(rhs, arith), lp::LE, lp::mpq(val));
+                else
+                    add_diff_bound(lhs, rhs, lp::GE);
+            }
+            // other shapes are silently ignored
+        }
+    };
+
+    // -----------------------------------------------
+    // dep_tracker
+    // -----------------------------------------------
+
+    dep_tracker::dep_tracker(unsigned num_bits) {
+        unsigned words = (num_bits + 31) / 32;
+        m_bits.resize(words, 0);
+    }
+
+    dep_tracker::dep_tracker(unsigned num_bits, unsigned set_bit) : dep_tracker(num_bits) {
+        if (set_bit < num_bits) {
+            unsigned word_idx = set_bit / 32;
+            unsigned bit_idx = set_bit % 32;
+            m_bits[word_idx] = 1u << bit_idx;
+        }
+    }
+
+    void dep_tracker::merge(dep_tracker const& other) {
+        if (other.m_bits.empty())
+            return;
+        if (m_bits.size() < other.m_bits.size())
+            m_bits.resize(other.m_bits.size(), 0);
+        for (unsigned i = 0; i < other.m_bits.size(); ++i)
+            m_bits[i] |= other.m_bits[i];
+    }
+
+    bool dep_tracker::is_superset(dep_tracker const& other) const {
+        for (unsigned i = 0; i < other.m_bits.size(); ++i) {
+            unsigned my_bits = (i < m_bits.size()) ? m_bits[i] : 0;
+            if ((my_bits & other.m_bits[i]) != other.m_bits[i])
+                return false;
+        }
+        return true;
+    }
+
+    bool dep_tracker::empty() const {
+        for (unsigned b : m_bits)
+            if (b != 0) return false;
+        return true;
+    }
+
+    void dep_tracker::get_set_bits(unsigned_vector& indices) const {
+        for (unsigned i = 0; i < m_bits.size(); ++i) {
+            unsigned word = m_bits[i];
+            while (word != 0) {
+                unsigned bit = i * 32 + ntz_core(word);
+                indices.push_back(bit);
+                word &= word - 1; // clear lowest set bit
+            }
+        }
+    }
+
+    // -----------------------------------------------
     // str_eq
     // -----------------------------------------------
 
@@ -244,6 +469,18 @@ namespace seq {
 
     nielsen_graph::nielsen_graph(euf::sgraph& sg):
         m_sg(sg) {
+        // Create the default LP-based solver
+        m_owned_solver = alloc(lp_simple_solver, sg.get_manager());
+        m_solver = m_owned_solver.get();
+    }
+
+    nielsen_graph::nielsen_graph(euf::sgraph& sg, simple_solver* solver):
+        m_sg(sg),
+        m_solver(solver) {
+        if (!m_solver) {
+            m_owned_solver = alloc(lp_simple_solver, sg.get_manager());
+            m_solver = m_owned_solver.get();
+        }
     }
 
     nielsen_graph::~nielsen_graph() {
@@ -2344,186 +2581,23 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
-    // LP integer subsolver implementation
-    // Replaces ZIPT's SubSolver with Z3's native lp::lar_solver.
+    // Integer feasibility subsolver implementation
+    // Uses the injected simple_solver (default: lp_simple_solver).
     // -----------------------------------------------------------------------
 
-    void nielsen_graph::lp_solver_reset() {
-        m_lp_solver = alloc(lp::lar_solver);
-        m_expr2lpvar.reset();
-        m_lp_ext_cnt = 0;
-    }
-
-    lp::lpvar nielsen_graph::lp_ensure_var(expr* e) {
-        if (!e) return lp::null_lpvar;
-
+    expr_ref nielsen_graph::int_constraint_to_expr(int_constraint const& ic) {
         ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
-
-        // If already mapped, return cached
-        unsigned eid = e->get_id();
-        lp::lpvar j;
-        if (m_expr2lpvar.find(eid, j))
-            return j;
-
-        // Check if this is a numeral — shouldn't be called with a numeral directly,
-        // but handle it gracefully by creating a fixed variable
-        rational val;
-        if (arith.is_numeral(e, val)) {
-            j = m_lp_solver->add_var(m_lp_ext_cnt++, true);
-            m_lp_solver->add_var_bound(j, lp::EQ, lp::mpq(val));
-            m_expr2lpvar.insert(eid, j);
-            return j;
-        }
-
-        // Decompose linear arithmetic: a + b → create LP term (1*a + 1*b)
-        expr* e1 = nullptr;
-        expr* e2 = nullptr;
-        if (arith.is_add(e, e1, e2)) {
-            lp::lpvar j1 = lp_ensure_var(e1);
-            lp::lpvar j2 = lp_ensure_var(e2);
-            if (j1 == lp::null_lpvar || j2 == lp::null_lpvar) return lp::null_lpvar;
-            vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
-            coeffs.push_back({lp::mpq(1), j1});
-            coeffs.push_back({lp::mpq(1), j2});
-            j = m_lp_solver->add_term(coeffs, m_lp_ext_cnt++);
-            m_expr2lpvar.insert(eid, j);
-            return j;
-        }
-
-        // Decompose: a - b → create LP term (1*a + (-1)*b)
-        if (arith.is_sub(e, e1, e2)) {
-            lp::lpvar j1 = lp_ensure_var(e1);
-            lp::lpvar j2 = lp_ensure_var(e2);
-            if (j1 == lp::null_lpvar || j2 == lp::null_lpvar) return lp::null_lpvar;
-            vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
-            coeffs.push_back({lp::mpq(1), j1});
-            coeffs.push_back({lp::mpq(-1), j2});
-            j = m_lp_solver->add_term(coeffs, m_lp_ext_cnt++);
-            m_expr2lpvar.insert(eid, j);
-            return j;
-        }
-
-        // Decompose: c * x where c is numeral → create LP term (c*x)
-        if (arith.is_mul(e, e1, e2)) {
-            rational coeff;
-            if (arith.is_numeral(e1, coeff)) {
-                lp::lpvar jx = lp_ensure_var(e2);
-                if (jx == lp::null_lpvar) return lp::null_lpvar;
-                vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
-                coeffs.push_back({lp::mpq(coeff), jx});
-                j = m_lp_solver->add_term(coeffs, m_lp_ext_cnt++);
-                m_expr2lpvar.insert(eid, j);
-                return j;
-            }
-            if (arith.is_numeral(e2, coeff)) {
-                lp::lpvar jx = lp_ensure_var(e1);
-                if (jx == lp::null_lpvar) return lp::null_lpvar;
-                vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
-                coeffs.push_back({lp::mpq(coeff), jx});
-                j = m_lp_solver->add_term(coeffs, m_lp_ext_cnt++);
-                m_expr2lpvar.insert(eid, j);
-                return j;
-            }
-        }
-
-        // Decompose: -x → create LP term (-1*x)
-        if (arith.is_uminus(e, e1)) {
-            lp::lpvar jx = lp_ensure_var(e1);
-            if (jx == lp::null_lpvar) return lp::null_lpvar;
-            vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
-            coeffs.push_back({lp::mpq(-1), jx});
-            j = m_lp_solver->add_term(coeffs, m_lp_ext_cnt++);
-            m_expr2lpvar.insert(eid, j);
-            return j;
-        }
-
-        // Leaf expression (variable, length, or other opaque term): map to fresh LP var
-        j = m_lp_solver->add_var(m_lp_ext_cnt++, true /* is_integer */);
-        m_expr2lpvar.insert(eid, j);
-        return j;
-    }
-
-    void nielsen_graph::lp_add_constraint(int_constraint const& ic) {
-        if (!m_lp_solver || !ic.m_lhs || !ic.m_rhs)
-            return;
-
-        ast_manager& m = m_sg.get_manager();
-        arith_util arith(m);
-
-        // We handle simple patterns:
-        //   expr <kind> numeral    →  add_var_bound
-        //   expr <kind> expr       →  create term (lhs - rhs) and bound to 0
-        rational val;
-        bool is_num_rhs = arith.is_numeral(ic.m_rhs, val);
-
-        if (is_num_rhs && (is_app(ic.m_lhs))) {
-            // Simple case: single variable or len(x) vs numeral
-            lp::lpvar j = lp_ensure_var(ic.m_lhs);
-            if (j == lp::null_lpvar) return;
-            lp::mpq rhs_val(val);
-            switch (ic.m_kind) {
-            case int_constraint_kind::eq:
-                m_lp_solver->add_var_bound(j, lp::EQ, rhs_val);
-                break;
-            case int_constraint_kind::le:
-                m_lp_solver->add_var_bound(j, lp::LE, rhs_val);
-                break;
-            case int_constraint_kind::ge:
-                m_lp_solver->add_var_bound(j, lp::GE, rhs_val);
-                break;
-            }
-            return;
-        }
-
-        // General case: create term lhs - rhs and bound it
-        // For now, handle single variable on LHS vs single variable on RHS
-        // (covers the common case of len(x) = len(y), n >= 0, etc.)
-        bool is_num_lhs = arith.is_numeral(ic.m_lhs, val);
-        if (is_num_lhs) {
-            // numeral <kind> expr  →  reverse and flip kind
-            lp::lpvar j = lp_ensure_var(ic.m_rhs);
-            if (j == lp::null_lpvar) return;
-            lp::mpq lhs_val(val);
-            switch (ic.m_kind) {
-            case int_constraint_kind::eq:
-                m_lp_solver->add_var_bound(j, lp::EQ, lhs_val);
-                break;
-            case int_constraint_kind::le:
-                // val <= rhs  ⇔  rhs >= val
-                m_lp_solver->add_var_bound(j, lp::GE, lhs_val);
-                break;
-            case int_constraint_kind::ge:
-                // val >= rhs  ⇔  rhs <= val
-                m_lp_solver->add_var_bound(j, lp::LE, lhs_val);
-                break;
-            }
-            return;
-        }
-
-        // Both sides are expressions: create term (lhs - rhs) with bound 0
-        lp::lpvar j_lhs = lp_ensure_var(ic.m_lhs);
-        lp::lpvar j_rhs = lp_ensure_var(ic.m_rhs);
-        if (j_lhs == lp::null_lpvar || j_rhs == lp::null_lpvar) return;
-
-        // Create a term: 1*lhs + (-1)*rhs
-        vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
-        coeffs.push_back({lp::mpq(1), j_lhs});
-        coeffs.push_back({lp::mpq(-1), j_rhs});
-        lp::lpvar term_j = m_lp_solver->add_term(coeffs, m_lp_ext_cnt++);
-
-        lp::mpq zero(0);
         switch (ic.m_kind) {
         case int_constraint_kind::eq:
-            m_lp_solver->add_var_bound(term_j, lp::EQ, zero);
-            break;
+            return expr_ref(m.mk_eq(ic.m_lhs, ic.m_rhs), m);
         case int_constraint_kind::le:
-            m_lp_solver->add_var_bound(term_j, lp::LE, zero);
-            break;
+            return expr_ref(arith.mk_le(ic.m_lhs, ic.m_rhs), m);
         case int_constraint_kind::ge:
-            m_lp_solver->add_var_bound(term_j, lp::GE, zero);
-            break;
+            return expr_ref(arith.mk_ge(ic.m_lhs, ic.m_rhs), m);
         }
+        UNREACHABLE();
+        return expr_ref(m.mk_true(), m);
     }
 
     void nielsen_graph::collect_path_int_constraints(nielsen_node* node,
@@ -2553,13 +2627,14 @@ namespace seq {
         if (constraints.empty())
             return true; // no integer constraints, trivially feasible
 
-        lp_solver_reset();
-
+        SASSERT(m_solver);
+        m_solver->push();
         for (auto const& ic : constraints)
-            lp_add_constraint(ic);
+            m_solver->assert_expr(int_constraint_to_expr(ic));
 
-        lp::lp_status status = m_lp_solver->find_feasible_solution();
-        return status != lp::lp_status::INFEASIBLE;
+        lbool result = m_solver->check();
+        m_solver->pop(1);
+        return result != l_false;
     }
 
     int_constraint nielsen_graph::mk_int_constraint(expr* lhs, expr* rhs,

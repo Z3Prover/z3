@@ -231,11 +231,11 @@ Author:
 #include "util/vector.h"
 #include "util/uint_set.h"
 #include "util/map.h"
+#include "util/lbool.h"
 #include "ast/ast.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/euf/euf_sgraph.h"
-#include "math/lp/lar_solver.h"
 #include <functional>
 
 namespace seq {
@@ -244,6 +244,23 @@ namespace seq {
     class nielsen_node;
     class nielsen_edge;
     class nielsen_graph;
+
+    /**
+     * Abstract interface for an incremental solver used by nielsen_graph
+     * to check integer/arithmetic feasibility of path constraints.
+     *
+     * Users of nielsen_graph can wrap smt::kernel or any other solver
+     * to serve as the arithmetic back-end.  The default back-end is an
+     * lp_simple_solver built on top of lp::lar_solver.
+     */
+    class simple_solver {
+    public:
+        virtual ~simple_solver() {}
+        virtual lbool   check() = 0;
+        virtual void    assert_expr(expr* e) = 0;
+        virtual void    push() = 0;
+        virtual void    pop(unsigned num_scopes) = 0;
+    };
 
     // simplification result for constraint processing
     // mirrors ZIPT's SimplifyResult enum
@@ -639,16 +656,19 @@ namespace seq {
         std::function<bool()>         m_cancel_fn;
 
         // -----------------------------------------------
-        // Integer subsolver using lp::lar_solver
-        // Replaces ZIPT's SubSolver (auxiliary Z3 instance)
-        // with Z3's native LP solver for integer feasibility.
+        // Integer subsolver (abstract interface)
+        // When m_solver is null, check_int_feasibility uses an
+        // internal lp_simple_solver (created on demand).
         // -----------------------------------------------
-        scoped_ptr<lp::lar_solver>    m_lp_solver;
-        u_map<lp::lpvar>              m_expr2lpvar;    // maps expr id → LP variable
-        unsigned                      m_lp_ext_cnt = 0; // external variable counter for LP solver
+        simple_solver*                m_solver = nullptr;
+        scoped_ptr<simple_solver>     m_owned_solver; // non-null when we own the solver
 
     public:
+        // Construct without a custom solver; an lp_simple_solver is used internally.
         nielsen_graph(euf::sgraph& sg);
+        // Construct with a caller-supplied solver.  Ownership is NOT transferred;
+        // the caller is responsible for keeping the solver alive.
+        nielsen_graph(euf::sgraph& sg, simple_solver* solver);
         ~nielsen_graph();
 
         euf::sgraph& sg() { return m_sg; }
@@ -854,17 +874,8 @@ namespace seq {
         void compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len);
 
         // -----------------------------------------------
-        // LP integer subsolver methods
+        // Integer feasibility subsolver methods
         // -----------------------------------------------
-
-        // initialize the LP solver fresh for a feasibility check
-        void lp_solver_reset();
-
-        // get or create an LP variable for an arithmetic expression
-        lp::lpvar lp_ensure_var(expr* e);
-
-        // add an int_constraint to the LP solver
-        void lp_add_constraint(int_constraint const& ic);
 
         // collect int_constraints along the path from root to the given node,
         // including constraints from edges and nodes.
@@ -884,6 +895,9 @@ namespace seq {
 
         // create a fresh integer variable expression (for power exponents)
         expr_ref mk_fresh_int_var();
+
+        // convert an int_constraint to an expr* assertion
+        expr_ref int_constraint_to_expr(int_constraint const& ic);
     };
 
 }
