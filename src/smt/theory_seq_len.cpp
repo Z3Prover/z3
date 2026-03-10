@@ -329,45 +329,44 @@ namespace smt {
         }
         else {
             // Semi-linear: lengths are {base + k * period : k >= 0}
-            // Introduce a fresh variable (non-negative integer) and assert:
-            //   (s in R) => |s| = base + period * k
-            //   (s in R) => k >= 0
-            // mk_fresh_const appends a unique numeric suffix, so each call
-            // produces a distinct variable even with the same prefix.
-            sort* int_sort = m_autil.mk_int();
-            app* period_multiplier = m.mk_fresh_const("seq_len_k", int_sort, false);
+            // Assert:
+            //   (s in R) => |s| >= base
+            //   (s in R) => |s| mod period = base mod period  (only when period >= 2)
 
-            // k >= 0
-            expr_ref x_ge0(m_autil.mk_ge(period_multiplier, m_autil.mk_int(0)), m);
-            if (!ctx.b_internalized(x_ge0))
-                ctx.internalize(x_ge0, true);
-            literal x_ge0_lit = ctx.get_literal(x_ge0);
-            ctx.mark_as_relevant(x_ge0_lit);
+            // |s| >= base
+            expr_ref ge_base(m_autil.mk_ge(len, m_autil.mk_int(base)), m);
+            if (!ctx.b_internalized(ge_base))
+                ctx.internalize(ge_base, true);
+            literal ge_base_lit = ctx.get_literal(ge_base);
+            ctx.mark_as_relevant(ge_base_lit);
             {
                 literal_vector lits;
                 lits.push_back(~lit);
-                lits.push_back(x_ge0_lit);
+                lits.push_back(ge_base_lit);
                 assert_axiom(lits);
             }
 
-            // |s| = base + period * k
-            expr_ref period_times_x(m_autil.mk_mul(m_autil.mk_int(period), period_multiplier), m);
-            expr_ref rhs(m_autil.mk_add(m_autil.mk_int(base), period_times_x), m);
-            expr_ref eq_len(m.mk_eq(len, rhs), m);
-            if (!ctx.b_internalized(eq_len))
-                ctx.internalize(eq_len, true);
-            literal eq_lit = ctx.get_literal(eq_len);
-            ctx.mark_as_relevant(eq_lit);
-            {
-                literal_vector lits;
-                lits.push_back(~lit);
-                lits.push_back(eq_lit);
-                assert_axiom(lits);
+            // |s| mod period = base mod period
+            // Skip when period <= 1: period == 0 is already handled above;
+            // period == 1 makes the constraint trivially true (n mod 1 = 0).
+            if (period >= 2) {
+                expr_ref mod_len(m_autil.mk_mod(len, m_autil.mk_int(period)), m);
+                expr_ref eq_mod(m.mk_eq(mod_len, m_autil.mk_int(base % period)), m);
+                if (!ctx.b_internalized(eq_mod))
+                    ctx.internalize(eq_mod, true);
+                literal eq_mod_lit = ctx.get_literal(eq_mod);
+                ctx.mark_as_relevant(eq_mod_lit);
+                {
+                    literal_vector lits;
+                    lits.push_back(~lit);
+                    lits.push_back(eq_mod_lit);
+                    assert_axiom(lits);
+                }
             }
 
-            TRACE(seq, tout << "seq_len: (s in R) => |s| = " << base << " + "
-                            << period << " * k for s=" << mk_pp(s, m)
-                            << " r=" << mk_pp(r, m) << "\n";);
+            TRACE(seq, tout << "seq_len: (s in R) => |s| >= " << base
+                            << (period >= 2 ? " && |s| mod " + std::to_string(period) + " = " + std::to_string(base % period) : "")
+                            << " for s=" << mk_pp(s, m) << " r=" << mk_pp(r, m) << "\n";);
         }
     }
 
