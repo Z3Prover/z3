@@ -450,10 +450,8 @@ namespace smt {
 
     void theory_nseq::deps_to_lits(seq::dep_tracker const& deps, enode_pair_vector& eqs, literal_vector& lits) {
         context& ctx = get_context();
-        unsigned_vector bits;
-        deps.get_set_bits(bits);
         unsigned num_input_eqs = m_nielsen.num_input_eqs();
-        for (unsigned b : bits) {
+        for (unsigned b : deps) {
             if (b < num_input_eqs) {
                 eq_source const& src = m_state.get_eq_source(b);
                 if (src.m_n1->get_root() == src.m_n2->get_root())

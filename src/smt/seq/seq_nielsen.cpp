@@ -14,8 +14,8 @@ Abstract:
 
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2026-03-02
     Clemens Eisenhofer 2026-03-02
+    Nikolaj Bjorner (nbjorner) 2026-03-02
 
 --*/
 
@@ -23,7 +23,6 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "math/lp/lar_solver.h"
-#include "util/bit_util.h"
 #include "util/hashtable.h"
 #include <algorithm>
 #include <cstdlib>
@@ -322,149 +321,6 @@ namespace seq {
     }
 
     // -----------------------------------------------
-    // char_set
-    // -----------------------------------------------
-
-    unsigned char_set::char_count() const {
-        unsigned count = 0;
-        for (auto const& r : m_ranges)
-            count += r.length();
-        return count;
-    }
-
-    bool char_set::contains(unsigned c) const {
-        // binary search over sorted non-overlapping ranges
-        int lo = 0, hi = static_cast<int>(m_ranges.size()) - 1;
-        while (lo <= hi) {
-            int mid = lo + (hi - lo) / 2;
-            if (c < m_ranges[mid].m_lo)
-                hi = mid - 1;
-            else if (c >= m_ranges[mid].m_hi)
-                lo = mid + 1;
-            else
-                return true;
-        }
-        return false;
-    }
-
-    void char_set::add(unsigned c) {
-        if (m_ranges.empty()) {
-            m_ranges.push_back(char_range(c));
-            return;
-        }
-        // binary search for insertion point
-        int lo = 0, hi = static_cast<int>(m_ranges.size()) - 1;
-        while (lo <= hi) {
-            int mid = lo + (hi - lo) / 2;
-            if (c < m_ranges[mid].m_lo)
-                hi = mid - 1;
-            else if (c >= m_ranges[mid].m_hi)
-                lo = mid + 1;
-            else
-                return; // already contained
-        }
-        // lo is the insertion point
-        unsigned idx = static_cast<unsigned>(lo);
-        bool merge_left  = idx > 0 && m_ranges[idx - 1].m_hi == c;
-        bool merge_right = idx < m_ranges.size() && m_ranges[idx].m_lo == c + 1;
-        if (merge_left && merge_right) {
-            m_ranges[idx - 1].m_hi = m_ranges[idx].m_hi;
-            m_ranges.erase(m_ranges.begin() + idx);
-        } else if (merge_left) {
-            m_ranges[idx - 1].m_hi = c + 1;
-        } else if (merge_right) {
-            m_ranges[idx].m_lo = c;
-        } else {
-            // positional insert: shift elements right and place new element
-            m_ranges.push_back(char_range());
-            for (unsigned k = m_ranges.size() - 1; k > idx; --k)
-                m_ranges[k] = m_ranges[k - 1];
-            m_ranges[idx] = char_range(c);
-        }
-    }
-
-    void char_set::add(char_set const& other) {
-        for (auto const& r : other.m_ranges) {
-            for (unsigned c = r.m_lo; c < r.m_hi; ++c)
-                add(c);
-        }
-    }
-
-    char_set char_set::intersect_with(char_set const& other) const {
-        char_set result;
-        unsigned i = 0, j = 0;
-        while (i < m_ranges.size() && j < other.m_ranges.size()) {
-            unsigned lo = std::max(m_ranges[i].m_lo, other.m_ranges[j].m_lo);
-            unsigned hi = std::min(m_ranges[i].m_hi, other.m_ranges[j].m_hi);
-            if (lo < hi)
-                result.m_ranges.push_back(char_range(lo, hi));
-            if (m_ranges[i].m_hi < other.m_ranges[j].m_hi)
-                ++i;
-            else
-                ++j;
-        }
-        return result;
-    }
-
-    char_set char_set::complement(unsigned max_char) const {
-        char_set result;
-        if (m_ranges.empty()) {
-            result.m_ranges.push_back(char_range(0, max_char + 1));
-            return result;
-        }
-        unsigned from = 0;
-        for (auto const& r : m_ranges) {
-            if (from < r.m_lo)
-                result.m_ranges.push_back(char_range(from, r.m_lo));
-            from = r.m_hi;
-        }
-        if (from <= max_char)
-            result.m_ranges.push_back(char_range(from, max_char + 1));
-        return result;
-    }
-
-    bool char_set::is_disjoint(char_set const& other) const {
-        unsigned i = 0, j = 0;
-        while (i < m_ranges.size() && j < other.m_ranges.size()) {
-            if (m_ranges[i].m_hi <= other.m_ranges[j].m_lo)
-                ++i;
-            else if (other.m_ranges[j].m_hi <= m_ranges[i].m_lo)
-                ++j;
-            else
-                return false;
-        }
-        return true;
-    }
-
-    std::ostream& char_set::display(std::ostream& out) const {
-        if (m_ranges.empty()) {
-            out << "{}";
-            return out;
-        }
-        out << "{ ";
-        bool first = true;
-        for (auto const& r : m_ranges) {
-            if (!first) out << ", ";
-            first = false;
-            if (r.is_unit()) {
-                unsigned c = r.m_lo;
-                if (c >= 'a' && c <= 'z')
-                    out << (char)c;
-                else if (c >= 'A' && c <= 'Z')
-                    out << (char)c;
-                else if (c >= '0' && c <= '9')
-                    out << (char)c;
-                else
-                    out << "#[" << c << "]";
-            } else {
-                out << "[" << r.m_lo << "-" << (r.m_hi - 1) << "]";
-            }
-        }
-        out << " }";
-        return out;
-    }
-
-    // -----------------------------------------------
     // nielsen_edge
     // -----------------------------------------------
 
@@ -511,7 +367,7 @@ namespace seq {
             str_eq& eq = m_str_eq[i];
             eq.m_lhs = sg.subst(eq.m_lhs, s.m_var, s.m_replacement);
             eq.m_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_replacement);
-            eq.m_dep.merge(s.m_dep);
+            eq.m_dep |= s.m_dep;
             eq.sort();
         }
         for (unsigned i = 0; i < m_str_mem.size(); ++i) {
@@ -519,7 +375,7 @@ namespace seq {
             mem.m_str = sg.subst(mem.m_str, s.m_var, s.m_replacement);
             // regex is typically ground, but apply subst for generality
             mem.m_regex = sg.subst(mem.m_regex, s.m_var, s.m_replacement);
-            mem.m_dep.merge(s.m_dep);
+            mem.m_dep |= s.m_dep;
         }
     }
 
@@ -654,8 +510,8 @@ namespace seq {
     void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs) {
         if (!m_root)
             m_root = mk_node();
-        dep_tracker dep(m_root->str_eqs().size() + m_root->str_mems().size() + 1,
-                        m_root->str_eqs().size());
+        dep_tracker dep;
+        dep.insert(m_root->str_eqs().size());
         str_eq eq(lhs, rhs, dep);
         eq.sort();
         m_root->add_str_eq(eq);
@@ -665,8 +521,8 @@ namespace seq {
     void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex) {
         if (!m_root)
             m_root = mk_node();
-        dep_tracker dep(m_root->str_eqs().size() + m_root->str_mems().size() + 1,
-                        m_root->str_eqs().size() + m_root->str_mems().size());
+        dep_tracker dep;
+        dep.insert(m_root->str_eqs().size() + m_root->str_mems().size());
         euf::snode* history = m_sg.mk_empty();
         unsigned id = next_mem_id();
         m_root->add_str_mem(str_mem(str, regex, history, id, dep));
@@ -2574,9 +2430,9 @@ namespace seq {
             if (!n->is_currently_conflict())
                 continue;
             for (str_eq const& eq : n->str_eqs())
-                deps.merge(eq.m_dep);
+                deps |= eq.m_dep;
             for (str_mem const& mem : n->str_mems())
-                deps.merge(mem.m_dep);
+                deps |= mem.m_dep;
         }
     }
 
@@ -2584,9 +2440,7 @@ namespace seq {
         SASSERT(m_root);
         dep_tracker deps;
         collect_conflict_deps(deps);
-        unsigned_vector bits;
-        deps.get_set_bits(bits);
-        for (unsigned b : bits) {
+        for (unsigned b : deps) {
             if (b < m_num_input_eqs)
                 eq_indices.push_back(b);
             else
