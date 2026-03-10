@@ -103,6 +103,7 @@ namespace smt {
         void setup_seq();
         void setup_char();
         void setup_nseq();
+        void setup_seq_len();
         void setup_finite_set();
         void setup_card();
         void setup_sls();
