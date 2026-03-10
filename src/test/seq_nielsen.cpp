@@ -22,7 +22,7 @@ Abstract:
 #include "ast/ast_pp.h"
 #include <iostream>
 
-// test dep_tracker basic operations
+// test dep_tracker (uint_set) basic operations
 static void test_dep_tracker() {
     std::cout << "test_dep_tracker\n";
 
@@ -31,23 +31,26 @@ static void test_dep_tracker() {
     SASSERT(d0.empty());
 
     // tracker with one bit set
-    seq::dep_tracker d1(8, 3);
+    seq::dep_tracker d1;
+    d1.insert(3);
     SASSERT(!d1.empty());
 
     // tracker with another bit
-    seq::dep_tracker d2(8, 5);
+    seq::dep_tracker d2;
+    d2.insert(5);
     SASSERT(!d2.empty());
 
     // merge
     seq::dep_tracker d3 = d1;
-    d3.merge(d2);
+    d3 |= d2;
     SASSERT(!d3.empty());
-    SASSERT(d3.is_superset(d1));
-    SASSERT(d3.is_superset(d2));
-    SASSERT(!d1.is_superset(d2));
+    SASSERT(d1.subset_of(d3));
+    SASSERT(d2.subset_of(d3));
+    SASSERT(!d2.subset_of(d1));
 
     // equality
-    seq::dep_tracker d4(8, 3);
+    seq::dep_tracker d4;
+    d4.insert(3);
     SASSERT(d1 == d4);
     SASSERT(d1 != d2);
 }
@@ -65,7 +68,7 @@ static void test_str_eq() {
     euf::snode* a = sg.mk_char('A');
     euf::snode* e = sg.mk_empty();
 
-    seq::dep_tracker dep(4, 0);
+    seq::dep_tracker dep; dep.insert(0);
 
     // basic equality
     seq::str_eq eq1(x, y, dep);
@@ -112,7 +115,7 @@ static void test_str_mem() {
     expr_ref star_fc(seq.re.mk_full_seq(str_sort), m);
     euf::snode* regex = sg.mk(star_fc);
 
-    seq::dep_tracker dep(4, 1);
+    seq::dep_tracker dep; dep.insert(1);
     seq::str_mem mem(x, regex, e, 0, dep);
 
     // x in regex is primitive (x is a single variable)
@@ -1322,37 +1325,40 @@ static void test_solve_conflict_deps() {
     SASSERT(!deps.empty());
 }
 
-// test dep_tracker::get_set_bits
+// test dep_tracker (uint_set) iteration
 static void test_dep_tracker_get_set_bits() {
     std::cout << "test_dep_tracker_get_set_bits\n";
 
     // empty tracker has no bits
     seq::dep_tracker d0;
     unsigned_vector bits0;
-    d0.get_set_bits(bits0);
+    for (unsigned b : d0) bits0.push_back(b);
     SASSERT(bits0.empty());
 
     // single bit set at position 5
-    seq::dep_tracker d1(16, 5);
+    seq::dep_tracker d1;
+    d1.insert(5);
     unsigned_vector bits1;
-    d1.get_set_bits(bits1);
+    for (unsigned b : d1) bits1.push_back(b);
     SASSERT(bits1.size() == 1);
     SASSERT(bits1[0] == 5);
 
     // two bits merged
-    seq::dep_tracker d2(16, 3);
-    d2.merge(seq::dep_tracker(16, 11));
+    seq::dep_tracker d2;
+    d2.insert(3);
+    d2.insert(11);
     unsigned_vector bits2;
-    d2.get_set_bits(bits2);
+    for (unsigned b : d2) bits2.push_back(b);
     SASSERT(bits2.size() == 2);
     SASSERT(bits2[0] == 3);
     SASSERT(bits2[1] == 11);
 
     // test across word boundary (bit 31 and 32)
-    seq::dep_tracker d3(64, 31);
-    d3.merge(seq::dep_tracker(64, 32));
+    seq::dep_tracker d3;
+    d3.insert(31);
+    d3.insert(32);
     unsigned_vector bits3;
-    d3.get_set_bits(bits3);
+    for (unsigned b : d3) bits3.push_back(b);
     SASSERT(bits3.size() == 2);
     SASSERT(bits3[0] == 31);
     SASSERT(bits3[1] == 32);
@@ -1543,7 +1549,7 @@ static void test_simplify_prefix_cancel() {
     euf::snode* aby = sg.mk_concat(a, sg.mk_concat(b, y));
 
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep(4, 0);
+    seq::dep_tracker dep; dep.insert(0);
     node->add_str_eq(seq::str_eq(abx, aby, dep));
 
     auto sr = node->simplify_and_init(ng);
@@ -1573,7 +1579,7 @@ static void test_simplify_symbol_clash() {
     euf::snode* by = sg.mk_concat(b, y);
 
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep(4, 0);
+    seq::dep_tracker dep; dep.insert(0);
     node->add_str_eq(seq::str_eq(ax, by, dep));
 
     auto sr = node->simplify_and_init(ng);
@@ -1598,7 +1604,7 @@ static void test_simplify_empty_propagation() {
 
     // ε = x·y → forces x=ε, y=ε → all trivial → satisfied
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep(4, 0);
+    seq::dep_tracker dep; dep.insert(0);
     node->add_str_eq(seq::str_eq(e, xy, dep));
 
     auto sr = node->simplify_and_init(ng);
@@ -1619,7 +1625,7 @@ static void test_simplify_empty_vs_char() {
 
     // ε = A → rhs has non-variable token → conflict
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep(4, 0);
+    seq::dep_tracker dep; dep.insert(0);
     node->add_str_eq(seq::str_eq(e, a, dep));
 
     auto sr = node->simplify_and_init(ng);
@@ -1645,7 +1651,7 @@ static void test_simplify_multi_pass_clash() {
     euf::snode* ac = sg.mk_concat(a, c);
 
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep(4, 0);
+    seq::dep_tracker dep; dep.insert(0);
     node->add_str_eq(seq::str_eq(ab, ac, dep));
 
     auto sr = node->simplify_and_init(ng);
@@ -1667,7 +1673,7 @@ static void test_simplify_trivial_removal() {
     euf::snode* e = sg.mk_empty();
 
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep(4, 0);
+    seq::dep_tracker dep; dep.insert(0);
     node->add_str_eq(seq::str_eq(e, e, dep));  // trivial
     node->add_str_eq(seq::str_eq(x, y, dep));  // non-trivial
 
@@ -1689,7 +1695,7 @@ static void test_simplify_all_trivial_satisfied() {
     euf::snode* e = sg.mk_empty();
 
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep(4, 0);
+    seq::dep_tracker dep; dep.insert(0);
     node->add_str_eq(seq::str_eq(x, x, dep));  // trivial: same pointer
     node->add_str_eq(seq::str_eq(e, e, dep));  // trivial: both empty
 
@@ -1716,7 +1722,7 @@ static void test_simplify_regex_infeasible() {
 
     // ε ∈ to_re("A") → non-nullable → conflict
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep(4, 0);
+    seq::dep_tracker dep; dep.insert(0);
     node->add_str_mem(seq::str_mem(e, regex, e, 0, dep));
 
     auto sr = node->simplify_and_init(ng);
@@ -1744,7 +1750,7 @@ static void test_simplify_nullable_removal() {
 
     // ε ∈ star(to_re("A")) → nullable → satisfied, mem removed
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep(4, 0);
+    seq::dep_tracker dep; dep.insert(0);
     node->add_str_mem(seq::str_mem(e, regex, e, 0, dep));
 
     auto sr = node->simplify_and_init(ng);
@@ -1772,7 +1778,7 @@ static void test_simplify_brzozowski_sat() {
 
     // "A" ∈ to_re("A") → derivative consumes 'A' → ε ∈ ε-regex → satisfied
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep(4, 0);
+    seq::dep_tracker dep; dep.insert(0);
     node->add_str_mem(seq::str_mem(a, regex, e, 0, dep));
 
     auto sr = node->simplify_and_init(ng);
@@ -1795,7 +1801,7 @@ static void test_simplify_multiple_eqs() {
     euf::snode* e = sg.mk_empty();
 
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep(8, 0);
+    seq::dep_tracker dep; dep.insert(0);
 
     // eq1: ε = ε (trivial → removed)
     node->add_str_eq(seq::str_eq(e, e, dep));
@@ -2234,7 +2240,7 @@ static void test_length_constraints_deps() {
     for (auto const& c : constraints) {
         SASSERT(!c.m_dep.empty());
         unsigned_vector bits;
-        c.m_dep.get_set_bits(bits);
+        for (unsigned b : c.m_dep) bits.push_back(b);
         SASSERT(bits.size() == 1);
         SASSERT(bits[0] == 0);
     }

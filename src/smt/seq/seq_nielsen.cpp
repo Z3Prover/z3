@@ -23,65 +23,12 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "math/lp/lar_solver.h"
-#include "util/bit_util.h"
 #include "util/hashtable.h"
 #include <algorithm>
 #include <cstdlib>
 #include <sstream>
 
 namespace seq {
-
-    // -----------------------------------------------
-    // dep_tracker
-    // -----------------------------------------------
-
-    dep_tracker::dep_tracker(unsigned num_bits) {
-        unsigned words = (num_bits + 31) / 32;
-        m_bits.resize(words, 0);
-    }
-
-    dep_tracker::dep_tracker(unsigned num_bits, unsigned set_bit) : dep_tracker(num_bits) {
-        if (set_bit < num_bits) {
-            unsigned word_idx = set_bit / 32;
-            unsigned bit_idx = set_bit % 32;
-            m_bits[word_idx] = 1u << bit_idx;
-        }
-    }
-
-    void dep_tracker::merge(dep_tracker const& other) {
-        if (other.m_bits.empty())
-            return;
-        if (m_bits.size() < other.m_bits.size())
-            m_bits.resize(other.m_bits.size(), 0);
-        for (unsigned i = 0; i < other.m_bits.size(); ++i)
-            m_bits[i] |= other.m_bits[i];
-    }
-
-    bool dep_tracker::is_superset(dep_tracker const& other) const {
-        for (unsigned i = 0; i < other.m_bits.size(); ++i) {
-            unsigned my_bits = (i < m_bits.size()) ? m_bits[i] : 0;
-            if ((my_bits & other.m_bits[i]) != other.m_bits[i])
-                return false;
-        }
-        return true;
-    }
-
-    bool dep_tracker::empty() const {
-        for (unsigned b : m_bits)
-            if (b != 0) return false;
-        return true;
-    }
-
-    void dep_tracker::get_set_bits(unsigned_vector& indices) const {
-        for (unsigned i = 0; i < m_bits.size(); ++i) {
-            unsigned word = m_bits[i];
-            while (word != 0) {
-                unsigned bit = i * 32 + ntz_core(word);
-                indices.push_back(bit);
-                word &= word - 1; // clear lowest set bit
-            }
-        }
-    }
 
     // -----------------------------------------------
     // str_eq
@@ -338,7 +285,7 @@ namespace seq {
             str_eq& eq = m_str_eq[i];
             eq.m_lhs = sg.subst(eq.m_lhs, s.m_var, s.m_replacement);
             eq.m_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_replacement);
-            eq.m_dep.merge(s.m_dep);
+            eq.m_dep |= s.m_dep;
             eq.sort();
         }
         for (unsigned i = 0; i < m_str_mem.size(); ++i) {
@@ -346,7 +293,7 @@ namespace seq {
             mem.m_str = sg.subst(mem.m_str, s.m_var, s.m_replacement);
             // regex is typically ground, but apply subst for generality
             mem.m_regex = sg.subst(mem.m_regex, s.m_var, s.m_replacement);
-            mem.m_dep.merge(s.m_dep);
+            mem.m_dep |= s.m_dep;
         }
     }
 
@@ -469,8 +416,8 @@ namespace seq {
     void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs) {
         if (!m_root)
             m_root = mk_node();
-        dep_tracker dep(m_root->str_eqs().size() + m_root->str_mems().size() + 1,
-                        m_root->str_eqs().size());
+        dep_tracker dep;
+        dep.insert(m_root->str_eqs().size());
         str_eq eq(lhs, rhs, dep);
         eq.sort();
         m_root->add_str_eq(eq);
@@ -480,8 +427,8 @@ namespace seq {
     void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex) {
         if (!m_root)
             m_root = mk_node();
-        dep_tracker dep(m_root->str_eqs().size() + m_root->str_mems().size() + 1,
-                        m_root->str_eqs().size() + m_root->str_mems().size());
+        dep_tracker dep;
+        dep.insert(m_root->str_eqs().size() + m_root->str_mems().size());
         euf::snode* history = m_sg.mk_empty();
         unsigned id = next_mem_id();
         m_root->add_str_mem(str_mem(str, regex, history, id, dep));
@@ -2389,9 +2336,9 @@ namespace seq {
             if (!n->is_currently_conflict())
                 continue;
             for (str_eq const& eq : n->str_eqs())
-                deps.merge(eq.m_dep);
+                deps |= eq.m_dep;
             for (str_mem const& mem : n->str_mems())
-                deps.merge(mem.m_dep);
+                deps |= mem.m_dep;
         }
     }
 
@@ -2399,9 +2346,7 @@ namespace seq {
         SASSERT(m_root);
         dep_tracker deps;
         collect_conflict_deps(deps);
-        unsigned_vector bits;
-        deps.get_set_bits(bits);
-        for (unsigned b : bits) {
+        for (unsigned b : deps) {
             if (b < m_num_input_eqs)
                 eq_indices.push_back(b);
             else
