@@ -372,6 +372,7 @@ namespace seq {
     };
 
     // string variable substitution: var -> replacement
+    // (can be used as well to substitute arbitrary nodes - like powers)
     // mirrors ZIPT's Subst
     struct nielsen_subst {
         euf::snode* m_var;
@@ -616,7 +617,7 @@ namespace seq {
         // cur_path provides the path from root to this node so that the
         // LP solver can be queried for deterministic power cancellation.
         // Returns proceed, conflict, satisfied, or restart.
-        simplify_result simplify_and_init(nielsen_graph& g, svector<nielsen_edge*> const& cur_path);
+        simplify_result simplify_and_init(nielsen_graph& g, svector<nielsen_edge*> const& cur_path = svector<nielsen_edge*>());
 
         // true if all str_eqs are trivial and there are no str_mems
         bool is_satisfied() const;
@@ -668,6 +669,7 @@ namespace seq {
         unsigned m_mod_det             = 0;
         unsigned m_mod_power_epsilon   = 0;
         unsigned m_mod_num_cmp         = 0;
+        unsigned m_mod_split_power_elim = 0;
         unsigned m_mod_const_num_unwinding = 0;
         unsigned m_mod_eq_split        = 0;
         unsigned m_mod_star_intr       = 0;
@@ -875,6 +877,15 @@ namespace seq {
         // mirrors ZIPT's NumCmpModifier
         bool apply_num_cmp(nielsen_node* node);
 
+        // CommPower-based power elimination split: when one side starts with
+        // a power w^p and CommPower finds c base-pattern occurrences on the
+        // other side but the ordering between p and c is unknown, branch:
+        //   (1) p < c   (2) c ≤ p
+        // After branching, simplify_and_init's CommPower pass resolves the
+        // cancellation deterministically.
+        // mirrors ZIPT's SplitPowerElim + NumCmpModifier
+        bool apply_split_power_elim(nielsen_node* node);
+
         // constant numeric unwinding: for a power token u^n vs a constant
         // (non-variable), branch: (1) n = 0 (u^n = ε), (2) n >= 1 (peel one u).
         // mirrors ZIPT's ConstNumUnwindingModifier
@@ -918,7 +929,7 @@ namespace seq {
         euf::snode* find_power_token(nielsen_node* node) const;
 
         // find a power token facing a constant (char) head
-        bool find_power_vs_const(nielsen_node* node, euf::snode*& power, euf::snode*& other_head, str_eq const*& eq_out) const;
+        bool find_power_vs_non_var(nielsen_node* node, euf::snode*& power, euf::snode*& other_head, str_eq const*& eq_out) const;
 
         // find a power token facing a variable head
         bool find_power_vs_var(nielsen_node* node, euf::snode*& power, euf::snode*& var_head, str_eq const*& eq_out) const;
