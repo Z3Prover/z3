@@ -34,9 +34,14 @@ def find_scan_build() -> str:
         if path:
             logger.debug("found scan-build: %s", path)
             return path
-    logger.error(
-        "scan-build not found. Install clang-tools or set PATH. "
-        "Searched: %s", ", ".join(SCAN_BUILD_NAMES)
+    print(
+        "scan-build not found on PATH.\n"
+        "Install one of the following:\n"
+        "  Ubuntu/Debian: sudo apt install clang-tools\n"
+        "  macOS:         brew install llvm\n"
+        "  Fedora:        sudo dnf install clang-tools-extra\n"
+        f"searched for: {', '.join(SCAN_BUILD_NAMES)}",
+        file=sys.stderr,
     )
     sys.exit(1)
 

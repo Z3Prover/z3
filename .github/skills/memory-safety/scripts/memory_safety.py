@@ -11,6 +11,7 @@ import argparse
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -30,6 +31,25 @@ ASAN_ERROR = re.compile(r"ERROR:\s*AddressSanitizer:\s*(\S+)")
 UBSAN_ERROR = re.compile(r":\d+:\d+:\s*runtime error:\s*(.+)")
 LEAK_ERROR = re.compile(r"ERROR:\s*LeakSanitizer:")
 LOCATION = re.compile(r"(\S+\.(?:cpp|c|h|hpp)):(\d+)")
+
+
+def check_dependencies():
+    """Fail early if required build tools are not on PATH."""
+    missing = []
+    if not shutil.which("cmake"):
+        missing.append(("cmake", "sudo apt install cmake"))
+    if not shutil.which("make"):
+        missing.append(("make", "sudo apt install build-essential"))
+
+    cc = shutil.which("clang") or shutil.which("gcc")
+    if not cc:
+        missing.append(("clang or gcc", "sudo apt install clang"))
+
+    if missing:
+        print("required tools not found:", file=sys.stderr)
+        for tool, install in missing:
+            print(f"  {tool}: {install}", file=sys.stderr)
+        sys.exit(1)
 
 
 def find_repo_root() -> Path:
@@ -199,6 +219,7 @@ def main():
     args = parser.parse_args()
 
     setup_logging(args.debug)
+    check_dependencies()
     repo_root = find_repo_root()
 
     sanitizers = ["asan", "ubsan"] if args.sanitizer == "both" else [args.sanitizer]
