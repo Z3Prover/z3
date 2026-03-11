@@ -15,7 +15,7 @@ timeout-minutes: 30
 permissions:
   actions: read
   contents: read
-  discussions: write
+  discussions: read
 
 env:
   GH_TOKEN: ${{ github.token }}

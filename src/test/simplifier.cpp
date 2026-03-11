@@ -138,6 +138,7 @@ static void test_skolemize_bug() {
     Z3_ast f3 = Z3_simplify(ctx, f2);
     std::cout << Z3_ast_to_string(ctx, f3) << "\n";
 
+    Z3_del_context(ctx);
 }
 
 

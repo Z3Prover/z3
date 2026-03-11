@@ -34,7 +34,7 @@ jobs:
       ASAN_OPTIONS: "detect_leaks=1:halt_on_error=0:print_stats=1:log_path=/tmp/asan"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -107,7 +107,7 @@ jobs:
 
       - name: Upload ASan reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: asan-reports
           path: /tmp/asan-reports/
@@ -124,7 +124,7 @@ jobs:
       UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=0:log_path=/tmp/ubsan"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -140,8 +140,8 @@ jobs:
           cd build-ubsan
           CC=clang CXX=clang++ cmake \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -fno-sanitize-recover=all" \
-            -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -fno-sanitize-recover=all" \
+            -DCMAKE_C_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -fsanitize-recover=all" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=undefined -fno-omit-frame-pointer -fsanitize-recover=all" \
             -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=undefined" \
             -DCMAKE_SHARED_LINKER_FLAGS="-fsanitize=undefined" \
             -G Ninja ../
@@ -197,7 +197,7 @@ jobs:
 
       - name: Upload UBSan reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ubsan-reports
           path: /tmp/ubsan-reports/
@@ -213,7 +213,7 @@ jobs:
     if: always()
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: reports/
 
