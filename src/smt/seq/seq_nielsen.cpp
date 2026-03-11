@@ -20,7 +20,7 @@ Author:
 --*/
 
 #include "smt/seq/seq_nielsen.h"
-#include "smt/seq/nseq_parith.h"
+#include "smt/seq/seq_parikh.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "util/hashtable.h"
@@ -433,7 +433,7 @@ namespace seq {
     nielsen_graph::nielsen_graph(euf::sgraph& sg, simple_solver& solver):
         m_sg(sg),
         m_solver(solver),
-        m_parith(alloc(nseq_parith, sg)) {
+        m_parith(alloc(seq_parikh, sg)) {
     }
 
     nielsen_graph::~nielsen_graph() {

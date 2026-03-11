@@ -248,7 +248,7 @@ namespace seq {
     class nielsen_node;
     class nielsen_edge;
     class nielsen_graph;
-    class nseq_parith;  // Parikh image filter (defined in nseq_parith.h)
+    class seq_parikh;   // Parikh image filter (see seq_parikh.h)
 
     /**
      * Abstract interface for an incremental solver used by nielsen_graph
@@ -718,7 +718,7 @@ namespace seq {
 
         // Parikh image filter: generates modular length constraints from regex
         // memberships.  Allocated in the constructor; owned by this graph.
-        nseq_parith*                  m_parith = nullptr;
+        seq_parikh*                   m_parith = nullptr;
 
     public:
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
