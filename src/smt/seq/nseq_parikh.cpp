@@ -137,10 +137,6 @@ namespace seq {
         if (seq.re.is_concat(re, r1, r2)) {
             unsigned s1 = compute_length_stride(r1);
             unsigned s2 = compute_length_stride(r2);
-            // 0 (fixed) on either side: result is governed by the other.
-            if (s1 == 0 && s2 == 0) return 0;
-            if (s1 == 0) return s2;
-            if (s2 == 0) return s1;
             return u_gcd(s1, s2);
         }
 
@@ -185,9 +181,6 @@ namespace seq {
         if (seq.re.is_intersection(re, r1, r2)) {
             unsigned s1 = compute_length_stride(r1);
             unsigned s2 = compute_length_stride(r2);
-            if (s1 == 0 && s2 == 0) return 0;
-            if (s1 == 0) return s2;
-            if (s2 == 0) return s1;
             return u_gcd(s1, s2);
         }
 
