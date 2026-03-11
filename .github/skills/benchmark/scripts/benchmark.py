@@ -42,13 +42,19 @@ def main():
 
     for i in range(args.runs):
         run_id = db.start_run("benchmark", formula)
-        result = run_z3(formula, z3_bin=args.z3, timeout=args.timeout,
-                        args=["-st"], debug=args.debug)
+        result = run_z3(
+            formula,
+            z3_bin=args.z3,
+            timeout=args.timeout,
+            args=["-st"],
+            debug=args.debug,
+        )
 
         stats = parse_stats(result["stdout"])
         db.log_formula(run_id, formula, result["result"], stats=stats)
-        db.finish_run(run_id, result["result"], result["duration_ms"],
-                      result["exit_code"])
+        db.finish_run(
+            run_id, result["result"], result["duration_ms"], result["exit_code"]
+        )
         timings.append(result["duration_ms"])
 
         if args.runs == 1:

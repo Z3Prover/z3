@@ -21,7 +21,7 @@ def detect_type(text: str) -> str:
         return "model"
     if "(error" in text:
         return "error"
-    if re.search(r':\S+\s+[\d.]+', text):
+    if re.search(r":\S+\s+[\d.]+", text):
         return "stats"
     first = text.strip().split("\n")[0].strip()
     if first == "unsat":
@@ -86,8 +86,9 @@ def main():
     parser = argparse.ArgumentParser(prog="explain")
     parser.add_argument("--file")
     parser.add_argument("--stdin", action="store_true")
-    parser.add_argument("--type", choices=["model", "core", "stats", "error", "auto"],
-                        default="auto")
+    parser.add_argument(
+        "--type", choices=["model", "core", "stats", "error", "auto"], default="auto"
+    )
     parser.add_argument("--db", default=None)
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()

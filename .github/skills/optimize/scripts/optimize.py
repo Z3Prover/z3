@@ -42,10 +42,8 @@ def main():
 
     model = parse_model(result["stdout"]) if result["result"] == "sat" else None
 
-    db.log_formula(run_id, formula, result["result"],
-                   str(model) if model else None)
-    db.finish_run(run_id, result["result"], result["duration_ms"],
-                  result["exit_code"])
+    db.log_formula(run_id, formula, result["result"], str(model) if model else None)
+    db.finish_run(run_id, result["result"], result["duration_ms"], result["exit_code"])
 
     print(result["result"])
     if model:

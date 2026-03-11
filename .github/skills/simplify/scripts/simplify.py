@@ -14,7 +14,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "shared"))
 from z3db import Z3DB, run_z3, setup_logging
 
-
 DEFAULT_TACTICS = "simplify,propagate-values,ctx-simplify"
 
 
