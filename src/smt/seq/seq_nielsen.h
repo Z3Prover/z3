@@ -718,7 +718,7 @@ namespace seq {
 
         // Parikh image filter: generates modular length constraints from regex
         // memberships.  Allocated in the constructor; owned by this graph.
-        seq_parikh*                   m_parith = nullptr;
+        seq_parikh*                   m_parikh = nullptr;
 
     public:
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;

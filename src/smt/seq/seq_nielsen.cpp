@@ -433,11 +433,11 @@ namespace seq {
     nielsen_graph::nielsen_graph(euf::sgraph& sg, simple_solver& solver):
         m_sg(sg),
         m_solver(solver),
-        m_parith(alloc(seq_parikh, sg)) {
+        m_parikh(alloc(seq_parikh, sg)) {
     }
 
     nielsen_graph::~nielsen_graph() {
-        dealloc(m_parith);
+        dealloc(m_parikh);
         reset();
     }
 
@@ -1041,12 +1041,12 @@ namespace seq {
 
         // Generate modular length constraints (len(str) = min_len + stride·k, etc.)
         // and append them to the node's integer constraint list.
-        m_parith->apply_to_node(node);
+        m_parikh->apply_to_node(node);
 
         // Lightweight feasibility pre-check: does the Parikh modular constraint
         // contradict the variable's current integer bounds?  If so, mark this
         // node as a Parikh-image conflict immediately (avoids a solver call).
-        if (!node.is_currently_conflict() && m_parith->check_parikh_conflict(node)) {
+        if (!node.is_currently_conflict() && m_parikh->check_parikh_conflict(node)) {
             node.set_general_conflict(true);
             node.set_reason(backtrack_reason::parikh_image);
         }
@@ -2306,7 +2306,7 @@ namespace seq {
                 // generated from minterm m_i, ?c must belong to the character
                 // class described by m_i so that str ∈ derivative(R, m_i).
                 if (mt->get_expr()) {
-                    char_set cs = m_parith->minterm_to_char_set(mt->get_expr());
+                    char_set cs = m_parikh->minterm_to_char_set(mt->get_expr());
                     if (!cs.is_empty())
                         child->add_char_range(fresh_char, cs);
                 }
