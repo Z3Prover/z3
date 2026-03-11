@@ -83,25 +83,23 @@ The ZIPT project (https://github.com/CEisenhofer/ZIPT/tree/parikh/ZIPT) is the r
 
 ### Step 2.1: Discover ZIPT File Structure
 
-Fetch the ZIPT repository tree to understand the structure:
+Use the GitHub MCP server tools to browse the ZIPT repository (owner: CEisenhofer, repo: ZIPT, ref: parikh):
 
-```
-https://raw.githubusercontent.com/CEisenhofer/ZIPT/parikh/ZIPT/
-```
-
-Try fetching these likely ZIPT source directories and files:
-
-1. Repository root listing: `https://api.github.com/repos/CEisenhofer/ZIPT/git/trees/parikh?recursive=1`
-2. Key ZIPT source files (fetch the ones you find relevant from the tree):
-   - Look for files related to: string graphs, sequence plugins, Nielsen graph, Parikh constraints, polynomial hashing, substitution caching
+1. List the top-level `ZIPT` directory contents:
+   - Use `get_file_contents` with owner=CEisenhofer, repo=ZIPT, path=ZIPT, ref=parikh
+   - This returns a directory listing of files and subdirectories
+2. Explore subdirectories relevant to string solving:
+   - Look for directories/files related to: string graphs, sequence plugins, Nielsen graph, Parikh constraints, polynomial hashing, substitution caching
    - The ZIPT project is written in C#; the Z3 implementation is a C++ port
 
-When fetching files, use the raw content URL pattern:
-```
-https://raw.githubusercontent.com/CEisenhofer/ZIPT/parikh/ZIPT/<path>
-```
+### Step 2.2: Read Key ZIPT Source Files
 
-### Step 2.2: Identify Corresponding ZIPT Files
+For each relevant file found in Step 2.1, read its contents:
+- Use `get_file_contents` with owner=CEisenhofer, repo=ZIPT, path=ZIPT/<filename>.cs, ref=parikh
+  (e.g., path=ZIPT/StringGraph.cs or path=ZIPT/Constraints/NielsenGraph.cs)
+- Focus on files under the `ZIPT/` directory in the `parikh` branch
+
+### Step 2.3: Identify Corresponding ZIPT Files
 
 For each Z3 file you read in Phase 1, identify the ZIPT file(s) that implement the same functionality. Focus on:
 - String/sequence graph data structures (snode, sgraph equivalents)
@@ -248,6 +246,6 @@ make test-z3
 
 ### Exit Conditions
 Exit without creating an issue if:
-- ZIPT repository is unreachable
+- ZIPT repository is unreachable via `get_file_contents` (use the `noop` tool to report completion with no actions taken)
 - No concrete, safe improvements can be identified
 - All identified improvements require architectural changes beyond the scope of a single diff
