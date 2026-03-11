@@ -2301,8 +2301,15 @@ namespace seq {
                 nielsen_subst s(first, replacement, mem.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
-                // TODO: derive char_set from minterm and add as range constraint
-                // child->add_char_range(fresh_char, minterm_to_char_set(mt));
+                // Constrain fresh_char to the character class of this minterm.
+                // This is the key Parikh pruning step: when x → ?c · x' is
+                // generated from minterm m_i, ?c must belong to the character
+                // class described by m_i so that str ∈ derivative(R, m_i).
+                if (mt->get_expr()) {
+                    char_set cs = m_parith->minterm_to_char_set(mt->get_expr());
+                    if (!cs.is_empty())
+                        child->add_char_range(fresh_char, cs);
+                }
                 created = true;
             }
 

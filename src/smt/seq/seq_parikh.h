@@ -126,6 +126,25 @@ namespace seq {
         // Compute the length stride of a regex expression.
         // Exposed for testing and external callers.
         unsigned get_length_stride(expr* re) { return compute_length_stride(re); }
+
+        // Convert a regex minterm expression to a char_set.
+        //
+        // A minterm is a Boolean combination of character-class predicates
+        // (re.range, re.full_char, complement, intersection) that names a
+        // single, indivisible character equivalence class.  Minterms are
+        // produced by sgraph::compute_minterms and used in
+        // apply_regex_var_split to constrain fresh character variables.
+        //
+        // Supported expressions:
+        //   re.full_char       → full set [0, max_char]
+        //   re.range(lo, hi)   → char_set [lo, hi] (inclusive on both ends)
+        //   re.complement(r)   → complement of minterm_to_char_set(r)
+        //   re.inter(r1, r2)   → intersection of both sets
+        //   re.diff(r1, r2)    → r1 minus r2  (= r1 ∩ complement(r2))
+        //   re.to_re(unit(c))  → singleton {c}
+        //   re.empty           → empty set
+        //   anything else      → full set (conservative, sound over-approximation)
+        char_set minterm_to_char_set(expr* minterm_re);
     };
 
 } // namespace seq

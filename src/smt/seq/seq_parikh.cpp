@@ -80,36 +80,24 @@ namespace seq {
 
         // r* — Kleene star.
         // L(r*) = {ε} ∪ L(r) ∪ L(r)·L(r) ∪ ...
-        // If r has a fixed length k, then L(r*) = {0, k, 2k, ...} → stride k.
-        // If r has variable length, strides from different iterations combine
-        // by GCD.
+        // If all lengths in L(r) are congruent to c modulo s (c = min_len, s = stride),
+        // then L(r*) includes lengths {0, c, c+s, 2c, 2c+s, 2c+2s, ...} and
+        // the overall GCD is gcd(c, s).  This is strictly more accurate than
+        // the previous gcd(min, max) approximation, which can be unsound when
+        // the body contains lengths whose GCD is smaller than gcd(min, max).
         if (seq.re.is_star(re, r1)) {
             unsigned mn = seq.re.min_length(r1);
-            unsigned mx = seq.re.max_length(r1);
-            // When the body has unbounded length (mx == UINT_MAX), different
-            // iterations can produce many different lengths, and the stride of
-            // the star as a whole degenerates to gcd(mn, mn) = mn (or 1 if
-            // mn == 1).  This is conservative: we use the body's min-length
-            // as the only available fixed quantity.
-            if (mx == UINT_MAX) mx = mn;
-            if (mn == mx) {
-                // Fixed-length body: L(r*) = {0, mn, 2·mn, ...} → stride = mn.
-                // When mn == 1 the stride would be 1, which gives no useful
-                // modular constraint, so return 0 instead.
-                return (mn > 1) ? mn : 0;
-            }
-            // Variable-length body: GCD of min and max lengths
-            return u_gcd(mn, mx);
+            unsigned inner = compute_length_stride(r1);
+            // stride(r*) = gcd(min_length(r), stride(r))
+            // when inner=0 (fixed-length body), gcd(mn, 0) = mn → stride = mn
+            return u_gcd(mn, inner);
         }
 
         // r+ — one or more: same stride analysis as r*.
         if (seq.re.is_plus(re, r1)) {
             unsigned mn = seq.re.min_length(r1);
-            unsigned mx = seq.re.max_length(r1);
-            if (mx == UINT_MAX) mx = mn;  // same conservative treatment as star
-            if (mn == mx)
-                return (mn > 1) ? mn : 0;
-            return u_gcd(mn, mx);
+            unsigned inner = compute_length_stride(r1);
+            return u_gcd(mn, inner);
         }
 
         // r? — zero or one: lengths = {0} ∪ lengths(r)
@@ -150,23 +138,18 @@ namespace seq {
             return g;
         }
 
-        // loop(r, lo, hi): lengths = {lo·len(r), ..., hi·len(r)} if r is fixed.
-        // stride = len(r) when r is fixed-length; otherwise GCD.
+        // loop(r, lo, hi): the length of any word is a sum of lo..hi copies of
+        // lengths from L(r).  Since all lengths in L(r) are ≡ min_len(r) mod
+        // stride(r), the overall stride is gcd(min_len(r), stride(r)).
         if (seq.re.is_loop(re, r1, lo, hi)) {
             unsigned mn = seq.re.min_length(r1);
-            unsigned mx = seq.re.max_length(r1);
-            if (mx == UINT_MAX) mx = mn;
-            if (mn == mx)
-                return (mn > 1) ? mn : 0;
-            return u_gcd(mn, mx);
+            unsigned inner = compute_length_stride(r1);
+            return u_gcd(mn, inner);
         }
         if (seq.re.is_loop(re, r1, lo)) {
             unsigned mn = seq.re.min_length(r1);
-            unsigned mx = seq.re.max_length(r1);
-            if (mx == UINT_MAX) mx = mn;
-            if (mn == mx)
-                return (mn > 1) ? mn : 0;
-            return u_gcd(mn, mx);
+            unsigned inner = compute_length_stride(r1);
+            return u_gcd(mn, inner);
         }
 
         // intersection(r1, r2): lengths must be in both languages.
@@ -322,6 +305,82 @@ namespace seq {
                 return true; // no valid k exists → Parikh conflict
         }
         return false;
+    }
+
+    // -----------------------------------------------------------------------
+    // minterm → char_set conversion
+    // -----------------------------------------------------------------------
+
+    // Convert a regex minterm expression to a char_set.
+    //
+    // Minterms are Boolean combinations of character-class predicates
+    // (re.range, re.full_char, complement, intersection) produced by
+    // sgraph::compute_minterms().  This function converts them to a
+    // concrete char_set so that fresh character variables introduced by
+    // apply_regex_var_split can be constrained with add_char_range().
+    //
+    // The implementation is recursive and handles:
+    //   re.full_char             → [0, max_char]  (full alphabet)
+    //   re.range(lo, hi)         → [lo, hi+1)     (hi inclusive in Z3)
+    //   re.complement(r)         → alphabet \ minterm_to_char_set(r)
+    //   re.inter(r1, r2)         → intersection of both sides
+    //   re.diff(r1, r2)          → r1 ∩ complement(r2)
+    //   re.to_re(str.unit(c))    → singleton {c}
+    //   re.empty                 → empty set
+    //   anything else            → [0, max_char]  (conservative)
+    char_set seq_parikh::minterm_to_char_set(expr* re_expr) {
+        unsigned max_c = seq.max_char();
+
+        if (!re_expr)
+            return char_set::full(max_c);
+
+        // full_char: the whole alphabet [0, max_char]
+        if (seq.re.is_full_char(re_expr))
+            return char_set::full(max_c);
+
+        // range [lo, hi] (hi inclusive in Z3's regex representation)
+        unsigned lo = 0, hi = 0;
+        if (seq.re.is_range(re_expr, lo, hi)) {
+            if (lo > hi) return char_set();
+            // char_range uses exclusive upper bound; Z3 hi is inclusive
+            return char_set(char_range(lo, hi + 1));
+        }
+
+        // complement: alphabet minus the inner set
+        expr* inner = nullptr;
+        if (seq.re.is_complement(re_expr, inner))
+            return minterm_to_char_set(inner).complement(max_c);
+
+        // intersection: characters present in both sets
+        expr* r1 = nullptr, *r2 = nullptr;
+        if (seq.re.is_intersection(re_expr, r1, r2))
+            return minterm_to_char_set(r1).intersect_with(minterm_to_char_set(r2));
+
+        // difference: r1 minus r2 = r1 ∩ complement(r2)
+        if (seq.re.is_diff(re_expr, r1, r2))
+            return minterm_to_char_set(r1).intersect_with(
+                       minterm_to_char_set(r2).complement(max_c));
+
+        // to_re(str.unit(c)): singleton character set
+        expr* str_arg = nullptr;
+        if (seq.re.is_to_re(re_expr, str_arg)) {
+            expr* ch_expr = nullptr;
+            unsigned char_val = 0;
+            if (seq.str.is_unit(str_arg, ch_expr) &&
+                seq.is_const_char(ch_expr, char_val)) {
+                char_set cs;
+                cs.add(char_val);
+                return cs;
+            }
+        }
+
+        // empty regex: no characters can appear
+        if (seq.re.is_empty(re_expr))
+            return char_set();
+
+        // Conservative fallback: return the full alphabet so that
+        // no unsound constraints are added for unrecognised expressions.
+        return char_set::full(max_c);
     }
 
 } // namespace seq
