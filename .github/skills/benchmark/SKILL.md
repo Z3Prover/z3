@@ -7,15 +7,36 @@ Given an SMT-LIB2 formula or file, run Z3 with statistics enabled and report per
 
 # Step 1: Run Z3 with statistics
 
+Action:
+    Invoke benchmark.py with the formula or file. Use `--runs N` for
+    repeated timing.
+
+Expectation:
+    The script invokes `z3 -st`, parses the statistics block, and prints
+    a performance summary. A run entry is logged to z3agent.db.
+
+Result:
+    Timing and statistics are displayed. Proceed to Step 2 to interpret.
+
 ```bash
 python3 scripts/benchmark.py --file problem.smt2
 python3 scripts/benchmark.py --file problem.smt2 --runs 5
 python3 scripts/benchmark.py --formula "(declare-const x Int)..." --debug
 ```
 
-The script invokes `z3 -st` and parses the `:key value` statistics block.
-
 # Step 2: Interpret the output
+
+Action:
+    Review wall-clock time, memory usage, conflict counts, and per-theory
+    breakdowns.
+
+Expectation:
+    A complete performance profile including min/median/max timing when
+    multiple runs are requested.
+
+Result:
+    If performance is acceptable, no action needed.
+    If slow, try **simplify** to reduce the formula or adjust tactic strategies.
 
 The output includes:
 
@@ -29,7 +50,17 @@ With `--runs N`, the script runs Z3 N times and reports min/median/max timing.
 
 # Step 3: Compare over time
 
-Past benchmark runs are logged to `z3agent.db`. Query them:
+Action:
+    Query past benchmark runs from z3agent.db to detect regressions or
+    improvements.
+
+Expectation:
+    Historical run data is available for comparison, ordered by recency.
+
+Result:
+    If performance regressed, investigate recent formula or tactic changes.
+    If improved, record the successful configuration.
+
 ```bash
 python3 ../../shared/z3db.py runs --skill benchmark --last 20
 python3 ../../shared/z3db.py query "SELECT smtlib2, result, stats FROM formulas WHERE run_id IN (SELECT run_id FROM runs WHERE skill='benchmark') ORDER BY run_id DESC LIMIT 5"

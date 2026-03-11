@@ -7,7 +7,22 @@ Build Z3 with compiler-based sanitizer instrumentation, execute the test suite, 
 
 # Step 1: Configure and build
 
-The script invokes cmake with the appropriate `-fsanitize` flags and builds the `test-z3` target. Each sanitizer uses a separate build directory to avoid flag conflicts. If a prior instrumented build exists with matching flags, only incremental compilation runs.
+Action:
+    Invoke the script with the desired sanitizer flag. The script calls
+    cmake with the appropriate `-fsanitize` flags and builds the `test-z3`
+    target. Each sanitizer uses a separate build directory to avoid flag
+    conflicts.
+
+Expectation:
+    cmake configures successfully and make compiles the instrumented binary.
+    If a prior build exists with matching flags, only incremental compilation
+    runs.
+
+Result:
+    On success: an instrumented `test-z3` binary is ready in the build
+    directory. Proceed to Step 2.
+    On failure: verify compiler support for the requested sanitizer flags
+    and review cmake output.
 
 ```bash
 python3 scripts/memory_safety.py --sanitizer asan
@@ -22,7 +37,21 @@ python3 scripts/memory_safety.py --sanitizer asan --skip-build --build-dir build
 
 # Step 2: Run and collect
 
-The test binary runs with `halt_on_error=0` so the sanitizer reports all violations rather than aborting on the first. The script parses `ERROR: AddressSanitizer`, `runtime error:`, and `ERROR: LeakSanitizer` patterns from the combined output, extracts source locations where available, and deduplicates by category, file, and line.
+Action:
+    Execute the instrumented test binary with halt_on_error=0 so all
+    violations are reported rather than aborting on the first.
+
+Expectation:
+    The script parses AddressSanitizer, UndefinedBehaviorSanitizer, and
+    LeakSanitizer patterns from combined output, extracts source locations,
+    and deduplicates by category/file/line.
+
+Result:
+    On `clean`: no violations detected.
+    On `findings`: one or more violations found, each printed with severity,
+    category, message, and source location.
+    On `timeout`: test suite did not finish; increase timeout or investigate.
+    On `error`: build or execution failed before sanitizer output.
 
 ```bash
 python3 scripts/memory_safety.py --sanitizer asan --timeout 900 --debug
@@ -30,10 +59,20 @@ python3 scripts/memory_safety.py --sanitizer asan --timeout 900 --debug
 
 # Step 3: Interpret results
 
-- `clean`: no sanitizer violations detected.
-- `findings`: one or more violations found. Each is printed with severity, category, message, and source location.
-- `timeout`: the test suite did not complete within the deadline. Increase the timeout or investigate a possible infinite loop.
-- `error`: build or execution failed before sanitizer output could be collected.
+Action:
+    Review printed findings and query z3agent.db for historical comparison.
+
+Expectation:
+    Each finding includes severity, category, message, and source location.
+    The database query returns prior runs for trend analysis.
+
+Result:
+    On `clean`: no action required; proceed.
+    On `findings`: triage by severity and category. Compare against prior
+    runs to distinguish new regressions from known issues.
+    On `timeout`: increase the deadline or investigate a possible infinite
+    loop.
+    On `error`: inspect build logs before re-running.
 
 Query past runs:
 ```bash

@@ -7,7 +7,17 @@ Given a conjecture (an SMT-LIB2 assertion or a natural language claim), determin
 
 # Step 1: Prepare the negated formula
 
-Wrap the conjecture in `(assert (not ...))` and append `(check-sat)(get-model)`.
+Action:
+    Wrap the conjecture in `(assert (not ...))` and append
+    `(check-sat)(get-model)`.
+
+Expectation:
+    A complete SMT-LIB2 formula that negates the original conjecture with
+    all variables declared.
+
+Result:
+    If the negation is well-formed, proceed to Step 2.
+    If the conjecture is natural language, run **encode** first.
 
 Example: to prove that `(> x 3)` implies `(> x 1)`:
 ```smtlib
@@ -18,6 +28,18 @@ Example: to prove that `(> x 3)` implies `(> x 1)`:
 ```
 
 # Step 2: Run the prover
+
+Action:
+    Invoke prove.py with the conjecture and variable declarations.
+
+Expectation:
+    The script prints `valid`, `invalid` (with counterexample), `unknown`,
+    or `timeout`. A run entry is logged to z3agent.db.
+
+Result:
+    On `valid`: proceed to **explain** if the user needs a summary.
+    On `invalid`: report the counterexample directly.
+    On `unknown`/`timeout`: try **simplify** first, or increase the timeout.
 
 ```bash
 python3 scripts/prove.py --conjecture "(=> (> x 3) (> x 1))" --vars "x:Int"
@@ -35,9 +57,16 @@ python3 scripts/prove.py --conjecture "(=> (> x 3) (> x 1))" --vars "x:Int" --de
 
 # Step 3: Interpret the output
 
-- `valid`: the negation was unsat, so the conjecture holds for all inputs.
-- `invalid` followed by a counterexample: the negation was sat; the model shows a concrete assignment where the conjecture fails.
-- `unknown` or `timeout`: Z3 could not decide. The conjecture may require auxiliary lemmas or induction.
+Action:
+    Read the prover output to determine validity of the conjecture.
+
+Expectation:
+    One of `valid`, `invalid` (with counterexample), `unknown`, or `timeout`.
+
+Result:
+    On `valid`: the conjecture holds universally.
+    On `invalid`: the model shows a concrete counterexample.
+    On `unknown`/`timeout`: the conjecture may require auxiliary lemmas or induction.
 
 # Parameters
 

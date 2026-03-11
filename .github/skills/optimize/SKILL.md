@@ -7,7 +7,17 @@ Given a set of constraints and an objective function, find the optimal value. Z3
 
 # Step 1: Formulate the problem
 
-The formula uses the `(minimize ...)` or `(maximize ...)` directives followed by `(check-sat)` and `(get-model)`.
+Action:
+    Write constraints and an objective using `(minimize ...)` or
+    `(maximize ...)` directives, followed by `(check-sat)` and `(get-model)`.
+
+Expectation:
+    A valid SMT-LIB2 formula with at least one optimization directive and
+    all variables declared.
+
+Result:
+    If the formula is well-formed, proceed to Step 2. For multi-objective
+    problems, list directives in priority order for lexicographic optimization.
 
 Example: minimize `x + y` subject to `x >= 1`, `y >= 2`, `x + y <= 10`:
 ```smtlib
@@ -23,6 +33,17 @@ Example: minimize `x + y` subject to `x >= 1`, `y >= 2`, `x + y <= 10`:
 
 # Step 2: Run the optimizer
 
+Action:
+    Invoke optimize.py with the formula or file path.
+
+Expectation:
+    The script prints `sat` with the optimal assignment, `unsat`, `unknown`,
+    or `timeout`. A run entry is logged to z3agent.db.
+
+Result:
+    On `sat`: proceed to Step 3 to read the optimal values.
+    On `unsat` or `timeout`: check constraints for contradictions or simplify.
+
 ```bash
 python3 scripts/optimize.py --file scheduling.smt2
 python3 scripts/optimize.py --formula "<inline smt-lib2>" --debug
@@ -30,11 +51,17 @@ python3 scripts/optimize.py --formula "<inline smt-lib2>" --debug
 
 # Step 3: Interpret the output
 
-- `sat` with a model: the optimal assignment satisfying all constraints.
-- `unsat`: the constraints are contradictory; no feasible solution exists.
-- `unknown` or `timeout`: Z3 could not determine optimality.
+Action:
+    Parse the objective value and satisfying assignment from the output.
 
-The script prints the objective value and the satisfying assignment.
+Expectation:
+    `sat` with a model containing the optimal value, `unsat` indicating
+    infeasibility, or `unknown`/`timeout`.
+
+Result:
+    On `sat`: report the optimal value and assignment.
+    On `unsat`: the constraints are contradictory, no feasible solution exists.
+    On `unknown`/`timeout`: relax constraints or try **simplify**.
 
 # Parameters
 

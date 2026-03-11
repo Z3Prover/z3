@@ -7,6 +7,17 @@ Given raw Z3 output (from the **solve**, **prove**, **optimize**, or **benchmark
 
 # Step 1: Identify the output type
 
+Action:
+    Determine the category of Z3 output to explain: model, core,
+    statistics, error, or proof.
+
+Expectation:
+    The output type maps to one of the recognized formats in the table below.
+
+Result:
+    If the type is ambiguous, use `--type auto` and let the script detect it.
+    Proceed to Step 2.
+
 | Output contains | Explanation type |
 |----------------|-----------------|
 | `(define-fun ...)` blocks | model explanation |
@@ -17,15 +28,35 @@ Given raw Z3 output (from the **solve**, **prove**, **optimize**, or **benchmark
 
 # Step 2: Run the explainer
 
+Action:
+    Invoke explain.py with the output file or stdin.
+
+Expectation:
+    The script auto-detects the output type and produces a structured
+    plain-language summary.
+
+Result:
+    A formatted explanation is printed. If detection fails, re-run with
+    an explicit `--type` flag.
+
 ```bash
 python3 scripts/explain.py --file output.txt
 python3 scripts/explain.py --stdin < output.txt
 python3 scripts/explain.py --file output.txt --debug
 ```
 
-The script auto-detects the output type and produces a structured summary.
-
 # Step 3: Interpret the explanation
+
+Action:
+    Review the structured explanation for accuracy and completeness.
+
+Expectation:
+    Models list each variable with its value and sort. Cores list
+    conflicting assertions. Statistics show time and memory breakdowns.
+
+Result:
+    Use the explanation to answer the user query or to guide the next
+    skill invocation.
 
 For models:
 - Each variable is listed with its value and sort

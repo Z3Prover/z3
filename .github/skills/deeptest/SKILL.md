@@ -7,6 +7,20 @@ Given a strategy and count, generate SMT-LIB2 formulas targeting Z3 internals an
 
 # Step 1: Choose a strategy and run
 
+Action:
+    Select a generation strategy and invoke the script with the desired
+    count and seed.
+
+Expectation:
+    The script generates SMT-LIB2 formulas according to the chosen
+    strategy, runs each through Z3, and records results to z3agent.db.
+
+Result:
+    On completion: a summary is printed with formula count, anomaly count,
+    and elapsed time. Proceed to Step 2.
+    On early exit: verify the Z3 binary is accessible and review timeout
+    settings.
+
 ```bash
 python3 scripts/deeptest.py --strategy random --count 100 --seed 42
 python3 scripts/deeptest.py --strategy metamorphic --seed-file base.smt2 --count 50
@@ -23,7 +37,19 @@ Available strategies:
 
 # Step 2: Interpret the output
 
-The script prints a summary after completion:
+Action:
+    Review the summary printed after the run completes.
+
+Expectation:
+    The summary shows strategy, seed, formula count, anomaly count, and
+    elapsed time.
+
+Result:
+    On zero anomalies: Z3 handled all generated formulas without issue.
+    On nonzero anomalies: crashes, assertion failures, solver errors, or
+    result disagreements were detected. Proceed to Step 3 for details.
+
+Example summary:
 
 ```
 strategy:  random
@@ -33,21 +59,38 @@ anomalies: 2
 elapsed:   4500ms
 ```
 
-A nonzero anomaly count means the run detected crashes (nonzero exit code), assertion failures in stderr, solver errors, or result disagreements between a base formula and its metamorphic variants.
-
 # Step 3: Inspect findings
 
-Findings are logged to `z3agent.db` with category, severity, and details:
+Action:
+    Query z3agent.db for detailed finding records from the run.
+
+Expectation:
+    Each finding includes category, severity, message, formula index, exit
+    code, and a stderr excerpt.
+
+Result:
+    Use findings to identify reproducible failure patterns and prioritize
+    fixes by severity. If a finding appears nondeterministic, proceed to
+    Step 4 with the same seed to confirm.
 
 ```bash
 python3 ../../shared/z3db.py query "SELECT category, severity, message FROM findings WHERE run_id IN (SELECT run_id FROM runs WHERE skill='deeptest') ORDER BY finding_id DESC LIMIT 20"
 ```
 
-Each finding includes the formula index, exit code, and a stderr excerpt for triage.
-
 # Step 4: Reproduce
 
-Use the `--seed` parameter to reproduce a run exactly:
+Action:
+    Re-run the script with the same seed to reproduce the exact sequence
+    of generated formulas.
+
+Expectation:
+    Identical formulas are generated, producing the same anomalies if the
+    underlying bug persists.
+
+Result:
+    On same anomalies: bug confirmed and suitable for a regression test.
+    On zero anomalies: the issue may be nondeterministic or already fixed;
+    investigate further before closing.
 
 ```bash
 python3 scripts/deeptest.py --strategy random --count 100 --seed 42

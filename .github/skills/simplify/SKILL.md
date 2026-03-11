@@ -7,7 +7,16 @@ Given a formula, apply a sequence of Z3 tactics to produce an equivalent but sim
 
 # Step 1: Choose tactics
 
-Z3 provides dozens of tactics. Common ones:
+Action:
+    Select a tactic chain from the available Z3 tactics based on the
+    formula's theory.
+
+Expectation:
+    A comma-separated list of tactic names suitable for the formula domain.
+
+Result:
+    If unsure, use the default chain: `simplify,propagate-values,ctx-simplify`.
+    For bitvector formulas, add `bit-blast`. Proceed to Step 2.
 
 | Tactic | What it does |
 |--------|-------------|
@@ -22,6 +31,17 @@ Z3 provides dozens of tactics. Common ones:
 
 # Step 2: Run simplification
 
+Action:
+    Invoke simplify.py with the formula and optional tactic chain.
+
+Expectation:
+    The script applies each tactic in sequence and prints the simplified
+    formula. A run entry is logged to z3agent.db.
+
+Result:
+    If the output is simpler, pass it to **solve** or **prove**.
+    If unchanged, try a different tactic chain.
+
 ```bash
 python3 scripts/simplify.py --formula "(assert (and (> x 0) (> x 0)))" --vars "x:Int"
 python3 scripts/simplify.py --file formula.smt2 --tactics "simplify,propagate-values,ctx-simplify"
@@ -32,7 +52,15 @@ Without `--tactics`, the script applies the default chain: `simplify`, `propagat
 
 # Step 3: Interpret the output
 
-The script prints the simplified formula in SMT-LIB2 syntax. Subgoals are printed as separate `(assert ...)` blocks.
+Action:
+    Read the simplified formula output in SMT-LIB2 syntax.
+
+Expectation:
+    One or more `(assert ...)` blocks representing equivalent subgoals.
+
+Result:
+    A smaller formula indicates successful reduction. Pass the result to
+    **solve**, **prove**, or **optimize** as needed.
 
 # Parameters
 

@@ -7,11 +7,30 @@ Given an SMT-LIB2 formula (or a set of constraints described in natural language
 
 # Step 1: Prepare the formula
 
-If the input is already valid SMT-LIB2, use it directly. If it is a natural language description, use the **encode** skill first to produce SMT-LIB2.
+Action:
+    Convert the input to valid SMT-LIB2. If the input is natural language,
+    use the **encode** skill first.
 
-The formula must include `(check-sat)` at the end. Append `(get-model)` for satisfiable queries or `(get-unsat-core)` when named assertions are used.
+Expectation:
+    A syntactically valid SMT-LIB2 formula ending with `(check-sat)` and
+    either `(get-model)` or `(get-unsat-core)` as appropriate.
+
+Result:
+    If valid SMT-LIB2 is ready, proceed to Step 2.
+    If encoding is needed, run **encode** first and return here.
 
 # Step 2: Run Z3
+
+Action:
+    Invoke solve.py with the formula string or file path.
+
+Expectation:
+    The script pipes the formula to `z3 -in`, logs the run to
+    `.z3-agent/z3agent.db`, and prints the result.
+
+Result:
+    Output is one of `sat`, `unsat`, `unknown`, or `timeout`.
+    Proceed to Step 3 to interpret.
 
 ```bash
 python3 scripts/solve.py --formula "(declare-const x Int)(assert (> x 0))(check-sat)(get-model)"
@@ -27,14 +46,20 @@ With debug tracing:
 python3 scripts/solve.py --file problem.smt2 --debug
 ```
 
-The script pipes the formula to `z3 -in` via subprocess (no shell expansion), logs the run to `.z3-agent/z3agent.db`, and prints the result.
-
 # Step 3: Interpret the output
 
-- `sat` followed by a model: the formula is satisfiable; the model assigns concrete values to each declared constant.
-- `unsat`: no assignment exists. If `(get-unsat-core)` was used, the conflicting named assertions are listed.
-- `unknown`: Z3 could not decide within the timeout. Consider increasing the timeout or simplifying the formula.
-- `timeout`: the process was killed after the deadline. Try the **simplify** skill to reduce complexity.
+Action:
+    Parse the Z3 output to determine satisfiability and extract any model
+    or unsat core.
+
+Expectation:
+    `sat` with a model, `unsat` optionally with a core, `unknown`, or
+    `timeout`.
+
+Result:
+    On `sat`: report the model to the user.
+    On `unsat`: report the core if available.
+    On `unknown`/`timeout`: try **simplify** or increase the timeout.
 
 # Parameters
 
