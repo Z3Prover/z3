@@ -35,6 +35,8 @@ namespace smt {
         m_var_values.reset();
         m_var_regex.reset();
         m_trail.reset();
+        m_int_model = nullptr;
+        m_mg = &mg;
 
         m_factory = alloc(seq_factory, m, m_th.get_family_id(), mg.get_model());
         mg.register_factory(m_factory);
@@ -42,12 +44,12 @@ namespace smt {
         register_existing_values(nielsen);
         collect_var_regex_constraints(state);
 
+        // solve integer constraints from the sat_path FIRST so that
+        // m_int_model is available when snode_to_value evaluates power exponents
+        nielsen.solve_sat_path_ints(m_int_model);
+
         // extract variable assignments from the satisfying leaf's substitution path
-        seq::nielsen_node const* sat = nielsen.sat_node();
-        IF_VERBOSE(1, verbose_stream() << "nseq model init: sat_node=" << (sat ? "set" : "null")
-            << " path_len=" << nielsen.sat_path().size() << "\n";);
         extract_assignments(nielsen.sat_path());
-        IF_VERBOSE(1, verbose_stream() << "nseq model: m_var_values has " << m_var_values.size() << " entries\n";);
     }
 
     model_value_proc* nseq_model::mk_value(enode* n, model_generator& mg) {
@@ -103,6 +105,8 @@ namespace smt {
         m_var_values.reset();
         m_var_regex.reset();
         m_trail.reset();
+        m_int_model = nullptr;
+        m_mg = nullptr;
         m_factory = nullptr;
     }
 
@@ -173,6 +177,68 @@ namespace smt {
             if (lhs) return lhs;
             if (rhs) return rhs;
             return expr_ref(m);
+        }
+
+        if (n->is_power()) {
+            SASSERT(n->num_args() == 2);
+            // Evaluate the base and exponent to produce a concrete string.
+            // The base is a string snode; the exponent is an integer expression
+            // whose value comes from the sat_path integer model.
+            expr_ref base_val = snode_to_value(n->arg(0));
+            if (!base_val)
+                return expr_ref(m);
+
+            euf::snode* exp_snode = n->arg(1);
+            expr* exp_expr = exp_snode ? exp_snode->get_expr() : nullptr;
+            rational exp_val;
+            arith_util arith(m);
+
+            // Try to evaluate exponent: first check if it's a numeral,
+            // then try the int model from sat_path constraints,
+            // finally fall back to the proto_model from model_generator.
+            if (exp_expr && arith.is_numeral(exp_expr, exp_val)) {
+                // already concrete
+            } else if (exp_expr && m_int_model.get()) {
+                expr_ref result(m);
+                if (m_int_model->eval_expr(exp_expr, result, true) && arith.is_numeral(result, exp_val)) {
+                    // evaluated from int model
+                } else if (m_mg) {
+                    proto_model& pm = m_mg->get_model();
+                    if (pm.eval(exp_expr, result, true) && arith.is_numeral(result, exp_val)) {
+                        // evaluated from proto_model
+                    } else {
+                        exp_val = rational(0);
+                    }
+                } else {
+                    exp_val = rational(0);
+                }
+            } else if (exp_expr && m_mg) {
+                expr_ref result(m);
+                proto_model& pm = m_mg->get_model();
+                if (pm.eval(exp_expr, result, true) && arith.is_numeral(result, exp_val)) {
+                    // evaluated from proto_model
+                } else {
+                    exp_val = rational(0);
+                }
+            } else {
+                exp_val = rational(0);
+            }
+
+            if (exp_val.is_neg())
+                exp_val = rational(0);
+
+            // Build the repeated string: base^exp_val
+            if (exp_val.is_zero())
+                return expr_ref(m_seq.str.mk_empty(m_seq.str.mk_string_sort()), m);
+            if (exp_val.is_one())
+                return base_val;
+
+            // For small exponents, concatenate directly
+            unsigned n_val = exp_val.get_unsigned();
+            expr_ref acc(base_val);
+            for (unsigned i = 1; i < n_val; ++i)
+                acc = m_seq.str.mk_concat(acc, base_val);
+            return acc;
         }
 
         // fallback: use the underlying expression

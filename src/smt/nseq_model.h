@@ -61,6 +61,10 @@ namespace smt {
         // trail for GC protection of generated expressions
         expr_ref_vector m_trail;
 
+        // integer variable model from sat_path constraints
+        model_ref m_int_model;
+        model_generator* m_mg = nullptr;
+
         // per-variable regex constraints: maps snode id -> intersected regex snode.
         // collected during init() from the state's str_mem list.
         u_map<euf::snode*> m_var_regex;
