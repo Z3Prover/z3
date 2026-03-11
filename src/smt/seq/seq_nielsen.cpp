@@ -20,6 +20,7 @@ Author:
 --*/
 
 #include "smt/seq/seq_nielsen.h"
+#include "smt/seq/nseq_parith.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "util/hashtable.h"
@@ -431,10 +432,12 @@ namespace seq {
 
     nielsen_graph::nielsen_graph(euf::sgraph& sg, simple_solver& solver):
         m_sg(sg),
-        m_solver(solver) {
+        m_solver(solver),
+        m_parith(alloc(nseq_parith, sg)) {
     }
 
     nielsen_graph::~nielsen_graph() {
+        dealloc(m_parith);
         reset();
     }
 
@@ -1032,6 +1035,23 @@ namespace seq {
     // nielsen_graph: search
     // -----------------------------------------------------------------------
 
+    void nielsen_graph::apply_parikh_to_node(nielsen_node& node) {
+        if (node.m_parikh_applied) return;
+        node.m_parikh_applied = true;
+
+        // Generate modular length constraints (len(str) = min_len + stride·k, etc.)
+        // and append them to the node's integer constraint list.
+        m_parith->apply_to_node(node);
+
+        // Lightweight feasibility pre-check: does the Parikh modular constraint
+        // contradict the variable's current integer bounds?  If so, mark this
+        // node as a Parikh-image conflict immediately (avoids a solver call).
+        if (!node.is_currently_conflict() && m_parith->check_parikh_conflict(node)) {
+            node.m_is_general_conflict = true;
+            node.m_reason = backtrack_reason::parikh_image;
+        }
+    }
+
     void nielsen_graph::assert_root_constraints_to_solver() {
         if (m_root_constraints_asserted) return;
         m_root_constraints_asserted = true;
@@ -1127,6 +1147,15 @@ namespace seq {
             m_sat_node = node;
             m_sat_path = cur_path;
             return search_result::sat;
+        }
+
+        // Apply Parikh image filter: generate modular length constraints and
+        // perform a lightweight feasibility pre-check.  The filter is guarded
+        // internally (m_parikh_applied) so it only runs once per node.
+        apply_parikh_to_node(*node);
+        if (node->is_currently_conflict()) {
+            ++m_stats.m_num_simplify_conflict;
+            return search_result::unsat;
         }
 
         // integer feasibility check: collect side constraints along the path

@@ -91,6 +91,7 @@ namespace seq {
         // When stride > 1 and min_len < max_len (bounds don't pin length):
         //   adds: len(str) = min_len + stride · k   (equality)
         //         k ≥ 0                              (non-negativity)
+        //         k ≤ (max_len - min_len) / stride   (upper bound, when max_len bounded)
         // These tighten the integer constraint set for the subsolver.
         // Dependencies are copied from mem.m_dep.
         void generate_parikh_constraints(str_mem const& mem,
@@ -100,6 +101,22 @@ namespace seq {
         // Calls generate_parikh_constraints for each str_mem in the node
         // and appends the resulting int_constraints to node.int_constraints().
         void apply_to_node(nielsen_node& node);
+
+        // Quick Parikh feasibility check (no solver call).
+        //
+        // For each single-variable membership str ∈ re, checks whether the
+        // modular constraint  len(str) = min_len + stride · k  (k ≥ 0)
+        // has any solution given the current per-variable bounds stored in
+        // node.var_lb(str) and node.var_ub(str).
+        //
+        // Returns true when a conflict is detected (no valid k exists for
+        // some membership).  The caller should then mark the node with
+        // backtrack_reason::parikh_image.
+        //
+        // This is a lightweight pre-check that avoids calling the integer
+        // subsolver.  It is sound (never returns true for a satisfiable node)
+        // but incomplete (may miss conflicts that require the full solver).
+        bool check_parikh_conflict(nielsen_node& node);
 
         // Compute the length stride of a regex expression.
         // Exposed for testing and external callers.

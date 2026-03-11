@@ -248,6 +248,7 @@ namespace seq {
     class nielsen_node;
     class nielsen_edge;
     class nielsen_graph;
+    class nseq_parith;  // Parikh image filter (defined in nseq_parith.h)
 
     /**
      * Abstract interface for an incremental solver used by nielsen_graph
@@ -519,6 +520,10 @@ namespace seq {
         // evaluation index for run tracking
         unsigned                m_eval_idx = 0;
 
+        // Parikh filter: set to true once apply_parikh_to_node has been applied
+        // to this node. Prevents duplicate constraint generation across DFS runs.
+        bool                    m_parikh_applied = false;
+
     public:
         nielsen_node(nielsen_graph* graph, unsigned id);
 
@@ -711,6 +716,10 @@ namespace seq {
         // Set to true after assert_root_constraints_to_solver() is first called.
         bool                          m_root_constraints_asserted = false;
 
+        // Parikh image filter: generates modular length constraints from regex
+        // memberships.  Allocated in the constructor; owned by this graph.
+        nseq_parith*                  m_parith = nullptr;
+
     public:
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
         // the caller is responsible for keeping the solver alive.
@@ -815,6 +824,16 @@ namespace seq {
 
     private:
         search_result search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path);
+
+        // Apply the Parikh image filter to a node: generate modular length
+        // constraints from regex memberships and append them to the node's
+        // int_constraints.  Also performs a lightweight feasibility pre-check;
+        // if a Parikh conflict is detected the node's conflict flag is set with
+        // backtrack_reason::parikh_image.
+        //
+        // Guarded by node.m_parikh_applied so that constraints are generated
+        // only once per node across DFS iterations.
+        void apply_parikh_to_node(nielsen_node& node);
 
         // create a fresh variable with a unique name
         euf::snode* mk_fresh_var();

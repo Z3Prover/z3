@@ -241,6 +241,18 @@ namespace seq {
         expr_ref zero(arith.mk_int(0), m);
         out.push_back(int_constraint(k_var, zero,
                                      int_constraint_kind::ge, mem.m_dep, m));
+
+        // Constraint 3 (optional): k ≤ max_k when max_len is bounded.
+        // max_k = floor((max_len - min_len) / stride)
+        // This gives the solver an explicit upper bound on k, which tightens
+        // the search space when combined with other constraints on len(str).
+        if (max_len != UINT_MAX) {
+            unsigned range = max_len - min_len;  // max_len >= min_len here
+            unsigned max_k = range / stride;
+            expr_ref max_k_expr(arith.mk_int(max_k), m);
+            out.push_back(int_constraint(k_var, max_k_expr,
+                                         int_constraint_kind::le, mem.m_dep, m));
+        }
     }
 
     void nseq_parith::apply_to_node(nielsen_node& node) {
@@ -249,6 +261,65 @@ namespace seq {
             generate_parikh_constraints(mem, constraints);
         for (auto& ic : constraints)
             node.add_int_constraint(ic);
+    }
+
+    // -----------------------------------------------------------------------
+    // Quick Parikh feasibility check (no solver call)
+    // -----------------------------------------------------------------------
+
+    // Returns true if a Parikh conflict is detected: there exists a membership
+    // str ∈ re for a single-variable str where the modular length constraint
+    //   len(str) = min_len + stride * k  (k ≥ 0)
+    // is inconsistent with the variable's current integer bounds [lb, ub].
+    //
+    // This check is lightweight — it uses only modular arithmetic on the already-
+    // known regex min/max lengths and the per-variable bounds stored in the node.
+    bool nseq_parith::check_parikh_conflict(nielsen_node& node) {
+        seq_util& seq = m_sg.get_seq_util();
+
+        for (str_mem const& mem : node.str_mems()) {
+            if (!mem.m_str || !mem.m_regex || !mem.m_str->is_var())
+                continue;
+
+            expr* re_expr = mem.m_regex->get_expr();
+            if (!re_expr || !seq.is_re(re_expr))
+                continue;
+
+            unsigned min_len = seq.re.min_length(re_expr);
+            unsigned max_len = seq.re.max_length(re_expr);
+            if (min_len >= max_len) continue; // fixed or empty — no stride constraint
+
+            unsigned stride = compute_length_stride(re_expr);
+            if (stride <= 1) continue; // no useful modular constraint
+
+            unsigned lb = node.var_lb(mem.m_str);
+            unsigned ub = node.var_ub(mem.m_str);
+
+            // Check: ∃k ≥ 0 such that lb ≤ min_len + stride * k ≤ ub ?
+            //
+            // First find the smallest k satisfying the lower bound:
+            //   k_min = 0                          if min_len ≥ lb
+            //   k_min = ⌈(lb - min_len) / stride⌉  otherwise
+            //
+            // Then verify min_len + stride * k_min ≤ ub.
+            unsigned k_min = 0;
+            if (lb > min_len) {
+                unsigned gap = lb - min_len;
+                k_min = (gap + stride - 1) / stride;  // ceiling division
+            }
+
+            // Overflow guard: stride * k_min may overflow unsigned.
+            unsigned len_at_k_min;
+            if (k_min > (UINT_MAX - min_len) / stride) {
+                // Overflow: min_len + stride * k_min > UINT_MAX ≥ ub → conflict.
+                return true;
+            }
+            len_at_k_min = min_len + stride * k_min;
+
+            if (ub != UINT_MAX && len_at_k_min > ub)
+                return true; // no valid k exists → Parikh conflict
+        }
+        return false;
     }
 
 } // namespace seq
