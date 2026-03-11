@@ -15,18 +15,16 @@ LLM agent, backed by a Python validation script in `scripts/`.
 | optimize | implemented | Solve constrained optimization (minimize/maximize) over numeric domains |
 | explain | implemented | Parse and interpret Z3 output: models, cores, statistics, errors |
 | benchmark | implemented | Measure Z3 performance and collect solver statistics |
-| static-analysis | planned | Run Clang Static Analyzer on Z3 source and log structured findings |
-| deeptest | planned | Deep property-based testing of Z3 internals |
-| memory-safety | planned | Memory safety verification of Z3 C++ source |
+| static-analysis | implemented | Run Clang Static Analyzer on Z3 source and log structured findings |
+| memory-safety | implemented | Run ASan/UBSan on Z3 test suite to detect memory errors and undefined behavior |
 
-## Agents
+## Agent
 
-Two orchestration agents compose these skills into end-to-end workflows:
+A single orchestration agent composes these skills into end-to-end workflows:
 
 | Agent | Role |
 |-------|------|
-| z3-solver | Formulation and solving: encode, solve, prove, simplify, optimize, explain |
-| z3-verifier | Codebase quality: benchmark, static-analysis, deeptest, memory-safety |
+| z3 | SMT solving, code quality analysis, and stress testing |
 
 ## Shared Infrastructure
 
