@@ -613,8 +613,10 @@ namespace seq {
         void apply_subst(euf::sgraph& sg, nielsen_subst const& s);
 
         // simplify all constraints at this node and initialize status.
+        // cur_path provides the path from root to this node so that the
+        // LP solver can be queried for deterministic power cancellation.
         // Returns proceed, conflict, satisfied, or restart.
-        simplify_result simplify_and_init(nielsen_graph& g);
+        simplify_result simplify_and_init(nielsen_graph& g, svector<nielsen_edge*> const& cur_path);
 
         // true if all str_eqs are trivial and there are no str_mems
         bool is_satisfied() const;
@@ -660,6 +662,7 @@ namespace seq {
         unsigned m_num_simplify_conflict = 0;
         unsigned m_num_extensions      = 0;
         unsigned m_num_fresh_vars      = 0;
+        unsigned m_num_arith_infeasible = 0;
         unsigned m_max_depth           = 0;
         // modifier application counts
         unsigned m_mod_det             = 0;
@@ -681,6 +684,7 @@ namespace seq {
     // the overall Nielsen transformation graph
     // mirrors ZIPT's NielsenGraph
     class nielsen_graph {
+        friend class nielsen_node;
         euf::sgraph&                  m_sg;
         region                        m_region;
         ptr_vector<nielsen_node>      m_nodes;
@@ -939,6 +943,10 @@ namespace seq {
         // check integer feasibility of the constraints along the current path.
         // returns true if feasible, false if infeasible.
         bool check_int_feasibility(nielsen_node* node, svector<nielsen_edge*> const& cur_path);
+
+        // check if path constraints entail a <= b.
+        // Strategy: add all path constraints + (a > b) and check for infeasibility.
+        bool check_lp_le(expr* a, expr* b, nielsen_node* node, svector<nielsen_edge*> const& cur_path);
 
         // create an integer constraint: lhs <kind> rhs
         int_constraint mk_int_constraint(expr* lhs, expr* rhs, int_constraint_kind kind, dep_tracker const& dep);
