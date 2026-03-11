@@ -35,6 +35,7 @@ Abstract:
 
 Author:
 
+    Clemens Eisenhofer 2026-03-10
     Nikolaj Bjorner (nbjorner) 2026-03-10
 
 --*/
