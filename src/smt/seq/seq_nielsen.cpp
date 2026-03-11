@@ -1047,8 +1047,8 @@ namespace seq {
         // contradict the variable's current integer bounds?  If so, mark this
         // node as a Parikh-image conflict immediately (avoids a solver call).
         if (!node.is_currently_conflict() && m_parith->check_parikh_conflict(node)) {
-            node.m_is_general_conflict = true;
-            node.m_reason = backtrack_reason::parikh_image;
+            node.set_general_conflict(true);
+            node.set_reason(backtrack_reason::parikh_image);
         }
     }
 
@@ -1152,6 +1152,8 @@ namespace seq {
         // Apply Parikh image filter: generate modular length constraints and
         // perform a lightweight feasibility pre-check.  The filter is guarded
         // internally (m_parikh_applied) so it only runs once per node.
+        // Note: Parikh filtering is skipped for satisfied nodes (returned above);
+        // a fully satisfied node has no remaining memberships to filter.
         apply_parikh_to_node(*node);
         if (node->is_currently_conflict()) {
             ++m_stats.m_num_simplify_conflict;

@@ -211,9 +211,11 @@ namespace seq {
         unsigned min_len = seq.re.min_length(re_expr);
         unsigned max_len = seq.re.max_length(re_expr);
 
-        // If min_len == max_len the bounds already pin the length exactly;
-        // no modular constraint is needed.
-        if (min_len == max_len)
+        // If min_len >= max_len the bounds already pin the length exactly
+        // (or the language is empty — empty language is detected by simplify_and_init
+        // via Brzozowski derivative / is_empty checks, not here).
+        // We only generate modular constraints when the length is variable.
+        if (min_len >= max_len)
             return;
 
         unsigned stride = compute_length_stride(re_expr);
@@ -244,10 +246,12 @@ namespace seq {
 
         // Constraint 3 (optional): k ≤ max_k when max_len is bounded.
         // max_k = floor((max_len - min_len) / stride)
-        // This gives the solver an explicit upper bound on k, which tightens
-        // the search space when combined with other constraints on len(str).
+        // This gives the solver an explicit upper bound on k.
+        // The subtraction is safe because min_len < max_len is guaranteed
+        // by the early return above.
         if (max_len != UINT_MAX) {
-            unsigned range = max_len - min_len;  // max_len >= min_len here
+            SASSERT(max_len > min_len);
+            unsigned range = max_len - min_len;
             unsigned max_k = range / stride;
             expr_ref max_k_expr(arith.mk_int(max_k), m);
             out.push_back(int_constraint(k_var, max_k_expr,
@@ -291,6 +295,8 @@ namespace seq {
 
             unsigned stride = compute_length_stride(re_expr);
             if (stride <= 1) continue; // no useful modular constraint
+            // stride > 1 guaranteed from here onward.
+            SASSERT(stride > 1);
 
             unsigned lb = node.var_lb(mem.m_str);
             unsigned ub = node.var_ub(mem.m_str);
@@ -305,7 +311,14 @@ namespace seq {
             unsigned k_min = 0;
             if (lb > min_len) {
                 unsigned gap = lb - min_len;
-                k_min = (gap + stride - 1) / stride;  // ceiling division
+                // Ceiling division: k_min = ceil(gap / stride).
+                // Guard: (gap + stride - 1) may overflow if gap is close to UINT_MAX.
+                // In that case k_min would be huge, and min_len + stride*k_min would
+                // also overflow ub → treat as a conflict immediately.
+                if (gap > UINT_MAX - (stride - 1)) {
+                    return true; // ceiling division would overflow → k_min too large
+                }
+                k_min = (gap + stride - 1) / stride;
             }
 
             // Overflow guard: stride * k_min may overflow unsigned.

@@ -88,12 +88,14 @@ namespace seq {
 
         // Generate Parikh modular length constraints for one membership.
         //
-        // When stride > 1 and min_len < max_len (bounds don't pin length):
+        // When stride > 1 and min_len < max_len (bounds don't pin length exactly,
+        // and the language is non-empty):
         //   adds: len(str) = min_len + stride · k   (equality)
         //         k ≥ 0                              (non-negativity)
         //         k ≤ (max_len - min_len) / stride   (upper bound, when max_len bounded)
         // These tighten the integer constraint set for the subsolver.
         // Dependencies are copied from mem.m_dep.
+        // Does nothing when min_len ≥ max_len (empty or fixed-length language).
         void generate_parikh_constraints(str_mem const& mem,
                                          vector<int_constraint>& out);
 
