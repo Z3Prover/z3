@@ -26,24 +26,10 @@ Author:
 #include "smt/seq/nseq_parith.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
+#include "util/mpz.h"
 #include <string>
 
 namespace seq {
-
-    // -----------------------------------------------------------------------
-    // Helpers
-    // -----------------------------------------------------------------------
-
-    // GCD via Euclidean algorithm.  gcd(0, x) = x, gcd(0, 0) = 0.
-    unsigned nseq_parith::gcd(unsigned a, unsigned b) {
-        if (a == 0 && b == 0) return 0;
-        while (b != 0) {
-            unsigned t = b;
-            b = a % b;
-            a = t;
-        }
-        return a;
-    }
 
     nseq_parith::nseq_parith(euf::sgraph& sg)
         : m_sg(sg), m_fresh_cnt(0) {}
@@ -118,7 +104,7 @@ namespace seq {
                 return (mn > 1) ? mn : 0;
             }
             // Variable-length body: GCD of min and max lengths
-            return gcd(mn, mx);
+            return u_gcd(mn, mx);
         }
 
         // r+ — one or more: same stride analysis as r*.
@@ -128,7 +114,7 @@ namespace seq {
             if (mx == UINT_MAX) mx = mn;  // same conservative treatment as star
             if (mn == mx)
                 return (mn > 1) ? mn : 0;
-            return gcd(mn, mx);
+            return u_gcd(mn, mx);
         }
 
         // r? — zero or one: lengths = {0} ∪ lengths(r)
@@ -143,8 +129,8 @@ namespace seq {
             // A result > 1 gives a useful modular constraint; result == 1
             // means every non-negative integer is achievable (no constraint).
             if (inner == 0)
-                return gcd(mn, 0);   // gcd(mn, 0) = mn; useful when mn > 1
-            return gcd(inner, mn);
+                return u_gcd(mn, 0);   // gcd(mn, 0) = mn; useful when mn > 1
+            return u_gcd(inner, mn);
         }
 
         // concat(r1, r2): lengths add → stride = GCD(stride(r1), stride(r2)).
@@ -155,7 +141,7 @@ namespace seq {
             if (s1 == 0 && s2 == 0) return 0;
             if (s1 == 0) return s2;
             if (s2 == 0) return s1;
-            return gcd(s1, s2);
+            return u_gcd(s1, s2);
         }
 
         // union(r1, r2): lengths from either branch → need GCD of both
@@ -168,8 +154,8 @@ namespace seq {
             unsigned d  = (m1 >= m2) ? (m1 - m2) : (m2 - m1);
             // Replace 0-strides with d for GCD computation:
             // a fixed-length branch only introduces constraint via its offset.
-            unsigned g = gcd(s1 == 0 ? d : s1, s2 == 0 ? d : s2);
-            g = gcd(g, d);
+            unsigned g = u_gcd(s1 == 0 ? d : s1, s2 == 0 ? d : s2);
+            g = u_gcd(g, d);
             return g;
         }
 
@@ -181,7 +167,7 @@ namespace seq {
             if (mx == UINT_MAX) mx = mn;
             if (mn == mx)
                 return (mn > 1) ? mn : 0;
-            return gcd(mn, mx);
+            return u_gcd(mn, mx);
         }
         if (seq.re.is_loop(re, r1, lo)) {
             unsigned mn = seq.re.min_length(r1);
@@ -189,7 +175,7 @@ namespace seq {
             if (mx == UINT_MAX) mx = mn;
             if (mn == mx)
                 return (mn > 1) ? mn : 0;
-            return gcd(mn, mx);
+            return u_gcd(mn, mx);
         }
 
         // intersection(r1, r2): lengths must be in both languages.
@@ -202,7 +188,7 @@ namespace seq {
             if (s1 == 0 && s2 == 0) return 0;
             if (s1 == 0) return s2;
             if (s2 == 0) return s1;
-            return gcd(s1, s2);
+            return u_gcd(s1, s2);
         }
 
         // For complement, diff, reverse, derivative, of_pred, and anything

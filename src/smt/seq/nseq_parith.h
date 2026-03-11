@@ -62,10 +62,6 @@ namespace seq {
         euf::sgraph& m_sg;
         unsigned     m_fresh_cnt;  // counter for fresh variable names
 
-        // Compute GCD of a and b.  gcd(0, x) = x by convention.
-        // Returns 0 only when both arguments are 0.
-        static unsigned gcd(unsigned a, unsigned b);
-
         // Compute the stride (period) of the length language of a regex.
         //
         // The stride k satisfies: all lengths in L(re) are congruent to
