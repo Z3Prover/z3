@@ -1806,7 +1806,7 @@ void test_restore_x() {
         std::cout << "  test 1 (backup shorter): " << lp_status_to_string(status) << " - PASSED" << std::endl;
     }
 
-    // Test 2: backup longer than current (columns removed after backup, or pop)
+    // Test 2: same-size backup (restore_x copies all elements directly)
     {
         lar_solver solver;
         lpvar x = solver.add_var(0, false);

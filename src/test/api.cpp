@@ -218,6 +218,7 @@ void test_bnh_optimize() {
         Z3_optimize_minimize(ctx, opt, f1);
         Z3_lbool result = Z3_optimize_check(ctx, opt, 0, nullptr);
         std::cout << "BNH min f1: " << result_str(result) << std::endl;
+        ENSURE(result == Z3_L_TRUE);
         if (result == Z3_L_TRUE) {
             Z3_model m = Z3_optimize_get_model(ctx, opt);
             Z3_model_inc_ref(ctx, m);
@@ -235,6 +236,7 @@ void test_bnh_optimize() {
         Z3_optimize_minimize(ctx, opt, f2);
         Z3_lbool result = Z3_optimize_check(ctx, opt, 0, nullptr);
         std::cout << "BNH min f2: " << result_str(result) << std::endl;
+        ENSURE(result == Z3_L_TRUE);
         if (result == Z3_L_TRUE) {
             Z3_model m = Z3_optimize_get_model(ctx, opt);
             Z3_model_inc_ref(ctx, m);
@@ -255,6 +257,7 @@ void test_bnh_optimize() {
         Z3_lbool result = Z3_optimize_check(ctx, opt, 0, nullptr);
         std::cout << "BNH weighted (w1=" << w[0] << "/5, w2=" << w[1] << "/5): "
                   << result_str(result) << std::endl;
+        ENSURE(result == Z3_L_TRUE);
         if (result == Z3_L_TRUE) {
             Z3_model m = Z3_optimize_get_model(ctx, opt);
             Z3_model_inc_ref(ctx, m);
@@ -270,6 +273,7 @@ void test_bnh_optimize() {
     }
 
     std::cout << "BNH: " << num_sat << "/7 optimizations returned sat" << std::endl;
+    ENSURE(num_sat == 7);
     Z3_del_context(ctx);
     std::cout << "BNH optimization test done" << std::endl;
 }
@@ -279,7 +283,6 @@ void tst_api() {
     test_bvneg();
     test_mk_distinct();
     test_optimize_translate();
-    test_bnh_optimize();
 }
 
 void tst_bnh_opt() {
