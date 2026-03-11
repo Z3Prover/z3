@@ -1392,7 +1392,7 @@ namespace seq {
             inc_run_idx();
             svector<nielsen_edge*> cur_path;
             search_result r = search_dfs(m_root, 0, cur_path);
-            IF_VERBOSE(1, verbose_stream() << "nseq iter=" << iter << " depth_bound=" << m_depth_bound
+            IF_VERBOSE(1, verbose_stream() << " depth_bound=" << m_depth_bound
                   << " dfs_nodes=" << m_stats.m_num_dfs_nodes
                   << " max_depth=" << m_stats.m_max_depth
                   << " extensions=" << m_stats.m_num_extensions
@@ -2951,168 +2951,6 @@ namespace seq {
     expr_ref nielsen_graph::int_constraint_to_expr(int_constraint const& ic) {
         ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
-<<<<<<< Updated upstream
-=======
-
-        // If already mapped, return cached
-        unsigned eid = e->get_id();
-        lp::lpvar j;
-        if (m_expr2lpvar.find(eid, j))
-            return j;
-
-        // Check if this is a numeral — shouldn't be called with a numeral directly,
-        // but handle it gracefully by creating a fixed variable
-        rational val;
-        if (arith.is_numeral(e, val)) {
-            j = m_lp_solver->add_var(m_lp_ext_cnt++, true);
-            m_lp_solver->add_var_bound(j, lp::EQ, lp::mpq(val));
-            m_expr2lpvar.insert(eid, j);
-            return j;
-        }
-
-        // Decompose linear arithmetic: a + b → create LP term (1*a + 1*b)
-        expr* e1 = nullptr;
-        expr* e2 = nullptr;
-        if (arith.is_add(e, e1, e2)) {
-            lp::lpvar j1 = lp_ensure_var(e1);
-            lp::lpvar j2 = lp_ensure_var(e2);
-            if (j1 == lp::null_lpvar || j2 == lp::null_lpvar) return lp::null_lpvar;
-            vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
-            coeffs.push_back({lp::mpq(1), j1});
-            coeffs.push_back({lp::mpq(1), j2});
-            j = m_lp_solver->add_term(coeffs, m_lp_ext_cnt++);
-            m_expr2lpvar.insert(eid, j);
-            return j;
-        }
-
-        // Decompose: a - b → create LP term (1*a + (-1)*b)
-        if (arith.is_sub(e, e1, e2)) {
-            lp::lpvar j1 = lp_ensure_var(e1);
-            lp::lpvar j2 = lp_ensure_var(e2);
-            if (j1 == lp::null_lpvar || j2 == lp::null_lpvar) return lp::null_lpvar;
-            vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
-            coeffs.push_back({lp::mpq(1), j1});
-            coeffs.push_back({lp::mpq(-1), j2});
-            j = m_lp_solver->add_term(coeffs, m_lp_ext_cnt++);
-            m_expr2lpvar.insert(eid, j);
-            return j;
-        }
-
-        // Decompose: c * x where c is numeral → create LP term (c*x)
-        if (arith.is_mul(e, e1, e2)) {
-            rational coeff;
-            if (arith.is_numeral(e1, coeff)) {
-                lp::lpvar jx = lp_ensure_var(e2);
-                if (jx == lp::null_lpvar) return lp::null_lpvar;
-                vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
-                coeffs.push_back({lp::mpq(coeff), jx});
-                j = m_lp_solver->add_term(coeffs, m_lp_ext_cnt++);
-                m_expr2lpvar.insert(eid, j);
-                return j;
-            }
-            if (arith.is_numeral(e2, coeff)) {
-                lp::lpvar jx = lp_ensure_var(e1);
-                if (jx == lp::null_lpvar) return lp::null_lpvar;
-                vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
-                coeffs.push_back({lp::mpq(coeff), jx});
-                j = m_lp_solver->add_term(coeffs, m_lp_ext_cnt++);
-                m_expr2lpvar.insert(eid, j);
-                return j;
-            }
-        }
-
-        // Decompose: -x → create LP term (-1*x)
-        if (arith.is_uminus(e, e1)) {
-            lp::lpvar jx = lp_ensure_var(e1);
-            if (jx == lp::null_lpvar) return lp::null_lpvar;
-            vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
-            coeffs.push_back({lp::mpq(-1), jx});
-            j = m_lp_solver->add_term(coeffs, m_lp_ext_cnt++);
-            m_expr2lpvar.insert(eid, j);
-            return j;
-        }
-
-        // Leaf expression (variable, length, or other opaque term): map to fresh LP var
-        j = m_lp_solver->add_var(m_lp_ext_cnt++, true /* is_integer */);
-        m_expr2lpvar.insert(eid, j);
-        return j;
-    }
-
-    void nielsen_graph::lp_add_constraint(int_constraint const& ic) {
-        if (!m_lp_solver || !ic.m_lhs || !ic.m_rhs)
-            return;
-
-        ast_manager& m = m_sg.get_manager();
-        arith_util arith(m);
-
-        // We handle simple patterns:
-        //   expr <kind> numeral    →  add_var_bound
-        //   expr <kind> expr       →  create term (lhs - rhs) and bound to 0
-        rational val;
-        bool is_num_rhs = arith.is_numeral(ic.m_rhs, val);
-
-        if (is_num_rhs && (is_app(ic.m_lhs))) {
-            // Simple case: single variable or len(x) vs numeral
-            lp::lpvar j = lp_ensure_var(ic.m_lhs);
-            if (j == lp::null_lpvar) return;
-            lp::mpq rhs_val(val);
-            switch (ic.m_kind) {
-            case int_constraint_kind::eq:
-                m_lp_solver->add_var_bound(j, lp::EQ, rhs_val);
-                break;
-            case int_constraint_kind::le:
-                m_lp_solver->add_var_bound(j, lp::LE, rhs_val);
-                break;
-            case int_constraint_kind::ge:
-                m_lp_solver->add_var_bound(j, lp::GE, rhs_val);
-                break;
-            }
-            return;
-        }
-
-        // General case: create term lhs - rhs and bound it
-        // For now, handle single variable on LHS vs single variable on RHS
-        // (covers the common case of len(x) = len(y), n >= 0, etc.)
-        bool is_num_lhs = arith.is_numeral(ic.m_lhs, val);
-        if (is_num_lhs) {
-            // numeral <kind> expr  →  reverse and flip kind
-            lp::lpvar j = lp_ensure_var(ic.m_rhs);
-            if (j == lp::null_lpvar) return;
-            lp::mpq lhs_val(val);
-            switch (ic.m_kind) {
-            case int_constraint_kind::eq:
-                m_lp_solver->add_var_bound(j, lp::EQ, lhs_val);
-                break;
-            case int_constraint_kind::le:
-                // val <= rhs  ⇔  rhs >= val
-                m_lp_solver->add_var_bound(j, lp::GE, lhs_val);
-                break;
-            case int_constraint_kind::ge:
-                // val >= rhs  ⇔  rhs <= val
-                m_lp_solver->add_var_bound(j, lp::LE, lhs_val);
-                break;
-            }
-            return;
-        }
-
-        // Both sides are expressions: create term (lhs - rhs) with bound 0
-        lp::lpvar j_lhs = lp_ensure_var(ic.m_lhs);
-        lp::lpvar j_rhs = lp_ensure_var(ic.m_rhs);
-        if (j_lhs == lp::null_lpvar || j_rhs == lp::null_lpvar) return;
-
-        // If both sides map to the same LP variable, the constraint is
-        // trivially satisfied (lhs - rhs = 0). Skip to avoid the empty-term
-        // assertion in add_term.
-        if (j_lhs == j_rhs) return;
-
-        // Create a term: 1*lhs + (-1)*rhs
-        vector<std::pair<lp::mpq, lp::lpvar>> coeffs;
-        coeffs.push_back({lp::mpq(1), j_lhs});
-        coeffs.push_back({lp::mpq(-1), j_rhs});
-        lp::lpvar term_j = m_lp_solver->add_term(coeffs, m_lp_ext_cnt++);
-
-        lp::mpq zero(0);
->>>>>>> Stashed changes
         switch (ic.m_kind) {
         case int_constraint_kind::eq:
             return expr_ref(m.mk_eq(ic.m_lhs, ic.m_rhs), m);
@@ -3162,6 +3000,30 @@ namespace seq {
         return result != l_false;
     }
 
+    bool nielsen_graph::check_lp_le(expr* lhs, expr* rhs,
+                                     nielsen_node* node,
+                                     svector<nielsen_edge*> const& cur_path) {
+        ast_manager& m = m_sg.get_manager();
+        arith_util arith(m);
+
+        vector<int_constraint> constraints;
+        collect_path_int_constraints(node, cur_path, constraints);
+
+        m_solver.push();
+        for (auto const& ic : constraints)
+            m_solver.assert_expr(int_constraint_to_expr(ic));
+
+        // Assert NOT(lhs <= rhs), i.e., lhs > rhs, i.e., lhs >= rhs + 1
+        // If this is unsat, then lhs <= rhs is entailed by the path constraints.
+        expr_ref one(arith.mk_int(1), m);
+        expr_ref rhs_plus_one(arith.mk_add(rhs, one), m);
+        m_solver.assert_expr(arith.mk_ge(lhs, rhs_plus_one));
+
+        lbool result = m_solver.check();
+        m_solver.pop(1);
+        return result == l_false;
+    }
+
     int_constraint nielsen_graph::mk_int_constraint(expr* lhs, expr* rhs,
                                                      int_constraint_kind kind,
                                                      dep_tracker const& dep) {
@@ -3173,61 +3035,6 @@ namespace seq {
         if (power->num_args() < 2) return nullptr;
         euf::snode* exp_snode = power->arg(1);
         return exp_snode ? exp_snode->get_expr() : nullptr;
-    }
-
-    bool nielsen_graph::check_lp_le(expr* a, expr* b, nielsen_node* node, svector<nielsen_edge*> const& cur_path) {
-        // Check if the path constraints entail a ≤ b.
-        // Strategy: add all constraints, then assert a > b (i.e. a - b ≥ 1).
-        // If infeasible, then a ≤ b is entailed.
-        //
-        // Uses fresh LP variables to avoid the add_term empty-term assertion
-        // that occurs when compound expressions share LP variables.
-        vector<int_constraint> constraints;
-        collect_path_int_constraints(node, cur_path, constraints);
-        if (constraints.empty())
-            return false; // no constraints → can't determine
-
-        lp_solver_reset();
-        for (auto const& ic : constraints)
-            lp_add_constraint(ic);
-
-        // Create fresh LP variables to safely represent a - b ≥ 1
-        lp::lpvar fa = m_lp_solver->add_var(m_lp_ext_cnt++, true);
-        lp::lpvar fb = m_lp_solver->add_var(m_lp_ext_cnt++, true);
-
-        // fa = a (via fa - lp(a) = 0)
-        lp::lpvar ja = lp_ensure_var(a);
-        if (ja == lp::null_lpvar) return false;
-        if (fa != ja) {
-            vector<std::pair<lp::mpq, lp::lpvar>> c1;
-            c1.push_back({lp::mpq(1), fa});
-            c1.push_back({lp::mpq(-1), ja});
-            lp::lpvar t1 = m_lp_solver->add_term(c1, m_lp_ext_cnt++);
-            m_lp_solver->add_var_bound(t1, lp::EQ, lp::mpq(0));
-        }
-
-        // fb = b (via fb - lp(b) = 0)
-        lp::lpvar jb = lp_ensure_var(b);
-        if (jb == lp::null_lpvar) return false;
-        if (fb != jb) {
-            vector<std::pair<lp::mpq, lp::lpvar>> c2;
-            c2.push_back({lp::mpq(1), fb});
-            c2.push_back({lp::mpq(-1), jb});
-            lp::lpvar t2 = m_lp_solver->add_term(c2, m_lp_ext_cnt++);
-            m_lp_solver->add_var_bound(t2, lp::EQ, lp::mpq(0));
-        }
-
-        // Assert fa - fb ≥ 1 (i.e. a > b) using only fresh vars
-        {
-            vector<std::pair<lp::mpq, lp::lpvar>> c3;
-            c3.push_back({lp::mpq(1), fa});
-            c3.push_back({lp::mpq(-1), fb});
-            lp::lpvar t3 = m_lp_solver->add_term(c3, m_lp_ext_cnt++);
-            m_lp_solver->add_var_bound(t3, lp::GE, lp::mpq(1));
-        }
-
-        lp::lp_status status = m_lp_solver->find_feasible_solution();
-        return status == lp::lp_status::INFEASIBLE; // a > b infeasible ⟹ a ≤ b
     }
 
     expr_ref nielsen_graph::mk_fresh_int_var() {

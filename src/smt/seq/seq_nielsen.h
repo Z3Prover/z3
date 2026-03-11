@@ -944,9 +944,11 @@ namespace seq {
         // returns true if feasible, false if infeasible.
         bool check_int_feasibility(nielsen_node* node, svector<nielsen_edge*> const& cur_path);
 
-        // check if path constraints entail a <= b.
-        // Strategy: add all path constraints + (a > b) and check for infeasibility.
-        bool check_lp_le(expr* a, expr* b, nielsen_node* node, svector<nielsen_edge*> const& cur_path);
+        // check whether lhs <= rhs is implied by the path constraints.
+        // mirrors ZIPT's NielsenNode.IsLe(): collects path constraints,
+        // asserts their conjunction plus NOT(lhs <= rhs), and returns true
+        // iff the result is unsatisfiable (i.e., lhs <= rhs is entailed).
+        bool check_lp_le(expr* lhs, expr* rhs, nielsen_node* node, svector<nielsen_edge*> const& cur_path);
 
         // create an integer constraint: lhs <kind> rhs
         int_constraint mk_int_constraint(expr* lhs, expr* rhs, int_constraint_kind kind, dep_tracker const& dep);
