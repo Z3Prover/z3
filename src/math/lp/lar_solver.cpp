@@ -467,6 +467,8 @@ namespace lp {
         return ret;
     }
 
+
+
     lp_status lar_solver::solve() {
         if (m_imp->m_status == lp_status::INFEASIBLE || m_imp->m_status == lp_status::CANCELLED)
             return m_imp->m_status;
@@ -2303,16 +2305,6 @@ namespace lp {
         return m_imp->m_constraints.add_term_constraint(j, m_imp->m_columns[j].term(), kind, rs);
     }
 
-    struct lar_solver::scoped_backup {
-        lar_solver& m_s;
-        scoped_backup(lar_solver& s) : m_s(s) {
-            m_s.get_core_solver().backup_x();
-        }
-        ~scoped_backup() {
-            m_s.get_core_solver().restore_x();
-        }
-    };
-   
     void lar_solver::update_column_type_and_bound_with_ub(unsigned j, lp::lconstraint_kind kind, const mpq& right_side, u_dependency* dep) {
         SASSERT(column_has_upper_bound(j));
         if (column_has_lower_bound(j)) {
