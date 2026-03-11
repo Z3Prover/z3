@@ -450,8 +450,9 @@ namespace euf {
         m_egraph.pop(num_scopes);
     }
 
-    snode* sgraph::mk_var(symbol const& name) {
-        expr_ref e(m.mk_const(name, m_str_sort), m);
+    snode* sgraph::mk_var(symbol const& name, sort* s) {
+        if (!s) s = m_str_sort;
+        expr_ref e(m.mk_const(name, s), m);
         return mk(e);
     }
 

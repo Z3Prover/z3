@@ -2216,7 +2216,7 @@ namespace seq {
     euf::snode* nielsen_graph::mk_fresh_var() {
         ++m_stats.m_num_fresh_vars;
         std::string name = "v!" + std::to_string(m_fresh_cnt++);
-        return m_sg.mk_var(symbol(name.c_str()));
+        return m_sg.mk_var(symbol(name.c_str()), m_sg.get_str_sort());
     }
 
     euf::snode* nielsen_graph::mk_fresh_char_var() {
