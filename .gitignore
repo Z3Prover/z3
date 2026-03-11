@@ -117,3 +117,4 @@ genaisrc/genblogpost.genai.mts
 bazel-*
 # Local issue tracking
 .beads
+.z3-agent/
