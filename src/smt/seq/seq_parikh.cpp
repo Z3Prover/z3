@@ -341,6 +341,8 @@ namespace seq {
         // range [lo, hi] (hi inclusive in Z3's regex representation)
         unsigned lo = 0, hi = 0;
         if (seq.re.is_range(re_expr, lo, hi)) {
+            // lo > hi is a degenerate range; should not arise from well-formed minterms
+            SASSERT(lo <= hi);
             if (lo > hi) return char_set();
             // char_range uses exclusive upper bound; Z3 hi is inclusive
             return char_set(char_range(lo, hi + 1));
@@ -363,15 +365,14 @@ namespace seq {
 
         // to_re(str.unit(c)): singleton character set
         expr* str_arg = nullptr;
-        if (seq.re.is_to_re(re_expr, str_arg)) {
-            expr* ch_expr = nullptr;
-            unsigned char_val = 0;
-            if (seq.str.is_unit(str_arg, ch_expr) &&
-                seq.is_const_char(ch_expr, char_val)) {
-                char_set cs;
-                cs.add(char_val);
-                return cs;
-            }
+        expr* ch_expr = nullptr;
+        unsigned char_val = 0;
+        if (seq.re.is_to_re(re_expr, str_arg) &&
+            seq.str.is_unit(str_arg, ch_expr) &&
+            seq.is_const_char(ch_expr, char_val)) {
+            char_set cs;
+            cs.add(char_val);
+            return cs;
         }
 
         // empty regex: no characters can appear
