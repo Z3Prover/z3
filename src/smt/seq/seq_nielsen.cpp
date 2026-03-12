@@ -24,8 +24,6 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "smt/smt_kernel.h"
-#include "params/smt_params.h"
 #include "util/hashtable.h"
 #include <algorithm>
 #include <cstdlib>
@@ -3438,34 +3436,25 @@ namespace seq {
         if (m_sat_path.empty() && (!m_sat_node || m_sat_node->int_constraints().empty()))
             return false;
 
-        vector<int_constraint> constraints;
-        collect_path_int_constraints(m_sat_node, m_sat_path, constraints);
-        if (constraints.empty())
-            return false;
-
-        // Use a fresh smt::kernel to solve the integer constraints.
-        // Add constraints incrementally, skipping any that would make the system UNSAT
-        // (the search may have taken contradictory branches).
-        ast_manager& m = m_sg.get_manager();
-        smt_params params;
-        smt::kernel fresh_solver(m, params);
-        IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints: " << constraints.size() << " constraints\n";);
-        for (auto const& ic : constraints) {
-            expr_ref e = int_constraint_to_expr(ic);
-            IF_VERBOSE(2, verbose_stream() << "  constraint: " << mk_bounded_pp(e, m, 5) << "\n";);
-            fresh_solver.push();
-            fresh_solver.assert_expr(e);
-            if (fresh_solver.check() == l_false) {
-                IF_VERBOSE(1, verbose_stream() << "  SKIPPED (infeasible): " << mk_bounded_pp(e, m, 5) << "\n";);
-                fresh_solver.pop(1);
-            }
-        }
-
-        lbool result = fresh_solver.check();
+        // Re-assert the sat-path constraints into m_solver (which holds only root-level
+        // constraints at this point) and extract a model via the injected simple_solver.
+        // The sat path was found by DFS which verified feasibility at every step via
+        // check_int_feasibility, so all constraints along this path are jointly satisfiable
+        // and do not require incremental skipping.
+        IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints: sat_path length=" << m_sat_path.size() << "\n";);
+        m_solver.push();
+        for (nielsen_edge* e : m_sat_path)
+            for (auto const& ic : e->side_int())
+                m_solver.assert_expr(int_constraint_to_expr(ic));
+        if (m_sat_node)
+            for (auto const& ic : m_sat_node->int_constraints())
+                m_solver.assert_expr(int_constraint_to_expr(ic));
+        lbool result = m_solver.check();
         IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints result: " << result << "\n";);
         if (result == l_true) {
-            fresh_solver.get_model(mdl);
-            IF_VERBOSE(1, {
+            m_solver.get_model(mdl);
+            IF_VERBOSE(1, if (mdl) {
+                ast_manager& m = m_sg.get_manager();
                 verbose_stream() << "  int_model:\n";
                 for (unsigned i = 0; i < mdl->get_num_constants(); ++i) {
                     func_decl* fd = mdl->get_constant(i);
@@ -3474,6 +3463,7 @@ namespace seq {
                 }
             });
         }
+        m_solver.pop(1);
         return mdl.get() != nullptr;
     }
 
