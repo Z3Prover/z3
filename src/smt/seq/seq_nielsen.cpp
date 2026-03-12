@@ -461,6 +461,7 @@ namespace seq {
     nielsen_node* nielsen_graph::mk_child(nielsen_node* parent) {
         nielsen_node* child = mk_node();
         child->clone_from(*parent);
+        child->m_parent_ic_count = parent->int_constraints().size();
         return child;
     }
 
@@ -1720,10 +1721,14 @@ namespace seq {
             return search_result::unsat;
         }
 
-        // integer feasibility check: collect side constraints along the path
-        // and verify they are jointly satisfiable using the LP solver.
-        // Must run AFTER simplify_and_init (which may add int_constraints)
-        // and BEFORE the SAT check (equation satisfied doesn't imply ints are feasible).
+        // Assert any new int_constraints added during simplify_and_init for this
+        // node into the current solver scope. Constraints inherited from the parent
+        // (indices 0..m_parent_ic_count-1) are already present at the enclosing
+        // scope level; only the newly-added tail needs to be asserted here.
+        assert_node_new_int_constraints(node);
+
+        // integer feasibility check: the solver now holds all path constraints
+        // incrementally; just query the solver directly
         if (!cur_path.empty() && !check_int_feasibility(node, cur_path)) {
             node->set_reason(backtrack_reason::arithmetic);
             ++m_stats.m_num_arith_infeasible;
@@ -1762,7 +1767,15 @@ namespace seq {
         bool any_unknown = false;
         for (nielsen_edge* e : node->outgoing()) {
             cur_path.push_back(e);
+            // Push a solver scope for this edge and assert its side integer
+            // constraints.  The child's own new int_constraints will be asserted
+            // inside the recursive call (above).  On return, pop the scope so
+            // that backtracking removes those assertions.
+            m_solver.push();
+            for (auto const& ic : e->side_int())
+                m_solver.assert_expr(int_constraint_to_expr(ic));
             search_result r = search_dfs(e->tgt(), depth + 1, cur_path);
+            m_solver.pop(1);
             if (r == search_result::sat)
                 return search_result::sat;
             cur_path.pop_back();
@@ -3325,41 +3338,22 @@ namespace seq {
         return expr_ref(m.mk_true(), m);
     }
 
-    void nielsen_graph::collect_path_int_constraints(nielsen_node* node,
-                                                      svector<nielsen_edge*> const& cur_path,
-                                                      vector<int_constraint>& out) {
-        // collect from root node
-        if (m_root) {
-            for (auto const& ic : m_root->int_constraints())
-                out.push_back(ic);
-        }
-
-        // collect from edges along the path and their target nodes
-        for (nielsen_edge* e : cur_path) {
-            for (auto const& ic : e->side_int())
-                out.push_back(ic);
-            if (e->tgt()) {
-                for (auto const& ic : e->tgt()->int_constraints())
-                    out.push_back(ic);
-            }
-        }
+    void nielsen_graph::assert_node_new_int_constraints(nielsen_node* node) {
+        // Assert only the int_constraints that are new to this node (beyond those
+        // inherited from its parent via clone_from).  The parent's constraints are
+        // already present in the enclosing solver scope; asserting them again would
+        // be redundant (though harmless).  This is called by search_dfs right after
+        // simplify_and_init, which is where new constraints are produced.
+        for (unsigned i = node->m_parent_ic_count; i < node->int_constraints().size(); ++i)
+            m_solver.assert_expr(int_constraint_to_expr(node->int_constraints()[i]));
     }
 
     bool nielsen_graph::check_int_feasibility(nielsen_node* node, svector<nielsen_edge*> const& cur_path) {
-        vector<int_constraint> constraints;
-        collect_path_int_constraints(node, cur_path, constraints);
-
-        if (constraints.empty())
-            return true; // no integer constraints, trivially feasible
-
-
-        m_solver.push();
-        for (auto const& ic : constraints)
-            m_solver.assert_expr(int_constraint_to_expr(ic));
-
-        lbool result = m_solver.check();
-        m_solver.pop(1);
-        return result != l_false;
+        // In incremental mode the solver already holds all path constraints
+        // (root length constraints at the base level, edge side_int and node
+        // int_constraints pushed/popped as the DFS descends and backtracks).
+        // A plain check() is therefore sufficient.
+        return m_solver.check() != l_false;
     }
 
     bool nielsen_graph::check_lp_le(expr* lhs, expr* rhs,
@@ -3368,19 +3362,14 @@ namespace seq {
         ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
 
-        vector<int_constraint> constraints;
-        collect_path_int_constraints(node, cur_path, constraints);
-
-        m_solver.push();
-        for (auto const& ic : constraints)
-            m_solver.assert_expr(int_constraint_to_expr(ic));
-
-        // Assert NOT(lhs <= rhs), i.e., lhs > rhs, i.e., lhs >= rhs + 1
-        // If this is unsat, then lhs <= rhs is entailed by the path constraints.
+        // The solver already holds all path constraints incrementally.
+        // Temporarily add NOT(lhs <= rhs), i.e. lhs >= rhs + 1.
+        // If that is unsat, then lhs <= rhs is entailed.
         expr_ref one(arith.mk_int(1), m);
         expr_ref rhs_plus_one(arith.mk_add(rhs, one), m);
-        m_solver.assert_expr(arith.mk_ge(lhs, rhs_plus_one));
 
+        m_solver.push();
+        m_solver.assert_expr(arith.mk_ge(lhs, rhs_plus_one));
         lbool result = m_solver.check();
         m_solver.pop(1);
         return result == l_false;

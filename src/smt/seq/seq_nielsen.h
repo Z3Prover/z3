@@ -522,6 +522,12 @@ namespace seq {
         // evaluation index for run tracking
         unsigned                m_eval_idx = 0;
 
+        // number of int_constraints inherited from the parent node at clone time.
+        // int_constraints[0..m_parent_ic_count) are already asserted at the
+        // parent's solver scope; only [m_parent_ic_count..end) need to be
+        // asserted when this node's solver scope is entered.
+        unsigned                m_parent_ic_count = 0;
+
     public:
         nielsen_node(nielsen_graph* graph, unsigned id);
 
@@ -954,20 +960,24 @@ namespace seq {
         // Mirrors ZIPT's Constraint.Shared forwarding mechanism.
         void assert_root_constraints_to_solver();
 
-        // collect int_constraints along the path from root to the given node,
-        // including constraints from edges and nodes.
-        void collect_path_int_constraints(nielsen_node* node,
-                                          svector<nielsen_edge*> const& cur_path,
-                                          vector<int_constraint>& out);
+        // Assert the int_constraints of `node` that are new relative to its
+        // parent (indices [m_parent_ic_count..end)) into the current solver scope.
+        // Called by search_dfs after simplify_and_init so that the newly derived
+        // bounds become visible to subsequent check() and check_lp_le() calls.
+        void assert_node_new_int_constraints(nielsen_node* node);
 
         // check integer feasibility of the constraints along the current path.
-        // returns true if feasible, false if infeasible.
+        // returns true if feasible (including unknown), false only if l_false.
+        // Precondition: all path constraints have been incrementally asserted to
+        // m_solver by search_dfs via push/pop, so a plain check() suffices.
+        // l_undef (resource limit / timeout) is treated as feasible so that the
+        // search continues rather than reporting a false unsatisfiability.
         bool check_int_feasibility(nielsen_node* node, svector<nielsen_edge*> const& cur_path);
 
         // check whether lhs <= rhs is implied by the path constraints.
-        // mirrors ZIPT's NielsenNode.IsLe(): collects path constraints,
-        // asserts their conjunction plus NOT(lhs <= rhs), and returns true
-        // iff the result is unsatisfiable (i.e., lhs <= rhs is entailed).
+        // mirrors ZIPT's NielsenNode.IsLe(): temporarily asserts NOT(lhs <= rhs)
+        // and returns true iff the result is unsatisfiable (i.e., lhs <= rhs is
+        // entailed).  Path constraints are already in the solver incrementally.
         bool check_lp_le(expr* lhs, expr* rhs, nielsen_node* node, svector<nielsen_edge*> const& cur_path);
 
         // create an integer constraint: lhs <kind> rhs
