@@ -175,7 +175,7 @@ int main(int argc, char ** argv) {
     TST(var_subst);
     TST(simple_parser);
     TST(api);
-    TST(bnh_opt);
+    TST(max_reg);
     TST(max_rev);
     TST(api_algebraic);
     TST(api_polynomial);
