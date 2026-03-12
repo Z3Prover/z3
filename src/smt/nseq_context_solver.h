@@ -49,6 +49,7 @@ namespace smt {
         }
 
         void assert_expr(expr* e) override {
+            // std::cout << "Asserting: " << mk_pp(e, m_kernel.m()) << std::endl;
             m_kernel.assert_expr(e);
         }
 

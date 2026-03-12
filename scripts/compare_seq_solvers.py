@@ -14,13 +14,14 @@ and reports:
 """
 
 import argparse
+import re
 import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-TIMEOUT = 5  # seconds
+DEFAULT_TIMEOUT = 5  # seconds
 COMMON_ARGS = ["model_validate=true"]
 
 SOLVERS = {
@@ -29,27 +30,72 @@ SOLVERS = {
 }
 
 
-def run_z3(z3_bin: str, smt_file: Path, solver_arg: str) -> tuple[str, float]:
+_STATUS_RE = re.compile(r'\(\s*set-info\s+:status\s+(sat|unsat|unknown)\s*\)')
+
+
+def read_smtlib_status(smt_file: Path) -> str:
+    """Read the expected status from the SMT-LIB (set-info :status ...) directive.
+    Returns 'sat', 'unsat', or 'unknown'.
+    """
+    try:
+        text = smt_file.read_text(encoding="utf-8", errors="replace")
+        m = _STATUS_RE.search(text)
+        if m:
+            return m.group(1)
+    except OSError:
+        pass
+    return "unknown"
+
+
+def determine_status(res_nseq: str, res_seq: str, smtlib_status: str) -> str:
+    """Determine the ground-truth status of a problem.
+    Priority: if both solvers agree on sat/unsat, use that; otherwise if one
+    solver gives sat/unsat, use that; otherwise fall back to the SMT-LIB
+    annotation; otherwise 'unknown'.
+    """
+    definite = {"sat", "unsat"}
+    if res_nseq in definite and res_nseq == res_seq:
+        return res_nseq
+    if res_nseq in definite and res_seq not in definite:
+        return res_nseq
+    if res_seq in definite and res_nseq not in definite:
+        return res_seq
+    # Disagreement (sat vs unsat) — fall back to SMTLIB annotation
+    if res_nseq in definite and res_seq in definite and res_nseq != res_seq:
+        if smtlib_status in definite:
+            return smtlib_status
+        return "unknown"
+    # Neither solver gave a definite answer
+    if smtlib_status in definite:
+        return smtlib_status
+    return "unknown"
+
+
+def run_z3(z3_bin: str, smt_file: Path, solver_arg: str, timeout_s: int = DEFAULT_TIMEOUT) -> tuple[str, float]:
     """Run z3 on a file with the given solver argument.
     Returns (result, elapsed) where result is 'sat', 'unsat', 'unknown', or 'timeout'/'error'.
     """
-    cmd = [z3_bin, solver_arg] + COMMON_ARGS + [str(smt_file)]
+    timeout_ms = timeout_s * 1000
+    cmd = [z3_bin, f"-t:{timeout_ms}", solver_arg] + COMMON_ARGS + [str(smt_file)]
     start = time.monotonic()
     try:
         proc = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=TIMEOUT,
+            timeout=timeout_s + 5,  # subprocess grace period beyond Z3's own timeout
         )
         elapsed = time.monotonic() - start
         output = proc.stdout.strip()
         # Extract first meaningful line (sat/unsat/unknown)
         for line in output.splitlines():
             line = line.strip()
-            if line in ("sat", "unsat", "unknown"):
+            if line in ("sat", "unsat"):
                 return line, elapsed
-        return "unknown", elapsed
+            if line == "unknown":
+                # Z3 returns "unknown" when it hits -t: limit — treat as timeout
+                return "timeout", elapsed
+        return "timeout", elapsed
     except subprocess.TimeoutExpired:
         elapsed = time.monotonic() - start
         return "timeout", elapsed
@@ -77,17 +123,21 @@ def classify(res_nseq: str, res_seq: str) -> str:
     return "diverge"
 
 
-def process_file(z3_bin: str, smt_file: Path) -> dict:
-    res_nseq, t_nseq = run_z3(z3_bin, smt_file, SOLVERS["nseq"])
-    res_seq,  t_seq  = run_z3(z3_bin, smt_file, SOLVERS["seq"])
+def process_file(z3_bin: str, smt_file: Path, timeout_s: int = DEFAULT_TIMEOUT) -> dict:
+    res_nseq, t_nseq = run_z3(z3_bin, smt_file, SOLVERS["nseq"], timeout_s)
+    res_seq,  t_seq  = run_z3(z3_bin, smt_file, SOLVERS["seq"], timeout_s)
     cat = classify(res_nseq, res_seq)
+    smtlib_status = read_smtlib_status(smt_file)
+    status = determine_status(res_nseq, res_seq, smtlib_status)
     return {
-        "file":     smt_file,
-        "nseq":     res_nseq,
-        "seq":      res_seq,
-        "t_nseq":   t_nseq,
-        "t_seq":    t_seq,
-        "category": cat,
+        "file":           smt_file,
+        "nseq":           res_nseq,
+        "seq":            res_seq,
+        "t_nseq":         t_nseq,
+        "t_seq":          t_seq,
+        "category":       cat,
+        "smtlib_status":  smtlib_status,
+        "status":         status,
     }
 
 
@@ -97,10 +147,13 @@ def main():
     parser.add_argument("--z3", required=True, metavar="PATH", help="Path to z3 binary")
     parser.add_argument("--ext", default=".smt2", help="File extension to search for (default: .smt2)")
     parser.add_argument("--jobs", type=int, default=4, help="Parallel workers (default: 4)")
+    parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, metavar="SEC",
+                        help=f"Per-solver timeout in seconds (default: {DEFAULT_TIMEOUT})")
     parser.add_argument("--csv", metavar="FILE", help="Also write results to a CSV file")
     args = parser.parse_args()
 
     z3_bin = args.z3
+    timeout_s = args.timeout
 
     root = Path(args.path)
     if not root.exists():
@@ -112,11 +165,11 @@ def main():
         print(f"No {args.ext} files found under {root}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Found {len(files)} files. Running with {args.jobs} parallel workers …\n")
+    print(f"Found {len(files)} files. Running with {args.jobs} parallel workers, timeout={timeout_s}s …\n")
 
     results = []
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = {pool.submit(process_file, z3_bin, f): f for f in files}
+        futures = {pool.submit(process_file, z3_bin, f, timeout_s): f for f in files}
         done = 0
         for fut in as_completed(futures):
             done += 1
@@ -138,24 +191,45 @@ def main():
         categories.setdefault(r["category"], []).append(r)
 
     print("\n" + "="*70)
-    print("SUMMARY")
-    print("="*70)
-
+    print("TOTALS")
     for cat, items in categories.items():
-        if not items:
-            continue
+        print(f"  {cat:40s}: {len(items)}")
+    print(f"{'='*70}")
+
+    # ── Per-solver timeout & divergence file lists ─────────────────────────
+    nseq_timeouts = [r for r in results if r["nseq"] == "timeout"]
+    seq_timeouts  = [r for r in results if r["seq"]  == "timeout"]
+    both_to       = categories["both_timeout"]
+    diverged      = categories["diverge"]
+
+    def _print_file_list(label: str, items: list[dict]):
         print(f"\n{'─'*70}")
-        print(f"  {cat.upper().replace('_', ' ')} ({len(items)} files)")
+        print(f"  {label} ({len(items)} files)")
         print(f"{'─'*70}")
         for r in sorted(items, key=lambda x: x["file"]):
             print(f"  {r['file']}")
-            if cat not in ("both_timeout", "both_agree"):
-                print(f"    nseq={r['nseq']:8s} ({r['t_nseq']:.1f}s)   seq={r['seq']:8s} ({r['t_seq']:.1f}s)")
 
-    print(f"\n{'='*70}")
-    print(f"TOTALS")
-    for cat, items in categories.items():
-        print(f"  {cat:40s}: {len(items)}")
+    if nseq_timeouts:
+        _print_file_list("NSEQ TIMES OUT", nseq_timeouts)
+    if seq_timeouts:
+        _print_file_list("SEQ TIMES OUT", seq_timeouts)
+    if both_to:
+        _print_file_list("BOTH TIME OUT", both_to)
+    if diverged:
+        _print_file_list("DIVERGE (sat vs unsat)", diverged)
+
+    print()
+
+    # ── Problem status statistics ────────────────────────────────────────────
+    status_counts = {"sat": 0, "unsat": 0, "unknown": 0}
+    for r in results:
+        status_counts[r["status"]] = status_counts.get(r["status"], 0) + 1
+
+    print(f"\nPROBLEM STATUS  (total {len(results)} files)")
+    print(f"{'─'*40}")
+    print(f"  {'sat':12s}: {status_counts['sat']:5d}  ({100*status_counts['sat']/len(results):.1f}%)")
+    print(f"  {'unsat':12s}: {status_counts['unsat']:5d}  ({100*status_counts['unsat']/len(results):.1f}%)")
+    print(f"  {'unknown':12s}: {status_counts['unknown']:5d}  ({100*status_counts['unknown']/len(results):.1f}%)")
     print(f"{'='*70}\n")
 
     # ── Optional CSV output ───────────────────────────────────────────────────
@@ -163,7 +237,7 @@ def main():
         import csv
         csv_path = Path(args.csv)
         with csv_path.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=["file", "nseq", "seq", "t_nseq", "t_seq", "category"])
+            writer = csv.DictWriter(f, fieldnames=["file", "nseq", "seq", "t_nseq", "t_seq", "category", "smtlib_status", "status"])
             writer.writeheader()
             for r in sorted(results, key=lambda x: x["file"]):
                 writer.writerow({**r, "file": str(r["file"])})

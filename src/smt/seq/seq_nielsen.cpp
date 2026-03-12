@@ -445,6 +445,7 @@ namespace seq {
         m_sg(sg),
         m_solver(solver),
         m_parikh(alloc(seq_parikh, sg)) {
+        m_len_vars(sg.get_manager()) {
     }
 
     nielsen_graph::~nielsen_graph() {
@@ -522,6 +523,9 @@ namespace seq {
         m_num_input_eqs = 0;
         m_num_input_mems = 0;
         m_root_constraints_asserted = false;
+        m_mod_cnt.reset();
+        m_len_var_cache.clear();
+        m_len_vars.reset();
     }
 
     std::ostream& nielsen_graph::display(std::ostream& out) const {
@@ -873,7 +877,7 @@ namespace seq {
 
         // --- nodes ---
         for (nielsen_node const* n : m_nodes) {
-            out << "\t" << n->id() << " [label=<"
+            out << "    " << n->id() << " [label=<"
                 << n->id() << ": ";
             n->display_html(out, m);
             // append conflict reason if this is a direct conflict
@@ -897,7 +901,7 @@ namespace seq {
         // --- edges ---
         for (nielsen_node const* n : m_nodes) {
             for (nielsen_edge const* e : n->outgoing()) {
-                out << "\t" << n->id() << " -> " << e->tgt()->id() << " [label=<";
+                out << "    " << n->id() << " -> " << e->tgt()->id() << " [label=<";
 
                 // edge label: substitutions joined by <br/>
                 bool first = true;
@@ -958,7 +962,7 @@ namespace seq {
 
             // backedge as dotted arrow
             if (n->backedge())
-                out << "\t" << n->id() << " -> " << n->backedge()->id()
+                out << "    " << n->id() << " -> " << n->backedge()->id()
                     << " [style=dotted];\n";
         }
 
@@ -1296,6 +1300,9 @@ namespace seq {
     }
 
     simplify_result nielsen_node::simplify_and_init(nielsen_graph& g, svector<nielsen_edge*> const& cur_path) {
+        if (m_is_extended)
+            return simplify_result::proceed;
+
         euf::sgraph& sg = g.sg();
         ast_manager& m = sg.get_manager();
         arith_util arith(m);
@@ -1382,6 +1389,44 @@ namespace seq {
                         changed = true;
                     }
                 }
+
+                // pass 2b: power-character prefix inconsistency
+                // (mirrors ZIPT's SimplifyDir power unit case + IsPrefixConsistent)
+                // When one side starts with a power u^n whose base starts with
+                // char a, and the other side starts with a different char b,
+                // the power exponent must be 0.
+                // Creates a single deterministic child with the substitution and
+                // constraint as edge labels so they appear in the graph.
+                // Guard: skip if we already created a child (re-entry via iterative deepening).
+                if (!eq.is_trivial() && eq.m_lhs && eq.m_rhs) {
+                    euf::snode* lh = eq.m_lhs->first();
+                    euf::snode* rh = eq.m_rhs->first();
+                    for (int dir = 0; dir < 2; dir++) {
+                        euf::snode* pow_head = (dir == 0) ? lh : rh;
+                        euf::snode* other_head = (dir == 0) ? rh : lh;
+                        if (!pow_head || !pow_head->is_power() || !other_head || !other_head->is_char())
+                            continue;
+                        euf::snode* base_sn = pow_head->arg(0);
+                        if (!base_sn) continue;
+                        euf::snode* base_first = base_sn->first();
+                        if (!base_first || !base_first->is_char()) continue;
+                        if (base_first->id() == other_head->id()) continue;
+                        // base starts with different char → create child with exp=0 + power→ε
+                        nielsen_node* child = g.mk_child(this);
+                        nielsen_edge* e = g.mk_edge(this, child, true);
+                        nielsen_subst s(pow_head, sg.mk_empty(), eq.m_dep);
+                        e->add_subst(s);
+                        child->apply_subst(sg, s);
+                        expr* pow_exp = get_power_exp_expr(pow_head);
+                        if (pow_exp) {
+                            expr* zero = arith.mk_numeral(rational(0), true);
+                            e->add_side_int(g.mk_int_constraint(
+                                pow_exp, zero, int_constraint_kind::eq, eq.m_dep));
+                        }
+                        set_extended(true);
+                        return simplify_result::proceed;
+                    }
+                }
             }
 
             // pass 3: power simplification (mirrors ZIPT's LcpCompression +
@@ -1458,7 +1503,8 @@ namespace seq {
                 // exponent powers (e.g. base^1 → base created by 3c) before
                 // 3e attempts LP-based elimination which would introduce a
                 // needless fresh variable.
-                if (changed) continue;
+                if (changed)
+                    continue;
 
                 // 3d: power prefix elimination — when both sides start with a
                 // power of the same base, cancel the common power prefix.
@@ -1578,6 +1624,211 @@ namespace seq {
         // IntBounds initialization: derive per-variable Parikh length bounds from
         // remaining regex memberships and add to m_int_constraints.
         init_var_bounds_from_mems();
+
+        // pass 5: variable-character look-ahead substitution
+        // (mirrors ZIPT's StrEq.SimplifyFinal)
+        // When one side starts with a variable x and the other with chars,
+        // look ahead to find how many leading chars can be deterministically
+        // assigned to x without splitting, by checking prefix consistency.
+        // Guard: skip if we already created a child (re-entry via iterative deepening).
+        for (str_eq& eq : m_str_eq) {
+            if (eq.is_trivial() || !eq.m_lhs || !eq.m_rhs)
+                continue;
+
+            // Orient: var_side starts with a variable, char_side starts with a char
+            euf::snode* var_side = nullptr;
+            euf::snode* char_side = nullptr;
+            euf::snode* lhead = eq.m_lhs->first();
+            euf::snode* rhead = eq.m_rhs->first();
+            if (!lhead || !rhead) continue;
+
+            if (lhead->is_var() && rhead->is_char()) {
+                var_side = eq.m_lhs;
+                char_side = eq.m_rhs;
+            } else if (rhead->is_var() && lhead->is_char()) {
+                var_side = eq.m_rhs;
+                char_side = eq.m_lhs;
+            } else {
+                continue;
+            }
+
+            euf::snode_vector var_toks, char_toks;
+            var_side->collect_tokens(var_toks);
+            char_side->collect_tokens(char_toks);
+            if (var_toks.size() <= 1 || char_toks.empty())
+                continue;
+
+            euf::snode* var_node = var_toks[0];
+            SASSERT(var_node->is_var());
+
+            // For increasing prefix lengths i (chars from char_side),
+            // check if x → char_toks[0..i-1] · x would be consistent by
+            // comparing tokens after x on the var_side against the shifted
+            // char_side tokens.
+            // Mirrors ZIPT's SimplifyFinal loop: when prefix i is proven
+            // inconsistent (char clash), we continue to i+1. When we reach
+            // a prefix that is consistent or indeterminate, we stop.
+            // The final i is the substitution length: x → char_toks[0..i-1] · x.
+            // If ALL prefixes are inconsistent, i equals the full leading-char
+            // count and we still substitute (x must be at least that long).
+            unsigned i = 0;
+            for (; i < char_toks.size() && char_toks[i]->is_char(); ++i) {
+                unsigned j1 = 1;   // index into var_toks (after the variable)
+                unsigned j2 = i;   // index into char_toks (after copied prefix)
+                bool failed = false;
+
+                while (j1 < var_toks.size() && j2 < char_toks.size()) {
+                    euf::snode* st1 = var_toks[j1];
+                    euf::snode* st2 = char_toks[j2];
+
+                    if (!st2->is_char())
+                        break;  // can't compare against non-char — indeterminate
+
+                    if (st1->is_char()) {
+                        if (st1->id() == st2->id()) {
+                            j1++;
+                            j2++;
+                            continue;
+                        }
+                        failed = true;
+                        break;
+                    }
+
+                    if (st1->id() != var_node->id())
+                        break;  // different variable/power — indeterminate
+
+                    // st1 is the same variable x again — compare against
+                    // the chars we would copy (char_toks[0..i-1])
+                    bool inner_indet = false;
+                    for (unsigned l = 0; j2 < char_toks.size() && l < i; ++l) {
+                        st2 = char_toks[j2];
+                        if (!st2->is_char()) {
+                            inner_indet = true;
+                            break;
+                        }
+                        if (st2->id() == char_toks[l]->id()) {
+                            j2++;
+                            continue;
+                        }
+                        failed = true;
+                        break;
+                    }
+                    if (inner_indet || failed) break;
+                    j1++;
+                }
+
+                if (failed)
+                    continue;  // prefix i is inconsistent — try longer
+                break;         // prefix i is consistent/indeterminate — stop
+            }
+
+            if (i == 0)
+                continue;
+
+            // Divergence guard (mirrors ZIPT's HasDepCycle + power skip):
+            // Check whether the next named variable or power token on the
+            // char_side (past the char prefix) would create a dependency
+            // cycle or involve a power (which would cause infinite unwinding).
+
+            // Step 1: find the first variable or power past the char prefix
+            euf::snode* next_var = nullptr;
+            for (unsigned k = i; k < char_toks.size(); ++k) {
+                euf::snode* t = char_toks[k];
+                if (t->is_power()) {
+                    // Power token → skip this equation (would cause divergence)
+                    next_var = nullptr;
+                    goto skip_eq;
+                }
+                if (t->is_var()) {
+                    next_var = t;
+                    break;
+                }
+            }
+
+            // Step 2: if there is a variable, check for Nielsen dependency cycle
+            if (next_var) {
+                // Build Nielsen dependency graph: for each equation, if one side
+                // starts with variable x, then x depends on the first variable
+                // on the other side. (Mirrors ZIPT's GetNielsenDep.)
+                // Then check if there's a path from next_var back to var_node.
+                // Use a u_map<unsigned> to represent edges: var_id → first_dep_var_id.
+                u_map<unsigned> dep_edges;  // var snode id → first dependent var snode id
+                for (str_eq const& other_eq : m_str_eq) {
+                    if (other_eq.is_trivial()) continue;
+                    if (!other_eq.m_lhs || !other_eq.m_rhs) continue;
+
+                    euf::snode* lh2 = other_eq.m_lhs->first();
+                    euf::snode* rh2 = other_eq.m_rhs->first();
+                    if (!lh2 || !rh2) continue;
+
+                    // Orient: head_var leads one side, scan other side for first var
+                    auto record_dep = [&](euf::snode* head_var, euf::snode* other_side) {
+                        euf::snode_vector other_toks;
+                        other_side->collect_tokens(other_toks);
+                        if (lh2->is_var() && rh2->is_var()) {
+                            // Both sides start with vars: bidirectional dependency
+                            if (!dep_edges.contains(lh2->id()))
+                                dep_edges.insert(lh2->id(), rh2->id());
+                            if (!dep_edges.contains(rh2->id()))
+                                dep_edges.insert(rh2->id(), lh2->id());
+                            return;
+                        }
+                        for (unsigned idx = 0; idx < other_toks.size(); ++idx) {
+                            if (other_toks[idx]->is_var()) {
+                                if (!dep_edges.contains(head_var->id()))
+                                    dep_edges.insert(head_var->id(), other_toks[idx]->id());
+                                return;
+                            }
+                        }
+                    };
+
+                    if (lh2->is_var() && !rh2->is_var())
+                        record_dep(lh2, other_eq.m_rhs);
+                    else if (rh2->is_var() && !lh2->is_var())
+                        record_dep(rh2, other_eq.m_lhs);
+                    else if (lh2->is_var() && rh2->is_var())
+                        record_dep(lh2, other_eq.m_rhs);
+                }
+
+                // DFS from next_var to see if we can reach var_node
+                uint_set visited;
+                svector<unsigned> worklist;
+                worklist.push_back(next_var->id());
+                bool cycle_found = false;
+                while (!worklist.empty() && !cycle_found) {
+                    unsigned cur = worklist.back();
+                    worklist.pop_back();
+                    if (cur == var_node->id()) {
+                        cycle_found = true;
+                        break;
+                    }
+                    if (visited.contains(cur))
+                        continue;
+                    visited.insert(cur);
+                    unsigned dep_id;
+                    if (dep_edges.find(cur, dep_id))
+                        worklist.push_back(dep_id);
+                }
+                if (cycle_found)
+                    continue;
+            }
+
+            {
+            // Create a single deterministic child with the substitution as edge label
+            euf::snode* prefix_sn = char_toks[0];
+            for (unsigned j = 1; j < i; ++j)
+                prefix_sn = sg.mk_concat(prefix_sn, char_toks[j]);
+            euf::snode* replacement = sg.mk_concat(prefix_sn, var_node);
+            nielsen_subst s(var_node, replacement, eq.m_dep);
+            nielsen_node* child = g.mk_child(this);
+            nielsen_edge* e = g.mk_edge(this, child, true);
+            e->add_subst(s);
+            child->apply_subst(sg, s);
+            set_extended(true);
+            return simplify_result::proceed;
+            }
+            skip_eq:;
+        }
 
         if (is_satisfied())
             return simplify_result::satisfied;
@@ -1700,7 +1951,7 @@ namespace seq {
             ++m_stats.m_num_unknown;
             return search_result::unknown;
         }
-        catch (...) {
+        catch(const std::exception& ex) {
 #ifdef Z3DEBUG
             std::string dot = to_dot();
 #endif
@@ -1754,6 +2005,9 @@ namespace seq {
         // node into the current solver scope. Constraints inherited from the parent
         // (indices 0..m_parent_ic_count-1) are already present at the enclosing
         // scope level; only the newly-added tail needs to be asserted here.
+        // Also generate per-node |LHS| = |RHS| length constraints for descendant
+        // equations (root constraints are already at the base level).
+        generate_node_length_constraints(node);
         assert_node_new_int_constraints(node);
 
         // integer feasibility check: the solver now holds all path constraints
@@ -1794,16 +2048,34 @@ namespace seq {
 
         // explore children
         bool any_unknown = false;
-        for (nielsen_edge* e : node->outgoing()) {
+        for (nielsen_edge *e : node->outgoing()) {
             cur_path.push_back(e);
             // Push a solver scope for this edge and assert its side integer
             // constraints.  The child's own new int_constraints will be asserted
             // inside the recursive call (above).  On return, pop the scope so
             // that backtracking removes those assertions.
             m_solver.push();
-            for (auto const& ic : e->side_int())
+
+            // Lazily compute substitution length constraints (|x| = |u|) on first
+            // traversal. This must happen before asserting side_int and before
+            // bumping mod counts, so that LHS uses the parent's counts and RHS
+            // uses the temporarily-bumped counts.
+            if (!e->len_constraints_computed()) {
+                add_subst_length_constraints(e);
+                e->set_len_constraints_computed(true);
+            }
+
+            for (auto const &ic : e->side_int())
                 m_solver.assert_expr(int_constraint_to_expr(ic));
-            search_result r = search_dfs(e->tgt(), depth + 1, cur_path);
+
+            // Bump modification counts for the child's context.
+            inc_edge_mod_counts(e);
+
+            search_result r = search_dfs(e->tgt(), e->is_progress() ? depth : depth + 1, cur_path);
+
+            // Restore modification counts on backtrack.
+            dec_edge_mod_counts(e);
+
             m_solver.pop(1);
             if (r == search_result::sat)
                 return search_result::sat;
@@ -1883,7 +2155,7 @@ namespace seq {
             euf::snode* lhead = lhs_toks[0];
             euf::snode* rhead = rhs_toks[0];
 
-            // char·A = y·B → branch 1: y→ε, branch 2: y→char·fresh
+            // char·A = y·B → branch 1: y→ε, branch 2: y→char·y
             if (lhead->is_char() && rhead->is_var()) {
                 // branch 1: y → ε (progress)
                 {
@@ -1893,12 +2165,11 @@ namespace seq {
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
                 }
-                // branch 2: y → char·fresh (progress)
+                // branch 2: y → char·y (no progress)
                 {
-                    euf::snode* fresh = mk_fresh_var();
-                    euf::snode* replacement = m_sg.mk_concat(lhead, fresh);
+                    euf::snode* replacement = m_sg.mk_concat(lhead, rhead);
                     nielsen_node* child = mk_child(node);
-                    nielsen_edge* e = mk_edge(node, child, true);
+                    nielsen_edge* e = mk_edge(node, child, false);
                     nielsen_subst s(rhead, replacement, eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
@@ -1906,7 +2177,7 @@ namespace seq {
                 return true;
             }
 
-            // x·A = char·B → branch 1: x→ε, branch 2: x→char·fresh
+            // x·A = char·B → branch 1: x→ε, branch 2: x→char·x
             if (rhead->is_char() && lhead->is_var()) {
                 // branch 1: x → ε (progress)
                 {
@@ -1916,12 +2187,11 @@ namespace seq {
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
                 }
-                // branch 2: x → char·fresh (progress)
+                // branch 2: x → char·x (no progress)
                 {
-                    euf::snode* fresh = mk_fresh_var();
-                    euf::snode* replacement = m_sg.mk_concat(rhead, fresh);
+                    euf::snode* replacement = m_sg.mk_concat(rhead, lhead);
                     nielsen_node* child = mk_child(node);
-                    nielsen_edge* e = mk_edge(node, child, true);
+                    nielsen_edge* e = mk_edge(node, child, false);
                     nielsen_subst s(lhead, replacement, eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
@@ -1962,22 +2232,20 @@ namespace seq {
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
             }
-            // child 2: x → y·x' (progress)
+            // child 2: x → y·x (no progress)
             {
-                euf::snode* fresh = mk_fresh_var();
-                euf::snode* replacement = m_sg.mk_concat(rhead, fresh);
+                euf::snode* replacement = m_sg.mk_concat(rhead, lhead);
                 nielsen_node* child = mk_child(node);
-                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_edge* e = mk_edge(node, child, false);
                 nielsen_subst s(lhead, replacement, eq.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
             }
-            // child 3: y → x·y' (progress)
+            // child 3: y → x·y (progress)
             {
-                euf::snode* fresh = mk_fresh_var();
-                euf::snode* replacement = m_sg.mk_concat(lhead, fresh);
+                euf::snode* replacement = m_sg.mk_concat(lhead, rhead);
                 nielsen_node* child = mk_child(node);
-                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_edge* e = mk_edge(node, child, false);
                 nielsen_subst s(rhead, replacement, eq.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
@@ -2369,16 +2637,15 @@ namespace seq {
             bool created = false;
 
             // for each character c with non-fail derivative:
-            //   child: x → c · fresh_var
+            //   child: x → c · x
             for (euf::snode* ch : chars) {
                 euf::snode* deriv = m_sg.brzozowski_deriv(mem.m_regex, ch);
                 if (!deriv || deriv->is_fail())
                     continue;
 
-                euf::snode* fresh = mk_fresh_var();
-                euf::snode* replacement = m_sg.mk_concat(ch, fresh);
+                euf::snode* replacement = m_sg.mk_concat(ch, first);
                 nielsen_node* child = mk_child(node);
-                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_edge* e = mk_edge(node, child, false);
                 nielsen_subst s(first, replacement, mem.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
@@ -2920,10 +3187,47 @@ namespace seq {
 
     bool nielsen_graph::fire_gpower_intro(
             nielsen_node* node, str_eq const& eq,
-            euf::snode* var, euf::snode_vector const& ground_prefix) {
+            euf::snode* var, euf::snode_vector const& ground_prefix_orig) {
         ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
         seq_util& seq = m_sg.get_seq_util();
+
+        // Compress repeated patterns in the ground prefix (mirrors ZIPT's LcpCompressionFull).
+        // E.g., [a,b,a,b] has minimal period 2 → use [a,b] as the power base.
+        // This ensures we use the minimal repeating unit: x = (ab)^n · suffix
+        // instead of x = (abab)^n · suffix.
+        euf::snode_vector ground_prefix;
+        unsigned n = ground_prefix_orig.size();
+        unsigned period = n;
+        for (unsigned p = 1; p <= n / 2; ++p) {
+            if (n % p != 0) continue;
+            bool match = true;
+            for (unsigned i = p; i < n && match; ++i)
+                match = (ground_prefix_orig[i]->id() == ground_prefix_orig[i % p]->id());
+            if (match) { period = p; break; }
+        }
+        for (unsigned i = 0; i < period; ++i)
+            ground_prefix.push_back(ground_prefix_orig[i]);
+
+        // If the compressed prefix is a single power snode, unwrap it to use
+        // its base tokens, avoiding nested powers.
+        // E.g., [(ab)^3] → [a, b] so we get (ab)^n instead of ((ab)^3)^n.
+        // (mirrors ZIPT: if b.Length == 1 && b is PowerToken pt => b = pt.Base)
+        if (ground_prefix.size() == 1 && ground_prefix[0]->is_power()) {
+            expr* base_e = get_power_base_expr(ground_prefix[0]);
+            if (base_e) {
+                euf::snode* base_sn = m_sg.mk(base_e);
+                if (base_sn) {
+                    euf::snode_vector base_toks;
+                    base_sn->collect_tokens(base_toks);
+                    if (!base_toks.empty()) {
+                        ground_prefix.reset();
+                        ground_prefix.append(base_toks);
+                    }
+                }
+            }
+        }
+
         unsigned base_len = ground_prefix.size();
 
         // Build base string expression from ground prefix tokens.
@@ -3043,7 +3347,7 @@ namespace seq {
                 created = true;
             }
 
-            // Branch 2+: for each minterm m_i, x → ?c · x'
+            // Branch 2+: for each minterm m_i, x → ?c · x
             // where ?c is a symbolic char constrained by the minterm
             for (euf::snode* mt : minterms) {
                 if (mt->is_fail()) continue;
@@ -3053,11 +3357,10 @@ namespace seq {
                 euf::snode* deriv = m_sg.brzozowski_deriv(mem.m_regex, mt);
                 if (deriv && deriv->is_fail()) continue;
 
-                euf::snode* fresh_var = mk_fresh_var();
                 euf::snode* fresh_char = mk_fresh_char_var();
-                euf::snode* replacement = m_sg.mk_concat(fresh_char, fresh_var);
+                euf::snode* replacement = m_sg.mk_concat(fresh_char, first);
                 nielsen_node* child = mk_child(node);
-                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_edge* e = mk_edge(node, child, false);
                 nielsen_subst s(first, replacement, mem.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
@@ -3104,40 +3407,90 @@ namespace seq {
         expr* exp_n = get_power_exponent(power);
         expr* zero = arith.mk_int(0);
 
-        // Branch 1: x = base^m · prefix where 0 <= m < n
-        // Side constraints: m >= 0, m < n (i.e., n >= m + 1)
+        // Branch 1: enumerate all decompositions of the base.
+        // x = base^m · prefix_i(base) where 0 <= m < n
+        // Uses the same GetDecompose pattern as fire_gpower_intro.
         {
+            euf::snode_vector base_toks;
+            base->collect_tokens(base_toks);
+            unsigned base_len = base_toks.size();
+            expr* base_expr = get_power_base_expr(power);
+            if (!base_expr || base_len == 0)
+                return false;
+
             expr_ref fresh_m = mk_fresh_int_var();
-            euf::snode* fresh_power = mk_fresh_var(); // represents base^m
-            euf::snode* fresh_suffix = mk_fresh_var(); // represents prefix(base)
-            euf::snode* replacement = m_sg.mk_concat(fresh_power, fresh_suffix);
-            nielsen_node* child = mk_child(node);
-            nielsen_edge* e = mk_edge(node, child, true);
-            nielsen_subst s(var_head, replacement, eq->m_dep);
-            e->add_subst(s);
-            child->apply_subst(m_sg, s);
-            // m >= 0
-            e->add_side_int(mk_int_constraint(fresh_m, zero, int_constraint_kind::ge, eq->m_dep));
-            // m < n  ⟺  n >= m + 1
-            if (exp_n) {
-                expr_ref m_plus_1(arith.mk_add(fresh_m, arith.mk_int(1)), m);
-                e->add_side_int(mk_int_constraint(exp_n, m_plus_1, int_constraint_kind::ge, eq->m_dep));
+            expr_ref power_m_expr(seq.str.mk_power(base_expr, fresh_m), m);
+            euf::snode* power_m_sn = m_sg.mk(power_m_expr);
+            if (!power_m_sn)
+                return false;
+
+            for (unsigned i = 0; i < base_len; ++i) {
+                euf::snode* tok = base_toks[i];
+
+                // Skip char position when preceding token is a power:
+                // the power case at i-1 with 0 <= m' <= exp already covers m' = exp.
+                if (!tok->is_power() && i > 0 && base_toks[i - 1]->is_power())
+                    continue;
+
+                // Build full-token prefix: base_toks[0..i-1]
+                euf::snode* prefix_sn = nullptr;
+                for (unsigned j = 0; j < i; ++j)
+                    prefix_sn = (j == 0) ? base_toks[0] : m_sg.mk_concat(prefix_sn, base_toks[j]);
+
+                euf::snode* replacement;
+                expr_ref fresh_inner_m(m);
+
+                if (tok->is_power()) {
+                    // Token is a power u^exp: decompose with fresh m', 0 <= m' <= exp
+                    expr* inner_exp = get_power_exponent(tok);
+                    expr* inner_base_e = get_power_base_expr(tok);
+                    if (inner_exp && inner_base_e) {
+                        fresh_inner_m = mk_fresh_int_var();
+                        expr_ref partial_pow(seq.str.mk_power(inner_base_e, fresh_inner_m), m);
+                        euf::snode* partial_sn = m_sg.mk(partial_pow);
+                        euf::snode* suffix_sn = prefix_sn ? m_sg.mk_concat(prefix_sn, partial_sn) : partial_sn;
+                        replacement = m_sg.mk_concat(power_m_sn, suffix_sn);
+                    } else {
+                        euf::snode* suffix_sn = prefix_sn ? m_sg.mk_concat(prefix_sn, tok) : tok;
+                        replacement = m_sg.mk_concat(power_m_sn, suffix_sn);
+                    }
+                } else {
+                    // P(char) = ε, suffix is just the prefix
+                    replacement = prefix_sn ? m_sg.mk_concat(power_m_sn, prefix_sn) : power_m_sn;
+                }
+
+                nielsen_node* child = mk_child(node);
+                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_subst s(var_head, replacement, eq->m_dep);
+                e->add_subst(s);
+                child->apply_subst(m_sg, s);
+
+                // m >= 0
+                e->add_side_int(mk_int_constraint(fresh_m, zero, int_constraint_kind::ge, eq->m_dep));
+                // m < n  ⟺  n >= m + 1
+                if (exp_n) {
+                    expr_ref m_plus_1(arith.mk_add(fresh_m, arith.mk_int(1)), m);
+                    e->add_side_int(mk_int_constraint(exp_n, m_plus_1, int_constraint_kind::ge, eq->m_dep));
+                }
+
+                // Inner power constraints: 0 <= m' <= inner_exp
+                if (fresh_inner_m.get()) {
+                    expr* inner_exp = get_power_exponent(tok);
+                    e->add_side_int(mk_int_constraint(fresh_inner_m, zero, int_constraint_kind::ge, eq->m_dep));
+                    e->add_side_int(mk_int_constraint(inner_exp, fresh_inner_m, int_constraint_kind::ge, eq->m_dep));
+                }
             }
         }
 
         // Branch 2: x = u^n · x' (variable extends past full power, non-progress)
-        // Side constraint: n >= 0
         {
             euf::snode* fresh_tail = mk_fresh_var();
-            // Peel one base unit (approximation of extending past the power)
-            euf::snode* replacement = m_sg.mk_concat(base, fresh_tail);
+            euf::snode* replacement = m_sg.mk_concat(power, fresh_tail);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);
             nielsen_subst s(var_head, replacement, eq->m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
-            if (exp_n)
-                e->add_side_int(mk_int_constraint(exp_n, zero, int_constraint_kind::ge, eq->m_dep));
         }
 
         return true;
@@ -3243,7 +3596,18 @@ namespace seq {
             return expr_ref(arith.mk_add(left, right), m);
         }
 
-        // for variables and other terms, use symbolic (str.len expr)
+        // For variables: consult modification counter.
+        // mod_count > 0 means the variable has been reused by a non-eliminating
+        // substitution; use a fresh integer variable to avoid the circular
+        // |x| = 1 + |x| problem.
+        if (n->is_var()) {
+            unsigned mc = 0;
+            m_mod_cnt.find(n->id(), mc);
+            if (mc > 0)
+                return get_or_create_len_var(n, mc);
+        }
+
+        // for variables at mod_count 0 and other terms, use symbolic (str.len expr)
         return expr_ref(seq.str.mk_length(n->get_expr()), m);
     }
 
@@ -3374,6 +3738,131 @@ namespace seq {
         return expr_ref(m.mk_true(), m);
     }
 
+    // -----------------------------------------------------------------------
+    // Modification counter: substitution length tracking
+    // mirrors ZIPT's LocalInfo.CurrentModificationCnt + NielsenEdge.IncModCount/DecModCount
+    // + NielsenNode constructor length assertion logic
+    // -----------------------------------------------------------------------
+
+    expr_ref nielsen_graph::get_or_create_len_var(euf::snode* var, unsigned mod_count) {
+        ast_manager& m = m_sg.get_manager();
+        SASSERT(var && var->is_var());
+        SASSERT(mod_count > 0);
+
+        auto key = std::make_pair(var->id(), mod_count);
+        auto it = m_len_var_cache.find(key);
+        if (it != m_len_var_cache.end())
+            return expr_ref(it->second, m);
+
+        // Create a fresh integer variable: len_<varname>_<mod_count>
+        arith_util arith(m);
+        std::string name = "len!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
+        expr_ref fresh(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
+        m_len_vars.push_back(fresh);
+        m_len_var_cache.insert({key, fresh.get()});
+        return fresh;
+    }
+
+    void nielsen_graph::add_subst_length_constraints(nielsen_edge* e) {
+        auto const& substs = e->subst();
+
+        // Quick check: any non-eliminating substitutions?
+        bool has_non_elim = false;
+        for (auto const& s : substs)
+            if (!s.is_eliminating()) { has_non_elim = true; break; }
+        if (!has_non_elim) return;
+
+        ast_manager& m = m_sg.get_manager();
+        arith_util arith(m);
+
+        // Step 1: Compute LHS (|x|) for each non-eliminating substitution
+        // using current m_mod_cnt (before bumping).
+        // Also assert |x|_k >= 0 (mirrors ZIPT's NielsenNode constructor line 172).
+        svector<std::pair<unsigned, expr*>> lhs_exprs;
+        for (unsigned i = 0; i < substs.size(); ++i) {
+            auto const& s = substs[i];
+            if (s.is_eliminating()) continue;
+            SASSERT(s.m_var && s.m_var->is_var());
+            expr_ref lhs = compute_length_expr(s.m_var);
+            lhs_exprs.push_back({i, lhs.get()});
+            // Assert LHS >= 0
+            e->add_side_int(int_constraint(lhs, arith.mk_int(0),
+                                           int_constraint_kind::ge, s.m_dep, m));
+        }
+
+        // Step 2: Bump mod counts for all non-eliminating variables at once.
+        for (auto const& s : substs) {
+            if (s.is_eliminating()) continue;
+            unsigned id = s.m_var->id();
+            unsigned prev = 0;
+            m_mod_cnt.find(id, prev);
+            m_mod_cnt.insert(id, prev + 1);
+        }
+
+        // Step 3: Compute RHS (|u|) with bumped mod counts and add |x| = |u|.
+        for (auto const& p : lhs_exprs) {
+            unsigned idx = p.first;
+            expr* lhs_expr = p.second;
+            auto const& s = substs[idx];
+            expr_ref rhs = compute_length_expr(s.m_replacement);
+            e->add_side_int(int_constraint(lhs_expr, rhs, int_constraint_kind::eq,
+                                           s.m_dep, m));
+
+            // Assert non-negativity for any fresh length variables in the RHS
+            // (variables at mod_count > 0 that are newly created).
+            euf::snode_vector tokens;
+            s.m_replacement->collect_tokens(tokens);
+            for (euf::snode* tok : tokens) {
+                if (tok->is_var()) {
+                    unsigned mc = 0;
+                    m_mod_cnt.find(tok->id(), mc);
+                    if (mc > 0) {
+                        expr_ref len_var = get_or_create_len_var(tok, mc);
+                        e->add_side_int(int_constraint(len_var, arith.mk_int(0),
+                                                       int_constraint_kind::ge, s.m_dep, m));
+                    }
+                }
+            }
+        }
+
+        // Step 4: Restore mod counts (temporary bump for computing RHS only).
+        for (auto const& s : substs) {
+            if (s.is_eliminating()) continue;
+            unsigned id = s.m_var->id();
+            unsigned prev = 0;
+            m_mod_cnt.find(id, prev);
+            SASSERT(prev >= 1);
+            if (prev <= 1)
+                m_mod_cnt.remove(id);
+            else
+                m_mod_cnt.insert(id, prev - 1);
+        }
+    }
+
+    void nielsen_graph::inc_edge_mod_counts(nielsen_edge* e) {
+        for (auto const& s : e->subst()) {
+            if (s.is_eliminating()) continue;
+            unsigned id = s.m_var->id();
+            unsigned prev = 0;
+            m_mod_cnt.find(id, prev);
+            m_mod_cnt.insert(id, prev + 1);
+        }
+    }
+
+    void nielsen_graph::dec_edge_mod_counts(nielsen_edge* e) {
+        for (auto const& s : e->subst()) {
+            if (s.is_eliminating()) continue;
+            unsigned id = s.m_var->id();
+            unsigned prev = 0;
+            m_mod_cnt.find(id, prev);
+            SASSERT(prev >= 1);
+            if (prev <= 1)
+                m_mod_cnt.remove(id);
+            else
+                m_mod_cnt.insert(id, prev - 1);
+        }
+    }
+
     void nielsen_graph::assert_node_new_int_constraints(nielsen_node* node) {
         // Assert only the int_constraints that are new to this node (beyond those
         // inherited from its parent via clone_from).  The parent's constraints are
@@ -3382,6 +3871,78 @@ namespace seq {
         // simplify_and_init, which is where new constraints are produced.
         for (unsigned i = node->m_parent_ic_count; i < node->int_constraints().size(); ++i)
             m_solver.assert_expr(int_constraint_to_expr(node->int_constraints()[i]));
+    }
+
+    void nielsen_graph::generate_node_length_constraints(nielsen_node* node) {
+        if (node->m_node_len_constraints_generated)
+            return;
+        node->m_node_len_constraints_generated = true;
+
+        // Skip the root node — its length constraints are already asserted
+        // at the base solver level by assert_root_constraints_to_solver().
+        if (node == m_root)
+            return;
+
+        ast_manager& m = m_sg.get_manager();
+        arith_util arith(m);
+        uint_set seen_vars;
+
+        for (str_eq const& eq : node->str_eqs()) {
+            if (eq.is_trivial())
+                continue;
+
+            expr_ref len_lhs = compute_length_expr(eq.m_lhs);
+            expr_ref len_rhs = compute_length_expr(eq.m_rhs);
+            node->add_int_constraint(int_constraint(len_lhs, len_rhs,
+                                                     int_constraint_kind::eq, eq.m_dep, m));
+
+            // non-negativity for each variable (mod-count-aware)
+            euf::snode_vector tokens;
+            eq.m_lhs->collect_tokens(tokens);
+            eq.m_rhs->collect_tokens(tokens);
+            for (euf::snode* tok : tokens) {
+                if (tok->is_var() && !seen_vars.contains(tok->id())) {
+                    seen_vars.insert(tok->id());
+                    expr_ref len_var = compute_length_expr(tok);
+                    node->add_int_constraint(int_constraint(len_var, arith.mk_int(0),
+                                                             int_constraint_kind::ge, eq.m_dep, m));
+                }
+            }
+        }
+
+        // Parikh interval bounds for regex memberships at this node
+        seq_util& seq = m_sg.get_seq_util();
+        for (str_mem const& mem : node->str_mems()) {
+            expr* re_expr = mem.m_regex->get_expr();
+            if (!re_expr || !seq.is_re(re_expr))
+                continue;
+
+            unsigned min_len = 0, max_len = UINT_MAX;
+            compute_regex_length_interval(mem.m_regex, min_len, max_len);
+
+            expr_ref len_str = compute_length_expr(mem.m_str);
+
+            if (min_len > 0) {
+                node->add_int_constraint(int_constraint(len_str, arith.mk_int(min_len),
+                                                         int_constraint_kind::ge, mem.m_dep, m));
+            }
+            if (max_len < UINT_MAX) {
+                node->add_int_constraint(int_constraint(len_str, arith.mk_int(max_len),
+                                                         int_constraint_kind::le, mem.m_dep, m));
+            }
+
+            // non-negativity for string-side variables
+            euf::snode_vector tokens;
+            mem.m_str->collect_tokens(tokens);
+            for (euf::snode* tok : tokens) {
+                if (tok->is_var() && !seen_vars.contains(tok->id())) {
+                    seen_vars.insert(tok->id());
+                    expr_ref len_var = compute_length_expr(tok);
+                    node->add_int_constraint(int_constraint(len_var, arith.mk_int(0),
+                                                             int_constraint_kind::ge, mem.m_dep, m));
+                }
+            }
+        }
     }
 
     bool nielsen_graph::check_int_feasibility(nielsen_node* node, svector<nielsen_edge*> const& cur_path) {
