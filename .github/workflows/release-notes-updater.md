@@ -24,6 +24,8 @@ safe-outputs:
     title-prefix: "[Release Notes] "
     category: "Announcements"
     close-older-discussions: false
+  noop:
+    report-as-issue: false
   github-token: ${{ secrets.GITHUB_TOKEN }}
 
 steps:

@@ -35,6 +35,8 @@ safe-outputs:
     max: 3
   missing-tool:
     create-issue: true
+  noop:
+    report-as-issue: false
 
 timeout-minutes: 30
 

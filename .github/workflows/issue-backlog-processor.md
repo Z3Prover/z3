@@ -19,6 +19,8 @@ safe-outputs:
     close-older-discussions: true
   add-comment:
     max: 20
+  noop:
+    report-as-issue: false
   github-token: ${{ secrets.GITHUB_TOKEN }}
 
 timeout-minutes: 60

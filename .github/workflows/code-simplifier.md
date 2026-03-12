@@ -13,6 +13,8 @@ safe-outputs:
     - code-quality
     - automation
     title-prefix: "[code-simplifier] "
+  noop:
+    report-as-issue: false
 description: Analyzes recently modified code and creates pull requests with simplifications that improve clarity, consistency, and maintainability while preserving functionality
 name: Code Simplifier
 source: github/gh-aw/.github/workflows/code-simplifier.md@76d37d925abd44fee97379206f105b74b91a285b
