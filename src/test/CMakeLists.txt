@@ -37,6 +37,7 @@ add_executable(test-z3
   cube_clause.cpp
   datalog_parser.cpp
   ddnf.cpp
+  deep_api_bugs.cpp
   diff_logic.cpp
   distribution.cpp
   dl_context.cpp
