@@ -20,6 +20,7 @@ Author:
 --*/
 
 #include "smt/seq/seq_nielsen.h"
+#include "smt/seq/seq_parikh.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -443,10 +444,12 @@ namespace seq {
     nielsen_graph::nielsen_graph(euf::sgraph& sg, simple_solver& solver):
         m_sg(sg),
         m_solver(solver),
+        m_parikh(alloc(seq_parikh, sg)) {
         m_len_vars(sg.get_manager()) {
     }
 
     nielsen_graph::~nielsen_graph() {
+        dealloc(m_parikh);
         reset();
     }
 
@@ -1864,6 +1867,23 @@ namespace seq {
     // nielsen_graph: search
     // -----------------------------------------------------------------------
 
+    void nielsen_graph::apply_parikh_to_node(nielsen_node& node) {
+        if (node.m_parikh_applied) return;
+        node.m_parikh_applied = true;
+
+        // Generate modular length constraints (len(str) = min_len + stride·k, etc.)
+        // and append them to the node's integer constraint list.
+        m_parikh->apply_to_node(node);
+
+        // Lightweight feasibility pre-check: does the Parikh modular constraint
+        // contradict the variable's current integer bounds?  If so, mark this
+        // node as a Parikh-image conflict immediately (avoids a solver call).
+        if (!node.is_currently_conflict() && m_parikh->check_parikh_conflict(node)) {
+            node.set_general_conflict(true);
+            node.set_reason(backtrack_reason::parikh_image);
+        }
+    }
+
     void nielsen_graph::assert_root_constraints_to_solver() {
         if (m_root_constraints_asserted) return;
         m_root_constraints_asserted = true;
@@ -1967,6 +1987,17 @@ namespace seq {
         if (sr == simplify_result::conflict) {
             ++m_stats.m_num_simplify_conflict;
             node->set_general_conflict(true);
+            return search_result::unsat;
+        }
+
+        // Apply Parikh image filter: generate modular length constraints and
+        // perform a lightweight feasibility pre-check.  The filter is guarded
+        // internally (m_parikh_applied) so it only runs once per node.
+        // Note: Parikh filtering is skipped for satisfied nodes (returned above);
+        // a fully satisfied node has no remaining memberships to filter.
+        apply_parikh_to_node(*node);
+        if (node->is_currently_conflict()) {
+            ++m_stats.m_num_simplify_conflict;
             return search_result::unsat;
         }
 
@@ -3333,8 +3364,15 @@ namespace seq {
                 nielsen_subst s(first, replacement, mem.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
-                // TODO: derive char_set from minterm and add as range constraint
-                // child->add_char_range(fresh_char, minterm_to_char_set(mt));
+                // Constrain fresh_char to the character class of this minterm.
+                // This is the key Parikh pruning step: when x → ?c · x' is
+                // generated from minterm m_i, ?c must belong to the character
+                // class described by m_i so that str ∈ derivative(R, m_i).
+                if (mt->get_expr()) {
+                    char_set cs = m_parikh->minterm_to_char_set(mt->get_expr());
+                    if (!cs.is_empty())
+                        child->add_char_range(fresh_char, cs);
+                }
                 created = true;
             }
 

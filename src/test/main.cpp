@@ -287,6 +287,7 @@ int main(int argc, char ** argv) {
     TST(scoped_vector);
     TST(sls_seq_plugin);
     TST(seq_nielsen);
+    TST(seq_parikh);
     TST(nseq_basic);
     TST(nseq_regex);
     TST(nseq_zipt);
