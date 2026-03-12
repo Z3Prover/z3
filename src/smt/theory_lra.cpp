@@ -4038,24 +4038,19 @@ public:
         return false;
     }
 
-    theory_lra::inf_eps max_result(theory_var v, lpvar vi, lp::lp_status st, expr_ref& blocker, bool& has_shared) {
-        switch (st) {
-        case lp::lp_status::OPTIMAL:
+    theory_lra::inf_eps max_result(theory_var v, lpvar vi, lp::lp_status st,
+                                    expr_ref& blocker, bool& has_shared) {
+        if (st == lp::lp_status::OPTIMAL)
             init_variable_values();
-            TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
+        TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
+        if (st != lp::lp_status::UNBOUNDED) {
             blocker = mk_gt(v);
             return value(v);
-        case lp::lp_status::FEASIBLE:
-            TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
-            blocker = mk_gt(v);
-            return value(v);
-        default:
-            SASSERT(st == lp::lp_status::UNBOUNDED);
-            TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
-            has_shared = false;
-            blocker = m.mk_false();
-            return inf_eps(rational::one(), inf_rational());
         }
+        SASSERT(st == lp::lp_status::UNBOUNDED);
+        has_shared = false;
+        blocker = m.mk_false();
+        return inf_eps(rational::one(), inf_rational());
     }
 
     theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
