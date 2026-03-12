@@ -33,6 +33,7 @@ steps:
     uses: actions/checkout@v5
     with:
       fetch-depth: 0  # Fetch full history for analyzing commits
+      persist-credentials: false
 
 ---
 
