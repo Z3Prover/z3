@@ -27,6 +27,8 @@ safe-outputs:
     close-older-discussions: true
   missing-tool:
     create-issue: true
+  noop:
+    report-as-issue: false
 network: defaults
 timeout-minutes: 20
 ---

@@ -26,6 +26,8 @@ safe-outputs:
     title-prefix: "[API Coherence] "
     category: "Agentic Workflows"
     close-older-discussions: true
+  noop:
+    report-as-issue: false
   github-token: ${{ secrets.GITHUB_TOKEN }}
 
 steps:

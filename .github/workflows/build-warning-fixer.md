@@ -14,6 +14,8 @@ safe-outputs:
     if-no-changes: ignore
   missing-tool:
     create-issue: true
+  noop:
+    report-as-issue: false
 timeout-minutes: 60
 ---
 
