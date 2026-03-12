@@ -76,17 +76,10 @@ class tactic;
 
 tactic * mk_purify_arith_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-inline tactic * mk_purify_arith2_tactic(ast_manager & m, params_ref const & p = params_ref()) {
-    return alloc(dependent_expr_state_tactic, m, p,
-        [](auto& m, auto& p, auto& s) -> dependent_expr_simplifier* {
-            return alloc(purify_arith_simplifier, m, p, s);
-        });
-}
-
 /*
   ADD_TACTIC("purify-arith", "eliminate unnecessary operators: -, /, div, mod, rem, is-int, to-int, ^, root-objects.", "mk_purify_arith_tactic(m, p)")
-  ADD_TACTIC("purify-arith2", "eliminate unnecessary operators: -, /, div, mod, rem, is-int, to-int, ^, root-objects.", "mk_purify_arith2_tactic(m, p)")
   ADD_SIMPLIFIER("purify-arith", "eliminate unnecessary operators: -, /, div, mod, rem, is-int, to-int, ^, root-objects.", "alloc(purify_arith_simplifier, m, p, s)")
 */
+
 
 
