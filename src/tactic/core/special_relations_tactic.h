@@ -21,7 +21,7 @@ Notes:
 
 #include "tactic/tactic.h"
 #include "tactic/dependent_expr_state_tactic.h"
-#include "ast/simplifiers/special_relations_simplifier.h"
+#include "tactic/core/special_relations_simplifier.h"
 
 inline tactic* mk_special_relations_tactic(ast_manager& m, params_ref const& p = params_ref()) {
     return alloc(dependent_expr_state_tactic, m, p,

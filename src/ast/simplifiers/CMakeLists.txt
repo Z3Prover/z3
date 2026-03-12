@@ -43,5 +43,4 @@ z3_add_component(simplifiers
     randomizer.h
     refine_inj_axiom.h
     rewriter_simplifier.h
-    special_relations_simplifier.h
 )
