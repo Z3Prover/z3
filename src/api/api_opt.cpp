@@ -94,7 +94,11 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_optimize_assert_soft(c, o, a, weight, id);
         RESET_ERROR_CODE();
-        CHECK_FORMULA(a,0);        
+        CHECK_FORMULA(a,0);
+        if (!weight) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "null weight string");
+            return 0;
+        }
         rational w(weight);
         return to_optimize_ptr(o)->add_soft_constraint(to_expr(a), w, to_symbol(id));
         Z3_CATCH_RETURN(0);
