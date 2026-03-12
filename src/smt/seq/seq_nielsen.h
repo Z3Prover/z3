@@ -164,9 +164,10 @@ Abstract:
       has no ConstraintsIntEq or ConstraintsIntLe in nielsen_node.
     - IntBounds / VarBoundWatcher: per-variable integer interval bounds and the
       watcher mechanism that reruns bound propagation when a string variable is
-      substituted are not ported.
+      substituted — PORTED as nielsen_node::{add_lower_int_bound,
+      add_upper_int_bound, watch_var_bounds, init_var_bounds_from_mems}.
     - AddLowerIntBound() / AddHigherIntBound(): incremental interval tightening
-      with restart signaling is not ported.
+      — PORTED as the above add_lower/upper_int_bound methods.
 
     Character-level handling:
     - CharSubst: character-level variable substitution (symbolic char -> concrete
@@ -214,7 +215,10 @@ Abstract:
     - GetSignature(): the constraint-pair signature used for subsumption
       candidate matching is not ported.
     - Constraint.Shared: the flag indicating whether a constraint should be
-      forwarded to the outer solver is not ported.
+      forwarded to the outer solver — PORTED as
+      nielsen_graph::assert_root_constraints_to_solver(), called at the start
+      of solve() to make all root-level length/Parikh constraints immediately
+      visible to m_solver.
     - Interpretation: the model-extraction class mapping string and integer
       variables to concrete values is not ported.
     -----------------------------------------------------------------------
@@ -237,6 +241,8 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/euf/euf_sgraph.h"
 #include <functional>
+#include <map>
+#include "model/model.h"
 
 namespace seq {
 
@@ -244,14 +250,15 @@ namespace seq {
     class nielsen_node;
     class nielsen_edge;
     class nielsen_graph;
+    class seq_parikh;   // Parikh image filter (see seq_parikh.h)
 
     /**
      * Abstract interface for an incremental solver used by nielsen_graph
      * to check integer/arithmetic feasibility of path constraints.
      *
      * Users of nielsen_graph can wrap smt::kernel or any other solver
-     * to serve as the arithmetic back-end.  The default back-end is an
-     * lp_simple_solver built on top of lp::lar_solver.
+     * to serve as the arithmetic back-end.  When no solver is provided,
+     * integer feasibility checks are skipped (optimistically assumed feasible).
      */
     class simple_solver {
     public:
@@ -260,6 +267,7 @@ namespace seq {
         virtual void    assert_expr(expr* e) = 0;
         virtual void    push() = 0;
         virtual void    pop(unsigned num_scopes) = 0;
+        virtual void    get_model(model_ref& mdl) { mdl = nullptr; }
     };
 
     // simplification result for constraint processing
@@ -368,6 +376,7 @@ namespace seq {
     };
 
     // string variable substitution: var -> replacement
+    // (can be used as well to substitute arbitrary nodes - like powers)
     // mirrors ZIPT's Subst
     struct nielsen_subst {
         euf::snode* m_var;
@@ -448,6 +457,7 @@ namespace seq {
         ptr_vector<str_mem>     m_side_str_mem;    // side constraints: regex memberships
         vector<int_constraint>  m_side_int;        // side constraints: integer equalities/inequalities
         bool                    m_is_progress;     // does this edge represent progress?
+        bool                    m_len_constraints_computed = false; // lazily computed substitution length constraints
     public:
         nielsen_edge(nielsen_node* src, nielsen_node* tgt, bool is_progress);
 
@@ -472,6 +482,9 @@ namespace seq {
 
         bool is_progress() const { return m_is_progress; }
 
+        bool len_constraints_computed() const { return m_len_constraints_computed; }
+        void set_len_constraints_computed(bool v) { m_len_constraints_computed = v; }
+
         bool operator==(nielsen_edge const& other) const {
             return m_src == other.m_src && m_tgt == other.m_tgt;
         }
@@ -490,6 +503,12 @@ namespace seq {
         vector<str_mem>         m_str_mem;    // regex memberships
         vector<int_constraint>  m_int_constraints;  // integer equalities/inequalities (mirrors ZIPT's IntEq/IntLe)
 
+        // per-variable integer bounds for len(var). Mirrors ZIPT's IntBounds.
+        // key: snode id of the string variable.
+        // default lb = 0 (unrestricted); default ub = UINT_MAX (unrestricted).
+        u_map<unsigned>                m_var_lb;   // lower bound: lb <= len(var)
+        u_map<unsigned>                m_var_ub;   // upper bound: len(var) <= ub
+
         // character constraints (mirrors ZIPT's DisEqualities and CharRanges)
         // key: snode id of the s_unit symbolic character
         u_map<ptr_vector<euf::snode>>  m_char_diseqs;  // ?c != {?d, ?e, ...}
@@ -505,9 +524,19 @@ namespace seq {
         bool                    m_is_extended = false;
         backtrack_reason        m_reason = backtrack_reason::unevaluated;
         bool                    m_is_progress = false;
+        bool                    m_node_len_constraints_generated = false; // true after generate_node_length_constraints runs
 
         // evaluation index for run tracking
         unsigned                m_eval_idx = 0;
+
+        // Parikh filter: set to true once apply_parikh_to_node has been applied
+        // to this node. Prevents duplicate constraint generation across DFS runs.
+        bool                    m_parikh_applied = false;
+        // number of int_constraints inherited from the parent node at clone time.
+        // int_constraints[0..m_parent_ic_count) are already asserted at the
+        // parent's solver scope; only [m_parent_ic_count..end) need to be
+        // asserted when this node's solver scope is entered.
+        unsigned                m_parent_ic_count = 0;
 
     public:
         nielsen_node(nielsen_graph* graph, unsigned id);
@@ -527,6 +556,28 @@ namespace seq {
 
         vector<int_constraint> const& int_constraints() const { return m_int_constraints; }
         vector<int_constraint>& int_constraints() { return m_int_constraints; }
+
+        // IntBounds: tighten the lower bound for len(var).
+        // Returns true if the bound was tightened (lb > current lower bound).
+        // When tightened without conflict, adds an int_constraint len(var) >= lb.
+        // When lb > current upper bound, sets arithmetic conflict (no constraint added)
+        // and still returns true (the bound value changed). Check is_general_conflict()
+        // separately to distinguish tightening-with-conflict from normal tightening.
+        // Mirrors ZIPT's AddLowerIntBound().
+        bool add_lower_int_bound(euf::snode* var, unsigned lb, dep_tracker const& dep);
+
+        // IntBounds: tighten the upper bound for len(var).
+        // Returns true if the bound was tightened (ub < current upper bound).
+        // When tightened without conflict, adds an int_constraint len(var) <= ub.
+        // When current lower bound > ub, sets arithmetic conflict (no constraint added)
+        // and still returns true (the bound value changed). Check is_general_conflict()
+        // separately to distinguish tightening-with-conflict from normal tightening.
+        // Mirrors ZIPT's AddHigherIntBound().
+        bool add_upper_int_bound(euf::snode* var, unsigned ub, dep_tracker const& dep);
+
+        // Query current bounds for a variable (default: 0 / UINT_MAX if not set).
+        unsigned var_lb(euf::snode* var) const;
+        unsigned var_ub(euf::snode* var) const;
 
         // character constraint access (mirrors ZIPT's DisEqualities / CharRanges)
         u_map<ptr_vector<euf::snode>> const& char_diseqs() const { return m_char_diseqs; }
@@ -581,8 +632,10 @@ namespace seq {
         void apply_subst(euf::sgraph& sg, nielsen_subst const& s);
 
         // simplify all constraints at this node and initialize status.
+        // cur_path provides the path from root to this node so that the
+        // LP solver can be queried for deterministic power cancellation.
         // Returns proceed, conflict, satisfied, or restart.
-        simplify_result simplify_and_init(nielsen_graph& g);
+        simplify_result simplify_and_init(nielsen_graph& g, svector<nielsen_edge*> const& cur_path = svector<nielsen_edge*>());
 
         // true if all str_eqs are trivial and there are no str_mems
         bool is_satisfied() const;
@@ -603,6 +656,19 @@ namespace seq {
         // sets changed=true, and returns false.
         bool handle_empty_side(euf::sgraph& sg, euf::snode* non_empty_side,
                                dep_tracker const& dep, bool& changed);
+
+        // VarBoundWatcher: after applying substitution s, propagate the bounds
+        // of s.m_var to variables appearing in s.m_replacement.
+        // When var has bounds [lo, hi], derives bounds for variables in replacement
+        // using the known constant-length contribution of non-variable tokens.
+        // Mirrors ZIPT's VarBoundWatcher re-check mechanism.
+        void watch_var_bounds(nielsen_subst const& s);
+
+        // Initialize per-variable Parikh bounds from this node's regex memberships.
+        // For each str_mem constraint (str ∈ regex) where regex has length bounds
+        // [min_len, max_len], adds lower/upper bound constraints for len(str).
+        // Called from simplify_and_init to populate IntBounds at node creation.
+        void init_var_bounds_from_mems();
     };
 
     // search statistics collected during Nielsen graph solving
@@ -615,11 +681,13 @@ namespace seq {
         unsigned m_num_simplify_conflict = 0;
         unsigned m_num_extensions      = 0;
         unsigned m_num_fresh_vars      = 0;
+        unsigned m_num_arith_infeasible = 0;
         unsigned m_max_depth           = 0;
         // modifier application counts
         unsigned m_mod_det             = 0;
         unsigned m_mod_power_epsilon   = 0;
         unsigned m_mod_num_cmp         = 0;
+        unsigned m_mod_split_power_elim = 0;
         unsigned m_mod_const_num_unwinding = 0;
         unsigned m_mod_eq_split        = 0;
         unsigned m_mod_star_intr       = 0;
@@ -636,6 +704,7 @@ namespace seq {
     // the overall Nielsen transformation graph
     // mirrors ZIPT's NielsenGraph
     class nielsen_graph {
+        friend class nielsen_node;
         euf::sgraph&                  m_sg;
         region                        m_region;
         ptr_vector<nielsen_node>      m_nodes;
@@ -657,18 +726,42 @@ namespace seq {
 
         // -----------------------------------------------
         // Integer subsolver (abstract interface)
-        // When m_solver is null, check_int_feasibility uses an
-        // internal lp_simple_solver (created on demand).
+        // When m_solver is null, check_int_feasibility skips arithmetic checking
+        // and optimistically assumes feasibility.
         // -----------------------------------------------
-        simple_solver*                m_solver = nullptr;
-        scoped_ptr<simple_solver>     m_owned_solver; // non-null when we own the solver
+        simple_solver&                m_solver;
+
+        // Constraint.Shared: guards re-assertion of root-level constraints.
+        // Set to true after assert_root_constraints_to_solver() is first called.
+        bool                          m_root_constraints_asserted = false;
+
+        // Parikh image filter: generates modular length constraints from regex
+        // memberships.  Allocated in the constructor; owned by this graph.
+        seq_parikh*                   m_parikh = nullptr;
+        // -----------------------------------------------
+        // Modification counter for substitution length tracking.
+        // mirrors ZIPT's LocalInfo.CurrentModificationCnt
+        // -----------------------------------------------
+
+        // Maps snode id of string variable → current modification (reuse) count
+        // along the DFS path. When a non-eliminating substitution x/u is applied
+        // (x appears in u), x's count is bumped. This produces distinct length
+        // variables for x before and after substitution, avoiding the unsatisfiable
+        // |x| = 1 + |x| that results from reusing the same length symbol.
+        u_map<unsigned>               m_mod_cnt;
+
+        // Cache: (var snode id, modification count) → fresh integer variable.
+        // Variables at mod_count 0 use str.len(var_expr) (standard form).
+        // Variables at mod_count > 0 get a fresh Z3 integer constant.
+        std::map<std::pair<unsigned, unsigned>, expr*> m_len_var_cache;
+
+        // Pins the fresh length variable expressions so they aren't garbage collected.
+        expr_ref_vector               m_len_vars;
 
     public:
-        // Construct without a custom solver; an lp_simple_solver is used internally.
-        nielsen_graph(euf::sgraph& sg);
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
         // the caller is responsible for keeping the solver alive.
-        nielsen_graph(euf::sgraph& sg, simple_solver* solver);
+        nielsen_graph(euf::sgraph& sg, simple_solver& solver);
         ~nielsen_graph();
 
         euf::sgraph& sg() { return m_sg; }
@@ -757,8 +850,35 @@ namespace seq {
         // Also generates len(x) >= 0 for each variable appearing in the equations.
         void generate_length_constraints(vector<length_constraint>& constraints);
 
+        // build an arithmetic expression representing the length of an snode tree.
+        // concatenations are expanded to sums, chars to 1, empty to 0,
+        // variables to (str.len var_expr).
+        expr_ref compute_length_expr(euf::snode* n);
+
+        // compute Parikh length interval [min_len, max_len] for a regex snode.
+        // uses seq_util::rex min_length/max_length on the underlying expression.
+        // max_len == UINT_MAX means unbounded.
+        void compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len);
+
+        // solve all integer constraints along the sat_path and return
+        // a model mapping integer variables to concrete values.
+        // Must be called after solve() returns sat.
+        // Returns true if a satisfying model was found.
+        // Caller takes ownership of the returned model pointer.
+        bool solve_sat_path_ints(model_ref& mdl);
+
     private:
         search_result search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path);
+
+        // Apply the Parikh image filter to a node: generate modular length
+        // constraints from regex memberships and append them to the node's
+        // int_constraints.  Also performs a lightweight feasibility pre-check;
+        // if a Parikh conflict is detected the node's conflict flag is set with
+        // backtrack_reason::parikh_image.
+        //
+        // Guarded by node.m_parikh_applied so that constraints are generated
+        // only once per node across DFS iterations.
+        void apply_parikh_to_node(nielsen_node& node);
 
         // create a fresh variable with a unique name
         euf::snode* mk_fresh_var(sort* s);
@@ -815,6 +935,15 @@ namespace seq {
         // mirrors ZIPT's NumCmpModifier
         bool apply_num_cmp(nielsen_node* node);
 
+        // CommPower-based power elimination split: when one side starts with
+        // a power w^p and CommPower finds c base-pattern occurrences on the
+        // other side but the ordering between p and c is unknown, branch:
+        //   (1) p < c   (2) c ≤ p
+        // After branching, simplify_and_init's CommPower pass resolves the
+        // cancellation deterministically.
+        // mirrors ZIPT's SplitPowerElim + NumCmpModifier
+        bool apply_split_power_elim(nielsen_node* node);
+
         // constant numeric unwinding: for a power token u^n vs a constant
         // (non-variable), branch: (1) n = 0 (u^n = ε), (2) n >= 1 (peel one u).
         // mirrors ZIPT's ConstNumUnwindingModifier
@@ -833,7 +962,7 @@ namespace seq {
 
         // helper for apply_gpower_intr: fires the substitution
         bool fire_gpower_intro(nielsen_node* node, str_eq const& eq,
-                               euf::snode* var, euf::snode_vector const& ground_prefix);
+                               euf::snode* var, euf::snode_vector const& ground_prefix_orig);
 
         // regex variable split: for str_mem x·s ∈ R where x is a variable,
         // split using minterms: x → ε, or x → c·x' for each minterm c.
@@ -858,34 +987,49 @@ namespace seq {
         euf::snode* find_power_token(nielsen_node* node) const;
 
         // find a power token facing a constant (char) head
-        bool find_power_vs_const(nielsen_node* node, euf::snode*& power, euf::snode*& other_head, str_eq const*& eq_out) const;
+        bool find_power_vs_non_var(nielsen_node* node, euf::snode*& power, euf::snode*& other_head, str_eq const*& eq_out) const;
 
         // find a power token facing a variable head
         bool find_power_vs_var(nielsen_node* node, euf::snode*& power, euf::snode*& var_head, str_eq const*& eq_out) const;
-
-        // build an arithmetic expression representing the length of an snode tree.
-        // concatenations are expanded to sums, chars to 1, empty to 0,
-        // variables to (str.len var_expr).
-        expr_ref compute_length_expr(euf::snode* n);
-
-        // compute Parikh length interval [min_len, max_len] for a regex snode.
-        // uses seq_util::rex min_length/max_length on the underlying expression.
-        // max_len == UINT_MAX means unbounded.
-        void compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len);
 
         // -----------------------------------------------
         // Integer feasibility subsolver methods
         // -----------------------------------------------
 
-        // collect int_constraints along the path from root to the given node,
-        // including constraints from edges and nodes.
-        void collect_path_int_constraints(nielsen_node* node,
-                                          svector<nielsen_edge*> const& cur_path,
-                                          vector<int_constraint>& out);
+        // Constraint.Shared: assert all root-level length/Parikh constraints to
+        // m_solver at the base level (outside push/pop). Called once at the start
+        // of solve(). Makes derived constraints immediately visible to m_solver
+        // for arithmetic pruning at every DFS node, not just the root.
+        // Mirrors ZIPT's Constraint.Shared forwarding mechanism.
+        void assert_root_constraints_to_solver();
+
+        // Assert the int_constraints of `node` that are new relative to its
+        // parent (indices [m_parent_ic_count..end)) into the current solver scope.
+        // Called by search_dfs after simplify_and_init so that the newly derived
+        // bounds become visible to subsequent check() and check_lp_le() calls.
+        void assert_node_new_int_constraints(nielsen_node* node);
+
+        // Generate |LHS| = |RHS| length constraints for a non-root node's own
+        // string equalities and add them as int_constraints on the node.
+        // Called once per node (guarded by m_node_len_constraints_generated).
+        // Uses compute_length_expr (mod-count-aware) so that variables with
+        // non-zero modification counts get fresh length variables.
+        // Mirrors ZIPT's Constraint.Shared forwarding for per-node equations.
+        void generate_node_length_constraints(nielsen_node* node);
 
         // check integer feasibility of the constraints along the current path.
-        // returns true if feasible, false if infeasible.
+        // returns true if feasible (including unknown), false only if l_false.
+        // Precondition: all path constraints have been incrementally asserted to
+        // m_solver by search_dfs via push/pop, so a plain check() suffices.
+        // l_undef (resource limit / timeout) is treated as feasible so that the
+        // search continues rather than reporting a false unsatisfiability.
         bool check_int_feasibility(nielsen_node* node, svector<nielsen_edge*> const& cur_path);
+
+        // check whether lhs <= rhs is implied by the path constraints.
+        // mirrors ZIPT's NielsenNode.IsLe(): temporarily asserts NOT(lhs <= rhs)
+        // and returns true iff the result is unsatisfiable (i.e., lhs <= rhs is
+        // entailed).  Path constraints are already in the solver incrementally.
+        bool check_lp_le(expr* lhs, expr* rhs, nielsen_node* node, svector<nielsen_edge*> const& cur_path);
 
         // create an integer constraint: lhs <kind> rhs
         int_constraint mk_int_constraint(expr* lhs, expr* rhs, int_constraint_kind kind, dep_tracker const& dep);
@@ -898,6 +1042,30 @@ namespace seq {
 
         // convert an int_constraint to an expr* assertion
         expr_ref int_constraint_to_expr(int_constraint const& ic);
+
+        // -----------------------------------------------
+        // Modification counter methods for substitution length tracking.
+        // mirrors ZIPT's NielsenEdge.IncModCount / DecModCount and
+        // NielsenNode constructor length assertion logic.
+        // -----------------------------------------------
+
+        // Get or create a fresh integer variable for len(var) at the given
+        // modification count. Returns str.len(var_expr) when mod_count == 0.
+        expr_ref get_or_create_len_var(euf::snode* var, unsigned mod_count);
+
+        // Compute and add |x| = |u| length constraints to an edge for all
+        // its non-eliminating substitutions. Uses current m_mod_cnt.
+        // Temporarily bumps m_mod_cnt for RHS computation, then restores.
+        // Called lazily on first edge traversal in search_dfs.
+        void add_subst_length_constraints(nielsen_edge* e);
+
+        // Bump modification counts for an edge's non-eliminating substitutions.
+        // Called when entering an edge during DFS.
+        void inc_edge_mod_counts(nielsen_edge* e);
+
+        // Restore modification counts for an edge's non-eliminating substitutions.
+        // Called when backtracking from an edge during DFS.
+        void dec_edge_mod_counts(nielsen_edge* e);
     };
 
 }

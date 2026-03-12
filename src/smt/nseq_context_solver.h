@@ -1,0 +1,69 @@
+/*++
+Copyright (c) 2026 Microsoft Corporation
+
+Module Name:
+
+    nseq_context_solver.h
+
+Abstract:
+
+    context_solver: concrete implementation of seq::simple_solver
+    that delegates arithmetic feasibility checks to an smt::kernel
+    configured with seq.solver = "seq_len".
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2026-03-10
+
+--*/
+#pragma once
+
+#include "smt/seq/seq_nielsen.h"
+#include "smt/smt_kernel.h"
+#include "params/smt_params.h"
+
+namespace smt {
+
+    /**
+     * Concrete simple_solver that wraps smt::kernel.
+     * Initializes the kernel with seq.solver = "seq_len" so that
+     * sequence length constraints are handled by theory_seq_len.
+     */
+    class context_solver : public seq::simple_solver {
+        smt_params  m_params;  // must be declared before m_kernel
+        smt::kernel m_kernel;
+
+        static smt_params make_seq_len_params() {
+            smt_params p;
+            p.m_string_solver = symbol("seq_len");
+            return p;
+        }
+
+    public:
+        context_solver(ast_manager& m) :
+            m_params(make_seq_len_params()),
+            m_kernel(m, m_params) {}
+
+        lbool check() override {
+            return m_kernel.check();
+        }
+
+        void assert_expr(expr* e) override {
+            // std::cout << "Asserting: " << mk_pp(e, m_kernel.m()) << std::endl;
+            m_kernel.assert_expr(e);
+        }
+
+        void push() override {
+            m_kernel.push();
+        }
+
+        void pop(unsigned num_scopes) override {
+            m_kernel.pop(num_scopes);
+        }
+
+        void get_model(model_ref& mdl) override {
+            m_kernel.get_model(mdl);
+        }
+    };
+
+}

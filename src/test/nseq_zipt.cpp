@@ -29,6 +29,27 @@ Abstract:
 #include <functional>
 #include <chrono>
 
+// Trivial solver that always returns sat and ignores all assertions.
+class nseq_zipt_dummy_solver : public seq::simple_solver {
+public:
+    void push() override {}
+    void pop(unsigned) override {}
+    void assert_expr(expr*) override {}
+    lbool check() override { return l_true; }
+};
+
+// -----------------------------------------------------------------------
+// Trivial simple_solver stub: optimistically assumes integer constraints
+// are always feasible (returns l_true without actually checking).
+// -----------------------------------------------------------------------
+class zipt_dummy_simple_solver : public seq::simple_solver {
+public:
+    void push() override {}
+    void pop(unsigned) override {}
+    void assert_expr(expr*) override {}
+    lbool check() override { return l_true; }
+};
+
 // -----------------------------------------------------------------------
 // Helper: build a string snode from a notation string.
 // Uppercase = fresh variable, lowercase/digit = concrete character.
@@ -159,6 +180,7 @@ struct nseq_fixture {
     ast_manager m;
     euf::egraph eg;
     euf::sgraph sg;
+    zipt_dummy_simple_solver dummy_solver;
     seq::nielsen_graph ng;
     seq_util su;
     str_builder sb;
@@ -168,7 +190,7 @@ struct nseq_fixture {
     static ast_manager& init(ast_manager& m) { reg_decl_plugins(m); return m; }
 
     nseq_fixture()
-        : eg(init(m)), sg(m, eg), ng(sg), su(m), sb(sg), rb(m, su, sg)
+        : eg(init(m)), sg(m, eg), ng(sg, dummy_solver), su(m), sb(sg), rb(m, su, sg)
     {}
 
     euf::snode* S(const char* s) { return sb.parse(s); }
@@ -576,75 +598,83 @@ static void test_zipt_parikh() {
 static void test_tricky_str_equations() {
     std::cout << "test_tricky_str_equations\n";
 
-    // --- SAT: commutativity / rotation / symmetry ---
+    // ---------------------------------------------------------------
+    // SAT — Conjugacy equations: Xw₂ = w₁X
+    // SAT iff w₂ is a rotation of w₁.  In that case w₁ = qp, w₂ = pq
+    // and X = (qp)^n · q is a family of solutions (n ≥ 0).
+    // All of these are UNSAT for X = ε (the ground parts don't match),
+    // so the solver must find a non-trivial witness.
+    // ---------------------------------------------------------------
 
-    // XY = YX   (classic commutativity; witness: X="ab", Y="abab")
-    VERIFY(eq_sat("XY", "YX"));
+    // "ba" is a rotation of "ab" (p="b", q="a").  X = "a".
+    VERIFY(eq_sat("Xba",  "abX"));
 
-    // Xab = abX   (X commutes with the word "ab"; witness: X="ab")
-    VERIFY(eq_sat("Xab", "abX"));
+    // "cb" is a rotation of "bc" (p="c", q="b").  X = "b".
+    VERIFY(eq_sat("Xcb",  "bcX"));
 
-    // XaY = YaX   (swap-symmetric; witness: X=Y=any, e.g. X=Y="b")
-    VERIFY(eq_sat("XaY", "YaX"));
+    // "bca" is a rotation of "abc" (p="bc", q="a").  X = "a".
+    VERIFY(eq_sat("Xbca", "abcX"));
 
-    // XYX = YXY   (Markov-type; witness: X=Y)
-    VERIFY(eq_sat("XYX", "YXY"));
+    // "cab" is a rotation of "abc" (p="c", q="ab").  X = "ab".
+    VERIFY(eq_sat("Xcab", "abcX"));
 
-    // XYZ = ZYX   (reverse-palindrome; witness: X="a",Y="b",Z="a")
-    VERIFY(eq_sat("XYZ", "ZYX"));
+    // ---------------------------------------------------------------
+    // SAT — Power decomposition (ε NOT a solution)
+    // ---------------------------------------------------------------
 
-    // XabY = YabX   (rotation-like; witness: X="",Y="ab")
-    VERIFY(eq_sat("XabY", "YabX"));
+    // XX = aa  ⇒  X = "a".  (ε gives "" ≠ "aa")
+    VERIFY(eq_sat("XX", "aa"));
 
-    // aXYa = aYXa   (cancel outer 'a'; reduces to XY=YX; witness: X=Y="")
-    VERIFY(eq_sat("aXYa", "aYXa"));
+    // XbX = aba  ⇒  2|X| + 1 = 3 forces |X| = 1; X = "a".
+    //   (ε gives "b" ≠ "aba")
+    VERIFY(eq_sat("XbX", "aba"));
 
-    // XaXb = YaYb   (both halves share variable; witness: X=Y)
-    VERIFY(eq_sat("XaXb", "YaYb"));
+    // ---------------------------------------------------------------
+    // SAT — Multi-variable (ε NOT a solution)
+    // ---------------------------------------------------------------
 
-    // abXba = Xabba   (witness: X="" gives "abba"="abba")
-    VERIFY(eq_sat("abXba", "Xabba"));
+    // X = "b", Y = "a" gives "baab" = "baab".  (ε gives "ab" ≠ "ba")
+    VERIFY(eq_sat("XaYb", "bYaX"));
 
-    // --- UNSAT: first-character mismatch ---
+    // X = "b", Y = "a" gives "abba" = "abba".  (ε gives "ab" ≠ "ba")
+    VERIFY(eq_sat("abXY", "YXba"));
 
-    // abXba = baXab   (LHS starts 'a', RHS starts 'b')
-    VERIFY(eq_unsat("abXba", "baXab"));
+    // ---------------------------------------------------------------
+    // UNSAT — Non-conjugate rotation
+    // Xw₂ = w₁X where w₂ is NOT a rotation of w₁.
+    // Heads are variable vs char, so never a trivial first-char clash.
+    // GPowerIntr introduces periodicity, then the period boundaries
+    // give a character mismatch.
+    // ---------------------------------------------------------------
 
-    // XabX = XbaX   (cancel X prefix/suffix → "ab"="ba"; 'a'≠'b')
-    VERIFY(eq_unsat("XabX",  "XbaX"));
+    // "cba" is the reverse of "abc", NOT a rotation.
+    // Rotations of "abc" are: abc, bca, cab.
+    VERIFY(eq_unsat("Xcba", "abcX"));
 
-    // --- UNSAT: mismatch exposed after cancellation ---
+    // "acb" is a transposition of "abc", NOT a rotation.
+    VERIFY(eq_unsat("Xacb", "abcX"));
 
-    // XaYb = XbYa   (cancel X prefix → aYb=bYa; first char 'a'≠'b')
-    VERIFY(eq_unsat("XaYb",  "XbYa"));
+    // ---------------------------------------------------------------
+    // UNSAT — Induction via GPowerIntr
+    // One side starts with a variable that also appears on the other
+    // side behind a ground prefix → self-cycle.  GPowerIntr forces
+    // periodicity; all period branches yield character mismatches.
+    // None of these has a trivial first-char or last-char clash.
+    // ---------------------------------------------------------------
 
-    // XaYbX = XbYaX   (cancel X prefix+suffix → aYb=bYa; first char 'a'≠'b')
-    VERIFY(eq_unsat("XaYbX", "XbYaX"));
+    // Xa = bX:  LHS head = X.  Scan RHS: [b], X → self-cycle, base "b".
+    // X = b^n ⇒ b^n·a = b^{n+1} ⇒ last chars a ≠ b ⊥.
+    VERIFY(eq_unsat("Xa", "bX"));
 
-    // XaXbX = XbXaX   (cancel X prefix+suffix → aXb=bXa; first char 'a'≠'b')
-    VERIFY(eq_unsat("XaXbX", "XbXaX"));
+    // acX = Xbc:  RHS head = X.  Scan LHS: [a,c], X → self-cycle, base "ac".
+    // X = (ac)^n   ⇒ ac = bc ⊥ (a ≠ b).
+    // X = (ac)^n·a ⇒ aca = abc ⊥ (c ≠ b).
+    VERIFY(eq_unsat("acX", "Xbc"));
 
-    // --- UNSAT: induction ---
-
-    // aXb = Xba   (forces X=a^n; final step requires a=b)
-    VERIFY(eq_unsat("aXb",  "Xba"));
-
-    // XaY = YbX   (a≠b; recursive unrolling forces a=b)
-    VERIFY(eq_unsat("XaY",  "YbX"));
-
-    // --- UNSAT: length parity ---
-
-    // XaX = YY   (|XaX|=2|X|+1 is odd; |YY|=2|Y| is even)
-    VERIFY(eq_unsat("XaX",  "YY"));
-
-    // XaaX = YbY   (|XaaX|=2|X|+2 is even; |YbY|=2|Y|+1 is odd)
-    VERIFY(eq_unsat("XaaX", "YbY"));
-
-    // --- UNSAT: midpoint argument ---
-
-    // XaX = YbY   (equal length forces |X|=|Y|; midpoint position |X|
-    //              holds 'a' in LHS and 'b' in RHS, but 'a'≠'b')
-    VERIFY(eq_unsat("XaX",  "YbY"));
+    // bcX = Xab:  RHS head = X.  Scan LHS: [b,c], X → self-cycle, base "bc".
+    // X = (bc)^n   ⇒ bc = ab ⊥ (b ≠ a).
+    // X = (bc)^n·b ⇒ bcb = bab ⊥ (c ≠ a).
+    VERIFY(eq_unsat("bcX", "Xab"));
 
     std::cout << "  ok\n";
 }

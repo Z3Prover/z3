@@ -33,7 +33,8 @@ namespace smt {
         m_arith_value(ctx.get_manager()),
         m_egraph(ctx.get_manager()),
         m_sgraph(ctx.get_manager(), m_egraph),
-        m_nielsen(m_sgraph),
+        m_context_solver(ctx.get_manager()),
+        m_nielsen(m_sgraph, m_context_solver),
         m_state(m_sgraph),
         m_regex(m_sgraph),
         m_model(*this, ctx.get_manager(), m_seq, m_rewriter, m_sgraph, m_regex)
@@ -420,8 +421,8 @@ namespace smt {
         // here the actual Nielsen solving happens
         auto result = m_nielsen.solve();
         std::cout << "Result: " << (result == seq::nielsen_graph::search_result::sat ? "SAT" : result == seq::nielsen_graph::search_result::unsat ? "UNSAT" : "UNKNOWN") << "\n";
-        m_nielsen.to_dot(std::cout);
-        std::cout << std::endl;
+        // m_nielsen.to_dot(std::cout);
+        // std::cout << std::endl;
 
         if (result == seq::nielsen_graph::search_result::sat) {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve SAT, sat_node="
