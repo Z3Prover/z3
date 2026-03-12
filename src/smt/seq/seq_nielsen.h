@@ -241,6 +241,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/euf/euf_sgraph.h"
 #include <functional>
+#include "model/model.h"
 
 namespace seq {
 
@@ -264,6 +265,7 @@ namespace seq {
         virtual void    assert_expr(expr* e) = 0;
         virtual void    push() = 0;
         virtual void    pop(unsigned num_scopes) = 0;
+        virtual void    get_model(model_ref& mdl) { mdl = nullptr; }
     };
 
     // simplification result for constraint processing
@@ -824,6 +826,13 @@ namespace seq {
         // uses seq_util::rex min_length/max_length on the underlying expression.
         // max_len == UINT_MAX means unbounded.
         void compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len);
+
+        // solve all integer constraints along the sat_path and return
+        // a model mapping integer variables to concrete values.
+        // Must be called after solve() returns sat.
+        // Returns true if a satisfying model was found.
+        // Caller takes ownership of the returned model pointer.
+        bool solve_sat_path_ints(model_ref& mdl);
 
     private:
         search_result search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path);

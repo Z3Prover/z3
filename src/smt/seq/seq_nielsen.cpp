@@ -23,6 +23,8 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "smt/smt_kernel.h"
+#include "params/smt_params.h"
 #include "util/hashtable.h"
 #include <algorithm>
 #include <cstdlib>
@@ -977,21 +979,37 @@ namespace seq {
                                          dep_tracker const& dep, bool& changed) {
         euf::snode_vector tokens;
         non_empty_side->collect_tokens(tokens);
-        bool all_vars_or_opaque = true;
+        bool all_eliminable = true;
         bool has_char = false;
         for (euf::snode* t : tokens) {
             if (t->is_char()) has_char = true;
-            else if (!t->is_var() && t->kind() != euf::snode_kind::s_other) {
-                all_vars_or_opaque = false; break;
+            else if (!t->is_var() && !t->is_power() && t->kind() != euf::snode_kind::s_other) {
+                all_eliminable = false; break;
             }
         }
-        if (has_char || !all_vars_or_opaque) {
+        if (has_char || !all_eliminable) {
             m_is_general_conflict = true;
             m_reason = backtrack_reason::symbol_clash;
             return true;
         }
+        ast_manager& m = sg.get_manager();
+        arith_util arith(m);
         for (euf::snode* t : tokens) {
             if (t->is_var()) {
+                nielsen_subst s(t, sg.mk_empty(), dep);
+                apply_subst(sg, s);
+                changed = true;
+            }
+            else if (t->is_power()) {
+                // Power equated to empty → exponent must be 0.
+                expr* e = t->get_expr();
+                expr* pow_exp = (e && is_app(e) && to_app(e)->get_num_args() >= 2)
+                    ? to_app(e)->get_arg(1) : nullptr;
+                if (pow_exp) {
+                    expr* zero = arith.mk_numeral(rational(0), true);
+                    m_int_constraints.push_back(
+                        int_constraint(pow_exp, zero, int_constraint_kind::eq, dep, m));
+                }
                 nielsen_subst s(t, sg.mk_empty(), dep);
                 apply_subst(sg, s);
                 changed = true;
@@ -1489,6 +1507,8 @@ namespace seq {
                                 eq.m_rhs = sg.drop_first(eq.m_rhs);
                                 if (lp_le_rp && rp_le_lp) {
                                     // both ≤ → equal → both cancel completely
+                                    // Record the equality constraint so the model knows lp = rp.
+                                    add_int_constraint(g.mk_int_constraint(lp, rp, int_constraint_kind::eq, eq.m_dep));
                                 } else {
                                     // strictly less: create diff power d = larger - smaller ≥ 1
                                     expr_ref d(g.mk_fresh_int_var());
@@ -1700,11 +1720,6 @@ namespace seq {
             node->set_general_conflict(true);
             return search_result::unsat;
         }
-        if (sr == simplify_result::satisfied || node->is_satisfied()) {
-            m_sat_node = node;
-            m_sat_path = cur_path;
-            return search_result::sat;
-        }
 
         // Assert any new int_constraints added during simplify_and_init for this
         // node into the current solver scope. Constraints inherited from the parent
@@ -1718,6 +1733,12 @@ namespace seq {
             node->set_reason(backtrack_reason::arithmetic);
             ++m_stats.m_num_arith_infeasible;
             return search_result::unsat;
+        }
+
+        if (sr == simplify_result::satisfied || node->is_satisfied()) {
+            m_sat_node = node;
+            m_sat_path = cur_path;
+            return search_result::sat;
         }
 
         // depth bound check
@@ -3372,6 +3393,50 @@ namespace seq {
         arith_util arith(m);
         std::string name = "n!" + std::to_string(m_fresh_cnt++);
         return expr_ref(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
+    }
+
+    bool nielsen_graph::solve_sat_path_ints(model_ref& mdl) {
+        mdl = nullptr;
+        if (m_sat_path.empty() && (!m_sat_node || m_sat_node->int_constraints().empty()))
+            return false;
+
+        vector<int_constraint> constraints;
+        collect_path_int_constraints(m_sat_node, m_sat_path, constraints);
+        if (constraints.empty())
+            return false;
+
+        // Use a fresh smt::kernel to solve the integer constraints.
+        // Add constraints incrementally, skipping any that would make the system UNSAT
+        // (the search may have taken contradictory branches).
+        ast_manager& m = m_sg.get_manager();
+        smt_params params;
+        smt::kernel fresh_solver(m, params);
+        IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints: " << constraints.size() << " constraints\n";);
+        for (auto const& ic : constraints) {
+            expr_ref e = int_constraint_to_expr(ic);
+            IF_VERBOSE(2, verbose_stream() << "  constraint: " << mk_bounded_pp(e, m, 5) << "\n";);
+            fresh_solver.push();
+            fresh_solver.assert_expr(e);
+            if (fresh_solver.check() == l_false) {
+                IF_VERBOSE(1, verbose_stream() << "  SKIPPED (infeasible): " << mk_bounded_pp(e, m, 5) << "\n";);
+                fresh_solver.pop(1);
+            }
+        }
+
+        lbool result = fresh_solver.check();
+        IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints result: " << result << "\n";);
+        if (result == l_true) {
+            fresh_solver.get_model(mdl);
+            IF_VERBOSE(1, {
+                verbose_stream() << "  int_model:\n";
+                for (unsigned i = 0; i < mdl->get_num_constants(); ++i) {
+                    func_decl* fd = mdl->get_constant(i);
+                    expr* val = mdl->get_const_interp(fd);
+                    if (val) verbose_stream() << "    " << fd->get_name() << " = " << mk_bounded_pp(val, m, 3) << "\n";
+                }
+            });
+        }
+        return mdl.get() != nullptr;
     }
 
 }

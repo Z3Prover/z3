@@ -59,6 +59,10 @@ namespace smt {
         void pop(unsigned num_scopes) override {
             m_kernel.pop(num_scopes);
         }
+
+        void get_model(model_ref& mdl) override {
+            m_kernel.get_model(mdl);
+        }
     };
 
 }
