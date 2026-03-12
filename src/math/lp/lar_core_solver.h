@@ -81,9 +81,14 @@ public:
     void backup_x() { m_backup_x = m_r_x; }
 
     void restore_x() {
-        SASSERT(m_backup_x.size() == m_r_A.column_count());
-        m_r_x = m_backup_x;
+        unsigned n = m_r_A.column_count();
+        unsigned backup_sz = m_backup_x.size();
+        unsigned copy_sz = std::min(backup_sz, n);
+        for (unsigned j = 0; j < copy_sz; j++)
+            m_r_x[j] = m_backup_x[j];
     }
+
+    unsigned backup_x_size() const { return m_backup_x.size(); }
 
     vector<impq> const& r_x() const { return m_r_x; }
     impq& r_x(unsigned j) { return m_r_x[j]; }
