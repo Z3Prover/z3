@@ -23,7 +23,7 @@
 #
 # Daily API coherence checker across Z3's multi-language bindings including Rust
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"598c1f5c864f7f50ae4874ea58b6a0fb58480c7220cbbd8c9cd2e9386320c5af","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"57081975dce2603e1cf310099ef5120862f27b028e014ad3c3405f7c046d92d4","compiler_version":"v0.57.2","strict":true}
 
 name: "API Coherence Checker"
 "on":
@@ -1067,7 +1067,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

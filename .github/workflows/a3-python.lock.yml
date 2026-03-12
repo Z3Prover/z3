@@ -23,7 +23,7 @@
 #
 # Analyzes Python code using a3-python tool to identify bugs and issues
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"e0bad93581cdf2abd9d7463c3d17c24341868f3e72928d533c73bd53e1bafa44","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"b070efd760f3adb920cf3555ebb4342d451f942f24a114965f2eba0ea6d79419","compiler_version":"v0.57.2","strict":true}
 
 name: "A3 Python Code Analysis"
 "on":
@@ -1057,7 +1057,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

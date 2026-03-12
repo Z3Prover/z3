@@ -23,7 +23,7 @@
 #
 # Analyzes Z3 codebase for consistent coding conventions and opportunities to use modern C++ features
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"6d7361c4c87b89662d96d40f58300649076c6abb8614cbc7e3e37bc06baa057a","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"5314f869129082f4b6c07bda77b7fa3201da3828ec66262697c72928d1eab973","compiler_version":"v0.57.2","strict":true}
 
 name: "Code Conventions Analyzer"
 "on":
@@ -1156,7 +1156,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

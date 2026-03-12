@@ -23,7 +23,7 @@
 #
 # Run Z3 string solver benchmarks (seq vs nseq) on QF_S test suite from the c3 branch and post results as a GitHub discussion
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"ab149c893372faec0aec67fa8e3959a3221cbbaf5189226a31b817fa99f90cd9","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"7ab3bd2bbf01cbc03e57737e0508a5e8981db23cc44b9442ce396f40f26516e0","compiler_version":"v0.57.2","strict":true}
 
 name: "Qf S Benchmark"
 "on":
@@ -1034,7 +1034,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

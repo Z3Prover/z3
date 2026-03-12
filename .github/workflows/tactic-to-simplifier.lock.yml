@@ -23,7 +23,7 @@
 #
 # Compares exposed tactics and simplifiers in Z3, and creates issues for tactics that can be converted to simplifiers
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"50116844aa0308890a39445e2e30a0cc857b66711c75cecd175c4e064608b1aa","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"76d6fd042d92c63ae3179cb252448c2493fe4700999fade9a655f6376ec2f327","compiler_version":"v0.57.2","strict":true}
 
 name: "Tactic-to-Simplifier Comparison Agent"
 "on":
@@ -1077,7 +1077,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

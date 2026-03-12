@@ -23,7 +23,7 @@
 #
 # Generates a detailed Memory Safety report for Z3 by analyzing ASan/UBSan sanitizer logs from the memory-safety workflow, posting findings as a GitHub Discussion.
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"88c79882e245eb279464b9a1207f6452368e1a6a80e26aa8fae2350270d504ae","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"836c4026298cb1d7379e0b090fe64b97986797fdb77471f9ae83ea1aaf18971c","compiler_version":"v0.57.2","strict":true}
 
 name: "Memory Safety Analysis Report Generator"
 "on":
@@ -1081,7 +1081,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

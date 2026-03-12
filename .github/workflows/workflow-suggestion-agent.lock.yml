@@ -23,7 +23,7 @@
 #
 # Weekly agent that suggests which agentic workflow agents should be added to the Z3 repository
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"4b33fde33f7b00d5b78ebf13851b0c74a0b8a72ccd1d51ac5714095269b61862","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"5fa7af66411e5d80691cbbd66b1b1c05eb9a905d722957ceab7b0b7b556d0f28","compiler_version":"v0.57.2","strict":true}
 
 name: "Workflow Suggestion Agent"
 "on":
@@ -1067,7 +1067,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

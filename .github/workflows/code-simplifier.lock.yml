@@ -25,7 +25,7 @@
 #
 # Source: github/gh-aw/.github/workflows/code-simplifier.md@76d37d925abd44fee97379206f105b74b91a285b
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"ba4361e08cae6f750b8326eb91fd49aa292622523f2a01aaf2051ff7f94a07fb","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"6f3bad47dff7f3f86460672a86abd84130d8a7dee19358ef3391e3faf65f4857","compiler_version":"v0.57.2","strict":true}
 
 name: "Code Simplifier"
 "on":
@@ -1072,7 +1072,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

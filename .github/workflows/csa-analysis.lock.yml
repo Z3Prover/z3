@@ -23,7 +23,7 @@
 #
 # Weekly Clang Static Analyzer (CSA) build and report for Z3, posting findings to GitHub Discussions
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"f99dfbb32ce2aa086a9f96f51eda607d0eff4a648a2913713e7d0575bcb11d90","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"1d963db46cb836e916f59e2bf15eee3467a84e2e0b41312fe5a48eaa81c51e9c","compiler_version":"v0.57.2","strict":true}
 
 name: "Clang Static Analyzer (CSA) Report"
 "on":
@@ -1061,7 +1061,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

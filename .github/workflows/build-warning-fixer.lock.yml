@@ -23,7 +23,7 @@
 #
 # Automatically builds Z3 directly and fixes detected build warnings
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"8b0dff2ea86746229278e436b3de6a4d6868c48ea5aecca3aad131d326a4c819","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"076f956f53f04fe2f9fc916da97f426b702f68c328045cce4cc1575bed38787d","compiler_version":"v0.57.2","strict":true}
 
 name: "Build Warning Fixer"
 "on":
@@ -1060,7 +1060,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

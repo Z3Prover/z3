@@ -23,7 +23,7 @@
 #
 # Processes the backlog of open issues every second day, creates a discussion with findings, and comments on relevant issues
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"81ff1a035a0bcdc0cfe260b8d19a5c10e874391ce07c33664f144a94c04c891c","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"5424d9402b8dedb25217216c006f6c53d734986434b89278b9a1ed4feccb6ac7","compiler_version":"v0.57.2","strict":true}
 
 name: "Issue Backlog Processor"
 "on":
@@ -1114,7 +1114,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

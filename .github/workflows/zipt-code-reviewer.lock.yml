@@ -23,7 +23,7 @@
 #
 # Reviews Z3 string/sequence graph implementation (euf_sgraph, euf_seq_plugin, src/smt/seq) by comparing with the ZIPT reference implementation and reporting improvements as git diffs in GitHub issues
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"adecdddc8c5555c7d326638cfa13674b67a5ef94e37a23c4c4d84824ab82ad9c","compiler_version":"v0.57.2","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"b83f03789555ab21af8bdc4db173dbf20b4defe4f7e249f4bbcc93b7986d51ef","compiler_version":"v0.57.2","strict":true}
 
 name: "ZIPT Code Reviewer"
 "on":
@@ -1097,7 +1097,7 @@ jobs:
           GH_AW_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           GH_AW_AGENT_CONCLUSION: ${{ needs.agent.result }}
           GH_AW_NOOP_MESSAGE: ${{ steps.noop.outputs.noop_message }}
-          GH_AW_NOOP_REPORT_AS_ISSUE: "true"
+          GH_AW_NOOP_REPORT_AS_ISSUE: "false"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
