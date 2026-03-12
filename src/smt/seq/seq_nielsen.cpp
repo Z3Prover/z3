@@ -2099,7 +2099,7 @@ namespace seq {
             euf::snode* lhead = lhs_toks[0];
             euf::snode* rhead = rhs_toks[0];
 
-            // char·A = y·B → branch 1: y→ε, branch 2: y→char·fresh
+            // char·A = y·B → branch 1: y→ε, branch 2: y→char·y
             if (lhead->is_char() && rhead->is_var()) {
                 // branch 1: y → ε (progress)
                 {
@@ -2109,11 +2109,11 @@ namespace seq {
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
                 }
-                // branch 2: y → char·fresh (progress)
+                // branch 2: y → char·y (no progress)
                 {
                     euf::snode* replacement = m_sg.mk_concat(lhead, rhead);
                     nielsen_node* child = mk_child(node);
-                    nielsen_edge* e = mk_edge(node, child, true);
+                    nielsen_edge* e = mk_edge(node, child, false);
                     nielsen_subst s(rhead, replacement, eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
@@ -2121,7 +2121,7 @@ namespace seq {
                 return true;
             }
 
-            // x·A = char·B → branch 1: x→ε, branch 2: x→char·fresh
+            // x·A = char·B → branch 1: x→ε, branch 2: x→char·x
             if (rhead->is_char() && lhead->is_var()) {
                 // branch 1: x → ε (progress)
                 {
@@ -2131,11 +2131,11 @@ namespace seq {
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
                 }
-                // branch 2: x → char·fresh (progress)
+                // branch 2: x → char·x (no progress)
                 {
                     euf::snode* replacement = m_sg.mk_concat(rhead, lhead);
                     nielsen_node* child = mk_child(node);
-                    nielsen_edge* e = mk_edge(node, child, true);
+                    nielsen_edge* e = mk_edge(node, child, false);
                     nielsen_subst s(lhead, replacement, eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
@@ -2176,20 +2176,20 @@ namespace seq {
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
             }
-            // child 2: x → y·x' (progress)
+            // child 2: x → y·x (no progress)
             {
                 euf::snode* replacement = m_sg.mk_concat(rhead, lhead);
                 nielsen_node* child = mk_child(node);
-                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_edge* e = mk_edge(node, child, false);
                 nielsen_subst s(lhead, replacement, eq.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
             }
-            // child 3: y → x·y' (progress)
+            // child 3: y → x·y (progress)
             {
                 euf::snode* replacement = m_sg.mk_concat(lhead, rhead);
                 nielsen_node* child = mk_child(node);
-                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_edge* e = mk_edge(node, child, false);
                 nielsen_subst s(rhead, replacement, eq.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
@@ -2581,16 +2581,15 @@ namespace seq {
             bool created = false;
 
             // for each character c with non-fail derivative:
-            //   child: x → c · fresh_var
+            //   child: x → c · x
             for (euf::snode* ch : chars) {
                 euf::snode* deriv = m_sg.brzozowski_deriv(mem.m_regex, ch);
                 if (!deriv || deriv->is_fail())
                     continue;
 
-                euf::snode* fresh = mk_fresh_var();
-                euf::snode* replacement = m_sg.mk_concat(ch, fresh);
+                euf::snode* replacement = m_sg.mk_concat(ch, first);
                 nielsen_node* child = mk_child(node);
-                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_edge* e = mk_edge(node, child, false);
                 nielsen_subst s(first, replacement, mem.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
@@ -3255,7 +3254,7 @@ namespace seq {
                 created = true;
             }
 
-            // Branch 2+: for each minterm m_i, x → ?c · x'
+            // Branch 2+: for each minterm m_i, x → ?c · x
             // where ?c is a symbolic char constrained by the minterm
             for (euf::snode* mt : minterms) {
                 if (mt->is_fail()) continue;
@@ -3265,11 +3264,10 @@ namespace seq {
                 euf::snode* deriv = m_sg.brzozowski_deriv(mem.m_regex, mt);
                 if (deriv && deriv->is_fail()) continue;
 
-                euf::snode* fresh_var = mk_fresh_var();
                 euf::snode* fresh_char = mk_fresh_char_var();
-                euf::snode* replacement = m_sg.mk_concat(fresh_char, fresh_var);
+                euf::snode* replacement = m_sg.mk_concat(fresh_char, first);
                 nielsen_node* child = mk_child(node);
-                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_edge* e = mk_edge(node, child, false);
                 nielsen_subst s(first, replacement, mem.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
