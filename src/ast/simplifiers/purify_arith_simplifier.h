@@ -174,7 +174,7 @@ class purify_arith_simplifier : public dependent_expr_simplifier {
 
         void push_cnstr(expr * cnstr) {
             m_new_cnstrs.push_back(cnstr);
-            TRACE("purify_arith", tout << mk_pp(cnstr, m()) << "\n";);
+            TRACE(purify_arith, tout << mk_pp(cnstr, m()) << "\n";);
         }
 
         void cache_result(app * t, expr * r, proof * pr) {
@@ -540,7 +540,7 @@ class purify_arith_simplifier : public dependent_expr_simplifier {
             expr_ref new_body(m());
             proof_ref new_body_pr(m());
             r(q->get_expr(), new_body, new_body_pr);
-            TRACE("purify_arith",
+            TRACE(purify_arith,
                   tout << "body: " << mk_ismt2_pp(q->get_expr(), m()) << "\nnew_body: " << new_body << "\n";);
             result = m().update_quantifier(q, new_body);
         }
