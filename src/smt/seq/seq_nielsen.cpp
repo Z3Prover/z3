@@ -444,7 +444,7 @@ namespace seq {
     nielsen_graph::nielsen_graph(euf::sgraph& sg, simple_solver& solver):
         m_sg(sg),
         m_solver(solver),
-        m_parikh(alloc(seq_parikh, sg)) {
+        m_parikh(alloc(seq_parikh, sg)),
         m_len_vars(sg.get_manager()) {
     }
 
