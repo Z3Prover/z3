@@ -1,0 +1,44 @@
+name: Mark Pull Requests Ready for Review
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+permissions: {}
+
+jobs:
+  mark-ready:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Mark all draft pull requests ready for review
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const pulls = await github.paginate(github.rest.pulls.list, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+            });
+
+            const drafts = pulls.filter(pr => pr.draft);
+            core.info(`Found ${drafts.length} draft pull request(s).`);
+
+            for (const pr of drafts) {
+              core.info(`Marking PR #${pr.number} "${pr.title}" ready for review.`);
+              try {
+                await github.graphql(`
+                  mutation($id: ID!) {
+                    markPullRequestReadyForReview(input: { pullRequestId: $id }) {
+                      pullRequest { number isDraft }
+                    }
+                  }
+                `, { id: pr.node_id });
+              } catch (err) {
+                core.warning(`Failed to mark PR #${pr.number} ready for review: ${err.message}`);
+              }
+            }
+
+            core.info('Done.');
