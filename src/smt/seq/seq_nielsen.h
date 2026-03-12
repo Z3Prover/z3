@@ -761,7 +761,7 @@ namespace seq {
         search_result search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path);
 
         // create a fresh variable with a unique name
-        euf::snode* mk_fresh_var();
+        euf::snode* mk_fresh_var(sort* s);
 
         // create a fresh symbolic character: seq.unit(fresh_char_const)
         // analogous to ZIPT's SymCharToken creation

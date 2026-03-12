@@ -1225,7 +1225,7 @@ namespace seq {
                 }
                 // branch 2: y → char·fresh (progress)
                 {
-                    euf::snode* fresh = mk_fresh_var();
+                    euf::snode* fresh = mk_fresh_var(rhead->get_sort());
                     euf::snode* replacement = m_sg.mk_concat(lhead, fresh);
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, true);
@@ -1248,7 +1248,7 @@ namespace seq {
                 }
                 // branch 2: x → char·fresh (progress)
                 {
-                    euf::snode* fresh = mk_fresh_var();
+                    euf::snode* fresh = mk_fresh_var(lhead->get_sort());
                     euf::snode* replacement = m_sg.mk_concat(rhead, fresh);
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, true);
@@ -1294,7 +1294,7 @@ namespace seq {
             }
             // child 2: x → y·x' (progress)
             {
-                euf::snode* fresh = mk_fresh_var();
+                euf::snode* fresh = mk_fresh_var(lhead->get_sort());
                 euf::snode* replacement = m_sg.mk_concat(rhead, fresh);
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
@@ -1304,7 +1304,7 @@ namespace seq {
             }
             // child 3: y → x·y' (progress)
             {
-                euf::snode* fresh = mk_fresh_var();
+                euf::snode* fresh = mk_fresh_var(rhead->get_sort());
                 euf::snode* replacement = m_sg.mk_concat(lhead, fresh);
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
@@ -1534,7 +1534,7 @@ namespace seq {
 
             euf::snode* pad = nullptr;
             if (padding != 0) {
-                pad = mk_fresh_var();
+                pad = mk_fresh_var(lhs_toks[0]->get_sort());
                 if (padding > 0) {
                     // LHS prefix is longer by |padding| constants.
                     // Prepend pad to RHS prefix, append pad to LHS suffix.
@@ -1585,10 +1585,10 @@ namespace seq {
     // nielsen_graph: mk_fresh_var
     // -----------------------------------------------------------------------
 
-    euf::snode* nielsen_graph::mk_fresh_var() {
+    euf::snode* nielsen_graph::mk_fresh_var(sort* s) {
         ++m_stats.m_num_fresh_vars;
         std::string name = "v!" + std::to_string(m_fresh_cnt++);
-        return m_sg.mk_var(symbol(name.c_str()));
+        return m_sg.mk_var(symbol(name.c_str()), s);
     }
 
     euf::snode* nielsen_graph::mk_fresh_char_var() {
@@ -1705,7 +1705,7 @@ namespace seq {
                 if (!deriv || deriv->is_fail())
                     continue;
 
-                euf::snode* fresh = mk_fresh_var();
+                euf::snode* fresh = mk_fresh_var(first->get_sort());
                 euf::snode* replacement = m_sg.mk_concat(ch, fresh);
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
@@ -2001,7 +2001,7 @@ namespace seq {
         // Side constraint: n >= 1
         // Use fresh power variable for u^(n-1)
         {
-            euf::snode* fresh_power = mk_fresh_var();
+            euf::snode* fresh_power = mk_fresh_var(base->get_sort());
             euf::snode* replacement = m_sg.mk_concat(base, fresh_power);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);
@@ -2040,8 +2040,8 @@ namespace seq {
             // replacing x → z·fresh_post. This breaks the cycle because
             // z is a new variable that won't trigger star_intr again.
             euf::snode* x = first;
-            euf::snode* z = mk_fresh_var();
-            euf::snode* fresh_post = mk_fresh_var();
+            euf::snode* z = mk_fresh_var(x->get_sort());
+            euf::snode* fresh_post = mk_fresh_var(x->get_sort());
             euf::snode* str_tail = m_sg.drop_first(mem.m_str);
 
             // Build z ∈ R* membership: the star of the current regex
@@ -2234,7 +2234,7 @@ namespace seq {
                 euf::snode* deriv = m_sg.brzozowski_deriv(mem.m_regex, mt);
                 if (deriv && deriv->is_fail()) continue;
 
-                euf::snode* fresh_var = mk_fresh_var();
+                euf::snode* fresh_var = mk_fresh_var(first->get_sort());
                 euf::snode* fresh_char = mk_fresh_char_var();
                 euf::snode* replacement = m_sg.mk_concat(fresh_char, fresh_var);
                 nielsen_node* child = mk_child(node);
@@ -2282,8 +2282,8 @@ namespace seq {
         // Side constraints: m >= 0, m < n (i.e., n >= m + 1)
         {
             expr_ref fresh_m = mk_fresh_int_var();
-            euf::snode* fresh_power = mk_fresh_var(); // represents base^m
-            euf::snode* fresh_suffix = mk_fresh_var(); // represents prefix(base)
+            euf::snode* fresh_power = mk_fresh_var(base->get_sort()); // represents base^m
+            euf::snode* fresh_suffix = mk_fresh_var(base->get_sort()); // represents prefix(base)
             euf::snode* replacement = m_sg.mk_concat(fresh_power, fresh_suffix);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, true);
@@ -2302,7 +2302,7 @@ namespace seq {
         // Branch 2: x = u^n · x' (variable extends past full power, non-progress)
         // Side constraint: n >= 0
         {
-            euf::snode* fresh_tail = mk_fresh_var();
+            euf::snode* fresh_tail = mk_fresh_var(base->get_sort());
             // Peel one base unit (approximation of extending past the power)
             euf::snode* replacement = m_sg.mk_concat(base, fresh_tail);
             nielsen_node* child = mk_child(node);
@@ -2357,7 +2357,7 @@ namespace seq {
         // Branch 2: n >= 1 → peel one u: u^n → u · u^(n-1)
         // Side constraint: n >= 1
         {
-            euf::snode* fresh = mk_fresh_var();
+            euf::snode* fresh = mk_fresh_var(base->get_sort());
             euf::snode* replacement = m_sg.mk_concat(base, fresh);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);

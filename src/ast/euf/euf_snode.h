@@ -98,6 +98,7 @@ namespace euf {
 
     public:
         expr*      get_expr() const { return m_expr; }
+        sort*      get_sort() const { SASSERT(m_expr); return m_expr->get_sort(); }
         snode_kind kind()     const { return m_kind; }
         unsigned   id()       const { return m_id; }
         unsigned   num_args() const { return m_num_args; }
