@@ -39,6 +39,7 @@ z3_add_component(simplifiers
     elim_bounds.h
     elim_term_ite.h
     pull_nested_quantifiers.h
+    purify_arith_simplifier.h
     push_ite.h
     randomizer.h
     refine_inj_axiom.h
