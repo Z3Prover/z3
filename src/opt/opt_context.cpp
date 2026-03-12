@@ -948,8 +948,10 @@ namespace opt {
             g->assert_expr(fml);
         for (expr * a : asms) 
             g->assert_expr(a, a);
+        params_ref som_params(m_params);
+        som_params.set_bool("som", true);
         tactic_ref tac0 = 
-            and_then(mk_simplify_tactic(m, m_params), 
+            and_then(mk_simplify_tactic(m, som_params), 
                      mk_propagate_values_tactic(m),
                      m_incremental ? mk_skip_tactic() : mk_solve_eqs_tactic(m),
                      mk_simplify_tactic(m));   
