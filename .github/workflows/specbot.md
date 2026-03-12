@@ -13,10 +13,9 @@ on:
         description: 'Specific class name to analyze (optional)'
         required: false
         default: ''
+  roles: [write, maintain, admin]
 
-roles: [write, maintain, admin]
-
-env:
+secrets:
   GH_TOKEN: ${{ secrets.BOT_PAT }}
 
 permissions:
@@ -51,6 +50,8 @@ timeout-minutes: 45
 steps:
   - name: Checkout repository
     uses: actions/checkout@v5
+    with:
+      persist-credentials: false
 
 ---
 

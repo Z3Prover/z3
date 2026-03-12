@@ -5,8 +5,7 @@ on:
   issues:
     types: [opened, labeled]
   schedule: daily
-
-roles: all
+  roles: all
 
 permissions: read-all
 
@@ -34,6 +33,8 @@ timeout-minutes: 30
 steps:
   - name: Checkout repository
     uses: actions/checkout@v5
+    with:
+      persist-credentials: false
 
 ---
 
