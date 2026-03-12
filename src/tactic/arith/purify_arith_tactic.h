@@ -78,7 +78,6 @@ tactic * mk_purify_arith_tactic(ast_manager & m, params_ref const & p = params_r
 
 /*
   ADD_TACTIC("purify-arith", "eliminate unnecessary operators: -, /, div, mod, rem, is-int, to-int, ^, root-objects.", "mk_purify_arith_tactic(m, p)")
-  ADD_SIMPLIFIER("purify-arith", "eliminate unnecessary operators: -, /, div, mod, rem, is-int, to-int, ^, root-objects.", "alloc(purify_arith_simplifier, m, p, s)")
 */
 
 
