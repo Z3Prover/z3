@@ -21,7 +21,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-TIMEOUT = 5  # seconds
+DEFAULT_TIMEOUT = 5  # seconds
 COMMON_ARGS = ["model_validate=true"]
 
 SOLVERS = {
@@ -71,27 +71,31 @@ def determine_status(res_nseq: str, res_seq: str, smtlib_status: str) -> str:
     return "unknown"
 
 
-def run_z3(z3_bin: str, smt_file: Path, solver_arg: str) -> tuple[str, float]:
+def run_z3(z3_bin: str, smt_file: Path, solver_arg: str, timeout_s: int = DEFAULT_TIMEOUT) -> tuple[str, float]:
     """Run z3 on a file with the given solver argument.
     Returns (result, elapsed) where result is 'sat', 'unsat', 'unknown', or 'timeout'/'error'.
     """
-    cmd = [z3_bin, solver_arg] + COMMON_ARGS + [str(smt_file)]
+    timeout_ms = timeout_s * 1000
+    cmd = [z3_bin, f"-t:{timeout_ms}", solver_arg] + COMMON_ARGS + [str(smt_file)]
     start = time.monotonic()
     try:
         proc = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=TIMEOUT,
+            timeout=timeout_s + 5,  # subprocess grace period beyond Z3's own timeout
         )
         elapsed = time.monotonic() - start
         output = proc.stdout.strip()
         # Extract first meaningful line (sat/unsat/unknown)
         for line in output.splitlines():
             line = line.strip()
-            if line in ("sat", "unsat", "unknown"):
+            if line in ("sat", "unsat"):
                 return line, elapsed
-        return "unknown", elapsed
+            if line == "unknown":
+                # Z3 returns "unknown" when it hits -t: limit — treat as timeout
+                return "timeout", elapsed
+        return "timeout", elapsed
     except subprocess.TimeoutExpired:
         elapsed = time.monotonic() - start
         return "timeout", elapsed
@@ -119,9 +123,9 @@ def classify(res_nseq: str, res_seq: str) -> str:
     return "diverge"
 
 
-def process_file(z3_bin: str, smt_file: Path) -> dict:
-    res_nseq, t_nseq = run_z3(z3_bin, smt_file, SOLVERS["nseq"])
-    res_seq,  t_seq  = run_z3(z3_bin, smt_file, SOLVERS["seq"])
+def process_file(z3_bin: str, smt_file: Path, timeout_s: int = DEFAULT_TIMEOUT) -> dict:
+    res_nseq, t_nseq = run_z3(z3_bin, smt_file, SOLVERS["nseq"], timeout_s)
+    res_seq,  t_seq  = run_z3(z3_bin, smt_file, SOLVERS["seq"], timeout_s)
     cat = classify(res_nseq, res_seq)
     smtlib_status = read_smtlib_status(smt_file)
     status = determine_status(res_nseq, res_seq, smtlib_status)
@@ -143,10 +147,13 @@ def main():
     parser.add_argument("--z3", required=True, metavar="PATH", help="Path to z3 binary")
     parser.add_argument("--ext", default=".smt2", help="File extension to search for (default: .smt2)")
     parser.add_argument("--jobs", type=int, default=4, help="Parallel workers (default: 4)")
+    parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, metavar="SEC",
+                        help=f"Per-solver timeout in seconds (default: {DEFAULT_TIMEOUT})")
     parser.add_argument("--csv", metavar="FILE", help="Also write results to a CSV file")
     args = parser.parse_args()
 
     z3_bin = args.z3
+    timeout_s = args.timeout
 
     root = Path(args.path)
     if not root.exists():
@@ -158,11 +165,11 @@ def main():
         print(f"No {args.ext} files found under {root}", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Found {len(files)} files. Running with {args.jobs} parallel workers …\n")
+    print(f"Found {len(files)} files. Running with {args.jobs} parallel workers, timeout={timeout_s}s …\n")
 
     results = []
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = {pool.submit(process_file, z3_bin, f): f for f in files}
+        futures = {pool.submit(process_file, z3_bin, f, timeout_s): f for f in files}
         done = 0
         for fut in as_completed(futures):
             done += 1

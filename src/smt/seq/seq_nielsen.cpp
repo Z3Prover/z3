@@ -3307,40 +3307,90 @@ namespace seq {
         expr* exp_n = get_power_exponent(power);
         expr* zero = arith.mk_int(0);
 
-        // Branch 1: x = base^m · prefix where 0 <= m < n
-        // Side constraints: m >= 0, m < n (i.e., n >= m + 1)
+        // Branch 1: enumerate all decompositions of the base.
+        // x = base^m · prefix_i(base) where 0 <= m < n
+        // Uses the same GetDecompose pattern as fire_gpower_intro.
         {
+            euf::snode_vector base_toks;
+            base->collect_tokens(base_toks);
+            unsigned base_len = base_toks.size();
+            expr* base_expr = get_power_base_expr(power);
+            if (!base_expr || base_len == 0)
+                return false;
+
             expr_ref fresh_m = mk_fresh_int_var();
-            euf::snode* fresh_power = mk_fresh_var(); // represents base^m
-            euf::snode* fresh_suffix = mk_fresh_var(); // represents prefix(base)
-            euf::snode* replacement = m_sg.mk_concat(fresh_power, fresh_suffix);
-            nielsen_node* child = mk_child(node);
-            nielsen_edge* e = mk_edge(node, child, true);
-            nielsen_subst s(var_head, replacement, eq->m_dep);
-            e->add_subst(s);
-            child->apply_subst(m_sg, s);
-            // m >= 0
-            e->add_side_int(mk_int_constraint(fresh_m, zero, int_constraint_kind::ge, eq->m_dep));
-            // m < n  ⟺  n >= m + 1
-            if (exp_n) {
-                expr_ref m_plus_1(arith.mk_add(fresh_m, arith.mk_int(1)), m);
-                e->add_side_int(mk_int_constraint(exp_n, m_plus_1, int_constraint_kind::ge, eq->m_dep));
+            expr_ref power_m_expr(seq.str.mk_power(base_expr, fresh_m), m);
+            euf::snode* power_m_sn = m_sg.mk(power_m_expr);
+            if (!power_m_sn)
+                return false;
+
+            for (unsigned i = 0; i < base_len; ++i) {
+                euf::snode* tok = base_toks[i];
+
+                // Skip char position when preceding token is a power:
+                // the power case at i-1 with 0 <= m' <= exp already covers m' = exp.
+                if (!tok->is_power() && i > 0 && base_toks[i - 1]->is_power())
+                    continue;
+
+                // Build full-token prefix: base_toks[0..i-1]
+                euf::snode* prefix_sn = nullptr;
+                for (unsigned j = 0; j < i; ++j)
+                    prefix_sn = (j == 0) ? base_toks[0] : m_sg.mk_concat(prefix_sn, base_toks[j]);
+
+                euf::snode* replacement;
+                expr_ref fresh_inner_m(m);
+
+                if (tok->is_power()) {
+                    // Token is a power u^exp: decompose with fresh m', 0 <= m' <= exp
+                    expr* inner_exp = get_power_exponent(tok);
+                    expr* inner_base_e = get_power_base_expr(tok);
+                    if (inner_exp && inner_base_e) {
+                        fresh_inner_m = mk_fresh_int_var();
+                        expr_ref partial_pow(seq.str.mk_power(inner_base_e, fresh_inner_m), m);
+                        euf::snode* partial_sn = m_sg.mk(partial_pow);
+                        euf::snode* suffix_sn = prefix_sn ? m_sg.mk_concat(prefix_sn, partial_sn) : partial_sn;
+                        replacement = m_sg.mk_concat(power_m_sn, suffix_sn);
+                    } else {
+                        euf::snode* suffix_sn = prefix_sn ? m_sg.mk_concat(prefix_sn, tok) : tok;
+                        replacement = m_sg.mk_concat(power_m_sn, suffix_sn);
+                    }
+                } else {
+                    // P(char) = ε, suffix is just the prefix
+                    replacement = prefix_sn ? m_sg.mk_concat(power_m_sn, prefix_sn) : power_m_sn;
+                }
+
+                nielsen_node* child = mk_child(node);
+                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_subst s(var_head, replacement, eq->m_dep);
+                e->add_subst(s);
+                child->apply_subst(m_sg, s);
+
+                // m >= 0
+                e->add_side_int(mk_int_constraint(fresh_m, zero, int_constraint_kind::ge, eq->m_dep));
+                // m < n  ⟺  n >= m + 1
+                if (exp_n) {
+                    expr_ref m_plus_1(arith.mk_add(fresh_m, arith.mk_int(1)), m);
+                    e->add_side_int(mk_int_constraint(exp_n, m_plus_1, int_constraint_kind::ge, eq->m_dep));
+                }
+
+                // Inner power constraints: 0 <= m' <= inner_exp
+                if (fresh_inner_m.get()) {
+                    expr* inner_exp = get_power_exponent(tok);
+                    e->add_side_int(mk_int_constraint(fresh_inner_m, zero, int_constraint_kind::ge, eq->m_dep));
+                    e->add_side_int(mk_int_constraint(inner_exp, fresh_inner_m, int_constraint_kind::ge, eq->m_dep));
+                }
             }
         }
 
         // Branch 2: x = u^n · x' (variable extends past full power, non-progress)
-        // Side constraint: n >= 0
         {
             euf::snode* fresh_tail = mk_fresh_var();
-            // Peel one base unit (approximation of extending past the power)
-            euf::snode* replacement = m_sg.mk_concat(base, fresh_tail);
+            euf::snode* replacement = m_sg.mk_concat(power, fresh_tail);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);
             nielsen_subst s(var_head, replacement, eq->m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
-            if (exp_n)
-                e->add_side_int(mk_int_constraint(exp_n, zero, int_constraint_kind::ge, eq->m_dep));
         }
 
         return true;
