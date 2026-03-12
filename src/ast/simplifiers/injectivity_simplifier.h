@@ -172,7 +172,7 @@ public:
             func_decl* fn = nullptr;
             func_decl* inv = nullptr;
             if (is_axiom(d.fml(), fn, inv)) {
-                TRACE("injectivity", tout << "Marking " << fn->get_name() << " as injective\n";);
+                TRACE(injectivity, tout << "Marking " << fn->get_name() << " as injective\n";);
                 m_map.insert(fn, inv);
             }
         }
