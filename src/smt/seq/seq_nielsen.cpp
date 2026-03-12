@@ -23,12 +23,25 @@ Author:
 #include "smt/seq/seq_parikh.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "smt/smt_kernel.h"
+#include "params/smt_params.h"
 #include "util/hashtable.h"
 #include <algorithm>
 #include <cstdlib>
 #include <sstream>
 
 namespace seq {
+
+    // Normalize an arithmetic expression using th_rewriter.
+    // Simplifies e.g. (n - 1 + 1) to n, preventing unbounded growth
+    // of power exponents during unwind/merge cycles.
+    static expr_ref normalize_arith(ast_manager& m, expr* e) {
+        expr_ref result(e, m);
+        th_rewriter rw(m);
+        rw(result);
+        return result;
+    }
 
     // -----------------------------------------------
     // str_eq
@@ -451,6 +464,7 @@ namespace seq {
     nielsen_node* nielsen_graph::mk_child(nielsen_node* parent) {
         nielsen_node* child = mk_node();
         child->clone_from(*parent);
+        child->m_parent_ic_count = parent->int_constraints().size();
         return child;
     }
 
@@ -602,10 +616,84 @@ namespace seq {
         return result;
     }
 
-    // Helper: render an snode as a human-readable label.
+    // Helper: render an arithmetic/integer expression in infix HTML notation.
+    // Recognises +, -, *, unary minus, numerals, str.len, and named constants;
+    // falls back to HTML-escaped mk_pp for anything else.
+    static std::string arith_expr_html(expr* e, ast_manager& m) {
+        if (!e) return "null";
+        arith_util arith(m);
+        seq_util   seq(m);
+        rational val;
+        if (arith.is_numeral(e, val))
+            return val.to_string();
+        if (!is_app(e)) {
+            std::ostringstream os;
+            os << mk_pp(e, m);
+            return dot_html_escape(os.str());
+        }
+        app* a = to_app(e);
+        expr* x, * y;
+        if (arith.is_add(e)) {
+            std::string r = arith_expr_html(a->get_arg(0), m);
+            for (unsigned i = 1; i < a->get_num_args(); ++i) {
+                expr* arg = a->get_arg(i);
+                // render (+ x (- y)) as "x - y" and (+ x (- n)) as "x - n"
+                expr* neg_inner;
+                rational neg_val;
+                if (arith.is_uminus(arg, neg_inner)) {
+                    r += " &#8722; "; // minus sign
+                    r += arith_expr_html(neg_inner, m);
+                } else if (arith.is_numeral(arg, neg_val) && neg_val.is_neg()) {
+                    r += " &#8722; "; // minus sign
+                    r += (-neg_val).to_string();
+                } else {
+                    r += " + ";
+                    r += arith_expr_html(arg, m);
+                }
+            }
+            return r;
+        }
+        if (arith.is_sub(e, x, y))
+            return arith_expr_html(x, m) + " &#8722; " + arith_expr_html(y, m);
+        if (arith.is_uminus(e, x))
+            return "&#8722;" + arith_expr_html(x, m);
+        if (arith.is_mul(e)) {
+            std::string r;
+            for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                if (i > 0) r += " &#183; "; // middle dot
+                r += arith_expr_html(a->get_arg(i), m);
+            }
+            return r;
+        }
+        if (seq.str.is_length(e, x)) {
+            return "|" + dot_html_escape(to_app(x)->get_decl()->get_name().str()) + "|";
+        }
+        // named constant (fresh variable like n!0)
+        if (a->get_num_args() == 0)
+            return dot_html_escape(a->get_decl()->get_name().str());
+        // fallback
+        std::ostringstream os;
+        os << mk_pp(e, m);
+        return dot_html_escape(os.str());
+    }
+
+    // Helper: render an int_constraint as an HTML string for DOT edge labels.
+    static std::string int_constraint_html(int_constraint const& ic, ast_manager& m) {
+        std::string r = arith_expr_html(ic.m_lhs, m);
+        switch (ic.m_kind) {
+        case int_constraint_kind::eq: r += " = ";       break;
+        case int_constraint_kind::le: r += " &#8804; "; break; // ≤
+        case int_constraint_kind::ge: r += " &#8805; "; break; // ≥
+        }
+        r += arith_expr_html(ic.m_rhs, m);
+        return r;
+    }
+
+    // Helper: render an snode as an HTML label for DOT output.
     // Groups consecutive s_char tokens into quoted strings, renders s_var by name,
-    // and falls back to mk_pp for other token kinds.
-    static std::string snode_label(euf::snode const* n, ast_manager& m) {
+    // shows s_power with superscripts, s_unit by its inner expression,
+    // and falls back to mk_pp (HTML-escaped) for other token kinds.
+    static std::string snode_label_html(euf::snode const* n, ast_manager& m) {
         if (!n) return "null";
         seq_util seq(m);
 
@@ -624,7 +712,7 @@ namespace seq {
         auto flush_chars = [&]() {
             if (char_acc.empty()) return;
             if (!first) result += " + ";
-            result += "\"" + char_acc + "\"";
+            result += "\"" + dot_html_escape(char_acc) + "\"";
             first = false;
             char_acc.clear();
         };
@@ -658,11 +746,31 @@ namespace seq {
             if (!e) {
                 result += "#" + std::to_string(tok->id());
             } else if (tok->is_var()) {
-                result += to_app(e)->get_decl()->get_name().str();
+                result += dot_html_escape(to_app(e)->get_decl()->get_name().str());
+            } else if (tok->is_unit()) {
+                // seq.unit with non-literal character: show the character expression
+                expr* ch = to_app(e)->get_arg(0);
+                if (is_app(ch)) {
+                    result += dot_html_escape(to_app(ch)->get_decl()->get_name().str());
+                } else {
+                    std::ostringstream os;
+                    os << mk_pp(ch, m);
+                    result += dot_html_escape(os.str());
+                }
+            } else if (tok->is_power()) {
+                // seq.power(base, n): render as base<SUP>n</SUP>
+                std::string base_html = snode_label_html(tok->arg(0), m);
+                if (tok->arg(0)->length() > 1)
+                    base_html = "(" + base_html + ")";
+                result += base_html;
+                result += "<SUP>";
+                expr* exp_expr = to_app(e)->get_arg(1);
+                result += arith_expr_html(exp_expr, m);
+                result += "</SUP>";
             } else {
                 std::ostringstream os;
                 os << mk_pp(e, m);
-                result += os.str();
+                result += dot_html_escape(os.str());
             }
         }
         flush_chars();
@@ -675,17 +783,17 @@ namespace seq {
         // string equalities
         for (auto const& eq : m_str_eq) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
-            out << dot_html_escape(snode_label(eq.m_lhs, m))
+            out << snode_label_html(eq.m_lhs, m)
                 << " = "
-                << dot_html_escape(snode_label(eq.m_rhs, m))
+                << snode_label_html(eq.m_rhs, m)
                 << "<br/>";
         }
         // regex memberships
         for (auto const& mem : m_str_mem) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
-            out << dot_html_escape(snode_label(mem.m_str, m))
+            out << snode_label_html(mem.m_str, m)
                 << " &#8712; "
-                << dot_html_escape(snode_label(mem.m_regex, m))
+                << snode_label_html(mem.m_regex, m)
                 << "<br/>";
         }
         // character ranges
@@ -701,6 +809,11 @@ namespace seq {
             for (euf::snode* d : kv.m_value) {
                 out << "?" << kv.m_key << " &#8800; ?" << d->id() << "<br/>";
             }
+        }
+        // integer constraints
+        for (auto const& ic : m_int_constraints) {
+            if (!any) { out << "Cnstr:<br/>"; any = true; }
+            out << int_constraint_html(ic, m) << "<br/>";
         }
 
         if (!any)
@@ -793,15 +906,43 @@ namespace seq {
                 for (auto const& s : e->subst()) {
                     if (!first) out << "<br/>";
                     first = false;
-                    out << dot_html_escape(snode_label(s.m_var, m))
+                    out << snode_label_html(s.m_var, m)
                         << " &#8594; " // mapping arrow
-                        << dot_html_escape(snode_label(s.m_replacement, m));
+                        << snode_label_html(s.m_replacement, m);
                 }
                 for (auto const& cs : e->char_substs()) {
                     if (!first) out << "<br/>";
                     first = false;
                     out << "?" << cs.m_var->id()
                         << " &#8594; ?" << cs.m_val->id();
+                }
+                // side constraints: string equalities
+                for (auto const* eq : e->side_str_eq()) {
+                    if (!first) out << "<br/>";
+                    first = false;
+                    out << "<font color=\"gray\">"
+                        << snode_label_html(eq->m_lhs, m)
+                        << " = "
+                        << snode_label_html(eq->m_rhs, m)
+                        << "</font>";
+                }
+                // side constraints: regex memberships
+                for (auto const* mem : e->side_str_mem()) {
+                    if (!first) out << "<br/>";
+                    first = false;
+                    out << "<font color=\"gray\">"
+                        << snode_label_html(mem->m_str, m)
+                        << " &#8712; "
+                        << snode_label_html(mem->m_regex, m)
+                        << "</font>";
+                }
+                // side constraints: integer equalities/inequalities
+                for (auto const& ic : e->side_int()) {
+                    if (!first) out << "<br/>";
+                    first = false;
+                    out << "<font color=\"gray\">"
+                        << int_constraint_html(ic, m)
+                        << "</font>";
                 }
                 out << ">";
 
@@ -841,21 +982,37 @@ namespace seq {
                                          dep_tracker const& dep, bool& changed) {
         euf::snode_vector tokens;
         non_empty_side->collect_tokens(tokens);
-        bool all_vars_or_opaque = true;
+        bool all_eliminable = true;
         bool has_char = false;
         for (euf::snode* t : tokens) {
             if (t->is_char()) has_char = true;
-            else if (!t->is_var() && t->kind() != euf::snode_kind::s_other) {
-                all_vars_or_opaque = false; break;
+            else if (!t->is_var() && !t->is_power() && t->kind() != euf::snode_kind::s_other) {
+                all_eliminable = false; break;
             }
         }
-        if (has_char || !all_vars_or_opaque) {
+        if (has_char || !all_eliminable) {
             m_is_general_conflict = true;
             m_reason = backtrack_reason::symbol_clash;
             return true;
         }
+        ast_manager& m = sg.get_manager();
+        arith_util arith(m);
         for (euf::snode* t : tokens) {
             if (t->is_var()) {
+                nielsen_subst s(t, sg.mk_empty(), dep);
+                apply_subst(sg, s);
+                changed = true;
+            }
+            else if (t->is_power()) {
+                // Power equated to empty → exponent must be 0.
+                expr* e = t->get_expr();
+                expr* pow_exp = (e && is_app(e) && to_app(e)->get_num_args() >= 2)
+                    ? to_app(e)->get_arg(1) : nullptr;
+                if (pow_exp) {
+                    expr* zero = arith.mk_numeral(rational(0), true);
+                    m_int_constraints.push_back(
+                        int_constraint(pow_exp, zero, int_constraint_kind::eq, dep, m));
+                }
                 nielsen_subst s(t, sg.mk_empty(), dep);
                 apply_subst(sg, s);
                 changed = true;
@@ -864,8 +1021,287 @@ namespace seq {
         return false;
     }
 
-    simplify_result nielsen_node::simplify_and_init(nielsen_graph& g) {
+    // -----------------------------------------------------------------------
+    // Power simplification helpers (mirrors ZIPT's MergePowers,
+    // SimplifyPowerElim/CommPower, SimplifyPowerSingle)
+    // -----------------------------------------------------------------------
+
+    // Check if exponent b equals exponent a + diff for some rational constant diff.
+    // Uses syntactic matching on Z3 expression structure: pointer equality
+    // detects shared sub-expressions created during ConstNumUnwinding.
+    static bool get_const_power_diff(expr* b, expr* a, arith_util& arith, rational& diff) {
+        if (a == b) { diff = rational(0); return true; }
+        // b = (+ a k) ?
+        if (arith.is_add(b) && to_app(b)->get_num_args() == 2) {
+            rational val;
+            if (to_app(b)->get_arg(0) == a && arith.is_numeral(to_app(b)->get_arg(1), val))
+                { diff = val; return true; }
+            if (to_app(b)->get_arg(1) == a && arith.is_numeral(to_app(b)->get_arg(0), val))
+                { diff = val; return true; }
+        }
+        // a = (+ b k) → diff = -k
+        if (arith.is_add(a) && to_app(a)->get_num_args() == 2) {
+            rational val;
+            if (to_app(a)->get_arg(0) == b && arith.is_numeral(to_app(a)->get_arg(1), val))
+                { diff = -val; return true; }
+            if (to_app(a)->get_arg(1) == b && arith.is_numeral(to_app(a)->get_arg(0), val))
+                { diff = -val; return true; }
+        }
+        // b = (- a k) → diff = -k
+        if (arith.is_sub(b) && to_app(b)->get_num_args() == 2) {
+            rational val;
+            if (to_app(b)->get_arg(0) == a && arith.is_numeral(to_app(b)->get_arg(1), val))
+                { diff = -val; return true; }
+        }
+        // a = (- b k) → diff = k
+        if (arith.is_sub(a) && to_app(a)->get_num_args() == 2) {
+            rational val;
+            if (to_app(a)->get_arg(0) == b && arith.is_numeral(to_app(a)->get_arg(1), val))
+                { diff = val; return true; }
+        }
+        return false;
+    }
+
+    // Get the base expression of a power snode.
+    static expr* get_power_base_expr(euf::snode* power) {
+        if (!power || !power->is_power()) return nullptr;
+        expr* e = power->get_expr();
+        return (e && is_app(e) && to_app(e)->get_num_args() >= 2) ? to_app(e)->get_arg(0) : nullptr;
+    }
+
+    // Get the exponent expression of a power snode.
+    static expr* get_power_exp_expr(euf::snode* power) {
+        if (!power || !power->is_power()) return nullptr;
+        expr* e = power->get_expr();
+        return (e && is_app(e) && to_app(e)->get_num_args() >= 2) ? to_app(e)->get_arg(1) : nullptr;
+    }
+
+    // Merge adjacent tokens with the same power base on one side of an equation.
+    // Handles: char(c) · power(c^e) → power(c^(e+1)),
+    //          power(c^e) · char(c) → power(c^(e+1)),
+    //          power(c^e1) · power(c^e2) → power(c^(e1+e2)).
+    // Returns new snode if merging happened, nullptr otherwise.
+    static euf::snode* merge_adjacent_powers(euf::sgraph& sg, euf::snode* side) {
+        if (!side || side->is_empty() || side->is_token())
+            return nullptr;
+
+        euf::snode_vector tokens;
+        side->collect_tokens(tokens);
+        if (tokens.size() < 2) return nullptr;
+
+        ast_manager& m = sg.get_manager();
+        arith_util arith(m);
+        seq_util seq(m);
+
+        bool merged = false;
+        euf::snode_vector result;
+
+        unsigned i = 0;
+        while (i < tokens.size()) {
+            euf::snode* tok = tokens[i];
+
+            // Case 1: current is a power token — absorb following same-base tokens.
+            // Skip at leading position (i == 0) to keep exponents small: CommPower
+            // cross-side cancellation works better with unmerged leading powers
+            // (e.g., w^k trivially ≤ 1+k, but w^(2k) vs 1+k requires k ≥ 1).
+            if (tok->is_power() && i > 0) {
+                expr* base_e = get_power_base_expr(tok);
+                expr* exp_acc = get_power_exp_expr(tok);
+                if (!base_e || !exp_acc) { result.push_back(tok); ++i; continue; }
+
+                bool local_merged = false;
+                unsigned j = i + 1;
+                while (j < tokens.size()) {
+                    euf::snode* next = tokens[j];
+                    if (next->is_power()) {
+                        expr* nb = get_power_base_expr(next);
+                        if (nb == base_e) {
+                            exp_acc = arith.mk_add(exp_acc, get_power_exp_expr(next));
+                            local_merged = true; ++j; continue;
+                        }
+                    }
+                    if (next->is_char() && next->get_expr() == base_e) {
+                        exp_acc = arith.mk_add(exp_acc, arith.mk_int(1));
+                        local_merged = true; ++j; continue;
+                    }
+                    break;
+                }
+                if (local_merged) {
+                    merged = true;
+                    expr_ref norm_exp = normalize_arith(m, exp_acc);
+                    expr_ref new_pow(seq.str.mk_power(base_e, norm_exp), m);
+                    result.push_back(sg.mk(new_pow));
+                } else {
+                    result.push_back(tok);
+                }
+                i = j;
+                continue;
+            }
+
+            // Case 2: current is a char — check if next is a same-base power.
+            // Skip at leading position (i == 0) to avoid undoing power unwinding:
+            // unwind produces u · u^(n-1); merging it back to u^n creates an infinite cycle.
+            if (i > 0 && tok->is_char() && tok->get_expr() && i + 1 < tokens.size()) {
+                euf::snode* next = tokens[i + 1];
+                if (next->is_power() && get_power_base_expr(next) == tok->get_expr()) {
+                    expr* base_e = tok->get_expr();
+                    // Use same arg order as Case 1: add(exp, 1), not add(1, exp),
+                    // so that merging "c · c^e" and "c^e · c" both produce add(e, 1)
+                    // and the resulting power expression is hash-consed identically.
+                    expr* exp_acc = arith.mk_add(get_power_exp_expr(next), arith.mk_int(1));
+                    unsigned j = i + 2;
+                    while (j < tokens.size()) {
+                        euf::snode* further = tokens[j];
+                        if (further->is_power() && get_power_base_expr(further) == base_e) {
+                            exp_acc = arith.mk_add(exp_acc, get_power_exp_expr(further));
+                            ++j; continue;
+                        }
+                        if (further->is_char() && further->get_expr() == base_e) {
+                            exp_acc = arith.mk_add(exp_acc, arith.mk_int(1));
+                            ++j; continue;
+                        }
+                        break;
+                    }
+                    merged = true;
+                    expr_ref norm_exp = normalize_arith(m, exp_acc);
+                    expr_ref new_pow(seq.str.mk_power(base_e, norm_exp), m);
+                    result.push_back(sg.mk(new_pow));
+                    i = j;
+                    continue;
+                }
+            }
+
+            result.push_back(tok);
+            ++i;
+        }
+
+        if (!merged) return nullptr;
+
+        // Rebuild snode from merged token list
+        euf::snode* rebuilt = sg.mk_empty();
+        for (unsigned k = 0; k < result.size(); ++k) {
+            rebuilt = (k == 0) ? result[k] : sg.mk_concat(rebuilt, result[k]);
+        }
+        return rebuilt;
+    }
+
+    // Simplify constant-exponent powers: base^0 → ε, base^1 → base.
+    // Returns new snode if any simplification happened, nullptr otherwise.
+    static euf::snode* simplify_const_powers(euf::sgraph& sg, euf::snode* side) {
+        if (!side || side->is_empty()) return nullptr;
+
+        euf::snode_vector tokens;
+        side->collect_tokens(tokens);
+
+        ast_manager& m = sg.get_manager();
+        arith_util arith(m);
+
+        bool simplified = false;
+        euf::snode_vector result;
+
+        for (euf::snode* tok : tokens) {
+            if (tok->is_power()) {
+                expr* exp_e = get_power_exp_expr(tok);
+                rational val;
+                if (exp_e && arith.is_numeral(exp_e, val)) {
+                    if (val.is_zero()) {
+                        // base^0 → ε (skip this token entirely)
+                        simplified = true;
+                        continue;
+                    }
+                    if (val.is_one()) {
+                        // base^1 → base
+                        euf::snode* base_sn = tok->arg(0);
+                        if (base_sn) {
+                            result.push_back(base_sn);
+                            simplified = true;
+                            continue;
+                        }
+                    }
+                }
+            }
+            result.push_back(tok);
+        }
+
+        if (!simplified) return nullptr;
+
+        if (result.empty()) return sg.mk_empty();
+        euf::snode* rebuilt = result[0];
+        for (unsigned k = 1; k < result.size(); ++k)
+            rebuilt = sg.mk_concat(rebuilt, result[k]);
+        return rebuilt;
+    }
+
+    // CommPower: count how many times a power's base pattern appears in
+    // the prefix of the other side.  Mirrors ZIPT's CommPower helper.
+    // Returns (count_expr, num_tokens_consumed).  count_expr is nullptr
+    // when no complete base-pattern match is found.
+    static std::pair<expr_ref, unsigned> comm_power(
+            euf::snode* base_sn, euf::snode* side, ast_manager& m) {
+        arith_util arith(m);
+        euf::snode_vector base_tokens, side_tokens;
+        base_sn->collect_tokens(base_tokens);
+        side->collect_tokens(side_tokens);
+        if (base_tokens.empty() || side_tokens.empty())
+            return {expr_ref(nullptr, m), 0};
+
+        expr* sum = nullptr;
+        unsigned pos = 0;
+        expr* last_stable_sum = nullptr;
+        unsigned last_stable_idx = 0;
+
+        unsigned i = 0;
+        for (; i < side_tokens.size(); i++) {
+            euf::snode* t = side_tokens[i];
+            if (pos == 0) {
+                last_stable_idx = i;
+                last_stable_sum = sum;
+            }
+            // Case 1: direct token match with base pattern
+            if (pos < base_tokens.size() && t == base_tokens[pos]) {
+                pos++;
+                if (pos >= base_tokens.size()) {
+                    pos = 0;
+                    sum = sum ? arith.mk_add(sum, arith.mk_int(1))
+                              : arith.mk_int(1);
+                }
+                continue;
+            }
+            // Case 2: power token whose base matches our base pattern (at pos == 0)
+            if (pos == 0 && t->is_power()) {
+                euf::snode* pow_base = t->arg(0);
+                if (pow_base) {
+                    euf::snode_vector pb_tokens;
+                    pow_base->collect_tokens(pb_tokens);
+                    if (pb_tokens.size() == base_tokens.size()) {
+                        bool match = true;
+                        for (unsigned j = 0; j < pb_tokens.size() && match; j++)
+                            match = (pb_tokens[j] == base_tokens[j]);
+                        if (match) {
+                            expr* pow_exp = get_power_exp_expr(t);
+                            if (pow_exp) {
+                                sum = sum ? arith.mk_add(sum, pow_exp) : pow_exp;
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+            break;
+        }
+        // After loop: i = break index or side_tokens.size()
+        if (pos == 0) {
+            last_stable_idx = i;
+            last_stable_sum = sum;
+        }
+        return {expr_ref(last_stable_sum, m), last_stable_idx};
+    }
+
+    simplify_result nielsen_node::simplify_and_init(nielsen_graph& g, svector<nielsen_edge*> const& cur_path) {
         euf::sgraph& sg = g.sg();
+        ast_manager& m = sg.get_manager();
+        arith_util arith(m);
+        seq_util seq(m);
         bool changed = true;
 
         while (changed) {
@@ -946,6 +1382,153 @@ namespace seq {
                         eq.m_lhs = sg.drop_left(sg.drop_right(eq.m_lhs, suffix), prefix);
                         eq.m_rhs = sg.drop_left(sg.drop_right(eq.m_rhs, suffix), prefix);
                         changed = true;
+                    }
+                }
+            }
+
+            // pass 3: power simplification (mirrors ZIPT's LcpCompression +
+            // SimplifyPowerElim + SimplifyPowerSingle)
+            for (str_eq& eq : m_str_eq) {
+                if (eq.is_trivial() || !eq.m_lhs || !eq.m_rhs)
+                    continue;
+
+                // 3a: simplify constant-exponent powers (base^0 → ε, base^1 → base)
+                if (euf::snode* s = simplify_const_powers(sg, eq.m_lhs))
+                    { eq.m_lhs = s; changed = true; }
+                if (euf::snode* s = simplify_const_powers(sg, eq.m_rhs))
+                    { eq.m_rhs = s; changed = true; }
+
+                // 3b: merge adjacent same-base tokens into combined powers
+                if (euf::snode* s = merge_adjacent_powers(sg, eq.m_lhs))
+                    { eq.m_lhs = s; changed = true; }
+                if (euf::snode* s = merge_adjacent_powers(sg, eq.m_rhs))
+                    { eq.m_rhs = s; changed = true; }
+
+                // 3c: CommPower-based power elimination — when one side starts
+                // with a power w^p, count base-pattern occurrences c on the
+                // other side's prefix.  If we can determine the ordering between
+                // p and c, cancel the matched portion.  Mirrors ZIPT's
+                // SimplifyPowerElim calling CommPower.
+                if (!eq.m_lhs || !eq.m_rhs) continue;
+                for (int dir = 0; dir < 2; dir++) {
+                    euf::snode*& pow_side  = (dir == 0) ? eq.m_lhs : eq.m_rhs;
+                    euf::snode*& other_side = (dir == 0) ? eq.m_rhs : eq.m_lhs;
+                    if (!pow_side || !other_side) continue;
+                    euf::snode* first_tok = pow_side->first();
+                    if (!first_tok || !first_tok->is_power()) continue;
+                    euf::snode* base_sn = first_tok->arg(0);
+                    expr* pow_exp = get_power_exp_expr(first_tok);
+                    if (!base_sn || !pow_exp) continue;
+
+                    auto [count, consumed] = comm_power(base_sn, other_side, m);
+                    if (!count.get() || consumed == 0) continue;
+
+                    expr_ref norm_count = normalize_arith(m, count);
+                    bool pow_le_count = false, count_le_pow = false;
+                    rational diff;
+                    if (get_const_power_diff(norm_count, pow_exp, arith, diff)) {
+                        count_le_pow = diff.is_nonpos();
+                        pow_le_count = diff.is_nonneg();
+                    } else if (!cur_path.empty()) {
+                        pow_le_count = g.check_lp_le(pow_exp, norm_count, this, cur_path);
+                        count_le_pow = g.check_lp_le(norm_count, pow_exp, this, cur_path);
+                    }
+                    if (!pow_le_count && !count_le_pow) continue;
+
+                    pow_side = sg.drop_first(pow_side);
+                    other_side = sg.drop_left(other_side, consumed);
+                    expr* base_e = get_power_base_expr(first_tok);
+                    if (pow_le_count && count_le_pow) {
+                        // equal: both cancel completely
+                    } else if (pow_le_count) {
+                        // pow <= count: remainder goes to other_side
+                        expr_ref rem = normalize_arith(m, arith.mk_sub(norm_count, pow_exp));
+                        expr_ref pw(seq.str.mk_power(base_e, rem), m);
+                        other_side = sg.mk_concat(sg.mk(pw), other_side);
+                    } else {
+                        // count <= pow: remainder goes to pow_side
+                        expr_ref rem = normalize_arith(m, arith.mk_sub(pow_exp, norm_count));
+                        expr_ref pw(seq.str.mk_power(base_e, rem), m);
+                        pow_side = sg.mk_concat(sg.mk(pw), pow_side);
+                    }
+                    changed = true;
+                    break;
+                }
+
+                // After any change in passes 3a–3c, restart the while loop
+                // before running 3d/3e.  This lets 3a simplify new constant-
+                // exponent powers (e.g. base^1 → base created by 3c) before
+                // 3e attempts LP-based elimination which would introduce a
+                // needless fresh variable.
+                if (changed) continue;
+
+                // 3d: power prefix elimination — when both sides start with a
+                // power of the same base, cancel the common power prefix.
+                // (Subsumed by 3c for many cases, but handles same-base-power
+                // pairs that CommPower may miss when both leading tokens are powers.)
+                if (!eq.m_lhs || !eq.m_rhs) continue;
+                euf::snode* lh = eq.m_lhs->first();
+                euf::snode* rh = eq.m_rhs->first();
+                if (lh && rh && lh->is_power() && rh->is_power()) {
+                    expr* lb = get_power_base_expr(lh);
+                    expr* rb = get_power_base_expr(rh);
+                    if (lb && rb && lb == rb) {
+                        expr* lp = get_power_exp_expr(lh);
+                        expr* rp = get_power_exp_expr(rh);
+                        rational diff;
+                        if (lp && rp && get_const_power_diff(rp, lp, arith, diff)) {
+                            // rp = lp + diff (constant difference)
+                            eq.m_lhs = sg.drop_first(eq.m_lhs);
+                            eq.m_rhs = sg.drop_first(eq.m_rhs);
+                            if (diff.is_pos()) {
+                                // rp > lp: prepend base^diff to RHS
+                                expr_ref de(arith.mk_int(diff), m);
+                                expr_ref pw(seq.str.mk_power(lb, de), m);
+                                eq.m_rhs = sg.mk_concat(sg.mk(pw), eq.m_rhs);
+                            } else if (diff.is_neg()) {
+                                // lp > rp: prepend base^(-diff) to LHS
+                                expr_ref de(arith.mk_int(-diff), m);
+                                expr_ref pw(seq.str.mk_power(lb, de), m);
+                                eq.m_lhs = sg.mk_concat(sg.mk(pw), eq.m_lhs);
+                            }
+                            // diff == 0: both powers cancel completely
+                            changed = true;
+                        }
+                        // 3e: LP-aware power prefix elimination
+                        // When the exponent difference is non-constant, query the
+                        // LP solver to determine which exponent is larger, and
+                        // cancel deterministically. This avoids the branching
+                        // that NumCmp would otherwise create, matching ZIPT's
+                        // SimplifyPowerElim that calls node.IsLe()/node.IsLt().
+                        else if (lp && rp && !cur_path.empty()) {
+                            bool lp_le_rp = g.check_lp_le(lp, rp, this, cur_path);
+                            bool rp_le_lp = g.check_lp_le(rp, lp, this, cur_path);
+                            if (lp_le_rp || rp_le_lp) {
+                                expr* smaller_exp = lp_le_rp ? lp : rp;
+                                expr* larger_exp  = lp_le_rp ? rp : lp;
+                                eq.m_lhs = sg.drop_first(eq.m_lhs);
+                                eq.m_rhs = sg.drop_first(eq.m_rhs);
+                                if (lp_le_rp && rp_le_lp) {
+                                    // both ≤ → equal → both cancel completely
+                                    // Record the equality constraint so the model knows lp = rp.
+                                    add_int_constraint(g.mk_int_constraint(lp, rp, int_constraint_kind::eq, eq.m_dep));
+                                } else {
+                                    // strictly less: create diff power d = larger - smaller ≥ 1
+                                    expr_ref d(g.mk_fresh_int_var());
+                                    expr_ref one_e(arith.mk_int(1), m);
+                                    expr_ref zero_e(arith.mk_int(0), m);
+                                    expr_ref d_plus_smaller(arith.mk_add(d, smaller_exp), m);
+                                    // d ≥ 1 (strict inequality)
+                                    add_int_constraint(g.mk_int_constraint(d, one_e, int_constraint_kind::ge, eq.m_dep));
+                                    // d + smaller = larger
+                                    add_int_constraint(g.mk_int_constraint(d_plus_smaller, larger_exp, int_constraint_kind::eq, eq.m_dep));
+                                    expr_ref pw(seq.str.mk_power(lb, d), m);
+                                    euf::snode*& larger_side = lp_le_rp ? eq.m_rhs : eq.m_lhs;
+                                    larger_side = sg.mk_concat(sg.mk(pw), larger_side);
+                                }
+                                changed = true;
+                            }
+                        }
                     }
                 }
             }
@@ -1072,45 +1655,59 @@ namespace seq {
         if (!m_root)
             return search_result::sat;
 
-        ++m_stats.m_num_solve_calls;
-        m_sat_node = nullptr;
-        m_sat_path.reset();
+        try {
+            ++m_stats.m_num_solve_calls;
+            m_sat_node = nullptr;
+            m_sat_path.reset();
 
-        // Constraint.Shared: assert root-level length/Parikh constraints to the
-        // solver at the base level, so they are visible during all feasibility checks.
-        assert_root_constraints_to_solver();
+            // Constraint.Shared: assert root-level length/Parikh constraints to the
+            // solver at the base level, so they are visible during all feasibility checks.
+            assert_root_constraints_to_solver();
 
-        // Iterative deepening: increment by 1 on each failure.
-        // m_max_search_depth == 0 means unlimited; otherwise stop when bound exceeds it.
-        m_depth_bound = 3;
-        while (true) {
-            if (m_cancel_fn && m_cancel_fn()) {
+            // Iterative deepening: increment by 1 on each failure.
+            // m_max_search_depth == 0 means unlimited; otherwise stop when bound exceeds it.
+            m_depth_bound = 10;
+            while (true) {
+                if (m_cancel_fn && m_cancel_fn()) {
 #ifdef Z3DEBUG
-                // Examining the Nielsen graph is probably the best way of debugging
-                std::string dot = to_dot();
+                    // Examining the Nielsen graph is probably the best way of debugging
+                    std::string dot = to_dot();
 #endif
-                break;
+                    break;
+                }
+                if (m_max_search_depth > 0 && m_depth_bound > m_max_search_depth)
+                    break;
+                inc_run_idx();
+                svector<nielsen_edge *> cur_path;
+                search_result r = search_dfs(m_root, 0, cur_path);
+                IF_VERBOSE(1, verbose_stream()
+                                  << " depth_bound=" << m_depth_bound << " dfs_nodes=" << m_stats.m_num_dfs_nodes
+                                  << " max_depth=" << m_stats.m_max_depth << " extensions=" << m_stats.m_num_extensions
+                                  << " arith_prune=" << m_stats.m_num_arith_infeasible << " result="
+                                  << (r == search_result::sat     ? "SAT"
+                                      : r == search_result::unsat ? "UNSAT"
+                                                                  : "UNKNOWN")
+                                  << "\n";);
+                if (r == search_result::sat) {
+                    ++m_stats.m_num_sat;
+                    return r;
+                }
+                if (r == search_result::unsat) {
+                    ++m_stats.m_num_unsat;
+                    return r;
+                }
+                // depth limit hit – double the bound and retry
+                m_depth_bound *= 2;
             }
-            if (m_max_search_depth > 0 && m_depth_bound > m_max_search_depth)
-                break;
-            inc_run_idx();
-            svector<nielsen_edge*> cur_path;
-            search_result r = search_dfs(m_root, 0, cur_path);
-            if (r == search_result::sat) {
-                ++m_stats.m_num_sat;
-                return r;
-            }
-            if (r == search_result::unsat) {
-                ++m_stats.m_num_unsat;
-                return r;
-            }
-            // depth limit hit – increment bound by 1 and retry
-            if (m_max_search_depth > 0 && m_depth_bound >= m_max_search_depth)
-                break;
-            ++m_depth_bound;
+            ++m_stats.m_num_unknown;
+            return search_result::unknown;
         }
-        ++m_stats.m_num_unknown;
-        return search_result::unknown;
+        catch (...) {
+#ifdef Z3DEBUG
+            std::string dot = to_dot();
+#endif
+            throw;
+        }
     }
 
     nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path) {
@@ -1136,17 +1733,12 @@ namespace seq {
         node->set_eval_idx(m_run_idx);
 
         // simplify constraints (idempotent after first call)
-        simplify_result sr = node->simplify_and_init(*this);
+        simplify_result sr = node->simplify_and_init(*this, cur_path);
 
         if (sr == simplify_result::conflict) {
             ++m_stats.m_num_simplify_conflict;
             node->set_general_conflict(true);
             return search_result::unsat;
-        }
-        if (sr == simplify_result::satisfied || node->is_satisfied()) {
-            m_sat_node = node;
-            m_sat_path = cur_path;
-            return search_result::sat;
         }
 
         // Apply Parikh image filter: generate modular length constraints and
@@ -1160,11 +1752,24 @@ namespace seq {
             return search_result::unsat;
         }
 
-        // integer feasibility check: collect side constraints along the path
-        // and verify they are jointly satisfiable using the LP solver
+        // Assert any new int_constraints added during simplify_and_init for this
+        // node into the current solver scope. Constraints inherited from the parent
+        // (indices 0..m_parent_ic_count-1) are already present at the enclosing
+        // scope level; only the newly-added tail needs to be asserted here.
+        assert_node_new_int_constraints(node);
+
+        // integer feasibility check: the solver now holds all path constraints
+        // incrementally; just query the solver directly
         if (!cur_path.empty() && !check_int_feasibility(node, cur_path)) {
             node->set_reason(backtrack_reason::arithmetic);
+            ++m_stats.m_num_arith_infeasible;
             return search_result::unsat;
+        }
+
+        if (sr == simplify_result::satisfied || node->is_satisfied()) {
+            m_sat_node = node;
+            m_sat_path = cur_path;
+            return search_result::sat;
         }
 
         // depth bound check
@@ -1193,7 +1798,15 @@ namespace seq {
         bool any_unknown = false;
         for (nielsen_edge* e : node->outgoing()) {
             cur_path.push_back(e);
+            // Push a solver scope for this edge and assert its side integer
+            // constraints.  The child's own new int_constraints will be asserted
+            // inside the recursive call (above).  On return, pop the scope so
+            // that backtracking removes those assertions.
+            m_solver.push();
+            for (auto const& ic : e->side_int())
+                m_solver.assert_expr(int_constraint_to_expr(ic));
             search_result r = search_dfs(e->tgt(), depth + 1, cur_path);
+            m_solver.pop(1);
             if (r == search_result::sat)
                 return search_result::sat;
             cur_path.pop_back();
@@ -1805,6 +2418,12 @@ namespace seq {
         if (apply_num_cmp(node))
             return ++m_stats.m_mod_num_cmp, true;
 
+        // Priority 3b: SplitPowerElim - CommPower-based branching when
+        // one side has a power and the other side has same-base occurrences
+        // but ordering is unknown.
+        if (apply_split_power_elim(node))
+            return ++m_stats.m_mod_split_power_elim, true;
+
         // Priority 4: ConstNumUnwinding - power vs constant: n=0 or peel
         if (apply_const_num_unwinding(node))
             return ++m_stats.m_mod_const_num_unwinding, true;
@@ -1873,7 +2492,7 @@ namespace seq {
     // Returns true if found, sets power, other_head, eq_out.
     // -----------------------------------------------------------------------
 
-    bool nielsen_graph::find_power_vs_const(nielsen_node* node,
+    bool nielsen_graph::find_power_vs_non_var(nielsen_node* node,
                                             euf::snode*& power,
                                             euf::snode*& other_head,
                                             str_eq const*& eq_out) const {
@@ -1882,11 +2501,22 @@ namespace seq {
             if (!eq.m_lhs || !eq.m_rhs) continue;
             euf::snode* lhead = eq.m_lhs->first();
             euf::snode* rhead = eq.m_rhs->first();
-            if (lhead && lhead->is_power() && rhead && rhead->is_char()) {
-                power = lhead; other_head = rhead; eq_out = &eq; return true;
+            // Match power vs any non-variable, non-empty token (char, unit,
+            // power with different base, etc.).
+            // Same-base power vs power is handled by NumCmp (priority 3).
+            // Power vs variable is handled by PowerSplit (priority 11).
+            // Power vs empty is handled by PowerEpsilon (priority 2).
+            if (lhead && lhead->is_power() && rhead && !rhead->is_var() && !rhead->is_empty()) {
+                power = lhead;
+                other_head = rhead;
+                eq_out = &eq;
+                return true;
             }
-            if (rhead && rhead->is_power() && lhead && lhead->is_char()) {
-                power = rhead; other_head = lhead; eq_out = &eq; return true;
+            if (rhead && rhead->is_power() && lhead && !lhead->is_var() && !lhead->is_empty()) {
+                power = rhead;
+                other_head = lhead;
+                eq_out = &eq;
+                return true;
             }
         }
         return false;
@@ -1917,26 +2547,41 @@ namespace seq {
 
     // -----------------------------------------------------------------------
     // Modifier: apply_power_epsilon
-    // For a power token u^n in an equation, branch:
+    // Fires only when one side of an equation is empty and the other side
+    // starts with a power token u^n.  In that case, branch:
     //   (1) base u → ε (base is empty, so u^n = ε)
     //   (2) u^n → ε (the power is zero, replace power with empty)
-    // mirrors ZIPT's PowerEpsilonModifier
+    // mirrors ZIPT's PowerEpsilonModifier (which requires LHS.IsEmpty())
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_power_epsilon(nielsen_node* node) {
-        euf::snode *power = find_power_token(node);
+        // Match only when one equation side is empty and the other starts
+        // with a power.  This mirrors ZIPT where PowerEpsilonModifier is
+        // constructed only inside the "if (LHS.IsEmpty())" branch of
+        // ExtendDir.  When both sides are non-empty and a power faces a
+        // constant, ConstNumUnwinding (priority 4) handles it with both
+        // n=0 and n≥1 branches.
+        euf::snode* power = nullptr;
+        dep_tracker dep;
+        for (str_eq const& eq : node->str_eqs()) {
+            if (eq.is_trivial()) continue;
+            if (!eq.m_lhs || !eq.m_rhs) continue;
+            if (eq.m_lhs->is_empty() && eq.m_rhs->first() && eq.m_rhs->first()->is_power()) {
+                power = eq.m_rhs->first();
+                dep = eq.m_dep;
+                break;
+            }
+            if (eq.m_rhs->is_empty() && eq.m_lhs->first() && eq.m_lhs->first()->is_power()) {
+                power = eq.m_lhs->first();
+                dep = eq.m_dep;
+                break;
+            }
+        }
         if (!power)
             return false;
 
         SASSERT(power->is_power() && power->num_args() >= 1);
         euf::snode *base = power->arg(0);
-        dep_tracker dep;
-        for (str_eq const &eq : node->str_eqs()) {
-            if (!eq.is_trivial()) {
-                dep = eq.m_dep;
-                break;
-            }
-        }
 
         nielsen_node* child;
         nielsen_edge* e;
@@ -1975,47 +2620,119 @@ namespace seq {
 
         // Look for two power tokens with the same base on opposite sides
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial()) continue;
-            if (!eq.m_lhs || !eq.m_rhs) continue;
+            if (eq.is_trivial())
+                continue;
+            if (!eq.m_lhs || !eq.m_rhs)
+                continue;
             euf::snode* lhead = eq.m_lhs->first();
             euf::snode* rhead = eq.m_rhs->first();
             if (!lhead || !rhead) continue;
-            if (!lhead->is_power() || !rhead->is_power()) continue;
-            if (lhead->num_args() < 1 || rhead->num_args() < 1) continue;
+            if (!lhead->is_power() || !rhead->is_power())
+                continue;
+            if (lhead->num_args() < 1 || rhead->num_args() < 1)
+                continue;
             // same base: compare the two powers
-            if (lhead->arg(0)->id() != rhead->arg(0)->id()) continue;
+            if (lhead->arg(0)->id() != rhead->arg(0)->id())
+                continue;
 
-            // Get exponent expressions (m and n from u^m and u^n)
+            // Skip if the exponents differ by a constant — simplify_and_init's
+            // power prefix elimination already handles that case.
             expr* exp_m = get_power_exponent(lhead);
             expr* exp_n = get_power_exponent(rhead);
+            if (!exp_m || !exp_n)
+                continue;
+            rational diff;
+            SASSERT(!get_const_power_diff(exp_n, exp_m, arith, diff)); // handled by simplification
 
-            // Branch 1: m <= n → cancel u^m from both sides
-            // Side constraint: m <= n
-            // After cancellation: ε·A = u^(n-m)·B
+            // Only add ordering constraints — do NOT use global substitution.
+            // The child's simplify_and_init (pass 3d/3e) will see same-base
+            // leading powers and cancel them using the LP-entailed ordering.
+
+            // Branch 1 (explored first): n < m  (i.e., m ≥ n + 1)
+            // After constraint, simplify_and_init sees m > n and cancels u^n,
+            // leaving u^(m-n) on LHS.
             {
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
-                nielsen_subst s(lhead, m_sg.mk_empty(), eq.m_dep);
-                e->add_subst(s);
-                child->apply_subst(m_sg, s);
-                if (exp_m && exp_n)
-                    e->add_side_int(mk_int_constraint(exp_m, exp_n, int_constraint_kind::le, eq.m_dep));
+                expr_ref n_plus_1(arith.mk_add(exp_n, arith.mk_int(1)), m);
+                e->add_side_int(mk_int_constraint(
+                    exp_m, n_plus_1,
+                    int_constraint_kind::ge, eq.m_dep));
             }
-            // Branch 2: n < m → cancel u^n from both sides
-            // Side constraint: n < m, i.e., n + 1 <= m, i.e., m >= n + 1
-            // After cancellation: u^(m-n)·A = ε·B
+            // Branch 2 (explored second): m ≤ n  (i.e., n ≥ m)
             {
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
-                nielsen_subst s(rhead, m_sg.mk_empty(), eq.m_dep);
-                e->add_subst(s);
-                child->apply_subst(m_sg, s);
-                if (exp_m && exp_n) {
-                    expr_ref n_plus_1(arith.mk_add(exp_n, arith.mk_int(1)), m);
-                    e->add_side_int(mk_int_constraint(exp_m, n_plus_1, int_constraint_kind::ge, eq.m_dep));
-                }
+                e->add_side_int(mk_int_constraint(
+                    exp_n, exp_m,
+                    int_constraint_kind::ge, eq.m_dep));
             }
             return true;
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Modifier: apply_split_power_elim
+    // When one side starts with a power w^p, call CommPower on the other
+    // side to count base-pattern occurrences c. If c > 0 and the ordering
+    // between p and c cannot be determined, create two branches:
+    //   Branch 1: p < c   (add constraint c ≥ p + 1)
+    //   Branch 2: c ≤ p   (add constraint p ≥ c)
+    // After branching, simplify_and_init's CommPower pass (3c) can resolve
+    // the ordering deterministically and cancel the matched portion.
+    // mirrors ZIPT's SplitPowerElim + NumCmpModifier
+    // -----------------------------------------------------------------------
+
+    bool nielsen_graph::apply_split_power_elim(nielsen_node* node) {
+        ast_manager& m = m_sg.get_manager();
+        arith_util arith(m);
+
+        for (str_eq const& eq : node->str_eqs()) {
+            if (eq.is_trivial()) continue;
+            if (!eq.m_lhs || !eq.m_rhs) continue;
+
+            for (int dir = 0; dir < 2; dir++) {
+                euf::snode* pow_side   = (dir == 0) ? eq.m_lhs : eq.m_rhs;
+                euf::snode* other_side = (dir == 0) ? eq.m_rhs : eq.m_lhs;
+                if (!pow_side || !other_side) continue;
+
+                euf::snode* first_tok = pow_side->first();
+                if (!first_tok || !first_tok->is_power()) continue;
+                euf::snode* base_sn = first_tok->arg(0);
+                expr* pow_exp = get_power_exp_expr(first_tok);
+                if (!base_sn || !pow_exp) continue;
+
+                auto [count, consumed] = comm_power(base_sn, other_side, m);
+                if (!count.get() || consumed == 0) continue;
+
+                expr_ref norm_count = normalize_arith(m, count);
+
+                // Skip if ordering is already deterministic — simplify_and_init
+                // pass 3c should have handled it.
+                rational diff;
+                if (get_const_power_diff(norm_count, pow_exp, arith, diff))
+                    continue;
+
+                // Branch 1: pow_exp < count (i.e., count ≥ pow_exp + 1)
+                {
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, true);
+                    expr_ref pow_plus1(arith.mk_add(pow_exp, arith.mk_int(1)), m);
+                    e->add_side_int(mk_int_constraint(
+                        norm_count, pow_plus1,
+                        int_constraint_kind::ge, eq.m_dep));
+                }
+                // Branch 2: count ≤ pow_exp (i.e., pow_exp ≥ count)
+                {
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, true);
+                    e->add_side_int(mk_int_constraint(
+                        pow_exp, norm_count,
+                        int_constraint_kind::ge, eq.m_dep));
+                }
+                return true;
+            }
         }
         return false;
     }
@@ -2029,47 +2746,54 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_const_num_unwinding(nielsen_node* node) {
-        ast_manager& m = m_sg.get_manager();
+        ast_manager &m = m_sg.get_manager();
         arith_util arith(m);
 
-        euf::snode* power = nullptr;
-        euf::snode* other_head = nullptr;
-        str_eq const* eq = nullptr;
-        if (!find_power_vs_const(node, power, other_head, eq))
+        euf::snode *power = nullptr;
+        euf::snode *other_head = nullptr;
+        str_eq const *eq = nullptr;
+        if (!find_power_vs_non_var(node, power, other_head, eq))
             return false;
 
         SASSERT(power->is_power() && power->num_args() >= 1);
-        euf::snode* base = power->arg(0);
-        expr* exp_n = get_power_exponent(power);
-        expr* zero = arith.mk_int(0);
-        expr* one = arith.mk_int(1);
+        euf::snode *base = power->arg(0);
+        expr *exp_n = get_power_exponent(power);
+        expr *zero = arith.mk_int(0);
+        expr *one = arith.mk_int(1);
 
-        // Branch 1: n = 0 → replace power with ε (progress)
+        // Branch 1 (explored first): n = 0 → replace power with ε (progress)
         // Side constraint: n = 0
-        {
-            nielsen_node* child = mk_child(node);
-            nielsen_edge* e = mk_edge(node, child, true);
-            nielsen_subst s(power, m_sg.mk_empty(), eq->m_dep);
-            e->add_subst(s);
-            child->apply_subst(m_sg, s);
-            if (exp_n)
-                e->add_side_int(mk_int_constraint(exp_n, zero, int_constraint_kind::eq, eq->m_dep));
-        }
+        nielsen_node *child = mk_child(node);
+        nielsen_edge *e = mk_edge(node, child, true);
+        nielsen_subst s1(power, m_sg.mk_empty(), eq->m_dep);
+        e->add_subst(s1);
+        child->apply_subst(m_sg, s1);
+        if (exp_n)
+            e->add_side_int(mk_int_constraint(exp_n, zero, int_constraint_kind::eq, eq->m_dep));
 
-        // Branch 2: n >= 1 → peel one u: replace u^n with u · u^(n-1)
+        // Branch 2 (explored second): n >= 1 → peel one u: replace u^n with u · u^(n-1)
         // Side constraint: n >= 1
-        // Use fresh power variable for u^(n-1)
-        {
-            euf::snode* fresh_power = mk_fresh_var();
-            euf::snode* replacement = m_sg.mk_concat(base, fresh_power);
-            nielsen_node* child = mk_child(node);
-            nielsen_edge* e = mk_edge(node, child, false);
-            nielsen_subst s(power, replacement, eq->m_dep);
-            e->add_subst(s);
-            child->apply_subst(m_sg, s);
-            if (exp_n)
-                e->add_side_int(mk_int_constraint(exp_n, one, int_constraint_kind::ge, eq->m_dep));
-        }
+        // Create a proper nested power base^(n-1) instead of a fresh string variable.
+        // This preserves power structure so that simplify_and_init can merge and
+        // cancel adjacent same-base powers (mirroring ZIPT's SimplifyPowerUnwind).
+        // Explored first because the n≥1 branch is typically more productive
+        // for SAT instances (preserves power structure).
+        seq_util &seq = m_sg.get_seq_util();
+        expr *power_e = power->get_expr();
+        SASSERT(power_e);
+        expr *base_expr = to_app(power_e)->get_arg(0);
+        expr_ref n_minus_1 = normalize_arith(m, arith.mk_sub(exp_n, one));
+        expr_ref nested_pow(seq.str.mk_power(base_expr, n_minus_1), m);
+        euf::snode *nested_power_snode = m_sg.mk(nested_pow);
+
+        euf::snode *replacement = m_sg.mk_concat(base, nested_power_snode);
+        child = mk_child(node);
+        e = mk_edge(node, child, false);
+        nielsen_subst s2(power, replacement, eq->m_dep);
+        e->add_subst(s2);
+        child->apply_subst(m_sg, s2);
+        if (exp_n)
+            e->add_side_int(mk_int_constraint(exp_n, one, int_constraint_kind::ge, eq->m_dep));
 
         return true;
     }
@@ -2224,17 +2948,46 @@ namespace seq {
 
         expr* zero = arith.mk_int(0);
 
-        // Generate one child per proper prefix of the base, mirroring ZIPT's
-        // GetDecompose. For base [t0, t1, ..., t_{k-1}], the proper prefixes
-        // are: ε, t0, t0·t1, ..., t0·t1·...·t_{k-2}.
-        // Child i substitutes var → base^n · prefix_i with n >= 0.
-        for (unsigned pfx_len = 0; pfx_len < base_len; ++pfx_len) {
-            euf::snode* replacement = power_snode;
-            if (pfx_len > 0) {
-                euf::snode* prefix_snode = ground_prefix[0];
-                for (unsigned j = 1; j < pfx_len; ++j)
-                    prefix_snode = m_sg.mk_concat(prefix_snode, ground_prefix[j]);
-                replacement = m_sg.mk_concat(power_snode, prefix_snode);
+        // Generate children mirroring ZIPT's GetDecompose:
+        // P(t0 · t1 · ... · t_{k-1}) = P(t0) | t0·P(t1) | ... | t0·...·t_{k-2}·P(t_{k-1})
+        // For char tokens P(c) = {ε}, for power tokens P(u^m) = {u^m', 0 ≤ m' ≤ m}.
+        // Child at position i substitutes var → base^n · t0·...·t_{i-1} · P(t_i).
+        for (unsigned i = 0; i < base_len; ++i) {
+            euf::snode* tok = ground_prefix[i];
+
+            // Skip char position when preceding token is a power:
+            // The power case at i-1 with 0 ≤ m' ≤ exp already covers m' = exp,
+            // which produces the same result. Using the original exponent here
+            // creates a rigid coupling that causes cycling.
+            if (!tok->is_power() && i > 0 && ground_prefix[i - 1]->is_power())
+                continue;
+
+            // Build full-token prefix: ground_prefix[0..i-1]
+            euf::snode* prefix_sn = nullptr;
+            for (unsigned j = 0; j < i; ++j)
+                prefix_sn = (j == 0) ? ground_prefix[0] : m_sg.mk_concat(prefix_sn, ground_prefix[j]);
+
+            euf::snode* replacement;
+            expr_ref fresh_m(m);
+
+            if (tok->is_power()) {
+                // Token is a power u^exp: use fresh m' with 0 ≤ m' ≤ exp
+                expr* inner_exp = get_power_exponent(tok);
+                expr* inner_base = get_power_base_expr(tok);
+                if (inner_exp && inner_base) {
+                    fresh_m = mk_fresh_int_var();
+                    expr_ref partial_pow(seq.str.mk_power(inner_base, fresh_m), m);
+                    euf::snode* partial_sn = m_sg.mk(partial_pow);
+                    euf::snode* suffix_sn = prefix_sn ? m_sg.mk_concat(prefix_sn, partial_sn) : partial_sn;
+                    replacement = m_sg.mk_concat(power_snode, suffix_sn);
+                } else {
+                    // Fallback: use full token (shouldn't normally happen)
+                    euf::snode* suffix_sn = prefix_sn ? m_sg.mk_concat(prefix_sn, tok) : tok;
+                    replacement = m_sg.mk_concat(power_snode, suffix_sn);
+                }
+            } else {
+                // Token is a char: P(char) = ε, suffix = just the prefix
+                replacement = prefix_sn ? m_sg.mk_concat(power_snode, prefix_sn) : power_snode;
             }
 
             nielsen_node* child = mk_child(node);
@@ -2245,6 +2998,15 @@ namespace seq {
 
             // Side constraint: n >= 0
             e->add_side_int(mk_int_constraint(fresh_n, zero, int_constraint_kind::ge, eq.m_dep));
+
+            // Side constraints for fresh partial exponent
+            if (fresh_m.get()) {
+                expr* inner_exp = get_power_exponent(tok);
+                // m' >= 0
+                e->add_side_int(mk_int_constraint(fresh_m, zero, int_constraint_kind::ge, eq.m_dep));
+                // m' <= inner_exp
+                e->add_side_int(mk_int_constraint(inner_exp, fresh_m, int_constraint_kind::ge, eq.m_dep));
+            }
         }
 
         return true;
@@ -2614,41 +3376,41 @@ namespace seq {
         return expr_ref(m.mk_true(), m);
     }
 
-    void nielsen_graph::collect_path_int_constraints(nielsen_node* node,
-                                                      svector<nielsen_edge*> const& cur_path,
-                                                      vector<int_constraint>& out) {
-        // collect from root node
-        if (m_root) {
-            for (auto const& ic : m_root->int_constraints())
-                out.push_back(ic);
-        }
-
-        // collect from edges along the path and their target nodes
-        for (nielsen_edge* e : cur_path) {
-            for (auto const& ic : e->side_int())
-                out.push_back(ic);
-            if (e->tgt()) {
-                for (auto const& ic : e->tgt()->int_constraints())
-                    out.push_back(ic);
-            }
-        }
+    void nielsen_graph::assert_node_new_int_constraints(nielsen_node* node) {
+        // Assert only the int_constraints that are new to this node (beyond those
+        // inherited from its parent via clone_from).  The parent's constraints are
+        // already present in the enclosing solver scope; asserting them again would
+        // be redundant (though harmless).  This is called by search_dfs right after
+        // simplify_and_init, which is where new constraints are produced.
+        for (unsigned i = node->m_parent_ic_count; i < node->int_constraints().size(); ++i)
+            m_solver.assert_expr(int_constraint_to_expr(node->int_constraints()[i]));
     }
 
     bool nielsen_graph::check_int_feasibility(nielsen_node* node, svector<nielsen_edge*> const& cur_path) {
-        vector<int_constraint> constraints;
-        collect_path_int_constraints(node, cur_path, constraints);
+        // In incremental mode the solver already holds all path constraints
+        // (root length constraints at the base level, edge side_int and node
+        // int_constraints pushed/popped as the DFS descends and backtracks).
+        // A plain check() is therefore sufficient.
+        return m_solver.check() != l_false;
+    }
 
-        if (constraints.empty())
-            return true; // no integer constraints, trivially feasible
+    bool nielsen_graph::check_lp_le(expr* lhs, expr* rhs,
+                                     nielsen_node* node,
+                                     svector<nielsen_edge*> const& cur_path) {
+        ast_manager& m = m_sg.get_manager();
+        arith_util arith(m);
 
+        // The solver already holds all path constraints incrementally.
+        // Temporarily add NOT(lhs <= rhs), i.e. lhs >= rhs + 1.
+        // If that is unsat, then lhs <= rhs is entailed.
+        expr_ref one(arith.mk_int(1), m);
+        expr_ref rhs_plus_one(arith.mk_add(rhs, one), m);
 
         m_solver.push();
-        for (auto const& ic : constraints)
-            m_solver.assert_expr(int_constraint_to_expr(ic));
-
+        m_solver.assert_expr(arith.mk_ge(lhs, rhs_plus_one));
         lbool result = m_solver.check();
         m_solver.pop(1);
-        return result != l_false;
+        return result == l_false;
     }
 
     int_constraint nielsen_graph::mk_int_constraint(expr* lhs, expr* rhs,
@@ -2669,6 +3431,50 @@ namespace seq {
         arith_util arith(m);
         std::string name = "n!" + std::to_string(m_fresh_cnt++);
         return expr_ref(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
+    }
+
+    bool nielsen_graph::solve_sat_path_ints(model_ref& mdl) {
+        mdl = nullptr;
+        if (m_sat_path.empty() && (!m_sat_node || m_sat_node->int_constraints().empty()))
+            return false;
+
+        vector<int_constraint> constraints;
+        collect_path_int_constraints(m_sat_node, m_sat_path, constraints);
+        if (constraints.empty())
+            return false;
+
+        // Use a fresh smt::kernel to solve the integer constraints.
+        // Add constraints incrementally, skipping any that would make the system UNSAT
+        // (the search may have taken contradictory branches).
+        ast_manager& m = m_sg.get_manager();
+        smt_params params;
+        smt::kernel fresh_solver(m, params);
+        IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints: " << constraints.size() << " constraints\n";);
+        for (auto const& ic : constraints) {
+            expr_ref e = int_constraint_to_expr(ic);
+            IF_VERBOSE(2, verbose_stream() << "  constraint: " << mk_bounded_pp(e, m, 5) << "\n";);
+            fresh_solver.push();
+            fresh_solver.assert_expr(e);
+            if (fresh_solver.check() == l_false) {
+                IF_VERBOSE(1, verbose_stream() << "  SKIPPED (infeasible): " << mk_bounded_pp(e, m, 5) << "\n";);
+                fresh_solver.pop(1);
+            }
+        }
+
+        lbool result = fresh_solver.check();
+        IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints result: " << result << "\n";);
+        if (result == l_true) {
+            fresh_solver.get_model(mdl);
+            IF_VERBOSE(1, {
+                verbose_stream() << "  int_model:\n";
+                for (unsigned i = 0; i < mdl->get_num_constants(); ++i) {
+                    func_decl* fd = mdl->get_constant(i);
+                    expr* val = mdl->get_const_interp(fd);
+                    if (val) verbose_stream() << "    " << fd->get_name() << " = " << mk_bounded_pp(val, m, 3) << "\n";
+                }
+            });
+        }
+        return mdl.get() != nullptr;
     }
 
 }
