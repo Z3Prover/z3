@@ -21,8 +21,10 @@ Notes:
 
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
+#include "tactic/dependent_expr_state_tactic.h"
 #include "ast/special_relations_decl_plugin.h"
 #include "ast/pattern/expr_pattern_match.h"
+#include "ast/simplifiers/special_relations_simplifier.h"
 
 class special_relations_tactic : public tactic {
     ast_manager& m;
@@ -63,8 +65,16 @@ public:
 
 tactic * mk_special_relations_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+inline tactic* mk_special_relations2_tactic(ast_manager& m, params_ref const& p = params_ref()) {
+    return alloc(dependent_expr_state_tactic, m, p,
+        [](auto& m, auto& p, auto& s) -> dependent_expr_simplifier* {
+            return alloc(special_relations_simplifier, m, p, s);
+        });
+}
 
 /*
   ADD_TACTIC("special-relations", "detect and replace by special relations.", "mk_special_relations_tactic(m, p)")
+  ADD_TACTIC("special-relations2", "detect and replace by special relations.", "mk_special_relations2_tactic(m, p)")
+  ADD_SIMPLIFIER("special-relations", "detect and replace by special relations.", "alloc(special_relations_simplifier, m, p, s)")
 */
 
