@@ -241,6 +241,7 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/euf/euf_sgraph.h"
 #include <functional>
+#include <map>
 #include "model/model.h"
 
 namespace seq {
@@ -455,6 +456,7 @@ namespace seq {
         ptr_vector<str_mem>     m_side_str_mem;    // side constraints: regex memberships
         vector<int_constraint>  m_side_int;        // side constraints: integer equalities/inequalities
         bool                    m_is_progress;     // does this edge represent progress?
+        bool                    m_len_constraints_computed = false; // lazily computed substitution length constraints
     public:
         nielsen_edge(nielsen_node* src, nielsen_node* tgt, bool is_progress);
 
@@ -478,6 +480,9 @@ namespace seq {
         vector<int_constraint> const& side_int() const { return m_side_int; }
 
         bool is_progress() const { return m_is_progress; }
+
+        bool len_constraints_computed() const { return m_len_constraints_computed; }
+        void set_len_constraints_computed(bool v) { m_len_constraints_computed = v; }
 
         bool operator==(nielsen_edge const& other) const {
             return m_src == other.m_src && m_tgt == other.m_tgt;
@@ -518,6 +523,7 @@ namespace seq {
         bool                    m_is_extended = false;
         backtrack_reason        m_reason = backtrack_reason::unevaluated;
         bool                    m_is_progress = false;
+        bool                    m_node_len_constraints_generated = false; // true after generate_node_length_constraints runs
 
         // evaluation index for run tracking
         unsigned                m_eval_idx = 0;
@@ -724,6 +730,26 @@ namespace seq {
         // Constraint.Shared: guards re-assertion of root-level constraints.
         // Set to true after assert_root_constraints_to_solver() is first called.
         bool                          m_root_constraints_asserted = false;
+
+        // -----------------------------------------------
+        // Modification counter for substitution length tracking.
+        // mirrors ZIPT's LocalInfo.CurrentModificationCnt
+        // -----------------------------------------------
+
+        // Maps snode id of string variable → current modification (reuse) count
+        // along the DFS path. When a non-eliminating substitution x/u is applied
+        // (x appears in u), x's count is bumped. This produces distinct length
+        // variables for x before and after substitution, avoiding the unsatisfiable
+        // |x| = 1 + |x| that results from reusing the same length symbol.
+        u_map<unsigned>               m_mod_cnt;
+
+        // Cache: (var snode id, modification count) → fresh integer variable.
+        // Variables at mod_count 0 use str.len(var_expr) (standard form).
+        // Variables at mod_count > 0 get a fresh Z3 integer constant.
+        std::map<std::pair<unsigned, unsigned>, expr*> m_len_var_cache;
+
+        // Pins the fresh length variable expressions so they aren't garbage collected.
+        expr_ref_vector               m_len_vars;
 
     public:
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
@@ -966,6 +992,14 @@ namespace seq {
         // bounds become visible to subsequent check() and check_lp_le() calls.
         void assert_node_new_int_constraints(nielsen_node* node);
 
+        // Generate |LHS| = |RHS| length constraints for a non-root node's own
+        // string equalities and add them as int_constraints on the node.
+        // Called once per node (guarded by m_node_len_constraints_generated).
+        // Uses compute_length_expr (mod-count-aware) so that variables with
+        // non-zero modification counts get fresh length variables.
+        // Mirrors ZIPT's Constraint.Shared forwarding for per-node equations.
+        void generate_node_length_constraints(nielsen_node* node);
+
         // check integer feasibility of the constraints along the current path.
         // returns true if feasible (including unknown), false only if l_false.
         // Precondition: all path constraints have been incrementally asserted to
@@ -991,6 +1025,30 @@ namespace seq {
 
         // convert an int_constraint to an expr* assertion
         expr_ref int_constraint_to_expr(int_constraint const& ic);
+
+        // -----------------------------------------------
+        // Modification counter methods for substitution length tracking.
+        // mirrors ZIPT's NielsenEdge.IncModCount / DecModCount and
+        // NielsenNode constructor length assertion logic.
+        // -----------------------------------------------
+
+        // Get or create a fresh integer variable for len(var) at the given
+        // modification count. Returns str.len(var_expr) when mod_count == 0.
+        expr_ref get_or_create_len_var(euf::snode* var, unsigned mod_count);
+
+        // Compute and add |x| = |u| length constraints to an edge for all
+        // its non-eliminating substitutions. Uses current m_mod_cnt.
+        // Temporarily bumps m_mod_cnt for RHS computation, then restores.
+        // Called lazily on first edge traversal in search_dfs.
+        void add_subst_length_constraints(nielsen_edge* e);
+
+        // Bump modification counts for an edge's non-eliminating substitutions.
+        // Called when entering an edge during DFS.
+        void inc_edge_mod_counts(nielsen_edge* e);
+
+        // Restore modification counts for an edge's non-eliminating substitutions.
+        // Called when backtracking from an edge during DFS.
+        void dec_edge_mod_counts(nielsen_edge* e);
     };
 
 }

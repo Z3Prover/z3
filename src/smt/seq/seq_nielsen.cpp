@@ -442,7 +442,8 @@ namespace seq {
 
     nielsen_graph::nielsen_graph(euf::sgraph& sg, simple_solver& solver):
         m_sg(sg),
-        m_solver(solver) {
+        m_solver(solver),
+        m_len_vars(sg.get_manager()) {
     }
 
     nielsen_graph::~nielsen_graph() {
@@ -519,6 +520,9 @@ namespace seq {
         m_num_input_eqs = 0;
         m_num_input_mems = 0;
         m_root_constraints_asserted = false;
+        m_mod_cnt.reset();
+        m_len_var_cache.clear();
+        m_len_vars.reset();
     }
 
     std::ostream& nielsen_graph::display(std::ostream& out) const {
@@ -1970,6 +1974,9 @@ namespace seq {
         // node into the current solver scope. Constraints inherited from the parent
         // (indices 0..m_parent_ic_count-1) are already present at the enclosing
         // scope level; only the newly-added tail needs to be asserted here.
+        // Also generate per-node |LHS| = |RHS| length constraints for descendant
+        // equations (root constraints are already at the base level).
+        generate_node_length_constraints(node);
         assert_node_new_int_constraints(node);
 
         // integer feasibility check: the solver now holds all path constraints
@@ -2017,9 +2024,27 @@ namespace seq {
             // inside the recursive call (above).  On return, pop the scope so
             // that backtracking removes those assertions.
             m_solver.push();
+
+            // Lazily compute substitution length constraints (|x| = |u|) on first
+            // traversal. This must happen before asserting side_int and before
+            // bumping mod counts, so that LHS uses the parent's counts and RHS
+            // uses the temporarily-bumped counts.
+            if (!e->len_constraints_computed()) {
+                add_subst_length_constraints(e);
+                e->set_len_constraints_computed(true);
+            }
+
             for (auto const &ic : e->side_int())
                 m_solver.assert_expr(int_constraint_to_expr(ic));
+
+            // Bump modification counts for the child's context.
+            inc_edge_mod_counts(e);
+
             search_result r = search_dfs(e->tgt(), e->is_progress() ? depth : depth + 1, cur_path);
+
+            // Restore modification counts on backtrack.
+            dec_edge_mod_counts(e);
+
             m_solver.pop(1);
             if (r == search_result::sat)
                 return search_result::sat;
@@ -3533,7 +3558,18 @@ namespace seq {
             return expr_ref(arith.mk_add(left, right), m);
         }
 
-        // for variables and other terms, use symbolic (str.len expr)
+        // For variables: consult modification counter.
+        // mod_count > 0 means the variable has been reused by a non-eliminating
+        // substitution; use a fresh integer variable to avoid the circular
+        // |x| = 1 + |x| problem.
+        if (n->is_var()) {
+            unsigned mc = 0;
+            m_mod_cnt.find(n->id(), mc);
+            if (mc > 0)
+                return get_or_create_len_var(n, mc);
+        }
+
+        // for variables at mod_count 0 and other terms, use symbolic (str.len expr)
         return expr_ref(seq.str.mk_length(n->get_expr()), m);
     }
 
@@ -3664,6 +3700,131 @@ namespace seq {
         return expr_ref(m.mk_true(), m);
     }
 
+    // -----------------------------------------------------------------------
+    // Modification counter: substitution length tracking
+    // mirrors ZIPT's LocalInfo.CurrentModificationCnt + NielsenEdge.IncModCount/DecModCount
+    // + NielsenNode constructor length assertion logic
+    // -----------------------------------------------------------------------
+
+    expr_ref nielsen_graph::get_or_create_len_var(euf::snode* var, unsigned mod_count) {
+        ast_manager& m = m_sg.get_manager();
+        SASSERT(var && var->is_var());
+        SASSERT(mod_count > 0);
+
+        auto key = std::make_pair(var->id(), mod_count);
+        auto it = m_len_var_cache.find(key);
+        if (it != m_len_var_cache.end())
+            return expr_ref(it->second, m);
+
+        // Create a fresh integer variable: len_<varname>_<mod_count>
+        arith_util arith(m);
+        std::string name = "len!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
+        expr_ref fresh(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
+        m_len_vars.push_back(fresh);
+        m_len_var_cache.insert({key, fresh.get()});
+        return fresh;
+    }
+
+    void nielsen_graph::add_subst_length_constraints(nielsen_edge* e) {
+        auto const& substs = e->subst();
+
+        // Quick check: any non-eliminating substitutions?
+        bool has_non_elim = false;
+        for (auto const& s : substs)
+            if (!s.is_eliminating()) { has_non_elim = true; break; }
+        if (!has_non_elim) return;
+
+        ast_manager& m = m_sg.get_manager();
+        arith_util arith(m);
+
+        // Step 1: Compute LHS (|x|) for each non-eliminating substitution
+        // using current m_mod_cnt (before bumping).
+        // Also assert |x|_k >= 0 (mirrors ZIPT's NielsenNode constructor line 172).
+        svector<std::pair<unsigned, expr*>> lhs_exprs;
+        for (unsigned i = 0; i < substs.size(); ++i) {
+            auto const& s = substs[i];
+            if (s.is_eliminating()) continue;
+            SASSERT(s.m_var && s.m_var->is_var());
+            expr_ref lhs = compute_length_expr(s.m_var);
+            lhs_exprs.push_back({i, lhs.get()});
+            // Assert LHS >= 0
+            e->add_side_int(int_constraint(lhs, arith.mk_int(0),
+                                           int_constraint_kind::ge, s.m_dep, m));
+        }
+
+        // Step 2: Bump mod counts for all non-eliminating variables at once.
+        for (auto const& s : substs) {
+            if (s.is_eliminating()) continue;
+            unsigned id = s.m_var->id();
+            unsigned prev = 0;
+            m_mod_cnt.find(id, prev);
+            m_mod_cnt.insert(id, prev + 1);
+        }
+
+        // Step 3: Compute RHS (|u|) with bumped mod counts and add |x| = |u|.
+        for (auto const& p : lhs_exprs) {
+            unsigned idx = p.first;
+            expr* lhs_expr = p.second;
+            auto const& s = substs[idx];
+            expr_ref rhs = compute_length_expr(s.m_replacement);
+            e->add_side_int(int_constraint(lhs_expr, rhs, int_constraint_kind::eq,
+                                           s.m_dep, m));
+
+            // Assert non-negativity for any fresh length variables in the RHS
+            // (variables at mod_count > 0 that are newly created).
+            euf::snode_vector tokens;
+            s.m_replacement->collect_tokens(tokens);
+            for (euf::snode* tok : tokens) {
+                if (tok->is_var()) {
+                    unsigned mc = 0;
+                    m_mod_cnt.find(tok->id(), mc);
+                    if (mc > 0) {
+                        expr_ref len_var = get_or_create_len_var(tok, mc);
+                        e->add_side_int(int_constraint(len_var, arith.mk_int(0),
+                                                       int_constraint_kind::ge, s.m_dep, m));
+                    }
+                }
+            }
+        }
+
+        // Step 4: Restore mod counts (temporary bump for computing RHS only).
+        for (auto const& s : substs) {
+            if (s.is_eliminating()) continue;
+            unsigned id = s.m_var->id();
+            unsigned prev = 0;
+            m_mod_cnt.find(id, prev);
+            SASSERT(prev >= 1);
+            if (prev <= 1)
+                m_mod_cnt.remove(id);
+            else
+                m_mod_cnt.insert(id, prev - 1);
+        }
+    }
+
+    void nielsen_graph::inc_edge_mod_counts(nielsen_edge* e) {
+        for (auto const& s : e->subst()) {
+            if (s.is_eliminating()) continue;
+            unsigned id = s.m_var->id();
+            unsigned prev = 0;
+            m_mod_cnt.find(id, prev);
+            m_mod_cnt.insert(id, prev + 1);
+        }
+    }
+
+    void nielsen_graph::dec_edge_mod_counts(nielsen_edge* e) {
+        for (auto const& s : e->subst()) {
+            if (s.is_eliminating()) continue;
+            unsigned id = s.m_var->id();
+            unsigned prev = 0;
+            m_mod_cnt.find(id, prev);
+            SASSERT(prev >= 1);
+            if (prev <= 1)
+                m_mod_cnt.remove(id);
+            else
+                m_mod_cnt.insert(id, prev - 1);
+        }
+    }
+
     void nielsen_graph::assert_node_new_int_constraints(nielsen_node* node) {
         // Assert only the int_constraints that are new to this node (beyond those
         // inherited from its parent via clone_from).  The parent's constraints are
@@ -3672,6 +3833,78 @@ namespace seq {
         // simplify_and_init, which is where new constraints are produced.
         for (unsigned i = node->m_parent_ic_count; i < node->int_constraints().size(); ++i)
             m_solver.assert_expr(int_constraint_to_expr(node->int_constraints()[i]));
+    }
+
+    void nielsen_graph::generate_node_length_constraints(nielsen_node* node) {
+        if (node->m_node_len_constraints_generated)
+            return;
+        node->m_node_len_constraints_generated = true;
+
+        // Skip the root node — its length constraints are already asserted
+        // at the base solver level by assert_root_constraints_to_solver().
+        if (node == m_root)
+            return;
+
+        ast_manager& m = m_sg.get_manager();
+        arith_util arith(m);
+        uint_set seen_vars;
+
+        for (str_eq const& eq : node->str_eqs()) {
+            if (eq.is_trivial())
+                continue;
+
+            expr_ref len_lhs = compute_length_expr(eq.m_lhs);
+            expr_ref len_rhs = compute_length_expr(eq.m_rhs);
+            node->add_int_constraint(int_constraint(len_lhs, len_rhs,
+                                                     int_constraint_kind::eq, eq.m_dep, m));
+
+            // non-negativity for each variable (mod-count-aware)
+            euf::snode_vector tokens;
+            eq.m_lhs->collect_tokens(tokens);
+            eq.m_rhs->collect_tokens(tokens);
+            for (euf::snode* tok : tokens) {
+                if (tok->is_var() && !seen_vars.contains(tok->id())) {
+                    seen_vars.insert(tok->id());
+                    expr_ref len_var = compute_length_expr(tok);
+                    node->add_int_constraint(int_constraint(len_var, arith.mk_int(0),
+                                                             int_constraint_kind::ge, eq.m_dep, m));
+                }
+            }
+        }
+
+        // Parikh interval bounds for regex memberships at this node
+        seq_util& seq = m_sg.get_seq_util();
+        for (str_mem const& mem : node->str_mems()) {
+            expr* re_expr = mem.m_regex->get_expr();
+            if (!re_expr || !seq.is_re(re_expr))
+                continue;
+
+            unsigned min_len = 0, max_len = UINT_MAX;
+            compute_regex_length_interval(mem.m_regex, min_len, max_len);
+
+            expr_ref len_str = compute_length_expr(mem.m_str);
+
+            if (min_len > 0) {
+                node->add_int_constraint(int_constraint(len_str, arith.mk_int(min_len),
+                                                         int_constraint_kind::ge, mem.m_dep, m));
+            }
+            if (max_len < UINT_MAX) {
+                node->add_int_constraint(int_constraint(len_str, arith.mk_int(max_len),
+                                                         int_constraint_kind::le, mem.m_dep, m));
+            }
+
+            // non-negativity for string-side variables
+            euf::snode_vector tokens;
+            mem.m_str->collect_tokens(tokens);
+            for (euf::snode* tok : tokens) {
+                if (tok->is_var() && !seen_vars.contains(tok->id())) {
+                    seen_vars.insert(tok->id());
+                    expr_ref len_var = compute_length_expr(tok);
+                    node->add_int_constraint(int_constraint(len_var, arith.mk_int(0),
+                                                             int_constraint_kind::ge, mem.m_dep, m));
+                }
+            }
+        }
     }
 
     bool nielsen_graph::check_int_feasibility(nielsen_node* node, svector<nielsen_edge*> const& cur_path) {

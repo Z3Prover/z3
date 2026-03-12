@@ -233,8 +233,34 @@ namespace smt {
             if (exp_val.is_one())
                 return base_val;
 
-            // For small exponents, concatenate directly
+            // For small exponents, concatenate directly; for large ones,
+            // build a concrete string constant to avoid enormous AST chains
+            // that cause cleanup_expr to diverge.
             unsigned n_val = exp_val.get_unsigned();
+            constexpr unsigned POWER_EXPAND_LIMIT = 1000;
+            if (n_val > POWER_EXPAND_LIMIT) {
+                // Try to extract a concrete character from the base (seq.unit(c))
+                // and build a string literal directly (O(1) AST node).
+                unsigned ch = 0;
+                expr* unit_arg = nullptr;
+                if (m_seq.str.is_unit(base_val, unit_arg) && m_seq.is_const_char(unit_arg, ch)) {
+                    svector<unsigned> buf(n_val, ch);
+                    zstring result(buf.size(), buf.data());
+                    return expr_ref(m_seq.str.mk_string(result), m);
+                }
+                // Also handle if base is already a string constant
+                zstring base_str;
+                if (m_seq.str.is_string(base_val, base_str) && base_str.length() > 0) {
+                    svector<unsigned> buf;
+                    for (unsigned i = 0; i < n_val; ++i)
+                        for (unsigned j = 0; j < base_str.length(); ++j)
+                            buf.push_back(base_str[j]);
+                    zstring result(buf.size(), buf.data());
+                    return expr_ref(m_seq.str.mk_string(result), m);
+                }
+                // Fallback: cap exponent to avoid divergence
+                n_val = POWER_EXPAND_LIMIT;
+            }
             expr_ref acc(base_val);
             for (unsigned i = 1; i < n_val; ++i)
                 acc = m_seq.str.mk_concat(acc, base_val);
