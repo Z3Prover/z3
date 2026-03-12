@@ -29,15 +29,166 @@ For code quality skills you also need:
 
 ## Using the agent in Copilot Chat
 
-Mention `@z3` and describe what you want:
+Mention `@z3` and describe what you want in plain language.
+The agent figures out which skill to use, builds the formula if needed,
+runs Z3, and gives you the result.
+
+### solve: check satisfiability
 
 ```
-@z3 is (x + y > 10) satisfiable?
-@z3 prove that x*x >= 0 for all integers
-@z3 run memory-safety checks on the test suite
+@z3 is (x > 0 and y > 0 and x + y < 5) satisfiable over the integers?
 ```
 
-The agent picks the right skill and runs it.
+Expected response: **sat** with a model like `x = 1, y = 1`.
+
+```
+@z3 can x + y = 10 and x - y = 4 both hold at the same time?
+```
+
+Expected response: **sat** with `x = 7, y = 3`.
+
+```
+@z3 is there an integer x where x > 0, x < 0?
+```
+
+Expected response: **unsat** (no such integer exists).
+
+### prove: check if something is always true
+
+```
+@z3 prove that x * x >= 0 for all integers x
+```
+
+Expected response: **valid** (the negation is unsatisfiable, so the property holds).
+
+```
+@z3 is it true that (a + b)^2 >= 0 for all real a and b?
+```
+
+Expected response: **valid**.
+
+```
+@z3 prove that if x > y and y > z then x > z, for integers
+```
+
+Expected response: **valid** (transitivity of >).
+
+### optimize: find the best value
+
+```
+@z3 maximize 3x + 2y where x >= 1, y >= 1, and x + y <= 20
+```
+
+Expected response: **sat** with `x = 19, y = 1` (objective = 59).
+
+```
+@z3 minimize x + y where x >= 5, y >= 3, and x + y >= 10
+```
+
+Expected response: **sat** with `x = 5, y = 5` or similar (objective = 10).
+
+### simplify: reduce an expression
+
+```
+@z3 simplify x + 0 + 1*x
+```
+
+Expected response: `2*x`.
+
+```
+@z3 simplify (a and true) or (a and false)
+```
+
+Expected response: `a`.
+
+### encode: translate a problem to SMT-LIB2
+
+```
+@z3 encode this as SMT-LIB2: find integers x and y where x + y = 10 and x > y
+```
+
+Expected response: the SMT-LIB2 formula:
+```
+(declare-const x Int)
+(declare-const y Int)
+(assert (= (+ x y) 10))
+(assert (> x y))
+(check-sat)
+(get-model)
+```
+
+### explain: interpret Z3 output
+
+```
+@z3 what does this Z3 output mean?
+sat
+(
+  (define-fun x () Int 7)
+  (define-fun y () Int 3)
+)
+```
+
+Expected response: a readable summary like "satisfying assignment: x = 7, y = 3".
+
+```
+@z3 Z3 returned unknown, what does that mean?
+```
+
+Expected response: an explanation of common causes (timeout, incomplete theory, quantifiers).
+
+### benchmark: measure performance
+
+```
+@z3 how fast can Z3 solve (x > 0 and y > 0 and x + y < 100)? run it 5 times
+```
+
+Expected response: timing stats like min/median/max in milliseconds and the result.
+
+### memory-safety: find memory bugs in Z3
+
+```
+@z3 run AddressSanitizer on the Z3 test suite
+```
+
+Expected response: builds Z3 with ASan, runs the tests, reports any findings
+with category, file, and line number. If clean, reports no findings.
+
+```
+@z3 check for undefined behavior in Z3
+```
+
+Expected response: runs UBSan, same format.
+
+```
+@z3 run both sanitizers
+```
+
+Expected response: runs ASan and UBSan, aggregates findings from both.
+
+### static-analysis: find bugs without running the code
+
+```
+@z3 run static analysis on the Z3 source
+```
+
+Expected response: runs Clang Static Analyzer, reports findings grouped by
+category (null dereference, dead store, memory leak, etc.) with file and line.
+
+### multi-skill: the agent chains skills when needed
+
+```
+@z3 prove that for all integers, if x^2 is even then x is even
+```
+
+The agent uses **encode** to formalize and negate the statement, then
+**prove** to check it, then **explain** to present the result.
+
+```
+@z3 full verification pass before the release
+```
+
+The agent runs **memory-safety** (ASan + UBSan) and **static-analysis**
+in parallel, then aggregates and deduplicates findings sorted by severity.
 
 ## Using the scripts directly
 
