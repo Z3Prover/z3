@@ -919,7 +919,7 @@ namespace seq {
 
         // helper for apply_gpower_intr: fires the substitution
         bool fire_gpower_intro(nielsen_node* node, str_eq const& eq,
-                               euf::snode* var, euf::snode_vector const& ground_prefix);
+                               euf::snode* var, euf::snode_vector const& ground_prefix_orig);
 
         // regex variable split: for str_mem x·s ∈ R where x is a variable,
         // split using minterms: x → ε, or x → c·x' for each minterm c.

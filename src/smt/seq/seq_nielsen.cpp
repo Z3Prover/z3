@@ -870,7 +870,7 @@ namespace seq {
 
         // --- nodes ---
         for (nielsen_node const* n : m_nodes) {
-            out << "\t" << n->id() << " [label=<"
+            out << "    " << n->id() << " [label=<"
                 << n->id() << ": ";
             n->display_html(out, m);
             // append conflict reason if this is a direct conflict
@@ -894,7 +894,7 @@ namespace seq {
         // --- edges ---
         for (nielsen_node const* n : m_nodes) {
             for (nielsen_edge const* e : n->outgoing()) {
-                out << "\t" << n->id() << " -> " << e->tgt()->id() << " [label=<";
+                out << "    " << n->id() << " -> " << e->tgt()->id() << " [label=<";
 
                 // edge label: substitutions joined by <br/>
                 bool first = true;
@@ -955,7 +955,7 @@ namespace seq {
 
             // backedge as dotted arrow
             if (n->backedge())
-                out << "\t" << n->id() << " -> " << n->backedge()->id()
+                out << "    " << n->id() << " -> " << n->backedge()->id()
                     << " [style=dotted];\n";
         }
 
@@ -3131,10 +3131,47 @@ namespace seq {
 
     bool nielsen_graph::fire_gpower_intro(
             nielsen_node* node, str_eq const& eq,
-            euf::snode* var, euf::snode_vector const& ground_prefix) {
+            euf::snode* var, euf::snode_vector const& ground_prefix_orig) {
         ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
         seq_util& seq = m_sg.get_seq_util();
+
+        // Compress repeated patterns in the ground prefix (mirrors ZIPT's LcpCompressionFull).
+        // E.g., [a,b,a,b] has minimal period 2 → use [a,b] as the power base.
+        // This ensures we use the minimal repeating unit: x = (ab)^n · suffix
+        // instead of x = (abab)^n · suffix.
+        euf::snode_vector ground_prefix;
+        unsigned n = ground_prefix_orig.size();
+        unsigned period = n;
+        for (unsigned p = 1; p <= n / 2; ++p) {
+            if (n % p != 0) continue;
+            bool match = true;
+            for (unsigned i = p; i < n && match; ++i)
+                match = (ground_prefix_orig[i]->id() == ground_prefix_orig[i % p]->id());
+            if (match) { period = p; break; }
+        }
+        for (unsigned i = 0; i < period; ++i)
+            ground_prefix.push_back(ground_prefix_orig[i]);
+
+        // If the compressed prefix is a single power snode, unwrap it to use
+        // its base tokens, avoiding nested powers.
+        // E.g., [(ab)^3] → [a, b] so we get (ab)^n instead of ((ab)^3)^n.
+        // (mirrors ZIPT: if b.Length == 1 && b is PowerToken pt => b = pt.Base)
+        if (ground_prefix.size() == 1 && ground_prefix[0]->is_power()) {
+            expr* base_e = get_power_base_expr(ground_prefix[0]);
+            if (base_e) {
+                euf::snode* base_sn = m_sg.mk(base_e);
+                if (base_sn) {
+                    euf::snode_vector base_toks;
+                    base_sn->collect_tokens(base_toks);
+                    if (!base_toks.empty()) {
+                        ground_prefix.reset();
+                        ground_prefix.append(base_toks);
+                    }
+                }
+            }
+        }
+
         unsigned base_len = ground_prefix.size();
 
         // Build base string expression from ground prefix tokens.
