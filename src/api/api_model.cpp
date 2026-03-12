@@ -252,7 +252,7 @@ extern "C" {
         LOG_Z3_add_func_interp(c, m, f, else_val);
         RESET_ERROR_CODE();
         CHECK_NON_NULL(m, nullptr);
-		CHECK_NON_NULL(f, nullptr);
+        CHECK_NON_NULL(f, nullptr);
         func_decl* d = to_func_decl(f);
         model* mdl = to_model_ref(m);
         Z3_func_interp_ref * f_ref = alloc(Z3_func_interp_ref, *mk_c(c), mdl); 
