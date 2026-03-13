@@ -731,6 +731,56 @@ static void test_const_nielsen_priority_over_eq_split() {
     SASSERT(root->outgoing().size() == 2);
 }
 
+// test const_nielsen tail direction: x·A = w·y
+// forward heads are vars (x,w), so forward const_nielsen doesn't apply.
+// backward tails are char/var (A,y), so RTL const_nielsen must fire.
+static void test_const_nielsen_tail_char_var() {
+    std::cout << "test_const_nielsen_tail_char_var\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+
+    dummy_simple_solver solver;
+    seq::nielsen_graph ng(sg, solver);
+
+    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* w = sg.mk_var(symbol("w"));
+    euf::snode* y = sg.mk_var(symbol("y"));
+    euf::snode* a = sg.mk_char('A');
+    euf::snode* lhs = sg.mk_concat(x, a); // x·A
+    euf::snode* rhs = sg.mk_concat(w, y); // w·y
+
+    ng.add_str_eq(lhs, rhs);
+    seq::nielsen_node* root = ng.root();
+
+    bool extended = ng.generate_extensions(root);
+    SASSERT(extended);
+    SASSERT(root->outgoing().size() == 2);
+
+    bool saw_empty = false;
+    bool saw_tail = false;
+    for (seq::nielsen_edge* e : root->outgoing()) {
+        SASSERT(e->subst().size() == 1);
+        seq::nielsen_subst const& s = e->subst()[0];
+        SASSERT(s.m_var == y);
+        if (s.m_replacement && s.m_replacement->is_empty()) {
+            saw_empty = true;
+            SASSERT(e->is_progress());
+        }
+        else {
+            euf::snode_vector toks;
+            s.m_replacement->collect_tokens(toks);
+            SASSERT(toks.size() == 2);
+            SASSERT(toks[0]->is_var() && toks[0]->id() == y->id());
+            SASSERT(toks[1]->is_char() && toks[1]->id() == a->id());
+            saw_tail = true;
+            SASSERT(!e->is_progress());
+        }
+    }
+    SASSERT(saw_empty && saw_tail);
+}
+
 // test: both sides start with vars → var_nielsen (3 children), not const_nielsen
 static void test_const_nielsen_not_applicable_both_vars() {
     std::cout << "test_const_nielsen_not_applicable_both_vars\n";
@@ -1606,6 +1656,35 @@ static void test_simplify_prefix_cancel() {
     SASSERT(node->str_eqs()[0].m_rhs->is_var());
 }
 
+// test simplify_and_init: suffix cancellation of matching chars (RTL)
+static void test_simplify_suffix_cancel_rtl() {
+    std::cout << "test_simplify_suffix_cancel_rtl\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+
+    dummy_simple_solver solver;
+    seq::nielsen_graph ng(sg, solver);
+    euf::snode* a = sg.mk_char('A');
+    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* y = sg.mk_var(symbol("y"));
+
+    // x·A = y·A → suffix cancel A (RTL) → x = y
+    euf::snode* xa = sg.mk_concat(x, a);
+    euf::snode* ya = sg.mk_concat(y, a);
+
+    seq::nielsen_node* node = ng.mk_node();
+    seq::dep_tracker dep; dep.insert(0);
+    node->add_str_eq(seq::str_eq(xa, ya, dep));
+
+    auto sr = node->simplify_and_init(ng);
+    SASSERT(sr == seq::simplify_result::proceed);
+    SASSERT(node->str_eqs().size() == 1);
+    SASSERT(node->str_eqs()[0].m_lhs->is_var());
+    SASSERT(node->str_eqs()[0].m_rhs->is_var());
+}
+
 // test simplify_and_init: symbol clash at first position
 static void test_simplify_symbol_clash() {
     std::cout << "test_simplify_symbol_clash\n";
@@ -1829,6 +1908,44 @@ static void test_simplify_brzozowski_sat() {
 
     auto sr = node->simplify_and_init(ng);
     SASSERT(sr == seq::simplify_result::satisfied);
+}
+
+// test simplify_and_init: backward Brzozowski consumes a trailing char (RTL)
+static void test_simplify_brzozowski_rtl_suffix() {
+    std::cout << "test_simplify_brzozowski_rtl_suffix\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    seq_util seq(m);
+
+    dummy_simple_solver solver;    seq::nielsen_graph ng(sg, solver);
+    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* a = sg.mk_char('A');
+    euf::snode* xa = sg.mk_concat(x, a);
+    euf::snode* e = sg.mk_empty();
+
+    expr_ref ch_b(seq.str.mk_char('B'), m);
+    expr_ref unit_b(seq.str.mk_unit(ch_b), m);
+    expr_ref ch_a(seq.str.mk_char('A'), m);
+    expr_ref unit_a(seq.str.mk_unit(ch_a), m);
+    expr_ref ba(seq.str.mk_concat(unit_b, unit_a), m);
+    expr_ref to_re_ba(seq.re.mk_to_re(ba), m);
+    euf::snode* regex = sg.mk(to_re_ba);
+
+    // x·"A" ∈ to_re("BA") → RTL consume trailing 'A' → x ∈ to_re("B")
+    seq::nielsen_node* node = ng.mk_node();
+    seq::dep_tracker dep; dep.insert(0);
+    node->add_str_mem(seq::str_mem(xa, regex, e, 0, dep));
+
+    auto sr = node->simplify_and_init(ng);
+    SASSERT(sr == seq::simplify_result::proceed);
+    SASSERT(node->str_mems().size() == 1);
+    SASSERT(node->str_mems()[0].m_str->is_var());
+    SASSERT(node->str_mems()[0].m_str->id() == x->id());
+
+    euf::snode* deriv_b = sg.brzozowski_deriv(node->str_mems()[0].m_regex, sg.mk_char('B'));
+    SASSERT(deriv_b && deriv_b->is_nullable());
 }
 
 // test simplify_and_init: multiple eqs with mixed status
@@ -3541,6 +3658,7 @@ void tst_seq_nielsen() {
     test_const_nielsen_solve_sat();
     test_const_nielsen_solve_unsat();
     test_const_nielsen_priority_over_eq_split();
+    test_const_nielsen_tail_char_var();
     test_const_nielsen_not_applicable_both_vars();
     test_const_nielsen_multi_char_solve();
     test_var_nielsen_basic();
@@ -3574,6 +3692,7 @@ void tst_seq_nielsen() {
     test_solve_children_failed_reason();
     test_solve_eval_idx_tracking();
     test_simplify_prefix_cancel();
+    test_simplify_suffix_cancel_rtl();
     test_simplify_symbol_clash();
     test_simplify_empty_propagation();
     test_simplify_empty_vs_char();
@@ -3583,6 +3702,7 @@ void tst_seq_nielsen() {
     test_simplify_regex_infeasible();
     test_simplify_nullable_removal();
     test_simplify_brzozowski_sat();
+    test_simplify_brzozowski_rtl_suffix();
     test_simplify_multiple_eqs();
     test_det_cancel_child_eq();
     test_const_nielsen_child_substitutions();

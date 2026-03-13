@@ -416,6 +416,7 @@ namespace smt {
         ++m_num_final_checks;
 
         m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
+        m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
         IF_VERBOSE(1, verbose_stream() << "nseq final_check: calling solve()\n";);
 
         // here the actual Nielsen solving happens

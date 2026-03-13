@@ -715,6 +715,7 @@ namespace seq {
         unsigned                      m_run_idx = 0;
         unsigned                      m_depth_bound = 0;
         unsigned                      m_max_search_depth = 0;
+        bool                          m_parikh_enabled = true;
         unsigned                      m_next_mem_id = 0;
         unsigned                      m_fresh_cnt = 0;
         unsigned                      m_num_input_eqs = 0;
@@ -796,6 +797,9 @@ namespace seq {
 
         // maximum overall search depth (0 = unlimited)
         void set_max_search_depth(unsigned d) { m_max_search_depth = d; }
+        
+        // enable/disable Parikh image verification constraints
+        void set_parikh_enabled(bool e) { m_parikh_enabled = e; }
 
         // set a cancellation callback; solve() checks this periodically
         void set_cancel_fn(std::function<bool()> fn) { m_cancel_fn = std::move(fn); }
@@ -960,9 +964,11 @@ namespace seq {
         // mirrors ZIPT's GPowerIntrModifier
         bool apply_gpower_intr(nielsen_node* node);
 
-        // helper for apply_gpower_intr: fires the substitution
+        // helper for apply_gpower_intr: fires the substitution.
+        // `fwd=true` uses left-to-right decomposition; `fwd=false` mirrors ZIPT's
+        // backward (right-to-left) direction.
         bool fire_gpower_intro(nielsen_node* node, str_eq const& eq,
-                               euf::snode* var, euf::snode_vector const& ground_prefix_orig);
+                               euf::snode* var, euf::snode_vector const& ground_prefix_orig, bool fwd);
 
         // regex variable split: for str_mem x·s ∈ R where x is a variable,
         // split using minterms: x → ε, or x → c·x' for each minterm c.
@@ -986,11 +992,13 @@ namespace seq {
         // find the first power token in any str_eq at this node
         euf::snode* find_power_token(nielsen_node* node) const;
 
-        // find a power token facing a constant (char) head
-        bool find_power_vs_non_var(nielsen_node* node, euf::snode*& power, euf::snode*& other_head, str_eq const*& eq_out) const;
+        // find a power token facing a constant (char/non-var) token at either end
+        // of an equation; returns orientation via `fwd` (true=head, false=tail).
+        bool find_power_vs_non_var(nielsen_node* node, euf::snode*& power, euf::snode*& other_head, str_eq const*& eq_out, bool& fwd) const;
 
-        // find a power token facing a variable head
-        bool find_power_vs_var(nielsen_node* node, euf::snode*& power, euf::snode*& var_head, str_eq const*& eq_out) const;
+        // find a power token facing a variable token at either end of an
+        // equation; returns orientation via `fwd` (true=head, false=tail).
+        bool find_power_vs_var(nielsen_node* node, euf::snode*& power, euf::snode*& var_head, str_eq const*& eq_out, bool& fwd) const;
 
         // -----------------------------------------------
         // Integer feasibility subsolver methods

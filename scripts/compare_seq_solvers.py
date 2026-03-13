@@ -22,8 +22,9 @@ DEFAULT_TIMEOUT = 5  # seconds
 COMMON_ARGS = ["model_validate=true"]
 
 SOLVERS = {
-    "nseq": "smt.string_solver=nseq",
-    "seq":  "smt.string_solver=seq",
+    "nseq": ["smt.string_solver=nseq"],
+    "nseq_np": ["smt.string_solver=nseq", "smt.nseq.parikh=false"],
+    "seq":  ["smt.string_solver=seq"],
 }
 
 
@@ -79,12 +80,12 @@ def _parse_result(output: str) -> str:
     return "timeout"
 
 
-def run_z3(z3_bin: str, smt_file: Path, solver_arg: str, timeout_s: int = DEFAULT_TIMEOUT) -> tuple[str, float]:
-    """Run z3 on a file with the given solver argument.
+def run_z3(z3_bin: str, smt_file: Path, solver_args: list[str], timeout_s: int = DEFAULT_TIMEOUT) -> tuple[str, float]:
+    """Run z3 on a file with the given solver arguments.
     Returns (result, elapsed) where result is 'sat', 'unsat', or 'timeout'/'error'.
     """
     timeout_ms = timeout_s * 1000
-    cmd = [z3_bin, f"-t:{timeout_ms}", solver_arg] + COMMON_ARGS + [str(smt_file)]
+    cmd = [z3_bin, f"-t:{timeout_ms}"] + solver_args + COMMON_ARGS + [str(smt_file)]
     start = time.monotonic()
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True,
@@ -118,10 +119,19 @@ def run_zipt(zipt_bin: str, smt_file: Path, timeout_s: int = DEFAULT_TIMEOUT) ->
         return f"error:{e}", elapsed
 
 
-def classify(res_nseq: str, res_seq: str) -> str:
+def classify(res_nseq: str, res_seq: str, res_nseq_np: str | None = None) -> str:
     """Classify a pair of results into a category."""
     timed_nseq = res_nseq == "timeout"
     timed_seq  = res_seq  == "timeout"
+    
+    if res_nseq_np:
+        timed_nseq_np = res_nseq_np == "timeout"
+        if timed_nseq and timed_seq and timed_nseq_np: return "all_timeout"
+        if not timed_nseq and not timed_seq and not timed_nseq_np:
+            if res_nseq == "unknown" or res_seq == "unknown" or res_nseq_np == "unknown":
+                return "all_terminate_unknown_involved"
+            if res_nseq == res_seq == res_nseq_np: return "all_agree"
+            return "diverge"
 
     if timed_nseq and timed_seq:
         return "both_timeout"
@@ -138,10 +148,15 @@ def classify(res_nseq: str, res_seq: str) -> str:
 
 
 def process_file(z3_bin: str, smt_file: Path, timeout_s: int = DEFAULT_TIMEOUT,
-                 zipt_bin: str | None = None) -> dict:
+                 zipt_bin: str | None = None, run_nseq_np: bool = False) -> dict:
     res_nseq, t_nseq = run_z3(z3_bin, smt_file, SOLVERS["nseq"], timeout_s)
     res_seq,  t_seq  = run_z3(z3_bin, smt_file, SOLVERS["seq"], timeout_s)
-    cat = classify(res_nseq, res_seq)
+    
+    res_nseq_np, t_nseq_np = None, None
+    if run_nseq_np:
+        res_nseq_np, t_nseq_np = run_z3(z3_bin, smt_file, SOLVERS["nseq_np"], timeout_s)
+
+    cat = classify(res_nseq, res_seq, res_nseq_np)
     smtlib_status = read_smtlib_status(smt_file)
     status = determine_status(res_nseq, res_seq, smtlib_status)
     result = {
@@ -155,6 +170,8 @@ def process_file(z3_bin: str, smt_file: Path, timeout_s: int = DEFAULT_TIMEOUT,
         "status":         status,
         "zipt":           None,
         "t_zipt":         None,
+        "nseq_np":        res_nseq_np,
+        "t_nseq_np":      t_nseq_np,
     }
     if zipt_bin:
         res_zipt, t_zipt = run_zipt(zipt_bin, smt_file, timeout_s)
@@ -173,6 +190,8 @@ def main():
                         help=f"Per-solver timeout in seconds (default: {DEFAULT_TIMEOUT})")
     parser.add_argument("--zipt", metavar="PATH", default=None,
                         help="Path to ZIPT binary (optional; if omitted, ZIPT is not benchmarked)")
+    parser.add_argument("--no-parikh", action="store_true",
+                        help="Also run nseq with nseq.parikh=false")
     parser.add_argument("--csv", metavar="FILE", help="Also write results to a CSV file")
     args = parser.parse_args()
 
@@ -190,31 +209,39 @@ def main():
         print(f"No {args.ext} files found under {root}", file=sys.stderr)
         sys.exit(1)
 
-    solvers_label = "nseq, seq" + (", zipt" if zipt_bin else "")
+    solvers_label = "nseq, seq"
+    if args.no_parikh: solvers_label += ", nseq_np"
+    if zipt_bin: solvers_label += ", zipt"
     print(f"Found {len(files)} files. Solvers: {solvers_label}. "
           f"Workers: {args.jobs}, timeout: {timeout_s}s\n")
 
     results = []
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = {pool.submit(process_file, z3_bin, f, timeout_s, zipt_bin): f for f in files}
+        futures = {pool.submit(process_file, z3_bin, f, timeout_s, zipt_bin, args.no_parikh): f for f in files}
         done = 0
         for fut in as_completed(futures):
             done += 1
             r = fut.result()
             results.append(r)
+            np_part = ""
+            if args.no_parikh:
+                np_part = f"  nseq_np={r['nseq_np']:8s} ({r['t_nseq_np']:.1f}s)"
             zipt_part = ""
             if zipt_bin:
                 zipt_part = f"  zipt={r['zipt']:8s} ({r['t_zipt']:.1f}s)"
             print(f"[{done:4d}/{len(files)}] {r['category']:35s}  nseq={r['nseq']:8s} ({r['t_nseq']:.1f}s)  "
-                  f"seq={r['seq']:8s} ({r['t_seq']:.1f}s){zipt_part}  {r['file'].name}")
+                  f"seq={r['seq']:8s} ({r['t_seq']:.1f}s){np_part}{zipt_part}  {r['file'].name}")
 
     # ── Summary ──────────────────────────────────────────────────────────────
     categories = {
+        "all_timeout":                    [],
         "both_timeout":                   [],
         "only_seq_terminates":            [],
         "only_nseq_terminates":           [],
         "both_agree":                     [],
         "both_terminate_unknown_involved":[],
+        "all_terminate_unknown_involved":[],
+        "all_agree":                      [],
         "diverge":                        [],
     }
     for r in results:
@@ -283,9 +310,15 @@ def main():
     if args.csv:
         import csv
         csv_path = Path(args.csv)
-        fieldnames = ["file", "nseq", "seq", "t_nseq", "t_seq", "category", "smtlib_status", "status"]
+        fieldnames = ["file", "nseq", "seq"]
+        if args.no_parikh:
+            fieldnames.append("nseq_np")
+        fieldnames.extend(["t_nseq", "t_seq"])
+        if args.no_parikh:
+            fieldnames.append("t_nseq_np")
+        fieldnames.extend(["category", "smtlib_status", "status"])
         if zipt_bin:
-            fieldnames[4:4] = ["zipt", "t_zipt"]
+            fieldnames.extend(["zipt", "t_zipt"])
         with csv_path.open("w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
             writer.writeheader()
