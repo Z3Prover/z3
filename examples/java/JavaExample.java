@@ -2301,6 +2301,32 @@ class JavaExample
         System.out.println("IsGroundExample passed.");
     }
 
+    @SuppressWarnings("unchecked")
+    void astDepthExample(Context ctx) throws TestFailedException
+    {
+        System.out.println("AstDepthExample");
+        Log.append("AstDepthExample");
+
+        // a plain integer constant has depth 1
+        IntExpr five = ctx.mkInt(5);
+        if (five.getDepth() != 1)
+            throw new TestFailedException();
+
+        // (x + 1) should have depth 2
+        IntExpr x = ctx.mkIntConst("x");
+        Expr sum = ctx.mkAdd(x, ctx.mkInt(1));
+        if (sum.getDepth() != 2)
+            throw new TestFailedException();
+
+        // nested: (x + 1) * y should have depth 3
+        IntExpr y = ctx.mkIntConst("y");
+        Expr prod = ctx.mkMul(sum, y);
+        if (prod.getDepth() != 3)
+            throw new TestFailedException();
+
+        System.out.println("AstDepthExample passed.");
+    }
+
     public static void main(String[] args)
     {
         JavaExample p = new JavaExample();
@@ -2353,6 +2379,7 @@ class JavaExample
                 p.floatingPointExample1(ctx);
                 // core dumps: p.floatingPointExample2(ctx);
                 p.isGroundExample(ctx);
+                p.astDepthExample(ctx);
             }
 
             { // These examples need proof generation turned on.
