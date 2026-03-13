@@ -81,6 +81,16 @@ public class AST extends Z3Object implements Comparable<AST>
     }
 
     /**
+     * The depth of the AST (max nodes on any root-to-leaf path).
+     * @throws Z3Exception on error
+     * @return an int
+     **/
+    public int getDepth()
+    {
+        return Native.getDepth(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
      * Translates (copies) the AST to the Context {@code ctx}. 
      * @param ctx A context
      * 
