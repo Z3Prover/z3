@@ -2277,6 +2277,30 @@ class JavaExample
 	
     }    
 
+    @SuppressWarnings("unchecked")
+    void isGroundExample(Context ctx) throws TestFailedException
+    {
+        System.out.println("IsGroundExample");
+        Log.append("IsGroundExample");
+
+        // a constant integer is ground
+        IntExpr five = ctx.mkInt(5);
+        if (!five.isGround())
+            throw new TestFailedException();
+
+        // a free variable is not ground
+        IntExpr x = ctx.mkIntConst("x");
+        if (!x.isGround())
+            throw new TestFailedException();
+
+        // an addition of constants is ground
+        Expr sum = ctx.mkAdd(ctx.mkInt(1), ctx.mkInt(2));
+        if (!sum.isGround())
+            throw new TestFailedException();
+
+        System.out.println("IsGroundExample passed.");
+    }
+
     public static void main(String[] args)
     {
         JavaExample p = new JavaExample();
@@ -2328,6 +2352,7 @@ class JavaExample
                 p.finiteDomainExample(ctx);
                 p.floatingPointExample1(ctx);
                 // core dumps: p.floatingPointExample2(ctx);
+                p.isGroundExample(ctx);
             }
 
             { // These examples need proof generation turned on.
