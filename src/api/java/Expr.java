@@ -317,6 +317,16 @@ public class Expr<R extends Sort> extends AST
     }
 
     /**
+     * Indicates whether the term is a lambda expression.
+     * @throws Z3Exception on error
+     * @return a boolean
+     **/
+    public boolean isLambda()
+    {
+        return Native.isLambda(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
      * Indicates whether the term has Boolean sort.
      * @throws Z3Exception on error
      * @return a boolean
