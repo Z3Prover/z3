@@ -2372,6 +2372,26 @@ class JavaExample
         System.out.println("RecursiveDatatypeExample passed.");
     }
 
+    void fpNumeralExample(Context ctx) throws TestFailedException
+    {
+        System.out.println("FpNumeralExample");
+        Log.append("FpNumeralExample");
+
+        FPSort fpsort = ctx.mkFPSort32();
+
+        // a floating point numeral
+        FPExpr fpval = (FPExpr) ctx.mkFP(3.14, fpsort);
+        if (!fpval.isNumeral())
+            throw new TestFailedException();
+
+        // a symbolic FP variable is not a numeral
+        FPExpr fpvar = (FPExpr) ctx.mkConst("fpx", fpsort);
+        if (fpvar.isNumeral())
+            throw new TestFailedException();
+
+        System.out.println("FpNumeralExample passed.");
+    }
+
     public static void main(String[] args)
     {
         JavaExample p = new JavaExample();
@@ -2427,6 +2447,7 @@ class JavaExample
                 p.astDepthExample(ctx);
                 p.arrayArityExample(ctx);
                 p.recursiveDatatypeExample(ctx);
+                p.fpNumeralExample(ctx);
             }
 
             { // These examples need proof generation turned on.
