@@ -128,13 +128,7 @@ namespace smt {
     }
 
     // -----------------------------------------------------------------------
-    // get_length_constraint: extract a semi-linear length constraint from r.
-    //
-    // On success, sets:
-    //   period == 0: lengths in r are exactly {base}
-    //   period > 0:  lengths in r are {base + k*period : k >= 0}
-    //
-    // Returns false if no useful constraint can be extracted.
+    // has_fixed_length: true when min_length(r) == max_length(r) < UINT_MAX
     // -----------------------------------------------------------------------
 
     bool theory_seq_len::has_fixed_length(expr* r, unsigned& len) const {
@@ -147,126 +141,252 @@ namespace smt {
         return false;
     }
 
-    bool theory_seq_len::get_length_constraint(expr* r, unsigned& base, unsigned& period) const {
+    // -----------------------------------------------------------------------
+    // get_length_arms
+    //
+    // Compute the semi-linear set of valid string lengths for the regex r.
+    // Each returned arm represents one arithmetic progression:
+    //   ∃ k_0,...,k_{n-1} ≥ 0 :  |s| = base + ∑ periods[i] * k_i
+    //
+    // Handles:
+    //   - Fixed-length regexes (e.g. "abc", [a-z]{3}): single arm, no periods.
+    //   - (R)* where R has fixed length n:  {0, n, 2n, ...}
+    //   - (R)+ where R has fixed length n:  {n, 2n, 3n, ...}
+    //   - (R){lo,hi} where R has fixed length n: lo*n + k*n, 0 ≤ k ≤ hi-lo
+    //     (upper bound is handled separately by max_length; here we use period n)
+    //   - (R){lo,} where R has fixed length n:  lo*n + k*n
+    //   - (R)?  — two fixed arms: 0 and the body's constraint set
+    //   - R1|R2 — union: arms(R1) ∪ arms(R2)          [NEW]
+    //   - R1++R2 — Minkowski sum: for every pair (a1,a2) in arms(R1)×arms(R2)
+    //              produce {base=a1.base+a2.base, periods=a1.periods++a2.periods}
+    //              (capped at MAX_LEN_ARMS to avoid explosion)  [IMPROVED]
+    //
+    // Returns empty when no useful constraint can be extracted.
+    // -----------------------------------------------------------------------
+
+    theory_seq_len::len_arms theory_seq_len::get_length_arms(expr* r) const {
+        len_arms result;
         expr* r1 = nullptr, *r2 = nullptr;
         unsigned lo = 0, hi = 0;
 
-        // Empty regex: no string can match -> handled by conflict, not length.
+        // Empty regex: no string can match; handled upstream via conflict.
         if (m_util.re.is_empty(r))
-            return false;
+            return result;
 
-        // Full sequence: any length is possible.
+        // Full sequence: any length is possible — no useful constraint.
         if (m_util.re.is_full_seq(r))
-            return false;
+            return result;
 
         // Fixed-length regex (min == max).
         {
             unsigned flen = 0;
             if (has_fixed_length(r, flen)) {
-                base   = flen;
-                period = 0;
-                return true;
+                result.push_back({flen, {}});
+                return result;
             }
         }
 
-        // (R1)* where R1 has fixed length n: lengths = {k*n : k >= 0}
+        // (R)* where R has fixed length n:  lengths = {k*n : k ≥ 0}
         if (m_util.re.is_star(r, r1)) {
             unsigned n = 0;
             if (has_fixed_length(r1, n) && n > 0) {
-                base   = 0;
-                period = n;
-                return true;
+                result.push_back({0, {n}});
+                return result;
             }
-            return false;
+            // Body length not fixed — no constraint extracted.
+            return result;
         }
 
-        // (R1)+ where R1 has fixed length n: lengths = {k*n : k >= 1} = {n + k*n : k >= 0}
+        // (R)+ where R has fixed length n:  lengths = {n + k*n : k ≥ 0}
         if (m_util.re.is_plus(r, r1)) {
             unsigned n = 0;
             if (has_fixed_length(r1, n) && n > 0) {
-                base   = n;
-                period = n;
-                return true;
+                result.push_back({n, {n}});
+                return result;
             }
-            return false;
+            return result;
         }
 
-        // Loop {lo, hi} where R1 has fixed length n:
-        // lengths = {lo*n, (lo+1)*n, ..., hi*n} (a range, not necessarily simple period)
-        // For now, just assert the lower bound as "base" and give min length as constraint.
+        // (R){lo,hi} where R has fixed length n
         if (m_util.re.is_loop(r, r1, lo, hi)) {
             unsigned n = 0;
             if (has_fixed_length(r1, n)) {
-                // Lengths are exactly multiples of n between lo*n and hi*n.
-                // We express this as a range: the constraint len = lo*n + k*n for 0<=k<=hi-lo.
-                // Since our schema only handles one arithmetic progression, just use
-                // base=lo*n, period=n (and an upper bound will be added separately).
-                base   = lo * n;
-                period = (hi > lo) ? n : 0;
-                return true;
+                // Lengths ∈ {lo*n, (lo+1)*n, ..., hi*n}.
+                // Represent as lo*n + k*n (k ≥ 0); the upper bound hi*n is
+                // already asserted via max_length.
+                svector<unsigned> periods;
+                if (hi > lo && n > 0)
+                    periods.push_back(n);
+                result.push_back({lo * n, std::move(periods)});
+                return result;
             }
-            return false;
+            return result;
         }
 
-        // Loop with lower bound only (no upper bound).
+        // (R){lo,} where R has fixed length n
         if (m_util.re.is_loop(r, r1, lo)) {
             unsigned n = 0;
             if (has_fixed_length(r1, n) && n > 0) {
-                base   = lo * n;
-                period = n;
-                return true;
+                result.push_back({lo * n, {n}});
+                return result;
             }
-            return false;
+            return result;
         }
 
-        // Concatenation R1 ++ R2: if both parts have constraints, combine.
-        if (m_util.re.is_concat(r, r1, r2)) {
-            unsigned b1 = 0, p1 = 0, b2 = 0, p2 = 0;
-            bool ok1 = get_length_constraint(r1, b1, p1);
-            bool ok2 = get_length_constraint(r2, b2, p2);
-            if (ok1 && ok2) {
-                // If both are fixed length:
-                if (p1 == 0 && p2 == 0) {
-                    base   = b1 + b2;
-                    period = 0;
-                    return true;
-                }
-                // If one is fixed and the other periodic:
-                if (p1 == 0) {
-                    base   = b1 + b2;
-                    period = p2;
-                    return true;
-                }
-                if (p2 == 0) {
-                    base   = b1 + b2;
-                    period = p1;
-                    return true;
-                }
-                // Both periodic: only combine if same period.
-                if (p1 == p2) {
-                    base   = b1 + b2;
-                    period = p1;
-                    return true;
-                }
-                // Incompatible periods: fall through.
-            }
-            // Partial: at least assert minimum length.
-            return false;
-        }
-
-        // Option (R1)?: lengths = {0, n} where n is fixed length of R1.
+        // (R)? — option: lengths are {0} ∪ lengths(R).
+        // Handled as the union (R | ε) where ε has the single fixed arm {0,[]}.
         if (m_util.re.is_opt(r, r1)) {
-            unsigned n = 0;
-            if (has_fixed_length(r1, n)) {
-                // lengths are 0 or n
-                base   = 0;
-                period = (n > 0) ? n : 0;
-                return true;
-            }
-            return false;
+            len_arms sub = get_length_arms(r1);
+            if (sub.empty())
+                return result;           // body unconstrained → union is too
+            sub.push_back({0, {}});      // add the empty-string arm
+            return sub;
         }
 
-        return false;
+        // R1 | R2 — union: arms(R1) ∪ arms(R2).
+        // If either side yields no arms (unconstrained), the whole union is
+        // unconstrained too, so we return empty.
+        if (m_util.re.is_union(r, r1, r2)) {
+            len_arms arms1 = get_length_arms(r1);
+            len_arms arms2 = get_length_arms(r2);
+            if (arms1.empty() || arms2.empty())
+                return result;
+            result.append(arms1);
+            result.append(arms2);
+            return result;
+        }
+
+        // R1 ++ R2 — concatenation: Minkowski sum of the two sets.
+        // For each pair of arms (a1, a2) the combined arm has
+        //   base   = a1.base + a2.base
+        //   periods = a1.periods ++ a2.periods   (fresh k_i for each entry)
+        // This correctly handles different-period components, e.g.
+        //   (aa)* ++ (bbb)*  →  |s| = 2*k1 + 3*k2,  k1,k2 ≥ 0.
+        if (m_util.re.is_concat(r, r1, r2)) {
+            len_arms arms1 = get_length_arms(r1);
+            len_arms arms2 = get_length_arms(r2);
+            if (arms1.empty() || arms2.empty())
+                return result;
+            for (const len_arm& a1 : arms1) {
+                for (const len_arm& a2 : arms2) {
+                    len_arm combined;
+                    combined.base = a1.base + a2.base;
+                    combined.periods.append(a1.periods);
+                    combined.periods.append(a2.periods);
+                    result.push_back(std::move(combined));
+                    if (result.size() >= MAX_LEN_ARMS) {
+                        TRACE(seq, tout << "seq_len: concat arm cap reached at "
+                                        << MAX_LEN_ARMS << " arms\n";);
+                        return result;  // cap — still sound, just less precise
+                    }
+                }
+            }
+            return result;
+        }
+
+        return result;   // no constraint extracted for other regex forms
+    }
+
+    // -----------------------------------------------------------------------
+    // assert_one_arm
+    //
+    // Assert the existential encoding for one arm under a guard:
+    //   cond_lit → ∃ k_0,...,k_{n-1} ≥ 0 : |s| = base + ∑ periods[i] * k_i
+    //
+    // Each k_i is a fresh Int skolem constant.  The implications are encoded
+    // as two-literal clauses (¬cond_lit ∨ constraint).
+    // -----------------------------------------------------------------------
+
+    void theory_seq_len::assert_one_arm(expr* s, literal cond_lit, const len_arm& arm) {
+        expr_ref len(m_util.str.mk_length(s), m);
+        expr_ref_vector addends(m);
+        if (arm.base > 0 || arm.periods.empty())
+            addends.push_back(m_autil.mk_int(arm.base));
+
+        for (unsigned p : arm.periods) {
+            // Introduce a fresh non-negative integer variable.
+            app_ref k(m.mk_fresh_const("_k_period_", m_autil.mk_int()), m);
+            // cond_lit → k ≥ 0
+            {
+                literal_vector lits;
+                lits.push_back(~cond_lit);
+                lits.push_back(mk_literal(m_autil.mk_ge(k, m_autil.mk_int(0))));
+                assert_axiom(lits);
+            }
+            addends.push_back(m_autil.mk_mul(m_autil.mk_int(p), k));
+        }
+
+        // Build the right-hand side: base + ∑ p_i * k_i
+        expr_ref rhs(m);
+        if (addends.empty())
+            rhs = m_autil.mk_int(0);
+        else if (addends.size() == 1)
+            rhs = addends[0].get();
+        else
+            rhs = expr_ref(m_autil.mk_add(addends.size(), addends.data()), m);
+
+        // cond_lit → |s| = rhs
+        {
+            literal_vector lits;
+            lits.push_back(~cond_lit);
+            lits.push_back(mk_literal(m.mk_eq(len, rhs)));
+            assert_axiom(lits);
+        }
+
+        TRACE(seq, tout << "seq_len arm: cond=" << cond_lit
+                        << " base=" << arm.base
+                        << " #periods=" << arm.periods.size()
+                        << " s=" << mk_pp(s, m) << "\n";);
+    }
+
+    // -----------------------------------------------------------------------
+    // assert_len_arms
+    //
+    // Assert the disjunction of length arms under the membership literal:
+    //   mem_lit → (arm_0 ∨ arm_1 ∨ ... ∨ arm_{n-1})
+    //
+    // Single arm: delegate directly to assert_one_arm (no guards needed).
+    //
+    // Multiple arms (union encoding):
+    //   Introduce fresh guard Boolean g_i for each arm.
+    //   Assert:  ¬mem_lit ∨ g_0 ∨ g_1 ∨ ...   (the disjunction selector)
+    //   Assert:  g_i → arm_i constraints        (per-arm implications)
+    //
+    // The SAT/DPLL engine freely picks a guard; the arithmetic theory then
+    // verifies (and if necessary refutes) the arithmetic constraints for that
+    // arm, driving the search toward a consistent assignment.
+    // -----------------------------------------------------------------------
+
+    void theory_seq_len::assert_len_arms(expr* s, literal mem_lit, const len_arms& arms) {
+        if (arms.empty())
+            return;
+
+        if (arms.size() == 1) {
+            assert_one_arm(s, mem_lit, arms[0]);
+            return;
+        }
+
+        // Multiple arms — introduce guard Booleans.
+        literal_vector guard_lits;
+        for (const len_arm& arm : arms) {
+            app_ref g(m.mk_fresh_const("_len_guard_", m.mk_bool_sort()), m);
+            bool_var bv = ctx.mk_bool_var(g);
+            ctx.mark_as_relevant(bv);
+            literal gl(bv, false);
+            guard_lits.push_back(gl);
+            assert_one_arm(s, gl, arm);    // gl → arm constraints
+        }
+
+        // mem_lit → g_0 ∨ g_1 ∨ ...
+        literal_vector clause;
+        clause.push_back(~mem_lit);
+        for (literal g : guard_lits)
+            clause.push_back(g);
+        assert_axiom(clause);
+
+        TRACE(seq, tout << "seq_len: union disjunction with "
+                        << guard_lits.size() << " arms for s="
+                        << mk_pp(s, m) << "\n";);
     }
 
     // -----------------------------------------------------------------------
@@ -310,64 +430,9 @@ namespace smt {
             assert_axiom(lits);
         }
 
-        // Extract semi-linear length constraint.
-        unsigned base = 0, period = 0;
-        if (!get_length_constraint(r, base, period))
-            return;
-
-        if (period == 0) {
-            // Fixed length: (s in R) => |s| = base
-            expr_ref eq_base(m.mk_eq(len, m_autil.mk_int(base)), m);
-            if (!ctx.b_internalized(eq_base))
-                ctx.internalize(eq_base, true);
-            literal eq_lit = ctx.get_literal(eq_base);
-            ctx.mark_as_relevant(eq_lit);
-            literal_vector lits;
-            lits.push_back(~lit);
-            lits.push_back(eq_lit);
-            assert_axiom(lits);
-        }
-        else {
-            // Semi-linear: lengths are {base + k * period : k >= 0}
-            // Assert:
-            //   (s in R) => |s| >= base
-            //   (s in R) => |s| mod period = base mod period  (only when period >= 2)
-
-            // |s| >= base
-            expr_ref ge_base(m_autil.mk_ge(len, m_autil.mk_int(base)), m);
-            if (!ctx.b_internalized(ge_base))
-                ctx.internalize(ge_base, true);
-            literal ge_base_lit = ctx.get_literal(ge_base);
-            ctx.mark_as_relevant(ge_base_lit);
-            {
-                literal_vector lits;
-                lits.push_back(~lit);
-                lits.push_back(ge_base_lit);
-                assert_axiom(lits);
-            }
-
-            // |s| mod period = base mod period
-            // Skip when period <= 1: period == 0 is already handled above;
-            // period == 1 makes the constraint trivially true (n mod 1 = 0).
-            if (period >= 2) {
-                expr_ref mod_len(m_autil.mk_mod(len, m_autil.mk_int(period)), m);
-                expr_ref eq_mod(m.mk_eq(mod_len, m_autil.mk_int(base % period)), m);
-                if (!ctx.b_internalized(eq_mod))
-                    ctx.internalize(eq_mod, true);
-                literal eq_mod_lit = ctx.get_literal(eq_mod);
-                ctx.mark_as_relevant(eq_mod_lit);
-                {
-                    literal_vector lits;
-                    lits.push_back(~lit);
-                    lits.push_back(eq_mod_lit);
-                    assert_axiom(lits);
-                }
-            }
-
-            TRACE(seq, tout << "seq_len: (s in R) => |s| >= " << base
-                            << (period >= 2 ? " && |s| mod " + std::to_string(period) + " = " + std::to_string(base % period) : "")
-                            << " for s=" << mk_pp(s, m) << " r=" << mk_pp(r, m) << "\n";);
-        }
+        // Extract and assert the semi-linear length constraint.
+        len_arms arms = get_length_arms(r);
+        assert_len_arms(s, lit, arms);
     }
 
     // -----------------------------------------------------------------------

@@ -881,7 +881,7 @@ namespace seq {
         void apply_parikh_to_node(nielsen_node& node);
 
         // create a fresh variable with a unique name
-        euf::snode* mk_fresh_var();
+        euf::snode* mk_fresh_var(sort* s);
 
         // create a fresh symbolic character: seq.unit(fresh_char_const)
         // analogous to ZIPT's SymCharToken creation

@@ -14,8 +14,13 @@ Abstract:
     - Axiomatizes (seq.len S) >= 0 for all sequence variables S.
     - Derives stronger lower/upper bounds on seq.len based on the structure of S.
     - Axiomatizes S in RegEx by extracting semi-linear length constraints from
-      the regex. For example, if RegEx is (aa)*, it asserts (seq.len S) = 2*X_s
-      where X_s >= 0 is a fresh integer variable.
+      the regex and asserting them into the arithmetic solver.
+    - The semi-linear set of valid lengths is represented as a finite union
+      (disjunction) of arithmetic progressions.  Each progression is expressed
+      as an existential linear constraint:
+        ∃ k_0,...,k_{n-1} ≥ 0 :  |s| = base + ∑ periods[i] * k_i
+      For unions the disjunction is encoded via fresh guard Boolean variables.
+      For concatenations the Minkowski sum is computed by merging period lists.
     - Returns FC_DONE in final_check (incomplete but sound partial solver).
 
 Author:
@@ -36,6 +41,30 @@ namespace smt {
     class theory_seq_len : public theory {
         seq_util        m_util;
         arith_util      m_autil;
+
+        // -----------------------------------------------------------------------
+        // Semi-linear length constraint representation
+        //
+        // A single "arm" represents one arithmetic progression of valid lengths:
+        //   ∃ k_0,...,k_{n-1} ≥ 0 : |s| = base + ∑ periods[i] * k_i
+        //
+        // When periods is empty the constraint collapses to |s| = base (fixed).
+        // When periods has one entry p it is  |s| = base + k*p,  k ≥ 0
+        //   (same as: |s| ≥ base  ∧  |s| mod p = base mod p).
+        // Multiple entries arise from Minkowski sums of concat sub-regexes.
+        //
+        // A complete semi-linear set is a disjunction of arms:
+        //   the string length satisfies at least one arm.
+        // -----------------------------------------------------------------------
+        struct len_arm {
+            unsigned          base    = 0;
+            svector<unsigned> periods;          // coefficients for fresh k_i vars
+        };
+        using len_arms = svector<len_arm>;
+
+        // Maximum number of arms we are willing to maintain.  Limits the
+        // Minkowski-product explosion when concatenating two multi-arm regexes.
+        static const unsigned MAX_LEN_ARMS = 16;
 
         // -----------------------------------------------------------------------
         // Virtual overrides required by theory base class
@@ -71,12 +100,22 @@ namespace smt {
         // Returns true if the regex r has a fixed length (min==max).
         bool has_fixed_length(expr* r, unsigned& len) const;
 
-        // Extract semi-linear length constraint for a regex.
-        // Returns true if a useful constraint can be extracted.
-        // If so, sets:
-        //   period > 0: lengths are of the form (base + period*k), k >= 0
-        //   period == 0: length is exactly base
-        bool get_length_constraint(expr* r, unsigned& base, unsigned& period) const;
+        // Compute the semi-linear set of valid lengths for r.
+        // Returns an empty vector when no useful constraint can be extracted
+        // (e.g. r matches strings of arbitrary length or the structure is
+        // too complex to analyze).
+        len_arms get_length_arms(expr* r) const;
+
+        // Assert constraints for one progression arm under a guard literal.
+        //   cond_lit → ∃ k_i ≥ 0 : |s| = arm.base + ∑ arm.periods[i] * k_i
+        // Fresh Int constants are introduced for each k_i.
+        void assert_one_arm(expr* s, literal cond_lit, const len_arm& arm);
+
+        // Assert the disjunction of length arms:
+        //   mem_lit → (arm_0 holds) ∨ (arm_1 holds) ∨ ...
+        // For a single arm the constraint is asserted directly under mem_lit.
+        // For multiple arms, fresh guard Booleans are introduced as selectors.
+        void assert_len_arms(expr* s, literal mem_lit, const len_arms& arms);
 
         // Helper: internalize and get literal for an expr.
         literal mk_literal(expr* e);
