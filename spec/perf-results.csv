@@ -1,0 +1,55 @@
+benchmark,full_path,seq_status,seq_time,nseq_status,nseq_time,zipt_status,zipt_time
+20230329-automatark-lu/instance00000.smt2,C:\c3\tests\non-incremental\QF_S\20230329-automatark-lu\instance00000.smt2,sat,0.492,timeout,10.099,sat,0.46
+20230329-automatark-lu/instance05331.smt2,C:\c3\tests\non-incremental\QF_S\20230329-automatark-lu\instance05331.smt2,sat,0.469,timeout,10.083,sat,0.496
+20230329-automatark-lu/instance10662.smt2,C:\c3\tests\non-incremental\QF_S\20230329-automatark-lu\instance10662.smt2,unsat,0.511,timeout,10.087,unsat,0.489
+20240318-omark/cloud-service-query-1.smt2,C:\c3\tests\non-incremental\QF_S\20240318-omark\cloud-service-query-1.smt2,sat,7.603,Result: SAT,0.53,sat,1.092
+20240318-omark/lyndon-schuetzenberg-3.smt2,C:\c3\tests\non-incremental\QF_S\20240318-omark\lyndon-schuetzenberg-3.smt2,timeout,10.065,timeout,10.49,timeout,10.41
+20240318-omark/noodles-unsat-5.smt2,C:\c3\tests\non-incremental\QF_S\20240318-omark\noodles-unsat-5.smt2,timeout,10.445,unknown,0.436,sat,0.939
+20250410-matching/sub-matching-sat-1.smt2,C:\c3\tests\non-incremental\QF_S\20250410-matching\sub-matching-sat-1.smt2,timeout,10.074,timeout,10.448,crash,0.781
+20250410-matching/sub-matching-unsat-16.smt2,C:\c3\tests\non-incremental\QF_S\20250410-matching\sub-matching-unsat-16.smt2,timeout,10.472,timeout,10.443,crash,0.808
+20250410-matching/wildcard-matching-regex-104.smt2,C:\c3\tests\non-incremental\QF_S\20250410-matching\wildcard-matching-regex-104.smt2,sat,0.531,unknown,0.085,unknown,0.404
+20250410-matching/wildcard-matching-regex-41.smt2,C:\c3\tests\non-incremental\QF_S\20250410-matching\wildcard-matching-regex-41.smt2,crash,0.389,unknown,0.341,crash,0.699
+20250411-hornstr-equiv/Burns_lstar_non_incre_equiv_bad_0_0.smt2,C:\c3\tests\non-incremental\QF_S\20250411-hornstr-equiv\Burns_lstar_non_incre_equiv_bad_0_0.smt2,sat,0.123,unknown,0.093,sat,0.503
+20250411-hornstr-equiv/dining-cryptographers_sat_non_incre_equiv_init_0_3.smt2,C:\c3\tests\non-incremental\QF_S\20250411-hornstr-equiv\dining-cryptographers_sat_non_incre_equiv_init_0_3.smt2,sat,0.1,Result: UNSAT,0.107,sat,0.488
+20250411-hornstr-equiv/muzzle_sat_non_incre_equiv_bad_0_13.smt2,C:\c3\tests\non-incremental\QF_S\20250411-hornstr-equiv\muzzle_sat_non_incre_equiv_bad_0_13.smt2,unsat,0.059,unsat,0.097,unsat,0.419
+20250411-negated-predicates/diseq-1-3-5-0.smt2,C:\c3\tests\non-incremental\QF_S\20250411-negated-predicates\diseq-1-3-5-0.smt2,timeout,10.067,Result: SAT,0.461,timeout,10
+20250411-negated-predicates/diseq-None-4-5-107.smt2,C:\c3\tests\non-incremental\QF_S\20250411-negated-predicates\diseq-None-4-5-107.smt2,timeout,10.411,Result: SAT,0.437,timeout,10
+20250411-negated-predicates/not-contains-1-4-5-112.smt2,C:\c3\tests\non-incremental\QF_S\20250411-negated-predicates\not-contains-1-4-5-112.smt2,timeout,10.445,unknown,0.43,sat,0.404
+pcp-3-3-random/pcp_instance_0.smt2,C:\c3\tests\non-incremental\QF_S\20250403-pcp-string\pcp-3-3-random\pcp_instance_0.smt2,unknown,0.098,timeout,10.077,unknown,0.321
+pcp-3-3-random/pcp_instance_248.smt2,C:\c3\tests\non-incremental\QF_S\20250403-pcp-string\pcp-3-3-random\pcp_instance_248.smt2,unknown,0.462,timeout,10.077,unknown,0.289
+pcp-3-3-random/pcp_instance_398.smt2,C:\c3\tests\non-incremental\QF_S\20250403-pcp-string\pcp-3-3-random\pcp_instance_398.smt2,unknown,0.456,timeout,10.074,unknown,0.316
+pcp-3-4-hard/unsolved_pcp_instance_0.smt2,C:\c3\tests\non-incremental\QF_S\20250403-pcp-string\pcp-3-4-hard\unsolved_pcp_instance_0.smt2,unknown,0.467,timeout,10.074,unknown,0.335
+pcp-3-4-hard/unsolved_pcp_instance_248.smt2,C:\c3\tests\non-incremental\QF_S\20250403-pcp-string\pcp-3-4-hard\unsolved_pcp_instance_248.smt2,unknown,0.458,timeout,10.061,unknown,0.316
+pcp-3-4-hard/unsolved_pcp_instance_398.smt2,C:\c3\tests\non-incremental\QF_S\20250403-pcp-string\pcp-3-4-hard\unsolved_pcp_instance_398.smt2,unknown,0.468,timeout,10.072,unknown,0.305
+queries/query2885.smt2,C:\c3\tests\non-incremental\QF_S\2020-sygus-qgen\queries\query2885.smt2,sat,0.886,unknown,0.093,sat,0.386
+queries/query3358.smt2,C:\c3\tests\non-incremental\QF_S\2020-sygus-qgen\queries\query3358.smt2,sat,0.519,unknown,0.068,sat,0.448
+queries/query3664.smt2,C:\c3\tests\non-incremental\QF_S\2020-sygus-qgen\queries\query3664.smt2,sat,0.271,unknown,0.072,sat,0.424
+queries/query6481.smt2,C:\c3\tests\non-incremental\QF_S\2020-sygus-qgen\queries\query6481.smt2,sat,0.218,unknown,0.069,sat,0.433
+queries-no-ree/query10041.smt2,C:\c3\tests\non-incremental\QF_S\2020-sygus-qgen\queries-no-ree\query10041.smt2,sat,0.798,unknown,0.075,sat,0.448
+queries-no-ree/query3231.smt2,C:\c3\tests\non-incremental\QF_S\2020-sygus-qgen\queries-no-ree\query3231.smt2,sat,0.444,unknown,0.474,sat,0.422
+queries-no-ree/query3723.smt2,C:\c3\tests\non-incremental\QF_S\2020-sygus-qgen\queries-no-ree\query3723.smt2,sat,0.422,unknown,0.082,sat,0.451
+queries-no-ree/query5519.smt2,C:\c3\tests\non-incremental\QF_S\2020-sygus-qgen\queries-no-ree\query5519.smt2,sat,0.222,unknown,0.09,sat,0.418
+rna-sat/benchmark_0001.smt2,C:\c3\tests\non-incremental\QF_S\20250403-rna\rna-sat\benchmark_0001.smt2,unknown,0.079,unknown,0.06,unknown,0.275
+rna-sat/benchmark_0167.smt2,C:\c3\tests\non-incremental\QF_S\20250403-rna\rna-sat\benchmark_0167.smt2,unknown,0.074,unknown,0.08,unknown,0.276
+rna-sat/benchmark_0333.smt2,C:\c3\tests\non-incremental\QF_S\20250403-rna\rna-sat\benchmark_0333.smt2,unknown,0.109,unknown,0.09,unknown,0.269
+rna-unsat/benchmark_0001.smt2,C:\c3\tests\non-incremental\QF_S\20250403-rna\rna-unsat\benchmark_0001.smt2,unknown,0.08,unknown,0.097,unknown,0.246
+rna-unsat/benchmark_0167.smt2,C:\c3\tests\non-incremental\QF_S\20250403-rna\rna-unsat\benchmark_0167.smt2,unknown,0.091,unknown,0.088,unknown,0.269
+rna-unsat/benchmark_0333.smt2,C:\c3\tests\non-incremental\QF_S\20250403-rna\rna-unsat\benchmark_0333.smt2,unknown,0.099,unknown,0.094,unknown,0.293
+slog/slog_stranger_1001_sink.smt2,C:\c3\tests\non-incremental\QF_S\2019-Jiang\slog\slog_stranger_1001_sink.smt2,unsat,0.092,unsat,0.084,unsat,0.416
+slog/slog_stranger_2251_sink.smt2,C:\c3\tests\non-incremental\QF_S\2019-Jiang\slog\slog_stranger_2251_sink.smt2,unsat,0.433,unsat,0.077,unsat,0.352
+slog/slog_stranger_3947_sink.smt2,C:\c3\tests\non-incremental\QF_S\2019-Jiang\slog\slog_stranger_3947_sink.smt2,sat,0.218,unknown,0.094,sat,0.575
+track01/01_track_1.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track01\01_track_1.smt2,sat,0.084,sat,0.082,sat,0.404
+track01/01_track_144.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track01\01_track_144.smt2,sat,0.06,sat,0.094,sat,0.503
+track01/01_track_19.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track01\01_track_19.smt2,sat,0.073,sat,0.061,sat,0.434
+track01/01_track_54.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track01\01_track_54.smt2,sat,0.101,Result: SAT,0.093,sat,1.142
+track02/02_track_1.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track02\02_track_1.smt2,timeout,10.075,Result: SAT,0.523,sat,0.594
+track02/02_track_4.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track02\02_track_4.smt2,timeout,10.072,Result: SAT,0.723,sat,6.008
+track02/02_track_7.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track02\02_track_7.smt2,timeout,10.428,Result: SAT,0.644,sat,2.855
+track03/03_track_1.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track03\03_track_1.smt2,unsat,0.065,unsat,0.08,unsat,0.472
+track03/03_track_144.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track03\03_track_144.smt2,sat,0.086,Result: SAT,0.075,sat,0.832
+track03/03_track_19.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track03\03_track_19.smt2,unsat,0.094,unsat,0.077,unsat,0.388
+track03/03_track_54.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track03\03_track_54.smt2,timeout,10.448,Result: UNSAT,0.482,unsat,0.508
+track04/04_track_1.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track04\04_track_1.smt2,sat,0.067,sat,0.062,sat,0.367
+track04/04_track_144.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track04\04_track_144.smt2,unsat,0.088,unsat,0.072,unsat,0.515
+track04/04_track_19.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track04\04_track_19.smt2,unsat,0.084,unsat,0.068,unsat,0.467
+track04/04_track_54.smt2,C:\c3\tests\non-incremental\QF_S\20230329-woorpje-lu\track04\04_track_54.smt2,sat,0.085,sat,0.084,sat,0.462
