@@ -2327,6 +2327,24 @@ class JavaExample
         System.out.println("AstDepthExample passed.");
     }
 
+    void arrayArityExample(Context ctx) throws TestFailedException
+    {
+        System.out.println("ArrayArityExample");
+        Log.append("ArrayArityExample");
+
+        // Array Int -> Int has arity 1
+        ArraySort<IntSort, IntSort> arr1 = ctx.mkArraySort(ctx.getIntSort(), ctx.getIntSort());
+        if (arr1.getArity() != 1)
+            throw new TestFailedException();
+
+        // Array (Int, Bool) -> Int has arity 2
+        ArraySort arr2 = ctx.mkArraySort(new Sort[]{ctx.getIntSort(), ctx.getBoolSort()}, ctx.getIntSort());
+        if (arr2.getArity() != 2)
+            throw new TestFailedException();
+
+        System.out.println("ArrayArityExample passed.");
+    }
+
     public static void main(String[] args)
     {
         JavaExample p = new JavaExample();
@@ -2380,6 +2398,7 @@ class JavaExample
                 // core dumps: p.floatingPointExample2(ctx);
                 p.isGroundExample(ctx);
                 p.astDepthExample(ctx);
+                p.arrayArityExample(ctx);
             }
 
             { // These examples need proof generation turned on.
