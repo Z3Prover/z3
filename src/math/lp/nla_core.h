@@ -63,6 +63,7 @@ class core {
 
     unsigned m_nlsat_delay = 0;
     unsigned m_nlsat_delay_bound = 0;
+    unsigned m_check_assignment_fail_cnt = 0;
 
     bool should_run_bounded_nlsat();
     lbool bounded_nlsat();

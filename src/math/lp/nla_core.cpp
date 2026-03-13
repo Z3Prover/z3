@@ -1330,10 +1330,14 @@ lbool core::check(unsigned level) {
             return l_false;
     }
 
-    if (no_effect()) {
+    if (no_effect() && params().arith_nl_nra_check_assignment() && m_check_assignment_fail_cnt < 10) {
         scoped_limits sl(m_reslim);
         sl.push_child(&m_nra_lim);
         ret = m_nra.check_assignment();
+        if (ret != l_true)
+            ++m_check_assignment_fail_cnt;
+        else
+            --m_check_assignment_fail_cnt;
     }
 
     if (no_effect() && should_run_bounded_nlsat()) 

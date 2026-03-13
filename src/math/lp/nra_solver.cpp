@@ -448,48 +448,63 @@ struct solver::imp {
     lbool add_lemma(nlsat::literal_vector const &clause) {
         u_map<lp::lpvar> nl2lp = reverse_lp2nl();
         polynomial::manager &pm = m_nlsat->pm();
-        nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
-        for (nlsat::literal l : clause) {
-            if (m_literal2constraint.get((~l).index(), lp::null_ci) != lp::null_ci) {
-                auto ci = m_literal2constraint[(~l).index()];
-                lp::explanation ex;
-                ex.push_back(ci);
-                lemma &= ex;
-                continue;
-            }
-            nlsat::atom *a = m_nlsat->bool_var2atom(l.var());
-            SASSERT(!a->is_root_atom());
-            SASSERT(a->is_ineq_atom());
-            auto &ia = *to_ineq_atom(a);
-            if (ia.size() != 1) {
-                return l_undef; // factored polynomials not handled here
-            }
-            polynomial::polynomial const *p = ia.p(0);
-            rational bound(0);
-            lp::lar_term t;
-            process_polynomial_check_assignment(p, bound, nl2lp, t);
+        lbool result = l_false;
+        {
+            nla::lemma_builder lemma(m_nla_core, __FUNCTION__);
+            for (nlsat::literal l : clause) {
+                if (m_literal2constraint.get((~l).index(), lp::null_ci) != lp::null_ci) {
+                    auto ci = m_literal2constraint[(~l).index()];
+                    lp::explanation ex;
+                    ex.push_back(ci);
+                    lemma &= ex;
+                    continue;
+                }
+                nlsat::atom *a = m_nlsat->bool_var2atom(l.var());
+                if (a->is_root_atom()) {
+                    result = l_undef;
+                    break;
+                }
+                SASSERT(a->is_ineq_atom());
+                auto &ia = *to_ineq_atom(a);
+                if (ia.size() != 1) {
+                    result = l_undef; // factored polynomials not handled here
+                    break;
+                }
+                polynomial::polynomial const *p = ia.p(0);
+                rational bound(0);
+                lp::lar_term t;
+                process_polynomial_check_assignment(p, bound, nl2lp, t);
 
-            nla::ineq inq(lp::lconstraint_kind::EQ, t, bound);  // initial value overwritten in cases below
-            switch (a->get_kind()) {
-            case nlsat::atom::EQ:
-                inq = nla::ineq(l.sign() ? lp::lconstraint_kind::NE : lp::lconstraint_kind::EQ, t, bound);
-                break;
-            case nlsat::atom::LT:
-                inq = nla::ineq(l.sign() ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LT, t, bound);
-                break;
-            case nlsat::atom::GT:
-                inq = nla::ineq(l.sign() ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GT, t, bound);
-                break;
-            default:
-                UNREACHABLE();
-                return l_undef;
+                nla::ineq inq(lp::lconstraint_kind::EQ, t, bound);  // initial value overwritten in cases below
+                switch (a->get_kind()) {
+                case nlsat::atom::EQ:
+                    inq = nla::ineq(l.sign() ? lp::lconstraint_kind::NE : lp::lconstraint_kind::EQ, t, bound);
+                    break;
+                case nlsat::atom::LT:
+                    inq = nla::ineq(l.sign() ? lp::lconstraint_kind::GE : lp::lconstraint_kind::LT, t, bound);
+                    break;
+                case nlsat::atom::GT:
+                    inq = nla::ineq(l.sign() ? lp::lconstraint_kind::LE : lp::lconstraint_kind::GT, t, bound);
+                    break;
+                default:
+                    UNREACHABLE();
+                    result = l_undef;
+                    break;
+                }
+                if (result == l_undef)
+                    break;
+                if (m_nla_core.ineq_holds(inq)) {
+                    result = l_undef;
+                    break;
+                }
+                lemma |= inq;
             }
-            if (m_nla_core.ineq_holds(inq))
-                return l_undef;
-            lemma |= inq;
-        }
-        this->m_nla_core.m_check_feasible = true;
-        return l_false;
+            if (result == l_false)
+                this->m_nla_core.m_check_feasible = true;
+        } // lemma_builder destructor runs here
+        if (result == l_undef)
+            m_nla_core.m_lemmas.pop_back(); // discard incomplete lemma
+        return result;
     }
 
 
