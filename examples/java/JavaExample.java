@@ -2392,6 +2392,28 @@ class JavaExample
         System.out.println("FpNumeralExample passed.");
     }
 
+    @SuppressWarnings("unchecked")
+    void isLambdaExample(Context ctx) throws TestFailedException
+    {
+        System.out.println("IsLambdaExample");
+        Log.append("IsLambdaExample");
+
+        // build lambda x : Int . x + 1
+        IntExpr x = (IntExpr) ctx.mkBound(0, ctx.getIntSort());
+        Expr body = ctx.mkAdd(x, ctx.mkInt(1));
+        Expr lam = ctx.mkLambda(new Sort[]{ctx.getIntSort()},
+                new Symbol[]{ctx.mkSymbol("x")}, body);
+        if (!lam.isLambda())
+            throw new TestFailedException();
+
+        // a regular expression is not a lambda
+        IntExpr y = ctx.mkIntConst("y");
+        if (y.isLambda())
+            throw new TestFailedException();
+
+        System.out.println("IsLambdaExample passed.");
+    }
+
     public static void main(String[] args)
     {
         JavaExample p = new JavaExample();
@@ -2448,6 +2470,7 @@ class JavaExample
                 p.arrayArityExample(ctx);
                 p.recursiveDatatypeExample(ctx);
                 p.fpNumeralExample(ctx);
+                p.isLambdaExample(ctx);
             }
 
             { // These examples need proof generation turned on.
