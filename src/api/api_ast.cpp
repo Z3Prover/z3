@@ -898,6 +898,10 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager & m = mk_c(c)->m();
         expr * a = to_expr(_a);
+        if (num_exprs > 0 && (!_from || !_to)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "null from/to arrays with non-zero num_exprs");
+            RETURN_Z3(of_expr(nullptr));
+        }
         expr * const * from = to_exprs(num_exprs, _from);
         expr * const * to   = to_exprs(num_exprs, _to);
         expr * r = nullptr;
@@ -1514,6 +1518,10 @@ extern "C" {
         LOG_Z3_translate(c, a, target);
         RESET_ERROR_CODE();
         CHECK_VALID_AST(a, nullptr);
+        if (!target) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "null target context");
+            RETURN_Z3(nullptr);
+        }
         if (c == target) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
