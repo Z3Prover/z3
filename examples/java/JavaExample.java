@@ -2345,6 +2345,33 @@ class JavaExample
         System.out.println("ArrayArityExample passed.");
     }
 
+    void recursiveDatatypeExample(Context ctx) throws TestFailedException
+    {
+        System.out.println("RecursiveDatatypeExample");
+        Log.append("RecursiveDatatypeExample");
+
+        // a list sort is recursive (cons refers back to the list)
+        Constructor<Sort> nil = ctx.mkConstructor("nil", "is_nil", null, null, null);
+        Constructor<Sort> cons = ctx.mkConstructor("cons", "is_cons",
+                new String[]{"head", "tail"},
+                new Sort[]{ctx.getIntSort(), null},
+                new int[]{0, 0});
+        DatatypeSort<Sort> intList = ctx.mkDatatypeSort("intlist", new Constructor[]{nil, cons});
+        if (!intList.isRecursive())
+            throw new TestFailedException();
+
+        // a simple pair sort is not recursive
+        Constructor<Sort> mkPair = ctx.mkConstructor("mkpair", "is_pair",
+                new String[]{"fst", "snd"},
+                new Sort[]{ctx.getIntSort(), ctx.getBoolSort()},
+                null);
+        DatatypeSort<Sort> pair = ctx.mkDatatypeSort("Pair", new Constructor[]{mkPair});
+        if (pair.isRecursive())
+            throw new TestFailedException();
+
+        System.out.println("RecursiveDatatypeExample passed.");
+    }
+
     public static void main(String[] args)
     {
         JavaExample p = new JavaExample();
@@ -2399,6 +2426,7 @@ class JavaExample
                 p.isGroundExample(ctx);
                 p.astDepthExample(ctx);
                 p.arrayArityExample(ctx);
+                p.recursiveDatatypeExample(ctx);
             }
 
             { // These examples need proof generation turned on.
