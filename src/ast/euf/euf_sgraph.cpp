@@ -461,21 +461,23 @@ namespace euf {
         return mk(u);
     }
 
-    snode* sgraph::mk_empty() {
-        expr_ref e(m_seq.str.mk_empty(m_str_sort), m);
+    snode* sgraph::mk_empty_seq(sort* s) {
+        expr_ref e(m_seq.str.mk_empty(s), m);
         return mk(e);
     }
 
     snode* sgraph::mk_concat(snode* a, snode* b) {
         if (a->is_empty()) return b;
         if (b->is_empty()) return a;
-        expr_ref e(m_seq.str.mk_concat(a->get_expr(), b->get_expr()), m);
-        return mk(e);
+        if (m_seq.is_re(a->get_expr()))
+            return mk(expr_ref(m_seq.re.mk_concat(a->get_expr(), b->get_expr()), m));
+        else    
+            return mk(expr_ref(m_seq.str.mk_concat(a->get_expr(), b->get_expr()), m));
     }
 
     snode* sgraph::drop_first(snode* n) {
         if (n->is_empty() || n->is_token())
-            return mk_empty();
+            return mk_empty_seq(n->get_sort());
         SASSERT(n->is_concat());
         snode* l = n->arg(0);
         snode* r = n->arg(1);
@@ -486,7 +488,7 @@ namespace euf {
 
     snode* sgraph::drop_last(snode* n) {
         if (n->is_empty() || n->is_token())
-            return mk_empty();
+            return mk_empty_seq(n->get_sort());
         SASSERT(n->is_concat());
         snode* l = n->arg(0);
         snode* r = n->arg(1);
@@ -497,7 +499,7 @@ namespace euf {
 
     snode* sgraph::drop_left(snode* n, unsigned count) {
         if (count == 0 || n->is_empty()) return n;
-        if (count >= n->length()) return mk_empty();
+        if (count >= n->length()) return mk_empty_seq(n->get_sort());
         for (unsigned i = 0; i < count; ++i)
             n = drop_first(n);
         return n;
@@ -505,7 +507,7 @@ namespace euf {
 
     snode* sgraph::drop_right(snode* n, unsigned count) {
         if (count == 0 || n->is_empty()) return n;
-        if (count >= n->length()) return mk_empty();
+        if (count >= n->length()) return mk_empty_seq(n->get_sort());
         for (unsigned i = 0; i < count; ++i)
             n = drop_last(n);
         return n;

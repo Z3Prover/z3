@@ -143,6 +143,10 @@ namespace euf {
             }
         }
 
+        sort *get_sort() const {
+            return m_expr ? m_expr->get_sort() : nullptr;
+        }
+
         // analogous to ZIPT's Str.First / Str.Last
         snode const* first() const {
             snode const* s = this;

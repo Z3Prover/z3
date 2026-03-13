@@ -544,7 +544,7 @@ namespace seq {
             m_root = mk_node();
         dep_tracker dep;
         dep.insert(m_root->str_eqs().size() + m_root->str_mems().size());
-        euf::snode* history = m_sg.mk_empty();
+        euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
         unsigned id = next_mem_id();
         m_root->add_str_mem(str_mem(str, regex, history, id, dep));
         ++m_num_input_mems;
@@ -1055,7 +1055,7 @@ namespace seq {
         arith_util arith(m);
         for (euf::snode* t : tokens) {
             if (t->is_var()) {
-                nielsen_subst s(t, sg.mk_empty(), dep);
+                nielsen_subst s(t, sg.mk_empty_seq(t->get_sort()), dep);
                 apply_subst(sg, s);
                 changed = true;
             }
@@ -1069,7 +1069,7 @@ namespace seq {
                     m_int_constraints.push_back(
                         int_constraint(pow_exp, zero, int_constraint_kind::eq, dep, m));
                 }
-                nielsen_subst s(t, sg.mk_empty(), dep);
+                nielsen_subst s(t, sg.mk_empty_seq(t->get_sort()), dep);
                 apply_subst(sg, s);
                 changed = true;
             }
@@ -1234,7 +1234,7 @@ namespace seq {
         if (!merged) return nullptr;
 
         // Rebuild snode from merged token list
-        euf::snode* rebuilt = sg.mk_empty();
+        euf::snode* rebuilt = sg.mk_empty_seq(side->get_sort());
         for (unsigned k = 0; k < result.size(); ++k) {
             rebuilt = (k == 0) ? result[k] : sg.mk_concat(rebuilt, result[k]);
         }
@@ -1281,7 +1281,7 @@ namespace seq {
 
         if (!simplified) return nullptr;
 
-        if (result.empty()) return sg.mk_empty();
+        if (result.empty()) return sg.mk_empty_seq(side->get_sort());
         euf::snode* rebuilt = result[0];
         for (unsigned k = 1; k < result.size(); ++k)
             rebuilt = sg.mk_concat(rebuilt, result[k]);
@@ -2230,24 +2230,51 @@ namespace seq {
                     return true;
                 }
 
-                if (rhead->is_char() && lhead->is_var()) {
-                    {
-                        nielsen_node* child = mk_child(node);
-                        nielsen_edge* e = mk_edge(node, child, true);
-                        nielsen_subst s(lhead, m_sg.mk_empty(), eq.m_dep);
-                        e->add_subst(s);
-                        child->apply_subst(m_sg, s);
-                    }
-                    {
-                        euf::snode* replacement = dir_concat(m_sg, rhead, lhead, fwd);
-                        nielsen_node* child = mk_child(node);
-                        nielsen_edge* e = mk_edge(node, child, false);
-                        nielsen_subst s(lhead, replacement, eq.m_dep);
-                        e->add_subst(s);
-                        child->apply_subst(m_sg, s);
-                    }
-                    return true;
+            euf::snode* lhead = lhs_toks[0];
+            euf::snode* rhead = rhs_toks[0];
+
+            // char·A = y·B → branch 1: y→ε, branch 2: y→char·y
+            if (lhead->is_char() && rhead->is_var()) {
+                // branch 1: y → ε (progress)
+                {
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, true);
+                    nielsen_subst s(rhead, m_sg.mk_empty_seq(rhead->get_sort()), eq.m_dep);
+                    e->add_subst(s);
+                    child->apply_subst(m_sg, s);
                 }
+                // branch 2: y → char·y (no progress)
+                {
+                    euf::snode* replacement = m_sg.mk_concat(lhead, rhead);
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, false);
+                    nielsen_subst s(rhead, replacement, eq.m_dep);
+                    e->add_subst(s);
+                    child->apply_subst(m_sg, s);
+                }
+                return true;
+            }
+
+            // x·A = char·B → branch 1: x→ε, branch 2: x→char·x
+            if (rhead->is_char() && lhead->is_var()) {
+                // branch 1: x → ε (progress)
+                {
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, true);
+                    nielsen_subst s(lhead, m_sg.mk_empty_seq(lhead->get_sort()), eq.m_dep);
+                    e->add_subst(s);
+                    child->apply_subst(m_sg, s);
+                }
+                // branch 2: x → char·x (no progress)
+                {
+                    euf::snode* replacement = m_sg.mk_concat(rhead, lhead);
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, false);
+                    nielsen_subst s(lhead, replacement, eq.m_dep);
+                    e->add_subst(s);
+                    child->apply_subst(m_sg, s);
+                }
+                return true;
             }
         }
         return false;
@@ -2270,33 +2297,28 @@ namespace seq {
                 if (lhead->id() == rhead->id())
                     continue;
 
-                // child 1: x -> ε (progress)
-                {
-                    nielsen_node* child = mk_child(node);
-                    nielsen_edge* e = mk_edge(node, child, true);
-                    nielsen_subst s(lhead, m_sg.mk_empty(), eq.m_dep);
-                    e->add_subst(s);
-                    child->apply_subst(m_sg, s);
-                }
-                // child 2: x -> y·x (forward) or x·y (backward)
-                {
-                    euf::snode* replacement = dir_concat(m_sg, rhead, lhead, fwd);
-                    nielsen_node* child = mk_child(node);
-                    nielsen_edge* e = mk_edge(node, child, false);
-                    nielsen_subst s(lhead, replacement, eq.m_dep);
-                    e->add_subst(s);
-                    child->apply_subst(m_sg, s);
-                }
-                // child 3: y -> x·y (forward) or y·x (backward)
-                {
-                    euf::snode* replacement = dir_concat(m_sg, lhead, rhead, fwd);
-                    nielsen_node* child = mk_child(node);
-                    nielsen_edge* e = mk_edge(node, child, false);
-                    nielsen_subst s(rhead, replacement, eq.m_dep);
-                    e->add_subst(s);
-                    child->apply_subst(m_sg, s);
-                }
-                return true;
+            euf::snode_vector lhs_toks, rhs_toks;
+            eq.m_lhs->collect_tokens(lhs_toks);
+            eq.m_rhs->collect_tokens(rhs_toks);
+            if (lhs_toks.empty() || rhs_toks.empty())
+                continue;
+
+            euf::snode* lhead = lhs_toks[0];
+            euf::snode* rhead = rhs_toks[0];
+
+            if (!lhead->is_var() || !rhead->is_var())
+                continue;
+            if (lhead->id() == rhead->id())
+                continue;
+
+            // x·A = y·B where x,y are distinct variables (classic Nielsen)
+            // child 1: x → ε (progress)
+            {
+                nielsen_node* child = mk_child(node);
+                nielsen_edge* e = mk_edge(node, child, true);
+                nielsen_subst s(lhead, m_sg.mk_empty_seq(lhead->get_sort()), eq.m_dep);
+                e->add_subst(s);
+                child->apply_subst(m_sg, s);
             }
         }
         return false;
@@ -2703,7 +2725,7 @@ namespace seq {
             {
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
-                nielsen_subst s(first, m_sg.mk_empty(), mem.m_dep);
+                nielsen_subst s(first, m_sg.mk_empty_seq(first->get_sort()), mem.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
                 created = true;
@@ -2921,7 +2943,7 @@ namespace seq {
         if (base->is_var()) {
             child = mk_child(node);
             e = mk_edge(node, child, true);
-            nielsen_subst s1(base, m_sg.mk_empty(), dep);
+            nielsen_subst s1(base, m_sg.mk_empty_seq(base->get_sort()), dep);
             e->add_subst(s1);
             child->apply_subst(m_sg, s1);
         }
@@ -2929,7 +2951,7 @@ namespace seq {
         // Branch 2: replace the power token itself with ε (n = 0 semantics)
         child = mk_child(node);
         e = mk_edge(node, child, true);
-        nielsen_subst s2(power, m_sg.mk_empty(), dep);
+        nielsen_subst s2(power, m_sg.mk_empty_seq(power->get_sort()), dep);
         e->add_subst(s2);
         child->apply_subst(m_sg, s2);
 
@@ -3096,7 +3118,7 @@ namespace seq {
         // Side constraint: n = 0
         nielsen_node *child = mk_child(node);
         nielsen_edge *e = mk_edge(node, child, true);
-        nielsen_subst s1(power, m_sg.mk_empty(), eq->m_dep);
+        nielsen_subst s1(power, m_sg.mk_empty_seq(power->get_sort()), eq->m_dep);
         e->add_subst(s1);
         child->apply_subst(m_sg, s1);
         if (exp_n)
@@ -3413,7 +3435,7 @@ namespace seq {
             {
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
-                nielsen_subst s(first, m_sg.mk_empty(), mem.m_dep);
+                nielsen_subst s(first, m_sg.mk_empty_seq(first->get_sort()), mem.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
                 created = true;
@@ -3600,7 +3622,7 @@ namespace seq {
         {
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, true);
-            nielsen_subst s(power, m_sg.mk_empty(), eq->m_dep);
+            nielsen_subst s(power, m_sg.mk_empty_seq(power->get_sort()), eq->m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
             if (exp_n)
