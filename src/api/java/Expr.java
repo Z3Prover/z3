@@ -307,6 +307,16 @@ public class Expr<R extends Sort> extends AST
     }
 
     /**
+     * Indicates whether the term is ground (contains no free variables).
+     * @throws Z3Exception on error
+     * @return a boolean
+     **/
+    public boolean isGround()
+    {
+        return Native.isGround(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
      * Indicates whether the term has Boolean sort.
      * @throws Z3Exception on error
      * @return a boolean
