@@ -1336,7 +1336,7 @@ lbool core::check(unsigned level) {
         ret = m_nra.check_assignment();
         if (ret != l_true)
             ++m_check_assignment_fail_cnt;
-        else
+        else if (!params().arith_nl_cha_abort_on_fail())
             --m_check_assignment_fail_cnt;
     }
 
