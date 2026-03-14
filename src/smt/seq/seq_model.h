@@ -31,7 +31,6 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/euf/euf_sgraph.h"
-#include "smt/smt_types.h"
 #include "smt/seq/seq_nielsen.h"
 #include "model/seq_factory.h"
 
@@ -43,12 +42,12 @@ namespace seq {
 
 namespace smt {
 
-    class theory_nseq;
+    class enode;
+    class model_generator;
     class seq_state;
     class model_value_proc;
 
     class seq_model {
-        theory_nseq&    m_th;
         ast_manager&    m;
         seq_util&       m_seq;
         seq_rewriter&   m_rewriter;
@@ -74,7 +73,7 @@ namespace smt {
         u_map<euf::snode*> m_var_regex;
 
     public:
-        seq_model(theory_nseq& th, ast_manager& m, seq_util& seq,
+        seq_model(ast_manager& m, seq_util& seq,
                    seq_rewriter& rw, euf::sgraph& sg, seq::seq_regex& regex);
 
         // Phase 1: initialize model construction.

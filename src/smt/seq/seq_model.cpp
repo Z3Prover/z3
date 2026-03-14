@@ -17,7 +17,6 @@ Author:
 
 --*/
 #include "smt/seq/seq_model.h"
-#include "smt/theory_nseq.h"
 #include "smt/seq/seq_regex.h"
 #include "smt/seq/seq_state.h"
 #include "smt/smt_context.h"
@@ -27,9 +26,9 @@ Author:
 
 namespace smt {
 
-    seq_model::seq_model(theory_nseq& th, ast_manager& m, seq_util& seq,
+    seq_model::seq_model(ast_manager& m, seq_util& seq,
                            seq_rewriter& rw, euf::sgraph& sg, seq::seq_regex& regex)
-        : m_th(th), m(m), m_seq(seq), m_rewriter(rw), m_sg(sg), m_regex(regex), m_trail(m)
+        : m(m), m_seq(seq), m_rewriter(rw), m_sg(sg), m_regex(regex), m_trail(m)
     {}
 
     void seq_model::init(model_generator& mg, seq::nielsen_graph& nielsen, seq_state const& state) {
@@ -39,7 +38,7 @@ namespace smt {
         m_int_model = nullptr;
         m_mg = &mg;
 
-        m_factory = alloc(seq_factory, m, m_th.get_family_id(), mg.get_model());
+        m_factory = alloc(seq_factory, m, m_seq.get_family_id(), mg.get_model());
         mg.register_factory(m_factory);
 
         register_existing_values(nielsen);
