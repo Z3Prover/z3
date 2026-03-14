@@ -1024,6 +1024,16 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       val(value: string): Seq<Name> {
         return new SeqImpl(check(Z3.mk_string(contextPtr, value)));
       },
+
+      fromCode(code: Arith<Name> | number | bigint): Seq<Name> {
+        const codeExpr = isArith(code) ? code : Int.val(code);
+        return new SeqImpl(check(Z3.mk_string_from_code(contextPtr, codeExpr.ast)));
+      },
+
+      fromInt(n: Arith<Name> | number | bigint): Seq<Name> {
+        const nExpr = isArith(n) ? n : Int.val(n);
+        return new SeqImpl(check(Z3.mk_int_to_str(contextPtr, nExpr.ast)));
+      },
     };
 
     const Seq = {
@@ -4383,6 +4393,34 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         const srcSeq = isSeq(src) ? src : String.val(src);
         const dstSeq = isSeq(dst) ? dst : String.val(dst);
         return new SeqImpl<ElemSort>(check(Z3.mk_seq_replace_all(contextPtr, this.ast, srcSeq.ast, dstSeq.ast)));
+      }
+
+      replaceRe(re: Re<Name>, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort> {
+        const dstSeq = isSeq(dst) ? dst : String.val(dst);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_replace_re(contextPtr, this.ast, re.ast, dstSeq.ast)));
+      }
+
+      replaceReAll(re: Re<Name>, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort> {
+        const dstSeq = isSeq(dst) ? dst : String.val(dst);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_replace_re_all(contextPtr, this.ast, re.ast, dstSeq.ast)));
+      }
+
+      toInt(): Arith<Name> {
+        return new ArithImpl(check(Z3.mk_str_to_int(contextPtr, this.ast)));
+      }
+
+      toCode(): Arith<Name> {
+        return new ArithImpl(check(Z3.mk_string_to_code(contextPtr, this.ast)));
+      }
+
+      lt(other: Seq<Name, ElemSort> | string): Bool<Name> {
+        const otherSeq = isSeq(other) ? other : String.val(other);
+        return new BoolImpl(check(Z3.mk_str_lt(contextPtr, this.ast, otherSeq.ast)));
+      }
+
+      le(other: Seq<Name, ElemSort> | string): Bool<Name> {
+        const otherSeq = isSeq(other) ? other : String.val(other);
+        return new BoolImpl(check(Z3.mk_str_le(contextPtr, this.ast, otherSeq.ast)));
       }
     }
 

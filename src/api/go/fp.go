@@ -167,3 +167,118 @@ func (c *Context) MkFPToIEEEBV(expr *Expr) *Expr {
 func (c *Context) MkFPToReal(expr *Expr) *Expr {
 	return newExpr(c, C.Z3_mk_fpa_to_real(c.ptr, expr.ptr))
 }
+
+// MkFPRNE creates the round-nearest-ties-to-even rounding mode.
+func (c *Context) MkFPRNE() *Expr {
+	return newExpr(c, C.Z3_mk_fpa_rne(c.ptr))
+}
+
+// MkFPRNA creates the round-nearest-ties-to-away rounding mode.
+func (c *Context) MkFPRNA() *Expr {
+	return newExpr(c, C.Z3_mk_fpa_rna(c.ptr))
+}
+
+// MkFPRTP creates the round-toward-positive rounding mode.
+func (c *Context) MkFPRTP() *Expr {
+	return newExpr(c, C.Z3_mk_fpa_rtp(c.ptr))
+}
+
+// MkFPRTN creates the round-toward-negative rounding mode.
+func (c *Context) MkFPRTN() *Expr {
+	return newExpr(c, C.Z3_mk_fpa_rtn(c.ptr))
+}
+
+// MkFPRTZ creates the round-toward-zero rounding mode.
+func (c *Context) MkFPRTZ() *Expr {
+	return newExpr(c, C.Z3_mk_fpa_rtz(c.ptr))
+}
+
+// MkFPFP creates a floating-point number from a sign bit (1-bit BV), exponent BV, and significand BV.
+func (c *Context) MkFPFP(sgn, exp, sig *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_fp(c.ptr, sgn.ptr, exp.ptr, sig.ptr))
+}
+
+// MkFPNumeralFloat creates a floating-point numeral from a float32 value.
+func (c *Context) MkFPNumeralFloat(v float32, sort *Sort) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_numeral_float(c.ptr, C.float(v), sort.ptr))
+}
+
+// MkFPNumeralDouble creates a floating-point numeral from a float64 value.
+func (c *Context) MkFPNumeralDouble(v float64, sort *Sort) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_numeral_double(c.ptr, C.double(v), sort.ptr))
+}
+
+// MkFPNumeralInt creates a floating-point numeral from a signed integer.
+func (c *Context) MkFPNumeralInt(v int, sort *Sort) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_numeral_int(c.ptr, C.int(v), sort.ptr))
+}
+
+// MkFPNumeralIntUint creates a floating-point numeral from a sign, signed exponent, and unsigned significand.
+func (c *Context) MkFPNumeralIntUint(sgn bool, exp int, sig uint, sort *Sort) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_numeral_int_uint(c.ptr, C.bool(sgn), C.int(exp), C.uint(sig), sort.ptr))
+}
+
+// MkFPNumeralInt64Uint64 creates a floating-point numeral from a sign, int64 exponent, and uint64 significand.
+func (c *Context) MkFPNumeralInt64Uint64(sgn bool, exp int64, sig uint64, sort *Sort) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_numeral_int64_uint64(c.ptr, C.bool(sgn), C.int64_t(exp), C.uint64_t(sig), sort.ptr))
+}
+
+// MkFPFMA creates a floating-point fused multiply-add: rm * (t1 * t2) + t3.
+func (c *Context) MkFPFMA(rm, t1, t2, t3 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_fma(c.ptr, rm.ptr, t1.ptr, t2.ptr, t3.ptr))
+}
+
+// MkFPRem creates a floating-point remainder.
+func (c *Context) MkFPRem(t1, t2 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_rem(c.ptr, t1.ptr, t2.ptr))
+}
+
+// MkFPMin creates the minimum of two floating-point values.
+func (c *Context) MkFPMin(t1, t2 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_min(c.ptr, t1.ptr, t2.ptr))
+}
+
+// MkFPMax creates the maximum of two floating-point values.
+func (c *Context) MkFPMax(t1, t2 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_max(c.ptr, t1.ptr, t2.ptr))
+}
+
+// MkFPRoundToIntegral creates a floating-point round-to-integral operation.
+func (c *Context) MkFPRoundToIntegral(rm, t *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_round_to_integral(c.ptr, rm.ptr, t.ptr))
+}
+
+// MkFPToFPBV converts a bit-vector to a floating-point number (reinterpretation of IEEE 754 bits).
+func (c *Context) MkFPToFPBV(bv *Expr, sort *Sort) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_to_fp_bv(c.ptr, bv.ptr, sort.ptr))
+}
+
+// MkFPToFPFloat converts a floating-point number to another floating-point sort with rounding.
+func (c *Context) MkFPToFPFloat(rm, t *Expr, sort *Sort) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_to_fp_float(c.ptr, rm.ptr, t.ptr, sort.ptr))
+}
+
+// MkFPToFPReal converts a real number to a floating-point number with rounding.
+func (c *Context) MkFPToFPReal(rm, t *Expr, sort *Sort) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_to_fp_real(c.ptr, rm.ptr, t.ptr, sort.ptr))
+}
+
+// MkFPToFPSigned converts a signed bit-vector to a floating-point number with rounding.
+func (c *Context) MkFPToFPSigned(rm, t *Expr, sort *Sort) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_to_fp_signed(c.ptr, rm.ptr, t.ptr, sort.ptr))
+}
+
+// MkFPToFPUnsigned converts an unsigned bit-vector to a floating-point number with rounding.
+func (c *Context) MkFPToFPUnsigned(rm, t *Expr, sort *Sort) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_to_fp_unsigned(c.ptr, rm.ptr, t.ptr, sort.ptr))
+}
+
+// MkFPToSBV converts a floating-point number to a signed bit-vector with rounding.
+func (c *Context) MkFPToSBV(rm, t *Expr, sz uint) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_to_sbv(c.ptr, rm.ptr, t.ptr, C.uint(sz)))
+}
+
+// MkFPToUBV converts a floating-point number to an unsigned bit-vector with rounding.
+func (c *Context) MkFPToUBV(rm, t *Expr, sz uint) *Expr {
+	return newExpr(c, C.Z3_mk_fpa_to_ubv(c.ptr, rm.ptr, t.ptr, C.uint(sz)))
+}
