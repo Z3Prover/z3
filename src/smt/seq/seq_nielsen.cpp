@@ -2172,6 +2172,10 @@ namespace seq {
         if (m_cancel_fn && m_cancel_fn())
             return search_result::unknown;
 
+        // check DFS node budget (0 = unlimited)
+        if (m_max_nodes > 0 && m_stats.m_num_dfs_nodes > m_max_nodes)
+            return search_result::unknown;
+
         // revisit detection: if already visited this run, return cached status.
         // mirrors ZIPT's NielsenNode.GraphExpansion() evalIdx check.
         if (node->eval_idx() == m_run_idx) {
