@@ -158,6 +158,7 @@ namespace smt {
         if (!n)
             return expr_ref(m);
 
+        // NSB review: use the sort of n
         if (n->is_empty())
             return expr_ref(m_seq.str.mk_empty(m_seq.str.mk_string_sort()), m);
 
@@ -228,6 +229,8 @@ namespace smt {
                 exp_val = rational(0);
 
             // Build the repeated string: base^exp_val
+            
+            // NSB review: use the sort of n instead of mk_string_sort()
             if (exp_val.is_zero())
                 return expr_ref(m_seq.str.mk_empty(m_seq.str.mk_string_sort()), m);
             if (exp_val.is_one())
