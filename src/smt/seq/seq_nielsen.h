@@ -244,6 +244,10 @@ Author:
 #include <map>
 #include "model/model.h"
 
+namespace smt {
+    class nseq_regex;  // forward declaration (defined in smt/nseq_regex.h)
+}
+
 namespace seq {
 
     // forward declarations
@@ -538,6 +542,12 @@ namespace seq {
         // asserted when this node's solver scope is entered.
         unsigned                m_parent_ic_count = 0;
 
+        // RegexOccurrence: maps (regex snode id, str_mem id) → node id where
+        // this regex was last seen on the current DFS path.
+        // Used for precise cycle detection with history-length-based progress.
+        // Mirrors ZIPT LocalInfo.RegexOccurrence (LocalInfo.cs:34)
+        std::map<std::pair<unsigned, unsigned>, unsigned> m_regex_occurrence;
+
     public:
         nielsen_node(nielsen_graph* graph, unsigned id);
 
@@ -627,6 +637,15 @@ namespace seq {
 
         // clone constraints from a parent node
         void clone_from(nielsen_node const& parent);
+
+        // Regex occurrence tracking: record current regex state for cycle detection.
+        // Returns true if a cycle is detected (same regex seen before on this path).
+        bool track_regex_occurrence(unsigned regex_id, unsigned mem_id);
+
+        // Get the regex occurrence map (for undo on backtrack).
+        std::map<std::pair<unsigned, unsigned>, unsigned> const& regex_occurrence() const {
+            return m_regex_occurrence;
+        }
 
         // apply a substitution to all constraints
         void apply_subst(euf::sgraph& sg, nielsen_subst const& s);
@@ -739,6 +758,11 @@ namespace seq {
         // Parikh image filter: generates modular length constraints from regex
         // memberships.  Allocated in the constructor; owned by this graph.
         seq_parikh*                   m_parikh = nullptr;
+
+        // Regex membership module: stabilizers, emptiness checks, language
+        // inclusion, derivatives. Allocated in the constructor; owned by this graph.
+        smt::nseq_regex*              m_nseq_regex = nullptr;
+
         // -----------------------------------------------
         // Modification counter for substitution length tracking.
         // mirrors ZIPT's LocalInfo.CurrentModificationCnt
@@ -871,8 +895,27 @@ namespace seq {
         // Caller takes ownership of the returned model pointer.
         bool solve_sat_path_ints(model_ref& mdl);
 
+        // accessor for the nseq_regex module
+        smt::nseq_regex* nseq_regex_module() const { return m_nseq_regex; }
+
     private:
         search_result search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path);
+
+        // Regex widening: overapproximate `str` by replacing variables with
+        // the intersection of their primitive regex constraints (or Σ* if
+        // unconstrained), replacing symbolic chars with their char ranges,
+        // then checking if the approximation intersected with `regex` is empty.
+        // Returns true if widening detects infeasibility (UNSAT).
+        // Mirrors ZIPT NielsenNode.CheckRegexWidening (NielsenNode.cs:1350-1380)
+        bool check_regex_widening(nielsen_node const& node,
+                                  euf::snode* str, euf::snode* regex);
+
+        // Check regex feasibility at a leaf node: for each variable with
+        // multiple primitive regex constraints, check that the intersection
+        // of all its regexes is non-empty.
+        // Returns true if all constraints are feasible.
+        // Mirrors ZIPT NielsenNode.CheckRegex (NielsenNode.cs:1311-1329)
+        bool check_leaf_regex(nielsen_node const& node);
 
         // Apply the Parikh image filter to a node: generate modular length
         // constraints from regex memberships and append them to the node's

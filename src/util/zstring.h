@@ -156,6 +156,9 @@ public:
     // check if two sets are disjoint
     bool is_disjoint(char_set const& other) const;
 
+    // check if this set is a subset of other (every char in this is also in other)
+    bool is_subset(char_set const& other) const;
+
     bool operator==(char_set const& other) const { return m_ranges == other.m_ranges; }
 
     char_set clone() const { char_set r; r.m_ranges = m_ranges; return r; }

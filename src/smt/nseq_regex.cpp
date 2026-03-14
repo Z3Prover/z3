@@ -15,11 +15,294 @@ Author:
 
 --*/
 #include "smt/nseq_regex.h"
+#include <unordered_set>
 
 namespace smt {
 
     // -----------------------------------------------------------------------
-    // Regex emptiness checking (structural analysis)
+    // Stabilizer store
+    // -----------------------------------------------------------------------
+
+    void nseq_regex::reset_stabilizers() {
+        m_stabilizers.reset();
+        m_self_stabilizing.reset();
+    }
+
+    void nseq_regex::add_stabilizer(euf::snode* regex, euf::snode* stabilizer) {
+        if (!regex || !stabilizer)
+            return;
+
+        unsigned id = regex->id();
+        auto& stabs = m_stabilizers.insert_if_not_there(id, ptr_vector<euf::snode>());
+
+        // De-duplicate by pointer equality (mirrors ZIPT Environment.AddStabilizer
+        // which checks reference equality before adding).
+        for (euf::snode* s : stabs)
+            if (s == stabilizer)
+                return;
+        stabs.push_back(stabilizer);
+    }
+
+    euf::snode* nseq_regex::get_stabilizer_union(euf::snode* regex) {
+        if (!regex)
+            return nullptr;
+
+        if (!m_stabilizers.contains(regex->id()))
+            return nullptr;
+
+        auto& stabs = m_stabilizers[regex->id()];
+        if (stabs.empty())
+            return nullptr;
+
+        // Single stabilizer: return it directly.
+        if (stabs.size() == 1)
+            return stabs[0];
+
+        // Multiple stabilizers: build re.union chain.
+        // union(s1, union(s2, ... union(sN-1, sN)...))
+        seq_util& seq = m_sg.get_seq_util();
+        euf::snode* result = stabs[stabs.size() - 1];
+        for (unsigned i = stabs.size() - 1; i-- > 0; ) {
+            expr* lhs = stabs[i]->get_expr();
+            expr* rhs = result->get_expr();
+            if (!lhs || !rhs)
+                return nullptr;
+            expr_ref un(seq.re.mk_union(lhs, rhs), m_sg.get_manager());
+            result = m_sg.mk(un);
+        }
+        return result;
+    }
+
+    bool nseq_regex::has_stabilizers(euf::snode* regex) const {
+        if (!regex)
+            return false;
+        if (!m_stabilizers.contains(regex->id()))
+            return false;
+        return !m_stabilizers[regex->id()].empty();
+    }
+
+    ptr_vector<euf::snode> const* nseq_regex::get_stabilizers(euf::snode* regex) const {
+        if (!regex)
+            return nullptr;
+        if (!m_stabilizers.contains(regex->id()))
+            return nullptr;
+        return &m_stabilizers[regex->id()];
+    }
+
+    void nseq_regex::set_self_stabilizing(euf::snode* regex) {
+        if (!regex)
+            return;
+        m_self_stabilizing.insert(regex->id());
+    }
+
+    bool nseq_regex::is_self_stabilizing(euf::snode* regex) const {
+        if (!regex)
+            return false;
+        return m_self_stabilizing.contains(regex->id());
+    }
+
+    // -----------------------------------------------------------------------
+    // Self-stabilizing auto-detection
+    // -----------------------------------------------------------------------
+
+    bool nseq_regex::compute_self_stabilizing(euf::snode* regex) const {
+        if (!regex)
+            return false;
+
+        // R* is always self-stabilizing: D(c, R*) = D(c,R) · R*,
+        // so R* appears as the tail of every derivative and acts as
+        // its own stabilizer.
+        if (regex->is_star())
+            return true;
+
+        // Σ* (full_seq, i.e., re.all / .*) is self-stabilizing:
+        // D(c, Σ*) = Σ* for every character c.
+        if (regex->is_full_seq())
+            return true;
+
+        // ∅ (fail / empty language) is trivially self-stabilizing:
+        // it has no live derivatives, so the flag is vacuously true.
+        if (regex->is_fail())
+            return true;
+
+        // Complement of full_seq is ∅ (complement of Σ*), which is
+        // also trivially self-stabilizing.
+        if (regex->is_complement() && regex->num_args() == 1 &&
+            regex->arg(0)->is_full_seq())
+            return true;
+
+        // Loop with lo=0 and no upper bound behaves like R*
+        // (r{0,} ≡ r*), so it is self-stabilizing.
+        if (regex->is_loop() && regex->is_nullable()) {
+            // A nullable loop with a star-like body: heuristic check.
+            // Only mark as self-stabilizing if the body is a Kleene closure.
+            // Loop(R, 0, ∞) ~ R* — but we rely on the sgraph to normalize
+            // these, so only catch exact star nodes above.
+        }
+
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Self-stabilizing propagation through derivatives
+    // -----------------------------------------------------------------------
+
+    void nseq_regex::propagate_self_stabilizing(euf::snode* parent, euf::snode* deriv) {
+        if (!parent || !deriv)
+            return;
+
+        // If the derivative is already known to be self-stabilizing (either
+        // inherently or from a prior propagation), nothing to do.
+        if (is_self_stabilizing(deriv))
+            return;
+
+        // If the derivative is itself inherently self-stabilizing
+        // (e.g., it is a star or full_seq), mark it now.
+        if (compute_self_stabilizing(deriv)) {
+            set_self_stabilizing(deriv);
+            return;
+        }
+
+        // Rule 1: Star parent.
+        // D(c, R*) = D(c, R) · R*. The derivative always contains the
+        // R* tail, so it is self-stabilizing regardless of D(c,R).
+        if (parent->is_star()) {
+            set_self_stabilizing(deriv);
+            return;
+        }
+
+        // Rule 2: Full_seq parent.
+        // D(c, Σ*) = Σ*, and Σ* is self-stabilizing.
+        // (The derivative should be Σ* itself; mark it for safety.)
+        if (parent->is_full_seq()) {
+            set_self_stabilizing(deriv);
+            return;
+        }
+
+        // Check if parent is self-stabilizing (either inherently or marked).
+        bool parent_ss = is_self_stabilizing(parent) || compute_self_stabilizing(parent);
+
+        // Rule 3: Concat parent R · S.
+        // D(c, R·S) = D(c,R)·S | (nullable(R) ? D(c,S) : ∅).
+        // If S is self-stabilizing, the D(c,R)·S branch inherits it.
+        // If the whole parent R·S is self-stabilizing, the derivative is too.
+        if (parent->is_concat() && parent->num_args() == 2) {
+            euf::snode* tail = parent->arg(1);
+            bool tail_ss = is_self_stabilizing(tail) || compute_self_stabilizing(tail);
+            if (tail_ss || parent_ss) {
+                set_self_stabilizing(deriv);
+                return;
+            }
+        }
+
+        // Rule 4: Union parent R | S.
+        // D(c, R|S) = D(c,R) | D(c,S).
+        // Self-stabilizing if both children are self-stabilizing.
+        if (parent->is_union() && parent->num_args() == 2) {
+            euf::snode* lhs = parent->arg(0);
+            euf::snode* rhs = parent->arg(1);
+            bool lhs_ss = is_self_stabilizing(lhs) || compute_self_stabilizing(lhs);
+            bool rhs_ss = is_self_stabilizing(rhs) || compute_self_stabilizing(rhs);
+            if (lhs_ss && rhs_ss) {
+                set_self_stabilizing(deriv);
+                return;
+            }
+        }
+
+        // Rule 5: Intersection parent R ∩ S.
+        // D(c, R∩S) = D(c,R) ∩ D(c,S).
+        // Self-stabilizing if both children are self-stabilizing.
+        if (parent->is_intersect() && parent->num_args() == 2) {
+            euf::snode* lhs = parent->arg(0);
+            euf::snode* rhs = parent->arg(1);
+            bool lhs_ss = is_self_stabilizing(lhs) || compute_self_stabilizing(lhs);
+            bool rhs_ss = is_self_stabilizing(rhs) || compute_self_stabilizing(rhs);
+            if (lhs_ss && rhs_ss) {
+                set_self_stabilizing(deriv);
+                return;
+            }
+        }
+
+        // Rule 6: Complement parent ~R.
+        // D(c, ~R) = ~D(c, R).
+        // Preserves self-stabilizing from R.
+        if (parent->is_complement() && parent->num_args() == 1) {
+            euf::snode* inner = parent->arg(0);
+            bool inner_ss = is_self_stabilizing(inner) || compute_self_stabilizing(inner);
+            if (inner_ss) {
+                set_self_stabilizing(deriv);
+                return;
+            }
+        }
+
+        // Rule 7: Generic self-stabilizing parent.
+        // If the parent was explicitly marked self-stabilizing (e.g., via
+        // a previous propagation), propagate to the derivative.
+        if (parent_ss) {
+            set_self_stabilizing(deriv);
+            return;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Derivative with propagation
+    // -----------------------------------------------------------------------
+
+    euf::snode* nseq_regex::derivative_with_propagation(euf::snode* re, euf::snode* elem) {
+        if (!re || !elem)
+            return nullptr;
+        euf::snode* deriv = derivative(re, elem);
+        if (deriv)
+            propagate_self_stabilizing(re, deriv);
+        return deriv;
+    }
+
+    // -----------------------------------------------------------------------
+    // Uniform derivative (symbolic character consumption)
+    // -----------------------------------------------------------------------
+
+    euf::snode* nseq_regex::try_uniform_derivative(euf::snode* regex) {
+        if (!regex)
+            return nullptr;
+
+        // Quick exits: trivial regexes with known uniform derivatives.
+        // Σ* (full_seq) has derivative Σ* for every character.
+        if (regex->is_full_seq())
+            return regex;
+        // ∅ (fail) has derivative ∅ for every character — but this means
+        // every character is rejected.  Return fail so the caller can
+        // detect a conflict.
+        if (regex->is_fail())
+            return regex;
+
+        // Compute minterms: the character-class partition of the alphabet
+        // induced by the regex.
+        euf::snode_vector minterms;
+        m_sg.compute_minterms(regex, minterms);
+        if (minterms.empty())
+            return nullptr;
+
+        // Compute the derivative for each non-empty minterm.  If all produce
+        // the same result, the derivative is independent of the character
+        // value and we can consume a symbolic character deterministically.
+        euf::snode* uniform = nullptr;
+        for (euf::snode* mt : minterms) {
+            if (!mt || mt->is_fail())
+                continue;  // empty character class — no character belongs to it
+            euf::snode* deriv = m_sg.brzozowski_deriv(regex, mt);
+            if (!deriv)
+                return nullptr;  // derivative computation failed
+            if (!uniform) {
+                uniform = deriv;
+            } else if (uniform->id() != deriv->id()) {
+                return nullptr;  // different derivatives — not uniform
+            }
+        }
+        return uniform;  // may be nullptr if all minterms were fail/empty
+    }
+
+    // -----------------------------------------------------------------------
+    // Ground prefix consumption
     // -----------------------------------------------------------------------
 
     bool nseq_regex::is_empty_regex(euf::snode* re) const {
@@ -69,6 +352,377 @@ namespace smt {
     }
 
     // -----------------------------------------------------------------------
+    // BFS regex emptiness check — helper: collect character boundaries
+    // -----------------------------------------------------------------------
+
+    void nseq_regex::collect_char_boundaries(euf::snode* re, unsigned_vector& bounds) const {
+        if (!re || !re->get_expr())
+            return;
+
+        seq_util& seq = m_sg.get_seq_util();
+        expr* e = re->get_expr();
+
+        // Range predicate re.range(lo, hi): boundary at lo and hi+1
+        // Range arguments are string expressions (e.g., str.unit(ch))
+        expr* lo_expr = nullptr;
+        expr* hi_expr = nullptr;
+        if (seq.re.is_range(e, lo_expr, hi_expr)) {
+            zstring s_lo, s_hi;
+            if (lo_expr && seq.str.is_string(lo_expr, s_lo) && s_lo.length() == 1)
+                bounds.push_back(s_lo[0]);
+            if (hi_expr && seq.str.is_string(hi_expr, s_hi) && s_hi.length() == 1 && s_hi[0] < zstring::max_char())
+                bounds.push_back(s_hi[0] + 1);
+            return;
+        }
+
+        // to_re(s): boundary at first character and first+1
+        expr* body = nullptr;
+        if (seq.re.is_to_re(e, body)) {
+            zstring s;
+            if (seq.str.is_string(body, s) && s.length() > 0) {
+                unsigned first_ch = s[0];
+                bounds.push_back(first_ch);
+                if (first_ch < zstring::max_char())
+                    bounds.push_back(first_ch + 1);
+            }
+            return;
+        }
+
+        // Leaf nodes with no character discrimination
+        if (re->is_fail() || re->is_full_char() || re->is_full_seq())
+            return;
+
+        // Recurse into children (handles union, concat, star, loop, etc.)
+        for (unsigned i = 0; i < re->num_args(); ++i)
+            collect_char_boundaries(re->arg(i), bounds);
+    }
+
+    // -----------------------------------------------------------------------
+    // BFS regex emptiness check — helper: alphabet representatives
+    // -----------------------------------------------------------------------
+
+    void nseq_regex::get_alphabet_representatives(euf::snode* re, euf::snode_vector& reps) {
+        unsigned_vector bounds;
+        bounds.push_back(0); // always include character 0
+        collect_char_boundaries(re, bounds);
+
+        // Sort and deduplicate
+        std::sort(bounds.begin(), bounds.end());
+        unsigned prev = UINT_MAX;
+        for (unsigned b : bounds) {
+            if (b != prev) {
+                reps.push_back(m_sg.mk_char(b));
+                prev = b;
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // BFS regex emptiness check
+    // -----------------------------------------------------------------------
+
+    lbool nseq_regex::is_empty_bfs(euf::snode* re, unsigned max_states) {
+        if (!re || !re->get_expr())
+            return l_undef;
+        if (re->is_fail())
+            return l_true;
+        if (re->is_nullable())
+            return l_false;
+        // Structural quick checks for kinds that are never empty
+        if (re->is_star() || re->is_full_char() || re->is_full_seq() || re->is_to_re())
+            return l_false;
+        // Structural emptiness catches simple cases
+        if (is_empty_regex(re))
+            return l_true;
+        // Only handle ground regexes; non-ground can't be fully explored
+        if (!re->is_ground())
+            return l_undef;
+
+        // BFS over the Brzozowski derivative automaton.
+        // Each state is a derivative regex snode identified by its id.
+        // We explore states by computing derivatives for representative
+        // characters from the alphabet partition.
+        uint_set visited;
+        euf::snode_vector worklist;
+        worklist.push_back(re);
+        visited.insert(re->id());
+
+        unsigned states_explored = 0;
+        bool had_failed_deriv = false;
+
+        while (!worklist.empty()) {
+            if (states_explored >= max_states)
+                return l_undef;
+
+            euf::snode* current = worklist.back();
+            worklist.pop_back();
+            ++states_explored;
+
+            // Compute representative characters for current state's
+            // alphabet partition. Each representative is a concrete
+            // character snode whose equivalence class has identical
+            // derivative behavior.
+            euf::snode_vector reps;
+            get_alphabet_representatives(current, reps);
+
+            if (reps.empty()) {
+                // No representatives means no character predicates;
+                // use a default character to explore the single partition.
+                reps.push_back(m_sg.mk_char('a'));
+            }
+
+            for (euf::snode* ch : reps) {
+                euf::snode* deriv = m_sg.brzozowski_deriv(current, ch);
+                if (!deriv) {
+                    // Derivative computation failed for this character.
+                    // Track the failure but continue with other characters.
+                    had_failed_deriv = true;
+                    continue;
+                }
+                if (deriv->is_nullable())
+                    return l_false; // found an accepting state
+                if (deriv->is_fail())
+                    continue; // dead-end, no need to explore further
+                if (is_empty_regex(deriv))
+                    continue; // structurally empty subtree
+                if (!visited.contains(deriv->id())) {
+                    visited.insert(deriv->id());
+                    worklist.push_back(deriv);
+                }
+            }
+        }
+
+        // Exhausted all reachable states without finding a nullable one.
+        // If we had any failed derivative computations, the result is
+        // inconclusive since we may have missed reachable states.
+        if (had_failed_deriv)
+            return l_undef;
+
+        return l_true;
+    }
+
+    // -----------------------------------------------------------------------
+    // Multi-regex intersection emptiness check
+    // BFS over the product of Brzozowski derivative automata.
+    // Mirrors ZIPT NielsenNode.CheckEmptiness (NielsenNode.cs:1429-1469)
+    // -----------------------------------------------------------------------
+
+    lbool nseq_regex::check_intersection_emptiness(ptr_vector<euf::snode> const& regexes,
+                                                    unsigned max_states) {
+        if (regexes.empty())
+            return l_false; // empty intersection = full language (vacuously non-empty)
+
+        // Quick checks: if any regex is fail/empty, intersection is empty
+        for (euf::snode* re : regexes) {
+            if (!re || !re->get_expr())
+                return l_undef;
+            if (re->is_fail() || is_empty_regex(re))
+                return l_true;
+        }
+
+        // Check if all are nullable (intersection accepts ε)
+        bool all_nullable = true;
+        for (euf::snode* re : regexes) {
+            if (!re->is_nullable()) { all_nullable = false; break; }
+        }
+        if (all_nullable)
+            return l_false;
+
+        // Single regex: delegate to is_empty_bfs
+        if (regexes.size() == 1)
+            return is_empty_bfs(regexes[0], max_states);
+
+        // Build product BFS. State = tuple of regex snode ids.
+        // Use a map from state hash to visited set.
+        using state_t = svector<unsigned>;
+
+        auto state_hash = [](state_t const& s) -> unsigned {
+            unsigned h = 0;
+            for (unsigned id : s)
+                h = h * 31 + id;
+            return h;
+        };
+
+        auto state_eq = [](state_t const& a, state_t const& b) -> bool {
+            if (a.size() != b.size()) return false;
+            for (unsigned i = 0; i < a.size(); ++i)
+                if (a[i] != b[i]) return false;
+            return true;
+        };
+
+        // Use simple set via sorted vector of hashes (good enough for bounded BFS)
+        std::unordered_set<unsigned> visited_hashes;
+
+        struct bfs_state {
+            ptr_vector<euf::snode> regexes;
+        };
+
+        std::vector<bfs_state> worklist;
+        bfs_state initial;
+        initial.regexes.append(regexes);
+        worklist.push_back(std::move(initial));
+
+        state_t init_ids;
+        for (euf::snode* re : regexes)
+            init_ids.push_back(re->id());
+        visited_hashes.insert(state_hash(init_ids));
+
+        unsigned states_explored = 0;
+        bool had_failed = false;
+
+        // Collect alphabet representatives from the intersection of all regexes
+        // (merge boundaries from all)
+        unsigned_vector all_bounds;
+        all_bounds.push_back(0);
+        for (euf::snode* re : regexes)
+            collect_char_boundaries(re, all_bounds);
+        std::sort(all_bounds.begin(), all_bounds.end());
+
+        euf::snode_vector reps;
+        unsigned prev = UINT_MAX;
+        for (unsigned b : all_bounds) {
+            if (b != prev) {
+                reps.push_back(m_sg.mk_char(b));
+                prev = b;
+            }
+        }
+        if (reps.empty())
+            reps.push_back(m_sg.mk_char('a'));
+
+        while (!worklist.empty()) {
+            if (states_explored >= max_states)
+                return l_undef;
+
+            bfs_state current = std::move(worklist.back());
+            worklist.pop_back();
+            ++states_explored;
+
+            for (euf::snode* ch : reps) {
+                ptr_vector<euf::snode> derivs;
+                bool any_fail = false;
+                bool all_null = true;
+                bool deriv_failed = false;
+
+                for (euf::snode* re : current.regexes) {
+                    euf::snode* d = m_sg.brzozowski_deriv(re, ch);
+                    if (!d) { deriv_failed = true; break; }
+                    if (d->is_fail()) { any_fail = true; break; }
+                    if (!d->is_nullable()) all_null = false;
+                    derivs.push_back(d);
+                }
+
+                if (deriv_failed) { had_failed = true; continue; }
+                if (any_fail) continue; // this character leads to empty intersection
+
+                if (all_null)
+                    return l_false; // found an accepting state in the product
+
+                // Check if any component is structurally empty
+                bool any_empty = false;
+                for (euf::snode* d : derivs) {
+                    if (is_empty_regex(d)) { any_empty = true; break; }
+                }
+                if (any_empty) continue;
+
+                // Compute state hash and check visited
+                state_t ids;
+                for (euf::snode* d : derivs)
+                    ids.push_back(d->id());
+                unsigned h = state_hash(ids);
+                if (visited_hashes.count(h) == 0) {
+                    visited_hashes.insert(h);
+                    bfs_state next;
+                    next.regexes.append(derivs);
+                    worklist.push_back(std::move(next));
+                }
+            }
+        }
+
+        if (had_failed)
+            return l_undef;
+        return l_true; // exhausted all states, intersection is empty
+    }
+
+    // -----------------------------------------------------------------------
+    // Language subset check: L(A) ⊆ L(B)
+    // via intersection(A, complement(B)) = ∅
+    // Mirrors ZIPT NielsenNode.IsLanguageSubset (NielsenNode.cs:1382-1385)
+    // -----------------------------------------------------------------------
+
+    lbool nseq_regex::is_language_subset(euf::snode* subset_re, euf::snode* superset_re) {
+        if (!subset_re || !superset_re)
+            return l_undef;
+
+        // Quick checks
+        if (subset_re->is_fail() || is_empty_regex(subset_re))
+            return l_true;  // ∅ ⊆ anything
+        if (superset_re->is_full_seq())
+            return l_true;  // anything ⊆ Σ*
+        if (subset_re == superset_re)
+            return l_true;  // L ⊆ L
+
+        // Build complement(superset)
+        seq_util& seq = m_sg.get_seq_util();
+        ast_manager& mgr = m_sg.get_manager();
+        expr* sup_expr = superset_re->get_expr();
+        if (!sup_expr)
+            return l_undef;
+        expr_ref comp(seq.re.mk_complement(sup_expr), mgr);
+        euf::snode* comp_sn = m_sg.mk(comp);
+        if (!comp_sn)
+            return l_undef;
+
+        // Build intersection and check emptiness
+        // subset ∩ complement(superset) should be empty for subset relation
+        expr* sub_expr = subset_re->get_expr();
+        if (!sub_expr)
+            return l_undef;
+        expr_ref inter(seq.re.mk_inter(sub_expr, comp.get()), mgr);
+        euf::snode* inter_sn = m_sg.mk(inter);
+        if (!inter_sn)
+            return l_undef;
+
+        return is_empty_bfs(inter_sn);
+    }
+
+    // -----------------------------------------------------------------------
+    // Collect primitive regex intersection for a variable
+    // -----------------------------------------------------------------------
+
+    euf::snode* nseq_regex::collect_primitive_regex_intersection(
+            euf::snode* var, seq::nielsen_node const& node) {
+        if (!var)
+            return nullptr;
+
+        seq_util& seq = m_sg.get_seq_util();
+        ast_manager& mgr = m_sg.get_manager();
+        euf::snode* result = nullptr;
+
+        for (auto const& mem : node.str_mems()) {
+            if (!mem.m_str || !mem.m_regex)
+                continue;
+            // Primitive constraint: str is a single variable
+            if (!mem.is_primitive())
+                continue;
+            euf::snode* first = mem.m_str->first();
+            if (!first || first != var)
+                continue;
+
+            if (!result) {
+                result = mem.m_regex;
+            } else {
+                expr* r1 = result->get_expr();
+                expr* r2 = mem.m_regex->get_expr();
+                if (r1 && r2) {
+                    expr_ref inter(seq.re.mk_inter(r1, r2), mgr);
+                    result = m_sg.mk(inter);
+                }
+            }
+        }
+        return result;
+    }
+
+    // -----------------------------------------------------------------------
     // Cycle detection
     // -----------------------------------------------------------------------
 
@@ -88,11 +742,14 @@ namespace smt {
             euf::snode* first = mem.m_str->first();
             if (!first || !first->is_char())
                 break;
-            euf::snode* deriv = m_sg.brzozowski_deriv(mem.m_regex, first);
+            euf::snode* parent_re = mem.m_regex;
+            euf::snode* deriv = m_sg.brzozowski_deriv(parent_re, first);
             if (!deriv)
                 break;
             if (deriv->is_fail())
                 return simplify_status::conflict;
+            // propagate self-stabilizing flag from parent to derivative
+            propagate_self_stabilizing(parent_re, deriv);
             mem.m_str = m_sg.drop_first(mem.m_str);
             mem.m_regex = deriv;
         }
@@ -361,13 +1018,6 @@ namespace smt {
         if (!cycle_regex || !current_regex)
             return nullptr;
 
-        // The stabilizer is the Kleene star of the "cycle body" regex.
-        // If the cycle regex and current regex are the same (pointer equal),
-        // the stabilizer is cycle_regex* (Kleene star).
-        // This mirrors ZIPT's StabilizerFromCycle which extracts the
-        // regex between the cycle entry and current point and wraps it in *.
-
-        // Build cycle_regex* via the sgraph's expression factory
         expr* re_expr = cycle_regex->get_expr();
         if (!re_expr)
             return nullptr;
@@ -378,31 +1028,253 @@ namespace smt {
     }
 
     // -----------------------------------------------------------------------
-    // Stabilizer-based subsumption
+    // Extract cycle history tokens
     // -----------------------------------------------------------------------
 
-    bool nseq_regex::try_subsume(seq::str_mem const& mem) {
-        // Check if the derivation history exhibits a cycle, and if so,
-        // whether the current regex is subsumed by the stabilizer.
-        euf::snode* cycle = extract_cycle(mem);
-        if (!cycle)
+    euf::snode* nseq_regex::extract_cycle_history(seq::str_mem const& current,
+                                                   seq::str_mem const& ancestor) {
+        // The history is built by simplify_and_init as a left-associative
+        // string concat chain: concat(concat(concat(nil, c1), c2), c3).
+        // Extract the tokens consumed since the ancestor.
+        if (!current.m_history)
+            return nullptr;
+
+        unsigned cur_len = current.m_history->length();
+        unsigned anc_len = ancestor.m_history ? ancestor.m_history->length() : 0;
+
+        if (cur_len <= anc_len)
+            return nullptr;
+
+        if (anc_len == 0)
+            return current.m_history;
+
+        return m_sg.drop_left(current.m_history, anc_len);
+    }
+
+    // -----------------------------------------------------------------------
+    // Get filtered stabilizer star
+    // Mirrors ZIPT StrMem.GetFilteredStabilizerStar (StrMem.cs:228-243)
+    // -----------------------------------------------------------------------
+
+    euf::snode* nseq_regex::get_filtered_stabilizer_star(euf::snode* re,
+                                                          euf::snode* excluded_char) {
+        if (!re)
+            return nullptr;
+
+        ptr_vector<euf::snode> const* stabs = get_stabilizers(re);
+        if (!stabs || stabs->empty())
+            return nullptr;
+
+        seq_util& seq = m_sg.get_seq_util();
+        ast_manager& m = m_sg.get_manager();
+        euf::snode* filtered_union = nullptr;
+
+        for (euf::snode* s : *stabs) {
+            if (!s)
+                continue;
+            // Keep only stabilizers whose language cannot start with excluded_char
+            euf::snode* d = m_sg.brzozowski_deriv(s, excluded_char);
+            if (d && d->is_fail()) {
+                if (!filtered_union) {
+                    filtered_union = s;
+                } else {
+                    expr* e1 = filtered_union->get_expr();
+                    expr* e2 = s->get_expr();
+                    if (e1 && e2) {
+                        expr_ref u(seq.re.mk_union(e1, e2), m);
+                        filtered_union = m_sg.mk(u);
+                    }
+                }
+            }
+        }
+
+        if (!filtered_union)
+            return nullptr;
+
+        expr* fe = filtered_union->get_expr();
+        if (!fe)
+            return nullptr;
+        expr_ref star_expr(seq.re.mk_star(fe), m);
+        return m_sg.mk(star_expr);
+    }
+
+    // -----------------------------------------------------------------------
+    // Strengthened stabilizer construction with sub-cycle detection
+    // Mirrors ZIPT StrMem.StabilizerFromCycle (StrMem.cs:163-225)
+    // -----------------------------------------------------------------------
+
+    euf::snode* nseq_regex::strengthened_stabilizer(euf::snode* cycle_regex,
+                                                     euf::snode* cycle_history) {
+        if (!cycle_regex || !cycle_history)
+            return nullptr;
+
+        // Flatten the history concat chain into a vector of character tokens.
+        euf::snode_vector tokens;
+        cycle_history->collect_tokens(tokens);
+
+        if (tokens.empty())
+            return nullptr;
+
+        seq_util& seq = m_sg.get_seq_util();
+        ast_manager& m = m_sg.get_manager();
+
+        // Replay tokens on the cycle regex, detecting sub-cycles.
+        // A sub-cycle is detected when the derivative returns to cycle_regex.
+        svector<std::pair<unsigned, unsigned>> sub_cycles;
+        unsigned cycle_start = 0;
+        euf::snode* current_re = cycle_regex;
+
+        for (unsigned i = 0; i < tokens.size(); ++i) {
+            euf::snode* tok = tokens[i];
+            if (!tok)
+                return nullptr;
+
+            euf::snode* deriv = m_sg.brzozowski_deriv(current_re, tok);
+            if (!deriv)
+                return nullptr;
+
+            // Sub-cycle: derivative returned to the cycle entry regex
+            if (deriv == cycle_regex ||
+                (deriv->get_expr() && cycle_regex->get_expr() &&
+                 deriv->get_expr() == cycle_regex->get_expr())) {
+                sub_cycles.push_back(std::make_pair(cycle_start, i + 1));
+                cycle_start = i + 1;
+                current_re = cycle_regex;
+            } else {
+                current_re = deriv;
+            }
+        }
+
+        // Remaining tokens that don't complete a sub-cycle
+        if (cycle_start < tokens.size())
+            sub_cycles.push_back(std::make_pair(cycle_start, tokens.size()));
+
+        if (sub_cycles.empty())
+            return nullptr;
+
+        // Build a stabilizer body for each sub-cycle.
+        // body = to_re(t0) · [filteredStar(R1, t1)] · to_re(t1) · ... · to_re(t_{n-1})
+        euf::snode* overall_union = nullptr;
+
+        for (auto const& sc : sub_cycles) {
+            unsigned start = sc.first;
+            unsigned end = sc.second;
+            if (start >= end)
+                continue;
+
+            euf::snode* re_state = cycle_regex;
+            euf::snode* body = nullptr;
+
+            for (unsigned i = start; i < end; ++i) {
+                euf::snode* tok = tokens[i];
+                if (!tok)
+                    break;
+
+                // Insert filtered stabilizer star before each token after the first
+                if (i > start) {
+                    euf::snode* filtered = get_filtered_stabilizer_star(re_state, tok);
+                    if (filtered) {
+                        expr* fe = filtered->get_expr();
+                        if (fe) {
+                            if (!body) {
+                                body = filtered;
+                            } else {
+                                expr* be = body->get_expr();
+                                if (be) {
+                                    expr_ref cat(seq.re.mk_concat(be, fe), m);
+                                    body = m_sg.mk(cat);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Convert char token to regex: to_re(unit(tok))
+                expr* tok_expr = tok->get_expr();
+                if (!tok_expr)
+                    break;
+
+                expr_ref unit_str(seq.str.mk_unit(tok_expr), m);
+                expr_ref tok_re(seq.re.mk_to_re(unit_str), m);
+                euf::snode* tok_re_sn = m_sg.mk(tok_re);
+
+                if (!body) {
+                    body = tok_re_sn;
+                } else {
+                    expr* be = body->get_expr();
+                    expr* te = tok_re_sn->get_expr();
+                    if (be && te) {
+                        expr_ref cat(seq.re.mk_concat(be, te), m);
+                        body = m_sg.mk(cat);
+                    }
+                }
+
+                // Advance the regex state
+                euf::snode* deriv = m_sg.brzozowski_deriv(re_state, tok);
+                if (!deriv)
+                    break;
+                re_state = deriv;
+            }
+
+            if (!body)
+                continue;
+
+            if (!overall_union) {
+                overall_union = body;
+            } else {
+                expr* oe = overall_union->get_expr();
+                expr* be = body->get_expr();
+                if (oe && be) {
+                    expr_ref u(seq.re.mk_union(oe, be), m);
+                    overall_union = m_sg.mk(u);
+                }
+            }
+        }
+
+        return overall_union;
+    }
+
+    // -----------------------------------------------------------------------
+    // Stabilizer-based subsumption (enhanced)
+    // Mirrors ZIPT StrMem.TrySubsume (StrMem.cs:354-386)
+    // -----------------------------------------------------------------------
+
+    bool nseq_regex::try_subsume(seq::str_mem const& mem, seq::nielsen_node const& node) {
+        if (!mem.m_str || !mem.m_regex)
             return false;
 
-        euf::snode* stab = stabilizer_from_cycle(cycle, mem.m_regex);
-        if (!stab)
+        // 1. Leading token must be a variable
+        euf::snode* first = mem.m_str->first();
+        if (!first || !first->is_var())
             return false;
 
-        // A constraint x ∈ R is subsumed when R ⊆ stab.
-        // For the simple case where cycle == current regex,
-        // R ⊆ R* is always true (since R* accepts everything R does, and more).
-        // This handles the common idempotent cycle case.
-        if (cycle == mem.m_regex)
-            return true;
+        // 2. Must have stabilizers for the regex
+        if (!has_stabilizers(mem.m_regex))
+            return false;
 
-        // More sophisticated subsumption checks (regex containment)
-        // would require a regex inclusion decision procedure.
-        // For now, only handle the pointer-equality case.
-        return false;
+        // 3. Build stabStar = star(union(all stabilizers for this regex))
+        euf::snode* stab_union = get_stabilizer_union(mem.m_regex);
+        if (!stab_union)
+            return false;
+
+        seq_util& seq = m_sg.get_seq_util();
+        ast_manager& mgr = m_sg.get_manager();
+        expr* su_expr = stab_union->get_expr();
+        if (!su_expr)
+            return false;
+        expr_ref stab_star(seq.re.mk_star(su_expr), mgr);
+        euf::snode* stab_star_sn = m_sg.mk(stab_star);
+        if (!stab_star_sn)
+            return false;
+
+        // 4. Collect all primitive regex constraints on variable `first`
+        euf::snode* x_range = collect_primitive_regex_intersection(first, node);
+        if (!x_range)
+            return false;
+
+        // 5. Check L(x_range) ⊆ L(stab_star)
+        lbool result = is_language_subset(x_range, stab_star_sn);
+        return result == l_true;
     }
 
 }

@@ -74,11 +74,12 @@ static void test_str_eq() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
+    seq_util seq(m);
 
     euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* y = sg.mk_var(symbol("y"));
     euf::snode* a = sg.mk_char('A');
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     seq::dep_tracker dep; dep.insert(0);
 
@@ -121,7 +122,7 @@ static void test_str_mem() {
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
     euf::snode* x = sg.mk_var(symbol("x"));
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     // create a regex: re.all (.*)
     expr_ref star_fc(seq.re.mk_full_seq(str_sort), m);
@@ -149,11 +150,12 @@ static void test_nielsen_subst() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
+    seq_util seq(m);
 
     euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* y = sg.mk_var(symbol("y"));
     euf::snode* a = sg.mk_char('A');
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     seq::dep_tracker dep;
 
@@ -208,7 +210,7 @@ static void test_nielsen_node() {
     // regex membership
     expr_ref re_all(seq.re.mk_full_seq(str_sort), m);
     euf::snode* regex = sg.mk(re_all);
-    euf::snode* empty = sg.mk_empty();
+    euf::snode* empty = sg.mk_empty_seq(seq.str.mk_string_sort());
     root->add_str_mem(seq::str_mem(x, regex, empty, 0, dep));
     SASSERT(root->str_mems().size() == 1);
 
@@ -311,7 +313,7 @@ static void test_nielsen_subst_apply() {
     euf::snode* y = sg.mk_var(symbol("y"));
     euf::snode* a = sg.mk_char('A');
     euf::snode* b = sg.mk_char('B');
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     // create node with constraint: concat(x, A) = concat(B, y)
     seq::nielsen_node* node = ng.mk_node();
@@ -362,6 +364,7 @@ static void test_nielsen_expansion() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
+    seq_util seq(m);
 
     dummy_simple_solver solver;
     seq::nielsen_graph ng(sg, solver);
@@ -379,7 +382,7 @@ static void test_nielsen_expansion() {
     seq::dep_tracker dep;
 
     // branch 1: x -> eps (eliminating, progress)
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
     seq::nielsen_node* child1 = ng.mk_child(root);
     seq::nielsen_subst s1(x, e, dep);
     child1->apply_subst(sg, s1);
@@ -1720,9 +1723,10 @@ static void test_simplify_empty_propagation() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
+    seq_util seq(m);
 
     dummy_simple_solver solver;    seq::nielsen_graph ng(sg, solver);
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
     euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* y = sg.mk_var(symbol("y"));
     euf::snode* xy = sg.mk_concat(x, y);
@@ -1743,9 +1747,10 @@ static void test_simplify_empty_vs_char() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
+    seq_util seq(m);
 
     dummy_simple_solver solver;    seq::nielsen_graph ng(sg, solver);
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
     euf::snode* a = sg.mk_char('A');
 
     // ε = A → rhs has non-variable token → conflict
@@ -1791,11 +1796,12 @@ static void test_simplify_trivial_removal() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
+    seq_util seq(m);
 
     dummy_simple_solver solver;    seq::nielsen_graph ng(sg, solver);
     euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* y = sg.mk_var(symbol("y"));
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     seq::nielsen_node* node = ng.mk_node();
     seq::dep_tracker dep; dep.insert(0);
@@ -1814,10 +1820,11 @@ static void test_simplify_all_trivial_satisfied() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
+    seq_util seq(m);
 
     dummy_simple_solver solver;    seq::nielsen_graph ng(sg, solver);
     euf::snode* x = sg.mk_var(symbol("x"));
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     seq::nielsen_node* node = ng.mk_node();
     seq::dep_tracker dep; dep.insert(0);
@@ -1838,7 +1845,7 @@ static void test_simplify_regex_infeasible() {
     seq_util seq(m);
 
     dummy_simple_solver solver;    seq::nielsen_graph ng(sg, solver);
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     expr_ref ch_a(seq.str.mk_char('A'), m);
     expr_ref unit_a(seq.str.mk_unit(ch_a), m);
@@ -1865,7 +1872,7 @@ static void test_simplify_nullable_removal() {
     seq_util seq(m);
 
     dummy_simple_solver solver;    seq::nielsen_graph ng(sg, solver);
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     expr_ref ch_a(seq.str.mk_char('A'), m);
     expr_ref unit_a(seq.str.mk_unit(ch_a), m);
@@ -1894,7 +1901,7 @@ static void test_simplify_brzozowski_sat() {
 
     dummy_simple_solver solver;    seq::nielsen_graph ng(sg, solver);
     euf::snode* a = sg.mk_char('A');
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     expr_ref ch_a(seq.str.mk_char('A'), m);
     expr_ref unit_a(seq.str.mk_unit(ch_a), m);
@@ -1923,7 +1930,7 @@ static void test_simplify_brzozowski_rtl_suffix() {
     euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* a = sg.mk_char('A');
     euf::snode* xa = sg.mk_concat(x, a);
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     expr_ref ch_b(seq.str.mk_char('B'), m);
     expr_ref unit_b(seq.str.mk_unit(ch_b), m);
@@ -1955,13 +1962,14 @@ static void test_simplify_multiple_eqs() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
+    seq_util seq(m);
 
     dummy_simple_solver solver;    seq::nielsen_graph ng(sg, solver);
     euf::snode* a = sg.mk_char('A');
     euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* y = sg.mk_var(symbol("y"));
     euf::snode* z = sg.mk_var(symbol("z"));
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     seq::nielsen_node* node = ng.mk_node();
     seq::dep_tracker dep; dep.insert(0);
@@ -2083,7 +2091,7 @@ static void test_explain_conflict_mem_only() {
     seq_util seq(m);
 
     dummy_simple_solver solver;    seq::nielsen_graph ng(sg, solver);
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     expr_ref ch_a(seq.str.mk_char('A'), m);
     expr_ref unit_a(seq.str.mk_unit(ch_a), m);
@@ -2115,7 +2123,7 @@ static void test_explain_conflict_mixed_eq_mem() {
     dummy_simple_solver solver;    seq::nielsen_graph ng(sg, solver);
     euf::snode* a = sg.mk_char('A');
     euf::snode* b = sg.mk_char('B');
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     // eq[0]: A = B (conflict)
     ng.add_str_eq(a, b);
@@ -2418,9 +2426,10 @@ static void test_length_constraints_empty_side() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
+    seq_util seq(m);
 
     euf::snode* x = sg.mk_var(symbol("x"));
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     // x = ε
     dummy_simple_solver solver;    seq::nielsen_graph ng(sg, solver);

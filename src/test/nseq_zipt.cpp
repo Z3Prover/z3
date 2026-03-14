@@ -57,9 +57,10 @@ public:
 // -----------------------------------------------------------------------
 struct str_builder {
     euf::sgraph& sg;
+    seq_util& su;
     euf::snode* vars[26] = {};      // vars['A'-'A'] .. vars['Z'-'A']
 
-    explicit str_builder(euf::sgraph& sg) : sg(sg) {}
+    str_builder(euf::sgraph& sg, seq_util& su) : sg(sg), su(su) {}
 
     euf::snode* var(char c) {
         int idx = c - 'A';
@@ -76,7 +77,7 @@ struct str_builder {
                 : sg.mk_char((unsigned)(unsigned char)*p);
             result = result ? sg.mk_concat(result, tok) : tok;
         }
-        return result ? result : sg.mk_empty();
+        return result ? result : sg.mk_empty_seq(su.str.mk_string_sort());
     }
 };
 
@@ -190,7 +191,7 @@ struct nseq_fixture {
     static ast_manager& init(ast_manager& m) { reg_decl_plugins(m); return m; }
 
     nseq_fixture()
-        : eg(init(m)), sg(m, eg), ng(sg, dummy_solver), su(m), sb(sg), rb(m, su, sg)
+        : eg(init(m)), sg(m, eg), ng(sg, dummy_solver), su(m), sb(sg, su), rb(m, su, sg)
     {}
 
     euf::snode* S(const char* s) { return sb.parse(s); }

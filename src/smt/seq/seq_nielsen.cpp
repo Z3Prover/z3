@@ -21,6 +21,7 @@ Author:
 
 #include "smt/seq/seq_nielsen.h"
 #include "smt/seq/seq_parikh.h"
+#include "smt/nseq_regex.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/seq_rewriter.h"
@@ -206,6 +207,19 @@ namespace seq {
             m_var_lb.insert(kv.m_key, kv.m_value);
         for (auto const& kv : parent.m_var_ub)
             m_var_ub.insert(kv.m_key, kv.m_value);
+        // clone regex occurrence tracking
+        m_regex_occurrence = parent.m_regex_occurrence;
+    }
+
+    bool nielsen_node::track_regex_occurrence(unsigned regex_id, unsigned mem_id) {
+        auto key = std::make_pair(regex_id, mem_id);
+        auto it = m_regex_occurrence.find(key);
+        if (it != m_regex_occurrence.end()) {
+            // Already seen — cycle detected
+            return true;
+        }
+        m_regex_occurrence[key] = m_id;
+        return false;
     }
 
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
@@ -499,11 +513,13 @@ namespace seq {
         m_sg(sg),
         m_solver(solver),
         m_parikh(alloc(seq_parikh, sg)),
+        m_nseq_regex(alloc(smt::nseq_regex, sg)),
         m_len_vars(sg.get_manager()) {
     }
 
     nielsen_graph::~nielsen_graph() {
         dealloc(m_parikh);
+        dealloc(m_nseq_regex);
         reset();
     }
 
@@ -1670,6 +1686,91 @@ namespace seq {
             }
         }
 
+        // consume symbolic characters (s_unit tokens) via uniform derivative
+        // check.  When all minterms of the regex produce the same Brzozowski
+        // derivative, the derivative is independent of the character value
+        // and we can deterministically consume the token.  Forward direction
+        // only (matches ZIPT history tracking convention).
+        //
+        // Extended: when uniform derivative fails but the token has a char_range
+        // constraint (from apply_regex_var_split), check if the char_range is a
+        // subset of a single minterm's character class.  If so, the derivative
+        // is deterministic for that token.
+        // Mirrors ZIPT StrMem.SimplifyCharRegex lines 96-117.
+        for (str_mem& mem : m_str_mem) {
+            if (!mem.m_str || !mem.m_regex)
+                continue;
+            while (mem.m_str && !mem.m_str->is_empty()) {
+                euf::snode* tok = mem.m_str->first();
+                if (!tok || !tok->is_unit())
+                    break;
+                // compute minterms and check for uniform derivative
+                euf::snode_vector minterms;
+                sg.compute_minterms(mem.m_regex, minterms);
+                if (minterms.empty())
+                    break;
+                euf::snode* uniform = nullptr;
+                bool is_uniform = true;
+                for (euf::snode* mt : minterms) {
+                    if (!mt || mt->is_fail())
+                        continue;
+                    euf::snode* deriv = sg.brzozowski_deriv(mem.m_regex, mt);
+                    if (!deriv) { is_uniform = false; break; }
+                    if (!uniform) {
+                        uniform = deriv;
+                    } else if (uniform->id() != deriv->id()) {
+                        is_uniform = false; break;
+                    }
+                }
+                if (is_uniform && uniform) {
+                    if (uniform->is_fail()) {
+                        m_is_general_conflict = true;
+                        m_reason = backtrack_reason::regex;
+                        return simplify_result::conflict;
+                    }
+                    mem.m_str = sg.drop_left(mem.m_str, 1);
+                    mem.m_regex = uniform;
+                    mem.m_history = sg.mk_concat(mem.m_history, tok);
+                    continue;
+                }
+                // Uniform derivative failed — try char_range subset approach.
+                // If the symbolic char has a char_range constraint and that
+                // range is a subset of exactly one minterm's character class,
+                // we can deterministically take that minterm's derivative.
+                if (m_char_ranges.contains(tok->id()) && g.m_parikh) {
+                    char_set const& cs = m_char_ranges[tok->id()];
+                    if (!cs.is_empty()) {
+                        euf::snode* matching_deriv = nullptr;
+                        bool found = false;
+                        for (euf::snode* mt : minterms) {
+                            if (!mt || mt->is_fail()) continue;
+                            if (!mt->get_expr()) continue;
+                            char_set mt_cs = g.m_parikh->minterm_to_char_set(mt->get_expr());
+                            if (cs.is_subset(mt_cs)) {
+                                euf::snode* deriv = sg.brzozowski_deriv(mem.m_regex, mt);
+                                if (!deriv) { found = false; break; }
+                                if (deriv->is_fail()) {
+                                    m_is_general_conflict = true;
+                                    m_reason = backtrack_reason::regex;
+                                    return simplify_result::conflict;
+                                }
+                                matching_deriv = deriv;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (found && matching_deriv) {
+                            mem.m_str = sg.drop_left(mem.m_str, 1);
+                            mem.m_regex = matching_deriv;
+                            mem.m_history = sg.mk_concat(mem.m_history, tok);
+                            continue;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+
         // check for regex memberships that are immediately infeasible
         for (str_mem& mem : m_str_mem) {
             if (!mem.m_str || !mem.m_regex)
@@ -1691,6 +1792,23 @@ namespace seq {
         }
         if (wi < m_str_mem.size())
             m_str_mem.shrink(wi);
+
+        // Regex widening: for each remaining str_mem, overapproximate
+        // the string by replacing variables with their regex intersection
+        // and check if the result intersected with the target regex is empty.
+        // Detects infeasible constraints that would otherwise require
+        // expensive exploration. Mirrors ZIPT NielsenNode.CheckRegexWidening.
+        if (g.m_nseq_regex) {
+            for (str_mem const& mem : m_str_mem) {
+                if (!mem.m_str || !mem.m_regex)
+                    continue;
+                if (g.check_regex_widening(*this, mem.m_str, mem.m_regex)) {
+                    m_is_general_conflict = true;
+                    m_reason = backtrack_reason::regex;
+                    return simplify_result::conflict;
+                }
+            }
+        }
 
         // IntBounds initialization: derive per-variable Parikh length bounds from
         // remaining regex memberships and add to m_int_constraints.
@@ -2075,6 +2193,15 @@ namespace seq {
         }
 
         if (sr == simplify_result::satisfied || node->is_satisfied()) {
+            // Before declaring SAT, check leaf-node regex feasibility:
+            // for each variable with multiple regex constraints, verify
+            // that the intersection of all its regexes is non-empty.
+            // Mirrors ZIPT NielsenNode.CheckRegex.
+            if (!check_leaf_regex(*node)) {
+                node->set_general_conflict(true);
+                node->set_reason(backtrack_reason::regex);
+                return search_result::unsat;
+            }
             m_sat_node = node;
             m_sat_path = cur_path;
             return search_result::sat;
@@ -3132,9 +3259,10 @@ namespace seq {
     // Modifier: apply_star_intr
     // Star introduction: for a str_mem x·s ∈ R where a cycle is detected
     // (backedge exists), introduce a stabilizer constraint x ∈ base*.
-    // Creates a child that adds x ∈ base* membership and constrains
-    // the remainder not to start with base.
-    // mirrors ZIPT's StarIntrModifier
+    // Creates a child that splits x into pr·po, adds pr ∈ base* and
+    // po·s ∈ R, with a blocking constraint on po.
+    // Enhanced to use strengthened_stabilizer and register via add_stabilizer.
+    // mirrors ZIPT's StarIntrModifier (StarIntrModifier.cs:22-85)
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_star_intr(nielsen_node* node) {
@@ -3149,41 +3277,86 @@ namespace seq {
             euf::snode* first = mem.m_str->first();
             if (!first || !first->is_var()) continue;
 
-            // Introduce a fresh variable z constrained by z ∈ R*,
-            // replacing x → z·fresh_post. This breaks the cycle because
-            // z is a new variable that won't trigger star_intr again.
             euf::snode* x = first;
-            euf::snode* z = mk_fresh_var();
-            euf::snode* fresh_post = mk_fresh_var();
-            euf::snode* str_tail = m_sg.drop_first(mem.m_str);
-
-            // Build z ∈ R* membership: the star of the current regex
             seq_util& seq = m_sg.get_seq_util();
+            ast_manager& mgr = m_sg.get_manager();
             expr* re_expr = mem.m_regex->get_expr();
             if (!re_expr)
                 continue;
-            expr_ref star_re(seq.re.mk_star(re_expr), seq.get_manager());
+
+            // Determine the stabilizer base:
+            // 1. If self-stabilizing, use regex itself as stabilizer
+            // 2. Otherwise, try strengthened_stabilizer from cycle history
+            // 3. Fall back to simple star(R)
+            euf::snode* stab_base = nullptr;
+
+            if (m_nseq_regex && m_nseq_regex->is_self_stabilizing(mem.m_regex)) {
+                stab_base = mem.m_regex;
+            }
+            else if (m_nseq_regex && mem.m_history) {
+                stab_base = m_nseq_regex->strengthened_stabilizer(mem.m_regex, mem.m_history);
+            }
+
+            if (!stab_base) {
+                // Fall back: simple star of the cycle regex
+                stab_base = mem.m_regex;
+            }
+
+            // Register the stabilizer
+            if (m_nseq_regex)
+                m_nseq_regex->add_stabilizer(mem.m_regex, stab_base);
+
+            // Check if stabilizer equals regex → self-stabilizing
+            if (m_nseq_regex && stab_base == mem.m_regex)
+                m_nseq_regex->set_self_stabilizing(mem.m_regex);
+
+            // Build stab_star = star(stab_base)
+            expr* stab_expr = stab_base->get_expr();
+            if (!stab_expr)
+                continue;
+            expr_ref star_re(seq.re.mk_star(stab_expr), mgr);
             euf::snode* star_sn = m_sg.mk(star_re);
             if (!star_sn)
                 continue;
 
+            // Try subsumption: if L(x_range) ⊆ L(stab_star), drop the constraint
+            if (m_nseq_regex && m_nseq_regex->try_subsume(mem, *node))
+                continue;
+
+            // Create child: x → pr · po
+            euf::snode* pr = mk_fresh_var();
+            euf::snode* po = mk_fresh_var();
+            euf::snode* str_tail = m_sg.drop_first(mem.m_str);
+
             nielsen_node* child = mk_child(node);
 
-            // Add membership: z ∈ R* (stabilizer constraint)
-            child->add_str_mem(str_mem(z, star_sn, mem.m_history, next_mem_id(), mem.m_dep));
+            // Add membership: pr ∈ stab_base* (stabilizer constraint)
+            child->add_str_mem(str_mem(pr, star_sn, mem.m_history, next_mem_id(), mem.m_dep));
 
-            // Add remaining membership: fresh_post · tail ∈ R
-            euf::snode* post_tail = str_tail->is_empty() ? fresh_post : m_sg.mk_concat(fresh_post, str_tail);
-            child->add_str_mem(str_mem(post_tail, mem.m_regex, mem.m_history, next_mem_id(), mem.m_dep));
+            // Add remaining membership: po · tail ∈ R (same regex, trimmed history)
+            euf::snode* post_tail = str_tail->is_empty() ? po : m_sg.mk_concat(po, str_tail);
+            child->add_str_mem(str_mem(post_tail, mem.m_regex, nullptr, next_mem_id(), mem.m_dep));
 
-            // Substitute x → z · fresh_post
+            // Blocking constraint: po must NOT start with stab_base
+            // po ∈ complement(non_nullable(stab_base) · Σ*)
+            // This prevents redundant unrolling.
+            if (!stab_base->is_nullable()) {
+                sort* str_sort = seq.str.mk_string_sort();
+                expr_ref full_seq(seq.re.mk_full_seq(seq.re.mk_re(str_sort)), mgr);
+                expr_ref base_then_all(seq.re.mk_concat(stab_expr, full_seq), mgr);
+                expr_ref block_re(seq.re.mk_complement(base_then_all), mgr);
+                euf::snode* block_sn = m_sg.mk(block_re);
+                if (block_sn)
+                    child->add_str_mem(str_mem(po, block_sn, nullptr, next_mem_id(), mem.m_dep));
+            }
+
+            // Substitute x → pr · po
             nielsen_edge* e = mk_edge(node, child, false);
-            euf::snode* replacement = m_sg.mk_concat(z, fresh_post);
+            euf::snode* replacement = m_sg.mk_concat(pr, po);
             nielsen_subst s(x, replacement, mem.m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
 
-            // Do not re-set backedge — z is fresh, so star_intr won't fire again
             return true;
         }
         return false;
@@ -4101,5 +4274,160 @@ namespace seq {
         return mdl.get() != nullptr;
     }
 
-}
+    // -----------------------------------------------------------------------
+    // Regex widening: overapproximate string and check intersection emptiness
+    // Mirrors ZIPT NielsenNode.CheckRegexWidening (NielsenNode.cs:1350-1380)
+    // -----------------------------------------------------------------------
 
+    bool nielsen_graph::check_regex_widening(nielsen_node const& node,
+                                             euf::snode* str, euf::snode* regex) {
+        if (!str || !regex || !m_nseq_regex)
+            return false;
+        // Only apply to ground regexes with non-trivial strings
+        if (!regex->is_ground())
+            return false;
+
+        seq_util seq(m_sg.get_manager());
+        ast_manager& mgr = m_sg.get_manager();
+
+        // Build the overapproximation regex for the string.
+        // Variables → intersection of their primitive regex constraints (or Σ*)
+        // Symbolic chars → re.range from char_ranges (or full_char)
+        // Concrete chars → to_re(unit(c))
+        euf::snode_vector tokens;
+        str->collect_tokens(tokens);
+        if (tokens.empty())
+            return false;
+
+        euf::snode* approx = nullptr;
+        for (euf::snode* tok : tokens) {
+            euf::snode* tok_re = nullptr;
+
+            if (tok->is_char()) {
+                // Concrete character → to_re(unit(c))
+                expr* te = tok->get_expr();
+                if (!te) return false;
+                expr_ref unit_s(seq.str.mk_unit(te), mgr);
+                expr_ref tre(seq.re.mk_to_re(unit_s), mgr);
+                tok_re = m_sg.mk(tre);
+            }
+            else if (tok->is_var()) {
+                // Variable → intersection of primitive regex constraints, or Σ*
+                euf::snode* x_range = m_nseq_regex->collect_primitive_regex_intersection(tok, node);
+                if (x_range) {
+                    tok_re = x_range;
+                } else {
+                    // Unconstrained variable: approximate as Σ*
+                    sort* str_sort = seq.str.mk_string_sort();
+                    expr_ref all_re(seq.re.mk_full_seq(seq.re.mk_re(str_sort)), mgr);
+                    tok_re = m_sg.mk(all_re);
+                }
+            }
+            else if (tok->is_unit()) {
+                // Symbolic char — try to get char_range
+                if (node.char_ranges().contains(tok->id())) {
+                    char_set const& cs = node.char_ranges()[tok->id()];
+                    if (!cs.is_empty()) {
+                        // Build union of re.range for each interval
+                        euf::snode* range_re = nullptr;
+                        for (auto const& r : cs.ranges()) {
+                            expr_ref lo(seq.mk_char(r.m_lo), mgr);
+                            expr_ref hi(seq.mk_char(r.m_hi - 1), mgr);
+                            expr_ref rng(seq.re.mk_range(
+                                seq.str.mk_string(zstring(r.m_lo)),
+                                seq.str.mk_string(zstring(r.m_hi - 1))), mgr);
+                            euf::snode* rng_sn = m_sg.mk(rng);
+                            if (!range_re) {
+                                range_re = rng_sn;
+                            } else {
+                                expr_ref u(seq.re.mk_union(range_re->get_expr(), rng_sn->get_expr()), mgr);
+                                range_re = m_sg.mk(u);
+                            }
+                        }
+                        tok_re = range_re;
+                    }
+                }
+                if (!tok_re) {
+                    // Unconstrained symbolic char: approximate as full_char (single char, any value)
+                    sort* str_sort = seq.str.mk_string_sort();
+                    expr_ref fc(seq.re.mk_full_char(seq.re.mk_re(str_sort)), mgr);
+                    tok_re = m_sg.mk(fc);
+                }
+            }
+            else {
+                // Unknown token type — approximate as Σ*
+                sort* str_sort = seq.str.mk_string_sort();
+                expr_ref all_re(seq.re.mk_full_seq(seq.re.mk_re(str_sort)), mgr);
+                tok_re = m_sg.mk(all_re);
+            }
+
+            if (!tok_re)
+                return false;
+
+            if (!approx) {
+                approx = tok_re;
+            } else {
+                expr* ae = approx->get_expr();
+                expr* te = tok_re->get_expr();
+                if (!ae || !te) return false;
+                expr_ref cat(seq.re.mk_concat(ae, te), mgr);
+                approx = m_sg.mk(cat);
+            }
+        }
+
+        if (!approx)
+            return false;
+
+        // Check intersection(approx, regex) for emptiness
+        // Build intersection regex
+        expr* ae = approx->get_expr();
+        expr* re = regex->get_expr();
+        if (!ae || !re)
+            return false;
+        expr_ref inter(seq.re.mk_inter(ae, re), mgr);
+        euf::snode* inter_sn = m_sg.mk(inter);
+        if (!inter_sn)
+            return false;
+
+        lbool result = m_nseq_regex->is_empty_bfs(inter_sn, 5000);
+        return result == l_true;
+    }
+
+    // -----------------------------------------------------------------------
+    // Leaf-node regex intersection emptiness check
+    // Mirrors ZIPT NielsenNode.CheckRegex (NielsenNode.cs:1311-1329)
+    // -----------------------------------------------------------------------
+
+    bool nielsen_graph::check_leaf_regex(nielsen_node const& node) {
+        if (!m_nseq_regex)
+            return true;
+
+        // Group str_mem constraints by variable (primitive constraints only)
+        u_map<ptr_vector<euf::snode>> var_regexes;
+
+        for (auto const& mem : node.str_mems()) {
+            if (!mem.m_str || !mem.m_regex)
+                continue;
+            if (!mem.is_primitive())
+                continue;
+            euf::snode* first = mem.m_str->first();
+            if (!first || !first->is_var())
+                continue;
+            auto& list = var_regexes.insert_if_not_there(first->id(), ptr_vector<euf::snode>());
+            list.push_back(mem.m_regex);
+        }
+
+        // For each variable with 2+ regex constraints, check intersection non-emptiness
+        for (auto& [var_id, regexes] : var_regexes) {
+            if (regexes.size() < 2)
+                continue;
+            lbool result = m_nseq_regex->check_intersection_emptiness(regexes, 5000);
+            if (result == l_true) {
+                // Intersection is empty — infeasible
+                return false;
+            }
+        }
+        return true;
+    }
+
+}

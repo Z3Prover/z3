@@ -449,6 +449,7 @@ static void test_sgraph_factory() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
+    seq_util seq(m);
 
     // mk_var
     euf::snode* x = sg.mk_var(symbol("x"));
@@ -463,7 +464,7 @@ static void test_sgraph_factory() {
     SASSERT(a->length() == 1);
 
     // mk_empty
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
     SASSERT(e && e->is_empty());
     SASSERT(e->is_nullable());
     SASSERT(e->length() == 0);
@@ -499,6 +500,7 @@ static void test_sgraph_indexing() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
+    seq_util seq(m);
 
     euf::snode* a = sg.mk_char('A');
     euf::snode* b = sg.mk_char('B');
@@ -533,7 +535,7 @@ static void test_sgraph_indexing() {
     SASSERT(a->at(1) == nullptr);
 
     // empty: at(0) is nullptr
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
     SASSERT(e->at(0) == nullptr);
     euf::snode_vector empty_tokens;
     e->collect_tokens(empty_tokens);
@@ -547,6 +549,7 @@ static void test_sgraph_drop() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
+    seq_util seq(m);
 
     euf::snode* a = sg.mk_char('A');
     euf::snode* b = sg.mk_char('B');
@@ -591,7 +594,7 @@ static void test_sgraph_drop() {
     SASSERT(e->is_empty());
 
     // drop from empty: no change
-    euf::snode* ee = sg.drop_first(sg.mk_empty());
+    euf::snode* ee = sg.drop_first(sg.mk_empty_seq(seq.str.mk_string_sort()));
     SASSERT(ee->is_empty());
 }
 
@@ -602,6 +605,7 @@ static void test_sgraph_subst() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
+    seq_util seq(m);
 
     euf::snode* x = sg.mk_var(symbol("x"));
     euf::snode* y = sg.mk_var(symbol("y"));
@@ -624,7 +628,7 @@ static void test_sgraph_subst() {
     SASSERT(same == xax);
 
     // substitution of variable with empty
-    euf::snode* e = sg.mk_empty();
+    euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
     euf::snode* collapsed = sg.subst(xax, x, e);
     SASSERT(collapsed->length() == 1); // just 'a' remains
     SASSERT(collapsed == a);

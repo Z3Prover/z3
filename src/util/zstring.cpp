@@ -402,6 +402,27 @@ bool char_set::is_disjoint(char_set const& other) const {
     return true;
 }
 
+bool char_set::is_subset(char_set const& other) const {
+    // Every range in *this must be fully covered by ranges in other.
+    // Both are sorted, non-overlapping.
+    if (m_ranges.empty())
+        return true;
+    unsigned j = 0;
+    for (unsigned i = 0; i < m_ranges.size(); ++i) {
+        unsigned lo = m_ranges[i].m_lo;
+        unsigned hi = m_ranges[i].m_hi;
+        // Advance j to find covering range in other
+        while (j < other.m_ranges.size() && other.m_ranges[j].m_hi <= lo)
+            ++j;
+        if (j >= other.m_ranges.size())
+            return false;
+        // other.m_ranges[j] must fully contain [lo, hi)
+        if (other.m_ranges[j].m_lo > lo || other.m_ranges[j].m_hi < hi)
+            return false;
+    }
+    return true;
+}
+
 std::ostream& char_set::display(std::ostream& out) const {
     if (m_ranges.empty()) {
         out << "{}";

@@ -91,14 +91,15 @@ static void test_nseq_simplification() {
     std::cout << "test_nseq_simplification\n";
     ast_manager m;
     reg_decl_plugins(m);
+    seq_util su(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     nseq_basic_dummy_solver solver;
     seq::nielsen_graph ng(sg, solver);
 
     // Add a trivial equality: empty = empty
-    euf::snode* empty1 = sg.mk_empty();
-    euf::snode* empty2 = sg.mk_empty();
+    euf::snode* empty1 = sg.mk_empty_seq(su.str.mk_string_sort());
+    euf::snode* empty2 = sg.mk_empty_seq(su.str.mk_string_sort());
 
     ng.add_str_eq(empty1, empty2);
 
@@ -113,6 +114,7 @@ static void test_nseq_node_satisfied() {
     std::cout << "test_nseq_node_satisfied\n";
     ast_manager m;
     reg_decl_plugins(m);
+    seq_util su(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     nseq_basic_dummy_solver solver;
@@ -123,7 +125,7 @@ static void test_nseq_node_satisfied() {
     SASSERT(node->is_satisfied());
 
     // add a trivial equality
-    euf::snode* empty = sg.mk_empty();
+    euf::snode* empty = sg.mk_empty_seq(su.str.mk_string_sort());
     seq::dep_tracker dep;
     seq::str_eq eq(empty, empty, dep);
     node->add_str_eq(eq);
