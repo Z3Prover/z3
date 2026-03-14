@@ -21,7 +21,7 @@ Author:
 NSB review: add ast_manager& m to nielsen_graph and remove local calls to get_manager()
 NSB review: add seq_util& seq to nielsen_graph and remove local calls to get_seq_util()
 NSB review: make m_graph a reference instead of a pointer on nielsen_node
-NSB review: replace comparisons of snode ids by m.are_equal, for ast_manager m.
+NSB review: replace comparisons of snode ids by m.are_equal, for ast_manager m. Make sure to use E-graph roots.
 
 --*/
 
