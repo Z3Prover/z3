@@ -258,6 +258,9 @@ namespace smt {
                     zstring result(buf.size(), buf.data());
                     return expr_ref(m_seq.str.mk_string(result), m);
                 }
+                // NSB review: just return an expression of the form:
+                // mk_power(base_val, a.mk_int(n_val)) for large exponents
+                
                 // Fallback: cap exponent to avoid divergence
                 n_val = POWER_EXPAND_LIMIT;
             }
