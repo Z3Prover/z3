@@ -3,7 +3,7 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    nseq_regex.h
+    seq_regex.h
 
 Abstract:
 
@@ -24,6 +24,7 @@ Abstract:
 
 Author:
 
+    Clemens Eisenhofer 2026-03-01
     Nikolaj Bjorner (nbjorner) 2026-03-01
 
 --*/
@@ -34,9 +35,9 @@ Author:
 #include "util/uint_set.h"
 #include "util/lbool.h"
 
-namespace smt {
+namespace seq {
 
-    class nseq_regex {
+    class seq_regex {
         euf::sgraph& m_sg;
 
         // -----------------------------------------------------------------
@@ -71,7 +72,7 @@ namespace smt {
         void get_alphabet_representatives(euf::snode* re, euf::snode_vector& reps);
 
     public:
-        nseq_regex(euf::sgraph& sg) : m_sg(sg) {}
+        seq_regex(euf::sgraph& sg) : m_sg(sg) {}
 
         euf::sgraph& sg() { return m_sg; }
 

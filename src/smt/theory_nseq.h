@@ -25,9 +25,9 @@ Author:
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
 #include "smt/seq/seq_nielsen.h"
-#include "smt/nseq_state.h"
-#include "smt/nseq_regex.h"
-#include "smt/nseq_model.h"
+#include "smt/seq/seq_state.h"
+#include "smt/seq/seq_regex.h"
+#include "smt/seq_model.h"
 #include "smt/nseq_context_solver.h"
 
 namespace smt {
@@ -43,9 +43,9 @@ namespace smt {
         // to the m_nielsen constructor and must remain stable for the object's lifetime.
         context_solver m_context_solver;
         seq::nielsen_graph m_nielsen;
-        nseq_state     m_state;
-        nseq_regex     m_regex;   // regex membership pre-processing
-        nseq_model     m_model;   // model construction helper
+        seq_state     m_state;
+        seq::seq_regex     m_regex;   // regex membership pre-processing
+        seq_model     m_model;   // model construction helper
 
         // propagation queue
         struct prop_item {

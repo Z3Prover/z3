@@ -21,7 +21,7 @@ Author:
 
 #include "smt/seq/seq_nielsen.h"
 #include "smt/seq/seq_parikh.h"
-#include "smt/nseq_regex.h"
+#include "smt/seq/seq_regex.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/seq_rewriter.h"
@@ -513,13 +513,13 @@ namespace seq {
         m_sg(sg),
         m_solver(solver),
         m_parikh(alloc(seq_parikh, sg)),
-        m_nseq_regex(alloc(smt::nseq_regex, sg)),
+        m_seq_regex(alloc(seq::seq_regex, sg)),
         m_len_vars(sg.get_manager()) {
     }
 
     nielsen_graph::~nielsen_graph() {
         dealloc(m_parikh);
-        dealloc(m_nseq_regex);
+        dealloc(m_seq_regex);
         reset();
     }
 
@@ -1798,7 +1798,7 @@ namespace seq {
         // and check if the result intersected with the target regex is empty.
         // Detects infeasible constraints that would otherwise require
         // expensive exploration. Mirrors ZIPT NielsenNode.CheckRegexWidening.
-        if (g.m_nseq_regex) {
+        if (g.m_seq_regex) {
             for (str_mem const& mem : m_str_mem) {
                 if (!mem.m_str || !mem.m_regex)
                     continue;
@@ -3290,11 +3290,11 @@ namespace seq {
             // 3. Fall back to simple star(R)
             euf::snode* stab_base = nullptr;
 
-            if (m_nseq_regex && m_nseq_regex->is_self_stabilizing(mem.m_regex)) {
+            if (m_seq_regex && m_seq_regex->is_self_stabilizing(mem.m_regex)) {
                 stab_base = mem.m_regex;
             }
-            else if (m_nseq_regex && mem.m_history) {
-                stab_base = m_nseq_regex->strengthened_stabilizer(mem.m_regex, mem.m_history);
+            else if (m_seq_regex && mem.m_history) {
+                stab_base = m_seq_regex->strengthened_stabilizer(mem.m_regex, mem.m_history);
             }
 
             if (!stab_base) {
@@ -3303,12 +3303,12 @@ namespace seq {
             }
 
             // Register the stabilizer
-            if (m_nseq_regex)
-                m_nseq_regex->add_stabilizer(mem.m_regex, stab_base);
+            if (m_seq_regex)
+                m_seq_regex->add_stabilizer(mem.m_regex, stab_base);
 
             // Check if stabilizer equals regex → self-stabilizing
-            if (m_nseq_regex && stab_base == mem.m_regex)
-                m_nseq_regex->set_self_stabilizing(mem.m_regex);
+            if (m_seq_regex && stab_base == mem.m_regex)
+                m_seq_regex->set_self_stabilizing(mem.m_regex);
 
             // Build stab_star = star(stab_base)
             expr* stab_expr = stab_base->get_expr();
@@ -3320,7 +3320,7 @@ namespace seq {
                 continue;
 
             // Try subsumption: if L(x_range) ⊆ L(stab_star), drop the constraint
-            if (m_nseq_regex && m_nseq_regex->try_subsume(mem, *node))
+            if (m_seq_regex && m_seq_regex->try_subsume(mem, *node))
                 continue;
 
             // Create child: x → pr · po
@@ -4281,7 +4281,7 @@ namespace seq {
 
     bool nielsen_graph::check_regex_widening(nielsen_node const& node,
                                              euf::snode* str, euf::snode* regex) {
-        if (!str || !regex || !m_nseq_regex)
+        if (!str || !regex || !m_seq_regex)
             return false;
         // Only apply to ground regexes with non-trivial strings
         if (!regex->is_ground())
@@ -4313,7 +4313,7 @@ namespace seq {
             }
             else if (tok->is_var()) {
                 // Variable → intersection of primitive regex constraints, or Σ*
-                euf::snode* x_range = m_nseq_regex->collect_primitive_regex_intersection(tok, node);
+                euf::snode* x_range = m_seq_regex->collect_primitive_regex_intersection(tok, node);
                 if (x_range) {
                     tok_re = x_range;
                 } else {
@@ -4389,7 +4389,7 @@ namespace seq {
         if (!inter_sn)
             return false;
 
-        lbool result = m_nseq_regex->is_empty_bfs(inter_sn, 5000);
+        lbool result = m_seq_regex->is_empty_bfs(inter_sn, 5000);
         return result == l_true;
     }
 
@@ -4399,7 +4399,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::check_leaf_regex(nielsen_node const& node) {
-        if (!m_nseq_regex)
+        if (!m_seq_regex)
             return true;
 
         // Group str_mem constraints by variable (primitive constraints only)
@@ -4421,7 +4421,7 @@ namespace seq {
         for (auto& [var_id, regexes] : var_regexes) {
             if (regexes.size() < 2)
                 continue;
-            lbool result = m_nseq_regex->check_intersection_emptiness(regexes, 5000);
+            lbool result = m_seq_regex->check_intersection_emptiness(regexes, 5000);
             if (result == l_true) {
                 // Intersection is empty — infeasible
                 return false;

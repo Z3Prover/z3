@@ -3,7 +3,7 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    nseq_regex.cpp
+    seq_regex.cpp
 
 Abstract:
 
@@ -11,24 +11,25 @@ Abstract:
 
 Author:
 
+    Clemens Eisenhofer 2026-03-01
     Nikolaj Bjorner (nbjorner) 2026-03-01
 
 --*/
-#include "smt/nseq_regex.h"
+#include "smt/seq/seq_regex.h"
 #include <unordered_set>
 
-namespace smt {
+namespace seq {
 
     // -----------------------------------------------------------------------
     // Stabilizer store
     // -----------------------------------------------------------------------
 
-    void nseq_regex::reset_stabilizers() {
+    void seq_regex::reset_stabilizers() {
         m_stabilizers.reset();
         m_self_stabilizing.reset();
     }
 
-    void nseq_regex::add_stabilizer(euf::snode* regex, euf::snode* stabilizer) {
+    void seq_regex::add_stabilizer(euf::snode* regex, euf::snode* stabilizer) {
         if (!regex || !stabilizer)
             return;
 
@@ -43,7 +44,7 @@ namespace smt {
         stabs.push_back(stabilizer);
     }
 
-    euf::snode* nseq_regex::get_stabilizer_union(euf::snode* regex) {
+    euf::snode* seq_regex::get_stabilizer_union(euf::snode* regex) {
         if (!regex)
             return nullptr;
 
@@ -73,7 +74,7 @@ namespace smt {
         return result;
     }
 
-    bool nseq_regex::has_stabilizers(euf::snode* regex) const {
+    bool seq_regex::has_stabilizers(euf::snode* regex) const {
         if (!regex)
             return false;
         if (!m_stabilizers.contains(regex->id()))
@@ -81,7 +82,7 @@ namespace smt {
         return !m_stabilizers[regex->id()].empty();
     }
 
-    ptr_vector<euf::snode> const* nseq_regex::get_stabilizers(euf::snode* regex) const {
+    ptr_vector<euf::snode> const* seq_regex::get_stabilizers(euf::snode* regex) const {
         if (!regex)
             return nullptr;
         if (!m_stabilizers.contains(regex->id()))
@@ -89,13 +90,13 @@ namespace smt {
         return &m_stabilizers[regex->id()];
     }
 
-    void nseq_regex::set_self_stabilizing(euf::snode* regex) {
+    void seq_regex::set_self_stabilizing(euf::snode* regex) {
         if (!regex)
             return;
         m_self_stabilizing.insert(regex->id());
     }
 
-    bool nseq_regex::is_self_stabilizing(euf::snode* regex) const {
+    bool seq_regex::is_self_stabilizing(euf::snode* regex) const {
         if (!regex)
             return false;
         return m_self_stabilizing.contains(regex->id());
@@ -105,7 +106,7 @@ namespace smt {
     // Self-stabilizing auto-detection
     // -----------------------------------------------------------------------
 
-    bool nseq_regex::compute_self_stabilizing(euf::snode* regex) const {
+    bool seq_regex::compute_self_stabilizing(euf::snode* regex) const {
         if (!regex)
             return false;
 
@@ -147,7 +148,7 @@ namespace smt {
     // Self-stabilizing propagation through derivatives
     // -----------------------------------------------------------------------
 
-    void nseq_regex::propagate_self_stabilizing(euf::snode* parent, euf::snode* deriv) {
+    void seq_regex::propagate_self_stabilizing(euf::snode* parent, euf::snode* deriv) {
         if (!parent || !deriv)
             return;
 
@@ -248,7 +249,7 @@ namespace smt {
     // Derivative with propagation
     // -----------------------------------------------------------------------
 
-    euf::snode* nseq_regex::derivative_with_propagation(euf::snode* re, euf::snode* elem) {
+    euf::snode* seq_regex::derivative_with_propagation(euf::snode* re, euf::snode* elem) {
         if (!re || !elem)
             return nullptr;
         euf::snode* deriv = derivative(re, elem);
@@ -261,7 +262,7 @@ namespace smt {
     // Uniform derivative (symbolic character consumption)
     // -----------------------------------------------------------------------
 
-    euf::snode* nseq_regex::try_uniform_derivative(euf::snode* regex) {
+    euf::snode* seq_regex::try_uniform_derivative(euf::snode* regex) {
         if (!regex)
             return nullptr;
 
@@ -305,7 +306,7 @@ namespace smt {
     // Ground prefix consumption
     // -----------------------------------------------------------------------
 
-    bool nseq_regex::is_empty_regex(euf::snode* re) const {
+    bool seq_regex::is_empty_regex(euf::snode* re) const {
         if (!re)
             return false;
         // direct empty language constant
@@ -355,7 +356,7 @@ namespace smt {
     // BFS regex emptiness check — helper: collect character boundaries
     // -----------------------------------------------------------------------
 
-    void nseq_regex::collect_char_boundaries(euf::snode* re, unsigned_vector& bounds) const {
+    void seq_regex::collect_char_boundaries(euf::snode* re, unsigned_vector& bounds) const {
         if (!re || !re->get_expr())
             return;
 
@@ -401,7 +402,7 @@ namespace smt {
     // BFS regex emptiness check — helper: alphabet representatives
     // -----------------------------------------------------------------------
 
-    void nseq_regex::get_alphabet_representatives(euf::snode* re, euf::snode_vector& reps) {
+    void seq_regex::get_alphabet_representatives(euf::snode* re, euf::snode_vector& reps) {
         unsigned_vector bounds;
         bounds.push_back(0); // always include character 0
         collect_char_boundaries(re, bounds);
@@ -421,7 +422,7 @@ namespace smt {
     // BFS regex emptiness check
     // -----------------------------------------------------------------------
 
-    lbool nseq_regex::is_empty_bfs(euf::snode* re, unsigned max_states) {
+    lbool seq_regex::is_empty_bfs(euf::snode* re, unsigned max_states) {
         if (!re || !re->get_expr())
             return l_undef;
         if (re->is_fail())
@@ -507,7 +508,7 @@ namespace smt {
     // Mirrors ZIPT NielsenNode.CheckEmptiness (NielsenNode.cs:1429-1469)
     // -----------------------------------------------------------------------
 
-    lbool nseq_regex::check_intersection_emptiness(ptr_vector<euf::snode> const& regexes,
+    lbool seq_regex::check_intersection_emptiness(ptr_vector<euf::snode> const& regexes,
                                                     unsigned max_states) {
         if (regexes.empty())
             return l_false; // empty intersection = full language (vacuously non-empty)
@@ -649,7 +650,7 @@ namespace smt {
     // Mirrors ZIPT NielsenNode.IsLanguageSubset (NielsenNode.cs:1382-1385)
     // -----------------------------------------------------------------------
 
-    lbool nseq_regex::is_language_subset(euf::snode* subset_re, euf::snode* superset_re) {
+    lbool seq_regex::is_language_subset(euf::snode* subset_re, euf::snode* superset_re) {
         if (!subset_re || !superset_re)
             return l_undef;
 
@@ -689,7 +690,7 @@ namespace smt {
     // Collect primitive regex intersection for a variable
     // -----------------------------------------------------------------------
 
-    euf::snode* nseq_regex::collect_primitive_regex_intersection(
+    euf::snode* seq_regex::collect_primitive_regex_intersection(
             euf::snode* var, seq::nielsen_node const& node) {
         if (!var)
             return nullptr;
@@ -726,7 +727,7 @@ namespace smt {
     // Cycle detection
     // -----------------------------------------------------------------------
 
-    bool nseq_regex::detect_cycle(seq::str_mem const& mem) const {
+    bool seq_regex::detect_cycle(seq::str_mem const& mem) const {
         return extract_cycle(mem) != nullptr;
     }
 
@@ -734,7 +735,7 @@ namespace smt {
     // Ground prefix consumption
     // -----------------------------------------------------------------------
 
-    nseq_regex::simplify_status nseq_regex::simplify_ground_prefix(seq::str_mem& mem) {
+    seq_regex::simplify_status seq_regex::simplify_ground_prefix(seq::str_mem& mem) {
         if (!mem.m_str || !mem.m_regex)
             return simplify_status::ok;
 
@@ -768,7 +769,7 @@ namespace smt {
     // Ground suffix consumption (best-effort)
     // -----------------------------------------------------------------------
 
-    nseq_regex::simplify_status nseq_regex::simplify_ground_suffix(seq::str_mem& mem) {
+    seq_regex::simplify_status seq_regex::simplify_ground_suffix(seq::str_mem& mem) {
         // Suffix consumption via reverse derivatives is complex.
         // For now, only handle the case where the entire string is ground:
         // consume all characters from the front (which covers trailing chars
@@ -786,7 +787,7 @@ namespace smt {
     // Trivial checks
     // -----------------------------------------------------------------------
 
-    int nseq_regex::check_trivial(seq::str_mem const& mem) const {
+    int seq_regex::check_trivial(seq::str_mem const& mem) const {
         if (!mem.m_str || !mem.m_regex)
             return 0;
         // regex is ∅ => always conflict
@@ -808,7 +809,7 @@ namespace smt {
     // Minterm computation with filtering
     // -----------------------------------------------------------------------
 
-    void nseq_regex::get_minterms(euf::snode* regex, euf::snode_vector& minterms) {
+    void seq_regex::get_minterms(euf::snode* regex, euf::snode_vector& minterms) {
         if (!regex)
             return;
 
@@ -831,7 +832,7 @@ namespace smt {
     // Collect first characters
     // -----------------------------------------------------------------------
 
-    void nseq_regex::collect_first_chars(euf::snode* re, euf::snode_vector& chars) {
+    void seq_regex::collect_first_chars(euf::snode* re, euf::snode_vector& chars) {
         if (!re)
             return;
 
@@ -907,7 +908,7 @@ namespace smt {
     // Membership processing
     // -----------------------------------------------------------------------
 
-    bool nseq_regex::process_str_mem(seq::str_mem const& mem,
+    bool seq_regex::process_str_mem(seq::str_mem const& mem,
                                      vector<seq::str_mem>& out_mems) {
         if (!mem.m_str || !mem.m_regex)
             return true;
@@ -946,7 +947,7 @@ namespace smt {
     // History recording
     // -----------------------------------------------------------------------
 
-    seq::str_mem nseq_regex::record_history(seq::str_mem const& mem, euf::snode* history_re) {
+    seq::str_mem seq_regex::record_history(seq::str_mem const& mem, euf::snode* history_re) {
         // Build a history chain by prepending the new regex entry to the
         // existing history. Uses regex-concat as a cons cell:
         //   new_history = re.concat(history_re, old_history)
@@ -969,7 +970,7 @@ namespace smt {
     // Cycle detection
     // -----------------------------------------------------------------------
 
-    euf::snode* nseq_regex::extract_cycle(seq::str_mem const& mem) const {
+    euf::snode* seq_regex::extract_cycle(seq::str_mem const& mem) const {
         // Walk the history chain looking for a repeated regex.
         // A cycle exists when the current regex matches a regex in the history.
         if (!mem.m_regex || !mem.m_history)
@@ -1013,7 +1014,7 @@ namespace smt {
     // Stabilizer from cycle
     // -----------------------------------------------------------------------
 
-    euf::snode* nseq_regex::stabilizer_from_cycle(euf::snode* cycle_regex,
+    euf::snode* seq_regex::stabilizer_from_cycle(euf::snode* cycle_regex,
                                                    euf::snode* current_regex) {
         if (!cycle_regex || !current_regex)
             return nullptr;
@@ -1031,7 +1032,7 @@ namespace smt {
     // Extract cycle history tokens
     // -----------------------------------------------------------------------
 
-    euf::snode* nseq_regex::extract_cycle_history(seq::str_mem const& current,
+    euf::snode* seq_regex::extract_cycle_history(seq::str_mem const& current,
                                                    seq::str_mem const& ancestor) {
         // The history is built by simplify_and_init as a left-associative
         // string concat chain: concat(concat(concat(nil, c1), c2), c3).
@@ -1056,7 +1057,7 @@ namespace smt {
     // Mirrors ZIPT StrMem.GetFilteredStabilizerStar (StrMem.cs:228-243)
     // -----------------------------------------------------------------------
 
-    euf::snode* nseq_regex::get_filtered_stabilizer_star(euf::snode* re,
+    euf::snode* seq_regex::get_filtered_stabilizer_star(euf::snode* re,
                                                           euf::snode* excluded_char) {
         if (!re)
             return nullptr;
@@ -1103,7 +1104,7 @@ namespace smt {
     // Mirrors ZIPT StrMem.StabilizerFromCycle (StrMem.cs:163-225)
     // -----------------------------------------------------------------------
 
-    euf::snode* nseq_regex::strengthened_stabilizer(euf::snode* cycle_regex,
+    euf::snode* seq_regex::strengthened_stabilizer(euf::snode* cycle_regex,
                                                      euf::snode* cycle_history) {
         if (!cycle_regex || !cycle_history)
             return nullptr;
@@ -1239,7 +1240,7 @@ namespace smt {
     // Mirrors ZIPT StrMem.TrySubsume (StrMem.cs:354-386)
     // -----------------------------------------------------------------------
 
-    bool nseq_regex::try_subsume(seq::str_mem const& mem, seq::nielsen_node const& node) {
+    bool seq_regex::try_subsume(seq::str_mem const& mem, seq::nielsen_node const& node) {
         if (!mem.m_str || !mem.m_regex)
             return false;
 

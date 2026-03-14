@@ -3,7 +3,7 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    nseq_model.h
+    seq_model.h
 
 Abstract:
 
@@ -22,6 +22,7 @@ Abstract:
 
 Author:
 
+    Clemens Eisenhofer 2026-03-01
     Nikolaj Bjorner (nbjorner) 2026-03-01
 
 --*/
@@ -30,26 +31,28 @@ Author:
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/euf/euf_sgraph.h"
-#include "smt/smt_types.h"
 #include "smt/seq/seq_nielsen.h"
 #include "model/seq_factory.h"
 
 class proto_model;
 
+namespace seq {
+    class seq_regex;
+}
+
 namespace smt {
 
-    class theory_nseq;
-    class nseq_regex;
-    class nseq_state;
+    class enode;
+    class model_generator;
+    class seq_state;
     class model_value_proc;
 
-    class nseq_model {
-        theory_nseq&    m_th;
+    class seq_model {
         ast_manager&    m;
         seq_util&       m_seq;
         seq_rewriter&   m_rewriter;
         euf::sgraph&    m_sg;
-        nseq_regex&     m_regex;
+        seq::seq_regex&     m_regex;
 
         // factory for generating fresh string/regex values
         seq_factory*    m_factory = nullptr;
@@ -70,14 +73,14 @@ namespace smt {
         u_map<euf::snode*> m_var_regex;
 
     public:
-        nseq_model(theory_nseq& th, ast_manager& m, seq_util& seq,
-                   seq_rewriter& rw, euf::sgraph& sg, nseq_regex& regex);
+        seq_model(ast_manager& m, seq_util& seq,
+                   seq_rewriter& rw, euf::sgraph& sg, seq::seq_regex& regex);
 
         // Phase 1: initialize model construction.
         // Allocates seq_factory, registers it with mg, collects
         // existing string literals, and extracts variable assignments
         // from the satisfying Nielsen leaf node.
-        void init(model_generator& mg, seq::nielsen_graph& nielsen, nseq_state const& state);
+        void init(model_generator& mg, seq::nielsen_graph& nielsen, seq_state const& state);
 
         // Phase 2: build a model_value_proc for the given enode.
         // Returns nullptr if the enode is not a sequence/string sort.
@@ -89,7 +92,7 @@ namespace smt {
         // Validate that model assignments satisfy all regex membership
         // constraints from the state.  Checks positive and negative
         // memberships.  Returns true if all constraints pass.
-        bool validate_regex(nseq_state const& state, ::proto_model& mdl);
+        bool validate_regex(seq_state const& state, ::proto_model& mdl);
 
     private:
         // extract variable assignments from the sat path (root-to-leaf edges).
@@ -123,7 +126,7 @@ namespace smt {
         // collect per-variable regex constraints from the state.
         // For each positive str_mem, records the regex (or intersects
         // with existing) into m_var_regex keyed by the string snode id.
-        void collect_var_regex_constraints(nseq_state const& state);
+        void collect_var_regex_constraints(seq_state const& state);
     };
 
 }

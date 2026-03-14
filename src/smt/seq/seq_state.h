@@ -3,7 +3,7 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    nseq_state.h
+    seq_state.h
 
 Abstract:
 
@@ -13,15 +13,15 @@ Abstract:
 
 Author:
 
+    Clemens Eisenhofer 2026-03-01
     Nikolaj Bjorner (nbjorner) 2026-03-01
 
 --*/
 #pragma once
 
 #include "util/vector.h"
-#include "ast/euf/euf_sgraph.h"
 #include "smt/seq/seq_nielsen.h"
-#include "smt/smt_literal.h"
+#include "util/sat_literal.h"
 
 namespace smt {
 
@@ -35,7 +35,7 @@ namespace smt {
 
     // source info for a regex membership (the literal that asserted it)
     struct mem_source {
-        literal m_lit;
+        sat::literal m_lit;
     };
 
     // source info for a string disequality
@@ -44,8 +44,7 @@ namespace smt {
         enode* m_n2;
     };
 
-    class nseq_state {
-        euf::sgraph&            m_sg;
+    class seq_state {
         vector<seq::str_eq>     m_str_eqs;
         vector<seq::str_mem>    m_str_mems;
         vector<eq_source>       m_eq_sources;
@@ -57,7 +56,7 @@ namespace smt {
         unsigned                m_next_mem_id = 0;
 
     public:
-        nseq_state(euf::sgraph& sg) : m_sg(sg) {}
+        seq_state() = default;
 
         void push() {
             m_str_eq_lim.push_back(m_str_eqs.size());
@@ -84,7 +83,7 @@ namespace smt {
             m_eq_sources.push_back({n1, n2});
         }
 
-        void add_str_mem(euf::snode* str, euf::snode* regex, literal lit) {
+        void add_str_mem(euf::snode* str, euf::snode* regex, sat::literal lit) {
             seq::dep_tracker dep;
             m_str_mems.push_back(seq::str_mem(str, regex, nullptr, m_next_mem_id++, dep));
             m_mem_sources.push_back({lit});

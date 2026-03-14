@@ -35,9 +35,9 @@ namespace smt {
         m_sgraph(ctx.get_manager(), m_egraph),
         m_context_solver(ctx.get_manager()),
         m_nielsen(m_sgraph, m_context_solver),
-        m_state(m_sgraph),
+        m_state(),
         m_regex(m_sgraph),
-        m_model(*this, ctx.get_manager(), m_seq, m_rewriter, m_sgraph, m_regex)
+        m_model(ctx.get_manager(), m_seq, m_rewriter, m_sgraph, m_regex)
     {}
 
     // -----------------------------------------------------------------------
@@ -339,7 +339,7 @@ namespace smt {
             m_nielsen.add_str_eq(eq.m_lhs, eq.m_rhs);
         }
 
-        // transfer regex memberships, pre-processing through nseq_regex
+        // transfer regex memberships, pre-processing through seq_regex
         // to consume ground prefixes via Brzozowski derivatives
         for (unsigned state_idx = 0; state_idx < m_state.str_mems().size(); ++state_idx) {
             auto const& mem = m_state.str_mems()[state_idx];

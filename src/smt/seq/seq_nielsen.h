@@ -244,8 +244,8 @@ Author:
 #include <map>
 #include "model/model.h"
 
-namespace smt {
-    class nseq_regex;  // forward declaration (defined in smt/nseq_regex.h)
+namespace seq {
+    class seq_regex;  // forward declaration (defined in smt/seq/seq_regex.h)
 }
 
 namespace seq {
@@ -761,7 +761,7 @@ namespace seq {
 
         // Regex membership module: stabilizers, emptiness checks, language
         // inclusion, derivatives. Allocated in the constructor; owned by this graph.
-        smt::nseq_regex*              m_nseq_regex = nullptr;
+        seq::seq_regex*              m_seq_regex = nullptr;
 
         // -----------------------------------------------
         // Modification counter for substitution length tracking.
@@ -895,8 +895,8 @@ namespace seq {
         // Caller takes ownership of the returned model pointer.
         bool solve_sat_path_ints(model_ref& mdl);
 
-        // accessor for the nseq_regex module
-        smt::nseq_regex* nseq_regex_module() const { return m_nseq_regex; }
+        // accessor for the seq_regex module
+        seq::seq_regex* seq_regex_module() const { return m_seq_regex; }
 
     private:
         search_result search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path);
