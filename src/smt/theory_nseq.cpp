@@ -37,7 +37,7 @@ namespace smt {
         m_nielsen(m_sgraph, m_context_solver),
         m_state(),
         m_regex(m_sgraph),
-        m_model(ctx.get_manager(), m_seq, m_rewriter, m_sgraph, m_regex)
+        m_model(ctx.get_manager(), m_seq, m_rewriter, m_sgraph)
     {}
 
     // -----------------------------------------------------------------------
