@@ -21,7 +21,7 @@ Author:
 
 #include "util/vector.h"
 #include "smt/seq/seq_nielsen.h"
-#include "smt/smt_literal.h"
+#include "util/sat_literal.h"
 
 namespace smt {
 
@@ -35,7 +35,7 @@ namespace smt {
 
     // source info for a regex membership (the literal that asserted it)
     struct mem_source {
-        literal m_lit;
+        sat::literal m_lit;
     };
 
     // source info for a string disequality
@@ -83,7 +83,7 @@ namespace smt {
             m_eq_sources.push_back({n1, n2});
         }
 
-        void add_str_mem(euf::snode* str, euf::snode* regex, literal lit) {
+        void add_str_mem(euf::snode* str, euf::snode* regex, sat:literal lit) {
             seq::dep_tracker dep;
             m_str_mems.push_back(seq::str_mem(str, regex, nullptr, m_next_mem_id++, dep));
             m_mem_sources.push_back({lit});
