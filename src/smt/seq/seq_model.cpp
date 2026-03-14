@@ -272,6 +272,9 @@ namespace smt {
         return e ? expr_ref(e, m) : expr_ref(m);
     }
 
+    // NSB review: replace this by seq_rewriter::some_string_in_re when it is a regex over strings.
+    // add a routine that works for regular expressions over types other than strings to seq_rewriter
+    // use this for regexes over non-strings.
     expr_ref seq_model::generate_regex_witness(euf::snode* regex, unsigned depth) {
         if (!regex)
             return expr_ref(m_seq.str.mk_empty(m_seq.str.mk_string_sort()), m);
