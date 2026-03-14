@@ -21,7 +21,7 @@ Author:
 NSB review: add ast_manager& m to nielsen_graph and remove local calls to get_manager()
 NSB review: add seq_util& seq to nielsen_graph and remove local calls to get_seq_util()
 NSB review: make m_graph a reference instead of a pointer on nielsen_node
-
+NSB review: replace comparisons of snode ids by m.are_equal, for ast_manager m.
 
 --*/
 
@@ -1445,6 +1445,8 @@ namespace seq {
                     eq.m_rhs->collect_tokens(rhs_toks);
 
                     // --- prefix ---
+                    // NSB review: use m.are_distinct instead of ad-hoc checks for char clash,
+                    // NSB review: use m.are_equal instead of pointer lt->id() == rt->id().
                     unsigned prefix = 0;
                     while (prefix < lhs_toks.size() && prefix < rhs_toks.size()) {
                         euf::snode* lt = lhs_toks[prefix];
@@ -1461,6 +1463,8 @@ namespace seq {
                     }
 
                     // --- suffix (only among the tokens not already consumed by prefix) ---
+                    // NSB review: use m.are_distinct instead of ad-hoc checks for char clash,
+                    // NSB review: use m.are_equal instead of pointer lt->id() == rt->id().
                     unsigned lsz = lhs_toks.size(), rsz = rhs_toks.size();
                     unsigned suffix = 0;
                     while (suffix < lsz - prefix && suffix < rsz - prefix) {
@@ -1493,6 +1497,8 @@ namespace seq {
                 // Creates a single deterministic child with the substitution and
                 // constraint as edge labels so they appear in the graph.
                 // Guard: skip if we already created a child (re-entry via iterative deepening).
+
+                // NSB review: ask copilot to summarize this step using a formal looking but readable spec                
                 if (!eq.is_trivial() && eq.m_lhs && eq.m_rhs) {
                     for (unsigned od = 0; od < 2; ++od) {
                         bool fwd = (od == 0);
@@ -1550,6 +1556,8 @@ namespace seq {
                 // other side's prefix.  If we can determine the ordering between
                 // p and c, cancel the matched portion.  Mirrors ZIPT's
                 // SimplifyPowerElim calling CommPower.
+                // NSB review: ask copilot to comment these rewrites with a spec that
+                // resembles something more formal and is readable.
                 if (!eq.m_lhs || !eq.m_rhs) continue;
                 bool comm_changed = false;
                 for (int side = 0; side < 2 && !comm_changed; ++side) {
