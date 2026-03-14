@@ -16,9 +16,10 @@ Author:
     Nikolaj Bjorner (nbjorner) 2026-03-01
 
 --*/
-#include "smt/seq/seq_model.h"
+#include "smt/seq_model.h"
 #include "smt/seq/seq_regex.h"
 #include "smt/seq/seq_state.h"
+#include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
 #include "smt/proto_model/proto_model.h"
 #include "ast/ast_pp.h"

@@ -2,7 +2,6 @@ z3_add_component(smt_seq
   SOURCES
     seq_regex.cpp
     seq_state.cpp
-    seq_model.cpp
     seq_parikh.cpp
     seq_nielsen.cpp
   COMPONENT_DEPENDENCIES

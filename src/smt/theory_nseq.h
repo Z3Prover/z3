@@ -27,7 +27,7 @@ Author:
 #include "smt/seq/seq_nielsen.h"
 #include "smt/seq/seq_state.h"
 #include "smt/seq/seq_regex.h"
-#include "smt/seq/seq_model.h"
+#include "smt/seq_model.h"
 #include "smt/nseq_context_solver.h"
 
 namespace smt {
