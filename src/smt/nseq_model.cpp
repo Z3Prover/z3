@@ -17,7 +17,7 @@ Author:
 --*/
 #include "smt/nseq_model.h"
 #include "smt/theory_nseq.h"
-#include "smt/nseq_regex.h"
+#include "smt/seq/nseq_regex.h"
 #include "smt/nseq_state.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"

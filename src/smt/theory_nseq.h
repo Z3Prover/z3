@@ -26,7 +26,7 @@ Author:
 #include "smt/smt_arith_value.h"
 #include "smt/seq/seq_nielsen.h"
 #include "smt/nseq_state.h"
-#include "smt/nseq_regex.h"
+#include "smt/seq/nseq_regex.h"
 #include "smt/nseq_model.h"
 #include "smt/nseq_context_solver.h"
 

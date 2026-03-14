@@ -14,7 +14,7 @@ Author:
     Nikolaj Bjorner (nbjorner) 2026-03-01
 
 --*/
-#include "smt/nseq_regex.h"
+#include "smt/seq/nseq_regex.h"
 #include <unordered_set>
 
 namespace smt {

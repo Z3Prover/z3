@@ -245,7 +245,7 @@ Author:
 #include "model/model.h"
 
 namespace smt {
-    class nseq_regex;  // forward declaration (defined in smt/nseq_regex.h)
+    class nseq_regex;  // forward declaration (defined in smt/seq/nseq_regex.h)
 }
 
 namespace seq {

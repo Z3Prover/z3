@@ -15,7 +15,7 @@ Abstract:
 #include "ast/reg_decl_plugins.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_sgraph.h"
-#include "smt/nseq_regex.h"
+#include "smt/seq/nseq_regex.h"
 #include "smt/seq/seq_nielsen.h"
 #include "util/lbool.h"
 #include "util/zstring.h"

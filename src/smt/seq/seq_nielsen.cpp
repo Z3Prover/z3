@@ -21,7 +21,7 @@ Author:
 
 #include "smt/seq/seq_nielsen.h"
 #include "smt/seq/seq_parikh.h"
-#include "smt/nseq_regex.h"
+#include "smt/seq/nseq_regex.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/seq_rewriter.h"

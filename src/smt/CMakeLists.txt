@@ -66,7 +66,6 @@ z3_add_component(smt
     theory_lra.cpp
     theory_nseq.cpp
     nseq_state.cpp
-    nseq_regex.cpp
     nseq_model.cpp
     theory_opt.cpp
     theory_pb.cpp
