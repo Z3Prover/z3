@@ -500,7 +500,7 @@ namespace seq {
         friend class nielsen_graph;
 
         unsigned                m_id;
-        nielsen_graph*          m_graph;
+        nielsen_graph&          m_graph;
 
         // constraints at this node
         vector<str_eq>          m_str_eq;     // string equalities
@@ -549,10 +549,10 @@ namespace seq {
         std::map<std::pair<unsigned, unsigned>, unsigned> m_regex_occurrence;
 
     public:
-        nielsen_node(nielsen_graph* graph, unsigned id);
+        nielsen_node(nielsen_graph& graph, unsigned id);
 
         unsigned id() const { return m_id; }
-        nielsen_graph* graph() const { return m_graph; }
+        nielsen_graph& graph() const { return m_graph; }
 
         // constraint access
         vector<str_eq> const& str_eqs() const { return m_str_eq; }
@@ -654,7 +654,7 @@ namespace seq {
         // cur_path provides the path from root to this node so that the
         // LP solver can be queried for deterministic power cancellation.
         // Returns proceed, conflict, satisfied, or restart.
-        simplify_result simplify_and_init(nielsen_graph& g, svector<nielsen_edge*> const& cur_path = svector<nielsen_edge*>());
+        simplify_result simplify_and_init(svector<nielsen_edge*> const& cur_path = svector<nielsen_edge*>());
 
         // true if all str_eqs are trivial and there are no str_mems
         bool is_satisfied() const;
@@ -724,6 +724,8 @@ namespace seq {
     // mirrors ZIPT's NielsenGraph
     class nielsen_graph {
         friend class nielsen_node;
+        ast_manager&                  m_m;
+        seq_util&                     m_seq;
         euf::sgraph&                  m_sg;
         region                        m_region;
         ptr_vector<nielsen_node>      m_nodes;
@@ -790,6 +792,10 @@ namespace seq {
         ~nielsen_graph();
 
         euf::sgraph& sg() { return m_sg; }
+        ast_manager& m() { return m_m; }
+        ast_manager const& m() const { return m_m; }
+        seq_util& seq() { return m_seq; }
+        seq_util const& seq() const { return m_seq; }
 
         // node management
         nielsen_node* mk_node();

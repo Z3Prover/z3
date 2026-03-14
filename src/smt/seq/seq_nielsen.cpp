@@ -17,12 +17,6 @@ Author:
     Clemens Eisenhofer 2026-03-02
     Nikolaj Bjorner (nbjorner) 2026-03-02
 
-
-NSB review: add ast_manager& m to nielsen_graph and remove local calls to get_manager()
-NSB review: add seq_util& seq to nielsen_graph and remove local calls to get_seq_util()
-NSB review: make m_graph a reference instead of a pointer on nielsen_node
-NSB review: replace comparisons of snode ids by m.are_equal, for ast_manager m. Make sure to use E-graph roots.
-
 --*/
 
 #include "smt/seq/seq_nielsen.h"
@@ -179,7 +173,7 @@ namespace seq {
     // nielsen_node
     // -----------------------------------------------
 
-    nielsen_node::nielsen_node(nielsen_graph* graph, unsigned id):
+    nielsen_node::nielsen_node(nielsen_graph& graph, unsigned id):
         m_id(id), m_graph(graph), m_is_progress(true) {
     }
 
@@ -313,8 +307,8 @@ namespace seq {
             return true;
         }
         // add int_constraint: len(var) >= lb
-        ast_manager& m = m_graph->sg().get_manager();
-        seq_util& seq = m_graph->sg().get_seq_util();
+        ast_manager& m = m_graph.m();
+        seq_util& seq = m_graph.seq();
         arith_util arith(m);
         expr_ref len_var(seq.str.mk_length(var->get_expr()), m);
         expr_ref bound(arith.mk_int(lb), m);
@@ -339,8 +333,8 @@ namespace seq {
             return true;
         }
         // add int_constraint: len(var) <= ub
-        ast_manager& m = m_graph->sg().get_manager();
-        seq_util& seq = m_graph->sg().get_seq_util();
+        ast_manager& m = m_graph.m();
+        seq_util& seq = m_graph.seq();
         arith_util arith(m);
         expr_ref len_var(seq.str.mk_length(var->get_expr()), m);
         expr_ref bound(arith.mk_int(ub), m);
@@ -428,7 +422,7 @@ namespace seq {
         for (str_mem const& mem : m_str_mem) {
             if (!mem.m_str || !mem.m_regex) continue;
             unsigned min_len = 0, max_len = UINT_MAX;
-            m_graph->compute_regex_length_interval(mem.m_regex, min_len, max_len);
+            m_graph.compute_regex_length_interval(mem.m_regex, min_len, max_len);
             if (min_len == 0 && max_len == UINT_MAX) continue;
 
             // if str is a single variable, apply bounds directly
@@ -439,9 +433,9 @@ namespace seq {
                     add_upper_int_bound(mem.m_str, max_len, mem.m_dep);
             } else {
                 // str is a concatenation or other term: add as general int_constraints
-                ast_manager& m = m_graph->sg().get_manager();
+                ast_manager& m = m_graph.m();
                 arith_util arith(m);
-                expr_ref len_str = m_graph->compute_length_expr(mem.m_str);
+                expr_ref len_str = m_graph.compute_length_expr(mem.m_str);
                 if (min_len > 0) {
                     expr_ref bound(arith.mk_int(min_len), m);
                     m_int_constraints.push_back(
@@ -491,18 +485,14 @@ namespace seq {
         } else {
             SASSERT(s.m_val->is_char());
             // symbolic char → concrete char: check range constraints
-            // NSB review: seq.is_const_char is unchecked, what if it returns false?
-            // should this work for non-string characters as well?
             if (m_char_ranges.contains(var_id)) {
                 char_set& range = m_char_ranges.find(var_id);
-                // extract the concrete char value from the s_char snode
                 unsigned ch_val = 0;
                 seq_util& seq = sg.get_seq_util();
                 expr* unit_expr = s.m_val->get_expr();
                 expr* ch_expr = nullptr;
-                if (unit_expr && seq.str.is_unit(unit_expr, ch_expr))
-                    seq.is_const_char(ch_expr, ch_val);
-                if (!range.contains(ch_val)) {
+                bool have_char = unit_expr && seq.str.is_unit(unit_expr, ch_expr) && seq.is_const_char(ch_expr, ch_val);
+                if (have_char && !range.contains(ch_val)) {
                     m_is_general_conflict = true;
                     m_reason = backtrack_reason::character_range;
                     return;
@@ -518,6 +508,8 @@ namespace seq {
     // -----------------------------------------------
 
     nielsen_graph::nielsen_graph(euf::sgraph& sg, simple_solver& solver):
+        m_m(sg.get_manager()),
+        m_seq(sg.get_seq_util()),
         m_sg(sg),
         m_solver(solver),
         m_parikh(alloc(seq_parikh, sg)),
@@ -533,7 +525,7 @@ namespace seq {
 
     nielsen_node* nielsen_graph::mk_node() {
         unsigned id = m_nodes.size();
-        nielsen_node* n = alloc(nielsen_node, this, id);
+        nielsen_node* n = alloc(nielsen_node, *this, id);
         m_nodes.push_back(n);
         return n;
     }
@@ -556,7 +548,6 @@ namespace seq {
         if (!m_root)
             m_root = mk_node();
         dep_tracker dep;
-        // NSB review: is this correct? 
         dep.insert(m_root->str_eqs().size());
         str_eq eq(lhs, rhs, dep);
         eq.sort();
@@ -568,7 +559,6 @@ namespace seq {
         if (!m_root)
             m_root = mk_node();
         dep_tracker dep;
-        // NSB reivew: is this correct? 
         dep.insert(m_root->str_eqs().size() + m_root->str_mems().size());
         euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
         unsigned id = next_mem_id();
@@ -1060,22 +1050,14 @@ namespace seq {
     // nielsen_node: simplify_and_init
     // -----------------------------------------------------------------------
 
-    // NSB review: simplify the loop that checks all_eliminable and has_char to 
-    // use any_of. 
-    // NSB review: use is_power matcher defined in seq_util instead of ad-hoc checks for the t->is_power case.
-
     bool nielsen_node::handle_empty_side(euf::sgraph& sg, euf::snode* non_empty_side,
                                          dep_tracker const& dep, bool& changed) {
         euf::snode_vector tokens;
         non_empty_side->collect_tokens(tokens);
-        bool all_eliminable = true;
-        bool has_char = false;
-        for (euf::snode* t : tokens) {
-            if (t->is_char()) has_char = true;
-            else if (!t->is_var() && !t->is_power() && t->kind() != euf::snode_kind::s_other) {
-                all_eliminable = false; break;
-            }
-        }
+        bool has_char = std::any_of(tokens.begin(), tokens.end(), [](euf::snode* t){ return t->is_char(); });
+        bool all_eliminable = std::all_of(tokens.begin(), tokens.end(), [](euf::snode* t){
+            return t->is_var() || t->is_power() || t->kind() == euf::snode_kind::s_other;
+        });
         if (has_char || !all_eliminable) {
             m_is_general_conflict = true;
             m_reason = backtrack_reason::symbol_clash;
@@ -1083,6 +1065,7 @@ namespace seq {
         }
         ast_manager& m = sg.get_manager();
         arith_util arith(m);
+        seq_util& seq = sg.get_seq_util();
         for (euf::snode* t : tokens) {
             if (t->is_var()) {
                 nielsen_subst s(t, sg.mk_empty_seq(t->get_sort()), dep);
@@ -1092,8 +1075,8 @@ namespace seq {
             else if (t->is_power()) {
                 // Power equated to empty → exponent must be 0.
                 expr* e = t->get_expr();
-                expr* pow_exp = (e && is_app(e) && to_app(e)->get_num_args() >= 2)
-                    ? to_app(e)->get_arg(1) : nullptr;
+                expr* pow_base = nullptr, *pow_exp = nullptr;
+                if (e) seq.str.is_power(e, pow_base, pow_exp);
                 if (pow_exp) {
                     expr* zero = arith.mk_numeral(rational(0), true);
                     m_int_constraints.push_back(
@@ -1116,8 +1099,6 @@ namespace seq {
     // Uses syntactic matching on Z3 expression structure: pointer equality
     // detects shared sub-expressions created during ConstNumUnwinding.
     // 
-    // NSB review: use arith_util matchers for addition and subtraction, etc instead of ad-hoc checks
-
     static bool get_const_power_diff(expr* b, expr* a, arith_util& arith, rational& diff) {
         if (a == b) { diff = rational(0); return true; }
         // b = (+ a k) ?
@@ -1152,19 +1133,19 @@ namespace seq {
     }
 
     // Get the base expression of a power snode.
-    // NSB review: use seq_util.is_power matcher instead of ad-hoc checks for t->is_power and get_expr structure.
-    static expr* get_power_base_expr(euf::snode* power) {
+    static expr* get_power_base_expr(euf::snode* power, seq_util& seq) {
         if (!power || !power->is_power()) return nullptr;
         expr* e = power->get_expr();
-        return (e && is_app(e) && to_app(e)->get_num_args() >= 2) ? to_app(e)->get_arg(0) : nullptr;
+        expr* base = nullptr, *exp = nullptr;
+        return (e && seq.str.is_power(e, base, exp)) ? base : nullptr;
     }
 
     // Get the exponent expression of a power snode.
-    // NSB review: use seq_util.is_power matcher instead of ad-hoc checks for t->is_power and get_expr structure.
-    static expr* get_power_exp_expr(euf::snode* power) {
+    static expr* get_power_exp_expr(euf::snode* power, seq_util& seq) {
         if (!power || !power->is_power()) return nullptr;
         expr* e = power->get_expr();
-        return (e && is_app(e) && to_app(e)->get_num_args() >= 2) ? to_app(e)->get_arg(1) : nullptr;
+        expr* base = nullptr, *exp = nullptr;
+        return (e && seq.str.is_power(e, base, exp)) ? exp : nullptr;
     }
 
     // Merge adjacent tokens with the same power base on one side of an equation.
@@ -1196,8 +1177,8 @@ namespace seq {
             // cross-side cancellation works better with unmerged leading powers
             // (e.g., w^k trivially ≤ 1+k, but w^(2k) vs 1+k requires k ≥ 1).
             if (tok->is_power() && i > 0) {
-                expr* base_e = get_power_base_expr(tok);
-                expr* exp_acc = get_power_exp_expr(tok);
+                expr* base_e = get_power_base_expr(tok, seq);
+                expr* exp_acc = get_power_exp_expr(tok, seq);
                 if (!base_e || !exp_acc) { result.push_back(tok); ++i; continue; }
 
                 bool local_merged = false;
@@ -1205,9 +1186,9 @@ namespace seq {
                 while (j < tokens.size()) {
                     euf::snode* next = tokens[j];
                     if (next->is_power()) {
-                        expr* nb = get_power_base_expr(next);
+                        expr* nb = get_power_base_expr(next, seq);
                         if (nb == base_e) {
-                            exp_acc = arith.mk_add(exp_acc, get_power_exp_expr(next));
+                            exp_acc = arith.mk_add(exp_acc, get_power_exp_expr(next, seq));
                             local_merged = true; ++j; continue;
                         }
                     }
@@ -1234,17 +1215,17 @@ namespace seq {
             // unwind produces u · u^(n-1); merging it back to u^n creates an infinite cycle.
             if (i > 0 && tok->is_char() && tok->get_expr() && i + 1 < tokens.size()) {
                 euf::snode* next = tokens[i + 1];
-                if (next->is_power() && get_power_base_expr(next) == tok->get_expr()) {
+                if (next->is_power() && get_power_base_expr(next, seq) == tok->get_expr()) {
                     expr* base_e = tok->get_expr();
                     // Use same arg order as Case 1: add(exp, 1), not add(1, exp),
                     // so that merging "c · c^e" and "c^e · c" both produce add(e, 1)
                     // and the resulting power expression is hash-consed identically.
-                    expr* exp_acc = arith.mk_add(get_power_exp_expr(next), arith.mk_int(1));
+                    expr* exp_acc = arith.mk_add(get_power_exp_expr(next, seq), arith.mk_int(1));
                     unsigned j = i + 2;
                     while (j < tokens.size()) {
                         euf::snode* further = tokens[j];
-                        if (further->is_power() && get_power_base_expr(further) == base_e) {
-                            exp_acc = arith.mk_add(exp_acc, get_power_exp_expr(further));
+                        if (further->is_power() && get_power_base_expr(further, seq) == base_e) {
+                            exp_acc = arith.mk_add(exp_acc, get_power_exp_expr(further, seq));
                             ++j; continue;
                         }
                         if (further->is_char() && further->get_expr() == base_e) {
@@ -1268,12 +1249,10 @@ namespace seq {
 
         if (!merged) return nullptr;
 
-        // Rebuild snode from merged token list
-        // NSB review: set rebuilt to nullptr and only create the empty seq if it is still null after the loop.
-        euf::snode* rebuilt = sg.mk_empty_seq(side->get_sort());
-        for (unsigned k = 0; k < result.size(); ++k) {
+        euf::snode* rebuilt = nullptr;
+        for (unsigned k = 0; k < result.size(); ++k)
             rebuilt = (k == 0) ? result[k] : sg.mk_concat(rebuilt, result[k]);
-        }
+        if (!rebuilt) rebuilt = sg.mk_empty_seq(side->get_sort());
         return rebuilt;
     }
 
@@ -1287,13 +1266,14 @@ namespace seq {
 
         ast_manager& m = sg.get_manager();
         arith_util arith(m);
+        seq_util seq(m);
 
         bool simplified = false;
         euf::snode_vector result;
 
         for (euf::snode* tok : tokens) {
             if (tok->is_power()) {
-                expr* exp_e = get_power_exp_expr(tok);
+                expr* exp_e = get_power_exp_expr(tok, seq);
                 rational val;
                 if (exp_e && arith.is_numeral(exp_e, val)) {
                     if (val.is_zero()) {
@@ -1317,11 +1297,10 @@ namespace seq {
 
         if (!simplified) return nullptr;
 
-        // NSB review: set rebuilt to nullptr and only create the empty seq if it is still null after the loop.
-        if (result.empty()) return sg.mk_empty_seq(side->get_sort());
-        euf::snode* rebuilt = result[0];
-        for (unsigned k = 1; k < result.size(); ++k)
-            rebuilt = sg.mk_concat(rebuilt, result[k]);
+        euf::snode* rebuilt = nullptr;
+        for (euf::snode* tok : result)
+            rebuilt = rebuilt ? sg.mk_concat(rebuilt, tok) : tok;
+        if (!rebuilt) rebuilt = sg.mk_empty_seq(side->get_sort());
         return rebuilt;
     }
 
@@ -1333,6 +1312,7 @@ namespace seq {
     static std::pair<expr_ref, unsigned> comm_power(
             euf::snode* base_sn, euf::snode* side, ast_manager& m, bool fwd) {
         arith_util arith(m);
+        seq_util seq(m);
         euf::snode_vector base_tokens, side_tokens;
         collect_tokens_dir(base_sn, fwd, base_tokens);
         collect_tokens_dir(side, fwd, side_tokens);
@@ -1372,7 +1352,7 @@ namespace seq {
                         for (unsigned j = 0; j < pb_tokens.size() && match; j++)
                             match = (pb_tokens[j] == base_tokens[j]);
                         if (match) {
-                            expr* pow_exp = get_power_exp_expr(t);
+                            expr* pow_exp = get_power_exp_expr(t, seq);
                             if (pow_exp) {
                                 sum = sum ? arith.mk_add(sum, pow_exp) : pow_exp;
                                 continue;
@@ -1391,13 +1371,11 @@ namespace seq {
         return {expr_ref(last_stable_sum, m), last_stable_idx};
     }
 
-    // NSB review: nielsen_node already has a reference to nielsen_graph so why not use that?
-
-    simplify_result nielsen_node::simplify_and_init(nielsen_graph& g, svector<nielsen_edge*> const& cur_path) {
+    simplify_result nielsen_node::simplify_and_init(svector<nielsen_edge*> const& cur_path) {
         if (m_is_extended)
             return simplify_result::proceed;
 
-        euf::sgraph& sg = g.sg();
+        euf::sgraph& sg = m_graph.sg();
         ast_manager& m = sg.get_manager();
         arith_util arith(m);
         seq_util seq(m);
@@ -1445,15 +1423,13 @@ namespace seq {
                     eq.m_rhs->collect_tokens(rhs_toks);
 
                     // --- prefix ---
-                    // NSB review: use m.are_distinct instead of ad-hoc checks for char clash,
-                    // NSB review: use m.are_equal instead of pointer lt->id() == rt->id().
                     unsigned prefix = 0;
                     while (prefix < lhs_toks.size() && prefix < rhs_toks.size()) {
                         euf::snode* lt = lhs_toks[prefix];
                         euf::snode* rt = rhs_toks[prefix];
-                        if (lt->id() == rt->id() && (lt->is_char() || lt->is_var())) {
+                        if ((lt->is_char() || lt->is_var()) && m.are_equal(lt->get_expr(), rt->get_expr())) {
                             ++prefix;
-                        } else if (lt->is_char() && rt->is_char()) {
+                        } else if (lt->is_char() && rt->is_char() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
                             m_is_general_conflict = true;
                             m_reason = backtrack_reason::symbol_clash;
                             return simplify_result::conflict;
@@ -1463,16 +1439,14 @@ namespace seq {
                     }
 
                     // --- suffix (only among the tokens not already consumed by prefix) ---
-                    // NSB review: use m.are_distinct instead of ad-hoc checks for char clash,
-                    // NSB review: use m.are_equal instead of pointer lt->id() == rt->id().
                     unsigned lsz = lhs_toks.size(), rsz = rhs_toks.size();
                     unsigned suffix = 0;
                     while (suffix < lsz - prefix && suffix < rsz - prefix) {
                         euf::snode* lt = lhs_toks[lsz - 1 - suffix];
                         euf::snode* rt = rhs_toks[rsz - 1 - suffix];
-                        if (lt->id() == rt->id() && (lt->is_char() || lt->is_var())) {
+                        if ((lt->is_char() || lt->is_var()) && m.are_equal(lt->get_expr(), rt->get_expr())) {
                             ++suffix;
-                        } else if (lt->is_char() && rt->is_char()) {
+                        } else if (lt->is_char() && rt->is_char() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
                             m_is_general_conflict = true;
                             m_reason = backtrack_reason::symbol_clash;
                             return simplify_result::conflict;
@@ -1498,7 +1472,14 @@ namespace seq {
                 // constraint as edge labels so they appear in the graph.
                 // Guard: skip if we already created a child (re-entry via iterative deepening).
 
-                // NSB review: ask copilot to summarize this step using a formal looking but readable spec                
+                // Spec: DirectionalInconsistency.
+                //   For direction d ∈ {left, right}, let first_d(u) denote the first token of u
+                //   in direction d.
+                //   If pow_side[d] = u^p  and  other_side[d] = c  (a concrete character),
+                //   and first_d(base(u)) = c'  with  c' ≠ c,
+                //   then p = 0  (the power is vacuous in direction d).
+                //   Action: create a deterministic child with substitution u^p → ε and
+                //   int constraint p = 0.
                 if (!eq.is_trivial() && eq.m_lhs && eq.m_rhs) {
                     for (unsigned od = 0; od < 2; ++od) {
                         bool fwd = (od == 0);
@@ -1513,17 +1494,17 @@ namespace seq {
                             if (!base_sn) continue;
                             euf::snode* base_head = dir_token(base_sn, fwd);
                             if (!base_head || !base_head->is_char()) continue;
-                            if (base_head->id() == other_head->id()) continue;
+                            if (m.are_equal(base_head->get_expr(), other_head->get_expr())) continue;
                             // Directional base/head mismatch -> force exponent 0 and power -> ε.
-                            nielsen_node* child = g.mk_child(this);
-                            nielsen_edge* e = g.mk_edge(this, child, true);
+                            nielsen_node* child = m_graph.mk_child(this);
+                            nielsen_edge* e = m_graph.mk_edge(this, child, true);
                             nielsen_subst s(pow_head, sg.mk_empty_seq(pow_head->get_sort()), eq.m_dep);
                             e->add_subst(s);
                             child->apply_subst(sg, s);
-                            expr* pow_exp = get_power_exp_expr(pow_head);
+                            expr* pow_exp = get_power_exp_expr(pow_head, seq);
                             if (pow_exp) {
                                 expr* zero = arith.mk_numeral(rational(0), true);
-                                e->add_side_int(g.mk_int_constraint(
+                                e->add_side_int(m_graph.mk_int_constraint(
                                     pow_exp, zero, int_constraint_kind::eq, eq.m_dep));
                             }
                             set_extended(true);
@@ -1556,8 +1537,13 @@ namespace seq {
                 // other side's prefix.  If we can determine the ordering between
                 // p and c, cancel the matched portion.  Mirrors ZIPT's
                 // SimplifyPowerElim calling CommPower.
-                // NSB review: ask copilot to comment these rewrites with a spec that
-                // resembles something more formal and is readable.
+                // Spec: CommPower cancellation.
+                //   Given: pow_side = w^p · rest_pow  and  other_side = w^c · rest_other
+                //   where c is the number of times the base pattern w occurs in the
+                //   directional prefix of other_side.
+                //   - If p ≤ c: pow_side := rest_pow,            other_side := w^(c-p) · rest_other
+                //   - If c ≤ p: pow_side := w^(p-c) · rest_pow,  other_side := rest_other
+                //   - If p = c: both reduce completely (handled by both conditions above).
                 if (!eq.m_lhs || !eq.m_rhs) continue;
                 bool comm_changed = false;
                 for (int side = 0; side < 2 && !comm_changed; ++side) {
@@ -1569,7 +1555,7 @@ namespace seq {
                         euf::snode* end_tok = dir_token(pow_side, fwd);
                         if (!end_tok || !end_tok->is_power()) continue;
                         euf::snode* base_sn = end_tok->arg(0);
-                        expr* pow_exp = get_power_exp_expr(end_tok);
+                        expr* pow_exp = get_power_exp_expr(end_tok, seq);
                         if (!base_sn || !pow_exp) continue;
 
                         auto [count, consumed] = comm_power(base_sn, other_side, m, fwd);
@@ -1583,14 +1569,14 @@ namespace seq {
                             pow_le_count = diff.is_nonneg();
                         }
                         else if (!cur_path.empty()) {
-                            pow_le_count = g.check_lp_le(pow_exp, norm_count, this, cur_path);
-                            count_le_pow = g.check_lp_le(norm_count, pow_exp, this, cur_path);
+                            pow_le_count = m_graph.check_lp_le(pow_exp, norm_count, this, cur_path);
+                            count_le_pow = m_graph.check_lp_le(norm_count, pow_exp, this, cur_path);
                         }
                         if (!pow_le_count && !count_le_pow) continue;
 
                         pow_side = dir_drop(sg, pow_side, 1, fwd);
                         other_side = dir_drop(sg, other_side, consumed, fwd);
-                        expr* base_e = get_power_base_expr(end_tok);
+                        expr* base_e = get_power_base_expr(end_tok, seq);
                         if (pow_le_count && count_le_pow) {
                             // equal: both cancel completely
                         }
@@ -1631,12 +1617,12 @@ namespace seq {
                     euf::snode* rh = dir_token(eq.m_rhs, fwd);
                     if (!(lh && rh && lh->is_power() && rh->is_power()))
                         continue;
-                    expr* lb = get_power_base_expr(lh);
-                    expr* rb = get_power_base_expr(rh);
+                    expr* lb = get_power_base_expr(lh, seq);
+                    expr* rb = get_power_base_expr(rh, seq);
                     if (!(lb && rb && lb == rb))
                         continue;
-                    expr* lp = get_power_exp_expr(lh);
-                    expr* rp = get_power_exp_expr(rh);
+                    expr* lp = get_power_exp_expr(lh, seq);
+                    expr* rp = get_power_exp_expr(rh, seq);
                     rational diff;
                     if (lp && rp && get_const_power_diff(rp, lp, arith, diff)) {
                         // rp = lp + diff (constant difference)
@@ -1659,8 +1645,8 @@ namespace seq {
                     }
                     // 3e: LP-aware power directional elimination
                     else if (lp && rp && !cur_path.empty()) {
-                        bool lp_le_rp = g.check_lp_le(lp, rp, this, cur_path);
-                        bool rp_le_lp = g.check_lp_le(rp, lp, this, cur_path);
+                        bool lp_le_rp = m_graph.check_lp_le(lp, rp, this, cur_path);
+                        bool rp_le_lp = m_graph.check_lp_le(rp, lp, this, cur_path);
                         if (lp_le_rp || rp_le_lp) {
                             expr* smaller_exp = lp_le_rp ? lp : rp;
                             expr* larger_exp  = lp_le_rp ? rp : lp;
@@ -1668,15 +1654,15 @@ namespace seq {
                             eq.m_rhs = dir_drop(sg, eq.m_rhs, 1, fwd);
                             if (lp_le_rp && rp_le_lp) {
                                 // both ≤ -> equal -> both cancel completely
-                                add_int_constraint(g.mk_int_constraint(lp, rp, int_constraint_kind::eq, eq.m_dep));
+                                add_int_constraint(m_graph.mk_int_constraint(lp, rp, int_constraint_kind::eq, eq.m_dep));
                             }
                             else {
                                 // strictly less: create diff power d = larger - smaller >= 1
-                                expr_ref d(g.mk_fresh_int_var());
+                                expr_ref d(m_graph.mk_fresh_int_var());
                                 expr_ref one_e(arith.mk_int(1), m);
                                 expr_ref d_plus_smaller(arith.mk_add(d, smaller_exp), m);
-                                add_int_constraint(g.mk_int_constraint(d, one_e, int_constraint_kind::ge, eq.m_dep));
-                                add_int_constraint(g.mk_int_constraint(d_plus_smaller, larger_exp, int_constraint_kind::eq, eq.m_dep));
+                                add_int_constraint(m_graph.mk_int_constraint(d, one_e, int_constraint_kind::ge, eq.m_dep));
+                                add_int_constraint(m_graph.mk_int_constraint(d_plus_smaller, larger_exp, int_constraint_kind::eq, eq.m_dep));
                                 expr_ref pw(seq.str.mk_power(lb, d), m);
                                 euf::snode*& larger_side = lp_le_rp ? eq.m_rhs : eq.m_lhs;
                                 larger_side = dir_concat(sg, sg.mk(pw), larger_side, fwd);
@@ -1768,7 +1754,7 @@ namespace seq {
                 // If the symbolic char has a char_range constraint and that
                 // range is a subset of exactly one minterm's character class,
                 // we can deterministically take that minterm's derivative.
-                if (m_char_ranges.contains(tok->id()) && g.m_parikh) {
+                if (m_char_ranges.contains(tok->id()) && m_graph.m_parikh) {
                     char_set const& cs = m_char_ranges[tok->id()];
                     if (!cs.is_empty()) {
                         euf::snode* matching_deriv = nullptr;
@@ -1776,7 +1762,7 @@ namespace seq {
                         for (euf::snode* mt : minterms) {
                             if (!mt || mt->is_fail()) continue;
                             if (!mt->get_expr()) continue;
-                            char_set mt_cs = g.m_parikh->minterm_to_char_set(mt->get_expr());
+                            char_set mt_cs = m_graph.m_parikh->minterm_to_char_set(mt->get_expr());
                             if (cs.is_subset(mt_cs)) {
                                 euf::snode* deriv = sg.brzozowski_deriv(mem.m_regex, mt);
                                 if (!deriv) { found = false; break; }
@@ -1829,11 +1815,11 @@ namespace seq {
         // and check if the result intersected with the target regex is empty.
         // Detects infeasible constraints that would otherwise require
         // expensive exploration. Mirrors ZIPT NielsenNode.CheckRegexWidening.
-        if (g.m_seq_regex) {
+        if (m_graph.m_seq_regex) {
             for (str_mem const& mem : m_str_mem) {
                 if (!mem.m_str || !mem.m_regex)
                     continue;
-                if (g.check_regex_widening(*this, mem.m_str, mem.m_regex)) {
+                if (m_graph.check_regex_widening(*this, mem.m_str, mem.m_regex)) {
                     m_is_general_conflict = true;
                     m_reason = backtrack_reason::regex;
                     return simplify_result::conflict;
@@ -2025,8 +2011,8 @@ namespace seq {
                     prefix_sn = dir_concat(sg, prefix_sn, char_toks[j], fwd);
                 euf::snode* replacement = dir_concat(sg, prefix_sn, var_node, fwd);
                 nielsen_subst s(var_node, replacement, eq.m_dep);
-                nielsen_node* child = g.mk_child(this);
-                nielsen_edge* e = g.mk_edge(this, child, true);
+                nielsen_node* child = m_graph.mk_child(this);
+                nielsen_edge* e = m_graph.mk_edge(this, child, true);
                 e->add_subst(s);
                 child->apply_subst(sg, s);
                 set_extended(true);
@@ -2187,7 +2173,7 @@ namespace seq {
         node->set_eval_idx(m_run_idx);
 
         // simplify constraints (idempotent after first call)
-        simplify_result sr = node->simplify_and_init(*this, cur_path);
+        simplify_result sr = node->simplify_and_init(cur_path);
 
         if (sr == simplify_result::conflict) {
             ++m_stats.m_num_simplify_conflict;
@@ -3171,6 +3157,7 @@ namespace seq {
     bool nielsen_graph::apply_split_power_elim(nielsen_node* node) {
         ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
+        seq_util seq(m);
 
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial()) continue;
@@ -3186,7 +3173,7 @@ namespace seq {
                     euf::snode* end_tok = dir_token(pow_side, fwd);
                     if (!end_tok || !end_tok->is_power()) continue;
                     euf::snode* base_sn = end_tok->arg(0);
-                    expr* pow_exp = get_power_exp_expr(end_tok);
+                    expr* pow_exp = get_power_exp_expr(end_tok, seq);
                     if (!base_sn || !pow_exp) continue;
 
                     auto [count, consumed] = comm_power(base_sn, other_side, m, fwd);
@@ -3406,7 +3393,6 @@ namespace seq {
     bool nielsen_graph::apply_gpower_intr(nielsen_node* node) {
         ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
-        seq_util& seq = m_sg.get_seq_util();
 
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial()) continue;
@@ -3487,7 +3473,7 @@ namespace seq {
         // E.g., [(ab)^3] → [a, b] so we get (ab)^n instead of ((ab)^3)^n.
         // (mirrors ZIPT: if b.Length == 1 && b is PowerToken pt => b = pt.Base)
         if (ground_prefix.size() == 1 && ground_prefix[0]->is_power()) {
-            expr* base_e = get_power_base_expr(ground_prefix[0]);
+            expr* base_e = get_power_base_expr(ground_prefix[0], seq);
             if (base_e) {
                 euf::snode* base_sn = m_sg.mk(base_e);
                 if (base_sn) {
@@ -3550,7 +3536,7 @@ namespace seq {
             if (tok->is_power()) {
                 // Token is a power u^exp: use fresh m' with 0 ≤ m' ≤ exp
                 expr* inner_exp = get_power_exponent(tok);
-                expr* inner_base = get_power_base_expr(tok);
+                expr* inner_base = get_power_base_expr(tok, seq);
                 if (inner_exp && inner_base) {
                     fresh_m = mk_fresh_int_var();
                     expr_ref partial_pow(seq.str.mk_power(inner_base, fresh_m), m);
@@ -3690,7 +3676,7 @@ namespace seq {
             euf::snode_vector base_toks;
             collect_tokens_dir(base, fwd, base_toks);
             unsigned base_len = base_toks.size();
-            expr* base_expr = get_power_base_expr(power);
+            expr* base_expr = get_power_base_expr(power, seq);
             if (!base_expr || base_len == 0)
                 return false;
 
@@ -3719,7 +3705,7 @@ namespace seq {
                 if (tok->is_power()) {
                     // Token is a power u^exp: decompose with fresh m', 0 <= m' <= exp
                     expr* inner_exp = get_power_exponent(tok);
-                    expr* inner_base_e = get_power_base_expr(tok);
+                    expr* inner_base_e = get_power_base_expr(tok, seq);
                     if (inner_exp && inner_base_e) {
                         fresh_inner_m = mk_fresh_int_var();
                         expr_ref partial_pow(seq.str.mk_power(inner_base_e, fresh_inner_m), m);
