@@ -17,6 +17,12 @@ Author:
     Clemens Eisenhofer 2026-03-02
     Nikolaj Bjorner (nbjorner) 2026-03-02
 
+
+NSB review: add ast_manager& m to nielsen_graph and remove local calls to get_manager()
+NSB review: add seq_util& seq to nielsen_graph and remove local calls to get_seq_util()
+NSB review: make m_graph a reference instead of a pointer on nielsen_node
+
+
 --*/
 
 #include "smt/seq/seq_nielsen.h"
@@ -485,6 +491,8 @@ namespace seq {
         } else {
             SASSERT(s.m_val->is_char());
             // symbolic char → concrete char: check range constraints
+            // NSB review: seq.is_const_char is unchecked, what if it returns false?
+            // should this work for non-string characters as well?
             if (m_char_ranges.contains(var_id)) {
                 char_set& range = m_char_ranges.find(var_id);
                 // extract the concrete char value from the s_char snode
@@ -548,6 +556,7 @@ namespace seq {
         if (!m_root)
             m_root = mk_node();
         dep_tracker dep;
+        // NSB review: is this correct? 
         dep.insert(m_root->str_eqs().size());
         str_eq eq(lhs, rhs, dep);
         eq.sort();
@@ -559,6 +568,7 @@ namespace seq {
         if (!m_root)
             m_root = mk_node();
         dep_tracker dep;
+        // NSB reivew: is this correct? 
         dep.insert(m_root->str_eqs().size() + m_root->str_mems().size());
         euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
         unsigned id = next_mem_id();
@@ -1050,6 +1060,10 @@ namespace seq {
     // nielsen_node: simplify_and_init
     // -----------------------------------------------------------------------
 
+    // NSB review: simplify the loop that checks all_eliminable and has_char to 
+    // use any_of. 
+    // NSB review: use is_power matcher defined in seq_util instead of ad-hoc checks for the t->is_power case.
+
     bool nielsen_node::handle_empty_side(euf::sgraph& sg, euf::snode* non_empty_side,
                                          dep_tracker const& dep, bool& changed) {
         euf::snode_vector tokens;
@@ -1101,6 +1115,9 @@ namespace seq {
     // Check if exponent b equals exponent a + diff for some rational constant diff.
     // Uses syntactic matching on Z3 expression structure: pointer equality
     // detects shared sub-expressions created during ConstNumUnwinding.
+    // 
+    // NSB review: use arith_util matchers for addition and subtraction, etc instead of ad-hoc checks
+
     static bool get_const_power_diff(expr* b, expr* a, arith_util& arith, rational& diff) {
         if (a == b) { diff = rational(0); return true; }
         // b = (+ a k) ?
@@ -1135,6 +1152,7 @@ namespace seq {
     }
 
     // Get the base expression of a power snode.
+    // NSB review: use seq_util.is_power matcher instead of ad-hoc checks for t->is_power and get_expr structure.
     static expr* get_power_base_expr(euf::snode* power) {
         if (!power || !power->is_power()) return nullptr;
         expr* e = power->get_expr();
@@ -1142,6 +1160,7 @@ namespace seq {
     }
 
     // Get the exponent expression of a power snode.
+    // NSB review: use seq_util.is_power matcher instead of ad-hoc checks for t->is_power and get_expr structure.
     static expr* get_power_exp_expr(euf::snode* power) {
         if (!power || !power->is_power()) return nullptr;
         expr* e = power->get_expr();
@@ -1250,6 +1269,7 @@ namespace seq {
         if (!merged) return nullptr;
 
         // Rebuild snode from merged token list
+        // NSB review: set rebuilt to nullptr and only create the empty seq if it is still null after the loop.
         euf::snode* rebuilt = sg.mk_empty_seq(side->get_sort());
         for (unsigned k = 0; k < result.size(); ++k) {
             rebuilt = (k == 0) ? result[k] : sg.mk_concat(rebuilt, result[k]);
@@ -1297,6 +1317,7 @@ namespace seq {
 
         if (!simplified) return nullptr;
 
+        // NSB review: set rebuilt to nullptr and only create the empty seq if it is still null after the loop.
         if (result.empty()) return sg.mk_empty_seq(side->get_sort());
         euf::snode* rebuilt = result[0];
         for (unsigned k = 1; k < result.size(); ++k)
@@ -1369,6 +1390,8 @@ namespace seq {
         }
         return {expr_ref(last_stable_sum, m), last_stable_idx};
     }
+
+    // NSB review: nielsen_node already has a reference to nielsen_graph so why not use that?
 
     simplify_result nielsen_node::simplify_and_init(nielsen_graph& g, svector<nielsen_edge*> const& cur_path) {
         if (m_is_extended)
