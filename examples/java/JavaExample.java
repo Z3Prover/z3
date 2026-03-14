@@ -2277,7 +2277,64 @@ class JavaExample
 	
     }    
 
-    @SuppressWarnings("unchecked")
+    void numeralDoubleExample(Context ctx) throws TestFailedException
+    {
+        System.out.println("NumeralDoubleExample");
+        Log.append("NumeralDoubleExample");
+
+        IntNum n42 = ctx.mkInt(42);
+        if (n42.getNumeralDouble() != 42.0)
+            throw new TestFailedException();
+
+        RatNum half = ctx.mkReal(1, 2);
+        if (Math.abs(half.getNumeralDouble() - 0.5) > 1e-10)
+            throw new TestFailedException();
+
+        System.out.println("NumeralDoubleExample passed.");
+    }
+
+    void unsignedNumeralExample(Context ctx) throws TestFailedException
+    {
+        System.out.println("UnsignedNumeralExample");
+        Log.append("UnsignedNumeralExample");
+
+        IntNum n100 = ctx.mkInt(100);
+        if (n100.getUint() != 100)
+            throw new TestFailedException();
+
+        IntNum big = ctx.mkInt(3000000000L);
+        if (big.getUint64() != 3000000000L)
+            throw new TestFailedException();
+
+        System.out.println("UnsignedNumeralExample passed.");
+    }
+
+    void rationalExtractionExample(Context ctx) throws TestFailedException
+    {
+        System.out.println("RationalExtractionExample");
+        Log.append("RationalExtractionExample");
+
+        RatNum r34 = ctx.mkReal(3, 4);
+
+        // getSmall returns [numerator, denominator]
+        long[] small = r34.getSmall();
+        if (small[0] != 3 || small[1] != 4)
+            throw new TestFailedException();
+
+        // getRationalInt64 returns [numerator, denominator] or null
+        long[] ri64 = r34.getRationalInt64();
+        if (ri64 == null || ri64[0] != 3 || ri64[1] != 4)
+            throw new TestFailedException();
+
+        // integer as rational: 7/1
+        RatNum r71 = ctx.mkReal(7, 1);
+        long[] small71 = r71.getSmall();
+        if (small71[0] != 7 || small71[1] != 1)
+            throw new TestFailedException();
+
+        System.out.println("RationalExtractionExample passed.");
+    }
+
     void isGroundExample(Context ctx) throws TestFailedException
     {
         System.out.println("IsGroundExample");
@@ -2465,6 +2522,9 @@ class JavaExample
                 p.finiteDomainExample(ctx);
                 p.floatingPointExample1(ctx);
                 // core dumps: p.floatingPointExample2(ctx);
+                p.numeralDoubleExample(ctx);
+                p.unsignedNumeralExample(ctx);
+                p.rationalExtractionExample(ctx);
                 p.isGroundExample(ctx);
                 p.astDepthExample(ctx);
                 p.arrayArityExample(ctx);
