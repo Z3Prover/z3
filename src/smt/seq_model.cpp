@@ -233,6 +233,7 @@ namespace smt {
             // Build the repeated string: base^exp_val
             if (exp_val.is_zero()) {
                 sort* srt = n->get_sort();
+                SASSERT(srt);
                 if (!srt) srt = m_seq.str.mk_string_sort();
                 return expr_ref(m_seq.str.mk_empty(srt), m);
             }
