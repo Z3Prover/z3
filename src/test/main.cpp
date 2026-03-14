@@ -289,7 +289,7 @@ int main(int argc, char ** argv) {
     TST(seq_nielsen);
     TST(seq_parikh);
     TST(nseq_basic);
-    TST(nseq_regex);
+    TST(seq_regex);
     TST(nseq_zipt);
     TST(ho_matcher);
     TST(finite_set);

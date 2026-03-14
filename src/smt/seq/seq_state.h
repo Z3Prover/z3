@@ -3,7 +3,7 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    nseq_state.h
+    seq_state.h
 
 Abstract:
 
@@ -13,6 +13,7 @@ Abstract:
 
 Author:
 
+    Clemens Eisenhofer 2026-03-01
     Nikolaj Bjorner (nbjorner) 2026-03-01
 
 --*/
@@ -44,7 +45,7 @@ namespace smt {
         enode* m_n2;
     };
 
-    class nseq_state {
+    class seq_state {
         euf::sgraph&            m_sg;
         vector<seq::str_eq>     m_str_eqs;
         vector<seq::str_mem>    m_str_mems;
@@ -57,7 +58,7 @@ namespace smt {
         unsigned                m_next_mem_id = 0;
 
     public:
-        nseq_state(euf::sgraph& sg) : m_sg(sg) {}
+        seq_state(euf::sgraph& sg) : m_sg(sg) {}
 
         void push() {
             m_str_eq_lim.push_back(m_str_eqs.size());

@@ -3,22 +3,23 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    nseq_model.cpp
+    seq_model.cpp
 
 Abstract:
 
-    Implementation of nseq_model: model construction for the
+    Implementation of seq_model: model construction for the
     Nielsen-based string solver.
 
 Author:
 
+    Clemens Eisenhofer 2026-03-01
     Nikolaj Bjorner (nbjorner) 2026-03-01
 
 --*/
-#include "smt/nseq_model.h"
+#include "smt/seq/seq_model.h"
 #include "smt/theory_nseq.h"
-#include "smt/seq/nseq_regex.h"
-#include "smt/nseq_state.h"
+#include "smt/seq/seq_regex.h"
+#include "smt/seq/seq_state.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
 #include "smt/proto_model/proto_model.h"
@@ -26,12 +27,12 @@ Author:
 
 namespace smt {
 
-    nseq_model::nseq_model(theory_nseq& th, ast_manager& m, seq_util& seq,
-                           seq_rewriter& rw, euf::sgraph& sg, nseq_regex& regex)
+    seq_model::seq_model(theory_nseq& th, ast_manager& m, seq_util& seq,
+                           seq_rewriter& rw, euf::sgraph& sg, seq::seq_regex& regex)
         : m_th(th), m(m), m_seq(seq), m_rewriter(rw), m_sg(sg), m_regex(regex), m_trail(m)
     {}
 
-    void nseq_model::init(model_generator& mg, seq::nielsen_graph& nielsen, nseq_state const& state) {
+    void seq_model::init(model_generator& mg, seq::nielsen_graph& nielsen, seq_state const& state) {
         m_var_values.reset();
         m_var_regex.reset();
         m_trail.reset();
@@ -52,7 +53,7 @@ namespace smt {
         extract_assignments(nielsen.sat_path());
     }
 
-    model_value_proc* nseq_model::mk_value(enode* n, model_generator& mg) {
+    model_value_proc* seq_model::mk_value(enode* n, model_generator& mg) {
         app* e = n->get_expr();
         if (!m_seq.is_seq(e) && !m_seq.is_re(e) && !m_seq.str.is_nth_u(e))
             return nullptr;
@@ -101,7 +102,7 @@ namespace smt {
         return alloc(expr_wrapper_proc, to_app(m_seq.str.mk_empty(e->get_sort())));
     }
 
-    void nseq_model::finalize(model_generator& mg) {
+    void seq_model::finalize(model_generator& mg) {
         m_var_values.reset();
         m_var_regex.reset();
         m_trail.reset();
@@ -110,7 +111,7 @@ namespace smt {
         m_factory = nullptr;
     }
 
-    void nseq_model::extract_assignments(svector<seq::nielsen_edge*> const& sat_path) {
+    void seq_model::extract_assignments(svector<seq::nielsen_edge*> const& sat_path) {
         IF_VERBOSE(1, verbose_stream() << "nseq extract_assignments: path length=" << sat_path.size() << "\n";);
 
         // compose substitutions root-to-leaf.
@@ -154,7 +155,7 @@ namespace smt {
         }
     }
 
-    expr_ref nseq_model::snode_to_value(euf::snode* n) {
+    expr_ref seq_model::snode_to_value(euf::snode* n) {
         if (!n)
             return expr_ref(m);
 
@@ -272,7 +273,7 @@ namespace smt {
         return e ? expr_ref(e, m) : expr_ref(m);
     }
 
-    expr_ref nseq_model::generate_regex_witness(euf::snode* regex, unsigned depth) {
+    expr_ref seq_model::generate_regex_witness(euf::snode* regex, unsigned depth) {
         if (!regex)
             return expr_ref(m_seq.str.mk_empty(m_seq.str.mk_string_sort()), m);
 
@@ -307,7 +308,7 @@ namespace smt {
         return fresh ? expr_ref(fresh, m) : expr_ref(m_seq.str.mk_empty(srt), m);
     }
 
-    void nseq_model::register_existing_values(seq::nielsen_graph& nielsen) {
+    void seq_model::register_existing_values(seq::nielsen_graph& nielsen) {
         seq::nielsen_node const* root = nielsen.root();
         if (!root)
             return;
@@ -319,7 +320,7 @@ namespace smt {
         }
     }
 
-    expr* nseq_model::get_var_value(euf::snode* var) {
+    expr* seq_model::get_var_value(euf::snode* var) {
         expr* val = nullptr;
         if (m_var_values.find(var->id(), val))
             return val;
@@ -333,7 +334,7 @@ namespace smt {
         return val;
     }
 
-    expr* nseq_model::mk_fresh_value(euf::snode* var) {
+    expr* seq_model::mk_fresh_value(euf::snode* var) {
         // check if this variable has regex constraints
         euf::snode* re = nullptr;
         if (m_var_regex.find(var->id(), re) && re) {
@@ -353,7 +354,7 @@ namespace smt {
         return m_seq.str.mk_empty(srt);
     }
 
-    void nseq_model::collect_var_regex_constraints(nseq_state const& state) {
+    void seq_model::collect_var_regex_constraints(seq_state const& state) {
         for (auto const& mem : state.str_mems()) {
             if (!mem.m_str || !mem.m_regex)
                 continue;
@@ -380,7 +381,7 @@ namespace smt {
         }
     }
 
-    bool nseq_model::validate_regex(nseq_state const& state, ::proto_model& mdl) {
+    bool seq_model::validate_regex(seq_state const& state, ::proto_model& mdl) {
         bool ok = true;
 
         // validate positive memberships: str ∈ regex

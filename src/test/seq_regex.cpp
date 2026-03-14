@@ -3,11 +3,11 @@ Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
-    nseq_regex.cpp
+    seq_regex.cpp
 
 Abstract:
 
-    Unit tests for nseq_regex: lazy regex membership processing
+    Unit tests for seq_regex: lazy regex membership processing
     for the Nielsen-based string solver.
 
 --*/
@@ -15,32 +15,32 @@ Abstract:
 #include "ast/reg_decl_plugins.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_sgraph.h"
-#include "smt/seq/nseq_regex.h"
+#include "smt/seq/seq_regex.h"
 #include "smt/seq/seq_nielsen.h"
 #include "util/lbool.h"
 #include "util/zstring.h"
 #include <iostream>
 
-// Test 1: nseq_regex instantiation
-static void test_nseq_regex_instantiation() {
-    std::cout << "test_nseq_regex_instantiation\n";
+// Test 1: seq_regex instantiation
+static void test_seq_regex_instantiation() {
+    std::cout << "test_seq_regex_instantiation\n";
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     SASSERT(&nr.sg() == &sg);
     std::cout << "  ok\n";
 }
 
 // Test 2: is_empty_regex on an empty-language node
-static void test_nseq_regex_is_empty() {
-    std::cout << "test_nseq_regex_is_empty\n";
+static void test_seq_regex_is_empty() {
+    std::cout << "test_seq_regex_is_empty\n";
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
 
     seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
@@ -52,13 +52,13 @@ static void test_nseq_regex_is_empty() {
 }
 
 // Test 3: is_empty_regex on a full-match regex (not empty)
-static void test_nseq_regex_is_full() {
-    std::cout << "test_nseq_regex_is_full\n";
+static void test_seq_regex_is_full() {
+    std::cout << "test_seq_regex_is_full\n";
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
 
     seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
@@ -76,7 +76,7 @@ static void test_strengthened_stabilizer_null() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
 
     SASSERT(nr.strengthened_stabilizer(nullptr, nullptr) == nullptr);
 
@@ -100,7 +100,7 @@ static void test_strengthened_stabilizer_single_char() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     // Build a*
@@ -126,7 +126,7 @@ static void test_strengthened_stabilizer_two_char() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     // Build (ab)*
@@ -152,7 +152,7 @@ static void test_filtered_stabilizer_star_empty() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     sort* str_sort = su.str.mk_string_sort();
@@ -173,7 +173,7 @@ static void test_filtered_stabilizer_star_with_stab() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     // Build a* as the regex state
@@ -201,7 +201,7 @@ static void test_filtered_stabilizer_star_filtered() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     // Build a* as the regex state
@@ -227,7 +227,7 @@ static void test_extract_cycle_history_basic() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     sort* str_sort = su.str.mk_string_sort();
@@ -265,7 +265,7 @@ static void test_extract_cycle_history_null_ancestor() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     sort* str_sort = su.str.mk_string_sort();
@@ -297,7 +297,7 @@ static void test_bfs_empty_none() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
     sort* re_sort = su.re.mk_re(str_sort);
@@ -316,7 +316,7 @@ static void test_bfs_nonempty_full() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
     sort* re_sort = su.re.mk_re(str_sort);
@@ -335,7 +335,7 @@ static void test_bfs_nonempty_to_re() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     expr_ref to_re_abc(su.re.mk_to_re(su.str.mk_string("abc")), m);
@@ -352,7 +352,7 @@ static void test_bfs_nonempty_star() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     expr_ref star_a(su.re.mk_star(su.re.mk_to_re(su.str.mk_string("a"))), m);
@@ -369,7 +369,7 @@ static void test_bfs_empty_union_of_empties() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
     sort* re_sort = su.re.mk_re(str_sort);
@@ -390,7 +390,7 @@ static void test_bfs_nonempty_range() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
 
@@ -410,7 +410,7 @@ static void test_bfs_empty_complement_full() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
     sort* re_sort = su.re.mk_re(str_sort);
@@ -429,7 +429,7 @@ static void test_bfs_null_safety() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
 
     lbool result = nr.is_empty_bfs(nullptr);
     SASSERT(result == l_undef);
@@ -443,7 +443,7 @@ static void test_bfs_bounded() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     // (a|b)+ requires at least one char; with max_states=1 should bail
@@ -495,7 +495,7 @@ static void test_stabilizer_store_basic() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
@@ -527,7 +527,7 @@ static void test_self_stabilizing() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     expr_ref a_re(su.re.mk_to_re(su.str.mk_string("a")), m);
@@ -552,7 +552,7 @@ static void test_check_intersection_sat() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     // a* ∩ (a|b)* should be non-empty (both accept "a")
@@ -580,7 +580,7 @@ static void test_check_intersection_unsat() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
 
@@ -605,7 +605,7 @@ static void test_is_language_subset_true() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     // a* ⊆ (a|b)* should be true
@@ -630,7 +630,7 @@ static void test_is_language_subset_false() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
 
     // (a|b)* ⊄ a* should be false (b ∈ (a|b)* but b ∉ a*)
@@ -655,7 +655,7 @@ static void test_is_language_subset_trivial() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    smt::nseq_regex nr(sg);
+    seq::seq_regex nr(sg);
     seq_util su(m);
     sort* str_sort = su.str.mk_string_sort();
 
@@ -677,10 +677,10 @@ static void test_is_language_subset_trivial() {
     std::cout << "  ok\n";
 }
 
-void tst_nseq_regex() {
-    test_nseq_regex_instantiation();
-    test_nseq_regex_is_empty();
-    test_nseq_regex_is_full();
+void tst_seq_regex() {
+    test_seq_regex_instantiation();
+    test_seq_regex_is_empty();
+    test_seq_regex_is_full();
     test_strengthened_stabilizer_null();
     test_strengthened_stabilizer_single_char();
     test_strengthened_stabilizer_two_char();
@@ -707,5 +707,5 @@ void tst_nseq_regex() {
     test_is_language_subset_true();
     test_is_language_subset_false();
     test_is_language_subset_trivial();
-    std::cout << "nseq_regex: all tests passed\n";
+    std::cout << "seq_regex: all tests passed\n";
 }

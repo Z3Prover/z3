@@ -339,7 +339,7 @@ namespace smt {
             m_nielsen.add_str_eq(eq.m_lhs, eq.m_rhs);
         }
 
-        // transfer regex memberships, pre-processing through nseq_regex
+        // transfer regex memberships, pre-processing through seq_regex
         // to consume ground prefixes via Brzozowski derivatives
         for (unsigned state_idx = 0; state_idx < m_state.str_mems().size(); ++state_idx) {
             auto const& mem = m_state.str_mems()[state_idx];
