@@ -173,6 +173,7 @@ namespace smt {
             return expr_ref(get_var_value(n), m);
 
         if (n->is_concat()) {
+            // NSB review: assert the sort is sequence and not a regex
             expr_ref lhs = snode_to_value(n->arg(0));
             expr_ref rhs = snode_to_value(n->arg(1));
             if (lhs && rhs)
@@ -231,6 +232,7 @@ namespace smt {
                 exp_val = rational(0);
 
             // Build the repeated string: base^exp_val
+            // NSB review: use the sort of n to when calling mk_empty
             if (exp_val.is_zero())
                 return expr_ref(m_seq.str.mk_empty(m_seq.str.mk_string_sort()), m);
             if (exp_val.is_one())
@@ -239,6 +241,8 @@ namespace smt {
             // For small exponents, concatenate directly; for large ones,
             // build a concrete string constant to avoid enormous AST chains
             // that cause cleanup_expr to diverge.
+
+            // NSB review: for large n_val just return mk_power(base_val, arith.mk_int(n_val))
             unsigned n_val = exp_val.get_unsigned();
             constexpr unsigned POWER_EXPAND_LIMIT = 1000;
             if (n_val > POWER_EXPAND_LIMIT) {
@@ -262,6 +266,8 @@ namespace smt {
                     return expr_ref(m_seq.str.mk_string(result), m);
                 }
                 // Fallback: cap exponent to avoid divergence
+
+                // NSB review: this goes away and instead we can use mk_power(base_val, arith.mk_int(n_val)) when n_val
                 n_val = POWER_EXPAND_LIMIT;
             }
             expr_ref acc(base_val);
@@ -275,6 +281,8 @@ namespace smt {
         return e ? expr_ref(e, m) : expr_ref(m);
     }
 
+    // NSB review: use seq_rewriter::some_string_in_re instead of this custome witness generator
+    // NSB review: add some_seq_in_re to seq_rewriter to create a witness sequence for types other than strings.
     expr_ref seq_model::generate_regex_witness(euf::snode* regex, unsigned depth) {
         if (!regex)
             return expr_ref(m_seq.str.mk_empty(m_seq.str.mk_string_sort()), m);
