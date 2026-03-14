@@ -158,9 +158,11 @@ namespace smt {
         if (!n)
             return expr_ref(m);
 
-        // NSB review: use the sort of n
-        if (n->is_empty())
-            return expr_ref(m_seq.str.mk_empty(m_seq.str.mk_string_sort()), m);
+        if (n->is_empty()) {
+            sort* srt = n->get_sort();
+            if (!srt) srt = m_seq.str.mk_string_sort();
+            return expr_ref(m_seq.str.mk_empty(srt), m);
+        }
 
         if (n->is_char() || n->is_unit()) {
             expr* e = n->get_expr();
@@ -229,8 +231,6 @@ namespace smt {
                 exp_val = rational(0);
 
             // Build the repeated string: base^exp_val
-            
-            // NSB review: use the sort of n instead of mk_string_sort()
             if (exp_val.is_zero())
                 return expr_ref(m_seq.str.mk_empty(m_seq.str.mk_string_sort()), m);
             if (exp_val.is_one())
@@ -261,9 +261,6 @@ namespace smt {
                     zstring result(buf.size(), buf.data());
                     return expr_ref(m_seq.str.mk_string(result), m);
                 }
-                // NSB review: just return an expression of the form:
-                // mk_power(base_val, a.mk_int(n_val)) for large exponents
-                
                 // Fallback: cap exponent to avoid divergence
                 n_val = POWER_EXPAND_LIMIT;
             }
@@ -278,9 +275,6 @@ namespace smt {
         return e ? expr_ref(e, m) : expr_ref(m);
     }
 
-    // NSB review: replace this by seq_rewriter::some_string_in_re when it is a regex over strings.
-    // add a routine that works for regular expressions over types other than strings to seq_rewriter
-    // use this for regexes over non-strings.
     expr_ref seq_model::generate_regex_witness(euf::snode* regex, unsigned depth) {
         if (!regex)
             return expr_ref(m_seq.str.mk_empty(m_seq.str.mk_string_sort()), m);

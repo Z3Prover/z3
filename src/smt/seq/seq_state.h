@@ -20,7 +20,6 @@ Author:
 #pragma once
 
 #include "util/vector.h"
-#include "ast/euf/euf_sgraph.h"
 #include "smt/seq/seq_nielsen.h"
 #include "smt/smt_literal.h"
 
@@ -46,7 +45,6 @@ namespace smt {
     };
 
     class seq_state {
-        euf::sgraph&            m_sg;
         vector<seq::str_eq>     m_str_eqs;
         vector<seq::str_mem>    m_str_mems;
         vector<eq_source>       m_eq_sources;
@@ -58,7 +56,7 @@ namespace smt {
         unsigned                m_next_mem_id = 0;
 
     public:
-        seq_state(euf::sgraph& sg) : m_sg(sg) {}
+        seq_state() = default;
 
         void push() {
             m_str_eq_lim.push_back(m_str_eqs.size());
