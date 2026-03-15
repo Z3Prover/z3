@@ -200,6 +200,29 @@ func (g *Goal) Reset() {
 	C.Z3_goal_reset(g.ctx.ptr, g.ptr)
 }
 
+// Depth returns the depth of the goal.
+// It tracks how many times the goal was transformed by a tactic.
+func (g *Goal) Depth() uint {
+	return uint(C.Z3_goal_depth(g.ctx.ptr, g.ptr))
+}
+
+// Precision returns the precision of the goal as a uint.
+// Possible values: 0 = precise, 1 = under-approximation, 2 = over-approximation, 3 = under+over.
+func (g *Goal) Precision() uint {
+	return uint(C.Z3_goal_precision(g.ctx.ptr, g.ptr))
+}
+
+// Translate creates a copy of the goal in the target context.
+func (g *Goal) Translate(target *Context) *Goal {
+	return newGoal(target, C.Z3_goal_translate(g.ctx.ptr, g.ptr, target.ptr))
+}
+
+// ConvertModel converts a model from the original goal into a model for this goal.
+// Use this when a tactic has transformed the goal and you need a model for the original.
+func (g *Goal) ConvertModel(m *Model) *Model {
+	return newModel(g.ctx, C.Z3_goal_convert_model(g.ctx.ptr, g.ptr, m.ptr))
+}
+
 // String returns the string representation of the goal.
 func (g *Goal) String() string {
 	return C.GoString(C.Z3_goal_to_string(g.ctx.ptr, g.ptr))
