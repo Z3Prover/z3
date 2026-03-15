@@ -177,6 +177,7 @@ int main(int argc, char ** argv) {
     TST(api);
     TST(max_reg);
     TST(max_rev);
+    TST(scaled_min);
     TST(deep_api_bugs);
     TST(api_algebraic);
     TST(api_polynomial);
