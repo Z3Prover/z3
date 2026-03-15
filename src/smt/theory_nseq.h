@@ -55,6 +55,7 @@ namespace smt {
         svector<prop_item>  m_prop_queue;
         unsigned            m_prop_qhead = 0;
         unsigned_vector     m_prop_lim;   // saved queue sizes for push/pop
+        unsigned            m_length_prop_qhead = 0;  // how many str_mems have had length bounds propagated
 
         // statistics
         unsigned m_num_conflicts        = 0;
@@ -117,7 +118,7 @@ namespace smt {
         void propagate_diseq(unsigned idx);
         void propagate_pos_mem(unsigned idx);
         void ensure_length_var(expr* e);
-        void propagate_regex_length_bounds(expr* s, unsigned min_len, unsigned max_len, literal antecedent);
+        void propagate_length_constraints();
 
         // higher-order term unfolding
         bool unfold_ho_terms();

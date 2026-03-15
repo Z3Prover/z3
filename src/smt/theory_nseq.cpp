@@ -233,6 +233,8 @@ namespace smt {
         m_prop_lim.shrink(m_prop_lim.size() - num_scopes);
         if (m_prop_qhead > m_prop_queue.size())
             m_prop_qhead = m_prop_queue.size();
+        if (m_length_prop_qhead > m_state.str_mems().size())
+            m_length_prop_qhead = m_state.str_mems().size();
         unsigned ho_sz = m_ho_lim[m_ho_lim.size() - num_scopes];
         m_ho_terms.shrink(ho_sz);
         m_ho_lim.shrink(m_ho_lim.size() - num_scopes);
@@ -245,7 +247,8 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     bool theory_nseq::can_propagate() {
-        return m_prop_qhead < m_prop_queue.size();
+        return m_prop_qhead < m_prop_queue.size()
+            || m_length_prop_qhead < m_state.str_mems().size();
     }
 
     void theory_nseq::propagate() {
@@ -264,6 +267,8 @@ namespace smt {
                 break;
             }
         }
+        if (!ctx.inconsistent())
+            propagate_length_constraints();
     }
 
     void theory_nseq::propagate_eq(unsigned idx) {
@@ -314,58 +319,60 @@ namespace smt {
         expr* s_expr = mem.m_str->get_expr();
         if (s_expr)
             ensure_length_var(s_expr);
-
-        // eagerly propagate length bounds derived from the regex structure:
-        //   str.in_re(s, r) => len(s) >= min_length(r)  (when min > 0)
-        //   str.in_re(s, r) => len(s) <= max_length(r)  (when max < UINT_MAX)
-        // This mirrors seq's propagate_in_re length inference and is critical
-        // for problems with re.loop[n:n] constraints (fixes AutomataArk UNSAT cases).
-        if (s_expr) {
-            expr* re_expr = mem.m_regex->get_expr();
-            if (re_expr && m_seq.is_re(re_expr)) {
-                unsigned min_len = m_seq.re.min_length(re_expr);
-                unsigned max_len = m_seq.re.max_length(re_expr);
-                if (min_len > 0 || max_len < UINT_MAX)
-                    propagate_regex_length_bounds(s_expr, min_len, max_len, src.m_lit);
-            }
-        }
     }
 
-    // Propagate length bounds for str.in_re(s, r) → len(s) ∈ [min_len, max_len].
-    // Uses theory propagation, antecedent → consequent, so the arithmetic theory
-    // can derive conflicts or tighten bounds without waiting for final_check.
-    void theory_nseq::propagate_regex_length_bounds(expr* s, unsigned min_len, unsigned max_len, literal antecedent) {
+    // For each new str.in_re(s, r) membership, emit theory-propagation clauses:
+    //   str.in_re(s, r) → len(s) >= min_length(r)   when min > 0
+    //   str.in_re(s, r) → len(s) <= max_length(r)   when max < UINT_MAX
+    // Called from propagate() so the arithmetic theory sees the bounds eagerly.
+    void theory_nseq::propagate_length_constraints() {
         context& ctx = get_context();
         ast_manager& m = get_manager();
-        expr_ref len_s(m_seq.str.mk_length(s), m);
-        if (!ctx.e_internalized(len_s))
-            ctx.internalize(len_s, false);
-
-        auto propagate_len_lit = [&](expr_ref& bound_expr) {
-            if (!ctx.b_internalized(bound_expr))
-                ctx.internalize(bound_expr, true);
-            literal len_lit = ctx.get_literal(bound_expr);
-            if (ctx.get_assignment(len_lit) == l_true)
-                return;
-            ctx.mark_as_relevant(len_lit);
-            justification* js = ctx.mk_justification(
-                ext_theory_propagation_justification(
-                    get_id(), ctx,
-                    1, &antecedent,
-                    0, nullptr,
-                    len_lit));
-            ctx.assign(len_lit, js);
-            ++m_num_length_axioms;
-        };
-
-        if (min_len > 0) {
-            expr_ref bound(m_autil.mk_ge(len_s, m_autil.mk_int(min_len)), m);
-            propagate_len_lit(bound);
-        }
-
-        if (max_len < UINT_MAX) {
-            expr_ref bound(m_autil.mk_le(len_s, m_autil.mk_int(max_len)), m);
-            propagate_len_lit(bound);
+        unsigned n = m_state.str_mems().size();
+        while (m_length_prop_qhead < n && !ctx.inconsistent()) {
+            unsigned idx = m_length_prop_qhead++;
+            auto const& mem = m_state.str_mems()[idx];
+            auto const& src = m_state.get_mem_source(idx);
+            if (!mem.m_str || !mem.m_regex)
+                continue;
+            expr* s_expr = mem.m_str->get_expr();
+            if (!s_expr)
+                continue;
+            expr* re_expr = mem.m_regex->get_expr();
+            if (!re_expr || !m_seq.is_re(re_expr))
+                continue;
+            unsigned min_len = m_seq.re.min_length(re_expr);
+            unsigned max_len = m_seq.re.max_length(re_expr);
+            if (min_len == 0 && max_len == UINT_MAX)
+                continue;
+            expr_ref len_s(m_seq.str.mk_length(s_expr), m);
+            if (!ctx.e_internalized(len_s))
+                ctx.internalize(len_s, false);
+            literal antecedent = src.m_lit;
+            auto propagate_len_lit = [&](expr_ref& bound_expr) {
+                if (!ctx.b_internalized(bound_expr))
+                    ctx.internalize(bound_expr, true);
+                literal len_lit = ctx.get_literal(bound_expr);
+                if (ctx.get_assignment(len_lit) == l_true)
+                    return;
+                ctx.mark_as_relevant(len_lit);
+                justification* js = ctx.mk_justification(
+                    ext_theory_propagation_justification(
+                        get_id(), ctx,
+                        1, &antecedent,
+                        0, nullptr,
+                        len_lit));
+                ctx.assign(len_lit, js);
+                ++m_num_length_axioms;
+            };
+            if (min_len > 0) {
+                expr_ref bound(m_autil.mk_ge(len_s, m_autil.mk_int(min_len)), m);
+                propagate_len_lit(bound);
+            }
+            if (max_len < UINT_MAX) {
+                expr_ref bound(m_autil.mk_le(len_s, m_autil.mk_int(max_len)), m);
+                propagate_len_lit(bound);
+            }
         }
     }
 
@@ -623,11 +630,12 @@ namespace smt {
 
     void theory_nseq::display(std::ostream& out) const {
         out << "theory_nseq\n";
-        out << "  str_eqs:    " << m_state.str_eqs().size() << "\n";
-        out << "  str_mems:   " << m_state.str_mems().size() << "\n";
-        out << "  diseqs:     " << m_state.diseqs().size() << "\n";
-        out << "  prop_queue: " << m_prop_qhead << "/" << m_prop_queue.size() << "\n";
-        out << "  ho_terms:   " << m_ho_terms.size() << "\n";
+        out << "  str_eqs:      " << m_state.str_eqs().size() << "\n";
+        out << "  str_mems:     " << m_state.str_mems().size() << "\n";
+        out << "  diseqs:       " << m_state.diseqs().size() << "\n";
+        out << "  prop_queue:   " << m_prop_qhead << "/" << m_prop_queue.size() << "\n";
+        out << "  length_props: " << m_length_prop_qhead << "/" << m_state.str_mems().size() << "\n";
+        out << "  ho_terms:     " << m_ho_terms.size() << "\n";
     }
 
     // -----------------------------------------------------------------------
