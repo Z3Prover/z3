@@ -864,7 +864,7 @@ static void test_regex_char_split_basic() {
     ng.add_str_mem(x, regex);
     SASSERT(ng.root() != nullptr);
 
-    auto sr = ng.root()->simplify_and_init(ng);
+    auto sr = ng.root()->simplify_and_init();
     SASSERT(sr != seq::simplify_result::conflict);
 
     bool extended = ng.generate_extensions(ng.root());
@@ -1304,7 +1304,7 @@ static void test_generate_extensions_regex_only() {
     ng.add_str_mem(x, re_node);
     seq::nielsen_node* root = ng.root();
 
-    root->simplify_and_init(ng);
+    root->simplify_and_init();
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
@@ -1651,7 +1651,7 @@ static void test_simplify_prefix_cancel() {
     seq::dep_tracker dep; dep.insert(0);
     node->add_str_eq(seq::str_eq(abx, aby, dep));
 
-    auto sr = node->simplify_and_init(ng);
+    auto sr = node->simplify_and_init();
     SASSERT(sr == seq::simplify_result::proceed);
     SASSERT(node->str_eqs().size() == 1);
     // after prefix cancel: remaining eq has variable-only sides
@@ -1681,7 +1681,7 @@ static void test_simplify_suffix_cancel_rtl() {
     seq::dep_tracker dep; dep.insert(0);
     node->add_str_eq(seq::str_eq(xa, ya, dep));
 
-    auto sr = node->simplify_and_init(ng);
+    auto sr = node->simplify_and_init();
     SASSERT(sr == seq::simplify_result::proceed);
     SASSERT(node->str_eqs().size() == 1);
     SASSERT(node->str_eqs()[0].m_lhs->is_var());
@@ -1710,7 +1710,7 @@ static void test_simplify_symbol_clash() {
     seq::dep_tracker dep; dep.insert(0);
     node->add_str_eq(seq::str_eq(ax, by, dep));
 
-    auto sr = node->simplify_and_init(ng);
+    auto sr = node->simplify_and_init();
     SASSERT(sr == seq::simplify_result::conflict);
     SASSERT(node->is_general_conflict());
     SASSERT(node->reason() == seq::backtrack_reason::symbol_clash);
@@ -1736,7 +1736,7 @@ static void test_simplify_empty_propagation() {
     seq::dep_tracker dep; dep.insert(0);
     node->add_str_eq(seq::str_eq(e, xy, dep));
 
-    auto sr = node->simplify_and_init(ng);
+    auto sr = node->simplify_and_init();
     SASSERT(sr == seq::simplify_result::satisfied);
 }
 
@@ -1758,7 +1758,7 @@ static void test_simplify_empty_vs_char() {
     seq::dep_tracker dep; dep.insert(0);
     node->add_str_eq(seq::str_eq(e, a, dep));
 
-    auto sr = node->simplify_and_init(ng);
+    auto sr = node->simplify_and_init();
     SASSERT(sr == seq::simplify_result::conflict);
     SASSERT(node->reason() == seq::backtrack_reason::symbol_clash);
 }
@@ -1784,7 +1784,7 @@ static void test_simplify_multi_pass_clash() {
     seq::dep_tracker dep; dep.insert(0);
     node->add_str_eq(seq::str_eq(ab, ac, dep));
 
-    auto sr = node->simplify_and_init(ng);
+    auto sr = node->simplify_and_init();
     SASSERT(sr == seq::simplify_result::conflict);
     SASSERT(node->reason() == seq::backtrack_reason::symbol_clash);
 }
@@ -1808,7 +1808,7 @@ static void test_simplify_trivial_removal() {
     node->add_str_eq(seq::str_eq(e, e, dep));  // trivial
     node->add_str_eq(seq::str_eq(x, y, dep));  // non-trivial
 
-    auto sr = node->simplify_and_init(ng);
+    auto sr = node->simplify_and_init();
     SASSERT(sr == seq::simplify_result::proceed);
     SASSERT(node->str_eqs().size() == 1);
 }
@@ -1831,7 +1831,7 @@ static void test_simplify_all_trivial_satisfied() {
     node->add_str_eq(seq::str_eq(x, x, dep));  // trivial: same pointer
     node->add_str_eq(seq::str_eq(e, e, dep));  // trivial: both empty
 
-    auto sr = node->simplify_and_init(ng);
+    auto sr = node->simplify_and_init();
     SASSERT(sr == seq::simplify_result::satisfied);
 }
 
@@ -1857,7 +1857,7 @@ static void test_simplify_regex_infeasible() {
     seq::dep_tracker dep; dep.insert(0);
     node->add_str_mem(seq::str_mem(e, regex, e, 0, dep));
 
-    auto sr = node->simplify_and_init(ng);
+    auto sr = node->simplify_and_init();
     SASSERT(sr == seq::simplify_result::conflict);
     SASSERT(node->reason() == seq::backtrack_reason::regex);
 }
@@ -1885,7 +1885,7 @@ static void test_simplify_nullable_removal() {
     seq::dep_tracker dep; dep.insert(0);
     node->add_str_mem(seq::str_mem(e, regex, e, 0, dep));
 
-    auto sr = node->simplify_and_init(ng);
+    auto sr = node->simplify_and_init();
     SASSERT(sr == seq::simplify_result::satisfied);
     SASSERT(node->str_mems().empty());
 }
@@ -1913,7 +1913,7 @@ static void test_simplify_brzozowski_sat() {
     seq::dep_tracker dep; dep.insert(0);
     node->add_str_mem(seq::str_mem(a, regex, e, 0, dep));
 
-    auto sr = node->simplify_and_init(ng);
+    auto sr = node->simplify_and_init();
     SASSERT(sr == seq::simplify_result::satisfied);
 }
 
@@ -1945,7 +1945,7 @@ static void test_simplify_brzozowski_rtl_suffix() {
     seq::dep_tracker dep; dep.insert(0);
     node->add_str_mem(seq::str_mem(xa, regex, e, 0, dep));
 
-    auto sr = node->simplify_and_init(ng);
+    auto sr = node->simplify_and_init();
     SASSERT(sr == seq::simplify_result::proceed);
     SASSERT(node->str_mems().size() == 1);
     SASSERT(node->str_mems()[0].m_str->is_var());
@@ -1984,7 +1984,7 @@ static void test_simplify_multiple_eqs() {
     node->add_str_eq(seq::str_eq(x, z, dep));
 
     SASSERT(node->str_eqs().size() == 3);
-    auto sr = node->simplify_and_init(ng);
+    auto sr = node->simplify_and_init();
     SASSERT(sr == seq::simplify_result::proceed);
     // eq1 removed, eq2 simplified to x=y, eq3 kept → 2 eqs remain
     SASSERT(node->str_eqs().size() == 2);
@@ -2587,7 +2587,7 @@ static void test_star_intr_no_backedge() {
     seq::nielsen_node* root = ng.root();
     SASSERT(root->backedge() == nullptr);
 
-    auto sr = root->simplify_and_init(ng);
+    auto sr = root->simplify_and_init();
     SASSERT(sr != seq::simplify_result::conflict);
 
     bool extended = ng.generate_extensions(root);
@@ -2621,7 +2621,7 @@ static void test_star_intr_with_backedge() {
     seq::nielsen_node* root = ng.root();
     root->set_backedge(root); // simulate backedge
 
-    auto sr = root->simplify_and_init(ng);
+    auto sr = root->simplify_and_init();
     // star(to_re("A")) is nullable, so empty string satisfies it
     // simplify may remove the membership or proceed
     if (sr == seq::simplify_result::satisfied) {
@@ -2720,7 +2720,7 @@ static void test_regex_var_split_basic() {
     ng.add_str_mem(x, regex);
     seq::nielsen_node* root = ng.root();
 
-    auto sr = root->simplify_and_init(ng);
+    auto sr = root->simplify_and_init();
     SASSERT(sr != seq::simplify_result::conflict);
 
     bool extended = ng.generate_extensions(root);
@@ -2797,7 +2797,7 @@ static void test_const_num_unwinding_no_power() {
     seq::nielsen_node* root = ng.root();
 
     // Should detect clash during simplify
-    auto sr = root->simplify_and_init(ng);
+    auto sr = root->simplify_and_init();
     SASSERT(sr == seq::simplify_result::conflict);
 }
 
@@ -3535,7 +3535,7 @@ static void test_simplify_adds_parikh_bounds() {
     seq::nielsen_node* node = ng.root();
 
     // simplify_and_init should call init_var_bounds_from_mems
-    seq::simplify_result sr = node->simplify_and_init(ng);
+    seq::simplify_result sr = node->simplify_and_init();
     (void)sr;
 
     // x ∈ to_re("AB") has min_len=2, max_len=2

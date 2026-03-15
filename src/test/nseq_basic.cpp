@@ -132,7 +132,7 @@ static void test_nseq_node_satisfied() {
     SASSERT(node->str_eqs().size() == 1);
     SASSERT(!node->str_eqs()[0].is_trivial() || node->str_eqs()[0].m_lhs == node->str_eqs()[0].m_rhs);
     // After simplification, trivial equalities should be removed
-    seq::simplify_result sr = node->simplify_and_init(ng);
+    seq::simplify_result sr = node->simplify_and_init();
     VERIFY(sr == seq::simplify_result::satisfied || sr == seq::simplify_result::proceed);
     std::cout << "  ok\n";
 }
