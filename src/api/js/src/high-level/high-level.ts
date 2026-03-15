@@ -4422,6 +4422,24 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         const otherSeq = isSeq(other) ? other : String.val(other);
         return new BoolImpl(check(Z3.mk_str_le(contextPtr, this.ast, otherSeq.ast)));
       }
+
+      map(f: Expr<Name>): Seq<Name> {
+        return new SeqImpl(check(Z3.mk_seq_map(contextPtr, f.ast, this.ast)));
+      }
+
+      mapi(f: Expr<Name>, i: Arith<Name> | number | bigint): Seq<Name> {
+        const iExpr = isArith(i) ? i : Int.val(i);
+        return new SeqImpl(check(Z3.mk_seq_mapi(contextPtr, f.ast, iExpr.ast, this.ast)));
+      }
+
+      foldl(f: Expr<Name>, a: Expr<Name>): Expr<Name> {
+        return _toExpr(check(Z3.mk_seq_foldl(contextPtr, f.ast, a.ast, this.ast)));
+      }
+
+      foldli(f: Expr<Name>, i: Arith<Name> | number | bigint, a: Expr<Name>): Expr<Name> {
+        const iExpr = isArith(i) ? i : Int.val(i);
+        return _toExpr(check(Z3.mk_seq_foldli(contextPtr, f.ast, iExpr.ast, a.ast, this.ast)));
+      }
     }
 
     class ReSortImpl<SeqSortRef extends SeqSort<Name> = SeqSort<Name>> extends SortImpl implements ReSort<Name, SeqSortRef> {

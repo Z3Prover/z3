@@ -3597,6 +3597,30 @@ export interface Seq<Name extends string = 'main', ElemSort extends Sort<Name> =
    * @category Operations
    */
   le(other: Seq<Name, ElemSort> | string): Bool<Name>;
+
+  /**
+   * Apply function f to each element of the sequence (seq.map).
+   * @category Operations
+   */
+  map(f: Expr<Name>): Seq<Name>;
+
+  /**
+   * Apply function f to each element and its index in the sequence (seq.mapi).
+   * @category Operations
+   */
+  mapi(f: Expr<Name>, i: Arith<Name> | number | bigint): Seq<Name>;
+
+  /**
+   * Left-fold function f over the sequence with initial accumulator a (seq.foldl).
+   * @category Operations
+   */
+  foldl(f: Expr<Name>, a: Expr<Name>): Expr<Name>;
+
+  /**
+   * Left-fold function f with index over the sequence with initial accumulator a (seq.foldli).
+   * @category Operations
+   */
+  foldli(f: Expr<Name>, i: Arith<Name> | number | bigint, a: Expr<Name>): Expr<Name>;
 }
 
 ///////////////////////
