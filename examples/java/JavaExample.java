@@ -2345,7 +2345,7 @@ class JavaExample
         if (!five.isGround())
             throw new TestFailedException();
 
-        // a free variable is not ground
+        // an uninterpreted constant is also ground (no bound variables)
         IntExpr x = ctx.mkIntConst("x");
         if (!x.isGround())
             throw new TestFailedException();
