@@ -132,6 +132,20 @@ namespace euf {
         bool is_to_re()      const { return m_kind == snode_kind::s_to_re; }
         bool is_in_re()      const { return m_kind == snode_kind::s_in_re; }
 
+        // get the base expression of a power snode, e.g., s from s^n
+        expr* get_power_base(seq_util& seq) const {
+            if (!is_power()) return nullptr;
+            expr* base = nullptr, *exp = nullptr;
+            return (m_expr && seq.str.is_power(m_expr, base, exp)) ? base : nullptr;
+        }
+
+        // get the exponent expression of a power snode, e.g., n from s^n
+        expr* get_power_exp(seq_util& seq) const {
+            if (!is_power()) return nullptr;
+            expr* base = nullptr, *exp = nullptr;
+            return (m_expr && seq.str.is_power(m_expr, base, exp)) ? exp : nullptr;
+        }
+
         // is this a leaf token (analogous to ZIPT's StrToken as opposed to Str)
         bool is_token() const {
             switch (m_kind) {
