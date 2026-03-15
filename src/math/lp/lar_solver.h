@@ -450,8 +450,7 @@ public:
             // to restore the Ax=0 tableau invariant, then snap
             // non-basic columns to their bounds and find a feasible solution.
             for (unsigned i = 0; i < A_r().row_count(); i++)
-                if (r_basis()[i] >= backup_sz)
-                    set_column_value(r_basis()[i], get_basic_var_value_from_row(i));
+                set_column_value(r_basis()[i], get_basic_var_value_from_row(i));
             move_non_basic_columns_to_bounds();
         }
         else {
