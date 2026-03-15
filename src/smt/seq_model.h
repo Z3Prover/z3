@@ -36,10 +36,6 @@ Author:
 
 class proto_model;
 
-namespace seq {
-    class seq_regex;
-}
-
 namespace smt {
 
     class enode;
@@ -52,7 +48,6 @@ namespace smt {
         seq_util&       m_seq;
         seq_rewriter&   m_rewriter;
         euf::sgraph&    m_sg;
-        seq::seq_regex&     m_regex;
 
         // factory for generating fresh string/regex values
         seq_factory*    m_factory = nullptr;
@@ -74,7 +69,7 @@ namespace smt {
 
     public:
         seq_model(ast_manager& m, seq_util& seq,
-                   seq_rewriter& rw, euf::sgraph& sg, seq::seq_regex& regex);
+                   seq_rewriter& rw, euf::sgraph& sg);
 
         // Phase 1: initialize model construction.
         // Allocates seq_factory, registers it with mg, collects
@@ -102,11 +97,6 @@ namespace smt {
         // recursively substitute known variable assignments into an snode tree.
         // Returns a concrete Z3 expression.
         expr_ref snode_to_value(euf::snode* n);
-
-        // generate a concrete witness string for a regex.
-        // Uses nullable check and first-char collection to build
-        // a minimal satisfying string. depth bounds recursion.
-        expr_ref generate_regex_witness(euf::snode* regex, unsigned depth = 0);
 
         // register all string literals appearing in the constraint store
         // with the factory to avoid collisions with fresh values.

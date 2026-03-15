@@ -6014,6 +6014,27 @@ void seq_rewriter::op_cache::cleanup() {
     }
 }
 
+lbool seq_rewriter::some_seq_in_re(expr* r, expr_ref& result) {
+    sort* seq_sort = nullptr;
+    if (!u().is_re(r, seq_sort))
+        return l_undef;
+    if (u().is_string(seq_sort)) {
+        zstring s;
+        lbool res = some_string_in_re(r, s);
+        if (res == l_true)
+            result = str().mk_string(s);
+        return res;
+    }
+    // For non-string sequences: check if the regex accepts the empty sequence.
+    SASSERT(seq_sort);
+    expr_ref is_null = is_nullable(r);
+    if (m().is_true(is_null)) {
+        result = str().mk_empty(seq_sort);
+        return l_true;
+    }
+    return l_undef;
+}
+
 lbool seq_rewriter::some_string_in_re(expr* r, zstring& s) {
     sort* rs;
     (void)rs;

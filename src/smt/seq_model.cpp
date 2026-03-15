@@ -17,7 +17,6 @@ Author:
 
 --*/
 #include "smt/seq_model.h"
-#include "smt/seq/seq_regex.h"
 #include "smt/seq/seq_state.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
@@ -27,8 +26,8 @@ Author:
 namespace smt {
 
     seq_model::seq_model(ast_manager& m, seq_util& seq,
-                           seq_rewriter& rw, euf::sgraph& sg, seq::seq_regex& regex)
-        : m(m), m_seq(seq), m_rewriter(rw), m_sg(sg), m_regex(regex), m_trail(m)
+                           seq_rewriter& rw, euf::sgraph& sg)
+        : m(m), m_seq(seq), m_rewriter(rw), m_sg(sg), m_trail(m)
     {}
 
     void seq_model::init(model_generator& mg, seq::nielsen_graph& nielsen, seq_state const& state) {
@@ -173,7 +172,7 @@ namespace smt {
             return expr_ref(get_var_value(n), m);
 
         if (n->is_concat()) {
-            // NSB review: assert the sort is sequence and not a regex
+            SASSERT(n->get_sort() && m_seq.is_seq(n->get_sort()));
             expr_ref lhs = snode_to_value(n->arg(0));
             expr_ref rhs = snode_to_value(n->arg(1));
             if (lhs && rhs)
@@ -232,44 +231,21 @@ namespace smt {
                 exp_val = rational(0);
 
             // Build the repeated string: base^exp_val
-            // NSB review: use the sort of n to when calling mk_empty
-            if (exp_val.is_zero())
-                return expr_ref(m_seq.str.mk_empty(m_seq.str.mk_string_sort()), m);
+            if (exp_val.is_zero()) {
+                sort* srt = n->get_sort();
+                SASSERT(srt);
+                if (!srt) srt = m_seq.str.mk_string_sort();
+                return expr_ref(m_seq.str.mk_empty(srt), m);
+            }
             if (exp_val.is_one())
                 return base_val;
 
             // For small exponents, concatenate directly; for large ones,
-            // build a concrete string constant to avoid enormous AST chains
-            // that cause cleanup_expr to diverge.
-
-            // NSB review: for large n_val just return mk_power(base_val, arith.mk_int(n_val))
+            // return mk_power to avoid enormous AST chains.
             unsigned n_val = exp_val.get_unsigned();
             constexpr unsigned POWER_EXPAND_LIMIT = 1000;
-            if (n_val > POWER_EXPAND_LIMIT) {
-                // Try to extract a concrete character from the base (seq.unit(c))
-                // and build a string literal directly (O(1) AST node).
-                unsigned ch = 0;
-                expr* unit_arg = nullptr;
-                if (m_seq.str.is_unit(base_val, unit_arg) && m_seq.is_const_char(unit_arg, ch)) {
-                    svector<unsigned> buf(n_val, ch);
-                    zstring result(buf.size(), buf.data());
-                    return expr_ref(m_seq.str.mk_string(result), m);
-                }
-                // Also handle if base is already a string constant
-                zstring base_str;
-                if (m_seq.str.is_string(base_val, base_str) && base_str.length() > 0) {
-                    svector<unsigned> buf;
-                    for (unsigned i = 0; i < n_val; ++i)
-                        for (unsigned j = 0; j < base_str.length(); ++j)
-                            buf.push_back(base_str[j]);
-                    zstring result(buf.size(), buf.data());
-                    return expr_ref(m_seq.str.mk_string(result), m);
-                }
-                // Fallback: cap exponent to avoid divergence
-
-                // NSB review: this goes away and instead we can use mk_power(base_val, arith.mk_int(n_val)) when n_val
-                n_val = POWER_EXPAND_LIMIT;
-            }
+            if (n_val > POWER_EXPAND_LIMIT)
+                return expr_ref(m_seq.str.mk_power(base_val, arith.mk_int(n_val)), m);
             expr_ref acc(base_val);
             for (unsigned i = 1; i < n_val; ++i)
                 acc = m_seq.str.mk_concat(acc, base_val);
@@ -279,43 +255,6 @@ namespace smt {
         // fallback: use the underlying expression
         expr* e = n->get_expr();
         return e ? expr_ref(e, m) : expr_ref(m);
-    }
-
-    // NSB review: use seq_rewriter::some_string_in_re instead of this custome witness generator
-    // NSB review: add some_seq_in_re to seq_rewriter to create a witness sequence for types other than strings.
-    expr_ref seq_model::generate_regex_witness(euf::snode* regex, unsigned depth) {
-        if (!regex)
-            return expr_ref(m_seq.str.mk_empty(m_seq.str.mk_string_sort()), m);
-
-        // depth bound to prevent stack overflow on deep regexes
-        if (depth > 1000) {
-            sort* srt = m_seq.str.mk_string_sort();
-            expr* fresh = m_factory->get_fresh_value(srt);
-            return fresh ? expr_ref(fresh, m) : expr_ref(m_seq.str.mk_empty(srt), m);
-        }
-
-        // nullable regex: empty string is a valid witness
-        if (m_regex.is_nullable(regex))
-            return expr_ref(m_seq.str.mk_empty(m_seq.str.mk_string_sort()), m);
-
-        // collect first-position characters
-        euf::snode_vector chars;
-        m_regex.collect_first_chars(regex, chars);
-
-        if (!chars.empty()) {
-            // pick first concrete character, derive, and recurse
-            euf::snode* c = chars[0];
-            euf::snode* deriv = m_regex.derivative(regex, c);
-            expr_ref tail = generate_regex_witness(deriv, depth + 1);
-            if (tail && c->get_expr())
-                return expr_ref(m_seq.str.mk_concat(c->get_expr(), tail), m);
-        }
-
-        // fallback: return fresh value from factory (may not satisfy the regex,
-        // but avoids returning empty string which definitely doesn't satisfy non-nullable regex)
-        sort* srt = m_seq.str.mk_string_sort();
-        expr* fresh = m_factory->get_fresh_value(srt);
-        return fresh ? expr_ref(fresh, m) : expr_ref(m_seq.str.mk_empty(srt), m);
     }
 
     void seq_model::register_existing_values(seq::nielsen_graph& nielsen) {
@@ -348,12 +287,14 @@ namespace smt {
         // check if this variable has regex constraints
         euf::snode* re = nullptr;
         if (m_var_regex.find(var->id(), re) && re) {
-            // generate a witness string satisfying the regex
-            expr_ref witness = generate_regex_witness(re);
-            if (witness) {
-                m_trail.push_back(witness);
-                m_factory->register_value(witness);
-                return witness;
+            expr* re_expr = re->get_expr();
+            if (re_expr) {
+                expr_ref witness(m);
+                if (m_rewriter.some_seq_in_re(re_expr, witness) == l_true && witness) {
+                    m_trail.push_back(witness);
+                    m_factory->register_value(witness);
+                    return witness;
+                }
             }
         }
 

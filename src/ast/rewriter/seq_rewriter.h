@@ -418,6 +418,16 @@ public:
     expr_ref mk_regex_inter_normalize(expr* r1, expr* r2);
 
     /*
+    * Extract some sequence that is a member of r.
+    * result is set to a concrete sequence expression if l_true is returned.
+    * For string-typed regexes, delegates to some_string_in_re.
+    * For other sequence types, checks nullability and returns the empty
+    * sequence if the regex accepts it; otherwise returns l_undef.
+    * Returns l_false if the regex is known to be empty.
+    */
+    lbool some_seq_in_re(expr* r, expr_ref& result);
+
+    /*
     * Extract some string that is a member of r. 
     * Return true if a valid string was extracted.
     * Return false when giving up or the regular expression is empty.
