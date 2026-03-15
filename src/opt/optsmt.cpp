@@ -253,7 +253,14 @@ namespace opt {
                 }
                 last_objective = obj;
                 if (bound == last_bound) {
-                    break;
+                    // LP didn't produce a new blocker. If the model-based lower bound
+                    // is strictly better than what the LP found, use it to push the LP
+                    // further. This handles cases where nonlinear constraints, mod,
+                    // to_int, prevent the LP from seeing the full feasible region.
+                    if (m_lower[obj_index].is_finite() && m_lower[obj_index] > obj)
+                        bound = m_s->mk_ge(obj_index, m_lower[obj_index]);
+                    if (bound == last_bound)
+                        break;
                 }
                 m_s->assert_expr(bound);
                 last_bound = bound;
