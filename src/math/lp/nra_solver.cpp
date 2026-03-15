@@ -124,10 +124,12 @@ struct solver::imp {
                 den = lcm(den, denominator(coeff));
             for (auto const& [w, coeff] : lra.get_term(v)) {
                 auto pw = definitions.get(w);
+                polynomial::polynomial_ref term(pm);
+                term = pm.mul(den * coeff, pw);
                 if (!p)
-                    p = pm.mul(den * coeff, pw);
+                    p = term;
                 else
-                    p = pm.add(p, pm.mul(den * coeff, pw));
+                    p = pm.add(p, term);
             }
         }
         else {
