@@ -438,6 +438,12 @@ namespace seq {
         // Only handle ground regexes; non-ground can't be fully explored
         if (!re->is_ground())
             return l_undef;
+        // s_other snodes (unrecognized regex kinds, e.g. re.+) cannot be
+        // efficiently explored: the alphabet partition is trivially {∅} and
+        // derivative computations may be slow.  Report l_undef and let the
+        // caller fall back to a more capable procedure.
+        if (re->kind() == euf::snode_kind::s_other)
+            return l_undef;
 
         // BFS over the Brzozowski derivative automaton.
         // Each state is a derivative regex snode identified by its id.

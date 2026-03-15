@@ -416,7 +416,27 @@ namespace smt {
         ++m_num_final_checks;
 
         m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
+        m_nielsen.set_max_nodes(get_fparams().m_nseq_max_nodes);
         m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
+
+        // Regex membership pre-check: before running DFS, check intersection
+        // emptiness for each variable's regex constraints.  This handles
+        // regex-only problems that the DFS cannot efficiently solve.
+        if (get_fparams().m_nseq_regex_precheck) {
+            lbool precheck = check_regex_memberships_precheck();
+            if (precheck == l_true) {
+                // conflict was asserted inside check_regex_memberships_precheck
+                IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck UNSAT\n";);
+                return FC_CONTINUE;
+            }
+            if (precheck == l_false) {
+                // all regex constraints satisfiable, no word eqs/diseqs → SAT
+                IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck SAT\n";);
+                return FC_DONE;
+            }
+            // l_undef: inconclusive, fall through to DFS
+        }
+
         IF_VERBOSE(1, verbose_stream() << "nseq final_check: calling solve()\n";);
 
         // here the actual Nielsen solving happens
@@ -827,6 +847,98 @@ namespace smt {
             }
         }
         return new_axiom;
+    }
+
+    // -----------------------------------------------------------------------
+    // Regex membership pre-check
+    // For each variable with regex membership constraints, check intersection
+    // emptiness before DFS.  Mirrors ZIPT's per-variable regex evaluation.
+    //
+    // Returns:
+    //   l_true  — conflict asserted (empty intersection for some variable)
+    //   l_false — all variables satisfiable and no word eqs/diseqs → SAT
+    //   l_undef — inconclusive, proceed to DFS
+    // -----------------------------------------------------------------------
+
+    lbool theory_nseq::check_regex_memberships_precheck() {
+        auto const& mems = m_state.str_mems();
+        if (mems.empty())
+            return l_undef;
+
+        // Group membership indices by variable snode id.
+        // Only consider memberships whose string snode is a plain variable (s_var).
+        u_map<unsigned_vector> var_to_mems;
+        bool all_var_str = true;
+
+        for (unsigned i = 0; i < mems.size(); ++i) {
+            auto const& mem = mems[i];
+            if (!mem.m_str || !mem.m_regex)
+                continue;
+            if (mem.m_str->is_var()) {
+                auto& vec = var_to_mems.insert_if_not_there(mem.m_str->id(), unsigned_vector());
+                vec.push_back(i);
+            }
+            else {
+                all_var_str = false;
+            }
+        }
+
+        if (var_to_mems.empty())
+            return l_undef;
+
+        bool any_undef = false;
+
+        // Check intersection emptiness for each variable.
+        for (auto& kv : var_to_mems) {
+            unsigned var_id = kv.m_key;
+            unsigned_vector const& mem_indices = kv.m_value;
+            ptr_vector<euf::snode> regexes;
+            for (unsigned i : mem_indices) {
+                euf::snode* re = mems[i].m_regex;
+                if (re)
+                    regexes.push_back(re);
+            }
+            if (regexes.empty())
+                continue;
+
+            // Use a bounded BFS (50 states) for the pre-check to keep it fast.
+            // If the BFS times out (l_undef), we fall through to DFS.
+            lbool result = m_regex.check_intersection_emptiness(regexes, 50);
+
+            if (result == l_true) {
+                // Intersection is empty → the memberships on this variable are
+                // jointly unsatisfiable.  Assert a conflict from all their literals.
+                enode_pair_vector eqs;
+                literal_vector lits;
+                for (unsigned i : mem_indices) {
+                    mem_source const& src = m_state.get_mem_source(i);
+                    if (get_context().get_assignment(src.m_lit) == l_true)
+                        lits.push_back(src.m_lit);
+                }
+                TRACE(seq, tout << "nseq regex precheck: empty intersection for var "
+                                << var_id << ", conflict with " << lits.size() << " lits\n";);
+                set_conflict(eqs, lits);
+                return l_true;   // conflict asserted
+            }
+            else if (result == l_undef) {
+                any_undef = true;
+            }
+            // l_false = non-empty intersection, this variable's constraints are satisfiable
+        }
+
+        if (any_undef)
+            return l_undef;  // cannot fully determine; let DFS decide
+
+        // All variables' regex intersections are non-empty.
+        // If there are no word equations and no disequalities, variables are
+        // independent and each can be assigned a witness string → SAT.
+        if (all_var_str && m_state.str_eqs().empty() && m_state.diseqs().empty()) {
+            TRACE(seq, tout << "nseq regex precheck: all intersections non-empty, "
+                            << "no word eqs/diseqs → SAT\n";);
+            return l_false;  // signals SAT (non-empty / satisfiable)
+        }
+
+        return l_undef;  // mixed constraints; let DFS decide
     }
 
 }

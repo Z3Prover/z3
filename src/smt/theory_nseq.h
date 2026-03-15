@@ -131,6 +131,14 @@ namespace smt {
         bool assert_nonneg_for_all_vars();
         bool assert_length_constraints();
 
+        // Regex membership pre-check: for each variable with regex constraints,
+        // check intersection emptiness before running DFS.
+        //   l_true  → found empty intersection, conflict asserted, return FC_CONTINUE
+        //   l_false → all variables' regex constraints satisfiable and no word
+        //             equations / disequalities, return FC_DONE (SAT)
+        //   l_undef → inconclusive, proceed to DFS
+        lbool check_regex_memberships_precheck();
+
     public:
         theory_nseq(context& ctx);
     };

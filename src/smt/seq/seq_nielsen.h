@@ -734,6 +734,7 @@ namespace seq {
         unsigned                      m_run_idx = 0;
         unsigned                      m_depth_bound = 0;
         unsigned                      m_max_search_depth = 0;
+        unsigned                      m_max_nodes = 0;          // 0 = unlimited
         bool                          m_parikh_enabled = true;
         unsigned                      m_next_mem_id = 0;
         unsigned                      m_fresh_cnt = 0;
@@ -821,6 +822,9 @@ namespace seq {
 
         // maximum overall search depth (0 = unlimited)
         void set_max_search_depth(unsigned d) { m_max_search_depth = d; }
+
+        // maximum total DFS nodes per solve() call (0 = unlimited)
+        void set_max_nodes(unsigned n) { m_max_nodes = n; }
         
         // enable/disable Parikh image verification constraints
         void set_parikh_enabled(bool e) { m_parikh_enabled = e; }
