@@ -155,6 +155,7 @@ class theory_lra::imp {
     ptr_vector<expr>       m_not_handled;
     ptr_vector<app>        m_underspecified;
     ptr_vector<app>        m_bv_terms;
+    ptr_vector<expr>       m_mul_defs; // fresh multiplication definition vars
     vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
     // attributes for incremental version:
@@ -267,7 +268,23 @@ class theory_lra::imp {
             };
             m_nla->set_relevant(is_relevant);
             m_nla->updt_params(ctx().get_params());
+            m_nla->get_core().set_add_mul_def_hook([&](unsigned sz, lpvar const* vs) { return add_mul_def(sz, vs); });
         }
+    }
+
+    lpvar add_mul_def(unsigned sz, lpvar const* vs) {
+        bool is_int = true;
+        for (unsigned i = 0; i < sz; ++i) {
+            theory_var tv = lp().local_to_external(vs[i]);
+            is_int &= this->is_int(tv);
+        }
+        sort* srt = is_int ? a.mk_int() : a.mk_real();
+        app_ref c(m.mk_fresh_const("mul!", srt), m);
+        mk_enode(c);
+        theory_var v = mk_var(c);
+        ctx().push_trail(push_back_vector<ptr_vector<expr>>(m_mul_defs));
+        m_mul_defs.push_back(c);
+        return register_theory_var_in_lar_solver(v);
     }
 
     void found_unsupported(expr* n) {
