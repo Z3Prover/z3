@@ -1,11 +1,8 @@
 name: Memory Safety Analysis
 
 on:
-  push:
-    branches: ["**"]
-    paths:
-      - 'src/**'
-      - '.github/workflows/memory-safety.yml'
+  schedule:
+    - cron: '0 0 * * 1'
   workflow_dispatch:
     inputs:
       full_scan:
