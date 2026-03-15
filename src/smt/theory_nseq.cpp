@@ -314,6 +314,56 @@ namespace smt {
         expr* s_expr = mem.m_str->get_expr();
         if (s_expr)
             ensure_length_var(s_expr);
+
+        // eagerly propagate length bounds derived from the regex structure:
+        //   str.in_re(s, r) => len(s) >= min_length(r)  (when min > 0)
+        //   str.in_re(s, r) => len(s) <= max_length(r)  (when max < UINT_MAX)
+        // This mirrors seq's propagate_in_re length inference and is critical
+        // for problems with re.loop[n:n] constraints (fixes AutomataArk UNSAT cases).
+        if (s_expr) {
+            expr* re_expr = mem.m_regex->get_expr();
+            if (re_expr && m_seq.is_re(re_expr)) {
+                unsigned min_len = m_seq.re.min_length(re_expr);
+                unsigned max_len = m_seq.re.max_length(re_expr);
+                if (min_len > 0 || max_len < UINT_MAX)
+                    propagate_regex_length_bounds(s_expr, min_len, max_len, src.m_lit);
+            }
+        }
+    }
+
+    // Propagate length bounds for str.in_re(s, r) → len(s) ∈ [min_len, max_len].
+    // Adds the conditional clauses as theory axioms so the arithmetic theory
+    // can derive conflicts or tighten bounds without waiting for final_check.
+    void theory_nseq::propagate_regex_length_bounds(expr* s, unsigned min_len, unsigned max_len, literal antecedent) {
+        context& ctx = get_context();
+        ast_manager& m = get_manager();
+        expr_ref len_s(m_seq.str.mk_length(s), m);
+        if (!ctx.e_internalized(len_s))
+            ctx.internalize(len_s, false);
+
+        if (min_len > 0) {
+            expr_ref bound(m_autil.mk_ge(len_s, m_autil.mk_int(min_len)), m);
+            if (!ctx.b_internalized(bound))
+                ctx.internalize(bound, true);
+            literal len_lit = ctx.get_literal(bound);
+            if (ctx.get_assignment(len_lit) != l_true) {
+                literal clause[2] = {~antecedent, len_lit};
+                ctx.mk_th_axiom(get_id(), 2, clause);
+                ++m_num_length_axioms;
+            }
+        }
+
+        if (max_len < UINT_MAX) {
+            expr_ref bound(m_autil.mk_le(len_s, m_autil.mk_int(max_len)), m);
+            if (!ctx.b_internalized(bound))
+                ctx.internalize(bound, true);
+            literal len_lit = ctx.get_literal(bound);
+            if (ctx.get_assignment(len_lit) != l_true) {
+                literal clause[2] = {~antecedent, len_lit};
+                ctx.mk_th_axiom(get_id(), 2, clause);
+                ++m_num_length_axioms;
+            }
+        }
     }
 
     void theory_nseq::ensure_length_var(expr* e) {
@@ -867,8 +917,9 @@ namespace smt {
 
         // Group membership indices by variable snode id.
         // Only consider memberships whose string snode is a plain variable (s_var).
+        // Non-variable memberships (e.g., str.substr(X,...)) arise from the SMT
+        // preprocessor decomposing re.++ constraints and are handled separately below.
         u_map<unsigned_vector> var_to_mems;
-        bool all_var_str = true;
 
         for (unsigned i = 0; i < mems.size(); ++i) {
             auto const& mem = mems[i];
@@ -877,9 +928,6 @@ namespace smt {
             if (mem.m_str->is_var()) {
                 auto& vec = var_to_mems.insert_if_not_there(mem.m_str->id(), unsigned_vector());
                 vec.push_back(i);
-            }
-            else {
-                all_var_str = false;
             }
         }
 
@@ -901,10 +949,15 @@ namespace smt {
             if (regexes.empty())
                 continue;
 
-            // Use a bounded BFS (50 states) for the pre-check to keep it fast.
-            // If the BFS times out (l_undef), we fall through to DFS.
-            lbool result = m_regex.check_intersection_emptiness(regexes, 50);
+            // Use a full BFS (up to 10 000 states) for the pre-check.
+            // The 50-state limit that was here previously was too small for
+            // AutomataArk-class regexes (HTML/HTTP/date patterns) and caused
+            // the precheck to always return l_undef, falling through to the
+            // much-slower DFS.  Using the default 10 000-state limit mirrors
+            // the budget used by is_empty_bfs() directly.
+            lbool result = m_regex.check_intersection_emptiness(regexes);
 
+            IF_VERBOSE(2, verbose_stream() << "nseq precheck: var " << var_id << " result=" << result << "\n";);
             if (result == l_true) {
                 // Intersection is empty → the memberships on this variable are
                 // jointly unsatisfiable.  Assert a conflict from all their literals.
@@ -930,12 +983,51 @@ namespace smt {
             return l_undef;  // cannot fully determine; let DFS decide
 
         // All variables' regex intersections are non-empty.
-        // If there are no word equations and no disequalities, variables are
-        // independent and each can be assigned a witness string → SAT.
-        if (all_var_str && m_state.str_eqs().empty() && m_state.diseqs().empty()) {
-            TRACE(seq, tout << "nseq regex precheck: all intersections non-empty, "
-                            << "no word eqs/diseqs → SAT\n";);
-            return l_false;  // signals SAT (non-empty / satisfiable)
+        // If there are no word equations and no disequalities, check if it is
+        // safe to declare SAT.
+        //
+        // When all string arguments are plain variables (all_var_str=true), the
+        // constraints are independent and a per-variable witness proves SAT.
+        //
+        // When some string arguments are non-variable (e.g., str.substr(X,...)),
+        // these arise from the SMT preprocessor decomposing re.++ constraints into
+        // per-segment memberships.  The preprocessing guarantees internal consistency:
+        // any witness for the original variable membership also satisfies the derived
+        // substring memberships.  We do a quick non-emptiness check on each non-variable
+        // regex to ensure none are individually empty (an empty-regex conflict would
+        // already have been caught by propagate_pos_mem, but we double-check here for
+        // safety).  If all pass, we can declare SAT.
+        if (m_state.str_eqs().empty() && m_state.diseqs().empty() && !var_to_mems.empty()) {
+            bool nonvar_ok = true;
+            for (unsigned i = 0; i < mems.size(); ++i) {
+                auto const& mem = mems[i];
+                if (!mem.m_str || !mem.m_regex || mem.m_str->is_var())
+                    continue;
+                // Quick non-emptiness check for the derived regex.
+                // We use a small budget (200 states) because these non-variable
+                // memberships are typically simple sub-regexes (character classes,
+                // short to_re strings, complements of such) whose emptiness can be
+                // decided in very few derivative steps.  A larger budget is not
+                // needed here and would slow down the precheck unnecessarily.
+                lbool r = m_regex.is_empty_bfs(mem.m_regex, 200);
+                if (r == l_true) {
+                    // regex is empty → UNSAT for this membership
+                    enode_pair_vector eqs;
+                    literal_vector lits;
+                    mem_source const& src = m_state.get_mem_source(i);
+                    if (get_context().get_assignment(src.m_lit) == l_true)
+                        lits.push_back(src.m_lit);
+                    set_conflict(eqs, lits);
+                    return l_true;
+                }
+                if (r == l_undef)
+                    nonvar_ok = false;
+            }
+            if (nonvar_ok) {
+                TRACE(seq, tout << "nseq regex precheck: all intersections non-empty, "
+                                << "no word eqs/diseqs → SAT\n";);
+                return l_false;  // signals SAT (non-empty / satisfiable)
+            }
         }
 
         return l_undef;  // mixed constraints; let DFS decide

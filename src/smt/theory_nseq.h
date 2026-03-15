@@ -117,6 +117,7 @@ namespace smt {
         void propagate_diseq(unsigned idx);
         void propagate_pos_mem(unsigned idx);
         void ensure_length_var(expr* e);
+        void propagate_regex_length_bounds(expr* s, unsigned min_len, unsigned max_len, literal antecedent);
 
         // higher-order term unfolding
         bool unfold_ho_terms();
