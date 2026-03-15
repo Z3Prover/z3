@@ -223,7 +223,7 @@ func (c *Context) MkFPNumeralInt64Uint64(sgn bool, exp int64, sig uint64, sort *
 	return newExpr(c, C.Z3_mk_fpa_numeral_int64_uint64(c.ptr, C.bool(sgn), C.int64_t(exp), C.uint64_t(sig), sort.ptr))
 }
 
-// MkFPFMA creates a floating-point fused multiply-add: rm * (t1 * t2) + t3.
+// MkFPFMA creates a floating-point fused multiply-add: round((t1 * t2) + t3, rm).
 func (c *Context) MkFPFMA(rm, t1, t2, t3 *Expr) *Expr {
 	return newExpr(c, C.Z3_mk_fpa_fma(c.ptr, rm.ptr, t1.ptr, t2.ptr, t3.ptr))
 }
