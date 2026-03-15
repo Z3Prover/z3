@@ -1095,9 +1095,6 @@ namespace seq {
         // create an integer constraint: lhs <kind> rhs
         int_constraint mk_int_constraint(expr* lhs, expr* rhs, int_constraint_kind kind, dep_tracker const& dep);
 
-        // get the exponent expression from a power snode (arg(1))
-        expr* get_power_exponent(euf::snode* power);
-
         // create a fresh integer variable expression (for power exponents)
         expr_ref mk_fresh_int_var();
 

@@ -3100,8 +3100,8 @@ namespace seq {
 
                 // Skip if the exponents differ by a constant — simplify_and_init's
                 // directional power elimination already handles that case.
-                expr* exp_m = get_power_exponent(lhead);
-                expr* exp_n = get_power_exponent(rhead);
+                expr* exp_m = lhead->get_power_exp();
+                expr* exp_n = rhead->get_power_exp();
                 if (!exp_m || !exp_n)
                     continue;
                 rational diff;
@@ -3220,7 +3220,7 @@ namespace seq {
 
         SASSERT(power->is_power() && power->num_args() >= 1);
         euf::snode *base = power->arg(0);
-        expr *exp_n = get_power_exponent(power);
+        expr *exp_n = power->get_power_exp();
         expr *zero = arith.mk_int(0);
         expr *one = arith.mk_int(1);
 
@@ -3520,10 +3520,11 @@ namespace seq {
 
             euf::snode* replacement;
             expr_ref fresh_m(m);
+            expr* inner_exp = nullptr;
 
             if (tok->is_power()) {
                 // Token is a power u^exp: use fresh m' with 0 ≤ m' ≤ exp
-                expr* inner_exp = get_power_exponent(tok);
+                inner_exp = tok->get_power_exp();
                 expr* inner_base = tok->get_power_base();
                 if (inner_exp && inner_base) {
                     fresh_m = mk_fresh_int_var();
@@ -3552,8 +3553,6 @@ namespace seq {
 
             // Side constraints for fresh partial exponent
             if (fresh_m.get()) {
-                expr* inner_exp = get_power_exponent(tok);
-                // m' >= 0
                 e->add_side_int(mk_int_constraint(fresh_m, zero, int_constraint_kind::ge, eq.m_dep));
                 // m' <= inner_exp
                 e->add_side_int(mk_int_constraint(inner_exp, fresh_m, int_constraint_kind::ge, eq.m_dep));
@@ -3654,7 +3653,7 @@ namespace seq {
 
         SASSERT(power->is_power() && power->num_args() >= 1);
         euf::snode* base = power->arg(0);
-        expr* exp_n = get_power_exponent(power);
+        expr* exp_n = power->get_power_exp();
         expr* zero = arith.mk_int(0);
 
         // Branch 1: enumerate all decompositions of the base.
@@ -3692,7 +3691,7 @@ namespace seq {
 
                 if (tok->is_power()) {
                     // Token is a power u^exp: decompose with fresh m', 0 <= m' <= exp
-                    expr* inner_exp = get_power_exponent(tok);
+                    expr* inner_exp = tok->get_power_exp();
                     expr* inner_base_e = tok->get_power_base();
                     if (inner_exp && inner_base_e) {
                         fresh_inner_m = mk_fresh_int_var();
@@ -3725,7 +3724,7 @@ namespace seq {
 
                 // Inner power constraints: 0 <= m' <= inner_exp
                 if (fresh_inner_m.get()) {
-                    expr* inner_exp = get_power_exponent(tok);
+                    expr* inner_exp = tok->get_power_exp();
                     e->add_side_int(mk_int_constraint(fresh_inner_m, zero, int_constraint_kind::ge, eq->m_dep));
                     e->add_side_int(mk_int_constraint(inner_exp, fresh_inner_m, int_constraint_kind::ge, eq->m_dep));
                 }
@@ -3768,7 +3767,7 @@ namespace seq {
 
         SASSERT(power->is_power() && power->num_args() >= 1);
         euf::snode* base = power->arg(0);
-        expr* exp_n = get_power_exponent(power);
+        expr* exp_n = power->get_power_exp();
         expr* zero = arith.mk_int(0);
         expr* one = arith.mk_int(1);
 
@@ -4227,13 +4226,6 @@ namespace seq {
                                                      int_constraint_kind kind,
                                                      dep_tracker const& dep) {
         return int_constraint(lhs, rhs, kind, dep, m_sg.get_manager());
-    }
-
-    expr* nielsen_graph::get_power_exponent(euf::snode* power) {
-        if (!power || !power->is_power()) return nullptr;
-        if (power->num_args() < 2) return nullptr;
-        euf::snode* exp_snode = power->arg(1);
-        return exp_snode ? exp_snode->get_expr() : nullptr;
     }
 
     expr_ref nielsen_graph::mk_fresh_int_var() {

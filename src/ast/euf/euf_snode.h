@@ -134,7 +134,7 @@ namespace euf {
 
         // get the base snode of a power snode, e.g., s from s^n
         expr* get_power_base() const {
-            if (!is_power() || m_num_args < 2) return nullptr;
+            if (!is_power() || m_num_args < 1) return nullptr;
             return arg(0)->get_expr();
         }
 
