@@ -394,6 +394,63 @@ void test_max_rev() {
     std::cout << "max_rev optimization test done" << std::endl;
 }
 
+// Regression test for issue #8998:
+// minimize(3*a) should be unbounded, same as minimize(a),
+// when constraints allow a to go to -infinity.
+void test_scaled_minimize_unbounded() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_sort real_sort = Z3_mk_real_sort(ctx);
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast a = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "a"), real_sort);
+    Z3_ast b = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "b"), real_sort);
+
+    // (xor (= 0 b) (> (mod (to_int (- a)) 50) 3))
+    Z3_ast neg_a = Z3_mk_unary_minus(ctx, a);
+    Z3_ast to_int_neg_a = Z3_mk_real2int(ctx, neg_a);
+    Z3_ast mod_expr = Z3_mk_mod(ctx, to_int_neg_a, Z3_mk_int(ctx, 50, int_sort));
+    Z3_ast gt_3 = Z3_mk_gt(ctx, mod_expr, Z3_mk_int(ctx, 3, int_sort));
+    Z3_ast b_eq_0 = Z3_mk_eq(ctx, Z3_mk_real(ctx, 0, 1), b);
+    Z3_ast xor_expr = Z3_mk_xor(ctx, b_eq_0, gt_3);
+
+    auto check_unbounded_min = [&](Z3_ast objective, const char* label) {
+        Z3_optimize opt = Z3_mk_optimize(ctx);
+        Z3_optimize_inc_ref(ctx, opt);
+        Z3_optimize_assert(ctx, opt, xor_expr);
+        unsigned h = Z3_optimize_minimize(ctx, opt, objective);
+        Z3_lbool result = Z3_optimize_check(ctx, opt, 0, nullptr);
+        std::cout << label << ": " << (result == Z3_L_TRUE ? "sat" : "not sat") << std::endl;
+        ENSURE(result == Z3_L_TRUE);
+        // get_lower_as_vector returns [infinity_coeff, rational, epsilon_coeff]
+        // for -infinity, infinity_coeff should be negative
+        Z3_ast_vector lower = Z3_optimize_get_lower_as_vector(ctx, opt, h);
+        Z3_ast inf_coeff = Z3_ast_vector_get(ctx, lower, 0);
+        int64_t inf_val;
+        bool ok = Z3_get_numeral_int64(ctx, inf_coeff, &inf_val);
+        std::cout << "  infinity coeff: " << inf_val << std::endl;
+        ENSURE(ok && inf_val < 0);
+        Z3_optimize_dec_ref(ctx, opt);
+    };
+
+    // minimize(a) should be -infinity
+    check_unbounded_min(a, "minimize(a)");
+
+    // minimize(3*a) should also be -infinity
+    Z3_ast three = Z3_mk_real(ctx, 3, 1);
+    Z3_ast args[] = {three, a};
+    Z3_ast three_a = Z3_mk_mul(ctx, 2, args);
+    check_unbounded_min(three_a, "minimize(3*a)");
+
+    Z3_del_context(ctx);
+    std::cout << "scaled minimize unbounded test done" << std::endl;
+}
+
+void tst_scaled_min() {
+    test_scaled_minimize_unbounded();
+}
+
 void tst_max_rev() {
     test_max_rev();
 }
