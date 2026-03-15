@@ -332,7 +332,7 @@ namespace smt {
     }
 
     // Propagate length bounds for str.in_re(s, r) → len(s) ∈ [min_len, max_len].
-    // Adds the conditional clauses as theory axioms so the arithmetic theory
+    // Uses theory propagation, antecedent → consequent, so the arithmetic theory
     // can derive conflicts or tighten bounds without waiting for final_check.
     void theory_nseq::propagate_regex_length_bounds(expr* s, unsigned min_len, unsigned max_len, literal antecedent) {
         context& ctx = get_context();
@@ -341,28 +341,31 @@ namespace smt {
         if (!ctx.e_internalized(len_s))
             ctx.internalize(len_s, false);
 
+        auto propagate_len_lit = [&](expr_ref& bound_expr) {
+            if (!ctx.b_internalized(bound_expr))
+                ctx.internalize(bound_expr, true);
+            literal len_lit = ctx.get_literal(bound_expr);
+            if (ctx.get_assignment(len_lit) == l_true)
+                return;
+            ctx.mark_as_relevant(len_lit);
+            justification* js = ctx.mk_justification(
+                ext_theory_propagation_justification(
+                    get_id(), ctx,
+                    1, &antecedent,
+                    0, nullptr,
+                    len_lit));
+            ctx.assign(len_lit, js);
+            ++m_num_length_axioms;
+        };
+
         if (min_len > 0) {
             expr_ref bound(m_autil.mk_ge(len_s, m_autil.mk_int(min_len)), m);
-            if (!ctx.b_internalized(bound))
-                ctx.internalize(bound, true);
-            literal len_lit = ctx.get_literal(bound);
-            if (ctx.get_assignment(len_lit) != l_true) {
-                literal clause[2] = {~antecedent, len_lit};
-                ctx.mk_th_axiom(get_id(), 2, clause);
-                ++m_num_length_axioms;
-            }
+            propagate_len_lit(bound);
         }
 
         if (max_len < UINT_MAX) {
             expr_ref bound(m_autil.mk_le(len_s, m_autil.mk_int(max_len)), m);
-            if (!ctx.b_internalized(bound))
-                ctx.internalize(bound, true);
-            literal len_lit = ctx.get_literal(bound);
-            if (ctx.get_assignment(len_lit) != l_true) {
-                literal clause[2] = {~antecedent, len_lit};
-                ctx.mk_th_axiom(get_id(), 2, clause);
-                ++m_num_length_axioms;
-            }
+            propagate_len_lit(bound);
         }
     }
 
