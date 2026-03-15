@@ -245,6 +245,15 @@ public class Expr<R extends Sort> extends AST
     }
 
     /**
+     * Return the numeral value as a double.
+     * The expression must be a numeral or an algebraic number.
+     **/
+    public double getNumeralDouble()
+    {
+        return Native.getNumeralDouble(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
      * Indicates whether the term is well-sorted.
      * 
      * @throws Z3Exception on error
