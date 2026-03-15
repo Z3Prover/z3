@@ -124,6 +124,7 @@ namespace euf {
             return snode_kind::s_in_re;
 
         // uninterpreted constants of string sort are variables
+        // NSB review: check is_uninterp instead of is_uninterp_const.
         if (is_uninterp_const(e) && m_seq.is_seq(e->get_sort()))
             return snode_kind::s_var;
 
@@ -149,6 +150,7 @@ namespace euf {
             break;
 
         case snode_kind::s_var:
+            // NSB review: a variable node can be a "value". Should it be ground then?
             n->m_ground = false;
             n->m_regex_free = true;
             n->m_nullable = false;
@@ -157,6 +159,7 @@ namespace euf {
             break;
 
         case snode_kind::s_unit:
+            // NSB review: SASSERT(n->num_args() == 1); and simplify code
             n->m_ground = n->num_args() > 0 ? n->arg(0)->is_ground() : true;
             n->m_regex_free = true;
             n->m_nullable = false;
@@ -180,6 +183,8 @@ namespace euf {
         case snode_kind::s_power: {
             // s^n: nullable follows base, consistent with ZIPT's PowerToken
             // the exponent n is assumed to be a symbolic integer, may or may not be zero
+            // NSB review: SASSERT(n->num_args() == 2); and simplify code
+            // NSB review: is this the correct definition of ground what about the exponent?
             SASSERT(n->num_args() >= 1);
             snode* base = n->arg(0);
             n->m_ground = base->is_ground();
@@ -269,6 +274,7 @@ namespace euf {
             break;
 
         case snode_kind::s_to_re:
+            // NSB review: are strings nullable or just empty
             SASSERT(n->num_args() == 1);
             n->m_ground = n->arg(0)->is_ground();
             n->m_regex_free = false;
@@ -287,6 +293,7 @@ namespace euf {
             break;
 
         default:
+            // NSB review: is this the correct defaults for unclassified nodes?
             n->m_ground = true;
             n->m_regex_free = true;
             n->m_nullable = false;
