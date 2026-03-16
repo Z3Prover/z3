@@ -54,7 +54,6 @@ namespace smt {
         };
         svector<prop_item>  m_prop_queue;
         unsigned            m_prop_qhead = 0;
-        unsigned_vector     m_prop_lim;   // saved queue sizes for push/pop
 
         // statistics
         unsigned m_num_conflicts        = 0;
@@ -70,14 +69,13 @@ namespace smt {
 
         // higher-order terms (seq.map, seq.mapi, seq.foldl, seq.foldli)
         ptr_vector<app>  m_ho_terms;
-        unsigned_vector  m_ho_lim;        // push/pop limits for m_ho_terms
         unsigned         m_num_ho_unfolds = 0;
 
         // unhandled boolean string predicates (prefixof, suffixof, contains, etc.)
         unsigned         m_num_unhandled_bool = 0;
-        unsigned_vector  m_unhandled_bool_lim;
 
         bool has_unhandled_preds() const { return m_num_unhandled_bool > 0; }
+        void push_unhandled_pred();
 
         // required virtual methods
         bool internalize_atom(app* a, bool gate_ctx) override;

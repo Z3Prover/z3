@@ -22,22 +22,23 @@ Author:
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "util/statistics.h"
+#include "util/trail.h"
 
 namespace smt {
 
     theory_nseq::theory_nseq(context& ctx) :
         theory(ctx, ctx.get_manager().mk_family_id("seq")),
-        m_seq(ctx.get_manager()),
-        m_autil(ctx.get_manager()),
-        m_rewriter(ctx.get_manager()),
-        m_arith_value(ctx.get_manager()),
-        m_egraph(ctx.get_manager()),
-        m_sgraph(ctx.get_manager(), m_egraph),
-        m_context_solver(ctx.get_manager()),
+        m_seq(m),
+        m_autil(m),
+        m_rewriter(m),
+        m_arith_value(m),
+        m_egraph(m),
+        m_sgraph(m, m_egraph),
+        m_context_solver(m),
         m_nielsen(m_sgraph, m_context_solver),
         m_state(),
         m_regex(m_sgraph),
-        m_model(ctx.get_manager(), m_seq, m_rewriter, m_sgraph)
+        m_model(m, m_seq, m_rewriter, m_sgraph)
     {}
 
     // -----------------------------------------------------------------------
@@ -54,8 +55,6 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     bool theory_nseq::internalize_atom(app* atom, bool /*gate_ctx*/) {
-        context& ctx = get_context();
-
         // str.in_re atoms are boolean predicates: register as bool_var
         // so that assign_eh fires when the SAT solver assigns them.
         // Following theory_seq: create a bool_var directly without an enode
@@ -87,9 +86,6 @@ namespace smt {
     }
 
     bool theory_nseq::internalize_term(app* term) {
-        context& ctx = get_context();
-        ast_manager& m = get_manager();
-
         // ensure ALL children are internalized (following theory_seq pattern)
         for (auto arg : *term)
             mk_var(ensure_enode(arg));
@@ -123,6 +119,7 @@ namespace smt {
             m_seq.str.is_mapi(term, ho_f, ho_i, ho_s) ||
             m_seq.str.is_foldl(term, ho_f, ho_b, ho_s) ||
             m_seq.str.is_foldli(term, ho_f, ho_i, ho_b, ho_s)) {
+            ctx.push_trail(restore_vector(m_ho_terms));
             m_ho_terms.push_back(term);
             ensure_length_var(ho_s);
         }
@@ -138,7 +135,7 @@ namespace smt {
         expr* e1 = get_enode(v1)->get_expr();
         expr* e2 = get_enode(v2)->get_expr();
         if (m_seq.is_re(e1)) {
-            ++m_num_unhandled_bool;
+            push_unhandled_pred();
             return;
         }
         if (!m_seq.is_seq(e1) || !m_seq.is_seq(e2))
@@ -148,6 +145,7 @@ namespace smt {
         if (s1 && s2) {
             unsigned idx = m_state.str_eqs().size();
             m_state.add_str_eq(s1, s2, get_enode(v1), get_enode(v2));
+            ctx.push_trail(restore_vector(m_prop_queue));
             m_prop_queue.push_back({prop_item::eq_prop, idx});
         }
     }
@@ -157,13 +155,14 @@ namespace smt {
         expr* e2 = get_enode(v2)->get_expr();
         if (m_seq.is_re(e1)) {
             // regex disequality: nseq cannot verify language non-equivalence
-            ++m_num_unhandled_bool;
+            push_unhandled_pred();
             return;
         }
         if (!m_seq.is_seq(e1) || !m_seq.is_seq(e2))
             return;
         unsigned idx = m_state.diseqs().size();
         m_state.add_diseq(get_enode(v1), get_enode(v2));
+        ctx.push_trail(restore_vector(m_prop_queue));
         m_prop_queue.push_back({prop_item::diseq_prop, idx});
     }
 
@@ -172,14 +171,13 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     void theory_nseq::assign_eh(bool_var v, bool is_true) {
-        context& ctx = get_context();
         expr* e = ctx.bool_var2expr(v);
         expr* s = nullptr;
         expr* re = nullptr;
         if (!m_seq.str.is_in_re(e, s, re)) {
             // Track unhandled boolean string predicates (prefixof, contains, etc.)
             if (is_app(e) && to_app(e)->get_family_id() == m_seq.get_family_id())
-                ++m_num_unhandled_bool;
+                push_unhandled_pred();
             return;
         }
         euf::snode* sn_str = get_snode(s);
@@ -187,28 +185,26 @@ namespace smt {
         if (!sn_str || !sn_re)
             return;
 
+        unsigned idx = m_state.str_mems().size();
+        literal lit(v, !is_true);
         if (is_true) {
-            unsigned idx = m_state.str_mems().size();
-            literal lit(v, false);
             m_state.add_str_mem(sn_str, sn_re, lit);
-            m_prop_queue.push_back({prop_item::pos_mem_prop, idx});
         }
         else {
             // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
             // so the Nielsen graph sees it uniformly; the original negative literal
             // is kept in mem_source for conflict reporting.
-            expr_ref re_compl(m_seq.re.mk_complement(re), get_manager());
+            expr_ref re_compl(m_seq.re.mk_complement(re), m);
             euf::snode* sn_re_compl = get_snode(re_compl.get());
-            unsigned idx = m_state.str_mems().size();
-            literal lit(v, true);
             m_state.add_str_mem(sn_str, sn_re_compl, lit);
-            m_prop_queue.push_back({prop_item::pos_mem_prop, idx});
         }
+        ctx.push_trail(restore_vector(m_prop_queue));
+        m_prop_queue.push_back({prop_item::pos_mem_prop, idx});
 
         TRACE(seq, tout << "nseq assign_eh: " << (is_true ? "" : "¬")
                         << "str.in_re "
-                        << mk_bounded_pp(s, get_manager(), 3) << " in "
-                        << mk_bounded_pp(re, get_manager(), 3) << "\n";);
+                        << mk_bounded_pp(s, m, 3) << " in "
+                        << mk_bounded_pp(re, m, 3) << "\n";);
     }
 
     // -----------------------------------------------------------------------
@@ -219,25 +215,18 @@ namespace smt {
         theory::push_scope_eh();
         m_state.push();
         m_sgraph.push();
-        m_prop_lim.push_back(m_prop_queue.size());
-        m_ho_lim.push_back(m_ho_terms.size());
-        m_unhandled_bool_lim.push_back(m_num_unhandled_bool);
+        
     }
 
     void theory_nseq::pop_scope_eh(unsigned num_scopes) {
         theory::pop_scope_eh(num_scopes);
         m_state.pop(num_scopes);
         m_sgraph.pop(num_scopes);
-        unsigned new_sz = m_prop_lim[m_prop_lim.size() - num_scopes];
-        m_prop_queue.shrink(new_sz);
-        m_prop_lim.shrink(m_prop_lim.size() - num_scopes);
-        if (m_prop_qhead > m_prop_queue.size())
-            m_prop_qhead = m_prop_queue.size();
-        unsigned ho_sz = m_ho_lim[m_ho_lim.size() - num_scopes];
-        m_ho_terms.shrink(ho_sz);
-        m_ho_lim.shrink(m_ho_lim.size() - num_scopes);
-        m_num_unhandled_bool = m_unhandled_bool_lim[m_unhandled_bool_lim.size() - num_scopes];
-        m_unhandled_bool_lim.shrink(m_unhandled_bool_lim.size() - num_scopes);
+    }
+
+    void theory_nseq::push_unhandled_pred() {
+        ctx.push_trail(value_trail<unsigned>(m_num_unhandled_bool));
+        ++m_num_unhandled_bool;
     }
 
     // -----------------------------------------------------------------------
@@ -249,7 +238,9 @@ namespace smt {
     }
 
     void theory_nseq::propagate() {
-        context& ctx = get_context();
+        if (m_prop_qhead == m_prop_queue.size())
+            return;
+        ctx.push_trail(value_trail(m_prop_qhead));
         while (m_prop_qhead < m_prop_queue.size() && !ctx.inconsistent()) {
             prop_item const& item = m_prop_queue[m_prop_qhead++];
             switch (item.m_kind) {
@@ -280,9 +271,9 @@ namespace smt {
         TRACE(seq,
             auto const& d = m_state.get_diseq(idx);
             tout << "nseq diseq: "
-                 << mk_bounded_pp(d.m_n1->get_expr(), get_manager(), 3)
+                 << mk_bounded_pp(d.m_n1->get_expr(), m, 3)
                  << " != "
-                 << mk_bounded_pp(d.m_n2->get_expr(), get_manager(), 3) << "\n";);
+                 << mk_bounded_pp(d.m_n2->get_expr(), m, 3) << "\n";);
     }
 
     void theory_nseq::propagate_pos_mem(unsigned idx) {
@@ -319,8 +310,6 @@ namespace smt {
     void theory_nseq::ensure_length_var(expr* e) {
         if (!e || !m_seq.is_seq(e))
             return;
-        context& ctx = get_context();
-        ast_manager& m = get_manager();
         expr_ref len(m_seq.str.mk_length(e), m);
         if (!ctx.e_internalized(len))
             ctx.internalize(len, false);
@@ -380,14 +369,7 @@ namespace smt {
             return FC_CONTINUE;
         }
 
-        // If there are unhandled boolean string predicates (prefixof, contains, etc.)
-        // we cannot declare sat — return unknown.
-        if (has_unhandled_preds()) {
-            IF_VERBOSE(1, verbose_stream() << "nseq final_check: unhandled preds, FC_GIVEUP\n";);
-            return FC_GIVEUP;
-        }
-
-        if (m_state.empty() && m_ho_terms.empty()) {
+        if (m_state.empty() && m_ho_terms.empty() && !has_unhandled_preds()) {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state+ho, FC_DONE (no solve)\n";);
             return FC_DONE;
         }
@@ -398,7 +380,7 @@ namespace smt {
             return FC_CONTINUE;
         }
 
-        if (m_state.empty()) {
+        if (m_state.empty() && !has_unhandled_preds()) {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state (after ho), FC_DONE (no solve)\n";);
             return FC_DONE;
         }
@@ -429,7 +411,8 @@ namespace smt {
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck UNSAT\n";);
                 return FC_CONTINUE;
             }
-            if (precheck == l_false) {
+            // NSB review: to check is this really safe to say it is SAT?
+            if (precheck == l_false && !has_unhandled_preds()) {
                 // all regex constraints satisfiable, no word eqs/diseqs → SAT
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck SAT\n";);
                 return FC_DONE;
@@ -442,6 +425,13 @@ namespace smt {
         // here the actual Nielsen solving happens
         auto result = m_nielsen.solve();
 
+        
+        if (result == seq::nielsen_graph::search_result::unsat) {
+            IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNSAT\n";);
+            explain_nielsen_conflict();
+            return FC_CONTINUE;
+        }
+
         if (result == seq::nielsen_graph::search_result::sat) {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve SAT, sat_node="
                 << (m_nielsen.sat_node() ? "set" : "null") << "\n";);
@@ -449,13 +439,8 @@ namespace smt {
             // If there are disequalities we haven't verified, we cannot soundly declare sat.
             if (!m_state.diseqs().empty())
                 return FC_GIVEUP;
-            return FC_DONE;
-        }
-
-        if (result == seq::nielsen_graph::search_result::unsat) {
-            IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNSAT\n";);
-            explain_nielsen_conflict();
-            return FC_CONTINUE;
+            if (!has_unhandled_preds())
+                return FC_DONE;
         }
 
         IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNKNOWN, FC_GIVEUP\n";);
@@ -467,7 +452,6 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     void theory_nseq::deps_to_lits(seq::dep_tracker const& deps, enode_pair_vector& eqs, literal_vector& lits) {
-        context& ctx = get_context();
         unsigned num_input_eqs = m_nielsen.num_input_eqs();
         for (unsigned b : deps) {
             if (b < num_input_eqs) {
@@ -502,7 +486,6 @@ namespace smt {
     }
 
     void theory_nseq::set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {
-        context& ctx = get_context();
         TRACE(seq, tout << "nseq conflict: " << eqs.size() << " eqs, " << lits.size() << " lits\n";);
         ctx.set_conflict(
             ctx.mk_justification(
@@ -593,13 +576,9 @@ namespace smt {
         if (m_ho_terms.empty())
             return false;
 
-        context& ctx = get_context();
-        ast_manager& m = get_manager();
         bool progress = false;
 
-        unsigned sz = m_ho_terms.size();
-        for (unsigned i = 0; i < sz; ++i) {
-            app* term = m_ho_terms[i];
+        for (app* term : m_ho_terms) {
             expr* f = nullptr, *s = nullptr, *b = nullptr, *idx = nullptr;
 
             if (!m_seq.str.is_map(term, f, s) &&
@@ -681,8 +660,7 @@ namespace smt {
         }
 
         // For map/mapi: propagate length preservation
-        for (unsigned i = 0; i < sz; ++i) {
-            app* term = m_ho_terms[i];
+        for (app* term : m_ho_terms) {
             expr* f = nullptr, *s = nullptr, *idx = nullptr;
             bool is_map = m_seq.str.is_map(term, f, s);
             bool is_mapi = !is_map && m_seq.str.is_mapi(term, f, idx, s);
@@ -738,7 +716,6 @@ namespace smt {
     }
 
     bool theory_nseq::get_length(expr* e, rational& val) {
-        ast_manager& m = get_manager();
         rational val1;
         expr* e1 = nullptr;
         expr* e2 = nullptr;
@@ -771,15 +748,12 @@ namespace smt {
     }
 
     void theory_nseq::add_length_axiom(literal lit) {
-        context& ctx = get_context();
         ctx.mark_as_relevant(lit);
         ctx.mk_th_axiom(get_id(), 1, &lit);
         ++m_num_length_axioms;
     }
 
     bool theory_nseq::propagate_length_lemma(literal lit, seq::length_constraint const& lc) {
-        context& ctx = get_context();
-
         // unconditional constraints: assert as theory axiom
         if (lc.m_kind == seq::length_kind::nonneg) {
             add_length_axiom(lit);
@@ -800,15 +774,13 @@ namespace smt {
                 lit));
         ctx.assign(lit, js);
 
-        TRACE(seq, tout << "nseq length propagation: " << mk_pp(lc.m_expr, get_manager())
+        TRACE(seq, tout << "nseq length propagation: " << mk_pp(lc.m_expr, m)
                         << " (" << eqs.size() << " eqs, " << lits.size() << " lits)\n";);
         ++m_num_length_axioms;
         return true;
     }
 
     bool theory_nseq::assert_nonneg_for_all_vars() {
-        ast_manager& m = get_manager();
-        context& ctx = get_context();
         arith_util arith(m);
         bool new_axiom = false;
         unsigned nv = get_num_vars();
@@ -830,7 +802,6 @@ namespace smt {
     }
 
     bool theory_nseq::assert_length_constraints() {
-        context& ctx = get_context();
         vector<seq::length_constraint> constraints;
         m_nielsen.generate_length_constraints(constraints);
 
@@ -841,7 +812,7 @@ namespace smt {
                 ctx.internalize(e, true);
             literal lit = ctx.get_literal(e);
             if (ctx.get_assignment(lit) != l_true) {
-                TRACE(seq, tout << "nseq length lemma: " << mk_pp(e, get_manager()) << "\n";);
+                TRACE(seq, tout << "nseq length lemma: " << mk_pp(e, m) << "\n";);
                 propagate_length_lemma(lit, lc);
                 new_axiom = true;
             }
@@ -912,7 +883,7 @@ namespace smt {
                 literal_vector lits;
                 for (unsigned i : mem_indices) {
                     mem_source const& src = m_state.get_mem_source(i);
-                    if (get_context().get_assignment(src.m_lit) == l_true)
+                    if (ctx.get_assignment(src.m_lit) == l_true)
                         lits.push_back(src.m_lit);
                 }
                 TRACE(seq, tout << "nseq regex precheck: empty intersection for var "
