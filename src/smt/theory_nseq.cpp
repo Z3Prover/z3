@@ -522,34 +522,8 @@ namespace smt {
         st.update("nseq conflicts",       m_num_conflicts);
         st.update("nseq final checks",    m_num_final_checks);
         st.update("nseq length axioms",   m_num_length_axioms);
-
-        // Nielsen graph search metrics
-        auto const& ns = m_nielsen.stats();
-        st.update("nseq solve calls",     ns.m_num_solve_calls);
-        st.update("nseq dfs nodes",       ns.m_num_dfs_nodes);
-        st.update("nseq sat",             ns.m_num_sat);
-        st.update("nseq unsat",           ns.m_num_unsat);
-        st.update("nseq unknown",         ns.m_num_unknown);
-        st.update("nseq simplify clash",  ns.m_num_simplify_conflict);
-        st.update("nseq extensions",      ns.m_num_extensions);
-        st.update("nseq fresh vars",      ns.m_num_fresh_vars);
-        st.update("nseq max depth",       ns.m_max_depth);
-
-        // modifier breakdown
-        st.update("nseq mod det",              ns.m_mod_det);
-        st.update("nseq mod power epsilon",    ns.m_mod_power_epsilon);
-        st.update("nseq mod num cmp",          ns.m_mod_num_cmp);
-        st.update("nseq mod const num unwind", ns.m_mod_const_num_unwinding);
-        st.update("nseq mod eq split",         ns.m_mod_eq_split);
-        st.update("nseq mod star intr",        ns.m_mod_star_intr);
-        st.update("nseq mod gpower intr",      ns.m_mod_gpower_intr);
-        st.update("nseq mod const nielsen",    ns.m_mod_const_nielsen);
-        st.update("nseq mod regex char",       ns.m_mod_regex_char_split);
-        st.update("nseq mod regex var",        ns.m_mod_regex_var_split);
-        st.update("nseq mod power split",      ns.m_mod_power_split);
-        st.update("nseq mod var nielsen",      ns.m_mod_var_nielsen);
-        st.update("nseq mod var num unwind",   ns.m_mod_var_num_unwinding);
-        st.update("nseq ho unfolds",          m_num_ho_unfolds);
+        st.update("nseq ho unfolds",      m_num_ho_unfolds);
+        m_nielsen.collect_statistics(st);
     }
 
     void theory_nseq::display(std::ostream& out) const {

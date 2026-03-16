@@ -879,6 +879,7 @@ namespace seq {
         // accumulated search statistics
         nielsen_stats const& stats() const { return m_stats; }
         void reset_stats() { m_stats.reset(); }
+        void collect_statistics(::statistics& st) const;
 
         // generate arithmetic length constraints from the root node's string
         // equalities and regex memberships. For each non-trivial equation lhs = rhs,

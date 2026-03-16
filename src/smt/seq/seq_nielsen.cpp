@@ -27,6 +27,7 @@ Author:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "util/hashtable.h"
+#include "util/statistics.h"
 #include <algorithm>
 #include <cstdlib>
 #include <sstream>
@@ -2142,7 +2143,7 @@ namespace seq {
             ++m_stats.m_num_unknown;
             return search_result::unknown;
         }
-        catch(const std::exception& ex) {
+        catch(const std::exception&) {
 #ifdef Z3DEBUG
             std::string dot = to_dot();
 #endif
@@ -4449,6 +4450,37 @@ namespace seq {
             }
         }
         return true;
+    }
+
+    // -----------------------------------------------------------------------
+    // Statistics collection
+    // -----------------------------------------------------------------------
+
+    void nielsen_graph::collect_statistics(::statistics& st) const {
+        st.update("nseq solve calls",     m_stats.m_num_solve_calls);
+        st.update("nseq dfs nodes",       m_stats.m_num_dfs_nodes);
+        st.update("nseq sat",             m_stats.m_num_sat);
+        st.update("nseq unsat",           m_stats.m_num_unsat);
+        st.update("nseq unknown",         m_stats.m_num_unknown);
+        st.update("nseq simplify clash",  m_stats.m_num_simplify_conflict);
+        st.update("nseq extensions",      m_stats.m_num_extensions);
+        st.update("nseq fresh vars",      m_stats.m_num_fresh_vars);
+        st.update("nseq max depth",       m_stats.m_max_depth);
+
+        // modifier breakdown
+        st.update("nseq mod det",              m_stats.m_mod_det);
+        st.update("nseq mod power epsilon",    m_stats.m_mod_power_epsilon);
+        st.update("nseq mod num cmp",          m_stats.m_mod_num_cmp);
+        st.update("nseq mod const num unwind", m_stats.m_mod_const_num_unwinding);
+        st.update("nseq mod eq split",         m_stats.m_mod_eq_split);
+        st.update("nseq mod star intr",        m_stats.m_mod_star_intr);
+        st.update("nseq mod gpower intr",      m_stats.m_mod_gpower_intr);
+        st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);
+        st.update("nseq mod regex char",       m_stats.m_mod_regex_char_split);
+        st.update("nseq mod regex var",        m_stats.m_mod_regex_var_split);
+        st.update("nseq mod power split",      m_stats.m_mod_power_split);
+        st.update("nseq mod var nielsen",      m_stats.m_mod_var_nielsen);
+        st.update("nseq mod var num unwind",   m_stats.m_mod_var_num_unwinding);
     }
 
 }
