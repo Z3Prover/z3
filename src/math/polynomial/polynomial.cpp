@@ -3922,6 +3922,7 @@ namespace polynomial {
 
             unsigned counter = 0;
             while (true) {
+                checkpoint();
                 (void)counter;
                 SASSERT(degree(pp_u, x) >= degree(pp_v, x));
                 unsigned delta = degree(pp_u, x) - degree(pp_v, x);

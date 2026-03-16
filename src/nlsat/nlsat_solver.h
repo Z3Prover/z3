@@ -219,6 +219,19 @@ namespace nlsat {
 
         lbool check(literal_vector& assumptions);
 
+        //
+        // check satisfiability of asserted formulas relative to state of the nlsat solver.
+        // produce either,
+        // l_true - a model is available (rvalues can be ignored) or,
+        // l_false - a clause (not core v not cell) excluding a cell around rvalues if core (consisting of atoms
+        // passed to nlsat) is asserted.
+        // l_undef - if the search was interrupted by a resource limit.
+        // clause is a list of literals. Their disjunction is valid.
+        // Different implementations of check are possible. One where cell comprises of linear polynomials could
+        // produce lemmas that are friendly to linear arithmetic solvers.
+        //
+        lbool check(assignment const& rvalues, literal_vector& clause);
+
         // -----------------------
         //
         // Model
@@ -249,6 +262,8 @@ namespace nlsat {
         assignment& sample(); 
         bool apply_levelwise() const;
         unsigned lws_spt_threshold() const;
+        bool lws_witness_subs_lc() const;
+        bool lws_witness_subs_disc() const;
         void reset();
         void collect_statistics(statistics & st);
         void reset_statistics();

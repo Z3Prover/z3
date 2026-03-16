@@ -250,7 +250,9 @@ namespace nlsat {
         std::string m_debug_known_solution_file_name;
         bool m_apply_lws;
         bool m_last_conflict_used_lws = false;  // Track if last conflict explanation used levelwise
-        unsigned m_lws_spt_threshold = 3;
+        unsigned m_lws_spt_threshold  = 3;
+        bool m_lws_witness_subs_lc    = true;
+        bool m_lws_witness_subs_disc  = false;
         imp(solver& s, ctx& c):
             m_ctx(c),
             m_solver(s),
@@ -312,6 +314,8 @@ namespace nlsat {
             m_debug_known_solution_file_name = p.known_sat_assignment_file_name();
             m_apply_lws = p.lws();
             m_lws_spt_threshold = p.lws_spt_threshold();  // 0 disables spanning tree
+            m_lws_witness_subs_lc = p. lws_witness_subs_lc();
+            m_lws_witness_subs_disc = p.lws_witness_subs_disc();
             m_check_lemmas |= !(m_debug_known_solution_file_name.empty());
   
             m_ism.set_seed(m_random_seed);
@@ -2150,6 +2154,62 @@ namespace nlsat {
                 m_bvalues[i] = l_undef;
             }
             m_assignment.reset();
+        }
+
+        lbool check(assignment const& rvalues, literal_vector& clause) {
+            // temporarily set m_assignment to the given one
+            assignment tmp = m_assignment;
+            m_assignment.reset();
+            m_assignment.copy(rvalues);
+
+            // check whether the asserted atoms are satisfied by rvalues
+            literal best_literal = null_literal;
+            lbool satisfied = l_true;
+            for (auto cp : m_clauses) {
+                auto& c = *cp;
+                bool is_false = all_of(c, [&](literal l) { return const_cast<imp*>(this)->value(l) == l_false; });
+                bool is_true = any_of(c, [&](literal l) { return const_cast<imp*>(this)->value(l) == l_true; });
+                if (is_true)
+                    continue;                
+                
+                if (!is_false) {
+                    satisfied = l_undef;
+                    continue;
+                }
+
+                // take best literal from c
+                for (literal l : c) {
+                    if (best_literal == null_literal) {
+                        best_literal = l;
+                    } 
+                    else {
+                        bool_var b_best = best_literal.var();
+                        bool_var b_l = l.var();
+                        if (degree(m_atoms[b_l]) < degree(m_atoms[b_best])) {
+                            best_literal = l;
+                        }
+                        // TODO: there might be better criteria than just the degree in the main variable.
+                    }
+                }
+            }
+
+            if (best_literal == null_literal)
+                return satisfied;
+
+            // assignment does not satisfy the constraints -> create lemma
+            SASSERT(best_literal != null_literal);
+            clause.reset();
+            m_lazy_clause.reset();
+            m_explain.compute_linear_explanation(1, &best_literal, m_lazy_clause);
+
+            for (auto l : m_lazy_clause) {
+                clause.push_back(l);
+            }
+            clause.push_back(~best_literal);
+
+            m_assignment.reset();
+            m_assignment.copy(tmp);
+            return l_false;
         }
 
         lbool check(literal_vector& assumptions) {
@@ -4415,6 +4475,10 @@ namespace nlsat {
         return m_imp->check(assumptions);
     }
 
+    lbool solver::check(assignment const& rvalues, literal_vector& clause) {
+        return m_imp->check(rvalues, clause);
+    }
+
     void solver::get_core(vector<assumption, false>& assumptions) {
         return m_imp->get_core(assumptions);
     }
@@ -4718,4 +4782,6 @@ namespace nlsat {
     }
     bool solver::apply_levelwise() const { return m_imp->m_apply_lws; }
     unsigned solver::lws_spt_threshold() const { return m_imp->m_lws_spt_threshold; }
+    bool solver::lws_witness_subs_lc() const { return m_imp->m_lws_witness_subs_lc; }
+    bool solver::lws_witness_subs_disc() const { return m_imp->m_lws_witness_subs_disc; }
 };

@@ -11,6 +11,6 @@ export async function init(): Promise<Z3LowLevel & Z3HighLevel> {
   }
 
   const lowLevel = await initWrapper(initZ3);
-  const highLevel = createApi(lowLevel.Z3);
+  const highLevel = createApi(lowLevel.Z3, lowLevel.em);
   return { ...lowLevel, ...highLevel };
 }

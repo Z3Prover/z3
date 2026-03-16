@@ -412,7 +412,7 @@ Notes:
                 bits++;
                 w_max >>= 1;
             }
-            unsigned pow = (1ul << (bits-1));
+            unsigned pow = bits > 0 ? (1u << (bits-1)) : 0;
             unsigned a = (k + pow - 1) / pow; // a*pow >= k
             SASSERT(a*pow >= k);
             SASSERT((a-1)*pow < k);

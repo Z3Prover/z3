@@ -202,6 +202,14 @@ namespace bv {
         case OP_BUMUL_NO_OVFL:    internalize_nfl(mk_umul_no_overflow); break;
         case OP_BSMUL_NO_OVFL:    internalize_nfl(mk_smul_no_overflow); break;
         case OP_BSMUL_NO_UDFL:    internalize_nfl(mk_smul_no_underflow); break;
+        case OP_BUMUL_OVFL:
+        case OP_BSMUL_OVFL:
+        case OP_BSDIV_OVFL:
+        case OP_BNEG_OVFL:
+        case OP_BUADD_OVFL:
+        case OP_BSADD_OVFL:
+        case OP_BUSUB_OVFL:
+        case OP_BSSUB_OVFL:       internalize_overflow(a); break;
         case OP_BIT2BOOL:         internalize_bit2bool(a); break;
         case OP_ULEQ:             internalize_le<false, false, false>(a); break;
         case OP_SLEQ:             internalize_le<true,  false, false>(a); break;
@@ -611,6 +619,102 @@ namespace bv {
         ctx.push(mk_atom_trail(l.var(), *this));
         add_clause(l, ~def);
         add_clause(def, ~l);
+    }
+
+    void solver::internalize_overflow(app* n) {
+        expr_ref def_expr(m);
+        expr* arg0 = n->get_arg(0);
+
+        switch (n->get_decl_kind()) {
+        case OP_BUMUL_OVFL: {
+            SASSERT(n->get_num_args() == 2);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(n->get_arg(1)));
+            expr_ref no_ovfl(bv.mk_bvumul_no_ovfl(arg0, n->get_arg(1)), m);
+            def_expr = m.mk_not(no_ovfl);
+            break;
+        }
+        case OP_BSMUL_OVFL: {
+            SASSERT(n->get_num_args() == 2);
+            expr* arg1 = n->get_arg(1);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(arg1));
+            expr_ref no_ovfl(bv.mk_bvsmul_no_ovfl(arg0, arg1), m);
+            expr_ref no_udfl(bv.mk_bvsmul_no_udfl(arg0, arg1), m);
+            def_expr = m.mk_or(m.mk_not(no_ovfl), m.mk_not(no_udfl));
+            break;
+        }
+        case OP_BUADD_OVFL: {
+            SASSERT(n->get_num_args() == 2);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(n->get_arg(1)));
+            unsigned sz = bv.get_bv_size(arg0);
+            expr_ref a_ext(bv.mk_zero_extend(1, arg0), m);
+            expr_ref b_ext(bv.mk_zero_extend(1, n->get_arg(1)), m);
+            expr_ref sum(bv.mk_bv_add(a_ext, b_ext), m);
+            expr_ref carry(bv.mk_extract(sz, sz, sum), m);
+            expr_ref one(bv.mk_one(1), m);
+            def_expr = m.mk_eq(carry.get(), one.get());
+            break;
+        }
+        case OP_BSADD_OVFL: {
+            SASSERT(n->get_num_args() == 2);
+            expr* arg1 = n->get_arg(1);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(arg1));
+            unsigned sz = bv.get_bv_size(arg0);
+            expr_ref zero(bv.mk_zero(sz), m);
+            expr_ref sum(bv.mk_bv_add(arg0, arg1), m);
+            expr_ref a_pos(bv.mk_slt(zero, arg0), m);
+            expr_ref b_pos(bv.mk_slt(zero, arg1), m);
+            expr_ref sum_npos(bv.mk_sle(sum, zero), m);
+            expr_ref overflow(m.mk_and(a_pos, b_pos, sum_npos), m);
+            expr_ref a_neg(bv.mk_slt(arg0, zero), m);
+            expr_ref b_neg(bv.mk_slt(arg1, zero), m);
+            expr_ref sum_nneg(bv.mk_sle(zero, sum), m);
+            expr_ref underflow(m.mk_and(a_neg, b_neg, sum_nneg), m);
+            def_expr = m.mk_or(overflow, underflow);
+            break;
+        }
+        case OP_BUSUB_OVFL: {
+            SASSERT(n->get_num_args() == 2);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(n->get_arg(1)));
+            expr_ref ule(bv.mk_ule(n->get_arg(1), arg0), m);
+            def_expr = m.mk_not(ule);
+            break;
+        }
+        case OP_BSSUB_OVFL: {
+            SASSERT(n->get_num_args() == 2);
+            expr* arg1 = n->get_arg(1);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(arg1));
+            unsigned sz = bv.get_bv_size(arg0);
+            expr_ref minSigned(bv.mk_numeral(rational::power_of_two(sz - 1), sz), m);
+            expr_ref neg_b(bv.mk_bv_neg(arg1), m);
+            expr_ref saddo(bv.mk_bvsadd_ovfl(arg0, neg_b), m);
+            expr_ref zero(bv.mk_zero(sz), m);
+            expr_ref a_geq_zero(bv.mk_sle(zero, arg0), m);
+            expr_ref b_is_min(m.mk_eq(arg1, minSigned.get()), m);
+            def_expr = m.mk_ite(b_is_min, a_geq_zero, saddo);
+            break;
+        }
+        case OP_BSDIV_OVFL: {
+            SASSERT(n->get_num_args() == 2);
+            SASSERT(bv.get_bv_size(arg0) == bv.get_bv_size(n->get_arg(1)));
+            unsigned sz = bv.get_bv_size(arg0);
+            expr_ref minSigned(bv.mk_numeral(rational::power_of_two(sz - 1), sz), m);
+            expr_ref minusOne(bv.mk_numeral(rational::power_of_two(sz) - 1, sz), m);
+            def_expr = m.mk_and(m.mk_eq(arg0, minSigned.get()), m.mk_eq(n->get_arg(1), minusOne.get()));
+            break;
+        }
+        case OP_BNEG_OVFL: {
+            SASSERT(n->get_num_args() == 1);
+            unsigned sz = bv.get_bv_size(arg0);
+            expr_ref minSigned(bv.mk_numeral(rational::power_of_two(sz - 1), sz), m);
+            def_expr = m.mk_eq(arg0, minSigned.get());
+            break;
+        }
+        default:
+            UNREACHABLE();
+        }
+
+        sat::literal def = ctx.internalize(def_expr, false, false);
+        add_def(def, expr2literal(n));
     }
 
     void solver::internalize_concat(app* n) {

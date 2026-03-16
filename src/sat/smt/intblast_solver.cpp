@@ -133,8 +133,26 @@ namespace intblast {
         return true;
     }
 
+    bool solver::add_bv2int_axioms() {
+        auto const& bv2int = m_translator.bv2int();
+        if (m_bv2int_qhead == bv2int.size())
+            return false;
+        ctx.push(value_trail(m_bv2int_qhead));
+        for (; m_bv2int_qhead < bv2int.size(); ++m_bv2int_qhead) {
+            app* e = bv2int[m_bv2int_qhead];
+            expr_ref r(m_translator.translated(e), m);
+            if (r.get() == e)
+                continue;
+            ctx.get_rewriter()(r);
+            auto lit = ctx.mk_literal(m.mk_eq(e, r));
+            ctx.mark_relevant(lit);
+            add_unit(lit);
+        }
+        return true;
+    }
+
     bool solver::unit_propagate() {
-        return add_bound_axioms() || add_predicate_axioms();
+        return add_bound_axioms() || add_predicate_axioms() || add_bv2int_axioms();
     }    
 
     lbool solver::check_axiom(sat::literal_vector const& lits) {

@@ -173,7 +173,7 @@ void act_cache::insert(expr * k, unsigned offset, expr * v) {
         DEBUG_CODE(expected_tag = 0;); 
     }
     DEBUG_CODE({
-        expr * v2;
+        expr * v2 = nullptr;
         SASSERT(m_table.find(e, v2));
         SASSERT(v == UNTAG(expr*, v2));
         SASSERT(expected_tag == GET_TAG(v2));
@@ -195,7 +195,7 @@ expr * act_cache::find(expr * k, unsigned offset) {
         SASSERT(m_unused > 0);
         m_unused--;
         DEBUG_CODE({
-            expr * v;
+            expr * v = nullptr;
             SASSERT(m_table.find(e, v));
             SASSERT(GET_TAG(v) == 1);
         });

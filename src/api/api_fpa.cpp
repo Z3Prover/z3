@@ -167,6 +167,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (ebits < 2 || sbits < 3) {
             SET_ERROR_CODE(Z3_INVALID_ARG, "ebits should be at least 2, sbits at least 3");
+            RETURN_Z3(nullptr);
         }
         api::context * ctx = mk_c(c);
         sort * s = ctx->fpautil().mk_float_sort(ebits, sbits);

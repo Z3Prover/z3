@@ -117,13 +117,33 @@ namespace smt {
         return true;
     }
 
+    bool theory_intblast::add_bv2int_axioms() {
+        auto const& bv2int = m_translator.bv2int();
+        if (m_bv2int_qhead == bv2int.size())
+            return false;
+        ctx.push_trail(value_trail(m_bv2int_qhead));
+        for (; m_bv2int_qhead < bv2int.size(); ++m_bv2int_qhead) {
+            app* e = bv2int[m_bv2int_qhead];
+            expr_ref r(m_translator.translated(e), m);
+            if (r.get() == e)
+                continue;
+            ctx.get_rewriter()(r);
+            auto eq = mk_eq(e, r, false);
+            ctx.mark_as_relevant(eq);
+            ctx.mk_th_axiom(m_id, 1, &eq);
+        }
+        return true;
+    }
+
     bool theory_intblast::can_propagate() {
-        return m_preds_qhead < m_translator.preds().size() || m_vars_qhead < m_translator.vars().size();
+        return m_preds_qhead < m_translator.preds().size() || m_vars_qhead < m_translator.vars().size() ||
+               m_bv2int_qhead < m_translator.bv2int().size();
     }
 
     void theory_intblast::propagate() {
         add_bound_axioms();
         add_predicate_axioms();
+        add_bv2int_axioms();
     }
     
     bool theory_intblast::internalize_atom(app * atom, bool gate_ctx) {

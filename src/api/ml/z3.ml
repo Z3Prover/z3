@@ -770,6 +770,12 @@ struct
   let mk_store = Z3native.mk_store
   let mk_const_array = Z3native.mk_const_array
 
+  let mk_select_n ctx a idxs =
+    Z3native.mk_select_n ctx a (List.length idxs) idxs
+
+  let mk_store_n ctx a idxs v =
+    Z3native.mk_store_n ctx a (List.length idxs) idxs v
+
   let mk_map ctx f args =
     Z3native.mk_map ctx f (List.length args) args
 
@@ -1298,6 +1304,7 @@ struct
   let mk_re_union ctx args = Z3native.mk_re_union ctx (List.length args) args
   let mk_re_concat ctx args = Z3native.mk_re_concat ctx (List.length args) args
   let mk_re_range = Z3native.mk_re_range
+  let mk_re_allchar = Z3native.mk_re_allchar
   let mk_re_loop = Z3native.mk_re_loop
   let mk_re_intersect ctx args = Z3native.mk_re_intersect ctx (List.length args) args
   let mk_re_complement = Z3native.mk_re_complement
@@ -1685,6 +1692,8 @@ struct
     let av = Z3native.model_get_sort_universe (gc x) x s in
     AST.ASTVector.to_expr_list av
 
+  let translate (x:model) (to_ctx:context) = Z3native.model_translate (gc x) x to_ctx
+
   let to_string (x:model) = Z3native.model_to_string (gc x) x
 end
 
@@ -1955,6 +1964,7 @@ struct
   let add_simplifier = Z3native.solver_add_simplifier
   let translate x = Z3native.solver_translate (gc x) x
   let to_string x = Z3native.solver_to_string (gc x) x
+  let to_dimacs x include_names = Z3native.solver_to_dimacs_string (gc x) x include_names
 
   let interrupt (ctx:context) (s:solver) =
     Z3native.solver_interrupt ctx s
@@ -2018,6 +2028,11 @@ struct
     List.iter (fun e -> Z3native.ast_vector_push (gc x) term_vec e) terms;
     List.iter (fun e -> Z3native.ast_vector_push (gc x) guard_vec e) guards;
     Z3native.solver_solve_for (gc x) x var_vec term_vec guard_vec
+
+  let register_on_clause (s:solver) (callback: Expr.expr option -> int list -> Expr.expr list -> unit) =
+    Z3native.solver_register_on_clause (gc s) s (fun proof_hint deps lits ->
+      let lits_list = AST.ASTVector.to_expr_list lits in
+      callback proof_hint deps lits_list)
 end
 
 
@@ -2145,6 +2160,7 @@ struct
   let from_string (x:optimize) (s:string) = Z3native.optimize_from_string (gc x) x s
   let get_assertions (x:optimize) = AST.ASTVector.to_expr_list (Z3native.optimize_get_assertions (gc x) x)
   let get_objectives (x:optimize) = AST.ASTVector.to_expr_list (Z3native.optimize_get_objectives (gc x) x)
+  let translate (x:optimize) (to_ctx:context) = Z3native.optimize_translate (gc x) x to_ctx
 end
 
 

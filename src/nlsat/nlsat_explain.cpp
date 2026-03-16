@@ -1040,13 +1040,13 @@ namespace nlsat {
            \brief Apply model-based projection operation defined in our paper.
         */
 
-        bool levelwise_single_cell(polynomial_ref_vector & ps, var max_x, polynomial::cache & cache) {
+        bool levelwise_single_cell(polynomial_ref_vector & ps, var max_x, polynomial::cache & cache, bool linear=false) {
             // Store polynomials for debugging unsound lemmas
             m_last_lws_input_polys.reset();
             for (unsigned i = 0; i < ps.size(); i++)
                 m_last_lws_input_polys.push_back(ps.get(i));
             
-            levelwise lws(m_solver, ps, max_x, sample(), m_pm, m_am, cache);
+            levelwise lws(m_solver, ps, max_x, sample(), m_pm, m_am, cache, linear);
             auto cell = lws.single_cell();
             TRACE(lws, for (unsigned i = 0; i < cell.size(); i++)
                                  display(tout << "I[" << i << "]:", m_solver, cell[i]) << "\n";);
@@ -1139,8 +1139,22 @@ namespace nlsat {
                 x = extract_max_polys(ps);
                 cac_add_cell_lits(ps, x, samples);
             }
-            
         }
+
+
+        /**
+         * \brief compute the resultants of p with each polynomial in ps w.r.t. x
+         */
+        void psc_resultants_with(polynomial_ref_vector const& ps, polynomial_ref p, var const x) {
+            polynomial_ref q(m_pm);
+            unsigned sz = ps.size();
+            for (unsigned i = 0; i < sz; i++) {
+                q = ps.get(i);
+                if (q == p) continue;
+                psc(p, q, x);
+            }
+        }
+
 
         bool check_already_added() const {
             for (bool b : m_already_added_literal) {
@@ -1698,6 +1712,38 @@ namespace nlsat {
         }
 
 
+        void compute_linear_explanation(unsigned num, literal const * ls, scoped_literal_vector & result) {
+            SASSERT(check_already_added());
+            SASSERT(num > 0);
+            SASSERT(max_var(num, ls) != 0 || m_solver.sample().is_assigned(0));
+            TRACE(nlsat_explain, 
+                  tout << "the infeasible clause:\n"; 
+                  display(tout, m_solver, num, ls) << "\n";
+                  m_solver.display_assignment(tout << "assignment:\n");
+                  );
+
+            m_result = &result;
+            m_lower_stage_polys.reset();
+            collect_polys(num, ls, m_ps);
+            for (unsigned i = 0; i < m_lower_stage_polys.size(); i++) {
+                m_ps.push_back(m_lower_stage_polys.get(i));
+            }
+            if (m_ps.empty())
+                return;
+            
+            // We call levelwise directly without normalize, simplify, elim_vanishing to preserve the original polynomials
+            var max_x = max_var(m_ps);
+            bool levelwise_ok = levelwise_single_cell(m_ps, max_x+1, m_cache, true); // max_x+1 because we have a full sample
+            SASSERT(levelwise_ok);
+            m_solver.record_levelwise_result(levelwise_ok);
+
+            reset_already_added();
+            m_result = nullptr;
+            TRACE(nlsat_explain, display(tout << "[explain] result\n", m_solver, result) << "\n";);
+            CASSERT("nlsat", check_already_added());
+        }
+
+
         void project(var x, unsigned num, literal const * ls, scoped_literal_vector & result) {
             unsigned base = result.size();
             while (true) {
@@ -1874,6 +1920,10 @@ namespace nlsat {
 
     void explain::compute_conflict_explanation(unsigned n, literal const * ls, scoped_literal_vector & result) {
         m_imp->compute_conflict_explanation(n, ls, result);
+    }
+
+    void explain::compute_linear_explanation(unsigned n, literal const * ls, scoped_literal_vector & result) {
+        m_imp->compute_linear_explanation(n, ls, result);
     }
 
     void explain::project(var x, unsigned n, literal const * ls, scoped_literal_vector & result) {

@@ -34,6 +34,17 @@ public class DatatypeSort<R> extends Sort
     }
 
     /**
+     * Indicates whether the datatype sort is recursive.
+     * @throws Z3Exception on error
+     * @return a boolean
+     **/
+    public boolean isRecursive()
+    {
+        return Native.isRecursiveDatatypeSort(getContext().nCtx(),
+                getNativeObject());
+    }
+
+    /**
      * The constructors.
      * 
      * @throws Z3Exception

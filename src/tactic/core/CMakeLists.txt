@@ -2,12 +2,10 @@ z3_add_component(core_tactics
   SOURCES
     blast_term_ite_tactic.cpp
     cofactor_elim_term_ite.cpp
-    cofactor_term_ite_tactic.cpp
     collect_statistics_tactic.cpp
     ctx_simplify_tactic.cpp
     elim_term_ite_tactic.cpp
     elim_uncnstr_tactic.cpp
-    injectivity_tactic.cpp
     nnf_tactic.cpp
     occf_tactic.cpp
     pb_preprocess_tactic.cpp

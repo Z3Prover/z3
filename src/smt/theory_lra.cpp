@@ -155,6 +155,7 @@ class theory_lra::imp {
     ptr_vector<expr>       m_not_handled;
     ptr_vector<app>        m_underspecified;
     ptr_vector<app>        m_bv_terms;
+    ptr_vector<expr>       m_mul_defs; // fresh multiplication definition vars
     vector<ptr_vector<api_bound> > m_use_list;        // bounds where variables are used.
 
     // attributes for incremental version:
@@ -267,7 +268,23 @@ class theory_lra::imp {
             };
             m_nla->set_relevant(is_relevant);
             m_nla->updt_params(ctx().get_params());
+            m_nla->get_core().set_add_mul_def_hook([&](unsigned sz, lpvar const* vs) { return add_mul_def(sz, vs); });
         }
+    }
+
+    lpvar add_mul_def(unsigned sz, lpvar const* vs) {
+        bool is_int = true;
+        for (unsigned i = 0; i < sz; ++i) {
+            theory_var tv = lp().local_to_external(vs[i]);
+            is_int &= this->is_int(tv);
+        }
+        sort* srt = is_int ? a.mk_int() : a.mk_real();
+        app_ref c(m.mk_fresh_const("mul!", srt), m);
+        mk_enode(c);
+        theory_var v = mk_var(c);
+        ctx().push_trail(push_back_vector<ptr_vector<expr>>(m_mul_defs));
+        m_mul_defs.push_back(c);
+        return register_theory_var_in_lar_solver(v);
     }
 
     void found_unsupported(expr* n) {
@@ -3983,6 +4000,81 @@ public:
         return inf_eps(rational(0), inf_rational(ival.x, ival.y));
     }
 
+    lp::lp_status max_with_lp(theory_var v, lpvar& vi, lp::impq& term_max) {
+        if (!lp().is_feasible() || lp().has_changed_columns())
+            make_feasible();
+        vi = get_lpvar(v);
+        auto st = lp().maximize_term(vi, term_max);
+        if (has_int() && lp().has_inf_int()) {
+            st = lp::lp_status::FEASIBLE;
+            lp().restore_x();
+        }
+        return st;
+    }
+
+    // Returns true if NLA handled the result (blocker and result are set).
+    // Returns false if maximize should fall through to the normal status switch.
+    bool max_with_nl(theory_var v, lp::lp_status& st, unsigned level, expr_ref& blocker, inf_eps& result) {
+        if (!m_nla || (st != lp::lp_status::OPTIMAL && st != lp::lp_status::UNBOUNDED))
+            return false;
+        // Save the LP optimum before NLA check may restore x.
+        auto lp_val = value(v);
+        auto lp_ival = get_ivalue(v);
+        auto nla_st = check_nla(level);
+        TRACE(opt, tout << "check_nla returned " << nla_st 
+              << " lp_ival=" << lp_ival << "\n";
+              if (nla_st == FC_CONTINUE) {
+                  tout << "LP assignment at maximize optimum:\n";
+                  for (unsigned j = 0; j < lp().column_count(); j++) {
+                      if (!lp().get_column_value(j).is_zero())
+                          tout << "  x[" << j << "] = " << lp().get_column_value(j) << "\n";
+                  }
+              });
+        switch (nla_st) {
+        case FC_DONE:
+            // NLA satisfied: keep the optimal assignment, return LP value
+            blocker = mk_gt(v);
+            result = lp_val;
+            st = lp::lp_status::FEASIBLE;
+            return true;
+        case FC_CONTINUE:
+            // NLA found the LP optimum violates nonlinear constraints.
+            // Restore x but return the LP optimum value and blocker
+            // as a bound for the optimizer to validate via check_bound().
+            lp().restore_x();
+            blocker = mk_gt(v, lp_ival);
+            result = lp_val;
+            st = lp::lp_status::FEASIBLE;
+            return true;
+        case FC_GIVEUP:
+            lp().restore_x();
+            st = lp::lp_status::UNBOUNDED;
+            return false;
+        }
+        UNREACHABLE();
+        return false;
+    }
+
+    theory_lra::inf_eps max_result(theory_var v, lpvar vi, lp::lp_status st, expr_ref& blocker, bool& has_shared) {
+        switch (st) {
+        case lp::lp_status::OPTIMAL:
+            init_variable_values();
+            TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
+            blocker = mk_gt(v);
+            return value(v);
+        case lp::lp_status::FEASIBLE:
+            TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
+            blocker = mk_gt(v);
+            return value(v);
+        default:
+            SASSERT(st == lp::lp_status::UNBOUNDED);
+            TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
+            has_shared = false;
+            blocker = m.mk_false();
+            return inf_eps(rational::one(), inf_rational());
+        }
+    }
+
     theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
         unsigned level = 2;
         lp::impq term_max;
@@ -3999,55 +4091,21 @@ public:
             st = lp::lp_status::UNBOUNDED;
         }
         else {
-            if (!lp().is_feasible() || lp().has_changed_columns())
-                make_feasible();
-            
-            vi = get_lpvar(v);
-            
-            st = lp().maximize_term(vi, term_max);
-
-            if (has_int() && lp().has_inf_int()) {
-                st = lp::lp_status::FEASIBLE;
-                lp().restore_x();
-            }
-            if (m_nla && (st == lp::lp_status::OPTIMAL || st == lp::lp_status::UNBOUNDED)) {
-                switch (check_nla(level)) {
-                case FC_DONE:
-                    st = lp::lp_status::FEASIBLE;
-                    break;
-                case FC_GIVEUP:
-                case FC_CONTINUE:
-                    st = lp::lp_status::UNBOUNDED;
-                    break;
-                }                
-                lp().restore_x();
-            }                
+            st = max_with_lp(v, vi, term_max);
+            inf_eps nl_result;
+            if (max_with_nl(v, st, level, blocker, nl_result))
+                return nl_result;
         }
-        switch (st) {
-        case lp::lp_status::OPTIMAL: {
-            init_variable_values();
-            TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
-            auto val = value(v);
-            blocker = mk_gt(v);
-            return val;
-        }
-        case lp::lp_status::FEASIBLE: {
-            auto val = value(v);
-            TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
-            blocker = mk_gt(v);
-            return val;
-        }
-        default:
-            SASSERT(st == lp::lp_status::UNBOUNDED);
-            TRACE(arith, display(tout << st << " v" << v << " vi: " << vi << "\n"););
-            has_shared = false;
-            blocker = m.mk_false();
-            return inf_eps(rational::one(), inf_rational());
-        }
+        return max_result(v, vi, st, blocker, has_shared);
     }
 
     expr_ref mk_gt(theory_var v) {
         lp::impq val = get_ivalue(v);
+        return mk_gt(v, val);
+    }
+
+    // Overload: create blocker from a saved impq value (used when x has been restored)
+    expr_ref mk_gt(theory_var v, lp::impq const& val) {
         expr* obj = get_enode(v)->get_expr();
         rational r = val.x;
         expr_ref e(m);

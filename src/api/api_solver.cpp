@@ -379,14 +379,15 @@ extern "C" {
         LOG_Z3_solver_from_file(c, s, file_name);
         char const* ext = get_extension(file_name);
         std::ifstream is(file_name);
-        init_solver(c, s);
         if (!is) {
             SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR, nullptr);
         }
         else if (ext && (std::string("dimacs") == ext || std::string("cnf") == ext)) {
+            init_solver(c, s);
             solver_from_dimacs_stream(c, s, is);
         }
         else {
+            init_solver(c, s);
             solver_from_stream(c, s, is);
         }
         Z3_CATCH;
@@ -1153,24 +1154,24 @@ extern "C" {
     void Z3_API Z3_solver_propagate_created(Z3_context c, Z3_solver s, Z3_created_eh created_eh) {
         Z3_TRY;
         RESET_ERROR_CODE();
-        user_propagator::created_eh_t c = (void(*)(void*, user_propagator::callback*, expr*))created_eh;
-        to_solver_ref(s)->user_propagate_register_created(c);
+        user_propagator::created_eh_t created_fn = (void(*)(void*, user_propagator::callback*, expr*))created_eh;
+        to_solver_ref(s)->user_propagate_register_created(created_fn);
         Z3_CATCH;
     }
 
     void Z3_API Z3_solver_propagate_decide(Z3_context c, Z3_solver s, Z3_decide_eh decide_eh) {
         Z3_TRY;
         RESET_ERROR_CODE();
-        user_propagator::decide_eh_t c = (void(*)(void*, user_propagator::callback*, expr*, unsigned, bool))decide_eh;
-        to_solver_ref(s)->user_propagate_register_decide(c);
+        user_propagator::decide_eh_t decide_fn = (void(*)(void*, user_propagator::callback*, expr*, unsigned, bool))decide_eh;
+        to_solver_ref(s)->user_propagate_register_decide(decide_fn);
         Z3_CATCH;
     }
 
     void Z3_API Z3_solver_propagate_on_binding(Z3_context c, Z3_solver s, Z3_on_binding_eh binding_eh) {
         Z3_TRY;
         RESET_ERROR_CODE();
-        user_propagator::binding_eh_t c = (bool(*)(void*, user_propagator::callback*, expr*, expr*))binding_eh;
-        to_solver_ref(s)->user_propagate_register_on_binding(c);
+        user_propagator::binding_eh_t binding_fn = (bool(*)(void*, user_propagator::callback*, expr*, expr*))binding_eh;
+        to_solver_ref(s)->user_propagate_register_on_binding(binding_fn);
         Z3_CATCH;
     }
 

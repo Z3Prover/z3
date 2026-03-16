@@ -21,6 +21,25 @@ Version 4.17.0
   Thanks to Nuno Lopes, https://github.com/Z3Prover/z3/pull/8583
 - Fix spurious sort error with nested quantifiers in model finder. `Fixes #8563`
 - NLSAT optimizations including improvements to handle_nullified_poly and levelwise algorithm. Thanks to Lev Nachmanson.
+- Add ASan/UBSan memory safety CI workflow for continuous runtime safety checking. Thanks to Angelica Moreira.
+  https://github.com/Z3Prover/z3/pull/8856
+- Add missing API bindings across multiple languages:
+  - Python: BvNand, BvNor, BvXnor operations, Optimize.translate()
+  - Go: MkAsArray, MkRecFuncDecl, AddRecDef, Model.Translate, MkBVRotateLeft, MkBVRotateRight, MkRepeat, and 8 BV overflow/underflow check functions
+  - TypeScript: Array.fromFunc, Model.translate
+  - OCaml: Model.translate, mk_re_allchar (thanks to Filipe Marques, https://github.com/Z3Prover/z3/pull/8785)
+  - Java: as-array method (thanks to Ruijie Fang, https://github.com/Z3Prover/z3/pull/8762)
+- Fix #7507: simplify (>= product_of_consecutive_ints 0) to true
+- Fix #7951: add cancellation checks to polynomial gcd_prs and HNF computation
+- Fix #7677: treat FC_CONTINUE from check_nla as FEASIBLE in maximize
+- Fix assertion violation in q_mbi diagnostic output
+- Fix memory leaks in model_based_opt def ref-counting
+- Fix NoSuchFieldError in JNI for BoolPtr: use Z field descriptor and SetBooleanField
+- Fix TypeScript Array.fromFunc to use f.ptr instead of f.ast for Z3_func_decl type
+- Fix intblast ubv_to_int bug: add bv2int axioms for compound expressions
+- Fix static analysis findings: uninitialized variables, bitwise shift undefined behavior, and null pointer dereferences
+- Convert bv1-blast and blast-term-ite tactics to also expose as simplifiers for more flexible integration
+- Change default of param lws_subs_witness_disc to true for improved NLSAT performance. Thanks to Lev Nachmanson.
 
 Version 4.16.0
 ==============

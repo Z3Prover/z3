@@ -29,6 +29,7 @@ Revision History:
 #pragma once
 #include "math/lp/numeric_pair.h"
 #include "util/ext_gcd.h"
+#include <functional>
 namespace lp {
 namespace hnf_calc {
 
@@ -221,6 +222,8 @@ class hnf {
     unsigned     m_j;
     mpq          m_R;
     mpq          m_half_R;
+    bool         m_cancelled = false;
+    std::function<bool()> m_cancel_flag;
     mpq mod_R_balanced(const mpq & a) const {
        mpq t = a % m_R;
        return t > m_half_R? t - m_R : (t < - m_half_R? t + m_R : t);
@@ -574,6 +577,10 @@ private:
     
     void calculate_by_modulo() {
         for (m_i = 0; m_i < m_m; m_i ++) {
+            if (m_cancel_flag && m_cancel_flag()) {
+                m_cancelled = true;
+                return;
+            }
             process_row_modulo();
             SASSERT(is_pos(m_W[m_i][m_i]));
             m_R /= m_W[m_i][m_i];
@@ -583,7 +590,7 @@ private:
     }
     
 public:
-    hnf(M & A, const mpq & d) :
+    hnf(M & A, const mpq & d, std::function<bool()> cancel_flag = nullptr) :
 #ifdef Z3DEBUG
         m_H(A),
         m_A_orig(A),
@@ -594,7 +601,8 @@ public:
         m_n(A.column_count()),
         m_d(d),
         m_R(m_d),
-        m_half_R(floor(m_R / 2))
+        m_half_R(floor(m_R / 2)),
+        m_cancel_flag(cancel_flag)
     {
         if (m_m == 0 || m_n == 0 || is_zero(m_d))
             return;
@@ -614,6 +622,7 @@ public:
     }
 
     const M & W() const { return m_W; }
+    bool is_cancelled() const { return m_cancelled; }
     
 };
 

@@ -1395,11 +1395,51 @@ export interface Solver<Name extends string = 'main'> {
   toSmtlib2(status?: string): string;
 
   /**
+   * Convert the solver's Boolean formula to DIMACS CNF format.
+   *
+   * @param includeNames - If true, include variable names in the output (default: true)
+   * @returns A string containing the DIMACS CNF representation
+   */
+  dimacs(includeNames?: boolean): string;
+
+  /**
+   * Translate the solver to a different context.
+   * @param target - The target context
+   * @returns A new Solver instance in the target context
+   */
+  translate(target: Context<Name>): Solver<Name>;
+
+  /**
+   * Retrieve a proof of unsatisfiability after a check that returned 'unsat'.
+   * Requires proof production to be enabled.
+   * @returns An expression representing the proof, or null if unavailable
+   */
+  proof(): Expr<Name> | null;
+
+  /**
    * Manually decrease the reference count of the solver
    * This is automatically done when the solver is garbage collected,
    * but calling this eagerly can help release memory sooner.
    */
   release(): void;
+
+  /**
+   * Register a callback that is invoked when clauses are inferred during solving.
+   * The callback is called when a clause is:
+   * - asserted to the CDCL engine (input clause after pre-processing)
+   * - inferred by CDCL(T) using a SAT or theory conflict/propagation
+   * - deleted by the CDCL(T) engine
+   *
+   * Requires the Emscripten module to be passed to `createApi`.
+   *
+   * @param callback - Function called with:
+   *   - proofHint: optional proof hint expression (may be null)
+   *   - deps: array of clause dependency indices
+   *   - clause: the clause as a vector of literals
+   */
+  registerOnClause(
+    callback: (proofHint: Expr<Name> | null, deps: number[], clause: AstVector<Name, Bool<Name>>) => void,
+  ): void;
 }
 
 export interface Optimize<Name extends string = 'main'> {
@@ -1446,9 +1486,86 @@ export interface Optimize<Name extends string = 'main'> {
 
   fromString(s: string): void;
 
-  maximize(expr: Arith<Name>): void;
+  /**
+   * Load SMT-LIB2 format assertions from a file into the optimizer.
+   *
+   * @param filename - Path to the file containing SMT-LIB2 format assertions
+   */
+  fromFile(filename: string): void;
 
-  minimize(expr: Arith<Name>): void;
+  /**
+   * Add a maximization objective.
+   * @param expr - The expression to maximize
+   * @returns A zero-based numeric handle index for this objective, used to retrieve bounds
+   *          via {@link getLower}/{@link getUpper} after calling {@link check}
+   *
+   * @example
+   * ```typescript
+   * const opt = new Optimize();
+   * const x = Int.const('x');
+   * opt.add(x.ge(0), x.le(10));
+   * const h = opt.maximize(x);
+   * await opt.check();
+   * console.log('Max x:', opt.getUpper(h).toString()); // '10'
+   * ```
+   */
+  maximize(expr: Arith<Name> | BitVec<number, Name>): number;
+
+  /**
+   * Add a minimization objective.
+   * @param expr - The expression to minimize
+   * @returns A zero-based numeric handle index for this objective, used to retrieve bounds
+   *          via {@link getLower}/{@link getUpper} after calling {@link check}
+   *
+   * @example
+   * ```typescript
+   * const opt = new Optimize();
+   * const x = Int.const('x');
+   * opt.add(x.ge(0), x.le(10));
+   * const h = opt.minimize(x);
+   * await opt.check();
+   * console.log('Min x:', opt.getLower(h).toString()); // '0'
+   * ```
+   */
+  minimize(expr: Arith<Name> | BitVec<number, Name>): number;
+
+  /**
+   * Retrieve the lower bound for the objective at the given handle index.
+   * Call this after {@link check} returns 'sat'.
+   * @param index - The handle index returned by {@link maximize} or {@link minimize}
+   */
+  getLower(index: number): Expr<Name>;
+
+  /**
+   * Retrieve the upper bound for the objective at the given handle index.
+   * Call this after {@link check} returns 'sat'.
+   * @param index - The handle index returned by {@link maximize} or {@link minimize}
+   */
+  getUpper(index: number): Expr<Name>;
+
+  /**
+   * Retrieve the unsat core after a check that returned 'unsat'.
+   * @returns An AstVector containing the subset of assumptions that caused UNSAT
+   */
+  unsatCore(): AstVector<Name, Bool<Name>>;
+
+  /**
+   * Retrieve the set of objective expressions.
+   * @returns An AstVector containing the objectives
+   */
+  objectives(): AstVector<Name, Expr<Name>>;
+
+  /**
+   * Return a string describing why the last call to {@link check} returned 'unknown'.
+   */
+  reasonUnknown(): string;
+
+  /**
+   * Translate the optimize context to a different context.
+   * @param target - The target context
+   * @returns A new Optimize instance in the target context
+   */
+  translate(target: Context<Name>): Optimize<Name>;
 
   check(...exprs: (Bool<Name> | AstVector<Name, Bool<Name>>)[]): Promise<CheckSatResult>;
 
@@ -1765,6 +1882,14 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
    * ```
    */
   sortUniverse(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>>;
+
+  /**
+   * Translate the model to a different context.
+   *
+   * @param target - The target context
+   * @returns A new model in the target context
+   */
+  translate(target: Context<Name>): Model<Name>;
 
   /**
    * Manually decrease the reference count of the model
@@ -2798,6 +2923,12 @@ export interface SMTArrayCreation<Name extends string> {
     domain: DomainSort,
     value: SortToExprMap<RangeSort, Name>,
   ): SMTArray<Name, [DomainSort], RangeSort>;
+
+  /**
+   * Create an array from a function declaration.
+   * The resulting array maps each input to the output of the function.
+   */
+  fromFunc(f: FuncDecl<Name>): SMTArray<Name>;
 }
 
 export type NonEmptySortArray<Name extends string = 'main'> = [Sort<Name>, ...Array<Sort<Name>>];
@@ -3281,6 +3412,12 @@ export interface FP<Name extends string = 'main'> extends Expr<Name, FPSort<Name
 
   /** @category Predicates */
   isPositive(): Bool<Name>;
+
+  /** @category Conversion */
+  toIEEEBV(): BitVec<number, Name>;
+
+  /** @category Conversion */
+  toReal(): Arith<Name>;
 }
 
 /**
@@ -3346,6 +3483,16 @@ export interface StringCreation<Name extends string> {
    * Create a string value
    */
   val(value: string): Seq<Name>;
+
+  /**
+   * Create a single-character string from a Unicode code point (str.from_code).
+   */
+  fromCode(code: Arith<Name> | number | bigint): Seq<Name>;
+
+  /**
+   * Convert an integer expression to its string representation (int.to.str).
+   */
+  fromInt(n: Arith<Name> | number | bigint): Seq<Name>;
 }
 
 /** @category String/Sequence */
@@ -3420,6 +3567,60 @@ export interface Seq<Name extends string = 'main', ElemSort extends Sort<Name> =
 
   /** @category Operations */
   replaceAll(src: Seq<Name, ElemSort> | string, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort>;
+
+  /** @category Operations */
+  replaceRe(re: Re<Name>, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort>;
+
+  /** @category Operations */
+  replaceReAll(re: Re<Name>, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort>;
+
+  /**
+   * Convert a string to its integer value (str.to.int).
+   * @category Operations
+   */
+  toInt(): Arith<Name>;
+
+  /**
+   * Convert a single-character string to its Unicode code point (str.to_code).
+   * @category Operations
+   */
+  toCode(): Arith<Name>;
+
+  /**
+   * String less-than comparison (str.lt).
+   * @category Operations
+   */
+  lt(other: Seq<Name, ElemSort> | string): Bool<Name>;
+
+  /**
+   * String less-than-or-equal comparison (str.le).
+   * @category Operations
+   */
+  le(other: Seq<Name, ElemSort> | string): Bool<Name>;
+
+  /**
+   * Apply function f to each element of the sequence (seq.map).
+   * @category Operations
+   */
+  map(f: Expr<Name>): Seq<Name>;
+
+  /**
+   * Apply function f to each element and its index in the sequence (seq.mapi).
+   * @category Operations
+   */
+  mapi(f: Expr<Name>, i: Arith<Name> | number | bigint): Seq<Name>;
+
+  /**
+   * Left-fold function f over the sequence with initial accumulator a (seq.foldl).
+   * @category Operations
+   */
+  foldl(f: Expr<Name>, a: Expr<Name>): Expr<Name>;
+
+  /**
+   * Left-fold function f with index over the sequence with initial accumulator a (seq.foldli).
+   * @category Operations
+   */
+  foldli(f: Expr<Name>, i: Arith<Name> | number | bigint, a: Expr<Name>): Expr<Name>;
 }
 
 ///////////////////////

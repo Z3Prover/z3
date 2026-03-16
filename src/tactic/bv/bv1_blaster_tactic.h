@@ -41,12 +41,22 @@ the simplifiers.
 #pragma once
 
 #include "util/params.h"
+#include "tactic/dependent_expr_state_tactic.h"
+#include "tactic/probe.h"
+#include "ast/simplifiers/bv1_blaster.h"
 class ast_manager;
 class tactic;
 
-tactic * mk_bv1_blaster_tactic(ast_manager & m, params_ref const & p = params_ref());
+inline tactic * mk_bv1_blaster_tactic(ast_manager & m, params_ref const & p = params_ref()) {
+    return alloc(dependent_expr_state_tactic, m, p,
+        [](auto& m, auto& p, auto& s) -> dependent_expr_simplifier* {
+            return alloc(bv1_blaster_simplifier, m, p, s);
+        });
+}
+
 probe * mk_is_qfbv_eq_probe();
 /*
   ADD_TACTIC("bv1-blast", "reduce bit-vector expressions into bit-vectors of size 1 (notes: only equality, extract and concat are supported).", "mk_bv1_blaster_tactic(m, p)")
   ADD_PROBE("is-qfbv-eq", "true if the goal is in a fragment of QF_BV which uses only =, extract, concat.", "mk_is_qfbv_eq_probe()")
 */
+

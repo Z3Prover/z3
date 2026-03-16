@@ -24,5 +24,7 @@ def_module_params('nlsat',
                           ('known_sat_assignment_file_name', STRING, "", "the file name of a known solution: used for debugging only"),
                           ('lws', BOOL, True, "apply levelwise."),
                           ('lws_spt_threshold', UINT, 4, "minimum both-side polynomial count to apply spanning tree optimization; < 2 disables spanning tree"),
+                          ('lws_witness_subs_lc', BOOL, True, "try substitute the non-nullified witness by the lc"),
+                          ('lws_witness_subs_disc', BOOL, True, "try substitute the non-nullified witness by the discriminant"),
                           ('canonicalize', BOOL, True, "canonicalize polynomials.")
                           ))                  

@@ -2823,9 +2823,14 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
         mk_is_rm(bv_rm, BV_RM_TO_NEGATIVE, rm_tn);
         mk_is_rm(bv_rm, BV_RM_TO_ZERO, rm_tz);
 
+        // IEEE 754: RNE/RNA carry all overflows to infinity with the sign of the result.
+        // RTP carries positive overflow to +inf, RTN carries negative overflow to -inf.
+        expr_ref rm_rounds_to_pinf(m), rm_rounds_to_ninf(m);
+        rm_rounds_to_pinf = m.mk_or(rm_tp, m.mk_or(rm_nte, rm_nta));
+        rm_rounds_to_ninf = m.mk_or(rm_tn, m.mk_or(rm_nte, rm_nta));
         expr_ref implies_gt_max_real(m), implies_lt_min_real(m);
-        implies_gt_max_real = m.mk_implies(r_is_pinf, m.mk_and(rm_tp, m_arith_util.mk_gt(x, e_max_real)));
-        implies_lt_min_real = m.mk_implies(r_is_ninf, m.mk_and(rm_tn, m_arith_util.mk_lt(x, e_max_real_neg)));
+        implies_gt_max_real = m.mk_implies(r_is_pinf, m.mk_and(rm_rounds_to_pinf, m_arith_util.mk_gt(x, e_max_real)));
+        implies_lt_min_real = m.mk_implies(r_is_ninf, m.mk_and(rm_rounds_to_ninf, m_arith_util.mk_lt(x, e_max_real_neg)));
 
         m_extra_assertions.push_back(implies_gt_max_real);
         m_extra_assertions.push_back(implies_lt_min_real);
@@ -2948,12 +2953,16 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
     dbg_decouple("fpa2bv_to_real_rsig", rsig);
 
     expr_ref exp_n(m), exp_p(m), exp_is_neg(m), exp_abs(m);
-    exp_is_neg = m.mk_eq(m_bv_util.mk_extract(ebits - 1, ebits - 1, exp), bv1);
-    dbg_decouple("fpa2bv_to_real_exp_is_neg", exp_is_neg);
     exp_p = m_bv_util.mk_sign_extend(1, exp);
+    // Subtract the normalization shift for denormals (lz is 0 for normals)
+    expr_ref lz_ext(m);
+    lz_ext = m_bv_util.mk_zero_extend(1, lz);
+    exp_p = m_bv_util.mk_bv_sub(exp_p, lz_ext);
+    exp_is_neg = m.mk_eq(m_bv_util.mk_extract(ebits, ebits, exp_p), bv1);
+    dbg_decouple("fpa2bv_to_real_exp_is_neg", exp_is_neg);
     exp_n = m_bv_util.mk_bv_neg(exp_p);
     exp_abs = m.mk_ite(exp_is_neg, exp_n, exp_p);
-    dbg_decouple("fpa2bv_to_real_exp_abs", exp);
+    dbg_decouple("fpa2bv_to_real_exp_abs", exp_abs);
     SASSERT(m_bv_util.get_bv_size(exp_abs) == ebits + 1);
 
     expr_ref exp2(m), exp2_mul_2(m), prev_bit(m);

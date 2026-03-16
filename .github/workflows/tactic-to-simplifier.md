@@ -30,6 +30,8 @@ safe-outputs:
       - tactic-to-simplifier
     title-prefix: "[tactic-to-simplifier] "
     max: 3
+  noop:
+    report-as-issue: false
   github-token: ${{ secrets.GITHUB_TOKEN }}
 
 steps:

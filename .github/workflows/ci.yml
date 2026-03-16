@@ -38,7 +38,7 @@ jobs:
             runRegressions: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -81,7 +81,7 @@ jobs:
     container: "quay.io/pypa/manylinux_2_34_x86_64:latest"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Setup Python virtual environment
         run: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
@@ -113,7 +113,7 @@ jobs:
     container: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Download ARM toolchain
         run: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz'
@@ -149,7 +149,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Setup OCaml
         uses: ocaml/setup-ocaml@v3
@@ -204,7 +204,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Setup OCaml
         uses: ocaml/setup-ocaml@v3
@@ -298,7 +298,7 @@ jobs:
             runTests: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -309,7 +309,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ninja-build
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.20'
 
@@ -388,7 +388,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -415,6 +415,78 @@ jobs:
       - name: Run regressions
         run: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
 
+      - name: Validate JNI library architecture matches host
+        run: |
+          echo "Checking libz3java.dylib architecture..."
+          ARCH=$(lipo -archs build/libz3java.dylib)
+          HOST_ARCH=$(uname -m)
+          echo "libz3java.dylib arch: $ARCH  |  host arch: $HOST_ARCH"
+          if [ "$ARCH" != "$HOST_ARCH" ]; then
+            echo "ERROR: libz3java.dylib has arch '$ARCH' but host is '$HOST_ARCH'"
+            exit 1
+          fi
+          echo "OK: libz3java.dylib correctly built for $HOST_ARCH"
+
+  # ============================================================================
+  # macOS JNI cross-compilation validation (ARM64 host -> x86_64 target)
+  # ============================================================================
+  macos-jni-cross-compile:
+    name: "MacOS JNI cross-compile (ARM64 -> x64) architecture validation"
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Configure (cross-compile ARM64 host -> x86_64 target)
+        run: |
+          CXXFLAGS="-arch x86_64" CFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" \
+            python scripts/mk_make.py --java --arm64=false
+
+      - name: Build
+        run: |
+          set -e
+          cd build
+          make -j3 libz3java.dylib
+          cd ..
+
+      - name: Validate libz3java.dylib is x86_64
+        run: |
+          echo "Checking libz3java.dylib architecture..."
+          ARCH=$(lipo -archs build/libz3java.dylib)
+          echo "libz3java.dylib architecture: $ARCH"
+          if [ "$ARCH" != "x86_64" ]; then
+            echo "ERROR: Expected x86_64 (cross-compiled target), got: $ARCH"
+            echo "This is the regression fixed in: JNI bindings use wrong architecture in macOS cross-compilation"
+            exit 1
+          fi
+          echo "OK: libz3java.dylib correctly built for x86_64 target on ARM64 host"
+
+  # ============================================================================
+  # Python script unit tests (build-script logic validation)
+  # ============================================================================
+  python-script-tests:
+    name: "Python build-script unit tests"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Run Python script unit tests
+        working-directory: ${{ github.workspace }}
+        run: python -m unittest discover -s scripts/tests -p "test_*.py" -v
+
   # ============================================================================
   # macOS CMake Builds
   # ============================================================================
@@ -424,7 +496,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
 
       - name: Setup Python
         uses: actions/setup-python@v6

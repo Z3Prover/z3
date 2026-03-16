@@ -852,11 +852,17 @@ def mk_java(java_src, java_dir, package_name):
                     java_wrapper.write('  RELEASELONGAELEMS(a%s, _a%s);\n' % (i, i))
 
             elif k == OUT or k == INOUT:
-                if param_type(param) == INT or param_type(param) == UINT or param_type(param) == BOOL:
+                if param_type(param) == INT or param_type(param) == UINT:
                     java_wrapper.write('  {\n')
                     java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
                     java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "I");\n')
                     java_wrapper.write('     jenv->SetIntField(a%s, fid, (jint) _a%s);\n' % (i, i))
+                    java_wrapper.write('  }\n')
+                elif param_type(param) == BOOL:
+                    java_wrapper.write('  {\n')
+                    java_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
+                    java_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "Z");\n')
+                    java_wrapper.write('     jenv->SetBooleanField(a%s, fid, (jboolean) _a%s);\n' % (i, i))
                     java_wrapper.write('  }\n')
                 elif param_type(param) == STRING:
                     java_wrapper.write('  {\n')

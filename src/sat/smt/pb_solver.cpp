@@ -834,7 +834,7 @@ namespace pb {
     }
 
     void solver::ineq::divide(unsigned c) {
-        if (c == 1) return;
+        if (c <= 1) return;
         for (unsigned i = size(); i-- > 0; ) {
             m_wlits[i].first = (coeff(i) + c - 1) / c;
         }
@@ -857,7 +857,7 @@ namespace pb {
      */
     void solver::round_to_one(ineq& ineq, bool_var v) {
         unsigned c = ineq.bv_coeff(v);
-        if (c == 1) return;
+        if (c <= 1) return;
         unsigned sz = ineq.size();
         for (unsigned i = 0; i < sz; ++i) {
             unsigned ci = ineq.coeff(i); 

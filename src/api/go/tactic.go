@@ -78,6 +78,72 @@ func (c *Context) TacticSkip() *Tactic {
 	return newTactic(c, C.Z3_tactic_skip(c.ptr))
 }
 
+// TryFor returns a tactic that applies t for at most ms milliseconds.
+// If t does not terminate in ms milliseconds, then it fails.
+func (t *Tactic) TryFor(ms uint) *Tactic {
+	return newTactic(t.ctx, C.Z3_tactic_try_for(t.ctx.ptr, t.ptr, C.uint(ms)))
+}
+
+// UsingParams returns a tactic that applies t using the given parameters.
+func (t *Tactic) UsingParams(params *Params) *Tactic {
+	return newTactic(t.ctx, C.Z3_tactic_using_params(t.ctx.ptr, t.ptr, params.ptr))
+}
+
+// GetParamDescrs returns parameter descriptions for the tactic.
+func (t *Tactic) GetParamDescrs() *ParamDescrs {
+	return newParamDescrs(t.ctx, C.Z3_tactic_get_param_descrs(t.ctx.ptr, t.ptr))
+}
+
+// ApplyEx applies the tactic to a goal with the given parameters.
+func (t *Tactic) ApplyEx(g *Goal, params *Params) *ApplyResult {
+	return newApplyResult(t.ctx, C.Z3_tactic_apply_ex(t.ctx.ptr, t.ptr, g.ptr, params.ptr))
+}
+
+// TacticFailIf creates a tactic that fails if the probe p evaluates to false.
+func (c *Context) TacticFailIf(p *Probe) *Tactic {
+	return newTactic(c, C.Z3_tactic_fail_if(c.ptr, p.ptr))
+}
+
+// TacticFailIfNotDecided creates a tactic that fails if the goal is not
+// trivially satisfiable (empty) or trivially unsatisfiable (contains false).
+func (c *Context) TacticFailIfNotDecided() *Tactic {
+	return newTactic(c, C.Z3_tactic_fail_if_not_decided(c.ptr))
+}
+
+// ParOr creates a tactic that applies the given tactics in parallel.
+func (c *Context) ParOr(tactics []*Tactic) *Tactic {
+	cTactics := make([]C.Z3_tactic, len(tactics))
+	for i, t := range tactics {
+		cTactics[i] = t.ptr
+	}
+	return newTactic(c, C.Z3_tactic_par_or(c.ptr, C.uint(len(tactics)), &cTactics[0]))
+}
+
+// ParAndThen creates a tactic that applies t to a goal and then t2 to every
+// subgoal produced by t, processing subgoals in parallel.
+func (t *Tactic) ParAndThen(t2 *Tactic) *Tactic {
+	return newTactic(t.ctx, C.Z3_tactic_par_and_then(t.ctx.ptr, t.ptr, t2.ptr))
+}
+
+// GetTacticDescr returns a description of the tactic with the given name.
+func (c *Context) GetTacticDescr(name string) string {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	return C.GoString(C.Z3_tactic_get_descr(c.ptr, cName))
+}
+
+// NewSolverFromTactic creates a solver from the given tactic.
+// The solver uses the tactic to solve goals.
+func (c *Context) NewSolverFromTactic(t *Tactic) *Solver {
+	ptr := C.Z3_mk_solver_from_tactic(c.ptr, t.ptr)
+	s := &Solver{ctx: c, ptr: ptr}
+	C.Z3_solver_inc_ref(c.ptr, ptr)
+	runtime.SetFinalizer(s, func(solver *Solver) {
+		C.Z3_solver_dec_ref(solver.ctx.ptr, solver.ptr)
+	})
+	return s
+}
+
 // Goal represents a set of formulas that can be solved or transformed.
 type Goal struct {
 	ctx *Context
@@ -132,6 +198,29 @@ func (g *Goal) IsDecidedUnsat() bool {
 // Reset removes all formulas from the goal.
 func (g *Goal) Reset() {
 	C.Z3_goal_reset(g.ctx.ptr, g.ptr)
+}
+
+// Depth returns the depth of the goal.
+// It tracks how many times the goal was transformed by a tactic.
+func (g *Goal) Depth() uint {
+	return uint(C.Z3_goal_depth(g.ctx.ptr, g.ptr))
+}
+
+// Precision returns the precision of the goal as a uint.
+// Possible values: 0 = precise, 1 = under-approximation, 2 = over-approximation, 3 = under+over.
+func (g *Goal) Precision() uint {
+	return uint(C.Z3_goal_precision(g.ctx.ptr, g.ptr))
+}
+
+// Translate creates a copy of the goal in the target context.
+func (g *Goal) Translate(target *Context) *Goal {
+	return newGoal(target, C.Z3_goal_translate(g.ctx.ptr, g.ptr, target.ptr))
+}
+
+// ConvertModel converts a model from the original goal into a model for this goal.
+// Use this when a tactic has transformed the goal and you need a model for the original.
+func (g *Goal) ConvertModel(m *Model) *Model {
+	return newModel(g.ctx, C.Z3_goal_convert_model(g.ctx.ptr, g.ptr, m.ptr))
 }
 
 // String returns the string representation of the goal.
@@ -241,6 +330,13 @@ func (p *Probe) Or(p2 *Probe) *Probe {
 // ProbeNot creates a probe that is the negation of p.
 func (p *Probe) Not() *Probe {
 	return newProbe(p.ctx, C.Z3_probe_not(p.ctx.ptr, p.ptr))
+}
+
+// GetProbeDescr returns a description of the probe with the given name.
+func (c *Context) GetProbeDescr(name string) string {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	return C.GoString(C.Z3_probe_get_descr(c.ptr, cName))
 }
 
 // Params represents a parameter set.

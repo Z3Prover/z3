@@ -33,6 +33,21 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
 static char const* example1 = "(<= (+ (* 1.3 x y) (* 2.3 y y) (* (- 1.1 x x))) 2.2)";
 static char const* example2 = "(= (+ 4 3 (- (* 3 x x) (* 5 y)) y) 0)";
 
+static expr_ref parse_int_fml(ast_manager& m, char const* str) {
+    expr_ref result(m);
+    cmd_context ctx(false, &m);
+    ctx.set_ignore_check(true);
+    std::ostringstream buffer;
+    buffer << "(declare-const I Int)\n"
+           << "(declare-const S Int)\n"
+           << "(assert " << str << ")\n";
+    std::istringstream is(buffer.str());
+    VERIFY(parse_smt2_commands(ctx, is));
+    ENSURE(!ctx.assertions().empty());
+    result = ctx.assertions().get(0);
+    return result;
+}
+
 
 void tst_arith_rewriter() {
     ast_manager m;
@@ -56,4 +71,16 @@ void tst_arith_rewriter() {
     fml = parse_fml(m, example2);
     rw(fml);
     std::cout << mk_pp(fml, m) << "\n";
+
+    // Issue #7507: (>= (* I (+ I 1)) 0) should simplify to true
+    fml = parse_int_fml(m, "(>= (* I (+ I 1)) 0)");
+    rw(fml);
+    std::cout << "consecutive product >= 0: " << mk_pp(fml, m) << "\n";
+    ENSURE(m.is_true(fml));
+
+    // (>= (* I (+ I (- 1))) 0) should also simplify to true (x*(x-1))
+    fml = parse_int_fml(m, "(>= (* I (+ I (- 1))) 0)");
+    rw(fml);
+    std::cout << "consecutive product (minus) >= 0: " << mk_pp(fml, m) << "\n";
+    ENSURE(m.is_true(fml));
 }

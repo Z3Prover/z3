@@ -36,7 +36,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -53,7 +53,7 @@ jobs:
         run: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: macOsBuild
           path: dist/*.zip
@@ -65,7 +65,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -79,7 +79,7 @@ jobs:
         run: git clone https://github.com/z3prover/z3test z3test
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: MacArm64
           path: dist/*.zip
@@ -96,10 +96,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Download macOS x64 Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: macOsBuild
           path: artifacts
@@ -144,10 +144,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Download macOS ARM64 Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: MacArm64
           path: artifacts
@@ -191,7 +191,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -208,7 +208,7 @@ jobs:
         run: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: UbuntuBuild
           path: dist/*.zip
@@ -220,7 +220,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -243,7 +243,7 @@ jobs:
           python scripts/mk_unix_dist.py --nodotnet --arch=arm64
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: UbuntuArm64
           path: dist/*.zip
@@ -255,7 +255,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -298,7 +298,7 @@ jobs:
         run: zip -r z3doc.zip doc/api
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: UbuntuDoc
           path: z3doc.zip
@@ -311,7 +311,7 @@ jobs:
     container: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Setup Python environment
         run: |
@@ -328,7 +328,7 @@ jobs:
         run: pip install ./src/api/python/wheelhouse/*.whl && python - <src/api/python/z3test.py z3 && python - <src/api/python/z3test.py z3num
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ManyLinuxPythonBuildAMD64
           path: src/api/python/wheelhouse/*.whl
@@ -341,7 +341,7 @@ jobs:
     container: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Download ARM toolchain
         run: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz'
@@ -368,7 +368,7 @@ jobs:
         run: cd src/api/python && CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld Z3_CROSS_COMPILING=aarch64 python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../..
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ManyLinuxPythonBuildArm64
           path: src/api/python/wheelhouse/*.whl
@@ -380,7 +380,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -394,7 +394,7 @@ jobs:
           python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --zip
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: WindowsBuild-x64
           path: dist/*.zip
@@ -406,7 +406,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -420,7 +420,7 @@ jobs:
           python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --zip
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: WindowsBuild-x86
           path: dist/*.zip
@@ -432,7 +432,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -446,7 +446,7 @@ jobs:
           python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ env.RELEASE_VERSION }} --zip
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: WindowsBuild-arm64
           path: dist/arm64/*.zip
@@ -462,7 +462,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -470,37 +470,37 @@ jobs:
           python-version: '3.x'
       
       - name: Download Win64 Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: WindowsBuild-x64
           path: package
       
       - name: Download Win ARM64 Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: WindowsBuild-arm64
           path: package
       
       - name: Download Ubuntu Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: UbuntuBuild
           path: package
       
       - name: Download Ubuntu ARM64 Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: UbuntuArm64
           path: package
       
       - name: Download macOS Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: macOsBuild
           path: package
       
       - name: Download macOS Arm64 Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: MacArm64
           path: package
@@ -523,7 +523,7 @@ jobs:
           nuget pack out\Microsoft.Z3.sym.nuspec -OutputDirectory . -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath out
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: NuGet
           path: |
@@ -537,7 +537,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -545,7 +545,7 @@ jobs:
           python-version: '3.x'
       
       - name: Download artifacts
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: WindowsBuild-x86
           path: package
@@ -568,7 +568,7 @@ jobs:
           nuget pack out\Microsoft.Z3.x86.sym.nuspec -OutputDirectory . -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath out
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: NuGet32
           path: |
@@ -582,7 +582,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -590,43 +590,43 @@ jobs:
           python-version: '3.x'
       
       - name: Download macOS x64 Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: macOsBuild
           path: artifacts
       
       - name: Download macOS Arm64 Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: MacArm64
           path: artifacts
       
       - name: Download Win64 Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: WindowsBuild-x64
           path: artifacts
       
       - name: Download Win32 Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: WindowsBuild-x86
           path: artifacts
       
       - name: Download Win ARM64 Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: WindowsBuild-arm64
           path: artifacts
       
       - name: Download ManyLinux AMD64 Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: ManyLinuxPythonBuildAMD64
           path: artifacts
       
       - name: Download ManyLinux Arm64 Build
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: ManyLinuxPythonBuildArm64
           path: artifacts
@@ -658,7 +658,7 @@ jobs:
           cp artifacts/*.whl src/api/python/dist/.
             
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: PythonPackage
           path: src/api/python/dist/*
@@ -689,10 +689,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Download all artifacts
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           path: tmp
       
@@ -745,16 +745,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@v6
       
       - name: Download NuGet packages
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: NuGet
           path: packages
       
       - name: Download NuGet32 packages
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: NuGet32
           path: packages
@@ -781,7 +781,7 @@ jobs:
       contents: read
     steps:
       - name: Download Python packages
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8
         with:
           name: PythonPackage
           path: dist

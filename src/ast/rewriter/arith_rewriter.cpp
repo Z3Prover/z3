@@ -292,6 +292,40 @@ bool arith_rewriter::is_non_negative(expr* e) {
     }
     if (sign)
         return false;
+
+    // For integer products, check if unpaired factors form consecutive pairs.
+    // x * (x + 1) >= 0 for all integers since no integer lies strictly between -1 and 0.
+    if (m_util.is_int(e)) {
+        expr_mark seen;
+        ptr_buffer<expr> odd_args;
+        for (expr* arg : args)
+            if (mark.is_marked(arg) && !seen.is_marked(arg)) {
+                seen.mark(arg, true);
+                odd_args.push_back(arg);
+            }
+        if (odd_args.size() == 2) {
+            auto is_succ = [&](expr* a, expr* b) {
+                if (!m_util.is_add(b))
+                    return false;
+                app* add = to_app(b);
+                rational offset(0);
+                unsigned num_a = 0;
+                for (expr* arg : *add) {
+                    rational c;
+                    if (m_util.is_numeral(arg, c))
+                        offset += c;
+                    else if (arg == a)
+                        ++num_a;
+                    else
+                        return false;
+                }
+                return num_a == 1 && (offset.is_one() || offset.is_minus_one());
+            };
+            if (is_succ(odd_args[0], odd_args[1]) || is_succ(odd_args[1], odd_args[0]))
+                return true;
+        }
+    }
+
     for (expr* arg : args) 
         if (mark.is_marked(arg)) 
             return false;
@@ -312,6 +346,11 @@ br_status arith_rewriter::is_separated(expr* arg1, expr* arg2, op_kind kind, exp
     bool has_bound = true;
     if (!m_util.is_numeral(arg2, r2))
         return BR_FAILED;
+
+    if (kind == GE && r2.is_zero() && m_util.is_mul(arg1) && is_non_negative(arg1)) {
+        result = m.mk_true();
+        return BR_DONE;
+    }
     auto update_bound = [&](expr* arg) {
         if (m_util.is_numeral(arg, r1)) {
             bound += r1;

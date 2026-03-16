@@ -1,5 +1,5 @@
 ---
-description: Daily API coherence checker across Z3's multi-language bindings
+description: Daily API coherence checker across Z3's multi-language bindings including Rust
 
 on:
   workflow_dispatch:
@@ -26,11 +26,15 @@ safe-outputs:
     title-prefix: "[API Coherence] "
     category: "Agentic Workflows"
     close-older-discussions: true
+  noop:
+    report-as-issue: false
   github-token: ${{ secrets.GITHUB_TOKEN }}
 
 steps:
   - name: Checkout repository
     uses: actions/checkout@v5
+    with:
+      persist-credentials: false
 
 ---
 
@@ -40,7 +44,7 @@ steps:
 
 Your name is ${{ github.workflow }}. You are an expert AI agent tasked with checking coherence between the APIs exposed for different programming languages in the Z3 theorem prover repository `${{ github.repository }}`.
 
-Z3 provides bindings for multiple languages: **Java**, **.NET (C#)**, **C++**, **Python**, **TypeScript/JavaScript**, **OCaml**, and **Go**. Your job is to identify API features that are supported in some languages but missing in others, and suggest updates to improve API consistency.
+Z3 provides bindings for multiple languages: **Java**, **.NET (C#)**, **C++**, **Python**, **TypeScript/JavaScript**, **OCaml**, **Go**, and **Rust** (via the external [`z3` crate](https://github.com/prove-rs/z3.rs)). Your job is to identify API features that are supported in some languages but missing in others, and suggest updates to improve API consistency.
 
 ## Your Task
 
@@ -79,6 +83,7 @@ The API implementations are located in:
 - **TypeScript/JavaScript**: `src/api/js/src/**/*.ts`
 - **OCaml**: `src/api/ml/*.ml` and `*.mli` (interface files)
 - **Go**: `src/api/go/*.go` (CGO bindings)
+- **Rust**: External repository [`prove-rs/z3.rs`](https://github.com/prove-rs/z3.rs). Clone it with `git clone --depth=1 https://github.com/prove-rs/z3.rs /tmp/z3.rs` and analyze the high-level `z3` crate in `/tmp/z3.rs/z3/src/`. The low-level `z3-sys` crate at `/tmp/z3.rs/z3-sys/` mirrors the C API and can be used to identify which C functions are exposed.
 
 ### 4. Analyze API Coherence
 
@@ -94,6 +99,7 @@ For each selected API family:
    - **C++**: Use grep/glob to search for function declarations in `z3++.h`
    - **OCaml**: Use grep/glob to search for function definitions in `.ml` and `.mli` files
    - **Go**: Use grep/glob to search for function and method definitions in `src/api/go/*.go` files
+   - **Rust**: Clone the external repo (`git clone --depth=1 https://github.com/prove-rs/z3.rs /tmp/z3.rs`) and use grep/glob to search for public types, methods, functions, traits, and trait implementations in `/tmp/z3.rs/z3/src/*.rs`. Note that trait implementations (`impl Trait for Type`) do not use the `pub` keyword in Rust but are as public as the type and trait themselves, so search for `impl ` patterns in addition to `pub ` patterns to find them.
 
 3. **Compare implementations** across languages:
    - Is the same functionality available in all languages?
@@ -170,7 +176,7 @@ Store in cache memory:
 ## Summary
 Analyzed: Solver APIs, BitVector operations, Context creation
 Total functions checked: 18
-Languages covered: 7
+Languages covered: 8
 Previously cached issues resolved: 2
 Inconsistencies found: 7
 
@@ -188,7 +194,7 @@ The following cached issues have been resolved since the last run:
 
 ### 1. Missing BitVector Sign Extension in TypeScript
 **What**: Bit sign extension function `Z3_mk_sign_ext` is not exposed in TypeScript
-**Available in**: C, C++, Python, .NET, Java, Go
+**Available in**: C, C++, Python, .NET, Java, Go, Rust
 **Missing in**: TypeScript
 **Fix**: Add `signExt(int i)` method to `BitVecExpr` class
 **File**: `src/api/js/src/high-level/`

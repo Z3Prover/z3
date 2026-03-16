@@ -82,13 +82,14 @@ namespace intblast {
 
         bool add_bound_axioms();
         bool add_predicate_axioms();
+        bool add_bv2int_axioms();
 
         euf::theory_var mk_var(euf::enode* n) override;
 
         void add_value_plugin(euf::enode* n, model& mdl, expr_ref_vector& values);
         void add_value_solver(euf::enode* n, model& mdl, expr_ref_vector& values);
 
-        unsigned m_vars_qhead = 0, m_preds_qhead = 0;
+        unsigned m_vars_qhead = 0, m_preds_qhead = 0, m_bv2int_qhead = 0;
 
 
     public:

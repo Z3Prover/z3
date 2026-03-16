@@ -567,6 +567,29 @@ public class Solver extends Z3Object {
     }
 
     /**
+     * Create a new solver with pre-processing simplification attached.
+     *
+     * @param simplifier The simplifier to attach for pre-processing
+     * @return A new solver with the simplifier applied
+     **/
+    public Solver addSimplifier(Simplifier simplifier)
+    {
+        return new Solver(getContext(), Native.solverAddSimplifier(
+                getContext().nCtx(), getNativeObject(), simplifier.getNativeObject()));
+    }
+
+    /**
+     * Convert the solver's Boolean formula to DIMACS CNF format.
+     *
+     * @param includeNames If true, include variable names in the DIMACS output
+     * @return A string containing the DIMACS CNF representation
+     **/
+    public String toDimacs(boolean includeNames)
+    {
+        return Native.solverToDimacsString(getContext().nCtx(), getNativeObject(), includeNames);
+    }
+
+    /**
      * Solver statistics.
      * 
      * @throws Z3Exception

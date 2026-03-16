@@ -37,6 +37,7 @@ add_executable(test-z3
   cube_clause.cpp
   datalog_parser.cpp
   ddnf.cpp
+  deep_api_bugs.cpp
   diff_logic.cpp
   distribution.cpp
   dl_context.cpp
@@ -58,6 +59,7 @@ add_executable(test-z3
   f2n.cpp
   finite_set.cpp
   finite_set_rewriter.cpp
+  fpa.cpp
   factor_rewriter.cpp
   finder.cpp
   fixed_bit_vector.cpp

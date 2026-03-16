@@ -869,6 +869,19 @@ sig
       {!mk_select} *)
   val mk_const_array : context -> Sort.sort -> Expr.expr -> Expr.expr
 
+  (** Multi-index array read.
+
+      The node [a] must have a multi-dimensional array sort, and [idxs] is the list of indices.
+      {!mk_select} *)
+  val mk_select_n : context -> Expr.expr -> Expr.expr list -> Expr.expr
+
+  (** Multi-index array update.
+
+      The node [a] must have a multi-dimensional array sort, [idxs] is the list of indices,
+      and [v] is the value to store.
+      {!mk_store} *)
+  val mk_store_n : context -> Expr.expr -> Expr.expr list -> Expr.expr -> Expr.expr
+
   (** Maps f on the argument arrays.
 
       Each element of [args] must be of an array sort [[domain_i -> range_i]].
@@ -2023,6 +2036,9 @@ sig
   (** regular expression for the range between two characters *)
   val mk_re_range : context -> Expr.expr -> Expr.expr -> Expr.expr
 
+  (** the regular expression matching any single character of the given sort *)
+  val mk_re_allchar : context -> Sort.sort -> Expr.expr
+
   (** bounded loop regular expression *)
   val mk_re_loop : context -> Expr.expr -> int -> int -> Expr.expr
 
@@ -3041,6 +3057,10 @@ sig
       @return A list of expressions, where each is an element of the universe of the sort *)
   val sort_universe : model -> Sort.sort -> Expr.expr list
 
+  (** Translate the model to a different context.
+      @return A new model in the target context *)
+  val translate : model -> context -> model
+
   (** Conversion of models to strings.
       @return A string representation of the model. *)
   val to_string : model -> string
@@ -3428,6 +3448,10 @@ sig
   (** A string representation of the solver. *)
   val to_string : solver -> string
 
+  (** Convert the solver's Boolean formula to DIMACS CNF format.
+      @param include_names If true, include variable names in the output. *)
+  val to_dimacs : solver -> bool -> string
+
   (** Solver local interrupt.
 
       Normally you should use Z3_interrupt to cancel solvers because only
@@ -3492,6 +3516,13 @@ sig
       variables are the variables to solve for, terms are the substitution terms,
       and guards are Boolean guards for the substitutions. *)
   val solve_for : solver -> Expr.expr list -> Expr.expr list -> Expr.expr list -> unit
+
+  (** Register a callback that is invoked when clauses are inferred during solving.
+      The callback is called when a clause is asserted to the CDCL engine, inferred
+      by CDCL(T), or deleted by the CDCL(T) engine.
+      The callback receives an optional proof hint expression, a list of dependency
+      indices, and the inferred clause as a list of literal expressions. *)
+  val register_on_clause : solver -> (Expr.expr option -> int list -> Expr.expr list -> unit) -> unit
 end
 
 (** Fixedpoint solving *)
@@ -3665,6 +3696,9 @@ sig
       corresponding minimization objective. In this way the resulting
       objective function is always returned as a minimization objective. *)
   val get_objectives : optimize -> Expr.expr list
+
+  (** Translate the optimize context to a different context. *)
+  val translate : optimize -> context -> optimize
 end
 
 

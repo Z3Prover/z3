@@ -272,7 +272,7 @@ void finite_set_axioms::in_map_axiom(expr *x, expr *a) {
     expr_ref f1(u.mk_in(x, a), m);
     expr_ref f2(u.mk_in(inv, b), m);
     add_binary("map-inverse", x, a, m.mk_not(f1), f2);
-    add_binary("map-inverse", x, b, f1, m.mk_not(f2));
+    add_binary("map-inverse", x, a, f1, m.mk_not(f2));
 }
 
 // a := set.map(f, b)

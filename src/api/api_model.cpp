@@ -64,6 +64,7 @@ extern "C" {
         LOG_Z3_model_get_const_interp(c, m, a);
         RESET_ERROR_CODE();
         CHECK_NON_NULL(m, nullptr);
+        CHECK_NON_NULL(a, nullptr);
         expr * r = to_model_ref(m)->get_const_interp(to_func_decl(a));
         if (!r) {
             RETURN_Z3(nullptr);
@@ -164,7 +165,7 @@ extern "C" {
         model::scoped_model_completion _scm(*_m, model_completion);
         result = (*_m)(to_expr(t));
         mk_c(c)->save_ast_trail(result.get());
-        *v = of_ast(result.get());
+        if (v) *v = of_ast(result.get());
         RETURN_Z3_model_eval true;
         Z3_CATCH_RETURN(false);
     }
@@ -212,6 +213,10 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_model_translate(c, m, target);
         RESET_ERROR_CODE();
+        if (!target) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "null target context");
+            RETURN_Z3(nullptr);
+        }
         Z3_model_ref* dst = alloc(Z3_model_ref, *mk_c(target));
         ast_translation tr(mk_c(c)->m(), mk_c(target)->m());
         dst->m_model = to_model_ref(m)->translate(tr);
@@ -246,7 +251,8 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_add_func_interp(c, m, f, else_val);
         RESET_ERROR_CODE();
-		CHECK_NON_NULL(f, nullptr);
+        CHECK_NON_NULL(m, nullptr);
+        CHECK_NON_NULL(f, nullptr);
         func_decl* d = to_func_decl(f);
         model* mdl = to_model_ref(m);
         Z3_func_interp_ref * f_ref = alloc(Z3_func_interp_ref, *mk_c(c), mdl); 

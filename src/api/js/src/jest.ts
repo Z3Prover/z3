@@ -11,7 +11,7 @@ export * from './low-level/types.__GENERATED__';
 
 export async function init(): Promise<Z3HighLevel & Z3LowLevel> {
   const lowLevel = await initWrapper(initModule);
-  const highLevel = createApi(lowLevel.Z3);
+  const highLevel = createApi(lowLevel.Z3, lowLevel.em);
   return { ...lowLevel, ...highLevel };
 }
 
