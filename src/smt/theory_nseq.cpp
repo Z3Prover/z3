@@ -48,7 +48,6 @@ namespace smt {
 
     void theory_nseq::init() {
         m_arith_value.init(&get_context());
-        m_nielsen.set_cancel_fn([this]() { return get_context().get_cancel_flag(); });
     }
 
     // -----------------------------------------------------------------------

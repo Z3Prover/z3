@@ -744,8 +744,6 @@ namespace seq {
         unsigned                      m_num_input_mems = 0;
         nielsen_stats                 m_stats;
 
-        // external cancellation callback: returns true if solving should abort
-        std::function<bool()>         m_cancel_fn;
 
         // -----------------------------------------------
         // Integer subsolver (abstract interface)
@@ -834,9 +832,6 @@ namespace seq {
         
         // enable/disable Parikh image verification constraints
         void set_parikh_enabled(bool e) { m_parikh_enabled = e; }
-
-        // set a cancellation callback; solve() checks this periodically
-        void set_cancel_fn(std::function<bool()> fn) { m_cancel_fn = std::move(fn); }
 
         // generate next unique regex membership id
         unsigned next_mem_id() { return m_next_mem_id++; }

@@ -2109,10 +2109,11 @@ namespace seq {
             // m_max_search_depth == 0 means unlimited; otherwise stop when bound exceeds it.
             m_depth_bound = 10;
             while (true) {
-                if (m_cancel_fn && m_cancel_fn()) {
+                if (!m().inc()) {
 #ifdef Z3DEBUG
                     // Examining the Nielsen graph is probably the best way of debugging
                     std::string dot = to_dot();
+                    IF_VERBOSE(1, verbose_stream() << dot << "\n";);
 #endif
                     break;
                 }
@@ -2156,7 +2157,7 @@ namespace seq {
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth);
 
         // check for external cancellation (timeout, user interrupt)
-        if (m_cancel_fn && m_cancel_fn())
+        if (!m().inc())
             return search_result::unknown;
 
         // check DFS node budget (0 = unlimited)
