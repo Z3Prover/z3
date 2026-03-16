@@ -457,17 +457,17 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     void theory_nseq::deps_to_lits(seq::dep_tracker const& deps, enode_pair_vector& eqs, literal_vector& lits) {
-        unsigned num_input_eqs = m_nielsen.num_input_eqs();
-        for (unsigned b : deps) {
-            if (b < num_input_eqs) {
-                eq_source const& src = m_state.get_eq_source(b);
+        vector<seq::dep_source, false> vs;
+        m_nielsen.dep_mgr().linearize(deps, vs);
+        for (seq::dep_source const& d : vs) {
+            if (d.m_kind == seq::dep_source::kind::eq) {
+                eq_source const& src = m_state.get_eq_source(d.index);
                 if (src.m_n1->get_root() == src.m_n2->get_root())
                     eqs.push_back({src.m_n1, src.m_n2});
             }
             else {
-                unsigned mem_idx = b - num_input_eqs;
-                if (mem_idx < m_nielsen_to_state_mem.size()) {
-                    unsigned state_mem_idx = m_nielsen_to_state_mem[mem_idx];
+                if (d.index < m_nielsen_to_state_mem.size()) {
+                    unsigned state_mem_idx = m_nielsen_to_state_mem[d.index];
                     mem_source const& src = m_state.get_mem_source(state_mem_idx);
                     SASSERT(ctx.get_assignment(src.m_lit) == l_true);
                     lits.push_back(src.m_lit);
@@ -485,7 +485,7 @@ namespace smt {
     }
 
     void theory_nseq::explain_nielsen_conflict() {
-        seq::dep_tracker deps;
+        seq::dep_tracker deps = m_nielsen.dep_mgr().mk_empty();
         m_nielsen.collect_conflict_deps(deps);
         add_conflict_clause(deps);
     }

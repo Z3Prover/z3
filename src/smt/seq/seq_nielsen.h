@@ -98,8 +98,9 @@ Abstract:
     ------------------------------------
     1. dep_tracker (DependencyTracker): ZIPT's DependencyTracker is a .NET
        class using a BitArray-like structure for tracking constraint origins.
-       Z3 uses uint_set (a dense bitvector from util/uint_set.h) for the same
-       purpose. The |=/subset_of/empty semantics are equivalent.
+       Z3 uses scoped_dependency_manager<dep_source> (an arena-based binary
+       join tree from util/dependency.h) where each leaf carries a dep_source
+       value identifying the originating eq or mem constraint by kind and index.
 
     2. Substitution application (nielsen_node::apply_subst): ZIPT uses an
        immutable, functional style -- Apply() returns a new constraint if
@@ -234,6 +235,7 @@ Author:
 
 #include "util/vector.h"
 #include "util/uint_set.h"
+#include "util/dependency.h"
 #include "util/map.h"
 #include "util/lbool.h"
 #include "ast/ast.h"
@@ -300,10 +302,25 @@ namespace seq {
         children_failed,
     };
 
-    // dependency tracker: bitvector tracking which input constraints
-    // contributed to deriving a given constraint
-    // mirrors ZIPT's DependencyTracker
-    using dep_tracker = uint_set;
+    // source of a dependency: identifies an input constraint by kind and index.
+    // kind::eq means a string equality, kind::mem means a regex membership.
+    // index is the 0-based position in the input eq or mem list respectively.
+    struct dep_source {
+        enum class kind { eq, mem } m_kind;
+        unsigned index;
+        bool operator==(dep_source const& o) const {
+            return m_kind == o.m_kind && index == o.index;
+        }
+    };
+
+    // Arena-based dependency manager: builds an immutable tree of dep_source
+    // leaves joined by binary join nodes.  Memory is managed via a region;
+    // call dep_manager::reset() to release all allocations at once.
+    using dep_manager = scoped_dependency_manager<dep_source>;
+
+    // dep_tracker is a pointer into the dep_manager's arena.
+    // nullptr represents the empty dependency set.
+    using dep_tracker = dep_manager::dependency*;
 
     // -----------------------------------------------
     // character-level substitution
@@ -786,6 +803,10 @@ namespace seq {
         // Pins the fresh length variable expressions so they aren't garbage collected.
         expr_ref_vector               m_len_vars;
 
+        // Arena for dep_tracker nodes.  Declared mutable so that const methods
+        // (e.g., explain_conflict) can call mk_join / linearize.
+        mutable dep_manager           m_dep_mgr;
+
     public:
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
         // the caller is responsible for keeping the solver alive.
@@ -797,6 +818,9 @@ namespace seq {
         ast_manager const& m() const { return m_m; }
         seq_util& seq() { return m_seq; }
         seq_util const& seq() const { return m_seq; }
+
+        dep_manager& dep_mgr() { return m_dep_mgr; }
+        dep_manager const& dep_mgr() const { return m_dep_mgr; }
 
         // node management
         nielsen_node* mk_node();
@@ -838,7 +862,7 @@ namespace seq {
         // generate next unique regex membership id
         unsigned next_mem_id() { return m_next_mem_id++; }
 
-        // number of input constraints (for dep_tracker bit mapping)
+        // number of input constraints (used for indexing dep_source leaves)
         unsigned num_input_eqs() const { return m_num_input_eqs; }
         unsigned num_input_mems() const { return m_num_input_mems; }
 
@@ -868,8 +892,8 @@ namespace seq {
         // collect dependency information from conflicting constraints
         void collect_conflict_deps(dep_tracker& deps) const;
 
-        // explain a conflict: partition the set bits into str_eq indices
-        // (bits 0..num_eqs-1) and str_mem indices (bits num_eqs..num_eqs+num_mems-1).
+        // explain a conflict: partition the dep_source leaves into str_eq indices
+        // (kind::eq) and str_mem indices (kind::mem).
         // Must be called after solve() returns unsat.
         void explain_conflict(unsigned_vector& eq_indices, unsigned_vector& mem_indices) const;
 
