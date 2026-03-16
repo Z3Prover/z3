@@ -91,9 +91,6 @@ namespace euf {
         stats            m_stats;
         bool             m_add_plugin; // whether sgraph created the seq_plugin
 
-        // tracks allocated subst caches for cleanup
-        ptr_vector<snode_subst_cache> m_subst_caches;
-
         // maps expression id to snode
         ptr_vector<snode> m_expr2snode;
 

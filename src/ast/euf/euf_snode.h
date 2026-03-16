@@ -32,7 +32,6 @@ namespace euf {
 
     class sgraph;
     class snode;
-    struct snode_subst_cache;
 
     typedef ptr_vector<snode> snode_vector;
 
@@ -72,9 +71,6 @@ namespace euf {
         // hash matrix for associativity-respecting hashing (2x2 polynomial hash matrix)
         // all zeros means not cached, non-zero means cached
         unsigned    m_hash_matrix[2][2] = {{0,0},{0,0}};
-
-        // substitution cache (lazy-initialized, owned by sgraph)
-        snode_subst_cache* m_subst_cache = nullptr;
 
         snode*      m_args[0]; // variable-length array, allocated via get_snode_size(num_args)
 
