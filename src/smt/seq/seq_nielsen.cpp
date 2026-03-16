@@ -762,11 +762,109 @@ namespace seq {
         return r;
     }
 
-    // Helper: render an snode as an HTML label for DOT output.
+    static std::string regex_expr_html(expr* e, ast_manager& m, seq_util& seq) {
+        if (!e) return "null";
+        expr* a = nullptr, * b = nullptr;
+
+        if (seq.re.is_to_re(e, a)) {
+            zstring s;
+            if (seq.str.is_string(a, s)) {
+                return "\"" + dot_html_escape(s.encode()) + "\"";
+            }
+            std::ostringstream os;
+            os << mk_pp(a, m);
+            return dot_html_escape(os.str());
+        }
+        if (seq.re.is_concat(e)) {
+            app* ap = to_app(e);
+            std::string res;
+            if (ap->get_num_args() == 0) return "()";
+            for (unsigned i = 0; i < ap->get_num_args(); ++i) {
+                if (i > 0) res += " ";
+                bool needs_parens = seq.re.is_union(ap->get_arg(i));
+                if (needs_parens) res += "(";
+                res += regex_expr_html(ap->get_arg(i), m, seq);
+                if (needs_parens) res += ")";
+            }
+            return res;
+        }
+        if (seq.re.is_union(e)) {
+            app* ap = to_app(e);
+            std::string res;
+            if (ap->get_num_args() == 0) return "&#8709;";
+            for (unsigned i = 0; i < ap->get_num_args(); ++i) {
+                if (i > 0) res += " | ";
+                res += regex_expr_html(ap->get_arg(i), m, seq);
+            }
+            return res;
+        }
+        if (seq.re.is_intersection(e)) {
+            app* ap = to_app(e);
+            std::string res;
+            for (unsigned i = 0; i < ap->get_num_args(); ++i) {
+                if (i > 0) res += " &amp; ";
+                bool needs_parens = seq.re.is_union(ap->get_arg(i)) || seq.re.is_concat(ap->get_arg(i));
+                if (needs_parens) res += "(";
+                res += regex_expr_html(ap->get_arg(i), m, seq);
+                if (needs_parens) res += ")";
+            }
+            return res;
+        }
+        if (seq.re.is_star(e, a)) {
+            bool needs_parens = seq.re.is_union(a) || seq.re.is_concat(a) || seq.re.is_intersection(a);
+            std::string res = needs_parens ? "(" : "";
+            res += regex_expr_html(a, m, seq);
+            res += needs_parens ? ")<SUP>*</SUP>" : "<SUP>*</SUP>";
+            return res;
+        }
+        if (seq.re.is_plus(e, a)) {
+            bool needs_parens = seq.re.is_union(a) || seq.re.is_concat(a) || seq.re.is_intersection(a);
+            std::string res = needs_parens ? "(" : "";
+            res += regex_expr_html(a, m, seq);
+            res += needs_parens ? ")<SUP>+</SUP>" : "<SUP>+</SUP>";
+            return res;
+        }
+        if (seq.re.is_opt(e, a)) {
+            bool needs_parens = seq.re.is_union(a) || seq.re.is_concat(a) || seq.re.is_intersection(a);
+            std::string res = needs_parens ? "(" : "";
+            res += regex_expr_html(a, m, seq);
+            res += needs_parens ? ")?" : "?";
+            return res;
+        }
+        if (seq.re.is_complement(e, a)) {
+            bool needs_parens = seq.re.is_union(a) || seq.re.is_concat(a) || seq.re.is_intersection(a);
+            std::string res = "~";
+            res += needs_parens ? "(" : "";
+            res += regex_expr_html(a, m, seq);
+            res += needs_parens ? ")" : "";
+            return res;
+        }
+        if (seq.re.is_range(e, a, b)) {
+            zstring s1, s2;
+            std::string c1 = seq.str.is_string(a, s1) ? dot_html_escape(s1.encode()) : arith_expr_html(a, m);
+            std::string c2 = seq.str.is_string(b, s2) ? dot_html_escape(s2.encode()) : arith_expr_html(b, m);
+            return "[" + c1 + "-" + c2 + "]";
+        }
+        if (seq.re.is_full_char(e)) {
+            return "&#931;"; // Sigma
+        }
+        if (seq.re.is_full_seq(e)) {
+            return "&#931;<SUP>*</SUP>"; // Sigma*
+        }
+        if (seq.re.is_empty(e)) {
+            return "&#8709;"; // empty set
+        }
+
+        std::ostringstream os;
+        os << mk_pp(e, m);
+        return dot_html_escape(os.str());
+    }
+
+    // Helper: render a snode as an HTML label for DOT output.
     // Groups consecutive s_char tokens into quoted strings, renders s_var by name,
     // shows s_power with superscripts, s_unit by its inner expression,
     // and falls back to mk_pp (HTML-escaped) for other token kinds.
-    static std::string snode_label_html(euf::snode const* n, ast_manager& m) {
+    std::string snode_label_html(euf::snode const* n, ast_manager& m) {
         if (!n) return "null";
         seq_util seq(m);
 
@@ -840,6 +938,8 @@ namespace seq {
                 expr* exp_expr = to_app(e)->get_arg(1);
                 result += arith_expr_html(exp_expr, m);
                 result += "</SUP>";
+            } else if (e && seq.is_re(e)) {
+                result += regex_expr_html(e, m, seq);
             } else {
                 std::ostringstream os;
                 os << mk_pp(e, m);
@@ -3397,9 +3497,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_gpower_intr(nielsen_node* node) {
-        ast_manager& m = m_sg.get_manager();
-        arith_util arith(m);
-
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial()) continue;
             if (!eq.m_lhs || !eq.m_rhs) continue;
@@ -3468,11 +3565,12 @@ namespace seq {
             if (n % p != 0) continue;
             bool match = true;
             for (unsigned i = p; i < n && match; ++i)
-                match = (ground_prefix_orig[i]->id() == ground_prefix_orig[i % p]->id());
+                match = ground_prefix_orig[i]->id() == ground_prefix_orig[i % p]->id();
             if (match) { period = p; break; }
         }
-        for (unsigned i = 0; i < period; ++i)
+        for (unsigned i = 0; i < period; ++i) {
             ground_prefix.push_back(ground_prefix_orig[i]);
+        }
 
         // If the compressed prefix is a single power snode, unwrap it to use
         // its base tokens, avoiding nested powers.

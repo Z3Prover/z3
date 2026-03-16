@@ -519,135 +519,25 @@ namespace seq {
         if (regexes.empty())
             return l_false; // empty intersection = full language (vacuously non-empty)
 
-        // Quick checks: if any regex is fail/empty, intersection is empty
-        for (euf::snode* re : regexes) {
-            if (!re || !re->get_expr())
-                return l_undef;
-            if (re->is_fail() || is_empty_regex(re))
-                return l_true;
-        }
-
-        // Check if all are nullable (intersection accepts ε)
-        bool all_nullable = true;
-        for (euf::snode* re : regexes) {
-            if (!re->is_nullable()) { all_nullable = false; break; }
-        }
-        if (all_nullable)
-            return l_false;
-
         // Single regex: delegate to is_empty_bfs
         if (regexes.size() == 1)
             return is_empty_bfs(regexes[0], max_states);
 
-        // Build product BFS. State = tuple of regex snode ids.
-        // Use a map from state hash to visited set.
-        using state_t = svector<unsigned>;
+        seq_util& seq = m_sg.get_seq_util();
+        ast_manager& mgr = m_sg.get_manager();
 
-        auto state_hash = [](state_t const& s) -> unsigned {
-            unsigned h = 0;
-            for (unsigned id : s)
-                h = h * 31 + id;
-            return h;
-        };
-
-        auto state_eq = [](state_t const& a, state_t const& b) -> bool {
-            if (a.size() != b.size()) return false;
-            for (unsigned i = 0; i < a.size(); ++i)
-                if (a[i] != b[i]) return false;
-            return true;
-        };
-
-        // Use simple set via sorted vector of hashes (good enough for bounded BFS)
-        std::unordered_set<unsigned> visited_hashes;
-
-        struct bfs_state {
-            ptr_vector<euf::snode> regexes;
-        };
-
-        std::vector<bfs_state> worklist;
-        bfs_state initial;
-        initial.regexes.append(regexes);
-        worklist.push_back(std::move(initial));
-
-        state_t init_ids;
-        for (euf::snode* re : regexes)
-            init_ids.push_back(re->id());
-        visited_hashes.insert(state_hash(init_ids));
-
-        unsigned states_explored = 0;
-        bool had_failed = false;
-
-        // Collect alphabet representatives from the intersection of all regexes
-        // (merge boundaries from all)
-        unsigned_vector all_bounds;
-        all_bounds.push_back(0);
-        for (euf::snode* re : regexes)
-            collect_char_boundaries(re, all_bounds);
-        std::sort(all_bounds.begin(), all_bounds.end());
-
-        euf::snode_vector reps;
-        unsigned prev = UINT_MAX;
-        for (unsigned b : all_bounds) {
-            if (b != prev) {
-                reps.push_back(m_sg.mk_char(b));
-                prev = b;
-            }
-        }
-        if (reps.empty())
-            reps.push_back(m_sg.mk_char('a'));
-
-        while (!worklist.empty()) {
-            if (states_explored >= max_states)
+        euf::snode* result = regexes[0];
+        for (unsigned i = 1; i < regexes.size(); ++i) {
+            expr* r1 = result->get_expr();
+            expr* r2 = regexes[i]->get_expr();
+            if (!r1 || !r2) return l_undef;
+            expr_ref inter(seq.re.mk_inter(r1, r2), mgr);
+            result = m_sg.mk(inter);
+            if (!result)
                 return l_undef;
-
-            bfs_state current = std::move(worklist.back());
-            worklist.pop_back();
-            ++states_explored;
-
-            for (euf::snode* ch : reps) {
-                ptr_vector<euf::snode> derivs;
-                bool any_fail = false;
-                bool all_null = true;
-                bool deriv_failed = false;
-
-                for (euf::snode* re : current.regexes) {
-                    euf::snode* d = m_sg.brzozowski_deriv(re, ch);
-                    if (!d) { deriv_failed = true; break; }
-                    if (d->is_fail()) { any_fail = true; break; }
-                    if (!d->is_nullable()) all_null = false;
-                    derivs.push_back(d);
-                }
-
-                if (deriv_failed) { had_failed = true; continue; }
-                if (any_fail) continue; // this character leads to empty intersection
-
-                if (all_null)
-                    return l_false; // found an accepting state in the product
-
-                // Check if any component is structurally empty
-                bool any_empty = false;
-                for (euf::snode* d : derivs) {
-                    if (is_empty_regex(d)) { any_empty = true; break; }
-                }
-                if (any_empty) continue;
-
-                // Compute state hash and check visited
-                state_t ids;
-                for (euf::snode* d : derivs)
-                    ids.push_back(d->id());
-                unsigned h = state_hash(ids);
-                if (visited_hashes.count(h) == 0) {
-                    visited_hashes.insert(h);
-                    bfs_state next;
-                    next.regexes.append(derivs);
-                    worklist.push_back(std::move(next));
-                }
-            }
         }
 
-        if (had_failed)
-            return l_undef;
-        return l_true; // exhausted all states, intersection is empty
+        return is_empty_bfs(result, max_states);
     }
 
     // -----------------------------------------------------------------------

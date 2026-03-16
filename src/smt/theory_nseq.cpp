@@ -425,7 +425,12 @@ namespace smt {
         // here the actual Nielsen solving happens
         auto result = m_nielsen.solve();
 
-        
+#ifdef Z3DEBUG
+        // Examining the Nielsen graph is probably the best way of debugging
+        std::string dot = m_nielsen.to_dot();
+        IF_VERBOSE(1, verbose_stream() << dot << "\n";);
+#endif
+
         if (result == seq::nielsen_graph::search_result::unsat) {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNSAT\n";);
             explain_nielsen_conflict();
@@ -464,8 +469,8 @@ namespace smt {
                 if (mem_idx < m_nielsen_to_state_mem.size()) {
                     unsigned state_mem_idx = m_nielsen_to_state_mem[mem_idx];
                     mem_source const& src = m_state.get_mem_source(state_mem_idx);
-                    if (ctx.get_assignment(src.m_lit) == l_true)
-                        lits.push_back(src.m_lit);
+                    SASSERT(ctx.get_assignment(src.m_lit) == l_true);
+                    lits.push_back(src.m_lit);
                 }
             }
         }
@@ -823,9 +828,8 @@ namespace smt {
                 auto& vec = var_to_mems.insert_if_not_there(mem.m_str->id(), unsigned_vector());
                 vec.push_back(i);
             }
-            else {
+            else
                 all_var_str = false;
-            }
         }
 
         if (var_to_mems.empty())
@@ -855,19 +859,23 @@ namespace smt {
                 // jointly unsatisfiable.  Assert a conflict from all their literals.
                 enode_pair_vector eqs;
                 literal_vector lits;
+                std::cout << "CONFLICT:\n";
                 for (unsigned i : mem_indices) {
                     mem_source const& src = m_state.get_mem_source(i);
-                    if (ctx.get_assignment(src.m_lit) == l_true)
-                        lits.push_back(src.m_lit);
+                    SASSERT(ctx.get_assignment(src.m_lit) == l_true); // we already stored the polarity of the literal
+                    lits.push_back(src.m_lit);
+                    std::cout << "\t\t";
+                    std::cout << mk_pp(ctx.literal2expr(src.m_lit), m) << std::endl;
+                    std::cout << "\t\t";
+                    std::cout << src.m_lit << std::endl;
                 }
                 TRACE(seq, tout << "nseq regex precheck: empty intersection for var "
                                 << var_id << ", conflict with " << lits.size() << " lits\n";);
                 set_conflict(eqs, lits);
                 return l_true;   // conflict asserted
             }
-            else if (result == l_undef) {
+            if (result == l_undef)
                 any_undef = true;
-            }
             // l_false = non-empty intersection, this variable's constraints are satisfiable
         }
 

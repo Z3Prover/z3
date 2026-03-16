@@ -494,6 +494,8 @@ namespace seq {
         }
     };
 
+    std::string snode_label_html(euf::snode const* n, ast_manager& m);
+
     // node in the Nielsen graph
     // mirrors ZIPT's NielsenNode
     class nielsen_node {
