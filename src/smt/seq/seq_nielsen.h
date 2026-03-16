@@ -354,7 +354,7 @@ namespace seq {
         euf::snode* m_rhs;
         dep_tracker m_dep;
 
-        str_eq(): m_lhs(nullptr), m_rhs(nullptr) {}
+        str_eq(): m_lhs(nullptr), m_rhs(nullptr), m_dep(nullptr) {}
         str_eq(euf::snode* lhs, euf::snode* rhs, dep_tracker const& dep):
             m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
 
@@ -381,7 +381,7 @@ namespace seq {
         unsigned    m_id;       // unique identifier
         dep_tracker m_dep;
 
-        str_mem(): m_str(nullptr), m_regex(nullptr), m_history(nullptr), m_id(UINT_MAX) {}
+        str_mem(): m_str(nullptr), m_regex(nullptr), m_history(nullptr), m_id(UINT_MAX), m_dep(nullptr) {}
         str_mem(euf::snode* str, euf::snode* regex, euf::snode* history, unsigned id, dep_tracker const& dep):
             m_str(str), m_regex(regex), m_history(history), m_id(id), m_dep(dep) {}
 
@@ -404,7 +404,7 @@ namespace seq {
         euf::snode* m_replacement;
         dep_tracker m_dep;
 
-        nielsen_subst(): m_var(nullptr), m_replacement(nullptr) {}
+        nielsen_subst(): m_var(nullptr), m_replacement(nullptr), m_dep(nullptr) {}
         nielsen_subst(euf::snode* var, euf::snode* repl, dep_tracker const& dep):
             m_var(var), m_replacement(repl), m_dep(dep) {
             SASSERT(var != nullptr);
@@ -434,7 +434,7 @@ namespace seq {
         dep_tracker m_dep;   // tracks which input constraints contributed
         length_kind m_kind;  // determines propagation strategy
 
-        length_constraint(ast_manager& m): m_expr(m), m_kind(length_kind::nonneg) {}
+        length_constraint(ast_manager& m): m_expr(m), m_dep(nullptr), m_kind(length_kind::nonneg) {}
         length_constraint(expr* e, dep_tracker const& dep, length_kind kind, ast_manager& m):
             m_expr(e, m), m_dep(dep), m_kind(kind) {}
     };
@@ -460,7 +460,7 @@ namespace seq {
         dep_tracker          m_dep;    // tracks which input constraints contributed
 
         int_constraint(ast_manager& m):
-            m_lhs(m), m_rhs(m), m_kind(int_constraint_kind::eq) {}
+            m_lhs(m), m_rhs(m), m_kind(int_constraint_kind::eq), m_dep(nullptr) {}
         int_constraint(expr* lhs, expr* rhs, int_constraint_kind kind, dep_tracker const& dep, ast_manager& m):
             m_lhs(lhs, m), m_rhs(rhs, m), m_kind(kind), m_dep(dep) {}
 

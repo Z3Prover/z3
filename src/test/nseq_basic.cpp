@@ -126,7 +126,7 @@ static void test_nseq_node_satisfied() {
 
     // add a trivial equality
     euf::snode* empty = sg.mk_empty_seq(su.str.mk_string_sort());
-    seq::dep_tracker dep;
+    seq::dep_tracker dep = nullptr;
     seq::str_eq eq(empty, empty, dep);
     node->add_str_eq(eq);
     SASSERT(node->str_eqs().size() == 1);

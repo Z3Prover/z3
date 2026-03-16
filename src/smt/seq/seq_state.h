@@ -78,13 +78,13 @@ namespace smt {
         }
 
         void add_str_eq(euf::snode* lhs, euf::snode* rhs, enode* n1, enode* n2) {
-            seq::dep_tracker dep;
+            seq::dep_tracker dep = nullptr;
             m_str_eqs.push_back(seq::str_eq(lhs, rhs, dep));
             m_eq_sources.push_back({n1, n2});
         }
 
         void add_str_mem(euf::snode* str, euf::snode* regex, sat::literal lit) {
-            seq::dep_tracker dep;
+            seq::dep_tracker dep = nullptr;
             m_str_mems.push_back(seq::str_mem(str, regex, nullptr, m_next_mem_id++, dep));
             m_mem_sources.push_back({lit});
         }

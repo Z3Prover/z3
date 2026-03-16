@@ -34,37 +34,35 @@ public:
 
 };
 
-// test dep_tracker (uint_set) basic operations
+// test dep_tracker (dependency_manager<dep_source>) basic operations
 static void test_dep_tracker() {
     std::cout << "test_dep_tracker\n";
 
+    seq::dep_manager dm;
+
     // empty tracker
-    seq::dep_tracker d0;
-    SASSERT(d0.empty());
+    seq::dep_tracker d0 = dm.mk_empty();
+    SASSERT(d0 == nullptr);
 
-    // tracker with one bit set
-    seq::dep_tracker d1;
-    d1.insert(3);
-    SASSERT(!d1.empty());
+    // tracker with one leaf
+    seq::dep_tracker d1 = dm.mk_leaf({seq::dep_source::kind::eq, 3});
+    SASSERT(d1 != nullptr);
 
-    // tracker with another bit
-    seq::dep_tracker d2;
-    d2.insert(5);
-    SASSERT(!d2.empty());
+    // tracker with another leaf
+    seq::dep_tracker d2 = dm.mk_leaf({seq::dep_source::kind::mem, 5});
+    SASSERT(d2 != nullptr);
 
     // merge
-    seq::dep_tracker d3 = d1;
-    d3 |= d2;
-    SASSERT(!d3.empty());
-    SASSERT(d1.subset_of(d3));
-    SASSERT(d2.subset_of(d3));
-    SASSERT(!d2.subset_of(d1));
+    seq::dep_tracker d3 = dm.mk_join(d1, d2);
+    SASSERT(d3 != nullptr);
+    SASSERT(dm.contains(d3, {seq::dep_source::kind::eq, 3}));
+    SASSERT(dm.contains(d3, {seq::dep_source::kind::mem, 5}));
+    SASSERT(!dm.contains(d1, {seq::dep_source::kind::mem, 5}));
 
-    // equality
-    seq::dep_tracker d4;
-    d4.insert(3);
-    SASSERT(d1 == d4);
-    SASSERT(d1 != d2);
+    // another leaf with same value as d1
+    seq::dep_tracker d4 = dm.mk_leaf({seq::dep_source::kind::eq, 3});
+    SASSERT(dm.contains(d4, {seq::dep_source::kind::eq, 3}));
+    SASSERT(!dm.contains(d4, {seq::dep_source::kind::mem, 5}));
 }
 
 // test str_eq constraint creation and operations
@@ -81,11 +79,10 @@ static void test_str_eq() {
     euf::snode* a = sg.mk_char('A');
     euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
 
     // basic equality
     seq::str_eq eq1(x, y, dep);
-    SASSERT(!eq1.is_trivial());
     SASSERT(eq1.contains_var(x));
     SASSERT(eq1.contains_var(y));
     SASSERT(!eq1.contains_var(a));
@@ -128,7 +125,7 @@ static void test_str_mem() {
     expr_ref star_fc(seq.re.mk_full_seq(str_sort), m);
     euf::snode* regex = sg.mk(star_fc);
 
-    seq::dep_tracker dep; dep.insert(1);
+    seq::dep_tracker dep = nullptr;
     seq::str_mem mem(x, regex, e, 0, dep);
 
     // x in regex is primitive (x is a single variable)
@@ -157,9 +154,7 @@ static void test_nielsen_subst() {
     euf::snode* a = sg.mk_char('A');
     euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
-    seq::dep_tracker dep;
-
-    // eliminating substitution: x -> A (x does not appear in A)
+    seq::dep_tracker dep = nullptr;
     seq::nielsen_subst s1(x, a, dep);
     SASSERT(s1.is_eliminating());
 
@@ -202,7 +197,7 @@ static void test_nielsen_node() {
     SASSERT(root->reason() == seq::backtrack_reason::unevaluated);
 
     // add constraints
-    seq::dep_tracker dep;
+    seq::dep_tracker dep = nullptr;
     root->add_str_eq(seq::str_eq(x, y, dep));
     root->add_str_eq(seq::str_eq(sg.mk_concat(x, a), sg.mk_concat(a, y), dep));
     SASSERT(root->str_eqs().size() == 2);
@@ -239,7 +234,7 @@ static void test_nielsen_edge() {
 
     // create parent and child nodes
     seq::nielsen_node* parent = ng.mk_node();
-    seq::dep_tracker dep;
+    seq::dep_tracker dep = nullptr;
     parent->add_str_eq(seq::str_eq(x, y, dep));
 
     seq::nielsen_node* child = ng.mk_child(parent);
@@ -317,7 +312,7 @@ static void test_nielsen_subst_apply() {
 
     // create node with constraint: concat(x, A) = concat(B, y)
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep;
+    seq::dep_tracker dep = nullptr;
     euf::snode* xa = sg.mk_concat(x, a);
     euf::snode* by = sg.mk_concat(b, y);
     node->add_str_eq(seq::str_eq(xa, by, dep));
@@ -379,7 +374,7 @@ static void test_nielsen_expansion() {
     seq::nielsen_node* root = ng.root();
     SASSERT(root->str_eqs().size() == 1);
 
-    seq::dep_tracker dep;
+    seq::dep_tracker dep = nullptr;
 
     // branch 1: x -> eps (eliminating, progress)
     euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
@@ -1417,49 +1412,61 @@ static void test_solve_conflict_deps() {
     auto result = ng.solve();
     SASSERT(result == seq::nielsen_graph::search_result::unsat);
 
-    seq::dep_tracker deps;
+    seq::dep_tracker deps = ng.dep_mgr().mk_empty();
     ng.collect_conflict_deps(deps);
     // deps should be non-empty since there's a conflict
-    SASSERT(!deps.empty());
+    SASSERT(deps != nullptr);
 }
 
-// test dep_tracker (uint_set) iteration
+// test dep_tracker (dependency_manager<dep_source>) linearize
 static void test_dep_tracker_get_set_bits() {
     std::cout << "test_dep_tracker_get_set_bits\n";
 
-    // empty tracker has no bits
-    seq::dep_tracker d0;
-    unsigned_vector bits0;
-    for (unsigned b : d0) bits0.push_back(b);
+    seq::dep_manager dm;
+
+    // empty tracker has no leaves
+    seq::dep_tracker d0 = dm.mk_empty();
+    vector<seq::dep_source, false> bits0;
+    dm.linearize(d0, bits0);
     SASSERT(bits0.empty());
 
-    // single bit set at position 5
-    seq::dep_tracker d1;
-    d1.insert(5);
-    unsigned_vector bits1;
-    for (unsigned b : d1) bits1.push_back(b);
+    // single leaf at eq-index 5
+    seq::dep_tracker d1 = dm.mk_leaf({seq::dep_source::kind::eq, 5});
+    vector<seq::dep_source, false> bits1;
+    dm.linearize(d1, bits1);
     SASSERT(bits1.size() == 1);
-    SASSERT(bits1[0] == 5);
+    SASSERT(bits1[0].index == 5);
+    SASSERT(bits1[0].m_kind == seq::dep_source::kind::eq);
 
-    // two bits merged
-    seq::dep_tracker d2;
-    d2.insert(3);
-    d2.insert(11);
-    unsigned_vector bits2;
-    for (unsigned b : d2) bits2.push_back(b);
+    // two leaves merged: eq-index 3 and mem-index 11
+    seq::dep_tracker d2 = dm.mk_join(
+        dm.mk_leaf({seq::dep_source::kind::eq, 3}),
+        dm.mk_leaf({seq::dep_source::kind::mem, 11}));
+    vector<seq::dep_source, false> bits2;
+    dm.linearize(d2, bits2);
     SASSERT(bits2.size() == 2);
-    SASSERT(bits2[0] == 3);
-    SASSERT(bits2[1] == 11);
+    bool has_eq3 = false, has_mem11 = false;
+    for (auto const& d : bits2) {
+        if (d.m_kind == seq::dep_source::kind::eq && d.index == 3) has_eq3 = true;
+        if (d.m_kind == seq::dep_source::kind::mem && d.index == 11) has_mem11 = true;
+    }
+    SASSERT(has_eq3);
+    SASSERT(has_mem11);
 
-    // test across word boundary (bit 31 and 32)
-    seq::dep_tracker d3;
-    d3.insert(31);
-    d3.insert(32);
-    unsigned_vector bits3;
-    for (unsigned b : d3) bits3.push_back(b);
+    // join with additional leaf
+    seq::dep_tracker d3 = dm.mk_join(
+        dm.mk_leaf({seq::dep_source::kind::eq, 31}),
+        dm.mk_leaf({seq::dep_source::kind::mem, 32}));
+    vector<seq::dep_source, false> bits3;
+    dm.linearize(d3, bits3);
     SASSERT(bits3.size() == 2);
-    SASSERT(bits3[0] == 31);
-    SASSERT(bits3[1] == 32);
+    bool has31 = false, has32 = false;
+    for (auto const& d : bits3) {
+        if (d.index == 31) has31 = true;
+        if (d.index == 32) has32 = true;
+    }
+    SASSERT(has31);
+    SASSERT(has32);
 }
 
 // test explain_conflict returns correct constraint indices
@@ -1648,7 +1655,7 @@ static void test_simplify_prefix_cancel() {
     euf::snode* aby = sg.mk_concat(a, sg.mk_concat(b, y));
 
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(abx, aby, dep));
 
     auto sr = node->simplify_and_init();
@@ -1678,7 +1685,7 @@ static void test_simplify_suffix_cancel_rtl() {
     euf::snode* ya = sg.mk_concat(y, a);
 
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(xa, ya, dep));
 
     auto sr = node->simplify_and_init();
@@ -1707,7 +1714,7 @@ static void test_simplify_symbol_clash() {
     euf::snode* by = sg.mk_concat(b, y);
 
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(ax, by, dep));
 
     auto sr = node->simplify_and_init();
@@ -1733,7 +1740,7 @@ static void test_simplify_empty_propagation() {
 
     // ε = x·y → forces x=ε, y=ε → all trivial → satisfied
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(e, xy, dep));
 
     auto sr = node->simplify_and_init();
@@ -1755,7 +1762,7 @@ static void test_simplify_empty_vs_char() {
 
     // ε = A → rhs has non-variable token → conflict
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(e, a, dep));
 
     auto sr = node->simplify_and_init();
@@ -1781,7 +1788,7 @@ static void test_simplify_multi_pass_clash() {
     euf::snode* ac = sg.mk_concat(a, c);
 
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(ab, ac, dep));
 
     auto sr = node->simplify_and_init();
@@ -1804,7 +1811,7 @@ static void test_simplify_trivial_removal() {
     euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(e, e, dep));  // trivial
     node->add_str_eq(seq::str_eq(x, y, dep));  // non-trivial
 
@@ -1827,7 +1834,7 @@ static void test_simplify_all_trivial_satisfied() {
     euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(x, x, dep));  // trivial: same pointer
     node->add_str_eq(seq::str_eq(e, e, dep));  // trivial: both empty
 
@@ -1854,7 +1861,7 @@ static void test_simplify_regex_infeasible() {
 
     // ε ∈ to_re("A") → non-nullable → conflict
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
     node->add_str_mem(seq::str_mem(e, regex, e, 0, dep));
 
     auto sr = node->simplify_and_init();
@@ -1882,7 +1889,7 @@ static void test_simplify_nullable_removal() {
 
     // ε ∈ star(to_re("A")) → nullable → satisfied, mem removed
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
     node->add_str_mem(seq::str_mem(e, regex, e, 0, dep));
 
     auto sr = node->simplify_and_init();
@@ -1910,7 +1917,7 @@ static void test_simplify_brzozowski_sat() {
 
     // "A" ∈ to_re("A") → derivative consumes 'A' → ε ∈ ε-regex → satisfied
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
     node->add_str_mem(seq::str_mem(a, regex, e, 0, dep));
 
     auto sr = node->simplify_and_init();
@@ -1942,7 +1949,7 @@ static void test_simplify_brzozowski_rtl_suffix() {
 
     // x·"A" ∈ to_re("BA") → RTL consume trailing 'A' → x ∈ to_re("B")
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
     node->add_str_mem(seq::str_mem(xa, regex, e, 0, dep));
 
     auto sr = node->simplify_and_init();
@@ -1972,7 +1979,7 @@ static void test_simplify_multiple_eqs() {
     euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     seq::nielsen_node* node = ng.mk_node();
-    seq::dep_tracker dep; dep.insert(0);
+    seq::dep_tracker dep = nullptr;
 
     // eq1: ε = ε (trivial → removed)
     node->add_str_eq(seq::str_eq(e, e, dep));
@@ -2409,11 +2416,13 @@ static void test_length_constraints_deps() {
 
     // all constraints should have dependency on eq 0
     for (auto const& c : constraints) {
-        SASSERT(!c.m_dep.empty());
-        unsigned_vector bits;
-        for (unsigned b : c.m_dep) bits.push_back(b);
-        SASSERT(bits.size() == 1);
-        SASSERT(bits[0] == 0);
+        SASSERT(c.m_dep != nullptr);
+        vector<seq::dep_source, false> vs;
+        ng.dep_mgr().linearize(c.m_dep, vs);
+        bool found = false;
+        for (auto const& d : vs)
+            if (d.m_kind == seq::dep_source::kind::eq && d.index == 0) found = true;
+        SASSERT(found);
     }
 
     std::cout << "  dependency tracking correct\n";
@@ -3253,9 +3262,8 @@ static void test_parikh_dep_tracking() {
     SASSERT(constraints.size() >= 2);
 
     // all Parikh constraints should have non-empty deps
-    for (auto const& c : constraints) {
-        SASSERT(!c.m_dep.empty());
-    }
+    for (auto const& c : constraints)
+        SASSERT(c.m_dep != nullptr);
     std::cout << "  all constraints have non-empty deps\n";
 }
 
@@ -3300,7 +3308,7 @@ static void test_add_lower_int_bound_basic() {
     ng.add_str_eq(x, x);  // create root node
 
     seq::nielsen_node* node = ng.root();
-    seq::dep_tracker dep;
+    seq::dep_tracker dep = nullptr;
 
     // initially no bounds
     SASSERT(node->var_lb(x) == 0);
@@ -3344,7 +3352,7 @@ static void test_add_upper_int_bound_basic() {
     ng.add_str_eq(x, x);
 
     seq::nielsen_node* node = ng.root();
-    seq::dep_tracker dep;
+    seq::dep_tracker dep = nullptr;
 
     SASSERT(node->var_ub(x) == UINT_MAX);
 
@@ -3385,7 +3393,7 @@ static void test_add_bound_lb_gt_ub_conflict() {
     ng.add_str_eq(x, x);
 
     seq::nielsen_node* node = ng.root();
-    seq::dep_tracker dep;
+    seq::dep_tracker dep = nullptr;
 
     // set ub=3 first
     node->add_upper_int_bound(x, 3, dep);
@@ -3415,7 +3423,7 @@ static void test_bounds_cloned() {
     ng.add_str_eq(x, y);
 
     seq::nielsen_node* parent = ng.root();
-    seq::dep_tracker dep;
+    seq::dep_tracker dep = nullptr;
 
     // set bounds on parent
     parent->add_lower_int_bound(x, 2, dep);
@@ -3454,7 +3462,7 @@ static void test_var_bound_watcher_single_var() {
     ng.add_str_eq(x, y);
 
     seq::nielsen_node* node = ng.root();
-    seq::dep_tracker dep;
+    seq::dep_tracker dep = nullptr;
 
     // set bounds: 3 <= len(x) <= 7
     node->add_lower_int_bound(x, 3, dep);
@@ -3491,7 +3499,7 @@ static void test_var_bound_watcher_conflict() {
     ng.add_str_eq(x, a);
 
     seq::nielsen_node* node = ng.root();
-    seq::dep_tracker dep;
+    seq::dep_tracker dep = nullptr;
 
     // set bounds: 3 <= len(x)  (so x must have at least 3 chars)
     node->add_lower_int_bound(x, 3, dep);
@@ -3625,7 +3633,7 @@ static void test_var_bound_watcher_multi_var() {
     ng.add_str_eq(x, y);
 
     seq::nielsen_node* node = ng.root();
-    seq::dep_tracker dep;
+    seq::dep_tracker dep = nullptr;
 
     // set upper bound: len(x) <= 5
     node->add_upper_int_bound(x, 5, dep);
