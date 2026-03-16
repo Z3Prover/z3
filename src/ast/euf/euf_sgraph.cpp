@@ -23,25 +23,6 @@ Author:
 
 namespace euf {
 
-    // substitution cache stored on snode for ZIPT-style optimization
-    struct snode_subst_cache {
-        struct entry {
-            unsigned var_id;
-            unsigned repl_id;
-            snode* result;
-        };
-        svector<entry> m_entries;
-        snode* find(unsigned var_id, unsigned repl_id) const {
-            for (auto const& e : m_entries)
-                if (e.var_id == var_id && e.repl_id == repl_id)
-                    return e.result;
-            return nullptr;
-        }
-        void insert(unsigned var_id, unsigned repl_id, snode* result) {
-            m_entries.push_back({var_id, repl_id, result});
-        }
-    };
-
     sgraph::sgraph(ast_manager& m, egraph& eg, bool add_plugin):
         m(m),
         m_seq(m),
@@ -62,8 +43,6 @@ namespace euf {
     }
 
     sgraph::~sgraph() {
-        for (auto* c : m_subst_caches)
-            dealloc(c);
     }
 
     snode_kind sgraph::classify(expr* e) const {
@@ -434,6 +413,7 @@ namespace euf {
         SASSERT(num_scopes <= m_num_scopes);
         unsigned new_lvl = m_num_scopes - num_scopes;
         unsigned old_sz = m_scopes[new_lvl];
+
         for (unsigned i = m_nodes.size(); i-- > old_sz; ) {
             snode* n = m_nodes[i];
             if (n->get_expr()) {
@@ -526,21 +506,8 @@ namespace euf {
         if (n->is_empty() || n->is_char())
             return n;
         if (n->is_concat()) {
-            // check substitution cache (ZIPT-style optimization)
-            if (n->m_subst_cache) {
-                snode* cached = n->m_subst_cache->find(var->id(), replacement->id());
-                if (cached)
-                    return cached;
-            }
-            snode* result = mk_concat(subst(n->arg(0), var, replacement),
+            return mk_concat(subst(n->arg(0), var, replacement),
                                       subst(n->arg(1), var, replacement));
-            // cache the result
-            if (!n->m_subst_cache) {
-                n->m_subst_cache = alloc(snode_subst_cache);
-                m_subst_caches.push_back(n->m_subst_cache);
-            }
-            n->m_subst_cache->insert(var->id(), replacement->id(), result);
-            return result;
         }
         // for non-concat compound nodes (power, star, etc.), no substitution into children
         return n;
