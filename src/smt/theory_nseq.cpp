@@ -12,6 +12,7 @@ Abstract:
 
 Author:
 
+    Clemens Eisenhofer 2026-03-01
     Nikolaj Bjorner (nbjorner) 2026-03-01
 
 --*/
@@ -242,16 +243,16 @@ namespace smt {
             return;
         ctx.push_trail(value_trail(m_prop_qhead));
         while (m_prop_qhead < m_prop_queue.size() && !ctx.inconsistent()) {
-            prop_item const& item = m_prop_queue[m_prop_qhead++];
-            switch (item.m_kind) {
+            auto [k, idx] = m_prop_queue[m_prop_qhead++];
+            switch (k) {
             case prop_item::eq_prop:
-                propagate_eq(item.m_idx);
+                propagate_eq(idx);
                 break;
             case prop_item::diseq_prop:
-                propagate_diseq(item.m_idx);
+                propagate_diseq(idx);
                 break;
             case prop_item::pos_mem_prop:
-                propagate_pos_mem(item.m_idx);
+                propagate_pos_mem(idx);
                 break;
             }
         }
@@ -406,18 +407,18 @@ namespace smt {
         // regex-only problems that the DFS cannot efficiently solve.
         if (get_fparams().m_nseq_regex_precheck) {
             lbool precheck = check_regex_memberships_precheck();
-            if (precheck == l_true) {
+            switch (precheck) { 
+            case l_true:
                 // conflict was asserted inside check_regex_memberships_precheck
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck UNSAT\n";);
                 return FC_CONTINUE;
-            }
-            // NSB review: to check is this really safe to say it is SAT?
-            if (precheck == l_false && !has_unhandled_preds()) {
+            case l_false:
                 // all regex constraints satisfiable, no word eqs/diseqs → SAT
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck SAT\n";);
                 return FC_DONE;
+            default: 
+                break;
             }
-            // l_undef: inconclusive, fall through to DFS
         }
 
         IF_VERBOSE(1, verbose_stream() << "nseq final_check: calling solve()\n";);
@@ -903,7 +904,7 @@ namespace smt {
         // All variables' regex intersections are non-empty.
         // If there are no word equations and no disequalities, variables are
         // independent and each can be assigned a witness string → SAT.
-        if (all_var_str && m_state.str_eqs().empty() && m_state.diseqs().empty()) {
+        if (all_var_str && m_state.str_eqs().empty() && m_state.diseqs().empty() && !has_unhandled_preds()) {
             TRACE(seq, tout << "nseq regex precheck: all intersections non-empty, "
                             << "no word eqs/diseqs → SAT\n";);
             return l_false;  // signals SAT (non-empty / satisfiable)
