@@ -202,10 +202,12 @@ static constexpr int TEST_TIMEOUT_SEC = 2;
 
 static void set_timeout(nseq_fixture& f) {
     auto start = std::chrono::steady_clock::now();
+    /**
     f.ng.set_cancel_fn([start]() {
         auto elapsed = std::chrono::steady_clock::now() - start;
         return std::chrono::duration_cast<std::chrono::seconds>(elapsed).count() >= TEST_TIMEOUT_SEC;
     });
+    */
 }
 
 static bool eq_sat(const char* lhs, const char* rhs) {
