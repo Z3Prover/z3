@@ -454,3 +454,68 @@ void tst_scaled_min() {
 void tst_max_rev() {
     test_max_rev();
 }
+
+// Regression test for issue #9012: box mode returns wrong optimum for mod.
+// With (set-option :opt.priority box) and multiple objectives,
+// maximize (mod (- (* 232 a)) 256) must return 248, not 0.
+void tst_box_mod_opt() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast a = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "a"), int_sort);
+    Z3_ast b = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "b"), int_sort);
+    Z3_ast d = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "d"), int_sort);
+    Z3_ast c = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "c"), int_sort);
+
+    auto mk_int = [&](int v) { return Z3_mk_int(ctx, v, int_sort); };
+    auto mk_int64 = [&](int64_t v) { return Z3_mk_int64(ctx, v, int_sort); };
+
+    Z3_optimize opt = Z3_mk_optimize(ctx);
+    Z3_optimize_inc_ref(ctx, opt);
+
+    // set box priority
+    Z3_params p = Z3_mk_params(ctx);
+    Z3_params_inc_ref(ctx, p);
+    Z3_params_set_symbol(ctx, p, Z3_mk_string_symbol(ctx, "priority"),
+                         Z3_mk_string_symbol(ctx, "box"));
+    Z3_optimize_set_params(ctx, opt, p);
+    Z3_params_dec_ref(ctx, p);
+
+    // bounds: 0 <= a < 256, 0 <= b < 2^32, 0 <= d < 2^32, 0 <= c < 16
+    Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, a, mk_int(0)));
+    Z3_optimize_assert(ctx, opt, Z3_mk_lt(ctx, a, mk_int(256)));
+    Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, b, mk_int(0)));
+    Z3_optimize_assert(ctx, opt, Z3_mk_lt(ctx, b, mk_int64(4294967296)));
+    Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, d, mk_int(0)));
+    Z3_optimize_assert(ctx, opt, Z3_mk_lt(ctx, d, mk_int64(4294967296)));
+    Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, c, mk_int(0)));
+    Z3_optimize_assert(ctx, opt, Z3_mk_lt(ctx, c, mk_int(16)));
+
+    // minimize (mod (* d 536144634) 4294967296)
+    Z3_ast mul_d_args[] = { mk_int64(536144634), d };
+    Z3_ast mul_d = Z3_mk_mul(ctx, 2, mul_d_args);
+    Z3_optimize_minimize(ctx, opt, Z3_mk_mod(ctx, mul_d, mk_int64(4294967296)));
+
+    // minimize b
+    Z3_optimize_minimize(ctx, opt, b);
+
+    // maximize (mod (- (* 232 a)) 256)
+    Z3_ast mul_a_args[] = { mk_int(232), a };
+    Z3_ast mul_a = Z3_mk_mul(ctx, 2, mul_a_args);
+    Z3_ast neg_mul_a = Z3_mk_unary_minus(ctx, mul_a);
+    unsigned max_idx = Z3_optimize_maximize(ctx, opt, Z3_mk_mod(ctx, neg_mul_a, mk_int(256)));
+
+    Z3_lbool result = Z3_optimize_check(ctx, opt, 0, nullptr);
+    ENSURE(result == Z3_L_TRUE);
+
+    // The optimum of (mod (- (* 232 a)) 256) should be 248
+    Z3_ast lower = Z3_optimize_get_lower(ctx, opt, max_idx);
+    Z3_string lower_str = Z3_ast_to_string(ctx, lower);
+    ENSURE(std::string(lower_str) == "248");
+
+    Z3_optimize_dec_ref(ctx, opt);
+    Z3_del_context(ctx);
+    std::cout << "box mod optimization test passed" << std::endl;
+}
