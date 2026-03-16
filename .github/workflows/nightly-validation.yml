@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -87,7 +87,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -142,7 +142,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -214,7 +214,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -290,7 +290,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Download Windows x64 build from release
         env:
@@ -326,7 +326,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Download Windows x86 build from release
         env:
@@ -362,7 +362,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Download Ubuntu x64 build from release
         env:
@@ -395,7 +395,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Download macOS x64 build from release
         env:
@@ -428,7 +428,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Download macOS ARM64 build from release
         env:
@@ -465,7 +465,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -504,7 +504,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -544,7 +544,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -587,7 +587,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -616,7 +616,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -645,7 +645,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -674,7 +674,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -710,7 +710,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Download macOS x64 build from release
         env:
@@ -762,7 +762,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Download macOS ARM64 build from release
         env:

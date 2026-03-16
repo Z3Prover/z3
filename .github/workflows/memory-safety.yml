@@ -31,7 +31,7 @@ jobs:
       ASAN_OPTIONS: "detect_leaks=1:halt_on_error=0:print_stats=1:log_path=/tmp/asan"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -121,7 +121,7 @@ jobs:
       UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=0:log_path=/tmp/ubsan"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
 
       - name: Setup Python
         uses: actions/setup-python@v5
