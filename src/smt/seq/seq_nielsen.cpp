@@ -229,7 +229,7 @@ namespace seq {
             str_eq& eq = m_str_eq[i];
             eq.m_lhs = sg.subst(eq.m_lhs, s.m_var, s.m_replacement);
             eq.m_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_replacement);
-            eq.m_dep |= s.m_dep;
+            eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, s.m_dep);
             eq.sort();
         }
         for (unsigned i = 0; i < m_str_mem.size(); ++i) {
@@ -237,7 +237,7 @@ namespace seq {
             mem.m_str = sg.subst(mem.m_str, s.m_var, s.m_replacement);
             // regex is typically ground, but apply subst for generality
             mem.m_regex = sg.subst(mem.m_regex, s.m_var, s.m_replacement);
-            mem.m_dep |= s.m_dep;
+            mem.m_dep = m_graph.dep_mgr().mk_join(mem.m_dep, s.m_dep);
         }
         // VarBoundWatcher: propagate bounds on s.m_var to variables in s.m_replacement
         watch_var_bounds(s);
@@ -548,8 +548,7 @@ namespace seq {
     void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs) {
         if (!m_root)
             m_root = mk_node();
-        dep_tracker dep;
-        dep.insert(m_root->str_eqs().size());
+        dep_tracker dep = m_dep_mgr.mk_leaf({dep_source::kind::eq, m_num_input_eqs});
         str_eq eq(lhs, rhs, dep);
         eq.sort();
         m_root->add_str_eq(eq);
@@ -559,8 +558,7 @@ namespace seq {
     void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex) {
         if (!m_root)
             m_root = mk_node();
-        dep_tracker dep;
-        dep.insert(m_root->str_eqs().size() + m_root->str_mems().size());
+        dep_tracker dep = m_dep_mgr.mk_leaf({dep_source::kind::mem, m_num_input_mems});
         euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
         unsigned id = next_mem_id();
         m_root->add_str_mem(str_mem(str, regex, history, id, dep));
@@ -597,6 +595,7 @@ namespace seq {
         m_mod_cnt.reset();
         m_len_var_cache.clear();
         m_len_vars.reset();
+        m_dep_mgr.reset();
     }
 
     std::ostream& nielsen_graph::display(std::ostream& out) const {
@@ -3146,7 +3145,7 @@ namespace seq {
         // constant, ConstNumUnwinding (priority 4) handles it with both
         // n=0 and n≥1 branches.
         euf::snode* power = nullptr;
-        dep_tracker dep;
+        dep_tracker dep = m_dep_mgr.mk_empty();
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial()) continue;
             if (!eq.m_lhs || !eq.m_rhs) continue;
@@ -3929,21 +3928,23 @@ namespace seq {
             if (!n->is_currently_conflict())
                 continue;
             for (str_eq const& eq : n->str_eqs())
-                deps |= eq.m_dep;
+                deps = m_dep_mgr.mk_join(deps, eq.m_dep);
             for (str_mem const& mem : n->str_mems())
-                deps |= mem.m_dep;
+                deps = m_dep_mgr.mk_join(deps, mem.m_dep);
         }
     }
 
     void nielsen_graph::explain_conflict(unsigned_vector& eq_indices, unsigned_vector& mem_indices) const {
         SASSERT(m_root);
-        dep_tracker deps;
+        dep_tracker deps = m_dep_mgr.mk_empty();
         collect_conflict_deps(deps);
-        for (unsigned b : deps) {
-            if (b < m_num_input_eqs)
-                eq_indices.push_back(b);
+        vector<dep_source, false> vs;
+        m_dep_mgr.linearize(deps, vs);
+        for (dep_source const& d : vs) {
+            if (d.m_kind == dep_source::kind::eq)
+                eq_indices.push_back(d.index);
             else
-                mem_indices.push_back(b - m_num_input_eqs);
+                mem_indices.push_back(d.index);
         }
     }
 
