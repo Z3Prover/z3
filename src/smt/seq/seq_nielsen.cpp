@@ -1789,7 +1789,8 @@ namespace seq {
                     euf::snode* deriv = fwd
                         ? sg.brzozowski_deriv(mem.m_regex, tok)
                         : reverse_brzozowski_deriv(sg, mem.m_regex, tok);
-                    if (!deriv) break;
+                    if (!deriv)
+                        break;
                     if (deriv->is_fail()) {
                         m_is_general_conflict = true;
                         m_reason = backtrack_reason::regex;
@@ -1833,11 +1834,15 @@ namespace seq {
                     if (!mt || mt->is_fail())
                         continue;
                     euf::snode* deriv = sg.brzozowski_deriv(mem.m_regex, mt);
-                    if (!deriv) { is_uniform = false; break; }
-                    if (!uniform) {
+                    if (!deriv) {
+                        is_uniform = false;
+                        break;
+                    }
+                    if (!uniform)
                         uniform = deriv;
-                    } else if (uniform->id() != deriv->id()) {
-                        is_uniform = false; break;
+                    else if (uniform->id() != deriv->id()) {
+                        is_uniform = false;
+                        break;
                     }
                 }
                 if (is_uniform && uniform) {
@@ -4427,17 +4432,17 @@ namespace seq {
             if (tok->is_char()) {
                 // Concrete character → to_re(unit(c))
                 expr* te = tok->get_expr();
-                if (!te) return false;
-                expr_ref unit_s(seq.str.mk_unit(te), mgr);
-                expr_ref tre(seq.re.mk_to_re(unit_s), mgr);
+                if (!te)
+                    return false;
+                expr_ref tre(seq.re.mk_to_re(te), mgr);
                 tok_re = m_sg.mk(tre);
             }
             else if (tok->is_var()) {
                 // Variable → intersection of primitive regex constraints, or Σ*
                 euf::snode* x_range = m_seq_regex->collect_primitive_regex_intersection(tok, node);
-                if (x_range) {
+                if (x_range)
                     tok_re = x_range;
-                } else {
+                else {
                     // Unconstrained variable: approximate as Σ*
                     sort* str_sort = seq.str.mk_string_sort();
                     expr_ref all_re(seq.re.mk_full_seq(seq.re.mk_re(str_sort)), mgr);
@@ -4485,12 +4490,14 @@ namespace seq {
             if (!tok_re)
                 return false;
 
-            if (!approx) {
+            if (!approx)
                 approx = tok_re;
-            } else {
+            else {
                 expr* ae = approx->get_expr();
-                expr* te = tok_re->get_expr();
-                if (!ae || !te) return false;
+                expr* te = tok_re->get_expr(
+                    );
+              if (!ae || !te)
+                  return false;
                 expr_ref cat(seq.re.mk_concat(ae, te), mgr);
                 approx = m_sg.mk(cat);
             }

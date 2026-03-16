@@ -19,9 +19,6 @@ Author:
 #include "smt/theory_nseq.h"
 #include "smt/smt_context.h"
 #include "smt/smt_justification.h"
-#include "smt/proto_model/proto_model.h"
-#include "ast/array_decl_plugin.h"
-#include "ast/ast_pp.h"
 #include "util/statistics.h"
 #include "util/trail.h"
 
@@ -87,8 +84,9 @@ namespace smt {
 
     bool theory_nseq::internalize_term(app* term) {
         // ensure ALL children are internalized (following theory_seq pattern)
-        for (auto arg : *term)
+        for (auto arg : *term) {
             mk_var(ensure_enode(arg));
+        }
 
         if (ctx.e_internalized(term)) {
             mk_var(ctx.get_enode(term));
@@ -102,12 +100,10 @@ namespace smt {
         }
 
         enode* en;
-        if (ctx.e_internalized(term)) {
+        if (ctx.e_internalized(term))
             en = ctx.get_enode(term);
-        }
-        else {
+        else
             en = ctx.mk_enode(term, false, m.is_bool(term), true);
-        }
         mk_var(en);
 
         // register in our private sgraph
@@ -859,15 +855,10 @@ namespace smt {
                 // jointly unsatisfiable.  Assert a conflict from all their literals.
                 enode_pair_vector eqs;
                 literal_vector lits;
-                std::cout << "CONFLICT:\n";
                 for (unsigned i : mem_indices) {
                     mem_source const& src = m_state.get_mem_source(i);
                     SASSERT(ctx.get_assignment(src.m_lit) == l_true); // we already stored the polarity of the literal
                     lits.push_back(src.m_lit);
-                    std::cout << "\t\t";
-                    std::cout << mk_pp(ctx.literal2expr(src.m_lit), m) << std::endl;
-                    std::cout << "\t\t";
-                    std::cout << src.m_lit << std::endl;
                 }
                 TRACE(seq, tout << "nseq regex precheck: empty intersection for var "
                                 << var_id << ", conflict with " << lits.size() << " lits\n";);
