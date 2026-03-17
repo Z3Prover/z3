@@ -45,24 +45,24 @@ static void test_dep_tracker() {
     SASSERT(d0 == nullptr);
 
     // tracker with one leaf
-    seq::dep_tracker d1 = dm.mk_leaf({seq::dep_source::kind::eq, 3});
+    seq::dep_tracker d1 = dm.mk_leaf(seq::dep_eq{3});
     SASSERT(d1 != nullptr);
 
     // tracker with another leaf
-    seq::dep_tracker d2 = dm.mk_leaf({seq::dep_source::kind::mem, 5});
+    seq::dep_tracker d2 = dm.mk_leaf(seq::dep_mem{5});
     SASSERT(d2 != nullptr);
 
     // merge
     seq::dep_tracker d3 = dm.mk_join(d1, d2);
     SASSERT(d3 != nullptr);
-    SASSERT(dm.contains(d3, {seq::dep_source::kind::eq, 3}));
-    SASSERT(dm.contains(d3, {seq::dep_source::kind::mem, 5}));
-    SASSERT(!dm.contains(d1, {seq::dep_source::kind::mem, 5}));
+    SASSERT(dm.contains(d3, seq::dep_eq{3}));
+    SASSERT(dm.contains(d3, seq::dep_mem{5}));
+    SASSERT(!dm.contains(d1, seq::dep_mem{5}));
 
     // another leaf with same value as d1
-    seq::dep_tracker d4 = dm.mk_leaf({seq::dep_source::kind::eq, 3});
-    SASSERT(dm.contains(d4, {seq::dep_source::kind::eq, 3}));
-    SASSERT(!dm.contains(d4, {seq::dep_source::kind::mem, 5}));
+    seq::dep_tracker d4 = dm.mk_leaf(seq::dep_eq{3});
+    SASSERT(dm.contains(d4, seq::dep_eq{3}));
+    SASSERT(!dm.contains(d4, seq::dep_mem{5}));
 }
 
 // test str_eq constraint creation and operations
@@ -1431,39 +1431,40 @@ static void test_dep_tracker_get_set_bits() {
     SASSERT(bits0.empty());
 
     // single leaf at eq-index 5
-    seq::dep_tracker d1 = dm.mk_leaf({seq::dep_source::kind::eq, 5});
+    seq::dep_tracker d1 = dm.mk_leaf(seq::dep_eq{5});
     vector<seq::dep_source, false> bits1;
     dm.linearize(d1, bits1);
     SASSERT(bits1.size() == 1);
-    SASSERT(bits1[0].index == 5);
-    SASSERT(bits1[0].m_kind == seq::dep_source::kind::eq);
+    SASSERT(std::get<seq::dep_eq>(bits1[0]).index == 5);
+    SASSERT(std::holds_alternative<seq::dep_eq>(bits1[0]));
 
     // two leaves merged: eq-index 3 and mem-index 11
     seq::dep_tracker d2 = dm.mk_join(
-        dm.mk_leaf({seq::dep_source::kind::eq, 3}),
-        dm.mk_leaf({seq::dep_source::kind::mem, 11}));
+        dm.mk_leaf(seq::dep_eq{3}),
+        dm.mk_leaf(seq::dep_mem{11}));
     vector<seq::dep_source, false> bits2;
     dm.linearize(d2, bits2);
     SASSERT(bits2.size() == 2);
     bool has_eq3 = false, has_mem11 = false;
     for (auto const& d : bits2) {
-        if (d.m_kind == seq::dep_source::kind::eq && d.index == 3) has_eq3 = true;
-        if (d.m_kind == seq::dep_source::kind::mem && d.index == 11) has_mem11 = true;
+        if (std::holds_alternative<seq::dep_eq>(d) && std::get<seq::dep_eq>(d).index == 3) has_eq3 = true;
+        if (std::holds_alternative<seq::dep_mem>(d) && std::get<seq::dep_mem>(d).index == 11) has_mem11 = true;
     }
     SASSERT(has_eq3);
     SASSERT(has_mem11);
 
     // join with additional leaf
     seq::dep_tracker d3 = dm.mk_join(
-        dm.mk_leaf({seq::dep_source::kind::eq, 31}),
-        dm.mk_leaf({seq::dep_source::kind::mem, 32}));
+        dm.mk_leaf(seq::dep_eq{31}),
+        dm.mk_leaf(seq::dep_mem{32}));
     vector<seq::dep_source, false> bits3;
     dm.linearize(d3, bits3);
     SASSERT(bits3.size() == 2);
     bool has31 = false, has32 = false;
     for (auto const& d : bits3) {
-        if (d.index == 31) has31 = true;
-        if (d.index == 32) has32 = true;
+        unsigned idx = std::visit([](auto const& s) { return s.index; }, d);
+        if (idx == 31) has31 = true;
+        if (idx == 32) has32 = true;
     }
     SASSERT(has31);
     SASSERT(has32);
@@ -2421,7 +2422,7 @@ static void test_length_constraints_deps() {
         ng.dep_mgr().linearize(c.m_dep, vs);
         bool found = false;
         for (auto const& d : vs)
-            if (d.m_kind == seq::dep_source::kind::eq && d.index == 0) found = true;
+            if (std::holds_alternative<seq::dep_eq>(d) && std::get<seq::dep_eq>(d).index == 0) found = true;
         SASSERT(found);
     }
 

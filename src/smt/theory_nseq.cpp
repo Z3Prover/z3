@@ -456,14 +456,15 @@ namespace smt {
         vector<seq::dep_source, false> vs;
         m_nielsen.dep_mgr().linearize(deps, vs);
         for (seq::dep_source const& d : vs) {
-            if (d.m_kind == seq::dep_source::kind::eq) {
-                eq_source const& src = m_state.get_eq_source(d.index);
+            if (std::holds_alternative<seq::dep_eq>(d)) {
+                eq_source const& src = m_state.get_eq_source(std::get<seq::dep_eq>(d).index);
                 if (src.m_n1->get_root() == src.m_n2->get_root())
                     eqs.push_back({src.m_n1, src.m_n2});
             }
             else {
-                if (d.index < m_nielsen_to_state_mem.size()) {
-                    unsigned state_mem_idx = m_nielsen_to_state_mem[d.index];
+                unsigned idx = std::get<seq::dep_mem>(d).index;
+                if (idx < m_nielsen_to_state_mem.size()) {
+                    unsigned state_mem_idx = m_nielsen_to_state_mem[idx];
                     mem_source const& src = m_state.get_mem_source(state_mem_idx);
                     SASSERT(ctx.get_assignment(src.m_lit) == l_true);
                     lits.push_back(src.m_lit);

@@ -548,7 +548,7 @@ namespace seq {
     void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs) {
         if (!m_root)
             m_root = mk_node();
-        dep_tracker dep = m_dep_mgr.mk_leaf({dep_source::kind::eq, m_num_input_eqs});
+        dep_tracker dep = m_dep_mgr.mk_leaf(dep_eq{m_num_input_eqs});
         str_eq eq(lhs, rhs, dep);
         eq.sort();
         m_root->add_str_eq(eq);
@@ -558,7 +558,7 @@ namespace seq {
     void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex) {
         if (!m_root)
             m_root = mk_node();
-        dep_tracker dep = m_dep_mgr.mk_leaf({dep_source::kind::mem, m_num_input_mems});
+        dep_tracker dep = m_dep_mgr.mk_leaf(dep_mem{m_num_input_mems});
         euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
         unsigned id = next_mem_id();
         m_root->add_str_mem(str_mem(str, regex, history, id, dep));
@@ -3941,10 +3941,10 @@ namespace seq {
         vector<dep_source, false> vs;
         m_dep_mgr.linearize(deps, vs);
         for (dep_source const& d : vs) {
-            if (d.m_kind == dep_source::kind::eq)
-                eq_indices.push_back(d.index);
+            if (std::holds_alternative<dep_eq>(d))
+                eq_indices.push_back(std::get<dep_eq>(d).index);
             else
-                mem_indices.push_back(d.index);
+                mem_indices.push_back(std::get<dep_mem>(d).index);
         }
     }
 

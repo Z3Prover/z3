@@ -320,7 +320,7 @@ static void test_generate_constraints_ab_star() {
     expr_ref re = mk_ab_star(m, seq);
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
-    seq::dep_tracker dep = dm.mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = dm.mk_leaf(seq::dep_mem{0});
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
     vector<seq::int_constraint> out;
@@ -366,7 +366,7 @@ static void test_generate_constraints_bounded_loop() {
     expr_ref re(seq.re.mk_loop(ab, 1, 3), m);
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
-    seq::dep_tracker dep = dm.mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = dm.mk_leaf(seq::dep_mem{0});
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
     vector<seq::int_constraint> out;
@@ -403,7 +403,7 @@ static void test_generate_constraints_stride_one() {
     expr_ref re(seq.re.mk_full_seq(str_sort), m);
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
-    seq::dep_tracker dep = dm.mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = dm.mk_leaf(seq::dep_mem{0});
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
     vector<seq::int_constraint> out;
@@ -426,7 +426,7 @@ static void test_generate_constraints_fixed_length() {
     expr_ref re = mk_to_re_ab(m, seq);  // fixed len 2
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
-    seq::dep_tracker dep = dm.mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = dm.mk_leaf(seq::dep_mem{0});
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
     vector<seq::int_constraint> out;
@@ -449,7 +449,7 @@ static void test_generate_constraints_dep_propagated() {
     expr_ref re = mk_ab_star(m, seq);
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
-    seq::dep_tracker dep = dm.mk_leaf({seq::dep_source::kind::mem, 7});
+    seq::dep_tracker dep = dm.mk_leaf(seq::dep_mem{7});
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
     vector<seq::int_constraint> out;
@@ -462,7 +462,7 @@ static void test_generate_constraints_dep_propagated() {
         dm.linearize(ic.m_dep, vs);
         bool found = false;
         for (auto const& d : vs)
-            if (d.m_kind == seq::dep_source::kind::mem && d.index == 7) found = true;
+            if (std::holds_alternative<seq::dep_mem>(d) && std::get<seq::dep_mem>(d).index == 7) found = true;
         SASSERT(found);
     }
     std::cout << "  all constraints carry dep {mem,7}\n";
@@ -574,7 +574,7 @@ static void test_check_conflict_valid_k_exists() {
     ng.add_str_mem(x, regex);
 
     // lb=3, ub=5: length 4 is achievable (k=2) → no conflict
-    seq::dep_tracker dep = ng.dep_mgr().mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = ng.dep_mgr().mk_leaf(seq::dep_mem{0});
     ng.root()->add_lower_int_bound(x, 3, dep);
     ng.root()->add_upper_int_bound(x, 5, dep);
 
@@ -602,7 +602,7 @@ static void test_check_conflict_no_valid_k() {
     ng.add_str_mem(x, regex);
 
     // lb=3, ub=3: only odd length 3 — never a multiple of 2 → conflict
-    seq::dep_tracker dep = ng.dep_mgr().mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = ng.dep_mgr().mk_leaf(seq::dep_mem{0});
     ng.root()->add_lower_int_bound(x, 3, dep);
     ng.root()->add_upper_int_bound(x, 3, dep);
 
@@ -630,7 +630,7 @@ static void test_check_conflict_abc_star() {
     ng.add_str_mem(x, regex);
 
     // lb=5, ub=5 → no valid k (5 is not a multiple of 3) → conflict
-    seq::dep_tracker dep = ng.dep_mgr().mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = ng.dep_mgr().mk_leaf(seq::dep_mem{0});
     ng.root()->add_lower_int_bound(x, 5, dep);
     ng.root()->add_upper_int_bound(x, 5, dep);
 
@@ -657,7 +657,7 @@ static void test_check_conflict_stride_one_never_conflicts() {
     euf::snode* regex = sg.mk(re);
     ng.add_str_mem(x, regex);
 
-    seq::dep_tracker dep = ng.dep_mgr().mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = ng.dep_mgr().mk_leaf(seq::dep_mem{0});
     ng.root()->add_lower_int_bound(x, 7, dep);
     ng.root()->add_upper_int_bound(x, 7, dep);
 

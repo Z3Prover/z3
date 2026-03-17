@@ -244,6 +244,7 @@ Author:
 #include "ast/euf/euf_sgraph.h"
 #include <functional>
 #include <map>
+#include <variant>
 #include "model/model.h"
 
 namespace seq {
@@ -303,15 +304,11 @@ namespace seq {
     };
 
     // source of a dependency: identifies an input constraint by kind and index.
-    // kind::eq means a string equality, kind::mem means a regex membership.
+    // dep_eq means a string equality, dep_mem means a regex membership.
     // index is the 0-based position in the input eq or mem list respectively.
-    struct dep_source {
-        enum class kind { eq, mem } m_kind;
-        unsigned index;
-        bool operator==(dep_source const& o) const {
-            return m_kind == o.m_kind && index == o.index;
-        }
-    };
+    struct dep_eq  { unsigned index; bool operator==(dep_eq  const& o) const { return index == o.index; } };
+    struct dep_mem { unsigned index; bool operator==(dep_mem const& o) const { return index == o.index; } };
+    using dep_source = std::variant<dep_eq, dep_mem>;
 
     // Arena-based dependency manager: builds an immutable tree of dep_source
     // leaves joined by binary join nodes.  Memory is managed via a region;
