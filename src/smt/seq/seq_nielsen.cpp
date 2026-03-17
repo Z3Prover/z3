@@ -187,9 +187,9 @@ namespace seq {
         m_var_lb.reset();
         m_var_ub.reset();
         for (auto const& eq : parent.m_str_eq)
-            m_str_eq.push_back(str_eq(eq.m_lhs, eq.m_rhs, eq.m_dep));
+            m_str_eq.push_back(str_eq(eq.m_lhs, eq.m_rhs,eq.m_l, eq.m_r, eq.m_dep));
         for (auto const& mem : parent.m_str_mem)
-            m_str_mem.push_back(str_mem(mem.m_str, mem.m_regex, mem.m_history, mem.m_id, mem.m_dep));
+            m_str_mem.push_back(str_mem(mem.m_str, mem.m_regex, mem.m_lit, mem.m_history, mem.m_id, mem.m_dep));
         for (auto const& ic : parent.m_int_constraints)
             m_int_constraints.push_back(ic);
         // clone character disequalities
@@ -545,24 +545,22 @@ namespace seq {
         return e;
     }
 
-    void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs) {
+    void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r) {
         if (!m_root)
             m_root = mk_node();
-        dep_tracker dep = m_dep_mgr.mk_leaf({dep_source::kind::eq, m_num_input_eqs});
-        str_eq eq(lhs, rhs, dep);
+        dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
+        str_eq eq(lhs, rhs, l, r, dep);
         eq.sort();
         m_root->add_str_eq(eq);
-        ++m_num_input_eqs;
     }
 
-    void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex) {
+    void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l) {
         if (!m_root)
             m_root = mk_node();
-        dep_tracker dep = m_dep_mgr.mk_leaf({dep_source::kind::mem, m_num_input_mems});
+        dep_tracker dep = m_dep_mgr.mk_leaf(l);
         euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
         unsigned id = next_mem_id();
-        m_root->add_str_mem(str_mem(str, regex, history, id, dep));
-        ++m_num_input_mems;
+        m_root->add_str_mem(str_mem(str, regex, l, history, id, dep));
     }
 
     void nielsen_graph::inc_run_idx() {
@@ -589,8 +587,6 @@ namespace seq {
         m_depth_bound = 0;
         m_next_mem_id = 0;
         m_fresh_cnt = 0;
-        m_num_input_eqs = 0;
-        m_num_input_mems = 0;
         m_root_constraints_asserted = false;
         m_mod_cnt.reset();
         m_len_var_cache.clear();
@@ -2794,8 +2790,8 @@ namespace seq {
             auto& eqs = child->str_eqs();
             eqs[eq_idx] = eqs.back();
             eqs.pop_back();
-            eqs.push_back(str_eq(eq1_lhs, eq1_rhs, eq.m_dep));
-            eqs.push_back(str_eq(eq2_lhs, eq2_rhs, eq.m_dep));
+            eqs.push_back(str_eq(eq1_lhs, eq1_rhs, eq.m_l, eq.m_r, eq.m_dep));
+            eqs.push_back(str_eq(eq2_lhs, eq2_rhs, eq.m_l, eq.m_r, eq.m_dep));
 
             // Int constraints on the edge.
             // 1) len(pad) = |padding|  (if padding variable was created)
@@ -3459,11 +3455,11 @@ namespace seq {
             nielsen_node* child = mk_child(node);
 
             // Add membership: pr ∈ stab_base* (stabilizer constraint)
-            child->add_str_mem(str_mem(pr, star_sn, mem.m_history, next_mem_id(), mem.m_dep));
+            child->add_str_mem(str_mem(pr, star_sn, mem.m_lit, mem.m_history, next_mem_id(), mem.m_dep));
 
             // Add remaining membership: po · tail ∈ R (same regex, trimmed history)
             euf::snode* post_tail = str_tail->is_empty() ? po : m_sg.mk_concat(po, str_tail);
-            child->add_str_mem(str_mem(post_tail, mem.m_regex, nullptr, next_mem_id(), mem.m_dep));
+            child->add_str_mem(str_mem(post_tail, mem.m_regex, mem.m_lit, nullptr, next_mem_id(), mem.m_dep));
 
             // Blocking constraint: po must NOT start with stab_base
             // po ∈ complement(non_nullable(stab_base) · Σ*)
@@ -3475,7 +3471,7 @@ namespace seq {
                 expr_ref block_re(seq.re.mk_complement(base_then_all), mgr);
                 euf::snode* block_sn = m_sg.mk(block_re);
                 if (block_sn)
-                    child->add_str_mem(str_mem(po, block_sn, nullptr, next_mem_id(), mem.m_dep));
+                    child->add_str_mem(str_mem(po, block_sn, mem.m_lit, nullptr, next_mem_id(), mem.m_dep));
             }
 
             // Substitute x → pr · po
@@ -3934,17 +3930,18 @@ namespace seq {
         }
     }
 
-    void nielsen_graph::explain_conflict(unsigned_vector& eq_indices, unsigned_vector& mem_indices) const {
+    void nielsen_graph::explain_conflict(svector<std::pair<smt::enode*, smt::enode*>>& eqs, 
+        svector<sat::literal>& mem_literals) const {
         SASSERT(m_root);
         dep_tracker deps = m_dep_mgr.mk_empty();
         collect_conflict_deps(deps);
         vector<dep_source, false> vs;
         m_dep_mgr.linearize(deps, vs);
         for (dep_source const& d : vs) {
-            if (d.m_kind == dep_source::kind::eq)
-                eq_indices.push_back(d.index);
+            if (std::holds_alternative<enode_pair>(d))
+                eqs.push_back(std::get<enode_pair>(d));
             else
-                mem_indices.push_back(d.index);
+                mem_literals.push_back(std::get<sat::literal>(d));
         }
     }
 

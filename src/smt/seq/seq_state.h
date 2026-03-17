@@ -27,17 +27,6 @@ namespace smt {
 
     class enode;
 
-    // source info for a string equality (the two enodes whose merge caused it)
-    struct eq_source {
-        enode* m_n1;
-        enode* m_n2;
-    };
-
-    // source info for a regex membership (the literal that asserted it)
-    struct mem_source {
-        sat::literal m_lit;
-    };
-
     // source info for a string disequality
     struct diseq_source {
         enode* m_n1;
@@ -47,8 +36,6 @@ namespace smt {
     class seq_state {
         vector<seq::str_eq>     m_str_eqs;
         vector<seq::str_mem>    m_str_mems;
-        vector<eq_source>       m_eq_sources;
-        vector<mem_source>      m_mem_sources;
         vector<diseq_source>    m_diseqs;
         unsigned_vector         m_str_eq_lim;
         unsigned_vector         m_str_mem_lim;
@@ -67,10 +54,8 @@ namespace smt {
         void pop(unsigned n) {
             for (unsigned i = 0; i < n; ++i) {
                 m_str_eqs.shrink(m_str_eq_lim.back());
-                m_eq_sources.shrink(m_str_eq_lim.back());
                 m_str_eq_lim.pop_back();
                 m_str_mems.shrink(m_str_mem_lim.back());
-                m_mem_sources.shrink(m_str_mem_lim.back());
                 m_str_mem_lim.pop_back();
                 m_diseqs.shrink(m_diseq_lim.back());
                 m_diseq_lim.pop_back();
@@ -79,14 +64,12 @@ namespace smt {
 
         void add_str_eq(euf::snode* lhs, euf::snode* rhs, enode* n1, enode* n2) {
             seq::dep_tracker dep = nullptr;
-            m_str_eqs.push_back(seq::str_eq(lhs, rhs, dep));
-            m_eq_sources.push_back({n1, n2});
+            m_str_eqs.push_back(seq::str_eq(lhs, rhs, n1, n2, dep));
         }
 
         void add_str_mem(euf::snode* str, euf::snode* regex, sat::literal lit) {
             seq::dep_tracker dep = nullptr;
-            m_str_mems.push_back(seq::str_mem(str, regex, nullptr, m_next_mem_id++, dep));
-            m_mem_sources.push_back({lit});
+            m_str_mems.push_back(seq::str_mem(str, regex, lit, nullptr, m_next_mem_id++, dep));
         }
 
         void add_diseq(enode* n1, enode* n2) {
@@ -97,8 +80,6 @@ namespace smt {
         vector<seq::str_mem> const& str_mems() const { return m_str_mems; }
         vector<diseq_source> const& diseqs()   const { return m_diseqs; }
 
-        eq_source const& get_eq_source(unsigned i) const { return m_eq_sources[i]; }
-        mem_source const& get_mem_source(unsigned i) const { return m_mem_sources[i]; }
         diseq_source const& get_diseq(unsigned i) const { return m_diseqs[i]; }
 
         bool empty() const { return m_str_eqs.empty() && m_str_mems.empty() && m_diseqs.empty(); }
@@ -106,8 +87,6 @@ namespace smt {
         void reset() {
             m_str_eqs.reset();
             m_str_mems.reset();
-            m_eq_sources.reset();
-            m_mem_sources.reset();
             m_diseqs.reset();
             m_str_eq_lim.reset();
             m_str_mem_lim.reset();

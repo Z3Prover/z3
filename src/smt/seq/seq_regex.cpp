@@ -859,7 +859,7 @@ namespace seq {
                 new_history = m_sg.mk(chain);
             }
         }
-        return seq::str_mem(mem.m_str, mem.m_regex, new_history, mem.m_id, mem.m_dep);
+        return seq::str_mem(mem.m_str, mem.m_regex, mem.m_lit, new_history, mem.m_id, mem.m_dep);
     }
 
     // -----------------------------------------------------------------------

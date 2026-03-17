@@ -250,6 +250,10 @@ namespace seq {
     class seq_regex;  // forward declaration (defined in smt/seq/seq_regex.h)
 }
 
+namespace smt {
+    class enode;
+}
+
 namespace seq {
 
     // forward declarations
@@ -305,13 +309,10 @@ namespace seq {
     // source of a dependency: identifies an input constraint by kind and index.
     // kind::eq means a string equality, kind::mem means a regex membership.
     // index is the 0-based position in the input eq or mem list respectively.
-    struct dep_source {
-        enum class kind { eq, mem } m_kind;
-        unsigned index;
-        bool operator==(dep_source const& o) const {
-            return m_kind == o.m_kind && index == o.index;
-        }
-    };
+
+    using enode_pair = std::pair<smt::enode *, smt::enode *>;
+    using dep_source = std::variant<sat::literal, enode_pair>;
+
 
     // Arena-based dependency manager: builds an immutable tree of dep_source
     // leaves joined by binary join nodes.  Memory is managed via a region;
@@ -352,11 +353,12 @@ namespace seq {
     struct str_eq {
         euf::snode* m_lhs;
         euf::snode* m_rhs;
+        smt::enode *m_l, *m_r;
         dep_tracker m_dep;
 
         str_eq(): m_lhs(nullptr), m_rhs(nullptr), m_dep(nullptr) {}
-        str_eq(euf::snode* lhs, euf::snode* rhs, dep_tracker const& dep):
-            m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
+        str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r, dep_tracker const& dep):
+            m_lhs(lhs), m_rhs(rhs), m_l(l), m_r(r), m_dep(dep) {}
 
         bool operator==(str_eq const& other) const {
             return m_lhs == other.m_lhs && m_rhs == other.m_rhs;
@@ -377,13 +379,14 @@ namespace seq {
     struct str_mem {
         euf::snode* m_str;
         euf::snode* m_regex;
+        sat::literal m_lit;
         euf::snode* m_history;  // tracks derivation history for cycle detection
         unsigned    m_id;       // unique identifier
         dep_tracker m_dep;
 
         str_mem(): m_str(nullptr), m_regex(nullptr), m_history(nullptr), m_id(UINT_MAX), m_dep(nullptr) {}
-        str_mem(euf::snode* str, euf::snode* regex, euf::snode* history, unsigned id, dep_tracker const& dep):
-            m_str(str), m_regex(regex), m_history(history), m_id(id), m_dep(dep) {}
+        str_mem(euf::snode* str, euf::snode* regex, sat::literal l, euf::snode* history, unsigned id, dep_tracker const& dep):
+            m_str(str), m_regex(regex), m_lit(l), m_history(history), m_id(id), m_dep(dep) {}
 
         bool operator==(str_mem const& other) const {
             return m_id == other.m_id && m_str == other.m_str && m_regex == other.m_regex;
@@ -759,8 +762,6 @@ namespace seq {
         bool                          m_parikh_enabled = true;
         unsigned                      m_next_mem_id = 0;
         unsigned                      m_fresh_cnt = 0;
-        unsigned                      m_num_input_eqs = 0;
-        unsigned                      m_num_input_mems = 0;
         nielsen_stats                 m_stats;
 
 
@@ -839,8 +840,8 @@ namespace seq {
         svector<nielsen_edge*> const& sat_path() const { return m_sat_path; }
 
         // add constraints to the root node from external solver
-        void add_str_eq(euf::snode* lhs, euf::snode* rhs);
-        void add_str_mem(euf::snode* str, euf::snode* regex);
+        void add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r);
+        void add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l);
 
         // run management
         unsigned run_idx() const { return m_run_idx; }
@@ -861,10 +862,6 @@ namespace seq {
 
         // generate next unique regex membership id
         unsigned next_mem_id() { return m_next_mem_id++; }
-
-        // number of input constraints (used for indexing dep_source leaves)
-        unsigned num_input_eqs() const { return m_num_input_eqs; }
-        unsigned num_input_mems() const { return m_num_input_mems; }
 
         // display for debugging
         std::ostream& display(std::ostream& out) const;
@@ -895,7 +892,9 @@ namespace seq {
         // explain a conflict: partition the dep_source leaves into str_eq indices
         // (kind::eq) and str_mem indices (kind::mem).
         // Must be called after solve() returns unsat.
-        void explain_conflict(unsigned_vector& eq_indices, unsigned_vector& mem_indices) const;
+        void explain_conflict(svector<enode_pair> &eqs,
+                              svector<sat::literal> &mem_literals) const;
+
 
         // accumulated search statistics
         nielsen_stats const& stats() const { return m_stats; }

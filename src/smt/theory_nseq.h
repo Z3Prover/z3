@@ -64,9 +64,6 @@ namespace smt {
         // map from context enode to private sgraph snode
         obj_map<expr, euf::snode*> m_expr2snode;
 
-        // mapping from nielsen mem index to state mem index
-        // (populated during populate_nielsen_graph, used in deps_to_lits)
-        unsigned_vector m_nielsen_to_state_mem;
 
         // higher-order terms (seq.map, seq.mapi, seq.foldl, seq.foldli)
         ptr_vector<app>  m_ho_terms;

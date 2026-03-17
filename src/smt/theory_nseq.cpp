@@ -256,9 +256,9 @@ namespace smt {
     void theory_nseq::propagate_eq(unsigned idx) {
         // When s1 = s2 is learned, ensure len(s1) and len(s2) are
         // internalized so congruence closure propagates len(s1) = len(s2).
-        eq_source const& src = m_state.get_eq_source(idx);
-        ensure_length_var(src.m_n1->get_expr());
-        ensure_length_var(src.m_n2->get_expr());
+        auto const& src = m_state.str_eqs()[idx];
+        ensure_length_var(src.m_l->get_expr());
+        ensure_length_var(src.m_r->get_expr());
     }
 
     void theory_nseq::propagate_diseq(unsigned idx) {
@@ -274,7 +274,6 @@ namespace smt {
 
     void theory_nseq::propagate_pos_mem(unsigned idx) {
         auto const& mem = m_state.str_mems()[idx];
-        auto const& src = m_state.get_mem_source(idx);
 
         if (!mem.m_str || !mem.m_regex)
             return;
@@ -283,7 +282,7 @@ namespace smt {
         if (m_regex.is_empty_regex(mem.m_regex)) {
             enode_pair_vector eqs;
             literal_vector lits;
-            lits.push_back(src.m_lit);
+            lits.push_back(mem.m_lit);
             set_conflict(eqs, lits);
             return;
         }
@@ -292,7 +291,7 @@ namespace smt {
         if (mem.m_str->is_empty() && !mem.m_regex->is_nullable()) {
             enode_pair_vector eqs;
             literal_vector lits;
-            lits.push_back(src.m_lit);
+            lits.push_back(mem.m_lit);
             set_conflict(eqs, lits);
             return;
         }
@@ -317,44 +316,37 @@ namespace smt {
 
     void theory_nseq::populate_nielsen_graph() {
         m_nielsen.reset();
-        m_nielsen_to_state_mem.reset();
 
         // transfer string equalities from state to nielsen graph root
         for (auto const& eq : m_state.str_eqs()) {
-            m_nielsen.add_str_eq(eq.m_lhs, eq.m_rhs);
+            m_nielsen.add_str_eq(eq.m_lhs, eq.m_rhs, eq.m_l, eq.m_r);
         }
 
         // transfer regex memberships, pre-processing through seq_regex
         // to consume ground prefixes via Brzozowski derivatives
-        for (unsigned state_idx = 0; state_idx < m_state.str_mems().size(); ++state_idx) {
-            auto const& mem = m_state.str_mems()[state_idx];
+        for (auto const &mem : m_state.str_mems()) {
             int triv = m_regex.check_trivial(mem);
             if (triv > 0)
                 continue;  // trivially satisfied, skip
             if (triv < 0) {
                 // trivially unsat: add anyway so solve() detects conflict
-                m_nielsen.add_str_mem(mem.m_str, mem.m_regex);
-                m_nielsen_to_state_mem.push_back(state_idx);
+                m_nielsen.add_str_mem(mem.m_str, mem.m_regex, mem.m_lit);
                 continue;
             }
             // pre-process: consume ground prefix characters
             vector<seq::str_mem> processed;
             if (!m_regex.process_str_mem(mem, processed)) {
                 // conflict during ground prefix consumption
-                m_nielsen.add_str_mem(mem.m_str, mem.m_regex);
-                m_nielsen_to_state_mem.push_back(state_idx);
+                m_nielsen.add_str_mem(mem.m_str, mem.m_regex, mem.m_lit);
                 continue;
             }
             for (auto const& pm : processed) {
-                m_nielsen.add_str_mem(pm.m_str, pm.m_regex);
-                m_nielsen_to_state_mem.push_back(state_idx);
+                m_nielsen.add_str_mem(pm.m_str, pm.m_regex, pm.m_lit);
             }
         }
 
         TRACE(seq, tout << "nseq populate: " << m_state.str_eqs().size() << " eqs, "
-                        << m_state.str_mems().size() << " mems -> nielsen root with "
-                        << m_nielsen.num_input_eqs() << " eqs, "
-                        << m_nielsen.num_input_mems() << " mems\n";);
+                        << m_state.str_mems().size() << " mems -> nielsen root\n");
     }
 
     final_check_status theory_nseq::final_check_eh(unsigned /*final_check_round*/) {
@@ -455,20 +447,11 @@ namespace smt {
     void theory_nseq::deps_to_lits(seq::dep_tracker const& deps, enode_pair_vector& eqs, literal_vector& lits) {
         vector<seq::dep_source, false> vs;
         m_nielsen.dep_mgr().linearize(deps, vs);
-        for (seq::dep_source const& d : vs) {
-            if (d.m_kind == seq::dep_source::kind::eq) {
-                eq_source const& src = m_state.get_eq_source(d.index);
-                if (src.m_n1->get_root() == src.m_n2->get_root())
-                    eqs.push_back({src.m_n1, src.m_n2});
-            }
-            else {
-                if (d.index < m_nielsen_to_state_mem.size()) {
-                    unsigned state_mem_idx = m_nielsen_to_state_mem[d.index];
-                    mem_source const& src = m_state.get_mem_source(state_mem_idx);
-                    SASSERT(ctx.get_assignment(src.m_lit) == l_true);
-                    lits.push_back(src.m_lit);
-                }
-            }
+        for (seq::dep_source const &d : vs) {
+            if (std::holds_alternative<enode_pair>(d))
+                eqs.push_back(std::get<enode_pair>(d));
+            else
+                lits.push_back(std::get<sat::literal>(d));
         }
     }
 
@@ -856,9 +839,10 @@ namespace smt {
                 enode_pair_vector eqs;
                 literal_vector lits;
                 for (unsigned i : mem_indices) {
-                    mem_source const& src = m_state.get_mem_source(i);
+                    auto const &src = m_state.str_mems()[i];
                     SASSERT(ctx.get_assignment(src.m_lit) == l_true); // we already stored the polarity of the literal
-                    lits.push_back(src.m_lit);
+                    lits.push_back(
+                        src.m_lit);
                 }
                 TRACE(seq, tout << "nseq regex precheck: empty intersection for var "
                                 << var_id << ", conflict with " << lits.size() << " lits\n";);

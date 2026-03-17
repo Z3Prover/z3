@@ -227,7 +227,7 @@ namespace seq {
             if (deriv)
                 propagate_self_stabilizing(parent_re, deriv);
             euf::snode* new_str = m_sg.drop_first(mem.m_str);
-            return seq::str_mem(new_str, deriv, mem.m_history, mem.m_id, mem.m_dep);
+            return seq::str_mem(new_str, deriv, mem.m_lit, mem.m_history, mem.m_id, mem.m_dep);
         }
 
         // -----------------------------------------------------------------
