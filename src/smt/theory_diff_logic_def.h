@@ -170,7 +170,7 @@ template<typename Ext>
 void theory_diff_logic<Ext>::found_non_diff_logic_expr(expr * n) {
     if (!m_non_diff_logic_exprs) {
         TRACE(non_diff_logic, tout << "found non diff logic expression:\n" << mk_pp(n, m) << "\n";);
-        IF_VERBOSE(0, verbose_stream() << "(smt.diff_logic: non-diff logic expression " << mk_pp(n, m) << ")\n";); 
+        IF_VERBOSE(2, verbose_stream() << "(smt.diff_logic: non-diff logic expression " << mk_pp(n, m) << ")\n";); 
         ctx.push_trail(value_trail<bool>(m_non_diff_logic_exprs));
         m_non_diff_logic_exprs = true;
     }
