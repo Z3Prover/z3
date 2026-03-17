@@ -223,6 +223,7 @@ namespace seq {
         return false;
     }
 
+    // NSB review: optimize sg.subst to apply join only if the substitution had an effect.
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
         if (!s.m_var) return;
         for (unsigned i = 0; i < m_str_eq.size(); ++i) {
