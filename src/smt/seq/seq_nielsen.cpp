@@ -2459,42 +2459,21 @@ namespace seq {
                     continue;
 
                 // char vs var: branch 1: var -> ε, branch 2: var -> char·var
-                if (lhead->is_char() && rhead->is_var()) {
-                    {
-                        nielsen_node* child = mk_child(node);
-                        nielsen_edge* e = mk_edge(node, child, true);
-                        nielsen_subst s(rhead, m_sg.mk_empty_seq(rhead->get_sort()), eq.m_dep);
-                        e->add_subst(s);
-                        child->apply_subst(m_sg, s);
-                    }
-                    {
-                        euf::snode* replacement = dir_concat(m_sg, lhead, rhead, fwd);
-                        nielsen_node* child = mk_child(node);
-                        nielsen_edge* e = mk_edge(node, child, false);
-                        nielsen_subst s(rhead, replacement, eq.m_dep);
-                        e->add_subst(s);
-                        child->apply_subst(m_sg, s);
-                    }
-                    return true;
-                }
+                euf::snode* char_head = lhead->is_unit() ? lhead : (rhead->is_unit() ? rhead : nullptr);
+                euf::snode* var_head = lhead->is_var() ? lhead : (rhead->is_var() ? rhead : nullptr);
+                if (char_head && var_head) {
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, true);
+                    nielsen_subst s1(var_head, m_sg.mk_empty_seq(var_head->get_sort()), eq.m_dep);
+                    e->add_subst(s1);
+                    child->apply_subst(m_sg, s1);
 
-                // var vs char: branch 1: var -> ε, branch 2: var -> char·var
-                if (rhead->is_char() && lhead->is_var()) {
-                    {
-                        nielsen_node* child = mk_child(node);
-                        nielsen_edge* e = mk_edge(node, child, true);
-                        nielsen_subst s(lhead, m_sg.mk_empty_seq(lhead->get_sort()), eq.m_dep);
-                        e->add_subst(s);
-                        child->apply_subst(m_sg, s);
-                    }
-                    {
-                        euf::snode* replacement = dir_concat(m_sg, rhead, lhead, fwd);
-                        nielsen_node* child = mk_child(node);
-                        nielsen_edge* e = mk_edge(node, child, false);
-                        nielsen_subst s(lhead, replacement, eq.m_dep);
-                        e->add_subst(s);
-                        child->apply_subst(m_sg, s);
-                    }
+                    euf::snode* replacement = dir_concat(m_sg, char_head, var_head, fwd);
+                    child = mk_child(node);
+                    e = mk_edge(node, child, false);
+                    nielsen_subst s2(var_head, replacement, eq.m_dep);
+                    e->add_subst(s2);
+                    child->apply_subst(m_sg, s2);
                     return true;
                 }
             }
