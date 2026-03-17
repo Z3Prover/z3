@@ -2976,7 +2976,7 @@ void theory_seq::add_axiom(literal_vector & lits) {
     TRACE(seq, ctx.display_literals_verbose(tout << "assert " << lits << " :", lits) << "\n";);
 
     for (literal lit : lits)
-        if (ctx.get_assignment(lit) == l_true) 
+        if (ctx.get_assignment(lit) == l_true && ctx.get_assign_level(lit) == 0) 
             return;
 
     for (literal lit : lits)
