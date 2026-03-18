@@ -436,11 +436,6 @@ namespace euf {
         m_egraph.pop(num_scopes);
     }
 
-    snode* sgraph::mk_var(symbol const& name) {
-        expr_ref e(m.mk_const(name, m_str_sort), m);
-        return mk(e);
-    }
-
     snode* sgraph::mk_var(symbol const& name, sort* s) {
         expr_ref e(m.mk_const(name, s), m);
         return mk(e);

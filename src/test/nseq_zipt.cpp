@@ -65,7 +65,7 @@ struct str_builder {
     euf::snode* var(char c) {
         int idx = c - 'A';
         if (!vars[idx])
-            vars[idx] = sg.mk_var(symbol(std::string(1, c).c_str()));
+            vars[idx] = sg.mk_var(symbol(std::string(1, c).c_str()), su.str.mk_string_sort());
         return vars[idx];
     }
 
