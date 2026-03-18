@@ -119,18 +119,18 @@ def run_zipt(zipt_bin: str, smt_file: Path, timeout_s: int = DEFAULT_TIMEOUT) ->
         return f"error:{e}", elapsed
 
 
-def classify(res_nseq: str, res_seq: str, res_nseq_np: str | None = None) -> str:
+def classify(res_nseq: str, res_seq: str, res_nseq_p: str | None = None) -> str:
     """Classify a pair of results into a category."""
     timed_nseq = res_nseq == "timeout"
     timed_seq  = res_seq  == "timeout"
     
-    if res_nseq_np:
-        timed_nseq_np = res_nseq_np == "timeout"
-        if timed_nseq and timed_seq and timed_nseq_np: return "all_timeout"
-        if not timed_nseq and not timed_seq and not timed_nseq_np:
-            if res_nseq == "unknown" or res_seq == "unknown" or res_nseq_np == "unknown":
+    if res_nseq_p:
+        timed_nseq_p = res_nseq_p == "timeout"
+        if timed_nseq and timed_seq and timed_nseq_p: return "all_timeout"
+        if not timed_nseq and not timed_seq and not timed_nseq_p:
+            if res_nseq == "unknown" or res_seq == "unknown" or res_nseq_p == "unknown":
                 return "all_terminate_unknown_involved"
-            if res_nseq == res_seq == res_nseq_np: return "all_agree"
+            if res_nseq == res_seq == res_nseq_p: return "all_agree"
             return "diverge"
 
     if timed_nseq and timed_seq:
@@ -148,15 +148,15 @@ def classify(res_nseq: str, res_seq: str, res_nseq_np: str | None = None) -> str
 
 
 def process_file(z3_bin: str, smt_file: Path, timeout_s: int = DEFAULT_TIMEOUT,
-                 zipt_bin: str | None = None, run_nseq_np: bool = False) -> dict:
+                 zipt_bin: str | None = None, run_nseq_p: bool = False) -> dict:
     res_nseq, t_nseq = run_z3(z3_bin, smt_file, SOLVERS["nseq"], timeout_s)
     res_seq,  t_seq  = run_z3(z3_bin, smt_file, SOLVERS["seq"], timeout_s)
     
-    res_nseq_np, t_nseq_np = None, None
-    if run_nseq_np:
-        res_nseq_np, t_nseq_np = run_z3(z3_bin, smt_file, SOLVERS["nseq_np"], timeout_s)
+    res_nseq_p, t_nseq_p = None, None
+    if run_nseq_p:
+        res_nseq_p, t_nseq_p = run_z3(z3_bin, smt_file, SOLVERS["nseq_p"], timeout_s)
 
-    cat = classify(res_nseq, res_seq, res_nseq_np)
+    cat = classify(res_nseq, res_seq, res_nseq_p)
     smtlib_status = read_smtlib_status(smt_file)
     status = determine_status(res_nseq, res_seq, smtlib_status)
     result = {
@@ -170,8 +170,8 @@ def process_file(z3_bin: str, smt_file: Path, timeout_s: int = DEFAULT_TIMEOUT,
         "status":         status,
         "zipt":           None,
         "t_zipt":         None,
-        "nseq_np":        res_nseq_np,
-        "t_nseq_np":      t_nseq_np,
+        "nseq_p":        res_nseq_p,
+        "t_nseq_p":      t_nseq_p,
     }
     if zipt_bin:
         res_zipt, t_zipt = run_zipt(zipt_bin, smt_file, timeout_s)
@@ -210,22 +210,22 @@ def main():
         sys.exit(1)
 
     solvers_label = "nseq, seq"
-    if args.no_parikh: solvers_label += ", nseq_np"
+    if args.parikh: solvers_label += ", nseq_p"
     if zipt_bin: solvers_label += ", zipt"
     print(f"Found {len(files)} files. Solvers: {solvers_label}. "
           f"Workers: {args.jobs}, timeout: {timeout_s}s\n")
 
     results = []
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = {pool.submit(process_file, z3_bin, f, timeout_s, zipt_bin, args.no_parikh): f for f in files}
+        futures = {pool.submit(process_file, z3_bin, f, timeout_s, zipt_bin, args.parikh): f for f in files}
         done = 0
         for fut in as_completed(futures):
             done += 1
             r = fut.result()
             results.append(r)
             np_part = ""
-            if args.no_parikh:
-                np_part = f"  nseq_np={r['nseq_np']:8s} ({r['t_nseq_np']:.1f}s)"
+            if args.parikh:
+                np_part = f"  nseq_p={r['nseq_p']:8s} ({r['t_nseq_p']:.1f}s)"
             zipt_part = ""
             if zipt_bin:
                 zipt_part = f"  zipt={r['zipt']:8s} ({r['t_zipt']:.1f}s)"
@@ -311,11 +311,11 @@ def main():
         import csv
         csv_path = Path(args.csv)
         fieldnames = ["file", "nseq", "seq"]
-        if args.no_parikh:
-            fieldnames.append("nseq_np")
+        if args.parikh:
+            fieldnames.append("nseq_p")
         fieldnames.extend(["t_nseq", "t_seq"])
-        if args.no_parikh:
-            fieldnames.append("t_nseq_np")
+        if args.parikh:
+            fieldnames.append("t_nseq_p")
         fieldnames.extend(["category", "smtlib_status", "status"])
         if zipt_bin:
             fieldnames.extend(["zipt", "t_zipt"])
