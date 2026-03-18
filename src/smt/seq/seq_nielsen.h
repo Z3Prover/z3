@@ -395,6 +395,8 @@ namespace seq {
         // check if the constraint has the form x in R with x a single variable
         bool is_primitive() const;
 
+        bool is_trivial() const;
+
         // check if the constraint contains a given variable
         bool contains_var(euf::snode* var) const;
     };

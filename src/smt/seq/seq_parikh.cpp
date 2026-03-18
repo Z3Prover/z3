@@ -306,18 +306,4 @@ namespace seq {
         }
         return false;
     }
-
-    // -----------------------------------------------------------------------
-    // minterm → char_set conversion
-    // -----------------------------------------------------------------------
-
-    // Convert a regex minterm expression to a char_set.
-    //
-    // Minterms are Boolean combinations of character-class predicates
-    // (re.range, re.full_char, complement, intersection) produced by
-    // sgraph::compute_minterms().  This function converts them to a
-    // concrete char_set so that fresh character variables introduced by
-    // apply_regex_var_split can be constrained with add_char_range().
-
-
 } // namespace seq

@@ -137,6 +137,10 @@ namespace seq {
         return m_str && m_str->length() == 1 && m_str->is_var();
     }
 
+    bool str_mem::is_trivial() const {
+        return m_str && m_regex && m_str->is_empty() && m_regex->is_nullable();
+    }
+
     bool str_mem::contains_var(euf::snode* var) const {
         if (!var) return false;
         if (m_str) {
@@ -1489,7 +1493,7 @@ namespace seq {
         while (changed) {
             changed = false;
 
-            // pass 1: remove trivially satisfied equalities
+            // pass 1: remove trivially satisfied equalities and memberships
             unsigned wi = 0;
             for (unsigned i = 0; i < m_str_eq.size(); ++i) {
                 str_eq& eq = m_str_eq[i];
@@ -1499,6 +1503,18 @@ namespace seq {
             }
             if (wi < m_str_eq.size()) {
                 m_str_eq.shrink(wi);
+                changed = true;
+            }
+
+            unsigned wj = 0;
+            for (unsigned j = 0; j < m_str_mem.size(); ++j) {
+                str_mem& mem = m_str_mem[j];
+                if (mem.is_trivial())
+                    continue;
+                m_str_mem[wj++] = mem;
+            }
+            if (wj < m_str_mem.size()) {
+                m_str_mem.shrink(wj);
                 changed = true;
             }
 
@@ -1785,8 +1801,10 @@ namespace seq {
         for (str_mem& mem : m_str_mem) {
             if (!mem.m_str || !mem.m_regex)
                 continue;
+            if (mem.is_primitive())
+                continue;
             for (unsigned od = 0; od < 2; ++od) {
-                bool fwd = (od == 0);
+                bool fwd = od == 0;
                 while (mem.m_str && !mem.m_str->is_empty()) {
                     euf::snode* tok = dir_token(mem.m_str, fwd);
                     if (!tok || !tok->is_char())
@@ -1823,6 +1841,8 @@ namespace seq {
         // Mirrors ZIPT StrMem.SimplifyCharRegex lines 96-117.
         for (str_mem& mem : m_str_mem) {
             if (!mem.m_str || !mem.m_regex)
+                continue;
+            if (mem.is_primitive())
                 continue;
             while (mem.m_str && !mem.m_str->is_empty()) {
                 euf::snode* tok = mem.m_str->first();
@@ -1928,6 +1948,8 @@ namespace seq {
         if (m_graph.m_seq_regex) {
             for (str_mem const& mem : m_str_mem) {
                 if (!mem.m_str || !mem.m_regex)
+                    continue;
+                if (mem.is_primitive())
                     continue;
                 if (m_graph.check_regex_widening(*this, mem.m_str, mem.m_regex)) {
                     m_is_general_conflict = true;
@@ -2142,7 +2164,11 @@ namespace seq {
             if (!eq.is_trivial())
                 return false;
         }
-        return m_str_mem.empty();
+        for (str_mem const& mem : m_str_mem) {
+            if (!mem.is_trivial() && !mem.is_primitive())
+                return false;
+        }
+        return true;
     }
 
     bool nielsen_node::has_opaque_terms() const {
@@ -3310,6 +3336,7 @@ namespace seq {
         for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
             str_mem const& mem = node->str_mems()[mi];
             if (!mem.m_str || !mem.m_regex) continue;
+            if (mem.is_primitive()) continue;
             euf::snode* first = mem.m_str->first();
             if (!first || !first->is_var()) continue;
 
@@ -3616,6 +3643,8 @@ namespace seq {
     bool nielsen_graph::apply_regex_var_split(nielsen_node* node) {
         for (str_mem const& mem : node->str_mems()) {
             if (!mem.m_str || !mem.m_regex)
+                continue;
+            if (mem.is_primitive())
                 continue;
             euf::snode* first = mem.m_str->first();
             if (!first || !first->is_var())

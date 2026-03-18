@@ -116,7 +116,7 @@ namespace smt {
         // collect per-variable regex constraints from the state.
         // For each positive str_mem, records the regex (or intersects
         // with existing) into m_var_regex keyed by the string snode id.
-        void collect_var_regex_constraints(seq_state const& state);
+        void collect_var_regex_constraints(seq::nielsen_node const* sat_node);
     };
 
 }

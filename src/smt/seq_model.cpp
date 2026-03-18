@@ -41,7 +41,7 @@ namespace smt {
         mg.register_factory(m_factory);
 
         register_existing_values(nielsen);
-        collect_var_regex_constraints(state);
+        collect_var_regex_constraints(nielsen.sat_node());
 
         // solve integer constraints from the sat_path FIRST so that
         // m_int_model is available when snode_to_value evaluates power exponents
@@ -288,14 +288,15 @@ namespace smt {
         euf::snode* re = nullptr;
         if (m_var_regex.find(var->id(), re) && re) {
             expr* re_expr = re->get_expr();
-            if (re_expr) {
-                expr_ref witness(m);
-                if (m_rewriter.some_seq_in_re(re_expr, witness) == l_true && witness) {
-                    m_trail.push_back(witness);
-                    m_factory->register_value(witness);
-                    return witness;
-                }
-            }
+            SASSERT(re_expr);
+            expr_ref witness(m);
+            // We checked non-emptiness during Nielsen already
+            VERIFY(m_rewriter.some_seq_in_re(re_expr, witness) == l_true && witness);
+            // std::cout << "Witness for " << mk_pp(var->get_expr(), m) << " in " <<
+            //     mk_pp(re_expr, m) << ": " << mk_pp(witness, m) << std::endl;
+            m_trail.push_back(witness);
+            m_factory->register_value(witness);
+            return witness;
         }
 
         // no regex constraint or witness generation failed: use empty string
@@ -305,14 +306,13 @@ namespace smt {
         return m_seq.str.mk_empty(srt);
     }
 
-    void seq_model::collect_var_regex_constraints(seq_state const& state) {
-        for (auto const& mem : state.str_mems()) {
-            if (!mem.m_str || !mem.m_regex)
-                continue;
-            // only collect for variable snodes (leaf variables needing assignment)
-            if (!mem.m_str->is_var())
-                continue;
-            unsigned id = mem.m_str->id();
+    void seq_model::collect_var_regex_constraints(seq::nielsen_node const* sat_node) {
+        SASSERT(sat_node);
+        for (auto const& mem : sat_node->str_mems()) {
+            SASSERT(mem.m_str && mem.m_regex);
+            VERIFY(mem.is_primitive()); // everything else should have been eliminated already
+            euf::snode* first = mem.m_str->first();
+            unsigned id = first->id();
             euf::snode* existing = nullptr;
             if (m_var_regex.find(id, existing) && existing) {
                 // intersect with existing constraint:
@@ -322,13 +322,12 @@ namespace smt {
                 if (e1 && e2) {
                     expr_ref inter(m_seq.re.mk_inter(e1, e2), m);
                     euf::snode* inter_sn = m_sg.mk(inter);
-                    if (inter_sn)
-                        m_var_regex.insert(id, inter_sn);
+                    SASSERT(inter_sn);
+                    m_var_regex.insert(id, inter_sn);
                 }
             }
-            else {
+            else
                 m_var_regex.insert(id, mem.m_regex);
-            }
         }
     }
 
