@@ -356,7 +356,7 @@ namespace seq {
         smt::enode *m_l, *m_r;
         dep_tracker m_dep;
 
-        str_eq(): m_lhs(nullptr), m_rhs(nullptr), m_dep(nullptr) {}
+        str_eq() = default;
         str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r, dep_tracker const& dep):
             m_lhs(lhs), m_rhs(rhs), m_l(l), m_r(r), m_dep(dep) {}
 

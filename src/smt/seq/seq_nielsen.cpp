@@ -102,8 +102,10 @@ namespace seq {
     // -----------------------------------------------
 
     void str_eq::sort() {
-        if (m_lhs && m_rhs && m_lhs->id() > m_rhs->id())
+        if (m_lhs && m_rhs && m_lhs->id() > m_rhs->id()) {
             std::swap(m_lhs, m_rhs);
+            std::swap(m_l, m_r);
+        }
     }
 
     bool str_eq::is_trivial() const {
@@ -112,19 +114,24 @@ namespace seq {
     }
 
     bool str_eq::contains_var(euf::snode* var) const {
-        if (!var) return false;
+        if (!var)
+            return false;
         // check if var appears in the token list of lhs or rhs
         if (m_lhs) {
             euf::snode_vector tokens;
             m_lhs->collect_tokens(tokens);
-            for (euf::snode* t : tokens)
-                if (t == var) return true;
+            for (euf::snode* t : tokens) {
+                if (t == var)
+                    return true;
+            }
         }
         if (m_rhs) {
             euf::snode_vector tokens;
             m_rhs->collect_tokens(tokens);
-            for (euf::snode* t : tokens)
-                if (t == var) return true;
+            for (euf::snode* t : tokens) {
+                if (t == var)
+                    return true;
+            }
         }
         return false;
     }
@@ -142,12 +149,14 @@ namespace seq {
     }
 
     bool str_mem::contains_var(euf::snode* var) const {
-        if (!var) return false;
+        SASSERT(var);
         if (m_str) {
             euf::snode_vector tokens;
             m_str->collect_tokens(tokens);
-            for (euf::snode* t : tokens)
-                if (t == var) return true;
+            for (const euf::snode* t : tokens) {
+                if (t == var)
+                    return true;
+            }
         }
         return false;
     }
@@ -157,12 +166,14 @@ namespace seq {
     // -----------------------------------------------
 
     bool nielsen_subst::is_eliminating() const {
-        if (!m_var || !m_replacement) return true;
+        SASSERT(m_var && m_replacement)
         // check if var appears in replacement
         euf::snode_vector tokens;
         m_replacement->collect_tokens(tokens);
-        for (euf::snode* t : tokens)
-            if (t == m_var) return false;
+        for (const euf::snode* t : tokens) {
+            if (t == m_var)
+                return false;
+        }
         return true;
     }
 
@@ -171,16 +182,14 @@ namespace seq {
     // -----------------------------------------------
 
     nielsen_edge::nielsen_edge(nielsen_node* src, nielsen_node* tgt, bool is_progress):
-        m_src(src), m_tgt(tgt), m_is_progress(is_progress) {
-    }
+        m_src(src), m_tgt(tgt), m_is_progress(is_progress) { }
 
     // -----------------------------------------------
     // nielsen_node
     // -----------------------------------------------
 
     nielsen_node::nielsen_node(nielsen_graph& graph, unsigned id):
-        m_id(id), m_graph(graph), m_is_progress(true) {
-    }
+        m_id(id), m_graph(graph), m_is_progress(true) { }
 
     void nielsen_node::clone_from(nielsen_node const& parent) {
         m_str_eq.reset();
@@ -190,17 +199,21 @@ namespace seq {
         m_char_ranges.reset();
         m_var_lb.reset();
         m_var_ub.reset();
-        for (auto const& eq : parent.m_str_eq)
+        for (auto const& eq : parent.m_str_eq) {
             m_str_eq.push_back(str_eq(eq.m_lhs, eq.m_rhs,eq.m_l, eq.m_r, eq.m_dep));
-        for (auto const& mem : parent.m_str_mem)
+        }
+        for (auto const& mem : parent.m_str_mem) {
             m_str_mem.push_back(str_mem(mem.m_str, mem.m_regex, mem.m_lit, mem.m_history, mem.m_id, mem.m_dep));
-        for (auto const& ic : parent.m_int_constraints)
+        }
+        for (auto const& ic : parent.m_int_constraints) {
             m_int_constraints.push_back(ic);
+        }
         // clone character disequalities
         for (auto const& kv : parent.m_char_diseqs) {
             ptr_vector<euf::snode> diseqs;
-            for (euf::snode* s : kv.m_value)
+            for (euf::snode* s : kv.m_value) {
                 diseqs.push_back(s);
+            }
             m_char_diseqs.insert(kv.m_key, diseqs);
         }
         // clone character ranges
@@ -208,10 +221,12 @@ namespace seq {
             m_char_ranges.insert(kv.m_key, kv.m_value.clone());
         }
         // clone per-variable integer bounds
-        for (auto const& kv : parent.m_var_lb)
+        for (auto const& kv : parent.m_var_lb) {
             m_var_lb.insert(kv.m_key, kv.m_value);
-        for (auto const& kv : parent.m_var_ub)
+        }
+        for (auto const& kv : parent.m_var_ub) {
             m_var_ub.insert(kv.m_key, kv.m_value);
+        }
         // clone regex occurrence tracking
         m_regex_occurrence = parent.m_regex_occurrence;
     }
@@ -229,7 +244,8 @@ namespace seq {
 
     // NSB review: optimize sg.subst to apply join only if the substitution had an effect.
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
-        if (!s.m_var) return;
+        if (!s.m_var)
+            return;
         for (unsigned i = 0; i < m_str_eq.size(); ++i) {
             str_eq& eq = m_str_eq[i];
             eq.m_lhs = sg.subst(eq.m_lhs, s.m_var, s.m_replacement);
@@ -272,8 +288,10 @@ namespace seq {
             m_char_diseqs.insert(id, ptr_vector<euf::snode>());
         ptr_vector<euf::snode>& existing = m_char_diseqs.find(id);
         // check for duplicates
-        for (euf::snode* s : existing)
-            if (s == other) return;
+        for (euf::snode* s : existing) {
+            if (s == other)
+                return;
+        }
         existing.push_back(other);
     }
 
@@ -283,21 +301,21 @@ namespace seq {
     // -----------------------------------------------
 
     unsigned nielsen_node::var_lb(euf::snode* var) const {
-        if (!var) return 0;
+        SASSERT(var);
         unsigned v = 0;
         m_var_lb.find(var->id(), v);
         return v;
     }
 
     unsigned nielsen_node::var_ub(euf::snode* var) const {
-        if (!var) return UINT_MAX;
+        SASSERT(!var);
         unsigned v = UINT_MAX;
         m_var_ub.find(var->id(), v);
         return v;
     }
 
     bool nielsen_node::add_lower_int_bound(euf::snode* var, unsigned lb, dep_tracker const& dep) {
-        if (!var || !var->is_var()) return false;
+        SASSERT(var && var->is_var());
         unsigned id = var->id();
         // check against existing lower bound
         unsigned cur_lb = 0;
@@ -356,26 +374,27 @@ namespace seq {
     //   - for multiple variables: each gets an upper bound hi-const_len
     // Mirrors ZIPT's VarBoundWatcher mechanism.
     void nielsen_node::watch_var_bounds(nielsen_subst const& s) {
-        if (!s.m_var) return;
+        SASSERT(s.m_var);
         unsigned id = s.m_var->id();
         unsigned lo = 0, hi = UINT_MAX;
         m_var_lb.find(id, lo);
         m_var_ub.find(id, hi);
-        if (lo == 0 && hi == UINT_MAX) return;  // no bounds to propagate
+        if (lo == 0 && hi == UINT_MAX)
+            return;  // no bounds to propagate
 
         // decompose replacement into constant length + variable tokens
-        if (!s.m_replacement) return;
+        if (!s.m_replacement)
+            return;
         euf::snode_vector tokens;
         s.m_replacement->collect_tokens(tokens);
 
         unsigned const_len = 0;
         euf::snode_vector var_tokens;
         for (euf::snode* t : tokens) {
-            if (t->is_char() || t->is_unit()) {
+            if (t->is_char() || t->is_unit())
                 ++const_len;
-            } else if (t->is_var()) {
+            else if (t->is_var())
                 var_tokens.push_back(t);
-            }
             else
                 // power or unknown token: cannot propagate simply, abort
                 return;
@@ -415,8 +434,9 @@ namespace seq {
                     return;
                 }
                 unsigned each_ub = hi - const_len;
-                for (euf::snode* y : var_tokens)
+                for (euf::snode* y : var_tokens) {
                     add_upper_int_bound(y, each_ub, s.m_dep);
+                }
             }
         }
     }

@@ -161,7 +161,8 @@ namespace smt {
 
         if (n->is_empty()) {
             sort* srt = n->get_sort();
-            if (!srt) srt = m_seq.str.mk_string_sort();
+            if (!srt)
+                srt = m_seq.str.mk_string_sort();
             return expr_ref(m_seq.str.mk_empty(srt), m);
         }
 
@@ -179,8 +180,10 @@ namespace smt {
             expr_ref rhs = snode_to_value(n->arg(1));
             if (lhs && rhs)
                 return expr_ref(m_seq.str.mk_concat(lhs, rhs), m);
-            if (lhs) return lhs;
-            if (rhs) return rhs;
+            if (lhs)
+                return lhs;
+            if (rhs)
+                return rhs;
             return expr_ref(m);
         }
 
@@ -203,31 +206,34 @@ namespace smt {
             // finally fall back to the proto_model from model_generator.
             if (exp_expr && arith.is_numeral(exp_expr, exp_val)) {
                 // already concrete
-            } else if (exp_expr && m_int_model.get()) {
+            }
+            else if (exp_expr && m_int_model.get()) {
                 expr_ref result(m);
                 if (m_int_model->eval_expr(exp_expr, result, true) && arith.is_numeral(result, exp_val)) {
                     // evaluated from int model
-                } else if (m_mg) {
+                }
+                else if (m_mg) {
                     proto_model& pm = m_mg->get_model();
                     if (pm.eval(exp_expr, result, true) && arith.is_numeral(result, exp_val)) {
                         // evaluated from proto_model
-                    } else {
-                        exp_val = rational(0);
                     }
-                } else {
-                    exp_val = rational(0);
+                    else
+                        exp_val = rational(0);
                 }
-            } else if (exp_expr && m_mg) {
+                else
+                    exp_val = rational(0);
+            }
+            else if (exp_expr && m_mg) {
                 expr_ref result(m);
                 proto_model& pm = m_mg->get_model();
                 if (pm.eval(exp_expr, result, true) && arith.is_numeral(result, exp_val)) {
                     // evaluated from proto_model
-                } else {
-                    exp_val = rational(0);
                 }
-            } else {
-                exp_val = rational(0);
+                else
+                    exp_val = rational(0);
             }
+            else
+                exp_val = rational(0);
 
             if (exp_val.is_neg())
                 exp_val = rational(0);
