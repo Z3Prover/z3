@@ -504,12 +504,6 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero, bool check_long_strings
         m_fixed.contains(e)) {
         return false;
     }
-    
-    m_trail_stack.push(insert_obj_trail<expr>(m_fixed, e));
-    m_fixed.insert(e);
-
-    expr_ref seq(e, m), head(m), tail(m);
-
 
     TRACE(seq, tout << "Fixed: " << mk_bounded_pp(e, m, 2) << " " << lo << "\n";);
     literal a = mk_eq(len_e, m_autil.mk_numeral(lo, true), false);
@@ -518,6 +512,11 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero, bool check_long_strings
 
     if (!check_long_strings && lo > 20 && !is_zero)
         return false;
+
+    m_trail_stack.push(insert_obj_trail<expr>(m_fixed, e));
+    m_fixed.insert(e);
+
+    expr_ref seq(e, m), head(m), tail(m);
 
     if (lo.is_zero()) {
         seq = m_util.str.mk_empty(e->get_sort());
