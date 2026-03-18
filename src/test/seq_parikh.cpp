@@ -577,7 +577,7 @@ static void test_check_conflict_valid_k_exists() {
     ng.add_str_mem(x, regex);
 
     // lb=3, ub=5: length 4 is achievable (k=2) → no conflict
-    seq::dep_tracker dep = ng.dep_mgr().mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = ng.dep_mgr().mk_leaf(sat::literal(0));
     ng.root()->add_lower_int_bound(x, 3, dep);
     ng.root()->add_upper_int_bound(x, 5, dep);
 
@@ -605,7 +605,7 @@ static void test_check_conflict_no_valid_k() {
     ng.add_str_mem(x, regex);
 
     // lb=3, ub=3: only odd length 3 — never a multiple of 2 → conflict
-    seq::dep_tracker dep = ng.dep_mgr().mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = ng.dep_mgr().mk_leaf(sat::literal(0));
     ng.root()->add_lower_int_bound(x, 3, dep);
     ng.root()->add_upper_int_bound(x, 3, dep);
 
@@ -633,7 +633,7 @@ static void test_check_conflict_abc_star() {
     ng.add_str_mem(x, regex);
 
     // lb=5, ub=5 → no valid k (5 is not a multiple of 3) → conflict
-    seq::dep_tracker dep = ng.dep_mgr().mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = ng.dep_mgr().mk_leaf(sat::literal(0));
     ng.root()->add_lower_int_bound(x, 5, dep);
     ng.root()->add_upper_int_bound(x, 5, dep);
 
@@ -660,7 +660,7 @@ static void test_check_conflict_stride_one_never_conflicts() {
     euf::snode* regex = sg.mk(re);
     ng.add_str_mem(x, regex);
 
-    seq::dep_tracker dep = ng.dep_mgr().mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = ng.dep_mgr().mk_leaf(sat::literal(0));
     ng.root()->add_lower_int_bound(x, 7, dep);
     ng.root()->add_upper_int_bound(x, 7, dep);
 
@@ -681,11 +681,11 @@ static void test_minterm_full_char() {
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     seq_util seq(m);
-    seq::seq_parikh parikh(sg);
+    seq::seq_regex regex(sg);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
     expr_ref re(seq.re.mk_full_char(str_sort), m);
-    char_set cs = parikh.minterm_to_char_set(re);
+    char_set cs = regex.minterm_to_char_set(re);
     std::cout << "  full_char char_count = " << cs.char_count() << "\n";
     SASSERT(cs.is_full(seq.max_char()));
 }
@@ -698,11 +698,11 @@ static void test_minterm_empty_regex() {
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     seq_util seq(m);
-    seq::seq_parikh parikh(sg);
+    seq::seq_regex regex(sg);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
     expr_ref re(seq.re.mk_empty(str_sort), m);
-    char_set cs = parikh.minterm_to_char_set(re);
+    char_set cs = regex.minterm_to_char_set(re);
     std::cout << "  empty regex → char_set empty: " << cs.is_empty() << "\n";
     SASSERT(cs.is_empty());
 }
@@ -715,13 +715,13 @@ static void test_minterm_range() {
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     seq_util seq(m);
-    seq::seq_parikh parikh(sg);
+    seq::seq_regex regex(sg);
 
     // Z3 re.range takes string arguments "A" and "Z"
     expr_ref lo_str(seq.str.mk_string(zstring("A")), m);
     expr_ref hi_str(seq.str.mk_string(zstring("Z")), m);
     expr_ref re(seq.re.mk_range(lo_str, hi_str), m);
-    char_set cs = parikh.minterm_to_char_set(re);
+    char_set cs = regex.minterm_to_char_set(re);
     std::cout << "  range(A,Z) char_count = " << cs.char_count() << "\n";
     SASSERT(cs.char_count() == 26);
     SASSERT(cs.contains('A'));
@@ -737,14 +737,14 @@ static void test_minterm_complement() {
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     seq_util seq(m);
-    seq::seq_parikh parikh(sg);
+    seq::seq_regex regex(sg);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
     expr_ref lo_str(seq.str.mk_string(zstring("A")), m);
     expr_ref hi_str(seq.str.mk_string(zstring("Z")), m);
     expr_ref range(seq.re.mk_range(lo_str, hi_str), m);
     expr_ref re(seq.re.mk_complement(range), m);
-    char_set cs = parikh.minterm_to_char_set(re);
+    char_set cs = regex.minterm_to_char_set(re);
 
     // complement of [A-Z] should not contain any letter in A-Z
     for (unsigned c = 'A'; c <= 'Z'; ++c)
@@ -762,7 +762,7 @@ static void test_minterm_intersection() {
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     seq_util seq(m);
-    seq::seq_parikh parikh(sg);
+    seq::seq_regex regex(sg);
 
     expr_ref lo_az(seq.str.mk_string(zstring("A")), m);
     expr_ref hi_az(seq.str.mk_string(zstring("Z")), m);
@@ -771,7 +771,7 @@ static void test_minterm_intersection() {
     expr_ref range_az(seq.re.mk_range(lo_az, hi_az), m);
     expr_ref range_mz(seq.re.mk_range(lo_mz, hi_az), m);
     expr_ref re(seq.re.mk_inter(range_az, range_mz), m);
-    char_set cs = parikh.minterm_to_char_set(re);
+    char_set cs = regex.minterm_to_char_set(re);
 
     // intersection [A-Z] ∩ [M-Z] = [M-Z]: 14 characters
     std::cout << "  intersection [A-Z]∩[M-Z] char_count = " << cs.char_count() << "\n";
@@ -789,7 +789,7 @@ static void test_minterm_diff() {
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     seq_util seq(m);
-    seq::seq_parikh parikh(sg);
+    seq::seq_regex regex(sg);
 
     expr_ref lo_az(seq.str.mk_string(zstring("A")), m);
     expr_ref hi_az(seq.str.mk_string(zstring("Z")), m);
@@ -799,7 +799,7 @@ static void test_minterm_diff() {
     expr_ref range_az(seq.re.mk_range(lo_az, hi_az), m);
     expr_ref range_am(seq.re.mk_range(lo_am, hi_am), m);
     expr_ref re(seq.re.mk_diff(range_az, range_am), m);
-    char_set cs = parikh.minterm_to_char_set(re);
+    char_set cs = regex.minterm_to_char_set(re);
 
     // diff [A-Z] \ [A-M] = [N-Z]: 13 characters
     std::cout << "  diff [A-Z]\\[A-M] char_count = " << cs.char_count() << "\n";
@@ -818,12 +818,12 @@ static void test_minterm_singleton() {
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     seq_util seq(m);
-    seq::seq_parikh parikh(sg);
+    seq::seq_regex regex(sg);
 
     expr_ref ch_a(seq.str.mk_char('A'), m);
     expr_ref unit_a(seq.str.mk_unit(ch_a), m);
     expr_ref re(seq.re.mk_to_re(unit_a), m);
-    char_set cs = parikh.minterm_to_char_set(re);
+    char_set cs = regex.minterm_to_char_set(re);
 
     std::cout << "  singleton char_count = " << cs.char_count() << "\n";
     SASSERT(cs.char_count() == 1);
@@ -838,10 +838,10 @@ static void test_minterm_nullptr_is_full() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    seq::seq_parikh parikh(sg);
+    seq::seq_regex regex(sg);
     seq_util seq(m);
 
-    char_set cs = parikh.minterm_to_char_set(nullptr);
+    char_set cs = regex.minterm_to_char_set(nullptr);
     SASSERT(cs.is_full(seq.max_char()));
     std::cout << "  nullptr → full set ok\n";
 }

@@ -847,6 +847,10 @@ namespace seq {
         void add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r);
         void add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l);
 
+        // test-friendly overloads (no external dependency tracking)
+        void add_str_eq(euf::snode* lhs, euf::snode* rhs);
+        void add_str_mem(euf::snode* str, euf::snode* regex);
+
         // run management
         unsigned run_idx() const { return m_run_idx; }
         void inc_run_idx();

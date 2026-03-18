@@ -588,6 +588,25 @@ namespace seq {
         m_root->add_str_mem(str_mem(str, regex, history, id, dep));
     }
 
+    // test-friendly overloads (no external dependency tracking)
+    void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs) {
+        if (!m_root)
+            m_root = mk_node();
+        dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
+        str_eq eq(lhs, rhs, dep);
+        eq.sort();
+        m_root->add_str_eq(eq);
+    }
+
+    void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex) {
+        if (!m_root)
+            m_root = mk_node();
+        dep_tracker dep = nullptr;
+        euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
+        unsigned id = next_mem_id();
+        m_root->add_str_mem(str_mem(str, regex, history, id, dep));
+    }
+
     void nielsen_graph::inc_run_idx() {
         if (m_run_idx == UINT_MAX) {
             for (nielsen_node* n : m_nodes)
@@ -3923,8 +3942,9 @@ namespace seq {
         }
     }
 
-    #if 0
-    void nielsen_graph::explain_conflict(svector<std::pair<smt::enode*, smt::enode*>>& eqs, 
+    
+    // NSB review: this is one of several methods exposed for testing
+    void nielsen_graph::explain_conflict(svector<enode_pair>& eqs, 
         svector<sat::literal>& mem_literals) const {
         SASSERT(m_root);
         dep_tracker deps = m_dep_mgr.mk_empty();
@@ -3938,7 +3958,7 @@ namespace seq {
                 mem_literals.push_back(std::get<sat::literal>(d));
         }
     }
-    #endif
+   
 
     // -----------------------------------------------------------------------
     // nielsen_graph: length constraint generation

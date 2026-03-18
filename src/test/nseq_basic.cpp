@@ -155,10 +155,11 @@ static void test_nseq_symbol_clash() {
     SASSERT(r == seq::nielsen_graph::search_result::unsat);
 
     // verify conflict explanation returns the equality index
-    unsigned_vector eq_idx, mem_idx;
-    ng.explain_conflict(eq_idx, mem_idx);
-    SASSERT(eq_idx.size() == 1);
-    SASSERT(eq_idx[0] == 0);
+    smt::enode_pair_vector eqs;
+    sat::literal_vector mem_idx;
+    ng.explain_conflict(eqs, mem_idx);
+    SASSERT(eqs.size() == 1);
+    SASSERT(eqs[0].first == nullptr);
     SASSERT(mem_idx.empty());
     std::cout << "  ok: symbol clash detected as unsat\n";
 }
