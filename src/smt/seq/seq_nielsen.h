@@ -353,12 +353,12 @@ namespace seq {
     struct str_eq {
         euf::snode* m_lhs;
         euf::snode* m_rhs;
-        smt::enode *m_l, *m_r;
         dep_tracker m_dep;
 
-        str_eq(): m_lhs(nullptr), m_rhs(nullptr), m_dep(nullptr) {}
-        str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r, dep_tracker const& dep):
-            m_lhs(lhs), m_rhs(rhs), m_l(l), m_r(r), m_dep(dep) {}
+
+        str_eq() = default;
+        str_eq(euf::snode* lhs, euf::snode* rhs, dep_tracker const& dep):
+            m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
 
         bool operator==(str_eq const& other) const {
             return m_lhs == other.m_lhs && m_rhs == other.m_rhs;
@@ -379,14 +379,13 @@ namespace seq {
     struct str_mem {
         euf::snode* m_str;
         euf::snode* m_regex;
-        sat::literal m_lit;
         euf::snode* m_history;  // tracks derivation history for cycle detection
         unsigned    m_id;       // unique identifier
         dep_tracker m_dep;
 
         str_mem(): m_str(nullptr), m_regex(nullptr), m_history(nullptr), m_id(UINT_MAX), m_dep(nullptr) {}
-        str_mem(euf::snode* str, euf::snode* regex, sat::literal l, euf::snode* history, unsigned id, dep_tracker const& dep):
-            m_str(str), m_regex(regex), m_lit(l), m_history(history), m_id(id), m_dep(dep) {}
+        str_mem(euf::snode* str, euf::snode* regex, euf::snode* history, unsigned id, dep_tracker const& dep):
+            m_str(str), m_regex(regex), m_history(history), m_id(id), m_dep(dep) {}
 
         bool operator==(str_mem const& other) const {
             return m_id == other.m_id && m_str == other.m_str && m_regex == other.m_regex;
@@ -747,7 +746,7 @@ namespace seq {
     // mirrors ZIPT's NielsenGraph
     class nielsen_graph {
         friend class nielsen_node;
-        ast_manager&                  m_m;
+        ast_manager&                  m;
         seq_util&                     m_seq;
         euf::sgraph&                  m_sg;
         region                        m_region;
@@ -815,9 +814,11 @@ namespace seq {
         nielsen_graph(euf::sgraph& sg, simple_solver& solver);
         ~nielsen_graph();
 
+        ast_manager &get_manager() {
+            return m;
+        }
+        
         euf::sgraph& sg() { return m_sg; }
-        ast_manager& m() { return m_m; }
-        ast_manager const& m() const { return m_m; }
         seq_util& seq() { return m_seq; }
         seq_util const& seq() const { return m_seq; }
 

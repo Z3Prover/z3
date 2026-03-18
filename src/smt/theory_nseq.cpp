@@ -282,7 +282,7 @@ namespace smt {
         if (m_regex.is_empty_regex(mem.m_regex)) {
             enode_pair_vector eqs;
             literal_vector lits;
-            lits.push_back(mem.m_lit);
+            lits.push_back(mem.lit);
             set_conflict(eqs, lits);
             return;
         }
@@ -291,7 +291,7 @@ namespace smt {
         if (mem.m_str->is_empty() && !mem.m_regex->is_nullable()) {
             enode_pair_vector eqs;
             literal_vector lits;
-            lits.push_back(mem.m_lit);
+            lits.push_back(mem.lit);
             set_conflict(eqs, lits);
             return;
         }
@@ -330,18 +330,18 @@ namespace smt {
                 continue;  // trivially satisfied, skip
             if (triv < 0) {
                 // trivially unsat: add anyway so solve() detects conflict
-                m_nielsen.add_str_mem(mem.m_str, mem.m_regex, mem.m_lit);
+                m_nielsen.add_str_mem(mem.m_str, mem.m_regex, mem.lit);
                 continue;
             }
             // pre-process: consume ground prefix characters
             vector<seq::str_mem> processed;
             if (!m_regex.process_str_mem(mem, processed)) {
                 // conflict during ground prefix consumption
-                m_nielsen.add_str_mem(mem.m_str, mem.m_regex, mem.m_lit);
+                m_nielsen.add_str_mem(mem.m_str, mem.m_regex, mem.lit);
                 continue;
             }
             for (auto const& pm : processed) {
-                m_nielsen.add_str_mem(pm.m_str, pm.m_regex, pm.m_lit);
+                m_nielsen.add_str_mem(pm.m_str, pm.m_regex, mem.lit);
             }
         }
 
@@ -839,9 +839,9 @@ namespace smt {
                 literal_vector lits;
                 for (unsigned i : mem_indices) {
                     auto const &src = m_state.str_mems()[i];
-                    SASSERT(ctx.get_assignment(src.m_lit) == l_true); // we already stored the polarity of the literal
+                    SASSERT(ctx.get_assignment(src.lit) == l_true); // we already stored the polarity of the literal
                     lits.push_back(
-                        src.m_lit);
+                        src.lit);
                 }
                 TRACE(seq, tout << "nseq regex precheck: empty intersection for var "
                                 << var_id << ", conflict with " << lits.size() << " lits\n";);

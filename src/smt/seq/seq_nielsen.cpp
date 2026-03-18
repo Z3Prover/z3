@@ -104,7 +104,6 @@ namespace seq {
     void str_eq::sort() {
         if (m_lhs && m_rhs && m_lhs->id() > m_rhs->id()) {
             std::swap(m_lhs, m_rhs);
-            std::swap(m_l, m_r);
         }
     }
 
@@ -199,15 +198,13 @@ namespace seq {
         m_char_ranges.reset();
         m_var_lb.reset();
         m_var_ub.reset();
-        for (auto const& eq : parent.m_str_eq) {
-            m_str_eq.push_back(str_eq(eq.m_lhs, eq.m_rhs,eq.m_l, eq.m_r, eq.m_dep));
-        }
-        for (auto const& mem : parent.m_str_mem) {
-            m_str_mem.push_back(str_mem(mem.m_str, mem.m_regex, mem.m_lit, mem.m_history, mem.m_id, mem.m_dep));
-        }
-        for (auto const& ic : parent.m_int_constraints) {
+        for (auto const& eq : parent.m_str_eq)
+            m_str_eq.push_back(str_eq(eq.m_lhs, eq.m_rhs, eq.m_dep));
+        for (auto const& mem : parent.m_str_mem)
+            m_str_mem.push_back(str_mem(mem.m_str, mem.m_regex, mem.m_history, mem.m_id, mem.m_dep));
+        for (auto const& ic : parent.m_int_constraints)
             m_int_constraints.push_back(ic);
-        }
+        
         // clone character disequalities
         for (auto const& kv : parent.m_char_diseqs) {
             ptr_vector<euf::snode> diseqs;
@@ -331,7 +328,7 @@ namespace seq {
             return true;
         }
         // add int_constraint: len(var) >= lb
-        ast_manager& m = m_graph.m();
+        ast_manager& m = m_graph.get_manager();
         seq_util& seq = m_graph.seq();
         arith_util arith(m);
         expr_ref len_var(seq.str.mk_length(var->get_expr()), m);
@@ -357,7 +354,7 @@ namespace seq {
             return true;
         }
         // add int_constraint: len(var) <= ub
-        ast_manager& m = m_graph.m();
+        ast_manager& m = m_graph.get_manager();
         seq_util& seq = m_graph.seq();
         arith_util arith(m);
         expr_ref len_var(seq.str.mk_length(var->get_expr()), m);
@@ -461,7 +458,7 @@ namespace seq {
             }
             else {
                 // str is a concatenation or other term: add as general int_constraints
-                ast_manager& m = m_graph.m();
+                ast_manager& m = m_graph.get_manager();
                 arith_util arith(m);
                 expr_ref len_str = m_graph.compute_length_expr(mem.m_str);
                 if (min_len > 0) {
@@ -537,7 +534,7 @@ namespace seq {
     // -----------------------------------------------
 
     nielsen_graph::nielsen_graph(euf::sgraph& sg, simple_solver& solver):
-        m_m(sg.get_manager()),
+        m(sg.get_manager()),
         m_seq(sg.get_seq_util()),
         m_sg(sg),
         m_solver(solver),
@@ -577,7 +574,7 @@ namespace seq {
         if (!m_root)
             m_root = mk_node();
         dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
-        str_eq eq(lhs, rhs, l, r, dep);
+        str_eq eq(lhs, rhs, dep);
         eq.sort();
         m_root->add_str_eq(eq);
     }
@@ -588,7 +585,7 @@ namespace seq {
         dep_tracker dep = m_dep_mgr.mk_leaf(l);
         euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
         unsigned id = next_mem_id();
-        m_root->add_str_mem(str_mem(str, regex, l, history, id, dep));
+        m_root->add_str_mem(str_mem(str, regex, history, id, dep));
     }
 
     void nielsen_graph::inc_run_idx() {
@@ -892,9 +889,9 @@ namespace seq {
     // Groups consecutive s_char tokens into quoted strings, renders s_var by name,
     // shows s_power with superscripts, s_unit by its inner expression,
     // and falls back to mk_pp (HTML-escaped) for other token kinds.
-    std::string snode_label_html(euf::snode const* n, ast_manager& m) {
-        if (!n)
-            return "null";
+
+    static std::string snode_label_html(euf::snode const* n, ast_manager& m) {
+        if (!n) return "null";
         seq_util seq(m);
 
         // collect all leaf tokens left-to-right
@@ -2287,7 +2284,7 @@ namespace seq {
             // m_max_search_depth == 0 means unlimited; otherwise stop when bound exceeds it.
             m_depth_bound = 3;
             while (true) {
-                if (!m().inc()) {
+                if (!m.inc()) {
 #ifdef Z3DEBUG
                     // Examining the Nielsen graph is probably the best way of debugging
                     std::string dot = to_dot();
@@ -2335,7 +2332,7 @@ namespace seq {
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth);
 
         // check for external cancellation (timeout, user interrupt)
-        if (!m().inc())
+        if (!m.inc())
             return search_result::unknown;
 
         // check DFS node budget (0 = unlimited)
@@ -2537,8 +2534,9 @@ namespace seq {
                 if (!lhead || !rhead)
                     continue;
 
-                // char vs var: branch 1: var -> ε, branch 2: var -> char·var
-                euf::snode* char_head = lhead->is_unit() ? lhead : (rhead->is_unit() ? rhead : nullptr);
+                // char vs var: branch 1: var -> ε, branch 2: var -> char·var   (depending on direction)
+                // NSB review: add also case var -> unit·var
+                euf::snode* char_head = lhead->is_char() ? lhead : (rhead->is_char() ? rhead : nullptr);
                 euf::snode* var_head = lhead->is_var() ? lhead : (rhead->is_var() ? rhead : nullptr);
                 if (char_head && var_head) {
                     nielsen_node* child = mk_child(node);
@@ -2861,8 +2859,8 @@ namespace seq {
             auto& eqs = child->str_eqs();
             eqs[eq_idx] = eqs.back();
             eqs.pop_back();
-            eqs.push_back(str_eq(eq1_lhs, eq1_rhs, eq.m_l, eq.m_r, eq.m_dep));
-            eqs.push_back(str_eq(eq2_lhs, eq2_rhs, eq.m_l, eq.m_r, eq.m_dep));
+            eqs.push_back(str_eq(eq1_lhs, eq1_rhs, eq.m_dep));
+            eqs.push_back(str_eq(eq2_lhs, eq2_rhs, eq.m_dep));
 
             // Int constraints on the edge.
             // 1) len(pad) = |padding|  (if padding variable was created)
@@ -3411,11 +3409,11 @@ namespace seq {
             nielsen_node* child = mk_child(node);
 
             // Add membership: pr ∈ stab_base* (stabilizer constraint)
-            child->add_str_mem(str_mem(pr, star_sn, mem.m_lit, mem.m_history, next_mem_id(), mem.m_dep));
+            child->add_str_mem(str_mem(pr, star_sn, mem.m_history, next_mem_id(), mem.m_dep));
 
             // Add remaining membership: po · tail ∈ R (same regex, trimmed history)
             euf::snode* post_tail = str_tail->is_empty() ? po : m_sg.mk_concat(po, str_tail);
-            child->add_str_mem(str_mem(post_tail, mem.m_regex, mem.m_lit, nullptr, next_mem_id(), mem.m_dep));
+            child->add_str_mem(str_mem(post_tail, mem.m_regex, nullptr, next_mem_id(), mem.m_dep));
 
             // Blocking constraint: po must NOT start with stab_base
             // po ∈ complement(non_nullable(stab_base) · Σ*)
@@ -3427,7 +3425,7 @@ namespace seq {
                 expr_ref block_re(seq.re.mk_complement(base_then_all), mgr);
                 euf::snode* block_sn = m_sg.mk(block_re);
                 if (block_sn)
-                    child->add_str_mem(str_mem(po, block_sn, mem.m_lit, nullptr, next_mem_id(), mem.m_dep));
+                    child->add_str_mem(str_mem(po, block_sn, nullptr, next_mem_id(), mem.m_dep));
             }
 
             // Substitute x → pr · po
@@ -3925,6 +3923,7 @@ namespace seq {
         }
     }
 
+    #if 0
     void nielsen_graph::explain_conflict(svector<std::pair<smt::enode*, smt::enode*>>& eqs, 
         svector<sat::literal>& mem_literals) const {
         SASSERT(m_root);
@@ -3939,6 +3938,7 @@ namespace seq {
                 mem_literals.push_back(std::get<sat::literal>(d));
         }
     }
+    #endif
 
     // -----------------------------------------------------------------------
     // nielsen_graph: length constraint generation

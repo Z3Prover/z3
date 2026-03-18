@@ -27,6 +27,18 @@ namespace smt {
 
     class enode;
 
+    struct tracked_str_eq : public seq::str_eq {
+        enode *m_l, *m_r;
+        tracked_str_eq(euf::snode *lhs, euf::snode *rhs, smt::enode *l, smt::enode *r, seq::dep_tracker const &dep)
+            : seq::str_eq(lhs, rhs, dep), m_l(l), m_r(r) {}
+    };
+
+    struct tracked_str_mem : public seq::str_mem {
+        sat::literal lit;
+        tracked_str_mem(euf::snode *str, euf::snode *regex, sat::literal lit, euf::snode *history, unsigned id, seq::dep_tracker const &dep)
+            : seq::str_mem(str, regex, history, id, dep), lit(lit) {}
+    };
+
     // source info for a string disequality
     struct diseq_source {
         enode* m_n1;
@@ -34,8 +46,8 @@ namespace smt {
     };
 
     class seq_state {
-        vector<seq::str_eq>     m_str_eqs;
-        vector<seq::str_mem>    m_str_mems;
+        vector<tracked_str_eq>     m_str_eqs;
+        vector<tracked_str_mem>    m_str_mems;
         vector<diseq_source>    m_diseqs;
         unsigned_vector         m_str_eq_lim;
         unsigned_vector         m_str_mem_lim;
@@ -64,20 +76,20 @@ namespace smt {
 
         void add_str_eq(euf::snode* lhs, euf::snode* rhs, enode* n1, enode* n2) {
             seq::dep_tracker dep = nullptr;
-            m_str_eqs.push_back(seq::str_eq(lhs, rhs, n1, n2, dep));
+            m_str_eqs.push_back(tracked_str_eq(lhs, rhs, n1, n2, dep));
         }
 
         void add_str_mem(euf::snode* str, euf::snode* regex, sat::literal lit) {
             seq::dep_tracker dep = nullptr;
-            m_str_mems.push_back(seq::str_mem(str, regex, lit, nullptr, m_next_mem_id++, dep));
+            m_str_mems.push_back(tracked_str_mem(str, regex, lit, nullptr, m_next_mem_id++, dep));
         }
 
         void add_diseq(enode* n1, enode* n2) {
             m_diseqs.push_back({n1, n2});
         }
 
-        vector<seq::str_eq> const&  str_eqs()  const { return m_str_eqs; }
-        vector<seq::str_mem> const& str_mems() const { return m_str_mems; }
+        vector<tracked_str_eq> const&  str_eqs()  const { return m_str_eqs; }
+        vector<tracked_str_mem> const& str_mems() const { return m_str_mems; }
         vector<diseq_source> const& diseqs()   const { return m_diseqs; }
 
         diseq_source const& get_diseq(unsigned i) const { return m_diseqs[i]; }
