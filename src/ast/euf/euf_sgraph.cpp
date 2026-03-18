@@ -379,8 +379,7 @@ namespace euf {
     }
 
     snode* sgraph::find(expr* e) const {
-        if (!e)
-            return nullptr;
+        SASSERT(e);
         unsigned eid = e->get_id();
         if (eid < m_expr2snode.size())
             return m_expr2snode[eid];
@@ -454,16 +453,18 @@ namespace euf {
     }
 
     snode* sgraph::mk_concat(snode* a, snode* b) {
-        if (a->is_empty()) return b;
-        if (b->is_empty()) return a;
+        if (a->is_empty())
+            return b;
+        if (b->is_empty())
+            return a;
         if (m_seq.is_re(a->get_expr()))
             return mk(expr_ref(m_seq.re.mk_concat(a->get_expr(), b->get_expr()), m));
-        else    
-            return mk(expr_ref(m_seq.str.mk_concat(a->get_expr(), b->get_expr()), m));
+        return mk(expr_ref(m_seq.str.mk_concat(a->get_expr(), b->get_expr()), m));
     }
 
     snode* sgraph::drop_first(snode* n) {
-        if (n->is_empty() || n->is_token())
+        SASSERT(!n->is_empty());
+        if (n->is_token())
             return mk_empty_seq(n->get_sort());
         SASSERT(n->is_concat());
         snode* l = n->arg(0);
@@ -473,8 +474,10 @@ namespace euf {
         return mk_concat(drop_first(l), r);
     }
 
+    // TODO: Optimize
     snode* sgraph::drop_last(snode* n) {
-        if (n->is_empty() || n->is_token())
+        SASSERT(!n->is_empty());
+        if (n->is_token())
             return mk_empty_seq(n->get_sort());
         SASSERT(n->is_concat());
         snode* l = n->arg(0);
@@ -484,19 +487,28 @@ namespace euf {
         return mk_concat(l, drop_last(r));
     }
 
+    // TODO: Optimize
     snode* sgraph::drop_left(snode* n, unsigned count) {
-        if (count == 0 || n->is_empty()) return n;
-        if (count >= n->length()) return mk_empty_seq(n->get_sort());
-        for (unsigned i = 0; i < count; ++i)
+        if (count == 0)
+            return n;
+        SASSERT(count <= n->length());
+        if (count == n->length())
+            return mk_empty_seq(n->get_sort());
+        for (unsigned i = 0; i < count; ++i) {
             n = drop_first(n);
+        }
         return n;
     }
 
     snode* sgraph::drop_right(snode* n, unsigned count) {
-        if (count == 0 || n->is_empty()) return n;
-        if (count >= n->length()) return mk_empty_seq(n->get_sort());
-        for (unsigned i = 0; i < count; ++i)
+        if (count == 0)
+            return n;
+        SASSERT(count <= n->length());
+        if (count == n->length())
+            return mk_empty_seq(n->get_sort());
+        for (unsigned i = 0; i < count; ++i) {
             n = drop_last(n);
+        }
         return n;
     }
 
@@ -516,8 +528,7 @@ namespace euf {
     snode* sgraph::brzozowski_deriv(snode* re, snode* elem, snode* allowed_range) {
         expr* re_expr = re->get_expr();
         expr* elem_expr = elem->get_expr();
-        if (!re_expr || !elem_expr)
-            return nullptr;
+        SASSERT(re_expr && elem_expr);
         
         // unwrap str.unit to get the character expression
         expr* ch = nullptr;
@@ -589,8 +600,7 @@ namespace euf {
     }
 
     void sgraph::collect_re_predicates(snode* re, expr_ref_vector& preds) {
-        if (!re || !re->get_expr())
-            return;
+        SASSERT(re && re->get_expr());
         expr* e = re->get_expr();
         expr* lo = nullptr, *hi = nullptr;
         // leaf regex predicates: character ranges and single characters

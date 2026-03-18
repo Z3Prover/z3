@@ -357,8 +357,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     void seq_regex::collect_char_boundaries(euf::snode* re, unsigned_vector& bounds) const {
-        if (!re || !re->get_expr())
-            return;
+        SASSERT(re && re->get_expr());
 
         seq_util& seq = m_sg.get_seq_util();
         expr* e = re->get_expr();
@@ -394,8 +393,9 @@ namespace seq {
             return;
 
         // Recurse into children (handles union, concat, star, loop, etc.)
-        for (unsigned i = 0; i < re->num_args(); ++i)
+        for (unsigned i = 0; i < re->num_args(); ++i) {
             collect_char_boundaries(re->arg(i), bounds);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -403,18 +403,19 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     void seq_regex::get_alphabet_representatives(euf::snode* re, euf::snode_vector& reps) {
-        unsigned_vector bounds;
-        bounds.push_back(0); // always include character 0
-        collect_char_boundaries(re, bounds);
+        euf::snode_vector minterms;
+        m_sg.compute_minterms(re, minterms);
 
-        // Sort and deduplicate
-        std::sort(bounds.begin(), bounds.end());
-        unsigned prev = UINT_MAX;
-        for (unsigned b : bounds) {
-            if (b != prev) {
-                reps.push_back(m_sg.mk_char(b));
-                prev = b;
-            }
+        for (euf::snode* mt : minterms) {
+            SASSERT(mt);
+            if (mt->is_fail())
+                continue;
+            char_set cs = minterm_to_char_set(mt->get_expr());
+            SASSERT(!cs.is_empty());
+            
+            // Pick a concrete character from the character set to act as the representative
+            unsigned rep_char = cs.ranges()[0].m_lo;
+            reps.push_back(m_sg.mk_char(rep_char));
         }
     }
 
@@ -423,8 +424,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     lbool seq_regex::is_empty_bfs(euf::snode* re, unsigned max_states) {
-        if (!re || !re->get_expr())
-            return l_undef;
+        SASSERT(re && re->get_expr());
         if (re->is_fail())
             return l_true;
         if (re->is_nullable())
@@ -455,7 +455,6 @@ namespace seq {
         visited.insert(re->id());
 
         unsigned states_explored = 0;
-        bool had_failed_deriv = false;
 
         while (!worklist.empty()) {
             if (states_explored >= max_states)
@@ -472,20 +471,14 @@ namespace seq {
             euf::snode_vector reps;
             get_alphabet_representatives(current, reps);
 
-            if (reps.empty()) {
-                // No representatives means no character predicates;
-                // use a default character to explore the single partition.
-                reps.push_back(m_sg.mk_char('a'));
-            }
+            if (reps.empty())
+                // Nothing found = dead-end
+                continue;
 
             for (euf::snode* ch : reps) {
+                // std::cout << "Deriving by " << snode_label_html(ch, sg().get_manager()) << std::endl;
                 euf::snode* deriv = m_sg.brzozowski_deriv(current, ch);
-                if (!deriv) {
-                    // Derivative computation failed for this character.
-                    // Track the failure but continue with other characters.
-                    had_failed_deriv = true;
-                    continue;
-                }
+                SASSERT(deriv);
                 if (deriv->is_nullable())
                     return l_false; // found an accepting state
                 if (deriv->is_fail())
@@ -495,15 +488,10 @@ namespace seq {
                 if (!visited.contains(deriv->id())) {
                     visited.insert(deriv->id());
                     worklist.push_back(deriv);
+                    // std::cout << "Found [" << deriv->id() << "]: " << snode_label_html(deriv, sg().get_manager()) << std::endl;
                 }
             }
         }
-
-        // Exhausted all reachable states without finding a nullable one.
-        // If we had any failed derivative computations, the result is
-        // inconclusive since we may have missed reachable states.
-        if (had_failed_deriv)
-            return l_undef;
 
         return l_true;
     }
@@ -588,8 +576,7 @@ namespace seq {
 
     euf::snode* seq_regex::collect_primitive_regex_intersection(
             euf::snode* var, seq::nielsen_node const& node) {
-        if (!var)
-            return nullptr;
+        SASSERT(var);
 
         seq_util& seq = m_sg.get_seq_util();
         ast_manager& mgr = m_sg.get_manager();

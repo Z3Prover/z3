@@ -356,7 +356,7 @@ namespace seq {
         smt::enode *m_l, *m_r;
         dep_tracker m_dep;
 
-        str_eq() = default;
+        str_eq(): m_lhs(nullptr), m_rhs(nullptr), m_dep(nullptr) {}
         str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r, dep_tracker const& dep):
             m_lhs(lhs), m_rhs(rhs), m_l(l), m_r(r), m_dep(dep) {}
 
@@ -395,7 +395,7 @@ namespace seq {
         // check if the constraint has the form x in R with x a single variable
         bool is_primitive() const;
 
-        bool is_trivial() const;
+         bool is_trivial() const;
 
         // check if the constraint contains a given variable
         bool contains_var(euf::snode* var) const;
@@ -783,7 +783,7 @@ namespace seq {
 
         // Regex membership module: stabilizers, emptiness checks, language
         // inclusion, derivatives. Allocated in the constructor; owned by this graph.
-        seq_regex*              m_seq_regex = nullptr;
+        seq::seq_regex*              m_seq_regex = nullptr;
 
         // -----------------------------------------------
         // Modification counter for substitution length tracking.
@@ -835,10 +835,9 @@ namespace seq {
         nielsen_node* root() const { return m_root; }
         void set_root(nielsen_node* n) { m_root = n; }
 
-        void set_sat_node(nielsen_node* n) { m_sat_node = n; }
-
         // satisfying leaf node (set by solve() when result is sat)
         nielsen_node* sat_node() const { return m_sat_node; }
+        void set_sat_node(nielsen_node* n) { m_sat_node = n; }
         // path of edges from root to sat_node (set when sat_node is set)
         svector<nielsen_edge*> const& sat_path() const { return m_sat_path; }
 

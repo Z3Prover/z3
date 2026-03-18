@@ -718,7 +718,7 @@ namespace seq {
     static std::string arith_expr_html(expr* e, ast_manager& m) {
         if (!e) return "null";
         arith_util arith(m);
-        seq_util   seq(m);
+        seq_util seq(m);
         rational val;
         if (arith.is_numeral(e, val))
             return val.to_string();
@@ -787,13 +787,17 @@ namespace seq {
     }
 
     static std::string regex_expr_html(expr* e, ast_manager& m, seq_util& seq) {
-        if (!e) return "null";
+        if (!e)
+            return "null";
         expr* a = nullptr, * b = nullptr;
 
         if (seq.re.is_to_re(e, a)) {
             zstring s;
-            if (seq.str.is_string(a, s)) {
+            if (seq.str.is_string(a, s))
                 return "\"" + dot_html_escape(s.encode()) + "\"";
+            unsigned ch_val = 0;
+            if (seq.str.is_unit(a) && seq.is_const_char(to_app(a)->get_arg(0), ch_val)) {
+                return "\"" + dot_html_escape(zstring(ch_val).encode()) + "\"";
             }
             std::ostringstream os;
             os << mk_pp(a, m);
@@ -889,7 +893,8 @@ namespace seq {
     // shows s_power with superscripts, s_unit by its inner expression,
     // and falls back to mk_pp (HTML-escaped) for other token kinds.
     std::string snode_label_html(euf::snode const* n, ast_manager& m) {
-        if (!n) return "null";
+        if (!n)
+            return "null";
         seq_util seq(m);
 
         // collect all leaf tokens left-to-right
@@ -1227,7 +1232,7 @@ namespace seq {
     // Check if exponent b equals exponent a + diff for some rational constant diff.
     // Uses syntactic matching on Z3 expression structure: pointer equality
     // detects shared sub-expressions created during ConstNumUnwinding.
-    // 
+    //
     static bool get_const_power_diff(expr* b, expr* a, arith_util& arith, rational& diff) {
         if (a == b) { diff = rational(0); return true; }
         // b = (+ a k) ?
@@ -1292,7 +1297,7 @@ namespace seq {
 
         ast_manager& m = sg.get_manager();
         arith_util arith(m);
-        seq_util seq(m);
+        seq_util& seq = sg.get_seq_util();
 
         bool merged = false;
         euf::snode_vector result;
@@ -1388,14 +1393,15 @@ namespace seq {
     // Simplify constant-exponent powers: base^0 → ε, base^1 → base.
     // Returns new snode if any simplification happened, nullptr otherwise.
     static euf::snode* simplify_const_powers(euf::sgraph& sg, euf::snode* side) {
-        if (!side || side->is_empty()) return nullptr;
+        if (!side || side->is_empty())
+            return nullptr;
 
         euf::snode_vector tokens;
         side->collect_tokens(tokens);
 
         ast_manager& m = sg.get_manager();
         arith_util arith(m);
-        seq_util seq(m);
+        seq_util& seq = sg.get_seq_util();
 
         bool simplified = false;
         euf::snode_vector result;
@@ -1424,12 +1430,15 @@ namespace seq {
             result.push_back(tok);
         }
 
-        if (!simplified) return nullptr;
+        if (!simplified)
+            return nullptr;
 
         euf::snode* rebuilt = nullptr;
-        for (euf::snode* tok : result)
+        for (euf::snode* tok : result) {
             rebuilt = rebuilt ? sg.mk_concat(rebuilt, tok) : tok;
-        if (!rebuilt) rebuilt = sg.mk_empty_seq(side->get_sort());
+        }
+        if (!rebuilt)
+            rebuilt = sg.mk_empty_seq(side->get_sort());
         return rebuilt;
     }
 
@@ -1439,9 +1448,8 @@ namespace seq {
     // Returns (count_expr, num_tokens_consumed).  count_expr is nullptr
     // when no complete base-pattern match is found.
     static std::pair<expr_ref, unsigned> comm_power(
-            euf::snode* base_sn, euf::snode* side, ast_manager& m, bool fwd) {
+            euf::snode* base_sn, euf::snode* side, ast_manager& m, seq_util& seq, bool fwd) {
         arith_util arith(m);
-        seq_util seq(m);
         euf::snode_vector base_tokens, side_tokens;
         collect_tokens_dir(base_sn, fwd, base_tokens);
         collect_tokens_dir(side, fwd, side_tokens);
@@ -1507,7 +1515,7 @@ namespace seq {
         euf::sgraph& sg = m_graph.sg();
         ast_manager& m = sg.get_manager();
         arith_util arith(m);
-        seq_util seq(m);
+        seq_util& seq = this->graph().seq();
         bool changed = true;
 
         while (changed) {
@@ -1686,22 +1694,27 @@ namespace seq {
                 //   - If p ≤ c: pow_side := rest_pow,            other_side := w^(c-p) · rest_other
                 //   - If c ≤ p: pow_side := w^(p-c) · rest_pow,  other_side := rest_other
                 //   - If p = c: both reduce completely (handled by both conditions above).
-                if (!eq.m_lhs || !eq.m_rhs) continue;
+                SASSERT(eq.m_lhs && eq.m_rhs);
                 bool comm_changed = false;
                 for (int side = 0; side < 2 && !comm_changed; ++side) {
-                    euf::snode*& pow_side = (side == 0) ? eq.m_lhs : eq.m_rhs;
-                    euf::snode*& other_side = (side == 0) ? eq.m_rhs : eq.m_lhs;
-                    if (!pow_side || !other_side) continue;
+                    euf::snode*& pow_side = side == 0 ? eq.m_lhs : eq.m_rhs;
+                    euf::snode*& other_side = side == 0 ? eq.m_rhs : eq.m_lhs;
+                    if (!pow_side || !other_side)
+                        continue;
                     for (unsigned od = 0; od < 2 && !comm_changed; ++od) {
-                        bool fwd = (od == 0);
+                        bool fwd = od == 0;
                         euf::snode* end_tok = dir_token(pow_side, fwd);
-                        if (!end_tok || !end_tok->is_power()) continue;
+                        if (!end_tok || !end_tok->is_power())
+                            continue;
                         euf::snode* base_sn = end_tok->arg(0);
                         expr* pow_exp = get_power_exp_expr(end_tok, seq);
-                        if (!base_sn || !pow_exp) continue;
+                        if (!base_sn || !pow_exp)
+                            continue;
 
-                        auto [count, consumed] = comm_power(base_sn, other_side, m, fwd);
-                        if (!count.get() || consumed == 0) continue;
+                        auto [count, consumed] =
+                            comm_power(base_sn, other_side, m, seq, fwd);
+                        if (!count.get() || consumed == 0)
+                            continue;
 
                         expr_ref norm_count = normalize_arith(m, count);
                         bool pow_le_count = false, count_le_pow = false;
@@ -1714,7 +1727,8 @@ namespace seq {
                             pow_le_count = m_graph.check_lp_le(pow_exp, norm_count, this, cur_path);
                             count_le_pow = m_graph.check_lp_le(norm_count, pow_exp, this, cur_path);
                         }
-                        if (!pow_le_count && !count_le_pow) continue;
+                        if (!pow_le_count && !count_le_pow)
+                            continue;
 
                         pow_side = dir_drop(sg, pow_side, 1, fwd);
                         other_side = dir_drop(sg, other_side, consumed, fwd);
@@ -1752,7 +1766,7 @@ namespace seq {
                 // power of the same base, cancel the common power prefix.
                 // (Subsumed by 3c for many cases, but handles same-base-power
                 // pairs that CommPower may miss when both leading tokens are powers.)
-                if (!eq.m_lhs || !eq.m_rhs) continue;
+                SASSERT(eq.m_lhs && eq.m_rhs);
                 for (unsigned od = 0; od < 2 && !changed; ++od) {
                     bool fwd = (od == 0);
                     euf::snode* lh = dir_token(eq.m_lhs, fwd);
@@ -1819,13 +1833,12 @@ namespace seq {
         // consume concrete characters from str_mem via Brzozowski derivatives
         // in both directions (left-to-right, then right-to-left), mirroring ZIPT.
         for (str_mem& mem : m_str_mem) {
-            if (!mem.m_str || !mem.m_regex)
-                continue;
+            SASSERT(mem.m_str && mem.m_regex);
             if (mem.is_primitive())
                 continue;
             for (unsigned od = 0; od < 2; ++od) {
                 bool fwd = od == 0;
-                while (mem.m_str && !mem.m_str->is_empty()) {
+                while (!mem.m_str->is_empty()) {
                     euf::snode* tok = dir_token(mem.m_str, fwd);
                     if (!tok || !tok->is_char())
                         break;
@@ -1860,8 +1873,7 @@ namespace seq {
         // is deterministic for that token.
         // Mirrors ZIPT StrMem.SimplifyCharRegex lines 96-117.
         for (str_mem& mem : m_str_mem) {
-            if (!mem.m_str || !mem.m_regex)
-                continue;
+            SASSERT(mem.m_str && mem.m_regex);
             if (mem.is_primitive())
                 continue;
             while (mem.m_str && !mem.m_str->is_empty()) {
@@ -1940,8 +1952,7 @@ namespace seq {
 
         // check for regex memberships that are immediately infeasible
         for (str_mem& mem : m_str_mem) {
-            if (!mem.m_str || !mem.m_regex)
-                continue;
+            SASSERT(mem.m_str && mem.m_regex);
             if (mem.m_str->is_empty() && !mem.m_regex->is_nullable()) {
                 m_is_general_conflict = true;
                 m_reason = backtrack_reason::regex;
@@ -1949,33 +1960,21 @@ namespace seq {
             }
         }
 
-        // remove satisfied str_mem constraints (ε ∈ nullable regex)
-        unsigned wi = 0;
-        for (unsigned i = 0; i < m_str_mem.size(); ++i) {
-            str_mem& mem = m_str_mem[i];
-            if (mem.m_str && mem.m_str->is_empty() && mem.m_regex && mem.m_regex->is_nullable())
-                continue;  // satisfied, drop
-            m_str_mem[wi++] = mem;
-        }
-        if (wi < m_str_mem.size())
-            m_str_mem.shrink(wi);
-
         // Regex widening: for each remaining str_mem, overapproximate
         // the string by replacing variables with their regex intersection
         // and check if the result intersected with the target regex is empty.
         // Detects infeasible constraints that would otherwise require
         // expensive exploration. Mirrors ZIPT NielsenNode.CheckRegexWidening.
-        if (m_graph.m_seq_regex) {
-            for (str_mem const& mem : m_str_mem) {
-                if (!mem.m_str || !mem.m_regex)
-                    continue;
-                if (mem.is_primitive())
-                    continue;
-                if (m_graph.check_regex_widening(*this, mem.m_str, mem.m_regex)) {
-                    m_is_general_conflict = true;
-                    m_reason = backtrack_reason::regex;
-                    return simplify_result::conflict;
-                }
+        SASSERT(m_graph.m_seq_regex);
+        for (str_mem const& mem : m_str_mem) {
+            SASSERT(mem.m_str && mem.m_regex);
+            if (mem.is_primitive())
+                continue;
+            if (m_graph.check_regex_widening(*this, mem.m_str, mem.m_regex)) {
+                std::cout << "Widening conflict: " << mk_pp(mem.m_str->get_expr(), m) << " ∉ " << mk_pp(mem.m_regex->get_expr(), m) << std::endl;
+                m_is_general_conflict = true;
+                m_reason = backtrack_reason::regex;
+                return simplify_result::conflict;
             }
         }
 
@@ -1990,7 +1989,8 @@ namespace seq {
         // assigned to x without splitting, by checking directional consistency.
         // Guard: skip if we already created a child (re-entry via iterative deepening).
         for (str_eq& eq : m_str_eq) {
-            if (eq.is_trivial() || !eq.m_lhs || !eq.m_rhs)
+            SASSERT(eq.m_lhs && eq.m_rhs);
+            if (eq.is_trivial())
                 continue;
             for (unsigned od = 0; od < 2; ++od) {
                 bool fwd = od == 0;
@@ -2160,8 +2160,9 @@ namespace seq {
 
                 // Create a single deterministic child with directional substitution.
                 euf::snode* prefix_sn = char_toks[0];
-                for (unsigned j = 1; j < i; ++j)
+                for (unsigned j = 1; j < i; ++j) {
                     prefix_sn = dir_concat(sg, prefix_sn, char_toks[j], fwd);
+                }
                 euf::snode* replacement = dir_concat(sg, prefix_sn, var_node, fwd);
                 nielsen_subst s(var_node, replacement, eq.m_dep);
                 nielsen_node* child = m_graph.mk_child(this);
@@ -2175,7 +2176,6 @@ namespace seq {
 
         if (is_satisfied())
             return simplify_result::satisfied;
-
         return simplify_result::proceed;
     }
 
@@ -3004,9 +3004,9 @@ namespace seq {
                                             str_eq const*& eq_out,
                                             bool& fwd) const {
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial()) 
+            if (eq.is_trivial())
                 continue;
-            if (!eq.m_lhs || !eq.m_rhs) 
+            if (!eq.m_lhs || !eq.m_rhs)
                 continue;
             for (unsigned od = 0; od < 2; ++od) {
                 bool local_fwd = (od == 0);
@@ -3046,9 +3046,9 @@ namespace seq {
                                           str_eq const*& eq_out,
                                           bool& fwd) const {
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial()) 
+            if (eq.is_trivial())
                 continue;
-            if (!eq.m_lhs || !eq.m_rhs) 
+            if (!eq.m_lhs || !eq.m_rhs)
                 continue;
             for (unsigned od = 0; od < 2; ++od) {
                 bool local_fwd = (od == 0);
@@ -3092,9 +3092,9 @@ namespace seq {
         euf::snode* power = nullptr;
         dep_tracker dep = m_dep_mgr.mk_empty();
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial()) 
+            if (eq.is_trivial())
                 continue;
-            if (!eq.m_lhs || !eq.m_rhs) 
+            if (!eq.m_lhs || !eq.m_rhs)
                 continue;
             if (eq.m_lhs->is_empty() && eq.m_rhs->first() && eq.m_rhs->first()->is_power()) {
                 power = eq.m_rhs->first();
@@ -3215,7 +3215,7 @@ namespace seq {
     bool nielsen_graph::apply_split_power_elim(nielsen_node* node) {
         ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
-        seq_util seq(m);
+        seq_util& seq = this->seq();
 
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())
@@ -3239,7 +3239,7 @@ namespace seq {
                     if (!base_sn || !pow_exp)
                         continue;
 
-                    auto [count, consumed] = comm_power(base_sn, other_side, m, fwd);
+                    auto [count, consumed] = comm_power(base_sn, other_side, m, seq, fwd);
                     if (!count.get() || consumed == 0)
                         continue;
 
@@ -4400,13 +4400,12 @@ namespace seq {
 
     bool nielsen_graph::check_regex_widening(nielsen_node const& node,
                                              euf::snode* str, euf::snode* regex) {
-        if (!str || !regex || !m_seq_regex)
-            return false;
+        SASSERT(str && regex && m_seq_regex);
         // Only apply to ground regexes with non-trivial strings
         if (!regex->is_ground())
             return false;
 
-        seq_util seq(m_sg.get_manager());
+        seq_util& seq = m_sg.get_seq_util();
         ast_manager& mgr = m_sg.get_manager();
 
         // Build the overapproximation regex for the string.
@@ -4425,8 +4424,7 @@ namespace seq {
             if (tok->is_char()) {
                 // Concrete character → to_re(unit(c))
                 expr* te = tok->get_expr();
-                if (!te)
-                    return false;
+                SASSERT(te);
                 expr_ref tre(seq.re.mk_to_re(te), mgr);
                 tok_re = m_sg.mk(tre);
             }
@@ -4456,9 +4454,8 @@ namespace seq {
                                 seq.str.mk_string(zstring(r.m_lo)),
                                 seq.str.mk_string(zstring(r.m_hi - 1))), mgr);
                             euf::snode* rng_sn = m_sg.mk(rng);
-                            if (!range_re) {
+                            if (!range_re)
                                 range_re = rng_sn;
-                            }
                             else {
                                 expr_ref u(seq.re.mk_union(range_re->get_expr(), rng_sn->get_expr()), mgr);
                                 range_re = m_sg.mk(u);
@@ -4481,17 +4478,14 @@ namespace seq {
                 tok_re = m_sg.mk(all_re);
             }
 
-            if (!tok_re)
-                return false;
+            SASSERT(tok_re);
 
             if (!approx)
                 approx = tok_re;
             else {
                 expr* ae = approx->get_expr();
-                expr* te = tok_re->get_expr(
-                    );
-              if (!ae || !te)
-                  return false;
+                expr* te = tok_re->get_expr();
+                SASSERT(ae && te);
                 expr_ref cat(seq.re.mk_concat(ae, te), mgr);
                 approx = m_sg.mk(cat);
             }
@@ -4504,13 +4498,11 @@ namespace seq {
         // Build intersection regex
         expr* ae = approx->get_expr();
         expr* re = regex->get_expr();
-        if (!ae || !re)
-            return false;
+        SASSERT(ae && re);
         expr_ref inter(seq.re.mk_inter(ae, re), mgr);
         euf::snode* inter_sn = m_sg.mk(inter);
-        if (!inter_sn)
-            return false;
-
+        SASSERT(inter_sn);
+        // std::cout << "HTML: " << snode_label_html(inter_sn, m()) << std::endl;
         lbool result = m_seq_regex->is_empty_bfs(inter_sn, 5000);
         return result == l_true;
     }
@@ -4583,5 +4575,6 @@ namespace seq {
     }
 
 }
+
 
 
