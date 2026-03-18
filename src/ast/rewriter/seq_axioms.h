@@ -109,6 +109,7 @@ namespace seq {
         void replace_re_axiom(expr* e);
         void replace_all_axiom(expr* e);
         void replace_re_all_axiom(expr* e);
+        void diseq_axiom(expr *l, expr *r);
 
         expr_ref length_limit(expr* s, unsigned k);
         expr_ref is_digit(expr* ch);

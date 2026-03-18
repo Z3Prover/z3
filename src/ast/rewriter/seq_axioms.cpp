@@ -1307,5 +1307,26 @@ namespace seq {
         return bound_tracker;
     }
 
+    // |u| != |v| OR 
+    // (u = w[a]u' AND v = w[b]v' AND a != b) 
+    void axioms::diseq_axiom(expr *u, expr *v) {    
+        expr_ref u_len(mk_len(u), m);
+        expr_ref v_len(mk_len(v), m);
+        expr_ref len_eq(mk_eq(u_len, v_len), m);
+        expr_ref eq_uv(mk_eq(u, v), m);
+        sort *char_sort = nullptr;
+        VERIFY(seq.is_seq(u->get_sort(), char_sort));
+        expr_ref a = m_sk.mk("diseq.a", u, v, char_sort);
+        expr_ref b = m_sk.mk("diseq.b", u, v, char_sort);
+        expr_ref w = m_sk.mk("diseq.w", u, v);
+        expr_ref up = m_sk.mk("diseq.u'", u, v);
+        expr_ref vp = m_sk.mk("diseq.v'", u, v);
+        expr_ref u_eq(mk_eq(u, mk_concat(w, seq.str.mk_unit(a), up)), m);
+        expr_ref v_eq(mk_eq(v, mk_concat(w, seq.str.mk_unit(b), vp)), m);
+        add_clause(eq_uv, ~len_eq, u_eq);
+        add_clause(eq_uv, ~len_eq, v_eq);
+        add_clause(eq_uv, ~len_eq, ~mk_eq(a, b));
+    }
+
 
 }
