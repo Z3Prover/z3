@@ -45,11 +45,15 @@ namespace smt {
             m_kernel(m, m_params) {}
 
         lbool check() override {
+            // std::cout << "Checking:\n";
+            // for (int i = 0; i < m_kernel.size(); i++) {
+            //     std::cout << "\t" << mk_pp(m_kernel.get_formula(i), m_kernel.m()) << std::endl;
+            // }
+            // std::cout << std::endl;
             return m_kernel.check();
         }
 
         void assert_expr(expr* e) override {
-            // std::cout << "Asserting: " << mk_pp(e, m_kernel.m()) << std::endl;
             m_kernel.assert_expr(e);
         }
 

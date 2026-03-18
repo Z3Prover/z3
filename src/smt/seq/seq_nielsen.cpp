@@ -541,6 +541,8 @@ namespace seq {
         m_parikh(alloc(seq_parikh, sg)),
         m_seq_regex(alloc(seq::seq_regex, sg)),
         m_len_vars(sg.get_manager()) {
+
+        m_solver.push(); // we start by resetting the graph which will pop it first
     }
 
     nielsen_graph::~nielsen_graph() {
@@ -636,6 +638,8 @@ namespace seq {
         m_len_var_cache.clear();
         m_len_vars.reset();
         m_dep_mgr.reset();
+        m_solver.pop(1);
+        m_solver.push();
     }
 
     std::ostream& nielsen_graph::display(std::ostream& out) const {
@@ -2287,8 +2291,7 @@ namespace seq {
     }
 
     nielsen_graph::search_result nielsen_graph::solve() {
-        if (!m_root)
-            return search_result::sat;
+        SASSERT(m_root);
 
         try {
             ++m_stats.m_num_solve_calls;
@@ -3997,21 +4000,20 @@ namespace seq {
     }
 
     void nielsen_graph::generate_length_constraints(vector<length_constraint>& constraints) {
-        if (!m_root)
-            return;
-
+        SASSERT(m_root);
         ast_manager& m = m_sg.get_manager();
         uint_set seen_vars;
 
         seq_util& seq = m_sg.get_seq_util();
         arith_util arith(m);
-
         for (str_eq const& eq : m_root->str_eqs()) {
             if (eq.is_trivial())
                 continue;
 
             expr_ref len_lhs = compute_length_expr(eq.m_lhs);
             expr_ref len_rhs = compute_length_expr(eq.m_rhs);
+            // std::cout << "Length constraint from LHS " << snode_label_html(eq.m_lhs, m) << " to " << mk_pp(len_lhs, m) << ":\n";
+            // std::cout << "Length constraint from RHS " << snode_label_html(eq.m_rhs, m) << " to " << mk_pp(len_rhs, m) << std::endl;
             expr_ref len_eq(m.mk_eq(len_lhs, len_rhs), m);
             constraints.push_back(length_constraint(len_eq, eq.m_dep, length_kind::eq, m));
 
@@ -4071,11 +4073,7 @@ namespace seq {
     void nielsen_graph::compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len) {
         seq_util& seq = m_sg.get_seq_util();
         expr* e = regex->get_expr();
-        if (!e || !seq.is_re(e)) {
-            min_len = 0;
-            max_len = UINT_MAX;
-            return;
-        }
+        SASSERT(e && seq.is_re(e));
         min_len = seq.re.min_length(e);
         max_len = seq.re.max_length(e);
         // for empty language, min_length may be UINT_MAX (vacuously true);
@@ -4254,8 +4252,9 @@ namespace seq {
         // already present in the enclosing solver scope; asserting them again would
         // be redundant (though harmless).  This is called by search_dfs right after
         // simplify_and_init, which is where new constraints are produced.
-        for (unsigned i = node->m_parent_ic_count; i < node->int_constraints().size(); ++i)
+        for (unsigned i = node->m_parent_ic_count; i < node->int_constraints().size(); ++i) {
             m_solver.assert_expr(int_constraint_to_expr(node->int_constraints()[i]));
+        }
     }
 
     void nielsen_graph::generate_node_length_constraints(nielsen_node* node) {
@@ -4299,22 +4298,19 @@ namespace seq {
         seq_util& seq = m_sg.get_seq_util();
         for (str_mem const& mem : node->str_mems()) {
             expr* re_expr = mem.m_regex->get_expr();
-            if (!re_expr || !seq.is_re(re_expr))
-                continue;
+            SASSERT(re_expr && seq.is_re(re_expr));
 
             unsigned min_len = 0, max_len = UINT_MAX;
             compute_regex_length_interval(mem.m_regex, min_len, max_len);
 
             expr_ref len_str = compute_length_expr(mem.m_str);
 
-            if (min_len > 0) {
+            if (min_len > 0)
                 node->add_int_constraint(int_constraint(len_str, arith.mk_int(min_len),
                                                          int_constraint_kind::ge, mem.m_dep, m));
-            }
-            if (max_len < UINT_MAX) {
+            if (max_len < UINT_MAX)
                 node->add_int_constraint(int_constraint(len_str, arith.mk_int(max_len),
                                                          int_constraint_kind::le, mem.m_dep, m));
-            }
 
             // non-negativity for string-side variables
             euf::snode_vector tokens;
@@ -4390,11 +4386,14 @@ namespace seq {
         IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints: sat_path length=" << m_sat_path.size() << "\n";);
         m_solver.push();
         for (nielsen_edge* e : m_sat_path)
-            for (auto const& ic : e->side_int())
+            for (auto const& ic : e->side_int()) {
                 m_solver.assert_expr(int_constraint_to_expr(ic));
-        if (m_sat_node)
-            for (auto const& ic : m_sat_node->int_constraints())
+            }
+        if (m_sat_node) {
+            for (auto const& ic : m_sat_node->int_constraints()) {
                 m_solver.assert_expr(int_constraint_to_expr(ic));
+            }
+        }
         lbool result = m_solver.check();
         IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints result: " << result << "\n";);
         if (result == l_true) {
