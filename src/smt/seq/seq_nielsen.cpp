@@ -166,7 +166,7 @@ namespace seq {
     // -----------------------------------------------
 
     bool nielsen_subst::is_eliminating() const {
-        SASSERT(m_var && m_replacement)
+        SASSERT(m_var && m_replacement);
         // check if var appears in replacement
         euf::snode_vector tokens;
         m_replacement->collect_tokens(tokens);
