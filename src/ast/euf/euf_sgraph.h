@@ -137,8 +137,10 @@ namespace euf {
         // substitution: replace all occurrences of var in n by replacement
         snode* subst(snode* n, snode* var, snode* replacement);
 
-        // Brzozowski derivative of regex re with respect to element elem
-        snode* brzozowski_deriv(snode* re, snode* elem);
+        // Brzozowski derivative of regex re with respect to element elem.
+        // allowed_range can explicitly provide a concrete character or range to use
+        // for deriving symbolic variables.
+        snode* brzozowski_deriv(snode* re, snode* elem, snode* allowed_range = nullptr);
 
         // compute minterms (character class partition) from a regex
         void compute_minterms(snode* re, snode_vector& minterms);

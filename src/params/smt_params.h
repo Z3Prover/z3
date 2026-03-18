@@ -250,7 +250,7 @@ struct smt_params : public preprocessor_params,
     symbol m_string_solver;
     unsigned m_nseq_max_depth = 0;
     unsigned m_nseq_max_nodes = 0;
-    bool m_nseq_parikh = true;
+    bool m_nseq_parikh = false;
     bool m_nseq_regex_precheck = true;
 
     smt_params(params_ref const & p = params_ref()):

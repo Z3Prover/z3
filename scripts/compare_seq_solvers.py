@@ -22,8 +22,8 @@ DEFAULT_TIMEOUT = 5  # seconds
 COMMON_ARGS = ["model_validate=true"]
 
 SOLVERS = {
-    "nseq": ["smt.string_solver=nseq"],
-    "nseq_np": ["smt.string_solver=nseq", "smt.nseq.parikh=false"],
+    "nseq": ["smt.string_solver=nseq", "smt.nseq.parikh=false"],
+    "nseq_p": ["smt.string_solver=nseq", "smt.nseq.parikh=true"],
     "seq":  ["smt.string_solver=seq"],
 }
 
@@ -190,8 +190,8 @@ def main():
                         help=f"Per-solver timeout in seconds (default: {DEFAULT_TIMEOUT})")
     parser.add_argument("--zipt", metavar="PATH", default=None,
                         help="Path to ZIPT binary (optional; if omitted, ZIPT is not benchmarked)")
-    parser.add_argument("--no-parikh", action="store_true",
-                        help="Also run nseq with nseq.parikh=false")
+    parser.add_argument("--parikh", action="store_true",
+                        help="Also run nseq with nseq.parikh=true")
     parser.add_argument("--csv", metavar="FILE", help="Also write results to a CSV file")
     args = parser.parse_args()
 

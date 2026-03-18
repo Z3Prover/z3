@@ -279,9 +279,7 @@ namespace seq {
 
         // collect concrete first-position characters from a regex.
         // extracts characters reachable from to_re leaves and simple ranges.
-        void collect_first_chars(euf::snode* re, euf::snode_vector& chars);
-
-        // -----------------------------------------------------------------
+                // -----------------------------------------------------------------
         // Membership processing
         // -----------------------------------------------------------------
 

@@ -748,6 +748,18 @@ static void test_sgraph_minterms() {
     // no predicates => single minterm (full_char)
     SASSERT(minterms.size() == 1);
     std::cout << "  re.all minterms: " << minterms.size() << "\n";
+
+    // test union of strings: "evil" and "/evil"
+    expr_ref evil(seq.re.mk_to_re(seq.str.mk_string(zstring("evil"))), m);
+    expr_ref slash_evil(seq.re.mk_to_re(seq.str.mk_string(zstring("/evil"))), m);
+    expr_ref union_re(seq.re.mk_union(evil, slash_evil), m);
+    euf::snode* s_union_re = sg.mk(union_re);
+
+    euf::snode_vector union_minterms;
+    sg.compute_minterms(s_union_re, union_minterms);
+    std::cout << "  union minterms: " << union_minterms.size() << "\n";
+    // should collect 'e' and '/', yielding 3 disjoint subset partitions (e), (/), and the rest
+    SASSERT(union_minterms.size() == 3);
 }
 
 void tst_euf_sgraph() {

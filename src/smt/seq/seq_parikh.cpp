@@ -353,8 +353,15 @@ namespace seq {
         if (seq.re.is_complement(re_expr, inner))
             return minterm_to_char_set(inner).complement(max_c);
 
-        // intersection: characters present in both sets
+        // union: characters present in either set
         expr* r1 = nullptr, *r2 = nullptr;
+        if (seq.re.is_union(re_expr, r1, r2)) {
+            char_set cs = minterm_to_char_set(r1);
+            cs.add(minterm_to_char_set(r2));
+            return cs;
+        }
+
+        // intersection: characters present in both sets
         if (seq.re.is_intersection(re_expr, r1, r2))
             return minterm_to_char_set(r1).intersect_with(minterm_to_char_set(r2));
 

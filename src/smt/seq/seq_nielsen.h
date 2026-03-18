@@ -734,7 +734,6 @@ namespace seq {
         unsigned m_mod_star_intr       = 0;
         unsigned m_mod_gpower_intr     = 0;
         unsigned m_mod_const_nielsen   = 0;
-        unsigned m_mod_regex_char_split = 0;
         unsigned m_mod_regex_var_split = 0;
         unsigned m_mod_power_split     = 0;
         unsigned m_mod_var_nielsen     = 0;
@@ -996,13 +995,6 @@ namespace seq {
             unsigned& out_rhs_idx,
             int& out_padding) const;
 
-        // apply regex character split modifier to a node.
-        // for a str_mem constraint x·s ∈ R where x is a variable:
-        //   (1) x → c·z for each char c accepted by R at first position
-        //   (2) x → ε (x is empty)
-        // returns true if children were generated.
-        bool apply_regex_char_split(nielsen_node* node);
-
         // power epsilon modifier: for a power token u^n in an equation,
         // branch: (1) base u = ε, (2) power is empty (n = 0 semantics).
         // mirrors ZIPT's PowerEpsilonModifier
@@ -1059,9 +1051,6 @@ namespace seq {
         // branch: (1) n = 0 (u^n = ε), (2) n >= 1 (peel one u).
         // mirrors ZIPT's VarNumUnwindingModifier
         bool apply_var_num_unwinding(nielsen_node* node);
-
-        // collect concrete first-position characters from a regex snode
-        void collect_first_chars(euf::snode* re, euf::snode_vector& chars);
 
         // find the first power token in any str_eq at this node
         euf::snode* find_power_token(nielsen_node* node) const;

@@ -255,9 +255,9 @@ namespace seq {
                 m_is_general_conflict = true;
                 m_reason = backtrack_reason::character_range;
             }
-        } else {
-            m_char_ranges.insert(id, range.clone());
         }
+        else
+            m_char_ranges.insert(id, range.clone());
     }
 
     void nielsen_node::add_char_diseq(euf::snode* sym_char, euf::snode* other) {
@@ -371,10 +371,10 @@ namespace seq {
                 ++const_len;
             } else if (t->is_var()) {
                 var_tokens.push_back(t);
-            } else {
+            }
+            else
                 // power or unknown token: cannot propagate simply, abort
                 return;
-            }
         }
 
         if (var_tokens.empty()) {
@@ -396,11 +396,12 @@ namespace seq {
                 if (const_len > hi) {
                     m_is_general_conflict = true;
                     m_reason = backtrack_reason::arithmetic;
-                } else {
-                    add_upper_int_bound(y, hi - const_len, s.m_dep);
                 }
+                else
+                    add_upper_int_bound(y, hi - const_len, s.m_dep);
             }
-        } else {
+        }
+        else {
             // multiple variables: propagate upper bound to each
             // (each variable contributes >= 0, so each <= hi - const_len)
             if (hi != UINT_MAX) {
@@ -433,7 +434,8 @@ namespace seq {
                     add_lower_int_bound(mem.m_str, min_len, mem.m_dep);
                 if (max_len < UINT_MAX)
                     add_upper_int_bound(mem.m_str, max_len, mem.m_dep);
-            } else {
+            }
+            else {
                 // str is a concatenation or other term: add as general int_constraints
                 ast_manager& m = m_graph.m();
                 arith_util arith(m);
@@ -484,7 +486,8 @@ namespace seq {
                 m_char_diseqs.remove(var_id);
                 m_char_ranges.remove(var_id);
             }
-        } else {
+        }
+        else {
             SASSERT(s.m_val->is_char());
             // symbolic char → concrete char: check range constraints
             if (m_char_ranges.contains(var_id)) {
@@ -678,9 +681,9 @@ namespace seq {
             if (i + 1 < r.size() && r[i] == '\\' && r[i+1] == 'n') {
                 result += "<br/>";
                 i += 2;
-            } else {
-                result += r[i++];
             }
+            else
+                result += r[i++];
         }
         return result;
     }
@@ -715,7 +718,8 @@ namespace seq {
                 } else if (arith.is_numeral(arg, neg_val) && neg_val.is_neg()) {
                     r += " &#8722; "; // minus sign
                     r += (-neg_val).to_string();
-                } else {
+                }
+                else {
                     r += " + ";
                     r += arith_expr_html(arg, m);
                 }
@@ -894,11 +898,13 @@ namespace seq {
                 if (seq.is_const_char(ch_expr, code)) {
                     if (code >= 32 && code < 127 && code != '"' && code != '\\') {
                         char_acc += static_cast<char>(code);
-                    } else {
+                    }
+                    else {
                         flush_chars();
                         char buf[16];
                         snprintf(buf, sizeof(buf), "'\\x%x'", code);
-                        if (!first) result += " + ";
+                        if (!first)
+                            result += " + ";
                         result += buf;
                         first = false;
                     }
@@ -917,14 +923,15 @@ namespace seq {
             } else if (tok->is_unit()) {
                 // seq.unit with non-literal character: show the character expression
                 expr* ch = to_app(e)->get_arg(0);
-                if (is_app(ch)) {
+                if (is_app(ch))
                     result += dot_html_escape(to_app(ch)->get_decl()->get_name().str());
-                } else {
+                else {
                     std::ostringstream os;
                     os << mk_pp(ch, m);
                     result += dot_html_escape(os.str());
                 }
-            } else if (tok->is_power()) {
+            }
+            else if (tok->is_power()) {
                 // seq.power(base, n): render as base<SUP>n</SUP>
                 std::string base_html = snode_label_html(tok->arg(0), m);
                 if (tok->arg(0)->length() > 1)
@@ -934,9 +941,10 @@ namespace seq {
                 expr* exp_expr = to_app(e)->get_arg(1);
                 result += arith_expr_html(exp_expr, m);
                 result += "</SUP>";
-            } else if (e && seq.is_re(e)) {
+            }
+            else if (e && seq.is_re(e))
                 result += regex_expr_html(e, m, seq);
-            } else {
+            else {
                 std::ostringstream os;
                 os << mk_pp(e, m);
                 result += dot_html_escape(os.str());
@@ -1300,9 +1308,9 @@ namespace seq {
                     expr_ref norm_exp = normalize_arith(m, exp_acc);
                     expr_ref new_pow(seq.str.mk_power(base_e, norm_exp), m);
                     result.push_back(sg.mk(new_pow));
-                } else {
-                    result.push_back(tok);
                 }
+                else
+                    result.push_back(tok);
                 i = j;
                 continue;
             }
@@ -1526,13 +1534,14 @@ namespace seq {
                         euf::snode* rt = rhs_toks[prefix];
                         if ((lt->is_char() || lt->is_var()) && m.are_equal(lt->get_expr(), rt->get_expr())) {
                             ++prefix;
-                        } else if (lt->is_char() && rt->is_char() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
+                        }
+                        else if (lt->is_char() && rt->is_char() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
                             m_is_general_conflict = true;
                             m_reason = backtrack_reason::symbol_clash;
                             return simplify_result::conflict;
-                        } else {
-                            break;
                         }
+                        else
+                            break;
                     }
 
                     // --- suffix (only among the tokens not already consumed by prefix) ---
@@ -1547,9 +1556,9 @@ namespace seq {
                             m_is_general_conflict = true;
                             m_reason = backtrack_reason::symbol_clash;
                             return simplify_result::conflict;
-                        } else {
-                            break;
                         }
+                        else
+                            break;
                     }
 
                     if (prefix > 0 || suffix > 0) {
@@ -1822,8 +1831,7 @@ namespace seq {
                 // compute minterms and check for uniform derivative
                 euf::snode_vector minterms;
                 sg.compute_minterms(mem.m_regex, minterms);
-                if (minterms.empty())
-                    break;
+                VERIFY(!minterms.empty());
                 euf::snode* uniform = nullptr;
                 bool is_uniform = true;
                 for (euf::snode* mt : minterms) {
@@ -1943,7 +1951,7 @@ namespace seq {
             if (eq.is_trivial() || !eq.m_lhs || !eq.m_rhs)
                 continue;
             for (unsigned od = 0; od < 2; ++od) {
-                bool fwd = (od == 0);
+                bool fwd = od == 0;
 
                 // Orient: var_side starts with a variable, char_side with a char
                 euf::snode* var_side = nullptr;
@@ -1960,9 +1968,8 @@ namespace seq {
                     var_side = eq.m_rhs;
                     char_side = eq.m_lhs;
                 }
-                else {
+                else
                     continue;
-                }
 
                 euf::snode_vector var_toks, char_toks;
                 collect_tokens_dir(var_side, fwd, var_toks);
@@ -2017,7 +2024,8 @@ namespace seq {
                             failed = true;
                             break;
                         }
-                        if (inner_indet || failed) break;
+                        if (inner_indet || failed)
+                            break;
                         j1++;
                     }
 
@@ -2051,12 +2059,15 @@ namespace seq {
                 if (next_var) {
                     u_map<unsigned> dep_edges;  // var id -> first dependent var id
                     for (str_eq const& other_eq : m_str_eq) {
-                        if (other_eq.is_trivial()) continue;
-                        if (!other_eq.m_lhs || !other_eq.m_rhs) continue;
+                        if (other_eq.is_trivial())
+                            continue;
+                        if (!other_eq.m_lhs || !other_eq.m_rhs)
+                            continue;
 
                         euf::snode* lh2 = dir_token(other_eq.m_lhs, fwd);
                         euf::snode* rh2 = dir_token(other_eq.m_rhs, fwd);
-                        if (!lh2 || !rh2) continue;
+                        if (!lh2 || !rh2)
+                            continue;
 
                         auto record_dep = [&](euf::snode* head_var, euf::snode* other_side) {
                             euf::snode_vector other_toks;
@@ -2076,12 +2087,10 @@ namespace seq {
                             if (!dep_edges.contains(rh2->id()))
                                 dep_edges.insert(rh2->id(), lh2->id());
                         }
-                        else if (lh2->is_var() && !rh2->is_var()) {
+                        else if (lh2->is_var() && !rh2->is_var())
                             record_dep(lh2, other_eq.m_rhs);
-                        }
-                        else if (rh2->is_var() && !lh2->is_var()) {
+                        else if (rh2->is_var() && !lh2->is_var())
                             record_dep(rh2, other_eq.m_lhs);
-                        }
                     }
 
                     // DFS from next_var to see if we can reach var_node
@@ -2139,18 +2148,38 @@ namespace seq {
     bool nielsen_node::has_opaque_terms() const {
         auto is_opaque = [](euf::snode* n) { return n && n->kind() == euf::snode_kind::s_other; };
         for (str_eq const& eq : m_str_eq) {
-            if (eq.is_trivial()) continue;
-            if (is_opaque(eq.m_lhs) || is_opaque(eq.m_rhs)) return true;
+            if (eq.is_trivial())
+                continue;
+            if (is_opaque(eq.m_lhs) || is_opaque(eq.m_rhs))
+                return true;
             euf::snode_vector toks;
-            if (eq.m_lhs) { eq.m_lhs->collect_tokens(toks); for (auto* t : toks) if (is_opaque(t)) return true; toks.reset(); }
-            if (eq.m_rhs) { eq.m_rhs->collect_tokens(toks); for (auto* t : toks) if (is_opaque(t)) return true; }
+            if (eq.m_lhs) {
+                eq.m_lhs->collect_tokens(toks);
+                for (auto* t : toks) {
+                    if (is_opaque(t))
+                        return true;
+                }
+                toks.reset();
+            }
+            if (eq.m_rhs) {
+                eq.m_rhs->collect_tokens(toks);
+                for (auto* t : toks) {
+                    if (is_opaque(t))
+                        return true;
+                }
+            }
         }
         for (str_mem const& mem : m_str_mem) {
-            if (!mem.m_str) continue;
-            if (is_opaque(mem.m_str)) return true;
+            if (!mem.m_str)
+                continue;
+            if (is_opaque(mem.m_str))
+                return true;
             euf::snode_vector toks;
             mem.m_str->collect_tokens(toks);
-            for (auto* t : toks) if (is_opaque(t)) return true;
+            for (auto* t : toks) {
+                if (is_opaque(t))
+                    return true;
+            }
         }
         return false;
     }
@@ -2160,8 +2189,8 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     void nielsen_graph::apply_parikh_to_node(nielsen_node& node) {
-        if (!m_parikh_enabled) return;
-        if (node.m_parikh_applied) return;
+        if (!m_parikh_enabled || node.m_parikh_applied)
+            return;
         node.m_parikh_applied = true;
 
         // Generate modular length constraints (len(str) = min_len + stride·k, etc.)
@@ -2178,7 +2207,8 @@ namespace seq {
     }
 
     void nielsen_graph::assert_root_constraints_to_solver() {
-        if (m_root_constraints_asserted) return;
+        if (m_root_constraints_asserted)
+            return;
         m_root_constraints_asserted = true;
         // Constraint.Shared: assert all root-level length/Parikh constraints
         // to m_solver at the base level (no push/pop). These include:
@@ -2189,8 +2219,9 @@ namespace seq {
         // pruning at every node, not just the root.
         vector<length_constraint> constraints;
         generate_length_constraints(constraints);
-        for (auto const& lc : constraints)
+        for (auto const& lc : constraints) {
             m_solver.assert_expr(lc.m_expr);
+        }
     }
 
     nielsen_graph::search_result nielsen_graph::solve() {
@@ -2208,7 +2239,7 @@ namespace seq {
 
             // Iterative deepening: increment by 1 on each failure.
             // m_max_search_depth == 0 means unlimited; otherwise stop when bound exceeds it.
-            m_depth_bound = 10;
+            m_depth_bound = 3;
             while (true) {
                 if (!m().inc()) {
 #ifdef Z3DEBUG
@@ -2372,8 +2403,9 @@ namespace seq {
                 e->set_len_constraints_computed(true);
             }
 
-            for (auto const &ic : e->side_int())
+            for (auto const &ic : e->side_int()) {
                 m_solver.assert_expr(int_constraint_to_expr(ic));
+            }
 
             // Bump modification counts for the child's context.
             inc_edge_mod_counts(e);
@@ -2489,7 +2521,7 @@ namespace seq {
             if (!eq.m_lhs || !eq.m_rhs)
                 continue;
             for (unsigned od = 0; od < 2; ++od) {
-                bool fwd = (od == 0);
+                bool fwd = od == 0;
                 euf::snode* lhead = dir_token(eq.m_lhs, fwd);
                 euf::snode* rhead = dir_token(eq.m_rhs, fwd);
                 if (!lhead || !rhead)
@@ -2522,6 +2554,15 @@ namespace seq {
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, false);
                     nielsen_subst s(lhead, replacement, eq.m_dep);
+                    e->add_subst(s);
+                    child->apply_subst(m_sg, s);
+                }
+                // child 4: y → x·y (no progress)
+                {
+                    euf::snode* replacement = dir_concat(m_sg, lhead, rhead, fwd);
+                    nielsen_node* child = mk_child(node);
+                    nielsen_edge* e = mk_edge(node, child, false);
+                    nielsen_subst s(rhead, replacement, eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
                 }
@@ -2660,11 +2701,13 @@ namespace seq {
                     }
                     seen_variable = true;
                     lhs_has_symbolic = true;
-                } else {
-                    const_diff += (int)token_const_length(tok);
                 }
-            } else {
-                if (ri >= rhs_len) break;
+                else
+                    const_diff += (int)token_const_length(tok);
+            }
+            else {
+                if (ri >= rhs_len)
+                    break;
                 euf::snode* tok = rhs_toks[ri++];
                 bool is_var = token_has_variable_length(tok);
                 if (is_var) {
@@ -2677,13 +2720,14 @@ namespace seq {
                     }
                     seen_variable = true;
                     rhs_has_symbolic = true;
-                } else {
-                    const_diff -= (int)token_const_length(tok);
                 }
+                else
+                    const_diff -= (int)token_const_length(tok);
             }
         }
 
-        if (!has_best) return false;
+        if (!has_best)
+            return false;
 
         // A split at the very start or very end is degenerate — skip.
         if ((best_lhs == 0 && best_rhs == 0) ||
@@ -2754,7 +2798,8 @@ namespace seq {
                     // Prepend pad to RHS prefix, append pad to LHS suffix.
                     eq1_rhs = m_sg.mk_concat(pad, rhs_prefix);
                     eq2_lhs = m_sg.mk_concat(lhs_suffix, pad);
-                } else {
+                }
+                else {
                     // RHS prefix is longer by |padding| constants.
                     // Append pad to LHS prefix, prepend pad to RHS suffix.
                     eq1_lhs = m_sg.mk_concat(lhs_prefix, pad);
@@ -2816,134 +2861,6 @@ namespace seq {
         return m_sg.mk(unit);
     }
 
-    // -----------------------------------------------------------------------
-    // nielsen_graph: apply_regex_char_split
-    // -----------------------------------------------------------------------
-
-    void nielsen_graph::collect_first_chars(euf::snode* re, euf::snode_vector& chars) {
-        if (!re)
-            return;
-
-        // to_re(s): the first character of the string s
-        if (re->is_to_re()) {
-            euf::snode* body = re->arg(0);
-            if (body && !body->is_empty()) {
-                euf::snode* first = body->first();
-                if (first && first->is_char()) {
-                    bool dup = false;
-                    for (euf::snode* c : chars)
-                        if (c == first) { dup = true; break; }
-                    if (!dup)
-                        chars.push_back(first);
-                }
-                // Handle string literals (classified as s_other in sgraph):
-                // extract the first character from the zstring and create a char snode.
-                else if (first && first->get_expr()) {
-                    seq_util& seq = m_sg.get_seq_util();
-                    zstring s;
-                    if (seq.str.is_string(first->get_expr(), s) && s.length() > 0) {
-                        euf::snode* ch = m_sg.mk_char(s[0]);
-                        bool dup = false;
-                        for (euf::snode* c : chars)
-                            if (c == ch) { dup = true; break; }
-                        if (!dup)
-                            chars.push_back(ch);
-                    }
-                }
-            }
-            return;
-        }
-
-        // full character set (.): use 'a' as representative
-        if (re->is_full_char()) {
-            euf::snode* ch = m_sg.mk_char('a');
-            bool dup = false;
-            for (euf::snode* c : chars)
-                if (c == ch) { dup = true; break; }
-            if (!dup)
-                chars.push_back(ch);
-            return;
-        }
-
-        // re.range(lo, hi): use lo as representative
-        if (re->get_expr()) {
-            seq_util& seq = m_sg.get_seq_util();
-            expr* lo = nullptr, *hi = nullptr;
-            if (seq.re.is_range(re->get_expr(), lo, hi) && lo) {
-                unsigned ch_val = 'a';
-                if (seq.is_const_char(lo, ch_val)) {
-                    euf::snode* ch = m_sg.mk_char(ch_val);
-                    bool dup = false;
-                    for (euf::snode* c : chars)
-                        if (c == ch) { dup = true; break; }
-                    if (!dup)
-                        chars.push_back(ch);
-                }
-                return;
-            }
-        }
-
-        // fail, full_seq: no concrete first chars to extract
-        if (re->is_fail() || re->is_full_seq())
-            return;
-
-        // recurse into children (handles union, concat, star, loop, etc.)
-        for (unsigned i = 0; i < re->num_args(); ++i)
-            collect_first_chars(re->arg(i), chars);
-    }
-
-    bool nielsen_graph::apply_regex_char_split(nielsen_node* node) {
-        for (str_mem const& mem : node->str_mems()) {
-            if (!mem.m_str || !mem.m_regex)
-                continue;
-
-            // find the first token of the string side
-            euf::snode* first = mem.m_str->first();
-            if (!first || !first->is_var())
-                continue;
-
-            // collect concrete characters from the regex
-            euf::snode_vector chars;
-            collect_first_chars(mem.m_regex, chars);
-
-            // If no concrete characters found, fall through to apply_regex_var_split
-            if (chars.empty())
-                continue;
-
-            bool created = false;
-
-            // for each character c with non-fail derivative:
-            //   child: x → c · x
-            for (euf::snode* ch : chars) {
-                euf::snode* deriv = m_sg.brzozowski_deriv(mem.m_regex, ch);
-                if (!deriv || deriv->is_fail())
-                    continue;
-
-                euf::snode* replacement = m_sg.mk_concat(ch, first);
-                nielsen_node* child = mk_child(node);
-                nielsen_edge* e = mk_edge(node, child, false);
-                nielsen_subst s(first, replacement, mem.m_dep);
-                e->add_subst(s);
-                child->apply_subst(m_sg, s);
-                created = true;
-            }
-
-            // x → ε branch (variable is empty)
-            {
-                nielsen_node* child = mk_child(node);
-                nielsen_edge* e = mk_edge(node, child, true);
-                nielsen_subst s(first, m_sg.mk_empty_seq(first->get_sort()), mem.m_dep);
-                e->add_subst(s);
-                child->apply_subst(m_sg, s);
-                created = true;
-            }
-
-            if (created)
-                return true;
-        }
-        return false;
-    }
-
     bool nielsen_graph::generate_extensions(nielsen_node *node) {
         // The first modifier that produces edges is used and returned immediately.
 
@@ -2985,10 +2902,6 @@ namespace seq {
         if (apply_const_nielsen(node))
             return ++m_stats.m_mod_const_nielsen, true;
 
-        // Priority 9: RegexCharSplit - split str_mem by first-position chars
-        if (apply_regex_char_split(node))
-            return ++m_stats.m_mod_regex_char_split, true;
-
         // Priority 10: RegexVarSplit - split str_mem by minterms
         if (apply_regex_var_split(node))
             return ++m_stats.m_mod_regex_var_split, true;
@@ -3014,16 +2927,22 @@ namespace seq {
 
     euf::snode* nielsen_graph::find_power_token(nielsen_node* node) const {
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial()) continue;
-            if (!eq.m_lhs || !eq.m_rhs) continue;
+            if (eq.is_trivial())
+                continue;
+            if (!eq.m_lhs || !eq.m_rhs)
+                continue;
             euf::snode_vector toks;
             eq.m_lhs->collect_tokens(toks);
-            for (euf::snode* t : toks)
-                if (t->is_power()) return t;
+            for (euf::snode* t : toks) {
+                if (t->is_power())
+                    return t;
+            }
             toks.reset();
             eq.m_rhs->collect_tokens(toks);
-            for (euf::snode* t : toks)
-                if (t->is_power()) return t;
+            for (euf::snode* t : toks) {
+                if (t->is_power())
+                    return t;
+            }
         }
         return nullptr;
     }
@@ -3039,8 +2958,10 @@ namespace seq {
                                             str_eq const*& eq_out,
                                             bool& fwd) const {
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial()) continue;
-            if (!eq.m_lhs || !eq.m_rhs) continue;
+            if (eq.is_trivial()) 
+                continue;
+            if (!eq.m_lhs || !eq.m_rhs) 
+                continue;
             for (unsigned od = 0; od < 2; ++od) {
                 bool local_fwd = (od == 0);
                 euf::snode* lhead = dir_token(eq.m_lhs, local_fwd);
@@ -3079,8 +3000,10 @@ namespace seq {
                                           str_eq const*& eq_out,
                                           bool& fwd) const {
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial()) continue;
-            if (!eq.m_lhs || !eq.m_rhs) continue;
+            if (eq.is_trivial()) 
+                continue;
+            if (!eq.m_lhs || !eq.m_rhs) 
+                continue;
             for (unsigned od = 0; od < 2; ++od) {
                 bool local_fwd = (od == 0);
                 euf::snode* lhead = dir_token(eq.m_lhs, local_fwd);
@@ -3123,8 +3046,10 @@ namespace seq {
         euf::snode* power = nullptr;
         dep_tracker dep = m_dep_mgr.mk_empty();
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial()) continue;
-            if (!eq.m_lhs || !eq.m_rhs) continue;
+            if (eq.is_trivial()) 
+                continue;
+            if (!eq.m_lhs || !eq.m_rhs) 
+                continue;
             if (eq.m_lhs->is_empty() && eq.m_rhs->first() && eq.m_rhs->first()->is_power()) {
                 power = eq.m_rhs->first();
                 dep = eq.m_dep;
@@ -3187,7 +3112,8 @@ namespace seq {
                 bool fwd = (od == 0);
                 euf::snode* lhead = dir_token(eq.m_lhs, fwd);
                 euf::snode* rhead = dir_token(eq.m_rhs, fwd);
-                if (!lhead || !rhead) continue;
+                if (!lhead || !rhead)
+                    continue;
                 if (!lhead->is_power() || !rhead->is_power())
                     continue;
                 if (lhead->num_args() < 1 || rhead->num_args() < 1)
@@ -3246,24 +3172,30 @@ namespace seq {
         seq_util seq(m);
 
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial()) continue;
-            if (!eq.m_lhs || !eq.m_rhs) continue;
+            if (eq.is_trivial())
+                continue;
+            if (!eq.m_lhs || !eq.m_rhs)
+                continue;
 
             for (int side = 0; side < 2; ++side) {
                 euf::snode* pow_side   = (side == 0) ? eq.m_lhs : eq.m_rhs;
                 euf::snode* other_side = (side == 0) ? eq.m_rhs : eq.m_lhs;
-                if (!pow_side || !other_side) continue;
+                if (!pow_side || !other_side)
+                    continue;
 
                 for (unsigned od = 0; od < 2; ++od) {
-                    bool fwd = (od == 0);
+                    bool fwd = od == 0;
                     euf::snode* end_tok = dir_token(pow_side, fwd);
-                    if (!end_tok || !end_tok->is_power()) continue;
+                    if (!end_tok || !end_tok->is_power())
+                        continue;
                     euf::snode* base_sn = end_tok->arg(0);
                     expr* pow_exp = get_power_exp_expr(end_tok, seq);
-                    if (!base_sn || !pow_exp) continue;
+                    if (!base_sn || !pow_exp)
+                        continue;
 
                     auto [count, consumed] = comm_power(base_sn, other_side, m, fwd);
-                    if (!count.get() || consumed == 0) continue;
+                    if (!count.get() || consumed == 0)
+                        continue;
 
                     expr_ref norm_count = normalize_arith(m, count);
 
@@ -3394,17 +3326,14 @@ namespace seq {
             // 3. Fall back to simple star(R)
             euf::snode* stab_base = nullptr;
 
-            if (m_seq_regex && m_seq_regex->is_self_stabilizing(mem.m_regex)) {
+            if (m_seq_regex && m_seq_regex->is_self_stabilizing(mem.m_regex))
                 stab_base = mem.m_regex;
-            }
-            else if (m_seq_regex && mem.m_history) {
+            else if (m_seq_regex && mem.m_history)
                 stab_base = m_seq_regex->strengthened_stabilizer(mem.m_regex, mem.m_history);
-            }
 
-            if (!stab_base) {
+            if (!stab_base)
                 // Fall back: simple star of the cycle regex
                 stab_base = mem.m_regex;
-            }
 
             // Register the stabilizer
             if (m_seq_regex)
@@ -3478,15 +3407,18 @@ namespace seq {
 
     bool nielsen_graph::apply_gpower_intr(nielsen_node* node) {
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial()) continue;
-            if (!eq.m_lhs || !eq.m_rhs) continue;
+            if (eq.is_trivial())
+                continue;
+            if (!eq.m_lhs || !eq.m_rhs)
+                continue;
 
             // Try both directions (ZIPT's ExtendDir(fwd=true/false)).
             for (unsigned od = 0; od < 2; ++od) {
                 bool fwd = (od == 0);
                 euf::snode* lhead = dir_token(eq.m_lhs, fwd);
                 euf::snode* rhead = dir_token(eq.m_rhs, fwd);
-                if (!lhead || !rhead) continue;
+                if (!lhead || !rhead)
+                    continue;
 
                 // Orientation 1: RHS directional head is var, scan LHS in that
                 // direction for ground prefix + matching cycle var.
@@ -3496,7 +3428,10 @@ namespace seq {
                     euf::snode_vector ground_prefix;
                     euf::snode* target_var = nullptr;
                     for (unsigned i = 0; i < toks.size(); ++i) {
-                        if (toks[i]->is_var()) { target_var = toks[i]; break; }
+                        if (toks[i]->is_var()) {
+                            target_var = toks[i];
+                            break;
+                        }
                         ground_prefix.push_back(toks[i]);
                     }
                     if (target_var && !ground_prefix.empty() && target_var->id() == rhead->id()) {
@@ -3512,7 +3447,10 @@ namespace seq {
                     euf::snode_vector ground_prefix;
                     euf::snode* target_var = nullptr;
                     for (unsigned i = 0; i < toks.size(); ++i) {
-                        if (toks[i]->is_var()) { target_var = toks[i]; break; }
+                        if (toks[i]->is_var()) {
+                            target_var = toks[i];
+                            break;
+                        }
                         ground_prefix.push_back(toks[i]);
                     }
                     if (target_var && !ground_prefix.empty() && target_var->id() == lhead->id()) {
@@ -3542,11 +3480,15 @@ namespace seq {
         unsigned n = ground_prefix_orig.size();
         unsigned period = n;
         for (unsigned p = 1; p <= n / 2; ++p) {
-            if (n % p != 0) continue;
+            if (n % p != 0)
+                continue;
             bool match = true;
             for (unsigned i = p; i < n && match; ++i)
                 match = ground_prefix_orig[i]->id() == ground_prefix_orig[i % p]->id();
-            if (match) { period = p; break; }
+            if (match) {
+                period = p;
+                break;
+            }
         }
         for (unsigned i = 0; i < period; ++i) {
             ground_prefix.push_back(ground_prefix_orig[i]);
@@ -3591,7 +3533,8 @@ namespace seq {
         expr_ref fresh_n = mk_fresh_int_var();
         expr_ref power_expr(seq.str.mk_power(base_str, fresh_n), m);
         euf::snode* power_snode = m_sg.mk(power_expr);
-        if (!power_snode) return false;
+        if (!power_snode)
+            return false;
 
         expr* zero = arith.mk_int(0);
 
@@ -3627,15 +3570,16 @@ namespace seq {
                     euf::snode* partial_sn = m_sg.mk(partial_pow);
                     euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
                     replacement = dir_concat(m_sg, power_snode, suffix_sn, fwd);
-                } else {
+                }
+                else {
                     // Fallback: use full token (shouldn't normally happen)
                     euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, tok, fwd) : tok;
                     replacement = dir_concat(m_sg, power_snode, suffix_sn, fwd);
                 }
-            } else {
+            }
+            else
                 // Token is a char: P(char) = ε, suffix = just the prefix
                 replacement = prefix_sn ? dir_concat(m_sg, power_snode, prefix_sn, fwd) : power_snode;
-            }
 
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, true);
@@ -3671,14 +3615,17 @@ namespace seq {
 
     bool nielsen_graph::apply_regex_var_split(nielsen_node* node) {
         for (str_mem const& mem : node->str_mems()) {
-            if (!mem.m_str || !mem.m_regex) continue;
+            if (!mem.m_str || !mem.m_regex)
+                continue;
             euf::snode* first = mem.m_str->first();
-            if (!first || !first->is_var()) continue;
+            if (!first || !first->is_var())
+                continue;
 
             // Compute minterms from the regex
+            // std::cout << "Regex split: " << mk_pp(mem.m_regex->get_expr(), m_sg.get_manager()) << std::endl;
             euf::snode_vector minterms;
             m_sg.compute_minterms(mem.m_regex, minterms);
-            if (minterms.empty()) continue;
+            VERIFY(!minterms.empty());
 
             bool created = false;
 
@@ -3695,14 +3642,29 @@ namespace seq {
             // Branch 2+: for each minterm m_i, x → ?c · x
             // where ?c is a symbolic char constrained by the minterm
             for (euf::snode* mt : minterms) {
-                if (mt->is_fail()) continue;
+                // std::cout << "Processing minterm: " << mk_pp(mt->get_expr(), m_sg.get_manager()) << std::endl;
+                SASSERT(!mt->is_fail());
 
                 // Try Brzozowski derivative with respect to this minterm
                 // If the derivative is fail (empty language), skip this minterm
                 euf::snode* deriv = m_sg.brzozowski_deriv(mem.m_regex, mt);
-                if (deriv && deriv->is_fail()) continue;
+                SASSERT(deriv);
+                if (deriv->is_fail())
+                    continue;
+                // std::cout << "Result: " << mk_pp(deriv->get_expr(), m_sg.get_manager()) << std::endl;
 
-                euf::snode* fresh_char = mk_fresh_char_var();
+                char_set cs;
+                if (m_parikh && mt->get_expr())
+                    cs = m_parikh->minterm_to_char_set(mt->get_expr());
+
+                euf::snode* fresh_char = nullptr;
+                if (cs.is_unit()) {
+                    expr_ref char_expr(m_sg.get_seq_util().str.mk_string(zstring(cs.first_char())), m_sg.get_manager());
+                    fresh_char = m_sg.mk(char_expr);
+                } else {
+                    fresh_char = mk_fresh_char_var();
+                }
+
                 euf::snode* replacement = m_sg.mk_concat(fresh_char, first);
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, false);
@@ -3713,10 +3675,8 @@ namespace seq {
                 // This is the key Parikh pruning step: when x → ?c · x' is
                 // generated from minterm m_i, ?c must belong to the character
                 // class described by m_i so that str ∈ derivative(R, m_i).
-                if (mt->get_expr()) {
-                    char_set cs = m_parikh->minterm_to_char_set(mt->get_expr());
-                    if (!cs.is_empty())
-                        child->add_char_range(fresh_char, cs);
+                if (!cs.is_unit() && !cs.is_empty()) {
+                    child->add_char_range(fresh_char, cs);
                 }
                 created = true;
             }
@@ -3796,14 +3756,15 @@ namespace seq {
                         euf::snode* partial_sn = m_sg.mk(partial_pow);
                         euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
                         replacement = dir_concat(m_sg, power_m_sn, suffix_sn, fwd);
-                    } else {
+                    }
+                    else {
                         euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, tok, fwd) : tok;
                         replacement = dir_concat(m_sg, power_m_sn, suffix_sn, fwd);
                     }
-                } else {
+                }
+                else
                     // P(char) = ε, suffix is just the prefix
                     replacement = prefix_sn ? dir_concat(m_sg, power_m_sn, prefix_sn, fwd) : power_m_sn;
-                }
 
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
@@ -4443,7 +4404,8 @@ namespace seq {
                             euf::snode* rng_sn = m_sg.mk(rng);
                             if (!range_re) {
                                 range_re = rng_sn;
-                            } else {
+                            }
+                            else {
                                 expr_ref u(seq.re.mk_union(range_re->get_expr(), rng_sn->get_expr()), mgr);
                                 range_re = m_sg.mk(u);
                             }
@@ -4560,7 +4522,6 @@ namespace seq {
         st.update("nseq mod star intr",        m_stats.m_mod_star_intr);
         st.update("nseq mod gpower intr",      m_stats.m_mod_gpower_intr);
         st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);
-        st.update("nseq mod regex char",       m_stats.m_mod_regex_char_split);
         st.update("nseq mod regex var",        m_stats.m_mod_regex_var_split);
         st.update("nseq mod power split",      m_stats.m_mod_power_split);
         st.update("nseq mod var nielsen",      m_stats.m_mod_var_nielsen);
@@ -4568,3 +4529,5 @@ namespace seq {
     }
 
 }
+
+
