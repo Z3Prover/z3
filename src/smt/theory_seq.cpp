@@ -345,11 +345,6 @@ final_check_status theory_seq::final_check_eh(unsigned level) {
         TRACEFIN("regex propagate");
         return FC_CONTINUE;
     }
-    if (check_contains()) {
-        ++m_stats.m_propagate_contains;
-        TRACEFIN("propagate_contains");
-        return FC_CONTINUE;
-    }
     if (check_fixed_length(true, false)) {
         ++m_stats.m_fixed_length;
         TRACEFIN("zero_length");
@@ -363,6 +358,16 @@ final_check_status theory_seq::final_check_eh(unsigned level) {
     if (check_fixed_length(false, false)) {
         ++m_stats.m_fixed_length;
         TRACEFIN("fixed_length");
+        return FC_CONTINUE;
+    }
+    if (check_fixed_length(false, true)) {
+        ++m_stats.m_fixed_length;
+        TRACEFIN("fixed_length");
+        return FC_CONTINUE;
+    }
+    if (check_contains()) {
+        ++m_stats.m_propagate_contains;
+        TRACEFIN("propagate_contains");
         return FC_CONTINUE;
     }
     if (check_int_string()) {
