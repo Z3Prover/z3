@@ -196,39 +196,61 @@ namespace smt {
 
     void theory_nseq::assign_eh(bool_var v, bool is_true) {
         expr* e = ctx.bool_var2expr(v);
-        expr* s = nullptr;
-        expr* re = nullptr;
-        if (!m_seq.str.is_in_re(e, s, re)) {
-            // Track unhandled boolean string predicates (prefixof, contains, etc.)
-            if (is_app(e) && to_app(e)->get_family_id() == m_seq.get_family_id())
-                push_unhandled_pred();
-            return;
+        expr* s = nullptr, *re = nullptr;
+        TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
+        if (m_seq.str.is_in_re(e, s, re)) {
+            euf::snode* sn_str = get_snode(s);
+            euf::snode* sn_re  = get_snode(re);
+            if (!sn_str || !sn_re)
+                return;
+            unsigned idx = m_state.str_mems().size();
+            literal lit(v, !is_true);
+            if (is_true) {
+                m_state.add_str_mem(sn_str, sn_re, lit);
+            }
+            else {
+                // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
+                // so the Nielsen graph sees it uniformly; the original negative literal
+                // is kept in mem_source for conflict reporting.
+                expr_ref re_compl(m_seq.re.mk_complement(re), m);
+                euf::snode* sn_re_compl = get_snode(re_compl.get());
+                m_state.add_str_mem(sn_str, sn_re_compl, lit);
+            }
+            ctx.push_trail(restore_vector(m_prop_queue));
+            m_prop_queue.push_back({prop_item::pos_mem_prop, idx});
         }
-        euf::snode* sn_str = get_snode(s);
-        euf::snode* sn_re  = get_snode(re);
-        if (!sn_str || !sn_re)
-            return;
-
-        unsigned idx = m_state.str_mems().size();
-        literal lit(v, !is_true);
-        if (is_true) {
-            m_state.add_str_mem(sn_str, sn_re, lit);
+        else if (m_seq.str.is_prefix(e)) {
+            if (is_true)
+                m_axioms.prefix_true_axiom(e);
+            else
+                m_axioms.prefix_axiom(e);
         }
-        else {
-            // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
-            // so the Nielsen graph sees it uniformly; the original negative literal
-            // is kept in mem_source for conflict reporting.
-            expr_ref re_compl(m_seq.re.mk_complement(re), m);
-            euf::snode* sn_re_compl = get_snode(re_compl.get());
-            m_state.add_str_mem(sn_str, sn_re_compl, lit);
+        else if (m_seq.str.is_suffix(e)) {
+            if (is_true)
+                m_axioms.suffix_true_axiom(e);
+            else
+                m_axioms.suffix_axiom(e);
         }
-        ctx.push_trail(restore_vector(m_prop_queue));
-        m_prop_queue.push_back({prop_item::pos_mem_prop, idx});
-
-        TRACE(seq, tout << "nseq assign_eh: " << (is_true ? "" : "¬")
-                        << "str.in_re "
-                        << mk_bounded_pp(s, m, 3) << " in "
-                        << mk_bounded_pp(re, m, 3) << "\n";);
+        else if (m_seq.str.is_contains(e)) {
+            if (is_true)
+                m_axioms.contains_true_axiom(e);
+            else
+                m_axioms.unroll_not_contains(e);
+        }
+        else if (m_seq.str.is_lt(e))
+            m_axioms.lt_axiom(e);
+        else if (m_seq.str.is_le(e))
+            m_axioms.le_axiom(e);
+        else if (m_seq.is_skolem(e) ||
+                 m_seq.str.is_nth_i(e) ||
+                 m_seq.str.is_nth_u(e) ||
+                 m_seq.str.is_is_digit(e) ||
+                 m_seq.str.is_foldl(e) ||
+                 m_seq.str.is_foldli(e)) {
+            // no-op: handled by other mechanisms
+        }
+        else if (is_app(e) && to_app(e)->get_family_id() == m_seq.get_family_id())
+            push_unhandled_pred();
     }
 
     // -----------------------------------------------------------------------

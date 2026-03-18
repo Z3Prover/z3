@@ -84,6 +84,9 @@ namespace seq {
 
         void suffix_axiom(expr* n);
         void prefix_axiom(expr* n);
+        void prefix_true_axiom(expr* n);
+        void suffix_true_axiom(expr* n);
+        void contains_true_axiom(expr* n);
         void extract_axiom(expr* n);
         void indexof_axiom(expr* n);
         void last_indexof_axiom(expr* n);
