@@ -390,11 +390,10 @@ namespace smt {
         m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
 
         // Regex membership pre-check: before running DFS, check intersection
-        // emptiness for each variable's regex constraints.  This handles
+        // emptiness for each variable's regex constraints.  This handles     
         // regex-only problems that the DFS cannot efficiently solve.
         if (get_fparams().m_nseq_regex_precheck) {
-            lbool precheck = check_regex_memberships_precheck();
-            switch (precheck) { 
+            switch (check_regex_memberships_precheck()) {
             case l_true:
                 // conflict was asserted inside check_regex_memberships_precheck
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck UNSAT\n";);
@@ -402,6 +401,7 @@ namespace smt {
             case l_false:
                 // all regex constraints satisfiable, no word eqs/diseqs → SAT
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck SAT\n";);
+                m_nielsen.set_sat_node(m_nielsen.root());
                 return FC_DONE;
             default: 
                 break;
@@ -482,7 +482,7 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     void theory_nseq::init_model(model_generator& mg) {
-        m_model.init(mg, m_nielsen, m_state);
+        m_model.init(mg, m_nielsen);
     }
 
     model_value_proc* theory_nseq::mk_value(enode* n, model_generator& mg) {
@@ -797,18 +797,17 @@ namespace smt {
         // Group membership indices by variable snode id.
         // Only consider memberships whose string snode is a plain variable (s_var).
         u_map<unsigned_vector> var_to_mems;
-        bool all_var_str = true;
+        bool all_primitive = true;
 
         for (unsigned i = 0; i < mems.size(); ++i) {
             auto const& mem = mems[i];
-            if (!mem.m_str || !mem.m_regex)
-                continue;
-            if (mem.m_str->is_var()) {
+            SASSERT(mem.m_str && mem.m_regex);
+            if (mem.is_primitive()) {
                 auto& vec = var_to_mems.insert_if_not_there(mem.m_str->id(), unsigned_vector());
                 vec.push_back(i);
             }
             else
-                all_var_str = false;
+                all_primitive = false;
         }
 
         if (var_to_mems.empty())
@@ -860,7 +859,7 @@ namespace smt {
         // All variables' regex intersections are non-empty.
         // If there are no word equations and no disequalities, variables are
         // independent and each can be assigned a witness string → SAT.
-        if (all_var_str && m_state.str_eqs().empty() && m_state.diseqs().empty() && !has_unhandled_preds()) {
+        if (all_primitive && m_state.str_eqs().empty() && m_state.diseqs().empty() && !has_unhandled_preds()) {
             TRACE(seq, tout << "nseq regex precheck: all intersections non-empty, "
                             << "no word eqs/diseqs → SAT\n";);
             return l_false;  // signals SAT (non-empty / satisfiable)

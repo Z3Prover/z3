@@ -783,7 +783,7 @@ namespace seq {
 
         // Regex membership module: stabilizers, emptiness checks, language
         // inclusion, derivatives. Allocated in the constructor; owned by this graph.
-        seq::seq_regex*              m_seq_regex = nullptr;
+        seq_regex*              m_seq_regex = nullptr;
 
         // -----------------------------------------------
         // Modification counter for substitution length tracking.
@@ -834,6 +834,8 @@ namespace seq {
         // root node access
         nielsen_node* root() const { return m_root; }
         void set_root(nielsen_node* n) { m_root = n; }
+
+        void set_sat_node(nielsen_node* n) { m_sat_node = n; }
 
         // satisfying leaf node (set by solve() when result is sat)
         nielsen_node* sat_node() const { return m_sat_node; }

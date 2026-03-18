@@ -75,7 +75,7 @@ namespace smt {
         // Allocates seq_factory, registers it with mg, collects
         // existing string literals, and extracts variable assignments
         // from the satisfying Nielsen leaf node.
-        void init(model_generator& mg, seq::nielsen_graph& nielsen, seq_state const& state);
+        void init(model_generator& mg, seq::nielsen_graph& nielsen);
 
         // Phase 2: build a model_value_proc for the given enode.
         // Returns nullptr if the enode is not a sequence/string sort.

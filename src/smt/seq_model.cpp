@@ -30,7 +30,7 @@ namespace smt {
         : m(m), m_seq(seq), m_rewriter(rw), m_sg(sg), m_trail(m)
     {}
 
-    void seq_model::init(model_generator& mg, seq::nielsen_graph& nielsen, seq_state const& state) {
+    void seq_model::init(model_generator& mg, seq::nielsen_graph& nielsen) {
         m_var_values.reset();
         m_var_regex.reset();
         m_trail.reset();
@@ -41,7 +41,9 @@ namespace smt {
         mg.register_factory(m_factory);
 
         register_existing_values(nielsen);
-        collect_var_regex_constraints(nielsen.sat_node());
+        seq::nielsen_node* sat_node = nielsen.sat_node();
+        SASSERT(sat_node); // in case we report sat, this has to point to a satisfied Nielsen node!
+        collect_var_regex_constraints(sat_node);
 
         // solve integer constraints from the sat_path FIRST so that
         // m_int_model is available when snode_to_value evaluates power exponents
