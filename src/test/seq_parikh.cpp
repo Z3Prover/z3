@@ -321,7 +321,8 @@ static void test_generate_constraints_ab_star() {
     expr_ref re = mk_ab_star(m, seq);
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
-    seq::dep_tracker dep = dm.mk_leaf({seq::dep_source::kind::mem, 0});
+    sat::literal lit = sat::null_literal;  // dummy literal for dependency tracking 
+    seq::dep_tracker dep = dm.mk_leaf(lit);
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
     vector<seq::int_constraint> out;
@@ -367,7 +368,7 @@ static void test_generate_constraints_bounded_loop() {
     expr_ref re(seq.re.mk_loop(ab, 1, 3), m);
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
-    seq::dep_tracker dep = dm.mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = dm.mk_leaf(sat::null_literal);
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
     vector<seq::int_constraint> out;
@@ -404,7 +405,7 @@ static void test_generate_constraints_stride_one() {
     expr_ref re(seq.re.mk_full_seq(str_sort), m);
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
-    seq::dep_tracker dep = dm.mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = dm.mk_leaf(sat::null_literal);
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
     vector<seq::int_constraint> out;
@@ -427,7 +428,7 @@ static void test_generate_constraints_fixed_length() {
     expr_ref re = mk_to_re_ab(m, seq);  // fixed len 2
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
-    seq::dep_tracker dep = dm.mk_leaf({seq::dep_source::kind::mem, 0});
+    seq::dep_tracker dep = dm.mk_leaf(sat::null_literal);
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
     vector<seq::int_constraint> out;
@@ -450,7 +451,8 @@ static void test_generate_constraints_dep_propagated() {
     expr_ref re = mk_ab_star(m, seq);
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
-    seq::dep_tracker dep = dm.mk_leaf({seq::dep_source::kind::mem, 7});
+    sat::literal lit(7);
+    seq::dep_tracker dep = dm.mk_leaf(lit);
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
     vector<seq::int_constraint> out;
@@ -463,7 +465,7 @@ static void test_generate_constraints_dep_propagated() {
         dm.linearize(ic.m_dep, vs);
         bool found = false;
         for (auto const& d : vs)
-            if (d.m_kind == seq::dep_source::kind::mem && d.index == 7) found = true;
+            if (std::get<sat::literal>(d) == lit) found = true;
         SASSERT(found);
     }
     std::cout << "  all constraints carry dep {mem,7}\n";

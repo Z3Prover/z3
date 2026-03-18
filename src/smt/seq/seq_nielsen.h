@@ -570,6 +570,7 @@ namespace seq {
         // Used for precise cycle detection with history-length-based progress.
         // Mirrors ZIPT LocalInfo.RegexOccurrence (LocalInfo.cs:34)
         std::map<std::pair<unsigned, unsigned>, unsigned> m_regex_occurrence;
+        
 
     public:
         nielsen_node(nielsen_graph& graph, unsigned id);
@@ -749,7 +750,7 @@ namespace seq {
         ast_manager&                  m;
         seq_util&                     m_seq;
         euf::sgraph&                  m_sg;
-        region                        m_region;
+        // region                        m_region;
         ptr_vector<nielsen_node>      m_nodes;
         ptr_vector<nielsen_edge>      m_edges;
         nielsen_node*                 m_root = nullptr;
