@@ -2075,8 +2075,6 @@ struct contains_underspecified_op_proc {
             throw found();
         if (n->get_family_id() == m_seq_id && m_seq.is_re(n))
             throw found();
-        if (m_arith.plugin().is_considered_uninterpreted(n->get_decl()))
-            throw found();
         func_decl_ref f_ui(m_arith.get_manager());
         if (m_arith.is_considered_uninterpreted(n->get_decl(), n->get_num_args(), n->get_args(), f_ui))
             throw found();
