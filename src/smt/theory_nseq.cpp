@@ -27,17 +27,47 @@ namespace smt {
     theory_nseq::theory_nseq(context& ctx) :
         theory(ctx, ctx.get_manager().mk_family_id("seq")),
         m_seq(m),
-        m_autil(m),
+        m_autil(m), 
+        m_th_rewriter(m),
         m_rewriter(m),
         m_arith_value(m),
         m_egraph(m),
         m_sgraph(m, m_egraph),
         m_context_solver(m),
         m_nielsen(m_sgraph, m_context_solver),
+        m_axioms(m_th_rewriter),
         m_state(),
         m_regex(m_sgraph),
         m_model(m, m_seq, m_rewriter, m_sgraph)
-    {}
+    {
+        std::function<void(expr_ref_vector const&)> add_clause =
+            [&](expr_ref_vector const &clause) {
+            literal_vector lits;
+            for (auto const &e : clause) {
+                auto lit = mk_literal(e);
+                if (lit == false_literal)
+                    continue;
+                if (lit == true_literal)
+                    return;
+                if (ctx.get_assignment(lit) == l_true)
+                    return;
+                ctx.mark_as_relevant(lit);
+                lits.push_back(lit);
+            }
+            // TODO - add validation, trace axioms
+            ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+        };
+        std::function < void(expr* e)> set_phase = [&](expr* e) {
+            literal lit = mk_literal(e);
+            ctx.force_phase(lit);
+        };
+        std::function < void(void)> ensure_digit_axiom = [&]() {
+            throw default_exception("digit axioms should be added lazily via seq_axioms::ensure_digit_axiom");
+        };
+        m_axioms.set_add_clause(add_clause);
+        m_axioms.set_phase(set_phase);
+        m_axioms.set_ensure_digits(ensure_digit_axiom);
+    }
 
     // -----------------------------------------------------------------------
     // Initialization
@@ -154,12 +184,10 @@ namespace smt {
             push_unhandled_pred();
             return;
         }
-        if (!m_seq.is_seq(e1) || !m_seq.is_seq(e2))
+        if (!m_seq.is_seq(e1))
             return;
-        unsigned idx = m_state.diseqs().size();
-        m_state.add_diseq(get_enode(v1), get_enode(v2));
-        ctx.push_trail(restore_vector(m_prop_queue));
-        m_prop_queue.push_back({prop_item::diseq_prop, idx});
+
+        m_axioms.diseq_axiom(e1, e2);
     }
 
     // -----------------------------------------------------------------------
@@ -243,9 +271,6 @@ namespace smt {
             case prop_item::eq_prop:
                 propagate_eq(idx);
                 break;
-            case prop_item::diseq_prop:
-                propagate_diseq(idx);
-                break;
             case prop_item::pos_mem_prop:
                 propagate_pos_mem(idx);
                 break;
@@ -259,17 +284,6 @@ namespace smt {
         auto const& src = m_state.str_eqs()[idx];
         ensure_length_var(src.m_l->get_expr());
         ensure_length_var(src.m_r->get_expr());
-    }
-
-    void theory_nseq::propagate_diseq(unsigned idx) {
-        // Disequalities are recorded for use during final_check.
-        // No eager propagation beyond recording.
-        TRACE(seq,
-            auto const& d = m_state.get_diseq(idx);
-            tout << "nseq diseq: "
-                 << mk_bounded_pp(d.m_n1->get_expr(), m, 3)
-                 << " != "
-                 << mk_bounded_pp(d.m_n2->get_expr(), m, 3) << "\n";);
     }
 
     void theory_nseq::propagate_pos_mem(unsigned idx) {

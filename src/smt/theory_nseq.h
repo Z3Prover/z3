@@ -21,6 +21,7 @@ Author:
 
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/seq_axioms.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_sgraph.h"
 #include "smt/smt_theory.h"
@@ -36,6 +37,7 @@ namespace smt {
     class theory_nseq : public theory {
         seq_util       m_seq;
         arith_util     m_autil;
+        th_rewriter    m_th_rewriter;
         seq_rewriter   m_rewriter;
         arith_value    m_arith_value;
         euf::egraph    m_egraph;  // private egraph (not shared with smt context)
@@ -44,13 +46,14 @@ namespace smt {
         // to the m_nielsen constructor and must remain stable for the object's lifetime.
         context_solver m_context_solver;
         seq::nielsen_graph m_nielsen;
+        seq::axioms m_axioms;
         seq_state     m_state;
         seq::seq_regex     m_regex;   // regex membership pre-processing
         seq_model     m_model;   // model construction helper
 
         // propagation queue
         struct prop_item {
-            enum kind_t { eq_prop, diseq_prop, pos_mem_prop } m_kind;
+            enum kind_t { eq_prop, pos_mem_prop } m_kind;
             unsigned m_idx;
         };
         svector<prop_item>  m_prop_queue;
@@ -110,7 +113,6 @@ namespace smt {
 
         // propagation dispatch helpers
         void propagate_eq(unsigned idx);
-        void propagate_diseq(unsigned idx);
         void propagate_pos_mem(unsigned idx);
         void ensure_length_var(expr* e);
 
