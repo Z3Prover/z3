@@ -1872,7 +1872,7 @@ namespace seq {
                         for (euf::snode* mt : minterms) {
                             if (!mt || mt->is_fail()) continue;
                             if (!mt->get_expr()) continue;
-                            char_set mt_cs = m_graph.m_parikh->minterm_to_char_set(mt->get_expr());
+                            char_set mt_cs = m_graph.m_seq_regex->minterm_to_char_set(mt->get_expr());
                             if (cs.is_subset(mt_cs)) {
                                 euf::snode* deriv = sg.brzozowski_deriv(mem.m_regex, mt);
                                 if (!deriv) { found = false; break; }
@@ -3628,6 +3628,7 @@ namespace seq {
             VERIFY(!minterms.empty());
 
             bool created = false;
+            std::cout << "Considering regex: " << mk_pp(mem.m_regex->get_expr(), m_sg.get_manager()) << std::endl;
 
             // Branch 1: x → ε (progress)
             {
@@ -3642,7 +3643,9 @@ namespace seq {
             // Branch 2+: for each minterm m_i, x → ?c · x
             // where ?c is a symbolic char constrained by the minterm
             for (euf::snode* mt : minterms) {
-                // std::cout << "Processing minterm: " << mk_pp(mt->get_expr(), m_sg.get_manager()) << std::endl;
+                std::cout << "Processing minterm: " << mk_pp(mt->get_expr(), m_sg.get_manager()) << std::endl;
+                SASSERT(mt);
+                SASSERT(mt->get_expr());
                 SASSERT(!mt->is_fail());
 
                 // Try Brzozowski derivative with respect to this minterm
@@ -3651,19 +3654,22 @@ namespace seq {
                 SASSERT(deriv);
                 if (deriv->is_fail())
                     continue;
-                // std::cout << "Result: " << mk_pp(deriv->get_expr(), m_sg.get_manager()) << std::endl;
+                std::cout << "Result: " << mk_pp(deriv->get_expr(), m_sg.get_manager()) << std::endl;
 
-                char_set cs;
-                if (m_parikh && mt->get_expr())
-                    cs = m_parikh->minterm_to_char_set(mt->get_expr());
+                SASSERT(m_seq_regex);
+                char_set cs = m_seq_regex->minterm_to_char_set(mt->get_expr());
+                std::cout << "char_set:\n";
+                for (auto& r : cs.ranges()) {
+                    std::cout << "\t[" << r.m_lo << "; " << r.m_hi - 1 << "]" << std::endl;
+                }
 
                 euf::snode* fresh_char = nullptr;
                 if (cs.is_unit()) {
                     expr_ref char_expr(m_sg.get_seq_util().str.mk_string(zstring(cs.first_char())), m_sg.get_manager());
                     fresh_char = m_sg.mk(char_expr);
-                } else {
-                    fresh_char = mk_fresh_char_var();
                 }
+                else
+                    fresh_char = mk_fresh_char_var();
 
                 euf::snode* replacement = m_sg.mk_concat(fresh_char, first);
                 nielsen_node* child = mk_child(node);
@@ -3675,9 +3681,8 @@ namespace seq {
                 // This is the key Parikh pruning step: when x → ?c · x' is
                 // generated from minterm m_i, ?c must belong to the character
                 // class described by m_i so that str ∈ derivative(R, m_i).
-                if (!cs.is_unit() && !cs.is_empty()) {
+                if (!cs.is_unit() && !cs.is_empty())
                     child->add_char_range(fresh_char, cs);
-                }
                 created = true;
             }
 

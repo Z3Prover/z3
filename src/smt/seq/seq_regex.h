@@ -72,6 +72,21 @@ namespace seq {
         void get_alphabet_representatives(euf::snode* re, euf::snode_vector& reps);
 
     public:
+        // Convert a regex minterm expression to a char_set.
+        // Used to transform symbolic boundaries (re.range, re.complement, etc.)
+        // into exact character sets (char_set).
+        //
+        // Supported expressions:
+        //   re.full_char       → full set [0, max_char]
+        //   re.range(lo, hi)   → char_set [lo, hi] (inclusive on both ends)
+        //   re.complement(r)   → complement of minterm_to_char_set(r)
+        //   re.inter(r1, r2)   → intersection of both sets
+        //   re.diff(r1, r2)    → r1 minus r2  (= r1 ∩ complement(r2))
+        //   re.to_re(unit(c))  → singleton {c}
+        //   re.empty           → empty set
+        //   anything else      → full set (conservative, sound over-approximation)
+        char_set minterm_to_char_set(expr* minterm_re);
+
         seq_regex(euf::sgraph& sg) : m_sg(sg) {}
 
         euf::sgraph& sg() { return m_sg; }

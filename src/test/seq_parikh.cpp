@@ -29,6 +29,7 @@ Author:
 #include "ast/euf/euf_sgraph.h"
 #include "smt/seq/seq_nielsen.h"
 #include "smt/seq/seq_parikh.h"
+#include "smt/seq/seq_regex.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
@@ -890,3 +891,4 @@ void tst_seq_parikh() {
     test_minterm_singleton();
     test_minterm_nullptr_is_full();
 }
+

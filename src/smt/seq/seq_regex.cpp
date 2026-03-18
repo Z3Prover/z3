@@ -1098,4 +1098,68 @@ namespace seq {
         return result == l_true;
     }
 
+    char_set seq_regex::minterm_to_char_set(expr* re_expr) {
+        seq_util& seq = m_sg.get_seq_util();
+        unsigned max_c = seq.max_char();
+
+        if (!re_expr)
+            return char_set::full(max_c);
+
+        // full_char: the whole alphabet [0, max_char]
+        if (seq.re.is_full_char(re_expr))
+            return char_set::full(max_c);
+
+        // range [lo, hi] (hi inclusive in Z3's regex representation)
+        unsigned lo = 0, hi = 0;
+        if (seq.re.is_range(re_expr, lo, hi)) {
+            // lo > hi is a degenerate range; should not arise from well-formed minterms
+            SASSERT(lo <= hi);
+            if (lo > hi) return char_set();
+            // char_range uses exclusive upper bound; Z3 hi is inclusive
+            return char_set(char_range(lo, hi + 1));
+        }
+
+        // complement: alphabet minus the inner set
+        expr* inner = nullptr;
+        if (seq.re.is_complement(re_expr, inner))
+            return minterm_to_char_set(inner).complement(max_c);
+
+        // union: characters present in either set
+        expr* r1 = nullptr, *r2 = nullptr;
+        if (seq.re.is_union(re_expr, r1, r2)) {
+            char_set cs = minterm_to_char_set(r1);
+            cs.add(minterm_to_char_set(r2));
+            return cs;
+        }
+
+        // intersection: characters present in both sets
+        if (seq.re.is_intersection(re_expr, r1, r2))
+            return minterm_to_char_set(r1).intersect_with(minterm_to_char_set(r2));
+
+        // difference: r1 minus r2 = r1 ∩ complement(r2)
+        if (seq.re.is_diff(re_expr, r1, r2))
+            return minterm_to_char_set(r1).intersect_with(
+                       minterm_to_char_set(r2).complement(max_c));
+
+        // to_re(str.unit(c)): singleton character set
+        expr* str_arg = nullptr;
+        expr* ch_expr = nullptr;
+        unsigned char_val = 0;
+        if (seq.re.is_to_re(re_expr, str_arg) &&
+            seq.str.is_unit(str_arg, ch_expr) &&
+            seq.is_const_char(ch_expr, char_val)) {
+            char_set cs;
+            cs.add(char_val);
+            return cs;
+        }
+
+        // empty regex: no characters can appear
+        if (seq.re.is_empty(re_expr))
+            return char_set();
+
+        // Conservative fallback: return the full alphabet so that
+        // no unsound constraints are added for unrecognised expressions.
+        return char_set::full(max_c);
+    }
+
 }
