@@ -124,6 +124,7 @@ namespace euf {
 
         // factory methods for creating snodes with corresponding expressions
         snode* mk_var(symbol const& name);
+        snode* mk_var(symbol const& name, sort* s);
         snode* mk_char(unsigned ch);
         snode *mk_empty_seq(sort *s);
         snode* mk_concat(snode* a, snode* b);

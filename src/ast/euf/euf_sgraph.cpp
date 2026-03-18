@@ -441,6 +441,11 @@ namespace euf {
         return mk(e);
     }
 
+    snode* sgraph::mk_var(symbol const& name, sort* s) {
+        expr_ref e(m.mk_const(name, s), m);
+        return mk(e);
+    }
+
     snode* sgraph::mk_char(unsigned ch) {
         expr_ref c(m_seq.str.mk_char(ch), m);
         expr_ref u(m_seq.str.mk_unit(c), m);
