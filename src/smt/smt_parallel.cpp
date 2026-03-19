@@ -179,7 +179,7 @@ namespace smt {
                 else
                     bb_asms.append(chunk_lits); // F ∧ U
 
-                // collect_shared_clauses();
+                collect_shared_clauses();
 
                 while (true) {
 
@@ -377,8 +377,7 @@ namespace smt {
 
     void parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities) {
         bb_candidates local_candidates = find_backbone_candidates();
-        if (m_config.m_global_backbones)
-            b.collect_backbone_candidates(m_l2g, local_candidates);
+        b.collect_backbone_candidates(m_l2g, local_candidates);
         if (m_config.m_local_backbones) {
             LOG_WORKER(1, " LOCAL BACKBONE DETECTION\n");
 
