@@ -1308,7 +1308,7 @@ namespace seq {
     }
 
     // |u| != |v| OR 
-    // (u = w[a]u' AND v = w[b]v' AND a != b) 
+    // (u = w[a]u' AND v = w[b]v' AND a != b AND |u'| = |v'|)
     void axioms::diseq_axiom(expr *u, expr *v) {    
         expr_ref u_len(mk_len(u), m);
         expr_ref v_len(mk_len(v), m);
@@ -1321,11 +1321,14 @@ namespace seq {
         expr_ref w = m_sk.mk("diseq.w", u, v);
         expr_ref up = m_sk.mk("diseq.u'", u, v);
         expr_ref vp = m_sk.mk("diseq.v'", u, v);
+        expr_ref up_len(mk_len(up), m);
+        expr_ref vp_len(mk_len(vp), m);
         expr_ref u_eq(mk_eq(u, mk_concat(w, seq.str.mk_unit(a), up)), m);
         expr_ref v_eq(mk_eq(v, mk_concat(w, seq.str.mk_unit(b), vp)), m);
         add_clause(eq_uv, ~len_eq, u_eq);
         add_clause(eq_uv, ~len_eq, v_eq);
         add_clause(eq_uv, ~len_eq, ~mk_eq(a, b));
+        add_clause(eq_uv, ~len_eq, mk_eq(up_len, vp_len));
     }
 
 
