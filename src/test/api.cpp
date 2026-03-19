@@ -576,16 +576,17 @@ void tst_box_independent() {
     unsigned idx_min_a_2 = Z3_optimize_minimize(ctx, opt2, a);
     ENSURE(Z3_optimize_check(ctx, opt2, 0, nullptr) == Z3_L_TRUE);
 
-    // The shared objectives must have the same optimal values
-    Z3_string val_max3 = Z3_ast_to_string(ctx, Z3_optimize_get_lower(ctx, opt3, idx_max_expr_3));
-    Z3_string val_max2 = Z3_ast_to_string(ctx, Z3_optimize_get_lower(ctx, opt2, idx_max_expr_2));
+    // The shared objectives must have the same optimal values.
+    // Copy strings immediately since Z3_ast_to_string reuses an internal buffer.
+    std::string val_max3 = Z3_ast_to_string(ctx, Z3_optimize_get_lower(ctx, opt3, idx_max_expr_3));
+    std::string val_max2 = Z3_ast_to_string(ctx, Z3_optimize_get_lower(ctx, opt2, idx_max_expr_2));
     std::cout << "maximize expr with 3 obj: " << val_max3 << ", with 2 obj: " << val_max2 << std::endl;
-    ENSURE(std::string(val_max3) == std::string(val_max2));
+    ENSURE(val_max3 == val_max2);
 
-    Z3_string val_min3 = Z3_ast_to_string(ctx, Z3_optimize_get_upper(ctx, opt3, idx_min_a_3));
-    Z3_string val_min2 = Z3_ast_to_string(ctx, Z3_optimize_get_upper(ctx, opt2, idx_min_a_2));
+    std::string val_min3 = Z3_ast_to_string(ctx, Z3_optimize_get_upper(ctx, opt3, idx_min_a_3));
+    std::string val_min2 = Z3_ast_to_string(ctx, Z3_optimize_get_upper(ctx, opt2, idx_min_a_2));
     std::cout << "minimize a with 3 obj: " << val_min3 << ", with 2 obj: " << val_min2 << std::endl;
-    ENSURE(std::string(val_min3) == std::string(val_min2));
+    ENSURE(val_min3 == val_min2);
 
     Z3_optimize_dec_ref(ctx, opt3);
     Z3_optimize_dec_ref(ctx, opt2);
