@@ -137,7 +137,8 @@ namespace smt {
 
         IF_VERBOSE(1, verbose_stream() << "nseq extract_assignments: " << bindings.size() << " bindings\n";);
         for (auto const& b : bindings) {
-            unsigned id = b.first->id();
+            SASSERT(b.first);
+            unsigned id = b.first->first()->id();
             if (m_var_values.contains(id))
                 continue;
             expr_ref val = snode_to_value(b.second);
@@ -278,39 +279,46 @@ namespace smt {
     }
 
     expr* seq_model::get_var_value(euf::snode* var) {
+        SASSERT(var);
+        unsigned key = var->first()->id();
         expr* val = nullptr;
-        if (m_var_values.find(var->id(), val))
+        if (m_var_values.find(key, val))
             return val;
 
         // unconstrained or regex-constrained: delegate to mk_fresh_value
         val = mk_fresh_value(var);
         if (val) {
             m_trail.push_back(val);
-            m_var_values.insert(var->id(), val);
+            m_var_values.insert(key, val);
         }
         return val;
     }
 
     expr* seq_model::mk_fresh_value(euf::snode* var) {
+        sort* srt = m_seq.str.mk_string_sort();
+        if (var->get_expr())
+            srt = var->get_expr()->get_sort();
+
         // check if this variable has regex constraints
         euf::snode* re = nullptr;
-        if (m_var_regex.find(var->id(), re) && re) {
+        unsigned key = var->first()->id();
+        if (m_var_regex.find(key, re) && re) {
             expr* re_expr = re->get_expr();
             SASSERT(re_expr);
             expr_ref witness(m);
             // We checked non-emptiness during Nielsen already
-            VERIFY(m_rewriter.some_seq_in_re(re_expr, witness) == l_true && witness);
+            lbool wr = m_rewriter.some_seq_in_re(re_expr, witness);
+            if (wr == l_true && witness) {
             // std::cout << "Witness for " << mk_pp(var->get_expr(), m) << " in " <<
             //     mk_pp(re_expr, m) << ": " << mk_pp(witness, m) << std::endl;
-            m_trail.push_back(witness);
-            m_factory->register_value(witness);
-            return witness;
+                m_trail.push_back(witness);
+                m_factory->register_value(witness);
+                return witness;
+            }
+            UNREACHABLE();
         }
 
         // no regex constraint or witness generation failed: use empty string
-        sort* srt = m_seq.str.mk_string_sort();
-        if (var->get_expr())
-            srt = var->get_expr()->get_sort();
         return m_seq.str.mk_empty(srt);
     }
 
