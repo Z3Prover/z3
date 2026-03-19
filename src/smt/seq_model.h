@@ -88,7 +88,7 @@ namespace smt {
         // Validate that model assignments satisfy all regex membership
         // constraints from the state.  Checks positive and negative
         // memberships.  Returns true if all constraints pass.
-        bool validate_regex(vector<tracked_str_mem> const& mems, ::proto_model& mdl);
+        bool validate_regex(tracked_str_mem const& mem, ::proto_model& mdl);
 
     private:
         // extract variable assignments from the sat path (root-to-leaf edges).

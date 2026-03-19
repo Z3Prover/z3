@@ -346,28 +346,22 @@ namespace smt {
         }
     }
 
-    bool seq_model::validate_regex(vector<tracked_str_mem> const& mems, ::proto_model& mdl) {
-        bool ok = true;
+    bool seq_model::validate_regex(tracked_str_mem const& mem, ::proto_model& mdl) {
+        if (!mem.m_str || !mem.m_regex)
+            return true;
+        expr* s_expr = mem.m_str->get_expr();
+        expr* r_expr = mem.m_regex->get_expr();
+        if (!s_expr || !r_expr)
+            return true;
 
-        // validate positive memberships: str ∈ regex
-        for (auto const& mem : mems) {
-            if (!mem.m_str || !mem.m_regex)
-                continue;
-            expr* s_expr = mem.m_str->get_expr();
-            expr* r_expr = mem.m_regex->get_expr();
-            if (!s_expr || !r_expr)
-                continue;
-
-            expr_ref in_re(m_seq.re.mk_in_re(s_expr, r_expr), m);
-            if (mdl.is_false(in_re)) {
-                IF_VERBOSE(0, verbose_stream() << "nseq model: positive membership violated: "
-                           << mk_bounded_pp(s_expr, m, 3)
-                           << " in " << mk_bounded_pp(r_expr, m, 3) << "\n";);
-                ok = false;
-            }
+        expr_ref in_re(m_seq.re.mk_in_re(s_expr, r_expr), m);
+        if (mdl.is_false(in_re)) {
+            IF_VERBOSE(0, verbose_stream() << "nseq model: positive membership violated: "
+                       << mk_bounded_pp(s_expr, m, 3)
+                       << " in " << mk_bounded_pp(r_expr, m, 3) << "\n";);
+            return false;
         }
-
-        return ok;
+        return true;
     }
 
 }

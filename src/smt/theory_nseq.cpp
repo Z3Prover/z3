@@ -608,11 +608,9 @@ namespace smt {
     }
 
     void theory_nseq::validate_model(proto_model& mdl) {
-        vector<tracked_str_mem> mems;
         for (auto const& item : m_prop_queue)
             if (std::holds_alternative<mem_item>(item))
-                mems.push_back(std::get<mem_item>(item));
-        m_model.validate_regex(mems, mdl);
+                m_model.validate_regex(std::get<mem_item>(item), mdl);
     }
 
     // -----------------------------------------------------------------------
