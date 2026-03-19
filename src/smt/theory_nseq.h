@@ -52,9 +52,9 @@ namespace smt {
         seq_model     m_model;   // model construction helper
 
         // propagation queue items (variant over the distinct propagation cases)
-        struct eq_item    { tracked_str_eq  data; };   // string equality
-        struct mem_item   { tracked_str_mem data; };   // regex membership
-        struct axiom_item { expr*           e;    };   // structural axiom for term e
+        using eq_item   = tracked_str_eq;    // string equality
+        using mem_item  = tracked_str_mem;   // regex membership
+        struct axiom_item { expr* e; };      // structural axiom for term e
 
         using prop_item = std::variant<eq_item, mem_item, axiom_item>;
 

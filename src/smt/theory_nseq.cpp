@@ -170,7 +170,7 @@ namespace smt {
         if (s1 && s2) {
             seq::dep_tracker dep = nullptr;
             ctx.push_trail(restore_vector(m_prop_queue));
-            m_prop_queue.push_back(eq_item{tracked_str_eq(s1, s2, get_enode(v1), get_enode(v2), dep)});
+            m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
         }
     }
 
@@ -205,7 +205,7 @@ namespace smt {
             seq::dep_tracker dep = nullptr;
             if (is_true) {
                 ctx.push_trail(restore_vector(m_prop_queue));
-                m_prop_queue.push_back(mem_item{tracked_str_mem(sn_str, sn_re, lit, nullptr, m_next_mem_id++, dep)});
+                m_prop_queue.push_back(mem_item(sn_str, sn_re, lit, nullptr, m_next_mem_id++, dep));
             }
             else {
                 // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
@@ -214,7 +214,7 @@ namespace smt {
                 expr_ref re_compl(m_seq.re.mk_complement(re), m);
                 euf::snode* sn_re_compl = get_snode(re_compl.get());
                 ctx.push_trail(restore_vector(m_prop_queue));
-                m_prop_queue.push_back(mem_item{tracked_str_mem(sn_str, sn_re_compl, lit, nullptr, m_next_mem_id++, dep)});
+                m_prop_queue.push_back(mem_item(sn_str, sn_re_compl, lit, nullptr, m_next_mem_id++, dep));
             }
         }
         else if (m_seq.str.is_prefix(e)) {
@@ -285,9 +285,9 @@ namespace smt {
         while (m_prop_qhead < m_prop_queue.size() && !ctx.inconsistent()) {
             auto const& item = m_prop_queue[m_prop_qhead++];
             if (std::holds_alternative<eq_item>(item))
-                propagate_eq(std::get<eq_item>(item).data);
+                propagate_eq(std::get<eq_item>(item));
             else if (std::holds_alternative<mem_item>(item))
-                propagate_pos_mem(std::get<mem_item>(item).data);
+                propagate_pos_mem(std::get<mem_item>(item));
             else if (std::holds_alternative<axiom_item>(item))
                 dequeue_axiom(std::get<axiom_item>(item).e);
         }
@@ -418,11 +418,12 @@ namespace smt {
         // transfer string equalities and regex memberships from prop_queue to nielsen graph root
         for (auto const& item : m_prop_queue) {
             if (std::holds_alternative<eq_item>(item)) {
-                auto const& eq = std::get<eq_item>(item).data;
+                auto const& eq = std::get<eq_item>(item);
                 m_nielsen.add_str_eq(eq.m_lhs, eq.m_rhs, eq.m_l, eq.m_r);
                 ++num_eqs;
             }
-            else if (std::holds_alternative<mem_item>(item)) {                auto const& mem = std::get<mem_item>(item).data;
+            else if (std::holds_alternative<mem_item>(item)) {
+                auto const& mem = std::get<mem_item>(item);
                 int triv = m_regex.check_trivial(mem);
                 if (triv > 0) {
                     ++num_mems;
@@ -610,7 +611,7 @@ namespace smt {
         vector<tracked_str_mem> mems;
         for (auto const& item : m_prop_queue)
             if (std::holds_alternative<mem_item>(item))
-                mems.push_back(std::get<mem_item>(item).data);
+                mems.push_back(std::get<mem_item>(item));
         m_model.validate_regex(mems, mdl);
     }
 
@@ -916,7 +917,7 @@ namespace smt {
         ptr_vector<tracked_str_mem const> mems;
         for (auto const& item : m_prop_queue)
             if (std::holds_alternative<mem_item>(item))
-                mems.push_back(&std::get<mem_item>(item).data);
+                mems.push_back(&std::get<mem_item>(item));
 
         if (mems.empty())
             return l_undef;
