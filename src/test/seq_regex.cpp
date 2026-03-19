@@ -13,6 +13,8 @@ Abstract:
 --*/
 #include "util/util.h"
 #include "ast/reg_decl_plugins.h"
+#include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/euf/euf_egraph.h"
 #include "ast/euf/euf_sgraph.h"
 #include "smt/seq/seq_regex.h"
@@ -677,6 +679,39 @@ static void test_is_language_subset_trivial() {
     std::cout << "  ok\n";
 }
 
+// Regression test: representative chosen from bounds must respect accumulated excludes.
+// Example language is [A-Z] \ {"A"}, so a valid witness exists (e.g., "B") but not "A".
+static void test_some_seq_in_re_excluded_low_regression() {
+    std::cout << "test_some_seq_in_re_excluded_low_regression\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    seq_rewriter rw(m);
+    th_rewriter tr(m);
+
+    expr_ref low(su.mk_char('A'), m);
+    expr_ref high(su.mk_char('Z'), m);
+    expr_ref range_az(su.re.mk_range(su.str.mk_unit(low), su.str.mk_unit(high)), m);
+    expr_ref not_a(su.re.mk_complement(su.re.mk_to_re(su.str.mk_string("A"))), m);
+    expr_ref re_expr(su.re.mk_inter(not_a, range_az), m);
+
+    expr_ref witness(m);
+    lbool wr = rw.some_seq_in_re(re_expr, witness);
+    SASSERT(wr == l_true);
+    SASSERT(witness);
+
+    zstring ws;
+    SASSERT(su.str.is_string(witness, ws));
+    SASSERT(ws != zstring("A"));
+
+    expr_ref in_re(su.re.mk_in_re(witness, re_expr), m);
+    expr_ref in_re_simpl(m);
+    tr(in_re, in_re_simpl);
+    SASSERT(m.is_true(in_re_simpl));
+
+    std::cout << "  ok: witness=" << ws << " satisfies [A-Z] \\ {A}\n";
+}
+
 void tst_seq_regex() {
     test_seq_regex_instantiation();
     test_seq_regex_is_empty();
@@ -707,5 +742,6 @@ void tst_seq_regex() {
     test_is_language_subset_true();
     test_is_language_subset_false();
     test_is_language_subset_trivial();
+    test_some_seq_in_re_excluded_low_regression();
     std::cout << "seq_regex: all tests passed\n";
 }
