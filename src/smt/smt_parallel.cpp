@@ -988,7 +988,7 @@ namespace smt {
         }
 
         for (auto const& gc : m_bb_current_batch) {
-            expr_ref l_lit(g2l(gc.lit.get()), m);
+            expr_ref l_lit(g2l(gc.lit.get()), g2l.to());
             out.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
         }
 
