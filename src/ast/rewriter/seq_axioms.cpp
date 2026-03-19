@@ -1274,6 +1274,40 @@ namespace seq {
     }
 
 
+    // prefix(s, t) => t = s ++ prefix_inv(s, t)
+    void axioms::prefix_true_axiom(expr* e) {
+        expr* _s = nullptr, *_t = nullptr;
+        VERIFY(seq.str.is_prefix(e, _s, _t));
+        auto s = purify(_s);
+        auto t = purify(_t);
+        expr_ref inv = m_sk.mk_prefix_inv(s, t);
+        expr_ref lit(e, m);
+        add_clause(~lit, mk_seq_eq(t, mk_concat(s, inv)));
+    }
+
+    // suffix(s, t) => t = suffix_inv(s, t) ++ s
+    void axioms::suffix_true_axiom(expr* e) {
+        expr* _s = nullptr, *_t = nullptr;
+        VERIFY(seq.str.is_suffix(e, _s, _t));
+        auto s = purify(_s);
+        auto t = purify(_t);
+        expr_ref inv = m_sk.mk_suffix_inv(s, t);
+        expr_ref lit(e, m);
+        add_clause(~lit, mk_seq_eq(t, mk_concat(inv, s)));
+    }
+
+    // contains(t, s) => t = contains_left(t, s) ++ s ++ contains_right(t, s)
+    void axioms::contains_true_axiom(expr* e) {
+        expr* _t = nullptr, *_s = nullptr;
+        VERIFY(seq.str.is_contains(e, _t, _s));
+        auto t = purify(_t);
+        auto s = purify(_s);
+        expr_ref f1 = m_sk.mk_contains_left(t, s);
+        expr_ref f2 = m_sk.mk_contains_right(t, s);
+        expr_ref lit(e, m);
+        add_clause(~lit, mk_seq_eq(t, mk_concat(f1, s, f2)));
+    }
+
     /**
        ~contains(a, b) => ~prefix(b, a)
        ~contains(a, b) => ~contains(tail(a), b) 

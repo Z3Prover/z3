@@ -172,7 +172,7 @@ namespace smt {
             unsigned idx = m_state.str_eqs().size();
             m_state.add_str_eq(s1, s2, get_enode(v1), get_enode(v2));
             ctx.push_trail(restore_vector(m_prop_queue));
-            m_prop_queue.push_back({prop_item::eq_prop, idx});
+            m_prop_queue.push_back(eq_item{idx});
         }
     }
 
@@ -196,39 +196,60 @@ namespace smt {
 
     void theory_nseq::assign_eh(bool_var v, bool is_true) {
         expr* e = ctx.bool_var2expr(v);
-        expr* s = nullptr;
-        expr* re = nullptr;
-        if (!m_seq.str.is_in_re(e, s, re)) {
-            // Track unhandled boolean string predicates (prefixof, contains, etc.)
-            if (is_app(e) && to_app(e)->get_family_id() == m_seq.get_family_id())
-                push_unhandled_pred();
-            return;
+        expr* s = nullptr, *re = nullptr;
+        TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
+        if (m_seq.str.is_in_re(e, s, re)) {
+            euf::snode* sn_str = get_snode(s);
+            euf::snode* sn_re  = get_snode(re);
+            if (!sn_str || !sn_re)
+                return;
+            unsigned idx = m_state.str_mems().size();
+            literal lit(v, !is_true);
+            if (is_true) {
+                m_state.add_str_mem(sn_str, sn_re, lit);
+            }
+            else {
+                // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
+                // so the Nielsen graph sees it uniformly; the original negative literal
+                // is kept in mem_source for conflict reporting.
+                expr_ref re_compl(m_seq.re.mk_complement(re), m);
+                euf::snode* sn_re_compl = get_snode(re_compl.get());
+                m_state.add_str_mem(sn_str, sn_re_compl, lit);
+            }
+            ctx.push_trail(restore_vector(m_prop_queue));
+            m_prop_queue.push_back(mem_item{idx});
         }
-        euf::snode* sn_str = get_snode(s);
-        euf::snode* sn_re  = get_snode(re);
-        if (!sn_str || !sn_re)
-            return;
-
-        unsigned idx = m_state.str_mems().size();
-        literal lit(v, !is_true);
-        if (is_true) {
-            m_state.add_str_mem(sn_str, sn_re, lit);
+        else if (m_seq.str.is_prefix(e)) {
+            if (is_true)
+                m_axioms.prefix_true_axiom(e);
+            else
+                m_axioms.prefix_axiom(e);
         }
-        else {
-            // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
-            // so the Nielsen graph sees it uniformly; the original negative literal
-            // is kept in mem_source for conflict reporting.
-            expr_ref re_compl(m_seq.re.mk_complement(re), m);
-            euf::snode* sn_re_compl = get_snode(re_compl.get());
-            m_state.add_str_mem(sn_str, sn_re_compl, lit);
+        else if (m_seq.str.is_suffix(e)) {
+            if (is_true)
+                m_axioms.suffix_true_axiom(e);
+            else
+                m_axioms.suffix_axiom(e);
         }
-        ctx.push_trail(restore_vector(m_prop_queue));
-        m_prop_queue.push_back({prop_item::pos_mem_prop, idx});
-
-        TRACE(seq, tout << "nseq assign_eh: " << (is_true ? "" : "¬")
-                        << "str.in_re "
-                        << mk_bounded_pp(s, m, 3) << " in "
-                        << mk_bounded_pp(re, m, 3) << "\n";);
+        else if (m_seq.str.is_contains(e)) {
+            if (is_true)
+                m_axioms.contains_true_axiom(e);
+            else
+                m_axioms.unroll_not_contains(e);
+        }
+        else if (m_seq.str.is_lt(e) || m_seq.str.is_le(e)) {
+            // axioms added via relevant_eh → dequeue_axiom
+        }
+        else if (m_seq.is_skolem(e) ||
+                 m_seq.str.is_nth_i(e) ||
+                 m_seq.str.is_nth_u(e) ||
+                 m_seq.str.is_is_digit(e) ||
+                 m_seq.str.is_foldl(e) ||
+                 m_seq.str.is_foldli(e)) {
+            // no-op: handled by other mechanisms
+        }
+        else if (is_app(e) && to_app(e)->get_family_id() == m_seq.get_family_id())
+            push_unhandled_pred();
     }
 
     // -----------------------------------------------------------------------
@@ -266,15 +287,13 @@ namespace smt {
             return;
         ctx.push_trail(value_trail(m_prop_qhead));
         while (m_prop_qhead < m_prop_queue.size() && !ctx.inconsistent()) {
-            auto [k, idx] = m_prop_queue[m_prop_qhead++];
-            switch (k) {
-            case prop_item::eq_prop:
-                propagate_eq(idx);
-                break;
-            case prop_item::pos_mem_prop:
-                propagate_pos_mem(idx);
-                break;
-            }
+            auto const& item = m_prop_queue[m_prop_qhead++];
+            if (std::holds_alternative<eq_item>(item))
+                propagate_eq(std::get<eq_item>(item).idx);
+            else if (std::holds_alternative<mem_item>(item))
+                propagate_pos_mem(std::get<mem_item>(item).idx);
+            else if (std::holds_alternative<axiom_item>(item))
+                dequeue_axiom(std::get<axiom_item>(item).e);
         }
     }
 
@@ -322,6 +341,75 @@ namespace smt {
         expr_ref len(m_seq.str.mk_length(e), m);
         if (!ctx.e_internalized(len))
             ctx.internalize(len, false);
+    }
+
+    // -----------------------------------------------------------------------
+    // Axiom enqueue / dequeue (follows theory_seq::enque_axiom / deque_axiom)
+    // -----------------------------------------------------------------------
+
+    void theory_nseq::enqueue_axiom(expr* e) {
+        if (m_axiom_set.contains(e))
+            return;
+        m_axiom_set.insert(e);
+        ctx.push_trail(insert_obj_trail<expr>(m_axiom_set, e));
+        ctx.push_trail(restore_vector(m_prop_queue));
+        m_prop_queue.push_back(axiom_item{e});
+    }
+
+    void theory_nseq::dequeue_axiom(expr* n) {
+        TRACE(seq, tout << "dequeue_axiom: " << mk_bounded_pp(n, m, 2) << "\n";);
+        if (m_seq.str.is_length(n))
+            m_axioms.length_axiom(n);
+        else if (m_seq.str.is_index(n))
+            m_axioms.indexof_axiom(n);
+        else if (m_seq.str.is_last_index(n))
+            m_axioms.last_indexof_axiom(n);
+        else if (m_seq.str.is_replace(n))
+            m_axioms.replace_axiom(n);
+        else if (m_seq.str.is_replace_all(n))
+            m_axioms.replace_all_axiom(n);
+        else if (m_seq.str.is_extract(n))
+            m_axioms.extract_axiom(n);
+        else if (m_seq.str.is_at(n))
+            m_axioms.at_axiom(n);
+        else if (m_seq.str.is_nth_i(n))
+            m_axioms.nth_axiom(n);
+        else if (m_seq.str.is_itos(n))
+            m_axioms.itos_axiom(n);
+        else if (m_seq.str.is_stoi(n))
+            m_axioms.stoi_axiom(n);
+        else if (m_seq.str.is_lt(n))
+            m_axioms.lt_axiom(n);
+        else if (m_seq.str.is_le(n))
+            m_axioms.le_axiom(n);
+        else if (m_seq.str.is_unit(n))
+            m_axioms.unit_axiom(n);
+        else if (m_seq.str.is_is_digit(n))
+            m_axioms.is_digit_axiom(n);
+        else if (m_seq.str.is_from_code(n))
+            m_axioms.str_from_code_axiom(n);
+        else if (m_seq.str.is_to_code(n))
+            m_axioms.str_to_code_axiom(n);
+    }
+
+    void theory_nseq::relevant_eh(app* n) {
+        if (m_seq.str.is_length(n)     ||
+            m_seq.str.is_index(n)      ||
+            m_seq.str.is_last_index(n) ||
+            m_seq.str.is_replace(n)    ||
+            m_seq.str.is_replace_all(n)||
+            m_seq.str.is_extract(n)    ||
+            m_seq.str.is_at(n)         ||
+            m_seq.str.is_nth_i(n)      ||
+            m_seq.str.is_itos(n)       ||
+            m_seq.str.is_stoi(n)       ||
+            m_seq.str.is_lt(n)         ||
+            m_seq.str.is_le(n)         ||
+            m_seq.str.is_unit(n)       ||
+            m_seq.str.is_is_digit(n)   ||
+            m_seq.str.is_from_code(n)  ||
+            m_seq.str.is_to_code(n))
+            enqueue_axiom(n);
     }
 
     // -----------------------------------------------------------------------
