@@ -32,6 +32,7 @@ Author:
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/euf/euf_sgraph.h"
 #include "smt/seq/seq_nielsen.h"
+#include "smt/seq/seq_state.h"   // tracked_str_mem
 #include "model/seq_factory.h"
 
 class proto_model;
@@ -40,7 +41,7 @@ namespace smt {
 
     class enode;
     class model_generator;
-    class seq_state;
+    struct tracked_str_mem;
     class model_value_proc;
 
     class seq_model {
@@ -87,7 +88,7 @@ namespace smt {
         // Validate that model assignments satisfy all regex membership
         // constraints from the state.  Checks positive and negative
         // memberships.  Returns true if all constraints pass.
-        bool validate_regex(seq_state const& state, ::proto_model& mdl);
+        bool validate_regex(vector<tracked_str_mem> const& mems, ::proto_model& mdl);
 
     private:
         // extract variable assignments from the sat path (root-to-leaf edges).

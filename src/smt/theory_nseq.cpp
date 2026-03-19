@@ -36,7 +36,6 @@ namespace smt {
         m_context_solver(m),
         m_nielsen(m_sgraph, m_context_solver),
         m_axioms(m_th_rewriter),
-        m_state(),
         m_regex(m_sgraph),
         m_model(m, m_seq, m_rewriter, m_sgraph)
     {
@@ -169,10 +168,9 @@ namespace smt {
         euf::snode* s1 = get_snode(e1);
         euf::snode* s2 = get_snode(e2);
         if (s1 && s2) {
-            unsigned idx = m_state.str_eqs().size();
-            m_state.add_str_eq(s1, s2, get_enode(v1), get_enode(v2));
+            seq::dep_tracker dep = nullptr;
             ctx.push_trail(restore_vector(m_prop_queue));
-            m_prop_queue.push_back(eq_item{idx});
+            m_prop_queue.push_back(eq_item{tracked_str_eq(s1, s2, get_enode(v1), get_enode(v2), dep)});
         }
     }
 
@@ -203,10 +201,11 @@ namespace smt {
             euf::snode* sn_re  = get_snode(re);
             if (!sn_str || !sn_re)
                 return;
-            unsigned idx = m_state.str_mems().size();
             literal lit(v, !is_true);
+            seq::dep_tracker dep = nullptr;
             if (is_true) {
-                m_state.add_str_mem(sn_str, sn_re, lit);
+                ctx.push_trail(restore_vector(m_prop_queue));
+                m_prop_queue.push_back(mem_item{tracked_str_mem(sn_str, sn_re, lit, nullptr, m_next_mem_id++, dep)});
             }
             else {
                 // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
@@ -214,10 +213,9 @@ namespace smt {
                 // is kept in mem_source for conflict reporting.
                 expr_ref re_compl(m_seq.re.mk_complement(re), m);
                 euf::snode* sn_re_compl = get_snode(re_compl.get());
-                m_state.add_str_mem(sn_str, sn_re_compl, lit);
+                ctx.push_trail(restore_vector(m_prop_queue));
+                m_prop_queue.push_back(mem_item{tracked_str_mem(sn_str, sn_re_compl, lit, nullptr, m_next_mem_id++, dep)});
             }
-            ctx.push_trail(restore_vector(m_prop_queue));
-            m_prop_queue.push_back(mem_item{idx});
         }
         else if (m_seq.str.is_prefix(e)) {
             if (is_true)
@@ -258,14 +256,12 @@ namespace smt {
 
     void theory_nseq::push_scope_eh() {
         theory::push_scope_eh();
-        m_state.push();
         m_sgraph.push();
         
     }
 
     void theory_nseq::pop_scope_eh(unsigned num_scopes) {
         theory::pop_scope_eh(num_scopes);
-        m_state.pop(num_scopes);
         m_sgraph.pop(num_scopes);
     }
 
@@ -289,24 +285,22 @@ namespace smt {
         while (m_prop_qhead < m_prop_queue.size() && !ctx.inconsistent()) {
             auto const& item = m_prop_queue[m_prop_qhead++];
             if (std::holds_alternative<eq_item>(item))
-                propagate_eq(std::get<eq_item>(item).idx);
+                propagate_eq(std::get<eq_item>(item).data);
             else if (std::holds_alternative<mem_item>(item))
-                propagate_pos_mem(std::get<mem_item>(item).idx);
+                propagate_pos_mem(std::get<mem_item>(item).data);
             else if (std::holds_alternative<axiom_item>(item))
                 dequeue_axiom(std::get<axiom_item>(item).e);
         }
     }
 
-    void theory_nseq::propagate_eq(unsigned idx) {
+    void theory_nseq::propagate_eq(tracked_str_eq const& eq) {
         // When s1 = s2 is learned, ensure len(s1) and len(s2) are
         // internalized so congruence closure propagates len(s1) = len(s2).
-        auto const& src = m_state.str_eqs()[idx];
-        ensure_length_var(src.m_l->get_expr());
-        ensure_length_var(src.m_r->get_expr());
+        ensure_length_var(eq.m_l->get_expr());
+        ensure_length_var(eq.m_r->get_expr());
     }
 
-    void theory_nseq::propagate_pos_mem(unsigned idx) {
-        auto const& mem = m_state.str_mems()[idx];
+    void theory_nseq::propagate_pos_mem(tracked_str_mem const& mem) {
 
         if (!mem.m_str || !mem.m_regex)
             return;
@@ -419,36 +413,45 @@ namespace smt {
     void theory_nseq::populate_nielsen_graph() {
         m_nielsen.reset();
 
-        // transfer string equalities from state to nielsen graph root
-        for (auto const& eq : m_state.str_eqs()) {
-            m_nielsen.add_str_eq(eq.m_lhs, eq.m_rhs, eq.m_l, eq.m_r);
+        unsigned num_eqs = 0, num_mems = 0;
+
+        // transfer string equalities and regex memberships from prop_queue to nielsen graph root
+        for (auto const& item : m_prop_queue) {
+            if (std::holds_alternative<eq_item>(item)) {
+                auto const& eq = std::get<eq_item>(item).data;
+                m_nielsen.add_str_eq(eq.m_lhs, eq.m_rhs, eq.m_l, eq.m_r);
+                ++num_eqs;
+            }
+            else if (std::holds_alternative<mem_item>(item)) {                auto const& mem = std::get<mem_item>(item).data;
+                int triv = m_regex.check_trivial(mem);
+                if (triv > 0) {
+                    ++num_mems;
+                    continue;  // trivially satisfied, skip
+                }
+                if (triv < 0) {
+                    // trivially unsat: add anyway so solve() detects conflict
+                    m_nielsen.add_str_mem(mem.m_str, mem.m_regex, mem.lit);
+                    ++num_mems;
+                    continue;
+                }
+                // pre-process: consume ground prefix characters
+                vector<seq::str_mem> processed;
+                if (!m_regex.process_str_mem(mem, processed)) {
+                    // conflict during ground prefix consumption
+                    m_nielsen.add_str_mem(mem.m_str, mem.m_regex, mem.lit);
+                    ++num_mems;
+                    continue;
+                }
+                for (auto const& pm : processed)
+                    m_nielsen.add_str_mem(pm.m_str, pm.m_regex, mem.lit);
+                ++num_mems;
+            }
         }
 
-        // transfer regex memberships, pre-processing through seq_regex
-        // to consume ground prefixes via Brzozowski derivatives
-        for (auto const &mem : m_state.str_mems()) {
-            int triv = m_regex.check_trivial(mem);
-            if (triv > 0)
-                continue;  // trivially satisfied, skip
-            if (triv < 0) {
-                // trivially unsat: add anyway so solve() detects conflict
-                m_nielsen.add_str_mem(mem.m_str, mem.m_regex, mem.lit);
-                continue;
-            }
-            // pre-process: consume ground prefix characters
-            vector<seq::str_mem> processed;
-            if (!m_regex.process_str_mem(mem, processed)) {
-                // conflict during ground prefix consumption
-                m_nielsen.add_str_mem(mem.m_str, mem.m_regex, mem.lit);
-                continue;
-            }
-            for (auto const& pm : processed) {
-                m_nielsen.add_str_mem(pm.m_str, pm.m_regex, mem.lit);
-            }
-        }
-
-        TRACE(seq, tout << "nseq populate: " << m_state.str_eqs().size() << " eqs, "
-                        << m_state.str_mems().size() << " mems -> nielsen root\n");
+        TRACE(seq, tout << "nseq populate: " << num_eqs << " eqs, "
+                        << num_mems << " mems -> nielsen root\n");
+        IF_VERBOSE(1, verbose_stream() << "nseq final_check: populating graph with "
+            << num_eqs << " eqs, " << num_mems << " mems\n";);
     }
 
     final_check_status theory_nseq::final_check_eh(unsigned /*final_check_round*/) {
@@ -459,8 +462,13 @@ namespace smt {
             return FC_CONTINUE;
         }
 
+        // Check if there are any eq/mem items in the propagation queue.
+        bool has_eq_or_mem = false;
+        for (auto const& item : m_prop_queue)
+            if (!std::holds_alternative<axiom_item>(item)) { has_eq_or_mem = true; break; }
+
         // there is nothing to do for the string solver, as there are no string constraints
-        if (m_state.empty() && m_ho_terms.empty() && !has_unhandled_preds()) {
+        if (!has_eq_or_mem && m_ho_terms.empty() && !has_unhandled_preds()) {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state+ho, FC_DONE (no solve)\n";);
             m_nielsen.reset();
             m_nielsen.create_root();
@@ -474,7 +482,7 @@ namespace smt {
             return FC_CONTINUE;
         }
 
-        if (m_state.empty() && !has_unhandled_preds()) {
+        if (!has_eq_or_mem && !has_unhandled_preds()) {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state (after ho), FC_DONE (no solve)\n";);
             m_nielsen.reset();
             m_nielsen.create_root();
@@ -482,8 +490,6 @@ namespace smt {
             return FC_DONE;
         }
 
-        IF_VERBOSE(1, verbose_stream() << "nseq final_check: populating graph with "
-            << m_state.str_eqs().size() << " eqs, " << m_state.str_mems().size() << " mems\n";);
         populate_nielsen_graph();
 
         // assert length constraints derived from string equalities
@@ -508,7 +514,7 @@ namespace smt {
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck UNSAT\n";);
                 return FC_CONTINUE;
             case l_false:
-                // all regex constraints satisfiable, no word eqs/diseqs → SAT
+                // all regex constraints satisfiable, no word eqs → SAT
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck SAT\n";);
                 m_nielsen.set_sat_node(m_nielsen.root());
                 return FC_DONE;
@@ -538,10 +544,7 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve SAT, sat_node="
                 << (m_nielsen.sat_node() ? "set" : "null") << "\n";);
             // Nielsen found a consistent assignment for positive constraints.
-            // If there are disequalities we haven't verified, we cannot soundly declare sat.
-            SASSERT(!m_state.empty()); // we should have axiomatized them
-            if (!m_state.diseqs().empty())
-                return FC_GIVEUP;
+            SASSERT(has_eq_or_mem); // we should have axiomatized them
             if (!has_unhandled_preds())
                 return FC_DONE;
         }
@@ -604,7 +607,11 @@ namespace smt {
     }
 
     void theory_nseq::validate_model(proto_model& mdl) {
-        m_model.validate_regex(m_state, mdl);
+        vector<tracked_str_mem> mems;
+        for (auto const& item : m_prop_queue)
+            if (std::holds_alternative<mem_item>(item))
+                mems.push_back(std::get<mem_item>(item).data);
+        m_model.validate_regex(mems, mdl);
     }
 
     // -----------------------------------------------------------------------
@@ -620,10 +627,14 @@ namespace smt {
     }
 
     void theory_nseq::display(std::ostream& out) const {
+        unsigned num_eqs = 0, num_mems = 0;
+        for (auto const& item : m_prop_queue) {
+            if (std::holds_alternative<eq_item>(item)) ++num_eqs;
+            else if (std::holds_alternative<mem_item>(item)) ++num_mems;
+        }
         out << "theory_nseq\n";
-        out << "  str_eqs:    " << m_state.str_eqs().size() << "\n";
-        out << "  str_mems:   " << m_state.str_mems().size() << "\n";
-        out << "  diseqs:     " << m_state.diseqs().size() << "\n";
+        out << "  str_eqs:    " << num_eqs << "\n";
+        out << "  str_mems:   " << num_mems << "\n";
         out << "  prop_queue: " << m_prop_qhead << "/" << m_prop_queue.size() << "\n";
         out << "  ho_terms:   " << m_ho_terms.size() << "\n";
     }
@@ -900,7 +911,13 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     lbool theory_nseq::check_regex_memberships_precheck() {
-        auto const& mems = m_state.str_mems();
+        // Collect mem items from the propagation queue into a local pointer array
+        // so that indices into the array remain stable during this function.
+        ptr_vector<tracked_str_mem const> mems;
+        for (auto const& item : m_prop_queue)
+            if (std::holds_alternative<mem_item>(item))
+                mems.push_back(&std::get<mem_item>(item).data);
+
         if (mems.empty())
             return l_undef;
 
@@ -910,7 +927,7 @@ namespace smt {
         bool all_primitive = true;
 
         for (unsigned i = 0; i < mems.size(); ++i) {
-            auto const& mem = mems[i];
+            auto const& mem = *mems[i];
             SASSERT(mem.m_str && mem.m_regex);
             if (mem.is_primitive()) {
                 auto& vec = var_to_mems.insert_if_not_there(mem.m_str->id(), unsigned_vector());
@@ -923,6 +940,11 @@ namespace smt {
         if (var_to_mems.empty())
             return l_undef;
 
+        // Check if there are any eq items in the queue (needed for SAT condition below).
+        bool has_eqs = false;
+        for (auto const& item : m_prop_queue)
+            if (std::holds_alternative<eq_item>(item)) { has_eqs = true; break; }
+
         bool any_undef = false;
 
         // Check intersection emptiness for each variable.
@@ -931,7 +953,7 @@ namespace smt {
             unsigned_vector const& mem_indices = kv.m_value;
             ptr_vector<euf::snode> regexes;
             for (unsigned i : mem_indices) {
-                euf::snode* re = mems[i].m_regex;
+                euf::snode* re = mems[i]->m_regex;
                 if (re)
                     regexes.push_back(re);
             }
@@ -948,10 +970,8 @@ namespace smt {
                 enode_pair_vector eqs;
                 literal_vector lits;
                 for (unsigned i : mem_indices) {
-                    auto const &src = m_state.str_mems()[i];
-                    SASSERT(ctx.get_assignment(src.lit) == l_true); // we already stored the polarity of the literal
-                    lits.push_back(
-                        src.lit);
+                    SASSERT(ctx.get_assignment(mems[i]->lit) == l_true); // we already stored the polarity of the literal
+                    lits.push_back(mems[i]->lit);
                 }
                 TRACE(seq, tout << "nseq regex precheck: empty intersection for var "
                                 << var_id << ", conflict with " << lits.size() << " lits\n";);
@@ -967,11 +987,11 @@ namespace smt {
             return l_undef;  // cannot fully determine; let DFS decide
 
         // All variables' regex intersections are non-empty.
-        // If there are no word equations and no disequalities, variables are
-        // independent and each can be assigned a witness string → SAT.
-        if (all_primitive && m_state.str_eqs().empty() && m_state.diseqs().empty() && !has_unhandled_preds()) {
+        // If there are no word equations, variables are independent and
+        // each can be assigned a witness string → SAT.
+        if (all_primitive && !has_eqs && !has_unhandled_preds()) {
             TRACE(seq, tout << "nseq regex precheck: all intersections non-empty, "
-                            << "no word eqs/diseqs → SAT\n";);
+                            << "no word eqs → SAT\n";);
             return l_false;  // signals SAT (non-empty / satisfiable)
         }
 

@@ -28,7 +28,7 @@ Author:
 #include "smt/smt_theory.h"
 #include "smt/smt_arith_value.h"
 #include "smt/seq/seq_nielsen.h"
-#include "smt/seq/seq_state.h"
+#include "smt/seq/seq_state.h"   // tracked_str_eq, tracked_str_mem
 #include "smt/seq/seq_regex.h"
 #include "smt/seq_model.h"
 #include "smt/nseq_context_solver.h"
@@ -48,19 +48,19 @@ namespace smt {
         context_solver m_context_solver;
         seq::nielsen_graph m_nielsen;
         seq::axioms m_axioms;
-        seq_state     m_state;
         seq::seq_regex     m_regex;   // regex membership pre-processing
         seq_model     m_model;   // model construction helper
 
         // propagation queue items (variant over the distinct propagation cases)
-        struct eq_item    { unsigned idx; };   // string equality at index idx in str_eqs
-        struct mem_item   { unsigned idx; };   // regex membership at index idx in str_mems
-        struct axiom_item { expr*    e;   };   // structural axiom for term e
+        struct eq_item    { tracked_str_eq  data; };   // string equality
+        struct mem_item   { tracked_str_mem data; };   // regex membership
+        struct axiom_item { expr*           e;    };   // structural axiom for term e
 
         using prop_item = std::variant<eq_item, mem_item, axiom_item>;
 
         vector<prop_item>       m_prop_queue;
         unsigned                m_prop_qhead = 0;
+        unsigned                m_next_mem_id = 0;     // monotone counter for tracked_str_mem ids
         obj_hashtable<expr>     m_axiom_set;   // dedup guard for axiom_item enqueues
 
         // statistics
@@ -117,8 +117,8 @@ namespace smt {
         euf::snode* get_snode(expr* e);
 
         // propagation dispatch helpers
-        void propagate_eq(unsigned idx);
-        void propagate_pos_mem(unsigned idx);
+        void propagate_eq(tracked_str_eq const& eq);
+        void propagate_pos_mem(tracked_str_mem const& mem);
         void enqueue_axiom(expr* e);
         void dequeue_axiom(expr* e);
         void ensure_length_var(expr* e);

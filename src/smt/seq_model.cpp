@@ -17,7 +17,6 @@ Author:
 
 --*/
 #include "smt/seq_model.h"
-#include "smt/seq/seq_state.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
 #include "smt/proto_model/proto_model.h"
@@ -347,11 +346,11 @@ namespace smt {
         }
     }
 
-    bool seq_model::validate_regex(seq_state const& state, ::proto_model& mdl) {
+    bool seq_model::validate_regex(vector<tracked_str_mem> const& mems, ::proto_model& mdl) {
         bool ok = true;
 
         // validate positive memberships: str ∈ regex
-        for (auto const& mem : state.str_mems()) {
+        for (auto const& mem : mems) {
             if (!mem.m_str || !mem.m_regex)
                 continue;
             expr* s_expr = mem.m_str->get_expr();
