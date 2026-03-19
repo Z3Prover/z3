@@ -20,6 +20,55 @@ Author:
 
 namespace seq {
 
+    // Collect possible first characters of a syntactically known *string*
+    // expression (the body of to_re). Regex operators (union, complement,
+    // intersection, ...) are not expected here.
+    void collect_possible_first_chars(seq_util& seq, euf::sgraph const& sg, expr* str,
+                                      unsigned_vector& bounds, bool& may_be_empty) {
+        may_be_empty = false;
+        VERIFY(str);
+        sort* re_sort = nullptr;
+        VERIFY(!seq.is_re(str, re_sort));
+
+        unsigned ch = 0;
+        if (sg.decode_re_char(str, ch)) {
+            bounds.push_back(ch);
+            if (ch < zstring::max_char())
+                bounds.push_back(ch + 1);
+            return;
+        }
+
+        zstring s;
+        if (seq.str.is_string(str, s)) {
+            if (s.length() == 0) {
+                may_be_empty = true;
+                return;
+            }
+            unsigned first_ch = s[0];
+            bounds.push_back(first_ch);
+            if (first_ch < zstring::max_char())
+                bounds.push_back(first_ch + 1);
+            return;
+        }
+
+        expr* a = nullptr;
+        expr* b = nullptr;
+        if (seq.str.is_concat(str, a, b)) {
+            bool a_may_be_empty = false;
+            collect_possible_first_chars(seq, sg, a, bounds, a_may_be_empty);
+
+            if (a_may_be_empty) {
+                bool b_may_be_empty = false;
+                collect_possible_first_chars(seq, sg, b, bounds, b_may_be_empty);
+                may_be_empty = b_may_be_empty;
+            }
+            return;
+        }
+
+        UNREACHABLE();
+    }
+
+
     // -----------------------------------------------------------------------
     // Stabilizer store
     // -----------------------------------------------------------------------
@@ -375,28 +424,25 @@ namespace seq {
             return;
         }
 
-        // to_re(s): boundary at first character and first+1
+        // to_re(s): boundary at possible first characters of s
         expr* body = nullptr;
         if (seq.re.is_to_re(e, body)) {
-            zstring s;
-            unsigned ch = 0;
-            if (m_sg.decode_re_char(body, ch)) {
-                bounds.push_back(ch);
-                if (ch < zstring::max_char())
-                    bounds.push_back(ch + 1);
-            }
-            else if (seq.str.is_string(body, s) && s.length() > 0) {
-                unsigned first_ch = s[0];
-                bounds.push_back(first_ch);
-                if (first_ch < zstring::max_char())
-                    bounds.push_back(first_ch + 1);
-            }
+            bool may_be_empty = false;
+            collect_possible_first_chars(seq, m_sg, body, bounds, may_be_empty);
             return;
         }
 
         // Leaf nodes with no character discrimination
         if (re->is_fail() || re->is_full_char() || re->is_full_seq())
             return;
+
+        // If we reached a leaf and none of the expected leaf forms matched,
+        // this is a regex constructor we did not account for in boundary
+        // extraction and should fail loudly in debug builds.
+        if (re->num_args() == 0) {
+            UNREACHABLE();
+            return;
+        }
 
         // Recurse into children (handles union, concat, star, loop, etc.)
         for (unsigned i = 0; i < re->num_args(); ++i) {
@@ -408,9 +454,9 @@ namespace seq {
     // BFS regex emptiness check — helper: alphabet representatives
     // Faster alternative of computing all min-terms and taking representatives of them
     // -----------------------------------------------------------------------
-    void seq_regex::get_alphabet_representatives(euf::snode* re, euf::snode_vector& reps) {
+    bool seq_regex::get_alphabet_representatives(euf::snode* re, euf::snode_vector& reps) {
         if (!re || !re->get_expr())
-            return;
+            return false;
 
         seq_util& seq = m_sg.get_seq_util();
         unsigned max_c = seq.max_char();
@@ -441,6 +487,7 @@ namespace seq {
         // Defensive fallback for degenerate inputs.
         if (reps.empty())
             reps.push_back(m_sg.mk_char(0));
+        return true;
     }
 
     // -----------------------------------------------------------------------
@@ -495,7 +542,8 @@ namespace seq {
             // character snode whose equivalence class has identical
             // derivative behavior.
             euf::snode_vector reps;
-            get_alphabet_representatives(current, reps);
+            if (!get_alphabet_representatives(current, reps))
+                return l_undef;
 
             if (reps.empty())
                 // Nothing found = dead-end
@@ -1117,8 +1165,7 @@ namespace seq {
         seq_util& seq = m_sg.get_seq_util();
         unsigned max_c = seq.max_char();
 
-        if (!re_expr)
-            return char_set::full(max_c);
+        VERIFY(re_expr);
 
         // full_char: the whole alphabet [0, max_char]
         if (seq.re.is_full_char(re_expr))
@@ -1186,8 +1233,9 @@ namespace seq {
         if (seq.re.is_empty(re_expr))
             return char_set();
 
-        // Conservative fallback: return the full alphabet so that
-        // no unsound constraints are added for unrecognised expressions.
+        // Unexpected minterm shape: we should fail loudly instead of silently
+        // returning a conservative approximation.
+        UNREACHABLE();
         return char_set::full(max_c);
     }
 

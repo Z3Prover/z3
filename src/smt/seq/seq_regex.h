@@ -69,7 +69,7 @@ namespace seq {
         // Build a set of representative character snodes, one per
         // alphabet equivalence class, derived from the boundary points
         // of the given regex.
-        void get_alphabet_representatives(euf::snode* re, euf::snode_vector& reps);
+        bool get_alphabet_representatives(euf::snode* re, euf::snode_vector& reps);
 
     public:
 

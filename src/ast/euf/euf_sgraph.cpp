@@ -617,6 +617,14 @@ namespace euf {
             return;
         if (m_seq.re.is_empty(e))
             return;
+
+        // Expected compound regex operators are handled by recursion below.
+        // If a leaf survives to this point, it is an unhandled regex form.
+        if (re->num_args() == 0) {
+            UNREACHABLE();
+            return;
+        }
+
         // recurse into compound regex operators
         for (unsigned i = 0; i < re->num_args(); ++i) {
             collect_re_predicates(re->arg(i), preds);
@@ -669,8 +677,10 @@ namespace euf {
             } 
             else if (m_seq.re.is_full_char(p))
                 p_set = char_set::full(max_c);
-            else 
+            else {
+                UNREACHABLE();
                 continue;
+            }
             
             if (p_set.is_empty() || p_set.is_full(max_c))
                 continue;
