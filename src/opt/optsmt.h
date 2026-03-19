@@ -81,7 +81,7 @@ namespace opt {
 
         lbool symba_opt();
 
-        lbool geometric_lex(unsigned idx, bool is_maximize);
+        lbool geometric_lex(unsigned idx, bool is_maximize, bool is_box = false);
 
         void set_max(vector<inf_eps>& dst, vector<inf_eps> const& src, expr_ref_vector& fmls);
 

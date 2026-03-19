@@ -519,3 +519,76 @@ void tst_box_mod_opt() {
     Z3_del_context(ctx);
     std::cout << "box mod optimization test passed" << std::endl;
 }
+
+// Regression test for #9030: adding an objective in box mode must not
+// change the optimal values of other objectives.
+void tst_box_independent() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    Z3_sort int_sort = Z3_mk_int_sort(ctx);
+    Z3_ast a = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "a"), int_sort);
+    Z3_ast b = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "b"), int_sort);
+
+    auto mk_int = [&](int v) { return Z3_mk_int(ctx, v, int_sort); };
+
+    // Helper: create a fresh optimizer with box priority and constraints
+    // equivalent to: b >= -166, a <= -166, 5a >= 9b + 178
+    auto mk_opt = [&]() {
+        Z3_optimize opt = Z3_mk_optimize(ctx);
+        Z3_optimize_inc_ref(ctx, opt);
+        Z3_params p = Z3_mk_params(ctx);
+        Z3_params_inc_ref(ctx, p);
+        Z3_params_set_symbol(ctx, p, Z3_mk_string_symbol(ctx, "priority"),
+                             Z3_mk_string_symbol(ctx, "box"));
+        Z3_optimize_set_params(ctx, opt, p);
+        Z3_params_dec_ref(ctx, p);
+        Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, b, mk_int(-166)));
+        Z3_optimize_assert(ctx, opt, Z3_mk_le(ctx, a, mk_int(-166)));
+        // 5a - 9b >= 178
+        Z3_ast lhs_args[] = { mk_int(5), a };
+        Z3_ast five_a = Z3_mk_mul(ctx, 2, lhs_args);
+        Z3_ast rhs_args[] = { mk_int(9), b };
+        Z3_ast nine_b = Z3_mk_mul(ctx, 2, rhs_args);
+        Z3_ast diff_args[] = { five_a, nine_b };
+        Z3_ast diff = Z3_mk_sub(ctx, 2, diff_args);
+        Z3_optimize_assert(ctx, opt, Z3_mk_ge(ctx, diff, mk_int(178)));
+        return opt;
+    };
+
+    // objective: maximize -(b + a)
+    auto mk_neg_sum = [&]() {
+        Z3_ast args[] = { b, a };
+        return Z3_mk_unary_minus(ctx, Z3_mk_add(ctx, 2, args));
+    };
+
+    // Run 1: three objectives
+    Z3_optimize opt3 = mk_opt();
+    unsigned idx_max_expr_3 = Z3_optimize_maximize(ctx, opt3, mk_neg_sum());
+    Z3_optimize_maximize(ctx, opt3, b);
+    unsigned idx_min_a_3 = Z3_optimize_minimize(ctx, opt3, a);
+    ENSURE(Z3_optimize_check(ctx, opt3, 0, nullptr) == Z3_L_TRUE);
+
+    // Run 2: two objectives, without (maximize b)
+    Z3_optimize opt2 = mk_opt();
+    unsigned idx_max_expr_2 = Z3_optimize_maximize(ctx, opt2, mk_neg_sum());
+    unsigned idx_min_a_2 = Z3_optimize_minimize(ctx, opt2, a);
+    ENSURE(Z3_optimize_check(ctx, opt2, 0, nullptr) == Z3_L_TRUE);
+
+    // The shared objectives must have the same optimal values
+    Z3_string val_max3 = Z3_ast_to_string(ctx, Z3_optimize_get_lower(ctx, opt3, idx_max_expr_3));
+    Z3_string val_max2 = Z3_ast_to_string(ctx, Z3_optimize_get_lower(ctx, opt2, idx_max_expr_2));
+    std::cout << "maximize expr with 3 obj: " << val_max3 << ", with 2 obj: " << val_max2 << std::endl;
+    ENSURE(std::string(val_max3) == std::string(val_max2));
+
+    Z3_string val_min3 = Z3_ast_to_string(ctx, Z3_optimize_get_upper(ctx, opt3, idx_min_a_3));
+    Z3_string val_min2 = Z3_ast_to_string(ctx, Z3_optimize_get_upper(ctx, opt2, idx_min_a_2));
+    std::cout << "minimize a with 3 obj: " << val_min3 << ", with 2 obj: " << val_min2 << std::endl;
+    ENSURE(std::string(val_min3) == std::string(val_min2));
+
+    Z3_optimize_dec_ref(ctx, opt3);
+    Z3_optimize_dec_ref(ctx, opt2);
+    Z3_del_context(ctx);
+    std::cout << "box independent objectives test passed" << std::endl;
+}
