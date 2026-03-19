@@ -457,13 +457,11 @@ static int run_parallel(const char* exe_path, bool test_all, unsigned num_jobs,
                               << result.exit_code << ", "
                               << std::fixed << std::setprecision(1)
                               << result.elapsed_secs << "s)" << std::endl;
-                    if (!result.output.empty()) {
-                        std::cout << "--- " << result.name << " output ---" << std::endl;
-                        std::cout << result.output;
-                        if (result.output.back() != '\n')
-                            std::cout << std::endl;
-                        std::cout << "--- end " << result.name << " ---" << std::endl;
-                    }
+                }
+                if (!result.output.empty()) {
+                    std::cout << result.output;
+                    if (result.output.back() != '\n')
+                        std::cout << std::endl;
                 }
             }
         }
