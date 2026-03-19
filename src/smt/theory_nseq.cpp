@@ -172,7 +172,7 @@ namespace smt {
             unsigned idx = m_state.str_eqs().size();
             m_state.add_str_eq(s1, s2, get_enode(v1), get_enode(v2));
             ctx.push_trail(restore_vector(m_prop_queue));
-            m_prop_queue.push_back({prop_item::eq_prop, idx});
+            m_prop_queue.push_back(eq_item{idx});
         }
     }
 
@@ -217,7 +217,7 @@ namespace smt {
                 m_state.add_str_mem(sn_str, sn_re_compl, lit);
             }
             ctx.push_trail(restore_vector(m_prop_queue));
-            m_prop_queue.push_back({prop_item::pos_mem_prop, idx});
+            m_prop_queue.push_back(mem_item{idx});
         }
         else if (m_seq.str.is_prefix(e)) {
             if (is_true)
@@ -237,10 +237,9 @@ namespace smt {
             else
                 m_axioms.unroll_not_contains(e);
         }
-        else if (m_seq.str.is_lt(e))
-            m_axioms.lt_axiom(e);
-        else if (m_seq.str.is_le(e))
-            m_axioms.le_axiom(e);
+        else if (m_seq.str.is_lt(e) || m_seq.str.is_le(e)) {
+            // axioms added via relevant_eh → dequeue_axiom
+        }
         else if (m_seq.is_skolem(e) ||
                  m_seq.str.is_nth_i(e) ||
                  m_seq.str.is_nth_u(e) ||
@@ -288,15 +287,13 @@ namespace smt {
             return;
         ctx.push_trail(value_trail(m_prop_qhead));
         while (m_prop_qhead < m_prop_queue.size() && !ctx.inconsistent()) {
-            auto [k, idx] = m_prop_queue[m_prop_qhead++];
-            switch (k) {
-            case prop_item::eq_prop:
-                propagate_eq(idx);
-                break;
-            case prop_item::pos_mem_prop:
-                propagate_pos_mem(idx);
-                break;
-            }
+            auto const& item = m_prop_queue[m_prop_qhead++];
+            if (std::holds_alternative<eq_item>(item))
+                propagate_eq(std::get<eq_item>(item).idx);
+            else if (std::holds_alternative<mem_item>(item))
+                propagate_pos_mem(std::get<mem_item>(item).idx);
+            else if (std::holds_alternative<axiom_item>(item))
+                dequeue_axiom(std::get<axiom_item>(item).e);
         }
     }
 
@@ -344,6 +341,75 @@ namespace smt {
         expr_ref len(m_seq.str.mk_length(e), m);
         if (!ctx.e_internalized(len))
             ctx.internalize(len, false);
+    }
+
+    // -----------------------------------------------------------------------
+    // Axiom enqueue / dequeue (follows theory_seq::enque_axiom / deque_axiom)
+    // -----------------------------------------------------------------------
+
+    void theory_nseq::enqueue_axiom(expr* e) {
+        if (m_axiom_set.contains(e))
+            return;
+        m_axiom_set.insert(e);
+        ctx.push_trail(insert_obj_trail<expr>(m_axiom_set, e));
+        ctx.push_trail(restore_vector(m_prop_queue));
+        m_prop_queue.push_back(axiom_item{e});
+    }
+
+    void theory_nseq::dequeue_axiom(expr* n) {
+        TRACE(seq, tout << "dequeue_axiom: " << mk_bounded_pp(n, m, 2) << "\n";);
+        if (m_seq.str.is_length(n))
+            m_axioms.length_axiom(n);
+        else if (m_seq.str.is_index(n))
+            m_axioms.indexof_axiom(n);
+        else if (m_seq.str.is_last_index(n))
+            m_axioms.last_indexof_axiom(n);
+        else if (m_seq.str.is_replace(n))
+            m_axioms.replace_axiom(n);
+        else if (m_seq.str.is_replace_all(n))
+            m_axioms.replace_all_axiom(n);
+        else if (m_seq.str.is_extract(n))
+            m_axioms.extract_axiom(n);
+        else if (m_seq.str.is_at(n))
+            m_axioms.at_axiom(n);
+        else if (m_seq.str.is_nth_i(n))
+            m_axioms.nth_axiom(n);
+        else if (m_seq.str.is_itos(n))
+            m_axioms.itos_axiom(n);
+        else if (m_seq.str.is_stoi(n))
+            m_axioms.stoi_axiom(n);
+        else if (m_seq.str.is_lt(n))
+            m_axioms.lt_axiom(n);
+        else if (m_seq.str.is_le(n))
+            m_axioms.le_axiom(n);
+        else if (m_seq.str.is_unit(n))
+            m_axioms.unit_axiom(n);
+        else if (m_seq.str.is_is_digit(n))
+            m_axioms.is_digit_axiom(n);
+        else if (m_seq.str.is_from_code(n))
+            m_axioms.str_from_code_axiom(n);
+        else if (m_seq.str.is_to_code(n))
+            m_axioms.str_to_code_axiom(n);
+    }
+
+    void theory_nseq::relevant_eh(app* n) {
+        if (m_seq.str.is_length(n)     ||
+            m_seq.str.is_index(n)      ||
+            m_seq.str.is_last_index(n) ||
+            m_seq.str.is_replace(n)    ||
+            m_seq.str.is_replace_all(n)||
+            m_seq.str.is_extract(n)    ||
+            m_seq.str.is_at(n)         ||
+            m_seq.str.is_nth_i(n)      ||
+            m_seq.str.is_itos(n)       ||
+            m_seq.str.is_stoi(n)       ||
+            m_seq.str.is_lt(n)         ||
+            m_seq.str.is_le(n)         ||
+            m_seq.str.is_unit(n)       ||
+            m_seq.str.is_is_digit(n)   ||
+            m_seq.str.is_from_code(n)  ||
+            m_seq.str.is_to_code(n))
+            enqueue_axiom(n);
     }
 
     // -----------------------------------------------------------------------

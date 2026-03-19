@@ -19,6 +19,7 @@ Author:
 --*/
 #pragma once
 
+#include <variant>
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_axioms.h"
@@ -51,13 +52,16 @@ namespace smt {
         seq::seq_regex     m_regex;   // regex membership pre-processing
         seq_model     m_model;   // model construction helper
 
-        // propagation queue
-        struct prop_item {
-            enum kind_t { eq_prop, pos_mem_prop } m_kind;
-            unsigned m_idx;
-        };
-        svector<prop_item>  m_prop_queue;
-        unsigned            m_prop_qhead = 0;
+        // propagation queue items (variant over the distinct propagation cases)
+        struct eq_item    { unsigned idx; };   // string equality at index idx in str_eqs
+        struct mem_item   { unsigned idx; };   // regex membership at index idx in str_mems
+        struct axiom_item { expr*    e;   };   // structural axiom for term e
+
+        using prop_item = std::variant<eq_item, mem_item, axiom_item>;
+
+        vector<prop_item>       m_prop_queue;
+        unsigned                m_prop_qhead = 0;
+        obj_hashtable<expr>     m_axiom_set;   // dedup guard for axiom_item enqueues
 
         // statistics
         unsigned m_num_conflicts        = 0;
@@ -92,6 +96,7 @@ namespace smt {
         void propagate() override;
         void init() override;
         void assign_eh(bool_var v, bool is_true) override;
+        void relevant_eh(app* n) override;
         final_check_status final_check_eh(unsigned) override;
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;
@@ -114,6 +119,8 @@ namespace smt {
         // propagation dispatch helpers
         void propagate_eq(unsigned idx);
         void propagate_pos_mem(unsigned idx);
+        void enqueue_axiom(expr* e);
+        void dequeue_axiom(expr* e);
         void ensure_length_var(expr* e);
 
         // higher-order term unfolding
