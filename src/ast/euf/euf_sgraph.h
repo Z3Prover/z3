@@ -144,6 +144,10 @@ namespace euf {
         // for deriving symbolic variables.
         snode* brzozowski_deriv(snode* re, snode* elem, snode* allowed_range = nullptr);
 
+        // Decode a character expression that may be represented as a const-char,
+        // a unit string containing a const-char, or a one-character string literal.
+        bool decode_re_char(expr* ex, unsigned& out) const;
+
         // compute minterms (character class partition) from a regex
         void compute_minterms(snode* re, snode_vector& minterms);
 

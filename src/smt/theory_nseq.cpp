@@ -444,6 +444,7 @@ namespace smt {
                 << (m_nielsen.sat_node() ? "set" : "null") << "\n";);
             // Nielsen found a consistent assignment for positive constraints.
             // If there are disequalities we haven't verified, we cannot soundly declare sat.
+            SASSERT(!m_state.empty()); // we should have axiomatized them
             if (!m_state.diseqs().empty())
                 return FC_GIVEUP;
             if (!has_unhandled_preds())

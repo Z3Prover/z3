@@ -379,7 +379,8 @@ namespace euf {
     }
 
     snode* sgraph::find(expr* e) const {
-        SASSERT(e);
+        if (!e)
+            return nullptr;
         unsigned eid = e->get_id();
         if (eid < m_expr2snode.size())
             return m_expr2snode[eid];
@@ -453,18 +454,15 @@ namespace euf {
     }
 
     snode* sgraph::mk_concat(snode* a, snode* b) {
-        if (a->is_empty())
-            return b;
-        if (b->is_empty())
-            return a;
+        if (a->is_empty()) return b;
+        if (b->is_empty()) return a;
         if (m_seq.is_re(a->get_expr()))
             return mk(expr_ref(m_seq.re.mk_concat(a->get_expr(), b->get_expr()), m));
         return mk(expr_ref(m_seq.str.mk_concat(a->get_expr(), b->get_expr()), m));
     }
 
     snode* sgraph::drop_first(snode* n) {
-        SASSERT(!n->is_empty());
-        if (n->is_token())
+        if (n->is_empty() || n->is_token())
             return mk_empty_seq(n->get_sort());
         SASSERT(n->is_concat());
         snode* l = n->arg(0);
@@ -474,10 +472,8 @@ namespace euf {
         return mk_concat(drop_first(l), r);
     }
 
-    // TODO: Optimize
     snode* sgraph::drop_last(snode* n) {
-        SASSERT(!n->is_empty());
-        if (n->is_token())
+        if (n->is_empty() || n->is_token())
             return mk_empty_seq(n->get_sort());
         SASSERT(n->is_concat());
         snode* l = n->arg(0);
@@ -487,28 +483,19 @@ namespace euf {
         return mk_concat(l, drop_last(r));
     }
 
-    // TODO: Optimize
     snode* sgraph::drop_left(snode* n, unsigned count) {
-        if (count == 0)
-            return n;
-        SASSERT(count <= n->length());
-        if (count == n->length())
-            return mk_empty_seq(n->get_sort());
-        for (unsigned i = 0; i < count; ++i) {
+        if (count == 0 || n->is_empty()) return n;
+        if (count >= n->length()) return mk_empty_seq(n->get_sort());
+        for (unsigned i = 0; i < count; ++i)
             n = drop_first(n);
-        }
         return n;
     }
 
     snode* sgraph::drop_right(snode* n, unsigned count) {
-        if (count == 0)
-            return n;
-        SASSERT(count <= n->length());
-        if (count == n->length())
-            return mk_empty_seq(n->get_sort());
-        for (unsigned i = 0; i < count; ++i) {
+        if (count == 0 || n->is_empty()) return n;
+        if (count >= n->length()) return mk_empty_seq(n->get_sort());
+        for (unsigned i = 0; i < count; ++i)
             n = drop_last(n);
-        }
         return n;
     }
 
@@ -528,7 +515,8 @@ namespace euf {
     snode* sgraph::brzozowski_deriv(snode* re, snode* elem, snode* allowed_range) {
         expr* re_expr = re->get_expr();
         expr* elem_expr = elem->get_expr();
-        SASSERT(re_expr && elem_expr);
+        if (!re_expr || !elem_expr)
+            return nullptr;
         
         // unwrap str.unit to get the character expression
         expr* ch = nullptr;
@@ -539,60 +527,46 @@ namespace euf {
         // we extract a representative character (like 'lo') from it,
         // and evaluate the derivative with respect to that representative character.
         // This avoids generating massive 'ite' structures for symbolic variables.
-        sort* seq_sort = nullptr, *ele_sort = nullptr;        if (m_seq.is_re(re_expr, seq_sort) && m_seq.is_seq(seq_sort, ele_sort)) {
-            // Just take one element - they are anyway all assumed to produce the same result
-            auto extract_rep = [&](expr* e) -> expr* {
-                expr* lo = nullptr, *hi = nullptr;
-                expr* r1 = nullptr, *r2 = nullptr;
-                while (e) {
-                    if (m_seq.re.is_full_char(e))
-                        return m_seq.mk_char(0);
-                    if (m_seq.re.is_range(e, lo, hi) && lo) {
-                        expr* lo_ch = nullptr;
-                        zstring zs;
-                        if (m_seq.str.is_unit(lo, lo_ch))
-                            return lo_ch;
-                        if (m_seq.str.is_string(lo, zs) && zs.length() > 0)
-                            return m_seq.str.mk_char(zs[0]);
-                        return lo;
-                    }
-                    if (m_seq.re.is_union(e, r1, r2))
-                        e = r1;
-                    else
-                        return nullptr;
-                }
-                return nullptr;
-            };
-
+        sort* seq_sort = nullptr, *ele_sort = nullptr;
+        if (m_seq.is_re(re_expr, seq_sort) && m_seq.is_seq(seq_sort, ele_sort)) {
             if (allowed_range && allowed_range->get_expr()) {
                 expr* range_expr = allowed_range->get_expr();
+                expr* lo = nullptr, *hi = nullptr;
                 if (m_seq.re.is_full_char(range_expr)) {
-                    // For full char, keep symbolic
+                    // For full char, we can't substitute a representative without losing info.
+                    // Fallback to testing the symbolic character.
                 }
-                else {
-                    expr* rep = extract_rep(range_expr);
-                    if (rep)
-                        elem_expr = rep;
+                else if (m_seq.re.is_range(range_expr, lo, hi) && lo) {
+                    expr* lo_ch = nullptr;
+                    zstring zs;
+                    if (m_seq.str.is_unit(lo, lo_ch))
+                        elem_expr = lo_ch;
+                    else if (m_seq.str.is_string(lo, zs) && zs.length() > 0)
+                        elem_expr = m_seq.str.mk_char(zs[0]);
+                    else
+                        elem_expr = lo; // Use representative to take the derivative
                 }
             }
+            // Fallback: If elem itself is a regex predicate, extract representative
             else if (ele_sort != elem_expr->get_sort()) {
-                expr* rep = extract_rep(elem_expr);
-                if (rep)
-                    elem_expr = rep;
+                expr* lo = nullptr, *hi = nullptr;
+                if (m_seq.re.is_full_char(elem_expr))
+                    return nullptr;
+                if (m_seq.re.is_range(elem_expr, lo, hi) && lo) {
+                    expr* lo_ch = nullptr;
+                    zstring zs;
+                    if (m_seq.str.is_unit(lo, lo_ch))
+                        elem_expr = lo_ch;
+                    else if (m_seq.str.is_string(lo, zs) && zs.length() > 0)
+                        elem_expr = m_seq.str.mk_char(zs[0]);
+                    else
+                        elem_expr = lo;
+                }
                 else
                     return nullptr;
             }
         }
-
-        SASSERT(elem_expr);
-        if (elem_expr->get_sort() != ele_sort) {
-            std::cout << "SORT MISMATCH before mk_derivative\n"
-                      << "  elem_expr: " << mk_pp(elem_expr, m) << "\n"
-                      << "  elem_sort: " << mk_pp(elem_expr->get_sort(), m) << "\n"
-                      << "  ele_sort:  " << mk_pp(ele_sort, m) << "\n"
-                      << "  re_expr:   " << mk_pp(re_expr, m) << std::endl;
-        }
-
+        
         expr_ref result = m_rewriter.mk_derivative(elem_expr, re_expr);
         if (!result)
             return nullptr;
@@ -600,7 +574,8 @@ namespace euf {
     }
 
     void sgraph::collect_re_predicates(snode* re, expr_ref_vector& preds) {
-        SASSERT(re && re->get_expr());
+        if (!re || !re->get_expr())
+            return;
         expr* e = re->get_expr();
         expr* lo = nullptr, *hi = nullptr;
         // leaf regex predicates: character ranges and single characters
@@ -616,8 +591,7 @@ namespace euf {
                 if (m_seq.str.is_string(s, zs) && zs.length() > 0) {
                     unsigned c = zs[0];
                     ch_expr = m_seq.str.mk_char(c);
-                }
-                else if (m_seq.str.is_unit(s, ch_expr)) {
+                } else if (m_seq.str.is_unit(s, ch_expr)) {
                     // ch_expr correctly extracted
                 }
 
@@ -626,8 +600,8 @@ namespace euf {
                     expr_ref re_char(m_seq.re.mk_to_re(unit_str), m);
                     bool dup = false;
                     for (expr* p : preds) {
-                        if (p == re_char) {
-                            dup = true;
+                        if (p == re_char) { 
+                            dup = true; 
                             break;
                         }
                     }
@@ -652,7 +626,7 @@ namespace euf {
     void sgraph::compute_minterms(snode* re, snode_vector& minterms) {
         expr_ref_vector preds(m);
         collect_re_predicates(re, preds);
-
+        
         unsigned max_c = m_seq.max_char();
 
         if (preds.empty()) {
@@ -667,29 +641,37 @@ namespace euf {
         for (expr* p : preds) {
             char_set p_set;
             expr* lo = nullptr, *hi = nullptr;
-
+            
             if (m_seq.re.is_range(p, lo, hi)) {
                 unsigned vlo = 0, vhi = 0;
-                if (m_seq.is_const_char(lo, vlo) && m_seq.is_const_char(hi, vhi)) {
-                    if (vlo <= vhi)
-                        p_set = char_set(char_range(vlo, vhi + 1));
+                bool has_lo = false, has_hi = false;
+
+                if (lo) {
+                    if (decode_re_char(lo, vlo))
+                        has_lo = true;
                 }
-            }
+
+                if (hi) {
+                    if (decode_re_char(hi, vhi))
+                        has_hi = true;
+                }
+
+                if (has_lo && has_hi && vlo <= vhi)
+                    p_set = char_set(char_range(vlo, vhi + 1));
+            } 
             else if (m_seq.re.is_to_re(p)) {
                 expr* str_arg = nullptr;
-                expr* ch_expr = nullptr;
                 unsigned char_val = 0;
                 if (m_seq.re.is_to_re(p, str_arg) &&
-                    m_seq.str.is_unit(str_arg, ch_expr) &&
-                    m_seq.is_const_char(ch_expr, char_val)) {
+                    decode_re_char(str_arg, char_val)) {
                     p_set.add(char_val);
                 }
-            }
+            } 
             else if (m_seq.re.is_full_char(p))
                 p_set = char_set::full(max_c);
-            else
+            else 
                 continue;
-
+            
             if (p_set.is_empty() || p_set.is_full(max_c))
                 continue;
 
@@ -698,13 +680,11 @@ namespace euf {
             for (auto const& c : classes) {
                 char_set in_c = c.intersect_with(p_set);
                 char_set out_c = c.intersect_with(p_comp);
-                if (!in_c.is_empty())
-                    next_classes.push_back(in_c);
-                if (!out_c.is_empty())
-                    next_classes.push_back(out_c);
+                if (!in_c.is_empty()) next_classes.push_back(in_c);
+                if (!out_c.is_empty()) next_classes.push_back(out_c);
             }
             classes = std::move(next_classes);
-        }
+        }        
         for (auto const& c : classes) {
             expr_ref class_expr(m);
             for (auto const& r : c.ranges()) {
@@ -721,6 +701,22 @@ namespace euf {
             if (class_expr)
                 minterms.push_back(mk(class_expr));
         }
+    }
+
+    bool sgraph::decode_re_char(expr* ex, unsigned& out) const {
+        if (!ex)
+            return false;
+        if (m_seq.is_const_char(ex, out))
+            return true;
+        expr* ch = nullptr;
+        if (m_seq.str.is_unit(ex, ch) && m_seq.is_const_char(ch, out))
+            return true;
+        zstring s;
+        if (m_seq.str.is_string(ex, s) && s.length() == 1) {
+            out = s[0];
+            return true;
+        }
+        return false;
     }
 
     std::ostream& sgraph::display(std::ostream& out) const {
@@ -778,10 +774,4 @@ namespace euf {
     }
 
 }
-
-
-
-
-
-
 

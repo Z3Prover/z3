@@ -354,8 +354,8 @@ namespace seq {
 
     // -----------------------------------------------------------------------
     // BFS regex emptiness check — helper: collect character boundaries
+    // This is faster than computing the actual minterms but probably not minimal
     // -----------------------------------------------------------------------
-
     void seq_regex::collect_char_boundaries(euf::snode* re, unsigned_vector& bounds) const {
         SASSERT(re && re->get_expr());
 
@@ -367,11 +367,11 @@ namespace seq {
         expr* lo_expr = nullptr;
         expr* hi_expr = nullptr;
         if (seq.re.is_range(e, lo_expr, hi_expr)) {
-            zstring s_lo, s_hi;
-            if (lo_expr && seq.str.is_string(lo_expr, s_lo) && s_lo.length() == 1)
-                bounds.push_back(s_lo[0]);
-            if (hi_expr && seq.str.is_string(hi_expr, s_hi) && s_hi.length() == 1 && s_hi[0] < zstring::max_char())
-                bounds.push_back(s_hi[0] + 1);
+            unsigned lo = 0, hi = 0;
+            if (m_sg.decode_re_char(lo_expr, lo))
+                bounds.push_back(lo);
+            if (m_sg.decode_re_char(hi_expr, hi) && hi < zstring::max_char())
+                bounds.push_back(hi + 1);
             return;
         }
 
@@ -379,7 +379,13 @@ namespace seq {
         expr* body = nullptr;
         if (seq.re.is_to_re(e, body)) {
             zstring s;
-            if (seq.str.is_string(body, s) && s.length() > 0) {
+            unsigned ch = 0;
+            if (m_sg.decode_re_char(body, ch)) {
+                bounds.push_back(ch);
+                if (ch < zstring::max_char())
+                    bounds.push_back(ch + 1);
+            }
+            else if (seq.str.is_string(body, s) && s.length() > 0) {
                 unsigned first_ch = s[0];
                 bounds.push_back(first_ch);
                 if (first_ch < zstring::max_char())
@@ -400,23 +406,41 @@ namespace seq {
 
     // -----------------------------------------------------------------------
     // BFS regex emptiness check — helper: alphabet representatives
+    // Faster alternative of computing all min-terms and taking representatives of them
     // -----------------------------------------------------------------------
-
     void seq_regex::get_alphabet_representatives(euf::snode* re, euf::snode_vector& reps) {
-        euf::snode_vector minterms;
-        m_sg.compute_minterms(re, minterms);
+        if (!re || !re->get_expr())
+            return;
 
-        for (euf::snode* mt : minterms) {
-            SASSERT(mt);
-            if (mt->is_fail())
-                continue;
-            char_set cs = minterm_to_char_set(mt->get_expr());
-            SASSERT(!cs.is_empty());
-            
-            // Pick a concrete character from the character set to act as the representative
-            unsigned rep_char = cs.ranges()[0].m_lo;
-            reps.push_back(m_sg.mk_char(rep_char));
+        seq_util& seq = m_sg.get_seq_util();
+        unsigned max_c = seq.max_char();
+
+        // Partition the alphabet using boundary points induced by regex
+        // predicates; one representative per interval is sufficient.
+        unsigned_vector bounds;
+        bounds.push_back(0);
+        if (max_c < UINT_MAX)
+            bounds.push_back(max_c + 1);
+        collect_char_boundaries(re, bounds);
+
+        std::sort(bounds.begin(), bounds.end());
+        unsigned_vector uniq;
+        for (unsigned b : bounds) {
+            if (uniq.empty() || uniq.back() != b)
+                uniq.push_back(b);
         }
+        bounds = uniq;
+
+        for (unsigned i = 0; i + 1 < bounds.size(); ++i) {
+            unsigned lo = bounds[i];
+            unsigned hi = bounds[i + 1];
+            if (lo <= max_c && lo < hi)
+                reps.push_back(m_sg.mk_char(lo));
+        }
+
+        // Defensive fallback for degenerate inputs.
+        if (reps.empty())
+            reps.push_back(m_sg.mk_char(0));
     }
 
     // -----------------------------------------------------------------------
@@ -457,6 +481,8 @@ namespace seq {
         unsigned states_explored = 0;
 
         while (!worklist.empty()) {
+            if (!m_sg.get_manager().inc())
+                return l_undef;
             if (states_explored >= max_states)
                 return l_undef;
 
@@ -476,6 +502,8 @@ namespace seq {
                 continue;
 
             for (euf::snode* ch : reps) {
+                if (!m_sg.get_manager().inc())
+                    return l_undef;
                 // std::cout << "Deriving by " << snode_label_html(ch, sg().get_manager()) << std::endl;
                 euf::snode* deriv = m_sg.brzozowski_deriv(current, ch);
                 SASSERT(deriv);
@@ -1097,13 +1125,30 @@ namespace seq {
             return char_set::full(max_c);
 
         // range [lo, hi] (hi inclusive in Z3's regex representation)
-        unsigned lo = 0, hi = 0;
-        if (seq.re.is_range(re_expr, lo, hi)) {
-            // lo > hi is a degenerate range; should not arise from well-formed minterms
-            SASSERT(lo <= hi);
-            if (lo > hi) return char_set();
-            // char_range uses exclusive upper bound; Z3 hi is inclusive
-            return char_set(char_range(lo, hi + 1));
+        expr* lo_expr = nullptr;
+        expr* hi_expr = nullptr;
+        if (seq.re.is_range(re_expr, lo_expr, hi_expr)) {
+            unsigned lo = 0, hi = 0;
+            bool has_lo = false, has_hi = false;
+
+            if (lo_expr) {
+                if (m_sg.decode_re_char(lo_expr, lo)) {
+                    has_lo = true;
+                }
+            }
+            if (hi_expr) {
+                if (m_sg.decode_re_char(hi_expr, hi)) {
+                    has_hi = true;
+                }
+            }
+
+            if (has_lo && has_hi) {
+                SASSERT(lo <= hi);
+                if (lo > hi)
+                    return char_set();
+                // char_range uses exclusive upper bound; Z3 hi is inclusive
+                return char_set(char_range(lo, hi + 1));
+            }
         }
 
         // complement: alphabet minus the inner set
@@ -1130,11 +1175,8 @@ namespace seq {
 
         // to_re(str.unit(c)): singleton character set
         expr* str_arg = nullptr;
-        expr* ch_expr = nullptr;
         unsigned char_val = 0;
-        if (seq.re.is_to_re(re_expr, str_arg) &&
-            seq.str.is_unit(str_arg, ch_expr) &&
-            seq.is_const_char(ch_expr, char_val)) {
+        if (seq.re.is_to_re(re_expr, str_arg) && m_sg.decode_re_char(str_arg, char_val)) {
             char_set cs;
             cs.add(char_val);
             return cs;
@@ -1150,3 +1192,5 @@ namespace seq {
     }
 
 }
+
+
