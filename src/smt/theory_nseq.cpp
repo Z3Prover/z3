@@ -177,15 +177,13 @@ namespace smt {
     void theory_nseq::new_diseq_eh(theory_var v1, theory_var v2) {
         expr* e1 = get_enode(v1)->get_expr();
         expr* e2 = get_enode(v2)->get_expr();
-        if (m_seq.is_re(e1)) {
+        if (m_seq.is_re(e1))
             // regex disequality: nseq cannot verify language non-equivalence
             push_unhandled_pred();
-            return;
-        }
-        if (!m_seq.is_seq(e1))
-            return;
-
-        m_axioms.diseq_axiom(e1, e2);
+        else if (m_seq.is_seq(e1))
+            m_axioms.diseq_axiom(e1, e2);
+        else
+            ;
     }
 
     // -----------------------------------------------------------------------
