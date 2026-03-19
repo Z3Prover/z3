@@ -544,16 +544,29 @@ namespace opt {
         // Note: geometric_lex is used unconditionally here, even when
         // m_optsmt_engine is "symba", because symba_opt and geometric_opt
         // optimize all objectives jointly, violating box mode semantics.
+        //
+        // Save and restore m_lower/m_upper across iterations because
+        // geometric_lex's update_lower_lex updates m_lower for all
+        // subsequent objectives with saved values from the current model,
+        // which would contaminate later objectives' starting bounds.
+        vector<inf_eps> saved_lower(m_lower);
+        vector<inf_eps> saved_upper(m_upper);
         m_context.get_base_model(m_best_model);
         for (unsigned i = 0; i < m_vars.size() && m.inc(); ++i) {
+            m_lower = saved_lower;
+            m_upper = saved_upper;
             solver::scoped_push _push(*m_s);
             is_sat = geometric_lex(i, true, true);
             if (is_sat == l_undef)
                 return l_undef;
             if (is_sat == l_false)
                 return l_false;
+            saved_lower[i] = m_lower[i];
+            saved_upper[i] = m_upper[i];
             m_models.set(i, m_best_model.get());
         }
+        m_lower = saved_lower;
+        m_upper = saved_upper;
         return l_true;
     }
 
