@@ -78,6 +78,7 @@
     X(max_rev) \
     X(scaled_min) \
     X(box_mod_opt) \
+    X(box_independent) \
     X(deep_api_bugs) \
     X(api_algebraic) \
     X(api_polynomial) \

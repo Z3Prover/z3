@@ -202,15 +202,19 @@ namespace opt {
         }
     }
 
-    lbool optsmt::geometric_lex(unsigned obj_index, bool is_maximize) {
+    lbool optsmt::geometric_lex(unsigned obj_index, bool is_maximize, bool is_box) {
         TRACE(opt, tout << "index: " << obj_index << " is-max: " << is_maximize << "\n";);
         arith_util arith(m);
         bool is_int = arith.is_int(m_objs.get(obj_index));
         lbool is_sat = l_true;
         expr_ref bound(m), last_bound(m);
 
-        for (unsigned i = 0; i < obj_index; ++i) 
-            commit_assignment(i);
+        // In lex mode, commit previous objectives so that earlier objectives
+        // constrain later ones. In box mode, skip this so each objective
+        // is optimized independently.
+        if (!is_box)
+            for (unsigned i = 0; i < obj_index; ++i) 
+                commit_assignment(i);
 
         unsigned steps = 0;
         unsigned step_incs = 0;
@@ -291,9 +295,9 @@ namespace opt {
 
         // set the solution tight.
         m_upper[obj_index] = m_lower[obj_index];    
-        for (unsigned i = obj_index+1; i < m_lower.size(); ++i) {
-            m_lower[i] = inf_eps(rational(-1), inf_rational(0));
-        }
+        if (!is_box)
+            for (unsigned i = obj_index+1; i < m_lower.size(); ++i)
+                m_lower[i] = inf_eps(rational(-1), inf_rational(0));
         return l_true;
     }
 
@@ -534,15 +538,23 @@ namespace opt {
         if (m_vars.empty()) {
             return is_sat;
         }
-        // assertions added during search are temporary.
-        solver::scoped_push _push(*m_s);
-        if (m_optsmt_engine == symbol("symba")) {
-            is_sat = symba_opt();
+        // In box mode, optimize each objective independently.
+        // Each objective gets its own push/pop scope so that bounds
+        // from one objective do not constrain another.
+        // Note: geometric_lex is used unconditionally here, even when
+        // m_optsmt_engine is "symba", because symba_opt and geometric_opt
+        // optimize all objectives jointly, violating box mode semantics.
+        m_context.get_base_model(m_best_model);
+        for (unsigned i = 0; i < m_vars.size() && m.inc(); ++i) {
+            solver::scoped_push _push(*m_s);
+            is_sat = geometric_lex(i, true, true);
+            if (is_sat == l_undef)
+                return l_undef;
+            if (is_sat == l_false)
+                return l_false;
+            m_models.set(i, m_best_model.get());
         }
-        else {
-            is_sat = geometric_opt();
-        }
-        return is_sat;
+        return l_true;
     }
 
 
