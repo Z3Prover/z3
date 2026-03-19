@@ -371,8 +371,12 @@ namespace smt {
             return FC_CONTINUE;
         }
 
+        // there is nothing to do for the string solver, as there are no string constraints
         if (m_state.empty() && m_ho_terms.empty() && !has_unhandled_preds()) {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state+ho, FC_DONE (no solve)\n";);
+            m_nielsen.reset();
+            m_nielsen.create_root();
+            m_nielsen.set_sat_node(m_nielsen.root());
             return FC_DONE;
         }
 
@@ -384,6 +388,9 @@ namespace smt {
 
         if (m_state.empty() && !has_unhandled_preds()) {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state (after ho), FC_DONE (no solve)\n";);
+            m_nielsen.reset();
+            m_nielsen.create_root();
+            m_nielsen.set_sat_node(m_nielsen.root());
             return FC_DONE;
         }
 

@@ -573,8 +573,8 @@ namespace seq {
     }
 
     void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r) {
-        if (!m_root)
-            m_root = mk_node();
+        if (!root())
+            create_root();
         dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
         str_eq eq(lhs, rhs, dep);
         eq.sort();
@@ -582,8 +582,8 @@ namespace seq {
     }
 
     void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l) {
-        if (!m_root)
-            m_root = mk_node();
+        if (!root())
+            create_root();
         dep_tracker dep = m_dep_mgr.mk_leaf(l);
         euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
         unsigned id = next_mem_id();
@@ -592,8 +592,8 @@ namespace seq {
 
     // test-friendly overloads (no external dependency tracking)
     void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs) {
-        if (!m_root)
-            m_root = mk_node();
+        if (root())
+            create_root();
         dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         str_eq eq(lhs, rhs, dep);
         eq.sort();
@@ -601,8 +601,8 @@ namespace seq {
     }
 
     void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex) {
-        if (!m_root)
-            m_root = mk_node();
+        if (!root())
+            create_root();
         dep_tracker dep = nullptr;
         euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
         unsigned id = next_mem_id();

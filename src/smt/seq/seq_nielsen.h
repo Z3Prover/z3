@@ -835,11 +835,24 @@ namespace seq {
 
         // root node access
         nielsen_node* root() const { return m_root; }
-        void set_root(nielsen_node* n) { m_root = n; }
+        void set_root(nielsen_node* n) {
+            SASSERT(n);
+            m_root = n;
+        }
 
         // satisfying leaf node (set by solve() when result is sat)
         nielsen_node* sat_node() const { return m_sat_node; }
-        void set_sat_node(nielsen_node* n) { m_sat_node = n; }
+        void set_sat_node(nielsen_node* n) {
+            SASSERT(n);
+            m_sat_node = n;
+        }
+
+        // creates a new root for the graph
+        void create_root() {
+            SASSERT(!root());
+            set_root(mk_node());
+        }
+
         // path of edges from root to sat_node (set when sat_node is set)
         svector<nielsen_edge*> const& sat_path() const { return m_sat_path; }
 
@@ -935,9 +948,10 @@ namespace seq {
         bool solve_sat_path_ints(model_ref& mdl);
 
         // accessor for the seq_regex module
-        seq::seq_regex* seq_regex_module() const { return m_seq_regex; }
+        seq_regex* seq_regex_module() const { return m_seq_regex; }
 
     private:
+
         search_result search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path);
 
         // Regex widening: overapproximate `str` by replacing variables with
