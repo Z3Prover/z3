@@ -198,32 +198,26 @@ namespace seq {
         m_char_ranges.reset();
         m_var_lb.reset();
         m_var_ub.reset();
-        for (auto const& eq : parent.m_str_eq)
-            m_str_eq.push_back(str_eq(eq.m_lhs, eq.m_rhs, eq.m_dep));
-        for (auto const& mem : parent.m_str_mem)
-            m_str_mem.push_back(str_mem(mem.m_str, mem.m_regex, mem.m_history, mem.m_id, mem.m_dep));
-        for (auto const& ic : parent.m_int_constraints)
-            m_int_constraints.push_back(ic);
+        m_str_eq.append(parent.m_str_eq);
+        m_str_mem.append(parent.m_str_mem);
+        m_int_constraints.append(parent.m_int_constraints);
         
         // clone character disequalities
-        for (auto const& kv : parent.m_char_diseqs) {
-            ptr_vector<euf::snode> diseqs;
-            for (euf::snode* s : kv.m_value) {
-                diseqs.push_back(s);
-            }
-            m_char_diseqs.insert(kv.m_key, diseqs);
-        }
+        
+        for (auto const &[k,v] : parent.m_char_diseqs) 
+            m_char_diseqs.insert(k, v);
+        
         // clone character ranges
-        for (auto const& kv : parent.m_char_ranges) {
-            m_char_ranges.insert(kv.m_key, kv.m_value.clone());
-        }
+        for (auto const &[k, v] : parent.m_char_ranges) 
+            m_char_ranges.insert(k, v.clone());
+        
         // clone per-variable integer bounds
-        for (auto const& kv : parent.m_var_lb) {
-            m_var_lb.insert(kv.m_key, kv.m_value);
-        }
-        for (auto const& kv : parent.m_var_ub) {
-            m_var_ub.insert(kv.m_key, kv.m_value);
-        }
+        for (auto const &[k, v] : parent.m_var_lb) 
+            m_var_lb.insert(k, v);
+        
+        for (auto const &[k, v] : parent.m_var_ub) 
+            m_var_ub.insert(k, v);
+        
         // clone regex occurrence tracking
         m_regex_occurrence = parent.m_regex_occurrence;
     }
@@ -239,23 +233,28 @@ namespace seq {
         return false;
     }
 
-    // NSB review: optimize sg.subst to apply join only if the substitution had an effect.
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
         if (!s.m_var)
             return;
-        for (unsigned i = 0; i < m_str_eq.size(); ++i) {
-            str_eq& eq = m_str_eq[i];
-            eq.m_lhs = sg.subst(eq.m_lhs, s.m_var, s.m_replacement);
-            eq.m_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_replacement);
-            eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, s.m_dep);
-            eq.sort();
+        for (auto &eq : m_str_eq) {
+            auto new_lhs = sg.subst(eq.m_lhs, s.m_var, s.m_replacement);
+            auto new_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_replacement);
+            if (new_lhs != eq.m_lhs || new_rhs != eq.m_rhs) {
+                 eq.m_lhs = new_lhs;
+                 eq.m_rhs = new_rhs;
+                 eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, s.m_dep);
+                 eq.sort();
+            }
         }
-        for (unsigned i = 0; i < m_str_mem.size(); ++i) {
-            str_mem& mem = m_str_mem[i];
-            mem.m_str = sg.subst(mem.m_str, s.m_var, s.m_replacement);
-            // regex is typically ground, but apply subst for generality
-            mem.m_regex = sg.subst(mem.m_regex, s.m_var, s.m_replacement);
-            mem.m_dep = m_graph.dep_mgr().mk_join(mem.m_dep, s.m_dep);
+
+        for (auto &mem : m_str_mem) {
+            auto new_str = sg.subst(mem.m_str, s.m_var, s.m_replacement);
+            auto new_regex = sg.subst(mem.m_regex, s.m_var, s.m_replacement);
+            if (new_str != mem.m_str || new_regex != mem.m_regex) {
+                 mem.m_str = new_str;
+                 mem.m_regex = new_regex;
+                 mem.m_dep = m_graph.dep_mgr().mk_join(mem.m_dep, s.m_dep);
+            }
         }
         // VarBoundWatcher: propagate bounds on s.m_var to variables in s.m_replacement
         watch_var_bounds(s);
@@ -388,7 +387,7 @@ namespace seq {
         unsigned const_len = 0;
         euf::snode_vector var_tokens;
         for (euf::snode* t : tokens) {
-            if (t->is_char() || t->is_unit())
+            if (t->is_char_or_unit())
                 ++const_len;
             else if (t->is_var())
                 var_tokens.push_back(t);
@@ -479,14 +478,12 @@ namespace seq {
         if (!s.m_var) return;
 
         // replace occurrences of s.m_var with s.m_val in all string constraints
-        for (unsigned i = 0; i < m_str_eq.size(); ++i) {
-            str_eq& eq = m_str_eq[i];
+        for (auto &eq : m_str_eq) {
             eq.m_lhs = sg.subst(eq.m_lhs, s.m_var, s.m_val);
-            eq.m_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_val);
+            eq.m_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_val);            
             eq.sort();
         }
-        for (unsigned i = 0; i < m_str_mem.size(); ++i) {
-            str_mem& mem = m_str_mem[i];
+        for (auto &mem : m_str_mem) {
             mem.m_str = sg.subst(mem.m_str, s.m_var, s.m_val);
             mem.m_regex = sg.subst(mem.m_regex, s.m_var, s.m_val);
         }
