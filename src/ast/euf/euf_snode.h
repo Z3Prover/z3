@@ -50,6 +50,7 @@ namespace euf {
         s_fail,        // empty language (OP_RE_EMPTY_SET)
         s_full_char,   // full character set (OP_RE_FULL_CHAR_SET)
         s_full_seq,    // full sequence set r=.* (OP_RE_FULL_SEQ_SET)
+        s_range,       // character range [lo,hi] (OP_RE_RANGE)
         s_to_re,       // string to regex (OP_SEQ_TO_RE)
         s_in_re,       // regex membership (OP_SEQ_IN_RE)
         s_other,       // other sequence expression not directly classified
@@ -125,6 +126,7 @@ namespace euf {
         bool is_fail()       const { return m_kind == snode_kind::s_fail; }
         bool is_full_char()  const { return m_kind == snode_kind::s_full_char; }
         bool is_full_seq()   const { return m_kind == snode_kind::s_full_seq; }
+        bool is_range()      const { return m_kind == snode_kind::s_range; }
         bool is_to_re()      const { return m_kind == snode_kind::s_to_re; }
         bool is_in_re()      const { return m_kind == snode_kind::s_in_re; }
 

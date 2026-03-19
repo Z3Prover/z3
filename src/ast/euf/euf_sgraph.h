@@ -17,7 +17,7 @@ Abstract:
 
     -- snode classification: empty, char, variable, unit, concat, power,
        star, loop, union, intersection, complement, fail, full_char,
-       full_seq, to_re, in_re, other.
+       full_seq, range, to_re, in_re, other.
     -- Metadata computation: ground, regex_free, nullable, level, length.
     -- Expression registration via mk(expr*), lookup via find(expr*).
     -- Scope management: push/pop with backtracking.
