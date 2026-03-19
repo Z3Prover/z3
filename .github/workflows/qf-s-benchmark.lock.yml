@@ -28,8 +28,7 @@
 name: "Qf S Benchmark"
 "on":
   schedule:
-  - cron: "16 3 * * 3"
-    # Friendly format: weekly (scattered)
+  - cron: "0 0,12 * * *"
   workflow_dispatch:
 
 permissions: {}

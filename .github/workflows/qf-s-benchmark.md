@@ -2,7 +2,8 @@
 description: Run Z3 string solver benchmarks (seq vs nseq) on QF_S test suite from the c3 branch and post results as a GitHub discussion
 
 on:
-  schedule: weekly
+  schedule:
+    - cron: "0 0,12 * * *"
   workflow_dispatch:
 
 permissions: read-all
