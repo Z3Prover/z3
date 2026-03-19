@@ -160,7 +160,7 @@ void test_optimize_translate() {
     Z3_del_context(ctx1);
 }
 
-void test_max_reg() {
+void test_max_reg() {    
     // BNH multi-objective optimization problem using Z3 Optimize C API.
     // Mimics /tmp/bnh_z3.py: two objectives over a constrained 2D domain.
     //   f1 = 4*x1^2 + 4*x2^2
