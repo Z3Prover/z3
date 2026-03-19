@@ -179,7 +179,7 @@ namespace smt {
                 else
                     bb_asms.append(chunk_lits); // F ∧ U
 
-                collect_shared_clauses();
+                // collect_shared_clauses();
 
                 while (true) {
 
