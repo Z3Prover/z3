@@ -515,7 +515,7 @@ namespace seq {
         }
     };
 
-    std::string snode_label_html(euf::snode const* n, ast_manager& m);
+    static std::string snode_label_html(euf::snode const* n, ast_manager& m);
 
     // node in the Nielsen graph
     // mirrors ZIPT's NielsenNode
@@ -966,8 +966,8 @@ namespace seq {
         // only once per node across DFS iterations.
         void apply_parikh_to_node(nielsen_node& node);
 
-        // create a fresh variable with a unique name
-        euf::snode* mk_fresh_var();
+        // create a fresh variable with a unique name and the given sequence sort
+        euf::snode* mk_fresh_var(sort* s);
 
         // create a fresh symbolic character: seq.unit(fresh_char_const)
         // analogous to ZIPT's SymCharToken creation
