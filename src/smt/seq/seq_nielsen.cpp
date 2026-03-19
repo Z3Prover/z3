@@ -573,8 +573,8 @@ namespace seq {
     }
 
     void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r) {
-        if (!m_root)
-            m_root = mk_node();
+        if (!root())
+            create_root();
         dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
         str_eq eq(lhs, rhs, dep);
         eq.sort();
@@ -582,8 +582,8 @@ namespace seq {
     }
 
     void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l) {
-        if (!m_root)
-            m_root = mk_node();
+        if (!root())
+            create_root();
         dep_tracker dep = m_dep_mgr.mk_leaf(l);
         euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
         unsigned id = next_mem_id();
@@ -592,8 +592,8 @@ namespace seq {
 
     // test-friendly overloads (no external dependency tracking)
     void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs) {
-        if (!m_root)
-            m_root = mk_node();
+        if (root())
+            create_root();
         dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         str_eq eq(lhs, rhs, dep);
         eq.sort();
@@ -601,8 +601,8 @@ namespace seq {
     }
 
     void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex) {
-        if (!m_root)
-            m_root = mk_node();
+        if (!root())
+            create_root();
         dep_tracker dep = nullptr;
         euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
         unsigned id = next_mem_id();
@@ -2858,7 +2858,7 @@ namespace seq {
 
             euf::snode* pad = nullptr;
             if (padding != 0) {
-                pad = mk_fresh_var();
+                pad = mk_fresh_var(eq.m_lhs->get_sort());
                 if (padding > 0) {
                     // LHS prefix is longer by |padding| constants.
                     // Prepend pad to RHS prefix, append pad to LHS suffix.
@@ -2910,10 +2910,10 @@ namespace seq {
     // nielsen_graph: mk_fresh_var
     // -----------------------------------------------------------------------
 
-    euf::snode* nielsen_graph::mk_fresh_var() {
+    euf::snode* nielsen_graph::mk_fresh_var(sort* s) {
         ++m_stats.m_num_fresh_vars;
         std::string name = "v!" + std::to_string(m_fresh_cnt++);
-        return m_sg.mk_var(symbol(name.c_str()));
+        return m_sg.mk_var(symbol(name.c_str()), s);
     }
 
     euf::snode* nielsen_graph::mk_fresh_char_var() {
@@ -3424,8 +3424,8 @@ namespace seq {
                 continue;
 
             // Create child: x → pr · po
-            euf::snode* pr = mk_fresh_var();
-            euf::snode* po = mk_fresh_var();
+            euf::snode* pr = mk_fresh_var(mem.m_str->get_sort());
+            euf::snode* po = mk_fresh_var(mem.m_str->get_sort());
             euf::snode* str_tail = m_sg.drop_first(mem.m_str);
 
             nielsen_node* child = mk_child(node);
@@ -3865,7 +3865,7 @@ namespace seq {
 
         // Branch 2: x = u^n · x' (variable extends past full power, non-progress)
         {
-            euf::snode* fresh_tail = mk_fresh_var();
+            euf::snode* fresh_tail = mk_fresh_var(var_head->get_sort());
             euf::snode* replacement = dir_concat(m_sg, power, fresh_tail, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);
@@ -3918,7 +3918,7 @@ namespace seq {
         // Branch 2: n >= 1 → peel one u: u^n → u · u^(n-1)
         // Side constraint: n >= 1
         {
-            euf::snode* fresh = mk_fresh_var();
+            euf::snode* fresh = mk_fresh_var(var_head->get_sort());
             euf::snode* replacement = dir_concat(m_sg, base, fresh, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);

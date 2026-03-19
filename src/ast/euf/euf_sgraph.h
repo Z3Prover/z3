@@ -122,8 +122,10 @@ namespace euf {
         // register expression in both sgraph and egraph
         enode* mk_enode(expr* e);
 
+        sort* get_str_sort() const { return m_str_sort; }
+
         // factory methods for creating snodes with corresponding expressions
-        snode* mk_var(symbol const& name);
+        snode* mk_var(symbol const& name, sort* s);
         snode* mk_char(unsigned ch);
         snode *mk_empty_seq(sort *s);
         snode* mk_concat(snode* a, snode* b);
@@ -141,6 +143,10 @@ namespace euf {
         // allowed_range can explicitly provide a concrete character or range to use
         // for deriving symbolic variables.
         snode* brzozowski_deriv(snode* re, snode* elem, snode* allowed_range = nullptr);
+
+        // Decode a character expression that may be represented as a const-char,
+        // a unit string containing a const-char, or a one-character string literal.
+        bool decode_re_char(expr* ex, unsigned& out) const;
 
         // compute minterms (character class partition) from a regex
         void compute_minterms(snode* re, snode_vector& minterms);

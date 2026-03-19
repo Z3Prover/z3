@@ -6112,8 +6112,29 @@ lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vect
                 // I want this case to be processed first => push it last
                 // reason: current string is only pruned
                 SASSERT(low <= high);
-                str.push_back(low);           // ASSERT: low .. high does not intersect with exclude
-                todo.push_back({ expr_ref(th, m()), str.size(), {}, true });
+                unsigned ch = low;
+                bool found = true;
+                while (true) {
+                    bool advanced = false;
+                    for (auto [l, h] : exclude) {
+                        if (l <= ch && ch <= h) {
+                            if (h >= high) {
+                                found = false;
+                                break;
+                            }
+                            ch = h + 1;
+                            advanced = true;
+                        }
+                    }
+                    if (!found || ch > high)
+                        break;
+                    if (!advanced)
+                        break;
+                }
+                if (found && ch <= high) {
+                    str.push_back(ch);
+                    todo.push_back({ expr_ref(th, m()), str.size(), {}, true });
+                }
             }
             continue;
         }

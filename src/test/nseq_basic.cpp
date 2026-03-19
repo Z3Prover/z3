@@ -174,7 +174,7 @@ static void test_nseq_var_eq_self() {
     nseq_basic_dummy_solver solver;
     seq::nielsen_graph ng(sg, solver);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     ng.add_str_eq(x, x);
 
     auto r = ng.solve();
@@ -192,7 +192,7 @@ static void test_nseq_prefix_clash() {
     nseq_basic_dummy_solver solver;
     seq::nielsen_graph ng(sg, solver);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     euf::snode* a = sg.mk_char('a');
     euf::snode* b = sg.mk_char('b');
     euf::snode* xa = sg.mk_concat(x, a);
@@ -214,8 +214,8 @@ static void test_nseq_const_nielsen_solvable() {
     nseq_basic_dummy_solver solver;
     seq::nielsen_graph ng(sg, solver);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
-    euf::snode* y = sg.mk_var(symbol("y"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
+    euf::snode* y = sg.mk_var(symbol("y"), sg.get_str_sort());
     euf::snode* a = sg.mk_char('a');
     euf::snode* ax = sg.mk_concat(a, x);
     euf::snode* ay = sg.mk_concat(a, y);

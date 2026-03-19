@@ -452,7 +452,7 @@ static void test_sgraph_factory() {
     seq_util seq(m);
 
     // mk_var
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     SASSERT(x && x->is_var());
     SASSERT(!x->is_ground());
     SASSERT(x->length() == 1);
@@ -476,7 +476,7 @@ static void test_sgraph_factory() {
     SASSERT(ex == x);
 
     // mk_concat of two variables
-    euf::snode* y = sg.mk_var(symbol("y"));
+    euf::snode* y = sg.mk_var(symbol("y"), sg.get_str_sort());
     euf::snode* xy = sg.mk_concat(x, y);
     SASSERT(xy && xy->is_concat());
     SASSERT(xy->length() == 2);
@@ -505,7 +505,7 @@ static void test_sgraph_indexing() {
     euf::snode* a = sg.mk_char('A');
     euf::snode* b = sg.mk_char('B');
     euf::snode* c = sg.mk_char('C');
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
 
     // build concat(concat(a, b), concat(c, x)) => [A, B, C, x]
     euf::snode* ab = sg.mk_concat(a, b);
@@ -607,8 +607,8 @@ static void test_sgraph_subst() {
     euf::sgraph sg(m, eg);
     seq_util seq(m);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
-    euf::snode* y = sg.mk_var(symbol("y"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
+    euf::snode* y = sg.mk_var(symbol("y"), sg.get_str_sort());
     euf::snode* a = sg.mk_char('A');
     euf::snode* b = sg.mk_char('B');
 
@@ -677,8 +677,8 @@ static void test_sgraph_complex_concat() {
     SASSERT(he->last() == e);
 
     // mixed variables and characters: concat(x, "AB", y)
-    euf::snode* x = sg.mk_var(symbol("x"));
-    euf::snode* y = sg.mk_var(symbol("y"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
+    euf::snode* y = sg.mk_var(symbol("y"), sg.get_str_sort());
     euf::snode* a = sg.mk_char('A');
     euf::snode* b = sg.mk_char('B');
     euf::snode* ab = sg.mk_concat(a, b);

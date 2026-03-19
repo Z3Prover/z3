@@ -317,7 +317,7 @@ static void test_generate_constraints_ab_star() {
     arith_util arith(m);
     seq::seq_parikh parikh(sg);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     expr_ref re = mk_ab_star(m, seq);
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
@@ -362,7 +362,7 @@ static void test_generate_constraints_bounded_loop() {
     seq_util seq(m);
     seq::seq_parikh parikh(sg);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     // loop("ab", 1, 3): min_len=2, max_len=6, stride=2
     expr_ref ab = mk_to_re_ab(m, seq);
     expr_ref re(seq.re.mk_loop(ab, 1, 3), m);
@@ -400,7 +400,7 @@ static void test_generate_constraints_stride_one() {
     seq::seq_parikh parikh(sg);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     // full_seq: stride=1 → no modular constraint
     expr_ref re(seq.re.mk_full_seq(str_sort), m);
     euf::snode* regex = sg.mk(re);
@@ -424,7 +424,7 @@ static void test_generate_constraints_fixed_length() {
     seq_util seq(m);
     seq::seq_parikh parikh(sg);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     expr_ref re = mk_to_re_ab(m, seq);  // fixed len 2
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
@@ -447,7 +447,7 @@ static void test_generate_constraints_dep_propagated() {
     seq_util seq(m);
     seq::seq_parikh parikh(sg);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     expr_ref re = mk_ab_star(m, seq);
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
@@ -487,7 +487,7 @@ static void test_apply_to_node_adds_constraints() {
     seq::nielsen_graph ng(sg, solver);
     seq::seq_parikh parikh(sg);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     expr_ref re = mk_ab_star(m, seq);  // stride 2 → generates constraints
     euf::snode* regex = sg.mk(re);
     ng.add_str_mem(x, regex);
@@ -519,7 +519,7 @@ static void test_apply_to_node_stride_one_no_constraints() {
     seq::nielsen_graph ng(sg, solver);
     seq::seq_parikh parikh(sg);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     expr_ref re(seq.re.mk_full_seq(str_sort), m);  // stride 1 → no constraints
     euf::snode* regex = sg.mk(re);
     ng.add_str_mem(x, regex);
@@ -547,7 +547,7 @@ static void test_check_conflict_unconstrained_no_conflict() {
     seq::nielsen_graph ng(sg, solver);
     seq::seq_parikh parikh(sg);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     expr_ref re = mk_ab_star(m, seq);  // stride 2, min_len 0
     euf::snode* regex = sg.mk(re);
     ng.add_str_mem(x, regex);
@@ -571,7 +571,7 @@ static void test_check_conflict_valid_k_exists() {
     seq::nielsen_graph ng(sg, solver);
     seq::seq_parikh parikh(sg);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     expr_ref re = mk_ab_star(m, seq);  // stride 2, min_len 0; lengths 0,2,4,...
     euf::snode* regex = sg.mk(re);
     ng.add_str_mem(x, regex);
@@ -599,7 +599,7 @@ static void test_check_conflict_no_valid_k() {
     seq::nielsen_graph ng(sg, solver);
     seq::seq_parikh parikh(sg);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     expr_ref re = mk_ab_star(m, seq);  // stride 2, min_len 0; lengths {0,2,4,...}
     euf::snode* regex = sg.mk(re);
     ng.add_str_mem(x, regex);
@@ -627,7 +627,7 @@ static void test_check_conflict_abc_star() {
     seq::nielsen_graph ng(sg, solver);
     seq::seq_parikh parikh(sg);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     expr_ref re = mk_abc_star(m, seq);  // stride 3, min_len 0; lengths {0,3,6,...}
     euf::snode* regex = sg.mk(re);
     ng.add_str_mem(x, regex);
@@ -655,7 +655,7 @@ static void test_check_conflict_stride_one_never_conflicts() {
     seq::nielsen_graph ng(sg, solver);
     seq::seq_parikh parikh(sg);
 
-    euf::snode* x = sg.mk_var(symbol("x"));
+    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     expr_ref re(seq.re.mk_full_seq(str_sort), m);  // stride 1 → no constraint
     euf::snode* regex = sg.mk(re);
     ng.add_str_mem(x, regex);
