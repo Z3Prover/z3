@@ -96,6 +96,9 @@ namespace euf {
         if (m_seq.re.is_full_seq(e))
             return snode_kind::s_full_seq;
 
+        if (m_seq.re.is_range(e))
+            return snode_kind::s_range;
+
         if (m_seq.re.is_to_re(e))
             return snode_kind::s_to_re;
 
@@ -252,8 +255,16 @@ namespace euf {
             n->m_length = 1;
             break;
 
+        case snode_kind::s_range:
+            SASSERT(n->num_args() == 2);
+            n->m_ground = n->arg(0)->is_ground() && n->arg(1)->is_ground();
+            n->m_regex_free = false;
+            n->m_nullable = false;
+            n->m_level = 1;
+            n->m_length = 1;
+            break;
+
         case snode_kind::s_to_re:
-            // NSB review: are strings nullable or just empty
             SASSERT(n->num_args() == 1);
             n->m_ground = n->arg(0)->is_ground();
             n->m_regex_free = false;
@@ -746,6 +757,7 @@ namespace euf {
             case snode_kind::s_fail:       return "fail";
             case snode_kind::s_full_char:  return "full_char";
             case snode_kind::s_full_seq:   return "full_seq";
+            case snode_kind::s_range:      return "range";
             case snode_kind::s_to_re:      return "to_re";
             case snode_kind::s_in_re:      return "in_re";
             case snode_kind::s_other:      return "other";
