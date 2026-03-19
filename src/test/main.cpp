@@ -223,6 +223,7 @@ void display_usage() {
     std::cout << "  /a          run all unit tests that don't require arguments.\n";
 #ifndef __EMSCRIPTEN__
     std::cout << "  /j[:N]      run tests in parallel using N jobs (default: number of cores).\n";
+    std::cout << "  /seq        run tests sequentially, disabling parallel execution.\n";
 #endif
 #if defined(Z3DEBUG) || defined(_TRACE)
     std::cout << "\nDebugging support:\n";
@@ -290,6 +291,9 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& t
                 error("/j option is not supported on this platform.");
 #endif
             }
+            else if (strcmp(opt_name, "seq") == 0) {
+                num_jobs = 0;
+            }
 #ifdef _TRACE
             else if (strcmp(opt_name, "tr") == 0) {
                 if (!opt_arg)
@@ -343,7 +347,7 @@ static test_result run_test_child(const char* exe_path, const char* test_name,
     result.name = test_name;
 
     std::ostringstream cmd;
-    cmd << "\"" << exe_path << "\"" << " " << test_name;
+    cmd << "\"" << exe_path << "\"" << " /seq " << test_name;
     for (const auto& arg : extra_args)
         cmd << " " << arg;
     cmd << " 2>&1";
@@ -510,7 +514,12 @@ int main(int argc, char ** argv) {
 
     bool do_display_usage = false;
     bool test_all = false;
+#ifndef __EMSCRIPTEN__
+    unsigned hw = std::thread::hardware_concurrency();
+    unsigned num_jobs = hw > 0 ? hw : 4;
+#else
     unsigned num_jobs = 0;
+#endif
     std::vector<std::string> extra_args;
     parse_cmd_line_args(argc, argv, do_display_usage, test_all, num_jobs, extra_args);
 
