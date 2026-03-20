@@ -370,7 +370,7 @@ namespace seq {
         if (re->is_fail())
             return true;
         // kinds that are never empty
-        if (re->is_star() || re->is_to_re() ||
+        if (re->is_star() || re->is_to_re() || re->is_range() ||
             re->is_full_char() || re->is_full_seq())
             return false;
         // loop with lo == 0 accepts ε
@@ -509,7 +509,7 @@ namespace seq {
         if (re->is_nullable())
             return l_false;
         // Structural quick checks for kinds that are never empty
-        if (re->is_star() || re->is_full_char() || re->is_full_seq() || re->is_to_re())
+        if (re->is_star() || re->is_full_char() || re->is_full_seq() || re->is_to_re() || re->is_range())
             return l_false;
         // Structural emptiness catches simple cases
         if (is_empty_regex(re))
