@@ -3730,7 +3730,7 @@ namespace seq {
             // Branch 2+: for each minterm m_i, x → ?c · x
             // where ?c is a symbolic char constrained by the minterm
             for (euf::snode* mt : minterms) {
-                std::cout << "Processing minterm: " << mk_pp(mt->get_expr(), m_sg.get_manager()) << std::endl;
+                // std::cout << "Processing minterm: " << mk_pp(mt->get_expr(), m_sg.get_manager()) << std::endl;
                 SASSERT(mt);
                 SASSERT(mt->get_expr());
                 SASSERT(!mt->is_fail());
@@ -3741,14 +3741,14 @@ namespace seq {
                 SASSERT(deriv);
                 if (deriv->is_fail())
                     continue;
-                std::cout << "Result: " << mk_pp(deriv->get_expr(), m_sg.get_manager()) << std::endl;
+                // std::cout << "Result: " << mk_pp(deriv->get_expr(), m_sg.get_manager()) << std::endl;
 
                 SASSERT(m_seq_regex);
                 char_set cs = m_seq_regex->minterm_to_char_set(mt->get_expr());
-                std::cout << "char_set:\n";
-                for (auto& r : cs.ranges()) {
-                    std::cout << "\t[" << r.m_lo << "; " << r.m_hi - 1 << "]" << std::endl;
-                }
+                // std::cout << "char_set:\n";
+                // for (auto& r : cs.ranges()) {
+                //     std::cout << "\t[" << r.m_lo << "; " << r.m_hi - 1 << "]" << std::endl;
+                // }
 
                 euf::snode* fresh_char = nullptr;
                 if (cs.is_unit()) {
