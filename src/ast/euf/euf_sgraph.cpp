@@ -533,10 +533,13 @@ namespace euf {
         // if (allowed_range)
         //     std::cout << "using " << seq::snode_label_html(allowed_range, m) << std::endl;
 
-        
+        // If it is a disjunction just take one of the elements
+        while (m_seq.re.is_union(elem_expr)) {
+            elem_expr = to_app(elem_expr)->get_arg(0);
+        }
+
         // unwrap str.unit to get the character expression
         expr* ch = nullptr;
-        std::cout << elem->get_sort()->get_name() << std::endl;
         if (m_seq.str.is_unit(elem_expr, ch))
             elem_expr = ch;
 
