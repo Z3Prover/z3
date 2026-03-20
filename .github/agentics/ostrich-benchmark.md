@@ -21,11 +21,11 @@ cd ${{ github.workspace }}
 # Install build dependencies if missing
 sudo apt-get install -y ninja-build cmake python3 zstd dotnet-sdk-8.0 unzip 2>/dev/null || true
 
-# Configure the build in Debug mode to enable assertions and tracing
-# (Debug mode is required for -tr: trace flags to produce meaningful output)
+# Configure the build in Release mode for better performance and lower memory usage
+# (Release mode is sufficient for benchmarking; the workflow does not use -tr: trace flags)
 mkdir -p build
 cd build
-cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Debug -DZ3_BUILD_DOTNET_BINDINGS=ON 2>&1 | tail -20
+cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_DOTNET_BINDINGS=ON 2>&1 | tail -20
 
 # Build z3 binary and .NET bindings (this takes ~15-17 minutes)
 ninja z3 2>&1 | tail -30
@@ -351,7 +351,7 @@ Post the Markdown report as a new GitHub Discussion using the `create-discussion
 ## Guidelines
 
 - **Always build from c3 branch**: The workspace is already checked out on c3; don't change branches.
-- **Debug build required**: The build must use `CMAKE_BUILD_TYPE=Debug` so that Z3's internal assertions are active.
+- **Release build**: The build uses `CMAKE_BUILD_TYPE=Release` for lower memory footprint and faster compilation on the GitHub Actions runner. The benchmark only needs verdict and timing output; no `-tr:` trace flags are used.
 - **Run all benchmarks**: Unlike the QF_S workflow, run every file in the archive — do not randomly sample.
 - **5-second timeout**: Pass `-T:5` to Z3 (both seq and nseq) and `-t:5000` to ZIPT (milliseconds). Use `timeout 7` as the outer OS-level guard to allow the solver to exit cleanly before being killed.
 - **Be precise with timing**: Use millisecond-precision timestamps and report times in seconds with 3 decimal places.
