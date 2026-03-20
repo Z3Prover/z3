@@ -98,18 +98,6 @@ namespace nlsat {
         void project(var x, unsigned n, literal const * ls, scoped_literal_vector & result);
 
         /**
-           Maximize the value of x (locally) under the current assignment to other variables and
-           while maintaining the assignment to the literals ls.
-           Set unbounded to 'true' if the value of x is unbounded.
-
-           Precondition: the set of literals are true in the current model.
-
-           By local optimization we understand that x is increased to the largest value within
-           the signs delineated by the roots of the polynomials in ls.
-         */
-        void maximize(var x, unsigned n, literal const * ls, scoped_anum& val, bool& unbounded);
-
-        /**
            Print the polynomials that were passed to levelwise in the last call (for debugging).
          */
         void display_last_lws_input(std::ostream& out);

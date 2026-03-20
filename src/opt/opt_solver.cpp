@@ -200,34 +200,74 @@ namespace opt {
     }
 
     bool opt_solver::maximize_objectives1(expr_ref_vector& blockers) {
-        expr_ref blocker(m);
+        // Save the baseline model before any push/pop corrupts LP state.
+        // Push/pop isolates SMT assertions but does not restore LP column
+        // values, so maximize may return stale values for non-linear
+        // objectives like mod.  The baseline model serves as a floor.
+        model_ref baseline_model;
+        m_context.get_model(baseline_model);
+
         for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
-            // Push context to isolate each objective's optimization.
-            // This prevents bounds created during one objective's optimization
-            // from affecting subsequent objectives (fixes issue #7677).
-            m_context.push();
-
-            if (!maximize_objective(i, blocker)) {
-                m_context.pop(1);
+            expr_ref blocker(m);
+            if (!maximize_objective_isolated(i, baseline_model, blocker))
                 return false;
-            }
-
-            // Save results before popping
-            inf_eps val = m_objective_values[i];
-            model_ref mdl;
-            if (m_models[i])
-                mdl = m_models[i];
-
-            m_context.pop(1);
-
-            // Restore the computed values after pop
-            m_objective_values[i] = val;
-            if (mdl)
-                m_models.set(i, mdl.get());
-
             blockers.push_back(blocker);
         }
         return true;
+    }
+
+    // Maximize objective[i] inside a push/pop scope so that bounds from
+    // one objective do not leak into subsequent ones, fixes #7677.
+    // baseline_model is the satisfying model obtained before optimization
+    // and guards against LP state corruption for non-linear objectives
+    // like mod, fixes #9012.
+    bool opt_solver::maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker) {
+        m_context.push();
+
+        if (!maximize_objective(i, blocker)) {
+            m_context.pop(1);
+            return false;
+        }
+
+        // Save results before popping
+        inf_eps val = m_objective_values[i];
+        model_ref mdl;
+        if (m_models[i])
+            mdl = m_models[i];
+
+        m_context.pop(1);
+
+        // Restore the computed values after pop
+        m_objective_values[i] = val;
+        if (mdl)
+            m_models.set(i, mdl.get());
+
+        // The baseline model may witness a greater value than the LP
+        // optimizer returned, e.g. for non-linear objectives like mod
+        // where the LP relaxation overshoots and restore_x falls back
+        // to a stale assignment: use the model value as the floor value.
+        if (baseline_model)
+            update_from_baseline_model(i, baseline_model, blocker);
+
+        return true;
+    }
+
+    // If baseline_model evaluates objective i to a value better than the
+    // current optimum, adopt that value and update the blocker.
+    void opt_solver::update_from_baseline_model(unsigned i, model_ref& baseline_model, expr_ref& blocker) {
+        arith_util a(m);
+        rational r;
+        expr_ref obj_val = (*baseline_model)(m_objective_terms.get(i));
+        if (a.is_numeral(obj_val, r) && inf_eps(r) > m_objective_values[i]) {
+            m_objective_values[i] = inf_eps(r);
+            if (!m_models[i])
+                m_models.set(i, baseline_model.get());
+            expr* obj = m_objective_terms.get(i);
+            if (a.is_int(obj))
+                blocker = a.mk_ge(obj, a.mk_numeral(r + 1, true));
+            else
+                blocker = a.mk_ge(obj, a.mk_numeral(r, false));
+        }
     }
 
     lbool opt_solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {

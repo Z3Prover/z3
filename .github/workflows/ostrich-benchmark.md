@@ -1,9 +1,9 @@
 ---
-description: Run Z3 string solver benchmarks (seq vs nseq) on QF_S test suite from the c3 branch and post results as a GitHub discussion
+description: Run Z3 string solver benchmarks (seq vs nseq) and ZIPT on all Ostrich benchmarks from tests/ostrich.zip on the c3 branch and post results as a GitHub discussion
 
 on:
   schedule:
-    - cron: "0 0,12 * * *"
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 permissions: read-all
@@ -17,7 +17,7 @@ tools:
 
 safe-outputs:
   create-discussion:
-    title-prefix: "[ZIPT Benchmark] "
+    title-prefix: "[Ostrich Benchmark] "
     category: "Agentic Workflows"
     close-older-discussions: true
   missing-tool:
@@ -25,7 +25,7 @@ safe-outputs:
   noop:
     report-as-issue: false
 
-timeout-minutes: 90
+timeout-minutes: 180
 
 steps:
   - name: Checkout c3 branch
@@ -38,4 +38,4 @@ steps:
 ---
 
 <!-- Edit the file linked below to modify the agent without recompilation. Feel free to move the entire markdown body to that file. -->
-@./agentics/qf-s-benchmark.md
+@./agentics/ostrich-benchmark.md

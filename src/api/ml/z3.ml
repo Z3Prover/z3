@@ -2225,7 +2225,7 @@ struct
   let div (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_div ctx a b
 
   let neg (ctx:context) (a:rcf_num) = Z3native.rcf_neg ctx a
-  let inv (ctx:context) (a:rcf_num) = Z3native.rcf_neg ctx a
+  let inv (ctx:context) (a:rcf_num) = Z3native.rcf_inv ctx a
 
   let power (ctx:context) (a:rcf_num) (k:int) = Z3native.rcf_power ctx a k
 

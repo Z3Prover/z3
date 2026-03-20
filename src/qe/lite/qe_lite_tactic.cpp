@@ -2236,6 +2236,21 @@ class qe_lite::impl {
             if (q->get_kind() != lambda_k) {
                 m_imp(indices, true, result);
             }
+            // After eq_der + FM, try to expand remaining bounded
+            // integer quantifiers into finite disjunctions.
+            // If expansion succeeds, the result is quantifier-free
+            // so we return it directly without re-wrapping.
+            if (is_exists(q) || is_forall(q)) {
+                expr_ref expanded(m);
+                if (m_imp.try_expand_bounded_quantifier(q, result, expanded)) {
+                    if (is_forall(q))
+                        expanded = push_not(expanded);
+                    m_imp.m_rewriter(expanded, result, result_pr);
+                    if (m.proofs_enabled())
+                        result_pr = m.mk_rewrite(q, result);
+                    return true;
+                }
+            }
             if (is_forall(q)) {
                 result = push_not(result);
             }
@@ -2271,6 +2286,8 @@ private:
     th_rewriter  m_rewriter;
 
     bool m_use_array_der;
+    static const unsigned EXPAND_BOUND_LIMIT = 10000;
+
     bool has_unique_non_ground(expr_ref_vector const& fmls, unsigned& index) {
         index = fmls.size();
         if (index <= 1) {
@@ -2285,6 +2302,289 @@ private:
             }
         }
         return index < fmls.size();
+    }
+
+    // Try to extract a tight integer bound from a conjunct for de Bruijn variable idx.
+    // Returns true if the conjunct is a bound for var(idx).
+    // Sets is_lower=true for lower bounds, is_lower=false for upper bounds.
+    // Sets bound_val to the bound value, inclusive.
+    bool extract_var_bound(expr* e, unsigned idx, unsigned num_decls, arith_util& a_util,
+                           bool& is_lower, rational& bound_val) {
+        expr *atom, *lhs, *rhs;
+        rational val;
+        bool is_neg = m.is_not(e, atom);
+        if (is_neg)
+            e = atom;
+
+        if (a_util.is_le(e, lhs, rhs)) {
+            // lhs <= rhs
+            if (is_var(lhs) && to_var(lhs)->get_idx() == idx && a_util.is_numeral(rhs, val)) {
+                // var(idx) <= val, possibly negated
+                if (!is_neg) {
+                    is_lower = false;
+                    bound_val = val;
+                    return true;
+                }
+                // Not(var(idx) <= val) => var(idx) >= val + 1
+                is_lower = true;
+                bound_val = val + 1;
+                return true;
+            }
+            if (is_var(rhs) && to_var(rhs)->get_idx() == idx && a_util.is_numeral(lhs, val)) {
+                // val <= var(idx), possibly negated
+                if (!is_neg) {
+                    is_lower = true;
+                    bound_val = val;
+                    return true;
+                }
+                // Not(val <= var(idx)) => var(idx) <= val - 1
+                is_lower = false;
+                bound_val = val - 1;
+                return true;
+            }
+        }
+
+        if (a_util.is_ge(e, lhs, rhs)) {
+            // lhs >= rhs, i.e., rhs <= lhs
+            if (is_var(lhs) && to_var(lhs)->get_idx() == idx && a_util.is_numeral(rhs, val)) {
+                // var(idx) >= val, possibly negated
+                if (!is_neg) {
+                    is_lower = true;
+                    bound_val = val;
+                    return true;
+                }
+                // Not(var(idx) >= val) => var(idx) <= val - 1
+                is_lower = false;
+                bound_val = val - 1;
+                return true;
+            }
+            if (is_var(rhs) && to_var(rhs)->get_idx() == idx && a_util.is_numeral(lhs, val)) {
+                // val >= var(idx) => var(idx) <= val, possibly negated
+                if (!is_neg) {
+                    is_lower = false;
+                    bound_val = val;
+                    return true;
+                }
+                // Not(val >= var(idx)) => var(idx) >= val + 1
+                is_lower = true;
+                bound_val = val + 1;
+                return true;
+            }
+        }
+
+        if (a_util.is_lt(e, lhs, rhs)) {
+            // lhs < rhs
+            if (is_var(lhs) && to_var(lhs)->get_idx() == idx && a_util.is_numeral(rhs, val)) {
+                if (!is_neg) {
+                    // var(idx) < val => var(idx) <= val - 1
+                    is_lower = false;
+                    bound_val = val - 1;
+                    return true;
+                }
+                // Not(var(idx) < val) => var(idx) >= val
+                is_lower = true;
+                bound_val = val;
+                return true;
+            }
+            if (is_var(rhs) && to_var(rhs)->get_idx() == idx && a_util.is_numeral(lhs, val)) {
+                if (!is_neg) {
+                    // val < var(idx) => var(idx) >= val + 1
+                    is_lower = true;
+                    bound_val = val + 1;
+                    return true;
+                }
+                // Not(val < var(idx)) => var(idx) <= val
+                is_lower = false;
+                bound_val = val;
+                return true;
+            }
+        }
+
+        if (a_util.is_gt(e, lhs, rhs)) {
+            // lhs > rhs
+            if (is_var(lhs) && to_var(lhs)->get_idx() == idx && a_util.is_numeral(rhs, val)) {
+                if (!is_neg) {
+                    // var(idx) > val => var(idx) >= val + 1
+                    is_lower = true;
+                    bound_val = val + 1;
+                    return true;
+                }
+                // Not(var(idx) > val) => var(idx) <= val
+                is_lower = false;
+                bound_val = val;
+                return true;
+            }
+            if (is_var(rhs) && to_var(rhs)->get_idx() == idx && a_util.is_numeral(lhs, val)) {
+                if (!is_neg) {
+                    // val > var(idx) => var(idx) <= val - 1
+                    is_lower = false;
+                    bound_val = val - 1;
+                    return true;
+                }
+                // Not(val > var(idx)) => var(idx) >= val
+                is_lower = true;
+                bound_val = val;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Try to expand a bounded existential quantifier into a finite disjunction.
+    // The body has been processed by eq_der + FM already.
+    // Works at the de Bruijn variable level.
+    // Returns true if expansion succeeded.
+    bool try_expand_bounded_quantifier(quantifier* q, expr* body, expr_ref& result) {
+        unsigned num_decls = q->get_num_decls();
+        if (num_decls == 0)
+            return false;
+
+        arith_util a_util(m);
+
+        // Check which variables still appear in the body
+        used_vars uv;
+        uv(body);
+        unsigned remaining = 0;
+        for (unsigned i = 0; i < num_decls; ++i)
+            if (uv.contains(i))
+                remaining++;
+        if (remaining == 0)
+            return false;
+
+        // Only handle integer variables
+        for (unsigned i = 0; i < num_decls; ++i) {
+            if (!uv.contains(i))
+                continue;
+            if (!a_util.is_int(q->get_decl_sort(i)))
+                return false;
+        }
+
+        // Flatten body into conjuncts
+        expr_ref_vector conjs(m);
+        flatten_and(body, conjs);
+
+        // Extract bounds for each remaining variable
+        vector<rational> lbs, ubs;
+        bool_vector has_lb, has_ub;
+        lbs.resize(num_decls);
+        ubs.resize(num_decls);
+        has_lb.resize(num_decls, false);
+        has_ub.resize(num_decls, false);
+
+        // Track which conjuncts are pure bounds, to separate from the payload
+        bool_vector is_bound_conj;
+        is_bound_conj.resize(conjs.size(), false);
+
+        for (unsigned ci = 0; ci < conjs.size(); ++ci) {
+            for (unsigned vi = 0; vi < num_decls; ++vi) {
+                if (!uv.contains(vi))
+                    continue;
+                bool is_lower;
+                rational bval;
+                if (extract_var_bound(conjs[ci].get(), vi, num_decls, a_util, is_lower, bval)) {
+                    if (is_lower) {
+                        if (!has_lb[vi] || bval > lbs[vi])
+                            lbs[vi] = bval;
+                        has_lb[vi] = true;
+                    }
+                    else {
+                        if (!has_ub[vi] || bval < ubs[vi])
+                            ubs[vi] = bval;
+                        has_ub[vi] = true;
+                    }
+                    is_bound_conj[ci] = true;
+                }
+            }
+        }
+
+        // Check all remaining variables are bounded
+        rational domain_product(1);
+        for (unsigned i = 0; i < num_decls; ++i) {
+            if (!uv.contains(i))
+                continue;
+            if (!has_lb[i] || !has_ub[i])
+                return false;
+            rational size = ubs[i] - lbs[i] + 1;
+            if (size <= rational(0)) {
+                result = m.mk_false();
+                return true;
+            }
+            domain_product *= size;
+            if (domain_product > rational(EXPAND_BOUND_LIMIT))
+                return false;
+        }
+
+        IF_VERBOSE(2, verbose_stream() << "(qe-lite :expand-bounded-quantifier"
+            << " :vars " << remaining
+            << " :domain-size " << domain_product << ")\n");
+
+        // Collect the non-bound conjuncts as the payload
+        expr_ref_vector payload(m);
+        for (unsigned ci = 0; ci < conjs.size(); ++ci)
+            if (!is_bound_conj[ci])
+                payload.push_back(conjs[ci].get());
+
+        // Collect the remaining variables in order, with their bounds
+        unsigned_vector var_indices;
+        vector<rational> var_lbs, var_ubs;
+        for (unsigned i = 0; i < num_decls; ++i) {
+            if (!uv.contains(i)) continue;
+            var_indices.push_back(i);
+            var_lbs.push_back(lbs[i]);
+            var_ubs.push_back(ubs[i]);
+        }
+
+        // Build substitution array: one entry per de Bruijn variable
+        expr_ref_vector subst_map(m);
+        subst_map.resize(num_decls);
+        // Initialize non-remaining variables to themselves
+        for (unsigned i = 0; i < num_decls; ++i)
+            if (!uv.contains(i))
+                subst_map.set(i, m.mk_var(i, q->get_decl_sort(i)));
+
+        // Enumerate all value combinations
+        unsigned nv = var_indices.size();
+        vector<rational> cur_vals;
+        cur_vals.resize(nv);
+        for (unsigned i = 0; i < nv; ++i)
+            cur_vals[i] = var_lbs[i];
+
+        var_subst vs(m, false);
+        expr_ref_vector disjuncts(m);
+
+        while (true) {
+            // Set up substitution for current values
+            for (unsigned i = 0; i < nv; ++i)
+                subst_map.set(var_indices[i], a_util.mk_int(cur_vals[i]));
+
+            // Substitute in each payload conjunct and combine
+            expr_ref_vector inst_conjs(m);
+            for (expr* p : payload) {
+                expr_ref inst(m);
+                inst = vs(p, subst_map.size(), subst_map.data());
+                inst_conjs.push_back(inst);
+            }
+            expr_ref inst_body(m);
+            bool_rewriter(m).mk_and(inst_conjs.size(), inst_conjs.data(), inst_body);
+            disjuncts.push_back(inst_body);
+
+            // Increment to next value combination, rightmost first
+            unsigned carry = nv;
+            for (unsigned i = nv; i-- > 0; ) {
+                cur_vals[i] += 1;
+                if (cur_vals[i] <= var_ubs[i]) {
+                    carry = i;
+                    break;
+                }
+                cur_vals[i] = var_lbs[i];
+            }
+            if (carry == nv)
+                break;
+        }
+
+        bool_rewriter(m).mk_or(disjuncts.size(), disjuncts.data(), result);
+        return true;
     }
 
 public:

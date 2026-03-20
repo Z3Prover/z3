@@ -36,7 +36,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -65,7 +65,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -96,10 +96,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Download macOS x64 Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: macOsBuild
           path: artifacts
@@ -144,10 +144,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Download macOS ARM64 Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: MacArm64
           path: artifacts
@@ -191,7 +191,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -220,7 +220,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -255,7 +255,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -311,7 +311,7 @@ jobs:
     container: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python environment
         run: |
@@ -341,7 +341,7 @@ jobs:
     container: quay.io/pypa/manylinux_2_28_x86_64:latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Download ARM toolchain
         run: curl -L -o /tmp/arm-toolchain.tar.xz 'https://developer.arm.com/-/media/Files/downloads/gnu/13.3.rel1/binrel/arm-gnu-toolchain-13.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz'
@@ -380,7 +380,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -406,7 +406,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -432,7 +432,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -462,7 +462,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -470,37 +470,37 @@ jobs:
           python-version: '3.x'
       
       - name: Download Win64 Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: WindowsBuild-x64
           path: package
       
       - name: Download Win ARM64 Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: WindowsBuild-arm64
           path: package
       
       - name: Download Ubuntu Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: UbuntuBuild
           path: package
       
       - name: Download Ubuntu ARM64 Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: UbuntuArm64
           path: package
       
       - name: Download macOS Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: macOsBuild
           path: package
       
       - name: Download macOS Arm64 Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: MacArm64
           path: package
@@ -537,7 +537,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -545,7 +545,7 @@ jobs:
           python-version: '3.x'
       
       - name: Download artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: WindowsBuild-x86
           path: package
@@ -582,7 +582,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -590,43 +590,43 @@ jobs:
           python-version: '3.x'
       
       - name: Download macOS x64 Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: macOsBuild
           path: artifacts
       
       - name: Download macOS Arm64 Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: MacArm64
           path: artifacts
       
       - name: Download Win64 Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: WindowsBuild-x64
           path: artifacts
       
       - name: Download Win32 Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: WindowsBuild-x86
           path: artifacts
       
       - name: Download Win ARM64 Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: WindowsBuild-arm64
           path: artifacts
       
       - name: Download ManyLinux AMD64 Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: ManyLinuxPythonBuildAMD64
           path: artifacts
       
       - name: Download ManyLinux Arm64 Build
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: ManyLinuxPythonBuildArm64
           path: artifacts
@@ -689,10 +689,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Download all artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           path: tmp
       
@@ -745,16 +745,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.2
       
       - name: Download NuGet packages
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: NuGet
           path: packages
       
       - name: Download NuGet32 packages
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: NuGet32
           path: packages
@@ -781,7 +781,7 @@ jobs:
       contents: read
     steps:
       - name: Download Python packages
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: PythonPackage
           path: dist
