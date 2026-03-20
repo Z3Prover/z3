@@ -142,7 +142,7 @@ namespace euf {
         // Brzozowski derivative of regex re with respect to element elem.
         // allowed_range can explicitly provide a concrete character or range to use
         // for deriving symbolic variables.
-        snode* brzozowski_deriv(snode* re, snode* elem, snode* allowed_range = nullptr);
+        snode* brzozowski_deriv(snode* re, snode* elem);
 
         // Decode a character expression that may be represented as a const-char,
         // a unit string containing a const-char, or a one-character string literal.

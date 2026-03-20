@@ -1922,66 +1922,40 @@ namespace seq {
                 euf::snode_vector minterms;
                 sg.compute_minterms(mem.m_regex, minterms);
                 VERIFY(!minterms.empty());
-                euf::snode* uniform = nullptr;
-                bool is_uniform = true;
-                for (euf::snode* mt : minterms) {
-                    if (!mt || mt->is_fail())
-                        continue;
-                    euf::snode* deriv = sg.brzozowski_deriv(mem.m_regex, mt);
-                    if (!deriv) {
-                        is_uniform = false;
-                        break;
-                    }
-                    if (!uniform)
-                        uniform = deriv;
-                    else if (uniform->id() != deriv->id()) {
-                        is_uniform = false;
-                        break;
-                    }
-                }
-                if (is_uniform && uniform) {
-                    if (uniform->is_fail()) {
-                        m_is_general_conflict = true;
-                        m_reason = backtrack_reason::regex;
-                        return simplify_result::conflict;
-                    }
-                    mem.m_str = sg.drop_left(mem.m_str, 1);
-                    mem.m_regex = uniform;
-                    mem.m_history = sg.mk_concat(mem.m_history, tok);
-                    continue;
-                }
-                // Uniform derivative failed — try char_range subset approach.
+                // try char_range subset approach.
                 // If the symbolic char has a char_range constraint and that
                 // range is a subset of exactly one minterm's character class,
                 // we can deterministically take that minterm's derivative.
-                if (m_char_ranges.contains(tok->id()) && m_graph.m_parikh) {
-                    char_set const& cs = m_char_ranges[tok->id()];
-                    if (!cs.is_empty()) {
-                        euf::snode* matching_deriv = nullptr;
-                        bool found = false;
-                        for (euf::snode* mt : minterms) {
-                            if (!mt || mt->is_fail()) continue;
-                            if (!mt->get_expr()) continue;
-                            char_set mt_cs = m_graph.m_seq_regex->minterm_to_char_set(mt->get_expr());
-                            if (cs.is_subset(mt_cs)) {
-                                euf::snode* deriv = sg.brzozowski_deriv(mem.m_regex, mt);
-                                if (!deriv) { found = false; break; }
-                                if (deriv->is_fail()) {
-                                    m_is_general_conflict = true;
-                                    m_reason = backtrack_reason::regex;
-                                    return simplify_result::conflict;
-                                }
-                                matching_deriv = deriv;
-                                found = true;
-                                break;
+                SASSERT(m_graph.m_parikh);
+                char_set const& cs = m_char_ranges.contains(tok->id())
+                    ? m_char_ranges[tok->id()]
+                    : char_set::full(zstring::max_char());
+
+                if (!cs.is_empty()) {
+                    euf::snode* matching_deriv = nullptr;
+                    bool found = false;
+                    for (euf::snode* mt : minterms) {
+                        SASSERT(mt && mt->get_expr());
+                        SASSERT(!mt->is_fail());
+                        char_set mt_cs = m_graph.m_seq_regex->minterm_to_char_set(mt->get_expr());
+                        if (cs.is_subset(mt_cs)) {
+                            euf::snode* deriv = sg.brzozowski_deriv(mem.m_regex, mt);
+                            if (!deriv) { found = false; break; }
+                            if (deriv->is_fail()) {
+                                m_is_general_conflict = true;
+                                m_reason = backtrack_reason::regex;
+                                return simplify_result::conflict;
                             }
+                            matching_deriv = deriv;
+                            found = true;
+                            break;
                         }
-                        if (found && matching_deriv) {
-                            mem.m_str = sg.drop_left(mem.m_str, 1);
-                            mem.m_regex = matching_deriv;
-                            mem.m_history = sg.mk_concat(mem.m_history, tok);
-                            continue;
-                        }
+                    }
+                    if (found && matching_deriv) {
+                        mem.m_str = sg.drop_left(mem.m_str, 1);
+                        mem.m_regex = matching_deriv;
+                        mem.m_history = sg.mk_concat(mem.m_history, tok);
+                        continue;
                     }
                 }
                 break;

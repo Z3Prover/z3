@@ -524,7 +524,7 @@ namespace euf {
         return n;
     }
 
-    snode* sgraph::brzozowski_deriv(snode* re, snode* elem, snode* allowed_range) {
+    snode* sgraph::brzozowski_deriv(snode* re, snode* elem) {
         expr* re_expr = re->get_expr();
         expr* elem_expr = elem->get_expr();
         SASSERT(re_expr);
@@ -549,26 +549,7 @@ namespace euf {
         // This avoids generating massive 'ite' structures for symbolic variables.
         sort* seq_sort = nullptr, *ele_sort = nullptr;
         if (m_seq.is_re(re_expr, seq_sort) && m_seq.is_seq(seq_sort, ele_sort)) {
-            if (allowed_range && allowed_range->get_expr()) {
-                expr* range_expr = allowed_range->get_expr();
-                expr* lo = nullptr, *hi = nullptr;
-                if (m_seq.re.is_full_char(range_expr)) {
-                    // For full char, we can't substitute a representative without losing info.
-                    // Fallback to testing the symbolic character.
-                }
-                else if (m_seq.re.is_range(range_expr, lo, hi) && lo) {
-                    expr* lo_ch = nullptr;
-                    zstring zs;
-                    if (m_seq.str.is_unit(lo, lo_ch))
-                        elem_expr = lo_ch;
-                    else if (m_seq.str.is_string(lo, zs) && zs.length() > 0)
-                        elem_expr = m_seq.str.mk_char(zs[0]);
-                    else
-                        elem_expr = lo; // Use representative to take the derivative
-                }
-            }
-            // Fallback: If elem itself is a regex predicate, extract representative
-            else if (ele_sort != elem_expr->get_sort()) {
+            if (ele_sort != elem_expr->get_sort()) {
                 // std::cout << "Different sorts: " << ele_sort->get_name() << " vs " << elem_expr->get_sort()->get_name() << std::endl;
                 expr* lo = nullptr, *hi = nullptr;
                 if (m_seq.re.is_full_char(elem_expr))
