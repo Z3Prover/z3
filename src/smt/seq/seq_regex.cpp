@@ -16,9 +16,17 @@ Author:
 
 --*/
 #include "smt/seq/seq_regex.h"
-#include <unordered_set>
 
 namespace seq {
+
+    // NSB code review: change the stabilizers set to
+    // add the regexes in the domain of m_stabilizers to a trail (expr_ref_vector
+    // change the range to be a vector of expressions, not snodes
+    // add regexes in the range of m_stabilizers to the trail
+    // this is to ensure that the expressions are valid also after scope changes.
+    // maybe all regexes entered are created at base level for quantifier free formulas
+    // but we should not assume this. The sgraph also can change based on scope.
+    // the Stabilizer data-structure persists across search.
 
     // Collect possible first characters of a syntactically known *string*
     // expression (the body of to_re). Regex operators (union, complement,
