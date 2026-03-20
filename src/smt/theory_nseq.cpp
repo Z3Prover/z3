@@ -63,9 +63,14 @@ namespace smt {
         std::function < void(void)> ensure_digit_axiom = [&]() {
             throw default_exception("digit axioms should be added lazily via seq_axioms::ensure_digit_axiom");
         };
+        std::function<void(expr *)> mark_no_diseq = [&](expr *e) { 
+            m_no_diseq_set.insert(e);
+            ctx.push_trail(insert_obj_trail(m_no_diseq_set, e));
+        };
         m_axioms.set_add_clause(add_clause);
         m_axioms.set_phase(set_phase);
         m_axioms.set_ensure_digits(ensure_digit_axiom);
+        m_axioms.set_mark_no_diseq(mark_no_diseq);
     }
 
     // -----------------------------------------------------------------------
@@ -177,10 +182,11 @@ namespace smt {
     void theory_nseq::new_diseq_eh(theory_var v1, theory_var v2) {
         expr* e1 = get_enode(v1)->get_expr();
         expr* e2 = get_enode(v2)->get_expr();
+        TRACE(seq, tout << mk_pp(e1, m) << " != " << mk_pp(e2, m) << "\n");
         if (m_seq.is_re(e1))
             // regex disequality: nseq cannot verify language non-equivalence
             push_unhandled_pred();
-        else if (m_seq.is_seq(e1))
+        else if (m_seq.is_seq(e1) && !m_no_diseq_set.contains(e1) && !m_no_diseq_set.contains(e2))
             m_axioms.diseq_axiom(e1, e2);
         else
             ;

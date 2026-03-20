@@ -38,6 +38,7 @@ namespace seq {
         std::function<void(expr_ref_vector const&)> m_add_clause;
         std::function<void(expr*)> m_set_phase;
         std::function<void(void)>  m_ensure_digits;
+        std::function<void(expr *)> m_mark_no_diseq;
 
         expr_ref mk_len(expr* s);
         expr_ref mk_sub(expr* x, expr* y);
@@ -81,6 +82,9 @@ namespace seq {
         void set_add_clause(std::function<void(expr_ref_vector const&)>& ac) { m_add_clause = ac; }
         void set_phase(std::function<void(expr*)>& sp) { m_set_phase = sp; }
         void set_ensure_digits(std::function<void(void)>& ed) { m_ensure_digits = ed; }
+        void set_mark_no_diseq(std::function<void(expr *)> &f) {
+            m_mark_no_diseq = f;
+        }
 
         void suffix_axiom(expr* n);
         void prefix_axiom(expr* n);

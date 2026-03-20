@@ -1357,8 +1357,14 @@ namespace seq {
         expr_ref vp = m_sk.mk("diseq.v'", u, v);
         expr_ref up_len(mk_len(up), m);
         expr_ref vp_len(mk_len(vp), m);
-        expr_ref u_eq(mk_eq(u, mk_concat(w, seq.str.mk_unit(a), up)), m);
-        expr_ref v_eq(mk_eq(v, mk_concat(w, seq.str.mk_unit(b), vp)), m);
+        expr_ref wau(mk_concat(w, seq.str.mk_unit(a), up), m);
+        expr_ref wbv(mk_concat(w, seq.str.mk_unit(b), vp), m);
+        expr_ref u_eq(mk_eq(u, wau), m);
+        expr_ref v_eq(mk_eq(v, wbv), m);
+        if (m_mark_no_diseq) {
+            m_mark_no_diseq(wau);
+            m_mark_no_diseq(wbv);
+        }
         add_clause(eq_uv, ~len_eq, u_eq);
         add_clause(eq_uv, ~len_eq, v_eq);
         add_clause(eq_uv, ~len_eq, ~mk_eq(a, b));
