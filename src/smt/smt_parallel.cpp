@@ -395,13 +395,16 @@ namespace smt {
                 LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
                 
                 expr* atom = bb.lit.get();
-                sat::bool_var v = ctx->get_bool_var(atom);
-                // Candidates from other workers may not be internalized in this context; skip them.
-                if (v == sat::null_bool_var)
+                
+                // Candidates from other workers may not be internalized in this context.
+                if (!ctx->b_internalized(atom))
                     continue;
-
+                
+                sat::bool_var v = ctx->get_bool_var(atom);
                 bool phase = mode == l_true;
-                if (m.is_not(atom, atom)) 
+                bool is_negated = m.is_not(atom, atom);
+
+                if (is_negated)
                     phase = !phase;
 
                 ctx->force_phase(v, phase);
