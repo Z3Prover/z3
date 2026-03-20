@@ -3715,7 +3715,7 @@ namespace seq {
             VERIFY(!minterms.empty());
 
             bool created = false;
-            std::cout << "Considering regex: " << mk_pp(mem.m_regex->get_expr(), m_sg.get_manager()) << std::endl;
+            // std::cout << "Considering regex: " << mk_pp(mem.m_regex->get_expr(), m_sg.get_manager()) << std::endl;
 
             // Branch 1: x → ε (progress)
             {
