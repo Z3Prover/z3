@@ -294,6 +294,9 @@ namespace smt {
                 propagate_pos_mem(std::get<mem_item>(item));
             else if (std::holds_alternative<axiom_item>(item))
                 dequeue_axiom(std::get<axiom_item>(item).e);
+            else {
+                UNREACHABLE();
+            }
         }
     }
 
@@ -537,6 +540,7 @@ namespace smt {
         // Examining the Nielsen graph is probably the best way of debugging
         std::string dot = m_nielsen.to_dot();
         IF_VERBOSE(1, verbose_stream() << dot << "\n";);
+        // std::cout << "Got: " << (result == seq::nielsen_graph::search_result::sat ? "sat" : (result == seq::nielsen_graph::search_result::unsat ? "unsat" : "unknown")) << std::endl;
 #endif
 
         if (result == seq::nielsen_graph::search_result::unsat) {

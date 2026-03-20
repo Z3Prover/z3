@@ -2329,6 +2329,7 @@ namespace seq {
                 }
                 // depth limit hit – double the bound and retry
                 m_depth_bound *= 2;
+                SASSERT(m_depth_bound < INT_MAX);
             }
             ++m_stats.m_num_unknown;
             return search_result::unknown;
@@ -2427,7 +2428,7 @@ namespace seq {
         if (!node->is_extended()) {
             bool ext = generate_extensions(node);
             if (!ext) {
-                node->set_extended(true);
+                UNREACHABLE();
                 // No extensions could be generated. If the node still has
                 // unsatisfied constraints with opaque (s_other) terms that
                 // we cannot decompose, report unknown rather than unsat
