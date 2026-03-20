@@ -269,9 +269,9 @@ jobs:
           eval $(opam config env)
           python scripts/mk_make.py --ml
           cd build
-          make -j3
-          make -j3 examples
-          make -j3 test-z3
+          make -j$(nproc)
+          make -j$(nproc) examples
+          make -j$(nproc) test-z3
           cd ..
       
       - name: Generate documentation
