@@ -636,60 +636,79 @@ namespace seq {
         m_solver.reset();
     }
 
+    std::ostream& nielsen_graph::display(std::ostream& out, nielsen_node* n) const {
+        out << "  node[" << n->id() << "]";
+        if (n == m_root)
+            out << " (root)";
+        if (n->is_general_conflict())
+            out << " CONFLICT";
+        if (n->is_extended())
+            out << " EXTENDED";
+        out << "\n";
+
+        // display string equalities
+        for (auto const &eq : n->str_eqs()) {
+            out << "    str_eq: ";
+            if (eq.m_lhs)
+                out << "lhs[id=" << eq.m_lhs->id() << ",len=" << eq.m_lhs->length() << "]";
+            else
+                out << "null";
+            out << " = ";
+            if (eq.m_rhs)
+                out << "rhs[id=" << eq.m_rhs->id() << ",len=" << eq.m_rhs->length() << "]";
+            else
+                out << "null";
+            out << "\n";
+            out << mk_pp(eq.m_lhs->get_expr(), m) << " = " << mk_pp(eq.m_rhs->get_expr(), m) << "\n";
+        }
+
+        // display regex memberships
+        for (auto const &mem : n->str_mems()) {
+            out << "    str_mem[" << mem.m_id << "]: ";
+            if (mem.m_str)
+                out << "str[id=" << mem.m_str->id() << ",len=" << mem.m_str->length() << "]";
+            else
+                out << "null";
+            out << " in ";
+            if (mem.m_regex)
+                out << "re[id=" << mem.m_regex->id() << "]";
+            else
+                out << "null";
+            out << "\n";
+            out << mk_pp(mem.m_str->get_expr(), m) << " in " << mk_pp(mem.m_regex->get_expr(), m) << "\n";
+        }
+
+        // display outgoing edges
+        for (nielsen_edge const *e : n->outgoing()) {
+            out << "    -> node[" << e->tgt()->id() << "]";
+            if (e->is_progress())
+                out << " (progress)";
+            for (auto const &s : e->subst()) {
+                out << " {";
+                if (s.m_var)
+                    out << "var[" << s.m_var->id() << "]";
+                out << " -> ";
+                if (s.m_replacement)
+                    out << "repl[" << s.m_replacement->id() << ",len=" << s.m_replacement->length() << "]";
+                else
+                    out << "eps";
+                out << "}";
+            }
+            out << "\n";
+        }
+
+        if (n->backedge())
+            out << "    backedge -> node[" << n->backedge()->id() << "]\n";
+
+        return out;
+    }
+
     std::ostream& nielsen_graph::display(std::ostream& out) const {
         out << "nielsen_graph with " << m_nodes.size() << " nodes, "
             << m_edges.size() << " edges\n";
 
-        for (nielsen_node const* n : m_nodes) {
-            out << "  node[" << n->id() << "]";
-            if (n == m_root)
-                out << " (root)";
-            if (n->is_general_conflict())
-                out << " CONFLICT";
-            if (n->is_extended())
-                out << " EXTENDED";
-            out << "\n";
-
-            // display string equalities
-            for (auto const& eq : n->str_eqs()) {
-                out << "    str_eq: ";
-                if (eq.m_lhs) out << "lhs[id=" << eq.m_lhs->id() << ",len=" << eq.m_lhs->length() << "]";
-                else out << "null";
-                out << " = ";
-                if (eq.m_rhs) out << "rhs[id=" << eq.m_rhs->id() << ",len=" << eq.m_rhs->length() << "]";
-                else out << "null";
-                out << "\n";
-            }
-
-            // display regex memberships
-            for (auto const& mem : n->str_mems()) {
-                out << "    str_mem[" << mem.m_id << "]: ";
-                if (mem.m_str) out << "str[id=" << mem.m_str->id() << ",len=" << mem.m_str->length() << "]";
-                else out << "null";
-                out << " in ";
-                if (mem.m_regex) out << "re[id=" << mem.m_regex->id() << "]";
-                else out << "null";
-                out << "\n";
-            }
-
-            // display outgoing edges
-            for (nielsen_edge const* e : n->outgoing()) {
-                out << "    -> node[" << e->tgt()->id() << "]";
-                if (e->is_progress()) out << " (progress)";
-                for (auto const& s : e->subst()) {
-                    out << " {";
-                    if (s.m_var) out << "var[" << s.m_var->id() << "]";
-                    out << " -> ";
-                    if (s.m_replacement) out << "repl[" << s.m_replacement->id() << ",len=" << s.m_replacement->length() << "]";
-                    else out << "eps";
-                    out << "}";
-                }
-                out << "\n";
-            }
-
-            if (n->backedge())
-                out << "    backedge -> node[" << n->backedge()->id() << "]\n";
-        }
+        for (nielsen_node* n : m_nodes) 
+            display(out, n);        
 
         return out;
     }
@@ -990,12 +1009,12 @@ namespace seq {
             } else if (tok->is_unit()) {
                 // seq.unit with non-literal character: show the character expression
                 expr* ch = to_app(e)->get_arg(0);
-                if (is_app(ch))
-                    result += dot_html_escape(to_app(ch)->get_decl()->get_name().str());
+                if (is_app(ch) && to_app(ch)->get_num_args() == 0)
+                    result += "[" + dot_html_escape(to_app(ch)->get_decl()->get_name().str()) + "]";
                 else {
                     std::ostringstream os;
                     os << mk_pp(ch, m);
-                    result += dot_html_escape(os.str());
+                    result += "[" + dot_html_escape(os.str()) + "]";
                 }
             }
             else if (tok->is_power()) {
@@ -1228,7 +1247,7 @@ namespace seq {
         non_empty_side->collect_tokens(tokens);
         bool has_char = std::any_of(tokens.begin(), tokens.end(), [](euf::snode* t){ return t->is_char(); });
         bool all_eliminable = std::all_of(tokens.begin(), tokens.end(), [](euf::snode* t){
-            return t->is_var() || t->is_power() || t->kind() == euf::snode_kind::s_other;
+            return t->is_var() || t->is_power();
         });
         if (has_char || !all_eliminable) {
             m_is_general_conflict = true;
@@ -2203,8 +2222,12 @@ namespace seq {
         return true;
     }
 
-    bool nielsen_node::has_opaque_terms() const {
-        auto is_opaque = [](euf::snode* n) { return n && n->kind() == euf::snode_kind::s_other; };
+    bool nielsen_node::has_opaque_terms() const {        
+        return false;
+        // needed only if there are terms that are not going to be supported at Nielsen level.
+        // though, unsupported ops are already tracked (or supposed to be tracked) in theory_nseq.
+        #if 0
+        auto is_opaque = [](euf::snode* n) { return false; };
         for (str_eq const& eq : m_str_eq) {
             if (eq.is_trivial())
                 continue;
@@ -2240,6 +2263,7 @@ namespace seq {
             }
         }
         return false;
+        #endif
     }
 
     // -----------------------------------------------------------------------
@@ -2303,6 +2327,7 @@ namespace seq {
                     // Examining the Nielsen graph is probably the best way of debugging
                     std::string dot = to_dot();
                     IF_VERBOSE(1, verbose_stream() << dot << "\n";);
+                    IF_VERBOSE(1, display(verbose_stream()));
 #endif
                     break;
                 }
@@ -2427,17 +2452,8 @@ namespace seq {
         // generate extensions only once per node; children persist across runs
         if (!node->is_extended()) {
             bool ext = generate_extensions(node);
-            if (!ext) {
-                UNREACHABLE();
-                // No extensions could be generated. If the node still has
-                // unsatisfied constraints with opaque (s_other) terms that
-                // we cannot decompose, report unknown rather than unsat
-                // to avoid unsoundness.
-                if (node->has_opaque_terms())
-                    return search_result::unknown;
-                node->set_reason(backtrack_reason::children_failed);
-                return search_result::unsat;
-            }
+            IF_VERBOSE(0, display(verbose_stream(), node));
+            VERIFY(ext);
             node->set_extended(true);
             ++m_stats.m_num_extensions;
         }

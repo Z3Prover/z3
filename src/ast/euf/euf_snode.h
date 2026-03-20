@@ -114,7 +114,7 @@ namespace euf {
 
         bool is_empty()   const { return m_kind == snode_kind::s_empty; }
         bool is_char()    const { return m_kind == snode_kind::s_char; }
-        bool is_var()     const { return m_kind == snode_kind::s_var; }
+        bool is_var()     const { return m_kind == snode_kind::s_var || m_kind == snode_kind::s_other; }
         bool is_unit()    const { return m_kind == snode_kind::s_unit; }
         bool is_char_or_unit() const {
             return m_kind == snode_kind::s_char || m_kind == snode_kind::s_unit;

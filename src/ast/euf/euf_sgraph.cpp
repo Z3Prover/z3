@@ -107,8 +107,7 @@ namespace euf {
             return snode_kind::s_in_re;
 
         // uninterpreted constants of string sort are variables
-        // NSB review: check is_uninterp instead of is_uninterp_const.
-        if (is_uninterp_const(e) && m_seq.is_seq(e->get_sort()))
+        if (m_seq.is_seq(e->get_sort()) && (is_uninterp(e) || m_seq.is_skolem(e)))
             return snode_kind::s_var;
 
         return snode_kind::s_other;
