@@ -27,9 +27,11 @@ mkdir -p build
 cd build
 cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_DOTNET_BINDINGS=ON 2>&1 | tail -20
 
-# Build z3 binary and .NET bindings (this takes ~15-17 minutes)
-ninja z3 2>&1 | tail -30
-ninja build_z3_dotnet_bindings 2>&1 | tail -20
+# Build z3 binary and .NET bindings
+# Use -j1 to limit parallelism and avoid OOM on the GitHub Actions runner
+# (parallel C++ compilation + agent LLM memory together exceed available RAM)
+ninja -j1 z3 2>&1 | tail -30
+ninja -j1 build_z3_dotnet_bindings 2>&1 | tail -20
 
 # Verify the build succeeded
 ./z3 --version
