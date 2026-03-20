@@ -624,12 +624,13 @@ namespace seq {
             add_clause(~i_ge_0, i_ge_len_s, mk_seq_eq(nth, e));                
         }
         else {
-            expr_ref x =     m_sk.mk_pre(s, i);
-            expr_ref y =     m_sk.mk_tail(s, i);
-            expr_ref xey   = mk_concat(x, e, y);
-            expr_ref len_x = mk_len(x);
+            expr_ref x = m_sk.mk_pre(s, i);
+            expr_ref y = m_sk.mk_tail(s, i);
+            expr_ref nth(seq.str.mk_nth_i(s, i), m);
+            expr_ref unit_nth(seq.str.mk_unit(nth), m);
+            expr_ref xey = mk_concat(x, unit_nth, y);
             add_clause(~i_ge_0, i_ge_len_s, mk_seq_eq(s, xey));
-            add_clause(~i_ge_0, i_ge_len_s, mk_eq(i, len_x));
+            add_clause(~i_ge_0, i_ge_len_s, mk_eq(i, mk_len(x)));
         }
 
         add_clause(i_ge_0, mk_eq(e, emp));

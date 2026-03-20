@@ -2327,7 +2327,13 @@ namespace seq {
                     ++m_stats.m_num_unsat;
                     return r;
                 }
-                // depth limit hit – double the bound and retry
+                // depth limit hit – double the bound and retry, but only if the
+                // DFS actually reached the depth limit (max_depth >= depth_bound).
+                // If max_depth < depth_bound the bound was not the bottleneck
+                // (e.g. all nodes stalled on opaque terms or arithmetic), so
+                // doubling would not help and would cause an infinite loop.
+                if (m_stats.m_max_depth < m_depth_bound)
+                    break;
                 m_depth_bound *= 2;
                 SASSERT(m_depth_bound < INT_MAX);
             }
@@ -2428,7 +2434,6 @@ namespace seq {
         if (!node->is_extended()) {
             bool ext = generate_extensions(node);
             if (!ext) {
-                UNREACHABLE();
                 // No extensions could be generated. If the node still has
                 // unsatisfied constraints with opaque (s_other) terms that
                 // we cannot decompose, report unknown rather than unsat

@@ -173,6 +173,19 @@ namespace smt {
         euf::snode* s1 = get_snode(e1);
         euf::snode* s2 = get_snode(e2);
         if (s1 && s2) {
+            // skip equations containing opaque (s_other) tokens; the Nielsen graph
+            // has no modifier to handle them and they only block extension generation
+            auto has_opaque = [](euf::snode* n) {
+                if (!n) return false;
+                if (n->kind() == euf::snode_kind::s_other) return true;
+                euf::snode_vector toks;
+                n->collect_tokens(toks);
+                for (auto* t : toks)
+                    if (t && t->kind() == euf::snode_kind::s_other) return true;
+                return false;
+            };
+            if (has_opaque(s1) || has_opaque(s2))
+                return;
             seq::dep_tracker dep = nullptr;
             ctx.push_trail(restore_vector(m_prop_queue));
             m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
@@ -248,7 +261,28 @@ namespace smt {
                  m_seq.str.is_is_digit(e) ||
                  m_seq.str.is_foldl(e) ||
                  m_seq.str.is_foldli(e)) {
-            // no-op: handled by other mechanisms
+            // when the special seq-equality Skolem is assigned true, add the word equation
+            expr* lhs = nullptr, *rhs = nullptr;
+            if (is_true && m_axioms.sk().is_eq(e, lhs, rhs) &&
+                m_seq.is_seq(lhs) && m_seq.is_seq(rhs)) {
+                euf::snode* s1 = get_snode(lhs);
+                euf::snode* s2 = get_snode(rhs);
+                auto has_opaque = [](euf::snode* n) {
+                    if (!n) return false;
+                    if (n->kind() == euf::snode_kind::s_other) return true;
+                    euf::snode_vector toks;
+                    n->collect_tokens(toks);
+                    for (auto* t : toks)
+                        if (t && t->kind() == euf::snode_kind::s_other) return true;
+                    return false;
+                };
+                if (s1 && s2 && !has_opaque(s1) && !has_opaque(s2)) {
+                    seq::dep_tracker dep = nullptr;
+                    ctx.push_trail(restore_vector(m_prop_queue));
+                    m_prop_queue.push_back(eq_item(s1, s2, nullptr, nullptr, dep));
+                }
+            }
+            // no-op for other Skolems: handled by other mechanisms
         }
         else if (is_app(e) && to_app(e)->get_family_id() == m_seq.get_family_id())
             push_unhandled_pred();
