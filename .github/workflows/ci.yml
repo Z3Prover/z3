@@ -52,9 +52,9 @@ jobs:
         run: |
           set -e
           cd build
-          make -j3
-          make -j3 examples
-          make -j3 test-z3
+          make -j$(nproc)
+          make -j$(nproc) examples
+          make -j$(nproc) test-z3
           cd ..
 
       - name: Run unit tests
@@ -171,9 +171,9 @@ jobs:
           set -e
           cd build
           eval `opam config env`
-          make -j3
-          make -j3 examples
-          make -j3 test-z3
+          make -j$(nproc)
+          make -j$(nproc) examples
+          make -j$(nproc) test-z3
           cd ..
 
       - name: Install Z3 OCaml package
@@ -226,9 +226,9 @@ jobs:
           set -e
           cd build
           eval `opam config env`
-          make -j3
-          make -j3 examples
-          make -j3 test-z3
+          make -j$(nproc)
+          make -j$(nproc) examples
+          make -j$(nproc) test-z3
           cd ..
 
       - name: Install Z3 OCaml package
@@ -239,8 +239,8 @@ jobs:
           set -e
           cd build
           eval `opam config env`
-          make -j3
-          make -j3 _ex_ml_example_post_install
+          make -j$(nproc)
+          make -j$(nproc) _ex_ml_example_post_install
           ./ml_example_static.byte
           ./ml_example_static_custom.byte
           ./ml_example_static
@@ -402,9 +402,9 @@ jobs:
         run: |
           set -e
           cd build
-          make -j3
-          make -j3 examples
-          make -j3 test-z3
+          make -j$(nproc)
+          make -j$(nproc) examples
+          make -j$(nproc) test-z3
           ./cpp_example
           ./c_example
           cd ..
@@ -452,7 +452,7 @@ jobs:
         run: |
           set -e
           cd build
-          make -j3 libz3java.dylib
+          make -j$(nproc) libz3java.dylib
           cd ..
 
       - name: Validate libz3java.dylib is x86_64
