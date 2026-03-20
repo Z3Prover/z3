@@ -807,14 +807,36 @@ namespace seq {
 
         if (seq.re.is_to_re(e, a)) {
             zstring s;
-            if (seq.str.is_string(a, s))
-                return "\"" + dot_html_escape(s.encode()) + "\"";
-            unsigned ch_val = 0;
-            if (seq.str.is_unit(a) && seq.is_const_char(to_app(a)->get_arg(0), ch_val)) {
-                return "\"" + dot_html_escape(zstring(ch_val).encode()) + "\"";
-            }
+            bool first = true;
+            svector<expr*> args;
+            args.push_back(a);
+            // flatten concatenations
             std::ostringstream os;
-            os << mk_pp(a, m);
+            while (!args.empty()) {
+                expr* arg = args.back();
+                args.pop_back();
+                if (seq.str.is_concat(arg)) {
+                    args.push_back(to_app(arg)->get_arg(1));
+                    args.push_back(to_app(arg)->get_arg(0));
+                    continue;
+                }
+                if (seq.str.is_string(arg, s)) {
+                    if (!first) os << " ";
+                    os << "\"" + dot_html_escape(s.encode()) + "\"";
+                    first = false;
+                    continue;
+                }
+                unsigned ch_val = 0;
+                if (seq.str.is_unit(arg) && seq.is_const_char(to_app(arg)->get_arg(0), ch_val)) {
+                    if (!first) os << " ";
+                    os << "\"" + dot_html_escape(zstring(ch_val).encode()) + "\"";
+                    first = false;
+                    continue;
+                }
+                if (!first) os << " ";
+                os << mk_pp(arg, m);
+                first = false;
+            }
             return dot_html_escape(os.str());
         }
         if (seq.re.is_concat(e)) {
@@ -833,9 +855,11 @@ namespace seq {
         if (seq.re.is_union(e)) {
             app* ap = to_app(e);
             std::string res;
-            if (ap->get_num_args() == 0) return "&#8709;";
-            for (unsigned i = 0; i < ap->get_num_args(); ++i) {
-                if (i > 0) res += " | ";
+            if (ap->get_num_args() == 0)
+                return "&#8709;";
+            res = regex_expr_html(ap->get_arg(1), m, seq);
+            for (unsigned i = 1; i < ap->get_num_args(); ++i) {
+                res += " | ";
                 res += regex_expr_html(ap->get_arg(i), m, seq);
             }
             return res;
@@ -907,7 +931,7 @@ namespace seq {
     // shows s_power with superscripts, s_unit by its inner expression,
     // and falls back to mk_pp (HTML-escaped) for other token kinds.
 
-    static std::string snode_label_html(euf::snode const* n, ast_manager& m) {
+    std::string snode_label_html(euf::snode const* n, ast_manager& m) {
         if (!n) return "null";
         seq_util seq(m);
 

@@ -20,6 +20,7 @@ Author:
 #include "ast/euf/euf_seq_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "smt/seq/seq_nielsen.h"
 
 namespace euf {
 
@@ -528,6 +529,10 @@ namespace euf {
         expr* elem_expr = elem->get_expr();
         if (!re_expr || !elem_expr)
             return nullptr;
+        // std::cout << "Derivative of " << seq::snode_label_html(re, m) << "\nwith respect to " << seq::snode_label_html(elem, m) << std::endl;
+        // if (allowed_range)
+        //     std::cout << "using " << seq::snode_label_html(allowed_range, m) << std::endl;
+
         
         // unwrap str.unit to get the character expression
         expr* ch = nullptr;
@@ -560,6 +565,7 @@ namespace euf {
             }
             // Fallback: If elem itself is a regex predicate, extract representative
             else if (ele_sort != elem_expr->get_sort()) {
+                // std::cout << "Different sorts: " << ele_sort->get_name() << " vs " << elem_expr->get_sort()->get_name() << std::endl;
                 expr* lo = nullptr, *hi = nullptr;
                 if (m_seq.re.is_full_char(elem_expr))
                     return nullptr;
@@ -573,8 +579,8 @@ namespace euf {
                     else
                         elem_expr = lo;
                 }
-                else
-                    return nullptr;
+                std::cout << "Unexpected node: " << mk_pp(elem_expr, m) << std::endl;
+                UNREACHABLE();
             }
         }
         
@@ -585,9 +591,10 @@ namespace euf {
     }
 
     void sgraph::collect_re_predicates(snode* re, expr_ref_vector& preds) {
-        if (!re || !re->get_expr())
+        if (!re)
             return;
         expr* e = re->get_expr();
+        SASSERT(e);
         expr* lo = nullptr, *hi = nullptr;
         // leaf regex predicates: character ranges and single characters
         if (m_seq.re.is_range(e, lo, hi)) {

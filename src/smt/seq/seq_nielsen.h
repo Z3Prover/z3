@@ -254,13 +254,16 @@ namespace smt {
     class enode;
 }
 
+
 namespace seq {
 
     // forward declarations
     class nielsen_node;
     class nielsen_edge;
     class nielsen_graph;
-    class seq_parikh;   // Parikh image filter (see seq_parikh.h)
+    class seq_parikh;
+
+    std::string snode_label_html(euf::snode const* n, ast_manager& m);
 
     /**
      * Abstract interface for an incremental solver used by nielsen_graph
