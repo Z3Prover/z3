@@ -6106,7 +6106,9 @@ lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vect
             if (!re().is_empty(el)) {
                 if (has_bounds)
                     exclude.push_back({ low, high });
-                todo.push_back({ expr_ref(el, m()), str.size(), std::move(exclude), false });
+                todo.push_back({ expr_ref(el, m()), str.size(), exclude, false });
+                if (has_bounds)
+                    exclude.pop_back();
             }
             if (has_bounds) {
                 // I want this case to be processed first => push it last
