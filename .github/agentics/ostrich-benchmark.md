@@ -27,9 +27,10 @@ mkdir -p build
 cd build
 cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_DOTNET_BINDINGS=ON 2>&1 | tail -20
 
-# Build z3 binary and .NET bindings
-# Use -j1 to limit parallelism and avoid OOM on the GitHub Actions runner
-# (parallel C++ compilation + agent LLM memory together exceed available RAM)
+# Build z3 binary and .NET bindings SYNCHRONOUSLY (do NOT add & to background these commands).
+# Running ninja in the background while the LLM agent is also active causes OOM and kills the
+# agent process. Wait for each build command to finish before continuing.
+# -j1 limits parallelism to reduce peak memory usage alongside the LLM agent process.
 ninja -j1 z3 2>&1 | tail -30
 ninja -j1 build_z3_dotnet_bindings 2>&1 | tail -20
 
@@ -353,6 +354,7 @@ Post the Markdown report as a new GitHub Discussion using the `create-discussion
 ## Guidelines
 
 - **Always build from c3 branch**: The workspace is already checked out on c3; don't change branches.
+- **Synchronous builds only**: Never run `ninja` (or any other build command) in the background using `&`. Running the build concurrently with LLM inference causes the agent process to be killed by the OOM killer (exit 137) because C++ compilation and the LLM together exceed available RAM. Always wait for each build command to finish before proceeding.
 - **Release build**: The build uses `CMAKE_BUILD_TYPE=Release` for lower memory footprint and faster compilation on the GitHub Actions runner. The benchmark only needs verdict and timing output; no `-tr:` trace flags are used.
 - **Run all benchmarks**: Unlike the QF_S workflow, run every file in the archive — do not randomly sample.
 - **5-second timeout**: Pass `-T:5` to Z3 (both seq and nseq) and `-t:5000` to ZIPT (milliseconds). Use `timeout 7` as the outer OS-level guard to allow the solver to exit cleanly before being killed.
