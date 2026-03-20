@@ -2009,7 +2009,7 @@ namespace seq {
             if (mem.is_primitive())
                 continue;
             if (m_graph.check_regex_widening(*this, mem.m_str, mem.m_regex)) {
-                std::cout << "Widening conflict: " << mk_pp(mem.m_str->get_expr(), m) << " ∉ " << mk_pp(mem.m_regex->get_expr(), m) << std::endl;
+                // std::cout << "Widening conflict: " << mk_pp(mem.m_str->get_expr(), m) << " ∉ " << mk_pp(mem.m_regex->get_expr(), m) << std::endl;
                 m_is_general_conflict = true;
                 m_reason = backtrack_reason::regex;
                 return simplify_result::conflict;
