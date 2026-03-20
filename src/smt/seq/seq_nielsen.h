@@ -278,6 +278,7 @@ namespace seq {
         virtual void    push() = 0;
         virtual void    pop(unsigned num_scopes) = 0;
         virtual void    get_model(model_ref& mdl) { mdl = nullptr; }
+        virtual void    reset() = 0;
     };
 
     // simplification result for constraint processing

@@ -538,8 +538,6 @@ namespace seq {
         m_parikh(alloc(seq_parikh, sg)),
         m_seq_regex(alloc(seq::seq_regex, sg)),
         m_len_vars(sg.get_manager()) {
-
-        m_solver.push(); // we start by resetting the graph which will pop it first
     }
 
     nielsen_graph::~nielsen_graph() {
@@ -635,8 +633,7 @@ namespace seq {
         m_len_var_cache.clear();
         m_len_vars.reset();
         m_dep_mgr.reset();
-        m_solver.pop(1);
-        m_solver.push();
+        m_solver.reset();
     }
 
     std::ostream& nielsen_graph::display(std::ostream& out) const {

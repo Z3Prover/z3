@@ -68,6 +68,10 @@ namespace smt {
         void get_model(model_ref& mdl) override {
             m_kernel.get_model(mdl);
         }
+
+        void reset() override {
+            m_kernel.reset();
+        }
     };
 
 }
