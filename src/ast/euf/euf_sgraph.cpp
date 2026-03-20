@@ -527,8 +527,8 @@ namespace euf {
     snode* sgraph::brzozowski_deriv(snode* re, snode* elem, snode* allowed_range) {
         expr* re_expr = re->get_expr();
         expr* elem_expr = elem->get_expr();
-        if (!re_expr || !elem_expr)
-            return nullptr;
+        SASSERT(re_expr);
+        SASSERT(elem_expr);
         // std::cout << "Derivative of " << seq::snode_label_html(re, m) << "\nwith respect to " << seq::snode_label_html(elem, m) << std::endl;
         // if (allowed_range)
         //     std::cout << "using " << seq::snode_label_html(allowed_range, m) << std::endl;
@@ -536,6 +536,7 @@ namespace euf {
         
         // unwrap str.unit to get the character expression
         expr* ch = nullptr;
+        std::cout << elem->get_sort()->get_name() << std::endl;
         if (m_seq.str.is_unit(elem_expr, ch))
             elem_expr = ch;
 
@@ -579,8 +580,10 @@ namespace euf {
                     else
                         elem_expr = lo;
                 }
-                std::cout << "Unexpected node: " << mk_pp(elem_expr, m) << std::endl;
-                UNREACHABLE();
+                else {
+                    std::cout << "Unexpected node: " << mk_pp(elem_expr, m) << std::endl;
+                    UNREACHABLE();
+                }
             }
         }
         
