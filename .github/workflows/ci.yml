@@ -452,7 +452,8 @@ jobs:
         run: |
           set -e
           cd build
-          make -j$(nproc) libz3java.dylib
+          NPROC=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
+          make -j"$NPROC" libz3java.dylib
           cd ..
 
       - name: Validate libz3java.dylib is x86_64
