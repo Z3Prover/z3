@@ -18,9 +18,7 @@ Author:
 
 #include "ast/euf/euf_sgraph.h"
 #include "ast/euf/euf_seq_plugin.h"
-#include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
-#include "smt/seq/seq_nielsen.h"
 
 namespace euf {
 
