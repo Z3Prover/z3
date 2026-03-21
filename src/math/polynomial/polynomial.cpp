@@ -6964,13 +6964,444 @@ namespace polynomial {
             }
         }
 
+        // Bivariate Hensel lifting for multivariate factorization.
+        // Given q(x, y) with q(x, 0) = lc_val * h1(x) * h2(x) where h1, h2 are coprime monic,
+        // lift to q(x, y) = F1(x, y) * F2(x, y).
+        // Works in Zp[x] using a chosen prime.
+        // Returns true on success, false if this split doesn't yield a factorization
+        // or the prime is insufficient.
+        bool try_bivar_hensel_lift(
+            polynomial const * q,          // bivariate poly, q(x, 0) has known factorization
+            var x, var y,
+            unsigned deg_y,
+            upolynomial::numeral_vector const & uf1_monic, // first monic univariate factor
+            upolynomial::numeral_vector const & uf2_monic, // second monic univariate factor
+            numeral const & lc_val,          // leading coefficient value: lc(q, x)(y=0)
+            uint64_t prime,
+            polynomial_ref & F1_out,
+            polynomial_ref & F2_out) {
+
+            typedef upolynomial::zp_manager zp_mgr;
+            typedef upolynomial::zp_numeral_manager zp_nm;
+
+            auto & nm = upm().m();
+            zp_mgr zp_upm(m_limit, nm.m());
+            scoped_numeral p_num(m_manager);
+            m_manager.set(p_num, static_cast<int>(prime));
+            zp_upm.set_zp(p_num);
+            zp_nm & znm = zp_upm.m();
+
+            // Convert h1, h2 to Zp
+            upolynomial::scoped_numeral_vector f1_p(nm), f2_p(nm);
+            for (unsigned i = 0; i < uf1_monic.size(); i++) {
+                f1_p.push_back(numeral());
+                znm.set(f1_p.back(), uf1_monic[i]);
+            }
+            zp_upm.trim(f1_p);
+            for (unsigned i = 0; i < uf2_monic.size(); i++) {
+                f2_p.push_back(numeral());
+                znm.set(f2_p.back(), uf2_monic[i]);
+            }
+            zp_upm.trim(f2_p);
+
+            // Make monic in Zp
+            zp_upm.mk_monic(f1_p.size(), f1_p.data());
+            zp_upm.mk_monic(f2_p.size(), f2_p.data());
+
+            // Extended GCD in Zp[x]: s*f1 + t*f2 = 1
+            upolynomial::scoped_numeral_vector s_vec(nm), t_vec(nm), d_vec(nm);
+            zp_upm.ext_gcd(f1_p, f2_p, s_vec, t_vec, d_vec);
+
+            // Check gcd = 1
+            if (d_vec.size() != 1 || !znm.is_one(d_vec[0]))
+                return false;
+
+            // Extract coefficients of q w.r.t. y: q_coeffs[j] = coeff(q, y, j) as upolynomials in Zp[x]
+            vector<upolynomial::scoped_numeral_vector*> q_coeffs;
+            for (unsigned j = 0; j <= deg_y; j++) {
+                polynomial_ref cj(pm());
+                cj = coeff(q, y, j);
+                auto * vec = alloc(upolynomial::scoped_numeral_vector, nm);
+                if (!is_zero(cj) && is_univariate(cj)) {
+                    upm().to_numeral_vector(cj, *vec);
+                }
+                else if (!is_zero(cj) && is_const(cj)) {
+                    vec->push_back(numeral());
+                    nm.set(vec->back(), cj->a(0));
+                }
+                else if (!is_zero(cj)) {
+                    // q is not bivariate, abort
+                    for (auto * v : q_coeffs) dealloc(v);
+                    dealloc(vec);
+                    return false;
+                }
+                // Convert to Zp
+                for (unsigned i = 0; i < vec->size(); i++)
+                    znm.p_normalize((*vec)[i]);
+                zp_upm.trim(*vec);
+                q_coeffs.push_back(vec);
+            }
+
+            // Initialize lifted factor coefficient arrays
+            // F1[j], F2[j] are the coefficient of y^j in the lifted factors, as upolynomials in Zp[x]
+            vector<upolynomial::scoped_numeral_vector*> F1_coeffs, F2_coeffs;
+            for (unsigned j = 0; j <= deg_y; j++) {
+                F1_coeffs.push_back(alloc(upolynomial::scoped_numeral_vector, nm));
+                F2_coeffs.push_back(alloc(upolynomial::scoped_numeral_vector, nm));
+            }
+
+            // F1[0] = f1, F2[0] = lc_val * f2 (absorb leading coefficient)
+            zp_upm.set(f1_p.size(), f1_p.data(), *F1_coeffs[0]);
+            scoped_numeral lc_p(m_manager);
+            znm.set(lc_p, lc_val);
+            upolynomial::scoped_numeral_vector lc_f2(nm);
+            zp_upm.set(f2_p.size(), f2_p.data(), lc_f2);
+            zp_upm.mul(lc_f2, lc_p);
+            zp_upm.set(lc_f2.size(), lc_f2.data(), *F2_coeffs[0]);
+
+            // Hensel lifting: for j = 1, ..., deg_y
+            for (unsigned j = 1; j <= deg_y; j++) {
+                checkpoint();
+
+                // Compute e_j = q_coeffs[j] - sum_{a+b=j, a<j, b<j} F1_coeffs[a] * F2_coeffs[b]
+                upolynomial::scoped_numeral_vector e_j(nm);
+                if (j < q_coeffs.size() && !q_coeffs[j]->empty())
+                    zp_upm.set(q_coeffs[j]->size(), q_coeffs[j]->data(), e_j);
+
+                for (unsigned a = 0; a <= j; a++) {
+                    unsigned b = j - a;
+                    if (b > deg_y) continue;
+                    if (a == j && b == 0) continue; // skip F1[j]*F2[0], that's what we're computing
+                    if (a == 0 && b == j) continue;  // skip F1[0]*F2[j]
+                    if (F1_coeffs[a]->empty() || F2_coeffs[b]->empty()) continue;
+
+                    upolynomial::scoped_numeral_vector prod(nm);
+                    zp_upm.mul(F1_coeffs[a]->size(), F1_coeffs[a]->data(),
+                               F2_coeffs[b]->size(), F2_coeffs[b]->data(), prod);
+                    upolynomial::scoped_numeral_vector new_e(nm);
+                    zp_upm.sub(e_j.size(), e_j.data(), prod.size(), prod.data(), new_e);
+                    e_j.swap(new_e);
+                }
+
+                // Also subtract F1[0]*F2[j] + F1[j]*F2[0] contribution
+                // Since F1[j] and F2[j] are what we're computing, the equation is:
+                // e_j = F1[j] * F2[0] + F1[0] * F2[j] + (cross terms already subtracted)
+                // We need: A * F2[0] + B * F1[0] = e_j with deg(A) < deg(f1), deg(B) < deg(f2)
+                // Since F1[0] = f1 and F2[0] = lc*f2:
+                // A * (lc*f2) + B * f1 = e_j
+                // lc * (A * f2) + B * f1 = e_j
+                // Using Bezout: s*f1 + t*f2 = 1, multiply by e_j:
+                // (e_j*s)*f1 + (e_j*t)*f2 = e_j
+                // So: B_raw = e_j*s, A_raw = e_j*t
+                // Then A = (e_j*t mod f1) / lc and B = (e_j - A*lc*f2) / f1
+                // But we need to handle the lc factor.
+
+                // Actually, the Bezout relation is for the MONIC factors f1, f2.
+                // The actual F2[0] = lc_val * f2.
+                // Equation: F1[j] * (lc_val * f2) + F2[j] * f1 = e_j
+                // Rearrange: lc_val * F1[j] * f2 + F2[j] * f1 = e_j
+                // Let A = lc_val * F1[j] and B = F2[j]:
+                // A * f2 + B * f1 = e_j
+                // Solution: A = (e_j * t) mod f1, B = (e_j * s) mod f2
+                // Then F1[j] = A / lc_val  (in Zp, division is multiplication by inverse)
+                // and  F2[j] = B
+
+                if (e_j.empty()) continue;
+
+                // Compute A = (e_j * t) mod f1
+                upolynomial::scoped_numeral_vector e_t(nm), A_val(nm), Q_tmp(nm);
+                zp_upm.mul(e_j.size(), e_j.data(), t_vec.size(), t_vec.data(), e_t);
+                zp_upm.div_rem(e_t.size(), e_t.data(), f1_p.size(), f1_p.data(), Q_tmp, A_val);
+
+                // Compute B = (e_j * s) mod f2
+                upolynomial::scoped_numeral_vector e_s(nm), B_val(nm);
+                zp_upm.mul(e_j.size(), e_j.data(), s_vec.size(), s_vec.data(), e_s);
+                zp_upm.div_rem(e_s.size(), e_s.data(), f2_p.size(), f2_p.data(), Q_tmp, B_val);
+
+                // F1[j] = A / lc_val in Zp
+                scoped_numeral lc_inv(m_manager);
+                znm.set(lc_inv, lc_val);
+                znm.inv(lc_inv);
+                zp_upm.mul(A_val, lc_inv);
+                zp_upm.set(A_val.size(), A_val.data(), *F1_coeffs[j]);
+
+                // F2[j] = B
+                zp_upm.set(B_val.size(), B_val.data(), *F2_coeffs[j]);
+            }
+
+            // Convert Zp coefficients to centered Z representatives and build multivariate polynomials
+            // F1(x, y) = sum_j F1_coeffs[j](x) * y^j
+            // For centered rep: if coeff > p/2, subtract p
+            scoped_numeral half_p(m_manager);
+            m_manager.set(half_p, static_cast<int>(prime));
+            m_manager.div(half_p, mpz(2), half_p);
+
+            polynomial_ref F1_poly(pm()), F2_poly(pm());
+            F1_poly = mk_zero();
+            F2_poly = mk_zero();
+
+            for (unsigned j = 0; j <= deg_y; j++) {
+                // Center the coefficients
+                for (unsigned i = 0; i < F1_coeffs[j]->size(); i++) {
+                    if (m_manager.gt((*F1_coeffs[j])[i], half_p))
+                        m_manager.sub((*F1_coeffs[j])[i], p_num, (*F1_coeffs[j])[i]);
+                }
+                for (unsigned i = 0; i < F2_coeffs[j]->size(); i++) {
+                    if (m_manager.gt((*F2_coeffs[j])[i], half_p))
+                        m_manager.sub((*F2_coeffs[j])[i], p_num, (*F2_coeffs[j])[i]);
+                }
+
+                // Build y^j * F_coeffs[j](x)
+                if (!F1_coeffs[j]->empty()) {
+                    polynomial_ref univ(pm());
+                    univ = to_polynomial(F1_coeffs[j]->size(), F1_coeffs[j]->data(), x);
+                    if (!is_zero(univ)) {
+                        monomial_ref yj(pm());
+                        yj = mk_monomial(y, j);
+                        polynomial_ref term(pm());
+                        term = mul(yj, univ);
+                        F1_poly = add(F1_poly, term);
+                    }
+                }
+                if (!F2_coeffs[j]->empty()) {
+                    polynomial_ref univ(pm());
+                    univ = to_polynomial(F2_coeffs[j]->size(), F2_coeffs[j]->data(), x);
+                    if (!is_zero(univ)) {
+                        monomial_ref yj(pm());
+                        yj = mk_monomial(y, j);
+                        polynomial_ref term(pm());
+                        term = mul(yj, univ);
+                        F2_poly = add(F2_poly, term);
+                    }
+                }
+            }
+
+            // Cleanup allocated vectors
+            for (auto * v : q_coeffs) dealloc(v);
+            for (auto * v : F1_coeffs) dealloc(v);
+            for (auto * v : F2_coeffs) dealloc(v);
+
+            // Verify: q == F1 * F2 over Z[x, y]
+            polynomial_ref product(pm());
+            product = mul(F1_poly, F2_poly);
+            if (!eq(product, q))
+                return false;
+
+            F1_out = F1_poly;
+            F2_out = F2_poly;
+            return true;
+        }
+
         void factor_n_sqf_pp(polynomial const * p, factors & r, var x, unsigned k) {
             SASSERT(degree(p, x) > 2);
             SASSERT(is_primitive(p, x));
             SASSERT(is_square_free(p, x));
             TRACE(factor, tout << "factor square free (degree > 2):\n"; p->display(tout, m_manager); tout << "\n";);
 
-            // TODO: invoke Dejan's procedure
+            if (is_univariate(p)) {
+                factor_sqf_pp_univ(p, r, k, factor_params());
+                return;
+            }
+
+            // Multivariate factorization via evaluation + bivariate Hensel lifting.
+            // Strategy: try (main_var, lift_var, eval_point) configurations.
+            // For each, reduce to bivariate, factor via Hensel lifting, then check if
+            // the bivariate factors divide the original polynomial.
+
+            var_vector all_vars;
+            m_wrapper.vars(p, all_vars);
+
+            static const int eval_values[] = { 0, 1, -1, 2, -2, 3, -3 };
+
+            static const uint64_t candidate_primes[] = {
+                39103, 104729, 1000003, 100000007
+            };
+
+            // Try the main variable x first (caller chose it), then others by degree
+            svector<var> main_vars;
+            main_vars.push_back(x);
+            svector<std::pair<unsigned, var>> var_by_deg;
+            for (var v : all_vars)
+                if (v != x)
+                    var_by_deg.push_back(std::make_pair(degree(p, v), v));
+            std::sort(var_by_deg.begin(), var_by_deg.end(),
+                      [](auto const& a, auto const& b) { return a.first > b.first; });
+            for (auto const& [d, v] : var_by_deg)
+                if (d > 1) main_vars.push_back(v);
+
+            for (var main_var : main_vars) {
+                unsigned deg_main = degree(p, main_var);
+                if (deg_main <= 1) continue;
+
+                for (var lift_var : all_vars) {
+                    if (lift_var == main_var) continue;
+                    checkpoint();
+
+                    // Variables to evaluate away
+                    var_vector eval_vars;
+                    for (var v : all_vars)
+                        if (v != main_var && v != lift_var)
+                            eval_vars.push_back(v);
+                    unsigned n_eval = eval_vars.size();
+
+                    // Try a small number of evaluation point combos for extra variables
+                    unsigned n_eval_values = sizeof(eval_values) / sizeof(eval_values[0]);
+                    unsigned max_combos = (n_eval == 0) ? 1 : std::min(n_eval_values, 5u);
+
+                    for (unsigned combo = 0; combo < max_combos; combo++) {
+                        checkpoint();
+
+                        // Reduce to bivariate
+                        polynomial_ref p_bivar(pm());
+                        if (n_eval > 0) {
+                            svector<numeral> eval_vals;
+                            eval_vals.resize(n_eval);
+                            unsigned c = combo;
+                            for (unsigned i = 0; i < n_eval; i++) {
+                                m_manager.set(eval_vals[i], eval_values[c % n_eval_values]);
+                                c /= n_eval_values;
+                            }
+                            p_bivar = substitute(p, n_eval, eval_vars.data(), eval_vals.data());
+                            for (unsigned i = 0; i < n_eval; i++)
+                                m_manager.del(eval_vals[i]);
+                        }
+                        else
+                            p_bivar = const_cast<polynomial*>(p);
+
+                        if (degree(p_bivar, main_var) != deg_main) continue;
+                        unsigned deg_lift = degree(p_bivar, lift_var);
+                        if (deg_lift == 0) continue;
+
+                        // Find a good evaluation point a for the lift variable
+                        for (int a : eval_values) {
+                            numeral val_raw;
+                            m_manager.set(val_raw, a);
+                            polynomial_ref p_univ(pm());
+                            p_univ = substitute(p_bivar, 1, &lift_var, &val_raw);
+                            m_manager.del(val_raw);
+
+                            if (!is_univariate(p_univ)) continue;
+                            if (degree(p_univ, main_var) != deg_main) continue;
+                            if (!is_square_free(p_univ, main_var)) continue;
+
+                            // Factor the univariate polynomial
+                            up_manager::scoped_numeral_vector p_univ_vec(upm().m());
+                            polynomial_ref p_univ_ref(pm());
+                            p_univ_ref = p_univ;
+                            upm().to_numeral_vector(p_univ_ref, p_univ_vec);
+                            // Make primitive before factoring
+                            upm().get_primitive(p_univ_vec, p_univ_vec);
+                            up_manager::factors univ_fs(upm());
+                            upolynomial::factor_square_free(upm(), p_univ_vec, univ_fs);
+
+                            unsigned nf = univ_fs.distinct_factors();
+                            if (nf <= 1) continue;
+
+                            // Translate so evaluation is at lift_var = 0
+                            polynomial_ref q(pm());
+                            scoped_numeral a_val(m_manager);
+                            m_manager.set(a_val, a);
+                            q = translate(p_bivar, lift_var, a_val);
+
+                            // Get leading coefficient at evaluation point
+                            polynomial_ref lc_poly(pm());
+                            lc_poly = coeff(q, main_var, deg_main);
+                            scoped_numeral lc_at_0(m_manager);
+                            if (is_const(lc_poly))
+                                m_manager.set(lc_at_0, lc_poly->a(0));
+                            else {
+                                numeral zero_raw;
+                                m_manager.set(zero_raw, 0);
+                                polynomial_ref lc_eval(pm());
+                                lc_eval = substitute(lc_poly, 1, &lift_var, &zero_raw);
+                                m_manager.del(zero_raw);
+                                if (is_const(lc_eval))
+                                    m_manager.set(lc_at_0, lc_eval->a(0));
+                                else
+                                    continue;
+                            }
+
+                            // Try splits with increasing primes
+                            for (uint64_t prime : candidate_primes) {
+                                scoped_numeral prime_num(m_manager);
+                                m_manager.set(prime_num, static_cast<int64_t>(prime));
+                                scoped_numeral gcd_val(m_manager);
+                                m_manager.gcd(prime_num, lc_at_0, gcd_val);
+                                if (!m_manager.is_one(gcd_val)) continue;
+
+                                for (unsigned split = 1; split <= nf / 2; split++) {
+                                    checkpoint();
+
+                                    upolynomial::scoped_numeral_vector h1(upm().m()), h2(upm().m());
+                                    upm().set(univ_fs[0].size(), univ_fs[0].data(), h1);
+                                    for (unsigned i = 1; i < split; i++) {
+                                        upolynomial::scoped_numeral_vector temp(upm().m());
+                                        upm().mul(h1.size(), h1.data(), univ_fs[i].size(), univ_fs[i].data(), temp);
+                                        h1.swap(temp);
+                                    }
+                                    upm().set(univ_fs[split].size(), univ_fs[split].data(), h2);
+                                    for (unsigned i = split + 1; i < nf; i++) {
+                                        upolynomial::scoped_numeral_vector temp(upm().m());
+                                        upm().mul(h2.size(), h2.data(), univ_fs[i].size(), univ_fs[i].data(), temp);
+                                        h2.swap(temp);
+                                    }
+
+                                    auto & nm_ref = upm().m();
+                                    if (!h1.empty() && nm_ref.is_neg(h1.back())) {
+                                        for (unsigned i = 0; i < h1.size(); i++)
+                                            nm_ref.neg(h1[i]);
+                                    }
+                                    if (!h2.empty() && nm_ref.is_neg(h2.back())) {
+                                        for (unsigned i = 0; i < h2.size(); i++)
+                                            nm_ref.neg(h2[i]);
+                                    }
+
+                                    polynomial_ref F1(pm()), F2(pm());
+                                    if (!try_bivar_hensel_lift(q, main_var, lift_var, deg_lift, h1, h2, lc_at_0, prime, F1, F2))
+                                        continue;
+
+                                    // Translate back
+                                    scoped_numeral neg_a(m_manager);
+                                    m_manager.set(neg_a, -a);
+                                    F1 = translate(F1, lift_var, neg_a);
+                                    F2 = translate(F2, lift_var, neg_a);
+
+                                    if (n_eval == 0) {
+                                        // p is bivariate, factors are exact
+                                        factor_sqf_pp(F1, r, x, k, factor_params());
+                                        factor_sqf_pp(F2, r, x, k, factor_params());
+                                        return;
+                                    }
+
+                                    // Multivariate: check if bivariate factors divide original p
+                                    polynomial_ref cands[] = { F1, F2 };
+                                    for (polynomial_ref & cand : cands) {
+                                        if (is_const(cand)) continue;
+                                        polynomial_ref Q_div(pm()), R_div(pm());
+                                        var div_var = max_var(cand);
+                                        exact_pseudo_division(const_cast<polynomial*>(p), cand, div_var, Q_div, R_div);
+                                        if (!is_zero(R_div)) continue;
+                                        polynomial_ref check(pm());
+                                        check = mul(cand, Q_div);
+                                        if (eq(check, p)) {
+                                            factor_sqf_pp(cand, r, x, k, factor_params());
+                                            if (!is_const(Q_div) && degree(Q_div, x) > 0)
+                                                factor_sqf_pp(Q_div, r, x, k, factor_params());
+                                            else if (is_const(Q_div))
+                                                acc_constant(r, Q_div->a(0));
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                            // Found univariate factorization but Hensel lift didn't work for any prime.
+                            // Try the next evaluation point.
+                        }
+                    }
+                }
+            }
+
+            // Could not factor, return p as-is
             r.push_back(const_cast<polynomial*>(p), k);
         }
 

@@ -1,3 +1,4 @@
 Polynomial manipulation package.
 It contains support for univariate (upolynomial.*) and multivariate polynomials (polynomial.*).
-Multivariate polynomial factorization does not work yet (polynomial_factorization.*), and it is disabled.
+Multivariate polynomial factorization uses evaluation and GCD recovery: evaluate away extra variables
+to get a univariate polynomial, factor it, then recover multivariate factors via GCD computation.
