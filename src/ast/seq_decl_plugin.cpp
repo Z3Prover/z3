@@ -687,6 +687,10 @@ void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol cons
     op_names.push_back(builtin_name("int.to.str", OP_STRING_ITOS));
     op_names.push_back(builtin_name("re.nostr",  _OP_REGEXP_EMPTY));
     op_names.push_back(builtin_name("re.complement", OP_RE_COMPLEMENT));
+    // Non-greedy quantifiers: semantically identical to greedy for satisfiability
+    op_names.push_back(builtin_name("re.+?", OP_RE_PLUS));
+    op_names.push_back(builtin_name("re.*?", OP_RE_STAR));
+    op_names.push_back(builtin_name("re.??", OP_RE_OPTION));
     op_names.push_back(builtin_name("str.from_ubv", OP_STRING_UBVTOS));
     op_names.push_back(builtin_name("str.from_sbv", OP_STRING_SBVTOS));
 }

@@ -200,6 +200,19 @@ namespace smt {
         expr* e = ctx.bool_var2expr(v);
         expr* s = nullptr, *re = nullptr;
         TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
+        // Normalize (= bool_seq_expr true/false) to a direct assignment.
+        // Handles patterns like (not (= (str.contains "A" x) true)).
+        {
+            expr* eq_lhs = nullptr, *eq_rhs = nullptr;
+            if (m.is_eq(e, eq_lhs, eq_rhs)) {
+                if (m.is_true(eq_rhs))
+                    e = eq_lhs;
+                else if (m.is_false(eq_rhs)) { e = eq_lhs; is_true = !is_true; }
+                else if (m.is_true(eq_lhs))
+                    e = eq_rhs;
+                else if (m.is_false(eq_lhs)) { e = eq_rhs; is_true = !is_true; }
+            }
+        }
         if (m_seq.str.is_in_re(e, s, re)) {
             euf::snode* sn_str = get_snode(s);
             euf::snode* sn_re  = get_snode(re);
@@ -953,6 +966,10 @@ namespace smt {
             if (std::holds_alternative<eq_item>(item)) { has_eqs = true; break; }
 
         bool any_undef = false;
+        // Track whether any variable's intersection only accepts "" (nullable-only).
+        // When true, we must not shortcut to SAT: the only witness is "", which may
+        // be excluded by a disequality (e.g. var ≠ "").
+        bool any_nullable_only = false;
 
         // Check intersection emptiness for each variable.
         for (auto& kv : var_to_mems) {
@@ -985,19 +1002,35 @@ namespace smt {
                 set_conflict(eqs, lits);
                 return l_true;   // conflict asserted
             }
-            if (result == l_undef)
+            if (result == l_undef) {
                 any_undef = true;
-            // l_false = non-empty intersection, this variable's constraints are satisfiable
+                continue;
+            }
+            // l_false = intersection is non-empty; check if it has a non-empty witness.
+            // Build the intersection snode to call accepts_nonempty_string.
+            euf::snode* inter = nullptr;
+            for (euf::snode* re : regexes) {
+                if (!inter) { inter = re; continue; }
+                expr* r1 = inter->get_expr();
+                expr* r2 = re->get_expr();
+                if (!r1 || !r2) { inter = nullptr; break; }
+                expr_ref intersection(m_seq.re.mk_inter(r1, r2), m);
+                inter = m_sgraph.mk(intersection);
+                if (!inter) break;
+            }
+            if (!inter || !m_regex.accepts_nonempty_string(inter))
+                any_nullable_only = true;
         }
 
         if (any_undef)
             return l_undef;  // cannot fully determine; let DFS decide
 
         // All variables' regex intersections are non-empty.
-        // If there are no word equations, variables are independent and
-        // each can be assigned a witness string → SAT.
-        if (all_primitive && !has_eqs && !has_unhandled_preds()) {
-            TRACE(seq, tout << "nseq regex precheck: all intersections non-empty, "
+        // Only shortcut to SAT when every variable's intersection accepts a non-empty
+        // witness string.  If any intersection is nullable-only (= {""}) we cannot
+        // guarantee a witness consistent with disequalities such as var ≠ "".
+        if (all_primitive && !has_eqs && !has_unhandled_preds() && !any_nullable_only) {
+            TRACE(seq, tout << "nseq regex precheck: all intersections have non-empty witnesses, "
                             << "no word eqs → SAT\n";);
             return l_false;  // signals SAT (non-empty / satisfiable)
         }

@@ -191,6 +191,13 @@ namespace seq {
         lbool check_intersection_emptiness(ptr_vector<euf::snode> const& regexes,
                                            unsigned max_states = 10000);
 
+        // Check if the language of re contains at least one non-empty string.
+        // Returns true  if a non-empty string is definitely accepted.
+        // Returns false if no non-empty string is accepted, or inconclusive.
+        // Used by the regex precheck to avoid false SAT shortcuts for languages
+        // that only contain the empty string, e.g. [a-u]* ∩ v* = {""}.
+        bool accepts_nonempty_string(euf::snode* re);
+
         // Check if L(subset_re) ⊆ L(superset_re).
         // Computed as: subset_re ∩ complement(superset_re) = ∅.
         // Mirrors ZIPT NielsenNode.IsLanguageSubset (NielsenNode.cs:1382-1385)

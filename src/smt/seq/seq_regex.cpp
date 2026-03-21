@@ -613,6 +613,37 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
+    // Check if the language of re accepts at least one non-empty string.
+    // Returns true  if a non-empty string is definitely accepted.
+    // Returns false conservatively (also false when inconclusive).
+    // Used by the regex precheck SAT shortcut: only shortcut to SAT when the
+    // intersection language contains a non-empty witness, avoiding false SAT
+    // for intersections like [a-u]* ∩ v* = {""} when var ≠ "" is also asserted.
+    // -----------------------------------------------------------------------
+
+    bool seq_regex::accepts_nonempty_string(euf::snode* re) {
+        if (!re || re->is_fail()) return false;
+        // Quick structural checks: full-seq, full-char, and range always
+        // accept non-empty strings (they require at least one character).
+        if (re->is_full_seq() || re->is_full_char()) return true;
+        // Only explore ground regexes; non-ground could expand unpredictably.
+        if (!re->is_ground()) return true; // conservative: assume non-empty exists
+        // For s_other snodes (unrecognized kinds), be conservative.
+        if (re->kind() == euf::snode_kind::s_other) return true;
+        // Compute one level of derivatives: if any derivative is non-fail and
+        // non-empty, then the regex accepts some string starting with that char.
+        euf::snode_vector reps;
+        if (!get_alphabet_representatives(re, reps))
+            return true; // conservative
+        for (euf::snode* ch : reps) {
+            euf::snode* deriv = m_sg.brzozowski_deriv(re, ch);
+            if (deriv && !deriv->is_fail() && !is_empty_regex(deriv))
+                return true;
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
     // Language subset check: L(A) ⊆ L(B)
     // via intersection(A, complement(B)) = ∅
     // Mirrors ZIPT NielsenNode.IsLanguageSubset (NielsenNode.cs:1382-1385)

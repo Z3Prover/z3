@@ -2453,7 +2453,13 @@ namespace seq {
         if (!node->is_extended()) {
             bool ext = generate_extensions(node);
             IF_VERBOSE(0, display(verbose_stream(), node));
-            VERIFY(ext);
+            if (!ext) {
+                // No modifier applies: the node is stuck (unsupported equation form).
+                // Mark as extended with no children to avoid redundant re-exploration,
+                // and return unknown so the DFS will report FC_GIVEUP.
+                node->set_extended(true);
+                return search_result::unknown;
+            }
             node->set_extended(true);
             ++m_stats.m_num_extensions;
         }
