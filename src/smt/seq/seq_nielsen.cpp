@@ -17,6 +17,12 @@ Author:
     Clemens Eisenhofer 2026-03-02
     Nikolaj Bjorner (nbjorner) 2026-03-02
 
+NSB review:
+
+   ostrich\substring2b.smt2, ostrich\substring.smt2
+   - We are missing rewrites for unit(x) = unit('a') that would eliminate x by a.
+
+
 --*/
 
 #include "smt/seq/seq_nielsen.h"
@@ -2524,21 +2530,23 @@ namespace seq {
     bool nielsen_graph::apply_det_modifier(nielsen_node* node) {
         for (str_eq const& eq : node->str_eqs()) {
             SASSERT(!eq.is_trivial()); // We should have simplified it away before
-            if (!eq.m_lhs || !eq.m_rhs)
+            auto l = eq.m_lhs, r = eq.m_rhs;
+            if (!l || !r)
                 continue;
 
             // variable definition: x = t where x is a single var and x ∉ vars(t)
             // → deterministically substitute x → t throughout the node
             euf::snode* var = nullptr;
             euf::snode* def;
-            if (eq.m_lhs->is_var() && !snode_contains_var(eq.m_rhs, eq.m_lhs)) {
-                var = eq.m_lhs;
-                def = eq.m_rhs;
+            if (l->is_var() && !snode_contains_var(r, l)) {
+                var = l;
+                def = r;
             }
-            else if (eq.m_rhs->is_var() && !snode_contains_var(eq.m_lhs, eq.m_rhs)) {
-                var = eq.m_rhs;
-                def = eq.m_lhs;
+            else if (r->is_var() && !snode_contains_var(l, r)) {
+                var = r;
+                def = l;
             }
+
 
             if (var) {
                 nielsen_node* child = mk_child(node);
