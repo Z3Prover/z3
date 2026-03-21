@@ -60,8 +60,17 @@ namespace smt {
             literal lit = mk_literal(e);
             ctx.force_phase(lit);
         };
-        std::function < void(void)> ensure_digit_axiom = [&]() {
-            throw default_exception("digit axioms should be added lazily via seq_axioms::ensure_digit_axiom");
+        std::function < void(void)> ensure_digit_axiom = [this, add_clause]() {
+            if (!m_digits_initialized) {
+                for (unsigned i = 0; i < 10; ++i) {
+                    expr_ref cnst(m_seq.mk_char('0' + i), m);
+                    expr_ref_vector clause(m);
+                    clause.push_back(m.mk_eq(m_axioms.sk().mk_digit2int(cnst), m_autil.mk_int(i)));
+                    add_clause(clause);
+                }
+                get_context().push_trail(value_trail<bool>(m_digits_initialized));
+                m_digits_initialized = true;
+            }
         };
         std::function<void(expr *)> mark_no_diseq = [&](expr *e) { 
             m_no_diseq_set.insert(e);

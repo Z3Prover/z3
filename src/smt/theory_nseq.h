@@ -68,6 +68,7 @@ namespace smt {
         unsigned m_num_conflicts        = 0;
         unsigned m_num_final_checks     = 0;
         unsigned m_num_length_axioms    = 0;
+        bool     m_digits_initialized   = false;
 
         // map from context enode to private sgraph snode
         obj_map<expr, euf::snode*> m_expr2snode;
