@@ -2546,6 +2546,14 @@ namespace seq {
                 var = r;
                 def = l;
             }
+            else if (l->is_unit() && l->arg(0)->is_var() && m_seq.str.is_unit(r->get_expr())) {
+                var = l->arg(0);
+                def = r->arg(0);
+            }
+            else if (r->is_unit() && r->arg(0)->is_var() && m_seq.str.is_unit(l->get_expr())) {
+                var = r->arg(0);
+                def = l->arg(0);
+            }
 
 
             if (var) {

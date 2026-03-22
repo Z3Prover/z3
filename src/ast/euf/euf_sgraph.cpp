@@ -514,9 +514,17 @@ namespace euf {
         if (n->is_empty() || n->is_char())
             return n;
         if (n->is_concat()) {
-            return mk_concat(subst(n->arg(0), var, replacement),
-                                      subst(n->arg(1), var, replacement));
+            auto s1 = subst(n->arg(0), var, replacement);
+            auto s2 = subst(n->arg(1), var, replacement);
+            if (s1 != n->arg(0) || s2 != n->arg(1))
+                return mk_concat(s1, s2);
+            else
+                return n;
         }
+        // substitution can also work for expressions under unit.
+        // this unifies two kinds of substitutions used in ZIPT (right Clemens ?).
+        if (n->is_unit() && n->arg(0) == var)
+            return mk(m_seq.str.mk_unit(replacement->get_expr()));
         // for non-concat compound nodes (power, star, etc.), no substitution into children
         return n;
     }
