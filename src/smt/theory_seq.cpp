@@ -3300,7 +3300,7 @@ void theory_seq::relevant_eh(app* n) {
         m_util.str.is_unit(n) ||
         m_util.str.is_last_index(n) ||
         m_util.str.is_length(n) || 
-        /* m_util.str.is_replace_all(n) || uncomment to enable axiomatization */
+        m_util.str.is_replace_all(n) ||
         m_util.str.is_le(n)) {
         enque_axiom(n);
     }
@@ -3329,8 +3329,7 @@ void theory_seq::relevant_eh(app* n) {
     if (m_util.str.is_length(n, arg) && !has_length(arg) && ctx.e_internalized(arg)) 
         add_length_to_eqc(arg);
 
-    if (m_util.str.is_replace_all(n) ||
-        m_util.str.is_replace_re(n) ||
+    if (m_util.str.is_replace_re(n) ||
         m_util.str.is_replace_re_all(n)) {
         add_unhandled_expr(n);
     }

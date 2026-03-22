@@ -1083,6 +1083,15 @@ namespace seq {
     // Then assert
     // ra(s, p, t, replace_all(s, p, t))
     //
+    // ra(s, p, t, r) is a recursive predicate:
+    //   ra(s, p, t, r) iff replace_all(s, p, t) = r
+    //
+    // Base case, empty s or p: r = s
+    // Match case, prefix(p, s): s = p ++ s', r = t ++ r', ra(s', p, t, r')
+    // No-match case: r[0] = s[0], ra(s[1:], p, t, r[1:])
+    //
+    // Assert: ra(s, p, t, replace_all(s, p, t))
+    //
     void axioms::replace_all_axiom(expr* r) {
         expr* s = nullptr, *p = nullptr, *t = nullptr;
         VERIFY(seq.str.is_replace_all(r, s, p, t)); 
@@ -1093,47 +1102,35 @@ namespace seq {
         sort* domain[4] = { srt, srt, srt, srt };
         auto d = plugin.ensure_def(symbol("ra"), 4, domain, m.mk_bool_sort(), true);
         func_decl* ra = d.get_def()->get_decl();
-        (void)ra;
-        sort* isrt = a.mk_int();
-        var_ref vi(m.mk_var(5, isrt), m);
-        var_ref vj(m.mk_var(4, isrt), m);
+        // vars: vs=var(3), vp=var(2), vt=var(1), vr=var(0)
         var_ref vs(m.mk_var(3, srt), m);
         var_ref vp(m.mk_var(2, srt), m);
         var_ref vt(m.mk_var(1, srt), m);
         var_ref vr(m.mk_var(0, srt), m);
-        var* vars[6] = { vi, vj, vs, vp, vt, vr };
-        (void)vars;
-        expr_ref len_s(seq.str.mk_length(vs), m);
-        expr_ref len_r(seq.str.mk_length(vr), m);
-        expr_ref test1(m.mk_eq(len_s, vi), m);
-        expr_ref branch1(m.mk_eq(len_r, vj), m);
-        expr_ref test2(m.mk_and(a.mk_gt(len_s, vi), m.mk_eq(vi, a.mk_int(0)), seq.str.mk_is_empty(vp)), m);
-        expr_ref branch2(m.mk_eq(vr, seq.str.mk_concat(vt, vs)), m);
-        throw default_exception("replace_all is not supported");
-#if 0
-        expr_ref test3(, m);
-        expr_ref s1(m_sk.mk_prefix_inv(vp, vs), m);
-        expr_ref r1(m_sk.mk_prefix_inv(vp, vr), m);
-        expr* args1[4] = { s1, vp, vt, r1 };
-        expr_ref branch3(m.mk_and(m.mk_eq(seq.str.mk_concat(vp, s1), vs), 
-                                  m.mk_eq(seq.str.mk_concat(vr, r1), vr),
-                                  m.mk_app(ra, 4, args1)
-                                  ), m);
-        expr_ref s0(m), r0(m);
-        m_sk.decompose(vs, s0, s1);
-        m_sk.decompose(vr, r0, r1);
-        expr* args2[4] = { s1, vp, vt, r1 };
-        expr_ref branch4(m.mk_and(m.mk_eq(vs, seq.str.mk_concat(s0, s1)), 
-                                  m.mk_eq(vr, seq.str.mk_concat(s0, r1)),
-                                  m.mk_app(ra, 4, args2)), m);
-        // s = [s0] + s' && r = [s0] + r' && ra(s', p, t, r')
-
-        expr_ref body(m.mk_ite(test1, branch1, m.mk_ite(test2, branch2, m.mk_ite(test3, branch3, branch4))), m);        
-        plugin.set_definition(replace, d, true, 4, vars, body);
-        expr* args3[4] = { s, p, t, r };
-        expr_ref lit(m.mk_app(ra, 4, args3), m);
+        var* vars[4] = { vs, vp, vt, vr };
+        // base case: empty s or empty p -> r = s (no replacements)
+        expr_ref test1(m.mk_or(seq.str.mk_is_empty(vs), seq.str.mk_is_empty(vp)), m);
+        expr_ref branch1(m.mk_eq(vr, vs), m);
+        // match case: prefix(p, s) -> s = p ++ s_tail, r = t ++ r_tail, ra(s_tail, p, t, r_tail)
+        expr_ref s_tail(m_sk.mk_prefix_inv(vp, vs), m);
+        expr_ref r_tail(m_sk.mk_prefix_inv(vt, vr), m);
+        expr* args_match[4] = { s_tail, vp, vt, r_tail };
+        expr_ref test2(seq.str.mk_prefix(vp, vs), m);
+        expr_ref branch2(m.mk_and(m.mk_eq(vs, seq.str.mk_concat(vp, s_tail)),
+                                  m.mk_eq(vr, seq.str.mk_concat(vt, r_tail)),
+                                  m.mk_app(ra, 4, args_match)), m);
+        // no-match case: copy first char, ra(s[1:], p, t, r[1:])
+        expr_ref s_head(m), s_tail2(m);
+        m_sk.decompose(vs, s_head, s_tail2);
+        expr_ref r_tail2(m_sk.mk_tail(vr, a.mk_int(0)), m);
+        expr* args_skip[4] = { s_tail2, vp, vt, r_tail2 };
+        expr_ref branch3(m.mk_and(m.mk_eq(vr, seq.str.mk_concat(s_head, r_tail2)),
+                                  m.mk_app(ra, 4, args_skip)), m);
+        expr_ref body(m.mk_ite(test1, branch1, m.mk_ite(test2, branch2, branch3)), m);
+        plugin.set_definition(replace, d, false, 4, vars, body);
+        expr* args[4] = { s, p, t, r };
+        expr_ref lit(m.mk_app(ra, 4, args), m);
         add_clause(lit);
-#endif
     }
 
     void axioms::replace_re_all_axiom(expr* e) {
