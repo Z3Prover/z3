@@ -28,6 +28,7 @@ public:
     void push() override {}
     void pop(unsigned n) override {}
     void assert_expr(expr *e) override {}
+    void reset() override {}
     lbool check() override {
         return l_true;
     }
@@ -3269,6 +3270,7 @@ public:
     void push() override { ++push_count; }
     void pop(unsigned n) override { pop_count += n; }
     void assert_expr(expr* e) override { asserted.push_back(expr_ref(e, m)); }
+    void reset() override { reset_tracking(); }
     lbool check() override { return check_result; }
     void reset_tracking() {
         asserted.reset();

@@ -2666,7 +2666,7 @@ namespace seq {
         // Variables and powers have symbolic/unknown length.
         if (tok->is_var() || tok->is_power())
             return true;
-        // For s_other: check if it's a string literal (known constant length).
+        // For s_var string literals: check if it's a string literal (known constant length).
         if (tok->get_expr()) {
             seq_util& seq = m_sg.get_seq_util();
             zstring s;
