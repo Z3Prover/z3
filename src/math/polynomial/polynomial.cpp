@@ -6967,9 +6967,12 @@ namespace polynomial {
         // Bivariate Hensel lifting for multivariate factorization.
         // Given q(x, y) with q(x, 0) = lc_val * h1(x) * h2(x) where h1, h2 are coprime monic,
         // lift to q(x, y) = F1(x, y) * F2(x, y).
-        // Works in Zp[x] using a chosen prime.
-        // Returns true on success, false if this split doesn't yield a factorization
-        // or the prime is insufficient.
+        // Works modulo a single prime p: all arithmetic is in Zp[x], then coefficients are
+        // converted to centered representatives in (-p/2, p/2). This succeeds when p is large
+        // enough that all true integer coefficients of the factors lie in that range.
+        // A Mignotte-style bound could be used to choose p more precisely, but for now we
+        // rely on the caller trying increasingly large primes from a hardcoded list.
+        // Returns true on success, false if this split doesn't yield a factorization.
         bool try_bivar_hensel_lift(
             polynomial const * q,          // bivariate poly, q(x, 0) has known factorization
             var x, var y,
@@ -7060,10 +7063,20 @@ namespace polynomial {
             zp_upm.set(lc_f2.size(), lc_f2.data(), *F2_coeffs[0]);
 
             // Hensel lifting: for j = 1, ..., deg_y
+            // At each step, solve F1[j]*F2[0] + F2[j]*F1[0] = e_j for the new coefficients.
+            // Since F1[0]=f1, F2[0]=lc*f2, and s*f1 + t*f2 = 1 (Bézout), we get:
+            //   A = (e_j * t) mod f1,  B = (e_j * s) mod f2
+            //   F1[j] = A * lc_inv,    F2[j] = B
+
+            // Precompute lc_inv = lc_val^{-1} in Zp, used in every lifting step
+            scoped_numeral lc_inv(m_manager);
+            znm.set(lc_inv, lc_val);
+            znm.inv(lc_inv);
+
             for (unsigned j = 1; j <= deg_y; j++) {
                 checkpoint();
 
-                // Compute e_j = q_coeffs[j] - sum_{a+b=j, a<j, b<j} F1_coeffs[a] * F2_coeffs[b]
+                // Compute e_j = q_coeffs[j] - sum_{a+b=j, 0<a<j, 0<b<j} F1_coeffs[a] * F2_coeffs[b]
                 upolynomial::scoped_numeral_vector e_j(nm);
                 if (j < q_coeffs.size() && !q_coeffs[j]->empty())
                     zp_upm.set(q_coeffs[j]->size(), q_coeffs[j]->data(), e_j);
@@ -7083,45 +7096,20 @@ namespace polynomial {
                     e_j.swap(new_e);
                 }
 
-                // Also subtract F1[0]*F2[j] + F1[j]*F2[0] contribution
-                // Since F1[j] and F2[j] are what we're computing, the equation is:
-                // e_j = F1[j] * F2[0] + F1[0] * F2[j] + (cross terms already subtracted)
-                // We need: A * F2[0] + B * F1[0] = e_j with deg(A) < deg(f1), deg(B) < deg(f2)
-                // Since F1[0] = f1 and F2[0] = lc*f2:
-                // A * (lc*f2) + B * f1 = e_j
-                // lc * (A * f2) + B * f1 = e_j
-                // Using Bezout: s*f1 + t*f2 = 1, multiply by e_j:
-                // (e_j*s)*f1 + (e_j*t)*f2 = e_j
-                // So: B_raw = e_j*s, A_raw = e_j*t
-                // Then A = (e_j*t mod f1) / lc and B = (e_j - A*lc*f2) / f1
-                // But we need to handle the lc factor.
-
-                // Actually, the Bezout relation is for the MONIC factors f1, f2.
-                // The actual F2[0] = lc_val * f2.
-                // Equation: F1[j] * (lc_val * f2) + F2[j] * f1 = e_j
-                // Rearrange: lc_val * F1[j] * f2 + F2[j] * f1 = e_j
-                // Let A = lc_val * F1[j] and B = F2[j]:
-                // A * f2 + B * f1 = e_j
-                // Solution: A = (e_j * t) mod f1, B = (e_j * s) mod f2
-                // Then F1[j] = A / lc_val  (in Zp, division is multiplication by inverse)
-                // and  F2[j] = B
-
                 if (e_j.empty()) continue;
 
-                // Compute A = (e_j * t) mod f1
+                // Solve A*f2 + B*f1 = e_j using Bézout coefficients
+                // A = (e_j * t) mod f1
                 upolynomial::scoped_numeral_vector e_t(nm), A_val(nm), Q_tmp(nm);
                 zp_upm.mul(e_j.size(), e_j.data(), t_vec.size(), t_vec.data(), e_t);
                 zp_upm.div_rem(e_t.size(), e_t.data(), f1_p.size(), f1_p.data(), Q_tmp, A_val);
 
-                // Compute B = (e_j * s) mod f2
+                // B = (e_j * s) mod f2
                 upolynomial::scoped_numeral_vector e_s(nm), B_val(nm);
                 zp_upm.mul(e_j.size(), e_j.data(), s_vec.size(), s_vec.data(), e_s);
                 zp_upm.div_rem(e_s.size(), e_s.data(), f2_p.size(), f2_p.data(), Q_tmp, B_val);
 
-                // F1[j] = A / lc_val in Zp
-                scoped_numeral lc_inv(m_manager);
-                znm.set(lc_inv, lc_val);
-                znm.inv(lc_inv);
+                // F1[j] = A * lc_inv in Zp
                 zp_upm.mul(A_val, lc_inv);
                 zp_upm.set(A_val.size(), A_val.data(), *F1_coeffs[j]);
 
@@ -7192,6 +7180,15 @@ namespace polynomial {
             return true;
         }
 
+        // Evaluation points used for multivariate factorization
+        static constexpr int s_factor_eval_values[] = { 0, 1, -1, 2, -2, 3, -3 };
+        static constexpr unsigned s_n_factor_eval_values = sizeof(s_factor_eval_values) / sizeof(s_factor_eval_values[0]);
+
+        // Primes for Hensel lifting, tried in increasing order.
+        // Lifting succeeds when the prime exceeds twice the largest coefficient in any factor.
+        // A Mignotte-style bound could automate this, but for now we try a fixed list.
+        static constexpr uint64_t s_factor_primes[] = { 39103, 104729, 1000003, 100000007 };
+
         void factor_n_sqf_pp(polynomial const * p, factors & r, var x, unsigned k) {
             SASSERT(degree(p, x) > 2);
             SASSERT(is_primitive(p, x));
@@ -7210,12 +7207,6 @@ namespace polynomial {
 
             var_vector all_vars;
             m_wrapper.vars(p, all_vars);
-
-            static const int eval_values[] = { 0, 1, -1, 2, -2, 3, -3 };
-
-            static const uint64_t candidate_primes[] = {
-                39103, 104729, 1000003, 100000007
-            };
 
             // Try the main variable x first (caller chose it), then others by degree
             svector<var> main_vars;
@@ -7245,8 +7236,7 @@ namespace polynomial {
                     unsigned n_eval = eval_vars.size();
 
                     // Try a small number of evaluation point combos for extra variables
-                    unsigned n_eval_values = sizeof(eval_values) / sizeof(eval_values[0]);
-                    unsigned max_combos = (n_eval == 0) ? 1 : std::min(n_eval_values, 5u);
+                    unsigned max_combos = (n_eval == 0) ? 1 : std::min(s_n_factor_eval_values, 5u);
 
                     for (unsigned combo = 0; combo < max_combos; combo++) {
                         checkpoint();
@@ -7254,16 +7244,15 @@ namespace polynomial {
                         // Reduce to bivariate
                         polynomial_ref p_bivar(pm());
                         if (n_eval > 0) {
-                            svector<numeral> eval_vals;
-                            eval_vals.resize(n_eval);
-                            unsigned c = combo;
+                            scoped_numeral_vector eval_vals(m_manager);
                             for (unsigned i = 0; i < n_eval; i++) {
-                                m_manager.set(eval_vals[i], eval_values[c % n_eval_values]);
-                                c /= n_eval_values;
+                                eval_vals.push_back(numeral());
+                                unsigned c = combo;
+                                for (unsigned skip = 0; skip < i; skip++)
+                                    c /= s_n_factor_eval_values;
+                                m_manager.set(eval_vals.back(), s_factor_eval_values[c % s_n_factor_eval_values]);
                             }
                             p_bivar = substitute(p, n_eval, eval_vars.data(), eval_vals.data());
-                            for (unsigned i = 0; i < n_eval; i++)
-                                m_manager.del(eval_vals[i]);
                         }
                         else
                             p_bivar = const_cast<polynomial*>(p);
@@ -7273,12 +7262,12 @@ namespace polynomial {
                         if (deg_lift == 0) continue;
 
                         // Find a good evaluation point a for the lift variable
-                        for (int a : eval_values) {
-                            numeral val_raw;
-                            m_manager.set(val_raw, a);
+                        for (int a : s_factor_eval_values) {
+                            scoped_numeral val_scoped(m_manager);
+                            m_manager.set(val_scoped, a);
+                            numeral const & val_ref = val_scoped;
                             polynomial_ref p_univ(pm());
-                            p_univ = substitute(p_bivar, 1, &lift_var, &val_raw);
-                            m_manager.del(val_raw);
+                            p_univ = substitute(p_bivar, 1, &lift_var, &val_ref);
 
                             if (!is_univariate(p_univ)) continue;
                             if (degree(p_univ, main_var) != deg_main) continue;
@@ -7310,19 +7299,23 @@ namespace polynomial {
                             if (is_const(lc_poly))
                                 m_manager.set(lc_at_0, lc_poly->a(0));
                             else {
-                                numeral zero_raw;
-                                m_manager.set(zero_raw, 0);
+                                scoped_numeral zero_val(m_manager);
+                                m_manager.set(zero_val, 0);
+                                numeral const & zero_ref = zero_val;
                                 polynomial_ref lc_eval(pm());
-                                lc_eval = substitute(lc_poly, 1, &lift_var, &zero_raw);
-                                m_manager.del(zero_raw);
+                                lc_eval = substitute(lc_poly, 1, &lift_var, &zero_ref);
                                 if (is_const(lc_eval))
                                     m_manager.set(lc_at_0, lc_eval->a(0));
                                 else
                                     continue;
                             }
 
-                            // Try splits with increasing primes
-                            for (uint64_t prime : candidate_primes) {
+                            // Try splits with increasing primes.
+                            // Only contiguous splits {0..split-1} vs {split..nf-1} are tried,
+                            // not all subset partitions. This avoids exponential search but may
+                            // miss some factorizations. Recursive calls on the lifted factors
+                            // partially compensate by further splitting successful lifts.
+                            for (uint64_t prime : s_factor_primes) {
                                 scoped_numeral prime_num(m_manager);
                                 m_manager.set(prime_num, static_cast<int64_t>(prime));
                                 scoped_numeral gcd_val(m_manager);
@@ -7373,7 +7366,12 @@ namespace polynomial {
                                         return;
                                     }
 
-                                    // Multivariate: check if bivariate factors divide original p
+                                    // Multivariate: check if bivariate factors divide original p.
+                                    // We use exact_pseudo_division, which computes Q, R with
+                                    // lc(cand)^d * p = Q * cand + R.  If R=0 and cand*Q == p
+                                    // then cand is a true factor.  The eq() check is needed
+                                    // because pseudo-division may introduce an lc power that
+                                    // prevents Q from being the exact quotient.
                                     polynomial_ref cands[] = { F1, F2 };
                                     for (polynomial_ref & cand : cands) {
                                         if (is_const(cand)) continue;
@@ -7394,8 +7392,6 @@ namespace polynomial {
                                     }
                                 }
                             }
-                            // Found univariate factorization but Hensel lift didn't work for any prime.
-                            // Try the next evaluation point.
                         }
                     }
                 }

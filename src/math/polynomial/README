@@ -1,4 +1,5 @@
 Polynomial manipulation package.
 It contains support for univariate (upolynomial.*) and multivariate polynomials (polynomial.*).
-Multivariate polynomial factorization uses evaluation and GCD recovery: evaluate away extra variables
-to get a univariate polynomial, factor it, then recover multivariate factors via GCD computation.
+Multivariate polynomial factorization uses evaluation and bivariate Hensel lifting: evaluate away
+extra variables, factor the univariate specialization, then lift to bivariate factors in Zp[x]
+and verify over Z. For >2 variables, trial division checks if bivariate factors divide the original.
