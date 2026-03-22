@@ -1060,7 +1060,7 @@ namespace seq {
     void axioms::replace_re_axiom(expr* e) {
         expr* s = nullptr, *r = nullptr, *t = nullptr;
         VERIFY(seq.str.is_replace_re(e, s, r, t)); 
-        NOT_IMPLEMENTED_YET();
+        throw default_exception("replace-re is not supported");
     }
 
     // A basic strategy for supporting replace_all and other
@@ -1069,13 +1069,17 @@ namespace seq {
     // using iterative deepening can be re-used.
     //
     // create recursive relation 'ra' with properties:
-    // ra(i, j, s, p, t, r) <- len(s) = i && len(r) = j
-    // ra(i, j, s, p, t, r) <- len(s) > i = 0 && p = "" && r = t + s
-    // ra(i, j, s, p, t, r) <- len(s) > i && p != "" && s = extract(s, 0, i) + p + extract(s, i + len(p), len(s)) && r = extract(r, 0, i) + t + extract(r, i + len(p), len(r)) && ra(i + len(p), j + len(t), s, p, t, r)
-    // ra(i, s, p, t, r) <- ~prefix(p, extract(s, i, len(s)) && at(s,i) = at(r,j) && ra(i + 1, j + 1, s, p, t, r)
-    // which amounts to:
-    //
-    //
+    // ra(i, j, s, p, t, r) = 
+    //     if len(s) = i && len(r) = j then 
+    //        true
+    //     else if len(s) > i = 0 && p = "" && r = t + s then
+    //        true
+    //     else if len(s) > i && p != "" && 
+    //             s = extract(s, 0, i) + p + extract(s, i + len(p), len(s)) && 
+    //             r = extract(r, 0, i) + t + extract(r, i + len(p), len(r)) && ra(i + len(p), j + len(t), s, p, t, r)
+    //     else if  ~prefix(p, extract(s, i, len(s)) && at(s,i) = at(r,j) then 
+    //          ra(i + 1, j + 1, s, p, t, r)
+    //     else false
     // Then assert
     // ra(s, p, t, replace_all(s, p, t))
     //
@@ -1105,7 +1109,7 @@ namespace seq {
         expr_ref branch1(m.mk_eq(len_r, vj), m);
         expr_ref test2(m.mk_and(a.mk_gt(len_s, vi), m.mk_eq(vi, a.mk_int(0)), seq.str.mk_is_empty(vp)), m);
         expr_ref branch2(m.mk_eq(vr, seq.str.mk_concat(vt, vs)), m);
-        NOT_IMPLEMENTED_YET();
+        throw default_exception("replace_all is not supported");
 #if 0
         expr_ref test3(, m);
         expr_ref s1(m_sk.mk_prefix_inv(vp, vs), m);
@@ -1135,7 +1139,7 @@ namespace seq {
     void axioms::replace_re_all_axiom(expr* e) {
         expr* s = nullptr, *p = nullptr, *t = nullptr;
         VERIFY(seq.str.is_replace_re_all(e, s, p, t)); 
-        NOT_IMPLEMENTED_YET();
+        throw default_exception("replace_re_all is not supported");
     }
 
 
