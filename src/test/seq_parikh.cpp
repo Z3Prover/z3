@@ -43,6 +43,7 @@ public:
     void push() override {}
     void pop(unsigned) override {}
     void assert_expr(expr*) override {}
+    void reset() override {}
     lbool check() override { return l_true; }
 };
 
