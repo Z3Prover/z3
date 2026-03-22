@@ -7360,9 +7360,20 @@ namespace polynomial {
                                     F2 = translate(F2, lift_var, neg_a);
 
                                     if (n_eval == 0) {
-                                        // p is bivariate, factors are exact
-                                        factor_sqf_pp(F1, r, x, k, factor_params());
-                                        factor_sqf_pp(F2, r, x, k, factor_params());
+                                        // p is bivariate, factors verified by try_bivar_hensel_lift.
+                                        // Use specialized handlers for small degrees to avoid
+                                        // re-entering factor_sqf_pp which corrupts shared buffers.
+                                        polynomial_ref bivar_fs[] = { F1, F2 };
+                                        for (polynomial_ref & bf : bivar_fs) {
+                                            if (is_const(bf) || degree(bf, x) == 0) continue;
+                                            unsigned d = degree(bf, x);
+                                            if (d == 1)
+                                                factor_1_sqf_pp(bf, r, x, k);
+                                            else if (d == 2 && is_primitive(bf, x) && is_square_free(bf, x))
+                                                factor_2_sqf_pp(bf, r, x, k);
+                                            else
+                                                r.push_back(bf, k);
+                                        }
                                         return;
                                     }
 
@@ -7382,11 +7393,23 @@ namespace polynomial {
                                         polynomial_ref check(pm());
                                         check = mul(cand, Q_div);
                                         if (eq(check, p)) {
-                                            factor_sqf_pp(cand, r, x, k, factor_params());
-                                            if (!is_const(Q_div) && degree(Q_div, x) > 0)
-                                                factor_sqf_pp(Q_div, r, x, k, factor_params());
-                                            else if (is_const(Q_div))
-                                                acc_constant(r, Q_div->a(0));
+                                            // Push factors directly, using specialized handlers
+                                            // for small degrees only.
+                                            polynomial_ref parts[] = { cand, Q_div };
+                                            for (polynomial_ref & part : parts) {
+                                                if (is_const(part)) {
+                                                    acc_constant(r, part->a(0));
+                                                    continue;
+                                                }
+                                                if (degree(part, x) == 0) continue;
+                                                unsigned d = degree(part, x);
+                                                if (d == 1)
+                                                    factor_1_sqf_pp(part, r, x, k);
+                                                else if (d == 2 && is_primitive(part, x) && is_square_free(part, x))
+                                                    factor_2_sqf_pp(part, r, x, k);
+                                                else
+                                                    r.push_back(part, k);
+                                            }
                                             return;
                                         }
                                     }
