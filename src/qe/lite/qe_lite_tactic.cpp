@@ -2325,7 +2325,7 @@ private:
         else return false;
 
         // Defensive. Pre-condition happens to be established in current calling context.
-        if (!m_util.is_int(lhs))
+        if (!a_util.is_int(lhs))
             return false;
 
         // After normalization: lhs <= rhs (strict=false) or lhs < rhs (strict=true).
