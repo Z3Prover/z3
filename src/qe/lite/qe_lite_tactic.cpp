@@ -2324,13 +2324,15 @@ private:
         else if (a_util.is_gt(e, lhs, rhs)) { std::swap(lhs, rhs); strict = true; }
         else return false;
 
+        // Defensive. Pre-condition happens to be established in current calling context.
+        if (!m_arith.is_int(lhs))
+            return false;
+
         // After normalization: lhs <= rhs (strict=false) or lhs < rhs (strict=true).
         // Strict inequalities tighten the inclusive bound by 1.
         bool var_on_left = is_var(lhs) && to_var(lhs)->get_idx() == idx && a_util.is_numeral(rhs, val);
-        if (!var_on_left) {
-            if (!(is_var(rhs) && to_var(rhs)->get_idx() == idx && a_util.is_numeral(lhs, val)))
-                return false;
-        }
+        if (!var_on_left && !(is_var(rhs) && to_var(rhs)->get_idx() == idx && a_util.is_numeral(lhs, val)))
+            return false;        
 
         // var_on_left: var <= val (upper bound), adjusted for strict.
         // var_on_right: val <= var (lower bound), adjusted for strict.
