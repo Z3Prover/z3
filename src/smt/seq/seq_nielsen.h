@@ -685,7 +685,7 @@ namespace seq {
         // true if all str_eqs are trivial and there are no str_mems
         bool is_satisfied() const;
 
-        // true if any constraint has opaque (s_other) terms that
+        // true if any constraint has opaque (s_var) terms that
         // the Nielsen graph cannot decompose
         bool has_opaque_terms() const;
 

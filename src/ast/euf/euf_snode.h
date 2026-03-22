@@ -53,12 +53,11 @@ namespace euf {
         s_range,       // character range [lo,hi] (OP_RE_RANGE)
         s_to_re,       // string to regex (OP_SEQ_TO_RE)
         s_in_re,       // regex membership (OP_SEQ_IN_RE)
-        s_other,       // other sequence expression not directly classified
     };
 
     class snode {
         expr*       m_expr      = nullptr;
-        snode_kind  m_kind      = snode_kind::s_other;
+        snode_kind  m_kind      = snode_kind::s_var;
         unsigned    m_id        = UINT_MAX;
         unsigned    m_num_args  = 0;
 
@@ -114,7 +113,7 @@ namespace euf {
 
         bool is_empty()   const { return m_kind == snode_kind::s_empty; }
         bool is_char()    const { return m_kind == snode_kind::s_char; }
-        bool is_var()     const { return m_kind == snode_kind::s_var || m_kind == snode_kind::s_other; }
+        bool is_var()     const { return m_kind == snode_kind::s_var; }
         bool is_unit()    const { return m_kind == snode_kind::s_unit; }
         bool is_char_or_unit() const {
             return m_kind == snode_kind::s_char || m_kind == snode_kind::s_unit;

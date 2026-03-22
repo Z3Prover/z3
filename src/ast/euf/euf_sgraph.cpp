@@ -46,7 +46,7 @@ namespace euf {
 
     snode_kind sgraph::classify(expr* e) const {
         if (!is_app(e))
-            return snode_kind::s_other;
+            return snode_kind::s_var;
 
         if (m_seq.str.is_empty(e))
             return snode_kind::s_empty;
@@ -55,7 +55,7 @@ namespace euf {
             zstring s;
             if (m_seq.str.is_string(e, s) && s.empty())
                 return snode_kind::s_empty;
-            return snode_kind::s_other;
+            return snode_kind::s_var;
         }
 
         if (m_seq.str.is_concat(e) || m_seq.re.is_concat(e))
@@ -108,7 +108,7 @@ namespace euf {
         if (m_seq.is_seq(e->get_sort()) && (is_uninterp(e) || m_seq.is_skolem(e)))
             return snode_kind::s_var;
 
-        return snode_kind::s_other;
+        return snode_kind::s_var;
     }
 
     void sgraph::compute_metadata(snode* n) {
@@ -376,7 +376,7 @@ namespace euf {
 
         // recursively register children
         // for seq/re children, create classified snodes
-        // for other children (e.g. integer exponents), create s_other snodes
+        // for other children, e.g. integer exponents, create s_var snodes
         snode_vector child_nodes;
         for (unsigned i = 0; i < arity; ++i) {
             expr* ch = a->get_arg(i);
@@ -751,7 +751,6 @@ namespace euf {
             case snode_kind::s_range:      return "range";
             case snode_kind::s_to_re:      return "to_re";
             case snode_kind::s_in_re:      return "in_re";
-            case snode_kind::s_other:      return "other";
             }
             return "?";
         };
