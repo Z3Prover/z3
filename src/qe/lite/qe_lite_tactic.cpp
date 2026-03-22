@@ -2316,119 +2316,35 @@ private:
         if (is_neg)
             e = atom;
 
-        if (a_util.is_le(e, lhs, rhs)) {
-            // lhs <= rhs
-            if (is_var(lhs) && to_var(lhs)->get_idx() == idx && a_util.is_numeral(rhs, val)) {
-                // var(idx) <= val, possibly negated
-                if (!is_neg) {
-                    is_lower = false;
-                    bound_val = val;
-                    return true;
-                }
-                // Not(var(idx) <= val) => var(idx) >= val + 1
-                is_lower = true;
-                bound_val = val + 1;
-                return true;
-            }
-            if (is_var(rhs) && to_var(rhs)->get_idx() == idx && a_util.is_numeral(lhs, val)) {
-                // val <= var(idx), possibly negated
-                if (!is_neg) {
-                    is_lower = true;
-                    bound_val = val;
-                    return true;
-                }
-                // Not(val <= var(idx)) => var(idx) <= val - 1
-                is_lower = false;
-                bound_val = val - 1;
-                return true;
-            }
-        }
+        // Normalize ge/gt to le/lt by swapping operands: a >= b <=> b <= a, a > b <=> b < a.
+        bool strict;
+        if (a_util.is_le(e, lhs, rhs))      strict = false;
+        else if (a_util.is_ge(e, lhs, rhs)) { std::swap(lhs, rhs); strict = false; }
+        else if (a_util.is_lt(e, lhs, rhs)) strict = true;
+        else if (a_util.is_gt(e, lhs, rhs)) { std::swap(lhs, rhs); strict = true; }
+        else return false;
 
-        if (a_util.is_ge(e, lhs, rhs)) {
-            // lhs >= rhs, i.e., rhs <= lhs
-            if (is_var(lhs) && to_var(lhs)->get_idx() == idx && a_util.is_numeral(rhs, val)) {
-                // var(idx) >= val, possibly negated
-                if (!is_neg) {
-                    is_lower = true;
-                    bound_val = val;
-                    return true;
-                }
-                // Not(var(idx) >= val) => var(idx) <= val - 1
-                is_lower = false;
-                bound_val = val - 1;
-                return true;
-            }
-            if (is_var(rhs) && to_var(rhs)->get_idx() == idx && a_util.is_numeral(lhs, val)) {
-                // val >= var(idx) => var(idx) <= val, possibly negated
-                if (!is_neg) {
-                    is_lower = false;
-                    bound_val = val;
-                    return true;
-                }
-                // Not(val >= var(idx)) => var(idx) >= val + 1
-                is_lower = true;
-                bound_val = val + 1;
-                return true;
-            }
-        }
+        // Defensive. Pre-condition happens to be established in current calling context.
+        if (!a_util.is_int(lhs))
+            return false;
 
-        if (a_util.is_lt(e, lhs, rhs)) {
-            // lhs < rhs
-            if (is_var(lhs) && to_var(lhs)->get_idx() == idx && a_util.is_numeral(rhs, val)) {
-                if (!is_neg) {
-                    // var(idx) < val => var(idx) <= val - 1
-                    is_lower = false;
-                    bound_val = val - 1;
-                    return true;
-                }
-                // Not(var(idx) < val) => var(idx) >= val
-                is_lower = true;
-                bound_val = val;
-                return true;
-            }
-            if (is_var(rhs) && to_var(rhs)->get_idx() == idx && a_util.is_numeral(lhs, val)) {
-                if (!is_neg) {
-                    // val < var(idx) => var(idx) >= val + 1
-                    is_lower = true;
-                    bound_val = val + 1;
-                    return true;
-                }
-                // Not(val < var(idx)) => var(idx) <= val
-                is_lower = false;
-                bound_val = val;
-                return true;
-            }
-        }
+        // After normalization: lhs <= rhs (strict=false) or lhs < rhs (strict=true).
+        // Strict inequalities tighten the inclusive bound by 1.
+        bool var_on_left = is_var(lhs) && to_var(lhs)->get_idx() == idx && a_util.is_numeral(rhs, val);
+        if (!var_on_left && !(is_var(rhs) && to_var(rhs)->get_idx() == idx && a_util.is_numeral(lhs, val)))
+            return false;        
 
-        if (a_util.is_gt(e, lhs, rhs)) {
-            // lhs > rhs
-            if (is_var(lhs) && to_var(lhs)->get_idx() == idx && a_util.is_numeral(rhs, val)) {
-                if (!is_neg) {
-                    // var(idx) > val => var(idx) >= val + 1
-                    is_lower = true;
-                    bound_val = val + 1;
-                    return true;
-                }
-                // Not(var(idx) > val) => var(idx) <= val
-                is_lower = false;
-                bound_val = val;
-                return true;
-            }
-            if (is_var(rhs) && to_var(rhs)->get_idx() == idx && a_util.is_numeral(lhs, val)) {
-                if (!is_neg) {
-                    // val > var(idx) => var(idx) <= val - 1
-                    is_lower = false;
-                    bound_val = val - 1;
-                    return true;
-                }
-                // Not(val > var(idx)) => var(idx) >= val
-                is_lower = true;
-                bound_val = val;
-                return true;
-            }
-        }
+        // var_on_left: var <= val (upper bound), adjusted for strict.
+        // var_on_right: val <= var (lower bound), adjusted for strict.
+        is_lower  = !var_on_left;
+        bound_val = var_on_left ? (strict ? val - 1 : val) : (strict ? val + 1 : val);
 
-        return false;
+        // Negation flips bound direction and tightens by 1.
+        if (is_neg) {
+            is_lower  = !is_lower;
+            bound_val = is_lower ? bound_val + 1 : bound_val - 1;
+        }
+        return true;
     }
 
     // Try to expand a bounded existential quantifier into a finite disjunction.
