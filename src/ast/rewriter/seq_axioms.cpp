@@ -268,14 +268,20 @@ namespace seq {
         m_sk.decompose(s, head, tail);
         TRACE(seq, tout << "tail " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << "\n";);
         expr_ref emp = mk_eq_empty(s);
-        add_clause(emp, mk_seq_eq(s, mk_concat(head, e)));
+        expr_ref con = mk_concat(head, e);
+        if (m_mark_no_diseq)
+            m_mark_no_diseq(con);
+        add_clause(emp, mk_seq_eq(s, con));
         add_clause(~emp, mk_eq_empty(e));
     }
 
     void axioms::drop_last_axiom(expr* e, expr* s) {
         TRACE(seq, tout << "drop last " << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << "\n";);
         expr_ref emp = mk_eq_empty(s);
-        add_clause(emp, mk_seq_eq(s, mk_concat(e, seq.str.mk_unit(m_sk.mk_last(s)))));
+        expr_ref con = mk_concat(e, seq.str.mk_unit(m_sk.mk_last(s)));
+        if (m_mark_no_diseq)
+            m_mark_no_diseq(con);
+        add_clause(emp, mk_seq_eq(s, con));
         add_clause(~emp, mk_eq_empty(e));
     }
 
@@ -1364,12 +1370,12 @@ namespace seq {
             var_ref vp(m.mk_var(0, srt), m);
             expr_ref len_s(seq.str.mk_length(vs), m);
             expr_ref len_p(seq.str.mk_length(vp), m);
-//            expr_ref tail_s(seq.str.mk_substr(vs, a.mk_int(1), a.mk_sub(len_s, a.mk_int(1))), m);
-            expr_ref tail_s(m_sk.mk("tail.s", vs), m);
-            expr* nc_args[2] = { tail_s.get(), vp.get() };
+            expr_ref head(m), tail(m);
+            m_sk.decompose(vs, head, tail);
+            expr* nc_args[2] = { tail.get(), vp.get() };
             expr_ref pref(seq.str.mk_prefix(vp, vs), m);
             expr_ref hd(seq.str.mk_unit(seq.str.mk_nth_i(vs, a.mk_int(0))), m);
-            expr_ref decomp(m.mk_eq(vs, seq.str.mk_concat(hd, tail_s)), m);
+            expr_ref decomp(m.mk_eq(vs, seq.str.mk_concat(hd, tail)), m);
             expr_ref else_branch(m.mk_and(m.mk_not(pref), m.mk_and(decomp, m.mk_app(m_not_contains.get(), 2, nc_args))), m);
             expr_ref body(m.mk_ite(a.mk_gt(len_p, len_s),
                                    m.mk_true(),

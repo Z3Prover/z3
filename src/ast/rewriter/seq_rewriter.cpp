@@ -3149,9 +3149,14 @@ expr_ref seq_rewriter::mk_antimirov_deriv_intersection(expr* e, expr* d1, expr* 
             result = mk_antimirov_deriv_intersection(e, b, d2, path);
         else if (m().is_false(path_and_notc))
             result = mk_antimirov_deriv_intersection(e, a, d2, path);
-        else
-            result = m().mk_ite(c, mk_antimirov_deriv_intersection(e, a, d2, path_and_c),
-                mk_antimirov_deriv_intersection(e, b, d2, path_and_notc));
+        else {
+            expr_ref th(mk_antimirov_deriv_intersection(e, a, d2, path_and_c), m());
+            expr_ref el(mk_antimirov_deriv_intersection(e, b, d2, path_and_notc), m());
+            if (th == el)
+                result = th;
+            else 
+                result = m().mk_ite(c, th, el);
+        }
     }
     else if (m().is_ite(d2))
         // swap d1 and d2
@@ -3207,8 +3212,14 @@ expr_ref seq_rewriter::mk_antimirov_deriv_negate(expr* elem, expr* d) {
         result = nothing();
     else if (re().is_dot_plus(d))
         result = epsilon();
-    else if (m().is_ite(d, c, t, e))
-        result = m().mk_ite(c, mk_antimirov_deriv_negate(elem, t), mk_antimirov_deriv_negate(elem, e));
+    else if (m().is_ite(d, c, t, e)) {
+        expr_ref th(mk_antimirov_deriv_negate(elem, t), m());
+        expr_ref el(mk_antimirov_deriv_negate(elem, e), m());
+        if (th == el)
+            result = th;
+        else
+            result = m().mk_ite(c, th, el);
+    }
     else if (re().is_union(d, t, e))
         result = mk_antimirov_deriv_intersection(elem, mk_antimirov_deriv_negate(elem, t), mk_antimirov_deriv_negate(elem, e), m().mk_true());
     else if (re().is_intersection(d, t, e))
@@ -3226,9 +3237,15 @@ expr_ref seq_rewriter::mk_antimirov_deriv_union(expr* d1, expr* d2) {
     VERIFY(m_util.is_seq(seq_sort, ele_sort));
     expr_ref result(m());
     expr* c1, * t1, * e1, * c2, * t2, * e2;
-    if (m().is_ite(d1, c1, t1, e1) && m().is_ite(d2, c2, t2, e2)  && c1 == c2)
-        // eliminate duplicate branching on exactly the same condition
-        result = m().mk_ite(c1, mk_antimirov_deriv_union(t1, t2), mk_antimirov_deriv_union(e1, e2));
+    if (m().is_ite(d1, c1, t1, e1) && m().is_ite(d2, c2, t2, e2) && c1 == c2) {
+        expr_ref th(mk_antimirov_deriv_union(t1, t2), m());
+        expr_ref el(mk_antimirov_deriv_union(e1, e2), m());
+        if (th == el)
+            result = th;
+        else
+            // eliminate duplicate branching on exactly the same condition
+            result = m().mk_ite(c1, th, el);
+    }
     else
         result = mk_regex_union_normalize(d1, d2);
     return result;
@@ -6066,6 +6083,7 @@ lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vect
         re_eval_pos current = todo.back();
         todo.pop_back();
         r = current.e;
+        // IF_VERBOSE(1, verbose_stream() << "derive " << mk_pp(r, m()) << "\n");
         str.resize(current.str_len);
         if (current.needs_derivation) {
             SASSERT(current.exclude.empty());

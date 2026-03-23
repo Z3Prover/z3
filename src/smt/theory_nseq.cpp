@@ -246,7 +246,7 @@ namespace smt {
             if (is_true)
                 m_axioms.contains_true_axiom(e);
             else
-                m_axioms.unroll_not_contains(e);
+                m_axioms.not_contains_axiom(e);
         }
         else if (m_seq.str.is_lt(e) || m_seq.str.is_le(e)) {
             // axioms added via relevant_eh → dequeue_axiom

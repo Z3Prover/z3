@@ -308,12 +308,11 @@ namespace smt {
             // We checked non-emptiness during Nielsen already
             lbool wr = m_rewriter.some_seq_in_re(re_expr, witness);
             if (wr == l_true && witness) {
-            // std::cout << "Witness for " << mk_pp(var->get_expr(), m) << " in " <<
-            //     mk_pp(re_expr, m) << ": " << mk_pp(witness, m) << std::endl;
                 m_trail.push_back(witness);
                 m_factory->register_value(witness);
                 return witness;
             }
+            IF_VERBOSE(1, verbose_stream() << "witness extraction failed: " << wr << "\n" << mk_pp(re_expr, m) << "\n");
             UNREACHABLE();
         }
 
