@@ -1173,7 +1173,8 @@ namespace seq {
         seq_util& seq = m_sg.get_seq_util();
         unsigned max_c = seq.max_char();
 
-        VERIFY(re_expr);
+        if (!re_expr)
+            return char_set::full(max_c);
 
         // full_char: the whole alphabet [0, max_char]
         if (seq.re.is_full_char(re_expr))

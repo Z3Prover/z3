@@ -310,7 +310,7 @@ namespace seq {
     }
 
     unsigned nielsen_node::var_ub(euf::snode* var) const {
-        SASSERT(!var);
+        SASSERT(var);
         unsigned v = UINT_MAX;
         m_var_ub.find(var->id(), v);
         return v;

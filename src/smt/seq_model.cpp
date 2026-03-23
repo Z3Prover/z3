@@ -325,6 +325,8 @@ namespace smt {
         SASSERT(sat_node);
         for (auto const& mem : sat_node->str_mems()) {
             SASSERT(mem.m_str && mem.m_regex);
+            if (mem.is_trivial())
+                continue; // empty string in nullable regex: already satisfied, no variable to constrain
             VERIFY(mem.is_primitive()); // everything else should have been eliminated already
             euf::snode* first = mem.m_str->first();
             unsigned id = first->id();
