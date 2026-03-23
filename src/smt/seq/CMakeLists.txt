@@ -4,6 +4,7 @@ z3_add_component(smt_seq
     seq_state.cpp
     seq_parikh.cpp
     seq_nielsen.cpp
+    seq_nielsen_pp.cpp
   COMPONENT_DEPENDENCIES
     euf
     rewriter
