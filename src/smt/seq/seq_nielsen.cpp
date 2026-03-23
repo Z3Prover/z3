@@ -1038,7 +1038,7 @@ namespace seq {
                     while (prefix < lhs_toks.size() && prefix < rhs_toks.size()) {
                         euf::snode* lt = lhs_toks[prefix];
                         euf::snode* rt = rhs_toks[prefix];
-                        if ((lt->is_char() || lt->is_var()) && m.are_equal(lt->get_expr(), rt->get_expr())) {
+                        if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                             ++prefix;
                         }
                         else if (lt->is_char() && rt->is_char() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
@@ -1056,7 +1056,7 @@ namespace seq {
                     while (suffix < lsz - prefix && suffix < rsz - prefix) {
                         euf::snode* lt = lhs_toks[lsz - 1 - suffix];
                         euf::snode* rt = rhs_toks[rsz - 1 - suffix];
-                        if ((lt->is_char() || lt->is_var()) && m.are_equal(lt->get_expr(), rt->get_expr())) {
+                        if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                             ++suffix;
                         } else if (lt->is_char() && rt->is_char() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
                             m_is_general_conflict = true;
