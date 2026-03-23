@@ -113,6 +113,7 @@ namespace seq {
         void unit_axiom(expr* n);
         void length_axiom(expr* n);
         void unroll_not_contains(expr* e);
+        void not_contains_axiom(expr *e);
         void replace_re_axiom(expr* e);
         void replace_all_axiom(expr* e);
         void replace_re_all_axiom(expr* e);

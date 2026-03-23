@@ -1336,6 +1336,22 @@ namespace seq {
             add_clause(emp, mk_ge_e(mk_len(s), idx));
     }
 
+    /**
+    * Consider the recursive definition of negated contains:
+      ~contains(a, b) = 
+        if |b| > |a| then true
+        else if |b| = |a| then a != b
+        else ~prefix(b, a) and ~contains(a[1:], b)
+
+        Create the recursive function not_contains that implements this recursive definition.
+        Add the axiom
+            contains(a, b) or not_contains(a, b)
+    */
+
+    void axioms::not_contains_axiom(expr *e) {
+        throw default_exception("not implemented");
+    }
+
     expr_ref axioms::length_limit(expr* s, unsigned k) {
         expr_ref bound_tracker = m_sk.mk_length_limit(s, k);
         expr* s0 = nullptr;
