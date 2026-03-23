@@ -141,20 +141,20 @@ find /tmp/qfs_benchmarks -name "*.smt2" -type f > /tmp/all_qfs_files.txt
 TOTAL_FILES=$(wc -l < /tmp/all_qfs_files.txt)
 echo "Total QF_S files: $TOTAL_FILES"
 
-# Randomly select 50 files
-shuf -n 50 /tmp/all_qfs_files.txt > /tmp/selected_files.txt
-echo "Selected 50 files for benchmarking"
+# Randomly select 500 files
+shuf -n 500 /tmp/all_qfs_files.txt > /tmp/selected_files.txt
+echo "Selected 500 files for benchmarking"
 cat /tmp/selected_files.txt
 ```
 
 ## Phase 3: Run Benchmarks
 
-Run each of the 50 selected files with both Z3 string solvers and ZIPT. Use a 10-second timeout per run.
+Run each of the 500 selected files with both Z3 string solvers and ZIPT. Use a 5-second timeout for seq and a 10-second timeout for nseq and ZIPT.
 
 For each file, run:
 1. `z3 smt.string_solver=seq -tr:seq -T:5 <file>` — seq solver with sequence-solver tracing enabled; rename the `.z3-trace` output after each run so it is not overwritten. Use `-T:5` when tracing to cap trace size.
-2. `z3 smt.string_solver=nseq -T:10 <file>` — nseq solver without tracing (timing only).
-3. `dotnet <ZIPT.dll> -t:10000 <file>` — ZIPT solver (milliseconds).
+2. `z3 smt.string_solver=nseq -T:5 <file>` — nseq solver without tracing (timing only).
+3. `dotnet <ZIPT.dll> -t:5000 <file>` — ZIPT solver (milliseconds).
 
 Capture:
 - **Verdict**: `sat`, `unsat`, `unknown`, `timeout` (if exit code indicates timeout or process is killed), or `bug` (if a solver crashes / produces a non-standard result)
@@ -226,7 +226,7 @@ run_z3_nseq() {
     local start end elapsed verdict output exit_code
 
     start=$(date +%s%3N)
-    output=$(timeout 12 "$Z3" "smt.string_solver=nseq" -T:10 "$file" 2>&1)
+    output=$(timeout 12 "$Z3" "smt.string_solver=nseq" -T:5 "$file" 2>&1)
     exit_code=$?
     end=$(date +%s%3N)
     elapsed=$(echo "scale=3; ($end - $start) / 1000" | bc)
@@ -259,7 +259,7 @@ run_zipt() {
 
     start=$(date +%s%3N)
     # ZIPT prints the filename on the first line, then SAT/UNSAT/UNKNOWN on subsequent lines
-    output=$(timeout 12 dotnet "$ZIPT_DLL" -t:10000 "$file" 2>&1)
+    output=$(timeout 12 dotnet "$ZIPT_DLL" -t:5000 "$file" 2>&1)
     exit_code=$?
     end=$(date +%s%3N)
     elapsed=$(echo "scale=3; ($end - $start) / 1000" | bc)
@@ -385,10 +385,10 @@ Save this to `/tmp/analyse_traces.sh`, make it executable, and run it. Then read
 Read `/tmp/benchmark_results.tsv` and compute statistics. Then generate a Markdown report.
 
 Compute:
-- **Total benchmarks**: 50
+- **Total benchmarks**: 500
 - **Per solver (seq, nseq, and ZIPT)**: count of sat / unsat / unknown / timeout / bug verdicts
 - **Total time used**: sum of all times for each solver
-- **Average time per benchmark**: total_time / 50
+- **Average time per benchmark**: total_time / 500
 - **Soundness disagreements**: files where any two solvers that both returned a definitive answer disagree (these are the most critical bugs)
 - **Bugs / crashes**: files with error/crash verdicts
 
@@ -399,8 +399,8 @@ Format the report as a GitHub Discussion post (GitHub-flavored Markdown):
 
 **Date**: <today's date>
 **Branch**: c3
-**Benchmark set**: QF_S (50 randomly selected files from tests/QF_S.tar.zst)
-**Timeout**: 10 seconds per benchmark (`-T:10` for Z3; `-t:10000` for ZIPT)
+**Benchmark set**: QF_S (500 randomly selected files from tests/QF_S.tar.zst)
+**Timeout**: 5 seconds for seq (`-T:5`); 5 seconds for nseq (`-T:5`) and ZIPT (`-t:5000`)
 
 ---
 
@@ -460,14 +460,14 @@ Post the Markdown report as a new GitHub Discussion using the `create-discussion
 
 - **Always build from c3 branch**: The workspace is already checked out on c3; don't change branches.
 - **Debug build required**: The build must use `CMAKE_BUILD_TYPE=Debug` so that Z3's internal assertions and trace infrastructure are active; `-tr:` trace flags have no effect in Release builds.
-- **Tracing time cap**: Always pass `-T:5` when running with `-tr:seq` to limit solver runtime and keep trace files a manageable size. The nseq and ZIPT runs use `-T:10` / `-t:10000` as before.
+- **Tracing time cap**: Always pass `-T:5` when running with `-tr:seq` to limit solver runtime and keep trace files a manageable size. The nseq and ZIPT runs use `-T:5` / `-t:5000` as before.
 - **Rename trace files immediately**: After each seq run, rename `.z3-trace` to a per-benchmark path before starting the next run, or the next invocation will overwrite it.
 - **Handle build failures gracefully**: If Z3 fails to build, report the error and create a brief discussion noting the build failure. If ZIPT fails to build, continue with only the seq/nseq columns and note `n/a` for ZIPT results.
 - **Handle missing zstd**: If `tar --zstd` fails, try `zstd -d tests/QF_S.tar.zst --stdout | tar -x -C /tmp/qfs_benchmarks`.
 - **Be precise with timing**: Use millisecond-precision timestamps and report times in seconds with 3 decimal places.
 - **Distinguish timeout from unknown**: A timeout (process killed after 7s outer / 5s Z3-internal for seq, or 12s/10s for nseq) is different from `(unknown)` returned by a solver.
-- **ZIPT timeout unit**: ZIPT's `-t` flag takes **milliseconds**, so pass `-t:10000` for a 10-second limit.
+- **ZIPT timeout unit**: ZIPT's `-t` flag takes **milliseconds**, so pass `-t:5000` for a 5-second limit.
 - **ZIPT output format**: ZIPT prints the input filename on the first line, then `SAT`, `UNSAT`, or `UNKNOWN` on subsequent lines. Parse accordingly.
 - **Report soundness bugs prominently**: If any benchmark shows a conflict between any two solvers that both returned a definitive sat/unsat answer, highlight it as a critical finding and name which pair disagrees.
-- **Don't skip any file**: Run all 50 files even if some fail.
+- **Don't skip any file**: Run all 500 files even if some fail.
 - **Large report**: If the per-file table is very long, put it in a `<details>` collapsible section.
