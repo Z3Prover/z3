@@ -34,6 +34,7 @@ namespace seq {
         a(m),
         seq(m),
         m_sk(m, r),
+        m_not_contains(m),
         m_clause(m),
         m_trail(m)
     {}
@@ -1351,43 +1352,38 @@ namespace seq {
     void axioms::not_contains_axiom(expr *e) {
         expr* _a = nullptr, *_b = nullptr;
         VERIFY(seq.str.is_contains(e, _a, _b));
-        auto a = purify(_a);
-        auto b = purify(_b);
+        auto ca = purify(_a);
+        auto cb = purify(_b);
+        sort* srt = ca->get_sort();
 
-        // nc is a skolem Boolean representing ~contains(a, b)
-        expr_ref nc = m_sk.mk("seq.nc", a, b, nullptr, nullptr, m.mk_bool_sort());
+        if (!m_not_contains || m_not_contains->get_domain(0) != srt) {
+            recfun::util rec(m);
+            recfun::decl::plugin& plugin = rec.get_plugin();
+            recfun_replace rf(m);
+            sort* domain[2] = { srt, srt };
+            auto d = plugin.ensure_def(symbol("nc"), 2, domain, m.mk_bool_sort(), true);
+            m_not_contains = d.get_def()->get_decl();
+            var_ref vs(m.mk_var(1, srt), m);
+            var_ref vp(m.mk_var(0, srt), m);
+            expr_ref len_s(seq.str.mk_length(vs), m);
+            expr_ref len_p(seq.str.mk_length(vp), m);
+            expr_ref tail_s(seq.str.mk_substr(vs, a.mk_int(1), a.mk_sub(len_s, a.mk_int(1))), m);
+            expr* nc_args[2] = { tail_s.get(), vp.get() };
+            expr_ref pref(seq.str.mk_prefix(vp, vs), m);
+            expr_ref body(m.mk_ite(a.mk_gt(len_p, len_s),
+                                   m.mk_true(),
+                                   m.mk_ite(m.mk_eq(len_p, len_s),
+                                            m.mk_not(m.mk_eq(vs, vp)),
+                                            m.mk_and(m.mk_not(pref), m.mk_app(m_not_contains.get(), 2, nc_args)))),
+                         m);
+            var* vars[2] = { vs, vp };
+            plugin.set_definition(rf, d, false, 2, vars, body);
+        }
+
+        expr* app_args[2] = { ca.get(), cb.get() };
+        expr_ref nc_app(m.mk_app(m_not_contains.get(), 2, app_args), m);
         expr_ref cnt(e, m);
-
-        // contains(a, b) or not_contains(a, b)
-        add_clause(cnt, nc);
-
-        // Decompose a into head + tail for the recursive unfolding
-        expr_ref head(m), tail(m);
-        m_sk.decompose(a, head, tail);
-
-        expr_ref pref(seq.str.mk_prefix(b, a), m);
-        expr_ref nc_tail = m_sk.mk("seq.nc", tail, b, nullptr, nullptr, m.mk_bool_sort());
-        expr_ref emp = mk_eq_empty(a);
-        expr_ref len_ge = mk_ge_e(mk_len(b), mk_len(a));  // |b| >= |a|
-
-        // ~nc or |b| >= |a| or ~prefix(b, a)
-        add_clause(~nc, len_ge, ~pref);
-
-        // ~nc or |b| >= |a| or not_contains(tail(a), b)
-        add_clause(~nc, len_ge, nc_tail);
-
-        // ~nc or |b| != |a| or a != b
-        add_clause(~nc, ~mk_eq(mk_len(a), mk_len(b)), ~mk_seq_eq(a, b));
-
-        // a = empty => tail(a) = empty
-        add_clause(~emp, mk_eq_empty(tail));
-
-        // a != empty => a = head + tail
-        add_clause(emp, mk_eq(a, seq.str.mk_concat(head, tail)));
-
-        expr* s, *idx;
-        if (m_sk.is_tail(tail, s, idx))
-            add_clause(emp, mk_ge_e(mk_len(s), idx));
+        add_clause(cnt, nc_app);
     }
 
     expr_ref axioms::length_limit(expr* s, unsigned k) {
