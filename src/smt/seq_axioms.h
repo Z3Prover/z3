@@ -92,6 +92,7 @@ namespace smt {
         void add_unit_axiom(expr* n) { m_ax.unit_axiom(n); }
         void add_length_axiom(expr* n) { m_ax.length_axiom(n); }
         void unroll_not_contains(expr* n) { m_ax.unroll_not_contains(n); }
+        void not_contains_axiom(expr* n) { m_ax.not_contains_axiom(n); }
 
         literal is_digit(expr* ch) { return mk_literal(m_ax.is_digit(ch)); }
         expr_ref add_length_limit(expr* s, unsigned k) { return m_ax.length_limit(s, k); }
