@@ -141,15 +141,15 @@ find /tmp/qfs_benchmarks -name "*.smt2" -type f > /tmp/all_qfs_files.txt
 TOTAL_FILES=$(wc -l < /tmp/all_qfs_files.txt)
 echo "Total QF_S files: $TOTAL_FILES"
 
-# Randomly select 500 files
-shuf -n 500 /tmp/all_qfs_files.txt > /tmp/selected_files.txt
-echo "Selected 500 files for benchmarking"
+# Randomly select 200 files
+shuf -n 200 /tmp/all_qfs_files.txt > /tmp/selected_files.txt
+echo "Selected 200 files for benchmarking"
 cat /tmp/selected_files.txt
 ```
 
 ## Phase 3: Run Benchmarks
 
-Run each of the 500 selected files with both Z3 string solvers and ZIPT. Use a 5-second timeout for seq and a 10-second timeout for nseq and ZIPT.
+Run each of the 200 selected files with both Z3 string solvers and ZIPT. Use a 5-second timeout for seq and a 10-second timeout for nseq and ZIPT.
 
 For each file, run:
 1. `z3 smt.string_solver=seq -tr:seq -T:5 <file>` — seq solver with sequence-solver tracing enabled; rename the `.z3-trace` output after each run so it is not overwritten. Use `-T:5` when tracing to cap trace size.
@@ -385,10 +385,10 @@ Save this to `/tmp/analyse_traces.sh`, make it executable, and run it. Then read
 Read `/tmp/benchmark_results.tsv` and compute statistics. Then generate a Markdown report.
 
 Compute:
-- **Total benchmarks**: 500
+- **Total benchmarks**: 200
 - **Per solver (seq, nseq, and ZIPT)**: count of sat / unsat / unknown / timeout / bug verdicts
 - **Total time used**: sum of all times for each solver
-- **Average time per benchmark**: total_time / 500
+- **Average time per benchmark**: total_time / 200
 - **Soundness disagreements**: files where any two solvers that both returned a definitive answer disagree (these are the most critical bugs)
 - **Bugs / crashes**: files with error/crash verdicts
 
@@ -399,7 +399,7 @@ Format the report as a GitHub Discussion post (GitHub-flavored Markdown):
 
 **Date**: <today's date>
 **Branch**: c3
-**Benchmark set**: QF_S (500 randomly selected files from tests/QF_S.tar.zst)
+**Benchmark set**: QF_S (200 randomly selected files from tests/QF_S.tar.zst)
 **Timeout**: 5 seconds for seq (`-T:5`); 5 seconds for nseq (`-T:5`) and ZIPT (`-t:5000`)
 
 ---
@@ -469,5 +469,5 @@ Post the Markdown report as a new GitHub Discussion using the `create-discussion
 - **ZIPT timeout unit**: ZIPT's `-t` flag takes **milliseconds**, so pass `-t:5000` for a 5-second limit.
 - **ZIPT output format**: ZIPT prints the input filename on the first line, then `SAT`, `UNSAT`, or `UNKNOWN` on subsequent lines. Parse accordingly.
 - **Report soundness bugs prominently**: If any benchmark shows a conflict between any two solvers that both returned a definitive sat/unsat answer, highlight it as a critical finding and name which pair disagrees.
-- **Don't skip any file**: Run all 500 files even if some fail.
+- **Don't skip any file**: Run all 200 files even if some fail.
 - **Large report**: If the per-file table is very long, put it in a `<details>` collapsible section.
