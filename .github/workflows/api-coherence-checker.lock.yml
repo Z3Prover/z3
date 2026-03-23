@@ -51,7 +51,7 @@ jobs:
       secret_verification_result: ${{ steps.validate-secret.outputs.verification_result }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@32b3a711a9ee97d38e3989c90af0385aff0066a7 # v0.57.2
+        uses: github/gh-aw/actions/setup@48d8fdfddc8cad854ac0c70ceb573f09fb8f9c9b # v0.62.5
         with:
           destination: /opt/gh-aw/actions
       - name: Generate agentic run info
@@ -264,7 +264,7 @@ jobs:
       output_types: ${{ steps.collect_output.outputs.output_types }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@32b3a711a9ee97d38e3989c90af0385aff0066a7 # v0.57.2
+        uses: github/gh-aw/actions/setup@48d8fdfddc8cad854ac0c70ceb573f09fb8f9c9b # v0.62.5
         with:
           destination: /opt/gh-aw/actions
       - name: Create gh-aw temp directory
@@ -991,7 +991,7 @@ jobs:
       total_count: ${{ steps.missing_tool.outputs.total_count }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@32b3a711a9ee97d38e3989c90af0385aff0066a7 # v0.57.2
+        uses: github/gh-aw/actions/setup@48d8fdfddc8cad854ac0c70ceb573f09fb8f9c9b # v0.62.5
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent output artifact
@@ -1099,7 +1099,7 @@ jobs:
       process_safe_outputs_temporary_id_map: ${{ steps.process_safe_outputs.outputs.temporary_id_map }}
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@32b3a711a9ee97d38e3989c90af0385aff0066a7 # v0.57.2
+        uses: github/gh-aw/actions/setup@48d8fdfddc8cad854ac0c70ceb573f09fb8f9c9b # v0.62.5
         with:
           destination: /opt/gh-aw/actions
       - name: Download agent output artifact
@@ -1148,7 +1148,7 @@ jobs:
       GH_AW_WORKFLOW_ID_SANITIZED: apicoherencechecker
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw/actions/setup@32b3a711a9ee97d38e3989c90af0385aff0066a7 # v0.57.2
+        uses: github/gh-aw/actions/setup@48d8fdfddc8cad854ac0c70ceb573f09fb8f9c9b # v0.62.5
         with:
           destination: /opt/gh-aw/actions
       - name: Download cache-memory artifact (default)
