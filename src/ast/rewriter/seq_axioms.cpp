@@ -1367,7 +1367,8 @@ namespace seq {
             var_ref vp(m.mk_var(0, srt), m);
             expr_ref len_s(seq.str.mk_length(vs), m);
             expr_ref len_p(seq.str.mk_length(vp), m);
-            expr_ref tail_s(seq.str.mk_substr(vs, a.mk_int(1), a.mk_sub(len_s, a.mk_int(1))), m);
+//            expr_ref tail_s(seq.str.mk_substr(vs, a.mk_int(1), a.mk_sub(len_s, a.mk_int(1))), m);
+            expr_ref tail_s(m_sk.mk("tail.s", vs), m);
             expr* nc_args[2] = { tail_s.get(), vp.get() };
             expr_ref pref(seq.str.mk_prefix(vp, vs), m);
             expr_ref hd(seq.str.mk_unit(seq.str.mk_nth_i(vs, a.mk_int(0))), m);
