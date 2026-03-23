@@ -1610,6 +1610,7 @@ namespace seq {
             }
 
             // pass 2: detect symbol clashes, empty-propagation, and prefix cancellation
+            svector<str_eq> new_eqs;
             for (str_eq& eq : m_str_eq) {
                 if (!eq.m_lhs || !eq.m_rhs)
                     continue;
@@ -1675,7 +1676,27 @@ namespace seq {
                     }
                 }
 
-                // pass 2b: power-character directional inconsistency
+                // pass 2b: unit(A) = unit(B) ++ rest (or symmetric):
+                // LHS is a single unit and RHS head is also a unit.
+                // Split deterministically: add unit(A) = unit(B) and reduce to ε = rest.
+                if (!eq.is_trivial() && eq.m_lhs && eq.m_rhs) {
+                    euf::snode* lh = dir_token(eq.m_lhs, true);
+                    euf::snode* rh = dir_token(eq.m_rhs, true);
+                    if (eq.m_lhs->is_unit() && !eq.m_rhs->is_unit() && rh && rh->is_unit()) {
+                        new_eqs.push_back(str_eq(eq.m_lhs, rh, eq.m_dep));
+                        eq.m_lhs = sg.mk_empty_seq(eq.m_lhs->get_sort());
+                        eq.m_rhs = sg.drop_left(eq.m_rhs, 1);
+                        changed = true;
+                    }
+                    else if (eq.m_rhs->is_unit() && !eq.m_lhs->is_unit() && lh && lh->is_unit()) {
+                        new_eqs.push_back(str_eq(lh, eq.m_rhs, eq.m_dep));
+                        eq.m_rhs = sg.mk_empty_seq(eq.m_rhs->get_sort());
+                        eq.m_lhs = sg.drop_left(eq.m_lhs, 1);
+                        changed = true;
+                    }
+                }
+
+                // pass 2c: power-character directional inconsistency
                 // (mirrors ZIPT's SimplifyDir power unit case + IsPrefixConsistent)
                 // For each direction (left-to-right and right-to-left):
                 // when one side starts (in that direction) with a power u^n whose
@@ -1726,6 +1747,8 @@ namespace seq {
                     }
                 }
             }
+            for (str_eq const& neq : new_eqs)
+                m_str_eq.push_back(neq);
 
             // pass 3: power simplification (mirrors ZIPT's LcpCompression +
             // SimplifyPowerElim + SimplifyPowerSingle)
