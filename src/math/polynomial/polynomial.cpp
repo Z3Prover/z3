@@ -470,8 +470,8 @@ namespace polynomial {
 
         void reset(monomial const * m) {
             unsigned id = m->id();
-            SASSERT(id < m_m2pos.size());
-            m_m2pos[id] = UINT_MAX;
+            if (id < m_m2pos.size())
+                m_m2pos[id] = UINT_MAX;
         }
 
         void set(monomial const * m, unsigned pos) {
@@ -7200,10 +7200,28 @@ namespace polynomial {
                 return;
             }
 
-            // Multivariate factorization via evaluation + bivariate Hensel lifting.
-            // Strategy: try (main_var, lift_var, eval_point) configurations.
-            // For each, reduce to bivariate, factor via Hensel lifting, then check if
-            // the bivariate factors divide the original polynomial.
+            // Try multivariate factorization. If checkpoint() throws during the
+            // attempt, the shared som_buffer/m_m2pos may be left dirty.  Catch the
+            // exception, reset the buffers, return unfactored, then rethrow so
+            // cancellation propagates normally.
+            try {
+                if (try_multivar_factor(p, r, x, k))
+                    return;
+            }
+            catch (...) {
+                m_som_buffer.reset();
+                m_som_buffer2.reset();
+                m_cheap_som_buffer.reset();
+                m_cheap_som_buffer2.reset();
+                throw;
+            }
+
+            // Could not factor, return p as-is
+            r.push_back(const_cast<polynomial*>(p), k);
+        }
+
+        // Returns true if factorization succeeded and factors were added to r.
+        bool try_multivar_factor(polynomial const * p, factors & r, var x, unsigned k) {
 
             var_vector all_vars;
             m_wrapper.vars(p, all_vars);
@@ -7374,7 +7392,7 @@ namespace polynomial {
                                             else
                                                 r.push_back(bf, k);
                                         }
-                                        return;
+                                        return true;
                                     }
 
                                     // Multivariate: check if bivariate factors divide original p.
@@ -7410,7 +7428,7 @@ namespace polynomial {
                                                 else
                                                     r.push_back(part, k);
                                             }
-                                            return;
+                                            return true;
                                         }
                                     }
                                 }
@@ -7420,8 +7438,7 @@ namespace polynomial {
                 }
             }
 
-            // Could not factor, return p as-is
-            r.push_back(const_cast<polynomial*>(p), k);
+            return false;
         }
 
         void factor_sqf_pp(polynomial const * p, factors & r, var x, unsigned k, factor_params const & params) {
