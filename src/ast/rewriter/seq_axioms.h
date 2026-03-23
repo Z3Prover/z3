@@ -32,6 +32,7 @@ namespace seq {
         arith_util      a;
         seq_util        seq;
         skolem          m_sk;
+        func_decl_ref   m_not_contains;
         expr_ref_vector m_clause;
         expr_ref_vector m_trail;
         obj_map<expr, expr*> m_purified;

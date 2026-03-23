@@ -34,6 +34,7 @@ namespace seq {
         a(m),
         seq(m),
         m_sk(m, r),
+        m_not_contains(m),
         m_clause(m),
         m_trail(m)
     {}
@@ -1346,7 +1347,44 @@ namespace seq {
     */
 
     void axioms::not_contains_axiom(expr *e) {
-        throw default_exception("not implemented");
+        expr* _a = nullptr, *_b = nullptr;
+        VERIFY(seq.str.is_contains(e, _a, _b));
+        auto ca = purify(_a);
+        auto cb = purify(_b);
+        sort* srt = ca->get_sort();
+
+        if (!m_not_contains || m_not_contains->get_domain(0) != srt) {
+            recfun::util rec(m);
+            recfun::decl::plugin& plugin = rec.get_plugin();
+            recfun_replace rf(m);
+            sort* domain[2] = { srt, srt };
+            auto d = plugin.ensure_def(symbol("nc"), 2, domain, m.mk_bool_sort(), true);
+            m_not_contains = d.get_def()->get_decl();
+            var_ref vs(m.mk_var(1, srt), m);
+            var_ref vp(m.mk_var(0, srt), m);
+            expr_ref len_s(seq.str.mk_length(vs), m);
+            expr_ref len_p(seq.str.mk_length(vp), m);
+//            expr_ref tail_s(seq.str.mk_substr(vs, a.mk_int(1), a.mk_sub(len_s, a.mk_int(1))), m);
+            expr_ref tail_s(m_sk.mk("tail.s", vs), m);
+            expr* nc_args[2] = { tail_s.get(), vp.get() };
+            expr_ref pref(seq.str.mk_prefix(vp, vs), m);
+            expr_ref hd(seq.str.mk_unit(seq.str.mk_nth_i(vs, a.mk_int(0))), m);
+            expr_ref decomp(m.mk_eq(vs, seq.str.mk_concat(hd, tail_s)), m);
+            expr_ref else_branch(m.mk_and(m.mk_not(pref), m.mk_and(decomp, m.mk_app(m_not_contains.get(), 2, nc_args))), m);
+            expr_ref body(m.mk_ite(a.mk_gt(len_p, len_s),
+                                   m.mk_true(),
+                                   m.mk_ite(m.mk_eq(len_p, len_s),
+                                            m.mk_not(m.mk_eq(vs, vp)),
+                                            else_branch)),
+                         m);
+            var* vars[2] = { vs, vp };
+            plugin.set_definition(rf, d, false, 2, vars, body);
+        }
+
+        expr* app_args[2] = { ca.get(), cb.get() };
+        expr_ref nc_app(m.mk_app(m_not_contains.get(), 2, app_args), m);
+        expr_ref cnt(e, m);
+        add_clause(cnt, nc_app);
     }
 
     expr_ref axioms::length_limit(expr* s, unsigned k) {
