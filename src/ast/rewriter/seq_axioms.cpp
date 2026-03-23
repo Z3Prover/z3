@@ -1349,7 +1349,45 @@ namespace seq {
     */
 
     void axioms::not_contains_axiom(expr *e) {
-        throw default_exception("not implemented");
+        expr* _a = nullptr, *_b = nullptr;
+        VERIFY(seq.str.is_contains(e, _a, _b));
+        auto a = purify(_a);
+        auto b = purify(_b);
+
+        // nc is a skolem Boolean representing ~contains(a, b)
+        expr_ref nc = m_sk.mk("seq.nc", a, b, nullptr, nullptr, m.mk_bool_sort());
+        expr_ref cnt(e, m);
+
+        // contains(a, b) or not_contains(a, b)
+        add_clause(cnt, nc);
+
+        // Decompose a into head + tail for the recursive unfolding
+        expr_ref head(m), tail(m);
+        m_sk.decompose(a, head, tail);
+
+        expr_ref pref(seq.str.mk_prefix(b, a), m);
+        expr_ref nc_tail = m_sk.mk("seq.nc", tail, b, nullptr, nullptr, m.mk_bool_sort());
+        expr_ref emp = mk_eq_empty(a);
+        expr_ref len_ge = mk_ge_e(mk_len(b), mk_len(a));  // |b| >= |a|
+
+        // ~nc or |b| >= |a| or ~prefix(b, a)
+        add_clause(~nc, len_ge, ~pref);
+
+        // ~nc or |b| >= |a| or not_contains(tail(a), b)
+        add_clause(~nc, len_ge, nc_tail);
+
+        // ~nc or |b| != |a| or a != b
+        add_clause(~nc, ~mk_eq(mk_len(a), mk_len(b)), ~mk_seq_eq(a, b));
+
+        // a = empty => tail(a) = empty
+        add_clause(~emp, mk_eq_empty(tail));
+
+        // a != empty => a = head + tail
+        add_clause(emp, mk_eq(a, seq.str.mk_concat(head, tail)));
+
+        expr* s, *idx;
+        if (m_sk.is_tail(tail, s, idx))
+            add_clause(emp, mk_ge_e(mk_len(s), idx));
     }
 
     expr_ref axioms::length_limit(expr* s, unsigned k) {
