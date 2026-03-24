@@ -164,7 +164,6 @@ namespace smt {
         // returned by derivative_wrapper
         expr_ref mk_deriv_accept(expr* s, unsigned i, expr* r);
         void get_derivative_targets(expr* r, expr_ref_vector& targets);
-        void get_cofactors(expr* r, expr_ref_pair_vector& result);
 
         /* 
            Pretty print the regex of the state id to the out stream, 
@@ -183,6 +182,9 @@ namespace smt {
         }
 
         bool block_if_empty(expr* r, literal lit);
+
+        void get_cofactors(expr *r, expr_ref_pair_vector &result);
+       
 
     public:
 

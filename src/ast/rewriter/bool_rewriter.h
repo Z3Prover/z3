@@ -242,6 +242,9 @@ public:
     void mk_nand(expr * arg1, expr * arg2, expr_ref & result);
     void mk_nor(expr * arg1, expr * arg2, expr_ref & result);
     void mk_ge2(expr* a, expr* b, expr* c, expr_ref& result);
+
+
+    bool decompose_ite(expr *r, expr_ref &c, expr_ref &th, expr_ref &el);
 };
 
 struct bool_rewriter_cfg : public default_rewriter_cfg {

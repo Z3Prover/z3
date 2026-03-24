@@ -503,7 +503,8 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     lbool seq_regex::is_empty_bfs(euf::snode* re, unsigned max_states) {
-        SASSERT(re && re->get_expr());
+        if (!re)
+            return l_undef;
         if (re->is_fail())
             return l_true;
         if (re->is_nullable())

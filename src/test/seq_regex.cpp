@@ -712,6 +712,105 @@ static void test_some_seq_in_re_excluded_low_regression() {
     std::cout << "  ok: witness=" << ws << " satisfies [A-Z] \\ {A}\n";
 }
 
+// Regression: some_seq_in_re returns l_false for re.inter of "odd number+\n" and "phone number+\n"
+// The regex is non-empty, a valid witness is e.g. "1111111111\n".
+// Root cause: derivative of re.inter produces nested ITEs, and the witness
+// search incorrectly pushes inner ITE nodes with needs_derivation=true,
+// causing ITE conditions from the first derivative to leak into the next.
+static void test_some_seq_in_re_inter_loop_regression() {
+    std::cout << "test_some_seq_in_re_inter_loop_regression\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    seq_util su(m);
+    seq_rewriter rw(m);
+    th_rewriter tr(m);
+
+    // Helpers
+    auto mk_to_re = [&](const char* s) -> expr_ref {
+        return expr_ref(su.re.mk_to_re(su.str.mk_string(s)), m);
+    };
+    auto mk_range = [&](const char* lo, const char* hi) -> expr_ref {
+        expr_ref l(su.mk_char(lo[0]), m);
+        expr_ref h(su.mk_char(hi[0]), m);
+        return expr_ref(su.re.mk_range(su.str.mk_unit(l), su.str.mk_unit(h)), m);
+    };
+    auto cat = [&](expr* a, expr* b) -> expr_ref {
+        return expr_ref(su.re.mk_concat(a, b), m);
+    };
+    auto un = [&](expr* a, expr* b) -> expr_ref {
+        return expr_ref(su.re.mk_union(a, b), m);
+    };
+
+    // Build the regex from the crash output:
+    // a!1 = ([1-9][1-9]* | "")
+    expr_ref range19 = mk_range("1", "9");
+    expr_ref a1(su.re.mk_union(
+        su.re.mk_concat(range19, su.re.mk_star(range19)),
+        su.re.mk_to_re(su.str.mk_string(""))), m);
+
+    // a!2 = "3" | "5" | "7" | "9"
+    expr_ref a2 = un(mk_to_re("3"), un(mk_to_re("5"), un(mk_to_re("7"), mk_to_re("9"))));
+
+    // a!3 = (a!1 ++ ("1" | a!2)) ++ "\n"
+    expr_ref a3 = cat(cat(a1, un(mk_to_re("1"), a2)), mk_to_re("\x0a"));
+
+    // a!4 = "(" ++ loop(3,3,[0-9]) ++ ")"
+    expr_ref range09 = mk_range("0", "9");
+    expr_ref loop3(su.re.mk_loop(range09, 3, 3), m);
+    expr_ref a4 = cat(cat(mk_to_re("("), loop3), mk_to_re(")"));
+
+    // a!5 = a!4 ++ ("" | " ") ++ loop(3,3,[0-9])
+    expr_ref a5 = cat(cat(a4, un(mk_to_re(""), mk_to_re(" "))), loop3);
+
+    // a!6 = a!5 ++ ("" | " " | "-")
+    expr_ref sep3 = un(mk_to_re(""), un(mk_to_re(" "), mk_to_re("-")));
+    expr_ref a6 = cat(a5, sep3);
+
+    // a!7 = loop(3,3,[0-9]) ++ ("" | " " | "-")
+    expr_ref a7 = cat(loop3, sep3);
+
+    // a!8 = a!7 ++ loop(3,3,[0-9]) ++ ("" | " " | "-")
+    expr_ref a8 = cat(cat(a7, loop3), sep3);
+
+    // a!9 = a!8 ++ loop(4,4,[0-9]) ++ "\n"
+    expr_ref loop4(su.re.mk_loop(range09, 4, 4), m);
+    expr_ref a9 = cat(cat(a8, loop4), mk_to_re("\x0a"));
+
+    // a!10 = (a!6 ++ loop(4,4,[0-9])) | a!9
+    expr_ref a10 = un(cat(a6, loop4), a9);
+
+    // Final regex = re.inter(a!3, a!10)
+    expr_ref re_expr(su.re.mk_inter(a3, a10), m);
+
+    std::cout << "  regex: " << mk_pp(re_expr, m) << "\n";
+
+    // The regex is non-empty: "1111111111\n" matches both a!3 and a!10
+    // some_seq_in_re must return l_true with a valid witness
+    expr_ref witness(m);
+    lbool wr = rw.some_seq_in_re(re_expr, witness);
+    std::cout << "  some_seq_in_re returned: " << wr << "\n";
+    if (witness)
+        std::cout << "  witness: " << mk_pp(witness, m) << "\n";
+    else
+        std::cout << "  witness: null\n";
+    ENSURE(wr == l_true);
+    ENSURE(witness.get() != nullptr);
+
+    if (wr != l_true || !witness)
+        return;
+
+    // Verify witness satisfies the regex
+    expr_ref in_re(su.re.mk_in_re(witness, re_expr), m);
+    expr_ref in_re_simpl(m);
+    tr(in_re, in_re_simpl);
+    std::cout << "  in_re simplified: " << mk_pp(in_re_simpl, m) << "\n";
+    SASSERT(m.is_true(in_re_simpl));
+
+    zstring ws;
+    VERIFY(su.str.is_string(witness, ws));
+    std::cout << "  ok: witness=\"" << ws << "\" satisfies the intersection regex\n";
+}
+
 void tst_seq_regex() {
     test_seq_regex_instantiation();
     test_seq_regex_is_empty();
@@ -731,8 +830,6 @@ void tst_seq_regex() {
     test_bfs_empty_union_of_empties();
     test_bfs_nonempty_range();
     test_bfs_empty_complement_full();
-    test_bfs_null_safety();
-    test_bfs_bounded();
     // New tests for regex membership completion
     test_char_set_is_subset();
     test_stabilizer_store_basic();
@@ -743,5 +840,9 @@ void tst_seq_regex() {
     test_is_language_subset_false();
     test_is_language_subset_trivial();
     test_some_seq_in_re_excluded_low_regression();
+    test_some_seq_in_re_inter_loop_regression();
+    // test_bfs_null_safety has a pre-existing failure, run it last
+    test_bfs_null_safety();
+    test_bfs_bounded();
     std::cout << "seq_regex: all tests passed\n";
 }

@@ -1185,4 +1185,26 @@ void bool_rewriter::mk_ge2(expr* a, expr* b, expr* c, expr_ref& r) {
 }
 
 
+bool bool_rewriter::decompose_ite(expr *r, expr_ref &c, expr_ref &th, expr_ref &el) {
+    expr *cond = nullptr, *r1 = nullptr, *r2 = nullptr;
+    if (m().is_ite(r, cond, r1, r2)) {
+        c = cond;
+        th = r1;
+        el = r2;
+        return true;
+    }
+    for (expr *e : subterms::ground(expr_ref(r, m()))) {
+        if (m().is_ite(e, cond, r1, r2)) {
+            c = cond;
+            th = r1;
+            el = r2;
+            return true;
+        }
+    }
+    return false;
+}
+
+
+
+
 template class rewriter_tpl<bool_rewriter_cfg>;

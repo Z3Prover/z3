@@ -25,6 +25,7 @@ Authors:
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_util.h"
+#include "ast/for_each_expr.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/expr_safe_replace.h"
@@ -6083,11 +6084,9 @@ lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vect
         re_eval_pos current = todo.back();
         todo.pop_back();
         r = current.e;
-        // IF_VERBOSE(1, verbose_stream() << "derive " << mk_pp(r, m()) << "\n");
         str.resize(current.str_len);
         if (current.needs_derivation) {
             SASSERT(current.exclude.empty());
-            // We are looking for the next character => generate derivation
             if (visited.is_marked(r))
                 continue;
             if (re().is_empty(r))
@@ -6095,11 +6094,11 @@ lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vect
             auto info = re().get_info(r);
             if (info.nullable == l_true)
                 return l_true;
+            IF_VERBOSE(2, verbose_stream() << "  derive str=" << str.size() << " " << mk_bounded_pp(r, m(), 2) << "\n");
             visited.mark(r);
             if (re().is_union(r)) {
-                for (expr* arg : *to_app(r)) {
+                for (expr* arg : *to_app(r))
                     todo.push_back({ expr_ref(arg, m()), str.size(), {}, true });
-                }
                 continue;
             }
 
@@ -6109,7 +6108,7 @@ lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vect
 
         buffer<std::pair<unsigned, unsigned>> exclude = std::move(current.exclude);
 
-        expr* c, * th, * el;
+
         if (re().is_empty(r))
             continue;
         if (re().is_union(r)) {
@@ -6118,7 +6117,8 @@ lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vect
             }
             continue;
         }
-        if (m().is_ite(r, c, th, el)) {
+        expr_ref c(m()), th(m()), el(m());
+        if (bool_rewriter(m()).decompose_ite(r, c, th, el)) {
             unsigned low = 0, high = zstring::unicode_max_char();
             bool has_bounds = get_bounds(c, low, high);
             if (!re().is_empty(el)) {
@@ -6129,8 +6129,16 @@ lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vect
                     exclude.pop_back();
             }
             if (has_bounds) {
-                // I want this case to be processed first => push it last
-                // reason: current string is only pruned
+
+                if (any_of(subterms::all(th), [&](expr *t) { return m().is_ite(t); })) {
+                    if (low > 0)
+                        exclude.push_back({0, low - 1});
+                    if (high < zstring::unicode_max_char())
+                        exclude.push_back({high + 1, zstring::unicode_max_char()});
+                    todo.push_back({ expr_ref(th, m()), str.size(), exclude, false });
+                    continue;
+                }
+
                 SASSERT(low <= high);
                 unsigned ch = low;
                 bool found = true;
@@ -6153,11 +6161,13 @@ lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vect
                 }
                 if (found && ch <= high) {
                     str.push_back(ch);
-                    todo.push_back({ expr_ref(th, m()), str.size(), {}, true });
+                    todo.push_back({expr_ref(th, m()), str.size(), {}, true});
                 }
             }
             continue;
         }
+
+
 
         if (is_ground(r)) {
             // ensure selected character is not in exclude

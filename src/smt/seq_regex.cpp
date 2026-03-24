@@ -673,55 +673,7 @@ namespace smt {
         }
     }
 
-    /*
-        Return a list of all (cond, leaf) pairs in a given derivative
-        expression r.
 
-        Note: this  implementation is inefficient: it simply collects all expressions under an if and 
-        iterates over all combinations.
-
-        This method is still used by:
-            propagate_is_empty
-            propagate_is_non_empty
-    */
-    void seq_regex::get_cofactors(expr* r, expr_ref_pair_vector& result) {
-        obj_hashtable<expr> ifs;
-        expr* cond = nullptr, * r1 = nullptr, * r2 = nullptr;
-        for (expr* e : subterms::ground(expr_ref(r, m))) 
-            if (m.is_ite(e, cond, r1, r2))
-                ifs.insert(cond);
-        
-        expr_ref_vector rs(m);
-        vector<expr_ref_vector> conds;
-        conds.push_back(expr_ref_vector(m));
-        rs.push_back(r);
-        for (expr* c : ifs) {
-            unsigned sz = conds.size();
-            expr_safe_replace rep1(m);
-            expr_safe_replace rep2(m);
-            rep1.insert(c, m.mk_true());
-            rep2.insert(c, m.mk_false());
-            expr_ref r2(m);
-            for (unsigned i = 0; i < sz; ++i) {
-                expr_ref_vector cs = conds[i];
-                cs.push_back(mk_not(m, c));
-                conds.push_back(cs);
-                conds[i].push_back(c);
-                expr_ref r1(rs.get(i), m);
-                rep1(r1, r2);
-                rs[i] = r2;
-                rep2(r1, r2);
-                rs.push_back(r2);
-            }
-        }
-        for (unsigned i = 0; i < conds.size(); ++i) {
-            expr_ref conj = mk_and(conds[i]);
-            expr_ref r(rs.get(i), m);
-            ctx.get_rewriter()(r);
-            if (!m.is_false(conj) && !re().is_empty(r))
-                result.push_back(conj, r);
-        }
-    }
 
     /*
       is_empty(r, u) => ~is_nullable(r)
@@ -875,6 +827,52 @@ namespace smt {
     }
     std::string seq_regex::expr_id_str(expr* e) {
         return std::string("id") + std::to_string(e->get_id());
+    }
+
+    /**
+    Return a list of all (cond, leaf) pairs in a given
+    expression r.
+
+    Note: this  implementation is inefficient: it simply collects all expressions under an if and
+    iterates over all combinations.
+*/
+    void seq_regex::get_cofactors(expr *r, expr_ref_pair_vector &result) {
+        obj_hashtable<expr> ifs;
+        expr *cond = nullptr, *r1 = nullptr, *r2 = nullptr;
+        for (expr *e : subterms::ground(expr_ref(r, m)))
+            if (m.is_ite(e, cond, r1, r2))
+                ifs.insert(cond);
+
+        expr_ref_vector rs(m);
+        vector<expr_ref_vector> conds;
+        conds.push_back(expr_ref_vector(m));
+        rs.push_back(r);
+        for (expr *c : ifs) {
+            unsigned sz = conds.size();
+            expr_safe_replace rep1(m);
+            expr_safe_replace rep2(m);
+            rep1.insert(c, m.mk_true());
+            rep2.insert(c, m.mk_false());
+            expr_ref r2(m);
+            for (unsigned i = 0; i < sz; ++i) {
+                expr_ref_vector cs = conds[i];
+                cs.push_back(m.mk_not(c));
+                conds.push_back(cs);
+                conds[i].push_back(c);
+                expr_ref r1(rs.get(i), m);
+                rep1(r1, r2);
+                rs[i] = r2;
+                rep2(r1, r2);
+                rs.push_back(r2);
+            }
+        }
+        for (unsigned i = 0; i < conds.size(); ++i) {
+            expr_ref conj = mk_and(conds[i]);
+            expr_ref r(rs.get(i), m);
+            ctx.get_rewriter()(r);
+            if (!m.is_false(conj) && !re().is_empty(r))
+                result.push_back(conj, r);
+        }
     }
 
 }
