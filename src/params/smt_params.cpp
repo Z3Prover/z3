@@ -57,6 +57,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_nseq_max_nodes = p.nseq_max_nodes();
     m_nseq_parikh = p.nseq_parikh();
     m_nseq_regex_precheck = p.nseq_regex_precheck();
+    m_nseq_signature = p.nseq_signature();
     m_up_persist_clauses = p.up_persist_clauses();
     validate_string_solver(m_string_solver);
     if (_p.get_bool("arith.greatest_error_pivot", false))

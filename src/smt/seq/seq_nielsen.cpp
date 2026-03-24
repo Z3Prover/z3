@@ -37,6 +37,7 @@ NSB review:
 #include <algorithm>
 #include <cstdlib>
 #include <sstream>
+#include <unordered_map>
 
 namespace seq {
 
@@ -1880,6 +1881,12 @@ namespace seq {
         if (!node->is_extended()) {
             bool ext = generate_extensions(node);
             IF_VERBOSE(0, display(verbose_stream(), node));
+            if (!ext) {
+#ifdef Z3DEBUG
+                std::string dot = to_dot();
+                std::cout << dot << std::endl;
+#endif
+            }
             VERIFY(ext);
             node->set_extended(true);
             ++m_stats.m_num_extensions;
@@ -2413,6 +2420,10 @@ namespace seq {
         // Priority 8: ConstNielsen - char vs var (2 children)
         if (apply_const_nielsen(node))
             return ++m_stats.m_mod_const_nielsen, true;
+
+        // Priority 9: SignatureSplit - heuristic string equation splitting
+        if (m_signature_split && apply_signature_split(node))
+            return ++m_stats.m_mod_signature_split, true;
 
         // Priority 10: RegexVarSplit - split str_mem by minterms
         if (apply_regex_var_split(node))
@@ -3116,6 +3127,156 @@ namespace seq {
         return true;
     }
 
+    // -----------------------------------------------------------------------
+    // Modifier: apply_signature_split
+    // Heuristic equation split based on a shortest prefix signature (i, j):
+    // prefixes u[0..i-1], v[0..j-1] must contain at least one variable and
+    // every variable in one prefix must occur in the other prefix.
+    // -----------------------------------------------------------------------
+
+    bool nielsen_graph::apply_signature_split(nielsen_node* node) {
+        auto first_var_pos = [](euf::snode_vector const& toks) {
+            for (unsigned k = 0; k < toks.size(); ++k)
+                if (toks[k]->is_var())
+                    return k;
+            return toks.size();
+        };
+
+        auto const& eqs = node->str_eqs();
+        for (unsigned eq_idx = 0; eq_idx < eqs.size(); ++eq_idx) {
+            str_eq const& eq = eqs[eq_idx];
+            SASSERT(eq.m_lhs && eq.m_rhs);
+            if (eq.is_trivial())
+                continue;
+
+            euf::snode_vector lhs_toks, rhs_toks;
+            eq.m_lhs->collect_tokens(lhs_toks);
+            eq.m_rhs->collect_tokens(rhs_toks);
+
+            // Start from the first variable on each side; if one side has no
+            // variable, this equation has no usable signature.
+            unsigned i0 = first_var_pos(lhs_toks);
+            unsigned j0 = first_var_pos(rhs_toks);
+            if (i0 == lhs_toks.size() || j0 == rhs_toks.size())
+                continue;
+
+            std::unordered_map<expr*, unsigned> lhs_first, rhs_first;
+            lhs_first.reserve(lhs_toks.size());
+            rhs_first.reserve(rhs_toks.size());
+
+            for (unsigned k = 0; k < lhs_toks.size(); ++k) {
+                if (!lhs_toks[k]->is_var())
+                    continue;
+                expr* x = lhs_toks[k]->get_expr();
+                if (!lhs_first.contains(x))
+                    lhs_first.emplace(x, k);
+            }
+            for (unsigned k = 0; k < rhs_toks.size(); ++k) {
+                if (!rhs_toks[k]->is_var())
+                    continue;
+                expr* x = rhs_toks[k]->get_expr();
+                if (!rhs_first.contains(x))
+                    rhs_first.emplace(x, k);
+            }
+
+            svector<unsigned> lhs_need_j(lhs_toks.size(), UINT_MAX);
+            svector<unsigned> rhs_need_i(rhs_toks.size(), UINT_MAX);
+
+            // Prefix summary arrays:
+            // lhs_need_j[k] = maximum first-occurrence index in rhs for any
+            // variable seen in lhs[0..k]. Symmetric for rhs_need_i.
+            // A value of UINT_MAX means "no variable requirement yet".
+            // A value of UINT_MAX-1 means "fail: some prefix variable does not
+            // occur on the opposite side at all".
+            unsigned const FAIL_MARK = UINT_MAX - 1;
+            unsigned need = UINT_MAX;
+            for (unsigned k = 0; k < lhs_toks.size(); ++k) {
+                if (lhs_toks[k]->is_var()) {
+                    auto it = rhs_first.find(lhs_toks[k]->get_expr());
+                    if (it == rhs_first.end())
+                        need = FAIL_MARK;
+                    else if (need != FAIL_MARK)
+                        need = (need == UINT_MAX) ? it->second : std::max(need, it->second);
+                }
+                lhs_need_j[k] = need;
+            }
+
+            need = UINT_MAX;
+            for (unsigned k = 0; k < rhs_toks.size(); ++k) {
+                if (rhs_toks[k]->is_var()) {
+                    auto it = lhs_first.find(rhs_toks[k]->get_expr());
+                    if (it == lhs_first.end())
+                        need = FAIL_MARK;
+                    else if (need != FAIL_MARK)
+                        need = (need == UINT_MAX) ? it->second : std::max(need, it->second);
+                }
+                rhs_need_i[k] = need;
+            }
+
+            unsigned i = i0 + 1;
+            unsigned j = j0 + 1;
+
+            // Compute least fixpoint for (i, j): grow one side only when the
+            // current prefix on the other side requires it.
+            bool changed = true;
+            while (changed) {
+                changed = false;
+
+                unsigned req_j = lhs_need_j[i - 1];
+                if (req_j == FAIL_MARK) {
+                    i = lhs_toks.size();
+                    break;
+                }
+                if (req_j != UINT_MAX && req_j + 1 > j) {
+                    j = req_j + 1;
+                    changed = true;
+                }
+
+                unsigned req_i = rhs_need_i[j - 1];
+                if (req_i == FAIL_MARK) {
+                    j = rhs_toks.size();
+                    break;
+                }
+                if (req_i != UINT_MAX && req_i + 1 > i) {
+                    i = req_i + 1;
+                    changed = true;
+                }
+            }
+
+            if (i >= lhs_toks.size() || j >= rhs_toks.size())
+                continue;
+
+            // Decompose u = u1·u2 and v = v1·v2 at signature indices.
+            euf::snode* u1 = m_sg.drop_right(eq.m_lhs, lhs_toks.size() - i);
+            euf::snode* u2 = m_sg.drop_left(eq.m_lhs, i);
+            euf::snode* v1 = m_sg.drop_right(eq.m_rhs, rhs_toks.size() - j);
+            euf::snode* v2 = m_sg.drop_left(eq.m_rhs, j);
+            euf::snode* x = mk_fresh_var(eq.m_lhs->get_sort());
+
+            for (unsigned branch = 0; branch < 2; ++branch) {
+                nielsen_node* child = mk_child(node);
+                mk_edge(node, child, true);
+
+                auto& child_eqs = child->str_eqs();
+                child_eqs[eq_idx] = child_eqs.back();
+                child_eqs.pop_back();
+
+                // Two-way split:
+                // (1) u1·x = v1   and   u2 = x·v2
+                // (2) u1 = v1·x   and   x·u2 = v2
+                if (branch == 0) {
+                    child_eqs.push_back(str_eq(m_sg.mk_concat(u1, x), v1, eq.m_dep));
+                    child_eqs.push_back(str_eq(u2, m_sg.mk_concat(x, v2), eq.m_dep));
+                }
+                else {
+                    child_eqs.push_back(str_eq(u1, m_sg.mk_concat(v1, x), eq.m_dep));
+                    child_eqs.push_back(str_eq(m_sg.mk_concat(x, u2), v2, eq.m_dep));
+                }
+            }
+            return true;
+        }
+        return false;
+    }
     // -----------------------------------------------------------------------
     // Modifier: apply_regex_var_split
     // For str_mem x·s ∈ R where x is a variable, split using minterms:
@@ -4033,6 +4194,7 @@ namespace seq {
         st.update("nseq mod star intr",        m_stats.m_mod_star_intr);
         st.update("nseq mod gpower intr",      m_stats.m_mod_gpower_intr);
         st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);
+        st.update("nseq mod signature split",  m_stats.m_mod_signature_split);
         st.update("nseq mod regex var",        m_stats.m_mod_regex_var_split);
         st.update("nseq mod power split",      m_stats.m_mod_power_split);
         st.update("nseq mod var nielsen",      m_stats.m_mod_var_nielsen);

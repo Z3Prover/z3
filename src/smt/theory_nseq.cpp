@@ -173,6 +173,7 @@ namespace smt {
     void theory_nseq::new_eq_eh(theory_var v1, theory_var v2) {
         expr* e1 = get_enode(v1)->get_expr();
         expr* e2 = get_enode(v2)->get_expr();
+        // std::cout << mk_pp(e1, m) << " = " << mk_pp(e2, m) << std::endl;
         if (m_seq.is_re(e1)) {
             push_unhandled_pred();
             return;
@@ -185,6 +186,7 @@ namespace smt {
             seq::dep_tracker dep = nullptr;
             ctx.push_trail(restore_vector(m_prop_queue));
             m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
+            std::cout << "Enqueuing equation " << seq::snode_label_html(s1, m) << " = " << seq::snode_label_html(s2, m) << std::endl;
         }
     }
 
@@ -520,6 +522,7 @@ namespace smt {
         m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
         m_nielsen.set_max_nodes(get_fparams().m_nseq_max_nodes);
         m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
+        m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
 
         // Regex membership pre-check: before running DFS, check intersection
         // emptiness for each variable's regex constraints.  This handles     

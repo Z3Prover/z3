@@ -739,6 +739,7 @@ namespace seq {
         unsigned m_mod_gpower_intr     = 0;
         unsigned m_mod_const_nielsen   = 0;
         unsigned m_mod_regex_var_split = 0;
+        unsigned m_mod_signature_split = 0;
         unsigned m_mod_power_split     = 0;
         unsigned m_mod_var_nielsen     = 0;
         unsigned m_mod_var_num_unwinding = 0;
@@ -763,6 +764,7 @@ namespace seq {
         unsigned                      m_max_search_depth = 0;
         unsigned                      m_max_nodes = 0;          // 0 = unlimited
         bool                          m_parikh_enabled = true;
+        bool                          m_signature_split = false;
         unsigned                      m_next_mem_id = 0;
         unsigned                      m_fresh_cnt = 0;
         nielsen_stats                 m_stats;
@@ -885,6 +887,8 @@ namespace seq {
         
         // enable/disable Parikh image verification constraints
         void set_parikh_enabled(bool e) { m_parikh_enabled = e; }
+
+        void set_signature_split(bool e) { m_signature_split = e; }
 
         // generate next unique regex membership id
         unsigned next_mem_id() { return m_next_mem_id++; }
@@ -1063,6 +1067,9 @@ namespace seq {
         // backward (right-to-left) direction.
         bool fire_gpower_intro(nielsen_node* node, str_eq const& eq,
                                euf::snode* var, euf::snode_vector const& ground_prefix_orig, bool fwd);
+
+        // heuristic string equation splitting. Left to right scanning for shortest prefix with matching variables.
+        bool apply_signature_split(nielsen_node* node);
 
         // regex variable split: for str_mem x·s ∈ R where x is a variable,
         // split using minterms: x → ε, or x → c·x' for each minterm c.

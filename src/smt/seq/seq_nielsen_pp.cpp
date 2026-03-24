@@ -393,7 +393,9 @@ namespace seq {
             if (!e) {
                 result += "#" + std::to_string(tok->id());
             } else if (tok->is_var()) {
-                result += dot_html_escape(to_app(e)->get_decl()->get_name().str());
+                std::ostringstream os;
+                os << mk_pp(e, m);
+                result += dot_html_escape(os.str());
             } else if (tok->is_unit()) {
                 // seq.unit with non-literal character: show the character expression
                 expr* ch = to_app(e)->get_arg(0);
