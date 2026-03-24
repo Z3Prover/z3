@@ -1198,11 +1198,11 @@ bool bool_rewriter::decompose_ite(expr *r, expr_ref &c, expr_ref &th, expr_ref &
         if (m().is_ite(e, cond, r1, r2)) {
             expr_safe_replace rep1(m());
             expr_safe_replace rep2(m());
-            rep1.insert(cond, m().mk_true());
-            rep2.insert(cond, m().mk_false());
+            rep1.insert(e, r1);
+            rep2.insert(e, r2);
             c = cond;
-            th = r1;
-            el = r2;
+            th = r;
+            el = r;
             rep1(th);
             rep2(el);
             return true;
