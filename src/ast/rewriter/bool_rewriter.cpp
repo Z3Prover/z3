@@ -19,6 +19,7 @@ Notes:
 #include "ast/rewriter/bool_rewriter.h"
 #include "params/bool_rewriter_params.hpp"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "ast/ast_lt.h"
 #include "ast/for_each_expr.h"
 #include <algorithm>
@@ -1195,9 +1196,15 @@ bool bool_rewriter::decompose_ite(expr *r, expr_ref &c, expr_ref &th, expr_ref &
     }
     for (expr *e : subterms::ground(expr_ref(r, m()))) {
         if (m().is_ite(e, cond, r1, r2)) {
+            expr_safe_replace rep1(m());
+            expr_safe_replace rep2(m());
+            rep1.insert(cond, m().mk_true());
+            rep2.insert(cond, m().mk_false());
             c = cond;
             th = r1;
             el = r2;
+            rep1(th);
+            rep2(el);
             return true;
         }
     }

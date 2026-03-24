@@ -6130,7 +6130,7 @@ lbool seq_rewriter::some_string_in_re(expr_mark& visited, expr* r, unsigned_vect
             }
             if (has_bounds) {
 
-                if (any_of(subterms::all(th), [&](expr *t) { return m().is_ite(t); })) {
+                if (any_of(subterms::ground(th), [&](expr *t) { return m().is_ite(t); })) {
                     if (low > 0)
                         exclude.push_back({0, low - 1});
                     if (high < zstring::unicode_max_char())
