@@ -32,6 +32,8 @@ NSB review:
 #include "ast/ast_pp.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "sat/smt/arith_solver.h"
+#include "tactic/probe.h"
 #include "tactic/fd_solver/enum2bv_solver.h"
 #include "util/hashtable.h"
 #include "util/statistics.h"
@@ -4048,9 +4050,10 @@ namespace seq {
         return expr_ref(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
     }
 
-    bool nielsen_graph::solve_sat_path_ints(model_ref& mdl) {
+    bool nielsen_graph::solve_sat_path_raw(model_ref& mdl) {
         mdl = nullptr;
-        if (m_sat_path.empty() && (!m_sat_node || m_sat_node->int_constraints().empty()))
+        if (m_sat_path.empty() && (!m_sat_node ||
+            (m_sat_node->int_constraints().empty() && m_sat_node->char_diseqs().empty() && m_sat_node->char_ranges().empty())))
             return false;
 
         // Re-assert the sat-path constraints into m_solver (which holds only root-level
@@ -4060,13 +4063,39 @@ namespace seq {
         // and do not require incremental skipping.
         IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints: sat_path length=" << m_sat_path.size() << "\n";);
         m_solver.push();
-        for (nielsen_edge* e : m_sat_path)
+        for (nielsen_edge* e : m_sat_path) {
             for (auto const& ic : e->side_int()) {
                 m_solver.assert_expr(int_constraint_to_expr(ic));
             }
+        }
         if (m_sat_node) {
             for (auto const& ic : m_sat_node->int_constraints()) {
                 m_solver.assert_expr(int_constraint_to_expr(ic));
+            }
+            for (auto const& dis : m_sat_node->char_diseqs()) {
+                vector<expr*> dist;
+                dist.reserve((unsigned)dis.m_value.size());
+                for (unsigned i = 0; i < dis.m_value.size(); ++i) {
+                    dist.push_back(dis.m_value[i]->get_expr());
+                }
+                m_solver.assert_expr(m.mk_distinct(dist.size(), dist.data()));
+            }
+            bv_util arith(m);
+            for (auto const& kvp : m_sat_node->char_ranges()) {
+                expr_ref_vector cases(m);
+                const auto& var = m_sg.nodes()[kvp.m_key]->get_expr();
+                const auto& ranges = kvp.m_value.ranges();
+                cases.reserve(ranges.size());
+                SASSERT(var->get_sort()->get_family_id() == arith.get_family_id());
+                unsigned bitCnt = arith.get_bv_size(var);
+
+                for (unsigned i = 0; i < ranges.size(); ++i) {
+                    cases.push_back(m.mk_and(
+                        arith.mk_ule(arith.mk_numeral(ranges[i].m_lo, bitCnt), var),
+                        arith.mk_ule(var, arith.mk_numeral(ranges[i].m_hi - 1, bitCnt))
+                        ));
+                }
+                m_solver.assert_expr(m.mk_or(cases));
             }
         }
         lbool result = m_solver.check();
@@ -4075,7 +4104,7 @@ namespace seq {
             m_solver.get_model(mdl);
             IF_VERBOSE(1, if (mdl) {
                 ast_manager& m = m_sg.get_manager();
-                verbose_stream() << "  int_model:\n";
+                verbose_stream() << "  raw_model:\n";
                 for (unsigned i = 0; i < mdl->get_num_constants(); ++i) {
                     func_decl* fd = mdl->get_constant(i);
                     expr* val = mdl->get_const_interp(fd);

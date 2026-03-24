@@ -959,7 +959,7 @@ namespace seq {
         // Must be called after solve() returns sat.
         // Returns true if a satisfying model was found.
         // Caller takes ownership of the returned model pointer.
-        bool solve_sat_path_ints(model_ref& mdl);
+        bool solve_sat_path_raw(model_ref& mdl);
 
         // accessor for the seq_regex module
         seq_regex* seq_regex_module() const { return m_seq_regex; }

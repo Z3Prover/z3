@@ -46,7 +46,7 @@ namespace smt {
 
         // solve integer constraints from the sat_path FIRST so that
         // m_int_model is available when snode_to_value evaluates power exponents
-        nielsen.solve_sat_path_ints(m_int_model);
+        nielsen.solve_sat_path_raw(m_int_model);
 
         // extract variable assignments from the satisfying leaf's substitution path
         extract_assignments(nielsen.sat_path());
