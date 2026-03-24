@@ -185,9 +185,7 @@ namespace smt {
         if (s1 && s2) {
             seq::dep_tracker dep = nullptr;
             ctx.push_trail(restore_vector(m_prop_queue));
-            m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
-            std::cout << "Enqueuing equation " << seq::snode_label_html(s1, m) << " = " << seq::snode_label_html(s2, m) << std::endl;
-        }
+            m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));}
     }
 
     void theory_nseq::new_diseq_eh(theory_var v1, theory_var v2) {

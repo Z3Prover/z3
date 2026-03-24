@@ -2011,7 +2011,7 @@ namespace seq {
 
                 // char vs var: branch 1: var -> ε, branch 2: var -> char·var   (depending on direction)
                 // NSB review: add also case var -> unit·var
-                euf::snode* char_head = lhead->is_char() ? lhead : (rhead->is_char() ? rhead : nullptr);
+                euf::snode* char_head = (lhead->is_char() || lhead->is_unit()) ? lhead : ((rhead->is_char() || rhead->is_unit()) ? rhead : nullptr);
                 euf::snode* var_head = lhead->is_var() ? lhead : (rhead->is_var() ? rhead : nullptr);
                 if (char_head && var_head) {
                     nielsen_node* child = mk_child(node);
