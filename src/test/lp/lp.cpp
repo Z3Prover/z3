@@ -1711,7 +1711,7 @@ void test_dio() {
     enable_trace("dioph_eq");
     enable_trace("dioph_eq_fresh");
 #ifdef Z3DEBUG     
-    auto r = i_solver.dio_test();
+    i_solver.dio_test();
 #endif    
     
 }
