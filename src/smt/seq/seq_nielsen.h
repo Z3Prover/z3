@@ -742,7 +742,8 @@ namespace seq {
         unsigned m_mod_signature_split = 0;
         unsigned m_mod_power_split     = 0;
         unsigned m_mod_var_nielsen     = 0;
-        unsigned m_mod_var_num_unwinding = 0;
+        unsigned m_mod_var_num_unwinding_eq = 0;
+        unsigned m_mod_var_num_unwinding_mem = 0;
         void reset() { memset(this, 0, sizeof(nielsen_stats)); }
     };
 
@@ -1085,7 +1086,9 @@ namespace seq {
         // variable numeric unwinding: for a power token u^n vs a variable,
         // branch: (1) n = 0 (u^n = ε), (2) n >= 1 (peel one u).
         // mirrors ZIPT's VarNumUnwindingModifier
-        bool apply_var_num_unwinding(nielsen_node* node);
+        bool apply_var_num_unwinding_eq(nielsen_node* node);
+
+        bool apply_var_num_unwinding_mem(nielsen_node* node);
 
         // find the first power token in any str_eq at this node
         euf::snode* find_power_token(nielsen_node* node) const;
@@ -1097,6 +1100,8 @@ namespace seq {
         // find a power token facing a variable token at either end of an
         // equation; returns orientation via `fwd` (true=head, false=tail).
         bool find_power_vs_var(nielsen_node* node, euf::snode*& power, euf::snode*& var_head, str_eq const*& eq_out, bool& fwd) const;
+
+        bool find_power_vs_var(nielsen_node* node, euf::snode*& power, str_mem const*& mem_out, bool& fwd) const;
 
         // -----------------------------------------------
         // Integer feasibility subsolver methods

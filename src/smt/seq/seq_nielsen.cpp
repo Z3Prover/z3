@@ -2437,9 +2437,13 @@ namespace seq {
         if (apply_var_nielsen(node))
             return ++m_stats.m_mod_var_nielsen, true;
 
-        // Priority 13: VarNumUnwinding - variable power unwinding
-        if (apply_var_num_unwinding(node))
-            return ++m_stats.m_mod_var_num_unwinding, true;
+        // Priority 13: VarNumUnwinding - variable power unwinding for equality constraints
+        if (apply_var_num_unwinding_eq(node))
+            return ++m_stats.m_mod_var_num_unwinding_eq, true;
+
+        // Priority 14: variable power unwinding for membership constraints
+        if (apply_var_num_unwinding_mem(node))
+            return ++m_stats.m_mod_var_num_unwinding_mem, true;
 
         return false;
     }
@@ -2523,10 +2527,8 @@ namespace seq {
                                           str_eq const*& eq_out,
                                           bool& fwd) const {
         for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial())
-                continue;
-            if (!eq.m_lhs || !eq.m_rhs)
-                continue;
+            SASSERT(eq.m_lhs && eq.m_rhs && !eq.is_trivial());
+
             for (unsigned od = 0; od < 2; ++od) {
                 bool local_fwd = (od == 0);
                 euf::snode* lhead = dir_token(eq.m_lhs, local_fwd);
@@ -2542,6 +2544,27 @@ namespace seq {
                     power = rhead;
                     var_head = lhead;
                     eq_out = &eq;
+                    fwd = local_fwd;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool nielsen_graph::find_power_vs_var(nielsen_node* node,
+                                          euf::snode*& power,
+                                          str_mem const*& mem_out,
+                                          bool& fwd) const {
+        for (str_mem const& mem : node->str_mems()) {
+            SASSERT(mem.m_str && mem.m_regex && !mem.is_trivial());
+
+            for (unsigned od = 0; od < 2; ++od) {
+                bool local_fwd = (od == 0);
+                euf::snode* lhead = dir_token(mem.m_str, local_fwd);
+                if (lhead && lhead->is_power()) {
+                    power = lhead;
+                    mem_out = &mem;
                     fwd = local_fwd;
                     return true;
                 }
@@ -3493,7 +3516,7 @@ namespace seq {
     // mirrors ZIPT's VarNumUnwindingModifier
     // -----------------------------------------------------------------------
 
-    bool nielsen_graph::apply_var_num_unwinding(nielsen_node* node) {
+    bool nielsen_graph::apply_var_num_unwinding_eq(nielsen_node* node) {
         ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
 
@@ -3534,6 +3557,51 @@ namespace seq {
             child->apply_subst(m_sg, s);
             if (exp_n)
                 e->add_side_int(mk_int_constraint(exp_n, one, int_constraint_kind::ge, eq->m_dep));
+        }
+
+        return true;
+    }
+
+    bool nielsen_graph::apply_var_num_unwinding_mem(nielsen_node* node) {
+        ast_manager& m = m_sg.get_manager();
+        arith_util arith(m);
+
+        euf::snode* power = nullptr;
+        str_mem const* mem = nullptr;
+        bool fwd = true;
+        if (!find_power_vs_var(node, power, mem, fwd))
+            return false;
+
+        SASSERT(power->is_power() && power->num_args() >= 1);
+        euf::snode* base = power->arg(0);
+        expr* exp_n = get_power_exponent(power);
+        expr* zero = arith.mk_int(0);
+        expr* one = arith.mk_int(1);
+
+        // Branch 1: n = 0 → replace u^n with ε (progress)
+        // Side constraint: n = 0
+        {
+            nielsen_node* child = mk_child(node);
+            nielsen_edge* e = mk_edge(node, child, true);
+            nielsen_subst s(power, m_sg.mk_empty_seq(power->get_sort()), mem->m_dep);
+            e->add_subst(s);
+            child->apply_subst(m_sg, s);
+            if (exp_n)
+                e->add_side_int(mk_int_constraint(exp_n, zero, int_constraint_kind::eq, mem->m_dep));
+        }
+
+        // Branch 2: n >= 1 → peel one u: u^n → u · u^(n-1)
+        // Side constraint: n >= 1
+        {
+            euf::snode* fresh = mk_fresh_var(power->get_sort());
+            euf::snode* replacement = dir_concat(m_sg, base, fresh, fwd);
+            nielsen_node* child = mk_child(node);
+            nielsen_edge* e = mk_edge(node, child, false);
+            nielsen_subst s(power, replacement, mem->m_dep);
+            e->add_subst(s);
+            child->apply_subst(m_sg, s);
+            if (exp_n)
+                e->add_side_int(mk_int_constraint(exp_n, one, int_constraint_kind::ge, mem->m_dep));
         }
 
         return true;
@@ -4198,7 +4266,8 @@ namespace seq {
         st.update("nseq mod regex var",        m_stats.m_mod_regex_var_split);
         st.update("nseq mod power split",      m_stats.m_mod_power_split);
         st.update("nseq mod var nielsen",      m_stats.m_mod_var_nielsen);
-        st.update("nseq mod var num unwind",   m_stats.m_mod_var_num_unwinding);
+        st.update("nseq mod var num unwind (eq)",   m_stats.m_mod_var_num_unwinding_eq);
+        st.update("nseq mod var num unwind (mem)",   m_stats.m_mod_var_num_unwinding_mem);
     }
 
 }
