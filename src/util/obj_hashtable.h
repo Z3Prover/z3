@@ -86,6 +86,7 @@ public:
 
     typedef core_hashtable<obj_map_entry, obj_hash<key_data>, default_eq<key_data> > table;
 
+private:
     table m_table;
   
 public:

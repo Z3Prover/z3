@@ -20,6 +20,7 @@ Author:
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "util/obj_hashtable.h"
 #include <sstream>
 
 namespace seq {
@@ -136,7 +137,7 @@ namespace seq {
     // Helper: render an arithmetic/integer expression in infix HTML notation.
     // Recognises +, -, *, unary minus, numerals, str.len, and named constants;
     // falls back to HTML-escaped mk_pp for anything else.
-    static std::string arith_expr_html(expr* e, ast_manager& m) {
+    static std::string arith_expr_html(expr* e, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) {
         if (!e) return "null";
         arith_util arith(m);
         seq_util seq(m);
@@ -151,7 +152,7 @@ namespace seq {
         app* a = to_app(e);
         expr* x, * y;
         if (arith.is_add(e)) {
-            std::string r = arith_expr_html(a->get_arg(0), m);
+            std::string r = arith_expr_html(a->get_arg(0), names, next_id, m);
             for (unsigned i = 1; i < a->get_num_args(); ++i) {
                 expr* arg = a->get_arg(i);
                 // render (+ x (- y)) as "x - y" and (+ x (- n)) as "x - n"
@@ -159,36 +160,49 @@ namespace seq {
                 rational neg_val;
                 if (arith.is_uminus(arg, neg_inner)) {
                     r += " &#8722; "; // minus sign
-                    r += arith_expr_html(neg_inner, m);
+                    r += arith_expr_html(neg_inner, names, next_id, m);
                 } else if (arith.is_numeral(arg, neg_val) && neg_val.is_neg()) {
                     r += " &#8722; "; // minus sign
                     r += (-neg_val).to_string();
                 }
                 else {
                     r += " + ";
-                    r += arith_expr_html(arg, m);
+                    r += arith_expr_html(arg, names, next_id, m);
                 }
             }
             return r;
         }
         if (arith.is_sub(e, x, y))
-            return arith_expr_html(x, m) + " &#8722; " + arith_expr_html(y, m);
+            return arith_expr_html(x, names, next_id, m) + " &#8722; " + arith_expr_html(y, names, next_id, m);
         if (arith.is_uminus(e, x))
-            return "&#8722;" + arith_expr_html(x, m);
+            return "&#8722;" + arith_expr_html(x, names, next_id, m);
         if (arith.is_mul(e)) {
             std::string r;
             for (unsigned i = 0; i < a->get_num_args(); ++i) {
                 if (i > 0) r += " &#183; "; // middle dot
-                r += arith_expr_html(a->get_arg(i), m);
+                r += arith_expr_html(a->get_arg(i), names, next_id, m);
             }
             return r;
         }
         if (seq.str.is_length(e, x)) {
-            return "|" + dot_html_escape(to_app(x)->get_decl()->get_name().str()) + "|";
+            if (a->get_num_args() == 0)
+                return "|" + dot_html_escape(a->get_decl()->get_name().str()) + "|";
+            if (names.contains(e)) {
+                return "|" + names[e] + "|";
+            }
+            std::string s = dot_html_escape(to_app(e)->get_decl()->get_name().str()) + std::to_string(next_id++);
+            names.insert(e, s);
+            return "|" + s + "|";
         }
         // named constant, fresh variable like n!0
         if (a->get_num_args() == 0)
             return dot_html_escape(a->get_decl()->get_name().str());
+        if (names.contains(e))
+            return names[e];
+        std::string s = dot_html_escape(to_app(e)->get_decl()->get_name().str()) + std::to_string(next_id++);
+        names.insert(e, s);
+        return s;
+
         // fallback
         std::ostringstream os;
         os << mk_pp(e, m);
@@ -196,14 +210,14 @@ namespace seq {
     }
 
     // Helper: render an int_constraint as an HTML string for DOT edge labels.
-    static std::string int_constraint_html(int_constraint const& ic, ast_manager& m) {
-        std::string r = arith_expr_html(ic.m_lhs, m);
+    static std::string int_constraint_html(int_constraint const& ic, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) {
+        std::string r = arith_expr_html(ic.m_lhs, names, next_id, m);
         switch (ic.m_kind) {
         case int_constraint_kind::eq: r += " = ";       break;
         case int_constraint_kind::le: r += " &#8804; "; break; // ≤
         case int_constraint_kind::ge: r += " &#8805; "; break; // ≥
         }
-        r += arith_expr_html(ic.m_rhs, m);
+        r += arith_expr_html(ic.m_rhs, names, next_id, m);
         return r;
     }
 
@@ -313,9 +327,11 @@ namespace seq {
             return res;
         }
         if (seq.re.is_range(e, a, b)) {
+            uint64_t next_id = 0;
+            obj_map<expr, std::string> names;
             zstring s1, s2;
-            std::string c1 = seq.str.is_string(a, s1) ? dot_html_escape(s1.encode()) : arith_expr_html(a, m);
-            std::string c2 = seq.str.is_string(b, s2) ? dot_html_escape(s2.encode()) : arith_expr_html(b, m);
+            std::string c1 = seq.str.is_string(a, s1) ? dot_html_escape(s1.encode()) : arith_expr_html(a, names, next_id, m);
+            std::string c2 = seq.str.is_string(b, s2) ? dot_html_escape(s2.encode()) : arith_expr_html(b, names, next_id, m);
             return "[" + c1 + "-" + c2 + "]";
         }
         if (seq.re.is_full_char(e)) {
@@ -338,7 +354,7 @@ namespace seq {
     // shows s_power with superscripts, s_unit by its inner expression,
     // and falls back to mk_pp, HTML-escaped, for other token kinds.
 
-    std::string snode_label_html(euf::snode const* n, ast_manager& m) {
+    std::string snode_label_html(euf::snode const* n, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) {
         if (!n) return "null";
         seq_util seq(m);
 
@@ -393,9 +409,16 @@ namespace seq {
             if (!e) {
                 result += "#" + std::to_string(tok->id());
             } else if (tok->is_var()) {
-                std::ostringstream os;
-                os << mk_pp(e, m);
-                result += dot_html_escape(os.str());
+                if (to_app(e)->get_num_args() > 0) {
+                    result += to_app(e)->get_decl()->get_name().str();
+                }
+                else if (names.contains(e))
+                    result += names[e];
+                else {
+                    std::string s = dot_html_escape(to_app(e)->get_decl()->get_name().str()) + std::to_string(next_id++);
+                    names.insert(e, s);
+                    result += s;
+                }
             } else if (tok->is_unit()) {
                 // seq.unit with non-literal character: show the character expression
                 expr* ch = to_app(e)->get_arg(0);
@@ -415,7 +438,7 @@ namespace seq {
                 result += base_html;
                 result += "<SUP>";
                 expr* exp_expr = to_app(e)->get_arg(1);
-                result += arith_expr_html(exp_expr, m);
+                result += arith_expr_html(exp_expr, names, next_id, m);
                 result += "</SUP>";
             }
             else if (e && seq.is_re(e))
@@ -430,23 +453,35 @@ namespace seq {
         return result;
     }
 
-    std::ostream& nielsen_node::display_html(std::ostream& out, ast_manager& m) const {
+    std::string snode_label_html(euf::snode const* n, ast_manager& m) {
+        obj_map<expr, std::string> names;
+        uint64_t next_id = 0;
+        return snode_label_html(n, names, next_id, m);
+    }
+
+    std::ostream& nielsen_node::to_html(std::ostream& out, ast_manager& m) const {
+        obj_map<expr, std::string> names;
+        uint64_t next_id = 0;
+        return to_html(out, names, next_id, m);
+    }
+
+    std::ostream& nielsen_node::to_html(std::ostream& out, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) const {
         bool any = false;
 
         // string equalities
         for (auto const& eq : m_str_eq) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
-            out << snode_label_html(eq.m_lhs, m)
+            out << snode_label_html(eq.m_lhs, names, next_id, m)
                 << " = "
-                << snode_label_html(eq.m_rhs, m)
+                << snode_label_html(eq.m_rhs, names, next_id, m)
                 << "<br/>";
         }
         // regex memberships
         for (auto const& mem : m_str_mem) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
-            out << snode_label_html(mem.m_str, m)
+            out << snode_label_html(mem.m_str, names, next_id, m)
                 << " &#8712; "
-                << snode_label_html(mem.m_regex, m)
+                << snode_label_html(mem.m_regex, names, next_id, m)
                 << "<br/>";
         }
         // character ranges
@@ -466,7 +501,7 @@ namespace seq {
         // integer constraints
         for (auto const& ic : m_int_constraints) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
-            out << int_constraint_html(ic, m) << "<br/>";
+            out << int_constraint_html(ic, names, next_id, m) << "<br/>";
         }
 
         if (!any)
@@ -513,7 +548,6 @@ namespace seq {
 
     // gives a graphviz graph representation of the Nielsen graph, for debugging
     std::ostream& nielsen_graph::to_dot(std::ostream& out) const {
-        ast_manager& m = m_sg.get_manager();
 
         // collect sat-path nodes and edges for green highlighting
         ptr_addr_hashtable<nielsen_node> sat_nodes;
@@ -524,13 +558,15 @@ namespace seq {
             sat_edges.insert(e);
         }
 
+        obj_map<expr, std::string> names;
+        uint64_t next_id = 0;
         out << "digraph G {\n";
 
         // --- nodes ---
         for (nielsen_node const* n : m_nodes) {
             out << "    " << n->id() << " [label=<"
                 << n->id() << ": ";
-            n->display_html(out, m);
+            n->to_html(out, names, next_id, m);
             // append conflict reason if this is a direct conflict
             if (is_actual_conflict(n->reason()))
                 out << "<br/>" << reason_to_str(n->reason());
@@ -594,7 +630,7 @@ namespace seq {
                     if (!first) out << "<br/>";
                     first = false;
                     out << "<font color=\"gray\">"
-                        << int_constraint_html(ic, m)
+                        << int_constraint_html(ic, names, next_id, m)
                         << "</font>";
                 }
                 out << ">";
