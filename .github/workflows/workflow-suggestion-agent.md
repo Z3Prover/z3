@@ -29,7 +29,7 @@ safe-outputs:
 
 steps:
   - name: Checkout repository
-    uses: actions/checkout@v5
+    uses: actions/checkout@v6.0.2
     with:
       persist-credentials: false
 

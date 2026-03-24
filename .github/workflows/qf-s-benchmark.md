@@ -29,7 +29,7 @@ timeout-minutes: 90
 
 steps:
   - name: Checkout c3 branch
-    uses: actions/checkout@v5
+    uses: actions/checkout@v6.0.2
     with:
       ref: c3
       fetch-depth: 1
