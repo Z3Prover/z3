@@ -579,29 +579,25 @@ namespace smt {
     // Conflict explanation
     // -----------------------------------------------------------------------
 
-    void theory_nseq::deps_to_lits(seq::dep_tracker const& deps, enode_pair_vector& eqs, literal_vector& lits) {
-        vector<seq::dep_source, false> vs;
-        m_nielsen.dep_mgr().linearize(deps, vs);
-        for (seq::dep_source const &d : vs) {
-            if (std::holds_alternative<enode_pair>(d))
-                eqs.push_back(std::get<enode_pair>(d));
-            else
-                lits.push_back(std::get<sat::literal>(d));
-        }
-    }
-
     void theory_nseq::add_conflict_clause(seq::dep_tracker const& deps) {
         enode_pair_vector eqs;
         literal_vector lits;
-        deps_to_lits(deps, eqs, lits);
+        seq::deps_to_lits(deps, eqs, lits);
         ++m_num_conflicts;
         set_conflict(eqs, lits);
     }
 
     void theory_nseq::explain_nielsen_conflict() {
-        seq::dep_tracker deps = m_nielsen.dep_mgr().mk_empty();
-        m_nielsen.collect_conflict_deps(deps);
-        add_conflict_clause(deps);
+        enode_pair_vector eqs;
+        literal_vector lits;
+        for (seq::dep_source const& d : m_nielsen.conflict_sources()) {
+            if (std::holds_alternative<enode_pair>(d))
+                eqs.push_back(std::get<enode_pair>(d));
+            else
+                lits.push_back(std::get<sat::literal>(d));
+        }
+        ++m_num_conflicts;
+        set_conflict(eqs, lits);
     }
 
     void theory_nseq::set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {
@@ -862,7 +858,7 @@ namespace smt {
         // conditional constraints: propagate with justification from dep_tracker
         enode_pair_vector eqs;
         literal_vector lits;
-        deps_to_lits(lc.m_dep, eqs, lits);
+        seq::deps_to_lits(lc.m_dep, eqs, lits);
 
         ctx.mark_as_relevant(lit);
         justification* js = ctx.mk_justification(

@@ -579,7 +579,7 @@ static void test_check_conflict_valid_k_exists() {
     ng.add_str_mem(x, regex);
 
     // lb=3, ub=5: length 4 is achievable (k=2) → no conflict
-    seq::dep_tracker dep = ng.dep_mgr().mk_leaf(sat::literal(0));
+    seq::dep_tracker dep = nullptr;
     ng.root()->set_lower_int_bound(x, 3, dep);
     ng.root()->set_upper_int_bound(x, 5, dep);
 
@@ -607,7 +607,7 @@ static void test_check_conflict_no_valid_k() {
     ng.add_str_mem(x, regex);
 
     // lb=3, ub=3: only odd length 3 — never a multiple of 2 → conflict
-    seq::dep_tracker dep = ng.dep_mgr().mk_leaf(sat::literal(0));
+    seq::dep_tracker dep = nullptr;
     ng.root()->set_lower_int_bound(x, 3, dep);
     ng.root()->set_upper_int_bound(x, 3, dep);
 
@@ -635,7 +635,7 @@ static void test_check_conflict_abc_star() {
     ng.add_str_mem(x, regex);
 
     // lb=5, ub=5 → no valid k (5 is not a multiple of 3) → conflict
-    seq::dep_tracker dep = ng.dep_mgr().mk_leaf(sat::literal(0));
+    seq::dep_tracker dep = nullptr;
     ng.root()->set_lower_int_bound(x, 5, dep);
     ng.root()->set_upper_int_bound(x, 5, dep);
 
@@ -662,7 +662,7 @@ static void test_check_conflict_stride_one_never_conflicts() {
     euf::snode* regex = sg.mk(re);
     ng.add_str_mem(x, regex);
 
-    seq::dep_tracker dep = ng.dep_mgr().mk_leaf(sat::literal(0));
+    seq::dep_tracker dep = nullptr;
     ng.root()->set_lower_int_bound(x, 7, dep);
     ng.root()->set_upper_int_bound(x, 7, dep);
 

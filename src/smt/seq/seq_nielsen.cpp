@@ -41,6 +41,19 @@ NSB review:
 
 namespace seq {
 
+    void deps_to_lits(dep_tracker const& deps,
+                      svector<enode_pair>& eqs,
+                      svector<sat::literal>& lits) {
+        vector<dep_source, false> vs;
+        dep_manager::s_linearize(deps, vs);
+        for (dep_source const& d : vs) {
+            if (std::holds_alternative<enode_pair>(d))
+                eqs.push_back(std::get<enode_pair>(d));
+            else
+                lits.push_back(std::get<sat::literal>(d));
+        }
+    }
+
     // Normalize an arithmetic expression using th_rewriter.
     // Simplifies e.g. (n - 1 + 1) to n, preventing unbounded growth
     // of power exponents during unwind/merge cycles.
@@ -1461,6 +1474,7 @@ namespace seq {
             ++m_stats.m_num_solve_calls;
             m_sat_node = nullptr;
             m_sat_path.reset();
+            m_conflict_sources.reset();
 
             // Constraint.Shared: assert root-level length/Parikh constraints to the
             // solver at the base level, so they are visible during all feasibility checks.
@@ -1504,6 +1518,9 @@ namespace seq {
                 }
                 if (r == search_result::unsat) {
                     ++m_stats.m_num_unsat;
+                    dep_tracker deps = m_dep_mgr.mk_empty();
+                    collect_conflict_deps(deps);
+                    m_dep_mgr.linearize(deps, m_conflict_sources);
                     return r;
                 }
                 // depth limit hit – double the bound and retry

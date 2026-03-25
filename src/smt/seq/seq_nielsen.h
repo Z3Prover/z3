@@ -329,6 +329,11 @@ namespace seq {
     // nullptr represents the empty dependency set.
     using dep_tracker = dep_manager::dependency*;
 
+    // partition dep_source leaves from deps into enode pairs and sat literals.
+    void deps_to_lits(dep_tracker const& deps,
+                      svector<enode_pair>& eqs,
+                      svector<sat::literal>& lits);
+
     // -----------------------------------------------
     // character-level substitution
     // mirrors ZIPT's CharSubst
@@ -820,9 +825,6 @@ namespace seq {
         seq_util& seq() { return m_seq; }
         seq_util const& seq() const { return m_seq; }
 
-        dep_manager& dep_mgr() { return m_dep_mgr; }
-        dep_manager const& dep_mgr() const { return m_dep_mgr; }
-
         // node management
         nielsen_node* mk_node();
         nielsen_node* mk_child(nielsen_node* parent);
@@ -907,8 +909,8 @@ namespace seq {
         // returns true if at least one child was generated
         bool generate_extensions(nielsen_node *node);
 
-        // collect dependency information from conflicting constraints
-        void collect_conflict_deps(dep_tracker& deps) const;
+        // conflict sources extracted after solve() returns unsat
+        vector<dep_source, false> const& conflict_sources() const { return m_conflict_sources; }
 
         // explain a conflict: partition the dep_source leaves into str_eq indices
         // (kind::eq) and str_mem indices (kind::mem).
@@ -951,6 +953,14 @@ namespace seq {
         seq_regex* seq_regex_module() const { return m_seq_regex; }
 
     private:
+
+        vector<dep_source, false> m_conflict_sources;
+
+        dep_manager& dep_mgr() { return m_dep_mgr; }
+        dep_manager const& dep_mgr() const { return m_dep_mgr; }
+
+        // collect dependency information from conflicting constraints
+        void collect_conflict_deps(dep_tracker& deps) const;
 
         search_result search_dfs(nielsen_node *node, ptr_vector<nielsen_edge>& path);
 
