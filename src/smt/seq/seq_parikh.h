@@ -17,8 +17,8 @@ Abstract:
 
         len(str) = min_len + stride · k    (k ≥ 0, k fresh integer)
 
-    which tighten the arithmetic subproblem beyond the simple min/max
-    length bounds already produced by nielsen_node::init_var_bounds_from_mems().
+    which tighten the arithmetic subproblem beyond plain min/max bounds,
+    where concrete variable bounds are queried from the arithmetic subsolver.
 
     For example:
       • str ∈ (ab)*  → min_len = 0, stride = 2  → len(str) = 2·k
@@ -110,8 +110,8 @@ namespace seq {
         // Quick Parikh feasibility check (no solver call).
         //
         // For each single-variable membership str ∈ re, checks whether the
-        // modular constraint  len(str) = min_len + stride · k  (k ≥ 0)
-        // has any solution given the current per-variable bounds stored in
+        // modular constraint  len(str) = min_len + stride · k  (k >= 0)
+        // has any solution given the current per-variable bounds obtained via
         // node.var_lb(str) and node.var_ub(str).
         //
         // Returns true when a conflict is detected (no valid k exists for

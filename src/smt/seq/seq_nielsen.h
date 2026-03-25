@@ -163,10 +163,9 @@ Abstract:
     - IntEq / IntLe: integer equality and inequality constraints over Presburger
       arithmetic polynomials (PDD<BigInteger>) are entirely absent. The Z3 port
       has no ConstraintsIntEq or ConstraintsIntLe in nielsen_node.
-    - IntBounds / VarBoundWatcher: per-variable integer interval bounds and the
-      watcher mechanism that reruns bound propagation when a string variable is
-      substituted — PORTED as nielsen_node::{add_lower_int_bound,
-      add_upper_int_bound, watch_var_bounds, init_var_bounds_from_mems}.
+    - IntBounds / VarBoundWatcher: ZIPT-style cached interval maps and eager
+      watcher propagation are not stored in nielsen_node; bounds are queried
+      from the arithmetic subsolver on demand.
     - AddLowerIntBound() / AddHigherIntBound(): incremental interval tightening
       — PORTED as the above add_lower/upper_int_bound methods.
 
@@ -238,11 +237,10 @@ Author:
 #include "util/dependency.h"
 #include "util/map.h"
 #include "util/lbool.h"
+#include "util/rational.h"
 #include "ast/ast.h"
-#include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/euf/euf_sgraph.h"
-#include <functional>
 #include <map>
 #include "model/model.h"
 
@@ -280,6 +278,10 @@ namespace seq {
         virtual void    push() = 0;
         virtual void    pop(unsigned num_scopes) = 0;
         virtual void    get_model(model_ref& mdl) { mdl = nullptr; }
+        // Optional bound queries on arithmetic expressions (non-strict integer bounds).
+        // Default implementation reports "unsupported".
+        virtual bool    lower_bound(expr* e, rational& lo) const { return false; }
+        virtual bool    upper_bound(expr* e, rational& hi) const { return false; }
         virtual void    reset() = 0;
     };
 
@@ -524,11 +526,6 @@ namespace seq {
         vector<str_mem>    m_str_mem;       // regex memberships
         vector<constraint> m_constraints;   // integer equalities/inequalities (mirrors ZIPT's IntEq/IntLe)
 
-        // per-variable integer bounds for len(var). Mirrors ZIPT's IntBounds.
-        // key: snode id of the string variable.
-        // default lb = 0 (unrestricted); default ub = UINT_MAX (unrestricted).
-        u_map<unsigned>                m_var_lb;   // lower bound: lb <= len(var)
-        u_map<unsigned>                m_var_ub;   // upper bound: len(var) <= ub
 
         // character constraints (mirrors ZIPT's DisEqualities and CharRanges)
         // key: snode id of the s_unit symbolic character
@@ -585,27 +582,11 @@ namespace seq {
         vector<constraint> const& constraints() const { return m_constraints; }
         vector<constraint>& constraints() { return m_constraints; }
 
-        // IntBounds: tighten the lower bound for len(var).
-        // Returns true if the bound was tightened (lb > current lower bound).
-        // When tightened without conflict, adds a constraint len(var) >= lb.
-        // When lb > current upper bound, sets arithmetic conflict (no constraint added)
-        // and still returns true (the bound value changed). Check is_general_conflict()
-        // separately to distinguish tightening-with-conflict from normal tightening.
-        // Mirrors ZIPT's AddLowerIntBound().
-        bool set_lower_int_bound(euf::snode* var, unsigned lb, dep_tracker const& dep);
-
-        // IntBounds: tighten the upper bound for len(var).
-        // Returns true if the bound was tightened (ub < current upper bound).
-        // When tightened without conflict, adds a constraint len(var) <= ub.
-        // When current lower bound > ub, sets arithmetic conflict (no constraint added)
-        // and still returns true (the bound value changed). Check is_general_conflict()
-        // separately to distinguish tightening-with-conflict from normal tightening.
-        // Mirrors ZIPT's AddHigherIntBound().
-        bool set_upper_int_bound(euf::snode* var, unsigned ub, dep_tracker const& dep);
-
-        // Query current bounds for a variable (default: 0 / UINT_MAX if not set).
-        unsigned var_lb(euf::snode* var) const;
-        unsigned var_ub(euf::snode* var) const;
+        // Query current bounds for a variable from the arithmetic subsolver.
+        // Falls der Subsolver keinen Bound liefert, werden konservative Defaults
+        // 0 / UINT_MAX verwendet.
+        bool lower_bound(expr* e, rational& lo) const;
+        bool upper_bound(expr* e, rational& up) const;
 
         // character constraint access (mirrors ZIPT's DisEqualities / CharRanges)
         u_map<ptr_vector<euf::snode>> const& char_diseqs() const { return m_char_diseqs; }
@@ -695,18 +676,7 @@ namespace seq {
         bool handle_empty_side(euf::sgraph& sg, euf::snode* non_empty_side,
                                dep_tracker const& dep, bool& changed);
 
-        // VarBoundWatcher: after applying substitution s, propagate the bounds
-        // of s.m_var to variables appearing in s.m_replacement.
-        // When var has bounds [lo, hi], derives bounds for variables in replacement
-        // using the known constant-length contribution of non-variable tokens.
-        // Mirrors ZIPT's VarBoundWatcher re-check mechanism.
-        void update_var_bounds(nielsen_subst const& s);
-
-        // Initialize per-variable Parikh bounds from this node's regex memberships.
-        // For each str_mem constraint (str ∈ regex) where regex has length bounds
-        // [min_len, max_len], adds lower/upper bound constraints for len(str).
-        // Called from simplify_and_init to populate IntBounds at node creation.
-        void init_var_bounds_from_mems();
+        // Length bounds are queried from the arithmetic subsolver when needed.
     };
 
     // search statistics collected during Nielsen graph solving
@@ -949,12 +919,12 @@ namespace seq {
         // accessor for the seq_regex module
         seq_regex* seq_regex_module() const { return m_seq_regex; }
 
+        dep_manager& dep_mgr() { return m_dep_mgr; }
+        dep_manager const& dep_mgr() const { return m_dep_mgr; }
+
     private:
 
         vector<dep_source, false> m_conflict_sources;
-
-        dep_manager& dep_mgr() { return m_dep_mgr; }
-        dep_manager const& dep_mgr() const { return m_dep_mgr; }
 
         // collect dependency information from conflicting constraints
         dep_tracker collect_conflict_deps() const;
@@ -1131,13 +1101,13 @@ namespace seq {
         // m_solver by search_dfs via push/pop, so a plain check() suffices.
         // l_undef (resource limit / timeout) is treated as feasible so that the
         // search continues rather than reporting a false unsatisfiability.
-        bool check_int_feasibility(nielsen_node* node);
+        bool check_int_feasibility();
 
         // check whether lhs <= rhs is implied by the path constraints.
         // mirrors ZIPT's NielsenNode.IsLe(): temporarily asserts NOT(lhs <= rhs)
         // and returns true iff the result is unsatisfiable (i.e., lhs <= rhs is
         // entailed).  Path constraints are already in the solver incrementally.
-        bool check_lp_le(expr* lhs, expr* rhs, nielsen_node* node);
+        bool check_lp_le(expr* lhs, expr* rhs);
 
         // create an integer constraint: lhs <kind> rhs
         constraint mk_constraint(expr* fml, dep_tracker const& dep);

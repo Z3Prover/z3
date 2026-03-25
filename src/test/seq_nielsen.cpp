@@ -860,7 +860,7 @@ static void test_regex_char_split_basic() {
     ng.add_str_mem(x, regex);
     SASSERT(ng.root() != nullptr);
 
-    auto sr = ng.root()->simplify_and_init();
+    auto sr = ng.root()->simplify_and_init({});
     SASSERT(sr != seq::simplify_result::conflict);
 
     bool extended = ng.generate_extensions(ng.root());
@@ -1300,7 +1300,7 @@ static void test_generate_extensions_regex_only() {
     ng.add_str_mem(x, re_node);
     seq::nielsen_node* root = ng.root();
 
-    root->simplify_and_init();
+    root->simplify_and_init({});
 
     bool extended = ng.generate_extensions(root);
     SASSERT(extended);
@@ -1661,7 +1661,7 @@ static void test_simplify_prefix_cancel() {
     seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(abx, aby, dep));
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
     SASSERT(node->str_eqs().size() == 1);
     // after prefix cancel: remaining eq has variable-only sides
@@ -1691,7 +1691,7 @@ static void test_simplify_suffix_cancel_rtl() {
     seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(xa, ya, dep));
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
     SASSERT(node->str_eqs().size() == 1);
     SASSERT(node->str_eqs()[0].m_lhs->is_var());
@@ -1720,7 +1720,7 @@ static void test_simplify_symbol_clash() {
     seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(ax, by, dep));
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::conflict);
     SASSERT(node->is_general_conflict());
     SASSERT(node->reason() == seq::backtrack_reason::symbol_clash);
@@ -1746,7 +1746,7 @@ static void test_simplify_empty_propagation() {
     seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(e, xy, dep));
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::satisfied);
 }
 
@@ -1768,7 +1768,7 @@ static void test_simplify_empty_vs_char() {
     seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(e, a, dep));
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::conflict);
     SASSERT(node->reason() == seq::backtrack_reason::symbol_clash);
 }
@@ -1794,7 +1794,7 @@ static void test_simplify_multi_pass_clash() {
     seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(ab, ac, dep));
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::conflict);
     SASSERT(node->reason() == seq::backtrack_reason::symbol_clash);
 }
@@ -1818,7 +1818,7 @@ static void test_simplify_trivial_removal() {
     node->add_str_eq(seq::str_eq(e, e, dep));  // trivial
     node->add_str_eq(seq::str_eq(x, y, dep));  // non-trivial
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
     SASSERT(node->str_eqs().size() == 1);
 }
@@ -1841,7 +1841,7 @@ static void test_simplify_all_trivial_satisfied() {
     node->add_str_eq(seq::str_eq(x, x, dep));  // trivial: same pointer
     node->add_str_eq(seq::str_eq(e, e, dep));  // trivial: both empty
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::satisfied);
 }
 
@@ -1867,7 +1867,7 @@ static void test_simplify_regex_infeasible() {
     seq::dep_tracker dep = nullptr;
     node->add_str_mem(seq::str_mem(e, regex, e, 0, dep));
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::conflict);
     SASSERT(node->reason() == seq::backtrack_reason::regex);
 }
@@ -1895,7 +1895,7 @@ static void test_simplify_nullable_removal() {
     seq::dep_tracker dep = nullptr;
     node->add_str_mem(seq::str_mem(e, regex, e, 0, dep));
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::satisfied);
     SASSERT(node->str_mems().empty());
 }
@@ -1923,7 +1923,7 @@ static void test_simplify_brzozowski_sat() {
     seq::dep_tracker dep = nullptr;
     node->add_str_mem(seq::str_mem(a, regex, e, 0, dep));
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::satisfied);
 }
 
@@ -1955,7 +1955,7 @@ static void test_simplify_brzozowski_rtl_suffix() {
     seq::dep_tracker dep = nullptr;
     node->add_str_mem(seq::str_mem(xa, regex, e, 0, dep));
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
     SASSERT(node->str_mems().size() == 1);
     SASSERT(node->str_mems()[0].m_str->is_var());
@@ -1994,7 +1994,7 @@ static void test_simplify_multiple_eqs() {
     node->add_str_eq(seq::str_eq(x, z, dep));
 
     SASSERT(node->str_eqs().size() == 3);
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
     // eq1 removed, eq2 simplified to x=y, eq3 kept → 2 eqs remain
     SASSERT(node->str_eqs().size() == 2);
@@ -2580,7 +2580,7 @@ static void test_star_intr_no_backedge() {
     seq::nielsen_node* root = ng.root();
     SASSERT(root->backedge() == nullptr);
 
-    auto sr = root->simplify_and_init();
+    auto sr = root->simplify_and_init({});
     SASSERT(sr != seq::simplify_result::conflict);
 
     bool extended = ng.generate_extensions(root);
@@ -2614,7 +2614,7 @@ static void test_star_intr_with_backedge() {
     seq::nielsen_node* root = ng.root();
     root->set_backedge(root); // simulate backedge
 
-    auto sr = root->simplify_and_init();
+    auto sr = root->simplify_and_init({});
     // star(to_re("A")) is nullable, so empty string satisfies it
     // simplify may remove the membership or proceed
     if (sr == seq::simplify_result::satisfied) {
@@ -2713,7 +2713,7 @@ static void test_regex_var_split_basic() {
     ng.add_str_mem(x, regex);
     seq::nielsen_node* root = ng.root();
 
-    auto sr = root->simplify_and_init();
+    auto sr = root->simplify_and_init({});
     SASSERT(sr != seq::simplify_result::conflict);
 
     bool extended = ng.generate_extensions(root);
@@ -2790,7 +2790,7 @@ static void test_const_num_unwinding_no_power() {
     seq::nielsen_node* root = ng.root();
 
     // Should detect clash during simplify
-    auto sr = root->simplify_and_init();
+    auto sr = root->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::conflict);
 }
 
@@ -3252,7 +3252,7 @@ static void test_parikh_dep_tracking() {
 }
 
 // -----------------------------------------------------------------------
-// IntBounds / VarBoundWatcher tests (Task: IntBounds/Constraint.Shared)
+// IntBounds / subsolver-bound tests (Task: IntBounds/Constraint.Shared)
 // -----------------------------------------------------------------------
 
 // tracking solver: records assert_expr calls for inspection
@@ -3277,7 +3277,37 @@ public:
     }
 };
 
-// test add_lower_int_bound: basic tightening adds int_constraint
+static void add_len_ge(seq::nielsen_graph& ng, seq::nielsen_node* node, euf::snode* var, unsigned lb, seq::dep_tracker dep) {
+    ast_manager& m = ng.get_manager();
+    arith_util arith(m);
+    expr_ref len(ng.seq().str.mk_length(var->get_expr()), m);
+    node->add_constraint(seq::constraint(arith.mk_ge(len, arith.mk_int(lb)), dep, m));
+}
+
+static void add_len_le(seq::nielsen_graph& ng, seq::nielsen_node* node, euf::snode* var, unsigned ub, seq::dep_tracker dep) {
+    ast_manager& m = ng.get_manager();
+    arith_util arith(m);
+    expr_ref len(ng.seq().str.mk_length(var->get_expr()), m);
+    node->add_constraint(seq::constraint(arith.mk_le(len, arith.mk_int(ub)), dep, m));
+}
+
+static unsigned queried_lb(seq::nielsen_node* node, euf::snode* var) {
+    rational lb;
+    if (!node->lower_bound(var->get_expr(), lb))
+        return 0;
+    SASSERT(lb.is_unsigned());
+    return lb.is_unsigned() ? lb.get_unsigned() : 0;
+}
+
+static unsigned queried_ub(seq::nielsen_node* node, euf::snode* var) {
+    rational ub;
+    if (!node->upper_bound(var->get_expr(), ub))
+        return UINT_MAX;
+    SASSERT(ub.is_unsigned());
+    return ub.is_unsigned() ? ub.get_unsigned() : UINT_MAX;
+}
+
+// test lower-bound constraints affect queried bounds
 static void test_add_lower_int_bound_basic() {
     std::cout << "test_add_lower_int_bound_basic\n";
     ast_manager m;
@@ -3296,33 +3326,28 @@ static void test_add_lower_int_bound_basic() {
     seq::dep_tracker dep = nullptr;
 
     // initially no bounds
-    SASSERT(node->var_lb(x) == 0);
-    SASSERT(node->var_ub(x) == UINT_MAX);
+    SASSERT(queried_lb(node, x) == 0);
+    SASSERT(queried_ub(node, x) == UINT_MAX);
     SASSERT(node->constraints().empty());
 
-    // add lower bound lb=3: should tighten and add constraint
-    bool tightened = node->set_lower_int_bound(x, 3, dep);
-    SASSERT(tightened);
-    SASSERT(node->var_lb(x) == 3);
+    add_len_ge(ng, node, x, 3, dep);
+    SASSERT(queried_lb(node, x) == 3);
     SASSERT(node->constraints().size() == 1);
     SASSERT(node->constraints()[0].fml);
 
-    // add weaker lb=2: no tightening
-    tightened = node->set_lower_int_bound(x, 2, dep);
-    SASSERT(!tightened);
-    SASSERT(node->var_lb(x) == 3);
-    SASSERT(node->constraints().size() == 1);
-
-    // add tighter lb=5: should tighten and add another constraint
-    tightened = node->set_lower_int_bound(x, 5, dep);
-    SASSERT(tightened);
-    SASSERT(node->var_lb(x) == 5);
+    // weaker bound does not change the effective lower bound
+    add_len_ge(ng, node, x, 2, dep);
+    SASSERT(queried_lb(node, x) == 3);
     SASSERT(node->constraints().size() == 2);
+
+    add_len_ge(ng, node, x, 5, dep);
+    SASSERT(queried_lb(node, x) == 5);
+    SASSERT(node->constraints().size() == 3);
 
     std::cout << "  ok\n";
 }
 
-// test add_upper_int_bound: basic tightening adds int_constraint
+// test upper-bound constraints affect queried bounds
 static void test_add_upper_int_bound_basic() {
     std::cout << "test_add_upper_int_bound_basic\n";
     ast_manager m;
@@ -3339,31 +3364,26 @@ static void test_add_upper_int_bound_basic() {
     seq::nielsen_node* node = ng.root();
     seq::dep_tracker dep = nullptr;
 
-    SASSERT(node->var_ub(x) == UINT_MAX);
+    SASSERT(queried_ub(node, x) == UINT_MAX);
 
-    // add upper bound ub=10: tightens
-    bool tightened = node->set_upper_int_bound(x, 10, dep);
-    SASSERT(tightened);
-    SASSERT(node->var_ub(x) == 10);
+    add_len_le(ng, node, x, 10, dep);
+    SASSERT(queried_ub(node, x) == 10);
     SASSERT(node->constraints().size() == 1);
     SASSERT(node->constraints()[0].fml);
 
-    // add weaker ub=20: no tightening
-    tightened = node->set_upper_int_bound(x, 20, dep);
-    SASSERT(!tightened);
-    SASSERT(node->var_ub(x) == 10);
-    SASSERT(node->constraints().size() == 1);
-
-    // add tighter ub=5: tightens
-    tightened = node->set_upper_int_bound(x, 5, dep);
-    SASSERT(tightened);
-    SASSERT(node->var_ub(x) == 5);
+    // weaker bound does not change the effective upper bound
+    add_len_le(ng, node, x, 20, dep);
+    SASSERT(queried_ub(node, x) == 10);
     SASSERT(node->constraints().size() == 2);
+
+    add_len_le(ng, node, x, 5, dep);
+    SASSERT(queried_ub(node, x) == 5);
+    SASSERT(node->constraints().size() == 3);
 
     std::cout << "  ok\n";
 }
 
-// test add_lower_int_bound: conflict when lb > ub
+// inconsistent local bounds are visible through lower_bound/upper_bound queries
 static void test_add_bound_lb_gt_ub_conflict() {
     std::cout << "test_add_bound_lb_gt_ub_conflict\n";
     ast_manager m;
@@ -3380,14 +3400,9 @@ static void test_add_bound_lb_gt_ub_conflict() {
     seq::nielsen_node* node = ng.root();
     seq::dep_tracker dep = nullptr;
 
-    // set ub=3 first
-    node->set_upper_int_bound(x, 3, dep);
-    SASSERT(!node->is_general_conflict());
-
-    // now set lb=5 > ub=3: should trigger conflict
-    node->set_lower_int_bound(x, 5, dep);
-    SASSERT(node->is_general_conflict());
-    SASSERT(node->reason() == seq::backtrack_reason::arithmetic);
+    add_len_le(ng, node, x, 3, dep);
+    add_len_ge(ng, node, x, 5, dep);
+    SASSERT(queried_lb(node, x) > queried_ub(node, x));
 
     std::cout << "  ok\n";
 }
@@ -3411,18 +3426,18 @@ static void test_bounds_cloned() {
     seq::dep_tracker dep = nullptr;
 
     // set bounds on parent
-    parent->set_lower_int_bound(x, 2, dep);
-    parent->set_upper_int_bound(x, 7, dep);
-    parent->set_lower_int_bound(y, 1, dep);
+    add_len_ge(ng, parent, x, 2, dep);
+    add_len_le(ng, parent, x, 7, dep);
+    add_len_ge(ng, parent, y, 1, dep);
 
     // clone to child
     seq::nielsen_node* child = ng.mk_child(parent);
 
     // child should have same bounds
-    SASSERT(child->var_lb(x) == 2);
-    SASSERT(child->var_ub(x) == 7);
-    SASSERT(child->var_lb(y) == 1);
-    SASSERT(child->var_ub(y) == UINT_MAX);
+    SASSERT(queried_lb(child, x) == 2);
+    SASSERT(queried_ub(child, x) == 7);
+    SASSERT(queried_lb(child, y) == 1);
+    SASSERT(queried_ub(child, y) == UINT_MAX);
 
     // child's int_constraints should also be cloned (3 constraints: lb_x, ub_x, lb_y)
     SASSERT(child->constraints().size() == parent->constraints().size());
@@ -3430,9 +3445,9 @@ static void test_bounds_cloned() {
     std::cout << "  ok\n";
 }
 
-// test VarBoundWatcher: substitution x→a·y propagates bounds from x to y
-static void test_var_bound_watcher_single_var() {
-    std::cout << "test_var_bound_watcher_single_var\n";
+// Substitution propagates no direct bounds; bounds are owned by the subsolver.
+static void test_subst_does_not_propagate_bounds_single_var() {
+    std::cout << "test_subst_does_not_propagate_bounds_single_var\n";
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph eg(m);
@@ -3450,26 +3465,24 @@ static void test_var_bound_watcher_single_var() {
     seq::dep_tracker dep = nullptr;
 
     // set bounds: 3 <= len(x) <= 7
-    node->set_lower_int_bound(x, 3, dep);
-    node->set_upper_int_bound(x, 7, dep);
-    node->constraints().reset();  // clear for clean count
+    add_len_ge(ng, node, x, 3, dep);
+    add_len_le(ng, node, x, 7, dep);
 
     // apply substitution x → a·y
     euf::snode* ay = sg.mk_concat(a, y);
     seq::nielsen_subst s(x, ay, dep);
     node->apply_subst(sg, s);
 
-    // VarBoundWatcher should propagate: 3 <= 1+len(y) <= 7
-    // => len(y) >= 2, len(y) <= 6
-    SASSERT(node->var_lb(y) == 2);
-    SASSERT(node->var_ub(y) == 6);
+    // No local propagation anymore: y keeps conservative defaults.
+    SASSERT(queried_lb(node, y) == 0);
+    SASSERT(queried_ub(node, y) == UINT_MAX);
 
     std::cout << "  ok\n";
 }
 
-// test VarBoundWatcher: substitution with all-concrete replacement detects conflict
-static void test_var_bound_watcher_conflict() {
-    std::cout << "test_var_bound_watcher_conflict\n";
+// Substitution with concrete replacement does not trigger immediate bound conflict.
+static void test_subst_no_immediate_bound_conflict() {
+    std::cout << "test_subst_no_immediate_bound_conflict\n";
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph eg(m);
@@ -3487,24 +3500,21 @@ static void test_var_bound_watcher_conflict() {
     seq::dep_tracker dep = nullptr;
 
     // set bounds: 3 <= len(x)  (so x must have at least 3 chars)
-    node->set_lower_int_bound(x, 3, dep);
-    node->constraints().reset();
+    add_len_ge(ng, node, x, 3, dep);
 
-    // apply substitution x → a·b (const_len=2 < lb=3)
+    // apply substitution x → a·b (no eager bound check at this stage)
     euf::snode* ab = sg.mk_concat(a, b);
     seq::nielsen_subst s(x, ab, dep);
     node->apply_subst(sg, s);
 
-    // should detect conflict: len(x) >= 3 but replacement has len=2
-    SASSERT(node->is_general_conflict());
-    SASSERT(node->reason() == seq::backtrack_reason::arithmetic);
+    SASSERT(!node->is_general_conflict());
 
     std::cout << "  ok\n";
 }
 
-// test init_var_bounds_from_mems: simplify_and_init adds Parikh bounds
-static void test_simplify_adds_parikh_bounds() {
-    std::cout << "test_simplify_adds_parikh_bounds\n";
+// simplify_and_init materializes no local IntBounds; bounds come from subsolver state
+static void test_simplify_does_not_add_local_parikh_bounds() {
+    std::cout << "test_simplify_does_not_add_local_parikh_bounds\n";
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph eg(m);
@@ -3527,14 +3537,12 @@ static void test_simplify_adds_parikh_bounds() {
 
     seq::nielsen_node* node = ng.root();
 
-    // simplify_and_init should call init_var_bounds_from_mems
-    seq::simplify_result sr = node->simplify_and_init();
+    // simplify_and_init no longer materializes local IntBounds.
+    seq::simplify_result sr = node->simplify_and_init({});
     (void)sr;
 
-    // x ∈ to_re("AB") has min_len=2, max_len=2
-    // so lb=2, ub=2 should be set on x
-    SASSERT(node->var_lb(x) == 2);
-    SASSERT(node->var_ub(x) == 2);
+    SASSERT(queried_lb(node, x) == 0);
+    SASSERT(queried_ub(node, x) == UINT_MAX);
 
     std::cout << "  ok\n";
 }
@@ -3601,9 +3609,9 @@ static void test_assert_root_constraints_once() {
     std::cout << "  ok\n";
 }
 
-// test VarBoundWatcher with multiple variables in replacement
-static void test_var_bound_watcher_multi_var() {
-    std::cout << "test_var_bound_watcher_multi_var\n";
+// Multiple-variable substitutions do not impose eager per-variable bounds.
+static void test_subst_does_not_propagate_bounds_multi_var() {
+    std::cout << "test_subst_does_not_propagate_bounds_multi_var\n";
     ast_manager m;
     reg_decl_plugins(m);
     euf::egraph eg(m);
@@ -3621,17 +3629,15 @@ static void test_var_bound_watcher_multi_var() {
     seq::dep_tracker dep = nullptr;
 
     // set upper bound: len(x) <= 5
-    node->set_upper_int_bound(x, 5, dep);
-    node->constraints().reset();
+    add_len_le(ng, node, x, 5, dep);
 
     // apply substitution x → y·z (two vars, no constants)
     euf::snode* yz = sg.mk_concat(y, z);
     seq::nielsen_subst s(x, yz, dep);
     node->apply_subst(sg, s);
 
-    // len(y·z) <= 5 → each of y, z gets ub=5
-    SASSERT(node->var_ub(y) == 5);
-    SASSERT(node->var_ub(z) == 5);
+    SASSERT(queried_ub(node, y) == UINT_MAX);
+    SASSERT(queried_ub(node, z) == UINT_MAX);
 
     std::cout << "  ok\n";
 }
@@ -3671,7 +3677,7 @@ static void test_simplify_unit_prefix_split() {
     seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(lhs, rhs, dep));
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
     // original eq stripped to x==y, plus a new unit(a)==unit(b) eq
     SASSERT(node->str_eqs().size() == 2);
@@ -3716,7 +3722,7 @@ static void test_simplify_unit_prefix_split_empty_rest() {
     seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(lhs, ub, dep));
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     // unit(a)==unit(b) and x==empty are produced; x==empty forces x->epsilon and satisfied
     SASSERT(sr == seq::simplify_result::satisfied || sr == seq::simplify_result::proceed);
     std::cout << "  ok\n";
@@ -3756,7 +3762,7 @@ static void test_simplify_unit_suffix_split() {
     seq::dep_tracker dep = nullptr;
     node->add_str_eq(seq::str_eq(lhs, rhs, dep));
 
-    auto sr = node->simplify_and_init();
+    auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
     // original eq stripped to x==y, plus a new unit(a)==unit(b) eq
     SASSERT(node->str_eqs().size() == 2);
@@ -3880,17 +3886,17 @@ void tst_seq_nielsen() {
     test_parikh_mixed_eq_mem();
     test_parikh_full_seq_no_bounds();
     test_parikh_dep_tracking();
-    // IntBounds / VarBoundWatcher / Constraint.Shared tests
+    // IntBounds / subsolver bounds / Constraint.Shared tests
     test_add_lower_int_bound_basic();
     test_add_upper_int_bound_basic();
     test_add_bound_lb_gt_ub_conflict();
     test_bounds_cloned();
-    test_var_bound_watcher_single_var();
-    test_var_bound_watcher_conflict();
-    test_simplify_adds_parikh_bounds();
+    test_subst_does_not_propagate_bounds_single_var();
+    test_subst_no_immediate_bound_conflict();
+    test_simplify_does_not_add_local_parikh_bounds();
     test_assert_root_constraints_to_solver();
     test_assert_root_constraints_once();
-    test_var_bound_watcher_multi_var();
+    test_subst_does_not_propagate_bounds_multi_var();
     test_simplify_unit_prefix_split();
     test_simplify_unit_prefix_split_empty_rest();
     test_simplify_unit_suffix_split();

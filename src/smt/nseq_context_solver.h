@@ -20,6 +20,7 @@ Author:
 
 #include "smt/seq/seq_nielsen.h"
 #include "smt/smt_kernel.h"
+#include "smt/smt_arith_value.h"
 #include "params/smt_params.h"
 
 namespace smt {
@@ -32,6 +33,7 @@ namespace smt {
     class context_solver : public seq::simple_solver {
         smt_params  m_params;  // must be declared before m_kernel
         smt::kernel m_kernel;
+        arith_value m_arith_value;
 
         static smt_params make_seq_len_params() {
             smt_params p;
@@ -42,7 +44,10 @@ namespace smt {
     public:
         context_solver(ast_manager& m) :
             m_params(make_seq_len_params()),
-            m_kernel(m, m_params) {}
+            m_kernel(m, m_params),
+            m_arith_value(m) {
+            m_arith_value.init(&m_kernel.get_context());
+        }
 
         lbool check() override {
             // std::cout << "Checking:\n";
@@ -69,8 +74,19 @@ namespace smt {
             m_kernel.get_model(mdl);
         }
 
+        bool lower_bound(expr* e, rational& lo) const override {
+            bool is_strict = true;
+            return m_arith_value.get_lo(e, lo, is_strict) && !is_strict && lo.is_int();
+        }
+
+        bool upper_bound(expr* e, rational& hi) const override {
+            bool is_strict = true;
+            return m_arith_value.get_up(e, hi, is_strict) && !is_strict && hi.is_int();
+        }
+
         void reset() override {
             m_kernel.reset();
+            m_arith_value.init(&m_kernel.get_context());
         }
     };
 

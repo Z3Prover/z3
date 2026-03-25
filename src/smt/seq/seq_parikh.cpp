@@ -267,8 +267,16 @@ namespace seq {
             // stride > 1 guaranteed from here onward.
             SASSERT(stride > 1);
 
-            unsigned lb = node.var_lb(mem.m_str);
-            unsigned ub = node.var_ub(mem.m_str);
+            rational lb_r, ub_r;
+            if (!node.lower_bound(mem.m_str->get_expr(), lb_r) || !node.upper_bound(mem.m_str->get_expr(), ub_r))
+                continue;
+
+            SASSERT(lb_r <= ub_r);
+            if (ub_r > INT_MAX)
+                continue;
+
+            const unsigned lb = (unsigned)lb_r.get_int32();
+            const unsigned ub = (unsigned)ub_r.get_int32();
 
             // Check: ∃k ≥ 0 such that lb ≤ min_len + stride * k ≤ ub ?
             //
