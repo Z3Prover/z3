@@ -1473,6 +1473,7 @@ namespace seq {
             ++m_stats.m_num_solve_calls;
             m_sat_node = nullptr;
             m_sat_path.reset();
+            m_conflict_sources.reset();
 
             // Constraint.Shared: assert root-level length/Parikh constraints to the
             // solver at the base level, so they are visible during all feasibility checks.
@@ -1516,6 +1517,9 @@ namespace seq {
                 }
                 if (r == search_result::unsat) {
                     ++m_stats.m_num_unsat;
+                    dep_tracker deps = m_dep_mgr.mk_empty();
+                    collect_conflict_deps(deps);
+                    m_dep_mgr.linearize(deps, m_conflict_sources);
                     return r;
                 }
                 // depth limit hit – double the bound and retry

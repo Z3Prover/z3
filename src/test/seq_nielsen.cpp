@@ -1394,7 +1394,7 @@ static void test_solve_node_status_unsat() {
     SASSERT(root->is_currently_conflict());
 }
 
-// test that collect_conflict_deps returns deps after unsat
+// test that conflict_sources is populated after unsat
 static void test_solve_conflict_deps() {
     std::cout << "test_solve_conflict_deps\n";
     ast_manager m;
@@ -1413,10 +1413,8 @@ static void test_solve_conflict_deps() {
     auto result = ng.solve();
     SASSERT(result == seq::nielsen_graph::search_result::unsat);
 
-    seq::dep_tracker deps = ng.dep_mgr().mk_empty();
-    ng.collect_conflict_deps(deps);
-    // deps should be non-empty since there's a conflict
-    SASSERT(deps != nullptr);
+    // conflict_sources should be non-empty since there's a conflict
+    SASSERT(!ng.conflict_sources().empty());
 }
 
 // test dep_tracker (dependency_manager<dep_source>) linearize
