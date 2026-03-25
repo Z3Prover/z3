@@ -32,7 +32,6 @@ NSB review:
 #include "ast/ast_pp.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "sat/smt/arith_solver.h"
 #include "tactic/probe.h"
 #include "tactic/fd_solver/enum2bv_solver.h"
 #include "util/hashtable.h"
