@@ -47,6 +47,13 @@ namespace smt {
             mk_var(ctx.get_enode(s));
             return true;
         }
+        if (m_util.is_skolem(atom)) {
+            // char2bit
+            bool_var bv = ctx.mk_bool_var(atom);
+            ctx.set_var_theory(bv, get_id());
+            ctx.mark_as_relevant(bv);
+            return true;
+    }
         return internalize_term(atom);
     }
 
