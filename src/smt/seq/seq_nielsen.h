@@ -473,7 +473,6 @@ namespace seq {
 
         std::ostream& display(std::ostream& out) const;
     };
-
     // edge in the Nielsen graph connecting two nodes
     // mirrors ZIPT's NielsenEdge
     class nielsen_edge {
@@ -525,6 +524,7 @@ namespace seq {
         vector<str_eq>     m_str_eq;        // string equalities
         vector<str_mem>    m_str_mem;       // regex memberships
         vector<constraint> m_constraints;   // integer equalities/inequalities (mirrors ZIPT's IntEq/IntLe)
+        sat::literal m_conflict_literal = sat::null_literal;
 
 
         // character constraints (mirrors ZIPT's DisEqualities and CharRanges)
@@ -577,10 +577,10 @@ namespace seq {
 
         void add_str_eq(str_eq const& eq) { m_str_eq.push_back(eq); }
         void add_str_mem(str_mem const& mem) { m_str_mem.push_back(mem); }
-        void add_constraint(constraint const& ic) { m_constraints.push_back(ic); }
+        void add_constraint(constraint const &ic);
 
         vector<constraint> const& constraints() const { return m_constraints; }
-        vector<constraint>& constraints() { return m_constraints; }
+        vector<constraint>& constraints() { return m_constraints; }        
 
         // Query current bounds for a variable from the arithmetic subsolver.
         // Falls der Subsolver keinen Bound liefert, werden konservative Defaults
@@ -622,6 +622,7 @@ namespace seq {
 
         bool is_currently_conflict() const {
             return m_is_general_conflict ||
+                m_conflict_literal != sat::null_literal ||
                 (m_reason != backtrack_reason::unevaluated && m_is_extended);
         }
 
@@ -753,6 +754,10 @@ namespace seq {
         // inclusion, derivatives. Allocated in the constructor; owned by this graph.
         seq::seq_regex*              m_seq_regex = nullptr;
 
+        // Callback to check that literals assumed in branches are not already assigned to false.
+        // returns the literal that is assigned to false, otherwise returns a null_literal
+        std::function<sat::literal(expr *)> m_literal_if_false;
+
         // -----------------------------------------------
         // Modification counter for substitution length tracking.
         // mirrors ZIPT's LocalInfo.CurrentModificationCnt
@@ -785,6 +790,10 @@ namespace seq {
         // the caller is responsible for keeping the solver alive.
         nielsen_graph(euf::sgraph& sg, simple_solver& solver);
         ~nielsen_graph();
+
+        void set_literal_if_false(std::function<sat::literal(expr* e)> const& lif) {
+            m_literal_if_false = lif;
+        }
 
         ast_manager &get_manager() {
             return m;

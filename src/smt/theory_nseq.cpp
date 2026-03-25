@@ -80,6 +80,20 @@ namespace smt {
         m_axioms.set_phase(set_phase);
         m_axioms.set_ensure_digits(ensure_digit_axiom);
         m_axioms.set_mark_no_diseq(mark_no_diseq);
+
+        std::function<sat::literal(expr*)> literal_if_false = [&](expr* e) {
+            bool is_not = m.is_not(e, e);
+            if (!ctx.e_internalized(e))
+                return sat::null_literal;
+            literal lit = ctx.get_literal(e);
+            if (is_not)
+                lit.neg();
+            if (ctx.get_assignment(lit) == l_false)
+                return lit;
+            return sat::null_literal;
+        };
+
+        m_nielsen.set_literal_if_false(literal_if_false);
     }
 
     // -----------------------------------------------------------------------

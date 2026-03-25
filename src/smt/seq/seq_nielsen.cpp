@@ -244,6 +244,15 @@ namespace seq {
         return false;
     }
 
+    void nielsen_node::add_constraint(constraint const &c) {
+        m_constraints.push_back(c);
+        if (m_graph.m_literal_if_false) {
+            auto lit = m_graph.m_literal_if_false(c.fml);
+            if (lit != sat::null_literal)
+                m_conflict_literal = lit;
+        }
+    }
+
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
         SASSERT(s.m_var);
         for (auto &eq : m_str_eq) {
@@ -303,6 +312,7 @@ namespace seq {
         SASSERT(e);
         return m_graph.m_solver.lower_bound(e, lo);
     }
+
 
     bool nielsen_node::upper_bound(expr* e, rational& up) const {
         SASSERT(e);
@@ -365,8 +375,8 @@ namespace seq {
     // nielsen_graph
     // -----------------------------------------------
 
-    nielsen_graph::nielsen_graph(euf::sgraph& sg, simple_solver& solver):
-        m(sg.get_manager()),
+    nielsen_graph::nielsen_graph(euf::sgraph &sg, simple_solver &solver):        
+        m(sg.get_manager()),        
         m_seq(sg.get_seq_util()),
         m_sg(sg),
         m_solver(solver),
@@ -504,7 +514,7 @@ namespace seq {
                 if (e) seq.str.is_power(e, pow_base, pow_exp);
                 if (pow_exp) {
                     expr* zero = arith.mk_numeral(rational(0), true);
-                    m_constraints.push_back(
+                    add_constraint(
                         constraint(m.mk_eq(pow_exp, zero), dep, m));
                 }
                 nielsen_subst s(t, sg.mk_empty_seq(t->get_sort()), dep);
@@ -3452,6 +3462,10 @@ namespace seq {
                 continue;
             if (!n->is_currently_conflict())
                 continue;
+            if (n->m_conflict_literal != sat::null_literal) {
+                deps = m_dep_mgr.mk_join(deps, m_dep_mgr.mk_leaf(n->m_conflict_literal));
+                continue;
+            }
             for (str_eq const& eq : n->str_eqs())
                 deps = m_dep_mgr.mk_join(deps, eq.m_dep);
             for (str_mem const& mem : n->str_mems())
