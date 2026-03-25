@@ -1,0 +1,60 @@
+name: Mark Pull Requests Ready for Review
+
+on:
+  pull_request:
+    types: [opened]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'
+
+permissions: {}
+
+jobs:
+  mark-ready:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Mark all draft pull requests ready for review
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+          script: |
+            async function markReady(nodeId, number, title) {
+              core.info(`Marking PR #${number} "${title}" ready for review.`);
+              try {
+                await github.graphql(`
+                  mutation($id: ID!) {
+                    markPullRequestReadyForReview(input: { pullRequestId: $id }) {
+                      pullRequest { number isDraft }
+                    }
+                  }
+                `, { id: nodeId });
+              } catch (err) {
+                core.warning(`Failed to mark PR #${number} ready for review: ${err.message}`);
+              }
+            }
+
+            if (context.eventName === 'pull_request') {
+              const pr = context.payload.pull_request;
+              if (pr.draft) {
+                await markReady(pr.node_id, pr.number, pr.title);
+              } else {
+                core.info(`PR #${pr.number} is already ready for review. Nothing to do.`);
+              }
+            } else {
+              const pulls = await github.paginate(github.rest.pulls.list, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'open',
+              });
+
+              const drafts = pulls.filter(pr => pr.draft);
+              core.info(`Found ${drafts.length} draft pull request(s).`);
+
+              for (const pr of drafts) {
+                await markReady(pr.node_id, pr.number, pr.title);
+              }
+            }
+
+            core.info('Done.');

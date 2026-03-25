@@ -12,6 +12,7 @@
 #include "math/lp/nla_intervals.h"
 #include "math/lp/nex.h"
 #include "math/lp/cross_nested.h"
+#include "util/params.h"
 #include "util/uint_set.h"
 #include "math/grobner/pdd_solver.h"
 

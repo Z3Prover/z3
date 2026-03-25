@@ -48,6 +48,10 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_string(c, str);
         RESET_ERROR_CODE();
+        if (!str) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "null string");
+            RETURN_Z3(nullptr);
+        }
         zstring s(str);
         app* a = mk_c(c)->sutil().str.mk_string(s);
         mk_c(c)->save_ast_trail(a);
@@ -59,6 +63,10 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_lstring(c, sz, str);
         RESET_ERROR_CODE();
+        if (sz > 0 && !str) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "null string buffer");
+            RETURN_Z3(nullptr);
+        }
         unsigned_vector chs;
         for (unsigned i = 0; i < sz; ++i) chs.push_back((unsigned char)str[i]);
         zstring s(sz, chs.data());
@@ -314,6 +322,10 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_re_loop(c, r, lo, hi);
         RESET_ERROR_CODE();
+        if (hi != 0 && lo > hi) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "loop lower bound must not exceed upper bound");
+            RETURN_Z3(nullptr);
+        }
         app* a = hi == 0 ? mk_c(c)->sutil().re.mk_loop(to_expr(r), lo) : mk_c(c)->sutil().re.mk_loop(to_expr(r), lo, hi);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));

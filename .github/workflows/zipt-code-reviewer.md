@@ -35,12 +35,14 @@ safe-outputs:
     max: 3
   missing-tool:
     create-issue: true
+  noop:
+    report-as-issue: false
 
 timeout-minutes: 30
 
 steps:
   - name: Checkout repository
-    uses: actions/checkout@v5
+    uses: actions/checkout@v6.0.2
     with:
       persist-credentials: false
 

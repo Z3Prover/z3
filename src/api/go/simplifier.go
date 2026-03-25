@@ -52,3 +52,10 @@ func (s *Simplifier) GetHelp() string {
 func (s *Simplifier) GetParamDescrs() *ParamDescrs {
 	return newParamDescrs(s.ctx, C.Z3_simplifier_get_param_descrs(s.ctx.ptr, s.ptr))
 }
+
+// GetSimplifierDescr returns a description of the simplifier with the given name.
+func (c *Context) GetSimplifierDescr(name string) string {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	return C.GoString(C.Z3_simplifier_get_descr(c.ptr, cName))
+}

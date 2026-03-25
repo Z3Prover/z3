@@ -72,7 +72,6 @@ class lar_solver : public column_namer {
 
     void clear_columns_with_changed_bounds();
 
-    struct scoped_backup;
  public:
     const indexed_uint_set& columns_with_changed_bounds() const;
     void insert_to_columns_with_changed_bounds(unsigned j);
@@ -437,7 +436,28 @@ public:
     statistics& stats();
 
     void backup_x() { get_core_solver().backup_x(); }
-    void restore_x() { get_core_solver().restore_x(); }
+    void restore_x() {
+        auto& cs = get_core_solver();
+        unsigned backup_sz = cs.backup_x_size();
+        unsigned current_sz = cs.m_n();
+        CTRACE(lar_solver_restore, backup_sz != current_sz,
+               tout << "restore_x: backup_sz=" << backup_sz
+               << " current_sz=" << current_sz << "\n";);
+        cs.restore_x();
+        if (backup_sz < current_sz) {
+            // New columns were added after backup.
+            // Recalculate basic variable values from non-basic ones
+            // to restore the Ax=0 tableau invariant, then snap
+            // non-basic columns to their bounds and find a feasible solution.
+            for (unsigned i = 0; i < A_r().row_count(); i++)
+                set_column_value(r_basis()[i], get_basic_var_value_from_row(i));
+            move_non_basic_columns_to_bounds();
+        }
+        else {
+            SASSERT(ax_is_correct());
+            SASSERT(cs.m_r_solver.calc_current_x_is_feasible_include_non_basis());
+        }
+    }
 
     void updt_params(params_ref const& p);
     column_type get_column_type(unsigned j) const { return get_core_solver().m_column_types()[j]; }

@@ -564,6 +564,7 @@ void setup_args_parser(argument_parser &parser) {
                                        "test rationals using plus instead of +=");
     parser.add_option_with_help_string("--maximize_term", "test maximize_term()");
     parser.add_option_with_help_string("--patching", "test patching");
+    parser.add_option_with_help_string("--restore_x", "test restore_x");
 }
 
 struct fff {
@@ -1710,7 +1711,7 @@ void test_dio() {
     enable_trace("dioph_eq");
     enable_trace("dioph_eq_fresh");
 #ifdef Z3DEBUG     
-    auto r = i_solver.dio_test();
+    i_solver.dio_test();
 #endif    
     
 }
@@ -1765,6 +1766,124 @@ void test_gomory_cut() {
     
 void test_nla_order_lemma() { nla::test_order_lemma(); }
 
+void test_restore_x() {
+    std::cout << "testing restore_x" << std::endl;
+
+    // Test 1: backup shorter than current (new variables added after backup)
+    {
+        lar_solver solver;
+        lpvar x = solver.add_var(0, false);
+        lpvar y = solver.add_var(1, false);
+        solver.add_var_bound(x, GE, mpq(0));
+        solver.add_var_bound(x, LE, mpq(10));
+        solver.add_var_bound(y, GE, mpq(0));
+        solver.add_var_bound(y, LE, mpq(10));
+
+        vector<std::pair<mpq, lpvar>> coeffs;
+        coeffs.push_back({mpq(1), x});
+        coeffs.push_back({mpq(1), y});
+        unsigned t = solver.add_term(coeffs, 2);
+        solver.add_var_bound(t, GE, mpq(3));
+        solver.add_var_bound(t, LE, mpq(15));
+
+        auto status = solver.solve();
+        SASSERT(status == lp_status::OPTIMAL);
+
+        // Backup the current solution
+        solver.backup_x();
+
+        // Add a new variable with bounds, making the system larger
+        lpvar z = solver.add_var(3, false);
+        solver.add_var_bound(z, GE, mpq(1));
+        solver.add_var_bound(z, LE, mpq(5));
+
+        // restore_x should detect backup < current and call move_non_basic_columns_to_bounds
+        solver.restore_x();
+
+        // The solver should find a feasible solution
+        status = solver.get_status();
+        SASSERT(status == lp_status::OPTIMAL || status == lp_status::FEASIBLE);
+        std::cout << "  test 1 (backup shorter): " << lp_status_to_string(status) << " - PASSED" << std::endl;
+    }
+
+    // Test 2: same-size backup (restore_x copies all elements directly)
+    {
+        lar_solver solver;
+        lpvar x = solver.add_var(0, false);
+        lpvar y = solver.add_var(1, false);
+        solver.add_var_bound(x, GE, mpq(0));
+        solver.add_var_bound(x, LE, mpq(10));
+        solver.add_var_bound(y, GE, mpq(0));
+        solver.add_var_bound(y, LE, mpq(10));
+
+        vector<std::pair<mpq, lpvar>> coeffs;
+        coeffs.push_back({mpq(1), x});
+        coeffs.push_back({mpq(1), y});
+        unsigned t = solver.add_term(coeffs, 2);
+        solver.add_var_bound(t, GE, mpq(2));
+
+        // Add more variables to make backup larger
+        lpvar z = solver.add_var(3, false);
+        solver.add_var_bound(z, GE, mpq(0));
+        solver.add_var_bound(z, LE, mpq(5));
+
+        auto status = solver.solve();
+        (void)status;
+        SASSERT(status == lp_status::OPTIMAL);
+
+        // Backup with the full system
+        solver.backup_x();
+
+        // restore_x with same-size backup should work fine
+        solver.restore_x();
+        std::cout << "  test 2 (same size backup): PASSED" << std::endl;
+    }
+
+    // Test 3: move_non_basic_columns_to_bounds after solve
+    {
+        lar_solver solver;
+        lpvar x = solver.add_var(0, false);
+        lpvar y = solver.add_var(1, false);
+        solver.add_var_bound(x, GE, mpq(1));
+        solver.add_var_bound(x, LE, mpq(10));
+        solver.add_var_bound(y, GE, mpq(1));
+        solver.add_var_bound(y, LE, mpq(10));
+
+        auto status = solver.solve();
+        SASSERT(status == lp_status::OPTIMAL);
+
+        // Add new constraint: x + y >= 5
+        vector<std::pair<mpq, lpvar>> coeffs;
+        coeffs.push_back({mpq(1), x});
+        coeffs.push_back({mpq(1), y});
+        unsigned t = solver.add_term(coeffs, 2);
+        solver.add_var_bound(t, GE, mpq(5));
+        solver.add_var_bound(t, LE, mpq(15));
+
+        // Add another variable
+        lpvar w = solver.add_var(3, false);
+        solver.add_var_bound(w, GE, mpq(2));
+        solver.add_var_bound(w, LE, mpq(8));
+
+        // Solve expanded system, then move non-basic columns to bounds
+        status = solver.solve();
+        SASSERT(status == lp_status::OPTIMAL);
+        solver.move_non_basic_columns_to_bounds();
+        status = solver.get_status();
+        SASSERT(status == lp_status::OPTIMAL || status == lp_status::FEASIBLE);
+
+        // Verify the model satisfies the constraints
+        std::unordered_map<lpvar, mpq> model;
+        solver.get_model(model);
+        SASSERT(model[x] >= mpq(1) && model[x] <= mpq(10));
+        SASSERT(model[y] >= mpq(1) && model[y] <= mpq(10));
+        SASSERT(model[w] >= mpq(2) && model[w] <= mpq(8));
+        std::cout << "  test 3 (move_non_basic_columns_to_bounds): " << lp_status_to_string(status) << " - PASSED" << std::endl;
+    }
+
+    std::cout << "restore_x tests passed" << std::endl;
+}
+
 void test_lp_local(int argn, char **argv) {
     // initialize_util_module();
     // initialize_numerics_module();
@@ -1790,6 +1909,10 @@ void test_lp_local(int argn, char **argv) {
 
     if (args_parser.option_is_used("--patching")) {
         test_patching();
+        return finalize(0);
+    }
+    if (args_parser.option_is_used("--restore_x")) {
+        test_restore_x();
         return finalize(0);
     }
     if (args_parser.option_is_used("-nla_cn")) {

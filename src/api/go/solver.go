@@ -501,6 +501,64 @@ func (fi *FuncInterp) GetArity() uint {
 	return uint(C.Z3_func_interp_get_arity(fi.ctx.ptr, fi.ptr))
 }
 
+// FuncEntry represents a single entry in a FuncInterp finite map.
+type FuncEntry struct {
+	ctx *Context
+	ptr C.Z3_func_entry
+}
+
+// newFuncEntry creates a new FuncEntry and manages its reference count.
+func newFuncEntry(ctx *Context, ptr C.Z3_func_entry) *FuncEntry {
+	e := &FuncEntry{ctx: ctx, ptr: ptr}
+	C.Z3_func_entry_inc_ref(ctx.ptr, ptr)
+	runtime.SetFinalizer(e, func(entry *FuncEntry) {
+		C.Z3_func_entry_dec_ref(entry.ctx.ptr, entry.ptr)
+	})
+	return e
+}
+
+// GetEntry returns the i-th entry in the function interpretation.
+func (fi *FuncInterp) GetEntry(i uint) *FuncEntry {
+	return newFuncEntry(fi.ctx, C.Z3_func_interp_get_entry(fi.ctx.ptr, fi.ptr, C.uint(i)))
+}
+
+// SetElse sets the else value of the function interpretation.
+func (fi *FuncInterp) SetElse(val *Expr) {
+	C.Z3_func_interp_set_else(fi.ctx.ptr, fi.ptr, val.ptr)
+}
+
+// AddEntry adds a new entry to the function interpretation.
+// The args slice provides the argument values and val is the return value.
+func (fi *FuncInterp) AddEntry(args []*Expr, val *Expr) {
+	vec := C.Z3_mk_ast_vector(fi.ctx.ptr)
+	C.Z3_ast_vector_inc_ref(fi.ctx.ptr, vec)
+	defer C.Z3_ast_vector_dec_ref(fi.ctx.ptr, vec)
+	for _, a := range args {
+		C.Z3_ast_vector_push(fi.ctx.ptr, vec, a.ptr)
+	}
+	C.Z3_func_interp_add_entry(fi.ctx.ptr, fi.ptr, vec, val.ptr)
+}
+
+// GetValue returns the return value of the function entry.
+func (e *FuncEntry) GetValue() *Expr {
+	return newExpr(e.ctx, C.Z3_func_entry_get_value(e.ctx.ptr, e.ptr))
+}
+
+// GetNumArgs returns the number of arguments in the function entry.
+func (e *FuncEntry) GetNumArgs() uint {
+	return uint(C.Z3_func_entry_get_num_args(e.ctx.ptr, e.ptr))
+}
+
+// GetArg returns the i-th argument of the function entry.
+func (e *FuncEntry) GetArg(i uint) *Expr {
+	return newExpr(e.ctx, C.Z3_func_entry_get_arg(e.ctx.ptr, e.ptr, C.uint(i)))
+}
+
+// HasInterp reports whether the model contains an interpretation for the given declaration.
+func (m *Model) HasInterp(decl *FuncDecl) bool {
+	return bool(C.Z3_model_has_interp(m.ctx.ptr, m.ptr, decl.ptr))
+}
+
 // SortUniverse returns the universe of values for an uninterpreted sort in the model.
 // The universe is represented as a list of distinct expressions.
 // Returns nil if the sort is not an uninterpreted sort in this model.
@@ -510,4 +568,10 @@ func (m *Model) SortUniverse(sort *Sort) []*Expr {
 		return nil
 	}
 	return astVectorToExprs(m.ctx, vec)
+}
+
+// Translate creates a copy of the model in the target context.
+func (m *Model) Translate(target *Context) *Model {
+	ptr := C.Z3_model_translate(m.ctx.ptr, m.ptr, target.ptr)
+	return newModel(target, ptr)
 }

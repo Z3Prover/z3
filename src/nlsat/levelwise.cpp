@@ -75,6 +75,8 @@ namespace nlsat {
         mutable std_vector<unsigned> m_deg_in_order_graph; // degree of polynomial in resultant graph
         mutable std_vector<unsigned> m_unique_neighbor;    // UINT_MAX = not set, UINT_MAX-1 = multiple
 
+        bool m_linear_cell = false; // indicates whether cell bounds are forced to be linear
+
         assignment const& sample() const { return m_solver.sample(); }
 
         struct root_function {
@@ -231,7 +233,8 @@ namespace nlsat {
             assignment const&,
             pmanager& pm,
             anum_manager& am,
-            polynomial::cache& cache)
+            polynomial::cache& cache,
+            bool linear)
             : m_solver(solver),
               m_P(ps),
               m_n(max_x),
@@ -240,7 +243,8 @@ namespace nlsat {
               m_cache(cache),
               m_todo(m_cache, true),
               m_level_ps(m_pm),
-              m_psc_tmp(m_pm) {
+              m_psc_tmp(m_pm),
+              m_linear_cell(linear) {
             m_I.reserve(m_n);
             for (unsigned i = 0; i < m_n; ++i)
                 m_I.emplace_back(m_pm);
@@ -1007,6 +1011,66 @@ namespace nlsat {
             }
         }
 
+
+        void add_linear_poly_from_root(anum const& a, bool lower, polynomial_ref& p) {
+            rational r;
+            m_am.to_rational(a, r);
+            p = m_pm.mk_polynomial(m_level);
+            p = denominator(r)*p - numerator(r);
+
+            if (lower) {
+                m_I[m_level].l = p;
+                m_I[m_level].l_index = 1;
+            } else {
+                m_I[m_level].u = p;
+                m_I[m_level].u_index = 1;
+            }
+            m_level_ps.push_back(p);
+            m_poly_has_roots.push_back(true);
+            polynomial_ref w = choose_nonzero_coeff(p, m_level);
+            m_witnesses.push_back(w);
+        }
+
+        // Ensure that the interval bounds will be described by linear polynomials.
+        // If this is not already the case, the working set of polynomials is extended by
+        // new linear polynomials whose roots under-approximate the cell boundary.
+        // Based on: Valentin Promies, Jasper Nalbach, Erika Abraham and Paul Wagner
+        // "More is Less: Adding Polynomials for Faster Explanations in NLSAT" (CADE30, 2025)
+        void add_linear_approximations(anum const& v) {
+            polynomial_ref p_lower(m_pm), p_upper(m_pm);
+            auto& r = m_rel.m_rfunc;
+            if (m_I[m_level].is_section()) {
+                if (!m_am.is_rational(v)) {
+                    NOT_IMPLEMENTED_YET();
+                } 
+                else if (m_pm.total_degree(m_I[m_level].l) > 1) {
+                    add_linear_poly_from_root(v, true, p_lower);
+                    // update root function ordering
+                    r.emplace((r.begin() + m_l_rf), m_am, p_lower, 1, v, m_level_ps.size()-1);
+                }
+                return;
+            }
+
+            // sector: have to consider lower and upper bound
+            if (!m_I[m_level].l_inf() && m_pm.total_degree(m_I[m_level].l) > 1) {
+                scoped_anum between(m_am);
+                m_am.select(r[m_l_rf].val, v, between);
+                add_linear_poly_from_root(between, true, p_lower);
+                // update root function ordering
+                r.emplace((r.begin() + m_l_rf + 1), m_am, p_lower, 1, between, m_level_ps.size()-1);
+                ++m_l_rf;
+                if (is_set(m_u_rf))
+                    ++m_u_rf;
+            }
+            if (!m_I[m_level].u_inf() && m_pm.total_degree(m_I[m_level].u) > 1) {
+                scoped_anum between(m_am);
+                m_am.select(v, r[m_u_rf].val, between);
+                // update root function ordering
+                add_linear_poly_from_root(between, false, p_upper);
+                r.emplace((r.begin() + m_u_rf), m_am, p_upper, 1, between, m_level_ps.size()-1);
+            }
+        }
+
         // Build Θ (root functions) and pick I_level around sample(level).
         // Sets m_l_rf/m_u_rf and m_I[level].
         // Returns whether any roots were found (i.e., whether a relation can be built).
@@ -1022,6 +1086,10 @@ namespace nlsat {
                 return false;
 
             set_interval_from_root_partition(v, mid);
+
+            if (m_linear_cell)
+                add_linear_approximations(v);
+
             compute_side_mask();
             return true;
         }
@@ -1376,8 +1444,9 @@ namespace nlsat {
         assignment const& s,
         pmanager& pm,
         anum_manager& am,
-        polynomial::cache& cache)
-        : m_impl(new impl(solver, ps, n, s, pm, am, cache)) {}
+        polynomial::cache& cache,
+        bool linear)
+        : m_impl(new impl(solver, ps, n, s, pm, am, cache, linear)) {}
 
     levelwise::~levelwise() { delete m_impl; }
 

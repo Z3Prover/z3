@@ -328,7 +328,7 @@ namespace datalog {
             column_info(unsigned offset, unsigned length) 
                 : m_big_offset(offset / 8), 
                   m_small_offset(offset % 8),
-                  m_mask( length == 64 ? ULLONG_MAX : (static_cast<uint64_t>(1)<<length)-1 ),
+                  m_mask( length >= 64 ? ULLONG_MAX : (static_cast<uint64_t>(1)<<length)-1 ),
                   m_write_mask( ~(m_mask << m_small_offset) ),
                   m_offset(offset), 
                   m_length(length) {

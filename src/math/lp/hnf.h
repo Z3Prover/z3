@@ -613,11 +613,13 @@ public:
 #endif
         calculate_by_modulo();
 #ifdef Z3DEBUG
-        CTRACE(hnf_calc, m_H != m_W,
-               tout << "A = "; m_A_orig.print(tout, 4); tout << std::endl;
-               tout << "H = "; m_H.print(tout, 4);  tout << std::endl;
-               tout << "W = "; m_W.print(tout, 4);  tout << std::endl;);
-        SASSERT (m_H == m_W);
+        if (!m_cancelled) {
+            CTRACE(hnf_calc, m_H != m_W,
+                   tout << "A = "; m_A_orig.print(tout, 4); tout << std::endl;
+                   tout << "H = "; m_H.print(tout, 4);  tout << std::endl;
+                   tout << "W = "; m_W.print(tout, 4);  tout << std::endl;);
+            SASSERT (m_H == m_W);
+        }
 #endif
     }
 

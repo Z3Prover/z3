@@ -345,11 +345,6 @@ final_check_status theory_seq::final_check_eh(unsigned level) {
         TRACEFIN("regex propagate");
         return FC_CONTINUE;
     }
-    if (check_contains()) {
-        ++m_stats.m_propagate_contains;
-        TRACEFIN("propagate_contains");
-        return FC_CONTINUE;
-    }
     if (check_fixed_length(true, false)) {
         ++m_stats.m_fixed_length;
         TRACEFIN("zero_length");
@@ -363,6 +358,16 @@ final_check_status theory_seq::final_check_eh(unsigned level) {
     if (check_fixed_length(false, false)) {
         ++m_stats.m_fixed_length;
         TRACEFIN("fixed_length");
+        return FC_CONTINUE;
+    }
+    if (check_fixed_length(false, true)) {
+        ++m_stats.m_fixed_length;
+        TRACEFIN("fixed_length");
+        return FC_CONTINUE;
+    }
+    if (check_contains()) {
+        ++m_stats.m_propagate_contains;
+        TRACEFIN("propagate_contains");
         return FC_CONTINUE;
     }
     if (check_int_string()) {
@@ -499,12 +504,6 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero, bool check_long_strings
         m_fixed.contains(e)) {
         return false;
     }
-    
-    m_trail_stack.push(insert_obj_trail<expr>(m_fixed, e));
-    m_fixed.insert(e);
-
-    expr_ref seq(e, m), head(m), tail(m);
-
 
     TRACE(seq, tout << "Fixed: " << mk_bounded_pp(e, m, 2) << " " << lo << "\n";);
     literal a = mk_eq(len_e, m_autil.mk_numeral(lo, true), false);
@@ -513,6 +512,11 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero, bool check_long_strings
 
     if (!check_long_strings && lo > 20 && !is_zero)
         return false;
+
+    m_trail_stack.push(insert_obj_trail<expr>(m_fixed, e));
+    m_fixed.insert(e);
+
+    expr_ref seq(e, m), head(m), tail(m);
 
     if (lo.is_zero()) {
         seq = m_util.str.mk_empty(e->get_sort());
@@ -2976,7 +2980,7 @@ void theory_seq::add_axiom(literal_vector & lits) {
     TRACE(seq, ctx.display_literals_verbose(tout << "assert " << lits << " :", lits) << "\n";);
 
     for (literal lit : lits)
-        if (ctx.get_assignment(lit) == l_true) 
+        if (ctx.get_assignment(lit) == l_true && ctx.get_assign_level(lit) == 0) 
             return;
 
     for (literal lit : lits)

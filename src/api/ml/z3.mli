@@ -3057,6 +3057,10 @@ sig
       @return A list of expressions, where each is an element of the universe of the sort *)
   val sort_universe : model -> Sort.sort -> Expr.expr list
 
+  (** Translate the model to a different context.
+      @return A new model in the target context *)
+  val translate : model -> context -> model
+
   (** Conversion of models to strings.
       @return A string representation of the model. *)
   val to_string : model -> string
