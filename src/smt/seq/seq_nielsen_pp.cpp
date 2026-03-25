@@ -151,6 +151,21 @@ namespace seq {
         }
         app* a = to_app(e);
         expr* x, * y;
+        if (arith.is_le(e, x, y)) {
+            return arith_expr_html(x, names, next_id, m) + " &lt; " + arith_expr_html(y, names, next_id, m);
+        }
+        if (arith.is_gt(e, x, y)) {
+            return arith_expr_html(x, names, next_id, m) + " &gt; " + arith_expr_html(y, names, next_id, m);
+        }
+        if (arith.is_le(e, x, y)) {
+            return arith_expr_html(x, names, next_id, m) + " &#8804; " + arith_expr_html(y, names, next_id, m);
+        }
+        if (arith.is_ge(e, x, y)) {
+            return arith_expr_html(x, names, next_id, m) + " &#8805; " + arith_expr_html(y, names, next_id, m);
+        }
+        if (m.is_eq(e, x, y)) {
+            return arith_expr_html(x, names, next_id, m) + " = " + arith_expr_html(y, names, next_id, m);
+        }
         if (arith.is_add(e)) {
             std::string r = arith_expr_html(a->get_arg(0), names, next_id, m);
             for (unsigned i = 1; i < a->get_num_args(); ++i) {
@@ -403,7 +418,7 @@ namespace seq {
             if (!e) {
                 result += "#" + std::to_string(tok->id());
             } else if (tok->is_var()) {
-                if (to_app(e)->get_num_args() > 0) {
+                if (to_app(e)->get_num_args() == 0) {
                     result += to_app(e)->get_decl()->get_name().str();
                 }
                 else if (names.contains(e))
@@ -461,10 +476,16 @@ namespace seq {
 
     std::ostream& nielsen_node::to_html(std::ostream& out, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) const {
         bool any = false;
+        bool hasEq = false;
+        bool hasMem = false;
+        bool hasRange = false;
+        bool hasDiseq = false;
+        bool hasInt = false;
 
         // string equalities
         for (auto const& eq : m_str_eq) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
+            if (!hasEq) { out << "Eq:<br/>"; hasEq = true; }
             out << snode_label_html(eq.m_lhs, names, next_id, m)
                 << " = "
                 << snode_label_html(eq.m_rhs, names, next_id, m)
@@ -473,6 +494,7 @@ namespace seq {
         // regex memberships
         for (auto const& mem : m_str_mem) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
+            if (!hasMem) { out << "Mem:<br/>"; hasMem = true; }
             out << snode_label_html(mem.m_str, names, next_id, m)
                 << " &#8712; "
                 << snode_label_html(mem.m_regex, names, next_id, m)
@@ -481,6 +503,7 @@ namespace seq {
         // character ranges
         for (auto const& kv : m_char_ranges) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
+            if (!hasRange) { out << "Ranges:<br/>"; hasRange = true; }
             out << "?" << kv.m_key << " &#8712; ";
             kv.m_value.display(out);
             out << "<br/>";
@@ -488,6 +511,7 @@ namespace seq {
         // character disequalities
         for (auto const& kv : m_char_diseqs) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
+            if (!hasDiseq) { out << "Diseq:<br/>"; hasDiseq = true; }
             for (euf::snode* d : kv.m_value) {
                 out << "?" << kv.m_key << " &#8800; ?" << d->id() << "<br/>";
             }
@@ -495,6 +519,7 @@ namespace seq {
         // integer constraints
         for (auto const& ic : m_constraints) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
+            if (!hasInt) { out << "Int:<br/>"; hasInt = true; }
             out << constraint_html(ic, names, next_id, m) << "<br/>";
         }
 

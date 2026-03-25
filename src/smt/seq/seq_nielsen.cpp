@@ -1536,6 +1536,7 @@ namespace seq {
 
     nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node, unsigned depth) {
         ++m_stats.m_num_dfs_nodes;
+        std::cout << m_stats.m_num_dfs_nodes << std::endl;
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth);
 
         // check for external cancellation (timeout, user interrupt)
@@ -1561,7 +1562,7 @@ namespace seq {
         node->set_eval_idx(m_run_idx);
 
         // simplify constraints (idempotent after first call)
-        simplify_result sr = node->simplify_and_init();
+        const simplify_result sr = node->simplify_and_init();
 
         if (sr == simplify_result::conflict) {
             ++m_stats.m_num_simplify_conflict;
@@ -1597,7 +1598,9 @@ namespace seq {
             return search_result::unsat;
         }
 
-        if (sr == simplify_result::satisfied || node->is_satisfied()) {
+        SASSERT(sr != simplify_result::satisfied || node->is_satisfied());
+
+        if (node->is_satisfied()) {
             // Before declaring SAT, check leaf-node regex feasibility:
             // for each variable with multiple regex constraints, verify
             // that the intersection of all its regexes is non-empty.
@@ -1682,8 +1685,7 @@ namespace seq {
 
     // Returns true if variable snode `var` appears anywhere in the token list of `n`.
     static bool snode_contains_var(euf::snode const* n, euf::snode const* var) {
-        if (!n || !var)
-            return false;
+        SASSERT(n && var);
         euf::snode_vector tokens;
         n->collect_tokens(tokens);
         for (const euf::snode* t : tokens) {
@@ -1694,6 +1696,10 @@ namespace seq {
     }
 
     bool nielsen_graph::apply_det_modifier(nielsen_node* node) {
+        // resist the temptation to add rules that "simplify" primitive membership constraints!
+        // pretty much all of them could cause divergence!
+        // e.g., x \in aa* => don't apply substitution x / ax even though it looks "safe" to do
+        // there might be another constraint x \in a* and they would just push the "a" back and forth!
         ast_manager& m = m_sg.get_manager();
         seq_util& seq = m_sg.get_seq_util();
         arith_util arith(m);

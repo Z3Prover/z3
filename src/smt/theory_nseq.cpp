@@ -95,6 +95,7 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     bool theory_nseq::internalize_atom(app* atom, bool /*gate_ctx*/) {
+        // std::cout << "internalize_atom: " << mk_pp(atom, m) << std::endl;
         // str.in_re atoms are boolean predicates: register as bool_var
         // so that assign_eh fires when the SAT solver assigns them.
         // Following theory_seq: create a bool_var directly without an enode
@@ -126,6 +127,7 @@ namespace smt {
     }
 
     bool theory_nseq::internalize_term(app* term) {
+        // std::cout << "internalize_term: " << mk_pp(term, m) << std::endl;
         // ensure ALL children are internalized (following theory_seq pattern)
         for (auto arg : *term) {
             mk_var(ensure_enode(arg));
@@ -207,6 +209,7 @@ namespace smt {
 
     void theory_nseq::assign_eh(bool_var v, bool is_true) {
         expr* e = ctx.bool_var2expr(v);
+        // std::cout << "assigned " << mk_pp(e, m) << " = " << is_true << std::endl;
         expr* s = nullptr, *re = nullptr;
         TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
         if (m_seq.str.is_in_re(e, s, re)) {
