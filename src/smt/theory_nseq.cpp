@@ -88,11 +88,14 @@ namespace smt {
             literal lit = ctx.get_literal(e);
             if (is_not)
                 lit.neg();
-            if (ctx.get_assignment(lit) == l_false)
+            if (ctx.get_assignment(lit) == l_false) {
+                IF_VERBOSE(1, verbose_stream() << "literal_if_false: " << lit << " " << mk_pp(e, m) << " is assigned false\n");
                 return lit;
+            }
             return sat::null_literal;
         };
 
+        
         m_nielsen.set_literal_if_false(literal_if_false);
     }
 
