@@ -744,7 +744,6 @@ namespace seq {
         ast_manager&                  m;
         seq_util&                     m_seq;
         euf::sgraph&                  m_sg;
-        // region                        m_region;
         ptr_vector<nielsen_node>      m_nodes;
         ptr_vector<nielsen_edge>      m_edges;
         nielsen_node*                 m_root = nullptr;

@@ -1506,6 +1506,12 @@ namespace seq {
                                                                   : "UNKNOWN")
                                   << "\n";);
                 if (r == search_result::sat) {
+                    IF_VERBOSE(
+                        1, 
+                        verbose_stream() << "side constraints: \n";
+                        for (auto const &c : m_cur_path.back()->side_constraints()) {
+                            verbose_stream() << "  side constraint: " << c.fml << "\n";
+                        });
                     ++m_stats.m_num_sat;
                     return r;
                 }
