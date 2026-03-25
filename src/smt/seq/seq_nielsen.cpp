@@ -594,7 +594,7 @@ namespace seq {
 
     // test-friendly overloads (no external dependency tracking)
     void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs) {
-        if (root())
+        if (!root())
             create_root();
         dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         str_eq eq(lhs, rhs, dep);
