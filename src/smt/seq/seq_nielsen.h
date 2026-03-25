@@ -671,10 +671,9 @@ namespace seq {
         void apply_subst(euf::sgraph& sg, nielsen_subst const& s);
 
         // simplify all constraints at this node and initialize status.
-        // cur_path provides the path from root to this node so that the
-        // LP solver can be queried for deterministic power cancellation.
+        // Uses m_graph.m_cur_path for LP solver queries during deterministic power cancellation.
         // Returns proceed, conflict, satisfied, or restart.
-        simplify_result simplify_and_init(svector<nielsen_edge*> const& cur_path = svector<nielsen_edge*>());
+        simplify_result simplify_and_init();
 
         // true if all str_eqs are trivial and there are no str_mems
         bool is_satisfied() const;
@@ -756,6 +755,7 @@ namespace seq {
         nielsen_node*                 m_root = nullptr;
         nielsen_node*                 m_sat_node = nullptr;
         svector<nielsen_edge*>        m_sat_path;
+        svector<nielsen_edge*>        m_cur_path;   // path from root to the current DFS node
         unsigned                      m_run_idx = 0;
         unsigned                      m_depth_bound = 0;
         unsigned                      m_max_search_depth = 0;
@@ -860,6 +860,15 @@ namespace seq {
         // path of edges from root to sat_node (set when sat_node is set)
         svector<nielsen_edge*> const& sat_path() const { return m_sat_path; }
 
+        // current DFS path (valid during and after solve())
+        svector<nielsen_edge*> const& cur_path() const { return m_cur_path; }
+
+        // Collect all side constraints along the current path and at the leaf node.
+        // Returns the edge side_constraints for every edge on m_cur_path plus the
+        // constraints() of the leaf node (last edge's target, or root if path is empty).
+        // Intended for theory_nseq to extract assertions implied by the SAT leaf.
+        vector<constraint> get_path_leaf_side_constraints() const;
+
         // add constraints to the root node from external solver
         void add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r);
         void add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l);
@@ -958,7 +967,7 @@ namespace seq {
 
     private:
 
-        search_result search_dfs(nielsen_node* node, unsigned depth, svector<nielsen_edge*>& cur_path);
+        search_result search_dfs(nielsen_node* node, unsigned depth);
 
         // Regex widening: overapproximate `str` by replacing variables with
         // the intersection of their primitive regex constraints (or Σ* if
@@ -1130,13 +1139,13 @@ namespace seq {
         // m_solver by search_dfs via push/pop, so a plain check() suffices.
         // l_undef (resource limit / timeout) is treated as feasible so that the
         // search continues rather than reporting a false unsatisfiability.
-        bool check_int_feasibility(nielsen_node* node, svector<nielsen_edge*> const& cur_path);
+        bool check_int_feasibility(nielsen_node* node);
 
         // check whether lhs <= rhs is implied by the path constraints.
         // mirrors ZIPT's NielsenNode.IsLe(): temporarily asserts NOT(lhs <= rhs)
         // and returns true iff the result is unsatisfiable (i.e., lhs <= rhs is
         // entailed).  Path constraints are already in the solver incrementally.
-        bool check_lp_le(expr* lhs, expr* rhs, nielsen_node* node, svector<nielsen_edge*> const& cur_path);
+        bool check_lp_le(expr* lhs, expr* rhs, nielsen_node* node);
 
         // create an integer constraint: lhs <kind> rhs
         constraint mk_constraint(expr* fml, dep_tracker const& dep);

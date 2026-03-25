@@ -210,7 +210,7 @@ namespace seq {
     }
 
     // Helper: render a constraint as an HTML string for DOT edge labels.
-    static std::string int_constraint_html(constraint const& ic, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) {
+    static std::string constraint_html(constraint const& ic, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) {
         if (ic.fml) return arith_expr_html(ic.fml, names, next_id, m);
         return "null";
     }
@@ -495,7 +495,7 @@ namespace seq {
         // integer constraints
         for (auto const& ic : m_constraints) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
-            out << int_constraint_html(ic, names, next_id, m) << "<br/>";
+            out << constraint_html(ic, names, next_id, m) << "<br/>";
         }
 
         if (!any)
@@ -624,7 +624,7 @@ namespace seq {
                     if (!first) out << "<br/>";
                     first = false;
                     out << "<font color=\"gray\">"
-                        << int_constraint_html(ic, names, next_id, m)
+                        << constraint_html(ic, names, next_id, m)
                         << "</font>";
                 }
                 out << ">";
