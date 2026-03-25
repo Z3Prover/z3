@@ -567,12 +567,49 @@ namespace smt {
                 << (m_nielsen.sat_node() ? "set" : "null") << "\n";);
             // Nielsen found a consistent assignment for positive constraints.
             SASSERT(has_eq_or_mem); // we should have axiomatized them
+            #if 0
+            // TODO: add this pending review
+            if (!add_nielsen_assumptions())
+                return FC_CONTINUE;
+            #endif
             if (!has_unhandled_preds())
                 return FC_DONE;
         }
 
         IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNKNOWN, FC_GIVEUP\n";);
         return FC_GIVEUP;
+    }
+
+
+    bool theory_nseq::add_nielsen_assumptions() {
+        bool has_undef = false;
+        bool has_false = false;
+        for (auto const& c : m_nielsen.sat_node()->constraints()) {
+            auto lit = mk_literal(c.fml);
+            switch (ctx.get_assignment(lit)) { 
+            case l_true: break;
+            case l_undef: 
+                has_undef = true; 
+                ctx.force_phase(lit);                
+                IF_VERBOSE(2, verbose_stream() << 
+                    "nseq final_check: adding nielsen assumption " << c.fml << "\n";);
+                break;
+            case l_false: 
+                // do we really expect this to happen?
+                has_false = true; 
+                IF_VERBOSE(1, verbose_stream()
+                                  << "nseq final_check: nielsen assumption " << c.fml << " is false\n";);
+                ctx.force_phase(lit);
+                break;
+            }
+        }
+        if (has_undef)
+            return false;
+        if (has_false) {
+            // fishy case.
+            return false;
+        }
+        return true;
     }
 
     // -----------------------------------------------------------------------
