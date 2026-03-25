@@ -692,34 +692,22 @@ namespace seq {
     //
     static bool get_const_power_diff(expr* b, expr* a, arith_util& arith, rational& diff) {
         if (a == b) { diff = rational(0); return true; }
+        expr* x = nullptr, *y = nullptr;
+        rational val;
         // b = (+ a k) ?
-        if (arith.is_add(b) && to_app(b)->get_num_args() == 2) {
-            rational val;
-            if (to_app(b)->get_arg(0) == a && arith.is_numeral(to_app(b)->get_arg(1), val))
-                { diff = val; return true; }
-            if (to_app(b)->get_arg(1) == a && arith.is_numeral(to_app(b)->get_arg(0), val))
-                { diff = val; return true; }
+        if (arith.is_add(b, x, y)) {
+            if (x == a && arith.is_numeral(y, val)) { diff = val; return true; }
+            if (y == a && arith.is_numeral(x, val)) { diff = val; return true; }
         }
         // a = (+ b k) → diff = -k
-        if (arith.is_add(a) && to_app(a)->get_num_args() == 2) {
-            rational val;
-            if (to_app(a)->get_arg(0) == b && arith.is_numeral(to_app(a)->get_arg(1), val))
-                { diff = -val; return true; }
-            if (to_app(a)->get_arg(1) == b && arith.is_numeral(to_app(a)->get_arg(0), val))
-                { diff = -val; return true; }
+        if (arith.is_add(a, x, y)) {
+            if (x == b && arith.is_numeral(y, val)) { diff = -val; return true; }
+            if (y == b && arith.is_numeral(x, val)) { diff = -val; return true; }
         }
         // b = (- a k) → diff = -k
-        if (arith.is_sub(b) && to_app(b)->get_num_args() == 2) {
-            rational val;
-            if (to_app(b)->get_arg(0) == a && arith.is_numeral(to_app(b)->get_arg(1), val))
-                { diff = -val; return true; }
-        }
+        if (arith.is_sub(b, x, y) && x == a && arith.is_numeral(y, val)) { diff = -val; return true; }
         // a = (- b k) → diff = k
-        if (arith.is_sub(a) && to_app(a)->get_num_args() == 2) {
-            rational val;
-            if (to_app(a)->get_arg(0) == b && arith.is_numeral(to_app(a)->get_arg(1), val))
-                { diff = val; return true; }
-        }
+        if (arith.is_sub(a, x, y) && x == b && arith.is_numeral(y, val)) { diff = val; return true; }
         return false;
     }
 
