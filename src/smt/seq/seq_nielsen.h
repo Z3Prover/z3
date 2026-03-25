@@ -454,25 +454,17 @@ namespace seq {
     // mirrors ZIPT's IntEq and IntLe
     // -----------------------------------------------
 
-    enum class int_constraint_kind {
-        eq,   // lhs = rhs
-        le,   // lhs <= rhs
-        ge,   // lhs >= rhs
-    };
-
     // integer constraint stored per nielsen_node, tracking arithmetic
     // relationships between length variables and power exponents.
     // mirrors ZIPT's IntEq / IntLe over Presburger arithmetic polynomials.
-    struct int_constraint {
-        expr_ref             m_lhs;    // left-hand side (arithmetic expression)
-        expr_ref             m_rhs;    // right-hand side (arithmetic expression)
-        int_constraint_kind  m_kind;   // eq, le, or ge
-        dep_tracker          m_dep;    // tracks which input constraints contributed
+    struct constraint {
+        expr_ref    fml;   // the formula (eq, le, or ge expression)
+        dep_tracker dep;   // tracks which input constraints contributed
 
-        int_constraint(ast_manager& m):
-            m_lhs(m), m_rhs(m), m_kind(int_constraint_kind::eq), m_dep(nullptr) {}
-        int_constraint(expr* lhs, expr* rhs, int_constraint_kind kind, dep_tracker const& dep, ast_manager& m):
-            m_lhs(lhs, m), m_rhs(rhs, m), m_kind(kind), m_dep(dep) {}
+        constraint(ast_manager& m):
+            fml(m), dep(nullptr) {}
+        constraint(expr* f, dep_tracker const& d, ast_manager& m):
+            fml(f, m), dep(d) {}
 
         std::ostream& display(std::ostream& out) const;
     };
@@ -484,9 +476,9 @@ namespace seq {
         nielsen_node*           m_tgt;
         vector<nielsen_subst>   m_subst;
         vector<char_subst>      m_char_subst;     // character-level substitutions (mirrors ZIPT's SubstC)
-        ptr_vector<str_eq>      m_side_str_eq;    // side constraints: string equalities
-        ptr_vector<str_mem>     m_side_str_mem;    // side constraints: regex memberships
-        vector<int_constraint>  m_side_int;        // side constraints: integer equalities/inequalities
+        ptr_vector<str_eq>      m_side_str_eq;       // side constraints: string equalities
+        ptr_vector<str_mem>     m_side_str_mem;      // side constraints: regex memberships
+        vector<constraint>      m_side_constraints;  // side constraints: integer equalities/inequalities
         bool                    m_is_progress;     // does this edge represent progress?
         bool                    m_len_constraints_computed = false; // lazily computed substitution length constraints
     public:
@@ -505,11 +497,11 @@ namespace seq {
 
         void add_side_str_eq(str_eq* eq) { m_side_str_eq.push_back(eq); }
         void add_side_str_mem(str_mem* mem) { m_side_str_mem.push_back(mem); }
-        void add_side_int(int_constraint const& ic) { m_side_int.push_back(ic); }
+        void add_side_constraint(constraint const& ic) { m_side_constraints.push_back(ic); }
 
         ptr_vector<str_eq> const& side_str_eq() const { return m_side_str_eq; }
         ptr_vector<str_mem> const& side_str_mem() const { return m_side_str_mem; }
-        vector<int_constraint> const& side_int() const { return m_side_int; }
+        vector<constraint> const& side_constraints() const { return m_side_constraints; }
 
         bool is_progress() const { return m_is_progress; }
 
@@ -530,9 +522,9 @@ namespace seq {
         nielsen_graph&          m_graph;
 
         // constraints at this node
-        vector<str_eq>          m_str_eq;     // string equalities
-        vector<str_mem>         m_str_mem;    // regex memberships
-        vector<int_constraint>  m_int_constraints;  // integer equalities/inequalities (mirrors ZIPT's IntEq/IntLe)
+        vector<str_eq>     m_str_eq;        // string equalities
+        vector<str_mem>    m_str_mem;       // regex memberships
+        vector<constraint> m_constraints;   // integer equalities/inequalities (mirrors ZIPT's IntEq/IntLe)
 
         // per-variable integer bounds for len(var). Mirrors ZIPT's IntBounds.
         // key: snode id of the string variable.
@@ -563,8 +555,8 @@ namespace seq {
         // Parikh filter: set to true once apply_parikh_to_node has been applied
         // to this node. Prevents duplicate constraint generation across DFS runs.
         bool                    m_parikh_applied = false;
-        // number of int_constraints inherited from the parent node at clone time.
-        // int_constraints[0..m_parent_ic_count) are already asserted at the
+        // number of constraints inherited from the parent node at clone time.
+        // constraints[0..m_parent_ic_count) are already asserted at the
         // parent's solver scope; only [m_parent_ic_count..end) need to be
         // asserted when this node's solver scope is entered.
         unsigned                m_parent_ic_count = 0;
@@ -590,14 +582,14 @@ namespace seq {
 
         void add_str_eq(str_eq const& eq) { m_str_eq.push_back(eq); }
         void add_str_mem(str_mem const& mem) { m_str_mem.push_back(mem); }
-        void add_int_constraint(int_constraint const& ic) { m_int_constraints.push_back(ic); }
+        void add_constraint(constraint const& ic) { m_constraints.push_back(ic); }
 
-        vector<int_constraint> const& int_constraints() const { return m_int_constraints; }
-        vector<int_constraint>& int_constraints() { return m_int_constraints; }
+        vector<constraint> const& constraints() const { return m_constraints; }
+        vector<constraint>& constraints() { return m_constraints; }
 
         // IntBounds: tighten the lower bound for len(var).
         // Returns true if the bound was tightened (lb > current lower bound).
-        // When tightened without conflict, adds an int_constraint len(var) >= lb.
+        // When tightened without conflict, adds a constraint len(var) >= lb.
         // When lb > current upper bound, sets arithmetic conflict (no constraint added)
         // and still returns true (the bound value changed). Check is_general_conflict()
         // separately to distinguish tightening-with-conflict from normal tightening.
@@ -606,7 +598,7 @@ namespace seq {
 
         // IntBounds: tighten the upper bound for len(var).
         // Returns true if the bound was tightened (ub < current upper bound).
-        // When tightened without conflict, adds an int_constraint len(var) <= ub.
+        // When tightened without conflict, adds a constraint len(var) <= ub.
         // When current lower bound > ub, sets arithmetic conflict (no constraint added)
         // and still returns true (the bound value changed). Check is_general_conflict()
         // separately to distinguish tightening-with-conflict from normal tightening.
@@ -986,7 +978,7 @@ namespace seq {
 
         // Apply the Parikh image filter to a node: generate modular length
         // constraints from regex memberships and append them to the node's
-        // int_constraints.  Also performs a lightweight feasibility pre-check;
+        // constraints.  Also performs a lightweight feasibility pre-check;
         // if a Parikh conflict is detected the node's conflict flag is set with
         // backtrack_reason::parikh_image.
         //
@@ -1118,14 +1110,14 @@ namespace seq {
         // Mirrors ZIPT's Constraint.Shared forwarding mechanism.
         void assert_root_constraints_to_solver();
 
-        // Assert the int_constraints of `node` that are new relative to its
+        // Assert the constraints of `node` that are new relative to its
         // parent (indices [m_parent_ic_count..end)) into the current solver scope.
         // Called by search_dfs after simplify_and_init so that the newly derived
         // bounds become visible to subsequent check() and check_lp_le() calls.
         void assert_node_new_int_constraints(nielsen_node* node);
 
         // Generate |LHS| = |RHS| length constraints for a non-root node's own
-        // string equalities and add them as int_constraints on the node.
+        // string equalities and add them as constraints on the node.
         // Called once per node (guarded by m_node_len_constraints_generated).
         // Uses compute_length_expr (mod-count-aware) so that variables with
         // non-zero modification counts get fresh length variables.
@@ -1147,16 +1139,13 @@ namespace seq {
         bool check_lp_le(expr* lhs, expr* rhs, nielsen_node* node, svector<nielsen_edge*> const& cur_path);
 
         // create an integer constraint: lhs <kind> rhs
-        int_constraint mk_int_constraint(expr* lhs, expr* rhs, int_constraint_kind kind, dep_tracker const& dep);
+        constraint mk_constraint(expr* fml, dep_tracker const& dep);
 
         // get the exponent expression from a power snode (arg(1))
         expr* get_power_exponent(euf::snode* power);
 
         // create a fresh integer variable expression (for power exponents)
         expr_ref mk_fresh_int_var();
-
-        // convert an int_constraint to an expr* assertion
-        expr_ref int_constraint_to_expr(int_constraint const& ic);
 
         // -----------------------------------------------
         // Modification counter methods for substitution length tracking.

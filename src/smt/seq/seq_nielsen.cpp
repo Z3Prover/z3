@@ -203,14 +203,14 @@ namespace seq {
     void nielsen_node::clone_from(nielsen_node const& parent) {
         m_str_eq.reset();
         m_str_mem.reset();
-        m_int_constraints.reset();
+        m_constraints.reset();
         m_char_diseqs.reset();
         m_char_ranges.reset();
         m_var_lb.reset();
         m_var_ub.reset();
         m_str_eq.append(parent.m_str_eq);
         m_str_mem.append(parent.m_str_mem);
-        m_int_constraints.append(parent.m_int_constraints);
+        m_constraints.append(parent.m_constraints);
         
         // clone character disequalities
         
@@ -336,13 +336,13 @@ namespace seq {
             m_reason = backtrack_reason::arithmetic;
             return true;
         }
-        // add int_constraint: len(var) >= lb
+        // add constraint: len(var) >= lb
         ast_manager& m = m_graph.get_manager();
         seq_util& seq = m_graph.seq();
         arith_util arith(m);
         expr_ref len_var(seq.str.mk_length(var->get_expr()), m);
         expr_ref bound(arith.mk_int(lb), m);
-        m_int_constraints.push_back(int_constraint(len_var, bound, int_constraint_kind::ge, dep, m));
+        m_constraints.push_back(constraint(arith.mk_ge(len_var, bound), dep, m));
         return true;
     }
 
@@ -362,13 +362,13 @@ namespace seq {
             m_reason = backtrack_reason::arithmetic;
             return true;
         }
-        // add int_constraint: len(var) <= ub
+        // add constraint: len(var) <= ub
         ast_manager& m = m_graph.get_manager();
         seq_util& seq = m_graph.seq();
         arith_util arith(m);
         expr_ref len_var(seq.str.mk_length(var->get_expr()), m);
         expr_ref bound(arith.mk_int(ub), m);
-        m_int_constraints.push_back(int_constraint(len_var, bound, int_constraint_kind::le, dep, m));
+        m_constraints.push_back(constraint(arith.mk_le(len_var, bound), dep, m));
         return true;
     }
 
@@ -466,19 +466,19 @@ namespace seq {
                     add_upper_int_bound(mem.m_str, max_len, mem.m_dep);
             }
             else {
-                // str is a concatenation or other term: add as general int_constraints
+                // str is a concatenation or other term: add as general constraints
                 ast_manager& m = m_graph.get_manager();
                 arith_util arith(m);
                 expr_ref len_str = m_graph.compute_length_expr(mem.m_str);
                 if (min_len > 0) {
                     expr_ref bound(arith.mk_int(min_len), m);
-                    m_int_constraints.push_back(
-                        int_constraint(len_str, bound, int_constraint_kind::ge, mem.m_dep, m));
+                    m_constraints.push_back(
+                        constraint(arith.mk_ge(len_str, bound), mem.m_dep, m));
                 }
                 if (max_len < UINT_MAX) {
                     expr_ref bound(arith.mk_int(max_len), m);
-                    m_int_constraints.push_back(
-                        int_constraint(len_str, bound, int_constraint_kind::le, mem.m_dep, m));
+                    m_constraints.push_back(
+                        constraint(arith.mk_le(len_str, bound), mem.m_dep, m));
                 }
             }
         }
@@ -679,8 +679,8 @@ namespace seq {
                 if (e) seq.str.is_power(e, pow_base, pow_exp);
                 if (pow_exp) {
                     expr* zero = arith.mk_numeral(rational(0), true);
-                    m_int_constraints.push_back(
-                        int_constraint(pow_exp, zero, int_constraint_kind::eq, dep, m));
+                    m_constraints.push_back(
+                        constraint(m.mk_eq(pow_exp, zero), dep, m));
                 }
                 nielsen_subst s(t, sg.mk_empty_seq(t->get_sort()), dep);
                 apply_subst(sg, s);
