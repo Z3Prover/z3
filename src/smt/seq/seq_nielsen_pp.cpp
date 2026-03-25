@@ -209,16 +209,10 @@ namespace seq {
         return dot_html_escape(os.str());
     }
 
-    // Helper: render an int_constraint as an HTML string for DOT edge labels.
-    static std::string int_constraint_html(int_constraint const& ic, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) {
-        std::string r = arith_expr_html(ic.m_lhs, names, next_id, m);
-        switch (ic.m_kind) {
-        case int_constraint_kind::eq: r += " = ";       break;
-        case int_constraint_kind::le: r += " &#8804; "; break; // ≤
-        case int_constraint_kind::ge: r += " &#8805; "; break; // ≥
-        }
-        r += arith_expr_html(ic.m_rhs, names, next_id, m);
-        return r;
+    // Helper: render a constraint as an HTML string for DOT edge labels.
+    static std::string int_constraint_html(constraint const& ic, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) {
+        if (ic.fml) return arith_expr_html(ic.fml, names, next_id, m);
+        return "null";
     }
 
     static std::string regex_expr_html(expr* e, ast_manager& m, seq_util& seq) {
@@ -499,7 +493,7 @@ namespace seq {
             }
         }
         // integer constraints
-        for (auto const& ic : m_int_constraints) {
+        for (auto const& ic : m_constraints) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
             out << int_constraint_html(ic, names, next_id, m) << "<br/>";
         }
@@ -626,7 +620,7 @@ namespace seq {
                         << "</font>";
                 }
                 // side constraints: integer equalities/inequalities
-                for (auto const& ic : e->side_int()) {
+                for (auto const& ic : e->side_constraints()) {
                     if (!first) out << "<br/>";
                     first = false;
                     out << "<font color=\"gray\">"
