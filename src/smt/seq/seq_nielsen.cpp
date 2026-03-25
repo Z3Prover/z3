@@ -216,28 +216,19 @@ namespace seq {
         m_constraints.reset();
         m_char_diseqs.reset();
         m_char_ranges.reset();
-        m_var_lb.reset();
-        m_var_ub.reset();
         m_str_eq.append(parent.m_str_eq);
         m_str_mem.append(parent.m_str_mem);
         m_constraints.append(parent.m_constraints);
-        
+
         // clone character disequalities
-        
-        for (auto const &[k,v] : parent.m_char_diseqs) 
+
+        for (auto const &[k,v] : parent.m_char_diseqs)
             m_char_diseqs.insert(k, v);
-        
+
         // clone character ranges
-        for (auto const &[k, v] : parent.m_char_ranges) 
+        for (auto const &[k, v] : parent.m_char_ranges)
             m_char_ranges.insert(k, v.clone());
-        
-        // clone per-variable integer bounds
-        for (auto const &[k, v] : parent.m_var_lb) 
-            m_var_lb.insert(k, v);
-        
-        for (auto const &[k, v] : parent.m_var_ub) 
-            m_var_ub.insert(k, v);
-        
+
         // clone regex occurrence tracking
         m_regex_occurrence = parent.m_regex_occurrence;
     }
@@ -275,8 +266,6 @@ namespace seq {
                  mem.m_dep = m_graph.dep_mgr().mk_join(mem.m_dep, s.m_dep);
             }
         }
-        // VarBoundWatcher: propagate bounds on s.m_var to variables in s.m_replacement
-        update_var_bounds(s);
     }
 
     void nielsen_node::add_char_range(euf::snode* sym_char, char_set const& range) {
@@ -310,182 +299,14 @@ namespace seq {
         existing.push_back(other);
     }
 
-    // -----------------------------------------------
-    // nielsen_node: IntBounds methods
-    // mirrors ZIPT's AddLowerIntBound / AddHigherIntBound
-    // -----------------------------------------------
-
-    unsigned nielsen_node::var_lb(euf::snode* var) const {
-        SASSERT(var);
-        unsigned v = 0;
-        m_var_lb.find(var->id(), v);
-        return v;
+    bool nielsen_node::lower_bound(expr* e, rational& lo) const {
+        SASSERT(e);
+        return m_graph.m_solver.lower_bound(e, lo);
     }
 
-    unsigned nielsen_node::var_ub(euf::snode* var) const {
-        SASSERT(var);
-        unsigned v = UINT_MAX;
-        m_var_ub.find(var->id(), v);
-        return v;
-    }
-
-    bool nielsen_node::set_lower_int_bound(euf::snode* var, unsigned lb, dep_tracker const& dep) {
-        SASSERT(var && var->is_var());
-        const unsigned id = var->id();
-        // check against existing lower bound
-        unsigned cur_lb = 0;
-        m_var_lb.insert(id, lb);
-        // conflict if lb > current upper bound
-        unsigned cur_ub = UINT_MAX;
-        m_var_ub.find(id, cur_ub);
-        if (lb > cur_ub) {
-            m_is_general_conflict = true;
-            m_reason = backtrack_reason::arithmetic;
-            return true;
-        }
-        // add constraint: len(var) >= lb
-        ast_manager& m = m_graph.get_manager();
-        seq_util& seq = m_graph.seq();
-        arith_util arith(m);
-        expr_ref len_var(seq.str.mk_length(var->get_expr()), m);
-        expr_ref bound(arith.mk_int(lb), m);
-        m_constraints.push_back(constraint(arith.mk_ge(len_var, bound), dep, m));
-        return true;
-    }
-
-    bool nielsen_node::set_upper_int_bound(euf::snode* var, unsigned ub, dep_tracker const& dep) {
-        SASSERT(var && var->is_var());
-        const unsigned id = var->id();
-        // check against existing upper bound
-        m_var_ub.insert(id, ub);
-        // conflict if current lower bound > ub
-        unsigned cur_lb = 0;
-        m_var_lb.find(id, cur_lb);
-        if (cur_lb > ub) {
-            m_is_general_conflict = true;
-            m_reason = backtrack_reason::arithmetic;
-            return true;
-        }
-        // add constraint: len(var) <= ub
-        ast_manager& m = m_graph.get_manager();
-        seq_util& seq = m_graph.seq();
-        arith_util arith(m);
-        expr_ref len_var(seq.str.mk_length(var->get_expr()), m);
-        expr_ref bound(arith.mk_int(ub), m);
-        m_constraints.push_back(constraint(arith.mk_le(len_var, bound), dep, m));
-        return true;
-    }
-
-    // VarBoundWatcher: after applying substitution s, propagate bounds on s.m_var
-    // to variables in s.m_replacement.
-    // If s.m_var has bounds [lo, hi], and the replacement decomposes into
-    // const_len concrete chars plus a list of variable tokens, then:
-    //   - for a single variable y: lo-const_len <= len(y) <= hi-const_len
-    //   - for multiple variables: each gets an upper bound hi-const_len
-    // Mirrors ZIPT's VarBoundWatcher mechanism.
-    void nielsen_node::update_var_bounds(nielsen_subst const& s) {
-        SASSERT(s.m_var && s.m_replacement);
-        unsigned id = s.m_var->id();
-        unsigned lo = 0, hi = UINT_MAX;
-        m_var_lb.find(id, lo);
-        m_var_ub.find(id, hi);
-        if (lo == 0 && hi == UINT_MAX)
-            return;  // no bounds to propagate
-
-        // decompose replacement into constant length + variable tokens
-        euf::snode_vector tokens;
-        s.m_replacement->collect_tokens(tokens);
-
-        unsigned const_len = 0;
-        euf::snode_vector var_tokens;
-        for (euf::snode* t : tokens) {
-            if (t->is_char_or_unit())
-                ++const_len;
-            else if (t->is_var())
-                var_tokens.push_back(t);
-            else
-                // power or unknown token: cannot propagate simply, abort
-                return;
-        }
-
-        if (var_tokens.empty()) {
-            // all concrete: check if const_len is within [lo, hi]
-            if (const_len < lo || (hi != UINT_MAX && const_len > hi)) {
-                m_is_general_conflict = true;
-                m_reason = backtrack_reason::arithmetic;
-            }
-            return;
-        }
-
-        if (var_tokens.size() == 1) {
-            euf::snode* y = var_tokens[0];
-            if ((signed)(lo - const_len) >= 0)
-                // lo <= const_len + len(y) => len(y) >= lo - const_len (if lo > const_len)
-                set_lower_int_bound(y, lo - const_len, s.m_dep);
-            else
-                set_lower_int_bound(y, 0, s.m_dep);
-            // const_len + len(y) <= hi => len(y) <= hi - const_len
-            if (hi != UINT_MAX) {
-                if (const_len > hi) {
-                    m_is_general_conflict = true;
-                    m_reason = backtrack_reason::arithmetic;
-                }
-                else
-                    set_upper_int_bound(y, hi - const_len, s.m_dep);
-            }
-        }
-        else {
-            // multiple variables: propagate upper bound to each
-            // (each variable contributes >= 0, so each <= hi - const_len)
-            if (hi != UINT_MAX) {
-                if (const_len > hi) {
-                    m_is_general_conflict = true;
-                    m_reason = backtrack_reason::arithmetic;
-                    return;
-                }
-                unsigned each_ub = hi - const_len;
-                for (euf::snode* y : var_tokens) {
-                    set_upper_int_bound(y, each_ub, s.m_dep);
-                }
-            }
-        }
-    }
-
-    // Initialize per-variable Parikh bounds from this node's regex memberships.
-    // For each str_mem (str ∈ regex) with bounded regex length [min_len, max_len],
-    // calls add_lower/upper_int_bound for the primary string variable (if str is
-    // a single variable) or stores a bound on the length expression otherwise.
-    void nielsen_node::init_var_bounds_from_mems() {
-        for (str_mem const& mem : m_str_mem) {
-            if (!mem.m_str || !mem.m_regex) continue;
-            unsigned min_len = 0, max_len = UINT_MAX;
-            m_graph.compute_regex_length_interval(mem.m_regex, min_len, max_len);
-            if (min_len == 0 && max_len == UINT_MAX) continue;
-
-            // if str is a single variable, apply bounds directly
-            if (mem.m_str->is_var()) {
-                if (min_len > 0)
-                    set_lower_int_bound(mem.m_str, min_len, mem.m_dep);
-                if (max_len < UINT_MAX)
-                    set_upper_int_bound(mem.m_str, max_len, mem.m_dep);
-            }
-            else {
-                // str is a concatenation or other term: add as general constraints
-                ast_manager& m = m_graph.get_manager();
-                arith_util arith(m);
-                expr_ref len_str = m_graph.compute_length_expr(mem.m_str);
-                if (min_len > 0) {
-                    expr_ref bound(arith.mk_int(min_len), m);
-                    m_constraints.push_back(
-                        constraint(arith.mk_ge(len_str, bound), mem.m_dep, m));
-                }
-                if (max_len < UINT_MAX) {
-                    expr_ref bound(arith.mk_int(max_len), m);
-                    m_constraints.push_back(
-                        constraint(arith.mk_le(len_str, bound), mem.m_dep, m));
-                }
-            }
-        }
+    bool nielsen_node::upper_bound(expr* e, rational& up) const {
+        SASSERT(e);
+        return m_graph.m_solver.upper_bound(e, up);
     }
 
     void nielsen_node::apply_char_subst(euf::sgraph& sg, char_subst const& s) {
@@ -494,7 +315,7 @@ namespace seq {
         // replace occurrences of s.m_var with s.m_val in all string constraints
         for (auto &eq : m_str_eq) {
             eq.m_lhs = sg.subst(eq.m_lhs, s.m_var, s.m_val);
-            eq.m_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_val);            
+            eq.m_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_val);
             eq.sort();
         }
         for (auto &mem : m_str_mem) {
@@ -734,7 +555,7 @@ namespace seq {
 
     // Get the exponent expression of a power snode.
     static expr* get_power_exp_expr(euf::snode* power, seq_util& seq) {
-        if (!power || !power->is_power()) return nullptr;
+        if (!power->is_power()) return nullptr;
         expr* e = power->get_expr();
         expr* base = nullptr, *exp = nullptr;
         return (e && seq.str.is_power(e, base, exp)) ? exp : nullptr;
@@ -850,8 +671,9 @@ namespace seq {
 
     // Simplify constant-exponent powers: base^0 → ε, base^1 → base.
     // Returns new snode if any simplification happened, nullptr otherwise.
-    static euf::snode* simplify_const_powers(euf::sgraph& sg, euf::snode* side) {
-        if (!side || side->is_empty())
+    static euf::snode* simplify_const_powers(nielsen_node* node, euf::sgraph& sg, euf::snode* side) {
+        SASSERT(side);
+        if (side->is_empty())
             return nullptr;
 
         euf::snode_vector tokens;
@@ -867,14 +689,14 @@ namespace seq {
         for (euf::snode* tok : tokens) {
             if (tok->is_power()) {
                 expr* exp_e = get_power_exp_expr(tok, seq);
-                rational val;
-                if (exp_e && arith.is_numeral(exp_e, val)) {
-                    if (val.is_zero()) {
+                rational ub;
+                if (exp_e && node->upper_bound(exp_e, ub)) {
+                    if (ub.is_zero()) {
                         // base^0 → ε (skip this token entirely)
                         simplified = true;
                         continue;
                     }
-                    if (val.is_one()) {
+                    if (ub.is_one()) {
                         // base^1 → base
                         euf::snode* base_sn = tok->arg(0);
                         if (base_sn) {
@@ -937,7 +759,9 @@ namespace seq {
                 continue;
             }
             // Case 2: power token whose base matches our base pattern (at pos == 0)
-            if (pos == 0 && t->is_power()) {
+            // Skip at leading position (i == 0) to avoid undoing power unwinding:
+            // unwind produces u · u^(n-1); merging it back to u^n creates an infinite cycle.
+            if (i > 0 && t->is_power()) {
                 euf::snode* pow_base = t->arg(0);
                 if (pow_base) {
                     euf::snode_vector pb_tokens;
@@ -1081,9 +905,9 @@ namespace seq {
                     continue;
 
                 // 3a: simplify constant-exponent powers (base^0 → ε, base^1 → base)
-                if (euf::snode* s = simplify_const_powers(sg, eq.m_lhs))
+                if (euf::snode* s = simplify_const_powers(this, sg, eq.m_lhs))
                     { eq.m_lhs = s; changed = true; }
-                if (euf::snode* s = simplify_const_powers(sg, eq.m_rhs))
+                if (euf::snode* s = simplify_const_powers(this, sg, eq.m_rhs))
                     { eq.m_rhs = s; changed = true; }
 
                 // 3b: merge adjacent same-base tokens into combined powers
@@ -1134,8 +958,8 @@ namespace seq {
                             pow_le_count = diff.is_nonneg();
                         }
                         else if (!cur_path.empty()) {
-                            pow_le_count = m_graph.check_lp_le(pow_exp, norm_count, this);
-                            count_le_pow = m_graph.check_lp_le(norm_count, pow_exp, this);
+                            pow_le_count = m_graph.check_lp_le(pow_exp, norm_count);
+                            count_le_pow = m_graph.check_lp_le(norm_count, pow_exp);
                         }
                         if (!pow_le_count && !count_le_pow)
                             continue;
@@ -1211,8 +1035,8 @@ namespace seq {
                     }
                     // 3e: LP-aware power directional elimination
                     else if (lp && rp && !cur_path.empty()) {
-                        bool lp_le_rp = m_graph.check_lp_le(lp, rp, this);
-                        bool rp_le_lp = m_graph.check_lp_le(rp, lp, this);
+                        bool lp_le_rp = m_graph.check_lp_le(lp, rp);
+                        bool rp_le_lp = m_graph.check_lp_le(rp, lp);
                         if (lp_le_rp || rp_le_lp) {
                             expr* smaller_exp = lp_le_rp ? lp : rp;
                             expr* larger_exp  = lp_le_rp ? rp : lp;
@@ -1362,9 +1186,6 @@ namespace seq {
             }
         }
 
-        // IntBounds initialization: derive per-variable Parikh length bounds from
-        // remaining regex memberships and add to constraints.
-        init_var_bounds_from_mems();
 
         if (is_satisfied())
             return simplify_result::satisfied;
@@ -1383,7 +1204,7 @@ namespace seq {
         return true;
     }
 
-    bool nielsen_node::has_opaque_terms() const {        
+    bool nielsen_node::has_opaque_terms() const {
         return false;
         // needed only if there are terms that are not going to be supported at Nielsen level.
         // though, unsupported ops are already tracked (or supposed to be tracked) in theory_nseq.
@@ -1520,7 +1341,7 @@ namespace seq {
                                   << "\n";);
                 if (r == search_result::sat) {
                     IF_VERBOSE(
-                        1, 
+                        1,
                         verbose_stream() << "side constraints: \n";
                         for (auto const &c : cur_path.back()->side_constraints()) {
                             verbose_stream() << "  side constraint: " << c.fml << "\n";
@@ -1529,7 +1350,7 @@ namespace seq {
                     return r;
                 }
                 if (r == search_result::unsat) {
-                    ++m_stats.m_num_unsat;                   
+                    ++m_stats.m_num_unsat;
                     auto deps = collect_conflict_deps();
                     m_dep_mgr.linearize(deps, m_conflict_sources);
                     return r;
@@ -1608,7 +1429,7 @@ namespace seq {
 
         // integer feasibility check: the solver now holds all path constraints
         // incrementally; just query the solver directly
-        if (!cur_path.empty() && !check_int_feasibility(node)) {
+        if (!cur_path.empty() && !check_int_feasibility()) {
             node->set_reason(backtrack_reason::arithmetic);
             ++m_stats.m_num_arith_infeasible;
             return search_result::unsat;
@@ -1755,7 +1576,7 @@ namespace seq {
                             std::swap(l, r);
                         }
                         SASSERT(lt->is_unit());
-                        
+
                         euf::snode* lhs_rest = m_sg.drop_left(l, prefix + 1);
                         euf::snode* rhs_rest = m_sg.drop_left(r, prefix + 1);
 
@@ -1766,7 +1587,7 @@ namespace seq {
                         nielsen_subst subst(lt->arg(0), rt->arg(0), eq.m_dep);
                         e->add_subst(subst);
                         child->apply_subst(m_sg, subst);
-                        
+
                         if (!lhs_rest->is_empty() && !rhs_rest->is_empty())
                             eqs.push_back(str_eq(lhs_rest, rhs_rest, eq.m_dep));
 
@@ -1791,10 +1612,10 @@ namespace seq {
                     else if (lt->is_char_or_unit() && rt->is_char_or_unit()) {
                         nielsen_node* child = mk_child(node);
                         nielsen_edge* e = mk_edge(node, child, true);
-                        
+
                         euf::snode* lhs_rest = m_sg.drop_right(l, suffix + 1);
                         euf::snode* rhs_rest = m_sg.drop_right(r, suffix + 1);
-                        
+
                         auto& eqs = child->str_eqs();
                         eqs[eq_idx] = eqs.back();
                         eqs.pop_back();
@@ -2434,47 +2255,43 @@ namespace seq {
         if (apply_const_num_unwinding(node))
             return ++m_stats.m_mod_const_num_unwinding, true;
 
-        // Priority 5: RegexUnitSplit - split unit-headed memberships by minterms
-        if (apply_regex_unit_split(node))
-            return ++m_stats.m_mod_regex_unit_split, true;
-
-        // Priority 6: EqSplit - split equations into two (single progress child)
+        // Priority 5: EqSplit - split equations into two (single progress child)
         if (apply_eq_split(node))
             return ++m_stats.m_mod_eq_split, true;
 
-        // Priority 7: StarIntr - stabilizer introduction for regex cycles
+        // Priority 6: StarIntr - stabilizer introduction for regex cycles
         if (apply_star_intr(node))
             return ++m_stats.m_mod_star_intr, true;
 
-        // Priority 8: GPowerIntr - ground power introduction
+        // Priority 7: GPowerIntr - ground power introduction
         if (apply_gpower_intr(node))
             return ++m_stats.m_mod_gpower_intr, true;
 
-        // Priority 9: ConstNielsen - char vs var (2 children)
+        // Priority 8: ConstNielsen - char vs var (2 children)
         if (apply_const_nielsen(node))
             return ++m_stats.m_mod_const_nielsen, true;
 
-        // Priority 10: SignatureSplit - heuristic string equation splitting
+        // Priority 9: SignatureSplit - heuristic string equation splitting
         if (m_signature_split && apply_signature_split(node))
             return ++m_stats.m_mod_signature_split, true;
 
-        // Priority 11: RegexVarSplit - split str_mem by minterms
+        // Priority 10: RegexVarSplit - split str_mem by minterms
         if (apply_regex_var_split(node))
             return ++m_stats.m_mod_regex_var_split, true;
 
-        // Priority 12: PowerSplit - power unwinding with bounded prefix
+        // Priority 11: PowerSplit - power unwinding with bounded prefix
         if (apply_power_split(node))
             return ++m_stats.m_mod_power_split, true;
 
-        // Priority 13: VarNielsen - var vs var, all progress (classic Nielsen)
+        // Priority 12: VarNielsen - var vs var, all progress (classic Nielsen)
         if (apply_var_nielsen(node))
             return ++m_stats.m_mod_var_nielsen, true;
 
-        // Priority 14: VarNumUnwinding - variable power unwinding for equality constraints
+        // Priority 13: VarNumUnwinding - variable power unwinding for equality constraints
         if (apply_var_num_unwinding_eq(node))
             return ++m_stats.m_mod_var_num_unwinding_eq, true;
 
-        // Priority 15: variable power unwinding for membership constraints
+        // Priority 14: variable power unwinding for membership constraints
         if (apply_var_num_unwinding_mem(node))
             return ++m_stats.m_mod_var_num_unwinding_mem, true;
 
@@ -2710,14 +2527,14 @@ namespace seq {
                 rational diff;
                 SASSERT(!get_const_power_diff(exp_n, exp_m, arith, diff)); // handled by simplification
 
-                // Branch 1 (explored first): n < m  (i.e., m >= n + 1)
+                // Branch 1 (explored first): n < m  (add constraint c ≥ p + 1)
                 {
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, true);
                     expr_ref n_plus_1(arith.mk_add(exp_n, arith.mk_int(1)), m);
                     e->add_side_constraint(mk_constraint(arith.mk_ge(exp_m, n_plus_1), eq.m_dep));
                 }
-                // Branch 2 (explored second): m <= n  (i.e., n >= m)
+                // Branch 2 (explored second): m <= n  (add constraint p ≥ c)
                 {
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, true);
@@ -2847,11 +2664,11 @@ namespace seq {
         expr *base_expr = to_app(power_e)->get_arg(0);
         expr_ref n_minus_1 = normalize_arith(m, arith.mk_sub(exp_n, one));
         expr_ref nested_pow(seq.str.mk_power(base_expr, n_minus_1), m);
-        euf::snode *nested_power_snode = m_sg.mk(nested_pow);
+        euf::snode* nested_power_snode = m_sg.mk(nested_pow);
 
-        euf::snode *replacement = dir_concat(m_sg, base, nested_power_snode, fwd);
+        euf::snode* replacement = dir_concat(m_sg, base, nested_power_snode, fwd);
         child = mk_child(node);
-        e = mk_edge(node, child, false);
+        e = mk_edge(node, child, true);
         nielsen_subst s2(power, replacement, eq->m_dep);
         e->add_subst(s2);
         child->apply_subst(m_sg, s2);
@@ -2859,65 +2676,6 @@ namespace seq {
             e->add_side_constraint(mk_constraint(arith.mk_ge(exp_n, one), eq->m_dep));
 
         return true;
-    }
-
-    // -----------------------------------------------------------------------
-    // Modifier: apply_regex_unit_split
-    // For str_mem c·s ∈ R where c is a symbolic unit token, split over regex
-    // minterms and constrain c with the corresponding char_range in each child.
-    // Unlike apply_regex_var_split this performs no substitution and has no
-    // epsilon branch.
-    // -----------------------------------------------------------------------
-
-    bool nielsen_graph::apply_regex_unit_split(nielsen_node* node) {
-        for (str_mem const& mem : node->str_mems()) {
-            SASSERT(mem.m_str && mem.m_regex);
-            if (mem.is_primitive())
-                continue;
-
-            euf::snode* first = mem.m_str->first();
-            SASSERT(first);
-            if (!first->is_unit() || first->num_args() == 0 || !first->arg(0)->is_var())
-                continue;
-
-            euf::snode_vector minterms;
-            m_sg.compute_minterms(mem.m_regex, minterms);
-            VERIFY(!minterms.empty());
-
-            bool created = false;
-            for (euf::snode* mt : minterms) {
-                SASSERT(mt && mt->get_expr());
-                SASSERT(!mt->is_fail());
-
-                euf::snode* deriv = m_sg.brzozowski_deriv(mem.m_regex, mt);
-                SASSERT(deriv);
-                if (!deriv || deriv->is_fail())
-                    continue;
-
-                SASSERT(m_seq_regex);
-                char_set cs = m_seq_regex->minterm_to_char_set(mt->get_expr());
-                if (cs.is_empty())
-                    continue;
-
-                // Skip non-progress branches if the current range is already
-                // contained in this minterm's class.
-                u_map<char_set> const& ranges = node->char_ranges();
-                if (ranges.contains(first->id())) {
-                    char_set const& existing = ranges.find(first->id());
-                    if (existing.is_subset(cs))
-                        continue;
-                }
-
-                nielsen_node* child = mk_child(node);
-                mk_edge(node, child, false);
-                child->add_char_range(first, cs);
-                created = true;
-            }
-
-            if (created)
-                return true;
-        }
-        return false;
     }
 
     // -----------------------------------------------------------------------
@@ -3106,6 +2864,7 @@ namespace seq {
         // E.g., [a,b,a,b] has minimal period 2 → use [a,b] as the power base.
         // This ensures we use the minimal repeating unit: x = (ab)^n · suffix
         // instead of x = (abab)^n · suffix.
+        // (mirrors ZIPT: if b.Length == 1 && b is PowerToken pt => b = pt.Base)
         euf::snode_vector ground_prefix;
         unsigned n = ground_prefix_orig.size();
         unsigned period = n;
@@ -3395,8 +3154,7 @@ namespace seq {
 
     bool nielsen_graph::apply_regex_var_split(nielsen_node* node) {
         for (str_mem const& mem : node->str_mems()) {
-            if (!mem.m_str || !mem.m_regex)
-                continue;
+            SASSERT(mem.m_str && mem.m_regex);
             if (mem.is_primitive())
                 continue;
             euf::snode* first = mem.m_str->first();
@@ -3536,10 +3294,10 @@ namespace seq {
                 if (tok->is_power()) {
                     // Token is a power u^exp: decompose with fresh m', 0 <= m' <= exp
                     expr* inner_exp = get_power_exponent(tok);
-                    expr* inner_base_e = get_power_base_expr(tok, seq);
-                    if (inner_exp && inner_base_e) {
+                    expr* inner_base = get_power_base_expr(tok, seq);
+                    if (inner_exp && inner_base) {
                         fresh_inner_m = mk_fresh_int_var();
-                        expr_ref partial_pow(seq.str.mk_power(inner_base_e, fresh_inner_m), m);
+                        expr_ref partial_pow(seq.str.mk_power(inner_base, fresh_inner_m), m);
                         euf::snode* partial_sn = m_sg.mk(partial_pow);
                         euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
                         replacement = dir_concat(m_sg, power_m_sn, suffix_sn, fwd);
@@ -3550,7 +3308,7 @@ namespace seq {
                     }
                 }
                 else
-                    // P(char) = ε, suffix is just the prefix
+                    // Token is a char: P(char) = ε, suffix is just the prefix
                     replacement = prefix_sn ? dir_concat(m_sg, power_m_sn, prefix_sn, fwd) : power_m_sn;
 
                 nielsen_node* child = mk_child(node);
@@ -3559,18 +3317,15 @@ namespace seq {
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
 
-                // m >= 0
+                // Side constraint: n >= 0
                 e->add_side_constraint(mk_constraint(arith.mk_ge(fresh_m, zero), eq->m_dep));
-                // m < n  ⟺  n >= m + 1
-                if (exp_n) {
-                    expr_ref m_plus_1(arith.mk_add(fresh_m, arith.mk_int(1)), m);
-                    e->add_side_constraint(mk_constraint(arith.mk_ge(exp_n, m_plus_1), eq->m_dep));
-                }
 
-                // Inner power constraints: 0 <= m' <= inner_exp
+                // Side constraints for fresh partial exponent
                 if (fresh_inner_m.get()) {
                     expr* inner_exp = get_power_exponent(tok);
+                    // m' >= 0
                     e->add_side_constraint(mk_constraint(arith.mk_ge(fresh_inner_m, zero), eq->m_dep));
+                    // m' <= inner_exp
                     e->add_side_constraint(mk_constraint(arith.mk_ge(inner_exp, fresh_inner_m), eq->m_dep));
                 }
             }
@@ -3705,9 +3460,9 @@ namespace seq {
         return deps;
     }
 
-    
+
     // NSB review: this is one of several methods exposed for testing
-    void nielsen_graph::explain_conflict(svector<enode_pair>& eqs, 
+    void nielsen_graph::explain_conflict(svector<enode_pair>& eqs,
         svector<sat::literal>& mem_literals) const {
         SASSERT(m_root);
         auto deps = collect_conflict_deps();
@@ -3720,7 +3475,7 @@ namespace seq {
                 mem_literals.push_back(std::get<sat::literal>(d));
         }
     }
-   
+
 
     // -----------------------------------------------------------------------
     // nielsen_graph: length constraint generation
@@ -3790,9 +3545,7 @@ namespace seq {
             }
         }
 
-        // Parikh interval reasoning for regex memberships:
-        // for each str_mem constraint str in regex, compute length bounds
-        // from the regex structure and generate arithmetic constraints.
+        // Parikh interval reasoning for regex memberships
         for (str_mem const& mem : m_root->str_mems()) {
             expr* re_expr = mem.m_regex->get_expr();
             if (!re_expr || !seq.is_re(re_expr))
@@ -3813,18 +3566,6 @@ namespace seq {
             if (max_len < UINT_MAX) {
                 expr_ref bound(arith.mk_le(len_str, arith.mk_int(max_len)), m);
                 constraints.push_back(length_constraint(bound, mem.m_dep, length_kind::bound, m));
-            }
-
-            // generate len(x) >= 0 for variables in the string side
-            euf::snode_vector tokens;
-            mem.m_str->collect_tokens(tokens);
-            for (euf::snode* tok : tokens) {
-                if (tok->is_var() && !seen_vars.contains(tok->id())) {
-                    seen_vars.insert(tok->id());
-                    expr_ref len_var(seq.str.mk_length(tok->get_expr()), m);
-                    expr_ref ge_zero(arith.mk_ge(len_var, arith.mk_int(0)), m);
-                    constraints.push_back(length_constraint(ge_zero, mem.m_dep, length_kind::nonneg, m));
-                }
             }
         }
     }
@@ -4030,21 +3771,10 @@ namespace seq {
                 node->add_constraint(mk_constraint(arith.mk_ge(len_str, arith.mk_int(min_len)), mem.m_dep));
             if (max_len < UINT_MAX)
                 node->add_constraint(mk_constraint(arith.mk_le(len_str, arith.mk_int(max_len)), mem.m_dep));
-
-            // non-negativity for string-side variables
-            euf::snode_vector tokens;
-            mem.m_str->collect_tokens(tokens);
-            for (euf::snode* tok : tokens) {
-                if (tok->is_var() && !seen_vars.contains(tok->id())) {
-                    seen_vars.insert(tok->id());
-                    expr_ref len_var = compute_length_expr(tok);
-                    node->add_constraint(mk_constraint(arith.mk_ge(len_var, arith.mk_int(0)), mem.m_dep));
-                }
-            }
         }
     }
 
-    bool nielsen_graph::check_int_feasibility(nielsen_node* node) {
+    bool nielsen_graph::check_int_feasibility() {
         // In incremental mode the solver already holds all path constraints
         // (root length constraints at the base level, edge side_constraints and node
         // constraints pushed/popped as the DFS descends and backtracks).
@@ -4052,7 +3782,24 @@ namespace seq {
         return m_solver.check() != l_false;
     }
 
-    bool nielsen_graph::check_lp_le(expr* lhs, expr* rhs, nielsen_node* node) {
+    bool nielsen_graph::check_lp_le(expr* lhs, expr* rhs) {
+        rational lhs_lo, rhs_up;
+        if (m_solver.lower_bound(lhs, lhs_lo) &&
+            m_solver.upper_bound(rhs, rhs_up)) {
+
+            if (lhs_lo > rhs_up)
+                return false; // definitely infeasible
+        }
+        rational rhs_lo, lhs_up;
+        if (m_solver.lower_bound(lhs, lhs_lo) &&
+            m_solver.upper_bound(rhs, rhs_up)) {
+
+            if (lhs_up <= rhs_lo)
+                return true; // definitely feasible
+        }
+        // fall through - ask the solver [expensive]
+
+        // TODO: Maybe cache the result?
         ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
 
@@ -4074,8 +3821,10 @@ namespace seq {
     }
 
     expr* nielsen_graph::get_power_exponent(euf::snode* power) {
-        if (!power || !power->is_power()) return nullptr;
-        if (power->num_args() < 2) return nullptr;
+        SASSERT(power);
+        if (!power->is_power())
+            return nullptr;
+        SASSERT(power->num_args() == 2);
         euf::snode* exp_snode = power->arg(1);
         return exp_snode ? exp_snode->get_expr() : nullptr;
     }
@@ -4115,18 +3864,20 @@ namespace seq {
                 }
                 m_solver.assert_expr(m.mk_distinct(dist.size(), dist.data()));
             }
-            seq_util s(m);
+            bv_util arith(m);
             for (auto const& kvp : m_sat_node->char_ranges()) {
                 expr_ref_vector cases(m);
-                const auto& var = to_app(m_sg.nodes()[kvp.m_key]->get_expr())->get_arg(0);
+                const auto& var = m_sg.nodes()[kvp.m_key]->get_expr();
                 const auto& ranges = kvp.m_value.ranges();
                 cases.reserve(ranges.size());
+                SASSERT(var->get_sort()->get_family_id() == arith.get_family_id());
+                unsigned bitCnt = arith.get_bv_size(var);
 
                 for (unsigned i = 0; i < ranges.size(); ++i) {
-                    cases[i] = m.mk_and(
-                        s.mk_le(s.mk_char(ranges[i].m_lo), var),
-                        s.mk_le(var, s.mk_char(ranges[i].m_hi - 1))
-                        );
+                    cases.push_back(m.mk_and(
+                        arith.mk_ule(arith.mk_numeral(ranges[i].m_lo, bitCnt), var),
+                        arith.mk_ule(var, arith.mk_numeral(ranges[i].m_hi - 1, bitCnt))
+                        ));
                 }
                 m_solver.assert_expr(m.mk_or(cases));
             }
@@ -4320,7 +4071,6 @@ namespace seq {
         st.update("nseq mod power epsilon",    m_stats.m_mod_power_epsilon);
         st.update("nseq mod num cmp",          m_stats.m_mod_num_cmp);
         st.update("nseq mod const num unwind", m_stats.m_mod_const_num_unwinding);
-        st.update("nseq mod regex unit",       m_stats.m_mod_regex_unit_split);
         st.update("nseq mod eq split",         m_stats.m_mod_eq_split);
         st.update("nseq mod star intr",        m_stats.m_mod_star_intr);
         st.update("nseq mod gpower intr",      m_stats.m_mod_gpower_intr);
@@ -4334,6 +4084,4 @@ namespace seq {
     }
 
 }
-
-
 
