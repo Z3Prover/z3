@@ -965,8 +965,7 @@ namespace seq {
         return {expr_ref(last_stable_sum, m), last_stable_idx};
     }
 
-    simplify_result nielsen_node::simplify_and_init() {
-        svector<nielsen_edge*> const& cur_path = m_graph.cur_path();
+    simplify_result nielsen_node::simplify_and_init(ptr_vector<nielsen_edge> const& cur_path) {
         if (m_is_extended)
             return simplify_result::proceed;
 
@@ -1495,8 +1494,8 @@ namespace seq {
                 if (m_max_search_depth > 0 && m_depth_bound > m_max_search_depth)
                     break;
                 inc_run_idx();
-                m_cur_path.reset();
-                search_result r = search_dfs(m_root, 0);
+                ptr_vector<nielsen_edge> cur_path;
+                search_result r = search_dfs(m_root, cur_path);
                 IF_VERBOSE(1, verbose_stream()
                                   << " depth_bound=" << m_depth_bound << " dfs_nodes=" << m_stats.m_num_dfs_nodes
                                   << " max_depth=" << m_stats.m_max_depth << " extensions=" << m_stats.m_num_extensions
@@ -1509,7 +1508,7 @@ namespace seq {
                     IF_VERBOSE(
                         1, 
                         verbose_stream() << "side constraints: \n";
-                        for (auto const &c : m_cur_path.back()->side_constraints()) {
+                        for (auto const &c : cur_path.back()->side_constraints()) {
                             verbose_stream() << "  side constraint: " << c.fml << "\n";
                         });
                     ++m_stats.m_num_sat;
@@ -1534,9 +1533,10 @@ namespace seq {
         }
     }
 
-    nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node, unsigned depth) {
+    nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node, ptr_vector<nielsen_edge>& cur_path) {
         ++m_stats.m_num_dfs_nodes;
         // std::cout << m_stats.m_num_dfs_nodes << std::endl;
+        auto depth = cur_path.size();
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth);
 
         // check for external cancellation (timeout, user interrupt)
@@ -1552,7 +1552,7 @@ namespace seq {
         if (node->eval_idx() == m_run_idx) {
             if (node->is_satisfied()) {
                 m_sat_node = node;
-                m_sat_path = m_cur_path;
+                m_sat_path = cur_path;
                 return search_result::sat;
             }
             if (node->is_currently_conflict())
@@ -1562,7 +1562,7 @@ namespace seq {
         node->set_eval_idx(m_run_idx);
 
         // simplify constraints (idempotent after first call)
-        const simplify_result sr = node->simplify_and_init();
+        const simplify_result sr = node->simplify_and_init(cur_path);
 
         if (sr == simplify_result::conflict) {
             ++m_stats.m_num_simplify_conflict;
@@ -1592,7 +1592,7 @@ namespace seq {
 
         // integer feasibility check: the solver now holds all path constraints
         // incrementally; just query the solver directly
-        if (!m_cur_path.empty() && !check_int_feasibility(node)) {
+        if (!cur_path.empty() && !check_int_feasibility(node)) {
             node->set_reason(backtrack_reason::arithmetic);
             ++m_stats.m_num_arith_infeasible;
             return search_result::unsat;
@@ -1611,7 +1611,7 @@ namespace seq {
                 return search_result::unsat;
             }
             m_sat_node = node;
-            m_sat_path = m_cur_path;
+            m_sat_path = cur_path;
             return search_result::sat;
         }
 
@@ -1637,7 +1637,7 @@ namespace seq {
         // explore children
         bool any_unknown = false;
         for (nielsen_edge *e : node->outgoing()) {
-            m_cur_path.push_back(e);
+            cur_path.push_back(e);
             // Push a solver scope for this edge and assert its side integer
             // constraints.  The child's own new constraints will be asserted
             // inside the recursive call (above).  On return, pop the scope so
@@ -1660,7 +1660,7 @@ namespace seq {
             // Bump modification counts for the child's context.
             inc_edge_mod_counts(e);
 
-            const search_result r = search_dfs(e->tgt(), e->is_progress() ? depth : depth + 1);
+            const search_result r = search_dfs(e->tgt(), cur_path);
 
             // Restore modification counts on backtrack.
             dec_edge_mod_counts(e);
@@ -1668,7 +1668,7 @@ namespace seq {
             m_solver.pop(1);
             if (r == search_result::sat)
                 return search_result::sat;
-            m_cur_path.pop_back();
+            cur_path.pop_back();
             if (r == search_result::unknown)
                 any_unknown = true;
         }

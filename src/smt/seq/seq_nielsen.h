@@ -666,9 +666,9 @@ namespace seq {
         void apply_subst(euf::sgraph& sg, nielsen_subst const& s);
 
         // simplify all constraints at this node and initialize status.
-        // Uses m_graph.m_cur_path for LP solver queries during deterministic power cancellation.
+        // Uses cur_path for LP solver queries during deterministic power cancellation.
         // Returns proceed, conflict, satisfied, or restart.
-        simplify_result simplify_and_init();
+        simplify_result simplify_and_init(ptr_vector<nielsen_edge> const& cur_path);
 
         // true if all str_eqs are trivial and there are no str_mems
         bool is_satisfied() const;
@@ -748,8 +748,7 @@ namespace seq {
         ptr_vector<nielsen_edge>      m_edges;
         nielsen_node*                 m_root = nullptr;
         nielsen_node*                 m_sat_node = nullptr;
-        svector<nielsen_edge*>        m_sat_path;
-        svector<nielsen_edge*>        m_cur_path;   // path from root to the current DFS node
+        ptr_vector<nielsen_edge>      m_sat_path;
         unsigned                      m_run_idx = 0;
         unsigned                      m_depth_bound = 0;
         unsigned                      m_max_search_depth = 0;
@@ -852,10 +851,8 @@ namespace seq {
         }
 
         // path of edges from root to sat_node (set when sat_node is set)
-        svector<nielsen_edge*> const& sat_path() const { return m_sat_path; }
+        ptr_vector<nielsen_edge> const& sat_path() const { return m_sat_path; }
 
-        // current DFS path (valid during and after solve())
-        svector<nielsen_edge*> const& cur_path() const { return m_cur_path; }
 
         // add constraints to the root node from external solver
         void add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r);
@@ -955,7 +952,7 @@ namespace seq {
 
     private:
 
-        search_result search_dfs(nielsen_node* node, unsigned depth);
+        search_result search_dfs(nielsen_node *node, ptr_vector<nielsen_edge>& path);
 
         // Regex widening: overapproximate `str` by replacing variables with
         // the intersection of their primitive regex constraints (or Σ* if

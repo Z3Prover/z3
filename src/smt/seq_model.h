@@ -93,7 +93,7 @@ namespace smt {
     private:
         // extract variable assignments from the sat path (root-to-leaf edges).
         // Composes substitutions along the path to compute final var values.
-        void extract_assignments(svector<seq::nielsen_edge*> const& sat_path);
+        void extract_assignments(ptr_vector<seq::nielsen_edge> const& sat_path);
 
         // recursively substitute known variable assignments into an snode tree.
         // Returns a concrete Z3 expression.

@@ -110,7 +110,7 @@ namespace smt {
         m_factory = nullptr;
     }
 
-    void seq_model::extract_assignments(svector<seq::nielsen_edge*> const& sat_path) {
+    void seq_model::extract_assignments(ptr_vector<seq::nielsen_edge> const& sat_path) {
         IF_VERBOSE(1, verbose_stream() << "nseq extract_assignments: path length=" << sat_path.size() << "\n";);
 
         // compose substitutions root-to-leaf.
