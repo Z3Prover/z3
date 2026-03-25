@@ -1467,6 +1467,17 @@ namespace seq {
         }
     }
 
+    template<typename T> class scoped_push {
+        T &t;
+    public:
+        scoped_push(T& t) : t(t) {
+            t.push_scope();
+        }
+        ~scoped_push() {
+            t.pop_scope(1);
+        }
+    };
+
     nielsen_graph::search_result nielsen_graph::solve() {
         SASSERT(m_root);
 
@@ -1497,6 +1508,7 @@ namespace seq {
                     break;
                 inc_run_idx();
                 ptr_vector<nielsen_edge> cur_path;
+                // scoped_push _scoped_push(m_dep_mgr); // gc dependencies after search
                 search_result r = search_dfs(m_root, cur_path);
                 IF_VERBOSE(1, verbose_stream()
                                   << " depth_bound=" << m_depth_bound << " dfs_nodes=" << m_stats.m_num_dfs_nodes
@@ -1517,9 +1529,8 @@ namespace seq {
                     return r;
                 }
                 if (r == search_result::unsat) {
-                    ++m_stats.m_num_unsat;
-                    dep_tracker deps = m_dep_mgr.mk_empty();
-                    collect_conflict_deps(deps);
+                    ++m_stats.m_num_unsat;                   
+                    auto deps = collect_conflict_deps();
                     m_dep_mgr.linearize(deps, m_conflict_sources);
                     return r;
                 }
@@ -1739,6 +1750,12 @@ namespace seq {
                         nielsen_node* child = mk_child(node);
                         nielsen_edge* e = mk_edge(node, child, true);
 
+                        if (lt->is_char()) {
+                            std::swap(lt, rt);
+                            std::swap(l, r);
+                        }
+                        SASSERT(lt->is_unit());
+                        
                         euf::snode* lhs_rest = m_sg.drop_left(l, prefix + 1);
                         euf::snode* rhs_rest = m_sg.drop_left(r, prefix + 1);
 
@@ -1746,12 +1763,14 @@ namespace seq {
                         eqs[eq_idx] = eqs.back();
                         eqs.pop_back();
 
-                        nielsen_subst subst(lt, rt, eq.m_dep);
+                        nielsen_subst subst(lt->arg(0), rt->arg(0), eq.m_dep);
                         e->add_subst(subst);
                         child->apply_subst(m_sg, subst);
                         
                         if (!lhs_rest->is_empty() && !rhs_rest->is_empty())
                             eqs.push_back(str_eq(lhs_rest, rhs_rest, eq.m_dep));
+
+                        // NSB review: lt->arg(0) == rt->arg(0) should also be a side constraint
                         return true;
                     }
                     else
@@ -3608,7 +3627,8 @@ namespace seq {
         return true;
     }
 
-    void nielsen_graph::collect_conflict_deps(dep_tracker& deps) const {
+    dep_tracker nielsen_graph::collect_conflict_deps() const {
+        dep_tracker deps = nullptr;
         for (nielsen_node const* n : m_nodes) {
             if (n->eval_idx() != m_run_idx)
                 continue;
@@ -3619,6 +3639,7 @@ namespace seq {
             for (str_mem const& mem : n->str_mems())
                 deps = m_dep_mgr.mk_join(deps, mem.m_dep);
         }
+        return deps;
     }
 
     
@@ -3626,8 +3647,7 @@ namespace seq {
     void nielsen_graph::explain_conflict(svector<enode_pair>& eqs, 
         svector<sat::literal>& mem_literals) const {
         SASSERT(m_root);
-        dep_tracker deps = m_dep_mgr.mk_empty();
-        collect_conflict_deps(deps);
+        auto deps = collect_conflict_deps();
         vector<dep_source, false> vs;
         m_dep_mgr.linearize(deps, vs);
         for (dep_source const& d : vs) {

@@ -579,14 +579,6 @@ namespace smt {
     // Conflict explanation
     // -----------------------------------------------------------------------
 
-    void theory_nseq::add_conflict_clause(seq::dep_tracker const& deps) {
-        enode_pair_vector eqs;
-        literal_vector lits;
-        seq::deps_to_lits(deps, eqs, lits);
-        ++m_num_conflicts;
-        set_conflict(eqs, lits);
-    }
-
     void theory_nseq::explain_nielsen_conflict() {
         enode_pair_vector eqs;
         literal_vector lits;

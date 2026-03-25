@@ -246,14 +246,10 @@ Author:
 #include <map>
 #include "model/model.h"
 
-namespace seq {
-    class seq_regex;  // forward declaration (defined in smt/seq/seq_regex.h)
-}
 
 namespace smt {
     class enode;
 }
-
 
 namespace seq {
 
@@ -262,6 +258,7 @@ namespace seq {
     class nielsen_edge;
     class nielsen_graph;
     class seq_parikh;
+    class seq_regex;  // forward declaration (defined in smt/seq/seq_regex.h)
 
     std::string snode_label_html(euf::snode const* n, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m);
 
@@ -426,6 +423,7 @@ namespace seq {
             SASSERT(repl != nullptr);
             // var may be s_var or s_power; sgraph::subst uses pointer identity matching
             SASSERT(var->is_var() || var->is_power() || var->is_unit());
+            SASSERT(!var->is_unit());
         }
 
         // an eliminating substitution does not contain the variable in the replacement
@@ -855,7 +853,6 @@ namespace seq {
         // path of edges from root to sat_node (set when sat_node is set)
         ptr_vector<nielsen_edge> const& sat_path() const { return m_sat_path; }
 
-
         // add constraints to the root node from external solver
         void add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r);
         void add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l);
@@ -960,7 +957,7 @@ namespace seq {
         dep_manager const& dep_mgr() const { return m_dep_mgr; }
 
         // collect dependency information from conflicting constraints
-        void collect_conflict_deps(dep_tracker& deps) const;
+        dep_tracker collect_conflict_deps() const;
 
         search_result search_dfs(nielsen_node *node, ptr_vector<nielsen_edge>& path);
 
