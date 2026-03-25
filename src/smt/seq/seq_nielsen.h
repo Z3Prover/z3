@@ -697,6 +697,7 @@ namespace seq {
         unsigned m_mod_num_cmp         = 0;
         unsigned m_mod_split_power_elim = 0;
         unsigned m_mod_const_num_unwinding = 0;
+        unsigned m_mod_regex_unit_split = 0;
         unsigned m_mod_eq_split        = 0;
         unsigned m_mod_star_intr       = 0;
         unsigned m_mod_gpower_intr     = 0;
@@ -1018,6 +1019,11 @@ namespace seq {
         // (non-variable), branch: (1) n = 0 (u^n = ε), (2) n >= 1 (peel one u).
         // mirrors ZIPT's ConstNumUnwindingModifier
         bool apply_const_num_unwinding(nielsen_node* node);
+
+        // regex unit split: for str_mem c·s ∈ R where c is a symbolic unit,
+        // branch over regex minterms and constrain c via char_range.
+        // Unlike apply_regex_var_split, no substitution and no epsilon branch.
+        bool apply_regex_unit_split(nielsen_node* node);
 
         // star introduction: for a str_mem x·s ∈ R where a cycle is detected
         // (backedge exists), introduce stabilizer: x ∈ base* with x split.

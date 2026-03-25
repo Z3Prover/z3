@@ -2434,43 +2434,47 @@ namespace seq {
         if (apply_const_num_unwinding(node))
             return ++m_stats.m_mod_const_num_unwinding, true;
 
-        // Priority 5: EqSplit - split equations into two (single progress child)
+        // Priority 5: RegexUnitSplit - split unit-headed memberships by minterms
+        if (apply_regex_unit_split(node))
+            return ++m_stats.m_mod_regex_unit_split, true;
+
+        // Priority 6: EqSplit - split equations into two (single progress child)
         if (apply_eq_split(node))
             return ++m_stats.m_mod_eq_split, true;
 
-        // Priority 6: StarIntr - stabilizer introduction for regex cycles
+        // Priority 7: StarIntr - stabilizer introduction for regex cycles
         if (apply_star_intr(node))
             return ++m_stats.m_mod_star_intr, true;
 
-        // Priority 7: GPowerIntr - ground power introduction
+        // Priority 8: GPowerIntr - ground power introduction
         if (apply_gpower_intr(node))
             return ++m_stats.m_mod_gpower_intr, true;
 
-        // Priority 8: ConstNielsen - char vs var (2 children)
+        // Priority 9: ConstNielsen - char vs var (2 children)
         if (apply_const_nielsen(node))
             return ++m_stats.m_mod_const_nielsen, true;
 
-        // Priority 9: SignatureSplit - heuristic string equation splitting
+        // Priority 10: SignatureSplit - heuristic string equation splitting
         if (m_signature_split && apply_signature_split(node))
             return ++m_stats.m_mod_signature_split, true;
 
-        // Priority 10: RegexVarSplit - split str_mem by minterms
+        // Priority 11: RegexVarSplit - split str_mem by minterms
         if (apply_regex_var_split(node))
             return ++m_stats.m_mod_regex_var_split, true;
 
-        // Priority 11: PowerSplit - power unwinding with bounded prefix
+        // Priority 12: PowerSplit - power unwinding with bounded prefix
         if (apply_power_split(node))
             return ++m_stats.m_mod_power_split, true;
 
-        // Priority 12: VarNielsen - var vs var, all progress (classic Nielsen)
+        // Priority 13: VarNielsen - var vs var, all progress (classic Nielsen)
         if (apply_var_nielsen(node))
             return ++m_stats.m_mod_var_nielsen, true;
 
-        // Priority 13: VarNumUnwinding - variable power unwinding for equality constraints
+        // Priority 14: VarNumUnwinding - variable power unwinding for equality constraints
         if (apply_var_num_unwinding_eq(node))
             return ++m_stats.m_mod_var_num_unwinding_eq, true;
 
-        // Priority 14: variable power unwinding for membership constraints
+        // Priority 15: variable power unwinding for membership constraints
         if (apply_var_num_unwinding_mem(node))
             return ++m_stats.m_mod_var_num_unwinding_mem, true;
 
@@ -2855,6 +2859,65 @@ namespace seq {
             e->add_side_constraint(mk_constraint(arith.mk_ge(exp_n, one), eq->m_dep));
 
         return true;
+    }
+
+    // -----------------------------------------------------------------------
+    // Modifier: apply_regex_unit_split
+    // For str_mem c·s ∈ R where c is a symbolic unit token, split over regex
+    // minterms and constrain c with the corresponding char_range in each child.
+    // Unlike apply_regex_var_split this performs no substitution and has no
+    // epsilon branch.
+    // -----------------------------------------------------------------------
+
+    bool nielsen_graph::apply_regex_unit_split(nielsen_node* node) {
+        for (str_mem const& mem : node->str_mems()) {
+            SASSERT(mem.m_str && mem.m_regex);
+            if (mem.is_primitive())
+                continue;
+
+            euf::snode* first = mem.m_str->first();
+            SASSERT(first);
+            if (!first->is_unit() || first->num_args() == 0 || !first->arg(0)->is_var())
+                continue;
+
+            euf::snode_vector minterms;
+            m_sg.compute_minterms(mem.m_regex, minterms);
+            VERIFY(!minterms.empty());
+
+            bool created = false;
+            for (euf::snode* mt : minterms) {
+                SASSERT(mt && mt->get_expr());
+                SASSERT(!mt->is_fail());
+
+                euf::snode* deriv = m_sg.brzozowski_deriv(mem.m_regex, mt);
+                SASSERT(deriv);
+                if (!deriv || deriv->is_fail())
+                    continue;
+
+                SASSERT(m_seq_regex);
+                char_set cs = m_seq_regex->minterm_to_char_set(mt->get_expr());
+                if (cs.is_empty())
+                    continue;
+
+                // Skip non-progress branches if the current range is already
+                // contained in this minterm's class.
+                u_map<char_set> const& ranges = node->char_ranges();
+                if (ranges.contains(first->id())) {
+                    char_set const& existing = ranges.find(first->id());
+                    if (existing.is_subset(cs))
+                        continue;
+                }
+
+                nielsen_node* child = mk_child(node);
+                mk_edge(node, child, false);
+                child->add_char_range(first, cs);
+                created = true;
+            }
+
+            if (created)
+                return true;
+        }
+        return false;
     }
 
     // -----------------------------------------------------------------------
@@ -4052,20 +4115,18 @@ namespace seq {
                 }
                 m_solver.assert_expr(m.mk_distinct(dist.size(), dist.data()));
             }
-            bv_util arith(m);
+            seq_util s(m);
             for (auto const& kvp : m_sat_node->char_ranges()) {
                 expr_ref_vector cases(m);
-                const auto& var = m_sg.nodes()[kvp.m_key]->get_expr();
+                const auto& var = to_app(m_sg.nodes()[kvp.m_key]->get_expr())->get_arg(0);
                 const auto& ranges = kvp.m_value.ranges();
                 cases.reserve(ranges.size());
-                SASSERT(var->get_sort()->get_family_id() == arith.get_family_id());
-                unsigned bitCnt = arith.get_bv_size(var);
 
                 for (unsigned i = 0; i < ranges.size(); ++i) {
-                    cases.push_back(m.mk_and(
-                        arith.mk_ule(arith.mk_numeral(ranges[i].m_lo, bitCnt), var),
-                        arith.mk_ule(var, arith.mk_numeral(ranges[i].m_hi - 1, bitCnt))
-                        ));
+                    cases[i] = m.mk_and(
+                        s.mk_le(s.mk_char(ranges[i].m_lo), var),
+                        s.mk_le(var, s.mk_char(ranges[i].m_hi - 1))
+                        );
                 }
                 m_solver.assert_expr(m.mk_or(cases));
             }
@@ -4259,6 +4320,7 @@ namespace seq {
         st.update("nseq mod power epsilon",    m_stats.m_mod_power_epsilon);
         st.update("nseq mod num cmp",          m_stats.m_mod_num_cmp);
         st.update("nseq mod const num unwind", m_stats.m_mod_const_num_unwinding);
+        st.update("nseq mod regex unit",       m_stats.m_mod_regex_unit_split);
         st.update("nseq mod eq split",         m_stats.m_mod_eq_split);
         st.update("nseq mod star intr",        m_stats.m_mod_star_intr);
         st.update("nseq mod gpower intr",      m_stats.m_mod_gpower_intr);
