@@ -605,26 +605,6 @@ namespace seq {
                     out << "?" << cs.m_var->id()
                         << " &#8594; ?" << cs.m_val->id();
                 }
-                // side constraints: string equalities
-                for (auto const* eq : e->side_str_eq()) {
-                    if (!first) out << "<br/>";
-                    first = false;
-                    out << "<font color=\"gray\">"
-                        << snode_label_html(eq->m_lhs, m)
-                        << " = "
-                        << snode_label_html(eq->m_rhs, m)
-                        << "</font>";
-                }
-                // side constraints: regex memberships
-                for (auto const* mem : e->side_str_mem()) {
-                    if (!first) out << "<br/>";
-                    first = false;
-                    out << "<font color=\"gray\">"
-                        << snode_label_html(mem->m_str, m)
-                        << " &#8712; "
-                        << snode_label_html(mem->m_regex, m)
-                        << "</font>";
-                }
                 // side constraints: integer equalities/inequalities
                 for (auto const& ic : e->side_int()) {
                     if (!first) out << "<br/>";

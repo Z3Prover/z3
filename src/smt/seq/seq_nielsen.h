@@ -484,8 +484,6 @@ namespace seq {
         nielsen_node*           m_tgt;
         vector<nielsen_subst>   m_subst;
         vector<char_subst>      m_char_subst;     // character-level substitutions (mirrors ZIPT's SubstC)
-        ptr_vector<str_eq>      m_side_str_eq;    // side constraints: string equalities
-        ptr_vector<str_mem>     m_side_str_mem;    // side constraints: regex memberships
         vector<int_constraint>  m_side_int;        // side constraints: integer equalities/inequalities
         bool                    m_is_progress;     // does this edge represent progress?
         bool                    m_len_constraints_computed = false; // lazily computed substitution length constraints
@@ -503,12 +501,9 @@ namespace seq {
         vector<char_subst> const& char_substs() const { return m_char_subst; }
         void add_char_subst(char_subst const& s) { m_char_subst.push_back(s); }
 
-        void add_side_str_eq(str_eq* eq) { m_side_str_eq.push_back(eq); }
-        void add_side_str_mem(str_mem* mem) { m_side_str_mem.push_back(mem); }
+
         void add_side_int(int_constraint const& ic) { m_side_int.push_back(ic); }
 
-        ptr_vector<str_eq> const& side_str_eq() const { return m_side_str_eq; }
-        ptr_vector<str_mem> const& side_str_mem() const { return m_side_str_mem; }
         vector<int_constraint> const& side_int() const { return m_side_int; }
 
         bool is_progress() const { return m_is_progress; }
