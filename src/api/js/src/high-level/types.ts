@@ -1884,6 +1884,14 @@ export interface Model<Name extends string = 'main'> extends Iterable<FuncDecl<N
   sortUniverse(sort: Sort<Name>): AstVector<Name, AnyExpr<Name>>;
 
   /**
+   * Translate the model to a different context.
+   *
+   * @param target - The target context
+   * @returns A new model in the target context
+   */
+  translate(target: Context<Name>): Model<Name>;
+
+  /**
    * Manually decrease the reference count of the model
    * This is automatically done when the model is garbage collected,
    * but calling this eagerly can help release memory sooner.
@@ -2915,6 +2923,12 @@ export interface SMTArrayCreation<Name extends string> {
     domain: DomainSort,
     value: SortToExprMap<RangeSort, Name>,
   ): SMTArray<Name, [DomainSort], RangeSort>;
+
+  /**
+   * Create an array from a function declaration.
+   * The resulting array maps each input to the output of the function.
+   */
+  fromFunc(f: FuncDecl<Name>): SMTArray<Name>;
 }
 
 export type NonEmptySortArray<Name extends string = 'main'> = [Sort<Name>, ...Array<Sort<Name>>];
@@ -3469,6 +3483,16 @@ export interface StringCreation<Name extends string> {
    * Create a string value
    */
   val(value: string): Seq<Name>;
+
+  /**
+   * Create a single-character string from a Unicode code point (str.from_code).
+   */
+  fromCode(code: Arith<Name> | number | bigint): Seq<Name>;
+
+  /**
+   * Convert an integer expression to its string representation (int.to.str).
+   */
+  fromInt(n: Arith<Name> | number | bigint): Seq<Name>;
 }
 
 /** @category String/Sequence */
@@ -3543,6 +3567,60 @@ export interface Seq<Name extends string = 'main', ElemSort extends Sort<Name> =
 
   /** @category Operations */
   replaceAll(src: Seq<Name, ElemSort> | string, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort>;
+
+  /** @category Operations */
+  replaceRe(re: Re<Name>, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort>;
+
+  /** @category Operations */
+  replaceReAll(re: Re<Name>, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort>;
+
+  /**
+   * Convert a string to its integer value (str.to.int).
+   * @category Operations
+   */
+  toInt(): Arith<Name>;
+
+  /**
+   * Convert a single-character string to its Unicode code point (str.to_code).
+   * @category Operations
+   */
+  toCode(): Arith<Name>;
+
+  /**
+   * String less-than comparison (str.lt).
+   * @category Operations
+   */
+  lt(other: Seq<Name, ElemSort> | string): Bool<Name>;
+
+  /**
+   * String less-than-or-equal comparison (str.le).
+   * @category Operations
+   */
+  le(other: Seq<Name, ElemSort> | string): Bool<Name>;
+
+  /**
+   * Apply function f to each element of the sequence (seq.map).
+   * @category Operations
+   */
+  map(f: Expr<Name>): Seq<Name>;
+
+  /**
+   * Apply function f to each element and its index in the sequence (seq.mapi).
+   * @category Operations
+   */
+  mapi(f: Expr<Name>, i: Arith<Name> | number | bigint): Seq<Name>;
+
+  /**
+   * Left-fold function f over the sequence with initial accumulator a (seq.foldl).
+   * @category Operations
+   */
+  foldl(f: Expr<Name>, a: Expr<Name>): Expr<Name>;
+
+  /**
+   * Left-fold function f with index over the sequence with initial accumulator a (seq.foldli).
+   * @category Operations
+   */
+  foldli(f: Expr<Name>, i: Arith<Name> | number | bigint, a: Expr<Name>): Expr<Name>;
 }
 
 ///////////////////////

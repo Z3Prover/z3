@@ -100,11 +100,11 @@ namespace seq {
         // Dependencies are copied from mem.m_dep.
         // Does nothing when min_len ≥ max_len (empty or fixed-length language).
         void generate_parikh_constraints(str_mem const& mem,
-                                         vector<int_constraint>& out);
+                                         vector<constraint>& out);
 
         // Apply Parikh constraints to all memberships at a node.
         // Calls generate_parikh_constraints for each str_mem in the node
-        // and appends the resulting int_constraints to node.int_constraints().
+        // and appends the resulting constraints to node.constraints().
         void apply_to_node(nielsen_node& node);
 
         // Quick Parikh feasibility check (no solver call).

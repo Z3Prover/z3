@@ -2156,6 +2156,62 @@ namespace nlsat {
             m_assignment.reset();
         }
 
+        lbool check(assignment const& rvalues, literal_vector& clause) {
+            // temporarily set m_assignment to the given one
+            assignment tmp = m_assignment;
+            m_assignment.reset();
+            m_assignment.copy(rvalues);
+
+            // check whether the asserted atoms are satisfied by rvalues
+            literal best_literal = null_literal;
+            lbool satisfied = l_true;
+            for (auto cp : m_clauses) {
+                auto& c = *cp;
+                bool is_false = all_of(c, [&](literal l) { return const_cast<imp*>(this)->value(l) == l_false; });
+                bool is_true = any_of(c, [&](literal l) { return const_cast<imp*>(this)->value(l) == l_true; });
+                if (is_true)
+                    continue;                
+                
+                if (!is_false) {
+                    satisfied = l_undef;
+                    continue;
+                }
+
+                // take best literal from c
+                for (literal l : c) {
+                    if (best_literal == null_literal) {
+                        best_literal = l;
+                    } 
+                    else {
+                        bool_var b_best = best_literal.var();
+                        bool_var b_l = l.var();
+                        if (degree(m_atoms[b_l]) < degree(m_atoms[b_best])) {
+                            best_literal = l;
+                        }
+                        // TODO: there might be better criteria than just the degree in the main variable.
+                    }
+                }
+            }
+
+            if (best_literal == null_literal)
+                return satisfied;
+
+            // assignment does not satisfy the constraints -> create lemma
+            SASSERT(best_literal != null_literal);
+            clause.reset();
+            m_lazy_clause.reset();
+            m_explain.compute_linear_explanation(1, &best_literal, m_lazy_clause);
+
+            for (auto l : m_lazy_clause) {
+                clause.push_back(l);
+            }
+            clause.push_back(~best_literal);
+
+            m_assignment.reset();
+            m_assignment.copy(tmp);
+            return l_false;
+        }
+
         lbool check(literal_vector& assumptions) {
             literal_vector result;
             unsigned sz = assumptions.size();
@@ -4417,6 +4473,10 @@ namespace nlsat {
 
     lbool solver::check(literal_vector& assumptions) {
         return m_imp->check(assumptions);
+    }
+
+    lbool solver::check(assignment const& rvalues, literal_vector& clause) {
+        return m_imp->check(rvalues, clause);
     }
 
     void solver::get_core(vector<assumption, false>& assumptions) {

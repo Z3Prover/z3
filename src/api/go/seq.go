@@ -230,3 +230,58 @@ func (c *Context) MkSeqReplaceRe(seq, re, replacement *Expr) *Expr {
 func (c *Context) MkSeqReplaceReAll(seq, re, replacement *Expr) *Expr {
 	return newExpr(c, C.Z3_mk_seq_replace_re_all(c.ptr, seq.ptr, re.ptr, replacement.ptr))
 }
+
+// MkSeqReplaceAll replaces all occurrences of src with dst in seq.
+func (c *Context) MkSeqReplaceAll(seq, src, dst *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_seq_replace_all(c.ptr, seq.ptr, src.ptr, dst.ptr))
+}
+
+// MkSeqNth retrieves the n-th element of a sequence as a single-element expression.
+func (c *Context) MkSeqNth(seq, index *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_seq_nth(c.ptr, seq.ptr, index.ptr))
+}
+
+// MkSeqLastIndex returns the last index of substr in seq.
+func (c *Context) MkSeqLastIndex(seq, substr *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_seq_last_index(c.ptr, seq.ptr, substr.ptr))
+}
+
+// MkSeqMap applies a function to each element of a sequence, returning a new sequence.
+func (c *Context) MkSeqMap(f, seq *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_seq_map(c.ptr, f.ptr, seq.ptr))
+}
+
+// MkSeqMapi applies an indexed function to each element of a sequence, returning a new sequence.
+func (c *Context) MkSeqMapi(f, i, seq *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_seq_mapi(c.ptr, f.ptr, i.ptr, seq.ptr))
+}
+
+// MkSeqFoldl applies a fold-left operation to a sequence.
+func (c *Context) MkSeqFoldl(f, a, seq *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_seq_foldl(c.ptr, f.ptr, a.ptr, seq.ptr))
+}
+
+// MkSeqFoldli applies an indexed fold-left operation to a sequence.
+func (c *Context) MkSeqFoldli(f, i, a, seq *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_seq_foldli(c.ptr, f.ptr, i.ptr, a.ptr, seq.ptr))
+}
+
+// MkStrLt creates a string less-than comparison.
+func (c *Context) MkStrLt(s1, s2 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_str_lt(c.ptr, s1.ptr, s2.ptr))
+}
+
+// MkStrLe creates a string less-than-or-equal comparison.
+func (c *Context) MkStrLe(s1, s2 *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_str_le(c.ptr, s1.ptr, s2.ptr))
+}
+
+// MkStringToCode converts a single-character string to its Unicode code point.
+func (c *Context) MkStringToCode(s *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_string_to_code(c.ptr, s.ptr))
+}
+
+// MkStringFromCode converts a Unicode code point to a single-character string.
+func (c *Context) MkStringFromCode(code *Expr) *Expr {
+	return newExpr(c, C.Z3_mk_string_from_code(c.ptr, code.ptr))
+}

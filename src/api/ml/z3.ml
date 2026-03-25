@@ -1692,6 +1692,8 @@ struct
     let av = Z3native.model_get_sort_universe (gc x) x s in
     AST.ASTVector.to_expr_list av
 
+  let translate (x:model) (to_ctx:context) = Z3native.model_translate (gc x) x to_ctx
+
   let to_string (x:model) = Z3native.model_to_string (gc x) x
 end
 
@@ -2223,7 +2225,7 @@ struct
   let div (ctx:context) (a:rcf_num) (b:rcf_num) = Z3native.rcf_div ctx a b
 
   let neg (ctx:context) (a:rcf_num) = Z3native.rcf_neg ctx a
-  let inv (ctx:context) (a:rcf_num) = Z3native.rcf_neg ctx a
+  let inv (ctx:context) (a:rcf_num) = Z3native.rcf_inv ctx a
 
   let power (ctx:context) (a:rcf_num) (k:int) = Z3native.rcf_power ctx a k
 

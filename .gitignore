@@ -118,3 +118,4 @@ bazel-*
 # Local issue tracking
 .beads
 build/
+.z3-agent/

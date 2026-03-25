@@ -4391,6 +4391,8 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     return BR_FAILED;
     // disabled
 
+#if 0
+    
     expr_ref hd(m()), tl(m());
     if (get_head_tail(a, hd, tl)) {
         //result = re().mk_in_re(tl, re().mk_derivative(hd, b));
@@ -4429,6 +4431,8 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         result = m().mk_and(ge_len, prefix, tail);
         return BR_REWRITE_FULL;
     }
+
+#endif
 
 #if 0
     unsigned len = 0;

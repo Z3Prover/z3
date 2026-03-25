@@ -106,8 +106,6 @@ namespace nlsat {
     /**
      * Check whether all coefficients of the polynomial `s` (viewed as a polynomial
      * in its main variable) evaluate to zero under the given assignment `x2v`.
-     * This is exactly the logic used in several places in the nlsat codebase
-     * (e.g. coeffs_are_zeroes_in_factor in nlsat_explain.cpp).
      */
     inline bool coeffs_are_zeroes_on_sample(polynomial_ref const & s, pmanager & pm, assignment & x2v, anum_manager & am) {
         polynomial_ref c(pm);

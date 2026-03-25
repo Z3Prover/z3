@@ -30,11 +30,13 @@ safe-outputs:
       - tactic-to-simplifier
     title-prefix: "[tactic-to-simplifier] "
     max: 3
+  noop:
+    report-as-issue: false
   github-token: ${{ secrets.GITHUB_TOKEN }}
 
 steps:
   - name: Checkout repository
-    uses: actions/checkout@v5
+    uses: actions/checkout@v6.0.2
     with:
       persist-credentials: false
 

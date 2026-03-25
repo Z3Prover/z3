@@ -226,7 +226,6 @@ namespace seq {
         return
             e.ls.size() == 1 && e.rs.size() == 1 &&
             seq.str.is_ubv2s(e.ls[0], a) && seq.str.is_ubv2s(e.rs[0], b);
-        return false;
     }
 
     bool eq_solver::reduce_ubv2s1(eqr const& e, eq_ptr& r) {

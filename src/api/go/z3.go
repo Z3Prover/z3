@@ -471,6 +471,33 @@ func (c *Context) MkFuncDecl(name *Symbol, domain []*Sort, range_ *Sort) *FuncDe
 	return newFuncDecl(c, C.Z3_mk_func_decl(c.ptr, name.ptr, C.uint(len(domain)), domainPtr, range_.ptr))
 }
 
+// MkRecFuncDecl creates a recursive function declaration.
+// After creating, use AddRecDef to provide the function body.
+func (c *Context) MkRecFuncDecl(name *Symbol, domain []*Sort, range_ *Sort) *FuncDecl {
+	cDomain := make([]C.Z3_sort, len(domain))
+	for i, s := range domain {
+		cDomain[i] = s.ptr
+	}
+	var domainPtr *C.Z3_sort
+	if len(domain) > 0 {
+		domainPtr = &cDomain[0]
+	}
+	return newFuncDecl(c, C.Z3_mk_rec_func_decl(c.ptr, name.ptr, C.uint(len(domain)), domainPtr, range_.ptr))
+}
+
+// AddRecDef adds the definition (body) for a recursive function created with MkRecFuncDecl.
+func (c *Context) AddRecDef(f *FuncDecl, args []*Expr, body *Expr) {
+	cArgs := make([]C.Z3_ast, len(args))
+	for i, a := range args {
+		cArgs[i] = a.ptr
+	}
+	var argsPtr *C.Z3_ast
+	if len(args) > 0 {
+		argsPtr = &cArgs[0]
+	}
+	C.Z3_add_rec_def(c.ptr, f.ptr, C.uint(len(args)), argsPtr, body.ptr)
+}
+
 // MkApp creates a function application.
 func (c *Context) MkApp(decl *FuncDecl, args ...*Expr) *Expr {
 	cArgs := make([]C.Z3_ast, len(args))

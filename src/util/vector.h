@@ -494,7 +494,7 @@ public:
     }
 
     template<typename Args>
-    void resize(SZ s, Args args...) {
+    void resize(SZ s, Args const& args) {
         SZ sz = size();
         if (s <= sz) { shrink(s); return; }
         while (s > capacity()) {
@@ -505,7 +505,7 @@ public:
         iterator it  = m_data + sz;
         iterator end = m_data + s;
         for (; it != end; ++it) {
-            new (it) T(std::forward<Args>(args));
+            new (it) T(args);
         }
     }
 

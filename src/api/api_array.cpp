@@ -38,6 +38,10 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_array_sort_n(c, n, domain, range);
         RESET_ERROR_CODE();
+        if (n == 0) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "array sort requires at least one domain sort");
+            RETURN_Z3(nullptr);
+        }
         vector<parameter> params;
         for (unsigned i = 0; i < n; ++i) params.push_back(parameter(to_sort(domain[i])));
         params.push_back(parameter(to_sort(range)));

@@ -1024,6 +1024,16 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       val(value: string): Seq<Name> {
         return new SeqImpl(check(Z3.mk_string(contextPtr, value)));
       },
+
+      fromCode(code: Arith<Name> | number | bigint): Seq<Name> {
+        const codeExpr = isArith(code) ? code : Int.val(code);
+        return new SeqImpl(check(Z3.mk_string_from_code(contextPtr, codeExpr.ast)));
+      },
+
+      fromInt(n: Arith<Name> | number | bigint): Seq<Name> {
+        const nExpr = isArith(n) ? n : Int.val(n);
+        return new SeqImpl(check(Z3.mk_int_to_str(contextPtr, nExpr.ast)));
+      },
     };
 
     const Seq = {
@@ -1092,6 +1102,9 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         value: SortToExprMap<RangeSort, Name>,
       ): SMTArray<Name, [DomainSort], RangeSort> {
         return new ArrayImpl<[DomainSort], RangeSort>(check(Z3.mk_const_array(contextPtr, domain.ptr, value.ptr)));
+      },
+      fromFunc(f: FuncDecl<Name>): SMTArray<Name> {
+        return new ArrayImpl(check(Z3.mk_as_array(contextPtr, f.ptr)));
       },
     };
     const Set = {
@@ -2812,6 +2825,11 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         return this.getUniverse(sort) as AstVector<Name, AnyExpr<Name>>;
       }
 
+      translate(target: Context<Name>): Model<Name> {
+        const ptr = check(Z3.model_translate(contextPtr, this.ptr, target.ptr));
+        return new (target.Model as unknown as new (ptr: Z3_model) => Model<Name>)(ptr);
+      }
+
       release() {
         Z3.model_dec_ref(contextPtr, this.ptr);
         this._ptr = null;
@@ -4375,6 +4393,52 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         const srcSeq = isSeq(src) ? src : String.val(src);
         const dstSeq = isSeq(dst) ? dst : String.val(dst);
         return new SeqImpl<ElemSort>(check(Z3.mk_seq_replace_all(contextPtr, this.ast, srcSeq.ast, dstSeq.ast)));
+      }
+
+      replaceRe(re: Re<Name>, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort> {
+        const dstSeq = isSeq(dst) ? dst : String.val(dst);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_replace_re(contextPtr, this.ast, re.ast, dstSeq.ast)));
+      }
+
+      replaceReAll(re: Re<Name>, dst: Seq<Name, ElemSort> | string): Seq<Name, ElemSort> {
+        const dstSeq = isSeq(dst) ? dst : String.val(dst);
+        return new SeqImpl<ElemSort>(check(Z3.mk_seq_replace_re_all(contextPtr, this.ast, re.ast, dstSeq.ast)));
+      }
+
+      toInt(): Arith<Name> {
+        return new ArithImpl(check(Z3.mk_str_to_int(contextPtr, this.ast)));
+      }
+
+      toCode(): Arith<Name> {
+        return new ArithImpl(check(Z3.mk_string_to_code(contextPtr, this.ast)));
+      }
+
+      lt(other: Seq<Name, ElemSort> | string): Bool<Name> {
+        const otherSeq = isSeq(other) ? other : String.val(other);
+        return new BoolImpl(check(Z3.mk_str_lt(contextPtr, this.ast, otherSeq.ast)));
+      }
+
+      le(other: Seq<Name, ElemSort> | string): Bool<Name> {
+        const otherSeq = isSeq(other) ? other : String.val(other);
+        return new BoolImpl(check(Z3.mk_str_le(contextPtr, this.ast, otherSeq.ast)));
+      }
+
+      map(f: Expr<Name>): Seq<Name> {
+        return new SeqImpl(check(Z3.mk_seq_map(contextPtr, f.ast, this.ast)));
+      }
+
+      mapi(f: Expr<Name>, i: Arith<Name> | number | bigint): Seq<Name> {
+        const iExpr = isArith(i) ? i : Int.val(i);
+        return new SeqImpl(check(Z3.mk_seq_mapi(contextPtr, f.ast, iExpr.ast, this.ast)));
+      }
+
+      foldl(f: Expr<Name>, a: Expr<Name>): Expr<Name> {
+        return _toExpr(check(Z3.mk_seq_foldl(contextPtr, f.ast, a.ast, this.ast)));
+      }
+
+      foldli(f: Expr<Name>, i: Arith<Name> | number | bigint, a: Expr<Name>): Expr<Name> {
+        const iExpr = isArith(i) ? i : Int.val(i);
+        return _toExpr(check(Z3.mk_seq_foldli(contextPtr, f.ast, iExpr.ast, a.ast, this.ast)));
       }
     }
 

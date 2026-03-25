@@ -1533,6 +1533,8 @@ namespace z3 {
         
         expr rotate_left(unsigned i) const { Z3_ast r = Z3_mk_rotate_left(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
         expr rotate_right(unsigned i) const { Z3_ast r = Z3_mk_rotate_right(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
+        expr ext_rotate_left(expr const& n) const { Z3_ast r = Z3_mk_ext_rotate_left(ctx(), *this, n); ctx().check_error(); return expr(ctx(), r); }
+        expr ext_rotate_right(expr const& n) const { Z3_ast r = Z3_mk_ext_rotate_right(ctx(), *this, n); ctx().check_error(); return expr(ctx(), r); }
         expr repeat(unsigned i) const { Z3_ast r = Z3_mk_repeat(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
 
         friend expr bvredor(expr const & a);

@@ -5,7 +5,7 @@ on:
   schedule: weekly
   workflow_dispatch:
 
-timeout-minutes: 90
+timeout-minutes: 180
 
 permissions: read-all
 
@@ -26,10 +26,12 @@ safe-outputs:
     close-older-discussions: true
   missing-tool:
     create-issue: true
+  noop:
+    report-as-issue: false
 
 steps:
   - name: Checkout repository
-    uses: actions/checkout@v5
+    uses: actions/checkout@v6.0.2
     with:
       persist-credentials: false
 
