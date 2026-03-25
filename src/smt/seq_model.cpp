@@ -294,9 +294,10 @@ namespace smt {
     }
 
     expr* seq_model::mk_fresh_value(euf::snode* var) {
-        sort* srt = m_seq.str.mk_string_sort();
-        if (var->get_expr())
-            srt = var->get_expr()->get_sort();
+        SASSERT(var->get_expr());
+        if (!m_seq.is_seq(var->get_expr()))
+            return nullptr;
+        auto  srt = var->get_expr()->get_sort();
 
         // check if this variable has regex constraints
         euf::snode* re = nullptr;

@@ -3833,6 +3833,8 @@ namespace seq {
         for (unsigned i = 0; i < substs.size(); ++i) {
             auto const& s = substs[i];
             SASSERT(s.m_var && s.m_var->is_var());
+            if (!m_seq.is_seq(s.m_var->get_expr()))
+                continue;
             expr_ref lhs = compute_length_expr(s.m_var);
             lhs_exprs.push_back({i, lhs.get()});
             if (s.is_eliminating())
