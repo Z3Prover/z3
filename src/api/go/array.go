@@ -64,3 +64,23 @@ func (c *Context) MkArrayDefault(array *Expr) *Expr {
 func (c *Context) MkArrayExt(a1, a2 *Expr) *Expr {
 	return newExpr(c, C.Z3_mk_array_ext(c.ptr, a1.ptr, a2.ptr))
 }
+
+// MkAsArray creates an array from a function declaration.
+// The resulting array maps each input to the output of the function.
+func (c *Context) MkAsArray(f *FuncDecl) *Expr {
+	return newExpr(c, C.Z3_mk_as_array(c.ptr, f.ptr))
+}
+
+// MkMap applies a function to the elements of one or more arrays, returning a new array.
+// The function f is applied element-wise to the given arrays.
+func (c *Context) MkMap(f *FuncDecl, arrays ...*Expr) *Expr {
+	cArrays := make([]C.Z3_ast, len(arrays))
+	for i, a := range arrays {
+		cArrays[i] = a.ptr
+	}
+	var cArraysPtr *C.Z3_ast
+	if len(cArrays) > 0 {
+		cArraysPtr = &cArrays[0]
+	}
+	return newExpr(c, C.Z3_mk_map(c.ptr, f.ptr, C.uint(len(arrays)), cArraysPtr))
+}

@@ -2616,6 +2616,7 @@ namespace upolynomial {
        \warning This method may loop if p is not square free or if (a,b) is not an isolating interval.
     */
     bool manager::isolating2refinable(unsigned sz, numeral const * p, mpbq_manager & bqm, mpbq & a, mpbq & b) {
+        checkpoint();
         int sign_a = eval_sign_at(sz, p, a);
         int sign_b = eval_sign_at(sz, p, b);
         TRACE(upolynomial, tout << "sign_a: " << sign_a << ", sign_b: " << sign_b << "\n";);
@@ -2631,6 +2632,7 @@ namespace upolynomial {
             bqm.add(a, b, new_a);
             bqm.div2(new_a);
             while (true) {
+                checkpoint();
                 TRACE(upolynomial, tout << "CASE 2, a: " << bqm.to_string(a) << ", b: " << bqm.to_string(b) << ", new_a: " << bqm.to_string(new_a) << "\n";);
                 int sign_new_a = eval_sign_at(sz, p, new_a);
                 if (sign_new_a != sign_b) {
@@ -2656,6 +2658,7 @@ namespace upolynomial {
             bqm.add(a, b, new_b);
             bqm.div2(new_b);
             while (true) {
+                checkpoint();
                 TRACE(upolynomial, tout << "CASE 3, a: " << bqm.to_string(a) << ", b: " << bqm.to_string(b) << ", new_b: " << bqm.to_string(new_b) << "\n";);
                 int sign_new_b = eval_sign_at(sz, p, new_b);
                 if (sign_new_b != sign_a) {
@@ -2709,6 +2712,7 @@ namespace upolynomial {
         bqm.div2(new_b2);
 
         while (true) {
+            checkpoint();
             TRACE(upolynomial,
                   tout << "CASE 4\na1: " << bqm.to_string(a1) << ", b1: " << bqm.to_string(b1) << ", new_a1: " << bqm.to_string(new_a1) << "\n";
                   tout << "a2: " << bqm.to_string(a2) << ", b2: " << bqm.to_string(b2) << ", new_b2: " << bqm.to_string(new_b2) << "\n";);

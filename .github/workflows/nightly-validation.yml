@@ -165,23 +165,6 @@ jobs:
           cd test-nuget
           dotnet new console
           dotnet add package Microsoft.Z3 --source ../nuget-packages --prerelease
-          # Configure project to properly load native dependencies on macOS x64
-          # Use AnyCPU without RuntimeIdentifier to avoid architecture mismatch
-          # The .NET runtime will automatically select the correct native library from runtimes/osx-x64/native/
-          cat > test-nuget.csproj << 'CSPROJ'
-          <Project Sdk="Microsoft.NET.Sdk">
-            <PropertyGroup>
-              <OutputType>Exe</OutputType>
-              <TargetFramework>net8.0</TargetFramework>
-              <ImplicitUsings>enable</ImplicitUsings>
-              <Nullable>enable</Nullable>
-              <PlatformTarget>AnyCPU</PlatformTarget>
-            </PropertyGroup>
-            <ItemGroup>
-              <PackageReference Include="Microsoft.Z3" Version="*" />
-            </ItemGroup>
-          </Project>
-          CSPROJ
       
       - name: Create test code
         run: |
@@ -237,23 +220,6 @@ jobs:
           cd test-nuget
           dotnet new console
           dotnet add package Microsoft.Z3 --source ../nuget-packages --prerelease
-          # Configure project to properly load native dependencies on macOS ARM64
-          # Use AnyCPU without RuntimeIdentifier to avoid architecture mismatch
-          # The .NET runtime will automatically select the correct native library from runtimes/osx-arm64/native/
-          cat > test-nuget.csproj << 'CSPROJ'
-          <Project Sdk="Microsoft.NET.Sdk">
-            <PropertyGroup>
-              <OutputType>Exe</OutputType>
-              <TargetFramework>net8.0</TargetFramework>
-              <ImplicitUsings>enable</ImplicitUsings>
-              <Nullable>enable</Nullable>
-              <PlatformTarget>AnyCPU</PlatformTarget>
-            </PropertyGroup>
-            <ItemGroup>
-              <PackageReference Include="Microsoft.Z3" Version="*" />
-            </ItemGroup>
-          </Project>
-          CSPROJ
       
       - name: Create test code
         run: |
@@ -806,3 +772,24 @@ jobs:
             echo "✗ install_name_tool failed to update install name"
             exit 1
           fi
+
+  # ============================================================================
+  # BUILD SCRIPT UNIT TESTS
+  # ============================================================================
+
+  validate-build-script-tests:
+    name: "Validate build script unit tests"
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Run build script unit tests
+        run: python -m unittest discover -s scripts/tests -p "test_*.py" -v

@@ -321,6 +321,10 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_pattern(c, num_patterns, terms);
         RESET_ERROR_CODE();
+        if (num_patterns == 0) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "pattern requires at least one term");
+            RETURN_Z3(nullptr);
+        }
         for (unsigned i = 0; i < num_patterns; ++i) {
             if (!is_app(to_expr(terms[i]))) {
                 SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);

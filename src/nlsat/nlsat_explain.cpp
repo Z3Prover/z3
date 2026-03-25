@@ -40,7 +40,6 @@ namespace nlsat {
         polynomial::cache &     m_cache;
         pmanager &              m_pm;
         polynomial_ref_vector   m_ps;
-        polynomial_ref_vector   m_ps2;
         polynomial_ref_vector   m_psc_tmp;
         polynomial_ref_vector   m_factors, m_factors_save;
         scoped_anum_vector      m_roots_tmp;
@@ -85,7 +84,6 @@ namespace nlsat {
             m_cache(u), 
             m_pm(u.pm()),
             m_ps(m_pm),
-            m_ps2(m_pm),
             m_psc_tmp(m_pm),
             m_factors(m_pm),
             m_factors_save(m_pm),
@@ -166,8 +164,6 @@ namespace nlsat {
         /**
            \brief Add literal p != 0 into m_result.
         */
-        ptr_vector<poly>  m_zero_fs;
-        bool_vector     m_is_even;
         struct restore_factors {
             polynomial_ref_vector&   m_factors, &m_factors_save;
             unsigned num_saved = 0;
@@ -590,25 +586,6 @@ namespace nlsat {
         }
 
         /**
-           \brief Move the polynomials in q in ps that do not contain x to qs.
-        */
-        void keep_p_x(polynomial_ref_vector & ps, var x, polynomial_ref_vector & qs) {
-            unsigned sz = ps.size();
-            unsigned j  = 0;
-            for (unsigned i = 0; i < sz; ++i) {
-                poly * q = ps.get(i);
-                if (max_var(q) != x) {
-                    qs.push_back(q);
-                }
-                else {
-                    ps.set(j, q);
-                    j++;
-                }
-            }
-            ps.shrink(j);
-        }
-
-        /**
            \brief Add factors of p to todo
         */
         void insert_fresh_factors_in_todo(polynomial_ref & p) {
@@ -680,48 +657,6 @@ namespace nlsat {
             }
         }
         
-        // this function also explains the value 0, if met
-        bool coeffs_are_zeroes(polynomial_ref &s) {
-            restore_factors _restore(m_factors, m_factors_save);
-            factor(s, m_cache, m_factors);
-            unsigned num_factors = m_factors.size();
-            m_zero_fs.reset();
-            m_is_even.reset();
-            polynomial_ref f(m_pm);
-            bool have_zero = false;
-            for (unsigned i = 0; i < num_factors; ++i) {
-                f = m_factors.get(i);
-                if (coeffs_are_zeroes_on_sample(f,  m_pm, sample(), m_am)) {
-                    have_zero = true;
-                    break;
-                } 
-            }
-            if (!have_zero)
-                return false;
-            var x = max_var(f);
-            unsigned n = degree(f, x);
-            auto c = polynomial_ref(this->m_pm);
-            for (unsigned j = 0; j <= n; ++j) {
-                c = m_pm.coeff(s, x, j);
-                SASSERT(sign(c) == 0);
-                ensure_sign(c);
-            }
-            return true;
-        }
-    
-
-        bool coeffs_are_zeroes_in_factor(polynomial_ref & s) {
-            var x = max_var(s);
-            unsigned n = degree(s, x);
-            auto c = polynomial_ref(this->m_pm);
-            for (unsigned j = 0; j <= n; ++j) {
-                c = m_pm.coeff(s, x, j);
-                if (nlsat::sign(c, sample(), m_am) != 0)
-                    return false;
-            }
-            return true;
-        }
-
         /**
            \brief Add v-psc(p, q, x) into m_todo
         */
@@ -987,40 +922,6 @@ namespace nlsat {
             }
         }
 
-
-        /**
-           Add one or two literals that specify in which cell of variable y the current interpretation is.
-           One literal is added for the cases: 
-              - y in (-oo, min) where min is the minimal root of the polynomials p2 in ps
-                 We add literal
-                    ! (y < root_1(p2))
-              - y in (max, oo)  where max is the maximal root of the polynomials p1 in ps
-                 We add literal
-                    ! (y > root_k(p1))  where k is the number of real roots of p
-              - y = r           where r is the k-th root of a polynomial p in ps
-                 We add literal
-                    ! (y = root_k(p)) 
-           Two literals are added when
-              - y in (l, u) where (l, u) does not contain any root of polynomials p in ps, and
-                  l is the i-th root of a polynomial p1 in ps, and u is the j-th root of a polynomial p2 in ps.
-                We add literals
-                    ! (y > root_i(p1)) or !(y < root_j(p2))
-        */
-        void add_cell_lits(polynomial_ref_vector & ps, var y) {
-            cell_root_info info(m_pm);
-            find_cell_roots(ps, y, info);
-            if (info.m_has_eq) {
-                add_root_literal(atom::ROOT_EQ, y, info.m_eq_idx, info.m_eq);
-                return;
-            }
-            if (info.m_has_lower) {
-                add_root_literal(m_full_dimensional ? atom::ROOT_GE : atom::ROOT_GT, y, info.m_lower_idx, info.m_lower);
-            }
-            if (info.m_has_upper) {
-                add_root_literal(m_full_dimensional ? atom::ROOT_LE : atom::ROOT_LT, y, info.m_upper_idx, info.m_upper);
-            }
-        }
-
         /**
            \brief Return true if all polynomials in ps are univariate in x.
         */
@@ -1040,13 +941,13 @@ namespace nlsat {
            \brief Apply model-based projection operation defined in our paper.
         */
 
-        bool levelwise_single_cell(polynomial_ref_vector & ps, var max_x, polynomial::cache & cache) {
+        bool levelwise_single_cell(polynomial_ref_vector & ps, var max_x, polynomial::cache & cache, bool linear=false) {
             // Store polynomials for debugging unsound lemmas
             m_last_lws_input_polys.reset();
             for (unsigned i = 0; i < ps.size(); i++)
                 m_last_lws_input_polys.push_back(ps.get(i));
             
-            levelwise lws(m_solver, ps, max_x, sample(), m_pm, m_am, cache);
+            levelwise lws(m_solver, ps, max_x, sample(), m_pm, m_am, cache, linear);
             auto cell = lws.single_cell();
             TRACE(lws, for (unsigned i = 0; i < cell.size(); i++)
                                  display(tout << "I[" << i << "]:", m_solver, cell[i]) << "\n";);
@@ -1139,8 +1040,9 @@ namespace nlsat {
                 x = extract_max_polys(ps);
                 cac_add_cell_lits(ps, x, samples);
             }
-            
         }
+
+
 
         bool check_already_added() const {
             for (bool b : m_already_added_literal) {
@@ -1698,6 +1600,38 @@ namespace nlsat {
         }
 
 
+        void compute_linear_explanation(unsigned num, literal const * ls, scoped_literal_vector & result) {
+            SASSERT(check_already_added());
+            SASSERT(num > 0);
+            SASSERT(max_var(num, ls) != 0 || m_solver.sample().is_assigned(0));
+            TRACE(nlsat_explain, 
+                  tout << "the infeasible clause:\n"; 
+                  display(tout, m_solver, num, ls) << "\n";
+                  m_solver.display_assignment(tout << "assignment:\n");
+                  );
+
+            m_result = &result;
+            m_lower_stage_polys.reset();
+            collect_polys(num, ls, m_ps);
+            for (unsigned i = 0; i < m_lower_stage_polys.size(); i++) {
+                m_ps.push_back(m_lower_stage_polys.get(i));
+            }
+            if (m_ps.empty())
+                return;
+            
+            // We call levelwise directly without normalize, simplify, elim_vanishing to preserve the original polynomials
+            var max_x = max_var(m_ps);
+            bool levelwise_ok = levelwise_single_cell(m_ps, max_x+1, m_cache, true); // max_x+1 because we have a full sample
+            SASSERT(levelwise_ok);
+            m_solver.record_levelwise_result(levelwise_ok);
+
+            reset_already_added();
+            m_result = nullptr;
+            TRACE(nlsat_explain, display(tout << "[explain] result\n", m_solver, result) << "\n";);
+            CASSERT("nlsat", check_already_added());
+        }
+
+
         void project(var x, unsigned num, literal const * ls, scoped_literal_vector & result) {
             unsigned base = result.size();
             while (true) {
@@ -1782,55 +1716,7 @@ namespace nlsat {
                 }
             }
         }
-        
-        
-        void project_pairs(var x, unsigned idx, polynomial_ref_vector const& ps) {
-            TRACE(nlsat_explain, tout << "project pairs\n";);
-            polynomial_ref p(m_pm);
-            p = ps.get(idx);
-            for (unsigned i = 0; i < ps.size(); ++i) {
-                if (i != idx) {
-                    project_pair(x, ps.get(i), p);
-                }
-            }
-        }
 
-        void project_pair(var x, polynomial::polynomial* p1, polynomial::polynomial* p2) {
-            m_ps2.reset();
-            m_ps2.push_back(p1);
-            m_ps2.push_back(p2);
-            project(m_ps2, x);
-        }
-
-        void project_single(var x, polynomial::polynomial* p) {
-            m_ps2.reset();
-            m_ps2.push_back(p);
-            project(m_ps2, x);
-        }
-
-        
-        void maximize(var x, unsigned num, literal const * ls, scoped_anum& val, bool& unbounded) {
-            svector<literal> lits;
-            polynomial_ref p(m_pm);
-            split_literals(x, num, ls, lits);
-            collect_polys(lits.size(), lits.data(), m_ps);
-            unbounded = true;
-            scoped_anum x_val(m_am);
-            x_val = sample().value(x);
-            for (unsigned i = 0; i < m_ps.size(); ++i) {
-                p = m_ps.get(i);
-                scoped_anum_vector & roots = m_roots_tmp;
-                roots.reset();
-                m_am.isolate_roots(p, undef_var_assignment(sample(), x), roots);
-                for (unsigned j = 0; j < roots.size(); ++j) {
-                    int s = m_am.compare(x_val, roots[j]);
-                    if (s <= 0 && (unbounded || m_am.compare(roots[j], val) <= 0)) {
-                        unbounded = false;
-                        val = roots[j];
-                    }
-                }
-            }
-        }
 
     };
 
@@ -1876,12 +1762,12 @@ namespace nlsat {
         m_imp->compute_conflict_explanation(n, ls, result);
     }
 
-    void explain::project(var x, unsigned n, literal const * ls, scoped_literal_vector & result) {
-        m_imp->project(x, n, ls, result);
+    void explain::compute_linear_explanation(unsigned n, literal const * ls, scoped_literal_vector & result) {
+        m_imp->compute_linear_explanation(n, ls, result);
     }
 
-    void explain::maximize(var x, unsigned n, literal const * ls, scoped_anum& val, bool& unbounded) {
-        m_imp->maximize(x, n, ls, val, unbounded);
+    void explain::project(var x, unsigned n, literal const * ls, scoped_literal_vector & result) {
+        m_imp->project(x, n, ls, result);
     }
 
     void explain::display_last_lws_input(std::ostream& out) {

@@ -1153,6 +1153,27 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Creates the absolute value of an arithmetic expression.
+     * Remarks: The argument must have integer or real sort.
+     **/
+    public <R extends ArithSort> ArithExpr<R> mkAbs(Expr<? extends R> arg)
+    {
+        checkContextMatch(arg);
+        return (ArithExpr<R>) Expr.create(this, Native.mkAbs(nCtx(), arg.getNativeObject()));
+    }
+
+    /**
+     * Creates an integer divisibility predicate (t1 divides t2).
+     * Remarks: Both arguments must have integer sort.
+     **/
+    public BoolExpr mkDivides(Expr<IntSort> t1, Expr<IntSort> t2)
+    {
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkDivides(nCtx(), t1.getNativeObject(), t2.getNativeObject()));
+    }
+
+    /**
      * Bitwise negation.
      * Remarks: The argument must have a bit-vector
      * sort.

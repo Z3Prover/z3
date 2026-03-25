@@ -167,6 +167,8 @@ namespace opt {
         void reset_objectives();
         bool maximize_objective(unsigned i, expr_ref& blocker);
         bool maximize_objectives1(expr_ref_vector& blockers);
+        bool maximize_objective_isolated(unsigned i, model_ref& baseline_model, expr_ref& blocker);
+        void update_from_baseline_model(unsigned i, model_ref& baseline_model, expr_ref& blocker);
         inf_eps const & saved_objective_value(unsigned obj_index);
         inf_eps current_objective_value(unsigned obj_index);
         model* get_model_idx(unsigned obj_index) { return m_models[obj_index]; }

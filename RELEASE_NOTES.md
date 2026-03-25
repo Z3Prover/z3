@@ -21,6 +21,45 @@ Version 4.17.0
   Thanks to Nuno Lopes, https://github.com/Z3Prover/z3/pull/8583
 - Fix spurious sort error with nested quantifiers in model finder. `Fixes #8563`
 - NLSAT optimizations including improvements to handle_nullified_poly and levelwise algorithm. Thanks to Lev Nachmanson.
+- Add ASan/UBSan memory safety CI workflow for continuous runtime safety checking. Thanks to Angelica Moreira.
+  https://github.com/Z3Prover/z3/pull/8856
+- Add missing API bindings across multiple languages:
+  - Python: BvNand, BvNor, BvXnor operations, Optimize.translate()
+  - Go: MkAsArray, MkRecFuncDecl, AddRecDef, Model.Translate, MkBVRotateLeft, MkBVRotateRight, MkRepeat, and 8 BV overflow/underflow check functions
+  - TypeScript: Array.fromFunc, Model.translate
+  - OCaml: Model.translate, mk_re_allchar (thanks to Filipe Marques, https://github.com/Z3Prover/z3/pull/8785)
+  - Java: as-array method (thanks to Ruijie Fang, https://github.com/Z3Prover/z3/pull/8762)
+- Fix #7507: simplify (>= product_of_consecutive_ints 0) to true
+- Fix #7951: add cancellation checks to polynomial gcd_prs and HNF computation
+- Fix #7677: treat FC_CONTINUE from check_nla as FEASIBLE in maximize
+- Fix assertion violation in q_mbi diagnostic output
+- Fix memory leaks in model_based_opt def ref-counting
+- Fix NoSuchFieldError in JNI for BoolPtr: use Z field descriptor and SetBooleanField
+- Fix TypeScript Array.fromFunc to use f.ptr instead of f.ast for Z3_func_decl type
+- Fix intblast ubv_to_int bug: add bv2int axioms for compound expressions
+- Fix static analysis findings: uninitialized variables, bitwise shift undefined behavior, and null pointer dereferences
+- Convert bv1-blast and blast-term-ite tactics to also expose as simplifiers for more flexible integration
+- Change default of param lws_subs_witness_disc to true for improved NLSAT performance. Thanks to Lev Nachmanson.
+- Nl2Lin integrates a linear under-approximation of a CAD cell by Valentin Promies for improved NLSAT performance on nonlinear arithmetic problems.
+  https://github.com/Z3Prover/z3/pull/8982
+- Fix incorrect optimization of mod in box mode. Fixes #9012
+- Fix inconsistent optimization with scaled objectives in the LP optimizer when nonlinear constraints prevent exploration of the full feasible region.
+  https://github.com/Z3Prover/z3/pull/8998
+- Fix NLA optimization regression and improve LP restore_x handling.
+  https://github.com/Z3Prover/z3/pull/8944
+- Enable sum of monomials simplification in the optimizer for improved nonlinear arithmetic optimization.
+- Convert injectivity and special-relations tactics to simplifier-based implementations for better integration with the simplifier pipeline.
+  https://github.com/Z3Prover/z3/pull/8954, https://github.com/Z3Prover/z3/pull/8955
+- Fix assertion violation in mpz.cpp when running with -tr:arith tracing.
+  https://github.com/Z3Prover/z3/pull/8945
+- Additional API improvements:
+  - Java: numeral extraction helpers (getInt, getLong, getDouble for ArithExpr and BitVecNum). Thanks to Angelica Moreira, https://github.com/Z3Prover/z3/pull/8978
+  - Java: missing AST query methods (isTrue, isFalse, isNot, isOr, isAnd, isDistinct, getBoolValue, etc.). Thanks to Angelica Moreira, https://github.com/Z3Prover/z3/pull/8977
+  - Go: Goal, FuncEntry, Model APIs; TypeScript: Seq higher-order operations (map, fold). https://github.com/Z3Prover/z3/pull/9006
+- Fix API coherence issues across Go, Java, C++, and TypeScript bindings.
+  https://github.com/Z3Prover/z3/pull/8983
+- Fix deep API bugs in Z3 C API (null pointer handling, error propagation).
+  https://github.com/Z3Prover/z3/pull/8972
 
 Version 4.16.0
 ==============
