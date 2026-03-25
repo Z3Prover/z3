@@ -41,6 +41,19 @@ NSB review:
 
 namespace seq {
 
+    void deps_to_lits(dep_tracker const& deps,
+                      svector<enode_pair>& eqs,
+                      svector<sat::literal>& lits) {
+        vector<dep_source, false> vs;
+        dep_manager::s_linearize(deps, vs);
+        for (dep_source const& d : vs) {
+            if (std::holds_alternative<enode_pair>(d))
+                eqs.push_back(std::get<enode_pair>(d));
+            else
+                lits.push_back(std::get<sat::literal>(d));
+        }
+    }
+
     // Normalize an arithmetic expression using th_rewriter.
     // Simplifies e.g. (n - 1 + 1) to n, preventing unbounded growth
     // of power exponents during unwind/merge cycles.

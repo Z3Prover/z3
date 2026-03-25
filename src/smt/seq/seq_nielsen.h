@@ -329,6 +329,11 @@ namespace seq {
     // nullptr represents the empty dependency set.
     using dep_tracker = dep_manager::dependency*;
 
+    // partition dep_source leaves from deps into enode pairs and sat literals.
+    void deps_to_lits(dep_tracker const& deps,
+                      svector<enode_pair>& eqs,
+                      svector<sat::literal>& lits);
+
     // -----------------------------------------------
     // character-level substitution
     // mirrors ZIPT's CharSubst

@@ -113,7 +113,6 @@ namespace smt {
         // private helpers
         void populate_nielsen_graph();
         void explain_nielsen_conflict();
-        void deps_to_lits(seq::dep_tracker const& deps, enode_pair_vector& eqs, literal_vector& lits);
         void add_conflict_clause(seq::dep_tracker const& deps);
         void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits);
         euf::snode* get_snode(expr* e);
