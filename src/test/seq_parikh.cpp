@@ -580,8 +580,8 @@ static void test_check_conflict_valid_k_exists() {
 
     // lb=3, ub=5: length 4 is achievable (k=2) → no conflict
     seq::dep_tracker dep = ng.dep_mgr().mk_leaf(sat::literal(0));
-    ng.root()->add_lower_int_bound(x, 3, dep);
-    ng.root()->add_upper_int_bound(x, 5, dep);
+    ng.root()->set_lower_int_bound(x, 3, dep);
+    ng.root()->set_upper_int_bound(x, 5, dep);
 
     bool conflict = parikh.check_parikh_conflict(*ng.root());
     std::cout << "  conflict = " << conflict << " (expect 0)\n";
@@ -608,8 +608,8 @@ static void test_check_conflict_no_valid_k() {
 
     // lb=3, ub=3: only odd length 3 — never a multiple of 2 → conflict
     seq::dep_tracker dep = ng.dep_mgr().mk_leaf(sat::literal(0));
-    ng.root()->add_lower_int_bound(x, 3, dep);
-    ng.root()->add_upper_int_bound(x, 3, dep);
+    ng.root()->set_lower_int_bound(x, 3, dep);
+    ng.root()->set_upper_int_bound(x, 3, dep);
 
     bool conflict = parikh.check_parikh_conflict(*ng.root());
     std::cout << "  conflict = " << conflict << " (expect 1)\n";
@@ -636,8 +636,8 @@ static void test_check_conflict_abc_star() {
 
     // lb=5, ub=5 → no valid k (5 is not a multiple of 3) → conflict
     seq::dep_tracker dep = ng.dep_mgr().mk_leaf(sat::literal(0));
-    ng.root()->add_lower_int_bound(x, 5, dep);
-    ng.root()->add_upper_int_bound(x, 5, dep);
+    ng.root()->set_lower_int_bound(x, 5, dep);
+    ng.root()->set_upper_int_bound(x, 5, dep);
 
     bool conflict = parikh.check_parikh_conflict(*ng.root());
     std::cout << "  conflict = " << conflict << " (expect 1)\n";
@@ -663,8 +663,8 @@ static void test_check_conflict_stride_one_never_conflicts() {
     ng.add_str_mem(x, regex);
 
     seq::dep_tracker dep = ng.dep_mgr().mk_leaf(sat::literal(0));
-    ng.root()->add_lower_int_bound(x, 7, dep);
-    ng.root()->add_upper_int_bound(x, 7, dep);
+    ng.root()->set_lower_int_bound(x, 7, dep);
+    ng.root()->set_upper_int_bound(x, 7, dep);
 
     bool conflict = parikh.check_parikh_conflict(*ng.root());
     std::cout << "  conflict = " << conflict << " (expect 0: stride=1 skipped)\n";

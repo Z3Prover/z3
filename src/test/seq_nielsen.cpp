@@ -3303,20 +3303,20 @@ static void test_add_lower_int_bound_basic() {
     SASSERT(node->constraints().empty());
 
     // add lower bound lb=3: should tighten and add constraint
-    bool tightened = node->add_lower_int_bound(x, 3, dep);
+    bool tightened = node->set_lower_int_bound(x, 3, dep);
     SASSERT(tightened);
     SASSERT(node->var_lb(x) == 3);
     SASSERT(node->constraints().size() == 1);
     SASSERT(node->constraints()[0].fml);
 
     // add weaker lb=2: no tightening
-    tightened = node->add_lower_int_bound(x, 2, dep);
+    tightened = node->set_lower_int_bound(x, 2, dep);
     SASSERT(!tightened);
     SASSERT(node->var_lb(x) == 3);
     SASSERT(node->constraints().size() == 1);
 
     // add tighter lb=5: should tighten and add another constraint
-    tightened = node->add_lower_int_bound(x, 5, dep);
+    tightened = node->set_lower_int_bound(x, 5, dep);
     SASSERT(tightened);
     SASSERT(node->var_lb(x) == 5);
     SASSERT(node->constraints().size() == 2);
@@ -3344,20 +3344,20 @@ static void test_add_upper_int_bound_basic() {
     SASSERT(node->var_ub(x) == UINT_MAX);
 
     // add upper bound ub=10: tightens
-    bool tightened = node->add_upper_int_bound(x, 10, dep);
+    bool tightened = node->set_upper_int_bound(x, 10, dep);
     SASSERT(tightened);
     SASSERT(node->var_ub(x) == 10);
     SASSERT(node->constraints().size() == 1);
     SASSERT(node->constraints()[0].fml);
 
     // add weaker ub=20: no tightening
-    tightened = node->add_upper_int_bound(x, 20, dep);
+    tightened = node->set_upper_int_bound(x, 20, dep);
     SASSERT(!tightened);
     SASSERT(node->var_ub(x) == 10);
     SASSERT(node->constraints().size() == 1);
 
     // add tighter ub=5: tightens
-    tightened = node->add_upper_int_bound(x, 5, dep);
+    tightened = node->set_upper_int_bound(x, 5, dep);
     SASSERT(tightened);
     SASSERT(node->var_ub(x) == 5);
     SASSERT(node->constraints().size() == 2);
@@ -3383,11 +3383,11 @@ static void test_add_bound_lb_gt_ub_conflict() {
     seq::dep_tracker dep = nullptr;
 
     // set ub=3 first
-    node->add_upper_int_bound(x, 3, dep);
+    node->set_upper_int_bound(x, 3, dep);
     SASSERT(!node->is_general_conflict());
 
     // now set lb=5 > ub=3: should trigger conflict
-    node->add_lower_int_bound(x, 5, dep);
+    node->set_lower_int_bound(x, 5, dep);
     SASSERT(node->is_general_conflict());
     SASSERT(node->reason() == seq::backtrack_reason::arithmetic);
 
@@ -3413,9 +3413,9 @@ static void test_bounds_cloned() {
     seq::dep_tracker dep = nullptr;
 
     // set bounds on parent
-    parent->add_lower_int_bound(x, 2, dep);
-    parent->add_upper_int_bound(x, 7, dep);
-    parent->add_lower_int_bound(y, 1, dep);
+    parent->set_lower_int_bound(x, 2, dep);
+    parent->set_upper_int_bound(x, 7, dep);
+    parent->set_lower_int_bound(y, 1, dep);
 
     // clone to child
     seq::nielsen_node* child = ng.mk_child(parent);
@@ -3452,8 +3452,8 @@ static void test_var_bound_watcher_single_var() {
     seq::dep_tracker dep = nullptr;
 
     // set bounds: 3 <= len(x) <= 7
-    node->add_lower_int_bound(x, 3, dep);
-    node->add_upper_int_bound(x, 7, dep);
+    node->set_lower_int_bound(x, 3, dep);
+    node->set_upper_int_bound(x, 7, dep);
     node->constraints().reset();  // clear for clean count
 
     // apply substitution x → a·y
@@ -3489,7 +3489,7 @@ static void test_var_bound_watcher_conflict() {
     seq::dep_tracker dep = nullptr;
 
     // set bounds: 3 <= len(x)  (so x must have at least 3 chars)
-    node->add_lower_int_bound(x, 3, dep);
+    node->set_lower_int_bound(x, 3, dep);
     node->constraints().reset();
 
     // apply substitution x → a·b (const_len=2 < lb=3)
@@ -3623,7 +3623,7 @@ static void test_var_bound_watcher_multi_var() {
     seq::dep_tracker dep = nullptr;
 
     // set upper bound: len(x) <= 5
-    node->add_upper_int_bound(x, 5, dep);
+    node->set_upper_int_bound(x, 5, dep);
     node->constraints().reset();
 
     // apply substitution x → y·z (two vars, no constants)

@@ -487,6 +487,8 @@ namespace seq {
 
         void set_tgt(nielsen_node* tgt) { m_tgt = tgt; }
 
+        // don't forget to add the substitution
+        // applying it only to the node is NOT sufficient (otw. length counters are not in sync)
         vector<nielsen_subst> const& subst() const { return m_subst; }
         void add_subst(nielsen_subst const& s) { m_subst.push_back(s); }
 
@@ -587,7 +589,7 @@ namespace seq {
         // and still returns true (the bound value changed). Check is_general_conflict()
         // separately to distinguish tightening-with-conflict from normal tightening.
         // Mirrors ZIPT's AddLowerIntBound().
-        bool add_lower_int_bound(euf::snode* var, unsigned lb, dep_tracker const& dep);
+        bool set_lower_int_bound(euf::snode* var, unsigned lb, dep_tracker const& dep);
 
         // IntBounds: tighten the upper bound for len(var).
         // Returns true if the bound was tightened (ub < current upper bound).
@@ -596,7 +598,7 @@ namespace seq {
         // and still returns true (the bound value changed). Check is_general_conflict()
         // separately to distinguish tightening-with-conflict from normal tightening.
         // Mirrors ZIPT's AddHigherIntBound().
-        bool add_upper_int_bound(euf::snode* var, unsigned ub, dep_tracker const& dep);
+        bool set_upper_int_bound(euf::snode* var, unsigned ub, dep_tracker const& dep);
 
         // Query current bounds for a variable (default: 0 / UINT_MAX if not set).
         unsigned var_lb(euf::snode* var) const;
@@ -695,7 +697,7 @@ namespace seq {
         // When var has bounds [lo, hi], derives bounds for variables in replacement
         // using the known constant-length contribution of non-variable tokens.
         // Mirrors ZIPT's VarBoundWatcher re-check mechanism.
-        void watch_var_bounds(nielsen_subst const& s);
+        void update_var_bounds(nielsen_subst const& s);
 
         // Initialize per-variable Parikh bounds from this node's regex memberships.
         // For each str_mem constraint (str ∈ regex) where regex has length bounds
@@ -855,12 +857,6 @@ namespace seq {
 
         // current DFS path (valid during and after solve())
         svector<nielsen_edge*> const& cur_path() const { return m_cur_path; }
-
-        // Collect all side constraints along the current path and at the leaf node.
-        // Returns the edge side_constraints for every edge on m_cur_path plus the
-        // constraints() of the leaf node (last edge's target, or root if path is empty).
-        // Intended for theory_nseq to extract assertions implied by the SAT leaf.
-        vector<constraint> get_path_leaf_side_constraints() const;
 
         // add constraints to the root node from external solver
         void add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r);

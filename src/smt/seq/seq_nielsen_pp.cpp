@@ -200,13 +200,13 @@ namespace seq {
             return r;
         }
         if (seq.str.is_length(e, x)) {
-            if (a->get_num_args() == 0)
-                return "|" + dot_html_escape(a->get_decl()->get_name().str()) + "|";
-            if (names.contains(e)) {
-                return "|" + names[e] + "|";
+            if (to_app(x)->get_num_args() == 0)
+                return "|" + dot_html_escape(to_app(x)->get_decl()->get_name().str()) + "|";
+            if (names.contains(x)) {
+                return "|" + names[x] + "|";
             }
-            std::string s = dot_html_escape(to_app(e)->get_decl()->get_name().str()) + std::to_string(next_id++);
-            names.insert(e, s);
+            std::string s = dot_html_escape(to_app(x)->get_decl()->get_name().str()) + std::to_string(next_id++);
+            names.insert(x, s);
             return "|" + s + "|";
         }
         // named constant, fresh variable like n!0

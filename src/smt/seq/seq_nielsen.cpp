@@ -241,8 +241,7 @@ namespace seq {
     }
 
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
-        if (!s.m_var)
-            return;
+        SASSERT(s.m_var);
         for (auto &eq : m_str_eq) {
             auto new_lhs = sg.subst(eq.m_lhs, s.m_var, s.m_replacement);
             auto new_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_replacement);
@@ -264,7 +263,7 @@ namespace seq {
             }
         }
         // VarBoundWatcher: propagate bounds on s.m_var to variables in s.m_replacement
-        watch_var_bounds(s);
+        update_var_bounds(s);
     }
 
     void nielsen_node::add_char_range(euf::snode* sym_char, char_set const& range) {
@@ -317,13 +316,11 @@ namespace seq {
         return v;
     }
 
-    bool nielsen_node::add_lower_int_bound(euf::snode* var, unsigned lb, dep_tracker const& dep) {
+    bool nielsen_node::set_lower_int_bound(euf::snode* var, unsigned lb, dep_tracker const& dep) {
         SASSERT(var && var->is_var());
-        unsigned id = var->id();
+        const unsigned id = var->id();
         // check against existing lower bound
         unsigned cur_lb = 0;
-        m_var_lb.find(id, cur_lb);
-        if (lb <= cur_lb) return false;  // no tightening
         m_var_lb.insert(id, lb);
         // conflict if lb > current upper bound
         unsigned cur_ub = UINT_MAX;
@@ -343,13 +340,10 @@ namespace seq {
         return true;
     }
 
-    bool nielsen_node::add_upper_int_bound(euf::snode* var, unsigned ub, dep_tracker const& dep) {
-        if (!var || !var->is_var()) return false;
-        unsigned id = var->id();
+    bool nielsen_node::set_upper_int_bound(euf::snode* var, unsigned ub, dep_tracker const& dep) {
+        SASSERT(var && var->is_var());
+        const unsigned id = var->id();
         // check against existing upper bound
-        unsigned cur_ub = UINT_MAX;
-        m_var_ub.find(id, cur_ub);
-        if (ub >= cur_ub) return false;  // no tightening
         m_var_ub.insert(id, ub);
         // conflict if current lower bound > ub
         unsigned cur_lb = 0;
@@ -376,8 +370,8 @@ namespace seq {
     //   - for a single variable y: lo-const_len <= len(y) <= hi-const_len
     //   - for multiple variables: each gets an upper bound hi-const_len
     // Mirrors ZIPT's VarBoundWatcher mechanism.
-    void nielsen_node::watch_var_bounds(nielsen_subst const& s) {
-        SASSERT(s.m_var);
+    void nielsen_node::update_var_bounds(nielsen_subst const& s) {
+        SASSERT(s.m_var && s.m_replacement);
         unsigned id = s.m_var->id();
         unsigned lo = 0, hi = UINT_MAX;
         m_var_lb.find(id, lo);
@@ -386,8 +380,6 @@ namespace seq {
             return;  // no bounds to propagate
 
         // decompose replacement into constant length + variable tokens
-        if (!s.m_replacement)
-            return;
         euf::snode_vector tokens;
         s.m_replacement->collect_tokens(tokens);
 
@@ -414,9 +406,11 @@ namespace seq {
 
         if (var_tokens.size() == 1) {
             euf::snode* y = var_tokens[0];
-            // lo <= const_len + len(y) => len(y) >= lo - const_len (if lo > const_len)
-            if (lo > const_len)
-                add_lower_int_bound(y, lo - const_len, s.m_dep);
+            if ((signed)(lo - const_len) >= 0)
+                // lo <= const_len + len(y) => len(y) >= lo - const_len (if lo > const_len)
+                set_lower_int_bound(y, lo - const_len, s.m_dep);
+            else
+                set_lower_int_bound(y, 0, s.m_dep);
             // const_len + len(y) <= hi => len(y) <= hi - const_len
             if (hi != UINT_MAX) {
                 if (const_len > hi) {
@@ -424,7 +418,7 @@ namespace seq {
                     m_reason = backtrack_reason::arithmetic;
                 }
                 else
-                    add_upper_int_bound(y, hi - const_len, s.m_dep);
+                    set_upper_int_bound(y, hi - const_len, s.m_dep);
             }
         }
         else {
@@ -438,7 +432,7 @@ namespace seq {
                 }
                 unsigned each_ub = hi - const_len;
                 for (euf::snode* y : var_tokens) {
-                    add_upper_int_bound(y, each_ub, s.m_dep);
+                    set_upper_int_bound(y, each_ub, s.m_dep);
                 }
             }
         }
@@ -458,9 +452,9 @@ namespace seq {
             // if str is a single variable, apply bounds directly
             if (mem.m_str->is_var()) {
                 if (min_len > 0)
-                    add_lower_int_bound(mem.m_str, min_len, mem.m_dep);
+                    set_lower_int_bound(mem.m_str, min_len, mem.m_dep);
                 if (max_len < UINT_MAX)
-                    add_upper_int_bound(mem.m_str, max_len, mem.m_dep);
+                    set_upper_int_bound(mem.m_str, max_len, mem.m_dep);
             }
             else {
                 // str is a concatenation or other term: add as general constraints
@@ -1536,7 +1530,7 @@ namespace seq {
 
     nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node, unsigned depth) {
         ++m_stats.m_num_dfs_nodes;
-        std::cout << m_stats.m_num_dfs_nodes << std::endl;
+        // std::cout << m_stats.m_num_dfs_nodes << std::endl;
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth);
 
         // check for external cancellation (timeout, user interrupt)
@@ -1651,15 +1645,16 @@ namespace seq {
             if (!e->len_constraints_computed()) {
                 add_subst_length_constraints(e);
                 e->set_len_constraints_computed(true);
-            }
 
-            for (auto const &ic : e->side_constraints())
-                m_solver.assert_expr(ic.fml);
+                for (const auto& sc : e->side_constraints()) {
+                    e->tgt()->add_constraint(sc);
+                }
+            }
 
             // Bump modification counts for the child's context.
             inc_edge_mod_counts(e);
 
-            search_result r = search_dfs(e->tgt(), e->is_progress() ? depth : depth + 1);
+            const search_result r = search_dfs(e->tgt(), e->is_progress() ? depth : depth + 1);
 
             // Restore modification counts on backtrack.
             dec_edge_mod_counts(e);
@@ -2780,7 +2775,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_const_num_unwinding(nielsen_node* node) {
-        ast_manager &m = m_sg.get_manager();
         arith_util arith(m);
 
         euf::snode *power = nullptr;
@@ -3797,14 +3791,8 @@ namespace seq {
 
     void nielsen_graph::add_subst_length_constraints(nielsen_edge* e) {
         auto const& substs = e->subst();
-
-        // Quick check: any non-eliminating substitutions?
         bool has_non_elim = false;
-        for (auto const& s : substs)
-            if (!s.is_eliminating()) { has_non_elim = true; break; }
-        if (!has_non_elim) return;
 
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
 
         // Step 1: Compute LHS (|x|) for each non-eliminating substitution
@@ -3813,21 +3801,26 @@ namespace seq {
         svector<std::pair<unsigned, expr*>> lhs_exprs;
         for (unsigned i = 0; i < substs.size(); ++i) {
             auto const& s = substs[i];
-            if (s.is_eliminating()) continue;
             SASSERT(s.m_var && s.m_var->is_var());
             expr_ref lhs = compute_length_expr(s.m_var);
             lhs_exprs.push_back({i, lhs.get()});
+            if (s.is_eliminating())
+                continue;
+            has_non_elim = true;
             // Assert LHS >= 0
             e->add_side_constraint(mk_constraint(arith.mk_ge(lhs, arith.mk_int(0)), s.m_dep));
         }
 
-        // Step 2: Bump mod counts for all non-eliminating variables at once.
-        for (auto const& s : substs) {
-            if (s.is_eliminating()) continue;
-            unsigned id = s.m_var->id();
-            unsigned prev = 0;
-            m_mod_cnt.find(id, prev);
-            m_mod_cnt.insert(id, prev + 1);
+        if (has_non_elim) {
+            // Step 2: Bump mod counts for all non-eliminating variables at once.
+            for (auto const& s : substs) {
+                if (s.is_eliminating())
+                    continue;
+                unsigned id = s.m_var->id();
+                unsigned prev = 0;
+                m_mod_cnt.find(id, prev);
+                m_mod_cnt.insert(id, prev + 1);
+            }
         }
 
         // Step 3: Compute RHS (|u|) with bumped mod counts and add |x| = |u|.
@@ -3837,34 +3830,22 @@ namespace seq {
             auto const& s = substs[idx];
             expr_ref rhs = compute_length_expr(s.m_replacement);
             e->add_side_constraint(mk_constraint(m.mk_eq(lhs_expr, rhs), s.m_dep));
-
-            // Assert non-negativity for any fresh length variables in the RHS
-            // (variables at mod_count > 0 that are newly created).
-            euf::snode_vector tokens;
-            s.m_replacement->collect_tokens(tokens);
-            for (euf::snode* tok : tokens) {
-                if (tok->is_var()) {
-                    unsigned mc = 0;
-                    m_mod_cnt.find(tok->id(), mc);
-                    if (mc > 0) {
-                        expr_ref len_var = get_or_create_len_var(tok, mc);
-                        e->add_side_constraint(mk_constraint(arith.mk_ge(len_var, arith.mk_int(0)), s.m_dep));
-                    }
-                }
-            }
         }
 
-        // Step 4: Restore mod counts (temporary bump for computing RHS only).
-        for (auto const& s : substs) {
-            if (s.is_eliminating()) continue;
-            unsigned id = s.m_var->id();
-            unsigned prev = 0;
-            m_mod_cnt.find(id, prev);
-            SASSERT(prev >= 1);
-            if (prev <= 1)
-                m_mod_cnt.remove(id);
-            else
-                m_mod_cnt.insert(id, prev - 1);
+        if (has_non_elim) {
+            // Step 4: Restore mod counts (temporary bump for computing RHS only).
+            for (auto const& s : substs) {
+                if (s.is_eliminating())
+                    continue;
+                unsigned id = s.m_var->id();
+                unsigned prev = 0;
+                m_mod_cnt.find(id, prev);
+                SASSERT(prev >= 1);
+                if (prev <= 1)
+                    m_mod_cnt.remove(id);
+                else
+                    m_mod_cnt.insert(id, prev - 1);
+            }
         }
     }
 
@@ -3898,8 +3879,9 @@ namespace seq {
         // already present in the enclosing solver scope; asserting them again would
         // be redundant (though harmless).  This is called by search_dfs right after
         // simplify_and_init, which is where new constraints are produced.
-        for (unsigned i = node->m_parent_ic_count; i < node->constraints().size(); ++i)
+        for (unsigned i = node->m_parent_ic_count; i < node->constraints().size(); ++i) {
             m_solver.assert_expr(node->constraints()[i].fml);
+        }
     }
 
     void nielsen_graph::generate_node_length_constraints(nielsen_node* node) {
@@ -3993,19 +3975,6 @@ namespace seq {
 
     constraint nielsen_graph::mk_constraint(expr* fml, dep_tracker const& dep) {
         return constraint(fml, dep, m_sg.get_manager());
-    }
-
-    vector<constraint> nielsen_graph::get_path_leaf_side_constraints() const {
-        vector<constraint> result;
-        for (nielsen_edge* e : m_cur_path)
-            for (constraint const& c : e->side_constraints())
-                result.push_back(c);
-        nielsen_node* leaf = m_cur_path.empty() ? m_root
-                           : m_cur_path.back()->tgt();
-        if (leaf)
-            for (constraint const& c : leaf->constraints())
-                result.push_back(c);
-        return result;
     }
 
     expr* nielsen_graph::get_power_exponent(euf::snode* power) {
