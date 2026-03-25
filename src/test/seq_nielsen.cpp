@@ -3300,26 +3300,26 @@ static void test_add_lower_int_bound_basic() {
     // initially no bounds
     SASSERT(node->var_lb(x) == 0);
     SASSERT(node->var_ub(x) == UINT_MAX);
-    SASSERT(node->int_constraints().empty());
+    SASSERT(node->constraints().empty());
 
     // add lower bound lb=3: should tighten and add constraint
     bool tightened = node->add_lower_int_bound(x, 3, dep);
     SASSERT(tightened);
     SASSERT(node->var_lb(x) == 3);
-    SASSERT(node->int_constraints().size() == 1);
-    SASSERT(node->int_constraints()[0].m_kind == seq::int_constraint_kind::ge);
+    SASSERT(node->constraints().size() == 1);
+    SASSERT(node->constraints()[0].fml);
 
     // add weaker lb=2: no tightening
     tightened = node->add_lower_int_bound(x, 2, dep);
     SASSERT(!tightened);
     SASSERT(node->var_lb(x) == 3);
-    SASSERT(node->int_constraints().size() == 1);
+    SASSERT(node->constraints().size() == 1);
 
     // add tighter lb=5: should tighten and add another constraint
     tightened = node->add_lower_int_bound(x, 5, dep);
     SASSERT(tightened);
     SASSERT(node->var_lb(x) == 5);
-    SASSERT(node->int_constraints().size() == 2);
+    SASSERT(node->constraints().size() == 2);
 
     std::cout << "  ok\n";
 }
@@ -3347,20 +3347,20 @@ static void test_add_upper_int_bound_basic() {
     bool tightened = node->add_upper_int_bound(x, 10, dep);
     SASSERT(tightened);
     SASSERT(node->var_ub(x) == 10);
-    SASSERT(node->int_constraints().size() == 1);
-    SASSERT(node->int_constraints()[0].m_kind == seq::int_constraint_kind::le);
+    SASSERT(node->constraints().size() == 1);
+    SASSERT(node->constraints()[0].fml);
 
     // add weaker ub=20: no tightening
     tightened = node->add_upper_int_bound(x, 20, dep);
     SASSERT(!tightened);
     SASSERT(node->var_ub(x) == 10);
-    SASSERT(node->int_constraints().size() == 1);
+    SASSERT(node->constraints().size() == 1);
 
     // add tighter ub=5: tightens
     tightened = node->add_upper_int_bound(x, 5, dep);
     SASSERT(tightened);
     SASSERT(node->var_ub(x) == 5);
-    SASSERT(node->int_constraints().size() == 2);
+    SASSERT(node->constraints().size() == 2);
 
     std::cout << "  ok\n";
 }
@@ -3427,7 +3427,7 @@ static void test_bounds_cloned() {
     SASSERT(child->var_ub(y) == UINT_MAX);
 
     // child's int_constraints should also be cloned (3 constraints: lb_x, ub_x, lb_y)
-    SASSERT(child->int_constraints().size() == parent->int_constraints().size());
+    SASSERT(child->constraints().size() == parent->constraints().size());
 
     std::cout << "  ok\n";
 }
@@ -3454,7 +3454,7 @@ static void test_var_bound_watcher_single_var() {
     // set bounds: 3 <= len(x) <= 7
     node->add_lower_int_bound(x, 3, dep);
     node->add_upper_int_bound(x, 7, dep);
-    node->int_constraints().reset();  // clear for clean count
+    node->constraints().reset();  // clear for clean count
 
     // apply substitution x → a·y
     euf::snode* ay = sg.mk_concat(a, y);
@@ -3490,7 +3490,7 @@ static void test_var_bound_watcher_conflict() {
 
     // set bounds: 3 <= len(x)  (so x must have at least 3 chars)
     node->add_lower_int_bound(x, 3, dep);
-    node->int_constraints().reset();
+    node->constraints().reset();
 
     // apply substitution x → a·b (const_len=2 < lb=3)
     euf::snode* ab = sg.mk_concat(a, b);
@@ -3624,7 +3624,7 @@ static void test_var_bound_watcher_multi_var() {
 
     // set upper bound: len(x) <= 5
     node->add_upper_int_bound(x, 5, dep);
-    node->int_constraints().reset();
+    node->constraints().reset();
 
     // apply substitution x → y·z (two vars, no constants)
     euf::snode* yz = sg.mk_concat(y, z);

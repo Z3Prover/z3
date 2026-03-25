@@ -326,7 +326,7 @@ static void test_generate_constraints_ab_star() {
     seq::dep_tracker dep = dm.mk_leaf(lit);
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
-    vector<seq::int_constraint> out;
+    vector<seq::constraint> out;
     parikh.generate_parikh_constraints(mem, out);
 
     // expect at least: len(x)=0+2k and k>=0
@@ -337,19 +337,19 @@ static void test_generate_constraints_ab_star() {
     // check that one constraint is an equality (len(x) = 0 + 2·k)
     bool has_eq = false;
     for (auto const& ic : out)
-        if (ic.m_kind == seq::int_constraint_kind::eq) has_eq = true;
+        if (m.is_eq(ic.fml)) has_eq = true;
     SASSERT(has_eq);
 
     // check that one constraint is k >= 0
     bool has_ge = false;
     for (auto const& ic : out)
-        if (ic.m_kind == seq::int_constraint_kind::ge) has_ge = true;
+        if (arith.is_ge(ic.fml)) has_ge = true;
     SASSERT(has_ge);
 
     // should NOT have an upper bound (star is unbounded)
     bool has_le = false;
     for (auto const& ic : out)
-        if (ic.m_kind == seq::int_constraint_kind::le) has_le = true;
+        if (arith.is_le(ic.fml)) has_le = true;
     SASSERT(!has_le);
 }
 
@@ -361,6 +361,7 @@ static void test_generate_constraints_bounded_loop() {
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     seq_util seq(m);
+    arith_util arith(m);
     seq::seq_parikh parikh(sg);
 
     euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
@@ -372,7 +373,7 @@ static void test_generate_constraints_bounded_loop() {
     seq::dep_tracker dep = dm.mk_leaf(sat::null_literal);
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
-    vector<seq::int_constraint> out;
+    vector<seq::constraint> out;
     parikh.generate_parikh_constraints(mem, out);
 
     // expect: eq + ge + le = 3 constraints
@@ -381,9 +382,9 @@ static void test_generate_constraints_bounded_loop() {
 
     bool has_eq = false, has_ge = false, has_le = false;
     for (auto const& ic : out) {
-        if (ic.m_kind == seq::int_constraint_kind::eq)  has_eq = true;
-        if (ic.m_kind == seq::int_constraint_kind::ge)  has_ge = true;
-        if (ic.m_kind == seq::int_constraint_kind::le)  has_le = true;
+        if (m.is_eq(ic.fml))    has_eq = true;
+        if (arith.is_ge(ic.fml)) has_ge = true;
+        if (arith.is_le(ic.fml)) has_le = true;
     }
     SASSERT(has_eq);
     SASSERT(has_ge);
@@ -409,7 +410,7 @@ static void test_generate_constraints_stride_one() {
     seq::dep_tracker dep = dm.mk_leaf(sat::null_literal);
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
-    vector<seq::int_constraint> out;
+    vector<seq::constraint> out;
     parikh.generate_parikh_constraints(mem, out);
     std::cout << "  generated " << out.size() << " constraints (expect 0)\n";
     SASSERT(out.empty());
@@ -432,7 +433,7 @@ static void test_generate_constraints_fixed_length() {
     seq::dep_tracker dep = dm.mk_leaf(sat::null_literal);
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
-    vector<seq::int_constraint> out;
+    vector<seq::constraint> out;
     parikh.generate_parikh_constraints(mem, out);
     std::cout << "  generated " << out.size() << " constraints (expect 0)\n";
     SASSERT(out.empty());
@@ -456,14 +457,14 @@ static void test_generate_constraints_dep_propagated() {
     seq::dep_tracker dep = dm.mk_leaf(lit);
     seq::str_mem mem(x, regex, nullptr, 0, dep);
 
-    vector<seq::int_constraint> out;
+    vector<seq::constraint> out;
     parikh.generate_parikh_constraints(mem, out);
 
     // all generated constraints must carry dep_source{mem,7} in their dependency
     for (auto const& ic : out) {
-        SASSERT(ic.m_dep != nullptr);
+        SASSERT(ic.dep != nullptr);
         vector<seq::dep_source, false> vs;
-        dm.linearize(ic.m_dep, vs);
+        dm.linearize(ic.dep, vs);
         bool found = false;
         for (auto const& d : vs)
             if (std::get<sat::literal>(d) == lit) found = true;
@@ -495,11 +496,11 @@ static void test_apply_to_node_adds_constraints() {
 
     // root node should have no int_constraints initially
     SASSERT(ng.root() != nullptr);
-    unsigned before = ng.root()->int_constraints().size();
+    unsigned before = ng.root()->constraints().size();
 
     parikh.apply_to_node(*ng.root());
 
-    unsigned after = ng.root()->int_constraints().size();
+    unsigned after = ng.root()->constraints().size();
     std::cout << "  before=" << before << " after=" << after << "\n";
     SASSERT(after > before);
 }
@@ -525,9 +526,9 @@ static void test_apply_to_node_stride_one_no_constraints() {
     euf::snode* regex = sg.mk(re);
     ng.add_str_mem(x, regex);
 
-    unsigned before = ng.root()->int_constraints().size();
+    unsigned before = ng.root()->constraints().size();
     parikh.apply_to_node(*ng.root());
-    unsigned after = ng.root()->int_constraints().size();
+    unsigned after = ng.root()->constraints().size();
     std::cout << "  before=" << before << " after=" << after << " (expect no change)\n";
     SASSERT(after == before);
 }
