@@ -32,6 +32,7 @@ NSB review:
 #include "ast/ast_pp.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "sat/smt/arith_solver.h"
 #include "util/hashtable.h"
 #include "util/statistics.h"
 #include <algorithm>
@@ -329,6 +330,12 @@ namespace seq {
 
     bool nielsen_node::upper_bound(expr* e, rational& up) const {
         SASSERT(e);
+        arith_util arith(graph().get_manager());
+        rational v;
+        if (arith.is_numeral(e, v)) {
+            up = v;
+            return true;
+        }
         return m_graph.m_solver.upper_bound(e, up);
     }
 
@@ -702,8 +709,6 @@ namespace seq {
         euf::snode_vector tokens;
         side->collect_tokens(tokens);
 
-        ast_manager& m = sg.get_manager();
-        arith_util arith(m);
         seq_util& seq = sg.get_seq_util();
 
         bool simplified = false;
@@ -1070,11 +1075,11 @@ namespace seq {
                                 add_constraint(m_graph.mk_constraint(m.mk_eq(lp, rp), eq.m_dep));
                             }
                             else {
-                                // strictly less: create diff power d = larger - smaller >= 1
+                                // we only know for sure that one is smaller than the other
                                 expr_ref d(m_graph.mk_fresh_int_var());
-                                expr_ref one_e(arith.mk_int(1), m);
+                                expr_ref zero_e(arith.mk_int(0), m);
                                 expr_ref d_plus_smaller(arith.mk_add(d, smaller_exp), m);
-                                add_constraint(m_graph.mk_constraint(arith.mk_ge(d, one_e), eq.m_dep));
+                                add_constraint(m_graph.mk_constraint(arith.mk_ge(d, zero_e), eq.m_dep));
                                 add_constraint(m_graph.mk_constraint(m.mk_eq(d_plus_smaller, larger_exp), eq.m_dep));
                                 expr_ref pw(seq.str.mk_power(lb, d), m);
                                 euf::snode*& larger_side = lp_le_rp ? eq.m_rhs : eq.m_lhs;
@@ -2523,7 +2528,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_num_cmp(nielsen_node* node) {
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
 
         // Look for two directional endpoint power tokens with the same base.
@@ -3668,9 +3672,8 @@ namespace seq {
         svector<std::pair<unsigned, expr*>> lhs_exprs;
         for (unsigned i = 0; i < substs.size(); ++i) {
             auto const& s = substs[i];
-            if (s.is_char_subst())
+            if (!s.m_var->is_var())
                 continue;
-            SASSERT(s.m_var && s.m_var->is_var());
             if (!m_seq.is_seq(s.m_var->get_expr()))
                 continue;
             expr_ref lhs = compute_length_expr(s.m_var);
