@@ -255,7 +255,7 @@ namespace seq {
         if (m_graph.m_literal_if_false) {
             auto lit = m_graph.m_literal_if_false(c.fml);
             if (lit != sat::null_literal)
-                m_conflict_literal = lit;
+                m_conflict_literal = ~lit;
         }
     }
 
