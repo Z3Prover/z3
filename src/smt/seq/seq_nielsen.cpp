@@ -1430,6 +1430,9 @@ namespace seq {
             return search_result::unknown;
         }
         node->set_eval_idx(m_run_idx);
+        // we might need to tell the SAT solver about the new integer inequalities
+        // that might have been added by an extension step
+        assert_node_new_int_constraints(node);
 
         // simplify constraints (idempotent after first call)
         const simplify_result sr = node->simplify_and_init(cur_path);
