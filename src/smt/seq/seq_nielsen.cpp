@@ -1380,10 +1380,15 @@ namespace seq {
         }
     }
 
-    nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node, ptr_vector<nielsen_edge>& cur_path) {
+    nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node,
+        ptr_vector<nielsen_edge>& cur_path, unsigned depth) {
+
         ++m_stats.m_num_dfs_nodes;
         // std::cout << m_stats.m_num_dfs_nodes << std::endl;
-        auto depth = cur_path.size();
+        // depth is NOT necessarily the length of the path
+        // Reason: Progress nodes are not counted towards the depth limit
+        // Otw. problems with a lot of variables would barely terminate
+        SASSERT(depth <= cur_path.size());
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth);
 
         // check for external cancellation (timeout, user interrupt)
@@ -1507,7 +1512,9 @@ namespace seq {
             // Bump modification counts for the child's context.
             inc_edge_mod_counts(e);
 
-            const search_result r = search_dfs(e->tgt(), cur_path);
+            const search_result r = search_dfs(e->tgt(), cur_path,
+                e->is_progress() ? depth : (depth + 1)
+            );
 
             // Restore modification counts on backtrack.
             dec_edge_mod_counts(e);

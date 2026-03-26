@@ -939,7 +939,7 @@ namespace seq {
         // collect dependency information from conflicting constraints
         dep_tracker collect_conflict_deps() const;
 
-        search_result search_dfs(nielsen_node *node, ptr_vector<nielsen_edge>& path);
+        search_result search_dfs(nielsen_node *node, ptr_vector<nielsen_edge>& path, unsigned depth = 0);
 
         // Regex widening: overapproximate `str` by replacing variables with
         // the intersection of their primitive regex constraints (or Σ* if
