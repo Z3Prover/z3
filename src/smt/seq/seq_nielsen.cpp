@@ -196,6 +196,12 @@ namespace seq {
         return true;
     }
 
+    bool nielsen_subst::is_char_subst() const {
+        SASSERT(m_var && m_replacement);
+        SASSERT(!m_var->is_unit() || m_replacement->is_char_or_unit());
+        return m_var->is_unit();
+    }
+
     // -----------------------------------------------
     // nielsen_edge
     // -----------------------------------------------
@@ -274,6 +280,13 @@ namespace seq {
                  mem.m_regex = new_regex;
                  mem.m_dep = m_graph.dep_mgr().mk_join(mem.m_dep, s.m_dep);
             }
+        }
+        if (s.m_var->is_unit()) {
+            SASSERT(s.m_replacement->is_char_or_unit());
+            expr* v = s.m_var->arg(0)->get_expr();
+            expr* repl = s.m_replacement->arg(0)->get_expr();
+            expr* eq = sg.get_manager().mk_eq(v, repl);
+            m_constraints.push_back(constraint(eq, s.m_dep, sg.get_manager()));
         }
     }
 
@@ -1601,14 +1614,12 @@ namespace seq {
                         eqs[eq_idx] = eqs.back();
                         eqs.pop_back();
 
-                        nielsen_subst subst(lt->arg(0), rt->arg(0), eq.m_dep);
+                        nielsen_subst subst(lt, rt, eq.m_dep);
                         e->add_subst(subst);
                         child->apply_subst(m_sg, subst);
 
                         if (!lhs_rest->is_empty() && !rhs_rest->is_empty())
                             eqs.push_back(str_eq(lhs_rest, rhs_rest, eq.m_dep));
-
-                        // NSB review: lt->arg(0) == rt->arg(0) should also be a side constraint
                         return true;
                     }
                     else
@@ -3657,6 +3668,8 @@ namespace seq {
         svector<std::pair<unsigned, expr*>> lhs_exprs;
         for (unsigned i = 0; i < substs.size(); ++i) {
             auto const& s = substs[i];
+            if (s.is_char_subst())
+                continue;
             SASSERT(s.m_var && s.m_var->is_var());
             if (!m_seq.is_seq(s.m_var->get_expr()))
                 continue;

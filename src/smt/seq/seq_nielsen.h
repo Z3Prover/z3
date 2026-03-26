@@ -425,11 +425,12 @@ namespace seq {
             SASSERT(repl != nullptr);
             // var may be s_var or s_power; sgraph::subst uses pointer identity matching
             SASSERT(var->is_var() || var->is_power() || var->is_unit());
-            SASSERT(!var->is_unit());
         }
 
         // an eliminating substitution does not contain the variable in the replacement
         bool is_eliminating() const;
+
+        bool is_char_subst() const;
 
         bool operator==(nielsen_subst const& other) const {
             return m_var == other.m_var && m_replacement == other.m_replacement;
@@ -463,7 +464,7 @@ namespace seq {
     // relationships between length variables and power exponents.
     // mirrors ZIPT's IntEq / IntLe over Presburger arithmetic polynomials.
     struct constraint {
-        expr_ref    fml;   // the formula (eq, le, or ge expression)
+        expr_ref    fml;   // the formula (eq, le, or ge, unit-diseq expression)
         dep_tracker dep;   // tracks which input constraints contributed
 
         constraint(ast_manager& m):
@@ -479,7 +480,6 @@ namespace seq {
         nielsen_node*           m_src;
         nielsen_node*           m_tgt;
         vector<nielsen_subst>   m_subst;
-        vector<char_subst>      m_char_subst;     // character-level substitutions (mirrors ZIPT's SubstC)
         vector<constraint>      m_side_constraints;  // side constraints: integer equalities/inequalities
         bool                    m_is_progress;     // does this edge represent progress?
         bool                    m_len_constraints_computed = false; // lazily computed substitution length constraints
@@ -495,9 +495,6 @@ namespace seq {
         // applying it only to the node is NOT sufficient (otw. length counters are not in sync)
         vector<nielsen_subst> const& subst() const { return m_subst; }
         void add_subst(nielsen_subst const& s) { m_subst.push_back(s); }
-
-        vector<char_subst> const& char_substs() const { return m_char_subst; }
-        void add_char_subst(char_subst const& s) { m_char_subst.push_back(s); }
 
         void add_side_constraint(constraint const& ic) { m_side_constraints.push_back(ic); }
         vector<constraint> const& side_constraints() const { return m_side_constraints; }
@@ -580,7 +577,7 @@ namespace seq {
         void add_constraint(constraint const &ic);
 
         vector<constraint> const& constraints() const { return m_constraints; }
-        vector<constraint>& constraints() { return m_constraints; }        
+        vector<constraint>& constraints() { return m_constraints; }
 
         // Query current bounds for a variable from the arithmetic subsolver.
         // Falls der Subsolver keinen Bound liefert, werden konservative Defaults

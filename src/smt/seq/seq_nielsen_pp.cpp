@@ -618,12 +618,6 @@ namespace seq {
                         << " &#8594; " // mapping arrow
                         << snode_label_html(s.m_replacement, m);
                 }
-                for (auto const& cs : e->char_substs()) {
-                    if (!first) out << "<br/>";
-                    first = false;
-                    out << "?" << cs.m_var->id()
-                        << " &#8594; ?" << cs.m_val->id();
-                }
                 // side constraints: integer equalities/inequalities
                 for (auto const& ic : e->side_constraints()) {
                     if (!first) out << "<br/>";

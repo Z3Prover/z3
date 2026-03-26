@@ -99,6 +99,7 @@ namespace euf {
         unsigned   num_args() const { return m_num_args; }
         snode*     arg(unsigned i) const { SASSERT(i < m_num_args); return m_args[i]; }
 
+        // TODO: Track regex being "classical" (no complement, intersection, fail)
         bool is_ground()     const { return m_ground; }
         bool is_regex_free() const { return m_regex_free; }
         bool is_nullable()   const { return m_nullable; }

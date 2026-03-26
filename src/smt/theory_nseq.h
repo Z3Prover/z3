@@ -56,6 +56,7 @@ namespace smt {
         using mem_item  = tracked_str_mem;   // regex membership
         struct axiom_item { expr* e; };      // structural axiom for term e
 
+        // TODO: Track unit disequalities and add them to Nielsen graph
         using prop_item = std::variant<eq_item, mem_item, axiom_item>;
 
         vector<prop_item>       m_prop_queue;
@@ -63,6 +64,7 @@ namespace smt {
         unsigned                m_next_mem_id = 0;     // monotone counter for tracked_str_mem ids
         obj_hashtable<expr>     m_axiom_set;   // dedup guard for axiom_item enqueues
         obj_hashtable<expr>     m_no_diseq_set;     // track expressions that should not trigger new disequality axioms
+        expr_ref_vector         m_relevant_lengths;     // track variables whose lengths are relevant
 
         // statistics
         unsigned m_num_conflicts        = 0;
