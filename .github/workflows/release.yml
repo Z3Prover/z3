@@ -390,6 +390,14 @@ jobs:
         run: |
           mkdir -p /tmp/riscv-toolchain/
           tar xf /tmp/riscv-toolchain.tar.gz -C /tmp/riscv-toolchain/ --strip-components=1
+
+      - name: Install MPFR 4 (required by RISC-V toolchain host binaries)
+        run: |
+          dnf install -y gmp-devel
+          curl -L -o /tmp/mpfr.tar.xz https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.1.tar.xz
+          tar xf /tmp/mpfr.tar.xz -C /tmp/
+          cd /tmp/mpfr-4.2.1 && ./configure --prefix=/usr/local --disable-static && make -j$(nproc) && make install
+          ldconfig
       
       - name: Setup Python environment
         run: |
