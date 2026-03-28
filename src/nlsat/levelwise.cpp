@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <numeric>
 #include <set>
 #include <unordered_map>
 #include <utility>
@@ -85,14 +86,19 @@ namespace nlsat {
             unsigned          ps_idx; // index in m_level_ps
             root_function(anum_manager& am, poly* p, unsigned idx, anum const& v, unsigned ps_idx)
                 : val(am), ire{ p, idx }, ps_idx(ps_idx) { am.set(val, v); }
-            root_function(root_function&& other) noexcept : val(other.val.m()), ire(other.ire), ps_idx(other.ps_idx) { val = other.val; }
+            root_function(root_function&& other) noexcept : val(std::move(other.val)), ire(other.ire), ps_idx(other.ps_idx) { }
             root_function(root_function const&) = delete;
             root_function& operator=(root_function const&) = delete;
             root_function& operator=(root_function&& other) noexcept {
-                val = other.val;
+                val.swap(other.val);
                 ire = other.ire;
                 ps_idx = other.ps_idx;
                 return *this;
+            }
+            friend void swap(root_function& a, root_function& b) noexcept {
+                a.val.swap(b.val);
+                std::swap(a.ire, b.ire);
+                std::swap(a.ps_idx, b.ps_idx);
             }
         };
 
@@ -950,12 +956,48 @@ namespace nlsat {
             return m_pm.id(a.ire.p) < m_pm.id(b.ire.p);
         }
 
+        // Apply a permutation to a range of root_functions using swap cycles,
+        // avoiding the bulk anum allocations that std::sort's move operations cause.
+        void apply_permutation(std_vector<root_function>& rfs, unsigned offset, std_vector<unsigned>& perm) {
+            std_vector<bool> done(perm.size(), false);
+            for (unsigned i = 0; i < perm.size(); ++i) {
+                if (done[i] || perm[i] == i)
+                    continue;
+                unsigned j = i;
+                while (!done[j]) {
+                    done[j] = true;
+                    unsigned k = perm[j];
+                    if (!done[k])
+                        swap(rfs[offset + j], rfs[offset + k]);
+                    j = k;
+                }
+            }
+        }
+
         void sort_root_function_partitions(std_vector<root_function>::iterator mid) {
             auto& rfs = m_rel.m_rfunc;
-            std::sort(rfs.begin(), mid,
-                      [&](root_function const& a, root_function const& b) { return root_function_lt(a, b, true); });
-            std::sort(mid, rfs.end(),
-                      [&](root_function const& a, root_function const& b) { return root_function_lt(a, b, false); });
+            unsigned mid_pos = static_cast<unsigned>(mid - rfs.begin());
+
+            // Sort lower partition [0, mid_pos) by index permutation
+            if (mid_pos > 1) {
+                std_vector<unsigned> perm(mid_pos);
+                std::iota(perm.begin(), perm.end(), 0u);
+                std::sort(perm.begin(), perm.end(), [&](unsigned a, unsigned b) {
+                    return root_function_lt(rfs[a], rfs[b], true);
+                });
+                apply_permutation(rfs, 0, perm);
+            }
+
+            // Sort upper partition [mid_pos, size) by index permutation
+            unsigned upper_sz = static_cast<unsigned>(rfs.size()) - mid_pos;
+            if (upper_sz > 1) {
+                std_vector<unsigned> perm(upper_sz);
+                std::iota(perm.begin(), perm.end(), 0u);
+                std::sort(perm.begin(), perm.end(), [&](unsigned a, unsigned b) {
+                    return root_function_lt(rfs[mid_pos + a], rfs[mid_pos + b], false);
+                });
+                apply_permutation(rfs, mid_pos, perm);
+            }
         }
 
         // Populate Θ (root functions) around the sample, partitioned at `mid`, and sort each partition.
@@ -964,6 +1006,9 @@ namespace nlsat {
             init_poly_has_roots();
 
             std_vector<root_function> lhalf, uhalf;
+            // Pre-reserve to reduce reallocation during emplace_back
+            lhalf.reserve(m_level_ps.size());
+            uhalf.reserve(m_level_ps.size());
             if (!collect_partitioned_root_functions_around_sample(v, lhalf, uhalf))
                 return false;
 
@@ -1039,6 +1084,8 @@ namespace nlsat {
         void add_linear_approximations(anum const& v) {
             polynomial_ref p_lower(m_pm), p_upper(m_pm);
             auto& r = m_rel.m_rfunc;
+            // Reserve space to avoid reallocation during emplace
+            r.reserve(r.size() + 2);
             if (m_I[m_level].is_section()) {
                 if (!m_am.is_rational(v)) {
                     NOT_IMPLEMENTED_YET();
