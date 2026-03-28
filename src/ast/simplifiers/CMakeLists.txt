@@ -34,6 +34,7 @@ z3_add_component(simplifiers
   TACTIC_HEADERS
     bit_blaster.h
     bv1_blaster.h
+    bv_size_reduction.h
     bit2int.h
     blast_term_ite_simplifier.h
     elim_bounds.h
