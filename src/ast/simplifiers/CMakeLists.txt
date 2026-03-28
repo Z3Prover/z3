@@ -38,6 +38,7 @@ z3_add_component(simplifiers
     blast_term_ite_simplifier.h
     elim_bounds.h
     elim_term_ite.h
+    nnf_simplifier.h
     pull_nested_quantifiers.h
     push_ite.h
     randomizer.h

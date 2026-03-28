@@ -57,16 +57,26 @@ Once all negations are pushed inside, the resulting formula is in NNF.
 --*/
 #pragma once
 
-#include "util/params.h"
-class ast_manager;
-class tactic;
+#include "tactic/dependent_expr_state_tactic.h"
+#include "ast/simplifiers/nnf_simplifier.h"
 
-tactic * mk_snf_tactic(ast_manager & m, params_ref const & p = params_ref());
-tactic * mk_nnf_tactic(ast_manager & m, params_ref const & p = params_ref());
+inline tactic * mk_snf_tactic(ast_manager & m, params_ref const & p = params_ref()) {
+    return alloc(dependent_expr_state_tactic, m, p,
+        [](auto& m, auto& p, auto& s) -> dependent_expr_simplifier* {
+            return alloc(nnf_simplifier, m, p, s);
+        });
+}
+
+inline tactic * mk_nnf_tactic(ast_manager & m, params_ref const & p = params_ref()) {
+    params_ref new_p(p);
+    new_p.set_sym("mode", symbol("full"));
+    return using_params(mk_snf_tactic(m, new_p), new_p);
+}
 
 /*
   ADD_TACTIC("snf", "put goal in skolem normal form.", "mk_snf_tactic(m, p)")
   ADD_TACTIC("nnf", "put goal in negation normal form.", "mk_nnf_tactic(m, p)")
+  ADD_SIMPLIFIER("nnf", "put formula in negation normal form.", "alloc(nnf_simplifier, m, p, s)")
 */
 
 
