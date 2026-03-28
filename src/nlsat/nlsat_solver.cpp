@@ -347,10 +347,6 @@ namespace nlsat {
             undo_until_size(0);
             del_clauses();
             del_unref_atoms();
-            m_cache.reset();
-            m_assignment.reset();
-            m_lo.reset();
-            m_hi.reset();
         }
 
         void checkpoint() {
