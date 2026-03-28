@@ -30,9 +30,11 @@ jobs:
       - name: Build Windows x64
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.17.0' }} --zip
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buildcvarsall.bat" x64
+          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%esources\z3.snk --assembly-version=%INPUT_VERSION% --zip
       
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version || '4.17.0' }}
       - name: Upload Windows x64 artifact
         uses: actions/upload-artifact@v7
         with:
@@ -54,9 +56,11 @@ jobs:
       - name: Build Windows x86
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
-          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.17.0' }} --zip
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buildcvarsall.bat" x86
+          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%esources\z3.snk --assembly-version=%INPUT_VERSION% --zip
       
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version || '4.17.0' }}
       - name: Upload Windows x86 artifact
         uses: actions/upload-artifact@v7
         with:
@@ -78,14 +82,16 @@ jobs:
       - name: Build Windows ARM64
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64_arm64
-          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ github.event.inputs.version || '4.17.0' }} --zip
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buildcvarsall.bat" amd64_arm64
+          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%esources\z3.snk --assembly-version=%INPUT_VERSION% --zip
       
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version || '4.17.0' }}
       - name: Upload Windows ARM64 artifact
         uses: actions/upload-artifact@v7
         with:
           name: windows-arm64
-          path: build-dist\arm64\dist\*.zip
+          path: build-distrm64\dist\*.zip
           retention-days: 1
 
   build-ubuntu:
@@ -181,7 +187,7 @@ jobs:
           ls -la package-files/
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v2
+        uses: nuget/setup-nuget@d105a947828025cd7a980103c35ba2bfae586d0f # v2
         with:
           nuget-version: 'latest'
       
@@ -189,8 +195,11 @@ jobs:
         shell: cmd
         run: |
           cd package-files
-          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '4.17.0' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols
+          python ..\scripts\mk_nuget_task.py . %INPUT_VERSION% https://github.com/Z3Prover/z3 %REF_NAME% ${{ github.sha }} ${{ github.workspace }} symbols
       
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version || '4.17.0' }}
       - name: Pack NuGet package
         shell: cmd
         run: |
@@ -230,7 +239,7 @@ jobs:
         run: find packages -type f
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v2
+        uses: nuget/setup-nuget@d105a947828025cd7a980103c35ba2bfae586d0f # v2
         with:
           nuget-version: 'latest'
       
@@ -238,8 +247,11 @@ jobs:
         shell: cmd
         run: |
           cd packages
-          python ..\scripts\mk_nuget_task.py . ${{ github.event.inputs.version || '4.17.0' }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols x86
+          python ..\scripts\mk_nuget_task.py . %INPUT_VERSION% https://github.com/Z3Prover/z3 %REF_NAME% ${{ github.sha }} ${{ github.workspace }} symbols x86
       
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version || '4.17.0' }}
       - name: Pack NuGet package
         shell: cmd
         run: |
@@ -254,4 +266,3 @@ jobs:
             packages/*.nupkg
             packages/*.snupkg
           retention-days: 30
-

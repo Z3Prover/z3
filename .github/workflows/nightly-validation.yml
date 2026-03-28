@@ -37,9 +37,10 @@ jobs:
       - name: Download NuGet package from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         shell: pwsh
         run: |
-          $tag = "${{ github.event.inputs.release_tag }}"
+          $tag = "$env:INPUT_RELEASE_TAG"
           if ([string]::IsNullOrEmpty($tag)) {
             $tag = "Nightly"
           }
@@ -97,8 +98,9 @@ jobs:
       - name: Download NuGet package from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi
@@ -152,8 +154,9 @@ jobs:
       - name: Download NuGet package from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi
@@ -207,8 +210,9 @@ jobs:
       - name: Download NuGet package from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi
@@ -261,9 +265,10 @@ jobs:
       - name: Download Windows x64 build from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         shell: pwsh
         run: |
-          $tag = "${{ github.event.inputs.release_tag }}"
+          $tag = "$env:INPUT_RELEASE_TAG"
           if ([string]::IsNullOrEmpty($tag)) {
             $tag = "Nightly"
           }
@@ -297,9 +302,10 @@ jobs:
       - name: Download Windows x86 build from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         shell: pwsh
         run: |
-          $tag = "${{ github.event.inputs.release_tag }}"
+          $tag = "$env:INPUT_RELEASE_TAG"
           if ([string]::IsNullOrEmpty($tag)) {
             $tag = "Nightly"
           }
@@ -333,8 +339,9 @@ jobs:
       - name: Download Ubuntu x64 build from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi
@@ -366,8 +373,9 @@ jobs:
       - name: Download macOS x64 build from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi
@@ -399,8 +407,9 @@ jobs:
       - name: Download macOS ARM64 build from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi
@@ -441,8 +450,9 @@ jobs:
       - name: Download Ubuntu x64 build from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi
@@ -480,9 +490,10 @@ jobs:
       - name: Download Windows x64 build from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         shell: pwsh
         run: |
-          $tag = "${{ github.event.inputs.release_tag }}"
+          $tag = "$env:INPUT_RELEASE_TAG"
           if ([string]::IsNullOrEmpty($tag)) {
             $tag = "Nightly"
           }
@@ -520,8 +531,9 @@ jobs:
       - name: Download macOS ARM64 build from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi
@@ -563,8 +575,9 @@ jobs:
       - name: Download Python wheel from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi
@@ -592,8 +605,9 @@ jobs:
       - name: Download Python wheel from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi
@@ -621,8 +635,9 @@ jobs:
       - name: Download Python wheel from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi
@@ -650,9 +665,10 @@ jobs:
       - name: Download Python wheel from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         shell: pwsh
         run: |
-          $tag = "${{ github.event.inputs.release_tag }}"
+          $tag = "$env:INPUT_RELEASE_TAG"
           if ([string]::IsNullOrEmpty($tag)) {
             $tag = "Nightly"
           }
@@ -682,8 +698,9 @@ jobs:
       - name: Download RISC-V 64 Python wheel from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi
@@ -732,8 +749,9 @@ jobs:
       - name: Download macOS x64 build from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi
@@ -784,8 +802,9 @@ jobs:
       - name: Download macOS ARM64 build from release
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_RELEASE_TAG: ${{ github.event.inputs.release_tag }}
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
+          TAG="${INPUT_RELEASE_TAG}"
           if [ -z "$TAG" ]; then
             TAG="Nightly"
           fi

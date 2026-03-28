@@ -152,7 +152,7 @@ jobs:
         uses: actions/checkout@v6.0.2
 
       - name: Setup OCaml
-        uses: ocaml/setup-ocaml@v3
+        uses: ocaml/setup-ocaml@44184b0d1ab751e3d1726b13e0afef61d6980755 # v3
         with:
           ocaml-compiler: '5'
           opam-disable-sandboxing: true
@@ -207,7 +207,7 @@ jobs:
         uses: actions/checkout@v6.0.2
 
       - name: Setup OCaml
-        uses: ocaml/setup-ocaml@v3
+        uses: ocaml/setup-ocaml@44184b0d1ab751e3d1726b13e0afef61d6980755 # v3
         with:
           ocaml-compiler: '5'
           opam-disable-sandboxing: true
@@ -315,7 +315,7 @@ jobs:
 
       - name: Setup Julia (if needed)
         if: matrix.name == 'debugClang'
-        uses: julia-actions/setup-julia@v2
+        uses: julia-actions/setup-julia@4c0cb0fce8556fdb04a90347310e5db8b1f98fb9 # v2
         with:
           version: '1'
 

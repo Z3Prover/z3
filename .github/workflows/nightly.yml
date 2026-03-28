@@ -427,8 +427,8 @@ jobs:
       - name: Build
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --zip
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buildcvarsall.bat" x64
+          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%esources\z3.snk --zip
       
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -453,8 +453,8 @@ jobs:
       - name: Build
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
-          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --zip
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buildcvarsall.bat" x86
+          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%esources\z3.snk --zip
       
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -479,8 +479,8 @@ jobs:
       - name: Build
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64_arm64
-          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }} --zip
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buildcvarsall.bat" amd64_arm64
+          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%esources\z3.snk --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }} --zip
       
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -543,7 +543,7 @@ jobs:
           path: package
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v2
+        uses: nuget/setup-nuget@d105a947828025cd7a980103c35ba2bfae586d0f # v2
         with:
           nuget-version: 'latest'
       
@@ -551,8 +551,10 @@ jobs:
         shell: cmd
         run: |
           cd package
-          python ..\scripts\mk_nuget_task.py . ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}.${{ github.run_number }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols
+          python ..\scripts\mk_nuget_task.py . ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}.${{ github.run_number }} https://github.com/Z3Prover/z3 %REF_NAME% ${{ github.sha }} ${{ github.workspace }} symbols
       
+        env:
+          REF_NAME: ${{ github.ref_name }}
       - name: Pack NuGet package
         shell: cmd
         run: |
@@ -588,7 +590,7 @@ jobs:
           path: package
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v2
+        uses: nuget/setup-nuget@d105a947828025cd7a980103c35ba2bfae586d0f # v2
         with:
           nuget-version: 'latest'
       
@@ -596,8 +598,10 @@ jobs:
         shell: cmd
         run: |
           cd package
-          python ..\scripts\mk_nuget_task.py . ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}.${{ github.run_number }} https://github.com/Z3Prover/z3 ${{ github.ref_name }} ${{ github.sha }} ${{ github.workspace }} symbols x86
+          python ..\scripts\mk_nuget_task.py . ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}.${{ github.run_number }} https://github.com/Z3Prover/z3 %REF_NAME% ${{ github.sha }} ${{ github.workspace }} symbols x86
       
+        env:
+          REF_NAME: ${{ github.ref_name }}
       - name: Pack NuGet package
         shell: cmd
         run: |
@@ -693,11 +697,16 @@ jobs:
           # Build source distribution
           python3 setup.py sdist
           # Build wheels from macOS and Windows release zips
-          echo $PWD/../../../artifacts/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-          echo $PWD/../../../artifacts/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-          echo $PWD/../../../artifacts/win-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-          echo $PWD/../../../artifacts/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
-          echo $PWD/../../../artifacts/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+          echo $PWD/../../../artifacts/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s
+' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+          echo $PWD/../../../artifacts/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s
+' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+          echo $PWD/../../../artifacts/win-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s
+' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+          echo $PWD/../../../artifacts/osx-x64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s
+' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
+          echo $PWD/../../../artifacts/osx-arm64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s
+' | xargs -I '{}' env '{}' python3 setup.py bdist_wheel
 
       - name: Copy Linux Python packages
         run: |          
@@ -766,7 +775,7 @@ jobs:
           declare -A seen_basenames
           declare -a unique_files
           
-          while IFS= read -r -d $'\0' filepath || [ -n "$filepath" ]; do
+          while IFS= read -r -d $' ' filepath || [ -n "$filepath" ]; do
             [ -z "$filepath" ] && continue
             basename="${filepath##*/}"
             
@@ -808,8 +817,7 @@ jobs:
           path: dist
       
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # release/v1
         with:
           packages-dir: dist
           repository-url: https://test.pypi.org/legacy/
-

@@ -219,7 +219,7 @@ jobs:
           echo "# Memory Safety Analysis Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch**: \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch**: \`${REF_NAME}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Trigger**: \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -247,3 +247,6 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- Sanitizer logs are available as workflow artifacts" >> $GITHUB_STEP_SUMMARY
           echo "- Run with \`workflow_dispatch\` and \`full_scan: true\` for complete codebase analysis" >> $GITHUB_STEP_SUMMARY
+
+        env:
+          REF_NAME: ${{ github.ref_name }}

@@ -31,12 +31,12 @@ jobs:
 
       - name: Prepare for publish
         run: |
-          npm version $(node -e 'console.log(fs.readFileSync("../../../.github/workflows/release.yml", "utf8").match(/RELEASE_VERSION:\s*\x27(\S+)\x27/)[1])')
+          npm version $(node -e 'console.log(fs.readFileSync("../../../.github/workflows/release.yml", "utf8").match(/RELEASE_VERSION:\s*'(\S+)'/)[1])')
           mv PUBLISHED_README.md README.md
           cp ../../../LICENSE.txt .
 
       - name: Setup emscripten
-        uses: mymindstorm/setup-emsdk@v14
+        uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021 # v14
         with:
           no-install: true
           version: ${{env.EM_VERSION}}
