@@ -1420,8 +1420,8 @@ namespace seq {
         expr_ref vp_len(mk_len(vp), m);
         expr_ref wau(mk_concat(w, seq.str.mk_unit(a), up), m);
         expr_ref wbv(mk_concat(w, seq.str.mk_unit(b), vp), m);
-        expr_ref u_eq(mk_eq(u, wau), m);
-        expr_ref v_eq(mk_eq(v, wbv), m);
+        expr_ref u_eq(mk_seq_eq(u, wau), m);
+        expr_ref v_eq(mk_seq_eq(v, wbv), m);
         if (m_mark_no_diseq) {
             m_mark_no_diseq(wau);
             m_mark_no_diseq(wbv);
