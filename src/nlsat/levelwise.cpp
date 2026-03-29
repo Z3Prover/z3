@@ -958,7 +958,7 @@ namespace nlsat {
 
         // Apply a permutation to a range of root_functions using swap cycles,
         // avoiding the bulk anum allocations that std::sort's move operations cause.
-        void apply_permutation(std_vector<root_function>& rfs, unsigned offset, std_vector<unsigned>& perm) {
+        void apply_permutation(std_vector<root_function>& rfs, unsigned offset, std_vector<unsigned> const& perm) {
             std_vector<bool> done(perm.size(), false);
             for (unsigned i = 0; i < perm.size(); ++i) {
                 if (done[i] || perm[i] == i)
