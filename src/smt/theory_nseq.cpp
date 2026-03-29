@@ -278,7 +278,17 @@ namespace smt {
             // axioms added via relevant_eh → dequeue_axiom
         }
         else if (m_axioms.sk().is_eq(e, a, b) && is_true) {
-                // TODO: port propagate_eq from theory_seq.
+            enode* n1 = ensure_enode(a);
+            enode* n2 = ensure_enode(b);
+            if (n1->get_root() != n2->get_root()) {
+                literal lit(v, false);
+                ctx.mark_as_relevant(n1);
+                ctx.mark_as_relevant(n2);
+                justification* js = ctx.mk_justification(
+                    ext_theory_eq_propagation_justification(
+                        get_id(), ctx, 1, &lit, 0, nullptr, n1, n2));
+                ctx.assign_eq(n1, n2, eq_justification(js));
+            }
         }
         else if (m_seq.is_skolem(e) ||
                  m_seq.str.is_nth_i(e) ||
