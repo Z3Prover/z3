@@ -198,7 +198,7 @@ namespace smt {
     void theory_nseq::new_eq_eh(theory_var v1, theory_var v2) {
         expr* e1 = get_enode(v1)->get_expr();
         expr* e2 = get_enode(v2)->get_expr();
-        // std::cout << mk_pp(e1, m) << " = " << mk_pp(e2, m) << std::endl;
+        TRACE(seq, tout << mk_pp(e1, m) << " == " << mk_pp(e2, m) << "\n");
         if (m_seq.is_re(e1)) {
             push_unhandled_pred();
             return;
@@ -280,14 +280,18 @@ namespace smt {
         else if (m_axioms.sk().is_eq(e, a, b) && is_true) {
             enode* n1 = ensure_enode(a);
             enode* n2 = ensure_enode(b);
+            auto v1 = mk_var(n1);
+            auto v2 = mk_var(n2);
             if (n1->get_root() != n2->get_root()) {
                 literal lit(v, false);
                 ctx.mark_as_relevant(n1);
                 ctx.mark_as_relevant(n2);
+                TRACE(seq, tout << "is-eq " << mk_pp(a, m) << " == " << mk_pp(b, m) << "\n");
                 justification* js = ctx.mk_justification(
                     ext_theory_eq_propagation_justification(
                         get_id(), ctx, 1, &lit, 0, nullptr, n1, n2));
                 ctx.assign_eq(n1, n2, eq_justification(js));
+                new_eq_eh(v1, v2);
             }
         }
         else if (m_seq.is_skolem(e) ||
