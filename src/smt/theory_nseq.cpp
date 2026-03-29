@@ -233,7 +233,7 @@ namespace smt {
     void theory_nseq::assign_eh(bool_var v, bool is_true) {
         expr* e = ctx.bool_var2expr(v);
         // std::cout << "assigned " << mk_pp(e, m) << " = " << is_true << std::endl;
-        expr* s = nullptr, *re = nullptr;
+        expr *s = nullptr, *re = nullptr, *a = nullptr, *b = nullptr;
         TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
         if (m_seq.str.is_in_re(e, s, re)) {
             euf::snode* sn_str = get_snode(s);
@@ -276,6 +276,9 @@ namespace smt {
         }
         else if (m_seq.str.is_lt(e) || m_seq.str.is_le(e)) {
             // axioms added via relevant_eh → dequeue_axiom
+        }
+        else if (m_axioms.sk().is_eq(e, a, b) && is_true) {
+                // TODO: port propagate_eq from theory_seq.
         }
         else if (m_seq.is_skolem(e) ||
                  m_seq.str.is_nth_i(e) ||
@@ -506,9 +509,9 @@ namespace smt {
         }
 
         // Check if there are any eq/mem items in the propagation queue.
-        bool has_eq_or_mem = false;
-        for (auto const& item : m_prop_queue)
-            if (!std::holds_alternative<axiom_item>(item)) { has_eq_or_mem = true; break; }
+        bool has_eq_or_mem = any_of(m_prop_queue, [](auto const &item) {
+            return std::holds_alternative<eq_item>(item) || std::holds_alternative<mem_item>(item);
+        });
 
         // there is nothing to do for the string solver, as there are no string constraints
         if (!has_eq_or_mem && m_ho_terms.empty() && !has_unhandled_preds()) {
@@ -516,6 +519,7 @@ namespace smt {
             m_nielsen.reset();
             m_nielsen.create_root();
             m_nielsen.set_sat_node(m_nielsen.root());
+            TRACE(seq, display(tout << "empty nielsen\n"));
             return FC_DONE;
         }
 
@@ -530,6 +534,7 @@ namespace smt {
             m_nielsen.reset();
             m_nielsen.create_root();
             m_nielsen.set_sat_node(m_nielsen.root());
+            TRACE(seq, display(tout << "empty nielsen\n"));
             return FC_DONE;
         }
 
@@ -561,6 +566,7 @@ namespace smt {
                 // all regex constraints satisfiable, no word eqs → SAT
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck SAT\n";);
                 m_nielsen.set_sat_node(m_nielsen.root());
+                TRACE(seq, display(tout << "pre-check done\n"));
                 return FC_DONE;
             default: 
                 break;
@@ -590,21 +596,23 @@ namespace smt {
                 << (m_nielsen.sat_node() ? "set" : "null") << "\n";);
             // Nielsen found a consistent assignment for positive constraints.
             SASSERT(has_eq_or_mem); // we should have axiomatized them
-            #if 0
-            // TODO: add this pending review
+            
             if (!add_nielsen_assumptions())
                 return FC_CONTINUE;
-            #endif
+
+            CTRACE(seq, !has_unhandled_preds(), display(tout << "done\n"));
             if (!has_unhandled_preds())
                 return FC_DONE;
         }
 
+        TRACE(seq, display(tout << "unknown\n"));
         IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNKNOWN, FC_GIVEUP\n";);
         return FC_GIVEUP;
     }
 
 
     bool theory_nseq::add_nielsen_assumptions() {
+        return true;
         bool has_undef = false;
         bool has_false = false;
         for (auto const& c : m_nielsen.sat_node()->constraints()) {
@@ -614,13 +622,13 @@ namespace smt {
             case l_undef:
                 has_undef = true; 
                 ctx.force_phase(lit);                
-                IF_VERBOSE(2, verbose_stream() << 
+                IF_VERBOSE(0, verbose_stream() << 
                     "nseq final_check: adding nielsen assumption " << c.fml << "\n";);
                 break;
             case l_false: 
                 // do we really expect this to happen?
                 has_false = true; 
-                IF_VERBOSE(1, verbose_stream()
+                IF_VERBOSE(0, verbose_stream()
                                   << "nseq final_check: nielsen assumption " << c.fml << " is false\n";);
                 ctx.force_phase(lit);
                 break;
@@ -629,6 +637,7 @@ namespace smt {
         if (has_undef)
             return false;
         if (has_false) {
+            IF_VERBOSE(0, verbose_stream() << "has false\n");
             // fishy case.
             return false;
         }
@@ -705,6 +714,24 @@ namespace smt {
         out << "  str_mems:   " << num_mems << "\n";
         out << "  prop_queue: " << m_prop_qhead << "/" << m_prop_queue.size() << "\n";
         out << "  ho_terms:   " << m_ho_terms.size() << "\n";
+        for (auto const &item : m_prop_queue) {
+            if (std::holds_alternative<eq_item>(item)) {
+                auto const& eq = std::get<eq_item>(item);
+                out << "    eq: " << mk_bounded_pp(eq.m_l->get_expr(), m, 3)
+                    << " = " << mk_bounded_pp(eq.m_r->get_expr(), m, 3) << "\n";
+            }
+            else if (std::holds_alternative<mem_item>(item)) {
+                auto const& mem = std::get<mem_item>(item);
+                out << "    mem: " << mk_bounded_pp(mem.m_str->get_expr(), m, 3)
+                    << " in " << mk_bounded_pp(mem.m_regex->get_expr(), m, 3)
+                    << " (lit: " << mem.lit << ")\n";
+            }
+            else if (std::holds_alternative<axiom_item>(item)) {
+                auto const& ax = std::get<axiom_item>(item);
+                out << "    axiom: " << mk_bounded_pp(ax.e, m, 3) << "\n";
+            }
+        }
+        m_nielsen.display(out);
     }
 
     // -----------------------------------------------------------------------

@@ -533,7 +533,7 @@ namespace seq {
                 expr* pow_base = nullptr, *pow_exp = nullptr;
                 if (e) seq.str.is_power(e, pow_base, pow_exp);
                 if (pow_exp) {
-                    expr* zero = arith.mk_numeral(rational(0), true);
+                    expr* zero = arith.mk_int(0);
                     add_constraint(
                         constraint(m.mk_eq(pow_exp, zero), dep, m));
                 }
@@ -553,7 +553,7 @@ namespace seq {
     // Check if exponent b equals exponent a + diff for some rational constant diff.
     // Uses syntactic matching on Z3 expression structure: pointer equality
     // detects shared sub-expressions created during ConstNumUnwinding.
-    //
+    // 
     static bool get_const_power_diff(expr* b, expr* a, arith_util& arith, rational& diff) {
         if (a == b) { diff = rational(0); return true; }
         expr* x = nullptr, *y = nullptr;
@@ -1692,7 +1692,7 @@ namespace seq {
                     child->apply_subst(m_sg, s);
                     expr* pow_exp = get_power_exp_expr(pow_head, seq);
                     if (pow_exp) {
-                        expr* zero = arith.mk_numeral(rational(0), true);
+                        expr *zero = arith.mk_int(0);
                         e->add_side_constraint(mk_constraint(m.mk_eq(pow_exp, zero), eq.m_dep));
                     }
                     return true;
