@@ -58,9 +58,7 @@ where `k` is a fresh bit-vector constant of size 3.
 class ast_manager;
 class tactic;
 
-tactic * mk_bv_size_reduction_tactic(ast_manager & m, params_ref const & p = params_ref());
-
-inline tactic * mk_bv_size_reduction2_tactic(ast_manager & m, params_ref const & p = params_ref()) {
+inline tactic * mk_bv_size_reduction_tactic(ast_manager & m, params_ref const & p = params_ref()) {
     return alloc(dependent_expr_state_tactic, m, p,
                  [](auto& m, auto& p, auto& s) -> dependent_expr_simplifier* {
                      return alloc(bv_size_reduction_simplifier, m, p, s);
@@ -68,6 +66,5 @@ inline tactic * mk_bv_size_reduction2_tactic(ast_manager & m, params_ref const &
 }
 /*
   ADD_TACTIC("reduce-bv-size", "try to reduce bit-vector sizes using inequalities.", "mk_bv_size_reduction_tactic(m, p)")
-  ADD_TACTIC("reduce-bv-size2", "try to reduce bit-vector sizes using inequalities.", "mk_bv_size_reduction2_tactic(m, p)")
   ADD_SIMPLIFIER("reduce-bv-size", "try to reduce bit-vector sizes using inequalities.", "alloc(bv_size_reduction_simplifier, m, p, s)")
 */
