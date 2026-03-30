@@ -3147,6 +3147,8 @@ namespace seq {
             euf::snode* v1 = m_sg.drop_right(eq.m_rhs, rhs_toks.size() - j);
             euf::snode* v2 = m_sg.drop_left(eq.m_rhs, j);
             euf::snode* x = mk_fresh_var(eq.m_lhs->get_sort());
+            // TODO: x = m_sk.mk(symbol("signature-split"), 
+            //                   eq.m_lhs->get_expr(), eq.m_rhs->get_expr(), eq.m_lhs->get_sort());
 
             for (unsigned branch = 0; branch < 2; ++branch) {
                 nielsen_node* child = mk_child(node);
