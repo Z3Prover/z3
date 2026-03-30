@@ -287,7 +287,7 @@ namespace seq {
             expr* v = s.m_var->arg(0)->get_expr();
             expr* repl = s.m_replacement->arg(0)->get_expr();
             expr* eq = sg.get_manager().mk_eq(v, repl);
-            m_constraints.push_back(constraint(eq, s.m_dep, sg.get_manager()));
+            add_constraint(constraint(eq, s.m_dep, sg.get_manager()));
         }
     }
 
@@ -1496,12 +1496,7 @@ namespace seq {
         if (!node->is_extended()) {
             bool ext = generate_extensions(node);
             IF_VERBOSE(1, display(verbose_stream(), node));
-            if (!ext) {
-#ifdef Z3DEBUG
-                std::string dot = to_dot();
-                std::cout << dot << std::endl;
-#endif
-            }
+            CTRACE(seq, !ext, display(tout, node) << to_dot() << "\n");
             VERIFY(ext);
             node->set_extended(true);
             ++m_stats.m_num_extensions;
