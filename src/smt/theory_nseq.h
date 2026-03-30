@@ -66,6 +66,8 @@ namespace smt {
         obj_hashtable<expr>     m_no_diseq_set;     // track expressions that should not trigger new disequality axioms
         expr_ref_vector         m_relevant_lengths;     // track variables whose lengths are relevant
 
+        sat::literal_vector     m_nielsen_literals;   // literals created by a Nilsen check
+
         // statistics
         unsigned m_num_conflicts        = 0;
         unsigned m_num_final_checks     = 0;

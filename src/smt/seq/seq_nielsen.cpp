@@ -88,10 +88,8 @@ namespace seq {
         toks.reset();
         if (!s) return;
         s->collect_tokens(toks);
-        if (fwd || toks.size() < 2) return;
-        unsigned n = toks.size();
-        for (unsigned i = 0; i < n / 2; ++i)
-            std::swap(toks[i], toks[n - 1 - i]);
+        if (!fwd)
+            toks.reverse();
     }
 
     // Right-derivative helper used by backward str_mem simplification:
@@ -173,10 +171,7 @@ namespace seq {
         if (m_str) {
             euf::snode_vector tokens;
             m_str->collect_tokens(tokens);
-            for (const euf::snode* t : tokens) {
-                if (t == var)
-                    return true;
-            }
+            return any_of(tokens, [var](auto t) { return t == var; });
         }
         return false;
     }
@@ -190,11 +185,7 @@ namespace seq {
         // check if var appears in replacement
         euf::snode_vector tokens;
         m_replacement->collect_tokens(tokens);
-        for (const euf::snode* t : tokens) {
-            if (t == m_var)
-                return false;
-        }
-        return true;
+        return all_of(tokens, [this](auto t) { return t != m_var; });
     }
 
     bool nielsen_subst::is_char_subst() const {
@@ -892,7 +883,7 @@ namespace seq {
                         if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                             ++prefix;
                         }
-                        else if (lt->is_char() && rt->is_char() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
+                        else if (lt->is_char_or_unit() && rt->is_char_or_unit() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
                             m_is_general_conflict = true;
                             m_reason = backtrack_reason::symbol_clash;
                             return simplify_result::conflict;
@@ -1221,59 +1212,11 @@ namespace seq {
     }
 
     bool nielsen_node::is_satisfied() const {
-        for (str_eq const& eq : m_str_eq) {
-            if (!eq.is_trivial())
-                return false;
-        }
-        for (str_mem const& mem : m_str_mem) {
-            if (!mem.is_trivial() && !mem.is_primitive())
-                return false;
-        }
+        if (any_of(m_str_eq, [](auto const &eq) { return !eq.is_trivial(); }))
+            return false;
+        if (any_of(m_str_mem, [](auto const &m) { return !m.is_trivial() && !m.is_primitive();}))
+            return false;
         return true;
-    }
-
-    bool nielsen_node::has_opaque_terms() const {
-        return false;
-        // needed only if there are terms that are not going to be supported at Nielsen level.
-        // though, unsupported ops are already tracked (or supposed to be tracked) in theory_nseq.
-        #if 0
-        auto is_opaque = [](euf::snode* n) { return false; };
-        for (str_eq const& eq : m_str_eq) {
-            if (eq.is_trivial())
-                continue;
-            if (is_opaque(eq.m_lhs) || is_opaque(eq.m_rhs))
-                return true;
-            euf::snode_vector toks;
-            if (eq.m_lhs) {
-                eq.m_lhs->collect_tokens(toks);
-                for (auto* t : toks) {
-                    if (is_opaque(t))
-                        return true;
-                }
-                toks.reset();
-            }
-            if (eq.m_rhs) {
-                eq.m_rhs->collect_tokens(toks);
-                for (auto* t : toks) {
-                    if (is_opaque(t))
-                        return true;
-                }
-            }
-        }
-        for (str_mem const& mem : m_str_mem) {
-            if (!mem.m_str)
-                continue;
-            if (is_opaque(mem.m_str))
-                return true;
-            euf::snode_vector toks;
-            mem.m_str->collect_tokens(toks);
-            for (auto* t : toks) {
-                if (is_opaque(t))
-                    return true;
-            }
-        }
-        return false;
-        #endif
     }
 
     // -----------------------------------------------------------------------
@@ -1543,10 +1486,6 @@ namespace seq {
                 any_unknown = true;
         }
 
-        // If no children exist and the node has opaque terms, report unknown
-        if (node->outgoing().empty() && node->has_opaque_terms())
-            return search_result::unknown;
-
         if (!any_unknown) {
             node->set_reason(backtrack_reason::children_failed);
             return search_result::unsat;
@@ -1559,11 +1498,7 @@ namespace seq {
         SASSERT(n && var);
         euf::snode_vector tokens;
         n->collect_tokens(tokens);
-        for (const euf::snode* t : tokens) {
-            if (t == var)
-                return true;
-        }
-        return false;
+        return any_of(tokens, [var](auto const &t) { return t == var; });
     }
 
     bool nielsen_graph::apply_det_modifier(nielsen_node* node) {
@@ -1597,7 +1532,7 @@ namespace seq {
                     if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                         ++prefix;
                     }
-                    else if (lt->is_char() && rt->is_char() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
+                    else if (lt->is_char_or_unit() && rt->is_char_or_unit() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
                         break;
                     }
                     else if (lt->is_char_or_unit() && rt->is_char_or_unit()) {
@@ -1637,7 +1572,7 @@ namespace seq {
                     euf::snode* rt = rhs_toks[rsz - 1 - suffix];
                     if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                         ++suffix;
-                    } else if (lt->is_char() && rt->is_char() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
+                    } else if (lt->is_char_or_unit() && rt->is_char_or_unit() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
                         break;
                     }
                     else if (lt->is_char_or_unit() && rt->is_char_or_unit()) {

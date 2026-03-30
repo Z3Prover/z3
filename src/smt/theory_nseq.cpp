@@ -537,6 +537,14 @@ namespace smt {
             return FC_DONE;
         }
 
+        // All literals that were needed to build a model could be assigned to true.
+        // There is an existing nielsen graph with a satisfying assignment.
+        if (!m_nielsen_literals.empty() && 
+            all_of(m_nielsen_literals, [&](auto lit) { return l_true == ctx.get_assignment(lit); })) {
+            IF_VERBOSE(1, verbose_stream() << "nseq final_check: satifiable state revisited\n");
+            return FC_DONE;
+        }
+
         // unfold higher-order terms when sequence structure is known
         if (unfold_ho_terms()) {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: unfolded ho_terms, FC_CONTINUE\n";);
@@ -625,12 +633,20 @@ namespace smt {
     }
 
 
-    bool theory_nseq::add_nielsen_assumptions() {
-        // return true;
+    bool theory_nseq::add_nielsen_assumptions() {        
         bool has_undef = false;
-        bool has_false = false;
+        m_nielsen_literals.reset();
+        struct reset_vector : public trail {
+            sat::literal_vector &v;
+            reset_vector(sat::literal_vector &v) : v(v) {}
+            void undo() override {
+                v.reset();
+            }
+        };
+        ctx.push_trail(reset_vector(m_nielsen_literals));
         for (auto const& c : m_nielsen.sat_node()->constraints()) {
             auto lit = mk_literal(c.fml);
+            m_nielsen_literals.push_back(lit);
             switch (ctx.get_assignment(lit)) { 
             case l_true: 
                 break;
@@ -642,8 +658,7 @@ namespace smt {
                 TRACE(seq, tout << "assign: " << c.fml << "\n");
                 break;
             case l_false: 
-                // do we really expect this to happen?
-                has_false = true; 
+                // this should not happen because nielsen checks for this before returning a satisfying path.
                 IF_VERBOSE(0, verbose_stream()
                                   << "nseq final_check: nielsen assumption " << c.fml << " is false\n";);
                 ctx.force_phase(lit);
@@ -654,11 +669,6 @@ namespace smt {
         }
         if (has_undef)
             return false;
-        if (has_false) {
-            IF_VERBOSE(0, verbose_stream() << "has false\n");
-            // fishy case.
-            return false;
-        }
         return true;
     }
 
