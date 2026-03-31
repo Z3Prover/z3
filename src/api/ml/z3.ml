@@ -587,6 +587,12 @@ struct
   let mk_eq = Z3native.mk_eq
   let mk_distinct ctx args = Z3native.mk_distinct ctx (List.length args) args
 
+  let mk_atmost ctx args k = Z3native.mk_atmost ctx (List.length args) args k
+  let mk_atleast ctx args k = Z3native.mk_atleast ctx (List.length args) args k
+  let mk_pble ctx args coeffs k = Z3native.mk_pble ctx (List.length args) args coeffs k
+  let mk_pbge ctx args coeffs k = Z3native.mk_pbge ctx (List.length args) args coeffs k
+  let mk_pbeq ctx args coeffs k = Z3native.mk_pbeq ctx (List.length args) args coeffs k
+
   let get_bool_value x = lbool_of_int (Z3native.get_bool_value (gc x) x)
 
   let is_bool x =
