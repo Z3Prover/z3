@@ -31,7 +31,8 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buildcvarsall.bat" x64
-          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%esources\z3.snk --assembly-version=%INPUT_VERSION% --zip
+          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%
+esources\z3.snk --assembly-version=%INPUT_VERSION% --zip
       
         env:
           INPUT_VERSION: ${{ github.event.inputs.version || '4.17.0' }}
@@ -57,7 +58,8 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buildcvarsall.bat" x86
-          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%esources\z3.snk --assembly-version=%INPUT_VERSION% --zip
+          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%
+esources\z3.snk --assembly-version=%INPUT_VERSION% --zip
       
         env:
           INPUT_VERSION: ${{ github.event.inputs.version || '4.17.0' }}
@@ -83,7 +85,8 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buildcvarsall.bat" amd64_arm64
-          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%esources\z3.snk --assembly-version=%INPUT_VERSION% --zip
+          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%
+esources\z3.snk --assembly-version=%INPUT_VERSION% --zip
       
         env:
           INPUT_VERSION: ${{ github.event.inputs.version || '4.17.0' }}
@@ -187,7 +190,7 @@ jobs:
           ls -la package-files/
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@d105a947828025cd7a980103c35ba2bfae586d0f # v2
+        uses: nuget/setup-nuget@v3
         with:
           nuget-version: 'latest'
       
@@ -239,7 +242,7 @@ jobs:
         run: find packages -type f
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@d105a947828025cd7a980103c35ba2bfae586d0f # v2
+        uses: nuget/setup-nuget@v3
         with:
           nuget-version: 'latest'
       

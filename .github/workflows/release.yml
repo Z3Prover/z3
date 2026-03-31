@@ -438,7 +438,8 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buildcvarsall.bat" x64
-          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%esources\z3.snk --zip
+          python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%
+esources\z3.snk --zip
       
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -464,7 +465,8 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buildcvarsall.bat" x86
-          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%esources\z3.snk --zip
+          python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%
+esources\z3.snk --zip
       
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -490,7 +492,8 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Buildcvarsall.bat" amd64_arm64
-          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%esources\z3.snk --assembly-version=${{ env.RELEASE_VERSION }} --zip
+          python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%
+esources\z3.snk --assembly-version=${{ env.RELEASE_VERSION }} --zip
       
       - name: Upload artifact
         uses: actions/upload-artifact@v7
@@ -553,7 +556,7 @@ jobs:
           path: package
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@d105a947828025cd7a980103c35ba2bfae586d0f # v2
+        uses: nuget/setup-nuget@v3
         with:
           nuget-version: 'latest'
       
@@ -600,7 +603,7 @@ jobs:
           path: package
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@d105a947828025cd7a980103c35ba2bfae586d0f # v2
+        uses: nuget/setup-nuget@v3
         with:
           nuget-version: 'latest'
       
@@ -822,7 +825,7 @@ jobs:
           path: packages
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@d105a947828025cd7a980103c35ba2bfae586d0f # v2
+        uses: nuget/setup-nuget@v3
         with:
           nuget-version: 'latest'
       
