@@ -5789,7 +5789,7 @@ def CreatePolymorphicDatatype(d, type_params):
             fnames[k] = to_symbol(fname, ctx)
             if isinstance(ftype, Datatype):
                 if z3_debug():
-                    _z3_assert(ftype is d, "Only self-recursive references are supported in polymorphic datatypes")
+                    _z3_assert(ftype is d, "Only self-recursive references are supported in polymorphic datatypes. Use CreateDatatypes for mutually recursive datatypes.")
                 sorts[k] = None
                 refs[k] = 0
             else:
