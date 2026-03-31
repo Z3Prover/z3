@@ -27,7 +27,7 @@ public:
     _scoped_numeral_vector(Manager & m):m_manager(m) {}
 
     _scoped_numeral_vector(const _scoped_numeral_vector & other) : m_manager(other.m_manager) {
-        for (unsigned i = 0; i < other.size(); ++i) {
+        for (unsigned i = 0, e = other.size(); i != e; ++i) {
             push_back(other[i]);
         }
     }
