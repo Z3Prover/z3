@@ -2234,7 +2234,11 @@ namespace seq {
         if (apply_const_nielsen(node))
             return ++m_stats.m_mod_const_nielsen, true;
 
-        // Priority 9: SignatureSplit - heuristic string equation splitting
+        // Priority 9: RegexUnitSplit - split str_mem c·s ∈ R by minterms of R
+        if (apply_regex_unit_split(node))
+            return ++m_stats.m_mod_regex_unit_split, true;
+
+        // Priority 9b: SignatureSplit - heuristic string equation splitting
         if (m_signature_split && apply_signature_split(node))
             return ++m_stats.m_mod_signature_split, true;
 
@@ -3112,6 +3116,66 @@ namespace seq {
         }
         return false;
     }
+    // -----------------------------------------------------------------------
+    // Modifier: apply_regex_unit_split (RegexCharSplitModifier)
+    // For str_mem c·s ∈ R where c is a symbolic unit token (seq.unit(?c)),
+    // branch over minterms of R: for each minterm m_i with non-fail derivative,
+    // create a child that constrains ?c to the character class of m_i.
+    // Unlike apply_regex_var_split, no substitution and no epsilon branch.
+    // After the constraint is added, simplify_and_init will consume c
+    // deterministically via the uniform derivative check.
+    // mirrors ZIPT's RegexCharSplitModifier
+    // -----------------------------------------------------------------------
+
+    bool nielsen_graph::apply_regex_unit_split(nielsen_node* node) {
+        for (str_mem const& mem : node->str_mems()) {
+            SASSERT(mem.m_str && mem.m_regex);
+            if (mem.is_primitive())
+                continue;
+            euf::snode* first = mem.m_str->first();
+            if (!first || !first->is_unit())
+                continue;
+
+            // Compute minterms of the regex
+            euf::snode_vector minterms;
+            m_sg.compute_minterms(mem.m_regex, minterms);
+            VERIFY(!minterms.empty());
+
+            // Get the current char_range for this token, fall back to full
+            char_set const& existing =
+                node->char_ranges().contains(first->id())
+                ? node->char_ranges()[first->id()]
+                : char_set::full(zstring::max_char());
+
+            bool created = false;
+            for (euf::snode* mt : minterms) {
+                SASSERT(mt && mt->get_expr());
+                SASSERT(!mt->is_fail());
+
+                char_set mt_cs = m_seq_regex->minterm_to_char_set(mt->get_expr());
+                // skip minterm if it doesn't overlap with the existing range
+                if (existing.intersect_with(mt_cs).is_empty())
+                    continue;
+
+                // skip if the regex derivative is empty for this minterm
+                euf::snode* deriv = m_sg.brzozowski_deriv(mem.m_regex, mt);
+                SASSERT(deriv);
+                if (deriv->is_fail())
+                    continue;
+
+                // create a child and narrow the char_range for this token
+                nielsen_node* child = mk_child(node);
+                mk_edge(node, child, false);
+                child->add_char_range(first, mt_cs);
+                created = true;
+            }
+
+            if (created)
+                return true;
+        }
+        return false;
+    }
+
     // -----------------------------------------------------------------------
     // Modifier: apply_regex_var_split
     // For str_mem x·s ∈ R where x is a variable, split using minterms:
@@ -4050,6 +4114,7 @@ namespace seq {
         st.update("nseq mod star intr",        m_stats.m_mod_star_intr);
         st.update("nseq mod gpower intr",      m_stats.m_mod_gpower_intr);
         st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);
+        st.update("nseq mod regex unit",       m_stats.m_mod_regex_unit_split);
         st.update("nseq mod signature split",  m_stats.m_mod_signature_split);
         st.update("nseq mod regex var",        m_stats.m_mod_regex_var_split);
         st.update("nseq mod power split",      m_stats.m_mod_power_split);

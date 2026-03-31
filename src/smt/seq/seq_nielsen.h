@@ -186,6 +186,7 @@ Abstract:
       GPowerIntrModifier(7), ConstNielsenModifier(8), RegexCharSplitModifier(9),
       RegexVarSplitModifier(10), PowerSplitModifier(11), VarNielsenModifier(12),
       VarNumUnwindingModifier(13).
+    - Z3-specific heuristic inserted between (9) and (10): SignatureSplit.
     - NOT PORTED: DirectedNielsenModifier, DecomposeModifier, CombinedModifier.
     - NumCmp, ConstNumUnwinding, VarNumUnwinding are approximated (no PDD
       integer polynomial infrastructure; power tokens are replaced with ε

@@ -684,11 +684,75 @@ static void test_tricky_str_equations() {
     std::cout << "  ok\n";
 }
 
+// -----------------------------------------------------------------------
+// Symbolic unit token in regex membership (RegexCharSplitModifier)
+// Verifies apply_regex_unit_split: when the first token of a str_mem is
+// a seq.unit(?c) with no initial char_range, the modifier must branch
+// over regex minterms and constrain ?c.
+// -----------------------------------------------------------------------
+static void test_regex_unit_split() {
+    std::cout << "test_regex_unit_split\n";
+
+    // ?c · "hhh" · X ∈ hhhbbb|bhhh — SAT (?c='b', X="")
+    {
+        nseq_fixture f;
+        sort* cs = f.su.mk_char_sort();
+        expr_ref fc(f.m.mk_fresh_const("?c", cs), f.m);
+        expr_ref unit_e(f.su.str.mk_unit(fc), f.m);
+        euf::snode* u = f.sg.mk(unit_e);
+        euf::snode* X = f.sb.var('X');
+        euf::snode* str = f.sg.mk_concat(u,
+                          f.sg.mk_concat(f.sg.mk_char('h'),
+                          f.sg.mk_concat(f.sg.mk_char('h'),
+                          f.sg.mk_concat(f.sg.mk_char('h'), X))));
+        euf::snode* re = f.rb.parse("hhhbbb|bhhh");
+        f.ng.add_str_mem(str, re);
+        VERIFY(f.ng.solve() == seq::nielsen_graph::search_result::sat);
+    }
+
+    // ?c · "hhh" · X ∉ h(aa)* — UNSAT
+    // 'h'-branch: "hhh" · X ∈ (aa)*, but 'h' ≠ 'a'
+    // all other branches: D(h(aa)*, non-h) = fail
+    {
+        nseq_fixture f;
+        sort* cs = f.su.mk_char_sort();
+        expr_ref fc(f.m.mk_fresh_const("?c", cs), f.m);
+        expr_ref unit_e(f.su.str.mk_unit(fc), f.m);
+        euf::snode* u = f.sg.mk(unit_e);
+        euf::snode* X = f.sb.var('X');
+        euf::snode* str = f.sg.mk_concat(u,
+                          f.sg.mk_concat(f.sg.mk_char('h'),
+                          f.sg.mk_concat(f.sg.mk_char('h'),
+                          f.sg.mk_concat(f.sg.mk_char('h'), X))));
+        euf::snode* re = f.rb.parse("h(aa)*");
+        f.ng.add_str_mem(str, re);
+        VERIFY(f.ng.solve() == seq::nielsen_graph::search_result::unsat);
+    }
+
+    // ?c · X ∈ (a|b)* — SAT (unit split branches on {a,b,others};
+    // 'a'- and 'b'-branches give X ∈ (a|b)*, trivially SAT)
+    {
+        nseq_fixture f;
+        sort* cs = f.su.mk_char_sort();
+        expr_ref fc(f.m.mk_fresh_const("?c", cs), f.m);
+        expr_ref unit_e(f.su.str.mk_unit(fc), f.m);
+        euf::snode* u = f.sg.mk(unit_e);
+        euf::snode* X = f.sb.var('X');
+        euf::snode* str = f.sg.mk_concat(u, X);
+        euf::snode* re = f.rb.parse("(a|b)*");
+        f.ng.add_str_mem(str, re);
+        VERIFY(f.ng.solve() == seq::nielsen_graph::search_result::sat);
+    }
+
+    std::cout << "  ok\n";
+}
+
 void tst_nseq_zipt() {
     test_zipt_str_equations();
     test_tricky_str_equations();
     test_zipt_regex_ground();
     test_zipt_str_membership();
     test_zipt_parikh();
+    test_regex_unit_split();
     std::cout << "nseq_zipt: all tests passed\n";
 }
