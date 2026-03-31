@@ -32,6 +32,7 @@ NSB review:
 #include "ast/ast_pp.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/seq_skolem.h"
 #include "sat/smt/arith_solver.h"
 #include "util/hashtable.h"
 #include "util/statistics.h"
@@ -883,7 +884,7 @@ namespace seq {
                         if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                             ++prefix;
                         }
-                        else if (lt->is_char_or_unit() && rt->is_char_or_unit() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
+                        else if (sg.are_unit_distinct(lt, rt)) {
                             m_is_general_conflict = true;
                             m_reason = backtrack_reason::symbol_clash;
                             return simplify_result::conflict;
@@ -1532,7 +1533,7 @@ namespace seq {
                     if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                         ++prefix;
                     }
-                    else if (lt->is_char_or_unit() && rt->is_char_or_unit() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
+                    else if (m_sg.are_unit_distinct(lt, rt)) {
                         break;
                     }
                     else if (lt->is_char_or_unit() && rt->is_char_or_unit()) {
@@ -1572,7 +1573,8 @@ namespace seq {
                     euf::snode* rt = rhs_toks[rsz - 1 - suffix];
                     if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                         ++suffix;
-                    } else if (lt->is_char_or_unit() && rt->is_char_or_unit() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
+                    }
+                    else if (m_sg.are_unit_distinct(lt, rt)) {
                         break;
                     }
                     else if (lt->is_char_or_unit() && rt->is_char_or_unit()) {
@@ -1790,11 +1792,11 @@ namespace seq {
                 var = r;
                 def = l;
             }
-            else if (l->is_unit() && l->arg(0)->is_var() && m_seq.str.is_unit(r->get_expr())) {
+            else if (l->is_unit() && l->arg(0)->is_var() && r->is_char_or_unit()) {
                 var = l->arg(0);
                 def = r->arg(0);
             }
-            else if (r->is_unit() && r->arg(0)->is_var() && m_seq.str.is_unit(l->get_expr())) {
+            else if (r->is_unit() && r->arg(0)->is_var() && r->is_char_or_unit()) {
                 var = r->arg(0);
                 def = l->arg(0);
             }
@@ -1826,8 +1828,7 @@ namespace seq {
                     continue;
 
                 // char vs var: branch 1: var -> ε, branch 2: var -> char·var   (depending on direction)
-                // NSB review: add also case var -> unit·var
-                euf::snode* char_head = (lhead->is_char() || lhead->is_unit()) ? lhead : ((rhead->is_char() || rhead->is_unit()) ? rhead : nullptr);
+                euf::snode* char_head = lhead->is_char_or_unit() ? lhead : (rhead->is_char_or_unit() ? rhead : nullptr);
                 euf::snode* var_head = lhead->is_var() ? lhead : (rhead->is_var() ? rhead : nullptr);
                 if (char_head && var_head) {
                     nielsen_node* child = mk_child(node);
@@ -1913,7 +1914,7 @@ namespace seq {
 
     bool nielsen_graph::token_has_variable_length(euf::snode* tok) const {
         // Chars and units have known constant length 1.
-        if (tok->is_char() || tok->is_unit())
+        if (tok->is_char_or_unit())
             return false;
         // Variables and powers have symbolic/unknown length.
         if (tok->is_var() || tok->is_power())
@@ -1930,7 +1931,7 @@ namespace seq {
     }
 
     unsigned nielsen_graph::token_const_length(euf::snode* tok) const {
-        if (tok->is_char() || tok->is_unit())
+        if (tok->is_char_or_unit())
             return 1;
         if (tok->get_expr()) {
             seq_util& seq = m_sg.get_seq_util();
@@ -2088,8 +2089,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_eq_split(nielsen_node* node) {
-        ast_manager& m = m_sg.get_manager();
-        seq_util& seq = m_sg.get_seq_util();
         arith_util arith(m);
 
         for (unsigned eq_idx = 0; eq_idx < node->str_eqs().size(); ++eq_idx) {
@@ -2156,7 +2155,7 @@ namespace seq {
             // Int constraints on the edge.
             // 1) len(pad) = |padding|  (if padding variable was created)
             if (pad && pad->get_expr()) {
-                expr_ref len_pad(seq.str.mk_length(pad->get_expr()), m);
+                expr_ref len_pad(m_seq.str.mk_length(pad->get_expr()), m);
                 expr_ref abs_pad(arith.mk_int(std::abs(padding)), m);
                 e->add_side_constraint(mk_constraint(m.mk_eq(len_pad, abs_pad), eq.m_dep));
             }
@@ -2188,11 +2187,9 @@ namespace seq {
     euf::snode* nielsen_graph::mk_fresh_char_var() {
         ++m_stats.m_num_fresh_vars;
         std::string name = "?c!" + std::to_string(m_fresh_cnt++);
-        seq_util& seq = m_sg.get_seq_util();
-        ast_manager& m = m_sg.get_manager();
-        sort* char_sort = seq.mk_char_sort();
+        sort* char_sort = m_seq.mk_char_sort();
         expr_ref fresh_const(m.mk_fresh_const(name.c_str(), char_sort), m);
-        expr_ref unit(seq.str.mk_unit(fresh_const), m);
+        expr_ref unit(m_seq.str.mk_unit(fresh_const), m);
         return m_sg.mk(unit);
     }
 
@@ -2524,7 +2521,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_split_power_elim(nielsen_node* node) {
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
         seq_util& seq = this->seq();
 
@@ -2661,17 +2657,19 @@ namespace seq {
         // Look for a str_mem with a variable-headed string
         for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
             str_mem const& mem = node->str_mems()[mi];
-            if (!mem.m_str || !mem.m_regex) continue;
-            if (mem.is_primitive()) continue;
+            if (!mem.m_str || !mem.m_regex) 
+                continue;
+            if (mem.is_primitive()) 
+                continue;
             euf::snode* first = mem.m_str->first();
-            if (!first || !first->is_var()) continue;
+            if (!first || !first->is_var()) 
+                continue;
 
             euf::snode* x = first;
-            seq_util& seq = m_sg.get_seq_util();
-            ast_manager& mgr = m_sg.get_manager();
             expr* re_expr = mem.m_regex->get_expr();
             if (!re_expr)
                 continue;
+            expr *str_expr = mem.m_str->get_expr();
 
             // Determine the stabilizer base:
             // 1. If self-stabilizing, use regex itself as stabilizer
@@ -2687,6 +2685,7 @@ namespace seq {
             if (!stab_base)
                 // Fall back: simple star of the cycle regex
                 stab_base = mem.m_regex;
+            SASSERT(stab_base);
 
             // Register the stabilizer
             if (m_seq_regex)
@@ -2700,7 +2699,7 @@ namespace seq {
             expr* stab_expr = stab_base->get_expr();
             if (!stab_expr)
                 continue;
-            expr_ref star_re(seq.re.mk_star(stab_expr), mgr);
+            expr_ref star_re(m_seq.re.mk_star(stab_expr), m);
             euf::snode* star_sn = m_sg.mk(star_re);
             if (!star_sn)
                 continue;
@@ -2710,8 +2709,12 @@ namespace seq {
                 continue;
 
             // Create child: x → pr · po
-            euf::snode* pr = mk_fresh_var(mem.m_str->get_sort());
-            euf::snode* po = mk_fresh_var(mem.m_str->get_sort());
+            
+            th_rewriter rw(m);
+            auto pr_e = skolem(m, rw).mk("star-intro-left", str_expr, re_expr, str_expr->get_sort());
+            auto po_e = skolem(m, rw).mk("star-intro-right", str_expr, re_expr, str_expr->get_sort());
+            euf::snode *pr = m_sg.mk(pr_e);
+            euf::snode *po = m_sg.mk(po_e);
             euf::snode* str_tail = m_sg.drop_first(mem.m_str);
 
             nielsen_node* child = mk_child(node);
@@ -2727,10 +2730,10 @@ namespace seq {
             // po ∈ complement(non_nullable(stab_base) · Σ*)
             // This prevents redundant unrolling.
             if (!stab_base->is_nullable()) {
-                sort* str_sort = seq.str.mk_string_sort();
-                expr_ref full_seq(seq.re.mk_full_seq(seq.re.mk_re(str_sort)), mgr);
-                expr_ref base_then_all(seq.re.mk_concat(stab_expr, full_seq), mgr);
-                expr_ref block_re(seq.re.mk_complement(base_then_all), mgr);
+                sort* str_sort = m_seq.str.mk_string_sort();
+                expr_ref full_seq(m_seq.re.mk_full_seq(m_seq.re.mk_re(str_sort)), m);
+                expr_ref base_then_all(m_seq.re.mk_concat(stab_expr, full_seq), m);
+                expr_ref block_re(m_seq.re.mk_complement(base_then_all), m);
                 euf::snode* block_sn = m_sg.mk(block_re);
                 if (block_sn)
                     child->add_str_mem(str_mem(po, block_sn, nullptr, next_mem_id(), mem.m_dep));
@@ -3081,9 +3084,9 @@ namespace seq {
             euf::snode* u2 = m_sg.drop_left(eq.m_lhs, i);
             euf::snode* v1 = m_sg.drop_right(eq.m_rhs, rhs_toks.size() - j);
             euf::snode* v2 = m_sg.drop_left(eq.m_rhs, j);
-            euf::snode* x = mk_fresh_var(eq.m_lhs->get_sort());
-            // TODO: x = m_sk.mk(symbol("signature-split"), 
-            //                   eq.m_lhs->get_expr(), eq.m_rhs->get_expr(), eq.m_lhs->get_sort());
+            th_rewriter rw(m);
+            auto x_e = skolem(m, rw).mk("signature-split", eq.m_lhs->get_expr(), eq.m_rhs->get_expr(), eq.m_lhs->get_sort());
+            euf::snode *x = m_sg.mk(x_e);
 
             for (unsigned branch = 0; branch < 2; ++branch) {
                 nielsen_node* child = mk_child(node);

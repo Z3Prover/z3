@@ -124,6 +124,9 @@ namespace euf {
 
         sort* get_str_sort() const { return m_str_sort; }
 
+        // return true if a, b are of the same length and distinct
+        bool are_unit_distinct(snode *a, snode *b) const;
+
         // factory methods for creating snodes with corresponding expressions
         snode* mk_var(symbol const& name, sort* s);
         snode* mk_char(unsigned ch);

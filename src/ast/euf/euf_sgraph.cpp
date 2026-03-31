@@ -580,6 +580,10 @@ namespace euf {
         return mk(result);
     }
 
+    bool sgraph::are_unit_distinct(snode* a, snode* b) const {
+        return a->is_char_or_unit() && b->is_char_or_unit() && m.are_distinct(a->get_expr(), b->get_expr());
+    }
+
     void sgraph::collect_re_predicates(snode* re, expr_ref_vector& preds) {
         if (!re)
             return;
