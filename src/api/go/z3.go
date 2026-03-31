@@ -815,6 +815,33 @@ func (c *Context) MkLambdaConst(bound []*Expr, body *Expr) *Lambda {
 	return newLambda(c, ptr)
 }
 
+// SetGlobalParam sets a global Z3 parameter.
+func SetGlobalParam(id, value string) {
+	cID := C.CString(id)
+	cValue := C.CString(value)
+	defer C.free(unsafe.Pointer(cID))
+	defer C.free(unsafe.Pointer(cValue))
+	C.Z3_global_param_set(cID, cValue)
+}
+
+// GetGlobalParam retrieves the value of a global Z3 parameter.
+// Returns the value and true if the parameter exists, or empty string and false otherwise.
+func GetGlobalParam(id string) (string, bool) {
+	cID := C.CString(id)
+	defer C.free(unsafe.Pointer(cID))
+	var cValue C.Z3_string
+	ok := C.Z3_global_param_get(cID, &cValue)
+	if ok == C.bool(false) {
+		return "", false
+	}
+	return C.GoString(cValue), true
+}
+
+// ResetAllGlobalParams resets all global Z3 parameters to their default values.
+func ResetAllGlobalParams() {
+	C.Z3_global_param_reset_all()
+}
+
 // astVectorToExprs converts a Z3_ast_vector to a slice of Expr.
 // This function properly manages the reference count of the vector by
 // incrementing it on entry and decrementing it on exit.
