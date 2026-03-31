@@ -30,12 +30,10 @@ NSB review:
 #include "smt/seq/seq_regex.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
-#include "ast/ast_util.h"
-#include "ast/for_each_expr.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/seq_skolem.h"
-#include "ast/rewriter/expr_safe_replace.h"
 #include "sat/smt/arith_solver.h"
 #include "util/hashtable.h"
 #include "util/statistics.h"
@@ -3121,22 +3119,21 @@ namespace seq {
     }
     // -----------------------------------------------------------------------
     // Modifier: apply_regex_unit_split (RegexCharSplitModifier)
-    // For str_mem c·s ∈ R where c is a symbolic unit token (seq.unit(?inner)):
-    //   1. Take the derivative of R w.r.t. ?inner (using seq_rewriter::mk_derivative).
-    //      This produces an ite-based expression with conditions on ?inner.
-    //   2. Simplify via th_rewriter.
-    //   3. Extract co-factors, i.e., (cond_i, d_i) pairs by case-splitting
-    //      on each ite condition. Mirrors seq_regex::get_cofactors.
-    //   4. For each non-empty co-factor:
-    //      - Create a child where str_mem.str drops c and str_mem.regex = d_i.
-    //      - Add char_range(?inner, char_set_from_cond_i) to prune the branch.
-    // Unlike apply_regex_var_split, no substitution and no epsilon branch.
+    // For str_mem c·s ∈ R where c is a symbolic unit token seq.unit(?inner):
+    //   1. Take derivative of R w.r.t. ?inner → ite expression with conditions
+    //      on ?inner.
+    //   2. Decompose via bool_rewriter::decompose_ite in a worklist loop,
+    //      accumulating a char_set for each path through the ite tree.
+    //   3. If the ite condition c simplifies to true or false after substituting
+    //      ?inner, take only the matching branch without extra constraints.
+    //   4. For each leaf, create a child where str_mem.str drops c,
+    //      str_mem.regex = derivative at that leaf, and char_range(?inner, cs).
     // mirrors ZIPT's RegexCharSplitModifier
     // -----------------------------------------------------------------------
 
-    // Parse a boolean condition on a char element into a char_set.
-    // Handles: true, false, eq(elem, lit), char_le, char_const_range,
-    // and, or, not. Returns full set on unrecognised conditions (sound).
+    // Convert a boolean condition on a char element into a char_set.
+    // Handles: true, false, is_char_const_range, and, or, not.
+    // Returns full set on unrecognised conditions, sound overapproximation.
     static char_set cond_to_char_set(ast_manager& m, seq_util& seq,
                                      expr* cond, expr* elem) {
         unsigned lo, hi;
@@ -3160,50 +3157,8 @@ namespace seq {
         }
         if (m.is_not(cond, e1))
             return cond_to_char_set(m, seq, e1, elem).complement(seq.max_char());
-        // fallback: full set (sound overapproximation)
+        // fallback: full set, sound overapproximation
         return char_set::full(seq.max_char());
-    }
-
-    // Split a derivative expression d into (condition, derivative) co-factors
-    // by expanding all ite-branches. Mirrors seq_regex::get_cofactors.
-    static void get_cofactors(ast_manager& m, seq_util& seq,
-                              expr* d, expr_ref_pair_vector& result) {
-        obj_hashtable<expr> ifs;
-        expr *cond_e = nullptr, *r1 = nullptr, *r2 = nullptr;
-        for (expr* e : subterms::ground(expr_ref(d, m)))
-            if (m.is_ite(e, cond_e, r1, r2))
-                ifs.insert(cond_e);
-
-        expr_ref_vector rs(m);
-        vector<expr_ref_vector> conds;
-        conds.push_back(expr_ref_vector(m));
-        rs.push_back(d);
-        for (expr* c : ifs) {
-            unsigned sz = conds.size();
-            expr_safe_replace rep_true(m), rep_false(m);
-            rep_true.insert(c, m.mk_true());
-            rep_false.insert(c, m.mk_false());
-            expr_ref tmp(m);
-            for (unsigned i = 0; i < sz; ++i) {
-                expr_ref_vector cs = conds[i];
-                cs.push_back(m.mk_not(c));
-                conds.push_back(cs);
-                conds[i].push_back(c);
-                expr_ref ri(rs.get(i), m);
-                rep_true(ri, tmp);
-                rs[i] = tmp;
-                rep_false(ri, tmp);
-                rs.push_back(tmp);
-            }
-        }
-        th_rewriter rw(m);
-        for (unsigned i = 0; i < conds.size(); ++i) {
-            expr_ref conj = mk_and(conds[i]);
-            expr_ref r(rs.get(i), m);
-            rw(r);
-            if (!m.is_false(conj) && !seq.re.is_empty(r))
-                result.push_back(conj, r);
-        }
     }
 
     bool nielsen_graph::apply_regex_unit_split(nielsen_node* node) {
@@ -3224,20 +3179,15 @@ namespace seq {
             if (!seq.str.is_unit(unit_expr, inner_char))
                 continue;
 
-            // Compute derivative of regex w.r.t. inner_char.
-            // mk_derivative first takes derivative w.r.t. :var 0, then
-            // substitutes inner_char for :var 0. This gives an ite expression
-            // with conditions on inner_char.
+            // Take derivative of R w.r.t. :var 0 (canonical, cached), then
+            // substitute inner_char for :var 0. Resulting ite conditions are
+            // on inner_char.
             seq_rewriter rw(m);
-            expr_ref d(rw.mk_derivative(inner_char, mem.m_regex->get_expr()), m);
+            expr_ref d(rw.mk_derivative(mem.m_regex->get_expr()), m);
             if (!d)
                 continue;
-
-            // Extract co-factors (cond_i, d_i): split the ite tree
-            expr_ref_pair_vector cofactors(m);
-            get_cofactors(m, seq, d, cofactors);
-            if (cofactors.empty())
-                continue;
+            var_subst vs(m);
+            d = vs(d, inner_char);
 
             // Get existing char_range for this unit, fall back to full
             char_set const& existing =
@@ -3248,34 +3198,68 @@ namespace seq {
             euf::snode* rest = m_sg.drop_first(mem.m_str);
             bool created = false;
 
-            for (auto const& [cond_expr, deriv_expr] : cofactors) {
-                // Convert condition to char_set and intersect with existing range
-                char_set cs = cond_to_char_set(m, seq, cond_expr, inner_char);
-                cs = cs.intersect_with(existing);
-                if (cs.is_empty())
+            // Worklist: (regex_expr, accumulated_char_set).
+            // Call decompose_ite in a loop until no more ite sub-expressions,
+            // branching on c=true and c=false and accumulating char constraints.
+            vector<std::pair<expr_ref, char_set>> worklist;
+            worklist.push_back({d, existing.clone()});
+
+            while (!worklist.empty()) {
+                auto [r, cs] = std::move(worklist.back());
+                worklist.pop_back();
+
+                if (seq.re.is_empty(r))
                     continue;
 
-                euf::snode* deriv_snode = m_sg.mk(expr_ref(deriv_expr, m));
-                if (!deriv_snode)
+                expr_ref c(m), th(m), el(m);
+                if (!bool_rewriter(m).decompose_ite(r, c, th, el)) {
+                    // No ite remaining: leaf → create child node
+                    if (cs.is_empty())
+                        continue;
+                    euf::snode* deriv_snode = m_sg.mk(expr_ref(r, m));
+                    if (!deriv_snode)
+                        continue;
+                    nielsen_node* child = mk_child(node);
+                    mk_edge(node, child, true);
+                    for (str_mem& cm : child->str_mems())
+                        if (cm.m_id == mem.m_id) {
+                            cm.m_str = rest;
+                            cm.m_regex = deriv_snode;
+                            break;
+                        }
+                    if (!cs.is_full(seq.max_char()))
+                        child->add_char_range(first, cs);
+                    created = true;
                     continue;
-
-                // Create a child: consume first unit, advance regex to d_i
-                nielsen_node* child = mk_child(node);
-                mk_edge(node, child, true);  // consuming a char is progress
-
-                // Update the matching str_mem in the child
-                for (str_mem& cm : child->str_mems()) {
-                    if (cm.m_id == mem.m_id) {
-                        cm.m_str = rest;
-                        cm.m_regex = deriv_snode;
-                        break;
-                    }
                 }
 
-                // Narrow char_range for this unit token in the child
-                if (!cs.is_full(seq.max_char()))
-                    child->add_char_range(first, cs);
-                created = true;
+                // Substitute inner_char into condition and simplify
+                th_rewriter tr(m);
+                expr_ref c_simp(c, m);
+                tr(c_simp);
+
+                if (m.is_true(c_simp)) {
+                    // Condition is always satisfied: only then-branch
+                    if (!seq.re.is_empty(th))
+                        worklist.push_back({th, std::move(cs)});
+                } else if (m.is_false(c_simp)) {
+                    // Condition is never satisfied: only else-branch
+                    if (!seq.re.is_empty(el))
+                        worklist.push_back({el, std::move(cs)});
+                } else {
+                    // Branch on c=true and c=false, accumulate char constraints
+                    char_set cs_true =
+                        cond_to_char_set(m, seq, c_simp, inner_char).intersect_with(cs);
+                    if (!cs_true.is_empty() && !seq.re.is_empty(th))
+                        worklist.push_back({th, std::move(cs_true)});
+
+                    char_set cs_false =
+                        cond_to_char_set(m, seq, c_simp, inner_char)
+                            .complement(seq.max_char())
+                            .intersect_with(cs);
+                    if (!cs_false.is_empty() && !seq.re.is_empty(el))
+                        worklist.push_back({el, std::move(cs_false)});
+                }
             }
 
             if (created)
