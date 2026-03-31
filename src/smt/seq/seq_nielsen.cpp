@@ -394,7 +394,8 @@ namespace seq {
         m_solver(solver),
         m_parikh(alloc(seq_parikh, sg)),
         m_seq_regex(alloc(seq::seq_regex, sg)),
-        m_len_vars(sg.get_manager()) {
+        m_len_vars(sg.get_manager()),
+        m_gpower_vars(sg.get_manager()) {
     }
 
     nielsen_graph::~nielsen_graph() {
@@ -489,6 +490,10 @@ namespace seq {
         m_mod_cnt.reset();
         m_len_var_cache.clear();
         m_len_vars.reset();
+        m_char_var_cache.clear();
+        m_gpower_n_var_cache.clear();
+        m_gpower_m_var_cache.clear();
+        m_gpower_vars.reset();
         m_dep_mgr.reset();
         m_solver.reset();
     }
@@ -2886,8 +2891,11 @@ namespace seq {
                 base_str = seq.str.mk_concat(tok_expr, base_str);
         }
 
+        unsigned mc = 0;
+        m_mod_cnt.find(var->id(), mc);
+
         // Create fresh exponent variable and power expression: base^n
-        expr_ref fresh_n = mk_fresh_int_var();
+        expr_ref fresh_n = get_or_create_gpower_n_var(var, mc);
         expr_ref power_expr(seq.str.mk_power(base_str, fresh_n), m);
         euf::snode* power_snode = m_sg.mk(power_expr);
         if (!power_snode)
@@ -2922,7 +2930,7 @@ namespace seq {
                 expr* inner_exp = get_power_exponent(tok);
                 expr* inner_base = get_power_base_expr(tok, seq);
                 if (inner_exp && inner_base) {
-                    fresh_m = mk_fresh_int_var();
+                    fresh_m = get_or_create_gpower_m_var(var, mc);
                     expr_ref partial_pow(seq.str.mk_power(inner_base, fresh_m), m);
                     euf::snode* partial_sn = m_sg.mk(partial_pow);
                     euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
@@ -3178,8 +3186,11 @@ namespace seq {
                     expr_ref char_expr(m_sg.get_seq_util().str.mk_string(zstring(cs.first_char())), m_sg.get_manager());
                     fresh_char = m_sg.mk(char_expr);
                 }
-                else
-                    fresh_char = mk_fresh_char_var();
+                else {
+                    unsigned mc = 0;
+                    m_mod_cnt.find(first->id(), mc);
+                    fresh_char = get_or_create_char_var(first, mc);
+                }
 
                 euf::snode* replacement = m_sg.mk_concat(fresh_char, first);
                 nielsen_node* child = mk_child(node);
@@ -3224,7 +3235,6 @@ namespace seq {
 
         SASSERT(power->is_power() && power->num_args() >= 1);
         euf::snode* base = power->arg(0);
-        expr* exp_n = get_power_exponent(power);
         expr* zero = arith.mk_int(0);
 
         // Branch 1: enumerate all decompositions of the base.
@@ -3238,7 +3248,10 @@ namespace seq {
             if (!base_expr || base_len == 0)
                 return false;
 
-            expr_ref fresh_m = mk_fresh_int_var();
+            unsigned mc = 0;
+            m_mod_cnt.find(var_head->id(), mc);
+            
+            expr_ref fresh_m = get_or_create_gpower_n_var(var_head, mc);
             expr_ref power_m_expr(seq.str.mk_power(base_expr, fresh_m), m);
             euf::snode* power_m_sn = m_sg.mk(power_m_expr);
             if (!power_m_sn)
@@ -3265,7 +3278,7 @@ namespace seq {
                     expr* inner_exp = get_power_exponent(tok);
                     expr* inner_base = get_power_base_expr(tok, seq);
                     if (inner_exp && inner_base) {
-                        fresh_inner_m = mk_fresh_int_var();
+                        fresh_inner_m = get_or_create_gpower_m_var(var_head, mc);
                         expr_ref partial_pow(seq.str.mk_power(inner_base, fresh_inner_m), m);
                         euf::snode* partial_sn = m_sg.mk(partial_pow);
                         euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
@@ -3589,6 +3602,55 @@ namespace seq {
         expr_ref fresh(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
         m_len_vars.push_back(fresh);
         m_len_var_cache.insert({key, fresh.get()});
+        return fresh;
+    }
+
+    euf::snode* nielsen_graph::get_or_create_char_var(euf::snode* var, unsigned mod_count) {
+        SASSERT(var && var->is_var());
+
+        auto key = std::make_pair(var->id(), mod_count);
+        auto it = m_char_var_cache.find(key);
+        if (it != m_char_var_cache.end())
+            return it->second;
+
+        std::string name = "c!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
+        sort* char_sort = m_seq.mk_char_sort();
+        expr_ref fresh_const(m.mk_fresh_const(name.c_str(), char_sort), m);
+        expr_ref unit(m_seq.str.mk_unit(fresh_const), m);
+        euf::snode* fresh = m_sg.mk(unit);
+        m_char_var_cache.insert({key, fresh});
+        return fresh;
+    }
+
+    expr_ref nielsen_graph::get_or_create_gpower_n_var(euf::snode* var, unsigned mod_count) {
+        SASSERT(var && var->is_var());
+
+        auto key = std::make_pair(var->id(), mod_count);
+        auto it = m_gpower_n_var_cache.find(key);
+        if (it != m_gpower_n_var_cache.end())
+            return expr_ref(it->second, m);
+
+        arith_util arith(m);
+        std::string name = "gpn!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
+        expr_ref fresh(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
+        m_gpower_vars.push_back(fresh);
+        m_gpower_n_var_cache.insert({key, fresh.get()});
+        return fresh;
+    }
+
+    expr_ref nielsen_graph::get_or_create_gpower_m_var(euf::snode* var, unsigned mod_count) {
+        SASSERT(var && var->is_var());
+
+        auto key = std::make_pair(var->id(), mod_count);
+        auto it = m_gpower_m_var_cache.find(key);
+        if (it != m_gpower_m_var_cache.end())
+            return expr_ref(it->second, m);
+
+        arith_util arith(m);
+        std::string name = "gpm!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
+        expr_ref fresh(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
+        m_gpower_vars.push_back(fresh);
+        m_gpower_m_var_cache.insert({key, fresh.get()});
         return fresh;
     }
 
