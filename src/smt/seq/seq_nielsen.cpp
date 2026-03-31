@@ -30,9 +30,12 @@ NSB review:
 #include "smt/seq/seq_regex.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "ast/for_each_expr.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "sat/smt/arith_solver.h"
 #include "util/hashtable.h"
 #include "util/statistics.h"
@@ -3118,16 +3121,95 @@ namespace seq {
     }
     // -----------------------------------------------------------------------
     // Modifier: apply_regex_unit_split (RegexCharSplitModifier)
-    // For str_mem c·s ∈ R where c is a symbolic unit token (seq.unit(?c)),
-    // branch over minterms of R: for each minterm m_i with non-fail derivative,
-    // create a child that constrains ?c to the character class of m_i.
+    // For str_mem c·s ∈ R where c is a symbolic unit token (seq.unit(?inner)):
+    //   1. Take the derivative of R w.r.t. ?inner (using seq_rewriter::mk_derivative).
+    //      This produces an ite-based expression with conditions on ?inner.
+    //   2. Simplify via th_rewriter.
+    //   3. Extract co-factors, i.e., (cond_i, d_i) pairs by case-splitting
+    //      on each ite condition. Mirrors seq_regex::get_cofactors.
+    //   4. For each non-empty co-factor:
+    //      - Create a child where str_mem.str drops c and str_mem.regex = d_i.
+    //      - Add char_range(?inner, char_set_from_cond_i) to prune the branch.
     // Unlike apply_regex_var_split, no substitution and no epsilon branch.
-    // After the constraint is added, simplify_and_init will consume c
-    // deterministically via the uniform derivative check.
     // mirrors ZIPT's RegexCharSplitModifier
     // -----------------------------------------------------------------------
 
+    // Parse a boolean condition on a char element into a char_set.
+    // Handles: true, false, eq(elem, lit), char_le, char_const_range,
+    // and, or, not. Returns full set on unrecognised conditions (sound).
+    static char_set cond_to_char_set(ast_manager& m, seq_util& seq,
+                                     expr* cond, expr* elem) {
+        unsigned lo, hi;
+        bool negated;
+        if (m.is_true(cond))
+            return char_set::full(seq.max_char());
+        if (m.is_false(cond))
+            return char_set();
+        if (seq.is_char_const_range(elem, cond, lo, hi, negated)) {
+            char_set base(char_range(lo, hi + 1));
+            return negated ? base.complement(seq.max_char()) : base;
+        }
+        expr* e1 = nullptr, *e2 = nullptr;
+        if (m.is_and(cond, e1, e2))
+            return cond_to_char_set(m, seq, e1, elem)
+                       .intersect_with(cond_to_char_set(m, seq, e2, elem));
+        if (m.is_or(cond, e1, e2)) {
+            char_set s = cond_to_char_set(m, seq, e1, elem);
+            s.add(cond_to_char_set(m, seq, e2, elem));
+            return s;
+        }
+        if (m.is_not(cond, e1))
+            return cond_to_char_set(m, seq, e1, elem).complement(seq.max_char());
+        // fallback: full set (sound overapproximation)
+        return char_set::full(seq.max_char());
+    }
+
+    // Split a derivative expression d into (condition, derivative) co-factors
+    // by expanding all ite-branches. Mirrors seq_regex::get_cofactors.
+    static void get_cofactors(ast_manager& m, seq_util& seq,
+                              expr* d, expr_ref_pair_vector& result) {
+        obj_hashtable<expr> ifs;
+        expr *cond_e = nullptr, *r1 = nullptr, *r2 = nullptr;
+        for (expr* e : subterms::ground(expr_ref(d, m)))
+            if (m.is_ite(e, cond_e, r1, r2))
+                ifs.insert(cond_e);
+
+        expr_ref_vector rs(m);
+        vector<expr_ref_vector> conds;
+        conds.push_back(expr_ref_vector(m));
+        rs.push_back(d);
+        for (expr* c : ifs) {
+            unsigned sz = conds.size();
+            expr_safe_replace rep_true(m), rep_false(m);
+            rep_true.insert(c, m.mk_true());
+            rep_false.insert(c, m.mk_false());
+            expr_ref tmp(m);
+            for (unsigned i = 0; i < sz; ++i) {
+                expr_ref_vector cs = conds[i];
+                cs.push_back(m.mk_not(c));
+                conds.push_back(cs);
+                conds[i].push_back(c);
+                expr_ref ri(rs.get(i), m);
+                rep_true(ri, tmp);
+                rs[i] = tmp;
+                rep_false(ri, tmp);
+                rs.push_back(tmp);
+            }
+        }
+        th_rewriter rw(m);
+        for (unsigned i = 0; i < conds.size(); ++i) {
+            expr_ref conj = mk_and(conds[i]);
+            expr_ref r(rs.get(i), m);
+            rw(r);
+            if (!m.is_false(conj) && !seq.re.is_empty(r))
+                result.push_back(conj, r);
+        }
+    }
+
     bool nielsen_graph::apply_regex_unit_split(nielsen_node* node) {
+        ast_manager& m = m_sg.get_manager();
+        seq_util& seq = m_sg.get_seq_util();
+
         for (str_mem const& mem : node->str_mems()) {
             SASSERT(mem.m_str && mem.m_regex);
             if (mem.is_primitive())
@@ -3136,37 +3218,63 @@ namespace seq {
             if (!first || !first->is_unit())
                 continue;
 
-            // Compute minterms of the regex
-            euf::snode_vector minterms;
-            m_sg.compute_minterms(mem.m_regex, minterms);
-            VERIFY(!minterms.empty());
+            // Extract the inner char expression from seq.unit(?inner)
+            expr* unit_expr = first->get_expr();
+            expr* inner_char = nullptr;
+            if (!seq.str.is_unit(unit_expr, inner_char))
+                continue;
 
-            // Get the current char_range for this token, fall back to full
+            // Compute derivative of regex w.r.t. inner_char.
+            // mk_derivative first takes derivative w.r.t. :var 0, then
+            // substitutes inner_char for :var 0. This gives an ite expression
+            // with conditions on inner_char.
+            seq_rewriter rw(m);
+            expr_ref d(rw.mk_derivative(inner_char, mem.m_regex->get_expr()), m);
+            if (!d)
+                continue;
+
+            // Extract co-factors (cond_i, d_i): split the ite tree
+            expr_ref_pair_vector cofactors(m);
+            get_cofactors(m, seq, d, cofactors);
+            if (cofactors.empty())
+                continue;
+
+            // Get existing char_range for this unit, fall back to full
             char_set const& existing =
                 node->char_ranges().contains(first->id())
                 ? node->char_ranges()[first->id()]
                 : char_set::full(zstring::max_char());
 
+            euf::snode* rest = m_sg.drop_first(mem.m_str);
             bool created = false;
-            for (euf::snode* mt : minterms) {
-                SASSERT(mt && mt->get_expr());
-                SASSERT(!mt->is_fail());
 
-                char_set mt_cs = m_seq_regex->minterm_to_char_set(mt->get_expr());
-                // skip minterm if it doesn't overlap with the existing range
-                if (existing.intersect_with(mt_cs).is_empty())
+            for (auto const& [cond_expr, deriv_expr] : cofactors) {
+                // Convert condition to char_set and intersect with existing range
+                char_set cs = cond_to_char_set(m, seq, cond_expr, inner_char);
+                cs = cs.intersect_with(existing);
+                if (cs.is_empty())
                     continue;
 
-                // skip if the regex derivative is empty for this minterm
-                euf::snode* deriv = m_sg.brzozowski_deriv(mem.m_regex, mt);
-                SASSERT(deriv);
-                if (deriv->is_fail())
+                euf::snode* deriv_snode = m_sg.mk(expr_ref(deriv_expr, m));
+                if (!deriv_snode)
                     continue;
 
-                // create a child and narrow the char_range for this token
+                // Create a child: consume first unit, advance regex to d_i
                 nielsen_node* child = mk_child(node);
-                mk_edge(node, child, false);
-                child->add_char_range(first, mt_cs);
+                mk_edge(node, child, true);  // consuming a char is progress
+
+                // Update the matching str_mem in the child
+                for (str_mem& cm : child->str_mems()) {
+                    if (cm.m_id == mem.m_id) {
+                        cm.m_str = rest;
+                        cm.m_regex = deriv_snode;
+                        break;
+                    }
+                }
+
+                // Narrow char_range for this unit token in the child
+                if (!cs.is_full(seq.max_char()))
+                    child->add_char_range(first, cs);
                 created = true;
             }
 

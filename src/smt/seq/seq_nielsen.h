@@ -1028,7 +1028,8 @@ namespace seq {
         bool apply_const_num_unwinding(nielsen_node* node);
 
         // regex unit split: for str_mem c·s ∈ R where c is a symbolic unit,
-        // branch over regex minterms and constrain c via char_range.
+        // take derivative of R w.r.t. the inner char, extract co-factors,
+        // and create one child per co-factor with the derivative regex and a char_range.
         // Unlike apply_regex_var_split, no substitution and no epsilon branch.
         bool apply_regex_unit_split(nielsen_node* node);
 
