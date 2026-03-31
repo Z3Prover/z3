@@ -420,6 +420,12 @@ namespace z3 {
         sort uninterpreted_sort(char const* name);
         sort uninterpreted_sort(symbol const& name);
 
+        /**
+           \brief create a type variable sort with the name given by the string or symbol.
+         */
+        sort type_variable(char const* name);
+        sort type_variable(symbol const& name);
+
         func_decl function(symbol const & name, unsigned arity, sort const * domain, sort const & range);
         func_decl function(char const * name, unsigned arity, sort const * domain, sort const & range);
         func_decl function(symbol const&  name, sort_vector const& domain, sort const& range);
@@ -792,6 +798,10 @@ namespace z3 {
             \brief Return true if this sort is a Floating point sort.
         */
         bool is_fpa() const { return sort_kind() == Z3_FLOATING_POINT_SORT; }
+        /**
+            \brief Return true if this sort is a type variable sort.
+        */
+        bool is_type_var() const { return sort_kind() == Z3_TYPE_VAR; }
 
         /**
             \brief Return the size of this Bit-vector sort.
@@ -3868,6 +3878,13 @@ namespace z3 {
     }
     inline sort context::uninterpreted_sort(symbol const& name) {
         return to_sort(*this, Z3_mk_uninterpreted_sort(*this, name));
+    }
+    inline sort context::type_variable(char const* name) {
+        Z3_symbol _name = Z3_mk_string_symbol(*this, name);
+        return to_sort(*this, Z3_mk_type_variable(*this, _name));
+    }
+    inline sort context::type_variable(symbol const& name) {
+        return to_sort(*this, Z3_mk_type_variable(*this, name));
     }
 
     inline func_decl context::function(symbol const & name, unsigned arity, sort const * domain, sort const & range) {

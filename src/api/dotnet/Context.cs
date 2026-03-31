@@ -228,6 +228,26 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create a new type variable sort.
+        /// </summary>
+        public TypeVarSort MkTypeVariable(Symbol s)
+        {
+            Debug.Assert(s != null);
+
+            CheckContextMatch(s);
+            return new TypeVarSort(this, s);
+        }
+
+        /// <summary>
+        /// Create a new type variable sort.
+        /// </summary>
+        public TypeVarSort MkTypeVariable(string str)
+        {
+            using var sym = MkSymbol(str);
+            return MkTypeVariable(sym);
+        }
+
+        /// <summary>
         /// Create a new integer sort.
         /// </summary>
         public IntSort MkIntSort()

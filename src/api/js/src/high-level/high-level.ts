@@ -743,6 +743,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
     /////////////
     const Sort = {
       declare: (name: string) => new SortImpl(Z3.mk_uninterpreted_sort(contextPtr, _toSymbol(name))),
+      typeVariable: (name: string) => new SortImpl(Z3.mk_type_variable(contextPtr, _toSymbol(name))),
     };
     const Function = {
       declare: <DomainSort extends Sort<Name>[], RangeSort extends Sort<Name>>(

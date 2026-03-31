@@ -1988,6 +1988,7 @@ export interface Statistics<Name extends string = 'main'> extends Iterable<Stati
  */
 export interface SortCreation<Name extends string> {
   declare(name: string): Sort<Name>;
+  typeVariable(name: string): Sort<Name>;
 }
 
 export interface Sort<Name extends string = 'main'> extends Ast<Name, Z3_sort> {
