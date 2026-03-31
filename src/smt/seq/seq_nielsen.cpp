@@ -3212,9 +3212,8 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_power_split(nielsen_node* node) {
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
-        seq_util& seq = m_sg.get_seq_util();
+        seq_util &seq = m_seq;
 
         euf::snode* power = nullptr;
         euf::snode* var_head = nullptr;
@@ -3325,7 +3324,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_var_num_unwinding_eq(nielsen_node* node) {
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
 
         euf::snode* power = nullptr;
@@ -3371,7 +3369,6 @@ namespace seq {
     }
 
     bool nielsen_graph::apply_var_num_unwinding_mem(nielsen_node* node) {
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
 
         euf::snode* power = nullptr;
@@ -3456,8 +3453,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     expr_ref nielsen_graph::compute_length_expr(euf::snode* n) {
-        ast_manager& m = m_sg.get_manager();
-        seq_util& seq = m_sg.get_seq_util();
+        seq_util &seq = m_seq;
         arith_util arith(m);
 
         if (n->is_empty())
@@ -3489,7 +3485,6 @@ namespace seq {
 
     void nielsen_graph::generate_length_constraints(vector<length_constraint>& constraints) {
         SASSERT(m_root);
-        ast_manager& m = m_sg.get_manager();
         uint_set seen_vars;
 
         seq_util& seq = m_sg.get_seq_util();
@@ -3580,7 +3575,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     expr_ref nielsen_graph::get_or_create_len_var(euf::snode* var, unsigned mod_count) {
-        ast_manager& m = m_sg.get_manager();
         SASSERT(var && var->is_var());
         SASSERT(mod_count > 0);
 
@@ -3706,7 +3700,6 @@ namespace seq {
         if (node == m_root)
             return;
 
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
         uint_set seen_vars;
 
@@ -3775,7 +3768,6 @@ namespace seq {
         // fall through - ask the solver [expensive]
 
         // TODO: Maybe cache the result?
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
 
         // The solver already holds all path constraints incrementally.
@@ -3805,7 +3797,6 @@ namespace seq {
     }
 
     expr_ref nielsen_graph::mk_fresh_int_var() {
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
         std::string name = "n!" + std::to_string(m_fresh_cnt++);
         return expr_ref(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
@@ -3862,7 +3853,6 @@ namespace seq {
         if (result == l_true) {
             m_solver.get_model(mdl);
             IF_VERBOSE(1, if (mdl) {
-                ast_manager& m = m_sg.get_manager();
                 verbose_stream() << "  raw_model:\n";
                 for (unsigned i = 0; i < mdl->get_num_constants(); ++i) {
                     func_decl* fd = mdl->get_constant(i);
@@ -3887,8 +3877,6 @@ namespace seq {
         if (!regex->is_ground())
             return false;
 
-        seq_util& seq = m_sg.get_seq_util();
-        ast_manager& mgr = m_sg.get_manager();
 
         // Build the overapproximation regex for the string.
         // Variables → intersection of their primitive regex constraints (or Σ*)
@@ -3907,7 +3895,7 @@ namespace seq {
                 // Concrete character → to_re(unit(c))
                 expr* te = tok->get_expr();
                 SASSERT(te);
-                expr_ref tre(seq.re.mk_to_re(te), mgr);
+                expr_ref tre(m_seq.re.mk_to_re(te), m);
                 tok_re = m_sg.mk(tre);
             }
             else if (tok->is_var()) {
@@ -3917,8 +3905,8 @@ namespace seq {
                     tok_re = x_range;
                 else {
                     // Unconstrained variable: approximate as Σ*
-                    sort* str_sort = seq.str.mk_string_sort();
-                    expr_ref all_re(seq.re.mk_full_seq(seq.re.mk_re(str_sort)), mgr);
+                    sort* str_sort = m_seq.str.mk_string_sort();
+                    expr_ref all_re(m_seq.re.mk_full_seq(m_seq.re.mk_re(str_sort)), m);
                     tok_re = m_sg.mk(all_re);
                 }
             }
@@ -3930,16 +3918,16 @@ namespace seq {
                         // Build union of re.range for each interval
                         euf::snode* range_re = nullptr;
                         for (auto const& r : cs.ranges()) {
-                            expr_ref lo(seq.mk_char(r.m_lo), mgr);
-                            expr_ref hi(seq.mk_char(r.m_hi - 1), mgr);
-                            expr_ref rng(seq.re.mk_range(
-                                seq.str.mk_string(zstring(r.m_lo)),
-                                seq.str.mk_string(zstring(r.m_hi - 1))), mgr);
+                            expr_ref lo(m_seq.mk_char(r.m_lo), m);
+                            expr_ref hi(m_seq.mk_char(r.m_hi - 1), m);
+                            expr_ref rng(m_seq.re.mk_range(
+                                m_seq.str.mk_string(zstring(r.m_lo)),
+                                m_seq.str.mk_string(zstring(r.m_hi - 1))), m);
                             euf::snode* rng_sn = m_sg.mk(rng);
                             if (!range_re)
                                 range_re = rng_sn;
                             else {
-                                expr_ref u(seq.re.mk_union(range_re->get_expr(), rng_sn->get_expr()), mgr);
+                                expr_ref u(m_seq.re.mk_union(range_re->get_expr(), rng_sn->get_expr()), m);
                                 range_re = m_sg.mk(u);
                             }
                         }
@@ -3948,15 +3936,15 @@ namespace seq {
                 }
                 if (!tok_re) {
                     // Unconstrained symbolic char: approximate as full_char (single char, any value)
-                    sort* str_sort = seq.str.mk_string_sort();
-                    expr_ref fc(seq.re.mk_full_char(seq.re.mk_re(str_sort)), mgr);
+                    sort* str_sort = m_seq.str.mk_string_sort();
+                    expr_ref fc(m_seq.re.mk_full_char(m_seq.re.mk_re(str_sort)), m);
                     tok_re = m_sg.mk(fc);
                 }
             }
             else {
                 // Unknown token type — approximate as Σ*
-                sort* str_sort = seq.str.mk_string_sort();
-                expr_ref all_re(seq.re.mk_full_seq(seq.re.mk_re(str_sort)), mgr);
+                sort* str_sort = m_seq.str.mk_string_sort();
+                expr_ref all_re(m_seq.re.mk_full_seq(m_seq.re.mk_re(str_sort)), m);
                 tok_re = m_sg.mk(all_re);
             }
 
@@ -3968,7 +3956,7 @@ namespace seq {
                 expr* ae = approx->get_expr();
                 expr* te = tok_re->get_expr();
                 SASSERT(ae && te);
-                expr_ref cat(seq.re.mk_concat(ae, te), mgr);
+                expr_ref cat(m_seq.re.mk_concat(ae, te), m);
                 approx = m_sg.mk(cat);
             }
         }
@@ -3981,7 +3969,7 @@ namespace seq {
         expr* ae = approx->get_expr();
         expr* re = regex->get_expr();
         SASSERT(ae && re);
-        expr_ref inter(seq.re.mk_inter(ae, re), mgr);
+        expr_ref inter(m_seq.re.mk_inter(ae, re), m);
         euf::snode* inter_sn = m_sg.mk(inter);
         SASSERT(inter_sn);
         // std::cout << "HTML: " << snode_label_html(inter_sn, m()) << std::endl;
