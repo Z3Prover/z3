@@ -35,7 +35,6 @@ NSB review:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/seq_skolem.h"
-#include "ast/rewriter/var_subst.h"
 #include "sat/smt/arith_solver.h"
 #include "util/statistics.h"
 #include <algorithm>
@@ -4217,7 +4216,6 @@ namespace seq {
         st.update("nseq mod star intr",        m_stats.m_mod_star_intr);
         st.update("nseq mod gpower intr",      m_stats.m_mod_gpower_intr);
         st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);
-        st.update("nseq mod regex unit",       m_stats.m_mod_regex_unit_split);
         st.update("nseq mod signature split",  m_stats.m_mod_signature_split);
         st.update("nseq mod regex var",        m_stats.m_mod_regex_var_split);
         st.update("nseq mod regex unit",       m_stats.m_mod_regex_unit_split);
