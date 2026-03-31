@@ -35,7 +35,6 @@ NSB review:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
 #include "ast/rewriter/var_subst.h"
-#include "sat/smt/arith_solver.h"
 #include "util/statistics.h"
 #include <algorithm>
 #include <cstdlib>
