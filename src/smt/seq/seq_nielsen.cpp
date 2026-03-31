@@ -30,16 +30,16 @@ NSB review:
 #include "smt/seq/seq_regex.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/seq_skolem.h"
+#include "ast/rewriter/var_subst.h"
 #include "sat/smt/arith_solver.h"
-#include "util/hashtable.h"
 #include "util/statistics.h"
 #include <algorithm>
 #include <cstdlib>
-#include <sstream>
 #include <unordered_map>
 
 namespace seq {
@@ -395,7 +395,8 @@ namespace seq {
         m_solver(solver),
         m_parikh(alloc(seq_parikh, sg)),
         m_seq_regex(alloc(seq::seq_regex, sg)),
-        m_len_vars(sg.get_manager()) {
+        m_len_vars(sg.get_manager()),
+        m_gpower_vars(sg.get_manager()) {
     }
 
     nielsen_graph::~nielsen_graph() {
@@ -490,6 +491,10 @@ namespace seq {
         m_mod_cnt.reset();
         m_len_var_cache.clear();
         m_len_vars.reset();
+        m_char_var_cache.clear();
+        m_gpower_n_var_cache.clear();
+        m_gpower_m_var_cache.clear();
+        m_gpower_vars.reset();
         m_dep_mgr.reset();
         m_solver.reset();
     }
@@ -2891,8 +2896,11 @@ namespace seq {
                 base_str = seq.str.mk_concat(tok_expr, base_str);
         }
 
+        unsigned mc = 0;
+        m_mod_cnt.find(var->id(), mc);
+
         // Create fresh exponent variable and power expression: base^n
-        expr_ref fresh_n = mk_fresh_int_var();
+        expr_ref fresh_n = get_or_create_gpower_n_var(var, mc);
         expr_ref power_expr(seq.str.mk_power(base_str, fresh_n), m);
         euf::snode* power_snode = m_sg.mk(power_expr);
         if (!power_snode)
@@ -2927,7 +2935,7 @@ namespace seq {
                 expr* inner_exp = get_power_exponent(tok);
                 expr* inner_base = get_power_base_expr(tok, seq);
                 if (inner_exp && inner_base) {
-                    fresh_m = mk_fresh_int_var();
+                    fresh_m = get_or_create_gpower_m_var(var, mc);
                     expr_ref partial_pow(seq.str.mk_power(inner_base, fresh_m), m);
                     euf::snode* partial_sn = m_sg.mk(partial_pow);
                     euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
@@ -3117,6 +3125,7 @@ namespace seq {
         }
         return false;
     }
+
     // -----------------------------------------------------------------------
     // Modifier: apply_regex_unit_split (RegexCharSplitModifier)
     // For str_mem c·s ∈ R where c is a symbolic unit token seq.unit(?inner):
@@ -3130,53 +3139,13 @@ namespace seq {
     //      str_mem.regex = derivative at that leaf, and char_range(?inner, cs).
     // mirrors ZIPT's RegexCharSplitModifier
     // -----------------------------------------------------------------------
-
-    // Convert a boolean condition on a char element into a char_set.
-    // Handles: true, false, is_char_const_range, and, or, not.
-    // Returns full set on unrecognised conditions, sound overapproximation.
-    static char_set cond_to_char_set(ast_manager& m, seq_util& seq,
-                                     expr* cond, expr* elem) {
-        unsigned lo, hi;
-        bool negated;
-        if (m.is_true(cond))
-            return char_set::full(seq.max_char());
-        if (m.is_false(cond))
-            return char_set();
-        if (seq.is_char_const_range(elem, cond, lo, hi, negated)) {
-            char_set base(char_range(lo, hi + 1));
-            return negated ? base.complement(seq.max_char()) : base;
-        }
-        expr* e1 = nullptr, *e2 = nullptr;
-        if (m.is_and(cond, e1, e2))
-            return cond_to_char_set(m, seq, e1, elem)
-                       .intersect_with(cond_to_char_set(m, seq, e2, elem));
-        if (m.is_or(cond, e1, e2)) {
-            char_set s = cond_to_char_set(m, seq, e1, elem);
-            s.add(cond_to_char_set(m, seq, e2, elem));
-            return s;
-        }
-        if (m.is_not(cond, e1))
-            return cond_to_char_set(m, seq, e1, elem).complement(seq.max_char());
-        // fallback: full set, sound overapproximation
-        return char_set::full(seq.max_char());
-    }
-
-    bool nielsen_graph::apply_regex_unit_split(nielsen_node* node) {
-        ast_manager& m = m_sg.get_manager();
-        seq_util& seq = m_sg.get_seq_util();
-
-        for (str_mem const& mem : node->str_mems()) {
+    bool nielsen_graph::apply_regex_unit_split(nielsen_node *node) {
+        for (str_mem const &mem : node->str_mems()) {
             SASSERT(mem.m_str && mem.m_regex);
             if (mem.is_primitive())
                 continue;
-            euf::snode* first = mem.m_str->first();
-            if (!first || !first->is_unit())
-                continue;
-
-            // Extract the inner char expression from seq.unit(?inner)
-            expr* unit_expr = first->get_expr();
-            expr* inner_char = nullptr;
-            if (!seq.str.is_unit(unit_expr, inner_char))
+            euf::snode *first = mem.m_str->first();
+            if (!first || !first->is_char_or_unit())
                 continue;
 
             // Take derivative of R w.r.t. :var 0 (canonical, cached), then
@@ -3186,49 +3155,45 @@ namespace seq {
             expr_ref d(rw.mk_derivative(mem.m_regex->get_expr()), m);
             if (!d)
                 continue;
+
+            // Extract the inner char expression from seq.unit(?inner)
+            expr *unit_expr = first->get_expr(), *inner_char;
+            VERIFY(m_seq.str.is_unit(unit_expr, inner_char));
+
             var_subst vs(m);
             d = vs(d, inner_char);
 
-            // Get existing char_range for this unit, fall back to full
-            char_set const& existing =
-                node->char_ranges().contains(first->id())
-                ? node->char_ranges()[first->id()]
-                : char_set::full(zstring::max_char());
 
-            euf::snode* rest = m_sg.drop_first(mem.m_str);
+            euf::snode *rest = m_sg.drop_first(mem.m_str);
             bool created = false;
 
             // Worklist: (regex_expr, accumulated_char_set).
             // Call decompose_ite in a loop until no more ite sub-expressions,
             // branching on c=true and c=false and accumulating char constraints.
-            vector<std::pair<expr_ref, char_set>> worklist;
-            worklist.push_back({d, existing.clone()});
+            vector<std::pair<expr_ref, expr_ref_vector>> worklist;
+            worklist.push_back({d, expr_ref_vector(m)});
 
             while (!worklist.empty()) {
                 auto [r, cs] = std::move(worklist.back());
                 worklist.pop_back();
 
-                if (seq.re.is_empty(r))
+                if (m_seq.re.is_empty(r))
                     continue;
 
                 expr_ref c(m), th(m), el(m);
                 if (!bool_rewriter(m).decompose_ite(r, c, th, el)) {
                     // No ite remaining: leaf → create child node
-                    if (cs.is_empty())
-                        continue;
-                    euf::snode* deriv_snode = m_sg.mk(expr_ref(r, m));
-                    if (!deriv_snode)
-                        continue;
-                    nielsen_node* child = mk_child(node);
+                    euf::snode *deriv_snode = m_sg.mk(r);
+                    nielsen_node *child = mk_child(node);
+                    for (auto f : cs)
+                        child->add_constraint(constraint(f, mem.m_dep, m));
                     mk_edge(node, child, true);
-                    for (str_mem& cm : child->str_mems())
+                    for (str_mem &cm : child->str_mems())
                         if (cm.m_id == mem.m_id) {
                             cm.m_str = rest;
                             cm.m_regex = deriv_snode;
                             break;
                         }
-                    if (!cs.is_full(seq.max_char()))
-                        child->add_char_range(first, cs);
                     created = true;
                     continue;
                 }
@@ -3240,25 +3205,26 @@ namespace seq {
 
                 if (m.is_true(c_simp)) {
                     // Condition is always satisfied: only then-branch
-                    if (!seq.re.is_empty(th))
+                    if (!m_seq.re.is_empty(th))
                         worklist.push_back({th, std::move(cs)});
-                } else if (m.is_false(c_simp)) {
+                }
+                else if (m.is_false(c_simp)) {
                     // Condition is never satisfied: only else-branch
-                    if (!seq.re.is_empty(el))
+                    if (!m_seq.re.is_empty(el))
                         worklist.push_back({el, std::move(cs)});
-                } else {
+                }
+                else {
                     // Branch on c=true and c=false, accumulate char constraints
-                    char_set cs_true =
-                        cond_to_char_set(m, seq, c_simp, inner_char).intersect_with(cs);
-                    if (!cs_true.is_empty() && !seq.re.is_empty(th))
+                    if (!m_seq.re.is_empty(th)) {
+                        expr_ref_vector cs_true(cs);
+                        cs_true.push_back(c);
                         worklist.push_back({th, std::move(cs_true)});
-
-                    char_set cs_false =
-                        cond_to_char_set(m, seq, c_simp, inner_char)
-                            .complement(seq.max_char())
-                            .intersect_with(cs);
-                    if (!cs_false.is_empty() && !seq.re.is_empty(el))
+                    }
+                    if (!m_seq.re.is_empty(el)) {
+                        expr_ref_vector cs_false(cs);
+                        cs_false.push_back(mk_not(c));
                         worklist.push_back({el, std::move(cs_false)});
+                    }
                 }
             }
 
@@ -3267,6 +3233,9 @@ namespace seq {
         }
         return false;
     }
+
+
+   
 
     // -----------------------------------------------------------------------
     // Modifier: apply_regex_var_split
@@ -3334,8 +3303,11 @@ namespace seq {
                     expr_ref char_expr(m_sg.get_seq_util().str.mk_string(zstring(cs.first_char())), m_sg.get_manager());
                     fresh_char = m_sg.mk(char_expr);
                 }
-                else
-                    fresh_char = mk_fresh_char_var();
+                else {
+                    unsigned mc = 0;
+                    m_mod_cnt.find(first->id(), mc);
+                    fresh_char = get_or_create_char_var(first, mc);
+                }
 
                 euf::snode* replacement = m_sg.mk_concat(fresh_char, first);
                 nielsen_node* child = mk_child(node);
@@ -3368,9 +3340,8 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_power_split(nielsen_node* node) {
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
-        seq_util& seq = m_sg.get_seq_util();
+        seq_util &seq = m_seq;
 
         euf::snode* power = nullptr;
         euf::snode* var_head = nullptr;
@@ -3381,7 +3352,6 @@ namespace seq {
 
         SASSERT(power->is_power() && power->num_args() >= 1);
         euf::snode* base = power->arg(0);
-        expr* exp_n = get_power_exponent(power);
         expr* zero = arith.mk_int(0);
 
         // Branch 1: enumerate all decompositions of the base.
@@ -3395,7 +3365,10 @@ namespace seq {
             if (!base_expr || base_len == 0)
                 return false;
 
-            expr_ref fresh_m = mk_fresh_int_var();
+            unsigned mc = 0;
+            m_mod_cnt.find(var_head->id(), mc);
+            
+            expr_ref fresh_m = get_or_create_gpower_n_var(var_head, mc);
             expr_ref power_m_expr(seq.str.mk_power(base_expr, fresh_m), m);
             euf::snode* power_m_sn = m_sg.mk(power_m_expr);
             if (!power_m_sn)
@@ -3422,7 +3395,7 @@ namespace seq {
                     expr* inner_exp = get_power_exponent(tok);
                     expr* inner_base = get_power_base_expr(tok, seq);
                     if (inner_exp && inner_base) {
-                        fresh_inner_m = mk_fresh_int_var();
+                        fresh_inner_m = get_or_create_gpower_m_var(var_head, mc);
                         expr_ref partial_pow(seq.str.mk_power(inner_base, fresh_inner_m), m);
                         euf::snode* partial_sn = m_sg.mk(partial_pow);
                         euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
@@ -3481,7 +3454,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_var_num_unwinding_eq(nielsen_node* node) {
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
 
         euf::snode* power = nullptr;
@@ -3527,7 +3499,6 @@ namespace seq {
     }
 
     bool nielsen_graph::apply_var_num_unwinding_mem(nielsen_node* node) {
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
 
         euf::snode* power = nullptr;
@@ -3612,8 +3583,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     expr_ref nielsen_graph::compute_length_expr(euf::snode* n) {
-        ast_manager& m = m_sg.get_manager();
-        seq_util& seq = m_sg.get_seq_util();
+        seq_util &seq = m_seq;
         arith_util arith(m);
 
         if (n->is_empty())
@@ -3645,7 +3615,6 @@ namespace seq {
 
     void nielsen_graph::generate_length_constraints(vector<length_constraint>& constraints) {
         SASSERT(m_root);
-        ast_manager& m = m_sg.get_manager();
         uint_set seen_vars;
 
         seq_util& seq = m_sg.get_seq_util();
@@ -3736,7 +3705,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     expr_ref nielsen_graph::get_or_create_len_var(euf::snode* var, unsigned mod_count) {
-        ast_manager& m = m_sg.get_manager();
         SASSERT(var && var->is_var());
         SASSERT(mod_count > 0);
 
@@ -3751,6 +3719,55 @@ namespace seq {
         expr_ref fresh(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
         m_len_vars.push_back(fresh);
         m_len_var_cache.insert({key, fresh.get()});
+        return fresh;
+    }
+
+    euf::snode* nielsen_graph::get_or_create_char_var(euf::snode* var, unsigned mod_count) {
+        SASSERT(var && var->is_var());
+
+        auto key = std::make_pair(var->id(), mod_count);
+        auto it = m_char_var_cache.find(key);
+        if (it != m_char_var_cache.end())
+            return it->second;
+
+        std::string name = "c!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
+        sort* char_sort = m_seq.mk_char_sort();
+        expr_ref fresh_const(m.mk_fresh_const(name.c_str(), char_sort), m);
+        expr_ref unit(m_seq.str.mk_unit(fresh_const), m);
+        euf::snode* fresh = m_sg.mk(unit);
+        m_char_var_cache.insert({key, fresh});
+        return fresh;
+    }
+
+    expr_ref nielsen_graph::get_or_create_gpower_n_var(euf::snode* var, unsigned mod_count) {
+        SASSERT(var && var->is_var());
+
+        auto key = std::make_pair(var->id(), mod_count);
+        auto it = m_gpower_n_var_cache.find(key);
+        if (it != m_gpower_n_var_cache.end())
+            return expr_ref(it->second, m);
+
+        arith_util arith(m);
+        std::string name = "gpn!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
+        expr_ref fresh(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
+        m_gpower_vars.push_back(fresh);
+        m_gpower_n_var_cache.insert({key, fresh.get()});
+        return fresh;
+    }
+
+    expr_ref nielsen_graph::get_or_create_gpower_m_var(euf::snode* var, unsigned mod_count) {
+        SASSERT(var && var->is_var());
+
+        auto key = std::make_pair(var->id(), mod_count);
+        auto it = m_gpower_m_var_cache.find(key);
+        if (it != m_gpower_m_var_cache.end())
+            return expr_ref(it->second, m);
+
+        arith_util arith(m);
+        std::string name = "gpm!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
+        expr_ref fresh(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
+        m_gpower_vars.push_back(fresh);
+        m_gpower_m_var_cache.insert({key, fresh.get()});
         return fresh;
     }
 
@@ -3862,7 +3879,6 @@ namespace seq {
         if (node == m_root)
             return;
 
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
         uint_set seen_vars;
 
@@ -3931,7 +3947,6 @@ namespace seq {
         // fall through - ask the solver [expensive]
 
         // TODO: Maybe cache the result?
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
 
         // The solver already holds all path constraints incrementally.
@@ -3961,7 +3976,6 @@ namespace seq {
     }
 
     expr_ref nielsen_graph::mk_fresh_int_var() {
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
         std::string name = "n!" + std::to_string(m_fresh_cnt++);
         return expr_ref(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
@@ -4018,7 +4032,6 @@ namespace seq {
         if (result == l_true) {
             m_solver.get_model(mdl);
             IF_VERBOSE(1, if (mdl) {
-                ast_manager& m = m_sg.get_manager();
                 verbose_stream() << "  raw_model:\n";
                 for (unsigned i = 0; i < mdl->get_num_constants(); ++i) {
                     func_decl* fd = mdl->get_constant(i);
@@ -4043,8 +4056,6 @@ namespace seq {
         if (!regex->is_ground())
             return false;
 
-        seq_util& seq = m_sg.get_seq_util();
-        ast_manager& mgr = m_sg.get_manager();
 
         // Build the overapproximation regex for the string.
         // Variables → intersection of their primitive regex constraints (or Σ*)
@@ -4063,7 +4074,7 @@ namespace seq {
                 // Concrete character → to_re(unit(c))
                 expr* te = tok->get_expr();
                 SASSERT(te);
-                expr_ref tre(seq.re.mk_to_re(te), mgr);
+                expr_ref tre(m_seq.re.mk_to_re(te), m);
                 tok_re = m_sg.mk(tre);
             }
             else if (tok->is_var()) {
@@ -4073,8 +4084,8 @@ namespace seq {
                     tok_re = x_range;
                 else {
                     // Unconstrained variable: approximate as Σ*
-                    sort* str_sort = seq.str.mk_string_sort();
-                    expr_ref all_re(seq.re.mk_full_seq(seq.re.mk_re(str_sort)), mgr);
+                    sort* str_sort = m_seq.str.mk_string_sort();
+                    expr_ref all_re(m_seq.re.mk_full_seq(m_seq.re.mk_re(str_sort)), m);
                     tok_re = m_sg.mk(all_re);
                 }
             }
@@ -4086,16 +4097,16 @@ namespace seq {
                         // Build union of re.range for each interval
                         euf::snode* range_re = nullptr;
                         for (auto const& r : cs.ranges()) {
-                            expr_ref lo(seq.mk_char(r.m_lo), mgr);
-                            expr_ref hi(seq.mk_char(r.m_hi - 1), mgr);
-                            expr_ref rng(seq.re.mk_range(
-                                seq.str.mk_string(zstring(r.m_lo)),
-                                seq.str.mk_string(zstring(r.m_hi - 1))), mgr);
+                            expr_ref lo(m_seq.mk_char(r.m_lo), m);
+                            expr_ref hi(m_seq.mk_char(r.m_hi - 1), m);
+                            expr_ref rng(m_seq.re.mk_range(
+                                m_seq.str.mk_string(zstring(r.m_lo)),
+                                m_seq.str.mk_string(zstring(r.m_hi - 1))), m);
                             euf::snode* rng_sn = m_sg.mk(rng);
                             if (!range_re)
                                 range_re = rng_sn;
                             else {
-                                expr_ref u(seq.re.mk_union(range_re->get_expr(), rng_sn->get_expr()), mgr);
+                                expr_ref u(m_seq.re.mk_union(range_re->get_expr(), rng_sn->get_expr()), m);
                                 range_re = m_sg.mk(u);
                             }
                         }
@@ -4104,15 +4115,15 @@ namespace seq {
                 }
                 if (!tok_re) {
                     // Unconstrained symbolic char: approximate as full_char (single char, any value)
-                    sort* str_sort = seq.str.mk_string_sort();
-                    expr_ref fc(seq.re.mk_full_char(seq.re.mk_re(str_sort)), mgr);
+                    sort* str_sort = m_seq.str.mk_string_sort();
+                    expr_ref fc(m_seq.re.mk_full_char(m_seq.re.mk_re(str_sort)), m);
                     tok_re = m_sg.mk(fc);
                 }
             }
             else {
                 // Unknown token type — approximate as Σ*
-                sort* str_sort = seq.str.mk_string_sort();
-                expr_ref all_re(seq.re.mk_full_seq(seq.re.mk_re(str_sort)), mgr);
+                sort* str_sort = m_seq.str.mk_string_sort();
+                expr_ref all_re(m_seq.re.mk_full_seq(m_seq.re.mk_re(str_sort)), m);
                 tok_re = m_sg.mk(all_re);
             }
 
@@ -4124,7 +4135,7 @@ namespace seq {
                 expr* ae = approx->get_expr();
                 expr* te = tok_re->get_expr();
                 SASSERT(ae && te);
-                expr_ref cat(seq.re.mk_concat(ae, te), mgr);
+                expr_ref cat(m_seq.re.mk_concat(ae, te), m);
                 approx = m_sg.mk(cat);
             }
         }
@@ -4137,7 +4148,7 @@ namespace seq {
         expr* ae = approx->get_expr();
         expr* re = regex->get_expr();
         SASSERT(ae && re);
-        expr_ref inter(seq.re.mk_inter(ae, re), mgr);
+        expr_ref inter(m_seq.re.mk_inter(ae, re), m);
         euf::snode* inter_sn = m_sg.mk(inter);
         SASSERT(inter_sn);
         // std::cout << "HTML: " << snode_label_html(inter_sn, m()) << std::endl;
@@ -4209,6 +4220,7 @@ namespace seq {
         st.update("nseq mod regex unit",       m_stats.m_mod_regex_unit_split);
         st.update("nseq mod signature split",  m_stats.m_mod_signature_split);
         st.update("nseq mod regex var",        m_stats.m_mod_regex_var_split);
+        st.update("nseq mod regex unit",       m_stats.m_mod_regex_unit_split);
         st.update("nseq mod power split",      m_stats.m_mod_power_split);
         st.update("nseq mod var nielsen",      m_stats.m_mod_var_nielsen);
         st.update("nseq mod var num unwind (eq)",   m_stats.m_mod_var_num_unwinding_eq);

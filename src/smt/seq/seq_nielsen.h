@@ -776,6 +776,16 @@ namespace seq {
         // Pins the fresh length variable expressions so they aren't garbage collected.
         expr_ref_vector               m_len_vars;
 
+        // Cache: (var snode id, modification count) → fresh character variable
+        std::map<std::pair<unsigned, unsigned>, euf::snode*> m_char_var_cache;
+
+        // Cache: (var snode id, modification count) → fresh integer variable
+        std::map<std::pair<unsigned, unsigned>, expr*> m_gpower_n_var_cache;
+        std::map<std::pair<unsigned, unsigned>, expr*> m_gpower_m_var_cache;
+
+        // Pins the fresh gpower variable expressions so they aren't garbage collected.
+        expr_ref_vector               m_gpower_vars;
+
         // Arena for dep_tracker nodes.  Declared mutable so that const methods
         // (e.g., explain_conflict) can call mk_join / linearize.
         mutable dep_manager           m_dep_mgr;
@@ -1142,6 +1152,15 @@ namespace seq {
         // Get or create a fresh integer variable for len(var) at the given
         // modification count. Returns str.len(var_expr) when mod_count == 0.
         expr_ref get_or_create_len_var(euf::snode* var, unsigned mod_count);
+
+        // Get or create a fresh character variable for a variable at a given modification count.
+        euf::snode* get_or_create_char_var(euf::snode* var, unsigned mod_count);
+
+        // Get or create a fresh integer variable for gpower n (full exponent) at a given modification count.
+        expr_ref get_or_create_gpower_n_var(euf::snode* var, unsigned mod_count);
+
+        // Get or create a fresh integer variable for gpower m (partial exponent) at a given modification count.
+        expr_ref get_or_create_gpower_m_var(euf::snode* var, unsigned mod_count);
 
         // Compute and add |x| = |u| length constraints to an edge for all
         // its non-eliminating substitutions. Uses current m_mod_cnt.
