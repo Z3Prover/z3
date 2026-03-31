@@ -530,6 +530,12 @@ namespace seq {
         u_map<ptr_vector<euf::snode>>  m_char_diseqs;  // ?c != {?d, ?e, ...}
         u_map<char_set>                m_char_ranges;   // ?c in [lo, hi)
 
+        // direct integer bounds on string length expressions, keyed by expr id.
+        // used by lower_bound/upper_bound when the solver has no information,
+        // e.g. in tests that inject bounds without a backing solver.
+        u_map<rational>                m_lower_int_bounds;
+        u_map<rational>                m_upper_int_bounds;
+
         // edges
         ptr_vector<nielsen_edge> m_outgoing;
         nielsen_node*           m_backedge = nullptr;
@@ -585,6 +591,11 @@ namespace seq {
         // 0 / UINT_MAX verwendet.
         bool lower_bound(expr* e, rational& lo) const;
         bool upper_bound(expr* e, rational& up) const;
+
+        // Directly inject integer bounds on a string snode's expression.
+        // Used in tests and anywhere bounds are known without a backing solver.
+        void set_lower_int_bound(euf::snode* x, unsigned n, dep_tracker dep);
+        void set_upper_int_bound(euf::snode* x, unsigned n, dep_tracker dep);
 
         // character constraint access (mirrors ZIPT's DisEqualities / CharRanges)
         u_map<ptr_vector<euf::snode>> const& char_diseqs() const { return m_char_diseqs; }

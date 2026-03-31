@@ -315,6 +315,11 @@ namespace seq {
 
     bool nielsen_node::lower_bound(expr* e, rational& lo) const {
         SASSERT(e);
+        rational stored;
+        if (m_lower_int_bounds.contains(e->get_id())) {
+            lo = m_lower_int_bounds.find(e->get_id());
+            return true;
+        }
         return m_graph.m_solver.lower_bound(e, lo);
     }
 
@@ -327,7 +332,21 @@ namespace seq {
             up = v;
             return true;
         }
+        if (m_upper_int_bounds.contains(e->get_id())) {
+            up = m_upper_int_bounds.find(e->get_id());
+            return true;
+        }
         return m_graph.m_solver.upper_bound(e, up);
+    }
+
+    void nielsen_node::set_lower_int_bound(euf::snode* x, unsigned n, dep_tracker) {
+        SASSERT(x && x->get_expr());
+        m_lower_int_bounds.insert(x->get_expr()->get_id(), rational(n));
+    }
+
+    void nielsen_node::set_upper_int_bound(euf::snode* x, unsigned n, dep_tracker) {
+        SASSERT(x && x->get_expr());
+        m_upper_int_bounds.insert(x->get_expr()->get_id(), rational(n));
     }
 
     void nielsen_node::apply_char_subst(euf::sgraph& sg, char_subst const& s) {
