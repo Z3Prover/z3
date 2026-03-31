@@ -563,6 +563,63 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Create a type variable sort for use as a parameter in polymorphic datatypes.
+        /// </summary>
+        /// <param name="name">name of the type variable</param>
+        public Sort MkTypeVariable(Symbol name)
+        {
+            Debug.Assert(name != null);
+            CheckContextMatch(name);
+            return new Sort(this, Native.Z3_mk_type_variable(nCtx, name.NativeObject));
+        }
+
+        /// <summary>
+        /// Create a type variable sort for use as a parameter in polymorphic datatypes.
+        /// </summary>
+        /// <param name="name">name of the type variable</param>
+        public Sort MkTypeVariable(string name)
+        {
+            using var symbol = MkSymbol(name);
+            return MkTypeVariable(symbol);
+        }
+
+        /// <summary>
+        /// Create a polymorphic datatype sort with explicit type parameters.
+        /// Type parameters should be sorts created with <see cref="MkTypeVariable"/>.
+        /// </summary>
+        /// <param name="name">name of the datatype sort</param>
+        /// <param name="typeParams">array of type variable sorts</param>
+        /// <param name="constructors">array of constructors</param>
+        public DatatypeSort MkPolymorphicDatatypeSort(Symbol name, Sort[] typeParams, Constructor[] constructors)
+        {
+            Debug.Assert(name != null);
+            Debug.Assert(typeParams != null);
+            Debug.Assert(constructors != null);
+            Debug.Assert(constructors.All(c => c != null));
+
+            CheckContextMatch(name);
+            CheckContextMatch<Sort>(typeParams);
+            CheckContextMatch<Constructor>(constructors);
+            return new DatatypeSort(this,
+                Native.Z3_mk_polymorphic_datatype(nCtx, name.NativeObject,
+                    (uint)typeParams.Length, AST.ArrayToNative(typeParams),
+                    (uint)constructors.Length, Z3Object.ArrayToNative(constructors)));
+        }
+
+        /// <summary>
+        /// Create a polymorphic datatype sort with explicit type parameters.
+        /// Type parameters should be sorts created with <see cref="MkTypeVariable"/>.
+        /// </summary>
+        /// <param name="name">name of the datatype sort</param>
+        /// <param name="typeParams">array of type variable sorts</param>
+        /// <param name="constructors">array of constructors</param>
+        public DatatypeSort MkPolymorphicDatatypeSort(string name, Sort[] typeParams, Constructor[] constructors)
+        {
+            using var symbol = MkSymbol(name);
+            return MkPolymorphicDatatypeSort(symbol, typeParams, constructors);
+        }
+
+        /// <summary>
         /// Update a datatype field at expression t with value v.
         /// The function performs a record update at t. The field
         /// that is passed in as argument is updated with value v,

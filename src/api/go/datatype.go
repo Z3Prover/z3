@@ -127,6 +127,41 @@ func (c *Context) MkDatatypeSort(name string, constructors []*Constructor) *Sort
 	return newSort(c, C.Z3_mk_datatype(c.ptr, sym.ptr, C.uint(numCons), &cons[0]))
 }
 
+// MkPolymorphicDatatypeSort creates a polymorphic datatype sort with explicit type parameters.
+// typeParams should be sorts created with MkTypeVariable.
+// Self-recursive field sorts should be passed as nil; use the fieldSortRefs parameter in
+// MkConstructor to indicate the recursive reference by index.
+func (c *Context) MkPolymorphicDatatypeSort(name string, typeParams []*Sort, constructors []*Constructor) *Sort {
+	sym := c.MkStringSymbol(name)
+
+	numParams := len(typeParams)
+	numCons := len(constructors)
+
+	var paramPtr *C.Z3_sort
+	if numParams > 0 {
+		paramPtrs := make([]C.Z3_sort, numParams)
+		for i, p := range typeParams {
+			paramPtrs[i] = p.ptr
+		}
+		paramPtr = &paramPtrs[0]
+	}
+
+	var consPtr *C.Z3_constructor
+	if numCons > 0 {
+		consPtrs := make([]C.Z3_constructor, numCons)
+		for i, cons := range constructors {
+			consPtrs[i] = cons.ptr
+		}
+		consPtr = &consPtrs[0]
+	}
+
+	return newSort(c, C.Z3_mk_polymorphic_datatype(
+		c.ptr, sym.ptr,
+		C.uint(numParams), paramPtr,
+		C.uint(numCons), consPtr,
+	))
+}
+
 // MkDatatypeSorts creates multiple mutually recursive datatype sorts.
 func (c *Context) MkDatatypeSorts(names []string, constructorLists [][]*Constructor) []*Sort {
 	numTypes := uint(len(names))

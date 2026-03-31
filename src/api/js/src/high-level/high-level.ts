@@ -1172,8 +1172,15 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         createDatatypes(...datatypes: DatatypeImpl[]): DatatypeSortImpl[] {
           return createDatatypes(...datatypes);
         },
+        createPolymorphicDatatype(typeParams: Sort<Name>[], datatype: DatatypeImpl): DatatypeSortImpl {
+          return createPolymorphicDatatype(typeParams, datatype);
+        },
       },
     );
+
+    function TypeVariable(name: string): Sort<Name> {
+      return new SortImpl(check(Z3.mk_type_variable(contextPtr, Z3.mk_string_symbol(contextPtr, name))));
+    }
 
     ////////////////
     // Operations //
@@ -4689,6 +4696,10 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         const datatypes = createDatatypes(this);
         return datatypes[0];
       }
+
+      createPolymorphic(typeParams: Sort<Name>[]): DatatypeSort<Name> {
+        return createPolymorphicDatatype(typeParams, this);
+      }
     }
 
     class DatatypeSortImpl extends SortImpl implements DatatypeSort<Name> {
@@ -4841,6 +4852,84 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
         }
         for (const constructorList of constructorLists) {
           Z3.del_constructor_list(contextPtr, constructorList);
+        }
+      }
+    }
+
+    function createPolymorphicDatatype(typeParams: Sort<Name>[], datatype: DatatypeImpl): DatatypeSortImpl {
+      if (!(datatype instanceof DatatypeImpl)) {
+        throw new Error('Datatype instance expected');
+      }
+
+      const constructors: Z3_constructor[] = [];
+
+      try {
+        for (const [constructorName, fields] of datatype.constructors) {
+          const fieldNames: string[] = [];
+          const fieldSorts: Z3_sort[] = [];
+          const fieldRefs: number[] = [];
+
+          for (const [fieldName, fieldSort] of fields) {
+            fieldNames.push(fieldName);
+
+            if (fieldSort instanceof DatatypeImpl) {
+              // Self-recursive reference
+              if (fieldSort !== datatype) {
+                throw new Error(
+                  `Referenced datatype "${fieldSort.name}" is not the polymorphic datatype being created; mutual recursion is not supported in createPolymorphicDatatype`,
+                );
+              }
+              fieldSorts.push(null as any);
+              fieldRefs.push(0);
+            } else {
+              fieldSorts.push((fieldSort as Sort<Name>).ptr);
+              fieldRefs.push(0);
+            }
+          }
+
+          const constructor = Z3.mk_constructor(
+            contextPtr,
+            Z3.mk_string_symbol(contextPtr, constructorName),
+            Z3.mk_string_symbol(contextPtr, `is_${constructorName}`),
+            fieldNames.map(name => Z3.mk_string_symbol(contextPtr, name)),
+            fieldSorts,
+            fieldRefs,
+          );
+          constructors.push(constructor);
+        }
+
+        const nameSymbol = Z3.mk_string_symbol(contextPtr, datatype.name);
+        const paramPtrs = typeParams.map(p => p.ptr);
+        const resultSort = Z3.mk_polymorphic_datatype(contextPtr, nameSymbol, paramPtrs, constructors);
+
+        const sortImpl = new DatatypeSortImpl(resultSort);
+
+        // Attach constructor, recognizer, and accessor functions dynamically
+        const numConstructors = sortImpl.numConstructors();
+        for (let j = 0; j < numConstructors; j++) {
+          const constructor = sortImpl.constructorDecl(j);
+          const recognizer = sortImpl.recognizer(j);
+          const constructorName = constructor.name().toString();
+
+          if (constructor.arity() === 0) {
+            (sortImpl as any)[constructorName] = constructor.call();
+          } else {
+            (sortImpl as any)[constructorName] = constructor;
+          }
+
+          (sortImpl as any)[`is_${constructorName}`] = recognizer;
+
+          for (let k = 0; k < constructor.arity(); k++) {
+            const accessor = sortImpl.accessor(j, k);
+            const accessorName = accessor.name().toString();
+            (sortImpl as any)[accessorName] = accessor;
+          }
+        }
+
+        return sortImpl;
+      } finally {
+        for (const constructor of constructors) {
+          Z3.del_constructor(contextPtr, constructor);
         }
       }
     }
@@ -5292,6 +5381,7 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       Set,
       FiniteSet,
       Datatype,
+      TypeVariable,
 
       ////////////////
       // Operations //

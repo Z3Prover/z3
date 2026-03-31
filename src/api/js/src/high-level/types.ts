@@ -479,6 +479,12 @@ export interface Context<Name extends string = 'main'> {
   /** @category Expressions */
   readonly Datatype: DatatypeCreation<Name>;
 
+  /**
+   * Create a type variable sort for use as a parameter in polymorphic datatypes.
+   * @category Sorts
+   */
+  TypeVariable(name: string): Sort<Name>;
+
   ////////////////
   // Operations //
   ////////////////
@@ -3136,6 +3142,15 @@ export interface Datatype<Name extends string = 'main'> {
    * For mutually recursive datatypes, use Context.createDatatypes instead.
    */
   create(): DatatypeSort<Name>;
+
+  /**
+   * Create a polymorphic datatype sort with explicit type parameters.
+   * Type parameters should be sorts created with Context.TypeVariable.
+   * Self-recursive fields may reference this Datatype object directly.
+   *
+   * @param typeParams Array of type variable sorts
+   */
+  createPolymorphic(typeParams: AnySort<Name>[]): DatatypeSort<Name>;
 }
 
 /**
@@ -3154,6 +3169,17 @@ export interface DatatypeCreation<Name extends string> {
    * @returns Array of created DatatypeSort instances
    */
   createDatatypes(...datatypes: Datatype<Name>[]): DatatypeSort<Name>[];
+
+  /**
+   * Create a single polymorphic datatype sort with explicit type parameters.
+   * Type parameters should be sorts created with Context.TypeVariable.
+   * Self-recursive fields in constructors may reference the Datatype object directly.
+   *
+   * @param typeParams Array of type variable sorts
+   * @param datatype Datatype declaration with constructors
+   * @returns Created DatatypeSort instance
+   */
+  createPolymorphicDatatype(typeParams: AnySort<Name>[], datatype: Datatype<Name>): DatatypeSort<Name>;
 }
 
 /**
