@@ -248,18 +248,23 @@ namespace seq {
         return false;
     }
 
-    void nielsen_node::add_constraint(constraint const &c) {
+    bool nielsen_node::add_constraint(constraint const &c) {
         if (graph().get_manager().is_and(c.fml)) {
-            for (auto f : *to_app(c.fml)) 
-                add_constraint(constraint(f, c.dep, graph().get_manager()));
-            return;
+            for (auto f : *to_app(c.fml)) {
+                if (!add_constraint(constraint(f, c.dep, graph().get_manager())))
+                    return false;
+            }
+            return true;
         }
         m_constraints.push_back(c);
         if (m_graph.m_literal_if_false) {
             auto lit = m_graph.m_literal_if_false(c.fml);
-            if (lit != sat::null_literal)
+            if (lit != sat::null_literal) {
                 set_external_conflict(lit);
+                return false;
+            }
         }
+        return true;
     }
 
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
@@ -1322,7 +1327,7 @@ namespace seq {
                 inc_run_idx();
                 ptr_vector<nielsen_edge> cur_path;
                 // scoped_push _scoped_push(m_dep_mgr); // gc dependencies after search
-                search_result r = search_dfs(m_root, cur_path);
+                const search_result r = search_dfs(m_root, cur_path);
                 IF_VERBOSE(1, verbose_stream()
                                   << " depth_bound=" << m_depth_bound << " dfs_nodes=" << m_stats.m_num_dfs_nodes
                                   << " max_depth=" << m_stats.m_max_depth << " extensions=" << m_stats.m_num_extensions
@@ -1488,7 +1493,8 @@ namespace seq {
                 e->set_len_constraints_computed(true);
 
                 for (const auto& sc : e->side_constraints()) {
-                    e->tgt()->add_constraint(sc);
+                    if (!e->tgt()->add_constraint(sc))
+                        return search_result::unsat;
                 }
             }
 

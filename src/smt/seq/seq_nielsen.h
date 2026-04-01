@@ -585,7 +585,7 @@ namespace seq {
 
         void add_str_eq(str_eq const& eq) { m_str_eq.push_back(eq); }
         void add_str_mem(str_mem const& mem) { m_str_mem.push_back(mem); }
-        void add_constraint(constraint const &ic);
+        bool add_constraint(constraint const &ic);
 
         vector<constraint> const& constraints() const { return m_constraints; }
         vector<constraint>& constraints() { return m_constraints; }
