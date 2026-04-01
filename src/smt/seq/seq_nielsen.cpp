@@ -1511,8 +1511,6 @@ namespace seq {
         // pretty much all of them could cause divergence!
         // e.g., x \in aa* => don't apply substitution x / ax even though it looks "safe" to do
         // there might be another constraint x \in a* and they would just push the "a" back and forth!
-        ast_manager& m = m_sg.get_manager();
-        seq_util& seq = m_sg.get_seq_util();
         arith_util arith(m);
 
         for (unsigned eq_idx = 0; eq_idx < node->str_eqs().size(); ++eq_idx) {
@@ -1626,7 +1624,7 @@ namespace seq {
                     nielsen_subst s(pow_head, m_sg.mk_empty_seq(pow_head->get_sort()), eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
-                    expr* pow_exp = get_power_exp_expr(pow_head, seq);
+                    expr* pow_exp = get_power_exp_expr(pow_head, m_seq);
                     if (pow_exp) {
                         expr *zero = arith.mk_int(0);
                         e->add_side_constraint(mk_constraint(m.mk_eq(pow_exp, zero), eq.m_dep));
@@ -1925,9 +1923,8 @@ namespace seq {
             return true;
         // For s_var string literals: check if it's a string literal (known constant length).
         if (tok->get_expr()) {
-            seq_util& seq = m_sg.get_seq_util();
             zstring s;
-            if (seq.str.is_string(tok->get_expr(), s))
+            if (m_seq.str.is_string(tok->get_expr(), s))
                 return false;
         }
         // Everything else is treated as variable length.
@@ -1938,9 +1935,8 @@ namespace seq {
         if (tok->is_char_or_unit())
             return 1;
         if (tok->get_expr()) {
-            seq_util& seq = m_sg.get_seq_util();
             zstring s;
-            if (seq.str.is_string(tok->get_expr(), s))
+            if (m_seq.str.is_string(tok->get_expr(), s))
                 return s.length();
         }
         return 0;
@@ -2827,9 +2823,7 @@ namespace seq {
     bool nielsen_graph::fire_gpower_intro(
             nielsen_node* node, str_eq const& eq,
             euf::snode* var, euf::snode_vector const& ground_prefix_orig, bool fwd) {
-        ast_manager& m = m_sg.get_manager();
         arith_util arith(m);
-        seq_util& seq = m_sg.get_seq_util();
 
         // Compress repeated patterns in the ground prefix (mirrors ZIPT's LcpCompressionFull).
         // E.g., [a,b,a,b] has minimal period 2 → use [a,b] as the power base.
@@ -2859,7 +2853,7 @@ namespace seq {
         // E.g., [(ab)^3] → [a, b] so we get (ab)^n instead of ((ab)^3)^n.
         // (mirrors ZIPT: if b.Length == 1 && b is PowerToken pt => b = pt.Base)
         if (ground_prefix.size() == 1 && ground_prefix[0]->is_power()) {
-            expr* base_e = get_power_base_expr(ground_prefix[0], seq);
+            expr* base_e = get_power_base_expr(ground_prefix[0], m_seq);
             if (base_e) {
                 euf::snode* base_sn = m_sg.mk(base_e);
                 if (base_sn) {
@@ -2884,9 +2878,9 @@ namespace seq {
             if (i == 0)
                 base_str = tok_expr;
             else if (fwd)
-                base_str = seq.str.mk_concat(base_str, tok_expr);
+                base_str = m_seq.str.mk_concat(base_str, tok_expr);
             else
-                base_str = seq.str.mk_concat(tok_expr, base_str);
+                base_str = m_seq.str.mk_concat(tok_expr, base_str);
         }
 
         unsigned mc = 0;
@@ -2894,12 +2888,12 @@ namespace seq {
 
         // Create fresh exponent variable and power expression: base^n
         expr_ref fresh_n = get_or_create_gpower_n_var(var, mc);
-        expr_ref power_expr(seq.str.mk_power(base_str, fresh_n), m);
+        expr_ref power_expr(m_seq.str.mk_power(base_str, fresh_n), m);
         euf::snode* power_snode = m_sg.mk(power_expr);
         if (!power_snode)
             return false;
 
-        expr* zero = arith.mk_int(0);
+        expr_ref zero(arith.mk_int(0), m);
 
         // Generate children mirroring ZIPT's GetDecompose:
         // P(t0 · t1 · ... · t_{k-1}) = P(t0) | t0·P(t1) | ... | t0·...·t_{k-2}·P(t_{k-1})
@@ -2926,10 +2920,10 @@ namespace seq {
             if (tok->is_power()) {
                 // Token is a power u^exp: use fresh m' with 0 ≤ m' ≤ exp
                 expr* inner_exp = get_power_exponent(tok);
-                expr* inner_base = get_power_base_expr(tok, seq);
+                expr* inner_base = get_power_base_expr(tok, m_seq);
                 if (inner_exp && inner_base) {
                     fresh_m = get_or_create_gpower_m_var(var, mc);
-                    expr_ref partial_pow(seq.str.mk_power(inner_base, fresh_m), m);
+                    expr_ref partial_pow(m_seq.str.mk_power(inner_base, fresh_m), m);
                     euf::snode* partial_sn = m_sg.mk(partial_pow);
                     euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
                     replacement = dir_concat(m_sg, power_snode, suffix_sn, fwd);
@@ -3233,13 +3227,12 @@ namespace seq {
                 continue;
 
             // Compute minterms from the regex
-            // std::cout << "Regex split: " << mk_pp(mem.m_regex->get_expr(), m_sg.get_manager()) << std::endl;
             euf::snode_vector minterms;
             m_sg.compute_minterms(mem.m_regex, minterms);
             VERIFY(!minterms.empty());
 
             bool created = false;
-            // std::cout << "Considering regex: " << mk_pp(mem.m_regex->get_expr(), m_sg.get_manager()) << std::endl;
+            // std::cout << "Considering regex: " << mk_pp(mem.m_regex->get_expr(), m) << std::endl;
 
             // Branch 1: x → ε (progress)
             {
@@ -3254,7 +3247,7 @@ namespace seq {
             // Branch 2+: for each minterm m_i, x → ?c · x
             // where ?c is a symbolic char constrained by the minterm
             for (euf::snode* mt : minterms) {
-                // std::cout << "Processing minterm: " << mk_pp(mt->get_expr(), m_sg.get_manager()) << std::endl;
+                // std::cout << "Processing minterm: " << mk_pp(mt->get_expr(), m) << std::endl;
                 SASSERT(mt);
                 SASSERT(mt->get_expr());
                 SASSERT(!mt->is_fail());
@@ -3265,7 +3258,7 @@ namespace seq {
                 SASSERT(deriv);
                 if (deriv->is_fail())
                     continue;
-                // std::cout << "Result: " << mk_pp(deriv->get_expr(), m_sg.get_manager()) << std::endl;
+                // std::cout << "Result: " << mk_pp(deriv->get_expr(), m) << std::endl;
 
                 SASSERT(m_seq_regex);
                 char_set cs = m_seq_regex->minterm_to_char_set(mt->get_expr());
@@ -3276,7 +3269,7 @@ namespace seq {
 
                 euf::snode* fresh_char = nullptr;
                 if (cs.is_unit()) {
-                    expr_ref char_expr(m_sg.get_seq_util().str.mk_string(zstring(cs.first_char())), m_sg.get_manager());
+                    expr_ref char_expr(m_sg.get_seq_util().str.mk_string(zstring(cs.first_char())), m);
                     fresh_char = m_sg.mk(char_expr);
                 }
                 else {
@@ -3558,7 +3551,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     expr_ref nielsen_graph::compute_length_expr(euf::snode* n) {
-        seq_util &seq = m_seq;
         arith_util arith(m);
 
         if (n->is_empty())
@@ -3585,7 +3577,7 @@ namespace seq {
         }
 
         // for variables at mod_count 0 and other terms, use symbolic (str.len expr)
-        return expr_ref(seq.str.mk_length(n->get_expr()), m);
+        return expr_ref(m_seq.str.mk_length(n->get_expr()), m);
     }
 
     void nielsen_graph::generate_length_constraints(vector<length_constraint>& constraints) {
@@ -3938,7 +3930,7 @@ namespace seq {
     }
 
     constraint nielsen_graph::mk_constraint(expr* fml, dep_tracker const& dep) {
-        return constraint(fml, dep, m_sg.get_manager());
+        return constraint(fml, dep, m);
     }
 
     expr* nielsen_graph::get_power_exponent(euf::snode* power) {
