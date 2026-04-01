@@ -273,12 +273,12 @@ namespace seq {
     class simple_solver {
     public:
         virtual ~simple_solver() {}
-        virtual lbool           check() = 0;
-        virtual void            assert_expr(expr* e) = 0;
-        virtual void            push() = 0;
-        virtual void            pop(unsigned num_scopes) = 0;
-        virtual void            get_model(model_ref& mdl) { mdl = nullptr; }
-        virtual expr_ref_vector get_unsat_core() { throw z3_exception(); }
+        virtual lbool   check() = 0;
+        virtual void    assert_expr(expr* e) = 0;
+        virtual void    push() = 0;
+        virtual void    pop(unsigned num_scopes) = 0;
+        virtual void    get_model(model_ref& mdl) { mdl = nullptr; }
+        virtual lbool   check_with_assumptions(expr_ref_vector& assumptions, expr_ref_vector& core) { return l_undef; }
         // Optional bound queries on arithmetic expressions (non-strict integer bounds).
         // Default implementation reports "unsupported".
         virtual bool    lower_bound(expr* e, rational& lo) const { return false; }
@@ -439,24 +439,6 @@ namespace seq {
         }
     };
 
-    // kind of length constraint determines propagation strategy
-    enum class length_kind {
-        nonneg,   // len(x) >= 0: unconditional axiom
-        eq,       // len(lhs) = len(rhs): conditional on string equality
-        bound     // Parikh bound: conditional on regex membership
-    };
-
-    // arithmetic length constraint derived from string equations
-    struct length_constraint {
-        expr_ref    m_expr;  // arithmetic expression (e.g., len(x) + len(y) = len(a) + 1)
-        dep_tracker m_dep;   // tracks which input constraints contributed
-        length_kind m_kind;  // determines propagation strategy
-
-        length_constraint(ast_manager& m): m_expr(m), m_dep(nullptr), m_kind(length_kind::nonneg) {}
-        length_constraint(expr* e, dep_tracker const& dep, length_kind kind, ast_manager& m):
-            m_expr(e, m), m_dep(dep), m_kind(kind) {}
-    };
-
     // -----------------------------------------------
     // integer constraint: equality or inequality over length expressions
     // mirrors ZIPT's IntEq and IntLe
@@ -476,6 +458,29 @@ namespace seq {
 
         std::ostream& display(std::ostream& out) const;
     };
+
+    // kind of length constraint determines propagation strategy
+    enum class length_kind {
+        nonneg,   // len(x) >= 0: unconditional axiom
+        eq,       // len(lhs) = len(rhs): conditional on string equality
+        bound     // Parikh bound: conditional on regex membership
+    };
+
+    // arithmetic length constraint derived from string equations
+    struct length_constraint {
+        expr_ref    m_expr;  // arithmetic expression (e.g., len(x) + len(y) = len(a) + 1)
+        dep_tracker m_dep;   // tracks which input constraints contributed
+        length_kind m_kind;  // determines propagation strategy
+
+        length_constraint(ast_manager& m): m_expr(m), m_dep(nullptr), m_kind(length_kind::nonneg) {}
+        length_constraint(expr* e, dep_tracker const& dep, length_kind kind, ast_manager& m):
+            m_expr(e, m), m_dep(dep), m_kind(kind) {}
+
+        constraint to_constraint() const {
+            return constraint(m_expr, m_dep, m_expr.get_manager());
+        }
+    };
+
     // edge in the Nielsen graph connecting two nodes
     // mirrors ZIPT's NielsenEdge
     class nielsen_edge {
@@ -763,6 +768,7 @@ namespace seq {
         // and optimistically assumes feasibility.
         // -----------------------------------------------
         simple_solver&                m_solver;
+        simple_solver&                m_core_solver;
 
         // Constraint.Shared: guards re-assertion of root-level constraints.
         // Set to true after assert_root_constraints_to_solver() is first called.
@@ -820,7 +826,7 @@ namespace seq {
     public:
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
         // the caller is responsible for keeping the solver alive.
-        nielsen_graph(euf::sgraph& sg, simple_solver& solver);
+        nielsen_graph(euf::sgraph& sg, simple_solver& solver, simple_solver &core_solver);
         ~nielsen_graph();
 
         void set_literal_if_false(std::function<sat::literal(expr* e)> const& lif) {

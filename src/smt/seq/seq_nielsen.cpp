@@ -243,6 +243,12 @@ namespace seq {
     }
 
     void nielsen_node::add_constraint(constraint const &c) {
+        if (graph().get_manager().is_and(c.fml)) {
+            // this is important, as the subsolver might decompose for returned unsat cores
+            for (unsigned i = 0; i < to_app(c.fml)->get_num_args(); ++i) {
+                add_constraint(constraint(to_app(c.fml)->get_arg(i), c.dep, graph().get_manager()));
+            }
+        }
         m_constraints.push_back(c);
         if (m_graph.m_literal_if_false) {
             auto lit = m_graph.m_literal_if_false(c.fml);
@@ -386,11 +392,12 @@ namespace seq {
     // nielsen_graph
     // -----------------------------------------------
 
-    nielsen_graph::nielsen_graph(euf::sgraph &sg, simple_solver &solver):        
+    nielsen_graph::nielsen_graph(euf::sgraph &sg, simple_solver &solver, simple_solver &core_solver):
         m(sg.get_manager()),        
         m_seq(sg.get_seq_util()),
         m_sg(sg),
         m_solver(solver),
+        m_core_solver(core_solver),
         m_parikh(alloc(seq_parikh, sg)),
         m_seq_regex(alloc(seq::seq_regex, sg)),
         m_len_vars(sg.get_manager()),
@@ -495,6 +502,7 @@ namespace seq {
         m_gpower_vars.reset();
         m_dep_mgr.reset();
         m_solver.reset();
+        m_core_solver.reset();
     }
 
     // -----------------------------------------------------------------------
@@ -1268,7 +1276,7 @@ namespace seq {
         vector<length_constraint> constraints;
         generate_length_constraints(constraints);
         for (auto const& lc : constraints) {
-            m_solver.assert_expr(lc.m_expr);
+            m_root->add_constraint(lc.to_constraint());
         }
     }
 
@@ -3916,15 +3924,20 @@ namespace seq {
     }
 
     dep_tracker nielsen_graph::get_subsolver_dependency(nielsen_node* n) {
-        auto core = m_solver.get_unsat_core();
-        SASSERT(!core.empty());
         u_map<dep_tracker> expr_to_dep;
-        for (unsigned i = 0; i < n->m_parent_ic_count; i++) {
+        expr_ref_vector assumptions(m);
+        assumptions.resize(n->constraints().size());
+        for (unsigned i = 0; i < assumptions.size(); i++) {
             auto& c = n->constraints()[i];
             expr_to_dep.insert_if_not_there(c.fml->get_id(), c.dep);
+            assumptions[i] = c.fml;
         }
+        expr_ref_vector core(m);
+        lbool res = m_core_solver.check_with_assumptions(assumptions, core);
+        VERIFY(res == l_false);
+
         dep_tracker dep = dep_mgr().mk_empty();
-        for (const expr * const e : core) {
+        for (expr* e : core) {
              dep = dep_mgr().mk_join(dep, expr_to_dep[e->get_id()]);
         }
         return dep;
@@ -3996,8 +4009,9 @@ namespace seq {
         IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints: sat_path length=" << m_sat_path.size() << "\n";);
         m_solver.push();
         for (nielsen_edge* e : m_sat_path) {
-            for (auto const& ic : e->side_constraints())
+            for (auto const& ic : e->side_constraints()) {
                 m_solver.assert_expr(ic.fml);
+            }
         }
         if (m_sat_node) {
             for (auto const& ic : m_sat_node->constraints())

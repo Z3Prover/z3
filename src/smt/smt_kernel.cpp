@@ -93,6 +93,10 @@ namespace smt {
         return m_imp->m_kernel.get_num_asserted_formulas();
     }
     
+    void kernel::get_formulas(ptr_vector<expr>& r) const {
+        return m_imp->m_kernel.get_asserted_formulas(r);
+    }
+
     expr* kernel::get_formula(unsigned i) const {
         return m_imp->m_kernel.get_asserted_formula(i);
     }

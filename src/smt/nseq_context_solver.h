@@ -32,7 +32,7 @@ namespace smt {
      */
     class context_solver : public seq::simple_solver {
         smt_params  m_params;  // must be declared before m_kernel
-        smt::kernel m_kernel;
+        kernel m_kernel;
         arith_value m_arith_value;
 
         static smt_params make_seq_len_params() {
@@ -55,6 +55,10 @@ namespace smt {
             //     std::cout << "\t" << mk_pp(m_kernel.get_formula(i), m_kernel.m()) << std::endl;
             // }
             // std::cout << std::endl;
+            // std::cout << "Checking" << std::endl;
+            // for (unsigned i = 0; i < m_kernel.size(); i++) {
+            //     std::cout << mk_pp(m_kernel.get_formula(i), m_kernel.m()) << std::endl;
+            // }
             return m_kernel.check();
         }
 
@@ -84,14 +88,20 @@ namespace smt {
             return m_arith_value.get_up(e, hi, is_strict) && !is_strict && hi.is_int();
         }
 
-        virtual expr_ref_vector get_unsat_core() {
+        lbool check_with_assumptions(expr_ref_vector& assumptions, expr_ref_vector& core) override {
+            // TODO: Not ideal
+            // Replay with assumptions
+            // std::cout << "Assuming" << std::endl;
+            // for (unsigned i = 0; i < assumptions.size(); i++) {
+            //     std::cout << mk_pp(assumptions[i].get(), m_kernel.m()) << std::endl;
+            // }
+            lbool r = m_kernel.check(assumptions.size(), assumptions.data());
             unsigned cnt = m_kernel.get_unsat_core_size();
-            expr_ref_vector core(m_kernel.m());
-            core.reserve(cnt);
+            core.resize(cnt);
             for (unsigned i = 0; i < cnt; i++) {
                 core[i] = m_kernel.get_unsat_core_expr(i);
             }
-            return core;
+            return r;
          }
 
         void reset() override {
