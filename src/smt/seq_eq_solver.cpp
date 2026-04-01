@@ -134,6 +134,11 @@ bool theory_seq::has_len_offset(expr_ref_vector const& ls, expr_ref_vector const
     if (!is_var(l_fst) || !is_var(r_fst)) 
         return false;
 
+    if (l_fst == r_fst) {
+        offset = 0;
+        return true;
+    }
+
     expr_ref len_l_fst = mk_len(l_fst);
     if (!ctx.e_internalized(len_l_fst)) 
         return false;
@@ -875,10 +880,7 @@ bool theory_seq::find_branch_candidate(unsigned& start, dependency* dep, expr_re
         }
     }
 
-    bool all_units = true;
-    for (expr* r : rs) {
-        all_units &= m_util.str.is_unit(r);
-    }
+    bool all_units = all_of(rs, [&](auto* r) { return m_util.str.is_unit(r); });
     if (all_units) {
         literal_vector lits;
         lits.push_back(~mk_eq_empty(l));
