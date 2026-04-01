@@ -2127,10 +2127,14 @@ namespace seq {
             euf::snode* eq1_rhs = rhs_prefix;
             euf::snode* eq2_lhs = lhs_suffix;
             euf::snode* eq2_rhs = rhs_suffix;
+            th_rewriter rw(m);
+          
 
             euf::snode* pad = nullptr;
             if (padding != 0) {
-                pad = mk_fresh_var(eq.m_lhs->get_sort());
+                expr *pad_var = skolem(m, rw).mk("eq-split", arith.mk_int(padding), eq.m_lhs->get_expr(),
+                                                 eq.m_rhs->get_expr(), eq.m_lhs->get_sort()); 
+                pad = m_sg.mk(pad_var);
                 if (padding > 0) {
                     // LHS prefix is longer by |padding| constants.
                     // Prepend pad to RHS prefix, append pad to LHS suffix.
@@ -2188,15 +2192,6 @@ namespace seq {
         return m_sg.mk_var(symbol(name.c_str()), s);
     }
 
-    euf::snode* nielsen_graph::mk_fresh_char_var() {
-        ++m_stats.m_num_fresh_vars;
-        std::string name = "?c!" + std::to_string(m_fresh_cnt++);
-        sort* char_sort = m_seq.mk_char_sort();
-        expr_ref fresh_const(m.mk_fresh_const(name.c_str(), char_sort), m);
-        expr_ref unit(m_seq.str.mk_unit(fresh_const), m);
-        return m_sg.mk(unit);
-    }
-
     bool nielsen_graph::generate_extensions(nielsen_node *node) {
         // The first modifier that produces edges is used and returned immediately.
 
@@ -2237,12 +2232,10 @@ namespace seq {
         // Priority 8: ConstNielsen - char vs var (2 children)
         if (apply_const_nielsen(node))
             return ++m_stats.m_mod_const_nielsen, true;
-
         
         // Priority 9: RegexUnitSplit - split str_mem c·s ∈ R by minterms of R
         if (apply_regex_unit_split(node))
             return ++m_stats.m_mod_regex_unit_split, true;
-
 
         // Priority 9b: SignatureSplit - heuristic string equation splitting
         if (m_signature_split && apply_signature_split(node))
@@ -3324,7 +3317,6 @@ namespace seq {
 
     bool nielsen_graph::apply_power_split(nielsen_node* node) {
         arith_util arith(m);
-        seq_util &seq = m_seq;
 
         euf::snode* power = nullptr;
         euf::snode* var_head = nullptr;
@@ -3344,7 +3336,7 @@ namespace seq {
             euf::snode_vector base_toks;
             collect_tokens_dir(base, fwd, base_toks);
             unsigned base_len = base_toks.size();
-            expr* base_expr = get_power_base_expr(power, seq);
+            expr* base_expr = get_power_base_expr(power, m_seq);
             if (!base_expr || base_len == 0)
                 return false;
 
@@ -3352,7 +3344,7 @@ namespace seq {
             m_mod_cnt.find(var_head->id(), mc);
             
             expr_ref fresh_m = get_or_create_gpower_n_var(var_head, mc);
-            expr_ref power_m_expr(seq.str.mk_power(base_expr, fresh_m), m);
+            expr_ref power_m_expr(m_seq.str.mk_power(base_expr, fresh_m), m);
             euf::snode* power_m_sn = m_sg.mk(power_m_expr);
             if (!power_m_sn)
                 return false;
@@ -3376,10 +3368,10 @@ namespace seq {
                 if (tok->is_power()) {
                     // Token is a power u^exp: decompose with fresh m', 0 <= m' <= exp
                     expr* inner_exp = get_power_exponent(tok);
-                    expr* inner_base = get_power_base_expr(tok, seq);
+                    expr* inner_base = get_power_base_expr(tok, m_seq);
                     if (inner_exp && inner_base) {
                         fresh_inner_m = get_or_create_gpower_m_var(var_head, mc);
-                        expr_ref partial_pow(seq.str.mk_power(inner_base, fresh_inner_m), m);
+                        expr_ref partial_pow(m_seq.str.mk_power(inner_base, fresh_inner_m), m);
                         euf::snode* partial_sn = m_sg.mk(partial_pow);
                         euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
                         replacement = dir_concat(m_sg, power_m_sn, suffix_sn, fwd);
@@ -3449,8 +3441,8 @@ namespace seq {
         SASSERT(power->is_power() && power->num_args() >= 1);
         euf::snode* base = power->arg(0);
         expr* exp_n = get_power_exponent(power);
-        expr* zero = arith.mk_int(0);
-        expr* one = arith.mk_int(1);
+        expr_ref zero(arith.mk_int(0), m);
+        expr_ref one(arith.mk_int(1), m);
 
         // Branch 1: n = 0 → replace u^n with ε (progress)
         // Side constraint: n = 0
@@ -3493,8 +3485,8 @@ namespace seq {
         SASSERT(power->is_power() && power->num_args() >= 1);
         euf::snode* base = power->arg(0);
         expr* exp_n = get_power_exponent(power);
-        expr* zero = arith.mk_int(0);
-        expr* one = arith.mk_int(1);
+        expr_ref zero(arith.mk_int(0), m);
+        expr_ref one(arith.mk_int(1), m);
 
         // Branch 1: n = 0 → replace u^n with ε (progress)
         // Side constraint: n = 0
@@ -3572,7 +3564,7 @@ namespace seq {
         if (n->is_empty())
             return expr_ref(arith.mk_int(0), m);
 
-        if (n->is_char() || n->is_unit())
+        if (n->is_char_or_unit())
             return expr_ref(arith.mk_int(1), m);
 
         if (n->is_concat()) {
