@@ -321,7 +321,7 @@ namespace seq {
 
     bool nielsen_node::upper_bound(expr* e, rational& up) const {
         SASSERT(e);
-        arith_util arith(graph().get_manager());
+        arith_util& arith = m_graph.a;
         rational v;
         if (arith.is_numeral(e, v)) {
             up = v;
@@ -387,7 +387,8 @@ namespace seq {
     // -----------------------------------------------
 
     nielsen_graph::nielsen_graph(euf::sgraph &sg, simple_solver &solver):        
-        m(sg.get_manager()),        
+        m(sg.get_manager()),
+        a(sg.get_manager()),
         m_seq(sg.get_seq_util()),
         m_sg(sg),
         m_solver(solver),
@@ -515,7 +516,7 @@ namespace seq {
             return true;
         }
         ast_manager& m = sg.get_manager();
-        arith_util arith(m);
+        arith_util& arith = m_graph.a;
         seq_util& seq = sg.get_seq_util();
         for (euf::snode* t : tokens) {
             if (t->is_var()) {
@@ -820,7 +821,7 @@ namespace seq {
 
         euf::sgraph& sg = m_graph.sg();
         ast_manager& m = sg.get_manager();
-        arith_util arith(m);
+        arith_util& arith = m_graph.a;
         seq_util& seq = this->graph().seq();
         bool changed = true;
 
@@ -1511,7 +1512,7 @@ namespace seq {
         // pretty much all of them could cause divergence!
         // e.g., x \in aa* => don't apply substitution x / ax even though it looks "safe" to do
         // there might be another constraint x \in a* and they would just push the "a" back and forth!
-        arith_util arith(m);
+        arith_util& arith = a;
 
         for (unsigned eq_idx = 0; eq_idx < node->str_eqs().size(); ++eq_idx) {
             str_eq const& eq = node->str_eqs()[eq_idx];
@@ -2089,7 +2090,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_eq_split(nielsen_node* node) {
-        arith_util arith(m);
+        arith_util& arith = a;
 
         for (unsigned eq_idx = 0; eq_idx < node->str_eqs().size(); ++eq_idx) {
             str_eq const& eq = node->str_eqs()[eq_idx];
@@ -2457,7 +2458,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_num_cmp(nielsen_node* node) {
-        arith_util arith(m);
+        arith_util& arith = a;
 
         // Look for two directional endpoint power tokens with the same base.
         for (str_eq const& eq : node->str_eqs()) {
@@ -2520,7 +2521,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_split_power_elim(nielsen_node* node) {
-        arith_util arith(m);
+        arith_util& arith = a;
         seq_util& seq = this->seq();
 
         for (str_eq const& eq : node->str_eqs()) {
@@ -2586,7 +2587,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_const_num_unwinding(nielsen_node* node) {
-        arith_util arith(m);
+        arith_util& arith = a;
 
         euf::snode *power = nullptr;
         euf::snode *other_head = nullptr;
@@ -2823,7 +2824,7 @@ namespace seq {
     bool nielsen_graph::fire_gpower_intro(
             nielsen_node* node, str_eq const& eq,
             euf::snode* var, euf::snode_vector const& ground_prefix_orig, bool fwd) {
-        arith_util arith(m);
+        arith_util& arith = a;
 
         // Compress repeated patterns in the ground prefix (mirrors ZIPT's LcpCompressionFull).
         // E.g., [a,b,a,b] has minimal period 2 → use [a,b] as the power base.
@@ -3309,7 +3310,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_power_split(nielsen_node* node) {
-        arith_util arith(m);
+        arith_util& arith = a;
 
         euf::snode* power = nullptr;
         euf::snode* var_head = nullptr;
@@ -3422,7 +3423,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_var_num_unwinding_eq(nielsen_node* node) {
-        arith_util arith(m);
+        arith_util& arith = a;
 
         euf::snode* power = nullptr;
         euf::snode* var_head = nullptr;
@@ -3467,7 +3468,7 @@ namespace seq {
     }
 
     bool nielsen_graph::apply_var_num_unwinding_mem(nielsen_node* node) {
-        arith_util arith(m);
+        arith_util& arith = a;
 
         euf::snode* power = nullptr;
         str_mem const* mem = nullptr;
@@ -3551,7 +3552,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     expr_ref nielsen_graph::compute_length_expr(euf::snode* n) {
-        arith_util arith(m);
+        arith_util& arith = a;
 
         if (n->is_empty())
             return expr_ref(arith.mk_int(0), m);
@@ -3585,7 +3586,7 @@ namespace seq {
         uint_set seen_vars;
 
         seq_util& seq = m_sg.get_seq_util();
-        arith_util arith(m);
+        arith_util& arith = a;
         for (str_eq const& eq : m_root->str_eqs()) {
             if (eq.is_trivial())
                 continue;
@@ -3681,7 +3682,7 @@ namespace seq {
             return expr_ref(it->second, m);
 
         // Create a fresh integer variable: len_<varname>_<mod_count>
-        arith_util arith(m);
+        arith_util& arith = a;
         std::string name = "len!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
         expr_ref fresh(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
         m_len_vars.push_back(fresh);
@@ -3714,7 +3715,7 @@ namespace seq {
         if (it != m_gpower_n_var_cache.end())
             return expr_ref(it->second, m);
 
-        arith_util arith(m);
+        arith_util& arith = a;
         std::string name = "gpn!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
         expr_ref fresh(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
         m_gpower_vars.push_back(fresh);
@@ -3730,7 +3731,7 @@ namespace seq {
         if (it != m_gpower_m_var_cache.end())
             return expr_ref(it->second, m);
 
-        arith_util arith(m);
+        arith_util& arith = a;
         std::string name = "gpm!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
         expr_ref fresh(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
         m_gpower_vars.push_back(fresh);
@@ -3742,7 +3743,7 @@ namespace seq {
         auto const& substs = e->subst();
         bool has_non_elim = false;
 
-        arith_util arith(m);
+        arith_util& arith = a;
 
         // Step 1: Compute LHS (|x|) for each non-eliminating substitution
         // using current m_mod_cnt (before bumping).
@@ -3846,7 +3847,7 @@ namespace seq {
         if (node == m_root)
             return;
 
-        arith_util arith(m);
+        arith_util& arith = a;
         uint_set seen_vars;
 
         for (str_eq const& eq : node->str_eqs()) {
@@ -3914,7 +3915,7 @@ namespace seq {
         // fall through - ask the solver [expensive]
 
         // TODO: Maybe cache the result?
-        arith_util arith(m);
+        arith_util& arith = a;
 
         // The solver already holds all path constraints incrementally.
         // Temporarily add NOT(lhs <= rhs), i.e. lhs >= rhs + 1.
@@ -3943,7 +3944,7 @@ namespace seq {
     }
 
     expr_ref nielsen_graph::mk_fresh_int_var() {
-        arith_util arith(m);
+        arith_util& arith = a;
         std::string name = "n!" + std::to_string(m_fresh_cnt++);
         return expr_ref(m.mk_fresh_const(name.c_str(), arith.mk_int()), m);
     }

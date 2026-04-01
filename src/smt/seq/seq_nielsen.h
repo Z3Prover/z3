@@ -240,6 +240,7 @@ Author:
 #include "util/rational.h"
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/euf/euf_sgraph.h"
 #include <map>
 #include "model/model.h"
@@ -714,6 +715,7 @@ namespace seq {
     class nielsen_graph {
         friend class nielsen_node;
         ast_manager&                  m;
+        arith_util                    a;
         seq_util&                     m_seq;
         euf::sgraph&                  m_sg;
         ptr_vector<nielsen_node>      m_nodes;
