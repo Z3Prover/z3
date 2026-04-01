@@ -250,10 +250,8 @@ namespace seq {
 
     void nielsen_node::add_constraint(constraint const &c) {
         if (graph().get_manager().is_and(c.fml)) {
-            // this is important, as the subsolver might decompose for returned unsat cores
-            for (unsigned i = 0; i < to_app(c.fml)->get_num_args(); ++i) {
-                add_constraint(constraint(to_app(c.fml)->get_arg(i), c.dep, graph().get_manager()));
-            }
+            for (auto f : *to_app(c.fml)) 
+                add_constraint(constraint(f, c.dep, graph().get_manager()));
             return;
         }
         m_constraints.push_back(c);
@@ -1142,6 +1140,11 @@ namespace seq {
                 euf::snode* tok = mem.m_str->first();
                 if (!tok || !tok->is_unit())
                     break;
+
+                //
+                // TODO -rewrite to use symbolic derivative and add back resulting derived regex.
+                //
+
                 // compute minterms and check for uniform derivative
                 euf::snode_vector minterms;
                 sg.compute_minterms(mem.m_regex, minterms);
@@ -3693,7 +3696,8 @@ namespace seq {
         th_rewriter rw(m);
         sort *char_sort = m_seq.mk_char_sort();
         auto char_var = skolem(m, rw).mk("char!", var->get_expr(), a.mk_int(mod_count), char_sort);
-        return m_sg.mk(char_var);
+        expr_ref unit(m_seq.str.mk_unit(char_var), m);
+        return m_sg.mk(unit);
     }
 
     expr_ref nielsen_graph::get_or_create_gpower_n_var(euf::snode* var, unsigned mod_count) {
