@@ -769,23 +769,6 @@ namespace seq {
         // |x| = 1 + |x| that results from reusing the same length symbol.
         u_map<unsigned>               m_mod_cnt;
 
-        // Cache: (var snode id, modification count) → fresh integer variable.
-        // Variables at mod_count 0 use str.len(var_expr) (standard form).
-        // Variables at mod_count > 0 get a fresh Z3 integer constant.
-        std::map<std::pair<unsigned, unsigned>, expr*> m_len_var_cache;
-
-        // Pins the fresh length variable expressions so they aren't garbage collected.
-        expr_ref_vector               m_len_vars;
-
-        // Cache: (var snode id, modification count) → fresh character variable
-        std::map<std::pair<unsigned, unsigned>, euf::snode*> m_char_var_cache;
-
-        // Cache: (var snode id, modification count) → fresh integer variable
-        std::map<std::pair<unsigned, unsigned>, expr*> m_gpower_n_var_cache;
-        std::map<std::pair<unsigned, unsigned>, expr*> m_gpower_m_var_cache;
-
-        // Pins the fresh gpower variable expressions so they aren't garbage collected.
-        expr_ref_vector               m_gpower_vars;
 
         // Arena for dep_tracker nodes.  Declared mutable so that const methods
         // (e.g., explain_conflict) can call mk_join / linearize.

@@ -392,9 +392,7 @@ namespace seq {
         m_sg(sg),
         m_solver(solver),
         m_parikh(alloc(seq_parikh, sg)),
-        m_seq_regex(alloc(seq::seq_regex, sg)),
-        m_len_vars(sg.get_manager()),
-        m_gpower_vars(sg.get_manager()) {
+        m_seq_regex(alloc(seq::seq_regex, sg)) {
     }
 
     nielsen_graph::~nielsen_graph() {
@@ -487,12 +485,6 @@ namespace seq {
         m_fresh_cnt = 0;
         m_root_constraints_asserted = false;
         m_mod_cnt.reset();
-        m_len_var_cache.clear();
-        m_len_vars.reset();
-        m_char_var_cache.clear();
-        m_gpower_n_var_cache.clear();
-        m_gpower_m_var_cache.clear();
-        m_gpower_vars.reset();
         m_dep_mgr.reset();
         m_solver.reset();
     }
@@ -516,6 +508,7 @@ namespace seq {
         }
         ast_manager& m = sg.get_manager();
         seq_util& seq = sg.get_seq_util();
+        arith_util a(m);
         for (euf::snode* t : tokens) {
             if (t->is_var()) {
                 nielsen_subst s(t, sg.mk_empty_seq(t->get_sort()), dep);
@@ -2479,7 +2472,7 @@ namespace seq {
                 if (!exp_m || !exp_n)
                     continue;
                 rational diff;
-                SASSERT(!get_const_power_diff(exp_n, exp_m, arith, diff)); // handled by simplification
+                SASSERT(!get_const_power_diff(exp_n, exp_m, a, diff)); // handled by simplification
 
                 // Branch 1 (explored first): n < m  (add constraint c ≥ p + 1)
                 {
@@ -3657,67 +3650,27 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     expr_ref nielsen_graph::get_or_create_len_var(euf::snode* var, unsigned mod_count) {
-        SASSERT(var && var->is_var());
-        SASSERT(mod_count > 0);
-
-        auto key = std::make_pair(var->id(), mod_count);
-        auto it = m_len_var_cache.find(key);
-        if (it != m_len_var_cache.end())
-            return expr_ref(it->second, m);
-
-        // Create a fresh integer variable: len_<varname>_<mod_count>
-        std::string name = "len!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
-        expr_ref fresh(m.mk_fresh_const(name.c_str(), a.mk_int()), m);
-        m_len_vars.push_back(fresh);
-        m_len_var_cache.insert({key, fresh.get()});
-        return fresh;
+        th_rewriter rw(m);
+        return skolem(m, rw).mk("len!", var->get_expr(), a.mk_int(mod_count), a.mk_int());
     }
 
     euf::snode* nielsen_graph::get_or_create_char_var(euf::snode* var, unsigned mod_count) {
-        SASSERT(var && var->is_var());
-
-        auto key = std::make_pair(var->id(), mod_count);
-        auto it = m_char_var_cache.find(key);
-        if (it != m_char_var_cache.end())
-            return it->second;
-
-        std::string name = "c!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
-        sort* char_sort = m_seq.mk_char_sort();
-        expr_ref fresh_const(m.mk_fresh_const(name.c_str(), char_sort), m);
-        expr_ref unit(m_seq.str.mk_unit(fresh_const), m);
-        euf::snode* fresh = m_sg.mk(unit);
-        m_char_var_cache.insert({key, fresh});
-        return fresh;
+        th_rewriter rw(m);
+        sort *char_sort = m_seq.mk_char_sort();
+        auto char_var = skolem(m, rw).mk("char!", var->get_expr(), a.mk_int(mod_count), char_sort);
+        return m_sg.mk(char_var);
     }
 
     expr_ref nielsen_graph::get_or_create_gpower_n_var(euf::snode* var, unsigned mod_count) {
         SASSERT(var && var->is_var());
-
-        auto key = std::make_pair(var->id(), mod_count);
-        auto it = m_gpower_n_var_cache.find(key);
-        if (it != m_gpower_n_var_cache.end())
-            return expr_ref(it->second, m);
-
-        std::string name = "gpn!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
-        expr_ref fresh(m.mk_fresh_const(name.c_str(), a.mk_int()), m);
-        m_gpower_vars.push_back(fresh);
-        m_gpower_n_var_cache.insert({key, fresh.get()});
-        return fresh;
+        th_rewriter rw(m);
+        return skolem(m, rw).mk("gpn!", var->get_expr(), a.mk_int(mod_count), a.mk_int());
     }
 
     expr_ref nielsen_graph::get_or_create_gpower_m_var(euf::snode* var, unsigned mod_count) {
         SASSERT(var && var->is_var());
-
-        auto key = std::make_pair(var->id(), mod_count);
-        auto it = m_gpower_m_var_cache.find(key);
-        if (it != m_gpower_m_var_cache.end())
-            return expr_ref(it->second, m);
-
-        std::string name = "gpm!" + std::to_string(var->id()) + "!" + std::to_string(mod_count);
-        expr_ref fresh(m.mk_fresh_const(name.c_str(), a.mk_int()), m);
-        m_gpower_vars.push_back(fresh);
-        m_gpower_m_var_cache.insert({key, fresh.get()});
-        return fresh;
+        th_rewriter rw(m);
+        return skolem(m, rw).mk("gpm!", var->get_expr(), a.mk_int(mod_count), a.mk_int());
     }
 
     void nielsen_graph::add_subst_length_constraints(nielsen_edge* e) {
