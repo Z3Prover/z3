@@ -284,6 +284,8 @@ namespace seq {
         // Default implementation reports "unsupported".
         virtual bool    lower_bound(expr* e, rational& lo) const { return false; }
         virtual bool    upper_bound(expr* e, rational& hi) const { return false; }
+        virtual bool current_value(expr *e, rational &v) const { return false; }
+        
         virtual void    reset() = 0;
     };
 

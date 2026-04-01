@@ -88,6 +88,10 @@ namespace smt {
             return m_arith_value.get_up(e, hi, is_strict) && !is_strict && hi.is_int();
         }
 
+        bool current_value(expr* e, rational& v) const override {
+            return m_arith_value.get_value(e, v) && v.is_int(); 
+        }            
+
         lbool check_with_assumptions(expr_ref_vector& assumptions, expr_ref_vector& core) override {
             // TODO: Not ideal
             // Replay with assumptions
