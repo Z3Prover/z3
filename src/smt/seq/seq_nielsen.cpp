@@ -526,12 +526,8 @@ namespace seq {
                 // Power equated to empty → exponent must be 0.
                 expr* e = t->get_expr();
                 expr* pow_base = nullptr, *pow_exp = nullptr;
-                if (e) seq.str.is_power(e, pow_base, pow_exp);
-                if (pow_exp) {
-                    expr* zero = m_graph.a.mk_int(0);
-                    add_constraint(
-                        constraint(m.mk_eq(pow_exp, zero), dep, m));
-                }
+                if (seq.str.is_power(e, pow_base, pow_exp) && pow_exp) 
+                    add_constraint(constraint(m.mk_eq(pow_exp, a.mk_int(0)), dep, m));                
                 nielsen_subst s(t, sg.mk_empty_seq(t->get_sort()), dep);
                 apply_subst(sg, s);
                 changed = true;
@@ -597,7 +593,8 @@ namespace seq {
 
         euf::snode_vector tokens;
         side->collect_tokens(tokens);
-        if (tokens.size() < 2) return nullptr;
+        if (tokens.size() < 2) 
+            return nullptr;
 
         ast_manager& m = sg.get_manager();
         arith_util arith(m);
@@ -685,7 +682,8 @@ namespace seq {
             ++i;
         }
 
-        if (!merged) return nullptr;
+        if (!merged) 
+            return nullptr;
 
         euf::snode* rebuilt = nullptr;
         for (unsigned k = 0; k < result.size(); ++k)
@@ -2471,7 +2469,7 @@ namespace seq {
                 if (lhead->num_args() < 1 || rhead->num_args() < 1)
                     continue;
                 // same base: compare the two powers
-                if (lhead->arg(0)->id() != rhead->arg(0)->id())
+                if (lhead->arg(0) != rhead->arg(0))
                     continue;
 
                 // Skip if the exponents differ by a constant — simplify_and_init's
@@ -2485,15 +2483,13 @@ namespace seq {
 
                 // Branch 1 (explored first): n < m  (add constraint c ≥ p + 1)
                 {
-                    nielsen_node* child = mk_child(node);
-                    nielsen_edge* e = mk_edge(node, child, true);
+                    nielsen_edge *e = mk_edge(node, mk_child(node), true);
                     expr_ref n_plus_1(a.mk_add(exp_n, a.mk_int(1)), m);
                     e->add_side_constraint(mk_constraint(a.mk_ge(exp_m, n_plus_1), eq.m_dep));
                 }
                 // Branch 2 (explored second): m <= n  (add constraint p ≥ c)
                 {
-                    nielsen_node* child = mk_child(node);
-                    nielsen_edge* e = mk_edge(node, child, true);
+                    nielsen_edge *e = mk_edge(node, mk_child(node), true);
                     e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, exp_m), eq.m_dep));
                 }
                 return true;
@@ -2520,12 +2516,15 @@ namespace seq {
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())
                 continue;
+            // NB: Shuvendu - this test is always false based on how str_eqs are constructed
+            // it can be an assertion to force the invariant that str_eqs always have both sides non-null.          
             if (!eq.m_lhs || !eq.m_rhs)
                 continue;
 
             for (int side = 0; side < 2; ++side) {
                 euf::snode* pow_side   = (side == 0) ? eq.m_lhs : eq.m_rhs;
                 euf::snode* other_side = (side == 0) ? eq.m_rhs : eq.m_lhs;
+                // NB: Shuvendu - this test is always false
                 if (!pow_side || !other_side)
                     continue;
 
@@ -2536,6 +2535,7 @@ namespace seq {
                         continue;
                     euf::snode* base_sn = end_tok->arg(0);
                     expr* pow_exp = get_power_exp_expr(end_tok, seq);
+                    // NB: Shuvendu - this test is also redundant
                     if (!base_sn || !pow_exp)
                         continue;
 
@@ -2553,15 +2553,13 @@ namespace seq {
 
                     // Branch 1: pow_exp < count (i.e., count >= pow_exp + 1)
                     {
-                        nielsen_node* child = mk_child(node);
-                        nielsen_edge* e = mk_edge(node, child, true);
+                        nielsen_edge *e = mk_edge(node, mk_child(node), true);
                         expr_ref pow_plus1(a.mk_add(pow_exp, a.mk_int(1)), m);
                         e->add_side_constraint(mk_constraint(a.mk_ge(norm_count, pow_plus1), eq.m_dep));
                     }
                     // Branch 2: count <= pow_exp (i.e., pow_exp >= count)
                     {
-                        nielsen_node* child = mk_child(node);
-                        nielsen_edge* e = mk_edge(node, child, true);
+                        nielsen_edge *e = mk_edge(node, mk_child(node), true);
                         e->add_side_constraint(mk_constraint(a.mk_ge(pow_exp, norm_count), eq.m_dep));
                     }
                     return true;
@@ -3956,6 +3954,7 @@ namespace seq {
                 }
                 m_solver.assert_expr(m.mk_distinct(dist.size(), dist.data()));
             }
+            // NSB code review: there is a seprate sort for characters
             bv_util arith(m);
             for (auto const& kvp : m_sat_node->char_ranges()) {
                 expr_ref_vector cases(m);
