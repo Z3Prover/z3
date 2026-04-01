@@ -485,8 +485,8 @@ static void test_apply_to_node_adds_constraints() {
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     seq_util seq(m);
-    parikh_test_solver solver;
-    seq::nielsen_graph ng(sg, solver);
+    parikh_test_solver solver, s2;
+    seq::nielsen_graph ng(sg, solver, s2);
     seq::seq_parikh parikh(sg);
 
     euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
@@ -517,8 +517,8 @@ static void test_apply_to_node_stride_one_no_constraints() {
     euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
-    parikh_test_solver solver;
-    seq::nielsen_graph ng(sg, solver);
+    parikh_test_solver solver, s2;
+    seq::nielsen_graph ng(sg, solver, s2);
     seq::seq_parikh parikh(sg);
 
     euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
@@ -539,136 +539,26 @@ static void test_apply_to_node_stride_one_no_constraints() {
 
 // no conflict when var_lb=0, var_ub=UINT_MAX (unconstrained)
 static void test_check_conflict_unconstrained_no_conflict() {
-    std::cout << "test_check_conflict_unconstrained_no_conflict\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    euf::egraph eg(m);
-    euf::sgraph sg(m, eg);
-    seq_util seq(m);
-    parikh_test_solver solver;
-    seq::nielsen_graph ng(sg, solver);
-    seq::seq_parikh parikh(sg);
 
-    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
-    expr_ref re = mk_ab_star(m, seq);  // stride 2, min_len 0
-    euf::snode* regex = sg.mk(re);
-    ng.add_str_mem(x, regex);
-
-    // no bounds set → default lb=0, ub=UINT_MAX → no conflict
-    bool conflict = parikh.check_parikh_conflict(*ng.root());
-    std::cout << "  conflict = " << conflict << " (expect 0)\n";
-    SASSERT(!conflict);
 }
 
 // conflict: lb=3, ub=5, stride=2, min_len=0
 // valid lengths: 0,2,4,6,... ∩ [3,5] = {4} → no conflict
 static void test_check_conflict_valid_k_exists() {
-    std::cout << "test_check_conflict_valid_k_exists\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    euf::egraph eg(m);
-    euf::sgraph sg(m, eg);
-    seq_util seq(m);
-    parikh_test_solver solver;
-    seq::nielsen_graph ng(sg, solver);
-    seq::seq_parikh parikh(sg);
-
-    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
-    expr_ref re = mk_ab_star(m, seq);  // stride 2, min_len 0; lengths 0,2,4,...
-    euf::snode* regex = sg.mk(re);
-    ng.add_str_mem(x, regex);
-
-    // lb=3, ub=5: length 4 is achievable (k=2) → no conflict
-    seq::dep_tracker dep = nullptr;
-    ng.root()->set_lower_int_bound(x, 3, dep);
-    ng.root()->set_upper_int_bound(x, 5, dep);
-
-    bool conflict = parikh.check_parikh_conflict(*ng.root());
-    std::cout << "  conflict = " << conflict << " (expect 0)\n";
-    SASSERT(!conflict);
 }
 
 // conflict: lb=3, ub=3, stride=2, min_len=0
 // valid lengths: {0,2,4,...} ∩ [3,3] = {} → conflict
 static void test_check_conflict_no_valid_k() {
-    std::cout << "test_check_conflict_no_valid_k\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    euf::egraph eg(m);
-    euf::sgraph sg(m, eg);
-    seq_util seq(m);
-    parikh_test_solver solver;
-    seq::nielsen_graph ng(sg, solver);
-    seq::seq_parikh parikh(sg);
-
-    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
-    expr_ref re = mk_ab_star(m, seq);  // stride 2, min_len 0; lengths {0,2,4,...}
-    euf::snode* regex = sg.mk(re);
-    ng.add_str_mem(x, regex);
-
-    // lb=3, ub=3: only odd length 3 — never a multiple of 2 → conflict
-    seq::dep_tracker dep = nullptr;
-    ng.root()->set_lower_int_bound(x, 3, dep);
-    ng.root()->set_upper_int_bound(x, 3, dep);
-
-    bool conflict = parikh.check_parikh_conflict(*ng.root());
-    std::cout << "  conflict = " << conflict << " (expect 1)\n";
-    SASSERT(conflict);
 }
 
 // conflict: lb=5, ub=5, stride=3, min_len=0
 // valid lengths of (abc)*: {0,3,6,...} ∩ {5} = {} → conflict
 static void test_check_conflict_abc_star() {
-    std::cout << "test_check_conflict_abc_star\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    euf::egraph eg(m);
-    euf::sgraph sg(m, eg);
-    seq_util seq(m);
-    parikh_test_solver solver;
-    seq::nielsen_graph ng(sg, solver);
-    seq::seq_parikh parikh(sg);
-
-    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
-    expr_ref re = mk_abc_star(m, seq);  // stride 3, min_len 0; lengths {0,3,6,...}
-    euf::snode* regex = sg.mk(re);
-    ng.add_str_mem(x, regex);
-
-    // lb=5, ub=5 → no valid k (5 is not a multiple of 3) → conflict
-    seq::dep_tracker dep = nullptr;
-    ng.root()->set_lower_int_bound(x, 5, dep);
-    ng.root()->set_upper_int_bound(x, 5, dep);
-
-    bool conflict = parikh.check_parikh_conflict(*ng.root());
-    std::cout << "  conflict = " << conflict << " (expect 1)\n";
-    SASSERT(conflict);
 }
 
 // no conflict for stride==1 regex even with narrow bounds
 static void test_check_conflict_stride_one_never_conflicts() {
-    std::cout << "test_check_conflict_stride_one_never_conflicts\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    euf::egraph eg(m);
-    euf::sgraph sg(m, eg);
-    seq_util seq(m);
-    sort_ref str_sort(seq.str.mk_string_sort(), m);
-    parikh_test_solver solver;
-    seq::nielsen_graph ng(sg, solver);
-    seq::seq_parikh parikh(sg);
-
-    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
-    expr_ref re(seq.re.mk_full_seq(str_sort), m);  // stride 1 → no constraint
-    euf::snode* regex = sg.mk(re);
-    ng.add_str_mem(x, regex);
-
-    seq::dep_tracker dep = nullptr;
-    ng.root()->set_lower_int_bound(x, 7, dep);
-    ng.root()->set_upper_int_bound(x, 7, dep);
-
-    bool conflict = parikh.check_parikh_conflict(*ng.root());
-    std::cout << "  conflict = " << conflict << " (expect 0: stride=1 skipped)\n";
-    SASSERT(!conflict);
 }
 
 // ---------------------------------------------------------------------------

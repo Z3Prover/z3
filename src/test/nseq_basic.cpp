@@ -38,8 +38,8 @@ static void test_nseq_instantiation() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    nseq_basic_dummy_solver solver;
-    seq::nielsen_graph ng(sg, solver);
+    nseq_basic_dummy_solver solver, s2;
+    seq::nielsen_graph ng(sg, solver, s2);
     SASSERT(ng.root() == nullptr);
     SASSERT(ng.num_nodes() == 0);
     std::cout << "  ok\n";
@@ -95,8 +95,8 @@ static void test_nseq_simplification() {
     seq_util su(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    nseq_basic_dummy_solver solver;
-    seq::nielsen_graph ng(sg, solver);
+    nseq_basic_dummy_solver solver, s2;
+    seq::nielsen_graph ng(sg, solver, s2);
 
     // Add a trivial equality: empty = empty
     euf::snode* empty1 = sg.mk_empty_seq(su.str.mk_string_sort());
@@ -118,22 +118,24 @@ static void test_nseq_node_satisfied() {
     seq_util su(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    nseq_basic_dummy_solver solver;
-    seq::nielsen_graph ng(sg, solver);
+    nseq_basic_dummy_solver solver, s2;
+    seq::nielsen_graph ng(sg, solver, s2);
 
-    seq::nielsen_node* node = ng.mk_node();
+    seq::nielsen_node *node = ng.mk_node();
     // empty node has no constraints => satisfied
     SASSERT(node->is_satisfied());
 
     // add a trivial equality
-    euf::snode* empty = sg.mk_empty_seq(su.str.mk_string_sort());
+    euf::snode *empty = sg.mk_empty_seq(su.str.mk_string_sort());
     seq::dep_tracker dep = nullptr;
     seq::str_eq eq(empty, empty, dep);
     node->add_str_eq(eq);
     SASSERT(node->str_eqs().size() == 1);
     SASSERT(!node->str_eqs()[0].is_trivial() || node->str_eqs()[0].m_lhs == node->str_eqs()[0].m_rhs);
     // After simplification, trivial equalities should be removed
-    seq::simplify_result sr = node->simplify_and_init();
+    ptr_vector<seq::nielsen_edge> cur_path;
+    seq::simplify_result sr = node->simplify_and_init(cur_path);
+    
     VERIFY(sr == seq::simplify_result::satisfied || sr == seq::simplify_result::proceed);
     std::cout << "  ok\n";
 }
@@ -145,8 +147,8 @@ static void test_nseq_symbol_clash() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    nseq_basic_dummy_solver solver;
-    seq::nielsen_graph ng(sg, solver);
+    nseq_basic_dummy_solver solver, s2;
+    seq::nielsen_graph ng(sg, solver, s2);
 
     euf::snode* a = sg.mk_char('a');
     euf::snode* b = sg.mk_char('b');
@@ -172,8 +174,8 @@ static void test_nseq_var_eq_self() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    nseq_basic_dummy_solver solver;
-    seq::nielsen_graph ng(sg, solver);
+    nseq_basic_dummy_solver solver, s2;
+    seq::nielsen_graph ng(sg, solver, s2);
 
     euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     ng.add_str_eq(x, x);
@@ -190,8 +192,8 @@ static void test_nseq_prefix_clash() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    nseq_basic_dummy_solver solver;
-    seq::nielsen_graph ng(sg, solver);
+    nseq_basic_dummy_solver solver, s2;
+    seq::nielsen_graph ng(sg, solver, s2);
 
     euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     euf::snode* a = sg.mk_char('a');
@@ -212,8 +214,8 @@ static void test_nseq_const_nielsen_solvable() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    nseq_basic_dummy_solver solver;
-    seq::nielsen_graph ng(sg, solver);
+    nseq_basic_dummy_solver solver, s2;
+    seq::nielsen_graph ng(sg, solver, s2);
 
     euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     euf::snode* y = sg.mk_var(symbol("y"), sg.get_str_sort());
@@ -235,8 +237,8 @@ static void test_nseq_length_mismatch() {
     reg_decl_plugins(m);
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
-    nseq_basic_dummy_solver solver;
-    seq::nielsen_graph ng(sg, solver);
+    nseq_basic_dummy_solver solver, s2;
+    seq::nielsen_graph ng(sg, solver, s2);
 
     euf::snode* a = sg.mk_char('a');
     euf::snode* b = sg.mk_char('b');

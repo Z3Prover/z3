@@ -193,7 +193,7 @@ struct nseq_fixture {
     static ast_manager& init(ast_manager& m) { reg_decl_plugins(m); return m; }
 
     nseq_fixture()
-        : eg(init(m)), sg(m, eg), ng(sg, dummy_solver), su(m), sb(sg, su), rb(m, su, sg)
+        : eg(init(m)), sg(m, eg), ng(sg, dummy_solver, dummy_solver), su(m), sb(sg, su), rb(m, su, sg)
     {}
 
     euf::snode* S(const char* s) { return sb.parse(s); }

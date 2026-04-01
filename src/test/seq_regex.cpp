@@ -570,7 +570,7 @@ static void test_check_intersection_sat() {
     regexes.push_back(s1);
     regexes.push_back(s2);
 
-    lbool result = nr.check_intersection_emptiness(regexes);
+    lbool result = nr.check_intersection_emptiness(regexes, UINT_MAX);
     SASSERT(result == l_false); // non-empty
     std::cout << "  ok: a* ∩ (a|b)* is non-empty\n";
 }
@@ -595,7 +595,7 @@ static void test_check_intersection_unsat() {
     regexes.push_back(s1);
     regexes.push_back(s2);
 
-    lbool result = nr.check_intersection_emptiness(regexes);
+    lbool result = nr.check_intersection_emptiness(regexes, UINT_MAX);
     SASSERT(result == l_true); // empty
     std::cout << "  ok: to_re(a) ∩ to_re(b) is empty\n";
 }
