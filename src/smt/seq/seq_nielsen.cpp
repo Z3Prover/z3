@@ -225,7 +225,7 @@ namespace seq {
 
         // clone character ranges
         for (auto const &[k, v] : parent.m_char_ranges)
-            m_char_ranges.insert(k, v.clone());
+            m_char_ranges.insert(k, std::make_pair(v.first.clone(), v.second));
 
         // clone regex occurrence tracking
         m_regex_occurrence = parent.m_regex_occurrence;
@@ -247,7 +247,7 @@ namespace seq {
         if (m_graph.m_literal_if_false) {
             auto lit = m_graph.m_literal_if_false(c.fml);
             if (lit != sat::null_literal)
-                m_conflict_literal = ~lit;
+                set_external_conflict(lit);
         }
     }
 
@@ -282,35 +282,35 @@ namespace seq {
         }
     }
 
-    void nielsen_node::add_char_range(euf::snode* sym_char, char_set const& range) {
+    void nielsen_node::add_char_range(euf::snode* sym_char, char_set const& range, dep_tracker dep) {
         SASSERT(sym_char && sym_char->is_unit());
         unsigned id = sym_char->id();
         if (m_char_ranges.contains(id)) {
-            char_set& existing = m_char_ranges.find(id);
-            char_set inter = existing.intersect_with(range);
-            existing = inter;
+            auto& existing = m_char_ranges.find(id);
+            char_set inter = existing.first.intersect_with(range);
+            existing = std::make_pair(inter, graph().dep_mgr().mk_join(existing.second, dep));
             if (inter.is_empty()) {
                 m_is_general_conflict = true;
-                m_reason = backtrack_reason::character_range;
+                set_conflict(backtrack_reason::character_range, existing.second);
             }
         }
         else
-            m_char_ranges.insert(id, range.clone());
+            m_char_ranges.insert(id, std::make_pair(range.clone(), dep));
     }
 
-    void nielsen_node::add_char_diseq(euf::snode* sym_char, euf::snode* other) {
+    void nielsen_node::add_char_diseq(euf::snode* sym_char, euf::snode* other, dep_tracker dep) {
         SASSERT(sym_char && sym_char->is_unit());
         SASSERT(other && other->is_unit());
         unsigned id = sym_char->id();
         if (!m_char_diseqs.contains(id))
-            m_char_diseqs.insert(id, ptr_vector<euf::snode>());
-        ptr_vector<euf::snode>& existing = m_char_diseqs.find(id);
+            m_char_diseqs.insert(id, vector<std::pair<euf::snode*, dep_tracker>>());
+        vector<std::pair<euf::snode*, dep_tracker>>& existing = m_char_diseqs.find(id);
         // check for duplicates
-        for (euf::snode* s : existing) {
-            if (s == other)
+        for (auto& s : existing) {
+            if (s.first == other)
                 return;
         }
-        existing.push_back(other);
+        existing.push_back(std::make_pair(other, dep));
     }
 
     bool nielsen_node::lower_bound(expr* e, rational& lo) const {
@@ -330,7 +330,7 @@ namespace seq {
         return m_graph.m_solver.upper_bound(e, up);
     }
 
-    void nielsen_node::apply_char_subst(euf::sgraph& sg, char_subst const& s) {
+    void nielsen_node::apply_char_subst(euf::sgraph& sg, char_subst const& s, dep_tracker dep) {
         if (!s.m_var) return;
 
         // replace occurrences of s.m_var with s.m_val in all string constraints
@@ -344,16 +344,16 @@ namespace seq {
             mem.m_regex = sg.subst(mem.m_regex, s.m_var, s.m_val);
         }
 
-        unsigned var_id = s.m_var->id();
+        const unsigned var_id = s.m_var->id();
 
         if (s.m_val->is_unit()) {
             // symbolic char → symbolic char: check disequalities
             if (m_char_diseqs.contains(var_id)) {
-                ptr_vector<euf::snode>& diseqs = m_char_diseqs.find(var_id);
-                for (euf::snode* d : diseqs) {
-                    if (d == s.m_val) {
+                const auto& diseqs = m_char_diseqs.find(var_id);
+                for (const auto& d : diseqs) {
+                    if (d.first == s.m_val) {
                         m_is_general_conflict = true;
-                        m_reason = backtrack_reason::character_range;
+                        set_conflict(backtrack_reason::character_range, d.second);
                         return;
                     }
                 }
@@ -365,15 +365,15 @@ namespace seq {
             SASSERT(s.m_val->is_char());
             // symbolic char → concrete char: check range constraints
             if (m_char_ranges.contains(var_id)) {
-                char_set& range = m_char_ranges.find(var_id);
+                auto& range = m_char_ranges.find(var_id);
                 unsigned ch_val = 0;
                 seq_util& seq = sg.get_seq_util();
                 expr* unit_expr = s.m_val->get_expr();
                 expr* ch_expr = nullptr;
                 bool have_char = unit_expr && seq.str.is_unit(unit_expr, ch_expr) && seq.is_const_char(ch_expr, ch_val);
-                if (have_char && !range.contains(ch_val)) {
+                if (have_char && !range.first.contains(ch_val)) {
                     m_is_general_conflict = true;
-                    m_reason = backtrack_reason::character_range;
+                    set_conflict(backtrack_reason::character_range, graph().dep_mgr().mk_join(dep, range.second));
                     return;
                 }
                 m_char_diseqs.remove(var_id);
@@ -511,7 +511,7 @@ namespace seq {
         });
         if (has_char || !all_eliminable) {
             m_is_general_conflict = true;
-            m_reason = backtrack_reason::symbol_clash;
+            set_conflict(backtrack_reason::symbol_clash, dep);
             return true;
         }
         ast_manager& m = sg.get_manager();
@@ -888,7 +888,7 @@ namespace seq {
                         }
                         else if (sg.are_unit_distinct(lt, rt)) {
                             m_is_general_conflict = true;
-                            m_reason = backtrack_reason::symbol_clash;
+                            set_conflict(backtrack_reason::symbol_clash, eq.m_dep);
                             return simplify_result::conflict;
                         }
                         else
@@ -903,9 +903,9 @@ namespace seq {
                         euf::snode* rt = rhs_toks[rsz - 1 - suffix];
                         if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                             ++suffix;
-                        } else if (lt->is_char() && rt->is_char() && m.are_distinct(lt->get_expr(), rt->get_expr())) {
+                        } else if (sg.are_unit_distinct(lt, rt)) {
                             m_is_general_conflict = true;
-                            m_reason = backtrack_reason::symbol_clash;
+                            set_conflict(backtrack_reason::symbol_clash, eq.m_dep);
                             return simplify_result::conflict;
                         }
                         else
@@ -1105,7 +1105,7 @@ namespace seq {
                         break;
                     if (deriv->is_fail()) {
                         m_is_general_conflict = true;
-                        m_reason = backtrack_reason::regex;
+                        set_conflict(backtrack_reason::regex, mem.m_dep);
                         return simplify_result::conflict;
                     }
                     mem.m_str = dir_drop(sg, mem.m_str, 1, fwd);
@@ -1145,23 +1145,32 @@ namespace seq {
                 // range is a subset of exactly one minterm's character class,
                 // we can deterministically take that minterm's derivative.
                 SASSERT(m_graph.m_parikh);
-                char_set const& cs = m_char_ranges.contains(tok->id())
-                    ? m_char_ranges[tok->id()]
-                    : char_set::full(zstring::max_char());
+                auto full = char_set::full(zstring::max_char());
+                char_set* cs;
+                dep_tracker dep;
+                if (m_char_ranges.contains(tok->id())) {
+                    auto& ranges = m_char_ranges[tok->id()];
+                    cs = &ranges.first;
+                    dep = ranges.second;
+                }
+                else {
+                    cs = &full;
+                    dep = graph().dep_mgr().mk_empty();
+                }
 
-                if (!cs.is_empty()) {
+                if (!cs->is_empty()) {
                     euf::snode* matching_deriv = nullptr;
                     bool found = false;
                     for (euf::snode* mt : minterms) {
                         SASSERT(mt && mt->get_expr());
                         SASSERT(!mt->is_fail());
                         char_set mt_cs = m_graph.m_seq_regex->minterm_to_char_set(mt->get_expr());
-                        if (cs.is_subset(mt_cs)) {
+                        if (cs->is_subset(mt_cs)) {
                             euf::snode* deriv = sg.brzozowski_deriv(mem.m_regex, mt);
                             if (!deriv) { found = false; break; }
                             if (deriv->is_fail()) {
                                 m_is_general_conflict = true;
-                                m_reason = backtrack_reason::regex;
+                                set_conflict(backtrack_reason::regex, graph().dep_mgr().mk_join(mem.m_dep, dep));
                                 return simplify_result::conflict;
                             }
                             matching_deriv = deriv;
@@ -1185,7 +1194,7 @@ namespace seq {
             SASSERT(mem.m_str && mem.m_regex);
             if (mem.m_str->is_empty() && !mem.m_regex->is_nullable()) {
                 m_is_general_conflict = true;
-                m_reason = backtrack_reason::regex;
+                set_conflict(backtrack_reason::regex, mem.m_dep);
                 return simplify_result::conflict;
             }
         }
@@ -1200,10 +1209,10 @@ namespace seq {
             SASSERT(mem.m_str && mem.m_regex);
             if (mem.is_primitive())
                 continue;
-            if (m_graph.check_regex_widening(*this, mem.m_str, mem.m_regex)) {
-                // std::cout << "Widening conflict: " << mk_pp(mem.m_str->get_expr(), m) << " ∉ " << mk_pp(mem.m_regex->get_expr(), m) << std::endl;
+            dep_tracker dep = mem.m_dep;
+            if (m_graph.check_regex_widening(*this, mem.m_str, mem.m_regex, dep)) {
                 m_is_general_conflict = true;
-                m_reason = backtrack_reason::regex;
+                set_conflict(backtrack_reason::regex, dep);
                 return simplify_result::conflict;
             }
         }
@@ -1238,9 +1247,10 @@ namespace seq {
         // Lightweight feasibility pre-check: does the Parikh modular constraint
         // contradict the variable's current integer bounds?  If so, mark this
         // node as a Parikh-image conflict immediately (avoids a solver call).
-        if (!node.is_currently_conflict() && m_parikh->check_parikh_conflict(node)) {
+        str_mem const* confl_cnstr;
+        if (!node.is_currently_conflict() && (confl_cnstr = m_parikh->check_parikh_conflict(node)) != nullptr) {
             node.set_general_conflict(true);
-            node.set_reason(backtrack_reason::parikh_image);
+            node.set_conflict(backtrack_reason::parikh_image, confl_cnstr->m_dep);
         }
     }
 
@@ -1412,7 +1422,8 @@ namespace seq {
         // integer feasibility check: the solver now holds all path constraints
         // incrementally; just query the solver directly
         if (!cur_path.empty() && !check_int_feasibility()) {
-            node->set_reason(backtrack_reason::arithmetic);
+            dep_tracker dep = get_subsolver_dependency(node);
+            node->set_conflict(backtrack_reason::arithmetic, dep);
             ++m_stats.m_num_arith_infeasible;
             return search_result::unsat;
         }
@@ -1424,9 +1435,10 @@ namespace seq {
             // for each variable with multiple regex constraints, verify
             // that the intersection of all its regexes is non-empty.
             // Mirrors ZIPT NielsenNode.CheckRegex.
-            if (!check_leaf_regex(*node)) {
+            dep_tracker dep;
+            if (!check_leaf_regex(*node, dep)) {
                 node->set_general_conflict(true);
-                node->set_reason(backtrack_reason::regex);
+                node->set_conflict(backtrack_reason::regex, dep);
                 return search_result::unsat;
             }
             m_sat_node = node;
@@ -1490,7 +1502,7 @@ namespace seq {
         }
 
         if (!any_unknown) {
-            node->set_reason(backtrack_reason::children_failed);
+            node->set_child_conflict();
             return search_result::unsat;
         }
         return search_result::unknown;
@@ -2216,8 +2228,8 @@ namespace seq {
             return ++m_stats.m_mod_eq_split, true;
 
         // Priority 6: StarIntr - stabilizer introduction for regex cycles
-        if (apply_star_intr(node))
-            return ++m_stats.m_mod_star_intr, true;
+        // if (apply_star_intr(node))
+        //     return ++m_stats.m_mod_star_intr, true;
 
         // Priority 7: GPowerIntr - ground power introduction
         if (apply_gpower_intr(node))
@@ -2647,6 +2659,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_star_intr(nielsen_node* node) {
+        return false;
         // Only fire if a backedge was set (cycle detected)
         if (!node->backedge())
             return false;
@@ -3287,7 +3300,7 @@ namespace seq {
                 // generated from minterm m_i, ?c must belong to the character
                 // class described by m_i so that str ∈ derivative(R, m_i).
                 if (!cs.is_unit() && !cs.is_empty())
-                    child->add_char_range(fresh_char, cs);
+                    child->add_char_range(fresh_char, cs, mem.m_dep);
                 created = true;
             }
 
@@ -3510,19 +3523,27 @@ namespace seq {
 
     dep_tracker nielsen_graph::collect_conflict_deps() const {
         dep_tracker deps = nullptr;
+        // We enumerate all nodes rather than having a "todo"-list, as
+        // hypothetically the graph could contain cycles in the future
         for (nielsen_node const* n : m_nodes) {
             if (n->eval_idx() != m_run_idx)
                 continue;
-            if (!n->is_currently_conflict())
+            if (n->reason() == backtrack_reason::children_failed)
                 continue;
-            if (n->m_conflict_literal != sat::null_literal) {
-                deps = m_dep_mgr.mk_join(deps, m_dep_mgr.mk_leaf(n->m_conflict_literal));
+
+            SASSERT(n->is_currently_conflict());
+            if (n->m_conflict_external_literal != sat::null_literal) {
+                // We know from the outer solver that this literal is assigned false
+                deps = m_dep_mgr.mk_join(deps, m_dep_mgr.mk_leaf(n->m_conflict_external_literal));
                 continue;
             }
-            for (str_eq const& eq : n->str_eqs())
-                deps = m_dep_mgr.mk_join(deps, eq.m_dep);
-            for (str_mem const& mem : n->str_mems())
-                deps = m_dep_mgr.mk_join(deps, mem.m_dep);
+            SASSERT(n->outgoing().empty());
+            SASSERT(n->m_conflict_internal);
+            deps = m_dep_mgr.mk_join(deps, n->m_conflict_internal);
+            // for (str_eq const& eq : n->str_eqs())
+            //     deps = m_dep_mgr.mk_join(deps, eq.m_dep);
+            // for (str_mem const& mem : n->str_mems())
+            //     deps = m_dep_mgr.mk_join(deps, mem.m_dep);
         }
         return deps;
     }
@@ -3894,6 +3915,21 @@ namespace seq {
         return m_solver.check() != l_false;
     }
 
+    dep_tracker nielsen_graph::get_subsolver_dependency(nielsen_node* n) {
+        auto core = m_solver.get_unsat_core();
+        SASSERT(!core.empty());
+        u_map<dep_tracker> expr_to_dep;
+        for (unsigned i = 0; i < n->m_parent_ic_count; i++) {
+            auto& c = n->constraints()[i];
+            expr_to_dep.insert_if_not_there(c.fml->get_id(), c.dep);
+        }
+        dep_tracker dep = dep_mgr().mk_empty();
+        for (const expr * const e : core) {
+             dep = dep_mgr().mk_join(dep, expr_to_dep[e->get_id()]);
+        }
+        return dep;
+    }
+
     bool nielsen_graph::check_lp_le(expr* lhs, expr* rhs) {
         rational lhs_lo, rhs_up;
         if (m_solver.lower_bound(lhs, lhs_lo) &&
@@ -3967,10 +4003,10 @@ namespace seq {
             for (auto const& ic : m_sat_node->constraints())
                 m_solver.assert_expr(ic.fml);
             for (auto const& dis : m_sat_node->char_diseqs()) {
-                vector<expr*> dist;
+                ptr_vector<expr> dist;
                 dist.reserve((unsigned)dis.m_value.size());
                 for (unsigned i = 0; i < dis.m_value.size(); ++i) {
-                    dist.push_back(dis.m_value[i]->get_expr());
+                    dist.push_back(dis.m_value[i].first->get_expr());
                 }
                 m_solver.assert_expr(m.mk_distinct(dist.size(), dist.data()));
             }
@@ -3978,7 +4014,7 @@ namespace seq {
             for (auto const& kvp : m_sat_node->char_ranges()) {
                 expr_ref_vector cases(m);
                 const auto& var = m_sg.nodes()[kvp.m_key]->get_expr();
-                const auto& ranges = kvp.m_value.ranges();
+                const auto& ranges = kvp.m_value.first.ranges();
                 cases.reserve(ranges.size());
                 SASSERT(var->get_sort()->get_family_id() == arith.get_family_id());
                 unsigned bitCnt = arith.get_bv_size(var);
@@ -4015,7 +4051,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::check_regex_widening(nielsen_node const& node,
-                                             euf::snode* str, euf::snode* regex) {
+                                             euf::snode* str, euf::snode* regex, dep_tracker& dep) {
         SASSERT(str && regex && m_seq_regex);
         // Only apply to ground regexes with non-trivial strings
         if (!regex->is_ground())
@@ -4031,6 +4067,8 @@ namespace seq {
         if (tokens.empty())
             return false;
 
+        SASSERT(dep);
+
         euf::snode* approx = nullptr;
         for (euf::snode* tok : tokens) {
             euf::snode* tok_re = nullptr;
@@ -4044,7 +4082,7 @@ namespace seq {
             }
             else if (tok->is_var()) {
                 // Variable → intersection of primitive regex constraints, or Σ*
-                euf::snode* x_range = m_seq_regex->collect_primitive_regex_intersection(tok, node);
+                euf::snode* x_range = m_seq_regex->collect_primitive_regex_intersection(tok, node, m_dep_mgr, dep);
                 if (x_range)
                     tok_re = x_range;
                 else {
@@ -4057,11 +4095,11 @@ namespace seq {
             else if (tok->is_unit()) {
                 // Symbolic char — try to get char_range
                 if (node.char_ranges().contains(tok->id())) {
-                    char_set const& cs = node.char_ranges()[tok->id()];
-                    if (!cs.is_empty()) {
+                    auto& cs = node.char_ranges()[tok->id()];
+                    if (!cs.first.is_empty()) {
                         // Build union of re.range for each interval
                         euf::snode* range_re = nullptr;
-                        for (auto const& r : cs.ranges()) {
+                        for (auto const& r : cs.first.ranges()) {
                             expr_ref lo(m_seq.mk_char(r.m_lo), m);
                             expr_ref hi(m_seq.mk_char(r.m_hi - 1), m);
                             expr_ref rng(m_seq.re.mk_range(
@@ -4075,6 +4113,7 @@ namespace seq {
                                 range_re = m_sg.mk(u);
                             }
                         }
+                        dep = dep_mgr().mk_join(dep, cs.second);
                         tok_re = range_re;
                     }
                 }
@@ -4116,7 +4155,7 @@ namespace seq {
         expr_ref inter(m_seq.re.mk_inter(ae, re), m);
         euf::snode* inter_sn = m_sg.mk(inter);
         SASSERT(inter_sn);
-        // std::cout << "HTML: " << snode_label_html(inter_sn, m()) << std::endl;
+        // TODO: Minimize the conflict here
         lbool result = m_seq_regex->is_empty_bfs(inter_sn, 5000);
         return result == l_true;
     }
@@ -4126,32 +4165,33 @@ namespace seq {
     // Mirrors ZIPT NielsenNode.CheckRegex (NielsenNode.cs:1311-1329)
     // -----------------------------------------------------------------------
 
-    bool nielsen_graph::check_leaf_regex(nielsen_node const& node) {
+    bool nielsen_graph::check_leaf_regex(nielsen_node const& node, dep_tracker& dep) {
         if (!m_seq_regex)
             return true;
 
         // Group str_mem constraints by variable (primitive constraints only)
-        u_map<ptr_vector<euf::snode>> var_regexes;
+        u_map<std::pair<ptr_vector<euf::snode>, dep_tracker>> var_regexes;
 
         for (auto const& mem : node.str_mems()) {
             if (!mem.m_str || !mem.m_regex)
                 continue;
             if (!mem.is_primitive())
                 continue;
-            euf::snode* first = mem.m_str->first();
-            if (!first || !first->is_var())
-                continue;
-            auto& list = var_regexes.insert_if_not_there(first->id(), ptr_vector<euf::snode>());
-            list.push_back(mem.m_regex);
+            euf::snode* const first = mem.m_str->first();
+            SASSERT(first && first->is_var());
+            auto& list = var_regexes.insert_if_not_there(first->id(), std::pair<ptr_vector<euf::snode>, dep_tracker>());
+            list.first.push_back(mem.m_regex);
+            list.second = dep_mgr().mk_join(list.second, mem.m_dep);
         }
 
         // For each variable with 2+ regex constraints, check intersection non-emptiness
         for (auto& [var_id, regexes] : var_regexes) {
-            if (regexes.size() < 2)
+            if (regexes.first.size() < 2)
                 continue;
-            lbool result = m_seq_regex->check_intersection_emptiness(regexes, 5000);
+            lbool result = m_seq_regex->check_intersection_emptiness(regexes.first, 5000);
             if (result == l_true) {
                 // Intersection is empty — infeasible
+                dep = regexes.second;
                 return false;
             }
         }

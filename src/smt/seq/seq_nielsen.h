@@ -273,11 +273,12 @@ namespace seq {
     class simple_solver {
     public:
         virtual ~simple_solver() {}
-        virtual lbool   check() = 0;
-        virtual void    assert_expr(expr* e) = 0;
-        virtual void    push() = 0;
-        virtual void    pop(unsigned num_scopes) = 0;
-        virtual void    get_model(model_ref& mdl) { mdl = nullptr; }
+        virtual lbool           check() = 0;
+        virtual void            assert_expr(expr* e) = 0;
+        virtual void            push() = 0;
+        virtual void            pop(unsigned num_scopes) = 0;
+        virtual void            get_model(model_ref& mdl) { mdl = nullptr; }
+        virtual expr_ref_vector get_unsat_core() { throw z3_exception(); }
         // Optional bound queries on arithmetic expressions (non-strict integer bounds).
         // Default implementation reports "unsupported".
         virtual bool    lower_bound(expr* e, rational& lo) const { return false; }
@@ -308,6 +309,7 @@ namespace seq {
         regex_widening,
         character_range,
         smt,
+        external,
         children_failed,
     };
 
@@ -521,13 +523,14 @@ namespace seq {
         vector<str_eq>     m_str_eq;        // string equalities
         vector<str_mem>    m_str_mem;       // regex memberships
         vector<constraint> m_constraints;   // integer equalities/inequalities (mirrors ZIPT's IntEq/IntLe)
-        sat::literal m_conflict_literal = sat::null_literal;
+        sat::literal m_conflict_external_literal = sat::null_literal;
+        dep_tracker  m_conflict_internal = nullptr;
 
 
         // character constraints (mirrors ZIPT's DisEqualities and CharRanges)
         // key: snode id of the s_unit symbolic character
-        u_map<ptr_vector<euf::snode>>  m_char_diseqs;  // ?c != {?d, ?e, ...}
-        u_map<char_set>                m_char_ranges;   // ?c in [lo, hi)
+        u_map<vector<std::pair<euf::snode*, dep_tracker>>> m_char_diseqs;   // ?c != {?d, ?e, ...}
+        u_map<std::pair<char_set, dep_tracker>>            m_char_ranges;   // ?c in [lo, hi)
 
         // edges
         ptr_vector<nielsen_edge> m_outgoing;
@@ -586,19 +589,19 @@ namespace seq {
         bool upper_bound(expr* e, rational& up) const;
 
         // character constraint access (mirrors ZIPT's DisEqualities / CharRanges)
-        u_map<ptr_vector<euf::snode>> const& char_diseqs() const { return m_char_diseqs; }
-        u_map<char_set> const& char_ranges() const { return m_char_ranges; }
+        u_map<vector<std::pair<euf::snode *, dep_tracker>>> char_diseqs() const { return m_char_diseqs; }
+        u_map<std::pair<char_set, dep_tracker>> char_ranges() const { return m_char_ranges; }
 
         // add a character range constraint for a symbolic char.
         // intersects with existing range; sets conflict if result is empty.
-        void add_char_range(euf::snode* sym_char, char_set const& range);
+        void add_char_range(euf::snode* sym_char, char_set const& range, dep_tracker dep);
 
         // add a character disequality: sym_char != other
-        void add_char_diseq(euf::snode* sym_char, euf::snode* other);
+        void add_char_diseq(euf::snode* sym_char, euf::snode* other, dep_tracker dep);
 
         // apply a character-level substitution to all constraints.
         // checks disequalities and ranges; sets conflict on violation.
-        void apply_char_subst(euf::sgraph& sg, char_subst const& s);
+        void apply_char_subst(euf::sgraph& sg, char_subst const& s, dep_tracker dep);
 
         // edge access
         ptr_vector<nielsen_edge> const& outgoing() const { return m_outgoing; }
@@ -619,12 +622,34 @@ namespace seq {
 
         bool is_currently_conflict() const {
             return m_is_general_conflict ||
-                m_conflict_literal != sat::null_literal ||
-                (m_reason != backtrack_reason::unevaluated && m_is_extended);
+                m_conflict_external_literal != sat::null_literal ||
+                (reason() != backtrack_reason::unevaluated && m_is_extended);
         }
 
         backtrack_reason reason() const { return m_reason; }
-        void set_reason(backtrack_reason r) { m_reason = r; }
+
+        void set_child_conflict() {
+            SASSERT(m_reason == backtrack_reason::unevaluated);
+            SASSERT(!m_conflict_internal);
+            SASSERT(m_conflict_external_literal == sat::null_literal);
+            m_reason = backtrack_reason::children_failed;
+        }
+
+        void set_conflict(const backtrack_reason r, const dep_tracker confl) {
+            SASSERT(m_reason == backtrack_reason::unevaluated);
+            SASSERT(!m_conflict_internal);
+            SASSERT(m_conflict_external_literal == sat::null_literal);
+            m_reason = r;
+            m_conflict_internal = confl;
+        }
+
+        void set_external_conflict(sat::literal lit) {
+            SASSERT(m_reason == backtrack_reason::unevaluated);
+            SASSERT(!m_conflict_internal);
+            SASSERT(m_conflict_external_literal == sat::null_literal);
+            m_reason = backtrack_reason::external;
+            m_conflict_external_literal = ~lit;
+        }
 
         bool is_progress() const { return m_is_progress; }
 
@@ -955,14 +980,14 @@ namespace seq {
         // Returns true if widening detects infeasibility (UNSAT).
         // Mirrors ZIPT NielsenNode.CheckRegexWidening (NielsenNode.cs:1350-1380)
         bool check_regex_widening(nielsen_node const& node,
-                                  euf::snode* str, euf::snode* regex);
+                                  euf::snode* str, euf::snode* regex, dep_tracker& dep);
 
         // Check regex feasibility at a leaf node: for each variable with
         // multiple primitive regex constraints, check that the intersection
         // of all its regexes is non-empty.
         // Returns true if all constraints are feasible.
-        // Mirrors ZIPT NielsenNode.CheckRegex (NielsenNode.cs:1311-1329)
-        bool check_leaf_regex(nielsen_node const& node);
+        // Mirrors ZIPT NielsenNode.CheckRegex)
+        bool check_leaf_regex(nielsen_node const& node, dep_tracker& dep);
 
         // Apply the Parikh image filter to a node: generate modular length
         // constraints from regex memberships and append them to the node's
@@ -1124,6 +1149,8 @@ namespace seq {
         // l_undef (resource limit / timeout) is treated as feasible so that the
         // search continues rather than reporting a false unsatisfiability.
         bool check_int_feasibility();
+
+        dep_tracker get_subsolver_dependency(nielsen_node* n);
 
         // check whether lhs <= rhs is implied by the path constraints.
         // mirrors ZIPT's NielsenNode.IsLe(): temporarily asserts NOT(lhs <= rhs)

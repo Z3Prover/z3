@@ -121,7 +121,7 @@ namespace seq {
         // This is a lightweight pre-check that avoids calling the integer
         // subsolver.  It is sound (never returns true for a satisfiable node)
         // but incomplete (may miss conflicts that require the full solver).
-        bool check_parikh_conflict(nielsen_node& node);
+        str_mem const* check_parikh_conflict(nielsen_node& node);
 
         // Compute the length stride of a regex expression.
         // Exposed for testing and external callers.

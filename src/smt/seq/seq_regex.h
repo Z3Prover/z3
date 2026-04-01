@@ -188,8 +188,7 @@ namespace seq {
         //   l_false — intersection is definitely non-empty
         //   l_undef — inconclusive (hit exploration bound)
         // Mirrors ZIPT NielsenNode.CheckEmptiness (NielsenNode.cs:1429-1469)
-        lbool check_intersection_emptiness(ptr_vector<euf::snode> const& regexes,
-                                           unsigned max_states = 10000);
+        lbool check_intersection_emptiness(ptr_vector<euf::snode> const& regexes, unsigned max_states);
 
         // Check if L(subset_re) ⊆ L(superset_re).
         // Computed as: subset_re ∩ complement(superset_re) = ∅.
@@ -201,7 +200,7 @@ namespace seq {
         // single regex snode (using re.inter).
         // Returns nullptr if no primitive constraints found.
         euf::snode* collect_primitive_regex_intersection(
-            euf::snode* var, seq::nielsen_node const& node);
+            euf::snode* var, nielsen_node const& node, dep_manager& dep_mgr, dep_tracker& dep) const;
 
         // check if regex is the full language (Σ* / re.all)
         bool is_full_regex(euf::snode* re) const {

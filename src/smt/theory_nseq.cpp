@@ -210,7 +210,8 @@ namespace smt {
         if (s1 && s2) {
             seq::dep_tracker dep = nullptr;
             ctx.push_trail(restore_vector(m_prop_queue));
-            m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));}
+            m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
+        }
     }
 
     void theory_nseq::new_diseq_eh(theory_var v1, theory_var v2) {
@@ -689,32 +690,13 @@ namespace smt {
         set_conflict(eqs, lits);
 
 #ifdef Z3DEBUG
-#if 0
+#if 1
         std::vector<std::pair<unsigned, unsigned>> confl;
         for (auto& lit : lits) {
-            confl.push_back(std::make_pair(lit.to_uint(), UINT_MAX));
+            std::cout << mk_pp(ctx.literal2expr(lit), m) << "\n-----------\n";
         }
         for (auto& eq : eqs) {
-            if (eq.first->get_expr_id() == 464 && eq.second->get_expr_id() == 960) {
-                std::cout << mk_pp(eq.first->get_expr(), m) << " == " << mk_pp(eq.second->get_expr(), m) << std::endl;
-            }
-            if (eq.first->get_expr_id() < eq.second->get_expr_id())
-                confl.push_back(std::make_pair(eq.first->get_expr_id(), eq.second->get_expr_id()));
-            else
-                confl.push_back(std::make_pair(eq.second->get_expr_id(), eq.first->get_expr_id()));
-        }
-
-        std::ranges::sort(confl, [](auto const& a, auto const& b) {
-            if (a.first != b.first)
-                return a.first < b.first;
-            return a.second < b.second;
-        });
-        std::cout << "Conflict: " << std::endl;
-        for (auto const& c : confl) {
-            if (c.second == UINT_MAX)
-                std::cout << c.first << "; ";
-            else
-                std::cout << c.first << " == " << c.second << "; ";
+            std::cout << mk_pp(eq.first->get_expr(), m) << " == " << mk_pp(eq.second->get_expr(), m) << "\n-----------\n";
         }
         std::cout << std::endl;
 #endif
@@ -930,10 +912,7 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     euf::snode* theory_nseq::get_snode(expr* e) {
-        euf::snode* s = m_sgraph.find(e);
-        if (!s)
-            s = m_sgraph.mk(e);
-        return s;
+        return m_sgraph.get_snode(e);
     }
 
     // -----------------------------------------------------------------------

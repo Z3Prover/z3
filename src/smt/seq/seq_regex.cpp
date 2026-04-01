@@ -587,8 +587,8 @@ namespace seq {
     // Mirrors ZIPT NielsenNode.CheckEmptiness (NielsenNode.cs:1429-1469)
     // -----------------------------------------------------------------------
 
-    lbool seq_regex::check_intersection_emptiness(ptr_vector<euf::snode> const& regexes,
-                                                    unsigned max_states) {
+    lbool seq_regex::check_intersection_emptiness(ptr_vector<euf::snode> const& regexes, unsigned max_states) {
+
         if (regexes.empty())
             return l_false; // empty intersection = full language (vacuously non-empty)
 
@@ -603,11 +603,10 @@ namespace seq {
         for (unsigned i = 1; i < regexes.size(); ++i) {
             expr* r1 = result->get_expr();
             expr* r2 = regexes[i]->get_expr();
-            if (!r1 || !r2) return l_undef;
+            SASSERT(r1 && r2);
             expr_ref inter(seq.re.mk_inter(r1, r2), mgr);
             result = m_sg.mk(inter);
-            if (!result)
-                return l_undef;
+            SASSERT(result);
         }
 
         return is_empty_bfs(result, max_states);
@@ -660,7 +659,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     euf::snode* seq_regex::collect_primitive_regex_intersection(
-            euf::snode* var, seq::nielsen_node const& node) {
+            euf::snode* var, nielsen_node const& node, dep_manager& dep_mgr, dep_tracker& dep) const {
         SASSERT(var);
 
         seq_util& seq = m_sg.get_seq_util();
@@ -674,17 +673,20 @@ namespace seq {
             if (!mem.is_primitive())
                 continue;
             euf::snode* first = mem.m_str->first();
-            if (!first || first != var)
+            SASSERT(first);
+            if (first != var)
                 continue;
 
             if (!result) {
                 result = mem.m_regex;
-            } else {
+            }
+            else {
                 expr* r1 = result->get_expr();
                 expr* r2 = mem.m_regex->get_expr();
                 if (r1 && r2) {
                     expr_ref inter(seq.re.mk_inter(r1, r2), mgr);
                     result = m_sg.mk(inter);
+                    dep = dep_mgr.mk_join(dep, mem.m_dep);
                 }
             }
         }
@@ -1132,9 +1134,9 @@ namespace seq {
     // Mirrors ZIPT StrMem.TrySubsume (StrMem.cs:354-386)
     // -----------------------------------------------------------------------
 
-    bool seq_regex::try_subsume(seq::str_mem const& mem, seq::nielsen_node const& node) {
-        if (!mem.m_str || !mem.m_regex)
-            return false;
+    bool seq_regex::try_subsume(str_mem const& mem, nielsen_node const& node) {
+#if 0
+        SASSERT(mem.m_str && mem.m_regex);
 
         // 1. Leading token must be a variable
         euf::snode* first = mem.m_str->first();
@@ -1161,13 +1163,16 @@ namespace seq {
             return false;
 
         // 4. Collect all primitive regex constraints on variable `first`
-        euf::snode* x_range = collect_primitive_regex_intersection(first, node);
+        euf::snode* x_range = collect_primitive_regex_intersection(first, node, dep);
         if (!x_range)
             return false;
 
         // 5. Check L(x_range) ⊆ L(stab_star)
         lbool result = is_language_subset(x_range, stab_star_sn);
         return result == l_true;
+#else
+        return false;
+#endif
     }
 
     char_set seq_regex::minterm_to_char_set(expr* re_expr) {

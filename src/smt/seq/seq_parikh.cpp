@@ -249,7 +249,7 @@ namespace seq {
     //
     // This check is lightweight — it uses only modular arithmetic on the already-
     // known regex min/max lengths and the per-variable bounds stored in the node.
-    bool seq_parikh::check_parikh_conflict(nielsen_node& node) {
+    str_mem const* seq_parikh::check_parikh_conflict(nielsen_node& node) {
         for (str_mem const& mem : node.str_mems()) {
             if (!mem.m_str || !mem.m_regex || !mem.m_str->is_var())
                 continue;
@@ -263,7 +263,8 @@ namespace seq {
             if (min_len >= max_len) continue; // fixed or empty — no stride constraint
 
             unsigned stride = compute_length_stride(re_expr);
-            if (stride <= 1) continue; // no useful modular constraint
+            if (stride <= 1)
+                continue; // no useful modular constraint
             // stride > 1 guaranteed from here onward.
             SASSERT(stride > 1);
 
@@ -293,7 +294,7 @@ namespace seq {
                 // In that case k_min would be huge, and min_len + stride*k_min would
                 // also overflow ub → treat as a conflict immediately.
                 if (gap > UINT_MAX - (stride - 1)) {
-                    return true; // ceiling division would overflow → k_min too large
+                    return &mem; // ceiling division would overflow → k_min too large
                 }
                 k_min = (gap + stride - 1) / stride;
             }
@@ -302,13 +303,13 @@ namespace seq {
             unsigned len_at_k_min;
             if (k_min > (UINT_MAX - min_len) / stride) {
                 // Overflow: min_len + stride * k_min > UINT_MAX ≥ ub → conflict.
-                return true;
+                return &mem;
             }
             len_at_k_min = min_len + stride * k_min;
 
             if (ub != UINT_MAX && len_at_k_min > ub)
-                return true; // no valid k exists → Parikh conflict
+                return &mem; // no valid k exists → Parikh conflict
         }
-        return false;
+        return nullptr;
     }
 } // namespace seq

@@ -505,15 +505,15 @@ namespace seq {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
             if (!hasRange) { out << "Ranges:<br/>"; hasRange = true; }
             out << "?" << kv.m_key << " &#8712; ";
-            kv.m_value.display(out);
+            kv.m_value.first.display(out);
             out << "<br/>";
         }
         // character disequalities
         for (auto const& kv : m_char_diseqs) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
             if (!hasDiseq) { out << "Diseq:<br/>"; hasDiseq = true; }
-            for (euf::snode* d : kv.m_value) {
-                out << "?" << kv.m_key << " &#8800; ?" << d->id() << "<br/>";
+            for (auto& d : kv.m_value) {
+                out << "?" << kv.m_key << " &#8800; ?" << d.first->id() << "<br/>";
             }
         }
         // integer constraints
@@ -547,6 +547,7 @@ namespace seq {
         case backtrack_reason::regex_widening:   return "RegexWidening";
         case backtrack_reason::character_range:  return "Character Range";
         case backtrack_reason::smt:              return "SMT";
+        case backtrack_reason::external:         return "External";
         case backtrack_reason::children_failed:  return "Children Failed";
         default:                                 return "?";
         }

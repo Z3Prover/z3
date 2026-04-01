@@ -84,6 +84,16 @@ namespace smt {
             return m_arith_value.get_up(e, hi, is_strict) && !is_strict && hi.is_int();
         }
 
+        virtual expr_ref_vector get_unsat_core() {
+            unsigned cnt = m_kernel.get_unsat_core_size();
+            expr_ref_vector core(m_kernel.m());
+            core.reserve(cnt);
+            for (unsigned i = 0; i < cnt; i++) {
+                core[i] = m_kernel.get_unsat_core_expr(i);
+            }
+            return core;
+         }
+
         void reset() override {
             m_kernel.reset();
             m_arith_value.init(&m_kernel.get_context());

@@ -122,6 +122,13 @@ namespace euf {
         // register expression in both sgraph and egraph
         enode* mk_enode(expr* e);
 
+        snode* get_snode(expr * expr) {
+            snode* s = find(expr);
+            if (!s)
+                s = mk(expr);
+            return s;
+        }
+
         sort* get_str_sort() const { return m_str_sort; }
 
         // return true if a, b are of the same length and distinct
