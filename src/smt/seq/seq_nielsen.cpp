@@ -3697,17 +3697,10 @@ namespace seq {
             e->add_side_constraint(mk_constraint(a.mk_ge(lhs, a.mk_int(0)), s.m_dep));
         }
 
-        if (has_non_elim) {
-            // Step 2: Bump mod counts for all non-eliminating variables at once.
-            for (auto const& s : substs) {
-                if (s.is_eliminating())
-                    continue;
-                unsigned id = s.m_var->id();
-                unsigned prev = 0;
-                m_mod_cnt.find(id, prev);
-                m_mod_cnt.insert(id, prev + 1);
-            }
-        }
+        // Step 2: Bump mod counts for all non-eliminating variables at once.
+        if (has_non_elim)
+            inc_edge_mod_counts(e);
+
 
         // Step 3: Compute RHS (|u|) with bumped mod counts and add |x| = |u|.
         for (auto const& p : lhs_exprs) {
@@ -3718,21 +3711,9 @@ namespace seq {
             e->add_side_constraint(mk_constraint(m.mk_eq(lhs_expr, rhs), s.m_dep));
         }
 
-        if (has_non_elim) {
-            // Step 4: Restore mod counts (temporary bump for computing RHS only).
-            for (auto const& s : substs) {
-                if (s.is_eliminating())
-                    continue;
-                unsigned id = s.m_var->id();
-                unsigned prev = 0;
-                m_mod_cnt.find(id, prev);
-                SASSERT(prev >= 1);
-                if (prev <= 1)
-                    m_mod_cnt.remove(id);
-                else
-                    m_mod_cnt.insert(id, prev - 1);
-            }
-        }
+        // Step 4: Restore mod counts (temporary bump for computing RHS only).
+        if (has_non_elim) 
+            dec_edge_mod_counts(e);
     }
 
     void nielsen_graph::inc_edge_mod_counts(nielsen_edge* e) {
@@ -3750,7 +3731,7 @@ namespace seq {
             if (s.is_eliminating()) continue;
             unsigned id = s.m_var->id();
             unsigned prev = 0;
-            m_mod_cnt.find(id, prev);
+            VERIFY(m_mod_cnt.find(id, prev));
             SASSERT(prev >= 1);
             if (prev <= 1)
                 m_mod_cnt.remove(id);
