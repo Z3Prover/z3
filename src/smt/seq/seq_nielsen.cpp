@@ -2253,32 +2253,6 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
-    // Helper: find a power token in any str_eq
-    // -----------------------------------------------------------------------
-
-    euf::snode* nielsen_graph::find_power_token(nielsen_node* node) const {
-        for (str_eq const& eq : node->str_eqs()) {
-            if (eq.is_trivial())
-                continue;
-            if (!eq.m_lhs || !eq.m_rhs)
-                continue;
-            euf::snode_vector toks;
-            eq.m_lhs->collect_tokens(toks);
-            for (euf::snode* t : toks) {
-                if (t->is_power())
-                    return t;
-            }
-            toks.reset();
-            eq.m_rhs->collect_tokens(toks);
-            for (euf::snode* t : toks) {
-                if (t->is_power())
-                    return t;
-            }
-        }
-        return nullptr;
-    }
-
-    // -----------------------------------------------------------------------
     // Helper: find a power token facing a constant (char) head
     // Returns true if found, sets power, other_head, eq_out.
     // -----------------------------------------------------------------------

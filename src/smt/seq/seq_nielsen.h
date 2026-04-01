@@ -964,10 +964,6 @@ namespace seq {
         // create a fresh variable with a unique name and the given sequence sort
         euf::snode* mk_fresh_var(sort* s);
 
-        // create a fresh symbolic character: seq.unit(fresh_char_const)
-        // analogous to ZIPT's SymCharToken creation
-        euf::snode* mk_fresh_char_var();
-
         // deterministic modifier: var = ε, same-head cancel
         bool apply_det_modifier(nielsen_node* node);
 
@@ -1065,9 +1061,6 @@ namespace seq {
         bool apply_var_num_unwinding_eq(nielsen_node* node);
 
         bool apply_var_num_unwinding_mem(nielsen_node* node);
-
-        // find the first power token in any str_eq at this node
-        euf::snode* find_power_token(nielsen_node* node) const;
 
         // find a power token facing a constant (char/non-var) token at either end
         // of an equation; returns orientation via `fwd` (true=head, false=tail).
