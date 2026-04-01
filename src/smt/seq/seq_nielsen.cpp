@@ -254,6 +254,7 @@ namespace seq {
             for (unsigned i = 0; i < to_app(c.fml)->get_num_args(); ++i) {
                 add_constraint(constraint(to_app(c.fml)->get_arg(i), c.dep, graph().get_manager()));
             }
+            return;
         }
         m_constraints.push_back(c);
         if (m_graph.m_literal_if_false) {
