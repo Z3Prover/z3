@@ -134,11 +134,12 @@ bool theory_seq::propagate_ne2eq(unsigned idx, expr_ref_vector const& es) {
     if (es.empty())
         return false;
     for (expr* e : es) {
+        if (m_util.str.is_unit(e))
+            return true;
         expr_ref len_e = mk_len(e);
         rational lo;
-        if (lower_bound(len_e, lo) && lo > 0) {
+        if (lower_bound(len_e, lo) && lo > 0)
             return true;
-        }
     }
     ne const& n = m_nqs[idx];
     expr_ref e(m), head(m), tail(m);
