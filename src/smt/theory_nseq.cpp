@@ -85,6 +85,7 @@ namespace smt {
 
         std::function<sat::literal(expr*)> literal_if_false = [&](expr* e) {
             bool is_not = m.is_not(e, e);
+            TRACE(seq, tout << "literal_if_false: " << mk_pp(e, m) << " internalized - " << ctx.e_internalized(e) << "\n");
             if (!ctx.e_internalized(e))
                 return sat::null_literal;
             literal lit = ctx.get_literal(e);
@@ -94,6 +95,7 @@ namespace smt {
                 TRACE(seq, tout << "literal_if_false: " << lit << " " << mk_pp(e, m) << " is assigned false\n");
                 return lit;
             }
+            TRACE(seq, tout << "literal_if_false: " << mk_pp(e, m) << " is assigned " << ctx.get_assignment(lit) << "\n");
             return sat::null_literal;
         };
 
@@ -647,7 +649,8 @@ namespace smt {
         };
         ctx.push_trail(reset_vector(m_nielsen_literals));
         for (auto const& c : m_nielsen.sat_node()->constraints()) {
-            auto lit = mk_literal(c.fml);
+            bool was_internalized = ctx.e_internalized(c.fml);   
+            auto lit = mk_literal(c.fml);   
             m_nielsen_literals.push_back(lit);
             switch (ctx.get_assignment(lit)) { 
             case l_true: 
@@ -664,6 +667,11 @@ namespace smt {
                 IF_VERBOSE(0, verbose_stream()
                                   << "nseq final_check: nielsen assumption " << c.fml << " is false\n";);
                 ctx.force_phase(lit);
+                if (!was_internalized) {
+                    has_undef = true;
+                    ctx.force_phase(lit);    
+                    break;
+                }
                 TRACE(seq, tout << "assigned to false: " << c.fml << "\n");
                 UNREACHABLE();
                 break;
