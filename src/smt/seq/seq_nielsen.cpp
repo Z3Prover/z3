@@ -1432,6 +1432,7 @@ namespace seq {
         if (!cur_path.empty() && !check_int_feasibility()) {
             dep_tracker dep = get_subsolver_dependency(node);
             node->set_conflict(backtrack_reason::arithmetic, dep);
+            node->set_general_conflict(true);
             ++m_stats.m_num_arith_infeasible;
             return search_result::unsat;
         }
