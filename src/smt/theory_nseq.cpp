@@ -719,6 +719,11 @@ namespace smt {
         std::cout << std::endl;
 #endif
 #endif
+
+#ifdef Z3DEBUG
+        std::cout << "Conflict with " << lits.size() << " literals and " << eqs.size() << " equalities" << std::endl;
+        std::cout << "The root node contained " << m_nielsen.root()->str_mems().size() << " memberships and " << m_nielsen.root()->str_eqs().size() << " equalities" << std::endl;
+#endif
     }
 
     void theory_nseq::set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {
