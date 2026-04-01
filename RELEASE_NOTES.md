@@ -60,6 +60,37 @@ Version 4.17.0
   https://github.com/Z3Prover/z3/pull/8983
 - Fix deep API bugs in Z3 C API (null pointer handling, error propagation).
   https://github.com/Z3Prover/z3/pull/8972
+- Implement multivariate polynomial factorization via Hensel lifting. Replaces the prior stub
+  implementation (factor_n_sqf_pp) with a working algorithm: evaluate away extra variables to
+  reduce to bivariate, factor the univariate specialization, lift via linear Hensel lifting in
+  Zp[x], and verify the result over Z[x,y]. For more than two variables, bivariate factors are
+  checked against the original polynomial. Thanks to Lev Nachmanson.
+- Add riscv64 Python wheel builds to nightly and release PyPI publishing.
+  https://github.com/Z3Prover/z3/pull/9153
+- Fix nlsat clear() crash: reset polynomial cache and root-atom assignments during solver
+  destruction to prevent use-after-free heap corruption. Also fix scoped_numeral_vector copy
+  constructor to read from the source operand instead of uninitialized self.
+  https://github.com/Z3Prover/z3/pull/9150
+- Fix #9030: in box mode optimization (opt.priority=box), each objective is now optimized
+  independently using push/pop scopes, so adding or removing one objective no longer changes
+  the optimal values of others.
+- Fix assertion violation in isolate_roots for nested nlsat calls. Fixes #6871.
+- Fix #9036: expand bounded integer quantifiers in qe-light when Fourier-Motzkin elimination
+  fails due to non-unit coefficients. When all remaining quantified integers have explicit
+  finite bounds and the product of domain sizes is at most 10000, the quantifier is unrolled
+  into an explicit disjunction.
+- Fix #8023: only skip adding an axiom clause when its satisfying literal is assigned at base
+  level (scope 0). The previous optimization was unsound: literals can be retracted by
+  backtracking, causing the string solver to miss propagations such as indexof(a,s) = -1 when
+  contains(a,s) becomes false after backtracking.
+- Fix lock contention in theory_diff_logic and theory_dense_diff_logic when using multi-threaded
+  solving (smt.threads > 1). A diagnostic IF_VERBOSE(0,...) call was always acquiring the global
+  verbose mutex, causing catastrophic contention when multiple threads internalized atoms.
+  Fixes #8019.
+- Fix string solver: move m_fixed insertion after check_long_strings guard to prevent premature
+  marking of string variables with length > 20 as processed.
+- Fix documentation for Z3_solver_to_dimacs_string: corrected the function name in the API
+  comment. Thanks to Mark DenHoed, https://github.com/Z3Prover/z3/pull/9053
 
 Version 4.16.0
 ==============
