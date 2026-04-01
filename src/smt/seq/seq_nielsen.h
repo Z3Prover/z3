@@ -240,6 +240,7 @@ Author:
 #include "util/rational.h"
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 #include "ast/euf/euf_sgraph.h"
 #include <map>
 #include "model/model.h"
@@ -406,7 +407,9 @@ namespace seq {
         // check if the constraint has the form x in R with x a single variable
         bool is_primitive() const;
 
-         bool is_trivial() const;
+        bool is_trivial() const;
+
+        bool is_contradiction() const;
 
         // check if the constraint contains a given variable
         bool contains_var(euf::snode* var) const;
@@ -744,6 +747,7 @@ namespace seq {
     class nielsen_graph {
         friend class nielsen_node;
         ast_manager&                  m;
+        arith_util                    a;
         seq_util&                     m_seq;
         euf::sgraph&                  m_sg;
         ptr_vector<nielsen_node>      m_nodes;
@@ -798,23 +802,6 @@ namespace seq {
         // |x| = 1 + |x| that results from reusing the same length symbol.
         u_map<unsigned>               m_mod_cnt;
 
-        // Cache: (var snode id, modification count) → fresh integer variable.
-        // Variables at mod_count 0 use str.len(var_expr) (standard form).
-        // Variables at mod_count > 0 get a fresh Z3 integer constant.
-        std::map<std::pair<unsigned, unsigned>, expr*> m_len_var_cache;
-
-        // Pins the fresh length variable expressions so they aren't garbage collected.
-        expr_ref_vector               m_len_vars;
-
-        // Cache: (var snode id, modification count) → fresh character variable
-        std::map<std::pair<unsigned, unsigned>, euf::snode*> m_char_var_cache;
-
-        // Cache: (var snode id, modification count) → fresh integer variable
-        std::map<std::pair<unsigned, unsigned>, expr*> m_gpower_n_var_cache;
-        std::map<std::pair<unsigned, unsigned>, expr*> m_gpower_m_var_cache;
-
-        // Pins the fresh gpower variable expressions so they aren't garbage collected.
-        expr_ref_vector               m_gpower_vars;
 
         // Arena for dep_tracker nodes.  Declared mutable so that const methods
         // (e.g., explain_conflict) can call mk_join / linearize.
