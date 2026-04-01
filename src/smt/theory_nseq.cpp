@@ -687,6 +687,38 @@ namespace smt {
         }
         ++m_num_conflicts;
         set_conflict(eqs, lits);
+
+#ifdef Z3DEBUG
+#if 0
+        std::vector<std::pair<unsigned, unsigned>> confl;
+        for (auto& lit : lits) {
+            confl.push_back(std::make_pair(lit.to_uint(), UINT_MAX));
+        }
+        for (auto& eq : eqs) {
+            if (eq.first->get_expr_id() == 464 && eq.second->get_expr_id() == 960) {
+                std::cout << mk_pp(eq.first->get_expr(), m) << " == " << mk_pp(eq.second->get_expr(), m) << std::endl;
+            }
+            if (eq.first->get_expr_id() < eq.second->get_expr_id())
+                confl.push_back(std::make_pair(eq.first->get_expr_id(), eq.second->get_expr_id()));
+            else
+                confl.push_back(std::make_pair(eq.second->get_expr_id(), eq.first->get_expr_id()));
+        }
+
+        std::ranges::sort(confl, [](auto const& a, auto const& b) {
+            if (a.first != b.first)
+                return a.first < b.first;
+            return a.second < b.second;
+        });
+        std::cout << "Conflict: " << std::endl;
+        for (auto const& c : confl) {
+            if (c.second == UINT_MAX)
+                std::cout << c.first << "; ";
+            else
+                std::cout << c.first << " == " << c.second << "; ";
+        }
+        std::cout << std::endl;
+#endif
+#endif
     }
 
     void theory_nseq::set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {
