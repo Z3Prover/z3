@@ -42,12 +42,10 @@ NSB review:
 
 namespace seq {
 
-    void deps_to_lits(dep_tracker const& deps,
-                      svector<enode_pair>& eqs,
-                      svector<sat::literal>& lits) {
+    void deps_to_lits(dep_tracker const &deps, svector<enode_pair> &eqs, svector<sat::literal> &lits) {
         vector<dep_source, false> vs;
         dep_manager::s_linearize(deps, vs);
-        for (dep_source const& d : vs) {
+        for (dep_source const &d : vs) {
             if (std::holds_alternative<enode_pair>(d))
                 eqs.push_back(std::get<enode_pair>(d));
             else
@@ -58,7 +56,7 @@ namespace seq {
     // Normalize an arithmetic expression using th_rewriter.
     // Simplifies e.g. (n - 1 + 1) to n, preventing unbounded growth
     // of power exponents during unwind/merge cycles.
-    static expr_ref normalize_arith(ast_manager& m, expr* e) {
+    static expr_ref normalize_arith(ast_manager &m, expr *e) {
         expr_ref result(e, m);
         th_rewriter rw(m);
         rw(result);
@@ -68,25 +66,30 @@ namespace seq {
     // Directional helpers mirroring ZIPT's fwd flag:
     // fwd=true  -> left-to-right (prefix/head)
     // fwd=false -> right-to-left (suffix/tail)
-    static euf::snode* dir_token(euf::snode* s, bool fwd) {
-        if (!s) return nullptr;
+    static euf::snode *dir_token(euf::snode *s, bool fwd) {
+        if (!s)
+            return nullptr;
         return fwd ? s->first() : s->last();
     }
 
-    static euf::snode* dir_drop(euf::sgraph& sg, euf::snode* s, unsigned count, bool fwd) {
-        if (!s || count == 0) return s;
+    static euf::snode *dir_drop(euf::sgraph &sg, euf::snode *s, unsigned count, bool fwd) {
+        if (!s || count == 0)
+            return s;
         return fwd ? sg.drop_left(s, count) : sg.drop_right(s, count);
     }
 
-    static euf::snode* dir_concat(euf::sgraph& sg, euf::snode* a, euf::snode* b, bool fwd) {
-        if (!a) return b;
-        if (!b) return a;
+    static euf::snode *dir_concat(euf::sgraph &sg, euf::snode *a, euf::snode *b, bool fwd) {
+        if (!a)
+            return b;
+        if (!b)
+            return a;
         return fwd ? sg.mk_concat(a, b) : sg.mk_concat(b, a);
     }
 
-    static void collect_tokens_dir(euf::snode* s, bool fwd, euf::snode_vector& toks) {
+    static void collect_tokens_dir(euf::snode *s, bool fwd, euf::snode_vector &toks) {
         toks.reset();
-        if (!s) return;
+        if (!s)
+            return;
         s->collect_tokens(toks);
         if (!fwd)
             toks.reverse();
@@ -94,15 +97,15 @@ namespace seq {
 
     // Right-derivative helper used by backward str_mem simplification:
     // dR(re, c) = reverse( derivative(c, reverse(re)) ).
-    static euf::snode* reverse_brzozowski_deriv(euf::sgraph& sg, euf::snode* re, euf::snode* elem) {
+    static euf::snode *reverse_brzozowski_deriv(euf::sgraph &sg, euf::snode *re, euf::snode *elem) {
         if (!re || !elem || !re->get_expr() || !elem->get_expr())
             return nullptr;
-        ast_manager& m = sg.get_manager();
-        seq_util& seq = sg.get_seq_util();
+        ast_manager &m = sg.get_manager();
+        seq_util &seq = sg.get_seq_util();
         seq_rewriter rw(m);
 
-        expr* elem_expr = elem->get_expr();
-        expr* ch = nullptr;
+        expr *elem_expr = elem->get_expr();
+        expr *ch = nullptr;
         if (seq.str.is_unit(elem_expr, ch))
             elem_expr = ch;
 
@@ -127,18 +130,17 @@ namespace seq {
     }
 
     bool str_eq::is_trivial() const {
-        return m_lhs == m_rhs ||
-               (m_lhs && m_rhs && m_lhs->is_empty() && m_rhs->is_empty());
+        return m_lhs == m_rhs || (m_lhs && m_rhs && m_lhs->is_empty() && m_rhs->is_empty());
     }
 
-    bool str_eq::contains_var(euf::snode* var) const {
+    bool str_eq::contains_var(euf::snode *var) const {
         if (!var)
             return false;
         // check if var appears in the token list of lhs or rhs
         if (m_lhs) {
             euf::snode_vector tokens;
             m_lhs->collect_tokens(tokens);
-            for (euf::snode* t : tokens) {
+            for (euf::snode *t : tokens) {
                 if (t == var)
                     return true;
             }
@@ -146,7 +148,7 @@ namespace seq {
         if (m_rhs) {
             euf::snode_vector tokens;
             m_rhs->collect_tokens(tokens);
-            for (euf::snode* t : tokens) {
+            for (euf::snode *t : tokens) {
                 if (t == var)
                     return true;
             }
@@ -164,6 +166,10 @@ namespace seq {
 
     bool str_mem::is_trivial() const {
         return m_str && m_regex && m_str->is_empty() && m_regex->is_nullable();
+    }
+
+    bool str_mem::is_contradiction() const {
+        return (m_str && m_regex && m_str->is_empty() && !m_regex->is_nullable());
     }
 
     bool str_mem::contains_var(euf::snode* var) const {
@@ -1173,8 +1179,7 @@ namespace seq {
 
         // check for regex memberships that are immediately infeasible
         for (str_mem& mem : m_str_mem) {
-            SASSERT(mem.m_str && mem.m_regex);
-            if (mem.m_str->is_empty() && !mem.m_regex->is_nullable()) {
+            if (mem.is_contradiction()) {
                 m_is_general_conflict = true;
                 m_reason = backtrack_reason::regex;
                 return simplify_result::conflict;
