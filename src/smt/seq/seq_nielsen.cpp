@@ -2504,7 +2504,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_split_power_elim(nielsen_node* node) {
-        seq_util& seq = this->seq();
 
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())
@@ -2527,12 +2526,12 @@ namespace seq {
                     if (!end_tok || !end_tok->is_power())
                         continue;
                     euf::snode* base_sn = end_tok->arg(0);
-                    expr* pow_exp = get_power_exp_expr(end_tok, seq);
+                    expr* pow_exp = get_power_exp_expr(end_tok, m_seq);
                     // NB: Shuvendu - this test is also redundant
                     if (!base_sn || !pow_exp)
                         continue;
 
-                    auto [count, consumed] = comm_power(base_sn, other_side, m, seq, fwd);
+                    auto [count, consumed] = comm_power(base_sn, other_side, m, m_seq, fwd);
                     if (!count.get() || consumed == 0)
                         continue;
 
@@ -3785,10 +3784,9 @@ namespace seq {
         }
 
         // Parikh interval bounds for regex memberships at this node
-        seq_util& seq = m_sg.get_seq_util();
         for (str_mem const& mem : node->str_mems()) {
             expr* re_expr = mem.m_regex->get_expr();
-            SASSERT(re_expr && seq.is_re(re_expr));
+            SASSERT(re_expr && m_seq.is_re(re_expr));
 
             unsigned min_len = 0, max_len = UINT_MAX;
             compute_regex_length_interval(mem.m_regex, min_len, max_len);
