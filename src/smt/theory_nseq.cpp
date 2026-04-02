@@ -702,16 +702,11 @@ namespace smt {
                 break;
             case l_false: 
                 // this should not happen because nielsen checks for this before returning a satisfying path.
-                IF_VERBOSE(0, verbose_stream()
+                IF_VERBOSE(1, verbose_stream()
                                   << "nseq final_check: nielsen assumption " << c.fml << " is false\n";);
                 ctx.force_phase(lit);
-                if (!was_internalized) {
-                    has_undef = true;
-                    ctx.force_phase(lit);    
-                    break;
-                }
-                TRACE(seq, tout << "assigned to false: " << c.fml << "\n");
-                UNREACHABLE();
+                has_undef = true;
+                ctx.force_phase(lit);    
                 break;
             }
         }

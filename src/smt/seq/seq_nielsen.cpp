@@ -697,9 +697,10 @@ namespace seq {
             return nullptr;
 
         euf::snode* rebuilt = nullptr;
-        for (unsigned k = 0; k < result.size(); ++k)
-            rebuilt = (k == 0) ? result[k] : sg.mk_concat(rebuilt, result[k]);
-        if (!rebuilt) rebuilt = sg.mk_empty_seq(side->get_sort());
+        for (auto tok : result) 
+            rebuilt = rebuilt ? sg.mk_concat(rebuilt, tok) : tok;        
+        if (!rebuilt) 
+            rebuilt = sg.mk_empty_seq(side->get_sort());
         return rebuilt;
     }
 
