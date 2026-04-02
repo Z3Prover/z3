@@ -251,7 +251,8 @@ namespace seq {
     bool nielsen_node::add_constraint(constraint const &c) {
         if (graph().get_manager().is_and(c.fml)) {
             for (const auto f : *to_app(c.fml)) {
-                add_constraint(constraint(f, c.dep, graph().get_manager()));
+                if (!add_constraint(constraint(f, c.dep, graph().get_manager())))
+                    return false;
             }
             return true;
         }
@@ -1141,8 +1142,8 @@ namespace seq {
                 expr_ref d(rw.mk_derivative(mem.m_regex->get_expr()), m);
 
                 // Extract the inner char expression from seq.unit(?inner)
-                expr *unit_expr = tok->arg(0)->get_expr(), *inner_char;
-
+                expr *inner_char = tok->arg(0)->get_expr();
+               
                 // substitute the inner char for the derivative variable in d
                 var_subst vs(m);
                 d = vs(d, inner_char);
