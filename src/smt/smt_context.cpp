@@ -4175,7 +4175,7 @@ namespace smt {
                     std::cout << "Dumping assignments\n";
                     for (literal lit : m_assigned_literals) {
                         std::cout << "; " << lit << "\n";
-                        std::cout << "(<= 0 " << lit.var() << ")" << "\n";
+                        // std::cout << "(<= 0 " << lit.var() << ")" << "\n";
 
                         bool negate= lit.sign();
                         std::cout << "(assert ";
