@@ -1458,6 +1458,7 @@ namespace seq {
             if (!ext) {
                 node->to_html(std::cout, m);
                 std::cout << std::endl;
+                display(std::cout, node);
             }
             VERIFY(ext);
             node->set_extended(true);
@@ -1801,6 +1802,7 @@ namespace seq {
             // → deterministically substitute x → t throughout the node
             euf::snode* var = nullptr;
             euf::snode* def;
+
             if (l->is_var() && !snode_contains_var(r, l)) {
                 var = l;
                 def = r;
@@ -1813,7 +1815,7 @@ namespace seq {
                 var = l->arg(0);
                 def = r->arg(0);
             }
-            else if (r->is_unit() && r->arg(0)->is_var() && r->is_char_or_unit()) {
+            else if (r->is_unit() && r->arg(0)->is_var() && l->is_char_or_unit()) {
                 var = r->arg(0);
                 def = l->arg(0);
             }
