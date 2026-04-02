@@ -2218,6 +2218,10 @@ namespace seq {
         if (apply_gpower_intr(node))
             return ++m_stats.m_mod_gpower_intr, true;
 
+        // Priority 7b: Regex Factorization (Boolean Closure)
+        if (apply_regex_factorization(node))
+            return ++m_stats.m_mod_regex_factorization, true;
+
         // Priority 8: ConstNielsen - char vs var (2 children)
         if (apply_const_nielsen(node))
             return ++m_stats.m_mod_const_nielsen, true;
@@ -2806,6 +2810,196 @@ namespace seq {
             }
             // TODO: Extend to transitive cycles across multiple equations
             // (ZIPT's varDep + HasDepCycle). Currently only self-cycles are detected.
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
+    // Modifier: apply_regex_factorization (Boolean Closure)
+    // -----------------------------------------------------------------------
+
+    struct tau_pair {
+        expr_ref m_p;
+        expr_ref m_q;
+        tau_pair(expr* p, expr* q, ast_manager& m) : m_p(p, m), m_q(q, m) {
+            SASSERT(p);
+            SASSERT(q);
+        }
+    };
+    typedef vector<tau_pair> tau_pairs;
+
+    static void compute_tau(ast_manager& m, seq_util& seq, euf::sgraph& sg, expr* r, tau_pairs& result) {
+        SASSERT(r);
+        sort* str_sort = nullptr;
+        if (!seq.is_re(r, str_sort)) return;
+        expr *body = nullptr;
+
+        if (seq.re.is_epsilon(r)) {
+            expr_ref eps(seq.re.mk_epsilon(str_sort), m);
+            result.push_back(tau_pair(eps, eps, m));
+        }
+        else if (seq.str.is_unit(r) || seq.str.is_string(r) || seq.re.is_range(r) || seq.re.is_full_char(r) ||
+                 (seq.re.is_to_re(r) && seq.str.is_string(to_app(r)->get_arg(0)))) {
+            if (seq.re.is_to_re(r)) {
+                expr* arg = to_app(r)->get_arg(0);
+                zstring s;
+                if (seq.str.is_string(arg, s) && s.length() > 1) {
+                    for (unsigned i = 0; i <= s.length(); ++i) {
+                        expr_ref p(seq.re.mk_to_re(seq.str.mk_string(s.extract(0, i))), m);
+                        expr_ref q(seq.re.mk_to_re(seq.str.mk_string(s.extract(i, s.length() - i))), m);
+                        result.push_back(tau_pair(p, q, m));
+                    }
+                    return;
+                }
+            }
+            expr_ref eps(seq.re.mk_epsilon(str_sort), m);
+            result.push_back(tau_pair(eps, r, m));
+            result.push_back(tau_pair(r, eps, m));
+        }
+        else if (seq.re.is_empty(r)) {
+            // empty set has no splits
+        }
+        else if (seq.re.is_union(r)) {
+            for (expr* arg : *to_app(r)) {
+                compute_tau(m, seq, sg, arg, result);
+            }
+        }
+        else if (seq.re.is_concat(r)) {
+            unsigned num_args = to_app(r)->get_num_args();
+            if (num_args == 0) {
+                expr_ref eps(seq.re.mk_epsilon(str_sort), m);
+                result.push_back(tau_pair(eps, eps, m));
+                return;
+            }
+            for (unsigned i = 0; i < num_args; ++i) {
+                tau_pairs tau_arg;
+                compute_tau(m, seq, sg, to_app(r)->get_arg(i), tau_arg);
+                
+                expr_ref left(m);
+                expr_ref right(m);
+                
+                if (i == 0) left = seq.re.mk_epsilon(str_sort);
+                else {
+                    expr_ref_vector left_args(m);
+                    for (unsigned j = 0; j < i; ++j) left_args.push_back(to_app(r)->get_arg(j));
+                    if (left_args.size() == 1) left = left_args.get(0);
+                    else left = m.mk_app(seq.get_family_id(), OP_RE_CONCAT, left_args.size(), left_args.data());
+                }
+
+                if (i == num_args - 1) right = seq.re.mk_epsilon(str_sort);     
+                else {
+                    expr_ref_vector right_args(m);
+                    for (unsigned j = i + 1; j < num_args; ++j) right_args.push_back(to_app(r)->get_arg(j));
+                    if (right_args.size() == 1) right = right_args.get(0);
+                    else right = m.mk_app(seq.get_family_id(), OP_RE_CONCAT, right_args.size(), right_args.data());
+                }
+
+                for (auto const& pair : tau_arg) {
+                    expr_ref p(m), q(m);
+                    if (seq.re.is_epsilon(left)) p = pair.m_p;
+                    else if (seq.re.is_epsilon(pair.m_p)) p = left;
+                    
+                    if (seq.re.is_epsilon(right)) q = pair.m_q;
+                    else if (seq.re.is_epsilon(pair.m_q)) q = right;
+                    else q = seq.re.mk_concat(pair.m_q, right);
+                    
+                    result.push_back(tau_pair(p, q, m));
+                }
+            }
+        }
+        else if (seq.re.is_star(r, body) || seq.re.is_plus(r, body)) {
+            if (seq.re.is_plus(r)) {
+                expr_ref star(seq.re.mk_star(body), m);
+                expr_ref concat(seq.re.mk_concat(body, star), m);
+                compute_tau(m, seq, sg, concat, result);
+                return;
+            }
+            
+            expr_ref eps(seq.re.mk_epsilon(str_sort), m);
+            result.push_back(tau_pair(eps, eps, m));
+            
+            tau_pairs tau_body;
+            compute_tau(m, seq, sg, body, tau_body);
+            for (auto const& pair : tau_body) {
+                expr_ref p(m), q(m);
+                if (seq.re.is_epsilon(pair.m_p)) p = r;
+                else p = seq.re.mk_concat(r, pair.m_p); 
+                
+                if (seq.re.is_epsilon(pair.m_q)) q = r;
+                else q = seq.re.mk_concat(pair.m_q, r); 
+                
+                result.push_back(tau_pair(p, q, m));
+            }
+        }
+        else if (seq.re.is_opt(r, body)) {
+            expr_ref eps(seq.re.mk_epsilon(str_sort), m);
+            result.push_back(tau_pair(eps, eps, m));
+            compute_tau(m, seq, sg, body, result);
+        }
+        else {
+            expr_ref eps(seq.re.mk_epsilon(str_sort), m);
+            result.push_back(tau_pair(eps, r, m));
+            result.push_back(tau_pair(r, eps, m));
+        }
+    }
+
+    bool nielsen_graph::apply_regex_factorization(nielsen_node* node) {
+        if (!m_regex_factorization)
+            return false;
+
+        for (str_mem const& mem : node->str_mems()) {
+            SASSERT(mem.m_str && mem.m_regex);
+            
+            if (mem.is_primitive() || !mem.m_regex->is_classical())
+                continue;
+
+            euf::snode* first = mem.m_str->first();
+            SASSERT(first);
+            euf::snode* tail = m_sg.drop_first(mem.m_str);
+            SASSERT(tail);
+
+            tau_pairs pairs;
+            compute_tau(m, m_seq, m_sg, mem.m_regex->get_expr(), pairs);
+
+            for (auto const& pair : pairs) {
+                euf::snode* sn_p = m_sg.mk(pair.m_p);
+                euf::snode* sn_q = m_sg.mk(pair.m_q);
+                
+                // Eagerly eliminate contradictory cases
+                // e.g. check intersection emptiness with max_states = 100
+                if (m_seq_regex->is_empty_bfs(sn_p, 100) == l_true)
+                    continue;
+                if (m_seq_regex->is_empty_bfs(sn_q, 100) == l_true)
+                    continue;
+                
+                // Also check intersection with other primitive constraints on `first`
+                ptr_vector<euf::snode> regexes_p;
+                regexes_p.push_back(sn_p);
+                for (auto const& prev_mem : node->str_mems()) {
+                    if (prev_mem.m_str == first)
+                        regexes_p.push_back(prev_mem.m_regex);
+                }
+                if (regexes_p.size() > 1 && m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true)
+                    continue;
+
+                nielsen_node* child = mk_child(node);
+                mk_edge(node, child, true);
+                
+                // remove the original mem from child
+                auto& child_mems = child->str_mems();
+                for (unsigned k = 0; k < child_mems.size(); ++k) {
+                    if (child_mems[k].m_id == mem.m_id) {
+                        child_mems[k] = child_mems.back();
+                        child_mems.pop_back();
+                        break;
+                    }
+                }
+                
+                child->add_str_mem(str_mem(first, sn_p, mem.m_history, next_mem_id(), mem.m_dep));
+                child->add_str_mem(str_mem(tail, sn_q, mem.m_history, next_mem_id(), mem.m_dep));
+            }
+            
+            return true;
         }
         return false;
     }
@@ -4141,6 +4335,7 @@ namespace seq {
         st.update("nseq mod eq split",         m_stats.m_mod_eq_split);
         st.update("nseq mod star intr",        m_stats.m_mod_star_intr);
         st.update("nseq mod gpower intr",      m_stats.m_mod_gpower_intr);
+        st.update("nseq mod regex fact",       m_stats.m_mod_regex_factorization);
         st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);
         st.update("nseq mod signature split",  m_stats.m_mod_signature_split);
         st.update("nseq mod regex var",        m_stats.m_mod_regex_var_split);

@@ -63,10 +63,11 @@ namespace euf {
         unsigned    m_num_args  = 0;
 
         // metadata flags, analogous to ZIPT's Str/StrToken properties
-        bool        m_ground     = true;   // no uninterpreted string variables
-        bool        m_regex_free = true;   // no regex constructs
-        bool        m_nullable   = false;  // accepts the empty string
-        unsigned    m_level      = 0;      // tree depth/level (0 for empty, 1 for singletons)
+        bool        m_ground       = true;   // no uninterpreted string variables
+        bool        m_regex_free   = true;   // no regex constructs
+        bool        m_nullable     = false;  // accepts the empty string
+        bool        m_is_classical = true;   // classical regular expression
+        unsigned    m_level        = 0;      // tree depth/level (0 for empty, 1 for singletons)
         unsigned    m_length     = 0;      // token count, number of leaf tokens in the tree
 
         // hash matrix for associativity-respecting hashing (2x2 polynomial hash matrix)
@@ -104,6 +105,7 @@ namespace euf {
         bool is_ground()     const { return m_ground; }
         bool is_regex_free() const { return m_regex_free; }
         bool is_nullable()   const { return m_nullable; }
+        bool is_classical()  const { return m_is_classical; }
         unsigned level()     const { return m_level; }
         unsigned length()    const { return m_length; }
 

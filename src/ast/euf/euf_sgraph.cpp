@@ -154,6 +154,7 @@ namespace euf {
             n->m_ground = l->is_ground() && r->is_ground();
             n->m_regex_free = l->is_regex_free() && r->is_regex_free();
             n->m_nullable = l->is_nullable() && r->is_nullable();
+            n->m_is_classical = l->is_classical() && r->is_classical();
             n->m_level = std::max(l->level(), r->level()) + 1;
             n->m_length = l->length() + r->length();
             ++m_stats.m_num_concat;
@@ -163,13 +164,14 @@ namespace euf {
         case snode_kind::s_power: {
             // s^n: nullable follows base, consistent with ZIPT's PowerToken
             // the exponent n is assumed to be a symbolic integer, may or may not be zero
-            // NSB review: SASSERT(n->num_args() == 2); and simplify code
+            // NSB review: SASSERT(n->num_args() == 2); and simplify code       
             // NSB review: is this the correct definition of ground what about the exponent?
             SASSERT(n->num_args() >= 1);
             snode* base = n->arg(0);
             n->m_ground = base->is_ground();
             n->m_regex_free = base->is_regex_free();
             n->m_nullable = base->is_nullable();
+            n->m_is_classical = base->is_classical();
             n->m_level = 1;
             n->m_length = 1;
             ++m_stats.m_num_power;
@@ -181,6 +183,7 @@ namespace euf {
             n->m_ground = n->arg(0)->is_ground();
             n->m_regex_free = false;
             n->m_nullable = true;
+            n->m_is_classical = n->arg(0)->is_classical();
             n->m_level = 1;
             n->m_length = 1;
             break;
@@ -189,6 +192,7 @@ namespace euf {
             n->m_ground = n->num_args() > 0 ? n->arg(0)->is_ground() : true;
             n->m_regex_free = false;
             // nullable iff lower bound is 0: r{0,n} accepts the empty string
+            n->m_is_classical = n->arg(0)->is_classical();
             // default lo=1 (non-nullable) in case extraction fails
             unsigned lo = 1, hi = 1;
             expr* loop_body = nullptr;
@@ -207,15 +211,17 @@ namespace euf {
             n->m_ground = n->arg(0)->is_ground() && n->arg(1)->is_ground();
             n->m_regex_free = false;
             n->m_nullable = n->arg(0)->is_nullable() || n->arg(1)->is_nullable();
+            n->m_is_classical = n->arg(0)->is_classical() && n->arg(1)->is_classical();
             n->m_level = 1;
             n->m_length = 1;
             break;
 
         case snode_kind::s_intersect:
             SASSERT(n->num_args() == 2);
-            n->m_ground = n->arg(0)->is_ground() && n->arg(1)->is_ground();
+            n->m_ground = n->arg(0)->is_ground() && n->arg(1)->is_ground();     
             n->m_regex_free = false;
             n->m_nullable = n->arg(0)->is_nullable() && n->arg(1)->is_nullable();
+            n->m_is_classical = false;
             n->m_level = 1;
             n->m_length = 1;
             break;
@@ -225,6 +231,7 @@ namespace euf {
             n->m_ground = n->arg(0)->is_ground();
             n->m_regex_free = false;
             n->m_nullable = !n->arg(0)->is_nullable();
+            n->m_is_classical = false;
             n->m_level = 1;
             n->m_length = 1;
             break;
@@ -233,6 +240,7 @@ namespace euf {
             n->m_ground = true;
             n->m_regex_free = false;
             n->m_nullable = false;
+            n->m_is_classical = false;
             n->m_level = 1;
             n->m_length = 1;
             break;

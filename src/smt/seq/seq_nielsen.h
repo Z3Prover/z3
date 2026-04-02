@@ -734,6 +734,7 @@ namespace seq {
         unsigned m_mod_eq_split        = 0;
         unsigned m_mod_star_intr       = 0;
         unsigned m_mod_gpower_intr     = 0;
+        unsigned m_mod_regex_factorization = 0;
         unsigned m_mod_const_nielsen   = 0;
         unsigned m_mod_regex_var_split = 0;
         unsigned m_mod_signature_split = 0;
@@ -763,6 +764,7 @@ namespace seq {
         unsigned                      m_max_nodes = 0;          // 0 = unlimited
         bool                          m_parikh_enabled = true;
         bool                          m_signature_split = false;
+        bool                          m_regex_factorization = true;
         unsigned                      m_next_mem_id = 0;
         unsigned                      m_fresh_cnt = 0;
         nielsen_stats                 m_stats;
@@ -886,6 +888,8 @@ namespace seq {
         void set_parikh_enabled(bool e) { m_parikh_enabled = e; }
 
         void set_signature_split(bool e) { m_signature_split = e; }
+        
+        void set_regex_factorization(bool e) { m_regex_factorization = e; }
 
         // generate next unique regex membership id
         unsigned next_mem_id() { return m_next_mem_id++; }
@@ -1071,6 +1075,9 @@ namespace seq {
         // forming a cycle back to v, introduce v = base^n · suffix.
         // mirrors ZIPT's GPowerIntrModifier
         bool apply_gpower_intr(nielsen_node* node);
+
+        // generalized regex factorization (Boolean closure derivation rule)
+        bool apply_regex_factorization(nielsen_node* node);
 
         // helper for apply_gpower_intr: fires the substitution.
         // `fwd=true` uses left-to-right decomposition; `fwd=false` mirrors ZIPT's
