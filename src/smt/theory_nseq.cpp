@@ -592,7 +592,8 @@ namespace smt {
                 // all regex constraints satisfiable, no word eqs → SAT
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck SAT\n";);
                 m_nielsen.set_sat_node(m_nielsen.root());
-                if (!check_length_coherence()) return FC_CONTINUE;
+                if (!check_length_coherence())
+                    return FC_CONTINUE;
                 TRACE(seq, display(tout << "pre-check done\n"));
                 return FC_DONE;
             default: 
@@ -1240,7 +1241,7 @@ namespace smt {
                     expr_ref len_minus_l(m_autil.mk_sub(len_expr, l_expr), m);
                     expr_ref not_divides(m.mk_not(m_autil.mk_divides(g_expr, len_minus_l)), m);
                     prop_expr = m.mk_or(len_lt_l, not_divides);
-                    std::cout << "Propagating " << mk_pp(prop_expr, m) << " for length " << l << " with gradient " << g << std::endl;
+                    m_th_rewriter(prop_expr); // the divisibility predicate needs to be rewritten as it won't happen automatically
 
                     m_gradient_cache[s] = 1; // Reset gradient cache
                 }
