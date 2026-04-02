@@ -2898,6 +2898,7 @@ namespace seq {
                     expr_ref p(m), q(m);
                     if (seq.re.is_epsilon(left)) p = pair.m_p;
                     else if (seq.re.is_epsilon(pair.m_p)) p = left;
+                    else p = seq.re.mk_concat(left, pair.m_p);
                     
                     if (seq.re.is_epsilon(right)) q = pair.m_q;
                     else if (seq.re.is_epsilon(pair.m_q)) q = right;
