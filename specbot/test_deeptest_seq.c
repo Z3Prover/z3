@@ -20,14 +20,14 @@
 #include <string.h>
 #include <stdlib.h>
 #include <setjmp.h>
-
-#ifdef _WIN32
-#include <windows.h>
-#include <crtdbg.h>
 #include <signal.h>
 
 static jmp_buf jmp_env;
 static volatile int in_test = 0;
+
+#ifdef _WIN32
+#include <windows.h>
+#include <crtdbg.h>
 
 void abort_handler(int sig) {
     (void)sig;
@@ -50,13 +50,6 @@ void suppress_dialogs() {
     _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
     signal(SIGABRT, abort_handler);
 }
-#else
-void suppress_dialogs() {}
-#endif
-
-static int tests_run = 0;
-static int tests_passed = 0;
-static int tests_crashed = 0;
 
 #define RUN_TEST(name) do { \
     fprintf(stderr, "[TEST] Running %s\n", #name); \
@@ -78,6 +71,40 @@ static int tests_crashed = 0;
         fprintf(stderr, "[TEST] ABORT %s (caught SIGABRT)\n", #name); \
     } \
 } while(0)
+
+#else
+
+void abort_handler(int sig) {
+    (void)sig;
+    if (in_test) {
+        in_test = 0;
+        signal(SIGABRT, abort_handler);
+        longjmp(jmp_env, 1);
+    }
+}
+
+void suppress_dialogs() { signal(SIGABRT, abort_handler); }
+
+#define RUN_TEST(name) do { \
+    fprintf(stderr, "[TEST] Running %s\n", #name); \
+    tests_run++; \
+    in_test = 1; \
+    if (setjmp(jmp_env) == 0) { \
+        name(); \
+        in_test = 0; \
+        tests_passed++; \
+        fprintf(stderr, "[TEST] PASS %s\n", #name); \
+    } else { \
+        tests_crashed++; \
+        fprintf(stderr, "[TEST] ABORT %s (caught SIGABRT)\n", #name); \
+    } \
+} while(0)
+
+#endif
+
+static int tests_run = 0;
+static int tests_passed = 0;
+static int tests_crashed = 0;
 
 /* ===== Helpers ===== */
 static Z3_sort mk_string_sort(Z3_context ctx) { return Z3_mk_string_sort(ctx); }
