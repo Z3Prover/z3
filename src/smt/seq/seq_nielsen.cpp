@@ -1125,80 +1125,41 @@ namespace seq {
             }
         }
 
-        // consume symbolic characters (s_unit tokens) via uniform derivative
-        // check.  When all minterms of the regex produce the same Brzozowski
-        // derivative, the derivative is independent of the character value
-        // and we can deterministically consume the token.  Forward direction
-        // only (matches ZIPT history tracking convention).
-        //
-        // Extended: when uniform derivative fails but the token has a char_range
-        // constraint (from apply_regex_var_split), check if the char_range is a
-        // subset of a single minterm's character class.  If so, the derivative
-        // is deterministic for that token.
-        // Mirrors ZIPT StrMem.SimplifyCharRegex lines 96-117.
+        // consume symbolic characters via uniform derivatives
         for (str_mem& mem : m_str_mem) {
             SASSERT(mem.m_str && mem.m_regex);
             if (mem.is_primitive())
                 continue;
             while (mem.m_str && !mem.m_str->is_empty()) {
-                euf::snode* tok = mem.m_str->first();
-                if (!tok || !tok->is_unit())
+
+                // TODO: generalize this to work for reverse derivative as well.
+                euf::snode *tok = mem.m_str->first();
+                if (!tok || !tok->is_char_or_unit())
                     break;
 
-                //
-                // TODO -rewrite to use symbolic derivative and add back resulting derived regex.
-                //
+                seq_rewriter rw(m);
+                expr_ref d(rw.mk_derivative(mem.m_regex->get_expr()), m);
 
-                // compute minterms and check for uniform derivative
-                euf::snode_vector minterms;
-                sg.compute_minterms(mem.m_regex, minterms);
-                VERIFY(!minterms.empty());
-                // try char_range subset approach.
-                // If the symbolic char has a char_range constraint and that
-                // range is a subset of exactly one minterm's character class,
-                // we can deterministically take that minterm's derivative.
-                SASSERT(m_graph.m_parikh);
-                auto full = char_set::full(zstring::max_char());
-                char_set* cs;
-                dep_tracker dep;
-                if (m_char_ranges.contains(tok->id())) {
-                    auto& ranges = m_char_ranges[tok->id()];
-                    cs = &ranges.first;
-                    dep = ranges.second;
-                }
-                else {
-                    cs = &full;
-                    dep = graph().dep_mgr().mk_empty();
+                // Extract the inner char expression from seq.unit(?inner)
+                expr *unit_expr = tok->arg(0)->get_expr(), *inner_char;
+
+                // substitute the inner char for the derivative variable in d
+                var_subst vs(m);
+                d = vs(d, inner_char);
+
+                th_rewriter thrw(m);
+                thrw(d);
+
+                auto next = sg.mk(d);
+                if (next->is_fail()) {
+                    m_is_general_conflict = true;
+                    set_conflict(backtrack_reason::regex, mem.m_dep);
+                    return simplify_result::conflict;
                 }
 
-                if (!cs->is_empty()) {
-                    euf::snode* matching_deriv = nullptr;
-                    bool found = false;
-                    for (euf::snode* mt : minterms) {
-                        SASSERT(mt && mt->get_expr());
-                        SASSERT(!mt->is_fail());
-                        char_set mt_cs = m_graph.m_seq_regex->minterm_to_char_set(mt->get_expr());
-                        if (cs->is_subset(mt_cs)) {
-                            euf::snode* deriv = sg.brzozowski_deriv(mem.m_regex, mt);
-                            if (!deriv) { found = false; break; }
-                            if (deriv->is_fail()) {
-                                m_is_general_conflict = true;
-                                set_conflict(backtrack_reason::regex, graph().dep_mgr().mk_join(mem.m_dep, dep));
-                                return simplify_result::conflict;
-                            }
-                            matching_deriv = deriv;
-                            found = true;
-                            break;
-                        }
-                    }
-                    if (found && matching_deriv) {
-                        mem.m_str = sg.drop_left(mem.m_str, 1);
-                        mem.m_regex = matching_deriv;
-                        mem.m_history = sg.mk_concat(mem.m_history, tok);
-                        continue;
-                    }
-                }
-                break;
+                mem.m_str = sg.drop_left(mem.m_str, 1);
+                mem.m_regex = next;
+                mem.m_history = sg.mk_concat(mem.m_history, tok);
             }
         }
 
@@ -3140,12 +3101,13 @@ namespace seq {
         }
         return false;
     }
-
+    
     bool nielsen_graph::apply_regex_unit_split(nielsen_node *node) {
         for (str_mem const &mem : node->str_mems()) {
             SASSERT(mem.m_str && mem.m_regex);
             if (mem.is_primitive())
                 continue;
+
             euf::snode *first = mem.m_str->first();
             if (!first || !first->is_char_or_unit())
                 continue;
@@ -3271,6 +3233,11 @@ namespace seq {
                 child->apply_subst(m_sg, s);
                 created = true;
             }
+
+            // TODO: replace this with a version that just uses symbolic derivatives
+            // and not min-terms.
+            // It solves x -> unit(nth(x, 0)) ++ x
+            // Then the split_regex_unit can solve process the node further.
 
             // Branch 2+: for each minterm m_i, x → ?c · x
             // where ?c is a symbolic char constrained by the minterm
