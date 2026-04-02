@@ -38,6 +38,71 @@ steps:
       ref: c3
       persist-credentials: false
 
+  - name: Install build dependencies
+    run: |
+      sudo apt-get update -y
+      sudo apt-get install -y cmake ninja-build python3 gcc g++ 2>&1 | tail -5
+
+  - name: Build Z3 in debug mode
+    id: build-z3
+    continue-on-error: true
+    run: |
+      mkdir -p build/debug specbot-results
+      cd build/debug
+      cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug ../.. 2>&1 | tee ../../specbot-results/cmake.log
+      ninja 2>&1 | tee ../../specbot-results/build.log
+      BUILD_EXIT=$?
+      cd ../..
+      echo "build_exit=${BUILD_EXIT}" >> specbot-results/build-status.txt
+      ls -la build/debug/libz3* build/debug/*.so* 2>/dev/null >> specbot-results/build-status.txt || echo "Library not found" >> specbot-results/build-status.txt
+      exit $BUILD_EXIT
+
+  - name: Compile specbot tests
+    continue-on-error: true
+    run: |
+      mkdir -p specbot-results
+      gcc -g -O0 \
+          -I src/api \
+          specbot/test_specbot_seq.c \
+          -L build/debug \
+          -lz3 \
+          -Wl,-rpath,"${GITHUB_WORKSPACE}/build/debug" \
+          -o specbot-results/test_specbot_seq \
+          2>&1 | tee specbot-results/compile_specbot_seq.log
+      echo "compile_specbot_seq_exit=$?" >> specbot-results/compile-status.txt
+
+      gcc -g -O0 \
+          -I src/api \
+          specbot/test_deeptest_seq.c \
+          -L build/debug \
+          -lz3 \
+          -Wl,-rpath,"${GITHUB_WORKSPACE}/build/debug" \
+          -o specbot-results/test_deeptest_seq \
+          2>&1 | tee specbot-results/compile_deeptest_seq.log
+      echo "compile_deeptest_seq_exit=$?" >> specbot-results/compile-status.txt
+
+  - name: Run specbot tests
+    continue-on-error: true
+    run: |
+      mkdir -p specbot-results
+      if [ -f specbot-results/test_specbot_seq ]; then
+        LD_LIBRARY_PATH="${GITHUB_WORKSPACE}/build/debug" timeout 120 specbot-results/test_specbot_seq > specbot-results/test_specbot_seq.log 2>&1
+        SPECBOT_EXIT=$?
+        echo "specbot_seq_exit=${SPECBOT_EXIT}" >> specbot-results/test-status.txt
+      else
+        echo "Binary not compiled" > specbot-results/test_specbot_seq.log
+        echo "specbot_seq_exit=127" >> specbot-results/test-status.txt
+      fi
+
+      if [ -f specbot-results/test_deeptest_seq ]; then
+        LD_LIBRARY_PATH="${GITHUB_WORKSPACE}/build/debug" timeout 120 specbot-results/test_deeptest_seq > specbot-results/test_deeptest_seq.log 2>&1
+        DEEPTEST_EXIT=$?
+        echo "deeptest_seq_exit=${DEEPTEST_EXIT}" >> specbot-results/test-status.txt
+      else
+        echo "Binary not compiled" > specbot-results/test_deeptest_seq.log
+        echo "deeptest_seq_exit=127" >> specbot-results/test-status.txt
+      fi
+
 ---
 
 # Specbot Crash Analyzer
@@ -45,103 +110,50 @@ steps:
 ## Job Description
 
 Your name is ${{ github.workflow }}. You are an expert C/C++ and SMT solver analyst for the Z3 theorem prover
-repository `${{ github.repository }}`. Your task is to build Z3 in debug mode from the `c3` branch, compile and run
-the specbot test suite, capture any crashes or assertion failures, diagnose their root causes by reading the
-relevant source files, and publish a structured findings report as a GitHub Discussion.
+repository `${{ github.repository }}`. The pre-steps above have already built Z3 in debug mode from the `c3`
+branch, compiled and run the specbot test suite, and saved all output to the `specbot-results/` directory in
+the workspace (`${{ github.workspace }}/specbot-results/`). Your task is to analyze those results, diagnose
+any crash root causes by reading the relevant source files, and publish a structured findings report as a
+GitHub Discussion.
 
-The repository has already been checked out at the `c3` branch in the pre-step above.
+**Do not try to build Z3 or run tests yourself.** All build and test output is already in `specbot-results/`.
 
 ## Your Task
 
-### 1. Install Build Dependencies
+### 1. Read the Pre-Generated Results
 
-Install the tools needed to build Z3 and compile the C test programs:
-
-```bash
-sudo apt-get update -y
-sudo apt-get install -y cmake ninja-build python3 gcc g++ 2>&1 | tail -5
-```
-
-### 2. Build Z3 in Debug Mode
-
-Configure and build Z3 in debug mode. Store the build output in `build/debug`:
+All build and test outputs are in `specbot-results/` (relative to the workspace root). Read each file:
 
 ```bash
-mkdir -p build/debug
-cd build/debug
-cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug ../.. 2>&1 | tail -10
-ninja 2>&1 | tail -20
-cd ../..
+# Build status
+cat specbot-results/build-status.txt 2>/dev/null || echo "No build status"
+
+# Compile status
+cat specbot-results/compile-status.txt 2>/dev/null || echo "No compile status"
+
+# Test status
+cat specbot-results/test-status.txt 2>/dev/null || echo "No test status"
+
+# Test output from test_specbot_seq
+cat specbot-results/test_specbot_seq.log 2>/dev/null || echo "No test_specbot_seq output"
+
+# Test output from test_deeptest_seq
+cat specbot-results/test_deeptest_seq.log 2>/dev/null || echo "No test_deeptest_seq output"
+
+# Last 30 lines of the build log
+tail -30 specbot-results/build.log 2>/dev/null || echo "No build log"
 ```
 
-Verify the build succeeded by checking that `build/debug/libz3.so` (or `build/debug/libz3.a`) exists:
+If `specbot-results/build-status.txt` shows `build_exit=0`, the build succeeded.
+If it shows a non-zero exit, include the last 50 lines of `specbot-results/build.log` in the report
+under a "Build Failure" section.
 
-```bash
-ls build/debug/libz3* 2>/dev/null || ls build/debug/*.so* 2>/dev/null || echo "Library not found"
-```
+If `specbot-results/compile-status.txt` shows a non-zero exit for a test, include the compile error
+from `specbot-results/compile_specbot_seq.log` or `specbot-results/compile_deeptest_seq.log`.
 
-If the build fails, capture the last 50 lines of ninja output and include them in the report under a
-"Build Failure" section, then stop.
+Collect every line containing `CRASH` or `ABORT` from the test log files — these are the crashes to analyze.
 
-### 3. Compile the Specbot Tests
-
-The `specbot/` directory at the root of the repository contains two C test programs:
-
-- `specbot/test_specbot_seq.c` — basic specbot invariant tests for the Z3 seq/Nielsen solver
-- `specbot/test_deeptest_seq.c` — deep-coverage tests targeting under-exercised code paths
-
-Compile each test, linking against the debug build of Z3. Use the Z3 public C API header from `src/api/z3.h`:
-
-```bash
-# Compile test_specbot_seq
-gcc -g -O0 \
-    -I src/api \
-    specbot/test_specbot_seq.c \
-    -L build/debug \
-    -lz3 \
-    -Wl,-rpath,build/debug \
-    -o /tmp/test_specbot_seq \
-    2>&1
-echo "test_specbot_seq compile exit: $?"
-
-# Compile test_deeptest_seq
-gcc -g -O0 \
-    -I src/api \
-    specbot/test_deeptest_seq.c \
-    -L build/debug \
-    -lz3 \
-    -Wl,-rpath,build/debug \
-    -o /tmp/test_deeptest_seq \
-    2>&1
-echo "test_deeptest_seq compile exit: $?"
-```
-
-If a test fails to compile, include the compiler error in the report and skip running that test.
-
-### 4. Run the Tests and Capture Output
-
-Run each compiled test binary. Capture stdout and stderr. The test harness prints lines like:
-
-- `[TEST] Running <name>` — test started
-- `[TEST] PASS <name>` — test passed
-- `[TEST] CRASH <name> (exception 0x...)` — SEH exception caught (Windows only; on Linux the process aborts)
-- `[TEST] ABORT <name> (caught SIGABRT)` — assertion failure caught via SIGABRT + longjmp
-
-On Linux, wrap each run with a timeout and capture the exit code and any signal:
-
-```bash
-LD_LIBRARY_PATH=build/debug timeout 120 /tmp/test_specbot_seq > /tmp/specbot_out.txt 2>&1
-echo "specbot exit: $?"
-cat /tmp/specbot_out.txt
-
-LD_LIBRARY_PATH=build/debug timeout 120 /tmp/test_deeptest_seq > /tmp/deeptest_out.txt 2>&1
-echo "deeptest exit: $?"
-cat /tmp/deeptest_out.txt
-```
-
-Collect every line that contains `CRASH` or `ABORT` from both output files — these are the crashes to analyze.
-
-### 5. Diagnose Each Crash
+### 2. Diagnose Each Crash
 
 For each crashed test function, perform the following analysis:
 
@@ -170,7 +182,7 @@ For each crashed test function, perform the following analysis:
 4. **Suggest a fix**: propose a minimal, concrete fix — e.g., a guard condition, an additional lemma,
    a missing reference-count increment, or a missing case in a switch/match.
 
-### 6. Generate the Report
+### 3. Generate the Report
 
 After analyzing all crashes, produce a structured GitHub Discussion in the "Agentic Workflows" category
 using `create-discussion`.
@@ -231,6 +243,7 @@ Format workflow run references as: `[§${{ github.run_id }}](https://github.com/
 
 ## Usage
 
-Trigger via **Actions → Specbot Crash Analyzer → Run workflow** on any branch; the pre-step
-always checks out the `c3` branch where `specbot/test_specbot_seq.c` and
-`specbot/test_deeptest_seq.c` live. The discussion is posted to the "Agentic Workflows" category.
+Trigger via **Actions → Specbot Crash Analyzer → Run workflow** on any branch. The pre-steps
+always check out the `c3` branch where `specbot/test_specbot_seq.c` and
+`specbot/test_deeptest_seq.c` live, build Z3, run the tests, and save results to `specbot-results/`.
+The agent then analyzes the results and posts a discussion to the "Agentic Workflows" category.

@@ -22,7 +22,7 @@
 #
 # Build Z3 in debug mode from the c3 branch, compile and run the specbot tests, identify root causes for any crashes, and post findings as a GitHub Discussion.
 #
-# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"ae9af2e488abb73e7739599aeea03a842d49e4eb00b2a21396e0615142baf1fd","compiler_version":"v0.65.5","strict":true,"agent_id":"copilot"}
+# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"96d597a3e9425a3a4dc97fd4e1f3bfcc85a157c5ef38a2eaa34dd6837c77bb8d","compiler_version":"v0.65.5","strict":true,"agent_id":"copilot"}
 
 name: "Specbot Crash Analyzer"
 "on":
@@ -134,15 +134,15 @@ jobs:
         run: |
           bash ${RUNNER_TEMP}/gh-aw/actions/create_prompt_first.sh
           {
-          cat << 'GH_AW_PROMPT_8811cf8abce5aeda_EOF'
+          cat << 'GH_AW_PROMPT_d99201a359739170_EOF'
           <system>
-          GH_AW_PROMPT_8811cf8abce5aeda_EOF
+          GH_AW_PROMPT_d99201a359739170_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/xpia.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/temp_folder_prompt.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/markdown.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/cache_memory_prompt.md"
           cat "${RUNNER_TEMP}/gh-aw/prompts/safe_outputs_prompt.md"
-          cat << 'GH_AW_PROMPT_8811cf8abce5aeda_EOF'
+          cat << 'GH_AW_PROMPT_d99201a359739170_EOF'
           <safe-output-tools>
           Tools: create_discussion, missing_tool, missing_data, noop
           </safe-output-tools>
@@ -174,12 +174,12 @@ jobs:
           {{/if}}
           </github-context>
           
-          GH_AW_PROMPT_8811cf8abce5aeda_EOF
+          GH_AW_PROMPT_d99201a359739170_EOF
           cat "${RUNNER_TEMP}/gh-aw/prompts/github_mcp_tools_with_safeoutputs_prompt.md"
-          cat << 'GH_AW_PROMPT_8811cf8abce5aeda_EOF'
+          cat << 'GH_AW_PROMPT_d99201a359739170_EOF'
           </system>
           {{#runtime-import .github/workflows/specbot-crash-analyzer.md}}
-          GH_AW_PROMPT_8811cf8abce5aeda_EOF
+          GH_AW_PROMPT_d99201a359739170_EOF
           } > "$GH_AW_PROMPT"
       - name: Interpolate variables and render templates
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
@@ -188,6 +188,7 @@ jobs:
           GH_AW_GITHUB_REPOSITORY: ${{ github.repository }}
           GH_AW_GITHUB_RUN_ID: ${{ github.run_id }}
           GH_AW_GITHUB_WORKFLOW: ${{ github.workflow }}
+          GH_AW_GITHUB_WORKSPACE: ${{ github.workspace }}
         with:
           script: |
             const { setupGlobals } = require('${{ runner.temp }}/gh-aw/actions/setup_globals.cjs');
@@ -295,6 +296,47 @@ jobs:
         with:
           persist-credentials: false
           ref: c3
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y cmake ninja-build python3 gcc g++ 2>&1 | tail -5
+      - continue-on-error: true
+        id: build-z3
+        name: Build Z3 in debug mode
+        run: |
+          mkdir -p build/debug specbot-results
+          cd build/debug
+          cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug ../.. 2>&1 | tee ../../specbot-results/cmake.log
+          ninja 2>&1 | tee ../../specbot-results/build.log
+          BUILD_EXIT=$?
+          cd ../..
+          echo "build_exit=${BUILD_EXIT}" >> specbot-results/build-status.txt
+          ls -la build/debug/libz3* build/debug/*.so* 2>/dev/null >> specbot-results/build-status.txt || echo "Library not found" >> specbot-results/build-status.txt
+          exit $BUILD_EXIT
+      - continue-on-error: true
+        name: Compile specbot tests
+        run: "mkdir -p specbot-results\ngcc -g -O0 \\\n    -I src/api \\\n    specbot/test_specbot_seq.c \\\n    -L build/debug \\\n    -lz3 \\\n    -Wl,-rpath,\"${GITHUB_WORKSPACE}/build/debug\" \\\n    -o specbot-results/test_specbot_seq \\\n    2>&1 | tee specbot-results/compile_specbot_seq.log\necho \"compile_specbot_seq_exit=$?\" >> specbot-results/compile-status.txt\n\ngcc -g -O0 \\\n    -I src/api \\\n    specbot/test_deeptest_seq.c \\\n    -L build/debug \\\n    -lz3 \\\n    -Wl,-rpath,\"${GITHUB_WORKSPACE}/build/debug\" \\\n    -o specbot-results/test_deeptest_seq \\\n    2>&1 | tee specbot-results/compile_deeptest_seq.log\necho \"compile_deeptest_seq_exit=$?\" >> specbot-results/compile-status.txt\n"
+      - continue-on-error: true
+        name: Run specbot tests
+        run: |-
+          mkdir -p specbot-results
+          if [ -f specbot-results/test_specbot_seq ]; then
+            LD_LIBRARY_PATH="${GITHUB_WORKSPACE}/build/debug" timeout 120 specbot-results/test_specbot_seq > specbot-results/test_specbot_seq.log 2>&1
+            SPECBOT_EXIT=$?
+            echo "specbot_seq_exit=${SPECBOT_EXIT}" >> specbot-results/test-status.txt
+          else
+            echo "Binary not compiled" > specbot-results/test_specbot_seq.log
+            echo "specbot_seq_exit=127" >> specbot-results/test-status.txt
+          fi
+
+          if [ -f specbot-results/test_deeptest_seq ]; then
+            LD_LIBRARY_PATH="${GITHUB_WORKSPACE}/build/debug" timeout 120 specbot-results/test_deeptest_seq > specbot-results/test_deeptest_seq.log 2>&1
+            DEEPTEST_EXIT=$?
+            echo "deeptest_seq_exit=${DEEPTEST_EXIT}" >> specbot-results/test-status.txt
+          else
+            echo "Binary not compiled" > specbot-results/test_deeptest_seq.log
+            echo "deeptest_seq_exit=127" >> specbot-results/test-status.txt
+          fi
 
       # Cache memory file share configuration from frontmatter processed below
       - name: Create cache-memory directory
@@ -358,12 +400,12 @@ jobs:
           mkdir -p ${RUNNER_TEMP}/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_5fe8d0129abde348_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_9fac06c2633cb7e6_EOF'
           {"create_discussion":{"category":"agentic workflows","close_older_discussions":true,"expires":168,"fallback_to_issue":true,"max":1,"title_prefix":"[Specbot] "},"missing_data":{},"missing_tool":{},"noop":{"max":1,"report-as-issue":"false"}}
-          GH_AW_SAFE_OUTPUTS_CONFIG_5fe8d0129abde348_EOF
+          GH_AW_SAFE_OUTPUTS_CONFIG_9fac06c2633cb7e6_EOF
       - name: Write Safe Outputs Tools
         run: |
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_b7ef482a67ec3845_EOF'
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/tools_meta.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_META_55790e26900a41d5_EOF'
           {
             "description_suffixes": {
               "create_discussion": " CONSTRAINTS: Maximum 1 discussion(s) can be created. Title will be prefixed with \"[Specbot] \". Discussions will be created in category \"agentic workflows\"."
@@ -371,8 +413,8 @@ jobs:
             "repo_params": {},
             "dynamic_tools": []
           }
-          GH_AW_SAFE_OUTPUTS_TOOLS_META_b7ef482a67ec3845_EOF
-          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_8f49b80728c10fc7_EOF'
+          GH_AW_SAFE_OUTPUTS_TOOLS_META_55790e26900a41d5_EOF
+          cat > ${RUNNER_TEMP}/gh-aw/safeoutputs/validation.json << 'GH_AW_SAFE_OUTPUTS_VALIDATION_9c92f692de8367d6_EOF'
           {
             "create_discussion": {
               "defaultMax": 1,
@@ -458,7 +500,7 @@ jobs:
               }
             }
           }
-          GH_AW_SAFE_OUTPUTS_VALIDATION_8f49b80728c10fc7_EOF
+          GH_AW_SAFE_OUTPUTS_VALIDATION_9c92f692de8367d6_EOF
           node ${RUNNER_TEMP}/gh-aw/actions/generate_safe_outputs_tools.cjs
       - name: Generate Safe Outputs MCP Server Config
         id: safe-outputs-config
@@ -526,7 +568,7 @@ jobs:
           export MCP_GATEWAY_DOCKER_COMMAND='docker run -i --rm --network host -v /var/run/docker.sock:/var/run/docker.sock -e MCP_GATEWAY_PORT -e MCP_GATEWAY_DOMAIN -e MCP_GATEWAY_API_KEY -e MCP_GATEWAY_PAYLOAD_DIR -e MCP_GATEWAY_PAYLOAD_SIZE_THRESHOLD -e DEBUG -e MCP_GATEWAY_LOG_DIR -e GH_AW_MCP_LOG_DIR -e GH_AW_SAFE_OUTPUTS -e GH_AW_SAFE_OUTPUTS_CONFIG_PATH -e GH_AW_SAFE_OUTPUTS_TOOLS_PATH -e GH_AW_ASSETS_BRANCH -e GH_AW_ASSETS_MAX_SIZE_KB -e GH_AW_ASSETS_ALLOWED_EXTS -e DEFAULT_BRANCH -e GITHUB_MCP_SERVER_TOKEN -e GITHUB_MCP_GUARD_MIN_INTEGRITY -e GITHUB_MCP_GUARD_REPOS -e GITHUB_REPOSITORY -e GITHUB_SERVER_URL -e GITHUB_SHA -e GITHUB_WORKSPACE -e GITHUB_TOKEN -e GITHUB_RUN_ID -e GITHUB_RUN_NUMBER -e GITHUB_RUN_ATTEMPT -e GITHUB_JOB -e GITHUB_ACTION -e GITHUB_EVENT_NAME -e GITHUB_EVENT_PATH -e GITHUB_ACTOR -e GITHUB_ACTOR_ID -e GITHUB_TRIGGERING_ACTOR -e GITHUB_WORKFLOW -e GITHUB_WORKFLOW_REF -e GITHUB_WORKFLOW_SHA -e GITHUB_REF -e GITHUB_REF_NAME -e GITHUB_REF_TYPE -e GITHUB_HEAD_REF -e GITHUB_BASE_REF -e GH_AW_SAFE_OUTPUTS_PORT -e GH_AW_SAFE_OUTPUTS_API_KEY -v /tmp/gh-aw/mcp-payloads:/tmp/gh-aw/mcp-payloads:rw -v /opt:/opt:ro -v /tmp:/tmp:rw -v '"${GITHUB_WORKSPACE}"':'"${GITHUB_WORKSPACE}"':rw ghcr.io/github/gh-aw-mcpg:v0.2.11'
           
           mkdir -p /home/runner/.copilot
-          cat << GH_AW_MCP_CONFIG_44c4cbc18fb645da_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
+          cat << GH_AW_MCP_CONFIG_a39965076f757f6f_EOF | bash ${RUNNER_TEMP}/gh-aw/actions/start_mcp_gateway.sh
           {
             "mcpServers": {
               "github": {
@@ -567,7 +609,7 @@ jobs:
               "payloadDir": "${MCP_GATEWAY_PAYLOAD_DIR}"
             }
           }
-          GH_AW_MCP_CONFIG_44c4cbc18fb645da_EOF
+          GH_AW_MCP_CONFIG_a39965076f757f6f_EOF
       - name: Download activation artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
