@@ -250,9 +250,8 @@ namespace seq {
 
     bool nielsen_node::add_constraint(constraint const &c) {
         if (graph().get_manager().is_and(c.fml)) {
-            for (auto f : *to_app(c.fml)) {
-                if (!add_constraint(constraint(f, c.dep, graph().get_manager())))
-                    return false;
+            for (const auto f : *to_app(c.fml)) {
+                add_constraint(constraint(f, c.dep, graph().get_manager()));
             }
             return true;
         }
@@ -1432,6 +1431,9 @@ namespace seq {
         generate_node_length_constraints(node);
         assert_node_new_int_constraints(node);
 
+        if (node->is_currently_conflict())
+            return search_result::unsat;
+
         // integer feasibility check: the solver now holds all path constraints
         // incrementally; just query the solver directly
         if (!cur_path.empty() && !check_int_feasibility()) {
@@ -1443,6 +1445,7 @@ namespace seq {
         }
 
         SASSERT(sr != simplify_result::satisfied || node->is_satisfied());
+        SASSERT(!node->is_currently_conflict());
 
         if (node->is_satisfied()) {
             // Before declaring SAT, check leaf-node regex feasibility:
@@ -1464,6 +1467,8 @@ namespace seq {
         if (depth >= m_depth_bound)
             return search_result::unknown;
 
+        SASSERT(!node->is_currently_conflict());
+
         // generate extensions only once per node; children persist across runs
         if (!node->is_extended()) {
             bool ext = generate_extensions(node);
@@ -1473,6 +1478,8 @@ namespace seq {
             node->set_extended(true);
             ++m_stats.m_num_extensions;
         }
+
+        SASSERT(!node->is_currently_conflict());
 
         // explore children
         bool any_unknown = false;
@@ -1493,8 +1500,7 @@ namespace seq {
                 e->set_len_constraints_computed(true);
 
                 for (const auto& sc : e->side_constraints()) {
-                    if (!e->tgt()->add_constraint(sc))
-                        return search_result::unsat;
+                    e->tgt()->add_constraint(sc);
                 }
             }
 
@@ -1556,12 +1562,10 @@ namespace seq {
                 while (prefix < lhs_toks.size() && prefix < rhs_toks.size()) {
                     euf::snode* lt = lhs_toks[prefix];
                     euf::snode* rt = rhs_toks[prefix];
-                    if (m.are_equal(lt->get_expr(), rt->get_expr())) {
+                    if (m.are_equal(lt->get_expr(), rt->get_expr()))
                         ++prefix;
-                    }
-                    else if (m_sg.are_unit_distinct(lt, rt)) {
+                    else if (m_sg.are_unit_distinct(lt, rt))
                         break;
-                    }
                     else if (lt->is_char_or_unit() && rt->is_char_or_unit()) {
                         nielsen_node* child = mk_child(node);
                         nielsen_edge* e = mk_edge(node, child, true);
@@ -1579,6 +1583,8 @@ namespace seq {
                         eqs[eq_idx] = eqs.back();
                         eqs.pop_back();
 
+                        if (lt->is_char())
+                            std::swap(lt, rt);
                         nielsen_subst subst(lt, rt, eq.m_dep);
                         e->add_subst(subst);
                         child->apply_subst(m_sg, subst);
@@ -1597,12 +1603,10 @@ namespace seq {
                 while (suffix < lsz - prefix && suffix < rsz - prefix) {
                     euf::snode* lt = lhs_toks[lsz - 1 - suffix];
                     euf::snode* rt = rhs_toks[rsz - 1 - suffix];
-                    if (m.are_equal(lt->get_expr(), rt->get_expr())) {
+                    if (m.are_equal(lt->get_expr(), rt->get_expr()))
                         ++suffix;
-                    }
-                    else if (m_sg.are_unit_distinct(lt, rt)) {
+                    else if (m_sg.are_unit_distinct(lt, rt))
                         break;
-                    }
                     else if (lt->is_char_or_unit() && rt->is_char_or_unit()) {
                         nielsen_node* child = mk_child(node);
                         nielsen_edge* e = mk_edge(node, child, true);
@@ -1614,6 +1618,8 @@ namespace seq {
                         eqs[eq_idx] = eqs.back();
                         eqs.pop_back();
 
+                        if (lt->is_char())
+                            std::swap(lt, rt);
                         nielsen_subst subst(lt, rt, eq.m_dep);
                         e->add_subst(subst);
                         child->apply_subst(m_sg, subst);

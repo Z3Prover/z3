@@ -646,17 +646,16 @@ namespace seq {
         }
 
         void set_conflict(const backtrack_reason r, const dep_tracker confl) {
-            SASSERT(m_reason == backtrack_reason::unevaluated);
-            SASSERT(!m_conflict_internal);
-            SASSERT(m_conflict_external_literal == sat::null_literal);
+            if (m_conflict_internal != nullptr)
+                return;
+            // We prefer internal conflicts (we need it as a justification for general conflicts)
             m_reason = r;
             m_conflict_internal = confl;
         }
 
         void set_external_conflict(sat::literal lit) {
-            SASSERT(m_reason == backtrack_reason::unevaluated);
-            SASSERT(!m_conflict_internal);
-            SASSERT(m_conflict_external_literal == sat::null_literal);
+            if (m_reason != backtrack_reason::unevaluated)
+                return;
             m_reason = backtrack_reason::external;
             m_conflict_external_literal = ~lit;
         }
