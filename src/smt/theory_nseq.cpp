@@ -543,7 +543,7 @@ namespace smt {
 
         // All literals that were needed to build a model could be assigned to true.
         // There is an existing nielsen graph with a satisfying assignment.
-        if (!m_nielsen_literals.empty() && 
+        if (!m_nielsen_literals.empty() && m_nielsen.sat_node() != nullptr &&
             all_of(m_nielsen_literals, [&](auto lit) { return l_true == ctx.get_assignment(lit); })) {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: satifiable state revisited\n");
             return FC_DONE;
