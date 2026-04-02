@@ -4171,6 +4171,26 @@ namespace smt {
                 switch (fcs) {
                 case FC_DONE:
                     log_stats();
+
+                    std::cout << "Dumping assignments\n";
+                    for (literal lit : m_assigned_literals) {
+                        std::cout << "; " << lit << "\n";
+                        std::cout << "(<= 0 " << lit.var() << ")" << "\n";
+
+                        bool negate= lit.sign();
+                        std::cout << "(assert ";
+                        if (negate)
+                            std::cout << "(not ";
+
+                        
+                        
+                        std::cout << mk_pp(bool_var2expr(lit.var()), m);
+                        
+                        if (negate)
+                            std::cout << ")";
+                        std::cout << ")\n";
+                    }
+
                     return l_true;
                 case FC_CONTINUE:
                     break;
