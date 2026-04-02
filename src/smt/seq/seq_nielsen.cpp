@@ -2228,9 +2228,9 @@ namespace seq {
         if (apply_const_nielsen(node))
             return ++m_stats.m_mod_const_nielsen, true;
         
-        // Priority 9: RegexUnitSplit - split str_mem c·s ∈ R by minterms of R
-        if (apply_regex_unit_split(node))
-            return ++m_stats.m_mod_regex_unit_split, true;
+        // Priority 9: RegexIfSplit - split str_mem s ∈ ite(c,th,el) by branching on c
+        if (apply_regex_if_split(node))
+            return ++m_stats.m_mod_regex_if_split, true;
 
         // Priority 9b: SignatureSplit - heuristic string equation splitting
         if (m_signature_split && apply_signature_split(node))
@@ -3299,40 +3299,22 @@ namespace seq {
         return false;
     }
     
-    bool nielsen_graph::apply_regex_unit_split(nielsen_node *node) {
+    bool nielsen_graph::apply_regex_if_split(nielsen_node *node) {
         for (str_mem const &mem : node->str_mems()) {
             SASSERT(mem.m_str && mem.m_regex);
-            if (mem.is_primitive())
+
+            expr *r_expr = mem.m_regex->get_expr();
+            expr_ref c(m), th(m), el(m);
+            if (!bool_rewriter(m).decompose_ite(r_expr, c, th, el))
                 continue;
 
-            euf::snode *first = mem.m_str->first();
-            if (!first || !first->is_char_or_unit())
-                continue;
-
-            // Take derivative of R w.r.t. :var 0 (canonical, cached), then
-            // substitute inner_char for :var 0. Resulting ite conditions are
-            // on inner_char.
-            seq_rewriter rw(m);
-            expr_ref d(rw.mk_derivative(mem.m_regex->get_expr()), m);
-            if (!d)
-                continue;
-
-            // Extract the inner char expression from seq.unit(?inner)
-            expr *unit_expr = first->get_expr(), *inner_char;
-            VERIFY(m_seq.str.is_unit(unit_expr, inner_char));
-
-            var_subst vs(m);
-            d = vs(d, inner_char);
-
-
-            euf::snode *rest = m_sg.drop_first(mem.m_str);
             bool created = false;
 
-            // Worklist: (regex_expr, accumulated_char_set).
+            // Worklist: (regex_expr, accumulated_conditions).
             // Call decompose_ite in a loop until no more ite sub-expressions,
-            // branching on c=true and c=false and accumulating char constraints.
+            // branching on c=true and c=false and accumulating conditions.
             vector<std::pair<expr_ref, expr_ref_vector>> worklist;
-            worklist.push_back({d, expr_ref_vector(m)});
+            worklist.push_back({expr_ref(r_expr, m), expr_ref_vector(m)});
 
             while (!worklist.empty()) {
                 auto [r, cs] = std::move(worklist.back());
@@ -3341,50 +3323,45 @@ namespace seq {
                 if (m_seq.re.is_empty(r))
                     continue;
 
-                expr_ref c(m), th(m), el(m);
-                if (!bool_rewriter(m).decompose_ite(r, c, th, el)) {
-                    // No ite remaining: leaf → create child node
-                    euf::snode *deriv_snode = m_sg.mk(r);
+                expr_ref c2(m), th2(m), el2(m);
+                if (!bool_rewriter(m).decompose_ite(r, c2, th2, el2)) {
+                    // No ite remaining: leaf → create child node with regex updated to r
+                    euf::snode *new_regex_snode = m_sg.mk(r);
                     nielsen_node *child = mk_child(node);
                     for (auto f : cs)
                         child->add_constraint(constraint(f, mem.m_dep, m));
                     mk_edge(node, child, true);
                     for (str_mem &cm : child->str_mems())
                         if (cm.m_id == mem.m_id) {
-                            cm.m_str = rest;
-                            cm.m_regex = deriv_snode;
+                            cm.m_regex = new_regex_snode;
                             break;
                         }
                     created = true;
                     continue;
                 }
 
-                // Substitute inner_char into condition and simplify
                 th_rewriter tr(m);
-                expr_ref c_simp(c, m);
+                expr_ref c_simp(c2, m);
                 tr(c_simp);
 
                 if (m.is_true(c_simp)) {
-                    // Condition is always satisfied: only then-branch
-                    if (!m_seq.re.is_empty(th))
-                        worklist.push_back({th, std::move(cs)});
+                    if (!m_seq.re.is_empty(th2))
+                        worklist.push_back({th2, std::move(cs)});
                 }
                 else if (m.is_false(c_simp)) {
-                    // Condition is never satisfied: only else-branch
-                    if (!m_seq.re.is_empty(el))
-                        worklist.push_back({el, std::move(cs)});
+                    if (!m_seq.re.is_empty(el2))
+                        worklist.push_back({el2, std::move(cs)});
                 }
                 else {
-                    // Branch on c=true and c=false, accumulate char constraints
-                    if (!m_seq.re.is_empty(th)) {
+                    if (!m_seq.re.is_empty(th2)) {
                         expr_ref_vector cs_true(cs);
-                        cs_true.push_back(c);
-                        worklist.push_back({th, std::move(cs_true)});
+                        cs_true.push_back(c2);
+                        worklist.push_back({th2, std::move(cs_true)});
                     }
-                    if (!m_seq.re.is_empty(el)) {
+                    if (!m_seq.re.is_empty(el2)) {
                         expr_ref_vector cs_false(cs);
-                        cs_false.push_back(mk_not(c));
-                        worklist.push_back({el, std::move(cs_false)});
+                        cs_false.push_back(mk_not(c2));
+                        worklist.push_back({el2, std::move(cs_false)});
                     }
                 }
             }
@@ -4342,7 +4319,7 @@ namespace seq {
         st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);
         st.update("nseq mod signature split",  m_stats.m_mod_signature_split);
         st.update("nseq mod regex var",        m_stats.m_mod_regex_var_split);
-        st.update("nseq mod regex unit",       m_stats.m_mod_regex_unit_split);
+        st.update("nseq mod regex if",         m_stats.m_mod_regex_if_split);
         st.update("nseq mod power split",      m_stats.m_mod_power_split);
         st.update("nseq mod var nielsen",      m_stats.m_mod_var_nielsen);
         st.update("nseq mod var num unwind (eq)",   m_stats.m_mod_var_num_unwinding_eq);
