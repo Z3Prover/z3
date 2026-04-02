@@ -576,7 +576,7 @@ static void test_minterm_full_char() {
     seq::seq_regex regex(sg);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
 
-    expr_ref re(seq.re.mk_full_char(str_sort), m);
+    expr_ref re(seq.re.mk_full_char(seq.re.mk_re(str_sort)), m);
     char_set cs = regex.minterm_to_char_set(re);
     std::cout << "  full_char char_count = " << cs.char_count() << "\n";
     SASSERT(cs.is_full(seq.max_char()));

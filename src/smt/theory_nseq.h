@@ -150,6 +150,8 @@ namespace smt {
         //   l_undef → inconclusive, proceed to DFS
         lbool check_regex_memberships_precheck();
 
+        bool check_length_coherence();
+
     public:
         theory_nseq(context& ctx);
     };

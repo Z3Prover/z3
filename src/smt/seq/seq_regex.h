@@ -188,7 +188,7 @@ namespace seq {
         //   l_false — intersection is definitely non-empty
         //   l_undef — inconclusive (hit exploration bound)
         // Mirrors ZIPT NielsenNode.CheckEmptiness (NielsenNode.cs:1429-1469)
-        lbool check_intersection_emptiness(ptr_vector<euf::snode> const& regexes, unsigned max_states);
+        lbool check_intersection_emptiness(ptr_vector<euf::snode> const& regexes, unsigned max_states = UINT_MAX);
 
         // Check if L(subset_re) ⊆ L(superset_re).
         // Computed as: subset_re ∩ complement(superset_re) = ∅.

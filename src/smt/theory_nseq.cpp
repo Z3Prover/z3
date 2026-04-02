@@ -592,6 +592,7 @@ namespace smt {
                 // all regex constraints satisfiable, no word eqs → SAT
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck SAT\n";);
                 m_nielsen.set_sat_node(m_nielsen.root());
+                if (!check_length_coherence()) return FC_CONTINUE;
                 TRACE(seq, display(tout << "pre-check done\n"));
                 return FC_DONE;
             default: 
@@ -624,6 +625,9 @@ namespace smt {
             SASSERT(has_eq_or_mem); // we should have axiomatized them
             
             if (!add_nielsen_assumptions())
+                return FC_CONTINUE;
+
+            if (!check_length_coherence())
                 return FC_CONTINUE;
 
             CTRACE(seq, !has_unhandled_preds(), display(tout << "done\n"));
@@ -1144,6 +1148,101 @@ namespace smt {
         }
 
         return l_undef;  // mixed constraints; let DFS decide
+    }
+
+    bool theory_nseq::check_length_coherence() {
+        if (m_relevant_lengths.empty())
+            return true;
+
+        SASSERT(m_nielsen.sat_node());
+
+        auto const& mems = m_nielsen.sat_node()->str_mems();
+        if (mems.empty())
+            return true;
+
+        u_map<unsigned_vector> var_to_mems;
+        for (unsigned i = 0; i < mems.size(); ++i) {
+            auto const& mem = mems[i];
+            if (mem.is_primitive() && mem.m_str) {
+                auto& vec = var_to_mems.insert_if_not_there(mem.m_str->id(), unsigned_vector());
+                vec.push_back(i);
+            }
+        }
+
+        if (var_to_mems.empty())
+            return true;
+
+        for (expr* len_expr : m_relevant_lengths) {
+            expr* s = nullptr;
+            VERIFY(m_seq.str.is_length(len_expr, s));
+
+            euf::snode* s_node = m_sgraph.find(s);
+            SASSERT(s_node);
+
+            unsigned var_id = s_node->id();
+            if (!var_to_mems.contains(var_id))
+                continue;
+
+            rational val_l;
+            VERIFY(m_arith_value.get_value(len_expr, val_l));
+
+            SASSERT(val_l.is_unsigned());
+
+            // unless we intervene, the integer solver will take this length
+            // so check if we really want this value
+            const unsigned l = val_l.get_unsigned();
+
+            unsigned_vector const& mem_indices = var_to_mems[var_id];
+            ptr_vector<euf::snode> regexes;
+            for (const unsigned i : mem_indices) {
+                euf::snode* re = mems[i].m_regex;
+                if (re)
+                    regexes.push_back(re);
+            }
+
+            SASSERT(!regexes.empty());
+            sort* ele_sort;
+            VERIFY(m_seq.is_seq(m_sgraph.get_str_sort(), ele_sort));
+            expr_ref allchar(m_seq.re.mk_full_char(m_seq.re.mk_re(m_sgraph.get_str_sort())), m);
+            expr_ref l_expr(m_autil.mk_int(l), m);
+            expr_ref loop(m_seq.re.mk_loop_proper(allchar.get(), l, l), m);
+            expr_ref sigmal_expr(loop, m);
+
+            euf::snode* sigmal_node = get_snode(sigmal_expr.get());
+            regexes.push_back(sigmal_node);
+            SASSERT(regexes.size() > 1);
+
+            lbool result = m_regex.check_intersection_emptiness(regexes);
+
+            if (result == l_true) {
+                expr_ref len_eq_l(m.mk_eq(len_expr, l_expr), m);
+                if (!ctx.b_internalized(len_eq_l))
+                    ctx.internalize(len_eq_l, true);
+                literal lit_len_eq_l = ctx.get_literal(len_eq_l);
+
+                enode_pair_vector eqs;
+                literal_vector dep_lits;
+                for (unsigned idx : mem_indices) {
+                    if (mems[idx].m_dep)
+                        seq::deps_to_lits(mems[idx].m_dep, eqs, dep_lits);
+                }
+
+                ctx.mark_as_relevant(lit_len_eq_l);
+                justification* js = ctx.mk_justification(
+                    ext_theory_propagation_justification(
+                        get_id(), ctx,
+                        dep_lits.size(), dep_lits.data(),
+                        eqs.size(), eqs.data(),
+                        ~lit_len_eq_l));
+
+                ctx.assign(~lit_len_eq_l, js);
+                TRACE(seq, tout << "nseq length coherence check: length " << l << " is incompatible for " << mk_pp(s, m) << ", propagated ~" << mk_pp(len_eq_l, m) << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "nseq length coherence check: length " << l << " is incompatible for " << mk_pp(s, m) << ", propagated ~" << mk_pp(len_eq_l, m) << "\n";);
+                return false;
+            }
+        }
+
+        return true;
     }
 
 }
