@@ -925,6 +925,16 @@ func_decl* arith_util::mk_mod0() {
     return m_manager.mk_func_decl(arith_family_id, OP_MOD0, 0, nullptr, 2, rs, mk_int());
 }
 
+app *arith_util::mk_divides(expr *arg1, expr *arg2)  {
+    rational val;
+    bool is_int_num = false;
+    if (is_numeral(arg1, val, is_int_num) && is_int_num && val.is_int32()) {
+        parameter p(val.get_int32());
+        return m_manager.mk_app(arith_family_id, OP_IDIVIDES, 1, &p, 1, &arg2);
+    }
+    return mk_eq(mk_mod(arg2, arg1), mk_int(0));
+}
+
 bool arith_util::is_bounded(expr* n) const {
     expr* x = nullptr, * y = nullptr;
     while (true) {

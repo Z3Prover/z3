@@ -1203,22 +1203,55 @@ namespace smt {
             SASSERT(!regexes.empty());
             sort* ele_sort;
             VERIFY(m_seq.is_seq(m_sgraph.get_str_sort(), ele_sort));
+            unsigned g = 1;
+            if (m_gradient_cache.contains(s))
+                g = m_gradient_cache[s];
+            else
+                m_gradient_cache.insert(s, 1);
+
             expr_ref allchar(m_seq.re.mk_full_char(m_seq.re.mk_re(m_sgraph.get_str_sort())), m);
             expr_ref l_expr(m_autil.mk_int(l), m);
-            expr_ref loop(m_seq.re.mk_loop_proper(allchar.get(), l, l), m);
-            expr_ref sigmal_expr(loop, m);
+            expr_ref loop_l(m_seq.re.mk_loop_proper(allchar.get(), l, l), m);
 
-            euf::snode* sigmal_node = get_snode(sigmal_expr.get());
+            euf::snode* sigmal_node = get_snode(loop_l.get());
             regexes.push_back(sigmal_node);
             SASSERT(regexes.size() > 1);
 
             lbool result = m_regex.check_intersection_emptiness(regexes);
 
             if (result == l_true) {
-                expr_ref len_eq_l(m.mk_eq(len_expr, l_expr), m);
-                if (!ctx.b_internalized(len_eq_l))
-                    ctx.internalize(len_eq_l, true);
-                literal lit_len_eq_l = ctx.get_literal(len_eq_l);
+                // It is empty. Try gradient.
+                regexes.pop_back(); // Remove loop_l
+
+                expr_ref loop_g(m_seq.re.mk_loop_proper(allchar.get(), g, g), m);
+                expr_ref star_g(m_seq.re.mk_star(loop_g.get()), m);
+                expr_ref sigmal_g_expr(m_seq.re.mk_concat(loop_l.get(), star_g.get()), m);
+
+                euf::snode* sigmal_g_node = get_snode(sigmal_g_expr.get());
+                regexes.push_back(sigmal_g_node);
+
+                lbool result_g = m_regex.check_intersection_emptiness(regexes);
+
+                expr_ref prop_expr(m);
+                if (result_g == l_true) {
+                    // Block the whole gradient
+                    expr_ref g_expr(m_autil.mk_int(g), m);
+                    expr_ref len_lt_l(m_autil.mk_lt(len_expr, l_expr), m);
+                    expr_ref len_minus_l(m_autil.mk_sub(len_expr, l_expr), m);
+                    expr_ref not_divides(m.mk_not(m_autil.mk_divides(g_expr, len_minus_l)), m);
+                    prop_expr = m.mk_or(len_lt_l, not_divides);
+                    std::cout << "Propagating " << mk_pp(prop_expr, m) << " for length " << l << " with gradient " << g << std::endl;
+
+                    m_gradient_cache[s] = 1; // Reset gradient cache
+                }
+                else {
+                    prop_expr = m.mk_not(m.mk_eq(len_expr, l_expr));
+                    m_gradient_cache[s] = g + 1; // Increment gradient cache
+                }
+
+                if (!ctx.b_internalized(prop_expr))
+                    ctx.internalize(prop_expr, true);
+                literal lit_prop = ctx.get_literal(prop_expr);
 
                 enode_pair_vector eqs;
                 literal_vector dep_lits;
@@ -1227,17 +1260,18 @@ namespace smt {
                         seq::deps_to_lits(mems[idx].m_dep, eqs, dep_lits);
                 }
 
-                ctx.mark_as_relevant(lit_len_eq_l);
+                ctx.mark_as_relevant(lit_prop);
                 justification* js = ctx.mk_justification(
                     ext_theory_propagation_justification(
                         get_id(), ctx,
                         dep_lits.size(), dep_lits.data(),
                         eqs.size(), eqs.data(),
-                        ~lit_len_eq_l));
+                        lit_prop));
 
-                ctx.assign(~lit_len_eq_l, js);
-                TRACE(seq, tout << "nseq length coherence check: length " << l << " is incompatible for " << mk_pp(s, m) << ", propagated ~" << mk_pp(len_eq_l, m) << "\n";);
-                IF_VERBOSE(1, verbose_stream() << "nseq length coherence check: length " << l << " is incompatible for " << mk_pp(s, m) << ", propagated ~" << mk_pp(len_eq_l, m) << "\n";);
+                ctx.assign(lit_prop, js);
+                
+                TRACE(seq, tout << "nseq length coherence check: length " << l << " with gradient " << g << " is incompatible for " << mk_pp(s, m) << ", propagated " << mk_pp(prop_expr, m) << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "nseq length coherence check: length " << l << " with gradient " << g << " is incompatible for " << mk_pp(s, m) << ", propagated " << mk_pp(prop_expr, m) << "\n";);
                 return false;
             }
         }
