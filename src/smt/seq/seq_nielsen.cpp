@@ -1474,6 +1474,10 @@ namespace seq {
             bool ext = generate_extensions(node);
             IF_VERBOSE(1, display(verbose_stream(), node));
             CTRACE(seq, !ext, display(tout, node) << to_dot() << "\n");
+            if (!ext) {
+                node->to_html(std::cout, m);
+                std::cout << std::endl;
+            }
             VERIFY(ext);
             node->set_extended(true);
             ++m_stats.m_num_extensions;
@@ -1832,7 +1836,6 @@ namespace seq {
                 var = r->arg(0);
                 def = l->arg(0);
             }
-
 
             if (var) {
                 nielsen_node* child = mk_child(node);

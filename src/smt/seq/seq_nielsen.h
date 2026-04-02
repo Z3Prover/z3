@@ -432,6 +432,7 @@ namespace seq {
             SASSERT(repl != nullptr);
             // var may be s_var or s_power; sgraph::subst uses pointer identity matching
             SASSERT(var->is_var() || var->is_power() || var->is_unit());
+            SASSERT(!var->is_unit() || repl->is_char_or_unit());
         }
 
         // an eliminating substitution does not contain the variable in the replacement

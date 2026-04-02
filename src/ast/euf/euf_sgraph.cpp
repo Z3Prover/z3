@@ -105,10 +105,10 @@ namespace euf {
             return snode_kind::s_in_re;
 
         // uninterpreted constants of string sort are variables
-        if (m_seq.is_seq(e->get_sort()) && (is_uninterp(e) || m_seq.is_skolem(e)))
+        if (m_seq.is_seq(e->get_sort()) && (is_uninterp(e) || m_seq.is_skolem(e) || m_seq.str.is_at(e)))
             return snode_kind::s_var;
 
-        return snode_kind::s_var;
+        return snode_kind::s_unknown; // it is an element of the seq
     }
 
     void sgraph::compute_metadata(snode* n) {
@@ -465,6 +465,8 @@ namespace euf {
     snode* sgraph::mk_concat(snode* a, snode* b) {
         if (a->is_empty()) return b;
         if (b->is_empty()) return a;
+        SASSERT(a->kind() != snode_kind::s_unknown);
+        SASSERT(b->kind() != snode_kind::s_unknown);
         if (m_seq.is_re(a->get_expr()))
             return mk(expr_ref(m_seq.re.mk_concat(a->get_expr(), b->get_expr()), m));
         return mk(expr_ref(m_seq.str.mk_concat(a->get_expr(), b->get_expr()), m));
@@ -520,9 +522,6 @@ namespace euf {
                 return mk_concat(s1, s2);
             return n;
         }
-        // substitution can also work for expressions under unit.
-        if (n->is_unit() && n->arg(0) == var)
-            return mk(m_seq.str.mk_unit(replacement->get_expr()));
         // for non-concat compound nodes (power, star, etc.), no substitution into children
         return n;
     }
