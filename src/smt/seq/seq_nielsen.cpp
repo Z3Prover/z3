@@ -1207,6 +1207,8 @@ namespace seq {
 
 
         if (is_satisfied()) {
+            // pass 1 removed all trivial str_eq entries; is_satisfied() requires
+            // the remainder to be trivial, so the vector must be empty here.
             SASSERT(m_str_eq.empty());
             return simplify_result::satisfied;
         }
