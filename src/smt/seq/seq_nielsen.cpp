@@ -162,7 +162,7 @@ namespace seq {
     // -----------------------------------------------
 
     bool str_mem::is_primitive() const {
-        return m_str && m_str->length() == 1 && m_str->is_var();
+        return m_str && m_str->length() == 1 && m_str->is_var() && m_regex->is_ground();
     }
 
     bool str_mem::is_trivial() const {
@@ -2241,12 +2241,12 @@ namespace seq {
         // Priority 7: GPowerIntr - ground power introduction
         if (apply_gpower_intr(node))
             return ++m_stats.m_mod_gpower_intr, true;
-
-        // Priority 7b: Regex Factorization (Boolean Closure)
+        
+        // Priority 8: Regex Factorization (Boolean Closure)
         if (apply_regex_factorization(node))
             return ++m_stats.m_mod_regex_factorization, true;
 
-        // Priority 8: ConstNielsen - char vs var (2 children)
+        // Priority 8b: ConstNielsen - char vs var (2 children)
         if (apply_const_nielsen(node))
             return ++m_stats.m_mod_const_nielsen, true;
         

@@ -132,6 +132,7 @@ namespace euf {
             n->m_nullable = false;
             n->m_level = 1;
             n->m_length = 1;
+            n->m_is_classical = false;
             break;
 
         case snode_kind::s_unit:
@@ -286,6 +287,7 @@ namespace euf {
 
         default:
             // NSB review: is this the correct defaults for unclassified nodes?
+            // Is this UNREACHABLE()?
             n->m_ground = true;
             n->m_regex_free = true;
             n->m_nullable = false;

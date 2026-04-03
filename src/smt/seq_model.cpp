@@ -30,6 +30,8 @@ namespace smt {
     {}
 
     void seq_model::init(model_generator& mg, seq::nielsen_graph& nielsen) {
+
+        TRACE(seq, nielsen.display(tout << nielsen.to_dot() << "\n"));
         m_var_values.reset();
         m_var_regex.reset();
         m_trail.reset();
@@ -50,6 +52,7 @@ namespace smt {
 
         // extract variable assignments from the satisfying leaf's substitution path
         extract_assignments(nielsen.sat_path());
+
     }
 
     model_value_proc* seq_model::mk_value(enode* n, model_generator& mg) {
