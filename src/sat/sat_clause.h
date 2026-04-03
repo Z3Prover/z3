@@ -53,6 +53,7 @@ namespace sat {
         unsigned           m_inact_rounds:8;
         unsigned           m_glue:8;
         unsigned           m_psm:8;  // transient field used during gc
+        unsigned           m_scope_lim:2;  // user scope level when clause was learned, saturated at 3
         literal            m_lits[0];
 
         static size_t get_obj_size(unsigned num_lits) { return sizeof(clause) + num_lits * sizeof(literal); }
@@ -103,6 +104,8 @@ namespace sat {
 
         bool on_reinit_stack() const { return m_reinit_stack; }
         void set_reinit_stack(bool f) { m_reinit_stack = f; }
+        unsigned scope_lim() const { return m_scope_lim; }
+        void set_scope_lim(unsigned lim) { m_scope_lim = lim > 3 ? 3 : lim; }
     };
 
     std::ostream & operator<<(std::ostream & out, clause_vector const & cs);

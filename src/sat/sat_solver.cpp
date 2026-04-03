@@ -549,8 +549,10 @@ namespace sat {
  
         if (reinit || has_variables_to_reinit(*r)) 
             push_reinit_stack(*r);
-        if (st.is_redundant()) 
+        if (st.is_redundant()) {
+            r->set_scope_lim(m_user_scope_literals.size());
             m_learned.push_back(r);
+        }
         else 
             m_clauses.push_back(r);
         if (m_config.m_drat) 
@@ -3721,6 +3723,22 @@ namespace sat {
             m_ext->user_pop(num_scopes);
     
         gc_vars(max_var);
+
+        // remove learned clauses that were added during the popped user scopes
+        // scope_lim is saturated at 3, so clauses at scope > old_sz can be identified when old_sz < 3
+        if (old_sz < 3) {
+            unsigned j = 0;
+            for (clause* c : m_learned) {
+                if (c->scope_lim() > old_sz) {
+                    SASSERT(!c->on_reinit_stack());
+                    detach_clause(*c);
+                    del_clause(*c);
+                }
+                else
+                    m_learned[j++] = c;
+            }
+            m_learned.shrink(j);
+        }
         TRACE(sat, display(tout););
 
         m_qhead = 0;

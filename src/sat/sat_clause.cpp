@@ -34,7 +34,8 @@ namespace sat {
         m_reinit_stack(false),
         m_inact_rounds(0),
         m_glue(255),
-        m_psm(255) {
+        m_psm(255),
+        m_scope_lim(0) {
         memcpy(m_lits, lits, sizeof(literal) * sz);
         mark_strengthened();
         SASSERT(check_approx());
@@ -192,6 +193,7 @@ namespace sat {
         cls->m_psm    = other.psm();
         cls->m_frozen = other.frozen();
         cls->m_approx = other.approx();
+        cls->m_scope_lim = other.scope_lim();
         return cls;
     }
 
