@@ -50,7 +50,7 @@ open IEEE754
 (* ================================================================== *)
 
 (* 1a.  fma(rm, ±0, y, NaN) = NaN
-        Source: C++ line "fma(rm, ±0, y, NaN) = NaN".
+        Source: C++ fpa_rewriter.cpp, mk_fma, branch "if (m_util.is_nan(arg4))".
         The addend NaN propagates (IEEE 754-2019 §6.2, NaN payload rules). *)
 let lemma_fma_zero_nan_addend
     (#eb #sb: pos)
@@ -381,7 +381,7 @@ let lemma_fma_zero_ite_nan_arm
   else begin
     (* is_finite y = false && is_nan y = false.
        By the transparent definition is_finite y = not (is_nan y) && not (is_inf y),
-       Z3 can derive is_inf y = true directly. *)
+       the type-checker can derive is_inf y = true directly. *)
     assert (is_inf y = true);
     ax_zero_mul_inf rm zero_val y;
     ax_fma_nan_mul  rm zero_val y z

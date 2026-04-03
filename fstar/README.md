@@ -9,7 +9,7 @@ in the [F\*](https://www.fstar-lang.org/) proof assistant.
 PR #9038 adds three families of optimizations to `src/ast/rewriter/fpa_rewriter.cpp`
 that avoid expensive FP bit-blasting:
 
-| Optimization | C++ function | Formalized in |
+| Optimization | C++ function | F\* module and section |
 |---|---|---|
 | `fma(rm, ±0, y, z)` zero-multiplicand decomposition | `mk_fma` | `FPARewriterRules.fst` §1 |
 | `isNaN/isInf/isNormal` applied to `to_fp(rm, to_real(int))` | `mk_is_nan`, `mk_is_inf`, `mk_is_normal`, `mk_is_inf_of_int` | `FPARewriterRules.fst` §2 |
@@ -54,7 +54,7 @@ Derived rewrite rules proved from `IEEE754.fst` axioms.
 | `lemma_fma_zero_const_nan_inf_arm` | NaN/inf arm of the same `ite` |
 | `lemma_fma_zero_general_finite_arm` | finite arm for fully symbolic `y` and `z` |
 | `lemma_fma_zero_general_nan_inf_arm` | NaN/inf arm for fully symbolic `y` and `z` |
-| `lemma_fma_zero_product_sign` | sign of `fp_mul(rm, ±0, y)` = sign(±0) XOR sign(y) |
+| `lemma_fma_zero_product_sign` | sign of `fp_mul(rm, zero_val, y)` = sign(zero_val) XOR sign(y) |
 | `lemma_fma_zero_ite_correct` | full composite: `fma(rm, ±0, y, z) = ite(is_finite(y), fp_add(rm, fp_mul(rm, ±0, y), z), NaN)` |
 
 #### Section 2 — Classification of Integer-to-Float Conversions
