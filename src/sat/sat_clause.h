@@ -53,7 +53,7 @@ namespace sat {
         unsigned           m_inact_rounds:8;
         unsigned           m_glue:8;
         unsigned           m_psm:8;  // transient field used during gc
-        unsigned           m_scope_lim:2;  // user scope level when clause was learned, saturated at 3
+        unsigned           m_scope_lim:2;  // user scope level when clause was learned (0-3, saturated: levels >=4 map to 3)
         literal            m_lits[0];
 
         static size_t get_obj_size(unsigned num_lits) { return sizeof(clause) + num_lits * sizeof(literal); }

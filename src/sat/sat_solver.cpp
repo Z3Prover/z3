@@ -3724,12 +3724,15 @@ namespace sat {
     
         gc_vars(max_var);
 
-        // remove learned clauses that were added during the popped user scopes
-        // scope_lim is saturated at 3, so clauses at scope > old_sz can be identified when old_sz < 3
+        // remove learned clauses that were added during the popped user scopes.
+        // scope_lim is saturated at 3, so when old_sz < 3 we can precisely identify
+        // and remove clauses learned at scope levels above old_sz.
         if (old_sz < 3) {
             unsigned j = 0;
             for (clause* c : m_learned) {
                 if (c->scope_lim() > old_sz) {
+                    // pop_to_base_level() ensures no clause is on the reinit stack at base level,
+                    // so it is safe to detach and delete the clause.
                     SASSERT(!c->on_reinit_stack());
                     detach_clause(*c);
                     del_clause(*c);
