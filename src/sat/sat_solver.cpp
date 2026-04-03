@@ -3727,7 +3727,7 @@ namespace sat {
         // remove learned clauses that were added during the popped user scopes.
         // scope_lim is saturated at 3, so when old_sz < 3 we can precisely identify
         // and remove clauses learned at scope levels above old_sz.
-        if (old_sz < 3) {
+        if (m_config.m_gc_learned_pop && old_sz < 3) {
             unsigned j = 0;
             for (clause* c : m_learned) {
                 if (c->scope_lim() > old_sz) {

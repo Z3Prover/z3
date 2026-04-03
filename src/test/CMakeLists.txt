@@ -122,6 +122,7 @@ add_executable(test-z3
   region.cpp
   sat_local_search.cpp
   sat_lookahead.cpp
+  sat_gc.cpp
   sat_user_scope.cpp
   scoped_timer.cpp
   scoped_vector.cpp

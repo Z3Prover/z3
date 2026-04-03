@@ -167,6 +167,7 @@
     X(theory_pb) \
     X(simplex) \
     X(sat_user_scope) \
+    X(sat_gc) \
     X_ARGV(ddnf) \
     X(ddnf1) \
     X(model_evaluator) \

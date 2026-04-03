@@ -152,6 +152,7 @@ namespace sat {
         unsigned           m_gc_k;
         bool               m_gc_burst;
         bool               m_gc_defrag;
+        bool               m_gc_learned_pop;
 
         bool               m_force_cleanup;
 

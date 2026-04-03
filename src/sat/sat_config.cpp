@@ -176,6 +176,7 @@ namespace sat {
         m_gc_k            = std::min(255u, p.gc_k());
         m_gc_burst        = p.gc_burst();
         m_gc_defrag       = p.gc_defrag();
+        m_gc_learned_pop  = p.gc_learned_pop();
 
         m_force_cleanup   = p.force_cleanup();
 
