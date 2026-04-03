@@ -127,6 +127,7 @@ namespace seq {
         if (m_lhs && m_rhs && m_lhs->id() > m_rhs->id()) {
             std::swap(m_lhs, m_rhs);
         }
+        SASSERT(!m_lhs || !m_rhs || m_lhs->id() <= m_rhs->id());
     }
 
     bool str_eq::is_trivial() const {
@@ -235,6 +236,10 @@ namespace seq {
 
         // clone regex occurrence tracking
         m_regex_occurrence = parent.m_regex_occurrence;
+
+        SASSERT(m_str_eq.size() == parent.m_str_eq.size());
+        SASSERT(m_str_mem.size() == parent.m_str_mem.size());
+        SASSERT(m_constraints.size() == parent.m_constraints.size());
     }
 
     bool nielsen_node::track_regex_occurrence(unsigned regex_id, unsigned mem_id) {
@@ -269,6 +274,7 @@ namespace seq {
 
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
         SASSERT(s.m_var);
+        SASSERT(s.m_replacement != nullptr);
         for (auto &eq : m_str_eq) {
             auto new_lhs = sg.subst(eq.m_lhs, s.m_var, s.m_replacement);
             auto new_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_replacement);
@@ -422,6 +428,7 @@ namespace seq {
         unsigned id = m_nodes.size();
         nielsen_node* n = alloc(nielsen_node, *this, id);
         m_nodes.push_back(n);
+        SASSERT(n->id() == m_nodes.size() - 1);
         return n;
     }
 
@@ -433,6 +440,8 @@ namespace seq {
     }
 
     nielsen_edge* nielsen_graph::mk_edge(nielsen_node* src, nielsen_node* tgt, bool is_progress) {
+        SASSERT(src != nullptr);
+        SASSERT(tgt != nullptr);
         nielsen_edge* e = alloc(nielsen_edge, src, tgt, is_progress);
         m_edges.push_back(e);
         src->add_outgoing(e);
@@ -505,6 +514,10 @@ namespace seq {
         m_dep_mgr.reset();
         m_solver.reset();
         m_core_solver.reset();
+        SASSERT(m_nodes.empty());
+        SASSERT(m_edges.empty());
+        SASSERT(m_root == nullptr);
+        SASSERT(m_sat_node == nullptr);
     }
 
     // -----------------------------------------------------------------------
@@ -1193,8 +1206,12 @@ namespace seq {
         }
 
 
-        if (is_satisfied())
+        if (is_satisfied()) {
+            // pass 1 removed all trivial str_eq entries; is_satisfied() requires
+            // the remainder to be trivial, so the vector must be empty here.
+            SASSERT(m_str_eq.empty());
             return simplify_result::satisfied;
+        }
         return simplify_result::proceed;
     }
 
@@ -1306,6 +1323,7 @@ namespace seq {
                             verbose_stream() << "  side constraint: " << c.fml << "\n";
                         });
                     ++m_stats.m_num_sat;
+                    SASSERT(m_sat_node != nullptr);
                     return r;
                 }
                 if (r == search_result::unsat) {
@@ -2184,6 +2202,8 @@ namespace seq {
     }
 
     bool nielsen_graph::generate_extensions(nielsen_node *node) {
+        SASSERT(node != nullptr);
+        SASSERT(!node->is_currently_conflict());
         // The first modifier that produces edges is used and returned immediately.
 
         // Priority 1: deterministic modifiers (single child, always progress)
