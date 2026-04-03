@@ -104,11 +104,7 @@ namespace euf {
         if (m_seq.str.is_in_re(e))
             return snode_kind::s_in_re;
 
-        // uninterpreted constants of string sort are variables
-        if (m_seq.is_seq(e->get_sort()) && (is_uninterp(e) || m_seq.is_skolem(e) || m_seq.str.is_at(e)))
-            return snode_kind::s_var;
-
-        return snode_kind::s_unknown; // it is an element of the seq
+        return snode_kind::s_var;
     }
 
     void sgraph::compute_metadata(snode* n) {
@@ -473,8 +469,6 @@ namespace euf {
     snode* sgraph::mk_concat(snode* a, snode* b) {
         if (a->is_empty()) return b;
         if (b->is_empty()) return a;
-        SASSERT(a->kind() != snode_kind::s_unknown);
-        SASSERT(b->kind() != snode_kind::s_unknown);
         if (m_seq.is_re(a->get_expr()))
             return mk(expr_ref(m_seq.re.mk_concat(a->get_expr(), b->get_expr()), m));
         return mk(expr_ref(m_seq.str.mk_concat(a->get_expr(), b->get_expr()), m));

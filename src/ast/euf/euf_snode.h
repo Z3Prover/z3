@@ -52,8 +52,7 @@ namespace euf {
         s_full_seq,    // full sequence set r=.* (OP_RE_FULL_SEQ_SET)
         s_range,       // character range [lo,hi] (OP_RE_RANGE)
         s_to_re,       // string to regex (OP_SEQ_TO_RE)
-        s_in_re,       // regex membership (OP_SEQ_IN_RE)
-        s_unknown,     // something else
+        s_in_re        // regex membership (OP_SEQ_IN_RE)
     };
 
     class snode {
