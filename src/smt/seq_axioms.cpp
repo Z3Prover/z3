@@ -97,7 +97,7 @@ void seq_axioms::add_clause(expr_ref_vector const& clause) {
         if (lit == true_literal)
             return;
         if (lit != false_literal)
-            lits[idx++] = mk_literal(e);
+            lits[idx++] = lit;
         SASSERT(idx <= 5);
     }
     add_axiom(lits[0], lits[1], lits[2], lits[3], lits[4]);
