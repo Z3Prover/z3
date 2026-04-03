@@ -586,8 +586,16 @@ namespace seq {
         vector<str_mem> const& str_mems() const { return m_str_mem; }
         vector<str_mem>& str_mems() { return m_str_mem; }
 
-        void add_str_eq(str_eq const& eq) { m_str_eq.push_back(eq); }
-        void add_str_mem(str_mem const& mem) { m_str_mem.push_back(mem); }
+        void add_str_eq(str_eq const& eq) {
+            SASSERT(eq.m_lhs != nullptr);
+            SASSERT(eq.m_rhs != nullptr);
+            m_str_eq.push_back(eq);
+        }
+        void add_str_mem(str_mem const& mem) {
+            SASSERT(mem.m_str != nullptr);
+            SASSERT(mem.m_regex != nullptr);
+            m_str_mem.push_back(mem);
+        }
         bool add_constraint(constraint const &ic);
 
         vector<constraint> const& constraints() const { return m_constraints; }
@@ -857,6 +865,9 @@ namespace seq {
         void create_root() {
             SASSERT(!root());
             set_root(mk_node());
+            SASSERT(m_root != nullptr);
+            SASSERT(m_root->id() == 0);
+            SASSERT(m_nodes[0] == m_root);
         }
 
         // path of edges from root to sat_node (set when sat_node is set)
