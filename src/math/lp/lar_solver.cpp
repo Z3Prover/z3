@@ -593,6 +593,9 @@ namespace lp {
         m_imp->m_dependencies.pop_scope(k);
         // init the nbasis sorting
         m_imp->require_nbasis_sort();
+        // bounds were restored by the trail; any entries in m_columns_with_changed_bounds
+        // are stale and must be cleared so init_model/get_value see a clean slate
+        clear_columns_with_changed_bounds();
         set_status(lp_status::UNKNOWN);
     }
 

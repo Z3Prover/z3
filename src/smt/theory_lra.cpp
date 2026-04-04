@@ -3702,7 +3702,7 @@ public:
             return alloc(expr_wrapper_proc, a.mk_numeral(m_nla->am(), nl_value(v, m_nla->tmp1()), a.is_int(o)));
         }
         else {
-            rational r = get_value(v);
+            rational r = can_get_value(v) ? get_value(v) : rational::zero();
             TRACE(arith, tout << mk_pp(o, m) << " v" << v << " := " << r << "\n";);
             SASSERT("integer variables should have integer values: " && (!a.is_int(o) || r.is_int() || m.limit().is_canceled()));
             if (a.is_int(o) && !r.is_int()) r = floor(r);
