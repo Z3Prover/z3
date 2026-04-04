@@ -19,7 +19,6 @@ Author:
 --*/
 #pragma once
 
-#include <variant>
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/rewriter/seq_axioms.h"

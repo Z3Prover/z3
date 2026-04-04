@@ -175,6 +175,9 @@ namespace smt {
         // register in our private sgraph
         get_snode(term);
 
+        if (m_seq.is_seq(term) && m_axioms.sk().is_skolem(term))
+            ensure_length_var(term);
+
         // track higher-order terms for lazy unfolding
         expr* ho_f = nullptr, *ho_s = nullptr, *ho_b = nullptr, *ho_i = nullptr;
         if (m_seq.str.is_map(term, ho_f, ho_s) ||
