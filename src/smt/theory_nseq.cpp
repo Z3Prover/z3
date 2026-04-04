@@ -428,8 +428,7 @@ namespace smt {
     }
 
     void theory_nseq::ensure_length_var(expr* e) {
-        if (!e || !m_seq.is_seq(e))
-            return;
+        SASSERT(e && m_seq.is_seq(e));
         expr_ref len(m_seq.str.mk_length(e), m);
         if (!ctx.e_internalized(len))
             ctx.internalize(len, false);
