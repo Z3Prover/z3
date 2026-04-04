@@ -295,10 +295,10 @@ namespace seq {
                  mem.m_dep = m_graph.dep_mgr().mk_join(mem.m_dep, s.m_dep);
             }
         }
-        if (s.m_var->is_unit()) {
-            SASSERT(s.m_replacement->is_char_or_unit());
-            expr* v = s.m_var->arg(0)->get_expr();
-            expr* repl = s.m_replacement->arg(0)->get_expr();
+        if (s.m_var->get_expr() && !sg.get_seq_util().is_seq(s.m_var->get_expr()) && !sg.get_seq_util().is_re(s.m_var->get_expr())) {
+            expr* v = s.m_var->get_expr();
+            expr* repl = s.m_replacement->get_expr();
+            
             expr* eq = sg.get_manager().mk_eq(v, repl);
             add_constraint(constraint(eq, s.m_dep, sg.get_manager()));
         }
@@ -3775,8 +3775,9 @@ namespace seq {
         return expr_ref(m_seq.str.mk_length(n->get_expr()), m);
     }
 
-    void nielsen_graph::generate_length_constraints(vector<length_constraint>& constraints) {
-        SASSERT(m_root);
+    void
+nielsen_graph::generate_length_constraints(vector<length_constraint>& constraints) {
+    if (!m_root) return;
         uint_set seen_vars;
 
         seq_util& seq = m_sg.get_seq_util();
