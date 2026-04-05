@@ -105,7 +105,13 @@ let bvar_name (idx_map: list (nat & string)) (t: term) : Tac (option string) =
     let bvv = inspect_bv bv in
     (match List.Tot.assoc #nat bvv.index idx_map with
      | Some n -> Some n
-     | None -> Some (FStar.Sealed.unseal bvv.ppname))   (* fallback *)
+     | None ->
+       (* de Bruijn index not in our map; use the printer name as a fallback
+          and warn so the caller knows the index map may be incomplete. *)
+       let pp = FStar.Sealed.unseal bvv.ppname in
+       print ("WARNING: bvar_name fallback for index "
+              ^ string_of_int bvv.index ^ ", using ppname '" ^ pp ^ "'");
+       Some pp)
   | _ -> None
 
 (* Detect if-then-else in reflected terms.
@@ -425,18 +431,16 @@ let extract_rewrite (lemma: term) : Tac string =
 
 open FPARewriterRules
 
-(* Demonstrate extraction of the three ite-pushthrough lemmas. *)
-let _ =
-  run_tactic (fun () ->
-    print "\n=== lemma_is_nan_ite ===\n";
-    print (extract_rewrite (quote lemma_is_nan_ite)))
+(* Helper: extract and print one lemma's C++ rewrite rule. *)
+let print_rewrite (label: string) (lemma: term) : Tac unit =
+  print ("\n=== " ^ label ^ " ===\n");
+  print (extract_rewrite lemma)
 
+(* Demonstrate extraction of the three ite-pushthrough lemmas.
+   Running this file with F* prints the generated C++ for each rule. *)
 let _ =
   run_tactic (fun () ->
-    print "\n=== lemma_is_inf_ite ===\n";
-    print (extract_rewrite (quote lemma_is_inf_ite)))
-
-let _ =
-  run_tactic (fun () ->
-    print "\n=== lemma_is_normal_ite ===\n";
-    print (extract_rewrite (quote lemma_is_normal_ite)))
+    List.Tot.iter (fun (label, lemma) -> print_rewrite label lemma)
+      [ ("lemma_is_nan_ite",    quote lemma_is_nan_ite);
+        ("lemma_is_inf_ite",    quote lemma_is_inf_ite);
+        ("lemma_is_normal_ite", quote lemma_is_normal_ite) ])

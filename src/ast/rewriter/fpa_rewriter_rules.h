@@ -12,10 +12,10 @@ Abstract:
 
     The ite-pushthrough macros (FPA_REWRITE_IS_NAN_ITE, FPA_REWRITE_IS_INF_ITE,
     FPA_REWRITE_IS_NORMAL_ITE) can be regenerated programmatically by running
-    the Meta-F* extraction tactic in fstar/RewriteCodeGen.fst:
+    the Meta-F* extraction tactic in fstar/RewriteCodeGen.fst (from the repo root):
 
-      fstar.exe --include fstar fstar/IEEE754.fst \
-                fstar/FPARewriterRules.fst fstar/RewriteCodeGen.fst
+      cd /path/to/z3/fstar
+      fstar.exe --include . IEEE754.fst FPARewriterRules.fst RewriteCodeGen.fst
 
     The correspondence between each macro and the F* lemma it implements is
     documented at each macro definition below.
