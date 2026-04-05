@@ -211,8 +211,14 @@ fstar.exe --include . IEEE754.fst FPARewriterRules.fst
 
 ### Running the Meta-F* extraction
 
-To run the reflection-based C++ code extraction and print the generated
-rewrite rules to stdout:
+The convenience script `extract.sh` runs the extraction and prints the
+generated C++ rules to stdout:
+
+```sh
+cd fstar && ./extract.sh
+```
+
+Or invoke F* directly:
 
 ```sh
 fstar.exe --include . IEEE754.fst FPARewriterRules.fst RewriteCodeGen.fst
@@ -220,14 +226,21 @@ fstar.exe --include . IEEE754.fst FPARewriterRules.fst RewriteCodeGen.fst
 
 This type-checks all three files and executes the `run_tactic` calls in
 `RewriteCodeGen.fst`, printing the generated C++ for each ite-pushthrough
-lemma.  Redirect stdout to a file to capture the output:
+lemma.  To capture the output to a file:
 
 ```sh
-fstar.exe --include . IEEE754.fst FPARewriterRules.fst RewriteCodeGen.fst \
-  2>/dev/null
+./extract.sh > extracted_rules.txt
 ```
 
-F\* 2024.09.05 or later is recommended.  The files have no external
+### Continuous integration
+
+The GitHub Actions workflow `.github/workflows/fstar-extract.yml` runs
+the extraction automatically on every push or pull request that touches
+the `fstar/` directory.  It installs the F* binary, runs `extract.sh`,
+and uploads the generated C++ as a downloadable artifact
+`fstar-extracted-cpp-rules` for inspection.
+
+F\* 2024.09.05 or later is required.  The files have no external
 dependencies beyond the F\* standard library prelude.
 
 Because all IEEE 754 semantics are encoded as `assume val` axioms, the

@@ -1,0 +1,93 @@
+name: "F* Meta Extraction"
+
+# Run the Meta-F* reflection-based extraction that generates C++ rewrite rules
+# from the F* lemmas in fstar/FPARewriterRules.fst.
+#
+# The extraction is performed by fstar/RewriteCodeGen.fst which uses
+# FStar.Tactics.V2 and FStar.Reflection.V2 to inspect the lemma types
+# and emit C++ if-blocks that implement the corresponding rewrite rules.
+#
+# The generated C++ is printed to the job log and uploaded as an artifact.
+
+on:
+  push:
+    paths:
+      - "fstar/**.fst"
+      - "fstar/extract.sh"
+      - ".github/workflows/fstar-extract.yml"
+  pull_request:
+    paths:
+      - "fstar/**.fst"
+      - "fstar/extract.sh"
+      - ".github/workflows/fstar-extract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fstar-extract:
+    name: "Meta-F* rewrite rule extraction"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      # -----------------------------------------------------------------------
+      # Install F*
+      #
+      # We download the pre-built Linux binary from the F* GitHub releases.
+      # The version is pinned to match what the README recommends.
+      # If the pinned release is unavailable the step fails clearly.
+      # -----------------------------------------------------------------------
+      - name: Install F*
+        env:
+          FSTAR_VERSION: "2024.09.05"
+        run: |
+          ARCHIVE="fstar_v${FSTAR_VERSION}_Linux_x86_64.tar.gz"
+          URL="https://github.com/FStarLang/FStar/releases/download/v${FSTAR_VERSION}/${ARCHIVE}"
+          echo "Downloading F* ${FSTAR_VERSION} from ${URL}" >&2
+          curl -fsSL -o "/tmp/${ARCHIVE}" "${URL}"
+          mkdir -p "$HOME/fstar"
+          tar -xzf "/tmp/${ARCHIVE}" -C "$HOME/fstar" --strip-components=1
+          echo "$HOME/fstar/bin" >> "$GITHUB_PATH"
+
+      - name: Verify F* installation
+        run: fstar.exe --version
+
+      # -----------------------------------------------------------------------
+      # Run the Meta-F* extraction
+      #
+      # RewriteCodeGen.fst contains run_tactic calls that print generated C++
+      # to stdout during typechecking.  We capture that output, show it in the
+      # log, and upload it as an artifact for inspection.
+      # -----------------------------------------------------------------------
+      - name: Extract C++ rewrite rules via Meta-F*
+        working-directory: fstar
+        run: |
+          chmod +x extract.sh
+          echo "--- generated C++ rules ---"
+          ./extract.sh | tee extracted_rules.txt
+          echo "--- end of generated rules ---"
+
+      - name: Show extracted rules
+        working-directory: fstar
+        run: |
+          echo "Lines of generated C++ output:"
+          wc -l extracted_rules.txt
+          echo ""
+          echo "Full content:"
+          cat extracted_rules.txt
+
+      # -----------------------------------------------------------------------
+      # Upload the extracted rules as a build artifact so reviewers can
+      # inspect the generated C++ without re-running the workflow.
+      # -----------------------------------------------------------------------
+      - name: Upload extracted rules artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fstar-extracted-cpp-rules
+          path: fstar/extracted_rules.txt
+          if-no-files-found: error
