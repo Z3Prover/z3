@@ -82,7 +82,61 @@ The Section 3 lemmas are trivially true in F\* by computation (applying a
 function to `if c then t else e` reduces to `if c then f t else f e`), which
 is why their proofs are the single term `()`.
 
-### `../src/ast/rewriter/fpa_rewriter_rules.h`
+### `RewriteCodeGen.fst`
+
+Meta-F* reflection module that programmatically extracts C++ rewriter code
+from F* lemmas using F* tactics (`FStar.Tactics.V2`) and term inspection
+(`FStar.Reflection.V2`).
+
+#### How it works
+
+Given a quoted lemma name such as `(quote lemma_is_nan_ite)`, the
+`extract_rewrite` tactic:
+
+1. Calls `tc env lemma` to obtain the lemma's type.
+2. Strips the `Tv_Arrow` chain (the `∀ #eb #sb c t e .` prefix), collecting
+   parameter names and building a de Bruijn index-to-name map.
+3. Extracts the equality `LHS = RHS` from the `C_Lemma` precondition.
+4. Decomposes `LHS` into `top_fn(argument_pattern)`.  `top_fn` (e.g.
+   `is_nan`) is the IEEE 754 predicate whose Z3 `mk_*` method is being
+   extended.  `argument_pattern` drives the C++ pattern match.
+5. Detects `if c then t else e` (which F* represents as a two-branch
+   `Tv_Match` on a `bool` scrutinee) and maps it to `PIte c t e` in the
+   intermediate representation.
+6. Translates `RHS` into the `cexpr` IR.
+7. Calls `gen_cpp` to emit the self-contained C++ if-block.
+
+#### Example
+
+Running `extract_rewrite (quote lemma_is_nan_ite)` outputs:
+
+```cpp
+expr *c, *t, *e;
+if (m().is_ite(arg1, c, t, e)) {
+    result = m().mk_ite(c, m_util.mk_is_nan(t), m_util.mk_is_nan(e));
+    return BR_REWRITE2;
+}
+```
+
+The same tactic applied to `lemma_is_inf_ite` and `lemma_is_normal_ite`
+produces the analogous blocks for `m_util.mk_is_inf` and
+`m_util.mk_is_normal`.
+
+#### Design
+
+The module defines two intermediate representations:
+
+- `cpat` — patterns on the LHS: `PVar`, `PIte`, `PApp`.
+- `cexpr` — expressions on the RHS: `EVar`, `EBool`, `EIte`, `EApp`.
+
+The `cpp_builder_name` helper maps IEEE 754 function names
+(`is_nan`, `is_inf`, `is_normal`, `is_negative`, `is_positive`, `is_zero`)
+to their Z3 C++ counterparts (`m_util.mk_is_nan`, etc.).
+
+The three `let _ = run_tactic ...` blocks at the bottom of the file
+demonstrate extraction for the three ite-pushthrough lemmas and print
+their generated C++ to stdout during F* typechecking.
+
 
 C++ header containing one `#define` macro per rewrite rule, extracted from
 the F\* lemmas.  Each macro is annotated with a `[extract: MACRO_NAME]`
@@ -144,10 +198,30 @@ IEEE 754-2019 standard:
 
 ## Building
 
-To type-check these files with F\*, from this directory run:
+### Type-checking the formalization
+
+To type-check the IEEE 754 axioms and the rewrite-rule lemmas:
 
 ```sh
 fstar.exe --include . IEEE754.fst FPARewriterRules.fst
+```
+
+### Running the Meta-F* extraction
+
+To run the reflection-based C++ code extraction and print the generated
+rewrite rules to stdout:
+
+```sh
+fstar.exe --include . IEEE754.fst FPARewriterRules.fst RewriteCodeGen.fst
+```
+
+This type-checks all three files and executes the `run_tactic` calls in
+`RewriteCodeGen.fst`, printing the generated C++ for each ite-pushthrough
+lemma.  Redirect stdout to a file to capture the output:
+
+```sh
+fstar.exe --include . IEEE754.fst FPARewriterRules.fst RewriteCodeGen.fst \
+  2>/dev/null
 ```
 
 F\* 2024.09.05 or later is recommended.  The files have no external
