@@ -1,0 +1,296 @@
+/*++
+Copyright (c) 2012 Microsoft Corporation
+
+Module Name:
+
+    fpa_rewriter_rules.h
+
+Abstract:
+
+    Rewrite rule macros for floating-point arithmetic, extracted from
+    F* lemmas in fstar/FPARewriterRules.fst.
+
+    Each macro is proved correct by one or more lemmas in that file;
+    the correspondence is documented at each macro definition.
+
+    Macros are designed for use inside member functions of fpa_rewriter,
+    where m(), m_util, m_fm, and mk_is_inf_of_int are available.
+    Internal variables use the _fpa_ prefix to minimize name collisions.
+
+Author:
+
+    (extracted from F* in fstar/FPARewriterRules.fst)
+
+Notes:
+
+--*/
+#pragma once
+
+// -----------------------------------------------------------------------
+// FPA_REWRITE_IS_NAN_TO_FP_INT
+//
+// F* lemma: lemma_is_nan_to_fp_int
+//   isNaN(to_fp(rm, real_or_int)) = false
+// IEEE 754-2019 §5.4.1: converting a real or integer value never produces NaN.
+//
+// Applies to:  mk_is_nan(arg1, result)
+// -----------------------------------------------------------------------
+#define FPA_REWRITE_IS_NAN_TO_FP_INT(arg1, result) \
+    do { \
+        if (m_util.is_to_fp(arg1)) { \
+            app * _fpa_a = to_app(arg1); \
+            if (_fpa_a->get_num_args() == 2 && \
+                (m_util.au().is_real(_fpa_a->get_arg(1)) || \
+                 m_util.au().is_int(_fpa_a->get_arg(1)))) { \
+                result = m().mk_false(); \
+                return BR_DONE; \
+            } \
+        } \
+    } while (0)
+
+
+// -----------------------------------------------------------------------
+// FPA_REWRITE_IS_NAN_ITE
+//
+// F* lemma: lemma_is_nan_ite
+//   isNaN(ite(c, t, e)) = ite(c, isNaN(t), isNaN(e))
+// When both branches are concrete FP numerals the rewriter evaluates
+// the predicate statically and folds the result into the condition.
+//
+// Applies to:  mk_is_nan(arg1, result)
+// -----------------------------------------------------------------------
+#define FPA_REWRITE_IS_NAN_ITE(arg1, result) \
+    do { \
+        expr *_fpa_c = nullptr, *_fpa_t = nullptr, *_fpa_e = nullptr; \
+        if (m().is_ite(arg1, _fpa_c, _fpa_t, _fpa_e)) { \
+            scoped_mpf _fpa_vt(m_fm), _fpa_ve(m_fm); \
+            if (m_util.is_numeral(_fpa_t, _fpa_vt) && m_util.is_numeral(_fpa_e, _fpa_ve)) { \
+                result = m().mk_ite(_fpa_c, \
+                    m_fm.is_nan(_fpa_vt) ? m().mk_true() : m().mk_false(), \
+                    m_fm.is_nan(_fpa_ve) ? m().mk_true() : m().mk_false()); \
+                return BR_REWRITE2; \
+            } \
+        } \
+    } while (0)
+
+
+// -----------------------------------------------------------------------
+// FPA_REWRITE_IS_INF_TO_FP_INT
+//
+// F* lemmas: lemma_is_inf_to_fp_int_rne, _rna, _rtp, _rtn, _rtz
+//   isInf(to_fp(rm, to_real(int))) = integer overflow condition
+// Each rounding mode maps to a different threshold; computed by
+// mk_is_inf_of_int (see fpa_rewriter.cpp).
+//
+// Applies to:  mk_is_inf(arg1, result)
+// -----------------------------------------------------------------------
+#define FPA_REWRITE_IS_INF_TO_FP_INT(arg1, result) \
+    do { \
+        mpf_rounding_mode _fpa_rm; \
+        if (m_util.is_to_fp(arg1)) { \
+            app * _fpa_a = to_app(arg1); \
+            if (_fpa_a->get_num_args() == 2 && m_util.is_rm_numeral(_fpa_a->get_arg(0), _fpa_rm)) { \
+                expr * _fpa_inner = _fpa_a->get_arg(1); \
+                expr * _fpa_int_expr = nullptr; \
+                if (m_util.au().is_to_real(_fpa_inner)) { \
+                    expr * _fpa_unwrapped = to_app(_fpa_inner)->get_arg(0); \
+                    if (m_util.au().is_int(_fpa_unwrapped)) \
+                        _fpa_int_expr = _fpa_unwrapped; \
+                } \
+                else if (m_util.au().is_int(_fpa_inner)) \
+                    _fpa_int_expr = _fpa_inner; \
+                if (_fpa_int_expr) { \
+                    func_decl * _fpa_fd = _fpa_a->get_decl(); \
+                    unsigned _fpa_eb = _fpa_fd->get_parameter(0).get_int(); \
+                    unsigned _fpa_sb = _fpa_fd->get_parameter(1).get_int(); \
+                    result = mk_is_inf_of_int(_fpa_rm, _fpa_eb, _fpa_sb, _fpa_int_expr); \
+                    if (result) \
+                        return BR_REWRITE_FULL; \
+                } \
+            } \
+        } \
+    } while (0)
+
+
+// -----------------------------------------------------------------------
+// FPA_REWRITE_IS_INF_ITE
+//
+// F* lemma: lemma_is_inf_ite
+//   isInf(ite(c, t, e)) = ite(c, isInf(t), isInf(e))
+// When both branches are concrete FP numerals the predicate is evaluated
+// statically and folded into the condition.
+//
+// Applies to:  mk_is_inf(arg1, result)
+// -----------------------------------------------------------------------
+#define FPA_REWRITE_IS_INF_ITE(arg1, result) \
+    do { \
+        expr *_fpa_c = nullptr, *_fpa_t = nullptr, *_fpa_e = nullptr; \
+        if (m().is_ite(arg1, _fpa_c, _fpa_t, _fpa_e)) { \
+            scoped_mpf _fpa_vt(m_fm), _fpa_ve(m_fm); \
+            if (m_util.is_numeral(_fpa_t, _fpa_vt) && m_util.is_numeral(_fpa_e, _fpa_ve)) { \
+                result = m().mk_ite(_fpa_c, \
+                    m_fm.is_inf(_fpa_vt) ? m().mk_true() : m().mk_false(), \
+                    m_fm.is_inf(_fpa_ve) ? m().mk_true() : m().mk_false()); \
+                return BR_REWRITE2; \
+            } \
+        } \
+    } while (0)
+
+
+// -----------------------------------------------------------------------
+// FPA_REWRITE_IS_NORMAL_TO_FP_INT
+//
+// F* lemma: lemma_is_normal_to_fp_int
+//   isNormal(to_fp(rm, to_real(int))) = int != 0 AND NOT isInf(to_fp(rm, int))
+// For integer inputs: never NaN, never subnormal, so the float is normal
+// iff it is nonzero (int != 0) and does not overflow (NOT isInf).
+//
+// Applies to:  mk_is_normal(arg1, result)
+// -----------------------------------------------------------------------
+#define FPA_REWRITE_IS_NORMAL_TO_FP_INT(arg1, result) \
+    do { \
+        mpf_rounding_mode _fpa_rm; \
+        if (m_util.is_to_fp(arg1)) { \
+            app * _fpa_a = to_app(arg1); \
+            if (_fpa_a->get_num_args() == 2 && m_util.is_rm_numeral(_fpa_a->get_arg(0), _fpa_rm)) { \
+                expr * _fpa_inner = _fpa_a->get_arg(1); \
+                expr * _fpa_int_expr = nullptr; \
+                if (m_util.au().is_to_real(_fpa_inner)) { \
+                    expr * _fpa_unwrapped = to_app(_fpa_inner)->get_arg(0); \
+                    if (m_util.au().is_int(_fpa_unwrapped)) \
+                        _fpa_int_expr = _fpa_unwrapped; \
+                } \
+                else if (m_util.au().is_int(_fpa_inner)) \
+                    _fpa_int_expr = _fpa_inner; \
+                if (_fpa_int_expr) { \
+                    func_decl * _fpa_fd = _fpa_a->get_decl(); \
+                    unsigned _fpa_eb = _fpa_fd->get_parameter(0).get_int(); \
+                    unsigned _fpa_sb = _fpa_fd->get_parameter(1).get_int(); \
+                    arith_util & _fpa_au = m_util.au(); \
+                    expr_ref _fpa_nz(m().mk_not(m().mk_eq(_fpa_int_expr, _fpa_au.mk_int(0))), m()); \
+                    expr_ref _fpa_ic = mk_is_inf_of_int(_fpa_rm, _fpa_eb, _fpa_sb, _fpa_int_expr); \
+                    result = m().mk_and(_fpa_nz, m().mk_not(_fpa_ic)); \
+                    return BR_REWRITE_FULL; \
+                } \
+            } \
+        } \
+    } while (0)
+
+
+// -----------------------------------------------------------------------
+// FPA_REWRITE_IS_NORMAL_ITE
+//
+// F* lemma: lemma_is_normal_ite
+//   isNormal(ite(c, t, e)) = ite(c, isNormal(t), isNormal(e))
+// When both branches are concrete FP numerals the predicate is evaluated
+// statically and folded into the condition.
+//
+// Applies to:  mk_is_normal(arg1, result)
+// -----------------------------------------------------------------------
+#define FPA_REWRITE_IS_NORMAL_ITE(arg1, result) \
+    do { \
+        expr *_fpa_c = nullptr, *_fpa_t = nullptr, *_fpa_e = nullptr; \
+        if (m().is_ite(arg1, _fpa_c, _fpa_t, _fpa_e)) { \
+            scoped_mpf _fpa_vt(m_fm), _fpa_ve(m_fm); \
+            if (m_util.is_numeral(_fpa_t, _fpa_vt) && m_util.is_numeral(_fpa_e, _fpa_ve)) { \
+                result = m().mk_ite(_fpa_c, \
+                    m_fm.is_normal(_fpa_vt) ? m().mk_true() : m().mk_false(), \
+                    m_fm.is_normal(_fpa_ve) ? m().mk_true() : m().mk_false()); \
+                return BR_REWRITE2; \
+            } \
+        } \
+    } while (0)
+
+
+// -----------------------------------------------------------------------
+// FPA_REWRITE_FMA_ZERO_MUL
+//
+// F* lemmas: lemma_fma_zero_nan_addend, lemma_fma_zero_nan_mul,
+//            lemma_fma_zero_inf_mul, lemma_fma_zero_finite_decomposes,
+//            lemma_fma_zero_const_addend, lemma_fma_zero_const_{finite,nan_inf}_arm,
+//            lemma_fma_zero_general_{finite,nan_inf}_arm, lemma_fma_zero_product_sign
+//
+// fma(rm, ±0, y, z) or fma(rm, x, ±0, z): when one multiplicand is a
+// concrete zero the full FMA bit-blast circuit is unnecessary.
+// IEEE 754-2019 §6.3: 0 * finite = ±0 (exact); 0 * inf = NaN.
+//
+// Case breakdown (mirroring the F* section-1 lemmas):
+//   (a) addend is NaN                        → NaN   (lemma_fma_zero_nan_addend)
+//   (b) other_mul is concrete NaN or inf     → NaN   (lemma_fma_zero_nan_mul/inf_mul)
+//   (c) other_mul is concrete finite         → fp.add(rm, product, addend)
+//                                                     (lemma_fma_zero_finite_decomposes)
+//   (d) other_mul symbolic, addend concrete nonzero finite
+//                                            → ite(isFinite(other_mul), addend, NaN)
+//                                                     (lemma_fma_zero_const_finite/nan_inf_arm)
+//   (e) fully symbolic                       → ite(isFinite(other_mul),
+//                                                   fp.add(rm, product_zero, addend), NaN)
+//                                                     (lemma_fma_zero_general_finite/nan_inf_arm)
+//
+// Applies to:  mk_fma(arg1, arg2, arg3, arg4, result)
+//   arg1 = rounding mode, arg2 = x, arg3 = y, arg4 = addend
+// -----------------------------------------------------------------------
+#define FPA_REWRITE_FMA_ZERO_MUL(arg1, arg2, arg3, arg4, result) \
+    do { \
+        mpf_rounding_mode _fpa_rm; \
+        if (m_util.is_rm_numeral(arg1, _fpa_rm)) { \
+            expr *_fpa_other = nullptr; \
+            bool _fpa_zero_neg = false; \
+            scoped_mpf _fpa_vzero(m_fm), _fpa_v3(m_fm); \
+            if (m_util.is_numeral(arg2, _fpa_vzero) && m_fm.is_zero(_fpa_vzero)) { \
+                _fpa_other = arg3; \
+                _fpa_zero_neg = m_fm.is_neg(_fpa_vzero); \
+            } \
+            else if (m_util.is_numeral(arg3, _fpa_v3) && m_fm.is_zero(_fpa_v3)) { \
+                _fpa_other = arg2; \
+                _fpa_zero_neg = m_fm.is_neg(_fpa_v3); \
+                m_fm.set(_fpa_vzero, _fpa_v3); \
+            } \
+            if (_fpa_other) { \
+                TRACE(fp_rewriter, tout << "fma zero-multiplicand simplification\n";); \
+                sort *_fpa_s = arg4->get_sort(); \
+                expr_ref _fpa_nan(m_util.mk_nan(_fpa_s), m()); \
+                if (m_util.is_nan(arg4)) { \
+                    result = _fpa_nan; \
+                    return BR_DONE; \
+                } \
+                scoped_mpf _fpa_vo(m_fm); \
+                if (m_util.is_numeral(_fpa_other, _fpa_vo) && \
+                    (m_fm.is_nan(_fpa_vo) || m_fm.is_inf(_fpa_vo))) { \
+                    result = _fpa_nan; \
+                    return BR_DONE; \
+                } \
+                if (m_util.is_numeral(_fpa_other, _fpa_vo)) { \
+                    scoped_mpf _fpa_prod(m_fm); \
+                    m_fm.mul(_fpa_rm, _fpa_vzero, _fpa_vo, _fpa_prod); \
+                    SASSERT(m_fm.is_zero(_fpa_prod)); \
+                    result = m_util.mk_add(arg1, m_util.mk_value(_fpa_prod), arg4); \
+                    return BR_REWRITE2; \
+                } \
+                scoped_mpf _fpa_vz(m_fm); \
+                if (m_util.is_numeral(arg4, _fpa_vz) && \
+                    !m_fm.is_zero(_fpa_vz) && !m_fm.is_nan(_fpa_vz)) { \
+                    expr_ref _fpa_fin_c(m()); \
+                    _fpa_fin_c = m().mk_not(m().mk_or(m_util.mk_is_nan(_fpa_other), \
+                                                       m_util.mk_is_inf(_fpa_other))); \
+                    result = m().mk_ite(_fpa_fin_c, arg4, _fpa_nan); \
+                    return BR_REWRITE_FULL; \
+                } \
+                expr_ref _fpa_pzero(m_util.mk_pzero(_fpa_s), m()); \
+                expr_ref _fpa_nzero(m_util.mk_nzero(_fpa_s), m()); \
+                expr_ref _fpa_prod_zero(m()); \
+                if (_fpa_zero_neg) \
+                    _fpa_prod_zero = m().mk_ite(m_util.mk_is_negative(_fpa_other), \
+                                                _fpa_pzero, _fpa_nzero); \
+                else \
+                    _fpa_prod_zero = m().mk_ite(m_util.mk_is_negative(_fpa_other), \
+                                                _fpa_nzero, _fpa_pzero); \
+                expr_ref _fpa_fin_g(m()); \
+                _fpa_fin_g = m().mk_not(m().mk_or(m_util.mk_is_nan(_fpa_other), \
+                                                   m_util.mk_is_inf(_fpa_other))); \
+                result = m().mk_ite(_fpa_fin_g, \
+                                    m_util.mk_add(arg1, _fpa_prod_zero, arg4), \
+                                    _fpa_nan); \
+                return BR_REWRITE_FULL; \
+            } \
+        } \
+    } while (0)

@@ -88,5 +88,10 @@ public:
     br_status mk_max_i(func_decl * f, expr * arg1, expr * arg2, expr_ref & result);
 
     br_status mk_bvwrap(expr * arg, expr_ref & result);
+
+    // Helper used by FPA_REWRITE_IS_INF_TO_FP_INT and FPA_REWRITE_IS_NORMAL_TO_FP_INT:
+    // compute isInf(to_fp(rm, to_real(int_expr))) as a pure integer constraint.
+    // Corresponds to lemma_is_inf_to_fp_int_* in fstar/FPARewriterRules.fst.
+    expr_ref mk_is_inf_of_int(mpf_rounding_mode rm, unsigned ebits, unsigned sbits, expr * int_expr);
 };
 

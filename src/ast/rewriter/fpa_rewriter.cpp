@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include "ast/rewriter/fpa_rewriter.h"
+#include "ast/rewriter/fpa_rewriter_rules.h"
 #include "params/fpa_rewriter_params.hpp"
 #include "ast/ast_smt2_pp.h"
 
@@ -430,6 +431,8 @@ br_status fpa_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg
         }
     }
 
+    FPA_REWRITE_FMA_ZERO_MUL(arg1, arg2, arg3, arg4, result);
+
     return BR_FAILED;
 }
 
@@ -588,6 +591,9 @@ br_status fpa_rewriter::mk_is_nan(expr * arg1, expr_ref & result) {
         return BR_DONE;
     }
 
+    FPA_REWRITE_IS_NAN_TO_FP_INT(arg1, result);
+    FPA_REWRITE_IS_NAN_ITE(arg1, result);
+
     return BR_FAILED;
 }
 
@@ -599,6 +605,9 @@ br_status fpa_rewriter::mk_is_inf(expr * arg1, expr_ref & result) {
         return BR_DONE;
     }
 
+    FPA_REWRITE_IS_INF_TO_FP_INT(arg1, result);
+    FPA_REWRITE_IS_INF_ITE(arg1, result);
+
     return BR_FAILED;
 }
 
@@ -609,6 +618,9 @@ br_status fpa_rewriter::mk_is_normal(expr * arg1, expr_ref & result) {
         result = (m_fm.is_normal(v)) ? m().mk_true() : m().mk_false();
         return BR_DONE;
     }
+
+    FPA_REWRITE_IS_NORMAL_TO_FP_INT(arg1, result);
+    FPA_REWRITE_IS_NORMAL_ITE(arg1, result);
 
     return BR_FAILED;
 }
@@ -843,4 +855,56 @@ br_status fpa_rewriter::mk_bvwrap(expr * arg, expr_ref & result) {
     }
 
     return BR_FAILED;
+}
+
+// mk_is_inf_of_int: compute isInf(to_fp(rm, to_real(x))) as an integer constraint.
+// For integer x, to_fp is never NaN or subnormal (IEEE 754-2019 §5.4.1), so
+// the result is one of: ±zero, normal, or ±infinity.
+// Overflow to ±infinity depends only on |x| relative to the format's
+// representable range and the rounding mode.
+// Corresponds to lemma_is_inf_to_fp_int_{rne,rna,rtp,rtn,rtz} in
+// fstar/FPARewriterRules.fst.
+expr_ref fpa_rewriter::mk_is_inf_of_int(mpf_rounding_mode rm, unsigned ebits, unsigned sbits, expr * int_expr) {
+    arith_util & au = m_util.au();
+
+    scoped_mpf max_val(m_fm);
+    m_fm.mk_max_value(ebits, sbits, false, max_val);
+    scoped_mpq max_q(m_fm.mpq_manager());
+    m_fm.to_rational(max_val, max_q);
+    rational max_finite(max_q);
+
+    mpf_exp_t max_exp = m_fm.mk_max_exp(ebits);
+    int ulp_exp = (int)max_exp - (int)sbits + 1;
+    rational half_ulp = rational::power_of_two((unsigned)ulp_exp) / rational(2);
+
+    expr_ref r(m());
+
+    switch (rm) {
+    case MPF_ROUND_NEAREST_TEVEN:
+    case MPF_ROUND_NEAREST_TAWAY: {
+        // Overflow when |x| >= max_finite + ULP/2.
+        // At the boundary, MAX_FINITE has an odd significand so both RNE
+        // and RNA round away from MAX_FINITE, i.e. to infinity.
+        rational threshold = max_finite + half_ulp;
+        expr_ref thr(au.mk_int(threshold), m());
+        expr_ref neg_thr(au.mk_int(-threshold), m());
+        r = m().mk_or(au.mk_ge(int_expr, thr), au.mk_le(int_expr, neg_thr));
+        break;
+    }
+    case MPF_ROUND_TOWARD_POSITIVE:
+        // RTP: positive overflow only; negative values round toward zero.
+        r = au.mk_gt(int_expr, au.mk_int(max_finite));
+        break;
+    case MPF_ROUND_TOWARD_NEGATIVE:
+        // RTN: negative overflow only; positive values round toward zero.
+        r = au.mk_lt(int_expr, au.mk_int(-max_finite));
+        break;
+    case MPF_ROUND_TOWARD_ZERO:
+        // RTZ: truncation toward zero never overflows to infinity.
+        r = m().mk_false();
+        break;
+    }
+
+    TRACE(fp_rewriter, tout << "isInf(to_fp(rm, int)) -> " << mk_ismt2_pp(r, m()) << "\n";);
+    return r;
 }

@@ -20,7 +20,6 @@ that avoid expensive FP bit-blasting:
 ### `IEEE754.fst`
 
 Abstract axiomatic theory of IEEE 754 floating-point arithmetic.
-
 - **Type** `float eb sb` — abstract float parameterized by exponent bits `eb`
   and significand bits `sb`, matching Z3's `mpf` representation.
 - **Type** `rounding_mode` — the five IEEE 754 rounding modes (RNE, RNA, RTP,
@@ -83,25 +82,53 @@ The Section 3 lemmas are trivially true in F\* by computation (applying a
 function to `if c then t else e` reduces to `if c then f t else f e`), which
 is why their proofs are the single term `()`.
 
+### `../src/ast/rewriter/fpa_rewriter_rules.h`
+
+C++ header containing one `#define` macro per rewrite rule, extracted from
+the F\* lemmas.  Each macro is annotated with a `[extract: MACRO_NAME]`
+comment in the corresponding F\* lemma.
+
+| Macro | F\* lemma(s) | Used in C++ function |
+|---|---|---|
+| `FPA_REWRITE_IS_NAN_TO_FP_INT` | `lemma_is_nan_to_fp_int` | `mk_is_nan` |
+| `FPA_REWRITE_IS_NAN_ITE` | `lemma_is_nan_ite` | `mk_is_nan` |
+| `FPA_REWRITE_IS_INF_TO_FP_INT` | `lemma_is_inf_to_fp_int_*` | `mk_is_inf` |
+| `FPA_REWRITE_IS_INF_ITE` | `lemma_is_inf_ite` | `mk_is_inf` |
+| `FPA_REWRITE_IS_NORMAL_TO_FP_INT` | `lemma_is_normal_to_fp_int` | `mk_is_normal` |
+| `FPA_REWRITE_IS_NORMAL_ITE` | `lemma_is_normal_ite` | `mk_is_normal` |
+| `FPA_REWRITE_FMA_ZERO_MUL` | `lemma_fma_zero_*` (all §1 lemmas) | `mk_fma` |
+
+Each macro is self-contained and uses `_fpa_`-prefixed local variables to
+avoid name collisions.  All macros are designed for use inside member
+functions of `fpa_rewriter` where `m()`, `m_util`, `m_fm`, and
+`mk_is_inf_of_int` are in scope.
+
+The helper function `mk_is_inf_of_int` (declared in `fpa_rewriter.h`,
+implemented in `fpa_rewriter.cpp`) computes the integer-arithmetic overflow
+condition for `isInf(to_fp(rm, x))` by switching on the rounding mode,
+corresponding to the five `lemma_is_inf_to_fp_int_*` lemmas.
+
 ## Relationship to the C++ Code
 
-The following table maps each lemma to the corresponding C++ code in
-`src/ast/rewriter/fpa_rewriter.cpp` after the PR is applied.
+The following table maps each lemma to the corresponding C++ macro in
+`src/ast/rewriter/fpa_rewriter_rules.h` and where it is used.
 
-| Lemma | C++ code |
-|---|---|
-| `lemma_fma_zero_nan_addend` | `if (m_util.is_nan(arg4)) { result = nan; return BR_DONE; }` |
-| `lemma_fma_zero_nan_mul` | `if (m_util.is_numeral(other_mul, vo) && m_fm.is_nan(vo))` |
-| `lemma_fma_zero_inf_mul` | `if (m_util.is_numeral(other_mul, vo) && m_fm.is_inf(vo))` |
-| `lemma_fma_zero_finite_decomposes` | `m_util.mk_add(arg1, m_util.mk_value(product), arg4)` with `m_fm.mul(rm, vzero, vo, product)` |
-| `lemma_fma_zero_const_addend` | `m().mk_ite(finite_cond, arg4, nan)` (z_const branch) |
-| `lemma_fma_zero_general_*` | general `m().mk_ite(finite_cond, m_util.mk_add(...), nan)` |
-| `lemma_is_nan_to_fp_int` | `mk_is_nan`: `result = m().mk_false(); return BR_DONE;` |
-| `lemma_is_inf_to_fp_int_*` | `mk_is_inf_of_int` switch statement |
-| `lemma_is_normal_to_fp_int` | `mk_is_normal`: `result = m().mk_and(not_zero, m().mk_not(inf_cond))` |
-| `lemma_is_nan_ite` | `mk_is_nan`: ite-pushthrough block |
-| `lemma_is_inf_ite` | `mk_is_inf`: ite-pushthrough block |
-| `lemma_is_normal_ite` | `mk_is_normal`: ite-pushthrough block |
+| Lemma | C++ macro | Used in |
+|---|---|---|
+| `lemma_fma_zero_nan_addend` | `FPA_REWRITE_FMA_ZERO_MUL` case (a) | `mk_fma` |
+| `lemma_fma_zero_nan_mul` | `FPA_REWRITE_FMA_ZERO_MUL` case (b) | `mk_fma` |
+| `lemma_fma_zero_inf_mul` | `FPA_REWRITE_FMA_ZERO_MUL` case (b) | `mk_fma` |
+| `lemma_fma_zero_finite_decomposes` | `FPA_REWRITE_FMA_ZERO_MUL` case (c) | `mk_fma` |
+| `lemma_fma_zero_const_addend` | `FPA_REWRITE_FMA_ZERO_MUL` case (c) | `mk_fma` |
+| `lemma_fma_zero_const_*_arm` | `FPA_REWRITE_FMA_ZERO_MUL` case (d) | `mk_fma` |
+| `lemma_fma_zero_general_*_arm` | `FPA_REWRITE_FMA_ZERO_MUL` case (e) | `mk_fma` |
+| `lemma_fma_zero_product_sign` | `FPA_REWRITE_FMA_ZERO_MUL` sign computation | `mk_fma` |
+| `lemma_is_nan_to_fp_int` | `FPA_REWRITE_IS_NAN_TO_FP_INT` | `mk_is_nan` |
+| `lemma_is_inf_to_fp_int_*` | `FPA_REWRITE_IS_INF_TO_FP_INT` + `mk_is_inf_of_int` | `mk_is_inf` |
+| `lemma_is_normal_to_fp_int` | `FPA_REWRITE_IS_NORMAL_TO_FP_INT` | `mk_is_normal` |
+| `lemma_is_nan_ite` | `FPA_REWRITE_IS_NAN_ITE` | `mk_is_nan` |
+| `lemma_is_inf_ite` | `FPA_REWRITE_IS_INF_ITE` | `mk_is_inf` |
+| `lemma_is_normal_ite` | `FPA_REWRITE_IS_NORMAL_ITE` | `mk_is_normal` |
 
 ## IEEE 754 References
 

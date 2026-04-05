@@ -51,7 +51,8 @@ open IEEE754
 
 (* 1a.  fma(rm, ±0, y, NaN) = NaN
         Source: C++ fpa_rewriter.cpp, mk_fma, branch "if (m_util.is_nan(arg4))".
-        The addend NaN propagates (IEEE 754-2019 §6.2, NaN payload rules). *)
+        The addend NaN propagates (IEEE 754-2019 §6.2, NaN payload rules).
+        [extract: FPA_REWRITE_FMA_ZERO_MUL, case (a)] *)
 let lemma_fma_zero_nan_addend
     (#eb #sb: pos)
     (rm: rounding_mode) (zero_val y: float eb sb)
@@ -62,7 +63,8 @@ let lemma_fma_zero_nan_addend
 
 (* 1b.  fma(rm, ±0, NaN, z) = NaN
         Source: C++ check "m_fm.is_nan(vo)" for other_mul.
-        NaN in the second multiplicand propagates regardless of the addend. *)
+        NaN in the second multiplicand propagates regardless of the addend.
+        [extract: FPA_REWRITE_FMA_ZERO_MUL, case (b)] *)
 let lemma_fma_zero_nan_mul
     (#eb #sb: pos)
     (rm: rounding_mode) (zero_val z: float eb sb)
@@ -74,7 +76,8 @@ let lemma_fma_zero_nan_mul
 (* 1c.  fma(rm, ±0, ±∞, z) = NaN
         Source: C++ check "m_fm.is_inf(vo)" for other_mul.
         0 * ∞ is the "invalid operation" NaN (IEEE 754-2019 §7.2),
-        which then propagates through the addition. *)
+        which then propagates through the addition.
+        [extract: FPA_REWRITE_FMA_ZERO_MUL, case (b)] *)
 let lemma_fma_zero_inf_mul
     (#eb #sb: pos)
     (rm: rounding_mode) (zero_val inf_val z: float eb sb)
@@ -90,7 +93,8 @@ let lemma_fma_zero_inf_mul
         an addition whose first operand is the computed ±0 product.
 
         This is the key decomposition that replaces the expensive FMA
-        circuit with a cheaper addition. *)
+        circuit with a cheaper addition.
+        [extract: FPA_REWRITE_FMA_ZERO_MUL, case (c)] *)
 let lemma_fma_zero_finite_decomposes
     (#eb #sb: pos)
     (rm: rounding_mode) (zero_val y z: float eb sb)
@@ -105,7 +109,8 @@ let lemma_fma_zero_finite_decomposes
         Source: C++ branch with "m_util.is_numeral(arg4, vz) && !m_fm.is_zero(vz)"
         and a concrete finite other_mul.
         When z is nonzero and finite, ±0 + z = z exactly under any rounding
-        mode (IEEE 754-2019 §6.3), so the entire fma collapses to z. *)
+        mode (IEEE 754-2019 §6.3), so the entire fma collapses to z.
+        [extract: FPA_REWRITE_FMA_ZERO_MUL, case (c) folded with ax_add_zero_nonzero] *)
 let lemma_fma_zero_const_addend
     (#eb #sb: pos)
     (rm: rounding_mode) (zero_val y z: float eb sb)
@@ -123,6 +128,7 @@ let lemma_fma_zero_const_addend
             ite(¬isNaN(y) ∧ ¬isInf(y),   z_const,   NaN)
         Source: C++ branch producing "m().mk_ite(finite_cond, arg4, nan)".
         We prove each arm of the ite separately.
+        [extract: FPA_REWRITE_FMA_ZERO_MUL, case (d)]
 
         Finite arm: y is finite → fma = z_const (by 1e). *)
 let lemma_fma_zero_const_finite_arm
@@ -155,7 +161,8 @@ let lemma_fma_zero_const_nan_inf_arm
             ite(is_finite(y),  fp_add(rm, product_zero, z),  NaN)
         Source: C++ block producing the final ite with product_zero.
         product_zero is ±0 with sign = sign(±0) XOR sign(y).
-        We prove each arm. *)
+        We prove each arm.
+        [extract: FPA_REWRITE_FMA_ZERO_MUL, case (e)] *)
 
 (* Finite arm: fma = fp_add(rm, fp_mul(rm, ±0, y), z). *)
 let lemma_fma_zero_general_finite_arm
@@ -217,7 +224,8 @@ let lemma_fma_zero_product_sign
 
 (* isNaN(to_fp(rm, x)) = false for any integer x.
    Source: C++ block in mk_is_nan checking "a->get_num_args() == 2 &&
-   (m_util.au().is_real(a->get_arg(1)) || m_util.au().is_int(a->get_arg(1)))". *)
+   (m_util.au().is_real(a->get_arg(1)) || m_util.au().is_int(a->get_arg(1)))".
+   [extract: FPA_REWRITE_IS_NAN_TO_FP_INT] *)
 let lemma_is_nan_to_fp_int
     (#eb #sb: pos) (rm: rounding_mode) (x: int)
     : Lemma (is_nan (to_fp_of_int #eb #sb rm x) = false) =
@@ -227,7 +235,8 @@ let lemma_is_nan_to_fp_int
 (* --- 2b: isInf --- *)
 
 (* Source: C++ function mk_is_inf_of_int, called from mk_is_inf.
-   Each lemma corresponds to one case in the switch(rm) statement. *)
+   Each lemma corresponds to one case in the switch(rm) statement.
+   [extract: FPA_REWRITE_IS_INF_TO_FP_INT, helper mk_is_inf_of_int] *)
 
 (* RNE: overflow iff |x| >= overflow_threshold(eb, sb).
    At the boundary the significand of MAX_FINITE is odd, so RNE rounds
@@ -270,6 +279,7 @@ let lemma_is_inf_to_fp_int_rtz
    Source: C++ block in mk_is_normal:
      "expr_ref not_zero(...); expr_ref inf_cond = mk_is_inf_of_int(...);
       result = m().mk_and(not_zero, m().mk_not(inf_cond));"
+   [extract: FPA_REWRITE_IS_NORMAL_TO_FP_INT]
 
    Proof sketch:
      For integer x, to_fp is never NaN (by ax_to_fp_int_not_nan) and
@@ -322,7 +332,8 @@ let lemma_is_normal_to_fp_int
 
 (* 3a.  isNaN(ite(c, t, e)) = ite(c, isNaN(t), isNaN(e))
         Source: C++ block producing "m().mk_ite(c, is_nan(t) ? true : false,
-                                                   is_nan(e) ? true : false)". *)
+                                                   is_nan(e) ? true : false)".
+        [extract: FPA_REWRITE_IS_NAN_ITE] *)
 let lemma_is_nan_ite
     (#eb #sb: pos) (c: bool) (t e: float eb sb)
     : Lemma (is_nan (if c then t else e) =
@@ -330,7 +341,8 @@ let lemma_is_nan_ite
 
 
 (* 3b.  isInf(ite(c, t, e)) = ite(c, isInf(t), isInf(e))
-        Source: same pattern in mk_is_inf. *)
+        Source: same pattern in mk_is_inf.
+        [extract: FPA_REWRITE_IS_INF_ITE] *)
 let lemma_is_inf_ite
     (#eb #sb: pos) (c: bool) (t e: float eb sb)
     : Lemma (is_inf (if c then t else e) =
@@ -338,7 +350,8 @@ let lemma_is_inf_ite
 
 
 (* 3c.  isNormal(ite(c, t, e)) = ite(c, isNormal(t), isNormal(e))
-        Source: same pattern in mk_is_normal. *)
+        Source: same pattern in mk_is_normal.
+        [extract: FPA_REWRITE_IS_NORMAL_ITE] *)
 let lemma_is_normal_ite
     (#eb #sb: pos) (c: bool) (t e: float eb sb)
     : Lemma (is_normal (if c then t else e) =
