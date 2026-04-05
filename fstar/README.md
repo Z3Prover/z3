@@ -110,8 +110,7 @@ corresponding to the five `lemma_is_inf_to_fp_int_*` lemmas.
 
 ## Relationship to the C++ Code
 
-The following table maps each lemma to the corresponding C++ macro in
-`src/ast/rewriter/fpa_rewriter_rules.h` and where it is used.
+The following table maps each lemma to its corresponding C++ macro and the function where the macro is invoked.
 
 | Lemma | C++ macro | Used in |
 |---|---|---|
