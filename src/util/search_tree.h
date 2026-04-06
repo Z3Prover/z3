@@ -47,7 +47,7 @@ namespace search_tree {
         status m_status;
         vector<literal> m_core;
         unsigned m_num_activations = 0;
-        uint64_t m_effort_spent = 0;
+        unsigned m_effort_spent = 0;
 
     public:
         node(literal const &l, node *parent) : m_literal(l), m_parent(parent), m_status(status::open) {}
@@ -84,6 +84,7 @@ namespace search_tree {
         node* right() const { return m_right; }
         node* parent() const { return m_parent; }
         bool is_leaf() const { return !m_left && !m_right; }
+
         unsigned depth() const {
             unsigned d = 0;
             node* p = m_parent;
@@ -137,10 +138,10 @@ namespace search_tree {
         void mark_activated() {
             ++m_num_activations;
         }
-        uint64_t effort_spent() const {
+        unsigned effort_spent() const {
             return m_effort_spent;
         }
-        void add_effort(uint64_t effort) {
+        void add_effort(unsigned effort) {
             m_effort_spent += effort;
         }
     };
@@ -150,17 +151,17 @@ namespace search_tree {
         scoped_ptr<node<Config>> m_root = nullptr;
         literal m_null_literal;
         random_gen m_rand;
-        static constexpr unsigned m_expand_factor = 2;
-        uint64_t m_effort_unit = 1;
+        unsigned m_expand_factor = 2;
+        unsigned m_effort_unit = 1;
 
         struct candidate {
             node<Config>* n = nullptr;
-            uint64_t effort_band = UINT64_MAX;
+            unsigned effort_band = UINT64_MAX;
             unsigned depth = 0;
         };
 
-        uint64_t effort_band(node<Config> const* n) const {
-            return n->effort_spent() / std::max<uint64_t>(1, m_effort_unit);
+        unsigned effort_band(node<Config> const* n) const {
+            return n->effort_spent() / std::max<unsigned>(1, m_effort_unit);
         }
 
         bool better(candidate const& a, candidate const& b) const {
@@ -232,7 +233,7 @@ namespace search_tree {
             return best;
         }
 
-        bool should_expand(node<Config>* n, uint64_t effort) {
+        bool should_expand(node<Config>* n, unsigned effort) {
             if (!n || n->get_status() != status::active)
                 return false;
             n->add_effort(effort);
@@ -417,8 +418,8 @@ namespace search_tree {
             m_rand.set_seed(seed);
         }
 
-        void set_effort_unit(uint64_t effort_unit) {
-            m_effort_unit = std::max<uint64_t>(1, effort_unit);
+        void set_effort_unit(unsigned effort_unit) {
+            m_effort_unit = std::max<unsigned>(1, effort_unit);
         }
 
         void reset() {
@@ -429,7 +430,7 @@ namespace search_tree {
 
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
-        void split(node<Config> *n, literal const &a, literal const &b, uint64_t effort = 1) {
+        void split(node<Config> *n, literal const &a, literal const &b, unsigned effort = 1) {
             if (!n || n->get_status() != status::active)
                 return;
             if (should_expand(n, effort))

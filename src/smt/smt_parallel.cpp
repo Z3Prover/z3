@@ -339,7 +339,7 @@ namespace smt {
     }
 
     void parallel::batch_manager::split(ast_translation &l2g, unsigned source_worker_id,
-                                        search_tree::node<cube_config> *node, expr *atom, uint64_t effort) {
+                                        search_tree::node<cube_config> *node, expr *atom, unsigned effort) {
         std::scoped_lock lock(mux);
         expr_ref lit(m), nlit(m);
         lit = l2g(atom);
@@ -393,7 +393,7 @@ namespace smt {
         lbool r = l_undef;
 
         ctx->get_fparams().m_max_conflicts = std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts);
-        m_last_check_effort = std::max<uint64_t>(1, ctx->get_fparams().m_max_conflicts);
+        m_last_check_effort = std::max<unsigned>(1, ctx->get_fparams().m_max_conflicts);
         IF_VERBOSE(1, verbose_stream() << " Checking cube\n"
                                        << bounded_pp_exprs(cube)
                                        << "with max_conflicts: " << ctx->get_fparams().m_max_conflicts << "\n";);
