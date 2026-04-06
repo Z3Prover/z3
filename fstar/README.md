@@ -240,7 +240,7 @@ the `fstar/` directory.  It installs the F* binary, runs `extract.sh`,
 and uploads the generated C++ as a downloadable artifact
 `fstar-extracted-cpp-rules` for inspection.
 
-F\* 2024.09.05 or later is required.  The files have no external
+F\* 2026.03.24 or later is required.  The files have no external
 dependencies beyond the F\* standard library prelude.
 
 Because all IEEE 754 semantics are encoded as `assume val` axioms, the

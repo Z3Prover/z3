@@ -26,7 +26,7 @@ cd "$SCRIPT_DIR"
 
 if ! command -v fstar.exe &>/dev/null; then
     echo "ERROR: fstar.exe not found on PATH." >&2
-    echo "Install F* 2024.09.05+ from https://github.com/FStarLang/FStar/releases" >&2
+    echo "Install F* 2026.03.24+ from https://github.com/FStarLang/FStar/releases" >&2
     exit 1
 fi
 

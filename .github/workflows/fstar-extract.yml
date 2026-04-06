@@ -44,14 +44,14 @@ jobs:
       # -----------------------------------------------------------------------
       - name: Install F*
         env:
-          FSTAR_VERSION: "2024.09.05"
+          FSTAR_VERSION: "2026.03.24"
         run: |
-          ARCHIVE="fstar_v${FSTAR_VERSION}_Linux_x86_64.tar.gz"
+          ARCHIVE="fstar-v${FSTAR_VERSION}-Linux-x86_64.tar.gz"
           URL="https://github.com/FStarLang/FStar/releases/download/v${FSTAR_VERSION}/${ARCHIVE}"
           echo "Downloading F* ${FSTAR_VERSION} from ${URL}" >&2
           curl -fsSL -o "/tmp/${ARCHIVE}" "${URL}"
           mkdir -p "$HOME/fstar"
-          tar -xzf "/tmp/${ARCHIVE}" -C "$HOME/fstar" --strip-components=1
+          tar -xzf "/tmp/${ARCHIVE}" -C "$HOME/fstar" --strip-components=2
           echo "$HOME/fstar/bin" >> "$GITHUB_PATH"
 
       - name: Verify F* installation

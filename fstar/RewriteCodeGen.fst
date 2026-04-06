@@ -70,7 +70,7 @@ noeq type cexpr =
    This undoes the nested Tv_App structure that F* uses for
    multi-argument applications. *)
 let rec collect_app (t: term) : Tac (term & list argv) =
-  match inspect t with
+  match inspect_ln t with
   | Tv_App hd arg ->
     let (h, args) = collect_app hd in
     (h, args @ [arg])
@@ -86,53 +86,70 @@ let filter_explicit (args: list argv) : list term =
 (* Get the short name of a free variable, last component of the path.
    E.g. "IEEE754.is_nan" to "is_nan" *)
 let fv_short_name (t: term) : Tac (option string) =
-  match inspect t with
+  match inspect_ln t with
   | Tv_FVar fv ->
     (match List.Tot.rev (inspect_fv fv) with
      | last :: _ -> Some last
      | _ -> None)
   | _ -> None
 
-(* Resolve a bound variable, de Bruijn indexed, using our index to name map.
-   F* reflection represents bound variables with de Bruijn indices:
-   the most recently bound variable has index 0.
-
-   Given binders [eb; sb; c; t; e], inside the body:
-     e = BVar 0, t = BVar 1, c = BVar 2, sb = BVar 3, eb = BVar 4 *)
-let bvar_name (idx_map: list (nat & string)) (t: term) : Tac (option string) =
-  match inspect t with
-  | Tv_BVar bv ->
-    let bvv = inspect_bv bv in
-    (match List.Tot.assoc #nat bvv.index idx_map with
-     | Some n -> Some n
-     | None ->
-       (* de Bruijn index not in our map; use the printer name as a fallback
-          and warn so the caller knows the index map may be incomplete. *)
-       let pp = FStar.Sealed.unseal bvv.ppname in
-       print ("WARNING: bvar_name fallback for index "
-              ^ string_of_int bvv.index ^ ", using ppname '" ^ pp ^ "'");
-       Some pp)
-  | _ -> None
+(* Resolve a variable name from a term.
+   In F* 2026, variables in lemma types returned by `tc env` may appear
+   as named variables (Tv_Var namedv) rather than de Bruijn indices, so
+   we first try the named view and fall back to de Bruijn lookup. *)
+let var_name (idx_map: list (nat & string)) (offset: nat) (t: term) : Tac (option string) =
+  (* Try named-view first: Tv_Var gives a directly named variable. *)
+  (match FStar.Tactics.NamedView.inspect t with
+   | FStar.Tactics.NamedView.Tv_Var nv ->
+     let nm = unseal nv.ppname in
+     Some nm
+   | _ ->
+     (* Fall back to de Bruijn lookup for variables still in closed form. *)
+     match inspect_ln t with
+     | Tv_BVar bv ->
+       let bvv = inspect_bv bv in
+       if bvv.index < offset then None
+       else begin
+         let adj : nat = bvv.index - offset in
+         (match List.Tot.assoc #nat adj idx_map with
+          | Some n -> Some n
+          | None ->
+            let pp = unseal bvv.ppname in
+            print ("WARNING: var_name fallback for BVar index "
+                   ^ string_of_int bvv.index ^ " (adj="
+                   ^ string_of_int adj ^ "), using ppname '" ^ pp ^ "'");
+            Some pp)
+       end
+     | _ -> None)
 
 (* Detect if-then-else in reflected terms.
    In F*, `if c then t else e` desugars to:
-     match c with | true -> t | false -> e
-   which appears as Tv_Match with two branches. *)
-let try_ite (t: term) : Tac (option (term & term & term)) =
-  match inspect t with
+     match c with | true -> t | (x:bool) -> e
+   where the false branch uses Pat_Var (not Pat_Constant), adding an extra
+   binder.  We therefore return the additional binder count for each branch
+   body, so callers can adjust the de Bruijn offset accordingly:
+     - then-branch (Pat_Constant): 0 extra binders
+     - else-branch (Pat_Var):      1 extra binder *)
+let try_ite (t: term) : Tac (option (term & nat & term & nat & term)) =
+  match inspect_ln t with
   | Tv_Match scrutinee _ret branches ->
     (match branches with
-     | [(_, body_t); (_, body_f)] ->
-       Some (scrutinee, body_t, body_f)
+     | [(pat_t, body_t); (pat_f, body_f)] ->
+       let extra_t : nat = match pat_t with | Pat_Var _ _ -> 1 | _ -> 0 in
+       let extra_f : nat = match pat_f with | Pat_Var _ _ -> 1 | _ -> 0 in
+       Some (scrutinee, extra_t, body_t, extra_f, body_f)
      | _ -> None)
   | _ -> None
 
-(* Unwrap `squash p` to `p` if present.
-   The Lemma precondition may be wrapped in squash. *)
+(* Unwrap `squash p` or `b2t p` to `p` if present.
+   The Lemma postcondition is often wrapped in squash or b2t.
+   In F* 2026, bool-valued propositions in Lemma postconditions are
+   wrapped in `b2t` which coerces `bool` to `prop`. *)
 let unwrap_squash (t: term) : Tac term =
   let (head, args) = collect_app t in
   match fv_short_name head with
-  | Some "squash" ->
+  | Some "squash"
+  | Some "b2t" ->
     (match filter_explicit args with | [inner] -> inner | _ -> t)
   | _ -> t
 
@@ -162,51 +179,56 @@ let rec tac_map (#a #b: Type) (f: a -> Tac b) (l: list a) : Tac (list b) =
 
 (* Extract a pattern from the LHS argument.
    Recognizes:
-   - Bound variables       -> PVar
-   - if-then-else          -> PIte
-   - Function applications -> PApp *)
-let rec extract_pat (m: list (nat & string)) (t: term) : Tac cpat =
+   - Variables (named or BVar)  -> PVar
+   - if-then-else               -> PIte
+   - Function applications      -> PApp *)
+let rec extract_pat (m: list (nat & string)) (offset: nat) (t: term) : Tac cpat =
   match try_ite t with
-  | Some (c, tb, fb) ->
-    PIte (extract_pat m c) (extract_pat m tb) (extract_pat m fb)
+  | Some (c, et, tb, ef, fb) ->
+    let off_t : nat = offset + et in
+    let off_f : nat = offset + ef in
+    PIte (extract_pat m offset c) (extract_pat m off_t tb) (extract_pat m off_f fb)
   | None ->
     let (head, raw_args) = collect_app t in
     let args = filter_explicit raw_args in
     if List.Tot.length args > 0 then
       (match fv_short_name head with
-       | Some fn -> PApp fn (tac_map (extract_pat m) args)
+       | Some fn -> PApp fn (tac_map (extract_pat m offset) args)
        | None ->
-         (match bvar_name m head with
-          | Some n -> PApp n (tac_map (extract_pat m) args)
+         (match var_name m offset head with
+          | Some n -> PApp n (tac_map (extract_pat m offset) args)
           | None -> fail ("pattern app: cannot resolve head: " ^ term_to_string head)))
     else
-      (match bvar_name m t with
+      (match var_name m offset t with
        | Some n -> PVar n
        | None -> fail ("pattern: cannot recognize: " ^ term_to_string t))
 
 (* Extract an expression from the RHS.
    Recognizes:
-   - Bound variables               -> EVar
+   - Variables (named or BVar)    -> EVar
    - Boolean literals              -> EBool
-   - if-then-else                   -> EIte
-   - Function applications (FVar)  -> EApp *)
-let rec extract_expr (m: list (nat & string)) (t: term) : Tac cexpr =
+   - if-then-else                  -> EIte
+   - Function applications (FVar) -> EApp *)
+let rec extract_expr (m: list (nat & string)) (offset: nat) (t: term) : Tac cexpr =
   (* Check for boolean literals first *)
-  (match inspect t with
-   | Tv_Const (C_Bool b) -> EBool b
+  (match inspect_ln t with
+   | Tv_Const C_True  -> EBool true
+   | Tv_Const C_False -> EBool false
    | _ ->
      match try_ite t with
-     | Some (c, tb, fb) ->
-       EIte (extract_expr m c) (extract_expr m tb) (extract_expr m fb)
+     | Some (c, et, tb, ef, fb) ->
+       let off_t : nat = offset + et in
+       let off_f : nat = offset + ef in
+       EIte (extract_expr m offset c) (extract_expr m off_t tb) (extract_expr m off_f fb)
      | None ->
        let (head, raw_args) = collect_app t in
        let args = filter_explicit raw_args in
        if List.Tot.length args > 0 then
          (match fv_short_name head with
-          | Some fn -> EApp fn (tac_map (extract_expr m) args)
+          | Some fn -> EApp fn (tac_map (extract_expr m offset) args)
           | None -> fail ("expr: application head is not FVar: " ^ term_to_string head))
        else
-         (match bvar_name m t with
+         (match var_name m offset t with
           | Some n -> EVar n
           | None -> fail ("expr: cannot recognize: " ^ term_to_string t)))
 
@@ -219,9 +241,9 @@ let rec extract_expr (m: list (nat & string)) (t: term) : Tac cexpr =
        -> Lemma (...)
    Returns: parameter names [eb;sb;c;t;e] and the final computation, C_Lemma. *)
 let rec strip_arrows (t: term) : Tac (list string & comp) =
-  match inspect t with
+  match inspect_ln t with
   | Tv_Arrow binder c ->
-    let name = FStar.Sealed.unseal (inspect_binder binder).ppname in
+    let name = unseal (inspect_binder binder).ppname in
     (match inspect_comp c with
      | C_Total ret ->
        let (names, final_c) = strip_arrows ret in
@@ -260,17 +282,16 @@ let cpp_builder_name (fn: string) : string =
   | _             -> "m_util.mk_" ^ fn
 
 (* Collect all variable names from a pattern (for C++ declarations) *)
-let rec pat_vars (p: cpat) : Tot (list string) =
+let rec pat_vars (p: cpat) : Tot (list string) (decreases p) =
   match p with
   | PVar n       -> [n]
   | PIte c t e   -> pat_vars c @ pat_vars t @ pat_vars e
-  | PApp _ args  ->
-    let rec collect (l: list cpat) : Tot (list string) (decreases l) =
-      match l with
-      | [] -> []
-      | x :: xs -> pat_vars x @ collect xs
-    in
-    collect args
+  | PApp _ args  -> pat_vars_list args
+
+and pat_vars_list (ps: list cpat) : Tot (list string) (decreases ps) =
+  match ps with
+  | []      -> []
+  | x :: xs -> pat_vars x @ pat_vars_list xs
 
 (* Generate: expr *c, *t, *e; *)
 let gen_decls (p: cpat) : string =
@@ -297,7 +318,7 @@ let gen_condition (arg: string) (p: cpat) : string =
   | _ -> "/* TODO: extend gen_condition for nested patterns */"
 
 (* Generate a C++ expression from the RHS IR *)
-let rec gen_rhs_expr (e: cexpr) : Tot string =
+let rec gen_rhs_expr (e: cexpr) : Tot string (decreases e) =
   match e with
   | EVar  n       -> n
   | EBool true    -> "m().mk_true()"
@@ -308,7 +329,13 @@ let rec gen_rhs_expr (e: cexpr) : Tot string =
                   ^ gen_rhs_expr e ^ ")"
   | EApp fn args  ->
     cpp_builder_name fn ^ "("
-    ^ FStar.String.concat ", " (List.Tot.map gen_rhs_expr args) ^ ")"
+    ^ gen_rhs_expr_list args ^ ")"
+
+and gen_rhs_expr_list (es: list cexpr) : Tot string (decreases es) =
+  match es with
+  | []      -> ""
+  | [e]     -> gen_rhs_expr e
+  | e :: rest -> gen_rhs_expr e ^ ", " ^ gen_rhs_expr_list rest
 
 (* Generate the complete C++ rewrite case *)
 let gen_cpp (top_fn: string) (arg: string) (pat: cpat) (rhs: cexpr) : string =
@@ -353,14 +380,22 @@ let extract_rewrite (lemma: term) : Tac string =
   let (param_names, final_comp) = strip_arrows ty in
   let idx_map = build_idx_map param_names in
 
-  (* 2. Get the equality from the Lemma precondition *)
-  let pre =
+  (* 2. Get the equality from the Lemma postcondition.
+     For `Lemma P`, the comp is C_Lemma l_True (fun _ -> b2t P) [].
+     The postcondition is a function taking the return value as argument.
+     We peel off the leading Tv_Abs to get the raw proposition.
+     Inside the abs body, all de Bruijn indices are shifted by 1 relative
+     to the outer scope, so we pass offset=1 to extract_pat/extract_expr. *)
+  let (post, post_offset) =
     match inspect_comp final_comp with
-    | C_Lemma pre _ _ -> pre
+    | C_Lemma _ post _ ->
+      (match inspect_ln post with
+       | Tv_Abs _ body -> (body, 1)
+       | _ -> (post, 0))
     | _ -> fail "expected Lemma computation type" in
 
-  (* 3. Extract LHS = RHS from the precondition *)
-  let (lhs, rhs) = extract_eq pre in
+  (* 3. Extract LHS = RHS from the postcondition *)
+  let (lhs, rhs) = extract_eq post in
 
   (* 4. Decompose LHS: top_fn(argument_pattern).
      The top_fn is the IEEE754 classification predicate whose
@@ -381,8 +416,8 @@ let extract_rewrite (lemma: term) : Tac string =
             ^ " for top_fn=" ^ top_fn) in
 
   (* 5. Extract the argument pattern and the RHS expression *)
-  let pat      = extract_pat  idx_map arg_term in
-  let rhs_expr = extract_expr idx_map rhs in
+  let pat      = extract_pat  idx_map post_offset arg_term in
+  let rhs_expr = extract_expr idx_map post_offset rhs in
 
   (* 6. Emit C++ code.
      "arg1" is the standard name for the argument in mk_* functions of
@@ -436,11 +471,19 @@ let print_rewrite (label: string) (lemma: term) : Tac unit =
   print ("\n=== " ^ label ^ " ===\n");
   print (extract_rewrite lemma)
 
+(* Construct a term reference to a top-level name in FPARewriterRules
+   without instantiating implicit arguments.  Using pack_fv avoids the
+   elaboration that quote performs, which in F* 2026 fails for polymorphic
+   lemmas whose implicit type arguments (eb, sb: pos) cannot be inferred
+   from the call site. *)
+let lemma_ref (name: string) : term =
+  pack_ln (Tv_FVar (pack_fv ["FPARewriterRules"; name]))
+
 (* Demonstrate extraction of the three ite-pushthrough lemmas.
    Running this file with F* prints the generated C++ for each rule. *)
 let _ =
   run_tactic (fun () ->
-    List.Tot.iter (fun (label, lemma) -> print_rewrite label lemma)
-      [ ("lemma_is_nan_ite",    quote lemma_is_nan_ite);
-        ("lemma_is_inf_ite",    quote lemma_is_inf_ite);
-        ("lemma_is_normal_ite", quote lemma_is_normal_ite) ])
+    iter (fun (label, lemma) -> print_rewrite label lemma)
+      [ ("lemma_is_nan_ite",    lemma_ref "lemma_is_nan_ite");
+        ("lemma_is_inf_ite",    lemma_ref "lemma_is_inf_ite");
+        ("lemma_is_normal_ite", lemma_ref "lemma_is_normal_ite") ])

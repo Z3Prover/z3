@@ -25,7 +25,7 @@ module IEEE754
 (* Abstract IEEE 754 float parameterized by format.  A concrete model
    would be a triple (sign, biased_exponent, significand), but we keep
    the type opaque so the axioms are the only assumed properties. *)
-assume val float : (eb: pos) -> (sb: pos) -> Type0
+assume val float : (eb: pos) -> (sb: pos) -> eqtype
 
 (* ------------------------------------------------------------------ *)
 (* Rounding modes (IEEE 754-2019 §4.3)                                 *)
@@ -154,16 +154,32 @@ assume val ax_mul_nan_r :
   Lemma (is_nan (fp_mul rm x (nan #eb #sb)) = true)
 
 assume val ax_fma_nan_x :
-  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (y z: float eb sb) ->
+  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (y: float eb sb) -> (z: float eb sb) ->
   Lemma (is_nan (fp_fma rm (nan #eb #sb) y z) = true)
 
 assume val ax_fma_nan_y :
-  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (x z: float eb sb) ->
+  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (x: float eb sb) -> (z: float eb sb) ->
   Lemma (is_nan (fp_fma rm x (nan #eb #sb) z) = true)
 
 assume val ax_fma_nan_z :
-  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (x y: float eb sb) ->
+  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (x: float eb sb) -> (y: float eb sb) ->
   Lemma (is_nan (fp_fma rm x y (nan #eb #sb)) = true)
+
+(* General NaN propagation: if any argument is NaN, the result is NaN. *)
+assume val ax_fma_any_nan_x :
+  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (x: float eb sb) -> (y: float eb sb) -> (z: float eb sb) ->
+  Lemma (requires is_nan x = true)
+        (ensures  is_nan (fp_fma rm x y z) = true)
+
+assume val ax_fma_any_nan_y :
+  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (x: float eb sb) -> (y: float eb sb) -> (z: float eb sb) ->
+  Lemma (requires is_nan y = true)
+        (ensures  is_nan (fp_fma rm x y z) = true)
+
+assume val ax_fma_any_nan_z :
+  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (x: float eb sb) -> (y: float eb sb) -> (z: float eb sb) ->
+  Lemma (requires is_nan z = true)
+        (ensures  is_nan (fp_fma rm x y z) = true)
 
 (* ------------------------------------------------------------------ *)
 (* Special-value arithmetic axioms                                      *)
@@ -181,7 +197,7 @@ assume val ax_zero_mul_inf :
    This covers the case where fp_mul rm x y = NaN and we need
    is_nan (fp_fma rm x y z) = true. *)
 assume val ax_fma_nan_mul :
-  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (x y z: float eb sb) ->
+  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (x: float eb sb) -> (y: float eb sb) -> (z: float eb sb) ->
   Lemma (requires is_nan (fp_mul rm x y) = true)
         (ensures  is_nan (fp_fma rm x y z) = true)
 
@@ -189,7 +205,7 @@ assume val ax_fma_nan_mul :
    and fp_mul(rm, zero, y_finite) is ±0 (exact, IEEE 754-2019 §6.3).
    This is the core decomposition used by the rewriter. *)
 assume val ax_fma_zero_finite :
-  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (zero_val y z: float eb sb) ->
+  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (zero_val: float eb sb) -> (y: float eb sb) -> (z: float eb sb) ->
   Lemma (requires is_zero zero_val = true && is_finite y = true)
         (ensures  fp_fma rm zero_val y z = fp_add rm (fp_mul rm zero_val y) z &&
                   is_zero (fp_mul rm zero_val y) = true)
@@ -197,7 +213,7 @@ assume val ax_fma_zero_finite :
 (* Sign of 0 * y (IEEE 754-2019 §6.3):
    sign(0 * y) = sign(0) XOR sign(y) for finite nonzero y. *)
 assume val ax_zero_mul_sign :
-  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (zero_val y: float eb sb) ->
+  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (zero_val: float eb sb) -> (y: float eb sb) ->
   Lemma (requires is_zero zero_val = true && is_finite y = true && is_zero y = false)
         (ensures  (let p = fp_mul rm zero_val y in
                    is_zero p = true &&
@@ -208,7 +224,7 @@ assume val ax_zero_mul_sign :
 (* fp_add(rm, ±0, z) = z when z is finite and nonzero (IEEE 754-2019 §6.3).
    ±0 is an additive identity for nonzero finite values under all rounding modes. *)
 assume val ax_add_zero_nonzero :
-  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (zero_val z: float eb sb) ->
+  #eb:pos -> #sb:pos -> (rm: rounding_mode) -> (zero_val: float eb sb) -> (z: float eb sb) ->
   Lemma (requires is_zero zero_val = true && is_finite z = true && is_zero z = false)
         (ensures  fp_add rm zero_val z = z)
 

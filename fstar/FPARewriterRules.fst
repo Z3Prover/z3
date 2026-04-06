@@ -149,7 +149,7 @@ let lemma_fma_zero_const_nan_inf_arm
                       (is_nan y = true || is_inf y = true))
             (ensures  is_nan (fp_fma rm zero_val y z) = true) =
   if is_nan y = true then
-    ax_fma_nan_y rm zero_val z
+    ax_fma_any_nan_y rm zero_val y z
   else begin
     ax_zero_mul_inf rm zero_val y;
     ax_fma_nan_mul  rm zero_val y z
@@ -182,7 +182,7 @@ let lemma_fma_zero_general_nan_inf_arm
                       (is_nan y = true || is_inf y = true))
             (ensures  is_nan (fp_fma rm zero_val y z) = true) =
   if is_nan y = true then
-    ax_fma_nan_y rm zero_val z
+    ax_fma_any_nan_y rm zero_val y z
   else begin
     ax_zero_mul_inf rm zero_val y;
     ax_fma_nan_mul  rm zero_val y z
@@ -229,7 +229,7 @@ let lemma_fma_zero_product_sign
 let lemma_is_nan_to_fp_int
     (#eb #sb: pos) (rm: rounding_mode) (x: int)
     : Lemma (is_nan (to_fp_of_int #eb #sb rm x) = false) =
-  ax_to_fp_int_not_nan rm x
+  ax_to_fp_int_not_nan #eb #sb rm x
 
 
 (* --- 2b: isInf --- *)
@@ -245,32 +245,32 @@ let lemma_is_inf_to_fp_int_rne
     (#eb #sb: pos) (x: int)
     : Lemma (is_inf (to_fp_of_int #eb #sb RNE x) =
              (x >= overflow_threshold eb sb || x <= -(overflow_threshold eb sb))) =
-  ax_is_inf_rne x
+  ax_is_inf_rne #eb #sb x
 
 (* RNA: same threshold as RNE (ties round away from zero to ∞). *)
 let lemma_is_inf_to_fp_int_rna
     (#eb #sb: pos) (x: int)
     : Lemma (is_inf (to_fp_of_int #eb #sb RNA x) =
              (x >= overflow_threshold eb sb || x <= -(overflow_threshold eb sb))) =
-  ax_is_inf_rna x
+  ax_is_inf_rna #eb #sb x
 
 (* RTP: positive overflow only (negative values round toward 0, not -∞). *)
 let lemma_is_inf_to_fp_int_rtp
     (#eb #sb: pos) (x: int)
     : Lemma (is_inf (to_fp_of_int #eb #sb RTP x) = (x > max_finite_int eb sb)) =
-  ax_is_inf_rtp x
+  ax_is_inf_rtp #eb #sb x
 
 (* RTN: negative overflow only (positive values round toward 0, not +∞). *)
 let lemma_is_inf_to_fp_int_rtn
     (#eb #sb: pos) (x: int)
     : Lemma (is_inf (to_fp_of_int #eb #sb RTN x) = (x < -(max_finite_int eb sb))) =
-  ax_is_inf_rtn x
+  ax_is_inf_rtn #eb #sb x
 
 (* RTZ: truncation toward zero never overflows to infinity. *)
 let lemma_is_inf_to_fp_int_rtz
     (#eb #sb: pos) (x: int)
     : Lemma (is_inf (to_fp_of_int #eb #sb RTZ x) = false) =
-  ax_is_inf_rtz x
+  ax_is_inf_rtz #eb #sb x
 
 
 (* --- 2c: isNormal --- *)
@@ -295,21 +295,21 @@ let lemma_is_normal_to_fp_int
     : Lemma (is_normal (to_fp_of_int #eb #sb rm x) =
              (x <> 0 && not (is_inf (to_fp_of_int #eb #sb rm x)))) =
   let f = to_fp_of_int #eb #sb rm x in
-  ax_to_fp_int_not_nan       rm x;   (* is_nan f = false      *)
-  ax_to_fp_int_not_subnormal rm x;   (* is_subnormal f = false *)
-  ax_classification          f;      (* nan||inf||zero||normal||subnormal *)
+  ax_to_fp_int_not_nan       #eb #sb rm x;   (* is_nan f = false      *)
+  ax_to_fp_int_not_subnormal #eb #sb rm x;   (* is_subnormal f = false *)
+  ax_classification          f;              (* nan||inf||zero||normal||subnormal *)
   if x = 0 then begin
-    ax_to_fp_int_zero rm;            (* is_zero f = true  *)
-    ax_zero_exclusive f              (* is_normal f = false, since is_zero f *)
+    ax_to_fp_int_zero #eb #sb rm;            (* is_zero f = true  *)
+    ax_zero_exclusive f                      (* is_normal f = false, since is_zero f *)
   end else begin
-    ax_to_fp_int_nonzero rm x;       (* is_zero f = false *)
+    ax_to_fp_int_nonzero #eb #sb rm x;       (* is_zero f = false *)
     (* At this point: not nan, not subnormal, not zero.
        ax_classification gives nan||inf||zero||normal||subnormal, which
        simplifies to inf||normal.  We case-split on is_inf f. *)
     if is_inf f then
-      ax_inf_exclusive f             (* is_inf f = true => is_normal f = false *)
+      ax_inf_exclusive f                     (* is_inf f = true => is_normal f = false *)
     else
-      ()                             (* is_inf f = false; by classification, is_normal f = true *)
+      ()                                     (* is_inf f = false; by classification, is_normal f = true *)
   end
 
 
@@ -390,7 +390,7 @@ let lemma_fma_zero_ite_nan_arm
     : Lemma (requires is_zero zero_val = true && is_finite y = false)
             (ensures  is_nan (fp_fma rm zero_val y z) = true) =
   if is_nan y = true then
-    ax_fma_nan_y rm zero_val z
+    ax_fma_any_nan_y rm zero_val y z
   else begin
     (* is_finite y = false && is_nan y = false.
        By the transparent definition is_finite y = not (is_nan y) && not (is_inf y),
@@ -409,12 +409,12 @@ let lemma_is_normal_to_fp_int_rne
              (x <> 0 &&
               not (x >= overflow_threshold eb sb ||
                    x <= -(overflow_threshold eb sb)))) =
-  lemma_is_normal_to_fp_int RNE x;
-  ax_is_inf_rne x
+  lemma_is_normal_to_fp_int #eb #sb RNE x;
+  ax_is_inf_rne #eb #sb x
 
 (* The full isNormal(to_fp(rm, x)) rewrite for RTZ (never overflows). *)
 let lemma_is_normal_to_fp_int_rtz
     (#eb #sb: pos) (x: int)
     : Lemma (is_normal (to_fp_of_int #eb #sb RTZ x) = (x <> 0)) =
-  lemma_is_normal_to_fp_int RTZ x;
-  ax_is_inf_rtz x
+  lemma_is_normal_to_fp_int #eb #sb RTZ x;
+  ax_is_inf_rtz #eb #sb x
