@@ -332,6 +332,9 @@ let rec gen_rhs_expr (e: cexpr) : Tot string (decreases e) =
     ^ gen_rhs_expr_list args ^ ")"
 
 and gen_rhs_expr_list (es: list cexpr) : Tot string (decreases es) =
+  (* Comma-separated list for C++ function arguments.  Empty list yields ""
+     so EApp fn [] produces fn_name(), which is valid C++ for zero-arg calls
+     (e.g. builder helper functions that take no explicit arguments). *)
   match es with
   | []      -> ""
   | [e]     -> gen_rhs_expr e

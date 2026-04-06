@@ -50,6 +50,9 @@ jobs:
           URL="https://github.com/FStarLang/FStar/releases/download/v${FSTAR_VERSION}/${ARCHIVE}"
           echo "Downloading F* ${FSTAR_VERSION} from ${URL}" >&2
           curl -fsSL -o "/tmp/${ARCHIVE}" "${URL}"
+          # The F* 2026 archive has structure: ./fstar/bin/fstar.exe
+          # --strip-components=2 removes both './' and 'fstar/' so that
+          # bin/fstar.exe lands directly in $HOME/fstar/bin/fstar.exe.
           mkdir -p "$HOME/fstar"
           tar -xzf "/tmp/${ARCHIVE}" -C "$HOME/fstar" --strip-components=2
           echo "$HOME/fstar/bin" >> "$GITHUB_PATH"
