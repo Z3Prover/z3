@@ -307,6 +307,19 @@ namespace seq {
     }
 
     void nielsen_node::add_char_range(euf::snode* sym_char, char_set const& range, dep_tracker dep) {
+        if (sym_char->is_char()) {
+            // for a concrete character just check if it matches
+            expr* val = sym_char->get_expr();
+            unsigned ch;
+            VERIFY(graph().seq().is_const_char(val, ch));
+            for (unsigned i = 0; i < range.ranges().size(); i++) {
+                if (range.ranges()[i].contains(ch))
+                    return; // matches, no conflict
+            }
+            set_conflict(backtrack_reason::character_range, dep);
+            set_general_conflict(true);
+            return;
+        }
         SASSERT(sym_char && sym_char->is_unit());
         unsigned id = sym_char->id();
         if (m_char_ranges.contains(id)) {
@@ -314,8 +327,8 @@ namespace seq {
             char_set inter = existing.first.intersect_with(range);
             existing = std::make_pair(inter, graph().dep_mgr().mk_join(existing.second, dep));
             if (inter.is_empty()) {
-                m_is_general_conflict = true;
                 set_conflict(backtrack_reason::character_range, existing.second);
+                set_general_conflict(true);
             }
         }
         else
