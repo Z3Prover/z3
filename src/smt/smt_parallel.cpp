@@ -140,7 +140,7 @@ namespace smt {
                 auto atom = get_split_atom();
                 if (!atom)
                     goto check_cube_start;
-                b.split(m_l2g, id, node, atom, m_last_check_effort);
+                b.split(m_l2g, id, node, atom);
                 simplify();
                 break;
             }
@@ -534,7 +534,6 @@ namespace smt {
     void parallel::batch_manager::initialize() {
         m_state = state::is_running;
         m_search_tree.reset();
-        m_search_tree.set_effort_unit(1000);
     }
 
     void parallel::batch_manager::collect_statistics(::statistics &st) const {

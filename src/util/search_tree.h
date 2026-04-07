@@ -136,6 +136,7 @@ namespace search_tree {
             return m_num_activations;
         }
         void mark_activated() {
+            set_status(status::active);
             ++m_num_activations;
         }
         unsigned effort_spent() const {
@@ -152,25 +153,20 @@ namespace search_tree {
         literal m_null_literal;
         random_gen m_rand;
         unsigned m_expand_factor = 2;
-        unsigned m_effort_unit = 1;
 
         struct candidate {
             node<Config>* n = nullptr;
-            unsigned effort_band = UINT64_MAX;
+            unsigned effort_spent = UINT64_MAX;
             unsigned depth = 0;
         };
-
-        unsigned effort_band(node<Config> const* n) const {
-            return n->effort_spent() / std::max<unsigned>(1, m_effort_unit);
-        }
 
         bool better(candidate const& a, candidate const& b) const {
             if (!a.n)
                 return false;
             if (!b.n)
                 return true;
-            if (a.effort_band != b.effort_band)
-                return a.effort_band < b.effort_band;
+            if (a.effort_spent != b.effort_spent)
+                return a.effort_spent < b.effort_spent;
             if (a.depth != b.depth)
                 return a.depth > b.depth;
             return false;
@@ -182,7 +178,7 @@ namespace search_tree {
             if (cur->get_status() == status::open) {
                 candidate cand;
                 cand.n = cur;
-                cand.effort_band = effort_band(cur);
+                cand.effort_spent = cur->effort_spent();
                 cand.depth = cur->depth();
                 if (better(cand, best))
                     best = cand;
@@ -196,7 +192,6 @@ namespace search_tree {
             collect_best_open_node(m_root.get(), best);
             if (!best.n)
                 return nullptr;
-            best.n->set_status(status::active);
             best.n->mark_activated();
             return best.n;
         }
@@ -418,13 +413,8 @@ namespace search_tree {
             m_rand.set_seed(seed);
         }
 
-        void set_effort_unit(unsigned effort_unit) {
-            m_effort_unit = std::max<unsigned>(1, effort_unit);
-        }
-
         void reset() {
             m_root = alloc(node<Config>, m_null_literal, nullptr);
-            m_root->set_status(status::active);
             m_root->mark_activated();
         }
 
@@ -482,8 +472,10 @@ namespace search_tree {
         // if not, go up the tree and try to activate a sibling subtree
         node<Config> *activate_node(node<Config> *n) {
             if (!n) {
-                if (m_root->get_status() == status::active)
+                if (m_root->get_status() == status::active) {
+                    m_root->mark_activated();
                     return m_root.get();
+                }
             }
             return activate_best_node();
         }
