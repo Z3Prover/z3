@@ -172,30 +172,38 @@ namespace search_tree {
             return false;
         }
 
-        void collect_best_open_node(node<Config>* cur, candidate& best) const {
+        void select_next_node(node<Config>* cur, status target_status, candidate& best) const {
             if (!cur || cur->get_status() == status::closed)
                 return;
-            if (cur->get_status() == status::open) {
+
+            if (cur->get_status() == target_status) {
                 candidate cand;
                 cand.n = cur;
                 cand.effort_spent = cur->effort_spent();
                 cand.depth = cur->depth();
+
                 if (better(cand, best))
                     best = cand;
             }
-            collect_best_open_node(cur->left(), best);
-            collect_best_open_node(cur->right(), best);
+
+            select_next_node(cur->left(), target_status, best);
+            select_next_node(cur->right(), target_status, best);
         }
 
         node<Config>* activate_best_node() {
             candidate best;
-            collect_best_open_node(m_root.get(), best);
+            select_next_node(m_root.get(), status::open, best);
+            if (!best.n) {
+                IF_VERBOSE(1, verbose_stream() << "NO OPEN NODES, trying active nodes for portfolio solving\n";);
+                select_next_node(m_root.get(), status::active, best); // If no open nodes, only then consider active nodes for selection
+            }
+
             if (!best.n)
                 return nullptr;
             best.n->mark_new_activation();
             return best.n;
         }
-
+        
         unsigned count_unsolved_nodes(node<Config>* cur) const {
             if (!cur || cur->get_status() == status::closed)
                 return 0;
@@ -493,10 +501,6 @@ namespace search_tree {
                 }
             }
             return activate_best_node();
-        }
-
-        node<Config> *find_active_node() {
-            return m_root->find_active_node();
         }
 
         vector<literal> const &get_core_from_root() const {

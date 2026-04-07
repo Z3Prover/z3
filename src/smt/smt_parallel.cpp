@@ -515,8 +515,6 @@ namespace smt {
         }
         node *t = m_search_tree.activate_node(n);
         if (!t)
-            t = m_search_tree.find_active_node();
-        if (!t)
             return false;
         IF_VERBOSE(1, m_search_tree.display(verbose_stream()); verbose_stream() << "\n";);
         n = t;
