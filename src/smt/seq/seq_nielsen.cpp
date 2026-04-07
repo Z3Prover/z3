@@ -219,16 +219,10 @@ namespace seq {
         m_str_eq.reset();
         m_str_mem.reset();
         m_constraints.reset();
-        m_char_diseqs.reset();
         m_char_ranges.reset();
         m_str_eq.append(parent.m_str_eq);
         m_str_mem.append(parent.m_str_mem);
         m_constraints.append(parent.m_constraints);
-
-        // clone character disequalities
-
-        for (auto const &[k,v] : parent.m_char_diseqs)
-            m_char_diseqs.insert(k, v);
 
         // clone character ranges
         for (auto const &[k, v] : parent.m_char_ranges)
@@ -295,12 +289,20 @@ namespace seq {
                  mem.m_dep = m_graph.dep_mgr().mk_join(mem.m_dep, s.m_dep);
             }
         }
-        if (s.is_char_subst()) {
-            expr* v = s.m_var->get_expr();
-            expr* repl = s.m_replacement->get_expr();
 
-            expr* eq = sg.get_manager().mk_eq(v, repl);
-            add_constraint(constraint(eq, s.m_dep, sg.get_manager()));
+        const unsigned var_id = s.m_var->id();
+
+        if (s.is_char_subst()) {
+            ast_manager& m = graph().get_manager();
+            add_constraint(
+                constraint(
+                    m.mk_eq(s.m_var->get_expr(), s.m_replacement->get_expr()), s.m_dep, m));
+
+            if (m_char_ranges.contains(var_id)) {
+                auto range = m_char_ranges.find(var_id); // copy exactly
+                m_char_ranges.remove(var_id);
+                add_char_range(s.m_replacement, range.first, range.second);
+            }
         }
     }
 
@@ -320,21 +322,6 @@ namespace seq {
             m_char_ranges.insert(id, std::make_pair(range.clone(), dep));
     }
 
-    void nielsen_node::add_char_diseq(euf::snode* sym_char, euf::snode* other, dep_tracker dep) {
-        SASSERT(sym_char && sym_char->is_unit());
-        SASSERT(other && other->is_unit());
-        unsigned id = sym_char->id();
-        if (!m_char_diseqs.contains(id))
-            m_char_diseqs.insert(id, vector<std::pair<euf::snode*, dep_tracker>>());
-        vector<std::pair<euf::snode*, dep_tracker>>& existing = m_char_diseqs.find(id);
-        // check for duplicates
-        for (auto& s : existing) {
-            if (s.first == other)
-                return;
-        }
-        existing.push_back(std::make_pair(other, dep));
-    }
-
     bool nielsen_node::lower_bound(expr* e, rational& lo) const {
         SASSERT(e);
         return m_graph.m_solver.lower_bound(e, lo);
@@ -349,58 +336,6 @@ namespace seq {
             return true;
         }
         return m_graph.m_solver.upper_bound(e, up);
-    }
-
-    void nielsen_node::apply_char_subst(euf::sgraph& sg, char_subst const& s, dep_tracker dep) {
-        if (!s.m_var) return;
-
-        // replace occurrences of s.m_var with s.m_val in all string constraints
-        for (auto &eq : m_str_eq) {
-            eq.m_lhs = sg.subst(eq.m_lhs, s.m_var, s.m_val);
-            eq.m_rhs = sg.subst(eq.m_rhs, s.m_var, s.m_val);
-            eq.sort();
-        }
-        for (auto &mem : m_str_mem) {
-            mem.m_str = sg.subst(mem.m_str, s.m_var, s.m_val);
-            mem.m_regex = sg.subst(mem.m_regex, s.m_var, s.m_val);
-        }
-
-        const unsigned var_id = s.m_var->id();
-
-        if (s.m_val->is_unit()) {
-            // symbolic char → symbolic char: check disequalities
-            if (m_char_diseqs.contains(var_id)) {
-                const auto& diseqs = m_char_diseqs.find(var_id);
-                for (const auto& d : diseqs) {
-                    if (d.first == s.m_val) {
-                        m_is_general_conflict = true;
-                        set_conflict(backtrack_reason::character_range, d.second);
-                        return;
-                    }
-                }
-                m_char_diseqs.remove(var_id);
-                m_char_ranges.remove(var_id);
-            }
-        }
-        else {
-            SASSERT(s.m_val->is_char());
-            // symbolic char → concrete char: check range constraints
-            if (m_char_ranges.contains(var_id)) {
-                auto& range = m_char_ranges.find(var_id);
-                unsigned ch_val = 0;
-                seq_util& seq = sg.get_seq_util();
-                expr* unit_expr = s.m_val->get_expr();
-                expr* ch_expr = nullptr;
-                bool have_char = unit_expr && seq.str.is_unit(unit_expr, ch_expr) && seq.is_const_char(ch_expr, ch_val);
-                if (have_char && !range.first.contains(ch_val)) {
-                    m_is_general_conflict = true;
-                    set_conflict(backtrack_reason::character_range, graph().dep_mgr().mk_join(dep, range.second));
-                    return;
-                }
-                m_char_diseqs.remove(var_id);
-                m_char_ranges.remove(var_id);
-            }
-        }
     }
 
     // -----------------------------------------------
@@ -4100,7 +4035,7 @@ nielsen_graph::generate_length_constraints(vector<length_constraint>& constraint
     bool nielsen_graph::solve_sat_path_raw(model_ref& mdl) {
         mdl = nullptr;
         if (m_sat_path.empty() && (!m_sat_node ||
-            (m_sat_node->constraints().empty() && m_sat_node->char_diseqs().empty() && m_sat_node->char_ranges().empty())))
+            (m_sat_node->constraints().empty() && m_sat_node->char_ranges().empty())))
             return false;
 
         // Re-assert the sat-path constraints into m_solver (which holds only root-level
@@ -4118,28 +4053,16 @@ nielsen_graph::generate_length_constraints(vector<length_constraint>& constraint
         if (m_sat_node) {
             for (auto const& ic : m_sat_node->constraints())
                 m_solver.assert_expr(ic.fml);
-            for (auto const& dis : m_sat_node->char_diseqs()) {
-                ptr_vector<expr> dist;
-                dist.reserve((unsigned)dis.m_value.size());
-                for (unsigned i = 0; i < dis.m_value.size(); ++i) {
-                    dist.push_back(dis.m_value[i].first->get_expr());
-                }
-                m_solver.assert_expr(m.mk_distinct(dist.size(), dist.data()));
-            }
-            // NSB code review: there is a seprate sort for characters
-            bv_util arith(m);
             for (auto const& kvp : m_sat_node->char_ranges()) {
                 expr_ref_vector cases(m);
                 const auto& var = m_sg.nodes()[kvp.m_key]->get_expr();
                 const auto& ranges = kvp.m_value.first.ranges();
                 cases.reserve(ranges.size());
-                SASSERT(var->get_sort()->get_family_id() == arith.get_family_id());
-                unsigned bitCnt = arith.get_bv_size(var);
 
                 for (unsigned i = 0; i < ranges.size(); ++i) {
                     cases.push_back(m.mk_and(
-                        arith.mk_ule(arith.mk_numeral(ranges[i].m_lo, bitCnt), var),
-                        arith.mk_ule(var, arith.mk_numeral(ranges[i].m_hi - 1, bitCnt))
+                        seq().mk_le(seq().mk_char(ranges[i].m_lo), var),
+                        seq().mk_le(var, seq().mk_char(ranges[i].m_hi - 1))
                         ));
                 }
                 m_solver.assert_expr(m.mk_or(cases));

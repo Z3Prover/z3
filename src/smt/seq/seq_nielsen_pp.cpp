@@ -508,14 +508,6 @@ namespace seq {
             kv.m_value.first.display(out);
             out << "<br/>";
         }
-        // character disequalities
-        for (auto const& kv : m_char_diseqs) {
-            if (!any) { out << "Cnstr:<br/>"; any = true; }
-            if (!hasDiseq) { out << "Diseq:<br/>"; hasDiseq = true; }
-            for (auto& d : kv.m_value) {
-                out << "?" << kv.m_key << " &#8800; ?" << d.first->id() << "<br/>";
-            }
-        }
         // integer constraints
         for (auto const& ic : m_constraints) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }

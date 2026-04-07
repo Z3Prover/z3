@@ -338,31 +338,6 @@ namespace seq {
                       svector<enode_pair>& eqs,
                       svector<sat::literal>& lits);
 
-    // -----------------------------------------------
-    // character-level substitution
-    // mirrors ZIPT's CharSubst
-    // -----------------------------------------------
-
-    // maps a symbolic char (s_unit snode) to a concrete or symbolic char
-    struct char_subst {
-        euf::snode* m_var;  // the symbolic char being substituted (s_unit)
-        euf::snode* m_val;  // replacement: s_char (concrete) or s_unit (symbolic)
-
-        char_subst(): m_var(nullptr), m_val(nullptr) {}
-        char_subst(euf::snode* var, euf::snode* val):
-            m_var(var), m_val(val) {
-            SASSERT(var && var->is_unit());
-            SASSERT(val && (val->is_char() || val->is_unit()));
-        }
-
-        // true when the replacement is a concrete character
-        bool is_eliminating() const { return m_val && m_val->is_char(); }
-
-        bool operator==(char_subst const& o) const {
-            return m_var == o.m_var && m_val == o.m_val;
-        }
-    };
-
     // string equality constraint: lhs = rhs
     // mirrors ZIPT's StrEq (both sides are regex-free snode trees)
     struct str_eq {
@@ -540,7 +515,6 @@ namespace seq {
 
         // character constraints (mirrors ZIPT's DisEqualities and CharRanges)
         // key: snode id of the s_unit symbolic character
-        u_map<vector<std::pair<euf::snode*, dep_tracker>>> m_char_diseqs;   // ?c != {?d, ?e, ...}
         u_map<std::pair<char_set, dep_tracker>>            m_char_ranges;   // ?c in [lo, hi)
 
         // edges
@@ -607,20 +581,12 @@ namespace seq {
         bool lower_bound(expr* e, rational& lo) const;
         bool upper_bound(expr* e, rational& up) const;
 
-        // character constraint access (mirrors ZIPT's DisEqualities / CharRanges)
-        u_map<vector<std::pair<euf::snode *, dep_tracker>>> char_diseqs() const { return m_char_diseqs; }
+        // character constraint access (mirrors ZIPT's CharRanges)
         u_map<std::pair<char_set, dep_tracker>> char_ranges() const { return m_char_ranges; }
 
         // add a character range constraint for a symbolic char.
         // intersects with existing range; sets conflict if result is empty.
         void add_char_range(euf::snode* sym_char, char_set const& range, dep_tracker dep);
-
-        // add a character disequality: sym_char != other
-        void add_char_diseq(euf::snode* sym_char, euf::snode* other, dep_tracker dep);
-
-        // apply a character-level substitution to all constraints.
-        // checks disequalities and ranges; sets conflict on violation.
-        void apply_char_subst(euf::sgraph& sg, char_subst const& s, dep_tracker dep);
 
         // edge access
         ptr_vector<nielsen_edge> const& outgoing() const { return m_outgoing; }
