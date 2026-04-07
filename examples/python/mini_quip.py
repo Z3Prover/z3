@@ -578,9 +578,16 @@ class Quip:
                     while True:
                         is_sat = s.check(self.next(g.cube))
                         assert is_sat == sat
-                        r = self.next(self.project0(s.model()))
+                        m = s.model()
+                        r = self.next(self.project0(m))
                         r = self.reachable.intersect(self.prev(r))
-                        child = QGoal(self.next(r.children()), g, 0, g.must, 0)
+                        if r is None:
+                            # reachable intersect failed: fall back to the raw
+                            # model projection so we still get a concrete
+                            # predecessor and avoid crashing on r.children()
+                            child = QGoal(self.next(self.project0(m)), g, 0, g.must, 0)
+                        else:
+                            child = QGoal(self.next(r.children()), g, 0, g.must, 0)
                         g = child
                         if not check_disjoint(self.init, self.prev(g.cube)):
                             # g is init, break the loop
