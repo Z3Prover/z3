@@ -87,6 +87,7 @@ add_executable(test-z3
   memory.cpp
   model2expr.cpp
   model_based_opt.cpp
+  mod_factor.cpp
   model_evaluator.cpp
   model_retrieval.cpp
   monomial_bounds.cpp
