@@ -344,16 +344,17 @@ namespace smt {
         expr_ref lit(m), nlit(m);
         lit = l2g(atom);
         nlit = mk_not(m, lit);
-        IF_VERBOSE(1, verbose_stream() << "Batch manager splitting on literal: " << mk_bounded_pp(lit, m, 3) << "\n");
+        
         if (m_state != state::is_running)
             return;
-        // optional heuristic:
-        // node->get_status() == status::active
-        // and depth is 'high' enough
-        // then ignore split, and instead set the status of node to open.
-        ++m_stats.m_num_cubes;
-        m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, node->depth() + 1);
-        m_search_tree.split(node, lit, nlit, effort);
+
+        bool split_success = m_search_tree.split(node, lit, nlit, effort);
+
+        if (split_success) {
+            ++m_stats.m_num_cubes;
+            m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, node->depth() + 1);
+            IF_VERBOSE(1, verbose_stream() << "Batch manager splitting on literal: " << mk_bounded_pp(lit, m, 3) << "\n");
+        }
     }
 
     void parallel::batch_manager::collect_clause(ast_translation &l2g, unsigned source_worker_id, expr *clause) {

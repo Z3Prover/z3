@@ -430,13 +430,16 @@ namespace search_tree {
 
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
-        void split(node<Config> *n, literal const &a, literal const &b, unsigned effort = 1) {
+        bool split(node<Config> *n, literal const &a, literal const &b, unsigned effort = 1) {
             if (!n || n->get_status() != status::active)
-                return;
-            if (should_expand(n, effort))
+                return false;
+            if (should_expand(n, effort)) {
                 n->split(a, b);
-            else
+                return true;
+            } else {
                 n->set_status(status::open);
+            }
+            return false;
         }
 
         // conflict is given by a set of literals.
