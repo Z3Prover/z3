@@ -3,6 +3,8 @@ import heapq
 import numpy
 import time
 import random
+import sys
+import copy
 
 verbose = True
 
@@ -77,6 +79,8 @@ class Horn2Transitions:
     def is_transition(self, body, head):
         pred, inv0 = self.is_body(body)
         if pred is None:
+            return False
+        if inv0 is None:
             return False
         inv1 = self.is_inv(head)
         if inv1 is None:
@@ -349,12 +353,12 @@ class Quip:
     def next(self, f):
         if is_seq(f):
            return [self.next(f1) for f1 in f]
-        return substitute(f, zip(self.x0, self.xn))
+        return substitute(f, list(zip(self.x0, self.xn)))
 
     def prev(self, f):
         if is_seq(f):
            return [self.prev(f1) for f1 in f]
-        return substitute(f, zip(self.xn, self.x0))
+        return substitute(f, list(zip(self.xn, self.x0)))
 
     def add_solver(self):
         s = fd_solver()
@@ -423,7 +427,8 @@ class Quip:
             s.push()
             r = self.reachable.state2cube(state)
             s.add(And(self.prev(r)))
-            s.add(self.prev(cube))
+            if len(cube) > 0:
+                s.add(And(self.prev(list(cube))))
             is_sat = s.check()
             s.pop()
             if is_sat == sat:
@@ -441,7 +446,7 @@ class Quip:
         s = self.states[f - 1].solver
         if unsat == s.check(cube):
             core = s.unsat_core()
-            if self.check_reachable(core):
+            if len(core) > 0 and self.check_reachable(core):
                 return core, f
         return cube, f
 
@@ -454,8 +459,8 @@ class Quip:
         for state in self.reachable.states:
             s.push()
             s.add(And(self.next(self.reachable.state2cube(state))))
-            print self.reachable.state2cube(state)
-            print s.check()
+            print(self.reachable.state2cube(state))
+            print(s.check())
             s.pop()
 
     def lemmas(self, level):
@@ -553,7 +558,7 @@ class Quip:
                     s.add(self.init)
                     s.add(self.prev(g.cube))
                     # since init is a complete assignment, so g.cube must equal to init in sat solver
-                    assert is_sat == s.check()
+                    assert sat == s.check()
                     if verbose:
                         print("")
                     return g
@@ -564,7 +569,7 @@ class Quip:
             if r0 is not None:
                 if g.must:
                     if verbose:
-                        print ""
+                        print("")
                     s = fd_solver()
                     s.add(self.trans)
                     # make it as a concrete reachable state
@@ -596,7 +601,7 @@ class Quip:
                 for l in self.frames[f_1]:
                     if not l.bad and len(l.cube) > 0 and set(l.cube).issubset(g.cube):
                         cube = l.cube
-                        is_sat == unsat
+                        is_sat = unsat
                         break
                 f_1 -= 1
             if cube is None:
@@ -707,7 +712,7 @@ def test(file):
     h2t = Horn2Transitions()
     h2t.parse(file)
     if verbose:
-        print("Test file: %s") % file
+        print("Test file: %s" % file)
     mp = Quip(h2t.init, h2t.trans, h2t.goal, h2t.xs, h2t.inputs, h2t.xns)
     start_time = time.time()
     result = mp.run()
@@ -744,7 +749,7 @@ def validate(var, result, trans):
             s.pop()
             g = g.parent
         if verbose:
-            print "--- validation succeed ----"
+            print("--- validation succeed ----")
         return
     if isinstance(result, ExprRef):
         inv = result
@@ -762,7 +767,7 @@ def validate(var, result, trans):
             # too many steps to reach invariant
             if step > 1000:
                 if verbose:
-                    print "--- validation failed --"
+                    print("--- validation failed --")
                 return
             if not check_disjoint(var.prev(cube), var.prev(inv)):
                 # reach invariant
@@ -773,7 +778,7 @@ def validate(var, result, trans):
             cube = var.projectN(s.model())
             s.pop()
         if verbose:
-            print "--- validation succeed ----"
+            print("--- validation succeed ----")
         return
 
 
