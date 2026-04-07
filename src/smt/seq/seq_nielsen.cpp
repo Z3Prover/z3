@@ -295,10 +295,10 @@ namespace seq {
                  mem.m_dep = m_graph.dep_mgr().mk_join(mem.m_dep, s.m_dep);
             }
         }
-        if (s.m_var->get_expr() && !sg.get_seq_util().is_seq(s.m_var->get_expr()) && !sg.get_seq_util().is_re(s.m_var->get_expr())) {
+        if (s.is_char_subst()) {
             expr* v = s.m_var->get_expr();
             expr* repl = s.m_replacement->get_expr();
-            
+
             expr* eq = sg.get_manager().mk_eq(v, repl);
             add_constraint(constraint(eq, s.m_dep, sg.get_manager()));
         }
