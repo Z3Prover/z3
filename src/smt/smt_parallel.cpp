@@ -348,7 +348,7 @@ namespace smt {
         if (m_state != state::is_running)
             return;
 
-        bool split_success = m_search_tree.split(node, lit, nlit, effort);
+        bool split_success = m_search_tree.try_split(node, lit, nlit);
 
         if (split_success) {
             ++m_stats.m_num_cubes;

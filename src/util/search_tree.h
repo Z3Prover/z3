@@ -135,7 +135,7 @@ namespace search_tree {
         unsigned num_activations() const {
             return m_num_activations;
         }
-        void mark_activated() {
+        void mark_new_activation() {
             set_status(status::active);
             ++m_num_activations;
         }
@@ -192,7 +192,7 @@ namespace search_tree {
             collect_best_open_node(m_root.get(), best);
             if (!best.n)
                 return nullptr;
-            best.n->mark_activated();
+            best.n->mark_new_activation();
             return best.n;
         }
 
@@ -218,39 +218,54 @@ namespace search_tree {
                    count_active_nodes(cur->right());
         }
 
-        unsigned shallowest_timed_out_leaf_depth(node<Config>* cur, unsigned best) const {
+        void find_shallowest_timed_out_leaf_depth(node<Config>* cur, unsigned& best_depth) const {
             if (!cur || cur->get_status() == status::closed)
-                return best;
+                return;
+
             if (cur->is_leaf() && cur->effort_spent() > 0)
-                best = std::min(best, cur->depth());
-            best = shallowest_timed_out_leaf_depth(cur->left(), best);
-            best = shallowest_timed_out_leaf_depth(cur->right(), best);
-            return best;
+                best_depth = std::min(best_depth, cur->depth());
+
+            find_shallowest_timed_out_leaf_depth(cur->left(), best_depth);
+            find_shallowest_timed_out_leaf_depth(cur->right(), best_depth);
         }
 
-        bool should_expand(node<Config>* n, unsigned effort) {
+        bool should_split(node<Config>* n, unsigned effort) {
             if (!n || n->get_status() != status::active)
                 return false;
             n->add_effort(effort);
             if (!n->is_leaf())
                 return false;
 
-            unsigned active = std::max(1u, count_active_nodes(m_root.get()));
-            unsigned size = count_unsolved_nodes(m_root.get());
+            unsigned num_active_nodes = count_active_nodes(m_root.get());
+            unsigned unsolved_tree_size = count_unsolved_nodes(m_root.get());
 
-            if (size >= active * m_expand_factor)
-                return false;
-            if (has_unvisited_open_node(m_root.get()))
+            if (unsolved_tree_size >= num_active_nodes * m_expand_factor)
                 return false;
 
-            unsigned shallowest = shallowest_timed_out_leaf_depth(m_root.get(), UINT_MAX);
-            if (shallowest == UINT_MAX || n->depth() != shallowest)
-                return false;
+            // ONLY throttle when tree is "large enough"
+            // Between n and k*n - continue to other gates
+            if (unsolved_tree_size >= num_active_nodes) {
+                // Gate 4: NEW node check (Algorithm 4, line 5)
+                if (has_unvisited_open_node(m_root.get()))
+                    return false;
 
-            if (size >= active && m_rand(2) != 0)
-                return false;
+                // Gate 5: Random throttling (Algorithm 4, lines 7-9)
+                // r ← Random() ∈ ]0,1[; if r >= 1/p then abort
+                // With p=2, this gives 50% rejection
+                if (m_rand(2) != 0)
+                    return false;
+            }
 
-            return true;
+            // Gate 6: Select shallowest timed-out leaf (Algorithm 4, line 10)
+            // Paper: globally select shallowest leaf
+            // Z3 limitation: check if `n` IS the shallowest (we can only expand it)
+            unsigned shallowest_timed_out_leaf_depth = UINT_MAX;
+            find_shallowest_timed_out_leaf_depth(m_root.get(), shallowest_timed_out_leaf_depth);
+
+            // Only expand if `n` is a shallowest timed-out leaf
+            bool is_timed_out_leaf = n->is_leaf() && n->effort_spent() > 0;
+            return is_timed_out_leaf && 
+                   n->depth() == shallowest_timed_out_leaf_depth;
         }
 
         // Bubble to the highest ancestor where ALL literals in the resolvent
@@ -415,15 +430,15 @@ namespace search_tree {
 
         void reset() {
             m_root = alloc(node<Config>, m_null_literal, nullptr);
-            m_root->mark_activated();
+            m_root->mark_new_activation();
         }
 
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
-        bool split(node<Config> *n, literal const &a, literal const &b, unsigned effort = 1) {
+        bool try_split(node<Config> *n, literal const &a, literal const &b, unsigned effort = 1) {
             if (!n || n->get_status() != status::active)
                 return false;
-            if (should_expand(n, effort)) {
+            if (should_split(n, effort)) {
                 n->split(a, b);
                 return true;
             } else {
@@ -473,7 +488,7 @@ namespace search_tree {
         node<Config> *activate_node(node<Config> *n) {
             if (!n) {
                 if (m_root->get_status() == status::active) {
-                    m_root->mark_activated();
+                    m_root->mark_new_activation();
                     return m_root.get();
                 }
             }
