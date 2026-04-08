@@ -252,13 +252,8 @@ namespace search_tree {
             find_shallowest_timed_out_leaf_depth(cur->right(), best_depth);
         }
 
-        bool should_split(node<Config>* n, unsigned effort) {
-            if (!n || n->get_status() != status::active)
-                return false;
-
-            n->add_effort(effort);
-            
-            if(!n->is_leaf())
+        bool should_split(node<Config>* n) {
+            if (!n || n->get_status() != status::active || !n->is_leaf())
                 return false;
 
             unsigned num_active_nodes = count_active_nodes(m_root.get());
@@ -456,9 +451,9 @@ namespace search_tree {
             if (!n || n->get_status() != status::active)
                 return false;
 
-            // n->add_effort(effort);
+            n->add_effort(effort);
 
-            if (should_split(n, effort)) {
+            if (should_split(n)) {
                 n->split(a, b);
                 return true;
             } else {
