@@ -171,6 +171,12 @@ namespace smt {
 
         if (n->is_char() || n->is_unit()) {
             expr* e = n->get_expr();
+            expr_ref val(m);
+            if (e && m_int_model) {
+                m_int_model->eval_expr(e, val, true);
+                if (val)
+                    return val;
+            }
             return e ? expr_ref(e, m) : expr_ref(m);
         }
 

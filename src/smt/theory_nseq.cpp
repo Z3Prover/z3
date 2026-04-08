@@ -752,7 +752,7 @@ namespace smt {
                 else
                     kernel.assert_expr(ctx.literal2expr(std::get<sat::literal>(d)));
             }
-            const auto res = kernel.check();
+            auto res = kernel.check();
             if (res == l_true) {
                 std::cout << "Insufficient justification:\n";
                 for (auto& lit : lits) {
@@ -763,6 +763,23 @@ namespace smt {
                 }
                 auto dot = m_nielsen.to_dot();
                 std::cout << std::endl;
+                kernel.reset();
+                for (const seq::constraint& c : m_nielsen.root()->constraints()) {
+                    kernel.assert_expr(c.fml);
+                }
+                for (const seq::str_eq& c : m_nielsen.root()->str_eqs()) {
+                    kernel.assert_expr(m.mk_eq(c.m_lhs->get_expr(), c.m_rhs->get_expr()));
+                }
+                for (const seq::str_mem& c : m_nielsen.root()->str_mems()) {
+                    kernel.assert_expr(m_seq.re.mk_in_re(c.m_str->get_expr(), c.m_regex->get_expr()));
+                }
+                res = kernel.check();
+                if (res == l_true)
+                    // the algorithm is unsound
+                    std::cout << "Original input is SAT" << std::endl;
+                else if (res == l_false)
+                    // the justification is too narrow
+                    std::cout << "Original input is UNSAT" << std::endl;
             }
             VERIFY(res != l_true);
         }
