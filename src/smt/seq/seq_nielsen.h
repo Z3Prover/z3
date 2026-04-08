@@ -244,7 +244,7 @@ Author:
 #include "ast/euf/euf_sgraph.h"
 #include <map>
 #include "model/model.h"
-
+#include "sat/smt/arith_solver.h"
 
 namespace smt {
     class enode;
@@ -574,6 +574,8 @@ namespace seq {
 
         vector<constraint> const& constraints() const { return m_constraints; }
         vector<constraint>& constraints() { return m_constraints; }
+
+        sat::literal get_external_conflict_literal() const { return m_conflict_external_literal; }
 
         // Query current bounds for a variable from the arithmetic subsolver.
         // Falls der Subsolver keinen Bound liefert, werden konservative Defaults

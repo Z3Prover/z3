@@ -784,7 +784,7 @@ namespace smt {
             }
             auto res = kernel.check();
             if (res == l_true) {
-                std::cout << "Insufficient justification:\n";
+                std::cout << "Conflict is SAT - Insufficient justification:\n";
                 for (auto& lit : lits) {
                     std::cout << mk_pp(ctx.literal2expr(lit), m) << "\n-----------\n";
                 }
@@ -795,27 +795,43 @@ namespace smt {
                 std::cout << std::endl;
                 model_out();
                 kernel.reset();
-                auto& lits = ctx.assigned_literals();
-                for (literal l : lits) {
-                    expr* e = ctx.literal2expr(l);
-                    if (!ctx.b_internalized(e) || !ctx.is_relevant(e))
-                         continue;
-                    th_rewriter th(m);
-                    expr_ref r(m);
-                    th(e, r);
-                    kernel.assert_expr(r);
+                for (auto& eq : m_nielsen.root()->str_eqs()) {
+                    kernel.assert_expr(m.mk_eq(eq.m_lhs->get_expr(), eq.m_rhs->get_expr()));
+                }
+                for (auto& mem : m_nielsen.root()->str_mems()) {
+                    kernel.assert_expr(m_seq.re.mk_in_re(mem.m_str->get_expr(), mem.m_regex->get_expr()));
                 }
                 auto res2 = kernel.check();
                 if (res2 == l_true) {
-                    // the algorithm is unsound
-                    std::cout << "Original input is SAT" << std::endl;
+                    std::cout << "Nielsen input is SAT" << std::endl;
                     model_out();
+                    kernel.reset();
+                    auto& lits = ctx.assigned_literals();
+                    for (literal l : lits) {
+                        expr* e = ctx.literal2expr(l);
+                        if (!ctx.b_internalized(e) || !ctx.is_relevant(e))
+                            continue;
+                        th_rewriter th(m);
+                        expr_ref r(m);
+                        th(e, r);
+                        kernel.assert_expr(r);
+                    }
+                    auto res3 = kernel.check();
+                    if (res3 == l_true) {
+                        // the algorithm is unsound
+                        std::cout << "Complete input is SAT" << std::endl;
+                        model_out();
+                    }
+                    else if (res3 == l_false)
+                        // the justification is too narrow
+                        std::cout << "Complete input is UNSAT" << std::endl;
+                    else
+                        std::cout << "Complete input is UNKNOWN" << std::endl;
                 }
                 else if (res2 == l_false)
-                    // the justification is too narrow
-                    std::cout << "Original input is UNSAT" << std::endl;
+                    std::cout << "Nielsen input is UNSAT" << std::endl;
                 else
-                    std::cout << "Original input is UNKNOWN" << std::endl;
+                    std::cout << "Nielsen input is UNKNOWN" << std::endl;
             }
             VERIFY(res != l_true);
         }

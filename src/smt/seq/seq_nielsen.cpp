@@ -1328,7 +1328,7 @@ namespace seq {
         if (m_max_nodes > 0 && m_stats.m_num_dfs_nodes > m_max_nodes)
             return search_result::unknown;
 
-        // revisit detection: if already visited this run, return cached status.
+        // revisit detection: if already visited this run (e.g., iterative deepening), return cached status.
         // mirrors ZIPT's NielsenNode.GraphExpansion() evalIdx check.
         if (node->eval_idx() == m_run_idx) {
             if (node->is_satisfied()) {
@@ -3678,8 +3678,6 @@ namespace seq {
         // We enumerate all nodes rather than having a "todo"-list, as
         // hypothetically the graph could contain cycles in the future
         for (nielsen_node const* n : m_nodes) {
-            if (n->eval_idx() != m_run_idx)
-                continue;
             if (n->reason() == backtrack_reason::children_failed)
                 continue;
 
@@ -3687,6 +3685,7 @@ namespace seq {
             if (n->m_conflict_external_literal != sat::null_literal) {
                 // We know from the outer solver that this literal is assigned false
                 deps = m_dep_mgr.mk_join(deps, m_dep_mgr.mk_leaf(n->m_conflict_external_literal));
+                std::cout << "External literal: " << n->m_conflict_external_literal << std::endl;
                 if (n->m_conflict_internal)
                     deps = m_dep_mgr.mk_join(deps, n->m_conflict_internal);
                 continue;

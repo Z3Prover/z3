@@ -580,8 +580,10 @@ namespace seq {
                 << n->id() << ": ";
             n->to_html(out, names, next_id, m);
             // append conflict reason if this is a direct conflict
-            if (is_actual_conflict(n->reason()))
+            if (n->is_currently_conflict())
                 out << "<br/>" << reason_to_str(n->reason());
+            if (n->reason() == backtrack_reason::external)
+                out << "<br/>" << n->get_external_conflict_literal();
             out << ">";
 
             // colour
