@@ -1349,6 +1349,11 @@ namespace seq {
             return search_result::unsat;
         }
 
+        if (node->is_currently_conflict()) {
+            ++m_stats.m_num_simplify_conflict;
+            return search_result::unsat;
+        }
+
         // Apply Parikh image filter: generate modular length constraints and
         // perform a lightweight feasibility pre-check.  The filter is guarded
         // internally (m_parikh_applied) so it only runs once per node.

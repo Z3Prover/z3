@@ -764,19 +764,49 @@ namespace smt {
                 auto dot = m_nielsen.to_dot();
                 std::cout << std::endl;
                 kernel.reset();
-                for (const seq::constraint& c : m_nielsen.root()->constraints()) {
-                    kernel.assert_expr(c.fml);
+                auto& lits = ctx.assigned_literals();
+                for (literal l : lits) {
+                    expr* e = ctx.literal2expr(l);
+                    if (!ctx.b_internalized(e) || !ctx.is_relevant(e))
+                         continue;
+                    th_rewriter th(m);
+                    expr_ref r(m);
+                    th(e, r);
+                    std::cout << mk_pp(r, m) << std::endl;
+                    kernel.assert_expr(r);
                 }
-                for (const seq::str_eq& c : m_nielsen.root()->str_eqs()) {
-                    kernel.assert_expr(m.mk_eq(c.m_lhs->get_expr(), c.m_rhs->get_expr()));
-                }
-                for (const seq::str_mem& c : m_nielsen.root()->str_mems()) {
-                    kernel.assert_expr(m_seq.re.mk_in_re(c.m_str->get_expr(), c.m_regex->get_expr()));
-                }
-                res = kernel.check();
-                if (res == l_true)
+                auto res2 = kernel.check();
+                if (res2 == l_true) {
                     // the algorithm is unsound
                     std::cout << "Original input is SAT" << std::endl;
+                    model_ref model;
+                    kernel.get_model(model);
+                    for (unsigned i = 0; i < model->get_num_constants(); i++) {
+                        func_decl* f  = model->get_constant(i);
+                        expr_ref v(m);
+                        VERIFY(model->eval(f, v));
+                        std::cout << f->get_name() << ": " << mk_pp(v, m) << std::endl;
+                    }
+                    for (unsigned i = 0; i < model->get_num_functions(); i++) {
+                        func_decl* f  = model->get_function(i);
+                        func_interp* fi = model->get_func_interp(f);
+                        auto entries = fi->get_entries();
+                        std::cout << f->get_name() << ":\n";
+                        for (unsigned j = 0; j < fi->num_entries(); j++) {
+                            auto& e = entries[j];
+                            auto* args = e->get_args();
+                            std::cout << "\n(";
+                            for (unsigned k = 0; k < fi->get_arity(); k++) {
+                                if (k > 0)
+                                    std::cout << ", ";
+                                std::cout << mk_pp(args[k], m);
+                            }
+                            std::cout << "): ";
+                            expr* r = e->get_result();
+                            std::cout << mk_pp(r, m) << std::endl;
+                        }
+                    }
+                }
                 else if (res == l_false)
                     // the justification is too narrow
                     std::cout << "Original input is UNSAT" << std::endl;
