@@ -735,14 +735,37 @@ namespace smt {
 
 #ifdef Z3DEBUG
 #if 1
-        std::vector<std::pair<unsigned, unsigned>> confl;
-        for (auto& lit : lits) {
-            std::cout << mk_pp(ctx.literal2expr(lit), m) << "\n-----------\n";
+        // Pass constraints to a subsolver to check correctness modulo legacy solver
+        {
+            smt_params p;
+            p.m_string_solver = "seq";
+            kernel kernel(m, p);
+
+            for (seq::dep_source const& d : m_nielsen.conflict_sources()) {
+                if (std::holds_alternative<enode_pair>(d))
+                    kernel.assert_expr(
+                        m.mk_eq(
+                        std::get<enode_pair>(d).first->get_expr(),
+                        std::get<enode_pair>(d).second->get_expr()
+                            )
+                        );
+                else
+                    kernel.assert_expr(ctx.literal2expr(std::get<sat::literal>(d)));
+            }
+            const auto res = kernel.check();
+            if (res == l_true) {
+                std::cout << "Insufficient justification:\n";
+                for (auto& lit : lits) {
+                    std::cout << mk_pp(ctx.literal2expr(lit), m) << "\n-----------\n";
+                }
+                for (auto& eq : eqs) {
+                    std::cout << mk_pp(eq.first->get_expr(), m) << " == " << mk_pp(eq.second->get_expr(), m) << "\n-----------\n";
+                }
+                auto dot = m_nielsen.to_dot();
+                std::cout << std::endl;
+            }
+            VERIFY(res != l_true);
         }
-        for (auto& eq : eqs) {
-            std::cout << mk_pp(eq.first->get_expr(), m) << " == " << mk_pp(eq.second->get_expr(), m) << "\n-----------\n";
-        }
-        std::cout << std::endl;
 #endif
 #endif
 

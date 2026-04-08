@@ -248,18 +248,24 @@ namespace seq {
     }
 
     bool nielsen_node::add_constraint(constraint const &c) {
-        if (graph().get_manager().is_and(c.fml)) {
+        auto& m = graph().get_manager();
+        if (m.is_and(c.fml)) {
             for (const auto f : *to_app(c.fml)) {
-                if (!add_constraint(constraint(f, c.dep, graph().get_manager())))
+                if (!add_constraint(constraint(f, c.dep, m)))
                     return false;
             }
             return true;
+        }
+        expr* l, *r;
+        if (m.is_eq(c.fml, l, r)) {
+            if (l == r)
+                return true;
         }
         m_constraints.push_back(c);
         if (m_graph.m_literal_if_false) {
             auto lit = m_graph.m_literal_if_false(c.fml);
             if (lit != sat::null_literal) {
-                set_external_conflict(lit);
+                set_external_conflict(lit, c.dep);
                 return false;
             }
         }
@@ -1762,13 +1768,13 @@ namespace seq {
                 var = r;
                 def = l;
             }
-            else if (l->is_unit() && l->arg(0)->is_var() && r->is_char_or_unit()) {
-                var = l->arg(0);
-                def = r->arg(0);
+            else if (l->is_unit() && r->is_char_or_unit()) {
+                var = l;
+                def = r;
             }
-            else if (r->is_unit() && r->arg(0)->is_var() && l->is_char_or_unit()) {
-                var = r->arg(0);
-                def = l->arg(0);
+            else if (r->is_unit() && l->is_char_or_unit()) {
+                var = r;
+                def = l;
             }
 
             if (var) {
@@ -3663,22 +3669,20 @@ namespace seq {
             if (n->m_conflict_external_literal != sat::null_literal) {
                 // We know from the outer solver that this literal is assigned false
                 deps = m_dep_mgr.mk_join(deps, m_dep_mgr.mk_leaf(n->m_conflict_external_literal));
+                if (n->m_conflict_internal)
+                    deps = m_dep_mgr.mk_join(deps, n->m_conflict_internal);
                 continue;
             }
             SASSERT(n->outgoing().empty());
             SASSERT(n->m_conflict_internal);
             deps = m_dep_mgr.mk_join(deps, n->m_conflict_internal);
-            // for (str_eq const& eq : n->str_eqs())
-            //     deps = m_dep_mgr.mk_join(deps, eq.m_dep);
-            // for (str_mem const& mem : n->str_mems())
-            //     deps = m_dep_mgr.mk_join(deps, mem.m_dep);
         }
         return deps;
     }
 
 
     // NSB review: this is one of several methods exposed for testing
-    void nielsen_graph::explain_conflict(svector<enode_pair>& eqs,
+    void nielsen_graph::test_aux_explain_conflict(svector<enode_pair>& eqs,
         svector<sat::literal>& mem_literals) const {
         SASSERT(m_root);
         auto deps = collect_conflict_deps();

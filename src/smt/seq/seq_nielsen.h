@@ -628,11 +628,12 @@ namespace seq {
             m_conflict_internal = confl;
         }
 
-        void set_external_conflict(sat::literal lit) {
+        void set_external_conflict(sat::literal lit, dep_tracker confl) {
             if (m_reason != backtrack_reason::unevaluated)
                 return;
             m_reason = backtrack_reason::external;
             m_conflict_external_literal = ~lit;
+            m_conflict_internal = confl;
         }
 
         bool is_progress() const { return m_is_progress; }
@@ -900,7 +901,7 @@ namespace seq {
         // explain a conflict: partition the dep_source leaves into str_eq indices
         // (kind::eq) and str_mem indices (kind::mem).
         // Must be called after solve() returns unsat.
-        void explain_conflict(svector<enode_pair> &eqs,
+        void test_aux_explain_conflict(svector<enode_pair> &eqs,
                               svector<sat::literal> &mem_literals) const;
 
 
