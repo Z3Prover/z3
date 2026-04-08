@@ -77,7 +77,6 @@ namespace search_tree {
             SASSERT(!m_right);
             m_left = alloc(node<Config>, a, this);
             m_right = alloc(node<Config>, b, this);
-            m_status = status::open;
         }
 
         node* left() const { return m_left; }
@@ -452,14 +451,25 @@ namespace search_tree {
                 return false;
 
             n->add_effort(effort);
+            bool did_split = false;
 
             if (should_split(n)) {
                 n->split(a, b);
-                return true;
-            } else {
-                n->set_status(status::open);
+                did_split = true;
             }
-            return false;
+
+            // Reopen immediately on timeout, even if other workers are still active.
+            // This keeps scheduling asynchronous: timeouts act as signals to reconsider
+            // the search, not barriers requiring all workers to finish.
+            //
+            // Early reopening also creates a soft penalty (via accumulated effort),
+            // reducing over-concentration while still allowing revisits.
+            //
+            // Waiting for all workers would introduce per-node synchronization, delay
+            // diversification, and let a slow worker stall progress.
+            n->set_status(status::open);
+            
+            return did_split;
         }
 
         // conflict is given by a set of literals.
