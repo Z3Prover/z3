@@ -153,7 +153,6 @@ namespace search_tree {
         literal m_null_literal;
         random_gen m_rand;
         unsigned m_expand_factor = 2;
-        unsigned m_num_workers = 1;
 
         struct candidate {
             node<Config>* n = nullptr;
@@ -238,7 +237,7 @@ namespace search_tree {
             find_shallowest_timed_out_leaf_depth(cur->right(), best_depth);
         }
 
-        bool should_split(node<Config>* n, unsigned attempts) {
+        bool should_split(node<Config>* n) {
             if (!n || n->get_status() != status::active)
                 return false;
             n->inc_attempts();
@@ -252,13 +251,13 @@ namespace search_tree {
                 return false;
 
             // ONLY throttle when tree is "large enough"
-            if (unsolved_tree_size >= m_num_workers) {
+            if (unsolved_tree_size >= num_active_nodes) {
                 if (has_unvisited_open_node(m_root.get()))
                     return false;
 
                 // Random throttling (50% rejection)
-                if (m_rand(2) != 0)
-                    return false;
+                // if (m_rand(2) != 0)
+                //     return false;
             }
 
             unsigned shallowest_timed_out_leaf_depth = UINT_MAX;
@@ -434,10 +433,10 @@ namespace search_tree {
 
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
-        bool try_split(node<Config> *n, literal const &a, literal const &b, unsigned attempts = 1) {
+        bool try_split(node<Config> *n, literal const &a, literal const &b) {
             if (!n || n->get_status() != status::active)
                 return false;
-            if (should_split(n, attempts)) {
+            if (should_split(n)) {
                 n->split(a, b);
                 return true;
             } else {
@@ -500,10 +499,6 @@ namespace search_tree {
 
         bool is_closed() const {
             return m_root->get_status() == status::closed;
-        }
-
-        void set_num_workers(unsigned num_workers) {
-            m_num_workers = std::max<unsigned>(1, num_workers);
         }
 
         std::ostream &display(std::ostream &out) const {

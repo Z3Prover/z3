@@ -531,7 +531,6 @@ namespace smt {
     void parallel::batch_manager::initialize() {
         m_state = state::is_running;
         m_search_tree.reset();
-        m_search_tree.set_num_workers(p.num_threads);
     }
 
     void parallel::batch_manager::collect_statistics(::statistics &st) const {
