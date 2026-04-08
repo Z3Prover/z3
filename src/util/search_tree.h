@@ -260,11 +260,11 @@ namespace search_tree {
             unsigned unsolved_tree_size = count_unsolved_nodes(m_root.get());
 
             // If the tree is already large compared to the number of active nodes, be more aggressive about splitting to encourage exploration 
-            if (unsolved_tree_size >= num_active_nodes * m_expand_factor) 
+            if (unsolved_tree_size >= num_active_nodes * m_expand_factor)
                 return false;
 
             // ONLY throttle when tree is "large enough" 
-            if (unsolved_tree_size >= m_min_tree_size) {
+            if (unsolved_tree_size >= num_active_nodes) {
                 if (has_unvisited_open_node(m_root.get())) // Do not expand if there are still unvisited open nodes (prioritize exploration before expansion)
                     return false;
                 if (m_rand(2) != 0) // Random throttling (50% rejection)
