@@ -481,8 +481,8 @@ namespace seq {
     // nielsen_node: simplify_and_init
     // -----------------------------------------------------------------------
 
-    bool nielsen_node::handle_empty_side(euf::sgraph& sg, euf::snode* non_empty_side,
-                                         dep_tracker const& dep, bool& changed) {
+    bool nielsen_node::check_empty_side_conflict(euf::sgraph& sg, euf::snode* non_empty_side,
+                                                 dep_tracker const& dep) {
         euf::snode_vector tokens;
         non_empty_side->collect_tokens(tokens);
         bool has_char = std::any_of(tokens.begin(), tokens.end(), [](euf::snode* t){ return t->is_char(); });
@@ -490,29 +490,9 @@ namespace seq {
             return t->is_var() || t->is_power();
         });
         if (has_char || !all_eliminable) {
-            m_is_general_conflict = true;
+            set_general_conflict(true);
             set_conflict(backtrack_reason::symbol_clash, dep);
             return true;
-        }
-        ast_manager& m = sg.get_manager();
-        seq_util& seq = sg.get_seq_util();
-        arith_util a(m);
-        for (euf::snode* t : tokens) {
-            if (t->is_var()) {
-                nielsen_subst s(t, sg.mk_empty_seq(t->get_sort()), dep);
-                apply_subst(sg, s);
-                changed = true;
-            }
-            else if (t->is_power()) {
-                // Power equated to empty → exponent must be 0.
-                expr* e = t->get_expr();
-                expr* pow_base = nullptr, *pow_exp = nullptr;
-                if (seq.str.is_power(e, pow_base, pow_exp) && pow_exp) 
-                    add_constraint(constraint(m.mk_eq(pow_exp, a.mk_int(0)), dep, m));
-                nielsen_subst s(t, sg.mk_empty_seq(t->get_sort()), dep);
-                apply_subst(sg, s);
-                changed = true;
-            }
         }
         return false;
     }
@@ -838,14 +818,15 @@ namespace seq {
                 if (!eq.m_lhs || !eq.m_rhs)
                     continue;
 
-                // one side empty, the other not empty => conflict or substitution
+                // one side empty, the other not empty => conflict check
+                // (the actual substitution is done in apply_det_modifier)
                 if (eq.m_lhs->is_empty() && !eq.m_rhs->is_empty()) {
-                    if (handle_empty_side(sg, eq.m_rhs, eq.m_dep, changed))
+                    if (check_empty_side_conflict(sg, eq.m_rhs, eq.m_dep))
                         return simplify_result::conflict;
                     continue;
                 }
                 if (eq.m_rhs->is_empty() && !eq.m_lhs->is_empty()) {
-                    if (handle_empty_side(sg, eq.m_lhs, eq.m_dep, changed))
+                    if (check_empty_side_conflict(sg, eq.m_lhs, eq.m_dep))
                         return simplify_result::conflict;
                     continue;
                 }
@@ -1511,6 +1492,37 @@ namespace seq {
             auto l = eq.m_lhs, r = eq.m_rhs;
             if (!l || !r)
                 continue;
+
+            // 0. empty side propagation
+            if (l->is_empty() || r->is_empty()) {
+                euf::snode* non_empty_side = l->is_empty() ? r : l;
+                nielsen_node* child = mk_child(node);
+                nielsen_edge* e = mk_edge(node, child, true);
+                euf::snode_vector tokens;
+                non_empty_side->collect_tokens(tokens);
+
+                auto& eqs = child->str_eqs();
+                eqs[eq_idx] = eqs.back();
+                eqs.pop_back();
+
+                for (euf::snode* t : tokens) {
+                    if (t->is_var()) {
+                        nielsen_subst s(t, m_sg.mk_empty_seq(t->get_sort()), eq.m_dep);
+                        e->add_subst(s);
+                        child->apply_subst(m_sg, s);
+                    } else if (t->is_power()) {
+                        expr* expr_node = t->get_expr();
+                        expr* pow_base = nullptr, *pow_exp = nullptr;
+                        if (seq().str.is_power(expr_node, pow_base, pow_exp) && pow_exp) {
+                            e->add_side_constraint(mk_constraint(m.mk_eq(pow_exp, a.mk_int(0)), eq.m_dep));
+                        }
+                        nielsen_subst s(t, m_sg.mk_empty_seq(t->get_sort()), eq.m_dep);
+                        e->add_subst(s);
+                        child->apply_subst(m_sg, s);
+                    }
+                }
+                return true;
+            }
 
             // 1. unit equalities produced by unit-unit prefix/suffix splits
             {
@@ -4020,6 +4032,7 @@ nielsen_graph::generate_length_constraints(vector<length_constraint>& constraint
     }
 
     bool nielsen_graph::check_lp_le(expr* lhs, expr* rhs) {
+        // TODO: We need the justification!!
         rational lhs_lo, rhs_up;
         if (m_solver.lower_bound(lhs, lhs_lo) &&
             m_solver.upper_bound(rhs, rhs_up)) {

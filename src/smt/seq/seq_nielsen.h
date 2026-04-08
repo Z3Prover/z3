@@ -688,10 +688,9 @@ namespace seq {
         // Helper: handle one empty vs one non-empty side of a string equality.
         // Collects tokens from non_empty_side; if any token causes a conflict
         // (is a concrete character or an unexpected kind), sets conflict flags
-        // and returns true. Otherwise substitutes all variables to empty,
-        // sets changed=true, and returns false.
-        bool handle_empty_side(euf::sgraph& sg, euf::snode* non_empty_side,
-                               dep_tracker const& dep, bool& changed);
+        // and returns true. Otherwise returns false.
+        bool check_empty_side_conflict(euf::sgraph& sg, euf::snode* non_empty_side,
+                                       dep_tracker const& dep);
 
         // Length bounds are queried from the arithmetic subsolver when needed.
     };
