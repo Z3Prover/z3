@@ -247,29 +247,27 @@ namespace seq {
         return false;
     }
 
-    bool nielsen_node::add_constraint(constraint const &c) {
+    void nielsen_node::add_constraint(constraint const &c) {
         auto& m = graph().get_manager();
         if (m.is_and(c.fml)) {
+            // We have to add all - even if some of it conflict
+            // [otw. we would leave the node partially initialized]
             for (const auto f : *to_app(c.fml)) {
-                if (!add_constraint(constraint(f, c.dep, m)))
-                    return false;
+                add_constraint(constraint(f, c.dep, m));
             }
-            return true;
         }
         expr* l, *r;
         if (m.is_eq(c.fml, l, r)) {
             if (l == r)
-                return true;
+                return;
         }
         m_constraints.push_back(c);
-        if (m_graph.m_literal_if_false) {
-            auto lit = m_graph.m_literal_if_false(c.fml);
-            if (lit != sat::null_literal) {
-                set_external_conflict(lit, c.dep);
-                return false;
-            }
+        SASSERT(m_graph.m_literal_if_false);
+        auto lit = m_graph.m_literal_if_false(c.fml);
+        if (lit != sat::null_literal) {
+            std::cout << "External literal " << lit << " in node " << m_id << std::endl;
+            set_external_conflict(lit, c.dep);
         }
-        return true;
     }
 
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
@@ -310,7 +308,7 @@ namespace seq {
             if (m_char_ranges.contains(var_id)) {
                 auto range = m_char_ranges.find(var_id); // copy exactly
                 m_char_ranges.remove(var_id);
-                add_char_range(s.m_replacement, range.first, range.second);
+                add_char_range(s.m_replacement, range.first, m_graph.dep_mgr().mk_join(range.second, s.m_dep));
             }
         }
     }
@@ -326,7 +324,7 @@ namespace seq {
                     return; // matches, no conflict
             }
             set_conflict(backtrack_reason::character_range, dep);
-            set_general_conflict(true);
+            set_general_conflict();
             return;
         }
         SASSERT(sym_char && sym_char->is_unit());
@@ -337,7 +335,7 @@ namespace seq {
             existing = std::make_pair(inter, graph().dep_mgr().mk_join(existing.second, dep));
             if (inter.is_empty()) {
                 set_conflict(backtrack_reason::character_range, existing.second);
-                set_general_conflict(true);
+                set_general_conflict();
             }
         }
         else
@@ -345,12 +343,14 @@ namespace seq {
     }
 
     bool nielsen_node::lower_bound(expr* e, rational& lo) const {
+        // TODO: Return dependencies
         SASSERT(e);
         return m_graph.m_solver.lower_bound(e, lo);
     }
 
 
     bool nielsen_node::upper_bound(expr* e, rational& up) const {
+        // TODO: Return dependencies
         SASSERT(e);
         rational v;
         if (m_graph.a.is_numeral(e, v)) {
@@ -490,7 +490,7 @@ namespace seq {
             return t->is_var() || t->is_power();
         });
         if (has_char || !all_eliminable) {
-            set_general_conflict(true);
+            set_general_conflict();
             set_conflict(backtrack_reason::symbol_clash, dep);
             return true;
         }
@@ -848,7 +848,7 @@ namespace seq {
                             ++prefix;
                         }
                         else if (sg.are_unit_distinct(lt, rt)) {
-                            m_is_general_conflict = true;
+                            set_general_conflict();
                             set_conflict(backtrack_reason::symbol_clash, eq.m_dep);
                             return simplify_result::conflict;
                         }
@@ -865,7 +865,7 @@ namespace seq {
                         if (m.are_equal(lt->get_expr(), rt->get_expr())) {
                             ++suffix;
                         } else if (sg.are_unit_distinct(lt, rt)) {
-                            m_is_general_conflict = true;
+                            set_general_conflict();
                             set_conflict(backtrack_reason::symbol_clash, eq.m_dep);
                             return simplify_result::conflict;
                         }
@@ -884,7 +884,8 @@ namespace seq {
             // pass 3: power simplification (mirrors ZIPT's LcpCompression +
             // SimplifyPowerElim + SimplifyPowerSingle)
             for (str_eq& eq : m_str_eq) {
-                if (eq.is_trivial() || !eq.m_lhs || !eq.m_rhs)
+                SASSERT(eq.m_lhs && eq.m_rhs);
+                if (eq.is_trivial())
                     continue;
 
                 // 3a: simplify constant-exponent powers (base^0 → ε, base^1 → base)
@@ -1065,7 +1066,7 @@ namespace seq {
                     if (!deriv)
                         break;
                     if (deriv->is_fail()) {
-                        m_is_general_conflict = true;
+                        set_general_conflict();
                         set_conflict(backtrack_reason::regex, mem.m_dep);
                         return simplify_result::conflict;
                     }
@@ -1105,7 +1106,7 @@ namespace seq {
 
                 auto next = sg.mk(d);
                 if (next->is_fail()) {
-                    m_is_general_conflict = true;
+                    set_general_conflict();
                     set_conflict(backtrack_reason::regex, mem.m_dep);
                     return simplify_result::conflict;
                 }
@@ -1119,7 +1120,7 @@ namespace seq {
         // check for regex memberships that are immediately infeasible
         for (str_mem& mem : m_str_mem) {
             if (mem.is_contradiction()) {
-                m_is_general_conflict = true;
+                set_general_conflict();
                 set_conflict(backtrack_reason::regex, mem.m_dep);
                 return simplify_result::conflict;
             }
@@ -1137,7 +1138,7 @@ namespace seq {
                 continue;
             dep_tracker dep = mem.m_dep;
             if (m_graph.check_regex_widening(*this, mem.m_str, mem.m_regex, dep)) {
-                m_is_general_conflict = true;
+                set_general_conflict();
                 set_conflict(backtrack_reason::regex, dep);
                 return simplify_result::conflict;
             }
@@ -1179,7 +1180,7 @@ namespace seq {
         // node as a Parikh-image conflict immediately (avoids a solver call).
         str_mem const* confl_cnstr;
         if (!node.is_currently_conflict() && (confl_cnstr = m_parikh->check_parikh_conflict(node)) != nullptr) {
-            node.set_general_conflict(true);
+            node.set_general_conflict();
             node.set_conflict(backtrack_reason::parikh_image, confl_cnstr->m_dep);
         }
     }
@@ -1311,7 +1312,8 @@ namespace seq {
 
         // revisit detection: if already visited this run (e.g., iterative deepening), return cached status.
         // mirrors ZIPT's NielsenNode.GraphExpansion() evalIdx check.
-        if (node->eval_idx() == m_run_idx) {
+        unsigned eval_idx = node->eval_idx();
+        if (eval_idx == m_run_idx) {
             if (node->is_satisfied()) {
                 m_sat_node = node;
                 m_sat_path = cur_path;
@@ -1323,28 +1325,22 @@ namespace seq {
         }
         node->set_eval_idx(m_run_idx);
         SASSERT(!node->is_general_conflict());
-        node->clear_local_conflict(); // clear local conflicts from previous runs
+        if (eval_idx > 0)
+            // adding the side-conditions from the edge
+            // when generating this node might trigger a local conflict
+            node->clear_local_conflict(); // clear local conflicts from previous runs
 
         // we might need to tell the SAT solver about the new integer inequalities
         // that might have been added by an extension step
         assert_node_new_int_constraints(node);
 
-        if (node->is_currently_conflict()) {
-            ++m_stats.m_num_simplify_conflict;
-            return search_result::unsat;
-        }
-
         // simplify constraints (idempotent after first call)
         const simplify_result sr = node->simplify_and_init(cur_path);
 
-        if (sr == simplify_result::conflict) {
+        if (sr == simplify_result::conflict || node->is_general_conflict()) {
+            SASSERT(node->is_general_conflict());
             ++m_stats.m_num_simplify_conflict;
-            node->set_general_conflict(true);
-            return search_result::unsat;
-        }
-
-        if (node->is_currently_conflict()) {
-            ++m_stats.m_num_simplify_conflict;
+            node->set_general_conflict();
             return search_result::unsat;
         }
 
@@ -1354,7 +1350,8 @@ namespace seq {
         // Note: Parikh filtering is skipped for satisfied nodes (returned above);
         // a fully satisfied node has no remaining memberships to filter.
         apply_parikh_to_node(*node);
-        if (node->is_currently_conflict()) {
+
+        if (node->is_general_conflict()) {
             ++m_stats.m_num_simplify_conflict;
             return search_result::unsat;
         }
@@ -1368,21 +1365,23 @@ namespace seq {
         generate_node_length_constraints(node);
         assert_node_new_int_constraints(node);
 
-        if (node->is_currently_conflict())
+        if (node->is_general_conflict()) {
+            ++m_stats.m_num_simplify_conflict;
             return search_result::unsat;
+        }
 
         // integer feasibility check: the solver now holds all path constraints
         // incrementally; just query the solver directly
         if (!cur_path.empty() && !check_int_feasibility()) {
             dep_tracker dep = get_subsolver_dependency(node);
             node->set_conflict(backtrack_reason::arithmetic, dep);
-            node->set_general_conflict(true);
+            node->set_general_conflict();
             ++m_stats.m_num_arith_infeasible;
             return search_result::unsat;
         }
 
         SASSERT(sr != simplify_result::satisfied || node->is_satisfied());
-        SASSERT(!node->is_currently_conflict());
+        SASSERT(!node->is_general_conflict());
 
         if (node->is_satisfied()) {
             // Before declaring SAT, check leaf-node regex feasibility:
@@ -1391,7 +1390,7 @@ namespace seq {
             // Mirrors ZIPT NielsenNode.CheckRegex.
             dep_tracker dep;
             if (!check_leaf_regex(*node, dep)) {
-                node->set_general_conflict(true);
+                node->set_general_conflict();
                 node->set_conflict(backtrack_reason::regex, dep);
                 return search_result::unsat;
             }
@@ -1399,6 +1398,12 @@ namespace seq {
             m_sat_path = cur_path;
             return search_result::sat;
         }
+
+        // This is the first time we accept local conflicts
+        // Before we only abort on global conflicts [we prefer those]
+        // Also we would leave the node in an "instable" state
+        if (node->is_currently_conflict())
+            return search_result::unsat;
 
         // depth bound check
         if (depth >= m_depth_bound)
@@ -3690,8 +3695,10 @@ namespace seq {
         // We enumerate all nodes rather than having a "todo"-list, as
         // hypothetically the graph could contain cycles in the future
         for (nielsen_node const* n : m_nodes) {
-            if (n->reason() == backtrack_reason::children_failed)
+            if (n->reason() == backtrack_reason::children_failed) {
+                SASSERT(n->m_conflict_external_literal == sat::null_literal);
                 continue;
+            }
 
             SASSERT(n->is_currently_conflict());
             if (n->m_conflict_external_literal != sat::null_literal) {

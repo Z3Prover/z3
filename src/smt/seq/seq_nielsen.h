@@ -570,7 +570,8 @@ namespace seq {
             SASSERT(mem.m_regex != nullptr);
             m_str_mem.push_back(mem);
         }
-        bool add_constraint(constraint const &ic);
+
+        void add_constraint(constraint const &ic);
 
         vector<constraint> const& constraints() const { return m_constraints; }
         vector<constraint>& constraints() { return m_constraints; }
@@ -602,13 +603,17 @@ namespace seq {
 
         // status
         bool is_general_conflict() const { return m_is_general_conflict; }
-        void set_general_conflict(bool v) { m_is_general_conflict = v; }
+        void set_general_conflict() {
+            m_is_general_conflict = true;
+        }
 
         bool is_extended() const { return m_is_extended; }
-        void set_extended(bool v) { m_is_extended = v; }
+        void set_extended(bool v) {
+            m_is_extended = v;
+        }
 
         bool is_currently_conflict() const {
-            return m_is_general_conflict ||
+            return is_general_conflict() ||
                 m_conflict_external_literal != sat::null_literal ||
                 (reason() != backtrack_reason::unevaluated && m_is_extended);
         }
@@ -630,11 +635,12 @@ namespace seq {
         }
 
         void set_conflict(const backtrack_reason r, const dep_tracker confl) {
-            if (m_conflict_internal != nullptr)
+            if (m_conflict_internal != nullptr && m_conflict_external_literal == sat::null_literal)
                 return;
             // We prefer internal conflicts (we need it as a justification for general conflicts)
             m_reason = r;
             m_conflict_internal = confl;
+            m_conflict_external_literal = sat::null_literal;
         }
 
         void set_external_conflict(sat::literal lit, dep_tracker confl) {
