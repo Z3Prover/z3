@@ -611,6 +611,13 @@ namespace seq {
                 (reason() != backtrack_reason::unevaluated && m_is_extended);
         }
 
+        void clear_local_conflict() {
+            SASSERT(!is_general_conflict());
+            m_reason = backtrack_reason::unevaluated;
+            m_conflict_internal = nullptr;
+            m_conflict_external_literal = sat::null_literal;
+        }
+
         backtrack_reason reason() const { return m_reason; }
 
         void set_child_conflict() {

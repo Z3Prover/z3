@@ -589,10 +589,10 @@ namespace seq {
                 out << ", color=green";
             else if (n->is_general_conflict())
                 out << ", color=darkred";
-            else if (n->eval_idx() != m_run_idx)  // inactive, not visited this run
-                out << ", color=blue";
             else if (n->is_currently_conflict())
                 out << ", color=red";
+            else if (n->eval_idx() != m_run_idx)  // inactive, not visited this run
+                out << ", color=blue";
 
             out << "];\n";
         }

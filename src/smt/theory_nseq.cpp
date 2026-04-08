@@ -741,6 +741,36 @@ namespace smt {
             p.m_string_solver = "seq";
             kernel kernel(m, p);
 
+            auto model_out = [&]() {
+                model_ref model;
+                kernel.get_model(model);
+                for (unsigned i = 0; i < model->get_num_constants(); i++) {
+                    func_decl* f  = model->get_constant(i);
+                    expr_ref v(m);
+                    VERIFY(model->eval(f, v));
+                    std::cout << f->get_name() << ": " << mk_pp(v, m) << std::endl;
+                }
+                for (unsigned i = 0; i < model->get_num_functions(); i++) {
+                    func_decl* f  = model->get_function(i);
+                    func_interp* fi = model->get_func_interp(f);
+                    auto entries = fi->get_entries();
+                    std::cout << f->get_name() << ":\n";
+                    for (unsigned j = 0; j < fi->num_entries(); j++) {
+                        auto& e = entries[j];
+                        auto* args = e->get_args();
+                        std::cout << "\n(";
+                        for (unsigned k = 0; k < fi->get_arity(); k++) {
+                            if (k > 0)
+                                std::cout << ", ";
+                            std::cout << mk_pp(args[k], m);
+                        }
+                        std::cout << "): ";
+                        expr* r = e->get_result();
+                        std::cout << mk_pp(r, m) << std::endl;
+                    }
+                }
+            };
+
             for (seq::dep_source const& d : m_nielsen.conflict_sources()) {
                 if (std::holds_alternative<enode_pair>(d))
                     kernel.assert_expr(
@@ -763,6 +793,7 @@ namespace smt {
                 }
                 auto dot = m_nielsen.to_dot();
                 std::cout << std::endl;
+                model_out();
                 kernel.reset();
                 auto& lits = ctx.assigned_literals();
                 for (literal l : lits) {
@@ -772,44 +803,19 @@ namespace smt {
                     th_rewriter th(m);
                     expr_ref r(m);
                     th(e, r);
-                    std::cout << mk_pp(r, m) << std::endl;
                     kernel.assert_expr(r);
                 }
                 auto res2 = kernel.check();
                 if (res2 == l_true) {
                     // the algorithm is unsound
                     std::cout << "Original input is SAT" << std::endl;
-                    model_ref model;
-                    kernel.get_model(model);
-                    for (unsigned i = 0; i < model->get_num_constants(); i++) {
-                        func_decl* f  = model->get_constant(i);
-                        expr_ref v(m);
-                        VERIFY(model->eval(f, v));
-                        std::cout << f->get_name() << ": " << mk_pp(v, m) << std::endl;
-                    }
-                    for (unsigned i = 0; i < model->get_num_functions(); i++) {
-                        func_decl* f  = model->get_function(i);
-                        func_interp* fi = model->get_func_interp(f);
-                        auto entries = fi->get_entries();
-                        std::cout << f->get_name() << ":\n";
-                        for (unsigned j = 0; j < fi->num_entries(); j++) {
-                            auto& e = entries[j];
-                            auto* args = e->get_args();
-                            std::cout << "\n(";
-                            for (unsigned k = 0; k < fi->get_arity(); k++) {
-                                if (k > 0)
-                                    std::cout << ", ";
-                                std::cout << mk_pp(args[k], m);
-                            }
-                            std::cout << "): ";
-                            expr* r = e->get_result();
-                            std::cout << mk_pp(r, m) << std::endl;
-                        }
-                    }
+                    model_out();
                 }
-                else if (res == l_false)
+                else if (res2 == l_false)
                     // the justification is too narrow
                     std::cout << "Original input is UNSAT" << std::endl;
+                else
+                    std::cout << "Original input is UNKNOWN" << std::endl;
             }
             VERIFY(res != l_true);
         }

@@ -1315,6 +1315,11 @@ namespace seq {
         SASSERT(depth <= cur_path.size());
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, depth);
 
+        if (node->is_general_conflict()) {
+            ++m_stats.m_num_simplify_conflict;
+            return search_result::unsat;
+        }
+
         // check for external cancellation (timeout, user interrupt)
         if (!m.inc())
             return search_result::unknown;
@@ -1336,9 +1341,17 @@ namespace seq {
             return search_result::unknown;
         }
         node->set_eval_idx(m_run_idx);
+        SASSERT(!node->is_general_conflict());
+        node->clear_local_conflict(); // clear local conflicts from previous runs
+
         // we might need to tell the SAT solver about the new integer inequalities
         // that might have been added by an extension step
         assert_node_new_int_constraints(node);
+
+        if (node->is_currently_conflict()) {
+            ++m_stats.m_num_simplify_conflict;
+            return search_result::unsat;
+        }
 
         // simplify constraints (idempotent after first call)
         const simplify_result sr = node->simplify_and_init(cur_path);
