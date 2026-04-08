@@ -267,6 +267,7 @@ namespace seq {
     }
 
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
+        SASSERT(!s.m_var->is_char_or_unit() || s.m_replacement->is_char_or_unit());
         SASSERT(s.m_var);
         SASSERT(s.m_replacement != nullptr);
         for (auto &eq : m_str_eq) {
@@ -294,9 +295,11 @@ namespace seq {
 
         if (s.is_char_subst()) {
             ast_manager& m = graph().get_manager();
+            expr* var_c_expr = s.m_var->arg(0)->get_expr();
+            expr* repl_c_expr = s.m_replacement->arg(0)->get_expr();
             add_constraint(
                 constraint(
-                    m.mk_eq(s.m_var->get_expr(), s.m_replacement->get_expr()), s.m_dep, m));
+                    m.mk_eq(var_c_expr, repl_c_expr), s.m_dep, m));
 
             if (m_char_ranges.contains(var_id)) {
                 auto range = m_char_ranges.find(var_id); // copy exactly

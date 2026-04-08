@@ -27,6 +27,7 @@ Author:
 #include "util/region.h"
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/rewriter/seq_axioms.h"
 
 namespace euf {
 
@@ -88,8 +89,9 @@ namespace euf {
             n->m_kind = k;
             n->m_id = id;
             n->m_num_args = num_args;
-            for (unsigned i = 0; i < num_args; ++i)
+            for (unsigned i = 0; i < num_args; ++i) {
                 n->m_args[i] = args[i];
+            }
             return n;
         }
 

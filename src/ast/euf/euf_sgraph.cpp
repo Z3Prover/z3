@@ -47,7 +47,6 @@ namespace euf {
     snode_kind sgraph::classify(expr* e) const {
         if (!is_app(e))
             return snode_kind::s_var;
-
         if (m_seq.str.is_empty(e))
             return snode_kind::s_empty;
 
@@ -339,6 +338,8 @@ namespace euf {
         compute_metadata(n);
         compute_hash_matrix(n);
         m_nodes.push_back(n);
+        SASSERT(!n->is_char_or_unit() || m_seq.str.is_unit(n->get_expr()));
+
         if (e) {
             unsigned eid = e->get_id();
             m_expr2snode.reserve(eid + 1, nullptr);
