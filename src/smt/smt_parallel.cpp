@@ -528,9 +528,10 @@ namespace smt {
         return true;
     }
 
-    void parallel::batch_manager::initialize() {
+    void parallel::batch_manager::initialize(unsigned initial_max_thread_conflicts) {
         m_state = state::is_running;
         m_search_tree.reset();
+        m_search_tree.set_effort_unit(initial_max_thread_conflicts);
     }
 
     void parallel::batch_manager::collect_statistics(::statistics &st) const {

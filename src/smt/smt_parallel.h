@@ -96,7 +96,7 @@ namespace smt {
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)) { }
 
-            void initialize();
+            void initialize(unsigned initial_max_thread_conflicts = 1000); // TODO: pass in from worker defaults
 
             void set_unsat(ast_translation& l2g, expr_ref_vector const& unsat_core);
             void set_sat(ast_translation& l2g, model& m);

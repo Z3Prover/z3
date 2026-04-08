@@ -47,7 +47,6 @@ namespace search_tree {
         status m_status;
         vector<literal> m_core;
         unsigned m_num_activations = 0;
-        unsigned m_attempts = 0;
         unsigned m_effort_spent = 0;
 
     public:
@@ -140,13 +139,6 @@ namespace search_tree {
             set_status(status::active);
             ++m_num_activations;
         }
-        unsigned num_attempts() const {
-            return m_attempts;
-        }
-        void inc_attempts() {
-            ++m_attempts;
-        }
-
         unsigned effort_spent() const {
             return m_effort_spent;
         }
@@ -162,26 +154,30 @@ namespace search_tree {
         random_gen m_rand;
         unsigned m_expand_factor = 2;
         unsigned m_effort_unit = 1000;
+        
+        // Used for tree expansion throttling policy in should_split()
+        // SMTS says set to num workers, but our experiments show a big regression
+        // Leaving at 0 for now, but making it confirgurable for future experimentation
+        unsigned m_min_tree_size = 0; 
 
         struct candidate {
             node<Config>* n = nullptr;
-            // unsigned attempts = UINT64_MAX;
             unsigned effort_band = UINT64_MAX;
             unsigned depth = 0;
         };
 
+        // A measure of how much effort has been spent on the node, used for activation prioritization and expansion decisions
+        // The effort unit is the workers' initial conflict budget, and effort spent grows by a factor defined in smt_parallel.h on each split attempt
         unsigned effort_band(node<Config> const* n) const {
             return n->effort_spent() / std::max<unsigned>(1, m_effort_unit);
         }
 
-
+        // Node selection policy: prefer lower effort bands, then deeper nodes within the same band, and break ties randomly
         bool better(candidate const& a, candidate const& b) const {
             if (!a.n)
                 return false;
             if (!b.n)
                 return true;
-            // if (a.attempts != b.attempts)
-            //     return a.attempts < b.attempts;
             if (a.effort_band != b.effort_band)
                 return a.effort_band < b.effort_band;
             if (a.depth != b.depth)
@@ -196,7 +192,6 @@ namespace search_tree {
             if (cur->get_status() == target_status) {
                 candidate cand;
                 cand.n = cur;
-                // cand.attempts = cur->num_attempts();
                 cand.effort_band = effort_band(cur);
                 cand.depth = cur->depth();
 
@@ -221,12 +216,6 @@ namespace search_tree {
             best.n->mark_new_activation();
             return best.n;
         }
-        
-        unsigned count_unsolved_nodes(node<Config>* cur) const {
-            if (!cur || cur->get_status() == status::closed)
-                return 0;
-            return 1 + count_unsolved_nodes(cur->left()) + count_unsolved_nodes(cur->right());
-        }
 
         bool has_unvisited_open_node(node<Config>* cur) const {
             if (!cur || cur->get_status() == status::closed)
@@ -234,6 +223,12 @@ namespace search_tree {
             if (cur->get_status() == status::open && cur->num_activations() == 0)
                 return true;
             return has_unvisited_open_node(cur->left()) || has_unvisited_open_node(cur->right());
+        }
+
+        unsigned count_unsolved_nodes(node<Config>* cur) const {
+            if (!cur || cur->get_status() == status::closed)
+                return 0;
+            return 1 + count_unsolved_nodes(cur->left()) + count_unsolved_nodes(cur->right());
         }
 
         unsigned count_active_nodes(node<Config>* cur) const {
@@ -244,45 +239,41 @@ namespace search_tree {
                    count_active_nodes(cur->right());
         }
 
+        // Find the shallowest leaf node that at least 1 worker has visited
+        // Used for tree expansion policy
         void find_shallowest_timed_out_leaf_depth(node<Config>* cur, unsigned& best_depth) const {
             if (!cur || cur->get_status() == status::closed)
                 return;
 
-            if (cur->is_leaf() && cur->effort_spent() > 0)//&& cur->num_attempts() > 0)
+            if (cur->is_leaf() && cur->effort_spent() > 0)
                 best_depth = std::min(best_depth, cur->depth());
 
             find_shallowest_timed_out_leaf_depth(cur->left(), best_depth);
             find_shallowest_timed_out_leaf_depth(cur->right(), best_depth);
         }
 
-        bool should_split(node<Config>* n, unsigned effort) {
-            if (!n || n->get_status() != status::active)
-                return false;
-            // n->inc_attempts();
-            n->add_effort(effort);
-            if (!n->is_leaf())
+        bool should_split(node<Config>* n) {
+            if (!n || n->get_status() != status::active || !n->is_leaf())
                 return false;
 
             unsigned num_active_nodes = count_active_nodes(m_root.get());
             unsigned unsolved_tree_size = count_unsolved_nodes(m_root.get());
 
-            if (unsolved_tree_size >= num_active_nodes * m_expand_factor)
+            // If the tree is already large compared to the number of active nodes, be more aggressive about splitting to encourage exploration 
+            if (unsolved_tree_size >= num_active_nodes * m_expand_factor) 
                 return false;
 
-            // ONLY throttle when tree is "large enough"
-            if (unsolved_tree_size >= num_active_nodes) {
-                if (has_unvisited_open_node(m_root.get()))
+            // ONLY throttle when tree is "large enough" 
+            if (unsolved_tree_size >= m_min_tree_size) {
+                if (has_unvisited_open_node(m_root.get())) // Do not expand if there are still unvisited open nodes (prioritize exploration before expansion)
                     return false;
-
-                // Random throttling (50% rejection)
-                if (m_rand(2) != 0)
+                if (m_rand(2) != 0) // Random throttling (50% rejection)
                     return false;
             }
 
             unsigned shallowest_timed_out_leaf_depth = UINT_MAX;
             find_shallowest_timed_out_leaf_depth(m_root.get(), shallowest_timed_out_leaf_depth);
-
-            return n->is_leaf() && n->depth() == shallowest_timed_out_leaf_depth;
+            return n->depth() == shallowest_timed_out_leaf_depth;
         }
 
         // Bubble to the highest ancestor where ALL literals in the resolvent
@@ -445,6 +436,10 @@ namespace search_tree {
             m_rand.set_seed(seed);
         }
 
+        void set_effort_unit(unsigned effort_unit) {
+            m_effort_unit = std::max<unsigned>(1, effort_unit);
+        }
+
         void reset() {
             m_root = alloc(node<Config>, m_null_literal, nullptr);
             m_root->mark_new_activation();
@@ -455,7 +450,10 @@ namespace search_tree {
         bool try_split(node<Config> *n, literal const &a, literal const &b, unsigned effort) {
             if (!n || n->get_status() != status::active)
                 return false;
-            if (should_split(n, effort)) {
+
+            n->add_effort(effort);
+
+            if (should_split(n)) {
                 n->split(a, b);
                 return true;
             } else {
