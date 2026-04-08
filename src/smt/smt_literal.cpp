@@ -22,7 +22,7 @@ Revision History:
 
 namespace smt {
 
-    std::ostream& display(std::ostream & out, literal lit, ast_manager & m, expr * const * bool_var2expr_map) {
+    std::ostream& display(std::ostream & out, literal lit, ast_manager & m, expr * const * bool_var2expr_map, bool full) {
         if (lit == true_literal)
             out << "true";
         else if (lit == false_literal)
@@ -30,9 +30,9 @@ namespace smt {
         else if (lit == null_literal)
             out << "null";
         else if (lit.sign())
-            out << "(not " << mk_bounded_pp(bool_var2expr_map[lit.var()], m, 3) << ")";
+            out << "(not " << mk_bounded_pp(bool_var2expr_map[lit.var()], m, full?-1:3) << ")";
         else
-            out << mk_bounded_pp(bool_var2expr_map[lit.var()], m, 3);
+            out << mk_bounded_pp(bool_var2expr_map[lit.var()], m, full?-1:3);
         return out;
     }
 
@@ -88,14 +88,15 @@ namespace smt {
         return out;
     }
 
-    std::ostream& display_verbose(std::ostream & out, ast_manager& m, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map, char const* sep) {
+    std::ostream& display_verbose(std::ostream & out, ast_manager& m, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map, char const* sep, bool full) {
         for (unsigned i = 0; i < num_lits; ++i) {
             if (i > 0)
                 out << sep;
-            display(out, lits[i], m, bool_var2expr_map);
+            display(out, lits[i], m, bool_var2expr_map, full);
         }
         return out;
     }
+
 
     /**
        \brief Return true if lits1 subsumes lits2.

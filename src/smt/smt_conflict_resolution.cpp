@@ -348,6 +348,12 @@ namespace smt {
         antecedents.reset();
         justification2literals_core(js, antecedents);
         m_ctx.get_clause_proof().propagate(consequent, js, antecedents);
+        if (m.has_trace_stream()) {
+            literal_vector &lits = antecedents;
+            m.trace_stream() << " --- justification lits for " << consequent << " --- \n" << lits << "\n";
+            m_ctx.display_literals_verbose(m.trace_stream(), lits.size(), lits.begin(), /*full=*/true);
+            m.trace_stream() << " --- end justification --- \n";
+        }
         for (literal l : antecedents)
             process_antecedent(l, num_marks);
         (void)consequent;
@@ -483,7 +489,44 @@ namespace smt {
         b_justification js;
         literal consequent;
 
-        if (!initialize_resolve(conflict, not_l, js, consequent)) {
+        bool init_success = initialize_resolve(conflict, not_l, js, consequent);
+
+        // //! CC: instrumentation
+        if (m.has_trace_stream()) {
+            switch (js.get_kind()) {
+                case b_justification::CLAUSE: {
+                    clause * cls = js.get_clause();
+                    m.trace_stream() << " --- conflict (clause) --- \n";
+                    // m_ctx.display_clause_smt2(m.trace_stream(), *cls);
+                    m.trace_stream() << literal_vector(cls->get_num_literals(), cls->begin()) << ": ";
+                    m_ctx.display_clause(m.trace_stream(), cls);
+                    m.trace_stream() << "\n";
+                    m.trace_stream() << " --- end of conflict (clause) --- \n";
+                    break;
+                }
+                case b_justification::BIN_CLAUSE:
+                    m.trace_stream() << " --- conflict (bin) --- \n";
+                    // m_ctx.display_literals_smt2(m.trace_stream(), consequent, ~js.get_literal()) << "\n";
+                    m.trace_stream() << consequent << " " << ~js.get_literal() << "\n";
+                    m.trace_stream() << " --- end of conflict (bin) --- \n";
+                    break;
+                case b_justification::AXIOM:
+                    m.trace_stream() << " --- conflict (axiom) --- \n";
+                    m.trace_stream() << " --- end of conflict (axiom) --- \n";
+                    break;
+                case b_justification::JUSTIFICATION:
+                    m.trace_stream() << " --- conflict (justification) --- \n";
+                    if (m_conflict_lvl <= m_ctx.get_search_level()) {
+                        unsigned int dummy_num_marks;
+                        process_justification(consequent, js.get_justification(), dummy_num_marks);
+                    }
+                    m.trace_stream() << " --- end of conflict (justification) --- \n";
+                    break;
+                default:
+                    UNREACHABLE();
+            }
+        }
+        if (!init_success) {
             return false;
         }
 

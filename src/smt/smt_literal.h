@@ -36,7 +36,7 @@ namespace smt {
     typedef svector<literal> literal_vector;
     typedef sbuffer<literal> literal_buffer;
 
-    std::ostream& display(std::ostream & out, literal lit, ast_manager & m, expr * const * bool_var2expr_map);
+    std::ostream& display(std::ostream & out, literal lit, ast_manager & m, expr * const * bool_var2expr_map, bool full=false);
     
     std::ostream& display_smt2(std::ostream & out, literal lit, ast_manager & m, expr * const * bool_var2expr_map);
     
@@ -44,7 +44,7 @@ namespace smt {
 
     std::ostream& display_compact(std::ostream & out, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map);
 
-    std::ostream& display_verbose(std::ostream & out, ast_manager& m, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map, char const* sep = "\n");
+    std::ostream& display_verbose(std::ostream & out, ast_manager& m, unsigned num_lits, literal const * lits, expr * const * bool_var2expr_map, char const* sep = "\n", bool full=false);
 
     template<typename T>
     void neg_literals(unsigned num_lits, literal const * lits, T & result) {

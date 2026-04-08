@@ -103,8 +103,8 @@ namespace smt {
         return display_literals_verbose(out, 1, &lit);
     }
 
-    std::ostream& context::display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const {
-        display_verbose(out, m, num_lits, lits, m_bool_var2expr.data(), "\n"); return out;
+    std::ostream& context::display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits, bool full) const {
+        display_verbose(out, m, num_lits, lits, m_bool_var2expr.data(), "\n", full); return out;
     }
 
     std::ostream& context::display_literal_smt2(std::ostream& out, literal l) const {
