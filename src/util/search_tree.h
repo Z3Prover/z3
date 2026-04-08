@@ -252,8 +252,13 @@ namespace search_tree {
             find_shallowest_timed_out_leaf_depth(cur->right(), best_depth);
         }
 
-        bool should_split(node<Config>* n) {
-            if (!n || n->get_status() != status::active || !n->is_leaf())
+        bool should_split(node<Config>* n, unsigned effort) {
+            if (!n || n->get_status() != status::active)
+                return false;
+
+            n->add_effort(effort);
+            
+            if(!n->is_leaf())
                 return false;
 
             unsigned num_active_nodes = count_active_nodes(m_root.get());
@@ -264,7 +269,7 @@ namespace search_tree {
                 return false;
 
             // ONLY throttle when tree is "large enough" 
-            if (unsolved_tree_size >= num_active_nodes) {
+            if (unsolved_tree_size >= m_min_tree_size) {
                 if (has_unvisited_open_node(m_root.get())) // Do not expand if there are still unvisited open nodes (prioritize exploration before expansion)
                     return false;
                 if (m_rand(2) != 0) // Random throttling (50% rejection)
@@ -451,9 +456,9 @@ namespace search_tree {
             if (!n || n->get_status() != status::active)
                 return false;
 
-            n->add_effort(effort);
+            // n->add_effort(effort);
 
-            if (should_split(n)) {
+            if (should_split(n, effort)) {
                 n->split(a, b);
                 return true;
             } else {
