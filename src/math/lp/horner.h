@@ -31,7 +31,8 @@ class core;
 
 class horner : common {
     nex_creator::sum_factory  m_row_sum;
-    unsigned         m_row_index;                      
+    unsigned         m_row_index;
+    svector<std::pair<lpvar, lpvar>> m_introduced_monomials; // track what we've already created                      
 public:
     typedef intervals::interval interv;
     horner(core *core);
@@ -49,5 +50,6 @@ public:
     template <typename T> // T has an iterator of (coeff(), var())
     bool row_has_monomial_to_refine(const T&) const;
     bool interval_from_term_with_deps(const nex* e, intervals::interval&) const;
+    void introduce_monomials_from_term_columns();
 }; // end of horner
 }

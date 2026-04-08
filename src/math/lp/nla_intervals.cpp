@@ -292,6 +292,7 @@ bool intervals::interval_from_term(const nex& e, scoped_dep_interval& i) {
     if (j + 1 == 0)
         return false;
 
+    m_term_columns.push_back(j);
     set_var_interval<wd>(j, i);
     interval bi;
     m_dep_intervals.mul<wd>(a, i, bi);

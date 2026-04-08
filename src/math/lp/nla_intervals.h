@@ -21,7 +21,8 @@ class core;
 class intervals {
     mutable dep_intervals     m_dep_intervals;
     core*                     m_core;
-    
+    svector<lpvar>            m_term_columns; // LP columns found by interval_from_term
+
 public:
     typedef dep_intervals::interval interval;
 private:
@@ -87,6 +88,9 @@ public:
     lpvar find_term_column(const lp::lar_term&, rational& a) const;
     std::ostream& display_separating_interval(std::ostream& out, const nex*n, const scoped_dep_interval& interv_wd, u_dependency* initial_deps);
     bool conflict_u_l(const interval& a, const interval& b) const;
+
+    void clear_term_columns() { m_term_columns.clear(); }
+    const svector<lpvar>& term_columns() const { return m_term_columns; }
 
 }; // end of intervals
 } // end of namespace nla
