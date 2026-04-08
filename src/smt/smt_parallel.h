@@ -106,7 +106,7 @@ namespace smt {
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
-            void try_split(ast_translation& l2g, unsigned id, node* n, expr* atom);
+            void try_split(ast_translation& l2g, unsigned id, node* n, expr* atom, unsigned effort);
 
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);

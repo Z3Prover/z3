@@ -140,7 +140,7 @@ namespace smt {
                 auto atom = get_split_atom();
                 if (!atom)
                     goto check_cube_start;
-                b.try_split(m_l2g, id, node, atom);
+                b.try_split(m_l2g, id, node, atom, m_config.m_threads_max_conflicts);
                 simplify();
                 break;
             }
@@ -339,7 +339,7 @@ namespace smt {
     }
 
     void parallel::batch_manager::try_split(ast_translation &l2g, unsigned source_worker_id,
-                                        search_tree::node<cube_config> *node, expr *atom) {
+                                        search_tree::node<cube_config> *node, expr *atom, unsigned effort) {
         std::scoped_lock lock(mux);
         expr_ref lit(m), nlit(m);
         lit = l2g(atom);
@@ -348,7 +348,7 @@ namespace smt {
         if (m_state != state::is_running)
             return;
 
-        bool did_split = m_search_tree.try_split(node, lit, nlit);
+        bool did_split = m_search_tree.try_split(node, lit, nlit, effort);
 
         if (did_split) {
             ++m_stats.m_num_cubes;

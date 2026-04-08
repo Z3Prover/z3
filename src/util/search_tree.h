@@ -48,6 +48,7 @@ namespace search_tree {
         vector<literal> m_core;
         unsigned m_num_activations = 0;
         unsigned m_attempts = 0;
+        unsigned m_effort_spent = 0;
 
     public:
         node(literal const &l, node *parent) : m_literal(l), m_parent(parent), m_status(status::open) {}
@@ -145,6 +146,13 @@ namespace search_tree {
         void inc_attempts() {
             ++m_attempts;
         }
+
+        unsigned effort_spent() const {
+            return m_effort_spent;
+        }
+        void add_effort(unsigned effort) {
+            m_effort_spent += effort;
+        }
     };
 
     template <typename Config> class tree {
@@ -153,20 +161,29 @@ namespace search_tree {
         literal m_null_literal;
         random_gen m_rand;
         unsigned m_expand_factor = 2;
+        unsigned m_effort_unit = 1000;
 
         struct candidate {
             node<Config>* n = nullptr;
-            unsigned attempts = UINT64_MAX;
+            // unsigned attempts = UINT64_MAX;
+            unsigned effort_band = UINT64_MAX;
             unsigned depth = 0;
         };
+
+        unsigned effort_band(node<Config> const* n) const {
+            return n->effort_spent() / std::max<unsigned>(1, m_effort_unit);
+        }
+
 
         bool better(candidate const& a, candidate const& b) const {
             if (!a.n)
                 return false;
             if (!b.n)
                 return true;
-            if (a.attempts != b.attempts)
-                return a.attempts < b.attempts;
+            // if (a.attempts != b.attempts)
+            //     return a.attempts < b.attempts;
+            if (a.effort_band != b.effort_band)
+                return a.effort_band < b.effort_band;
             if (a.depth != b.depth)
                 return a.depth > b.depth;
             return false;
@@ -179,7 +196,8 @@ namespace search_tree {
             if (cur->get_status() == target_status) {
                 candidate cand;
                 cand.n = cur;
-                cand.attempts = cur->num_attempts();
+                // cand.attempts = cur->num_attempts();
+                cand.effort_band = effort_band(cur);
                 cand.depth = cur->depth();
 
                 if (better(cand, best))
@@ -230,17 +248,18 @@ namespace search_tree {
             if (!cur || cur->get_status() == status::closed)
                 return;
 
-            if (cur->is_leaf() && cur->num_attempts() > 0)
+            if (cur->is_leaf() && cur->effort_spent() > 0)//&& cur->num_attempts() > 0)
                 best_depth = std::min(best_depth, cur->depth());
 
             find_shallowest_timed_out_leaf_depth(cur->left(), best_depth);
             find_shallowest_timed_out_leaf_depth(cur->right(), best_depth);
         }
 
-        bool should_split(node<Config>* n) {
+        bool should_split(node<Config>* n, unsigned effort) {
             if (!n || n->get_status() != status::active)
                 return false;
-            n->inc_attempts();
+            // n->inc_attempts();
+            n->add_effort(effort);
             if (!n->is_leaf())
                 return false;
 
@@ -256,8 +275,8 @@ namespace search_tree {
                     return false;
 
                 // Random throttling (50% rejection)
-                // if (m_rand(2) != 0)
-                //     return false;
+                if (m_rand(2) != 0)
+                    return false;
             }
 
             unsigned shallowest_timed_out_leaf_depth = UINT_MAX;
@@ -433,10 +452,10 @@ namespace search_tree {
 
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
-        bool try_split(node<Config> *n, literal const &a, literal const &b) {
+        bool try_split(node<Config> *n, literal const &a, literal const &b, unsigned effort) {
             if (!n || n->get_status() != status::active)
                 return false;
-            if (should_split(n)) {
+            if (should_split(n, effort)) {
                 n->split(a, b);
                 return true;
             } else {
