@@ -140,7 +140,7 @@ namespace smt {
                 auto atom = get_split_atom();
                 if (!atom)
                     goto check_cube_start;
-                b.split(m_l2g, id, node, atom);
+                b.try_split(m_l2g, id, node, atom);
                 simplify();
                 break;
             }
@@ -338,8 +338,8 @@ namespace smt {
         }
     }
 
-    void parallel::batch_manager::split(ast_translation &l2g, unsigned source_worker_id,
-                                        search_tree::node<cube_config> *node, expr *atom, unsigned effort) {
+    void parallel::batch_manager::try_split(ast_translation &l2g, unsigned source_worker_id,
+                                        search_tree::node<cube_config> *node, expr *atom) {
         std::scoped_lock lock(mux);
         expr_ref lit(m), nlit(m);
         lit = l2g(atom);
@@ -348,9 +348,9 @@ namespace smt {
         if (m_state != state::is_running)
             return;
 
-        bool split_success = m_search_tree.try_split(node, lit, nlit);
+        bool did_split = m_search_tree.try_split(node, lit, nlit);
 
-        if (split_success) {
+        if (did_split) {
             ++m_stats.m_num_cubes;
             m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, node->depth() + 1);
             IF_VERBOSE(1, verbose_stream() << "Batch manager splitting on literal: " << mk_bounded_pp(lit, m, 3) << "\n");
@@ -394,7 +394,6 @@ namespace smt {
         lbool r = l_undef;
 
         ctx->get_fparams().m_max_conflicts = std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts);
-        m_last_check_effort = std::max<unsigned>(1, ctx->get_fparams().m_max_conflicts);
         IF_VERBOSE(1, verbose_stream() << " Checking cube\n"
                                        << bounded_pp_exprs(cube)
                                        << "with max_conflicts: " << ctx->get_fparams().m_max_conflicts << "\n";);
@@ -532,6 +531,7 @@ namespace smt {
     void parallel::batch_manager::initialize() {
         m_state = state::is_running;
         m_search_tree.reset();
+        m_search_tree.set_num_workers(p.num_threads);
     }
 
     void parallel::batch_manager::collect_statistics(::statistics &st) const {

@@ -16,7 +16,7 @@ Abstract:
     - Open nodes are unsolved and available for future activation.
 
     Tree activation follows an SMTS-style policy: prefer nodes in lower
-    accumulated-effort bands, and then prefer deeper nodes within the same band.
+    accumulated-attempts bands, and then prefer deeper nodes within the same band.
 
     Tree expansion is also SMTS-inspired: a timeout does not force an immediate
     split. Instead, expansion is gated to avoid overgrowing the tree and prefers
@@ -24,7 +24,7 @@ Abstract:
 
     Backtracking on a conflict closes all nodes below the last node whose atom is in the conflict set.
 
-    Activation selects a best-ranked open node using accumulated effort and depth.
+    Activation selects a best-ranked open node using accumulated attempts and depth.
 
 Author:
 
@@ -47,7 +47,7 @@ namespace search_tree {
         status m_status;
         vector<literal> m_core;
         unsigned m_num_activations = 0;
-        unsigned m_effort_spent = 0;
+        unsigned m_attempts = 0;
 
     public:
         node(literal const &l, node *parent) : m_literal(l), m_parent(parent), m_status(status::open) {}
@@ -139,11 +139,11 @@ namespace search_tree {
             set_status(status::active);
             ++m_num_activations;
         }
-        unsigned effort_spent() const {
-            return m_effort_spent;
+        unsigned num_attempts() const {
+            return m_attempts;
         }
-        void add_effort(unsigned effort) {
-            m_effort_spent += effort;
+        void inc_attempts() {
+            ++m_attempts;
         }
     };
 
@@ -153,10 +153,11 @@ namespace search_tree {
         literal m_null_literal;
         random_gen m_rand;
         unsigned m_expand_factor = 2;
+        unsigned m_num_workers = 1;
 
         struct candidate {
             node<Config>* n = nullptr;
-            unsigned effort_spent = UINT64_MAX;
+            unsigned attempts = UINT64_MAX;
             unsigned depth = 0;
         };
 
@@ -165,8 +166,8 @@ namespace search_tree {
                 return false;
             if (!b.n)
                 return true;
-            if (a.effort_spent != b.effort_spent)
-                return a.effort_spent < b.effort_spent;
+            if (a.attempts != b.attempts)
+                return a.attempts < b.attempts;
             if (a.depth != b.depth)
                 return a.depth > b.depth;
             return false;
@@ -179,7 +180,7 @@ namespace search_tree {
             if (cur->get_status() == target_status) {
                 candidate cand;
                 cand.n = cur;
-                cand.effort_spent = cur->effort_spent();
+                cand.attempts = cur->num_attempts();
                 cand.depth = cur->depth();
 
                 if (better(cand, best))
@@ -230,17 +231,17 @@ namespace search_tree {
             if (!cur || cur->get_status() == status::closed)
                 return;
 
-            if (cur->is_leaf() && cur->effort_spent() > 0)
+            if (cur->is_leaf() && cur->num_attempts() > 0)
                 best_depth = std::min(best_depth, cur->depth());
 
             find_shallowest_timed_out_leaf_depth(cur->left(), best_depth);
             find_shallowest_timed_out_leaf_depth(cur->right(), best_depth);
         }
 
-        bool should_split(node<Config>* n, unsigned effort) {
+        bool should_split(node<Config>* n, unsigned attempts) {
             if (!n || n->get_status() != status::active)
                 return false;
-            n->add_effort(effort);
+            n->inc_attempts();
             if (!n->is_leaf())
                 return false;
 
@@ -250,28 +251,19 @@ namespace search_tree {
             if (unsolved_tree_size >= num_active_nodes * m_expand_factor)
                 return false;
 
-            // Gate 4: NEW node check (Algorithm 4, line 5)
-            if (has_unvisited_open_node(m_root.get()))
-                return false;
-
             // ONLY throttle when tree is "large enough"
-            // Between n and k*n - continue to other gates
-            if (unsolved_tree_size >= num_active_nodes) {
-                
-                // Gate 5: Random throttling (Algorithm 4, lines 7-9)
-                // r ← Random() ∈ ]0,1[; if r >= 1/p then abort
-                // With p=2, this gives 50% rejection
+            if (unsolved_tree_size >= m_num_workers) {
+                if (has_unvisited_open_node(m_root.get()))
+                    return false;
+
+                // Random throttling (50% rejection)
                 if (m_rand(2) != 0)
                     return false;
             }
 
-            // Gate 6: Select shallowest timed-out leaf (Algorithm 4, line 10)
-            // Paper: globally select shallowest leaf
-            // Z3 limitation: check if `n` IS the shallowest (we can only expand it)
             unsigned shallowest_timed_out_leaf_depth = UINT_MAX;
             find_shallowest_timed_out_leaf_depth(m_root.get(), shallowest_timed_out_leaf_depth);
 
-            // Only expand if `n` is a shallowest timed-out leaf
             return n->is_leaf() && n->depth() == shallowest_timed_out_leaf_depth;
         }
 
@@ -442,10 +434,10 @@ namespace search_tree {
 
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
-        bool try_split(node<Config> *n, literal const &a, literal const &b, unsigned effort = 1) {
+        bool try_split(node<Config> *n, literal const &a, literal const &b, unsigned attempts = 1) {
             if (!n || n->get_status() != status::active)
                 return false;
-            if (should_split(n, effort)) {
+            if (should_split(n, attempts)) {
                 n->split(a, b);
                 return true;
             } else {
@@ -508,6 +500,10 @@ namespace search_tree {
 
         bool is_closed() const {
             return m_root->get_status() == status::closed;
+        }
+
+        void set_num_workers(unsigned num_workers) {
+            m_num_workers = std::max<unsigned>(1, num_workers);
         }
 
         std::ostream &display(std::ostream &out) const {

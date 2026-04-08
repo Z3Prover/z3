@@ -106,7 +106,7 @@ namespace smt {
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
-            void split(ast_translation& l2g, unsigned id, node* n, expr* atom, unsigned effort = 1);
+            void try_split(ast_translation& l2g, unsigned id, node* n, expr* atom);
 
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
@@ -145,7 +145,6 @@ namespace smt {
             unsigned m_num_shared_units = 0;
             unsigned m_num_initial_atoms = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
-            unsigned m_last_check_effort = 1;
             
             expr_ref get_split_atom();
 
