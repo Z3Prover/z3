@@ -250,13 +250,14 @@ namespace search_tree {
             if (unsolved_tree_size >= num_active_nodes * m_expand_factor)
                 return false;
 
+            // Gate 4: NEW node check (Algorithm 4, line 5)
+            if (has_unvisited_open_node(m_root.get()))
+                return false;
+
             // ONLY throttle when tree is "large enough"
             // Between n and k*n - continue to other gates
             if (unsolved_tree_size >= num_active_nodes) {
-                // Gate 4: NEW node check (Algorithm 4, line 5)
-                if (has_unvisited_open_node(m_root.get()))
-                    return false;
-
+                
                 // Gate 5: Random throttling (Algorithm 4, lines 7-9)
                 // r ← Random() ∈ ]0,1[; if r >= 1/p then abort
                 // With p=2, this gives 50% rejection
@@ -271,9 +272,7 @@ namespace search_tree {
             find_shallowest_timed_out_leaf_depth(m_root.get(), shallowest_timed_out_leaf_depth);
 
             // Only expand if `n` is a shallowest timed-out leaf
-            bool is_timed_out_leaf = n->is_leaf() && n->effort_spent() > 0;
-            return is_timed_out_leaf && 
-                   n->depth() == shallowest_timed_out_leaf_depth;
+            return n->is_leaf() && n->depth() == shallowest_timed_out_leaf_depth;
         }
 
         // Bubble to the highest ancestor where ALL literals in the resolvent
