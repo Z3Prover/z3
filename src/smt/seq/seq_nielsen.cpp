@@ -264,10 +264,8 @@ namespace seq {
         m_constraints.push_back(c);
         SASSERT(m_graph.m_literal_if_false);
         auto lit = m_graph.m_literal_if_false(c.fml);
-        if (lit != sat::null_literal) {
-            std::cout << "External literal " << lit << " in node " << m_id << std::endl;
+        if (lit != sat::null_literal)
             set_external_conflict(lit, c.dep);
-        }
     }
 
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
@@ -3704,7 +3702,6 @@ namespace seq {
             if (n->m_conflict_external_literal != sat::null_literal) {
                 // We know from the outer solver that this literal is assigned false
                 deps = m_dep_mgr.mk_join(deps, m_dep_mgr.mk_leaf(n->m_conflict_external_literal));
-                std::cout << "External literal: " << n->m_conflict_external_literal << std::endl;
                 if (n->m_conflict_internal)
                     deps = m_dep_mgr.mk_join(deps, n->m_conflict_internal);
                 continue;

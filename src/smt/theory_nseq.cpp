@@ -734,7 +734,7 @@ namespace smt {
         set_conflict(eqs, lits);
 
 #ifdef Z3DEBUG
-#if 1
+#if 0
         // Pass constraints to a subsolver to check correctness modulo legacy solver
         {
             smt_params p;
