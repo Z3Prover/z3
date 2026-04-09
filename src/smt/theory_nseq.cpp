@@ -687,6 +687,7 @@ namespace smt {
                 v.reset();
             }
         };
+        std::cout << "Nielsen assumptions:\n";
         ctx.push_trail(reset_vector(m_nielsen_literals));
         for (auto const& c : m_nielsen.sat_node()->constraints()) {
             bool was_internalized = ctx.e_internalized(c.fml);   
@@ -696,6 +697,7 @@ namespace smt {
             case l_true: 
                 break;
             case l_undef:
+                //std::cout << "Undef: " << mk_pp(c.fml, m) << "\n";
                 has_undef = true; 
                 ctx.force_phase(lit);                
                 IF_VERBOSE(2, verbose_stream() << 
@@ -708,10 +710,12 @@ namespace smt {
                                   << "nseq final_check: nielsen assumption " << c.fml << " is false\n";);
                 ctx.force_phase(lit);
                 has_undef = true;
-                ctx.force_phase(lit);    
+                ctx.force_phase(lit);
+                //std::cout << "False: " << mk_pp(c.fml, m) << "\n";
                 break;
             }
         }
+        std::cout << std::endl;
         if (has_undef)
             return false;
         return true;

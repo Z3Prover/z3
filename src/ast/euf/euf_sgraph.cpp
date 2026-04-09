@@ -559,9 +559,10 @@ namespace euf {
             if (ele_sort != elem_expr->get_sort()) {
                 // std::cout << "Different sorts: " << ele_sort->get_name() << " vs " << elem_expr->get_sort()->get_name() << std::endl;
                 expr* lo = nullptr, *hi = nullptr;
-                if (m_seq.re.is_full_char(elem_expr))
-                    return nullptr;
-                if (m_seq.re.is_range(elem_expr, lo, hi) && lo) {
+                if (m_seq.re.is_full_char(elem_expr)) {
+                    elem_expr = m_seq.str.mk_char(0);
+                }
+                else if (m_seq.re.is_range(elem_expr, lo, hi) && lo) {
                     expr* lo_ch = nullptr;
                     zstring zs;
                     if (m_seq.str.is_unit(lo, lo_ch))
@@ -579,8 +580,7 @@ namespace euf {
         }
         
         expr_ref result = m_rewriter.mk_derivative(elem_expr, re_expr);
-        if (!result)
-            return nullptr;
+        SASSERT(result);
         return mk(result);
     }
 
