@@ -4147,15 +4147,16 @@ nielsen_graph::generate_length_constraints(vector<length_constraint>& constraint
                 m_solver.assert_expr(ic.fml);
             for (auto const& kvp : m_sat_node->char_ranges()) {
                 expr_ref_vector cases(m);
-                const auto& var = m_sg.nodes()[kvp.m_key]->get_expr();
+                auto var = m_sg.nodes()[kvp.m_key]->get_expr();
+                SASSERT(seq().str.is_unit(var));
+                var = to_app(var)->get_arg(0);
                 const auto& ranges = kvp.m_value.first.ranges();
                 cases.reserve(ranges.size());
 
                 for (unsigned i = 0; i < ranges.size(); ++i) {
-                    cases.push_back(m.mk_and(
+                    cases[i] = m.mk_and(
                         seq().mk_le(seq().mk_char(ranges[i].m_lo), var),
-                        seq().mk_le(var, seq().mk_char(ranges[i].m_hi - 1))
-                        ));
+                        seq().mk_le(var, seq().mk_char(ranges[i].m_hi - 1)));
                 }
                 m_solver.assert_expr(m.mk_or(cases));
             }
