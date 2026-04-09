@@ -1567,7 +1567,7 @@ namespace seq {
                         e->add_subst(subst);
                         child->apply_subst(m_sg, subst);
 
-                        if (!lhs_rest->is_empty() && !rhs_rest->is_empty())
+                        if (!lhs_rest->is_empty() || !rhs_rest->is_empty())
                             eqs.push_back(str_eq(lhs_rest, rhs_rest, eq.m_dep));
                         return true;
                     }
@@ -1602,7 +1602,7 @@ namespace seq {
                         e->add_subst(subst);
                         child->apply_subst(m_sg, subst);
 
-                        if (!lhs_rest->is_empty() && !rhs_rest->is_empty())
+                        if (!lhs_rest->is_empty() || !rhs_rest->is_empty())
                             eqs.push_back(str_eq(lhs_rest, rhs_rest, eq.m_dep));
                         return true;
                     }
