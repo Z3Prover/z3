@@ -48,7 +48,7 @@ namespace smt {
 
         // solve integer constraints from the sat_path FIRST so that
         // m_int_model is available when snode_to_value evaluates power exponents
-        nielsen.solve_sat_path_raw(m_int_model);
+        VERIFY(nielsen.solve_sat_path_raw(m_int_model));
 
         // extract variable assignments from the satisfying leaf's substitution path
         extract_assignments(nielsen.sat_path());
@@ -171,11 +171,14 @@ namespace smt {
 
         if (n->is_char() || n->is_unit()) {
             expr* e = n->get_expr();
+            SASSERT(m_seq.str.is_unit(e));
+            e = to_app(e)->get_arg(0);
             expr_ref val(m);
             if (e && m_int_model) {
+                unsigned c;
                 m_int_model->eval_expr(e, val, true);
-                if (val)
-                    return val;
+                if (val && m_seq.is_const_char(val, c))
+                    return expr_ref(m_seq.str.mk_string(zstring(c)), m);
             }
             return e ? expr_ref(e, m) : expr_ref(m);
         }

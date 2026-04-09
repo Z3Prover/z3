@@ -351,6 +351,22 @@ namespace seq {
         }
         else
             m_char_ranges.insert(id, std::make_pair(range.clone(), dep));
+
+        auto& ranges = range.ranges();
+        auto& m = graph().get_manager();
+        auto& seq = graph().seq();
+        expr* var = sym_char->get_expr();
+        SASSERT(seq.str.is_unit(var));
+        var = to_app(var)->get_arg(0);
+        ptr_vector<expr> cases;
+        cases.reserve(ranges.size());
+
+        for (unsigned i = 0; i < ranges.size(); ++i) {
+            cases[i] = m.mk_and(
+                seq.mk_le(seq.mk_char(ranges[i].m_lo), var),
+                seq.mk_le(var, seq.mk_char(ranges[i].m_hi - 1)));
+        }
+        add_constraint(constraint(m.mk_or(cases), dep, m));
     }
 
     bool nielsen_node::lower_bound(expr* e, rational& lo) const {
@@ -4145,21 +4161,6 @@ nielsen_graph::generate_length_constraints(vector<length_constraint>& constraint
         if (m_sat_node) {
             for (auto const& ic : m_sat_node->constraints())
                 m_solver.assert_expr(ic.fml);
-            for (auto const& kvp : m_sat_node->char_ranges()) {
-                expr_ref_vector cases(m);
-                auto var = m_sg.nodes()[kvp.m_key]->get_expr();
-                SASSERT(seq().str.is_unit(var));
-                var = to_app(var)->get_arg(0);
-                const auto& ranges = kvp.m_value.first.ranges();
-                cases.reserve(ranges.size());
-
-                for (unsigned i = 0; i < ranges.size(); ++i) {
-                    cases[i] = m.mk_and(
-                        seq().mk_le(seq().mk_char(ranges[i].m_lo), var),
-                        seq().mk_le(var, seq().mk_char(ranges[i].m_hi - 1)));
-                }
-                m_solver.assert_expr(m.mk_or(cases));
-            }
         }
         lbool result = m_solver.check();
         IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints result: " << result << "\n";);
