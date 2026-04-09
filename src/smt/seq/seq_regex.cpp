@@ -577,7 +577,6 @@ namespace seq {
                 }
             }
         }
-
         return l_true;
     }
 
@@ -667,8 +666,7 @@ namespace seq {
         euf::snode* result = nullptr;
 
         for (auto const& mem : node.str_mems()) {
-            if (!mem.m_str || !mem.m_regex)
-                continue;
+            SASSERT(mem.m_str && mem.m_regex);
             // Primitive constraint: str is a single variable
             if (!mem.is_primitive())
                 continue;
@@ -679,6 +677,7 @@ namespace seq {
 
             if (!result) {
                 result = mem.m_regex;
+                dep = dep_mgr.mk_join(dep, mem.m_dep);
             }
             else {
                 expr* r1 = result->get_expr();

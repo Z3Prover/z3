@@ -35,6 +35,7 @@ NSB review:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
 #include "ast/rewriter/var_subst.h"
+#include "smt/smt_enode.h"
 #include "util/statistics.h"
 #include <algorithm>
 #include <cstdlib>
@@ -245,6 +246,18 @@ namespace seq {
         }
         m_regex_occurrence[key] = m_id;
         return false;
+    }
+
+    void nielsen_node::add_str_eq(str_eq const& eq) {
+        SASSERT(eq.m_lhs != nullptr);
+        SASSERT(eq.m_rhs != nullptr);
+        m_str_eq.push_back(eq);
+    }
+
+    void nielsen_node::add_str_mem(str_mem const& mem) {
+        SASSERT(mem.m_str != nullptr);
+        SASSERT(mem.m_regex != nullptr);
+        m_str_mem.push_back(mem);
     }
 
     void nielsen_node::add_constraint(constraint const &c) {
@@ -1137,7 +1150,7 @@ namespace seq {
             dep_tracker dep = mem.m_dep;
             if (m_graph.check_regex_widening(*this, mem.m_str, mem.m_regex, dep)) {
                 set_general_conflict();
-                set_conflict(backtrack_reason::regex, dep);
+                set_conflict(backtrack_reason::regex_widening, dep);
                 return simplify_result::conflict;
             }
         }

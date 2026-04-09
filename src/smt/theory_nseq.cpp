@@ -239,7 +239,7 @@ namespace smt {
 
     void theory_nseq::assign_eh(bool_var v, bool is_true) {
         expr* e = ctx.bool_var2expr(v);
-        // std::cout << "assigned " << mk_pp(e, m) << " = " << is_true << std::endl;
+        // std::cout << "assigned [" << sat::literal(v, is_true) << "] " << mk_pp(e, m) << " = " << is_true << std::endl;
         expr *s = nullptr, *re = nullptr, *a = nullptr, *b = nullptr;
         TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
         if (m_seq.str.is_in_re(e, s, re)) {
@@ -687,7 +687,7 @@ namespace smt {
                 v.reset();
             }
         };
-        std::cout << "Nielsen assumptions:\n";
+        //std::cout << "Nielsen assumptions:\n";
         ctx.push_trail(reset_vector(m_nielsen_literals));
         for (auto const& c : m_nielsen.sat_node()->constraints()) {
             bool was_internalized = ctx.e_internalized(c.fml);   
@@ -715,7 +715,7 @@ namespace smt {
                 break;
             }
         }
-        std::cout << std::endl;
+        // std::cout << std::endl;
         if (has_undef)
             return false;
         return true;

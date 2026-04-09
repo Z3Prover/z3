@@ -287,7 +287,7 @@ namespace seq {
             std::string res;
             if (ap->get_num_args() == 0)
                 return "&#8709;";
-            res = regex_expr_html(ap->get_arg(1), m, seq);
+            res = regex_expr_html(ap->get_arg(0), m, seq);
             for (unsigned i = 1; i < ap->get_num_args(); ++i) {
                 res += " | ";
                 res += regex_expr_html(ap->get_arg(i), m, seq);
