@@ -202,21 +202,29 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     void theory_nseq::new_eq_eh(theory_var v1, theory_var v2) {
-        expr* e1 = get_enode(v1)->get_expr();
-        expr* e2 = get_enode(v2)->get_expr();
-        TRACE(seq, tout << mk_pp(e1, m) << " == " << mk_pp(e2, m) << "\n");
-        if (m_seq.is_re(e1)) {
-            push_unhandled_pred();
-            return;
+        try {
+            expr* e1 = get_enode(v1)->get_expr();
+            expr* e2 = get_enode(v2)->get_expr();
+            TRACE(seq, tout << mk_pp(e1, m) << " == " << mk_pp(e2, m) << "\n");
+            if (m_seq.is_re(e1)) {
+                push_unhandled_pred();
+                return;
+            }
+            if (!m_seq.is_seq(e1) || !m_seq.is_seq(e2))
+                return;
+            euf::snode* s1 = get_snode(e1);
+            euf::snode* s2 = get_snode(e2);
+            if (s1 && s2) {
+                seq::dep_tracker dep = nullptr;
+                ctx.push_trail(restore_vector(m_prop_queue));
+                m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
+            }
         }
-        if (!m_seq.is_seq(e1) || !m_seq.is_seq(e2))
-            return;
-        euf::snode* s1 = get_snode(e1);
-        euf::snode* s2 = get_snode(e2);
-        if (s1 && s2) {
-            seq::dep_tracker dep = nullptr;
-            ctx.push_trail(restore_vector(m_prop_queue));
-            m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
+        catch(const std::exception&) {
+#ifdef Z3DEBUG
+            std::string dot = m_nielsen.to_dot();
+#endif
+            throw;
         }
     }
 
@@ -238,79 +246,87 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     void theory_nseq::assign_eh(bool_var v, bool is_true) {
-        expr* e = ctx.bool_var2expr(v);
-        // std::cout << "assigned [" << sat::literal(v, is_true) << "] " << mk_pp(e, m) << " = " << is_true << std::endl;
-        expr *s = nullptr, *re = nullptr, *a = nullptr, *b = nullptr;
-        TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
-        if (m_seq.str.is_in_re(e, s, re)) {
-            euf::snode* sn_str = get_snode(s);
-            euf::snode* sn_re  = get_snode(re);
-            if (!sn_str || !sn_re)
-                return;
-            literal lit(v, !is_true);
-            seq::dep_tracker dep = nullptr;
-            if (is_true) {
-                ctx.push_trail(restore_vector(m_prop_queue));
-                m_prop_queue.push_back(mem_item(sn_str, sn_re, lit, nullptr, m_next_mem_id++, dep));
+        try {
+            expr* e = ctx.bool_var2expr(v);
+            std::cout << "assigned [" << sat::literal(v, is_true) << "] " << mk_pp(e, m) << " = " << is_true << std::endl;
+            expr *s = nullptr, *re = nullptr, *a = nullptr, *b = nullptr;
+            TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
+            if (m_seq.str.is_in_re(e, s, re)) {
+                euf::snode* sn_str = get_snode(s);
+                euf::snode* sn_re  = get_snode(re);
+                if (!sn_str || !sn_re)
+                    return;
+                literal lit(v, !is_true);
+                seq::dep_tracker dep = nullptr;
+                if (is_true) {
+                    ctx.push_trail(restore_vector(m_prop_queue));
+                    m_prop_queue.push_back(mem_item(sn_str, sn_re, lit, nullptr, m_next_mem_id++, dep));
+                }
+                else {
+                    // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
+                    // so the Nielsen graph sees it uniformly; the original negative literal
+                    // is kept in mem_source for conflict reporting.
+                    expr_ref re_compl(m_seq.re.mk_complement(re), m);
+                    euf::snode* sn_re_compl = get_snode(re_compl.get());
+                    ctx.push_trail(restore_vector(m_prop_queue));
+                    m_prop_queue.push_back(mem_item(sn_str, sn_re_compl, lit, nullptr, m_next_mem_id++, dep));
+                }
             }
-            else {
-                // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
-                // so the Nielsen graph sees it uniformly; the original negative literal
-                // is kept in mem_source for conflict reporting.
-                expr_ref re_compl(m_seq.re.mk_complement(re), m);
-                euf::snode* sn_re_compl = get_snode(re_compl.get());
-                ctx.push_trail(restore_vector(m_prop_queue));
-                m_prop_queue.push_back(mem_item(sn_str, sn_re_compl, lit, nullptr, m_next_mem_id++, dep));
+            else if (m_seq.str.is_prefix(e)) {
+                if (is_true)
+                    m_axioms.prefix_true_axiom(e);
+                else
+                    m_axioms.prefix_axiom(e);
             }
-        }
-        else if (m_seq.str.is_prefix(e)) {
-            if (is_true)
-                m_axioms.prefix_true_axiom(e);
-            else
-                m_axioms.prefix_axiom(e);
-        }
-        else if (m_seq.str.is_suffix(e)) {
-            if (is_true)
-                m_axioms.suffix_true_axiom(e);
-            else
-                m_axioms.suffix_axiom(e);
-        }
-        else if (m_seq.str.is_contains(e)) {
-            if (is_true)
-                m_axioms.contains_true_axiom(e);
-            else
-                m_axioms.not_contains_axiom(e);
-        }
-        else if (m_seq.str.is_lt(e) || m_seq.str.is_le(e)) {
-            // axioms added via relevant_eh → dequeue_axiom
-        }
-        else if (m_axioms.sk().is_eq(e, a, b) && is_true) {
-            enode* n1 = ensure_enode(a);
-            enode* n2 = ensure_enode(b);
-            auto v1 = mk_var(n1);
-            auto v2 = mk_var(n2);
-            if (n1->get_root() != n2->get_root()) {
-                literal lit(v, false);
-                ctx.mark_as_relevant(n1);
-                ctx.mark_as_relevant(n2);
-                TRACE(seq, tout << "is-eq " << mk_pp(a, m) << " == " << mk_pp(b, m) << "\n");
-                justification* js = ctx.mk_justification(
-                    ext_theory_eq_propagation_justification(
-                        get_id(), ctx, 1, &lit, 0, nullptr, n1, n2));
-                ctx.assign_eq(n1, n2, eq_justification(js));
-                new_eq_eh(v1, v2);
+            else if (m_seq.str.is_suffix(e)) {
+                if (is_true)
+                    m_axioms.suffix_true_axiom(e);
+                else
+                    m_axioms.suffix_axiom(e);
             }
+            else if (m_seq.str.is_contains(e)) {
+                if (is_true)
+                    m_axioms.contains_true_axiom(e);
+                else
+                    m_axioms.not_contains_axiom(e);
+            }
+            else if (m_seq.str.is_lt(e) || m_seq.str.is_le(e)) {
+                // axioms added via relevant_eh → dequeue_axiom
+            }
+            else if (m_axioms.sk().is_eq(e, a, b) && is_true) {
+                enode* n1 = ensure_enode(a);
+                enode* n2 = ensure_enode(b);
+                auto v1 = mk_var(n1);
+                auto v2 = mk_var(n2);
+                if (n1->get_root() != n2->get_root()) {
+                    literal lit(v, false);
+                    ctx.mark_as_relevant(n1);
+                    ctx.mark_as_relevant(n2);
+                    TRACE(seq, tout << "is-eq " << mk_pp(a, m) << " == " << mk_pp(b, m) << "\n");
+                    justification* js = ctx.mk_justification(
+                        ext_theory_eq_propagation_justification(
+                            get_id(), ctx, 1, &lit, 0, nullptr, n1, n2));
+                    ctx.assign_eq(n1, n2, eq_justification(js));
+                    new_eq_eh(v1, v2);
+                }
+            }
+            else if (m_seq.is_skolem(e) ||
+                     m_seq.str.is_nth_i(e) ||
+                     m_seq.str.is_nth_u(e) ||
+                     m_seq.str.is_is_digit(e) ||
+                     m_seq.str.is_foldl(e) ||
+                     m_seq.str.is_foldli(e)) {
+                // no-op: handled by other mechanisms
+                     }
+            else if (is_app(e) && to_app(e)->get_family_id() == m_seq.get_family_id())
+                push_unhandled_pred();
         }
-        else if (m_seq.is_skolem(e) ||
-                 m_seq.str.is_nth_i(e) ||
-                 m_seq.str.is_nth_u(e) ||
-                 m_seq.str.is_is_digit(e) ||
-                 m_seq.str.is_foldl(e) ||
-                 m_seq.str.is_foldli(e)) {
-            // no-op: handled by other mechanisms
+        catch(const std::exception&) {
+#ifdef Z3DEBUG
+            std::string dot = m_nielsen.to_dot();
+#endif
+            throw;
         }
-        else if (is_app(e) && to_app(e)->get_family_id() == m_seq.get_family_id())
-            push_unhandled_pred();
     }
 
     // -----------------------------------------------------------------------
@@ -324,8 +340,16 @@ namespace smt {
     }
 
     void theory_nseq::pop_scope_eh(unsigned num_scopes) {
-        theory::pop_scope_eh(num_scopes);
-        m_sgraph.pop(num_scopes);
+        try {
+            theory::pop_scope_eh(num_scopes);
+            m_sgraph.pop(num_scopes);
+        }
+        catch(const std::exception&) {
+#ifdef Z3DEBUG
+            std::string dot = m_nielsen.to_dot();
+#endif
+            throw;
+        }
     }
 
     void theory_nseq::push_unhandled_pred() {
@@ -342,20 +366,28 @@ namespace smt {
     }
 
     void theory_nseq::propagate() {
-        if (m_prop_qhead == m_prop_queue.size())
-            return;
-        ctx.push_trail(value_trail(m_prop_qhead));
-        while (m_prop_qhead < m_prop_queue.size() && !ctx.inconsistent()) {
-            auto const& item = m_prop_queue[m_prop_qhead++];
-            if (std::holds_alternative<eq_item>(item))
-                propagate_eq(std::get<eq_item>(item));
-            else if (std::holds_alternative<mem_item>(item))
-                propagate_pos_mem(std::get<mem_item>(item));
-            else if (std::holds_alternative<axiom_item>(item))
-                dequeue_axiom(std::get<axiom_item>(item).e);
-            else {
-                UNREACHABLE();
+        try {
+            if (m_prop_qhead == m_prop_queue.size())
+                return;
+            ctx.push_trail(value_trail(m_prop_qhead));
+            while (m_prop_qhead < m_prop_queue.size() && !ctx.inconsistent()) {
+                auto const& item = m_prop_queue[m_prop_qhead++];
+                if (std::holds_alternative<eq_item>(item))
+                    propagate_eq(std::get<eq_item>(item));
+                else if (std::holds_alternative<mem_item>(item))
+                    propagate_pos_mem(std::get<mem_item>(item));
+                else if (std::holds_alternative<axiom_item>(item))
+                    dequeue_axiom(std::get<axiom_item>(item).e);
+                else {
+                    UNREACHABLE();
+                }
             }
+        }
+        catch(const std::exception&) {
+#ifdef Z3DEBUG
+            std::string dot = m_nielsen.to_dot();
+#endif
+            throw;
         }
     }
 
@@ -553,127 +585,135 @@ namespace smt {
     }
 
     final_check_status theory_nseq::final_check_eh(unsigned /*final_check_round*/) {
-        // Always assert non-negativity for all string theory vars,
-        // even when there are no string equations/memberships.
-        if (assert_nonneg_for_all_vars()) {
-            IF_VERBOSE(1, verbose_stream() << "nseq final_check: nonneg assertions added, FC_CONTINUE\n";);
-            return FC_CONTINUE;
-        }
-
-        // Check if there are any eq/mem items in the propagation queue.
-        bool has_eq_or_mem = any_of(m_prop_queue, [](auto const &item) {
-            return std::holds_alternative<eq_item>(item) || std::holds_alternative<mem_item>(item);
-        });
-
-        // there is nothing to do for the string solver, as there are no string constraints
-        if (!has_eq_or_mem && m_ho_terms.empty() && !has_unhandled_preds()) {
-            IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state+ho, FC_DONE (no solve)\n";);
-            m_nielsen.reset();
-            m_nielsen.create_root();
-            m_nielsen.set_sat_node(m_nielsen.root());
-            TRACE(seq, display(tout << "empty nielsen\n"));
-            return FC_DONE;
-        }
-
-        // All literals that were needed to build a model could be assigned to true.
-        // There is an existing nielsen graph with a satisfying assignment.
-        if (!m_nielsen_literals.empty() && m_nielsen.sat_node() != nullptr &&
-            all_of(m_nielsen_literals, [&](auto lit) { return l_true == ctx.get_assignment(lit); })) {
-            IF_VERBOSE(1, verbose_stream() << "nseq final_check: satifiable state revisited\n");
-            return FC_DONE;
-        }
-
-        // unfold higher-order terms when sequence structure is known
-        if (unfold_ho_terms()) {
-            IF_VERBOSE(1, verbose_stream() << "nseq final_check: unfolded ho_terms, FC_CONTINUE\n";);
-            return FC_CONTINUE;
-        }
-
-        if (!has_eq_or_mem && !has_unhandled_preds()) {
-            IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state (after ho), FC_DONE (no solve)\n";);
-            m_nielsen.reset();
-            m_nielsen.create_root();
-            m_nielsen.set_sat_node(m_nielsen.root());
-            TRACE(seq, display(tout << "empty nielsen\n"));
-            return FC_DONE;
-        }
-
-        populate_nielsen_graph();
-
-        // assert length constraints derived from string equalities
-        if (assert_length_constraints()) {
-            IF_VERBOSE(1, verbose_stream() << "nseq final_check: length constraints asserted, FC_CONTINUE\n";);
-            return FC_CONTINUE;
-        }
-
-        ++m_num_final_checks;
-
-        m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
-        m_nielsen.set_max_nodes(get_fparams().m_nseq_max_nodes);
-        m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
-        m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
-        m_nielsen.set_regex_factorization(get_fparams().m_nseq_regex_factorization);
-
-        // Regex membership pre-check: before running DFS, check intersection
-        // emptiness for each variable's regex constraints.  This handles     
-        // regex-only problems that the DFS cannot efficiently solve.
-        if (get_fparams().m_nseq_regex_precheck) {
-            switch (check_regex_memberships_precheck()) {
-            case l_true:
-                // conflict was asserted inside check_regex_memberships_precheck
-                IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck UNSAT\n";);
+        try {
+            // Always assert non-negativity for all string theory vars,
+            // even when there are no string equations/memberships.
+            if (assert_nonneg_for_all_vars()) {
+                IF_VERBOSE(1, verbose_stream() << "nseq final_check: nonneg assertions added, FC_CONTINUE\n";);
                 return FC_CONTINUE;
-            case l_false:
-                // all regex constraints satisfiable, no word eqs → SAT
-                IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck SAT\n";);
-                m_nielsen.set_sat_node(m_nielsen.root());
-                if (!check_length_coherence())
-                    return FC_CONTINUE;
-                TRACE(seq, display(tout << "pre-check done\n"));
-                return FC_DONE;
-            default: 
-                break;
             }
-        }
 
-        IF_VERBOSE(1, verbose_stream() << "nseq final_check: calling solve()\n";);
+            // Check if there are any eq/mem items in the propagation queue.
+            bool has_eq_or_mem = any_of(m_prop_queue, [](auto const &item) {
+                return std::holds_alternative<eq_item>(item) || std::holds_alternative<mem_item>(item);
+            });
 
-        // here the actual Nielsen solving happens
-        auto result = m_nielsen.solve();
+            // there is nothing to do for the string solver, as there are no string constraints
+            if (!has_eq_or_mem && m_ho_terms.empty() && !has_unhandled_preds()) {
+                IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state+ho, FC_DONE (no solve)\n";);
+                m_nielsen.reset();
+                m_nielsen.create_root();
+                m_nielsen.set_sat_node(m_nielsen.root());
+                TRACE(seq, display(tout << "empty nielsen\n"));
+                return FC_DONE;
+            }
+
+            // All literals that were needed to build a model could be assigned to true.
+            // There is an existing nielsen graph with a satisfying assignment.
+            if (!m_nielsen_literals.empty() && m_nielsen.sat_node() != nullptr &&
+                all_of(m_nielsen_literals, [&](auto lit) { return l_true == ctx.get_assignment(lit); })) {
+                IF_VERBOSE(1, verbose_stream() << "nseq final_check: satifiable state revisited\n");
+                return FC_DONE;
+                }
+
+            // unfold higher-order terms when sequence structure is known
+            if (unfold_ho_terms()) {
+                IF_VERBOSE(1, verbose_stream() << "nseq final_check: unfolded ho_terms, FC_CONTINUE\n";);
+                return FC_CONTINUE;
+            }
+
+            if (!has_eq_or_mem && !has_unhandled_preds()) {
+                IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state (after ho), FC_DONE (no solve)\n";);
+                m_nielsen.reset();
+                m_nielsen.create_root();
+                m_nielsen.set_sat_node(m_nielsen.root());
+                TRACE(seq, display(tout << "empty nielsen\n"));
+                return FC_DONE;
+            }
+
+            populate_nielsen_graph();
+
+            // assert length constraints derived from string equalities
+            if (assert_length_constraints()) {
+                IF_VERBOSE(1, verbose_stream() << "nseq final_check: length constraints asserted, FC_CONTINUE\n";);
+                return FC_CONTINUE;
+            }
+
+            ++m_num_final_checks;
+
+            m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
+            m_nielsen.set_max_nodes(get_fparams().m_nseq_max_nodes);
+            m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
+            m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
+            m_nielsen.set_regex_factorization(get_fparams().m_nseq_regex_factorization);
+
+            // Regex membership pre-check: before running DFS, check intersection
+            // emptiness for each variable's regex constraints.  This handles
+            // regex-only problems that the DFS cannot efficiently solve.
+            if (get_fparams().m_nseq_regex_precheck) {
+                switch (check_regex_memberships_precheck()) {
+                case l_true:
+                    // conflict was asserted inside check_regex_memberships_precheck
+                    IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck UNSAT\n";);
+                    return FC_CONTINUE;
+                case l_false:
+                    // all regex constraints satisfiable, no word eqs → SAT
+                    IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck SAT\n";);
+                    m_nielsen.set_sat_node(m_nielsen.root());
+                    if (!check_length_coherence())
+                        return FC_CONTINUE;
+                    TRACE(seq, display(tout << "pre-check done\n"));
+                    return FC_DONE;
+                default:
+                    break;
+                }
+            }
+
+            IF_VERBOSE(1, verbose_stream() << "nseq final_check: calling solve()\n";);
+
+            // here the actual Nielsen solving happens
+            auto result = m_nielsen.solve();
 
 #ifdef Z3DEBUG
-        // Examining the Nielsen graph is probably the best way of debugging
-        std::string dot = m_nielsen.to_dot();
-        IF_VERBOSE(1, verbose_stream() << dot << "\n";);
-        // std::cout << "Got: " << (result == seq::nielsen_graph::search_result::sat ? "sat" : (result == seq::nielsen_graph::search_result::unsat ? "unsat" : "unknown")) << std::endl;
+            // Examining the Nielsen graph is probably the best way of debugging
+            std::string dot = m_nielsen.to_dot();
+            IF_VERBOSE(1, verbose_stream() << dot << "\n";);
+            // std::cout << "Got: " << (result == seq::nielsen_graph::search_result::sat ? "sat" : (result == seq::nielsen_graph::search_result::unsat ? "unsat" : "unknown")) << std::endl;
 #endif
 
-        if (result == seq::nielsen_graph::search_result::unsat) {
-            IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNSAT\n";);
-            explain_nielsen_conflict();
-            return FC_CONTINUE;
-        }
-
-        if (result == seq::nielsen_graph::search_result::sat) {
-            IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve SAT, sat_node="
-                << (m_nielsen.sat_node() ? "set" : "null") << "\n";);
-            // Nielsen found a consistent assignment for positive constraints.
-            SASSERT(has_eq_or_mem); // we should have axiomatized them
-            
-            if (!add_nielsen_assumptions())
+            if (result == seq::nielsen_graph::search_result::unsat) {
+                IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNSAT\n";);
+                explain_nielsen_conflict();
                 return FC_CONTINUE;
+            }
 
-            if (!check_length_coherence())
-                return FC_CONTINUE;
+            if (result == seq::nielsen_graph::search_result::sat) {
+                IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve SAT, sat_node="
+                    << (m_nielsen.sat_node() ? "set" : "null") << "\n";);
+                // Nielsen found a consistent assignment for positive constraints.
+                SASSERT(has_eq_or_mem); // we should have axiomatized them
 
-            CTRACE(seq, !has_unhandled_preds(), display(tout << "done\n"));
-            if (!has_unhandled_preds())
-                return FC_DONE;
+                if (!add_nielsen_assumptions())
+                    return FC_CONTINUE;
+
+                if (!check_length_coherence())
+                    return FC_CONTINUE;
+
+                CTRACE(seq, !has_unhandled_preds(), display(tout << "done\n"));
+                if (!has_unhandled_preds())
+                    return FC_DONE;
+            }
+
+            TRACE(seq, display(tout << "unknown\n"));
+            IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNKNOWN, FC_GIVEUP\n";);
+            return FC_GIVEUP;
         }
-
-        TRACE(seq, display(tout << "unknown\n"));
-        IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNKNOWN, FC_GIVEUP\n";);
-        return FC_GIVEUP;
+        catch(const std::exception&) {
+#ifdef Z3DEBUG
+            std::string dot = m_nielsen.to_dot();
+#endif
+            throw;
+        }
     }
 
 
@@ -838,6 +878,13 @@ namespace smt {
                     std::cout << "Nielsen input is UNKNOWN" << std::endl;
             }
             VERIFY(res != l_true);
+        }
+#else
+        for (auto& lit : lits) {
+            std::cout << mk_pp(ctx.literal2expr(lit), m) << "\n-----------\n";
+        }
+        for (auto& eq : eqs) {
+            std::cout << mk_pp(eq.first->get_expr(), m) << " == " << mk_pp(eq.second->get_expr(), m) << "\n-----------\n";
         }
 #endif
 #endif

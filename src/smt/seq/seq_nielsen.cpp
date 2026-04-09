@@ -2990,6 +2990,8 @@ namespace seq {
             if (mem.is_primitive() || !mem.m_regex->is_classical())
                 continue;
 
+            std::cout << "Factoring " << mk_pp(mem.m_str->get_expr(), m) << " ∈ " << mk_pp(mem.m_regex->get_expr(), m) << std::endl;
+
             euf::snode* first = mem.m_str->first();
             SASSERT(first);
             euf::snode* tail = m_sg.drop_first(mem.m_str);
@@ -2997,6 +2999,9 @@ namespace seq {
 
             tau_pairs pairs;
             compute_tau(m, m_seq, m_sg, mem.m_regex->get_expr(), pairs);
+
+            bool any_child = false;
+            dep_tracker conflict_dep = mem.m_dep;
 
             for (auto const& pair : pairs) {
                 euf::snode* sn_p = m_sg.mk(pair.m_p);
@@ -3012,13 +3017,19 @@ namespace seq {
                 // Also check intersection with other primitive constraints on `first`
                 ptr_vector<euf::snode> regexes_p;
                 regexes_p.push_back(sn_p);
+                dep_tracker local_dep = nullptr;
                 for (auto const& prev_mem : node->str_mems()) {
-                    if (prev_mem.m_str == first)
+                    if (prev_mem.m_str == first) {
                         regexes_p.push_back(prev_mem.m_regex);
+                        local_dep = m_dep_mgr.mk_join(local_dep, prev_mem.m_dep);
+                    }
                 }
-                if (regexes_p.size() > 1 && m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true)
+                if (regexes_p.size() > 1 && m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true) {
+                    conflict_dep = m_dep_mgr.mk_join(conflict_dep, local_dep);
                     continue;
+                }
 
+                any_child = true;
                 nielsen_node* child = mk_child(node);
                 mk_edge(node, child, true);
                 
@@ -3036,6 +3047,11 @@ namespace seq {
                 child->add_str_mem(str_mem(tail, sn_q, mem.m_history, next_mem_id(), mem.m_dep));
             }
             
+            if (!any_child) {
+                node->set_conflict(backtrack_reason::regex, conflict_dep);
+                node->set_general_conflict();
+            }
+
             return true;
         }
         return false;
