@@ -1304,6 +1304,13 @@ namespace seq {
         if (!m.inc())
             return search_result::unknown;
 
+#ifdef Z3DEBUG
+        if (m_stats.m_num_dfs_nodes % 1000 == 0) {
+            std::string dot = to_dot();
+            dot = dot;
+        }
+#endif
+
         // check DFS node budget (0 = unlimited)
         if (m_max_nodes > 0 && m_stats.m_num_dfs_nodes > m_max_nodes)
             return search_result::unknown;
@@ -1331,6 +1338,11 @@ namespace seq {
         // we might need to tell the SAT solver about the new integer inequalities
         // that might have been added by an extension step
         assert_node_new_int_constraints(node);
+
+        if (node->is_currently_conflict()) {
+            ++m_stats.m_num_simplify_conflict;
+            return search_result::unsat;
+        }
 
         // simplify constraints (idempotent after first call)
         const simplify_result sr = node->simplify_and_init(cur_path);
@@ -1363,7 +1375,7 @@ namespace seq {
         generate_node_length_constraints(node);
         assert_node_new_int_constraints(node);
 
-        if (node->is_general_conflict()) {
+        if (node->is_currently_conflict()) {
             ++m_stats.m_num_simplify_conflict;
             return search_result::unsat;
         }
@@ -1379,7 +1391,7 @@ namespace seq {
         }
 
         SASSERT(sr != simplify_result::satisfied || node->is_satisfied());
-        SASSERT(!node->is_general_conflict());
+        SASSERT(!node->is_currently_conflict());
 
         if (node->is_satisfied()) {
             // Before declaring SAT, check leaf-node regex feasibility:
@@ -1397,9 +1409,6 @@ namespace seq {
             return search_result::sat;
         }
 
-        // This is the first time we accept local conflicts
-        // Before we only abort on global conflicts [we prefer those]
-        // Also we would leave the node in an "instable" state
         if (node->is_currently_conflict())
             return search_result::unsat;
 
