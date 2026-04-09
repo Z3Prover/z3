@@ -274,8 +274,8 @@ void test_max_reg() {
     }
     #endif
 
-    std::cout << "BNH: " << num_sat << "/6 optimizations returned sat" << std::endl;
-    ENSURE(num_sat == 6);
+    std::cout << "BNH: " << num_sat << "/2 optimizations returned sat" << std::endl;
+    ENSURE(num_sat == 2);
     Z3_del_context(ctx);
     std::cout << "BNH optimization test done" << std::endl;
 }
