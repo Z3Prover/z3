@@ -268,6 +268,7 @@ namespace seq {
             for (const auto f : *to_app(c.fml)) {
                 add_constraint(constraint(f, c.dep, m));
             }
+            return;
         }
         expr* l, *r;
         if (m.is_eq(c.fml, l, r)) {
@@ -275,10 +276,6 @@ namespace seq {
                 return;
         }
         m_constraints.push_back(c);
-        SASSERT(m_graph.m_literal_if_false);
-        auto lit = m_graph.m_literal_if_false(c.fml);
-        if (lit != sat::null_literal)
-            set_external_conflict(lit, c.dep);
     }
 
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
@@ -1334,7 +1331,7 @@ namespace seq {
             return search_result::unknown;
 
 #ifdef Z3DEBUG
-        if (m_stats.m_num_dfs_nodes % 1000 == 0) {
+        if (m_stats.m_num_dfs_nodes % 200 == 0) {
             std::string dot = to_dot();
             dot = dot;
         }
@@ -4006,8 +4003,13 @@ nielsen_graph::generate_length_constraints(vector<length_constraint>& constraint
         // already present in the enclosing solver scope; asserting them again would
         // be redundant (though harmless).  This is called by search_dfs right after
         // simplify_and_init, which is where new constraints are produced.
+        SASSERT(m_literal_if_false);
         for (unsigned i = node->m_parent_ic_count; i < node->constraints().size(); ++i) {
-            m_solver.assert_expr(node->constraints()[i].fml);
+            auto& c = node->constraints()[i];
+            m_solver.assert_expr(c.fml);
+            auto lit = m_literal_if_false(c.fml);
+            if (lit != sat::null_literal)
+                node->set_external_conflict(lit, c.dep);
         }
     }
 
