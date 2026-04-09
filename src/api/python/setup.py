@@ -313,6 +313,7 @@ class bdist_wheel(_bdist_wheel):
                 ("linux", "x86_64"): "linux_x86_64",
                 ("linux", "aarch64"): "linux_aarch64",
                 ('linux', "riscv64"): "linux_riscv64",
+                ("linux", "loongarch64"): "linux_loongarch64",
                 # windows arm64 is not supported by pypi yet
                 ("win", "x64"): "win_amd64",
                 ("win", "x86"): "win32",

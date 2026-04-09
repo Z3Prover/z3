@@ -414,6 +414,100 @@ func (c *Context) MkDistinct(exprs ...*Expr) *Expr {
 	return newExpr(c, C.Z3_mk_distinct(c.ptr, C.uint(len(exprs)), &cExprs[0]))
 }
 
+// Pseudo-Boolean / cardinality constraints
+
+// MkAtMost encodes p1 + p2 + ... + pn <= k.
+func (c *Context) MkAtMost(args []*Expr, k uint) *Expr {
+	cArgs := make([]C.Z3_ast, len(args))
+	for i, a := range args {
+		cArgs[i] = a.ptr
+	}
+	var cArgsPtr *C.Z3_ast
+	if len(cArgs) > 0 {
+		cArgsPtr = &cArgs[0]
+	}
+	return newExpr(c, C.Z3_mk_atmost(c.ptr, C.uint(len(args)), cArgsPtr, C.uint(k)))
+}
+
+// MkAtLeast encodes p1 + p2 + ... + pn >= k.
+func (c *Context) MkAtLeast(args []*Expr, k uint) *Expr {
+	cArgs := make([]C.Z3_ast, len(args))
+	for i, a := range args {
+		cArgs[i] = a.ptr
+	}
+	var cArgsPtr *C.Z3_ast
+	if len(cArgs) > 0 {
+		cArgsPtr = &cArgs[0]
+	}
+	return newExpr(c, C.Z3_mk_atleast(c.ptr, C.uint(len(args)), cArgsPtr, C.uint(k)))
+}
+
+// MkPBLe encodes k1*p1 + k2*p2 + ... + kn*pn <= k.
+func (c *Context) MkPBLe(args []*Expr, coeffs []int, k int) *Expr {
+	if len(args) != len(coeffs) {
+		panic("MkPBLe: args and coeffs must have the same length")
+	}
+	cArgs := make([]C.Z3_ast, len(args))
+	for i, a := range args {
+		cArgs[i] = a.ptr
+	}
+	cCoeffs := make([]C.int, len(coeffs))
+	for i, v := range coeffs {
+		cCoeffs[i] = C.int(v)
+	}
+	var cArgsPtr *C.Z3_ast
+	var cCoeffsPtr *C.int
+	if len(cArgs) > 0 {
+		cArgsPtr = &cArgs[0]
+		cCoeffsPtr = &cCoeffs[0]
+	}
+	return newExpr(c, C.Z3_mk_pble(c.ptr, C.uint(len(args)), cArgsPtr, cCoeffsPtr, C.int(k)))
+}
+
+// MkPBGe encodes k1*p1 + k2*p2 + ... + kn*pn >= k.
+func (c *Context) MkPBGe(args []*Expr, coeffs []int, k int) *Expr {
+	if len(args) != len(coeffs) {
+		panic("MkPBGe: args and coeffs must have the same length")
+	}
+	cArgs := make([]C.Z3_ast, len(args))
+	for i, a := range args {
+		cArgs[i] = a.ptr
+	}
+	cCoeffs := make([]C.int, len(coeffs))
+	for i, v := range coeffs {
+		cCoeffs[i] = C.int(v)
+	}
+	var cArgsPtr *C.Z3_ast
+	var cCoeffsPtr *C.int
+	if len(cArgs) > 0 {
+		cArgsPtr = &cArgs[0]
+		cCoeffsPtr = &cCoeffs[0]
+	}
+	return newExpr(c, C.Z3_mk_pbge(c.ptr, C.uint(len(args)), cArgsPtr, cCoeffsPtr, C.int(k)))
+}
+
+// MkPBEq encodes k1*p1 + k2*p2 + ... + kn*pn = k.
+func (c *Context) MkPBEq(args []*Expr, coeffs []int, k int) *Expr {
+	if len(args) != len(coeffs) {
+		panic("MkPBEq: args and coeffs must have the same length")
+	}
+	cArgs := make([]C.Z3_ast, len(args))
+	for i, a := range args {
+		cArgs[i] = a.ptr
+	}
+	cCoeffs := make([]C.int, len(coeffs))
+	for i, v := range coeffs {
+		cCoeffs[i] = C.int(v)
+	}
+	var cArgsPtr *C.Z3_ast
+	var cCoeffsPtr *C.int
+	if len(cArgs) > 0 {
+		cArgsPtr = &cArgs[0]
+		cCoeffsPtr = &cCoeffs[0]
+	}
+	return newExpr(c, C.Z3_mk_pbeq(c.ptr, C.uint(len(args)), cArgsPtr, cCoeffsPtr, C.int(k)))
+}
+
 // FuncDecl represents a function declaration.
 type FuncDecl struct {
 	ctx *Context
@@ -813,6 +907,33 @@ func (c *Context) MkLambdaConst(bound []*Expr, body *Expr) *Lambda {
 
 	ptr := C.Z3_mk_lambda_const(c.ptr, C.uint(numBound), boundPtr, body.ptr)
 	return newLambda(c, ptr)
+}
+
+// SetGlobalParam sets a global Z3 parameter.
+func SetGlobalParam(id, value string) {
+	cID := C.CString(id)
+	cValue := C.CString(value)
+	defer C.free(unsafe.Pointer(cID))
+	defer C.free(unsafe.Pointer(cValue))
+	C.Z3_global_param_set(cID, cValue)
+}
+
+// GetGlobalParam retrieves the value of a global Z3 parameter.
+// Returns the value and true if the parameter exists, or empty string and false otherwise.
+func GetGlobalParam(id string) (string, bool) {
+	cID := C.CString(id)
+	defer C.free(unsafe.Pointer(cID))
+	var cValue C.Z3_string
+	ok := C.Z3_global_param_get(cID, &cValue)
+	if ok == C.bool(false) {
+		return "", false
+	}
+	return C.GoString(cValue), true
+}
+
+// ResetAllGlobalParams resets all global Z3 parameters to their default values.
+func ResetAllGlobalParams() {
+	C.Z3_global_param_reset_all()
 }
 
 // astVectorToExprs converts a Z3_ast_vector to a slice of Expr.

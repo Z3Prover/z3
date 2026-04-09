@@ -632,6 +632,21 @@ sig
   (** Creates a [distinct] term. *)
   val mk_distinct : context -> Expr.expr list -> Expr.expr
 
+  (** Encodes p1 + p2 + ... + pn <= k. *)
+  val mk_atmost : context -> Expr.expr list -> int -> Expr.expr
+
+  (** Encodes p1 + p2 + ... + pn >= k. *)
+  val mk_atleast : context -> Expr.expr list -> int -> Expr.expr
+
+  (** Encodes k1*p1 + k2*p2 + ... + kn*pn <= k. *)
+  val mk_pble : context -> Expr.expr list -> int list -> int -> Expr.expr
+
+  (** Encodes k1*p1 + k2*p2 + ... + kn*pn >= k. *)
+  val mk_pbge : context -> Expr.expr list -> int list -> int -> Expr.expr
+
+  (** Encodes k1*p1 + k2*p2 + ... + kn*pn = k. *)
+  val mk_pbeq : context -> Expr.expr list -> int list -> int -> Expr.expr
+
   (** Indicates whether the expression is the true or false expression
       or something else (L_UNDEF). *)
   val get_bool_value : Expr.expr -> Z3enums.lbool

@@ -269,9 +269,9 @@ jobs:
           eval $(opam config env)
           python scripts/mk_make.py --ml
           cd build
-          make -j3
-          make -j3 examples
-          make -j3 test-z3
+          make -j$(nproc)
+          make -j$(nproc) examples
+          make -j$(nproc) test-z3
           cd ..
       
       - name: Generate documentation
@@ -361,6 +361,53 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ManyLinuxPythonBuildArm64
+          path: src/api/python/wheelhouse/*.whl
+          retention-days: 2
+
+  manylinux-python-riscv64:
+    name: "Python bindings (manylinux RISC-V 64 cross)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container: quay.io/pypa/manylinux_2_28_x86_64:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+      
+      - name: Download RISC-V toolchain
+        run: curl -L -o /tmp/riscv-toolchain.tar.gz 'https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2024.09.03/riscv64-glibc-ubuntu-20.04-gcc-nightly-2024.09.03-nightly.tar.gz'
+      
+      - name: Extract RISC-V toolchain
+        run: |
+          mkdir -p /tmp/riscv-toolchain/
+          tar xf /tmp/riscv-toolchain.tar.gz -C /tmp/riscv-toolchain/ --strip-components=1
+
+      - name: Install MPFR 4 (required by RISC-V toolchain host binaries)
+        run: |
+          dnf install -y gmp-devel
+          curl -L -o /tmp/mpfr.tar.xz https://ftp.gnu.org/gnu/mpfr/mpfr-4.2.1.tar.xz
+          tar xf /tmp/mpfr.tar.xz -C /tmp/
+          cd /tmp/mpfr-4.2.1 && ./configure --prefix=/usr/local --disable-static && make -j$(nproc) && make install
+          ldconfig
+      
+      - name: Setup Python environment
+        run: |
+          /opt/python/cp38-cp38/bin/python -m venv $PWD/env
+          echo "$PWD/env/bin" >> $GITHUB_PATH
+          echo "/tmp/riscv-toolchain/bin" >> $GITHUB_PATH
+      
+      - name: Install build tools
+        run: |
+          echo $PATH
+          stat $(which riscv64-unknown-linux-gnu-gcc)
+          pip install build git+https://github.com/rhelmot/auditwheel
+      
+      - name: Build wheels
+        run: cd src/api/python && CC=riscv64-unknown-linux-gnu-gcc CXX=riscv64-unknown-linux-gnu-g++ AR=riscv64-unknown-linux-gnu-ar LD=riscv64-unknown-linux-gnu-ld Z3_CROSS_COMPILING=riscv64 python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../..
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ManyLinuxPythonBuildRiscv64
           path: src/api/python/wheelhouse/*.whl
           retention-days: 2
 
@@ -496,7 +543,7 @@ jobs:
           path: package
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v2
+        uses: nuget/setup-nuget@v3
         with:
           nuget-version: 'latest'
       
@@ -541,7 +588,7 @@ jobs:
           path: package
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v2
+        uses: nuget/setup-nuget@v3
         with:
           nuget-version: 'latest'
       
@@ -568,7 +615,7 @@ jobs:
 
   python-package:
     name: "Python packaging"
-    needs: [mac-build-x64, mac-build-arm64, windows-build-x64, windows-build-x86, windows-build-arm64, manylinux-python-amd64, manylinux-python-arm64]
+    needs: [mac-build-x64, mac-build-arm64, windows-build-x64, windows-build-x86, windows-build-arm64, manylinux-python-amd64, manylinux-python-arm64, manylinux-python-riscv64]
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
@@ -619,6 +666,12 @@ jobs:
         uses: actions/download-artifact@v8.0.1
         with:
           name: ManyLinuxPythonBuildArm64
+          path: artifacts
+      
+      - name: Download ManyLinux RISC-V 64 Build
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: ManyLinuxPythonBuildRiscv64
           path: artifacts
       
       - name: Extract builds

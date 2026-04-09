@@ -1389,6 +1389,8 @@ namespace smt {
         TRACE(arith, tout << "relevant: #" << n->get_id() << " " << ctx.e_internalized(n) << ": " << mk_bounded_pp(n, m) << "\n";);
         TRACE(bv, tout << "relevant: #" << n->get_id() << " " << ctx.e_internalized(n) << ": " << mk_pp(n, m) << "\n";);
         if (m.is_bool(n)) {
+            if (!ctx.b_internalized(n))
+                return;
             bool_var v = ctx.get_bool_var(n);
             atom * a   = get_bv2a(v);
             if (a && !a->is_bit()) {

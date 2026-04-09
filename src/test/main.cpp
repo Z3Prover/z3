@@ -154,6 +154,7 @@
     X(hilbert_basis) \
     X(heap_trie) \
     X(karr) \
+    X(mod_factor) \
     X(no_overflow) \
     X(datalog_parser) \
     X_ARGV(datalog_parser_file) \

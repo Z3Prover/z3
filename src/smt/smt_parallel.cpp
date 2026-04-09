@@ -472,7 +472,7 @@ namespace smt {
                 auto atom = get_split_atom();
                 if (!atom)
                     goto check_cube_start;
-                b.split(m_l2g, id, node, atom);
+                b.try_split(m_l2g, id, node, atom, m_config.m_threads_max_conflicts);
                 simplify();
                 break;
             }
@@ -827,22 +827,23 @@ namespace smt {
         }
     }
 
-    void parallel::batch_manager::split(ast_translation &l2g, unsigned source_worker_id,
-                                        search_tree::node<cube_config> *node, expr *atom) {
+    void parallel::batch_manager::try_split(ast_translation &l2g, unsigned source_worker_id,
+                                        search_tree::node<cube_config> *node, expr *atom, unsigned effort) {
         std::scoped_lock lock(mux);
         expr_ref lit(m), nlit(m);
         lit = l2g(atom);
         nlit = mk_not(m, lit);
-        IF_VERBOSE(1, verbose_stream() << "Batch manager splitting on literal: " << mk_bounded_pp(lit, m, 3) << "\n");
+        
         if (m_state != state::is_running)
             return;
-        // optional heuristic:
-        // node->get_status() == status::active
-        // and depth is 'high' enough
-        // then ignore split, and instead set the status of node to open.
-        ++m_stats.m_num_cubes;
-        m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, node->depth() + 1);
-        m_search_tree.split(node, lit, nlit);
+
+        bool did_split = m_search_tree.try_split(node, lit, nlit, effort);
+
+        if (did_split) {
+            ++m_stats.m_num_cubes;
+            m_stats.m_max_cube_depth = std::max(m_stats.m_max_cube_depth, node->depth() + 1);
+            IF_VERBOSE(1, verbose_stream() << "Batch manager splitting on literal: " << mk_bounded_pp(lit, m, 3) << "\n");
+        }
     }
 
     void parallel::batch_manager::collect_clause(ast_translation &l2g, unsigned source_worker_id, expr *clause) {
@@ -1145,8 +1146,6 @@ namespace smt {
         }
         node *t = m_search_tree.activate_node(n);
         if (!t)
-            t = m_search_tree.find_active_node();
-        if (!t)
             return false;
         IF_VERBOSE(1, m_search_tree.display(verbose_stream()); verbose_stream() << "\n";);
         n = t;
@@ -1161,10 +1160,11 @@ namespace smt {
         return true;
     }
 
-    void parallel::batch_manager::initialize() {
+    void parallel::batch_manager::initialize(unsigned initial_max_thread_conflicts) {
         m_state = state::is_running;
         m_search_tree.reset();
         m_bb_candidates.reset();
+        m_search_tree.set_effort_unit(initial_max_thread_conflicts);
     }
 
     void parallel::batch_manager::collect_statistics(::statistics &st) const {

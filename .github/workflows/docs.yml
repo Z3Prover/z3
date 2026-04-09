@@ -94,7 +94,7 @@ jobs:
            ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build-x64/api/ml ../build-x64/api/ml/z3enums.mli ../build-x64/api/ml/z3.mli
 
       - name: Setup emscripten
-        uses: mymindstorm/setup-emsdk@v14
+        uses: mymindstorm/setup-emsdk@v15
         with:
           no-install: true
           version: ${{env.EM_VERSION}}

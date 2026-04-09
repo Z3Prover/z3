@@ -449,25 +449,43 @@ class theory_lra::imp {
                         internalize_term(to_app(n));
                         internalize_term(to_app(n1));
                         internalize_term(to_app(n2));
+                        internalize_term(to_app(mod));
                         theory_var q = mk_var(n);
                         theory_var x = mk_var(n1);
                         theory_var y = mk_var(n2);
-                        m_nla->add_idivision(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y));
+                        theory_var rv = mk_var(mod);
+                        m_nla->add_idivision(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(rv));
                     }
                     if (a.is_numeral(n2) && a.is_bounded(n1)) {
                         ensure_nla();
                         internalize_term(to_app(n));
                         internalize_term(to_app(n1));
                         internalize_term(to_app(n2));
+                        internalize_term(to_app(mod));
                         theory_var q = mk_var(n);
                         theory_var x = mk_var(n1);
                         theory_var y = mk_var(n2);
-                        m_nla->add_bounded_division(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y));
+                        theory_var rv = mk_var(mod);
+                        m_nla->add_bounded_division(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(rv));
                     }
                 }
                 else if (a.is_mod(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
-                    if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);    
+                    if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);
+                    if (a.is_numeral(n2) && !r.is_zero()) {
+                        ensure_nla();
+                        app_ref div(a.mk_idiv(n1, n2), m);
+                        ctx().internalize(div, false);
+                        internalize_term(to_app(div));
+                        internalize_term(to_app(n1));
+                        internalize_term(to_app(n2));
+                        internalize_term(t);
+                        theory_var q = mk_var(div);
+                        theory_var x = mk_var(n1);
+                        theory_var y = mk_var(n2);
+                        theory_var rv = mk_var(n);
+                        m_nla->add_bounded_division(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(rv));
+                    }
                 }
                 else if (a.is_rem(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);

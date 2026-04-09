@@ -134,7 +134,7 @@ namespace smt {
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)), m_global_backbones(m) { }
 
-            void initialize();
+            void initialize(unsigned initial_max_thread_conflicts = 1000); // TODO: pass in from worker defaults
 
             void set_unsat(ast_translation& l2g, expr_ref_vector const& unsat_core);
             void set_sat(ast_translation& l2g, model& m);
@@ -149,8 +149,7 @@ namespace smt {
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
             void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
-
-            void split(ast_translation& l2g, unsigned id, node* n, expr* atom);
+            void try_split(ast_translation& l2g, unsigned id, node* n, expr* atom, unsigned effort);
 
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
