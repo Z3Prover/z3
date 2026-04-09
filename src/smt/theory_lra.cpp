@@ -175,6 +175,8 @@ class theory_lra::imp {
 
     // non-linear arithmetic
     scoped_ptr<nla::solver>  m_nla;
+    // pending mod divisions to register when NLA is created
+    svector<std::tuple<theory_var, theory_var, theory_var>> m_pending_mod_divisions;
 
     // integer arithmetic
     scoped_ptr<lp::int_solver> m_lia;
@@ -269,6 +271,9 @@ class theory_lra::imp {
             m_nla->set_relevant(is_relevant);
             m_nla->updt_params(ctx().get_params());
             m_nla->get_core().set_add_mul_def_hook([&](unsigned sz, lpvar const* vs) { return add_mul_def(sz, vs); });
+            for (auto const& [x, y, rv] : m_pending_mod_divisions)
+                m_nla->add_mod_division(register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(rv));
+            m_pending_mod_divisions.reset();
         }
     }
 
@@ -473,18 +478,16 @@ class theory_lra::imp {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
                     if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);
                     if (a.is_numeral(n2) && !r.is_zero()) {
-                        ensure_nla();
-                        app_ref div(a.mk_idiv(n1, n2), m);
-                        ctx().internalize(div, false);
-                        internalize_term(to_app(div));
                         internalize_term(to_app(n1));
                         internalize_term(to_app(n2));
                         internalize_term(t);
-                        theory_var q = mk_var(div);
                         theory_var x = mk_var(n1);
                         theory_var y = mk_var(n2);
                         theory_var rv = mk_var(n);
-                        m_nla->add_bounded_division(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(rv));
+                        if (m_nla)
+                            m_nla->add_mod_division(register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(rv));
+                        else
+                            m_pending_mod_divisions.push_back({x, y, rv});
                     }
                 }
                 else if (a.is_rem(n, n1, n2)) {

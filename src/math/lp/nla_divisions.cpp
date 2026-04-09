@@ -41,6 +41,13 @@ namespace nla {
         m_core.trail().push(push_back_vector(m_bounded_divisions));
     }
 
+    void divisions::add_mod_division(lpvar x, lpvar y, lpvar r) {
+        if (x == null_lpvar || y == null_lpvar || r == null_lpvar)
+            return;
+        m_mod_divisions.push_back({ x, y, r });
+        m_core.trail().push(push_back_vector(m_mod_divisions));
+    }
+
     typedef lp::lar_term term;
     
     // y1 >= y2 > 0 & x1 <= x2 => x1/y1 <= x2/y2
@@ -205,16 +212,16 @@ namespace nla {
     }
 
     // mod(factor, p) = 0 => mod(factor * k, p) = 0
-    // For each division (q, x, y, r) where x is a monic m = f1 * f2 * ... * fk,
+    // For each mod division (x, y, r) where x is a monic m = f1 * f2 * ... * fk,
     // if some factor fi has mod(fi, p) = 0 (fixed), then mod(x, p) = 0.
     void divisions::check_mod_mult() {
         core& c = m_core;
-        unsigned offset = c.random(), sz = m_bounded_divisions.size();
+        unsigned offset = c.random(), sz = m_mod_divisions.size();
 
         for (unsigned j = 0; j < sz; ++j) {
             unsigned i = (offset + j) % sz;
-            auto [q, x, y, r] = m_bounded_divisions[i];
-            if (!c.is_relevant(q))
+            auto [x, y, r] = m_mod_divisions[i];
+            if (!c.is_relevant(r))
                 continue;
             if (c.var_is_fixed_to_zero(r))
                 continue;
@@ -227,7 +234,7 @@ namespace nla {
                 continue;
             auto const& m = c.emons()[x];
             for (lpvar f : m.vars()) {
-                for (auto const& [q2, x2, y2, r2] : m_bounded_divisions) {
+                for (auto const& [x2, y2, r2] : m_mod_divisions) {
                     if (x2 != f)
                         continue;
                     if (c.val(y2) != yv)

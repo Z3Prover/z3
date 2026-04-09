@@ -218,6 +218,7 @@ public:
     void add_idivision(lpvar q, lpvar x, lpvar y, lpvar r) { m_divisions.add_idivision(q, x, y, r); }
     void add_rdivision(lpvar q, lpvar x, lpvar y, lpvar r) { m_divisions.add_rdivision(q, x, y, r); }
     void add_bounded_division(lpvar q, lpvar x, lpvar y, lpvar r) { m_divisions.add_bounded_division(q, x, y, r); }
+    void add_mod_division(lpvar x, lpvar y, lpvar r) { m_divisions.add_mod_division(x, y, r); }
     void set_add_mul_def_hook(std::function<lpvar(unsigned, lpvar const*)> const& f) { m_add_mul_def_hook = f; }
     lpvar add_mul_def(unsigned sz, lpvar const* vs) { SASSERT(m_add_mul_def_hook); lpvar v = m_add_mul_def_hook(sz, vs); add_monic(v, sz, vs); return v; }
 

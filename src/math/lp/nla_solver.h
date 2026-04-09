@@ -31,6 +31,7 @@ namespace nla {
         void add_idivision(lpvar q, lpvar x, lpvar y, lpvar r);
         void add_rdivision(lpvar q, lpvar x, lpvar y, lpvar r);
         void add_bounded_division(lpvar q, lpvar x, lpvar y, lpvar r);
+        void add_mod_division(lpvar x, lpvar y, lpvar r);
         void check_bounded_divisions();
         void set_relevant(std::function<bool(lpvar)>& is_relevant);
         void updt_params(params_ref const& p);

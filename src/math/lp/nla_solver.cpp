@@ -32,6 +32,10 @@ namespace nla {
         m_core->add_bounded_division(q, x, y, r);
     }
 
+    void solver::add_mod_division(lpvar x, lpvar y, lpvar r) {
+        m_core->add_mod_division(x, y, r);
+    }
+
     void solver::set_relevant(std::function<bool(lpvar)>& is_relevant) {
         m_core->set_relevant(is_relevant);
     }
