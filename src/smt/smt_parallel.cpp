@@ -321,7 +321,7 @@ namespace smt {
         node *t = nullptr;
         expr_ref neg_g_bb_ref(mk_not(g_bb_ref), m);
         t = m_search_tree.find_node_with_literal(neg_g_bb_ref);
-        
+
         if (t) {
             IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
             expr_ref_vector l_core(l2g.from());
@@ -392,7 +392,9 @@ namespace smt {
                 // Set the phase of the candidates to the negation of their assumed values
                 LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
                 
-                expr* atom = bb.lit.get();
+                expr* lit = bb.lit.get();
+                expr* atom = lit;
+                bool is_negated = m.is_not(lit, atom); // if lit = (not a), atom becomes a
                 
                 // Candidates from other workers may not be internalized in this context.
                 if (!ctx->b_internalized(atom))
@@ -400,13 +402,12 @@ namespace smt {
                 
                 sat::bool_var v = ctx->get_bool_var(atom);
                 bool phase = mode == l_true;
-                bool is_negated = m.is_not(atom);
 
                 if (is_negated)
                     phase = !phase;
 
                 ctx->force_phase(v, phase);
-                LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
+                LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(lit, m, 3) << " := " << (phase ? "true" : "false") << "\n");
 
                 auto const& activities = ctx->get_activity_vector();
                 double max_activity = 0.0;
