@@ -230,7 +230,7 @@ namespace smt {
 
             void simplify();
             bb_candidates find_backbone_candidates(unsigned k = 10);
-            void prepare_backbone_candidates(u_map<double>& original_activities);
+            void prepare_backbone_candidates(u_map<double>& original_activities, u_map<unsigned>& original_phases);
 
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms, lbool mode);
