@@ -411,18 +411,18 @@ namespace smt {
                 // ctx->force_phase(v, phase);
                 LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
 
-                auto const& activities = ctx->get_activity_vector();
-                double max_activity = 0.0;
-                for (unsigned i = 0; i < activities.size(); ++i)
-                    max_activity = std::max(max_activity, activities[i]);
+                // auto const& activities = ctx->get_activity_vector();
+                // double max_activity = 0.0;
+                // for (unsigned i = 0; i < activities.size(); ++i)
+                //     max_activity = std::max(max_activity, activities[i]);
 
-                original_activities.insert(v, ctx->get_activity(v));
+                // original_activities.insert(v, ctx->get_activity(v));
 
                 // Promote this candidate above all others
-                double eps = 1.0;
-                ctx->set_activity(v, max_activity + eps);
+                // double eps = 1.0;
+                // ctx->set_activity(v, max_activity + eps);
 
-                LOG_WORKER(2, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
+                // LOG_WORKER(2, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
             }
         }
         if (!m.inc())
@@ -455,13 +455,13 @@ namespace smt {
                 return;
             }
 
-            if (m_config.m_local_backbones) {
-                // Restore activities of backbone candidates to old values after the search
-                for (auto const& [v, act] : original_activities) {
-                    ctx->set_activity(v, act);
-                    // ctx->unforce_phase(v); // can do ablation study here to see if it's necessary
-                }
-            }
+            // if (m_config.m_local_backbones) {
+            //     // Restore activities of backbone candidates to old values after the search
+            //     for (auto const& [v, act] : original_activities) {
+            //         ctx->set_activity(v, act);
+            //         // ctx->unforce_phase(v); // can do ablation study here to see if it's necessary
+            //     }
+            // }
 
             switch (r) {
             case l_undef: {
