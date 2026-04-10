@@ -307,29 +307,27 @@ namespace smt {
     bool parallel::batch_manager::collect_global_backbone(ast_translation &l2g, expr_ref const &backbone) {
         IF_VERBOSE(1, verbose_stream() << "collect-global-backbone\n");
         std::scoped_lock lock(mux);
+        SASSERT(&m == &l2g.to());
+        
         if (is_global_backbone_unlocked(l2g, backbone))
             return false;
-        expr_ref g_bb_ref(m);
-        expr_ref neg_bb_ref(m);
-        expr_ref_vector core(m);
-        SASSERT(&m == &l2g.to());
-        g_bb_ref = l2g(backbone.get());
-        IF_VERBOSE(1, verbose_stream() << "translated " << g_bb_ref->get_id() << "\n");
-        neg_bb_ref = mk_not(g_bb_ref);
-        core.push_back(neg_bb_ref);
+        
+        expr_ref g_bb_ref(l2g(backbone.get()), m);
         m_global_backbones.push_back(g_bb_ref);
-        IF_VERBOSE(1, verbose_stream() << " Found and sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3)
-                                       << "\n");
-
+       
+        IF_VERBOSE(1, verbose_stream() << " Found and sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
         collect_clause_unlocked(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
 
         node *t = nullptr;
-
-        t = m_search_tree.find_node_with_literal(neg_bb_ref);
-        IF_VERBOSE(1, if (t) verbose_stream()
-                          << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
-        if (t)
-            backtrack_unlocked(l2g, core, t);
+        expr_ref neg_g_bb_ref(mk_not(g_bb_ref), m);
+        t = m_search_tree.find_node_with_literal(neg_g_bb_ref);
+        
+        if (t) {
+            IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
+            expr_ref_vector l_core(l2g.from());
+            l_core.push_back(mk_not(backbone));
+            backtrack_unlocked(l2g, l_core, t);
+        }
 
         return true;
     }
@@ -394,9 +392,7 @@ namespace smt {
                 // Set the phase of the candidates to the negation of their assumed values
                 LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
                 
-                expr* lit = bb.lit.get();
-                expr* atom = lit;
-                bool is_negated = m.is_not(lit, atom);
+                expr* atom = bb.lit.get();
                 
                 // Candidates from other workers may not be internalized in this context.
                 if (!ctx->b_internalized(atom))
@@ -404,12 +400,13 @@ namespace smt {
                 
                 sat::bool_var v = ctx->get_bool_var(atom);
                 bool phase = mode == l_true;
+                bool is_negated = m.is_not(atom);
 
                 if (is_negated)
                     phase = !phase;
 
                 ctx->force_phase(v, phase);
-                LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(lit, m, 3) << " := " << (phase ? "true" : "false") << "\n");
+                LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
 
                 auto const& activities = ctx->get_activity_vector();
                 double max_activity = 0.0;
