@@ -375,19 +375,18 @@ namespace smt {
 
     void parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities) {
         bb_candidates local_candidates = find_backbone_candidates();
-        if (m_config.m_global_backbones > 0)
-            b.collect_backbone_candidates(m_l2g, local_candidates);
+        b.collect_backbone_candidates(m_l2g, local_candidates);
         if (m_config.m_local_backbones) {
             LOG_WORKER(1, " LOCAL BACKBONE DETECTION\n");
 
             // Pull candidates from the global batch manager pool so that
             // backbone signals discovered by other workers inform this experiment.
             // Fall back to locally-derived candidates if the global pool is empty yet.
-            // bb_candidates bb_cands = b.return_global_bb_candidates(m_g2l);
-            // if (bb_cands.empty()) {
-            //     LOG_WORKER(1, " no global bb candidates, using local bb candidates\n");
-            bb_candidates bb_cands = local_candidates;
-            // }
+            bb_candidates bb_cands = b.return_global_bb_candidates(m_g2l);
+            if (bb_cands.empty()) {
+                LOG_WORKER(1, " no global bb candidates, using local bb candidates\n");
+                bb_cands = local_candidates;
+            }
 
             for (smt::parallel::bb_candidate const& bb : bb_cands) {
                 // Set the phase of the candidates to the negation of their assumed values
@@ -405,24 +404,24 @@ namespace smt {
                 
                 bool phase = mode == l_true;
 
-                // if (m.is_not(atom, atom)) 
-                //     phase = !phase;
+                if (m.is_not(atom, atom)) 
+                    phase = !phase;
 
-                // ctx->force_phase(v, phase);
+                ctx->force_phase(v, phase);
                 LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
 
-                // auto const& activities = ctx->get_activity_vector();
-                // double max_activity = 0.0;
-                // for (unsigned i = 0; i < activities.size(); ++i)
-                //     max_activity = std::max(max_activity, activities[i]);
+                auto const& activities = ctx->get_activity_vector();
+                double max_activity = 0.0;
+                for (unsigned i = 0; i < activities.size(); ++i)
+                    max_activity = std::max(max_activity, activities[i]);
 
-                // original_activities.insert(v, ctx->get_activity(v));
+                original_activities.insert(v, ctx->get_activity(v));
 
                 // Promote this candidate above all others
-                // double eps = 1.0;
-                // ctx->set_activity(v, max_activity + eps);
+                double eps = 1.0;
+                ctx->set_activity(v, max_activity + eps);
 
-                // LOG_WORKER(2, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
+                LOG_WORKER(2, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
             }
         }
         if (!m.inc())
@@ -455,13 +454,13 @@ namespace smt {
                 return;
             }
 
-            // if (m_config.m_local_backbones) {
-            //     // Restore activities of backbone candidates to old values after the search
-            //     for (auto const& [v, act] : original_activities) {
-            //         ctx->set_activity(v, act);
-            //         // ctx->unforce_phase(v); // can do ablation study here to see if it's necessary
-            //     }
-            // }
+            if (m_config.m_local_backbones) {
+                // Restore activities of backbone candidates to old values after the search
+                for (auto const& [v, act] : original_activities) {
+                    ctx->set_activity(v, act);
+                    ctx->unforce_phase(v); // can do ablation study here to see if it's necessary
+                }
+            }
 
             switch (r) {
             case l_undef: {
