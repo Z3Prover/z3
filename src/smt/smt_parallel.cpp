@@ -373,7 +373,7 @@ namespace smt {
         m_sls->collect_statistics(st);
     }
 
-    void parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities, u_map<unsigned>& original_phases) {
+    void parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities) {
         bb_candidates local_candidates = find_backbone_candidates();
         b.collect_backbone_candidates(m_l2g, local_candidates);
         if (m_config.m_local_backbones) {
@@ -401,13 +401,14 @@ namespace smt {
                     continue;
                 
                 sat::bool_var v = ctx->get_bool_var(atom);
+                if (v == sat::null_bool_var || v >= ctx->get_num_bool_vars())
+                    continue;
+                
                 bool phase = mode == l_true;
 
                 if (is_negated)
                     phase = !phase;
 
-                auto const& d = ctx->get_bdata(v);
-                original_phases.insert(v, d.m_phase_available ? (d.m_phase ? 2u : 1u) : 0u);
                 ctx->force_phase(v, phase);
                 LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(lit, m, 3) << " := " << (phase ? "true" : "false") << "\n");
 
@@ -444,9 +445,8 @@ namespace smt {
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
 
             u_map<double> original_activities;
-            u_map<unsigned> original_phases;
             if (m_config.m_local_backbones || m_config.m_global_backbones) { 
-                prepare_backbone_candidates(original_activities, original_phases);
+                prepare_backbone_candidates(original_activities);
             }
 
             lbool r = check_cube(cube);
@@ -460,14 +460,7 @@ namespace smt {
                 // Restore activities of backbone candidates to old values after the search
                 for (auto const& [v, act] : original_activities) {
                     ctx->set_activity(v, act);
-                }
-                for (auto const& [v, phase_state] : original_phases) {
-                    if (phase_state == 0) {
-                        ctx->unforce_phase(v);
-                    }
-                    else {
-                        ctx->force_phase(v, phase_state == 2);
-                    }
+                    ctx->unforce_phase(v); // can do ablation study here to see if it's necessary
                 }
             }
 
@@ -593,17 +586,15 @@ namespace smt {
             if (ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl)
                 continue;
 
+            candidate = ctx->bool_var2expr(v);
+            if (!candidate)
+                continue;
+
             auto birth = ctx->m_birthdate[v];
             auto age = curr_time - birth;
 
             auto const& d = ctx->get_bdata(v);
-            if (!d.m_phase_available)
-                continue;
             bool phase = d.m_phase;
-
-            candidate = ctx->bool_var2expr(v);
-            if (!candidate)
-                continue;
 
             if (!phase)
                 candidate = m.mk_not(candidate);
