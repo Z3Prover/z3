@@ -187,8 +187,6 @@ namespace smt {
                 bool m_share_conflicts = true;
                 bool m_share_units_relevant_only = true;
                 bool m_share_units_initial_only = true;
-                bool m_share_theory_lemmas = false;
-                unsigned m_share_theory_lemmas_max_lits = 8;
                 double m_max_conflict_mul = 1.5;
                 bool m_inprocessing = false;
                 bool m_global_backbones = false;
@@ -202,7 +200,6 @@ namespace smt {
             using node = search_tree::node<cube_config>;
 
             unsigned id; // unique identifier for the worker
-            lbool mode; // l_undef - standard mode, l_true - sat mode, l_false - unsat mode
             parallel& p;
             batch_manager& b;
             ast_manager m;
@@ -214,7 +211,6 @@ namespace smt {
             ast_translation m_g2l, m_l2g;
 
             unsigned m_num_shared_units = 0;
-            unsigned m_num_shared_lemmas = 0;
             unsigned m_num_initial_atoms = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             
@@ -222,7 +218,6 @@ namespace smt {
 
             lbool check_cube(expr_ref_vector const& cube);
             void share_units();
-            void share_theory_lemmas();
 
             void update_max_thread_conflicts() {
                 m_config.m_threads_max_conflicts = (unsigned)(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
@@ -233,7 +228,7 @@ namespace smt {
             void prepare_backbone_candidates(u_map<double>& original_activities);
 
         public:
-            worker(unsigned id, parallel& p, expr_ref_vector const& _asms, lbool mode);
+            worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
             void run();
             
             void collect_shared_clauses();

@@ -401,8 +401,8 @@ namespace smt {
                 sat::bool_var v = ctx->get_bool_var(atom);
                 if (v == sat::null_bool_var)
                     continue;
-                
-                bool phase = mode == l_true;
+
+                bool phase = false;  // set to false if tuning for UNSAT, set to true if tuning for SAT
 
                 if (m.is_not(atom, atom)) 
                     phase = !phase;
@@ -506,42 +506,22 @@ namespace smt {
             }
             if (m_config.m_share_units)
                 share_units();
-            if (m_config.m_share_theory_lemmas)
-                share_theory_lemmas();
         }
     }
 
-    parallel::worker::worker(unsigned id, parallel &p, expr_ref_vector const &_asms, lbool mode)
-        : id(id), mode(mode), p(p), b(p.m_batch_manager), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m),
+    parallel::worker::worker(unsigned id, parallel &p, expr_ref_vector const &_asms)
+        : id(id), p(p), b(p.m_batch_manager), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m),
           m_l2g(m, p.ctx.m) {
         for (auto e : _asms)
             asms.push_back(m_g2l(e));
         LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");
         m_smt_params.m_random_seed += id;  // ensure different random seed for each worker
-        switch (mode) {
-        case l_undef:
-            break;
-        case l_true:
-            // SAT mode: let the solver explore longer before restarting to give more
-            // opportunity to find a satisfying assignment.
-            m_smt_params.m_restart_initial = 200;
-            break;
-        case l_false:
-            // UNSAT mode: maximize early small conflicts.
-            // Random phase diversifies polarity choices so conflicts arise quickly and
-            // are small; a lower restart threshold flushes the search state often,
-            // producing many independent conflict clauses that can be shared.
-            m_smt_params.m_phase_selection = PS_RANDOM;
-            m_smt_params.m_restart_initial = 40;
-            break;
-        }
         ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
         ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
         // don't share initial units
         ctx->pop_to_base_lvl();
         m_num_shared_units = ctx->assigned_literals().size();
-        m_num_shared_lemmas = ctx->get_lemmas().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
         ctx->m_phase_cache_on = true; // not sure if this is needed, ensure phase caching is on for backbone detection for now
@@ -550,7 +530,6 @@ namespace smt {
         m_config.m_inprocessing = pp.inprocessing();
         m_config.m_global_backbones = pp.num_global_bb_threads() > 0;
         m_config.m_local_backbones = pp.local_backbones();
-        m_config.m_share_theory_lemmas = pp.share_theory_lemmas();
     }
 
     parallel::sls_worker::sls_worker(parallel& p)
@@ -687,35 +666,6 @@ namespace smt {
         m_num_shared_units = sz;
     }
 
-    void parallel::worker::share_theory_lemmas() {
-        // Share new theory lemmas (CLS_TH_LEMMA) with other workers via the batch manager.
-        // Theory lemmas are universally valid consequences of the input formula and are
-        // safe to inject into any parallel worker regardless of its current cube assignment.
-        LOG_WORKER(1, " sharing theory lemmas\n");
-        clause_vector const& lemmas = ctx->get_lemmas();
-        unsigned sz = lemmas.size();
-        for (unsigned j = m_num_shared_lemmas; j < sz; ++j) {
-            clause* cls = lemmas.get(j);
-            if (!cls->is_th_lemma())
-                continue;
-            
-            if (cls->get_num_literals() > m_config.m_share_theory_lemmas_max_lits)
-                continue;
-            
-            expr_ref_vector lits(m);
-            for (literal lit : *cls) {
-                expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);
-                if (lit.sign())
-                    e = mk_not(e);
-                lits.push_back(std::move(e));
-            }
-            
-            expr_ref clause_expr = mk_or(lits);
-            b.collect_clause(m_l2g, id, clause_expr);
-        }
-        m_num_shared_lemmas = sz;
-    }
-
     void parallel::worker::simplify() {
         if (!m.inc())
             return;
@@ -783,7 +733,6 @@ namespace smt {
         ctx->internalize_assertions();
         auto old_atoms = m_num_initial_atoms;
         m_num_shared_units = ctx->assigned_literals().size();
-        m_num_shared_lemmas = ctx->get_lemmas().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
         LOG_WORKER(1, " inprocess " << old_atoms << " -> " << m_num_initial_atoms << "\n");
     }
@@ -1174,12 +1123,10 @@ namespace smt {
 
     lbool parallel::operator()(expr_ref_vector const &asms) {
         smt_parallel_params pp(ctx.m_params);
-        unsigned num_std_workers = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
-        unsigned num_sat_threads = pp.num_sat_threads();
-        unsigned num_unsat_threads = pp.num_unsat_threads();
+        unsigned num_workers = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
         unsigned num_sls_threads = (pp.sls() ? 1 : 0);
         unsigned num_global_bb_threads = pp.num_global_bb_threads();          
-        unsigned total_threads = num_std_workers + num_sat_threads + num_unsat_threads + num_sls_threads + num_global_bb_threads;
+        unsigned total_threads = num_workers + num_sls_threads + num_global_bb_threads;
 
         IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << total_threads << " threads\n";);
         ast_manager &m = ctx.m;
@@ -1203,22 +1150,11 @@ namespace smt {
         
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
-        SASSERT(num_std_workers > 1);
-        for (unsigned i = 0; i < num_std_workers; ++i) {
-            auto *w = alloc(worker, i, *this, asms, l_undef);
-            m_workers.push_back(w);
+        SASSERT(num_workers > 1);
+        for (unsigned i = 0; i < num_workers; ++i)
+            m_workers.push_back(alloc(worker, i, *this, asms));
+        for (auto w : m_workers)
             sl.push_child(&(w->limit()));
-        }
-        for (unsigned i = 0; i < num_sat_threads; ++i) {
-            auto *w = alloc(worker, i, *this, asms, l_true);
-            m_workers.push_back(w);
-            sl.push_child(&(w->limit()));
-        }
-        for (unsigned i = 0; i < num_unsat_threads; ++i) {
-            auto *w = alloc(worker, i, *this, asms, l_false);
-            m_workers.push_back(w);
-            sl.push_child(&(w->limit()));
-        }
 
         if (num_sls_threads == 1) {
             m_sls_worker = alloc(sls_worker, *this);
