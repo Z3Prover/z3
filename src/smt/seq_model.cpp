@@ -24,6 +24,22 @@ Author:
 
 namespace smt {
 
+    static enode* find_root_enode(context& ctx, expr* e) {
+        if (!e)
+            return nullptr;
+        enode* n = ctx.find_enode(e);
+        return n ? n->get_root() : nullptr;
+    }
+
+    static bool is_model_dependency(context& ctx, enode* n) {
+        if (!n)
+            return false;
+        seq_util seq(ctx.get_manager());
+        if (seq.is_seq(n->get_sort()) || seq.is_re(n->get_sort()))
+            return false;
+        return ctx.is_relevant(n) || ctx.get_manager().is_value(n->get_expr());
+    }
+
     static void collect_expr_dependencies(context& ctx, expr* e, obj_hashtable<enode>& seen, ptr_vector<enode>& deps) {
         if (!e)
             return;
@@ -37,12 +53,10 @@ namespace smt {
                 continue;
             seen_expr.insert(cur);
 
-            if (ctx.e_internalized(cur)) {
-                enode* dep = ctx.get_enode(cur)->get_root();
-                if (!seen.contains(dep)) {
+            enode* dep = find_root_enode(ctx, cur);
+            if (is_model_dependency(ctx, dep) && !seen.contains(dep)) {
                     seen.insert(dep);
                     deps.push_back(dep);
-                }
             }
 
             if (!is_app(cur))
@@ -57,10 +71,10 @@ namespace smt {
             return expr_ref(m);
 
         expr* cur = e;
-        if (ctx.e_internalized(e)) {
+        {
             expr* dval = nullptr;
-            enode* dep = ctx.get_enode(e)->get_root();
-            if (dep_values.find(dep, dval) && dval) {
+            enode* dep = find_root_enode(ctx, e);
+            if (dep && dep_values.find(dep, dval) && dval) {
                 if (m.is_value(dval))
                     return expr_ref(dval, m);
                 cur = dval;
@@ -277,10 +291,10 @@ namespace smt {
             e = to_app(e)->get_arg(0);
 
             unsigned c;
-            if (dep_values && e && m_ctx.e_internalized(e)) {
+            if (dep_values && e) {
                 expr* dval = nullptr;
-                enode* dep = m_ctx.get_enode(e)->get_root();
-                if (dep_values->find(dep, dval) && dval && m_seq.is_const_char(dval, c))
+                enode* dep = find_root_enode(m_ctx, e);
+                if (dep && dep_values->find(dep, dval) && dval && m_seq.is_const_char(dval, c))
                     return expr_ref(m_seq.str.mk_string(zstring(c)), m);
             }
 
@@ -345,10 +359,10 @@ namespace smt {
             if (exp_expr && arith.is_numeral(exp_expr, exp_val)) {
                 // already concrete
             }
-            else if (dep_values && exp_expr && m_ctx.e_internalized(exp_expr)) {
+            else if (dep_values && exp_expr) {
                 expr* dval = nullptr;
-                enode* dep = m_ctx.get_enode(exp_expr)->get_root();
-                if (dep_values->find(dep, dval) && dval && arith.is_numeral(dval, exp_val)) {
+                enode* dep = find_root_enode(m_ctx, exp_expr);
+                if (dep && dep_values->find(dep, dval) && dval && arith.is_numeral(dval, exp_val)) {
                     // evaluated from dependency values
                 }
                 else if (m_mg) {
