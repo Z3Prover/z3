@@ -567,6 +567,10 @@ namespace smt {
             if (!candidate)
                 continue;
 
+            if (v >= ctx->m_birthdate.size()) {
+                LOG_WORKER(1, " bool var " << v << " has no birthdate, skipping for backbone candidate selection\n");
+                continue;
+            }
             auto birth = ctx->m_birthdate[v];
             auto age = curr_time - birth;
 
