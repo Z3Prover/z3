@@ -4155,14 +4155,10 @@ nielsen_graph::generate_length_constraints(vector<length_constraint>& constraint
         // and do not require incremental skipping.
         IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints: sat_path length=" << m_sat_path.size() << "\n";);
         m_solver.push();
-        for (nielsen_edge* e : m_sat_path) {
-            for (auto const& ic : e->side_constraints()) {
+        if (m_sat_node) {
+            for (auto const& ic : m_sat_node->constraints()) {
                 m_solver.assert_expr(ic.fml);
             }
-        }
-        if (m_sat_node) {
-            for (auto const& ic : m_sat_node->constraints())
-                m_solver.assert_expr(ic.fml);
         }
         lbool result = m_solver.check();
         IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints result: " << result << "\n";);

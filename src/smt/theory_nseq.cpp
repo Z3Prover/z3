@@ -38,7 +38,7 @@ namespace smt {
         m_nielsen(m_sgraph, m_context_solver, m_core_solver),
         m_axioms(m_th_rewriter),
         m_regex(m_sgraph),
-        m_model(m, m_seq, m_rewriter, m_sgraph),
+        m_model(m, ctx, m_seq, m_rewriter, m_sgraph),
         m_relevant_lengths(m)
     {
         std::function<void(expr_ref_vector const&)> add_clause =
@@ -733,6 +733,7 @@ namespace smt {
             bool was_internalized = ctx.e_internalized(c.fml);   
             auto lit = mk_literal(c.fml);   
             m_nielsen_literals.push_back(lit);
+            std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
             switch (ctx.get_assignment(lit)) { 
             case l_true: 
                 break;

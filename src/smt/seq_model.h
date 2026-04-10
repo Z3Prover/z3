@@ -28,6 +28,7 @@ Author:
 --*/
 #pragma once
 
+#include "smt_context.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/euf/euf_sgraph.h"
@@ -43,9 +44,13 @@ namespace smt {
     class model_generator;
     struct tracked_str_mem;
     class model_value_proc;
+    class seq_snode_value_proc;
 
     class seq_model {
+        friend class seq_snode_value_proc;
+
         ast_manager&    m;
+        context&        m_ctx;
         seq_util&       m_seq;
         seq_rewriter&   m_rewriter;
         euf::sgraph&    m_sg;
@@ -69,7 +74,7 @@ namespace smt {
         u_map<euf::snode*> m_var_regex;
 
     public:
-        seq_model(ast_manager& m, seq_util& seq,
+        seq_model(ast_manager& m, context& ctx, seq_util& seq,
                    seq_rewriter& rw, euf::sgraph& sg);
 
         // Phase 1: initialize model construction.
@@ -97,7 +102,14 @@ namespace smt {
 
         // recursively substitute known variable assignments into an snode tree.
         // Returns a concrete Z3 expression.
-        expr_ref snode_to_value(euf::snode* n);
+        expr_ref snode_to_value(euf::snode* n, model_generator& mg);
+
+        // Same as above, but optionally uses pre-evaluated model values for
+        // enode dependencies (provided by model_generator).
+        expr_ref snode_to_value(euf::snode* n, model_generator& mg, obj_map<enode, expr*> const* dep_values);
+
+        // Collect enode dependencies required to evaluate an snode value.
+        void collect_dependencies(euf::snode* n, obj_hashtable<enode>& seen, ptr_vector<enode>& deps) const;
 
         // register all string literals appearing in the constraint store
         // with the factory to avoid collisions with fresh values.
