@@ -17,7 +17,7 @@ tools:
 
 safe-outputs:
   create-discussion:
-    title-prefix: "[ZIPT Benchmark] "
+    title-prefix: "[QF_S Benchmark] "
     category: "Agentic Workflows"
     close-older-discussions: true
   missing-tool:
@@ -399,5 +399,5 @@ These are benchmarks where `nseq` shows a performance advantage.
 - **DO NOT** modify any source files or create pull requests.
 - **DO NOT** run benchmarks for longer than 80 minutes total (leave buffer for posting).
 - **DO** always report the commit SHA so results can be correlated with specific code versions.
-- **DO** close older ZIPT Benchmark discussions automatically (configured via `close-older-discussions: true`).
+- **DO** close older QF_S Benchmark discussions automatically (configured via `close-older-discussions: true`).
 - **DO** highlight disagreements prominently — these are potential correctness bugs.
