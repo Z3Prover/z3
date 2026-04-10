@@ -49,7 +49,14 @@ namespace smt {
             bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : lit(e, m), age(s), hits(h) {}
         };
 
+        struct phase_snapshot {
+            bool_var v;
+            unsigned original_phase_available;
+            unsigned original_phase;
+        };
+
         using bb_candidates = vector<bb_candidate>;
+        using phase_snapshots = vector<phase_snapshot>;
 
         class batch_manager {        
 
@@ -225,7 +232,7 @@ namespace smt {
 
             void simplify();
             bb_candidates find_backbone_candidates(unsigned k = 10);
-            void prepare_backbone_candidates(u_map<double>& original_activities);
+            void prepare_backbone_candidates(u_map<double>& original_activities, phase_snapshots& original_phases);
 
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);

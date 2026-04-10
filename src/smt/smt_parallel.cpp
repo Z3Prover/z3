@@ -373,7 +373,7 @@ namespace smt {
         m_sls->collect_statistics(st);
     }
 
-    void parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities) {
+    void parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities, phase_snapshots& original_phases) {
         bb_candidates local_candidates = find_backbone_candidates();
         b.collect_backbone_candidates(m_l2g, local_candidates);
         if (m_config.m_local_backbones) {
@@ -391,9 +391,13 @@ namespace smt {
             for (smt::parallel::bb_candidate const& bb : bb_cands) {
                 // Set the phase of the candidates to the negation of their assumed values
                 LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
+
+                expr* lit = bb.lit.get();
+                expr* atom = lit;
                 
-                expr* atom = bb.lit.get();
-                
+                // checks whether lit is a negation: if yes, writes the inner expression into atom
+                bool is_negated = m.is_not(lit, atom);
+
                 // Candidates from other workers may not be internalized in this context.
                 if (!ctx->b_internalized(atom))
                     continue;
@@ -403,19 +407,32 @@ namespace smt {
                     continue;
 
                 bool phase = false;  // set to false if tuning for UNSAT, set to true if tuning for SAT
-
-                if (m.is_not(atom, atom)) 
+                if (is_negated)
                     phase = !phase;
 
+                auto const& d = ctx->get_bdata(v);
+                bool has_phase_snapshot = false;
+                for (auto const& snapshot : original_phases) {
+                    if (snapshot.v == v) {
+                        has_phase_snapshot = true;
+                        break;
+                    }
+                }
+                if (!has_phase_snapshot) {
+                    original_phases.push_back(phase_snapshot{v, d.m_phase_available, d.m_phase});
+                }
+
                 ctx->force_phase(v, phase);
-                LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
+                LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(lit, m, 3) << " := " << (phase ? "true" : "false") << "\n");
 
                 auto const& activities = ctx->get_activity_vector();
                 double max_activity = 0.0;
                 for (unsigned i = 0; i < activities.size(); ++i)
                     max_activity = std::max(max_activity, activities[i]);
 
-                original_activities.insert(v, ctx->get_activity(v));
+                double saved_activity = 0.0;
+                if (!original_activities.find(v, saved_activity))
+                    original_activities.insert(v, ctx->get_activity(v));
 
                 // Promote this candidate above all others
                 double eps = 1.0;
@@ -443,8 +460,9 @@ namespace smt {
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
 
             u_map<double> original_activities;
+            phase_snapshots original_phases;
             if (m_config.m_local_backbones || m_config.m_global_backbones) { 
-                prepare_backbone_candidates(original_activities);
+                prepare_backbone_candidates(original_activities, original_phases);
             }
 
             lbool r = check_cube(cube);
@@ -458,7 +476,9 @@ namespace smt {
                 // Restore activities of backbone candidates to old values after the search
                 for (auto const& [v, act] : original_activities) {
                     ctx->set_activity(v, act);
-                    ctx->unforce_phase(v); // can do ablation study here to see if it's necessary
+                }
+                for (auto const& snapshot : original_phases) {
+                    ctx->unforce_phase(snapshot.v, snapshot.original_phase_available, snapshot.original_phase);
                 }
             }
 
@@ -567,14 +587,12 @@ namespace smt {
             if (!candidate)
                 continue;
 
-            if (v >= ctx->m_birthdate.size()) {
-                LOG_WORKER(1, " bool var " << v << " has no birthdate, skipping for backbone candidate selection\n");
-                continue;
-            }
             auto birth = ctx->m_birthdate[v];
             auto age = curr_time - birth;
 
             auto const& d = ctx->get_bdata(v);
+            if (!d.m_phase_available)
+                continue;
             bool phase = d.m_phase;
 
             if (!phase)

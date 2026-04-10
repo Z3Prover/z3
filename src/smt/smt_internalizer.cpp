@@ -936,6 +936,7 @@ namespace smt {
         m_lit_scores[1].reserve(v + 1);
         m_lit_scores[0][v] = m_lit_scores[1][v] = 0.0;
         m_birthdate.reserve(v+1);
+        m_birthdate[v] = m_stats.m_num_assignments;
 
         literal l(v, false);
         literal not_l(v, true);
@@ -1885,4 +1886,3 @@ namespace smt {
         SASSERT(th->is_attached_to_var(n));
     }
 };
-
