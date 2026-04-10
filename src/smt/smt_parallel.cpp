@@ -591,11 +591,7 @@ namespace smt {
             auto age = curr_time - birth;
 
             auto const& d = ctx->get_bdata(v);
-            if (!d.m_phase_available)
-                continue;
-            bool phase = d.m_phase;
-
-            if (!phase)
+            if (d.m_phase_available && !d.m_phase)
                 candidate = m.mk_not(candidate);
 
             if (b.is_global_backbone(m_l2g, candidate))
