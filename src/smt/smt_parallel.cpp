@@ -375,18 +375,19 @@ namespace smt {
 
     void parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities) {
         bb_candidates local_candidates = find_backbone_candidates();
-        b.collect_backbone_candidates(m_l2g, local_candidates);
+        if (m_config.m_global_backbones > 0)
+            b.collect_backbone_candidates(m_l2g, local_candidates);
         if (m_config.m_local_backbones) {
             LOG_WORKER(1, " LOCAL BACKBONE DETECTION\n");
 
             // Pull candidates from the global batch manager pool so that
             // backbone signals discovered by other workers inform this experiment.
             // Fall back to locally-derived candidates if the global pool is empty yet.
-            bb_candidates bb_cands = b.return_global_bb_candidates(m_g2l);
-            if (bb_cands.empty()) {
-                LOG_WORKER(1, " no global bb candidates, using local bb candidates\n");
-                bb_cands = local_candidates;
-            }
+            // bb_candidates bb_cands = b.return_global_bb_candidates(m_g2l);
+            // if (bb_cands.empty()) {
+            //     LOG_WORKER(1, " no global bb candidates, using local bb candidates\n");
+            bb_candidates bb_cands = local_candidates;
+            // }
 
             for (smt::parallel::bb_candidate const& bb : bb_cands) {
                 // Set the phase of the candidates to the negation of their assumed values
