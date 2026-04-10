@@ -1,5 +1,5 @@
 ---
-description: Run Z3 string solver benchmarks (seq vs nseq) on QF_S test suite from the c3 branch and post results as a GitHub discussion
+description: Benchmark Z3 seq vs nseq string solvers on QF_S test suite from the c3 branch and post results as a GitHub discussion
 
 on:
   schedule:
@@ -17,7 +17,7 @@ tools:
 
 safe-outputs:
   create-discussion:
-    title-prefix: "[ZIPT Benchmark] "
+    title-prefix: "[QF_S Benchmark] "
     category: "Agentic Workflows"
     close-older-discussions: true
   missing-tool:
@@ -37,437 +37,367 @@ steps:
 
 ---
 
+# QF_S String Solver Benchmark
 
-# ZIPT String Solver Benchmark
+## Job Description
 
-You are an AI agent that benchmarks Z3 string solvers (`seq` and `nseq`) and the standalone ZIPT solver on QF_S SMT-LIB2 benchmarks from the `c3` branch, and publishes a summary report as a GitHub discussion.
+Your name is ${{ github.workflow }}. You are an expert performance analyst for the Z3 theorem prover, specializing in the string/sequence theory. Your task is to benchmark the `seq` solver (classical string theory) against the `nseq` solver (ZIPT-based string theory) on the QF_S test suite from the `c3` branch, and post a structured report as a GitHub Discussion.
 
-## Context
+The workspace already contains the `c3` branch (checked out by the preceding workflow step).
 
-- **Repository**: ${{ github.repository }}
-- **Workspace**: ${{ github.workspace }}
-- **Branch**: c3 (already checked out by the workflow setup step)
+## Phase 1: Set Up the Build Environment
 
-## Phase 1: Build Z3
-
-Build Z3 from the checked-out `c3` branch using CMake + Ninja, including the .NET bindings required by ZIPT.
+Install required build tools:
 
 ```bash
-cd ${{ github.workspace }}
-
-# Install build dependencies if missing
-sudo apt-get install -y ninja-build cmake python3 zstd dotnet-sdk-8.0 2>/dev/null || true
-
-# Configure the build in Debug mode to enable assertions and tracing
-# (Debug mode is required for -tr: trace flags to produce meaningful output)
-mkdir -p build
-cd build
-cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Debug -DZ3_BUILD_DOTNET_BINDINGS=ON 2>&1 | tail -20
-
-# Build z3 binary and .NET bindings (this takes ~15-17 minutes)
-ninja z3 2>&1 | tail -30
-ninja build_z3_dotnet_bindings 2>&1 | tail -20
-
-# Verify the build succeeded
-./z3 --version
-
-# Locate the Microsoft.Z3.dll produced by the build
-Z3_DOTNET_DLL=$(find . -name "Microsoft.Z3.dll" -not -path "*/obj/*" | head -1)
-if [ -z "$Z3_DOTNET_DLL" ]; then
-    echo "ERROR: Microsoft.Z3.dll not found after build"
-    exit 1
-fi
-echo "Found Microsoft.Z3.dll at: $Z3_DOTNET_DLL"
+sudo apt-get update -y
+sudo apt-get install -y cmake ninja-build python3 python3-pip time
 ```
 
-If the build fails, report the error clearly and exit without proceeding.
-
-## Phase 2a: Clone and Build ZIPT
-
-Clone the ZIPT solver from the `parikh` branch and compile it against the Z3 .NET bindings built in Phase 1.
+Verify tools:
 
 ```bash
-cd ${{ github.workspace }}
+cmake --version
+ninja --version
+python3 --version
+```
 
-# Re-locate the Microsoft.Z3.dll if needed
-Z3_DOTNET_DLL=$(find build -name "Microsoft.Z3.dll" -not -path "*/obj/*" | head -1)
-Z3_LIB_DIR=${{ github.workspace }}/build
+## Phase 2: Build Z3 in Debug Mode with Seq Tracing
 
-# Clone ZIPT (parikh branch)
-git clone --depth=1 --branch parikh https://github.com/CEisenhofer/ZIPT.git /tmp/zipt
+Build Z3 with debug symbols so that tracing and timing data are meaningful.
 
-# Patch ZIPT.csproj to point at the freshly built Microsoft.Z3.dll
-# (the repo has a Windows-relative hardcoded path that won't exist here)
-sed -i "s|<HintPath>.*</HintPath>|<HintPath>$Z3_DOTNET_DLL</HintPath>|" /tmp/zipt/ZIPT/ZIPT.csproj
+```bash
+mkdir -p /tmp/z3-build
+cd /tmp/z3-build
+cmake "$GITHUB_WORKSPACE" \
+  -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DZ3_BUILD_TEST_EXECUTABLES=OFF \
+  2>&1 | tee /tmp/z3-cmake.log
+ninja z3 2>&1 | tee /tmp/z3-build.log
+```
 
-# Build ZIPT in Release mode
-cd /tmp/zipt/ZIPT
-dotnet build --configuration Release 2>&1 | tail -20
+Verify the binary was built:
 
-# Locate the built ZIPT.dll
-ZIPT_DLL=$(find /tmp/zipt/ZIPT/bin/Release -name "ZIPT.dll" | head -1)
-if [ -z "$ZIPT_DLL" ]; then
-    echo "ERROR: ZIPT.dll not found after build"
-    exit 1
+```bash
+/tmp/z3-build/z3 --version
+```
+
+If the build fails, report it immediately and stop.
+
+## Phase 3: Discover QF_S Benchmark Files
+
+Find all `.smt2` benchmark files in the workspace that belong to the QF_S logic:
+
+```bash
+# Search for explicit QF_S logic declarations
+grep -rl 'QF_S' "$GITHUB_WORKSPACE" --include='*.smt2' 2>/dev/null > /tmp/qf_s_files.txt
+
+# Also look in dedicated benchmark directories
+find "$GITHUB_WORKSPACE" \
+  \( -path "*/QF_S/*" -o -path "*/qf_s/*" -o -path "*/benchmarks/*" \) \
+  -name '*.smt2' 2>/dev/null >> /tmp/qf_s_files.txt
+
+# Deduplicate
+sort -u /tmp/qf_s_files.txt -o /tmp/qf_s_files.txt
+
+TOTAL=$(wc -l < /tmp/qf_s_files.txt)
+echo "Found $TOTAL QF_S benchmark files"
+head -20 /tmp/qf_s_files.txt
+```
+
+If fewer than 5 files are found, also scan the entire workspace for any `.smt2` file that exercises string constraints:
+
+```bash
+if [ "$TOTAL" -lt 5 ]; then
+  grep -rl 'declare.*String\|str\.\|seq\.' "$GITHUB_WORKSPACE" \
+    --include='*.smt2' 2>/dev/null >> /tmp/qf_s_files.txt
+  sort -u /tmp/qf_s_files.txt -o /tmp/qf_s_files.txt
+  TOTAL=$(wc -l < /tmp/qf_s_files.txt)
+  echo "After extended search: $TOTAL files"
 fi
-echo "ZIPT binary: $ZIPT_DLL"
+```
 
-# Make libz3.so visible to the .NET runtime at ZIPT startup
-ZIPT_OUT_DIR=$(dirname "$ZIPT_DLL")
-if cp "$Z3_LIB_DIR/libz3.so" "$ZIPT_OUT_DIR/" 2>/dev/null; then
-    echo "Copied libz3.so to $ZIPT_OUT_DIR"
+Cap the benchmark set to keep total runtime under 60 minutes:
+
+```bash
+# Use at most 500 files; take a random sample if more are available
+if [ "$TOTAL" -gt 500 ]; then
+  shuf -n 500 /tmp/qf_s_files.txt > /tmp/qf_s_sample.txt
 else
-    echo "WARNING: could not copy libz3.so to $ZIPT_OUT_DIR — setting LD_LIBRARY_PATH fallback"
+  cp /tmp/qf_s_files.txt /tmp/qf_s_sample.txt
 fi
-export LD_LIBRARY_PATH="$Z3_LIB_DIR${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-echo "ZIPT build complete."
+SAMPLE=$(wc -l < /tmp/qf_s_sample.txt)
+echo "Running benchmarks on $SAMPLE files"
 ```
 
-If the ZIPT build fails, note the error in the report but continue with the Z3-only benchmark columns.
+## Phase 4: Run Benchmarks — seq vs nseq
 
-## Phase 2b: Extract and Select Benchmark Files
-
-Extract the QF_S benchmark archive and randomly select 50 files.
+Run each benchmark with both solvers. Use a per-file timeout of 10 seconds. Set Z3's internal timeout to 9 seconds so it exits cleanly before the shell timeout fires.
 
 ```bash
-cd ${{ github.workspace }}
+Z3=/tmp/z3-build/z3
+TIMEOUT_SEC=10
+Z3_TIMEOUT_SEC=9
+RESULTS=/tmp/benchmark-results.csv
 
-# Extract the archive
-mkdir -p /tmp/qfs_benchmarks
-tar --zstd -xf tests/QF_S.tar.zst -C /tmp/qfs_benchmarks
+echo "file,seq_result,seq_time_ms,nseq_result,nseq_time_ms" > "$RESULTS"
 
-# List all .smt2 files
-find /tmp/qfs_benchmarks -name "*.smt2" -type f > /tmp/all_qfs_files.txt
-TOTAL_FILES=$(wc -l < /tmp/all_qfs_files.txt)
-echo "Total QF_S files: $TOTAL_FILES"
+total=0
+done_count=0
+while IFS= read -r smt_file; do
+  total=$((total + 1))
 
-# Randomly select 200 files
-shuf -n 200 /tmp/all_qfs_files.txt > /tmp/selected_files.txt
-echo "Selected 200 files for benchmarking"
-cat /tmp/selected_files.txt
+  # Run with seq solver; capture both stdout (z3 output) and stderr (time output)
+  SEQ_OUT=$({ time timeout "$TIMEOUT_SEC" "$Z3" \
+    smt.string_solver=seq \
+    -T:"$Z3_TIMEOUT_SEC" \
+    "$smt_file" 2>/dev/null; } 2>&1)
+  SEQ_RESULT=$(echo "$SEQ_OUT" | grep -E '^(sat|unsat|unknown)' | head -1)
+  SEQ_MS=$(echo "$SEQ_OUT" | grep real | awk '{split($2,a,"m"); split(a[2],b,"s"); printf "%d", (a[1]*60+b[1])*1000}')
+  [ -z "$SEQ_RESULT" ] && SEQ_RESULT="timeout"
+  [ -z "$SEQ_MS" ] && SEQ_MS=$((TIMEOUT_SEC * 1000))
+
+  # Run with nseq solver; same structure
+  NSEQ_OUT=$({ time timeout "$TIMEOUT_SEC" "$Z3" \
+    smt.string_solver=nseq \
+    -T:"$Z3_TIMEOUT_SEC" \
+    "$smt_file" 2>/dev/null; } 2>&1)
+  NSEQ_RESULT=$(echo "$NSEQ_OUT" | grep -E '^(sat|unsat|unknown)' | head -1)
+  NSEQ_MS=$(echo "$NSEQ_OUT" | grep real | awk '{split($2,a,"m"); split(a[2],b,"s"); printf "%d", (a[1]*60+b[1])*1000}')
+  [ -z "$NSEQ_RESULT" ] && NSEQ_RESULT="timeout"
+  [ -z "$NSEQ_MS" ] && NSEQ_MS=$((TIMEOUT_SEC * 1000))
+
+  SHORT=$(basename "$smt_file")
+  echo "$SHORT,$SEQ_RESULT,$SEQ_MS,$NSEQ_RESULT,$NSEQ_MS" >> "$RESULTS"
+
+  done_count=$((done_count + 1))
+  if [ $((done_count % 50)) -eq 0 ]; then
+    echo "Progress: $done_count / $SAMPLE files completed"
+  fi
+done < /tmp/qf_s_sample.txt
+
+echo "Benchmark run complete: $done_count files"
 ```
 
-## Phase 3: Run Benchmarks
+## Phase 5: Collect Seq Traces for Interesting Cases
 
-Run each of the 200 selected files with both Z3 string solvers and ZIPT. Use a 5-second timeout for seq and a 10-second timeout for nseq and ZIPT.
-
-For each file, run:
-1. `z3 smt.string_solver=seq -tr:seq -T:5 <file>` — seq solver with sequence-solver tracing enabled; rename the `.z3-trace` output after each run so it is not overwritten. Use `-T:5` when tracing to cap trace size.
-2. `z3 smt.string_solver=nseq -T:5 <file>` — nseq solver without tracing (timing only).
-3. `dotnet <ZIPT.dll> -t:5000 <file>` — ZIPT solver (milliseconds).
-
-Capture:
-- **Verdict**: `sat`, `unsat`, `unknown`, `timeout` (if exit code indicates timeout or process is killed), or `bug` (if a solver crashes / produces a non-standard result)
-- **Time** (seconds): wall-clock time for the run
-- A row is flagged `SOUNDNESS_DISAGREEMENT` when any two solvers that both produced a definitive answer (sat/unsat) disagree
-
-Use a bash script to automate this:
+For benchmarks where `seq` solves in under 2 s but `nseq` times out (seq-fast/nseq-slow cases), collect a brief `seq` trace to understand what algorithm is used:
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
+Z3=/tmp/z3-build/z3
+mkdir -p /tmp/traces
 
-Z3=${{ github.workspace }}/build/z3
-ZIPT_DLL=$(find /tmp/zipt/ZIPT/bin/Release -name "ZIPT.dll" 2>/dev/null | head -1)
-ZIPT_AVAILABLE=false
-[ -n "$ZIPT_DLL" ] && ZIPT_AVAILABLE=true
+# Find seq-fast / nseq-slow files: seq solved (sat/unsat) in <2000ms AND nseq timed out
+awk -F, 'NR>1 && ($2=="sat"||$2=="unsat") && $3<2000 && $4=="timeout" {print $1}' \
+  /tmp/benchmark-results.csv > /tmp/seq_fast_nseq_slow.txt
+echo "seq-fast / nseq-slow files: $(wc -l < /tmp/seq_fast_nseq_slow.txt)"
 
-# Ensure libz3.so is on the dynamic-linker path for the .NET runtime
-export LD_LIBRARY_PATH=${{ github.workspace }}/build${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-
-RESULTS=/tmp/benchmark_results.tsv
-TRACES_DIR=/tmp/seq_traces
-mkdir -p "$TRACES_DIR"
-
-echo -e "file\tseq_verdict\tseq_time\tnseq_verdict\tnseq_time\tzipt_verdict\tzipt_time\tnotes" > "$RESULTS"
-
-run_z3_seq_traced() {
-    # Run seq solver with -tr:seq tracing.  Cap at 5 s so trace files stay manageable.
-    local file="$1"
-    local trace_dest="$2"
-    local start end elapsed verdict output exit_code
-
-    # Remove any leftover trace from a prior run so we can detect whether one was produced.
-    rm -f .z3-trace
-
-    start=$(date +%s%3N)
-    output=$(timeout 7 "$Z3" "smt.string_solver=seq" -tr:seq -T:5 "$file" 2>&1)
-    exit_code=$?
-    end=$(date +%s%3N)
-    elapsed=$(echo "scale=3; ($end - $start) / 1000" | bc)
-
-    # Rename the trace file immediately so the next run does not overwrite it.
-    if [ -f .z3-trace ]; then
-        mv .z3-trace "$trace_dest"
-    else
-        # Write a sentinel so Phase 4 can detect the absence of a trace.
-        echo "(no trace produced)" > "$trace_dest"
-    fi
-
-    if echo "$output" | grep -q "^unsat"; then
-        verdict="unsat"
-    elif echo "$output" | grep -q "^sat"; then
-        verdict="sat"
-    elif echo "$output" | grep -q "^unknown"; then
-        verdict="unknown"
-    elif [ "$exit_code" -eq 124 ]; then
-        verdict="timeout"
-    elif echo "$output" | grep -qi "error\|assertion\|segfault\|SIGABRT\|exception"; then
-        verdict="bug"
-    else
-        verdict="unknown"
-    fi
-
-    echo "$verdict $elapsed"
-}
-
-run_z3_nseq() {
-    local file="$1"
-    local start end elapsed verdict output exit_code
-
-    start=$(date +%s%3N)
-    output=$(timeout 12 "$Z3" "smt.string_solver=nseq" -T:5 "$file" 2>&1)
-    exit_code=$?
-    end=$(date +%s%3N)
-    elapsed=$(echo "scale=3; ($end - $start) / 1000" | bc)
-
-    if echo "$output" | grep -q "^unsat"; then
-        verdict="unsat"
-    elif echo "$output" | grep -q "^sat"; then
-        verdict="sat"
-    elif echo "$output" | grep -q "^unknown"; then
-        verdict="unknown"
-    elif [ "$exit_code" -eq 124 ]; then
-        verdict="timeout"
-    elif echo "$output" | grep -qi "error\|assertion\|segfault\|SIGABRT\|exception"; then
-        verdict="bug"
-    else
-        verdict="unknown"
-    fi
-
-    echo "$verdict $elapsed"
-}
-
-run_zipt() {
-    local file="$1"
-    local start end elapsed verdict output exit_code
-
-    if [ "$ZIPT_AVAILABLE" != "true" ]; then
-        echo "n/a 0.000"
-        return
-    fi
-
-    start=$(date +%s%3N)
-    # ZIPT prints the filename on the first line, then SAT/UNSAT/UNKNOWN on subsequent lines
-    output=$(timeout 12 dotnet "$ZIPT_DLL" -t:5000 "$file" 2>&1)
-    exit_code=$?
-    end=$(date +%s%3N)
-    elapsed=$(echo "scale=3; ($end - $start) / 1000" | bc)
-
-    if echo "$output" | grep -qi "^UNSAT$"; then
-        verdict="unsat"
-    elif echo "$output" | grep -qi "^SAT$"; then
-        verdict="sat"
-    elif echo "$output" | grep -qi "^UNKNOWN$"; then
-        verdict="unknown"
-    elif [ "$exit_code" -eq 124 ]; then
-        verdict="timeout"
-    elif echo "$output" | grep -qi "error\|crash\|exception\|Unsupported"; then
-        verdict="bug"
-    else
-        verdict="unknown"
-    fi
-
-    echo "$verdict $elapsed"
-}
-
-while IFS= read -r file; do
-    fname=$(basename "$file")
-    # Use a sanitised filename (replace non-alphanumeric with _) for the trace path.
-    safe_name=$(echo "$fname" | tr -cs 'A-Za-z0-9._-' '_')
-    trace_path="$TRACES_DIR/${safe_name}.z3-trace"
-
-    seq_result=$(run_z3_seq_traced "$file" "$trace_path")
-    nseq_result=$(run_z3_nseq "$file")
-    zipt_result=$(run_zipt "$file")
-
-    seq_verdict=$(echo "$seq_result" | cut -d' ' -f1)
-    seq_time=$(echo "$seq_result" | cut -d' ' -f2)
-    nseq_verdict=$(echo "$nseq_result" | cut -d' ' -f1)
-    nseq_time=$(echo "$nseq_result" | cut -d' ' -f2)
-    zipt_verdict=$(echo "$zipt_result" | cut -d' ' -f1)
-    zipt_time=$(echo "$zipt_result" | cut -d' ' -f2)
-
-    # Flag soundness disagreement when any two definitive verdicts disagree
-    notes=""
-    # Build list of (solver, verdict) pairs for definitive answers only
-    declare -A definitive_map
-    [ "$seq_verdict"  = "sat" ] || [ "$seq_verdict"  = "unsat" ] && definitive_map[seq]="$seq_verdict"
-    [ "$nseq_verdict" = "sat" ] || [ "$nseq_verdict" = "unsat" ] && definitive_map[nseq]="$nseq_verdict"
-    [ "$zipt_verdict" = "sat" ] || [ "$zipt_verdict" = "unsat" ] && definitive_map[zipt]="$zipt_verdict"
-    # Check every pair for conflict
-    has_sat=false; has_unsat=false
-    for v in "${definitive_map[@]}"; do
-        [ "$v" = "sat"   ] && has_sat=true
-        [ "$v" = "unsat" ] && has_unsat=true
-    done
-    if $has_sat && $has_unsat; then
-        notes="SOUNDNESS_DISAGREEMENT"
-    fi
-
-    echo -e "$fname\t$seq_verdict\t$seq_time\t$nseq_verdict\t$nseq_time\t$zipt_verdict\t$zipt_time\t$notes" >> "$RESULTS"
-    echo "[$fname] seq=$seq_verdict(${seq_time}s) nseq=$nseq_verdict(${nseq_time}s) zipt=$zipt_verdict(${zipt_time}s) $notes"
-done < /tmp/selected_files.txt
-
-echo "Benchmark run complete. Results saved to $RESULTS"
-echo "Trace files saved to $TRACES_DIR"
-```
-
-Save this script to `/tmp/run_benchmarks.sh`, make it executable, and run it.
-
-## Phase 3.5: Identify seq-fast / nseq-slow Cases and Analyse Traces
-
-After the benchmark loop completes, identify files where seq solved the instance quickly but nseq was significantly slower (or timed out). For each such file, read its saved seq trace and produce a hypothesis for why nseq is slower.
-
-**Definition of "seq-fast / nseq-slow"**: seq_time < 1.0 s AND nseq_time > 3 × seq_time (and nseq_time > 0.5 s).
-
-For each matching file:
-1. Read the corresponding trace file from `/tmp/seq_traces/`.
-2. Look for the sequence of lemmas, reductions, or decisions that led seq to a fast conclusion.
-3. Identify patterns absent or less exploited in nseq: e.g., length-based propagation early in the trace, Parikh constraints eliminating possibilities, Nielsen graph pruning, equation splitting, or overlap resolution.
-4. Write a 3–5 sentence hypothesis explaining the likely reason for the nseq slowdown, referencing specific trace entries where possible.
-
-Use a script to collect the candidates:
-
-```bash
-#!/usr/bin/env bash
-RESULTS=/tmp/benchmark_results.tsv
-TRACES_DIR=/tmp/seq_traces
-ANALYSIS=/tmp/trace_analysis.md
-
-echo "# Trace Analysis: seq-fast / nseq-slow Candidates" > "$ANALYSIS"
-echo "" >> "$ANALYSIS"
-
-# Skip header line; columns: file seq_verdict seq_time nseq_verdict nseq_time ...
-tail -n +2 "$RESULTS" | while IFS=$'\t' read -r fname seq_verdict seq_time nseq_verdict nseq_time _rest; do
-    # Use bc for floating-point comparison; bc does not support && so split into separate tests.
-    is_fast=$(echo "$seq_time < 1.0" | bc -l 2>/dev/null || echo 0)
-    threshold=$(echo "$seq_time * 3" | bc -l 2>/dev/null || echo 99999)
-    is_slow_threshold=$(echo "$nseq_time > $threshold" | bc -l 2>/dev/null || echo 0)
-    # Extra guard: exclude trivially fast seq cases where 3× is still < 0.5 s
-    is_over_half=$(echo "$nseq_time > 0.5" | bc -l 2>/dev/null || echo 0)
-
-    if [ "$is_fast" = "1" ] && [ "$is_slow_threshold" = "1" ] && [ "$is_over_half" = "1" ]; then
-        safe_name=$(echo "$fname" | tr -cs 'A-Za-z0-9._-' '_')
-        trace_path="$TRACES_DIR/${safe_name}.z3-trace"
-        echo "## $fname" >> "$ANALYSIS"
-        echo "" >> "$ANALYSIS"
-        echo "seq: ${seq_time}s (${seq_verdict}), nseq: ${nseq_time}s (${nseq_verdict})" >> "$ANALYSIS"
-        echo "" >> "$ANALYSIS"
-        echo "### Trace excerpt (first 200 lines)" >> "$ANALYSIS"
-        echo '```' >> "$ANALYSIS"
-        head -200 "$trace_path" 2>/dev/null >> "$ANALYSIS" || echo "(trace file not found on disk)" >> "$ANALYSIS"
-        echo '```' >> "$ANALYSIS"
-        echo "" >> "$ANALYSIS"
-        echo "---" >> "$ANALYSIS"
-        echo "" >> "$ANALYSIS"
-    fi
+# Collect traces for at most 5 such cases
+head -5 /tmp/seq_fast_nseq_slow.txt | while IFS= read -r short; do
+  # Find the full path
+  full=$(grep "/$short$" /tmp/qf_s_sample.txt | head -1)
+  [ -z "$full" ] && continue
+  timeout 5 "$Z3" \
+    smt.string_solver=seq \
+    -tr:seq \
+    -T:5 \
+    "$full" > "/tmp/traces/${short%.smt2}.seq.trace" 2>&1 || true
 done
-
-echo "Candidate list written to $ANALYSIS"
-cat "$ANALYSIS"
 ```
 
-Save this to `/tmp/analyse_traces.sh`, make it executable, and run it. Then read the trace excerpts collected in `/tmp/trace_analysis.md` and — for each candidate — write your hypothesis in the Phase 4 summary report under a **"Trace Analysis"** section.
+## Phase 6: Analyze Results
 
-## Phase 4: Generate Summary Report
+Compute summary statistics from the CSV:
 
-Read `/tmp/benchmark_results.tsv` and compute statistics. Then generate a Markdown report.
+```bash
+Save the analysis script to a file and run it:
 
-Compute:
-- **Total benchmarks**: 200
-- **Per solver (seq, nseq, and ZIPT)**: count of sat / unsat / unknown / timeout / bug verdicts
-- **Total time used**: sum of all times for each solver
-- **Average time per benchmark**: total_time / 200
-- **Soundness disagreements**: files where any two solvers that both returned a definitive answer disagree (these are the most critical bugs)
-- **Bugs / crashes**: files with error/crash verdicts
+```bash
+cat > /tmp/analyze_benchmark.py << 'PYEOF'
+import csv, sys
 
-Format the report as a GitHub Discussion post (GitHub-flavored Markdown):
+results = []
+with open('/tmp/benchmark-results.csv') as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        results.append(row)
+
+total = len(results)
+if total == 0:
+    print("No results found.")
+    sys.exit(0)
+
+def is_correct(r, solver):
+    prefix = 'seq' if solver == 'seq' else 'nseq'
+    return r[f'{prefix}_result'] in ('sat', 'unsat')
+
+def timed_out(r, solver):
+    prefix = 'seq' if solver == 'seq' else 'nseq'
+    return r[f'{prefix}_result'] == 'timeout'
+
+seq_solved  = sum(1 for r in results if is_correct(r, 'seq'))
+nseq_solved = sum(1 for r in results if is_correct(r, 'nseq'))
+seq_to      = sum(1 for r in results if timed_out(r, 'seq'))
+nseq_to     = sum(1 for r in results if timed_out(r, 'nseq'))
+
+seq_times  = [int(r['seq_time_ms'])  for r in results if is_correct(r, 'seq')]
+nseq_times = [int(r['nseq_time_ms']) for r in results if is_correct(r, 'nseq')]
+
+def median(lst):
+    s = sorted(lst)
+    n = len(s)
+    return s[n//2] if n else 0
+
+def mean(lst):
+    return sum(lst)//len(lst) if lst else 0
+
+# Disagreements (sat vs unsat or vice-versa)
+disagreements = [
+    r for r in results
+    if r['seq_result'] in ('sat','unsat')
+    and r['nseq_result'] in ('sat','unsat')
+    and r['seq_result'] != r['nseq_result']
+]
+
+# seq-fast / nseq-slow: seq solved in <2s, nseq timed out
+seq_fast_nseq_slow = [
+    r for r in results
+    if is_correct(r, 'seq') and int(r['seq_time_ms']) < 2000 and timed_out(r, 'nseq')
+]
+# nseq-fast / seq-slow: nseq solved in <2s, seq timed out
+nseq_fast_seq_slow = [
+    r for r in results
+    if is_correct(r, 'nseq') and int(r['nseq_time_ms']) < 2000 and timed_out(r, 'seq')
+]
+
+print(f"TOTAL={total}")
+print(f"SEQ_SOLVED={seq_solved}")
+print(f"NSEQ_SOLVED={nseq_solved}")
+print(f"SEQ_TIMEOUTS={seq_to}")
+print(f"NSEQ_TIMEOUTS={nseq_to}")
+print(f"SEQ_MEDIAN_MS={median(seq_times)}")
+print(f"NSEQ_MEDIAN_MS={median(nseq_times)}")
+print(f"SEQ_MEAN_MS={mean(seq_times)}")
+print(f"NSEQ_MEAN_MS={mean(nseq_times)}")
+print(f"DISAGREEMENTS={len(disagreements)}")
+print(f"SEQ_FAST_NSEQ_SLOW={len(seq_fast_nseq_slow)}")
+print(f"NSEQ_FAST_SEQ_SLOW={len(nseq_fast_seq_slow)}")
+
+# Print top-10 slowest for nseq that seq handles fast
+print("\nTOP_SEQ_FAST_NSEQ_SLOW:")
+for r in sorted(seq_fast_nseq_slow, key=lambda x: -int(x['nseq_time_ms']))[:10]:
+    print(f"  {r['file']}  seq={r['seq_time_ms']}ms  nseq={r['nseq_time_ms']}ms  seq_result={r['seq_result']}  nseq_result={r['nseq_result']}")
+
+print("\nTOP_NSEQ_FAST_SEQ_SLOW:")
+for r in sorted(nseq_fast_seq_slow, key=lambda x: -int(x['seq_time_ms']))[:10]:
+    print(f"  {r['file']}  seq={r['seq_time_ms']}ms  nseq={r['nseq_time_ms']}ms  seq_result={r['seq_result']}  nseq_result={r['nseq_result']}")
+
+if disagreements:
+    print(f"\nDISAGREEMENTS ({len(disagreements)}):")
+    for r in disagreements[:10]:
+        print(f"  {r['file']}  seq={r['seq_result']}  nseq={r['nseq_result']}")
+PYEOF
+
+python3 /tmp/analyze_benchmark.py
+```
+
+## Phase 7: Create GitHub Discussion
+
+Use the `create_discussion` safe-output tool to post a structured benchmark report.
+
+The discussion body should be formatted as follows (fill in real numbers from Phase 6):
 
 ```markdown
-### ZIPT Benchmark Report — Z3 c3 branch
+# QF_S Benchmark: seq vs nseq
 
-**Date**: <today's date>
+**Date**: YYYY-MM-DD
 **Branch**: c3
-**Benchmark set**: QF_S (200 randomly selected files from tests/QF_S.tar.zst)
-**Timeout**: 5 seconds for seq (`-T:5`); 5 seconds for nseq (`-T:5`) and ZIPT (`-t:5000`)
+**Commit**: `<short SHA>`
+**Workflow Run**: [#<run_id>](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+**Files benchmarked**: N (capped at 500, timeout 10 s per file)
 
 ---
 
-### Summary
+## Summary
 
-| Metric | seq solver | nseq solver | ZIPT solver |
-|--------|-----------|-------------|-------------|
-| sat | X | X | X |
-| unsat | X | X | X |
-| unknown | X | X | X |
-| timeout | X | X | X |
-| bug/crash | X | X | X |
-| **Total time (s)** | X.XXX | X.XXX | X.XXX |
-| **Avg time/benchmark (s)** | X.XXX | X.XXX | X.XXX |
-
-**Soundness disagreements** (any two solvers return conflicting sat/unsat): N
+| Metric | seq | nseq |
+|--------|-----|------|
+| Files solved (sat/unsat) | SEQ_SOLVED | NSEQ_SOLVED |
+| Timeouts | SEQ_TO | NSEQ_TO |
+| Median solve time (solved files) | X ms | Y ms |
+| Mean solve time (solved files) | X ms | Y ms |
+| **Disagreements (sat≠unsat)** | — | N |
 
 ---
 
-### Per-File Results
+## Performance Comparison
 
-| # | File | seq verdict | seq time (s) | nseq verdict | nseq time (s) | ZIPT verdict | ZIPT time (s) | Notes |
-|---|------|-------------|-------------|--------------|--------------|--------------|--------------|-------|
-| 1 | benchmark_0001.smt2 | sat | 0.123 | sat | 0.456 | sat | 0.789 | |
-| ... | ... | ... | ... | ... | ... | ... | ... | ... |
+### seq-fast / nseq-slow (seq < 2 s, nseq timed out)
 
----
+These are benchmarks where the classical `seq` solver is significantly faster. These represent regression risk for `nseq`.
 
-### Notable Issues
+| File | seq (ms) | nseq (ms) | seq result | nseq result |
+|------|----------|-----------|------------|-------------|
+[TOP 10 ENTRIES]
 
-#### Soundness Disagreements (Critical)
-<list files where any two solvers disagree on sat/unsat, naming which solvers disagree>
+### nseq-fast / seq-slow (nseq < 2 s, seq timed out)
 
-#### Crashes / Bugs
-<list files where any solver crashed or produced an error>
+These are benchmarks where `nseq` shows a performance advantage.
 
-#### Slow Benchmarks (> 8s)
-<list files that took more than 8 seconds for any solver>
-
-#### Trace Analysis: seq-fast / nseq-slow Hypotheses
-<For each file where seq finished in < 1 s and nseq took > 3× longer, write a 3–5 sentence hypothesis based on the trace excerpt, referencing specific trace entries where possible. If no such files were found, state "No seq-fast / nseq-slow cases were observed in this run.">
+| File | seq (ms) | nseq (ms) | seq result | nseq result |
+|------|----------|-----------|------------|-------------|
+[TOP 10 ENTRIES]
 
 ---
 
-*Generated automatically by the ZIPT Benchmark workflow on the c3 branch.*
+## Correctness
+
+**Disagreements** (files where seq says `sat` but nseq says `unsat` or vice versa): N
+
+[If disagreements exist, list all of them here with file paths and both results]
+
+---
+
+## seq Trace Analysis (seq-fast / nseq-slow cases)
+
+<details>
+<summary>Click to expand trace snippets for top seq-fast/nseq-slow cases</summary>
+
+[Insert trace snippet for each traced file, or "No traces collected" if section was skipped]
+
+</details>
+
+---
+
+## Raw Data
+
+<details>
+<summary>Full results CSV (click to expand)</summary>
+
+```csv
+[PASTE FIRST 200 LINES OF /tmp/benchmark-results.csv]
 ```
 
-## Phase 5: Post to GitHub Discussion
+</details>
 
-Post the Markdown report as a new GitHub Discussion using the `create-discussion` safe output.
+---
 
-- **Category**: "Agentic Workflows"
-- **Title**: `[ZIPT Benchmark] Z3 c3 branch — <date>`
-- Close older discussions with the same title prefix to avoid clutter.
+*Generated by the QF_S Benchmark workflow. To reproduce: build Z3 from the `c3` branch and run `z3 smt.string_solver=seq|nseq -T:10 <file.smt2>`.*
+```
 
-## Guidelines
+## Edge Cases
 
-- **Always build from c3 branch**: The workspace is already checked out on c3; don't change branches.
-- **Debug build required**: The build must use `CMAKE_BUILD_TYPE=Debug` so that Z3's internal assertions and trace infrastructure are active; `-tr:` trace flags have no effect in Release builds.
-- **Tracing time cap**: Always pass `-T:5` when running with `-tr:seq` to limit solver runtime and keep trace files a manageable size. The nseq and ZIPT runs use `-T:5` / `-t:5000` as before.
-- **Rename trace files immediately**: After each seq run, rename `.z3-trace` to a per-benchmark path before starting the next run, or the next invocation will overwrite it.
-- **Handle build failures gracefully**: If Z3 fails to build, report the error and create a brief discussion noting the build failure. If ZIPT fails to build, continue with only the seq/nseq columns and note `n/a` for ZIPT results.
-- **Handle missing zstd**: If `tar --zstd` fails, try `zstd -d tests/QF_S.tar.zst --stdout | tar -x -C /tmp/qfs_benchmarks`.
-- **Be precise with timing**: Use millisecond-precision timestamps and report times in seconds with 3 decimal places.
-- **Distinguish timeout from unknown**: A timeout (process killed after 7s outer / 5s Z3-internal for seq, or 12s/10s for nseq) is different from `(unknown)` returned by a solver.
-- **ZIPT timeout unit**: ZIPT's `-t` flag takes **milliseconds**, so pass `-t:5000` for a 5-second limit.
-- **ZIPT output format**: ZIPT prints the input filename on the first line, then `SAT`, `UNSAT`, or `UNKNOWN` on subsequent lines. Parse accordingly.
-- **Report soundness bugs prominently**: If any benchmark shows a conflict between any two solvers that both returned a definitive sat/unsat answer, highlight it as a critical finding and name which pair disagrees.
-- **Don't skip any file**: Run all 200 files even if some fail.
-- **Large report**: If the per-file table is very long, put it in a `<details>` collapsible section.
+- If the build fails, call `missing_data` explaining the build error and stop.
+- If no benchmark files are found at all, call `missing_data` explaining that no QF_S `.smt2` files were found in the `c3` branch.
+- If Z3 crashes (segfault) on a file with either solver, record the result as `crash` and continue.
+- If the total benchmark set is very small (< 5 files), note this prominently in the discussion and suggest adding more QF_S benchmarks to the `c3` branch.
+- If zero disagreements and both solvers time out on the same files, note that the solvers are in agreement.
+
+## Important Notes
+
+- **DO NOT** modify any source files or create pull requests.
+- **DO NOT** run benchmarks for longer than 80 minutes total (leave buffer for posting).
+- **DO** always report the commit SHA so results can be correlated with specific code versions.
+- **DO** close older QF_S Benchmark discussions automatically (configured via `close-older-discussions: true`).
+- **DO** highlight disagreements prominently — these are potential correctness bugs.
