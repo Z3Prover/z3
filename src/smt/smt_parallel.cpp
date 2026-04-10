@@ -392,25 +392,23 @@ namespace smt {
                 // Set the phase of the candidates to the negation of their assumed values
                 LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
                 
-                expr* lit = bb.lit.get();
-                expr* atom = lit;
-                bool is_negated = m.is_not(lit, atom); // if lit = (not a), atom becomes a
+                expr* atom = bb.lit.get();
                 
                 // Candidates from other workers may not be internalized in this context.
                 if (!ctx->b_internalized(atom))
                     continue;
                 
                 sat::bool_var v = ctx->get_bool_var(atom);
-                if (v == sat::null_bool_var || v >= ctx->get_num_bool_vars())
+                if (v == sat::null_bool_var)
                     continue;
                 
                 bool phase = mode == l_true;
 
-                if (is_negated)
+                if (m.is_not(atom, atom)) 
                     phase = !phase;
 
                 ctx->force_phase(v, phase);
-                LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(lit, m, 3) << " := " << (phase ? "true" : "false") << "\n");
+                LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
 
                 auto const& activities = ctx->get_activity_vector();
                 double max_activity = 0.0;
