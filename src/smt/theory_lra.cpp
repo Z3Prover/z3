@@ -472,8 +472,7 @@ class theory_lra::imp {
                 else if (a.is_mod(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
                     if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);
-                    if (a.is_numeral(n2) && !r.is_zero()) {
-                        ensure_nla();
+                    if (m_nla && a.is_numeral(n2) && !r.is_zero()) {
                         app_ref div(a.mk_idiv(n1, n2), m);
                         ctx().internalize(div, false);
                         internalize_term(to_app(div));
