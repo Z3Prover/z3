@@ -405,10 +405,10 @@ namespace smt {
                 
                 bool phase = mode == l_true;
 
-                if (m.is_not(atom, atom)) 
-                    phase = !phase;
+                // if (m.is_not(atom, atom)) 
+                //     phase = !phase;
 
-                ctx->force_phase(v, phase);
+                // ctx->force_phase(v, phase);
                 LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(atom, m, 3) << " := " << (phase ? "true" : "false") << "\n");
 
                 auto const& activities = ctx->get_activity_vector();
@@ -459,7 +459,7 @@ namespace smt {
                 // Restore activities of backbone candidates to old values after the search
                 for (auto const& [v, act] : original_activities) {
                     ctx->set_activity(v, act);
-                    ctx->unforce_phase(v); // can do ablation study here to see if it's necessary
+                    // ctx->unforce_phase(v); // can do ablation study here to see if it's necessary
                 }
             }
 
