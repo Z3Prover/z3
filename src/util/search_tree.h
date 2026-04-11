@@ -161,7 +161,7 @@ namespace search_tree {
 
         struct candidate {
             node<Config>* n = nullptr;
-            unsigned effort_band = UINT64_MAX;
+            unsigned effort_band = UINT_MAX;
             unsigned depth = 0;
         };
 
