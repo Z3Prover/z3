@@ -41,7 +41,7 @@ safe-outputs:
     title-prefix: "[Memory Safety] "
     category: "Agentic Workflows"
     close-older-discussions: true
-    expires: 7
+    expires: 7d
   missing-tool:
     create-issue: true
   noop:
