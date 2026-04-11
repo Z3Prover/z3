@@ -1,4 +1,4 @@
-# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"d49708d2a52ea8ed02a11700663bca11b8d1a61414630351523fef60d589ae56","compiler_version":"v0.68.1","strict":true,"agent_id":"copilot"}
+# gh-aw-metadata: {"schema_version":"v3","frontmatter_hash":"e5e5c332eb206c2bde9e7e5cb0bb1babe7b1c50e0437a00b4093ddb8b5ab80cf","compiler_version":"v0.68.1","strict":true,"agent_id":"copilot"}
 # gh-aw-manifest: {"version":1,"secrets":["COPILOT_GITHUB_TOKEN","GH_AW_GITHUB_MCP_SERVER_TOKEN","GH_AW_GITHUB_TOKEN","GITHUB_TOKEN"],"actions":[{"repo":"actions/checkout","sha":"de0fac2e4500dabe0009e67214ff5f5447ce83dd","version":"v6.0.2"},{"repo":"actions/download-artifact","sha":"3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c","version":"v8.0.1"},{"repo":"actions/github-script","sha":"3a2844b7e9c422d3c10d287c895573f7108da1b3","version":"v9"},{"repo":"actions/upload-artifact","sha":"bbbca2ddaa5d8feaa63e36b76fdaad77386f024f","version":"v7"},{"repo":"github/gh-aw-actions/setup","sha":"v0.68.1","version":"v0.68.1"}]}
 #    ___                   _   _      
 #   / _ \                 | | (_)     

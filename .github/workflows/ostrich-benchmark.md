@@ -8,7 +8,10 @@ on:
 
 permissions: read-all
 
-network: defaults
+network:
+  allowed:
+    - defaults
+    - api.nuget.org
 
 tools:
   bash: true
@@ -402,3 +405,14 @@ Post the Markdown report as a new GitHub Discussion using the `create-discussion
 - **Handle build failures gracefully**: If Z3 fails to build, report the error and create a brief discussion noting the build failure. If ZIPT fails to build, continue with only the seq/nseq columns and note `n/a` for ZIPT results.
 - **Large report**: Always put the per-file table in a `<details>` collapsible section since there may be many files.
 - **Progress logging**: Print a line per file as you run it (e.g., `[N] [filename] seq=...`) so the workflow log shows progress even for large benchmark sets.
+
+## Safe Output Guarantee
+
+You **MUST** call either `create_discussion` or `noop` before the workflow ends, regardless of what happened during execution:
+
+- **Build succeeded, benchmarks ran**: Call `create_discussion` with the full report.
+- **Build succeeded, benchmarks partially ran**: Call `create_discussion` with whatever results were collected and a note about what could not be completed.
+- **Z3 build failed**: Call `noop` with a brief message describing the build error.
+- **No benchmarks could be run**: Call `noop` with a summary of what failed and why.
+
+Failing to produce any safe output triggers an automatic workflow-failure issue that clutters the repository.
