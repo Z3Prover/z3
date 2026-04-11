@@ -90,7 +90,7 @@ jobs:
           GH_AW_INFO_EXPERIMENTAL: "false"
           GH_AW_INFO_SUPPORTS_TOOLS_ALLOWLIST: "true"
           GH_AW_INFO_STAGED: "false"
-          GH_AW_INFO_ALLOWED_DOMAINS: '["defaults"]'
+          GH_AW_INFO_ALLOWED_DOMAINS: '["defaults","api.nuget.org"]'
           GH_AW_INFO_FIREWALL_ENABLED: "true"
           GH_AW_INFO_AWF_VERSION: "v0.25.18"
           GH_AW_INFO_AWMG_VERSION: ""
