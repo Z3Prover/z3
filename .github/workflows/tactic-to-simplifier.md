@@ -19,8 +19,6 @@ tools:
   github:
     toolsets: [default]
   bash: [":*"]
-  glob: {}
-  view: {}
 
 safe-outputs:
   create-issue:
