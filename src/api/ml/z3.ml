@@ -475,6 +475,7 @@ sig
   val substitute : expr -> expr list -> expr list -> expr
   val substitute_one : expr -> expr -> expr -> expr
   val substitute_vars : expr -> expr list -> expr
+  val substitute_funs : expr -> FuncDecl.func_decl list -> expr list -> expr
   val translate : expr -> context -> expr
   val to_string : expr -> string
   val is_numeral : expr -> bool
