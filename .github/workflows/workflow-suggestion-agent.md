@@ -12,11 +12,9 @@ network: defaults
 
 tools:
   cache-memory: true
-  serena: ["python", "java", "csharp"]
   github:
     toolsets: [default]
   bash: [":*"]
-  glob: {}
 
 safe-outputs:
   create-discussion:

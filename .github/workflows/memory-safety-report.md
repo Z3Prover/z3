@@ -30,8 +30,6 @@ tools:
   github:
     toolsets: [default, actions]
   bash: [":*"]
-  glob: {}
-  view: {}
 
 safe-outputs:
   mentions: false
