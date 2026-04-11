@@ -13,12 +13,10 @@ network: defaults
 
 tools:
   cache-memory: true
-  serena: ["java", "python", "typescript", "csharp"]
   github:
     toolsets: [default]
   bash: [":*"]
   edit: {}
-  glob: {}
   web-search: {}
 
 safe-outputs:
