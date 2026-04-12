@@ -48,6 +48,9 @@ namespace search_tree {
         vector<literal> m_core;
         unsigned m_num_activations = 0;
         unsigned m_effort_spent = 0;
+        unsigned m_active_workers = 0;
+        unsigned m_epoch = 0;
+        unsigned m_cancel_epoch = 0;
 
     public:
         node(literal const &l, node *parent) : m_literal(l), m_parent(parent), m_status(status::open) {}
@@ -137,12 +140,35 @@ namespace search_tree {
         void mark_new_activation() {
             set_status(status::active);
             ++m_num_activations;
+            ++m_active_workers;
+        }
+        void release_worker() {
+            if (m_active_workers > 0)
+                --m_active_workers;
+        }
+        unsigned active_workers() const {
+            return m_active_workers;
+        }
+        bool has_active_workers() const {
+            return m_active_workers > 0;
         }
         unsigned effort_spent() const {
             return m_effort_spent;
         }
         void add_effort(unsigned effort) {
             m_effort_spent += effort;
+        }
+        unsigned epoch() const {
+            return m_epoch;
+        }
+        void bump_epoch() {
+            ++m_epoch;
+        }
+        unsigned cancel_epoch() const {
+            return m_cancel_epoch;
+        }
+        void bump_cancel_epoch() {
+            ++m_cancel_epoch;
         }
     };
 
@@ -233,7 +259,7 @@ namespace search_tree {
         unsigned count_active_nodes(node<Config>* cur) const {
             if (!cur || cur->get_status() == status::closed)
                 return 0;
-            return (cur->get_status() == status::active ? 1 : 0) +
+            return (cur->has_active_workers() ? 1 : 0) +
                    count_active_nodes(cur->left()) +
                    count_active_nodes(cur->right());
         }
@@ -344,6 +370,8 @@ namespace search_tree {
         void close(node<Config> *n, vector<literal> const &C) {
             if (!n || n->get_status() == status::closed)
                 return;
+            n->bump_epoch();
+            n->bump_cancel_epoch();
             n->set_status(status::closed);
             n->set_core(C);
             close(n->left(), C);
@@ -447,7 +475,9 @@ namespace search_tree {
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
         bool try_split(node<Config> *n, literal const &a, literal const &b, unsigned effort) {
-            if (!n || n->get_status() != status::active)
+            // the node could have been marked open by another thread that finished first and split
+            // we still want to add the current thread's effort in this case, but not if the node was closed
+            if (!n || n->get_status() == status::closed)
                 return false;
 
             n->add_effort(effort);
@@ -475,6 +505,8 @@ namespace search_tree {
         // conflict is given by a set of literals.
         // they are subsets of the literals on the path from root to n AND the external assumption literals
         void backtrack(node<Config> *n, vector<literal> const &conflict) {
+            if (!n)
+                return;
             if (conflict.empty()) {
                 close_with_core(m_root.get(), conflict);
                 return;
@@ -536,6 +568,20 @@ namespace search_tree {
                 return l;
 
             return find_node_with_literal_rec(n->right(), lit);
+        }
+        
+        void release_worker(node<Config>* n) {
+            if (!n)
+                return;
+            n->release_worker();
+        }
+
+        bool is_lease_valid(node<Config>* n, unsigned epoch) const {
+            return n && n->get_status() != status::closed && n->epoch() == epoch;
+        }
+
+        bool is_lease_canceled(node<Config>* n, unsigned cancel_epoch) const {
+            return !n || n->get_status() == status::closed || n->cancel_epoch() != cancel_epoch;
         }
 
         vector<literal> const &get_core_from_root() const {

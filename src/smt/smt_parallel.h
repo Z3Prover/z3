@@ -51,6 +51,12 @@ namespace smt {
 
         using bb_candidates = vector<bb_candidate>;
 
+        struct node_lease {
+            search_tree::node<cube_config>* node = nullptr;
+            unsigned epoch = 0;
+            unsigned cancel_epoch = 0;
+        };
+
         class batch_manager {        
 
             enum state {
@@ -73,6 +79,7 @@ namespace smt {
             stats m_stats;
             using node = search_tree::node<cube_config>;
             search_tree::tree<cube_config> m_search_tree;
+            vector<node_lease> m_worker_leases;
             
             unsigned m_exception_code = 0;
             std::string m_exception_msg;
@@ -130,6 +137,9 @@ namespace smt {
             void backtrack_unlocked(ast_translation &l2g, expr_ref_vector const &core, node *n);
             void collect_clause_unlocked(ast_translation &l2g, unsigned source_worker_id, expr *clause);
 
+            void init_parameters_state();
+            void release_lease_unlocked(unsigned worker_id, node* n, unsigned epoch);
+            void cancel_closed_leases_unlocked(unsigned source_worker_id);
 
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)), m_global_backbones(m) { }
@@ -147,9 +157,12 @@ namespace smt {
             bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, vector<parallel::bb_candidate>& out, reslimit& lim);
             bb_candidates return_global_bb_candidates(ast_translation& g2l);
 
-            bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
-            void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
-            void try_split(ast_translation& l2g, unsigned id, node* n, expr* atom, unsigned effort);
+            bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node_lease& lease);
+            void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease const& lease);
+            void try_split(ast_translation& l2g, unsigned worker_id, node_lease const& lease, expr* atom, unsigned effort);
+            void abandon_lease(unsigned worker_id, node_lease const& lease);
+            bool lease_canceled(node_lease const& lease);
+            bool is_batch_running();
 
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
