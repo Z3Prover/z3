@@ -291,6 +291,21 @@ func newASTVector(ctx *Context, ptr C.Z3_ast_vector) *ASTVector {
 	return v
 }
 
+// Size returns the number of ASTs in the vector.
+func (v *ASTVector) Size() uint {
+	return uint(C.Z3_ast_vector_size(v.ctx.ptr, v.ptr))
+}
+
+// Get returns the i-th AST in the vector.
+func (v *ASTVector) Get(i uint) *Expr {
+	return newExpr(v.ctx, C.Z3_ast_vector_get(v.ctx.ptr, v.ptr, C.uint(i)))
+}
+
+// String returns the string representation of the AST vector.
+func (v *ASTVector) String() string {
+	return C.GoString(C.Z3_ast_vector_to_string(v.ctx.ptr, v.ptr))
+}
+
 // ParamDescrs represents parameter descriptions for Z3 objects.
 type ParamDescrs struct {
 	ctx *Context
@@ -638,6 +653,74 @@ func (c *Context) MkExists(bound []*Expr, body *Expr) *Expr {
 // Simplify simplifies an expression.
 func (e *Expr) Simplify() *Expr {
 	return newExpr(e.ctx, C.Z3_simplify(e.ctx.ptr, e.ptr))
+}
+
+// GetDecl returns the function declaration of an application expression.
+func (e *Expr) GetDecl() *FuncDecl {
+	return newFuncDecl(e.ctx, C.Z3_get_app_decl(e.ctx.ptr, C.Z3_to_app(e.ctx.ptr, e.ptr)))
+}
+
+// NumArgs returns the number of arguments of an application expression.
+func (e *Expr) NumArgs() uint {
+	return uint(C.Z3_get_app_num_args(e.ctx.ptr, C.Z3_to_app(e.ctx.ptr, e.ptr)))
+}
+
+// Arg returns the i-th argument of an application expression.
+func (e *Expr) Arg(i uint) *Expr {
+	return newExpr(e.ctx, C.Z3_get_app_arg(e.ctx.ptr, C.Z3_to_app(e.ctx.ptr, e.ptr), C.uint(i)))
+}
+
+// Substitute replaces every occurrence of from[i] in the expression with to[i].
+// The from and to slices must have the same length.
+func (e *Expr) Substitute(from, to []*Expr) *Expr {
+	n := len(from)
+	cFrom := make([]C.Z3_ast, n)
+	cTo := make([]C.Z3_ast, n)
+	for i := range from {
+		cFrom[i] = from[i].ptr
+		cTo[i] = to[i].ptr
+	}
+	var fromPtr, toPtr *C.Z3_ast
+	if n > 0 {
+		fromPtr = &cFrom[0]
+		toPtr = &cTo[0]
+	}
+	return newExpr(e.ctx, C.Z3_substitute(e.ctx.ptr, e.ptr, C.uint(n), fromPtr, toPtr))
+}
+
+// SubstituteVars replaces free variables in the expression with the expressions in to.
+// Variable with de-Bruijn index i is replaced with to[i].
+func (e *Expr) SubstituteVars(to []*Expr) *Expr {
+	n := len(to)
+	cTo := make([]C.Z3_ast, n)
+	for i, t := range to {
+		cTo[i] = t.ptr
+	}
+	var toPtr *C.Z3_ast
+	if n > 0 {
+		toPtr = &cTo[0]
+	}
+	return newExpr(e.ctx, C.Z3_substitute_vars(e.ctx.ptr, e.ptr, C.uint(n), toPtr))
+}
+
+// SubstituteFuns replaces every occurrence of from[i] applied to arguments
+// with to[i] in the expression.
+// The from and to slices must have the same length.
+func (e *Expr) SubstituteFuns(from []*FuncDecl, to []*Expr) *Expr {
+	n := len(from)
+	cFrom := make([]C.Z3_func_decl, n)
+	cTo := make([]C.Z3_ast, n)
+	for i := range from {
+		cFrom[i] = from[i].ptr
+		cTo[i] = to[i].ptr
+	}
+	var fromPtr *C.Z3_func_decl
+	var toPtr *C.Z3_ast
+	if n > 0 {
+		fromPtr = &cFrom[0]
+		toPtr = &cTo[0]
+	}
+	return newExpr(e.ctx, C.Z3_substitute_funs(e.ctx.ptr, e.ptr, C.uint(n), fromPtr, toPtr))
 }
 
 // MkTypeVariable creates a type variable sort for use in polymorphic functions and datatypes
