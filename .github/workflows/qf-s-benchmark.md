@@ -85,6 +85,8 @@ Verify the binary was built:
 
 If the build fails, report it immediately and stop.
 
+Once the binary is confirmed working, call the `noop` safe-output tool with the message `"Z3 built successfully from the c3 branch. Benchmark starting — results will be posted as a GitHub Discussion once complete."` This keepalive call refreshes the safe-output MCP session before the long benchmark run begins, preventing a session timeout.
+
 ## Phase 3: Discover QF_S Benchmark Files
 
 Find all `.smt2` benchmark files in the workspace that belong to the QF_S logic:
@@ -121,9 +123,9 @@ fi
 Cap the benchmark set to keep total runtime under 60 minutes:
 
 ```bash
-# Use at most 500 files; take a random sample if more are available
-if [ "$TOTAL" -gt 500 ]; then
-  shuf -n 500 /tmp/qf_s_files.txt > /tmp/qf_s_sample.txt
+# Use at most 300 files; take a random sample if more are available
+if [ "$TOTAL" -gt 300 ]; then
+  shuf -n 300 /tmp/qf_s_files.txt > /tmp/qf_s_sample.txt
 else
   cp /tmp/qf_s_files.txt /tmp/qf_s_sample.txt
 fi
@@ -312,7 +314,7 @@ The discussion body should be formatted as follows (fill in real numbers from Ph
 **Branch**: c3
 **Commit**: `<short SHA>`
 **Workflow Run**: [#<run_id>](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-**Files benchmarked**: N (capped at 500, timeout 10 s per file)
+**Files benchmarked**: N (capped at 300, timeout 5 s per file)
 
 ---
 
@@ -390,6 +392,7 @@ These are benchmarks where `nseq` shows a performance advantage.
 - If Z3 crashes (segfault) on a file with either solver, record the result as `crash` and continue.
 - If the total benchmark set is very small (< 5 files), note this prominently in the discussion and suggest adding more QF_S benchmarks to the `c3` branch.
 - If zero disagreements and both solvers time out on the same files, note that the solvers are in agreement.
+- If `create_discussion` fails (e.g., MCP session error), call `report_incomplete` with the reason and include the top-line statistics (files solved, timeouts, disagreement count) in the `details` field.
 
 ## Important Notes
 
