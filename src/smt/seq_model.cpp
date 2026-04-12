@@ -324,7 +324,7 @@ namespace smt {
         }
 
         if (n->is_var())
-            return expr_ref(get_var_value(n), m);
+            return expr_ref(get_var_value(n, dep_values), m);
 
         if (n->is_concat()) {
             SASSERT(n->get_sort() && m_seq.is_seq(n->get_sort()));
@@ -436,6 +436,15 @@ namespace smt {
         if (!n)
             return;
 
+        if (n->is_var()) {
+            expr* e = n->get_expr();
+            if (e && m_seq.is_seq(e)) {
+                expr_ref len_expr(m_seq.str.mk_length(e), m);
+                collect_expr_dependencies(m_ctx, len_expr, seen, deps);
+            }
+            return;
+        }
+
         if (n->is_char() || n->is_unit()) {
             expr* e = n->get_expr();
             if (e && m_seq.str.is_unit(e)) {
@@ -476,7 +485,7 @@ namespace smt {
         }
     }
 
-    expr* seq_model::get_var_value(euf::snode* var) {
+    expr* seq_model::get_var_value(euf::snode* var, obj_map<enode, expr*> const* dep_values) {
         SASSERT(var);
         unsigned key = var->first()->id();
         expr* val = nullptr;
@@ -484,7 +493,7 @@ namespace smt {
             return val;
 
         // unconstrained or regex-constrained: delegate to mk_fresh_value
-        val = mk_fresh_value(var);
+        val = mk_fresh_value(var, dep_values);
         if (val) {
             m_trail.push_back(val);
             m_var_values.insert(key, val);
@@ -492,7 +501,7 @@ namespace smt {
         return val;
     }
 
-    expr* seq_model::mk_fresh_value(euf::snode* var) {
+    expr* seq_model::mk_fresh_value(euf::snode* var, obj_map<enode, expr*> const* dep_values) {
         SASSERT(var->get_expr());
         if (!m_seq.is_seq(var->get_expr()))
             return nullptr;
@@ -514,6 +523,49 @@ namespace smt {
             }
             IF_VERBOSE(1, verbose_stream() << "witness extraction failed: " << wr << "\n" << mk_pp(re_expr, m) << "\n");
             UNREACHABLE();
+        }
+
+        // No regex constraint: try to respect the assigned length for the variable.
+        // This prevents invalid models such as len(x)=1 with x="".
+        arith_util arith(m);
+        expr_ref len_expr(m_seq.str.mk_length(var->get_expr()), m);
+        rational len_val;
+        bool has_len = false;
+
+        if (dep_values) {
+            expr* dval = nullptr;
+            enode* dep = find_root_enode(m_ctx, len_expr);
+            if (dep && dep_values->find(dep, dval) && dval && arith.is_numeral(dval, len_val))
+                has_len = true;
+        }
+
+        if (!has_len && m_mg) {
+            expr_ref eval_len(m);
+            if (m_mg->get_model().eval(len_expr, eval_len, true) && arith.is_numeral(eval_len, len_val))
+                has_len = true;
+        }
+
+        if (has_len) {
+            if (!len_val.is_int() || len_val.is_neg())
+                len_val = rational(0);
+            if (len_val.is_zero())
+                return m_seq.str.mk_empty(srt);
+
+            constexpr unsigned MAX_CONCRETE_WITNESS = 1024;
+            if (len_val.is_unsigned() && len_val.get_unsigned() <= MAX_CONCRETE_WITNESS) {
+                unsigned n = len_val.get_unsigned();
+                zstring w;
+                for (unsigned i = 0; i < n; ++i)
+                    w += zstring('0');
+                expr* witness = m_seq.str.mk_string(w);
+                m_factory->register_value(witness);
+                return witness;
+            }
+
+            expr* base = m_seq.str.mk_string("0");
+            expr* witness = m_seq.str.mk_power(base, arith.mk_int(len_val));
+            m_factory->register_value(witness);
+            return witness;
         }
 
         // no regex constraint or witness generation failed: use empty string

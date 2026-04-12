@@ -117,14 +117,14 @@ namespace smt {
 
         // look up or compute the value for an snode variable.
         // If no assignment exists, delegates to mk_fresh_value.
-        expr* get_var_value(euf::snode* var);
+        expr* get_var_value(euf::snode* var, obj_map<enode, expr*> const* dep_values = nullptr);
 
         // generate a fresh value for a variable, respecting regex
         // membership constraints. If the variable has associated
         // regex constraints (collected during init), generates a
         // witness satisfying the intersection; otherwise falls back
         // to a plain fresh value from the factory.
-        expr* mk_fresh_value(euf::snode* var);
+        expr* mk_fresh_value(euf::snode* var, obj_map<enode, expr*> const* dep_values = nullptr);
 
         // collect per-variable regex constraints from the state.
         // For each positive str_mem, records the regex (or intersects
