@@ -36,6 +36,7 @@ namespace smt {
 
     class parallel {
         context& ctx;
+        unsigned num_threads;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -134,7 +135,7 @@ namespace smt {
                 return any_of(m_global_backbones, [&](expr *bb) { return bb == cand.get(); });
             }
 
-            void backtrack_unlocked(ast_translation &l2g, expr_ref_vector const &core, node *n);
+            void backtrack_unlocked(ast_translation &l2g, unsigned worker_id, expr_ref_vector const &core, node_lease const &lease);
             void collect_clause_unlocked(ast_translation &l2g, unsigned source_worker_id, expr *clause);
 
             void init_parameters_state();

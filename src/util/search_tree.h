@@ -187,7 +187,7 @@ namespace search_tree {
 
         struct candidate {
             node<Config>* n = nullptr;
-            unsigned effort_band = UINT64_MAX;
+            unsigned effort_band = UINT_MAX;
             unsigned depth = 0;
         };
 
@@ -569,7 +569,7 @@ namespace search_tree {
 
             return find_node_with_literal_rec(n->right(), lit);
         }
-        
+
         void release_worker(node<Config>* n) {
             if (!n)
                 return;

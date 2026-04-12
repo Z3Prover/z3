@@ -326,7 +326,17 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
             expr_ref_vector l_core(l2g.from());
             l_core.push_back(mk_not(backbone));
-            backtrack_unlocked(l2g, l_core, t);
+
+             // Backbone workers do not own entries in m_worker_leases, but they can still
+            // close subtrees that active SMT workers are solving. Route this through the
+            // lease-aware backtrack path so affected worker leases are canceled consistently.
+            // The synthetic lease snapshots t's current state under the batch-manager lock,
+            // so this call ensures the backtrack/closure is applied immediately.
+            node_lease lease;
+            lease.node = t;
+            lease.epoch = t->epoch();
+            lease.cancel_epoch = t->cancel_epoch();
+            backtrack_unlocked(l2g, UINT_MAX, l_core, lease);
         }
 
         return true;
@@ -717,11 +727,11 @@ namespace smt {
     void parallel::batch_manager::backtrack(ast_translation &l2g, unsigned worker_id, expr_ref_vector const &core,
                                             node_lease const &lease) {
         std::scoped_lock lock(mux);
-        backtrack_unlocked(l2g, core, node);
+        backtrack_unlocked(l2g, worker_id, core, lease);
     }
 
-    void parallel::batch_manager::backtrack_unlocked(ast_translation &l2g, expr_ref_vector const &core,
-                                            search_tree::node<cube_config> *node) {
+    void parallel::batch_manager::backtrack_unlocked(ast_translation &l2g, unsigned worker_id, expr_ref_vector const &core,
+                                            node_lease const &lease) {
 
         IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
         if (m_state != state::is_running)
