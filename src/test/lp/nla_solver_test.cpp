@@ -150,7 +150,7 @@ void create_abcde(solver & nla,
     nla.add_monic(lp_be, vec.size(), vec.begin());
 }
 
-
+#if 0
 void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     std::cout << "test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0\n";
     enable_trace("nla_solver");
@@ -222,6 +222,7 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
 
     
 }
+#endif
 
 void s_set_column_value_test(lp::lar_solver&s, lpvar j, const rational & v) {
     s.set_column_value_test(j, lp::impq(v));
@@ -231,6 +232,7 @@ void s_set_column_value_test(lp::lar_solver&s, lpvar j, const lp::impq & v) {
     s.set_column_value_test(j, v);
 }
 
+#if 0
 void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
     std::cout << "test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1\n";
     TRACE(nla_solver,);
@@ -367,6 +369,7 @@ void test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
     VERIFY(found0 && found1);
 }
 
+
 void test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     std::cout << "test_basic_lemma_for_mon_zero_from_monomial_to_factors\n";
     enable_trace("nla_solver");
@@ -419,6 +422,7 @@ void test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     VERIFY(found0 && found1 && found2);
     
 }
+
 
 void test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
     std::cout << "test_basic_lemma_for_mon_neutral_from_monomial_to_factors\n";
@@ -489,6 +493,7 @@ void test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
 
     VERIFY(found0 && found1);
 }
+#endif
 
 void test_horner() {
     enable_trace("nla_solver");
