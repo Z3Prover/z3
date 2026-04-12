@@ -317,11 +317,11 @@ namespace euf {
     }
 
     bool solve_eqs::is_linear(expr* t) const {
-        unsigned num_values = 0;
         if (!is_app(t))
             return false;
+        unsigned num_values = 0;
         for (auto arg : *to_app(t))
-            num_values += m.is_value(arg) ? 1 : 0;
+            if (m.is_value(arg)) ++num_values;
         return num_values <= 1;
     }
 
