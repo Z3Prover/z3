@@ -3819,6 +3819,8 @@ namespace seq {
             return;
         uint_set seen_vars;
 
+        TRACE(seq, display(tout, m_root));
+
         seq_util& seq = m_sg.get_seq_util();
         for (str_eq const& eq : m_root->str_eqs()) {
             if (eq.is_trivial())
