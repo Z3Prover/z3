@@ -3814,9 +3814,9 @@ namespace seq {
         return expr_ref(m_seq.str.mk_length(n->get_expr()), m);
     }
 
-    void
-nielsen_graph::generate_length_constraints(vector<length_constraint>& constraints) {
-    if (!m_root) return;
+    void nielsen_graph::generate_length_constraints(vector<length_constraint>& constraints) {
+        if (!m_root) 
+            return;
         uint_set seen_vars;
 
         seq_util& seq = m_sg.get_seq_util();
@@ -3826,8 +3826,9 @@ nielsen_graph::generate_length_constraints(vector<length_constraint>& constraint
 
             expr_ref len_lhs = compute_length_expr(eq.m_lhs);
             expr_ref len_rhs = compute_length_expr(eq.m_rhs);
-            // std::cout << "Length constraint from LHS " << snode_label_html(eq.m_lhs, m) << " to " << mk_pp(len_lhs, m) << ":\n";
-            // std::cout << "Length constraint from RHS " << snode_label_html(eq.m_rhs, m) << " to " << mk_pp(len_rhs, m) << std::endl;
+            TRACE(seq, 
+                tout << "Length constraint from LHS " << snode_label_html(eq.m_lhs, m) << " to " << len_lhs << ":\n";
+                tout << "Length constraint from RHS " << snode_label_html(eq.m_rhs, m) << " to " << len_rhs << "\n");
             expr_ref len_eq(m.mk_eq(len_lhs, len_rhs), m);
             constraints.push_back(length_constraint(len_eq, eq.m_dep, length_kind::eq, m));
 
@@ -3840,6 +3841,7 @@ nielsen_graph::generate_length_constraints(vector<length_constraint>& constraint
                     seen_vars.insert(tok->id());
                     expr_ref len_var(seq.str.mk_length(tok->get_expr()), m);
                     expr_ref ge_zero(a.mk_ge(len_var, a.mk_int(0)), m);
+                    TRACE(seq, tout << "non-negative length " << ge_zero << "\n");
                     constraints.push_back(length_constraint(ge_zero, eq.m_dep, length_kind::nonneg, m));
                 }
             }
@@ -3859,12 +3861,14 @@ nielsen_graph::generate_length_constraints(vector<length_constraint>& constraint
             // generate len(str) >= min_len when min_len > 0
             if (min_len > 0) {
                 expr_ref bound(a.mk_ge(len_str, a.mk_int(min_len)), m);
+                TRACE(seq, tout << "Parikh " << mk_pp(re_expr, m) << " bound: " << bound << "\n");
                 constraints.push_back(length_constraint(bound, mem.m_dep, length_kind::bound, m));
             }
 
             // generate len(str) <= max_len when bounded
             if (max_len < UINT_MAX) {
                 expr_ref bound(a.mk_le(len_str, a.mk_int(max_len)), m);
+                TRACE(seq, tout << "Parikh " << mk_pp(re_expr, m) << " bound: " << bound << "\n");
                 constraints.push_back(length_constraint(bound, mem.m_dep, length_kind::bound, m));
             }
         }
