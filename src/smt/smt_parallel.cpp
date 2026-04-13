@@ -332,7 +332,7 @@ namespace smt {
         auto &lease = m_worker_leases[worker_id];
         if (!lease.node || lease.node != n || lease.epoch != epoch)
             return;
-        m_search_tree.release_worker(lease.node);
+        m_search_tree.dec_active_workers(lease.node);
         lease = {};
     }
 
@@ -358,9 +358,7 @@ namespace smt {
             g_core.push_back(expr_ref(l2g(c), m));
         }
         release_lease_unlocked(worker_id, lease.node, lease.epoch);
-        if (lease.node &&
-            m_search_tree.is_lease_valid(lease.node, lease.epoch) &&
-            !m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
+        if (lease.node && !m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
             m_search_tree.backtrack(lease.node, g_core);
 
         cancel_closed_leases_unlocked(worker_id);
