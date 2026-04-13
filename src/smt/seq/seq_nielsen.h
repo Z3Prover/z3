@@ -316,6 +316,24 @@ namespace seq {
         children_failed,
     };
 
+    inline std::ostream& operator<<(std::ostream& out, backtrack_reason r) {
+        switch (r) {
+        case backtrack_reason::unevaluated: return out << "unevaluated";
+        case backtrack_reason::extended: return out << "extended";
+        case backtrack_reason::symbol_clash: return out << "symbol_clash";
+        case backtrack_reason::parikh_image: return out << "parikh_image";
+        case backtrack_reason::subsumption: return out << "subsumption";
+        case backtrack_reason::arithmetic: return out << "arithmetic";
+        case backtrack_reason::regex: return out << "regex";
+        case backtrack_reason::regex_widening: return out << "regex_widening";
+        case backtrack_reason::character_range: return out << "char range";
+        case backtrack_reason::children_failed: return out << "children_failed";
+        case backtrack_reason::external: return out << "external";
+        case backtrack_reason::smt: return out << "smt";
+        default: return out << "<tbd reason>";
+        }
+    }
+
     // source of a dependency: identifies an input constraint by kind and index.
     // kind::eq means a string equality, kind::mem means a regex membership.
     // index is the 0-based position in the input eq or mem list respectively.
@@ -364,6 +382,16 @@ namespace seq {
         bool contains_var(euf::snode* var) const;
     };
 
+    struct eq_pp {
+        str_eq const &eq;
+        ast_manager &m;
+        eq_pp(str_eq const &e, ast_manager &m) : eq(e), m(m) {}
+    };
+
+    inline std::ostream &operator<<(std::ostream &out, eq_pp const &p) {
+        return out << mk_pp(p.eq.m_lhs->get_expr(), p.m) << " == " << mk_pp(p.eq.m_rhs->get_expr(), p.m) << "\n";
+    }
+
     // regex membership constraint: str in regex
     // mirrors ZIPT's StrMem
     struct str_mem {
@@ -391,6 +419,15 @@ namespace seq {
         // check if the constraint contains a given variable
         bool contains_var(euf::snode* var) const;
     };
+
+    struct mem_pp {
+        ast_manager &m;
+        str_mem const& mem;
+        mem_pp(ast_manager &m, str_mem const&mem) : m(m), mem(mem) {}
+    };
+    inline std::ostream &operator<<(std::ostream &out, mem_pp const &p) {
+        return out << mk_pp(p.mem.m_str->get_expr(), p.m) << " in " << mk_pp(p.mem.m_regex->get_expr(), p.m) << "\n";
+    }
 
     // string variable substitution: var -> replacement
     // (can be used as well to substitute arbitrary nodes - like powers)
@@ -629,6 +666,7 @@ namespace seq {
             if (m_conflict_internal != nullptr && m_conflict_external_literal == sat::null_literal)
                 return;
             // We prefer internal conflicts (we need it as a justification for general conflicts)
+            TRACE(seq, tout << "internal conflict " << r << "\n");
             m_reason = r;
             m_conflict_internal = confl;
             m_conflict_external_literal = sat::null_literal;
@@ -637,6 +675,7 @@ namespace seq {
         void set_external_conflict(sat::literal lit, dep_tracker confl) {
             if (m_reason != backtrack_reason::unevaluated)
                 return;
+            TRACE(seq, tout << "external conflict " << lit << "\n");
             m_reason = backtrack_reason::external;
             m_conflict_external_literal = ~lit;
             m_conflict_internal = confl;

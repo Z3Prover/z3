@@ -1085,6 +1085,9 @@ namespace seq {
                     euf::snode* deriv = fwd
                         ? sg.brzozowski_deriv(mem.m_regex, tok)
                         : reverse_brzozowski_deriv(sg, mem.m_regex, tok);
+                    TRACE(seq, tout << mk_pp(mem.m_str->get_expr(), m) 
+                                    << " in " << mk_pp(mem.m_regex->get_expr(), m)
+                                    << " d: " << mk_pp(deriv->get_expr(), m) << "\n");
                     if (!deriv)
                         break;
                     if (deriv->is_fail()) {
@@ -1128,6 +1131,7 @@ namespace seq {
 
                 auto next = sg.mk(d);
                 if (next->is_fail()) {
+                    TRACE(seq, tout << "empty regex" << mk_pp(mem.m_regex->get_expr(), m) << " d: " << d << "\n");
                     set_general_conflict();
                     set_conflict(backtrack_reason::regex, mem.m_dep);
                     return simplify_result::conflict;
@@ -1142,6 +1146,7 @@ namespace seq {
         // check for regex memberships that are immediately infeasible
         for (str_mem& mem : m_str_mem) {
             if (mem.is_contradiction()) {
+                TRACE(seq, tout << "contradiction " << mem_pp(m, mem) << "\n");
                 set_general_conflict();
                 set_conflict(backtrack_reason::regex, mem.m_dep);
                 return simplify_result::conflict;
@@ -4253,8 +4258,6 @@ namespace seq {
         u_map<std::pair<ptr_vector<euf::snode>, dep_tracker>> var_regexes;
 
         for (auto const& mem : node.str_mems()) {
-            if (!mem.m_str || !mem.m_regex)
-                continue;
             if (!mem.is_primitive())
                 continue;
             euf::snode* const first = mem.m_str->first();
@@ -4270,6 +4273,7 @@ namespace seq {
                 continue;
             lbool result = m_seq_regex->check_intersection_emptiness(regexes.first, 5000);
             if (result == l_true) {
+                TRACE(seq, tout << "empty intersection\n");
                 // Intersection is empty — infeasible
                 dep = regexes.second;
                 return false;
