@@ -613,7 +613,9 @@ namespace smt {
             if (!m_nielsen_literals.empty() && m_nielsen.sat_node() != nullptr &&
                 all_of(m_nielsen_literals, [&](auto lit) { return l_true == ctx.get_assignment(lit); })) {
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: satifiable state revisited\n");
-                return FC_DONE;
+                // Re-run solving/model extraction instead of early exiting on a
+                // cached SAT node. This avoids stale sat paths after additional
+                // SAT assignments were introduced in prior FC_CONTINUE rounds.
                 }
 
             // unfold higher-order terms when sequence structure is known
@@ -693,8 +695,13 @@ namespace smt {
                 // Nielsen found a consistent assignment for positive constraints.
                 SASSERT(has_eq_or_mem); // we should have axiomatized them
 
-                if (!add_nielsen_assumptions())
-                    return FC_CONTINUE;
+                if (!add_nielsen_assumptions()) {
+                    // If assumptions remain undefined, returning SAT can yield
+                    // unsound/invalid models because the chosen Nielsen branch
+                    // is not yet committed in the outer SAT core.
+                    IF_VERBOSE(1, verbose_stream() << "nseq final_check: unresolved assumptions, FC_GIVEUP\n";);
+                    return FC_GIVEUP;
+                }
 
                 if (!check_length_coherence())
                     return FC_CONTINUE;
@@ -730,17 +737,22 @@ namespace smt {
         //std::cout << "Nielsen assumptions:\n";
         ctx.push_trail(reset_vector(m_nielsen_literals));
         for (auto const& c : m_nielsen.sat_node()->constraints()) {
-            bool was_internalized = ctx.e_internalized(c.fml);   
             auto lit = mk_literal(c.fml);   
             m_nielsen_literals.push_back(lit);
-            std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
+            // Ensure Nielsen assumptions participate in SAT search instead of
+            // remaining permanently undefined under pure phase hints.
+            ctx.mark_as_relevant(lit);
+            // std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
             switch (ctx.get_assignment(lit)) { 
             case l_true: 
                 break;
             case l_undef:
-                //std::cout << "Undef [" << lit << "]: " << mk_pp(c.fml, m) << "\n";
+                std::cout << "Undef [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
                 has_undef = true; 
-                ctx.force_phase(lit);                
+                // Commit the chosen Nielsen assumption to the SAT core so it
+                // cannot remain permanently undefined in a partial model.
+                ctx.mk_th_axiom(get_id(), 1, &lit);
+                ctx.force_phase(lit);
                 IF_VERBOSE(2, verbose_stream() << 
                     "nseq final_check: adding nielsen assumption " << c.fml << "\n";);
                 TRACE(seq, tout << "assign: " << c.fml << "\n");
@@ -749,10 +761,10 @@ namespace smt {
                 // this should not happen because nielsen checks for this before returning a satisfying path.
                 IF_VERBOSE(1, verbose_stream()
                                   << "nseq final_check: nielsen assumption " << c.fml << " is false\n";);
-                ctx.force_phase(lit);
                 has_undef = true;
+                ctx.mk_th_axiom(get_id(), 1, &lit);
                 ctx.force_phase(lit);
-                //std::cout << "False [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
+                std::cout << "False [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
                 break;
             }
         }

@@ -933,13 +933,6 @@ namespace seq {
         // max_len == UINT_MAX means unbounded.
         void compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len);
 
-        // solve all integer constraints along the sat_path and return
-        // a model mapping integer variables to concrete values.
-        // Must be called after solve() returns sat.
-        // Returns true if a satisfying model was found.
-        // Caller takes ownership of the returned model pointer.
-        bool solve_sat_path_raw(model_ref& mdl);
-
         // accessor for the seq_regex module
         seq_regex* seq_regex_module() const { return m_seq_regex; }
 

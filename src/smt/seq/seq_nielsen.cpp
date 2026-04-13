@@ -1056,11 +1056,9 @@ namespace seq {
                             }
                             else {
                                 // we only know for sure that one is smaller than the other
-                                expr_ref d(m_graph.mk_fresh_int_var());
-                                expr_ref zero_e(m_graph.a.mk_int(0), m);
-                                expr_ref d_plus_smaller(m_graph.a.mk_add(d, smaller_exp), m);
-                                add_constraint(m_graph.mk_constraint(m_graph.a.mk_ge(d, zero_e), eq.m_dep));
-                                add_constraint(m_graph.mk_constraint(m.mk_eq(d_plus_smaller, larger_exp), eq.m_dep));
+                                expr_ref d(m_graph.a.mk_sub(larger_exp, smaller_exp), m);
+                                expr_ref zero(m_graph.a.mk_int(0), m);
+                                add_constraint(m_graph.mk_constraint(m_graph.a.mk_ge(d, zero), eq.m_dep));
                                 expr_ref pw(seq.str.mk_power(lb, d), m);
                                 euf::snode*& larger_side = lp_le_rp ? eq.m_rhs : eq.m_lhs;
                                 larger_side = dir_concat(sg, sg.mk(pw), larger_side, fwd);
@@ -1082,7 +1080,7 @@ namespace seq {
                 bool fwd = od == 0;
                 while (!mem.m_str->is_empty()) {
                     euf::snode* tok = dir_token(mem.m_str, fwd);
-                    if (!tok || !tok->is_char())
+                    if (!tok || !tok->is_char_or_unit())
                         break;
                     euf::snode* deriv = fwd
                         ? sg.brzozowski_deriv(mem.m_regex, tok)
@@ -3003,8 +3001,6 @@ namespace seq {
             if (mem.is_primitive() || !mem.m_regex->is_classical())
                 continue;
 
-            std::cout << "Factoring " << mk_pp(mem.m_str->get_expr(), m) << " ∈ " << mk_pp(mem.m_regex->get_expr(), m) << std::endl;
-
             euf::snode* first = mem.m_str->first();
             SASSERT(first);
             euf::snode* tail = m_sg.drop_first(mem.m_str);
@@ -3012,9 +3008,6 @@ namespace seq {
 
             tau_pairs pairs;
             compute_tau(m, m_seq, m_sg, mem.m_regex->get_expr(), pairs);
-
-            bool any_child = false;
-            dep_tracker conflict_dep = mem.m_dep;
 
             for (auto const& pair : pairs) {
                 euf::snode* sn_p = m_sg.mk(pair.m_p);
@@ -3030,19 +3023,13 @@ namespace seq {
                 // Also check intersection with other primitive constraints on `first`
                 ptr_vector<euf::snode> regexes_p;
                 regexes_p.push_back(sn_p);
-                dep_tracker local_dep = nullptr;
                 for (auto const& prev_mem : node->str_mems()) {
-                    if (prev_mem.m_str == first) {
+                    if (prev_mem.m_str == first)
                         regexes_p.push_back(prev_mem.m_regex);
-                        local_dep = m_dep_mgr.mk_join(local_dep, prev_mem.m_dep);
-                    }
                 }
-                if (regexes_p.size() > 1 && m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true) {
-                    conflict_dep = m_dep_mgr.mk_join(conflict_dep, local_dep);
+                if (regexes_p.size() > 1 && m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true)
                     continue;
-                }
 
-                any_child = true;
                 nielsen_node* child = mk_child(node);
                 mk_edge(node, child, true);
                 
@@ -3060,11 +3047,6 @@ namespace seq {
                 child->add_str_mem(str_mem(tail, sn_q, mem.m_history, next_mem_id(), mem.m_dep));
             }
             
-            if (!any_child) {
-                node->set_conflict(backtrack_reason::regex, conflict_dep);
-                node->set_general_conflict();
-            }
-
             return true;
         }
         return false;
@@ -4107,8 +4089,8 @@ namespace seq {
                 return false; // definitely infeasible
         }
         rational rhs_lo, lhs_up;
-        if (m_solver.lower_bound(lhs, lhs_lo) &&
-            m_solver.upper_bound(rhs, rhs_up)) {
+        if (m_solver.upper_bound(lhs, lhs_up) &&
+            m_solver.lower_bound(rhs, rhs_lo)) {
 
             if (lhs_up <= rhs_lo)
                 return true; // definitely feasible
@@ -4146,41 +4128,6 @@ namespace seq {
     expr_ref nielsen_graph::mk_fresh_int_var() {
         std::string name = "n!" + std::to_string(m_fresh_cnt++);
         return expr_ref(m.mk_fresh_const(name.c_str(), a.mk_int()), m);
-    }
-
-    bool nielsen_graph::solve_sat_path_raw(model_ref& mdl) {
-        mdl = nullptr;
-        if (m_sat_path.empty() && (!m_sat_node ||
-            (m_sat_node->constraints().empty() && m_sat_node->char_ranges().empty())))
-            return false;
-
-        // Re-assert the sat-path constraints into m_solver (which holds only root-level
-        // constraints at this point) and extract a model via the injected simple_solver.
-        // The sat path was found by DFS which verified feasibility at every step via
-        // check_int_feasibility, so all constraints along this path are jointly satisfiable
-        // and do not require incremental skipping.
-        IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints: sat_path length=" << m_sat_path.size() << "\n";);
-        m_solver.push();
-        if (m_sat_node) {
-            for (auto const& ic : m_sat_node->constraints()) {
-                m_solver.assert_expr(ic.fml);
-            }
-        }
-        lbool result = m_solver.check();
-        IF_VERBOSE(1, verbose_stream() << "solve_sat_path_ints result: " << result << "\n";);
-        if (result == l_true) {
-            m_solver.get_model(mdl);
-            IF_VERBOSE(1, if (mdl) {
-                verbose_stream() << "  raw_model:\n";
-                for (unsigned i = 0; i < mdl->get_num_constants(); ++i) {
-                    func_decl* fd = mdl->get_constant(i);
-                    expr* val = mdl->get_const_interp(fd);
-                    if (val) verbose_stream() << "    " << fd->get_name() << " = " << mk_bounded_pp(val, m, 3) << "\n";
-                }
-            });
-        }
-        m_solver.pop(1);
-        return mdl.get() != nullptr;
     }
 
     // -----------------------------------------------------------------------

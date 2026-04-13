@@ -147,7 +147,6 @@ namespace smt {
         m_var_values.reset();
         m_var_regex.reset();
         m_trail.reset();
-        m_int_model = nullptr;
         m_mg = &mg;
 
         m_factory = alloc(seq_factory, m, m_seq.get_family_id(), mg.get_model());
@@ -220,7 +219,6 @@ namespace smt {
         m_var_values.reset();
         m_var_regex.reset();
         m_trail.reset();
-        m_int_model = nullptr;
         m_mg = nullptr;
         m_factory = nullptr;
     }
@@ -369,22 +367,6 @@ namespace smt {
                     expr_ref sub_exp = substitute_dependency_values(m, m_ctx, exp_expr, *dep_values);
                     expr_ref result(m);
                     if (!(m_mg->get_model().eval(sub_exp, result, true) && arith.is_numeral(result, exp_val)))
-                        exp_val = rational(0);
-                }
-                else
-                    exp_val = rational(0);
-            }
-            else if (exp_expr && m_int_model.get()) {
-                expr_ref result(m);
-                if (m_int_model->eval_expr(exp_expr, result, true) && arith.is_numeral(result, exp_val)) {
-                    // evaluated from int model
-                }
-                else if (m_mg) {
-                    proto_model& pm = m_mg->get_model();
-                    if (pm.eval(exp_expr, result, true) && arith.is_numeral(result, exp_val)) {
-                        // evaluated from proto_model
-                    }
-                    else
                         exp_val = rational(0);
                 }
                 else
