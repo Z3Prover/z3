@@ -897,7 +897,10 @@ namespace smt {
     }
 
     void theory_nseq::set_conflict(enode_pair_vector const& eqs, literal_vector const& lits) {
-        TRACE(seq, tout << "nseq conflict: " << eqs.size() << " eqs, " << lits.size() << " lits\n";);
+        TRACE(seq, tout << "nseq conflict: " << eqs.size() << " eqs, " << lits.size() << " lits\n";
+              for (auto lit : lits) tout << ctx.literal2expr(lit) << "\n";
+              for (auto [a, b] : eqs) tout << enode_pp(a, ctx) << " == " << enode_pp(b, ctx) << "\n";
+        );
         ctx.set_conflict(
             ctx.mk_justification(
                 ext_theory_conflict_justification(
@@ -1180,8 +1183,10 @@ namespace smt {
                 lit));
         ctx.assign(lit, js);
 
-        TRACE(seq, tout << "nseq length propagation: " << mk_pp(lc.m_expr, m)
-                        << " (" << eqs.size() << " eqs, " << lits.size() << " lits)\n";);
+        TRACE(seq, tout << "nseq length propagation: " << mk_pp(lc.m_expr, m) << " (" << eqs.size() << " eqs, "
+                        << lits.size() << " lits)\n";
+              for (auto lit : lits) tout << "<- " << ctx.literal2expr(lit) << "\n";
+              for (auto [a, b] : eqs) tout << "<- " << enode_pp(a, ctx) << " == " << enode_pp(b, ctx) << "\n";);
         ++m_num_length_axioms;
         return true;
     }
@@ -1218,7 +1223,6 @@ namespace smt {
                 ctx.internalize(e, true);
             literal lit = ctx.get_literal(e);
             if (ctx.get_assignment(lit) != l_true) {
-                TRACE(seq, tout << "nseq length lemma: " << mk_pp(e, m) << "\n";);
                 propagate_length_lemma(lit, lc);
                 new_axiom = true;
             }
