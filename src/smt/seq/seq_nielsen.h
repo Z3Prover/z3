@@ -1141,9 +1141,6 @@ namespace seq {
         // get the exponent expression from a power snode (arg(1))
         expr* get_power_exponent(euf::snode* power);
 
-        // create a fresh integer variable expression (for power exponents)
-        expr_ref mk_fresh_int_var();
-
         // -----------------------------------------------
         // Modification counter methods for substitution length tracking.
         // mirrors ZIPT's NielsenEdge.IncModCount / DecModCount and

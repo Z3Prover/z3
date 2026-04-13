@@ -4125,11 +4125,6 @@ namespace seq {
         return exp_snode ? exp_snode->get_expr() : nullptr;
     }
 
-    expr_ref nielsen_graph::mk_fresh_int_var() {
-        std::string name = "n!" + std::to_string(m_fresh_cnt++);
-        return expr_ref(m.mk_fresh_const(name.c_str(), a.mk_int()), m);
-    }
-
     // -----------------------------------------------------------------------
     // Regex widening: overapproximate string and check intersection emptiness
     // Mirrors ZIPT NielsenNode.CheckRegexWidening (NielsenNode.cs:1350-1380)
