@@ -143,12 +143,9 @@ namespace search_tree {
             ++m_num_activations;
             ++m_active_workers;
         }
-        void release_worker() {
+        void dec_active_workers() {
             if (m_active_workers > 0)
                 --m_active_workers;
-        }
-        unsigned active_workers() const {
-            return m_active_workers;
         }
         bool has_active_workers() const {
             return m_active_workers > 0;
@@ -571,15 +568,11 @@ namespace search_tree {
 
             return find_node_with_literal_rec(n->right(), lit);
         }
-
-        void release_worker(node<Config>* n) {
+        
+        void dec_active_workers(node<Config>* n) {
             if (!n)
                 return;
-            n->release_worker();
-        }
-
-        bool is_lease_valid(node<Config>* n, unsigned epoch) const {
-            return n && n->get_status() != status::closed && n->epoch() == epoch;
+            n->dec_active_workers();
         }
 
         bool is_lease_canceled(node<Config>* n, unsigned cancel_epoch) const {
