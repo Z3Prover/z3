@@ -45,8 +45,16 @@ namespace smt {
 
         struct node_lease {
             search_tree::node<cube_config>* node = nullptr;
-            unsigned epoch = 0;
-            unsigned cancel_epoch = 0;
+            // Version counter for structural mutations of this node (e.g., split/close).
+            // Used to detect stale leases: if a worker's lease.epoch != node.epoch,
+            // the node has changed since it was acquired and must not be mutated.
+            unsigned epoch = 0; 
+
+            // Cancellation generation counter for this node/subtree.
+            // Incremented when the node is closed; used to signal that all
+            // workers holding leases on this node (or its descendants)
+            // must abandon work immediately.
+            unsigned cancel_epoch = 0; 
         };
 
         class batch_manager {        

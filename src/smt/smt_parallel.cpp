@@ -563,7 +563,8 @@ namespace smt {
 
     bool parallel::batch_manager::get_cube(ast_translation &g2l, unsigned id, expr_ref_vector &cube, node_lease &lease) {
         cube.reset();
-        std::unique_lock<std::mutex> lock(mux);
+        std::scoped_lock lock(mux);
+        
         if (m_search_tree.is_closed()) {
             IF_VERBOSE(1, verbose_stream() << "all done\n";);
             return false;
@@ -572,16 +573,21 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << "aborting get_cube\n";);
             return false;
         }
+        
         node *t = m_search_tree.activate_node(lease.node);
+        
         if (!t)
             return false;
+        
         IF_VERBOSE(1, m_search_tree.display(verbose_stream()); verbose_stream() << "\n";);
+        
         lease.node = t;
         lease.epoch = t->epoch();
-        lease.cancel_epoch = t->cancel_epoch();
+        lease.cancel_epoch = t->get_cancel_epoch();
         if (id >= m_worker_leases.size())
             m_worker_leases.resize(id + 1);
         m_worker_leases[id] = lease;
+        
         while (t) {
             if (cube_config::literal_is_null(t->get_literal()))
                 break;
@@ -590,6 +596,7 @@ namespace smt {
             cube.push_back(std::move(lit));
             t = t->parent();
         }
+        
         return true;
     }
 
