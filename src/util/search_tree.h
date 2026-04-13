@@ -165,7 +165,7 @@ namespace search_tree {
         void bump_epoch() {
             ++m_epoch;
         }
-        unsigned cancel_epoch() const {
+        unsigned get_cancel_epoch() const {
             return m_cancel_epoch;
         }
         void bump_cancel_epoch() {
@@ -229,6 +229,8 @@ namespace search_tree {
             select_next_node(cur->right(), target_status, best);
         }
 
+        // Try to select an open node using the select_next_node policy
+        // If there are no open nodes, try to select an active node for portfolio solving
         node<Config>* activate_best_node() {
             candidate best;
             select_next_node(m_root.get(), status::open, best);
@@ -542,8 +544,6 @@ namespace search_tree {
         }
 
         // return an active node in the tree, or nullptr if there is none
-        // first check if there is a node to activate under n,
-        // if not, go up the tree and try to activate a sibling subtree
         node<Config> *activate_node(node<Config> *n) {
             if (!n) {
                 if (m_root->get_status() == status::active) {
@@ -583,7 +583,7 @@ namespace search_tree {
         }
 
         bool is_lease_canceled(node<Config>* n, unsigned cancel_epoch) const {
-            return !n || n->get_status() == status::closed || n->cancel_epoch() != cancel_epoch;
+            return !n || n->get_status() == status::closed || n->get_cancel_epoch() != cancel_epoch;
         }
 
         vector<literal> const &get_core_from_root() const {
