@@ -84,48 +84,42 @@ func (c *Context) QeLite(vars *ASTVector, body *Expr) *Expr {
 	return newExpr(c, C.Z3_qe_lite(c.ptr, vars.ptr, body.ptr))
 }
 
+// exprsToApps converts a []*Expr slice to a C Z3_app array.
+// Returns the backing slice (must stay live during any C call using ptr),
+// the count as C.uint, and a pointer to the first element (nil if empty).
+func exprsToApps(ctx *Context, exprs []*Expr) (cApps []C.Z3_app, n C.uint, ptr *C.Z3_app) {
+	cApps = make([]C.Z3_app, len(exprs))
+	for i, e := range exprs {
+		cApps[i] = C.Z3_to_app(ctx.ptr, e.ptr)
+	}
+	n = C.uint(len(cApps))
+	if len(cApps) > 0 {
+		ptr = &cApps[0]
+	}
+	return
+}
+
 // QeModelProject projects variables given a model.
 // bound is a slice of application expressions representing the variables to project.
 func (c *Context) QeModelProject(m *Model, bound []*Expr, body *Expr) *Expr {
-	n := len(bound)
-	cBound := make([]C.Z3_app, n)
-	for i, b := range bound {
-		cBound[i] = C.Z3_to_app(c.ptr, b.ptr)
-	}
-	var boundPtr *C.Z3_app
-	if n > 0 {
-		boundPtr = &cBound[0]
-	}
-	return newExpr(c, C.Z3_qe_model_project(c.ptr, m.ptr, C.uint(n), boundPtr, body.ptr))
+	cBound, n, ptr := exprsToApps(c, bound)
+	defer runtime.KeepAlive(cBound)
+	return newExpr(c, C.Z3_qe_model_project(c.ptr, m.ptr, n, ptr, body.ptr))
 }
 
-// QeModelProjectSkolem projects variables given a model, storing the skolem witnesses in map_.
+// QeModelProjectSkolem projects variables given a model, storing the Skolem witnesses in map_.
 // bound is a slice of application expressions representing the variables to project.
 func (c *Context) QeModelProjectSkolem(m *Model, bound []*Expr, body *Expr, map_ *ASTMap) *Expr {
-	n := len(bound)
-	cBound := make([]C.Z3_app, n)
-	for i, b := range bound {
-		cBound[i] = C.Z3_to_app(c.ptr, b.ptr)
-	}
-	var boundPtr *C.Z3_app
-	if n > 0 {
-		boundPtr = &cBound[0]
-	}
-	return newExpr(c, C.Z3_qe_model_project_skolem(c.ptr, m.ptr, C.uint(n), boundPtr, body.ptr, map_.ptr))
+	cBound, n, ptr := exprsToApps(c, bound)
+	defer runtime.KeepAlive(cBound)
+	return newExpr(c, C.Z3_qe_model_project_skolem(c.ptr, m.ptr, n, ptr, body.ptr, map_.ptr))
 }
 
 // QeModelProjectWithWitness projects variables given a model and extracts witnesses.
 // The map_ is populated with bindings of projected variables to witness terms.
 // bound is a slice of application expressions representing the variables to project.
 func (c *Context) QeModelProjectWithWitness(m *Model, bound []*Expr, body *Expr, map_ *ASTMap) *Expr {
-	n := len(bound)
-	cBound := make([]C.Z3_app, n)
-	for i, b := range bound {
-		cBound[i] = C.Z3_to_app(c.ptr, b.ptr)
-	}
-	var boundPtr *C.Z3_app
-	if n > 0 {
-		boundPtr = &cBound[0]
-	}
-	return newExpr(c, C.Z3_qe_model_project_with_witness(c.ptr, m.ptr, C.uint(n), boundPtr, body.ptr, map_.ptr))
+	cBound, n, ptr := exprsToApps(c, bound)
+	defer runtime.KeepAlive(cBound)
+	return newExpr(c, C.Z3_qe_model_project_with_witness(c.ptr, m.ptr, n, ptr, body.ptr, map_.ptr))
 }
