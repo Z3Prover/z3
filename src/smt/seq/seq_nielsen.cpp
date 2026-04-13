@@ -1085,9 +1085,7 @@ namespace seq {
                     euf::snode* deriv = fwd
                         ? sg.brzozowski_deriv(mem.m_regex, tok)
                         : reverse_brzozowski_deriv(sg, mem.m_regex, tok);
-                    TRACE(seq, tout << mk_pp(mem.m_str->get_expr(), m) 
-                                    << " in " << mk_pp(mem.m_regex->get_expr(), m)
-                                    << " d: " << mk_pp(deriv->get_expr(), m) << "\n");
+                    TRACE(seq, tout << mem_pp(m, mem) << " d: " << mk_pp(deriv->get_expr(), m) << "\n");
                     if (!deriv)
                         break;
                     if (deriv->is_fail()) {
@@ -1164,7 +1162,7 @@ namespace seq {
             if (mem.is_primitive())
                 continue;
             dep_tracker dep = mem.m_dep;
-            if (m_graph.check_regex_widening(*this, mem.m_str, mem.m_regex, dep)) {
+            if (m_graph.check_regex_widening(*this, mem, dep)) {
                 set_general_conflict();
                 set_conflict(backtrack_reason::regex_widening, dep);
                 return simplify_result::conflict;
@@ -3882,9 +3880,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     std::ostream& constraint::display(std::ostream& out) const {
-        if (fml) out << mk_pp(fml, fml.get_manager());
-        else out << "null";
-        return out;
+        return out << fml;
     }
 
     // -----------------------------------------------------------------------
@@ -4135,9 +4131,10 @@ namespace seq {
     // Mirrors ZIPT NielsenNode.CheckRegexWidening (NielsenNode.cs:1350-1380)
     // -----------------------------------------------------------------------
 
-    bool nielsen_graph::check_regex_widening(nielsen_node const& node,
-                                             euf::snode* str, euf::snode* regex, dep_tracker& dep) {
-        SASSERT(str && regex && m_seq_regex);
+    bool nielsen_graph::check_regex_widening(nielsen_node const& node, str_mem const& mem, dep_tracker& dep) {
+        auto str = mem.m_str;
+        auto regex = mem.m_regex;
+        SASSERT(m_seq_regex);
         // Only apply to ground regexes with non-trivial strings
         if (!regex->is_ground())
             return false;
@@ -4242,6 +4239,8 @@ namespace seq {
         SASSERT(inter_sn);
         // TODO: Minimize the conflict here
         lbool result = m_seq_regex->is_empty_bfs(inter_sn, 5000);
+        TRACE(seq, tout << "widen empty-intersect: " << result << " " << mk_pp(re, m) 
+            << " <= " << mk_pp(ae, m) << "\n" << mem_pp(m, mem) << "\n");
         return result == l_true;
     }
 

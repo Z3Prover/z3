@@ -993,8 +993,7 @@ namespace seq {
         // then checking if the approximation intersected with `regex` is empty.
         // Returns true if widening detects infeasibility (UNSAT).
         // Mirrors ZIPT NielsenNode.CheckRegexWidening (NielsenNode.cs:1350-1380)
-        bool check_regex_widening(nielsen_node const& node,
-                                  euf::snode* str, euf::snode* regex, dep_tracker& dep);
+        bool check_regex_widening(nielsen_node const& node, str_mem const& mem, dep_tracker& dep);
 
         // Check regex feasibility at a leaf node: for each variable with
         // multiple primitive regex constraints, check that the intersection
