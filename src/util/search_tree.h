@@ -557,6 +557,10 @@ namespace search_tree {
             n->dec_active_workers();
         }
 
+        bool is_lease_valid(node<Config>* n, unsigned epoch) const {
+            return n && n->get_status() != status::closed && n->epoch() == epoch;
+        }
+        
         bool is_lease_canceled(node<Config>* n, unsigned cancel_epoch) const {
             return !n || n->get_status() == status::closed || n->get_cancel_epoch() != cancel_epoch;
         }
