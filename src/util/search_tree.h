@@ -80,6 +80,7 @@ namespace search_tree {
             SASSERT(!m_right);
             m_left = alloc(node<Config>, a, this);
             m_right = alloc(node<Config>, b, this);
+            bump_epoch();
         }
 
         node* left() const { return m_left; }
@@ -277,8 +278,8 @@ namespace search_tree {
             find_shallowest_timed_out_leaf_depth(cur->right(), best_depth);
         }
 
-        bool should_split(node<Config>* n) {
-            if (!n || n->get_status() != status::active || !n->is_leaf())
+        bool should_split(node<Config>* n, unsigned epoch) {
+            if (!n || n->epoch() != epoch || n->get_status() != status::active || !n->is_leaf())
                 return false;
 
             unsigned num_active_nodes = count_active_nodes(m_root.get());
@@ -474,7 +475,7 @@ namespace search_tree {
 
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
-        bool try_split(node<Config> *n, literal const &a, literal const &b, unsigned effort) {
+        bool try_split(node<Config> *n, literal const &a, literal const &b, unsigned effort, unsigned epoch) {
             // the node could have been marked open by another thread that finished first and split
             // we still want to add the current thread's effort in this case, but not if the node was closed
             if (!n || n->get_status() == status::closed)
@@ -483,7 +484,7 @@ namespace search_tree {
             n->add_effort(effort);
             bool did_split = false;
 
-            if (should_split(n)) {
+            if (should_split(n, epoch)) {
                 n->split(a, b);
                 did_split = true;
             }
@@ -497,7 +498,8 @@ namespace search_tree {
             //
             // Waiting for all workers would introduce per-node synchronization, delay
             // diversification, and let a slow worker stall progress.
-            n->set_status(status::open);
+            if (n->epoch() == epoch)
+                n->set_status(status::open);
             
             return did_split;
         }

@@ -741,9 +741,9 @@ namespace smt {
             g_core.push_back(expr_ref(l2g(c), m));
         }
         release_lease_unlocked(worker_id, lease.node, lease.epoch);
-        if (lease.node && !m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
-            m_search_tree.backtrack(lease.node, g_core);
-        else if (lease.node && lease.node->get_status() == search_tree::status::closed)
+        if (lease.node &&
+            m_search_tree.is_lease_valid(lease.node, lease.epoch) &&
+            !m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
             m_search_tree.backtrack(lease.node, g_core);
 
         cancel_closed_leases_unlocked(worker_id);
@@ -773,7 +773,7 @@ namespace smt {
         if (!lease.node || m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
             return;
 
-        bool did_split = m_search_tree.try_split(lease.node, lit, nlit, effort);
+        bool did_split = m_search_tree.try_split(lease.node, lit, nlit, effort, lease.epoch);
 
         if (did_split) {
             ++m_stats.m_num_cubes;
