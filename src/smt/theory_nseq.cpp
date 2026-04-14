@@ -83,15 +83,20 @@ namespace smt {
         m_axioms.set_ensure_digits(ensure_digit_axiom);
         m_axioms.set_mark_no_diseq(mark_no_diseq);
 
+        m_should_internalize = true; // delete this if using internalize as fallback
         std::function<sat::literal(expr*)> literal_if_false = [&](expr* e) {
             bool is_not = m.is_not(e, e);
-            if (!ctx.b_internalized(e))
+            if (m_should_internalize && !ctx.b_internalized(e)) {
                 // it can happen that the element is not internalized, but as soon as we do it, it becomes false.
                 // In case we just skip one of those uninternalized expressions,
                 // adding the Nielsen assumption later will fail
                 // Alternatively, we could just retry Nielsen saturation in case
                 // adding the Nielsen assumption yields the assumption being false after internalizing
                 ctx.internalize(to_app(e), false);
+            }
+
+            if (!ctx.b_internalized(e))
+                return sat::null_literal;
 
             literal lit = ctx.get_literal(e);
             if (is_not)
@@ -764,6 +769,8 @@ namespace smt {
                 // this should not happen because nielsen checks for this before returning a satisfying path.
                 TRACE(seq, tout << "nseq final_check: nielsen assumption " << c.fml << " is false; internalized - " << ctx.e_internalized(c.fml) << "\n");
                 std::cout << "False [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
+                ctx.push_trail(value_trail(m_should_internalize));
+                m_should_internalize = true;
                 break;
             }
         }

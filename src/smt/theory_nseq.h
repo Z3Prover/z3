@@ -50,6 +50,7 @@ namespace smt {
         seq::axioms m_axioms;
         seq::seq_regex     m_regex;   // regex membership pre-processing
         seq_model     m_model;   // model construction helper
+        bool m_should_internalize = false;
 
         // propagation queue items (variant over the distinct propagation cases)
         using eq_item   = tracked_str_eq;    // string equality
