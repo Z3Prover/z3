@@ -171,7 +171,6 @@ namespace smt {
             void try_split(ast_translation& l2g, unsigned worker_id, node_lease const& lease, expr* atom, unsigned effort);
             void abandon_lease(unsigned worker_id, node_lease const& lease);
             bool lease_canceled(node_lease const& lease);
-            bool is_batch_running();
 
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);

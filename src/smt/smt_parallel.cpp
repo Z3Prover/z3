@@ -415,9 +415,7 @@ namespace smt {
             }
 
             if (!m.inc()) {
-                if (b.is_batch_running()) {
-                    b.set_exception("context cancelled");
-                }
+                b.set_exception("context cancelled");
                 return;
             }
 
@@ -795,12 +793,7 @@ namespace smt {
         std::scoped_lock lock(mux);
         return m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch);
     }
-
-    bool parallel::batch_manager::is_batch_running() {
-        std::scoped_lock lock(mux);
-        return m_state == state::is_running;
-    }
-
+    
     void parallel::batch_manager::collect_clause(ast_translation &l2g, unsigned source_worker_id, expr *clause) {
         std::scoped_lock lock(mux);
         collect_clause_unlocked(l2g, source_worker_id, clause);
