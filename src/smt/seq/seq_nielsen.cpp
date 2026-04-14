@@ -1371,6 +1371,27 @@ namespace seq {
             return search_result::unsat;
         }
 
+        str_mem* mem = nullptr;
+        for (auto& m : node->m_str_mem) {
+            if (m.m_id == 28) {
+                mem = &m;
+                break;
+            }
+        }
+        if (mem) {
+            static int cnt = 0;
+            std::cout << "search cnt: " << cnt << std::endl;
+            vector<dep_manager::value, false> deps;
+            m_dep_mgr.linearize(mem->m_dep, deps);
+            for (auto& dep : deps) {
+                if (std::holds_alternative<enode_pair>(dep))
+                    std::cout << "eq: " << mk_pp(std::get<enode_pair>(dep).first->get_expr(), m) << " = " << mk_pp(std::get<enode_pair>(dep).second->get_expr(), m) << std::endl;
+                else
+                    std::cout << "mem literal: " << std::get<sat::literal>(dep) << std::endl;
+            }
+        }
+
+
         // simplify constraints (idempotent after first call)
         const simplify_result sr = node->simplify_and_init(cur_path);
 
@@ -4151,6 +4172,21 @@ namespace seq {
 
         SASSERT(dep);
 
+        static unsigned cnt = 0;
+        std::cout << cnt << std::endl;
+
+        cnt++;
+
+        std::cout << "Dep:\n";
+        vector<dep_manager::value, false> deps;
+        m_dep_mgr.linearize(dep, deps);
+        for (auto& dep : deps) {
+            if (std::holds_alternative<enode_pair>(dep))
+                std::cout << "eq: " << mk_pp(std::get<enode_pair>(dep).first->get_expr(), m) << " = " << mk_pp(std::get<enode_pair>(dep).second->get_expr(), m) << std::endl;
+            else
+                std::cout << "mem literal: " << std::get<sat::literal>(dep) << std::endl;
+        }
+
         euf::snode* approx = nullptr;
         for (euf::snode* tok : tokens) {
             euf::snode* tok_re = nullptr;
@@ -4164,6 +4200,20 @@ namespace seq {
             else if (tok->is_var()) {
                 // Variable → intersection of primitive regex constraints, or Σ*
                 euf::snode* x_range = m_seq_regex->collect_primitive_regex_intersection(tok, node, m_dep_mgr, dep);
+                std::cout << "Primitives for " << mk_pp(tok->get_expr(), m) << ":\n";
+                if (x_range)
+                    std::cout << mk_pp(x_range->get_expr(), m) << std::endl;
+                else
+                    std::cout << "null" << std::endl;
+                std::cout << "Dep:\n";
+                deps.reset();
+                m_dep_mgr.linearize(dep, deps);
+                for (auto& dep : deps) {
+                    if (std::holds_alternative<enode_pair>(dep))
+                        std::cout << "eq: " << mk_pp(std::get<enode_pair>(dep).first->get_expr(), m) << " = " << mk_pp(std::get<enode_pair>(dep).second->get_expr(), m) << std::endl;
+                    else
+                        std::cout << "mem literal: " << std::get<sat::literal>(dep) << std::endl;
+                }
                 if (x_range)
                     tok_re = x_range;
                 else {

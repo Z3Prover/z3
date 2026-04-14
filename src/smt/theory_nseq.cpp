@@ -589,7 +589,7 @@ namespace smt {
             // Always assert non-negativity for all string theory vars,
             // even when there are no string equations/memberships.
             if (assert_nonneg_for_all_vars()) {
-                IF_VERBOSE(1, verbose_stream() << "nseq final_check: nonneg assertions added, FC_CONTINUE\n";);
+                TRACE(seq, tout << "nseq final_check: nonneg assertions added, FC_CONTINUE\n");
                 return FC_CONTINUE;
             }
 
@@ -600,7 +600,7 @@ namespace smt {
 
             // there is nothing to do for the string solver, as there are no string constraints
             if (!has_eq_or_mem && m_ho_terms.empty() && !has_unhandled_preds()) {
-                IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state+ho, FC_DONE (no solve)\n";);
+                TRACE(seq, tout << "nseq final_check: empty state+ho, FC_DONE (no solve)\n");
                 m_nielsen.reset();
                 m_nielsen.create_root();
                 m_nielsen.set_sat_node(m_nielsen.root());
@@ -612,20 +612,20 @@ namespace smt {
             // There is an existing nielsen graph with a satisfying assignment.
             if (!m_nielsen_literals.empty() && m_nielsen.sat_node() != nullptr &&
                 all_of(m_nielsen_literals, [&](auto lit) { return l_true == ctx.get_assignment(lit); })) {
-                IF_VERBOSE(1, verbose_stream() << "nseq final_check: satifiable state revisited\n");
+                TRACE(seq, tout << "nseq final_check: satifiable state revisited\n");
                 // Re-run solving/model extraction instead of early exiting on a
                 // cached SAT node. This avoids stale sat paths after additional
                 // SAT assignments were introduced in prior FC_CONTINUE rounds.
-                }
+            }
 
             // unfold higher-order terms when sequence structure is known
             if (unfold_ho_terms()) {
-                IF_VERBOSE(1, verbose_stream() << "nseq final_check: unfolded ho_terms, FC_CONTINUE\n";);
+                TRACE(seq, tout << "nseq final_check: unfolded ho_terms, FC_CONTINUE\n");
                 return FC_CONTINUE;
             }
 
             if (!has_eq_or_mem && !has_unhandled_preds()) {
-                IF_VERBOSE(1, verbose_stream() << "nseq final_check: empty state (after ho), FC_DONE (no solve)\n";);
+                TRACE(seq, tout << "nseq final_check: empty state (after ho), FC_DONE (no solve)\n");
                 m_nielsen.reset();
                 m_nielsen.create_root();
                 m_nielsen.set_sat_node(m_nielsen.root());
@@ -637,7 +637,7 @@ namespace smt {
 
             // assert length constraints derived from string equalities
             if (assert_length_constraints()) {
-                IF_VERBOSE(1, verbose_stream() << "nseq final_check: length constraints asserted, FC_CONTINUE\n";);
+                TRACE(seq, tout << "nseq final_check: length constraints asserted, FC_CONTINUE\n");
                 return FC_CONTINUE;
             }
 
@@ -656,15 +656,15 @@ namespace smt {
                 switch (check_regex_memberships_precheck()) {
                 case l_true:
                     // conflict was asserted inside check_regex_memberships_precheck
-                    IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck UNSAT\n";);
+                    TRACE(seq, tout << "nseq final_check: regex precheck UNSAT\n");
                     return FC_CONTINUE;
                 case l_false:
                     // all regex constraints satisfiable, no word eqs → SAT
-                    IF_VERBOSE(1, verbose_stream() << "nseq final_check: regex precheck SAT\n";);
+                    TRACE(seq, tout << "nseq final_check: regex precheck SAT\n");
                     m_nielsen.set_sat_node(m_nielsen.root());
                     if (!check_length_coherence())
                         return FC_CONTINUE;
-                    TRACE(seq, display(tout << "pre-check done\n"));
+                    TRACE(seq, tout << "pre-check done\n");
                     return FC_DONE;
                 default:
                     break;
@@ -674,7 +674,7 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: calling solve()\n";);
 
             // here the actual Nielsen solving happens
-            auto result = m_nielsen.solve();
+            auto result = m_nielsen.solve(); std::cout << "Solve returned " << (int)result << std::endl;
 
 #ifdef Z3DEBUG
             // Examining the Nielsen graph is probably the best way of debugging
@@ -685,6 +685,7 @@ namespace smt {
 
             if (result == seq::nielsen_graph::search_result::unsat) {
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNSAT\n";);
+                TRACE(seq, tout << "nseq final_check: solve UNSAT\n");
                 explain_nielsen_conflict();
                 return FC_CONTINUE;
             }
@@ -692,6 +693,8 @@ namespace smt {
             if (result == seq::nielsen_graph::search_result::sat) {
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve SAT, sat_node="
                     << (m_nielsen.sat_node() ? "set" : "null") << "\n";);
+                TRACE(seq, tout << "nseq final_check: solve SAT, sat_node="
+                    << (m_nielsen.sat_node() ? "set" : "null") << "\n");
                 // Nielsen found a consistent assignment for positive constraints.
                 SASSERT(has_eq_or_mem); // we should have axiomatized them
 
@@ -699,7 +702,7 @@ namespace smt {
                     // If assumptions remain undefined, returning SAT can yield
                     // unsound/invalid models because the chosen Nielsen branch
                     // is not yet committed in the outer SAT core.
-                    IF_VERBOSE(1, verbose_stream() << "nseq final_check: unresolved assumptions, FC_GIVEUP\n";);
+                    TRACE(seq, tout << "nseq final_check: unresolved assumptions, FC_GIVEUP\n");
                     return FC_GIVEUP;
                 }
 
