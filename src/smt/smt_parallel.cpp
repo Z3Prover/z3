@@ -335,7 +335,7 @@ namespace smt {
             node_lease lease;
             lease.node = t;
             lease.epoch = t->epoch();
-            lease.cancel_epoch = t->cancel_epoch();
+            lease.cancel_epoch = t->get_cancel_epoch();
             backtrack_unlocked(l2g, UINT_MAX, l_core, lease);
         }
 
