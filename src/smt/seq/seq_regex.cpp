@@ -672,7 +672,7 @@ namespace seq {
             SASSERT(first);
             if (first != var)
                 continue;
-            TRACE(seq, tout << mk_pp(first->get_expr(), m) << " " << mem_pp(m, mem) << " dep: " << mem.m_dep << "\n");
+            TRACE(seq, tout << mk_pp(first->get_expr(), m) << " " << mem_pp(m, mem) << "\n");
 
             if (!result) {
                 result = mem.m_regex;

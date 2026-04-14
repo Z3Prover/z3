@@ -1085,7 +1085,7 @@ namespace seq {
                     euf::snode* deriv = fwd
                         ? sg.brzozowski_deriv(mem.m_regex, tok)
                         : reverse_brzozowski_deriv(sg, mem.m_regex, tok);
-                    TRACE(seq, tout << mem_pp(m, mem) << " d: " << mk_pp(deriv->get_expr(), m) << "\n");
+                    TRACE(seq, tout << mem_pp(m, mem) << " d: " << spp(deriv, m) << "\n");
                     if (!deriv)
                         break;
                     if (deriv->is_fail()) {
@@ -1129,7 +1129,7 @@ namespace seq {
 
                 auto next = sg.mk(d);
                 if (next->is_fail()) {
-                    TRACE(seq, tout << "empty regex" << mk_pp(mem.m_regex->get_expr(), m) << " d: " << d << "\n");
+                    TRACE(seq, tout << "empty regex" << spp(mem.m_regex, m) << " d: " << d << "\n");
                     set_general_conflict();
                     set_conflict(backtrack_reason::regex, mem.m_dep);
                     return simplify_result::conflict;
@@ -3444,7 +3444,7 @@ namespace seq {
             VERIFY(!minterms.empty());
 
             bool created = false;
-            // std::cout << "Considering regex: " << mk_pp(mem.m_regex->get_expr(), m) << std::endl;
+            // std::cout << "Considering regex: " << spp(mem.m_regex, m) << std::endl;
 
             // Branch 1: x → ε (progress)
             {
@@ -3464,7 +3464,7 @@ namespace seq {
             // Branch 2+: for each minterm m_i, x → ?c · x
             // where ?c is a symbolic char constrained by the minterm
             for (euf::snode* mt : minterms) {
-                // std::cout << "Processing minterm: " << mk_pp(mt->get_expr(), m) << std::endl;
+                // std::cout << "Processing minterm: " << spp(mt, m) << std::endl;
                 SASSERT(mt);
                 SASSERT(mt->get_expr());
                 SASSERT(!mt->is_fail());
@@ -3475,7 +3475,7 @@ namespace seq {
                 SASSERT(deriv);
                 if (deriv->is_fail())
                     continue;
-                // std::cout << "Result: " << mk_pp(deriv->get_expr(), m) << std::endl;
+                // std::cout << "Result: " << spp(deriv, m) << std::endl;
 
                 SASSERT(m_seq_regex);
                 char_set cs = m_seq_regex->minterm_to_char_set(mt->get_expr());
@@ -4172,8 +4172,8 @@ namespace seq {
                     expr_ref all_re(m_seq.re.mk_full_seq(m_seq.re.mk_re(str_sort)), m);
                     tok_re = m_sg.mk(all_re);
                 }
-                TRACE(seq, tout << "intersection-collection\n" << mk_pp(tok->get_expr(), m)
-                                << "\n" <<  mk_pp(tok_re->get_expr(), m) << "\n");
+                TRACE(seq, tout << "intersection-collection\n" << spp(tok, m)
+                                << "\n" <<  spp(tok_re, m) << "\n");
             }
             else if (tok->is_unit()) {
                 // Symbolic char — try to get char_range
