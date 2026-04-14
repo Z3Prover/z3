@@ -134,9 +134,7 @@ namespace smt {
             }
 
             if (!m.inc()) {
-                if (b.is_batch_running()) {
-                    b.set_exception("context cancelled");
-                }
+                b.set_exception("context cancelled");
                 return;
             }
 
@@ -461,14 +459,11 @@ namespace smt {
         try {
             r = ctx->check(asms.size(), asms.data());
         } catch (z3_error &err) {
-            if (!m.limit().is_canceled())
-                b.set_exception(err.error_code());
+            b.set_exception(err.error_code());
         } catch (z3_exception &ex) {
-            if (!m.limit().is_canceled())
-                b.set_exception(ex.what());
+            b.set_exception(ex.what());
         } catch (...) {
-            if (!m.limit().is_canceled())
-                b.set_exception("unknown exception");
+            b.set_exception("unknown exception");
         }
         asms.shrink(asms.size() - cube.size());
         LOG_WORKER(1, " DONE checking cube " << r << "\n";);
