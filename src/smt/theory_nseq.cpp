@@ -85,9 +85,14 @@ namespace smt {
 
         std::function<sat::literal(expr*)> literal_if_false = [&](expr* e) {
             bool is_not = m.is_not(e, e);
-            TRACE(seq, tout << "literal_if_false: " << mk_pp(e, m) << " internalized - " << ctx.e_internalized(e) << "\n");
-            if (!ctx.e_internalized(e))
-                return sat::null_literal;
+            TRACE(seq, tout << "literal_if_false: " << mk_pp(e, m) << " internalized - " << ctx.b_internalized(e) << "\n");
+            if (!ctx.b_internalized(e))
+                // it can happen that the element is not internalized, but as soon as we do it, it becomes false.
+                // In case we just skip one of those uninternalized expressions,
+                // adding the Nielsen assumption later will fail
+                // Alternatively, we could just retry Nielsen saturation in case
+                // adding the Nielsen assumption yields the assumption being false after internalizing
+                ctx.internalize(to_app(e), false);
             literal lit = ctx.get_literal(e);
             if (is_not)
                 lit.neg();
@@ -641,6 +646,8 @@ namespace smt {
                 return FC_CONTINUE;
             }
 
+            m_nielsen.assert_node_new_int_constraints(m_nielsen.root());
+
             ++m_num_final_checks;
 
             m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
@@ -649,10 +656,12 @@ namespace smt {
             m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
             m_nielsen.set_regex_factorization(get_fparams().m_nseq_regex_factorization);
 
+            SASSERT(!m_nielsen.root()->is_currently_conflict());
+
             // Regex membership pre-check: before running DFS, check intersection
             // emptiness for each variable's regex constraints.  This handles
             // regex-only problems that the DFS cannot efficiently solve.
-            if (get_fparams().m_nseq_regex_precheck) {
+            if (!m_nielsen.root()->is_currently_conflict() && get_fparams().m_nseq_regex_precheck) {
                 switch (check_regex_memberships_precheck()) {
                 case l_true:
                     // conflict was asserted inside check_regex_memberships_precheck
@@ -674,7 +683,7 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: calling solve()\n";);
 
             // here the actual Nielsen solving happens
-            auto result = m_nielsen.solve(); std::cout << "Solve returned " << (int)result << std::endl;
+            auto result = m_nielsen.solve();
 
 #ifdef Z3DEBUG
             // Examining the Nielsen graph is probably the best way of debugging
@@ -750,11 +759,10 @@ namespace smt {
             case l_true: 
                 break;
             case l_undef:
-                std::cout << "Undef [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
+                // std::cout << "Undef [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
                 has_undef = true; 
                 // Commit the chosen Nielsen assumption to the SAT core so it
                 // cannot remain permanently undefined in a partial model.
-                ctx.mk_th_axiom(get_id(), 1, &lit);
                 ctx.force_phase(lit);
                 IF_VERBOSE(2, verbose_stream() << 
                     "nseq final_check: adding nielsen assumption " << c.fml << "\n";);
@@ -762,11 +770,8 @@ namespace smt {
                 break;
             case l_false: 
                 // this should not happen because nielsen checks for this before returning a satisfying path.
-                IF_VERBOSE(1, verbose_stream()
-                                  << "nseq final_check: nielsen assumption " << c.fml << " is false\n";);
+                TRACE(seq, tout << "nseq final_check: nielsen assumption " << c.fml << " is false; internalized - " << ctx.e_internalized(c.fml) << "\n");
                 has_undef = true;
-                ctx.mk_th_axiom(get_id(), 1, &lit);
-                ctx.force_phase(lit);
                 std::cout << "False [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
                 break;
             }

@@ -262,6 +262,7 @@ namespace seq {
 
     void nielsen_node::add_constraint(constraint const &c) {
         auto& m = graph().get_manager();
+        // TODO: Is it possible that we miss a conflict if we decompose?
         if (m.is_and(c.fml)) {
             // We have to add all - even if some of it conflict
             // [otw. we would leave the node partially initialized]
@@ -272,6 +273,7 @@ namespace seq {
         }
         expr* l, *r;
         if (m.is_eq(c.fml, l, r)) {
+            // To avoid filling memory with tautologies (that would happen quite often)
             if (l == r)
                 return;
         }
@@ -1248,6 +1250,8 @@ namespace seq {
             m_sat_path.reset();
             m_conflict_sources.reset();
 
+            TRACE(seq, tout << "Solve call " << m_stats.m_num_solve_calls << "\n");
+
             // Constraint.Shared: assert root-level length/Parikh constraints to the
             // solver at the base level, so they are visible during all feasibility checks.
             assert_root_constraints_to_solver();
@@ -1379,8 +1383,6 @@ namespace seq {
             }
         }
         if (mem) {
-            static int cnt = 0;
-            std::cout << "search cnt: " << cnt << std::endl;
             vector<dep_manager::value, false> deps;
             m_dep_mgr.linearize(mem->m_dep, deps);
             for (auto& dep : deps) {
@@ -1450,6 +1452,13 @@ namespace seq {
             if (!check_leaf_regex(*node, dep)) {
                 node->set_general_conflict();
                 node->set_conflict(backtrack_reason::regex, dep);
+                return search_result::unsat;
+            }
+            assert_node_new_int_constraints(node);
+            // We need to have everything asserted before reporting SAT
+            // (otw. the outer solver might assume false-assigned literals to be true)
+            if (node->is_currently_conflict()) {
+                ++m_stats.m_num_simplify_conflict;
                 return search_result::unsat;
             }
             m_sat_node = node;
@@ -4172,21 +4181,6 @@ namespace seq {
 
         SASSERT(dep);
 
-        static unsigned cnt = 0;
-        std::cout << cnt << std::endl;
-
-        cnt++;
-
-        std::cout << "Dep:\n";
-        vector<dep_manager::value, false> deps;
-        m_dep_mgr.linearize(dep, deps);
-        for (auto& dep : deps) {
-            if (std::holds_alternative<enode_pair>(dep))
-                std::cout << "eq: " << mk_pp(std::get<enode_pair>(dep).first->get_expr(), m) << " = " << mk_pp(std::get<enode_pair>(dep).second->get_expr(), m) << std::endl;
-            else
-                std::cout << "mem literal: " << std::get<sat::literal>(dep) << std::endl;
-        }
-
         euf::snode* approx = nullptr;
         for (euf::snode* tok : tokens) {
             euf::snode* tok_re = nullptr;
@@ -4200,20 +4194,6 @@ namespace seq {
             else if (tok->is_var()) {
                 // Variable → intersection of primitive regex constraints, or Σ*
                 euf::snode* x_range = m_seq_regex->collect_primitive_regex_intersection(tok, node, m_dep_mgr, dep);
-                std::cout << "Primitives for " << mk_pp(tok->get_expr(), m) << ":\n";
-                if (x_range)
-                    std::cout << mk_pp(x_range->get_expr(), m) << std::endl;
-                else
-                    std::cout << "null" << std::endl;
-                std::cout << "Dep:\n";
-                deps.reset();
-                m_dep_mgr.linearize(dep, deps);
-                for (auto& dep : deps) {
-                    if (std::holds_alternative<enode_pair>(dep))
-                        std::cout << "eq: " << mk_pp(std::get<enode_pair>(dep).first->get_expr(), m) << " = " << mk_pp(std::get<enode_pair>(dep).second->get_expr(), m) << std::endl;
-                    else
-                        std::cout << "mem literal: " << std::get<sat::literal>(dep) << std::endl;
-                }
                 if (x_range)
                     tok_re = x_range;
                 else {

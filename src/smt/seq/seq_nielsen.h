@@ -978,6 +978,12 @@ namespace seq {
         dep_manager& dep_mgr() { return m_dep_mgr; }
         dep_manager const& dep_mgr() const { return m_dep_mgr; }
 
+        // Assert the constraints of `node` that are new relative to its
+        // parent (indices [m_parent_ic_count..end)) into the current solver scope.
+        // Called by search_dfs after simplify_and_init so that the newly derived
+        // bounds become visible to subsequent check() and check_lp_le() calls.
+        void assert_node_new_int_constraints(nielsen_node* node);
+
     private:
 
         vector<dep_source, false> m_conflict_sources;
@@ -1142,12 +1148,6 @@ namespace seq {
         // for arithmetic pruning at every DFS node, not just the root.
         // Mirrors ZIPT's Constraint.Shared forwarding mechanism.
         void assert_root_constraints_to_solver();
-
-        // Assert the constraints of `node` that are new relative to its
-        // parent (indices [m_parent_ic_count..end)) into the current solver scope.
-        // Called by search_dfs after simplify_and_init so that the newly derived
-        // bounds become visible to subsequent check() and check_lp_le() calls.
-        void assert_node_new_int_constraints(nielsen_node* node);
 
         // Generate |LHS| = |RHS| length constraints for a non-root node's own
         // string equalities and add them as constraints on the node.
