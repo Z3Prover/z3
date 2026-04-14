@@ -411,11 +411,6 @@ namespace smt {
         return m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch);
     }
 
-    bool parallel::batch_manager::is_batch_running() {
-        std::scoped_lock lock(mux);
-        return m_state == state::is_running;
-    }
-
     void parallel::batch_manager::collect_clause(ast_translation &l2g, unsigned source_worker_id, expr *clause) {
         std::scoped_lock lock(mux);
         expr *g_clause = l2g(clause);
