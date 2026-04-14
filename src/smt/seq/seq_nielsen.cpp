@@ -2901,6 +2901,12 @@ namespace seq {
         if (!m_regex_factorization)
             return false;
 
+        struct rf_split {
+            euf::snode* m_p;
+            euf::snode* m_q;
+            dep_tracker m_dep;
+        };
+
         for (str_mem const& mem : node->str_mems()) {
             SASSERT(mem.m_str && mem.m_regex);
             
@@ -2909,49 +2915,62 @@ namespace seq {
 
             euf::snode* first = mem.m_str->first();
             SASSERT(first);
+            SASSERT(!first->is_char());
             euf::snode* tail = m_sg.drop_first(mem.m_str);
             SASSERT(tail);
 
             tau_pairs pairs;
             compute_tau(m, m_seq, m_sg, mem.m_regex->get_expr(), pairs);
 
+            vector<rf_split> feasible;
+            dep_tracker eliminated_dep = mem.m_dep;
+
             for (auto const& pair : pairs) {
                 euf::snode* sn_p = m_sg.mk(pair.m_p);
                 euf::snode* sn_q = m_sg.mk(pair.m_q);
-                
-                // Eagerly eliminate contradictory cases
-                // e.g. check intersection emptiness with max_states = 100
-                if (m_seq_regex->is_empty_bfs(sn_p, 100) == l_true)
-                    continue;
-                if (m_seq_regex->is_empty_bfs(sn_q, 100) == l_true)
-                    continue;
-                
+
                 // Also check intersection with other primitive constraints on `first`
                 ptr_vector<euf::snode> regexes_p;
                 regexes_p.push_back(sn_p);
+                dep_tracker first_filter_dep = nullptr;
                 for (auto const& prev_mem : node->str_mems()) {
-                    if (prev_mem.m_str == first)
+                    if (prev_mem.m_str == first) {
                         regexes_p.push_back(prev_mem.m_regex);
-                }
-                if (regexes_p.size() > 1 && m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true)
-                    continue;
-
-                nielsen_node* child = mk_child(node);
-                mk_edge(node, child, true);
-                
-                // remove the original mem from child
-                auto& child_mems = child->str_mems();
-                for (unsigned k = 0; k < child_mems.size(); ++k) {
-                    if (child_mems[k] == mem) {
-                        child_mems[k] = child_mems.back();
-                        child_mems.pop_back();
-                        break;
+                        first_filter_dep = m_dep_mgr.mk_join(first_filter_dep, prev_mem.m_dep);
                     }
                 }
-                
-                child->add_str_mem(str_mem(first, sn_p, mem.m_dep));
-                child->add_str_mem(str_mem(tail, sn_q, mem.m_dep));
+                if (regexes_p.size() > 1 && m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true) {
+                    eliminated_dep = m_dep_mgr.mk_join(eliminated_dep, first_filter_dep);
+                    continue;
+                }
+
+                feasible.push_back({ sn_p, sn_q, m_dep_mgr.mk_join(mem.m_dep, first_filter_dep) });
             }
+
+            if (feasible.empty()) {
+                node->set_general_conflict();
+                node->set_conflict(backtrack_reason::regex, eliminated_dep);
+                return true;
+            }
+
+            if (feasible.size() > 1)
+                continue;
+
+            nielsen_node* child = mk_child(node);
+            mk_edge(node, child, true);
+            
+            // remove the original mem from child
+            auto& child_mems = child->str_mems();
+            for (unsigned k = 0; k < child_mems.size(); ++k) {
+                if (child_mems[k] == mem) {
+                    child_mems[k] = child_mems.back();
+                    child_mems.pop_back();
+                    break;
+                }
+            }
+
+            child->add_str_mem(str_mem(first, feasible[0].m_p, feasible[0].m_dep));
+            child->add_str_mem(str_mem(tail, feasible[0].m_q, feasible[0].m_dep));
             
             return true;
         }
