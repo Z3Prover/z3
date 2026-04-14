@@ -211,7 +211,7 @@ namespace seq {
 
         // check if regex accepts the empty string
         bool is_nullable(euf::snode* re) const {
-            return re && re->is_nullable();
+            return re && seq.re.get_info(re->get_expr()).nullable == l_true;
         }
 
         // check if regex is ground (no string variables)

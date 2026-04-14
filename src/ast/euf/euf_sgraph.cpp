@@ -111,7 +111,6 @@ namespace euf {
         case snode_kind::s_empty:
             n->m_ground = true;
             n->m_regex_free = true;
-            n->m_nullable = true;
             n->m_level = 0;
             n->m_length = 0;
             break;
@@ -119,7 +118,6 @@ namespace euf {
         case snode_kind::s_char:
             n->m_ground = true;
             n->m_regex_free = true;
-            n->m_nullable = false;
             n->m_level = 1;
             n->m_length = 1;
             break;
@@ -128,7 +126,6 @@ namespace euf {
             // NSB review: a variable node can be a "value". Should it be ground then?
             n->m_ground = false;
             n->m_regex_free = true;
-            n->m_nullable = false;
             n->m_level = 1;
             n->m_length = 1;
             n->m_is_classical = false;
@@ -138,7 +135,6 @@ namespace euf {
             // NSB review: SASSERT(n->num_args() == 1); and simplify code
             n->m_ground = n->num_args() > 0 ? n->arg(0)->is_ground() : true;
             n->m_regex_free = true;
-            n->m_nullable = false;
             n->m_level = 1;
             n->m_length = 1;
             break;
@@ -149,7 +145,6 @@ namespace euf {
             snode* r = n->arg(1);
             n->m_ground = l->is_ground() && r->is_ground();
             n->m_regex_free = l->is_regex_free() && r->is_regex_free();
-            n->m_nullable = l->is_nullable() && r->is_nullable();
             n->m_is_classical = l->is_classical() && r->is_classical();
             n->m_level = std::max(l->level(), r->level()) + 1;
             n->m_length = l->length() + r->length();
@@ -166,7 +161,6 @@ namespace euf {
             snode* base = n->arg(0);
             n->m_ground = base->is_ground();
             n->m_regex_free = base->is_regex_free();
-            n->m_nullable = base->is_nullable();
             n->m_is_classical = base->is_classical();
             n->m_level = 1;
             n->m_length = 1;
@@ -178,7 +172,6 @@ namespace euf {
             SASSERT(n->num_args() == 1);
             n->m_ground = n->arg(0)->is_ground();
             n->m_regex_free = false;
-            n->m_nullable = true;
             n->m_is_classical = n->arg(0)->is_classical();
             n->m_level = 1;
             n->m_length = 1;
@@ -196,7 +189,6 @@ namespace euf {
             if (n->get_expr() &&
                 !m_seq.re.is_loop(n->get_expr(), loop_body, lo, hi))
                 m_seq.re.is_loop(n->get_expr(), loop_body, lo);
-            n->m_nullable = (lo == 0);
             n->m_level = 1;
             n->m_length = 1;
             break;
@@ -206,7 +198,6 @@ namespace euf {
             SASSERT(n->num_args() == 2);
             n->m_ground = n->arg(0)->is_ground() && n->arg(1)->is_ground();
             n->m_regex_free = false;
-            n->m_nullable = n->arg(0)->is_nullable() || n->arg(1)->is_nullable();
             n->m_is_classical = n->arg(0)->is_classical() && n->arg(1)->is_classical();
             n->m_level = 1;
             n->m_length = 1;
@@ -216,7 +207,6 @@ namespace euf {
             SASSERT(n->num_args() == 2);
             n->m_ground = n->arg(0)->is_ground() && n->arg(1)->is_ground();     
             n->m_regex_free = false;
-            n->m_nullable = n->arg(0)->is_nullable() && n->arg(1)->is_nullable();
             n->m_is_classical = false;
             n->m_level = 1;
             n->m_length = 1;
@@ -226,7 +216,6 @@ namespace euf {
             SASSERT(n->num_args() == 1);
             n->m_ground = n->arg(0)->is_ground();
             n->m_regex_free = false;
-            n->m_nullable = !n->arg(0)->is_nullable();
             n->m_is_classical = false;
             n->m_level = 1;
             n->m_length = 1;
@@ -235,7 +224,6 @@ namespace euf {
         case snode_kind::s_fail:
             n->m_ground = true;
             n->m_regex_free = false;
-            n->m_nullable = false;
             n->m_is_classical = false;
             n->m_level = 1;
             n->m_length = 1;
@@ -244,7 +232,6 @@ namespace euf {
         case snode_kind::s_full_char:
             n->m_ground = true;
             n->m_regex_free = false;
-            n->m_nullable = false;
             n->m_level = 1;
             n->m_length = 1;
             break;
@@ -252,7 +239,6 @@ namespace euf {
         case snode_kind::s_full_seq:
             n->m_ground = true;
             n->m_regex_free = false;
-            n->m_nullable = true;
             n->m_level = 1;
             n->m_length = 1;
             break;
@@ -261,7 +247,6 @@ namespace euf {
             SASSERT(n->num_args() == 2);
             n->m_ground = n->arg(0)->is_ground() && n->arg(1)->is_ground();
             n->m_regex_free = false;
-            n->m_nullable = false;
             n->m_level = 1;
             n->m_length = 1;
             break;
@@ -270,7 +255,6 @@ namespace euf {
             SASSERT(n->num_args() == 1);
             n->m_ground = n->arg(0)->is_ground();
             n->m_regex_free = false;
-            n->m_nullable = n->arg(0)->is_nullable();
             n->m_level = 1;
             n->m_length = 1;
             break;
@@ -279,7 +263,6 @@ namespace euf {
             SASSERT(n->num_args() == 2);
             n->m_ground = n->arg(0)->is_ground() && n->arg(1)->is_ground();
             n->m_regex_free = false;
-            n->m_nullable = false;
             n->m_level = 1;
             n->m_length = 1;
             break;
@@ -289,7 +272,6 @@ namespace euf {
             // Is this UNREACHABLE()?
             n->m_ground = true;
             n->m_regex_free = true;
-            n->m_nullable = false;
             n->m_level = 1;
             n->m_length = 1;
             break;
@@ -773,8 +755,7 @@ namespace euf {
                 << " level=" << n->level()
                 << " len=" << n->length()
                 << " ground=" << n->is_ground()
-                << " rfree=" << n->is_regex_free()
-                << " nullable=" << n->is_nullable();
+                << " rfree=" << n->is_regex_free();
             if (n->num_args() > 0) {
                 out << " args=(";
                 for (unsigned i = 0; i < n->num_args(); ++i) {

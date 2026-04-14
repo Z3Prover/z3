@@ -157,40 +157,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool seq_regex::compute_self_stabilizing(euf::snode* regex) const {
-        if (!regex)
-            return false;
-
-        // R* is always self-stabilizing: D(c, R*) = D(c,R) · R*,
-        // so R* appears as the tail of every derivative and acts as
-        // its own stabilizer.
-        if (regex->is_star())
-            return true;
-
-        // Σ* (full_seq, i.e., re.all / .*) is self-stabilizing:
-        // D(c, Σ*) = Σ* for every character c.
-        if (regex->is_full_seq())
-            return true;
-
-        // ∅ (fail / empty language) is trivially self-stabilizing:
-        // it has no live derivatives, so the flag is vacuously true.
-        if (regex->is_fail())
-            return true;
-
-        // Complement of full_seq is ∅ (complement of Σ*), which is
-        // also trivially self-stabilizing.
-        if (regex->is_complement() && regex->num_args() == 1 &&
-            regex->arg(0)->is_full_seq())
-            return true;
-
-        // Loop with lo=0 and no upper bound behaves like R*
-        // (r{0,} ≡ r*), so it is self-stabilizing.
-        if (regex->is_loop() && regex->is_nullable()) {
-            // A nullable loop with a star-like body: heuristic check.
-            // Only mark as self-stabilizing if the body is a Kleene closure.
-            // Loop(R, 0, ∞) ~ R* — but we rely on the sgraph to normalize
-            // these, so only catch exact star nodes above.
-        }
-
         return false;
     }
 
@@ -367,7 +333,7 @@ namespace seq {
             re->is_full_char() || re->is_full_seq())
             return false;
         // loop with lo == 0 accepts ε
-        if (re->is_loop() && re->is_nullable())
+        if (re->is_loop() && is_nullable(re))
             return false;
 
         expr* e = re->get_expr();
@@ -394,7 +360,7 @@ namespace seq {
             return true;
         // loop(empty, lo, _) with lo > 0 is empty
         if (re->is_loop() && re->num_args() >= 1 && is_empty_regex(re->arg(0)))
-            return !re->is_nullable(); // empty if not nullable (i.e., lo > 0)
+            return !is_nullable(re); // empty if not nullable (i.e., lo > 0)
 
         return false;
     }
@@ -497,7 +463,7 @@ namespace seq {
             return l_undef;
         if (re->is_fail())
             return l_true;
-        if (re->is_nullable())
+        if (is_nullable(re))
             return l_false;
         // Structural quick checks for kinds that are never empty
         if (re->is_star() || re->is_full_char() || re->is_full_seq() || re->is_to_re() || re->is_range())
@@ -554,7 +520,7 @@ namespace seq {
                 // std::cout << "Deriving by " << snode_label_html(ch, sg().get_manager()) << std::endl;
                 euf::snode* deriv = m_sg.brzozowski_deriv(current, ch);
                 SASSERT(deriv);
-                if (deriv->is_nullable())
+                if (is_nullable(deriv))
                     return l_false; // found an accepting state
                 if (deriv->is_fail())
                     continue; // dead-end, no need to explore further
@@ -699,7 +665,7 @@ namespace seq {
 
         // check final state
         if (mem.m_str && mem.m_str->is_empty()) {
-            if (mem.m_regex->is_nullable())
+            if (is_nullable(mem.m_regex))
                 return simplify_status::satisfied;
             return simplify_status::conflict;
         }
@@ -737,7 +703,7 @@ namespace seq {
             return 1;
         // empty string checks
         if (mem.m_str->is_empty()) {
-            if (mem.m_regex->is_nullable())
+            if (is_nullable(mem.m_regex))
                 return 1;
             return -1;
         }
@@ -768,15 +734,15 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
-// Membership processing
+    // Membership processing
     // -----------------------------------------------------------------------
 
-    bool seq_regex::process_str_mem(seq::str_mem const& mem,
-                                     vector<seq::str_mem>& out_mems) {
+    bool seq_regex::process_str_mem(str_mem const& mem,
+                                     vector<str_mem>& out_mems) {
         SASSERT(mem.m_str && mem.m_regex);
         // empty string: check nullable
         if (mem.m_str->is_empty())
-            return mem.m_regex->is_nullable();
+            return is_nullable(mem.m_regex);
 
         // consume ground prefix: derive regex by each leading concrete char
         seq::str_mem working = mem;

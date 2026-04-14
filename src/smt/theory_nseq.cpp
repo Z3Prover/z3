@@ -423,7 +423,7 @@ namespace smt {
         }
 
         // empty string in non-nullable regex → conflict
-        if (mem.m_str->is_empty() && !mem.m_regex->is_nullable()) {
+        if (mem.m_str->is_empty() && m_seq.re.get_info(mem.m_regex->get_expr()).nullable == l_false) {
             enode_pair_vector eqs;
             literal_vector lits;
             lits.push_back(mem.lit);

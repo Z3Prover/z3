@@ -1613,15 +1613,13 @@ bool seq_util::rex::has_valid_info(expr* r) const {
 seq_util::rex::info seq_util::rex::get_cached_info(expr* e) const {
     if (has_valid_info(e))
         return m_infos[e->get_id()];
-    else
-        return invalid_info;
+    return invalid_info;
 }
 
 /*
   Get the information value associated with the regular expression e
 */
-seq_util::rex::info seq_util::rex::get_info(expr* e) const
-{
+seq_util::rex::info seq_util::rex::get_info(expr* e) const {
     SASSERT(u.is_re(e));
     auto result = get_cached_info(e);
     if (result.is_valid())

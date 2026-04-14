@@ -410,9 +410,10 @@ namespace seq {
         // check if the constraint has the form x in R with x a single variable
         bool is_primitive() const;
 
-        bool is_trivial() const;
+        // TODO: These two functions need to aware of the truth of the ite-guards of the symbolic derivations
+        bool is_trivial(nielsen_node const* n) const;
 
-        bool is_contradiction() const;
+        bool is_contradiction(nielsen_node const* n) const;
 
         // check if the constraint contains a given variable
         bool contains_var(euf::snode* var) const;

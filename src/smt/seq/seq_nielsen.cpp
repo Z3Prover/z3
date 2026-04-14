@@ -166,12 +166,18 @@ namespace seq {
         return m_str && m_str->length() == 1 && m_str->is_var() && m_regex->is_ground();
     }
 
-    bool str_mem::is_trivial() const {
-        return m_str && m_regex && m_str->is_empty() && m_regex->is_nullable();
+    bool str_mem::is_trivial(nielsen_node const* n) const {
+        if (!(m_str && m_regex && m_str->is_empty()))
+            return false;
+        const auto& info = n->graph().seq().re.get_info(m_regex->get_expr());
+        return info.nullable == l_true;
     }
 
-    bool str_mem::is_contradiction() const {
-        return (m_str && m_regex && m_str->is_empty() && !m_regex->is_nullable());
+    bool str_mem::is_contradiction(nielsen_node const* n) const {
+        if (!(m_str && m_regex && m_str->is_empty()))
+            return false;
+        const auto& info = n->graph().seq().re.get_info(m_regex->get_expr());
+        return info.nullable == l_false;
     }
 
     bool str_mem::contains_var(euf::snode* var) const {
@@ -825,7 +831,7 @@ namespace seq {
             unsigned wj = 0;
             for (unsigned j = 0; j < m_str_mem.size(); ++j) {
                 str_mem& mem = m_str_mem[j];
-                if (mem.is_trivial())
+                if (mem.is_trivial(this))
                     continue;
                 m_str_mem[wj++] = mem;
             }
@@ -1136,7 +1142,7 @@ namespace seq {
 
         // check for regex memberships that are immediately infeasible
         for (str_mem& mem : m_str_mem) {
-            if (mem.is_contradiction()) {
+            if (mem.is_contradiction(this)) {
                 TRACE(seq, tout << "contradiction " << mem_pp(m, mem) << "\n");
                 set_general_conflict();
                 set_conflict(backtrack_reason::regex, mem.m_dep);
@@ -1175,7 +1181,7 @@ namespace seq {
     bool nielsen_node::is_satisfied() const {
         if (any_of(m_str_eq, [](auto const &eq) { return !eq.is_trivial(); }))
             return false;
-        if (any_of(m_str_mem, [](auto const &m) { return !m.is_trivial() && !m.is_primitive();}))
+        if (any_of(m_str_mem, [this](auto const &m) { return !m.is_trivial(this) && !m.is_primitive();}))
             return false;
         return true;
     }
@@ -2418,7 +2424,7 @@ namespace seq {
                                           str_mem const*& mem_out,
                                           bool& fwd) const {
         for (str_mem const& mem : node->str_mems()) {
-            SASSERT(mem.m_str && mem.m_regex && !mem.is_trivial());
+            SASSERT(mem.m_str && mem.m_regex && !mem.is_trivial(node));
 
             for (unsigned od = 0; od < 2; ++od) {
                 bool local_fwd = (od == 0);
