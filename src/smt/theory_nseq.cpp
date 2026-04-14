@@ -85,7 +85,6 @@ namespace smt {
 
         std::function<sat::literal(expr*)> literal_if_false = [&](expr* e) {
             bool is_not = m.is_not(e, e);
-            TRACE(seq, tout << "literal_if_false: " << mk_pp(e, m) << " internalized - " << ctx.b_internalized(e) << "\n");
             if (!ctx.b_internalized(e))
                 // it can happen that the element is not internalized, but as soon as we do it, it becomes false.
                 // In case we just skip one of those uninternalized expressions,
@@ -93,14 +92,15 @@ namespace smt {
                 // Alternatively, we could just retry Nielsen saturation in case
                 // adding the Nielsen assumption yields the assumption being false after internalizing
                 ctx.internalize(to_app(e), false);
+
             literal lit = ctx.get_literal(e);
             if (is_not)
                 lit.neg();
             if (ctx.get_assignment(lit) == l_false) {
-                TRACE(seq, tout << "literal_if_false: " << lit << " " << mk_pp(e, m) << " is assigned false\n");
+                // TRACE(seq, tout << "literal_if_false: " << lit << " " << mk_pp(e, m) << " is assigned false\n");
                 return lit;
             }
-            TRACE(seq, tout << "literal_if_false: " << mk_pp(e, m) << " is assigned " << ctx.get_assignment(lit) << "\n");
+            // TRACE(seq, tout << "literal_if_false: " << mk_pp(e, m) << " is assigned " << ctx.get_assignment(lit) << "\n");
             return sat::null_literal;
         };
 

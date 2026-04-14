@@ -93,7 +93,7 @@ namespace euf {
 
         // maps expression id to snode
         ptr_vector<snode> m_expr2snode;
-
+        
         // trail of alias entries (string constant → decomposed snode) for pop
         unsigned_vector  m_alias_trail;       // expression ids
         unsigned_vector  m_alias_trail_lim;   // scope boundaries

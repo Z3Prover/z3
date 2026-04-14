@@ -1275,8 +1275,7 @@ namespace seq {
                                                                   : "UNKNOWN")
                                   << "\n";);
                 if (r == search_result::sat) {
-                    IF_VERBOSE(
-                        1,
+                    IF_VERBOSE(1,                        
                         verbose_stream() << "side constraints: \n";
                         for (auto const &c : cur_path.back()->side_constraints()) {
                             verbose_stream() << "  side constraint: " << c.fml << "\n";
@@ -1289,6 +1288,7 @@ namespace seq {
                     ++m_stats.m_num_unsat;
                     auto deps = collect_conflict_deps();
                     m_dep_mgr.linearize(deps, m_conflict_sources);
+                    TRACE(seq, display(tout, m_root));
                     return r;
                 }
                 // depth limit hit – double the bound and retry
@@ -1420,7 +1420,7 @@ namespace seq {
             // for each variable with multiple regex constraints, verify
             // that the intersection of all its regexes is non-empty.
             // Mirrors ZIPT NielsenNode.CheckRegex.
-            dep_tracker dep;
+            dep_tracker dep = nullptr;
             if (!check_leaf_regex(*node, dep)) {
                 node->set_general_conflict();
                 node->set_conflict(backtrack_reason::regex, dep);
@@ -3655,18 +3655,14 @@ namespace seq {
                 SASSERT(n->m_conflict_external_literal == sat::null_literal);
                 continue;
             }
-
-            SASSERT(n->is_currently_conflict());
-            if (n->m_conflict_external_literal != sat::null_literal) {
-                // We know from the outer solver that this literal is assigned false
-                deps = m_dep_mgr.mk_join(deps, m_dep_mgr.mk_leaf(n->m_conflict_external_literal));
-                if (n->m_conflict_internal)
-                    deps = m_dep_mgr.mk_join(deps, n->m_conflict_internal);
-                continue;
-            }
             SASSERT(n->outgoing().empty());
-            SASSERT(n->m_conflict_internal);
-            deps = m_dep_mgr.mk_join(deps, n->m_conflict_internal);
+            SASSERT(n->is_currently_conflict());
+            if (n->m_conflict_external_literal != sat::null_literal) 
+                // We know from the outer solver that this literal is assigned true and contradicts node constraint
+                deps = m_dep_mgr.mk_join(deps, m_dep_mgr.mk_leaf(n->m_conflict_external_literal));
+            
+            if (n->m_conflict_internal)
+                deps = m_dep_mgr.mk_join(deps, n->m_conflict_internal);
         }
         return deps;
     }

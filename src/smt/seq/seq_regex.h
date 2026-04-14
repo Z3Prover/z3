@@ -38,6 +38,8 @@ Author:
 namespace seq {
 
     class seq_regex {
+        ast_manager &m;
+        seq_util &seq;
         euf::sgraph& m_sg;
 
         // -----------------------------------------------------------------
@@ -91,7 +93,7 @@ namespace seq {
         // -----------------------------------------------------------------------
         char_set minterm_to_char_set(expr* minterm_re);
 
-        seq_regex(euf::sgraph& sg) : m_sg(sg) {}
+        seq_regex(euf::sgraph& sg) : m(sg.get_manager()), seq(sg.get_seq_util()), m_sg(sg) {}
 
         euf::sgraph& sg() { return m_sg; }
 

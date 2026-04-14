@@ -118,15 +118,11 @@ namespace seq {
 
         // Multiple stabilizers: build re.union chain.
         // union(s1, union(s2, ... union(sN-1, sN)...))
-        seq_util& seq = m_sg.get_seq_util();
         euf::snode* result = stabs[stabs.size() - 1];
         for (unsigned i = stabs.size() - 1; i-- > 0; ) {
             expr* lhs = stabs[i]->get_expr();
             expr* rhs = result->get_expr();
-            if (!lhs || !rhs)
-                return nullptr;
-            expr_ref un(seq.re.mk_union(lhs, rhs), m_sg.get_manager());
-            result = m_sg.mk(un);
+            result = m_sg.mk(seq.re.mk_union(lhs, rhs));
         }
         return result;
     }
@@ -374,10 +370,7 @@ namespace seq {
         if (re->is_loop() && re->is_nullable())
             return false;
 
-        seq_util& seq = m_sg.get_seq_util();
         expr* e = re->get_expr();
-        if (!e)
-            return false;
 
         expr* r1, * r2;
         // union is empty iff both children are empty
@@ -413,7 +406,6 @@ namespace seq {
     void seq_regex::collect_char_boundaries(euf::snode* re, unsigned_vector& bounds) const {
         SASSERT(re && re->get_expr());
 
-        seq_util& seq = m_sg.get_seq_util();
         expr* e = re->get_expr();
 
         // Range predicate re.range(lo, hi): boundary at lo and hi+1
@@ -463,7 +455,6 @@ namespace seq {
         if (!re || !re->get_expr())
             return false;
 
-        seq_util& seq = m_sg.get_seq_util();
         unsigned max_c = seq.max_char();
 
         // Partition the alphabet using boundary points induced by regex
@@ -536,7 +527,7 @@ namespace seq {
         unsigned states_explored = 0;
 
         while (!worklist.empty()) {
-            if (!m_sg.get_manager().inc())
+            if (!m.inc())
                 return l_undef;
             if (states_explored >= max_states)
                 return l_undef;
@@ -558,7 +549,7 @@ namespace seq {
                 continue;
 
             for (euf::snode* ch : reps) {
-                if (!m_sg.get_manager().inc())
+                if (!m.inc())
                     return l_undef;
                 // std::cout << "Deriving by " << snode_label_html(ch, sg().get_manager()) << std::endl;
                 euf::snode* deriv = m_sg.brzozowski_deriv(current, ch);
@@ -594,9 +585,6 @@ namespace seq {
         if (regexes.size() == 1)
             return is_empty_bfs(regexes[0], max_states);
 
-        seq_util& seq = m_sg.get_seq_util();
-        ast_manager& mgr = m_sg.get_manager();
-
         euf::snode* result = regexes[0];
         for (unsigned i = 1; i < regexes.size(); ++i) {
             expr* r1 = result->get_expr();
@@ -628,26 +616,14 @@ namespace seq {
             return l_true;  // L ⊆ L
 
         // Build complement(superset)
-        seq_util& seq = m_sg.get_seq_util();
-        ast_manager& mgr = m_sg.get_manager();
         expr* sup_expr = superset_re->get_expr();
-        if (!sup_expr)
-            return l_undef;
-        expr_ref comp(seq.re.mk_complement(sup_expr), mgr);
-        euf::snode* comp_sn = m_sg.mk(comp);
-        if (!comp_sn)
-            return l_undef;
+        euf::snode *comp_sn = m_sg.mk(seq.re.mk_complement(sup_expr));
 
         // Build intersection and check emptiness
         // subset ∩ complement(superset) should be empty for subset relation
         expr* sub_expr = subset_re->get_expr();
-        if (!sub_expr)
-            return l_undef;
-        expr_ref inter(seq.re.mk_inter(sub_expr, comp.get()), mgr);
+        auto inter = seq.re.mk_inter(sub_expr, comp_sn->get_expr());
         euf::snode* inter_sn = m_sg.mk(inter);
-        if (!inter_sn)
-            return l_undef;
-
         return is_empty_bfs(inter_sn);
     }
 
@@ -659,8 +635,6 @@ namespace seq {
             euf::snode* var, nielsen_node const& node, dep_manager& dep_mgr, dep_tracker& dep) const {
         SASSERT(var);
 
-        seq_util& seq = m_sg.get_seq_util();
-        ast_manager& m = m_sg.get_manager();
         euf::snode* result = nullptr;
 
         for (auto const& mem : node.str_mems()) {
@@ -672,7 +646,7 @@ namespace seq {
             SASSERT(first);
             if (first != var)
                 continue;
-            TRACE(seq, tout << mk_pp(first->get_expr(), m) << " " << mem_pp(m, mem) << "\n");
+            TRACE(seq, tout << spp(first, m) << " " << mem_pp(m, mem) << "\n");
 
             if (!result) {
                 result = mem.m_regex;
@@ -682,7 +656,7 @@ namespace seq {
                 expr* r1 = result->get_expr();
                 expr* r2 = mem.m_regex->get_expr();
                 if (r1 && r2) {
-                    expr_ref inter(seq.re.mk_inter(r1, r2), m);
+                    auto inter = seq.re.mk_inter(r1, r2);
                     result = m_sg.mk(inter);
                     dep = dep_mgr.mk_join(dep, mem.m_dep);
                 }
@@ -742,8 +716,6 @@ namespace seq {
         // For now, only handle the case where the entire string is ground:
         // consume all characters from the front (which covers trailing chars
         // when the string is fully ground).
-        if (!mem.m_str || !mem.m_regex)
-            return simplify_status::ok;
         if (!mem.m_str->is_ground())
             return simplify_status::ok;
 
@@ -756,8 +728,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     int seq_regex::check_trivial(seq::str_mem const& mem) const {
-        if (!mem.m_str || !mem.m_regex)
-            return 0;
+        SASSERT(mem.m_str && mem.m_regex);
         // regex is ∅ => always conflict
         if (is_empty_regex(mem.m_regex))
             return -1;
@@ -802,8 +773,7 @@ namespace seq {
 
     bool seq_regex::process_str_mem(seq::str_mem const& mem,
                                      vector<seq::str_mem>& out_mems) {
-        if (!mem.m_str || !mem.m_regex)
-            return true;
+        SASSERT(mem.m_str && mem.m_regex);
         // empty string: check nullable
         if (mem.m_str->is_empty())
             return mem.m_regex->is_nullable();
@@ -840,6 +810,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     seq::str_mem seq_regex::record_history(seq::str_mem const& mem, euf::snode* history_re) {
+
         return str_mem(mem.m_str, mem.m_regex, mem.m_dep);
     }
 
@@ -848,6 +819,38 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     euf::snode* seq_regex::extract_cycle(seq::str_mem const& mem) const {
+#if 0
+        // Walk the history chain looking for a repeated regex.
+        // A cycle exists when the current regex matches a regex in the history.
+        if (!mem.m_regex || !mem.m_history)
+            return nullptr;
+
+        euf::snode* current = mem.m_regex;
+        euf::snode* hist = mem.m_history;
+
+        // Walk the history chain up to a bounded depth.
+        // The history is structured as a chain of regex snapshots connected
+        // via the sgraph's regex-concat: each level's arg(0) is a snapshot
+        // and arg(1) is the tail. A leaf (non-concat) is a terminal entry.
+        unsigned bound = 1000;
+        while (hist && bound-- > 0) {
+            euf::snode* entry = hist;
+            euf::snode* tail = nullptr;
+
+            // If the history node is a regex concat, decompose it:
+            // arg(0) is the regex snapshot, arg(1) is the rest of the chain
+            if (hist->is_concat() && seq.re.is_concat(hist->get_expr())) {
+                entry = hist->arg(0);
+                tail = hist->arg(1);
+            }
+
+            // Check pointer equality (fast, covers normalized regexes)
+            if (entry == current)
+                return entry;
+
+            hist = tail;
+        }
+#endif
         return nullptr;
     }
 
@@ -861,11 +864,7 @@ namespace seq {
             return nullptr;
 
         expr* re_expr = cycle_regex->get_expr();
-        if (!re_expr)
-            return nullptr;
-
-        seq_util& seq = m_sg.get_seq_util();
-        expr_ref star_expr(seq.re.mk_star(re_expr), m_sg.get_manager());
+        auto star_expr = seq.re.mk_star(re_expr);
         return m_sg.mk(star_expr);
     }
 
@@ -894,9 +893,6 @@ namespace seq {
         ptr_vector<euf::snode> const* stabs = get_stabilizers(re);
         if (!stabs || stabs->empty())
             return nullptr;
-
-        seq_util& seq = m_sg.get_seq_util();
-        ast_manager& m = m_sg.get_manager();
         euf::snode* filtered_union = nullptr;
 
         for (euf::snode* s : *stabs) {
@@ -907,11 +903,12 @@ namespace seq {
             if (d && d->is_fail()) {
                 if (!filtered_union) {
                     filtered_union = s;
-                } else {
+                } 
+                else {
                     expr* e1 = filtered_union->get_expr();
                     expr* e2 = s->get_expr();
                     if (e1 && e2) {
-                        expr_ref u(seq.re.mk_union(e1, e2), m);
+                        auto u = seq.re.mk_union(e1, e2);
                         filtered_union = m_sg.mk(u);
                     }
                 }
@@ -924,8 +921,7 @@ namespace seq {
         expr* fe = filtered_union->get_expr();
         if (!fe)
             return nullptr;
-        expr_ref star_expr(seq.re.mk_star(fe), m);
-        return m_sg.mk(star_expr);
+        return m_sg.mk(seq.re.mk_star(fe));
     }
 
     // -----------------------------------------------------------------------
@@ -944,9 +940,6 @@ namespace seq {
 
         if (tokens.empty())
             return nullptr;
-
-        seq_util& seq = m_sg.get_seq_util();
-        ast_manager& m = m_sg.get_manager();
 
         // Replay tokens on the cycle regex, detecting sub-cycles.
         // A sub-cycle is detected when the derivative returns to cycle_regex.
@@ -1006,14 +999,11 @@ namespace seq {
                     if (filtered) {
                         expr* fe = filtered->get_expr();
                         if (fe) {
-                            if (!body) {
-                                body = filtered;
-                            } else {
+                            if (!body) 
+                                body = filtered;                            
+                            else {
                                 expr* be = body->get_expr();
-                                if (be) {
-                                    expr_ref cat(seq.re.mk_concat(be, fe), m);
-                                    body = m_sg.mk(cat);
-                                }
+                                body = m_sg.mk(seq.re.mk_concat(be, fe));                                
                             }
                         }
                     }
@@ -1021,8 +1011,6 @@ namespace seq {
 
                 // Convert char token to regex: to_re(unit(tok))
                 expr* tok_expr = tok->get_expr();
-                if (!tok_expr)
-                    break;
 
                 expr_ref unit_str(seq.str.mk_unit(tok_expr), m);
                 expr_ref tok_re(seq.re.mk_to_re(unit_str), m);
@@ -1087,16 +1075,10 @@ namespace seq {
         if (!stab_union)
             return false;
 
-        seq_util& seq = m_sg.get_seq_util();
-        ast_manager& mgr = m_sg.get_manager();
         expr* su_expr = stab_union->get_expr();
-        if (!su_expr)
-            return false;
-        expr_ref stab_star(seq.re.mk_star(su_expr), mgr);
+        expr_ref stab_star(seq.re.mk_star(su_expr), m);
         euf::snode* stab_star_sn = m_sg.mk(stab_star);
-        if (!stab_star_sn)
-            return false;
-
+        
         // 4. Collect all primitive regex constraints on variable `first`
         euf::snode* x_range = collect_primitive_regex_intersection(first, node, dep);
         if (!x_range)
@@ -1111,7 +1093,6 @@ namespace seq {
     }
 
     char_set seq_regex::minterm_to_char_set(expr* re_expr) {
-        seq_util& seq = m_sg.get_seq_util();
         unsigned max_c = seq.max_char();
 
         if (!re_expr)
@@ -1190,5 +1171,3 @@ namespace seq {
     }
 
 }
-
-

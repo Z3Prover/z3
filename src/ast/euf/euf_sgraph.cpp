@@ -332,27 +332,26 @@ namespace euf {
         }
     }
 
-    snode* sgraph::mk_snode(expr* e, snode_kind k, unsigned num_args, snode* const* args) {
+    snode *sgraph::mk_snode(expr *e, snode_kind k, unsigned num_args, snode *const *args) {
+        SASSERT(e);
         unsigned id = m_nodes.size();
-        snode* n = snode::mk(m_region, e, k, id, num_args, args);
+        snode *n = snode::mk(m_region, e, k, id, num_args, args);
         compute_metadata(n);
         compute_hash_matrix(n);
         m_nodes.push_back(n);
         SASSERT(!n->is_char_or_unit() || m_seq.str.is_unit(n->get_expr()));
-
-        if (e) {
-            unsigned eid = e->get_id();
-            m_expr2snode.reserve(eid + 1, nullptr);
-            m_expr2snode[eid] = n;
-            // pin expression via egraph (the egraph has an expr trail)
-            mk_enode(e);
-        }
+        unsigned eid = e->get_id();
+        m_expr2snode.reserve(eid + 1, nullptr);
+        m_expr2snode[eid] = n;
+        // pin expression via egraph (the egraph has an expr trail)
+        mk_enode(e);
         ++m_stats.m_num_nodes;
         return n;
     }
 
     snode* sgraph::mk(expr* e) {
         SASSERT(e);
+        expr_ref _e(e, m); // pin locally to not clash with character creation, never needed if we use mk_enode early.
         snode* n = find(e);
         if (n)
             return n;
