@@ -707,13 +707,7 @@ namespace smt {
                 // Nielsen found a consistent assignment for positive constraints.
                 SASSERT(has_eq_or_mem); // we should have axiomatized them
 
-                if (!add_nielsen_assumptions()) {
-                    // If assumptions remain undefined, returning SAT can yield
-                    // unsound/invalid models because the chosen Nielsen branch
-                    // is not yet committed in the outer SAT core.
-                    TRACE(seq, tout << "nseq final_check: unresolved assumptions, FC_GIVEUP\n");
-                    return FC_GIVEUP;
-                }
+                add_nielsen_assumptions();
 
                 if (!check_length_coherence())
                     return FC_CONTINUE;
@@ -736,8 +730,7 @@ namespace smt {
     }
 
 
-    bool theory_nseq::add_nielsen_assumptions() {        
-        bool has_undef = false;
+    void theory_nseq::add_nielsen_assumptions() {
         m_nielsen_literals.reset();
         struct reset_vector : public trail {
             sat::literal_vector &v;
@@ -760,7 +753,6 @@ namespace smt {
                 break;
             case l_undef:
                 // std::cout << "Undef [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
-                has_undef = true; 
                 // Commit the chosen Nielsen assumption to the SAT core so it
                 // cannot remain permanently undefined in a partial model.
                 ctx.force_phase(lit);
@@ -771,15 +763,10 @@ namespace smt {
             case l_false: 
                 // this should not happen because nielsen checks for this before returning a satisfying path.
                 TRACE(seq, tout << "nseq final_check: nielsen assumption " << c.fml << " is false; internalized - " << ctx.e_internalized(c.fml) << "\n");
-                has_undef = true;
                 std::cout << "False [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
                 break;
             }
         }
-        // std::cout << std::endl;
-        if (has_undef)
-            return false;
-        return true;
     }
 
     // -----------------------------------------------------------------------
