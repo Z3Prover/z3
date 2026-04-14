@@ -153,7 +153,7 @@ namespace smt {
             // in mode bb_neg this is Algorithm 7 from https://sat.inesc-id.pt/~mikolas/bb-aicom-preprint.pdf
             while (!bb_candidate_lits.empty() && !canceled() && m.inc()) {
                 // remove candidates that the other backbone thread found to be backbones
-                if (num_global_bb_threads > 1) {
+                if (m_num_global_bb_threads > 1) {
                     for (unsigned i = 0; i < bb_candidate_lits.size();) {
                         expr* tmp = bb_candidate_lits.get(i);
                         if (b.is_global_backbone(m_l2g, tmp)) 
@@ -327,7 +327,7 @@ namespace smt {
             expr_ref_vector l_core(l2g.from());
             l_core.push_back(mk_not(backbone));
 
-             // Backbone workers do not own entries in m_worker_leases, but they can still
+            // Backbone workers do not own entries in m_worker_leases, but they can still
             // close subtrees that active SMT workers are solving. Route this through the
             // lease-aware backtrack path so affected worker leases are canceled consistently.
             // The synthetic lease snapshots t's current state under the batch-manager lock,
@@ -508,7 +508,7 @@ namespace smt {
         context::copy(p.ctx, *ctx, true);
 
         smt_parallel_params pp(p.ctx.m_params);
-        num_global_bb_threads = pp.num_global_bb_threads();
+        m_num_global_bb_threads = pp.num_global_bb_threads();
     }
 
     parallel::bb_candidates parallel::worker::find_backbone_candidates(unsigned k) {
@@ -1123,13 +1123,19 @@ namespace smt {
         return true;
     }
 
-    void parallel::batch_manager::initialize(unsigned initial_max_thread_conflicts) {
+    void parallel::batch_manager::initialize(unsigned num_global_bb_threads, unsigned initial_max_thread_conflicts) {
         m_state = state::is_running;
-        m_search_tree.reset();
+
+        m_num_global_bb_threads = num_global_bb_threads;
+        m_bb_last_batch_processed.reset();
+        m_bb_last_batch_processed.resize(m_num_global_bb_threads);
         m_bb_candidates.reset();
+
+        m_search_tree.reset();
         m_search_tree.set_effort_unit(initial_max_thread_conflicts);
+
         m_worker_leases.reset();
-        m_worker_leases.resize(p.num_threads);
+        m_worker_leases.resize(p.m_workers.size());
     }
 
     void parallel::batch_manager::collect_statistics(::statistics &st) const {
@@ -1180,11 +1186,12 @@ namespace smt {
             m_global_backbones_workers.push_back(w);
             sl.push_child(&(w->limit()));
         }
-        m_batch_manager.set_num_backbone_threads(num_global_bb_threads);
+        IF_VERBOSE(1, verbose_stream() << "Launched " << m_workers.size() << " CDCL threads, "
+                                       << (m_sls_worker ? 1 : 0) << " SLS threads, "
+                                       << m_global_backbones_workers.size() << " global backbone threads.\n";);
+
+        m_batch_manager.initialize(num_global_bb_threads);
         
-
-        m_batch_manager.initialize();
-
         // Launch threads
         vector<std::thread> threads;
         threads.resize(total_threads);

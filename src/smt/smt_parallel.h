@@ -36,7 +36,6 @@ namespace smt {
 
     class parallel {
         context& ctx;
-        unsigned num_threads;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -104,7 +103,7 @@ namespace smt {
             std::condition_variable m_bb_cv;
             bb_candidates m_bb_current_batch;
             unsigned m_bb_batch_id = 0;
-            unsigned num_global_bb_threads = 0;
+            unsigned m_num_global_bb_threads = 0;
             unsigned_vector m_bb_last_batch_processed;
             unsigned m_bb_cancel_epoch = 0; // When a backbone worker finishes early, it increments m_bb_cancel_epoch and notifies all
 
@@ -153,7 +152,7 @@ namespace smt {
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)), m_global_backbones(m) { }
 
-            void initialize(unsigned initial_max_thread_conflicts = 1000); // TODO: pass in from worker defaults
+            void initialize(unsigned num_global_bb_threads, unsigned initial_max_thread_conflicts = 1000); // TODO: pass in from worker config
 
             void set_unsat(ast_translation& l2g, expr_ref_vector const& unsat_core);
             void set_sat(ast_translation& l2g, model& m);
@@ -180,13 +179,6 @@ namespace smt {
             bool is_global_backbone(ast_translation& l2g, expr* bb_cand) {
                 std::scoped_lock lock(mux);
                 return is_global_backbone_unlocked(l2g, bb_cand);
-            }
-
-            void set_num_backbone_threads(unsigned n) {
-                std::scoped_lock lock(mux);
-                num_global_bb_threads = n;
-                m_bb_last_batch_processed.reset();
-                m_bb_last_batch_processed.resize(n);
             }
 
             void cancel_current_backbone_batch() {
@@ -311,7 +303,7 @@ namespace smt {
             unsigned m_bb_conflicts_per_chunk = 1000;
             stats m_stats;
             bb_mode m_mode;
-            unsigned num_global_bb_threads = 1; // used to toggle behavior when testing bb candidates 
+            unsigned m_num_global_bb_threads = 1; // used to toggle behavior when testing bb candidates 
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             bool check_backbone(expr* bb_candidate);
         public:
