@@ -712,7 +712,8 @@ namespace smt {
     }
 
     void parallel::batch_manager::cancel_closed_leases_unlocked(unsigned source_worker_id) {
-        for (unsigned worker_id = 0; worker_id < m_worker_leases.size(); ++worker_id) {
+        unsigned n = std::min(m_worker_leases.size(), p.m_workers.size());
+        for (unsigned worker_id = 0; worker_id < n; ++worker_id) {
             if (worker_id == source_worker_id)
                 continue;
             auto const& lease = m_worker_leases[worker_id];
