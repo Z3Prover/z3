@@ -740,12 +740,9 @@ namespace smt {
         }
         release_lease_unlocked(worker_id, lease.node, lease.epoch);
 
-        // only backtrack if the lease is still valid (i.e., the worker has not been given a new node to work on or the lease has not been canceled by another worker)
-        // this means we can potentially delay backtracking for some unsat cubes until another worker (whose lease is valid) determines it UNSAT. 
-        // Empirically, this is better than aggressively backtracking on every unsat cube, for now.
-        if (lease.node &&
-            m_search_tree.is_lease_valid(lease.node, lease.epoch) &&
-            !m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
+        // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
+        // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
+        if (lease.node && !m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
             m_search_tree.backtrack(lease.node, g_core);
 
         cancel_closed_leases_unlocked(worker_id);
