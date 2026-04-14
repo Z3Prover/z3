@@ -444,9 +444,7 @@ namespace seq {
         if (!root())
             create_root();
         dep_tracker dep = m_dep_mgr.mk_leaf(l);
-        euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
-        unsigned id = next_mem_id();
-        m_root->add_str_mem(str_mem(str, regex, history, id, dep));
+        m_root->add_str_mem(str_mem(str, regex, dep));
     }
 
     // test-friendly overloads (no external dependency tracking)
@@ -463,9 +461,7 @@ namespace seq {
         if (!root())
             create_root();
         dep_tracker dep = nullptr;
-        euf::snode* history = m_sg.mk_empty_seq(str->get_sort());
-        unsigned id = next_mem_id();
-        m_root->add_str_mem(str_mem(str, regex, history, id, dep));
+        m_root->add_str_mem(str_mem(str, regex, dep));
     }
 
     void nielsen_graph::inc_run_idx() {
@@ -490,7 +486,6 @@ namespace seq {
         m_sat_path.reset();
         m_run_idx = 0;
         m_depth_bound = 0;
-        m_next_mem_id = 0;
         m_fresh_cnt = 0;
         m_root_constraints_asserted = false;
         m_mod_cnt.reset();
@@ -1097,9 +1092,6 @@ namespace seq {
                     }
                     mem.m_str = dir_drop(sg, mem.m_str, 1, fwd);
                     mem.m_regex = deriv;
-                    // ZIPT tracks history only in forward direction.
-                    if (fwd)
-                        mem.m_history = sg.mk_concat(mem.m_history, tok);
                 }
             }
         }
@@ -1139,7 +1131,6 @@ namespace seq {
 
                 mem.m_str = sg.drop_left(mem.m_str, 1);
                 mem.m_regex = next;
-                mem.m_history = sg.mk_concat(mem.m_history, tok);
             }
         }
 
@@ -1374,25 +1365,6 @@ namespace seq {
             ++m_stats.m_num_simplify_conflict;
             return search_result::unsat;
         }
-
-        str_mem* mem = nullptr;
-        for (auto& m : node->m_str_mem) {
-            if (m.m_id == 28) {
-                mem = &m;
-                break;
-            }
-        }
-        if (mem) {
-            vector<dep_manager::value, false> deps;
-            m_dep_mgr.linearize(mem->m_dep, deps);
-            for (auto& dep : deps) {
-                if (std::holds_alternative<enode_pair>(dep))
-                    std::cout << "eq: " << mk_pp(std::get<enode_pair>(dep).first->get_expr(), m) << " = " << mk_pp(std::get<enode_pair>(dep).second->get_expr(), m) << std::endl;
-                else
-                    std::cout << "mem literal: " << std::get<sat::literal>(dep) << std::endl;
-            }
-        }
-
 
         // simplify constraints (idempotent after first call)
         const simplify_result sr = node->simplify_and_init(cur_path);
@@ -2723,105 +2695,6 @@ namespace seq {
 
     bool nielsen_graph::apply_star_intr(nielsen_node* node) {
         return false;
-        // Only fire if a backedge was set (cycle detected)
-        if (!node->backedge())
-            return false;
-
-        // Look for a str_mem with a variable-headed string
-        for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
-            str_mem const& mem = node->str_mems()[mi];
-            if (!mem.m_str || !mem.m_regex) 
-                continue;
-            if (mem.is_primitive()) 
-                continue;
-            euf::snode* first = mem.m_str->first();
-            if (!first || !first->is_var()) 
-                continue;
-
-            euf::snode* x = first;
-            expr* re_expr = mem.m_regex->get_expr();
-            if (!re_expr)
-                continue;
-            expr *str_expr = mem.m_str->get_expr();
-
-            // Determine the stabilizer base:
-            // 1. If self-stabilizing, use regex itself as stabilizer
-            // 2. Otherwise, try strengthened_stabilizer from cycle history
-            // 3. Fall back to simple star(R)
-            euf::snode* stab_base = nullptr;
-
-            if (m_seq_regex && m_seq_regex->is_self_stabilizing(mem.m_regex))
-                stab_base = mem.m_regex;
-            else if (m_seq_regex && mem.m_history)
-                stab_base = m_seq_regex->strengthened_stabilizer(mem.m_regex, mem.m_history);
-
-            if (!stab_base)
-                // Fall back: simple star of the cycle regex
-                stab_base = mem.m_regex;
-            SASSERT(stab_base);
-
-            // Register the stabilizer
-            if (m_seq_regex)
-                m_seq_regex->add_stabilizer(mem.m_regex, stab_base);
-
-            // Check if stabilizer equals regex → self-stabilizing
-            if (m_seq_regex && stab_base == mem.m_regex)
-                m_seq_regex->set_self_stabilizing(mem.m_regex);
-
-            // Build stab_star = star(stab_base)
-            expr* stab_expr = stab_base->get_expr();
-            if (!stab_expr)
-                continue;
-            expr_ref star_re(m_seq.re.mk_star(stab_expr), m);
-            euf::snode* star_sn = m_sg.mk(star_re);
-            if (!star_sn)
-                continue;
-
-            // Try subsumption: if L(x_range) ⊆ L(stab_star), drop the constraint
-            if (m_seq_regex && m_seq_regex->try_subsume(mem, *node))
-                continue;
-
-            // Create child: x → pr · po
-            
-            th_rewriter rw(m);
-            auto pr_e = skolem(m, rw).mk("star-intro-left", str_expr, re_expr, str_expr->get_sort());
-            auto po_e = skolem(m, rw).mk("star-intro-right", str_expr, re_expr, str_expr->get_sort());
-            euf::snode *pr = m_sg.mk(pr_e);
-            euf::snode *po = m_sg.mk(po_e);
-            euf::snode* str_tail = m_sg.drop_first(mem.m_str);
-
-            nielsen_node* child = mk_child(node);
-
-            // Add membership: pr ∈ stab_base* (stabilizer constraint)
-            child->add_str_mem(str_mem(pr, star_sn, mem.m_history, next_mem_id(), mem.m_dep));
-
-            // Add remaining membership: po · tail ∈ R (same regex, trimmed history)
-            euf::snode* post_tail = str_tail->is_empty() ? po : m_sg.mk_concat(po, str_tail);
-            child->add_str_mem(str_mem(post_tail, mem.m_regex, nullptr, next_mem_id(), mem.m_dep));
-
-            // Blocking constraint: po must NOT start with stab_base
-            // po ∈ complement(non_nullable(stab_base) · Σ*)
-            // This prevents redundant unrolling.
-            if (!stab_base->is_nullable()) {
-                sort* str_sort = m_seq.str.mk_string_sort();
-                expr_ref full_seq(m_seq.re.mk_full_seq(m_seq.re.mk_re(str_sort)), m);
-                expr_ref base_then_all(m_seq.re.mk_concat(stab_expr, full_seq), m);
-                expr_ref block_re(m_seq.re.mk_complement(base_then_all), m);
-                euf::snode* block_sn = m_sg.mk(block_re);
-                if (block_sn)
-                    child->add_str_mem(str_mem(po, block_sn, nullptr, next_mem_id(), mem.m_dep));
-            }
-
-            // Substitute x → pr · po
-            nielsen_edge* e = mk_edge(node, child, false);
-            euf::snode* replacement = m_sg.mk_concat(pr, po);
-            nielsen_subst s(x, replacement, mem.m_dep);
-            e->add_subst(s);
-            child->apply_subst(m_sg, s);
-
-            return true;
-        }
-        return false;
     }
 
     // -----------------------------------------------------------------------
@@ -3069,15 +2942,15 @@ namespace seq {
                 // remove the original mem from child
                 auto& child_mems = child->str_mems();
                 for (unsigned k = 0; k < child_mems.size(); ++k) {
-                    if (child_mems[k].m_id == mem.m_id) {
+                    if (child_mems[k] == mem) {
                         child_mems[k] = child_mems.back();
                         child_mems.pop_back();
                         break;
                     }
                 }
                 
-                child->add_str_mem(str_mem(first, sn_p, mem.m_history, next_mem_id(), mem.m_dep));
-                child->add_str_mem(str_mem(tail, sn_q, mem.m_history, next_mem_id(), mem.m_dep));
+                child->add_str_mem(str_mem(first, sn_p, mem.m_dep));
+                child->add_str_mem(str_mem(tail, sn_q, mem.m_dep));
             }
             
             return true;
@@ -3410,7 +3283,7 @@ namespace seq {
                         child->add_constraint(constraint(f, mem.m_dep, m));
                     mk_edge(node, child, true);
                     for (str_mem &cm : child->str_mems())
-                        if (cm.m_id == mem.m_id) {
+                        if (cm == mem) {
                             cm.m_regex = new_regex_snode;
                             break;
                         }

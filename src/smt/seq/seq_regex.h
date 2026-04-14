@@ -239,13 +239,13 @@ namespace seq {
         // compute derivative of a str_mem constraint: advance past one character.
         // the string side is shortened by drop_first and the regex is derived.
         // Propagates self-stabilizing flags from the parent regex to the derivative.
-        seq::str_mem derive(seq::str_mem const& mem, euf::snode* elem) {
+        str_mem derive(str_mem const& mem, euf::snode* elem) {
             euf::snode* parent_re = mem.m_regex;
             euf::snode* deriv = m_sg.brzozowski_deriv(parent_re, elem);
             if (deriv)
                 propagate_self_stabilizing(parent_re, deriv);
             euf::snode* new_str = m_sg.drop_first(mem.m_str);
-            return seq::str_mem(new_str, deriv, mem.m_history, mem.m_id, mem.m_dep);
+            return str_mem(new_str, deriv, mem.m_dep);
         }
 
         // -----------------------------------------------------------------

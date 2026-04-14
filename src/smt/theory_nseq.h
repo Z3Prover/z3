@@ -61,7 +61,6 @@ namespace smt {
 
         vector<prop_item>       m_prop_queue;
         unsigned                m_prop_qhead = 0;
-        unsigned                m_next_mem_id = 0;     // monotone counter for tracked_str_mem ids
         obj_hashtable<expr>     m_axiom_set;   // dedup guard for axiom_item enqueues
         obj_hashtable<expr>     m_no_diseq_set;     // track expressions that should not trigger new disequality axioms
         expr_ref_vector         m_relevant_lengths;     // track variables whose lengths are relevant

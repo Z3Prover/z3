@@ -397,16 +397,14 @@ namespace seq {
     struct str_mem {
         euf::snode* m_str;
         euf::snode* m_regex;
-        euf::snode* m_history;  // tracks derivation history for cycle detection
-        unsigned    m_id;       // unique identifier
         dep_tracker m_dep;
 
-        str_mem(): m_str(nullptr), m_regex(nullptr), m_history(nullptr), m_id(UINT_MAX), m_dep(nullptr) {}
-        str_mem(euf::snode* str, euf::snode* regex, euf::snode* history, unsigned id, dep_tracker const& dep):
-            m_str(str), m_regex(regex), m_history(history), m_id(id), m_dep(dep) {}
+        str_mem(): m_str(nullptr), m_regex(nullptr), m_dep(nullptr) {}
+        str_mem(euf::snode* str, euf::snode* regex, dep_tracker const& dep):
+            m_str(str), m_regex(regex), m_dep(dep) {}
 
         bool operator==(str_mem const& other) const {
-            return m_id == other.m_id && m_str == other.m_str && m_regex == other.m_regex;
+            return m_str == other.m_str && m_regex == other.m_regex;
         }
 
         // check if the constraint has the form x in R with x a single variable
@@ -784,7 +782,6 @@ namespace seq {
         bool                          m_parikh_enabled = true;
         bool                          m_signature_split = false;
         bool                          m_regex_factorization = true;
-        unsigned                      m_next_mem_id = 0;
         unsigned                      m_fresh_cnt = 0;
         nielsen_stats                 m_stats;
 
@@ -912,9 +909,6 @@ namespace seq {
         void set_signature_split(bool e) { m_signature_split = e; }
         
         void set_regex_factorization(bool e) { m_regex_factorization = e; }
-
-        // generate next unique regex membership id
-        unsigned next_mem_id() { return m_next_mem_id++; }
 
         // display for debugging
         std::ostream& display(std::ostream& out) const;

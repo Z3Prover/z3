@@ -265,7 +265,7 @@ namespace smt {
                 seq::dep_tracker dep = nullptr;
                 if (is_true) {
                     ctx.push_trail(restore_vector(m_prop_queue));
-                    m_prop_queue.push_back(mem_item(sn_str, sn_re, lit, nullptr, m_next_mem_id++, dep));
+                    m_prop_queue.push_back(mem_item(sn_str, sn_re, lit, dep));
                 }
                 else {
                     // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
@@ -274,7 +274,7 @@ namespace smt {
                     expr_ref re_compl(m_seq.re.mk_complement(re), m);
                     euf::snode* sn_re_compl = get_snode(re_compl.get());
                     ctx.push_trail(restore_vector(m_prop_queue));
-                    m_prop_queue.push_back(mem_item(sn_str, sn_re_compl, lit, nullptr, m_next_mem_id++, dep));
+                    m_prop_queue.push_back(mem_item(sn_str, sn_re_compl, lit, dep));
                 }
             }
             else if (m_seq.str.is_prefix(e)) {

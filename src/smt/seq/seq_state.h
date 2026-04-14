@@ -27,16 +27,16 @@ namespace smt {
 
     class enode;
 
-    struct tracked_str_eq : public seq::str_eq {
+    struct tracked_str_eq : seq::str_eq {
         enode *m_l, *m_r;
         tracked_str_eq(euf::snode *lhs, euf::snode *rhs, smt::enode *l, smt::enode *r, seq::dep_tracker const &dep)
-            : seq::str_eq(lhs, rhs, dep), m_l(l), m_r(r) {}
+            : str_eq(lhs, rhs, dep), m_l(l), m_r(r) {}
     };
 
-    struct tracked_str_mem : public seq::str_mem {
+    struct tracked_str_mem : seq::str_mem {
         sat::literal lit;
-        tracked_str_mem(euf::snode *str, euf::snode *regex, sat::literal lit, euf::snode *history, unsigned id, seq::dep_tracker const &dep)
-            : seq::str_mem(str, regex, history, id, dep), lit(lit) {}
+        tracked_str_mem(euf::snode *str, euf::snode *regex, sat::literal lit, seq::dep_tracker const &dep)
+            : str_mem(str, regex, dep), lit(lit) {}
     };
 
 }

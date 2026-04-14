@@ -53,7 +53,7 @@ namespace seq {
 
         // display regex memberships
         for (auto const &mem : n->str_mems()) {
-            out << "    str_mem[" << mem.m_id << "]: ";
+            out << "    str_mem: ";
             if (mem.m_str)
                 out << "str[id=" << mem.m_str->id() << ",len=" << mem.m_str->length() << "]";
             else

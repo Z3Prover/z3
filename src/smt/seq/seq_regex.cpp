@@ -840,22 +840,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     seq::str_mem seq_regex::record_history(seq::str_mem const& mem, euf::snode* history_re) {
-        // Build a history chain by prepending the new regex entry to the
-        // existing history. Uses regex-concat as a cons cell:
-        //   new_history = re.concat(history_re, old_history)
-        // where arg(0) is the latest entry and arg(1) is the tail.
-        // If old_history is nullptr, the new entry becomes the terminal leaf.
-        euf::snode* new_history = history_re;
-        if (mem.m_history && history_re) {
-            expr* re_expr = history_re->get_expr();
-            expr* old_expr = mem.m_history->get_expr();
-            if (re_expr && old_expr) {
-                seq_util& seq = m_sg.get_seq_util();
-                expr_ref chain(seq.re.mk_concat(re_expr, old_expr), m_sg.get_manager());
-                new_history = m_sg.mk(chain);
-            }
-        }
-        return seq::str_mem(mem.m_str, mem.m_regex, new_history, mem.m_id, mem.m_dep);
+        return str_mem(mem.m_str, mem.m_regex, mem.m_dep);
     }
 
     // -----------------------------------------------------------------------
@@ -863,42 +848,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     euf::snode* seq_regex::extract_cycle(seq::str_mem const& mem) const {
-        // Walk the history chain looking for a repeated regex.
-        // A cycle exists when the current regex matches a regex in the history.
-        if (!mem.m_regex || !mem.m_history)
-            return nullptr;
-
-        euf::snode* current = mem.m_regex;
-        euf::snode* hist = mem.m_history;
-
-        // Walk the history chain up to a bounded depth.
-        // The history is structured as a chain of regex snapshots connected
-        // via the sgraph's regex-concat: each level's arg(0) is a snapshot
-        // and arg(1) is the tail. A leaf (non-concat) is a terminal entry.
-        unsigned bound = 1000;
-        while (hist && bound-- > 0) {
-            euf::snode* entry = hist;
-            euf::snode* tail = nullptr;
-
-            // If the history node is a regex concat, decompose it:
-            // arg(0) is the regex snapshot, arg(1) is the rest of the chain
-            seq_util& seq = m_sg.get_seq_util();
-            if (hist->is_concat() && hist->get_expr() &&
-                seq.re.is_concat(hist->get_expr())) {
-                entry = hist->arg(0);
-                tail = hist->arg(1);
-            }
-
-            // Check pointer equality (fast, covers normalized regexes)
-            if (entry == current)
-                return entry;
-            // Check expression-level equality as fallback
-            if (entry->get_expr() && current->get_expr() &&
-                entry->get_expr() == current->get_expr())
-                return entry;
-
-            hist = tail;
-        }
         return nullptr;
     }
 
@@ -929,19 +878,7 @@ namespace seq {
         // The history is built by simplify_and_init as a left-associative
         // string concat chain: concat(concat(concat(nil, c1), c2), c3).
         // Extract the tokens consumed since the ancestor.
-        if (!current.m_history)
-            return nullptr;
-
-        unsigned cur_len = current.m_history->length();
-        unsigned anc_len = ancestor.m_history ? ancestor.m_history->length() : 0;
-
-        if (cur_len <= anc_len)
-            return nullptr;
-
-        if (anc_len == 0)
-            return current.m_history;
-
-        return m_sg.drop_left(current.m_history, anc_len);
+        return nullptr;
     }
 
     // -----------------------------------------------------------------------
