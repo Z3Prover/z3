@@ -148,15 +148,12 @@ namespace seq {
     }
 
     void seq_regex::set_self_stabilizing(euf::snode* regex) {
-        if (!regex)
-            return;
-        m_self_stabilizing.insert(regex->id());
+        if (regex)
+            m_self_stabilizing.insert(regex->id());
     }
 
     bool seq_regex::is_self_stabilizing(euf::snode* regex) const {
-        if (!regex)
-            return false;
-        return m_self_stabilizing.contains(regex->id());
+        return regex && m_self_stabilizing.contains(regex->id());
     }
 
     // -----------------------------------------------------------------------
@@ -502,6 +499,8 @@ namespace seq {
     // BFS regex emptiness check
     // -----------------------------------------------------------------------
 
+    // NSB review: we have similar functionality in seq_rewriter::some_seq_in_re
+    // currently both these versions only relly work for strings not general sequences
     lbool seq_regex::is_empty_bfs(euf::snode* re, unsigned max_states) {
         if (!re)
             return l_undef;
@@ -603,8 +602,7 @@ namespace seq {
             expr* r1 = result->get_expr();
             expr* r2 = regexes[i]->get_expr();
             SASSERT(r1 && r2);
-            expr_ref inter(seq.re.mk_inter(r1, r2), mgr);
-            result = m_sg.mk(inter);
+            result = m_sg.mk(seq.re.mk_inter(r1, r2));
             SASSERT(result);
         }
 
@@ -662,18 +660,19 @@ namespace seq {
         SASSERT(var);
 
         seq_util& seq = m_sg.get_seq_util();
-        ast_manager& mgr = m_sg.get_manager();
+        ast_manager& m = m_sg.get_manager();
         euf::snode* result = nullptr;
 
         for (auto const& mem : node.str_mems()) {
-            SASSERT(mem.m_str && mem.m_regex);
             // Primitive constraint: str is a single variable
             if (!mem.is_primitive())
                 continue;
-            euf::snode* first = mem.m_str->first();
+            euf::snode *first = mem.m_str->first();
+            // NSB review: why is this "first" and not mem.m_str?
             SASSERT(first);
             if (first != var)
                 continue;
+            TRACE(seq, tout << mk_pp(first->get_expr(), m) << " " << mem_pp(m, mem) << " dep: " << mem.m_dep << "\n");
 
             if (!result) {
                 result = mem.m_regex;
@@ -683,7 +682,7 @@ namespace seq {
                 expr* r1 = result->get_expr();
                 expr* r2 = mem.m_regex->get_expr();
                 if (r1 && r2) {
-                    expr_ref inter(seq.re.mk_inter(r1, r2), mgr);
+                    expr_ref inter(seq.re.mk_inter(r1, r2), m);
                     result = m_sg.mk(inter);
                     dep = dep_mgr.mk_join(dep, mem.m_dep);
                 }

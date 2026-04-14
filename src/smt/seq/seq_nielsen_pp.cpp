@@ -25,7 +25,7 @@ Author:
 
 namespace seq {
 
-    std::ostream& nielsen_graph::display(std::ostream& out, nielsen_node* n) const {
+    std::ostream& nielsen_graph::display(std::ostream& out, nielsen_node const* n) const {
         out << "  node[" << n->id() << "]";
         if (n == m_root)
             out << " (root)";

@@ -352,7 +352,7 @@ namespace seq {
     using dep_tracker = dep_manager::dependency*;
 
     // partition dep_source leaves from deps into enode pairs and sat literals.
-    void deps_to_lits(dep_tracker const& deps,
+    void deps_to_lits(dep_tracker deps,
                       svector<enode_pair>& eqs,
                       svector<sat::literal>& lits);
 
@@ -831,7 +831,7 @@ namespace seq {
         mutable dep_manager           m_dep_mgr;
 
 
-        std::ostream &display(std::ostream &out, nielsen_node* n) const;
+        std::ostream &display(std::ostream &out, nielsen_node const* n) const;
 
     public:
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;

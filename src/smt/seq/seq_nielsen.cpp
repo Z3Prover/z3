@@ -43,7 +43,7 @@ NSB review:
 
 namespace seq {
 
-    void deps_to_lits(dep_tracker const &deps, svector<enode_pair> &eqs, svector<sat::literal> &lits) {
+    void deps_to_lits(dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits) {
         vector<dep_source, false> vs;
         dep_manager::s_linearize(deps, vs);
         for (dep_source const &d : vs) {
@@ -4159,8 +4159,7 @@ namespace seq {
                 // Concrete character → to_re(unit(c))
                 expr* te = tok->get_expr();
                 SASSERT(te);
-                expr_ref tre(m_seq.re.mk_to_re(te), m);
-                tok_re = m_sg.mk(tre);
+                tok_re = m_sg.mk(m_seq.re.mk_to_re(te));
             }
             else if (tok->is_var()) {
                 // Variable → intersection of primitive regex constraints, or Σ*
@@ -4173,6 +4172,8 @@ namespace seq {
                     expr_ref all_re(m_seq.re.mk_full_seq(m_seq.re.mk_re(str_sort)), m);
                     tok_re = m_sg.mk(all_re);
                 }
+                TRACE(seq, tout << "intersection-collection\n" << mk_pp(tok->get_expr(), m)
+                                << "\n" <<  mk_pp(tok_re->get_expr(), m) << "\n");
             }
             else if (tok->is_unit()) {
                 // Symbolic char — try to get char_range
@@ -4182,8 +4183,6 @@ namespace seq {
                         // Build union of re.range for each interval
                         euf::snode* range_re = nullptr;
                         for (auto const& r : cs.first.ranges()) {
-                            expr_ref lo(m_seq.mk_char(r.m_lo), m);
-                            expr_ref hi(m_seq.mk_char(r.m_hi - 1), m);
                             expr_ref rng(m_seq.re.mk_range(
                                 m_seq.str.mk_string(zstring(r.m_lo)),
                                 m_seq.str.mk_string(zstring(r.m_hi - 1))), m);
@@ -4221,8 +4220,7 @@ namespace seq {
                 expr* ae = approx->get_expr();
                 expr* te = tok_re->get_expr();
                 SASSERT(ae && te);
-                expr_ref cat(m_seq.re.mk_concat(ae, te), m);
-                approx = m_sg.mk(cat);
+                approx = m_sg.mk(m_seq.re.mk_concat(ae, te));
             }
         }
 
@@ -4240,7 +4238,8 @@ namespace seq {
         // TODO: Minimize the conflict here
         lbool result = m_seq_regex->is_empty_bfs(inter_sn, 5000);
         TRACE(seq, tout << "widen empty-intersect: " << result << " " << mk_pp(re, m) 
-            << " <= " << mk_pp(ae, m) << "\n" << mem_pp(m, mem) << "\n");
+            << " <= " << mk_pp(ae, m) << "\n" << mem_pp(m, mem) << "\n";
+        display(tout, &node) << "\n");
         return result == l_true;
     }
 
