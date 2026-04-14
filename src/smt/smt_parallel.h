@@ -35,8 +35,6 @@ namespace smt {
 
     class parallel {
         context& ctx;
-        unsigned num_threads;
-        bool m_should_run_sls = false;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -217,9 +215,6 @@ namespace smt {
     public:
         parallel(context& ctx) : 
             ctx(ctx),
-            num_threads(std::min(
-                (unsigned)std::thread::hardware_concurrency(),
-                ctx.get_fparams().m_threads)),
             m_batch_manager(ctx.m, *this) {}
 
         lbool operator()(expr_ref_vector const& asms);

@@ -335,7 +335,8 @@ namespace smt {
     }
 
     void parallel::batch_manager::cancel_closed_leases_unlocked(unsigned source_worker_id) {
-        for (unsigned worker_id = 0; worker_id < m_worker_leases.size(); ++worker_id) {
+        unsigned n = std::min(m_worker_leases.size(), p.m_workers.size());
+        for (unsigned worker_id = 0; worker_id < n; ++worker_id) {
             if (worker_id == source_worker_id)
                 continue;
             auto const& lease = m_worker_leases[worker_id];
@@ -596,7 +597,7 @@ namespace smt {
         m_search_tree.reset();
         m_search_tree.set_effort_unit(initial_max_thread_conflicts);
         m_worker_leases.reset();
-        m_worker_leases.resize(p.num_threads);
+        m_worker_leases.resize(p.m_workers.size());
     }
 
     void parallel::batch_manager::collect_statistics(::statistics &st) const {
@@ -605,7 +606,12 @@ namespace smt {
     }
 
     lbool parallel::operator()(expr_ref_vector const &asms) {
-        IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << num_threads << " threads\n";);
+        smt_parallel_params pp(ctx.m_params);
+        unsigned num_workers = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
+        unsigned num_sls_threads = (pp.sls() ? 1 : 0);    
+        unsigned total_threads = num_workers + num_sls_threads;
+
+        IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << total_threads << " threads\n";);
         ast_manager &m = ctx.m;
 
         if (m.has_trace_stream())
@@ -622,33 +628,31 @@ namespace smt {
         scoped_clear clear(*this);
 
         m_workers.reset();
-
-        smt_parallel_params pp(ctx.m_params);
-        m_should_run_sls = pp.sls();
         
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
-        SASSERT(num_threads > 1);
-        for (unsigned i = 0; i < num_threads; ++i)
+        SASSERT(num_workers > 1);
+        for (unsigned i = 0; i < num_workers; ++i)
             m_workers.push_back(alloc(worker, i, *this, asms));
         for (auto w : m_workers)
             sl.push_child(&(w->limit()));
-        if (m_should_run_sls) {
+
+        if (num_sls_threads == 1) {
             m_sls_worker = alloc(sls_worker, *this);
             sl.push_child(&(m_sls_worker->limit()));
         }
 
-        m_batch_manager.initialize();
+        IF_VERBOSE(1, verbose_stream() << "Launched " << m_workers.size() << " CDCL threads, "
+                                       << (m_sls_worker ? 1 : 0) << " SLS threads\n";);
 
+        m_batch_manager.initialize();
+        
         // Launch threads
         vector<std::thread> threads;
-        threads.resize(m_should_run_sls ? num_threads + 1 : num_threads); // +1 for sls worker
-        for (unsigned i = 0; i < num_threads; ++i)
-            threads[i] = std::thread([&, i]() { m_workers[i]->run(); });
-        
-        // the final thread runs the sls worker
-        if (m_should_run_sls)
-            threads[num_threads] = std::thread([&]() { m_sls_worker->run(); });
+        threads.resize(total_threads);
+        unsigned thread_idx = 0;
+        for (auto* w : m_workers)
+            threads[thread_idx++] = std::thread([&, w]() { w->run(); });
 
         // Wait for all threads to finish
         for (auto &th : threads)
@@ -657,7 +661,7 @@ namespace smt {
         for (auto w : m_workers)
             w->collect_statistics(ctx.m_aux_stats);
         m_batch_manager.collect_statistics(ctx.m_aux_stats);
-        if (m_should_run_sls)
+        if (m_sls_worker)
             m_sls_worker->collect_statistics(ctx.m_aux_stats);
 
         return m_batch_manager.get_result();
