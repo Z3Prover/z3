@@ -469,7 +469,6 @@ namespace search_tree {
 
         void reset() {
             m_root = alloc(node<Config>, m_null_literal, nullptr);
-            m_root->mark_new_activation();
         }
 
         // On timeout, either expand the current leaf or reopen the node for a
@@ -543,7 +542,7 @@ namespace search_tree {
         // return an active node in the tree, or nullptr if there is none
         node<Config> *activate_node(node<Config> *n) {
             if (!n) {
-                if (m_root->get_status() == status::active) {
+                if (m_root->get_status() != status::closed) {
                     m_root->mark_new_activation();
                     return m_root.get();
                 }
