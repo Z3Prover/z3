@@ -80,7 +80,7 @@ namespace search_tree {
             SASSERT(!m_right);
             m_left = alloc(node<Config>, a, this);
             m_right = alloc(node<Config>, b, this);
-            bump_epoch();
+            inc_epoch();
         }
 
         node* left() const { return m_left; }
@@ -159,13 +159,13 @@ namespace search_tree {
         unsigned epoch() const {
             return m_epoch;
         }
-        void bump_epoch() {
+        void inc_epoch() {
             ++m_epoch;
         }
         unsigned get_cancel_epoch() const {
             return m_cancel_epoch;
         }
-        void bump_cancel_epoch() {
+        void inc_cancel_epoch() {
             ++m_cancel_epoch;
         }
     };
@@ -370,8 +370,8 @@ namespace search_tree {
         void close(node<Config> *n, vector<literal> const &C) {
             if (!n || n->get_status() == status::closed)
                 return;
-            n->bump_epoch();
-            n->bump_cancel_epoch();
+            n->inc_epoch();
+            n->inc_cancel_epoch();
             n->set_status(status::closed);
             n->set_core(C);
             close(n->left(), C);

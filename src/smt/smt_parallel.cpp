@@ -420,7 +420,6 @@ namespace smt {
 
             if (b.lease_canceled(lease)) {
                 LOG_WORKER(1, " abandoning canceled lease\n");
-                b.abandon_lease(id, lease);
                 m.limit().reset_cancel();
                 lease = {};
                 continue;
@@ -717,7 +716,7 @@ namespace smt {
         if (worker_id >= m_worker_leases.size())
             return;
         auto &lease = m_worker_leases[worker_id];
-        if (!lease.node || lease.node != n || lease.epoch != epoch)
+        if (!lease.node || lease.node != n)
             return;
         m_search_tree.dec_active_workers(lease.node);
         lease = {};
@@ -743,7 +742,6 @@ namespace smt {
 
     void parallel::batch_manager::backtrack_unlocked(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core,
                                                      node_lease const* lease, vector<node_lease> const* targets) {
-        IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
         if (m_state != state::is_running)
             return;
 
@@ -754,12 +752,15 @@ namespace smt {
         SASSERT((lease != nullptr) != (targets != nullptr));
 
         if (lease) {
-            release_lease_unlocked(worker_id, lease->node, lease->epoch);
-
             // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
             // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
-            if (lease->node && !m_search_tree.is_lease_canceled(lease->node, lease->cancel_epoch))
-                m_search_tree.backtrack(lease->node, g_core);
+            if (!lease->node || m_search_tree.is_lease_canceled(lease->node, lease->cancel_epoch))
+                return;
+
+            IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
+
+            release_lease_unlocked(worker_id, lease->node, lease->epoch);
+            m_search_tree.backtrack(lease->node, g_core);
         }
         else {
             IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking external targets.\n");
@@ -769,6 +770,7 @@ namespace smt {
             }
         }
 
+        // terminate on-demand the workers that are currently exploring the now-closed nodes
         cancel_closed_leases_unlocked(worker_id);
 
         IF_VERBOSE(1, m_search_tree.display(verbose_stream() << bounded_pp_exprs(core) << "\n"););
@@ -785,17 +787,18 @@ namespace smt {
     void parallel::batch_manager::try_split(ast_translation &l2g, unsigned worker_id,
                                         node_lease const &lease, expr *atom, unsigned effort) {
         std::scoped_lock lock(mux);
-        expr_ref lit(m), nlit(m);
-        lit = l2g(atom);
-        nlit = mk_not(m, lit);
         
         if (m_state != state::is_running)
             return;
 
-        release_lease_unlocked(worker_id, lease.node, lease.epoch);
         if (!lease.node || m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
             return;
 
+        release_lease_unlocked(worker_id, lease.node, lease.epoch);
+
+        expr_ref lit(m), nlit(m);
+        lit = l2g(atom);
+        nlit = mk_not(m, lit);
         bool did_split = m_search_tree.try_split(lease.node, lit, nlit, effort, lease.epoch);
 
         if (did_split) {
@@ -805,7 +808,7 @@ namespace smt {
         }
     }
 
-    void parallel::batch_manager::abandon_lease(unsigned worker_id, node_lease const &lease) {
+    void parallel::batch_manager::release_lease(unsigned worker_id, node_lease const &lease) {
         std::scoped_lock lock(mux);
         release_lease_unlocked(worker_id, lease.node, lease.epoch);
     }
