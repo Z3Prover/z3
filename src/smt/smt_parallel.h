@@ -104,7 +104,6 @@ namespace smt {
                 cancel_sls_worker();  
             }
 
-            void init_parameters_state();
             void release_lease_unlocked(unsigned worker_id, node* n, unsigned epoch);
             void cancel_closed_leases_unlocked(unsigned source_worker_id);
 
@@ -122,7 +121,7 @@ namespace smt {
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node_lease& lease);
             void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease const& lease);
             void try_split(ast_translation& l2g, unsigned worker_id, node_lease const& lease, expr* atom, unsigned effort);
-            void abandon_lease(unsigned worker_id, node_lease const& lease);
+            void release_lease(unsigned worker_id, node_lease const& lease);
             bool lease_canceled(node_lease const& lease);
 
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);
