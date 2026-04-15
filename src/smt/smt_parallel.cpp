@@ -318,26 +318,38 @@ namespace smt {
         IF_VERBOSE(1, verbose_stream() << " Found and sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
         collect_clause_unlocked(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
 
-        // node *t = nullptr;
-        // expr_ref neg_g_bb_ref(mk_not(g_bb_ref), m);
-        // t = m_search_tree.find_node_with_literal(neg_g_bb_ref);
+        expr_ref neg_g_bb_ref(mk_not(g_bb_ref), m);
+        ptr_vector<node> matches;
+        m_search_tree.find_nodes_with_literal(neg_g_bb_ref, matches);
 
-        // if (t) {
-        //     IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
-        //     expr_ref_vector l_core(l2g.from());
-        //     l_core.push_back(mk_not(backbone));
+        if (!matches.empty()) {
+            IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
+            expr_ref_vector l_core(l2g.from());
+            l_core.push_back(mk_not(backbone));
 
-        //     // Backbone workers do not own entries in m_worker_leases, but they can still
-        //     // close subtrees that active SMT workers are solving. Route this through the
-        //     // lease-aware backtrack path so affected worker leases are canceled consistently.
-        //     // The synthetic lease snapshots t's current state under the batch-manager lock,
-        //     // so this call ensures the backtrack/closure is applied immediately.
-        //     node_lease lease;
-        //     lease.node = t;
-        //     lease.epoch = t->epoch();
-        //     lease.cancel_epoch = t->get_cancel_epoch();
-        //     backtrack_unlocked(l2g, UINT_MAX, l_core, lease);
-        // }
+            vector<node_lease> targets;
+            for (node* t : matches) {
+                if (!t || t->get_status() == search_tree::status::closed)
+                    continue;
+
+                // Keep only highest matching nodes: if an ancestor is already selected,
+                // closing it will also close this descendant subtree.
+                bool is_highest_ancestor = true;
+                for (node* p = t->parent(); p; p = p->parent()) {
+                    if (any_of(targets, [&](node_lease const& target) { return target.node == p; })) {
+                        is_highest_ancestor = false;
+                        break;
+                    }
+                }
+                if (!is_highest_ancestor)
+                    continue;
+
+                targets.push_back({ t, t->epoch(), t->get_cancel_epoch() });
+            }
+
+            if (!targets.empty())
+                backtrack_unlocked(l2g, UINT_MAX, l_core, nullptr, &targets);
+        }
 
         return true;
     }
@@ -726,25 +738,36 @@ namespace smt {
     void parallel::batch_manager::backtrack(ast_translation &l2g, unsigned worker_id, expr_ref_vector const &core,
                                             node_lease const &lease) {
         std::scoped_lock lock(mux);
-        backtrack_unlocked(l2g, worker_id, core, lease);
+        backtrack_unlocked(l2g, worker_id, core, &lease, nullptr);
     }
 
-    void parallel::batch_manager::backtrack_unlocked(ast_translation &l2g, unsigned worker_id, expr_ref_vector const &core,
-                                            node_lease const &lease) {
-
+    void parallel::batch_manager::backtrack_unlocked(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core,
+                                                     node_lease const* lease, vector<node_lease> const* targets) {
         IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
         if (m_state != state::is_running)
             return;
-        vector<cube_config::literal> g_core;
-        for (auto c : core) {
-            g_core.push_back(expr_ref(l2g(c), m));
-        }
-        release_lease_unlocked(worker_id, lease.node, lease.epoch);
 
-        // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
-        // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
-        if (lease.node && !m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
-            m_search_tree.backtrack(lease.node, g_core);
+        vector<cube_config::literal> g_core;
+        for (auto c : core)
+            g_core.push_back(expr_ref(l2g(c), m));
+
+        SASSERT((lease != nullptr) != (targets != nullptr));
+
+        if (lease) {
+            release_lease_unlocked(worker_id, lease->node, lease->epoch);
+
+            // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
+            // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
+            if (lease->node && !m_search_tree.is_lease_canceled(lease->node, lease->cancel_epoch))
+                m_search_tree.backtrack(lease->node, g_core);
+        }
+        else {
+            IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking external targets.\n");
+            for (auto const& target : *targets) {
+                if (target.node && target.node->get_status() != search_tree::status::closed && !m_search_tree.is_lease_canceled(target.node, target.cancel_epoch))
+                    m_search_tree.backtrack(target.node, g_core);
+            }
+        }
 
         cancel_closed_leases_unlocked(worker_id);
 

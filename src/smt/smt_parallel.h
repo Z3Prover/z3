@@ -142,7 +142,8 @@ namespace smt {
                 return any_of(m_global_backbones, [&](expr *bb) { return bb == cand.get(); });
             }
 
-            void backtrack_unlocked(ast_translation &l2g, unsigned worker_id, expr_ref_vector const &core, node_lease const &lease);
+            void backtrack_unlocked(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core,
+                                    node_lease const* lease = nullptr, vector<node_lease> const* targets = nullptr);
             void collect_clause_unlocked(ast_translation &l2g, unsigned source_worker_id, expr *clause);
 
             void init_parameters_state();

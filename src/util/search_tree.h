@@ -551,22 +551,20 @@ namespace search_tree {
             return activate_best_node();
         }
 
-        node<Config>* find_node_with_literal(literal const& lit) {
-            return find_node_with_literal_rec(m_root.get(), lit);
+        void find_nodes_with_literal(literal const& lit, ptr_vector<node<Config>>& out) {
+            find_nodes_with_literal_rec(m_root.get(), lit, out);
         }
 
-        node<Config>* find_node_with_literal_rec(node<Config>* n, literal const& lit) {
+        void find_nodes_with_literal_rec(node<Config>* n, literal const& lit, ptr_vector<node<Config>>& out) {
             if (!n)
-                return nullptr;
+                return;
 
             if (!Config::literal_is_null(n->get_literal()) &&
                 n->get_literal() == lit)
-                return n;
+                out.push_back(n);
 
-            if (auto* l = find_node_with_literal_rec(n->left(), lit))
-                return l;
-
-            return find_node_with_literal_rec(n->right(), lit);
+            find_nodes_with_literal_rec(n->left(), lit, out);
+            find_nodes_with_literal_rec(n->right(), lit, out);
         }
         
         void dec_active_workers(node<Config>* n) {
