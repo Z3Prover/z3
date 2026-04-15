@@ -318,26 +318,26 @@ namespace smt {
         IF_VERBOSE(1, verbose_stream() << " Found and sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
         collect_clause_unlocked(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
 
-        node *t = nullptr;
-        expr_ref neg_g_bb_ref(mk_not(g_bb_ref), m);
-        t = m_search_tree.find_node_with_literal(neg_g_bb_ref);
+        // node *t = nullptr;
+        // expr_ref neg_g_bb_ref(mk_not(g_bb_ref), m);
+        // t = m_search_tree.find_node_with_literal(neg_g_bb_ref);
 
-        if (t) {
-            IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
-            expr_ref_vector l_core(l2g.from());
-            l_core.push_back(mk_not(backbone));
+        // if (t) {
+        //     IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
+        //     expr_ref_vector l_core(l2g.from());
+        //     l_core.push_back(mk_not(backbone));
 
-            // Backbone workers do not own entries in m_worker_leases, but they can still
-            // close subtrees that active SMT workers are solving. Route this through the
-            // lease-aware backtrack path so affected worker leases are canceled consistently.
-            // The synthetic lease snapshots t's current state under the batch-manager lock,
-            // so this call ensures the backtrack/closure is applied immediately.
-            node_lease lease;
-            lease.node = t;
-            lease.epoch = t->epoch();
-            lease.cancel_epoch = t->get_cancel_epoch();
-            backtrack_unlocked(l2g, UINT_MAX, l_core, lease);
-        }
+        //     // Backbone workers do not own entries in m_worker_leases, but they can still
+        //     // close subtrees that active SMT workers are solving. Route this through the
+        //     // lease-aware backtrack path so affected worker leases are canceled consistently.
+        //     // The synthetic lease snapshots t's current state under the batch-manager lock,
+        //     // so this call ensures the backtrack/closure is applied immediately.
+        //     node_lease lease;
+        //     lease.node = t;
+        //     lease.epoch = t->epoch();
+        //     lease.cancel_epoch = t->get_cancel_epoch();
+        //     backtrack_unlocked(l2g, UINT_MAX, l_core, lease);
+        // }
 
         return true;
     }
