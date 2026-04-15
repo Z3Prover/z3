@@ -329,7 +329,7 @@ namespace smt {
 
             vector<node_lease> targets;
             for (node* t : matches) {
-                if (!t || t->get_status() == search_tree::status::closed)
+                if (!t || m_search_tree.is_lease_canceled(t, t->get_cancel_epoch()))
                     continue;
 
                 // Keep only highest matching nodes: if an ancestor is already selected,
@@ -764,7 +764,7 @@ namespace smt {
         else {
             IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking external targets.\n");
             for (auto const& target : *targets) {
-                if (target.node && target.node->get_status() != search_tree::status::closed && !m_search_tree.is_lease_canceled(target.node, target.cancel_epoch))
+                if (target.node && !m_search_tree.is_lease_canceled(target.node, target.cancel_epoch))
                     m_search_tree.backtrack(target.node, g_core);
             }
         }
