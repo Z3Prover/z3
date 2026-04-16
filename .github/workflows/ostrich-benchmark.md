@@ -88,6 +88,8 @@ echo "Found Microsoft.Z3.dll at: $Z3_DOTNET_DLL"
 
 If the build fails, report the error clearly and exit without proceeding.
 
+Once the binary is confirmed working, call the `noop` safe-output tool with the message `"Z3 built successfully from the c3 branch. Starting ZIPT build and benchmark — results will be posted as a GitHub Discussion once complete."` This keepalive call refreshes the safe-output MCP session before the long build and benchmark phases begin, preventing a session timeout.
+
 ## Phase 2a: Clone and Build ZIPT
 
 Clone the ZIPT solver from the `parikh` branch and compile it against the Z3 .NET bindings built in Phase 1.
@@ -152,6 +154,8 @@ if [ "$TOTAL_FILES" -eq 0 ]; then
     exit 1
 fi
 ```
+
+Once the benchmark files are confirmed, call the `noop` safe-output tool with the message `"Benchmark files ready: <TOTAL_FILES> Ostrich .smt2 files extracted. Starting benchmark run — this may take over an hour."` This second keepalive refreshes the safe-output MCP session immediately before the long per-file benchmark loop begins.
 
 ## Phase 3: Run Benchmarks
 
