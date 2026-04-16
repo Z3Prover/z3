@@ -127,6 +127,8 @@ namespace search_tree {
         void dec_active_workers() {
             if (m_active_workers > 0)
                 --m_active_workers;
+            if (m_active_workers == 0 && m_status == status::active)
+                m_status = status::open;
         }
         bool has_active_workers() const {
             return m_active_workers > 0;
@@ -161,7 +163,7 @@ namespace search_tree {
         
         // Used for tree expansion throttling policy in should_split()
         // SMTS says set to num workers, but our experiments show a big regression
-        // Leaving at 0 for now, but making it confirgurable for future experimentation
+        // Leaving at 0 for now, but making it configurable for future experimentation
         unsigned m_min_tree_size = 0; 
 
         struct candidate {
@@ -224,7 +226,7 @@ namespace search_tree {
         unsigned count_active_nodes(node<Config>* cur) const {
             if (!cur || cur->get_status() == status::closed)
                 return 0;
-            return (cur->has_active_workers() ? 1 : 0) +
+            return (cur->get_status() == status::active ? 1 : 0) +
                    count_active_nodes(cur->left()) +
                    count_active_nodes(cur->right());
         }
@@ -439,9 +441,7 @@ namespace search_tree {
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
         bool try_split(node<Config> *n, literal const &a, literal const &b, unsigned effort, unsigned epoch) {
-            // the node could have been marked open by another thread that finished first and split
-            // we still want to add the current thread's effort in this case, but not if the node was closed
-            if (!n || n->get_status() == status::closed)
+            if (!n || n->epoch() != epoch || n->get_status() != status::active)
                 return false;
 
             n->add_effort(effort);
@@ -452,18 +452,6 @@ namespace search_tree {
                 did_split = true;
             }
 
-            // Reopen immediately on timeout, even if other workers are still active.
-            // This keeps scheduling asynchronous: timeouts act as signals to reconsider
-            // the search, not barriers requiring all workers to finish.
-            //
-            // Early reopening also creates a soft penalty (via accumulated effort),
-            // reducing over-concentration while still allowing revisits.
-            //
-            // Waiting for all workers would introduce per-node synchronization, delay
-            // diversification, and let a slow worker stall progress.
-            if (n->epoch() == epoch)
-                n->set_status(status::open);
-            
             return did_split;
         }
 
