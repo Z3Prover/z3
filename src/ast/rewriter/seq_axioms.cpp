@@ -34,7 +34,6 @@ namespace seq {
         a(m),
         seq(m),
         m_sk(m, r),
-        m_not_contains(m),
         m_clause(m),
         m_trail(m)
     {}
@@ -1104,37 +1103,41 @@ namespace seq {
         VERIFY(seq.str.is_replace_all(r, s, p, t)); 
         recfun::util rec(m);
         recfun::decl::plugin& plugin = rec.get_plugin();
-        recfun_replace replace(m);
         sort* srt = s->get_sort();
         sort* domain[4] = { srt, srt, srt, srt };
-        auto d = plugin.ensure_def(symbol("ra"), 4, domain, m.mk_bool_sort(), true);
-        func_decl* ra = d.get_def()->get_decl();
-        // vars: vs=var(3), vp=var(2), vt=var(1), vr=var(0)
-        var_ref vs(m.mk_var(3, srt), m);
-        var_ref vp(m.mk_var(2, srt), m);
-        var_ref vt(m.mk_var(1, srt), m);
-        var_ref vr(m.mk_var(0, srt), m);
-        var* vars[4] = { vs, vp, vt, vr };
-        // base case: empty s or empty p -> r = s (no replacements)
-        expr_ref test1(m.mk_or(seq.str.mk_is_empty(vs), seq.str.mk_is_empty(vp)), m);
-        expr_ref branch1(m.mk_eq(vr, vs), m);
-        // match case: prefix(p, s) -> s = p ++ s_tail, r = t ++ r_tail, ra(s_tail, p, t, r_tail)
-        expr_ref s_tail(m_sk.mk_prefix_inv(vp, vs), m);
-        expr_ref r_tail(m_sk.mk_prefix_inv(vt, vr), m);
-        expr* args_match[4] = { s_tail, vp, vt, r_tail };
-        expr_ref test2(seq.str.mk_prefix(vp, vs), m);
-        expr_ref branch2(m.mk_and(m.mk_eq(vs, seq.str.mk_concat(vp, s_tail)),
-                                  m.mk_eq(vr, seq.str.mk_concat(vt, r_tail)),
-                                  m.mk_app(ra, 4, args_match)), m);
-        // no-match case: copy first char, ra(s[1:], p, t, r[1:])
-        expr_ref s_head(m), s_tail2(m);
-        m_sk.decompose(vs, s_head, s_tail2);
-        expr_ref r_tail2(m_sk.mk_tail(vr, a.mk_int(0)), m);
-        expr* args_skip[4] = { s_tail2, vp, vt, r_tail2 };
-        expr_ref branch3(m.mk_and(m.mk_eq(vr, seq.str.mk_concat(s_head, r_tail2)),
-                                  m.mk_app(ra, 4, args_skip)), m);
-        expr_ref body(m.mk_ite(test1, branch1, m.mk_ite(test2, branch2, branch3)), m);
-        plugin.set_definition(replace, d, false, 4, vars, body);
+        auto ra = rec.find_def_decl(symbol("ra"), 4, domain, m.mk_bool_sort(), true);
+
+        if (!ra) {
+            recfun_replace replace(m);
+            auto d = plugin.ensure_def(symbol("ra"), 4, domain, m.mk_bool_sort(), true);
+            ra = d.get_def()->get_decl();
+            // vars: vs=var(3), vp=var(2), vt=var(1), vr=var(0)
+            var_ref vs(m.mk_var(3, srt), m);
+            var_ref vp(m.mk_var(2, srt), m);
+            var_ref vt(m.mk_var(1, srt), m);
+            var_ref vr(m.mk_var(0, srt), m);
+            var *vars[4] = {vs, vp, vt, vr};
+            // base case: empty s or empty p -> r = s (no replacements)
+            expr_ref test1(m.mk_or(seq.str.mk_is_empty(vs), seq.str.mk_is_empty(vp)), m);
+            expr_ref branch1(m.mk_eq(vr, vs), m);
+            // match case: prefix(p, s) -> s = p ++ s_tail, r = t ++ r_tail, ra(s_tail, p, t, r_tail)
+            expr_ref s_tail(m_sk.mk_prefix_inv(vp, vs), m);
+            expr_ref r_tail(m_sk.mk_prefix_inv(vt, vr), m);
+            expr *args_match[4] = {s_tail, vp, vt, r_tail};
+            expr_ref test2(seq.str.mk_prefix(vp, vs), m);
+            expr_ref branch2(m.mk_and(m.mk_eq(vs, seq.str.mk_concat(vp, s_tail)),
+                                      m.mk_eq(vr, seq.str.mk_concat(vt, r_tail)), m.mk_app(ra, 4, args_match)),
+                             m);
+            // no-match case: copy first char, ra(s[1:], p, t, r[1:])
+            expr_ref s_head(m), s_tail2(m);
+            m_sk.decompose(vs, s_head, s_tail2);
+            expr_ref r_tail2(m_sk.mk_tail(vr, a.mk_int(0)), m);
+            expr *args_skip[4] = {s_tail2, vp, vt, r_tail2};
+            expr_ref branch3(m.mk_and(m.mk_eq(vr, seq.str.mk_concat(s_head, r_tail2)), m.mk_app(ra, 4, args_skip)), m);
+            expr_ref body(m.mk_ite(test1, branch1, m.mk_ite(test2, branch2, branch3)), m);
+            TRACE(seq, tout << body << "\n");
+            plugin.set_definition(replace, d, false, 4, vars, body);
+        }
         expr* args[4] = { s, p, t, r };
         expr_ref lit(m.mk_app(ra, 4, args), m);
         add_clause(lit);
@@ -1358,14 +1361,17 @@ namespace seq {
         auto ca = purify(_a);
         auto cb = purify(_b);
         sort* srt = ca->get_sort();
+        recfun::util rec(m);
+        sort *domain[2] = {srt, srt};
+        func_decl *not_contains = rec.find_def_decl(symbol("nc"), 2, domain, m.mk_bool_sort(), true);
 
-        if (!m_not_contains || m_not_contains->get_domain(0) != srt) {
-            recfun::util rec(m);
+        if (!not_contains) {
+
             recfun::decl::plugin& plugin = rec.get_plugin();
             recfun_replace rf(m);
-            sort* domain[2] = { srt, srt };
+
             auto d = plugin.ensure_def(symbol("nc"), 2, domain, m.mk_bool_sort(), true);
-            m_not_contains = d.get_def()->get_decl();
+            not_contains = d.get_def()->get_decl();
             var_ref vs(m.mk_var(1, srt), m);
             var_ref vp(m.mk_var(0, srt), m);
             expr_ref len_s(seq.str.mk_length(vs), m);
@@ -1376,7 +1382,7 @@ namespace seq {
             expr_ref pref(seq.str.mk_prefix(vp, vs), m);
             expr_ref hd(seq.str.mk_unit(seq.str.mk_nth_i(vs, a.mk_int(0))), m);
             expr_ref decomp(m.mk_eq(vs, seq.str.mk_concat(hd, tail)), m);
-            expr_ref else_branch(m.mk_and(m.mk_not(pref), m.mk_and(decomp, m.mk_app(m_not_contains.get(), 2, nc_args))), m);
+            expr_ref else_branch(m.mk_and(m.mk_not(pref), m.mk_and(decomp, m.mk_app(not_contains, 2, nc_args))), m);
             expr_ref body(m.mk_ite(a.mk_gt(len_p, len_s),
                                    m.mk_true(),
                                    m.mk_ite(m.mk_eq(len_p, len_s),
@@ -1388,7 +1394,7 @@ namespace seq {
         }
 
         expr* app_args[2] = { ca.get(), cb.get() };
-        expr_ref nc_app(m.mk_app(m_not_contains.get(), 2, app_args), m);
+        expr_ref nc_app(m.mk_app(not_contains, 2, app_args), m);
         expr_ref cnt(e, m);
         add_clause(cnt, nc_app);
     }

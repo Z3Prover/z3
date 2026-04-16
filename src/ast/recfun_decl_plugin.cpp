@@ -364,6 +364,13 @@ namespace recfun {
         return alloc(def, m(), m_fid, name, n, domain, range, is_generated);
     }
 
+    func_decl *util::find_def_decl(symbol const &name, unsigned n, sort *const *params, sort *range, bool is_generated) {
+        def d(m_manager, m_fid, name, n, params, range, is_generated);
+        if (m_plugin->has_def(d.get_decl()))
+            return d.get_decl();
+        return nullptr;
+    }
+
     void util::set_definition(replace& subst, promise_def & d, bool is_macro, unsigned n_vars, var * const * vars, expr * rhs) {
         expr_ref rhs1(rhs, m());
         if (!is_macro)
@@ -550,6 +557,7 @@ namespace recfun {
                 }
             }
         }
+
 
         expr_ref plugin::redirect_ite(replace& subst, unsigned n, var * const* vars, expr * e) {
             expr_ref result(e, m());

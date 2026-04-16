@@ -211,6 +211,7 @@ namespace recfun {
             case_def& get_case_def(func_decl* f) { SASSERT(has_case_def(f)); return *(m_case_defs[f]); }
             bool is_defined(func_decl* f) {return has_case_def(f) && !get_def(f).get_cases().empty(); }
 
+
             func_decl_ref_vector get_rec_funs() {
                 func_decl_ref_vector result(m());
                 for (auto& kv : m_defs) result.push_back(kv.m_key);
@@ -250,7 +251,7 @@ namespace recfun {
         bool is_num_rounds(expr * e) const { return is_app_of(e, m_fid, OP_NUM_ROUNDS); }
         bool owns_app(app * e) const { return e->get_family_id() == m_fid; }
         bool contains_def(expr* e); // expression contains a def
-
+        func_decl *find_def_decl(symbol const &name, unsigned n, sort *const *params, sort *range, bool is_generated);
 
         //<! don't use native theory if recursive function declarations are not populated with defs
         bool has_defs() const { return m_plugin->has_defs(); }

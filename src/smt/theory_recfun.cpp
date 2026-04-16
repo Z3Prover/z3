@@ -150,6 +150,7 @@ namespace smt {
     }
 
     void theory_recfun::push(propagation_item* p) {
+        TRACE(recfun, tout << "push " << p << "\n");
         m_propagation_queue.push_back(p);         
         ctx.push_trail(push_back_vector<scoped_ptr_vector<propagation_item>>(m_propagation_queue));        
     }
