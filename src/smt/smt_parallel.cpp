@@ -159,7 +159,7 @@ namespace smt {
                 auto atom = get_split_atom();
                 if (!atom)
                     goto check_cube_start;
-                b.try_split(m_l2g, id, lease, atom, 1000);
+                b.try_split(m_l2g, id, lease, atom, m_config.m_threads_max_conflicts);
                 lease = {};
                 simplify();
                 break;
