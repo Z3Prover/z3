@@ -204,11 +204,14 @@ namespace smt {
                     try {
                         r = ctx->check(asms.size(), asms.data());
                     } catch (z3_error &err) {
-                        b.set_exception(err.error_code());
+                        if (!m.limit().is_canceled())
+                            b.set_exception(err.error_code());
                     } catch (z3_exception &ex) {
-                        b.set_exception(ex.what());
+                        if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
+                            b.set_exception(ex.what());
                     } catch (...) {
-                        b.set_exception("unknown exception");
+                        if (!m.limit().is_canceled())
+                            b.set_exception("unknown exception");
                     }
                     asms.shrink(base_asms_sz);
 
@@ -421,7 +424,7 @@ namespace smt {
                 bb_candidates local_candidates = find_backbone_candidates();
                 b.collect_backbone_candidates(m_l2g, local_candidates);
                 if (!m.inc())
-                    b.set_exception("context cancelled");
+                    return;
             }
 
             lbool r = check_cube(cube);
@@ -433,14 +436,8 @@ namespace smt {
                 continue;
             }
 
-            if (!m.inc()) {
-                if (m.limit().is_canceled()) {
-                    LOG_WORKER(1, " stopping after cancellation\n");
-                    return;
-                }
-                b.set_exception("context cancelled");
+            if (!m.inc())
                 return;
-            }
 
             switch (r) {
             case l_undef: {
