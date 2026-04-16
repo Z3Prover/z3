@@ -48,6 +48,7 @@ namespace search_tree {
         vector<literal> m_core;
         unsigned m_num_activations = 0;
         unsigned m_effort_spent = 0;
+        unsigned m_round_max_effort = 0;
         unsigned m_active_workers = 0;
         unsigned m_epoch = 0;
         unsigned m_cancel_epoch = 0;
@@ -127,8 +128,11 @@ namespace search_tree {
         void dec_active_workers() {
             if (m_active_workers > 0)
                 --m_active_workers;
-            if (m_active_workers == 0 && m_status == status::active)
+            if (m_active_workers == 0 && m_status == status::active) {
+                m_effort_spent += m_round_max_effort;
+                m_round_max_effort = 0;
                 m_status = status::open;
+            }
         }
         bool has_active_workers() const {
             return m_active_workers > 0;
@@ -136,8 +140,8 @@ namespace search_tree {
         unsigned effort_spent() const {
             return m_effort_spent;
         }
-        void update_max_effort_spent(unsigned effort) {
-            m_effort_spent = std::max(m_effort_spent, effort);
+        void update_round_max_effort(unsigned effort) {
+            m_round_max_effort = std::max(m_round_max_effort, effort);
         }
         unsigned epoch() const {
             return m_epoch;
@@ -444,8 +448,9 @@ namespace search_tree {
             if (is_lease_canceled(n, cancel_epoch))
                 return false;
 
-            // add effort regardless of whether the lease is stale, as long as the lease wasn't actually cancelled (i.e. the node was closed)
-            n->update_max_effort_spent(effort);
+            // Record at most one effort contribution per concurrent round on this node.
+            // Stale workers still contribute, but only via the round-local maximum.
+            n->update_round_max_effort(effort);
             bool did_split = false;
 
             if (should_split(n, epoch)) {
