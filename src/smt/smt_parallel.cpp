@@ -64,6 +64,12 @@ namespace smt {
 
 namespace smt {
 
+    static bool is_cancellation_exception(char const* msg) {
+        return msg &&
+            (strstr(msg, "canceled") != nullptr ||
+             strstr(msg, "cancelled") != nullptr);
+    }
+
     void parallel::sls_worker::run() {
         ptr_vector<expr> assertions;
         p.ctx.get_assertions(assertions);
@@ -133,6 +139,10 @@ namespace smt {
             }
 
             if (!m.inc()) {
+                if (m.limit().is_canceled()) {
+                    LOG_WORKER(1, " stopping after cancellation\n");
+                    return;
+                }
                 b.set_exception("context cancelled");
                 return;
             }
@@ -457,11 +467,14 @@ namespace smt {
         try {
             r = ctx->check(asms.size(), asms.data());
         } catch (z3_error &err) {
-            b.set_exception(err.error_code());
+            if (!m.limit().is_canceled())
+                b.set_exception(err.error_code());
         } catch (z3_exception &ex) {
-            b.set_exception(ex.what());
+            if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
+                b.set_exception(ex.what());
         } catch (...) {
-            b.set_exception("unknown exception");
+            if (!m.limit().is_canceled())
+                b.set_exception("unknown exception");
         }
         asms.shrink(asms.size() - cube.size());
         LOG_WORKER(1, " DONE checking cube " << r << "\n";);
