@@ -66,6 +66,12 @@ namespace smt {
 
 namespace smt {
 
+    static bool is_cancellation_exception(char const* msg) {
+        return msg &&
+            (strstr(msg, "canceled") != nullptr ||
+             strstr(msg, "cancelled") != nullptr);
+    }
+
     void parallel::sls_worker::run() {
         ptr_vector<expr> assertions;
         p.ctx.get_assertions(assertions);
@@ -426,6 +432,10 @@ namespace smt {
             }
 
             if (!m.inc()) {
+                if (m.limit().is_canceled()) {
+                    LOG_WORKER(1, " stopping after cancellation\n");
+                    return;
+                }
                 b.set_exception("context cancelled");
                 return;
             }
@@ -1001,7 +1011,7 @@ namespace smt {
             if (!m.limit().is_canceled())
                 b.set_exception(err.error_code());
         } catch (z3_exception &ex) {
-            if (!m.limit().is_canceled())
+            if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
                 b.set_exception(ex.what());
         } catch (...) {
             if (!m.limit().is_canceled())
