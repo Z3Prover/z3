@@ -1109,8 +1109,8 @@ namespace smt {
     }
 
     bool parallel::batch_manager::get_cube(ast_translation &g2l, unsigned id, expr_ref_vector &cube, node_lease &lease) {
-        cube.reset();
         std::scoped_lock lock(mux);
+        cube.reset();
         
         if (m_search_tree.is_closed()) {
             IF_VERBOSE(1, verbose_stream() << "all done\n";);
@@ -1121,7 +1121,7 @@ namespace smt {
             return false;
         }
         
-        node *t = m_search_tree.activate_node(lease.node);
+        node *t = m_search_tree.activate_best_node();
         
         if (!t)
             return false;
