@@ -68,9 +68,6 @@ namespace search_tree {
         literal const &get_literal() const {
             return m_literal;
         }
-        bool literal_is_null() const {
-            return Config::is_null(m_literal);
-        }
         void split(literal const &a, literal const &b) {
             SASSERT(!Config::literal_is_null(a));
             SASSERT(!Config::literal_is_null(b));
@@ -96,22 +93,6 @@ namespace search_tree {
                 p = p->parent();
             }
             return d;
-        }
-
-        node *find_active_node() {
-            if (m_status == status::active)
-                return this;
-            if (m_status == status::closed)
-                return nullptr;
-            node *nodes[2] = {m_left, m_right};
-            for (unsigned i = 0; i < 2; ++i) {
-                auto res = nodes[i] ? nodes[i]->find_active_node() : nullptr;
-                if (res)
-                    return res;
-            }
-            if (m_left->get_status() == status::closed && m_right->get_status() == status::closed)
-                m_status = status::closed;
-            return nullptr;
         }
 
         void display(std::ostream &out, unsigned indent) const {
@@ -224,22 +205,6 @@ namespace search_tree {
 
             select_next_node(cur->left(), target_status, best);
             select_next_node(cur->right(), target_status, best);
-        }
-
-        // Try to select an open node using the select_next_node policy
-        // If there are no open nodes, try to select an active node for portfolio solving
-        node<Config>* activate_best_node() {
-            candidate best;
-            select_next_node(m_root.get(), status::open, best);
-            if (!best.n) {
-                IF_VERBOSE(1, verbose_stream() << "NO OPEN NODES, trying active nodes for portfolio solving\n";);
-                select_next_node(m_root.get(), status::active, best); // If no open nodes, only then consider active nodes for selection
-            }
-
-            if (!best.n)
-                return nullptr;
-            best.n->mark_new_activation();
-            return best.n;
         }
 
         bool has_unvisited_open_node(node<Config>* cur) const {
@@ -539,15 +504,20 @@ namespace search_tree {
             UNREACHABLE();
         }
 
-        // return an active node in the tree, or nullptr if there is none
-        node<Config> *activate_node(node<Config> *n) {
-            if (!n) {
-                if (m_root->get_status() != status::closed) {
-                    m_root->mark_new_activation();
-                    return m_root.get();
-                }
+        // Try to select an open node using the select_next_node policy
+        // If there are no open nodes, try to select an active node for portfolio solving
+        node<Config>* activate_best_node() {
+            candidate best;
+            select_next_node(m_root.get(), status::open, best);
+            if (!best.n) {
+                IF_VERBOSE(1, verbose_stream() << "NO OPEN NODES, trying active nodes for portfolio solving\n";);
+                select_next_node(m_root.get(), status::active, best); // If no open nodes, only then consider active nodes for selection
             }
-            return activate_best_node();
+
+            if (!best.n)
+                return nullptr;
+            best.n->mark_new_activation();
+            return best.n;
         }
 
         void dec_active_workers(node<Config>* n) {
