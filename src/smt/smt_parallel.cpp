@@ -351,7 +351,7 @@ namespace smt {
             if (worker_id == source_worker_id)
                 continue;
             auto const& lease = m_worker_leases[worker_id];
-            if (!lease.node || !m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
+            if (!m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
                 continue;
             p.m_workers[worker_id]->cancel();
         }
@@ -366,7 +366,7 @@ namespace smt {
         
         // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
         // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
-        if (!lease.node || m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
+        if (m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
             return;
 
         IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
@@ -399,13 +399,13 @@ namespace smt {
         if (m_state != state::is_running)
             return;
 
-        if (!lease.node || m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
+        if (m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
             return;
 
         expr_ref lit(m), nlit(m);
         lit = l2g(atom);
         nlit = mk_not(m, lit);
-        bool did_split = m_search_tree.try_split(lease.node, lit, nlit, effort, lease.epoch);
+        bool did_split = m_search_tree.try_split(lease.node, lease.epoch, lease.cancel_epoch, lit, nlit, effort);
 
         release_lease_unlocked(worker_id, lease.node, lease.epoch);
 
