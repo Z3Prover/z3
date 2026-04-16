@@ -244,7 +244,6 @@ Author:
 #include "ast/euf/euf_sgraph.h"
 #include <map>
 #include "model/model.h"
-#include "sat/smt/arith_solver.h"
 
 namespace smt {
     class enode;
