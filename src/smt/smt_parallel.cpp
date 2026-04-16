@@ -351,9 +351,10 @@ namespace smt {
             if (worker_id == source_worker_id)
                 continue;
             auto const& lease = m_worker_leases[worker_id];
-            if (!m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
-                continue;
-            p.m_workers[worker_id]->cancel();
+            
+            // only cancel workers that currently hold a lease, and whose lease is canceled
+            if (lease.node && m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
+                p.m_workers[worker_id]->cancel();
         }
     }
 
