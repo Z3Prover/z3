@@ -224,7 +224,7 @@ namespace search_tree {
         unsigned count_active_nodes(node<Config>* cur) const {
             if (!cur || cur->get_status() == status::closed)
                 return 0;
-            return (cur->has_active_workers() ? 1 : 0) +
+            return (cur->get_status() == status::active ? 1 : 0) +
                    count_active_nodes(cur->left()) +
                    count_active_nodes(cur->right());
         }
