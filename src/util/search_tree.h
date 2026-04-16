@@ -520,6 +520,13 @@ namespace search_tree {
             return best.n;
         }
 
+        node<Config>* activate_root() {
+            if (m_root->get_status() == status::closed)
+                return nullptr;
+            m_root->mark_new_activation();
+            return m_root.get();
+        }
+
         void find_nodes_with_literal(literal const& lit, ptr_vector<node<Config>>& out) {
             find_nodes_with_literal_rec(m_root.get(), lit, out);
         }
@@ -535,7 +542,7 @@ namespace search_tree {
             find_nodes_with_literal_rec(n->left(), lit, out);
             find_nodes_with_literal_rec(n->right(), lit, out);
         }
-        
+
         void dec_active_workers(node<Config>* n) {
             if (!n)
                 return;

@@ -166,7 +166,7 @@ namespace smt {
             bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, vector<parallel::bb_candidate>& out, reslimit& lim);
             bb_candidates return_global_bb_candidates(ast_translation& g2l);
 
-            bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node_lease& lease);
+            bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, bool is_first_run, node_lease& lease);
             void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease const& lease);
             void try_split(ast_translation& l2g, unsigned worker_id, node_lease const& lease, expr* atom, unsigned effort);
             void release_lease(unsigned worker_id, node_lease const& lease);
