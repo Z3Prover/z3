@@ -520,6 +520,13 @@ namespace search_tree {
             return best.n;
         }
 
+        node<Config>* activate_root() {
+            if (m_root->get_status() == status::closed)
+                return nullptr;
+            m_root->mark_new_activation();
+            return m_root.get();
+        }
+
         void dec_active_workers(node<Config>* n) {
             if (!n)
                 return;

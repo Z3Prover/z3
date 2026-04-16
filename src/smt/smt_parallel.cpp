@@ -117,14 +117,16 @@ namespace smt {
     }
 
     void parallel::worker::run() {
+        bool is_first_run = true;
         node_lease lease;
         expr_ref_vector cube(m);
         while (true) {
 
-            if (!b.get_cube(m_g2l, id, cube, lease)) {
+            if (!b.get_cube(m_g2l, id, cube, is_first_run, lease)) {
                 LOG_WORKER(1, " no more cubes\n");
                 return;
             }
+            is_first_run = false;
             collect_shared_clauses();
 
         check_cube_start:
@@ -571,7 +573,7 @@ namespace smt {
         }
     }
 
-    bool parallel::batch_manager::get_cube(ast_translation &g2l, unsigned id, expr_ref_vector &cube, node_lease &lease) {
+    bool parallel::batch_manager::get_cube(ast_translation &g2l, unsigned id, expr_ref_vector &cube, bool is_first_run, node_lease &lease) {
         std::scoped_lock lock(mux);
         cube.reset();
         
@@ -584,7 +586,7 @@ namespace smt {
             return false;
         }
         
-        node *t = m_search_tree.activate_best_node();
+        node *t = is_first_run ? m_search_tree.activate_root() : m_search_tree.activate_best_node();
         
         if (!t)
             return false;

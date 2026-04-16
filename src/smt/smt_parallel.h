@@ -118,7 +118,7 @@ namespace smt {
             void set_exception(unsigned error_code);
             void collect_statistics(::statistics& st) const;
 
-            bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node_lease& lease);
+            bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, bool is_first_run, node_lease& lease);
             void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease const& lease);
             void try_split(ast_translation& l2g, unsigned worker_id, node_lease const& lease, expr* atom, unsigned effort);
             void release_lease(unsigned worker_id, node_lease const& lease);
