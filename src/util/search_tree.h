@@ -136,8 +136,8 @@ namespace search_tree {
         unsigned effort_spent() const {
             return m_effort_spent;
         }
-        void add_effort(unsigned effort) {
-            m_effort_spent += effort;
+        void update_max_effort_spent(unsigned effort) {
+            m_effort_spent = std::max(m_effort_spent, effort);
         }
         unsigned epoch() const {
             return m_epoch;
@@ -168,13 +168,13 @@ namespace search_tree {
 
         struct candidate {
             node<Config>* n = nullptr;
-            unsigned effort_band = UINT_MAX;
+            unsigned scaled_effort = UINT_MAX;
             unsigned depth = 0;
         };
 
         // A measure of how much effort has been spent on the node, used for activation prioritization and expansion decisions
         // The effort unit is the workers' initial conflict budget, and effort spent grows by a factor defined in smt_parallel.h on each split attempt
-        unsigned effort_band(node<Config> const* n) const {
+        unsigned scaled_effort(node<Config> const* n) const {
             return n->effort_spent() / std::max<unsigned>(1, m_effort_unit);
         }
 
@@ -184,8 +184,8 @@ namespace search_tree {
                 return false;
             if (!b.n)
                 return true;
-            if (a.effort_band != b.effort_band)
-                return a.effort_band < b.effort_band;
+            if (a.scaled_effort != b.scaled_effort)
+                return a.scaled_effort < b.scaled_effort;
             if (a.depth != b.depth)
                 return a.depth > b.depth;
             return false;
@@ -198,7 +198,7 @@ namespace search_tree {
             if (cur->get_status() == target_status) {
                 candidate cand;
                 cand.n = cur;
-                cand.effort_band = effort_band(cur);
+                cand.scaled_effort = scaled_effort(cur);
                 cand.depth = cur->depth();
 
                 if (better(cand, best))
@@ -445,7 +445,7 @@ namespace search_tree {
                 return false;
 
             // add effort regardless of whether the lease is stale, as long as the lease wasn't actually cancelled (i.e. the node was closed)
-            n->add_effort(effort);
+            n->update_max_effort_spent(effort);
             bool did_split = false;
 
             if (should_split(n, epoch)) {
