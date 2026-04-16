@@ -97,11 +97,6 @@ namespace smt {
             m_fparams.m_relevancy_lemma = false;
 
         m_model_generator->set_context(this);
-
-        IF_VERBOSE(0,
-            verbose_stream() << "USING RANDOM SEED: "
-                            << m_fparams.m_random_seed << "\n";
-        );
     }
 
     /**

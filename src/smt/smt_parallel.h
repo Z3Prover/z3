@@ -145,8 +145,6 @@ namespace smt {
             void backtrack_unlocked(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core,
                                     node_lease const* lease = nullptr, vector<node_lease> const* targets = nullptr);
             void collect_clause_unlocked(ast_translation &l2g, unsigned source_worker_id, expr *clause);
-
-            void init_parameters_state();
             void release_lease_unlocked(unsigned worker_id, node* n, unsigned epoch);
             void cancel_closed_leases_unlocked(unsigned source_worker_id);
 

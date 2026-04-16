@@ -589,15 +589,15 @@ namespace smt {
         lbool r = l_undef;
         try {
             r = ctx->check(asms.size(), asms.data());
-        }
-        catch (z3_error& err) {
-            b.set_exception(err.error_code());
-        }
-        catch (z3_exception& ex) {
-            b.set_exception(ex.what());
-        }
-        catch (...) {
-            b.set_exception("unknown exception");
+        } catch (z3_error &err) {
+            if (!m.limit().is_canceled())
+                b.set_exception(err.error_code());
+        } catch (z3_exception &ex) {
+            if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
+                b.set_exception(ex.what());
+        } catch (...) {
+            if (!m.limit().is_canceled())
+                b.set_exception("unknown exception");
         }
 
         asms.shrink(sz);
@@ -776,11 +776,17 @@ namespace smt {
             m_search_tree.backtrack(lease->node, g_core);
         }
         else {
-            IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking external targets.\n");
+            bool has_open_targets = false;
             for (auto const& target : *targets) {
-                if (target.node && !m_search_tree.is_lease_canceled(target.node, target.cancel_epoch))
-                    m_search_tree.backtrack(target.node, g_core);
+                if (m_search_tree.is_lease_canceled(target.node, target.cancel_epoch))
+                    continue;
+
+                has_open_targets = true;
+                IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking external targets.\n");
+                m_search_tree.backtrack(target.node, g_core);
             }
+            if (!has_open_targets)
+                return;
         }
 
         // terminate on-demand the workers that are currently exploring the now-closed nodes
@@ -830,7 +836,7 @@ namespace smt {
         std::scoped_lock lock(mux);
         return m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch);
     }
-    
+
     void parallel::batch_manager::collect_clause(ast_translation &l2g, unsigned source_worker_id, expr *clause) {
         std::scoped_lock lock(mux);
         collect_clause_unlocked(l2g, source_worker_id, clause);
@@ -844,7 +850,6 @@ namespace smt {
             shared_clause_trail.push_back(sc);
         }
     }
-
 
     void parallel::worker::collect_shared_clauses() {
         expr_ref_vector new_clauses = b.return_shared_clauses(m_g2l, m_shared_clause_limit, id);
