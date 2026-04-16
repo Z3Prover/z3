@@ -245,7 +245,7 @@ namespace search_tree {
         }
 
         bool should_split(node<Config>* n, unsigned epoch) {
-            if (!n || n->epoch() != epoch || n->get_status() != status::active || !n->is_leaf())
+            if (!is_lease_valid(n, epoch) || !n->is_leaf())
                 return false;
 
             unsigned num_active_nodes = count_active_nodes(m_root.get());
@@ -440,10 +440,11 @@ namespace search_tree {
 
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
-        bool try_split(node<Config> *n, literal const &a, literal const &b, unsigned effort, unsigned epoch) {
-            if (!n || n->epoch() != epoch || n->get_status() != status::active)
+        bool try_split(node<Config> *n, unsigned epoch, unsigned cancel_epoch, literal const &a, literal const &b, unsigned effort) {
+            if (is_lease_canceled(n, cancel_epoch))
                 return false;
 
+            // add effort regardless of whether the lease is stale, as long as the lease wasn't actually cancelled (i.e. the node was closed)
             n->add_effort(effort);
             bool did_split = false;
 
@@ -538,7 +539,7 @@ namespace search_tree {
         }
 
         bool is_lease_valid(node<Config>* n, unsigned epoch) const {
-            return n && n->get_status() != status::closed && n->epoch() == epoch;
+            return n && n->get_status() == status::active && n->epoch() == epoch;
         }
         
         bool is_lease_canceled(node<Config>* n, unsigned cancel_epoch) const {
