@@ -10,10 +10,10 @@ Abstract:
     A binary search tree for managing the search space of a DPLL(T) solver.
     It supports splitting on atoms, backtracking on conflicts, and activating nodes.
 
-    Nodes can be in one of three states: open, closed, or active.
+    Nodes can be in one of three states: frontier, closed, or deferred.
     - Closed nodes are fully explored (both children are closed).
-    - Active nodes are currently assigned to a worker.
-    - Open nodes are unsolved and available for future activation.
+    - Deferred nodes are revisit candidates in the fallback scheduling band.
+    - Frontier nodes are unsolved and available in the primary scheduling band.
 
     Tree activation follows an SMTS-style policy: prefer nodes in lower
     accumulated-attempts bands, and then prefer deeper nodes within the same band.
@@ -24,7 +24,7 @@ Abstract:
 
     Backtracking on a conflict closes all nodes below the last node whose atom is in the conflict set.
 
-    Activation selects a best-ranked open node using accumulated attempts and depth.
+    Activation selects a best-ranked frontier node using accumulated attempts and depth.
 
 Author:
 
@@ -38,7 +38,7 @@ Author:
 
 namespace search_tree {
 
-    enum class status { open, closed, active };
+    enum class status { frontier, closed, deferred };
 
     template <typename Config> class node {
         typedef typename Config::literal literal;
@@ -53,7 +53,7 @@ namespace search_tree {
         unsigned m_cancel_epoch = 0;
 
     public:
-        node(literal const &l, node *parent) : m_literal(l), m_parent(parent), m_status(status::open) {}
+        node(literal const &l, node *parent) : m_literal(l), m_parent(parent), m_status(status::frontier) {}
         ~node() {
             dealloc(m_left);
             dealloc(m_right);
@@ -71,7 +71,7 @@ namespace search_tree {
         void split(literal const &a, literal const &b) {
             SASSERT(!Config::literal_is_null(a));
             SASSERT(!Config::literal_is_null(b));
-            if (m_status != status::active)
+            if (m_status != status::deferred)
                 return;
             SASSERT(!m_left);
             SASSERT(!m_right);
@@ -99,7 +99,7 @@ namespace search_tree {
             for (unsigned i = 0; i < indent; ++i)
                 out << " ";
             Config::display_literal(out, m_literal);
-            out << (get_status() == status::open ? " (o)" : get_status() == status::closed ? " (c)" : " (a)");
+            out << (get_status() == status::frontier ? " (f)" : get_status() == status::closed ? " (c)" : " (d)");
             out << "\n";
             if (m_left)
                 m_left->display(out, indent + 2);
@@ -120,7 +120,7 @@ namespace search_tree {
             return m_num_activations;
         }
         void mark_new_activation() {
-            set_status(status::active);
+            set_status(status::deferred);
             ++m_num_activations;
             ++m_active_workers;
         }
@@ -210,7 +210,7 @@ namespace search_tree {
         bool has_unvisited_open_node(node<Config>* cur) const {
             if (!cur || cur->get_status() == status::closed)
                 return false;
-            if (cur->get_status() == status::open && cur->num_activations() == 0)
+            if (cur->get_status() == status::frontier && cur->num_activations() == 0)
                 return true;
             return has_unvisited_open_node(cur->left()) || has_unvisited_open_node(cur->right());
         }
@@ -224,7 +224,7 @@ namespace search_tree {
         unsigned count_active_nodes(node<Config>* cur) const {
             if (!cur || cur->get_status() == status::closed)
                 return 0;
-            return (cur->get_status() == status::active ? 1 : 0) +
+            return (cur->get_status() == status::deferred ? 1 : 0) +
                    count_active_nodes(cur->left()) +
                    count_active_nodes(cur->right());
         }
@@ -243,7 +243,7 @@ namespace search_tree {
         }
 
         bool should_split(node<Config>* n, unsigned epoch) {
-            if (!n || n->epoch() != epoch || n->get_status() != status::active || !n->is_leaf())
+            if (!n || n->epoch() != epoch || n->get_status() != status::deferred || !n->is_leaf())
                 return false;
 
             unsigned num_active_nodes = count_active_nodes(m_root.get());
@@ -462,7 +462,7 @@ namespace search_tree {
             // Waiting for all workers would introduce per-node synchronization, delay
             // diversification, and let a slow worker stall progress.
             if (n->epoch() == epoch)
-                n->set_status(status::open);
+                n->set_status(status::frontier);
             
             return did_split;
         }
@@ -504,14 +504,14 @@ namespace search_tree {
             UNREACHABLE();
         }
 
-        // Try to select an open node using the select_next_node policy
-        // If there are no open nodes, try to select an active node for portfolio solving
+        // Try to select a frontier node using the primary scheduling policy.
+        // If there are no frontier nodes, try deferred nodes as a fallback band.
         node<Config>* activate_best_node() {
             candidate best;
-            select_next_node(m_root.get(), status::open, best);
+            select_next_node(m_root.get(), status::frontier, best);
             if (!best.n) {
-                IF_VERBOSE(1, verbose_stream() << "NO OPEN NODES, trying active nodes for portfolio solving\n";);
-                select_next_node(m_root.get(), status::active, best); // If no open nodes, only then consider active nodes for selection
+                IF_VERBOSE(1, verbose_stream() << "NO FRONTIER NODES, trying deferred nodes for portfolio solving\n";);
+                select_next_node(m_root.get(), status::deferred, best); // If no frontier nodes, only then consider deferred nodes for selection
             }
 
             if (!best.n)
