@@ -521,20 +521,19 @@ namespace search_tree {
             return m_root.get();
         }
 
-        void find_nodes_with_literal(literal const& lit, ptr_vector<node<Config>>& out) {
-            find_nodes_with_literal_rec(m_root.get(), lit, out);
+        void find_nonclosed_nodes_with_literal(literal const& lit, ptr_vector<node<Config>>& out) {
+            find_nonclosed_nodes_with_literal_rec(m_root.get(), lit, out);
         }
 
-        void find_nodes_with_literal_rec(node<Config>* n, literal const& lit, ptr_vector<node<Config>>& out) {
+        void find_nonclosed_nodes_with_literal_rec(node<Config>* n, literal const& lit, ptr_vector<node<Config>>& out) {
             if (!n)
                 return;
 
-            if (!Config::literal_is_null(n->get_literal()) &&
-                n->get_literal() == lit)
+            if (!Config::literal_is_null(n->get_literal()) && n->get_literal() == lit && n->get_status() != status::closed)
                 out.push_back(n);
 
-            find_nodes_with_literal_rec(n->left(), lit, out);
-            find_nodes_with_literal_rec(n->right(), lit, out);
+            find_nonclosed_nodes_with_literal_rec(n->left(), lit, out);
+            find_nonclosed_nodes_with_literal_rec(n->right(), lit, out);
         }
 
         void dec_active_workers(node<Config>* n) {

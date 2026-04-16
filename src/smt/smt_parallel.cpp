@@ -326,7 +326,7 @@ namespace smt {
 
         expr_ref neg_g_bb_ref(mk_not(g_bb_ref), m);
         ptr_vector<node> matches;
-        m_search_tree.find_nodes_with_literal(neg_g_bb_ref, matches);
+        m_search_tree.find_nonclosed_nodes_with_literal(neg_g_bb_ref, matches);
 
         if (!matches.empty()) {
             IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
