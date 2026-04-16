@@ -740,9 +740,10 @@ namespace smt {
             if (worker_id == source_worker_id)
                 continue;
             auto const& lease = m_worker_leases[worker_id];
-            if (!m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
-                continue;
-            p.m_workers[worker_id]->cancel();
+            
+            // only cancel workers that currently hold a lease, and whose lease is canceled
+            if (lease.node && m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
+                p.m_workers[worker_id]->cancel();
         }
     }
 
@@ -766,7 +767,7 @@ namespace smt {
         if (lease) {
             // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
             // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
-            if (!lease->node || m_search_tree.is_lease_canceled(lease->node, lease->cancel_epoch))
+            if (m_search_tree.is_lease_canceled(lease->node, lease->cancel_epoch))
                 return;
 
             IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
