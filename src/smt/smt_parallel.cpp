@@ -402,12 +402,12 @@ namespace smt {
         if (!lease.node || m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
             return;
 
-        release_lease_unlocked(worker_id, lease.node, lease.epoch);
-
         expr_ref lit(m), nlit(m);
         lit = l2g(atom);
         nlit = mk_not(m, lit);
         bool did_split = m_search_tree.try_split(lease.node, lit, nlit, effort, lease.epoch);
+
+        release_lease_unlocked(worker_id, lease.node, lease.epoch);
 
         if (did_split) {
             ++m_stats.m_num_cubes;
