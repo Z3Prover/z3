@@ -429,15 +429,14 @@ namespace smt {
 
             lbool r = check_cube(cube);
 
+            if (!m.inc())
+                return;
+
             if (b.lease_canceled(lease)) {
                 LOG_WORKER(1, " abandoning canceled lease\n");
-                m.limit().reset_cancel();
                 lease = {};
                 continue;
             }
-
-            if (!m.inc())
-                return;
 
             switch (r) {
             case l_undef: {
@@ -721,6 +720,11 @@ namespace smt {
         m.limit().cancel();
     }
 
+    void parallel::worker::cancel_lease() {
+        LOG_WORKER(1, " canceling lease\n");
+        ctx->get_fparams().m_max_conflicts = 0;
+    }
+
     void parallel::batch_manager::release_lease_unlocked(unsigned worker_id, node* n, unsigned epoch) {
         if (worker_id >= m_worker_leases.size())
             return;
@@ -740,7 +744,7 @@ namespace smt {
             
             // only cancel workers that currently hold a lease, and whose lease is canceled
             if (lease.node && m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
-                p.m_workers[worker_id]->cancel();
+                p.m_workers[worker_id]->cancel_lease();
         }
     }
 
@@ -1013,14 +1017,13 @@ namespace smt {
         try {
             r = ctx->check(asms.size(), asms.data());
         } catch (z3_error &err) {
-            if (!m.limit().is_canceled())
+            if (!is_cancellation_exception(err.what()))
                 b.set_exception(err.error_code());
         } catch (z3_exception &ex) {
-            if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
+            if (!is_cancellation_exception(ex.what()))
                 b.set_exception(ex.what());
         } catch (...) {
-            if (!m.limit().is_canceled())
-                b.set_exception("unknown exception");
+            b.set_exception("unknown exception");
         }
         asms.shrink(asms.size() - cube.size());
         LOG_WORKER(1, " DONE checking cube " << r << "\n";);

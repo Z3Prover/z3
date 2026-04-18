@@ -129,7 +129,6 @@ namespace search_tree {
             if (m_active_workers > 0)
                 --m_active_workers;
             if (m_active_workers == 0 && m_status == status::active) {
-                m_effort_spent += m_round_max_effort;
                 m_round_max_effort = 0;
                 m_status = status::open;
             }
@@ -141,7 +140,11 @@ namespace search_tree {
             return m_effort_spent;
         }
         void update_round_max_effort(unsigned effort) {
-            m_round_max_effort = std::max(m_round_max_effort, effort);
+            if (effort <= m_round_max_effort)
+                return;
+            m_effort_spent -= m_round_max_effort;
+            m_round_max_effort = effort;
+            m_effort_spent += m_round_max_effort;
         }
         unsigned epoch() const {
             return m_epoch;
