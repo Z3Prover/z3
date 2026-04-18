@@ -4058,8 +4058,10 @@ namespace smt {
                 simplify_clauses();
 
             if (!decide()) {
-                if (inconsistent()) 
+                if (inconsistent())
                     return l_false;
+                if (m_lease_canceled.load(std::memory_order_relaxed))
+                    return l_undef;
                 final_check_status fcs = final_check();
                 TRACE(final_check_result, tout << "fcs: " << fcs << " last_search_failure: " << m_last_search_failure << "\n";);
                 switch (fcs) {
@@ -4139,8 +4141,6 @@ namespace smt {
             TRACE(final_check_step, tout << "processing: " << m_final_check_idx << ", result: " << result << "\n";);
             final_check_status ok;
             if (m_final_check_idx < num_th) {
-                if (m_lease_canceled.load(std::memory_order_relaxed))
-                    return FC_GIVEUP;
                 theory * th = m_theory_set[m_final_check_idx];
                 IF_VERBOSE(100, verbose_stream() << "(smt.final-check \"" << th->get_name() << "\")\n";);
                 ok = th->final_check_eh(level);
