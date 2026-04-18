@@ -4031,7 +4031,7 @@ namespace smt {
                         return l_undef; // restart
                     }
 
-                    if (m_num_conflicts > m_fparams.m_max_conflicts) {
+                    if (m_num_conflicts > m_fparams.m_max_conflicts || m_lease_canceled.load(std::memory_order_relaxed)) {
                         TRACE(search_bug, tout << "bounded-search return undef, inconsistent: " << inconsistent() << "\n";);
                         m_last_search_failure = NUM_CONFLICTS;
                         return l_undef;

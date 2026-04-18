@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include <atomic>
 #include "ast/quantifier_stat.h"
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "smt/smt_clause.h"
@@ -110,6 +111,7 @@ namespace smt {
         theory_user_propagator*          m_user_propagator;
         random_gen                  m_random;
         bool                        m_flushing; // (debug support) true when flushing
+        std::atomic<bool>           m_lease_canceled{false}; // set by parallel batch manager to interrupt mid-check; reset before each check()
         mutable unsigned            m_lemma_id;
         progress_callback *         m_progress_callback;
         unsigned                    m_next_progress_sample;

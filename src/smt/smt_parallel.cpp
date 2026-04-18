@@ -722,7 +722,7 @@ namespace smt {
 
     void parallel::worker::cancel_lease() {
         LOG_WORKER(1, " canceling lease\n");
-        ctx->get_fparams().m_max_conflicts = 0;
+        ctx->m_lease_canceled.store(true, std::memory_order_relaxed);
     }
 
     void parallel::batch_manager::release_lease_unlocked(unsigned worker_id, node* n, unsigned epoch) {
@@ -1010,6 +1010,7 @@ namespace smt {
             asms.push_back(atom);
         lbool r = l_undef;
 
+        ctx->m_lease_canceled.store(false, std::memory_order_relaxed);
         ctx->get_fparams().m_max_conflicts = std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts);
         IF_VERBOSE(1, verbose_stream() << " Checking cube\n"
                                        << bounded_pp_exprs(cube)
