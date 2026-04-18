@@ -180,6 +180,7 @@ namespace smt {
             void collect_shared_clauses();
 
             void cancel();
+            void cancel_lease();
             void collect_statistics(::statistics& st) const;
 
             reslimit& limit() {
