@@ -807,7 +807,7 @@ namespace smt {
     void parallel::batch_manager::try_split(ast_translation &l2g, unsigned worker_id,
                                         node_lease const &lease, expr *atom, unsigned effort) {
         std::scoped_lock lock(mux);
-        
+
         if (m_state != state::is_running)
             return;
 
@@ -1044,10 +1044,12 @@ namespace smt {
                 continue;
 
             // don't split on a backbone
-            expr_ref e_ref(e, m);
-            expr_ref neg_e_ref(mk_not(e_ref), m);
-            if (b.is_global_backbone(m_l2g, e_ref) || b.is_global_backbone(m_l2g, neg_e_ref))
-                continue;
+            if (m_config.m_global_backbones) {
+                expr_ref e_ref(e, m);
+                expr_ref neg_e_ref(mk_not(e_ref), m);
+                if (b.is_global_backbone(m_l2g, e_ref) || b.is_global_backbone(m_l2g, neg_e_ref))
+                    continue;
+            }
 
             double new_score = ctx->m_lit_scores[0][v] * ctx->m_lit_scores[1][v];
 
