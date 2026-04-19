@@ -429,8 +429,10 @@ namespace smt {
 
             lbool r = check_cube(cube);
 
-            if (!m.inc())
+            if (!m.inc()) {
+                b.set_exception("context cancelled");
                 return;
+            }
 
             if (b.lease_canceled(lease)) {
                 LOG_WORKER(1, " abandoning canceled lease\n");
@@ -729,7 +731,7 @@ namespace smt {
         if (worker_id >= m_worker_leases.size())
             return;
         auto &lease = m_worker_leases[worker_id];
-        if (!lease.node || lease.node != n)
+        if (!lease.node || lease.node != n || lease.epoch != epoch)
             return;
         m_search_tree.dec_active_workers(lease.node);
         lease = {};
@@ -1018,11 +1020,11 @@ namespace smt {
         try {
             r = ctx->check(asms.size(), asms.data());
         } catch (z3_error &err) {
-            if (!is_cancellation_exception(err.what()))
-                b.set_exception(err.error_code());
+            // if (!is_cancellation_exception(err.what()))
+            b.set_exception(err.error_code());
         } catch (z3_exception &ex) {
-            if (!is_cancellation_exception(ex.what()))
-                b.set_exception(ex.what());
+            // if (!is_cancellation_exception(ex.what()))
+            b.set_exception(ex.what());
         } catch (...) {
             b.set_exception("unknown exception");
         }
