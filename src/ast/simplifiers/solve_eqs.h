@@ -43,6 +43,7 @@ namespace euf {
             unsigned m_max_occs = UINT_MAX;
             bool m_enabled = true;
             bool m_enable_non_ground = true;
+            bool m_enable_non_linear = true;
         };
 
         stats                         m_stats;
@@ -74,6 +75,7 @@ namespace euf {
         void collect_num_occs(expr * t, expr_fast_mark1 & visited);
         void collect_num_occs();
         bool check_occs(expr* t) const;
+        bool is_linear(expr *t) const;
 
     public:
 

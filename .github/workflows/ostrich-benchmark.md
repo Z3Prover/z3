@@ -8,7 +8,10 @@ on:
 
 permissions: read-all
 
-network: defaults
+network:
+  allowed:
+    - defaults
+    - api.nuget.org
 
 tools:
   bash: true
@@ -85,6 +88,8 @@ echo "Found Microsoft.Z3.dll at: $Z3_DOTNET_DLL"
 
 If the build fails, report the error clearly and exit without proceeding.
 
+Once the binary is confirmed working, call the `noop` safe-output tool with the message `"Z3 built successfully from the c3 branch. Starting ZIPT build and benchmark — results will be posted as a GitHub Discussion once complete."` This keepalive call refreshes the safe-output MCP session before the long build and benchmark phases begin, preventing a session timeout.
+
 ## Phase 2a: Clone and Build ZIPT
 
 Clone the ZIPT solver from the `parikh` branch and compile it against the Z3 .NET bindings built in Phase 1.
@@ -149,6 +154,8 @@ if [ "$TOTAL_FILES" -eq 0 ]; then
     exit 1
 fi
 ```
+
+Once the benchmark files are confirmed, call the `noop` safe-output tool with the message `"Benchmark files ready: <TOTAL_FILES> Ostrich .smt2 files extracted. Starting benchmark run — this may take over an hour."` This second keepalive refreshes the safe-output MCP session immediately before the long per-file benchmark loop begins.
 
 ## Phase 3: Run Benchmarks
 
@@ -402,3 +409,14 @@ Post the Markdown report as a new GitHub Discussion using the `create-discussion
 - **Handle build failures gracefully**: If Z3 fails to build, report the error and create a brief discussion noting the build failure. If ZIPT fails to build, continue with only the seq/nseq columns and note `n/a` for ZIPT results.
 - **Large report**: Always put the per-file table in a `<details>` collapsible section since there may be many files.
 - **Progress logging**: Print a line per file as you run it (e.g., `[N] [filename] seq=...`) so the workflow log shows progress even for large benchmark sets.
+
+## Safe Output Guarantee
+
+You **MUST** call either `create_discussion` or `noop` before the workflow ends, regardless of what happened during execution:
+
+- **Build succeeded, benchmarks ran**: Call `create_discussion` with the full report.
+- **Build succeeded, benchmarks partially ran**: Call `create_discussion` with whatever results were collected and a note about what could not be completed.
+- **Z3 build failed**: Call `noop` with a brief message describing the build error.
+- **No benchmarks could be run**: Call `noop` with a summary of what failed and why.
+
+Failing to produce any safe output triggers an automatic workflow-failure issue that clutters the repository.

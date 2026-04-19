@@ -17,8 +17,6 @@ tools:
   cache-memory: true
   github:
     toolsets: [default]
-  view: {}
-  glob: {}
   edit: {}
   web-fetch: {}
   bash:

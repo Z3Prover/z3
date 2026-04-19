@@ -25,7 +25,7 @@ safe-outputs:
   noop:
     report-as-issue: false
 
-timeout-minutes: 90
+timeout-minutes: 120
 
 steps:
   - name: Checkout c3 branch
@@ -62,19 +62,19 @@ ninja --version
 python3 --version
 ```
 
-## Phase 2: Build Z3 in Debug Mode with Seq Tracing
+## Phase 2: Build Z3 in Release Mode
 
-Build Z3 with debug symbols so that tracing and timing data are meaningful.
+Build Z3 in Release mode for accurate benchmark performance numbers and lower memory usage. Running `ninja` in the background with `&` is not allowed — concurrent C++ compilation and LLM inference can exhaust available RAM and kill the agent process.
 
 ```bash
 mkdir -p /tmp/z3-build
 cd /tmp/z3-build
 cmake "$GITHUB_WORKSPACE" \
   -G Ninja \
-  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_BUILD_TYPE=Release \
   -DZ3_BUILD_TEST_EXECUTABLES=OFF \
   2>&1 | tee /tmp/z3-cmake.log
-ninja z3 2>&1 | tee /tmp/z3-build.log
+ninja -j2 z3 2>&1 | tee /tmp/z3-build.log
 ```
 
 Verify the binary was built:
@@ -84,6 +84,8 @@ Verify the binary was built:
 ```
 
 If the build fails, report it immediately and stop.
+
+Once the binary is confirmed working, call the `noop` safe-output tool with the message `"Z3 built successfully from the c3 branch. Benchmark starting — results will be posted as a GitHub Discussion once complete."` This keepalive call refreshes the safe-output MCP session before the long benchmark run begins, preventing a session timeout.
 
 ## Phase 3: Discover QF_S Benchmark Files
 
@@ -121,9 +123,9 @@ fi
 Cap the benchmark set to keep total runtime under 60 minutes:
 
 ```bash
-# Use at most 500 files; take a random sample if more are available
-if [ "$TOTAL" -gt 500 ]; then
-  shuf -n 500 /tmp/qf_s_files.txt > /tmp/qf_s_sample.txt
+# Use at most 300 files; take a random sample if more are available
+if [ "$TOTAL" -gt 300 ]; then
+  shuf -n 300 /tmp/qf_s_files.txt > /tmp/qf_s_sample.txt
 else
   cp /tmp/qf_s_files.txt /tmp/qf_s_sample.txt
 fi
@@ -133,12 +135,12 @@ echo "Running benchmarks on $SAMPLE files"
 
 ## Phase 4: Run Benchmarks — seq vs nseq
 
-Run each benchmark with both solvers. Use a per-file timeout of 10 seconds. Set Z3's internal timeout to 9 seconds so it exits cleanly before the shell timeout fires.
+Run each benchmark with both solvers. Use a per-file timeout of 5 seconds. Set Z3's internal timeout to 4 seconds so it exits cleanly before the shell timeout fires.
 
 ```bash
 Z3=/tmp/z3-build/z3
-TIMEOUT_SEC=10
-Z3_TIMEOUT_SEC=9
+TIMEOUT_SEC=5
+Z3_TIMEOUT_SEC=4
 RESULTS=/tmp/benchmark-results.csv
 
 echo "file,seq_result,seq_time_ms,nseq_result,nseq_time_ms" > "$RESULTS"
@@ -208,10 +210,7 @@ done
 
 ## Phase 6: Analyze Results
 
-Compute summary statistics from the CSV:
-
-```bash
-Save the analysis script to a file and run it:
+Compute summary statistics from the CSV. Save the analysis script to a file and run it:
 
 ```bash
 cat > /tmp/analyze_benchmark.py << 'PYEOF'
@@ -315,7 +314,7 @@ The discussion body should be formatted as follows (fill in real numbers from Ph
 **Branch**: c3
 **Commit**: `<short SHA>`
 **Workflow Run**: [#<run_id>](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-**Files benchmarked**: N (capped at 500, timeout 10 s per file)
+**Files benchmarked**: N (capped at 300, timeout 5 s per file)
 
 ---
 
@@ -393,11 +392,13 @@ These are benchmarks where `nseq` shows a performance advantage.
 - If Z3 crashes (segfault) on a file with either solver, record the result as `crash` and continue.
 - If the total benchmark set is very small (< 5 files), note this prominently in the discussion and suggest adding more QF_S benchmarks to the `c3` branch.
 - If zero disagreements and both solvers time out on the same files, note that the solvers are in agreement.
+- If `create_discussion` fails (e.g., MCP session error), call `report_incomplete` with the reason and include the top-line statistics (files solved, timeouts, disagreement count) in the `details` field.
 
 ## Important Notes
 
 - **DO NOT** modify any source files or create pull requests.
-- **DO NOT** run benchmarks for longer than 80 minutes total (leave buffer for posting).
+- **DO NOT** run `ninja` or any build command in the background with `&` — concurrent C++ compilation and LLM inference can exhaust available RAM and kill the agent process. Always wait for build commands to complete before proceeding.
+- **DO NOT** run benchmarks for longer than 100 minutes total (leave buffer for posting).
 - **DO** always report the commit SHA so results can be correlated with specific code versions.
 - **DO** close older QF_S Benchmark discussions automatically (configured via `close-older-discussions: true`).
 - **DO** highlight disagreements prominently — these are potential correctness bugs.

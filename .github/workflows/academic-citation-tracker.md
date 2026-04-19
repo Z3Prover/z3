@@ -36,7 +36,7 @@ safe-outputs:
     title-prefix: "[Research Trends] "
     category: "Agentic Workflows"
     close-older-discussions: true
-    expires: 60
+    expires: 60d
   missing-tool:
     create-issue: true
   noop:
