@@ -337,7 +337,7 @@ namespace smt {
         if (worker_id >= m_worker_leases.size())
             return;
         auto &lease = m_worker_leases[worker_id];
-        if (!lease.node || lease.node != n)
+        if (!lease.node || lease.node != n || lease.epoch != epoch)
             return;
         m_search_tree.dec_active_workers(lease.node);
         lease = {};
