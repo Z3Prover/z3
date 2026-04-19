@@ -66,6 +66,12 @@ namespace smt {
 
 namespace smt {
 
+    static bool is_cancellation_exception(char const* msg) {
+        return msg &&
+            (strstr(msg, "canceled") != nullptr ||
+             strstr(msg, "cancelled") != nullptr);
+    }
+
     void parallel::sls_worker::run() {
         ptr_vector<expr> assertions;
         p.ctx.get_assertions(assertions);
@@ -423,16 +429,15 @@ namespace smt {
 
             lbool r = check_cube(cube);
 
-            if (!m.inc()) {
-                b.set_exception("context cancelled");
-                return;
-            }
-
             if (b.lease_canceled(lease)) {
                 LOG_WORKER(1, " abandoning canceled lease\n");
                 lease = {};
+                m.limit().dec_cancel();
                 continue;
             }
+
+             if (!m.inc())
+                return;
 
             switch (r) {
             case l_undef: {
@@ -718,7 +723,7 @@ namespace smt {
 
     void parallel::worker::cancel_lease() {
         LOG_WORKER(1, " canceling lease\n");
-        ctx->m_lease_canceled.store(true, std::memory_order_relaxed);
+        m.limit().inc_cancel();
     }
 
     void parallel::batch_manager::release_lease_unlocked(unsigned worker_id, node* n, unsigned epoch) {
@@ -831,7 +836,7 @@ namespace smt {
 
     bool parallel::batch_manager::lease_canceled(node_lease const &lease) {
         std::scoped_lock lock(mux);
-        return m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch);
+        return m_state == state::is_running && m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch);
     }
 
     void parallel::batch_manager::collect_clause(ast_translation &l2g, unsigned source_worker_id, expr *clause) {
@@ -1006,7 +1011,6 @@ namespace smt {
             asms.push_back(atom);
         lbool r = l_undef;
 
-        ctx->m_lease_canceled.store(false, std::memory_order_relaxed);
         ctx->get_fparams().m_max_conflicts = std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts);
         IF_VERBOSE(1, verbose_stream() << " Checking cube\n"
                                        << bounded_pp_exprs(cube)
@@ -1014,9 +1018,11 @@ namespace smt {
         try {
             r = ctx->check(asms.size(), asms.data());
         } catch (z3_error &err) {
-            b.set_exception(err.error_code());
+            if (!is_cancellation_exception(err.what()))
+                b.set_exception(err.error_code());
         } catch (z3_exception &ex) {
-            b.set_exception(ex.what());
+            if (!is_cancellation_exception(ex.what()))
+                b.set_exception(ex.what());
         } catch (...) {
             b.set_exception("unknown exception");
         }
