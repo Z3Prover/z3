@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include <atomic>
 #include "ast/quantifier_stat.h"
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "smt/smt_clause.h"

@@ -35,12 +35,24 @@ namespace smt {
 
     class parallel {
         context& ctx;
-        unsigned num_threads;
-        bool m_should_run_sls = false;
 
         struct shared_clause {
             unsigned source_worker_id;
             expr_ref clause;
+        };
+
+        struct node_lease {
+            search_tree::node<cube_config>* node = nullptr;
+            // Version counter for structural mutations of this node (e.g., split/close).
+            // Used to detect stale leases: if a worker's lease.epoch != node.epoch,
+            // the node has changed since it was acquired and must not be mutated.
+            unsigned epoch = 0; 
+
+            // Cancellation generation counter for this node/subtree.
+            // Incremented when the node is closed; used to signal that all
+            // workers holding leases on this node (or its descendants)
+            // must abandon work immediately.
+            unsigned cancel_epoch = 0; 
         };
 
         class batch_manager {        
@@ -66,6 +78,7 @@ namespace smt {
             stats m_stats;
             using node = search_tree::node<cube_config>;
             search_tree::tree<cube_config> m_search_tree;
+            vector<node_lease> m_worker_leases;
             
             unsigned m_exception_code = 0;
             std::string m_exception_msg;
@@ -91,7 +104,8 @@ namespace smt {
                 cancel_sls_worker();  
             }
 
-            void init_parameters_state();
+            void release_lease_unlocked(unsigned worker_id, node* n, unsigned epoch);
+            void cancel_closed_leases_unlocked(unsigned source_worker_id);
 
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)) { }
@@ -104,9 +118,11 @@ namespace smt {
             void set_exception(unsigned error_code);
             void collect_statistics(::statistics& st) const;
 
-            bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, node*& n);
-            void backtrack(ast_translation& l2g, expr_ref_vector const& core, node* n);
-            void try_split(ast_translation& l2g, unsigned id, node* n, expr* atom, unsigned effort);
+            bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, bool is_first_run, node_lease& lease);
+            void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease const& lease);
+            void try_split(ast_translation& l2g, unsigned worker_id, node_lease const& lease, expr* atom, unsigned effort);
+            void release_lease(unsigned worker_id, node_lease const& lease);
+            bool lease_canceled(node_lease const& lease);
 
             void collect_clause(ast_translation& l2g, unsigned source_worker_id, expr* clause);
             expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id);
@@ -164,6 +180,7 @@ namespace smt {
             void collect_shared_clauses();
 
             void cancel();
+            void cancel_lease();
             void collect_statistics(::statistics& st) const;
 
             reslimit& limit() {
@@ -198,9 +215,6 @@ namespace smt {
     public:
         parallel(context& ctx) : 
             ctx(ctx),
-            num_threads(std::min(
-                (unsigned)std::thread::hardware_concurrency(),
-                ctx.get_fparams().m_threads)),
             m_batch_manager(ctx.m, *this) {}
 
         lbool operator()(expr_ref_vector const& asms);

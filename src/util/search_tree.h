@@ -48,6 +48,10 @@ namespace search_tree {
         vector<literal> m_core;
         unsigned m_num_activations = 0;
         unsigned m_effort_spent = 0;
+        unsigned m_round_max_effort = 0;
+        unsigned m_active_workers = 0;
+        unsigned m_epoch = 0;
+        unsigned m_cancel_epoch = 0;
 
     public:
         node(literal const &l, node *parent) : m_literal(l), m_parent(parent), m_status(status::open) {}
@@ -65,9 +69,6 @@ namespace search_tree {
         literal const &get_literal() const {
             return m_literal;
         }
-        bool literal_is_null() const {
-            return Config::is_null(m_literal);
-        }
         void split(literal const &a, literal const &b) {
             SASSERT(!Config::literal_is_null(a));
             SASSERT(!Config::literal_is_null(b));
@@ -77,6 +78,7 @@ namespace search_tree {
             SASSERT(!m_right);
             m_left = alloc(node<Config>, a, this);
             m_right = alloc(node<Config>, b, this);
+            inc_epoch();
         }
 
         node* left() const { return m_left; }
@@ -92,22 +94,6 @@ namespace search_tree {
                 p = p->parent();
             }
             return d;
-        }
-
-        node *find_active_node() {
-            if (m_status == status::active)
-                return this;
-            if (m_status == status::closed)
-                return nullptr;
-            node *nodes[2] = {m_left, m_right};
-            for (unsigned i = 0; i < 2; ++i) {
-                auto res = nodes[i] ? nodes[i]->find_active_node() : nullptr;
-                if (res)
-                    return res;
-            }
-            if (m_left->get_status() == status::closed && m_right->get_status() == status::closed)
-                m_status = status::closed;
-            return nullptr;
         }
 
         void display(std::ostream &out, unsigned indent) const {
@@ -137,12 +123,40 @@ namespace search_tree {
         void mark_new_activation() {
             set_status(status::active);
             ++m_num_activations;
+            ++m_active_workers;
+        }
+        void dec_active_workers() {
+            if (m_active_workers > 0)
+                --m_active_workers;
+            if (m_active_workers == 0 && m_status == status::active) {
+                m_round_max_effort = 0;
+                m_status = status::open;
+            }
+        }
+        bool has_active_workers() const {
+            return m_active_workers > 0;
         }
         unsigned effort_spent() const {
             return m_effort_spent;
         }
-        void add_effort(unsigned effort) {
-            m_effort_spent += effort;
+        void update_round_max_effort(unsigned effort) {
+            if (effort <= m_round_max_effort)
+                return;
+            m_effort_spent -= m_round_max_effort;
+            m_round_max_effort = effort;
+            m_effort_spent += m_round_max_effort;
+        }
+        unsigned epoch() const {
+            return m_epoch;
+        }
+        void inc_epoch() {
+            ++m_epoch;
+        }
+        unsigned get_cancel_epoch() const {
+            return m_cancel_epoch;
+        }
+        void inc_cancel_epoch() {
+            ++m_cancel_epoch;
         }
     };
 
@@ -161,13 +175,13 @@ namespace search_tree {
 
         struct candidate {
             node<Config>* n = nullptr;
-            unsigned effort_band = UINT_MAX;
+            unsigned scaled_effort = UINT_MAX;
             unsigned depth = 0;
         };
 
         // A measure of how much effort has been spent on the node, used for activation prioritization and expansion decisions
         // The effort unit is the workers' initial conflict budget, and effort spent grows by a factor defined in smt_parallel.h on each split attempt
-        unsigned effort_band(node<Config> const* n) const {
+        unsigned scaled_effort(node<Config> const* n) const {
             return n->effort_spent() / std::max<unsigned>(1, m_effort_unit);
         }
 
@@ -177,8 +191,8 @@ namespace search_tree {
                 return false;
             if (!b.n)
                 return true;
-            if (a.effort_band != b.effort_band)
-                return a.effort_band < b.effort_band;
+            if (a.scaled_effort != b.scaled_effort)
+                return a.scaled_effort < b.scaled_effort;
             if (a.depth != b.depth)
                 return a.depth > b.depth;
             return false;
@@ -191,7 +205,7 @@ namespace search_tree {
             if (cur->get_status() == target_status) {
                 candidate cand;
                 cand.n = cur;
-                cand.effort_band = effort_band(cur);
+                cand.scaled_effort = scaled_effort(cur);
                 cand.depth = cur->depth();
 
                 if (better(cand, best))
@@ -200,20 +214,6 @@ namespace search_tree {
 
             select_next_node(cur->left(), target_status, best);
             select_next_node(cur->right(), target_status, best);
-        }
-
-        node<Config>* activate_best_node() {
-            candidate best;
-            select_next_node(m_root.get(), status::open, best);
-            if (!best.n) {
-                IF_VERBOSE(1, verbose_stream() << "NO OPEN NODES, trying active nodes for portfolio solving\n";);
-                select_next_node(m_root.get(), status::active, best); // If no open nodes, only then consider active nodes for selection
-            }
-
-            if (!best.n)
-                return nullptr;
-            best.n->mark_new_activation();
-            return best.n;
         }
 
         bool has_unvisited_open_node(node<Config>* cur) const {
@@ -251,8 +251,8 @@ namespace search_tree {
             find_shallowest_timed_out_leaf_depth(cur->right(), best_depth);
         }
 
-        bool should_split(node<Config>* n) {
-            if (!n || n->get_status() != status::active || !n->is_leaf())
+        bool should_split(node<Config>* n, unsigned epoch) {
+            if (!is_lease_valid(n, epoch) || !n->is_leaf())
                 return false;
 
             unsigned num_active_nodes = count_active_nodes(m_root.get());
@@ -344,6 +344,8 @@ namespace search_tree {
         void close(node<Config> *n, vector<literal> const &C) {
             if (!n || n->get_status() == status::closed)
                 return;
+            n->inc_epoch();
+            n->inc_cancel_epoch();
             n->set_status(status::closed);
             n->set_core(C);
             close(n->left(), C);
@@ -441,40 +443,32 @@ namespace search_tree {
 
         void reset() {
             m_root = alloc(node<Config>, m_null_literal, nullptr);
-            m_root->mark_new_activation();
         }
 
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
-        bool try_split(node<Config> *n, literal const &a, literal const &b, unsigned effort) {
-            if (!n || n->get_status() != status::active)
+        bool try_split(node<Config> *n, unsigned epoch, unsigned cancel_epoch, literal const &a, literal const &b, unsigned effort) {
+            if (is_lease_canceled(n, cancel_epoch))
                 return false;
 
-            n->add_effort(effort);
+            // Record at most one effort contribution per concurrent round on this node.
+            // Stale workers still contribute, but only via the round-local maximum.
+            n->update_round_max_effort(effort);
             bool did_split = false;
 
-            if (should_split(n)) {
+            if (should_split(n, epoch)) {
                 n->split(a, b);
                 did_split = true;
             }
 
-            // Reopen immediately on timeout, even if other workers are still active.
-            // This keeps scheduling asynchronous: timeouts act as signals to reconsider
-            // the search, not barriers requiring all workers to finish.
-            //
-            // Early reopening also creates a soft penalty (via accumulated effort),
-            // reducing over-concentration while still allowing revisits.
-            //
-            // Waiting for all workers would introduce per-node synchronization, delay
-            // diversification, and let a slow worker stall progress.
-            n->set_status(status::open);
-            
             return did_split;
         }
 
         // conflict is given by a set of literals.
         // they are subsets of the literals on the path from root to n AND the external assumption literals
         void backtrack(node<Config> *n, vector<literal> const &conflict) {
+            if (!n)
+                return;
             if (conflict.empty()) {
                 close_with_core(m_root.get(), conflict);
                 return;
@@ -507,17 +501,41 @@ namespace search_tree {
             UNREACHABLE();
         }
 
-        // return an active node in the tree, or nullptr if there is none
-        // first check if there is a node to activate under n,
-        // if not, go up the tree and try to activate a sibling subtree
-        node<Config> *activate_node(node<Config> *n) {
-            if (!n) {
-                if (m_root->get_status() == status::active) {
-                    m_root->mark_new_activation();
-                    return m_root.get();
-                }
+        // Try to select an open node using the select_next_node policy
+        // If there are no open nodes, try to select an active node for portfolio solving
+        node<Config>* activate_best_node() {
+            candidate best;
+            select_next_node(m_root.get(), status::open, best);
+            if (!best.n) {
+                IF_VERBOSE(1, verbose_stream() << "NO OPEN NODES, trying active nodes for portfolio solving\n";);
+                select_next_node(m_root.get(), status::active, best); // If no open nodes, only then consider active nodes for selection
             }
-            return activate_best_node();
+
+            if (!best.n)
+                return nullptr;
+            best.n->mark_new_activation();
+            return best.n;
+        }
+
+        node<Config>* activate_root() {
+            if (m_root->get_status() == status::closed)
+                return nullptr;
+            m_root->mark_new_activation();
+            return m_root.get();
+        }
+
+        void dec_active_workers(node<Config>* n) {
+            if (!n)
+                return;
+            n->dec_active_workers();
+        }
+
+        bool is_lease_valid(node<Config>* n, unsigned epoch) const {
+            return n && n->get_status() == status::active && n->epoch() == epoch;
+        }
+        
+        bool is_lease_canceled(node<Config>* n, unsigned cancel_epoch) const {
+            return !n || n->get_status() == status::closed || n->get_cancel_epoch() != cancel_epoch;
         }
 
         vector<literal> const &get_core_from_root() const {
