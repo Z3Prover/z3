@@ -66,12 +66,6 @@ namespace smt {
 
 namespace smt {
 
-    static bool is_cancellation_exception(char const* msg) {
-        return msg &&
-            (strstr(msg, "canceled") != nullptr ||
-             strstr(msg, "cancelled") != nullptr);
-    }
-
     void parallel::sls_worker::run() {
         ptr_vector<expr> assertions;
         p.ctx.get_assertions(assertions);
@@ -1020,10 +1014,8 @@ namespace smt {
         try {
             r = ctx->check(asms.size(), asms.data());
         } catch (z3_error &err) {
-            // if (!is_cancellation_exception(err.what()))
             b.set_exception(err.error_code());
         } catch (z3_exception &ex) {
-            // if (!is_cancellation_exception(ex.what()))
             b.set_exception(ex.what());
         } catch (...) {
             b.set_exception("unknown exception");
