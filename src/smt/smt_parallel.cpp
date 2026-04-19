@@ -844,10 +844,10 @@ namespace smt {
     }
 
     void parallel::batch_manager::collect_clause_unlocked(ast_translation &l2g, unsigned source_worker_id, expr *clause) {
-        expr_ref g_clause(l2g(clause), m);
+        expr *g_clause = l2g(clause);
         if (!shared_clause_set.contains(g_clause)) {
             shared_clause_set.insert(g_clause);
-            shared_clause sc{source_worker_id, g_clause};
+            shared_clause sc{source_worker_id, expr_ref(g_clause, m)};
             shared_clause_trail.push_back(sc);
         }
     }
