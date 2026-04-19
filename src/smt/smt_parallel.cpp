@@ -743,9 +743,12 @@ namespace smt {
                 continue;
             auto const& lease = m_worker_leases[worker_id];
             
-            // only cancel workers that currently hold a lease, and whose lease is canceled
-            if (lease.node && m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch))
+            // only cancel workers that currently hold a lease, whose lease is canceled,
+            // and haven't already been signaled (prevents multiple inc_cancel() for same lease)
+            if (lease.node && !lease.cancel_signaled && m_search_tree.is_lease_canceled(lease.node, lease.cancel_epoch)) {
                 p.m_workers[worker_id]->cancel_lease();
+                m_worker_leases[worker_id].cancel_signaled = true;
+            }
         }
     }
 

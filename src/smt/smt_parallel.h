@@ -56,13 +56,17 @@ namespace smt {
             // Version counter for structural mutations of this node (e.g., split/close).
             // Used to detect stale leases: if a worker's lease.epoch != node.epoch,
             // the node has changed since it was acquired and must not be mutated.
-            unsigned epoch = 0; 
+            unsigned epoch = 0;
 
             // Cancellation generation counter for this node/subtree.
             // Incremented when the node is closed; used to signal that all
             // workers holding leases on this node (or its descendants)
             // must abandon work immediately.
-            unsigned cancel_epoch = 0; 
+            unsigned cancel_epoch = 0;
+
+            // Guards against multiple inc_cancel() calls for the same lease.
+            // Set when cancel_lease() is signaled; cleared when a new lease is assigned.
+            bool cancel_signaled = false;
         };
 
         class batch_manager {        
