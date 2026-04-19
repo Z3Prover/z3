@@ -531,6 +531,10 @@ sig
       For every [i] smaller than [num_exprs], the variable with de-Bruijn index [i] is replaced with term [to[i]]. *)
   val substitute_vars : Expr.expr -> Expr.expr list -> expr
 
+  (** Substitute every application of [from[i]] with [to[i]] in the expression.
+      The [from] and [to] lists must have the same length. *)
+  val substitute_funs : Expr.expr -> FuncDecl.func_decl list -> Expr.expr list -> expr
+
   (** Translates (copies) the term to another context.
       @return A copy of the term which is associated with the other context *)
   val translate : Expr.expr -> context -> expr

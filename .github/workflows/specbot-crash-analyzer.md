@@ -17,8 +17,6 @@ tools:
   github:
     toolsets: [default, discussions]
   bash: [":*"]
-  glob: {}
-  view: {}
   edit: {}
 
 safe-outputs:

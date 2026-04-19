@@ -121,7 +121,10 @@ namespace euf {
                         continue;
 
                     if (!m_config.m_enable_non_ground && has_quantifiers(t)) 
-                        continue;                        
+                        continue;   
+
+                    if (!m_config.m_enable_non_linear && !is_linear(t))
+                        continue;
 
                     bool is_safe = true;                    
                     unsigned todo_sz = todo.size();
@@ -313,6 +316,15 @@ namespace euf {
         return num <= m_config.m_max_occs;
     }
 
+    bool solve_eqs::is_linear(expr* t) const {
+        unsigned num_values = 0;
+        if (!is_app(t))
+            return false;
+        for (auto arg : *to_app(t))
+            num_values += m.is_value(arg) ? 1 : 0;
+        return num_values <= 1;
+    }
+
     void solve_eqs::save_subst(vector<dependent_expr> const& old_fmls) {
         if (!m_subst->empty())   
             m_fmls.model_trail().push(m_subst.detach(), old_fmls, false);                
@@ -342,6 +354,7 @@ namespace euf {
         smt_params_helper sp(p);
         m_config.m_enabled = sp.solve_eqs();
         m_config.m_enable_non_ground = sp.solve_eqs_non_ground();
+        m_config.m_enable_non_linear = !sp.solve_eqs_linear();
     }
 
     void solve_eqs::collect_param_descrs(param_descrs& r) {

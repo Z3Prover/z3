@@ -16,8 +16,6 @@ tools:
     toolsets: [default]
   bash: [":*"]
   edit: {}
-  glob: {}
-  view: {}
 
 safe-outputs:
   create-discussion:

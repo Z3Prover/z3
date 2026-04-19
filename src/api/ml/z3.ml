@@ -475,6 +475,7 @@ sig
   val substitute : expr -> expr list -> expr list -> expr
   val substitute_one : expr -> expr -> expr -> expr
   val substitute_vars : expr -> expr list -> expr
+  val substitute_funs : expr -> FuncDecl.func_decl list -> expr list -> expr
   val translate : expr -> context -> expr
   val to_string : expr -> string
   val is_numeral : expr -> bool
@@ -536,6 +537,13 @@ end = struct
   let substitute_one x from to_ = substitute x [ from ] [ to_ ]
   let substitute_vars x to_ =
     Z3native.substitute_vars (gc x) x (List.length to_) to_
+
+  let substitute_funs x from to_ =
+    let len = List.length from in
+    if List.length to_ <> len then
+      raise (Error "Argument sizes do not match")
+    else
+      Z3native.substitute_funs (gc x) x len from to_
 
   let translate (x:expr) to_ctx =
     if gc x = to_ctx then
