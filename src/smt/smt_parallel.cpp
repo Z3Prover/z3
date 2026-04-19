@@ -64,12 +64,6 @@ namespace smt {
 
 namespace smt {
 
-    static bool is_cancellation_exception(char const* msg) {
-        return msg &&
-            (strstr(msg, "canceled") != nullptr ||
-             strstr(msg, "cancelled") != nullptr);
-    }
-
     void parallel::sls_worker::run() {
         ptr_vector<expr> assertions;
         p.ctx.get_assertions(assertions);
@@ -133,8 +127,10 @@ namespace smt {
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
             lbool r = check_cube(cube);
 
-            if (!m.inc())
+            if (!m.inc()) {
+                b.set_exception("context cancelled");
                 return;
+            }
 
             if (b.lease_canceled(lease)) {
                 LOG_WORKER(1, " abandoning canceled lease\n");
@@ -469,11 +465,9 @@ namespace smt {
         try {
             r = ctx->check(asms.size(), asms.data());
         } catch (z3_error &err) {
-            if (!is_cancellation_exception(err.what()))
-                b.set_exception(err.error_code());
+            b.set_exception(err.error_code());
         } catch (z3_exception &ex) {
-            if (!is_cancellation_exception(ex.what()))
-                b.set_exception(ex.what());
+            b.set_exception(ex.what());
         } catch (...) {
             b.set_exception("unknown exception");
         }
