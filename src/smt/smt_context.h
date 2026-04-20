@@ -1104,6 +1104,12 @@ namespace smt {
             force_phase(l.var(), !l.sign());
         }
 
+       void unforce_phase(bool_var v, bool old_phase_available, bool old_phase) {
+            bool_var_data & d   = get_bdata(v);
+            d.m_phase_available = old_phase_available;
+            d.m_phase           = old_phase;
+        }
+
         bool contains_instance(quantifier * q, unsigned num_bindings, enode * const * bindings);
 
         bool add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
