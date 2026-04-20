@@ -1178,10 +1178,14 @@ namespace smt {
                     continue;
             }
 
-            double new_score = ctx->m_lit_scores[0][v] * ctx->m_lit_scores[1][v];
+            // Lightweight Proof Skeleton Approach
+            // double new_score = ctx->m_lit_scores[0][v] * ctx->m_lit_scores[1][v];
 
-            ctx->m_lit_scores[0][v] /= 2;
-            ctx->m_lit_scores[1][v] /= 2;
+            // ctx->m_lit_scores[0][v] /= 2;
+            // ctx->m_lit_scores[1][v] /= 2;
+
+            // VSIDS Approach
+            double new_score = ctx->get_activity(v); 
 
             if (new_score > score || !result || (new_score == score && m_rand(++n) == 0)) {
                 score = new_score;
