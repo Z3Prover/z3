@@ -4,4 +4,5 @@ def_module_params('smt_parallel',
                   params=(
                         ('inprocessing', BOOL, False, 'integrate in-processing as a heuristic simplification'),
                         ('sls', BOOL, False, 'add sls-tactic as a separate worker thread outside the search tree parallelism'),
+                        ('num_global_bb_threads', UINT, 0, 'default is 0 (off), can configure to 1 (negative mode only) or 2 (negative and positive mode) separate worker thread(s) outside the search tree parallelism'),
               ))

@@ -288,8 +288,13 @@ namespace smt {
             if (!decision && d.m_phase == l.sign())
                 m_agility         += (1.0 - m_fparams.m_agility_factor);
         }
+        bool new_phase = !l.sign();
+        m_stats.m_num_assignments++;
+        if (d.m_phase_available && d.m_phase != new_phase)
+            m_birthdate[l.var()] = m_stats.m_num_assignments; // reset birthdate when phase changes
         d.m_phase_available        = true;
-        d.m_phase                  = !l.sign();
+        d.m_phase = new_phase;
+
         TRACE(assign_core, tout << (decision?"decision: ":"propagating: ") << l << " ";
               display_literal_smt2(tout, l) << "\n";
               tout << "relevant: " << is_relevant_core(l) << " level: " << m_scope_lvl << " is atom " << d.is_atom() << "\n";

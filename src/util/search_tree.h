@@ -170,7 +170,7 @@ namespace search_tree {
         
         // Used for tree expansion throttling policy in should_split()
         // SMTS says set to num workers, but our experiments show a big regression
-        // Leaving at 0 for now, but making it confirgurable for future experimentation
+        // Leaving at 0 for now, but making it configurable for future experimentation
         unsigned m_min_tree_size = 0; 
 
         struct candidate {
@@ -522,6 +522,21 @@ namespace search_tree {
                 return nullptr;
             m_root->mark_new_activation();
             return m_root.get();
+        }
+
+        void find_nonclosed_nodes_with_literal(literal const& lit, ptr_vector<node<Config>>& out) {
+            find_nonclosed_nodes_with_literal_rec(m_root.get(), lit, out);
+        }
+
+        void find_nonclosed_nodes_with_literal_rec(node<Config>* n, literal const& lit, ptr_vector<node<Config>>& out) {
+            if (!n)
+                return;
+
+            if (!Config::literal_is_null(n->get_literal()) && n->get_literal() == lit && n->get_status() != status::closed)
+                out.push_back(n);
+
+            find_nonclosed_nodes_with_literal_rec(n->left(), lit, out);
+            find_nonclosed_nodes_with_literal_rec(n->right(), lit, out);
         }
 
         void dec_active_workers(node<Config>* n) {

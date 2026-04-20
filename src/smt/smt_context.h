@@ -138,6 +138,7 @@ namespace smt {
         scoped_ptr<base_dependent_expr_state> m_fmls;
 
         svector<double> m_lit_scores[2];
+        svector<unsigned> m_birthdate;
 
 
         // -----------------------------------
