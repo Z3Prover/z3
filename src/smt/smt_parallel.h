@@ -217,6 +217,8 @@ namespace smt {
                 unsigned m_inprocessing_delay = 1;
                 unsigned m_max_cube_depth = 20;
                 unsigned m_max_conflicts = UINT_MAX;
+                bool m_share_theory_lemmas = false;
+                unsigned m_share_theory_lemmas_max_lits = 3;
             };
 
             using node = search_tree::node<cube_config>;
@@ -240,6 +242,7 @@ namespace smt {
 
             lbool check_cube(expr_ref_vector const& cube);
             void share_units();
+            void share_theory_lemmas();
 
             void update_max_thread_conflicts() {
                 m_config.m_threads_max_conflicts = (unsigned)(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);

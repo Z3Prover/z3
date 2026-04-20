@@ -511,15 +511,15 @@ namespace smt {
              if (!m.inc())
                 return;
 
-            // if (m_config.m_local_backbones) {
-            //     // Restore activities of backbone candidates to old values after the search
-            //     for (auto const& [v, act] : original_activities) {
-            //         ctx->set_activity(v, act);
-            //     }
-            //     for (auto const& snapshot : original_phases) {
-            //         ctx->unforce_phase(snapshot.v, snapshot.original_phase_available, snapshot.original_phase);
-            //     }
-            // }
+            if (m_config.m_local_backbones) {
+                // Restore activities of backbone candidates to old values after the search
+                for (auto const& [v, act] : original_activities) {
+                    ctx->set_activity(v, act);
+                }
+                for (auto const& snapshot : original_phases) {
+                    ctx->unforce_phase(snapshot.v, snapshot.original_phase_available, snapshot.original_phase);
+                }
+            }
 
             switch (r) {
             case l_undef: {
@@ -567,6 +567,8 @@ namespace smt {
             }
             if (m_config.m_share_units)
                 share_units();
+            if (m_config.m_share_theory_lemmas)
+                share_theory_lemmas();
         }
     }
 
@@ -590,6 +592,7 @@ namespace smt {
         m_config.m_inprocessing = pp.inprocessing();
         m_config.m_global_backbones = pp.num_global_bb_threads() > 0;
         m_config.m_local_backbones = pp.local_backbones();
+        m_config.m_share_theory_lemmas = pp.share_theory_lemmas();
     }
 
     parallel::sls_worker::sls_worker(parallel& p)
@@ -722,6 +725,44 @@ namespace smt {
             b.collect_clause(m_l2g, id, e);
         }
         m_num_shared_units = sz;
+    }
+
+    void parallel::worker::share_theory_lemmas() {
+        // Share learned clauses (CLS_LEARNED) with other workers via the batch manager.
+        // Only share clauses whose atoms all belong to the original formula (var < m_num_initial_atoms),
+        // excluding fresh variables introduced during search.
+        // Lemmas are garbage-collected so we cannot track by index; deduplication is handled by
+        // the batch manager's shared_clause_set.
+        LOG_WORKER(1, " sharing theory lemmas\n");
+        clause_vector const& lemmas = ctx->get_lemmas();
+        for (clause* cls : lemmas) {
+            if (!cls->is_learned())
+                continue;
+
+            unsigned num_lits = cls->get_num_literals();
+            if (num_lits < 2 || num_lits > m_config.m_share_theory_lemmas_max_lits)
+                continue;
+
+            expr_ref_vector lits(m);
+            bool all_initial = true;
+            for (literal lit : *cls) {
+                if (lit.var() >= m_num_initial_atoms) {
+                    all_initial = false;
+                    break;
+                }
+                expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);
+                if (!e) { all_initial = false; break; }
+                if (lit.sign())
+                    e = mk_not(e);
+                lits.push_back(std::move(e));
+            }
+
+            if (!all_initial)
+                continue;
+
+            expr_ref clause_expr = mk_or(lits);
+            b.collect_clause(m_l2g, id, clause_expr);
+        }
     }
 
     void parallel::worker::simplify() {
