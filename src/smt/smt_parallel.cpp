@@ -511,15 +511,15 @@ namespace smt {
              if (!m.inc())
                 return;
 
-            if (m_config.m_local_backbones) {
-                // Restore activities of backbone candidates to old values after the search
-                for (auto const& [v, act] : original_activities) {
-                    ctx->set_activity(v, act);
-                }
-                for (auto const& snapshot : original_phases) {
-                    ctx->unforce_phase(snapshot.v, snapshot.original_phase_available, snapshot.original_phase);
-                }
-            }
+            // if (m_config.m_local_backbones) {
+            //     // Restore activities of backbone candidates to old values after the search
+            //     for (auto const& [v, act] : original_activities) {
+            //         ctx->set_activity(v, act);
+            //     }
+            //     for (auto const& snapshot : original_phases) {
+            //         ctx->unforce_phase(snapshot.v, snapshot.original_phase_available, snapshot.original_phase);
+            //     }
+            // }
 
             switch (r) {
             case l_undef: {
