@@ -811,7 +811,7 @@ namespace smt {
     void parallel::batch_manager::try_split(ast_translation &l2g, unsigned worker_id,
                                         node_lease const &lease, expr *atom, unsigned effort) {
         std::scoped_lock lock(mux);
-
+        
         if (m_state != state::is_running)
             return;
 
@@ -1181,7 +1181,7 @@ namespace smt {
 
         m_search_tree.reset();
         m_search_tree.set_effort_unit(initial_max_thread_conflicts);
-
+        
         m_worker_leases.reset();
         m_worker_leases.resize(p.m_workers.size());
     }

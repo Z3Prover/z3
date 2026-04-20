@@ -46,7 +46,7 @@ jobs:
         run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=x64
             
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: macOsBuild
           path: dist/*.zip
@@ -69,7 +69,7 @@ jobs:
         run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=arm64
             
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: MacArm64
           path: dist/*.zip
@@ -198,7 +198,7 @@ jobs:
         run: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: UbuntuBuild
           path: dist/*.zip
@@ -233,7 +233,7 @@ jobs:
           python scripts/mk_unix_dist.py --nodotnet --arch=arm64
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: UbuntuArm64
           path: dist/*.zip
@@ -288,7 +288,7 @@ jobs:
         run: zip -r z3doc.zip doc/api
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: UbuntuDoc
           path: z3doc.zip
@@ -318,7 +318,7 @@ jobs:
         run: pip install ./src/api/python/wheelhouse/*.whl && python - <src/api/python/z3test.py z3 && python - <src/api/python/z3test.py z3num
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: ManyLinuxPythonBuildAMD64
           path: src/api/python/wheelhouse/*.whl
@@ -358,7 +358,7 @@ jobs:
         run: cd src/api/python && CC=aarch64-none-linux-gnu-gcc CXX=aarch64-none-linux-gnu-g++ AR=aarch64-none-linux-gnu-ar LD=aarch64-none-linux-gnu-ld Z3_CROSS_COMPILING=aarch64 python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../..
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: ManyLinuxPythonBuildArm64
           path: src/api/python/wheelhouse/*.whl
@@ -405,7 +405,7 @@ jobs:
         run: cd src/api/python && CC=riscv64-unknown-linux-gnu-gcc CXX=riscv64-unknown-linux-gnu-g++ AR=riscv64-unknown-linux-gnu-ar LD=riscv64-unknown-linux-gnu-ld Z3_CROSS_COMPILING=riscv64 python -m build && AUDITWHEEL_PLAT= auditwheel repair --best-plat dist/*.whl && cd ../../..
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: ManyLinuxPythonBuildRiscv64
           path: src/api/python/wheelhouse/*.whl
@@ -431,7 +431,7 @@ jobs:
           python scripts\mk_win_dist.py --x64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --zip
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: WindowsBuild-x64
           path: dist/*.zip
@@ -457,7 +457,7 @@ jobs:
           python scripts\mk_win_dist.py --x86-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --zip
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: WindowsBuild-x86
           path: dist/*.zip
@@ -483,7 +483,7 @@ jobs:
           python scripts\mk_win_dist_cmake.py --arm64-only --dotnet-key=%GITHUB_WORKSPACE%\resources\z3.snk --assembly-version=${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }} --zip
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: WindowsBuild-arm64
           path: dist/arm64/*.zip
@@ -560,7 +560,7 @@ jobs:
           nuget pack out\Microsoft.Z3.sym.nuspec -Version ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}.${{ github.run_number }} -OutputDirectory . -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath out
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: NuGet
           path: |
@@ -605,7 +605,7 @@ jobs:
           nuget pack out\Microsoft.Z3.x86.sym.nuspec -Version ${{ env.MAJOR }}.${{ env.MINOR }}.${{ env.PATCH }}.${{ github.run_number }} -OutputDirectory . -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath out
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: NuGet32
           path: |
@@ -704,7 +704,7 @@ jobs:
           cp artifacts/*.whl src/api/python/dist/.
       
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: PythonPackages
           path: src/api/python/dist/*
