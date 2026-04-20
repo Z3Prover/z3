@@ -328,36 +328,13 @@ namespace smt {
         collect_clause_unlocked(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
 
         expr_ref neg_g_bb_ref(mk_not(g_bb_ref), m);
-        ptr_vector<node> matches;
-        m_search_tree.find_nonclosed_nodes_with_literal(neg_g_bb_ref, matches);
-
-        if (!matches.empty()) {
+        vector<node_lease> targets;
+        collect_matching_targets_unlocked(nullptr, neg_g_bb_ref, targets);
+        if (!targets.empty()) {
             IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
             expr_ref_vector l_core(l2g.from());
             l_core.push_back(mk_not(backbone));
-
-            vector<node_lease> targets;
-            for (node* t : matches) {
-                if (!t || m_search_tree.is_lease_canceled(t, t->get_cancel_epoch()))
-                    continue;
-
-                // Keep only highest matching nodes: if an ancestor is already selected,
-                // closing it will also close this descendant subtree.
-                bool is_highest_ancestor = true;
-                for (node* p = t->parent(); p; p = p->parent()) {
-                    if (any_of(targets, [&](node_lease const& target) { return target.node == p; })) {
-                        is_highest_ancestor = false;
-                        break;
-                    }
-                }
-                if (!is_highest_ancestor)
-                    continue;
-
-                targets.push_back({ t, t->epoch(), t->get_cancel_epoch() });
-            }
-
-            if (!targets.empty())
-                backtrack_unlocked(l2g, UINT_MAX, l_core, nullptr, &targets);
+            backtrack_unlocked(l2g, UINT_MAX, l_core, nullptr, &targets);
         }
 
         return true;
@@ -879,7 +856,59 @@ namespace smt {
     void parallel::batch_manager::backtrack(ast_translation &l2g, unsigned worker_id, expr_ref_vector const &core,
                                             node_lease const &lease) {
         std::scoped_lock lock(mux);
-        backtrack_unlocked(l2g, worker_id, core, &lease, nullptr);
+        vector<node_lease> targets;
+        collect_matching_targets_unlocked(lease, targets);
+        backtrack_unlocked(l2g, worker_id, core, &lease, targets.empty() ? nullptr : &targets);
+    }
+
+    void parallel::batch_manager::collect_matching_targets_unlocked(node_lease const& lease, vector<node_lease>& targets) {
+        if (!lease.node)
+            return;
+        collect_matching_targets_unlocked(lease.node, lease.node->get_literal().get(), targets);
+    }
+
+    void parallel::batch_manager::collect_matching_targets_unlocked(node* source, expr* lit, vector<node_lease>& targets) {
+        targets.reset();
+        if (!lit)
+            return;
+
+        auto is_ancestor_of = [&](node* ancestor, node* cur) {
+            if (!ancestor)
+                return false;
+            for (node* p = cur; p; p = p->parent()) {
+                if (p == ancestor)
+                    return true;
+            }
+            return false;
+        };
+
+        ptr_vector<node> matches;
+        m_search_tree.find_nonclosed_nodes_with_literal(expr_ref(lit, m), matches);
+        for (node* t : matches) {
+            if (!t || t == source)
+                continue;
+            if (m_search_tree.is_lease_canceled(t, t->get_cancel_epoch()))
+                continue;
+
+            // When source is provided, keep only external matches. Nodes in the
+            // same branch are already closed by backtracking on the source node.
+            if (source && (is_ancestor_of(source, t) || is_ancestor_of(t, source)))
+                continue;
+
+            // Keep only highest matching nodes: closing an ancestor also closes
+            // all of its matching descendants.
+            bool is_highest_ancestor = true;
+            for (node* p = t->parent(); p; p = p->parent()) {
+                if (any_of(targets, [&](node_lease const& target) { return target.node == p; })) {
+                    is_highest_ancestor = false;
+                    break;
+                }
+            }
+            if (!is_highest_ancestor)
+                continue;
+
+            targets.push_back({ t, t->epoch(), t->get_cancel_epoch() });
+        }
     }
 
     void parallel::batch_manager::backtrack_unlocked(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core,
@@ -891,21 +920,23 @@ namespace smt {
         for (auto c : core)
             g_core.push_back(expr_ref(l2g(c), m));
 
-        SASSERT((lease != nullptr) != (targets != nullptr));
+        SASSERT(lease != nullptr || targets != nullptr);
+        bool has_open_targets = false;
 
         if (lease) {
             // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
             // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
             if (m_search_tree.is_lease_canceled(lease->node, lease->cancel_epoch))
-                return;
+                lease = nullptr;
+            else {
+                has_open_targets = true;
+                IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
 
-            IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
-
-            release_lease_unlocked(worker_id, lease->node, lease->epoch);
-            m_search_tree.backtrack(lease->node, g_core);
+                release_lease_unlocked(worker_id, lease->node, lease->epoch);
+                m_search_tree.backtrack(lease->node, g_core);
+            }
         }
-        else {
-            bool has_open_targets = false;
+        if (targets) {
             for (auto const& target : *targets) {
                 if (m_search_tree.is_lease_canceled(target.node, target.cancel_epoch))
                     continue;
@@ -914,9 +945,9 @@ namespace smt {
                 IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking external targets.\n");
                 m_search_tree.backtrack(target.node, g_core);
             }
-            if (!has_open_targets)
-                return;
         }
+        if (!has_open_targets)
+            return;
 
         // terminate on-demand the workers that are currently exploring the now-closed nodes
         cancel_closed_leases_unlocked(worker_id);
