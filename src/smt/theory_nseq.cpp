@@ -24,6 +24,19 @@ Author:
 
 namespace smt {
 
+    namespace {
+        literal mk_le_literal(context& ctx, ast_manager& m, arith_util& a, seq::le const& d) {
+            SASSERT(d.lhs);
+            SASSERT(d.rhs);
+            expr_ref le_expr(a.mk_le(d.lhs, d.rhs), m);
+            if (!ctx.b_internalized(le_expr))
+                ctx.internalize(le_expr, true);
+            literal lit = ctx.get_literal(le_expr);
+            ctx.mark_as_relevant(lit);
+            return lit;
+        }
+    }
+
     theory_nseq::theory_nseq(context& ctx) :
         theory(ctx, ctx.get_manager().mk_family_id("seq")),
         m_seq(m),
@@ -767,6 +780,7 @@ namespace smt {
                 break;
             case l_false: 
                 // this should not happen because nielsen checks for this before returning a satisfying path.
+                // or maybe it can happen if we have a "le" dependency
                 TRACE(seq, tout << "nseq final_check: nielsen assumption " << c.fml << " is false; internalized - " << ctx.e_internalized(c.fml) << "\n");
                 std::cout << "False [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
                 ctx.push_trail(value_trail(m_should_internalize));
@@ -786,8 +800,10 @@ namespace smt {
         for (seq::dep_source const& d : m_nielsen.conflict_sources()) {
             if (std::holds_alternative<enode_pair>(d))
                 eqs.push_back(std::get<enode_pair>(d));
-            else
+            else if (std::holds_alternative<sat::literal>(d))
                 lits.push_back(std::get<sat::literal>(d));
+            else
+                lits.push_back(mk_le_literal(ctx, m, m_autil, std::get<seq::le>(d)));
         }
         ++m_num_conflicts;
         set_conflict(eqs, lits);
@@ -838,8 +854,12 @@ namespace smt {
                         std::get<enode_pair>(d).second->get_expr()
                             )
                         );
-                else
+                else if (std::holds_alternative<sat::literal>(d))
                     kernel.assert_expr(ctx.literal2expr(std::get<sat::literal>(d)));
+                else {
+                    auto const& p = std::get<seq::le>(d);
+                    kernel.assert_expr(m_autil.mk_le(p.lhs, p.rhs));
+                }
             }
             auto res = kernel.check();
             if (res == l_true) {
@@ -915,10 +935,34 @@ namespace smt {
               for (auto lit : lits) tout << ctx.literal2expr(lit) << "\n";
               for (auto [a, b] : eqs) tout << enode_pp(a, ctx) << " == " << enode_pp(b, ctx) << "\n";
         );
-        ctx.set_conflict(
-            ctx.mk_justification(
-                ext_theory_conflict_justification(
-                    get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data(), 0, nullptr)));
+
+        bool all_true = true;
+        literal_vector eq_lits;
+        for (literal lit : lits) {
+            ctx.mark_as_relevant(lit);
+            all_true &= (ctx.get_assignment(lit) == l_true);
+        }
+        for (auto [a, b] : eqs) {
+            literal lit_eq = mk_eq(a->get_expr(), b->get_expr(), false);
+            eq_lits.push_back(lit_eq);
+            ctx.mark_as_relevant(lit_eq);
+            all_true &= (ctx.get_assignment(lit_eq) == l_true);
+        }
+
+        if (all_true) {
+            ctx.set_conflict(
+                ctx.mk_justification(
+                    ext_theory_conflict_justification(
+                        get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data(), 0, nullptr)));
+            return;
+        }
+
+        literal_vector clause;
+        for (literal lit : lits)
+            clause.push_back(~lit);
+        for (literal lit : eq_lits)
+            clause.push_back(~lit);
+        ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
     }
 
     // -----------------------------------------------------------------------
@@ -1186,16 +1230,43 @@ namespace smt {
         // conditional constraints: propagate with justification from dep_tracker
         enode_pair_vector eqs;
         literal_vector lits;
-        seq::deps_to_lits(lc.m_dep, eqs, lits);
+        vector<seq::le, false> les;
+        seq::deps_to_lits(lc.m_dep, eqs, lits, les);
+        for (auto const& d : les)
+            lits.push_back(mk_le_literal(ctx, m, m_autil, d));
+
+        bool all_true = true;
+        literal_vector eq_lits;
+        for (auto [a, b] : eqs) {
+            literal lit_eq = mk_eq(a->get_expr(), b->get_expr(), false);
+            eq_lits.push_back(lit_eq);
+            ctx.mark_as_relevant(lit_eq);
+            all_true &= (ctx.get_assignment(lit_eq) == l_true);
+        }
+        for (literal dep_lit : lits) {
+            ctx.mark_as_relevant(dep_lit);
+            all_true &= (ctx.get_assignment(dep_lit) == l_true);
+        }
 
         ctx.mark_as_relevant(lit);
-        justification* js = ctx.mk_justification(
-            ext_theory_propagation_justification(
-                get_id(), ctx,
-                lits.size(), lits.data(),
-                eqs.size(), eqs.data(),
-                lit));
-        ctx.assign(lit, js);
+        if (all_true) {
+            justification* js = ctx.mk_justification(
+                ext_theory_propagation_justification(
+                    get_id(), ctx,
+                    lits.size(), lits.data(),
+                    eqs.size(), eqs.data(),
+                    lit));
+            ctx.assign(lit, js);
+        }
+        else {
+            literal_vector clause;
+            for (literal dep_lit : lits)
+                clause.push_back(~dep_lit);
+            for (literal lit_eq : eq_lits)
+                clause.push_back(~lit_eq);
+            clause.push_back(lit);
+            ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
+        }
 
         TRACE(seq, tout << "nseq length propagation: " << mk_pp(lc.m_expr, m) << " (" << eqs.size() << " eqs, "
                         << lits.size() << " lits)\n";
@@ -1449,20 +1520,46 @@ namespace smt {
 
                 enode_pair_vector eqs;
                 literal_vector dep_lits;
+                vector<seq::le, false> dep_les;
                 for (unsigned idx : mem_indices) {
                     if (mems[idx].m_dep)
-                        seq::deps_to_lits(mems[idx].m_dep, eqs, dep_lits);
+                        seq::deps_to_lits(mems[idx].m_dep, eqs, dep_lits, dep_les);
+                }
+                for (auto const& d : dep_les)
+                    dep_lits.push_back(mk_le_literal(ctx, m, m_autil, d));
+
+                bool all_true = true;
+                literal_vector eq_lits;
+                for (auto [a, b] : eqs) {
+                    literal lit_eq = mk_eq(a->get_expr(), b->get_expr(), false);
+                    eq_lits.push_back(lit_eq);
+                    ctx.mark_as_relevant(lit_eq);
+                    all_true &= (ctx.get_assignment(lit_eq) == l_true);
+                }
+                for (literal dep_lit : dep_lits) {
+                    ctx.mark_as_relevant(dep_lit);
+                    all_true &= (ctx.get_assignment(dep_lit) == l_true);
                 }
 
                 ctx.mark_as_relevant(lit_prop);
-                justification* js = ctx.mk_justification(
-                    ext_theory_propagation_justification(
-                        get_id(), ctx,
-                        dep_lits.size(), dep_lits.data(),
-                        eqs.size(), eqs.data(),
-                        lit_prop));
-
-                ctx.assign(lit_prop, js);
+                if (all_true) {
+                    justification* js = ctx.mk_justification(
+                        ext_theory_propagation_justification(
+                            get_id(), ctx,
+                            dep_lits.size(), dep_lits.data(),
+                            eqs.size(), eqs.data(),
+                            lit_prop));
+                    ctx.assign(lit_prop, js);
+                }
+                else {
+                    literal_vector clause;
+                    for (literal dep_lit : dep_lits)
+                        clause.push_back(~dep_lit);
+                    for (literal lit_eq : eq_lits)
+                        clause.push_back(~lit_eq);
+                    clause.push_back(lit_prop);
+                    ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
+                }
                 
                 TRACE(seq, tout << "nseq length coherence check: length " << l << " with gradient " << g << " is incompatible for " << mk_pp(s, m) << ", propagated " << mk_pp(prop_expr, m) << "\n";);
                 IF_VERBOSE(1, verbose_stream() << "nseq length coherence check: length " << l << " with gradient " << g << " is incompatible for " << mk_pp(s, m) << ", propagated " << mk_pp(prop_expr, m) << "\n";);

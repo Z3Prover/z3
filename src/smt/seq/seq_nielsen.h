@@ -338,7 +338,14 @@ namespace seq {
     // index is the 0-based position in the input eq or mem list respectively.
 
     using enode_pair = std::pair<smt::enode *, smt::enode *>;
-    using dep_source = std::variant<sat::literal, enode_pair>;
+
+    // arithmetic implication dependency: lhs <= rhs
+    struct le {
+        expr_ref lhs;
+        expr_ref rhs;
+    };
+
+    using dep_source = std::variant<sat::literal, enode_pair, le>;
 
 
     // Arena-based dependency manager: builds an immutable tree of dep_source
@@ -350,10 +357,12 @@ namespace seq {
     // nullptr represents the empty dependency set.
     using dep_tracker = dep_manager::dependency*;
 
-    // partition dep_source leaves from deps into enode pairs and sat literals.
+    // partition dep_source leaves from deps into enode pairs, sat literals,
+    // and arithmetic <= dependencies.
     void deps_to_lits(dep_tracker deps,
                       svector<enode_pair>& eqs,
-                      svector<sat::literal>& lits);
+                      svector<sat::literal>& lits,
+                      vector<le, false>& les);
 
     // string equality constraint: lhs = rhs
     // mirrors ZIPT's StrEq (both sides are regex-free snode trees)
@@ -607,8 +616,8 @@ namespace seq {
         // Query current bounds for a variable from the arithmetic subsolver.
         // Falls der Subsolver keinen Bound liefert, werden konservative Defaults
         // 0 / UINT_MAX verwendet.
-        bool lower_bound(expr* e, rational& lo) const;
-        bool upper_bound(expr* e, rational& up) const;
+        bool lower_bound(expr* e, rational& lo, dep_tracker& dep);
+        bool upper_bound(expr* e, rational& up, dep_tracker& dep);
 
         // character constraint access (mirrors ZIPT's CharRanges)
         u_map<std::pair<char_set, dep_tracker>> char_ranges() const { return m_char_ranges; }
@@ -827,7 +836,6 @@ namespace seq {
         // (e.g., explain_conflict) can call mk_join / linearize.
         mutable dep_manager           m_dep_mgr;
 
-
         std::ostream &display(std::ostream &out, nielsen_node const* n) const;
 
     public:
@@ -971,6 +979,9 @@ namespace seq {
 
         dep_manager& dep_mgr() { return m_dep_mgr; }
         dep_manager const& dep_mgr() const { return m_dep_mgr; }
+
+        // Add a dependency leaf for lhs <= rhs and join it to dep.
+        void add_le_dependency(dep_tracker& dep, nielsen_node* n, expr* lhs, expr* rhs);
 
         // Assert the constraints of `node` that are new relative to its
         // parent (indices [m_parent_ic_count..end)) into the current solver scope.
@@ -1165,7 +1176,7 @@ namespace seq {
         // mirrors ZIPT's NielsenNode.IsLe(): temporarily asserts NOT(lhs <= rhs)
         // and returns true iff the result is unsatisfiable (i.e., lhs <= rhs is
         // entailed).  Path constraints are already in the solver incrementally.
-        bool check_lp_le(expr* lhs, expr* rhs);
+        bool check_lp_le(expr* lhs, expr* rhs, nielsen_node* n, dep_tracker& dep);
 
         // create an integer constraint: lhs <kind> rhs
         constraint mk_constraint(expr* fml, dep_tracker const& dep);

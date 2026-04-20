@@ -249,7 +249,8 @@ namespace seq {
     //
     // This check is lightweight — it uses only modular arithmetic on the already-
     // known regex min/max lengths and the per-variable bounds stored in the node.
-    str_mem const* seq_parikh::check_parikh_conflict(nielsen_node& node) {
+    str_mem const* seq_parikh::check_parikh_conflict(nielsen_node& node, dep_tracker& dep) {
+        dep = nullptr;
         for (str_mem const& mem : node.str_mems()) {
             if (!mem.m_str || !mem.m_regex || !mem.m_str->is_var())
                 continue;
@@ -269,8 +270,14 @@ namespace seq {
             SASSERT(stride > 1);
 
             rational lb_r, ub_r;
-            if (!node.lower_bound(mem.m_str->get_expr(), lb_r) || !node.upper_bound(mem.m_str->get_expr(), ub_r))
+            dep_tracker lb_dep = nullptr;
+            dep_tracker ub_dep = nullptr;
+            if (!node.lower_bound(mem.m_str->get_expr(), lb_r, lb_dep) ||
+                !node.upper_bound(mem.m_str->get_expr(), ub_r, ub_dep))
                 continue;
+
+            dep_tracker cur_dep = node.graph().dep_mgr().mk_join(mem.m_dep, lb_dep);
+            cur_dep = node.graph().dep_mgr().mk_join(cur_dep, ub_dep);
 
             SASSERT(lb_r <= ub_r);
             if (ub_r > INT_MAX)
@@ -294,6 +301,7 @@ namespace seq {
                 // In that case k_min would be huge, and min_len + stride*k_min would
                 // also overflow ub → treat as a conflict immediately.
                 if (gap > UINT_MAX - (stride - 1)) {
+                    dep = cur_dep;
                     return &mem; // ceiling division would overflow → k_min too large
                 }
                 k_min = (gap + stride - 1) / stride;
@@ -303,12 +311,15 @@ namespace seq {
             unsigned len_at_k_min;
             if (k_min > (UINT_MAX - min_len) / stride) {
                 // Overflow: min_len + stride * k_min > UINT_MAX ≥ ub → conflict.
+                dep = cur_dep;
                 return &mem;
             }
             len_at_k_min = min_len + stride * k_min;
 
-            if (ub != UINT_MAX && len_at_k_min > ub)
+            if (ub != UINT_MAX && len_at_k_min > ub) {
+                dep = cur_dep;
                 return &mem; // no valid k exists → Parikh conflict
+            }
         }
         return nullptr;
     }

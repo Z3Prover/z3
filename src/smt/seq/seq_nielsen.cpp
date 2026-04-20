@@ -42,14 +42,16 @@ NSB review:
 
 namespace seq {
 
-    void deps_to_lits(dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits) {
+    void deps_to_lits(dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits, vector<le, false>& les) {
         vector<dep_source, false> vs;
         dep_manager::s_linearize(deps, vs);
         for (dep_source const &d : vs) {
             if (std::holds_alternative<enode_pair>(d))
                 eqs.push_back(std::get<enode_pair>(d));
-            else
+            else if (std::holds_alternative<sat::literal>(d))
                 lits.push_back(std::get<sat::literal>(d));
+            else
+                les.push_back(std::get<le>(d));
         }
     }
 
@@ -373,22 +375,28 @@ namespace seq {
         add_constraint(constraint(m.mk_or(cases), dep, m));
     }
 
-    bool nielsen_node::lower_bound(expr* e, rational& lo) const {
-        // TODO: Return dependencies
+    bool nielsen_node::lower_bound(expr* e, rational& lo, dep_tracker& dep) {
         SASSERT(e);
-        return m_graph.m_solver.lower_bound(e, lo);
+        if (!m_graph.m_solver.lower_bound(e, lo))
+            return false;
+        expr_ref lo_expr(m_graph.a.mk_int(lo), m_graph.m);
+        m_graph.add_le_dependency(dep, this, lo_expr.get(), e);
+        return true;
     }
 
 
-    bool nielsen_node::upper_bound(expr* e, rational& up) const {
-        // TODO: Return dependencies
+    bool nielsen_node::upper_bound(expr* e, rational& up, dep_tracker& dep) {
         SASSERT(e);
         rational v;
         if (m_graph.a.is_numeral(e, v)) {
             up = v;
             return true;
         }
-        return m_graph.m_solver.upper_bound(e, up);
+        if (!m_graph.m_solver.upper_bound(e, up))
+            return false;
+        expr_ref up_expr(m_graph.a.mk_int(up), m_graph.m);
+        m_graph.add_le_dependency(dep, this, e, up_expr.get());
+        return true;
     }
 
     // -----------------------------------------------
@@ -501,6 +509,19 @@ namespace seq {
         SASSERT(m_edges.empty());
         SASSERT(m_root == nullptr);
         SASSERT(m_sat_node == nullptr);
+    }
+
+    void nielsen_graph::add_le_dependency(dep_tracker& dep, nielsen_node* n, expr* lhs, expr* rhs) {
+        SASSERT(lhs);
+        SASSERT(rhs);
+        expr_ref lhs_ref(lhs, m);
+        expr_ref rhs_ref(rhs, m);
+        // just assume it to be correct
+        dep_tracker d = m_dep_mgr.mk_leaf(le{ lhs_ref, rhs_ref });
+        // Just add the constraint - we do not have to recompute it
+        // [also it is on the set of side-conditions if we assert a satisfied node]
+        n->add_constraint(constraint(a.mk_le(lhs_ref, rhs_ref), d, m));
+        dep = m_dep_mgr.mk_join(dep, d);
     }
 
     // -----------------------------------------------------------------------
@@ -682,7 +703,8 @@ namespace seq {
 
     // Simplify constant-exponent powers: base^0 → ε, base^1 → base.
     // Returns new snode if any simplification happened, nullptr otherwise.
-    static euf::snode* simplify_const_powers(nielsen_node* node, euf::sgraph& sg, euf::snode* side) {
+    static euf::snode* simplify_const_powers(nielsen_node* node, euf::sgraph& sg, euf::snode* side, dep_tracker& dep) {
+        dep = nullptr;
         SASSERT(side);
         if (side->is_empty())
             return nullptr;
@@ -699,9 +721,11 @@ namespace seq {
             if (tok->is_power()) {
                 expr* exp_e = get_power_exp_expr(tok, seq);
                 rational ub;
-                if (exp_e && node->upper_bound(exp_e, ub)) {
+                dep_tracker ub_dep = nullptr;
+                if (exp_e && node->upper_bound(exp_e, ub, ub_dep)) {
                     if (ub.is_zero()) {
                         // base^0 → ε (skip this token entirely)
+                        dep = node->graph().dep_mgr().mk_join(dep, ub_dep);
                         simplified = true;
                         continue;
                     }
@@ -709,6 +733,7 @@ namespace seq {
                         // base^1 → base
                         euf::snode* base_sn = tok->arg(0);
                         if (base_sn) {
+                            dep = node->graph().dep_mgr().mk_join(dep, ub_dep);
                             result.push_back(base_sn);
                             simplified = true;
                             continue;
@@ -915,10 +940,18 @@ namespace seq {
                     continue;
 
                 // 3a: simplify constant-exponent powers (base^0 → ε, base^1 → base)
-                if (euf::snode* s = simplify_const_powers(this, sg, eq.m_lhs))
-                    { eq.m_lhs = s; changed = true; }
-                if (euf::snode* s = simplify_const_powers(this, sg, eq.m_rhs))
-                    { eq.m_rhs = s; changed = true; }
+                dep_tracker lhs_pow_dep = nullptr;
+                if (euf::snode* s = simplify_const_powers(this, sg, eq.m_lhs, lhs_pow_dep)) {
+                    eq.m_lhs = s;
+                    eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, lhs_pow_dep);
+                    changed = true;
+                }
+                dep_tracker rhs_pow_dep = nullptr;
+                if (euf::snode* s = simplify_const_powers(this, sg, eq.m_rhs, rhs_pow_dep)) {
+                    eq.m_rhs = s;
+                    eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, rhs_pow_dep);
+                    changed = true;
+                }
 
                 // 3b: merge adjacent same-base tokens into combined powers
                 if (euf::snode* s = merge_adjacent_powers(sg, eq.m_lhs))
@@ -962,17 +995,21 @@ namespace seq {
 
                         expr_ref norm_count = normalize_arith(m, count);
                         bool pow_le_count = false, count_le_pow = false;
+                        dep_tracker pow_le_dep = nullptr, count_le_dep = nullptr;
                         rational diff;
                         if (get_const_power_diff(norm_count, pow_exp, m_graph.a, diff)) {
                             count_le_pow = diff.is_nonpos();
                             pow_le_count = diff.is_nonneg();
                         }
                         else if (!cur_path.empty()) {
-                            pow_le_count = m_graph.check_lp_le(pow_exp, norm_count);
-                            count_le_pow = m_graph.check_lp_le(norm_count, pow_exp);
+                            pow_le_count = m_graph.check_lp_le(pow_exp, norm_count, this, pow_le_dep);
+                            count_le_pow = m_graph.check_lp_le(norm_count, pow_exp, this, count_le_dep);
                         }
                         if (!pow_le_count && !count_le_pow)
                             continue;
+
+                        eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, pow_le_dep);
+                        eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, count_le_dep);
 
                         pow_side = dir_drop(sg, pow_side, 1, fwd);
                         other_side = dir_drop(sg, other_side, consumed, fwd);
@@ -1045,9 +1082,14 @@ namespace seq {
                     }
                     // 3e: LP-aware power directional elimination
                     else if (lp && rp && !cur_path.empty()) {
-                        bool lp_le_rp = m_graph.check_lp_le(lp, rp);
-                        bool rp_le_lp = m_graph.check_lp_le(rp, lp);
+                        dep_tracker lp_le_dep = nullptr, rp_le_dep = nullptr;
+                        bool lp_le_rp = m_graph.check_lp_le(lp, rp, this, lp_le_dep);
+                        bool rp_le_lp = m_graph.check_lp_le(rp, lp, this, rp_le_dep);
                         if (lp_le_rp || rp_le_lp) {
+                            if (lp_le_rp)
+                                eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, lp_le_dep);
+                            if (rp_le_lp)
+                                eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, rp_le_dep);
                             expr* smaller_exp = lp_le_rp ? lp : rp;
                             expr* larger_exp  = lp_le_rp ? rp : lp;
                             eq.m_lhs = dir_drop(sg, eq.m_lhs, 1, fwd);
@@ -1202,9 +1244,11 @@ namespace seq {
         // contradict the variable's current integer bounds?  If so, mark this
         // node as a Parikh-image conflict immediately (avoids a solver call).
         str_mem const* confl_cnstr;
-        if (!node.is_currently_conflict() && (confl_cnstr = m_parikh->check_parikh_conflict(node)) != nullptr) {
+        dep_tracker parikh_dep = nullptr;
+        if (!node.is_currently_conflict() &&
+            (confl_cnstr = m_parikh->check_parikh_conflict(node, parikh_dep)) != nullptr) {
             node.set_general_conflict();
-            node.set_conflict(backtrack_reason::parikh_image, confl_cnstr->m_dep);
+            node.set_conflict(backtrack_reason::parikh_image, parikh_dep);
         }
     }
 
@@ -3683,7 +3727,7 @@ namespace seq {
         for (dep_source const& d : vs) {
             if (std::holds_alternative<enode_pair>(d))
                 eqs.push_back(std::get<enode_pair>(d));
-            else
+            else if (std::holds_alternative<sat::literal>(d))
                 mem_literals.push_back(std::get<sat::literal>(d));
         }
     }
@@ -4003,21 +4047,35 @@ namespace seq {
         return dep;
     }
 
-    bool nielsen_graph::check_lp_le(expr* lhs, expr* rhs) {
-        // TODO: We need the justification!!
-        rational lhs_lo, rhs_up;
-        if (m_solver.lower_bound(lhs, lhs_lo) &&
-            m_solver.upper_bound(rhs, rhs_up)) {
+    bool nielsen_graph::check_lp_le(expr* lhs, expr* rhs, nielsen_node* n, dep_tracker& dep) {
+        dep = nullptr;
 
+        rational lhs_lo, rhs_up;
+        bool has_lhs_lo = false, has_rhs_up = false;
+        dep_tracker lhs_lo_dep = nullptr, rhs_up_dep = nullptr;
+        if (n->lower_bound(lhs, lhs_lo, lhs_lo_dep))
+            has_lhs_lo = true;
+        if (has_lhs_lo && n->upper_bound(rhs, rhs_up, rhs_up_dep))
+            has_rhs_up = true;
+        if (has_lhs_lo && has_rhs_up) {
             if (lhs_lo > rhs_up)
+                // NB: we only justify if we return true
                 return false; // definitely infeasible
         }
-        rational rhs_lo, lhs_up;
-        if (m_solver.upper_bound(lhs, lhs_up) &&
-            m_solver.lower_bound(rhs, rhs_lo)) {
 
-            if (lhs_up <= rhs_lo)
+        rational rhs_lo, lhs_up;
+        bool has_rhs_lo = false, has_lhs_up = false;
+        dep_tracker rhs_lo_dep = nullptr, lhs_up_dep = nullptr;
+        if (n->upper_bound(lhs, lhs_up, lhs_up_dep))
+            has_lhs_up = true;
+        if (has_lhs_up && n->lower_bound(rhs, rhs_lo, rhs_lo_dep))
+            has_rhs_lo = true;
+        if (has_lhs_up && has_rhs_lo) {
+            if (lhs_up <= rhs_lo) {
+                dep = m_dep_mgr.mk_join(dep, lhs_up_dep);
+                dep = m_dep_mgr.mk_join(dep, rhs_lo_dep);
                 return true; // definitely feasible
+            }
         }
         // fall through - ask the solver [expensive]
 
@@ -4033,7 +4091,11 @@ namespace seq {
         m_solver.assert_expr(a.mk_ge(lhs, rhs_plus_one));
         lbool result = m_solver.check();
         m_solver.pop(1);
-        return result == l_false;
+        if (result == l_false) {
+            add_le_dependency(dep, n, lhs, rhs);
+            return true;
+        }
+        return false;
     }
 
     constraint nielsen_graph::mk_constraint(expr* fml, dep_tracker const& dep) {
