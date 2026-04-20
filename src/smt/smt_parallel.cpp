@@ -441,17 +441,17 @@ namespace smt {
                 if (is_negated)
                     phase = !phase;
 
-                auto const& d = ctx->get_bdata(v);
-                bool has_phase_snapshot = false;
-                for (auto const& snapshot : original_phases) {
-                    if (snapshot.v == v) {
-                        has_phase_snapshot = true;
-                        break;
-                    }
-                }
-                if (!has_phase_snapshot) {
-                    original_phases.push_back(phase_snapshot{v, d.m_phase_available, d.m_phase});
-                }
+                // auto const& d = ctx->get_bdata(v);
+                // bool has_phase_snapshot = false;
+                // for (auto const& snapshot : original_phases) {
+                //     if (snapshot.v == v) {
+                //         has_phase_snapshot = true;
+                //         break;
+                //     }
+                // }
+                // if (!has_phase_snapshot) {
+                //     original_phases.push_back(phase_snapshot{v, d.m_phase_available, d.m_phase});
+                // }
 
                 ctx->force_phase(v, phase);
                 LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(lit, m, 3) << " := " << (phase ? "true" : "false") << "\n");
@@ -461,9 +461,9 @@ namespace smt {
                 for (unsigned i = 0; i < activities.size(); ++i)
                     max_activity = std::max(max_activity, activities[i]);
 
-                double saved_activity = 0.0;
-                if (!original_activities.find(v, saved_activity))
-                    original_activities.insert(v, ctx->get_activity(v));
+                // double saved_activity = 0.0;
+                // if (!original_activities.find(v, saved_activity))
+                //     original_activities.insert(v, ctx->get_activity(v));
 
                 // Promote this candidate above all others
                 double eps = 1.0;
@@ -511,15 +511,15 @@ namespace smt {
              if (!m.inc())
                 return;
 
-            if (m_config.m_local_backbones) {
-                // Restore activities of backbone candidates to old values after the search
-                for (auto const& [v, act] : original_activities) {
-                    ctx->set_activity(v, act);
-                }
-                for (auto const& snapshot : original_phases) {
-                    ctx->unforce_phase(snapshot.v, snapshot.original_phase_available, snapshot.original_phase);
-                }
-            }
+            // if (m_config.m_local_backbones) {
+            //     // Restore activities of backbone candidates to old values after the search
+            //     for (auto const& [v, act] : original_activities) {
+            //         ctx->set_activity(v, act);
+            //     }
+            //     for (auto const& snapshot : original_phases) {
+            //         ctx->unforce_phase(snapshot.v, snapshot.original_phase_available, snapshot.original_phase);
+            //     }
+            // }
 
             switch (r) {
             case l_undef: {
