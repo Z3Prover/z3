@@ -83,7 +83,6 @@ namespace smt {
                 unsigned m_max_cube_depth = 0;
                 unsigned m_num_cubes = 0;
             };
-
             ast_manager& m;
             parallel& p;
             std::mutex mux;
