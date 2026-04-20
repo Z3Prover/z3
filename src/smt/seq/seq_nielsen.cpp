@@ -1502,6 +1502,8 @@ namespace seq {
             IF_VERBOSE(1, display(verbose_stream(), node));
             CTRACE(seq, !ext, display(tout, node) << to_dot() << "\n");
             if (!ext) {
+                std::cout << "No extensions generated for node " << node->id() << ", but not satisfied or conflict?!"
+                          << std::endl;
                 node->to_html(std::cout, m);
                 std::cout << std::endl;
                 display(std::cout, node);

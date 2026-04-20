@@ -4539,6 +4539,11 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = re().mk_plus(b);
         return BR_DONE;
     }
+    expr *x = nullptr, *y = nullptr;
+    if (re().is_concat(a, x, y) && re().is_full_seq(y) && re().is_full_seq(b)) {
+        result = a;
+        return BR_DONE;
+    }
     expr_ref a_str(m());
     expr_ref b_str(m());
     if (lift_str_from_to_re(a, a_str) && lift_str_from_to_re(b, b_str)) {
