@@ -974,9 +974,9 @@ namespace smt {
               for (auto [a, b] : eqs) tout << enode_pp(a, ctx) << " == " << enode_pp(b, ctx) << "\n";
         );
 
-        bool all_true = 
-            all_of(lits, [&](auto lit) { return ctx.get_assignment(lit) == l_true; }) 
-            && all_of(eqs, [&](auto eq) { return eq.first->get_root() == eq.second->get_root(); });
+        SASSERT(all_of(eqs, [&](auto eq) { return eq.first->get_root() == eq.second->get_root(); }));
+
+        bool all_true = all_of(lits, [&](auto lit) { return ctx.get_assignment(lit) == l_true; });          
 
         if (all_true) {
             ctx.set_conflict(
@@ -993,6 +993,36 @@ namespace smt {
             for (auto lit : clause)
                 ctx.mark_as_relevant(lit);
 
+            ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
+        }
+    }
+
+    void theory_nseq::set_propagate(enode_pair_vector const& eqs, literal_vector const& lits, literal p) {
+        SASSERT(all_of(eqs, [&](auto eq) { return eq.first->get_root() == eq.second->get_root(); }));
+
+        bool all_true = all_of(lits, [&](auto lit) { return ctx.get_assignment(lit) == l_true; });
+
+        TRACE(seq, tout << "nseq propagation: " << ctx.literal2expr(p) << " (" << eqs.size() << " eqs, "
+                        << lits.size() << " lits)\n";
+              for (auto lit : lits) tout << "<- " << ctx.literal2expr(lit) << "\n";
+              for (auto [a, b] : eqs) tout << "<- " << enode_pp(a, ctx) << " == " << enode_pp(b, ctx) << "\n";);
+
+        ctx.mark_as_relevant(p);
+
+        if (all_true) {
+            justification *js = ctx.mk_justification(ext_theory_propagation_justification(
+                get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data(), p));
+            ctx.assign(p, js);
+        }
+        else {
+            literal_vector clause;
+            for (literal lit : lits)
+                clause.push_back(~lit);
+            for (auto [a, b] : eqs)
+                clause.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
+            clause.push_back(p);
+            for (auto lit : clause)
+                ctx.mark_as_relevant(lit);
             ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
         }
     }
@@ -1267,43 +1297,8 @@ namespace smt {
         for (auto const& d : les)
             lits.push_back(mk_le_literal(d));
 
-        bool all_true = true;
-        literal_vector eq_lits;
-        for (auto [a, b] : eqs) {
-            literal lit_eq = mk_eq(a->get_expr(), b->get_expr(), false);
-            eq_lits.push_back(lit_eq);
-            ctx.mark_as_relevant(lit_eq);
-            all_true &= (ctx.get_assignment(lit_eq) == l_true);
-        }
-        for (literal dep_lit : lits) {
-            ctx.mark_as_relevant(dep_lit);
-            all_true &= (ctx.get_assignment(dep_lit) == l_true);
-        }
+        set_propagate(eqs, lits, lit);
 
-        ctx.mark_as_relevant(lit);
-        if (all_true) {
-            justification* js = ctx.mk_justification(
-                ext_theory_propagation_justification(
-                    get_id(), ctx,
-                    lits.size(), lits.data(),
-                    eqs.size(), eqs.data(),
-                    lit));
-            ctx.assign(lit, js);
-        }
-        else {
-            literal_vector clause;
-            for (literal dep_lit : lits)
-                clause.push_back(~dep_lit);
-            for (literal lit_eq : eq_lits)
-                clause.push_back(~lit_eq);
-            clause.push_back(lit);
-            ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
-        }
-
-        TRACE(seq, tout << "nseq length propagation: " << mk_pp(lc.m_expr, m) << " (" << eqs.size() << " eqs, "
-                        << lits.size() << " lits)\n";
-              for (auto lit : lits) tout << "<- " << ctx.literal2expr(lit) << "\n";
-              for (auto [a, b] : eqs) tout << "<- " << enode_pp(a, ctx) << " == " << enode_pp(b, ctx) << "\n";);
         ++m_num_length_axioms;
         return true;
     }
@@ -1560,26 +1555,7 @@ namespace smt {
                 for (auto const &d : dep_les)
                     dep_lits.push_back(mk_le_literal(d));
 
-                bool all_true = all_of(dep_lits, [&](auto lit) { return ctx.get_assignment(lit) == l_true; }) &&
-                                all_of(eqs, [&](auto e) { return e.first->get_root() == e.second->get_root(); });
-
-                ctx.mark_as_relevant(lit_prop);
-                if (all_true) {
-                    justification *js = ctx.mk_justification(ext_theory_propagation_justification(
-                        get_id(), ctx, dep_lits.size(), dep_lits.data(), eqs.size(), eqs.data(), lit_prop));
-                    ctx.assign(lit_prop, js);
-                }
-                else {
-                    literal_vector clause;
-                    for (literal dep_lit : dep_lits)
-                        clause.push_back(~dep_lit);
-                    for (auto [a, b] : eqs)
-                        clause.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
-                    clause.push_back(lit_prop);
-                    for (auto lit : clause)
-                        ctx.mark_as_relevant(lit);
-                    ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
-                }
+                set_propagate(eqs, dep_lits, lit_prop);
 
                 TRACE(seq, tout << "nseq length coherence check: length " << l << " with gradient " << g
                                 << " is incompatible for " << mk_pp(s, m) << ", propagated " << mk_pp(prop_expr, m)
