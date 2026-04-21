@@ -3913,7 +3913,8 @@ namespace seq {
         SASSERT(var && var->is_var());
         th_rewriter rw(m);
         auto e = get_current_skolem(var);
-        return skolem(m, rw).mk("char!", e, m_seq.mk_char_sort());
+        return expr_ref(
+            m_seq.str.mk_unit(skolem(m, rw).mk("char!", e, m_seq.mk_char_sort())), m);
     }
 
     expr_ref nielsen_graph::get_or_create_gpower_n_var(euf::snode* var) {
