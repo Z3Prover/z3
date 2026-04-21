@@ -350,7 +350,9 @@ namespace seq {
             // for a concrete character just check if it matches
             expr* val = sym_char->get_expr();
             unsigned ch;
-            VERIFY(graph().seq().is_const_char(val, ch));
+            expr* ch_expr;
+            VERIFY(graph().seq().str.is_unit(val, ch_expr));
+            VERIFY(graph().seq().is_const_char(ch_expr, ch));
             for (unsigned i = 0; i < range.ranges().size(); i++) {
                 if (range.ranges()[i].contains(ch))
                     return; // matches, no conflict
