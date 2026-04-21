@@ -234,8 +234,9 @@ namespace smt {
             void share_units();
 
             void update_max_thread_conflicts() {
+                // allow for backoff scheme of conflicts within the thread for cube timeouts.
                 m_config.m_threads_max_conflicts = (unsigned)(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
-            } // allow for backoff scheme of conflicts within the thread for cube timeouts.
+            }
 
             void simplify();
             bb_candidates find_backbone_candidates(unsigned k = 10);

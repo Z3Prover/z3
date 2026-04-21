@@ -601,14 +601,7 @@ namespace smt {
 
         LOG_BB_WORKER(1, " RESULT: " << r << " FOR CANDIDATE: " << mk_bounded_pp(bb_candidate, m, 3) << "\n");
 
-        if (r == l_false) {
-            auto core = ctx->unsat_core();
-            if (core.size() == 1) {
-                return true;
-            }                
-        }
-
-        return false;
+        return r == l_false && ctx->unsat_core().size() == 1;
     }
 
     void parallel::worker::share_units() {
@@ -1241,8 +1234,7 @@ namespace smt {
         m_batch_manager.initialize(num_global_bb_threads);
         
         // Launch threads
-        vector<std::thread> threads;
-        threads.resize(total_threads);
+        vector<std::thread> threads(total_threads);
         unsigned thread_idx = 0;
         for (auto* w : m_workers) 
             threads[thread_idx++] = std::thread([&, w]() { w->run(); });                
