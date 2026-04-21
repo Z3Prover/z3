@@ -3719,6 +3719,8 @@ namespace seq {
                 eqs.push_back(std::get<enode_pair>(d));
             else if (std::holds_alternative<sat::literal>(d))
                 mem_literals.push_back(std::get<sat::literal>(d));
+            else if (std::holds_alternative<le>(d))
+                UNREACHABLE();
         }
     }
 

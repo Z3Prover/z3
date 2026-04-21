@@ -24,19 +24,6 @@ Author:
 
 namespace smt {
 
-    namespace {
-        literal mk_le_literal(context& ctx, ast_manager& m, arith_util& a, seq::le const& d) {
-            SASSERT(d.lhs);
-            SASSERT(d.rhs);
-            expr_ref le_expr(a.mk_le(d.lhs, d.rhs), m);
-            if (!ctx.b_internalized(le_expr))
-                ctx.internalize(le_expr, true);
-            literal lit = ctx.get_literal(le_expr);
-            ctx.mark_as_relevant(lit);
-            return lit;
-        }
-    }
-
     theory_nseq::theory_nseq(context& ctx) :
         theory(ctx, ctx.get_manager().mk_family_id("seq")),
         m_seq(m),
@@ -234,7 +221,7 @@ namespace smt {
             if (m_seq.is_re(e1)) {
                 expr_ref s(m);
                 auto r = m_rewriter.mk_symmetric_diff(e1, e2);
-                switch (m_rewriter.some_seq_in_re(r, s)) { 
+                switch (m_rewriter.some_seq_in_re(r, s)) {
                 case l_false:
                     // regexes are equivalent: nothing to do
                     return;
@@ -253,13 +240,11 @@ namespace smt {
             }
             if (!m_seq.is_seq(e1))
                 return;
-            euf::snode* s1 = get_snode(e1);
-            euf::snode* s2 = get_snode(e2);
-            if (s1 && s2) {
-                seq::dep_tracker dep = nullptr;
-                ctx.push_trail(restore_vector(m_prop_queue));
-                m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
-            }
+            euf::snode *s1 = get_snode(e1);
+            euf::snode *s2 = get_snode(e2);
+            seq::dep_tracker dep = nullptr;
+            ctx.push_trail(restore_vector(m_prop_queue));
+            m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
         }
         catch(const std::exception&) {
 #ifdef Z3DEBUG
@@ -314,8 +299,6 @@ namespace smt {
             if (m_seq.str.is_in_re(e, s, re)) {
                 euf::snode* sn_str = get_snode(s);
                 euf::snode* sn_re  = get_snode(re);
-                if (!sn_str || !sn_re)
-                    return;
                 literal lit(v, !is_true);
                 seq::dep_tracker dep = nullptr;
                 if (is_true) {
@@ -595,6 +578,15 @@ namespace smt {
             enqueue_axiom(n);
     }
 
+    literal theory_nseq::mk_le_literal(seq::le const &d) {
+        expr_ref le_expr(m_autil.mk_le(d.lhs, d.rhs), m);
+        if (!ctx.b_internalized(le_expr))
+            ctx.internalize(le_expr, true);
+        literal lit = ctx.get_literal(le_expr);
+        ctx.mark_as_relevant(lit);
+        return lit;
+    }
+
     // -----------------------------------------------------------------------
     // Final check: build Nielsen graph and search
     // -----------------------------------------------------------------------
@@ -849,7 +841,7 @@ namespace smt {
             else if (std::holds_alternative<sat::literal>(d))
                 lits.push_back(std::get<sat::literal>(d));
             else
-                lits.push_back(mk_le_literal(ctx, m, m_autil, std::get<seq::le>(d)));
+                lits.push_back(mk_le_literal(std::get<seq::le>(d)));
         }
         ++m_num_conflicts;
         set_conflict(eqs, lits);
@@ -982,33 +974,27 @@ namespace smt {
               for (auto [a, b] : eqs) tout << enode_pp(a, ctx) << " == " << enode_pp(b, ctx) << "\n";
         );
 
-        bool all_true = true;
-        literal_vector eq_lits;
-        for (literal lit : lits) {
-            ctx.mark_as_relevant(lit);
-            all_true &= (ctx.get_assignment(lit) == l_true);
-        }
-        for (auto [a, b] : eqs) {
-            literal lit_eq = mk_eq(a->get_expr(), b->get_expr(), false);
-            eq_lits.push_back(lit_eq);
-            ctx.mark_as_relevant(lit_eq);
-            all_true &= (ctx.get_assignment(lit_eq) == l_true);
-        }
+        bool all_true = 
+            all_of(lits, [&](auto lit) { return ctx.get_assignment(lit) == l_true; }) 
+            && all_of(eqs, [&](auto eq) { return eq.first->get_root() == eq.second->get_root(); });
 
         if (all_true) {
             ctx.set_conflict(
                 ctx.mk_justification(
                     ext_theory_conflict_justification(
                         get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data(), 0, nullptr)));
-            return;
         }
+        else {
+            literal_vector clause;
+            for (literal lit : lits)
+                clause.push_back(~lit);
+            for (auto [a, b] : eqs)
+                clause.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
+            for (auto lit : clause)
+                ctx.mark_as_relevant(lit);
 
-        literal_vector clause;
-        for (literal lit : lits)
-            clause.push_back(~lit);
-        for (literal lit : eq_lits)
-            clause.push_back(~lit);
-        ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
+            ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -1279,7 +1265,7 @@ namespace smt {
         vector<seq::le, false> les;
         seq::deps_to_lits(lc.m_dep, eqs, lits, les);
         for (auto const& d : les)
-            lits.push_back(mk_le_literal(ctx, m, m_autil, d));
+            lits.push_back(mk_le_literal(d));
 
         bool all_true = true;
         literal_vector eq_lits;
@@ -1466,15 +1452,15 @@ namespace smt {
 
         SASSERT(m_nielsen.sat_node());
 
-        auto const& mems = m_nielsen.sat_node()->str_mems();
+        auto const &mems = m_nielsen.sat_node()->str_mems();
         if (mems.empty())
             return true;
 
         u_map<unsigned_vector> var_to_mems;
         for (unsigned i = 0; i < mems.size(); ++i) {
-            auto const& mem = mems[i];
+            auto const &mem = mems[i];
             if (mem.is_primitive() && mem.m_str) {
-                auto& vec = var_to_mems.insert_if_not_there(mem.m_str->id(), unsigned_vector());
+                auto &vec = var_to_mems.insert_if_not_there(mem.m_str->id(), unsigned_vector());
                 vec.push_back(i);
             }
         }
@@ -1482,11 +1468,11 @@ namespace smt {
         if (var_to_mems.empty())
             return true;
 
-        for (expr* len_expr : m_relevant_lengths) {
-            expr* s = nullptr;
+        for (expr *len_expr : m_relevant_lengths) {
+            expr *s = nullptr;
             VERIFY(m_seq.str.is_length(len_expr, s));
 
-            euf::snode* s_node = m_sgraph.find(s);
+            euf::snode *s_node = m_sgraph.find(s);
             SASSERT(s_node);
 
             unsigned var_id = s_node->id();
@@ -1502,16 +1488,16 @@ namespace smt {
             // so check if we really want this value
             const unsigned l = val_l.get_unsigned();
 
-            unsigned_vector const& mem_indices = var_to_mems[var_id];
+            unsigned_vector const &mem_indices = var_to_mems[var_id];
             ptr_vector<euf::snode> regexes;
             for (const unsigned i : mem_indices) {
-                euf::snode* re = mems[i].m_regex;
+                euf::snode *re = mems[i].m_regex;
                 if (re)
                     regexes.push_back(re);
             }
 
             SASSERT(!regexes.empty());
-            sort* ele_sort;
+            sort *ele_sort;
             VERIFY(m_seq.is_seq(m_sgraph.get_str_sort(), ele_sort));
             unsigned g = 1;
             if (m_gradient_cache.contains(s))
@@ -1523,22 +1509,22 @@ namespace smt {
             expr_ref l_expr(m_autil.mk_int(l), m);
             expr_ref loop_l(m_seq.re.mk_loop_proper(allchar.get(), l, l), m);
 
-            euf::snode* sigmal_node = get_snode(loop_l.get());
+            euf::snode *sigmal_node = get_snode(loop_l.get());
             regexes.push_back(sigmal_node);
             SASSERT(regexes.size() > 1);
 
             lbool result = m_regex.check_intersection_emptiness(regexes);
 
             if (result == l_true) {
-                // TODO: Incorporate that we might know the maximum length generated by a regex [in those cases, the gradients will never work]
-                // It is empty. Try gradient.
-                regexes.pop_back(); // Remove loop_l
+                // TODO: Incorporate that we might know the maximum length generated by a regex [in those cases, the
+                // gradients will never work] It is empty. Try gradient.
+                regexes.pop_back();  // Remove loop_l
 
                 expr_ref loop_g(m_seq.re.mk_loop_proper(allchar.get(), g, g), m);
                 expr_ref star_g(m_seq.re.mk_star(loop_g.get()), m);
                 expr_ref sigmal_g_expr(m_seq.re.mk_concat(loop_l.get(), star_g.get()), m);
 
-                euf::snode* sigmal_g_node = get_snode(sigmal_g_expr.get());
+                euf::snode *sigmal_g_node = get_snode(sigmal_g_expr.get());
                 regexes.push_back(sigmal_g_node);
 
                 lbool result_g = m_regex.check_intersection_emptiness(regexes);
@@ -1551,13 +1537,14 @@ namespace smt {
                     expr_ref len_minus_l(m_autil.mk_sub(len_expr, l_expr), m);
                     expr_ref not_divides(m.mk_not(m_autil.mk_divides(g_expr, len_minus_l)), m);
                     prop_expr = m.mk_or(len_lt_l, not_divides);
-                    m_th_rewriter(prop_expr); // the divisibility predicate needs to be rewritten as it won't happen automatically
+                    m_th_rewriter(prop_expr);  // the divisibility predicate needs to be rewritten as it won't happen
+                                               // automatically
 
-                    m_gradient_cache[s] = 1; // Reset gradient cache
+                    m_gradient_cache[s] = 1;  // Reset gradient cache
                 }
                 else {
                     prop_expr = m.mk_not(m.mk_eq(len_expr, l_expr));
-                    m_gradient_cache[s] = g + 1; // Increment gradient cache
+                    m_gradient_cache[s] = g + 1;  // Increment gradient cache
                 }
 
                 if (!ctx.b_internalized(prop_expr))
@@ -1571,49 +1558,42 @@ namespace smt {
                     if (mems[idx].m_dep)
                         seq::deps_to_lits(mems[idx].m_dep, eqs, dep_lits, dep_les);
                 }
-                for (auto const& d : dep_les)
-                    dep_lits.push_back(mk_le_literal(ctx, m, m_autil, d));
+                for (auto const &d : dep_les)
+                    dep_lits.push_back(mk_le_literal(d));
 
-                bool all_true = true;
-                literal_vector eq_lits;
-                for (auto [a, b] : eqs) {
-                    literal lit_eq = mk_eq(a->get_expr(), b->get_expr(), false);
-                    eq_lits.push_back(lit_eq);
-                    ctx.mark_as_relevant(lit_eq);
-                    all_true &= (ctx.get_assignment(lit_eq) == l_true);
-                }
-                for (literal dep_lit : dep_lits) {
-                    ctx.mark_as_relevant(dep_lit);
-                    all_true &= (ctx.get_assignment(dep_lit) == l_true);
-                }
+                bool all_true = all_of(dep_lits, [&](auto lit) { return ctx.get_assignment(lit) == l_true; }) &&
+                                all_of(eqs, [&](auto e) { return e.first->get_root() == e.second->get_root(); });
 
                 ctx.mark_as_relevant(lit_prop);
                 if (all_true) {
-                    justification* js = ctx.mk_justification(
-                        ext_theory_propagation_justification(
-                            get_id(), ctx,
-                            dep_lits.size(), dep_lits.data(),
-                            eqs.size(), eqs.data(),
-                            lit_prop));
+                    justification *js = ctx.mk_justification(ext_theory_propagation_justification(
+                        get_id(), ctx, dep_lits.size(), dep_lits.data(), eqs.size(), eqs.data(), lit_prop));
                     ctx.assign(lit_prop, js);
                 }
                 else {
                     literal_vector clause;
                     for (literal dep_lit : dep_lits)
                         clause.push_back(~dep_lit);
-                    for (literal lit_eq : eq_lits)
-                        clause.push_back(~lit_eq);
+                    for (auto [a, b] : eqs)
+                        clause.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
                     clause.push_back(lit_prop);
+                    for (auto lit : clause)
+                        ctx.mark_as_relevant(lit);
                     ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
                 }
-                
-                TRACE(seq, tout << "nseq length coherence check: length " << l << " with gradient " << g << " is incompatible for " << mk_pp(s, m) << ", propagated " << mk_pp(prop_expr, m) << "\n";);
-                IF_VERBOSE(1, verbose_stream() << "nseq length coherence check: length " << l << " with gradient " << g << " is incompatible for " << mk_pp(s, m) << ", propagated " << mk_pp(prop_expr, m) << "\n";);
+
+                TRACE(seq, tout << "nseq length coherence check: length " << l << " with gradient " << g
+                                << " is incompatible for " << mk_pp(s, m) << ", propagated " << mk_pp(prop_expr, m)
+                                << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "nseq length coherence check: length " << l << " with gradient " << g
+                                               << " is incompatible for " << mk_pp(s, m) << ", propagated "
+                                               << mk_pp(prop_expr, m) << "\n";);
                 return false;
             }
         }
 
         return true;
     }
-
+    
 }
+  

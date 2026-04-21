@@ -57,7 +57,6 @@ namespace smt {
         using mem_item  = tracked_str_mem;   // regex membership
         struct axiom_item { expr* e; };      // structural axiom for term e
 
-        // TODO: Track unit disequalities and add them to Nielsen graph
         using prop_item = std::variant<eq_item, mem_item, axiom_item>;
 
         vector<prop_item>       m_prop_queue;
@@ -140,6 +139,7 @@ namespace smt {
         bool propagate_length_lemma(literal lit, seq::length_constraint const& lc);
         bool assert_nonneg_for_all_vars();
         bool assert_length_constraints();
+        literal mk_le_literal(seq::le const &le);
 
         // Regex membership pre-check: for each variable with regex constraints,
         // check intersection emptiness before running DFS.
