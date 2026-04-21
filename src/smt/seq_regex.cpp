@@ -388,15 +388,8 @@ namespace smt {
     }
 
     expr_ref seq_regex::symmetric_diff(expr* r1, expr* r2) {
-        expr_ref r(m);
-        if (r1 == r2)
-            r = re().mk_empty(r1->get_sort());
-        else if (re().is_empty(r1)) 
-            r = r2;
-        else if (re().is_empty(r2))
-            r = r1;
-        else 
-            r = re().mk_union(re().mk_diff(r1, r2), re().mk_diff(r2, r1));
+        seq_rewriter rw(m);
+        auto r = rw.mk_symmetric_diff(r1, r2);
         rewrite(r);
         return r;
     }

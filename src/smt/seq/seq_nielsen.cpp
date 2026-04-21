@@ -2870,32 +2870,28 @@ namespace seq {
                 expr_ref left(m);
                 expr_ref right(m);
                 
-                if (i == 0) left = seq.re.mk_epsilon(str_sort);
+                if (i == 0) 
+                    left = seq.re.mk_epsilon(str_sort);
                 else {
-                    expr_ref_vector left_args(m);
-                    for (unsigned j = 0; j < i; ++j) left_args.push_back(to_app(r)->get_arg(j));
-                    if (left_args.size() == 1) left = left_args.get(0);
-                    else left = m.mk_app(seq.get_family_id(), OP_RE_CONCAT, left_args.size(), left_args.data());
+                    for (unsigned j = 0; j < i; ++j) {
+                        auto arg = to_app(r)->get_arg(j);
+                        left = left ? seq.re.mk_concat(left, arg) : arg;
+                    }
                 }
 
-                if (i == num_args - 1) right = seq.re.mk_epsilon(str_sort);     
+                if (i == num_args - 1) 
+                    right = seq.re.mk_epsilon(str_sort);     
                 else {
-                    expr_ref_vector right_args(m);
-                    for (unsigned j = i + 1; j < num_args; ++j) right_args.push_back(to_app(r)->get_arg(j));
-                    if (right_args.size() == 1) right = right_args.get(0);
-                    else right = m.mk_app(seq.get_family_id(), OP_RE_CONCAT, right_args.size(), right_args.data());
+                    for (unsigned j = i + 1; j < num_args; ++j) {
+                        auto arg = to_app(r)->get_arg(j);
+                        right = right ? seq.re.mk_concat(right, arg) : arg;
+                    }
                 }
 
-                for (auto const& pair : tau_arg) {
-                    expr_ref p(m), q(m);
-                    if (seq.re.is_epsilon(left)) p = pair.m_p;
-                    else if (seq.re.is_epsilon(pair.m_p)) p = left;
-                    else p = seq.re.mk_concat(left, pair.m_p);
-                    
-                    if (seq.re.is_epsilon(right)) q = pair.m_q;
-                    else if (seq.re.is_epsilon(pair.m_q)) q = right;
-                    else q = seq.re.mk_concat(pair.m_q, right);
-                    
+                for (auto const &[tp, tq] : tau_arg) {
+                    seq_rewriter rw(m);
+                    auto p = rw.mk_re_append(left, tp);
+                    auto q = rw.mk_re_append(tq, right);                    
                     result.push_back(tau_pair(p, q, m));
                 }
             }
@@ -2913,14 +2909,10 @@ namespace seq {
             
             tau_pairs tau_body;
             compute_tau(m, seq, sg, body, tau_body);
-            for (auto const& pair : tau_body) {
-                expr_ref p(m), q(m);
-                if (seq.re.is_epsilon(pair.m_p)) p = r;
-                else p = seq.re.mk_concat(r, pair.m_p); 
-                
-                if (seq.re.is_epsilon(pair.m_q)) q = r;
-                else q = seq.re.mk_concat(pair.m_q, r); 
-                
+            for (auto const &[tp, tq] : tau_body) {
+                seq_rewriter rw(m);
+                auto p = rw.mk_re_append(r, tp);
+                auto q = rw.mk_re_append(tq, r);                
                 result.push_back(tau_pair(p, q, m));
             }
         }

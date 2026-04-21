@@ -232,10 +232,9 @@ namespace smt {
             auto e2 = n2->get_expr();
             TRACE(seq, tout << mk_pp(e1, m) << " == " << mk_pp(e2, m) << "\n");
             if (m_seq.is_re(e1)) {
-                seq_rewriter rw(m);
-                expr_ref s(m), r(m);
-                r = m_seq.re.mk_union(m_seq.re.mk_diff(e1, e2), m_seq.re.mk_diff(e2, e1));
-                switch (rw.some_seq_in_re(r, s)) { 
+                expr_ref s(m);
+                auto r = m_rewriter.mk_symmetric_diff(e1, e2);
+                switch (m_rewriter.some_seq_in_re(r, s)) { 
                 case l_false:
                     // regexes are equivalent: nothing to do
                     return;
@@ -277,15 +276,15 @@ namespace smt {
         auto e2 = n2->get_expr();
         TRACE(seq, tout << mk_pp(e1, m) << " != " << mk_pp(e2, m) << "\n");
         if (m_seq.is_re(e1)) {
-            seq_rewriter rw(m);
-            expr_ref s(m), r(m);
-            r = m_seq.re.mk_union(m_seq.re.mk_diff(e1, e2), m_seq.re.mk_diff(e2, e1));
-            switch (rw.some_seq_in_re(r, s)) {
+            expr_ref s(m);
+            auto r = m_rewriter.mk_symmetric_diff(e1, e2);            
+            switch (m_rewriter.some_seq_in_re(r, s)) {
             case l_false: {
+                enode_pair_vector eqs;
                 auto lit = mk_eq(e1, e2, false);
                 literal_vector lits;
-                lits.push_back(lit);
-                ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+                lits.push_back(~lit);
+                set_conflict(eqs, lits);
                 break;
             }
             case l_true: 

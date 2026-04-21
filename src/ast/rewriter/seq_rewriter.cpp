@@ -4147,6 +4147,20 @@ expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
  *************************************************/
 
 
+
+expr_ref seq_rewriter::mk_symmetric_diff(expr* r1, expr* r2) {
+    expr_ref r(m());
+    if (r1 == r2)
+        r = re().mk_empty(r1->get_sort());
+    else if (re().is_empty(r1))
+        r = r2;
+    else if (re().is_empty(r2))
+        r = r1;
+    else
+        r = re().mk_union(re().mk_diff(r1, r2), re().mk_diff(r2, r1));
+    return r;
+}
+
 /*
  * pattern match against all ++ "abc" ++ all ++ "def" ++ all regexes.
 */
