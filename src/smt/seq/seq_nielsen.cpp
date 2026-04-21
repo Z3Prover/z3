@@ -866,8 +866,7 @@ namespace seq {
 
             // pass 2: detect symbol clashes, empty-propagation, and prefix cancellation
             for (str_eq& eq : m_str_eq) {
-                if (!eq.m_lhs || !eq.m_rhs)
-                    continue;
+                SASSERT(eq.well_formed());
 
                 // one side empty, the other not empty => conflict check
                 // (the actual substitution is done in apply_det_modifier)
@@ -1915,8 +1914,7 @@ namespace seq {
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())
                 continue;
-            if (!eq.m_lhs || !eq.m_rhs)
-                continue;
+            SASSERT(eq.well_formed());
             for (unsigned od = 0; od < 2; ++od) {
                 bool fwd = (od == 0);
                 euf::snode* lhead = dir_token(eq.m_lhs, fwd);
@@ -1951,8 +1949,7 @@ namespace seq {
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())
                 continue;
-            if (!eq.m_lhs || !eq.m_rhs)
-                continue;
+            SASSERT(eq.well_formed());
             for (unsigned od = 0; od < 2; ++od) {
                 bool fwd = od == 0;
                 euf::snode* lhead = dir_token(eq.m_lhs, fwd);
@@ -2189,8 +2186,7 @@ namespace seq {
             str_eq const& eq = node->str_eqs()[eq_idx];
             if (eq.is_trivial())
                 continue;
-            if (!eq.m_lhs || !eq.m_rhs)
-                continue;
+            SASSERT(eq.well_formed());
             // EqSplit only applies to regex-free equations.
             if (!eq.m_lhs->is_regex_free() || !eq.m_rhs->is_regex_free())
                 continue;
@@ -2368,8 +2364,7 @@ namespace seq {
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())
                 continue;
-            if (!eq.m_lhs || !eq.m_rhs)
-                continue;
+            SASSERT(eq.well_formed());
             euf::snode_vector toks;
             eq.m_lhs->collect_tokens(toks);
             for (euf::snode* t : toks) {
@@ -2399,8 +2394,7 @@ namespace seq {
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())
                 continue;
-            if (!eq.m_lhs || !eq.m_rhs)
-                continue;
+            SASSERT(eq.well_formed());
             for (unsigned od = 0; od < 2; ++od) {
                 bool local_fwd = (od == 0);
                 euf::snode* lhead = dir_token(eq.m_lhs, local_fwd);
@@ -2439,7 +2433,7 @@ namespace seq {
                                           str_eq const*& eq_out,
                                           bool& fwd) const {
         for (str_eq const& eq : node->str_eqs()) {
-            SASSERT(eq.m_lhs && eq.m_rhs && !eq.is_trivial());
+            SASSERT(eq.well_formed() && !eq.is_trivial());
 
             for (unsigned od = 0; od < 2; ++od) {
                 bool local_fwd = (od == 0);
@@ -2506,8 +2500,7 @@ namespace seq {
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())
                 continue;
-            if (!eq.m_lhs || !eq.m_rhs)
-                continue;
+            SASSERT(eq.well_formed());
             if (eq.m_lhs->is_empty() && eq.m_rhs->first() && eq.m_rhs->first()->is_power()) {
                 power = eq.m_rhs->first();
                 dep = eq.m_dep;
@@ -2560,9 +2553,8 @@ namespace seq {
 
         // Look for two directional endpoint power tokens with the same base.
         for (str_eq const& eq : node->str_eqs()) {
+            SASSERT(eq.well_formed());
             if (eq.is_trivial())
-                continue;
-            if (!eq.m_lhs || !eq.m_rhs)
                 continue;
             for (unsigned od = 0; od < 2; ++od) {
                 bool fwd = (od == 0);
@@ -2619,11 +2611,8 @@ namespace seq {
     bool nielsen_graph::apply_split_power_elim(nielsen_node* node) {
 
         for (str_eq const& eq : node->str_eqs()) {
+            SASSERT(eq.well_formed());
             if (eq.is_trivial())
-                continue;
-            // NB: Shuvendu - this test is always false based on how str_eqs are constructed
-            // it can be an assertion to force the invariant that str_eqs always have both sides non-null.          
-            if (!eq.m_lhs || !eq.m_rhs)
                 continue;
 
             for (int side = 0; side < 2; ++side) {
@@ -2760,9 +2749,8 @@ namespace seq {
 
     bool nielsen_graph::apply_gpower_intr(nielsen_node* node) {
         for (str_eq const& eq : node->str_eqs()) {
+            SASSERT(eq.well_formed());
             if (eq.is_trivial())
-                continue;
-            if (!eq.m_lhs || !eq.m_rhs)
                 continue;
 
             // Try both directions (ZIPT's ExtendDir(fwd=true/false)).
@@ -3896,7 +3884,7 @@ namespace seq {
         // Step 1: Compute LHS (|x|) for each non-eliminating substitution
         // using current m_mod_cnt (before bumping).
         // Also assert |x|_k >= 0 (mirrors ZIPT's NielsenNode constructor line 172).
-        svector<std::pair<unsigned, expr*>> lhs_exprs;
+        vector<std::pair<unsigned, expr_ref>> lhs_exprs;
         for (unsigned i = 0; i < substs.size(); ++i) {
             auto const& s = substs[i];
             if (!s.m_var->is_var())
@@ -3904,7 +3892,7 @@ namespace seq {
             if (!m_seq.is_seq(s.m_var->get_expr()))
                 continue;
             expr_ref lhs = compute_length_expr(s.m_var);
-            lhs_exprs.push_back({i, lhs.get()});
+            lhs_exprs.push_back({i, lhs});
             if (s.is_eliminating())
                 continue;
             has_non_elim = true;
@@ -3918,12 +3906,10 @@ namespace seq {
 
 
         // Step 3: Compute RHS (|u|) with bumped mod counts and add |x| = |u|.
-        for (auto const& p : lhs_exprs) {
-            unsigned idx = p.first;
-            expr* lhs_expr = p.second;
+        for (auto const &[idx, lhs] : lhs_exprs) {
             auto const& s = substs[idx];
             expr_ref rhs = compute_length_expr(s.m_replacement);
-            e->add_side_constraint(mk_constraint(m.mk_eq(lhs_expr, rhs), s.m_dep));
+            e->add_side_constraint(mk_constraint(m.mk_eq(lhs, rhs), s.m_dep));
         }
 
         // Step 4: Restore mod counts (temporary bump for computing RHS only).

@@ -1353,11 +1353,23 @@ namespace seq {
         Create the recursive function not_contains that implements this recursive definition.
         Add the axiom
             contains(a, b) or not_contains(a, b)
+
+      if b is a string (or concatentation of characters/unit values) use regex shortcut:
+
+      ~contain(a, b) => a not in .*b.*
     */
 
     void axioms::not_contains_axiom(expr *e) {
         expr* _a = nullptr, *_b = nullptr;
         VERIFY(seq.str.is_contains(e, _a, _b));
+        if (seq.str.is_string(_b)) {
+            auto star = seq.re.mk_full_seq(seq.re.mk_re(_b->get_sort()));
+            auto b_re = seq.re.mk_to_re(_b);
+            auto r = seq.re.mk_concat(star, seq.re.mk_concat(b_re, star));
+            auto mem = seq.re.mk_in_re(_a, r);
+            add_clause(expr_ref(e, m), ~expr_ref(mem, m));
+            return;
+        }
         auto ca = purify(_a);
         auto cb = purify(_b);
         sort* srt = ca->get_sort();

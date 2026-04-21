@@ -226,14 +226,33 @@ namespace smt {
 
     void theory_nseq::new_eq_eh(theory_var v1, theory_var v2) {
         try {
-            expr* e1 = get_enode(v1)->get_expr();
-            expr* e2 = get_enode(v2)->get_expr();
+            auto n1 = get_enode(v1);
+            auto n2 = get_enode(v2);
+            auto e1 = n1->get_expr();
+            auto e2 = n2->get_expr();
             TRACE(seq, tout << mk_pp(e1, m) << " == " << mk_pp(e2, m) << "\n");
             if (m_seq.is_re(e1)) {
+                seq_rewriter rw(m);
+                expr_ref s(m), r(m);
+                r = m_seq.re.mk_union(m_seq.re.mk_diff(e1, e2), m_seq.re.mk_diff(e2, e1));
+                switch (rw.some_seq_in_re(r, s)) { 
+                case l_false:
+                    // regexes are equivalent: nothing to do
+                    return;
+                case l_true: {
+                    // regexes are disjoint: conflict
+                    enode_pair_vector eqs;
+                    literal_vector lits;
+                    eqs.push_back({n1, n2});
+                    set_conflict(eqs, lits);
+                    return;
+                }
+                default: break;
+                }
                 push_unhandled_pred();
                 return;
             }
-            if (!m_seq.is_seq(e1) || !m_seq.is_seq(e2))
+            if (!m_seq.is_seq(e1))
                 return;
             euf::snode* s1 = get_snode(e1);
             euf::snode* s2 = get_snode(e2);
@@ -252,12 +271,31 @@ namespace smt {
     }
 
     void theory_nseq::new_diseq_eh(theory_var v1, theory_var v2) {
-        expr* e1 = get_enode(v1)->get_expr();
-        expr* e2 = get_enode(v2)->get_expr();
+        auto n1 = get_enode(v1);
+        auto n2 = get_enode(v2);
+        auto e1 = n1->get_expr();
+        auto e2 = n2->get_expr();
         TRACE(seq, tout << mk_pp(e1, m) << " != " << mk_pp(e2, m) << "\n");
-        if (m_seq.is_re(e1))
-            // regex disequality: nseq cannot verify language non-equivalence
-            push_unhandled_pred();
+        if (m_seq.is_re(e1)) {
+            seq_rewriter rw(m);
+            expr_ref s(m), r(m);
+            r = m_seq.re.mk_union(m_seq.re.mk_diff(e1, e2), m_seq.re.mk_diff(e2, e1));
+            switch (rw.some_seq_in_re(r, s)) {
+            case l_false: {
+                auto lit = mk_eq(e1, e2, false);
+                literal_vector lits;
+                lits.push_back(lit);
+                ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+                break;
+            }
+            case l_true: 
+                // the regexes are different
+                break;
+            case l_undef:                
+                push_unhandled_pred();
+                break;
+            }
+        }
         else if (m_seq.is_seq(e1) && !m_no_diseq_set.contains(e1) && !m_no_diseq_set.contains(e2))
             m_axioms.diseq_axiom(e1, e2);
         else

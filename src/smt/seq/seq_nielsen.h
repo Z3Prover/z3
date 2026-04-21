@@ -371,10 +371,10 @@ namespace seq {
         euf::snode* m_rhs;
         dep_tracker m_dep;
 
-
-        str_eq() = default;
-        str_eq(euf::snode* lhs, euf::snode* rhs, dep_tracker const& dep):
-            m_lhs(lhs), m_rhs(rhs), m_dep(dep) {}
+        str_eq(euf::snode* lhs, euf::snode* rhs, dep_tracker const& dep): 
+            m_lhs(lhs), m_rhs(rhs), m_dep(dep) {
+            SASSERT(well_formed());
+        }
 
         bool operator==(str_eq const& other) const {
             return m_lhs == other.m_lhs && m_rhs == other.m_rhs;
@@ -388,6 +388,10 @@ namespace seq {
 
         // check if the constraint contains a given variable
         bool contains_var(euf::snode* var) const;
+
+        bool well_formed() const {
+            return !!m_lhs && !!m_rhs;
+        }
     };
 
     struct eq_pp {
@@ -407,7 +411,7 @@ namespace seq {
         euf::snode* m_regex;
         dep_tracker m_dep;
 
-        str_mem(): m_str(nullptr), m_regex(nullptr), m_dep(nullptr) {}
+        // str_mem(): m_str(nullptr), m_regex(nullptr), m_dep(nullptr) {}
         str_mem(euf::snode* str, euf::snode* regex, dep_tracker const& dep):
             m_str(str), m_regex(regex), m_dep(dep) {}
 
@@ -425,6 +429,10 @@ namespace seq {
 
         // check if the constraint contains a given variable
         bool contains_var(euf::snode* var) const;
+
+        bool well_formed() const {
+            return !!m_str && !!m_regex;
+        }
     };
 
     struct mem_pp {
