@@ -1201,6 +1201,8 @@ namespace seq {
         // Gets the expression representing the variable with respect to its current mod-count
         expr_ref get_current_skolem(euf::snode* var);
 
+        expr_ref get_current_skolem_str(euf::snode* s);
+
         // Get or create a fresh symbolic character variable for the given variable
         expr_ref get_or_create_char_var(euf::snode* var);
 

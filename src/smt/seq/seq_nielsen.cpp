@@ -39,6 +39,7 @@ NSB review:
 #include <algorithm>
 #include <complex>
 #include <cstdlib>
+#include <stack>
 #include <unordered_map>
 
 namespace seq {
@@ -315,8 +316,9 @@ namespace seq {
 
         const unsigned var_id = s.m_var->id();
 
+        ast_manager& m = graph().get_manager();
+
         if (s.is_char_subst()) {
-            ast_manager& m = graph().get_manager();
             expr* var_c_expr = s.m_var->arg(0)->get_expr();
             expr* repl_c_expr = s.m_replacement->arg(0)->get_expr();
             add_constraint(
@@ -328,6 +330,18 @@ namespace seq {
                 m_char_ranges.remove(var_id);
                 add_char_range(s.m_replacement, range.first, m_graph.dep_mgr().mk_join(range.second, s.m_dep));
             }
+        }
+        else {
+            expr_ref v = graph().get_current_skolem(s.m_var);
+            // temporarily bump counter for the substituted variable
+            unsigned prev = 0;
+            graph().m_mod_cnt.find(s.m_var->id(), prev);
+            graph().m_mod_cnt.insert(s.m_var->id(), prev + 1);
+            expr_ref str = graph().get_current_skolem_str(s.m_replacement);
+            graph().m_mod_cnt.insert(s.m_var->id(), prev);
+
+            add_constraint(
+            constraint(m.mk_eq(v, str), s.m_dep, m));
         }
     }
 
@@ -1347,7 +1361,7 @@ namespace seq {
             ++m_stats.m_num_unknown;
             return search_result::unknown;
         }
-        catch(const std::exception&) {
+        catch(const std::exception& e) {
 #ifdef Z3DEBUG
             std::string dot = to_dot();
 #endif
@@ -3856,6 +3870,42 @@ namespace seq {
         for (unsigned k = 0; k < mc; k++) {
             e = sk.mk("succ!", e, e->get_sort());
         }
+        return e;
+    }
+
+    expr_ref nielsen_graph::get_current_skolem_str(euf::snode* s) {
+        std::stack<euf::snode*> stack;
+        stack.push(s);
+        expr_ref e(m);
+        while (!stack.empty()) {
+            euf::snode* n = stack.top();
+            stack.pop();
+            SASSERT(n);
+            if (n->is_concat()) {
+                stack.push(n->arg(1));
+                stack.push(n->arg(0));
+                continue;
+            }
+            expr_ref add(m);
+            if (n->is_var())
+                add = get_current_skolem(n);
+            else if (n->is_empty())
+                continue;
+            else if (n->is_char_or_unit())
+                add = n->get_expr();
+            else if (n->is_power())
+                add = m_seq.str.mk_power(get_current_skolem_str(n->arg(0)), n->arg(1)->get_expr());
+            else {
+                UNREACHABLE();
+            }
+
+            if (e)
+                e = seq().str.mk_concat(e, add);
+            else
+                e = add;
+        }
+        if (!e)
+            e = seq().str.mk_empty(s->get_sort());
         return e;
     }
 
