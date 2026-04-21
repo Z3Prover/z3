@@ -935,7 +935,7 @@ namespace seq {
             // pass 3: power simplification (mirrors ZIPT's LcpCompression +
             // SimplifyPowerElim + SimplifyPowerSingle)
             for (str_eq& eq : m_str_eq) {
-                SASSERT(eq.m_lhs && eq.m_rhs);
+                SASSERT(eq.well_formed());
                 if (eq.is_trivial())
                     continue;
 
@@ -971,7 +971,7 @@ namespace seq {
                 //   - If p ≤ c: pow_side := rest_pow,            other_side := w^(c-p) · rest_other
                 //   - If c ≤ p: pow_side := w^(p-c) · rest_pow,  other_side := rest_other
                 //   - If p = c: both reduce completely (handled by both conditions above).
-                SASSERT(eq.m_lhs && eq.m_rhs);
+                SASSERT(eq.well_formed());
                 bool comm_changed = false;
                 for (int side = 0; side < 2 && !comm_changed; ++side) {
                     euf::snode*& pow_side = side == 0 ? eq.m_lhs : eq.m_rhs;
@@ -1047,7 +1047,7 @@ namespace seq {
                 // power of the same base, cancel the common power prefix.
                 // (Subsumed by 3c for many cases, but handles same-base-power
                 // pairs that CommPower may miss when both leading tokens are powers.)
-                SASSERT(eq.m_lhs && eq.m_rhs);
+                SASSERT(eq.well_formed());
                 for (unsigned od = 0; od < 2 && !changed; ++od) {
                     bool fwd = (od == 0);
                     euf::snode* lh = dir_token(eq.m_lhs, fwd);
@@ -1117,7 +1117,7 @@ namespace seq {
         // consume concrete characters from str_mem via Brzozowski derivatives
         // in both directions (left-to-right, then right-to-left), mirroring ZIPT.
         for (str_mem& mem : m_str_mem) {
-            SASSERT(mem.m_str && mem.m_regex);
+            SASSERT(mem.well_formed());
             if (mem.is_primitive())
                 continue;
             for (unsigned od = 0; od < 2; ++od) {
@@ -1145,7 +1145,7 @@ namespace seq {
 
         // consume symbolic characters via uniform derivatives
         for (str_mem& mem : m_str_mem) {
-            SASSERT(mem.m_str && mem.m_regex);
+            SASSERT(mem.well_formed());
             if (mem.is_primitive())
                 continue;
             while (mem.m_str && !mem.m_str->is_empty()) {
@@ -1198,7 +1198,7 @@ namespace seq {
         // expensive exploration. Mirrors ZIPT NielsenNode.CheckRegexWidening.
         SASSERT(m_graph.m_seq_regex);
         for (str_mem const& mem : m_str_mem) {
-            SASSERT(mem.m_str && mem.m_regex);
+            SASSERT(mem.well_formed());
             if (mem.is_primitive())
                 continue;
             dep_tracker dep = mem.m_dep;
@@ -2462,7 +2462,7 @@ namespace seq {
                                           str_mem const*& mem_out,
                                           bool& fwd) const {
         for (str_mem const& mem : node->str_mems()) {
-            SASSERT(mem.m_str && mem.m_regex && !mem.is_trivial(node));
+            SASSERT(mem.well_formed() && !mem.is_trivial(node));
 
             for (unsigned od = 0; od < 2; ++od) {
                 bool local_fwd = (od == 0);
@@ -2938,7 +2938,7 @@ namespace seq {
         };
 
         for (str_mem const& mem : node->str_mems()) {
-            SASSERT(mem.m_str && mem.m_regex);
+            SASSERT(mem.well_formed());
             
             if (mem.is_primitive() || !mem.m_regex->is_classical())
                 continue;
@@ -3008,8 +3008,8 @@ namespace seq {
     }
 
     bool nielsen_graph::fire_gpower_intro(
-            nielsen_node* node, str_eq const& eq,
-            euf::snode* var, euf::snode_vector const& ground_prefix_orig, bool fwd) {
+        nielsen_node* node, str_eq const& eq,
+        euf::snode* var, euf::snode_vector const& ground_prefix_orig, bool fwd) {
 
         // Compress repeated patterns in the ground prefix (mirrors ZIPT's LcpCompressionFull).
         // E.g., [a,b,a,b] has minimal period 2 → use [a,b] as the power base.
@@ -3161,7 +3161,7 @@ namespace seq {
         auto const& eqs = node->str_eqs();
         for (unsigned eq_idx = 0; eq_idx < eqs.size(); ++eq_idx) {
             str_eq const& eq = eqs[eq_idx];
-            SASSERT(eq.m_lhs && eq.m_rhs);
+            SASSERT(eq.well_formed());
             if (eq.is_trivial())
                 continue;
 
@@ -3298,7 +3298,7 @@ namespace seq {
     
     bool nielsen_graph::apply_regex_if_split(nielsen_node *node) {
         for (str_mem const &mem : node->str_mems()) {
-            SASSERT(mem.m_str && mem.m_regex);
+            SASSERT(mem.well_formed());
 
             expr *r_expr = mem.m_regex->get_expr();
             expr_ref c(m), th(m), el(m);
@@ -3380,7 +3380,7 @@ namespace seq {
 
     bool nielsen_graph::apply_regex_var_split(nielsen_node* node) {
         for (str_mem const& mem : node->str_mems()) {
-            SASSERT(mem.m_str && mem.m_regex);
+            SASSERT(mem.well_formed());
             if (mem.is_primitive())
                 continue;
             euf::snode* first = mem.m_str->first();
@@ -3439,9 +3439,14 @@ namespace seq {
                     fresh_char = m_sg.mk(char_expr);
                 }
                 else {
-                    th_rewriter rw(m);
                     // for variables at mod_count 0 and other terms, use symbolic (str.len expr)
-                    return get_or_create_char_var(first);
+                    // NSB rewview:
+                    // it really is seq.nth (length-of-prefix that was chopped of for first)
+                    // assume len(x) contains the expression for the current length of x, 
+                    // then the suffix where the current x is located is at str.len(x) - len(x)
+                    // (seq.nth x (- (str.len x) len(x))
+                    //
+                    fresh_char = m_sg.mk(get_or_create_char_var(first));
                 }
 
                 euf::snode* replacement = m_sg.mk_concat(fresh_char, first);
