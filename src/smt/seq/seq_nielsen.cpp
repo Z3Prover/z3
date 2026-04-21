@@ -37,6 +37,7 @@ NSB review:
 #include "ast/rewriter/var_subst.h"
 #include "util/statistics.h"
 #include <algorithm>
+#include <complex>
 #include <cstdlib>
 #include <unordered_map>
 
@@ -2394,7 +2395,6 @@ namespace seq {
         for (str_eq const& eq : node->str_eqs()) {
             if (eq.is_trivial())
                 continue;
-            SASSERT(eq.well_formed());
             for (unsigned od = 0; od < 2; ++od) {
                 bool local_fwd = (od == 0);
                 euf::snode* lhead = dir_token(eq.m_lhs, local_fwd);
@@ -2614,7 +2614,7 @@ namespace seq {
             SASSERT(eq.well_formed());
             if (eq.is_trivial())
                 continue;
-
+            
             for (int side = 0; side < 2; ++side) {
                 euf::snode* pow_side   = (side == 0) ? eq.m_lhs : eq.m_rhs;
                 euf::snode* other_side = (side == 0) ? eq.m_rhs : eq.m_lhs;
@@ -3070,11 +3070,8 @@ namespace seq {
                 base_str = m_seq.str.mk_concat(tok_expr, base_str);
         }
 
-        unsigned mc = 0;
-        m_mod_cnt.find(var->id(), mc);
-
         // Create fresh exponent variable and power expression: base^n
-        expr_ref fresh_n = get_or_create_gpower_n_var(var, mc);
+        expr_ref fresh_n = get_or_create_gpower_n_var(var);
         expr_ref power_expr(m_seq.str.mk_power(base_str, fresh_n), m);
         euf::snode* power_snode = m_sg.mk(power_expr);
         if (!power_snode)
@@ -3109,7 +3106,7 @@ namespace seq {
                 expr* inner_exp = get_power_exponent(tok);
                 expr* inner_base = get_power_base_expr(tok, m_seq);
                 if (inner_exp && inner_base) {
-                    fresh_m = get_or_create_gpower_m_var(var, mc);
+                    fresh_m = get_or_create_gpower_m_var(var);
                     expr_ref partial_pow(m_seq.str.mk_power(inner_base, fresh_m), m);
                     euf::snode* partial_sn = m_sg.mk(partial_pow);
                     euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
@@ -3443,9 +3440,9 @@ namespace seq {
                     fresh_char = m_sg.mk(char_expr);
                 }
                 else {
-                    unsigned mc = 0;
-                    m_mod_cnt.find(first->id(), mc);
-                    fresh_char = get_or_create_char_var(first, mc);
+                    th_rewriter rw(m);
+                    // for variables at mod_count 0 and other terms, use symbolic (str.len expr)
+                    return get_or_create_char_var(first);
                 }
 
                 euf::snode* replacement = m_sg.mk_concat(fresh_char, first);
@@ -3501,11 +3498,8 @@ namespace seq {
             expr* base_expr = get_power_base_expr(power, m_seq);
             if (!base_expr || base_len == 0)
                 return false;
-
-            unsigned mc = 0;
-            m_mod_cnt.find(var_head->id(), mc);
             
-            expr_ref fresh_m = get_or_create_gpower_n_var(var_head, mc);
+            expr_ref fresh_m = get_or_create_gpower_n_var(var_head);
             expr_ref power_m_expr(m_seq.str.mk_power(base_expr, fresh_m), m);
             euf::snode* power_m_sn = m_sg.mk(power_m_expr);
             if (!power_m_sn)
@@ -3532,7 +3526,7 @@ namespace seq {
                     expr* inner_exp = get_power_exponent(tok);
                     expr* inner_base = get_power_base_expr(tok, m_seq);
                     if (inner_exp && inner_base) {
-                        fresh_inner_m = get_or_create_gpower_m_var(var_head, mc);
+                        fresh_inner_m = get_or_create_gpower_m_var(var_head);
                         expr_ref partial_pow(m_seq.str.mk_power(inner_base, fresh_inner_m), m);
                         euf::snode* partial_sn = m_sg.mk(partial_pow);
                         euf::snode* suffix_sn = prefix_sn ? dir_concat(m_sg, prefix_sn, partial_sn, fwd) : partial_sn;
@@ -3737,15 +3731,9 @@ namespace seq {
         // mod_count > 0 means the variable has been reused by a non-eliminating
         // substitution; use a fresh integer variable to avoid the circular
         // |x| = 1 + |x| problem.
-        if (n->is_var()) {
-            unsigned mc = 0;
-            m_mod_cnt.find(n->id(), mc);
-            if (mc > 0)
-                return get_or_create_len_var(n, mc);
-        }
 
         // for variables at mod_count 0 and other terms, use symbolic (str.len expr)
-        return expr_ref(m_seq.str.mk_length(n->get_expr()), m);
+        return expr_ref(m_seq.str.mk_length(get_current_skolem(n)), m);
     }
 
     void nielsen_graph::generate_length_constraints(vector<length_constraint>& constraints) {
@@ -3843,29 +3831,38 @@ namespace seq {
     // + NielsenNode constructor length assertion logic
     // -----------------------------------------------------------------------
 
-    expr_ref nielsen_graph::get_or_create_len_var(euf::snode* var, unsigned mod_count) {
+    expr_ref nielsen_graph::get_current_skolem(euf::snode* var) {
+        SASSERT(!var->is_char_or_unit());
+        expr_ref e(var->get_expr(), m);
+        unsigned mc = 0;
+        m_mod_cnt.find(var->id(), mc);
         th_rewriter rw(m);
-        return skolem(m, rw).mk("len!", var->get_expr(), a.mk_int(mod_count), a.mk_int());
+        skolem sk(m, rw);
+        for (unsigned k = 0; k < mc; k++) {
+            e = sk.mk("succ!", e, e->get_sort());
+        }
+        return e;
     }
 
-    euf::snode* nielsen_graph::get_or_create_char_var(euf::snode* var, unsigned mod_count) {
-        th_rewriter rw(m);
-        sort *char_sort = m_seq.mk_char_sort();
-        auto char_var = skolem(m, rw).mk("char!", var->get_expr(), a.mk_int(mod_count), char_sort);
-        expr_ref unit(m_seq.str.mk_unit(char_var), m);
-        return m_sg.mk(unit);
-    }
-
-    expr_ref nielsen_graph::get_or_create_gpower_n_var(euf::snode* var, unsigned mod_count) {
+    expr_ref nielsen_graph::get_or_create_char_var(euf::snode* var) {
         SASSERT(var && var->is_var());
         th_rewriter rw(m);
-        return skolem(m, rw).mk("gpn!", var->get_expr(), a.mk_int(mod_count), a.mk_int());
+        auto e = get_current_skolem(var);
+        return skolem(m, rw).mk("char!", e, m_seq.mk_char_sort());
     }
 
-    expr_ref nielsen_graph::get_or_create_gpower_m_var(euf::snode* var, unsigned mod_count) {
+    expr_ref nielsen_graph::get_or_create_gpower_n_var(euf::snode* var) {
         SASSERT(var && var->is_var());
         th_rewriter rw(m);
-        return skolem(m, rw).mk("gpm!", var->get_expr(), a.mk_int(mod_count), a.mk_int());
+        auto e = get_current_skolem(var);
+        return skolem(m, rw).mk("gpn!", e, a.mk_int());
+    }
+
+    expr_ref nielsen_graph::get_or_create_gpower_m_var(euf::snode* var) {
+        SASSERT(var && var->is_var());
+        th_rewriter rw(m);
+        auto e = get_current_skolem(var);
+        return skolem(m, rw).mk("gpm!", e, a.mk_int());
     }
 
     void nielsen_graph::add_subst_length_constraints(nielsen_edge* e) {

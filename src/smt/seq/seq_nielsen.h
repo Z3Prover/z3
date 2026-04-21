@@ -1198,18 +1198,17 @@ namespace seq {
         // NielsenNode constructor length assertion logic.
         // -----------------------------------------------
 
-        // Get or create a fresh integer variable for len(var) at the given
-        // modification count. Returns str.len(var_expr) when mod_count == 0.
-        expr_ref get_or_create_len_var(euf::snode* var, unsigned mod_count);
+        // Gets the expression representing the variable with respect to its current mod-count
+        expr_ref get_current_skolem(euf::snode* var);
 
-        // Get or create a fresh character variable for a variable at a given modification count.
-        euf::snode* get_or_create_char_var(euf::snode* var, unsigned mod_count);
+        // Get or create a fresh symbolic character variable for the given variable
+        expr_ref get_or_create_char_var(euf::snode* var);
 
-        // Get or create a fresh integer variable for gpower n (full exponent) at a given modification count.
-        expr_ref get_or_create_gpower_n_var(euf::snode* var, unsigned mod_count);
+        // Get or create a fresh integer variable for gpower n (full exponent) for the given variable
+        expr_ref get_or_create_gpower_n_var(euf::snode* var);
 
-        // Get or create a fresh integer variable for gpower m (partial exponent) at a given modification count.
-        expr_ref get_or_create_gpower_m_var(euf::snode* var, unsigned mod_count);
+        // Get or create a fresh integer variable for gpower m (partial exponent) for the given variable
+        expr_ref get_or_create_gpower_m_var(euf::snode* var);
 
         // Compute and add |x| = |u| length constraints to an edge for all
         // its non-eliminating substitutions. Uses current m_mod_cnt.
