@@ -181,7 +181,7 @@ jobs:
           ls -la package-files/
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v3
+        uses: nuget/setup-nuget@v4
         with:
           nuget-version: 'latest'
       
@@ -230,7 +230,7 @@ jobs:
         run: find packages -type f
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v3
+        uses: nuget/setup-nuget@v4
         with:
           nuget-version: 'latest'
       
