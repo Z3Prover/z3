@@ -1447,6 +1447,11 @@ namespace smt {
     */
     clause * context::mk_clause(unsigned num_lits, literal * lits, justification * j, clause_kind k, clause_del_eh * del_eh) {
         TRACE(mk_clause, display_literals_verbose(tout << "creating clause: " << literal_vector(num_lits, lits) << "\n", num_lits, lits) << "\n";);
+        if (m.has_trace_stream()) {
+            m.trace_stream() << "[--- mk-clause ---] ";
+            display_literals_verbose(m.trace_stream() << literal_vector(num_lits, lits) << "\n", num_lits, lits);
+            m.trace_stream() << "\n";
+        }
         m_clause_proof.add(num_lits, lits, k, j);
         literal_buffer simp_lits;
         switch (k) {
