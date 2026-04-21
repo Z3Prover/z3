@@ -2184,9 +2184,9 @@ namespace seq {
 
         for (unsigned eq_idx = 0; eq_idx < node->str_eqs().size(); ++eq_idx) {
             str_eq const& eq = node->str_eqs()[eq_idx];
+            SASSERT(eq.well_formed());
             if (eq.is_trivial())
                 continue;
-            SASSERT(eq.well_formed());
             // EqSplit only applies to regex-free equations.
             if (!eq.m_lhs->is_regex_free() || !eq.m_rhs->is_regex_free())
                 continue;
@@ -2218,6 +2218,7 @@ namespace seq {
 
             euf::snode* pad = nullptr;
             if (padding != 0) {
+                // NSB review: can we represent pad_var using a string function?
                 expr *pad_var = skolem(m, rw).mk("eq-split", a.mk_int(padding), eq.m_lhs->get_expr(),
                                                  eq.m_rhs->get_expr(), eq.m_lhs->get_sort()); 
                 pad = m_sg.mk(pad_var);
@@ -2955,9 +2956,9 @@ namespace seq {
             vector<rf_split> feasible;
             dep_tracker eliminated_dep = mem.m_dep;
 
-            for (auto const& pair : pairs) {
-                euf::snode* sn_p = m_sg.mk(pair.m_p);
-                euf::snode* sn_q = m_sg.mk(pair.m_q);
+            for (auto const &[tp, tq] : pairs) {
+                euf::snode* sn_p = m_sg.mk(tp);
+                euf::snode* sn_q = m_sg.mk(tq);
 
                 // Also check intersection with other primitive constraints on `first`
                 ptr_vector<euf::snode> regexes_p;
@@ -3267,6 +3268,10 @@ namespace seq {
             euf::snode* u2 = m_sg.drop_left(eq.m_lhs, i);
             euf::snode* v1 = m_sg.drop_right(eq.m_rhs, rhs_toks.size() - j);
             euf::snode* v2 = m_sg.drop_left(eq.m_rhs, j);
+            // NSB review: if we keep this skolem function it should include arguments a.mk_int(i), a.mk_int(j)
+            // to not clash with other values of i, j
+            // Why not use 
+            // x := str.substr(u2, 0, str.len(u2) - str.len(v1)), 
             th_rewriter rw(m);
             auto x_e = skolem(m, rw).mk("signature-split", eq.m_lhs->get_expr(), eq.m_rhs->get_expr(), eq.m_lhs->get_sort());
             euf::snode *x = m_sg.mk(x_e);
@@ -3490,7 +3495,7 @@ namespace seq {
 
         SASSERT(power->is_power() && power->num_args() >= 1);
         euf::snode* base = power->arg(0);
-        expr* zero = a.mk_int(0);
+        expr_ref zero(a.mk_int(0), m);
 
         // Branch 1: enumerate all decompositions of the base.
         // x = base^m · prefix_i(base) where 0 <= m < n
@@ -3566,6 +3571,9 @@ namespace seq {
         }
 
         // Branch 2: x = u^n · x' (variable extends past full power, non-progress)
+        // NSB review: isn't this just a nielsen extension?
+        // In other words not a need for mk_fresh_var
+        // so replace x -> u^n · x
         {
             euf::snode* fresh_tail = mk_fresh_var(var_head->get_sort());
             euf::snode* replacement = dir_concat(m_sg, power, fresh_tail, fwd);
@@ -3617,6 +3625,7 @@ namespace seq {
 
         // Branch 2: n >= 1 → peel one u: u^n → u · u^(n-1)
         // Side constraint: n >= 1
+        // NSB review: u^n is replaced by u· fresh_var, isn't that unconstrained?
         {
             euf::snode* fresh = mk_fresh_var(var_head->get_sort());
             euf::snode* replacement = dir_concat(m_sg, base, fresh, fwd);
@@ -3660,6 +3669,7 @@ namespace seq {
 
         // Branch 2: n >= 1 → peel one u: u^n → u · u^(n-1)
         // Side constraint: n >= 1
+        // NSB review: similar comment to similar code in apply_var_num_unwinding_eq
         {
             euf::snode* fresh = mk_fresh_var(power->get_sort());
             euf::snode* replacement = dir_concat(m_sg, base, fresh, fwd);
