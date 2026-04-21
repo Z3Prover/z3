@@ -6,12 +6,14 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include "qe/mbp/mbp_arith.h"
 #include "qe/qe.h"
+#include "qe/lite/qe_lite_tactic.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "parsers/smt2/smt2parser.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/arith_rewriter.h"
 #include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
 #include "smt/smt_context.h"
 #include "ast/expr_abstract.h"
 #include "ast/rewriter/expr_safe_replace.h"
@@ -40,6 +42,57 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
     VERIFY(parse_smt2_commands(ctx, is));
     result = ctx.assertions().get(0);
     return result;
+}
+
+static expr_ref parse_smt2_assertion(ast_manager& m, char const* script) {
+    expr_ref result(m);
+    cmd_context ctx(false, &m);
+    ctx.set_ignore_check(true);
+    std::istringstream is(script);
+    VERIFY(parse_smt2_commands(ctx, is));
+    result = ctx.assertions().get(0);
+    return result;
+}
+
+namespace qe_arith_test {
+    struct find_q_proc {
+        quantifier* m_q = nullptr;
+        void operator()(var*) {}
+        void operator()(app*) {}
+        void operator()(quantifier* q) { m_q = q; }
+    };
+}
+
+static quantifier* find_quantifier(expr* n) {
+    qe_arith_test::find_q_proc p;
+    for_each_expr(p, n);
+    return p.m_q;
+}
+
+static void test_qe_lite_bv_eq_cases() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    expr_ref fml = parse_smt2_assertion(m, R"(
+(set-logic BV)
+(declare-const cv1 (_ BitVec 1))
+(assert
+  (exists ((x (_ BitVec 48)) (y (_ BitVec 9)))
+    (and
+      (not (= y (_ bv511 9)))
+      (not (= x (_ bv1 48)))
+      (not (and (= x (_ bv1 48)) (= cv1 (_ bv1 1))))
+      (not (and (= x (_ bv1 48)) (not (= cv1 (_ bv1 1))))))))
+)");
+    expr_ref original(fml, m);
+    qe_lite qel(m, params_ref());
+    proof_ref pr(m);
+    qel(fml, pr);
+    VERIFY(find_quantifier(fml) == nullptr);
+
+    smt_params params;
+    smt::context ctx(m, params);
+    ctx.assert_expr(m.mk_not(m.mk_iff(original, fml)));
+    VERIFY(ctx.check() == l_false);
 }
 
 static char const* example1 = "(and (<= x 3.0) (<= (* 3.0 x) y) (<= z y))";
@@ -594,6 +647,7 @@ static void test_project() {
 
 void tst_qe_arith() {
     test_project();
+    test_qe_lite_bv_eq_cases();
     return;
     check_random_ineqs();
     return;
