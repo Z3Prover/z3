@@ -656,6 +656,13 @@ namespace smt {
                 return FC_DONE;
             }
 
+            if (!has_eq_or_mem && has_unhandled_preds()) {
+                TRACE(seq, tout << "nielsen root if null\n");
+                // this can happen for regex constraint only benchmarks
+                // qf_s\20250410-matching\wildcard-matching-regex-67.smt2
+                return FC_GIVEUP;
+            }
+
             populate_nielsen_graph();
 
             // assert length constraints derived from string equalities
@@ -663,6 +670,8 @@ namespace smt {
                 TRACE(seq, tout << "nseq final_check: length constraints asserted, FC_CONTINUE\n");
                 return FC_CONTINUE;
             }
+
+            SASSERT(m_nielsen.root());            
 
             m_nielsen.assert_node_new_int_constraints(m_nielsen.root());
 
