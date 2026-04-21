@@ -60,6 +60,20 @@ static void test_fp_to_real_denormal() {
         true);
 }
 
+static void test_recfun_defined_function_soundness() {
+    run_fp_test(
+        "(set-option :model_validate true)\n"
+        "(declare-fun fixedAdd () Int)\n"
+        "(declare-fun variableAdd () Int)\n"
+        "(define-fun-rec $$add$$ ((a Int) (b Int)) Int\n"
+        "  (ite (= 0 b) 2 (- a (+ 0 (- fixedAdd b)))))\n"
+        "(assert (= fixedAdd (* 9 fixedAdd)))\n"
+        "(assert (= 1 ($$add$$ 1 3)))\n"
+        "(check-sat)\n",
+        false);
+}
+
 void tst_fpa() {
     test_fp_to_real_denormal();
+    test_recfun_defined_function_soundness();
 }
