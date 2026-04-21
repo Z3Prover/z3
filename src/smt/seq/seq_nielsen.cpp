@@ -44,7 +44,7 @@ NSB review:
 
 namespace seq {
 
-    void deps_to_lits(dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits, vector<le, false>& les) {
+    void deps_to_lits(dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits, vector<le>& les) {
         vector<dep_source, false> vs;
         dep_manager::s_linearize(deps, vs);
         for (dep_source const &d : vs) {

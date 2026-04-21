@@ -362,7 +362,7 @@ namespace seq {
     void deps_to_lits(dep_tracker deps,
                       svector<enode_pair>& eqs,
                       svector<sat::literal>& lits,
-                      vector<le, false>& les);
+                      vector<le>& les);
 
     // string equality constraint: lhs = rhs
     // mirrors ZIPT's StrEq (both sides are regex-free snode trees)

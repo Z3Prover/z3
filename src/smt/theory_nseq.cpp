@@ -1262,7 +1262,7 @@ namespace smt {
         // conditional constraints: propagate with justification from dep_tracker
         enode_pair_vector eqs;
         literal_vector lits;
-        vector<seq::le, false> les;
+        vector<seq::le> les;
         seq::deps_to_lits(lc.m_dep, eqs, lits, les);
         for (auto const& d : les)
             lits.push_back(mk_le_literal(d));
@@ -1553,11 +1553,10 @@ namespace smt {
 
                 enode_pair_vector eqs;
                 literal_vector dep_lits;
-                vector<seq::le, false> dep_les;
-                for (unsigned idx : mem_indices) {
-                    if (mems[idx].m_dep)
-                        seq::deps_to_lits(mems[idx].m_dep, eqs, dep_lits, dep_les);
-                }
+                vector<seq::le> dep_les;
+                for (unsigned idx : mem_indices) 
+                    seq::deps_to_lits(mems[idx].m_dep, eqs, dep_lits, dep_les);
+                
                 for (auto const &d : dep_les)
                     dep_lits.push_back(mk_le_literal(d));
 
