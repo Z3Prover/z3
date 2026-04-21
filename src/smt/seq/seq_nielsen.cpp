@@ -1533,17 +1533,16 @@ namespace seq {
                 add_subst_length_constraints(e);
                 e->set_len_constraints_computed(true);
 
-                for (const auto& sc : e->side_constraints()) {
+                for (const auto& sc : e->side_constraints()) 
                     e->tgt()->add_constraint(sc);
-                }
+                
             }
 
             // Bump modification counts for the child's context.
             inc_edge_mod_counts(e);
 
-            const search_result r = search_dfs(e->tgt(), cur_path,
-                e->is_progress() ? depth : (depth + 1)
-            );
+            auto new_depth = depth + (e->is_progress() ? 0 : 1);
+            const search_result r = search_dfs(e->tgt(), cur_path, new_depth);                         
 
             // Restore modification counts on backtrack.
             dec_edge_mod_counts(e);
@@ -3774,8 +3773,7 @@ namespace seq {
         // Parikh interval reasoning for regex memberships
         for (str_mem const& mem : m_root->str_mems()) {
             expr* re_expr = mem.m_regex->get_expr();
-            if (!re_expr || !seq.is_re(re_expr))
-                continue;
+            SASSERT(re_expr && seq.is_re(re_expr));              
 
             unsigned min_len = 0, max_len = UINT_MAX;
             compute_regex_length_interval(mem.m_regex, min_len, max_len);
