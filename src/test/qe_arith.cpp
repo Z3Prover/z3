@@ -13,7 +13,6 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/arith_rewriter.h"
 #include "ast/ast_pp.h"
-#include "ast/for_each_expr.h"
 #include "smt/smt_context.h"
 #include "ast/expr_abstract.h"
 #include "ast/rewriter/expr_safe_replace.h"
@@ -54,21 +53,6 @@ static expr_ref parse_smt2_assertion(ast_manager& m, char const* script) {
     return result;
 }
 
-namespace qe_arith_test {
-    struct find_q_proc {
-        quantifier* m_q = nullptr;
-        void operator()(var*) {}
-        void operator()(app*) {}
-        void operator()(quantifier* q) { m_q = q; }
-    };
-}
-
-static quantifier* find_quantifier(expr* n) {
-    qe_arith_test::find_q_proc p;
-    for_each_expr(p, n);
-    return p.m_q;
-}
-
 static void test_qe_lite_bv_eq_cases() {
     ast_manager m;
     reg_decl_plugins(m);
@@ -87,7 +71,7 @@ static void test_qe_lite_bv_eq_cases() {
     qe_lite qel(m, params_ref());
     proof_ref pr(m);
     qel(fml, pr);
-    VERIFY(find_quantifier(fml) == nullptr);
+    VERIFY(!has_quantifiers(fml));
 
     smt_params params;
     smt::context ctx(m, params);

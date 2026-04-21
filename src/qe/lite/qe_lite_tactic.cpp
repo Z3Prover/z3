@@ -2546,11 +2546,11 @@ private:
 
     bool mk_bv_default_case(unsigned bv_size, obj_hashtable<expr> const& values, expr_ref& value) {
         bv_util bv(m);
-        uint64_t max_num = values.size() + 1;
-        if (bv_size < 63)
-            max_num = std::min<uint64_t>(max_num, uint64_t(1) << bv_size);
-        for (uint64_t i = 0; i < max_num; ++i) {
-            value = bv.mk_numeral(rational(static_cast<unsigned>(i)), bv_size);
+        unsigned max_num = values.size() + 1;
+        if (bv_size < sizeof(unsigned) * 8)
+            max_num = std::min<unsigned>(max_num, (1u << bv_size));
+        for (unsigned i = 0; i < max_num; ++i) {
+            value = bv.mk_numeral(rational(i), bv_size);
             if (!values.contains(value))
                 return true;
         }
@@ -2577,11 +2577,9 @@ private:
         for (unsigned i = 0; i < num_decls; ++i) {
             if (!uv.contains(i))
                 continue;
-            sort* s = uv.contains(i);
-            if (!s)
-                return false;
+            sort* var_sort = q->get_decl_sort(num_decls - i - 1);
             bv_util bv(m);
-            if (!bv.is_bv_sort(s))
+            if (!bv.is_bv_sort(var_sort))
                 return false;
             obj_hashtable<expr> values;
             if (!collect_bv_eq_constants(body, i, values) || values.empty())
@@ -2593,7 +2591,7 @@ private:
             for (expr* v : values)
                 var_cases.values.push_back(v);
             expr_ref other(m);
-            if (mk_bv_default_case(bv.get_bv_size(s), values, other))
+            if (mk_bv_default_case(bv.get_bv_size(var_sort), values, other))
                 var_cases.values.push_back(other);
             if (var_cases.values.empty())
                 return false;
@@ -2625,15 +2623,17 @@ private:
             m_rewriter(inst);
             disjuncts.push_back(inst);
 
-            unsigned j = case_ix.size();
-            while (j > 0) {
-                --j;
+            // Increment mixed-radix counter over case_ix; if all positions wrap, stop.
+            bool wrapped = true;
+            for (unsigned j = case_ix.size(); j-- > 0; ) {
                 ++case_ix[j];
-                if (case_ix[j] < case_vars[j].values.size())
+                if (case_ix[j] < case_vars[j].values.size()) {
+                    wrapped = false;
                     break;
+                }
                 case_ix[j] = 0;
             }
-            if (j == 0 && case_ix[0] == 0)
+            if (wrapped)
                 break;
         }
 
