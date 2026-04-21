@@ -207,13 +207,82 @@ void test_nla_intervals_fractional() {
     VERIFY(true); // Placeholder
 }
 
+void test_fetch_normalized_term_column() {
+    std::cout << "test_fetch_normalized_term_column\n";
+
+    lp::lar_solver s;
+
+    // Create some variables
+    lpvar x = s.add_var(0, true);  // j0
+    lpvar y = s.add_var(1, true);  // j1
+    lpvar z = s.add_var(2, true);  // j2
+
+    // Add a term t = 2*x + 3*y and register it
+    lp::lar_term t;
+    t.add_monomial(rational(2), x);
+    t.add_monomial(rational(3), y);
+    s.add_term(t.coeffs_as_vector(), UINT_MAX);
+    s.register_existing_terms();
+
+    // Now build the same term independently and look it up
+    lp::lar_term query;
+    query.add_monomial(rational(2), x);
+    query.add_monomial(rational(3), y);
+    lp::mpq a;
+    lp::lar_term norm_query = query.get_normalized_by_min_var(a);
+
+    std::pair<lp::mpq, lpvar> result;
+    bool found = s.fetch_normalized_term_column(norm_query, result);
+    VERIFY(found);
+    std::cout << "  round-trip lookup: " << (found ? "PASS" : "FAIL") << "\n";
+
+    // Build query with variables added in reverse order
+    lp::lar_term query_rev;
+    query_rev.add_monomial(rational(3), y);
+    query_rev.add_monomial(rational(2), x);
+    lp::lar_term norm_rev = query_rev.get_normalized_by_min_var(a);
+
+    bool found_rev = s.fetch_normalized_term_column(norm_rev, result);
+    VERIFY(found_rev);
+    std::cout << "  reverse-order lookup: " << (found_rev ? "PASS" : "FAIL") << "\n";
+
+    // Test a 3-variable term: x - y + 5*z
+    lp::lar_term t2;
+    t2.add_monomial(rational(1), x);
+    t2.add_monomial(rational(-1), y);
+    t2.add_monomial(rational(5), z);
+    s.add_term(t2.coeffs_as_vector(), UINT_MAX);
+    s.register_existing_terms();
+
+    lp::lar_term query2;
+    query2.add_monomial(rational(1), x);
+    query2.add_monomial(rational(-1), y);
+    query2.add_monomial(rational(5), z);
+    lp::lar_term norm2 = query2.get_normalized_by_min_var(a);
+
+    found = s.fetch_normalized_term_column(norm2, result);
+    VERIFY(found);
+    std::cout << "  3-variable term lookup: " << (found ? "PASS" : "FAIL") << "\n";
+
+    // Test that a non-registered term is NOT found
+    lp::lar_term query3;
+    query3.add_monomial(rational(7), x);
+    query3.add_monomial(rational(11), y);
+    lp::lar_term norm3 = query3.get_normalized_by_min_var(a);
+
+    bool found_missing = s.fetch_normalized_term_column(norm3, result);
+    VERIFY(!found_missing);
+    std::cout << "  non-existent term not found: " << (!found_missing ? "PASS" : "FAIL") << "\n";
+}
+
 void test_nla_intervals() {
     test_nla_intervals_basic();
-    test_nla_intervals_negative(); 
+    test_nla_intervals_negative();
     test_nla_intervals_zero_crossing();
     test_nla_intervals_power();
     test_nla_intervals_mixed_signs();
     test_nla_intervals_fractional();
+    test_fetch_normalized_term_column();
 }
 
 } // namespace nla

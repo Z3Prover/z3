@@ -36,7 +36,12 @@ namespace lp {
 
         struct term_comparer {
             bool operator()(const lar_term& a, const lar_term& b) const {
-                return a == b;
+                if (a.size() != b.size()) return false;
+                for (const auto& p : a) {
+                    auto const* e = b.coeffs().find_core(p.j());
+                    if (!e || e->get_data().m_value != p.coeff()) return false;
+                }
+                return true;
             }
         };
 

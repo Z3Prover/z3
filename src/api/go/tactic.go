@@ -228,6 +228,17 @@ func (g *Goal) String() string {
 	return C.GoString(C.Z3_goal_to_string(g.ctx.ptr, g.ptr))
 }
 
+// IsInconsistent returns true if the goal contains the formula false.
+func (g *Goal) IsInconsistent() bool {
+	return bool(C.Z3_goal_inconsistent(g.ctx.ptr, g.ptr))
+}
+
+// ToDimacsString converts the goal to a string in DIMACS format.
+// If includeNames is true, formula names are included as comments.
+func (g *Goal) ToDimacsString(includeNames bool) string {
+	return C.GoString(C.Z3_goal_to_dimacs_string(g.ctx.ptr, g.ptr, C.bool(includeNames)))
+}
+
 // ApplyResult represents the result of applying a tactic to a goal.
 type ApplyResult struct {
 	ctx *Context

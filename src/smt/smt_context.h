@@ -18,6 +18,7 @@ Revision History:
 --*/
 #pragma once
 
+#include <atomic>
 #include "ast/quantifier_stat.h"
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "smt/smt_clause.h"
@@ -137,6 +138,7 @@ namespace smt {
         scoped_ptr<base_dependent_expr_state> m_fmls;
 
         svector<double> m_lit_scores[2];
+        svector<unsigned> m_birthdate;
 
 
         // -----------------------------------

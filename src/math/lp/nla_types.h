@@ -41,9 +41,8 @@ namespace nla {
         ineq(const lp::lar_term& term, lp::lconstraint_kind cmp, const rational& rs) : m_cmp(cmp), m_term(term), m_rs(rs) {}
         ineq(lpvar v, lp::lconstraint_kind cmp, int i): m_cmp(cmp), m_term(v), m_rs(rational(i)) {}
         ineq(lpvar v, lp::lconstraint_kind cmp, rational const& r): m_cmp(cmp), m_term(v), m_rs(r) {}
-        bool operator==(const ineq& a) const {
-            return m_cmp == a.m_cmp && m_term == a.m_term && m_rs == a.m_rs;
-        }
+        bool operator==(const ineq& a) const = delete;
+        bool operator!=(const ineq& a) const = delete;
         const lp::lar_term& term() const { return m_term; };
         lp::lconstraint_kind cmp() const { return m_cmp;  };
         const rational& rs() const { return m_rs; };
