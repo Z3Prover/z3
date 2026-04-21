@@ -240,15 +240,15 @@ namespace search_tree {
 
         // Find the shallowest leaf node that at least 1 worker has visited
         // Used for tree expansion policy
-        void find_shallowest_timed_out_leaf_depth(node<Config>* cur, unsigned& best_depth) const {
+        void find_shallowest_unsolved_leaf_depth(node<Config>* cur, unsigned& best_depth) const {
             if (!cur || cur->get_status() == status::closed)
                 return;
 
-            if (cur->is_leaf() && cur->effort_spent() > 0)
+            if (cur->is_leaf() && cur->num_activations() > 0)
                 best_depth = std::min(best_depth, cur->depth());
 
-            find_shallowest_timed_out_leaf_depth(cur->left(), best_depth);
-            find_shallowest_timed_out_leaf_depth(cur->right(), best_depth);
+            find_shallowest_unsolved_leaf_depth(cur->left(), best_depth);
+            find_shallowest_unsolved_leaf_depth(cur->right(), best_depth);
         }
 
         bool should_split(node<Config>* n, unsigned epoch) {
@@ -270,9 +270,9 @@ namespace search_tree {
                     return false;
             }
 
-            unsigned shallowest_timed_out_leaf_depth = UINT_MAX;
-            find_shallowest_timed_out_leaf_depth(m_root.get(), shallowest_timed_out_leaf_depth);
-            return n->depth() == shallowest_timed_out_leaf_depth;
+            unsigned shallowest_unsolved_leaf_depth = UINT_MAX;
+            find_shallowest_unsolved_leaf_depth(m_root.get(), shallowest_unsolved_leaf_depth);
+            return n->depth() == shallowest_unsolved_leaf_depth;
         }
 
         // Bubble to the highest ancestor where ALL literals in the resolvent
