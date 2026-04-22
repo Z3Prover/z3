@@ -60,10 +60,6 @@ namespace smt {
 
         struct node_lease {
             search_tree::node<cube_config>* node = nullptr;
-            // Version counter for structural mutations of this node (e.g., split/close).
-            // Used to detect stale leases: if a worker's lease.epoch != node.epoch,
-            // the node has changed since it was acquired and must not be mutated.
-            unsigned epoch = 0;
 
             // Cancellation generation counter for this node/subtree.
             // Incremented when the node is closed; used to signal that all
@@ -155,7 +151,7 @@ namespace smt {
             void backtrack_unlocked(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core,
                                     node_lease const* lease = nullptr, vector<node_lease> const* targets = nullptr);
             void collect_clause_unlocked(ast_translation &l2g, unsigned source_worker_id, expr *clause);
-            void release_lease_unlocked(unsigned worker_id, node* n, unsigned epoch);
+            void release_lease_unlocked(unsigned worker_id, node* n);
             void cancel_closed_leases_unlocked(unsigned source_worker_id);
             void collect_matching_targets_unlocked(node* source, expr* lit, vector<cube_config::literal> const& core,
                                                    vector<node_lease>& targets);

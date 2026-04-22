@@ -50,7 +50,6 @@ namespace search_tree {
         unsigned m_effort_spent = 0;
         unsigned m_round_max_effort = 0;
         unsigned m_active_workers = 0;
-        unsigned m_epoch = 0;
         unsigned m_cancel_epoch = 0;
 
     public:
@@ -78,7 +77,6 @@ namespace search_tree {
             SASSERT(!m_right);
             m_left = alloc(node<Config>, a, this);
             m_right = alloc(node<Config>, b, this);
-            inc_epoch();
         }
 
         node* left() const { return m_left; }
@@ -145,12 +143,6 @@ namespace search_tree {
             m_effort_spent -= m_round_max_effort;
             m_round_max_effort = effort;
             m_effort_spent += m_round_max_effort;
-        }
-        unsigned epoch() const {
-            return m_epoch;
-        }
-        void inc_epoch() {
-            ++m_epoch;
         }
         unsigned get_cancel_epoch() const {
             return m_cancel_epoch;
@@ -251,8 +243,8 @@ namespace search_tree {
             find_shallowest_unsolved_leaf_depth(cur->right(), best_depth);
         }
 
-        bool should_split(node<Config>* n, unsigned epoch) {
-            if (!is_lease_valid(n, epoch) || !n->is_leaf())
+        bool should_split(node<Config>* n) {
+            if (!n || n->get_status() != status::active || !n->is_leaf())
                 return false;
 
             unsigned num_active_nodes = count_active_nodes(m_root.get());
@@ -344,7 +336,6 @@ namespace search_tree {
         void close(node<Config> *n, vector<literal> const &C) {
             if (!n || n->get_status() == status::closed)
                 return;
-            n->inc_epoch();
             n->inc_cancel_epoch();
             n->set_status(status::closed);
             n->set_core(C);
@@ -449,7 +440,7 @@ namespace search_tree {
 
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
-        bool try_split(node<Config> *n, unsigned epoch, unsigned cancel_epoch, literal const &a, literal const &b, unsigned effort) {
+        bool try_split(node<Config> *n, unsigned cancel_epoch, literal const &a, literal const &b, unsigned effort) {
             if (is_lease_canceled(n, cancel_epoch))
                 return false;
 
@@ -458,7 +449,7 @@ namespace search_tree {
             n->update_round_max_effort(effort);
             bool did_split = false;
 
-            if (should_split(n, epoch)) {
+            if (should_split(n)) {
                 n->split(a, b);
                 did_split = true;
             }
@@ -549,10 +540,6 @@ namespace search_tree {
             n->dec_active_workers();
         }
 
-        bool is_lease_valid(node<Config>* n, unsigned epoch) const {
-            return n && n->get_status() == status::active && n->epoch() == epoch;
-        }
-        
         bool is_lease_canceled(node<Config>* n, unsigned cancel_epoch) const {
             return !n || n->get_status() == status::closed || n->get_cancel_epoch() != cancel_epoch;
         }

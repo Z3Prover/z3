@@ -829,11 +829,11 @@ namespace smt {
         m.limit().inc_cancel();
     }
 
-    void parallel::batch_manager::release_lease_unlocked(unsigned worker_id, node* n, unsigned epoch) {
+    void parallel::batch_manager::release_lease_unlocked(unsigned worker_id, node* n) {
         if (worker_id >= m_worker_leases.size())
             return;
         auto &lease = m_worker_leases[worker_id];
-        if (!lease.node || lease.node != n || lease.epoch != epoch)
+        if (!lease.node || lease.node != n)
             return;
         m_search_tree.dec_active_workers(lease.node);
         lease = {};
@@ -929,7 +929,7 @@ namespace smt {
             if (!is_highest_ancestor)
                 continue;
 
-            targets.push_back({ t, t->epoch(), t->get_cancel_epoch() });
+            targets.push_back({ t, t->get_cancel_epoch() });
         }
     }
 
@@ -954,7 +954,7 @@ namespace smt {
                 has_open_targets = true;
                 IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
 
-                release_lease_unlocked(worker_id, lease->node, lease->epoch);
+                release_lease_unlocked(worker_id, lease->node);
                 m_search_tree.backtrack(lease->node, g_core);
             }
         }
@@ -998,9 +998,9 @@ namespace smt {
         expr_ref lit(m), nlit(m);
         lit = l2g(atom);
         nlit = mk_not(m, lit);
-        bool did_split = m_search_tree.try_split(lease.node, lease.epoch, lease.cancel_epoch, lit, nlit, effort);
+        bool did_split = m_search_tree.try_split(lease.node, lease.cancel_epoch, lit, nlit, effort);
 
-        release_lease_unlocked(worker_id, lease.node, lease.epoch);
+        release_lease_unlocked(worker_id, lease.node);
 
         if (did_split) {
             ++m_stats.m_num_cubes;
@@ -1011,7 +1011,7 @@ namespace smt {
 
     void parallel::batch_manager::release_lease(unsigned worker_id, node_lease const &lease) {
         std::scoped_lock lock(mux);
-        release_lease_unlocked(worker_id, lease.node, lease.epoch);
+        release_lease_unlocked(worker_id, lease.node);
     }
 
     bool parallel::batch_manager::lease_canceled(node_lease const &lease) {
@@ -1334,7 +1334,6 @@ namespace smt {
         IF_VERBOSE(1, m_search_tree.display(verbose_stream()); verbose_stream() << "\n";);
         
         lease.node = t;
-        lease.epoch = t->epoch();
         lease.cancel_epoch = t->get_cancel_epoch();
         if (id >= m_worker_leases.size())
             m_worker_leases.resize(id + 1);
