@@ -265,7 +265,7 @@ namespace smt {
                     }
                 }
                 // At this point all relevant equalities for the match are logged.
-                out << "[new-match] " << f->get_data_hash() << " #" << q->get_id() << " #" << pat->get_id();
+                out << "[new-match] " << f->get_data_hash() << " #" << q->get_id() << " #" << pat->get_id() << " "<< q->get_qid();
                 for (unsigned i = 0; i < num_bindings; ++i) {
                     // I don't want to use mk_pp because it creates expressions for pretty printing.
                     // This nasty side-effect may change the behavior of Z3.
