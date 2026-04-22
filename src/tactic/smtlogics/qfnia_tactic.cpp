@@ -71,14 +71,21 @@ static tactic * mk_qfnia_preamble(ast_manager & m, params_ref const & p_ref) {
 
     params_ref elim_p = p_ref;
     elim_p.set_uint("max_memory",20);
-    
+
+    // Match the throttle applied in mk_preamble_tactic (qflia_tactic.cpp):
+    // lia2card is by default harmful (see commit 99cbfa715). Limit it to
+    // 0-1 integer variables.
+    params_ref lia2card_p = p_ref;
+    lia2card_p.set_uint("lia2card.max_range", 1);
+    lia2card_p.set_uint("lia2card.max_ite_nesting", 1);
+
     return
-        and_then(mk_simplify_tactic(m), 
+        and_then(mk_simplify_tactic(m),
                  mk_propagate_values_tactic(m),
                  using_params(mk_ctx_simplify_tactic(m), ctx_simp_p),
                  using_params(mk_simplify_tactic(m), pull_ite_p),
                  mk_elim_uncnstr_tactic(m),
-                 mk_lia2card_tactic(m), 
+                 using_params(mk_lia2card_tactic(m, lia2card_p), lia2card_p),
 			     mk_card2bv_tactic(m, p_ref),
                  skip_if_failed(using_params(mk_cofactor_term_ite_tactic(m), elim_p)));
 }
