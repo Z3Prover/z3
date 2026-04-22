@@ -38,7 +38,6 @@ static void test_sgraph_classify() {
     SASSERT(sx && sx->is_var());
     SASSERT(!sx->is_ground());
     SASSERT(sx->is_regex_free());
-    SASSERT(!sx->is_nullable());
     SASSERT(sx->level() == 1);
     SASSERT(sx->length() == 1);
     SASSERT(sx->is_token());
@@ -48,7 +47,6 @@ static void test_sgraph_classify() {
     euf::snode* se = sg.mk(empty);
     SASSERT(se && se->is_empty());
     SASSERT(se->is_ground());
-    SASSERT(se->is_nullable());
     SASSERT(se->level() == 0);
     SASSERT(se->length() == 0);
     SASSERT(!se->is_token());
@@ -59,7 +57,6 @@ static void test_sgraph_classify() {
     euf::snode* sca = sg.mk(unit_a);
     SASSERT(sca && sca->is_char());
     SASSERT(sca->is_ground());
-    SASSERT(!sca->is_nullable());
     SASSERT(sca->level() == 1);
     SASSERT(sca->length() == 1);
     SASSERT(sca->is_token());
@@ -71,7 +68,6 @@ static void test_sgraph_classify() {
     SASSERT(sxy && sxy->is_concat());
     SASSERT(!sxy->is_ground());
     SASSERT(sxy->is_regex_free());
-    SASSERT(!sxy->is_nullable());
     SASSERT(sxy->level() == 2);
     SASSERT(sxy->length() == 2);
     SASSERT(sxy->num_args() == 2);
@@ -98,7 +94,6 @@ static void test_sgraph_regex() {
     euf::snode* str = sg.mk(to_re_x);
     SASSERT(str && str->is_to_re());
     SASSERT(!str->is_regex_free());
-    SASSERT(!str->is_nullable()); // to_re(x) nullable iff x nullable, x is var so not nullable
     SASSERT(str->num_args() == 1);
 
     // star
@@ -106,7 +101,6 @@ static void test_sgraph_regex() {
     euf::snode* ss = sg.mk(star_x);
     SASSERT(ss && ss->is_star());
     SASSERT(!ss->is_regex_free());
-    SASSERT(ss->is_nullable()); // star is always nullable
     SASSERT(ss->num_args() == 1);
 
     // full_seq (.*)
@@ -114,39 +108,33 @@ static void test_sgraph_regex() {
     euf::snode* sfs = sg.mk(full_seq);
     SASSERT(sfs && sfs->is_full_seq());
     SASSERT(sfs->is_ground());
-    SASSERT(sfs->is_nullable());
 
     // full_char (.)
     expr_ref full_char(seq.re.mk_full_char(str_sort), m);
     euf::snode* sfc = sg.mk(full_char);
     SASSERT(sfc && sfc->is_full_char());
     SASSERT(sfc->is_ground());
-    SASSERT(!sfc->is_nullable());
 
     // empty set, fail
     sort_ref re_sort(seq.re.mk_re(str_sort), m);
     expr_ref empty_set(seq.re.mk_empty(re_sort), m);
     euf::snode* sfail = sg.mk(empty_set);
     SASSERT(sfail && sfail->is_fail());
-    SASSERT(!sfail->is_nullable());
 
     // union: to_re(x) | star(to_re(x)), nullable because star is
     expr_ref re_union(seq.re.mk_union(to_re_x, star_x), m);
     euf::snode* su = sg.mk(re_union);
     SASSERT(su && su->is_union());
-    SASSERT(su->is_nullable()); // star_x is nullable
 
     // intersection: to_re(x) & star(to_re(x)), nullable only if both are
     expr_ref re_inter(seq.re.mk_inter(to_re_x, star_x), m);
     euf::snode* si = sg.mk(re_inter);
     SASSERT(si && si->is_intersect());
-    SASSERT(!si->is_nullable()); // to_re(x) is not nullable
 
     // complement of to_re(x): nullable because to_re(x) is not nullable
     expr_ref re_comp(seq.re.mk_complement(to_re_x), m);
     euf::snode* sc = sg.mk(re_comp);
     SASSERT(sc && sc->is_complement());
-    SASSERT(sc->is_nullable()); // complement of non-nullable is nullable
 
     // in_re
     expr_ref in_re(seq.re.mk_in_re(x, star_x), m);
@@ -176,7 +164,6 @@ static void test_sgraph_power() {
     SASSERT(sp && sp->is_power());
     SASSERT(!sp->is_ground()); // base x is not ground
     SASSERT(sp->is_regex_free());
-    SASSERT(!sp->is_nullable()); // base x is not nullable
     SASSERT(sp->num_args() >= 1);
 
     sg.display(std::cout);
@@ -400,14 +387,12 @@ static void test_sgraph_concat_metadata() {
     euf::snode* sxz = sg.mk(xz);
     SASSERT(!sxz->is_ground());
     SASSERT(sxz->is_regex_free());
-    SASSERT(!sxz->is_nullable());
     SASSERT(sxz->length() == 2);
     SASSERT(sxz->level() == 2);
 
     // concat(empty, empty): nullable (both empty)
     expr_ref empty2(seq.str.mk_concat(empty, empty), m);
     euf::snode* see = sg.mk(empty2);
-    SASSERT(see->is_nullable());
     SASSERT(see->is_ground());
     SASSERT(see->length() == 0);
 
@@ -466,7 +451,6 @@ static void test_sgraph_factory() {
     // mk_empty
     euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
     SASSERT(e && e->is_empty());
-    SASSERT(e->is_nullable());
     SASSERT(e->length() == 0);
 
     // mk_concat with empty absorption

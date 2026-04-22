@@ -324,7 +324,7 @@ static void test_generate_constraints_ab_star() {
     seq::dep_manager dm;
     sat::literal lit = sat::null_literal;  // dummy literal for dependency tracking 
     seq::dep_tracker dep = dm.mk_leaf(lit);
-    seq::str_mem mem(x, regex, nullptr, 0, dep);
+    seq::str_mem mem(x, regex, dep);
 
     vector<seq::constraint> out;
     parikh.generate_parikh_constraints(mem, out);
@@ -371,7 +371,7 @@ static void test_generate_constraints_bounded_loop() {
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
     seq::dep_tracker dep = dm.mk_leaf(sat::null_literal);
-    seq::str_mem mem(x, regex, nullptr, 0, dep);
+    seq::str_mem mem(x, regex, dep);
 
     vector<seq::constraint> out;
     parikh.generate_parikh_constraints(mem, out);
@@ -408,7 +408,7 @@ static void test_generate_constraints_stride_one() {
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
     seq::dep_tracker dep = dm.mk_leaf(sat::null_literal);
-    seq::str_mem mem(x, regex, nullptr, 0, dep);
+    seq::str_mem mem(x, regex, dep);
 
     vector<seq::constraint> out;
     parikh.generate_parikh_constraints(mem, out);
@@ -431,7 +431,7 @@ static void test_generate_constraints_fixed_length() {
     euf::snode* regex = sg.mk(re);
     seq::dep_manager dm;
     seq::dep_tracker dep = dm.mk_leaf(sat::null_literal);
-    seq::str_mem mem(x, regex, nullptr, 0, dep);
+    seq::str_mem mem(x, regex, dep);
 
     vector<seq::constraint> out;
     parikh.generate_parikh_constraints(mem, out);
@@ -455,7 +455,7 @@ static void test_generate_constraints_dep_propagated() {
     seq::dep_manager dm;
     sat::literal lit(7);
     seq::dep_tracker dep = dm.mk_leaf(lit);
-    seq::str_mem mem(x, regex, nullptr, 0, dep);
+    seq::str_mem mem(x, regex, dep);
 
     vector<seq::constraint> out;
     parikh.generate_parikh_constraints(mem, out);

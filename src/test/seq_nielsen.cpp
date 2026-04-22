@@ -127,7 +127,7 @@ static void test_str_mem() {
     euf::snode* regex = sg.mk(star_fc);
 
     seq::dep_tracker dep = nullptr;
-    seq::str_mem mem(x, regex, e, 0, dep);
+    seq::str_mem mem(x, regex, dep);
 
     // x in regex is primitive (x is a single variable)
     SASSERT(mem.is_primitive());
@@ -136,7 +136,7 @@ static void test_str_mem() {
     // concatenation is not primitive
     euf::snode* a = sg.mk_char('A');
     euf::snode* xa = sg.mk_concat(x, a);
-    seq::str_mem mem2(xa, regex, e, 1, dep);
+    seq::str_mem mem2(xa, regex, dep);
     SASSERT(!mem2.is_primitive());
     SASSERT(mem2.contains_var(x));
 }
@@ -280,7 +280,6 @@ static void test_nielsen_graph_populate() {
     euf::snode* regex = sg.mk(re_all);
     ng.add_str_mem(x, regex);
     SASSERT(ng.root()->str_mems().size() == 1);
-    SASSERT(ng.root()->str_mems()[0].m_id == 0);
 
     // add another equality: concat(x, A) = concat(A, y)
     euf::snode* xa = sg.mk_concat(x, a);
@@ -456,8 +455,6 @@ static void test_multiple_memberships() {
 
     SASSERT(ng.root() != nullptr);
     SASSERT(ng.root()->str_mems().size() == 2);
-    SASSERT(ng.root()->str_mems()[0].m_id == 0);
-    SASSERT(ng.root()->str_mems()[1].m_id == 1);
 
     ng.display(std::cout);
 }
@@ -1866,7 +1863,7 @@ static void test_simplify_regex_infeasible() {
     // ε ∈ to_re("A") → non-nullable → conflict
     seq::nielsen_node* node = ng.mk_node();
     seq::dep_tracker dep = nullptr;
-    node->add_str_mem(seq::str_mem(e, regex, e, 0, dep));
+    node->add_str_mem(seq::str_mem(e, regex, dep));
 
     auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::conflict);
@@ -1922,7 +1919,7 @@ static void test_simplify_brzozowski_sat() {
     // "A" ∈ to_re("A") → derivative consumes 'A' → ε ∈ ε-regex → satisfied
     seq::nielsen_node* node = ng.mk_node();
     seq::dep_tracker dep = nullptr;
-    node->add_str_mem(seq::str_mem(a, regex, e, 0, dep));
+    node->add_str_mem(seq::str_mem(a, regex, dep));
 
     auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::satisfied);
@@ -1954,7 +1951,7 @@ static void test_simplify_brzozowski_rtl_suffix() {
     // x·"A" ∈ to_re("BA") → RTL consume trailing 'A' → x ∈ to_re("B")
     seq::nielsen_node* node = ng.mk_node();
     seq::dep_tracker dep = nullptr;
-    node->add_str_mem(seq::str_mem(xa, regex, e, 0, dep));
+    node->add_str_mem(seq::str_mem(xa, regex, dep));
 
     auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::proceed);
@@ -3294,7 +3291,8 @@ static void add_len_le(seq::nielsen_graph& ng, seq::nielsen_node* node, euf::sno
 
 static unsigned queried_lb(seq::nielsen_node* node, euf::snode* var) {
     rational lb;
-    if (!node->lower_bound(var->get_expr(), lb))
+    seq::dep_tracker d = nullptr;
+    if (!node->lower_bound(var->get_expr(), lb, d))
         return 0;
     SASSERT(lb.is_unsigned());
     return lb.is_unsigned() ? lb.get_unsigned() : 0;
@@ -3302,7 +3300,8 @@ static unsigned queried_lb(seq::nielsen_node* node, euf::snode* var) {
 
 static unsigned queried_ub(seq::nielsen_node* node, euf::snode* var) {
     rational ub;
-    if (!node->upper_bound(var->get_expr(), ub))
+    seq::dep_tracker d = nullptr;
+    if (!node->upper_bound(var->get_expr(), ub, d))
         return UINT_MAX;
     SASSERT(ub.is_unsigned());
     return ub.is_unsigned() ? ub.get_unsigned() : UINT_MAX;

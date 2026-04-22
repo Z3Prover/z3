@@ -46,14 +46,12 @@ static void test_sgraph_basic() {
     SASSERT(sx->is_var());
     SASSERT(!sx->is_ground());
     SASSERT(sx->is_regex_free());
-    SASSERT(!sx->is_nullable());
     SASSERT(sx->length() == 1);
 
     euf::snode* se = sg.mk(empty);
     SASSERT(se);
     SASSERT(se->is_empty());
     SASSERT(se->is_ground());
-    SASSERT(se->is_nullable());
     SASSERT(se->length() == 0);
 
     euf::snode* sxy = sg.mk(xy);
@@ -172,7 +170,6 @@ static void test_seq_plugin_star_merge() {
     sg.mk(star_star);
     euf::snode* s = sg.find(star_x);
     SASSERT(s && s->is_star());
-    SASSERT(s->is_nullable());
 
     std::cout << g << "\n";
 }

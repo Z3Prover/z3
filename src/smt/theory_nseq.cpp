@@ -443,8 +443,7 @@ namespace smt {
 
     void theory_nseq::propagate_pos_mem(tracked_str_mem const& mem) {
 
-        if (!mem.m_str || !mem.m_regex)
-            return;
+        SASSERT(mem.well_formed());
 
         // regex is ∅ → conflict
         if (m_regex.is_empty_regex(mem.m_regex)) {
@@ -1380,7 +1379,7 @@ namespace smt {
 
         for (unsigned i = 0; i < mems.size(); ++i) {
             auto const& mem = *mems[i];
-            SASSERT(mem.m_str && mem.m_regex);
+            SASSERT(mem.well_formed());
             if (mem.is_primitive()) {
                 auto& vec = var_to_mems.insert_if_not_there(mem.m_str->id(), unsigned_vector());
                 vec.push_back(i);
@@ -1393,21 +1392,18 @@ namespace smt {
             return l_undef;
 
         // Check if there are any eq items in the queue (needed for SAT condition below).
-        bool has_eqs = false;
-        for (auto const& item : m_prop_queue)
-            if (std::holds_alternative<eq_item>(item)) { has_eqs = true; break; }
+        bool has_eqs = any_of(m_prop_queue, [](auto p) { return std::holds_alternative<eq_item>(p); });
 
         bool any_undef = false;
 
         // Check intersection emptiness for each variable.
-        for (auto& kv : var_to_mems) {
-            unsigned var_id = kv.m_key;
-            unsigned_vector const& mem_indices = kv.m_value;
+        for (auto &[var_id, mem_indices] : var_to_mems) {
+
             ptr_vector<euf::snode> regexes;
             for (unsigned i : mem_indices) {
                 euf::snode* re = mems[i]->m_regex;
-                if (re)
-                    regexes.push_back(re);
+                SASSERT(re);
+                regexes.push_back(re);
             }
             if (regexes.empty())
                 continue;
@@ -1463,7 +1459,8 @@ namespace smt {
         u_map<unsigned_vector> var_to_mems;
         for (unsigned i = 0; i < mems.size(); ++i) {
             auto const &mem = mems[i];
-            if (mem.is_primitive() && mem.m_str) {
+            SASSERT(mem.well_formed());
+            if (mem.is_primitive()) {
                 auto &vec = var_to_mems.insert_if_not_there(mem.m_str->id(), unsigned_vector());
                 vec.push_back(i);
             }
@@ -1494,10 +1491,9 @@ namespace smt {
 
             unsigned_vector const &mem_indices = var_to_mems[var_id];
             ptr_vector<euf::snode> regexes;
-            for (const unsigned i : mem_indices) {
-                euf::snode *re = mems[i].m_regex;
-                if (re)
-                    regexes.push_back(re);
+            for (auto i : mem_indices) {
+                SASSERT(mems[i].well_formed());
+                regexes.push_back(mems[i].m_regex);
             }
 
             SASSERT(!regexes.empty());
