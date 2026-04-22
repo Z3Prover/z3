@@ -118,7 +118,7 @@ namespace smt {
         void explain_nielsen_conflict();
         void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits);
         void set_propagate(enode_pair_vector const &eqs, literal_vector const &lits, literal p);
-        void add_nielsen_assumptions();
+        bool add_nielsen_assumptions();
         euf::snode* get_snode(expr* e);
 
         // propagation dispatch helpers

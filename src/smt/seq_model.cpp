@@ -495,6 +495,29 @@ namespace smt {
         if (m_var_regex.find(key, re) && re) {
             expr* re_expr = re->get_expr();
             SASSERT(re_expr);
+
+            arith_util arith(m);
+            expr_ref len_expr(m_seq.str.mk_length(var->get_expr()), m);
+            rational len_val;
+            bool has_len = false;
+            if (dep_values) {
+                expr* dval = nullptr;
+                enode* dep = find_root_enode(m_ctx, len_expr);
+                if (dep && dep_values->find(dep, dval) && dval && arith.is_numeral(dval, len_val))
+                    has_len = true;
+            }
+            if (!has_len && m_mg) {
+                expr_ref eval_len(m);
+                if (m_mg->get_model().eval(len_expr, eval_len, true) && arith.is_numeral(eval_len, len_val))
+                    has_len = true;
+            }
+
+            if (has_len && len_val.is_unsigned()) {
+                unsigned n = len_val.get_unsigned();
+                expr_ref loop(m_seq.re.mk_loop(m_seq.re.mk_full_char(re_expr->get_sort()), n, n), m);
+                re_expr = m_seq.re.mk_inter(re_expr, loop);
+            }
+
             expr_ref witness(m);
             // We checked non-emptiness during Nielsen already
             lbool wr = m_rewriter.some_seq_in_re(re_expr, witness);
@@ -503,7 +526,7 @@ namespace smt {
                 m_factory->register_value(witness);
                 return witness;
             }
-            IF_VERBOSE(1, verbose_stream() << "witness extraction failed: " << wr << "\n" << mk_pp(re_expr, m) << "\n");
+            IF_VERBOSE(1, verbose_stream() << "witness extraction failed: " << wr << " with len " << (has_len ? len_val.to_string() : "unknown") << "\n" << mk_pp(re_expr, m) << "\n");
             UNREACHABLE();
         }
 

@@ -486,10 +486,17 @@ namespace seq {
         expr_ref    fml;   // the formula (eq, le, or ge, unit-diseq expression)
         dep_tracker dep;   // tracks which input constraints contributed
 
+        static expr_ref simplify(expr* f, ast_manager& m) {
+            th_rewriter th(m);
+            expr_ref fml(f, m);
+            th(fml);
+            return fml;
+        }
+
         constraint(ast_manager& m):
             fml(m), dep(nullptr) {}
         constraint(expr* f, dep_tracker const& d, ast_manager& m):
-            fml(f, m), dep(d) {}
+            fml(simplify(f, m)), dep(d) {}
 
         std::ostream& display(std::ostream& out) const;
     };

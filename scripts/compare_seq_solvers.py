@@ -71,9 +71,12 @@ def determine_status(res_nseq: str, res_seq: str, smtlib_status: str) -> str:
 
 def _parse_result(output: str) -> str:
     """Extract the first sat/unsat/unknown line from solver output."""
+    has_invalid_model = "an invalid model was generated" in output
     for line in output.splitlines():
         tok = line.strip().lower()
         if tok in ("sat", "unsat"):
+            if tok == "sat" and has_invalid_model:
+                return "invalid"
             return tok
         if tok == "unknown":
             return "timeout"
@@ -121,6 +124,9 @@ def run_zipt(zipt_bin: str, smt_file: Path, timeout_s: int = DEFAULT_TIMEOUT) ->
 
 def classify(res_nseq: str, res_seq: str, res_nseq_p: str | None = None) -> str:
     """Classify a pair of results into a category."""
+    if res_nseq == "invalid_model" or res_seq == "invalid_model" or res_nseq_p == "invalid_model":
+        return "invalid_model"
+
     timed_nseq = res_nseq == "timeout"
     timed_seq  = res_seq  == "timeout"
     
@@ -234,6 +240,7 @@ def main():
 
     # ── Summary ──────────────────────────────────────────────────────────────
     categories = {
+        "invalid_model":                  [],
         "all_timeout":                    [],
         "both_timeout":                   [],
         "only_seq_terminates":            [],
@@ -276,6 +283,9 @@ def main():
             _print_file_list("ZIPT TIMES OUT", zipt_timeouts)
     if both_to:
         _print_file_list("BOTH Z3 SOLVERS TIME OUT", both_to)
+    invalid_models = categories.get("invalid_model", [])
+    if invalid_models:
+        _print_file_list("INVALID MODEL GENERATED", invalid_models)
     if zipt_bin:
         all_to = [r for r in results
                   if r["nseq"] == "timeout" and r["seq"] == "timeout" and r["zipt"] == "timeout"]

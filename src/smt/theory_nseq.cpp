@@ -736,6 +736,7 @@ namespace smt {
                 }
             }
 
+            std::cout << "[" << m_num_final_checks << "]" << std::endl;
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: calling solve()\n";);
 
             // here the actual Nielsen solving happens
@@ -763,12 +764,15 @@ namespace smt {
                 // Nielsen found a consistent assignment for positive constraints.
                 SASSERT(has_eq_or_mem); // we should have axiomatized them
 
-                add_nielsen_assumptions();
+                bool all_sat = add_nielsen_assumptions();
 
                 if (!check_length_coherence())
                     return FC_CONTINUE;
 
                 CTRACE(seq, !has_unhandled_preds(), display(tout << "done\n"));
+                if (!all_sat)
+                    return FC_CONTINUE;
+
                 if (!has_unhandled_preds())
                     return FC_DONE;
             }
@@ -786,7 +790,7 @@ namespace smt {
     }
 
 
-    void theory_nseq::add_nielsen_assumptions() {
+    bool theory_nseq::add_nielsen_assumptions() {
         m_nielsen_literals.reset();
         struct reset_vector : public trail {
             sat::literal_vector &v;
@@ -796,8 +800,10 @@ namespace smt {
             }
         };
         //std::cout << "Nielsen assumptions:\n";
+        bool all_sat = true;
         ctx.push_trail(reset_vector(m_nielsen_literals));
         for (auto const& c : m_nielsen.sat_node()->constraints()) {
+            std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
             auto lit = mk_literal(c.fml);   
             m_nielsen_literals.push_back(lit);
             // Ensure Nielsen assumptions participate in SAT search instead of
@@ -812,6 +818,7 @@ namespace smt {
                 // Commit the chosen Nielsen assumption to the SAT core so it
                 // cannot remain permanently undefined in a partial model.
                 ctx.force_phase(lit);
+                all_sat = false;
                 IF_VERBOSE(2, verbose_stream() << 
                     "nseq final_check: adding nielsen assumption " << c.fml << "\n";);
                 TRACE(seq, tout << "assign: " << c.fml << "\n");
@@ -820,12 +827,14 @@ namespace smt {
                 // this should not happen because nielsen checks for this before returning a satisfying path.
                 // or maybe it can happen if we have a "le" dependency
                 TRACE(seq, tout << "nseq final_check: nielsen assumption " << c.fml << " is false; internalized - " << ctx.e_internalized(c.fml) << "\n");
+                all_sat = false;
                 std::cout << "False [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
                 ctx.push_trail(value_trail(m_should_internalize));
                 m_should_internalize = true;
                 break;
             }
         }
+        return all_sat;
     }
 
     // -----------------------------------------------------------------------

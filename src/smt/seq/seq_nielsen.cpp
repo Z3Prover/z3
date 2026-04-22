@@ -231,8 +231,18 @@ namespace seq {
         );
         m_subst.push_back(s);
         nielsen_graph& g = src()->graph();
-        if (s.is_eliminating())
+        if (s.is_eliminating()) {
+            // TODO: Is this entirely correct?
             m_len_updates.push_back(g.a.mk_int(0));
+            add_side_constraint(constraint(g.a.mk_eq(
+                g.a.mk_int(0),
+                g.a.mk_sub(
+                    g.compute_length_expr(s.m_var),
+                    g.compute_length_expr(s.m_replacement)
+                    )), s.m_dep, g.get_manager()));
+            std::cout << "Adding side condition: " << mk_pp(m_side_constraints.back().fml, g.get_manager()) << std::endl;
+            0 == 0;
+        }
         else {
             expr_ref sum(
                  g.a.mk_sub(
@@ -242,10 +252,9 @@ namespace seq {
             th_rewriter th(g.get_manager());
             th(sum);
             m_len_updates.push_back(sum);
-            std::cout
-                << mk_pp(s.m_var->get_expr(), src()->graph().get_manager()) << " => "
-                << mk_pp(sum, src()->graph().get_manager())
-                << " using " << mk_pp(s.m_replacement->get_expr(), src()->graph().get_manager()) << std::endl;
+            add_side_constraint(constraint(g.a.mk_le(g.a.mk_int(0), sum), s.m_dep, g.get_manager()));
+            std::cout << "Adding side condition: " << mk_pp(m_side_constraints.back().fml, g.get_manager()) << std::endl;
+            0 == 0;
         }
     }
 
@@ -302,6 +311,8 @@ namespace seq {
 
     void nielsen_node::add_constraint(constraint const &c) {
         auto& m = graph().get_manager();
+        if (m.is_true(c.fml))
+            return;
         // TODO: Is it possible that we miss a conflict if we decompose?
         if (m.is_and(c.fml)) {
             // We have to add all - even if some of it conflict
@@ -310,12 +321,6 @@ namespace seq {
                 add_constraint(constraint(f, c.dep, m));
             }
             return;
-        }
-        expr* l, *r;
-        if (m.is_eq(c.fml, l, r)) {
-            // To avoid filling memory with tautologies (that would happen quite often)
-            if (l == r)
-                return;
         }
         m_constraints.push_back(c);
     }
@@ -3992,6 +3997,7 @@ namespace seq {
             auto& c = node->constraints()[i];
             m_solver.assert_expr(c.fml);
             auto lit = m_literal_if_false(c.fml);
+            std::cout << "Internalizing literal " << mk_pp(c.fml, m) << " [" << (lit == sat::null_literal) << "]" << std::endl;
             if (lit != sat::null_literal)
                 node->set_external_conflict(lit, c.dep);
         }
@@ -4007,6 +4013,7 @@ namespace seq {
         if (node == m_root)
             return;
 
+        // TODO: Do we really need this?
         uint_set seen_vars;
 
         for (str_eq const& eq : node->str_eqs()) {
