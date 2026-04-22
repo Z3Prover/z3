@@ -328,8 +328,10 @@ namespace smt {
         collect_clause_unlocked(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
 
         expr_ref neg_g_bb_ref(mk_not(g_bb_ref), m);
+        vector<cube_config::literal> g_core;
+        g_core.push_back(neg_g_bb_ref);
         vector<node_lease> targets;
-        collect_matching_targets_unlocked(nullptr, neg_g_bb_ref, targets);
+        collect_matching_targets_unlocked(nullptr, neg_g_bb_ref, g_core, targets);
         if (!targets.empty()) {
             IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
             expr_ref_vector l_core(l2g.from());
@@ -856,18 +858,17 @@ namespace smt {
     void parallel::batch_manager::backtrack(ast_translation &l2g, unsigned worker_id, expr_ref_vector const &core,
                                             node_lease const &lease) {
         std::scoped_lock lock(mux);
+        vector<cube_config::literal> g_core;
+        for (auto c : core)
+            g_core.push_back(expr_ref(l2g(c), m));
+
         vector<node_lease> targets;
-        collect_matching_targets_unlocked(lease, targets);
+        collect_matching_targets_unlocked(lease.node, lease.node->get_literal().get(), g_core, targets);
         backtrack_unlocked(l2g, worker_id, core, &lease, targets.empty() ? nullptr : &targets);
     }
 
-    void parallel::batch_manager::collect_matching_targets_unlocked(node_lease const& lease, vector<node_lease>& targets) {
-        if (!lease.node)
-            return;
-        collect_matching_targets_unlocked(lease.node, lease.node->get_literal().get(), targets);
-    }
-
-    void parallel::batch_manager::collect_matching_targets_unlocked(node* source, expr* lit, vector<node_lease>& targets) {
+    void parallel::batch_manager::collect_matching_targets_unlocked(node* source, expr* lit, vector<cube_config::literal> const& core,
+                                                                    vector<node_lease>& targets) {
         targets.reset();
         if (!lit)
             return;
@@ -882,6 +883,20 @@ namespace smt {
             return false;
         };
 
+        auto path_contains = [&](node* cur, cube_config::literal const& lit) {
+            for (node* p = cur; p; p = p->parent()) {
+                if (p->get_literal() == lit)
+                    return true;
+            }
+            return false;
+        };
+
+        auto path_contains_core = [&](node* cur) {
+            return all_of(core, [&](cube_config::literal const& c) {
+                return path_contains(cur, c);
+            });
+        };
+
         ptr_vector<node> matches;
         m_search_tree.find_nonclosed_nodes_with_literal(expr_ref(lit, m), matches);
         for (node* t : matches) {
@@ -893,6 +908,13 @@ namespace smt {
             // When source is provided, keep only external matches. Nodes in the
             // same branch are already closed by backtracking on the source node.
             if (source && (is_ancestor_of(source, t) || is_ancestor_of(t, source)))
+                continue;
+
+            // Reusing a conflict on another branch is sound only if that
+            // the path from that node->root contains every literal in the core. 
+            // Matching on the closing literal alone is insufficient: F & a & l 
+            // may be UNSAT while F & c & l is SAT.
+            if (!path_contains_core(t))
                 continue;
 
             // Keep only highest matching nodes: closing an ancestor also closes

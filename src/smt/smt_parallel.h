@@ -157,8 +157,8 @@ namespace smt {
             void collect_clause_unlocked(ast_translation &l2g, unsigned source_worker_id, expr *clause);
             void release_lease_unlocked(unsigned worker_id, node* n, unsigned epoch);
             void cancel_closed_leases_unlocked(unsigned source_worker_id);
-            void collect_matching_targets_unlocked(node_lease const& lease, vector<node_lease>& targets);
-            void collect_matching_targets_unlocked(node* source, expr* lit, vector<node_lease>& targets);
+            void collect_matching_targets_unlocked(node* source, expr* lit, vector<cube_config::literal> const& core,
+                                                   vector<node_lease>& targets);
 
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)), m_global_backbones(m) { }

@@ -369,8 +369,10 @@ namespace search_tree {
 
             node<Config> *p = n->parent();
 
-            // The conflict does NOT depend on the decision literal at node n, so n’s split literal is irrelevant to this conflict
-            // thus the entire subtree under n is closed regardless of the split, so the conflict should be attached higher, at the nearest ancestor that does participate
+            // The conflict does NOT depend on the decision literal at node n, so n’s decision literal is irrelevant to this conflict
+            // thus the entire subtree under n is closed, so the conflict should be attached higher, at the nearest ancestor that does participate
+            // NOTE: I think this is dead code because the backtrack function already walks up to the nearest ancestor whose literal is in the conflict, which is the only place where this is called
+            //       Keep for now since it does generalize this function to be used for arbitrary conflict attachment
             if (p && all_of(C, [n](auto const &l) { return l != n->get_literal(); })) {
                 close_with_core(p, C);
                 return;
@@ -490,6 +492,8 @@ namespace search_tree {
 
             // Walk upward to find the nearest ancestor whose decision participates in the conflict
             while (n) {
+                // Does the UNSAT core contain the decision literal at node n?
+                // If yes, i.e. if the core contains n->literal, then the conflict depends on the decision made at node n.
                 if (any_of(conflict, [&](auto const &a) { return a == n->get_literal(); })) {
                     // close the subtree under n (preserves core attached to n), and attempt to resolve upwards
                     close_with_core(n, conflict);
