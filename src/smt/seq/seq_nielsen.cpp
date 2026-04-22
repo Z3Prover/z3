@@ -216,7 +216,38 @@ namespace seq {
     // -----------------------------------------------
 
     nielsen_edge::nielsen_edge(nielsen_node* src, nielsen_node* tgt, bool is_progress):
-        m_src(src), m_tgt(tgt), m_is_progress(is_progress) { }
+        m_src(src), m_tgt(tgt),
+        m_len_updates(src->graph().get_manager()), m_is_progress(is_progress) { }
+
+    void nielsen_edge::add_subst(nielsen_subst const& s) {
+        DEBUG_CODE(
+            euf::snode_vector tokens;
+            s.m_replacement->collect_tokens(tokens);
+            unsigned cnt = 0;
+            for (euf::snode* e : tokens) {
+                cnt += e == s.m_var;
+            }
+            SASSERT(cnt <= 1);
+        );
+        m_subst.push_back(s);
+        nielsen_graph& g = src()->graph();
+        if (s.is_eliminating())
+            m_len_updates.push_back(g.a.mk_int(0));
+        else {
+            expr_ref sum(
+                 g.a.mk_sub(
+                     g.a.mk_mul(g.a.mk_int(2), g.compute_length_expr(s.m_var)),
+                     g.compute_length_expr(s.m_replacement)
+                 ), g.get_manager());
+            th_rewriter th(g.get_manager());
+            th(sum);
+            m_len_updates.push_back(sum);
+            std::cout
+                << mk_pp(s.m_var->get_expr(), src()->graph().get_manager()) << " => "
+                << mk_pp(sum, src()->graph().get_manager())
+                << " using " << mk_pp(s.m_replacement->get_expr(), src()->graph().get_manager()) << std::endl;
+        }
+    }
 
     // -----------------------------------------------
     // nielsen_node
@@ -331,18 +362,6 @@ namespace seq {
                 add_char_range(s.m_replacement, range.first, m_graph.dep_mgr().mk_join(range.second, s.m_dep));
             }
         }
-        else {
-            expr_ref v = graph().get_current_skolem(s.m_var);
-            // temporarily bump counter for the substituted variable
-            unsigned prev = 0;
-            graph().m_mod_cnt.find(s.m_var->id(), prev);
-            graph().m_mod_cnt.insert(s.m_var->id(), prev + 1);
-            expr_ref str = graph().get_current_skolem_str(s.m_replacement);
-            graph().m_mod_cnt.insert(s.m_var->id(), prev);
-
-            add_constraint(
-            constraint(m.mk_eq(v, str), s.m_dep, m));
-        }
     }
 
     void nielsen_node::add_char_range(euf::snode* sym_char, char_set const& range, dep_tracker dep) {
@@ -425,11 +444,11 @@ namespace seq {
         a(sg.get_manager()),
         m_seq(sg.get_seq_util()),
         m_sg(sg),
+        m_length_term(m),
         m_solver(solver),
         m_core_solver(core_solver),
         m_parikh(alloc(seq_parikh, sg)),
-        m_seq_regex(alloc(seq::seq_regex, sg)) {
-    }
+        m_seq_regex(alloc(seq::seq_regex, sg)) {}
 
     nielsen_graph::~nielsen_graph() {
         dealloc(m_parikh);
@@ -519,6 +538,7 @@ namespace seq {
         m_fresh_cnt = 0;
         m_root_constraints_asserted = false;
         m_mod_cnt.reset();
+        m_length_term.reset();
         m_dep_mgr.reset();
         m_solver.reset();
         m_core_solver.reset();
@@ -1363,7 +1383,7 @@ namespace seq {
             ++m_stats.m_num_unknown;
             return search_result::unknown;
         }
-        catch(const std::exception& e) {
+        catch(const std::exception&) {
 #ifdef Z3DEBUG
             std::string dot = to_dot();
 #endif
@@ -3284,7 +3304,7 @@ namespace seq {
             euf::snode* u2 = m_sg.drop_left(eq.m_lhs, i);
             euf::snode* v1 = m_sg.drop_right(eq.m_rhs, rhs_toks.size() - j);
             euf::snode* v2 = m_sg.drop_left(eq.m_rhs, j);
-            // NSB review: if we keep this skolem function it should include arguments a.mk_int(i), a.mk_int(j)
+            // NSB review: if we keep this skolem function it should include arguments
             // to not clash with other values of i, j
             // Why not use 
             // x := str.substr(u2, 0, str.len(u2) - str.len(v1)), 
@@ -3746,7 +3766,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     expr_ref nielsen_graph::compute_length_expr(euf::snode* n) {
-
         if (n->is_empty())
             return expr_ref(a.mk_int(0), m);
 
@@ -3759,13 +3778,10 @@ namespace seq {
             return expr_ref(a.mk_add(left, right), m);
         }
 
-        // For variables: consult modification counter.
-        // mod_count > 0 means the variable has been reused by a non-eliminating
-        // substitution; use a fresh integer variable to avoid the circular
-        // |x| = 1 + |x| problem.
-
-        // for variables at mod_count 0 and other terms, use symbolic (str.len expr)
-        return expr_ref(m_seq.str.mk_length(get_current_skolem(n)), m);
+        unsigned len_idx = 0;
+        if (m_length_info.find(n->id(), len_idx))
+            return expr_ref(m_length_term.get(len_idx), m);
+        return expr_ref(m_seq.str.mk_length(n->get_expr()), m);
     }
 
     void nielsen_graph::generate_length_constraints(vector<length_constraint>& constraints) {
@@ -3862,75 +3878,27 @@ namespace seq {
     // + NielsenNode constructor length assertion logic
     // -----------------------------------------------------------------------
 
-    expr_ref nielsen_graph::get_current_skolem(euf::snode* var) {
-        SASSERT(!var->is_char_or_unit());
-        expr_ref e(var->get_expr(), m);
-        unsigned mc = 0;
-        m_mod_cnt.find(var->id(), mc);
-        th_rewriter rw(m);
-        skolem sk(m, rw);
-        for (unsigned k = 0; k < mc; k++) {
-            e = sk.mk("succ!", e, e->get_sort());
-        }
-        return e;
-    }
-
-    expr_ref nielsen_graph::get_current_skolem_str(euf::snode* s) {
-        std::stack<euf::snode*> stack;
-        stack.push(s);
-        expr_ref e(m);
-        while (!stack.empty()) {
-            euf::snode* n = stack.top();
-            stack.pop();
-            SASSERT(n);
-            if (n->is_concat()) {
-                stack.push(n->arg(1));
-                stack.push(n->arg(0));
-                continue;
-            }
-            expr_ref add(m);
-            if (n->is_var())
-                add = get_current_skolem(n);
-            else if (n->is_empty())
-                continue;
-            else if (n->is_char_or_unit())
-                add = n->get_expr();
-            else if (n->is_power())
-                add = m_seq.str.mk_power(get_current_skolem_str(n->arg(0)), n->arg(1)->get_expr());
-            else {
-                UNREACHABLE();
-            }
-
-            if (e)
-                e = seq().str.mk_concat(e, add);
-            else
-                e = add;
-        }
-        if (!e)
-            e = seq().str.mk_empty(s->get_sort());
-        return e;
-    }
-
     expr_ref nielsen_graph::get_or_create_char_var(euf::snode* var) {
         SASSERT(var && var->is_var());
-        th_rewriter rw(m);
-        auto e = get_current_skolem(var);
-        return expr_ref(
-            m_seq.str.mk_unit(skolem(m, rw).mk("char!", e, m_seq.mk_char_sort())), m);
+        expr_ref idx(a.mk_sub(seq().str.mk_length(var->get_expr()), compute_length_expr(var)), m);
+        auto e = seq().str.mk_nth_u(var->get_expr(), idx);
+        return expr_ref(m_seq.str.mk_unit(expr_ref(e, m)), m);
     }
 
     expr_ref nielsen_graph::get_or_create_gpower_n_var(euf::snode* var) {
         SASSERT(var && var->is_var());
+        unsigned mc = 0;
+        m_mod_cnt.find(var->id(), mc);
         th_rewriter rw(m);
-        auto e = get_current_skolem(var);
-        return skolem(m, rw).mk("gpn!", e, a.mk_int());
+        return skolem(m, rw).mk("gpn!", var->get_expr(), a.mk_int(mc), a.mk_int());
     }
 
     expr_ref nielsen_graph::get_or_create_gpower_m_var(euf::snode* var) {
         SASSERT(var && var->is_var());
+        unsigned mc = 0;
+        m_mod_cnt.find(var->id(), mc);
         th_rewriter rw(m);
-        auto e = get_current_skolem(var);
-        return skolem(m, rw).mk("gpm!", e, a.mk_int());
+        return skolem(m, rw).mk("gpm!", var->get_expr(), a.mk_int(mc), a.mk_int());
     }
 
     void nielsen_graph::add_subst_length_constraints(nielsen_edge* e) {
@@ -3975,25 +3943,40 @@ namespace seq {
     }
 
     void nielsen_graph::inc_edge_mod_counts(nielsen_edge* e) {
-        for (auto const& s : e->subst()) {
-            if (s.is_eliminating()) continue;
-            unsigned id = s.m_var->id();
-            unsigned prev = 0;
+        auto& sub = e->subst();
+        for (unsigned i = 0; i < sub.size(); i++) {
+            unsigned id = sub[i].m_var->id();
+            unsigned prev = UINT_MAX;
+            m_length_info.find(id,  prev);
+            m_length_backtrack.push_back(prev);
+            m_length_info.insert(id,  m_length_term.size());
+            m_length_term.push_back(e->len_updates(i));
+
+            prev = 0;
             m_mod_cnt.find(id, prev);
             m_mod_cnt.insert(id, prev + 1);
         }
     }
 
     void nielsen_graph::dec_edge_mod_counts(nielsen_edge* e) {
-        for (auto const& s : e->subst()) {
-            if (s.is_eliminating()) continue;
-            unsigned id = s.m_var->id();
-            unsigned prev = 0;
+        auto& sub = e->subst();
+        for (unsigned i = 0; i < sub.size(); i++) {
+            unsigned id = sub[i].m_var->id();
+            unsigned prev = m_length_backtrack.back();
+            m_length_backtrack.pop_back();
+            m_length_term.pop_back();
+            if (prev == UINT_MAX)
+                m_length_info.remove(id);
+            else
+                m_length_info.insert(id,  prev);
+
+			id = sub[i].m_var->id();
+            prev = 0;
             VERIFY(m_mod_cnt.find(id, prev));
             SASSERT(prev >= 1);
             if (prev <= 1)
                 m_mod_cnt.remove(id);
-            else
+			else
                 m_mod_cnt.insert(id, prev - 1);
         }
     }

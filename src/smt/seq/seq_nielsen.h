@@ -244,6 +244,8 @@ Author:
 #include "ast/euf/euf_sgraph.h"
 #include <map>
 #include "model/model.h"
+#include "util/obj_ref_hashtable.h"
+#include "util/uint_map.h"
 
 namespace smt {
     class enode;
@@ -520,6 +522,7 @@ namespace seq {
         nielsen_node*           m_src;
         nielsen_node*           m_tgt;
         vector<nielsen_subst>   m_subst;
+        expr_ref_vector         m_len_updates;
         vector<constraint>      m_side_constraints;  // side constraints: integer equalities/inequalities
         bool                    m_is_progress;     // does this edge represent progress?
         bool                    m_len_constraints_computed = false; // lazily computed substitution length constraints
@@ -534,7 +537,9 @@ namespace seq {
         // don't forget to add the substitution
         // applying it only to the node is NOT sufficient (otw. length counters are not in sync)
         vector<nielsen_subst> const& subst() const { return m_subst; }
-        void add_subst(nielsen_subst const& s) { m_subst.push_back(s); }
+        void add_subst(nielsen_subst const& s);
+
+        expr* len_updates(unsigned i) const { return m_len_updates.get(i); }
 
         void add_side_constraint(constraint const& ic) { m_side_constraints.push_back(ic); }
         vector<constraint> const& side_constraints() const { return m_side_constraints; }
@@ -779,10 +784,15 @@ namespace seq {
         void reset() { memset(this, 0, sizeof(nielsen_stats)); }
     };
 
+    struct unsigned_eq {
+        bool operator()(unsigned x, unsigned y) const { return x == y; }
+    };
+
     // the overall Nielsen transformation graph
     // mirrors ZIPT's NielsenGraph
     class nielsen_graph {
         friend class nielsen_node;
+        friend class nielsen_edge;
         ast_manager&                  m;
         arith_util                    a;
         seq_util&                     m_seq;
@@ -827,18 +837,11 @@ namespace seq {
         // returns the literal that is assigned to false, otherwise returns a null_literal
         std::function<sat::literal(expr *)> m_literal_if_false;
 
-        // -----------------------------------------------
-        // Modification counter for substitution length tracking.
-        // mirrors ZIPT's LocalInfo.CurrentModificationCnt
-        // -----------------------------------------------
-
-        // Maps snode id of string variable → current modification (reuse) count
-        // along the DFS path. When a non-eliminating substitution x/u is applied
-        // (x appears in u), x's count is bumped. This produces distinct length
-        // variables for x before and after substitution, avoiding the unsatisfiable
-        // |x| = 1 + |x| that results from reusing the same length symbol.
+        // Maps each variable to its current length term
+        expr_ref_vector               m_length_term;
+        unsigned_vector               m_length_backtrack;
+        map<unsigned, unsigned, unsigned_hash, unsigned_eq> m_length_info;
         u_map<unsigned>               m_mod_cnt;
-
 
         // Arena for dep_tracker nodes.  Declared mutable so that const methods
         // (e.g., explain_conflict) can call mk_join / linearize.
@@ -1197,11 +1200,6 @@ namespace seq {
         // mirrors ZIPT's NielsenEdge.IncModCount / DecModCount and
         // NielsenNode constructor length assertion logic.
         // -----------------------------------------------
-
-        // Gets the expression representing the variable with respect to its current mod-count
-        expr_ref get_current_skolem(euf::snode* var);
-
-        expr_ref get_current_skolem_str(euf::snode* s);
 
         // Get or create a fresh symbolic character variable for the given variable
         expr_ref get_or_create_char_var(euf::snode* var);
