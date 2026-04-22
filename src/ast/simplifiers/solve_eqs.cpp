@@ -321,7 +321,7 @@ namespace euf {
         if (!is_app(t))
             return false;
         for (auto arg : *to_app(t))
-            num_values += m.is_value(arg) ? 1 : 0;
+            num_values += m.is_value(arg) ? 0 : 1;
         return num_values <= 1;
     }
 
