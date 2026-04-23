@@ -2137,6 +2137,14 @@ namespace smt {
         if (log) 
             m_clause_proof.del(*cls);
         CTRACE(context, !m_flushing, display_clause_smt2(tout << "deleting ", *cls) << "\n";);
+                
+        if (m.has_trace_stream()) {
+            literal_vector lits;
+            for (literal lit : *cls)
+                lits.push_back(lit);
+            m.trace_stream() << "[del-clause] " << lits << "\n";
+        }
+
         if (!cls->deleted())
             remove_cls_occs(cls);
         cls->deallocate(m);
@@ -2155,6 +2163,9 @@ namespace smt {
         clause_vector::iterator begin = v.begin() + old_size;
         clause_vector::iterator it    = v.end();
         if (num_collect > 1000) {
+            if (m.has_trace_stream()) {
+                m.trace_stream() << "[del-clause] bulk\n";
+            }
             uint_set watches;
             while (it != begin) {
                 --it;
