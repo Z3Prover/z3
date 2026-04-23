@@ -182,6 +182,7 @@ namespace smt {
             expr_ref not_e(mk_not(m, e), m);
             if (b.collect_global_backbone(m_l2g, not_e))
                 m_stats.m_backbones_found++;
+            ctx->assert_expr(not_e);
             units.insert(v);
             r = l_undef;
         }
