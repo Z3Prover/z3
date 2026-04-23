@@ -61,7 +61,7 @@ namespace smt {
         using phase_snapshots = vector<phase_snapshot>;
 
         struct node_lease {
-            node* node = nullptr;
+            node* leased_node = nullptr;
 
             // Cancellation generation counter for this node/subtree.
             // Incremented when the node is closed; used to signal that all
