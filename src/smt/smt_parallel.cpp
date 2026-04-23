@@ -483,13 +483,12 @@ namespace smt {
     }
 
     void parallel::core_minimizer_worker::minimize_unsat_core(expr_ref_vector& core) {
-        expr_ref_vector original_core(m);
-        expr_ref_vector unknown(m), mus(m), trial(m), core_exprs(m); // mus = literals we have NOT managed to eliminate
+        expr_ref_vector original_core(core);
+        expr_ref_vector unknown(core), mus(m), trial(m); // mus = literals we have NOT managed to eliminate
 
         unsigned original_size = core.size();
         ++m_num_core_minimize_calls;
-        original_core.append(core);
-        unknown.append(core);
+
 
         // Invariant: F and mus and unknown is UNSAT.
         while (!unknown.empty()) {
@@ -524,8 +523,10 @@ namespace smt {
                 mus.push_back(lit);
                 break;
             case l_true: { //  If all asms are true (or as an approximation, if asms is empty), it found a model. It can report sat and exit the minimization worker thread.
-                if (!asms.empty())
-                       break;
+                if (!asms.empty()) {
+                    mus.push_back(lit);
+                    break;
+                }
                 ++m_num_core_minimize_found_sat;
                 model_ref mdl;
                 ctx->get_model(mdl);
@@ -533,13 +534,12 @@ namespace smt {
                 return;
             }
             case l_false: {
-                core_exprs.reset();
-                core_exprs.append(ctx->unsat_core());
-                if (!core_exprs.contains(not_lit)) {
+                auto const& unsat_core = ctx->unsat_core();
+                if (!unsat_core.contains(not_lit)) {
                     ++m_num_core_minimize_refined;
                     unknown.reset();
                     expr_ref_vector new_mus(m);
-                    for (expr* c : core_exprs) {
+                    for (expr* c : unsat_core) {
                         if (mus.contains(c))
                             new_mus.push_back(c);
                         else
@@ -552,9 +552,6 @@ namespace smt {
             }
             default:
                 UNREACHABLE();
-                core.reset();
-                core.append(original_core);
-                return;
             }
         }
 
