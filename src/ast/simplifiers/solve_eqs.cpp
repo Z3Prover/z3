@@ -244,10 +244,17 @@ namespace euf {
         unsigned count = 0;
         vector<dependent_expr> old_fmls;
         dep_eq_vector eqs;
+        struct reset_unsafe {
+            solve_eqs& s;
+            reset_unsafe(solve_eqs& s): s(s) {}
+            ~reset_unsafe() { s.m_unsafe_vars.reset(); }
+        };
+        reset_unsafe ru(*this);
         do {
             old_fmls.reset();
             m_subst_ids.reset();
             eqs.reset();
+            filter_unsafe_vars();
             get_eqs(eqs);
             extract_dep_graph(eqs);
             extract_subst();
@@ -265,6 +272,7 @@ namespace euf {
             old_fmls.reset();
             m_subst_ids.reset();
             eqs.reset();
+            filter_unsafe_vars();
             solve_context_eqs context_solve(*this);
             context_solve.collect_nested_equalities(eqs);
             extract_dep_graph(eqs);
@@ -334,7 +342,7 @@ namespace euf {
         m_unsafe_vars.reset();
         recfun::util rec(m);
         for (func_decl* f : rec.get_rec_funs())
-            for (expr* term : subterms::all(expr_ref(rec.get_def(f).get_rhs(), m), &m_todo, &m_visited))
+            for (expr* term : subterms::all(expr_ref(rec.get_def(f).get_rhs(), m)))
                 m_unsafe_vars.mark(term);
     }
 
