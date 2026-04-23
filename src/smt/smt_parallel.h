@@ -37,6 +37,7 @@ namespace smt {
     class parallel {
         context& ctx;
         class core_minimizer_worker;
+        using node = search_tree::node<cube_config>;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -60,7 +61,7 @@ namespace smt {
         using phase_snapshots = vector<phase_snapshot>;
 
         struct node_lease {
-            search_tree::node<cube_config>* node = nullptr;
+            node* node = nullptr;
 
             // Cancellation generation counter for this node/subtree.
             // Incremented when the node is closed; used to signal that all
@@ -91,7 +92,6 @@ namespace smt {
                 unsigned m_core_min_jobs_skipped = 0;
                 unsigned m_core_min_global_unsat = 0;
             };
-            using node = search_tree::node<cube_config>;
             struct core_min_job {
                 node* source = nullptr;
                 expr_ref_vector core;
@@ -114,7 +114,6 @@ namespace smt {
             unsigned m_max_global_bb_candidates = 100;
             unsigned m_bb_batch_size = 150;
             expr_ref_vector m_global_backbones;
-            expr_ref_vector m_asms;
 
             // Backbone job queue
             std::condition_variable m_bb_cv;
@@ -176,10 +175,9 @@ namespace smt {
                                                    vector<node_lease>& targets);
 
         public:
-            batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)), m_global_backbones(m), m_asms(m) { }
+            batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)), m_global_backbones(m) { }
 
             void initialize(unsigned num_global_bb_threads, unsigned initial_max_thread_conflicts = 1000); // TODO: pass in from worker config
-            void set_external_assumptions(expr_ref_vector const& asms);
 
             void set_unsat(ast_translation& l2g, expr_ref_vector const& unsat_core);
             void set_sat(ast_translation& l2g, model& m);
@@ -196,9 +194,9 @@ namespace smt {
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, bool is_first_run, node_lease& lease);
             void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease const& lease);
             void enqueue_core_minimization(ast_translation& l2g, node* source, expr_ref_vector const& core);
-            bool wait_for_core_min_job(ast_translation& g2l, search_tree::node<cube_config>*& source,
+            bool wait_for_core_min_job(ast_translation& g2l, node*& source,
                                        expr_ref_vector& core, reslimit& lim);
-            void publish_minimized_core(ast_translation& l2g, search_tree::node<cube_config>* source,
+            void publish_minimized_core(ast_translation& l2g, expr_ref_vector const& asms, node* source,
                                         unsigned original_core_size, expr_ref_vector const& minimized_core);
             void try_split(ast_translation& l2g, unsigned worker_id, node_lease const& lease, expr* atom, unsigned effort);
             void release_lease(unsigned worker_id, node_lease const& lease);
@@ -243,8 +241,6 @@ namespace smt {
                 unsigned m_max_conflicts = UINT_MAX;
                 bool m_core_minimize = false;
             };
-
-            using node = search_tree::node<cube_config>;
 
             unsigned id; // unique identifier for the worker
             parallel& p;

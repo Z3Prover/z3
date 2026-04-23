@@ -568,7 +568,7 @@ namespace smt {
 
     void parallel::core_minimizer_worker::run() {
         while (m.inc()) {
-            search_tree::node<cube_config>* source = nullptr;
+            node* source = nullptr;
             expr_ref_vector core(m);
             if (!b.wait_for_core_min_job(m_g2l, source, core, m.limit()))
                 return;
@@ -584,7 +584,7 @@ namespace smt {
             minimize_unsat_core(minimized);
 
             if (minimized.size() < original_size)
-                b.publish_minimized_core(m_l2g, source, original_size, minimized);
+                b.publish_minimized_core(m_l2g, asms, source, original_size, minimized);
         }
     }
 
@@ -1048,7 +1048,7 @@ namespace smt {
         m_core_min_cv.notify_one();
     }
 
-    bool parallel::batch_manager::wait_for_core_min_job(ast_translation& g2l, search_tree::node<cube_config>*& source,
+    bool parallel::batch_manager::wait_for_core_min_job(ast_translation& g2l, node*& source,
                                                         expr_ref_vector& core, reslimit& lim) {
         std::unique_lock lock(mux);
         m_core_min_cv.wait(lock, [&]() {
@@ -1069,7 +1069,7 @@ namespace smt {
         return source != nullptr;
     }
 
-    void parallel::batch_manager::publish_minimized_core(ast_translation& l2g, search_tree::node<cube_config>* source,
+    void parallel::batch_manager::publish_minimized_core(ast_translation& l2g, expr_ref_vector const& asms, node* source,
                                                          unsigned original_core_size, expr_ref_vector const& minimized_core) {
         std::scoped_lock lock(mux);
         if (m_state != state::is_running || !source || minimized_core.size() >= original_core_size) {
@@ -1091,7 +1091,7 @@ namespace smt {
         IF_VERBOSE(1, verbose_stream() << "Batch manager publishing minimized core "
                                        << original_core_size << " -> " << g_core.size() << "\n");
 
-        if (all_of(g_core, [&](cube_config::literal const& lit) { return m_asms.contains(lit.get()); })) {
+        if (all_of(g_core, [&](cube_config::literal const& lit) { return asms.contains(lit.get()); })) {
             IF_VERBOSE(1, verbose_stream() << "Minimized core removed all path literals, setting UNSAT\n");
             m_state = state::is_unsat;
             SASSERT(p.ctx.m_unsat_core.empty());
@@ -1103,6 +1103,9 @@ namespace smt {
             return;
         }
 
+        // do not backtrack through the batch manager since this only handles non-closed leases
+        // and the batch manager also tries to search for external matching targets in the tree
+        // which is a problem since we must backtrack only on the source node or the core is invalid
         m_search_tree.backtrack(source, g_core);
 
         vector<node_lease> targets;
@@ -1204,14 +1207,12 @@ namespace smt {
             g_core.push_back(expr_ref(l2g(c), m));
 
         SASSERT(lease != nullptr || targets != nullptr);
-        bool has_open_targets = false;
+        bool did_backtrack = false;
 
-        if (lease) {
+        if (lease && !m_search_tree.is_lease_canceled(lease->node, lease->cancel_epoch)) {
             // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
             // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
-            if (m_search_tree.is_lease_canceled(lease->node, lease->cancel_epoch))
-                return;
-            has_open_targets = true;
+            did_backtrack = true;
             IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
             release_lease_unlocked(worker_id, lease->node);
             m_search_tree.backtrack(lease->node, g_core);
@@ -1221,12 +1222,12 @@ namespace smt {
                 if (m_search_tree.is_lease_canceled(target.node, target.cancel_epoch))
                     continue;
 
-                has_open_targets = true;
+                did_backtrack = true;
                 IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking external targets.\n");
                 m_search_tree.backtrack(target.node, g_core);
             }
         }
-        if (!has_open_targets)
+        if (!did_backtrack)
             return;
 
         // terminate on-demand the workers that are currently exploring the now-closed nodes
@@ -1635,12 +1636,6 @@ namespace smt {
         m_worker_leases.resize(p.m_workers.size());
     }
 
-    void parallel::batch_manager::set_external_assumptions(expr_ref_vector const& asms) {
-        std::scoped_lock lock(mux);
-        m_asms.reset();
-        m_asms.append(asms);
-    }
-
     void parallel::batch_manager::collect_statistics(::statistics &st) const {
         st.update("parallel-num_cubes", m_stats.m_num_cubes);
         st.update("parallel-max-cube-size", m_stats.m_max_cube_depth);
@@ -1678,8 +1673,6 @@ namespace smt {
 
         m_workers.reset();
         m_core_minimizer_worker = nullptr;
-        m_batch_manager.set_external_assumptions(asms);
-        
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
         SASSERT(num_workers > 1);
