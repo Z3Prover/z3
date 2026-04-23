@@ -408,7 +408,7 @@ namespace smt {
         st.update("parallel-core-minimize-lits-removed", m_num_core_minimize_lits_removed);
     }
 
-    bool parallel::core_minimizer_worker::minimize_unsat_core(expr_ref_vector& core) {
+    void parallel::core_minimizer_worker::minimize_unsat_core(expr_ref_vector& core) {
         expr_ref_vector original_core(m);
         expr_ref_vector unknown(m), mus(m), trial(m), core_exprs(m);
         unsigned original_size = core.size();
@@ -416,13 +416,13 @@ namespace smt {
         original_core.append(core);
         unknown.append(core);
 
-        // Invariant: F and asms and mus and unknown is UNSAT.
+        // Invariant: F and mus and unknown is UNSAT.
         while (!unknown.empty()) {
             if (!m.inc()) {
                 core.reset();
                 core.append(mus);
                 core.append(unknown);
-                return false;
+                return;
             }
 
             expr* lit = unknown.back();
@@ -432,7 +432,6 @@ namespace smt {
             trial.reset();
             trial.append(mus);
             trial.append(unknown);
-            trial.append(asms);
             trial.push_back(not_lit);
 
             lbool r = l_undef;
@@ -448,22 +447,22 @@ namespace smt {
             case l_undef:
                 ++m_num_core_minimize_undef;
                 mus.push_back(lit);
-                if (m.limit().is_canceled())
-                    return false;
                 break;
-            case l_true:
-                mus.push_back(lit);
-                break;
+            case l_true: {
+                model_ref mdl;
+                ctx->get_model(mdl);
+                b.set_sat(m_l2g, *mdl);
+                return;
+            }
             case l_false:
                 core_exprs.reset();
                 core_exprs.append(ctx->unsat_core());
-                if (!core_exprs.contains(not_lit)) {
+                SASSERT(core_exprs.contains(not_lit));
+                if (core_exprs.contains(not_lit)) {
                     ++m_num_core_minimize_refined;
                     unknown.reset();
                     expr_ref_vector new_mus(m);
                     for (expr* c : core_exprs) {
-                        if (!original_core.contains(c))
-                            continue;
                         if (mus.contains(c))
                             new_mus.push_back(c);
                         else
@@ -477,15 +476,16 @@ namespace smt {
                 UNREACHABLE();
                 core.reset();
                 core.append(original_core);
-                return false;
+                return;
             }
         }
 
+        SASSERT(unknown.empty()); // or, append unknown to core, to reflect loop invariant and in case you end up adding an early exit.
         core.reset();
         core.append(mus);
         if (core.size() < original_size)
             m_num_core_minimize_lits_removed += original_size - core.size();
-        return true;
+        return;
     }
 
     void parallel::core_minimizer_worker::run() {
