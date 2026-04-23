@@ -168,6 +168,7 @@ namespace smt {
             void collect_statistics(::statistics& st) const;
 
             void collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates);
+            void collect_backbone_evidence(ast_translation& l2g, expr* lit, double delta);
             bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone);
             bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, vector<parallel::bb_candidate>& out, reslimit& lim);
             bb_candidates return_global_bb_candidates(ast_translation& g2l);
@@ -215,8 +216,7 @@ namespace smt {
                 unsigned m_inprocessing_delay = 1;
                 unsigned m_max_cube_depth = 20;
                 unsigned m_max_conflicts = UINT_MAX;
-                bool m_share_theory_lemmas = false;
-                unsigned m_share_theory_lemmas_max_lits = 3;
+                bool m_core_minimize = false;
             };
 
             using node = search_tree::node<cube_config>;
@@ -235,6 +235,10 @@ namespace smt {
             unsigned m_num_shared_units = 0;
             unsigned m_num_initial_atoms = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
+            unsigned m_num_core_minimize_calls = 0;
+            unsigned m_num_core_minimize_undef = 0;
+            unsigned m_num_core_minimize_refined = 0;
+            unsigned m_num_core_minimize_lits_removed = 0;
             
             expr_ref get_split_atom();
 
@@ -247,6 +251,7 @@ namespace smt {
             } // allow for backoff scheme of conflicts within the thread for cube timeouts.
 
             void simplify();
+            void minimize_unsat_core(expr_ref_vector& out_core);
             bb_candidates find_backbone_candidates(unsigned k = 10);
             void prepare_backbone_candidates(u_map<double>& original_activities, phase_snapshots& original_phases);
 

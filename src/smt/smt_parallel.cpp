@@ -523,7 +523,10 @@ namespace smt {
                 return;
             }
             case l_false: {
-                expr_ref_vector const &unsat_core = ctx->unsat_core();
+                expr_ref_vector unsat_core(m);
+                unsat_core.append(ctx->unsat_core());
+                if (m_config.m_core_minimize)
+                    minimize_unsat_core(unsat_core);
                 LOG_WORKER(2, " unsat core:\n";
                            for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
                 // If the unsat core only contains external assumptions,
@@ -546,10 +549,166 @@ namespace smt {
             }
             if (m_config.m_share_units)
                 share_units();
-            if (m_config.m_share_theory_lemmas)
-                share_theory_lemmas();
         }
     }
+
+     void parallel::worker::minimize_unsat_core(expr_ref_vector &core) {
+        expr_ref_vector todo(m), mus(m), trial(m);
+        unsigned original_size = core.size();
+
+        for (auto lit : core)
+            if (asms.contains(lit))
+                mus.push_back(lit);
+            else
+                todo.push_back(lit);
+        
+        while (!todo.empty() && m.inc()) {
+            // loop invariant: mus union todo is a core
+            auto lit = todo.back();
+            expr_ref nlit(mk_not(m, lit), m);
+            
+            trial.reset();
+            trial.append(todo);
+            trial.append(mus);
+            trial.push_back(nlit);
+            
+            lbool r = l_undef;
+
+            try {
+                flet<unsigned> _max_conflicts(ctx->get_fparams().m_max_conflicts, 10);
+                r = ctx->check(trial.size(), trial.data());
+            }
+            catch (...) {
+                r = l_undef;
+            }
+
+            switch (r) {
+            case l_undef:
+                ++m_num_core_minimize_undef;
+                break;
+            case l_true:
+                mus.push_back(lit);
+                break;
+            case l_false:
+                // core is a subset of mus u todo
+                // mus u todo u lit is a core
+                // core u ~lit is unsat
+                // if already core is unsat:
+                //    todo := core \ mus
+                //    mus  := mus n core
+                // else:
+                //    we know that mus u todo is a core
+                if (!ctx->unsat_core().contains(nlit)) {
+                    ++m_num_core_minimize_refined;
+                    todo.reset();
+                    expr_ref_vector new_mus(m);
+                    for (auto lit : ctx->unsat_core()) {
+                        if (mus.contains(lit))
+                            new_mus.push_back(lit);
+                        else
+                            todo.push_back(lit);
+                    }
+                    mus.reset();
+                    mus.append(new_mus);
+                }
+            }
+        }
+        core.reset();
+        core.append(mus);
+        if (core.size() < original_size)
+            m_num_core_minimize_lits_removed += original_size - core.size();
+    }
+
+    // void parallel::worker::minimize_unsat_core(expr_ref_vector& out_core) {
+    //     constexpr unsigned core_minimize_conflict_budget = 10;
+    //     ptr_vector<expr> unknown;
+    //     expr_ref_vector mus(m);
+    //     expr_ref_vector core_exprs(m);
+    //     unsigned original_size = out_core.size();
+    //     ++m_num_core_minimize_calls;
+
+    //     // Preserve original core in case of failure
+    //     expr_ref_vector original_core(m);
+    //     original_core.append(out_core);
+
+    //     for (expr* e : out_core)
+    //         unknown.push_back(e);
+
+    //     // loop invariant: mus \union unknown is a valid core
+    //     while (!unknown.empty()) {
+    //         if (!m.inc()) {
+    //             // EXACT mus.cpp semantics: abort without modifying result
+    //             out_core.reset();
+    //             out_core.append(original_core);
+    //             return;
+    //         }
+
+    //         expr* lit = unknown.back();
+    //         unknown.pop_back();
+
+    //         expr_ref not_lit(mk_not(m, lit), m);
+    //         lbool is_sat = l_undef;
+
+    //         expr_ref_vector trial(m);
+    //         trial.append(mus);
+    //         trial.append(unknown.size(), unknown.data());
+    //         trial.append(asms);
+    //         trial.push_back(not_lit);
+
+    //         try {
+    //             flet<unsigned> _max_conflicts(ctx->get_fparams().m_max_conflicts, core_minimize_conflict_budget);
+    //             is_sat = ctx->check(trial.size(), trial.data());
+    //         }
+    //         catch (...) {
+    //             is_sat = l_undef;
+    //         }
+
+    //         switch (is_sat) {
+    //         case l_undef:
+    //             // alternatively, can treat this as the l_true case and just append lit to mus and continue looping, but need to test to see if this blocks the worker too much
+    //             ++m_num_core_minimize_undef;
+    //             out_core.reset();
+    //             out_core.append(mus);
+    //             out_core.append(unknown.size(), unknown.data());
+    //             out_core.push_back(lit);
+    //             return;
+
+    //         case l_true:
+    //             mus.push_back(lit);
+    //             // mus.cpp calls update_model() here (optional in your setting)
+    //             break;
+
+    //         case l_false:
+    //             core_exprs.reset();
+    //             core_exprs.append(ctx->unsat_core());
+
+    //             if (!core_exprs.contains(not_lit)) {
+    //                 ++m_num_core_minimize_refined;
+    //                 LOG_WORKER(2, " refined unsat core during minimization from "
+    //                            << (mus.size() + unknown.size() + 1) << " to "
+    //                            << core_exprs.size() << " literals\n");
+    //                 unknown.reset();
+    //                 for (expr* c : core_exprs) {
+    //                     if (!mus.contains(c))
+    //                         unknown.push_back(c);
+    //                 }
+    //             }
+    //             break;
+
+    //         default:
+    //             UNREACHABLE();
+    //             out_core.reset();
+    //             out_core.append(original_core);
+    //             return;
+    //         }
+    //     }
+
+    //     // Success: overwrite with MUS (matches mus.cpp final state)
+    //     out_core.reset();
+    //     out_core.append(mus);
+    //     if (out_core.size() < original_size)
+    //         m_num_core_minimize_lits_removed += original_size - out_core.size();
+    // }
 
     parallel::worker::worker(unsigned id, parallel &p, expr_ref_vector const &_asms)
         : id(id), p(p), b(p.m_batch_manager), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m),
@@ -571,7 +730,7 @@ namespace smt {
         m_config.m_inprocessing = pp.inprocessing();
         m_config.m_global_backbones = pp.num_global_bb_threads() > 0;
         m_config.m_local_backbones = pp.local_backbones();
-        m_config.m_share_theory_lemmas = pp.share_theory_lemmas();
+        m_config.m_core_minimize = pp.core_minimize();
     }
 
     parallel::sls_worker::sls_worker(parallel& p)
@@ -706,44 +865,6 @@ namespace smt {
         m_num_shared_units = sz;
     }
 
-    void parallel::worker::share_theory_lemmas() {
-        // Share learned clauses (CLS_LEARNED) with other workers via the batch manager.
-        // Only share clauses whose atoms all belong to the original formula (var < m_num_initial_atoms),
-        // excluding fresh variables introduced during search.
-        // Lemmas are garbage-collected so we cannot track by index; deduplication is handled by
-        // the batch manager's shared_clause_set.
-        LOG_WORKER(1, " sharing theory lemmas\n");
-        clause_vector const& lemmas = ctx->get_lemmas();
-        for (clause* cls : lemmas) {
-            if (!cls->is_learned())
-                continue;
-
-            unsigned num_lits = cls->get_num_literals();
-            if (num_lits < 2 || num_lits > m_config.m_share_theory_lemmas_max_lits)
-                continue;
-
-            expr_ref_vector lits(m);
-            bool all_initial = true;
-            for (literal lit : *cls) {
-                if (lit.var() >= m_num_initial_atoms) {
-                    all_initial = false;
-                    break;
-                }
-                expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);
-                if (!e) { all_initial = false; break; }
-                if (lit.sign())
-                    e = mk_not(e);
-                lits.push_back(std::move(e));
-            }
-
-            if (!all_initial)
-                continue;
-
-            expr_ref clause_expr = mk_or(lits);
-            b.collect_clause(m_l2g, id, clause_expr);
-        }
-    }
-
     void parallel::worker::simplify() {
         if (!m.inc())
             return;
@@ -817,6 +938,9 @@ namespace smt {
 
     void parallel::worker::collect_statistics(::statistics &st) const {
         ctx->collect_statistics(st);
+        st.update("parallel-core-minimize-undef", m_num_core_minimize_undef);
+        st.update("parallel-core-minimize-refined", m_num_core_minimize_refined);
+        st.update("parallel-core-minimize-lits-removed", m_num_core_minimize_lits_removed);
     }
 
     void parallel::worker::cancel() {
@@ -949,14 +1073,11 @@ namespace smt {
             // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
             // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
             if (m_search_tree.is_lease_canceled(lease->node, lease->cancel_epoch))
-                lease = nullptr;
-            else {
-                has_open_targets = true;
-                IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
-
-                release_lease_unlocked(worker_id, lease->node);
-                m_search_tree.backtrack(lease->node, g_core);
-            }
+                return;
+            has_open_targets = true;
+            IF_VERBOSE(1, verbose_stream() << "Batch manager backtracking.\n");
+            release_lease_unlocked(worker_id, lease->node);
+            m_search_tree.backtrack(lease->node, g_core);
         }
         if (targets) {
             for (auto const& target : *targets) {
