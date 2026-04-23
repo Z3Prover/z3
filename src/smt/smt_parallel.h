@@ -89,6 +89,7 @@ namespace smt {
                 unsigned m_core_min_jobs_enqueued = 0;
                 unsigned m_core_min_jobs_published = 0;
                 unsigned m_core_min_jobs_skipped = 0;
+                unsigned m_core_min_global_unsat = 0;
             };
             using node = search_tree::node<cube_config>;
             struct core_min_job {
@@ -113,6 +114,7 @@ namespace smt {
             unsigned m_max_global_bb_candidates = 100;
             unsigned m_bb_batch_size = 150;
             expr_ref_vector m_global_backbones;
+            expr_ref_vector m_asms;
 
             // Backbone job queue
             std::condition_variable m_bb_cv;
@@ -174,9 +176,10 @@ namespace smt {
                                                    vector<node_lease>& targets);
 
         public:
-            batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)), m_global_backbones(m) { }
+            batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)), m_global_backbones(m), m_asms(m) { }
 
             void initialize(unsigned num_global_bb_threads, unsigned initial_max_thread_conflicts = 1000); // TODO: pass in from worker config
+            void set_external_assumptions(expr_ref_vector const& asms);
 
             void set_unsat(ast_translation& l2g, expr_ref_vector const& unsat_core);
             void set_sat(ast_translation& l2g, model& m);
@@ -257,10 +260,6 @@ namespace smt {
             unsigned m_num_shared_units = 0;
             unsigned m_num_initial_atoms = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
-            unsigned m_num_core_minimize_calls = 0;
-            unsigned m_num_core_minimize_undef = 0;
-            unsigned m_num_core_minimize_refined = 0;
-            unsigned m_num_core_minimize_lits_removed = 0;
             
             expr_ref get_split_atom();
 
@@ -323,7 +322,8 @@ namespace smt {
             unsigned m_num_core_minimize_undef = 0;
             unsigned m_num_core_minimize_refined = 0;
             unsigned m_num_core_minimize_lits_removed = 0;
-            unsigned m_core_minimize_conflict_budget = 5000;
+            unsigned m_num_core_minimize_found_sat = 0;
+            unsigned m_core_minimize_conflict_budget = 2000;
             unsigned m_shared_clause_limit = 0;
 
             void minimize_unsat_core(expr_ref_vector& core);
