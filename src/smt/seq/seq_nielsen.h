@@ -740,10 +740,6 @@ namespace seq {
         // true if all str_eqs are trivial and there are no str_mems
         bool is_satisfied() const;
 
-        // true if any constraint has opaque (s_var) terms that
-        // the Nielsen graph cannot decompose
-        bool has_opaque_terms() const;
-
         // render constraint set as an HTML fragment for DOT node labels.
         // mirrors ZIPT's NielsenNode.ToHtmlString()
         std::ostream& to_html(std::ostream& out, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) const;
