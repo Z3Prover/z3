@@ -248,10 +248,10 @@ static void test_extract_cycle_history_basic() {
     euf::snode* cur_hist = sg.mk_concat(sg.mk_concat(tok_a, tok_b), tok_c);
 
     euf::snode* empty_str = sg.mk_empty_seq(str_sort);
-    seq::dep_tracker empty_dep;
+    seq::dep_tracker empty_dep = nullptr;
 
-    seq::str_mem ancestor(empty_str, full_re, anc_hist, 0, empty_dep);
-    seq::str_mem current(empty_str, full_re, cur_hist, 0, empty_dep);
+    seq::str_mem ancestor(empty_str, full_re, empty_dep);
+    seq::str_mem current(empty_str, full_re, empty_dep);
 
     euf::snode* cycle = nr.extract_cycle_history(current, ancestor);
     // Should return the last 2 tokens (b, c)
@@ -279,11 +279,11 @@ static void test_extract_cycle_history_null_ancestor() {
     euf::snode* tok_b = sg.mk_char('b');
     euf::snode* cur_hist = sg.mk_concat(tok_a, tok_b);
     euf::snode* empty_str = sg.mk_empty_seq(str_sort);
-    seq::dep_tracker empty_dep;
+    seq::dep_tracker empty_dep = nullptr;
 
     // Ancestor has no history (nullptr)
-    seq::str_mem ancestor(empty_str, full_re, nullptr, 0, empty_dep);
-    seq::str_mem current(empty_str, full_re, cur_hist, 0, empty_dep);
+    seq::str_mem ancestor(empty_str, full_re, empty_dep);
+    seq::str_mem current(empty_str, full_re, empty_dep);
 
     euf::snode* cycle = nr.extract_cycle_history(current, ancestor);
     // With null ancestor history, entire current history is the cycle

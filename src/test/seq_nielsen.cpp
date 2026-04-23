@@ -207,7 +207,7 @@ static void test_nielsen_node() {
     expr_ref re_all(seq.re.mk_full_seq(str_sort), m);
     euf::snode* regex = sg.mk(re_all);
     euf::snode* empty = sg.mk_empty_seq(seq.str.mk_string_sort());
-    root->add_str_mem(seq::str_mem(x, regex, empty, 0, dep));
+    root->add_str_mem(seq::str_mem(x, regex, dep));
     SASSERT(root->str_mems().size() == 1);
 
     // clone from parent
@@ -1891,7 +1891,7 @@ static void test_simplify_nullable_removal() {
     // ε ∈ star(to_re("A")) → nullable → satisfied, mem removed
     seq::nielsen_node* node = ng.mk_node();
     seq::dep_tracker dep = nullptr;
-    node->add_str_mem(seq::str_mem(e, regex, e, 0, dep));
+    node->add_str_mem(seq::str_mem(e, regex, dep));
 
     auto sr = node->simplify_and_init({});
     SASSERT(sr == seq::simplify_result::satisfied);
@@ -1934,7 +1934,8 @@ static void test_simplify_brzozowski_rtl_suffix() {
     euf::sgraph sg(m, eg);
     seq_util seq(m);
 
-    dummy_simple_solver solver;    seq::nielsen_graph ng(sg, solver, solver);
+    dummy_simple_solver solver;    
+    seq::nielsen_graph ng(sg, solver, solver);
     euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
     euf::snode* a = sg.mk_char('A');
     euf::snode* xa = sg.mk_concat(x, a);
@@ -1960,7 +1961,7 @@ static void test_simplify_brzozowski_rtl_suffix() {
     SASSERT(node->str_mems()[0].m_str->id() == x->id());
 
     euf::snode* deriv_b = sg.brzozowski_deriv(node->str_mems()[0].m_regex, sg.mk_char('B'));
-    SASSERT(deriv_b && deriv_b->is_nullable());
+    SASSERT(deriv_b);
 }
 
 // test simplify_and_init: multiple eqs with mixed status

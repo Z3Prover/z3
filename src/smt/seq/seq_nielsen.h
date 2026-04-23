@@ -345,6 +345,9 @@ namespace seq {
     struct le {
         expr_ref lhs;
         expr_ref rhs;
+        bool operator==(le const &other) const {
+            return lhs == other.lhs && rhs == other.rhs;         
+        }
     };
 
     using dep_source = std::variant<sat::literal, enode_pair, le>;
