@@ -121,7 +121,7 @@ eliminate:
 elim_unconstrained::elim_unconstrained(ast_manager& m, dependent_expr_state& fmls) :
     dependent_expr_simplifier(m, fmls), m_inverter(m), m_lt(*this), m_heap(1024, m_lt), m_trail(m), m_args(m) {
     std::function<bool(expr*)> is_var = [&](expr* e) {
-        return is_uninterp_const(e) && !m_fmls.frozen(e) && get_node(e).is_root() && get_node(e).num_parents() <= 1;
+        return is_uninterp_const(e) && !m_fmls.frozen(e) && !m_disabled.is_marked(e) && get_node(e).is_root() && get_node(e).num_parents() <= 1;
     };
     m_inverter.set_is_var(is_var);
 }
@@ -247,10 +247,12 @@ elim_unconstrained::node& elim_unconstrained::get_node(expr* t) {
                     m_heap.increased(arg->get_id());
             }
         }
-        else if (is_quantifier(t)) {            
-            node& ch = get_node(to_quantifier(t)->get_expr());
+        else if (is_quantifier(t)) {        
+            auto body = to_quantifier(t)->get_expr();
+            node& ch = get_node(body);
             SASSERT(ch.is_root());
             ch.add_parent(*n);
+            disable(body);
         }
     }
     return *n;
@@ -436,10 +438,29 @@ void elim_unconstrained::reduce() {
         assert_normalized(old_fmls);
         update_model_trail(*mc, old_fmls);
         mc->reset();        
+        m_disabled.reset();
     }
 }
 
 void elim_unconstrained::updt_params(params_ref const& p) {
     smt_params_helper sp(p);
     m_config.m_enabled = sp.elim_unconstrained();
+}
+
+void elim_unconstrained::disable(expr* e) {
+    if (m_disabled.is_marked(e))
+        return;
+
+    ptr_buffer<expr> todo;
+    todo.push_back(e);
+    while (!todo.empty()) {
+        e = todo.back();
+        todo.pop_back();
+        if (m_disabled.is_marked(e))
+            continue;
+        m_disabled.mark(e);
+        if (is_app(e))
+            for (auto arg : *to_app(e))
+                todo.push_back(arg);
+    }
 }

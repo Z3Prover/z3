@@ -553,7 +553,7 @@ jobs:
           path: package
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v3
+        uses: nuget/setup-nuget@v4
         with:
           nuget-version: 'latest'
       
@@ -598,7 +598,7 @@ jobs:
           path: package
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v3
+        uses: nuget/setup-nuget@v4
         with:
           nuget-version: 'latest'
       
@@ -813,7 +813,7 @@ jobs:
           path: packages
       
       - name: Setup NuGet
-        uses: nuget/setup-nuget@v3
+        uses: nuget/setup-nuget@v4
         with:
           nuget-version: 'latest'
       

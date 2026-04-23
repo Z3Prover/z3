@@ -268,8 +268,9 @@ namespace smt {
             void share_theory_lemmas();
 
             void update_max_thread_conflicts() {
+                // allow for backoff scheme of conflicts within the thread for cube timeouts.
                 m_config.m_threads_max_conflicts = (unsigned)(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
-            } // allow for backoff scheme of conflicts within the thread for cube timeouts.
+            }
 
             void simplify();
             bb_candidates find_backbone_candidates(unsigned k = 10);
@@ -366,11 +367,16 @@ namespace smt {
             ast_translation m_g2l, m_l2g;
             unsigned m_bb_chunk_size = 20;
             unsigned m_bb_conflicts_per_chunk = 1000;
+            bool m_use_failed_literal_test;
             stats m_stats;
             bb_mode m_mode;
             unsigned m_num_global_bb_threads = 1; // used to toggle behavior when testing bb candidates 
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             bool check_backbone(expr* bb_candidate);
+            void run_batch_mode();
+            void run_failed_literal_mode();
+            lbool check_sat(expr_ref_vector const &asms);
+            lbool probe_literal(bool_var v, uint_set& units, expr *e);
         public:
             backbones_worker(unsigned id, parallel &p, expr_ref_vector const &_asms);
             void cancel();

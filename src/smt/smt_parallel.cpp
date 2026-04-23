@@ -66,16 +66,14 @@ namespace smt {
 
 namespace smt {
 
-    static bool is_cancellation_exception(char const* msg) {
-        return msg &&
-            (strstr(msg, "canceled") != nullptr ||
-             strstr(msg, "cancelled") != nullptr);
+    static bool is_cancellation_exception(char const *msg) {
+        return msg && (strstr(msg, "canceled") != nullptr || strstr(msg, "cancelled") != nullptr);
     }
 
     void parallel::sls_worker::run() {
         ptr_vector<expr> assertions;
         p.ctx.get_assertions(assertions);
-        for (expr* e : assertions)
+        for (expr *e : assertions)
             m_sls->assert_expr(m_g2l(e));
 
         lbool res = l_undef;
@@ -83,8 +81,7 @@ namespace smt {
             if (!m.inc())
                 return;
             res = m_sls->check();
-        } 
-        catch (z3_exception& ex) {
+        } catch (z3_exception &ex) {
             // Cancellation is normal in portfolio mode
             if (m.limit().is_canceled()) {
                 IF_VERBOSE(1, verbose_stream() << "SLS worker canceled\n");
@@ -102,7 +99,7 @@ namespace smt {
             return;
         }
 
-        if (res == l_true) {         
+        if (res == l_true) {
             IF_VERBOSE(2, verbose_stream() << "SLS worker found SAT\n");
             model_ref mdl = m_sls->get_model();
             b.set_sat(m_l2g, *mdl);
@@ -110,6 +107,95 @@ namespace smt {
     }
 
     void parallel::backbones_worker::run() {
+        if (m_use_failed_literal_test)
+            run_failed_literal_mode();
+        else 
+            run_batch_mode();
+    }    
+
+    lbool parallel::backbones_worker::check_sat(expr_ref_vector const &asms) {
+        lbool r = l_undef;
+        try {
+            r = ctx->check(asms.size(), asms.data());
+        } catch (z3_error &err) {
+            if (!m.limit().is_canceled())
+                b.set_exception(err.error_code());
+        } catch (z3_exception &ex) {
+            if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
+                b.set_exception(ex.what());
+        } catch (...) {
+            if (!m.limit().is_canceled())
+                b.set_exception("unknown exception");
+        }
+        return r;
+    }
+
+    void parallel::backbones_worker::run_failed_literal_mode() {
+        ctx->get_fparams().m_max_conflicts = 10;
+        auto num_atoms = ctx->get_num_bool_vars();
+        uint_set units;
+        for (unsigned v = 0; v < num_atoms && m.inc(); ++v)
+            if (ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl)
+                units.insert(v);
+        while (m.inc()) {
+            for (unsigned v = 0; v < num_atoms && m.inc(); ++v) {
+                if (units.contains(v))
+                    continue;
+                expr_ref e(ctx->bool_var2expr(v), m);
+                if (!e)
+                    continue;
+                if (m.is_or(e) || m.is_ite(e))
+                    continue;
+                if (ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl) {
+                    bool is_true = ctx->get_assignment(v) == l_true;
+                    IF_VERBOSE(2, verbose_stream() << "backbone on trail " << e << "\n");
+                    units.insert(v);
+                    if (!is_true)
+                        e = m.mk_not(e);
+                    if (b.collect_global_backbone(m_l2g, e))
+                        m_stats.m_backbones_found++;                                            
+                    continue;
+                }
+                auto r = probe_literal(v, units, e);
+                if (r != l_undef)
+                    break;
+                if (units.contains(v))
+                    continue;
+                e = mk_not(e);
+                r = probe_literal(v, units, e);
+                if (r != l_undef)
+                    break;
+            }
+        }
+    }
+
+    lbool parallel::backbones_worker::probe_literal(bool_var v, uint_set& units, expr *e) {
+        asms.push_back(e);
+        auto r = check_sat(asms);
+        asms.pop_back();
+        if (r == l_false) {
+            if (!ctx->unsat_core().contains(e)) {
+                b.set_unsat(m_l2g, ctx->unsat_core());
+                return l_false;
+            }
+            IF_VERBOSE(2, verbose_stream() << "failed literal " << mk_bounded_pp(e, m) << "\n");
+            expr_ref not_e(mk_not(m, e), m);
+            if (b.collect_global_backbone(m_l2g, not_e))
+                m_stats.m_backbones_found++;
+            ctx->assert_expr(not_e);
+            units.insert(v);
+            r = l_undef;
+        }
+        if (r == l_true) {
+            model_ref mdl;
+            ctx->get_model(mdl);
+            b.set_sat(m_l2g, *mdl);
+        }
+        return r;
+    }
+
+
+    void parallel::backbones_worker::run_batch_mode() {
         bb_candidates bb_candidates;
         while (m.inc()) {
             if (!b.wait_for_backbone_job(id, m_g2l, bb_candidates, m.limit()))
@@ -199,20 +285,7 @@ namespace smt {
                     unsigned base_asms_sz = asms.size();
                     for (expr* a : bb_asms)
                         asms.push_back(a);
-
-                    lbool r = l_undef;
-                    try {
-                        r = ctx->check(asms.size(), asms.data());
-                    } catch (z3_error &err) {
-                        if (!m.limit().is_canceled())
-                            b.set_exception(err.error_code());
-                    } catch (z3_exception &ex) {
-                        if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
-                            b.set_exception(ex.what());
-                    } catch (...) {
-                        if (!m.limit().is_canceled())
-                            b.set_exception("unknown exception");
-                    }
+                    lbool r = check_sat(asms);
                     asms.shrink(base_asms_sz);
 
                     if (!m.inc()) 
@@ -703,7 +776,7 @@ namespace smt {
 
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_inprocessing = pp.inprocessing();
-        m_config.m_global_backbones = pp.num_global_bb_threads() > 0;
+        m_config.m_global_backbones = pp.num_global_bb_threads() > 0 && !pp.failed_literal_backbones();
         m_config.m_local_backbones = pp.local_backbones();
         m_config.m_core_minimize = pp.core_minimize();
     }
@@ -728,6 +801,7 @@ namespace smt {
 
         smt_parallel_params pp(p.ctx.m_params);
         m_num_global_bb_threads = pp.num_global_bb_threads();
+        m_use_failed_literal_test = pp.failed_literal_backbones();
     }
 
     parallel::bb_candidates parallel::worker::find_backbone_candidates(unsigned k) {
@@ -800,14 +874,7 @@ namespace smt {
 
         LOG_BB_WORKER(1, " RESULT: " << r << " FOR CANDIDATE: " << mk_bounded_pp(bb_candidate, m, 3) << "\n");
 
-        if (r == l_false) {
-            auto core = ctx->unsat_core();
-            if (core.size() == 1) {
-                return true;
-            }                
-        }
-
-        return false;
+        return r == l_false && ctx->unsat_core().size() == 1;
     }
 
     void parallel::worker::share_units() {
@@ -1642,8 +1709,7 @@ namespace smt {
         m_batch_manager.initialize(num_global_bb_threads);
         
         // Launch threads
-        vector<std::thread> threads;
-        threads.resize(total_threads);
+        vector<std::thread> threads(total_threads);
         unsigned thread_idx = 0;
         for (auto* w : m_workers) 
             threads[thread_idx++] = std::thread([&, w]() { w->run(); });                
