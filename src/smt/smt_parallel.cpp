@@ -383,6 +383,131 @@ namespace smt {
         m_sls->collect_statistics(st);
     }
 
+    parallel::core_minimizer_worker::core_minimizer_worker(parallel& p, expr_ref_vector const& _asms)
+        : b(p.m_batch_manager), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m), m_l2g(m, p.ctx.m) {
+        for (expr* e : _asms)
+            asms.push_back(m_g2l(e));
+        IF_VERBOSE(1, verbose_stream() << "Initialized core minimizer thread\n");
+        ctx = alloc(context, m, m_smt_params, p.ctx.get_params());
+        ctx->set_logic(p.ctx.m_setup.get_logic());
+        context::copy(p.ctx, *ctx, true);
+        ctx->pop_to_base_lvl();
+        ctx->get_fparams().m_preprocess = false;
+    }
+
+    void parallel::core_minimizer_worker::cancel() {
+        IF_VERBOSE(1, verbose_stream() << "Core minimizer cancelling\n");
+        m.limit().cancel();
+    }
+
+    void parallel::core_minimizer_worker::collect_statistics(::statistics& st) const {
+        ctx->collect_statistics(st);
+        st.update("parallel-core-minimize-calls", m_num_core_minimize_calls);
+        st.update("parallel-core-minimize-undef", m_num_core_minimize_undef);
+        st.update("parallel-core-minimize-refined", m_num_core_minimize_refined);
+        st.update("parallel-core-minimize-lits-removed", m_num_core_minimize_lits_removed);
+    }
+
+    bool parallel::core_minimizer_worker::minimize_unsat_core(expr_ref_vector& core) {
+        expr_ref_vector original_core(m);
+        expr_ref_vector unknown(m), mus(m), trial(m), core_exprs(m);
+        unsigned original_size = core.size();
+        ++m_num_core_minimize_calls;
+        original_core.append(core);
+        unknown.append(core);
+
+        // Invariant: F and asms and mus and unknown is UNSAT.
+        while (!unknown.empty()) {
+            if (!m.inc()) {
+                core.reset();
+                core.append(mus);
+                core.append(unknown);
+                return false;
+            }
+
+            expr* lit = unknown.back();
+            unknown.pop_back();
+            expr_ref not_lit(mk_not(m, lit), m);
+
+            trial.reset();
+            trial.append(mus);
+            trial.append(unknown);
+            trial.append(asms);
+            trial.push_back(not_lit);
+
+            lbool r = l_undef;
+            try {
+                flet<unsigned> _max_conflicts(ctx->get_fparams().m_max_conflicts, m_core_minimize_conflict_budget);
+                r = ctx->check(trial.size(), trial.data());
+            }
+            catch (...) {
+                r = l_undef;
+            }
+
+            switch (r) {
+            case l_undef:
+                ++m_num_core_minimize_undef;
+                mus.push_back(lit);
+                if (m.limit().is_canceled())
+                    return false;
+                break;
+            case l_true:
+                mus.push_back(lit);
+                break;
+            case l_false:
+                core_exprs.reset();
+                core_exprs.append(ctx->unsat_core());
+                if (!core_exprs.contains(not_lit)) {
+                    ++m_num_core_minimize_refined;
+                    unknown.reset();
+                    expr_ref_vector new_mus(m);
+                    for (expr* c : core_exprs) {
+                        if (!original_core.contains(c))
+                            continue;
+                        if (mus.contains(c))
+                            new_mus.push_back(c);
+                        else
+                            unknown.push_back(c);
+                    }
+                    mus.reset();
+                    mus.append(new_mus);
+                }
+                break;
+            default:
+                UNREACHABLE();
+                core.reset();
+                core.append(original_core);
+                return false;
+            }
+        }
+
+        core.reset();
+        core.append(mus);
+        if (core.size() < original_size)
+            m_num_core_minimize_lits_removed += original_size - core.size();
+        return true;
+    }
+
+    void parallel::core_minimizer_worker::run() {
+        while (m.inc()) {
+            search_tree::node<cube_config>* source = nullptr;
+            expr_ref_vector core(m);
+            if (!b.wait_for_core_min_job(m_g2l, source, core, m.limit()))
+                return;
+
+            unsigned original_size = core.size();
+            if (original_size == 0)
+                continue;
+
+            expr_ref_vector minimized(m);
+            minimized.append(core);
+            minimize_unsat_core(minimized);
+
+            if (minimized.size() < original_size)
+                b.publish_minimized_core(m_l2g, source, original_size, minimized);
+        }
+    }
+
     void parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities, phase_snapshots& original_phases) {
         bb_candidates local_candidates = find_backbone_candidates();
         b.collect_backbone_candidates(m_l2g, local_candidates);
@@ -525,8 +650,6 @@ namespace smt {
             case l_false: {
                 expr_ref_vector unsat_core(m);
                 unsat_core.append(ctx->unsat_core());
-                if (m_config.m_core_minimize)
-                    minimize_unsat_core(unsat_core);
                 LOG_WORKER(2, " unsat core:\n";
                            for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
                 // If the unsat core only contains external assumptions,
@@ -538,7 +661,10 @@ namespace smt {
                 }
 
                 LOG_WORKER(1, " found unsat cube\n");
+                node* source = lease.node;
                 b.backtrack(m_l2g, id, unsat_core, lease);
+                if (m_config.m_core_minimize)
+                    b.enqueue_core_minimization(m_l2g, source, unsat_core);
                 lease = {};
 
                 if (m_config.m_share_conflicts)
@@ -551,164 +677,6 @@ namespace smt {
                 share_units();
         }
     }
-
-     void parallel::worker::minimize_unsat_core(expr_ref_vector &core) {
-        expr_ref_vector todo(m), mus(m), trial(m);
-        unsigned original_size = core.size();
-
-        for (auto lit : core)
-            if (asms.contains(lit))
-                mus.push_back(lit);
-            else
-                todo.push_back(lit);
-        
-        while (!todo.empty() && m.inc()) {
-            // loop invariant: mus union todo is a core
-            auto lit = todo.back();
-            expr_ref nlit(mk_not(m, lit), m);
-            
-            trial.reset();
-            trial.append(todo);
-            trial.append(mus);
-            trial.push_back(nlit);
-            
-            lbool r = l_undef;
-
-            try {
-                flet<unsigned> _max_conflicts(ctx->get_fparams().m_max_conflicts, 10);
-                r = ctx->check(trial.size(), trial.data());
-            }
-            catch (...) {
-                r = l_undef;
-            }
-
-            switch (r) {
-            case l_undef:
-                ++m_num_core_minimize_undef;
-                break;
-            case l_true:
-                mus.push_back(lit);
-                break;
-            case l_false:
-                // core is a subset of mus u todo
-                // mus u todo u lit is a core
-                // core u ~lit is unsat
-                // if already core is unsat:
-                //    todo := core \ mus
-                //    mus  := mus n core
-                // else:
-                //    we know that mus u todo is a core
-                if (!ctx->unsat_core().contains(nlit)) {
-                    ++m_num_core_minimize_refined;
-                    todo.reset();
-                    expr_ref_vector new_mus(m);
-                    for (auto lit : ctx->unsat_core()) {
-                        if (mus.contains(lit))
-                            new_mus.push_back(lit);
-                        else
-                            todo.push_back(lit);
-                    }
-                    mus.reset();
-                    mus.append(new_mus);
-                }
-            }
-        }
-        core.reset();
-        core.append(mus);
-        if (core.size() < original_size)
-            m_num_core_minimize_lits_removed += original_size - core.size();
-    }
-
-    // void parallel::worker::minimize_unsat_core(expr_ref_vector& out_core) {
-    //     constexpr unsigned core_minimize_conflict_budget = 10;
-    //     ptr_vector<expr> unknown;
-    //     expr_ref_vector mus(m);
-    //     expr_ref_vector core_exprs(m);
-    //     unsigned original_size = out_core.size();
-    //     ++m_num_core_minimize_calls;
-
-    //     // Preserve original core in case of failure
-    //     expr_ref_vector original_core(m);
-    //     original_core.append(out_core);
-
-    //     for (expr* e : out_core)
-    //         unknown.push_back(e);
-
-    //     // loop invariant: mus \union unknown is a valid core
-    //     while (!unknown.empty()) {
-    //         if (!m.inc()) {
-    //             // EXACT mus.cpp semantics: abort without modifying result
-    //             out_core.reset();
-    //             out_core.append(original_core);
-    //             return;
-    //         }
-
-    //         expr* lit = unknown.back();
-    //         unknown.pop_back();
-
-    //         expr_ref not_lit(mk_not(m, lit), m);
-    //         lbool is_sat = l_undef;
-
-    //         expr_ref_vector trial(m);
-    //         trial.append(mus);
-    //         trial.append(unknown.size(), unknown.data());
-    //         trial.append(asms);
-    //         trial.push_back(not_lit);
-
-    //         try {
-    //             flet<unsigned> _max_conflicts(ctx->get_fparams().m_max_conflicts, core_minimize_conflict_budget);
-    //             is_sat = ctx->check(trial.size(), trial.data());
-    //         }
-    //         catch (...) {
-    //             is_sat = l_undef;
-    //         }
-
-    //         switch (is_sat) {
-    //         case l_undef:
-    //             // alternatively, can treat this as the l_true case and just append lit to mus and continue looping, but need to test to see if this blocks the worker too much
-    //             ++m_num_core_minimize_undef;
-    //             out_core.reset();
-    //             out_core.append(mus);
-    //             out_core.append(unknown.size(), unknown.data());
-    //             out_core.push_back(lit);
-    //             return;
-
-    //         case l_true:
-    //             mus.push_back(lit);
-    //             // mus.cpp calls update_model() here (optional in your setting)
-    //             break;
-
-    //         case l_false:
-    //             core_exprs.reset();
-    //             core_exprs.append(ctx->unsat_core());
-
-    //             if (!core_exprs.contains(not_lit)) {
-    //                 ++m_num_core_minimize_refined;
-    //                 LOG_WORKER(2, " refined unsat core during minimization from "
-    //                            << (mus.size() + unknown.size() + 1) << " to "
-    //                            << core_exprs.size() << " literals\n");
-    //                 unknown.reset();
-    //                 for (expr* c : core_exprs) {
-    //                     if (!mus.contains(c))
-    //                         unknown.push_back(c);
-    //                 }
-    //             }
-    //             break;
-
-    //         default:
-    //             UNREACHABLE();
-    //             out_core.reset();
-    //             out_core.append(original_core);
-    //             return;
-    //         }
-    //     }
-
-    //     // Success: overwrite with MUS (matches mus.cpp final state)
-    //     out_core.reset();
-    //     out_core.append(mus);
-    //     if (out_core.size() < original_size)
-    //         m_num_core_minimize_lits_removed += original_size - out_core.size();
-    // }
 
     parallel::worker::worker(unsigned id, parallel &p, expr_ref_vector const &_asms)
         : id(id), p(p), b(p.m_batch_manager), asms(m), m_smt_params(p.ctx.get_fparams()), m_g2l(p.ctx.m, m),
@@ -938,6 +906,7 @@ namespace smt {
 
     void parallel::worker::collect_statistics(::statistics &st) const {
         ctx->collect_statistics(st);
+        st.update("parallel-core-minimize-calls", m_num_core_minimize_calls);
         st.update("parallel-core-minimize-undef", m_num_core_minimize_undef);
         st.update("parallel-core-minimize-refined", m_num_core_minimize_refined);
         st.update("parallel-core-minimize-lits-removed", m_num_core_minimize_lits_removed);
@@ -989,6 +958,90 @@ namespace smt {
         vector<node_lease> targets;
         collect_matching_targets_unlocked(lease.node, lease.node->get_literal().get(), g_core, targets);
         backtrack_unlocked(l2g, worker_id, core, &lease, targets.empty() ? nullptr : &targets);
+    }
+
+    void parallel::batch_manager::enqueue_core_minimization(ast_translation& l2g, node* source,
+                                                            expr_ref_vector const& core) {
+        std::scoped_lock lock(mux);
+        if (m_state != state::is_running || !p.m_core_minimizer_worker || !source || core.empty())
+            return;
+        if (core.size() <= 1) {
+            ++m_stats.m_core_min_jobs_skipped;
+            return;
+        }
+
+        scoped_ptr<core_min_job> job = alloc(core_min_job, m, source);
+        for (expr* c : core)
+            job->core.push_back(l2g(c));
+        m_core_min_jobs.push_back(job.detach());
+        ++m_stats.m_core_min_jobs_enqueued;
+        m_core_min_cv.notify_one();
+    }
+
+    bool parallel::batch_manager::wait_for_core_min_job(ast_translation& g2l, search_tree::node<cube_config>*& source,
+                                                        expr_ref_vector& core, reslimit& lim) {
+        std::unique_lock lock(mux);
+        m_core_min_cv.wait(lock, [&]() {
+            return lim.is_canceled() || m_state != state::is_running || !m_core_min_jobs.empty();
+        });
+
+        if (lim.is_canceled() || m_state != state::is_running)
+            return false;
+
+        core_min_job* job = m_core_min_jobs.detach_back();
+        m_core_min_jobs.pop_back();
+        SASSERT(job);
+        source = job->source;
+        core.reset();
+        for (expr* c : job->core)
+            core.push_back(g2l(c));
+        dealloc(job);
+        return source != nullptr;
+    }
+
+    void parallel::batch_manager::publish_minimized_core(ast_translation& l2g, search_tree::node<cube_config>* source,
+                                                         unsigned original_core_size, expr_ref_vector const& minimized_core) {
+        std::scoped_lock lock(mux);
+        if (m_state != state::is_running || !source || minimized_core.size() >= original_core_size) {
+            ++m_stats.m_core_min_jobs_skipped;
+            return;
+        }
+
+        vector<cube_config::literal> g_core;
+        for (expr* c : minimized_core)
+            g_core.push_back(expr_ref(l2g(c), m));
+
+        if (source->get_core().size() <= g_core.size()) {
+            ++m_stats.m_core_min_jobs_skipped;
+            return;
+        }
+
+        IF_VERBOSE(1, verbose_stream() << "Batch manager publishing minimized core "
+                                       << original_core_size << " -> " << g_core.size() << "\n");
+
+        m_search_tree.backtrack(source, g_core);
+
+        vector<node_lease> targets;
+        if (!g_core.empty()) {
+            collect_matching_targets_unlocked(source, g_core[0].get(), g_core, targets);
+            for (auto const& target : targets) {
+                if (!m_search_tree.is_lease_canceled(target.node, target.cancel_epoch))
+                    m_search_tree.backtrack(target.node, g_core);
+            }
+        }
+
+        ++m_stats.m_core_min_jobs_published;
+        cancel_closed_leases_unlocked(UINT_MAX);
+
+        IF_VERBOSE(2, m_search_tree.display(verbose_stream() << bounded_pp_exprs(minimized_core) << "\n"););
+        if (m_search_tree.is_closed()) {
+            IF_VERBOSE(1, verbose_stream() << "Search tree closed by minimized core, setting UNSAT\n");
+            m_state = state::is_unsat;
+            SASSERT(p.ctx.m_unsat_core.empty());
+            for (auto e : m_search_tree.get_core_from_root())
+                p.ctx.m_unsat_core.push_back(e);
+            cancel_background_threads();
+        }
     }
 
     void parallel::batch_manager::collect_matching_targets_unlocked(node* source, expr* lit, vector<cube_config::literal> const& core,
@@ -1095,7 +1148,7 @@ namespace smt {
         // terminate on-demand the workers that are currently exploring the now-closed nodes
         cancel_closed_leases_unlocked(worker_id);
 
-        IF_VERBOSE(1, m_search_tree.display(verbose_stream() << bounded_pp_exprs(core) << "\n"););
+        IF_VERBOSE(2, m_search_tree.display(verbose_stream() << bounded_pp_exprs(core) << "\n"););
         if (m_search_tree.is_closed()) {
             IF_VERBOSE(1, verbose_stream() << "Search tree closed, setting UNSAT\n");
             m_state = state::is_unsat;
@@ -1452,7 +1505,7 @@ namespace smt {
         if (!t)
             return false;
         
-        IF_VERBOSE(1, m_search_tree.display(verbose_stream()); verbose_stream() << "\n";);
+        IF_VERBOSE(2, m_search_tree.display(verbose_stream()); verbose_stream() << "\n";);
         
         lease.node = t;
         lease.cancel_epoch = t->get_cancel_epoch();
@@ -1479,6 +1532,7 @@ namespace smt {
         m_bb_last_batch_processed.reset();
         m_bb_last_batch_processed.resize(m_num_global_bb_threads);
         m_bb_candidates.reset();
+        m_core_min_jobs.reset();
 
         m_search_tree.reset();
         m_search_tree.set_effort_unit(initial_max_thread_conflicts);
@@ -1490,14 +1544,18 @@ namespace smt {
     void parallel::batch_manager::collect_statistics(::statistics &st) const {
         st.update("parallel-num_cubes", m_stats.m_num_cubes);
         st.update("parallel-max-cube-size", m_stats.m_max_cube_depth);
+        st.update("parallel-core-min-jobs-enqueued", m_stats.m_core_min_jobs_enqueued);
+        st.update("parallel-core-min-jobs-published", m_stats.m_core_min_jobs_published);
+        st.update("parallel-core-min-jobs-skipped", m_stats.m_core_min_jobs_skipped);
     }
 
     lbool parallel::operator()(expr_ref_vector const &asms) {
         smt_parallel_params pp(ctx.m_params);
         unsigned num_workers = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
         unsigned num_sls_threads = (pp.sls() ? 1 : 0);
+        unsigned num_core_min_threads = (pp.core_minimize() ? 1 : 0);
         unsigned num_global_bb_threads = pp.num_global_bb_threads();          
-        unsigned total_threads = num_workers + num_sls_threads + num_global_bb_threads;
+        unsigned total_threads = num_workers + num_sls_threads + num_core_min_threads + num_global_bb_threads;
 
         IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << total_threads << " threads\n";);
         ast_manager &m = ctx.m;
@@ -1511,12 +1569,14 @@ namespace smt {
             ~scoped_clear() {
                 p.m_workers.reset();
                 p.m_sls_worker = nullptr;
+                p.m_core_minimizer_worker = nullptr;
                 p.m_global_backbones_workers.reset();
             }
         };
         scoped_clear clear(*this);
 
         m_workers.reset();
+        m_core_minimizer_worker = nullptr;
         
         scoped_limits sl(m.limit());
         flet<unsigned> _nt(ctx.m_fparams.m_threads, 1);
@@ -1530,6 +1590,10 @@ namespace smt {
             m_sls_worker = alloc(sls_worker, *this);
             sl.push_child(&(m_sls_worker->limit()));
         }
+        if (pp.core_minimize()) {
+            m_core_minimizer_worker = alloc(core_minimizer_worker, *this, asms);
+            sl.push_child(&(m_core_minimizer_worker->limit()));
+        }
         for (unsigned i = 0; i < num_global_bb_threads; ++i) {
             auto *w = alloc(backbones_worker, i, *this, asms);
             m_global_backbones_workers.push_back(w);
@@ -1537,6 +1601,7 @@ namespace smt {
         }
         IF_VERBOSE(1, verbose_stream() << "Launched " << m_workers.size() << " CDCL threads, "
                                        << (m_sls_worker ? 1 : 0) << " SLS threads, "
+                                       << (m_core_minimizer_worker ? 1 : 0) << " core minimizer threads, "
                                        << m_global_backbones_workers.size() << " global backbone threads.\n";);
 
         m_batch_manager.initialize(num_global_bb_threads);
@@ -1549,6 +1614,8 @@ namespace smt {
             threads[thread_idx++] = std::thread([&, w]() { w->run(); });                
         if (m_sls_worker)
             threads[thread_idx++] = std::thread([&]() { m_sls_worker->run(); });
+        if (m_core_minimizer_worker)
+            threads[thread_idx++] = std::thread([&]() { m_core_minimizer_worker->run(); });
         for (auto* w : m_global_backbones_workers) 
             threads[thread_idx++] = std::thread([&, w]() { w->run(); });                   
 
@@ -1562,6 +1629,8 @@ namespace smt {
         m_batch_manager.collect_statistics(ctx.m_aux_stats);
         if (m_sls_worker)
             m_sls_worker->collect_statistics(ctx.m_aux_stats);
+        if (m_core_minimizer_worker)
+            m_core_minimizer_worker->collect_statistics(ctx.m_aux_stats);
         for (auto* bb_w : m_global_backbones_workers)
             bb_w->collect_statistics(ctx.m_aux_stats);
 

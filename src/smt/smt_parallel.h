@@ -36,6 +36,7 @@ namespace smt {
 
     class parallel {
         context& ctx;
+        class core_minimizer_worker;
 
         struct shared_clause {
             unsigned source_worker_id;
@@ -85,13 +86,21 @@ namespace smt {
             struct stats {
                 unsigned m_max_cube_depth = 0;
                 unsigned m_num_cubes = 0;
+                unsigned m_core_min_jobs_enqueued = 0;
+                unsigned m_core_min_jobs_published = 0;
+                unsigned m_core_min_jobs_skipped = 0;
+            };
+            using node = search_tree::node<cube_config>;
+            struct core_min_job {
+                node* source = nullptr;
+                expr_ref_vector core;
+                core_min_job(ast_manager& m, node* source) : source(source), core(m) {}
             };
             ast_manager& m;
             parallel& p;
             std::mutex mux;
             state m_state = state::is_running;
             stats m_stats;
-            using node = search_tree::node<cube_config>;
             search_tree::tree<cube_config> m_search_tree;
             vector<node_lease> m_worker_leases;
             
@@ -112,6 +121,10 @@ namespace smt {
             unsigned m_num_global_bb_threads = 0;
             unsigned_vector m_bb_last_batch_processed;
             unsigned m_bb_cancel_epoch = 0; // When a backbone worker finishes early, it increments m_bb_cancel_epoch and notifies all
+
+            // Core minimization job queue
+            std::condition_variable m_core_min_cv;
+            scoped_ptr_vector<core_min_job> m_core_min_jobs;
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
@@ -139,6 +152,10 @@ namespace smt {
                 if (!p.m_global_backbones_workers.empty()) {
                     cancel_backbones_worker();
                     m_bb_cv.notify_all();
+                }
+                if (p.m_core_minimizer_worker) {
+                    p.m_core_minimizer_worker->cancel();
+                    m_core_min_cv.notify_all();
                 }
             }
 
@@ -175,6 +192,11 @@ namespace smt {
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, bool is_first_run, node_lease& lease);
             void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease const& lease);
+            void enqueue_core_minimization(ast_translation& l2g, node* source, expr_ref_vector const& core);
+            bool wait_for_core_min_job(ast_translation& g2l, search_tree::node<cube_config>*& source,
+                                       expr_ref_vector& core, reslimit& lim);
+            void publish_minimized_core(ast_translation& l2g, search_tree::node<cube_config>* source,
+                                        unsigned original_core_size, expr_ref_vector const& minimized_core);
             void try_split(ast_translation& l2g, unsigned worker_id, node_lease const& lease, expr* atom, unsigned effort);
             void release_lease(unsigned worker_id, node_lease const& lease);
             bool lease_canceled(node_lease const& lease);
@@ -251,7 +273,6 @@ namespace smt {
             } // allow for backoff scheme of conflicts within the thread for cube timeouts.
 
             void simplify();
-            void minimize_unsat_core(expr_ref_vector& out_core);
             bb_candidates find_backbone_candidates(unsigned k = 10);
             void prepare_backbone_candidates(u_map<double>& original_activities, phase_snapshots& original_phases);
 
@@ -288,6 +309,30 @@ namespace smt {
                 reslimit &limit() {
                     return m.limit();
                 }
+        };
+
+        class core_minimizer_worker {
+            batch_manager &b;
+            ast_manager m;
+            expr_ref_vector asms;
+            smt_params m_smt_params;
+            scoped_ptr<context> ctx;
+            ast_translation m_g2l, m_l2g;
+
+            unsigned m_num_core_minimize_calls = 0;
+            unsigned m_num_core_minimize_undef = 0;
+            unsigned m_num_core_minimize_refined = 0;
+            unsigned m_num_core_minimize_lits_removed = 0;
+            unsigned m_core_minimize_conflict_budget = 5000;
+
+            bool minimize_unsat_core(expr_ref_vector& core);
+
+        public:
+            core_minimizer_worker(parallel& p, expr_ref_vector const& _asms);
+            void run();
+            void cancel();
+            void collect_statistics(::statistics& st) const;
+            reslimit& limit() { return m.limit(); }
         };
 
         class backbones_worker {
@@ -336,6 +381,7 @@ namespace smt {
         batch_manager m_batch_manager;
         scoped_ptr_vector<worker> m_workers;
         scoped_ptr<sls_worker> m_sls_worker;
+        scoped_ptr<core_minimizer_worker> m_core_minimizer_worker;
         scoped_ptr_vector<backbones_worker> m_global_backbones_workers;
 
     public:
