@@ -2283,6 +2283,10 @@ namespace {
         TRACE(trigger_bug, tout << "interpreter::execute_core\n"; t->display(tout); tout << "\nenode\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";);
         unsigned since_last_check = 0;
 
+           if (m.has_trace_stream()) {
+            m.trace_stream() << "execute core: " << t->get_root_lbl()->get_name() << " " << n->get_expr_id() << "\n";
+        }
+
 #ifdef _PROFILE_MAM
 #ifdef _PROFILE_MAM_EXPENSIVE
         if (t->get_watch().get_seconds() > _PROFILE_MAM_THRESHOLD && t->get_counter() % _PROFILE_MAM_EXPENSIVE_FREQ == 0) {
