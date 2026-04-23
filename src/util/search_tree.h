@@ -32,9 +32,9 @@ Author:
 
 --*/
 
+#pragma once
 #include "util/util.h"
 #include "util/vector.h"
-#pragma once
 
 namespace search_tree {
 
@@ -100,7 +100,11 @@ namespace search_tree {
             for (unsigned i = 0; i < indent; ++i)
                 out << " ";
             Config::display_literal(out, m_literal);
-            out << (get_status() == status::open ? " (o)" : get_status() == status::closed ? " (c)" : " (a)");
+            switch (get_status()) {
+            case status::open:   out << " (o)"; break;
+            case status::closed: out << " (c)"; break;
+            case status::active: out << " (a)"; break;
+            }
             out << "\n";
             if (m_left)
                 m_left->display(out, indent + 2);
@@ -528,6 +532,7 @@ namespace search_tree {
             find_nonclosed_nodes_with_literal_rec(m_root.get(), lit, out);
         }
 
+    private:
         void find_nonclosed_nodes_with_literal_rec(node<Config>* n, literal const& lit, ptr_vector<node<Config>>& out) {
             if (!n)
                 return;
@@ -539,6 +544,7 @@ namespace search_tree {
             find_nonclosed_nodes_with_literal_rec(n->right(), lit, out);
         }
 
+    public:
         void dec_active_workers(node<Config>* n) {
             if (!n)
                 return;
