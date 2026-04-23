@@ -496,8 +496,10 @@ namespace smt {
                 return;
 
             unsigned original_size = core.size();
-            if (original_size == 0)
+            if (original_size <= 1)
                 continue;
+
+            collect_shared_clauses();
 
             expr_ref_vector minimized(m);
             minimized.append(core);
@@ -1011,6 +1013,8 @@ namespace smt {
         for (expr* c : minimized_core)
             g_core.push_back(expr_ref(l2g(c), m));
 
+        // don't publish a minimized core if the node already has an equal-or-smaller core by the time the minimizer thread finishes 
+        // (e.g. from another thread or from backtracking resulotion propagation)
         if (source->get_core().size() <= g_core.size()) {
             ++m_stats.m_core_min_jobs_skipped;
             return;
@@ -1222,6 +1226,16 @@ namespace smt {
         for (expr *e : new_clauses) {
             ctx->assert_expr(e);
             LOG_BB_WORKER(4, " asserting shared clause: " << mk_bounded_pp(e, m, 3) << "\n");
+        }
+    }
+
+    void parallel::core_minimizer_worker::collect_shared_clauses() {
+        expr_ref_vector new_clauses = b.return_shared_clauses(m_g2l, m_shared_clause_limit, UINT_MAX);
+        // iterate over new clauses and assert them in the local context
+        for (expr *e : new_clauses) {
+            ctx->assert_expr(e);
+            IF_VERBOSE(4, verbose_stream() << "Core minimizer asserting shared clause: "
+                                           << mk_bounded_pp(e, m, 3) << "\n";);
         }
     }
 

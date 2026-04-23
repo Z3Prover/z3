@@ -324,8 +324,10 @@ namespace smt {
             unsigned m_num_core_minimize_refined = 0;
             unsigned m_num_core_minimize_lits_removed = 0;
             unsigned m_core_minimize_conflict_budget = 5000;
+            unsigned m_shared_clause_limit = 0;
 
             bool minimize_unsat_core(expr_ref_vector& core);
+            void collect_shared_clauses();
 
         public:
             core_minimizer_worker(parallel& p, expr_ref_vector const& _asms);
