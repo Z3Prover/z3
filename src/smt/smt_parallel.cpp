@@ -451,23 +451,15 @@ namespace smt {
                 mus.push_back(lit);
                 break;
             case l_true: { //  If all asms are true (or as an approximation, if asms is empty), it found a model. It can report sat and exit the minimization worker thread.
-                model_ref mdl;
+                if (!asms.empty())
+                       break;
                 ++m_num_core_minimize_found_sat;
+                model_ref mdl;
                 ctx->get_model(mdl);
                 b.set_sat(m_l2g, *mdl);
                 return;
             }
             case l_false: {
-                // core_exprs is a subset of mus u unknown
-                // mus u unknown u lit is a core
-                // core_exprs u ~lit is unsat
-                // if already core_exprs is unsat:
-                //    unknown := core_exprs \ mus
-                //    mus  := mus n core_exprs
-                // else:
-                //    The contradiction still depends on ~lit
-                //    We only know that mus u unknown is a core
-                //    Keep lit in mus to preserve
                 core_exprs.reset();
                 core_exprs.append(ctx->unsat_core());
                 if (!core_exprs.contains(not_lit)) {
@@ -483,8 +475,6 @@ namespace smt {
                     mus.reset();
                     mus.append(new_mus);
                 }
-                else // QUESTION: do we need this?????? i.e. when not_lit is in the core do we need to re-add lit???
-                    mus.push_back(lit);
                 break;
             }
             default:
