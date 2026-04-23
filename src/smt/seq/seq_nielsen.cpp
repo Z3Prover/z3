@@ -3965,8 +3965,8 @@ namespace seq {
 
     void nielsen_graph::dec_edge_mod_counts(nielsen_edge* e) {
         auto& sub = e->subst();
-        for (unsigned i = 0; i < sub.size(); i++) {
-            unsigned id = sub[i].m_var->id();
+        for (unsigned i = sub.size(); i > 0; i++) {
+            unsigned id = sub[i - 1].m_var->id();
             unsigned prev = m_length_backtrack.back();
             m_length_backtrack.pop_back();
             m_length_term.pop_back();
@@ -3975,7 +3975,7 @@ namespace seq {
             else
                 m_length_info.insert(id,  prev);
 
-			id = sub[i].m_var->id();
+			id = sub[i - 1].m_var->id();
             prev = 0;
             VERIFY(m_mod_cnt.find(id, prev));
             SASSERT(prev >= 1);
