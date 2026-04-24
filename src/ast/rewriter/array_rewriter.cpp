@@ -750,7 +750,10 @@ bool array_rewriter::add_store(expr_ref_vector& args, unsigned num_idxs, expr* e
             }
             if (is_var(e1) && is_ground(e2)) {
                 unsigned idx = to_var(e1)->get_idx();
-                args[num_idxs - idx - 1] = e2;
+                unsigned nidx = num_idxs - idx - 1;
+                if (args.get(nidx) && args.get(nidx) != e2)
+                    return false;
+                args[nidx] = e2;
             }
             else {
                 return false;
