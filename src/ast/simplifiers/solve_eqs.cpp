@@ -244,12 +244,7 @@ namespace euf {
         unsigned count = 0;
         vector<dependent_expr> old_fmls;
         dep_eq_vector eqs;
-        struct reset_unsafe {
-            solve_eqs& s;
-            reset_unsafe(solve_eqs& s): s(s) {}
-            ~reset_unsafe() { s.m_unsafe_vars.reset(); }
-        };
-        reset_unsafe ru(*this);
+        auto _reset_unsafe = on_scope_exit([&]() { m_unsafe_vars.reset(); });
         do {
             old_fmls.reset();
             m_subst_ids.reset();
