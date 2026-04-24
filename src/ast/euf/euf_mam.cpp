@@ -1402,7 +1402,6 @@ namespace euf {
                 // to check it again.
                 get_check_mark(reg) == NOT_CHECKED &&
                 is_ground(m_registers[reg]) &&
-                instr->m_enode != nullptr &&
                 get_pat_lbl_hash(reg) == instr->m_enode->get_lbl_hash();
         }
 
