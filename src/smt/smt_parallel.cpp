@@ -405,6 +405,7 @@ namespace smt {
         g_core.push_back(neg_g_bb_ref);
         vector<node_lease> targets;
         collect_matching_targets_unlocked(nullptr, neg_g_bb_ref, g_core, targets);
+
         if (!targets.empty()) {
             IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
             expr_ref_vector l_core(l2g.from());
@@ -483,7 +484,6 @@ namespace smt {
     }
 
     void parallel::core_minimizer_worker::minimize_unsat_core(expr_ref_vector& core) {
-        expr_ref_vector original_core(core);
         expr_ref_vector unknown(core), mus(m), trial(m); // mus = literals we have NOT managed to eliminate
 
         unsigned original_size = core.size();
@@ -557,7 +557,7 @@ namespace smt {
 
         core.reset();
         core.append(mus);
-        core.append(unknown); // to reflect loop invariant and in case you end up adding an early exit
+        core.append(unknown); // to reflect loop invariant, and in case we add an early exit
         if (core.size() < original_size)
             m_num_core_minimize_lits_removed += original_size - core.size();
         return;
@@ -585,78 +585,6 @@ namespace smt {
         }
     }
 
-    void parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities, phase_snapshots& original_phases) {
-        bb_candidates local_candidates = find_backbone_candidates();
-        b.collect_backbone_candidates(m_l2g, local_candidates);
-        if (m_config.m_local_backbones) {
-            LOG_WORKER(1, " LOCAL BACKBONE DETECTION\n");
-
-            // Pull candidates from the global batch manager pool so that
-            // backbone signals discovered by other workers inform this experiment.
-            // Fall back to locally-derived candidates if the global pool is empty yet.
-            bb_candidates bb_cands = b.return_global_bb_candidates(m_g2l);
-            if (bb_cands.empty()) {
-                LOG_WORKER(1, " no global bb candidates, using local bb candidates\n");
-                bb_cands = local_candidates;
-            }
-
-            for (smt::parallel::bb_candidate const& bb : bb_cands) {
-                // Set the phase of the candidates to the negation of their assumed values
-                LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
-
-                expr* lit = bb.lit.get();
-                expr* atom = lit;
-                
-                // checks whether lit is a negation: if yes, writes the inner expression into atom
-                bool is_negated = m.is_not(lit, atom);
-
-                // Candidates from other workers may not be internalized in this context.
-                if (!ctx->b_internalized(atom))
-                    continue;
-                
-                sat::bool_var v = ctx->get_bool_var(atom);
-                if (v == sat::null_bool_var)
-                    continue;
-
-                bool phase = false;  // set to false if tuning for UNSAT, set to true if tuning for SAT
-                if (is_negated)
-                    phase = !phase;
-
-                // auto const& d = ctx->get_bdata(v);
-                // bool has_phase_snapshot = false;
-                // for (auto const& snapshot : original_phases) {
-                //     if (snapshot.v == v) {
-                //         has_phase_snapshot = true;
-                //         break;
-                //     }
-                // }
-                // if (!has_phase_snapshot) {
-                //     original_phases.push_back(phase_snapshot{v, d.m_phase_available, d.m_phase});
-                // }
-
-                ctx->force_phase(v, phase);
-                LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(lit, m, 3) << " := " << (phase ? "true" : "false") << "\n");
-
-                auto const& activities = ctx->get_activity_vector();
-                double max_activity = 0.0;
-                for (unsigned i = 0; i < activities.size(); ++i)
-                    max_activity = std::max(max_activity, activities[i]);
-
-                // double saved_activity = 0.0;
-                // if (!original_activities.find(v, saved_activity))
-                //     original_activities.insert(v, ctx->get_activity(v));
-
-                // Promote this candidate above all others
-                double eps = 1.0;
-                ctx->set_activity(v, max_activity + eps);
-
-                LOG_WORKER(2, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
-            }
-        }
-        if (!m.inc())
-            return;
-    }
-
     void parallel::worker::run() {
         bool is_first_run = true;
         node_lease lease;
@@ -673,12 +601,10 @@ namespace smt {
         check_cube_start:
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
 
-            u_map<double> original_activities;
-            phase_snapshots original_phases;
-            if (m_config.m_local_backbones || m_config.m_global_backbones) { 
-                prepare_backbone_candidates(original_activities, original_phases);
+            if (m_config.m_global_backbones) {
+                bb_candidates local_candidates = find_backbone_candidates();
+                b.collect_backbone_candidates(m_l2g, local_candidates);
             }
-            
 
             lbool r = check_cube(cube);
 
@@ -691,16 +617,6 @@ namespace smt {
 
              if (!m.inc())
                 return;
-
-            // if (m_config.m_local_backbones) {
-            //     // Restore activities of backbone candidates to old values after the search
-            //     for (auto const& [v, act] : original_activities) {
-            //         ctx->set_activity(v, act);
-            //     }
-            //     for (auto const& snapshot : original_phases) {
-            //         ctx->unforce_phase(snapshot.v, snapshot.original_phase_available, snapshot.original_phase);
-            //     }
-            // }
 
             switch (r) {
             case l_undef: {
@@ -774,7 +690,6 @@ namespace smt {
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_inprocessing = pp.inprocessing();
         m_config.m_global_backbones = pp.num_global_bb_threads() > 0 && !pp.failed_literal_backbones();
-        m_config.m_local_backbones = pp.local_backbones();
         m_config.m_core_minimize = pp.core_minimize();
     }
 
@@ -1032,7 +947,7 @@ namespace smt {
         std::scoped_lock lock(mux);
         if (m_state != state::is_running || !p.m_core_minimizer_worker || !source || core.empty())
             return;
-        if (core.size() == 0) {
+        if (core.size() <= 1) {
             ++m_stats.m_core_min_jobs_skipped;
             return;
         }

@@ -527,7 +527,6 @@ namespace search_tree {
             find_nonclosed_nodes_with_literal_rec(m_root.get(), lit, out);
         }
 
-    private:
         void find_nonclosed_nodes_with_literal_rec(node<Config>* n, literal const& lit, ptr_vector<node<Config>>& out) {
             if (!n)
                 return;
@@ -539,7 +538,6 @@ namespace search_tree {
             find_nonclosed_nodes_with_literal_rec(n->right(), lit, out);
         }
 
-    public:
         void dec_active_workers(node<Config>* n) {
             if (!n)
                 return;

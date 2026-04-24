@@ -51,14 +51,7 @@ namespace smt {
             bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : lit(e, m), age(s), hits(h) {}
         };
 
-        struct phase_snapshot {
-            bool_var v;
-            unsigned original_phase_available;
-            unsigned original_phase;
-        };
-
         using bb_candidates = vector<bb_candidate>;
-        using phase_snapshots = vector<phase_snapshot>;
 
         struct node_lease {
             node* leased_node = nullptr;
@@ -234,7 +227,6 @@ namespace smt {
                 double m_max_conflict_mul = 1.5;
                 bool m_inprocessing = false;
                 bool m_global_backbones = false;
-                bool m_local_backbones = false;
                 bool m_sls = false;
                 unsigned m_inprocessing_delay = 1;
                 unsigned m_max_cube_depth = 20;
@@ -270,7 +262,6 @@ namespace smt {
 
             void simplify();
             bb_candidates find_backbone_candidates(unsigned k = 10);
-            void prepare_backbone_candidates(u_map<double>& original_activities, phase_snapshots& original_phases);
 
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
