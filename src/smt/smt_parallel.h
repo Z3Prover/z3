@@ -166,6 +166,8 @@ namespace smt {
             void cancel_closed_leases_unlocked(unsigned source_worker_id);
             void collect_matching_targets_unlocked(node* source, expr* lit, vector<cube_config::literal> const& core,
                                                    vector<node_lease>& targets);
+            node* find_core_source_unlocked(ast_translation& l2g, node* source, expr_ref_vector const& core);
+            unsigned select_best_core_min_job_unlocked() const;
 
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)), m_global_backbones(m) { }

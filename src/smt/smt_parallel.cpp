@@ -726,7 +726,7 @@ namespace smt {
 
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_inprocessing = pp.inprocessing();
-        m_config.m_global_backbones = pp.num_global_bb_threads() > 0 && !pp.failed_literal_backbones();
+        m_config.m_global_backbones = pp.num_global_bb_chunking_threads() > 0 && !pp.failed_literal_backbones();
         m_config.m_core_minimize = pp.core_minimize();
     }
 
@@ -749,7 +749,7 @@ namespace smt {
         context::copy(p.ctx, *ctx, true);
 
         smt_parallel_params pp(p.ctx.m_params);
-        m_num_global_bb_threads = pp.num_global_bb_threads();
+        m_num_global_bb_threads = pp.num_global_bb_chunking_threads();
         m_use_failed_literal_test = pp.failed_literal_backbones();
     }
 
@@ -989,6 +989,12 @@ namespace smt {
             return;
         }
 
+        source = find_core_source_unlocked(l2g, source, core);
+        if (!source) {
+            ++m_stats.m_core_min_jobs_skipped;
+            return;
+        }
+
         scoped_ptr<core_min_job> job = alloc(core_min_job, m, source);
         for (expr* c : core)
             job->core.push_back(l2g(c));
@@ -1007,6 +1013,8 @@ namespace smt {
         if (lim.is_canceled() || m_state != state::is_running)
             return false;
 
+        unsigned best_idx = select_best_core_min_job_unlocked();
+        m_core_min_jobs.swap(best_idx, m_core_min_jobs.size() - 1);
         core_min_job* job = m_core_min_jobs.detach_back();
         m_core_min_jobs.pop_back();
         SASSERT(job);
@@ -1016,6 +1024,50 @@ namespace smt {
             core.push_back(g2l(c));
         dealloc(job);
         return source != nullptr;
+    }
+
+    // Given a newly closed node, source, and its core, find the lowest ancestor of source that 
+    // contains a core literal, and return it as the source for the core minimization job
+    parallel::node* parallel::batch_manager::find_core_source_unlocked(
+        ast_translation& l2g, node* source, expr_ref_vector const& core) {
+        if (!source)
+            return nullptr;
+
+        vector<cube_config::literal> g_core;
+        for (expr* c : core)
+            g_core.push_back(expr_ref(l2g(c), m));
+
+        for (node* cur = source; cur; cur = cur->parent()) {
+            if (cube_config::literal_is_null(cur->get_literal()))
+                continue;
+            if (any_of(g_core, [&](cube_config::literal const& lit) { return lit == cur->get_literal(); }))
+                return cur;
+        }
+        return nullptr;
+    }
+
+    unsigned parallel::batch_manager::select_best_core_min_job_unlocked() const {
+        SASSERT(!m_core_min_jobs.empty());
+
+        unsigned best_idx = 0;
+        node* best_source = m_core_min_jobs[0]->source;
+        unsigned best_depth = best_source ? best_source->depth() : 0;
+        unsigned best_core_size = m_core_min_jobs[0]->core.size();
+
+        for (unsigned i = 1; i < m_core_min_jobs.size(); ++i) {
+            core_min_job* job = m_core_min_jobs[i];
+            node* job_source = job->source;
+            unsigned job_depth = job_source ? job_source->depth() : 0;
+            unsigned job_core_size = job->core.size();
+
+            // rank first by core source node depth (deepest -> shallowest), then by core size (largest -> smallest)
+            if (job_depth > best_depth || (job_depth == best_depth && job_core_size > best_core_size)) {
+                best_idx = i;
+                best_depth = job_depth;
+                best_core_size = job_core_size;
+            }
+        }
+        return best_idx;
     }
 
     void parallel::batch_manager::publish_minimized_core(ast_translation& l2g, expr_ref_vector const& asms, node* source,
@@ -1596,10 +1648,15 @@ namespace smt {
 
     lbool parallel::operator()(expr_ref_vector const &asms) {
         smt_parallel_params pp(ctx.m_params);
+        unsigned num_global_bb_chunking_threads = pp.num_global_bb_chunking_threads();
+        if (num_global_bb_chunking_threads > 2)
+            throw default_exception("smt_parallel.num_global_bb_chunking_threads must be 0, 1, or 2");
+        if (pp.failed_literal_backbones() && num_global_bb_chunking_threads > 0)
+            throw default_exception("smt_parallel.failed_literal_backbones and smt_parallel.num_global_bb_chunking_threads cannot both be enabled");
         unsigned num_workers = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
         unsigned num_sls_threads = (pp.sls() ? 1 : 0);
         unsigned num_core_min_threads = (pp.core_minimize() ? 1 : 0);
-        unsigned num_global_bb_threads = pp.num_global_bb_threads();          
+        unsigned num_global_bb_threads = pp.failed_literal_backbones() ? 1 : num_global_bb_chunking_threads;
         unsigned total_threads = num_workers + num_sls_threads + num_core_min_threads + num_global_bb_threads;
 
         IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << total_threads << " threads\n";);
