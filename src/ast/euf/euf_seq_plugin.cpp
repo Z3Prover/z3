@@ -269,11 +269,8 @@ namespace euf {
         unsigned lo1, hi1, lo2, hi2;
         if (same_loop_body(a, b, lo1, hi1, lo2, hi2)) {
             ast_manager& m = g.get_manager();
-            expr* body_e = nullptr;
-            unsigned dummy_lo, dummy_hi;
-            m_seq.re.is_loop(a->get_expr(), body_e, dummy_lo, dummy_hi);
-            expr_ref merged(m_seq.re.mk_loop(body_e, lo1 + lo2, hi1 + hi2), m);
             enode* body_n = a->get_arg(0);
+            expr_ref merged(m_seq.re.mk_loop(body_n->get_expr(), lo1 + lo2, hi1 + hi2), m);
             enode* merged_n = mk(merged, 1, &body_n);
             push_merge(n, merged_n);
         }
