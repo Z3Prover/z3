@@ -467,7 +467,9 @@ namespace smt {
         ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
         ctx->pop_to_base_lvl();
+        m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;
+        m_num_shared_units = ctx->assigned_literals().size();
     }
 
     void parallel::core_minimizer_worker::cancel() {
@@ -580,6 +582,7 @@ namespace smt {
             expr_ref_vector minimized(m);
             minimized.append(core);
             minimize_unsat_core(minimized);
+            share_units();
 
             if (minimized.size() < original_size)
                 b.publish_minimized_core(m_l2g, asms, source, original_size, minimized);
@@ -816,6 +819,31 @@ namespace smt {
             if (lit.sign())
                 e = mk_not(e);  // negate if literal is negative
             b.collect_clause(m_l2g, id, e);
+        }
+        m_num_shared_units = sz;
+    }
+
+    void parallel::core_minimizer_worker::share_units() {
+        unsigned sz = ctx->assigned_literals().size();
+        for (unsigned j = m_num_shared_units; j < sz; ++j) {
+            literal lit = ctx->assigned_literals()[j];
+
+            if (ctx->get_assign_level(lit) > ctx->m_base_lvl)
+                continue;
+
+            if (!ctx->is_relevant(lit.var()) && m_share_units_relevant_only)
+                continue;
+
+            if (m_share_units_initial_only && lit.var() >= m_num_initial_atoms)
+                continue;
+
+            expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);
+            if (!e || m.is_and(e) || m.is_or(e))
+                continue;
+
+            if (lit.sign())
+                e = mk_not(e);
+            b.collect_clause(m_l2g, UINT_MAX, e);
         }
         m_num_shared_units = sz;
     }

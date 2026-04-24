@@ -313,9 +313,14 @@ namespace smt {
             unsigned m_num_core_minimize_found_sat = 0;
             unsigned m_core_minimize_conflict_budget = 5000;
             unsigned m_shared_clause_limit = 0;
+            unsigned m_num_shared_units = 0;
+            unsigned m_num_initial_atoms = 0;
+            bool m_share_units_relevant_only = true;
+            bool m_share_units_initial_only = true;
 
             void minimize_unsat_core(expr_ref_vector& core);
             void collect_shared_clauses();
+            void share_units();
 
         public:
             core_minimizer_worker(parallel& p, expr_ref_vector const& _asms);
