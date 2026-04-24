@@ -217,45 +217,10 @@ namespace seq {
 
     nielsen_edge::nielsen_edge(nielsen_node* src, nielsen_node* tgt, bool is_progress):
         m_src(src), m_tgt(tgt),
-        m_len_updates(src->graph().get_manager()), m_is_progress(is_progress) { }
+        m_is_progress(is_progress) { }
 
     void nielsen_edge::add_subst(nielsen_subst const& s) {
-        DEBUG_CODE(
-            euf::snode_vector tokens;
-            s.m_replacement->collect_tokens(tokens);
-            unsigned cnt = 0;
-            for (euf::snode* e : tokens) {
-                cnt += e == s.m_var;
-            }
-            SASSERT(cnt <= 1);
-        );
         m_subst.push_back(s);
-        nielsen_graph& g = src()->graph();
-        if (s.is_eliminating()) {
-            // TODO: Is this entirely correct?
-            m_len_updates.push_back(g.a.mk_int(0));
-            add_side_constraint(constraint(g.a.mk_eq(
-                g.a.mk_int(0),
-                g.a.mk_sub(
-                    g.compute_length_expr(s.m_var),
-                    g.compute_length_expr(s.m_replacement)
-                    )), s.m_dep, g.get_manager()));
-            std::cout << "Adding side condition: " << mk_pp(m_side_constraints.back().fml, g.get_manager()) << std::endl;
-            0 == 0;
-        }
-        else {
-            expr_ref sum(
-                 g.a.mk_sub(
-                     g.a.mk_mul(g.a.mk_int(2), g.compute_length_expr(s.m_var)),
-                     g.compute_length_expr(s.m_replacement)
-                 ), g.get_manager());
-            th_rewriter th(g.get_manager());
-            th(sum);
-            m_len_updates.push_back(sum);
-            add_side_constraint(constraint(g.a.mk_le(g.a.mk_int(0), sum), s.m_dep, g.get_manager()));
-            std::cout << "Adding side condition: " << mk_pp(m_side_constraints.back().fml, g.get_manager()) << std::endl;
-            0 == 0;
-        }
     }
 
     // -----------------------------------------------
@@ -449,7 +414,6 @@ namespace seq {
         a(sg.get_manager()),
         m_seq(sg.get_seq_util()),
         m_sg(sg),
-        m_length_term(m),
         m_solver(solver),
         m_core_solver(core_solver),
         m_parikh(alloc(seq_parikh, sg)),
@@ -543,7 +507,8 @@ namespace seq {
         m_fresh_cnt = 0;
         m_root_constraints_asserted = false;
         m_mod_cnt.reset();
-        m_length_term.reset();
+        m_length_trail.reset();
+        m_length_info.reset();
         m_dep_mgr.reset();
         m_solver.reset();
         m_core_solver.reset();
@@ -1639,7 +1604,7 @@ namespace seq {
 
                 for (euf::snode* t : tokens) {
                     if (t->is_var()) {
-                        nielsen_subst s(t, m_sg.mk_empty_seq(t->get_sort()), eq.m_dep);
+                        nielsen_subst s(t, m_sg.mk_empty_seq(t->get_sort()), nullptr, eq.m_dep);
                         e->add_subst(s);
                         child->apply_subst(m_sg, s);
                     } else if (t->is_power()) {
@@ -1648,7 +1613,7 @@ namespace seq {
                         if (seq().str.is_power(expr_node, pow_base, pow_exp) && pow_exp) {
                             e->add_side_constraint(mk_constraint(m.mk_eq(pow_exp, a.mk_int(0)), eq.m_dep));
                         }
-                        nielsen_subst s(t, m_sg.mk_empty_seq(t->get_sort()), eq.m_dep);
+                        nielsen_subst s(t, m_sg.mk_empty_seq(t->get_sort()), nullptr, eq.m_dep);
                         e->add_subst(s);
                         child->apply_subst(m_sg, s);
                     }
@@ -1690,7 +1655,7 @@ namespace seq {
 
                         if (lt->is_char())
                             std::swap(lt, rt);
-                        nielsen_subst subst(lt, rt, eq.m_dep);
+                        nielsen_subst subst(lt, rt, m_sg.mk(a.mk_int(1)), eq.m_dep);
                         e->add_subst(subst);
                         child->apply_subst(m_sg, subst);
 
@@ -1725,7 +1690,7 @@ namespace seq {
 
                         if (lt->is_char())
                             std::swap(lt, rt);
-                        nielsen_subst subst(lt, rt, eq.m_dep);
+                        nielsen_subst subst(lt, rt, nullptr, eq.m_dep);
                         e->add_subst(subst);
                         child->apply_subst(m_sg, subst);
 
@@ -1756,7 +1721,7 @@ namespace seq {
                     // Directional base/head mismatch -> force exponent 0 and power -> ε.
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, true);
-                    nielsen_subst s(pow_head, m_sg.mk_empty_seq(pow_head->get_sort()), eq.m_dep);
+                    nielsen_subst s(pow_head, m_sg.mk_empty_seq(pow_head->get_sort()), nullptr, eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
                     expr* pow_exp = get_power_exp_expr(pow_head, m_seq);
@@ -1909,7 +1874,9 @@ namespace seq {
                     prefix_sn = dir_concat(m_sg, prefix_sn, char_toks[j], fwd);
                 }
                 euf::snode* replacement = dir_concat(m_sg, prefix_sn, var_node, fwd);
-                nielsen_subst s(var_node, replacement, eq.m_dep);
+                nielsen_subst s(var_node, replacement, 
+                                m_sg.mk(a.mk_sub(compute_length_expr(var_node), compute_length_expr(prefix_sn))),
+                                eq.m_dep);
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
                 e->add_subst(s);
@@ -1942,7 +1909,7 @@ namespace seq {
             if (var) {
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
-                nielsen_subst s(var, def, eq.m_dep);
+                nielsen_subst s(var, def, nullptr, eq.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
                 return true;
@@ -1969,14 +1936,14 @@ namespace seq {
                 if (char_head && var_head) {
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, true);
-                    nielsen_subst s1(var_head, m_sg.mk_empty_seq(var_head->get_sort()), eq.m_dep);
+                    nielsen_subst s1(var_head, m_sg.mk_empty_seq(var_head->get_sort()), nullptr, eq.m_dep);
                     e->add_subst(s1);
                     child->apply_subst(m_sg, s1);
 
                     euf::snode* replacement = dir_concat(m_sg, char_head, var_head, fwd);
                     child = mk_child(node);
                     e = mk_edge(node, child, false);
-                    nielsen_subst s2(var_head, replacement, eq.m_dep);
+                    nielsen_subst s2(var_head, replacement, m_sg.mk(a.mk_sub(compute_length_expr(var_head), a.mk_int(1))), eq.m_dep);
                     e->add_subst(s2);
                     child->apply_subst(m_sg, s2);
                     return true;
@@ -2007,7 +1974,7 @@ namespace seq {
                 {
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, true);
-                    nielsen_subst s(lhead, m_sg.mk_empty_seq(lhead->get_sort()), eq.m_dep);
+                    nielsen_subst s(lhead, m_sg.mk_empty_seq(lhead->get_sort()), nullptr, eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
                 }
@@ -2015,7 +1982,7 @@ namespace seq {
                 {
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, true);
-                    nielsen_subst s(rhead, m_sg.mk_empty_seq(rhead->get_sort()), eq.m_dep);
+                    nielsen_subst s(rhead, m_sg.mk_empty_seq(rhead->get_sort()), nullptr, eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
                 }
@@ -2024,7 +1991,9 @@ namespace seq {
                     euf::snode* replacement = dir_concat(m_sg, rhead, lhead, fwd);
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, false);
-                    nielsen_subst s(lhead, replacement, eq.m_dep);
+                    nielsen_subst s(lhead, replacement, 
+                        m_sg.mk(a.mk_sub(compute_length_expr(lhead), compute_length_expr(rhead))), 
+                        eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
                 }
@@ -2033,7 +2002,9 @@ namespace seq {
                     euf::snode* replacement = dir_concat(m_sg, lhead, rhead, fwd);
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, false);
-                    nielsen_subst s(rhead, replacement, eq.m_dep);
+                    nielsen_subst s(rhead, replacement,
+                                    m_sg.mk(a.mk_sub(compute_length_expr(rhead), compute_length_expr(lhead))),
+                                    eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
                 }
@@ -2567,7 +2538,7 @@ namespace seq {
         if (base->is_var()) {
             child = mk_child(node);
             e = mk_edge(node, child, true);
-            nielsen_subst s1(base, m_sg.mk_empty_seq(base->get_sort()), dep);
+            nielsen_subst s1(base, m_sg.mk_empty_seq(base->get_sort()), nullptr, dep);
             e->add_subst(s1);
             child->apply_subst(m_sg, s1);
         }
@@ -2575,7 +2546,7 @@ namespace seq {
         // Branch 2: replace the power token itself with ε (n = 0 semantics)
         child = mk_child(node);
         e = mk_edge(node, child, true);
-        nielsen_subst s2(power, m_sg.mk_empty_seq(power->get_sort()), dep);
+        nielsen_subst s2(power, m_sg.mk_empty_seq(power->get_sort()), nullptr, dep);
         e->add_subst(s2);
         child->apply_subst(m_sg, s2);
 
@@ -2731,7 +2702,7 @@ namespace seq {
         // Side constraint: n = 0
         nielsen_node *child = mk_child(node);
         nielsen_edge *e = mk_edge(node, child, true);
-        nielsen_subst s1(power, m_sg.mk_empty_seq(power->get_sort()), eq->m_dep);
+        nielsen_subst s1(power, m_sg.mk_empty_seq(power->get_sort()), nullptr, eq->m_dep);
         e->add_subst(s1);
         child->apply_subst(m_sg, s1);
         if (exp_n)
@@ -2755,7 +2726,7 @@ namespace seq {
         euf::snode* replacement = dir_concat(m_sg, base, nested_power_snode, fwd);
         child = mk_child(node);
         e = mk_edge(node, child, true);
-        nielsen_subst s2(power, replacement, eq->m_dep);
+        nielsen_subst s2(power, replacement, nullptr, eq->m_dep);
         e->add_subst(s2);
         child->apply_subst(m_sg, s2);
         if (exp_n)
@@ -3165,7 +3136,7 @@ namespace seq {
 
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, true);
-            nielsen_subst s(var, replacement, eq.m_dep);
+            nielsen_subst s(var, replacement, nullptr, eq.m_dep); // TODO review
             e->add_subst(s);
             child->apply_subst(m_sg, s);
 
@@ -3445,7 +3416,7 @@ namespace seq {
             {
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
-                nielsen_subst s(first, m_sg.mk_empty_seq(first->get_sort()), mem.m_dep);
+                nielsen_subst s(first, m_sg.mk_empty_seq(first->get_sort()), nullptr, mem.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
                 created = true;
@@ -3498,7 +3469,7 @@ namespace seq {
                 euf::snode* replacement = m_sg.mk_concat(fresh_char, first);
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, false);
-                nielsen_subst s(first, replacement, mem.m_dep);
+                nielsen_subst s(first, replacement, m_sg.mk(a.mk_sub(compute_length_expr(first), a.mk_int(1))), mem.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
                 // Constrain fresh_char to the character class of this minterm.
@@ -3593,7 +3564,7 @@ namespace seq {
 
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
-                nielsen_subst s(var_head, replacement, eq->m_dep);
+                nielsen_subst s(var_head, replacement, nullptr, eq->m_dep); // TODO review
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
 
@@ -3620,7 +3591,7 @@ namespace seq {
             euf::snode* replacement = dir_concat(m_sg, power, fresh_tail, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);
-            nielsen_subst s(var_head, replacement, eq->m_dep);
+            nielsen_subst s(var_head, replacement, nullptr, eq->m_dep); // TODO - review
             e->add_subst(s);
             child->apply_subst(m_sg, s);
         }
@@ -3657,7 +3628,7 @@ namespace seq {
         {
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, true);
-            nielsen_subst s(power, m_sg.mk_empty_seq(power->get_sort()), eq->m_dep);
+            nielsen_subst s(power, m_sg.mk_empty_seq(power->get_sort()), nullptr, eq->m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
             if (exp_n)
@@ -3672,7 +3643,7 @@ namespace seq {
             euf::snode* replacement = dir_concat(m_sg, base, fresh, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);
-            nielsen_subst s(power, replacement, eq->m_dep);
+            nielsen_subst s(power, replacement, nullptr, eq->m_dep); // TODO review
             e->add_subst(s);
             child->apply_subst(m_sg, s);
             if (exp_n)
@@ -3701,7 +3672,7 @@ namespace seq {
         {
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, true);
-            nielsen_subst s(power, m_sg.mk_empty_seq(power->get_sort()), mem->m_dep);
+            nielsen_subst s(power, m_sg.mk_empty_seq(power->get_sort()), nullptr, mem->m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
             if (exp_n)
@@ -3716,7 +3687,7 @@ namespace seq {
             euf::snode* replacement = dir_concat(m_sg, base, fresh, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);
-            nielsen_subst s(power, replacement, mem->m_dep);
+            nielsen_subst s(power, replacement, nullptr, mem->m_dep); // TODO review
             e->add_subst(s);
             child->apply_subst(m_sg, s);
             if (exp_n)
@@ -3783,9 +3754,9 @@ namespace seq {
             return expr_ref(a.mk_add(left, right), m);
         }
 
-        unsigned len_idx = 0;
-        if (m_length_info.find(n->id(), len_idx))
-            return expr_ref(m_length_term.get(len_idx), m);
+        euf::snode *length_term = nullptr;
+        if (m_length_info.find(n->id(), length_term) && length_term)
+            return expr_ref(length_term->get_expr(), m);
         return expr_ref(m_seq.str.mk_length(n->get_expr()), m);
     }
 
@@ -3947,36 +3918,30 @@ namespace seq {
             dec_edge_mod_counts(e);
     }
 
-    void nielsen_graph::inc_edge_mod_counts(nielsen_edge* e) {
-        auto& sub = e->subst();
-        for (unsigned i = 0; i < sub.size(); i++) {
-            unsigned id = sub[i].m_var->id();
-            unsigned prev = UINT_MAX;
-            m_length_info.find(id,  prev);
-            m_length_backtrack.push_back(prev);
-            m_length_info.insert(id,  m_length_term.size());
-            m_length_term.push_back(e->len_updates(i));
-
-            prev = 0;
+    void nielsen_graph::inc_edge_mod_counts(nielsen_edge* e) {        
+        for (auto const &s : e->subst()) {
+            unsigned id = s.m_var->id();
+            if (s.m_length) {
+                euf::snode *old_length = nullptr;
+                m_length_info.find(id, old_length);
+                m_length_trail.push_back(old_length);
+                m_length_info.insert(id, s.m_length);
+            }
+            unsigned prev = 0;
             m_mod_cnt.find(id, prev);
             m_mod_cnt.insert(id, prev + 1);
         }
     }
 
     void nielsen_graph::dec_edge_mod_counts(nielsen_edge* e) {
-        auto& sub = e->subst();
-        for (unsigned i = sub.size(); i-- > 0;) {
-            unsigned id = sub[i].m_var->id();
-            unsigned prev = m_length_backtrack.back();
-            m_length_backtrack.pop_back();
-            m_length_term.pop_back();
-            if (prev == UINT_MAX)
-                m_length_info.remove(id);
-            else
-                m_length_info.insert(id,  prev);
-
-			id = sub[i].m_var->id();
-            prev = 0;
+        for (auto const &s : e->subst()) {
+            unsigned id = s.m_var->id();
+            if (s.m_length) {
+                auto old_length = m_length_trail.back();
+                m_length_trail.pop_back();
+                m_length_info.insert(id, old_length);
+            }
+            unsigned prev = 0;
             VERIFY(m_mod_cnt.find(id, prev));
             SASSERT(prev >= 1);
             if (prev <= 1)

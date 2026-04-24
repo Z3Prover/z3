@@ -455,11 +455,12 @@ namespace seq {
     struct nielsen_subst {
         euf::snode* m_var;
         euf::snode* m_replacement;
+        euf::snode *m_length = nullptr; // representation of length if this is a sequence variable, null otherwise.
         dep_tracker m_dep;
 
         nielsen_subst(): m_var(nullptr), m_replacement(nullptr), m_dep(nullptr) {}
-        nielsen_subst(euf::snode* var, euf::snode* repl, dep_tracker const& dep):
-            m_var(var), m_replacement(repl), m_dep(dep) {
+        nielsen_subst(euf::snode* var, euf::snode* repl, euf::snode* length, dep_tracker const& dep):
+            m_var(var), m_replacement(repl), m_length(length), m_dep(dep) {
             SASSERT(var != nullptr);
             SASSERT(repl != nullptr);
             // var may be s_var or s_power; sgraph::subst uses pointer identity matching
@@ -532,7 +533,6 @@ namespace seq {
         nielsen_node*           m_src;
         nielsen_node*           m_tgt;
         vector<nielsen_subst>   m_subst;
-        expr_ref_vector         m_len_updates;
         vector<constraint>      m_side_constraints;  // side constraints: integer equalities/inequalities
         bool                    m_is_progress;     // does this edge represent progress?
         bool                    m_len_constraints_computed = false; // lazily computed substitution length constraints
@@ -548,8 +548,6 @@ namespace seq {
         // applying it only to the node is NOT sufficient (otw. length counters are not in sync)
         vector<nielsen_subst> const& subst() const { return m_subst; }
         void add_subst(nielsen_subst const& s);
-
-        expr* len_updates(unsigned i) const { return m_len_updates.get(i); }
 
         void add_side_constraint(constraint const& ic) { m_side_constraints.push_back(ic); }
         vector<constraint> const& side_constraints() const { return m_side_constraints; }
@@ -844,9 +842,9 @@ namespace seq {
         std::function<sat::literal(expr *)> m_literal_if_false;
 
         // Maps each variable to its current length term
-        expr_ref_vector               m_length_term;
-        unsigned_vector               m_length_backtrack;
-        map<unsigned, unsigned, unsigned_hash, unsigned_eq> m_length_info;
+
+        ptr_vector<euf::snode>        m_length_trail;
+        u_map<euf::snode *>           m_length_info;
         u_map<unsigned>               m_mod_cnt;
 
         // Arena for dep_tracker nodes.  Declared mutable so that const methods
