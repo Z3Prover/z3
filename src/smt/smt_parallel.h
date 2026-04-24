@@ -104,7 +104,7 @@ namespace smt {
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
 
             bb_candidates m_bb_candidates;
-            unsigned m_max_global_bb_candidates = 100;
+            unsigned m_max_global_bb_candidates = 500;
             unsigned m_bb_batch_size = 150;
             expr_ref_vector m_global_backbones;
 
@@ -368,7 +368,7 @@ namespace smt {
             void run_batch_mode();
             void run_failed_literal_mode();
             lbool check_sat(expr_ref_vector const &asms);
-            lbool probe_literal(bool_var v, uint_set& units, expr *e);
+            lbool probe_literal(bool_var v, expr *e);
         public:
             backbones_worker(unsigned id, parallel &p, expr_ref_vector const &_asms);
             void cancel();

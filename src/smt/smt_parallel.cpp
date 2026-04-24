@@ -133,44 +133,79 @@ namespace smt {
     void parallel::backbones_worker::run_failed_literal_mode() {
         ctx->get_fparams().m_max_conflicts = 10;
         auto num_atoms = ctx->get_num_bool_vars();
-        uint_set units;
-        for (unsigned v = 0; v < num_atoms && m.inc(); ++v)
-            if (ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl)
-                units.insert(v);
+
+        auto is_unit = [&](unsigned v) {
+            return ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl;
+        };
+
+        auto probe_var = [&](unsigned v, expr* preferred) -> lbool {
+            expr_ref e(ctx->bool_var2expr(v), m);
+            if (!e)
+                return l_undef;
+            if (m.is_or(e) || m.is_ite(e))
+                return l_undef;
+
+            if (is_unit(v)) {
+                bool is_true = ctx->get_assignment(v) == l_true;
+                IF_VERBOSE(2, verbose_stream() << "backbone on trail " << e << "\n");
+                if (!is_true)
+                    e = m.mk_not(e);
+                if (b.collect_global_backbone(m_l2g, e))
+                    m_stats.m_backbones_found++;
+                return l_undef;
+            }
+
+            expr_ref first(e, m), second(mk_not(e), m);
+            if (preferred) {
+                expr* atom = preferred;
+                bool is_negated = m.is_not(preferred, atom);
+                first = is_negated ? mk_not(e) : e;
+                second = is_negated ? e : mk_not(e);
+            }
+
+            auto r = probe_literal(v, first.get());
+            if (r != l_undef || is_unit(v))
+                return r;
+
+            return probe_literal(v, second.get());
+        };
+
         while (m.inc()) {
+            uint_set prioritized; // per-round dedup set of bb candidates
+            lbool r = l_undef;
             collect_shared_clauses();
-            for (unsigned v = 0; v < num_atoms && m.inc(); ++v) {
-                if (units.contains(v))
+            
+            for (auto const& candidate : b.return_global_bb_candidates(m_g2l)) {
+                expr* lit = candidate.lit.get();
+                expr* atom = lit;
+                m.is_not(lit, atom);
+                if (!ctx->b_internalized(atom))
                     continue;
-                expr_ref e(ctx->bool_var2expr(v), m);
-                if (!e)
+
+                sat::bool_var v = ctx->get_bool_var(atom);
+                if (v == sat::null_bool_var || prioritized.contains(v))
                     continue;
-                if (m.is_or(e) || m.is_ite(e))
-                    continue;
-                if (ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl) {
-                    bool is_true = ctx->get_assignment(v) == l_true;
-                    IF_VERBOSE(2, verbose_stream() << "backbone on trail " << e << "\n");
-                    units.insert(v);
-                    if (!is_true)
-                        e = m.mk_not(e);
-                    if (b.collect_global_backbone(m_l2g, e))
-                        m_stats.m_backbones_found++;                                            
-                    continue;
-                }
-                auto r = probe_literal(v, units, e);
+                prioritized.insert(v);
+
+                r = probe_var(v, lit);
                 if (r != l_undef)
                     break;
-                if (units.contains(v))
+            }
+
+            if (r != l_undef)
+                continue;
+
+            for (unsigned v = 0; v < num_atoms && m.inc(); ++v) {
+                if (prioritized.contains(v))
                     continue;
-                e = mk_not(e);
-                r = probe_literal(v, units, e);
+                r = probe_var(v, nullptr);
                 if (r != l_undef)
                     break;
             }
         }
     }
 
-    lbool parallel::backbones_worker::probe_literal(bool_var v, uint_set& units, expr *e) {
+    lbool parallel::backbones_worker::probe_literal(bool_var v, expr *e) {
         asms.push_back(e);
         auto r = check_sat(asms);
         asms.pop_back();
@@ -184,7 +219,6 @@ namespace smt {
             if (b.collect_global_backbone(m_l2g, not_e))
                 m_stats.m_backbones_found++;
             ctx->assert_expr(not_e);
-            units.insert(v);
             r = l_undef;
         }
         if (r == l_true) {
