@@ -138,6 +138,7 @@ namespace smt {
             if (ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl)
                 units.insert(v);
         while (m.inc()) {
+            collect_shared_clauses();
             for (unsigned v = 0; v < num_atoms && m.inc(); ++v) {
                 if (units.contains(v))
                     continue;
