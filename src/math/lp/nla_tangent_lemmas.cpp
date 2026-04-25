@@ -18,6 +18,12 @@ class tangent_imp {
     rational      m_correct_v;
     // "below" means that the incorrect value is less than the correct one, that is m_v < m_correct_v
     bool          m_below;
+    // pl is in the strict interior of the bound box (model-driven points
+    // get_initial_points + push_point); McCormick at the box corners
+    // requires non-strict inequality because the tangent meets the surface
+    // along the box's edges (xy = pl.y*x + pl.x*y - pl.x*pl.y at x = pl.x
+    // or y = pl.y).
+    bool          m_pl_strict_interior = true;
     rational      m_v; // the monomial value 
     lpvar         m_j; // the monic variable
     const monic&  m_m;
@@ -89,7 +95,10 @@ private:
         t.add_monomial(- m_y.rat_sign()*pl.x, m_jy);
         t.add_monomial(- m_x.rat_sign()*pl.y, m_jx);
         t.add_var(m_j);
-        lemma |= ineq(t, m_below? llc::GT : llc::LT, - pl.x*pl.y);
+        llc cmp = m_below
+            ? (m_pl_strict_interior ? llc::GT : llc::GE)
+            : (m_pl_strict_interior ? llc::LT : llc::LE);
+        lemma |= ineq(t, cmp, - pl.x*pl.y);
         explain(lemma);
     }
 
@@ -164,14 +173,61 @@ private:
         return a.x * m_xy.y + a.y * m_xy.x - a.x * a.y;
     }
 
+    // McCormick at box corners: choose m_a, m_b at the corners of
+    // [x_lo, x_hi] x [y_lo, y_hi] that bound xy from the side dictated by
+    // m_below. Returns false if either factor has an unbounded side, the
+    // box is degenerate, or the current LP value of a factor coincides with
+    // a chosen corner — generate_plane's negate_relation requires
+    // val(j) != corner_coord (SASSERT in debug; trivially-true literal in
+    // release). The caller falls back to the model-driven point selection in
+    // these cases.
+    bool set_box_corners() {
+        if (!c().has_lower_bound(m_jx) || !c().has_upper_bound(m_jx))
+            return false;
+        if (!c().has_lower_bound(m_jy) || !c().has_upper_bound(m_jy))
+            return false;
+        rational const& x_lo = c().get_lower_bound(m_jx);
+        rational const& x_hi = c().get_upper_bound(m_jx);
+        rational const& y_lo = c().get_lower_bound(m_jy);
+        rational const& y_hi = c().get_upper_bound(m_jy);
+        if (x_lo == x_hi || y_lo == y_hi)
+            return false;
+        // negate_relation requires the model value to be strictly separated
+        // from the corner coordinate it's compared to. If LP currently sits
+        // exactly at a box edge, fall back.
+        rational const& vx = c().val(m_jx);
+        rational const& vy = c().val(m_jy);
+        if (vx == x_lo || vx == x_hi || vy == y_lo || vy == y_hi)
+            return false;
+        if (m_below) {
+            // Under-approximation: tangents at (x_lo, y_lo) and (x_hi, y_hi)
+            // bound xy from below across the box.
+            m_a = point(x_lo, y_lo);
+            m_b = point(x_hi, y_hi);
+        } else {
+            // Over-approximation: anti-diagonal corners.
+            m_a = point(x_lo, y_hi);
+            m_b = point(x_hi, y_lo);
+        }
+        m_pl_strict_interior = false;
+        return true;
+    }
+
     void get_points() {
+        if (c().params().arith_nl_tangents_box_corners() && set_box_corners()) {
+            // Box corners are extremes; pushing further moves out of the box
+            // and would invalidate the McCormick property.
+            TRACE(nla_solver, tout << "xy = " << m_xy << ", box-corner points: ";
+                  print_tangent_domain(tout) << std::endl;);
+            return;
+        }
         get_initial_points();
         TRACE(nla_solver, tout << "xy = " << m_xy << ", correct val = " << m_correct_v;
               print_tangent_domain(tout << "\ntang points:") << std::endl;);
-        push_point(m_a);        
+        push_point(m_a);
         push_point(m_b);
         TRACE(nla_solver,
-              tout << "pushed a = " << m_a << std::endl 
+              tout << "pushed a = " << m_a << std::endl
               << "pushed b = " << m_b << std::endl
               << "tang_plane(a) = " << tang_plane(m_a) << " , val = " << m_a << ", "
               << "tang_plane(b) = " << tang_plane(m_b) << " , val = " << m_b << std::endl;);
