@@ -21,6 +21,7 @@ Revision History:
 #include "smt/smt_context.h"
 #include "util/search_tree.h"
 #include "ast/sls/sls_smt_solver.h"
+#include <atomic>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -51,7 +52,14 @@ namespace smt {
             bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : lit(e, m), age(s), hits(h) {}
         };
 
+        struct phase_snapshot {
+            bool_var v;
+            unsigned original_phase_available;
+            unsigned original_phase;
+        };
+
         using bb_candidates = vector<bb_candidate>;
+        using phase_snapshots = vector<phase_snapshot>;
 
         struct node_lease {
             node* leased_node = nullptr;
@@ -104,10 +112,10 @@ namespace smt {
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
 
             bb_candidates m_bb_candidates;
-            unsigned m_max_global_bb_candidates = 500;
+            unsigned m_max_global_bb_candidates = 1000;
             unsigned m_bb_batch_size = 150;
             expr_ref_vector m_global_backbones;
-            unsigned m_bb_candidate_epoch = 0;
+            std::atomic<unsigned> m_bb_candidate_epoch = 0;
 
             // Backbone job queue
             std::condition_variable m_bb_cv;
@@ -187,8 +195,7 @@ namespace smt {
             bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, vector<parallel::bb_candidate>& out, reslimit& lim);
             bb_candidates return_global_bb_candidates(ast_translation& g2l, unsigned& epoch);
             bool has_new_backbone_candidates(unsigned epoch) {
-                std::scoped_lock lock(mux);
-                return m_bb_candidate_epoch != epoch;
+                return m_bb_candidate_epoch.load(std::memory_order_acquire) != epoch;
             }
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, bool is_first_run, node_lease& lease);
@@ -234,6 +241,7 @@ namespace smt {
                 double m_max_conflict_mul = 1.5;
                 bool m_inprocessing = false;
                 bool m_global_backbones = false;
+                bool m_local_backbones = false;
                 bool m_sls = false;
                 unsigned m_inprocessing_delay = 1;
                 unsigned m_max_cube_depth = 20;
@@ -269,6 +277,7 @@ namespace smt {
 
             void simplify();
             bb_candidates find_backbone_candidates(unsigned k = 10);
+            void prepare_backbone_candidates(u_map<double>& original_activities, phase_snapshots& original_phases);
 
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
@@ -363,6 +372,7 @@ namespace smt {
             ast_translation m_g2l, m_l2g;
             unsigned m_bb_chunk_size = 20;
             unsigned m_bb_conflicts_per_chunk = 1000;
+            unsigned m_max_failed_literal_prioritized_size = 100;
             bool m_use_failed_literal_test;
             stats m_stats;
             bb_mode m_mode;
