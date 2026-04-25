@@ -112,7 +112,7 @@ namespace smt {
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
 
             bb_candidates m_bb_candidates;
-            unsigned m_max_global_bb_candidates = 1000;
+            unsigned m_max_global_bb_candidates = 100;
             unsigned m_bb_batch_size = 150;
             expr_ref_vector m_global_backbones;
             std::atomic<unsigned> m_bb_candidate_epoch = 0;
