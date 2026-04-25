@@ -831,7 +831,9 @@ namespace smt {
                 ctx.push_trail(value_trail(m_should_internalize));
                 m_should_internalize = true;
                 break;
-            }
+            }    
+            // use assumptions to bound search
+            // "propagate(m_assumption_lit, lit)"; // to force the phase of lit to be true or force a conflict
         }
         return all_sat;
     }
@@ -1573,6 +1575,48 @@ namespace smt {
         }
 
         return true;
+    }
+
+    // -----------------------------------------------------------------------
+    // Use theory assumptions to bound search depth and force literal assignments
+    // m_assumption_lit gets added as an assumption to the set of existing assumptions.
+    // If it is part of a core, a the epoch of the assumption literal is increased
+    // such that the current core can be unblocked in the next round of search.
+    // 
+    // Suppose we would like to force a literal lit_i
+    // We would assert:
+    //     m_assumption_lit => lit_i
+    // If there is an infeasible subset containing m_assumption_lit, one
+    // or more of the forced literals is conflicting and have to be relaxed.
+    // 
+    // A base level scheme for using forced literals can be as follows:
+    // We can keep track of the set of forced literals lit_i that were implied by m_assumption_lit
+    // in a given round. Then we can selectively force each of these to learn exactly which are
+    // part of a core.
+    // Say they are lit_1, lit_2, lit_3.
+    // Let us mark lit_1 as tabu. 
+    // Literals that are marked as tabu will not be forced in subsequent rounds of final_check_eh.
+    // 
+    // -----------------------------------------------------------------------
+
+    bool theory_nseq::should_research(expr_ref_vector& core) {
+        for (auto c : core)
+            if (m_axioms.sk().is_max_unfolding(c)) {
+                // one or more of the "m_nielsen_literals" cannot be forced.
+                ctx.push_trail(value_trail(m_max_unfolding_depth));
+                ++m_max_unfolding_depth;                
+                return true;
+            }
+        return false;
+    }
+
+    void theory_nseq::add_theory_assumptions(expr_ref_vector& assumptions) {
+        if (m_seq.has_seq()) {
+            expr_ref dlimit = m_axioms.sk().mk_max_unfolding_depth(m_max_unfolding_depth);
+            ctx.push_trail(value_trail(m_assumption_lit));
+            m_assumption_lit = mk_literal(dlimit);
+            assumptions.push_back(std::move(dlimit));
+        }
     }
     
 }

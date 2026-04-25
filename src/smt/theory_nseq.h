@@ -66,6 +66,8 @@ namespace smt {
         expr_ref_vector         m_relevant_lengths;     // track variables whose lengths are relevant
         obj_map<expr, unsigned> m_gradient_cache;
         sat::literal_vector     m_nielsen_literals;   // literals created by a Nilsen check
+        sat::literal            m_assumption_lit;     // literal used as assumption to bound search to selected literal assignments
+        unsigned                m_max_unfolding_depth = 0;
 
         // statistics
         unsigned m_num_conflicts        = 0;
@@ -110,6 +112,8 @@ namespace smt {
         void finalize_model(model_generator& mg) override;
         void validate_model(proto_model& mdl) override;
         void collect_statistics(::statistics& st) const override;
+        bool should_research(expr_ref_vector &) override;
+        void add_theory_assumptions(expr_ref_vector &assumptions) override;
 
         char const* get_name() const override { return "nseq"; }
 
