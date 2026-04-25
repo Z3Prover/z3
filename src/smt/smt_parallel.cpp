@@ -139,6 +139,9 @@ namespace smt {
         };
 
         auto probe_var = [&](unsigned v, expr* preferred) -> lbool {
+            if (m_known_backbone_vars.contains(v))
+                return l_undef;
+
             expr_ref e(ctx->bool_var2expr(v), m);
             if (!e)
                 return l_undef;
@@ -150,8 +153,10 @@ namespace smt {
                 IF_VERBOSE(2, verbose_stream() << "backbone on trail " << e << "\n");
                 if (!is_true)
                     e = m.mk_not(e);
-                if (b.collect_global_backbone(m_l2g, e))
+                m_known_backbone_vars.insert(v);
+                if (b.collect_global_backbone(m_l2g, e)) {
                     m_stats.m_backbones_found++;
+                }
                 return l_undef;
             }
 
@@ -171,32 +176,41 @@ namespace smt {
         };
 
         while (m.inc()) {
-            lbool r = l_undef;
             collect_shared_clauses();
 
             unsigned bb_candidate_epoch = 0;
             bb_candidates bb_candidates = b.return_global_bb_candidates(m_g2l, bb_candidate_epoch);
-            unsigned num_candidates_probed = 0;
-            for (auto const& candidate : bb_candidates) {
-                // run the first m_max_failed_literal_prioritized_size without stopping to check for a new batch
-                // then keep checking for a new batch
-                if (num_candidates_probed >= m_max_failed_literal_prioritized_size)// && b.has_new_backbone_candidates(bb_candidate_epoch))
+            bool first_pass = true;
+            while (m.inc()) {
+                lbool terminal_result = l_undef;
+                uint_set seen_vars;
+                for (auto const& candidate : bb_candidates) {
+                    if (!first_pass && b.has_new_backbone_candidates(bb_candidate_epoch))
+                        break;
+
+                    expr* lit = candidate.lit.get();
+                    expr* atom = lit;
+                    m.is_not(lit, atom);
+                    if (!ctx->b_internalized(atom))
+                        continue;
+
+                    sat::bool_var v = ctx->get_bool_var(atom);
+                    if (v == sat::null_bool_var || m_known_backbone_vars.contains(v) || seen_vars.contains(v))
+                        continue;
+                    seen_vars.insert(v);
+
+                    terminal_result = probe_var(v, lit);
+                    if (terminal_result != l_undef)
+                        break;
+                }
+
+                if (terminal_result != l_undef)
                     break;
 
-                expr* lit = candidate.lit.get();
-                expr* atom = lit;
-                m.is_not(lit, atom);
-                if (!ctx->b_internalized(atom))
-                    continue;
-
-                sat::bool_var v = ctx->get_bool_var(atom);
-                if (v == sat::null_bool_var)
-                    continue;
-                ++num_candidates_probed;
-
-                r = probe_var(v, lit);
-                if (r != l_undef)
+                if (b.has_new_backbone_candidates(bb_candidate_epoch))
                     break;
+
+                first_pass = false;
             }
         }
     }
@@ -206,14 +220,20 @@ namespace smt {
         auto r = check_sat(asms);
         asms.pop_back();
         if (r == l_false) {
+            // If the tested literal is not part of the unsat core, then the
+            // formula is UNSAT independently of this failed-literal probe.
             if (!ctx->unsat_core().contains(e)) {
                 b.set_unsat(m_l2g, ctx->unsat_core());
                 return l_false;
             }
+            // Ordinary failed-literal backbone discovery is non-terminal:
+            // share/assert the backbone, then continue probing.
             IF_VERBOSE(2, verbose_stream() << "failed literal " << mk_bounded_pp(e, m) << "\n");
             expr_ref not_e(mk_not(m, e), m);
-            if (b.collect_global_backbone(m_l2g, not_e))
+            m_known_backbone_vars.insert(v);
+            if (b.collect_global_backbone(m_l2g, not_e)) {
                 m_stats.m_backbones_found++;
+            }
             ctx->assert_expr(not_e);
             r = l_undef;
         }
@@ -426,7 +446,7 @@ namespace smt {
             return false;
         
         expr_ref g_bb_ref(l2g(backbone.get()), m);
-        m_global_backbones.push_back(g_bb_ref);
+        m_global_backbones.insert(g_bb_ref.get());
        
         IF_VERBOSE(1, verbose_stream() << " Found and sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
         collect_clause_unlocked(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
@@ -1446,7 +1466,7 @@ namespace smt {
         }
 
         if (changed && !m_bb_candidates.empty()) {
-            // m_bb_candidate_epoch.fetch_add(1, std::memory_order_release);
+            m_bb_candidate_epoch.fetch_add(1, std::memory_order_release);
             std::sort(
                 m_bb_candidates.begin(),
                 m_bb_candidates.end(),
@@ -1461,7 +1481,7 @@ namespace smt {
     parallel::bb_candidates parallel::batch_manager::return_global_bb_candidates(ast_translation& g2l, unsigned& epoch) {
         bb_candidates bb_candidates_local;
         std::scoped_lock lock(mux);
-        // epoch = m_bb_candidate_epoch.load(std::memory_order_acquire);
+        epoch = m_bb_candidate_epoch.load(std::memory_order_acquire);
         for (auto const& gc : m_bb_candidates) {
             expr_ref l_lit(g2l(gc.lit.get()), g2l.to());
             bb_candidates_local.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
@@ -1701,7 +1721,8 @@ namespace smt {
         m_bb_last_batch_processed.reset();
         m_bb_last_batch_processed.resize(m_num_global_bb_threads);
         m_bb_candidates.reset();
-        // m_bb_candidate_epoch.store(0, std::memory_order_release);
+        m_global_backbones.reset();
+        m_bb_candidate_epoch.store(0, std::memory_order_release);
         m_core_min_jobs.reset();
 
         m_search_tree.reset();
