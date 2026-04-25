@@ -180,12 +180,13 @@ namespace smt {
 
             unsigned bb_candidate_epoch = 0;
             bb_candidates bb_candidates = b.return_global_bb_candidates(m_g2l, bb_candidate_epoch);
-            bool first_pass = true;
             while (m.inc()) {
                 lbool terminal_result = l_undef;
                 uint_set seen_vars;
+                unsigned num_candidates_probed = 0;
                 for (auto const& candidate : bb_candidates) {
-                    if (!first_pass)// && b.has_new_backbone_candidates(bb_candidate_epoch))
+                    bool should_check = num_candidates_probed > m_max_failed_literal_firstpass_candidates;
+                    if (should_check && b.has_new_backbone_candidates(bb_candidate_epoch))
                         break;
 
                     expr* lit = candidate.lit.get();
@@ -198,6 +199,7 @@ namespace smt {
                     if (v == sat::null_bool_var || m_known_backbone_vars.contains(v) || seen_vars.contains(v))
                         continue;
                     seen_vars.insert(v);
+                    ++num_candidates_probed;
 
                     terminal_result = probe_var(v, lit);
                     if (terminal_result != l_undef)
@@ -207,10 +209,8 @@ namespace smt {
                 if (terminal_result != l_undef)
                     break;
 
-                // if (b.has_new_backbone_candidates(bb_candidate_epoch))
-                //     break;
-
-                first_pass = false;
+                if (b.has_new_backbone_candidates(bb_candidate_epoch))
+                    break;
             }
         }
     }
@@ -1466,7 +1466,7 @@ namespace smt {
         }
 
         if (changed && !m_bb_candidates.empty()) {
-            // m_bb_candidate_epoch.fetch_add(1, std::memory_order_release);
+            m_bb_candidate_epoch.fetch_add(1, std::memory_order_release);
             std::sort(
                 m_bb_candidates.begin(),
                 m_bb_candidates.end(),
@@ -1481,7 +1481,7 @@ namespace smt {
     parallel::bb_candidates parallel::batch_manager::return_global_bb_candidates(ast_translation& g2l, unsigned& epoch) {
         bb_candidates bb_candidates_local;
         std::scoped_lock lock(mux);
-        // epoch = m_bb_candidate_epoch.load(std::memory_order_acquire);
+        epoch = m_bb_candidate_epoch.load(std::memory_order_acquire);
         for (auto const& gc : m_bb_candidates) {
             expr_ref l_lit(g2l(gc.lit.get()), g2l.to());
             bb_candidates_local.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
@@ -1722,7 +1722,7 @@ namespace smt {
         m_bb_last_batch_processed.resize(m_num_global_bb_threads);
         m_bb_candidates.reset();
         m_global_backbones.reset();
-        // m_bb_candidate_epoch.store(0, std::memory_order_release);
+        m_bb_candidate_epoch.store(0, std::memory_order_release);
         m_core_min_jobs.reset();
 
         m_search_tree.reset();

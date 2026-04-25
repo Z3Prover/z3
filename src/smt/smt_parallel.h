@@ -112,10 +112,10 @@ namespace smt {
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
 
             bb_candidates m_bb_candidates;
-            unsigned m_max_global_bb_candidates = 100;
+            unsigned m_max_global_bb_candidates = 1000;
             unsigned m_bb_batch_size = 150;
             obj_hashtable<expr> m_global_backbones;
-            // std::atomic<unsigned> m_bb_candidate_epoch = 0;
+            std::atomic<unsigned> m_bb_candidate_epoch = 0;
 
             // Backbone job queue
             std::condition_variable m_bb_cv;
@@ -194,9 +194,9 @@ namespace smt {
             bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone);
             bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, vector<parallel::bb_candidate>& out, reslimit& lim);
             bb_candidates return_global_bb_candidates(ast_translation& g2l, unsigned& epoch);
-            // bool has_new_backbone_candidates(unsigned epoch) {
-            //     return m_bb_candidate_epoch.load(std::memory_order_acquire) != epoch;
-            // }
+            bool has_new_backbone_candidates(unsigned epoch) {
+                return m_bb_candidate_epoch.load(std::memory_order_acquire) != epoch;
+            }
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, bool is_first_run, node_lease& lease);
             void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease const& lease);
@@ -372,6 +372,7 @@ namespace smt {
             ast_translation m_g2l, m_l2g;
             unsigned m_bb_chunk_size = 20;
             unsigned m_bb_conflicts_per_chunk = 1000;
+            unsigned m_max_failed_literal_firstpass_candidates = 100;
             uint_set m_known_backbone_vars;
             bool m_use_failed_literal_test;
             stats m_stats;
