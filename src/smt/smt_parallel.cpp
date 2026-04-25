@@ -181,12 +181,7 @@ namespace smt {
 
             unsigned bb_candidate_epoch = 0;
             bb_candidates bb_candidates = b.return_global_bb_candidates(m_g2l, bb_candidate_epoch);
-            uint_set seen_vars;
-            unsigned num_candidates_probed = 0;
             for (auto const& candidate : bb_candidates) {
-                if (num_candidates_probed >= m_max_failed_literal_firstpass_candidates)
-                    break;
-
                 expr* lit = candidate.lit.get();
                 expr* atom = lit;
                 m.is_not(lit, atom);
@@ -194,11 +189,8 @@ namespace smt {
                     continue;
 
                 sat::bool_var v = ctx->get_bool_var(atom);
-                if (v == sat::null_bool_var || m_known_backbone_vars.contains(v) || seen_vars.contains(v))
+                if (v == sat::null_bool_var || m_known_backbone_vars.contains(v))
                     continue;
-
-                ++num_candidates_probed;
-                seen_vars.insert(v);
 
                 terminal_result = probe_var(v, lit);
                 if (terminal_result != l_undef)
@@ -1409,9 +1401,16 @@ namespace smt {
         std::scoped_lock lock(mux);
         bool changed = false;
 
+        auto atom_of = [&](expr* e) {
+            expr* atom = e;
+            m.is_not(e, atom);
+            return atom;
+        };
+
         auto find_existing_candidate_idx = [&](expr* e) -> int {
+            expr* atom = atom_of(e);
             for (unsigned i = 0; i < m_bb_candidates.size(); ++i) {
-                if (m_bb_candidates[i].lit.get() == e)
+                if (atom_of(m_bb_candidates[i].lit.get()) == atom)
                     return i;
             }
             return -1;
@@ -1432,6 +1431,9 @@ namespace smt {
 
             if (idx >= 0) {
                 auto& existing = m_bb_candidates[idx];
+                bb_candidate new_bb_candidate(m, g_lit.get(), age, 1);
+                if (rank_of(new_bb_candidate) > rank_of(existing))
+                    existing.lit = g_lit; // keep the polarity with higher rank
                 existing.age = (existing.age * existing.hits + age) / (existing.hits + 1);
                 existing.hits++;
                 continue;

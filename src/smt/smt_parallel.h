@@ -112,11 +112,8 @@ namespace smt {
             obj_hashtable<expr> shared_clause_set; // for duplicate filtering on per-thread clause expressions
 
             bb_candidates m_bb_candidates;
-            unsigned m_max_global_bb_candidates = 1000;
+            unsigned m_max_global_bb_candidates = 100;
             unsigned m_bb_batch_size = 150;
-            unsigned m_failed_literal_publish_prefix = 100;
-            unsigned m_failed_literal_publish_min_new = 20;
-            bb_candidates m_bb_published_candidates;
             obj_hashtable<expr> m_global_backbones;
             std::atomic<unsigned> m_bb_candidate_epoch = 0;
 
@@ -376,7 +373,6 @@ namespace smt {
             ast_translation m_g2l, m_l2g;
             unsigned m_bb_chunk_size = 20;
             unsigned m_bb_conflicts_per_chunk = 1000;
-            unsigned m_max_failed_literal_firstpass_candidates = 100;
             uint_set m_known_backbone_vars;
             bool m_use_failed_literal_test;
             stats m_stats;
