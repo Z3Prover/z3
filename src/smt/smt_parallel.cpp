@@ -180,7 +180,7 @@ namespace smt {
             for (auto const& candidate : bb_candidates) {
                 // run the first m_max_failed_literal_prioritized_size without stopping to check for a new batch
                 // then keep checking for a new batch
-                if (num_candidates_probed >= m_max_failed_literal_prioritized_size && b.has_new_backbone_candidates(bb_candidate_epoch))
+                if (num_candidates_probed >= m_max_failed_literal_prioritized_size)// && b.has_new_backbone_candidates(bb_candidate_epoch))
                     break;
 
                 expr* lit = candidate.lit.get();
@@ -1422,7 +1422,6 @@ namespace smt {
                 auto& existing = m_bb_candidates[idx];
                 existing.age = (existing.age * existing.hits + age) / (existing.hits + 1);
                 existing.hits++;
-                changed = true;
                 continue;
             }
 
@@ -1441,13 +1440,13 @@ namespace smt {
                 }
             );
             if (worst_it != m_bb_candidates.end() && rank_of(new_bb_candidate) > rank_of(*worst_it)) {
-                *worst_it = new_bb_candidate;
+                *worst_it = new_bb_candidate; // replace worst candidate with new candidate
                 changed = true;
             }
         }
 
         if (changed && !m_bb_candidates.empty()) {
-            m_bb_candidate_epoch.fetch_add(1, std::memory_order_release);
+            // m_bb_candidate_epoch.fetch_add(1, std::memory_order_release);
             std::sort(
                 m_bb_candidates.begin(),
                 m_bb_candidates.end(),
@@ -1462,7 +1461,7 @@ namespace smt {
     parallel::bb_candidates parallel::batch_manager::return_global_bb_candidates(ast_translation& g2l, unsigned& epoch) {
         bb_candidates bb_candidates_local;
         std::scoped_lock lock(mux);
-        epoch = m_bb_candidate_epoch.load(std::memory_order_acquire);
+        // epoch = m_bb_candidate_epoch.load(std::memory_order_acquire);
         for (auto const& gc : m_bb_candidates) {
             expr_ref l_lit(g2l(gc.lit.get()), g2l.to());
             bb_candidates_local.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
@@ -1702,7 +1701,7 @@ namespace smt {
         m_bb_last_batch_processed.reset();
         m_bb_last_batch_processed.resize(m_num_global_bb_threads);
         m_bb_candidates.reset();
-        m_bb_candidate_epoch.store(0, std::memory_order_release);
+        // m_bb_candidate_epoch.store(0, std::memory_order_release);
         m_core_min_jobs.reset();
 
         m_search_tree.reset();
