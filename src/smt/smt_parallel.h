@@ -114,6 +114,9 @@ namespace smt {
             bb_candidates m_bb_candidates;
             unsigned m_max_global_bb_candidates = 1000;
             unsigned m_bb_batch_size = 150;
+            unsigned m_failed_literal_publish_prefix = 100;
+            unsigned m_failed_literal_publish_min_new = 20;
+            bb_candidates m_bb_published_candidates;
             obj_hashtable<expr> m_global_backbones;
             std::atomic<unsigned> m_bb_candidate_epoch = 0;
 
@@ -177,6 +180,7 @@ namespace smt {
                                                    vector<node_lease>& targets);
             node* find_core_source_unlocked(ast_translation& l2g, node* source, expr_ref_vector const& core);
             unsigned select_best_core_min_job_unlocked() const;
+            bool should_publish_backbone_candidates_unlocked() const;
 
         public:
             batch_manager(ast_manager& m, parallel& p) : m(m), p(p), m_search_tree(expr_ref(m)) { }
@@ -194,9 +198,9 @@ namespace smt {
             bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone);
             bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, vector<parallel::bb_candidate>& out, reslimit& lim);
             bb_candidates return_global_bb_candidates(ast_translation& g2l, unsigned& epoch);
-            bool has_new_backbone_candidates(unsigned epoch) {
-                return m_bb_candidate_epoch.load(std::memory_order_acquire) != epoch;
-            }
+            // bool has_new_backbone_candidates(unsigned epoch) {
+            //     return m_bb_candidate_epoch.load(std::memory_order_acquire) != epoch;
+            // }
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, bool is_first_run, node_lease& lease);
             void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease const& lease);
@@ -374,9 +378,6 @@ namespace smt {
             unsigned m_bb_conflicts_per_chunk = 1000;
             unsigned m_max_failed_literal_firstpass_candidates = 100;
             uint_set m_known_backbone_vars;
-            u_map<unsigned> m_recently_tried_round;
-            unsigned m_recently_tried_ttl = 2;
-            unsigned m_bb_snapshot_round = 0;
             bool m_use_failed_literal_test;
             stats m_stats;
             bb_mode m_mode;
