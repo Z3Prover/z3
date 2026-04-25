@@ -312,6 +312,9 @@ namespace nla {
             }
             dep.mul<dep_intervals::with_deps>(product, vi, product);
         }
+        if (do_propagate_down && c().params().arith_nl_monomial_sandwich() &&
+            propagate_shared_factor(m))
+            return true;
         return do_propagate_up && propagate_value(product, m.var());
     }
 
@@ -501,10 +504,98 @@ namespace nla {
     }
     
     lpvar monomial_bounds::non_fixed_var(monic const& m) {
-        for (lpvar v : m) 
+        for (lpvar v : m)
             if (!c().var_is_fixed(v))
                 return v;
         return null_lpvar;
+    }
+
+    /**
+     * Dual-row shared-factor sandwich. For a binary monomial m = u*v, find LP
+     * term columns whose term has shape  a_m * m + a_v * v  (exactly two
+     * variables, both factors of m). The term column's bound is a sound
+     * interval for (a_m * m + a_v * v). Substituting m = u*v yields
+     * v * (a_m * u + a_v); dividing by the interval on v (sign-determined)
+     * gives an interval on (a_m * u + a_v), and an affine shift gives an
+     * interval on u. The derived interval is fed to the existing
+     * propagate_value path so the lemma channel and integer rounding are
+     * shared with the rest of the propagation pipeline.
+     */
+    bool monomial_bounds::propagate_shared_factor(monic const& m) {
+        if (m.size() != 2)
+            return false;
+        lpvar f0 = m.vars()[0], f1 = m.vars()[1];
+        if (f0 == f1)
+            return false;
+
+        unsigned const fanout_limit = c().params().arith_nl_monomial_sandwich_max_fanout();
+
+        auto try_pair = [&](lpvar u, lpvar v) -> bool {
+            // Skip if u participates in too many monomials: tightening such a
+            // factor cascades through ord-binom / monotonicity on every monic
+            // that contains it.
+            if (fanout_limit > 0) {
+                unsigned fanout = 0;
+                for (auto const& m1 : c().emons().get_use_list(u)) {
+                    (void)m1;
+                    if (++fanout > fanout_limit)
+                        return false;
+                }
+            }
+            scoped_dep_interval vi(dep);
+            var2interval(v, vi);
+            if (!dep.separated_from_zero(vi))
+                return false;
+
+            auto& lra = c().lra;
+            unsigned const ROW_CAP = 16;
+            unsigned scanned = 0;
+
+            for (auto const& cell : lra.A_r().m_columns[m.var()]) {
+                if (++scanned > ROW_CAP)
+                    break;
+                unsigned basic = lra.get_base_column_in_row(cell.var());
+                if (basic == m.var() || basic == v || basic == u)
+                    continue;
+                if (!lra.column_has_term(basic))
+                    continue;
+                auto const& term = lra.get_term(basic);
+                if (term.size() != 2 ||
+                    !term.contains(m.var()) || !term.contains(v))
+                    continue;
+
+                rational const& a_m = term.get_coeff(m.var());
+                rational const& a_v = term.get_coeff(v);
+                if (a_m.is_zero())
+                    continue;
+
+                // Term value = a_m*m + a_v*v; bound on basic bounds the term.
+                // Substituting m = u*v: term = v * (a_m*u + a_v).
+                scoped_dep_interval bi(dep);
+                var2interval(basic, bi);
+
+                scoped_dep_interval inner(dep);
+                dep.div<dep_intervals::with_deps>(bi, vi, inner);
+
+                scoped_dep_interval shift(dep);
+                dep.set_value(shift, -a_v);
+                scoped_dep_interval scaled(dep);
+                dep.add<dep_intervals::with_deps>(inner, shift, scaled);
+
+                scoped_dep_interval u_int(dep);
+                dep.mul<dep_intervals::with_deps>(rational::one() / a_m, scaled, u_int);
+
+                TRACE(nla_solver, tout << "sandwich shared-factor basic=" << basic
+                      << " m=" << m.var() << " v=" << v << " u=" << u
+                      << " a_m=" << a_m << " a_v=" << a_v << "\n";);
+
+                if (propagate_value(u_int, u))
+                    return true;  // one lemma per call to keep the channel quiet
+            }
+            return false;
+        };
+
+        return try_pair(f1, f0) || try_pair(f0, f1);
     }
 
 }
