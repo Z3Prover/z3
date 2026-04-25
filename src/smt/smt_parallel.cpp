@@ -172,10 +172,12 @@ namespace smt {
 
         while (m.inc()) {
             uint_set prioritized; // per-round dedup set of bb candidates
+            expr_ref_vector retry_lits(m);
             lbool r = l_undef;
             collect_shared_clauses();
-            
-            for (auto const& candidate : b.return_global_bb_candidates(m_g2l)) {
+
+            unsigned bb_candidate_epoch = 0;
+            for (auto const& candidate : b.return_global_bb_candidates(m_g2l, bb_candidate_epoch)) {
                 expr* lit = candidate.lit.get();
                 expr* atom = lit;
                 m.is_not(lit, atom);
@@ -190,9 +192,44 @@ namespace smt {
                 r = probe_var(v, lit);
                 if (r != l_undef)
                     break;
+                if (!is_unit(v))
+                    retry_lits.push_back(lit);
             }
 
             if (r != l_undef)
+                continue;
+
+            while (m.inc() && !retry_lits.empty() && !b.has_new_backbone_candidates(bb_candidate_epoch)) {
+                expr_ref_vector next_retry_lits(m);
+
+                for (expr* lit : retry_lits) {
+                    if (!m.inc() || b.has_new_backbone_candidates(bb_candidate_epoch))
+                        break;
+
+                    expr* atom = lit;
+                    m.is_not(lit, atom);
+                    if (!ctx->b_internalized(atom))
+                        continue;
+
+                    sat::bool_var v = ctx->get_bool_var(atom);
+                    if (v == sat::null_bool_var || is_unit(v))
+                        continue;
+
+                    r = probe_var(v, lit);
+                    if (r != l_undef)
+                        break;
+                    if (!is_unit(v))
+                        next_retry_lits.push_back(lit);
+                }
+
+                if (r != l_undef || b.has_new_backbone_candidates(bb_candidate_epoch))
+                    break;
+
+                retry_lits.reset();
+                retry_lits.append(next_retry_lits);
+            }
+
+            if (r != l_undef || b.has_new_backbone_candidates(bb_candidate_epoch))
                 continue;
 
             for (unsigned v = 0; v < num_atoms && m.inc(); ++v) {
@@ -726,7 +763,7 @@ namespace smt {
 
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_inprocessing = pp.inprocessing();
-        m_config.m_global_backbones = pp.num_global_bb_chunking_threads() > 0 && !pp.failed_literal_backbones();
+        m_config.m_global_backbones = pp.num_global_bb_chunking_threads() > 0 || pp.failed_literal_backbones();
         m_config.m_core_minimize = pp.core_minimize();
     }
 
@@ -1323,6 +1360,7 @@ namespace smt {
 
     void parallel::batch_manager::collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates) {
         std::scoped_lock lock(mux);
+        bool changed = false;
 
         auto find_existing_candidate_idx = [&](expr* e) -> int {
             for (unsigned i = 0; i < m_bb_candidates.size(); ++i) {
@@ -1349,11 +1387,13 @@ namespace smt {
                 auto& existing = m_bb_candidates[idx];
                 existing.age = (existing.age * existing.hits + age) / (existing.hits + 1);
                 existing.hits++;
+                changed = true;
                 continue;
             }
 
             if (m_bb_candidates.size() < m_max_global_bb_candidates) {
                 m_bb_candidates.push_back(bb_candidate(m, g_lit.get(), age, 1));
+                changed = true;
                 continue;
             }
 
@@ -1370,11 +1410,14 @@ namespace smt {
             }
 
             bb_candidate new_bb_candidate = bb_candidate(m, g_lit.get(), age, 1);
-            if (rank_of(new_bb_candidate) > worst_rank)
+            if (rank_of(new_bb_candidate) > worst_rank) {
                 m_bb_candidates[worst_idx] = new_bb_candidate;
+                changed = true;
+            }
         }
 
-        if (!m_bb_candidates.empty()) {
+        if (changed && !m_bb_candidates.empty()) {
+            ++m_bb_candidate_epoch;
             std::stable_sort(
                 m_bb_candidates.begin(),
                 m_bb_candidates.end(),
@@ -1386,9 +1429,10 @@ namespace smt {
         }
     }
 
-    parallel::bb_candidates parallel::batch_manager::return_global_bb_candidates(ast_translation& g2l) {
+    parallel::bb_candidates parallel::batch_manager::return_global_bb_candidates(ast_translation& g2l, unsigned& epoch) {
         bb_candidates bb_candidates_local;
         std::scoped_lock lock(mux);
+        epoch = m_bb_candidate_epoch;
         for (auto const& gc : m_bb_candidates) {
             expr_ref l_lit(g2l(gc.lit.get()), g2l.to());
             bb_candidates_local.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
@@ -1628,6 +1672,7 @@ namespace smt {
         m_bb_last_batch_processed.reset();
         m_bb_last_batch_processed.resize(m_num_global_bb_threads);
         m_bb_candidates.reset();
+        m_bb_candidate_epoch = 0;
         m_core_min_jobs.reset();
 
         m_search_tree.reset();
