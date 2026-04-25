@@ -735,7 +735,7 @@ namespace smt {
                 }
             }
 
-            std::cout << "[" << m_num_final_checks << "]" << std::endl;
+            // std::cout << "[" << m_num_final_checks << "]" << std::endl;
             IF_VERBOSE(1, verbose_stream() << "nseq final_check: calling solve()\n";);
 
             // here the actual Nielsen solving happens
@@ -802,7 +802,7 @@ namespace smt {
         bool all_sat = true;
         ctx.push_trail(reset_vector(m_nielsen_literals));
         for (auto const& c : m_nielsen.sat_node()->constraints()) {
-            std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
+            // std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
             auto lit = mk_literal(c.fml);   
             m_nielsen_literals.push_back(lit);
             // Ensure Nielsen assumptions participate in SAT search instead of
@@ -827,7 +827,7 @@ namespace smt {
                 // or maybe it can happen if we have a "le" dependency
                 TRACE(seq, tout << "nseq final_check: nielsen assumption " << c.fml << " is false; internalized - " << ctx.e_internalized(c.fml) << "\n");
                 all_sat = false;
-                std::cout << "False [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
+                // std::cout << "False [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
                 ctx.push_trail(value_trail(m_should_internalize));
                 m_should_internalize = true;
                 break;

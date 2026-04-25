@@ -1233,6 +1233,13 @@ namespace seq {
         return true;
     }
 
+    euf::snode* nielsen_graph::mk_rewrite(expr* e) {
+        expr_ref er(e, m);
+        th_rewriter rw(m);
+        rw(er);
+        return m_sg.mk(er);
+    }
+
     // -----------------------------------------------------------------------
     // nielsen_graph: search
     // -----------------------------------------------------------------------
@@ -1875,7 +1882,7 @@ namespace seq {
                 }
                 euf::snode* replacement = dir_concat(m_sg, prefix_sn, var_node, fwd);
                 nielsen_subst s(var_node, replacement, 
-                                m_sg.mk(a.mk_sub(compute_length_expr(var_node), compute_length_expr(prefix_sn))),
+                                mk_rewrite(a.mk_sub(compute_length_expr(var_node), compute_length_expr(prefix_sn))),
                                 eq.m_dep);
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
@@ -1943,7 +1950,7 @@ namespace seq {
                     euf::snode* replacement = dir_concat(m_sg, char_head, var_head, fwd);
                     child = mk_child(node);
                     e = mk_edge(node, child, false);
-                    nielsen_subst s2(var_head, replacement, m_sg.mk(a.mk_sub(compute_length_expr(var_head), a.mk_int(1))), eq.m_dep);
+                    nielsen_subst s2(var_head, replacement, mk_rewrite(a.mk_sub(compute_length_expr(var_head), a.mk_int(1))), eq.m_dep);
                     e->add_subst(s2);
                     child->apply_subst(m_sg, s2);
                     return true;
@@ -1992,7 +1999,7 @@ namespace seq {
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, false);
                     nielsen_subst s(lhead, replacement, 
-                        m_sg.mk(a.mk_sub(compute_length_expr(lhead), compute_length_expr(rhead))), 
+                        mk_rewrite(a.mk_sub(compute_length_expr(lhead), compute_length_expr(rhead))), 
                         eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
@@ -2003,7 +2010,7 @@ namespace seq {
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, false);
                     nielsen_subst s(rhead, replacement,
-                                    m_sg.mk(a.mk_sub(compute_length_expr(rhead), compute_length_expr(lhead))),
+                                    mk_rewrite(a.mk_sub(compute_length_expr(rhead), compute_length_expr(lhead))),
                                     eq.m_dep);
                     e->add_subst(s);
                     child->apply_subst(m_sg, s);
@@ -3469,7 +3476,7 @@ namespace seq {
                 euf::snode* replacement = m_sg.mk_concat(fresh_char, first);
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, false);
-                nielsen_subst s(first, replacement, m_sg.mk(a.mk_sub(compute_length_expr(first), a.mk_int(1))), mem.m_dep);
+                nielsen_subst s(first, replacement, mk_rewrite(a.mk_sub(compute_length_expr(first), a.mk_int(1))), mem.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
                 // Constrain fresh_char to the character class of this minterm.
@@ -3755,8 +3762,9 @@ namespace seq {
         }
 
         euf::snode *length_term = nullptr;
-        if (m_length_info.find(n->id(), length_term) && length_term)
+        if (m_length_info.find(n->id(), length_term) && length_term) 
             return expr_ref(length_term->get_expr(), m);
+        
         return expr_ref(m_seq.str.mk_length(n->get_expr()), m);
     }
 
@@ -3962,7 +3970,7 @@ namespace seq {
             auto& c = node->constraints()[i];
             m_solver.assert_expr(c.fml);
             auto lit = m_literal_if_false(c.fml);
-            std::cout << "Internalizing literal " << mk_pp(c.fml, m) << " [" << (lit == sat::null_literal) << "]" << std::endl;
+            // std::cout << "Internalizing literal " << mk_pp(c.fml, m) << " [" << (lit == sat::null_literal) << "]" << std::endl;
             if (lit != sat::null_literal)
                 node->set_external_conflict(lit, c.dep);
         }

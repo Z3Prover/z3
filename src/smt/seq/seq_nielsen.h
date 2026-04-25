@@ -1038,6 +1038,9 @@ namespace seq {
         // only once per node across DFS iterations.
         void apply_parikh_to_node(nielsen_node& node);
 
+        // simplify expression and create a node from simplified expression.
+        euf::snode *mk_rewrite(expr *e);
+
         // create a fresh variable with a unique name and the given sequence sort
         euf::snode* mk_fresh_var(sort* s);
 
