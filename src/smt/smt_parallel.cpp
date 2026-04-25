@@ -180,6 +180,7 @@ namespace smt {
 
             unsigned bb_candidate_epoch = 0;
             bb_candidates bb_candidates = b.return_global_bb_candidates(m_g2l, bb_candidate_epoch);
+            ++m_bb_snapshot_round;
             while (m.inc()) {
                 lbool terminal_result = l_undef;
                 uint_set seen_vars;
@@ -198,8 +199,16 @@ namespace smt {
                     sat::bool_var v = ctx->get_bool_var(atom);
                     if (v == sat::null_bool_var || m_known_backbone_vars.contains(v) || seen_vars.contains(v))
                         continue;
+                    
+                    unsigned last_tried_round = 0;
+                    if (m_recently_tried_round.find(v, last_tried_round) &&
+                        last_tried_round < m_bb_snapshot_round &&
+                        m_bb_snapshot_round - last_tried_round <= m_recently_tried_ttl)
+                        continue;
+
                     seen_vars.insert(v);
                     ++num_candidates_probed;
+                    m_recently_tried_round.insert_if_not_there(v, m_bb_snapshot_round) = m_bb_snapshot_round;
 
                     terminal_result = probe_var(v, lit);
                     if (terminal_result != l_undef)

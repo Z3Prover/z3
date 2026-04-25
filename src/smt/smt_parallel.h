@@ -374,6 +374,9 @@ namespace smt {
             unsigned m_bb_conflicts_per_chunk = 1000;
             unsigned m_max_failed_literal_firstpass_candidates = 100;
             uint_set m_known_backbone_vars;
+            u_map<unsigned> m_recently_tried_round;
+            unsigned m_recently_tried_ttl = 2;
+            unsigned m_bb_snapshot_round = 0;
             bool m_use_failed_literal_test;
             stats m_stats;
             bb_mode m_mode;
