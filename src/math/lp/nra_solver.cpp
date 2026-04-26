@@ -260,20 +260,9 @@ struct solver::imp {
             out.close();
         }
 
-        lbool r = l_undef;
         statistics& st = m_nla_core.lp_settings().stats().m_st;
-        try {
-            r = m_nlsat->check();
-        }
-        catch (z3_exception&) {
-            if (m_limit.is_canceled()) {
-                r = l_undef;
-            }
-            else {
-                m_nlsat->collect_statistics(st);
-                throw;
-            }
-        }
+        lbool r = m_nlsat->check();
+
         m_nlsat->collect_statistics(st);
         TRACE(nra, tout << "nra result " << r << "\n");
         CTRACE(nra, false,
@@ -406,25 +395,15 @@ struct solver::imp {
         setup_assignment_solver();
         lbool r = l_undef;
         statistics &st = m_nla_core.lp_settings().stats().m_st;
-        nlsat::literal_vector clause;
-        try {
-            nlsat::assignment rvalues(m_nlsat->am());
-            for (auto [j, x] : m_lp2nl) {
-                scoped_anum a(am());
-                am().set(a, m_nla_core.val(j).to_mpq());
-                rvalues.set(x, a);
-            }
-            r = m_nlsat->check(rvalues, clause);
-        } 
-        catch (z3_exception &) {
-            if (m_limit.is_canceled()) {
-                r = l_undef;
-            } 
-            else {
-                m_nlsat->collect_statistics(st);
-                throw;
-            }
+        nlsat::literal_vector clause;        
+        nlsat::assignment rvalues(m_nlsat->am());
+        for (auto [j, x] : m_lp2nl) {
+            scoped_anum a(am());
+            am().set(a, m_nla_core.val(j).to_mpq());
+            rvalues.set(x, a);
         }
+        r = m_nlsat->check(rvalues, clause);
+        
         m_nlsat->collect_statistics(st);
         switch (r) {
         case l_true:
@@ -657,20 +636,8 @@ struct solver::imp {
                 add_ub(lra.get_upper_bound(v), w, lra.get_column_upper_bound_witness(v));
         }
         
-        lbool r = l_undef;
-        statistics& st = m_nla_core.lp_settings().stats().m_st;
-        try {
-            r = m_nlsat->check();
-        }
-        catch (z3_exception&) {
-            if (m_limit.is_canceled()) {
-                r = l_undef;
-            }
-            else {
-                m_nlsat->collect_statistics(st);
-                throw;
-            }
-        }
+        lbool r = m_nlsat->check();
+        statistics &st = m_nla_core.lp_settings().stats().m_st;
         m_nlsat->collect_statistics(st);
         
         switch (r) {
@@ -719,18 +686,8 @@ struct solver::imp {
                 add_ub(lra.get_upper_bound(v), w);
         }
         
-        lbool r = l_undef;
-        try {
-            r = m_nlsat->check();
-        }
-        catch (z3_exception&) {
-            if (m_limit.is_canceled()) {
-                r = l_undef;
-            }
-            else {
-                throw;
-            }
-        }
+        
+        lbool r = m_nlsat->check();
 
         if (r == l_true)
             return r;
@@ -959,19 +916,68 @@ solver::~solver() {
 
 
 lbool solver::check() {
-    return m_imp->check();
+    try {
+        return m_imp->check();
+    } 
+    catch (z3_exception &) {
+        statistics &st = m_imp->m_nla_core.lp_settings().stats().m_st;
+        m_imp->m_nlsat->collect_statistics(st);
+        if (m_imp->m_limit.is_canceled()) {
+            return l_undef;
+        }
+        else {
+            throw;
+        }
+    }
 }
 
 lbool solver::check(vector<dd::pdd> const& eqs) {
-    return m_imp->check(eqs);
+    try {
+        return m_imp->check(eqs);
+    } 
+    catch (z3_exception &) {
+        statistics &st = m_imp->m_nla_core.lp_settings().stats().m_st;
+        m_imp->m_nlsat->collect_statistics(st);
+        if (m_imp->m_limit.is_canceled()) {
+            return l_undef;
+        }
+        else {
+            throw;
+        }
+    }
 }
 
 lbool solver::check(dd::solver::equation_vector const& eqs) {
-    return m_imp->check(eqs);
+    try {
+        return m_imp->check(eqs);
+    } 
+    catch (z3_exception &) {
+        statistics &st = m_imp->m_nla_core.lp_settings().stats().m_st;
+        m_imp->m_nlsat->collect_statistics(st);
+        if (m_imp->m_limit.is_canceled()) {
+            return l_undef;
+        }
+        else {
+            throw;
+        }
+    }
 }
 
 lbool solver::check_assignment() {
-    return m_imp->check_assignment();
+    try {
+        return m_imp->check_assignment();
+    } 
+    catch (z3_exception &) {
+        statistics &st = m_imp->m_nla_core.lp_settings().stats().m_st;
+        m_imp->m_nlsat->collect_statistics(st);
+        IF_VERBOSE(0, verbose_stream() << "check-assignment\n");
+        if (m_imp->m_limit.is_canceled()) {
+            return l_undef;
+        }
+        else {
+            throw;
+        }
+    }
 }
 
 bool solver::need_check() {

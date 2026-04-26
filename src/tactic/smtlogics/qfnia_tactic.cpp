@@ -96,7 +96,8 @@ static tactic * mk_qfnia_sat_solver(ast_manager & m, params_ref const & p) {
     params_ref simp_p = p;
     simp_p.set_bool("hoist_mul", true); // hoist multipliers to create smaller circuits.
 
-    return and_then(using_params(mk_simplify_tactic(m), simp_p),
+    return and_then(mk_report_verbose_tactic("(qfnia-sat)", 2),
+                    using_params(mk_simplify_tactic(m), simp_p),
                     mk_nla2bv_tactic(m, nia2sat_p),
                     skip_if_failed(mk_qfnia_bv_solver(m, p)),
                     mk_fail_if_undecided_tactic());
@@ -107,7 +108,8 @@ static tactic * mk_qfnia_nlsat_solver(ast_manager & m, params_ref const & p) {
     simp_p.set_bool("som", true); // expand into sums of monomials
     simp_p.set_bool("factor", false);
 
-    return and_then(using_params(mk_simplify_tactic(m), simp_p),
+    return and_then(mk_report_verbose_tactic("(qfnia-nlsat)", 2),
+                    using_params(mk_simplify_tactic(m), simp_p),
                     try_for(mk_qfnra_nlsat_tactic(m, simp_p), 3000),
                     mk_fail_if_undecided_tactic());
 }
@@ -115,14 +117,14 @@ static tactic * mk_qfnia_nlsat_solver(ast_manager & m, params_ref const & p) {
 static tactic * mk_qfnia_smt_solver(ast_manager& m, params_ref const& p) {
     params_ref simp_p = p;
     simp_p.set_bool("som", true); // expand into sums of monomials
-    return and_then(
+    return and_then(mk_report_verbose_tactic("(qfnia-smt)", 2),
         using_params(mk_simplify_tactic(m), simp_p), 
         mk_smt_tactic(m));
 }
 
 tactic * mk_qfnia_tactic(ast_manager & m, params_ref const & p) {
     return and_then(
-        mk_report_verbose_tactic("(qfnia-tactic)", 10),
+        mk_report_verbose_tactic("(qfnia-tactic)", 2),
         mk_qfnia_preamble(m, p),
         or_else(mk_qfnia_sat_solver(m, p),
                 try_for(mk_qfnia_smt_solver(m, p), 2000),
