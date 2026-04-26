@@ -156,20 +156,20 @@ static void test_nielsen_subst() {
     euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     seq::dep_tracker dep = nullptr;
-    seq::nielsen_subst s1(x, a, dep);
+    seq::nielsen_subst s1(x, a, nullptr, dep);
     SASSERT(s1.is_eliminating());
 
     // eliminating substitution: x -> empty
-    seq::nielsen_subst s2(x, e, dep);
+    seq::nielsen_subst s2(x, e, nullptr, dep);
     SASSERT(s2.is_eliminating());
 
     // non-eliminating substitution: x -> concat(A, x)
     euf::snode* ax = sg.mk_concat(a, x);
-    seq::nielsen_subst s3(x, ax, dep);
+    seq::nielsen_subst s3(x, ax, nullptr, dep);
     SASSERT(!s3.is_eliminating());
 
     // eliminating substitution: x -> y (x not in y)
-    seq::nielsen_subst s4(x, y, dep);
+    seq::nielsen_subst s4(x, y, nullptr, dep);
     SASSERT(s4.is_eliminating());
 }
 
@@ -242,7 +242,7 @@ static void test_nielsen_edge() {
 
     // create edge with substitution x -> A
     seq::nielsen_edge* edge = ng.mk_edge(parent, child, true);
-    edge->add_subst(seq::nielsen_subst(x, a, dep));
+    edge->add_subst(seq::nielsen_subst(x, a, nullptr, dep));
 
     SASSERT(edge->src() == parent);
     SASSERT(edge->tgt() == child);
@@ -318,7 +318,7 @@ static void test_nielsen_subst_apply() {
     node->add_str_eq(seq::str_eq(xa, by, dep));
 
     // apply substitution x -> empty
-    seq::nielsen_subst s(x, e, dep);
+    seq::nielsen_subst s(x, e, nullptr, dep);
     node->apply_subst(sg, s);
 
     // after x -> empty: lhs should be just A, rhs still concat(B, y)
@@ -379,7 +379,7 @@ static void test_nielsen_expansion() {
     // branch 1: x -> eps (eliminating, progress)
     euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
     seq::nielsen_node* child1 = ng.mk_child(root);
-    seq::nielsen_subst s1(x, e, dep);
+    seq::nielsen_subst s1(x, e, nullptr, dep);
     child1->apply_subst(sg, s1);
     seq::nielsen_edge* edge1 = ng.mk_edge(root, child1, true);
     edge1->add_subst(s1);
@@ -387,7 +387,7 @@ static void test_nielsen_expansion() {
     // branch 2: x -> Ax (non-eliminating, non-progress)
     euf::snode* ax = sg.mk_concat(a, x);
     seq::nielsen_node* child2 = ng.mk_child(root);
-    seq::nielsen_subst s2(x, ax, dep);
+    seq::nielsen_subst s2(x, ax, nullptr, dep);
     child2->apply_subst(sg, s2);
     seq::nielsen_edge* edge2 = ng.mk_edge(root, child2, false);
     edge2->add_subst(s2);
@@ -1493,7 +1493,8 @@ static void test_explain_conflict_single_eq() {
     // but the conflict should still be detected
     svector<seq::enode_pair> eqs;
     svector<sat::literal> mem_literals;
-    ng.test_aux_explain_conflict(eqs, mem_literals);
+    vector<seq::le> les;
+    ng.test_aux_explain_conflict(eqs, mem_literals, les);
     // with test-friendly overload (null deps), eqs will be empty
     // the important check is that the conflict was detected
 }
@@ -1523,7 +1524,8 @@ static void test_explain_conflict_multi_eq() {
     // the important check is that the conflict was detected
     svector<seq::enode_pair> eqs;
     svector<sat::literal> mem_literals;
-    ng.test_aux_explain_conflict(eqs, mem_literals);
+    vector<seq::le> les;
+    ng.test_aux_explain_conflict(eqs, mem_literals, les);
 }
 
 // test that is_extended is set after solve generates extensions
@@ -2115,7 +2117,8 @@ static void test_explain_conflict_mem_only() {
     // with test-friendly overload (null deps), explain_conflict won't return deps
     svector<seq::enode_pair> eqs;
     svector<sat::literal> mem_literals;
-    ng.test_aux_explain_conflict(eqs, mem_literals);
+    vector<seq::le> les;
+    ng.test_aux_explain_conflict(eqs, mem_literals, les);
 }
 
 // test explain_conflict: mixed eq + mem conflict
@@ -2149,7 +2152,8 @@ static void test_explain_conflict_mixed_eq_mem() {
     // with test-friendly overload (null deps), explain_conflict won't return deps
     svector<seq::enode_pair> eqs;
     svector<sat::literal> mem_literals;
-    ng.test_aux_explain_conflict(eqs, mem_literals);
+    vector<seq::le> les;
+    ng.test_aux_explain_conflict(eqs, mem_literals, les);
 }
 
 // test subsumption pruning during solve: a node whose constraint set
@@ -3471,7 +3475,7 @@ static void test_subst_does_not_propagate_bounds_single_var() {
 
     // apply substitution x → a·y
     euf::snode* ay = sg.mk_concat(a, y);
-    seq::nielsen_subst s(x, ay, dep);
+    seq::nielsen_subst s(x, ay, nullptr, dep);
     node->apply_subst(sg, s);
 
     // No local propagation anymore: y keeps conservative defaults.
@@ -3505,7 +3509,7 @@ static void test_subst_no_immediate_bound_conflict() {
 
     // apply substitution x → a·b (no eager bound check at this stage)
     euf::snode* ab = sg.mk_concat(a, b);
-    seq::nielsen_subst s(x, ab, dep);
+    seq::nielsen_subst s(x, ab, nullptr, dep);
     node->apply_subst(sg, s);
 
     SASSERT(!node->is_general_conflict());
@@ -3634,7 +3638,7 @@ static void test_subst_does_not_propagate_bounds_multi_var() {
 
     // apply substitution x → y·z (two vars, no constants)
     euf::snode* yz = sg.mk_concat(y, z);
-    seq::nielsen_subst s(x, yz, dep);
+    seq::nielsen_subst s(x, yz, nullptr, dep);
     node->apply_subst(sg, s);
 
     SASSERT(queried_ub(node, y) == UINT_MAX);
