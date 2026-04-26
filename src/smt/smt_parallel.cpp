@@ -132,7 +132,7 @@ namespace smt {
             expr_ref e(ctx->bool_var2expr(v), m);
             if (!e)
                 return l_undef;
-            if (m.is_or(e) || m.is_ite(e))
+            if (m.is_or(e) || m.is_ite(e) || m.is_and(e) || m.is_iff(e))
                 return l_undef;
 
             if (is_unit(v)) {
@@ -851,8 +851,8 @@ namespace smt {
                 continue;  // skip non-initial atoms if configured to do so
             }
 
-            expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);  // turn literal into a Boolean expression
-            if (m.is_and(e) || m.is_or(e))
+            expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);  // turn literal into a Boolean expression            
+            if (m.is_and(e) || m.is_or(e) || m.is_ite(e) || m.is_iff(e))
                 continue;
 
             if (lit.sign())

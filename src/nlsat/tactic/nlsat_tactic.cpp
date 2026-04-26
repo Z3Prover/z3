@@ -133,8 +133,7 @@ class nlsat_tactic : public tactic {
             return ok;
         }
 
-        void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result) {
+        void operator()(goal_ref const & g, goal_ref_buffer & result) {
             tactic_report report("nlsat", *g);
             
             if (g->is_decided()) {
