@@ -18,9 +18,10 @@ class nla_throttle {
 public:
     enum throttle_kind {
         ORDER_LEMMA,            // order lemma (9 params)
-        BINOMIAL_SIGN_LEMMA,    // binomial sign (6 params) 
+        BINOMIAL_SIGN_LEMMA,    // binomial sign (6 params)
         MONOTONE_LEMMA,         // monotonicity (2 params)
-        TANGENT_LEMMA           // tangent lemma (5 params: monic_var, x_var, y_var, below, plane_type)
+        TANGENT_LEMMA,          // tangent lemma (5 params: monic_var, x_var, y_var, below, plane_type)
+        MONOMIAL_BINOMIAL_SIGN  // monomial binomial sign anchor (4 params: monic_var, u, v, below)
     };
 
 private:
