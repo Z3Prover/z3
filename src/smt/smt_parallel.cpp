@@ -168,20 +168,36 @@ namespace smt {
 
             unsigned bb_candidate_epoch = 0;
             bb_candidates bb_candidates = b.return_global_bb_candidates(m_g2l, bb_candidate_epoch);
-            for (auto const& candidate : bb_candidates) {
-                expr* lit = candidate.lit.get();
-                expr* atom = lit;
-                m.is_not(lit, atom);
-                if (!ctx->b_internalized(atom))
-                    continue;
+            bool first_pass = true;
+            while (m.inc()) {
+                uint_set seen_vars; // per-round polarity dedup since we probe both polarities here by default
+                for (auto const& candidate : bb_candidates) {
+                    if (!first_pass && b.has_new_backbone_candidates(bb_candidate_epoch))
+                        break;
 
-                sat::bool_var v = ctx->get_bool_var(atom);
-                if (v == sat::null_bool_var || m_known_backbone_vars.contains(v))
-                    continue;
+                    expr* lit = candidate.lit.get();
+                    expr* atom = lit;
+                    m.is_not(lit, atom);
+                    if (!ctx->b_internalized(atom))
+                        continue;
 
-                terminal_result = probe_var(v, lit);
+                    sat::bool_var v = ctx->get_bool_var(atom);
+                    if (v == sat::null_bool_var || m_known_backbone_vars.contains(v) || seen_vars.contains(v))
+                        continue;
+                    seen_vars.insert(v);
+
+                    terminal_result = probe_var(v, lit);
+                    if (terminal_result != l_undef)
+                        break;
+                }
+
                 if (terminal_result != l_undef)
                     break;
+
+                if (b.has_new_backbone_candidates(bb_candidate_epoch))
+                    break;
+
+                first_pass = false;
             }
         }
     }
@@ -620,10 +636,10 @@ namespace smt {
         check_cube_start:
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
 
-            u_map<double> original_activities;
-            phase_snapshots original_phases;
-            if (m_config.m_local_backbones || m_config.m_global_backbones)
-                prepare_backbone_candidates(original_activities, original_phases);
+            if (m_config.m_global_backbones) {
+                 bb_candidates local_candidates = find_backbone_candidates();
+                b.collect_backbone_candidates(m_l2g, local_candidates);
+            }
 
             lbool r = check_cube(cube);
 
@@ -636,13 +652,6 @@ namespace smt {
 
              if (!m.inc())
                 return;
-
-            if (m_config.m_local_backbones) {
-                for (auto const& [v, act] : original_activities)
-                    ctx->set_activity(v, act);
-                for (auto const& snapshot : original_phases)
-                    ctx->unforce_phase(snapshot.v, snapshot.original_phase_available, snapshot.original_phase);
-            }
 
             switch (r) {
             case l_undef: {
@@ -784,74 +793,6 @@ namespace smt {
             backbone_candidates.shrink(k);
         
         return backbone_candidates;
-    }
-
-    void parallel::worker::prepare_backbone_candidates(u_map<double>& original_activities, phase_snapshots& original_phases) {
-        bb_candidates local_candidates = find_backbone_candidates();
-        b.collect_backbone_candidates(m_l2g, local_candidates);
-        if (!m_config.m_local_backbones) {
-            if (!m.inc())
-                return;
-            return;
-        }
-
-        LOG_WORKER(1, " LOCAL BACKBONE DETECTION\n");
-
-        unsigned bb_candidate_epoch = 0;
-        bb_candidates bb_cands = b.return_global_bb_candidates(m_g2l, bb_candidate_epoch);
-        if (bb_cands.empty()) {
-            LOG_WORKER(1, " no global bb candidates, using local bb candidates\n");
-            bb_cands = local_candidates;
-        }
-
-        for (smt::parallel::bb_candidate const& bb : bb_cands) {
-            LOG_WORKER(2, " backbone candidate: " << mk_bounded_pp(bb.lit, m, 3) << "\n");
-
-            expr* lit = bb.lit.get();
-            expr* atom = lit;
-            bool is_negated = m.is_not(lit, atom);
-
-            if (!ctx->b_internalized(atom))
-                continue;
-
-            sat::bool_var v = ctx->get_bool_var(atom);
-            if (v == sat::null_bool_var)
-                continue;
-
-            bool phase = false;
-            if (is_negated)
-                phase = !phase;
-
-            auto const& d = ctx->get_bdata(v);
-            bool has_phase_snapshot = false;
-            for (auto const& snapshot : original_phases) {
-                if (snapshot.v == v) {
-                    has_phase_snapshot = true;
-                    break;
-                }
-            }
-            if (!has_phase_snapshot)
-                original_phases.push_back(phase_snapshot{v, d.m_phase_available, d.m_phase});
-
-            ctx->force_phase(v, phase);
-            LOG_WORKER(2, " backbone candidate forced phase: " << mk_bounded_pp(lit, m, 3) << " := " << (phase ? "true" : "false") << "\n");
-
-            auto const& activities = ctx->get_activity_vector();
-            double max_activity = 0.0;
-            for (unsigned i = 0; i < activities.size(); ++i)
-                max_activity = std::max(max_activity, activities[i]);
-
-            double saved_activity = 0.0;
-            if (!original_activities.find(v, saved_activity))
-                original_activities.insert(v, ctx->get_activity(v));
-
-            double eps = 1.0;
-            ctx->set_activity(v, max_activity + eps);
-
-            LOG_WORKER(2, " boosted activity of backbone candidate to " << (max_activity + eps) << "\n");
-        }
-        if (!m.inc())
-            return;
     }
 
     // 
@@ -1457,7 +1398,7 @@ namespace smt {
         }
 
         if (changed && !m_bb_candidates.empty()) {
-            // m_bb_candidate_epoch.fetch_add(1, std::memory_order_release);
+            m_bb_candidate_epoch.fetch_add(1, std::memory_order_release);
             std::sort(
                 m_bb_candidates.begin(),
                 m_bb_candidates.end(),
@@ -1465,14 +1406,14 @@ namespace smt {
                     return rank_of(a) > rank_of(b);
                 }
             );
-            m_bb_cv.notify_all();
+            // m_bb_cv.notify_all();  ------> if m_use_failed_literal_test
         }
     }
 
     parallel::bb_candidates parallel::batch_manager::return_global_bb_candidates(ast_translation& g2l, unsigned& epoch) {
         bb_candidates bb_candidates_local;
         std::scoped_lock lock(mux);
-        // epoch = m_bb_candidate_epoch.load(std::memory_order_acquire);
+        epoch = m_bb_candidate_epoch.load(std::memory_order_acquire);
         for (auto const& gc : m_bb_candidates) {
             expr_ref l_lit(g2l(gc.lit.get()), g2l.to());
             bb_candidates_local.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
@@ -1703,7 +1644,7 @@ namespace smt {
         m_bb_last_batch_processed.resize(m_num_global_bb_threads);
         m_bb_candidates.reset();
         m_global_backbones.reset();
-        // m_bb_candidate_epoch.store(0, std::memory_order_release);
+        m_bb_candidate_epoch.store(0, std::memory_order_release);
         m_core_min_jobs.reset();
 
         m_search_tree.reset();

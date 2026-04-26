@@ -52,14 +52,7 @@ namespace smt {
             bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : lit(e, m), age(s), hits(h) {}
         };
 
-        struct phase_snapshot {
-            bool_var v;
-            unsigned original_phase_available;
-            unsigned original_phase;
-        };
-
         using bb_candidates = vector<bb_candidate>;
-        using phase_snapshots = vector<phase_snapshot>;
 
         struct node_lease {
             node* leased_node = nullptr;
@@ -194,9 +187,9 @@ namespace smt {
             bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone);
             bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, vector<parallel::bb_candidate>& out, reslimit& lim);
             bb_candidates return_global_bb_candidates(ast_translation& g2l, unsigned& epoch);
-            // bool has_new_backbone_candidates(unsigned epoch) {
-            //     return m_bb_candidate_epoch.load(std::memory_order_acquire) != epoch;
-            // }
+            bool has_new_backbone_candidates(unsigned epoch) {
+                return m_bb_candidate_epoch.load(std::memory_order_acquire) != epoch;
+            }
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, bool is_first_run, node_lease& lease);
             void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease const& lease);
@@ -280,7 +273,6 @@ namespace smt {
 
             void simplify();
             bb_candidates find_backbone_candidates(unsigned k = 10);
-            void prepare_backbone_candidates(u_map<double>& original_activities, phase_snapshots& original_phases);
 
         public:
             worker(unsigned id, parallel& p, expr_ref_vector const& _asms);
