@@ -1056,7 +1056,13 @@ public:
         cancel_eh<reslimit> eh(in->m().limit());
         { 
             scoped_timer timer(m_timeout, &eh);
-            m_t->operator()(in, result);            
+            try {
+                m_t->operator()(in, result);
+            } catch (z3_exception &) {
+                if (in->m().limit().is_canceled()) 
+                    return;
+                throw;
+            }
         }
     }
 
