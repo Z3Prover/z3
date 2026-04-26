@@ -19,6 +19,8 @@ safe-outputs:
     labels: [refactoring, code-quality, automation]
     reviewers: [copilot]
     expires: 1d
+  noop:
+    report-as-issue: false
 
 network:
   allowed:
