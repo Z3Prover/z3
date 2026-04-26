@@ -1058,10 +1058,13 @@ public:
             scoped_timer timer(m_timeout, &eh);
             try {
                 m_t->operator()(in, result);
-            } catch (z3_exception &) {
-                if (in->m().limit().is_canceled()) 
-                    return;
+            } catch (z3_error &ex) {
+                throw ex;
+            } catch (tactic_exception &) {
                 throw;
+            } catch (z3_exception &ex) {
+                // convert all Z3 exceptions into tactic exceptions.
+                throw tactic_exception(ex.what());
             }
         }
     }
