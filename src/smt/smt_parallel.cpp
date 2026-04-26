@@ -1401,16 +1401,9 @@ namespace smt {
         std::scoped_lock lock(mux);
         bool changed = false;
 
-        auto atom_of = [&](expr* e) {
-            expr* atom = e;
-            m.is_not(e, atom);
-            return atom;
-        };
-
         auto find_existing_candidate_idx = [&](expr* e) -> int {
-            expr* atom = atom_of(e);
             for (unsigned i = 0; i < m_bb_candidates.size(); ++i) {
-                if (atom_of(m_bb_candidates[i].lit.get()) == atom)
+                if (m_bb_candidates[i].lit.get() == e)
                     return i;
             }
             return -1;
@@ -1431,9 +1424,6 @@ namespace smt {
 
             if (idx >= 0) {
                 auto& existing = m_bb_candidates[idx];
-                bb_candidate new_bb_candidate(m, g_lit.get(), age, 1);
-                if (rank_of(new_bb_candidate) > rank_of(existing))
-                    existing.lit = g_lit; // keep the polarity with higher rank
                 existing.age = (existing.age * existing.hits + age) / (existing.hits + 1);
                 existing.hits++;
                 continue;
