@@ -3143,7 +3143,7 @@ namespace seq {
 
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, true);
-            nielsen_subst s(var, replacement, nullptr, eq.m_dep); // TODO review
+            nielsen_subst s(var, replacement, nullptr, eq.m_dep); // TODO review - ensure var does not occur in replacement.
             e->add_subst(s);
             child->apply_subst(m_sg, s);
 
@@ -3571,7 +3571,7 @@ namespace seq {
 
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
-                nielsen_subst s(var_head, replacement, nullptr, eq->m_dep); // TODO review
+                nielsen_subst s(var_head, replacement, nullptr, eq->m_dep); // TODO review - ensure var does not occur in replacement.
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
 
@@ -3590,15 +3590,14 @@ namespace seq {
         }
 
         // Branch 2: x = u^n · x' (variable extends past full power, non-progress)
-        // NSB review: isn't this just a nielsen extension?
-        // In other words not a need for mk_fresh_var
         // so replace x -> u^n · x
         {
-            euf::snode* fresh_tail = mk_fresh_var(var_head->get_sort());
-            euf::snode* replacement = dir_concat(m_sg, power, fresh_tail, fwd);
+            euf::snode* replacement = dir_concat(m_sg, power, var_head, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);
-            nielsen_subst s(var_head, replacement, nullptr, eq->m_dep); // TODO - review
+            nielsen_subst s(var_head, replacement, 
+                            mk_rewrite(a.mk_sub(compute_length_expr(var_head), compute_length_expr(power))),
+                            eq->m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
         }
@@ -3650,7 +3649,7 @@ namespace seq {
             euf::snode* replacement = dir_concat(m_sg, base, fresh, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);
-            nielsen_subst s(power, replacement, nullptr, eq->m_dep); // TODO review
+            nielsen_subst s(power, replacement, nullptr, eq->m_dep); // TODO review - ensure var does not occur in replacement.
             e->add_subst(s);
             child->apply_subst(m_sg, s);
             if (exp_n)
@@ -3690,11 +3689,11 @@ namespace seq {
         // Side constraint: n >= 1
         // NSB review: similar comment to similar code in apply_var_num_unwinding_eq
         {
-            euf::snode* fresh = mk_fresh_var(power->get_sort());
+            euf::snode* fresh = mk_fresh_var(power->get_sort()); // TODO review - isn't this supposed to be base^{expn_n - 1}?
             euf::snode* replacement = dir_concat(m_sg, base, fresh, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);
-            nielsen_subst s(power, replacement, nullptr, mem->m_dep); // TODO review
+            nielsen_subst s(power, replacement, nullptr, mem->m_dep); // TODO review - ensure var does not occur in replacement.
             e->add_subst(s);
             child->apply_subst(m_sg, s);
             if (exp_n)
@@ -3728,7 +3727,8 @@ namespace seq {
 
     // NSB review: this is one of several methods exposed for testing
     void nielsen_graph::test_aux_explain_conflict(svector<enode_pair>& eqs,
-        svector<sat::literal>& mem_literals) const {
+        svector<sat::literal>& mem_literals,
+        vector<le>& les) const {
         SASSERT(m_root);
         auto deps = collect_conflict_deps();
         vector<dep_source, false> vs;
@@ -3739,7 +3739,7 @@ namespace seq {
             else if (std::holds_alternative<sat::literal>(d))
                 mem_literals.push_back(std::get<sat::literal>(d));
             else if (std::holds_alternative<le>(d))
-                UNREACHABLE();
+                les.push_back(std::get<le>(d));
         }
     }
 
@@ -3926,8 +3926,10 @@ namespace seq {
             dec_edge_mod_counts(e);
     }
 
-    void nielsen_graph::inc_edge_mod_counts(nielsen_edge* e) {        
-        for (auto const &s : e->subst()) {
+    void nielsen_graph::inc_edge_mod_counts(nielsen_edge* e) {  
+        auto const &sub = e->subst();
+        for (unsigned i = 0; i < sub.size();  ++i) {
+            auto const &s = sub[i];
             unsigned id = s.m_var->id();
             if (s.m_length) {
                 euf::snode *old_length = nullptr;
@@ -3942,7 +3944,9 @@ namespace seq {
     }
 
     void nielsen_graph::dec_edge_mod_counts(nielsen_edge* e) {
-        for (auto const &s : e->subst()) {
+        auto const &sub = e->subst();
+        for (unsigned i = sub.size(); i-- > 0; ) {
+            auto const &s = sub[i];
             unsigned id = s.m_var->id();
             if (s.m_length) {
                 auto old_length = m_length_trail.back();

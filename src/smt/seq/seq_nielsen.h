@@ -963,7 +963,8 @@ namespace seq {
         // (kind::eq) and str_mem indices (kind::mem).
         // Must be called after solve() returns unsat.
         void test_aux_explain_conflict(svector<enode_pair> &eqs,
-                              svector<sat::literal> &mem_literals) const;
+                              svector<sat::literal> &mem_literals,
+                                vector<le>& les) const;
 
 
         // accumulated search statistics
