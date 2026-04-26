@@ -1406,7 +1406,7 @@ namespace smt {
                     return rank_of(a) > rank_of(b);
                 }
             );
-            // m_bb_cv.notify_all();  ------> if m_use_failed_literal_test
+            m_bb_cv.notify_all();
         }
     }
 
