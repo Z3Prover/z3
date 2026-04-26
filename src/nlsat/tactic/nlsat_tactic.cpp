@@ -133,8 +133,23 @@ class nlsat_tactic : public tactic {
             return ok;
         }
 
-        void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result) {
+        void operator()(goal_ref const &g, goal_ref_buffer &result) {
+            try {
+                check(g, result);
+            } 
+            catch (z3_exception &ex) {
+                if (m.limit().is_canceled()) {
+                    if (result.empty()) {
+                        g->inc_depth();
+                        result.push_back(g.get());
+                    }
+                    return;
+                }
+                throw;
+            }
+        }
+
+        void check(goal_ref const & g, goal_ref_buffer & result) {
             tactic_report report("nlsat", *g);
             
             if (g->is_decided()) {
