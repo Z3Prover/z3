@@ -193,6 +193,8 @@ namespace smt {
                 std::scoped_lock lock(mux);
                 return m_bb_cancel_epoch;
             }
+
+            lbool check(expr_ref_vector const &asms, context &ctx);
         };
 
         class worker {
@@ -223,8 +225,9 @@ namespace smt {
             random_gen m_rand;
             scoped_ptr<context> ctx;
             ast_translation m_g2l, m_l2g;
+            uint_set m_known_units;
 
-            unsigned m_num_shared_units = 0;
+            unsigned m_shared_units_prefix = 0;
             unsigned m_num_initial_atoms = 0;
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             

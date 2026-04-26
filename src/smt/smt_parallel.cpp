@@ -114,20 +114,7 @@ namespace smt {
     }    
 
     lbool parallel::backbones_worker::check_sat(expr_ref_vector const &asms) {
-        lbool r = l_undef;
-        try {
-            r = ctx->check(asms.size(), asms.data());
-        } catch (z3_error &err) {
-            if (!m.limit().is_canceled())
-                b.set_exception(err.error_code());
-        } catch (z3_exception &ex) {
-            if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
-                b.set_exception(ex.what());
-        } catch (...) {
-            if (!m.limit().is_canceled())
-                b.set_exception("unknown exception");
-        }
-        return r;
+        return b.check(asms, *ctx);
     }
 
     void parallel::backbones_worker::run_failed_literal_mode() {
@@ -246,13 +233,11 @@ namespace smt {
             while (!bb_candidate_lits.empty() && !canceled() && m.inc()) {
                 // remove candidates that the other backbone thread found to be backbones
                 if (m_num_global_bb_threads > 1) {
-                    for (unsigned i = 0; i < bb_candidate_lits.size();) {
-                        expr* tmp = bb_candidate_lits.get(i);
-                        if (b.is_global_backbone(m_l2g, tmp)) 
-                            bb_candidate_lits.erase(i);                    
-                        else
-                            ++i;
-                    }
+                    unsigned j = 0;
+                    for (auto tmp : bb_candidate_lits) 
+                        if (!b.is_global_backbone(m_l2g, tmp))
+                            bb_candidate_lits[j++] = tmp;                    
+                    bb_candidate_lits.shrink(j);
                 }
 
                 unsigned chunk_size = std::min(m_bb_chunk_size * chunk_delta, bb_candidate_lits.size());
@@ -329,10 +314,7 @@ namespace smt {
 
                     // ---- empty core intersection → formula is UNSAT independent of backbone assumptions ----
                     if (bb_asms_in_core.empty()) {
-                        expr_ref_vector core_vec(m);
-                        for (expr* e : unsat_core)
-                            core_vec.push_back(e);
-                        b.set_unsat(m_l2g, core_vec);
+                        b.set_unsat(m_l2g, unsat_core);
                         return;
                     }
 
@@ -384,56 +366,6 @@ namespace smt {
     void parallel::backbones_worker::cancel() {
         LOG_BB_WORKER(1, " BACKBONES WORKER cancelling\n");
         m.limit().cancel();
-    }
-    
-    bool parallel::batch_manager::collect_global_backbone(ast_translation &l2g, expr_ref const &backbone) {
-        IF_VERBOSE(1, verbose_stream() << "collect-global-backbone\n");
-        std::scoped_lock lock(mux);
-        SASSERT(&m == &l2g.to());
-        
-        if (is_global_backbone_unlocked(l2g, backbone))
-            return false;
-        
-        expr_ref g_bb_ref(l2g(backbone.get()), m);
-        m_global_backbones.push_back(g_bb_ref);
-       
-        IF_VERBOSE(1, verbose_stream() << " Found and sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
-        collect_clause_unlocked(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
-
-        expr_ref neg_g_bb_ref(mk_not(g_bb_ref), m);
-        ptr_vector<node> matches;
-        m_search_tree.find_nonclosed_nodes_with_literal(neg_g_bb_ref, matches);
-
-        if (!matches.empty()) {
-            IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
-            expr_ref_vector l_core(l2g.from());
-            l_core.push_back(mk_not(backbone));
-
-            vector<node_lease> targets;
-            for (node* t : matches) {
-                if (!t || m_search_tree.is_lease_canceled(t, t->get_cancel_epoch()))
-                    continue;
-
-                // Keep only highest matching nodes: if an ancestor is already selected,
-                // closing it will also close this descendant subtree.
-                bool is_highest_ancestor = true;
-                for (node* p = t->parent(); p; p = p->parent()) {
-                    if (any_of(targets, [&](node_lease const& target) { return target.node == p; })) {
-                        is_highest_ancestor = false;
-                        break;
-                    }
-                }
-                if (!is_highest_ancestor)
-                    continue;
-
-                targets.push_back({ t, t->epoch(), t->get_cancel_epoch() });
-            }
-
-            if (!targets.empty())
-                backtrack_unlocked(l2g, UINT_MAX, l_core, nullptr, &targets);
-        }
-
-        return true;
     }
 
    void parallel::backbones_worker::collect_statistics(::statistics& st) const {
@@ -573,7 +505,7 @@ namespace smt {
         context::copy(p.ctx, *ctx, true);
         // don't share initial units
         ctx->pop_to_base_lvl();
-        m_num_shared_units = ctx->assigned_literals().size();
+        m_shared_units_prefix = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;  // avoid preprocessing lemmas that are exchanged
 
@@ -657,19 +589,7 @@ namespace smt {
         unsigned sz = asms.size();
         asms.push_back(m.mk_not(bb_candidate));
         
-        lbool r = l_undef;
-        try {
-            r = ctx->check(asms.size(), asms.data());
-        } catch (z3_error &err) {
-            if (!m.limit().is_canceled())
-                b.set_exception(err.error_code());
-        } catch (z3_exception &ex) {
-            if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
-                b.set_exception(ex.what());
-        } catch (...) {
-            if (!m.limit().is_canceled())
-                b.set_exception("unknown exception");
-        }
+        lbool r = b.check(asms, *ctx);
 
         asms.shrink(sz);
 
@@ -678,16 +598,35 @@ namespace smt {
         return r == l_false && ctx->unsat_core().size() == 1;
     }
 
+    // NSB review: the code appares to use the assumption that we are not at base level 
+    // there can be literals above base level (see "filter by assign level" test).
+    // when existing the loop we update m_shared_units_prefix even if the assigned-literals can go beyond base level
+    // we could be missing units.
+    // fixes; we could maintain a set uint_set seen_units to avoid resharing the same units
+    // we could only update m_shared_units_prefix until the size of the base level prefix.
+    // so we would re-examine literals that are not necessarily on base level in later calls.
+    // 
     void parallel::worker::share_units() {
         // Collect new units learned locally by this worker and send to batch manager
         
         unsigned sz = ctx->assigned_literals().size();
-        for (unsigned j = m_num_shared_units; j < sz; ++j) {  // iterate only over new literals since last sync
+        unsigned prefix_sz = m_shared_units_prefix;
+        bool at_prefix = true;
+        for (unsigned j = m_shared_units_prefix; j < sz; ++j) {  // iterate only over new literals since last sync
             literal lit = ctx->assigned_literals()[j];
 
             // filter by assign level: do not pop to base level as this destroys the current search state
-            if (ctx->get_assign_level(lit) > ctx->m_base_lvl)
+            if (ctx->get_assign_level(lit) > ctx->m_base_lvl) {
+                at_prefix = false;
                 continue;
+            }
+
+            if (at_prefix)
+                ++prefix_sz;
+
+            if (m_known_units.contains(lit.var()))
+                continue;
+            m_known_units.insert(lit.var());
 
             if (!ctx->is_relevant(lit.var()) && m_config.m_share_units_relevant_only)
                 continue;
@@ -705,7 +644,7 @@ namespace smt {
                 e = mk_not(e);  // negate if literal is negative
             b.collect_clause(m_l2g, id, e);
         }
-        m_num_shared_units = sz;
+        m_shared_units_prefix = prefix_sz;
     }
 
     void parallel::worker::simplify() {
@@ -774,7 +713,7 @@ namespace smt {
         ctx->setup_context(true);
         ctx->internalize_assertions();
         auto old_atoms = m_num_initial_atoms;
-        m_num_shared_units = ctx->assigned_literals().size();
+        m_shared_units_prefix = ctx->assigned_literals().size();
         m_num_initial_atoms = ctx->get_num_bool_vars();
         LOG_WORKER(1, " inprocess " << old_atoms << " -> " << m_num_initial_atoms << "\n");
     }
@@ -791,6 +730,76 @@ namespace smt {
     void parallel::worker::cancel_lease() {
         LOG_WORKER(1, " canceling lease\n");
         m.limit().inc_cancel();
+    }
+
+    lbool parallel::batch_manager::check(expr_ref_vector const &asms, context &ctx) {
+        lbool r = l_undef;
+        auto &m = asms.m();
+        try {
+            r = ctx.check(asms.size(), asms.data());
+        } catch (z3_error &err) {
+            if (!m.limit().is_canceled())
+                set_exception(err.error_code());
+        } catch (z3_exception &ex) {
+            if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
+                set_exception(ex.what());
+        } catch (...) {
+            if (!m.limit().is_canceled())
+                set_exception("unknown exception");
+        }
+        return r;
+    }
+
+    bool parallel::batch_manager::collect_global_backbone(ast_translation &l2g, expr_ref const &backbone) {
+        IF_VERBOSE(1, verbose_stream() << "collect-global-backbone\n");
+        std::scoped_lock lock(mux);
+        SASSERT(&m == &l2g.to());
+
+        if (is_global_backbone_unlocked(l2g, backbone))
+            return false;
+
+        expr_ref g_bb_ref(l2g(backbone.get()), m);
+        m_global_backbones.push_back(g_bb_ref);
+
+        IF_VERBOSE(1, verbose_stream() << " Found and sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3)
+                                       << "\n");
+        collect_clause_unlocked(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
+
+        expr_ref neg_g_bb_ref(mk_not(g_bb_ref), m);
+        ptr_vector<node> matches;
+        m_search_tree.find_nonclosed_nodes_with_literal(neg_g_bb_ref, matches);
+
+        if (!matches.empty()) {
+            IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: "
+                                           << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
+            expr_ref_vector l_core(l2g.from());
+            l_core.push_back(mk_not(backbone));
+
+            vector<node_lease> targets;
+            for (node *t : matches) {
+                if (!t || m_search_tree.is_lease_canceled(t, t->get_cancel_epoch()))
+                    continue;
+
+                // Keep only highest matching nodes: if an ancestor is already selected,
+                // closing it will also close this descendant subtree.
+                bool is_highest_ancestor = true;
+                for (node *p = t->parent(); p; p = p->parent()) {
+                    if (any_of(targets, [&](node_lease const &target) { return target.node == p; })) {
+                        is_highest_ancestor = false;
+                        break;
+                    }
+                }
+                if (!is_highest_ancestor)
+                    continue;
+
+                targets.push_back({t, t->epoch(), t->get_cancel_epoch()});
+            }
+
+            if (!targets.empty())
+                backtrack_unlocked(l2g, UINT_MAX, l_core, nullptr, &targets);
+        }
+
+        return true;
     }
 
     void parallel::batch_manager::release_lease_unlocked(unsigned worker_id, node* n, unsigned epoch) {
@@ -1079,23 +1088,13 @@ namespace smt {
     lbool parallel::worker::check_cube(expr_ref_vector const &cube) {
         for (auto &atom : cube)
             asms.push_back(atom);
-        lbool r = l_undef;
 
         ctx->get_fparams().m_max_conflicts = std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts);
         IF_VERBOSE(1, verbose_stream() << " Checking cube\n"
                                        << bounded_pp_exprs(cube)
                                        << "with max_conflicts: " << ctx->get_fparams().m_max_conflicts << "\n";);
-        try {
-            r = ctx->check(asms.size(), asms.data());
-        } catch (z3_error &err) {
-            if (!is_cancellation_exception(err.what()))
-                b.set_exception(err.error_code());
-        } catch (z3_exception &ex) {
-            if (!is_cancellation_exception(ex.what()))
-                b.set_exception(ex.what());
-        } catch (...) {
-            b.set_exception("unknown exception");
-        }
+        lbool r = b.check(asms, *ctx);
+
         asms.shrink(asms.size() - cube.size());
         LOG_WORKER(1, " DONE checking cube " << r << "\n";);
         return r;
