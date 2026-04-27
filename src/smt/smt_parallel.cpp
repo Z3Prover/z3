@@ -246,15 +246,18 @@ namespace smt {
             
             unsigned local_cancel_epoch = b.get_cancel_epoch();
             auto canceled = [&] { return local_cancel_epoch != b.get_cancel_epoch(); };
+            bool first_pass = true;
+            unsigned bb_candidate_epoch = b.get_bb_candidate_epoch();
             auto fallback_singletons = [&](expr_ref_vector const& chunk_lits, expr_ref_vector& bb_candidate_lits) {
                 m_stats.m_fallback_singleton_checks++;
                 for (expr* c : chunk_lits) {
-                    if (!bb_candidate_lits.contains(c)) continue; // already handled in singleton core → backbone case below
+                    if ((!first_pass && b.has_new_backbone_candidates(bb_candidate_epoch)) || !m.inc() || canceled()) 
+                        return;
+
+                    if (!bb_candidate_lits.contains(c)) // already handled in singleton core → backbone case below
+                        continue; 
                     
                     expr_ref bb_ref(c, m);
-                    if (!m.inc() || canceled()) 
-                        return;
-                    
                     if (m_mode == bb_mode::bb_positive)
                         bb_ref = mk_not(bb_ref); // F ∧ U since check_backbone flips it back
                     
@@ -324,9 +327,7 @@ namespace smt {
                     lbool r = check_sat(asms);
                     asms.shrink(base_asms_sz);
 
-                    if (!m.inc()) 
-                        return;
-                    if (canceled()) 
+                    if ((!first_pass && b.has_new_backbone_candidates(bb_candidate_epoch)) || !m.inc() || canceled()) 
                         break;
 
                     if (r == l_undef) {
@@ -392,6 +393,9 @@ namespace smt {
                         bb_candidate_lits.erase(candidate_to_remove);
                     }
 
+                    if ((!first_pass && b.has_new_backbone_candidates(bb_candidate_epoch)) || canceled() || !m.inc())
+                        break;
+
                     unsigned sz_before = bb_asms.size();
                     for (expr* a : bb_asms_in_core)
                         bb_asms.erase(a);
@@ -404,6 +408,23 @@ namespace smt {
                         m_stats.m_fallback_reason_chunk_exhausted++;
                         break;
                     }
+                }
+
+                // if we're done with the current batch, the other bb thread didn't cancel this one
+                // and there are no new candidates to process, we re-try remaining candidates from the current batch instead of remaining idle
+                if (bb_candidate_lits.empty() && !canceled() && m.inc() && !b.has_new_backbone_candidates(bb_candidate_epoch)) {
+                    first_pass = false;
+                    chunk_delta = 1;
+                    expr_ref_vector bb_snapshot = b.get_global_backbones_snapshot(m_g2l);
+                    expr_mark bb_mark;
+                    for (expr* e : bb_snapshot) {
+                        bb_mark.mark(e);
+                        bb_mark.mark(m.mk_not(e)); // filter both polarities: backbone ¬p rules out candidate p, and vice versa
+                    }
+                    bb_candidate_lits.reset();
+                    for (auto const& c : bb_candidates)
+                        if (!bb_mark.is_marked(c.lit.get()))
+                            bb_candidate_lits.push_back(c.lit);
                 }
             }
 

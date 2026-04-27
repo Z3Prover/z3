@@ -190,6 +190,16 @@ namespace smt {
             bool has_new_backbone_candidates(unsigned epoch) {
                 return m_bb_candidate_epoch.load(std::memory_order_acquire) != epoch;
             }
+            unsigned get_bb_candidate_epoch() const {
+                return m_bb_candidate_epoch.load(std::memory_order_acquire);
+            }
+            expr_ref_vector get_global_backbones_snapshot(ast_translation& g2l) {
+                std::scoped_lock lock(mux);
+                expr_ref_vector snapshot(g2l.to());
+                for (expr* gb : m_global_backbones)
+                    snapshot.push_back(g2l(gb));
+                return snapshot;
+            }
 
             bool get_cube(ast_translation& g2l, unsigned id, expr_ref_vector& cube, bool is_first_run, node_lease& lease);
             void backtrack(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core, node_lease const& lease);
