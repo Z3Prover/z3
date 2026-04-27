@@ -637,8 +637,10 @@ namespace smt {
             LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
 
             if (m_config.m_global_backbones) {
-                 bb_candidates local_candidates = find_backbone_candidates();
+                bb_candidates local_candidates = find_backbone_candidates();
                 b.collect_backbone_candidates(m_l2g, local_candidates);
+                if (!m.inc())
+                    return;
             }
 
             lbool r = check_cube(cube);
@@ -676,8 +678,7 @@ namespace smt {
                 return;
             }
             case l_false: {
-                expr_ref_vector unsat_core(m);
-                unsat_core.append(ctx->unsat_core());
+                expr_ref_vector const &unsat_core = ctx->unsat_core();
                 LOG_WORKER(2, " unsat core:\n";
                            for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
                 // If the unsat core only contains external assumptions,
