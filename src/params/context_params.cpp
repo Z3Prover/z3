@@ -87,6 +87,9 @@ void context_params::set(char const * param, char const * value) {
     else if (p == "dump_models") {
         set_bool(m_dump_models, param, value);
     }
+    else if (p == "model_completion") {
+        set_bool(m_model_completion, param, value);
+    }
     else if (p == "stats") {
         set_bool(m_statistics, param, value);
     }
@@ -144,6 +147,7 @@ void context_params::updt_params(params_ref const & p) {
     m_model             = p.get_bool("model", m_model);
     m_model_validate    = p.get_bool("model_validate", m_model_validate);
     m_dump_models       = p.get_bool("dump_models", m_dump_models);
+    m_model_completion  = p.get_bool("model_completion", m_model_completion);
     m_trace             = p.get_bool("trace", m_trace);
     m_trace_file_name   = p.get_str("trace_file_name", "z3.log");
     m_dot_proof_file    = p.get_str("dot_proof_file", "proof.dot");
@@ -163,6 +167,7 @@ void context_params::collect_param_descrs(param_descrs & d) {
     d.insert("auto_config", CPK_BOOL, "use heuristics to automatically select solver and configure it", "true");
     d.insert("model_validate", CPK_BOOL, "validate models produced by solvers", "false");
     d.insert("dump_models", CPK_BOOL, "dump models whenever check-sat returns sat", "false");
+    d.insert("model_completion", CPK_BOOL, "complete partial models", "true");
     d.insert("trace", CPK_BOOL, "trace generation for VCC", "false");
     d.insert("trace_file_name", CPK_STRING, "trace out file name (see option 'trace')", "z3.log");
     d.insert("dot_proof_file", CPK_STRING, "file in which to output graphical proofs", "proof.dot");

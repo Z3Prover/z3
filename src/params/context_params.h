@@ -40,6 +40,7 @@ public:
     bool             m_model { true };
     bool             m_model_validate { false };
     bool             m_dump_models { false };
+    bool             m_model_completion { true };
     bool             m_unsat_core { false };
     bool             m_smtlib2_compliant { false }; // it must be here because it enable/disable the use of coercions in the ast_manager.
     bool             m_statistics { false };

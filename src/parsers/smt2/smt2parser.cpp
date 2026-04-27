@@ -2790,7 +2790,7 @@ namespace smt2 {
             expr ** expr_end = expr_it + m_cached_strings.size();
             md->compress();
             for (unsigned i = 0; expr_it < expr_end; ++expr_it, ++i) {
-                // model::scoped_model_completion _scm(md, true);
+                model::scoped_model_completion _scm(md, m_ctx.params().m_model_completion);
                 expr_ref v = (*md)(*expr_it);
                 if (i > 0)
                     m_ctx.regular_stream() << "\n ";
