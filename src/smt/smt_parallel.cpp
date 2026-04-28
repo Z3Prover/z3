@@ -250,6 +250,10 @@ namespace smt {
 
     void parallel::backbones_worker::run_batch_mode() {
         bb_candidates bb_candidates;
+         auto is_unit = [&](unsigned v) {
+            return ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl;
+        };
+
         while (m.inc()) {
             if (!b.wait_for_backbone_job(id, m_g2l, bb_candidates, m.limit()))
                 return;
@@ -309,6 +313,32 @@ namespace smt {
                     bb_candidate_lits.shrink(j);
                 }
 
+                // remove candidates that are units and assert them as backbones
+                {
+                    unsigned j = 0;
+                    for (expr* c : bb_candidate_lits) {
+                        expr* atom = c;
+                        m.is_not(c, atom);
+                        if (ctx->b_internalized(atom)) {
+                            sat::bool_var v = ctx->get_bool_var(atom);
+                            if (v != sat::null_bool_var && is_unit(v)) {
+                                bool is_true = ctx->get_assignment(v) == l_true;
+                                expr_ref backbone(atom, m);
+                                if (!is_true) backbone = mk_not(backbone);
+                                IF_VERBOSE(2, verbose_stream() << "backbone on trail " << mk_bounded_pp(atom, m) << "\n");
+                                if (b.collect_global_backbone(m_l2g, backbone)) {
+                                    m_stats.m_backbones_found++;
+                                    ctx->assert_expr(backbone.get());
+                                }
+                                m_stats.m_backbones_detected++;
+                                continue;
+                            }
+                        }
+                        bb_candidate_lits[j++] = c;
+                    }
+                    bb_candidate_lits.shrink(j);
+                }
+
                 unsigned chunk_size = std::min(m_bb_chunk_size * chunk_delta, bb_candidate_lits.size());
                 expr_ref_vector chunk_lits(m);
                 expr_ref_vector negated_chunk_lits(m);
@@ -335,7 +365,6 @@ namespace smt {
                         break;
 
                     m_stats.m_core_refinement_rounds++;
-
                     unsigned base_asms_sz = asms.size();
                     for (expr* a : bb_asms)
                         asms.push_back(a);
@@ -838,9 +867,21 @@ namespace smt {
     // if the unsat core contains a single candidate we have found a backbone literal
     // 
     bool parallel::backbones_worker::check_backbone(expr* bb_candidate) {
+        // fast path: if the atom is already a base-level unit, evaluate directly
+        expr* atom = bb_candidate;
+        m.is_not(bb_candidate, atom);
+        if (ctx->b_internalized(atom)) {
+            sat::bool_var v = ctx->get_bool_var(atom);
+            if (v != sat::null_bool_var && ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl) {
+                bool val = ctx->get_assignment(v) == l_true;
+                bool bb_negated = (atom != bb_candidate);
+                return bb_negated ? !val : val; // true iff bb_candidate evaluates to true
+            }
+        }
+
         unsigned sz = asms.size();
         asms.push_back(m.mk_not(bb_candidate));
-        
+
         lbool r = b.check(asms, *ctx);
 
         asms.shrink(sz);
