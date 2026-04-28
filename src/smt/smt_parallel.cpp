@@ -458,35 +458,35 @@ namespace smt {
                 }
             }
 
-            while (!b.has_new_backbone_candidates(bb_candidate_epoch) && !canceled() && m.inc()) {
-                expr_ref_vector residual_lits(m);
-                // unsigned found_before = m_stats.m_internal_backbones_found;
+            // while (!b.has_new_backbone_candidates(bb_candidate_epoch) && !canceled() && m.inc()) {
+            //     expr_ref_vector residual_lits(m);
+            //     // unsigned found_before = m_stats.m_internal_backbones_found;
                 
-                // filter candidates for retry
-                expr_ref_vector bb_snapshot = b.get_global_backbones_snapshot(m_g2l);
-                expr_mark bb_mark;
-                bb_candidate_lits.reset();
-                for (expr* e : bb_snapshot) {
-                    bb_mark.mark(e);
-                    bb_mark.mark(m.mk_not(e));
-                }
-                for (auto const& c : bb_curr_batch_candidates)
-                    if (!bb_mark.is_marked(c.lit.get()))
-                        bb_candidate_lits.push_back(c.lit);
+            //     // filter candidates for retry
+            //     expr_ref_vector bb_snapshot = b.get_global_backbones_snapshot(m_g2l);
+            //     expr_mark bb_mark;
+            //     bb_candidate_lits.reset();
+            //     for (expr* e : bb_snapshot) {
+            //         bb_mark.mark(e);
+            //         bb_mark.mark(m.mk_not(e));
+            //     }
+            //     for (auto const& c : bb_curr_batch_candidates)
+            //         if (!bb_mark.is_marked(c.lit.get()))
+            //             bb_candidate_lits.push_back(c.lit);
                 
-                if (residual_lits.empty())
-                    break;
+            //     if (residual_lits.empty())
+            //         break;
 
-                bb_candidate_lits.reset();
-                bb_candidate_lits.append(residual_lits);
-                fallback_singletons(residual_lits, bb_candidate_lits, true);
+            //     bb_candidate_lits.reset();
+            //     bb_candidate_lits.append(residual_lits);
+            //     fallback_singletons(residual_lits, bb_candidate_lits, true);
                 
-                // break if we made no progress on this batch
-                // unlikely to make progress on future runs and idk if this creates any kind of resource stress
-                // m_stats.m_retry_backbones_found += m_stats.m_internal_backbones_found - found_before;
-                // if (m_stats.m_internal_backbones_found == found_before) 
-                //     break;
-            }
+            //     // break if we made no progress on this batch
+            //     // unlikely to make progress on future runs and idk if this creates any kind of resource stress
+            //     // m_stats.m_retry_backbones_found += m_stats.m_internal_backbones_found - found_before;
+            //     // if (m_stats.m_internal_backbones_found == found_before) 
+            //     //     break;
+            // }
 
             if (!canceled())
                 b.cancel_current_backbone_batch();
