@@ -63,7 +63,8 @@ namespace euf {
     // Handles both str.++ (OP_SEQ_CONCAT) and re.++ (OP_RE_CONCAT).
     struct enode_concat_eq {
         seq_util const& seq;
-        enode_concat_eq(seq_util const& s) : seq(s) {}
+        sgraph& sg;
+        enode_concat_eq(seq_util const& s, sgraph& sg) : seq(s), sg(sg) {}
         bool operator()(enode* a, enode* b) const;
     };
 
