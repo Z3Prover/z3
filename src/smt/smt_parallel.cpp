@@ -173,7 +173,7 @@ namespace smt {
                         if (!is_true) e = mk_not(e);
                         m_known_backbone_vars.insert(v);
                         if (b.collect_global_backbone(m_l2g, e))
-                            m_stats.m_backbones_found++;
+                            m_stats.m_internal_backbones_found++;
                         continue;
                     }
 
@@ -233,9 +233,7 @@ namespace smt {
             IF_VERBOSE(2, verbose_stream() << "failed literal " << mk_bounded_pp(e, m) << "\n");
             expr_ref not_e(mk_not(m, e), m);
             m_known_backbone_vars.insert(v);
-            if (b.collect_global_backbone(m_l2g, not_e)) {
-                m_stats.m_backbones_found++;
-            }
+            b.collect_global_backbone(m_l2g, not_e);
             ctx->assert_expr(not_e);
             r = l_undef;
         }
@@ -249,19 +247,19 @@ namespace smt {
 
 
     void parallel::backbones_worker::run_batch_mode() {
-        bb_candidates bb_candidates;
+        bb_candidates bb_curr_batch_candidates;
          auto is_unit = [&](unsigned v) {
             return ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl;
         };
 
         while (m.inc()) {
-            if (!b.wait_for_backbone_job(id, m_g2l, bb_candidates, m.limit()))
+            if (!b.wait_for_backbone_job(id, m_g2l, bb_curr_batch_candidates, m.limit()))
                 return;
 
-            if (bb_candidates.empty())
+            if (bb_curr_batch_candidates.empty())
                 continue;
 
-            LOG_BB_WORKER(1, " received batch of " << bb_candidates.size() << " candidates\n");
+            LOG_BB_WORKER(1, " received batch of " << bb_curr_batch_candidates.size() << " candidates\n");
             
             unsigned local_cancel_epoch = b.get_cancel_epoch();
             auto canceled = [&] { return local_cancel_epoch != b.get_cancel_epoch(); };
@@ -285,7 +283,7 @@ namespace smt {
                         LOG_BB_WORKER(1, " fallback found backbone: " << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
                         bool is_new_bb = b.collect_global_backbone(m_l2g, bb_ref);
                         if (is_new_bb) {
-                            m_stats.m_backbones_found++;
+                            m_stats.m_internal_backbones_found++;
                             ctx->assert_expr(bb_ref.get()); // since bb workers don't collect clauses they themselves shared
                         }
                     }
@@ -294,10 +292,10 @@ namespace smt {
             };
             
             m_stats.m_batches_total++;
-            m_stats.m_candidates_total += bb_candidates.size();
+            m_stats.m_candidates_total += bb_curr_batch_candidates.size();
 
             expr_ref_vector bb_candidate_lits(m);
-            for (auto const& c : bb_candidates)
+            for (auto const& c : bb_curr_batch_candidates)
                 bb_candidate_lits.push_back(c.lit);
 
             unsigned chunk_delta = 1;
@@ -327,7 +325,7 @@ namespace smt {
                                 if (!is_true) backbone = mk_not(backbone);
                                 IF_VERBOSE(2, verbose_stream() << "backbone on trail " << mk_bounded_pp(atom, m) << "\n");
                                 if (b.collect_global_backbone(m_l2g, backbone)) {
-                                    m_stats.m_backbones_found++;
+                                    m_stats.m_internal_backbones_found++;
                                     ctx->assert_expr(backbone.get());
                                 }
                                 m_stats.m_backbones_detected++;
@@ -396,7 +394,7 @@ namespace smt {
                         model_ref mdl;
                         ctx->get_model(mdl);
                         b.set_sat(m_l2g, *mdl);
-                        bb_candidates.reset();
+                        bb_curr_batch_candidates.reset();
                         return;
                     }
 
@@ -425,7 +423,7 @@ namespace smt {
                         bool is_new_bb = b.collect_global_backbone(m_l2g, backbone_lit);
 
                         if (is_new_bb) {
-                            m_stats.m_backbones_found++;
+                            m_stats.m_internal_backbones_found++;
                             ctx->assert_expr(backbone_lit.get()); // since bb workers don't collect clauses they themselves shared
                         }
 
@@ -465,8 +463,7 @@ namespace smt {
                         bb_mark.mark(e);
                         bb_mark.mark(m.mk_not(e)); // filter both polarities: backbone ¬p rules out candidate p, and vice versa
                     }
-                    bb_candidate_lits.reset();
-                    for (auto const& c : bb_candidates)
+                    for (auto const& c : bb_curr_batch_candidates)
                         if (!bb_mark.is_marked(c.lit.get()))
                             bb_candidate_lits.push_back(c.lit);
                 }
@@ -475,7 +472,7 @@ namespace smt {
             if (!canceled()) {
                 b.cancel_current_backbone_batch();
             }
-            bb_candidates.reset();
+            bb_curr_batch_candidates.reset();
         }
     }
 
@@ -484,7 +481,7 @@ namespace smt {
         m.limit().cancel();
     }
     
-    bool parallel::batch_manager::collect_global_backbone(ast_translation &l2g, expr_ref const &backbone) {
+    bool parallel::batch_manager::collect_global_backbone(ast_translation &l2g, expr_ref const &backbone, unsigned source_worker_id) {
         IF_VERBOSE(1, verbose_stream() << "collect-global-backbone\n");
         std::scoped_lock lock(mux);
         SASSERT(&m == &l2g.to());
@@ -494,9 +491,10 @@ namespace smt {
         
         expr_ref g_bb_ref(l2g(backbone.get()), m);
         m_global_backbones.insert(g_bb_ref.get());
+        ++m_stats.m_backbones_found;
        
         IF_VERBOSE(1, verbose_stream() << " Found and sharing new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
-        collect_clause_unlocked(l2g, /*source_worker_id=*/UINT_MAX, backbone.get());
+        collect_clause_unlocked(l2g, source_worker_id, backbone.get());
 
         expr_ref neg_g_bb_ref(mk_not(g_bb_ref), m);
         vector<cube_config::literal> g_core;
@@ -518,7 +516,6 @@ namespace smt {
         st.update("bb-batches-total", m_stats.m_batches_total);
         st.update("bb-candidates-total", m_stats.m_candidates_total);
         st.update("bb-backbones-detected", m_stats.m_backbones_detected);
-        st.update("bb-backbones-found", m_stats.m_backbones_found);
         st.update("bb-core-refinement-rounds", m_stats.m_core_refinement_rounds);
         st.update("bb-singleton-backbones", m_stats.m_singleton_backbones);
         st.update("bb-fallback-singleton-checks", m_stats.m_fallback_singleton_checks);
@@ -529,10 +526,10 @@ namespace smt {
 
         double backbone_yield = 0.0;
         if (m_stats.m_candidates_total > 0)
-            backbone_yield = 100.0 * (double)m_stats.m_backbones_found / (double)m_stats.m_candidates_total;
+            backbone_yield = 100.0 * (double)m_stats.m_internal_backbones_found / (double)m_stats.m_candidates_total;
         double avg_backbones_per_batch = 0.0;
         if (m_stats.m_batches_total > 0)
-            avg_backbones_per_batch = (double)m_stats.m_backbones_found / (double)m_stats.m_batches_total;
+            avg_backbones_per_batch = (double)m_stats.m_internal_backbones_found / (double)m_stats.m_batches_total;
         double core_refinement_cost = 0.0;
         if (m_stats.m_batches_total > 0)
             core_refinement_cost = (double)m_stats.m_core_refinement_rounds / (double)m_stats.m_batches_total;
@@ -790,7 +787,7 @@ namespace smt {
 
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_inprocessing = pp.inprocessing();
-        m_config.m_global_backbones = pp.num_global_bb_chunking_threads() > 0 || pp.num_global_bb_fl_threads() > 0;
+        m_config.m_global_backbones = pp.num_global_bb_batch_threads() > 0 || pp.num_global_bb_fl_threads() > 0;
         m_config.m_local_backbones = pp.local_backbones();
         m_config.m_core_minimize = pp.core_minimize();
     }
@@ -814,7 +811,7 @@ namespace smt {
         context::copy(p.ctx, *ctx, true);
 
         smt_parallel_params pp(p.ctx.m_params);
-        m_num_global_bb_threads = pp.num_global_bb_chunking_threads();
+        m_num_global_bb_threads = pp.num_global_bb_batch_threads();
         m_use_failed_literal_test = pp.num_global_bb_fl_threads() > 0;
     }
 
@@ -900,7 +897,9 @@ namespace smt {
     // so we would re-examine literals that are not necessarily on base level in later calls.
     // 
     void parallel::worker::share_units() {
-        // Collect new units learned locally by this worker and send to batch manager
+        // Collect new base-level units learned locally by this worker.
+        // When global backbone support is enabled, promote them through the
+        // backbone path so the opposite side of the search tree is closed.
         
         unsigned sz = ctx->assigned_literals().size();
         unsigned prefix_sz = m_shared_units_prefix;
@@ -935,7 +934,8 @@ namespace smt {
 
             if (lit.sign())
                 e = mk_not(e);  // negate if literal is negative
-            b.collect_clause(m_l2g, id, e);
+
+            b.collect_global_backbone(m_l2g, e, id);
         }
         m_shared_units_prefix = prefix_sz;
     }
@@ -1735,6 +1735,7 @@ namespace smt {
     void parallel::batch_manager::collect_statistics(::statistics &st) const {
         st.update("parallel-num_cubes", m_stats.m_num_cubes);
         st.update("parallel-max-cube-size", m_stats.m_max_cube_depth);
+        st.update("bb-backbones-found", m_stats.m_backbones_found);
         st.update("parallel-core-min-jobs-enqueued", m_stats.m_core_min_jobs_enqueued);
         st.update("parallel-core-min-jobs-published", m_stats.m_core_min_jobs_published);
         st.update("parallel-core-min-jobs-skipped", m_stats.m_core_min_jobs_skipped);
@@ -1743,18 +1744,18 @@ namespace smt {
 
     lbool parallel::operator()(expr_ref_vector const &asms) {
         smt_parallel_params pp(ctx.m_params);
-        unsigned num_global_bb_chunking_threads = pp.num_global_bb_chunking_threads();
-        if (num_global_bb_chunking_threads > 2)
-            throw default_exception("smt_parallel.num_global_bb_chunking_threads must be 0, 1, or 2");
+        unsigned num_global_bb_batch_threads = pp.num_global_bb_batch_threads();
+        if (num_global_bb_batch_threads > 2)
+            throw default_exception("smt_parallel.num_global_bb_batch_threads must be 0, 1, or 2");
         unsigned num_workers = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
         unsigned num_sls_threads = (pp.sls() ? 1 : 0);
         unsigned num_core_min_threads = (pp.core_minimize() ? 1 : 0);
         unsigned num_global_bb_fl_threads = pp.num_global_bb_fl_threads();
         if (num_global_bb_fl_threads > 2)
             throw default_exception("smt_parallel.num_global_bb_fl_threads must be 0, 1, or 2");
-        if (num_global_bb_fl_threads > 0 && num_global_bb_chunking_threads > 0)
-            throw default_exception("smt_parallel.num_global_bb_fl_threads and smt_parallel.num_global_bb_chunking_threads cannot both be enabled");
-        unsigned num_global_bb_threads = num_global_bb_fl_threads > 0 ? num_global_bb_fl_threads : num_global_bb_chunking_threads;
+        if (num_global_bb_fl_threads > 0 && num_global_bb_batch_threads > 0)
+            throw default_exception("smt_parallel.num_global_bb_fl_threads and smt_parallel.num_global_bb_batch_threads cannot both be enabled");
+        unsigned num_global_bb_threads = num_global_bb_fl_threads > 0 ? num_global_bb_fl_threads : num_global_bb_batch_threads;
         unsigned total_threads = num_workers + num_sls_threads + num_core_min_threads + num_global_bb_threads;
 
         IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << total_threads << " threads\n";);

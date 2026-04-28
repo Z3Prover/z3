@@ -81,6 +81,7 @@ namespace smt {
             struct stats {
                 unsigned m_max_cube_depth = 0;
                 unsigned m_num_cubes = 0;
+                unsigned m_backbones_found = 0;
                 unsigned m_core_min_jobs_enqueued = 0;
                 unsigned m_core_min_jobs_published = 0;
                 unsigned m_core_min_jobs_skipped = 0;
@@ -184,7 +185,7 @@ namespace smt {
 
             void collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates);
             void collect_backbone_evidence(ast_translation& l2g, expr* lit, double delta);
-            bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone);
+            bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone, unsigned source_worker_id = UINT_MAX);
             bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, vector<parallel::bb_candidate>& out, reslimit& lim);
             // bb_candidates return_global_bb_candidates(ast_translation& g2l, unsigned& epoch);
             bool has_new_backbone_candidates(unsigned epoch) {
@@ -354,7 +355,7 @@ namespace smt {
                 unsigned m_candidates_total = 0;
                 unsigned m_singleton_backbones = 0;
                 unsigned m_backbones_detected = 0;
-                unsigned m_backbones_found = 0;
+                unsigned m_internal_backbones_found = 0;
                 unsigned m_fallback_singleton_checks = 0;
                 unsigned m_fallback_reason_chunk_exhausted = 0;
                 unsigned m_fallback_reason_undef = 0;
