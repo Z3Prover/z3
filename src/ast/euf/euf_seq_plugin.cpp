@@ -168,6 +168,30 @@ namespace euf {
             if (is_concat(n))
                 propagate_simplify(n);
         }
+
+        // Re-apply identity and absorption rules over all tracked concat nodes.
+        // This handles the case where the merge caused a child to become equivalent
+        // to an identity (ε) or absorbing element (∅) that was not known at
+        // registration time (e.g. b ~ "" discovered after concat(x, b) was registered).
+        for (enode* n : m_concats) {
+            enode *na, *nb;
+            if (is_str_concat(n, na, nb)) {
+                if (is_str_empty(na))
+                    push_merge(n, nb);
+                else if (is_str_empty(nb))
+                    push_merge(n, na);
+            }
+            if (is_re_concat(n, na, nb)) {
+                if (is_re_epsilon(na))
+                    push_merge(n, nb);
+                else if (is_re_epsilon(nb))
+                    push_merge(n, na);
+                else if (is_re_empty(na))
+                    push_merge(n, na);   // absorb: concat(∅, b) = ∅
+                else if (is_re_empty(nb))
+                    push_merge(n, nb);   // absorb: concat(a, ∅) = ∅
+            }
+        }
     }
 
     //
@@ -201,6 +225,9 @@ namespace euf {
     //
     // 2. Nullable absorption: concat(u, .*, v, w) = concat(u, .*, w)
     //    when v is nullable and adjacent to full_seq (.*).
+    //
+    // 3. Loop merging: concat(body{lo1,hi1}, body{lo2,hi2}) = body{lo1+lo2, hi1+hi2}
+    //    when both children are loops over congruent bodies.
     //
     void seq_plugin::propagate_simplify(enode* n) {
         enode* a, *b;
@@ -236,6 +263,32 @@ namespace euf {
 
         // concat(concat(u, v), .*) = concat(u, .*) when v nullable
         // handled by associativity + nullable absorption on sub-concats
+
+        // Rule 3: Loop merging
+        // concat(body{lo1,hi1}, body{lo2,hi2}) = body{lo1+lo2, hi1+hi2}
+        unsigned lo1, hi1, lo2, hi2;
+        if (same_loop_body(a, b, lo1, hi1, lo2, hi2)) {
+            ast_manager& m_ast = g.get_manager();
+            enode* body_en = a->get_arg(0);
+            unsigned lo = lo1 + lo2, hi = hi1 + hi2;
+            expr_ref merged_expr(m_seq.re.mk_loop_proper(body_en->get_expr(), lo, hi), m_ast);
+            enode* merged_n = g.find(merged_expr);
+            if (!merged_n && is_app(merged_expr)) {
+                app* merged_app = to_app(merged_expr);
+                unsigned nargs = merged_app->get_num_args();
+                if (nargs == 0) {
+                    merged_n = mk(merged_expr, 0, nullptr);
+                } else if (nargs == 1) {
+                    // The single arg is either body_en or the empty string (epsilon case).
+                    expr* arg0_expr = merged_app->get_arg(0);
+                    enode* arg0_en = (arg0_expr == body_en->get_expr()) ? body_en : g.find(arg0_expr);
+                    if (arg0_en)
+                        merged_n = mk(merged_expr, 1, &arg0_en);
+                }
+            }
+            if (merged_n)
+                push_merge(n, merged_n);
+        }
     }
 
     bool seq_plugin::is_nullable(expr* e) {

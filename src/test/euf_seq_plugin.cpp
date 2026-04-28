@@ -227,6 +227,69 @@ static void test_sgraph_egraph_sync() {
     SASSERT(nx->get_root() != ny->get_root());
 }
 
+// test seq_plugin: identity elimination fires after a post-registration merge
+// When b ~ "" is learned AFTER concat(a, b) is registered, the plugin must
+// re-check identity rules and conclude concat(a, b) ~ a.
+static void test_seq_plugin_identity_after_merge() {
+    std::cout << "test_seq_plugin_identity_after_merge\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    euf::egraph& g = sg.get_egraph();
+    seq_util seq(m);
+    sort_ref str_sort(seq.str.mk_string_sort(), m);
+
+    expr_ref a(m.mk_const("a", str_sort), m);
+    expr_ref b(m.mk_const("b", str_sort), m);
+    expr_ref empty(seq.str.mk_empty(str_sort), m);
+    expr_ref ab(seq.str.mk_concat(a, b), m);
+
+    // Register concat(a, b) first — at this point b is not yet empty.
+    auto* nab = get_node(g, seq, ab);
+    auto* na = g.find(a);
+    auto* nb = g.find(b);
+    auto* nempty = get_node(g, seq, empty);
+    g.propagate();
+
+    // Now learn b ~ "" via a merge.
+    g.merge(nb, nempty, nullptr);
+    g.propagate();
+
+    // After propagation, concat(a, b) should be equivalent to a.
+    SASSERT(nab->get_root() == na->get_root());
+    std::cout << g << "\n";
+}
+
+// test seq_plugin: loop merging — concat(r{lo1,hi1}, r{lo2,hi2}) = r{lo1+lo2, hi1+hi2}
+static void test_seq_plugin_loop_merge() {
+    std::cout << "test_seq_plugin_loop_merge\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    euf::egraph& g = sg.get_egraph();
+    seq_util seq(m);
+    sort_ref str_sort(seq.str.mk_string_sort(), m);
+
+    expr_ref x(m.mk_const("x", str_sort), m);
+    expr_ref r(seq.re.mk_to_re(x), m);
+    // r{2,3} and r{1,2} — bounds are chosen so the merged form r{3,5} is a distinct loop.
+    expr_ref loop23(seq.re.mk_loop_proper(r, 2, 3), m);
+    expr_ref loop12(seq.re.mk_loop_proper(r, 1, 2), m);
+    expr_ref loop35(seq.re.mk_loop_proper(r, 3, 5), m);
+    // concat(r{2,3}, r{1,2})
+    expr_ref concat_loops(seq.re.mk_concat(loop23, loop12), m);
+
+    auto* nc = get_node(g, seq, concat_loops);
+    auto* nl35 = get_node(g, seq, loop35);
+    g.propagate();
+
+    // After propagation, concat(r{2,3}, r{1,2}) should be equivalent to r{3,5}.
+    SASSERT(nc->get_root() == nl35->get_root());
+    std::cout << g << "\n";
+}
+
 void tst_euf_seq_plugin() {
     s_var = 0; test_sgraph_basic();
     s_var = 0; test_sgraph_backtrack();
@@ -235,4 +298,6 @@ void tst_euf_seq_plugin() {
     s_var = 0; test_seq_plugin_star_merge();
     s_var = 0; test_seq_plugin_nullable_absorb();
     s_var = 0; test_sgraph_egraph_sync();
+    s_var = 0; test_seq_plugin_identity_after_merge();
+    s_var = 0; test_seq_plugin_loop_merge();
 }
