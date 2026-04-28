@@ -10,6 +10,8 @@ Author:
     Nikolaj Bjorner (nbjorner)
 
 --*/
+#include <algorithm>
+#include <climits>
 #include "util/uint_set.h"
 #include "params/smt_params_helper.hpp"
 #include "math/lp/nla_core.h"
@@ -77,54 +79,77 @@ namespace nla {
         if (!configure())
             return;
 
+        bool productive = false;
+
         try {
             if (propagate_gcd_test())
-                return;
+                productive = true;
         }
         catch (...) {
-            
+
         }
-        m_solver.saturate();
-        TRACE(grobner, m_solver.display(tout));
+        if (!productive) {
+            m_solver.saturate();
+            TRACE(grobner, m_solver.display(tout));
 
-        if (m_delay_base > 0)
-            --m_delay_base;
-        
-        try {
+            if (m_delay_base > 0)
+                --m_delay_base;
 
-            if (is_conflicting())
-                return;
+            try {
+                productive = is_conflicting()
+                    || propagate_quotients()
+                    || propagate_gcd_test()
+                    || propagate_eqs()
+                    || propagate_factorization()
+                    || propagate_linear_equations();
+            }
+            catch (...) {
 
-            if (propagate_quotients())
-                return;
-
-            if (propagate_gcd_test())
-                return;
-
-            if (propagate_eqs())
-                return;
-
-            if (propagate_factorization())
-                return;
-
-            if (propagate_linear_equations())
-                return;
-            
-        }
-        catch (...) {
-            
+            }
         }
 
         // DEBUG_CODE(for (auto e : m_solver.equations()) check_missing_propagation(*e););
 
         // for (auto e : m_solver.equations()) check_missing_propagation(*e);
-        
+
+        if (c().params().arith_nl_grobner_adaptive())
+            update_growth_boost(productive);
+
+        if (productive)
+            return;
+
         ++m_delay_base;
         if (m_quota > 0)
            --m_quota;
 
         IF_VERBOSE(5, verbose_stream() << "grobner miss, quota " << m_quota << "\n");
         IF_VERBOSE(5, diagnose_pdd_miss(verbose_stream()));
+    }
+
+    void grobner::update_growth_boost(bool productive) {
+        // Bumping is conservative: requires two consecutive productive runs
+        // before any boost; misses decay toward unit by 1/4 per call.
+        unsigned const unit = m_config.m_adaptive_unit;
+        unsigned const cap  = m_config.m_adaptive_max;
+        if (productive) {
+            ++m_hit_streak;
+            if (m_hit_streak >= m_config.m_adaptive_bump_after) {
+                unsigned next = m_growth_boost + (m_growth_boost >> 1);
+                m_growth_boost = std::min(next, cap);
+                m_hit_streak = 0;
+            }
+        }
+        else {
+            m_hit_streak = 0;
+            if (m_growth_boost > unit) {
+                unsigned excess = m_growth_boost - unit;
+                m_growth_boost -= (excess + 3) / 4;
+                if (m_growth_boost < unit)
+                    m_growth_boost = unit;
+            }
+        }
+        IF_VERBOSE(5, verbose_stream() << "grobner adaptive boost " << m_growth_boost
+                   << "/" << unit << (productive ? " (hit)" : " (miss)") << "\n");
     }
 
     bool grobner::is_conflicting() {
@@ -578,6 +603,21 @@ namespace nla {
         cfg.m_eqs_growth = c().params().arith_nl_grobner_eqs_growth();
         cfg.m_expr_size_growth = c().params().arith_nl_grobner_expr_size_growth();
         cfg.m_expr_degree_growth = c().params().arith_nl_grobner_expr_degree_growth();
+        if (c().params().arith_nl_grobner_adaptive() && m_growth_boost != m_config.m_adaptive_unit) {
+            // Wider intermediate to prevent overflow when a user param is
+            // close to UINT_MAX; clamp before assigning back to the unsigned
+            // config fields.
+            uint64_t const unit  = m_config.m_adaptive_unit;
+            uint64_t const boost = m_growth_boost;
+            auto scale = [unit, boost](unsigned x) -> unsigned {
+                uint64_t y = (static_cast<uint64_t>(x) * boost) / unit;
+                return y > UINT_MAX ? UINT_MAX : static_cast<unsigned>(y);
+            };
+            cfg.m_eqs_growth         = scale(cfg.m_eqs_growth);
+            cfg.m_expr_size_growth   = scale(cfg.m_expr_size_growth);
+            cfg.m_expr_degree_growth = scale(cfg.m_expr_degree_growth);
+            cfg.m_max_simplified     = scale(cfg.m_max_simplified);
+        }
         cfg.m_number_of_conflicts_to_report = c().params().arith_nl_grobner_cnfl_to_report();
         m_solver.set(cfg);
         m_solver.adjust_cfg();
