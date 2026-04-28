@@ -275,14 +275,14 @@ static void test_seq_plugin_loop_merge() {
     expr_ref x(m.mk_const("x", str_sort), m);
     expr_ref r(seq.re.mk_to_re(x), m);
     // r{2,3} and r{1,2} — bounds are chosen so the merged form r{3,5} is a distinct loop.
-    expr_ref loop23(seq.re.mk_loop_proper(r, 2, 3), m);
-    expr_ref loop12(seq.re.mk_loop_proper(r, 1, 2), m);
-    expr_ref loop35(seq.re.mk_loop_proper(r, 3, 5), m);
+    expr_ref first_loop(seq.re.mk_loop_proper(r, 2, 3), m);
+    expr_ref second_loop(seq.re.mk_loop_proper(r, 1, 2), m);
+    expr_ref expected_merged_loop(seq.re.mk_loop_proper(r, 3, 5), m);
     // concat(r{2,3}, r{1,2})
-    expr_ref concat_loops(seq.re.mk_concat(loop23, loop12), m);
+    expr_ref concat_loops(seq.re.mk_concat(first_loop, second_loop), m);
 
     auto* nc = get_node(g, seq, concat_loops);
-    auto* nl35 = get_node(g, seq, loop35);
+    auto* nl35 = get_node(g, seq, expected_merged_loop);
     g.propagate();
 
     // After propagation, concat(r{2,3}, r{1,2}) should be equivalent to r{3,5}.

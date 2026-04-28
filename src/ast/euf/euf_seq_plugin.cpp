@@ -276,14 +276,21 @@ namespace euf {
             if (!merged_n && is_app(merged_expr)) {
                 app* merged_app = to_app(merged_expr);
                 unsigned nargs = merged_app->get_num_args();
+                // mk_loop_proper always produces 0-arg (impossible) or 1-arg results:
+                //   - proper loop: 1 arg (the body)
+                //   - epsilon (lo+hi==0 degenerate): 1 arg (the empty string)
+                //   - body itself (lo=1,hi=1 degenerate): handled by g.find above
                 if (nargs == 0) {
                     merged_n = mk(merged_expr, 0, nullptr);
                 } else if (nargs == 1) {
                     // The single arg is either body_en or the empty string (epsilon case).
+                    // If the empty string is not yet in the graph, skip the merge.
                     expr* arg0_expr = merged_app->get_arg(0);
                     enode* arg0_en = (arg0_expr == body_en->get_expr()) ? body_en : g.find(arg0_expr);
                     if (arg0_en)
                         merged_n = mk(merged_expr, 1, &arg0_en);
+                } else {
+                    SASSERT(false && "mk_loop_proper should not produce multi-argument expressions");
                 }
             }
             if (merged_n)
