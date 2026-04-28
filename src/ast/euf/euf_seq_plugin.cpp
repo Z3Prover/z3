@@ -46,6 +46,11 @@ namespace euf {
         }
     }
 
+    // Saturating unsigned addition: returns UINT_MAX instead of wrapping.
+    static unsigned saturating_add(unsigned a, unsigned b) {
+        return (b > UINT_MAX - a) ? UINT_MAX : a + b;
+    }
+
     unsigned enode_concat_hash::operator()(enode* n) const {
         snode* sn = sg.find(n->get_expr());
         if (sn && sn->has_cached_hash())
@@ -70,8 +75,8 @@ namespace euf {
         if (sa && sb && sa->length() != sb->length())
             return false;
         // fast-path: cached associativity hash (O(1))
-        if (sa && sa->has_cached_hash() && sb && sb->has_cached_hash() &&
-            sa->assoc_hash() != sb->assoc_hash())
+        bool both_have_hash = sa && sa->has_cached_hash() && sb && sb->has_cached_hash();
+        if (both_have_hash && sa->assoc_hash() != sb->assoc_hash())
             return false;
         enode_vector la, lb;
         collect_enode_leaves(a, seq, la);
@@ -264,8 +269,8 @@ namespace euf {
             ast_manager& m = g.get_manager();
             enode* body_n = a->get_arg(0);
             // saturating add: prevent silent unsigned wrap-around on large bounds
-            unsigned lo_merged = (lo2 > UINT_MAX - lo1) ? UINT_MAX : lo1 + lo2;
-            unsigned hi_merged = (hi2 > UINT_MAX - hi1) ? UINT_MAX : hi1 + hi2;
+            unsigned lo_merged = saturating_add(lo1, lo2);
+            unsigned hi_merged = saturating_add(hi1, hi2);
             expr_ref merged(m_seq.re.mk_loop(body_n->get_expr(), lo_merged, hi_merged), m);
             enode* merged_n = mk(merged, 1, &body_n);
             push_merge(n, merged_n);
