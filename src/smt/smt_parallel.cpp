@@ -125,57 +125,34 @@ namespace smt {
             return ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl;
         };
 
-        auto probe_var = [&](unsigned v, expr* preferred) -> lbool {
-            if (m_known_backbone_vars.contains(v))
-                return l_undef;
-
-            expr_ref e(ctx->bool_var2expr(v), m);
-            if (!e)
-                return l_undef;
-            if (m.is_or(e) || m.is_ite(e) || m.is_and(e) || m.is_iff(e))
-                return l_undef;
-
-            if (is_unit(v)) {
-                bool is_true = ctx->get_assignment(v) == l_true;
-                IF_VERBOSE(2, verbose_stream() << "backbone on trail " << e << "\n");
-                if (!is_true)
-                    e = m.mk_not(e);
-                m_known_backbone_vars.insert(v);
-                if (b.collect_global_backbone(m_l2g, e)) {
-                    m_stats.m_backbones_found++;
-                }
-                return l_undef;
-            }
-
-            expr_ref first(e, m), second(mk_not(e), m);
-            if (preferred) {
-                expr* atom = preferred;
-                bool is_negated = m.is_not(preferred, atom);
-                first = is_negated ? mk_not(e) : e;
-                second = is_negated ? e : mk_not(e);
-            }
-
-            auto r = probe_literal(v, first.get());
-            if (r != l_undef || is_unit(v))
-                return r;
-
-            return probe_literal(v, second.get());
-        };
-
+        bb_candidates bb_candidates;
         while (m.inc()) {
-            lbool terminal_result = l_undef;
+            if (!b.wait_for_backbone_job(id, m_g2l, bb_candidates, m.limit()))
+                return;
+
+            if (bb_candidates.empty())
+                continue;
+
             collect_shared_clauses();
 
-            unsigned bb_candidate_epoch = 0;
-            bb_candidates bb_candidates = b.return_global_bb_candidates(m_g2l, bb_candidate_epoch);
+            unsigned local_cancel_epoch = b.get_cancel_epoch();
+            auto canceled = [&] { return local_cancel_epoch != b.get_cancel_epoch(); };
             bool first_pass = true;
-            while (m.inc()) {
-                uint_set seen_vars; // per-round polarity dedup since we probe both polarities here by default
-                for (auto const& candidate : bb_candidates) {
+            unsigned bb_candidate_epoch = b.get_bb_candidate_epoch();
+
+            expr_ref_vector bb_candidate_lits(m);
+            for (auto const& c : bb_candidates)
+                bb_candidate_lits.push_back(c.lit);
+
+            while (m.inc() && !canceled()) {
+                lbool terminal_result = l_undef;
+                uint_set seen_vars;
+                for (expr* lit : bb_candidate_lits) {
                     if (!first_pass && b.has_new_backbone_candidates(bb_candidate_epoch))
                         break;
+                    if (!m.inc() || canceled())
+                        break;
 
-                    expr* lit = candidate.lit.get();
                     expr* atom = lit;
                     m.is_not(lit, atom);
                     if (!ctx->b_internalized(atom))
@@ -186,7 +163,28 @@ namespace smt {
                         continue;
                     seen_vars.insert(v);
 
-                    terminal_result = probe_var(v, lit);
+                    expr_ref e(atom, m);
+                    if (m.is_or(e) || m.is_ite(e) || m.is_and(e) || m.is_iff(e))
+                        continue;
+
+                    if (is_unit(v)) {
+                        bool is_true = ctx->get_assignment(v) == l_true;
+                        IF_VERBOSE(2, verbose_stream() << "backbone on trail " << mk_bounded_pp(atom, m) << "\n");
+                        if (!is_true) e = mk_not(e);
+                        m_known_backbone_vars.insert(v);
+                        if (b.collect_global_backbone(m_l2g, e))
+                            m_stats.m_backbones_found++;
+                        continue;
+                    }
+
+                    // bb_negated: probe lit as-is (backbone = ¬lit if UNSAT)
+                    // bb_positive: probe ¬lit (backbone = lit if UNSAT)
+                    // matches fallback_singletons polarity convention
+                    expr_ref probe_e(lit, m);
+                    if (m_mode == bb_mode::bb_positive)
+                        probe_e = mk_not(probe_e);
+
+                    terminal_result = probe_literal(v, probe_e.get());
                     if (terminal_result != l_undef)
                         break;
                 }
@@ -194,11 +192,28 @@ namespace smt {
                 if (terminal_result != l_undef)
                     break;
 
-                if (b.has_new_backbone_candidates(bb_candidate_epoch))
+                if (b.has_new_backbone_candidates(bb_candidate_epoch) || canceled() || !m.inc())
                     break;
 
                 first_pass = false;
+
+                expr_ref_vector bb_snapshot = b.get_global_backbones_snapshot(m_g2l);
+                expr_mark bb_mark;
+                for (expr* e : bb_snapshot) {
+                    bb_mark.mark(e);
+                    bb_mark.mark(m.mk_not(e));
+                }
+                bb_candidate_lits.reset();
+                for (auto const& c : bb_candidates)
+                    if (!bb_mark.is_marked(c.lit.get()))
+                        bb_candidate_lits.push_back(c.lit);
             }
+
+            if (!m.inc())
+                return;
+            if (!canceled())
+                b.cancel_current_backbone_batch();
+            bb_candidates.reset();
         }
     }
 
@@ -746,7 +761,7 @@ namespace smt {
 
         smt_parallel_params pp(p.ctx.m_params);
         m_config.m_inprocessing = pp.inprocessing();
-        m_config.m_global_backbones = pp.num_global_bb_chunking_threads() > 0 || pp.failed_literal_backbones();
+        m_config.m_global_backbones = pp.num_global_bb_chunking_threads() > 0 || pp.num_global_bb_fl_threads() > 0;
         m_config.m_local_backbones = pp.local_backbones();
         m_config.m_core_minimize = pp.core_minimize();
     }
@@ -771,7 +786,7 @@ namespace smt {
 
         smt_parallel_params pp(p.ctx.m_params);
         m_num_global_bb_threads = pp.num_global_bb_chunking_threads();
-        m_use_failed_literal_test = pp.failed_literal_backbones();
+        m_use_failed_literal_test = pp.num_global_bb_fl_threads() > 0;
     }
 
     parallel::bb_candidates parallel::worker::find_backbone_candidates(unsigned k) {
@@ -1432,16 +1447,16 @@ namespace smt {
         }
     }
 
-    parallel::bb_candidates parallel::batch_manager::return_global_bb_candidates(ast_translation& g2l, unsigned& epoch) {
-        bb_candidates bb_candidates_local;
-        std::scoped_lock lock(mux);
-        epoch = m_bb_candidate_epoch.load(std::memory_order_acquire);
-        for (auto const& gc : m_bb_candidates) {
-            expr_ref l_lit(g2l(gc.lit.get()), g2l.to());
-            bb_candidates_local.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
-        }
-        return bb_candidates_local;
-    }
+    // parallel::bb_candidates parallel::batch_manager::return_global_bb_candidates(ast_translation& g2l, unsigned& epoch) {
+    //     bb_candidates bb_candidates_local;
+    //     std::scoped_lock lock(mux);
+    //     epoch = m_bb_candidate_epoch.load(std::memory_order_acquire);
+    //     for (auto const& gc : m_bb_candidates) {
+    //         expr_ref l_lit(g2l(gc.lit.get()), g2l.to());
+    //         bb_candidates_local.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
+    //     }
+    //     return bb_candidates_local;
+    // }
 
     bool parallel::batch_manager::wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, bb_candidates& out, reslimit& lim) {
         out.reset();
@@ -1690,12 +1705,15 @@ namespace smt {
         unsigned num_global_bb_chunking_threads = pp.num_global_bb_chunking_threads();
         if (num_global_bb_chunking_threads > 2)
             throw default_exception("smt_parallel.num_global_bb_chunking_threads must be 0, 1, or 2");
-        if (pp.failed_literal_backbones() && num_global_bb_chunking_threads > 0)
-            throw default_exception("smt_parallel.failed_literal_backbones and smt_parallel.num_global_bb_chunking_threads cannot both be enabled");
         unsigned num_workers = std::min((unsigned)std::thread::hardware_concurrency(), ctx.get_fparams().m_threads);
         unsigned num_sls_threads = (pp.sls() ? 1 : 0);
         unsigned num_core_min_threads = (pp.core_minimize() ? 1 : 0);
-        unsigned num_global_bb_threads = pp.failed_literal_backbones() ? 1 : num_global_bb_chunking_threads;
+        unsigned num_global_bb_fl_threads = pp.num_global_bb_fl_threads();
+        if (num_global_bb_fl_threads > 2)
+            throw default_exception("smt_parallel.num_global_bb_fl_threads must be 0, 1, or 2");
+        if (num_global_bb_fl_threads > 0 && num_global_bb_chunking_threads > 0)
+            throw default_exception("smt_parallel.num_global_bb_fl_threads and smt_parallel.num_global_bb_chunking_threads cannot both be enabled");
+        unsigned num_global_bb_threads = num_global_bb_fl_threads > 0 ? num_global_bb_fl_threads : num_global_bb_chunking_threads;
         unsigned total_threads = num_workers + num_sls_threads + num_core_min_threads + num_global_bb_threads;
 
         IF_VERBOSE(1, verbose_stream() << "Parallel SMT with " << total_threads << " threads\n";);

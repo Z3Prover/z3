@@ -186,7 +186,7 @@ namespace smt {
             void collect_backbone_evidence(ast_translation& l2g, expr* lit, double delta);
             bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone);
             bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, vector<parallel::bb_candidate>& out, reslimit& lim);
-            bb_candidates return_global_bb_candidates(ast_translation& g2l, unsigned& epoch);
+            // bb_candidates return_global_bb_candidates(ast_translation& g2l, unsigned& epoch);
             bool has_new_backbone_candidates(unsigned epoch) {
                 return m_bb_candidate_epoch.load(std::memory_order_acquire) != epoch;
             }
