@@ -24,7 +24,13 @@ namespace nla {
             bool m_propagate_quotients = false;
             bool m_gcd_test = false;
             bool m_expand_terms = false;
+            // Adaptive growth (gated by arith.nl.grobner_adaptive). m_growth_boost
+            // is in fixed-point units of 1/m_adaptive_unit (m_adaptive_unit == 1.0x).
+            unsigned m_adaptive_unit       = 16;
+            unsigned m_adaptive_max        = 4 * 16;
+            unsigned m_adaptive_bump_after = 2;
         };
+        config                   m_config;
         dd::pdd_manager          m_pdd_manager;
         dd::solver               m_solver;
         lp::lar_solver&          lra;
@@ -32,8 +38,9 @@ namespace nla {
         unsigned                 m_quota = 0;
         unsigned                 m_delay_base = 0;
         unsigned                 m_delay = 0;
+        unsigned                 m_growth_boost = m_config.m_adaptive_unit;
+        unsigned                 m_hit_streak = 0;
         bool                     m_add_all_eqs = false;
-        config                   m_config;
         std::unordered_map<unsigned_vector, lpvar, hash_svector> m_mon2var;
 
         lp::lp_settings& lp_settings();
@@ -69,6 +76,9 @@ namespace nla {
         void check_missing_propagation(dd::solver::equation const& eq);
 
         bool equation_is_true(dd::solver::equation const& eq);
+
+        // adaptive growth (gated by arith.nl.grobner_adaptive)
+        void update_growth_boost(bool productive);
 
         // setup
         bool configure();
