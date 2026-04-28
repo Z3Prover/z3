@@ -356,6 +356,7 @@ namespace smt {
                 unsigned m_singleton_backbones = 0;
                 unsigned m_backbones_detected = 0;
                 unsigned m_internal_backbones_found = 0;
+                unsigned m_retry_backbones_found = 0;
                 unsigned m_fallback_singleton_checks = 0;
                 unsigned m_fallback_reason_chunk_exhausted = 0;
                 unsigned m_fallback_reason_undef = 0;
@@ -388,7 +389,7 @@ namespace smt {
             void run_batch_mode();
             void run_failed_literal_mode();
             lbool check_sat(expr_ref_vector const &asms);
-            lbool probe_literal(bool_var v, expr *e);
+            lbool probe_literal(bool_var v, expr *e, bool is_retry);
         public:
             backbones_worker(unsigned id, parallel &p, expr_ref_vector const &_asms);
             void cancel();
