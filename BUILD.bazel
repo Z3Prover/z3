@@ -1,4 +1,4 @@
-load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
+load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_license//rules:license.bzl", "license")
 
 package(default_applicable_licenses = [":license"])
@@ -11,48 +11,92 @@ license(
 
 exports_files(["LICENSE.txt"])
 
+PYG_FILES = [
+    f.removeprefix("src/").removesuffix(".pyg")
+    for f in glob(["**/*.pyg"])
+]
+
 filegroup(
-    name = "all_files",
-    srcs = glob(["**"]),
+    name = "z3_c_headers",
+    srcs = glob(["src/api/z3_*.h"]),
 )
 
-cmake(
+[
+    genrule(
+        name = name,
+        srcs = ["src/%s.pyg" % name],
+        outs = [name + ".hpp"],
+        cmd = "$(location //scripts:pyg2hpp) $(location src/%s.pyg) $$(dirname $@)" % name,
+        tools = ["//scripts:pyg2hpp"],
+    )
+    for name in PYG_FILES
+]
+
+genrule(
+    name = "api_log_macros",
+    srcs = [":z3_c_headers"],
+    outs = [
+        "api/api_commands.cpp",
+        "api/api_log_macros.cpp",
+        "api/api_log_macros.h",
+    ],
+    cmd = "$(location //scripts:update_api) --api_output_dir $$(dirname $(location api/api_log_macros.h)) $(locations :z3_c_headers)",
+    tools = ["//scripts:update_api"],
+)
+
+genrule(
+    name = "ast_pattern_database",
+    srcs = ["src/ast/pattern/database.smt2"],
+    outs = ["ast/pattern/database.h"],
+    cmd = "$(location //scripts:mk_pat_db) $(location src/ast/pattern/database.smt2) $@",
+    tools = ["//scripts:mk_pat_db"],
+)
+
+genrule(
+    name = "util_z3_version",
+    srcs = ["//scripts:VERSION.txt"],
+    outs = ["util/z3_version.h"],
+    cmd = "$(location //scripts:mk_version_h_simple) $(location //scripts:VERSION.txt) $@",
+    tools = ["//scripts:mk_version_h_simple"],
+)
+
+cc_library(
+    name = "z3",
+    srcs = glob(
+        include = [
+            "src/**/*.cpp",
+            "src/**/*.h",
+        ],
+        exclude = [
+            "src/api/julia/**/*",
+            "src/test/**/*",
+        ],
+    ) + PYG_FILES + [
+        ":api_log_macros",
+        ":ast_pattern_database",
+        ":util_z3_version",
+    ],
+    hdrs = [
+        "src/api/c++/z3++.h",
+        ":z3_c_headers",
+    ],
+    defines = ["_MP_INTERNAL"],
+    includes = [
+        "src",
+        "src/api",
+        "src/api/c++",
+    ],
+    textual_hdrs = ["src/util/trace_tags.def"],
+    visibility = ["//visibility:public"],
+)
+
+# For compatibility with older versions of the BUILD file.
+alias(
     name = "z3_dynamic",
-    generate_args = [
-        "-G Ninja", 
-        "-D Z3_EXPORTED_TARGETS=",  # prevents installation, leaving symlinks between dylibs intact on copy
-    ],
-    lib_source = ":all_files",
-    out_binaries = ["z3"],
-    out_shared_libs = select({
-        "@platforms//os:linux": ["libz3.so"],
-        # "@platforms//os:osx": ["libz3.dylib"],    # FIXME: this is not working, libz3<version>.dylib is not copied
-        "@platforms//os:windows": ["libz3.dll"],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
-    visibility = ["//visibility:public"],
-)
-
-cmake(
-    name = "z3_static",
-    generate_args = [
-        "-G Ninja", 
-        "-D BUILD_SHARED_LIBS=OFF",
-        "-D Z3_BUILD_LIBZ3_SHARED=OFF",
-    ],
-    lib_source = ":all_files",
-    out_binaries = ["z3"],
-    out_static_libs = select({
-        "@platforms//os:linux": ["libz3.a"],
-        "@platforms//os:osx": ["libz3.a"],
-        "@platforms//os:windows": ["libz3.lib"],     # MSVC with Control Flow Guard enabled by default
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
-    visibility = ["//visibility:public"],
+    actual = "z3",
 )
 
 alias(
-    name = "z3",
-    actual = ":z3_dynamic",
-    visibility = ["//visibility:public"],
+    name = "z3_static",
+    actual = "z3",
 )

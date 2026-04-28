@@ -4,8 +4,9 @@ module(
     bazel_compatibility = [">=7.0.0"],
 )
 
-bazel_dep(name = "rules_foreign_cc", version = "0.14.0")
+bazel_dep(name = "rules_cc", version = "0.2.18")
 bazel_dep(name = "rules_license", version = "1.0.0")
+bazel_dep(name = "rules_python", version = "2.0.0")
 
 # Enables formatting all Bazel files (.bazel, .bzl) by running:
 # ```bash
@@ -18,4 +19,6 @@ bazel_dep(
     dev_dependency = True,
 )
 
-bazel_dep(name = "platforms", version = "0.0.11")
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.defaults(python_version = "3.12")
+python.toolchain(python_version = "3.12")

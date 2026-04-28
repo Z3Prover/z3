@@ -1,0 +1,38 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+
+exports_files(
+    ["VERSION.txt"],
+    visibility = ["//:__pkg__"],
+)
+
+py_library(
+    name = "mk_genfile_common",
+    srcs = ["mk_genfile_common.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "mk_pat_db",
+    srcs = ["mk_pat_db.py"],
+    visibility = ["//:__pkg__"],
+    deps = [":mk_genfile_common"],
+)
+
+py_binary(
+    name = "mk_version_h_simple",
+    srcs = ["mk_version_h_simple.py"],
+    visibility = ["//:__pkg__"],
+)
+
+py_binary(
+    name = "pyg2hpp",
+    srcs = ["pyg2hpp.py"],
+    visibility = ["//:__pkg__"],
+    deps = [":mk_genfile_common"],
+)
+
+py_binary(
+    name = "update_api",
+    srcs = ["update_api.py"],
+    visibility = ["//:__pkg__"],
+)
