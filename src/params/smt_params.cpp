@@ -70,7 +70,8 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_lemmas2console = sp.lemmas2console();
     m_instantiations2console = sp.instantiations2console();
     m_proof_log = sp.proof_log();
-    
+    m_dump_assignments = p.dump_assignments();
+    m_dump_egraph = p.dump_egraph();
 }
 
 void smt_params::updt_params(params_ref const & p) {

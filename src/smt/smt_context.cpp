@@ -4182,28 +4182,24 @@ namespace smt {
                 switch (fcs) {
                 case FC_DONE:
                     log_stats();
-
-                    std::cout << "Dumping assignments\n";
-                    for (literal lit : m_assigned_literals) {
-                        std::cout << "; " << lit << " (" << (lit.sign()?"not":"") << "#" <<  bool_var2expr(lit.var())->get_id() << ")\n";
-                        // std::cout << "(<= 0 " << lit.var() << ")" << "\n";
-
-                        bool negate= lit.sign();
-                        std::cout << "(assert ";
-                        if (negate)
-                            std::cout << "(not ";
-
-                        
-                        
-                        std::cout << mk_pp(bool_var2expr(lit.var()), m);
-                        
-                        if (negate)
-                            std::cout << ")";
-                        std::cout << ")\n";
+                    if (m_fparams.m_dump_assignments) {
+                        std::cout << "Dumping assignments\n";
+                        for (literal lit : m_assigned_literals) {
+                            std::cout << "; " << lit << " (" << (lit.sign()?"not ":"") << "#" <<  bool_var2expr(lit.var())->get_id() << ")\n";
+                            bool negate= lit.sign();
+                            std::cout << "(assert ";
+                            if (negate)
+                                std::cout << "(not ";
+                            std::cout << mk_pp(bool_var2expr(lit.var()), m);
+                            if (negate)
+                                std::cout << ")";
+                            std::cout << ")\n";
+                        }
                     }
-
-                    std::cout << "Dumping egraph\n";
-                    display_eqc(std::cout);
+                    if (m_fparams.m_dump_egraph) {
+                        std::cout << "Dumping egraph\n";
+                        display_eqc(std::cout);
+                    }
 
                     return l_true;
                 case FC_CONTINUE:

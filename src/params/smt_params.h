@@ -221,6 +221,8 @@ struct smt_params : public preprocessor_params,
     // -----------------------------------
     bool             m_core_validate = false;
     bool             m_complete_partial_funcs = true;
+    bool             m_dump_assignments = false;
+    bool             m_dump_egraph = false;
 
     // -----------------------------------
     //
