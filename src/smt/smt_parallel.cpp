@@ -185,8 +185,9 @@ namespace smt {
                 expr_ref_vector bb_snapshot = b.get_global_backbones_snapshot(m_g2l);
                 expr_mark bb_mark;
                 for (expr* e : bb_snapshot) {
-                    bb_mark.mark(e);
-                    bb_mark.mark(m.mk_not(e));
+                    expr* atom = e;
+                    m.is_not(e, atom);
+                    bb_mark.mark(atom);
                 }
                 bb_candidate_atoms.reset();
                 for (auto const& c : bb_candidates)
