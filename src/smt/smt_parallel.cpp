@@ -112,18 +112,10 @@ namespace smt {
             run_failed_literal_mode();
         else 
             run_batch_mode();
-    }    
-
-    lbool parallel::backbones_worker::check_sat(expr_ref_vector const &asms) {
-        return b.check(asms, *ctx);
     }
 
     void parallel::backbones_worker::run_failed_literal_mode() {
         ctx->get_fparams().m_max_conflicts = 10;
-
-        auto is_unit = [&](unsigned v) {
-            return ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl;
-        };
 
         bb_candidates bb_candidates;
         while (m.inc()) {
@@ -134,6 +126,7 @@ namespace smt {
                 continue;
 
             collect_shared_clauses();
+            share_units();
 
             unsigned local_cancel_epoch = b.get_cancel_epoch();
             auto canceled = [&] { return local_cancel_epoch != b.get_cancel_epoch(); };
@@ -146,7 +139,6 @@ namespace smt {
 
             while (m.inc() && !canceled()) {
                 lbool terminal_result = l_undef;
-                uint_set seen_vars;
                 for (expr* lit : bb_candidate_lits) {
                     if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch))
                         break;
@@ -157,22 +149,17 @@ namespace smt {
                     m.is_not(lit, atom);
                     if (!ctx->b_internalized(atom))
                         continue;
-
                     sat::bool_var v = ctx->get_bool_var(atom);
-                    if (v == sat::null_bool_var || m_known_backbone_vars.contains(v) || seen_vars.contains(v))
+                    if (v == sat::null_bool_var)
                         continue;
-                    seen_vars.insert(v);
-
                     expr_ref e(atom, m);
                     if (m.is_or(e) || m.is_ite(e) || m.is_and(e) || m.is_iff(e))
                         continue;
 
-                    if (is_unit(v)) {
-                        bool is_true = ctx->get_assignment(v) == l_true;
-                        IF_VERBOSE(2, verbose_stream() << "backbone on trail " << mk_bounded_pp(atom, m) << "\n");
-                        if (!is_true) e = mk_not(e);
-                        m_known_backbone_vars.insert(v);
-                        if (b.collect_global_backbone(m_l2g, e)) {
+                    expr_ref backbone(m);
+                    if (try_get_unit_backbone(lit, backbone)) {
+                        IF_VERBOSE(2, verbose_stream() << "backbone on trail " << mk_bounded_pp(backbone.get(), m) << "\n");
+                        if (b.collect_global_backbone(m_l2g, backbone)) {
                             m_stats.m_internal_backbones_found++;
                             if (is_retry)
                                 m_stats.m_retry_backbones_found++;
@@ -182,7 +169,6 @@ namespace smt {
 
                     // bb_negated: probe lit as-is (backbone = ¬lit if UNSAT)
                     // bb_positive: probe ¬lit (backbone = lit if UNSAT)
-                    // matches fallback_singletons polarity convention
                     expr_ref probe_e(lit, m);
                     if (m_mode == bb_mode::bb_positive)
                         probe_e = mk_not(probe_e);
@@ -222,9 +208,9 @@ namespace smt {
 
     lbool parallel::backbones_worker::probe_literal(bool_var v, expr *e, bool is_retry) {
         asms.push_back(e);
-        auto r = check_sat(asms);
+        auto terminal_result = b.check(asms, *ctx);
         asms.pop_back();
-        if (r == l_false) {
+        if (terminal_result == l_false) {
             // If the tested literal is not part of the unsat core, then the
             // formula is UNSAT independently of this failed-literal probe.
             if (!ctx->unsat_core().contains(e)) {
@@ -235,28 +221,24 @@ namespace smt {
             // share/assert the backbone, then continue probing.
             IF_VERBOSE(2, verbose_stream() << "failed literal " << mk_bounded_pp(e, m) << "\n");
             expr_ref not_e(mk_not(m, e), m);
-            m_known_backbone_vars.insert(v);
             if (b.collect_global_backbone(m_l2g, not_e)) {
                 m_stats.m_internal_backbones_found++;
                 if (is_retry)
                     m_stats.m_retry_backbones_found++;
             }
             ctx->assert_expr(not_e);
-            r = l_undef;
+            terminal_result = l_undef;
         }
-        if (r == l_true) {
+        if (terminal_result == l_true) {
             model_ref mdl;
             ctx->get_model(mdl);
             b.set_sat(m_l2g, *mdl);
         }
-        return r;
+        return terminal_result;
     }
 
     void parallel::backbones_worker::run_batch_mode() {
         bb_candidates bb_curr_batch_candidates;
-        auto is_unit = [&](unsigned v) {
-            return ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl;
-        };
 
         while (m.inc()) {
             if (!b.wait_for_backbone_job(id, m_g2l, bb_curr_batch_candidates, m.limit()))
@@ -266,18 +248,27 @@ namespace smt {
                 continue;
 
             LOG_BB_WORKER(1, " received batch of " << bb_curr_batch_candidates.size() << " candidates\n");
+            collect_shared_clauses();
+            share_units();
             
             unsigned local_cancel_epoch = b.get_cancel_epoch();
             auto canceled = [&] { return local_cancel_epoch != b.get_cancel_epoch(); };
             unsigned bb_candidate_epoch = b.get_bb_candidate_epoch();
             
-            auto fallback_singletons = [&](expr_ref_vector const& chunk_lits, expr_ref_vector& bb_candidate_lits, bool is_retry = false) {
+            auto fallback_failed_literal_probe = [&](expr_ref_vector const& chunk_lits, expr_ref_vector& bb_candidate_lits, bool is_retry = false) {
+                unsigned old_max_conflicts = ctx->get_fparams().m_max_conflicts;
+                ctx->get_fparams().m_max_conflicts = 10;
                 m_stats.m_fallback_singleton_checks++;
+                
                 for (expr* c : chunk_lits) {
-                    if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch))
+                    if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch)) {
+                        ctx->get_fparams().m_max_conflicts = old_max_conflicts;
                         return;
-                    if (!m.inc() || canceled()) 
+                    }
+                    if (!m.inc() || canceled()) {
+                        ctx->get_fparams().m_max_conflicts = old_max_conflicts;
                         return;
+                    }
                     if (!bb_candidate_lits.contains(c)) // already handled in singleton core → backbone case below
                         continue; 
                     
@@ -285,16 +276,34 @@ namespace smt {
                     if (m_mode == bb_mode::bb_positive)
                         bb_ref = mk_not(bb_ref); // F ∧ U since check_backbone flips it back
                     
-                    if (!b.is_global_backbone(m_l2g, bb_ref) && check_backbone(bb_ref)) {
-                        m_stats.m_backbones_detected++;
-                        LOG_BB_WORKER(1, " fallback found backbone: " << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
-                        if (b.collect_global_backbone(m_l2g, bb_ref)) {
-                            m_stats.m_internal_backbones_found++;
-                            ctx->assert_expr(bb_ref.get()); // since bb workers don't collect clauses they themselves shared
+                    if (!b.is_global_backbone(m_l2g, bb_ref)) {
+                        expr_ref backbone(m);
+                        if (try_get_unit_backbone(bb_ref.get(), backbone)) {
+                            m_stats.m_backbones_detected++;
+                            LOG_BB_WORKER(1, " fallback found unit backbone: " << mk_bounded_pp(backbone.get(), m, 3) << "\n");
+                            if (b.collect_global_backbone(m_l2g, backbone))
+                                m_stats.m_internal_backbones_found++;
+                        } else {
+                            expr* atom = bb_ref.get();
+                            m.is_not(bb_ref.get(), atom);
+                            if (ctx->b_internalized(atom)) {
+                                sat::bool_var v = ctx->get_bool_var(atom);
+                                
+                                if (v != sat::null_bool_var) {
+                                    lbool terminal_result = probe_literal(v, m.mk_not(bb_ref), is_retry);
+                                    LOG_BB_WORKER(1, " RESULT: " << terminal_result << " FOR CANDIDATE: " << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
+                                    
+                                    if (terminal_result == l_undef && b.is_global_backbone(m_l2g, bb_ref)) {
+                                        m_stats.m_backbones_detected++;
+                                        LOG_BB_WORKER(1, " fallback found backbone: " << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
+                                    }
+                                }
+                            }
                         }
                     }
                     bb_candidate_lits.erase(c);
                 }
+                ctx->get_fparams().m_max_conflicts = old_max_conflicts;
             };
             
             m_stats.m_batches_total++;
@@ -308,8 +317,8 @@ namespace smt {
 
             // in mode bb_neg this is Algorithm 7 from https://sat.inesc-id.pt/~mikolas/bb-aicom-preprint.pdf
             while (!bb_candidate_lits.empty() && !canceled() && m.inc()) {
-                // remove candidates that the other backbone thread found to be backbones
-                if (m_num_global_bb_threads > 1) {
+                // remove candidates that the other threads found to be backbones
+                {
                     unsigned j = 0;
                     for (auto tmp : bb_candidate_lits) 
                         if (!b.is_global_backbone(m_l2g, tmp))
@@ -321,24 +330,13 @@ namespace smt {
                 {
                     unsigned j = 0;
                     for (expr* c : bb_candidate_lits) {
-                        expr* atom = c;
-                        m.is_not(c, atom);
-                        
-                        if (ctx->b_internalized(atom)) {
-                            sat::bool_var v = ctx->get_bool_var(atom);
-                            
-                            if (v != sat::null_bool_var && is_unit(v)) {
-                                bool is_true = ctx->get_assignment(v) == l_true;
-                                expr_ref backbone(atom, m);
-                                if (!is_true) backbone = mk_not(backbone);
-                                IF_VERBOSE(2, verbose_stream() << "backbone on trail " << mk_bounded_pp(atom, m) << "\n");
-                                
-                                if (b.collect_global_backbone(m_l2g, backbone))
-                                    m_stats.m_internal_backbones_found++;
-                                
-                                m_stats.m_backbones_detected++;
-                                continue;
-                            }
+                        expr_ref backbone(m);
+                        if (try_get_unit_backbone(c, backbone)) {
+                            IF_VERBOSE(2, verbose_stream() << "backbone on trail " << mk_bounded_pp(backbone.get(), m) << "\n");
+                            if (b.collect_global_backbone(m_l2g, backbone))
+                                m_stats.m_internal_backbones_found++;
+                            m_stats.m_backbones_detected++;
+                            continue;
                         }
                         bb_candidate_lits[j++] = c;
                     }
@@ -374,7 +372,7 @@ namespace smt {
                     unsigned base_asms_sz = asms.size();
                     for (expr* a : bb_asms)
                         asms.push_back(a);
-                    lbool r = check_sat(asms);
+                    lbool r = b.check(asms, *ctx);
                     asms.shrink(base_asms_sz);
 
                     if (!m.inc() || canceled()) 
@@ -391,7 +389,7 @@ namespace smt {
 
                         LOG_BB_WORKER(1, " UNDEF and max chunk → fallback\n");
 
-                        fallback_singletons(chunk_lits, bb_candidate_lits);
+                        fallback_failed_literal_probe(chunk_lits, bb_candidate_lits);
                         m_stats.m_fallback_reason_undef++;
                         chunk_delta = 1;
                         break;
@@ -423,14 +421,12 @@ namespace smt {
                     // ---- singleton core → backbone ----
                     if (bb_asms_in_core.size() == 1) {
                         expr* a = bb_asms_in_core.back();
-                        expr_ref backbone_lit(m.mk_not(a), m);
+                        expr_ref backbone_lit(mk_not(m, a), m);
 
                         m_stats.m_singleton_backbones++;
                         m_stats.m_backbones_detected++;
 
-                        bool is_new_bb = b.collect_global_backbone(m_l2g, backbone_lit);
-
-                        if (is_new_bb) {
+                        if (b.collect_global_backbone(m_l2g, backbone_lit)) {
                             m_stats.m_internal_backbones_found++;
                             ctx->assert_expr(backbone_lit.get()); // since bb workers don't collect clauses they themselves shared
                         }
@@ -451,42 +447,40 @@ namespace smt {
 
                     if (bb_asms.empty()) {
                         LOG_BB_WORKER(1, " no more negated chunk literals, fallback to individual checks\n");
-                        fallback_singletons(chunk_lits, bb_candidate_lits);
+                        fallback_failed_literal_probe(chunk_lits, bb_candidate_lits);
                         m_stats.m_fallback_reason_chunk_exhausted++;
                         break;
                     }
                 }
             }
 
-            // while (!b.has_new_backbone_candidates(bb_candidate_epoch) && !canceled() && m.inc()) {
-            //     expr_ref_vector residual_lits(m);
-            //     // unsigned found_before = m_stats.m_internal_backbones_found;
+            while (!b.has_new_backbone_candidates(bb_candidate_epoch) && !canceled() && m.inc()) {
+                collect_shared_clauses();
+                // unsigned found_before = m_stats.m_internal_backbones_found;
                 
-            //     // filter candidates for retry
-            //     expr_ref_vector bb_snapshot = b.get_global_backbones_snapshot(m_g2l);
-            //     expr_mark bb_mark;
-            //     bb_candidate_lits.reset();
-            //     for (expr* e : bb_snapshot) {
-            //         bb_mark.mark(e);
-            //         bb_mark.mark(m.mk_not(e));
-            //     }
-            //     for (auto const& c : bb_curr_batch_candidates)
-            //         if (!bb_mark.is_marked(c.lit.get()))
-            //             bb_candidate_lits.push_back(c.lit);
+                // filter candidates for retry
+                expr_ref_vector bb_snapshot = b.get_global_backbones_snapshot(m_g2l);
+                expr_mark bb_mark;
+                for (expr* e : bb_snapshot) {
+                    bb_mark.mark(e);
+                    bb_mark.mark(m.mk_not(e));
+                }
+                bb_candidate_lits.reset();
+                for (auto const& c : bb_curr_batch_candidates)
+                    if (!bb_mark.is_marked(c.lit.get()))
+                        bb_candidate_lits.push_back(c.lit);
                 
-            //     if (residual_lits.empty())
-            //         break;
+                if (bb_candidate_lits.empty())
+                    break;
 
-            //     bb_candidate_lits.reset();
-            //     bb_candidate_lits.append(residual_lits);
-            //     fallback_singletons(residual_lits, bb_candidate_lits, true);
+                fallback_failed_literal_probe(bb_candidate_lits, bb_candidate_lits, true);
                 
-            //     // break if we made no progress on this batch
-            //     // unlikely to make progress on future runs and idk if this creates any kind of resource stress
-            //     // m_stats.m_retry_backbones_found += m_stats.m_internal_backbones_found - found_before;
-            //     // if (m_stats.m_internal_backbones_found == found_before) 
-            //     //     break;
-            // }
+                // break if we made no progress on this batch
+                // unlikely to make progress on future runs and idk if this creates any kind of resource stress
+                // m_stats.m_retry_backbones_found += m_stats.m_internal_backbones_found - found_before;
+                // if (m_stats.m_internal_backbones_found == found_before) 
+                //     break;
+            }
 
             if (!canceled())
                 b.cancel_current_backbone_batch();
@@ -500,6 +494,7 @@ namespace smt {
         m.limit().cancel();
     }
     
+    // returns true if the global bb is new, false if it was already known
     bool parallel::batch_manager::collect_global_backbone(ast_translation &l2g, expr_ref const &backbone, unsigned source_worker_id) {
         IF_VERBOSE(1, verbose_stream() << "collect-global-backbone\n");
         std::scoped_lock lock(mux);
@@ -697,6 +692,7 @@ namespace smt {
             expr_ref_vector minimized(m);
             minimized.append(core);
             minimize_unsat_core(minimized);
+            share_units();
 
             if (minimized.size() < original_size)
                 b.publish_minimized_core(m_l2g, asms, source, original_size, minimized);
@@ -830,6 +826,9 @@ namespace smt {
         ctx->set_logic(p.ctx.m_setup.get_logic());
         ctx->get_fparams().m_max_conflicts = m_bb_conflicts_per_chunk;
         context::copy(p.ctx, *ctx, true);
+        ctx->pop_to_base_lvl();
+        m_shared_units_prefix = ctx->assigned_literals().size();
+        m_num_initial_atoms = ctx->get_num_bool_vars();
 
         smt_parallel_params pp(p.ctx.m_params);
         m_num_global_bb_threads = pp.num_global_bb_batch_threads();
@@ -879,34 +878,19 @@ namespace smt {
         return backbone_candidates;
     }
 
-    // 
-    // Assume the negation of all candidates (or a batch of them)
-    // run the solver with a low budget of conflicts
-    // if the unsat core contains a single candidate we have found a backbone literal
-    // 
-    bool parallel::backbones_worker::check_backbone(expr* bb_candidate) {
-        // fast path: if the atom is already a base-level unit, evaluate directly
-        expr* atom = bb_candidate;
-        m.is_not(bb_candidate, atom);
-        if (ctx->b_internalized(atom)) {
-            sat::bool_var v = ctx->get_bool_var(atom);
-            if (v != sat::null_bool_var && ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl) {
-                bool val = ctx->get_assignment(v) == l_true;
-                bool bb_negated = (atom != bb_candidate);
-                return bb_negated ? !val : val; // true iff bb_candidate evaluates to true
-            }
-        }
-
-        unsigned sz = asms.size();
-        asms.push_back(m.mk_not(bb_candidate));
-
-        lbool r = b.check(asms, *ctx);
-
-        asms.shrink(sz);
-
-        LOG_BB_WORKER(1, " RESULT: " << r << " FOR CANDIDATE: " << mk_bounded_pp(bb_candidate, m, 3) << "\n");
-
-        return r == l_false && ctx->unsat_core().size() == 1;
+    bool parallel::backbones_worker::try_get_unit_backbone(expr* candidate, expr_ref& backbone) {
+        expr* atom = candidate;
+        m.is_not(candidate, atom);
+        if (!ctx->b_internalized(atom))
+            return false;
+        sat::bool_var v = ctx->get_bool_var(atom);
+        if (v == sat::null_bool_var || ctx->get_assignment(v) == l_undef || ctx->get_assign_level(v) != ctx->m_base_lvl)
+            return false;
+        bool is_true = ctx->get_assignment(v) == l_true;
+        backbone = expr_ref(atom, m);
+        if (!is_true)
+            backbone = mk_not(backbone);
+        return true;
     }
 
     // NSB review: the code appares to use the assumption that we are not at base level 
@@ -956,6 +940,40 @@ namespace smt {
                 e = mk_not(e);  // negate if literal is negative
 
             b.collect_global_backbone(m_l2g, e, id);
+        }
+        m_shared_units_prefix = prefix_sz;
+    }
+
+    void parallel::backbones_worker::share_units() {
+        unsigned sz = ctx->assigned_literals().size();
+        unsigned prefix_sz = m_shared_units_prefix;
+        bool at_prefix = true;
+        for (unsigned j = m_shared_units_prefix; j < sz; ++j) {
+            literal lit = ctx->assigned_literals()[j];
+
+            if (ctx->get_assign_level(lit) > ctx->m_base_lvl) {
+                at_prefix = false;
+                continue;
+            }
+
+            if (at_prefix)
+                ++prefix_sz;
+
+            if (m_known_units.contains(lit.var()))
+                continue;
+            m_known_units.insert(lit.var());
+
+            if (lit.var() >= m_num_initial_atoms)
+                continue;
+
+            expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);
+            if (!e || m.is_and(e) || m.is_or(e) || m.is_ite(e) || m.is_iff(e))
+                continue;
+
+            if (lit.sign())
+                e = mk_not(e);
+
+            b.collect_global_backbone(m_l2g, e);
         }
         m_shared_units_prefix = prefix_sz;
     }
@@ -1441,6 +1459,36 @@ namespace smt {
             IF_VERBOSE(4, verbose_stream() << "Core minimizer asserting shared clause: "
                                            << mk_bounded_pp(e, m, 3) << "\n";);
         }
+    }
+
+    void parallel::core_minimizer_worker::share_units() {
+        unsigned sz = ctx->assigned_literals().size();
+        unsigned prefix_sz = m_num_shared_units;
+        bool at_prefix = true;
+        for (unsigned j = m_num_shared_units; j < sz; ++j) {
+            literal lit = ctx->assigned_literals()[j];
+
+            if (ctx->get_assign_level(lit) > ctx->m_base_lvl) {
+                at_prefix = false;
+                continue;
+            }
+
+            if (at_prefix)
+                ++prefix_sz;
+
+            if (lit.var() >= m_num_initial_atoms)
+                continue;
+
+            expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);
+            if (!e || m.is_and(e) || m.is_or(e) || m.is_ite(e) || m.is_iff(e))
+                continue;
+
+            if (lit.sign())
+                e = mk_not(e);
+
+            b.collect_global_backbone(m_l2g, e);
+        }
+        m_num_shared_units = prefix_sz;
     }
 
     void parallel::batch_manager::collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates) {

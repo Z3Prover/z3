@@ -340,6 +340,7 @@ namespace smt {
 
             void minimize_unsat_core(expr_ref_vector& core);
             void collect_shared_clauses();
+            void share_units();
 
         public:
             core_minimizer_worker(parallel& p, expr_ref_vector const& _asms);
@@ -379,16 +380,19 @@ namespace smt {
             ast_translation m_g2l, m_l2g;
             unsigned m_bb_chunk_size = 20;
             unsigned m_bb_conflicts_per_chunk = 1000;
+            uint_set m_known_units;
             uint_set m_known_backbone_vars;
             bool m_use_failed_literal_test;
             stats m_stats;
             bb_mode m_mode;
             unsigned m_num_global_bb_threads = 1; // used to toggle behavior when testing bb candidates 
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
-            bool check_backbone(expr* bb_candidate);
+            unsigned m_shared_units_prefix = 0;
+            unsigned m_num_initial_atoms = 0;
+            bool try_get_unit_backbone(expr* candidate, expr_ref& backbone);
             void run_batch_mode();
             void run_failed_literal_mode();
-            lbool check_sat(expr_ref_vector const &asms);
+            void share_units();
             lbool probe_literal(bool_var v, expr *e, bool is_retry);
         public:
             backbones_worker(unsigned id, parallel &p, expr_ref_vector const &_asms);
