@@ -117,6 +117,45 @@ namespace smt {
     void parallel::backbones_worker::run_failed_literal_mode() {
         ctx->get_fparams().m_max_conflicts = 10;
 
+        auto is_unit = [&](unsigned v) {
+            return ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl;
+        };
+
+        auto probe_var = [&](unsigned v, expr* preferred, bool is_retry) -> lbool {
+            expr_ref e(ctx->bool_var2expr(v), m);
+            if (!e)
+                return l_undef;
+            if (m.is_or(e) || m.is_ite(e) || m.is_and(e) || m.is_iff(e))
+                return l_undef;
+
+            if (is_unit(v)) {
+                bool is_true = ctx->get_assignment(v) == l_true;
+                IF_VERBOSE(2, verbose_stream() << "backbone on trail " << mk_bounded_pp(e.get(), m) << "\n");
+                if (!is_true)
+                    e = m.mk_not(e);
+                if (b.collect_global_backbone(m_l2g, e)) {
+                    m_stats.m_internal_backbones_found++;
+                    if (is_retry)
+                        m_stats.m_retry_backbones_found++;
+                }
+                return l_undef;
+            }
+
+            expr_ref first(e, m), second(mk_not(e), m);
+            if (preferred) {
+                expr* atom = preferred;
+                bool is_negated = m.is_not(preferred, atom);
+                first = is_negated ? mk_not(e) : e;
+                second = is_negated ? e : mk_not(e);
+            }
+
+            lbool r = probe_literal(v, first.get(), is_retry);
+            if (r != l_undef || is_unit(v))
+                return r;
+
+            return probe_literal(v, second.get(), is_retry);
+        };
+
         bb_candidates bb_candidates;
         while (m.inc()) {
             if (!b.wait_for_backbone_job(id, m_g2l, bb_candidates, m.limit()))
@@ -133,43 +172,29 @@ namespace smt {
             bool is_retry = false;
             unsigned bb_candidate_epoch = b.get_bb_candidate_epoch();
 
-            expr_ref_vector bb_candidate_atoms(m);
+            expr_ref_vector bb_candidate_lits(m);
             for (auto const& c : bb_candidates)
-                bb_candidate_atoms.push_back(c.atom);
+                bb_candidate_lits.push_back(c.lit);
 
             while (m.inc() && !canceled()) {
                 lbool terminal_result = l_undef;
-                for (expr* atom : bb_candidate_atoms) {
+                uint_set seen_vars; // polarity dedup (since the same variable can appear in both polarities in the candidate list)
+                for (expr* lit : bb_candidate_lits) {
                     if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch))
                         break;
                     if (!m.inc() || canceled())
                         break;
 
+                    expr* atom = lit;
+                    m.is_not(lit, atom);
                     if (!ctx->b_internalized(atom))
                         continue;
                     sat::bool_var v = ctx->get_bool_var(atom);
-                    if (v == sat::null_bool_var)
+                    if (v == sat::null_bool_var || seen_vars.contains(v))
                         continue;
-                    expr_ref e(atom, m);
-                    if (m.is_or(e) || m.is_ite(e) || m.is_and(e) || m.is_iff(e))
-                        continue;
+                    seen_vars.insert(v);
 
-                    expr_ref backbone(m);
-                    if (try_get_unit_backbone(atom, backbone)) {
-                        IF_VERBOSE(2, verbose_stream() << "backbone on trail " << mk_bounded_pp(backbone.get(), m) << "\n");
-                        if (b.collect_global_backbone(m_l2g, backbone)) {
-                            m_stats.m_internal_backbones_found++;
-                            if (is_retry)
-                                m_stats.m_retry_backbones_found++;
-                        }
-                        continue;
-                    }
-
-                    expr_ref probe_e(atom, m);
-                    if (m_mode == bb_mode::bb_negated)
-                        probe_e = mk_not(probe_e);
-
-                    terminal_result = probe_literal(v, probe_e.get(), is_retry);
+                    terminal_result = probe_var(v, lit, is_retry);
                     if (terminal_result != l_undef)
                         break;
                 }
@@ -185,14 +210,13 @@ namespace smt {
                 expr_ref_vector bb_snapshot = b.get_global_backbones_snapshot(m_g2l);
                 expr_mark bb_mark;
                 for (expr* e : bb_snapshot) {
-                    expr* atom = e;
-                    m.is_not(e, atom);
-                    bb_mark.mark(atom);
+                    bb_mark.mark(e);
+                    bb_mark.mark(mk_not(m, e));
                 }
-                bb_candidate_atoms.reset();
+                bb_candidate_lits.reset();
                 for (auto const& c : bb_candidates)
-                    if (!bb_mark.is_marked(c.atom.get()))
-                        bb_candidate_atoms.push_back(c.atom);
+                    if (!bb_mark.is_marked(c.lit.get()))
+                        bb_candidate_lits.push_back(c.lit);
             }
 
             if (!m.inc())
@@ -218,6 +242,8 @@ namespace smt {
             // share/assert the backbone, then continue probing.
             IF_VERBOSE(2, verbose_stream() << "failed literal " << mk_bounded_pp(e, m) << "\n");
             expr_ref not_e(mk_not(m, e), m);
+
+            m_stats.m_backbones_detected++;
             if (b.collect_global_backbone(m_l2g, not_e)) {
                 m_stats.m_internal_backbones_found++;
                 if (is_retry)
@@ -252,7 +278,7 @@ namespace smt {
             auto canceled = [&] { return local_cancel_epoch != b.get_cancel_epoch(); };
             unsigned bb_candidate_epoch = b.get_bb_candidate_epoch();
             
-            auto fallback_failed_literal_probe = [&](expr_ref_vector const& chunk_atoms, expr_ref_vector& bb_candidate_atoms, bool is_retry = false) {
+            auto fallback_failed_literal_probe = [&](expr_ref_vector const& chunk_lits, expr_ref_vector& bb_candidate_lits, bool is_retry = false) {
                 unsigned old_max_conflicts = ctx->get_fparams().m_max_conflicts;
                 ctx->get_fparams().m_max_conflicts = 10;
                 if (is_retry)
@@ -260,7 +286,7 @@ namespace smt {
                 else
                     ++m_stats.m_fallback_singleton_checks;
                 
-                for (expr* atom : chunk_atoms) {
+                for (expr* lit : chunk_lits) {
                     if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch)) {
                         ctx->get_fparams().m_max_conflicts = old_max_conflicts;
                         return;
@@ -269,38 +295,34 @@ namespace smt {
                         ctx->get_fparams().m_max_conflicts = old_max_conflicts;
                         return;
                     }
-                    if (!bb_candidate_atoms.contains(atom)) // already handled in singleton core → backbone case below
+                    if (!bb_candidate_lits.contains(lit)) // already handled in singleton core → backbone case below
                         continue; 
                     
-                    expr_ref bb_ref(atom, m);
+                    expr_ref bb_ref(lit, m);
                     if (m_mode == bb_mode::bb_positive)
-                        bb_ref = mk_not(m, bb_ref);
+                        bb_ref = mk_not(m, bb_ref); // Normalize to the backbone literal for this mode; probe_literal tests its negation
                     
-                    expr_ref neg_bb_ref(mk_not(m, bb_ref), m);
-                    if (!b.is_global_backbone(m_l2g, bb_ref) && !b.is_global_backbone(m_l2g, neg_bb_ref)) {
+                    if (!b.is_global_backbone_or_negation(m_l2g, bb_ref)) {
                         expr_ref backbone(m);
-                        if (try_get_unit_backbone(atom, backbone)) {
+                        if (try_get_unit_backbone(bb_ref.get(), backbone)) {
                             m_stats.m_backbones_detected++;
                             LOG_BB_WORKER(1, " fallback found unit backbone: " << mk_bounded_pp(backbone.get(), m, 3) << "\n");
                             if (b.collect_global_backbone(m_l2g, backbone))
                                 m_stats.m_internal_backbones_found++;
                         } else {
+                            expr* atom = bb_ref.get();
+                            m.is_not(bb_ref.get(), atom);
                             if (ctx->b_internalized(atom)) {
                                 sat::bool_var v = ctx->get_bool_var(atom);
                                 
                                 if (v != sat::null_bool_var) {
-                                    lbool terminal_result = probe_literal(v, mk_not(m, bb_ref), is_retry);
+                                    lbool terminal_result = probe_literal(v, mk_not(m, bb_ref), is_retry); // failed literal probing (i.e. probe the negation of the bb candidate)
                                     LOG_BB_WORKER(1, " RESULT: " << terminal_result << " FOR CANDIDATE: " << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
-                                    
-                                    if (terminal_result == l_undef && b.is_global_backbone(m_l2g, bb_ref)) {
-                                        m_stats.m_backbones_detected++;
-                                        LOG_BB_WORKER(1, " fallback found backbone: " << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
-                                    }
                                 }
                             }
                         }
                     }
-                    bb_candidate_atoms.erase(atom);
+                    bb_candidate_lits.erase(lit);
                 }
                 ctx->get_fparams().m_max_conflicts = old_max_conflicts;
             };
@@ -308,57 +330,64 @@ namespace smt {
             m_stats.m_batches_total++;
             m_stats.m_candidates_total += bb_curr_batch_candidates.size();
 
-            expr_ref_vector bb_candidate_atoms(m);
+            expr_ref_vector bb_candidate_lits(m);
             for (auto const& c : bb_curr_batch_candidates)
-                bb_candidate_atoms.push_back(c.atom);
+                bb_candidate_lits.push_back(c.lit);
 
             unsigned chunk_delta = 1;
 
             // in mode bb_neg this is Algorithm 7 from https://sat.inesc-id.pt/~mikolas/bb-aicom-preprint.pdf
-            while (!bb_candidate_atoms.empty() && !canceled() && m.inc()) {
+            while (!bb_candidate_lits.empty() && !canceled() && m.inc()) {
                 // remove candidates that the other threads found to be backbones
                 {
                     unsigned j = 0;
-                    for (auto atom : bb_candidate_atoms) {
-                        expr_ref neg_atom(mk_not(m, atom), m);
-                        if (!b.is_global_backbone(m_l2g, atom) && !b.is_global_backbone(m_l2g, neg_atom))
-                            bb_candidate_atoms[j++] = atom;
+                    for (auto lit : bb_candidate_lits) {
+                        if (!b.is_global_backbone_or_negation(m_l2g, lit))
+                            bb_candidate_lits[j++] = lit;
                     }
-                    bb_candidate_atoms.shrink(j);
+                    bb_candidate_lits.shrink(j);
                 }
 
                 // remove candidates that are units and assert them as backbones
                 {
                     unsigned j = 0;
-                    for (expr* atom : bb_candidate_atoms) {
+                    for (expr* lit : bb_candidate_lits) {
                         expr_ref backbone(m);
-                        if (try_get_unit_backbone(atom, backbone)) {
+                        if (try_get_unit_backbone(lit, backbone)) {
                             IF_VERBOSE(2, verbose_stream() << "backbone on trail " << mk_bounded_pp(backbone.get(), m) << "\n");
                             if (b.collect_global_backbone(m_l2g, backbone))
                                 m_stats.m_internal_backbones_found++;
                             m_stats.m_backbones_detected++;
                             continue;
                         }
-                        bb_candidate_atoms[j++] = atom;
+                        bb_candidate_lits[j++] = lit;
                     }
-                    bb_candidate_atoms.shrink(j);
+                    bb_candidate_lits.shrink(j);
                 }
 
-                unsigned chunk_size = std::min(m_bb_chunk_size * chunk_delta, bb_candidate_atoms.size());
-                expr_ref_vector chunk_atoms(m);
-                expr_ref_vector negated_chunk_atoms(m);
+                unsigned chunk_size = std::min(m_bb_chunk_size * chunk_delta, bb_candidate_lits.size());
+                expr_ref_vector chunk_lits(m);
+                expr_ref_vector negated_chunk_lits(m);
+                expr_mark chunk_atoms;
 
-                for (unsigned i = 0; i < chunk_size; ++i) {
-                    expr* atom = bb_candidate_atoms.get(i);
-                    chunk_atoms.push_back(atom);
-                    negated_chunk_atoms.push_back(mk_not(m, atom));
+                // Keep at most one polarity per atom in a chunk since this otherwise this leads to 
+                // immediate contradictions and thus no progress on finding backbones in the batch
+                for (unsigned i = 0; i < bb_candidate_lits.size() && chunk_lits.size() < chunk_size; ++i) {
+                    expr* lit = bb_candidate_lits.get(i);
+                    expr* atom = lit;
+                    m.is_not(lit, atom);
+                    if (chunk_atoms.is_marked(atom))
+                        continue;
+                    chunk_atoms.mark(atom);
+                    chunk_lits.push_back(lit);
+                    negated_chunk_lits.push_back(mk_not(m, lit));
                 }
 
                 expr_ref_vector bb_asms(m);
                 if (m_mode == bb_mode::bb_negated)
-                    bb_asms.append(negated_chunk_atoms); // F ∧ ¬U
+                    bb_asms.append(negated_chunk_lits); // F ∧ ¬U
                 else
-                    bb_asms.append(chunk_atoms); // F ∧ U
+                    bb_asms.append(chunk_lits); // F ∧ U
 
                 collect_shared_clauses();
 
@@ -382,7 +411,7 @@ namespace smt {
                     if (r == l_undef) {
                         LOG_BB_WORKER(1, " UNDEF at chunk_size=" << chunk_size << "\n");
 
-                        if (chunk_size < bb_candidate_atoms.size()) {
+                        if (chunk_size < bb_candidate_lits.size()) {
                             chunk_delta++; // try again with a bigger chunk
                             m_stats.m_num_chunk_increases++;
                             break;
@@ -390,7 +419,7 @@ namespace smt {
 
                         LOG_BB_WORKER(1, " UNDEF and max chunk → fallback\n");
 
-                        fallback_failed_literal_probe(chunk_atoms, bb_candidate_atoms);
+                        fallback_failed_literal_probe(chunk_lits, bb_candidate_lits);
                         m_stats.m_fallback_reason_undef++;
                         chunk_delta = 1;
                         break;
@@ -432,11 +461,11 @@ namespace smt {
                             ctx->assert_expr(backbone_lit.get()); // since bb workers don't collect clauses they themselves shared
                         }
 
-                        // if a is atom, remove atom
-                        // if a is ¬atom, strip the not and still remove atom
-                        expr* candidate_to_remove = a;
-                        m.is_not(a, candidate_to_remove);
-                        bb_candidate_atoms.erase(candidate_to_remove);
+                        expr* candidate_to_remove =
+                            (m_mode == bb_mode::bb_negated)
+                            ? backbone_lit.get() // since core contains ¬candidates in negated mode
+                            : a; // since core contains candidates in positive mode
+                        bb_candidate_lits.erase(candidate_to_remove);
                     }
 
                     unsigned sz_before = bb_asms.size();
@@ -447,7 +476,7 @@ namespace smt {
 
                     if (bb_asms.empty()) {
                         LOG_BB_WORKER(1, " no more negated chunk literals, fallback to individual checks\n");
-                        fallback_failed_literal_probe(chunk_atoms, bb_candidate_atoms);
+                        fallback_failed_literal_probe(chunk_lits, bb_candidate_lits);
                         m_stats.m_fallback_reason_chunk_exhausted++;
                         break;
                     }
@@ -466,19 +495,18 @@ namespace smt {
                 expr_ref_vector bb_snapshot = b.get_global_backbones_snapshot(m_g2l);
                 expr_mark bb_mark;
                 for (expr* e : bb_snapshot) {
-                    expr* atom = e;
-                    m.is_not(e, atom);
-                    bb_mark.mark(atom);
+                    bb_mark.mark(e);
+                    bb_mark.mark(mk_not(m, e));
                 }
-                bb_candidate_atoms.reset();
+                bb_candidate_lits.reset();
                 for (auto const& c : bb_curr_batch_candidates)
-                    if (!bb_mark.is_marked(c.atom.get()))
-                        bb_candidate_atoms.push_back(c.atom);
+                    if (!bb_mark.is_marked(c.lit.get()))
+                        bb_candidate_lits.push_back(c.lit);
                 
-                if (bb_candidate_atoms.empty())
+                if (bb_candidate_lits.empty())
                     break;
 
-                fallback_failed_literal_probe(bb_candidate_atoms, bb_candidate_atoms, true);
+                fallback_failed_literal_probe(bb_candidate_lits, bb_candidate_lits, true);
                 
                 // break if we made no progress on this batch
                 // unlikely to make progress on future runs and idk if this creates any kind of resource stress
@@ -497,7 +525,7 @@ namespace smt {
         LOG_BB_WORKER(1, " BACKBONES WORKER cancelling\n");
         m.limit().cancel();
     }
-    
+
     // returns true if the global bb is new, false if it was already known
     bool parallel::batch_manager::collect_global_backbone(ast_translation &l2g, expr_ref const &backbone, unsigned source_worker_id) {
         IF_VERBOSE(1, verbose_stream() << "collect-global-backbone\n");
@@ -842,23 +870,28 @@ namespace smt {
 
     parallel::bb_candidates parallel::worker::find_backbone_candidates(unsigned k) {
         bb_candidates backbone_candidates;
+        expr_ref candidate(m);
         unsigned curr_time = ctx->m_stats.m_num_assignments;
 
         for (bool_var v = 0; v < ctx->get_num_bool_vars(); ++v) {
             if (ctx->get_assignment(v) != l_undef && ctx->get_assign_level(v) == ctx->m_base_lvl)
                 continue;
 
-            expr_ref atom(ctx->bool_var2expr(v), m);
-            if (!atom)
+            candidate = ctx->bool_var2expr(v);
+            if (!candidate)
                 continue;
 
             auto birth = ctx->m_birthdate[v];
             auto age = curr_time - birth;
 
-            if (b.is_global_backbone(m_l2g, atom) || b.is_global_backbone(m_l2g, mk_not(m, atom)))
+            auto const& d = ctx->get_bdata(v);
+            if (d.m_phase_available && !d.m_phase)
+                candidate = m.mk_not(candidate);
+
+            if (b.is_global_backbone_or_negation(m_l2g, candidate))
                 continue;
 
-            bb_candidate bb_cand(m, atom, age, 1);
+            bb_candidate bb_cand(m, candidate, age, 1);
             backbone_candidates.push_back(bb_cand);
         }
         
@@ -1497,16 +1530,10 @@ namespace smt {
 
         auto find_existing_candidate_idx = [&](expr* e) -> int {
             for (unsigned i = 0; i < m_bb_candidates.size(); ++i) {
-                if (m_bb_candidates[i].atom.get() == e)
+                if (m_bb_candidates[i].lit.get() == e)
                     return i;
             }
             return -1;
-        };
-
-        auto atom_is_global_backbone = [&](expr* atom) {
-            expr_ref g_atom(atom, m);
-            expr_ref neg_g_atom(mk_not(m, g_atom), m);
-            return m_global_backbones.contains(g_atom.get()) || m_global_backbones.contains(neg_g_atom.get());
         };
 
         auto rank_of = [&](bb_candidate const& c) {
@@ -1514,12 +1541,12 @@ namespace smt {
         };
 
         for (auto const& c : bb_candidates) {
-            expr_ref g_atom(l2g(c.atom.get()), m);
-            if (atom_is_global_backbone(g_atom.get()))
+            expr_ref g_lit(l2g(c.lit.get()), m);
+            if (is_global_backbone_or_negation_unlocked(l2g, c.lit))
                 continue;
 
             double age = c.age;
-            int idx = find_existing_candidate_idx(g_atom.get());
+            int idx = find_existing_candidate_idx(g_lit.get());
 
             if (idx >= 0) {
                 auto& existing = m_bb_candidates[idx];
@@ -1529,12 +1556,12 @@ namespace smt {
             }
 
             if (m_bb_candidates.size() < m_max_global_bb_candidates) {
-                m_bb_candidates.push_back(bb_candidate(m, g_atom.get(), age, 1));
+                m_bb_candidates.push_back(bb_candidate(m, g_lit.get(), age, 1));
                 changed = true;
                 continue;
             }
 
-            bb_candidate new_bb_candidate = bb_candidate(m, g_atom.get(), age, 1);
+            bb_candidate new_bb_candidate = bb_candidate(m, g_lit.get(), age, 1);
             auto worst_it = std::min_element(
                 m_bb_candidates.begin(),
                 m_bb_candidates.end(),
@@ -1601,8 +1628,8 @@ namespace smt {
         }
 
         for (auto const& gc : m_bb_current_batch) {
-            expr_ref l_atom(g2l(gc.atom.get()), g2l.to());
-            out.push_back(bb_candidate(g2l.to(), l_atom, gc.age, gc.hits));
+            expr_ref l_lit(g2l(gc.lit.get()), g2l.to());
+            out.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
         }
 
         m_bb_last_batch_processed[bb_thread_id] = m_bb_batch_id;
@@ -1648,11 +1675,9 @@ namespace smt {
             if (!e)
                 continue;
 
-            // don't split on a backbone
+            // don't split on a backbone or its negation
             if (m_config.m_global_backbones) {
-                expr_ref e_ref(e, m);
-                expr_ref neg_e_ref(mk_not(e_ref), m);
-                if (b.is_global_backbone(m_l2g, e_ref) || b.is_global_backbone(m_l2g, neg_e_ref))
+                if (b.is_global_backbone_or_negation(m_l2g, e))
                     continue;
             }
 

@@ -46,10 +46,10 @@ namespace smt {
         };
 
         struct bb_candidate {
-            expr_ref atom;
+            expr_ref lit;
             double age;
             unsigned hits;     // how many cubes reported it
-            bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : atom(e, m), age(s), hits(h) {}
+            bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : lit(e, m), age(s), hits(h) {}
         };
 
         using bb_candidates = vector<bb_candidate>;
@@ -162,6 +162,12 @@ namespace smt {
                 return m_global_backbones.contains(cand.get());
             }
 
+            bool is_global_backbone_or_negation_unlocked(ast_translation& l2g, expr* bb_cand) {
+                expr_ref cand(l2g(bb_cand), l2g.to());
+                expr_ref neg_cand(mk_not(l2g.to(), cand), l2g.to());
+                return m_global_backbones.contains(cand.get()) || m_global_backbones.contains(neg_cand.get());
+            }
+
             void backtrack_unlocked(ast_translation& l2g, unsigned worker_id, expr_ref_vector const& core,
                                     node_lease const* lease = nullptr, vector<node_lease> const* targets = nullptr);
             void collect_clause_unlocked(ast_translation &l2g, unsigned source_worker_id, expr *clause);
@@ -217,9 +223,9 @@ namespace smt {
 
             lbool get_result() const;
 
-            bool is_global_backbone(ast_translation& l2g, expr* bb_cand) {
+            bool is_global_backbone_or_negation(ast_translation& l2g, expr* bb_cand) {
                 std::scoped_lock lock(mux);
-                return is_global_backbone_unlocked(l2g, bb_cand);
+                return is_global_backbone_or_negation_unlocked(l2g, bb_cand);
             }
 
             void cancel_current_backbone_batch() {
