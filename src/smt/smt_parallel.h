@@ -46,10 +46,10 @@ namespace smt {
         };
 
         struct bb_candidate {
-            expr_ref lit;
+            expr_ref atom;
             double age;
             unsigned hits;     // how many cubes reported it
-            bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : lit(e, m), age(s), hits(h) {}
+            bb_candidate(ast_manager& m, expr* e, double s, unsigned h) : atom(e, m), age(s), hits(h) {}
         };
 
         using bb_candidates = vector<bb_candidate>;
@@ -187,7 +187,6 @@ namespace smt {
             void collect_backbone_evidence(ast_translation& l2g, expr* lit, double delta);
             bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone, unsigned source_worker_id = UINT_MAX);
             bool wait_for_backbone_job(unsigned bb_thread_id, ast_translation& g2l, vector<parallel::bb_candidate>& out, reslimit& lim);
-            // bb_candidates return_global_bb_candidates(ast_translation& g2l, unsigned& epoch);
             bool has_new_backbone_candidates(unsigned epoch) {
                 return m_bb_candidate_epoch.load(std::memory_order_acquire) != epoch;
             }
@@ -358,6 +357,7 @@ namespace smt {
                 unsigned m_backbones_detected = 0;
                 unsigned m_internal_backbones_found = 0;
                 unsigned m_retry_backbones_found = 0;
+                unsigned m_bb_retries = 0;
                 unsigned m_fallback_singleton_checks = 0;
                 unsigned m_fallback_reason_chunk_exhausted = 0;
                 unsigned m_fallback_reason_undef = 0;
