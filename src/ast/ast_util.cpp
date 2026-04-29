@@ -168,7 +168,7 @@ expr * mk_and(ast_manager & m, unsigned num_args, expr * const * args) {
 }
 
 app* mk_and(ast_manager & m, unsigned num_args, app * const * args) {
-    return to_app(mk_and(m, num_args, (expr* const*) args));
+    return to_app(mk_and(m, num_args, reinterpret_cast<expr* const*>(args)));
 }
 
 expr * mk_or(ast_manager & m, unsigned num_args, expr * const * args) {
