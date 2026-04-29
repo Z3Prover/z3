@@ -46,6 +46,11 @@ namespace euf {
         }
     }
 
+    // Saturating unsigned addition: returns UINT_MAX instead of wrapping.
+    static unsigned saturating_add(unsigned a, unsigned b) {
+        return (b > UINT_MAX - a) ? UINT_MAX : a + b;
+    }
+
     unsigned enode_concat_hash::operator()(enode* n) const {
         snode* sn = sg.find(n->get_expr());
         if (sn && sn->has_cached_hash())
@@ -63,6 +68,15 @@ namespace euf {
     bool enode_concat_eq::operator()(enode* a, enode* b) const {
         if (a == b) return true;
         if (!is_any_concat(a, seq) || !is_any_concat(b, seq))
+            return false;
+        // fast-path: snode length check (O(1), avoids leaf allocation)
+        snode* sa = sg.find(a->get_expr());
+        snode* sb = sg.find(b->get_expr());
+        if (sa && sb && sa->length() != sb->length())
+            return false;
+        // fast-path: cached associativity hash (O(1))
+        bool both_have_hash = sa && sa->has_cached_hash() && sb && sb->has_cached_hash();
+        if (both_have_hash && sa->assoc_hash() != sb->assoc_hash())
             return false;
         enode_vector la, lb;
         collect_enode_leaves(a, seq, la);
@@ -82,7 +96,7 @@ namespace euf {
         m_sg(sg ? *sg : *alloc(sgraph, g.get_manager(), g, false)),
         m_sg_owned(sg == nullptr),
         m_concat_hash(m_seq, m_sg),
-        m_concat_eq(m_seq),
+        m_concat_eq(m_seq, m_sg),
         m_concat_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_concat_hash, m_concat_eq) {
     }
 
@@ -173,6 +187,9 @@ namespace euf {
         // This handles the case where the merge caused a child to become equivalent
         // to an identity (ε) or absorbing element (∅) that was not known at
         // registration time (e.g. b ~ "" discovered after concat(x, b) was registered).
+        // Also re-simplifies RE concat nodes when a child's root has become full_seq,
+        // to handle nullable absorption through nested concats:
+        // concat(.*, concat(v, w)) = concat(.*, w) when v is nullable but w is not.
         for (enode* n : m_concats) {
             enode *na, *nb;
             if (is_str_concat(n, na, nb)) {
@@ -190,6 +207,8 @@ namespace euf {
                     push_merge(n, na);   // absorb: concat(∅, b) = ∅
                 else if (is_re_empty(nb))
                     push_merge(n, nb);   // absorb: concat(a, ∅) = ∅
+                else if (is_full_seq(na->get_root()) || is_full_seq(nb->get_root()))
+                    propagate_simplify(n);
             }
         }
     }
@@ -265,36 +284,17 @@ namespace euf {
         // handled by associativity + nullable absorption on sub-concats
 
         // Rule 3: Loop merging
-        // concat(body{lo1,hi1}, body{lo2,hi2}) = body{lo1+lo2, hi1+hi2}
+        // concat(v{l1,h1}, v{l2,h2}) = v{l1+l2,h1+h2}
         unsigned lo1, hi1, lo2, hi2;
         if (same_loop_body(a, b, lo1, hi1, lo2, hi2)) {
-            ast_manager& m_ast = g.get_manager();
-            enode* body_en = a->get_arg(0);
-            unsigned lo = lo1 + lo2, hi = hi1 + hi2;
-            expr_ref merged_expr(m_seq.re.mk_loop_proper(body_en->get_expr(), lo, hi), m_ast);
-            enode* merged_n = g.find(merged_expr);
-            if (!merged_n && is_app(merged_expr)) {
-                app* merged_app = to_app(merged_expr);
-                unsigned nargs = merged_app->get_num_args();
-                // mk_loop_proper always produces 0-arg (impossible) or 1-arg results:
-                //   - proper loop: 1 arg (the body)
-                //   - epsilon (lo+hi==0 degenerate): 1 arg (the empty string)
-                //   - body itself (lo=1,hi=1 degenerate): handled by g.find above
-                if (nargs == 0) {
-                    merged_n = mk(merged_expr, 0, nullptr);
-                } else if (nargs == 1) {
-                    // The single arg is either body_en or the empty string (epsilon case).
-                    // If the empty string is not yet in the graph, skip the merge.
-                    expr* arg0_expr = merged_app->get_arg(0);
-                    enode* arg0_en = (arg0_expr == body_en->get_expr()) ? body_en : g.find(arg0_expr);
-                    if (arg0_en)
-                        merged_n = mk(merged_expr, 1, &arg0_en);
-                } else {
-                    SASSERT(false && "mk_loop_proper should not produce multi-argument expressions");
-                }
-            }
-            if (merged_n)
-                push_merge(n, merged_n);
+            ast_manager& m = g.get_manager();
+            enode* body_n = a->get_arg(0);
+            // saturating add: prevent silent unsigned wrap-around on large bounds
+            unsigned lo_merged = saturating_add(lo1, lo2);
+            unsigned hi_merged = saturating_add(hi1, hi2);
+            expr_ref merged(m_seq.re.mk_loop(body_n->get_expr(), lo_merged, hi_merged), m);
+            enode* merged_n = mk(merged, 1, &body_n);
+            push_merge(n, merged_n);
         }
     }
 
