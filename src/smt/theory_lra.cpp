@@ -2126,6 +2126,14 @@ public:
         m_explanation = l.expl();
         literal_vector core;
         SASSERT(!m_lemma.is_empty());
+        TRACE(nla_solver,
+            tout << "varmap:";
+            for (lpvar j : m_nla->get_core().collect_vars(l)) {
+                auto ext = lp().local_to_external(j);
+                if (ext != lp::null_lpvar && static_cast<unsigned>(ext) < th.get_num_vars())
+                    tout << " " << lp().get_variable_name(j) << "=" << pp(ext);
+            }
+            tout << "\n";);
         for (auto const& ineq : m_lemma.ineqs()) {
             auto lit = mk_literal(ineq);
             core.push_back(~lit);
