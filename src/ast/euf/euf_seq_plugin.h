@@ -63,7 +63,8 @@ namespace euf {
     // Handles both str.++ (OP_SEQ_CONCAT) and re.++ (OP_RE_CONCAT).
     struct enode_concat_eq {
         seq_util const& seq;
-        enode_concat_eq(seq_util const& s) : seq(s) {}
+        sgraph& sg;
+        enode_concat_eq(seq_util const& s, sgraph& sg) : seq(s), sg(sg) {}
         bool operator()(enode* a, enode* b) const;
     };
 
@@ -120,11 +121,14 @@ namespace euf {
         bool is_loop(enode* n) const { return m_seq.re.is_loop(n->get_expr()); }
 
         // string empty: ε for str.++
-        bool is_str_empty(enode* n) const { return m_seq.str.is_empty(n->get_expr()); }
+        // Follows the union-find root so that merges are correctly reflected.
+        bool is_str_empty(enode* n) const { return m_seq.str.is_empty(n->get_root()->get_expr()); }
         // regex empty set: ∅ for re.++ (absorbing element)
-        bool is_re_empty(enode* n) const { return m_seq.re.is_empty(n->get_expr()); }
+        // Follows the union-find root so that merges are correctly reflected.
+        bool is_re_empty(enode* n) const { return m_seq.re.is_empty(n->get_root()->get_expr()); }
         // regex epsilon: to_re("") for re.++ (identity element)
-        bool is_re_epsilon(enode* n) const { return m_seq.re.is_epsilon(n->get_expr()); }
+        // Follows the union-find root so that merges are correctly reflected.
+        bool is_re_epsilon(enode* n) const { return m_seq.re.is_epsilon(n->get_root()->get_expr()); }
 
         bool is_to_re(enode* n) const { return m_seq.re.is_to_re(n->get_expr()); }
         bool is_full_seq(enode* n) const { return m_seq.re.is_full_seq(n->get_expr()); }
