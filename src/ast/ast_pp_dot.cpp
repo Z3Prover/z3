@@ -77,7 +77,7 @@ private:
 
     void pp_atomic_step(const expr * e) {
         unsigned id = get_id(e);
-        m_out << "node_" << id << " [shape=box,color=\"yellow\",style=\"filled\",label=\"" << label_of_expr(e) << "\"] ;" << std::endl;
+        m_out << "node_" << id << " [shape=box,color=\"yellow\",style=\"filled\",label=\"" << label_of_expr(e) << "\"] ;" << '\n';
     }
     
     void pp_step(const proof * p) {
@@ -91,7 +91,7 @@ private:
                 m_first ? (m_first=false,"color=\"red\"") : num_parents==0 ? "color=\"yellow\"": "";
             m_out << "node_" << id <<
                 " [shape=box,style=\"filled\",label=\"" << label_of_expr(p_res) << "\""
-                << color << "]" << std::endl;
+                << color << "]" << '\n';
             // now print edges to parents (except last one, which is the result)
             std::string label = p->get_decl()->get_name().str();
             for (unsigned i = 0 ; i < num_parents; ++i) {
@@ -99,7 +99,7 @@ private:
                 // explore parent, also print a link to it
                 push_term(to_app(parent));
                 m_out << "node_" << id << " -> " << "node_" << get_id((expr*)parent)
-                    << "[label=\"" << label << "\"];" << std::endl;;
+                    << "[label=\"" << label << "\"];" << '\n';
             }
         } else {
             pp_atomic_step(p);
@@ -120,11 +120,11 @@ private:
 
 // main printer
 std::ostream & ast_pp_dot::pp(std::ostream & out) const {
-    out << "digraph proof { " << std::endl;
+    out << "digraph proof { " << '\n';
     ast_pp_dot_st pp_st(this, out);
     pp_st.push_term(m_pr);
     pp_st.pp_loop();
-    out << std::endl << " } " << std::endl << std::flush;
+    out << '\n' << " } " << '\n' << std::flush;
     return out;
 }
 
