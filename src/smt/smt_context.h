@@ -1620,6 +1620,7 @@ namespace smt {
         bool check_missing_diseq_conflict() const;
 
 #endif
+        void dump_assignments();
         // -----------------------------------
         //
         // Introspection
