@@ -1114,9 +1114,9 @@ namespace {
                         best_j         = j;
                     }
                 }
-                m_mp_already_processed[best_j] = true;
                 if (best == nullptr)
                     continue;
+                m_mp_already_processed[best_j] = true;
                 app * p                 = best;
                 func_decl * lbl         = p->get_decl();
                 unsigned short num_args = p->get_num_args();
