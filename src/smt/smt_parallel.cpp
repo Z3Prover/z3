@@ -970,7 +970,8 @@ namespace smt {
             if (lit.sign())
                 e = mk_not(e);  // negate if literal is negative
 
-            b.collect_global_backbone(m_l2g, e, id);
+            // b.collect_global_backbone(m_l2g, e, id);
+            b.collect_clause(m_l2g, id, e);
         }
         m_shared_units_prefix = prefix_sz;
     }
