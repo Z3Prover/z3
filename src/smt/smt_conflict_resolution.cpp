@@ -352,6 +352,7 @@ namespace smt {
             literal_vector &lits = antecedents;
             m.trace_stream() << " --- justification lits for " << consequent << " --- \n" << lits << "\n";
             m_ctx.display_literals_verbose(m.trace_stream(), lits.size(), lits.begin(), /*full=*/true);
+            m.trace_stream() << "\n";
             m.trace_stream() << " --- end justification --- \n";
         }
         for (literal l : antecedents)
