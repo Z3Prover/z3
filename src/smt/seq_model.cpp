@@ -19,6 +19,7 @@ Author:
 #include "smt/seq_model.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
+#include "smt/smt_arith_value.h"
 #include "smt/proto_model/proto_model.h"
 #include "ast/ast_pp.h"
 
@@ -283,6 +284,14 @@ namespace smt {
             return expr_ref(m_seq.str.mk_empty(srt), m);
         }
 
+        // NSB review
+        // we have to carefully figure out what to do/redo here.
+        // model construction in z3 is designed to be hierarchical.
+        // during model initialization solvers register depenendencies between enodes for model construction.
+        // The dependencies should be acyclic to enable bottom-up model construction.
+        // Values for dependencies are accessed in the model_value_proc class.
+        // For strings/sequences we have a natural way to record dependencies.
+        // unit/character nodes depend on the elements they contain.
         if (n->is_char() || n->is_unit()) {
             expr* e = n->get_expr();
             SASSERT(m_seq.str.is_unit(e));
@@ -348,13 +357,16 @@ namespace smt {
 
             euf::snode* exp_snode = n->arg(1);
             expr* exp_expr = exp_snode ? exp_snode->get_expr() : nullptr;
-            rational exp_val;
+            rational exp_val(0);
             arith_util arith(m);
+
 
             // Try to evaluate exponent: first check if it's a numeral,
             // then try the int model from sat_path constraints,
             // finally fall back to the proto_model from model_generator.
+            bool has_val = false;
             if (exp_expr && arith.is_numeral(exp_expr, exp_val)) {
+                has_val = true;
                 // already concrete
             }
             else if (dep_values && exp_expr) {
@@ -362,36 +374,22 @@ namespace smt {
                 enode* dep = find_root_enode(m_ctx, exp_expr);
                 if (dep && dep_values->find(dep, dval) && dval && arith.is_numeral(dval, exp_val)) {
                     // evaluated from dependency values
+                    has_val = true;
                 }
-                else if (m_mg) {
-                    expr_ref sub_exp = substitute_dependency_values(m, m_ctx, exp_expr, *dep_values);
-                    expr_ref result(m);
-                    if (!(m_mg->get_model().eval(sub_exp, result, true) && arith.is_numeral(result, exp_val)))
-                        exp_val = rational(0);
-                }
-                else
-                    exp_val = rational(0);
             }
-            else if (exp_expr && m_mg) {
-                expr_ref result(m);
-                proto_model& pm = m_mg->get_model();
-                if (pm.eval(exp_expr, result, true) && arith.is_numeral(result, exp_val)) {
-                    // evaluated from proto_model
-                }
-                else
-                    exp_val = rational(0);
+            if (!has_val) {
+                arith_value avalue(m);
+                avalue.init(&m_ctx);
+                avalue.get_value(exp_expr, exp_val);                
             }
-            else
-                exp_val = rational(0);
 
             if (exp_val.is_neg())
                 exp_val = rational(0);
 
             // Build the repeated string: base^exp_val
-            if (exp_val.is_zero()) {
+            if (exp_val == 0) {
                 sort* srt = n->get_sort();
                 SASSERT(srt);
-                if (!srt) srt = m_seq.str.mk_string_sort();
                 return expr_ref(m_seq.str.mk_empty(srt), m);
             }
             if (exp_val.is_one())
@@ -497,6 +495,8 @@ namespace smt {
             SASSERT(re_expr);
 
             arith_util arith(m);
+            arith_value avalue(m);
+            avalue.init(&m_ctx);
             expr_ref len_expr(m_seq.str.mk_length(var->get_expr()), m);
             rational len_val;
             bool has_len = false;
@@ -508,8 +508,8 @@ namespace smt {
             }
             if (!has_len && m_mg) {
                 expr_ref eval_len(m);
-                if (m_mg->get_model().eval(len_expr, eval_len, true) && arith.is_numeral(eval_len, len_val))
-                    has_len = true;
+                has_len = avalue.get_value(len_expr, len_val);
+                TRACE(seq, m_ctx.display(tout << eval_len << "\n"));
             }
 
             if (has_len && len_val.is_unsigned()) {
@@ -526,7 +526,8 @@ namespace smt {
                 m_factory->register_value(witness);
                 return witness;
             }
-            IF_VERBOSE(1, verbose_stream() << "witness extraction failed: " << wr << " with len " << (has_len ? len_val.to_string() : "unknown") << "\n" << mk_pp(re_expr, m) << "\n");
+            IF_VERBOSE(1, verbose_stream() << "witness extraction failed for " << mk_pp(var->get_expr(), m) 
+                << " : " << wr << " with len " << (has_len ? len_val.to_string() : "unknown") << "\n" << mk_pp(re_expr, m) << "\n");
             UNREACHABLE();
         }
 
@@ -545,9 +546,9 @@ namespace smt {
         }
 
         if (!has_len && m_mg) {
-            expr_ref eval_len(m);
-            if (m_mg->get_model().eval(len_expr, eval_len, true) && arith.is_numeral(eval_len, len_val))
-                has_len = true;
+            arith_value avalue(m);
+            avalue.init(&m_ctx);
+            has_len = avalue.get_value(len_expr, len_val);
         }
 
         if (has_len) {
