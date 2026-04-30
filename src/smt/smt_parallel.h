@@ -345,7 +345,6 @@ namespace smt {
 
             void minimize_unsat_core(expr_ref_vector& core);
             void collect_shared_clauses();
-            void share_units();
 
         public:
             core_minimizer_worker(parallel& p, expr_ref_vector const& _asms);
@@ -398,7 +397,6 @@ namespace smt {
             bool try_get_unit_backbone(expr* candidate, expr_ref& backbone);
             void run_batch_mode();
             void run_failed_literal_mode();
-            void share_units();
             lbool probe_literal(bool_var v, expr *e, bool is_retry);
         public:
             backbones_worker(unsigned id, parallel &p, expr_ref_vector const &_asms);

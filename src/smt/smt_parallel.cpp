@@ -165,7 +165,6 @@ namespace smt {
                 continue;
 
             collect_shared_clauses();
-            share_units();
 
             unsigned local_cancel_epoch = b.get_cancel_epoch();
             auto canceled = [&] { return local_cancel_epoch != b.get_cancel_epoch(); };
@@ -272,7 +271,6 @@ namespace smt {
 
             LOG_BB_WORKER(1, " received batch of " << bb_curr_batch_candidates.size() << " candidates\n");
             collect_shared_clauses();
-            share_units();
             
             unsigned local_cancel_epoch = b.get_cancel_epoch();
             auto canceled = [&] { return local_cancel_epoch != b.get_cancel_epoch(); };
@@ -725,7 +723,6 @@ namespace smt {
             expr_ref_vector minimized(m);
             minimized.append(core);
             minimize_unsat_core(minimized);
-            share_units();
 
             if (minimized.size() < original_size)
                 b.publish_minimized_core(m_l2g, asms, source, original_size, minimized);
@@ -911,6 +908,7 @@ namespace smt {
         return backbone_candidates;
     }
 
+    // checks if candidate or its negation is a unit backbone on the trail and returns the backbone if so
     bool parallel::backbones_worker::try_get_unit_backbone(expr* candidate, expr_ref& backbone) {
         expr* atom = candidate;
         m.is_not(candidate, atom);
@@ -973,40 +971,6 @@ namespace smt {
                 e = mk_not(e);  // negate if literal is negative
 
             b.collect_global_backbone(m_l2g, e, id);
-        }
-        m_shared_units_prefix = prefix_sz;
-    }
-
-    void parallel::backbones_worker::share_units() {
-        unsigned sz = ctx->assigned_literals().size();
-        unsigned prefix_sz = m_shared_units_prefix;
-        bool at_prefix = true;
-        for (unsigned j = m_shared_units_prefix; j < sz; ++j) {
-            literal lit = ctx->assigned_literals()[j];
-
-            if (ctx->get_assign_level(lit) > ctx->m_base_lvl) {
-                at_prefix = false;
-                continue;
-            }
-
-            if (at_prefix)
-                ++prefix_sz;
-
-            if (m_known_units.contains(lit.var()))
-                continue;
-            m_known_units.insert(lit.var());
-
-            if (lit.var() >= m_num_initial_atoms)
-                continue;
-
-            expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);
-            if (!e || m.is_and(e) || m.is_or(e) || m.is_ite(e) || m.is_iff(e))
-                continue;
-
-            if (lit.sign())
-                e = mk_not(e);
-
-            b.collect_global_backbone(m_l2g, e);
         }
         m_shared_units_prefix = prefix_sz;
     }
@@ -1492,36 +1456,6 @@ namespace smt {
             IF_VERBOSE(4, verbose_stream() << "Core minimizer asserting shared clause: "
                                            << mk_bounded_pp(e, m, 3) << "\n";);
         }
-    }
-
-    void parallel::core_minimizer_worker::share_units() {
-        unsigned sz = ctx->assigned_literals().size();
-        unsigned prefix_sz = m_num_shared_units;
-        bool at_prefix = true;
-        for (unsigned j = m_num_shared_units; j < sz; ++j) {
-            literal lit = ctx->assigned_literals()[j];
-
-            if (ctx->get_assign_level(lit) > ctx->m_base_lvl) {
-                at_prefix = false;
-                continue;
-            }
-
-            if (at_prefix)
-                ++prefix_sz;
-
-            if (lit.var() >= m_num_initial_atoms)
-                continue;
-
-            expr_ref e(ctx->bool_var2expr(lit.var()), ctx->m);
-            if (!e || m.is_and(e) || m.is_or(e) || m.is_ite(e) || m.is_iff(e))
-                continue;
-
-            if (lit.sign())
-                e = mk_not(e);
-
-            b.collect_global_backbone(m_l2g, e);
-        }
-        m_num_shared_units = prefix_sz;
     }
 
     void parallel::batch_manager::collect_backbone_candidates(ast_translation& l2g, bb_candidates& bb_candidates) {
