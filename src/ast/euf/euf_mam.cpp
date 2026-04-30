@@ -1926,28 +1926,38 @@ namespace euf {
             m_max_generation = std::max(m_max_generation, n->generation());
         }
 
+        void get_f_app(func_decl* lbl, unsigned num_expected_args, enode* curr, enode*& matching_cgr, enode*& min_gen_match) {
+            if (curr->get_decl() == lbl && curr->num_args() == num_expected_args) {
+                if (curr->is_cgr() && !matching_cgr)
+                    matching_cgr = curr;
+                if (!min_gen_match || min_gen_match->generation() > curr->generation())
+                    min_gen_match = curr;
+            }
+        }
+
         // We have to provide the number of expected arguments because we have flat-assoc applications such as +.
         // Flat-assoc applications may have arbitrary number of arguments.
         enode * get_first_f_app(func_decl * lbl, unsigned num_expected_args, enode * first) {
+            enode *matching_cgr = nullptr, *min_gen_match = nullptr;
             for (enode* curr : euf::enode_class(first)) {
-                if (curr->get_decl() == lbl && curr->is_cgr() && curr->num_args() == num_expected_args) {
-                    update_max_generation(curr, first);
-                    return curr;
-                }
+                get_f_app(lbl, num_expected_args, curr, matching_cgr, min_gen_match);
+                curr = curr->get_next();
             }
-            return nullptr;
+            if (matching_cgr)
+                update_max_generation(min_gen_match, first);                          
+            return matching_cgr;
         }
 
         enode * get_next_f_app(func_decl * lbl, unsigned num_expected_args, enode * first, enode * curr) {
             curr = curr->get_next();
+            enode *matching_cgr = nullptr, *min_gen_match = nullptr;
             while (curr != first) {
-                if (curr->get_decl() == lbl && curr->is_cgr() && curr->num_args() == num_expected_args) {
-                    update_max_generation(curr, first);
-                    return curr;
-                }
+                get_f_app(lbl, num_expected_args, curr, matching_cgr, min_gen_match);
                 curr = curr->get_next();
             }
-            return nullptr;
+            if (matching_cgr)
+                update_max_generation(min_gen_match, first);
+            return matching_cgr;
         }
 
         /**
