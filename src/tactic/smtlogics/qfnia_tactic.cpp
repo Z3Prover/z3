@@ -81,7 +81,8 @@ static tactic * mk_qfnia_preamble(ast_manager & m, params_ref const & p_ref) {
 
     return
         and_then(mk_simplify_tactic(m),
-                 mk_propagate_values_tactic(m),
+                 mk_propagate_values_tactic(m), 
+                 mk_solve_eqs_tactic(m),
                  using_params(mk_ctx_simplify_tactic(m), ctx_simp_p),
                  using_params(mk_simplify_tactic(m), pull_ite_p),
                  mk_elim_uncnstr_tactic(m),
