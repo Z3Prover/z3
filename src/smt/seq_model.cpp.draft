@@ -30,6 +30,14 @@ When evaluating x, use dependencies from rx.
 This can include character variables that are assigned values by other theories.
 Reconstruct value for x using value for rx.
 
+
+Model construction in z3 is designed to be hierarchical.
+During model initialization solvers register depenendencies between enodes for model construction.
+The dependencies should be acyclic to enable bottom-up model construction.
+Values for dependencies are accessed in the model_value_proc class.
+For strings/sequences we have a natural way to record dependencies.
+unit/character nodes depend on the elements they contain.
+
 --*/
 #include "smt/seq_model.h"
 #include "smt/smt_context.h"
@@ -39,22 +47,6 @@ Reconstruct value for x using value for rx.
 #include "ast/ast_pp.h"
 
 namespace smt {
-
-    static enode* find_root_enode(context& ctx, expr* e) {
-        if (!e)
-            return nullptr;
-        enode* n = ctx.find_enode(e);
-        return n ? n->get_root() : nullptr;
-    }
-
-    static bool is_model_dependency(context& ctx, enode* n) {
-        if (!n)
-            return false;
-        seq_util seq(ctx.get_manager());
-        if (seq.is_seq(n->get_sort()) || seq.is_re(n->get_sort()))
-            return false;
-        return ctx.is_relevant(n) || ctx.get_manager().is_value(n->get_expr());
-    }
 
     class seq_snode_value_proc : public model_value_proc {
         seq_model& m_owner;
@@ -158,13 +150,9 @@ namespace smt {
             val = m_seq.str.mk_empty(e->get_sort());
         }
 
-        if (val) {
-            m_trail.push_back(val);
-            m_factory->add_trail(val);
-            return alloc(expr_wrapper_proc, to_app(val));
-        }
-
-        return alloc(expr_wrapper_proc, to_app(m_seq.str.mk_empty(e->get_sort())));
+        m_trail.push_back(val);
+        m_factory->add_trail(val);
+        return alloc(expr_wrapper_proc, to_app(val));
     }
 
     void seq_model::finalize(model_generator& mg) {
@@ -220,17 +208,11 @@ namespace smt {
             return expr_ref(m_seq.str.mk_empty(srt), m);
         }
 
-        // NSB review
-        // we have to carefully figure out what to do/redo here.
-        // model construction in z3 is designed to be hierarchical.
-        // during model initialization solvers register depenendencies between enodes for model construction.
-        // The dependencies should be acyclic to enable bottom-up model construction.
-        // Values for dependencies are accessed in the model_value_proc class.
-        // For strings/sequences we have a natural way to record dependencies.
-        // unit/character nodes depend on the elements they contain.
-        if (n->is_char() || n->is_unit()) {
+
+        if (n->is_char_or_unit()) {
             expr *e = n->get_expr();
             SASSERT(m_seq.str.is_unit(e));
+            SASSERT(values.size() == 1);
             e = to_app(e)->get_arg(0);
             unsigned c;
 
@@ -240,23 +222,13 @@ namespace smt {
             return expr_ref(m_seq.str.mk_unit(dval), m);
         }
 
-        // TODO replace this with mk_value_with_dependencies.
-        // 1. look up n in m_var_replacement to find replacement snode
-        // 2. if replacement exists, use this.
-        // 3. if it doesn't exist, use get_var_value.
         if (n->is_var()) {
             euf::snode *replacement = nullptr;
-            if (!m_var_replacement.find(n->id(), replacement)) {
-                return get_var_value(n);
-            }
+            if (!m_var_replacement.find(n->id(), replacement))
+                return get_var_value(n);            
             return mk_value_with_dependencies(n, replacement, values);
         }
 
-        // TODO: is this the right way to handle dependencies for concat and power?
-        // specifically, the code path for initializing dependencies recurses over concatenation
-        // and then extracts dependencies for replacement variables
-        // Thus, there are two levels of recursion: one for the original snode 
-        // structure and one for the replacement variable structure.
         if (n->is_concat()) {
             return expr_ref(m_seq.str.mk_concat(values, n->get_sort()), m);
         }
@@ -572,12 +544,9 @@ namespace smt {
     }
 
     bool seq_model::validate_regex(tracked_str_mem const& mem, ::proto_model& mdl) {
-        if (!mem.m_str || !mem.m_regex)
-            return true;
+        SASSERT(mem.well_formed());
         expr* s_expr = mem.m_str->get_expr();
         expr* r_expr = mem.m_regex->get_expr();
-        if (!s_expr || !r_expr)
-            return true;
 
         expr_ref in_re(m_seq.re.mk_in_re(s_expr, r_expr), m);
         if (mdl.is_false(in_re)) {
