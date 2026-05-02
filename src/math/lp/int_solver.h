@@ -36,6 +36,7 @@ class int_solver {
     friend struct create_cut;
     friend class gomory;
     friend class int_cube;
+    friend class int_cube_hnf;
     friend class int_branch;
     friend class int_gcd_test;
     friend class hnf_cutter;

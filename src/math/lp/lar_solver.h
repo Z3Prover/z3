@@ -567,6 +567,7 @@ public:
         return false;
     }
     void round_to_integer_solution();
+    void apply_lattice_assignment(const vector<std::pair<lpvar, impq>>& assignments);
     inline const row_strip<mpq>& get_row(unsigned i) const { return A_r().m_rows[i]; }
     inline const row_strip<mpq>& basic2row(unsigned i) const { return A_r().m_rows[row_of_basic_column(i)]; }
     inline const column_strip& get_column(unsigned i) const { return A_r().m_columns[i]; }
@@ -604,6 +605,7 @@ public:
     std::function<void (const indexed_uint_set& columns_with_changed_bound)> m_find_monics_with_changed_bounds_func = nullptr;
     friend int_solver;
     friend int_branch;
+    friend class int_cube_hnf;
     friend imp;
 
 };

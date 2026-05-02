@@ -9,6 +9,7 @@
 #include "math/lp/gomory.h"
 #include "math/lp/int_branch.h"
 #include "math/lp/int_cube.h"
+#include "math/lp/int_cube_hnf.h"
 #include "math/lp/dioph_eq.h"
 
 namespace lp {
@@ -196,6 +197,13 @@ namespace lp {
             return m_number_of_calls % settings().m_int_find_cube_period == 0;
         }
 
+        bool should_find_hnf_cube() {
+            unsigned period = settings().m_int_find_hnf_cube_period;
+            if (period == 0)
+                return false;
+            return m_number_of_calls % period == 0;
+        }
+
         bool should_gomory_cut() {
             bool dio_allows_gomory = !settings().dio() || settings().dio_enable_gomory_cuts() ||
                                       m_dio.some_terms_are_ignored();
@@ -245,7 +253,11 @@ namespace lp {
 
             ++m_number_of_calls;
             if (r == lia_move::undef) r = patch_basic_columns();
-            if (r == lia_move::undef && should_find_cube()) r = int_cube(lia)();
+            if (r == lia_move::undef && should_find_cube()) {
+                r = int_cube(lia)();
+                if (r == lia_move::undef && settings().enable_hnf_cube() && should_find_hnf_cube())
+                    r = int_cube_hnf(lia)();
+            }
             if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
             if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
             if (r == lia_move::undef && should_gomory_cut()) r = gomory(lia).get_gomory_cuts(2);

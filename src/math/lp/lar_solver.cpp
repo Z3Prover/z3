@@ -2597,6 +2597,28 @@ namespace lp {
         }
     }
 
+    void lar_solver::apply_lattice_assignment(const vector<std::pair<lpvar, impq>>& assignments) {
+        if (assignments.empty())
+            return;
+        SASSERT(m_imp->m_incorrect_columns.empty());
+        for (auto const& a : assignments) {
+            lpvar j = a.first;
+            const impq& new_val = a.second;
+            SASSERT(column_is_int(j));
+            SASSERT(!column_has_term(j));
+            const impq& cur = get_core_solver().r_x(j);
+            if (new_val == cur)
+                continue;
+            get_core_solver().m_r_solver.update_x(j, new_val);
+            m_imp->m_incorrect_columns.insert(j);
+        }
+        if (!m_imp->m_incorrect_columns.empty()) {
+            fix_terms_with_rounded_columns();
+            m_imp->m_incorrect_columns.reset();
+        }
+    }
+
+
     void lar_solver::fix_terms_with_rounded_columns() {
 
         for (const lar_term* t : m_imp->m_terms) {
