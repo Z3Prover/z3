@@ -3334,7 +3334,8 @@ void theory_seq::relevant_eh(app* n) {
         add_length_to_eqc(arg);
 
     if (m_util.str.is_replace_re(n) ||
-        m_util.str.is_replace_re_all(n)) {
+        m_util.str.is_replace_re_all(n) ||
+        m_util.str.is_replace_all(n)) {
         add_unhandled_expr(n);
     }
 }
