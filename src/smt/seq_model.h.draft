@@ -61,6 +61,7 @@ namespace smt {
         // variable assignments extracted from the satisfying Nielsen node.
         // maps snode id -> expr* (concrete value)
         u_map<expr*> m_var_values;
+        u_map<euf::snode*> m_var_replacement;
 
         // trail for GC protection of generated expressions
         expr_ref_vector m_trail;

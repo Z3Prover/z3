@@ -15,6 +15,21 @@ Author:
     Clemens Eisenhofer 2026-03-01
     Nikolaj Bjorner (nbjorner) 2026-03-01
 
+Notes:
+
+We end up with a set of substitutions and membership constraints
+x -> rx
+y -> ry
+z in R_z
+u in R_u
+
+Plan:
+Compute solutions for variables in rx, ry store them in m_var_values
+We can compute these solutions on demand.
+When evaluating x, use dependencies from rx. 
+This can include character variables that are assigned values by other theories.
+Reconstruct value for x using value for rx.
+
 --*/
 #include "smt/seq_model.h"
 #include "smt/smt_context.h"
@@ -81,6 +96,7 @@ namespace smt {
 
         TRACE(seq, nielsen.display(tout << nielsen.to_dot() << "\n"));
         m_var_values.reset();
+        m_var_replacement.reset();
         m_var_regex.reset();
         m_trail.reset();
         m_mg = &mg;
@@ -154,6 +170,7 @@ namespace smt {
     void seq_model::finalize(model_generator& mg) {
         m_var_values.reset();
         m_var_regex.reset();
+        m_var_replacement.reset();
         m_trail.reset();
         m_mg = nullptr;
         m_factory = nullptr;
@@ -167,26 +184,6 @@ namespace smt {
         // When a new substitution (s.m_var -> s.m_replacement) is applied,
         // substitute s.m_var in all existing values, then record the new binding.
 
-        // x -> ax
-        // x -> bx
-        // x -> cx
-        // should produce:
-        // x -> abcx
-        // x -> bcx
-        // x -> cx
-        // only first substitution is processed because m_var_values gets populated
-        // in the first check.
-        // Furthermore, 
-        // x -> axy
-        // y -> by
-        // should produce:
-        // x -> axby
-        // y -> by
-        // when x is processed, we popluate values for x and y in m_var_values
-        // when y gets processed y already has a value in m_var_values, so we skip it.
-        // this would be a bug: we need y to have the value by.
-        // So membership alone in m_var_values is not sufficient to determine whether a variable has been processed.
-        //
         vector<std::pair<euf::snode*, euf::snode*>> bindings;
         for (seq::nielsen_edge* e : sat_path) {
             for (seq::nielsen_subst const& s : e->subst()) {
@@ -208,31 +205,14 @@ namespace smt {
         IF_VERBOSE(1, verbose_stream() << "nseq extract_assignments: " << bindings.size() << " bindings\n";);
         for (auto const &[var, replacement] : bindings) {
             SASSERT(var);
-            unsigned id = var->first()->id();
-            if (m_var_values.contains(id))
-                continue;
-            expr_ref_vector values(m);
-            // TODO - this doesn't work.
-            // we need a way to track that var depends on replacement
-            // so the value computed for var is based on replacement's value.            
-            expr_ref val = snode_to_value(replacement, values); // TODO
-            IF_VERBOSE(1, {
-                verbose_stream() << "  var snode[" << id << "]";
-                if (var->get_expr()) verbose_stream() << "=" << mk_bounded_pp(var->get_expr(), m, 2);
-                verbose_stream() << " -> ";
-                if (val) verbose_stream() << mk_bounded_pp(val, m, 3); else verbose_stream() << "(null)";
-                verbose_stream() << "\n";
-            });
-            if (val) {
-                m_trail.push_back(val);
-                m_var_values.insert(id, val);
-            }
+            unsigned id = var->first()->id(); // TODO - first or just var->id()?
+            if (!m_var_replacement.contains(id))
+                m_var_replacement.insert(id, replacement);
         }
     }
 
     expr_ref seq_model::snode_to_value(euf::snode* n, expr_ref_vector const& values) {
         SASSERT(n);
-
         if (n->is_empty()) {
             sort* srt = n->get_sort();
             if (!srt)
@@ -261,14 +241,22 @@ namespace smt {
         }
 
         // TODO replace this with mk_value_with_dependencies.
-        // 1. look up n in m_bindings to find replacement snode
+        // 1. look up n in m_var_replacement to find replacement snode
         // 2. if replacement exists, use this.
-        // 3. if it doesn't existe, use get_var_value.
+        // 3. if it doesn't exist, use get_var_value.
         if (n->is_var()) {
             euf::snode *replacement = nullptr;
+            if (!m_var_replacement.find(n->id(), replacement)) {
+                return get_var_value(n);
+            }
             return mk_value_with_dependencies(n, replacement, values);
         }
 
+        // TODO: is this the right way to handle dependencies for concat and power?
+        // specifically, the code path for initializing dependencies recurses over concatenation
+        // and then extracts dependencies for replacement variables
+        // Thus, there are two levels of recursion: one for the original snode 
+        // structure and one for the replacement variable structure.
         if (n->is_concat()) {
             return expr_ref(m_seq.str.mk_concat(values, n->get_sort()), m);
         }
@@ -289,12 +277,10 @@ namespace smt {
             // Try to evaluate exponent: first check if it's a numeral,
             // then try the int model from sat_path constraints,
             // finally fall back to the proto_model from model_generator.
-            bool has_val = false;
-            if (exp_expr && arith.is_numeral(exp_expr, exp_val)) {
-                has_val = true;
-                // already concrete
-            }
 
+            bool has_val = arith.is_numeral(exp_expr, exp_val);
+
+            SASSERT(has_val);
             if (!has_val) {
                 arith_value avalue(m);
                 avalue.init(&m_ctx);
@@ -305,17 +291,13 @@ namespace smt {
                 exp_val = rational(0);
 
             // Build the repeated string: base^exp_val
-            if (exp_val == 0) {
-                sort* srt = n->get_sort();
-                SASSERT(srt);
-                return expr_ref(m_seq.str.mk_empty(srt), m);
-            }
-            if (exp_val.is_one())
-                return expr_ref(base_val, m);
+            if (exp_val == 0) 
+                return expr_ref(m_seq.str.mk_empty(n->get_sort()), m);
+            
 
             // For small exponents, concatenate directly; for large ones,
             // return mk_power to avoid enormous AST chains.
-            constexpr unsigned POWER_EXPAND_LIMIT = 100;
+            constexpr unsigned POWER_EXPAND_LIMIT = 10;
             if (exp_val > POWER_EXPAND_LIMIT)
                 return expr_ref(m_seq.str.mk_power(base_val, arith.mk_int(exp_val)), m);
             unsigned n_val = exp_val.get_unsigned();
@@ -347,7 +329,9 @@ namespace smt {
             // map the values that are passed in to the sub-terms that are listed as dependencies.
             // sub-terms are under concat, power and unit
             euf::snode *replacement = nullptr;
-            collect_dependencies_rec(n, replacement, deps);
+            if (m_var_replacement.find(n->id(), replacement)) {
+                collect_dependencies_rec(n, replacement, deps);
+            }
         }
     }
 
@@ -361,15 +345,20 @@ namespace smt {
             if (seen.contains(curr->id()))
                 continue;
             seen.insert(curr->id());
-            if (curr->is_char() || curr->is_unit()) {
+            if (curr->is_char_or_unit()) {
                 deps.push_back(m_ctx.get_enode(curr->arg(0)->get_expr()));
             }
-            else if (curr->is_concat() || curr->is_power()) {
+            else if (curr->is_concat()) {
                 for (unsigned i = 0; i < curr->num_args(); ++i)
                     todo.push_back(curr->arg(i));
             }
-            else if (curr->is_var() && n != curr) {
-                deps.push_back(m_ctx.get_enode(curr->get_expr()));
+            else if (curr->is_power()) {
+                SASSERT(curr->num_args() == 2);
+                deps.push_back(m_ctx.get_enode(curr->arg(0)->get_expr()));
+                deps.push_back(m_ctx.get_enode(curr->arg(1)->get_expr()));
+            }
+            else if (curr->is_var()) {
+                ;
             }
             else
                 UNREACHABLE();
@@ -391,15 +380,20 @@ namespace smt {
             if (seen.contains(curr->id()))
                 continue;
             seen.insert(curr->id());
-            if (curr->is_char() || curr->is_unit()) {
+            if (curr->is_char_or_unit()) {
                 var2value.insert(curr->id(), values[idx++]);
             }
-            else if (curr->is_concat() || curr->is_power()) {
+            else if (curr->is_concat()) {
                 for (unsigned i = 0; i < curr->num_args(); ++i)
                     todo.push_back(curr->arg(i));
             }
-            else if (curr->is_var() && n != curr) {
-                var2value.insert(curr->id(), values[idx++]);
+            else if (curr->is_power()) {
+                SASSERT(curr->num_args() == 2);
+                var2value.insert(curr->arg(0)->id(), values[idx++]);
+                var2value.insert(curr->arg(1)->id(), values[idx++]);
+            }
+            else if (curr->is_var()) {
+                ;
             }
             else
                 UNREACHABLE();
@@ -408,7 +402,7 @@ namespace smt {
         SASSERT(values.size() == idx);
         todo.push_back(replacement);
         expr_ref_vector args(m), pinned(m);
-        expr *val = nullptr;
+        expr_ref val(m);
         while (!todo.empty()) {
             euf::snode *curr = todo.back();
             if (var2value.contains(curr->id())) {
@@ -416,7 +410,10 @@ namespace smt {
                 continue;
             }
             
-            if (curr->is_concat() || curr->is_power()) {
+            if (curr->is_power()) {
+                val = m_seq.str.mk_power(var2value.find(curr->arg(0)->id()), var2value.find(curr->arg(1)->id()));
+            }
+            else if (curr->is_concat()) {
                 args.reset();
                 for (unsigned i = 0; i < curr->num_args(); ++i) {
                     auto arg = curr->arg(i);
@@ -425,23 +422,19 @@ namespace smt {
                     else
                         todo.push_back(arg);
                 }
-                if (args.size() == curr->num_args()) {
-                    if (curr->is_concat())
-                        val = m_seq.str.mk_concat(args, curr->get_sort());
-                    else
-                        val = m_seq.str.mk_power(args.get(0), args.get(1));
-                    var2value.insert(curr->id(), val);
-                    pinned.push_back(val);
-                    todo.pop_back();
-                }
+                if (args.size() == curr->num_args()) 
+                    val = m_seq.str.mk_concat(args, curr->get_sort());                
+                else
+                    continue; // not all arguments have been processed yet, will reconstruct in a later iteration
             }
-            else if (curr == n) {
-                val = get_var_value(n);
-                var2value.insert(n->id(), val);  // TODO - does get_var_value apply to replacement or n?
-                pinned.push_back(val);
+            else if (curr->is_var()) {
+                val = get_var_value(curr);
             }
             else
                 UNREACHABLE();
+            var2value.insert(curr->id(), val);
+            pinned.push_back(val);
+            todo.pop_back();
         }
         return expr_ref(var2value.find(replacement->id()), m);
     }
