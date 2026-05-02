@@ -91,6 +91,45 @@ Version 4.17.0
   marking of string variables with length > 20 as processed.
 - Fix documentation for Z3_solver_to_dimacs_string: corrected the function name in the API
   comment. Thanks to Mark DenHoed, https://github.com/Z3Prover/z3/pull/9053
+- Add global backbones to parallel architecture for smt.threads > 1. Backbone literals learned
+  by any worker thread are broadcast to all others, improving search pruning in the shared search
+  tree. Thanks to Ilana Shapiro.
+  https://github.com/Z3Prover/z3/pull/9343
+- Terminate on Demand and algorithmic bugfixes in the parallel search tree, including improved
+  worker termination signaling and fixes to node-state management. Thanks to Ilana Shapiro.
+  https://github.com/Z3Prover/z3/pull/9336
+- Add adaptive growth knobs for Gröbner basis computation under arith.nl.grobner_adaptive.
+  Allows tuning of Gröbner basis expansion rate for better NLA performance. Thanks to Arie.
+  https://github.com/Z3Prover/z3/pull/9390
+- Improvements to NLA lemmas for better nonlinear arithmetic solving. Thanks to Arie.
+  https://github.com/Z3Prover/z3/pull/9391
+- Throttle lia2card tactic in QF_NIA preamble to avoid combinatorial explosion on large instances.
+  Thanks to Arie, https://github.com/Z3Prover/z3/pull/9362
+- Fix smt: reset give-up state when escalating final_check level to prevent solver from
+  incorrectly abandoning solvable instances. Thanks to Lev Nachmanson.
+  https://github.com/Z3Prover/z3/pull/9408
+- Fix double-free crash in anum by giving anum move semantics to prevent sort-triggered
+  double-free. Thanks to Arie, https://github.com/Z3Prover/z3/pull/9320
+- Fix lar_term equality operator to correctly compare terms. Thanks to Arie.
+  https://github.com/Z3Prover/z3/pull/9284
+- Prevent unsound solve-eqs elimination across recursive-function definitions.
+  https://github.com/Z3Prover/z3/pull/9358
+- Fix inverted logic of is-linear check in solve-eqs, #9311.
+- Fix #9293: disable elim-uncnstr simplification under quantifiers to prevent unsound
+  eliminations. Also fix #9234, #9309.
+- Add exception protection for nlsat_tactic and try_for tactic to correctly handle cancellation
+  and ensure robust exception propagation.
+- Add smt.solve_eqs.linear parameter (default false). When set to true, restricts variable
+  eliminations in solve-eqs to only use linear substitutions, avoiding cross-multiplication
+  of nested substitutions.
+- Fix null dereference in linearise_multi_pattern: reorder null check before side effect.
+  https://github.com/Z3Prover/z3/pull/9427
+- Add Go and OCaml API coverage: substitution, AST introspection, Spacer, and Goal completion
+  APIs. https://github.com/Z3Prover/z3/pull/9277
+- Fix two bugs in Python examples. Thanks to Guangyu (Gary) HU.
+  https://github.com/Z3Prover/z3/pull/9303
+- Add fold-unfold tactic as an alternative to solve-eqs for variable elimination using
+  fold-unfold transformations. Also exposed as a simplifier.
 
 Version 4.16.0
 ==============

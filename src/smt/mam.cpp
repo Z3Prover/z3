@@ -1114,8 +1114,9 @@ namespace {
                         best_j         = j;
                     }
                 }
+                if (best == nullptr)
+                    continue;
                 m_mp_already_processed[best_j] = true;
-                SASSERT(best != 0);
                 app * p                 = best;
                 func_decl * lbl         = p->get_decl();
                 unsigned short num_args = p->get_num_args();
@@ -1225,7 +1226,11 @@ namespace {
 
             SASSERT(head->m_next == 0);
 
-            m_seq.push_back(m_ct_manager.mk_yield(m_qa, m_mp, m_qa->get_num_decls(), reinterpret_cast<unsigned*>(m_vars.begin())));
+            unsigned num_decls = m_qa->get_num_decls();
+            unsigned_vector var_regs(num_decls);
+            for (unsigned i = 0; i < num_decls; ++i)
+                var_regs[i] = static_cast<unsigned>(m_vars[i]);
+            m_seq.push_back(m_ct_manager.mk_yield(m_qa, m_mp, num_decls, var_regs.data()));
 
             for (instruction* curr : m_seq) {
                 head->m_next = curr;

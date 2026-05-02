@@ -108,10 +108,6 @@ namespace nla {
             }
         }
 
-        // DEBUG_CODE(for (auto e : m_solver.equations()) check_missing_propagation(*e););
-
-        // for (auto e : m_solver.equations()) check_missing_propagation(*e);
-
         if (c().params().arith_nl_grobner_adaptive())
             update_growth_boost(productive);
 
@@ -120,7 +116,7 @@ namespace nla {
 
         ++m_delay_base;
         if (m_quota > 0)
-           --m_quota;
+            --m_quota;
 
         IF_VERBOSE(5, verbose_stream() << "grobner miss, quota " << m_quota << "\n");
         IF_VERBOSE(5, diagnose_pdd_miss(verbose_stream()));
@@ -235,8 +231,6 @@ namespace nla {
         if (vars.empty() || !q.is_linear())
             return false;
 
-        // IF_VERBOSE(0, verbose_stream() << "factored " << q << " : " << vars << "\n");
-
         auto [t, offset] = linear_to_term(q);
 
         vector<ineq> ineqs;
@@ -251,7 +245,6 @@ namespace nla {
         add_dependencies(lemma, eq);
         for (auto const& i : ineqs)
             lemma |= i;
-        //lemma.display(verbose_stream());
         return true;
     }
 
@@ -584,19 +577,6 @@ namespace nla {
         }
         TRACE(grobner, m_solver.display(tout));
 
-#if 0
-        IF_VERBOSE(2, m_pdd_grobner.display(verbose_stream()));
-        dd::pdd_eval eval(m_pdd_manager);
-        eval.var2val() = [&](unsigned j){ return val(j); };
-        for (auto* e : m_pdd_grobner.equations()) {
-            dd::pdd p = e->poly();
-            rational v = eval(p);
-            if (p.is_linear() && !eval(p).is_zero()) {
-                IF_VERBOSE(0, verbose_stream() << "violated linear constraint " << p << "\n");
-            }
-        }
-#endif
-   
         struct dd::solver::config cfg;
         cfg.m_max_steps = m_solver.equations().size();
         cfg.m_max_simplified = c().params().arith_nl_grobner_max_simplified();
@@ -627,8 +607,6 @@ namespace nla {
     }
 
     std::ostream& grobner::diagnose_pdd_miss(std::ostream& out) {
-
-        // m_pdd_grobner.display(out);
 
         dd::pdd_eval eval;
         eval.var2val() = [&](unsigned j){ return val(j); };
@@ -741,7 +719,15 @@ namespace nla {
 
         lp::lpvar j = c().lra.add_term(coeffs, UINT_MAX);
         c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::EQ, offset, e.dep());
-        c().m_check_feasible = true; 
+        c().m_check_feasible = true;
+        TRACE(nla_solver,
+            // Print the term as installed (post subst_known_terms), not the
+            // pre-add_term coeffs vector. add_term normalizes/substitutes
+            // term-column references, so coeffs and the resulting row can
+            // diverge if any var is itself a term-column.
+            tout << "grobner-linear-eq: ";
+            c().lra.print_term(c().lra.get_term(j), tout);
+            tout << " = " << offset << "\n";);
         return true;
     }
 

@@ -4172,7 +4172,7 @@ namespace smt {
                 return FC_CONTINUE;
             }
             if (m_final_check_idx == old_idx) {
-                if (level >= max_level || result == FC_DONE || can_propagate())
+                if (level >= max_level || result == FC_DONE || result == FC_CONTINUE || can_propagate())
                     break;
                 ++level;
                 // // Re-evaluate at the higher level: clear the give-up state
