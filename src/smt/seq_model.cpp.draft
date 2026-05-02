@@ -166,6 +166,27 @@ namespace smt {
         // bindings[i] = (var_snode, current_value_snode).
         // When a new substitution (s.m_var -> s.m_replacement) is applied,
         // substitute s.m_var in all existing values, then record the new binding.
+
+        // x -> ax
+        // x -> bx
+        // x -> cx
+        // should produce:
+        // x -> abcx
+        // x -> bcx
+        // x -> cx
+        // only first substitution is processed because m_var_values gets populated
+        // in the first check.
+        // Furthermore, 
+        // x -> axy
+        // y -> by
+        // should produce:
+        // x -> axby
+        // y -> by
+        // when x is processed, we popluate values for x and y in m_var_values
+        // when y gets processed y already has a value in m_var_values, so we skip it.
+        // this would be a bug: we need y to have the value by.
+        // So membership alone in m_var_values is not sufficient to determine whether a variable has been processed.
+        //
         vector<std::pair<euf::snode*, euf::snode*>> bindings;
         for (seq::nielsen_edge* e : sat_path) {
             for (seq::nielsen_subst const& s : e->subst()) {
@@ -239,8 +260,14 @@ namespace smt {
             return expr_ref(m_seq.str.mk_unit(dval), m);
         }
 
-        if (n->is_var())
-            return expr_ref(get_var_value(n), m);
+        // TODO replace this with mk_value_with_dependencies.
+        // 1. look up n in m_bindings to find replacement snode
+        // 2. if replacement exists, use this.
+        // 3. if it doesn't existe, use get_var_value.
+        if (n->is_var()) {
+            euf::snode *replacement = nullptr;
+            return mk_value_with_dependencies(n, replacement, values);
+        }
 
         if (n->is_concat()) {
             return expr_ref(m_seq.str.mk_concat(values, n->get_sort()), m);
@@ -302,9 +329,9 @@ namespace smt {
         return expr_ref(n->get_expr(), m);
     }
 
-    void seq_model::collect_dependencies(euf::snode* n, ptr_vector<enode>& deps) const {
-        if (n->is_char() || n->is_unit()) 
-            deps.push_back(m_ctx.get_enode(n->arg(0)->get_expr()));        
+    void seq_model::collect_dependencies(euf::snode *n, ptr_vector<enode> &deps) const {
+        if (n->is_char() || n->is_unit())
+            deps.push_back(m_ctx.get_enode(n->arg(0)->get_expr()));
         else if (n->is_concat()) {
             for (unsigned i = 0; i < n->num_args(); ++i)
                 deps.push_back(m_ctx.get_enode(n->arg(i)->get_expr()));
@@ -313,6 +340,110 @@ namespace smt {
             deps.push_back(m_ctx.get_enode(n->arg(0)->get_expr()));
             deps.push_back(m_ctx.get_enode(n->arg(1)->get_expr()));
         }
+        else if (n->is_var()) {
+            // we could have a binding n |-> replacement
+            // we want to collect all elements in replacement as dependencies
+            // when using the dependencies to build a value for n we should
+            // map the values that are passed in to the sub-terms that are listed as dependencies.
+            // sub-terms are under concat, power and unit
+            euf::snode *replacement = nullptr;
+            collect_dependencies_rec(n, replacement, deps);
+        }
+    }
+
+    void seq_model::collect_dependencies_rec(euf::snode *n, euf::snode* replacement, ptr_vector<enode> &deps) const {
+        uint_set seen;
+        ptr_buffer<euf::snode> todo;
+        todo.push_back(replacement);
+        while (!todo.empty()) {
+            euf::snode *curr = todo.back();
+            todo.pop_back();
+            if (seen.contains(curr->id()))
+                continue;
+            seen.insert(curr->id());
+            if (curr->is_char() || curr->is_unit()) {
+                deps.push_back(m_ctx.get_enode(curr->arg(0)->get_expr()));
+            }
+            else if (curr->is_concat() || curr->is_power()) {
+                for (unsigned i = 0; i < curr->num_args(); ++i)
+                    todo.push_back(curr->arg(i));
+            }
+            else if (curr->is_var() && n != curr) {
+                deps.push_back(m_ctx.get_enode(curr->get_expr()));
+            }
+            else
+                UNREACHABLE();
+        }
+    }
+
+   
+    expr_ref seq_model::mk_value_with_dependencies(euf::snode* n, euf::snode* replacement, expr_ref_vector const& values) {
+        // insert var2value in the same order that dependencies were traversed
+        uint_set seen;
+        u_map<expr *> var2value;
+        ptr_buffer<euf::snode> todo;
+        unsigned idx = 0;
+        todo.push_back(replacement);
+        while (!todo.empty()) {
+            SASSERT(idx <= values.size());
+            euf::snode *curr = todo.back();
+            todo.pop_back();
+            if (seen.contains(curr->id()))
+                continue;
+            seen.insert(curr->id());
+            if (curr->is_char() || curr->is_unit()) {
+                var2value.insert(curr->id(), values[idx++]);
+            }
+            else if (curr->is_concat() || curr->is_power()) {
+                for (unsigned i = 0; i < curr->num_args(); ++i)
+                    todo.push_back(curr->arg(i));
+            }
+            else if (curr->is_var() && n != curr) {
+                var2value.insert(curr->id(), values[idx++]);
+            }
+            else
+                UNREACHABLE();
+        }
+        // then reconstruct the value for replacement based on the collected sub-term values.
+        SASSERT(values.size() == idx);
+        todo.push_back(replacement);
+        expr_ref_vector args(m), pinned(m);
+        expr *val = nullptr;
+        while (!todo.empty()) {
+            euf::snode *curr = todo.back();
+            if (var2value.contains(curr->id())) {
+                todo.pop_back();
+                continue;
+            }
+            
+            if (curr->is_concat() || curr->is_power()) {
+                args.reset();
+                for (unsigned i = 0; i < curr->num_args(); ++i) {
+                    auto arg = curr->arg(i);
+                    if (var2value.find(arg->id(), val))
+                        args.push_back(val);
+                    else
+                        todo.push_back(arg);
+                }
+                if (args.size() == curr->num_args()) {
+                    if (curr->is_concat())
+                        val = m_seq.str.mk_concat(args, curr->get_sort());
+                    else
+                        val = m_seq.str.mk_power(args.get(0), args.get(1));
+                    var2value.insert(curr->id(), val);
+                    pinned.push_back(val);
+                    todo.pop_back();
+                }
+            }
+            else if (curr == n) {
+                val = get_var_value(n);
+                var2value.insert(n->id(), val);  // TODO - does get_var_value apply to replacement or n?
+                pinned.push_back(val);
+            }
+            else
+                UNREACHABLE();
+        }
+        return expr_ref(var2value.find(replacement->id()), m);
     }
 
     void seq_model::register_existing_values(seq::nielsen_graph& nielsen) {

@@ -109,6 +109,14 @@ namespace smt {
         // Collect enode dependencies required to evaluate an snode value.
         void collect_dependencies(euf::snode* n, ptr_vector<enode>& deps) const;
 
+        // collect dependencies of sub-terms
+        void collect_dependencies_rec(euf::snode *n, euf::snode* replacement, ptr_vector<enode> &deps) const;
+
+        // reconstruct value based on bindings for extracted dependencies. 
+        // The values vector is expected to be in the
+        // same order as the dependencies collected by collect_dependencies_rec.
+        expr_ref mk_value_with_dependencies(euf::snode *n, euf::snode* replacement, expr_ref_vector const &values);
+
         // register all string literals appearing in the constraint store
         // with the factory to avoid collisions with fresh values.
         void register_existing_values(seq::nielsen_graph& nielsen);
