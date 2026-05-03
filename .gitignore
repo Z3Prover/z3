@@ -94,6 +94,7 @@ src/api/ml/z3.mllib
 src/api/js/node_modules/
 src/api/js/build/
 src/api/js/**/*.__GENERATED__.*
+tests/ostrich
 debug/*
 examples/python/z3
 examples/python/libz3.dll
