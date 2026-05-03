@@ -66,10 +66,6 @@ namespace smt {
         // trail for GC protection of generated expressions
         expr_ref_vector m_trail;
 
-        // integer variable model from sat_path constraints
-        model_ref m_int_model;
-        model_generator* m_mg = nullptr;
-
         // per-variable regex constraints: maps snode id -> intersected regex snode.
         // collected during init() from the state's str_mem list.
         u_map<euf::snode*> m_var_regex;
@@ -137,6 +133,9 @@ namespace smt {
         // For each positive str_mem, records the regex (or intersects
         // with existing) into m_var_regex keyed by the string snode id.
         void collect_var_regex_constraints(seq::nielsen_node const* sat_node);
+
+        // extract integer value for an expression.
+        rational int_value(expr *e);
 
     };
 

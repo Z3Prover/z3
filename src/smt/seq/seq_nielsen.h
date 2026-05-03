@@ -851,7 +851,6 @@ namespace seq {
         // (e.g., explain_conflict) can call mk_join / linearize.
         mutable dep_manager           m_dep_mgr;
 
-        std::ostream &display(std::ostream &out, nielsen_node const* n) const;
 
     public:
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
@@ -935,6 +934,8 @@ namespace seq {
 
         // display for debugging
         std::ostream& display(std::ostream& out) const;
+
+        std::ostream &display(std::ostream &out, nielsen_node const *n) const;
 
         // output the graph in graphviz DOT format.
         // nodes on the sat_path are highlighted green; conflict nodes red/darkred.
