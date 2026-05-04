@@ -513,6 +513,7 @@ namespace smt {
             expr_ref len_expr(m_seq.str.mk_length(var->get_expr()), m);
             rational len_val;
             bool has_len = avalue.get_value(len_expr, len_val);
+            CTRACE(seq, !has_len, tout << "no value associated with " << mk_pp(len_expr, m) << "\n";);
             
             if (has_len && len_val.is_unsigned()) {
                 unsigned n = len_val.get_unsigned();
@@ -542,6 +543,7 @@ namespace smt {
         arith_value avalue(m);
         avalue.init(&m_ctx);
         bool has_len = avalue.get_value(len_expr, len_val);
+        CTRACE(seq, !has_len, tout << "no value associated with " << mk_pp(len_expr, m) << "\n";);
         
 
         if (has_len) {
