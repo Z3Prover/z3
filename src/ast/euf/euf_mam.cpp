@@ -1930,10 +1930,10 @@ namespace euf {
             if (curr->get_decl() == lbl && curr->num_args() == num_expected_args) {
                 if (curr->is_cgr() && !matching_cgr)
                     matching_cgr = curr;
-                if (min_gen_match && min_gen_match->generation() > curr->generation()) {
-                     IF_VERBOSE(0, display(verbose_stream() << enode_pp(min_gen_match, m_context) << "\n" << enode_pp(cur, m_context) << "\n");
-                     UNREACHABLE(); // will exit
-                }
+                // if (min_gen_match && min_gen_match->generation() > curr->generation()) {
+                //     IF_VERBOSE(0, display(verbose_stream() << smt::enode_pp(min_gen_match, m_context) << "\n" << smt::enode_pp(cur, m_context) << "\n"));
+                //     UNREACHABLE(); // will exit
+                // }
                 if (!min_gen_match || min_gen_match->generation() > curr->generation())
                     min_gen_match = curr;
             }

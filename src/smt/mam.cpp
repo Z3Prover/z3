@@ -1886,6 +1886,10 @@ namespace {
             if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args) {
                 if (curr->is_cgr() && !matching_cgr)
                     matching_cgr = curr;
+                if (min_gen_match && min_gen_match->get_generation() > curr->get_generation()) {
+                    IF_VERBOSE(0, verbose_stream() << enode_pp(min_gen_match, m_context) << "\n" << enode_pp(curr, m_context) << "\n");
+                    UNREACHABLE(); // will exit
+                }
                 if (!min_gen_match || min_gen_match->get_generation() > curr->get_generation())
                     min_gen_match = curr;
             }
