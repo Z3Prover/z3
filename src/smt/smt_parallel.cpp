@@ -27,7 +27,6 @@ Author:
 #include "solver/solver_preprocess.h"
 #include "params/smt_parallel_params.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <mutex>
 #include <condition_variable>
@@ -463,6 +462,7 @@ namespace smt {
                             (m_mode == bb_mode::bb_negated)
                             ? backbone_lit.get() // since core contains ¬candidates in negated mode
                             : a; // since core contains candidates in positive mode
+
                         bb_candidate_lits.erase(candidate_to_remove);
                     }
 
@@ -608,9 +608,7 @@ namespace smt {
         ctx->set_logic(p.ctx.m_setup.get_logic());
         context::copy(p.ctx, *ctx, true);
         ctx->pop_to_base_lvl();
-        m_num_initial_atoms = ctx->get_num_bool_vars();
         ctx->get_fparams().m_preprocess = false;
-        m_num_shared_units = ctx->assigned_literals().size();
     }
 
     void parallel::core_minimizer_worker::cancel() {
@@ -861,7 +859,6 @@ namespace smt {
         m_num_initial_atoms = ctx->get_num_bool_vars();
 
         smt_parallel_params pp(p.ctx.m_params);
-        m_num_global_bb_threads = pp.num_global_bb_batch_threads();
         m_use_failed_literal_test = pp.num_global_bb_fl_threads() > 0;
     }
 

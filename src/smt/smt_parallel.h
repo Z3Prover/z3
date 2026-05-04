@@ -340,8 +340,6 @@ namespace smt {
             unsigned m_num_core_minimize_found_sat = 0;
             unsigned m_core_minimize_conflict_budget = 5000;
             unsigned m_shared_clause_limit = 0;
-            unsigned m_num_shared_units = 0;
-            unsigned m_num_initial_atoms = 0;
 
             void minimize_unsat_core(expr_ref_vector& core);
             void collect_shared_clauses();
@@ -386,11 +384,9 @@ namespace smt {
             unsigned m_bb_chunk_size = 20;
             unsigned m_bb_conflicts_per_chunk = 1000;
             uint_set m_known_units;
-            uint_set m_known_backbone_vars;
             bool m_use_failed_literal_test;
             stats m_stats;
             bb_mode m_mode;
-            unsigned m_num_global_bb_threads = 1; // used to toggle behavior when testing bb candidates 
             unsigned m_shared_clause_limit = 0; // remembers the index into shared_clause_trail marking the boundary between "old" and "new" clauses to share
             unsigned m_shared_units_prefix = 0;
             unsigned m_num_initial_atoms = 0;
