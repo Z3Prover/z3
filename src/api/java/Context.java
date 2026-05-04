@@ -4617,6 +4617,38 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Creates a piecewise linear order.
+     * @param index The index of the order.
+     * @param sort The sort of the order.
+     */
+    public final <R extends Sort> FuncDecl<BoolSort> mkPiecewiseLinearOrder(R sort, int index) {
+        return (FuncDecl<BoolSort>) FuncDecl.create(
+                this,
+                Native.mkPiecewiseLinearOrder(
+                    nCtx(),
+                    sort.getNativeObject(),
+                    index
+                )
+        );
+    }
+
+    /**
+     * Creates a tree order.
+     * @param index The index of the order.
+     * @param sort The sort of the order.
+     */
+    public final <R extends Sort> FuncDecl<BoolSort> mkTreeOrder(R sort, int index) {
+        return (FuncDecl<BoolSort>) FuncDecl.create(
+                this,
+                Native.mkTreeOrder(
+                    nCtx(),
+                    sort.getNativeObject(),
+                    index
+                )
+        );
+    }
+
+    /**
      * Return the nonzero subresultants of p and q with respect to the "variable" x.
      * Note that any subterm that cannot be viewed as a polynomial is assumed to be a variable.
      * @param p arithmetic term

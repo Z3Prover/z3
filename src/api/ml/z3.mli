@@ -2140,6 +2140,31 @@ sig
 
 end
 
+(** Special relation constructors *)
+module SpecialRelation :
+sig
+  (** Create a linear (total) order relation over the given sort.
+      The [id] parameter distinguishes multiple linear orders over the same sort. *)
+  val mk_linear_order : context -> Sort.sort -> int -> FuncDecl.func_decl
+
+  (** Create a partial order relation over the given sort.
+      The [id] parameter distinguishes multiple partial orders over the same sort. *)
+  val mk_partial_order : context -> Sort.sort -> int -> FuncDecl.func_decl
+
+  (** Create a piecewise linear order relation over the given sort.
+      The [id] parameter distinguishes multiple piecewise linear orders over the same sort. *)
+  val mk_piecewise_linear_order : context -> Sort.sort -> int -> FuncDecl.func_decl
+
+  (** Create a tree order relation over the given sort.
+      The [id] parameter distinguishes multiple tree orders over the same sort. *)
+  val mk_tree_order : context -> Sort.sort -> int -> FuncDecl.func_decl
+
+  (** Create the transitive closure of a binary relation.
+      The resulting relation is recursive. *)
+  val mk_transitive_closure : context -> FuncDecl.func_decl -> FuncDecl.func_decl
+
+end
+
 (** Floating-Point Arithmetic *)
 module FloatingPoint :
 sig

@@ -934,12 +934,79 @@ export interface Context<Name extends string = 'main'> {
   mkPartialOrder(sort: Sort<Name>, index: number): FuncDecl<Name>;
 
   /**
+   * Create a linear (total) order relation over a sort.
+   * @param sort The sort of the relation
+   * @param index The index of the relation
+   * @category Operations
+   */
+  mkLinearOrder(sort: Sort<Name>, index: number): FuncDecl<Name>;
+
+  /**
+   * Create a piecewise linear order relation over a sort.
+   * @param sort The sort of the relation
+   * @param index The index of the relation
+   * @category Operations
+   */
+  mkPiecewiseLinearOrder(sort: Sort<Name>, index: number): FuncDecl<Name>;
+
+  /**
+   * Create a tree order relation over a sort.
+   * @param sort The sort of the relation
+   * @param index The index of the relation
+   * @category Operations
+   */
+  mkTreeOrder(sort: Sort<Name>, index: number): FuncDecl<Name>;
+
+  /**
    * Create the transitive closure of a binary relation.
    * The resulting relation is recursive.
    * @param f A binary relation represented as a function declaration
    * @category Operations
    */
   mkTransitiveClosure(f: FuncDecl<Name>): FuncDecl<Name>;
+
+  /**
+   * Create a character literal from a Unicode code point.
+   * @param ch The Unicode code point
+   * @category Characters
+   */
+  mkChar(ch: number): Expr<Name>;
+
+  /**
+   * Create a character less-than-or-equal predicate (ch1 ≤ ch2).
+   * @param ch1 First character
+   * @param ch2 Second character
+   * @category Characters
+   */
+  mkCharLe(ch1: Expr<Name>, ch2: Expr<Name>): Bool<Name>;
+
+  /**
+   * Convert a character to its integer (Unicode code point) value.
+   * @param ch The character expression
+   * @category Characters
+   */
+  mkCharToInt(ch: Expr<Name>): Arith<Name>;
+
+  /**
+   * Convert a character to a bit-vector.
+   * @param ch The character expression
+   * @category Characters
+   */
+  mkCharToBV(ch: Expr<Name>): Expr<Name>;
+
+  /**
+   * Convert a bit-vector to a character.
+   * @param bv The bit-vector expression
+   * @category Characters
+   */
+  mkCharFromBV(bv: Expr<Name>): Expr<Name>;
+
+  /**
+   * Create a predicate that is true if the character is a decimal digit.
+   * @param ch The character expression
+   * @category Characters
+   */
+  mkCharIsDigit(ch: Expr<Name>): Bool<Name>;
 
   /**
    * Return the nonzero subresultants of p and q with respect to the "variable" x.
