@@ -3281,7 +3281,7 @@ namespace seq {
     }
 
     bool nielsen_graph::apply_regex_factorization(nielsen_node* node) {
-        if (!m_regex_factorization)
+        if (m_regex_factorization_threshold == 0)
             return false;
 
         struct rf_split {
@@ -3328,6 +3328,8 @@ namespace seq {
                 }
 
                 feasible.push_back({ sn_p, sn_q, m_dep_mgr.mk_join(mem.m_dep, first_filter_dep) });
+                if (feasible.size() > m_regex_factorization_threshold)
+                    break;
             }
 
             if (feasible.empty()) {
@@ -3336,25 +3338,26 @@ namespace seq {
                 return true;
             }
 
-            if (feasible.size() > 1)
+            if (feasible.size() > m_regex_factorization_threshold)
                 continue;
 
-            nielsen_node* child = mk_child(node);
-            mk_edge(node, child, true);
-            
-            // remove the original mem from child
-            auto& child_mems = child->str_mems();
-            for (unsigned k = 0; k < child_mems.size(); ++k) {
-                if (child_mems[k] == mem) {
-                    child_mems[k] = child_mems.back();
-                    child_mems.pop_back();
-                    break;
-                }
-            }
+            for (auto& [m_p, m_q, m_dep] : feasible) {
+                nielsen_node* child = mk_child(node);
+                mk_edge(node, child, true);
 
-            child->add_str_mem(str_mem(first, feasible[0].m_p, feasible[0].m_dep));
-            child->add_str_mem(str_mem(tail, feasible[0].m_q, feasible[0].m_dep));
-            
+                // remove the original mem from child
+                auto& child_mems = child->str_mems();
+                for (unsigned k = 0; k < child_mems.size(); ++k) {
+                    if (child_mems[k] == mem) {
+                        child_mems[k] = child_mems.back();
+                        child_mems.pop_back();
+                        break;
+                    }
+                }
+
+                child->add_str_mem(str_mem(first, m_p, m_dep));
+                child->add_str_mem(str_mem(tail, m_q, m_dep));
+            }
             return true;
         }
         return false;

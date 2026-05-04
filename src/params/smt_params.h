@@ -252,7 +252,7 @@ struct smt_params : public preprocessor_params,
     unsigned m_nseq_max_nodes = 0;
     bool m_nseq_parikh = false;
     bool m_nseq_regex_precheck = true;
-    bool m_nseq_regex_factorization = true;
+    unsigned m_nseq_regex_factorization_threshold = 1;
     bool m_nseq_signature = false;
 
     smt_params(params_ref const & p = params_ref()):

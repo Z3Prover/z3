@@ -839,7 +839,7 @@ namespace seq {
         unsigned                      m_max_nodes = 0;          // 0 = unlimited
         bool                          m_parikh_enabled = true;
         bool                          m_signature_split = false;
-        bool                          m_regex_factorization = true;
+        unsigned                      m_regex_factorization_threshold = 1;
         unsigned                      m_fresh_cnt = 0;
         nielsen_stats                 m_stats;
 
@@ -968,7 +968,7 @@ namespace seq {
 
         void set_signature_split(bool e) { m_signature_split = e; }
         
-        void set_regex_factorization(bool e) { m_regex_factorization = e; }
+        void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }
 
         // display for debugging
         std::ostream& display(std::ostream& out) const;

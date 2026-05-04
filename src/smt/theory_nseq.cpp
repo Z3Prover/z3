@@ -468,7 +468,7 @@ namespace smt {
         if (s_expr)
             ensure_length_var(s_expr);
 
-        if (!get_fparams().m_nseq_regex_factorization)
+        if (!get_fparams().m_nseq_regex_factorization_threshold)
             return;
 
         // Boolean Closure Propagations
@@ -709,7 +709,7 @@ namespace smt {
             m_nielsen.set_max_nodes(get_fparams().m_nseq_max_nodes);
             m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
             m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
-            m_nielsen.set_regex_factorization(get_fparams().m_nseq_regex_factorization);
+            m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);
 
             SASSERT(!m_nielsen.root()->is_currently_conflict());
 
