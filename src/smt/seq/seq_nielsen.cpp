@@ -3043,19 +3043,16 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_cycle_decomposition(nielsen_node* node) {
-        return false; // For now, disable
-        if (!node->backedge())
-            return false;
-
+        return false;
         // Look for a str_mem with a variable-headed string
         for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
             str_mem const& mem = node->str_mems()[mi];
-            if (!mem.m_str || !mem.m_regex) 
-                continue;
+            SASSERT(mem.well_formed());
             if (mem.is_primitive()) 
                 continue;
             euf::snode* first = mem.m_str->first();
-            if (!first || !first->is_var()) 
+            SASSERT(first);
+            if (!first->is_var())
                 continue;
 
             euf::snode* x = first;

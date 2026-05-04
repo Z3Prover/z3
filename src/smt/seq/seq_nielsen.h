@@ -584,7 +584,6 @@ namespace seq {
 
         // edges
         ptr_vector<nielsen_edge> m_outgoing;
-        nielsen_node*           m_backedge = nullptr;
         nielsen_edge*           m_parent_edge = nullptr;
 
         // status flags
@@ -650,9 +649,6 @@ namespace seq {
         // edge access
         ptr_vector<nielsen_edge> const& outgoing() const { return m_outgoing; }
         void add_outgoing(nielsen_edge* e) { m_outgoing.push_back(e); }
-
-        nielsen_node* backedge() const { return m_backedge; }
-        void set_backedge(nielsen_node* n) { m_backedge = n; }
 
         nielsen_edge* parent_edge() const { return m_parent_edge; }
         void set_parent_edge(nielsen_edge* e) { m_parent_edge = e; }

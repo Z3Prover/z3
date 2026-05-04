@@ -19,7 +19,6 @@ Author:
 #include "smt/seq/seq_nielsen.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
-#include "ast/rewriter/seq_rewriter.h"
 #include "util/obj_hashtable.h"
 #include <sstream>
 
@@ -85,9 +84,6 @@ namespace seq {
             }
             out << "\n";
         }
-
-        if (n->backedge())
-            out << "    backedge -> node[" << n->backedge()->id() << "]\n";
 
         return out;
     }
@@ -634,13 +630,7 @@ namespace seq {
 
                 out << "];\n";
             }
-
-            // backedge as dotted arrow
-            if (n->backedge())
-                out << "    " << n->id() << " -> " << n->backedge()->id()
-                    << " [style=dotted];\n";
         }
-
         out << "}\n";
         return out;
     }
