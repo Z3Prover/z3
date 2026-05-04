@@ -638,8 +638,8 @@ namespace seq {
             add_clause(~i_ge_0, i_ge_len_s, mk_eq(i, len_x));
         }
 
-        add_clause(i_ge_0, mk_eq(e, emp));
-        add_clause(~i_ge_len_s, mk_eq(e, emp));
+        add_clause(i_ge_0, mk_seq_eq(e, emp));
+        add_clause(~i_ge_len_s, mk_seq_eq(e, emp));
         add_clause(~i_ge_0, i_ge_len_s, mk_eq(one, len_e));
         add_clause(mk_le(len_e, 1));
     }

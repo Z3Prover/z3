@@ -343,9 +343,9 @@ namespace smt {
             else if (m_axioms.sk().is_eq(e, a, b) && is_true) {
                 enode* n1 = ensure_enode(a);
                 enode* n2 = ensure_enode(b);
-                auto v1 = mk_var(n1);
-                auto v2 = mk_var(n2);
                 if (n1->get_root() != n2->get_root()) {
+                    auto v1 = mk_var(n1);
+                    auto v2 = mk_var(n2);
                     literal lit(v, false);
                     ctx.mark_as_relevant(n1);
                     ctx.mark_as_relevant(n2);
