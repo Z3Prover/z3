@@ -1350,6 +1350,15 @@ struct
   let mk_range = Z3native.mk_finite_set_range
 end
 
+module SpecialRelation =
+struct
+  let mk_linear_order = Z3native.mk_linear_order
+  let mk_partial_order = Z3native.mk_partial_order
+  let mk_piecewise_linear_order = Z3native.mk_piecewise_linear_order
+  let mk_tree_order = Z3native.mk_tree_order
+  let mk_transitive_closure = Z3native.mk_transitive_closure
+end
+
 module FloatingPoint =
 struct
   module RoundingMode =

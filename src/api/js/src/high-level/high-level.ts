@@ -1957,8 +1957,44 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       return new FuncDeclImpl(check(Z3.mk_partial_order(contextPtr, sort.ptr, index)));
     }
 
+    function mkLinearOrder(sort: Sort<Name>, index: number): FuncDecl<Name> {
+      return new FuncDeclImpl(check(Z3.mk_linear_order(contextPtr, sort.ptr, index)));
+    }
+
+    function mkPiecewiseLinearOrder(sort: Sort<Name>, index: number): FuncDecl<Name> {
+      return new FuncDeclImpl(check(Z3.mk_piecewise_linear_order(contextPtr, sort.ptr, index)));
+    }
+
+    function mkTreeOrder(sort: Sort<Name>, index: number): FuncDecl<Name> {
+      return new FuncDeclImpl(check(Z3.mk_tree_order(contextPtr, sort.ptr, index)));
+    }
+
     function mkTransitiveClosure(f: FuncDecl<Name>): FuncDecl<Name> {
       return new FuncDeclImpl(check(Z3.mk_transitive_closure(contextPtr, f.ptr)));
+    }
+
+    function mkChar(ch: number): Expr<Name> {
+      return new ExprImpl(check(Z3.mk_char(contextPtr, ch)));
+    }
+
+    function mkCharLe(ch1: Expr<Name>, ch2: Expr<Name>): Bool<Name> {
+      return new BoolImpl(check(Z3.mk_char_le(contextPtr, ch1.ast, ch2.ast)));
+    }
+
+    function mkCharToInt(ch: Expr<Name>): Arith<Name> {
+      return new ArithImpl(check(Z3.mk_char_to_int(contextPtr, ch.ast)));
+    }
+
+    function mkCharToBV(ch: Expr<Name>): Expr<Name> {
+      return new ExprImpl(check(Z3.mk_char_to_bv(contextPtr, ch.ast)));
+    }
+
+    function mkCharFromBV(bv: Expr<Name>): Expr<Name> {
+      return new ExprImpl(check(Z3.mk_char_from_bv(contextPtr, bv.ast)));
+    }
+
+    function mkCharIsDigit(ch: Expr<Name>): Bool<Name> {
+      return new BoolImpl(check(Z3.mk_char_is_digit(contextPtr, ch.ast)));
     }
 
     async function polynomialSubresultants(
@@ -5490,7 +5526,16 @@ export function createApi(Z3: Z3Core, em?: any): Z3HighLevel {
       Full,
 
       mkPartialOrder,
+      mkLinearOrder,
+      mkPiecewiseLinearOrder,
+      mkTreeOrder,
       mkTransitiveClosure,
+      mkChar,
+      mkCharLe,
+      mkCharToInt,
+      mkCharToBV,
+      mkCharFromBV,
+      mkCharIsDigit,
       polynomialSubresultants,
     };
     cleanup.register(ctx, () => Z3.del_context(contextPtr));
