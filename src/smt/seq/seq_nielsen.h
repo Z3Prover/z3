@@ -797,6 +797,33 @@ namespace seq {
     class nielsen_graph {
         friend class nielsen_node;
         friend class nielsen_edge;
+
+        struct partial_dfa_edge {
+            euf::snode* m_src = nullptr;
+            euf::snode* m_label = nullptr; // one-character regex label (char/minterm)
+            euf::snode* m_dst = nullptr;
+            unsigned m_projection_idx = 0; // first extraction index that included this edge
+        };
+
+        struct partial_dfa_edge_key {
+            unsigned m_src = 0;
+            unsigned m_label = 0;
+            unsigned m_dst = 0;
+
+            bool operator==(partial_dfa_edge_key const& o) const {
+                return m_src == o.m_src && m_label == o.m_label && m_dst == o.m_dst;
+            }
+        };
+
+        struct partial_dfa_edge_key_hash {
+            size_t operator()(partial_dfa_edge_key const& k) const {
+                size_t h = static_cast<size_t>(k.m_src);
+                h = (h * 1315423911u) ^ static_cast<size_t>(k.m_label + 0x9e3779b9u);
+                h = (h * 2654435761u) ^ static_cast<size_t>(k.m_dst + 0x85ebca6bu);
+                return h;
+            }
+        };
+
         ast_manager&                  m;
         arith_util                    a;
         seq_util&                     m_seq;
@@ -850,6 +877,17 @@ namespace seq {
         // Arena for dep_tracker nodes.  Declared mutable so that const methods
         // (e.g., explain_conflict) can call mk_join / linearize.
         mutable dep_manager           m_dep_mgr;
+
+        // Global partial derivative DFA (monotone across DFS/backtracking).
+        // States are regex snodes; edges are discovered derivatives labeled by
+        // one-character regexes (concrete chars or minterms).
+        vector<partial_dfa_edge>      m_partial_dfa_edges;
+        std::unordered_map<unsigned, unsigned_vector> m_partial_dfa_out;
+        std::unordered_map<unsigned, unsigned_vector> m_partial_dfa_in;
+        std::unordered_map<partial_dfa_edge_key, unsigned, partial_dfa_edge_key_hash> m_partial_dfa_edge_index;
+        unsigned                      m_projection_extract_idx = 0;
+        // Per regex-state: size of SCC-edge coverage at last successful projection.
+        u_map<unsigned>               m_projection_cover_size;
 
 
     public:
@@ -1030,6 +1068,35 @@ namespace seq {
         // Mirrors ZIPT NielsenNode.CheckRegex)
         bool check_leaf_regex(nielsen_node const& node, dep_tracker& dep);
 
+        // -------------------------------------------------------------------
+        // Partial DFA projection helpers
+        // -------------------------------------------------------------------
+
+        // Record a discovered derivative edge in the global partial DFA.
+        // The `label` may be a concrete string token (converted to to_re)
+        // or an already-regular-expression minterm.
+        void record_partial_derivative_edge(euf::snode* src_re, euf::snode* label, euf::snode* dst_re);
+
+        // Convert a transition label (string token or regex minterm) into a
+        // one-character regex snode used by the partial DFA.
+        euf::snode* to_partial_label_regex(euf::snode* label);
+
+        // Collect the SCC containing root_re in the current partial DFA.
+        // Returns false if no cyclic SCC containing root_re exists.
+        bool collect_scc_for_projection(euf::snode* root_re, uint_set& scc) const;
+
+        // Mark SCC edges with a monotone extraction index and return the
+        // currently covered edge count for this extraction.
+        unsigned mark_scc_projection_edges(uint_set const& scc);
+
+        // Build regex equivalent to proj(root_re, E_scc, {root_re}) using the
+        // currently marked SCC edges (projection index <= extract_idx).
+        euf::snode* build_projection_regex_from_scc(euf::snode* root_re, uint_set const& scc, unsigned extract_idx);
+
+        // Try to extract a stronger projection for root_re. Returns true and
+        // stores it in projection_re iff SCC coverage has grown.
+        bool try_extract_partial_projection(euf::snode* root_re, euf::snode*& projection_re);
+
         // Apply the Parikh image filter to a node: generate modular length
         // constraints from regex memberships and append them to the node's
         // constraints.  Also performs a lightweight feasibility pre-check;
@@ -1109,10 +1176,10 @@ namespace seq {
         // branch into s ∈ th under condition c, and s ∈ el under condition ¬c.
         bool apply_regex_if_split(nielsen_node* node);
 
-        // star introduction: for a str_mem x·s ∈ R where a cycle is detected
-        // (backedge exists), introduce stabilizer: x ∈ base* with x split.
-        // mirrors ZIPT's StarIntrModifier
-        bool apply_star_intr(nielsen_node* node);
+        // cycle decomposition: for a str_mem x·s ∈ R where a partial DFA
+        // cycle is detected, project SCC onto stabilizer constraint b.
+        // Rewrites x into x'·x'' with x' ∈ b*, x'' ∈ complement((b ∩ complement(eps)) · Sigma*).
+        bool apply_cycle_decomposition(nielsen_node* node);
 
         // generalized power introduction: for an equation where one head is
         // a variable v and the other side has ground prefix + a variable x

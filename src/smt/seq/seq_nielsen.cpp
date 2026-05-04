@@ -41,6 +41,7 @@ NSB review:
 #include <cstdlib>
 #include <stack>
 #include <unordered_map>
+#include <vector>
 
 namespace seq {
 
@@ -507,6 +508,12 @@ namespace seq {
         m_fresh_cnt = 0;
         m_root_constraints_asserted = false;
         m_mod_cnt.reset();
+        m_partial_dfa_edges.reset();
+        m_partial_dfa_out.clear();
+        m_partial_dfa_in.clear();
+        m_partial_dfa_edge_index.clear();
+        m_projection_extract_idx = 0;
+        m_projection_cover_size.reset();
         m_length_trail.reset();
         m_length_info.reset();
         m_dep_mgr.reset();
@@ -831,6 +838,289 @@ namespace seq {
         return {expr_ref(last_stable_sum, m), last_stable_idx};
     }
 
+    euf::snode* nielsen_graph::to_partial_label_regex(euf::snode* label) {
+        if (!label || !label->get_expr())
+            return nullptr;
+
+        expr* e = label->get_expr();
+        if (m_seq.is_re(e))
+            return label;
+        if (m_seq.is_seq(e))
+            return m_sg.mk(m_seq.re.mk_to_re(e));
+        if (m_seq.is_char(e)) {
+            expr_ref u(m_seq.str.mk_unit(e), m);
+            return m_sg.mk(m_seq.re.mk_to_re(u));
+        }
+        return nullptr;
+    }
+
+    void nielsen_graph::record_partial_derivative_edge(euf::snode* src_re, euf::snode* label, euf::snode* dst_re) {
+        if (!src_re || !dst_re || !src_re->get_expr() || !dst_re->get_expr())
+            return;
+        if (!src_re->is_ground() || !dst_re->is_ground())
+            return;
+        if (src_re->is_fail() || dst_re->is_fail())
+            return;
+
+        euf::snode* label_re = to_partial_label_regex(label);
+        if (!label_re || !label_re->get_expr())
+            return;
+        if (!m_seq.is_re(label_re->get_expr()) || !label_re->is_ground())
+            return;
+
+        partial_dfa_edge_key key{ src_re->id(), label_re->id(), dst_re->id() };
+        if (m_partial_dfa_edge_index.find(key) != m_partial_dfa_edge_index.end())
+            return;
+
+        unsigned edge_idx = m_partial_dfa_edges.size();
+        m_partial_dfa_edge_index.emplace(key, edge_idx);
+
+        partial_dfa_edge e;
+        e.m_src = src_re;
+        e.m_label = label_re;
+        e.m_dst = dst_re;
+        m_partial_dfa_edges.push_back(e);
+
+        m_partial_dfa_out[src_re->id()].push_back(edge_idx);
+        m_partial_dfa_in[dst_re->id()].push_back(edge_idx);
+    }
+
+    bool nielsen_graph::collect_scc_for_projection(euf::snode* root_re, uint_set& scc) const {
+        scc.reset();
+        if (!root_re)
+            return false;
+
+        unsigned root_id = root_re->id();
+        uint_set fwd, bwd;
+        unsigned_vector stack;
+
+        stack.push_back(root_id);
+        while (!stack.empty()) {
+            unsigned s = stack.back();
+            stack.pop_back();
+            if (fwd.contains(s))
+                continue;
+            fwd.insert(s);
+            auto it = m_partial_dfa_out.find(s);
+            if (it == m_partial_dfa_out.end())
+                continue;
+            for (unsigned edge_idx : it->second) {
+                if (edge_idx >= m_partial_dfa_edges.size())
+                    continue;
+                partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
+                if (e.m_dst)
+                    stack.push_back(e.m_dst->id());
+            }
+        }
+
+        stack.push_back(root_id);
+        while (!stack.empty()) {
+            unsigned s = stack.back();
+            stack.pop_back();
+            if (bwd.contains(s))
+                continue;
+            bwd.insert(s);
+            auto it = m_partial_dfa_in.find(s);
+            if (it == m_partial_dfa_in.end())
+                continue;
+            for (unsigned edge_idx : it->second) {
+                if (edge_idx >= m_partial_dfa_edges.size())
+                    continue;
+                partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
+                if (e.m_src)
+                    stack.push_back(e.m_src->id());
+            }
+        }
+
+        for (unsigned s : fwd) {
+            if (bwd.contains(s))
+                scc.insert(s);
+        }
+
+        if (!scc.contains(root_id))
+            return false;
+
+        if (scc.num_elems() > 1)
+            return true;
+
+        auto it = m_partial_dfa_out.find(root_id);
+        if (it == m_partial_dfa_out.end())
+            return false;
+        for (unsigned edge_idx : it->second) {
+            if (edge_idx >= m_partial_dfa_edges.size())
+                continue;
+            partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
+            if (e.m_dst && e.m_dst->id() == root_id)
+                return true;
+        }
+        return false;
+    }
+
+    unsigned nielsen_graph::mark_scc_projection_edges(uint_set const& scc) {
+        ++m_projection_extract_idx;
+        unsigned extract_idx = m_projection_extract_idx;
+        unsigned covered = 0;
+
+        for (unsigned src_id : scc) {
+            auto it = m_partial_dfa_out.find(src_id);
+            if (it == m_partial_dfa_out.end())
+                continue;
+            for (unsigned edge_idx : it->second) {
+                if (edge_idx >= m_partial_dfa_edges.size())
+                    continue;
+                partial_dfa_edge& e = m_partial_dfa_edges[edge_idx];
+                if (!e.m_dst || !scc.contains(e.m_dst->id()))
+                    continue;
+                if (e.m_projection_idx == 0)
+                    e.m_projection_idx = extract_idx;
+                if (e.m_projection_idx <= extract_idx)
+                    ++covered;
+            }
+        }
+        return covered;
+    }
+
+    euf::snode* nielsen_graph::build_projection_regex_from_scc(euf::snode* root_re, uint_set const& scc, unsigned extract_idx) {
+        if (!root_re || !root_re->get_expr())
+            return nullptr;
+
+        sort* seq_sort = nullptr;
+        if (!m_seq.is_re(root_re->get_expr(), seq_sort) || !seq_sort)
+            return nullptr;
+
+        sort* re_sort = root_re->get_expr()->get_sort();
+        euf::snode* eps = m_sg.mk(m_seq.re.mk_epsilon(seq_sort));
+        euf::snode* empty = m_sg.mk(m_seq.re.mk_empty(re_sort));
+
+        auto is_empty = [&](euf::snode* re) {
+            return !re || re->is_fail() || !re->get_expr() || m_seq.re.is_empty(re->get_expr());
+        };
+
+        auto mk_union = [&](euf::snode* a, euf::snode* b) -> euf::snode* {
+            if (is_empty(a))
+                return b;
+            if (is_empty(b))
+                return a;
+            if (a == b || a->get_expr() == b->get_expr())
+                return a;
+            return m_sg.mk(m_seq.re.mk_union(a->get_expr(), b->get_expr()));
+        };
+
+        auto mk_concat = [&](euf::snode* a, euf::snode* b) -> euf::snode* {
+            if (is_empty(a) || is_empty(b))
+                return empty;
+            if (a == eps || (a->get_expr() && m_seq.re.is_epsilon(a->get_expr())))
+                return b;
+            if (b == eps || (b->get_expr() && m_seq.re.is_epsilon(b->get_expr())))
+                return a;
+            return m_sg.mk(m_seq.re.mk_concat(a->get_expr(), b->get_expr()));
+        };
+
+        auto mk_star = [&](euf::snode* r) -> euf::snode* {
+            if (is_empty(r) || r == eps || (r->get_expr() && m_seq.re.is_epsilon(r->get_expr())))
+                return eps;
+            if (r->get_expr() && m_seq.re.is_star(r->get_expr()))
+                return r;
+            return m_sg.mk(m_seq.re.mk_star(r->get_expr()));
+        };
+
+        unsigned_vector states;
+        states.reserve(scc.num_elems());
+        std::unordered_map<unsigned, unsigned> pos;
+        for (unsigned s : scc) {
+            pos.emplace(s, states.size());
+            states.push_back(s);
+        }
+
+        auto it_root = pos.find(root_re->id());
+        if (it_root == pos.end())
+            return nullptr;
+
+        unsigned n = states.size();
+        std::vector<std::vector<euf::snode*>> R(n, std::vector<euf::snode*>(n, nullptr));
+
+        for (unsigned src_id : states) {
+            auto it = m_partial_dfa_out.find(src_id);
+            if (it == m_partial_dfa_out.end())
+                continue;
+            for (unsigned edge_idx : it->second) {
+                if (edge_idx >= m_partial_dfa_edges.size())
+                    continue;
+                partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
+                if (!e.m_src || !e.m_dst || !e.m_label)
+                    continue;
+                if (!scc.contains(e.m_dst->id()))
+                    continue;
+                if (e.m_projection_idx == 0 || e.m_projection_idx > extract_idx)
+                    continue;
+                auto it_src = pos.find(e.m_src->id());
+                auto it_dst = pos.find(e.m_dst->id());
+                if (it_src == pos.end() || it_dst == pos.end())
+                    continue;
+                unsigned i = it_src->second;
+                unsigned j = it_dst->second;
+                R[i][j] = mk_union(R[i][j], e.m_label);
+            }
+        }
+
+        for (unsigned i = 0; i < n; ++i)
+            R[i][i] = mk_union(R[i][i], eps);
+
+        for (unsigned k = 0; k < n; ++k) {
+            std::vector<euf::snode*> col_k(n, nullptr), row_k(n, nullptr);
+            for (unsigned i = 0; i < n; ++i)
+                col_k[i] = R[i][k];
+            for (unsigned j = 0; j < n; ++j)
+                row_k[j] = R[k][j];
+            euf::snode* loop_k = R[k][k];
+            euf::snode* loop_star = mk_star(loop_k);
+
+            for (unsigned i = 0; i < n; ++i) {
+                if (is_empty(col_k[i]))
+                    continue;
+                for (unsigned j = 0; j < n; ++j) {
+                    if (is_empty(row_k[j]))
+                        continue;
+                    euf::snode* via_k = mk_concat(mk_concat(col_k[i], loop_star), row_k[j]);
+                    R[i][j] = mk_union(R[i][j], via_k);
+                }
+            }
+        }
+
+        euf::snode* result = R[it_root->second][it_root->second];
+        if (!result)
+            return eps;
+
+        expr_ref simplified(result->get_expr(), m);
+        th_rewriter trw(m);
+        trw(simplified);
+        return m_sg.mk(simplified);
+    }
+
+    bool nielsen_graph::try_extract_partial_projection(euf::snode* root_re, euf::snode*& projection_re) {
+        projection_re = nullptr;
+        if (!root_re || !root_re->get_expr() || !root_re->is_ground())
+            return false;
+
+        uint_set scc;
+        if (!collect_scc_for_projection(root_re, scc))
+            return false;
+
+        unsigned covered_edges = mark_scc_projection_edges(scc);
+        unsigned prev_covered = 0;
+        m_projection_cover_size.find(root_re->id(), prev_covered);
+        if (covered_edges <= prev_covered)
+            return false;
+
+        projection_re = build_projection_regex_from_scc(root_re, scc, m_projection_extract_idx);
+        if (!projection_re)
+            return false;
+
+        m_projection_cover_size.insert(root_re->id(), covered_edges);
+        return true;
+    }
+
+
     simplify_result nielsen_node::simplify_and_init(ptr_vector<nielsen_edge> const& cur_path) {
         if (m_is_extended)
             return simplify_result::proceed;
@@ -1132,6 +1422,7 @@ namespace seq {
                     euf::snode* tok = dir_token(mem.m_str, fwd);
                     if (!tok || !tok->is_char_or_unit())
                         break;
+                    euf::snode* src_re = mem.m_regex;
                     euf::snode* deriv = fwd
                         ? sg.brzozowski_deriv(mem.m_regex, tok)
                         : reverse_brzozowski_deriv(sg, mem.m_regex, tok);
@@ -1143,6 +1434,8 @@ namespace seq {
                         set_conflict(backtrack_reason::regex, mem.m_dep);
                         return simplify_result::conflict;
                     }
+                    if (fwd)
+                        m_graph.record_partial_derivative_edge(src_re, tok, deriv);
                     mem.m_str = dir_drop(sg, mem.m_str, 1, fwd);
                     mem.m_regex = deriv;
                 }
@@ -2329,9 +2622,9 @@ namespace seq {
         if (apply_eq_split(node))
             return ++m_stats.m_mod_eq_split, true;
 
-        // Priority 6: StarIntr - stabilizer introduction for regex cycles
-        // if (apply_star_intr(node))
-        //     return ++m_stats.m_mod_star_intr, true;
+        // Priority 6: CycleDecomp - stabilizer introduction for regex cycles using partial DFA projection
+        if (apply_cycle_decomposition(node))
+            return ++m_stats.m_mod_star_intr, true;
 
         // Priority 7: GPowerIntr - ground power introduction
         if (apply_gpower_intr(node))
@@ -2743,16 +3036,56 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
-    // Modifier: apply_star_intr
-    // Star introduction: for a str_mem x·s ∈ R where a cycle is detected
-    // (backedge exists), introduce a stabilizer constraint x ∈ base*.
-    // Creates a child that splits x into pr·po, adds pr ∈ base* and
-    // po·s ∈ R, with a blocking constraint on po.
-    // Enhanced to use strengthened_stabilizer and register via add_stabilizer.
-    // mirrors ZIPT's StarIntrModifier (StarIntrModifier.cs:22-85)
+    // Modifier: apply_cycle_decomposition
+    // Cycle decomposition: for a str_mem x·s ∈ R where a partial DFA
+    // cycle is detected, project SCC onto stabilizer constraint b.
+    // Rewrites x into x'·x'' with x' ∈ b*, x'' ∈ complement((b ∩ complement(eps)) · Sigma*).
     // -----------------------------------------------------------------------
 
-    bool nielsen_graph::apply_star_intr(nielsen_node* node) {
+    bool nielsen_graph::apply_cycle_decomposition(nielsen_node* node) {
+        return false; // For now, disable
+        if (!node->backedge())
+            return false;
+
+        // Look for a str_mem with a variable-headed string
+        for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
+            str_mem const& mem = node->str_mems()[mi];
+            if (!mem.m_str || !mem.m_regex) 
+                continue;
+            if (mem.is_primitive()) 
+                continue;
+            euf::snode* first = mem.m_str->first();
+            if (!first || !first->is_var()) 
+                continue;
+
+            euf::snode* x = first;
+            euf::snode* stabilizer_re = nullptr;
+            
+            if (!try_extract_partial_projection(mem.m_regex, stabilizer_re))
+                continue;
+                
+            SASSERT(stabilizer_re);
+
+            // Construct the replacement x = x' * x''
+            expr_ref xp_expr(m_seq.str.mk_string(zstring()), m); // temp dummy init
+            expr_ref xpp_expr(m_seq.str.mk_string(zstring()), m);
+            euf::snode* xp = m_sg.mk(xp_expr);
+            euf::snode* xpp = m_sg.mk(xpp_expr);
+            euf::snode* xp_xpp = m_sg.mk_concat(xp, xpp);
+
+            nielsen_node* child = mk_child(node);
+            nielsen_edge* e = mk_edge(node, child, false);
+            nielsen_subst s(x, xp_xpp, nullptr, mem.m_dep);
+            e->add_subst(s);
+            child->apply_subst(m_sg, s);
+
+            // Add constraints: x' \in stabilizer_re
+            child->add_str_mem(str_mem(xp, stabilizer_re, mem.m_dep));
+
+            // x'' \in complement((b ∩ complement(eps)) · Sigma*)
+            // Placeholder: for now we rely on subsequent bounds/splits
+            return true;
+        }
         return false;
     }
 
@@ -3448,6 +3781,7 @@ namespace seq {
                 SASSERT(deriv);
                 if (deriv->is_fail())
                     continue;
+                record_partial_derivative_edge(mem.m_regex, mt, deriv);
                 // std::cout << "Result: " << spp(deriv, m) << std::endl;
 
                 SASSERT(m_seq_regex);
