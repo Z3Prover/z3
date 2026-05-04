@@ -92,11 +92,13 @@ namespace smt {
         // required virtual methods
         bool internalize_atom(app* a, bool gate_ctx) override;
         bool internalize_term(app* term) override;
+        void apply_sort_cnstr(enode *n, sort *s) override;
         theory_var mk_var(enode* n) override;
         void new_eq_eh(theory_var v1, theory_var v2) override;
         void new_diseq_eh(theory_var v1, theory_var v2) override;
         theory* mk_fresh(context* ctx) override;
         void display(std::ostream& out) const override;
+
 
         // optional overrides
         bool can_propagate() override;

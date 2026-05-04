@@ -61,13 +61,10 @@ namespace smt {
         // variable assignments extracted from the satisfying Nielsen node.
         // maps snode id -> expr* (concrete value)
         u_map<expr*> m_var_values;
+        u_map<euf::snode*> m_var_replacement;
 
         // trail for GC protection of generated expressions
         expr_ref_vector m_trail;
-
-        // integer variable model from sat_path constraints
-        model_ref m_int_model;
-        model_generator* m_mg = nullptr;
 
         // per-variable regex constraints: maps snode id -> intersected regex snode.
         // collected during init() from the state's str_mem list.
@@ -102,14 +99,20 @@ namespace smt {
 
         // recursively substitute known variable assignments into an snode tree.
         // Returns a concrete Z3 expression.
-        expr_ref snode_to_value(euf::snode* n, model_generator& mg);
-
-        // Same as above, but optionally uses pre-evaluated model values for
+        // Optionally uses pre-evaluated model values for
         // enode dependencies (provided by model_generator).
-        expr_ref snode_to_value(euf::snode* n, model_generator& mg, obj_map<enode, expr*> const* dep_values);
+        expr_ref snode_to_value(euf::snode* n, expr_ref_vector const& values);
 
         // Collect enode dependencies required to evaluate an snode value.
-        void collect_dependencies(euf::snode* n, obj_hashtable<enode>& seen, ptr_vector<enode>& deps) const;
+        void collect_dependencies(euf::snode* n, ptr_vector<enode>& deps) const;
+
+        // collect dependencies of sub-terms
+        void collect_dependencies_rec(euf::snode *n, euf::snode* replacement, ptr_vector<enode> &deps) const;
+
+        // reconstruct value based on bindings for extracted dependencies. 
+        // The values vector is expected to be in the
+        // same order as the dependencies collected by collect_dependencies_rec.
+        expr_ref mk_value_with_dependencies(euf::snode *n, euf::snode* replacement, expr_ref_vector const &values);
 
         // register all string literals appearing in the constraint store
         // with the factory to avoid collisions with fresh values.
@@ -117,19 +120,23 @@ namespace smt {
 
         // look up or compute the value for an snode variable.
         // If no assignment exists, delegates to mk_fresh_value.
-        expr* get_var_value(euf::snode* var, obj_map<enode, expr*> const* dep_values = nullptr);
+        expr* get_var_value(euf::snode* var);
 
         // generate a fresh value for a variable, respecting regex
         // membership constraints. If the variable has associated
         // regex constraints (collected during init), generates a
         // witness satisfying the intersection; otherwise falls back
         // to a plain fresh value from the factory.
-        expr* mk_fresh_value(euf::snode* var, obj_map<enode, expr*> const* dep_values = nullptr);
+        expr* mk_fresh_value(euf::snode* var);
 
         // collect per-variable regex constraints from the state.
         // For each positive str_mem, records the regex (or intersects
         // with existing) into m_var_regex keyed by the string snode id.
         void collect_var_regex_constraints(seq::nielsen_node const* sat_node);
+
+        // extract integer value for an expression.
+        rational int_value(expr *e);
+
     };
 
 }

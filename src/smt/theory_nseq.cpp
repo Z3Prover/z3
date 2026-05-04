@@ -207,6 +207,10 @@ namespace smt {
         return true;
     }
 
+    void theory_nseq::apply_sort_cnstr(enode *n, sort *s) {
+        mk_var(n);
+    }
+
     // -----------------------------------------------------------------------
     // Equality / disequality notifications
     // -----------------------------------------------------------------------
