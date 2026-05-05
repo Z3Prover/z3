@@ -280,7 +280,6 @@ namespace smt {
 
             lbool check_cube(expr_ref_vector const& cube);
             void share_units();
-            void share_theory_lemmas();
 
             void update_max_thread_conflicts() {
                 // allow for backoff scheme of conflicts within the thread for cube timeouts.
