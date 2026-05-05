@@ -1098,8 +1098,9 @@ namespace seq {
     }
 
     bool nielsen_graph::try_extract_partial_projection(euf::snode* root_re, euf::snode*& projection_re) {
+        SASSERT(root_re && root_re->get_expr());
         projection_re = nullptr;
-        if (!root_re || !root_re->get_expr() || !root_re->is_ground())
+        if (!root_re->is_ground())
             return false;
 
         uint_set scc;
@@ -3043,7 +3044,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_cycle_decomposition(nielsen_node* node) {
-        return false;
         // Look for a str_mem with a variable-headed string
         for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
             str_mem const& mem = node->str_mems()[mi];
@@ -3063,11 +3063,10 @@ namespace seq {
                 
             SASSERT(stabilizer_re);
 
-            // Construct the replacement x = x' * x''
-            expr_ref xp_expr(m_seq.str.mk_string(zstring()), m); // temp dummy init
-            expr_ref xpp_expr(m_seq.str.mk_string(zstring()), m);
-            euf::snode* xp = m_sg.mk(xp_expr);
-            euf::snode* xpp = m_sg.mk(xpp_expr);
+            // Construct the replacement x = x' x''
+            // TODO: CHECK!
+            euf::snode* xp = mk_fresh_var(x->get_sort());
+            euf::snode* xpp = mk_fresh_var(x->get_sort());
             euf::snode* xp_xpp = m_sg.mk_concat(xp, xpp);
 
             nielsen_node* child = mk_child(node);
