@@ -640,7 +640,12 @@ namespace seq {
         bool upper_bound(expr* e, rational& up, dep_tracker& dep);
 
         // character constraint access (mirrors ZIPT's CharRanges)
-        u_map<std::pair<char_set, dep_tracker>> char_ranges() const { return m_char_ranges; }
+        u_map<std::pair<char_set, dep_tracker>>& char_ranges() { return m_char_ranges; }
+        u_map<std::pair<char_set, dep_tracker>> const &char_ranges() const {
+            return m_char_ranges;
+        }
+        
+        
 
         // add a character range constraint for a symbolic char.
         // intersects with existing range; sets conflict if result is empty.
