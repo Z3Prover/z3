@@ -215,6 +215,7 @@ namespace {
         unsigned short m_num_args;
         unsigned       m_ireg;
         unsigned       m_oreg;
+        unsigned       m_curr_max_generation = 0;
     };
 
     struct get_cgr : public instruction {
@@ -1886,12 +1887,10 @@ namespace {
             if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args) {
                 if (curr->is_cgr() && !matching_cgr)
                     matching_cgr = curr;
-                if (min_gen_match && min_gen_match->get_generation() > curr->get_generation()) {
-                    IF_VERBOSE(0, verbose_stream() << enode_pp(min_gen_match, m_context) << "\n" << enode_pp(curr, m_context) << "\n");
-                    UNREACHABLE(); // will exit
-                }
-                if (!min_gen_match || min_gen_match->get_generation() > curr->get_generation())
+
+                if (!min_gen_match || min_gen_match->get_generation() > curr->get_generation()) {
                     min_gen_match = curr;
+                }
             }
         }
 
@@ -1906,20 +1905,18 @@ namespace {
             }
             while (curr != first);
             if (matching_cgr)
-                update_max_generation(min_gen_match, first);                          
+                update_max_generation(min_gen_match, first);  
             return matching_cgr;
         }
 
         enode * get_next_f_app(func_decl * lbl, unsigned num_expected_args, enode * first, enode * curr) {
             curr = curr->get_next();
-            enode *matching_cgr = nullptr, *min_gen_match = nullptr;
             while (curr != first) {
-                get_f_app(lbl, num_expected_args, curr, matching_cgr, min_gen_match);
+                if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->is_cgr())
+                    return curr;
                 curr = curr->get_next();
             }
-            if (matching_cgr)
-                update_max_generation(min_gen_match, first);
-            return matching_cgr;
+            return nullptr;
         }
 
 
@@ -2485,6 +2482,7 @@ namespace {
                  m_backtrack_stack[m_top].m_old_max_generation = m_curr_max_generation;                                 \
                  m_backtrack_stack[m_top].m_old_used_enodes_size = m_curr_used_enodes_size;                             \
                  m_backtrack_stack[m_top].m_curr               = m_app;                                                 \
+                 const_cast<bind*>(static_cast<const bind*>(m_pc))->m_curr_max_generation = m_max_generation;                                   \
                  m_top++;
 
             BIND_COMMON();
@@ -2752,7 +2750,8 @@ namespace {
 #define BBIND_COMMON() m_b   = static_cast<const bind*>(bp.m_instr);                                                            \
                        m_n1  = m_registers[m_b->m_ireg];                                                                        \
                        m_app = get_next_f_app(m_b->m_label, m_b->m_num_args, m_n1, bp.m_curr); \
-                       if (m_app == 0) {                                                                                        \
+                       m_max_generation = m_b->m_curr_max_generation;                                                            \
+                       if (!m_app) {                                                                                        \
                            m_top--;                                                                                             \
                            goto backtrack;                                                                                      \
                        }                                                                                                        \
