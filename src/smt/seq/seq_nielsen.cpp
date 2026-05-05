@@ -266,12 +266,16 @@ namespace seq {
     void nielsen_node::add_str_eq(str_eq const& eq) {
         SASSERT(eq.m_lhs != nullptr);
         SASSERT(eq.m_rhs != nullptr);
+        if (eq.is_trivial())
+            return;
         m_str_eq.push_back(eq);
     }
 
     void nielsen_node::add_str_mem(str_mem const& mem) {
         SASSERT(mem.m_str != nullptr);
         SASSERT(mem.m_regex != nullptr);
+        if (mem.is_trivial(this))
+            return;
         m_str_mem.push_back(mem);
     }
 
@@ -839,18 +843,20 @@ namespace seq {
     }
 
     euf::snode* nielsen_graph::to_partial_label_regex(euf::snode* label) {
-        if (!label || !label->get_expr())
-            return nullptr;
+        SASSERT(label && label->get_expr());
 
         expr* e = label->get_expr();
-        if (m_seq.is_re(e))
+        if (m_seq.is_re(e) || m_seq.re.is_full_char(e))
             return label;
-        if (m_seq.is_seq(e))
-            return m_sg.mk(m_seq.re.mk_to_re(e));
         if (m_seq.is_char(e)) {
             expr_ref u(m_seq.str.mk_unit(e), m);
             return m_sg.mk(m_seq.re.mk_to_re(u));
         }
+        if (m_seq.str.is_string(e) || m_seq.str.is_unit(e))
+            return m_sg.mk(m_seq.re.mk_to_re(e));
+
+        std::cout << "Unexpected: " << mk_pp(label->get_expr(), m) << std::endl;
+        UNREACHABLE();
         return nullptr;
     }
 
@@ -981,18 +987,17 @@ namespace seq {
     }
 
     euf::snode* nielsen_graph::build_projection_regex_from_scc(euf::snode* root_re, uint_set const& scc, unsigned extract_idx) {
-        if (!root_re || !root_re->get_expr())
-            return nullptr;
+        SASSERT(root_re && root_re->get_expr());
 
         sort* seq_sort = nullptr;
-        if (!m_seq.is_re(root_re->get_expr(), seq_sort) || !seq_sort)
-            return nullptr;
+        VERIFY(m_seq.is_re(root_re->get_expr(), seq_sort));
+        SASSERT(seq_sort);
 
         sort* re_sort = root_re->get_expr()->get_sort();
         euf::snode* eps = m_sg.mk(m_seq.re.mk_epsilon(seq_sort));
         euf::snode* empty = m_sg.mk(m_seq.re.mk_empty(re_sort));
 
-        auto is_empty = [&](euf::snode* re) {
+        auto is_empty = [&](const euf::snode* re) -> bool {
             return !re || re->is_fail() || !re->get_expr() || m_seq.re.is_empty(re->get_expr());
         };
 
@@ -1063,8 +1068,9 @@ namespace seq {
             }
         }
 
-        for (unsigned i = 0; i < n; ++i)
+        for (unsigned i = 0; i < n; ++i) {
             R[i][i] = mk_union(R[i][i], eps);
+        }
 
         for (unsigned k = 0; k < n; ++k) {
             std::vector<euf::snode*> col_k(n, nullptr), row_k(n, nullptr);

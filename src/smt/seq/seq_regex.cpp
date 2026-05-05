@@ -34,7 +34,7 @@ namespace seq {
     void collect_possible_first_chars(seq_util& seq, euf::sgraph const& sg, expr* str,
                                       unsigned_vector& bounds, bool& may_be_empty) {
         may_be_empty = false;
-        VERIFY(str);
+        SASSERT(str);
         sort* re_sort = nullptr;
         VERIFY(!seq.is_re(str, re_sort));
 
@@ -72,6 +72,7 @@ namespace seq {
             }
             return;
         }
+        std::cout << "Unexpected: " << mk_pp(str, sg.get_manager()) << std::endl;
 
         UNREACHABLE();
     }
