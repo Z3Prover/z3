@@ -772,6 +772,7 @@ namespace seq {
         unsigned m_mod_regex_if_split = 0;
         unsigned m_mod_eq_split        = 0;
         unsigned m_mod_star_intr       = 0;
+        unsigned m_mod_cycle_subsumption = 0;
         unsigned m_mod_gpower_intr     = 0;
         unsigned m_mod_regex_factorization = 0;
         unsigned m_mod_const_nielsen   = 0;
@@ -1176,6 +1177,15 @@ namespace seq {
         // cycle is detected, project SCC onto stabilizer constraint b.
         // Rewrites x into x'·x'' with x' ∈ b*, x'' ∈ complement((b ∩ complement(eps)) · Sigma*).
         bool apply_cycle_decomposition(nielsen_node* node);
+
+        // cycle subsumption: for a str_mem x·rest ∈ R where x is constrained
+        // to L(Reg_x) ⊆ L(stabilizer of R), simplify to rest ∈ R.
+        // Fires without the novelty guard, using the current partial DFA state.
+        bool apply_cycle_subsumption(nielsen_node* node);
+
+        // Return the current stabilizer s* for root_re from the partial DFA
+        // (bypasses the novelty guard used by try_extract_partial_projection).
+        euf::snode* get_current_stabilizer(euf::snode* root_re);
 
         // generalized power introduction: for an equation where one head is
         // a variable v and the other side has ground prefix + a variable x

@@ -2623,6 +2623,10 @@ namespace seq {
         if (apply_eq_split(node))
             return ++m_stats.m_mod_eq_split, true;
 
+        // Priority 5b: CycleSubsumption - eliminate leading variable subsumed by stabilizer
+        if (apply_cycle_subsumption(node))
+            return ++m_stats.m_mod_cycle_subsumption, true;
+
         // Priority 6: CycleDecomp - stabilizer introduction for regex cycles using partial DFA projection
         if (apply_cycle_decomposition(node))
             return ++m_stats.m_mod_star_intr, true;
@@ -3037,10 +3041,95 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
+    // Helper: get_current_stabilizer
+    // Returns the current partial DFA stabilizer s* for root_re without the
+    // novelty guard from try_extract_partial_projection.  Returns nullptr if
+    // no SCC exists yet or no edges have been marked.
+    // -----------------------------------------------------------------------
+
+    euf::snode* nielsen_graph::get_current_stabilizer(euf::snode* root_re) {
+        if (!root_re || !root_re->is_ground() || m_projection_extract_idx == 0)
+            return nullptr;
+        uint_set scc;
+        if (!collect_scc_for_projection(root_re, scc))
+            return nullptr;
+        return build_projection_regex_from_scc(root_re, scc, m_projection_extract_idx);
+    }
+
+    // -----------------------------------------------------------------------
+    // Modifier: apply_cycle_subsumption
+    // For str_mem x·rest ∈ r where L(∩ Reg_x) ⊆ L(stabilizer(r)), remove x:
+    // replace x·rest ∈ r with rest ∈ r.
+    // Mirrors ZIPT StrMem.TrySubsume / paper Section 3.2.3 (Cycle Subsumption).
+    // -----------------------------------------------------------------------
+
+    bool nielsen_graph::apply_cycle_subsumption(nielsen_node* node) {
+        for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
+            str_mem const& mem = node->str_mems()[mi];
+            SASSERT(mem.well_formed());
+            if (mem.is_primitive())
+                continue;
+            euf::snode* first = mem.m_str->first();
+            SASSERT(first);
+            if (!first->is_var())
+                continue;
+
+            // Get the current stabilizer for this regex (no novelty guard).
+            euf::snode* stabilizer = get_current_stabilizer(mem.m_regex);
+            if (!stabilizer || m_seq.re.is_epsilon(stabilizer->get_expr()))
+                continue;
+
+            // Collect primitive regex constraints on `first`.
+            dep_tracker x_dep = nullptr;
+            euf::snode* x_regex = m_seq_regex->collect_primitive_regex_intersection(
+                first, *node, m_dep_mgr, x_dep);
+            if (!x_regex)
+                continue;
+
+            // Check L(x_regex) ⊆ L(stabilizer).
+            if (m_seq_regex->is_language_subset(x_regex, stabilizer) != l_true)
+                continue;
+
+            // Subsume: replace x·rest ∈ r with rest ∈ r.
+            euf::snode* tail = m_sg.drop_first(mem.m_str);
+            SASSERT(tail);
+
+            nielsen_node* child = mk_child(node);
+            mk_edge(node, child, true);
+
+            auto& child_mems = child->str_mems();
+            for (unsigned k = 0; k < child_mems.size(); ++k) {
+                if (child_mems[k] == mem) {
+                    child_mems[k] = child_mems.back();
+                    child_mems.pop_back();
+                    break;
+                }
+            }
+
+            dep_tracker combined_dep = m_dep_mgr.mk_join(mem.m_dep, x_dep);
+            child->add_str_mem(str_mem(tail, mem.m_regex, combined_dep));
+
+            TRACE(seq, tout << "cycle_subsumption: dropped x=" << mk_pp(first->get_expr(), m)
+                            << " from " << mk_pp(mem.m_str->get_expr(), m)
+                            << " ∈ " << mk_pp(mem.m_regex->get_expr(), m) << "\n");
+            return true;
+        }
+        return false;
+    }
+
+    // -----------------------------------------------------------------------
     // Modifier: apply_cycle_decomposition
     // Cycle decomposition: for a str_mem x·s ∈ R where a partial DFA
     // cycle is detected, project SCC onto stabilizer constraint b.
     // Rewrites x into x'·x'' with x' ∈ b*, x'' ∈ complement((b ∩ complement(eps)) · Sigma*).
+    //
+    // Here b = Proj{R}{E_SCC}{R} is the language of all paths from R back to R
+    // in the known SCC edges (including ε), which equals s* for the non-empty
+    // cycle language s.  Equivalently, stabilizer_re from build_projection_regex_from_scc
+    // is the Kleene closure computed by Floyd-Warshall over the SCC subgraph.
+    //
+    // The constraint on x'' prevents divergence: x'' may not begin with any
+    // non-empty word from L(stabilizer_re), so it cannot re-enter the cycle.
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_cycle_decomposition(nielsen_node* node) {
@@ -3048,7 +3137,7 @@ namespace seq {
         for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
             str_mem const& mem = node->str_mems()[mi];
             SASSERT(mem.well_formed());
-            if (mem.is_primitive()) 
+            if (mem.is_primitive())
                 continue;
             euf::snode* first = mem.m_str->first();
             SASSERT(first);
@@ -3057,29 +3146,56 @@ namespace seq {
 
             euf::snode* x = first;
             euf::snode* stabilizer_re = nullptr;
-            
+
             if (!try_extract_partial_projection(mem.m_regex, stabilizer_re))
                 continue;
-                
-            SASSERT(stabilizer_re);
+
+            SASSERT(stabilizer_re && stabilizer_re->get_expr());
+
+            // stabilizer_re is epsilon if the SCC has no non-trivial cycles — skip.
+            if (m_seq.re.is_epsilon(stabilizer_re->get_expr()))
+                continue;
+
+            // Get sorts needed to build the xpp regex.
+            sort* re_sort  = stabilizer_re->get_expr()->get_sort();
+            sort* seq_sort = nullptr;
+            VERIFY(m_seq.is_re(stabilizer_re->get_expr(), seq_sort));
 
             // Construct the replacement x = x' x''
-            // TODO: CHECK!
-            euf::snode* xp = mk_fresh_var(x->get_sort());
-            euf::snode* xpp = mk_fresh_var(x->get_sort());
-            euf::snode* xp_xpp = m_sg.mk_concat(xp, xpp);
+            euf::snode* xp      = mk_fresh_var(x->get_sort());
+            euf::snode* xpp     = mk_fresh_var(x->get_sort());
+            euf::snode* xp_xpp  = m_sg.mk_concat(xp, xpp);
 
             nielsen_node* child = mk_child(node);
-            nielsen_edge* e = mk_edge(node, child, false);
+            nielsen_edge* e     = mk_edge(node, child, false);
             nielsen_subst s(x, xp_xpp, nullptr, mem.m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
 
-            // Add constraints: x' \in stabilizer_re
+            // x' ∈ stabilizer_re   (= s*, all repetitions of the detected cycle)
             child->add_str_mem(str_mem(xp, stabilizer_re, mem.m_dep));
 
-            // x'' \in complement((b ∩ complement(eps)) · Sigma*)
-            // Placeholder: for now we rely on subsequent bounds/splits
+            // x'' ∈ complement((stabilizer_re ∩ complement(ε)) · Σ*)
+            //
+            // stabilizer_re ∩ complement(ε)  = non-empty words in the cycle language
+            // (s_ne) · Σ*                     = all words whose prefix is a full non-empty cycle
+            // complement(...)                  = words that do NOT start with a full non-empty cycle
+            //
+            // This ensures x'' cannot begin another complete cycle from the same
+            // SCC entry point, which is what prevents infinite unfolding.
+            expr_ref eps_re(m_seq.re.mk_epsilon(seq_sort), m);
+            expr_ref compl_eps(m_seq.re.mk_complement(eps_re), m);
+            expr_ref s_ne(m_seq.re.mk_inter(stabilizer_re->get_expr(), compl_eps), m);
+            expr_ref sigma_star(m_seq.re.mk_full_seq(re_sort), m);
+            expr_ref s_ne_sigma_star(m_seq.re.mk_concat(s_ne, sigma_star), m);
+            expr_ref xpp_re(m_seq.re.mk_complement(s_ne_sigma_star), m);
+            euf::snode* xpp_snode = m_sg.mk(xpp_re);
+            child->add_str_mem(str_mem(xpp, xpp_snode, mem.m_dep));
+
+            TRACE(seq, tout << "cycle_decomp: x=" << mk_pp(x->get_expr(), m)
+                            << " stabilizer=" << mk_pp(stabilizer_re->get_expr(), m)
+                            << " xpp_re=" << xpp_re << "\n");
+
             return true;
         }
         return false;
@@ -4632,6 +4748,7 @@ namespace seq {
         st.update("nseq mod const num unwind", m_stats.m_mod_const_num_unwinding);
         st.update("nseq mod eq split",         m_stats.m_mod_eq_split);
         st.update("nseq mod star intr",        m_stats.m_mod_star_intr);
+        st.update("nseq mod cycle subsump",    m_stats.m_mod_cycle_subsumption);
         st.update("nseq mod gpower intr",      m_stats.m_mod_gpower_intr);
         st.update("nseq mod regex fact",       m_stats.m_mod_regex_factorization);
         st.update("nseq mod const nielsen",    m_stats.m_mod_const_nielsen);
