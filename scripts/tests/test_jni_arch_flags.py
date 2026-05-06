@@ -209,6 +209,45 @@ class TestJNIArchitectureFlagsInMakefile(unittest.TestCase):
             )
 
     # ------------------------------------------------------------------
+    # Tests for macOS rpath, so libz3java.dylib can find libz3.dylib
+    # ------------------------------------------------------------------
+
+    def test_macos_uses_loader_path_rpath(self):
+        """
+        On macOS, the JNI link command must include -Wl,-rpath,@loader_path
+        so that libz3java.dylib can find libz3.dylib in the same directory
+        at runtime. Without this, Java fails with UnsatisfiedLinkError.
+        """
+        comp = self._make_java_dll_component()
+        text = self._generate_makefile(
+            comp, is_windows=False, is_osx=True, is_arch_arm64=True
+        )
+        link_lines = self._find_jni_link_lines(text)
+        self.assertTrue(link_lines, "Expected at least one JNI link line")
+        for line in link_lines:
+            self.assertIn(
+                '-Wl,-rpath,@loader_path', line,
+                "macOS JNI link command must set rpath to @loader_path "
+                "so libz3java.dylib finds libz3.dylib at runtime",
+            )
+
+    def test_linux_does_not_use_loader_path(self):
+        """
+        On Linux, @loader_path is a macOS concept and must not appear.
+        """
+        comp = self._make_java_dll_component()
+        text = self._generate_makefile(
+            comp, is_windows=False, is_osx=False, is_arch_arm64=False
+        )
+        link_lines = self._find_jni_link_lines(text)
+        self.assertTrue(link_lines, "Expected at least one JNI link line")
+        for line in link_lines:
+            self.assertNotIn(
+                '@loader_path', line,
+                "@loader_path is macOS-specific and must not appear on Linux",
+            )
+
+    # ------------------------------------------------------------------
     # Consistency check: SLINK_EXTRA_FLAGS in mk_config for cross-compile
     # ------------------------------------------------------------------
 
