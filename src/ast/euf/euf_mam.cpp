@@ -239,6 +239,7 @@ namespace euf {
         unsigned short m_num_args;
         unsigned       m_ireg;
         unsigned       m_oreg;
+        unsigned m_curr_generation;
     };
 
     struct get_cgr : public instruction {
@@ -1930,10 +1931,6 @@ namespace euf {
             if (curr->get_decl() == lbl && curr->num_args() == num_expected_args) {
                 if (curr->is_cgr() && !matching_cgr)
                     matching_cgr = curr;
-                // if (min_gen_match && min_gen_match->generation() > curr->generation()) {
-                //     IF_VERBOSE(0, display(verbose_stream() << smt::enode_pp(min_gen_match, m_context) << "\n" << smt::enode_pp(cur, m_context) << "\n"));
-                //     UNREACHABLE(); // will exit
-                // }
                 if (!min_gen_match || min_gen_match->generation() > curr->generation())
                     min_gen_match = curr;
             }
@@ -2577,6 +2574,7 @@ namespace euf {
                  m_backtrack_stack[m_top].m_instr              = m_pc;                                                  \
                  m_backtrack_stack[m_top].m_old_max_generation = m_curr_max_generation;                                 \
                  m_backtrack_stack[m_top].m_curr               = m_app;                                                 \
+                 const_cast<bind*>(static_cast<bind const*>(m_pc)->m_curr_generation = m_max_generation;                \
                  m_top++;
 
             BIND_COMMON();
@@ -2843,7 +2841,8 @@ namespace euf {
                            goto backtrack;                                                                                      \
                        }                                                                                                        \
                        bp.m_curr = m_app;                                                                                       \
-                       TRACE(mam_int, tout << "bind next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););      \
+                       m_max_generation = m_b->m_curr_generation;                                                               \
+                       TRACE(mam_int, tout << "bind next candidate:\n" << mk_ll_pp(m_app->get_expr(), m););                     \
                        m_oreg    = m_b->m_oreg
 
             BBIND_COMMON();
