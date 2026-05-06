@@ -1594,11 +1594,15 @@ namespace smt {
                 ctx.mk_th_axiom(get_id(), 3, clause);
             }
 
-            m_stoi_depth.insert_if_not_there(stoi_e, 0);
-            m_stoi_depth[stoi_e] = k;
+            if (m_stoi_depth.contains(stoi_e)) {
+                unsigned prev = m_stoi_depth[stoi_e];
+                ctx.push_trail(remove_obj_map(m_stoi_depth, stoi_e, prev));
+                m_stoi_depth.remove(stoi_e);
+            }
+            ctx.push_trail(insert_obj_map(m_stoi_depth, stoi_e));
+            m_stoi_depth.insert(stoi_e, k);
             progress = true;
         }
-
         return !progress;
     }
 
