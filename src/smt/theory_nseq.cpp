@@ -546,7 +546,7 @@ namespace smt {
         else if (m_seq.str.is_itos(n))
             m_axioms.itos_axiom(n);
         else if (m_seq.str.is_stoi(n))
-            m_axioms.stoi_axiom(n);
+            add_stoi_nseq_axioms(n);
         else if (m_seq.str.is_lt(n))
             m_axioms.lt_axiom(n);
         else if (m_seq.str.is_le(n))
@@ -655,6 +655,10 @@ namespace smt {
 
             // there is nothing to do for the string solver, as there are no string constraints
             if (!has_eq_or_mem && m_ho_terms.empty() && !has_unhandled_preds()) {
+                if (!check_stoi_coherence()) {
+                    TRACE(seq, tout << "nseq final_check: stoi coherence added axioms, FC_CONTINUE\n");
+                    return FC_CONTINUE;
+                }
                 TRACE(seq, tout << "nseq final_check: empty state+ho, FC_DONE (no solve)\n");
                 m_nielsen.reset();
                 m_nielsen.create_root();
@@ -680,6 +684,10 @@ namespace smt {
             }
 
             if (!has_eq_or_mem && !has_unhandled_preds()) {
+                if (!check_stoi_coherence()) {
+                    TRACE(seq, tout << "nseq final_check: stoi coherence added axioms, FC_CONTINUE\n");
+                    return FC_CONTINUE;
+                }
                 TRACE(seq, tout << "nseq final_check: empty state (after ho), FC_DONE (no solve)\n");
                 m_nielsen.reset();
                 m_nielsen.create_root();
@@ -732,6 +740,8 @@ namespace smt {
                     m_nielsen.set_sat_node(m_nielsen.root());
                     if (!check_length_coherence())
                         return FC_CONTINUE;
+                    if (!check_stoi_coherence())
+                        return FC_CONTINUE;
                     TRACE(seq, tout << "pre-check done\n");
                     return FC_DONE;
                 default:
@@ -770,6 +780,9 @@ namespace smt {
                 bool all_sat = add_nielsen_assumptions();
 
                 if (!check_length_coherence())
+                    return FC_CONTINUE;
+
+                if (!check_stoi_coherence())
                     return FC_CONTINUE;
 
                 CTRACE(seq, !has_unhandled_preds(), display(tout << "done\n"));
@@ -1450,6 +1463,143 @@ namespace smt {
         }
 
         return l_undef;  // mixed constraints; let DFS decide
+    }
+
+    // -----------------------------------------------------------------------
+    // stoi (str.to_int) axiomatization for nseq
+    //
+    // Basic axioms (added once when the term becomes relevant):
+    //   stoi(s) >= -1
+    //   stoi("") = -1
+    //   stoi(s) >= 0  <=>  s ∈ [0-9]+
+    //
+    // Inductive coherence (added in final_check once the arith solver has
+    // committed to a concrete length k for s):
+    //   stoi_axiom(stoi_e, k)  — the position-by-position unfolding from
+    //   seq_axioms that computes the exact integer value.
+    // -----------------------------------------------------------------------
+
+    void theory_nseq::add_stoi_nseq_axioms(expr* stoi_e) {
+        expr* s = nullptr;
+        VERIFY(m_seq.str.is_stoi(stoi_e, s));
+
+        // stoi(s) >= -1
+        {
+            expr_ref ge_m1(m_autil.mk_ge(stoi_e, m_autil.mk_int(-1)), m);
+            literal lit = mk_literal(ge_m1);
+            ctx.mark_as_relevant(lit);
+            ctx.mk_th_axiom(get_id(), 1, &lit);
+        }
+
+        // stoi("") = -1
+        {
+            expr_ref empty_s(m_seq.str.mk_empty(s->get_sort()), m);
+            expr_ref stoi_empty(m_seq.str.mk_stoi(empty_s), m);
+            expr_ref eq_neg1(m.mk_eq(stoi_empty, m_autil.mk_int(-1)), m);
+            literal lit = mk_literal(eq_neg1);
+            ctx.mark_as_relevant(lit);
+            ctx.mk_th_axiom(get_id(), 1, &lit);
+        }
+
+        // stoi(s) >= 0 <=> s ∈ [0-9]+
+        {
+            expr_ref re_digit(m_seq.re.mk_range(m_seq.str.mk_string("0"), m_seq.str.mk_string("9")), m);
+            expr_ref re_plus(m_seq.re.mk_plus(re_digit), m);
+            expr_ref in_re(m_seq.re.mk_in_re(s, re_plus), m);
+            expr_ref ge0(m_autil.mk_ge(stoi_e, m_autil.mk_int(0)), m);
+
+            literal lit_in  = mk_literal(in_re);
+            literal lit_ge0 = mk_literal(ge0);
+            ctx.mark_as_relevant(lit_in);
+            ctx.mark_as_relevant(lit_ge0);
+
+            // stoi(s) >= 0 => s ∈ [0-9]+
+            {
+                literal clause[] = { ~lit_ge0, lit_in };
+                ctx.mk_th_axiom(get_id(), 2, clause);
+            }
+            // s ∈ [0-9]+ => stoi(s) >= 0
+            {
+                literal clause[] = { ~lit_in, lit_ge0 };
+                ctx.mk_th_axiom(get_id(), 2, clause);
+            }
+        }
+
+        // Track for coherence check
+        if (!m_stoi_set.contains(stoi_e)) {
+            m_stoi_set.insert(stoi_e);
+            ctx.push_trail(insert_obj_trail(m_stoi_set, stoi_e));
+            ctx.push_trail(restore_vector(m_stoi_terms));
+            m_stoi_terms.push_back(stoi_e);
+        }
+    }
+
+    // Returns true if no new axioms were needed (FC_DONE is safe to return),
+    // false if the inductive stoi axiom was instantiated (caller should FC_CONTINUE).
+    bool theory_nseq::check_stoi_coherence() {
+        if (m_stoi_terms.empty())
+            return true;
+
+        bool progress = false;
+
+        for (expr* stoi_e : m_stoi_terms) {
+            expr* s = nullptr;
+            VERIFY(m_seq.str.is_stoi(stoi_e, s));
+
+            expr_ref len_expr(m_seq.str.mk_length(s), m);
+            rational val;
+            if (!m_arith_value.get_value(len_expr, val) || !val.is_unsigned())
+                continue;
+
+            unsigned k = val.get_unsigned();
+            if (k == 0)
+                continue;  // empty string: handled by basic axiom stoi("") = -1
+
+            // Only instantiate if we haven't yet done so at this depth
+            unsigned prev_k = 0;
+            if (m_stoi_depth.contains(stoi_e))
+                prev_k = m_stoi_depth[stoi_e];
+            if (prev_k >= k)
+                continue;
+
+            TRACE(seq, tout << "nseq stoi coherence: instantiating depth " << k
+                            << " for " << mk_pp(stoi_e, m) << "\n");
+            IF_VERBOSE(1, verbose_stream() << "nseq stoi coherence: instantiating depth "
+                                           << k << " for " << mk_pp(stoi_e, m) << "\n";);
+
+            // Positional unfolding: stoi(s, i) = 10*stoi(s, i-1) + digit(s[i])
+            m_axioms.stoi_axiom(stoi_e, k);
+
+            // Explicit upper bound: len(s)=k && stoi(s) >= 0 => stoi(s) <= 10^k-1
+            // (digit2int for symbolic characters has no arith bounds, so the
+            //  positional unfolding alone does not constrain stoi(s) sufficiently)
+            {
+                rational max_val(1);
+                for (unsigned i = 0; i < k; ++i) {
+                    max_val *= 10;
+                }
+                --max_val;  // 10^k - 1
+                expr_ref le_max(m_autil.mk_le(stoi_e, m_autil.mk_int(max_val)), m);
+                expr_ref ge0(m_autil.mk_ge(stoi_e, m_autil.mk_int(0)), m);
+                expr_ref len_eq_k(m.mk_eq(len_expr, m_autil.mk_int(k)), m);
+
+                literal lit_ge0    = mk_literal(ge0);
+                literal lit_le_max = mk_literal(le_max);
+                literal lit_len_eq = mk_literal(len_eq_k);
+                ctx.mark_as_relevant(lit_ge0);
+                ctx.mark_as_relevant(lit_le_max);
+                ctx.mark_as_relevant(lit_len_eq);
+
+                literal clause[] = { ~lit_len_eq, ~lit_ge0, lit_le_max };
+                ctx.mk_th_axiom(get_id(), 3, clause);
+            }
+
+            m_stoi_depth.insert_if_not_there(stoi_e, 0);
+            m_stoi_depth[stoi_e] = k;
+            progress = true;
+        }
+
+        return !progress;
     }
 
     bool theory_nseq::check_length_coherence() {

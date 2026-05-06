@@ -83,6 +83,11 @@ namespace smt {
         ptr_vector<app>  m_ho_terms;
         unsigned         m_num_ho_unfolds = 0;
 
+        // stoi (str.to_int) coherence tracking
+        ptr_vector<expr>        m_stoi_terms;   // stoi terms that need coherence checking
+        obj_hashtable<expr>     m_stoi_set;     // dedup guard for m_stoi_terms
+        obj_map<expr, unsigned> m_stoi_depth;   // max k for which stoi_axiom(e, k) was called
+
         // unhandled boolean string predicates (prefixof, suffixof, contains, etc.)
         unsigned         m_num_unhandled_bool = 0;
 
@@ -157,6 +162,10 @@ namespace smt {
         lbool check_regex_memberships_precheck();
 
         bool check_length_coherence();
+
+        // stoi axiom helpers
+        void add_stoi_nseq_axioms(expr* stoi_e);
+        bool check_stoi_coherence();
 
     public:
         theory_nseq(context& ctx);
