@@ -4497,13 +4497,21 @@ namespace seq {
         u_map<dep_tracker> expr_to_dep;
         expr_ref_vector assumptions(m);
         assumptions.resize(n->constraints().size());
-        for (unsigned i = 0; i < assumptions.size(); i++) {
-            auto& c = n->constraints()[i];
+        unsigned j = 0;
+        for (auto const &c : n->constraints()) {
+            if (expr_to_dep.contains(c.fml->get_id()))
+                continue;
             expr_to_dep.insert_if_not_there(c.fml->get_id(), c.dep);
-            assumptions[i] = c.fml;
+            assumptions[j++] = c.fml;
         }
+        assumptions.shrink(j);
         expr_ref_vector core(m);
         lbool res = m_core_solver.check_with_assumptions(assumptions, core);
+        CTRACE(seq, res != l_false,
+               tout << "Unexpected satisfiable/unknown result from core solver " 
+                    << res << " " << core
+                    << "\nassumptions\n"
+                    << assumptions << "\n");
         VERIFY(res == l_false);
 
         dep_tracker dep = dep_mgr().mk_empty();
