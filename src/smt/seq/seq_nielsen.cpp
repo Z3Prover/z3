@@ -460,12 +460,24 @@ namespace seq {
         dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
         str_eq eq(lhs, rhs, dep);
         eq.sort();
+        // check if root node contains this equation already
+        if (std::ranges::any_of(m_root->str_eqs(), [&](const str_eq& e) {
+            return e.m_lhs == eq.m_lhs && e.m_rhs == eq.m_rhs;
+        }))
+            // already present, no need to add again
+            return;
         m_root->add_str_eq(eq);
     }
 
     void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l) {
         if (!root())
             create_root();
+        // check if root node contains this membership constraint already
+        if (std::ranges::any_of(m_root->str_mems(), [&](const str_mem& e) {
+            return e.m_regex == regex && e.m_str == str;
+        }))
+            // already present, no need to add again
+            return;
         dep_tracker dep = m_dep_mgr.mk_leaf(l);
         m_root->add_str_mem(str_mem(str, regex, dep));
     }

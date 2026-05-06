@@ -992,6 +992,15 @@ namespace smt {
 #ifdef Z3DEBUG
         std::cout << "Conflict with " << lits.size() << " literals and " << eqs.size() << " equalities" << std::endl;
         std::cout << "The root node contained " << m_nielsen.root()->str_mems().size() << " memberships and " << m_nielsen.root()->str_eqs().size() << " equalities" << std::endl;
+        unsigned idx = 0;
+        for (auto& eq : m_nielsen.root()->str_eqs()) {
+            std::cout << "[" << (idx++) << "]: " << seq::eq_pp(eq, m);
+        }
+        idx = 0;
+        for (auto& mem : m_nielsen.root()->str_mems()) {
+            std::cout << "[" << (idx++) << "]: " << seq::mem_pp(m, mem);
+        }
+        std::flush(std::cout);
 #endif
     }
 
