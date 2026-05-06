@@ -4081,6 +4081,7 @@ namespace seq {
         SASSERT(power->is_power() && power->num_args() >= 1);
         euf::snode* base = power->arg(0);
         expr* exp_n = get_power_exponent(power);
+        SASSERT(exp_n);
         expr_ref zero(a.mk_int(0), m);
         expr_ref one(a.mk_int(1), m);
 
@@ -4092,23 +4093,21 @@ namespace seq {
             nielsen_subst s(power, m_sg.mk_empty_seq(power->get_sort()), nullptr, eq->m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
-            if (exp_n)
-                e->add_side_constraint(mk_constraint(m.mk_eq(exp_n, zero), eq->m_dep));
+            e->add_side_constraint(mk_constraint(m.mk_eq(exp_n, zero), eq->m_dep));
         }
 
         // Branch 2: n >= 1 → peel one u: u^n → u · u^(n-1)
         // Side constraint: n >= 1
-        // NSB review: u^n is replaced by u· fresh_var, isn't that unconstrained?
         {
-            euf::snode* fresh = mk_fresh_var(var_head->get_sort());
-            euf::snode* replacement = dir_concat(m_sg, base, fresh, fwd);
+            expr_ref power_expr(m_seq.str.mk_power(base->get_expr(), a.mk_sub(exp_n, a.mk_int(1))), m);
+            euf::snode* power_snode = m_sg.mk(power_expr);
+            euf::snode* replacement = dir_concat(m_sg, base, power_snode, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);
             nielsen_subst s(power, replacement, nullptr, eq->m_dep); // TODO review - ensure var does not occur in replacement.
             e->add_subst(s);
             child->apply_subst(m_sg, s);
-            if (exp_n)
-                e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, one), eq->m_dep));
+            e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, one), eq->m_dep));
         }
 
         return true;
@@ -4125,6 +4124,7 @@ namespace seq {
         SASSERT(power->is_power() && power->num_args() >= 1);
         euf::snode* base = power->arg(0);
         expr* exp_n = get_power_exponent(power);
+        SASSERT(exp_n);
         expr_ref zero(a.mk_int(0), m);
         expr_ref one(a.mk_int(1), m);
 
@@ -4136,23 +4136,22 @@ namespace seq {
             nielsen_subst s(power, m_sg.mk_empty_seq(power->get_sort()), nullptr, mem->m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
-            if (exp_n)
-                e->add_side_constraint(mk_constraint(m.mk_eq(exp_n, zero), mem->m_dep));
+            e->add_side_constraint(mk_constraint(m.mk_eq(exp_n, zero), mem->m_dep));
         }
 
         // Branch 2: n >= 1 → peel one u: u^n → u · u^(n-1)
         // Side constraint: n >= 1
-        // NSB review: similar comment to similar code in apply_var_num_unwinding_eq
         {
-            euf::snode* fresh = mk_fresh_var(power->get_sort()); // TODO review - isn't this supposed to be base^{expn_n - 1}?
-            euf::snode* replacement = dir_concat(m_sg, base, fresh, fwd);
+            expr_ref power_expr(m_seq.str.mk_power(base->get_expr(), a.mk_sub(exp_n, a.mk_int(1))), m);
+            euf::snode* power_snode = m_sg.mk(power_expr);
+
+            euf::snode* replacement = dir_concat(m_sg, base, power_snode, fwd);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);
             nielsen_subst s(power, replacement, nullptr, mem->m_dep); // TODO review - ensure var does not occur in replacement.
             e->add_subst(s);
             child->apply_subst(m_sg, s);
-            if (exp_n)
-                e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, one), mem->m_dep));
+            e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, one), mem->m_dep));
         }
 
         return true;
