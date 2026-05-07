@@ -479,6 +479,26 @@ namespace smt {
         return val;
     }
 
+    // Gets the arithmetic value of e. In QF_SLIA mode theory_lra does not register
+    // numeral constants as LP variables, so get_value_equiv misses cases like
+    // (str.len w) being equivalent to numeral 5 via EUF. Walking the EUF class
+    // and checking for numerals directly handles this.
+    bool seq_model::get_arith_value(expr* e, rational& val) const {
+        if (!m_ctx.e_internalized(e))
+            return false;
+        arith_util a(m);
+        enode* root = m_ctx.get_enode(e);
+        enode* it = root;
+        do {
+            if (a.is_numeral(it->get_expr(), val))
+                return true;
+            it = it->get_next();
+        } while (it != root);
+        arith_value avalue(m);
+        avalue.init(const_cast<context*>(&m_ctx));
+        return avalue.get_value_equiv(e, val);
+    }
+
     rational seq_model::int_value(expr *_e) {
         expr_ref e(_e, m);
         m_ctx.get_rewriter()(e);
@@ -487,9 +507,7 @@ namespace smt {
         if (a.is_numeral(e, val))
             return val;
        
-        arith_value avalue(m);
-        avalue.init(&m_ctx);
-        bool has_val = avalue.get_value(e, val);
+        bool has_val = get_arith_value(e, val);
         CTRACE(seq, !has_val, tout << "no value associated with " << mk_pp(e, m) << "\n";);
         return val;
     }
@@ -508,11 +526,9 @@ namespace smt {
             SASSERT(re_expr);
 
             arith_util arith(m);
-            arith_value avalue(m);
-            avalue.init(&m_ctx);
             expr_ref len_expr(m_seq.str.mk_length(var->get_expr()), m);
             rational len_val;
-            bool has_len = avalue.get_value(len_expr, len_val);
+            bool has_len = get_arith_value(len_expr, len_val);
             CTRACE(seq, !has_len, tout << "no value associated with " << mk_pp(len_expr, m) << "\n";);
             
             if (has_len && len_val.is_unsigned()) {
@@ -539,10 +555,7 @@ namespace smt {
         arith_util arith(m);
         expr_ref len_expr(m_seq.str.mk_length(var->get_expr()), m);
         rational len_val;
-
-        arith_value avalue(m);
-        avalue.init(&m_ctx);
-        bool has_len = avalue.get_value(len_expr, len_val);
+        bool has_len = get_arith_value(len_expr, len_val);
         CTRACE(seq, !has_len, tout << "no value associated with " << mk_pp(len_expr, m) << "\n";);
         
 

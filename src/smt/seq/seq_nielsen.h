@@ -264,32 +264,6 @@ namespace seq {
 
     std::string snode_label_html(euf::snode const* n, ast_manager& m);
 
-    /**
-     * Abstract interface for an incremental solver used by nielsen_graph
-     * to check integer/arithmetic feasibility of path constraints.
-     *
-     * Users of nielsen_graph can wrap smt::kernel or any other solver
-     * to serve as the arithmetic back-end.  When no solver is provided,
-     * integer feasibility checks are skipped (optimistically assumed feasible).
-     */
-    class simple_solver {
-    public:
-        virtual ~simple_solver() {}
-        virtual lbool   check() = 0;
-        virtual void    assert_expr(expr* e) = 0;
-        virtual void    push() = 0;
-        virtual void    pop(unsigned num_scopes) = 0;
-        virtual void    get_model(model_ref& mdl) { mdl = nullptr; }
-        virtual lbool   check_with_assumptions(expr_ref_vector& assumptions, expr_ref_vector& core) { return l_undef; }
-        // Optional bound queries on arithmetic expressions (non-strict integer bounds).
-        // Default implementation reports "unsupported".
-        virtual bool    lower_bound(expr* e, rational& lo) const { return false; }
-        virtual bool    upper_bound(expr* e, rational& hi) const { return false; }
-        virtual bool current_value(expr *e, rational &v) const { return false; }
-        
-        virtual void    reset() = 0;
-    };
-
     // simplification result for constraint processing
     // mirrors ZIPT's SimplifyResult enum
     enum class simplify_result {
@@ -361,6 +335,31 @@ namespace seq {
     // dep_tracker is a pointer into the dep_manager's arena.
     // nullptr represents the empty dependency set.
     using dep_tracker = dep_manager::dependency*;
+
+    /**
+     * Abstract interface for an incremental solver used by nielsen_graph
+     * to check integer/arithmetic feasibility of path constraints.
+     *
+     * Users of nielsen_graph can wrap smt::kernel or any other solver
+     * to serve as the arithmetic back-end.  When no solver is provided,
+     * integer feasibility checks are skipped (optimistically assumed feasible).
+     */
+    class simple_solver {
+    public:
+        virtual ~simple_solver() {}
+        virtual lbool       check() = 0;
+        virtual void        assert_expr(expr* e, dep_tracker dep = nullptr) = 0;
+        virtual void        push() = 0;
+        virtual void        pop(unsigned num_scopes) = 0;
+        virtual void        get_model(model_ref& mdl) { mdl = nullptr; }
+        virtual dep_tracker core() { return nullptr; }
+        // Optional bound queries on arithmetic expressions (non-strict integer bounds).
+        // Default implementation reports "unsupported".
+        virtual bool        lower_bound(expr* e, rational& lo) const { return false; }
+        virtual bool        upper_bound(expr* e, rational& hi) const { return false; }
+        virtual bool        current_value(expr* e, rational& v) const { return false; }
+        virtual void        reset() = 0;
+    };
 
     // partition dep_source leaves from deps into enode pairs, sat literals,
     // and arithmetic <= dependencies.
@@ -852,7 +851,6 @@ namespace seq {
         // and optimistically assumes feasibility.
         // -----------------------------------------------
         simple_solver&                m_solver;
-        simple_solver&                m_core_solver;
 
         // Constraint.Shared: guards re-assertion of root-level constraints.
         // Set to true after assert_root_constraints_to_solver() is first called.
@@ -895,7 +893,7 @@ namespace seq {
     public:
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
         // the caller is responsible for keeping the solver alive.
-        nielsen_graph(euf::sgraph& sg, simple_solver& solver, simple_solver &core_solver);
+        nielsen_graph(euf::sgraph& sg, simple_solver& solver);
         ~nielsen_graph();
 
         void set_literal_if_false(std::function<sat::literal(expr* e)> const& lif) {

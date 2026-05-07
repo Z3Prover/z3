@@ -34,8 +34,7 @@ namespace smt {
         m_egraph(m),
         m_sgraph(m, m_egraph),
         m_context_solver(m),
-        m_core_solver(m),
-        m_nielsen(m_sgraph, m_context_solver, m_core_solver),
+        m_nielsen(m_sgraph, m_context_solver),
         m_axioms(m_th_rewriter),
         m_regex(m_sgraph),
         m_model(m, ctx, m_seq, m_rewriter, m_sgraph),
@@ -1267,6 +1266,19 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     bool theory_nseq::get_num_value(expr* e, rational& val) const {
+        // In QF_SLIA mode theory_lra does not register numeral constants as LP
+        // variables, so get_value_equiv misses cases where a term is only known
+        // through an EUF equality with a numeral (e.g. (str.len w) = 5).
+        // Walk the equivalence class directly first.
+        if (get_context().e_internalized(e)) {
+            enode* root = get_context().get_enode(e);
+            enode* it = root;
+            do {
+                if (m_autil.is_numeral(it->get_expr(), val) && val.is_int())
+                    return true;
+                it = it->get_next();
+            } while (it != root);
+        }
         return m_arith_value.get_value_equiv(e, val) && val.is_int();
     }
 
@@ -1650,7 +1662,8 @@ namespace smt {
                 continue;
 
             rational val_l;
-            VERIFY(m_arith_value.get_value(len_expr, val_l));
+            if (!get_num_value(len_expr, val_l))
+                continue;
 
             SASSERT(val_l.is_unsigned());
 

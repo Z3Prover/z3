@@ -414,13 +414,12 @@ namespace seq {
     // nielsen_graph
     // -----------------------------------------------
 
-    nielsen_graph::nielsen_graph(euf::sgraph &sg, simple_solver &solver, simple_solver &core_solver):
+    nielsen_graph::nielsen_graph(euf::sgraph &sg, simple_solver &solver):
         m(sg.get_manager()),
         a(sg.get_manager()),
         m_seq(sg.get_seq_util()),
         m_sg(sg),
         m_solver(solver),
-        m_core_solver(core_solver),
         m_parikh(alloc(seq_parikh, sg)),
         m_seq_regex(alloc(seq::seq_regex, sg)) {}
 
@@ -534,7 +533,6 @@ namespace seq {
         m_length_info.reset();
         m_dep_mgr.reset();
         m_solver.reset();
-        m_core_solver.reset();
         SASSERT(m_nodes.empty());
         SASSERT(m_edges.empty());
         SASSERT(m_root == nullptr);
@@ -4438,7 +4436,7 @@ namespace seq {
         SASSERT(m_literal_if_false);
         for (unsigned i = node->m_parent_ic_count; i < node->constraints().size(); ++i) {
             auto& c = node->constraints()[i];
-            m_solver.assert_expr(c.fml);
+            m_solver.assert_expr(c.fml, c.dep);
             auto lit = m_literal_if_false(c.fml);
             // std::cout << "Internalizing literal " << mk_pp(c.fml, m) << " [" << (lit == sat::null_literal) << "]" << std::endl;
             if (lit != sat::null_literal)
@@ -4505,32 +4503,10 @@ namespace seq {
         return m_solver.check() != l_false;
     }
 
-    dep_tracker nielsen_graph::get_subsolver_dependency(nielsen_node* n) {
-        u_map<dep_tracker> expr_to_dep;
-        expr_ref_vector assumptions(m);
-        assumptions.resize(n->constraints().size());
-        unsigned j = 0;
-        for (auto const &c : n->constraints()) {
-            if (expr_to_dep.contains(c.fml->get_id()))
-                continue;
-            expr_to_dep.insert_if_not_there(c.fml->get_id(), c.dep);
-            assumptions[j++] = c.fml;
-        }
-        assumptions.shrink(j);
-        expr_ref_vector core(m);
-        lbool res = m_core_solver.check_with_assumptions(assumptions, core);
-        CTRACE(seq, res != l_false,
-               tout << "Unexpected satisfiable/unknown result from core solver " 
-                    << res << " " << core
-                    << "\nassumptions\n"
-                    << assumptions << "\n");
-        VERIFY(res == l_false);
-
-        dep_tracker dep = dep_mgr().mk_empty();
-        for (expr* e : core) {
-             dep = dep_mgr().mk_join(dep, expr_to_dep[e->get_id()]);
-        }
-        return dep;
+    dep_tracker nielsen_graph::get_subsolver_dependency(nielsen_node* /*n*/) {
+        // check_int_feasibility() already called m_solver.check() which computed
+        // the UNSAT core in terms of tracked assumption literals and their deps.
+        return m_solver.core();
     }
 
     bool nielsen_graph::check_lp_le(expr* lhs, expr* rhs, nielsen_node* n, dep_tracker& dep) {

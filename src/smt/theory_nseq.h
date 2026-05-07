@@ -45,7 +45,6 @@ namespace smt {
         // m_context_solver must be declared before m_nielsen: its address is passed
         // to the m_nielsen constructor and must remain stable for the object's lifetime.
         context_solver m_context_solver;
-        context_solver m_core_solver;
         seq::nielsen_graph m_nielsen;
         seq::axioms m_axioms;
         seq::seq_regex     m_regex;   // regex membership pre-processing

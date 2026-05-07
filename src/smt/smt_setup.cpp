@@ -796,6 +796,7 @@ namespace smt {
     }
 
     void setup::setup_nseq() {
+        setup_lra_arith(); // Avoid problems when querying length values when having QF_S(LIA)
         m_context.register_plugin(alloc(smt::theory_nseq, m_context));
         setup_char();
     }

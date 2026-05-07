@@ -137,6 +137,9 @@ namespace smt {
         // extract integer value for an expression.
         rational int_value(expr *e);
 
+        // Get arithmetic value via EUF equivalence class, including numeral check.
+        bool get_arith_value(expr* e, rational& val) const;
+
     };
 
 }
