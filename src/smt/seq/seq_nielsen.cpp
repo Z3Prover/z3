@@ -3880,7 +3880,6 @@ namespace seq {
             m_sg.compute_minterms(mem.m_regex, minterms);
             VERIFY(!minterms.empty());
 
-            bool created = false;
             // std::cout << "Considering regex: " << spp(mem.m_regex, m) << std::endl;
 
             // Branch 1: x → ε (progress)
@@ -3890,71 +3889,28 @@ namespace seq {
                 nielsen_subst s(first, m_sg.mk_empty_seq(first->get_sort()), nullptr, mem.m_dep);
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
-                created = true;
             }
-
-            // TODO: replace this with a version that just uses symbolic derivatives
-            // and not min-terms.
-            // It solves x -> unit(nth(x, 0)) ++ x
-            // Then the split_regex_unit can solve process the node further.
 
             // Branch 2+: for each minterm m_i, x → ?c · x
             // where ?c is a symbolic char constrained by the minterm
-            for (euf::snode* mt : minterms) {
-                // std::cout << "Processing minterm: " << spp(mt, m) << std::endl;
-                SASSERT(mt);
-                SASSERT(mt->get_expr());
-                SASSERT(!mt->is_fail());
 
-                // Try Brzozowski derivative with respect to this minterm
-                // If the derivative is fail (empty language), skip this minterm
-                euf::snode* deriv = m_sg.brzozowski_deriv(mem.m_regex, mt);
-                SASSERT(deriv);
-                if (deriv->is_fail())
-                    continue;
-                record_partial_derivative_edge(mem.m_regex, mt, deriv);
-                // std::cout << "Result: " << spp(deriv, m) << std::endl;
+            // for variables at mod_count 0 and other terms, use symbolic (str.len expr)
+            // NSB review:
+            // it really is seq.nth (length-of-prefix that was chopped of for first)
+            // assume len(x) contains the expression for the current length of x,
+            // then the suffix where the current x is located is at str.len(x) - len(x)
+            // (seq.nth x (- (str.len x) len(x))
+            //
+            euf::snode* fresh_char = m_sg.mk(get_or_create_char_var(first));
 
-                SASSERT(m_seq_regex);
-                char_set cs = m_seq_regex->minterm_to_char_set(mt->get_expr());
-                // std::cout << "char_set:\n";
-                // for (auto& r : cs.ranges()) {
-                //     std::cout << "\t[" << r.m_lo << "; " << r.m_hi - 1 << "]" << std::endl;
-                // }
+            euf::snode* replacement = m_sg.mk_concat(fresh_char, first);
+            nielsen_node* child = mk_child(node);
+            nielsen_edge* e = mk_edge(node, child, false);
+            nielsen_subst s(first, replacement, mk_rewrite(a.mk_sub(compute_length_expr(first), a.mk_int(1))), mem.m_dep);
+            e->add_subst(s);
+            child->apply_subst(m_sg, s);
 
-                euf::snode* fresh_char = nullptr;
-                if (cs.is_unit()) {
-                    expr_ref char_expr(m_sg.get_seq_util().str.mk_string(zstring(cs.first_char())), m);
-                    fresh_char = m_sg.mk(char_expr);
-                }
-                else {
-                    // for variables at mod_count 0 and other terms, use symbolic (str.len expr)
-                    // NSB rewview:
-                    // it really is seq.nth (length-of-prefix that was chopped of for first)
-                    // assume len(x) contains the expression for the current length of x, 
-                    // then the suffix where the current x is located is at str.len(x) - len(x)
-                    // (seq.nth x (- (str.len x) len(x))
-                    //
-                    fresh_char = m_sg.mk(get_or_create_char_var(first));
-                }
-
-                euf::snode* replacement = m_sg.mk_concat(fresh_char, first);
-                nielsen_node* child = mk_child(node);
-                nielsen_edge* e = mk_edge(node, child, false);
-                nielsen_subst s(first, replacement, mk_rewrite(a.mk_sub(compute_length_expr(first), a.mk_int(1))), mem.m_dep);
-                e->add_subst(s);
-                child->apply_subst(m_sg, s);
-                // Constrain fresh_char to the character class of this minterm.
-                // This is the key Parikh pruning step: when x → ?c · x' is
-                // generated from minterm m_i, ?c must belong to the character
-                // class described by m_i so that str ∈ derivative(R, m_i).
-                if (!cs.is_unit() && !cs.is_empty())
-                    child->add_char_range(fresh_char, cs, mem.m_dep);
-                created = true;
-            }
-
-            if (created)
-                return true;
+            return true;
         }
         return false;
     }
