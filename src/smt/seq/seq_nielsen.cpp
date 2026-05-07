@@ -4392,11 +4392,15 @@ namespace seq {
         SASSERT(m_literal_if_false);
         for (unsigned i = node->m_parent_ic_count; i < node->constraints().size(); ++i) {
             auto& c = node->constraints()[i];
-            m_solver.assert_expr(c.fml, c.dep);
             auto lit = m_literal_if_false(c.fml);
-            // std::cout << "Internalizing literal " << mk_pp(c.fml, m) << " [" << (lit == sat::null_literal) << "]" << std::endl;
-            if (lit != sat::null_literal)
+            // std::cout << "Internalizing literal " << mk_pp(c.fml, m) << " [" << (lit == sat::null_literal) << "]" <<
+            // std::endl;
+            if (lit != sat::null_literal) {
                 node->set_external_conflict(lit, c.dep);
+                return;
+            }
+            m_solver.assert_expr(c.fml);
+
         }
     }
 
