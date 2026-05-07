@@ -2574,7 +2574,7 @@ namespace euf {
                  m_backtrack_stack[m_top].m_instr              = m_pc;                                                  \
                  m_backtrack_stack[m_top].m_old_max_generation = m_curr_max_generation;                                 \
                  m_backtrack_stack[m_top].m_curr               = m_app;                                                 \
-                 const_cast<bind*>(static_cast<bind const*>(m_pc)->m_curr_generation = m_max_generation;                \
+                 const_cast<bind*>(static_cast<bind const*>(m_pc))->m_curr_generation = m_max_generation;                \
                  m_top++;
 
             BIND_COMMON();
