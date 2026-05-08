@@ -321,20 +321,31 @@ class tptp_parser {
         return std::string(Z3_get_symbol_string(m_ctx, Z3_get_sort_name(m_ctx, s))) == "$tType";
     }
 
-    z3::func_decl mk_decl(std::string const& name, unsigned arity, bool pred) {
-        std::string key = name + "/" + std::to_string(arity) + "/" + (pred ? "p" : "f");
-        auto itd = m_decls.find(key);
-        if (itd != m_decls.end()) return itd->second;
+    static std::string mk_decl_key(std::string const& name, unsigned arity, char tag) {
+        return std::to_string(name.size()) + ":" + name + ":" + std::to_string(arity) + ":" + tag;
+    }
 
-        auto itt = m_typed_decls.find(name + "/" + std::to_string(arity));
+    static std::string mk_typed_key(std::string const& name, unsigned arity) {
+        return mk_decl_key(name, arity, 't');
+    }
+
+    z3::func_decl mk_decl(std::string const& name, unsigned arity, bool pred) {
+        auto itt = m_typed_decls.find(mk_typed_key(name, arity));
         if (itt != m_typed_decls.end()) {
+            std::string typed_decl_key = mk_decl_key(name, arity, 'd');
+            auto itd = m_decls.find(typed_decl_key);
+            if (itd != m_decls.end()) return itd->second;
             auto const& sig = itt->second;
             z3::sort_vector dom(m_ctx);
             for (z3::sort const& s : sig.first) dom.push_back(s);
             z3::func_decl f = m_ctx.function(name.c_str(), dom, sig.second);
-            m_decls.emplace(key, f);
+            m_decls.emplace(typed_decl_key, f);
             return f;
         }
+
+        std::string key = mk_decl_key(name, arity, pred ? 'p' : 'f');
+        auto itd = m_decls.find(key);
+        if (itd != m_decls.end()) return itd->second;
 
         std::vector<z3::sort> dom(arity, m_univ);
         if (pred) {
@@ -362,7 +373,7 @@ class tptp_parser {
         if (bound.empty()) return body;
         std::vector<Z3_app> vars(bound.size());
         for (unsigned i = 0; i < bound.size(); ++i) vars[i] = (Z3_app)(Z3_ast)bound[i];
-        Z3_ast q = Z3_mk_quantifier_const(m_ctx, is_forall, 1, bound.size(), vars.data(), 0, nullptr, body);
+        Z3_ast q = Z3_mk_quantifier_const(m_ctx, is_forall, 0, bound.size(), vars.data(), 0, nullptr, body);
         return z3::expr(m_ctx, q);
     }
 
@@ -480,23 +491,34 @@ class tptp_parser {
                 has_lhs = true;
             }
         }
-        if (!has_lhs) {
-            z3::func_decl f = mk_decl(n, static_cast<unsigned>(args.size()), false);
-            lhs = args.empty() ? f() : f(static_cast<unsigned>(args.size()), args.data());
-        }
-
         if (is(token_kind::equal_tok) || is(token_kind::neq_tok)) {
+            if (!has_lhs) {
+                z3::func_decl f = mk_decl(n, static_cast<unsigned>(args.size()), false);
+                lhs = args.empty() ? f() : f(static_cast<unsigned>(args.size()), args.data());
+            }
             bool neq = accept(token_kind::neq_tok);
             if (!neq) expect(token_kind::equal_tok, "'='");
             z3::expr rhs = parse_term();
             return neq ? !(lhs == rhs) : (lhs == rhs);
         }
 
-        if (lhs.is_bool()) return lhs;
+        if (has_lhs) {
+            if (lhs.is_bool()) return lhs;
+            throw parse_error("non-boolean variable used as formula");
+        }
 
-        z3::func_decl p = mk_decl(n, static_cast<unsigned>(args.size()), true);
-        if (args.empty()) return p();
-        return p(static_cast<unsigned>(args.size()), args.data());
+        auto typed = m_typed_decls.find(mk_typed_key(n, static_cast<unsigned>(args.size())));
+        if (typed != m_typed_decls.end()) {
+            z3::func_decl f = mk_decl(n, static_cast<unsigned>(args.size()), false);
+            z3::expr e = args.empty() ? f() : f(static_cast<unsigned>(args.size()), args.data());
+            if (!e.is_bool())
+                throw parse_error("typed non-boolean term used as formula");
+            return e;
+        }
+
+        z3::func_decl pred = mk_decl(n, static_cast<unsigned>(args.size()), true);
+        if (args.empty()) return pred();
+        return pred(static_cast<unsigned>(args.size()), args.data());
     }
 
     z3::expr parse_unary_formula() {
@@ -579,7 +601,7 @@ class tptp_parser {
             m_sorts.insert_or_assign(name, m_ctx.uninterpreted_sort(name.c_str()));
             return;
         }
-        m_typed_decls.insert_or_assign(name + "/" + std::to_string(t.domain.size()), std::make_pair(t.domain, t.range));
+        m_typed_decls.insert_or_assign(mk_typed_key(name, static_cast<unsigned>(t.domain.size())), std::make_pair(t.domain, t.range));
     }
 
     static bool file_exists(std::string const& f) {
@@ -657,9 +679,7 @@ class tptp_parser {
         expect(token_kind::rparen, "')'");
         expect(token_kind::dot, "'.'");
 
-        if (kind == "thf") {
-            // THF parsing is supported for first-order compatible fragments only.
-        }
+        (void)kind;
     }
 
     void parse_toplevel(std::string const& current_file) {
@@ -726,7 +746,7 @@ z3::expr tptp_parser::parse_term() {
     while (accept(token_kind::at_tok)) {
         z3::expr arg = parse_term_primary();
         if (!e.is_app() || e.decl().decl_kind() != Z3_OP_UNINTERPRETED)
-            throw parse_error("higher-order application is unsupported");
+            throw parse_error("application operator (@) requires uninterpreted function on left-hand side");
         z3::func_decl f = e.decl();
         std::vector<z3::expr> args;
         for (unsigned i = 0; i < e.num_args(); ++i) args.push_back(e.arg(i));
