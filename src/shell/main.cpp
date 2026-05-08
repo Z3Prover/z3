@@ -134,8 +134,8 @@ static bool validate_is_ulong(char const* s) {
 }
 
 static bool is_tptp_extension(char const* ext) {
-    static char const* exts[] = {"p", "tptp", "fof", "cnf", "tff", "thf"};
-    for (char const* known_ext : exts) {
+    static char const* tptp_extensions[] = {"p", "tptp", "fof", "cnf", "tff", "thf"};
+    for (char const* known_ext : tptp_extensions) {
         if (strcmp(ext, known_ext) == 0)
             return true;
     }

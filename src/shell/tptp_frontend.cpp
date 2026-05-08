@@ -322,7 +322,7 @@ class tptp_parser {
     }
 
     static std::string mk_decl_key(std::string const& name, unsigned arity, char tag) {
-        return std::to_string(name.size()) + ":" + name + ":" + std::to_string(arity) + ":" + tag;
+        return std::to_string(name.size()) + ":" + name + "\x1f" + std::to_string(arity) + "\x1f" + tag;
     }
 
     static std::string mk_typed_key(std::string const& name, unsigned arity) {
@@ -429,6 +429,15 @@ class tptp_parser {
                 continue;
             }
             next();
+        }
+    }
+
+    void skip_balanced(token_kind open_k, token_kind close_k) {
+        int depth = 1;
+        while (depth > 0 && !is(token_kind::eof_tok)) {
+            if (accept(open_k)) ++depth;
+            else if (accept(close_k)) --depth;
+            else next();
         }
     }
 
@@ -612,7 +621,7 @@ class tptp_parser {
     static bool is_absolute_path(std::string const& name) {
         return !name.empty() &&
             (name[0] == '/' ||
-             (name.size() > 2 && std::isalpha(static_cast<unsigned char>(name[0])) && name[1] == ':'));
+             (name.size() >= 2 && std::isalpha(static_cast<unsigned char>(name[0])) && name[1] == ':'));
     }
 
     std::string dirname(std::string const& f) const {
@@ -638,12 +647,7 @@ class tptp_parser {
         std::string file = parse_name();
         if (accept(token_kind::comma)) {
             if (accept(token_kind::lbrack)) {
-                int depth = 1;
-                while (depth > 0 && !is(token_kind::eof_tok)) {
-                    if (accept(token_kind::lbrack)) ++depth;
-                    else if (accept(token_kind::rbrack)) --depth;
-                    else next();
-                }
+                skip_balanced(token_kind::lbrack, token_kind::rbrack);
             }
             else {
                 skip_annotations_until_rparen();
