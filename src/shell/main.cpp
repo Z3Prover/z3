@@ -30,6 +30,7 @@ Revision History:
 #include "shell/dimacs_frontend.h"
 #include "shell/datalog_frontend.h"
 #include "shell/opt_frontend.h"
+#include "shell/tptp_frontend.h"
 #include "util/timeout.h"
 #include "util/z3_exception.h"
 #include "util/error_codes.h"
@@ -43,7 +44,7 @@ Revision History:
 #include <crtdbg.h>
 #endif
 
-typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_DRAT } input_kind;
+typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_DRAT, IN_TPTP } input_kind;
 
 static char const * g_input_file          = nullptr;
 static char const * g_drat_input_file     = nullptr;
@@ -84,6 +85,7 @@ void display_usage() {
     std::cout << "  -opb        use parser for PB optimization input format.\n";
     std::cout << "  -lp         use parser for a modest subset of CPLEX LP input format.\n";
     std::cout << "  -log        use parser for Z3 log input format.\n";
+    std::cout << "  -tptp       use parser for TPTP input format (fof/cnf/tff/thf fragments).\n";
     std::cout << "  -in         read formula from standard input.\n";
     std::cout << "  -model      display model for satisfiable SMT.\n";
     std::cout << "\nMiscellaneous:\n";
@@ -213,6 +215,9 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
             }
             else if (strcmp(opt_name, "log") == 0) {
                 g_input_kind = IN_Z3_LOG;
+            }
+            else if (strcmp(opt_name, "tptp") == 0) {
+                g_input_kind = IN_TPTP;
             }
             else if (strcmp(opt_name, "st") == 0) {
                 g_display_statistics = true; 
@@ -387,6 +392,9 @@ int STD_CALL main(int argc, char ** argv) {
                 else if (strcmp(ext, "smt2") == 0) {
                     g_input_kind = IN_SMTLIB_2;
                 }
+                else if (strcmp(ext, "p") == 0 || strcmp(ext, "tptp") == 0 || strcmp(ext, "fof") == 0 || strcmp(ext, "cnf") == 0 || strcmp(ext, "tff") == 0 || strcmp(ext, "thf") == 0) {
+                    g_input_kind = IN_TPTP;
+                }
             }
         }
         switch (g_input_kind) {
@@ -415,6 +423,9 @@ int STD_CALL main(int argc, char ** argv) {
         case IN_DRAT:
             return_value = read_drat(g_drat_input_file);
             break;
+        case IN_TPTP:
+            return_value = read_tptp(g_input_file);
+            break;
         default:
             UNREACHABLE();
         }
@@ -434,4 +445,3 @@ int STD_CALL main(int argc, char ** argv) {
             return ERR_INTERNAL_FATAL;
     }
 }
-
