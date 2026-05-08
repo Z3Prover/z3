@@ -271,16 +271,21 @@ namespace smt {
                     // This nasty side-effect may change the behavior of Z3.
                     out << " #" << bindings[num_bindings - i - 1]->get_owner_id();
                 }
-                out << " ;";
+                out << "\n";
                 for (auto n : used_enodes) {
                     enode *orig = std::get<0>(n);
                     enode *substituted = std::get<1>(n);
-                    if (orig == nullptr)
-                        out << " #" << substituted->get_owner_id();
-                    else {
-                        out << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";
+                    if (orig == nullptr) {
+                        out << " #" << substituted->get_owner_id()<< ": ";
+                        out <<  mk_bounded_pp(substituted->get_expr(), m(), -1) << "\n";
+                    } else {
+                        out << " (#" << orig->get_owner_id() << ": ";
+                        out << mk_bounded_pp(orig->get_expr(), m(), -1) << " ";
+                        out << " #" << substituted->get_owner_id() << ": "; 
+                        out << mk_bounded_pp(substituted->get_expr(), m(), -1) << ")\n";
                     }
                 }
+                out << " ;";
                 out << "\n";
             }
         }
