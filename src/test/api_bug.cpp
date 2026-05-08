@@ -9,7 +9,14 @@ Copyright (c) 2015 Microsoft Corporation
 #include "util/debug.h"
 
 static void test_sat_smt_bv_model_reconstruction() {
-    Z3_global_param_set("sat.smt", "true");
+    // Regression: with sat.smt=true, model reconstruction should preserve
+    // conjunctions of BV comparator predicates.
+    struct sat_smt_guard {
+        sat_smt_guard() { Z3_global_param_set("sat.smt", "true"); }
+        ~sat_smt_guard() { Z3_global_param_set("sat.smt", "false"); }
+    } guard;
+    (void)guard;
+
     Z3_context ctx = Z3_mk_context(nullptr);
     Z3_solver s = Z3_mk_solver(ctx);
     Z3_solver_inc_ref(ctx, s);
@@ -28,12 +35,13 @@ static void test_sat_smt_bv_model_reconstruction() {
     Z3_ast val = nullptr;
     ENSURE(Z3_model_eval(ctx, mdl, fml, true, &val));
     ENSURE(Z3_get_ast_kind(ctx, val) == Z3_APP_AST);
-    ENSURE(Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, Z3_to_app(ctx, val))) == Z3_OP_TRUE);
+    Z3_app val_app = Z3_to_app(ctx, val);
+    Z3_func_decl val_decl = Z3_get_app_decl(ctx, val_app);
+    ENSURE(Z3_get_decl_kind(ctx, val_decl) == Z3_OP_TRUE);
 
     Z3_model_dec_ref(ctx, mdl);
     Z3_solver_dec_ref(ctx, s);
     Z3_del_context(ctx);
-    Z3_global_param_set("sat.smt", "false");
 }
 
 void tst_api_bug() {
