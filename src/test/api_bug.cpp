@@ -6,6 +6,35 @@ Copyright (c) 2015 Microsoft Corporation
 
 #include<stdio.h>
 #include "api/z3.h"
+#include "util/debug.h"
+
+static void test_sat_smt_bv_model_reconstruction() {
+    Z3_global_param_set("sat.smt", "true");
+    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_solver s = Z3_mk_solver(ctx);
+    Z3_solver_inc_ref(ctx, s);
+
+    Z3_sort bv4 = Z3_mk_bv_sort(ctx, 4);
+    Z3_ast k = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "k"), bv4);
+    Z3_ast one = Z3_mk_unsigned_int64(ctx, 1, bv4);
+    Z3_ast three = Z3_mk_unsigned_int64(ctx, 3, bv4);
+    Z3_ast cmp[2] = { Z3_mk_bvuge(ctx, k, one), Z3_mk_bvult(ctx, k, three) };
+    Z3_ast fml = Z3_mk_and(ctx, 2, cmp);
+    Z3_solver_assert(ctx, s, fml);
+
+    ENSURE(Z3_solver_check(ctx, s) == Z3_L_TRUE);
+    Z3_model mdl = Z3_solver_get_model(ctx, s);
+    Z3_model_inc_ref(ctx, mdl);
+    Z3_ast val = nullptr;
+    ENSURE(Z3_model_eval(ctx, mdl, fml, true, &val));
+    ENSURE(Z3_get_ast_kind(ctx, val) == Z3_APP_AST);
+    ENSURE(Z3_get_decl_kind(ctx, Z3_get_app_decl(ctx, Z3_to_app(ctx, val))) == Z3_OP_TRUE);
+
+    Z3_model_dec_ref(ctx, mdl);
+    Z3_solver_dec_ref(ctx, s);
+    Z3_del_context(ctx);
+    Z3_global_param_set("sat.smt", "false");
+}
 
 void tst_api_bug() {
     unsigned vmajor, vminor, vbuild, vrevision;
@@ -46,7 +75,7 @@ void tst_api_bug() {
     printf("model : %s\n", ms);
     Z3_solver_dec_ref(ctx, s);
     Z3_del_config(cfg);
-    Z3_del_context(ctx);    
+    Z3_del_context(ctx);
+
+    test_sat_smt_bv_model_reconstruction();
 }
-
-

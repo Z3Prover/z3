@@ -42,6 +42,7 @@ Notes:
 #include "ast/simplifiers/bound_simplifier.h"
 #include "ast/simplifiers/cnf_nnf.h"
 #include "params/smt_params.h"
+#include "params/sat_params.hpp"
 #include "solver/solver_preprocess.h"
 #include "qe/lite/qe_lite_tactic.h"
 
@@ -59,10 +60,11 @@ void init_preprocess(ast_manager& m, params_ref const& p, then_simplifier& s, de
         return r;
     };
     smt_params smtp(p);
+    sat_params satp(p);
     s.add_simplifier(alloc(rewriter_simplifier, m, p, st));
     if (smtp.m_propagate_values) s.add_simplifier(alloc(propagate_values, m, p, st));
     if (smtp.m_solve_eqs) s.add_simplifier(alloc(euf::solve_eqs, m, st));
-    if (smtp.m_elim_unconstrained) s.add_simplifier(alloc(elim_unconstrained, m, st));
+    if (smtp.m_elim_unconstrained && !satp.smt()) s.add_simplifier(alloc(elim_unconstrained, m, st));
     if (smtp.m_nnf_cnf) s.add_simplifier(alloc(cnf_nnf_simplifier, m, p, st));
     if (smtp.m_macro_finder || smtp.m_quasi_macros) s.add_simplifier(alloc(eliminate_predicates, m, st));
     if (smtp.m_qe_lite) s.add_simplifier(mk_qe_lite_simplifier(m, p, st));
@@ -88,4 +90,3 @@ void init_preprocess(ast_manager& m, params_ref const& p, then_simplifier& s, de
     // 
 
 }
-
