@@ -16,7 +16,9 @@ static void test_sat_smt_bv_model_reconstruction() {
         ~sat_smt_guard() { Z3_global_param_set("sat.smt", "false"); }
     } guard;
 
-    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
     Z3_solver s = Z3_mk_solver(ctx);
     Z3_solver_inc_ref(ctx, s);
 
@@ -32,7 +34,8 @@ static void test_sat_smt_bv_model_reconstruction() {
     Z3_model mdl = Z3_solver_get_model(ctx, s);
     Z3_model_inc_ref(ctx, mdl);
     Z3_ast val = nullptr;
-    ENSURE(Z3_model_eval(ctx, mdl, fml, true, &val));
+    constexpr bool model_completion = true;
+    ENSURE(Z3_model_eval(ctx, mdl, fml, model_completion, &val));
     ENSURE(Z3_get_ast_kind(ctx, val) == Z3_APP_AST);
     Z3_app val_app = Z3_to_app(ctx, val);
     Z3_func_decl val_decl = Z3_get_app_decl(ctx, val_app);
