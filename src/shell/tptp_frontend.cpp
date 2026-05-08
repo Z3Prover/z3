@@ -83,8 +83,8 @@ class lexer {
         return c;
     }
 
-    static bool is_id_start(char c) {
-        return std::isalpha(static_cast<unsigned char>(c)) || c == '$' || c == '_' || std::isdigit(static_cast<unsigned char>(c));
+    static bool is_symbol_start(char c) {
+        return std::isalnum(static_cast<unsigned char>(c)) || c == '$' || c == '_';
     }
 
     static bool is_id_char(char c) {
@@ -212,7 +212,7 @@ public:
             break;
         }
 
-        if (is_id_start(c)) {
+        if (is_symbol_start(c)) {
             t.kind = token_kind::id;
             t.text.push_back(c);
             while (!eof() && is_id_char(peek()))
@@ -266,6 +266,14 @@ class tptp_parser {
         return out.str();
     }
 
+    void skip_wrapping_lparens() {
+        while (accept(token_kind::lparen)) {}
+    }
+
+    void skip_wrapping_rparens() {
+        while (accept(token_kind::rparen)) {}
+    }
+
     void next() { m_curr = m_lex->next(); }
 
     bool is(token_kind k) const { return m_curr.kind == k; }
@@ -310,7 +318,7 @@ class tptp_parser {
     }
 
     bool is_ttype(z3::sort const& s) const {
-        return std::string(s.name().str()) == "$tType";
+        return std::string(Z3_get_symbol_string(m_ctx, Z3_get_sort_name(m_ctx, s))) == "$tType";
     }
 
     z3::func_decl mk_decl(std::string const& name, unsigned arity, bool pred) {
@@ -473,7 +481,8 @@ class tptp_parser {
             }
         }
         if (!has_lhs) {
-            lhs = args.empty() ? mk_decl(n, 0, false)() : mk_decl(n, static_cast<unsigned>(args.size()), false)(static_cast<unsigned>(args.size()), args.data());
+            z3::func_decl f = mk_decl(n, static_cast<unsigned>(args.size()), false);
+            lhs = args.empty() ? f() : f(static_cast<unsigned>(args.size()), args.data());
         }
 
         if (is(token_kind::equal_tok) || is(token_kind::neq_tok)) {
@@ -560,11 +569,11 @@ class tptp_parser {
     }
 
     void parse_type_decl_formula() {
-        while (accept(token_kind::lparen)) {}
+        skip_wrapping_lparens();
         std::string name = parse_name();
         expect(token_kind::colon, "':'");
         parsed_type t = parse_type_expr();
-        while (accept(token_kind::rparen)) {}
+        skip_wrapping_rparens();
 
         if (t.domain.empty() && is_ttype(t.range)) {
             m_sorts.insert_or_assign(name, m_ctx.uninterpreted_sort(name.c_str()));
@@ -578,13 +587,19 @@ class tptp_parser {
         return !in.fail();
     }
 
+    static bool is_absolute_path(std::string const& name) {
+        return !name.empty() &&
+            (name[0] == '/' ||
+             (name.size() > 2 && std::isalpha(static_cast<unsigned char>(name[0])) && name[1] == ':'));
+    }
+
     std::string dirname(std::string const& f) const {
         size_t idx = f.find_last_of("/\\");
         return idx == std::string::npos ? "." : f.substr(0, idx);
     }
 
     std::string resolve_include(std::string const& curr_file, std::string const& name) const {
-        if (!name.empty() && (name[0] == '/' || (name.size() > 2 && std::isalpha(static_cast<unsigned char>(name[0])) && name[1] == ':')))
+        if (is_absolute_path(name))
             return name;
         std::string local = dirname(curr_file) + "/" + name;
         if (file_exists(local)) return local;

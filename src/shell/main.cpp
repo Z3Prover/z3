@@ -132,6 +132,15 @@ static bool validate_is_ulong(char const* s) {
             return false;
     return true;
 }
+
+static bool is_tptp_extension(char const* ext) {
+    static char const* exts[] = {"p", "tptp", "fof", "cnf", "tff", "thf"};
+    for (char const* e : exts) {
+        if (strcmp(ext, e) == 0)
+            return true;
+    }
+    return false;
+}
    
 static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv) {
     long timeout = 0;
@@ -392,7 +401,7 @@ int STD_CALL main(int argc, char ** argv) {
                 else if (strcmp(ext, "smt2") == 0) {
                     g_input_kind = IN_SMTLIB_2;
                 }
-                else if (strcmp(ext, "p") == 0 || strcmp(ext, "tptp") == 0 || strcmp(ext, "fof") == 0 || strcmp(ext, "cnf") == 0 || strcmp(ext, "tff") == 0 || strcmp(ext, "thf") == 0) {
+                else if (is_tptp_extension(ext)) {
                     g_input_kind = IN_TPTP;
                 }
             }
