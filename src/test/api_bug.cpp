@@ -15,7 +15,6 @@ static void test_sat_smt_bv_model_reconstruction() {
         sat_smt_guard() { Z3_global_param_set("sat.smt", "true"); }
         ~sat_smt_guard() { Z3_global_param_set("sat.smt", "false"); }
     } guard;
-    (void)guard;
 
     Z3_context ctx = Z3_mk_context(nullptr);
     Z3_solver s = Z3_mk_solver(ctx);
