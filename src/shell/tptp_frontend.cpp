@@ -9,7 +9,7 @@
 #include <memory>
 #include <vector>
 
-#include "api/c++/z3++.h"
+#include <api/c++/z3++.h>
 #include "shell/tptp_frontend.h"
 #include "util/error_codes.h"
 
@@ -442,21 +442,6 @@ class tptp_parser {
         return f(static_cast<unsigned>(tmp.size()), tmp.data());
     }
 
-    z3::expr parse_term() {
-        z3::expr e = parse_term_primary();
-        while (accept(token_kind::at_tok)) {
-            z3::expr arg = parse_term_primary();
-            if (!e.is_app() || e.decl().decl_kind() != Z3_OP_UNINTERPRETED)
-                throw parse_error("higher-order application is unsupported");
-            z3::func_decl f = e.decl();
-            std::vector<z3::expr> args;
-            for (unsigned i = 0; i < e.num_args(); ++i) args.push_back(e.arg(i));
-            args.push_back(arg);
-            e = f(static_cast<unsigned>(args.size()), args.data());
-        }
-        return e;
-    }
-
     z3::expr parse_formula();
 
     z3::expr parse_atomic_formula() {
@@ -570,17 +555,6 @@ class tptp_parser {
         if (accept(token_kind::implied_tok)) {
             z3::expr rhs = parse_implies_formula();
             return implies(rhs, e);
-        }
-        return e;
-    }
-
-    z3::expr parse_formula() {
-        z3::expr e = parse_implies_formula();
-        while (is(token_kind::iff_tok) || is(token_kind::xor_tok)) {
-            bool is_xor = accept(token_kind::xor_tok);
-            if (!is_xor) expect(token_kind::iff_tok, "'<=>'");
-            z3::expr rhs = parse_implies_formula();
-            e = is_xor ? !(e == rhs) : (e == rhs);
         }
         return e;
     }
@@ -731,6 +705,32 @@ public:
 
     bool has_conjecture() const { return m_has_conjecture; }
 };
+
+z3::expr tptp_parser::parse_term() {
+    z3::expr e = parse_term_primary();
+    while (accept(token_kind::at_tok)) {
+        z3::expr arg = parse_term_primary();
+        if (!e.is_app() || e.decl().decl_kind() != Z3_OP_UNINTERPRETED)
+            throw parse_error("higher-order application is unsupported");
+        z3::func_decl f = e.decl();
+        std::vector<z3::expr> args;
+        for (unsigned i = 0; i < e.num_args(); ++i) args.push_back(e.arg(i));
+        args.push_back(arg);
+        e = f(static_cast<unsigned>(args.size()), args.data());
+    }
+    return e;
+}
+
+z3::expr tptp_parser::parse_formula() {
+    z3::expr e = parse_implies_formula();
+    while (is(token_kind::iff_tok) || is(token_kind::xor_tok)) {
+        bool is_xor = accept(token_kind::xor_tok);
+        if (!is_xor) expect(token_kind::iff_tok, "'<=>'");
+        z3::expr rhs = parse_implies_formula();
+        e = is_xor ? !(e == rhs) : (e == rhs);
+    }
+    return e;
+}
 
 }
 
