@@ -60,9 +60,10 @@ struct parse_error : public std::exception {
 
 class scoped_regular_stream {
     cmd_context& m_ctx;
+    std::string m_prev;
 public:
-    scoped_regular_stream(cmd_context& ctx, std::ostream& out): m_ctx(ctx) { m_ctx.set_regular_stream(out); }
-    ~scoped_regular_stream() { m_ctx.set_regular_stream("stdout"); }
+    scoped_regular_stream(cmd_context& ctx, std::ostream& out): m_ctx(ctx), m_prev(ctx.get_regular_stream_name()) { m_ctx.set_regular_stream(out); }
+    ~scoped_regular_stream() { m_ctx.set_regular_stream(m_prev.c_str()); }
 };
 
 struct token {
@@ -374,10 +375,10 @@ class tptp_parser {
         return false;
     }
 
-    expr_ref mk_quantifier(bool is_forall, ptr_vector<app> const& bound, expr* body) {
+    expr_ref mk_quantifier(bool is_forall, ptr_vector<app> const& bound, expr_ref const& body) {
         SASSERT(body);
-        if (bound.empty()) return expr_ref(body, m);
-        return is_forall ? ::mk_forall(m, bound.size(), bound.data(), body) : ::mk_exists(m, bound.size(), bound.data(), body);
+        if (bound.empty()) return body;
+        return is_forall ? ::mk_forall(m, bound.size(), bound.data(), body.get()) : ::mk_exists(m, bound.size(), bound.data(), body.get());
     }
 
     parsed_type parse_type_atom() {
@@ -767,7 +768,7 @@ expr_ref tptp_parser::parse_term() {
         expr_ref_vector args(m);
         for (unsigned i = 0; i < a->get_num_args(); ++i) args.push_back(a->get_arg(i));
         args.push_back(arg);
-        e = m.mk_app(d, args.size(), args.data());
+        e = expr_ref(m.mk_app(d, args.size(), args.data()), m);
     }
     return e;
 }
