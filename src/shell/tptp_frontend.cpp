@@ -323,7 +323,7 @@ class tptp_parser {
     }
 
     static bool is_ttype(sort* s) {
-        return s->get_name() == symbol("$tType");
+        return s && s->get_name() == symbol("$tType");
     }
 
     static std::string mk_decl_key(std::string const& name, unsigned arity, char tag) {
@@ -750,13 +750,16 @@ expr_ref tptp_parser::parse_term() {
     expr_ref e = parse_term_primary();
     while (accept(token_kind::at_tok)) {
         expr_ref arg = parse_term_primary();
-        if (!is_app(e) || to_app(e)->get_decl()->get_family_id() != null_family_id)
+        if (!is_app(e))
             throw parse_error("application operator (@) requires uninterpreted function on left-hand side");
         app* a = to_app(e);
+        func_decl* d = a->get_decl();
+        if (!d || d->get_family_id() != null_family_id)
+            throw parse_error("application operator (@) requires uninterpreted function on left-hand side");
         expr_ref_vector args(m);
         for (unsigned i = 0; i < a->get_num_args(); ++i) args.push_back(a->get_arg(i));
         args.push_back(arg);
-        e = m.mk_app(a->get_decl(), args.size(), args.data());
+        e = m.mk_app(d, args.size(), args.data());
     }
     return e;
 }
@@ -787,6 +790,7 @@ unsigned read_tptp(char const* file_name) {
         std::ostringstream sink;
         ctx.set_regular_stream(sink);
         ctx.check_sat(0, nullptr);
+        ctx.set_regular_stream("stdout");
         switch (ctx.cs_state()) {
         case cmd_context::css_unsat:
             if (p.has_conjecture()) std::cout << "% SZS status Theorem\n";
