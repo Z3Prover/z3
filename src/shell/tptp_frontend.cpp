@@ -58,6 +58,13 @@ struct parse_error : public std::exception {
     char const* what() const noexcept override { return m_msg.c_str(); }
 };
 
+class scoped_regular_stream {
+    cmd_context& m_ctx;
+public:
+    scoped_regular_stream(cmd_context& ctx, std::ostream& out): m_ctx(ctx) { m_ctx.set_regular_stream(out); }
+    ~scoped_regular_stream() { m_ctx.set_regular_stream("stdout"); }
+};
+
 struct token {
     token_kind kind = token_kind::eof_tok;
     std::string text;
@@ -788,9 +795,8 @@ unsigned read_tptp(char const* file_name) {
         else p.parse_stream(std::cin);
 
         std::ostringstream sink;
-        ctx.set_regular_stream(sink);
+        scoped_regular_stream scoped_stream(ctx, sink);
         ctx.check_sat(0, nullptr);
-        ctx.set_regular_stream("stdout");
         switch (ctx.cs_state()) {
         case cmd_context::css_unsat:
             if (p.has_conjecture()) std::cout << "% SZS status Theorem\n";
