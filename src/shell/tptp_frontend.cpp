@@ -330,7 +330,7 @@ class tptp_parser {
     }
 
     static bool is_ttype(sort* s) {
-        return s && s->get_name() == symbol("$tType");
+        return s->get_name() == symbol("$tType");
     }
 
     static std::string mk_decl_key(std::string const& name, unsigned arity, char tag) {
@@ -375,6 +375,7 @@ class tptp_parser {
     }
 
     expr_ref mk_quantifier(bool is_forall, ptr_vector<app> const& bound, expr* body) {
+        SASSERT(body);
         if (bound.empty()) return expr_ref(body, m);
         return is_forall ? ::mk_forall(m, bound.size(), bound.data(), body) : ::mk_exists(m, bound.size(), bound.data(), body);
     }
@@ -761,7 +762,7 @@ expr_ref tptp_parser::parse_term() {
             throw parse_error("application operator (@) requires uninterpreted function on left-hand side");
         app* a = to_app(e);
         func_decl* d = a->get_decl();
-        if (!d || d->get_family_id() != null_family_id)
+        if (d->get_family_id() != null_family_id)
             throw parse_error("application operator (@) requires uninterpreted function on left-hand side");
         expr_ref_vector args(m);
         for (unsigned i = 0; i < a->get_num_args(); ++i) args.push_back(a->get_arg(i));
@@ -794,6 +795,7 @@ unsigned read_tptp(char const* file_name) {
         if (file_name) p.parse_file(file_name);
         else p.parse_stream(std::cin);
 
+        // Suppress default check-sat output; TPTP frontend reports SZS status explicitly.
         std::ostringstream sink;
         scoped_regular_stream scoped_stream(ctx, sink);
         ctx.check_sat(0, nullptr);
