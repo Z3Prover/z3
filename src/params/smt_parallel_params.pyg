@@ -8,4 +8,5 @@ def_module_params('smt_parallel',
                         ('num_global_bb_batch_threads', UINT, 0, 'run Janota-style chunking backbone worker threads; default is 0 (off), supported values are 1 (negative mode only) or 2 (negative and positive mode)'),
                         ('local_backbones', BOOL, False, 'enable local backbones experiment within the search tree parallelism'),
                         ('core_minimize', BOOL, True, 'minimize unsat cores used for parallel cube backtracking'),
+                        ('ablate_backtracking', BOOL, False, 'ablation: pass entire cube as core instead of unsat core during backtracking'),
                   ))

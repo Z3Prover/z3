@@ -122,6 +122,8 @@ namespace smt {
             // Core minimization job queue
             std::condition_variable m_core_min_cv;
             scoped_ptr_vector<core_min_job> m_core_min_jobs;
+            
+            bool m_ablate_backtracking = false;
 
             // called from batch manager to cancel other workers if we've reached a verdict
             void cancel_workers() {
@@ -258,6 +260,7 @@ namespace smt {
                 unsigned m_max_cube_depth = 20;
                 unsigned m_max_conflicts = UINT_MAX;
                 bool m_core_minimize = false;
+                bool m_ablate_backtracking = false;
             };
 
             unsigned id; // unique identifier for the worker

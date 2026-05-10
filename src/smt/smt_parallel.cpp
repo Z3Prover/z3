@@ -548,9 +548,34 @@ namespace smt {
 
         if (!targets.empty()) {
             IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: " << mk_bounded_pp(g_bb_ref, m, 3) << "\n");
-            expr_ref_vector l_core(l2g.from());
-            l_core.push_back(mk_not(backbone));
-            backtrack_unlocked(l2g, UINT_MAX, l_core, nullptr, &targets);
+            
+            if (m_ablate_backtracking) {
+                // Ablation: for each target, pass the entire path from root to that node
+                for (auto const& target : targets) {
+                    if (m_search_tree.is_lease_canceled(target.leased_node, target.cancel_epoch))
+                        continue;
+                    
+                    // Reconstruct the full path from root to this target node
+                    expr_ref_vector full_cube(l2g.from());
+                    node* n = target.leased_node;
+                    while (n) {
+                        if (!cube_config::literal_is_null(n->get_literal())) {
+                            expr* lit = n->get_literal().get();
+                            full_cube.push_back(expr_ref(lit, l2g.from()));
+                        }
+                        n = n->parent();
+                    }
+                    
+                    // Backtrack this one target with its full path
+                    vector<node_lease> single_target = { target };
+                    backtrack_unlocked(l2g, UINT_MAX, full_cube, nullptr, &single_target);
+                }
+            } else {
+                // Normal: just use the negated backbone
+                expr_ref_vector l_core(l2g.from());
+                l_core.push_back(mk_not(backbone));
+                backtrack_unlocked(l2g, UINT_MAX, l_core, nullptr, &targets);
+            }
         }
 
         return true;
@@ -798,7 +823,14 @@ namespace smt {
 
                 LOG_WORKER(1, " found unsat cube\n");
                 node* source = lease.leased_node;
-                b.backtrack(m_l2g, id, unsat_core, lease);
+                
+                // When ablating backtracking, use the entire cube path instead of the unsat core
+                expr_ref_vector const& core_to_use = m_config.m_ablate_backtracking ? cube : unsat_core;
+                if (m_config.m_ablate_backtracking) {
+                    LOG_WORKER(1, " ablating backtracking: using full cube path of size " << core_to_use.size() << "\n");
+                }
+                
+                b.backtrack(m_l2g, id, core_to_use, lease);
                 if (m_config.m_core_minimize)
                     b.enqueue_core_minimization(m_l2g, source, unsat_core);
                 lease = {};
@@ -835,6 +867,12 @@ namespace smt {
         m_config.m_global_backbones = pp.num_global_bb_batch_threads() > 0 || pp.num_global_bb_fl_threads() > 0;
         m_config.m_local_backbones = pp.local_backbones();
         m_config.m_core_minimize = pp.core_minimize();
+        m_config.m_ablate_backtracking = pp.ablate_backtracking();
+        
+        // When ablating backtracking, disable core minimization since we're using the full cube path
+        if (m_config.m_ablate_backtracking) {
+            m_config.m_core_minimize = false;
+        }
     }
 
     parallel::sls_worker::sls_worker(parallel& p)
@@ -1748,6 +1786,9 @@ namespace smt {
         
         m_worker_leases.reset();
         m_worker_leases.resize(p.m_workers.size());
+        
+        smt_parallel_params pp(p.ctx.m_params);
+        m_ablate_backtracking = pp.ablate_backtracking();
     }
 
     void parallel::batch_manager::collect_statistics(::statistics &st) const {
