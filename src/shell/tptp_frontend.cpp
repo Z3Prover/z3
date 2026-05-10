@@ -2,16 +2,21 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <memory>
 #include <vector>
 
-#include <api/c++/z3++.h>
+#include "ast/arith_decl_plugin.h"
+#include "ast/expr_abstract.h"
+#include "ast/ast_util.h"
+#include "cmd_context/cmd_context.h"
 #include "shell/tptp_frontend.h"
+#include "smt/smt_solver.h"
 #include "util/error_codes.h"
+#include "util/z3_exception.h"
 
 extern bool g_display_statistics;
 extern bool g_display_model;
@@ -50,7 +55,7 @@ enum class token_kind {
 struct parse_error : public std::exception {
     std::string m_msg;
     parse_error(std::string const& msg): m_msg(msg) {}
-    const char* what() const noexcept override { return m_msg.c_str(); }
+    char const* what() const noexcept override { return m_msg.c_str(); }
 };
 
 struct token {
@@ -227,27 +232,27 @@ public:
 };
 
 struct parsed_type {
-    std::vector<z3::sort> domain;
-    z3::sort range;
-    parsed_type(z3::sort const& s): range(s) {}
-    parsed_type(std::vector<z3::sort> const& d, z3::sort const& r): domain(d), range(r) {}
+    std::vector<sort*> domain;
+    sort* range = nullptr;
+    parsed_type(sort* s): range(s) {}
+    parsed_type(std::vector<sort*> const& d, sort* r): domain(d), range(r) {}
 };
 
 class tptp_parser {
-    z3::context& m_ctx;
-    z3::solver& m_solver;
-    z3::sort m_univ;
+    cmd_context& m_cmd;
+    ast_manager& m;
+    arith_util m_arith;
+    sort* m_univ;
     bool m_has_conjecture = false;
-    std::unordered_map<std::string, z3::sort> m_sorts;
-    std::unordered_map<std::string, z3::func_decl> m_decls;
-    std::unordered_map<std::string, std::pair<std::vector<z3::sort>, z3::sort>> m_typed_decls;
-    std::vector<std::unordered_map<std::string, z3::expr>> m_bound;
+    std::unordered_map<std::string, sort*> m_sorts;
+    std::unordered_map<std::string, func_decl*> m_decls;
+    std::unordered_map<std::string, std::pair<std::vector<sort*>, sort*>> m_typed_decls;
+    std::vector<std::unordered_map<std::string, app*>> m_bound;
     std::unordered_set<std::string> m_seen_files;
 
     std::string m_input;
     std::unique_ptr<lexer> m_lex;
     token m_curr;
-    std::vector<std::string> m_file_stack;
 
     static std::string to_lower(std::string s) {
         for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -305,20 +310,20 @@ class tptp_parser {
         throw parse_error(out.str());
     }
 
-    z3::sort get_sort(std::string const& n) {
+    sort* get_sort(std::string const& n) {
         if (n == "$i") return m_univ;
-        if (n == "$o") return m_ctx.bool_sort();
-        if (n == "$int") return m_ctx.int_sort();
-        if (n == "$real") return m_ctx.real_sort();
+        if (n == "$o") return m.mk_bool_sort();
+        if (n == "$int") return m_arith.mk_int();
+        if (n == "$real") return m_arith.mk_real();
         auto it = m_sorts.find(n);
         if (it != m_sorts.end()) return it->second;
-        z3::sort s = m_ctx.uninterpreted_sort(n.c_str());
+        sort* s = m.mk_uninterpreted_sort(symbol(n));
         m_sorts.emplace(n, s);
         return s;
     }
 
-    bool is_ttype(z3::sort const& s) const {
-        return std::string(Z3_get_symbol_string(m_ctx, Z3_get_sort_name(m_ctx, s))) == "$tType";
+    static bool is_ttype(sort* s) {
+        return s->get_name() == symbol("$tType");
     }
 
     static std::string mk_decl_key(std::string const& name, unsigned arity, char tag) {
@@ -329,16 +334,14 @@ class tptp_parser {
         return mk_decl_key(name, arity, 't');
     }
 
-    z3::func_decl mk_decl(std::string const& name, unsigned arity, bool pred) {
+    func_decl* mk_decl(std::string const& name, unsigned arity, bool pred) {
         auto itt = m_typed_decls.find(mk_typed_key(name, arity));
         if (itt != m_typed_decls.end()) {
             std::string typed_decl_key = mk_decl_key(name, arity, 'd');
             auto itd = m_decls.find(typed_decl_key);
             if (itd != m_decls.end()) return itd->second;
             auto const& sig = itt->second;
-            z3::sort_vector dom(m_ctx);
-            for (z3::sort const& s : sig.first) dom.push_back(s);
-            z3::func_decl f = m_ctx.function(name.c_str(), dom, sig.second);
+            func_decl* f = m.mk_func_decl(symbol(name), sig.first.size(), sig.first.data(), sig.second);
             m_decls.emplace(typed_decl_key, f);
             return f;
         }
@@ -347,18 +350,13 @@ class tptp_parser {
         auto itd = m_decls.find(key);
         if (itd != m_decls.end()) return itd->second;
 
-        std::vector<z3::sort> dom(arity, m_univ);
-        if (pred) {
-            z3::func_decl f = m_ctx.function(name.c_str(), arity, dom.data(), m_ctx.bool_sort());
-            m_decls.emplace(key, f);
-            return f;
-        }
-        z3::func_decl f = m_ctx.function(name.c_str(), arity, dom.data(), m_univ);
+        std::vector<sort*> dom(arity, m_univ);
+        func_decl* f = m.mk_func_decl(symbol(name), arity, dom.data(), pred ? m.mk_bool_sort() : m_univ);
         m_decls.emplace(key, f);
         return f;
     }
 
-    bool find_bound(std::string const& n, z3::expr& e) const {
+    bool find_bound(std::string const& n, expr_ref& e) const {
         for (auto it = m_bound.rbegin(); it != m_bound.rend(); ++it) {
             auto jt = it->find(n);
             if (jt != it->end()) {
@@ -369,12 +367,9 @@ class tptp_parser {
         return false;
     }
 
-    z3::expr mk_quantifier(bool is_forall, z3::expr_vector const& bound, z3::expr const& body) {
-        if (bound.empty()) return body;
-        std::vector<Z3_app> vars(bound.size());
-        for (unsigned i = 0; i < bound.size(); ++i) vars[i] = (Z3_app)(Z3_ast)bound[i];
-        Z3_ast q = Z3_mk_quantifier_const(m_ctx, is_forall, 0, bound.size(), vars.data(), 0, nullptr, body);
-        return z3::expr(m_ctx, q);
+    expr_ref mk_quantifier(bool is_forall, ptr_vector<app> const& bound, expr* body) {
+        if (bound.empty()) return expr_ref(body, m);
+        return is_forall ? ::mk_forall(m, bound.size(), bound.data(), body) : ::mk_exists(m, bound.size(), bound.data(), body);
     }
 
     parsed_type parse_type_atom() {
@@ -387,11 +382,11 @@ class tptp_parser {
         return parsed_type(get_sort(n));
     }
 
-    std::vector<z3::sort> parse_type_product() {
+    std::vector<sort*> parse_type_product() {
         parsed_type first = parse_type_atom();
         if (!first.domain.empty())
             throw parse_error("higher-order type in product is unsupported");
-        std::vector<z3::sort> args;
+        std::vector<sort*> args;
         args.push_back(first.range);
         while (accept(token_kind::star_tok)) {
             parsed_type t = parse_type_atom();
@@ -403,7 +398,7 @@ class tptp_parser {
     }
 
     parsed_type parse_type_expr() {
-        std::vector<z3::sort> prod = parse_type_product();
+        std::vector<sort*> prod = parse_type_product();
         if (accept(token_kind::gt_tok)) {
             parsed_type rhs = parse_type_expr();
             if (!rhs.domain.empty())
@@ -441,49 +436,48 @@ class tptp_parser {
         }
     }
 
-    z3::expr parse_term();
+    expr_ref parse_term();
 
-    z3::expr parse_term_primary() {
+    expr_ref parse_term_primary() {
         if (accept(token_kind::lparen)) {
-            z3::expr e = parse_term();
+            expr_ref e = parse_term();
             expect(token_kind::rparen, "')'");
             return e;
         }
         std::string n = parse_name();
-        if (n == "$true") return m_ctx.bool_val(true);
-        if (n == "$false") return m_ctx.bool_val(false);
+        if (n == "$true") return expr_ref(m.mk_true(), m);
+        if (n == "$false") return expr_ref(m.mk_false(), m);
 
-        z3::expr b(m_ctx);
+        expr_ref b(m);
         if (is_var_name(n) && find_bound(n, b))
             return b;
 
-        std::vector<z3::expr> args;
+        expr_ref_vector args(m);
         if (accept(token_kind::lparen)) {
             if (!accept(token_kind::rparen)) {
                 do { args.push_back(parse_term()); } while (accept(token_kind::comma));
                 expect(token_kind::rparen, "')'");
             }
         }
-        z3::func_decl f = mk_decl(n, static_cast<unsigned>(args.size()), false);
-        if (args.empty()) return f();
-        std::vector<z3::expr> tmp(args.begin(), args.end());
-        return f(static_cast<unsigned>(tmp.size()), tmp.data());
+
+        func_decl* f = mk_decl(n, args.size(), false);
+        return expr_ref(args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data()), m);
     }
 
-    z3::expr parse_formula();
+    expr_ref parse_formula();
 
-    z3::expr parse_atomic_formula() {
+    expr_ref parse_atomic_formula() {
         if (accept(token_kind::lparen)) {
-            z3::expr e = parse_formula();
+            expr_ref e = parse_formula();
             expect(token_kind::rparen, "')'");
             return e;
         }
 
         std::string n = parse_name();
-        if (n == "$true") return m_ctx.bool_val(true);
-        if (n == "$false") return m_ctx.bool_val(false);
+        if (n == "$true") return expr_ref(m.mk_true(), m);
+        if (n == "$false") return expr_ref(m.mk_false(), m);
 
-        std::vector<z3::expr> args;
+        expr_ref_vector args(m);
         if (accept(token_kind::lparen)) {
             if (!accept(token_kind::rparen)) {
                 do { args.push_back(parse_term()); } while (accept(token_kind::comma));
@@ -491,110 +485,119 @@ class tptp_parser {
             }
         }
 
-        z3::expr lhs(m_ctx);
+        expr_ref lhs(m);
         bool has_lhs = false;
         if (args.empty()) {
-            z3::expr b(m_ctx);
+            expr_ref b(m);
             if (is_var_name(n) && find_bound(n, b)) {
                 lhs = b;
                 has_lhs = true;
             }
         }
+
         if (is(token_kind::equal_tok) || is(token_kind::neq_tok)) {
             if (!has_lhs) {
-                z3::func_decl f = mk_decl(n, static_cast<unsigned>(args.size()), false);
-                lhs = args.empty() ? f() : f(static_cast<unsigned>(args.size()), args.data());
+                func_decl* f = mk_decl(n, args.size(), false);
+                lhs = args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data());
             }
             bool neq = accept(token_kind::neq_tok);
             if (!neq) expect(token_kind::equal_tok, "'='");
-            z3::expr rhs = parse_term();
-            return neq ? !(lhs == rhs) : (lhs == rhs);
+            expr_ref rhs = parse_term();
+            expr_ref eq(m.mk_eq(lhs, rhs), m);
+            return neq ? expr_ref(m.mk_not(eq), m) : eq;
         }
 
         if (has_lhs) {
-            if (lhs.is_bool()) return lhs;
+            if (m.is_bool(lhs)) return lhs;
             throw parse_error("non-boolean variable used as formula");
         }
 
-        auto typed = m_typed_decls.find(mk_typed_key(n, static_cast<unsigned>(args.size())));
+        auto typed = m_typed_decls.find(mk_typed_key(n, args.size()));
         if (typed != m_typed_decls.end()) {
-            z3::func_decl f = mk_decl(n, static_cast<unsigned>(args.size()), false);
-            z3::expr e = args.empty() ? f() : f(static_cast<unsigned>(args.size()), args.data());
-            if (!e.is_bool())
+            func_decl* f = mk_decl(n, args.size(), false);
+            expr_ref e(args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data()), m);
+            if (!m.is_bool(e))
                 throw parse_error("typed non-boolean term used as formula");
             return e;
         }
 
-        z3::func_decl pred = mk_decl(n, static_cast<unsigned>(args.size()), true);
-        if (args.empty()) return pred();
-        return pred(static_cast<unsigned>(args.size()), args.data());
+        func_decl* pred = mk_decl(n, args.size(), true);
+        return expr_ref(args.empty() ? m.mk_const(pred) : m.mk_app(pred, args.size(), args.data()), m);
     }
 
-    z3::expr parse_unary_formula() {
-        if (accept(token_kind::not_tok)) return !parse_unary_formula();
+    expr_ref parse_unary_formula() {
+        if (accept(token_kind::not_tok)) {
+            expr_ref e = parse_unary_formula();
+            return expr_ref(m.mk_not(e), m);
+        }
+
         if (is(token_kind::forall_tok) || is(token_kind::exists_tok)) {
             bool is_forall = is(token_kind::forall_tok);
             next();
             expect(token_kind::lbrack, "'['");
 
-            z3::expr_vector vars(m_ctx);
-            std::unordered_map<std::string, z3::expr> scope;
+            ptr_vector<app> vars;
+            std::unordered_map<std::string, app*> scope;
             if (!accept(token_kind::rbrack)) {
                 do {
                     std::string v = parse_name();
-                    z3::sort s = m_univ;
+                    sort* s = m_univ;
                     if (accept(token_kind::colon)) {
                         parsed_type t = parse_type_expr();
                         if (!t.domain.empty())
                             throw parse_error("higher-order variable type is unsupported");
                         s = t.range;
                     }
-                    z3::expr c = m_ctx.constant(v.c_str(), s);
+                    app* c = m.mk_const(symbol(v), s);
                     vars.push_back(c);
                     scope.emplace(v, c);
-                } while (accept(token_kind::comma));
+                }
+                while (accept(token_kind::comma));
                 expect(token_kind::rbrack, "']'");
             }
             expect(token_kind::colon, "':'");
             m_bound.push_back(scope);
-            z3::expr body = parse_formula();
+            expr_ref body = parse_formula();
             m_bound.pop_back();
             return mk_quantifier(is_forall, vars, body);
         }
+
         return parse_atomic_formula();
     }
 
-    z3::expr parse_and_formula() {
-        z3::expr e = parse_unary_formula();
+    expr_ref parse_and_formula() {
+        expr_ref e = parse_unary_formula();
         while (is(token_kind::and_tok) || is(token_kind::nand_tok)) {
             bool is_nand = accept(token_kind::nand_tok);
             if (!is_nand) expect(token_kind::and_tok, "'&'");
-            z3::expr rhs = parse_unary_formula();
-            e = is_nand ? !(e && rhs) : (e && rhs);
+            expr_ref rhs = parse_unary_formula();
+            expr_ref conj(::mk_and(m, e, rhs), m);
+            e = is_nand ? expr_ref(m.mk_not(conj), m) : conj;
         }
         return e;
     }
 
-    z3::expr parse_or_formula() {
-        z3::expr e = parse_and_formula();
+    expr_ref parse_or_formula() {
+        expr_ref e = parse_and_formula();
         while (is(token_kind::or_tok) || is(token_kind::nor_tok)) {
             bool is_nor = accept(token_kind::nor_tok);
             if (!is_nor) expect(token_kind::or_tok, "'|'");
-            z3::expr rhs = parse_and_formula();
-            e = is_nor ? !(e || rhs) : (e || rhs);
+            expr_ref rhs = parse_and_formula();
+            expr_ref disj(::mk_or(m, e, rhs), m);
+            e = is_nor ? expr_ref(m.mk_not(disj), m) : disj;
         }
         return e;
     }
 
-    z3::expr parse_implies_formula() {
-        z3::expr e = parse_or_formula();
+    expr_ref parse_implies_formula() {
+        expr_ref e = parse_or_formula();
         if (accept(token_kind::implies_tok)) {
-            z3::expr rhs = parse_implies_formula();
-            return implies(e, rhs);
+            expr_ref rhs = parse_implies_formula();
+            return expr_ref(m.mk_implies(e, rhs), m);
         }
         if (accept(token_kind::implied_tok)) {
-            z3::expr rhs = parse_implies_formula();
-            return implies(rhs, e);
+            expr_ref rhs = parse_implies_formula();
+            return expr_ref(m.mk_implies(rhs, e), m);
         }
         return e;
     }
@@ -607,10 +610,11 @@ class tptp_parser {
         skip_wrapping_rparens();
 
         if (t.domain.empty() && is_ttype(t.range)) {
-            m_sorts.insert_or_assign(name, m_ctx.uninterpreted_sort(name.c_str()));
+            m_sorts.insert_or_assign(name, m.mk_uninterpreted_sort(symbol(name)));
             return;
         }
-        m_typed_decls.insert_or_assign(mk_typed_key(name, static_cast<unsigned>(t.domain.size())), std::make_pair(t.domain, t.range));
+
+        m_typed_decls.insert_or_assign(mk_typed_key(name, t.domain.size()), std::make_pair(t.domain, t.range));
     }
 
     static bool file_exists(std::string const& f) {
@@ -658,7 +662,7 @@ class tptp_parser {
         parse_file(resolve_include(curr_file, file));
     }
 
-    void parse_annotated(std::string const& kind) {
+    void parse_annotated() {
         expect(token_kind::lparen, "'('");
         parse_name();
         expect(token_kind::comma, "','");
@@ -669,12 +673,12 @@ class tptp_parser {
             parse_type_decl_formula();
         }
         else {
-            z3::expr f = parse_formula();
+            expr_ref f = parse_formula();
             if (role == "conjecture") {
                 m_has_conjecture = true;
-                f = !f;
+                f = m.mk_not(f);
             }
-            m_solver.add(f);
+            m_cmd.assert_expr(f);
         }
 
         if (accept(token_kind::comma)) {
@@ -682,8 +686,6 @@ class tptp_parser {
         }
         expect(token_kind::rparen, "')'");
         expect(token_kind::dot, "'.'");
-
-        (void)kind;
     }
 
     void parse_toplevel(std::string const& current_file) {
@@ -693,7 +695,7 @@ class tptp_parser {
                 parse_include(current_file);
             }
             else if (kw == "fof" || kw == "cnf" || kw == "tff" || kw == "thf") {
-                parse_annotated(kw);
+                parse_annotated();
             }
             else {
                 std::ostringstream out;
@@ -704,15 +706,16 @@ class tptp_parser {
     }
 
 public:
-    tptp_parser(z3::context& ctx, z3::solver& solver):
-        m_ctx(ctx),
-        m_solver(solver),
-        m_univ(ctx.uninterpreted_sort("U")) {
-        m_sorts.emplace("$tType", ctx.uninterpreted_sort("$tType"));
+    tptp_parser(cmd_context& cmd):
+        m_cmd(cmd),
+        m(m_cmd.m()),
+        m_arith(m),
+        m_univ(m.mk_uninterpreted_sort(symbol("U"))) {
+        m_sorts.emplace("$tType", m.mk_uninterpreted_sort(symbol("$tType")));
         m_sorts.emplace("$i", m_univ);
-        m_sorts.emplace("$o", m_ctx.bool_sort());
-        m_sorts.emplace("$int", m_ctx.int_sort());
-        m_sorts.emplace("$real", m_ctx.real_sort());
+        m_sorts.emplace("$o", m.mk_bool_sort());
+        m_sorts.emplace("$int", m_arith.mk_int());
+        m_sorts.emplace("$real", m_arith.mk_real());
     }
 
     void parse_file(std::string const& filename) {
@@ -728,9 +731,7 @@ public:
         m_input = buf.str();
         m_lex = std::make_unique<lexer>(m_input);
         next();
-        m_file_stack.push_back(filename);
         parse_toplevel(filename);
-        m_file_stack.pop_back();
     }
 
     void parse_stream(std::istream& in) {
@@ -745,28 +746,29 @@ public:
     bool has_conjecture() const { return m_has_conjecture; }
 };
 
-z3::expr tptp_parser::parse_term() {
-    z3::expr e = parse_term_primary();
+expr_ref tptp_parser::parse_term() {
+    expr_ref e = parse_term_primary();
     while (accept(token_kind::at_tok)) {
-        z3::expr arg = parse_term_primary();
-        if (!e.is_app() || e.decl().decl_kind() != Z3_OP_UNINTERPRETED)
+        expr_ref arg = parse_term_primary();
+        if (!is_app(e) || to_app(e)->get_decl()->get_family_id() != null_family_id)
             throw parse_error("application operator (@) requires uninterpreted function on left-hand side");
-        z3::func_decl f = e.decl();
-        std::vector<z3::expr> args;
-        for (unsigned i = 0; i < e.num_args(); ++i) args.push_back(e.arg(i));
+        app* a = to_app(e);
+        expr_ref_vector args(m);
+        for (unsigned i = 0; i < a->get_num_args(); ++i) args.push_back(a->get_arg(i));
         args.push_back(arg);
-        e = f(static_cast<unsigned>(args.size()), args.data());
+        e = m.mk_app(a->get_decl(), args.size(), args.data());
     }
     return e;
 }
 
-z3::expr tptp_parser::parse_formula() {
-    z3::expr e = parse_implies_formula();
+expr_ref tptp_parser::parse_formula() {
+    expr_ref e = parse_implies_formula();
     while (is(token_kind::iff_tok) || is(token_kind::xor_tok)) {
         bool is_xor = accept(token_kind::xor_tok);
         if (!is_xor) expect(token_kind::iff_tok, "'<=>'");
-        z3::expr rhs = parse_implies_formula();
-        e = is_xor ? !(e == rhs) : (e == rhs);
+        expr_ref rhs = parse_implies_formula();
+        expr_ref iff(m.mk_iff(e, rhs), m);
+        e = is_xor ? expr_ref(m.mk_not(iff), m) : iff;
     }
     return e;
 }
@@ -775,36 +777,53 @@ z3::expr tptp_parser::parse_formula() {
 
 unsigned read_tptp(char const* file_name) {
     try {
-        z3::context ctx;
-        z3::solver solver(ctx);
-        tptp_parser p(ctx, solver);
+        cmd_context ctx;
+        ctx.set_solver_factory(mk_smt_strategic_solver_factory());
+
+        tptp_parser p(ctx);
         if (file_name) p.parse_file(file_name);
         else p.parse_stream(std::cin);
 
-        z3::check_result r = solver.check();
-        if (r == z3::unsat) {
+        std::ostringstream sink;
+        ctx.set_regular_stream(sink);
+        ctx.check_sat(0, nullptr);
+        switch (ctx.cs_state()) {
+        case cmd_context::css_unsat:
             if (p.has_conjecture()) std::cout << "% SZS status Theorem\n";
             else std::cout << "% SZS status Unsatisfiable\n";
-        }
-        else if (r == z3::sat) {
+            break;
+        case cmd_context::css_sat:
             if (p.has_conjecture()) std::cout << "% SZS status CounterSatisfiable\n";
             else std::cout << "% SZS status Satisfiable\n";
-            if (g_display_model) std::cout << solver.get_model() << "\n";
-        }
-        else {
+            if (g_display_model) {
+                model_ref mdl;
+                if (ctx.is_model_available(mdl))
+                    ctx.display_model(mdl);
+            }
+            break;
+        case cmd_context::css_unknown:
             std::cout << "% SZS status GaveUp\n";
-            std::string reason = solver.reason_unknown();
-            if (!reason.empty()) std::cout << "% SZS reason " << reason << "\n";
+            {
+                std::string reason = ctx.reason_unknown();
+                if (!reason.empty()) std::cout << "% SZS reason " << reason << "\n";
+            }
+            break;
+        default:
+            break;
         }
-        if (g_display_statistics) std::cout << solver.statistics() << "\n";
+
+        if (g_display_statistics) {
+            ctx.set_regular_stream("stdout");
+            ctx.display_statistics();
+        }
         return 0;
     }
     catch (parse_error const& ex) {
         std::cerr << "TPTP parse error: " << ex.what() << "\n";
         return ERR_PARSER;
     }
-    catch (z3::exception const& ex) {
-        std::cerr << "TPTP frontend error: " << ex.msg() << "\n";
+    catch (z3_exception& ex) {
+        std::cerr << "TPTP frontend error: " << ex.what() << "\n";
         return ERR_INTERNAL_FATAL;
     }
 }
