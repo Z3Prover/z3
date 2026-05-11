@@ -647,6 +647,101 @@ namespace smt {
         }
     }
 
+    app * theory_fpa::fpa2bv_value_proc::mk_value(model_generator & mg, expr_ref_vector const & values) {
+        ast_manager & m = m_th.get_manager();
+        fpa_util & fu = m_th.m_fpa_util;
+        bv_util & bu = m_th.m_bv_util;
+        context & ctx = m_th.get_context();
+
+        app * fpa_val = (values.empty() || !values[0]) ? nullptr : to_app(values[0]);
+        if (!fpa_val) {
+            if (!mg.get_root2value().find(m_fpa_n, fpa_val)) {
+                datatype_util dt(m);
+                expr * expr_n = m_fpa_n->get_expr();
+                if (is_app(expr_n) && to_app(expr_n)->get_num_args() == 1) {
+                    func_decl * f = to_app(expr_n)->get_decl();
+                    if (dt.is_accessor(f)) {
+                        enode * arg_n = m_fpa_n->get_arg(0)->get_root();
+                        app * arg_val = nullptr;
+                        if (mg.get_root2value().find(arg_n, arg_val)) {
+                            if (dt.is_constructor(arg_val)) {
+                                ptr_vector<func_decl> const * accessors = dt.get_constructor_accessors(arg_val->get_decl());
+                                if (accessors) {
+                                    for (unsigned i = 0; i < accessors->size(); ++i) {
+                                        if ((*accessors)[i] == f) {
+                                            expr * acc_val = arg_val->get_arg(i);
+                                            if (m.is_value(acc_val)) {
+                                                fpa_val = to_app(acc_val);
+                                            }
+                                            else if (is_app(acc_val) && ctx.e_internalized(acc_val)) {
+                                                enode * acc_n = ctx.get_enode(acc_val)->get_root();
+                                                mg.get_root2value().find(acc_n, fpa_val);
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!fpa_val) {
+            TRACE("fpa", tout << "fpa2bv_value_proc: defaulting to +0.0 for " << mk_pp(m_fpa_n->get_expr(), m) << "\n";);
+            fpa_val = fu.mk_pzero(m_ebits, m_sbits);
+        }
+
+        scoped_mpf v(fu.fm());
+        if (fu.is_numeral(fpa_val, v)) {
+            expr_ref result_fp(m);
+            m_th.m_converter.mk_numeral(fpa_val->get_sort(), v, result_fp);
+            if (fu.is_fp(result_fp)) {
+                expr * sgn = to_app(result_fp)->get_arg(0);
+                expr * exp = to_app(result_fp)->get_arg(1);
+                expr * sig = to_app(result_fp)->get_arg(2);
+                return bu.mk_concat(bu.mk_concat(sgn, exp), sig);
+            }
+        }
+        return bu.mk_numeral(0, m_ebits + m_sbits);
+    }
+
+    void theory_fpa::register_fpa2bv_processors(model_generator & mg, obj_map<enode, model_value_proc *> & root2proc, ptr_vector<enode> & roots, ptr_vector<model_value_proc> & procs) {
+        for (auto const& kv : m_conversions) {
+            expr * fpa_expr = kv.m_key;
+            expr * bv_expr = kv.m_value;
+            if (ctx.e_internalized(fpa_expr) && ctx.e_internalized(bv_expr) && m_fpa_util.is_float(fpa_expr)) {
+                app_ref owner(m);
+                owner = get_ite_value(fpa_expr);
+                if (!owner || owner->get_family_id() == get_family_id())
+                    continue;
+
+                enode * fpa_n = ctx.get_enode(fpa_expr)->get_root();
+                enode * bv_n = ctx.get_enode(bv_expr)->get_root();
+
+                // if (!root2proc.contains(fpa_n))
+                //     continue;
+
+                if (root2proc.contains(bv_n)) {
+                    if (dynamic_cast<fpa2bv_value_proc*>(root2proc[bv_n]))
+                        continue;
+                }
+
+                unsigned ebits = m_fpa_util.get_ebits(fpa_expr->get_sort());
+                unsigned sbits = m_fpa_util.get_sbits(fpa_expr->get_sort());
+                model_value_proc * proc = alloc(fpa2bv_value_proc, this, ebits, sbits, fpa_n);
+                procs.push_back(proc);
+
+                bool is_new = !root2proc.contains(bv_n);
+                root2proc.insert(bv_n, proc);
+                if (is_new) {
+                    roots.push_back(bv_n);
+                }
+            }
+        }
+    }
+
     void theory_fpa::display(std::ostream & out) const
     {
 
