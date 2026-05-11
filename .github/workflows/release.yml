@@ -315,8 +315,9 @@ jobs:
       
       - name: Select Python
         run: |
+          # Use the first available manylinux interpreter for deterministic selection.
           PYTHON=$(printf '%s\n' /opt/python/*/bin/python | sort -V | head -n1)
-          test -x "$PYTHON"
+          test -x "$PYTHON" || { echo "Error: no interpreter found under /opt/python/*/bin/python"; exit 1; }
           echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
           "$PYTHON" --version
 
@@ -360,8 +361,9 @@ jobs:
       
       - name: Select Python
         run: |
+          # Use the first available manylinux interpreter for deterministic selection.
           PYTHON=$(printf '%s\n' /opt/python/*/bin/python | sort -V | head -n1)
-          test -x "$PYTHON"
+          test -x "$PYTHON" || { echo "Error: no interpreter found under /opt/python/*/bin/python"; exit 1; }
           echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
           "$PYTHON" --version
 
@@ -415,8 +417,9 @@ jobs:
       
       - name: Select Python
         run: |
+          # Use the first available manylinux interpreter for deterministic selection.
           PYTHON=$(printf '%s\n' /opt/python/*/bin/python | sort -V | head -n1)
-          test -x "$PYTHON"
+          test -x "$PYTHON" || { echo "Error: no interpreter found under /opt/python/*/bin/python"; exit 1; }
           echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
           "$PYTHON" --version
 
