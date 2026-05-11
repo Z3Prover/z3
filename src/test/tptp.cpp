@@ -2,6 +2,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <cctype>
+#include <iostream>
 #include "util/debug.h"
 
 #ifdef _WINDOWS
@@ -20,16 +22,33 @@ struct tptp_case {
     char const* expected_status;
 };
 
-constexpr unsigned tptp_buf_sz = 4096;
+constexpr unsigned tptp_buffer_size = 4096;
+
+static bool is_safe_file_name(char const* s) {
+    while (*s) {
+        unsigned char c = static_cast<unsigned char>(*s);
+        if (!(std::isalnum(c) || c == '.' || c == '-' || c == '_'))
+            return false;
+        ++s;
+    }
+    return true;
+}
 
 static std::string run_tptp(char const* file) {
+    if (!is_safe_file_name(file)) {
+        std::cerr << "Unsafe TPTP test filename: " << file << "\n";
+        ENSURE(false);
+    }
     std::ostringstream cmd;
     cmd << "\"" << Z3_TEST_BIN_DIR << "/" << z3_bin_name << "\" -tptp "
         << "\"" << Z3_TEST_SRC_DIR << "/tptp/" << file << "\" 2>&1";
     FILE* pipe = Z3_POPEN(cmd.str().c_str(), "r");
-    ENSURE(pipe != nullptr);
+    if (!pipe) {
+        std::cerr << "Failed to execute command: " << cmd.str() << "\n";
+        ENSURE(false);
+    }
     std::string out;
-    char buffer[tptp_buf_sz];
+    char buffer[tptp_buffer_size];
     while (fgets(buffer, sizeof(buffer), pipe))
         out += buffer;
     int code = Z3_PCLOSE(pipe);
@@ -37,7 +56,11 @@ static std::string run_tptp(char const* file) {
     if (WIFEXITED(code))
         code = WEXITSTATUS(code);
 #endif
-    ENSURE(code == 0);
+    if (code != 0) {
+        std::cerr << "TPTP command failed for file '" << file << "' with exit code " << code << "\n";
+        std::cerr << out << "\n";
+        ENSURE(false);
+    }
     return out;
 }
 
