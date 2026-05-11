@@ -83,8 +83,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6.0.2
 
+      - name: Select Python
+        run: |
+          PYTHON=$(ls -1 /opt/python/*/bin/python | sort | head -n1)
+          test -x "$PYTHON"
+          echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
+          "$PYTHON" --version
+
       - name: Setup Python virtual environment
-        run: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
+        run: "$PYTHON -m venv $PWD/env"
 
       - name: Install build dependencies
         run: |
@@ -123,8 +130,15 @@ jobs:
           mkdir -p /tmp/arm-toolchain/
           tar xf /tmp/arm-toolchain.tar.xz -C /tmp/arm-toolchain/ --strip-components=1
 
+      - name: Select Python
+        run: |
+          PYTHON=$(ls -1 /opt/python/*/bin/python | sort | head -n1)
+          test -x "$PYTHON"
+          echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
+          "$PYTHON" --version
+
       - name: Setup Python virtual environment
-        run: "/opt/python/cp38-cp38/bin/python -m venv $PWD/env"
+        run: "$PYTHON -m venv $PWD/env"
 
       - name: Install build dependencies
         run: |
