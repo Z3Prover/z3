@@ -146,7 +146,6 @@ add_executable(test-z3
   theory_pb.cpp
   timeout.cpp
   tptp.cpp
-  ../shell/tptp_frontend.cpp
   total_order.cpp
   totalizer.cpp
   trigo.cpp
@@ -167,7 +166,6 @@ z3_add_memory_initializer_rule(${z3_test_deps})
 z3_add_gparams_register_modules_rule(${z3_test_deps})
 target_compile_definitions(test-z3 PRIVATE
   ${Z3_COMPONENT_CXX_DEFINES}
-  Z3_TEST_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
 )
 target_compile_options(test-z3 PRIVATE ${Z3_COMPONENT_CXX_FLAGS})
 target_link_libraries(test-z3 PRIVATE ${Z3_DEPENDENT_LIBS})

@@ -30,7 +30,7 @@ Revision History:
 #include "shell/dimacs_frontend.h"
 #include "shell/datalog_frontend.h"
 #include "shell/opt_frontend.h"
-#include "shell/tptp_frontend.h"
+#include "cmd_context/tptp_frontend.h"
 #include "util/timeout.h"
 #include "util/z3_exception.h"
 #include "util/error_codes.h"

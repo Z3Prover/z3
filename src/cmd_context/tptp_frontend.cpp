@@ -13,7 +13,7 @@
 #include "ast/expr_abstract.h"
 #include "ast/ast_util.h"
 #include "cmd_context/cmd_context.h"
-#include "shell/tptp_frontend.h"
+#include "cmd_context/tptp_frontend.h"
 #include "smt/smt_solver.h"
 #include "util/error_codes.h"
 #include "util/z3_exception.h"
@@ -727,6 +727,15 @@ public:
         m_sorts.emplace("$real", m_arith.mk_real());
     }
 
+    void parse_stream(std::istream& in, std::string const& current_file) {
+        std::ostringstream buf;
+        buf << in.rdbuf();
+        m_input = buf.str();
+        m_lex = std::make_unique<lexer>(m_input);
+        next();
+        parse_toplevel(current_file);
+    }
+
     void parse_file(std::string const& filename) {
         if (!m_seen_files.insert(filename).second) return;
         std::ifstream in(filename);
@@ -735,21 +744,11 @@ public:
             out << "failed to open file '" << filename << "'";
             throw parse_error(out.str());
         }
-        std::ostringstream buf;
-        buf << in.rdbuf();
-        m_input = buf.str();
-        m_lex = std::make_unique<lexer>(m_input);
-        next();
-        parse_toplevel(filename);
+        parse_stream(in, filename);
     }
 
     void parse_stream(std::istream& in) {
-        std::ostringstream buf;
-        buf << in.rdbuf();
-        m_input = buf.str();
-        m_lex = std::make_unique<lexer>(m_input);
-        next();
-        parse_toplevel(".");
+        parse_stream(in, ".");
     }
 
     bool has_conjecture() const { return m_has_conjecture; }
@@ -787,14 +786,13 @@ expr_ref tptp_parser::parse_formula() {
 
 }
 
-unsigned read_tptp(char const* file_name) {
+static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
     try {
         cmd_context ctx;
         ctx.set_solver_factory(mk_smt_strategic_solver_factory());
 
         tptp_parser p(ctx);
-        if (file_name) p.parse_file(file_name);
-        else p.parse_stream(std::cin);
+        p.parse_stream(in, current_file ? current_file : ".");
 
         // Suppress default check-sat output; TPTP frontend reports SZS status explicitly.
         std::ostringstream sink;
@@ -839,4 +837,20 @@ unsigned read_tptp(char const* file_name) {
         std::cerr << "TPTP frontend error: " << ex.what() << "\n";
         return ERR_INTERNAL_FATAL;
     }
+}
+
+unsigned read_tptp(char const* file_name) {
+    if (!file_name)
+        return read_tptp_stream(std::cin, ".");
+    std::ifstream in(file_name);
+    if (in.fail()) {
+        std::cerr << "TPTP parse error: failed to open file '" << file_name << "'\n";
+        return ERR_PARSER;
+    }
+    return read_tptp_stream(in, file_name);
+}
+
+unsigned read_tptp_string(char const* input) {
+    std::istringstream in(input ? input : "");
+    return read_tptp_stream(in, "<string>");
 }
