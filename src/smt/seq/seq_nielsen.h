@@ -1190,6 +1190,18 @@ namespace seq {
         // (bypasses the novelty guard used by try_extract_partial_projection).
         euf::snode* get_current_stabilizer(euf::snode* root_re);
 
+        // BFS of Brzozowski derivatives from root_re up to `depth` steps,
+        // eagerly recording concrete minterm edges in the partial DFA so that
+        // collect_scc_for_projection can find cycles without first waiting for
+        // concrete children to record them one level at a time.
+        void precompute_partial_dfa(euf::snode* root_re, unsigned depth);
+
+        // Walk an ite-structured symbolic derivative expression and record
+        // concrete DFA edges for each non-fail branch.
+        // Called from simplify_and_init when a symbolic character is consumed,
+        // so that cycle_decomp can detect SCCs lazily (as with concrete chars).
+        void record_dfa_edges_from_ite(euf::snode* src_re, expr* ite_deriv);
+
         // generalized power introduction: for an equation where one head is
         // a variable v and the other side has ground prefix + a variable x
         // forming a cycle back to v, introduce v = base^n · suffix.

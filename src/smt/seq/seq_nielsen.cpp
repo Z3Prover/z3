@@ -1451,8 +1451,23 @@ namespace seq {
                         set_conflict(backtrack_reason::regex, mem.m_dep);
                         return simplify_result::conflict;
                     }
-                    if (fwd)
-                        m_graph.record_partial_derivative_edge(src_re, tok, deriv);
+                    if (fwd) {
+                        if (tok->is_char()) {
+                            // concrete char: record single edge directly
+                            m_graph.record_partial_derivative_edge(src_re, tok, deriv);
+                        } else if (src_re->is_ground()) {
+                            // symbolic unit: record all concrete minterm edges for src_re
+                            // so cycle_decomp can detect SCCs lazily (mirrors old concrete
+                            // per-minterm var_split behaviour).
+                            euf::snode_vector mts;
+                            sg.compute_minterms(src_re, mts);
+                            for (euf::snode* mt : mts) {
+                                euf::snode* mt_deriv = sg.brzozowski_deriv(src_re, mt);
+                                if (mt_deriv && !mt_deriv->is_fail() && mt_deriv->is_ground())
+                                    m_graph.record_partial_derivative_edge(src_re, mt, mt_deriv);
+                            }
+                        }
+                    }
                     mem.m_str = dir_drop(sg, mem.m_str, 1, fwd);
                     mem.m_regex = deriv;
                 }
@@ -1471,18 +1486,32 @@ namespace seq {
                 if (!tok || !tok->is_char_or_unit())
                     break;
 
+                euf::snode* src_re = mem.m_regex;
                 seq_rewriter rw(m);
                 expr_ref d(rw.mk_derivative(mem.m_regex->get_expr()), m);
 
                 // Extract the inner char expression from seq.unit(?inner)
                 expr *inner_char = tok->arg(0)->get_expr();
-               
+
                 // substitute the inner char for the derivative variable in d
                 var_subst vs(m);
                 d = vs(d, inner_char);
 
                 th_rewriter thrw(m);
                 thrw(d);
+
+                // Record concrete minterm edges for src_re so cycle_decomp can
+                // detect SCCs lazily (mirrors the incremental DFA building from
+                // concrete char consumption in the loop above).
+                if (src_re->is_ground()) {
+                    euf::snode_vector mts;
+                    sg.compute_minterms(src_re, mts);
+                    for (euf::snode* mt : mts) {
+                        euf::snode* mt_deriv = sg.brzozowski_deriv(src_re, mt);
+                        if (mt_deriv && !mt_deriv->is_fail())
+                            m_graph.record_partial_derivative_edge(src_re, mt, mt_deriv);
+                    }
+                }
 
                 auto next = sg.mk(d);
                 if (next->is_fail()) {
@@ -3057,6 +3086,72 @@ namespace seq {
     }
 
     // -----------------------------------------------------------------------
+    // Helper: precompute_partial_dfa
+    // BFS of Brzozowski derivatives from root_re up to `depth` steps, recording
+    // all concrete minterm edges in the partial DFA.  Called eagerly from
+    // apply_cycle_decomposition (priority 6) so that SCC detection can fire
+    // before apply_regex_var_split (priority 10) creates a symbolic child whose
+    // ite-derivative would otherwise delay SCC detection by one more level.
+    // -----------------------------------------------------------------------
+
+    void nielsen_graph::precompute_partial_dfa(euf::snode* root_re, unsigned depth) {
+        if (!root_re || !root_re->is_ground())
+            return;
+
+        struct work_item { euf::snode* re; unsigned d; };
+        svector<work_item> queue;
+        queue.push_back({root_re, depth});
+        uint_set visited;
+        visited.insert(root_re->id());
+
+        while (!queue.empty()) {
+            auto [re, d] = queue.back();
+            queue.pop_back();
+            euf::snode_vector mts;
+            m_sg.compute_minterms(re, mts);
+            for (euf::snode* mt : mts) {
+                euf::snode* deriv = m_sg.brzozowski_deriv(re, mt);
+                if (!deriv || deriv->is_fail())
+                    continue;
+                record_partial_derivative_edge(re, mt, deriv);
+                if (d > 0 && deriv->is_ground() && !visited.contains(deriv->id())) {
+                    visited.insert(deriv->id());
+                    queue.push_back({deriv, d - 1});
+                }
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Helper: record_dfa_edges_from_ite
+    // Walk an ite-structured symbolic derivative and record a concrete DFA edge
+    // for each non-fail branch.  The ite has the form:
+    //   ite(in_re(char_var, minterm_re), branch_re, rest_ite)
+    // Each (minterm_re, branch_re) pair gives one DFA edge src_re→branch_re.
+    // Called from simplify_and_init so that cycle_decomp can detect SCCs lazily
+    // as symbolic chars are consumed (mirroring the old concrete-char approach).
+    // -----------------------------------------------------------------------
+
+    void nielsen_graph::record_dfa_edges_from_ite(euf::snode* src_re, expr* ite_deriv) {
+        if (!src_re || !ite_deriv)
+            return;
+        expr *c, *th, *el;
+        if (!m.is_ite(ite_deriv, c, th, el))
+            return;
+        expr *char_ex, *minterm_re;
+        if (m_seq.str.is_in_re(c, char_ex, minterm_re)) {
+            if (!m_seq.re.is_empty(th)) {
+                euf::snode* dst = m_sg.mk(th);
+                if (dst && !dst->is_fail() && dst->is_ground()) {
+                    euf::snode* label = m_sg.mk(minterm_re);
+                    record_partial_derivative_edge(src_re, label, dst);
+                }
+            }
+        }
+        record_dfa_edges_from_ite(src_re, el);
+    }
+
+    // -----------------------------------------------------------------------
     // Helper: get_current_stabilizer
     // Returns the current partial DFA stabilizer s* for root_re without the
     // novelty guard from try_extract_partial_projection.  Returns nullptr if
@@ -3162,6 +3257,11 @@ namespace seq {
 
             euf::snode* x = first;
             euf::snode* stabilizer_re = nullptr;
+
+            // Eagerly precompute partial DFA edges from this regex so that
+            // collect_scc_for_projection can detect cycles without waiting
+            // for apply_regex_var_split to create per-minterm children.
+            precompute_partial_dfa(mem.m_regex, 2);
 
             if (!try_extract_partial_projection(mem.m_regex, stabilizer_re))
                 continue;
@@ -3891,9 +3991,7 @@ namespace seq {
                 child->apply_subst(m_sg, s);
             }
 
-            // Branch 2+: for each minterm m_i, x → ?c · x
-            // where ?c is a symbolic char constrained by the minterm
-
+            // Branch 2: x → ?c · x, where ?c is a fresh symbolic char.
             // for variables at mod_count 0 and other terms, use symbolic (str.len expr)
             // NSB review:
             // it really is seq.nth (length-of-prefix that was chopped of for first)
