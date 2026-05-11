@@ -54,8 +54,6 @@ R"(fof(a1,axiom, p(a)).)",
     };
     for (auto const& c : cases) {
         std::string out = run_tptp(c.input);
-        if (out.find(c.expected_status) == std::string::npos)
-            std::cerr << "Unexpected TPTP status for case: " << c.name << "\n" << out << "\n";
         ENSURE(out.find(c.expected_status) != std::string::npos);
     }
 }

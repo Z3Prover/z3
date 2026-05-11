@@ -727,7 +727,7 @@ public:
         m_sorts.emplace("$real", m_arith.mk_real());
     }
 
-    void parse_stream(std::istream& in, std::string const& current_file) {
+    void parse_input(std::istream& in, std::string const& current_file) {
         std::ostringstream buf;
         buf << in.rdbuf();
         m_input = buf.str();
@@ -744,11 +744,11 @@ public:
             out << "failed to open file '" << filename << "'";
             throw parse_error(out.str());
         }
-        parse_stream(in, filename);
+        parse_input(in, filename);
     }
 
     void parse_stream(std::istream& in) {
-        parse_stream(in, ".");
+        parse_input(in, ".");
     }
 
     bool has_conjecture() const { return m_has_conjecture; }
@@ -792,7 +792,7 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         ctx.set_solver_factory(mk_smt_strategic_solver_factory());
 
         tptp_parser p(ctx);
-        p.parse_stream(in, current_file ? current_file : ".");
+        p.parse_input(in, current_file ? current_file : ".");
 
         // Suppress default check-sat output; TPTP frontend reports SZS status explicitly.
         std::ostringstream sink;
