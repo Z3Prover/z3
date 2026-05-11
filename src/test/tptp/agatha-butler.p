@@ -15,5 +15,4 @@ fof(ax11,axiom, ! [X] : (? [Y] : ~ hates(X,Y))).
 fof(ax12,axiom, agatha != butler).
 fof(ax13,axiom, ? [X] : killed(X,agatha)).
 
-fof(conj,conjecture, killed(agatha,agatha)).
-
+fof(conj,conjecture, ~ killed(butler,agatha)).

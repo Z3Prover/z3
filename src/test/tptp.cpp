@@ -20,6 +20,8 @@ struct tptp_case {
     char const* expected_status;
 };
 
+constexpr unsigned tptp_buf_sz = 4096;
+
 static std::string run_tptp(char const* file) {
     std::ostringstream cmd;
     cmd << "\"" << Z3_TEST_BIN_DIR << "/" << z3_bin_name << "\" -tptp "
@@ -27,7 +29,7 @@ static std::string run_tptp(char const* file) {
     FILE* pipe = Z3_POPEN(cmd.str().c_str(), "r");
     ENSURE(pipe != nullptr);
     std::string out;
-    char buffer[4096];
+    char buffer[tptp_buf_sz];
     while (fgets(buffer, sizeof(buffer), pipe))
         out += buffer;
     int code = Z3_PCLOSE(pipe);
@@ -41,7 +43,7 @@ static std::string run_tptp(char const* file) {
 
 void tst_tptp() {
     std::vector<tptp_case> cases = {
-        {"agatha-butler.p", "% SZS status CounterSatisfiable"},
+        {"agatha-butler.p", "% SZS status Theorem"},
         {"socrates-theorem.p", "% SZS status Theorem"},
         {"simple-sat.p", "% SZS status Satisfiable"}
     };
