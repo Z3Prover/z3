@@ -50,7 +50,6 @@ namespace search_tree {
         unsigned m_effort_spent = 0;
         unsigned m_round_max_effort = 0;
         unsigned m_active_workers = 0;
-        unsigned m_epoch = 0;
         unsigned m_cancel_epoch = 0;
 
     public:
@@ -78,7 +77,6 @@ namespace search_tree {
             SASSERT(!m_right);
             m_left = alloc(node<Config>, a, this);
             m_right = alloc(node<Config>, b, this);
-            inc_epoch();
         }
 
         node* left() const { return m_left; }
@@ -149,12 +147,6 @@ namespace search_tree {
             m_effort_spent -= m_round_max_effort;
             m_round_max_effort = effort;
             m_effort_spent += m_round_max_effort;
-        }
-        unsigned epoch() const {
-            return m_epoch;
-        }
-        void inc_epoch() {
-            ++m_epoch;
         }
         unsigned get_cancel_epoch() const {
             return m_cancel_epoch;
@@ -242,7 +234,7 @@ namespace search_tree {
                    count_active_nodes(cur->right());
         }
 
-        // Find the shallowest leaf node that at least 1 worker has visited
+        // Find the depth of the shallowest leaf node that at least 1 worker has timed out on
         // Used for tree expansion policy
         void find_shallowest_timed_out_leaf_depth(node<Config>* cur, unsigned& best_depth) const {
             if (!cur || cur->get_status() == status::closed)
@@ -255,8 +247,8 @@ namespace search_tree {
             find_shallowest_timed_out_leaf_depth(cur->right(), best_depth);
         }
 
-        bool should_split(node<Config>* n, unsigned epoch) {
-            if (!is_lease_valid(n, epoch) || !n->is_leaf())
+        bool should_split(node<Config>* n) {
+            if (!n || n->get_status() != status::active || !n->is_leaf())
                 return false;
 
             unsigned num_active_nodes = count_active_nodes(m_root.get());
@@ -348,7 +340,6 @@ namespace search_tree {
         void close(node<Config> *n, vector<literal> const &C) {
             if (!n || n->get_status() == status::closed)
                 return;
-            n->inc_epoch();
             n->inc_cancel_epoch();
             n->set_status(status::closed);
             n->set_core(C);
@@ -373,8 +364,10 @@ namespace search_tree {
 
             node<Config> *p = n->parent();
 
-            // The conflict does NOT depend on the decision literal at node n, so n’s split literal is irrelevant to this conflict
-            // thus the entire subtree under n is closed regardless of the split, so the conflict should be attached higher, at the nearest ancestor that does participate
+            // The conflict does NOT depend on the decision literal at node n, so n’s decision literal is irrelevant to this conflict
+            // thus the entire subtree under n is closed, so the conflict should be attached higher, at the nearest ancestor that does participate
+            // NOTE: I think this is dead code because the backtrack function already walks up to the nearest ancestor whose literal is in the conflict, which is the only place where this is called
+            //       Keep for now since it does generalize this function to be used for arbitrary conflict attachment
             if (p && all_of(C, [n](auto const &l) { return l != n->get_literal(); })) {
                 close_with_core(p, C);
                 return;
@@ -451,7 +444,7 @@ namespace search_tree {
 
         // On timeout, either expand the current leaf or reopen the node for a
         // later revisit, depending on the tree-expansion heuristic.
-        bool try_split(node<Config> *n, unsigned epoch, unsigned cancel_epoch, literal const &a, literal const &b, unsigned effort) {
+        bool try_split(node<Config> *n, unsigned cancel_epoch, literal const &a, literal const &b, unsigned effort) {
             if (is_lease_canceled(n, cancel_epoch))
                 return false;
 
@@ -460,7 +453,7 @@ namespace search_tree {
             n->update_round_max_effort(effort);
             bool did_split = false;
 
-            if (should_split(n, epoch)) {
+            if (should_split(n)) {
                 n->split(a, b);
                 did_split = true;
             }
@@ -494,6 +487,8 @@ namespace search_tree {
 
             // Walk upward to find the nearest ancestor whose decision participates in the conflict
             while (n) {
+                // Does the UNSAT core contain the decision literal at node n?
+                // If yes, i.e. if the core contains n->literal, then the conflict depends on the decision made at node n.
                 if (any_of(conflict, [&](auto const &a) { return a == n->get_literal(); })) {
                     // close the subtree under n (preserves core attached to n), and attempt to resolve upwards
                     close_with_core(n, conflict);
@@ -532,7 +527,6 @@ namespace search_tree {
             find_nonclosed_nodes_with_literal_rec(m_root.get(), lit, out);
         }
 
-    private:
         void find_nonclosed_nodes_with_literal_rec(node<Config>* n, literal const& lit, ptr_vector<node<Config>>& out) {
             if (!n)
                 return;
@@ -544,17 +538,12 @@ namespace search_tree {
             find_nonclosed_nodes_with_literal_rec(n->right(), lit, out);
         }
 
-    public:
         void dec_active_workers(node<Config>* n) {
             if (!n)
                 return;
             n->dec_active_workers();
         }
 
-        bool is_lease_valid(node<Config>* n, unsigned epoch) const {
-            return n && n->get_status() == status::active && n->epoch() == epoch;
-        }
-        
         bool is_lease_canceled(node<Config>* n, unsigned cancel_epoch) const {
             return !n || n->get_status() == status::closed || n->get_cancel_epoch() != cancel_epoch;
         }
