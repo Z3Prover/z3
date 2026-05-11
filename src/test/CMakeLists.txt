@@ -145,6 +145,7 @@ add_executable(test-z3
   theory_dl.cpp
   theory_pb.cpp
   timeout.cpp
+  tptp.cpp
   total_order.cpp
   totalizer.cpp
   trigo.cpp
@@ -163,12 +164,11 @@ add_executable(test-z3
 z3_add_install_tactic_rule(${z3_test_deps})
 z3_add_memory_initializer_rule(${z3_test_deps})
 z3_add_gparams_register_modules_rule(${z3_test_deps})
-target_compile_definitions(test-z3 PRIVATE ${Z3_COMPONENT_CXX_DEFINES})
+target_compile_definitions(test-z3 PRIVATE ${Z3_COMPONENT_CXX_DEFINES} Z3_TEST_SRC_DIR="${CMAKE_CURRENT_SOURCE_DIR}" Z3_TEST_BIN_DIR="${PROJECT_BINARY_DIR}")
 target_compile_options(test-z3 PRIVATE ${Z3_COMPONENT_CXX_FLAGS})
 target_link_libraries(test-z3 PRIVATE ${Z3_DEPENDENT_LIBS})
 target_include_directories(test-z3 PRIVATE ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS})
 z3_append_linker_flag_list_to_target(test-z3 ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
 z3_add_component_dependencies_to_target(test-z3 ${z3_test_expanded_deps})
-
-
+add_dependencies(test-z3 shell)
 
