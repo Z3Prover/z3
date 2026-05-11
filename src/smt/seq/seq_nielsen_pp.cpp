@@ -226,7 +226,7 @@ namespace seq {
         return "null";
     }
 
-    static std::string regex_expr_html(expr* e, ast_manager& m, seq_util& seq) {
+    static std::string regex_expr_html(expr* e, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m, seq_util& seq) {
         if (!e)
             return "null";
         expr* a = nullptr, * b = nullptr;
@@ -273,20 +273,27 @@ namespace seq {
                 if (i > 0) res += " ";
                 bool needs_parens = seq.re.is_union(ap->get_arg(i));
                 if (needs_parens) res += "(";
-                res += regex_expr_html(ap->get_arg(i), m, seq);
+                res += regex_expr_html(ap->get_arg(i), names, next_id, m, seq);
                 if (needs_parens) res += ")";
             }
             return res;
+        }
+        if (m.is_ite(e)) {
+            app* ap = to_app(e);
+            std::string cond = arith_expr_html(ap->get_arg(0), names, next_id, m);
+            std::string t = regex_expr_html(ap->get_arg(1), names, next_id, m, seq);
+            std::string f = regex_expr_html(ap->get_arg(2), names, next_id, m, seq);
+            return cond + " ? (" + t + ") : (" + f + ")";
         }
         if (seq.re.is_union(e)) {
             app* ap = to_app(e);
             std::string res;
             if (ap->get_num_args() == 0)
                 return "&#8709;";
-            res = regex_expr_html(ap->get_arg(0), m, seq);
+            res = regex_expr_html(ap->get_arg(0), names, next_id, m, seq);
             for (unsigned i = 1; i < ap->get_num_args(); ++i) {
                 res += " | ";
-                res += regex_expr_html(ap->get_arg(i), m, seq);
+                res += regex_expr_html(ap->get_arg(i), names, next_id, m, seq);
             }
             return res;
         }
@@ -297,7 +304,7 @@ namespace seq {
                 if (i > 0) res += " &amp; ";
                 bool needs_parens = seq.re.is_union(ap->get_arg(i)) || seq.re.is_concat(ap->get_arg(i));
                 if (needs_parens) res += "(";
-                res += regex_expr_html(ap->get_arg(i), m, seq);
+                res += regex_expr_html(ap->get_arg(i), names, next_id, m, seq);
                 if (needs_parens) res += ")";
             }
             return res;
@@ -305,21 +312,21 @@ namespace seq {
         if (seq.re.is_star(e, a)) {
             bool needs_parens = seq.re.is_union(a) || seq.re.is_concat(a) || seq.re.is_intersection(a);
             std::string res = needs_parens ? "(" : "";
-            res += regex_expr_html(a, m, seq);
+            res += regex_expr_html(a, names, next_id, m, seq);
             res += needs_parens ? ")<SUP>*</SUP>" : "<SUP>*</SUP>";
             return res;
         }
         if (seq.re.is_plus(e, a)) {
             bool needs_parens = seq.re.is_union(a) || seq.re.is_concat(a) || seq.re.is_intersection(a);
             std::string res = needs_parens ? "(" : "";
-            res += regex_expr_html(a, m, seq);
+            res += regex_expr_html(a, names, next_id, m, seq);
             res += needs_parens ? ")<SUP>+</SUP>" : "<SUP>+</SUP>";
             return res;
         }
         if (seq.re.is_opt(e, a)) {
             bool needs_parens = seq.re.is_union(a) || seq.re.is_concat(a) || seq.re.is_intersection(a);
             std::string res = needs_parens ? "(" : "";
-            res += regex_expr_html(a, m, seq);
+            res += regex_expr_html(a, names, next_id, m, seq);
             res += needs_parens ? ")?" : "?";
             return res;
         }
@@ -327,13 +334,11 @@ namespace seq {
             bool needs_parens = seq.re.is_union(a) || seq.re.is_concat(a) || seq.re.is_intersection(a);
             std::string res = "~";
             res += needs_parens ? "(" : "";
-            res += regex_expr_html(a, m, seq);
+            res += regex_expr_html(a, names, next_id, m, seq);
             res += needs_parens ? ")" : "";
             return res;
         }
         if (seq.re.is_range(e, a, b)) {
-            uint64_t next_id = 0;
-            obj_map<expr, std::string> names;
             zstring s1, s2;
             std::string c1 = seq.str.is_string(a, s1) ? dot_html_escape(s1.encode()) : arith_expr_html(a, names, next_id, m);
             std::string c2 = seq.str.is_string(b, s2) ? dot_html_escape(s2.encode()) : arith_expr_html(b, names, next_id, m);
@@ -447,7 +452,7 @@ namespace seq {
                 result += "</SUP>";
             }
             else if (e && seq.is_re(e))
-                result += regex_expr_html(e, m, seq);
+                result += regex_expr_html(e, names, next_id, m, seq);
             else {
                 std::ostringstream os;
                 os << mk_pp(e, m);
@@ -475,8 +480,6 @@ namespace seq {
         bool hasEq = false;
         bool hasMem = false;
         bool hasRange = false;
-        bool hasDiseq = false;
-        bool hasInt = false;
 
         // string equalities
         for (auto const& eq : m_str_eq) {
@@ -505,10 +508,24 @@ namespace seq {
             out << "<br/>";
         }
         // integer constraints
+        std::vector<std::string> int_constraints(m_constraints.size());
         for (auto const& ic : m_constraints) {
+            int_constraints.push_back(constraint_html(ic, names, next_id, m));
+        }
+        if (!int_constraints.empty()) {
+            // eliminate duplicates
+            std::ranges::sort(int_constraints);
+            unsigned prev = 0;
+            for (unsigned i = 1; i < int_constraints.size(); i++) {
+                if (int_constraints[i] != int_constraints[prev])
+                    int_constraints[++prev] = int_constraints[i];
+            }
+            int_constraints.resize(prev);
+            out << "Int:<br/>";
             if (!any) { out << "Cnstr:<br/>"; any = true; }
-            if (!hasInt) { out << "Int:<br/>"; hasInt = true; }
-            out << constraint_html(ic, names, next_id, m) << "<br/>";
+            for (const auto& s : int_constraints) {
+                out << s << "<br/>";
+            }
         }
 
         if (!any)
