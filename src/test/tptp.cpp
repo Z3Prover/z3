@@ -22,10 +22,14 @@ struct tptp_case {
     char const* expected_status;
 };
 
-constexpr unsigned tptp_buffer_size = 4096;
+constexpr unsigned command_output_buffer_size = 4096;
 
 static bool is_safe_file_name(char const* s) {
     if (!s || !*s)
+        return false;
+    if (s[0] == '-' || s[0] == '.')
+        return false;
+    if (std::string(s).find('/') != std::string::npos || std::string(s).find('\\') != std::string::npos)
         return false;
     if (std::string(s).find("..") != std::string::npos)
         return false;
@@ -52,7 +56,7 @@ static std::string run_tptp(char const* file) {
         ENSURE(false);
     }
     std::string out;
-    char buffer[tptp_buffer_size];
+    char buffer[command_output_buffer_size];
     while (fgets(buffer, sizeof(buffer), pipe))
         out += buffer;
     int code = Z3_PCLOSE(pipe);
