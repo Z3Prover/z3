@@ -21,6 +21,7 @@ static std::string run_tptp(char const* file) {
     return out.str();
 }
 
+// Required externs from shell/tptp_frontend.cpp; keep output minimal in tests.
 bool g_display_statistics = false;
 bool g_display_model = false;
 
