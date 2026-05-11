@@ -147,6 +147,18 @@ namespace seq {
         }
         app* a = to_app(e);
         expr* x, * y;
+        if (m.is_or(e)) {
+            app* ap = to_app(e);
+            std::string res;
+            res = arith_expr_html(ap->get_arg(0), names, next_id, m);
+            for (unsigned i = 1; i < ap->get_num_args(); ++i) {
+                res += " || ";
+                res += arith_expr_html(ap->get_arg(i), names, next_id, m);
+            }
+            return res;
+        }
+        if (m.is_not(e, x))
+            return "!(" + arith_expr_html(x, names, next_id, m) + ")";
         if (arith.is_le(e, x, y)) {
             return arith_expr_html(x, names, next_id, m) + " &lt; " + arith_expr_html(y, names, next_id, m);
         }
@@ -521,8 +533,8 @@ namespace seq {
                     int_constraints[++prev] = int_constraints[i];
             }
             int_constraints.resize(prev);
-            out << "Int:<br/>";
             if (!any) { out << "Cnstr:<br/>"; any = true; }
+            out << "Int:<br/>";
             for (const auto& s : int_constraints) {
                 out << s << "<br/>";
             }
