@@ -85,7 +85,7 @@ jobs:
 
       - name: Select Python
         run: |
-          PYTHON=$(ls -1 /opt/python/*/bin/python | sort | head -n1)
+          PYTHON=$(printf '%s\n' /opt/python/*/bin/python | sort -V | head -n1)
           test -x "$PYTHON"
           echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
           "$PYTHON" --version
@@ -132,7 +132,7 @@ jobs:
 
       - name: Select Python
         run: |
-          PYTHON=$(ls -1 /opt/python/*/bin/python | sort | head -n1)
+          PYTHON=$(printf '%s\n' /opt/python/*/bin/python | sort -V | head -n1)
           test -x "$PYTHON"
           echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
           "$PYTHON" --version
