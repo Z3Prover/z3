@@ -25,6 +25,10 @@ struct tptp_case {
 constexpr unsigned tptp_buffer_size = 4096;
 
 static bool is_safe_file_name(char const* s) {
+    if (!s || !*s)
+        return false;
+    if (std::string(s).find("..") != std::string::npos)
+        return false;
     while (*s) {
         unsigned char c = static_cast<unsigned char>(*s);
         if (!(std::isalnum(c) || c == '.' || c == '-' || c == '_'))
