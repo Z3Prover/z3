@@ -481,10 +481,9 @@ namespace smt {
                 }
             }
 
-            // retry loop so thread isn't idle
-            // experiments on my laptop showed this had about a 0% success rate and i'm not sure if this 
-            // messes with resource scheduling little enough to justify keeping it
-            // for now we only retry if we make progress on finding at least 1 backbone in each retry round
+            // Retry loop to avoid idle backbone threads.
+            // Only continue retrying while progress is being made (at least one backbone found per round),
+            // since stalling retries are unlikely to succeed.
             while (!b.has_new_backbone_candidates(bb_candidate_epoch) && !canceled() && m.inc()) {
                 collect_shared_clauses();
                 unsigned found_before = m_stats.m_internal_backbones_found;
@@ -506,8 +505,7 @@ namespace smt {
 
                 fallback_failed_literal_probe(bb_candidate_lits, bb_candidate_lits, true);
                 
-                // break if we made no progress on this batch
-                // unlikely to make progress on future runs and idk if this creates any kind of resource stress
+                // Stop retrying if no progress was made on this batch
                 if (m_stats.m_internal_backbones_found == found_before) 
                     break;
             }
@@ -596,23 +594,13 @@ namespace smt {
         st.update("bb-literals-removed-by-core", m_stats.m_lits_removed_by_core);
         st.update("bb-num-chunk-increases", m_stats.m_num_chunk_increases);
 
-        double backbone_yield = 0.0;
-        if (m_stats.m_candidates_total > 0)
-            backbone_yield = 100.0 * (double)m_stats.m_internal_backbones_found / (double)m_stats.m_candidates_total;
-        double avg_backbones_per_batch = 0.0;
-        if (m_stats.m_batches_total > 0)
-            avg_backbones_per_batch = (double)m_stats.m_internal_backbones_found / (double)m_stats.m_batches_total;
-        double core_refinement_cost = 0.0;
-        if (m_stats.m_batches_total > 0)
-            core_refinement_cost = (double)m_stats.m_core_refinement_rounds / (double)m_stats.m_batches_total;
-        double core_effectiveness = 0.0;
-        if (m_stats.m_core_refinement_rounds > 0)
-            core_effectiveness = (double)m_stats.m_lits_removed_by_core / (double)m_stats.m_core_refinement_rounds;
-
-        st.update("bb-backbone-yield-pct", backbone_yield);
-        st.update("bb-avg-backbones-per-batch", avg_backbones_per_batch);
-        st.update("bb-core-refinement-rounds-per-batch", core_refinement_cost);
-        st.update("bb-core-effectiveness-lit-removed-per-round", core_effectiveness);
+        auto safe_ratio = [](unsigned num, unsigned denom) -> double {
+            return denom > 0 ? (double)num / denom : 0.0;
+        };
+        st.update("bb-backbone-yield-pct",                       100.0 * safe_ratio(m_stats.m_internal_backbones_found, m_stats.m_candidates_total));
+        st.update("bb-avg-backbones-per-batch",                  safe_ratio(m_stats.m_internal_backbones_found, m_stats.m_batches_total));
+        st.update("bb-core-refinement-rounds-per-batch",         safe_ratio(m_stats.m_core_refinement_rounds, m_stats.m_batches_total));
+        st.update("bb-core-effectiveness-lit-removed-per-round", safe_ratio(m_stats.m_lits_removed_by_core, m_stats.m_core_refinement_rounds));
     }
 
     void parallel::sls_worker::cancel() {
@@ -655,7 +643,6 @@ namespace smt {
 
         unsigned original_size = core.size();
         ++m_num_core_minimize_calls;
-
 
         // Invariant: F and mus and unknown is UNSAT.
         while (!unknown.empty()) {
