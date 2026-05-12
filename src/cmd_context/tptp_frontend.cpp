@@ -16,6 +16,7 @@
 #include "cmd_context/tptp_frontend.h"
 #include "solver/solver.h"
 #include "util/error_codes.h"
+#include "util/rational.h"
 #include "util/z3_exception.h"
 
 extern bool g_display_statistics;
@@ -49,6 +50,8 @@ enum class token_kind {
     nand_tok,
     gt_tok,
     star_tok,
+    slash_tok,
+    minus_tok,
     at_tok
 };
 
@@ -220,6 +223,8 @@ public:
         case '=': t.kind = token_kind::equal_tok; return t;
         case '>': t.kind = token_kind::gt_tok; return t;
         case '*': t.kind = token_kind::star_tok; return t;
+        case '/': t.kind = token_kind::slash_tok; return t;
+        case '-': t.kind = token_kind::minus_tok; return t;
         case '@': t.kind = token_kind::at_tok; return t;
         default:
             break;
@@ -279,14 +284,6 @@ class tptp_parser {
         return out.str();
     }
 
-    void skip_wrapping_lparens() {
-        while (accept(token_kind::lparen)) {}
-    }
-
-    void skip_wrapping_rparens() {
-        while (accept(token_kind::rparen)) {}
-    }
-
     void next() { m_curr = m_lex->next(); }
 
     bool is(token_kind k) const { return m_curr.kind == k; }
@@ -322,7 +319,7 @@ class tptp_parser {
         if (n == "$i") return m_univ;
         if (n == "$o") return m.mk_bool_sort();
         if (n == "$int") return m_arith.mk_int();
-        if (n == "$real") return m_arith.mk_real();
+        if (n == "$rat" || n == "$real") return m_arith.mk_real();
         auto it = m_sorts.find(n);
         if (it != m_sorts.end()) return it->second;
         sort* s = m.mk_uninterpreted_sort(symbol(n));
@@ -332,6 +329,15 @@ class tptp_parser {
 
     static bool is_ttype(sort* s) {
         return s->get_name() == symbol("$tType");
+    }
+
+    static bool is_decimal_numeral(std::string const& s) {
+        if (s.empty()) return false;
+        for (char c : s) {
+            if (!std::isdigit(static_cast<unsigned char>(c)))
+                return false;
+        }
+        return true;
     }
 
     static std::string mk_decl_key(std::string const& name, unsigned arity, char tag) {
@@ -453,9 +459,29 @@ class tptp_parser {
             expect(token_kind::rparen, "')'");
             return e;
         }
+        if (accept(token_kind::minus_tok)) {
+            expr_ref e = parse_term_primary();
+            if (!m_arith.is_int_real(e))
+                throw parse_error("unary '-' expects arithmetic term");
+            return expr_ref(m_arith.mk_uminus(e), m);
+        }
         std::string n = parse_name();
         if (n == "$true") return expr_ref(m.mk_true(), m);
         if (n == "$false") return expr_ref(m.mk_false(), m);
+
+        if (is_decimal_numeral(n)) {
+            rational num(n.c_str());
+            if (accept(token_kind::slash_tok)) {
+                std::string d = parse_name();
+                if (!is_decimal_numeral(d))
+                    throw parse_error("denominator of rational literal must be a decimal numeral");
+                rational den(d.c_str());
+                if (den.is_zero())
+                    throw parse_error("denominator of rational literal must be non-zero");
+                return expr_ref(m_arith.mk_numeral(num / den, false), m);
+            }
+            return expr_ref(m_arith.mk_numeral(num, true), m);
+        }
 
         expr_ref b(m);
         if (is_var_name(n) && find_bound(n, b))
@@ -492,6 +518,29 @@ class tptp_parser {
                 do { args.push_back(parse_term()); } while (accept(token_kind::comma));
                 expect(token_kind::rparen, "')'");
             }
+        }
+
+        if (n == "$less" || n == "$lesseq" || n == "$greater" || n == "$greatereq") {
+            if (args.size() != 2) {
+                std::ostringstream out;
+                out << "arithmetic predicate '" << n << "' expects arity 2";
+                throw parse_error(out.str());
+            }
+            expr_ref lhs(args.get(0), m), rhs(args.get(1), m);
+            if (!m_arith.is_int_real(lhs) || !m_arith.is_int_real(rhs)) {
+                std::ostringstream out;
+                out << "arithmetic predicate '" << n << "' expects arithmetic arguments";
+                throw parse_error(out.str());
+            }
+            bool use_real = m_arith.is_real(lhs) || m_arith.is_real(rhs);
+            if (use_real) {
+                if (m_arith.is_int(lhs)) lhs = expr_ref(m_arith.mk_to_real(lhs), m);
+                if (m_arith.is_int(rhs)) rhs = expr_ref(m_arith.mk_to_real(rhs), m);
+            }
+            if (n == "$less")      return expr_ref(m_arith.mk_lt(lhs, rhs), m);
+            if (n == "$lesseq")    return expr_ref(m_arith.mk_le(lhs, rhs), m);
+            if (n == "$greater")   return expr_ref(m_arith.mk_gt(lhs, rhs), m);
+            /* n == "$greatereq"*/ return expr_ref(m_arith.mk_ge(lhs, rhs), m);
         }
 
         expr_ref lhs(m);
@@ -612,11 +661,13 @@ class tptp_parser {
     }
 
     void parse_type_decl_formula() {
-        skip_wrapping_lparens();
+        unsigned num_wrap = 0;
+        while (accept(token_kind::lparen)) ++num_wrap;
         std::string name = parse_name();
         expect(token_kind::colon, "':'");
         parsed_type t = parse_type_expr();
-        skip_wrapping_rparens();
+        while (num_wrap-- > 0)
+            expect(token_kind::rparen, "')'");
 
         if (t.domain.empty() && is_ttype(t.range)) {
             m_sorts.insert_or_assign(name, m.mk_uninterpreted_sort(symbol(name)));
@@ -724,6 +775,7 @@ public:
         m_sorts.emplace("$i", m_univ);
         m_sorts.emplace("$o", m.mk_bool_sort());
         m_sorts.emplace("$int", m_arith.mk_int());
+        m_sorts.emplace("$rat", m_arith.mk_real());
         m_sorts.emplace("$real", m_arith.mk_real());
     }
 
@@ -832,6 +884,14 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
     catch (parse_error const& ex) {
         std::cerr << "TPTP parse error: " << ex.what() << "\n";
         return ERR_PARSER;
+    }
+    catch (z3_error& ex) {
+        if (ex.error_code() == ERR_TIMEOUT) {
+            std::cout << "% SZS status Timeout\n";
+            return 0;
+        }
+        std::cerr << "TPTP frontend error: " << ex.what() << "\n";
+        return ERR_INTERNAL_FATAL;
     }
     catch (z3_exception& ex) {
         std::cerr << "TPTP frontend error: " << ex.what() << "\n";

@@ -50,7 +50,24 @@ fof(c1,conjecture, mortal(socrates)).)",
          "% SZS status Theorem"},
         {"simple-sat",
 R"(fof(a1,axiom, p(a)).)",
-         "% SZS status Satisfiable"}
+         "% SZS status Satisfiable"},
+        {"tff-negative-literal",
+R"(tff(c1,conjecture, $less(-2,2)).)",
+         "% SZS status Theorem"},
+        {"tff-rational-literal",
+R"(tff(c1,conjecture, $less(1/2,2/3)).)",
+         "% SZS status Theorem"},
+        {"tff-type-decl-arrow",
+R"(tff(p_type,type, p: $int > $o ).
+tff(a1,axiom, p(1)).
+tff(c1,conjecture, p(1)).)",
+         "% SZS status Theorem"},
+        {"tff-typed-int-quantifier",
+R"(tff(c1,conjecture, ? [X: $int] : $less(12,X)).)",
+         "% SZS status Theorem"},
+        {"tff-lesseq-built-in",
+R"(tff(c1,conjecture, $lesseq(2,2)).)",
+         "% SZS status Theorem"}
     };
     for (auto const& c : cases) {
         std::string out = run_tptp(c.input);
