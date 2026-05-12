@@ -14,7 +14,7 @@
 #include "ast/ast_util.h"
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/tptp_frontend.h"
-#include "smt/smt_solver.h"
+#include "solver/solver.h"
 #include "util/error_codes.h"
 #include "util/z3_exception.h"
 
