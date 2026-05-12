@@ -47,10 +47,7 @@ z3_add_gparams_register_modules_rule(${shell_deps})
 set_target_properties(shell PROPERTIES OUTPUT_NAME z3)
 target_compile_definitions(shell PRIVATE ${Z3_COMPONENT_CXX_DEFINES})
 target_compile_options(shell PRIVATE ${Z3_COMPONENT_CXX_FLAGS})
-target_include_directories(shell PRIVATE
-  ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS}
-  ${PROJECT_SOURCE_DIR}/src/api
-)
+target_include_directories(shell PRIVATE ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS})
 target_link_libraries(shell PRIVATE ${Z3_DEPENDENT_LIBS})
 z3_add_component_dependencies_to_target(shell ${shell_expanded_deps})
 z3_append_linker_flag_list_to_target(shell ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
