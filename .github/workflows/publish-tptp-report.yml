@@ -1,6 +1,9 @@
 name: Publish TPTP Test Report as Discussion
 
 on:
+  push:
+    branches:
+      - copilot/test-copilot-integration
   workflow_dispatch:
     inputs:
       category:
@@ -21,22 +24,26 @@ jobs:
         with:
           ref: copilot/test-copilot-integration
 
-      - name: Read report
-        id: report
-        run: |
-          BODY=$(cat tptp-test-report.md)
-          echo "body<<EOF_REPORT" >> "$GITHUB_OUTPUT"
-          echo "$BODY" >> "$GITHUB_OUTPUT"
-          echo "EOF_REPORT" >> "$GITHUB_OUTPUT"
-
       - name: Create GitHub Discussion
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
+
+            // Read report from file
+            let body;
+            try {
+              body = fs.readFileSync('tptp-test-report.md', 'utf8');
+            } catch (e) {
+              core.setFailed('Could not read tptp-test-report.md: ' + e.message);
+              return;
+            }
+
             // Get discussion category ID
-            const categoryName = '${{ inputs.category }}';
-            const repoId = context.payload.repository.node_id;
+            const categoryName = context.eventName === 'workflow_dispatch'
+              ? (context.payload.inputs && context.payload.inputs.category) || 'Agentic Workflows'
+              : 'Agentic Workflows';
 
             const catQuery = await github.graphql(`
               query($owner: String!, $name: String!) {
@@ -54,8 +61,10 @@ jobs:
 
             let cat = cats.find(c => c.name === categoryName);
             if (!cat) {
-              cat = cats.find(c => c.name.toLowerCase().includes('general')) || cats[0];
-              console.log(`Category "${categoryName}" not found, using: ${cat?.name}`);
+              cat = cats.find(c => c.name.toLowerCase().includes('general'))
+                  || cats.find(c => c.name.toLowerCase().includes('show'))
+                  || cats[0];
+              console.log(`Category "${categoryName}" not found, using: ${cat && cat.name}`);
             }
 
             if (!cat) {
@@ -63,8 +72,31 @@ jobs:
               return;
             }
 
-            const body = `${{ steps.report.outputs.body }}`;
             const repoNodeId = catQuery.repository.id;
+            const title = 'TPTP Integration Test Report \u2014 copilot/integrate-tptp-into-src-shell';
+
+            // Check if a discussion with this title already exists
+            const existingQuery = await github.graphql(`
+              query($owner: String!, $name: String!, $q: String!) {
+                search(query: $q, type: DISCUSSION, first: 5) {
+                  nodes {
+                    ... on Discussion { id title url }
+                  }
+                }
+              }
+            `, {
+              owner: context.repo.owner,
+              name: context.repo.repo,
+              q: \`repo:\${context.repo.owner}/\${context.repo.repo} "\${title}"\`
+            });
+
+            const existing = existingQuery.search.nodes.find(d => d.title === title);
+            if (existing) {
+              console.log('Discussion already exists:', existing.url);
+              core.summary.addRaw(\`## Discussion Already Exists\n\n[\${existing.url}](\${existing.url})\`);
+              await core.summary.write();
+              return;
+            }
 
             const result = await github.graphql(`
               mutation($input: CreateDiscussionInput!) {
@@ -76,12 +108,13 @@ jobs:
               input: {
                 repositoryId: repoNodeId,
                 categoryId: cat.id,
-                title: 'TPTP Integration Test Report — copilot/integrate-tptp-into-src-shell',
+                title: title,
                 body: body
               }
             });
 
             const url = result.createDiscussion.discussion.url;
             console.log('Discussion created:', url);
-            core.summary.addRaw(`## Discussion Created\n\n[${url}](${url})`);
+            core.summary.addRaw(\`## Discussion Created\n\n[\${url}](\${url})\`);
             await core.summary.write();
+
