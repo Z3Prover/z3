@@ -303,9 +303,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6.0.2
       
+      - name: Select Python
+        run: |
+          # Use the first available manylinux interpreter for deterministic selection.
+          PYTHON=$(printf '%s\n' /opt/python/*/bin/python | sort -V | head -n1)
+          test -x "$PYTHON" || { echo "Error: no interpreter found under /opt/python/*/bin/python"; exit 1; }
+          echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
+          "$PYTHON" --version
+
       - name: Setup Python environment
         run: |
-          /opt/python/cp38-cp38/bin/python -m venv $PWD/env
+          "$PYTHON" -m venv $PWD/env
           echo "$PWD/env/bin" >> $GITHUB_PATH
       
       - name: Install build tools
@@ -341,9 +349,17 @@ jobs:
           mkdir -p /tmp/arm-toolchain/
           tar xf /tmp/arm-toolchain.tar.xz -C /tmp/arm-toolchain/ --strip-components=1
       
+      - name: Select Python
+        run: |
+          # Use the first available manylinux interpreter for deterministic selection.
+          PYTHON=$(printf '%s\n' /opt/python/*/bin/python | sort -V | head -n1)
+          test -x "$PYTHON" || { echo "Error: no interpreter found under /opt/python/*/bin/python"; exit 1; }
+          echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
+          "$PYTHON" --version
+
       - name: Setup Python environment
         run: |
-          /opt/python/cp38-cp38/bin/python -m venv $PWD/env
+          "$PYTHON" -m venv $PWD/env
           echo "$PWD/env/bin" >> $GITHUB_PATH
           echo "/tmp/arm-toolchain/bin" >> $GITHUB_PATH
           echo "/tmp/arm-toolchain/aarch64-none-linux-gnu/libc/usr/bin" >> $GITHUB_PATH
@@ -389,9 +405,17 @@ jobs:
           cd /tmp/mpfr-4.2.1 && ./configure --prefix=/usr/local --disable-static && make -j$(nproc) && make install
           ldconfig
       
+      - name: Select Python
+        run: |
+          # Use the first available manylinux interpreter for deterministic selection.
+          PYTHON=$(printf '%s\n' /opt/python/*/bin/python | sort -V | head -n1)
+          test -x "$PYTHON" || { echo "Error: no interpreter found under /opt/python/*/bin/python"; exit 1; }
+          echo "PYTHON=$PYTHON" >> "$GITHUB_ENV"
+          "$PYTHON" --version
+
       - name: Setup Python environment
         run: |
-          /opt/python/cp38-cp38/bin/python -m venv $PWD/env
+          "$PYTHON" -m venv $PWD/env
           echo "$PWD/env/bin" >> $GITHUB_PATH
           echo "/tmp/riscv-toolchain/bin" >> $GITHUB_PATH
       
