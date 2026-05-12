@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include "util/debug.h"
+#include "util/error_codes.h"
 #include "cmd_context/tptp_frontend.h"
 
 struct tptp_case {
@@ -11,14 +12,26 @@ struct tptp_case {
     char const* expected_status;
 };
 
-static std::string run_tptp(char const* input) {
+static unsigned run_tptp(char const* input, std::string& out, std::string& err) {
     std::streambuf* old_out = std::cout.rdbuf();
-    std::ostringstream out;
-    std::cout.rdbuf(out.rdbuf());
+    std::streambuf* old_err = std::cerr.rdbuf();
+    std::ostringstream out_buf;
+    std::ostringstream err_buf;
+    std::cout.rdbuf(out_buf.rdbuf());
+    std::cerr.rdbuf(err_buf.rdbuf());
     unsigned code = read_tptp_string(input);
     std::cout.rdbuf(old_out);
+    std::cerr.rdbuf(old_err);
+    out = out_buf.str();
+    err = err_buf.str();
+    return code;
+}
+
+static std::string run_tptp(char const* input) {
+    std::string out, err;
+    unsigned code = run_tptp(input, out, err);
     ENSURE(code == 0);
-    return out.str();
+    return out;
 }
 
 // Required externs from shell/tptp_frontend.cpp; keep output minimal in tests.
@@ -73,4 +86,9 @@ R"(tff(c1,conjecture, $lesseq(2,2)).)",
         std::string out = run_tptp(c.input);
         ENSURE(out.find(c.expected_status) != std::string::npos);
     }
+
+    std::string out, err;
+    unsigned code = run_tptp("tff(c1,conjecture, $less(1/0,1)).", out, err);
+    ENSURE(code == ERR_PARSER);
+    ENSURE(err.find("denominator of rational literal cannot be zero") != std::string::npos);
 }

@@ -331,7 +331,7 @@ class tptp_parser {
         return s->get_name() == symbol("$tType");
     }
 
-    static bool contains_only_digits(std::string const& s) {
+    static bool is_nonempty_digit_string(std::string const& s) {
         if (s.empty()) return false;
         for (char c : s) {
             if (!std::isdigit(static_cast<unsigned char>(c)))
@@ -469,11 +469,11 @@ class tptp_parser {
         if (n == "$true") return expr_ref(m.mk_true(), m);
         if (n == "$false") return expr_ref(m.mk_false(), m);
 
-        if (contains_only_digits(n)) {
+        if (is_nonempty_digit_string(n)) {
             rational num(n.c_str());
             if (accept(token_kind::slash_tok)) {
                 std::string d = parse_name();
-                if (!contains_only_digits(d))
+                if (!is_nonempty_digit_string(d))
                     throw parse_error("denominator of rational literal must be a sequence of digits");
                 rational den(d.c_str());
                 if (den.is_zero())
