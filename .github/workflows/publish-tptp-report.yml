@@ -1,0 +1,87 @@
+name: Publish TPTP Test Report as Discussion
+
+on:
+  workflow_dispatch:
+    inputs:
+      category:
+        description: 'Discussion category name'
+        required: false
+        default: 'Agentic Workflows'
+        type: string
+
+permissions:
+  discussions: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: copilot/test-copilot-integration
+
+      - name: Read report
+        id: report
+        run: |
+          BODY=$(cat tptp-test-report.md)
+          echo "body<<EOF_REPORT" >> "$GITHUB_OUTPUT"
+          echo "$BODY" >> "$GITHUB_OUTPUT"
+          echo "EOF_REPORT" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Discussion
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Get discussion category ID
+            const categoryName = '${{ inputs.category }}';
+            const repoId = context.payload.repository.node_id;
+
+            const catQuery = await github.graphql(`
+              query($owner: String!, $name: String!) {
+                repository(owner: $owner, name: $name) {
+                  id
+                  discussionCategories(first: 20) {
+                    nodes { id name slug }
+                  }
+                }
+              }
+            `, { owner: context.repo.owner, name: context.repo.repo });
+
+            const cats = catQuery.repository.discussionCategories.nodes;
+            console.log('Available categories:', cats.map(c => c.name));
+
+            let cat = cats.find(c => c.name === categoryName);
+            if (!cat) {
+              cat = cats.find(c => c.name.toLowerCase().includes('general')) || cats[0];
+              console.log(`Category "${categoryName}" not found, using: ${cat?.name}`);
+            }
+
+            if (!cat) {
+              core.setFailed('No discussion category found');
+              return;
+            }
+
+            const body = `${{ steps.report.outputs.body }}`;
+            const repoNodeId = catQuery.repository.id;
+
+            const result = await github.graphql(`
+              mutation($input: CreateDiscussionInput!) {
+                createDiscussion(input: $input) {
+                  discussion { url title }
+                }
+              }
+            `, {
+              input: {
+                repositoryId: repoNodeId,
+                categoryId: cat.id,
+                title: 'TPTP Integration Test Report — copilot/integrate-tptp-into-src-shell',
+                body: body
+              }
+            });
+
+            const url = result.createDiscussion.discussion.url;
+            console.log('Discussion created:', url);
+            core.summary.addRaw(`## Discussion Created\n\n[${url}](${url})`);
+            await core.summary.write();
