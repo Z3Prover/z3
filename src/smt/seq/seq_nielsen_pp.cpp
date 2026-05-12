@@ -159,7 +159,7 @@ namespace seq {
         }
         if (m.is_not(e, x))
             return "!(" + arith_expr_html(x, names, next_id, m) + ")";
-        if (arith.is_le(e, x, y)) {
+        if (arith.is_lt(e, x, y)) {
             return arith_expr_html(x, names, next_id, m) + " &lt; " + arith_expr_html(y, names, next_id, m);
         }
         if (arith.is_gt(e, x, y)) {
