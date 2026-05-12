@@ -56,22 +56,6 @@ namespace smt {
             app * mk_value(model_generator & mg, expr_ref_vector const & values) override;
         };
 
-        class fpa2bv_value_proc : public model_value_proc {
-            theory_fpa  & m_th;
-            unsigned      m_ebits;
-            unsigned      m_sbits;
-            enode       * m_fpa_n;
-        public:
-            fpa2bv_value_proc(theory_fpa * th, unsigned ebits, unsigned sbits, enode * fpa_n) :
-                m_th(*th), m_ebits(ebits), m_sbits(sbits), m_fpa_n(fpa_n) {}
-
-            void get_dependencies(buffer<model_value_dependency> & result) override {
-                result.push_back(model_value_dependency(m_fpa_n));
-            }
-
-            app * mk_value(model_generator & mg, expr_ref_vector const & values) override;
-        };
-
         class fpa_rm_value_proc : public model_value_proc {
             theory_fpa  & m_th;
             ast_manager & m;
@@ -126,7 +110,6 @@ namespace smt {
 
     public:
         theory_fpa(context& ctx);
-        void register_fpa2bv_processors(model_generator & mg, obj_map<enode, model_value_proc *> & root2proc, ptr_vector<enode> & roots, ptr_vector<model_value_proc> & procs);
         ~theory_fpa() override;
 
         void display(std::ostream & out) const override;
@@ -144,3 +127,4 @@ namespace smt {
     };
 
 };
+

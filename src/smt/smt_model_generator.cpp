@@ -26,7 +26,6 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "smt/proto_model/proto_model.h"
 #include "model/model_v2_pp.h"
-#include "smt/theory_fpa.h"
 
 namespace smt {
 
@@ -132,11 +131,6 @@ namespace smt {
                 procs.push_back(proc);
                 root2proc.insert(r, proc);
             }
-        }
-
-        theory * fpa_th = m_context->get_theory(m.mk_family_id("fpa"));
-        if (fpa_th) {
-            static_cast<theory_fpa*>(fpa_th)->register_fpa2bv_processors(*this, root2proc, roots, procs);
         }
     }
     
@@ -376,22 +370,18 @@ namespace smt {
                             enode * child = d.get_enode();
                             TRACE(mg_top_sort, tout << "#" << n->get_owner_id() << " (" << mk_pp(n->get_expr(), m) << "): " 
                                   << mk_pp(child->get_expr(), m) << " " << mk_pp(child->get_root()->get_expr(), m) << "\n";);
-                             child = child->get_root();
-                             app * child_val = nullptr;
-                             m_root2value.find(child, child_val);
-                             CTRACE("mg", !child_val,
-                                 tout << "null dependency value for: " << mk_pp(child->get_expr(), m) << "\n";);
-                             dependency_values.push_back(child_val);
-                         }
-                     }
-                     val = proc->mk_value(*this, dependency_values);
-                 }
-                 register_value(val);
-                 m_asts.push_back(val);
-                 m_root2value.insert(n, val);
-             }
-         }        
-         // send model
+                            child = child->get_root();
+                            dependency_values.push_back(m_root2value[child]);
+                        }
+                    }
+                    val = proc->mk_value(*this, dependency_values);
+                }
+                register_value(val);
+                m_asts.push_back(val);
+                m_root2value.insert(n, val);
+            }
+        }        
+        // send model
         for (enode * n : m_context->enodes()) {
             if (is_uninterp_const(n->get_expr()) && m_context->is_relevant(n)) {
                 func_decl * d = n->get_expr()->get_decl();
@@ -413,9 +403,7 @@ namespace smt {
     }
 
     app * model_generator::get_value(enode * n) const {
-        app * val = nullptr;
-        m_root2value.find(n->get_root(), val);
-        return val;
+        return m_root2value[n->get_root()];
     }
 
     /**
