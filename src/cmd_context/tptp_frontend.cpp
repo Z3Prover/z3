@@ -331,7 +331,7 @@ class tptp_parser {
         return s->get_name() == symbol("$tType");
     }
 
-    static bool is_decimal_numeral(std::string const& s) {
+    static bool is_unsigned_integer(std::string const& s) {
         if (s.empty()) return false;
         for (char c : s) {
             if (!std::isdigit(static_cast<unsigned char>(c)))
@@ -469,15 +469,15 @@ class tptp_parser {
         if (n == "$true") return expr_ref(m.mk_true(), m);
         if (n == "$false") return expr_ref(m.mk_false(), m);
 
-        if (is_decimal_numeral(n)) {
+        if (is_unsigned_integer(n)) {
             rational num(n.c_str());
             if (accept(token_kind::slash_tok)) {
                 std::string d = parse_name();
-                if (!is_decimal_numeral(d))
-                    throw parse_error("denominator of rational literal must be a decimal numeral");
+                if (!is_unsigned_integer(d))
+                    throw parse_error("denominator of rational literal must be a sequence of digits");
                 rational den(d.c_str());
                 if (den.is_zero())
-                    throw parse_error("denominator of rational literal must be non-zero");
+                    throw parse_error("denominator of rational literal cannot be zero");
                 return expr_ref(m_arith.mk_numeral(num / den, false), m);
             }
             return expr_ref(m_arith.mk_numeral(num, true), m);
@@ -661,12 +661,12 @@ class tptp_parser {
     }
 
     void parse_type_decl_formula() {
-        unsigned num_wrap = 0;
-        while (accept(token_kind::lparen)) ++num_wrap;
+        unsigned lparen_count = 0;
+        while (accept(token_kind::lparen)) ++lparen_count;
         std::string name = parse_name();
         expect(token_kind::colon, "':'");
         parsed_type t = parse_type_expr();
-        while (num_wrap-- > 0)
+        while (lparen_count-- > 0)
             expect(token_kind::rparen, "')'");
 
         if (t.domain.empty() && is_ttype(t.range)) {
