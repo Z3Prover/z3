@@ -613,7 +613,7 @@ namespace seq {
             SASSERT(first);
             if (first != var)
                 continue;
-            TRACE(seq, tout << spp(first, m) << " " << mem_pp(m, mem) << "\n");
+            TRACE(seq, tout << spp(first, m) << " " << mem_pp(mem, m) << "\n");
 
             if (!result) {
                 result = mem.m_regex;

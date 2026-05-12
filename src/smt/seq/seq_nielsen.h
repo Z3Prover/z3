@@ -440,9 +440,9 @@ namespace seq {
     };
 
     struct mem_pp {
-        ast_manager &m;
         str_mem const& mem;
-        mem_pp(ast_manager &m, str_mem const&mem) : m(m), mem(mem) {}
+        ast_manager &m;
+        mem_pp(str_mem const& mem, ast_manager& m) : m(m), mem(mem) {}
     };
     inline std::ostream &operator<<(std::ostream &out, mem_pp const &p) {
         return out << mk_pp(p.mem.m_str->get_expr(), p.m) << " in " << mk_pp(p.mem.m_regex->get_expr(), p.m) << "\n";
@@ -490,9 +490,9 @@ namespace seq {
         dep_tracker dep;   // tracks which input constraints contributed
 
         static expr_ref simplify(expr* f, ast_manager& m) {
-            th_rewriter th(m);
+            //th_rewriter th(m);
             expr_ref fml(f, m);
-            th(fml);
+            //th(fml);
             return fml;
         }
 

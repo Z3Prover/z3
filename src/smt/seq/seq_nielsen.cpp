@@ -1443,7 +1443,7 @@ namespace seq {
                     euf::snode* deriv = fwd
                         ? sg.brzozowski_deriv(mem.m_regex, tok)
                         : reverse_brzozowski_deriv(sg, mem.m_regex, tok);
-                    TRACE(seq, tout << mem_pp(m, mem) << " d: " << spp(deriv, m) << "\n");
+                    TRACE(seq, tout << mem_pp(mem, m) << " d: " << spp(deriv, m) << "\n");
                     if (!deriv)
                         break;
                     if (deriv->is_fail()) {
@@ -1529,7 +1529,7 @@ namespace seq {
         // check for regex memberships that are immediately infeasible
         for (str_mem& mem : m_str_mem) {
             if (mem.is_contradiction(this)) {
-                TRACE(seq, tout << "contradiction " << mem_pp(m, mem) << "\n");
+                TRACE(seq, tout << "contradiction " << mem_pp(mem, m) << "\n");
                 set_general_conflict();
                 set_conflict(backtrack_reason::regex, mem.m_dep);
                 return simplify_result::conflict;
@@ -3521,7 +3521,7 @@ namespace seq {
         for (str_mem const& mem : node->str_mems()) {
             SASSERT(mem.well_formed());
             
-            if (mem.is_primitive() || !mem.m_regex->is_classical())
+            if (mem.m_str->is_empty() || mem.is_primitive() || !mem.m_regex->is_classical())
                 continue;
 
             euf::snode* first = mem.m_str->first();
@@ -3529,6 +3529,7 @@ namespace seq {
             SASSERT(!first->is_char());
             euf::snode* tail = m_sg.drop_first(mem.m_str);
             SASSERT(tail);
+            std::cout << "Processing: " <<  mem_pp(mem, m) << std::endl;
 
             tau_pairs pairs;
             compute_tau(m, m_seq, m_sg, mem.m_regex->get_expr(), pairs);
@@ -3913,14 +3914,17 @@ namespace seq {
                     // No ite remaining: leaf → create child node with regex updated to r
                     euf::snode *new_regex_snode = m_sg.mk(r);
                     nielsen_node *child = mk_child(node);
-                    for (auto f : cs)
-                        child->add_constraint(constraint(f, mem.m_dep, m));
-                    mk_edge(node, child, true);
-                    for (str_mem &cm : child->str_mems())
+                    nielsen_edge* e = mk_edge(node, child, true);
+                    for (auto f : cs) {
+                        std::cout << "sc: " << mk_pp(f, m) << std::endl;
+                        e->add_side_constraint(constraint(f, mem.m_dep, m));
+                    }
+                    for (str_mem &cm : child->str_mems()) {
                         if (cm == mem) {
                             cm.m_regex = new_regex_snode;
                             break;
                         }
+                    }
                     created = true;
                     continue;
                 }
@@ -4743,7 +4747,7 @@ namespace seq {
         // TODO: Minimize the conflict here
         lbool result = m_seq_regex->is_empty_bfs(inter_sn, 5000);
         TRACE(seq, tout << "widen empty-intersect: " << result << " " << mk_pp(re, m) 
-            << " <= " << mk_pp(ae, m) << "\n" << mem_pp(m, mem) << "\n";
+            << " <= " << mk_pp(ae, m) << "\n" << mem_pp(mem, m) << "\n";
         display(tout, &node) << "\n");
         return result == l_true;
     }
