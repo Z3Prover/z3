@@ -53,9 +53,10 @@ namespace smt {
         // Tracked assumption literals.
         // m_assump_lits[i] and m_frame_bounds together encode a stack of
         // frames, one frame per push().  pop(n) removes the top n frames.
-        expr_ref_vector               m_assump_lits;   // live assumption exprs
-        svector<unsigned>             m_frame_bounds;  // m_assump_lits.size() at each push()
-        u_map<seq::dep_tracker>       m_lid_to_dep;    // literal expr-id -> dep
+        expr_ref_vector               m_assump_lits;   // assumption exprs; they will be reused, so it only grows
+        obj_map<expr, unsigned>       m_assump_lit2id; // the index represented by the assumption expression
+        svector<unsigned>             m_frame_bounds;  // m_deps.size() at each push()
+        svector<seq::dep_tracker>     m_deps;          // id -> dep
 
         // Scratch dep_manager for joining core deps; reset before each check().
         seq::dep_manager              m_core_dep_mgr;
@@ -78,19 +79,19 @@ namespace smt {
 
         lbool check() override {
             m_core_dep_mgr.reset();
-            m_last_core = nullptr;
+            m_last_core = m_core_dep_mgr.mk_empty();
             lbool r;
             if (m_assump_lits.empty()) {
                 r = m_kernel.check();
             } else {
                 r = m_kernel.check(m_assump_lits.size(), m_assump_lits.data());
                 if (r == l_false) {
-                    unsigned cnt = m_kernel.get_unsat_core_size();
+                    const unsigned cnt = m_kernel.get_unsat_core_size();
                     for (unsigned i = 0; i < cnt; ++i) {
-                        expr* ce = m_kernel.get_unsat_core_expr(i);
-                        seq::dep_tracker d = nullptr;
-                        if (m_lid_to_dep.find(ce->get_id(), d))
-                            m_last_core = m_core_dep_mgr.mk_join(m_last_core, d);
+                        expr_ref ce(m_kernel.get_unsat_core_expr(i), m_kernel.m());
+                        SASSERT(m_assump_lit2id.contains(ce));
+                        const unsigned id = m_assump_lit2id[ce];
+                        m_last_core = m_core_dep_mgr.mk_join(m_last_core, m_deps[id]);
                     }
                 }
             }
@@ -103,26 +104,33 @@ namespace smt {
                 return;
             }
             ast_manager& m = m_kernel.m();
-            expr_ref lit(m.mk_fresh_const("_a", m.mk_bool_sort()), m);
-            m_kernel.assert_expr(m.mk_or(m.mk_not(lit), e));
-            m_lid_to_dep.insert_if_not_there(lit->get_id(), dep);
-            m_assump_lits.push_back(lit);
+            expr* l;
+            if (m_assump_lits.size() <= m_deps.size()) {
+                SASSERT(m_assump_lits.size() == m_deps.size());
+                l = m.mk_fresh_const("_a", m.mk_bool_sort());
+                m_assump_lit2id.insert(l, m_assump_lits.size());
+                m_assump_lits.push_back(l);
+            }
+            else
+                l = m_assump_lits.get(m_deps.size());
+            m_kernel.assert_expr(m.mk_or(m.mk_not(l), e));
+            m_deps.push_back(dep);
         }
 
         void push() override {
             m_kernel.push();
-            m_frame_bounds.push_back((unsigned)m_assump_lits.size());
+            m_frame_bounds.push_back(m_deps.size());
         }
 
         void pop(unsigned n) override {
             SASSERT(n <= m_frame_bounds.size());
             unsigned target = m_frame_bounds[m_frame_bounds.size() - n];
-            while ((unsigned)m_assump_lits.size() > target) {
-                m_lid_to_dep.erase(m_assump_lits.back()->get_id());
-                m_assump_lits.pop_back();
+            while (m_deps.size() > target) {
+                m_deps.pop_back();
             }
-            for (unsigned i = 0; i < n; ++i)
+            for (unsigned i = 0; i < n; i++) {
                 m_frame_bounds.pop_back();
+            }
             m_kernel.pop(n);
         }
 
@@ -150,8 +158,9 @@ namespace smt {
             m_kernel.reset();
             m_arith_value.init(&m_kernel.get_context());
             m_assump_lits.reset();
+            m_assump_lit2id.reset();
             m_frame_bounds.reset();
-            m_lid_to_dep.reset();
+            m_deps.reset();
             m_core_dep_mgr.reset();
             m_last_core = nullptr;
         }

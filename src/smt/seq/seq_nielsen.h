@@ -1038,6 +1038,10 @@ namespace seq {
         // Add a dependency leaf for lhs <= rhs and join it to dep.
         void add_le_dependency(dep_tracker& dep, nielsen_node* n, expr* lhs, expr* rhs);
 
+        void assert_to_subsolver(const constraint& c);
+
+        void assert_to_subsolver(expr* e);
+
         // Assert the constraints of `node` that are new relative to its
         // parent (indices [m_parent_ic_count..end)) into the current solver scope.
         // Called by search_dfs after simplify_and_init so that the newly derived

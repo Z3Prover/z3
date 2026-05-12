@@ -97,6 +97,9 @@ namespace euf {
         if (m_seq.re.is_range(e))
             return snode_kind::s_range;
 
+        if (m.is_ite(e))
+            return snode_kind::s_ite;
+
         if (m_seq.re.is_to_re(e))
             return snode_kind::s_to_re;
 
@@ -247,6 +250,15 @@ namespace euf {
             SASSERT(n->num_args() == 2);
             n->m_ground = n->arg(0)->is_ground() && n->arg(1)->is_ground();
             n->m_regex_free = false;
+            n->m_level = 1;
+            n->m_length = 1;
+            break;
+
+        case snode_kind::s_ite:
+            SASSERT(n->num_args() == 3);
+            n->m_ground = n->arg(0)->is_ground() && n->arg(1)->is_ground() && n->arg(2)->is_ground();
+            n->m_regex_free = n->arg(1)->is_regex_free() && n->arg(2)->is_regex_free();
+            n->m_is_classical = false;
             n->m_level = 1;
             n->m_length = 1;
             break;
@@ -508,7 +520,18 @@ namespace euf {
                 return mk_concat(s1, s2);
             return n;
         }
+        if (n->is_ite() && var->is_unit()) {
+            // We only need to replace in case we are replacing units;
+            // we would not generate any proper string replacements that  propagates into the ite
+            auto s1 = subst(n->arg(0), var, replacement);
+            auto s2 = subst(n->arg(1), var, replacement);
+            auto s3 = subst(n->arg(2), var, replacement);
+            if (s1 != n->arg(0) || s2 != n->arg(1) || s3 != n->arg(2))
+                return mk(expr_ref(m.mk_ite(s1->get_expr(), s2->get_expr(), s3->get_expr()), m));
+            return n;
+        }
         // for non-concat compound nodes (power, star, etc.), no substitution into children
+        // TODO: This might change in the future foe e.g., powers
         return n;
     }
 
@@ -744,6 +767,7 @@ namespace euf {
             case snode_kind::s_full_char:  return "full_char";
             case snode_kind::s_full_seq:   return "full_seq";
             case snode_kind::s_range:      return "range";
+            case snode_kind::s_ite:        return "ite";
             case snode_kind::s_to_re:      return "to_re";
             case snode_kind::s_in_re:      return "in_re";
             }

@@ -53,6 +53,7 @@ namespace euf {
         s_full_char,   // full character set (OP_RE_FULL_CHAR_SET)
         s_full_seq,    // full sequence set r=.* (OP_RE_FULL_SEQ_SET)
         s_range,       // character range [lo,hi] (OP_RE_RANGE)
+        s_ite,         // ite (OP_ITE)
         s_to_re,       // string to regex (OP_SEQ_TO_RE)
         s_in_re        // regex membership (OP_SEQ_IN_RE)
     };
@@ -187,6 +188,9 @@ namespace euf {
         }
         bool is_range() const {
             return m_kind == snode_kind::s_range;
+        }
+        bool is_ite() const {
+            return m_kind == snode_kind::s_ite;
         }
         bool is_to_re() const {
             return m_kind == snode_kind::s_to_re;

@@ -35,6 +35,7 @@ NSB review:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
 #include "ast/rewriter/var_subst.h"
+#include "smt/smt_enode.h"
 #include "util/statistics.h"
 #include <algorithm>
 #include <complex>
@@ -313,10 +314,20 @@ namespace seq {
         for (auto &mem : m_str_mem) {
             auto new_str = sg.subst(mem.m_str, s.m_var, s.m_replacement);
             auto new_regex = sg.subst(mem.m_regex, s.m_var, s.m_replacement);
+            std::cout << "Applying substitution "
+                << mk_pp(s.m_var->get_expr(), graph().m) << " / "
+                << mk_pp(s.m_replacement->get_expr(), graph().m) << " to " <<
+                    mk_pp(new_regex->get_expr(), graph().m) << std::endl;
             if (new_str != mem.m_str || new_regex != mem.m_regex) {
-                 mem.m_str = new_str;
-                 mem.m_regex = new_regex;
-                 mem.m_dep = m_graph.dep_mgr().mk_join(mem.m_dep, s.m_dep);
+                mem.m_str = new_str;
+                mem.m_regex = new_regex;
+                mem.m_dep = m_graph.dep_mgr().mk_join(mem.m_dep, s.m_dep);
+            }
+            if (new_regex != mem.m_regex) {
+                std::cout << "Got: " << mk_pp(new_regex->get_expr(), graph().get_manager()) << std::endl;
+            }
+            else {
+                std::cout << "No change!" << std::endl;
             }
         }
 
@@ -1806,9 +1817,10 @@ namespace seq {
         // integer feasibility check: the solver now holds all path constraints
         // incrementally; just query the solver directly
         if (!cur_path.empty() && !check_int_feasibility()) {
-            dep_tracker dep = get_subsolver_dependency(node);
-            node->set_conflict(backtrack_reason::arithmetic, dep);
+            dep_tracker deps = get_subsolver_dependency(node);
+            node->set_conflict(backtrack_reason::arithmetic, deps);
             node->set_general_conflict();
+
             ++m_stats.m_num_arith_infeasible;
             return search_result::unsat;
         }
@@ -1885,8 +1897,9 @@ namespace seq {
                 add_subst_length_constraints(e);
                 e->set_len_constraints_computed(true);
 
-                for (const auto& sc : e->side_constraints()) 
+                for (const auto& sc : e->side_constraints()) {
                     e->tgt()->add_constraint(sc);
+                }
                 
             }
 
@@ -3916,7 +3929,6 @@ namespace seq {
                     nielsen_node *child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, true);
                     for (auto f : cs) {
-                        std::cout << "sc: " << mk_pp(f, m) << std::endl;
                         e->add_side_constraint(constraint(f, mem.m_dep, m));
                     }
                     for (str_mem &cm : child->str_mems()) {
@@ -4485,6 +4497,14 @@ namespace seq {
         }
     }
 
+    void nielsen_graph::assert_to_subsolver(const constraint& c) {
+        m_solver.assert_expr(c.fml, c.dep);
+    }
+
+    void nielsen_graph::assert_to_subsolver(expr* e) {
+        m_solver.assert_expr(e);
+    }
+
     void nielsen_graph::assert_node_new_int_constraints(nielsen_node* node) {
         // Assert only the constraints that are new to this node (beyond those
         // inherited from its parent via clone_from).  The parent's constraints are
@@ -4501,8 +4521,7 @@ namespace seq {
                 node->set_external_conflict(lit, c.dep);
                 return;
             }
-            m_solver.assert_expr(c.fml);
-
+            assert_to_subsolver(c);
         }
     }
 
@@ -4612,7 +4631,7 @@ namespace seq {
         expr_ref rhs_plus_one(a.mk_add(rhs, one), m);
 
         m_solver.push();
-        m_solver.assert_expr(a.mk_ge(lhs, rhs_plus_one));
+        assert_to_subsolver(a.mk_ge(lhs, rhs_plus_one));
         lbool result = m_solver.check();
         m_solver.pop(1);
         if (result == l_false) {
