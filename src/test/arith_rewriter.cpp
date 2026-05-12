@@ -40,6 +40,8 @@ static expr_ref parse_int_fml(ast_manager& m, char const* str) {
     std::ostringstream buffer;
     buffer << "(declare-const I Int)\n"
            << "(declare-const S Int)\n"
+           << "(declare-const x Int)\n"
+           << "(declare-const y Int)\n"
            << "(assert " << str << ")\n";
     std::istringstream is(buffer.str());
     VERIFY(parse_smt2_commands(ctx, is));
@@ -82,5 +84,18 @@ void tst_arith_rewriter() {
     fml = parse_int_fml(m, "(>= (* I (+ I (- 1))) 0)");
     rw(fml);
     std::cout << "consecutive product (minus) >= 0: " << mk_pp(fml, m) << "\n";
+    ENSURE(m.is_true(fml));
+
+    // Issue: (mod (+ x y) y) should simplify to (mod x y)
+    // This is the key identity: (a + k*b) mod b = a mod b
+    fml = parse_int_fml(m, "(= (mod (+ x y) y) (mod x y))");
+    rw(fml);
+    std::cout << "mod congruence (mod (+ x y) y) = (mod x y): " << mk_pp(fml, m) << "\n";
+    ENSURE(m.is_true(fml));
+
+    // (mod (+ x (* 3 y)) y) should simplify to (mod x y)
+    fml = parse_int_fml(m, "(= (mod (+ x (* 3 y)) y) (mod x y))");
+    rw(fml);
+    std::cout << "mod congruence (mod (+ x (* 3 y)) y) = (mod x y): " << mk_pp(fml, m) << "\n";
     ENSURE(m.is_true(fml));
 }

@@ -1465,6 +1465,41 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
         }
     }
 
+    // (mod (+ ... k*y ...) y) = (mod (+ ...) y) for integer k
+    // Remove summands that are integer multiples of arg2 from the sum.
+    if (!is_num2 && m_util.is_int(arg2) && is_add(arg1)) {
+        expr_ref_buffer new_args(m);
+        bool change = false;
+        for (expr* arg : *to_app(arg1)) {
+            expr* s1 = nullptr, *s2 = nullptr;
+            rational k;
+            if (arg == arg2) {
+                // summand equals the modulus (k=1 case), drop it
+                change = true;
+            }
+            else if (m_util.is_mul(arg, s1, s2) &&
+                     ((m_util.is_numeral(s1, k) && s2 == arg2) ||
+                      (m_util.is_numeral(s2, k) && s1 == arg2))) {
+                // k * arg2 or arg2 * k, drop it
+                change = true;
+            }
+            else {
+                new_args.push_back(arg);
+            }
+        }
+        if (change) {
+            expr_ref sum(m);
+            if (new_args.empty())
+                sum = m_util.mk_int(0);
+            else if (new_args.size() == 1)
+                sum = expr_ref(new_args[0], m);
+            else
+                sum = m.mk_app(to_app(arg1)->get_decl(), new_args.size(), new_args.data());
+            result = m_util.mk_mod(sum, arg2);
+            return BR_REWRITE3;
+        }
+    }
+
     expr* x = nullptr, * y = nullptr, * z = nullptr;
     if (is_num2 && v2.is_pos() && m_util.is_mul(arg1, x, y) && m_util.is_numeral(x, v1, is_int) && v1 > 0 && divides(v1, v2)) {
         result = m_util.mk_mul(m_util.mk_int(v1), m_util.mk_mod(y, m_util.mk_int(v2/v1)));        
