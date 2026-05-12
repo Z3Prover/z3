@@ -120,6 +120,7 @@
     X(model_based_opt) \
     X(factor_rewriter) \
     X(smt2print_parse) \
+    X(tptp) \
     X(substitution) \
     X(polynomial) \
     X(polynomial_factorization) \
