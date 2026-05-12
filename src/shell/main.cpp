@@ -50,8 +50,8 @@ static char const * g_input_file          = nullptr;
 static char const * g_drat_input_file     = nullptr;
 static bool         g_standard_input      = false;
 static input_kind   g_input_kind          = IN_UNSPECIFIED;
-bool                g_display_statistics  = false;
-bool                g_display_model       = false;
+extern bool         g_display_statistics;
+extern bool         g_display_model;
 static bool         g_display_istatistics = false;
 
 static void error(const char * msg) {

@@ -34,11 +34,12 @@ static std::string run_tptp(char const* input) {
     return out;
 }
 
-// Required externs from shell/tptp_frontend.cpp; keep output minimal in tests.
-bool g_display_statistics = false;
-bool g_display_model = false;
+extern bool g_display_statistics;
+extern bool g_display_model;
 
 void tst_tptp() {
+    g_display_statistics = false;
+    g_display_model = false;
     std::vector<tptp_case> cases = {
         {"agatha-butler",
 R"(fof(ax1,axiom, lives(agatha)).

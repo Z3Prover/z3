@@ -19,8 +19,8 @@
 #include "util/rational.h"
 #include "util/z3_exception.h"
 
-extern bool g_display_statistics;
-extern bool g_display_model;
+bool g_display_statistics = false;
+bool g_display_model = false;
 
 namespace {
 
