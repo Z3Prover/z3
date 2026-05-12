@@ -472,6 +472,22 @@ namespace smt {
                     wu = m.mk_eq(m_converter.unwrap(wrapped, n->get_sort()), n);
                     TRACE(t_fpa, tout << "w/u eq: " << std::endl << mk_ismt2_pp(wu, m) << std::endl;);
                     assert_cnstr(wu);
+
+                    // For non-FPA-family terms (e.g. datatype accessors like
+                    // get-fp), mk_uf creates a separate BV UF that is not
+                    // linked to bvwrap. Assert wrap(n) == concat(conv_components)
+                    // to close the constraint gap (same pattern as numerals above).
+                    if (n->get_family_id() != get_family_id()) {
+                        expr_ref conv_e = convert(n);
+                        if (m_fpa_util.is_fp(conv_e) && to_app(conv_e)->get_num_args() == 3) {
+                            app_ref conv_a(m);
+                            conv_a = to_app(conv_e.get());
+                            expr_ref cc(m);
+                            cc = m_bv_util.mk_concat({conv_a->get_arg(0), conv_a->get_arg(1), conv_a->get_arg(2)});
+                            assert_cnstr(m.mk_eq(wrapped, cc));
+                            assert_cnstr(mk_side_conditions());
+                        }
+                    }
                 }
             }
         }
