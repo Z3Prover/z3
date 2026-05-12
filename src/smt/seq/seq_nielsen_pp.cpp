@@ -130,6 +130,15 @@ namespace seq {
         return result;
     }
 
+    static std::string code_to_str(unsigned code) {
+        if (code >= 32 && code < 127 && code != '"' && code != '\\') {
+            return std::string(reinterpret_cast<char*>(&code), 1);
+        }
+        char buf[16];
+        snprintf(buf, sizeof(buf), "'\\x%x'", code);
+        return std::string(buf);
+    }
+
     // Helper: render an arithmetic/integer expression in infix HTML notation.
     // Recognises +, -, *, unary minus, numerals, str.len, and named constants;
     // falls back to HTML-escaped mk_pp for anything else.
@@ -217,6 +226,10 @@ namespace seq {
             names.insert(x, s);
             return "|" + s + "|";
         }
+        unsigned c;
+        if (seq.is_const_char(e, c))
+            return '"' + code_to_str(c) + '"';
+
         // named constant, fresh variable like n!0
         if (a->get_num_args() == 0)
             return dot_html_escape(a->get_decl()->get_name().str());
@@ -277,6 +290,9 @@ namespace seq {
             }
             return dot_html_escape(os.str());
         }
+        unsigned c;
+        if (seq.is_const_char(e, c))
+            return code_to_str(c);
         if (seq.re.is_concat(e)) {
             app* ap = to_app(e);
             std::string res;
@@ -408,18 +424,8 @@ namespace seq {
                 expr* ch_expr = to_app(e)->get_arg(0);
                 unsigned code = 0;
                 if (seq.is_const_char(ch_expr, code)) {
-                    if (code >= 32 && code < 127 && code != '"' && code != '\\') {
-                        char_acc += static_cast<char>(code);
-                    }
-                    else {
-                        flush_chars();
-                        char buf[16];
-                        snprintf(buf, sizeof(buf), "'\\x%x'", code);
-                        if (!first)
-                            result += " + ";
-                        result += buf;
-                        first = false;
-                    }
+                    char_acc += code_to_str(code);
+                    flush_chars();
                     continue;
                 }
             }
@@ -508,7 +514,7 @@ namespace seq {
             if (!hasMem) { out << "Mem:<br/>"; hasMem = true; }
             out << snode_label_html(mem.m_str, names, next_id, m)
                 << " &#8712; "
-                << snode_label_html(mem.m_regex, names, next_id, m)
+                << regex_expr_html(mem.m_regex->get_expr(), names, next_id, m, graph().seq())
                 << "<br/>";
         }
         // character ranges
