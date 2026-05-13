@@ -262,6 +262,7 @@ class tptp_parser {
     bool m_last_name_quoted = false;
     unsigned m_lambda_counter = 0;
     std::unordered_map<std::string, sort*> m_sorts;
+    sort_ref_vector m_pinned_sorts;       // prevents cached sorts from being freed
     std::unordered_map<sort*, std::pair<std::vector<sort*>, sort*>> m_ho_sort_info; // ho_sort → (domain, range)
     std::unordered_map<std::string, func_decl*> m_decls;
     func_decl_ref_vector m_pinned_decls;  // prevents cached func_decls from being freed
@@ -336,6 +337,7 @@ class tptp_parser {
         if (it != m_sorts.end()) return it->second;
         sort* s = m.mk_uninterpreted_sort(symbol(n));
         m_sorts.emplace(n, s);
+        m_pinned_sorts.push_back(s);
         return s;
     }
 
@@ -354,6 +356,7 @@ class tptp_parser {
         if (it != m_sorts.end()) return it->second;
         sort* s = m.mk_uninterpreted_sort(symbol(key));
         m_sorts.emplace(key, s);
+        m_pinned_sorts.push_back(s);
         m_ho_sort_info.emplace(s, std::make_pair(domain, range));
         return s;
     }
@@ -1291,16 +1294,29 @@ class tptp_parser {
         return idx == std::string::npos ? "." : f.substr(0, idx);
     }
 
+    static std::string normalize_path(std::string path) {
+#ifdef _WIN32
+        for (auto& c : path)
+            if (c == '/') c = '\\';
+#endif
+        return path;
+    }
+
     std::string resolve_include(std::string const& curr_file, std::string const& name) const {
         if (is_absolute_path(name))
-            return name;
-        std::string local = dirname(curr_file) + "/" + name;
+            return normalize_path(name);
+        // Try relative to current file's directory
+        std::string local = normalize_path(dirname(curr_file) + "/" + name);
         if (file_exists(local)) return local;
+        // Try TPTP environment variable (standard TPTP convention)
         char const* root = std::getenv("TPTP");
         if (root) {
-            std::string env = std::string(root) + "/" + name;
+            std::string env = normalize_path(std::string(root) + "/" + name);
             if (file_exists(env)) return env;
         }
+        // Try relative to current working directory (common when running from TPTP root)
+        std::string cwd_relative = normalize_path(name);
+        if (file_exists(cwd_relative)) return cwd_relative;
         return local;
     }
 
@@ -1377,9 +1393,13 @@ public:
         m_cmd(cmd),
         m(m_cmd.m()),
         m_arith(m),
+        m_pinned_sorts(m),
         m_pinned_decls(m),
         m_univ(m.mk_uninterpreted_sort(symbol("U"))) {
-        m_sorts.emplace("$tType", m.mk_uninterpreted_sort(symbol("$tType")));
+        m_pinned_sorts.push_back(m_univ);
+        sort* tType = m.mk_uninterpreted_sort(symbol("$tType"));
+        m_pinned_sorts.push_back(tType);
+        m_sorts.emplace("$tType", tType);
         m_sorts.emplace("$i", m_univ);
         m_sorts.emplace("$o", m.mk_bool_sort());
         m_sorts.emplace("$int", m_arith.mk_int());
@@ -1388,12 +1408,22 @@ public:
     }
 
     void parse_input(std::istream& in, std::string const& current_file) {
+        // Save parser state so that included files don't clobber the caller's lexer.
+        std::string saved_input = std::move(m_input);
+        std::unique_ptr<lexer> saved_lex = std::move(m_lex);
+        token saved_curr = m_curr;
+
         std::ostringstream buf;
         buf << in.rdbuf();
         m_input = buf.str();
         m_lex = std::make_unique<lexer>(m_input);
         next();
         parse_toplevel(current_file);
+
+        // Restore caller's parser state.
+        m_input = std::move(saved_input);
+        m_lex = std::move(saved_lex);
+        m_curr = saved_curr;
     }
 
     void parse_file(std::string const& filename) {
