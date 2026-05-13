@@ -41,6 +41,22 @@ steps:
     with:
       persist-credentials: false
 
+  - name: Install build dependencies
+    run: |
+      sudo apt-get update -y -q
+      sudo apt-get install -y cmake ninja-build python3 wget curl bc
+
+  - name: Build Z3
+    run: |
+      mkdir -p /tmp/z3-build
+      cd /tmp/z3-build
+      cmake "$GITHUB_WORKSPACE" \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DZ3_BUILD_TEST_EXECUTABLES=OFF
+      ninja -j$(nproc) z3
+      ./z3 --version
+
 ---
 
 # TPTP Front-End Benchmark
@@ -49,7 +65,7 @@ steps:
 
 Your name is ${{ github.workflow }}. You are an expert testing engineer for the Z3 theorem prover. Your task is to:
 
-1. Build Z3 from the current `master` branch
+1. Verify the Z3 binary built by the pre-flight step is available
 2. Download the TPTP benchmark library from tptp.org
 3. Select 500 random small-to-medium problems (with their axiom dependencies)
 4. Run each problem through Z3's TPTP front-end with a 5-second timeout
@@ -59,40 +75,18 @@ Your name is ${{ github.workflow }}. You are an expert testing engineer for the 
 **Repository**: ${{ github.repository }}
 **Workspace**: ${{ github.workspace }}
 
-## Phase 1: Build Z3
+## Phase 1: Verify Z3 Binary
 
-Install build tools and build Z3 in Release mode.
-
-```bash
-sudo apt-get update -y -q
-sudo apt-get install -y cmake ninja-build python3 wget curl bc 2>/dev/null || true
-```
-
-Configure and build:
-
-```bash
-mkdir -p /tmp/z3-build
-cd /tmp/z3-build
-cmake "$GITHUB_WORKSPACE" \
-  -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DZ3_BUILD_TEST_EXECUTABLES=OFF \
-  2>&1 | tail -20
-
-# Build with limited parallelism to avoid OOM alongside LLM inference.
-# Never run ninja in the background with &.
-ninja -j2 z3 2>&1 | tail -30
-```
-
-Verify the build:
+Z3 was built by the workflow pre-flight step and is available at `/tmp/z3-build/z3`.
+Confirm the binary is present and functional:
 
 ```bash
 /tmp/z3-build/z3 --version
 ```
 
-If the build fails, call the `noop` safe-output with a message describing the error and stop.
+If the binary is missing or returns an error, call the `noop` safe-output with a message describing the problem and stop.
 
-Once the binary is confirmed, call `noop` with `"Z3 built successfully. Downloading TPTP benchmark library — this may take a few minutes."` to keep the safe-output session alive.
+Once confirmed, call `noop` with `"Z3 binary verified. Downloading TPTP benchmark library — this may take a few minutes."` to keep the safe-output session alive.
 
 ## Phase 2: Download the TPTP Problem Library
 
@@ -536,15 +530,13 @@ You **MUST** call either `create_discussion` or `noop` before the workflow ends:
 
 - **Full success**: Call `create_discussion` with the complete report.
 - **Partial results** (some problems ran): Call `create_discussion` with whatever results are available and a note about incomplete execution.
-- **Build failure**: Call `noop` with a brief message describing the build error.
 - **Download failure**: Call `noop` with the download error details.
 - **No problems selected**: Call `noop` explaining why no problems were found.
-
-Failing to produce any safe output triggers an automatic workflow-failure issue that clutters the repository.
+- **Binary missing**: If `/tmp/z3-build/z3` is unexpectedly absent, call `noop` with that detail and stop.
 
 ## Important Notes
 
-- **Never run `ninja` in the background with `&`**: Concurrent C++ compilation and LLM inference exhausts available RAM and kills the agent process (exit 137). Always wait for build commands to finish before continuing.
+- **Build failure handling**: Z3 was built before the agent loaded. If the binary is missing or non-functional, call `noop` with the error and stop.
 - **TPTP environment variable**: Set `TPTP=/tmp/tptp` when invoking `z3 -tptp` so that `include()` directives in problem files resolve correctly against the downloaded Axioms directory.
 - **Timeout detection**: Use `timeout 8` as the outer OS-level guard (3 seconds beyond Z3's `-T:5`) to allow Z3 to exit cleanly before the shell kills it. If the exit code from `timeout` is 124, record the verdict as `Timeout`.
 - **Crash detection**: A crash is a non-zero exit code with no `% SZS status` line in the output and no timeout. Record it separately from `GaveUp`.
