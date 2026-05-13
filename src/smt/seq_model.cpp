@@ -199,142 +199,20 @@ namespace smt {
                 m_var_replacement.insert(id, replacement);
         }
     }
-
-    expr_ref seq_model::snode_to_value(euf::snode* n, expr_ref_vector const& values) {
-        SASSERT(n);
-        if (n->is_empty()) {
-            sort* srt = n->get_sort();
-            if (!srt)
-                srt = m_seq.str.mk_string_sort();
-            return expr_ref(m_seq.str.mk_empty(srt), m);               
-        }
-
-        arith_util arith(m); 
-
-        if (m.is_value(n->get_expr())) 
-            return expr_ref(n->get_expr(), m);        
-
-        if (n->is_char_or_unit()) {
-            expr *e = nullptr;
-            VERIFY(m_seq.str.is_unit(n->get_expr(), e));
-            if (values.size() == 1) {
-                unsigned c;
-                expr *dval = values.get(0);
-                if (m_seq.is_const_char(dval, c))
-                    return expr_ref(m_seq.str.mk_string(zstring(c)), m);
-                return expr_ref(m_seq.str.mk_unit(dval), m);
-            }
-            else if (m_seq.str.is_nth_u(e)) {
-                auto arg = n->arg(0);
-                auto var_val = get_var_value(arg->arg(0));
-                auto index_val = int_value(arg->arg(1)->get_expr());
-                expr_ref val(m_seq.str.mk_nth(var_val, arith.mk_int(index_val)), m);
-                return expr_ref(m_seq.str.mk_unit(val), m);
-            }
-            else
-                NOT_IMPLEMENTED_YET();
-        }
-
-        if (n->is_var()) {
-            euf::snode *replacement = nullptr;
-            if (!m_var_replacement.find(n->id(), replacement))
-                return expr_ref(get_var_value(n), m);            
-            return mk_value_with_dependencies(n, replacement, values);
-        }
-
-        if (n->is_concat()) {
-            expr_ref_vector es(m), vals(m);
-            unsigned idx = 0;
-            m_seq.str.get_concat(n->get_expr(), es);
-            for (auto e : es) {
-                if (m.is_value(e))
-                    vals.push_back(e);
-                else
-                    vals.push_back(values[idx++]);
-            }
-            return expr_ref(m_seq.str.mk_concat(vals, n->get_sort()), m);
-        }
-
-        if (n->is_power()) {
-            SASSERT(n->num_args() == 2);
-            SASSERT(values.size() == 0);
-            // Evaluate the base and exponent to produce a concrete string.
-            // The base is a string snode; the exponent is an integer expression
-            // whose value comes from the sat_path integer model.
-            expr *base_val = n->arg(0)->get_expr();
-            expr *exp_expr = n->arg(1)->get_expr();
-
-            rational exp_val = int_value(exp_expr);
-            
-            
-            if (exp_val.is_neg())
-                exp_val = rational(0);
-
-            // Build the repeated string: base^exp_val
-            if (exp_val == 0) 
-                return expr_ref(m_seq.str.mk_empty(n->get_sort()), m);
-            
-            TRACE(seq, tout << mk_pp(n->get_expr(), m) << '\n');
-            // For small exponents, concatenate directly; for large ones,
-            // return mk_power to avoid enormous AST chains.
-            constexpr unsigned POWER_EXPAND_LIMIT = 10;
-            if (exp_val > POWER_EXPAND_LIMIT)
-                return expr_ref(m_seq.str.mk_power(base_val, arith.mk_int(exp_val)), m);
-            unsigned n_val = exp_val.get_unsigned();
-            expr_ref acc(base_val, m);
-            for (unsigned i = 1; i < n_val; ++i)
-                acc = m_seq.str.mk_concat(acc, base_val);
-            return acc;
-        }
-
-        // fallback: use the underlying expression       
-        return expr_ref(n->get_expr(), m);
-    }
     
     void seq_model::collect_dependencies(euf::snode *n, ptr_vector<enode> &deps) const {
-        if (m.is_value(n->get_expr()))
-            return;
-        if (n->is_char_or_unit()) {
-            expr *e = n->arg(0)->get_expr();
-            if (m_ctx.e_internalized(e))
-                deps.push_back(m_ctx.get_enode(e));
-        }
-        else if (n->is_concat()) {
-            expr_ref_vector es(m);
-            m_seq.str.get_concat(n->get_expr(), es);
-            for (auto e : es) {  
-                if (!m.is_value(e))
-                    deps.push_back(m_ctx.get_enode(e));
-            }
-        }
-        else if (n->is_power()) {
-            // pretend there are no dependencies
-            // TODO - may not be sufficient if the exponent is a variable with a binding that contains dependencies
-        }
-        else if (n->is_var()) {
-            // we could have a binding n |-> replacement
-            // we want to collect all elements in replacement as dependencies
-            // when using the dependencies to build a value for n we should
-            // map the values that are passed in to the sub-terms that are listed as dependencies.
-            // sub-terms are under concat, power and unit
-            euf::snode *replacement = nullptr;
-            if (m_var_replacement.find(n->id(), replacement)) {
-                collect_dependencies_rec(n, replacement, deps);
-            }
-        }
-    }
-
-    void seq_model::collect_dependencies_rec(euf::snode *n, euf::snode* replacement, ptr_vector<enode> &deps) const {
         uint_set seen;
-        ptr_buffer<euf::snode> todo;
-        todo.push_back(replacement);
+        buffer<std::pair<euf::snode*, bool>> todo;
+        todo.push_back({n, false});
         while (!todo.empty()) {
-            euf::snode *curr = todo.back();
+            auto [curr, is_recursive] = todo.back();
             todo.pop_back();
             if (seen.contains(curr->id()))
                 continue;
             seen.insert(curr->id());
             if (m.is_value(curr->get_expr()))
+                ;
+            else if (curr->is_empty())
                 ;
             else if (curr->is_char_or_unit()) {
                 expr *e = curr->arg(0)->get_expr();
@@ -343,45 +221,59 @@ namespace smt {
             }
             else if (curr->is_concat()) {
                 for (unsigned i = 0; i < curr->num_args(); ++i)
-                    todo.push_back(curr->arg(i));
+                    todo.push_back({curr->arg(i), is_recursive});
             }
             else if (curr->is_power()) {
-                SASSERT(curr->num_args() == 2);
+                // pretend there are no dependencies
+                // TODO - may not be sufficient if the exponent is a variable with a binding that contains dependencies
             }
             else if (curr->is_var()) {
-                ;
+                // we could have a binding n |-> replacement
+                // we want to collect all elements in replacement as dependencies
+                // when using the dependencies to build a value for n we should
+                // map the values that are passed in to the sub-terms that are listed as dependencies.
+                // sub-terms are under concat, power and unit
+                euf::snode *replacement = nullptr;             
+                if (!is_recursive && m_var_replacement.find(curr->id(), replacement)) 
+                    todo.push_back({replacement, true});                
             }
             else {
                 IF_VERBOSE(0, {
-                    verbose_stream() << "nseq collect_dependencies_rec: unhandled snode kind " << (int)curr->kind() << "\n";
+                    verbose_stream() << "nseq collect_dependencies_rec: unhandled snode kind " << (int)curr->kind()
+                                     << "\n";
                     verbose_stream() << "  curr: snode[" << curr->id() << "]";
-                    if (curr->get_expr()) verbose_stream() << " expr=" << mk_bounded_pp(curr->get_expr(), m, 2);
+                    if (curr->get_expr())
+                        verbose_stream() << " expr=" << mk_bounded_pp(curr->get_expr(), m, 2);
                     verbose_stream() << "\n";
                 });
                 UNREACHABLE();
             }
         }
+        // verbose_stream() << "collect " << mk_pp(n->get_expr(), m) << " " << deps.size() << "\n";
     }
-
    
-    expr_ref seq_model::mk_value_with_dependencies(euf::snode* n, euf::snode* replacement, expr_ref_vector const& values) {
+    expr_ref seq_model::snode_to_value(euf::snode* n, expr_ref_vector const& values) {
         // insert var2value in the same order that dependencies were traversed
         uint_set seen;
         u_map<expr *> var2value;
-        ptr_buffer<euf::snode> todo;
+        buffer<std::pair<euf::snode *, bool>> todo;
+        todo.push_back({n, false});
         unsigned idx = 0;
         arith_util a(m);
         expr_ref_vector args(m), pinned(m);
-        todo.push_back(replacement);
+        todo.push_back({n, false});
+        // verbose_stream() << "extract " << mk_pp(n->get_expr(), m) << " " << values.size() << "\n";
         while (!todo.empty()) {
             SASSERT(idx <= values.size());
-            euf::snode *curr = todo.back();
+            auto [curr, is_recursive] = todo.back();
             todo.pop_back();
             if (seen.contains(curr->id()))
                 continue;
             seen.insert(curr->id());
-            if (m.is_value(curr->get_expr())) 
-                var2value.insert(curr->id(), curr->get_expr());            
+            if (m.is_value(curr->get_expr()))
+                var2value.insert(curr->id(), curr->get_expr());
+            else if (curr->is_empty())
+                var2value.insert(curr->id(), curr->get_expr());
             else if (curr->is_char_or_unit()) {
                 auto arg = curr->arg(0);
                 expr *e = arg->get_expr();
@@ -403,30 +295,36 @@ namespace smt {
             }
             else if (curr->is_concat()) {
                 for (unsigned i = 0; i < curr->num_args(); ++i)
-                    todo.push_back(curr->arg(i));
+                    todo.push_back({curr->arg(i), is_recursive});
             }
             else if (curr->is_power()) {
                 SASSERT(curr->num_args() == 2);
             }
             else if (curr->is_var()) {
-                ;
+                euf::snode *replacement = nullptr;
+                if (!is_recursive && m_var_replacement.find(n->id(), replacement))
+                    todo.push_back({replacement, true});               
             }
             else
                 UNREACHABLE();
         }
         // then reconstruct the value for replacement based on the collected sub-term values.
         SASSERT(values.size() == idx);
-        todo.push_back(replacement);
+        todo.push_back({n, false});
 
         expr *val = nullptr;
         while (!todo.empty()) {
-            euf::snode *curr = todo.back();
+            auto [curr, is_recursive] = todo.back();
             if (var2value.contains(curr->id())) {
                 todo.pop_back();
                 continue;
             }
             
-            if (curr->is_power()) {
+            if (curr->is_empty())
+                val = curr->get_expr();
+            else if (m.is_value(curr->get_expr()))
+                val = curr->get_expr();
+            else if (curr->is_power()) {
                 auto ival = int_value(curr->arg(1)->get_expr());
                 val = m_seq.str.mk_power(curr->arg(0)->get_expr(), a.mk_int(ival));
             }
@@ -437,7 +335,7 @@ namespace smt {
                     if (var2value.find(arg->id(), val))
                         args.push_back(val);
                     else
-                        todo.push_back(arg);
+                        todo.push_back({arg, is_recursive});
                 }
                 if (args.size() == curr->num_args()) 
                     val = m_seq.str.mk_concat(args, curr->get_sort());                
@@ -445,15 +343,25 @@ namespace smt {
                     continue; // not all arguments have been processed yet, will reconstruct in a later iteration
             }
             else if (curr->is_var()) {
-                val = get_var_value(curr);
+                euf::snode *replacement = nullptr;
+                if (!is_recursive && m_var_replacement.find(curr->id(), replacement)) {
+                    if (!var2value.find(replacement->id(), val)) {
+                        todo.push_back({replacement, true});
+                        continue;
+                    }
+                }
+                else 
+                    val = get_var_value(curr);
             }
-            else
+            else {
+                IF_VERBOSE(0, verbose_stream() << "not handled " << mk_pp(curr->get_expr(), m) << "\n");
                 UNREACHABLE();
+            }
             var2value.insert(curr->id(), val);
             pinned.push_back(val);
             todo.pop_back();
         }
-        return expr_ref(var2value.find(replacement->id()), m);
+        return expr_ref(var2value.find(n->id()), m);
     }
 
     void seq_model::register_existing_values(seq::nielsen_graph& nielsen) {
@@ -629,3 +537,97 @@ namespace smt {
     }
 
 }
+
+
+#if 0
+    expr_ref seq_model::snode_to_value(euf::snode* n, expr_ref_vector const& values) {
+        SASSERT(n);
+        if (n->is_empty()) {
+            sort* srt = n->get_sort();
+            if (!srt)
+                srt = m_seq.str.mk_string_sort();
+            return expr_ref(m_seq.str.mk_empty(srt), m);               
+        }
+
+        arith_util arith(m); 
+
+        if (m.is_value(n->get_expr())) 
+            return expr_ref(n->get_expr(), m);        
+
+        if (n->is_char_or_unit()) {
+            expr *e = nullptr;
+            VERIFY(m_seq.str.is_unit(n->get_expr(), e));
+            if (values.size() == 1) {
+                unsigned c;
+                expr *dval = values.get(0);
+                if (m_seq.is_const_char(dval, c))
+                    return expr_ref(m_seq.str.mk_string(zstring(c)), m);
+                return expr_ref(m_seq.str.mk_unit(dval), m);
+            }
+            else if (m_seq.str.is_nth_u(e)) {
+                auto arg = n->arg(0);
+                auto var_val = get_var_value(arg->arg(0));
+                auto index_val = int_value(arg->arg(1)->get_expr());
+                expr_ref val(m_seq.str.mk_nth(var_val, arith.mk_int(index_val)), m);
+                return expr_ref(m_seq.str.mk_unit(val), m);
+            }
+            else
+                NOT_IMPLEMENTED_YET();
+        }
+
+        if (n->is_var()) {
+            euf::snode *replacement = nullptr;
+            if (!m_var_replacement.find(n->id(), replacement))
+                return expr_ref(get_var_value(n), m);            
+            return mk_value_with_dependencies(replacement, values);
+        }
+
+        if (n->is_concat()) {
+            expr_ref_vector es(m), vals(m);
+            unsigned idx = 0;
+            m_seq.str.get_concat(n->get_expr(), es);
+            for (auto e : es) {
+                if (m.is_value(e))
+                    vals.push_back(e);
+                else
+                    vals.push_back(values[idx++]);
+            }
+            return expr_ref(m_seq.str.mk_concat(vals, n->get_sort()), m);
+        }
+
+        if (n->is_power()) {
+            SASSERT(n->num_args() == 2);
+            SASSERT(values.size() == 0);
+            // Evaluate the base and exponent to produce a concrete string.
+            // The base is a string snode; the exponent is an integer expression
+            // whose value comes from the sat_path integer model.
+            expr *base_val = n->arg(0)->get_expr();
+            expr *exp_expr = n->arg(1)->get_expr();
+
+            rational exp_val = int_value(exp_expr);
+            
+            
+            if (exp_val.is_neg())
+                exp_val = rational(0);
+
+            // Build the repeated string: base^exp_val
+            if (exp_val == 0) 
+                return expr_ref(m_seq.str.mk_empty(n->get_sort()), m);
+            
+            TRACE(seq, tout << mk_pp(n->get_expr(), m) << '\n');
+            // For small exponents, concatenate directly; for large ones,
+            // return mk_power to avoid enormous AST chains.
+            constexpr unsigned POWER_EXPAND_LIMIT = 10;
+            if (exp_val > POWER_EXPAND_LIMIT)
+                return expr_ref(m_seq.str.mk_power(base_val, arith.mk_int(exp_val)), m);
+            unsigned n_val = exp_val.get_unsigned();
+            expr_ref acc(base_val, m);
+            for (unsigned i = 1; i < n_val; ++i)
+                acc = m_seq.str.mk_concat(acc, base_val);
+            return acc;
+        }
+
+        // fallback: use the underlying expression       
+        return expr_ref(n->get_expr(), m);
+    }
+#endif
