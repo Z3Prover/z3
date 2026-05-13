@@ -261,6 +261,8 @@ class tptp_parser {
     std::unordered_map<std::string, func_decl*> m_decls;
     std::unordered_map<std::string, std::pair<std::vector<sort*>, sort*>> m_typed_decls;
     std::vector<std::unordered_map<std::string, app*>> m_bound;
+    std::unordered_map<std::string, app*>* m_implicit_vars = nullptr;
+    ptr_vector<app>* m_implicit_var_order = nullptr;
     std::unordered_set<std::string> m_seen_files;
 
     std::string m_input;
@@ -407,6 +409,33 @@ class tptp_parser {
         return false;
     }
 
+    app* get_or_create_implicit_var(std::string const& n) {
+        auto it = m_implicit_vars->find(n);
+        if (it != m_implicit_vars->end()) return it->second;
+        app* c = m.mk_const(symbol(n), m_univ);
+        m_implicit_vars->emplace(n, c);
+        m_implicit_var_order->push_back(c);
+        return c;
+    }
+
+    class scoped_implicit_vars {
+        tptp_parser& m_p;
+        std::unordered_map<std::string, app*>* m_prev_vars;
+        ptr_vector<app>* m_prev_order;
+    public:
+        scoped_implicit_vars(tptp_parser& p, std::unordered_map<std::string, app*>& vars, ptr_vector<app>& order):
+            m_p(p),
+            m_prev_vars(p.m_implicit_vars),
+            m_prev_order(p.m_implicit_var_order) {
+            m_p.m_implicit_vars = &vars;
+            m_p.m_implicit_var_order = &order;
+        }
+        ~scoped_implicit_vars() {
+            m_p.m_implicit_vars = m_prev_vars;
+            m_p.m_implicit_var_order = m_prev_order;
+        }
+    };
+
     expr_ref mk_quantifier(bool is_forall, ptr_vector<app> const& bound, expr_ref const& body) {
         SASSERT(body);
         if (bound.empty()) return body;
@@ -502,6 +531,8 @@ class tptp_parser {
         expr_ref b(m);
         if (is_var_name(n) && find_bound(n, b))
             return b;
+        if (is_var_name(n) && m_implicit_vars && m_implicit_var_order)
+            return expr_ref(get_or_create_implicit_var(n), m);
 
         expr_ref_vector args(m);
         if (accept(token_kind::lparen)) {
@@ -586,6 +617,10 @@ class tptp_parser {
             expr_ref b(m);
             if (is_var_name(n) && find_bound(n, b)) {
                 lhs = b;
+                has_lhs = true;
+            }
+            else if (is_var_name(n) && m_implicit_vars && m_implicit_var_order) {
+                lhs = expr_ref(get_or_create_implicit_var(n), m);
                 has_lhs = true;
             }
         }
@@ -770,7 +805,13 @@ class tptp_parser {
             parse_type_decl_formula();
         }
         else {
+            std::unordered_map<std::string, app*> implicit_vars;
+            ptr_vector<app> implicit_var_order;
+            scoped_implicit_vars scoped(*this, implicit_vars, implicit_var_order);
             expr_ref f = parse_formula();
+            if (!implicit_var_order.empty()) {
+                f = mk_quantifier(true, implicit_var_order, f);
+            }
             if (role == "conjecture") {
                 m_has_conjecture = true;
                 f = m.mk_not(f);
@@ -922,7 +963,7 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         std::cerr << "TPTP parse error: " << ex.what() << "\n";
         return ERR_PARSER;
     }
-    catch (z3_error& ex) {
+    catch (z3_error const& ex) {
         if (ex.error_code() == ERR_TIMEOUT) {
             std::cout << "% SZS status Timeout\n";
             return 0;
@@ -930,7 +971,7 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         std::cerr << "TPTP frontend error: " << ex.what() << "\n";
         return ERR_INTERNAL_FATAL;
     }
-    catch (z3_exception& ex) {
+    catch (z3_exception const& ex) {
         std::cerr << "TPTP frontend error: " << ex.what() << "\n";
         return ERR_INTERNAL_FATAL;
     }
