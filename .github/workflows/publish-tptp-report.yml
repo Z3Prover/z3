@@ -31,14 +31,24 @@ jobs:
           script: |
             const fs = require('fs');
 
-            // Read report from file
+            // Read the master-branch report (preferred) or fall back to older report
             let body;
-            try {
-              body = fs.readFileSync('tptp-test-report.md', 'utf8');
-            } catch (e) {
-              core.setFailed('Could not read tptp-test-report.md: ' + e.message);
+            const candidates = ['tptp-test-report-master.md', 'tptp-test-report.md'];
+            let reportFile = null;
+            for (const f of candidates) {
+              if (fs.existsSync(f)) { reportFile = f; break; }
+            }
+            if (!reportFile) {
+              core.setFailed('No TPTP report file found');
               return;
             }
+            try {
+              body = fs.readFileSync(reportFile, 'utf8');
+            } catch (e) {
+              core.setFailed('Could not read report: ' + e.message);
+              return;
+            }
+            console.log('Using report file:', reportFile);
 
             // Get discussion category ID
             const categoryName = context.eventName === 'workflow_dispatch'
@@ -73,7 +83,7 @@ jobs:
             }
 
             const repoNodeId = catQuery.repository.id;
-            const title = 'TPTP Integration Test Report \u2014 copilot/integrate-tptp-into-src-shell';
+            const title = 'TPTP Test Report \u2014 master branch re-run after #9483 merge';
 
             // Check if a discussion with this title already exists
             const existingQuery = await github.graphql(`
