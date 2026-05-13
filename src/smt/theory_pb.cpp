@@ -29,7 +29,7 @@ Notes:
 #include "ast/rewriter/pb_rewriter_def.h"
 #include "math/simplex/sparse_matrix_def.h"
 #include "math/simplex/simplex_def.h"
-
+#include <numeric>
 
 namespace smt {
 
@@ -1788,7 +1788,7 @@ namespace smt {
                 g = static_cast<unsigned>(coeff);
             }
             else {
-                g = u_gcd(g, static_cast<unsigned>(coeff));
+                g = std::gcd(g, static_cast<unsigned>(coeff));
             }
         }
         if (g >= 2) {
