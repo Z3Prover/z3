@@ -58,6 +58,17 @@ static void test_fp_to_real_denormal() {
         "(assert (> (fp.to_real (fp #b0 #b01 #b11111111111111111111111)) 1.0))\n"
         "(check-sat)\n",
         true);
+
+    // Test 5: regression for soundness bug in fp.to_real with QF_FPLRA.
+    // The rational is exactly representable by (fp #b0 #b00000000 #b01001101101110000010001),
+    // so this equality must be satisfiable.
+    run_fp_test(
+        "(set-logic QF_FPLRA)\n"
+        "(set-option :model_validate true)\n"
+        "(assert (= (fp.to_real (fp #b0 #b00000000 #b01001101101110000010001))\n"
+        "           (/ 2546705.0 713623846352979940529142984724747568191373312.0)))\n"
+        "(check-sat)\n",
+        true);
 }
 
 static void test_recfun_defined_function_soundness() {

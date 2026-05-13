@@ -2976,13 +2976,10 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
         prev_bit = bit;
     }
 
-    expr_ref one_div_exp2(m);
-    one_div_exp2 = m_arith_util.mk_div(one, exp2);
-    exp2 = m.mk_ite(exp_is_neg, one_div_exp2, exp2);
-    dbg_decouple("fpa2bv_to_real_exp2", exp2);
-
-    expr_ref res(m), two_exp2(m), minus_res(m), sgn_is_1(m);
-    two_exp2 = m_arith_util.mk_power(two, exp2);
+    expr_ref res(m), two_exp2(m), signed_exp(m), minus_res(m), sgn_is_1(m);
+    signed_exp = m.mk_ite(exp_is_neg, m_arith_util.mk_uminus(exp2), exp2);
+    two_exp2 = m_arith_util.mk_power(two, signed_exp);
+    dbg_decouple("fpa2bv_to_real_exp2", two_exp2);
     res = m_arith_util.mk_mul(rsig, two_exp2);
     minus_res = m_arith_util.mk_uminus(res);
     sgn_is_1 = m.mk_eq(sgn, bv1);
