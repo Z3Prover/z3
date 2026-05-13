@@ -27,6 +27,7 @@ Notes:
 #include "solver/tactic2solver.h"
 #include "solver/parallel_params.hpp"
 #include "solver/parallel_tactical.h"
+#include "solver/parallel_tactical2.h"
 #include "tactic/tactical.h"
 #include "tactic/aig/aig_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
@@ -1183,5 +1184,9 @@ void inc_sat_display(std::ostream& out, solver& _s, unsigned sz, expr*const* sof
 
 tactic * mk_psat_tactic(ast_manager& m, params_ref const& p) {
     parallel_params pp(p);
-    return pp.enable() ? mk_parallel_tactic(mk_inc_sat_solver(m, p, false), p) : mk_sat_tactic(m);
+    if (pp.enable())
+        return mk_parallel_tactic(mk_inc_sat_solver(m, p, false), p);
+    if (pp.enable2())
+        return mk_parallel_tactic2(mk_inc_sat_solver(m, p, false), p);
+    return mk_sat_tactic(m);
 }
