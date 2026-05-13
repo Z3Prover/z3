@@ -414,7 +414,7 @@ class tptp_parser {
 
     app* get_or_create_implicit_var(std::string const& n) {
         if (!m_implicit_scope)
-            throw parse_error("internal parser error: implicit variable scope is missing");
+            throw parse_error("internal parser error: implicit variable scope is missing (unexpected parser state)");
         auto it = m_implicit_scope->vars.find(n);
         if (it != m_implicit_scope->vars.end()) return it->second;
         app* c = m.mk_const(symbol(n), m_univ);
@@ -432,6 +432,10 @@ class tptp_parser {
             m_prev_scope(p.m_implicit_scope) {
             m_p.m_implicit_scope = &scope;
         }
+        scoped_implicit_vars(scoped_implicit_vars const&) = delete;
+        scoped_implicit_vars& operator=(scoped_implicit_vars const&) = delete;
+        scoped_implicit_vars(scoped_implicit_vars&&) = delete;
+        scoped_implicit_vars& operator=(scoped_implicit_vars&&) = delete;
         ~scoped_implicit_vars() {
             m_p.m_implicit_scope = m_prev_scope;
         }
