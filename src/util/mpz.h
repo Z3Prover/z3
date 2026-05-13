@@ -314,13 +314,14 @@ class mpz_manager {
             else {
                 cell = reserve;
                 cell->m_size = 1;
+                digit_t* cell_digits = reinterpret_cast<digit_t*>(cell + 1);
                 if (a.value() < 0) {
                     sign = -1;
-                    cell->m_digits[0] = -a.value();
+                    cell_digits[0] = -a.value();
                 }
                 else {
                     sign = 1;
-                    cell->m_digits[0] = a.value();
+                    cell_digits[0] = a.value();
                 }
             }
         }
