@@ -261,8 +261,11 @@ class tptp_parser {
     std::unordered_map<std::string, func_decl*> m_decls;
     std::unordered_map<std::string, std::pair<std::vector<sort*>, sort*>> m_typed_decls;
     std::vector<std::unordered_map<std::string, app*>> m_bound;
-    std::unordered_map<std::string, app*>* m_implicit_vars = nullptr;
-    ptr_vector<app>* m_implicit_var_order = nullptr;
+    struct implicit_var_scope {
+        std::unordered_map<std::string, app*> vars;
+        ptr_vector<app> order;
+    };
+    implicit_var_scope* m_implicit_scope = nullptr;
     std::unordered_set<std::string> m_seen_files;
 
     std::string m_input;
@@ -410,29 +413,27 @@ class tptp_parser {
     }
 
     app* get_or_create_implicit_var(std::string const& n) {
-        auto it = m_implicit_vars->find(n);
-        if (it != m_implicit_vars->end()) return it->second;
+        if (!m_implicit_scope)
+            throw parse_error("internal parser error: implicit variable scope is missing");
+        auto it = m_implicit_scope->vars.find(n);
+        if (it != m_implicit_scope->vars.end()) return it->second;
         app* c = m.mk_const(symbol(n), m_univ);
-        m_implicit_vars->emplace(n, c);
-        m_implicit_var_order->push_back(c);
+        m_implicit_scope->vars.emplace(n, c);
+        m_implicit_scope->order.push_back(c);
         return c;
     }
 
     class scoped_implicit_vars {
         tptp_parser& m_p;
-        std::unordered_map<std::string, app*>* m_prev_vars;
-        ptr_vector<app>* m_prev_order;
+        implicit_var_scope* m_prev_scope;
     public:
-        scoped_implicit_vars(tptp_parser& p, std::unordered_map<std::string, app*>& vars, ptr_vector<app>& order):
+        scoped_implicit_vars(tptp_parser& p, implicit_var_scope& scope):
             m_p(p),
-            m_prev_vars(p.m_implicit_vars),
-            m_prev_order(p.m_implicit_var_order) {
-            m_p.m_implicit_vars = &vars;
-            m_p.m_implicit_var_order = &order;
+            m_prev_scope(p.m_implicit_scope) {
+            m_p.m_implicit_scope = &scope;
         }
         ~scoped_implicit_vars() {
-            m_p.m_implicit_vars = m_prev_vars;
-            m_p.m_implicit_var_order = m_prev_order;
+            m_p.m_implicit_scope = m_prev_scope;
         }
     };
 
@@ -531,7 +532,7 @@ class tptp_parser {
         expr_ref b(m);
         if (is_var_name(n) && find_bound(n, b))
             return b;
-        if (is_var_name(n) && m_implicit_vars && m_implicit_var_order)
+        if (is_var_name(n) && m_implicit_scope)
             return expr_ref(get_or_create_implicit_var(n), m);
 
         expr_ref_vector args(m);
@@ -619,7 +620,7 @@ class tptp_parser {
                 lhs = b;
                 has_lhs = true;
             }
-            else if (is_var_name(n) && m_implicit_vars && m_implicit_var_order) {
+            else if (is_var_name(n) && m_implicit_scope) {
                 lhs = expr_ref(get_or_create_implicit_var(n), m);
                 has_lhs = true;
             }
@@ -805,12 +806,11 @@ class tptp_parser {
             parse_type_decl_formula();
         }
         else {
-            std::unordered_map<std::string, app*> implicit_vars;
-            ptr_vector<app> implicit_var_order;
-            scoped_implicit_vars scoped(*this, implicit_vars, implicit_var_order);
+            implicit_var_scope implicit_scope;
+            scoped_implicit_vars scoped(*this, implicit_scope);
             expr_ref f = parse_formula();
-            if (!implicit_var_order.empty()) {
-                f = mk_quantifier(true, implicit_var_order, f);
+            if (!implicit_scope.order.empty()) {
+                f = mk_quantifier(true, implicit_scope.order, f);
             }
             if (role == "conjecture") {
                 m_has_conjecture = true;
