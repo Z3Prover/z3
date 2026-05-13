@@ -1,0 +1,4502 @@
+[
+  {
+    "file": "ARI_ARI007_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.016,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI005_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI002_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI014_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.019,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI008_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI015_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI017_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.026,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI024_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI020_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.036,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI029_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI044_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI040_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.027,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI031_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI025_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.029,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI046_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI055_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sorts U and Int are incompatible",
+    "elapsed": 0.017,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sorts U and Int are incompatible"
+  },
+  {
+    "file": "ARI_ARI062_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI051_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.027,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI066_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI052_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI072_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI065_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.031,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI082_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI074_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.031,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI089_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Int",
+    "elapsed": 0.017,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI086_1.p",
+    "expected": "CounterSatisfiable",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI091_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Int",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI103_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.013,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI111_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.015,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI094_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Int",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI104_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.027,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI105_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI097_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.033,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI117_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI112_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI118_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.019,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI119_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI115_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI121_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.019,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI120_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI128_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected identifier at 32:5",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected identifier at 32:5"
+  },
+  {
+    "file": "ARI_ARI131_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $uminus (U) U) supplied sort is Int",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $uminus (U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI125_1.p",
+    "expected": "CounterSatisfiable",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI132_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $uminus (U) U) supplied sort is Int",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $uminus (U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI167_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Int",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI168_1.p",
+    "expected": "CounterSatisfiable",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI169_1.p",
+    "expected": "CounterSatisfiable",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI164_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.034,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI174_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI179_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.013,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI177_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI175_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI171_1.p",
+    "expected": "CounterSatisfiable",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.034,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI170_1.p",
+    "expected": "CounterSatisfiable",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.034,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI183_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI193_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.017,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI196_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.016,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI190_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI192_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI207_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI215_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI211_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI204_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.033,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI218_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI223_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI220_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI222_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.029,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI227_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI225_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI226_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI229_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI235_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.019,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI246_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.013,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI230_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI233_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI252_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.013,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI239_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.027,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI248_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI238_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI241_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI263_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.012,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI253_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI256_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI257_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI265_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.018,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI276_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Real",
+    "elapsed": 0.015,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI274_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Real",
+    "elapsed": 0.027,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI262_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.031,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI258_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.036,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI289_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.019,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI286_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI290_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI284_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI312_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $uminus (U) U) supplied sort is Real",
+    "elapsed": 0.013,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $uminus (U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI296_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.026,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI300_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI299_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI291_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI297_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.029,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI337_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI304_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI354_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:15",
+    "elapsed": 0.016,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:15"
+  },
+  {
+    "file": "ARI_ARI357_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:32",
+    "elapsed": 0.017,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:32"
+  },
+  {
+    "file": "ARI_ARI339_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI359_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:14",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:14"
+  },
+  {
+    "file": "ARI_ARI364_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:15",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:15"
+  },
+  {
+    "file": "ARI_ARI344_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.033,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI369_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:31",
+    "elapsed": 0.014,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:31"
+  },
+  {
+    "file": "ARI_ARI355_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:29",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:29"
+  },
+  {
+    "file": "ARI_ARI365_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:15",
+    "elapsed": 0.029,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:15"
+  },
+  {
+    "file": "ARI_ARI368_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:17",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:17"
+  },
+  {
+    "file": "ARI_ARI370_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:32",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:32"
+  },
+  {
+    "file": "ARI_ARI378_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:15",
+    "elapsed": 0.013,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:15"
+  },
+  {
+    "file": "ARI_ARI384_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:37",
+    "elapsed": 0.016,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:37"
+  },
+  {
+    "file": "ARI_ARI382_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:30",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:30"
+  },
+  {
+    "file": "ARI_ARI379_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:16",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:16"
+  },
+  {
+    "file": "ARI_ARI373_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:17",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:17"
+  },
+  {
+    "file": "ARI_ARI375_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:31",
+    "elapsed": 0.029,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:31"
+  },
+  {
+    "file": "ARI_ARI374_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:15",
+    "elapsed": 0.034,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:15"
+  },
+  {
+    "file": "ARI_ARI386_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:17",
+    "elapsed": 0.018,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:17"
+  },
+  {
+    "file": "ARI_ARI385_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:17",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:17"
+  },
+  {
+    "file": "ARI_ARI389_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:35",
+    "elapsed": 0.016,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:35"
+  },
+  {
+    "file": "ARI_ARI388_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:33",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:33"
+  },
+  {
+    "file": "ARI_ARI391_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:18",
+    "elapsed": 0.019,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:18"
+  },
+  {
+    "file": "ARI_ARI392_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:17",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:17"
+  },
+  {
+    "file": "ARI_ARI410_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 33:19",
+    "elapsed": 0.017,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 33:19"
+  },
+  {
+    "file": "ARI_ARI411_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 33:17",
+    "elapsed": 0.018,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 33:17"
+  },
+  {
+    "file": "ARI_ARI390_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.036,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI405_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:28",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:28"
+  },
+  {
+    "file": "ARI_ARI414_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:11",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:11"
+  },
+  {
+    "file": "ARI_ARI402_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:11",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:11"
+  },
+  {
+    "file": "ARI_ARI417_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:28",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:28"
+  },
+  {
+    "file": "ARI_ARI419_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:28",
+    "elapsed": 0.015,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:28"
+  },
+  {
+    "file": "ARI_ARI427_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:18",
+    "elapsed": 0.017,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:18"
+  },
+  {
+    "file": "ARI_ARI444_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:34",
+    "elapsed": 0.016,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:34"
+  },
+  {
+    "file": "ARI_ARI424_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:30",
+    "elapsed": 0.029,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:30"
+  },
+  {
+    "file": "ARI_ARI440_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:16",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:16"
+  },
+  {
+    "file": "ARI_ARI432_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 33:25",
+    "elapsed": 0.026,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 33:25"
+  },
+  {
+    "file": "ARI_ARI443_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:32",
+    "elapsed": 0.027,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:32"
+  },
+  {
+    "file": "ARI_ARI445_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:32",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:32"
+  },
+  {
+    "file": "ARI_ARI441_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:16",
+    "elapsed": 0.033,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:16"
+  },
+  {
+    "file": "ARI_ARI446_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:18",
+    "elapsed": 0.026,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:18"
+  },
+  {
+    "file": "ARI_ARI460_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:6",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:6"
+  },
+  {
+    "file": "ARI_ARI464_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:24",
+    "elapsed": 0.014,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:24"
+  },
+  {
+    "file": "ARI_ARI459_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected identifier at 32:5",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected identifier at 32:5"
+  },
+  {
+    "file": "ARI_ARI463_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:22",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:22"
+  },
+  {
+    "file": "ARI_ARI504_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:22",
+    "elapsed": 0.015,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:22"
+  },
+  {
+    "file": "ARI_ARI461_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:12",
+    "elapsed": 0.031,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:12"
+  },
+  {
+    "file": "ARI_ARI493_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.027,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI491_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 33:17",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 33:17"
+  },
+  {
+    "file": "ARI_ARI505_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:15",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:15"
+  },
+  {
+    "file": "ARI_ARI506_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:7",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:7"
+  },
+  {
+    "file": "ARI_ARI508_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:22",
+    "elapsed": 0.019,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:22"
+  },
+  {
+    "file": "ARI_ARI507_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $to_real (U) U) supplied sort is Real",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $to_real (U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI519_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $to_real (U) U) supplied sort is Int",
+    "elapsed": 0.012,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $to_real (U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI510_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI513_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:14",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:14"
+  },
+  {
+    "file": "ARI_ARI511_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $to_rat (U) U) supplied sort is Real",
+    "elapsed": 0.029,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $to_rat (U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI512_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:25",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:25"
+  },
+  {
+    "file": "ARI_ARI523_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Real",
+    "elapsed": 0.013,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI515_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $to_int (U) U) supplied sort is Int",
+    "elapsed": 0.033,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $to_int (U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI525_1.p",
+    "expected": "CounterSatisfiable",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $uminus (U) U) supplied sort is Real",
+    "elapsed": 0.013,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $uminus (U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI520_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI516_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $to_real (U) U) supplied sort is Int",
+    "elapsed": 0.034,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $to_real (U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI522_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:11",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:11"
+  },
+  {
+    "file": "ARI_ARI536_2.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI528_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:20",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:20"
+  },
+  {
+    "file": "ARI_ARI537_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.019,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI545_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.017,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI543_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Int",
+    "elapsed": 0.031,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI546_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI548_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.029,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI553_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.029,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI558_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI561_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:13",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:13"
+  },
+  {
+    "file": "ARI_ARI564_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:35",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:35"
+  },
+  {
+    "file": "ARI_ARI565_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:21",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:21"
+  },
+  {
+    "file": "ARI_ARI575_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.014,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI579_2.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.014,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI581_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.016,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI576_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.029,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI579_3.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 33:16",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 33:16"
+  },
+  {
+    "file": "ARI_ARI577_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.033,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI571_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Int",
+    "elapsed": 0.034,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $difference (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI583_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.018,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI567_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:42",
+    "elapsed": 0.037,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:42"
+  },
+  {
+    "file": "ARI_ARI588_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.015,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI593_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.018,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI582_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.037,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI585_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.027,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI606_1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI595_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.027,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI597_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI608_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.027,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI610_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $uminus (U) U) supplied sort is Int",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $uminus (U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI614_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.017,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI616_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: type product must be followed by '>'",
+    "elapsed": 0.015,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: type product must be followed by '>'"
+  },
+  {
+    "file": "ARI_ARI612_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI617_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $uminus (U) U) supplied sort is Int",
+    "elapsed": 0.018,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $uminus (U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI615_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: type product must be followed by '>'",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: type product must be followed by '>'"
+  },
+  {
+    "file": "ARI_ARI613_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI621_3.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 37:20",
+    "elapsed": 0.012,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 37:20"
+  },
+  {
+    "file": "ARI_ARI621_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI619_2.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.031,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI620_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI635_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 63:17",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 63:17"
+  },
+  {
+    "file": "ARI_ARI622_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI626_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.026,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI632_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI636_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 57:17",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 57:17"
+  },
+  {
+    "file": "ARI_ARI638_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI639_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 49:19",
+    "elapsed": 0.018,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 49:19"
+  },
+  {
+    "file": "ARI_ARI646_1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI652_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI661_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI663_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI653_1.p",
+    "expected": "Unsatisfiable",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.027,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI669_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI670_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.026,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI659_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.034,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI679_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.013,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI676_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI680_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI683_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.016,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI688_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI698_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI682_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.029,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI689_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI712_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI700_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI707_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int",
+    "elapsed": 0.033,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI711_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $sum (U U) U) supplied sort is Int"
+  },
+  {
+    "file": "ARI_ARI716_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:46",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:46"
+  },
+  {
+    "file": "ARI_ARI713_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $ceiling (U) U) supplied sort is Real",
+    "elapsed": 0.026,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $ceiling (U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI715_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:37",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:37"
+  },
+  {
+    "file": "ARI_ARI725_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP parse error: expected ')' at 32:46",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: expected ')' at 32:46"
+  },
+  {
+    "file": "ARI_ARI732_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $is_int (U) Bool) supplied sort is Real",
+    "elapsed": 0.018,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $is_int (U) Bool) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI733_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $is_int (U) Bool) supplied sort is Real",
+    "elapsed": 0.018,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $is_int (U) Bool) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI748_1.p",
+    "expected": "Unsatisfiable",
+    "z3_status": "Error: TPTP parse error: type product must be followed by '>'",
+    "elapsed": 0.017,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: type product must be followed by '>'"
+  },
+  {
+    "file": "ARI_ARI745_1.p",
+    "expected": "Unsatisfiable",
+    "z3_status": "Error: TPTP parse error: type product must be followed by '>'",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: type product must be followed by '>'"
+  },
+  {
+    "file": "ARI_ARI749_1.p",
+    "expected": "Unsatisfiable",
+    "z3_status": "Error: TPTP parse error: type product must be followed by '>'",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: type product must be followed by '>'"
+  },
+  {
+    "file": "ARI_ARI751_1.p",
+    "expected": "Unsatisfiable",
+    "z3_status": "Error: TPTP parse error: type product must be followed by '>'",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: type product must be followed by '>'"
+  },
+  {
+    "file": "ARI_ARI744_1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 110,
+    "stderr": "TPTP frontend error: Sort mismatch at argument #1 for function (declare-fun $product (U U) U) supplied sort is Real"
+  },
+  {
+    "file": "ARI_ARI755_1.p",
+    "expected": "Unsatisfiable",
+    "z3_status": "Error: TPTP parse error: type product must be followed by '>'",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: type product must be followed by '>'"
+  },
+  {
+    "file": "ARI_ARI761_1.p",
+    "expected": "Unsatisfiable",
+    "z3_status": "Error: TPTP parse error: type product must be followed by '>'",
+    "elapsed": 0.019,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: type product must be followed by '>'"
+  },
+  {
+    "file": "SET_SET002+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.017,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "ARI_ARI758_1.p",
+    "expected": "Unsatisfiable",
+    "z3_status": "Error: TPTP parse error: type product must be followed by '>'",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: type product must be followed by '>'"
+  },
+  {
+    "file": "ARI_ARI752_1.p",
+    "expected": "Unsatisfiable",
+    "z3_status": "Error: TPTP parse error: type product must be followed by '>'",
+    "elapsed": 0.035,
+    "timeout": false,
+    "exit_code": 103,
+    "stderr": "TPTP parse error: type product must be followed by '>'"
+  },
+  {
+    "file": "SET_SET012+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.031,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET027+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET055+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.014,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET062+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.026,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET063+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.029,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET020+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.063,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET008+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.086,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET011+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.135,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET084+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.071,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET095+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET101+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.04,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET016+4.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 9.254,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET016+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.028,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET045+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.032,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET064+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.045,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET065+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.035,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET066+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.044,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET071+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.038,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET143+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.016,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET117+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.018,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET143+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.115,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET104+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.013,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET183+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.045,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET155+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.021,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET200+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.061,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET576+3.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.026,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET201+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.043,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET586+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.031,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET148+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.1,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET159+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.101,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET589+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.015,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET594+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.054,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET595+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.059,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET597+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.06,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET593+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.071,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET598+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.016,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET592+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.084,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET602+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.031,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET602+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.033,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET603+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.05,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET606+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.097,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET610+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.101,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET613+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.124,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET618+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.099,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET619+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.049,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET622+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.12,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET624+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.069,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET628+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET630+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET633+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.073,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET636+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.05,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET637+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 1.951,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET641+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 1.193,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET643+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.186,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET607+3.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 6.609,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET614+3.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 6.71,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET144+3.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 7.019,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET612+3.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 6.806,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET609+3.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 6.838,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET159+3.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 7.084,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET658+3.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.135,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET108+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.169,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET648+3.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.03,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET664+3.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 9.23,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET652+3.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 9.487,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET660+3.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.048,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET668+3.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.049,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET689+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.035,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET669+3.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.037,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET688+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.055,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET670+3.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.025,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET698+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET693+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.049,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET700+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET704+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET703+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.052,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET708+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.06,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET709+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.053,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET712+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.072,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET713+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.106,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET717+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.117,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET672+3.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.096,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET695+4.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 5.719,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET728+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.047,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET697+4.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 5.813,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET729+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.058,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET731+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.038,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET733+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.053,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET707+4.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 6.381,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET723+4.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 5.967,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET745+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.062,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET750+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.043,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET754+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.037,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET755+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.041,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET756+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET759+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.027,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET761+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.036,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET762+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.02,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET766+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.033,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET767+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.017,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET769+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.361,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET683+3.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.083,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET770+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.041,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET776+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET789+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.019,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET791+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.017,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET792+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.036,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET796+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.022,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET797+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.035,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET800+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.037,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET802+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.056,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET798+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.138,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET807+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.018,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET813+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.016,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET804+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.054,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET814+4.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.284,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET684+3.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 9.695,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET875+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.048,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET876+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.045,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET877+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.043,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET878+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.042,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET881+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.048,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET885+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.145,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET685+3.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.118,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET894+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.118,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET899+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.036,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET900+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.071,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET906+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.065,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET889+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.388,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET911+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.056,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET926+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.034,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET724+4.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 8.843,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET735+4.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 5.542,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET738+4.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 6.269,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET739+4.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 6.234,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET816+4.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 5.7,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET817+4.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 6.819,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET954+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.027,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET955+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.053,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET959+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.095,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET914+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 5.569,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET961+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.036,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET934+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 5.908,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET941+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 6.515,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET945+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 6.42,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET974+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.047,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET975+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.06,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET944+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 7.294,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET978+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.052,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET979+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.05,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET948+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 6.11,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET960+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 6.928,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET985+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET986+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.052,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET963+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 8.12,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET952+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.098,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET991+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.04,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET992+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.089,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET970+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 7.445,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET977+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 6.431,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SET_SET967+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.076,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN040+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.037,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN041+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.049,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN049+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.046,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN050+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN051+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.026,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN061+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN062+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.024,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET981+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 7.692,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SYN_SYN081+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.063,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN082+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.075,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN315+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.026,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET984+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.074,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET988+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.036,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN328+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.016,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN331+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.028,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN336+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.017,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN338+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.031,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN340+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.089,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN345+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.026,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN346+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.01,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN354+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.015,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN356+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.015,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN358+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.01,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN359+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.009,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN364+1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.013,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN365+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.008,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN375+1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.008,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN323+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 5.943,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SYN_SYN377+1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.032,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN378+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.033,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET990+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.099,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN388+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.029,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN391+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.025,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN399+1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN405+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.049,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET994+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.057,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN406+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.045,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN410+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.026,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN416+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.023,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN445+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.09,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN440+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.231,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN450+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.163,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN451+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.123,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN452+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.136,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN461+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.081,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN460+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.168,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN466+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.144,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN471+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.139,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN470+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.298,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SET_SET997+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.085,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN474+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.264,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN473+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.397,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN036+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 9.58,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SYN_SYN489+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.18,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN502+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.066,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN488+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.461,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN505+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.15,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN503+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.235,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN506+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.103,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN504+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.28,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN722+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.045,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN501+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.461,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN726+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.018,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN729+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.013,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN915+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.01,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN918+1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.014,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN919+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.013,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN923+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.012,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN924+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.06,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN930+1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.034,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN933+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.054,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN944+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.031,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN945+1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.071,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN947+1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.038,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN950+1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.015,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN954+1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.034,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN955+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.03,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN957+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.042,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN962+1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.034,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN964+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.042,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN965+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.063,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN966+1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.015,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN972+1.p",
+    "expected": "Theorem",
+    "z3_status": "CounterSatisfiable",
+    "elapsed": 0.07,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN066+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.077,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN973+1.p",
+    "expected": "Theorem",
+    "z3_status": "Theorem",
+    "elapsed": 0.035,
+    "timeout": false,
+    "exit_code": 0,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN381+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 5.637,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SYN_SYN327+1.p",
+    "expected": "Theorem",
+    "z3_status": "Timeout",
+    "elapsed": 10.073,
+    "timeout": true,
+    "exit_code": -1,
+    "stderr": ""
+  },
+  {
+    "file": "SYN_SYN548+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 5.453,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SYN_SYN376+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 8.483,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SYN_SYN723+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 5.785,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  },
+  {
+    "file": "SYN_SYN550+1.p",
+    "expected": "Theorem",
+    "z3_status": "Error: terminate called after throwing an instance of 'z3_error'\n  what():  timeout",
+    "elapsed": 5.924,
+    "timeout": true,
+    "exit_code": -6,
+    "stderr": "terminate called after throwing an instance of 'z3_error'\n  what():  timeout"
+  }
+]
