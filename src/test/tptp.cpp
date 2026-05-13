@@ -81,6 +81,15 @@ R"(tff(c1,conjecture, ? [X: $int] : $less(12,X)).)",
          "% SZS status Theorem"},
         {"tff-lesseq-built-in",
 R"(tff(c1,conjecture, $lesseq(2,2)).)",
+         "% SZS status Theorem"},
+        {"tff-bare-integer-equality",
+R"(tff(c1,conjecture, 31 != 12).)",
+         "% SZS status Theorem"},
+        {"tff-decimal-literal",
+R"(tff(c1,conjecture, ~ $less(-3.25,-8.69)).)",
+         "% SZS status Theorem"},
+        {"tff-uminus-built-in",
+R"(tff(c1,conjecture, $less($uminus(2),0)).)",
          "% SZS status Theorem"}
     };
     for (auto const& c : cases) {

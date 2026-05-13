@@ -340,6 +340,32 @@ class tptp_parser {
         return true;
     }
 
+    expr_ref parse_numeral_from_name(std::string const& n) {
+        SASSERT(is_nonempty_digit_string(n));
+        rational num(n.c_str());
+        if (accept(token_kind::dot)) {
+            std::string frac = parse_name();
+            if (!is_nonempty_digit_string(frac))
+                throw parse_error("fractional part of decimal literal must be a sequence of digits");
+            rational den(1);
+            for (unsigned i = 0; i < frac.size(); ++i) {
+                den *= rational(10);
+            }
+            rational frac_num(frac.c_str());
+            return expr_ref(m_arith.mk_numeral(num + frac_num / den, false), m);
+        }
+        if (accept(token_kind::slash_tok)) {
+            std::string d = parse_name();
+            if (!is_nonempty_digit_string(d))
+                throw parse_error("denominator of rational literal must be a sequence of digits");
+            rational den(d.c_str());
+            if (den.is_zero())
+                throw parse_error("denominator of rational literal cannot be zero");
+            return expr_ref(m_arith.mk_numeral(num / den, false), m);
+        }
+        return expr_ref(m_arith.mk_numeral(num, true), m);
+    }
+
     static std::string mk_decl_key(std::string const& name, unsigned arity, char tag) {
         return std::to_string(name.size()) + ":" + name + "\x1f" + std::to_string(arity) + "\x1f" + tag;
     }
@@ -470,17 +496,7 @@ class tptp_parser {
         if (n == "$false") return expr_ref(m.mk_false(), m);
 
         if (is_nonempty_digit_string(n)) {
-            rational num(n.c_str());
-            if (accept(token_kind::slash_tok)) {
-                std::string d = parse_name();
-                if (!is_nonempty_digit_string(d))
-                    throw parse_error("denominator of rational literal must be a sequence of digits");
-                rational den(d.c_str());
-                if (den.is_zero())
-                    throw parse_error("denominator of rational literal cannot be zero");
-                return expr_ref(m_arith.mk_numeral(num / den, false), m);
-            }
-            return expr_ref(m_arith.mk_numeral(num, true), m);
+            return parse_numeral_from_name(n);
         }
 
         expr_ref b(m);
@@ -493,6 +509,15 @@ class tptp_parser {
                 do { args.push_back(parse_term()); } while (accept(token_kind::comma));
                 expect(token_kind::rparen, "')'");
             }
+        }
+
+        if (n == "$uminus") {
+            if (args.size() != 1)
+                throw parse_error("arithmetic function '$uminus' expects arity 1");
+            expr_ref a(args.get(0), m);
+            if (!m_arith.is_int_real(a))
+                throw parse_error("arithmetic function '$uminus' expects arithmetic argument");
+            return expr_ref(m_arith.mk_uminus(a), m);
         }
 
         func_decl* f = mk_decl(n, args.size(), false);
@@ -511,6 +536,18 @@ class tptp_parser {
         std::string n = parse_name();
         if (n == "$true") return expr_ref(m.mk_true(), m);
         if (n == "$false") return expr_ref(m.mk_false(), m);
+
+        if (is_nonempty_digit_string(n)) {
+            expr_ref lhs = parse_numeral_from_name(n);
+            if (is(token_kind::equal_tok) || is(token_kind::neq_tok)) {
+                bool neq = accept(token_kind::neq_tok);
+                if (!neq) expect(token_kind::equal_tok, "'='");
+                expr_ref rhs = parse_term();
+                expr_ref eq(m.mk_eq(lhs, rhs), m);
+                return neq ? expr_ref(m.mk_not(eq), m) : eq;
+            }
+            throw parse_error("numeric term used as formula");
+        }
 
         expr_ref_vector args(m);
         if (accept(token_kind::lparen)) {
