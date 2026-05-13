@@ -157,8 +157,8 @@ class parallel_solver {
         vector<node_lease> m_worker_leases;
 
         /* shared clause pool (guarded by mux) */
-        vector<shared_clause>    shared_clause_trail;
-        obj_hashtable<expr>      shared_clause_set;
+        vector<shared_clause>    m_shared_clause_trail;
+        obj_hashtable<expr>      m_shared_clause_set;
 
         /* shared backbone / unit pool (guarded by mux) */
         obj_hashtable<expr>      m_global_backbones;
@@ -202,10 +202,10 @@ class parallel_solver {
                                      unsigned source_worker_id,
                                      expr* clause) {
             expr* g_clause = l2g(clause);
-            if (!shared_clause_set.contains(g_clause)) {
-                shared_clause_set.insert(g_clause);
+            if (!m_shared_clause_set.contains(g_clause)) {
+                m_shared_clause_set.insert(g_clause);
                 shared_clause sc{source_worker_id, expr_ref(g_clause, m)};
-                shared_clause_trail.push_back(std::move(sc));
+                m_shared_clause_trail.push_back(std::move(sc));
             }
         }
 
@@ -230,8 +230,8 @@ class parallel_solver {
             m_search_tree.set_effort_unit(initial_max_thread_conflicts);
             m_worker_leases.reset();
             m_worker_leases.resize(num_workers);
-            shared_clause_trail.reset();
-            shared_clause_set.reset();
+            m_shared_clause_trail.reset();
+            m_shared_clause_set.reset();
             m_global_backbones.reset();
             m_model = nullptr;
             m_unsat_core.reset();
@@ -300,9 +300,7 @@ class parallel_solver {
             for (auto* cur = t; cur; cur = cur->parent()) {
                 if (solver_cube_config::literal_is_null(cur->get_literal()))
                     break;
-                expr_ref lit(g2l.to());
-                lit = g2l(cur->get_literal().get());
-                cube.push_back(std::move(lit));
+                cube.push_back(expr_ref(g2l(cur->get_literal().get()), g2l.to()));
             }
             return true;
         }
@@ -391,11 +389,11 @@ class parallel_solver {
                                               unsigned worker_id) {
             std::scoped_lock lock(mux);
             expr_ref_vector result(g2l.to());
-            for (unsigned i = worker_limit; i < shared_clause_trail.size(); ++i) {
-                if (shared_clause_trail[i].source_worker_id != worker_id)
-                    result.push_back(g2l(shared_clause_trail[i].clause.get()));
+            for (unsigned i = worker_limit; i < m_shared_clause_trail.size(); ++i) {
+                if (m_shared_clause_trail[i].source_worker_id != worker_id)
+                    result.push_back(g2l(m_shared_clause_trail[i].clause.get()));
             }
-            worker_limit = shared_clause_trail.size();
+            worker_limit = m_shared_clause_trail.size();
             return result;
         }
 
@@ -731,7 +729,7 @@ public:
 
         parallel_params pp(m_params);
         unsigned num_threads = std::min(
-            (unsigned)std::thread::hardware_concurrency(),
+            static_cast<unsigned>(std::thread::hardware_concurrency()),
             pp.threads_max());
         if (num_threads < 2) num_threads = 2;
 
