@@ -60,6 +60,28 @@ static void test_fp_to_real_denormal() {
         true);
 }
 
+// Regression test for soundness bug in to_fp (from real) with symbolic real interval.
+// When the rounding mode is RTZ and the real variable is constrained to an interval
+// that includes the exact rational value of a float, Z3 should return SAT.
+// This was broken because mk_to_real computed 2^(1/|exp|) instead of 1/(2^|exp|)
+// for floats with negative exponents, causing a conflict in the NRA solver.
+static void test_to_fp_from_real_interval() {
+    // The interval (-4127125/16777216, -16508499/67108864] contains -16508499/67108864
+    // which is the exact rational value of fp #b1 #b01111100 #b11110111110011001010011.
+    // to_fp(RTZ, r) for r in this closed interval must equal that float.
+    run_fp_test(
+        "(set-logic QF_FPLRA)\n"
+        "(declare-const x Float32)\n"
+        "(assert (= x (fp #b1 #b01111100 #b11110111110011001010011)))\n"
+        "(declare-const r Real)\n"
+        "(assert (and (> r (- (/ 4127125.0 16777216.0))) (<= r (- (/ 16508499.0 67108864.0)))))\n"
+        "(declare-const w Float32)\n"
+        "(assert (= w ((_ to_fp 8 24) RTZ r)))\n"
+        "(assert (= x w))\n"
+        "(check-sat)\n",
+        true);
+}
+
 static void test_recfun_defined_function_soundness() {
     run_fp_test(
         "(set-option :model_validate true)\n"
@@ -75,5 +97,6 @@ static void test_recfun_defined_function_soundness() {
 
 void tst_fpa() {
     test_fp_to_real_denormal();
+    test_to_fp_from_real_interval();
     test_recfun_defined_function_soundness();
 }
