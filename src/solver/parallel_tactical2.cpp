@@ -475,6 +475,9 @@ class parallel_solver {
         void update_max_conflicts() {
             m_config.m_threads_max_conflicts = static_cast<unsigned>(
                 m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
+            /* cap at the configured global maximum to prevent runaway cube checks */
+            if (m_config.m_threads_max_conflicts > m_config.m_max_conflicts)
+                m_config.m_threads_max_conflicts = m_config.m_max_conflicts;
         }
 
         /* Check the current cube (passed as additional assumptions).
@@ -562,6 +565,11 @@ class parallel_solver {
 
             s->pop(1);
 
+            /* solver::cube() convention: an empty result means done; a result
+             * whose last element is true means the problem is trivially sat;
+             * a result whose last element is false means unsat was detected.
+             * In all other cases every element (including index 0) is a
+             * valid literal that can serve as a split atom. */
             if (c.empty() || m.is_true(c.back()) || m.is_false(c.back()))
                 return expr_ref(nullptr, m);
 
@@ -665,7 +673,12 @@ class parallel_solver {
                     b.backtrack(m_l2g, id, cube_core, lease);
 
                     if (m_config.m_share_conflicts) {
-                        expr_ref clause(mk_not(mk_and(cube_core)), m);
+                        /* Share the negation of the cube-core conjunction
+                         * as a learned clause: ¬(c₁ ∧ … ∧ cₙ) ≡ ¬c₁ ∨ … ∨ ¬cₙ */
+                        expr_ref_vector neg_lits(m);
+                        for (expr* c : cube_core)
+                            neg_lits.push_back(mk_not(expr_ref(c, m)));
+                        expr_ref clause(mk_or(neg_lits), m);
                         b.collect_clause(m_l2g, id, clause.get());
                     }
                     if (m_config.m_share_units) share_units();
