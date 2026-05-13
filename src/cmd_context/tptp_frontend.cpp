@@ -265,6 +265,11 @@ class tptp_parser {
     func_decl_ref_vector m_pinned_decls;  // prevents cached func_decls from being freed
     std::unordered_map<std::string, std::pair<std::vector<sort*>, sort*>> m_typed_decls;
     std::vector<std::unordered_map<std::string, app*>> m_bound;
+    struct implicit_var_scope {
+        std::unordered_map<std::string, app*> vars;
+        ptr_vector<app> order;
+    };
+    implicit_var_scope* m_implicit_scope = nullptr;
     std::unordered_set<std::string> m_seen_files;
 
     std::string m_input;
@@ -454,6 +459,39 @@ class tptp_parser {
         return false;
     }
 
+    bool should_create_implicit_var(std::string const& n) const {
+        return is_var_name(n) && m_implicit_scope;
+    }
+
+    app* get_or_create_implicit_var(std::string const& n) {
+        if (!m_implicit_scope)
+            throw parse_error("unexpected parser state: missing implicit variable scope");
+        auto it = m_implicit_scope->vars.find(n);
+        if (it != m_implicit_scope->vars.end()) return it->second;
+        app* c = m.mk_const(symbol(n), m_univ);
+        m_implicit_scope->vars.emplace(n, c);
+        m_implicit_scope->order.push_back(c);
+        return c;
+    }
+
+    class scoped_implicit_vars {
+        tptp_parser& m_p;
+        implicit_var_scope* m_prev_scope;
+    public:
+        scoped_implicit_vars(tptp_parser& p, implicit_var_scope& scope):
+            m_p(p),
+            m_prev_scope(p.m_implicit_scope) {
+            m_p.m_implicit_scope = &scope;
+        }
+        scoped_implicit_vars(scoped_implicit_vars const&) = delete;
+        scoped_implicit_vars& operator=(scoped_implicit_vars const&) = delete;
+        scoped_implicit_vars(scoped_implicit_vars&&) = delete;
+        scoped_implicit_vars& operator=(scoped_implicit_vars&&) = delete;
+        ~scoped_implicit_vars() {
+            m_p.m_implicit_scope = m_prev_scope;
+        }
+    };
+
     expr_ref mk_quantifier(bool is_forall, ptr_vector<app> const& bound, expr_ref const& body) {
         SASSERT(body);
         if (bound.empty()) return body;
@@ -607,6 +645,8 @@ class tptp_parser {
         expr_ref b(m);
         if (is_var_name(n) && find_bound(n, b))
             return b;
+        if (should_create_implicit_var(n))
+            return expr_ref(get_or_create_implicit_var(n), m);
 
         expr_ref_vector args(m);
         if (accept(token_kind::lparen)) {
@@ -821,6 +861,10 @@ class tptp_parser {
             expr_ref b(m);
             if (is_var_name(n) && find_bound(n, b)) {
                 lhs = b;
+                has_lhs = true;
+            }
+            else if (should_create_implicit_var(n)) {
+                lhs = expr_ref(get_or_create_implicit_var(n), m);
                 has_lhs = true;
             }
         }
@@ -1076,7 +1120,12 @@ class tptp_parser {
             parse_type_decl_formula();
         }
         else {
+            implicit_var_scope implicit_scope;
+            scoped_implicit_vars scoped(*this, implicit_scope);
             expr_ref f = parse_formula();
+            if (!implicit_scope.order.empty()) {
+                f = mk_quantifier(true, implicit_scope.order, f);
+            }
             if (role == "conjecture") {
                 m_has_conjecture = true;
                 f = m.mk_not(f);
@@ -1249,7 +1298,7 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         std::cerr << "TPTP parse error: " << ex.what() << "\n";
         return ERR_PARSER;
     }
-    catch (z3_error& ex) {
+    catch (z3_error const& ex) {
         if (ex.error_code() == ERR_TIMEOUT) {
             std::cout << "% SZS status Timeout\n";
             return 0;
@@ -1257,7 +1306,7 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         std::cerr << "TPTP frontend error: " << ex.what() << "\n";
         return ERR_INTERNAL_FATAL;
     }
-    catch (z3_exception& ex) {
+    catch (z3_exception const& ex) {
         std::cerr << "TPTP frontend error: " << ex.what() << "\n";
         return ERR_INTERNAL_FATAL;
     }
