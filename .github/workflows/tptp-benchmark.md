@@ -251,8 +251,8 @@ set -euo pipefail
 
 Z3=/tmp/z3-build/z3
 TPTP_ROOT=/tmp/tptp
-TIMEOUT_HARD=8        # outer OS-level guard (seconds)
-Z3_TIMEOUT=5          # Z3 internal timeout flag -T:5
+TIMEOUT_HARD=8        # outer OS-level guard (seconds; 3 s beyond Z3's -T:5)
+Z3_TIMEOUT=5          # Z3 internal timeout: -T:N sets N-second limit (uppercase -T is seconds)
 
 RESULTS=/tmp/tptp_results.tsv
 PROBLEM_LIST=/tmp/selected_benchmarks.txt
@@ -271,7 +271,7 @@ run_benchmark() {
     local file="$1"
     local start end elapsed output exit_code verdict
 
-    start=$(date +%s%3N)
+    start=$(date +%s%3N)    # milliseconds since epoch
     output=$(TPTP="$TPTP_ROOT" timeout "$TIMEOUT_HARD" \
         "$Z3" -tptp -T:"$Z3_TIMEOUT" "$file" 2>&1) || exit_code=$?
     exit_code=${exit_code:-0}
@@ -546,7 +546,7 @@ Failing to produce any safe output triggers an automatic workflow-failure issue 
 
 - **Never run `ninja` in the background with `&`**: Concurrent C++ compilation and LLM inference exhausts available RAM and kills the agent process (exit 137). Always wait for build commands to finish before continuing.
 - **TPTP environment variable**: Set `TPTP=/tmp/tptp` when invoking `z3 -tptp` so that `include()` directives in problem files resolve correctly against the downloaded Axioms directory.
-- **Timeout detection**: Use `timeout 8` as the outer OS-level guard (2 seconds beyond Z3's `-T:5`) to allow Z3 to exit cleanly before the shell kills it. If the exit code from `timeout` is 124, record the verdict as `Timeout`.
+- **Timeout detection**: Use `timeout 8` as the outer OS-level guard (3 seconds beyond Z3's `-T:5`) to allow Z3 to exit cleanly before the shell kills it. If the exit code from `timeout` is 124, record the verdict as `Timeout`.
 - **Crash detection**: A crash is a non-zero exit code with no `% SZS status` line in the output and no timeout. Record it separately from `GaveUp`.
 - **SZS status semantics**: Z3 outputs `Theorem` (not `Unsatisfiable`) when it proves a conjecture; `CounterSatisfiable` (not `Satisfiable`) when it finds a counterexample to a conjecture. A status mismatch between `Theorem` and `Unsatisfiable` for the same problem may be innocuous and depends on whether the problem file uses a conjecture formula.
 - **Report soundness bugs prominently**: Any case where the polarity of the answer conflicts (expected Theorem/Unsatisfiable but got CounterSatisfiable/Satisfiable, or vice versa) is a potential soundness bug and must be highlighted as critical.
