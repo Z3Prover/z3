@@ -412,9 +412,13 @@ class tptp_parser {
         return false;
     }
 
+    bool should_create_implicit_var(std::string const& n) const {
+        return is_var_name(n) && m_implicit_scope;
+    }
+
     app* get_or_create_implicit_var(std::string const& n) {
         if (!m_implicit_scope)
-            throw parse_error("internal parser error: implicit variable scope is missing (unexpected parser state)");
+            throw parse_error("unexpected parser state: missing implicit variable scope");
         auto it = m_implicit_scope->vars.find(n);
         if (it != m_implicit_scope->vars.end()) return it->second;
         app* c = m.mk_const(symbol(n), m_univ);
@@ -536,7 +540,7 @@ class tptp_parser {
         expr_ref b(m);
         if (is_var_name(n) && find_bound(n, b))
             return b;
-        if (is_var_name(n) && m_implicit_scope)
+        if (should_create_implicit_var(n))
             return expr_ref(get_or_create_implicit_var(n), m);
 
         expr_ref_vector args(m);
@@ -624,7 +628,7 @@ class tptp_parser {
                 lhs = b;
                 has_lhs = true;
             }
-            else if (is_var_name(n) && m_implicit_scope) {
+            else if (should_create_implicit_var(n)) {
                 lhs = expr_ref(get_or_create_implicit_var(n), m);
                 has_lhs = true;
             }
