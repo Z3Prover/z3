@@ -15,7 +15,6 @@
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/tptp_frontend.h"
 #include "solver/solver.h"
-#include "util/debug.h"
 #include "util/error_codes.h"
 #include "util/rational.h"
 #include "util/timeout.h"
@@ -1512,7 +1511,6 @@ expr_ref tptp_parser::parse_formula() {
 
 static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
     register_on_timeout_proc(on_timeout);
-    set_default_exit_action(exit_action::throw_exception);
     try {
         cmd_context ctx;
         ctx.set_solver_factory(mk_smt_strategic_solver_factory());
