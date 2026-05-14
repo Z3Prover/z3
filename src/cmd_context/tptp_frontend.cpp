@@ -17,10 +17,17 @@
 #include "solver/solver.h"
 #include "util/error_codes.h"
 #include "util/rational.h"
+#include "util/timeout.h"
 #include "util/z3_exception.h"
 
 bool g_display_statistics = false;
 bool g_display_model = false;
+
+static void on_timeout() {
+    std::cout << "% SZS status Timeout\n";
+    std::cout.flush();
+    _Exit(0);
+}
 
 namespace {
 
@@ -1497,6 +1504,7 @@ expr_ref tptp_parser::parse_formula() {
 }
 
 static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
+    register_on_timeout_proc(on_timeout);
     try {
         cmd_context ctx;
         ctx.set_solver_factory(mk_smt_strategic_solver_factory());
