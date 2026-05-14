@@ -471,11 +471,9 @@ class parallel_solver {
         unsigned         m_shared_clause_limit = 0;
 
         void update_max_conflicts() {
-            m_config.m_threads_max_conflicts = static_cast<unsigned>(
-                m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
-            /* cap at the configured global maximum to prevent runaway cube checks */
-            if (m_config.m_threads_max_conflicts > m_config.m_max_conflicts)
-                m_config.m_threads_max_conflicts = m_config.m_max_conflicts;
+            m_config.m_threads_max_conflicts = std::min(
+                static_cast<unsigned>(m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts),
+                m_config.m_max_conflicts);
         }
 
         /* Check the current cube (passed as additional assumptions).
@@ -675,7 +673,7 @@ class parallel_solver {
                          * as a learned clause: ¬(c₁ ∧ … ∧ cₙ) ≡ ¬c₁ ∨ … ∨ ¬cₙ */
                         expr_ref_vector neg_lits(m);
                         for (expr* c : cube_core)
-                            neg_lits.push_back(mk_not(expr_ref(c, m)));
+                            neg_lits.push_back(mk_not(m, c));
                         expr_ref clause(mk_or(neg_lits), m);
                         b.collect_clause(m_l2g, id, clause.get());
                     }
