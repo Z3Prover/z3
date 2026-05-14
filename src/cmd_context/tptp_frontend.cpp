@@ -15,6 +15,7 @@
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/tptp_frontend.h"
 #include "solver/solver.h"
+#include "util/debug.h"
 #include "util/error_codes.h"
 #include "util/rational.h"
 #include "util/timeout.h"
@@ -273,6 +274,7 @@ class tptp_parser {
     std::unordered_map<sort*, std::pair<std::vector<sort*>, sort*>> m_ho_sort_info; // ho_sort → (domain, range)
     std::unordered_map<std::string, func_decl*> m_decls;
     func_decl_ref_vector m_pinned_decls;  // prevents cached func_decls from being freed
+    expr_ref_vector m_pinned_exprs;       // prevents bound variable apps from being freed
     std::unordered_map<std::string, std::pair<std::vector<sort*>, sort*>> m_typed_decls;
     std::vector<std::unordered_map<std::string, app*>> m_bound;
     struct implicit_var_scope {
@@ -493,6 +495,7 @@ class tptp_parser {
         auto it = m_implicit_scope->vars.find(n);
         if (it != m_implicit_scope->vars.end()) return it->second;
         app* c = m.mk_const(symbol(n), m_univ);
+        m_pinned_exprs.push_back(c);
         m_implicit_scope->vars.emplace(n, c);
         m_implicit_scope->order.push_back(c);
         return c;
@@ -882,6 +885,7 @@ class tptp_parser {
                         else s = t.range;
                     }
                     app* c = m.mk_const(symbol(v), s);
+                    m_pinned_exprs.push_back(c);
                     vars.push_back(c);
                     scope.emplace(v, c);
                 } while (accept(token_kind::comma));
@@ -1144,6 +1148,7 @@ class tptp_parser {
                     }
                 }
                 app* c = m.mk_const(symbol(v), s);
+                m_pinned_exprs.push_back(c);
                 vars.push_back(c);
                 scope.emplace(v, c);
             } while (accept(token_kind::comma));
@@ -1215,6 +1220,7 @@ class tptp_parser {
                         }
                     }
                     app* c = m.mk_const(symbol(v), s);
+                    m_pinned_exprs.push_back(c);
                     vars.push_back(c);
                     scope.emplace(v, c);
                 }
@@ -1402,6 +1408,7 @@ public:
         m_arith(m),
         m_pinned_sorts(m),
         m_pinned_decls(m),
+        m_pinned_exprs(m),
         m_univ(m.mk_uninterpreted_sort(symbol("U"))) {
         m_pinned_sorts.push_back(m_univ);
         sort* tType = m.mk_uninterpreted_sort(symbol("$tType"));
@@ -1505,6 +1512,7 @@ expr_ref tptp_parser::parse_formula() {
 
 static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
     register_on_timeout_proc(on_timeout);
+    set_default_exit_action(exit_action::throw_exception);
     try {
         cmd_context ctx;
         ctx.set_solver_factory(mk_smt_strategic_solver_factory());
