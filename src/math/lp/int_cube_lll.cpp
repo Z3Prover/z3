@@ -429,7 +429,11 @@ namespace lp {
             TRACE(lll_cube, tout << "cannot find a feasible solution\n";);
             lra.pop();
             lra.move_non_basic_columns_to_bounds();
-            return !lra.r_basis_has_inf_int() ? lia_move::sat : lia_move::undef;
+            if (!lra.r_basis_has_inf_int()) {
+                lia.settings().stats().m_lll_cube_success_bail_sat++;
+                return lia_move::sat;
+            }
+            return lia_move::undef;
         }
         save_x_J();
         lra.pop();

@@ -45,7 +45,11 @@ namespace lp {
             lra.pop();
             lra.move_non_basic_columns_to_bounds();
             // it can happen that we found an integer solution here
-            return !lra.r_basis_has_inf_int()? lia_move::sat: lia_move::undef;
+            if (!lra.r_basis_has_inf_int()) {
+                lia.settings().stats().m_cube_success_bail_sat++;
+                return lia_move::sat;
+            }
+            return lia_move::undef;
         }
         lra.pop();
         lra.round_to_integer_solution();

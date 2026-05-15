@@ -112,8 +112,10 @@ struct statistics {
     unsigned m_gcd_conflicts = 0;
     unsigned m_cube_calls = 0;
     unsigned m_cube_success = 0;
+    unsigned m_cube_success_bail_sat = 0;
     unsigned m_lll_cube_calls = 0;
     unsigned m_lll_cube_success = 0;
+    unsigned m_lll_cube_success_bail_sat = 0;
     unsigned m_lll_cube_bail_collect = 0;
     unsigned m_lll_cube_bail_build = 0;
     unsigned m_lll_cube_bail_basis = 0;
@@ -160,8 +162,10 @@ struct statistics {
         st.update("arith-gcd-conflict", m_gcd_conflicts);
         st.update("arith-cube-calls", m_cube_calls);
         st.update("arith-cube-success", m_cube_success);
+        st.update("arith-cube-success-bail-sat", m_cube_success_bail_sat);
         st.update("arith-lll-cube-calls", m_lll_cube_calls);
         st.update("arith-lll-cube-success", m_lll_cube_success);
+        st.update("arith-lll-cube-success-bail-sat", m_lll_cube_success_bail_sat);
         st.update("arith-lll-cube-bail-collect", m_lll_cube_bail_collect);
         st.update("arith-lll-cube-bail-build", m_lll_cube_bail_build);
         st.update("arith-lll-cube-bail-basis", m_lll_cube_bail_basis);
