@@ -67,6 +67,7 @@ namespace lp {
         vector<vector<mpq>>         m_H;       // H = A * B; m x n
         vector<vector<mpq>>         m_B;       // n x n unimodular
         vector<vector<mpq>>         m_B_inv;   // B^{-1} = product of inverse elementaries
+        vector<mpq>                 m_col_w;   // per-column weight in the cube cost
         vector<impq>                m_term_delta;
         vector<impq>                m_col_delta;
         vector<impq>                m_saved_x_J;
@@ -78,6 +79,7 @@ namespace lp {
     private:
         bool collect_J_and_terms();
         bool build_matrix();
+        void compute_col_weights();
         bool compute_basis();
         bool reduce_pair(unsigned j, unsigned k, bool& improved);
         bool too_big(const mpq& v) const;

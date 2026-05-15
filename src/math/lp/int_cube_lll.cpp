@@ -117,11 +117,40 @@ namespace lp {
             m_B[i][i] = mpq(1);
             m_B_inv[i][i] = mpq(1);
         }
+        compute_col_weights();
         return true;
     }
 
-    // Find the integer q minimizing
-    //     f(q) = sum_r |H[r][j] - q*H[r][k]| + sum_i |B[i][j] - q*B[i][k]|
+    // Weight per column for the cube-cost function used by the greedy
+    // basis reduction. A tight-box column (small ub - lb) is expensive
+    // to grow because tightening by delta_col(j) >= (ub - lb)/2 would
+    // collapse its box and bail.  We bias the greedy to keep row_j(B)
+    // short on such columns by giving them a higher weight in the
+    // sum_j w_j * ||row_j(B)||_1 part of the cost.
+    //
+    // Soundness is untouched: deltas used by tighten_columns_for_lll_cube
+    // are still computed from ||row(B)||_1 in compute_deltas().
+    void int_cube_lll::compute_col_weights() {
+        unsigned n = m_J.size();
+        m_col_w.reset();
+        m_col_w.resize(n, mpq(1));
+        for (unsigned i = 0; i < n; ++i) {
+            unsigned j = m_J[i];
+            if (!lra.column_has_lower_bound(j) || !lra.column_has_upper_bound(j))
+                continue;
+            const mpq& width = lra.get_upper_bound(j).x - lra.get_lower_bound(j).x;
+            if (width <= mpq(0))
+                continue;
+            // w = max(1, 2/width).  width >= 2 keeps weight at 1;
+            // width == 1 (tight integer column) gets weight 2.
+            mpq two_over = mpq(2) / width;
+            if (two_over > mpq(1))
+                m_col_w[i] = two_over;
+        }
+    }
+
+    // Find the integer q minimizing the weighted ell_1 cost
+    //     f(q) = sum_r |H[r][j] - q*H[r][k]| + sum_i w_col[i] * |B[i][j] - q*B[i][k]|
     // and, if applying the corresponding column op strictly decreases f
     // (relative to q=0), perform it.  Sets improved = true on accept.
     // Returns false on bail (overflow).
@@ -130,10 +159,10 @@ namespace lp {
         unsigned m = m_H.size();
         unsigned n = m_B.size();
 
-        // Gather breakpoints. Each (a, b) with b != 0 contributes
-        //   |a - q*b| = |b| * |q - a/b|
-        // to the cost; pairs with b == 0 contribute the constant |a|.
-        struct bp { mpq a; mpq b; };
+        // Gather breakpoints. Each (a, b, w) with b != 0 contributes
+        //   w * |a - q*b| = w * |b| * |q - a/b|
+        // to the cost; pairs with b == 0 contribute the constant w * |a|.
+        struct bp { mpq a; mpq b; mpq w; };
         vector<bp> bps;
         bps.reserve(m + n);
         mpq constant_cost(0);
@@ -143,37 +172,34 @@ namespace lp {
             if (b.is_zero()) {
                 constant_cost += abs(a);
             } else {
-                bps.push_back({a, b});
+                bps.push_back({a, b, mpq(1)});
             }
         }
         for (unsigned i = 0; i < n; ++i) {
             const mpq& a = m_B[i][j];
             const mpq& b = m_B[i][k];
+            const mpq& w = m_col_w[i];
             if (b.is_zero()) {
-                constant_cost += abs(a);
+                constant_cost += w * abs(a);
             } else {
-                bps.push_back({a, b});
+                bps.push_back({a, b, w});
             }
         }
         if (bps.empty())
             return true;
 
-        // Sort by breakpoint a/b ascending. Compare a1/b1 vs a2/b2 via
-        // a1*b2 vs a2*b2*b1/b1... use cross multiplication with sign care.
-        // (Easier: just compute a/b as mpq.)
-        struct kv { mpq val; mpq w; const bp* p; };
+        struct kv { mpq val; mpq w; };
         vector<kv> kvs;
         kvs.reserve(bps.size());
         for (auto& x : bps) {
-            mpq w = abs(x.b);
+            mpq w = x.w * abs(x.b);
             mpq v = x.a / x.b;
-            kvs.push_back({v, w, &x});
+            kvs.push_back({v, w});
         }
         std::sort(kvs.begin(), kvs.end(),
                   [](const kv& a, const kv& b) { return a.val < b.val; });
 
-        // Total weight; weighted median is the smallest v with prefix
-        // weight >= total / 2.
+        // Weighted median: the smallest val with prefix weight >= total / 2.
         mpq total(0);
         for (auto& x : kvs) total += x.w;
         mpq half = total * mpq(1, 2);
@@ -187,12 +213,12 @@ namespace lp {
         // Integer candidates: floor(median) and floor(median)+1. Evaluate
         // f at q = floor, q = floor+1, q = 0 and pick the smallest.
         auto eval = [&](const mpq& q) -> mpq {
-            mpq c(0);
+            mpq c = constant_cost;
             for (auto& x : bps) {
                 mpq d = x.a - q * x.b;
-                c += abs(d);
+                c += x.w * abs(d);
             }
-            return c + constant_cost;
+            return c;
         };
         mpq qf = floor(median);
         mpq qc = qf + mpq(1);
