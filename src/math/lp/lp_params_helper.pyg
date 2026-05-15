@@ -9,7 +9,7 @@ def_module_params(module_name='lp',
                           ('dio_ignore_big_nums', BOOL, True, 'Ignore the terms with big numbers in the Diophantine handler, only relevant when dioph_eq is true'),
                           ('dio_calls_period', UINT, 1, 'Period of calling the Diophantine handler in the final_check()'),
                           ('dio_run_gcd', BOOL, False, 'Run the GCD heuristic if dio is on, if dio is disabled the option is not used'),
-                          ('enable_lll_cube', BOOL, False, 'enable the LLL cube heuristic in the integer-LP solver (parallelepiped generalization of cube, monotone-safe basis reduction)'),
+                          ('enable_lll_cube', BOOL, True, 'enable the LLL cube heuristic in the integer-LP solver (parallelepiped generalization of cube, monotone-safe basis reduction)'),
                           ('int_find_lll_cube_period', UINT, 4, 'period for invoking the LLL cube heuristic (every Nth final-check call); 0 disables'),
                          ))
                          

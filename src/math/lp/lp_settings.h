@@ -266,7 +266,7 @@ public:
 private:
     unsigned         m_nlsat_delay = 0;
     bool             m_enable_hnf = true;
-    bool             m_enable_lll_cube = false;
+    bool             m_enable_lll_cube = true;
     bool             m_print_external_var_name = false;
     bool             m_propagate_eqs = false;
     bool             m_dio = false;
