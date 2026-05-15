@@ -119,6 +119,7 @@ struct statistics {
     unsigned m_lll_cube_bail_basis = 0;
     unsigned m_lll_cube_bail_tighten = 0;
     unsigned m_lll_cube_bail_infeasible = 0;
+    unsigned m_lll_cube_throttled = 0;
     unsigned m_patches = 0;
     unsigned m_patches_success = 0;
     unsigned m_hnf_cutter_calls = 0;
@@ -166,6 +167,7 @@ struct statistics {
         st.update("arith-lll-cube-bail-basis", m_lll_cube_bail_basis);
         st.update("arith-lll-cube-bail-tighten", m_lll_cube_bail_tighten);
         st.update("arith-lll-cube-bail-infeasible", m_lll_cube_bail_infeasible);
+        st.update("arith-lll-cube-throttled", m_lll_cube_throttled);
         st.update("arith-patches", m_patches);
         st.update("arith-patches-success", m_patches_success);
         st.update("arith-hnf-calls", m_hnf_cutter_calls);

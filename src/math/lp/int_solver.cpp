@@ -45,7 +45,10 @@ namespace lp {
         dioph_eq            m_dio;  
         int_gcd_test        m_gcd;
         unsigned            m_initial_dio_calls_period;
-        
+        unsigned            m_lll_cube_delay = 0;
+        unsigned            m_lll_cube_delay_base = 0;
+        static const unsigned LLL_CUBE_DELAY_CAP = 1024;
+
         bool column_is_int_inf(unsigned j) const {
             return lra.column_is_int(j) && (!lia.value_is_int(j));
         }
@@ -201,7 +204,32 @@ namespace lp {
             unsigned period = settings().m_int_find_lll_cube_period;
             if (period == 0)
                 return false;
-            return m_number_of_calls % period == 0;
+            if (m_number_of_calls % period != 0)
+                return false;
+            if (m_lll_cube_delay > 0) {
+                --m_lll_cube_delay;
+                settings().stats().m_lll_cube_throttled++;
+                return false;
+            }
+            return true;
+        }
+
+        // After int_cube_lll fires we record the outcome here so the next
+        // invocation gate (should_find_lll_cube) can back off when the
+        // heuristic keeps bailing on an unchanged-looking state.
+        void on_lll_cube_result(lia_move r) {
+            if (r == lia_move::sat) {
+                if (m_lll_cube_delay_base > 0)
+                    --m_lll_cube_delay_base;
+                m_lll_cube_delay = 0;
+                return;
+            }
+            // bail: grow the penalty exponentially up to the cap.
+            if (m_lll_cube_delay_base == 0)
+                m_lll_cube_delay_base = 1;
+            else if (m_lll_cube_delay_base < LLL_CUBE_DELAY_CAP)
+                m_lll_cube_delay_base = std::min(m_lll_cube_delay_base * 2u, LLL_CUBE_DELAY_CAP);
+            m_lll_cube_delay = m_lll_cube_delay_base;
         }
 
         bool should_gomory_cut() {
@@ -255,8 +283,10 @@ namespace lp {
             if (r == lia_move::undef) r = patch_basic_columns();
             if (r == lia_move::undef && should_find_cube()) {
                 r = int_cube(lia)();
-                if (r == lia_move::undef && settings().enable_lll_cube() && should_find_lll_cube())
+                if (r == lia_move::undef && settings().enable_lll_cube() && should_find_lll_cube()) {
                     r = int_cube_lll(lia)();
+                    on_lll_cube_result(r);
+                }
             }
             if (r == lia_move::undef) lra.move_non_basic_columns_to_bounds();
             if (r == lia_move::undef && should_hnf_cut()) r = hnf_cut();
