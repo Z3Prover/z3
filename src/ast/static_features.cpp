@@ -21,6 +21,223 @@ Revision History:
 #include "ast/ast_ll_pp.h"
 #include "ast/for_each_expr.h"
 
+namespace {
+
+void update_ite_term_stats(static_features& sf, expr* e) {
+    sf.m_num_ite_terms++;
+    for (unsigned i = 1; i < 3; ++i) {
+        expr* arg = to_app(e)->get_arg(i);
+        sf.acc_num(arg);
+        sort* arg_s = arg->get_sort();
+        family_id fid_arg = arg_s->get_family_id();
+        if (fid_arg == sf.m_afid) {
+            sf.m_num_arith_terms++;
+            rational k;
+            TRACE(diff_term, tout << "diff_term: " << sf.is_diff_term(arg, k) << "\n" << mk_pp(arg, sf.m) << "\n";);
+            if (sf.is_diff_term(arg, k)) {
+                sf.m_num_diff_terms++;
+                sf.acc_num(k);
+            }
+        }
+    }
+}
+
+void update_gate_stats(static_features& sf, expr* e, bool is_gate) {
+    if (!is_gate)
+        return;
+    sf.m_cnf = false;
+    sf.m_num_nested_formulas++;
+    switch (to_app(e)->get_decl_kind()) {
+    case OP_ITE:
+        if (sf.is_bool(e))
+            sf.m_num_ite_formulas++;
+        else
+            update_ite_term_stats(sf, e);
+        break;
+    case OP_AND:
+        sf.m_num_ands++;
+        break;
+    case OP_OR:
+        sf.m_num_ors++;
+        break;
+    case OP_EQ:
+        sf.m_num_iffs++;
+        break;
+    }
+}
+
+void update_quantifier_stats(static_features& sf, expr* e) {
+    if (!is_quantifier(e))
+        return;
+    sf.m_num_quantifiers++;
+    unsigned num_patterns = to_quantifier(e)->get_num_patterns();
+    if (num_patterns == 0)
+        return;
+    sf.m_num_quantifiers_with_patterns++;
+    for (unsigned i = 0; i < num_patterns; ++i) {
+        expr* p = to_quantifier(e)->get_pattern(i);
+        if (is_app(p) && to_app(p)->get_num_args() > 1) {
+            sf.m_num_quantifiers_with_multi_patterns++;
+            return;
+        }
+    }
+}
+
+void update_le_ge_stats(static_features& sf, expr* e, bool is_le_ge) {
+    if (!is_le_ge)
+        return;
+    sf.m_num_arith_ineqs++;
+    TRACE(diff_atom, tout << "diff_atom: " << sf.is_diff_atom(e) << "\n" << mk_pp(e, sf.m) << "\n";);
+    if (sf.is_diff_atom(e))
+        sf.m_num_diff_ineqs++;
+    if (!sf.is_arith_expr(to_app(e)->get_arg(0)))
+        sf.m_num_simple_ineqs++;
+    sf.acc_num(to_app(e)->get_arg(1));
+}
+
+void update_eq_stats(static_features& sf, expr* e, bool is_eq) {
+    if (!is_eq)
+        return;
+    sf.m_num_eqs++;
+    if (sf.is_numeral(to_app(e)->get_arg(1))) {
+        sf.acc_num(to_app(e)->get_arg(1));
+        sf.m_num_arith_eqs++;
+        TRACE(diff_atom, tout << "diff_atom: " << sf.is_diff_atom(e) << "\n" << mk_pp(e, sf.m) << "\n";);
+        if (sf.is_diff_atom(e))
+            sf.m_num_diff_eqs++;
+        if (!sf.is_arith_expr(to_app(e)->get_arg(0)))
+            sf.m_num_simple_eqs++;
+    }
+    sort* s = to_app(e)->get_arg(0)->get_sort();
+    if (!sf.m.is_uninterp(s)) {
+        family_id fid = s->get_family_id();
+        if (fid != null_family_id && fid != sf.m_bfid)
+            sf.inc_theory_eqs(fid);
+    }
+}
+
+void update_presence_stats(static_features& sf, expr* e) {
+    if (!sf.m_has_int && sf.m_autil.is_int(e))
+        sf.m_has_int = true;
+    if (!sf.m_has_real && sf.m_autil.is_real(e))
+        sf.m_has_real = true;
+    if (!sf.m_has_bv && sf.m_bvutil.is_bv(e))
+        sf.m_has_bv = true;
+    if (!sf.m_has_fpa && (sf.m_fpautil.is_float(e) || sf.m_fpautil.is_rm(e)))
+        sf.m_has_fpa = true;
+    if (is_app(e) && to_app(e)->get_family_id() == sf.m_srfid)
+        sf.m_has_sr = true;
+    if (!sf.m_has_arrays && sf.m_arrayutil.is_array(e))
+        sf.check_array(e->get_sort());
+    if (!sf.m_has_ext_arrays && sf.m_arrayutil.is_array(e) &&
+        !sf.m_arrayutil.is_select(e) && !sf.m_arrayutil.is_store(e))
+        sf.m_has_ext_arrays = true;
+    if (!sf.m_has_str && sf.m_sequtil.str.is_string_term(e))
+        sf.m_has_str = true;
+    if (!sf.m_has_seq_non_str && sf.m_sequtil.str.is_non_string_sequence(e))
+        sf.m_has_seq_non_str = true;
+}
+
+void update_arith_app_stats(static_features& sf, app* e, family_id fid) {
+    if (fid != sf.m_afid)
+        return;
+    rational r;
+    switch (e->get_decl_kind()) {
+    case OP_MUL:
+        if (!sf.is_numeral(e->get_arg(0)) || e->get_num_args() > 2)
+            sf.m_num_non_linear++;
+        break;
+    case OP_DIV:
+    case OP_IDIV:
+    case OP_REM:
+    case OP_MOD:
+        if (!sf.is_numeral(e->get_arg(1), r) || r.is_zero()) {
+            sf.m_num_uninterpreted_functions++;
+            sf.m_num_non_linear++;
+        }
+        break;
+    }
+}
+
+void update_array_expr_stats(static_features& sf, app* e) {
+    if (!sf.m_arrayutil.is_array(e))
+        return;
+    TRACE(sf_array, tout << mk_ismt2_pp(e, sf.m) << "\n";);
+    sort* ty = e->get_decl()->get_range();
+    sf.mark_theory(ty->get_family_id());
+    unsigned n = ty->get_num_parameters();
+    for (unsigned i = 0; i < n; ++i) {
+        sort* ds = to_sort(ty->get_parameter(i).get_ast());
+        sf.update_core(ds);
+    }
+}
+
+void update_alien_stats(static_features& sf, app* e, family_id fid, bool is_eq, bool is_gate, bool is_le_ge) {
+    if (is_eq || is_gate)
+        return;
+    for (expr* arg : *e) {
+        sort* arg_s = arg->get_sort();
+        if (!sf.m.is_uninterp(arg_s)) {
+            family_id fid_arg = arg_s->get_family_id();
+            if (fid_arg != fid && fid_arg != null_family_id) {
+                sf.m_num_aliens++;
+                sf.inc_num_aliens(fid_arg);
+                if (fid_arg == sf.m_afid) {
+                    SASSERT(!is_le_ge);
+                    sf.m_num_arith_terms++;
+                    rational k;
+                    TRACE(diff_term, tout << "diff_term: " << sf.is_diff_term(arg, k) << "\n" << mk_pp(arg, sf.m) << "\n";);
+                    if (sf.is_diff_term(arg, k)) {
+                        sf.m_num_diff_terms++;
+                        sf.acc_num(k);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void update_app_stats(static_features& sf, expr* e, bool is_eq, bool is_gate, bool is_le_ge) {
+    if (!is_app(e))
+        return;
+    app* a = to_app(e);
+    family_id fid = a->get_family_id();
+    sf.mark_theory(fid);
+    if (fid != null_family_id && fid != sf.m_bfid) {
+        sf.m_num_interpreted_exprs++;
+        if (sf.is_bool(e))
+            sf.inc_theory_atoms(fid);
+        else
+            sf.inc_theory_terms(fid);
+        if (a->get_num_args() == 0)
+            sf.m_num_interpreted_constants++;
+    }
+    update_arith_app_stats(sf, a, fid);
+    if (fid == null_family_id) {
+        sf.m_num_uninterpreted_exprs++;
+        if (a->get_num_args() == 0) {
+            sf.m_num_uninterpreted_constants++;
+            sort* s = e->get_sort();
+            if (!sf.m.is_uninterp(s)) {
+                family_id fid_sort = s->get_family_id();
+                if (fid_sort != null_family_id && fid_sort != sf.m_bfid)
+                    sf.inc_theory_constants(fid_sort);
+            }
+        }
+    }
+    update_array_expr_stats(sf, a);
+    func_decl* d = a->get_decl();
+    sf.inc_num_apps(d);
+    if (d->get_arity() > 0 && !sf.is_marked_pre(d)) {
+        sf.mark_pre(d);
+        if (fid == null_family_id)
+            sf.m_num_uninterpreted_functions++;
+    }
+    update_alien_stats(sf, a, fid, is_eq, is_gate, is_le_ge);
+}
+
+}
+
 static_features::static_features(ast_manager & m):
     m(m),
     m_autil(m),
@@ -174,199 +391,23 @@ void static_features::update_core(expr * e) {
     
     bool _is_gate = is_gate(e);
     bool _is_eq   = m.is_eq(e);
-    if (_is_gate) {
-        m_cnf = false;
-        m_num_nested_formulas++;
-        switch (to_app(e)->get_decl_kind()) {
-        case OP_ITE: 
-            if (is_bool(e))
-                m_num_ite_formulas++;
-            else {
-                m_num_ite_terms++;
-                // process then&else nodes
-                for (unsigned i = 1; i < 3; ++i) {
-                    expr * arg = to_app(e)->get_arg(i);
-                    acc_num(arg);
-                    // Must check whether arg is diff logic or not.
-                    // Otherwise, problem can be incorrectly tagged as diff logic.
-                    sort * arg_s = arg->get_sort(); 
-                    family_id fid_arg = arg_s->get_family_id();
-                    if (fid_arg == m_afid) {
-                        m_num_arith_terms++;
-                        rational k;
-                        TRACE(diff_term, tout << "diff_term: " << is_diff_term(arg, k) << "\n" << mk_pp(arg, m) << "\n";);
-                        if (is_diff_term(arg, k)) {
-                            m_num_diff_terms++;
-                            acc_num(k);
-                        }
-                    }
-                }
-            }
-            break;
-        case OP_AND: 
-            m_num_ands++;
-            break;
-        case OP_OR:
-            m_num_ors++;
-            break;
-        case OP_EQ: 
-            m_num_iffs++;
-            break;
-        }
-    }
+    update_gate_stats(*this, e, _is_gate);
     if (is_bool(e)) {
         m_num_bool_exprs++;
         if (is_app(e) && to_app(e)->get_num_args() == 0)
             m_num_bool_constants++;
     }
-    if (is_quantifier(e)) {
-        m_num_quantifiers++;
-        unsigned num_patterns = to_quantifier(e)->get_num_patterns();
-        if (num_patterns > 0) {
-            m_num_quantifiers_with_patterns++;
-            for (unsigned i = 0; i < num_patterns; ++i) {
-                expr * p = to_quantifier(e)->get_pattern(i);
-                if (is_app(p) && to_app(p)->get_num_args() > 1) {
-                    m_num_quantifiers_with_multi_patterns++;
-                    break;
-                }
-            }
-        }
-    }
+    update_quantifier_stats(*this, e);
     bool _is_le_ge = m_autil.is_le(e) || m_autil.is_ge(e);
-    if (_is_le_ge) {
-        m_num_arith_ineqs++;
-        TRACE(diff_atom, tout << "diff_atom: " << is_diff_atom(e) << "\n" << mk_pp(e, m) << "\n";);
-        if (is_diff_atom(e))
-            m_num_diff_ineqs++;
-        if (!is_arith_expr(to_app(e)->get_arg(0)))
-            m_num_simple_ineqs++;
-        acc_num(to_app(e)->get_arg(1));
-    }
+    update_le_ge_stats(*this, e, _is_le_ge);
     rational r;
     if (is_numeral(e, r)) {
         if (!r.is_int())
             m_has_rational = true;
     }
-    if (_is_eq) {
-        m_num_eqs++;
-        if (is_numeral(to_app(e)->get_arg(1))) {
-            acc_num(to_app(e)->get_arg(1));
-            m_num_arith_eqs++;
-            TRACE(diff_atom, tout << "diff_atom: " << is_diff_atom(e) << "\n" << mk_pp(e, m) << "\n";);
-            if (is_diff_atom(e))
-                m_num_diff_eqs++;
-            if (!is_arith_expr(to_app(e)->get_arg(0)))
-                m_num_simple_eqs++;
-        }
-        sort * s      = to_app(e)->get_arg(0)->get_sort();
-        if (!m.is_uninterp(s)) {
-            family_id fid = s->get_family_id();
-            if (fid != null_family_id && fid != m_bfid)
-                inc_theory_eqs(fid);
-        }
-    }
-    if (!m_has_int && m_autil.is_int(e))
-        m_has_int  = true;
-    if (!m_has_real && m_autil.is_real(e))
-        m_has_real = true;
-    if (!m_has_bv && m_bvutil.is_bv(e))
-        m_has_bv = true;
-    if (!m_has_fpa && (m_fpautil.is_float(e) || m_fpautil.is_rm(e)))
-        m_has_fpa = true;
-    if (is_app(e) && to_app(e)->get_family_id() == m_srfid) 
-        m_has_sr = true;
-    if (!m_has_arrays && m_arrayutil.is_array(e)) 
-        check_array(e->get_sort());
-    if (!m_has_ext_arrays && m_arrayutil.is_array(e) && 
-        !m_arrayutil.is_select(e) && !m_arrayutil.is_store(e)) 
-        m_has_ext_arrays = true;
-    if (!m_has_str && m_sequtil.str.is_string_term(e))
-        m_has_str = true;
-    if (!m_has_seq_non_str && m_sequtil.str.is_non_string_sequence(e)) 
-        m_has_seq_non_str = true;
-    if (is_app(e)) {
-        family_id fid = to_app(e)->get_family_id();
-        mark_theory(fid);
-        if (fid != null_family_id && fid != m_bfid) {
-            m_num_interpreted_exprs++;
-            if (is_bool(e))
-                inc_theory_atoms(fid);
-            else
-                inc_theory_terms(fid); 
-            if (to_app(e)->get_num_args() == 0) 
-                m_num_interpreted_constants++;
-        }
-        if (fid == m_afid) {
-            switch (to_app(e)->get_decl_kind()) {
-            case OP_MUL:
-                if (!is_numeral(to_app(e)->get_arg(0)) || to_app(e)->get_num_args() > 2) {
-                    m_num_non_linear++;
-                }
-                break;
-            case OP_DIV:
-            case OP_IDIV:
-            case OP_REM:
-            case OP_MOD:
-                if (!is_numeral(to_app(e)->get_arg(1), r) || r.is_zero()) {
-                    m_num_uninterpreted_functions++;
-                    m_num_non_linear++;
-                }
-                break;
-            }
-        }
-        if (fid == null_family_id) {
-            m_num_uninterpreted_exprs++;
-            if (to_app(e)->get_num_args() == 0) {
-                m_num_uninterpreted_constants++;
-                sort * s      = e->get_sort();
-                if (!m.is_uninterp(s)) {
-                    family_id fid = s->get_family_id();
-                    if (fid != null_family_id && fid != m_bfid)
-                        inc_theory_constants(fid);
-                }
-            }
-        }
-        if (m_arrayutil.is_array(e)) {
-            TRACE(sf_array, tout << mk_ismt2_pp(e, m) << "\n";);
-            sort * ty = to_app(e)->get_decl()->get_range();
-            mark_theory(ty->get_family_id());
-            unsigned n = ty->get_num_parameters();
-            for (unsigned i = 0; i < n; ++i) {
-                sort * ds = to_sort(ty->get_parameter(i).get_ast());
-                update_core(ds);
-            }
-        }
-        func_decl * d = to_app(e)->get_decl();
-        inc_num_apps(d);
-        if (d->get_arity() > 0 && !is_marked_pre(d)) {
-            mark_pre(d);
-            if (fid == null_family_id)
-                m_num_uninterpreted_functions++;
-        }
-        if (!_is_eq && !_is_gate) {
-            for (expr * arg : *to_app(e)) {
-                sort * arg_s = arg->get_sort(); 
-                if (!m.is_uninterp(arg_s)) {
-                    family_id fid_arg = arg_s->get_family_id();
-                    if (fid_arg != fid && fid_arg != null_family_id) {
-                        m_num_aliens++;
-                        inc_num_aliens(fid_arg);
-                        if (fid_arg == m_afid) {
-                            SASSERT(!_is_le_ge);
-                            m_num_arith_terms++;
-                            rational k;
-                            TRACE(diff_term, tout << "diff_term: " << is_diff_term(arg, k) << "\n" << mk_pp(arg, m) << "\n";);
-                            if (is_diff_term(arg, k)) {
-                                m_num_diff_terms++;
-                                acc_num(k);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+    update_eq_stats(*this, e, _is_eq);
+    update_presence_stats(*this, e);
+    update_app_stats(*this, e, _is_eq, _is_gate, _is_le_ge);
 }
 
 void static_features::check_array(sort* s) {
