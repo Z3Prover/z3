@@ -112,6 +112,13 @@ struct statistics {
     unsigned m_gcd_conflicts = 0;
     unsigned m_cube_calls = 0;
     unsigned m_cube_success = 0;
+    unsigned m_lll_cube_calls = 0;
+    unsigned m_lll_cube_success = 0;
+    unsigned m_lll_cube_bail_collect = 0;
+    unsigned m_lll_cube_bail_build = 0;
+    unsigned m_lll_cube_bail_basis = 0;
+    unsigned m_lll_cube_bail_tighten = 0;
+    unsigned m_lll_cube_bail_infeasible = 0;
     unsigned m_patches = 0;
     unsigned m_patches_success = 0;
     unsigned m_hnf_cutter_calls = 0;
@@ -152,6 +159,13 @@ struct statistics {
         st.update("arith-gcd-conflict", m_gcd_conflicts);
         st.update("arith-cube-calls", m_cube_calls);
         st.update("arith-cube-success", m_cube_success);
+        st.update("arith-lll-cube-calls", m_lll_cube_calls);
+        st.update("arith-lll-cube-success", m_lll_cube_success);
+        st.update("arith-lll-cube-bail-collect", m_lll_cube_bail_collect);
+        st.update("arith-lll-cube-bail-build", m_lll_cube_bail_build);
+        st.update("arith-lll-cube-bail-basis", m_lll_cube_bail_basis);
+        st.update("arith-lll-cube-bail-tighten", m_lll_cube_bail_tighten);
+        st.update("arith-lll-cube-bail-infeasible", m_lll_cube_bail_infeasible);
         st.update("arith-patches", m_patches);
         st.update("arith-patches-success", m_patches_success);
         st.update("arith-hnf-calls", m_hnf_cutter_calls);
@@ -207,6 +221,8 @@ private:
 public:
     void updt_params(params_ref const& p);
     bool enable_hnf() const { return m_enable_hnf; }
+    bool enable_lll_cube() const { return m_enable_lll_cube; }
+    bool& enable_lll_cube() { return m_enable_lll_cube; }
     unsigned nlsat_delay() const { return m_nlsat_delay; }
     bool int_run_gcd_test() const {
         if (!m_dio)
@@ -239,6 +255,7 @@ public:
     unsigned         column_number_threshold_for_using_lu_in_lar_solver = 4000;
     unsigned         m_int_gomory_cut_period = 4;
     unsigned         m_int_find_cube_period = 4;
+    unsigned         m_int_find_lll_cube_period = 4;
 private:
     unsigned         m_hnf_cut_period = 4;
     bool             m_int_run_gcd_test = true;
@@ -249,6 +266,7 @@ public:
 private:
     unsigned         m_nlsat_delay = 0;
     bool             m_enable_hnf = true;
+    bool             m_enable_lll_cube = false;
     bool             m_print_external_var_name = false;
     bool             m_propagate_eqs = false;
     bool             m_dio = false;
