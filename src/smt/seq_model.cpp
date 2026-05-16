@@ -122,11 +122,26 @@ namespace smt {
             return alloc(expr_wrapper_proc, e);
         }
 
-        // For nth_u (underspecified nth), return a fresh value of the element sort.
-        // NSB review: this looks plain wrong.
+        // For nth_u (underspecified nth): the Nielsen character-peel /
+        // regex-if-split records the chosen character as a relevant
+        // equality literal (e.g. (= (seq.nth_u x 0) (_ Char 65))), so the
+        // enode's equivalence class contains the required character
+        // constant. Use it; only fall back to a fresh value when the
+        // peeled character is genuinely unconstrained.
         if (m_seq.str.is_nth_u(e)) {
             sort *srt = e->get_sort();
-            expr *val = m_factory->get_fresh_value(srt);
+            expr* val = nullptr;
+            enode* it = n;
+            do {
+                if (m.is_value(it->get_expr())) {
+                    val = it->get_expr();
+                    break;
+                }
+                it = it->get_next();
+            }
+            while (it != n);
+            if (!val)
+                val = m_factory->get_fresh_value(srt);
             if (val) {
                 m_trail.push_back(val);
                 return alloc(expr_wrapper_proc, to_app(val));
@@ -258,13 +273,12 @@ namespace smt {
         // the exact traversal order of collect_dependencies so that the `values`
         // vector (model values for enode dependencies) is consumed consistently.
         //
-        // Computed nodes (concat / power / variable) are memoized in node2value
+        // Computed nodes (concat / power / variable) are memorized in node2value
         // keyed by (snode id, is_recursive). The recursion flag is part of the
         // key because the SAME variable snode appears in two distinct roles in a
         // Nielsen substitution such as D -> "cc" D: the outer variable being
         // defined (is_recursive == false, value == value of its replacement) and
-        // the inner "leftover" remainder (is_recursive == true, value == ""). A
-        // single id-keyed map would let the leftover clobber the outer value.
+        // the inner "leftover" remainder (is_recursive == true, value == "").
         uint_set seen;
         u_map<expr *> var2value;
         u_map<expr *> node2value;
@@ -381,12 +395,17 @@ namespace smt {
                     val = rv;
                 }
                 else if (is_recursive) {
-                    // recursive "leftover" remainder of a Nielsen substitution:
-                    // the substitution path captured all required characters, so
-                    // the remaining occurrence is the empty string. Do NOT pad it
-                    // via get_var_value (the shared length belongs to the outer
-                    // variable, not this remainder).
-                    val = m_seq.str.mk_empty(curr->get_sort());
+                    // recursive "leftover" remainder of a Nielsen substitution
+                    // such as x -> [nth_u(x,k)] ++ x. If the variable still
+                    // carries a primitive membership at the satisfying node
+                    // (recorded in m_var_regex), the leftover is a genuine
+                    // non-empty witness of that residual regex, not an
+                    // eliminated remainder. Otherwise the path drove it to the
+                    // empty string.
+                    if (m_var_regex.contains(curr->first()->id()))
+                        val = get_var_value(curr);
+                    else
+                        val = m_seq.str.mk_empty(curr->get_sort());
                 }
                 else {
                     // genuinely free variable (no replacement): respect its

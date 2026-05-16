@@ -296,7 +296,7 @@ namespace smt {
     void theory_nseq::assign_eh(bool_var v, bool is_true) {
         try {
             expr* e = ctx.bool_var2expr(v);
-            // std::cout << "assigned [" << sat::literal(v, is_true) << "] " << mk_pp(e, m) << " = " << is_true << std::endl;
+            std::cout << "assigned [" << sat::literal(v, is_true) << "] " << mk_pp(e, m) << " = " << is_true << std::endl;
             expr *s = nullptr, *re = nullptr, *a = nullptr, *b = nullptr;
             TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
             if (m_seq.str.is_in_re(e, s, re)) {
@@ -890,7 +890,7 @@ namespace smt {
         set_conflict(eqs, lits);
 
 #ifdef Z3DEBUG
-#if 0
+#if 1
         // Pass constraints to a subsolver to check correctness modulo legacy solver
         {
             smt_params p;
