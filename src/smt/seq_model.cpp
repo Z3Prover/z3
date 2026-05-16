@@ -253,9 +253,27 @@ namespace smt {
     }
    
     expr_ref seq_model::snode_to_value(euf::snode* n, expr_ref_vector const& values) {
-        // insert var2value in the same order that dependencies were traversed
+        // Leaf tokens (string constants, empty, char/unit) are context-free and
+        // memoized in var2value keyed by snode id, populated in the first pass in
+        // the exact traversal order of collect_dependencies so that the `values`
+        // vector (model values for enode dependencies) is consumed consistently.
+        //
+        // Computed nodes (concat / power / variable) are memoized in node2value
+        // keyed by (snode id, is_recursive). The recursion flag is part of the
+        // key because the SAME variable snode appears in two distinct roles in a
+        // Nielsen substitution such as D -> "cc" D: the outer variable being
+        // defined (is_recursive == false, value == value of its replacement) and
+        // the inner "leftover" remainder (is_recursive == true, value == ""). A
+        // single id-keyed map would let the leftover clobber the outer value.
         uint_set seen;
         u_map<expr *> var2value;
+        u_map<expr *> node2value;
+        auto mk_key = [](euf::snode* s, bool r) { return s->id() * 2 + (r ? 1u : 0u); };
+        auto resolve = [&](euf::snode* s, bool r, expr*& out) -> bool {
+            if (var2value.find(s->id(), out))
+                return true;
+            return node2value.find(mk_key(s, r), out);
+        };
         buffer<std::pair<euf::snode *, bool>> todo;
         todo.push_back({n, false});
         unsigned idx = 0;
@@ -283,7 +301,7 @@ namespace smt {
                 }
                 else if (m_seq.str.is_nth_u(e)) {
                     expr* var_value = get_var_value(arg->arg(0));
-                    auto index = int_value(arg->arg(1)->get_expr());  
+                    auto index = int_value(arg->arg(1)->get_expr());
                     val = m_seq.str.mk_nth(var_value, a.mk_int(index));
                 }
                 else {
@@ -301,9 +319,11 @@ namespace smt {
                 SASSERT(curr->num_args() == 2);
             }
             else if (curr->is_var()) {
+                // mirror collect_dependencies: expand the replacement of THIS
+                // variable (curr), not of the queried node n.
                 euf::snode *replacement = nullptr;
-                if (!is_recursive && m_var_replacement.find(n->id(), replacement))
-                    todo.push_back({replacement, true});               
+                if (!is_recursive && m_var_replacement.find(curr->id(), replacement))
+                    todo.push_back({replacement, true});
             }
             else
                 UNREACHABLE();
@@ -315,11 +335,14 @@ namespace smt {
         expr *val = nullptr;
         while (!todo.empty()) {
             auto [curr, is_recursive] = todo.back();
-            if (var2value.contains(curr->id())) {
-                todo.pop_back();
-                continue;
+            {
+                expr* dummy = nullptr;
+                if (resolve(curr, is_recursive, dummy)) {
+                    todo.pop_back();
+                    continue;
+                }
             }
-            
+
             if (curr->is_empty())
                 val = curr->get_expr();
             else if (m.is_value(curr->get_expr()))
@@ -330,38 +353,59 @@ namespace smt {
             }
             else if (curr->is_concat()) {
                 args.reset();
+                bool all_ready = true;
                 for (unsigned i = 0; i < curr->num_args(); ++i) {
                     auto arg = curr->arg(i);
-                    if (var2value.find(arg->id(), val))
-                        args.push_back(val);
-                    else
+                    expr* av = nullptr;
+                    if (resolve(arg, is_recursive, av))
+                        args.push_back(av);
+                    else {
                         todo.push_back({arg, is_recursive});
+                        all_ready = false;
+                    }
                 }
-                if (args.size() == curr->num_args()) 
-                    val = m_seq.str.mk_concat(args, curr->get_sort());                
+                if (all_ready)
+                    val = m_seq.str.mk_concat(args, curr->get_sort());
                 else
                     continue; // not all arguments have been processed yet, will reconstruct in a later iteration
             }
             else if (curr->is_var()) {
                 euf::snode *replacement = nullptr;
                 if (!is_recursive && m_var_replacement.find(curr->id(), replacement)) {
-                    if (!var2value.find(replacement->id(), val)) {
+                    // outer variable: its value is the value of its replacement.
+                    expr* rv = nullptr;
+                    if (!resolve(replacement, true, rv)) {
                         todo.push_back({replacement, true});
                         continue;
                     }
+                    val = rv;
                 }
-                else 
+                else if (is_recursive) {
+                    // recursive "leftover" remainder of a Nielsen substitution:
+                    // the substitution path captured all required characters, so
+                    // the remaining occurrence is the empty string. Do NOT pad it
+                    // via get_var_value (the shared length belongs to the outer
+                    // variable, not this remainder).
+                    val = m_seq.str.mk_empty(curr->get_sort());
+                }
+                else {
+                    // genuinely free variable (no replacement): respect its
+                    // length / regex constraints.
                     val = get_var_value(curr);
+                }
             }
             else {
                 IF_VERBOSE(0, verbose_stream() << "not handled " << mk_pp(curr->get_expr(), m) << "\n");
                 UNREACHABLE();
             }
-            var2value.insert(curr->id(), val);
+            node2value.insert(mk_key(curr, is_recursive), val);
             pinned.push_back(val);
             todo.pop_back();
         }
-        return expr_ref(var2value.find(n->id()), m);
+        expr* result = nullptr;
+        if (!resolve(n, false, result))
+            result = m_seq.str.mk_empty(n->get_sort());
+        return expr_ref(result, m);
     }
 
     void seq_model::register_existing_values(seq::nielsen_graph& nielsen) {
