@@ -28,6 +28,10 @@ Abstract:
     of bounded rows/columns whose later delta-tightening would collapse
     their box, then minimize C(B). This keeps the greedy from accepting a
     cost-improving basis move that merely sets up a bail-tighten failure.
+    Soundness: after the basis search completes we compare the unweighted
+    C(B) against the identity baseline C(I) = ||A||_1 + n; if the basis
+    failed to strictly improve it we bail back to plain int_cube semantics.
+    The heuristic is therefore never worse than the plain int_cube.
 
     This addresses the regression of int_cube_hnf, whose triangulation
     can blow up the column-delta term ||B||_1: in 153 random instances
@@ -62,6 +66,17 @@ namespace lp {
         class int_solver&     lia;
         class lar_solver&     lra;
 
+        // Per-row/column metadata cached for the duration of one operator()
+        // call.  All fields are invariants of the LP bounds and lattice
+        // structure (lra is read-only during compute_basis), so they are
+        // computed once in init_pair_invariants() instead of being rebuilt
+        // inside every reduce_pair(j, k) call.
+        struct row_meta {
+            bool eligible;       // column_has_lower_bound && column_has_upper_bound
+            mpq  width;          // ub - lb (when eligible)
+            bool integral_unit;  // column_bounds_are_integral(var)
+        };
+
         vector<unsigned>            m_J;
         vector<unsigned>            m_col_to_J;
         vector<unsigned>            m_term_js;
@@ -69,6 +84,12 @@ namespace lp {
         vector<vector<mpq>>         m_B;       // n x n unimodular
         vector<vector<mpq>>         m_B_inv;   // B^{-1} = product of inverse elementaries
         vector<mpq>                 m_col_w;   // per-column weight in the cube cost
+        vector<row_meta>            m_term_meta;   // per term row of H
+        vector<row_meta>            m_col_meta;    // per J column (row of B)
+        vector<mpq>                 m_row_sum_H;   // ||row_r(H)||_1, maintained incrementally
+        vector<mpq>                 m_row_sum_B;   // ||row_i(B)||_1, maintained incrementally
+        mpq                         m_baseline_cost; // unweighted C(B) at B = I
+        mpq                         m_total_cost;    // current unweighted C(B)
         vector<impq>                m_term_delta;
         vector<impq>                m_col_delta;
         vector<impq>                m_saved_x_J;
@@ -81,6 +102,7 @@ namespace lp {
         bool collect_J_and_terms();
         bool build_matrix();
         void compute_col_weights();
+        void init_pair_invariants();
         bool compute_basis();
         bool reduce_pair(unsigned j, unsigned k, bool& improved);
         bool too_big(const mpq& v) const;

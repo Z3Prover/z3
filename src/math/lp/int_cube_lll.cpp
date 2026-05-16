@@ -26,6 +26,7 @@ namespace lp {
     static const unsigned LLL_CUBE_LIMIT_ROWS = 75;
     static const unsigned LLL_CUBE_LIMIT_COLS = 150;
     static const unsigned LLL_CUBE_BITSIZE_LIMIT = 4096;
+    static const unsigned LLL_CUBE_CANDIDATE_BITSIZE = 64;
     static const unsigned LLL_CUBE_MAX_PASSES = 8;
 
     int_cube_lll::int_cube_lll(int_solver& lia) : lia(lia), lra(lia.lra) {}
@@ -118,7 +119,68 @@ namespace lp {
             m_B_inv[i][i] = mpq(1);
         }
         compute_col_weights();
+        init_pair_invariants();
         return true;
+    }
+
+    // Cache per-row metadata, row 1-norms, and the identity-baseline cube
+    // cost C(I).  Invariants of lra/bounds for the duration of operator(),
+    // so we pay this once instead of per (j, k) reduce_pair call.
+    void int_cube_lll::init_pair_invariants() {
+        unsigned m = m_H.size();
+        unsigned n = m_B.size();
+        m_term_meta.reset();
+        m_term_meta.resize(m);
+        for (unsigned r = 0; r < m; ++r) {
+            unsigned var = m_term_js[r];
+            row_meta& meta = m_term_meta[r];
+            meta.eligible = lra.column_has_lower_bound(var) && lra.column_has_upper_bound(var);
+            if (meta.eligible) {
+                meta.width = lra.get_upper_bound(var).x - lra.get_lower_bound(var).x;
+                meta.integral_unit = column_bounds_are_integral(var);
+            }
+            else {
+                meta.width = mpq(0);
+                meta.integral_unit = false;
+            }
+        }
+        m_col_meta.reset();
+        m_col_meta.resize(n);
+        for (unsigned i = 0; i < n; ++i) {
+            unsigned var = m_J[i];
+            row_meta& meta = m_col_meta[i];
+            meta.eligible = lra.column_has_lower_bound(var) && lra.column_has_upper_bound(var);
+            if (meta.eligible) {
+                meta.width = lra.get_upper_bound(var).x - lra.get_lower_bound(var).x;
+                meta.integral_unit = column_bounds_are_integral(var);
+            }
+            else {
+                meta.width = mpq(0);
+                meta.integral_unit = false;
+            }
+        }
+        m_row_sum_H.reset();
+        m_row_sum_H.resize(m, mpq(0));
+        for (unsigned r = 0; r < m; ++r) {
+            mpq s(0);
+            for (unsigned c = 0; c < n; ++c)
+                s += abs(m_H[r][c]);
+            m_row_sum_H[r] = s;
+        }
+        m_row_sum_B.reset();
+        m_row_sum_B.resize(n, mpq(0));
+        for (unsigned i = 0; i < n; ++i) {
+            mpq s(0);
+            for (unsigned c = 0; c < n; ++c)
+                s += abs(m_B[i][c]);
+            m_row_sum_B[i] = s;
+        }
+        m_baseline_cost = mpq(0);
+        for (unsigned r = 0; r < m; ++r)
+            m_baseline_cost += m_row_sum_H[r];
+        for (unsigned i = 0; i < n; ++i)
+            m_baseline_cost += m_row_sum_B[i];
+        m_total_cost = m_baseline_cost;
     }
 
     // Weight per column for the cube-cost function used by the greedy
@@ -221,45 +283,37 @@ namespace lp {
         mpq qf = floor(median);
         mpq qc = qf + mpq(1);
 
+        // Risk rows are built in O(m + n) using cached metadata and the
+        // maintained row 1-norms.  base(r, j) = ||row_r||_1 - |row_r[j]| is
+        // the partial row sum that would survive the column-j update.
         struct risk_row {
-            unsigned var;
+            const row_meta* meta;
             mpq base;
             mpq a;
             mpq b;
-            mpq width;
-            bool integral_unit;
         };
         vector<risk_row> risk_rows;
+        risk_rows.reserve(m + n);
         for (unsigned r = 0; r < m; ++r) {
-            unsigned var = m_term_js[r];
-            if (!lra.column_has_lower_bound(var) || !lra.column_has_upper_bound(var))
+            const row_meta& meta = m_term_meta[r];
+            if (!meta.eligible)
                 continue;
-            mpq base(0);
-            for (unsigned c = 0; c < n; ++c)
-                if (c != j)
-                    base += abs(m_H[r][c]);
-            risk_rows.push_back({var, base, m_H[r][j], m_H[r][k],
-                                 lra.get_upper_bound(var).x - lra.get_lower_bound(var).x,
-                                 column_bounds_are_integral(var)});
+            mpq base = m_row_sum_H[r] - abs(m_H[r][j]);
+            risk_rows.push_back({&meta, base, m_H[r][j], m_H[r][k]});
         }
         for (unsigned i = 0; i < n; ++i) {
-            unsigned var = m_J[i];
-            if (!lra.column_has_lower_bound(var) || !lra.column_has_upper_bound(var))
+            const row_meta& meta = m_col_meta[i];
+            if (!meta.eligible)
                 continue;
-            mpq base(0);
-            for (unsigned c = 0; c < n; ++c)
-                if (c != j)
-                    base += abs(m_B[i][c]);
-            risk_rows.push_back({var, base, m_B[i][j], m_B[i][k],
-                                 lra.get_upper_bound(var).x - lra.get_lower_bound(var).x,
-                                 column_bounds_are_integral(var)});
+            mpq base = m_row_sum_B[i] - abs(m_B[i][j]);
+            risk_rows.push_back({&meta, base, m_B[i][j], m_B[i][k]});
         }
 
         auto row_excess = [](const risk_row& r, const mpq& q) {
             mpq norm = r.base + abs(r.a - q * r.b);
-            if (norm.is_zero() || (norm == mpq(1) && r.integral_unit))
+            if (norm.is_zero() || (norm == mpq(1) && r.meta->integral_unit))
                 return mpq(0);
-            return norm > r.width ? norm - r.width : mpq(0);
+            return norm > r.meta->width ? norm - r.meta->width : mpq(0);
         };
 
         struct score {
@@ -288,8 +342,11 @@ namespace lp {
         };
 
         vector<mpq> candidates;
+        // Cap candidate magnitude well below LLL_CUBE_BITSIZE_LIMIT so that
+        // floor((a +/- width)/b) values for wide-box columns don't seed
+        // basis growth and overflow downstream.
         auto add_candidate = [&](const mpq& q) {
-            if (too_big(q))
+            if (q.bitsize() > LLL_CUBE_CANDIDATE_BITSIZE)
                 return;
             for (auto const& c : candidates)
                 if (c == q)
@@ -322,7 +379,7 @@ namespace lp {
             mpq f = floor(center);
             add_candidate(f);
             add_candidate(f + mpq(1));
-            mpq allowance = r.width - r.base;
+            mpq allowance = r.meta->width - r.base;
             if (allowance >= mpq(0)) {
                 mpq lo = (r.a - allowance) / r.b;
                 mpq hi = (r.a + allowance) / r.b;
@@ -350,19 +407,29 @@ namespace lp {
         }
 
         // Apply column op col_j <- col_j - q * col_k on H and B, and the
-        // matching row op row_k <- row_k + q * row_j on B_inv.
+        // matching row op row_k <- row_k + q * row_j on B_inv.  Update the
+        // cached row 1-norms and running total cost in lock-step.
         const mpq& q = best_q;
+        mpq delta_total(0);
         for (unsigned r = 0; r < m; ++r) {
-            mpq v = m_H[r][j] - q * m_H[r][k];
-            if (too_big(v))
+            mpq old_a = m_H[r][j];
+            mpq new_a = old_a - q * m_H[r][k];
+            if (too_big(new_a))
                 return false;
-            m_H[r][j] = v;
+            m_H[r][j] = new_a;
+            mpq d = abs(new_a) - abs(old_a);
+            m_row_sum_H[r] += d;
+            delta_total += d;
         }
         for (unsigned i = 0; i < n; ++i) {
-            mpq v = m_B[i][j] - q * m_B[i][k];
-            if (too_big(v))
+            mpq old_a = m_B[i][j];
+            mpq new_a = old_a - q * m_B[i][k];
+            if (too_big(new_a))
                 return false;
-            m_B[i][j] = v;
+            m_B[i][j] = new_a;
+            mpq d = abs(new_a) - abs(old_a);
+            m_row_sum_B[i] += d;
+            delta_total += d;
         }
         for (unsigned c = 0; c < n; ++c) {
             mpq v = m_B_inv[k][c] + q * m_B_inv[j][c];
@@ -370,6 +437,7 @@ namespace lp {
                 return false;
             m_B_inv[k][c] = v;
         }
+        m_total_cost += delta_total;
         improved = true;
         return true;
     }
@@ -546,6 +614,14 @@ namespace lp {
             return lia_move::undef;
         }
         if (!compute_basis()) {
+            lia.settings().stats().m_lll_cube_bail_basis++;
+            return lia_move::undef;
+        }
+        // Monotonicity guard: bail if the computed basis did not strictly
+        // improve the unweighted cube cost C(B) below the identity baseline
+        // C(I) = ||A||_1 + n.  This restores the "never worse than plain
+        // int_cube" guarantee that pre-lexicographic-scoring code provided.
+        if (m_total_cost >= m_baseline_cost) {
             lia.settings().stats().m_lll_cube_bail_basis++;
             return lia_move::undef;
         }
