@@ -149,11 +149,9 @@ namespace lp {
         }
     }
 
-    // Find the integer q minimizing the weighted ell_1 cost
-    //     f(q) = sum_r |H[r][j] - q*H[r][k]| + sum_i w_col[i] * |B[i][j] - q*B[i][k]|
-    // and, if applying the corresponding column op strictly decreases f
-    // (relative to q=0), perform it.  Sets improved = true on accept.
-    // Returns false on bail (overflow).
+    // Find an integer q for the elementary column operation that first
+    // reduces/avoids bound-collapse risk in the eventual tightening step, and
+    // only then minimizes the weighted ell_1 cube cost.
     bool int_cube_lll::reduce_pair(unsigned j, unsigned k, bool& improved) {
         improved = false;
         unsigned m = m_H.size();
@@ -222,14 +220,132 @@ namespace lp {
         };
         mpq qf = floor(median);
         mpq qc = qf + mpq(1);
-        mpq cf = eval(qf);
-        mpq cc = eval(qc);
-        mpq c0 = eval(mpq(0));
-        mpq best_q = qf;
-        mpq best_c = cf;
-        if (cc < best_c) { best_q = qc; best_c = cc; }
-        if (best_c >= c0 || best_q.is_zero()) {
-            // No strict improvement over q = 0 (identity).
+
+        struct risk_row {
+            unsigned var;
+            mpq base;
+            mpq a;
+            mpq b;
+            mpq width;
+            bool integral_unit;
+        };
+        vector<risk_row> risk_rows;
+        for (unsigned r = 0; r < m; ++r) {
+            unsigned var = m_term_js[r];
+            if (!lra.column_has_lower_bound(var) || !lra.column_has_upper_bound(var))
+                continue;
+            mpq base(0);
+            for (unsigned c = 0; c < n; ++c)
+                if (c != j)
+                    base += abs(m_H[r][c]);
+            risk_rows.push_back({var, base, m_H[r][j], m_H[r][k],
+                                 lra.get_upper_bound(var).x - lra.get_lower_bound(var).x,
+                                 column_bounds_are_integral(var)});
+        }
+        for (unsigned i = 0; i < n; ++i) {
+            unsigned var = m_J[i];
+            if (!lra.column_has_lower_bound(var) || !lra.column_has_upper_bound(var))
+                continue;
+            mpq base(0);
+            for (unsigned c = 0; c < n; ++c)
+                if (c != j)
+                    base += abs(m_B[i][c]);
+            risk_rows.push_back({var, base, m_B[i][j], m_B[i][k],
+                                 lra.get_upper_bound(var).x - lra.get_lower_bound(var).x,
+                                 column_bounds_are_integral(var)});
+        }
+
+        auto row_excess = [](const risk_row& r, const mpq& q) {
+            mpq norm = r.base + abs(r.a - q * r.b);
+            if (norm.is_zero() || (norm == mpq(1) && r.integral_unit))
+                return mpq(0);
+            return norm > r.width ? norm - r.width : mpq(0);
+        };
+
+        struct score {
+            unsigned violations;
+            mpq excess;
+            mpq cost;
+        };
+        auto score_q = [&](const mpq& q) {
+            score s = { 0, mpq(0), eval(q) };
+            for (auto const& r : risk_rows) {
+                mpq e = row_excess(r, q);
+                if (!e.is_zero()) {
+                    ++s.violations;
+                    s.excess += e;
+                }
+            }
+            return s;
+        };
+
+        auto better = [](const score& a, const score& b) {
+            if (a.violations != b.violations)
+                return a.violations < b.violations;
+            if (a.excess != b.excess)
+                return a.excess < b.excess;
+            return a.cost < b.cost;
+        };
+
+        vector<mpq> candidates;
+        auto add_candidate = [&](const mpq& q) {
+            if (too_big(q))
+                return;
+            for (auto const& c : candidates)
+                if (c == q)
+                    return;
+            candidates.push_back(q);
+        };
+        add_candidate(mpq(0));
+        add_candidate(qf);
+        add_candidate(qc);
+
+        // If the current basis already collapses some boxes (typically term
+        // rows inherited from A), also try q values that minimize the worst
+        // offending rows.  This keeps the candidate set small while allowing
+        // risk-reducing moves that are not at the weighted-cost median.
+        vector<std::pair<mpq, unsigned>> risky;
+        for (unsigned idx = 0; idx < risk_rows.size(); ++idx) {
+            const risk_row& r = risk_rows[idx];
+            if (!r.b.is_zero()) {
+                mpq e = row_excess(r, mpq(0));
+                if (!e.is_zero())
+                    risky.push_back({e, idx});
+            }
+        }
+        std::sort(risky.begin(), risky.end(),
+                  [](const auto& a, const auto& b) { return a.first > b.first; });
+        unsigned extra = std::min<unsigned>(4, risky.size());
+        for (unsigned idx = 0; idx < extra; ++idx) {
+            const risk_row& r = risk_rows[risky[idx].second];
+            mpq center = r.a / r.b;
+            mpq f = floor(center);
+            add_candidate(f);
+            add_candidate(f + mpq(1));
+            mpq allowance = r.width - r.base;
+            if (allowance >= mpq(0)) {
+                mpq lo = (r.a - allowance) / r.b;
+                mpq hi = (r.a + allowance) / r.b;
+                f = floor(lo);
+                add_candidate(f);
+                add_candidate(f + mpq(1));
+                f = floor(hi);
+                add_candidate(f);
+                add_candidate(f + mpq(1));
+            }
+        }
+
+        mpq best_q(0);
+        score best = score_q(best_q);
+        for (auto const& q : candidates) {
+            score s = score_q(q);
+            if (better(s, best)) {
+                best = s;
+                best_q = q;
+            }
+        }
+        if (best_q.is_zero()) {
+            // No strict lexicographic improvement over q = 0 (identity).
             return true;
         }
 

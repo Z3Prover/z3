@@ -21,12 +21,13 @@ Abstract:
 
         col_j(B) <- col_j(B) - q * col_k(B)    (q in Z, j != k)
 
-    The optimal q for a fixed pair (j, k) is the floor or ceil of the
+    The q candidates for a fixed pair (j, k) include the floor/ceil of the
     weighted median of the breakpoints {A_row(r,j)/A_row(r,k)} and
-    {B(i,j)/B(i,k)} (weights are the absolute values of the denominators);
-    a standard piecewise-linear minimization. We accept only strict
-    improvements of C(B), starting from B = I; therefore the heuristic
-    is never worse than the plain int_cube.
+    {B(i,j)/B(i,k)} (weights are the absolute values of the denominators).
+    They are scored lexicographically: first minimize the number/severity
+    of bounded rows/columns whose later delta-tightening would collapse
+    their box, then minimize C(B). This keeps the greedy from accepting a
+    cost-improving basis move that merely sets up a bail-tighten failure.
 
     This addresses the regression of int_cube_hnf, whose triangulation
     can blow up the column-delta term ||B||_1: in 153 random instances
