@@ -68,7 +68,7 @@ namespace smt {
         app* mk_value(model_generator& mg, expr_ref_vector const& values) override {
             SASSERT(values.size() == m_dependencies.size());
 
-            expr_ref val = m_owner.snode_to_value(m_snode, values);
+            expr_ref val = m_owner.snode_to_value(m_snode, m_dependencies, values);
             if (!val)
                 val = m_owner.m_seq.str.mk_empty(m_node->get_expr()->get_sort());
 
@@ -267,7 +267,8 @@ namespace smt {
         // verbose_stream() << "collect " << mk_pp(n->get_expr(), m) << " " << deps.size() << "\n";
     }
    
-    expr_ref seq_model::snode_to_value(euf::snode* n, expr_ref_vector const& values) {
+    expr_ref seq_model::snode_to_value(euf::snode *n, ptr_vector<enode> const &deps, expr_ref_vector const &values) {
+        // insert var2value in the same order that dependencies were traversed
         // Leaf tokens (string constants, empty, char/unit) are context-free and
         // memoized in var2value keyed by snode id, populated in the first pass in
         // the exact traversal order of collect_dependencies so that the `values`
@@ -289,72 +290,20 @@ namespace smt {
             return node2value.find(mk_key(s, r), out);
         };
         buffer<std::pair<euf::snode *, bool>> todo;
+        for (unsigned i = 0; i < deps.size(); ++i) 
+            var2value.insert(deps[i]->get_expr_id(), values[i]);
         todo.push_back({n, false});
-        unsigned idx = 0;
-        arith_util a(m);
         expr_ref_vector args(m), pinned(m);
-        todo.push_back({n, false});
-        // verbose_stream() << "extract " << mk_pp(n->get_expr(), m) << " " << values.size() << "\n";
-        while (!todo.empty()) {
-            SASSERT(idx <= values.size());
-            auto [curr, is_recursive] = todo.back();
-            todo.pop_back();
-            if (seen.contains(curr->id()))
-                continue;
-            seen.insert(curr->id());
-            if (m.is_value(curr->get_expr()))
-                var2value.insert(curr->id(), curr->get_expr());
-            else if (curr->is_empty())
-                var2value.insert(curr->id(), curr->get_expr());
-            else if (curr->is_char_or_unit()) {
-                auto arg = curr->arg(0);
-                expr *e = arg->get_expr();
-                expr *val = nullptr;
-                if (m_ctx.e_internalized(e)) {
-                    val = values[idx++];
-                }
-                else if (m_seq.str.is_nth_u(e)) {
-                    expr* var_value = get_var_value(arg->arg(0));
-                    auto index = int_value(arg->arg(1)->get_expr());
-                    val = m_seq.str.mk_nth(var_value, a.mk_int(index));
-                }
-                else {
-                    NOT_IMPLEMENTED_YET();
-                }
-                val = m_seq.str.mk_unit(val);
-                var2value.insert(curr->id(), val);
-                pinned.push_back(val);
-            }
-            else if (curr->is_concat()) {
-                for (unsigned i = 0; i < curr->num_args(); ++i)
-                    todo.push_back({curr->arg(i), is_recursive});
-            }
-            else if (curr->is_power()) {
-                SASSERT(curr->num_args() == 2);
-            }
-            else if (curr->is_var()) {
-                // mirror collect_dependencies: expand the replacement of THIS
-                // variable (curr), not of the queried node n.
-                euf::snode *replacement = nullptr;
-                if (!is_recursive && m_var_replacement.find(curr->id(), replacement))
-                    todo.push_back({replacement, true});
-            }
-            else
-                UNREACHABLE();
-        }
-        // then reconstruct the value for replacement based on the collected sub-term values.
-        SASSERT(values.size() == idx);
+        arith_util a(m);
         todo.push_back({n, false});
 
         expr *val = nullptr;
         while (!todo.empty()) {
             auto [curr, is_recursive] = todo.back();
-            {
-                expr* dummy = nullptr;
-                if (resolve(curr, is_recursive, dummy)) {
-                    todo.pop_back();
-                    continue;
-                }
+            auto id = curr->get_expr()->get_id();
+            if (var2value.contains(id)) {
+                todo.pop_back();
+                continue;
             }
 
             if (curr->is_empty())
@@ -364,6 +313,23 @@ namespace smt {
             else if (curr->is_power()) {
                 auto ival = int_value(curr->arg(1)->get_expr());
                 val = m_seq.str.mk_power(curr->arg(0)->get_expr(), a.mk_int(ival));
+            }
+            else if (curr->is_char_or_unit()) {
+                auto arg = curr->arg(0);
+                expr *e = arg->get_expr();
+                expr *val = nullptr;
+                if (m_ctx.e_internalized(e)) {
+                    val = var2value[e->get_id()];
+                }
+                else if (m_seq.str.is_nth_u(e)) {
+                    expr *var_value = get_var_value(arg->arg(0));
+                    auto index = int_value(arg->arg(1)->get_expr());
+                    val = m_seq.str.mk_nth(var_value, a.mk_int(index));
+                }
+                else {
+                    NOT_IMPLEMENTED_YET();
+                }
+                val = m_seq.str.mk_unit(val);
             }
             else if (curr->is_concat()) {
                 args.reset();
@@ -417,14 +383,11 @@ namespace smt {
                 IF_VERBOSE(0, verbose_stream() << "not handled " << mk_pp(curr->get_expr(), m) << "\n");
                 UNREACHABLE();
             }
-            node2value.insert(mk_key(curr, is_recursive), val);
+            var2value.insert(id, val);
             pinned.push_back(val);
             todo.pop_back();
         }
-        expr* result = nullptr;
-        if (!resolve(n, false, result))
-            result = m_seq.str.mk_empty(n->get_sort());
-        return expr_ref(result, m);
+        return expr_ref(var2value.find(n->get_expr()->get_id()), m);
     }
 
     void seq_model::register_existing_values(seq::nielsen_graph& nielsen) {
@@ -603,6 +566,8 @@ namespace smt {
 
 
 #if 0
+// retained in case we want to reconstruct small power unfoldings.
+
     expr_ref seq_model::snode_to_value(euf::snode* n, expr_ref_vector const& values) {
         SASSERT(n);
         if (n->is_empty()) {
