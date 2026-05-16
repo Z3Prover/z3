@@ -47,7 +47,8 @@ public:
         value const& leaf_value() const { SASSERT(is_leaf()); return static_cast<leaf const*>(this)->m_value; }
     };
 
-    static void linearize_todo(ptr_vector<dependency>& todo, vector<value, false>& vs) {
+    template <bool T = false>
+    static void linearize_todo(ptr_vector<dependency>& todo, vector<value, T>& vs) {
         unsigned qhead = 0;
         while (qhead < todo.size()) {
             dependency* d = todo[qhead];
@@ -69,7 +70,8 @@ public:
             d->unmark();
     }
 
-    static void s_linearize(dependency* d, vector<value, false>& vs) {
+    template <bool T = false>
+    static void s_linearize(dependency* d, vector<value, T>& vs) {
         if (!d)
             return;
         ptr_vector<dependency> todo;
@@ -223,10 +225,11 @@ public:
     }
 
 
-
-    void linearize(dependency * d, vector<value, false> & vs) const {
+    template <bool T = false>
+    void linearize(dependency * d, vector<value, T> & vs) const {
         if (!d) 
             return;
+        std::cout << "linearize " << this << " " << d << "\n";
         SASSERT(m_todo.empty());
         d->mark();
         m_todo.push_back(d);
@@ -234,7 +237,8 @@ public:
         m_todo.reset();
     }
 
-    void linearize(ptr_vector<dependency>& deps, vector<value, false> & vs) const {
+    template <bool T = false>
+    void linearize(ptr_vector<dependency>& deps, vector<value, T> & vs) const {
         if (deps.empty())
             return;
         SASSERT(m_todo.empty());
@@ -329,16 +333,19 @@ public:
         return m_dep_manager.contains(d, v); 
     }
 
-    void linearize(dependency * d, vector<value, false> & vs) const {
+    template<bool T = false>
+    void linearize(dependency * d, vector<value, T> & vs) const {
         return m_dep_manager.linearize(d, vs);
-    }    
+    }   
 
-    static vector<value, false> const& s_linearize(dependency* d, vector<value, false>& vs) {
+    template <bool T = false>
+    static vector<value, T> const& s_linearize(dependency* d, vector<value, T>& vs) {
         dep_manager::s_linearize(d, vs);
         return vs;
     }
 
-    void linearize(ptr_vector<dependency>& d, vector<value, false> & vs) const {
+    template <bool T = false>
+    void linearize(ptr_vector<dependency>& d, vector<value, T> & vs) const {
         return m_dep_manager.linearize(d, vs);
     }    
     
