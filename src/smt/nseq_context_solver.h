@@ -125,11 +125,9 @@ namespace smt {
         void pop(unsigned n) override {
             SASSERT(n <= m_frame_bounds.size());
             unsigned target = m_frame_bounds[m_frame_bounds.size() - n];
-                m_deps.pop_back();
-            }
-            for (unsigned i = 0; i < n; i++) {
-                m_frame_bounds.pop_back();
-            }
+            m_deps.shrink(target);
+            for (unsigned i = 0; i < n; i++) 
+                m_frame_bounds.pop_back();            
             m_kernel.pop(n);
         }
 
