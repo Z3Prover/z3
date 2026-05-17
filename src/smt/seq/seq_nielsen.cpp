@@ -46,7 +46,7 @@ NSB review:
 namespace seq {
 
     void deps_to_lits(dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits, vector<le>& les) {
-        vector<dep_source, false> vs;
+        vector<dep_source> vs;
         dep_manager::s_linearize(deps, vs);
         for (dep_source const &d : vs) {
             if (std::holds_alternative<enode_pair>(d))
@@ -4264,7 +4264,7 @@ namespace seq {
         vector<le>& les) const {
         SASSERT(m_root);
         auto deps = collect_conflict_deps();
-        vector<dep_source, false> vs;
+        vector<dep_source> vs;
         m_dep_mgr.linearize(deps, vs);
         for (dep_source const& d : vs) {
             if (std::holds_alternative<enode_pair>(d))
