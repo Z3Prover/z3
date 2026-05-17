@@ -229,7 +229,6 @@ public:
     void linearize(dependency * d, vector<value, T> & vs) const {
         if (!d) 
             return;
-        std::cout << "linearize " << this << " " << d << "\n";
         SASSERT(m_todo.empty());
         d->mark();
         m_todo.push_back(d);
