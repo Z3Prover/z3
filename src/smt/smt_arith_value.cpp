@@ -101,6 +101,28 @@ namespace smt {
         return false;
     }
 
+        bool arith_value::get_up(expr *e, rational &up, bool &is_strict, literal_vector& core, enode_pair_vector& eqs) const {
+        if (!m_ctx->e_internalized(e))
+            return false;
+        is_strict = false;
+        enode *n = m_ctx->get_enode(e);
+        if (m_thr)
+            return m_thr->get_upper(n, up, is_strict, core, eqs);
+        TRACE(arith_value, tout << "value not found for " << mk_pp(e, m_ctx->get_manager()) << "\n";);
+        return false;
+    }
+
+    bool arith_value::get_lo(expr *e, rational &up, bool &is_strict, literal_vector& core, enode_pair_vector& eqs) const {
+        if (!m_ctx->e_internalized(e))
+            return false;
+        is_strict = false;
+        enode *n = m_ctx->get_enode(e);
+        if (m_thr)
+            return m_thr->get_lower(n, up, is_strict, core, eqs);
+        TRACE(arith_value, tout << "value not found for " << mk_pp(e, m_ctx->get_manager()) << "\n";);
+        return false;
+    }
+
     bool arith_value::get_value(expr* e, rational& val) const {
         if (!m_ctx->e_internalized(e)) return false;
         expr_ref _val(m);

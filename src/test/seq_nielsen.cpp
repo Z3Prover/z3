@@ -1494,8 +1494,7 @@ static void test_explain_conflict_single_eq() {
     // but the conflict should still be detected
     svector<seq::enode_pair> eqs;
     svector<sat::literal> mem_literals;
-    vector<expr_ref> es;
-    ng.test_aux_explain_conflict(eqs, mem_literals, es);
+    ng.test_aux_explain_conflict(eqs, mem_literals);
     // with test-friendly overload (null deps), eqs will be empty
     // the important check is that the conflict was detected
 }
@@ -1525,8 +1524,7 @@ static void test_explain_conflict_multi_eq() {
     // the important check is that the conflict was detected
     svector<seq::enode_pair> eqs;
     svector<sat::literal> mem_literals;
-    vector<expr_ref> es;
-    ng.test_aux_explain_conflict(eqs, mem_literals, es);
+    ng.test_aux_explain_conflict(eqs, mem_literals);
 }
 
 // test that is_extended is set after solve generates extensions
@@ -2118,8 +2116,7 @@ static void test_explain_conflict_mem_only() {
     // with test-friendly overload (null deps), explain_conflict won't return deps
     svector<seq::enode_pair> eqs;
     svector<sat::literal> mem_literals;
-    vector<expr_ref> es;
-    ng.test_aux_explain_conflict(eqs, mem_literals, es);
+    ng.test_aux_explain_conflict(eqs, mem_literals);
 }
 
 // test explain_conflict: mixed eq + mem conflict
@@ -2153,8 +2150,7 @@ static void test_explain_conflict_mixed_eq_mem() {
     // with test-friendly overload (null deps), explain_conflict won't return deps
     svector<seq::enode_pair> eqs;
     svector<sat::literal> mem_literals;
-    vector<expr_ref> es;
-    ng.test_aux_explain_conflict(eqs, mem_literals, es);
+    ng.test_aux_explain_conflict(eqs, mem_literals);
 }
 
 // test subsumption pruning during solve: a node whose constraint set

@@ -161,8 +161,7 @@ static void test_nseq_symbol_clash() {
     // verify conflict explanation returns the equality index
     smt::enode_pair_vector eqs;
     sat::literal_vector mem_idx;
-    vector<expr_ref> es;
-    ng.test_aux_explain_conflict(eqs, mem_idx, es);
+    ng.test_aux_explain_conflict(eqs, mem_idx);
     SASSERT(eqs.size() == 1);
     SASSERT(eqs[0].first == nullptr);
     SASSERT(mem_idx.empty());

@@ -45,7 +45,7 @@ NSB review:
 
 namespace seq {
 
-    void deps_to_lits(dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits, vector<expr_ref>& es) {
+    void deps_to_lits(dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits) {
         vector<dep_source> vs;
         dep_manager::s_linearize(deps, vs);
         for (dep_source const &d : vs) {
@@ -54,7 +54,7 @@ namespace seq {
             else if (std::holds_alternative<sat::literal>(d))
                 lits.push_back(std::get<sat::literal>(d));
             else
-                es.push_back(std::get<expr_ref>(d));
+                UNREACHABLE();
         }
     }
 
@@ -279,6 +279,39 @@ namespace seq {
         m_str_mem.push_back(mem);
     }
 
+    bool nielsen_node::lower_bound(expr *e, rational &lo, dep_tracker &dep) {
+        literal_vector lits;
+        enode_pair_vector eqs;
+        if (m_graph.a.is_numeral(e, lo))
+            return true;
+        if (!m_graph.m_solver.lower_bound(e, lo, lits, eqs)) 
+            return false;
+        for (auto lit : lits)
+            dep = m_graph.dep_mgr().mk_join(dep, m_graph.dep_mgr().mk_leaf(lit));
+        for (auto eq : eqs) 
+            dep = m_graph.dep_mgr().mk_join(dep, m_graph.dep_mgr().mk_leaf(eq));
+        
+        expr_ref lo_expr(m_graph.a.mk_int(lo), m_graph.m);
+        m_graph.add_le_dependency(dep, this, lo_expr, e);
+        return true;        
+    }
+
+    bool nielsen_node::upper_bound(expr *e, rational &up, dep_tracker &dep) {
+        literal_vector lits;
+        enode_pair_vector eqs;
+        if (m_graph.a.is_numeral(e, up))
+            return true;
+        if (!m_graph.m_solver.upper_bound(e, up, lits, eqs)) 
+            return false;
+        for (auto lit : lits)
+            dep = m_graph.dep_mgr().mk_join(dep, m_graph.dep_mgr().mk_leaf(lit));
+        for (auto eq : eqs)
+            dep = m_graph.dep_mgr().mk_join(dep, m_graph.dep_mgr().mk_leaf(eq));
+        expr_ref up_expr(m_graph.a.mk_int(up), m_graph.m);
+        m_graph.add_le_dependency(dep, this, e, up_expr);
+        return true;        
+    }
+
     void nielsen_node::add_constraint(constraint const &c) {
         auto& m = graph().get_manager();
         if (m.is_true(c.fml))
@@ -395,31 +428,6 @@ namespace seq {
         }
         add_constraint(constraint(m.mk_or(cases), dep, m));
     }
-
-    bool nielsen_node::lower_bound(expr* e, rational& lo, dep_tracker& dep) {
-        SASSERT(e);
-        if (!m_graph.m_solver.lower_bound(e, lo))
-            return false;
-        expr_ref lo_expr(m_graph.a.mk_int(lo), m_graph.m);
-        m_graph.add_le_dependency(dep, this, lo_expr.get(), e);
-        return true;
-    }
-
-
-    bool nielsen_node::upper_bound(expr* e, rational& up, dep_tracker& dep) {
-        SASSERT(e);
-        rational v;
-        if (m_graph.a.is_numeral(e, v)) {
-            up = v;
-            return true;
-        }
-        if (!m_graph.m_solver.upper_bound(e, up))
-            return false;
-        expr_ref up_expr(m_graph.a.mk_int(up), m_graph.m);
-        m_graph.add_le_dependency(dep, this, e, up_expr.get());
-        return true;
-    }
-
     // -----------------------------------------------
     // nielsen_graph
     // -----------------------------------------------
@@ -549,16 +557,14 @@ namespace seq {
         SASSERT(m_sat_node == nullptr);
     }
 
-    void nielsen_graph::add_le_dependency(dep_tracker& dep, nielsen_node* n, expr* lhs, expr* rhs) {
+    void nielsen_graph::add_le_dependency(dep_tracker dep, nielsen_node* n, expr* lhs, expr* rhs) {
         SASSERT(lhs);
         SASSERT(rhs);
         expr_ref le(a.mk_le(lhs, rhs), m);
         // just assume it to be correct
-        dep_tracker d = m_dep_mgr.mk_leaf(le);
         // Just add the constraint - we do not have to recompute it
         // [also it is on the set of side-conditions if we assert a satisfied node]
-        n->add_constraint(constraint(le, d, m));
-        dep = m_dep_mgr.mk_join(dep, d);
+        n->add_constraint(constraint(le, dep, m));
     }
 
     // -----------------------------------------------------------------------
@@ -4259,8 +4265,7 @@ namespace seq {
 
     // NSB review: this is one of several methods exposed for testing
     void nielsen_graph::test_aux_explain_conflict(svector<enode_pair>& eqs,
-        svector<sat::literal>& mem_literals,
-        vector<expr_ref>& es) const {
+        svector<sat::literal>& mem_literals) const {
         SASSERT(m_root);
         auto deps = collect_conflict_deps();
         vector<dep_source> vs;
@@ -4270,8 +4275,8 @@ namespace seq {
                 eqs.push_back(std::get<enode_pair>(d));
             else if (std::holds_alternative<sat::literal>(d))
                 mem_literals.push_back(std::get<sat::literal>(d));
-            else if (std::holds_alternative<expr_ref>(d))
-                es.push_back(std::get<expr_ref>(d));
+            else 
+                UNREACHABLE();
         }
     }
 
@@ -4592,32 +4597,28 @@ namespace seq {
         dep = nullptr;
 
         rational lhs_lo, rhs_up;
-        bool has_lhs_lo = false, has_rhs_up = false;
-        dep_tracker lhs_lo_dep = nullptr, rhs_up_dep = nullptr;
-        if (n->lower_bound(lhs, lhs_lo, lhs_lo_dep))
-            has_lhs_lo = true;
-        if (has_lhs_lo && n->upper_bound(rhs, rhs_up, rhs_up_dep))
-            has_rhs_up = true;
-        if (has_lhs_lo && has_rhs_up) {
-            if (lhs_lo > rhs_up)
-                // NB: we only justify if we return true
-                return false; // definitely infeasible
+        literal_vector lits;
+        enode_pair_vector eqs;
+        if (m_solver.lower_bound(lhs, lhs_lo, lits, eqs) && 
+            m_solver.upper_bound(rhs, rhs_up, lits, eqs) && lhs_lo > rhs_up)
+            return false;
+
+        // lhs <= lhs_up <= rhs_lo <= rhs
+        // => lhs <= rhs is entailed
+
+        lits.reset();
+        eqs.reset();
+        rational rhs_lo, lhs_up;
+        if (m_solver.upper_bound(lhs, lhs_up, lits, eqs) && 
+            m_solver.lower_bound(rhs, rhs_lo, lits, eqs) &&
+            lhs_up <= rhs_lo) {
+            for (auto lit : lits)
+                dep = m_dep_mgr.mk_join(dep, m_dep_mgr.mk_leaf(lit));
+            for (enode_pair eq : eqs)
+                dep = m_dep_mgr.mk_join(dep, m_dep_mgr.mk_leaf(eq));
+            return true;
         }
 
-        rational rhs_lo, lhs_up;
-        bool has_rhs_lo = false, has_lhs_up = false;
-        dep_tracker rhs_lo_dep = nullptr, lhs_up_dep = nullptr;
-        if (n->upper_bound(lhs, lhs_up, lhs_up_dep))
-            has_lhs_up = true;
-        if (has_lhs_up && n->lower_bound(rhs, rhs_lo, rhs_lo_dep))
-            has_rhs_lo = true;
-        if (has_lhs_up && has_rhs_lo) {
-            if (lhs_up <= rhs_lo) {
-                dep = m_dep_mgr.mk_join(dep, lhs_up_dep);
-                dep = m_dep_mgr.mk_join(dep, rhs_lo_dep);
-                return true; // definitely feasible
-            }
-        }
         // fall through - ask the solver [expensive]
 
         // TODO: Maybe cache the result?
@@ -4631,9 +4632,11 @@ namespace seq {
         m_solver.push();
         assert_to_subsolver(a.mk_ge(lhs, rhs_plus_one));
         lbool result = m_solver.check();
+        if (result == l_false)
+            dep = m_solver.core();
         m_solver.pop(1);
         if (result == l_false) {
-            add_le_dependency(dep, n, lhs, rhs);
+            n->add_constraint(constraint(a.mk_le(lhs, rhs), dep, m));
             return true;
         }
         return false;

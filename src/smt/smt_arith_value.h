@@ -43,6 +43,8 @@ namespace smt {
         bool get_value_equiv(expr* e, rational& value) const;
         bool get_lo(expr* e, rational& lo, bool& strict) const;
         bool get_up(expr* e, rational& up, bool& strict) const;
+        bool get_lo(expr *e, rational &lo, bool &strict, literal_vector& core, enode_pair_vector& eqs) const;
+        bool get_up(expr *e, rational &up, bool &strict, literal_vector& core, enode_pair_vector& eqs) const;
         bool get_value(expr* e, rational& value) const;
         expr_ref get_lo(expr* e) const;
         expr_ref get_up(expr* e) const;

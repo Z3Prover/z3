@@ -314,9 +314,11 @@ namespace seq {
     // index is the 0-based position in the input eq or mem list respectively.
 
     using enode_pair = std::pair<smt::enode *, smt::enode *>;
+    using literal_vector = svector<sat::literal>;
+    using enode_pair_vector = svector<enode_pair>;
 
+    using dep_source = std::variant<sat::literal, enode_pair>;
 
-    using dep_source = std::variant<sat::literal, enode_pair, expr_ref>;
 
 
     // Arena-based dependency manager: builds an immutable tree of dep_source
@@ -347,8 +349,8 @@ namespace seq {
         virtual dep_tracker core() { return nullptr; }
         // Optional bound queries on arithmetic expressions (non-strict integer bounds).
         // Default implementation reports "unsupported".
-        virtual bool        lower_bound(expr* e, rational& lo) const { return false; }
-        virtual bool        upper_bound(expr* e, rational& hi) const { return false; }
+        virtual bool        lower_bound(expr* e, rational& l, literal_vector& lits, enode_pair_vector& eqs) const { return false; }
+        virtual bool        upper_bound(expr* e, rational& hi, literal_vector& lits, enode_pair_vector& eqs) const { return false; }
         virtual bool        current_value(expr* e, rational& v) const { return false; }
         virtual void        reset() = 0;
     };
@@ -356,9 +358,8 @@ namespace seq {
     // partition dep_source leaves from deps into enode pairs, sat literals,
     // and arithmetic <= dependencies.
     void deps_to_lits(dep_tracker deps,
-                      svector<enode_pair>& eqs,
-                      svector<sat::literal>& lits,
-                      vector<expr_ref>& es);
+                      enode_pair_vector& eqs,
+                      literal_vector& lits);
 
     // string equality constraint: lhs = rhs
     // mirrors ZIPT's StrEq (both sides are regex-free snode trees)
@@ -994,8 +995,7 @@ namespace seq {
         // (kind::eq) and str_mem indices (kind::mem).
         // Must be called after solve() returns unsat.
         void test_aux_explain_conflict(svector<enode_pair> &eqs,
-                              svector<sat::literal> &mem_literals,
-                                vector<expr_ref>& es) const;
+                              svector<sat::literal> &mem_literals) const;
 
 
         // accumulated search statistics
@@ -1028,7 +1028,7 @@ namespace seq {
         dep_manager const& dep_mgr() const { return m_dep_mgr; }
 
         // Add a dependency leaf for lhs <= rhs and join it to dep.
-        void add_le_dependency(dep_tracker& dep, nielsen_node* n, expr* lhs, expr* rhs);
+        void add_le_dependency(dep_tracker dep, nielsen_node* n, expr* lhs, expr* rhs);
 
         void assert_to_subsolver(const constraint& c);
 

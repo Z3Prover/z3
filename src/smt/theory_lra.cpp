@@ -3748,13 +3748,20 @@ public:
         return include_func_interp(n->get_decl());
     }
 
-    bool get_lower(enode* n, rational& val, bool& is_strict) {
+    bool get_lower(enode *n, rational &val, bool &is_strict, literal_vector* lits = nullptr, enode_pair_vector* eqs = nullptr) {
+        if (a.is_numeral(n->get_expr(), val)) {
+            is_strict = false;
+            return true;
+        }
         theory_var v = n->get_th_var(get_id());
-        if (!is_registered_var(v)) 
-            return false;        
+        if (!is_registered_var(v))
+            return false;
         lpvar vi = get_lpvar(v);
-        u_dependency* ci;
-        return lp().has_lower_bound(vi, ci, val, is_strict);
+        u_dependency *ci = nullptr;
+        bool r = lp().has_lower_bound(vi, ci, val, is_strict);
+        if (r && lits && eqs)            
+            set_evidence(ci, *lits, *eqs);
+        return r;
     }
 
     bool get_lower(enode* n, expr_ref& r) {
@@ -3767,13 +3774,21 @@ public:
         return false;
     }
 
-    bool get_upper(enode* n, rational& val, bool& is_strict) {
+    bool get_upper(enode *n, rational &val, bool &is_strict, literal_vector *lits = nullptr,
+                   enode_pair_vector *eqs = nullptr) {
+        if (a.is_numeral(n->get_expr(), val)) {
+            is_strict = false;
+            return true;
+        }
         theory_var v = n->get_th_var(get_id());
         if (!is_registered_var(v))
             return false;
         lpvar vi = get_lpvar(v);
         u_dependency* dep = nullptr;
-        return lp().has_upper_bound(vi, dep, val, is_strict);
+        bool r = lp().has_upper_bound(vi, dep, val, is_strict);
+        if (r && lits && eqs)
+            set_evidence(dep, *lits, *eqs);
+        return r;
     }
 
     void solve_fixed(enode* n, lpvar j, expr_ref& term, expr_ref& guard) {
@@ -4481,6 +4496,13 @@ bool theory_lra::get_lower(enode* n, rational& r, bool& is_strict) {
 }
 bool theory_lra::get_upper(enode* n, rational& r, bool& is_strict) {
     return m_imp->get_upper(n, r, is_strict);
+}
+
+bool theory_lra::get_lower(enode* n, rational& r, bool& is_strict, literal_vector& core, enode_pair_vector& eqs) {
+    return m_imp->get_lower(n, r, is_strict, &core, &eqs);
+}
+bool theory_lra::get_upper(enode* n, rational& r, bool& is_strict, literal_vector& core, enode_pair_vector& eqs) {
+    return m_imp->get_upper(n, r, is_strict, &core, &eqs);
 }
 
 void theory_lra::solve_for(vector<solution>& sol) {

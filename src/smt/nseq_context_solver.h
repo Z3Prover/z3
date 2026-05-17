@@ -137,14 +137,14 @@ namespace smt {
 
         seq::dep_tracker core() override { return m_last_core; }
 
-        bool lower_bound(expr* e, rational& lo) const override {
+        bool lower_bound(expr* e, rational& lo, literal_vector& lits, enode_pair_vector& eqs) const override {
             bool is_strict = true;
-            return m_arith_value.get_lo(e, lo, is_strict) && !is_strict && lo.is_int();
+            return m_arith_value.get_lo(e, lo, is_strict, lits, eqs) && !is_strict && lo.is_int();
         }
 
-        bool upper_bound(expr* e, rational& hi) const override {
+        bool upper_bound(expr* e, rational& hi, literal_vector& lits, enode_pair_vector& eqs) const override {
             bool is_strict = true;
-            return m_arith_value.get_up(e, hi, is_strict) && !is_strict && hi.is_int();
+            return m_arith_value.get_up(e, hi, is_strict, lits, eqs) && !is_strict && hi.is_int();
         }
 
         bool current_value(expr* e, rational& v) const override {

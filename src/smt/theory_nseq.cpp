@@ -875,7 +875,7 @@ namespace smt {
             else if (std::holds_alternative<sat::literal>(d))
                 lits.push_back(std::get<sat::literal>(d));
             else
-                lits.push_back(mk_literal(std::get<expr_ref>(d)));
+                UNREACHABLE();
         }
         ++m_num_conflicts;
         set_conflict(eqs, lits);
@@ -929,8 +929,7 @@ namespace smt {
                 else if (std::holds_alternative<sat::literal>(d))
                     kernel.assert_expr(ctx.literal2expr(std::get<sat::literal>(d)));
                 else {
-                    auto const& e = std::get<expr_ref>(d);
-                    kernel.assert_expr(e);
+                    UNREACHABLE();
                 }
             }
             auto res = kernel.check();
@@ -1348,10 +1347,7 @@ namespace smt {
         // conditional constraints: propagate with justification from dep_tracker
         enode_pair_vector eqs;
         literal_vector lits;
-        vector<expr_ref> es;
-        seq::deps_to_lits(lc.m_dep, eqs, lits, es);
-        for (auto const& e : es)
-            lits.push_back(mk_literal(e));
+        seq::deps_to_lits(lc.m_dep, eqs, lits);
 
         set_propagate(eqs, lits, lit);
 
@@ -1743,12 +1739,10 @@ namespace smt {
 
                 enode_pair_vector eqs;
                 literal_vector dep_lits;
-                vector<expr_ref> dep_exprs;
+
                 for (unsigned idx : mem_indices) 
-                    seq::deps_to_lits(mems[idx].m_dep, eqs, dep_lits, dep_exprs);
+                    seq::deps_to_lits(mems[idx].m_dep, eqs, dep_lits);
                 
-                for (auto const &e : dep_exprs)
-                    dep_lits.push_back(mk_literal(e));
 
                 set_propagate(eqs, dep_lits, lit_prop);
 
