@@ -151,7 +151,6 @@ namespace smt {
         bool propagate_length_lemma(literal lit, seq::length_constraint const& lc);
         bool assert_nonneg_for_all_vars();
         bool assert_length_constraints();
-        literal mk_le_literal(seq::le const &le);
 
         // Regex membership pre-check: for each variable with regex constraints,
         // check intersection emptiness before running DFS.

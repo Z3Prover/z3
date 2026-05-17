@@ -45,7 +45,7 @@ NSB review:
 
 namespace seq {
 
-    void deps_to_lits(dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits, vector<le>& les) {
+    void deps_to_lits(dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits, vector<expr_ref>& es) {
         vector<dep_source> vs;
         dep_manager::s_linearize(deps, vs);
         for (dep_source const &d : vs) {
@@ -54,7 +54,7 @@ namespace seq {
             else if (std::holds_alternative<sat::literal>(d))
                 lits.push_back(std::get<sat::literal>(d));
             else
-                les.push_back(std::get<le>(d));
+                es.push_back(std::get<expr_ref>(d));
         }
     }
 
@@ -552,13 +552,12 @@ namespace seq {
     void nielsen_graph::add_le_dependency(dep_tracker& dep, nielsen_node* n, expr* lhs, expr* rhs) {
         SASSERT(lhs);
         SASSERT(rhs);
-        expr_ref lhs_ref(lhs, m);
-        expr_ref rhs_ref(rhs, m);
+        expr_ref le(a.mk_le(lhs, rhs), m);
         // just assume it to be correct
-        dep_tracker d = m_dep_mgr.mk_leaf(le{ lhs_ref, rhs_ref });
+        dep_tracker d = m_dep_mgr.mk_leaf(le);
         // Just add the constraint - we do not have to recompute it
         // [also it is on the set of side-conditions if we assert a satisfied node]
-        n->add_constraint(constraint(a.mk_le(lhs_ref, rhs_ref), d, m));
+        n->add_constraint(constraint(le, d, m));
         dep = m_dep_mgr.mk_join(dep, d);
     }
 
@@ -4261,7 +4260,7 @@ namespace seq {
     // NSB review: this is one of several methods exposed for testing
     void nielsen_graph::test_aux_explain_conflict(svector<enode_pair>& eqs,
         svector<sat::literal>& mem_literals,
-        vector<le>& les) const {
+        vector<expr_ref>& es) const {
         SASSERT(m_root);
         auto deps = collect_conflict_deps();
         vector<dep_source> vs;
@@ -4271,8 +4270,8 @@ namespace seq {
                 eqs.push_back(std::get<enode_pair>(d));
             else if (std::holds_alternative<sat::literal>(d))
                 mem_literals.push_back(std::get<sat::literal>(d));
-            else if (std::holds_alternative<le>(d))
-                les.push_back(std::get<le>(d));
+            else if (std::holds_alternative<expr_ref>(d))
+                es.push_back(std::get<expr_ref>(d));
         }
     }
 

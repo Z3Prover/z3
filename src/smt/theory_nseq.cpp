@@ -595,15 +595,6 @@ namespace smt {
             enqueue_axiom(n);
     }
 
-    literal theory_nseq::mk_le_literal(seq::le const &d) {
-        expr_ref le_expr(m_autil.mk_le(d.lhs, d.rhs), m);
-        if (!ctx.b_internalized(le_expr))
-            ctx.internalize(le_expr, true);
-        literal lit = ctx.get_literal(le_expr);
-        ctx.mark_as_relevant(lit);
-        return lit;
-    }
-
     // -----------------------------------------------------------------------
     // Final check: build Nielsen graph and search
     // -----------------------------------------------------------------------
@@ -884,7 +875,7 @@ namespace smt {
             else if (std::holds_alternative<sat::literal>(d))
                 lits.push_back(std::get<sat::literal>(d));
             else
-                lits.push_back(mk_le_literal(std::get<seq::le>(d)));
+                lits.push_back(mk_literal(std::get<expr_ref>(d)));
         }
         ++m_num_conflicts;
         set_conflict(eqs, lits);
@@ -938,8 +929,8 @@ namespace smt {
                 else if (std::holds_alternative<sat::literal>(d))
                     kernel.assert_expr(ctx.literal2expr(std::get<sat::literal>(d)));
                 else {
-                    auto const& p = std::get<seq::le>(d);
-                    kernel.assert_expr(m_autil.mk_le(p.lhs, p.rhs));
+                    auto const& e = std::get<expr_ref>(d);
+                    kernel.assert_expr(e);
                 }
             }
             auto res = kernel.check();
@@ -1357,10 +1348,10 @@ namespace smt {
         // conditional constraints: propagate with justification from dep_tracker
         enode_pair_vector eqs;
         literal_vector lits;
-        vector<seq::le> les;
-        seq::deps_to_lits(lc.m_dep, eqs, lits, les);
-        for (auto const& d : les)
-            lits.push_back(mk_le_literal(d));
+        vector<expr_ref> es;
+        seq::deps_to_lits(lc.m_dep, eqs, lits, es);
+        for (auto const& e : es)
+            lits.push_back(mk_literal(e));
 
         set_propagate(eqs, lits, lit);
 
@@ -1752,12 +1743,12 @@ namespace smt {
 
                 enode_pair_vector eqs;
                 literal_vector dep_lits;
-                vector<seq::le> dep_les;
+                vector<expr_ref> dep_exprs;
                 for (unsigned idx : mem_indices) 
-                    seq::deps_to_lits(mems[idx].m_dep, eqs, dep_lits, dep_les);
+                    seq::deps_to_lits(mems[idx].m_dep, eqs, dep_lits, dep_exprs);
                 
-                for (auto const &d : dep_les)
-                    dep_lits.push_back(mk_le_literal(d));
+                for (auto const &e : dep_exprs)
+                    dep_lits.push_back(mk_literal(e));
 
                 set_propagate(eqs, dep_lits, lit_prop);
 

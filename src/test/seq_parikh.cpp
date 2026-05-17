@@ -42,7 +42,7 @@ class parikh_test_solver : public seq::simple_solver {
 public:
     void push() override {}
     void pop(unsigned) override {}
-    void assert_expr(expr*) override {}
+    void assert_expr(expr*, seq::dep_tracker) override {}
     void reset() override {}
     lbool check() override { return l_true; }
 };
@@ -485,8 +485,8 @@ static void test_apply_to_node_adds_constraints() {
     euf::egraph eg(m);
     euf::sgraph sg(m, eg);
     seq_util seq(m);
-    parikh_test_solver solver, s2;
-    seq::nielsen_graph ng(sg, solver, s2);
+    parikh_test_solver solver;
+    seq::nielsen_graph ng(sg, solver);
     seq::seq_parikh parikh(sg);
 
     euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
@@ -517,8 +517,8 @@ static void test_apply_to_node_stride_one_no_constraints() {
     euf::sgraph sg(m, eg);
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
-    parikh_test_solver solver, s2;
-    seq::nielsen_graph ng(sg, solver, s2);
+    parikh_test_solver solver;
+    seq::nielsen_graph ng(sg, solver);
     seq::seq_parikh parikh(sg);
 
     euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());

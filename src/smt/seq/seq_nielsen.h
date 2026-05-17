@@ -315,16 +315,8 @@ namespace seq {
 
     using enode_pair = std::pair<smt::enode *, smt::enode *>;
 
-    // arithmetic implication dependency: lhs <= rhs
-    struct le {
-        expr_ref lhs;
-        expr_ref rhs;
-        bool operator==(le const &other) const {
-            return lhs == other.lhs && rhs == other.rhs;         
-        }
-    };
 
-    using dep_source = std::variant<sat::literal, enode_pair, le>;
+    using dep_source = std::variant<sat::literal, enode_pair, expr_ref>;
 
 
     // Arena-based dependency manager: builds an immutable tree of dep_source
@@ -366,7 +358,7 @@ namespace seq {
     void deps_to_lits(dep_tracker deps,
                       svector<enode_pair>& eqs,
                       svector<sat::literal>& lits,
-                      vector<le>& les);
+                      vector<expr_ref>& es);
 
     // string equality constraint: lhs = rhs
     // mirrors ZIPT's StrEq (both sides are regex-free snode trees)
@@ -1003,7 +995,7 @@ namespace seq {
         // Must be called after solve() returns unsat.
         void test_aux_explain_conflict(svector<enode_pair> &eqs,
                               svector<sat::literal> &mem_literals,
-                                vector<le>& les) const;
+                                vector<expr_ref>& es) const;
 
 
         // accumulated search statistics
