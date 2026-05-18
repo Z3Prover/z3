@@ -44,12 +44,12 @@ namespace smt {
         euf::sgraph    m_sgraph;  // private sgraph
         // m_context_solver must be declared before m_nielsen: its address is passed
         // to the m_nielsen constructor and must remain stable for the object's lifetime.
+        sub_solver m_length_solver;
         context_solver m_context_solver;
         seq::nielsen_graph m_nielsen;
         seq::axioms m_axioms;
         seq::seq_regex     m_regex;   // regex membership pre-processing
         seq_model     m_model;   // model construction helper
-        bool m_should_internalize = false;
 
         // propagation queue items (variant over the distinct propagation cases)
         using eq_item   = tracked_str_eq;    // string equality

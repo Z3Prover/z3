@@ -33,8 +33,9 @@ namespace smt {
         m_arith_value(m),
         m_egraph(m),
         m_sgraph(m, m_egraph),
-        m_context_solver(m),
-        m_nielsen(m_sgraph, m_context_solver),
+        m_length_solver(m),
+        m_context_solver(ctx),
+        m_nielsen(m_sgraph, m_length_solver, m_context_solver),
         m_axioms(m_th_rewriter),
         m_regex(m_sgraph),
         m_model(m, ctx, m_seq, m_rewriter, m_sgraph),
@@ -82,34 +83,8 @@ namespace smt {
         m_axioms.set_ensure_digits(ensure_digit_axiom);
         m_axioms.set_mark_no_diseq(mark_no_diseq);
 
-        m_should_internalize = true; // delete this if using internalize as fallback
-        std::function<sat::literal(expr*)> literal_if_false = [&](expr* e) {
-            bool is_not = m.is_not(e, e);
-            if (m_should_internalize && !ctx.b_internalized(e)) {
-                // it can happen that the element is not internalized, but as soon as we do it, it becomes false.
-                // In case we just skip one of those uninternalized expressions,
-                // adding the Nielsen assumption later will fail
-                // Alternatively, we could just retry Nielsen saturation in case
-                // adding the Nielsen assumption yields the assumption being false after internalizing
-                ctx.internalize(to_app(e), false);
-            }
-
-            if (!ctx.b_internalized(e))
-                return sat::null_literal;
-
-            literal lit = ctx.get_literal(e);
-            if (is_not)
-                lit.neg();
-            if (ctx.get_assignment(lit) == l_false) {
-                // TRACE(seq, tout << "literal_if_false: " << lit << " " << mk_pp(e, m) << " is assigned false\n");
-                return lit;
-            }
-            // TRACE(seq, tout << "literal_if_false: " << mk_pp(e, m) << " is assigned " << ctx.get_assignment(lit) << "\n");
-            return sat::null_literal;
-        };
-
-        
-        m_nielsen.set_literal_if_false(literal_if_false);
+        m_context_solver.m_should_internalize = true; // delete this if using internalize as fallback
+       
     }
 
     // -----------------------------------------------------------------------
@@ -848,12 +823,11 @@ namespace smt {
                 break;
             case l_false: 
                 // this should not happen because nielsen checks for this before returning a satisfying path.
-                // or maybe it can happen if we have a "le" dependency
                 TRACE(seq, tout << "nseq final_check: nielsen assumption " << c.fml << " is false; internalized - " << ctx.e_internalized(c.fml) << "\n");
                 all_sat = false;
                 // std::cout << "False [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
-                ctx.push_trail(value_trail(m_should_internalize));
-                m_should_internalize = true;
+                ctx.push_trail(value_trail(m_context_solver.m_should_internalize));
+                m_context_solver.m_should_internalize = true;
                 break;
             }    
             // use assumptions to bound search

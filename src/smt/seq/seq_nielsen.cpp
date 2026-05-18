@@ -284,7 +284,7 @@ namespace seq {
         enode_pair_vector eqs;
         if (m_graph.a.is_numeral(e, lo))
             return true;
-        if (!m_graph.m_solver.lower_bound(e, lo, lits, eqs)) 
+        if (!m_graph.m_context_solver.lower_bound(e, lo, lits, eqs)) 
             return false;
         for (auto lit : lits)
             dep = m_graph.dep_mgr().mk_join(dep, m_graph.dep_mgr().mk_leaf(lit));
@@ -301,7 +301,7 @@ namespace seq {
         enode_pair_vector eqs;
         if (m_graph.a.is_numeral(e, up))
             return true;
-        if (!m_graph.m_solver.upper_bound(e, up, lits, eqs)) 
+        if (!m_graph.m_context_solver.upper_bound(e, up, lits, eqs)) 
             return false;
         for (auto lit : lits)
             dep = m_graph.dep_mgr().mk_join(dep, m_graph.dep_mgr().mk_leaf(lit));
@@ -432,12 +432,13 @@ namespace seq {
     // nielsen_graph
     // -----------------------------------------------
 
-    nielsen_graph::nielsen_graph(euf::sgraph &sg, simple_solver &solver):
+    nielsen_graph::nielsen_graph(euf::sgraph &sg, sub_solver_i &solver, context_solver_i& ctx_solver):
         m(sg.get_manager()),
         a(sg.get_manager()),
         m_seq(sg.get_seq_util()),
         m_sg(sg),
-        m_solver(solver),
+        m_length_solver(solver),
+        m_context_solver(ctx_solver),
         m_parikh(alloc(seq_parikh, sg)),
         m_seq_regex(alloc(seq::seq_regex, sg)) {}
 
@@ -550,7 +551,7 @@ namespace seq {
         m_length_trail.reset();
         m_length_info.reset();
         m_dep_mgr.reset();
-        m_solver.reset();
+        m_length_solver.reset();
         SASSERT(m_nodes.empty());
         SASSERT(m_edges.empty());
         SASSERT(m_root == nullptr);
@@ -1891,7 +1892,7 @@ namespace seq {
             // constraints.  The child's own new constraints will be asserted
             // inside the recursive call (above).  On return, pop the scope so
             // that backtracking removes those assertions.
-            m_solver.push();
+            m_length_solver.push();
 
             // Lazily compute substitution length constraints (|x| = |u|) on first
             // traversal. This must happen before asserting side_constraints and before
@@ -1916,7 +1917,7 @@ namespace seq {
             // Restore modification counts on backtrack.
             dec_edge_mod_counts(e);
 
-            m_solver.pop(1);
+            m_length_solver.pop(1);
             if (r == search_result::sat)
                 return search_result::sat;
             cur_path.pop_back();
@@ -4501,11 +4502,11 @@ namespace seq {
     }
 
     void nielsen_graph::assert_to_subsolver(const constraint& c) {
-        m_solver.assert_expr(c.fml, c.dep);
+        m_length_solver.assert_expr(c.fml, c.dep);
     }
 
     void nielsen_graph::assert_to_subsolver(expr* e) {
-        m_solver.assert_expr(e);
+        m_length_solver.assert_expr(e);
     }
 
     void nielsen_graph::assert_node_new_int_constraints(nielsen_node* node) {
@@ -4514,10 +4515,9 @@ namespace seq {
         // already present in the enclosing solver scope; asserting them again would
         // be redundant (though harmless).  This is called by search_dfs right after
         // simplify_and_init, which is where new constraints are produced.
-        SASSERT(m_literal_if_false);
         for (unsigned i = node->m_parent_ic_count; i < node->constraints().size(); ++i) {
             auto& c = node->constraints()[i];
-            auto lit = m_literal_if_false(c.fml);
+            auto lit = m_context_solver.literal_if_false(c.fml);
             // std::cout << "Internalizing literal " << mk_pp(c.fml, m) << " [" << (lit == sat::null_literal) << "]" <<
             // std::endl;
             if (lit != sat::null_literal) {
@@ -4584,13 +4584,13 @@ namespace seq {
         // (root length constraints at the base level, edge side_constraints and node
         // constraints pushed/popped as the DFS descends and backtracks).
         // A plain check() is therefore sufficient.
-        return m_solver.check() != l_false;
+        return m_length_solver.check() != l_false;
     }
 
     dep_tracker nielsen_graph::get_subsolver_dependency(nielsen_node* /*n*/) {
         // check_int_feasibility() already called m_solver.check() which computed
         // the UNSAT core in terms of tracked assumption literals and their deps.
-        return m_solver.core();
+        return m_length_solver.core();
     }
 
     bool nielsen_graph::check_lp_le(expr* lhs, expr* rhs, nielsen_node* n, dep_tracker& dep) {
@@ -4599,8 +4599,8 @@ namespace seq {
         rational lhs_lo, rhs_up;
         literal_vector lits;
         enode_pair_vector eqs;
-        if (m_solver.lower_bound(lhs, lhs_lo, lits, eqs) && 
-            m_solver.upper_bound(rhs, rhs_up, lits, eqs) && lhs_lo > rhs_up)
+        if (m_context_solver.lower_bound(lhs, lhs_lo, lits, eqs) && 
+            m_context_solver.upper_bound(rhs, rhs_up, lits, eqs) && lhs_lo > rhs_up)
             return false;
 
         // lhs <= lhs_up <= rhs_lo <= rhs
@@ -4609,8 +4609,8 @@ namespace seq {
         lits.reset();
         eqs.reset();
         rational rhs_lo, lhs_up;
-        if (m_solver.upper_bound(lhs, lhs_up, lits, eqs) && 
-            m_solver.lower_bound(rhs, rhs_lo, lits, eqs) &&
+        if (m_context_solver.upper_bound(lhs, lhs_up, lits, eqs) && 
+            m_context_solver.lower_bound(rhs, rhs_lo, lits, eqs) &&
             lhs_up <= rhs_lo) {
             for (auto lit : lits)
                 dep = m_dep_mgr.mk_join(dep, m_dep_mgr.mk_leaf(lit));
@@ -4629,12 +4629,12 @@ namespace seq {
         expr_ref one(a.mk_int(1), m);
         expr_ref rhs_plus_one(a.mk_add(rhs, one), m);
 
-        m_solver.push();
+        m_length_solver.push();
         assert_to_subsolver(a.mk_ge(lhs, rhs_plus_one));
-        lbool result = m_solver.check();
+        lbool result = m_length_solver.check();
         if (result == l_false)
-            dep = m_solver.core();
-        m_solver.pop(1);
+            dep = m_length_solver.core();
+        m_length_solver.pop(1);
         if (result == l_false) {
             n->add_constraint(constraint(a.mk_le(lhs, rhs), dep, m));
             return true;

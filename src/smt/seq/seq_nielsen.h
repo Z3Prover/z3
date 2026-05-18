@@ -316,7 +316,6 @@ namespace seq {
     using enode_pair = std::pair<smt::enode *, smt::enode *>;
     using literal_vector = svector<sat::literal>;
     using enode_pair_vector = svector<enode_pair>;
-
     using dep_source = std::variant<sat::literal, enode_pair>;
 
 
@@ -338,21 +337,39 @@ namespace seq {
      * to serve as the arithmetic back-end.  When no solver is provided,
      * integer feasibility checks are skipped (optimistically assumed feasible).
      */
-    class simple_solver {
+    class sub_solver_i {
     public:
-        virtual ~simple_solver() {}
+        virtual ~sub_solver_i() {}
         virtual lbool       check() = 0;
         virtual void        assert_expr(expr* e, dep_tracker dep = nullptr) = 0;
         virtual void        push() = 0;
         virtual void        pop(unsigned num_scopes) = 0;
         virtual void        get_model(model_ref& mdl) { mdl = nullptr; }
         virtual dep_tracker core() { return nullptr; }
+        virtual void        reset() = 0;
+    };
+
+    class context_solver_i {
+    public:
+        virtual ~context_solver_i() {}
+
+        bool m_should_internalize = false;
+
         // Optional bound queries on arithmetic expressions (non-strict integer bounds).
         // Default implementation reports "unsupported".
-        virtual bool        lower_bound(expr* e, rational& l, literal_vector& lits, enode_pair_vector& eqs) const { return false; }
-        virtual bool        upper_bound(expr* e, rational& hi, literal_vector& lits, enode_pair_vector& eqs) const { return false; }
-        virtual bool        current_value(expr* e, rational& v) const { return false; }
-        virtual void        reset() = 0;
+        virtual bool lower_bound(expr *e, rational &l, literal_vector &lits, enode_pair_vector &eqs) const {
+            return false;
+        }
+        virtual bool upper_bound(expr *e, rational &hi, literal_vector &lits, enode_pair_vector &eqs) const {
+            return false;
+        }
+        virtual bool current_value(expr *e, rational &v) const {
+            return false;
+        }
+        virtual sat::literal literal_if_false(expr* e) {
+            return sat::null_literal;
+        }
+
     };
 
     // partition dep_source leaves from deps into enode pairs, sat literals,
@@ -840,10 +857,13 @@ namespace seq {
 
         // -----------------------------------------------
         // Integer subsolver (abstract interface)
-        // When m_solver is null, check_int_feasibility skips arithmetic checking
-        // and optimistically assumes feasibility.
         // -----------------------------------------------
-        simple_solver&                m_solver;
+        sub_solver_i& m_length_solver;
+
+        // -----------------------------------------------
+        // Interface to solver context
+        // -----------------------------------------------
+        context_solver_i &m_context_solver;
 
         // Constraint.Shared: guards re-assertion of root-level constraints.
         // Set to true after assert_root_constraints_to_solver() is first called.
@@ -857,9 +877,6 @@ namespace seq {
         // inclusion, derivatives. Allocated in the constructor; owned by this graph.
         seq::seq_regex*              m_seq_regex = nullptr;
 
-        // Callback to check that literals assumed in branches are not already assigned to false.
-        // returns the literal that is assigned to false, otherwise returns a null_literal
-        std::function<sat::literal(expr *)> m_literal_if_false;
 
         // Maps each variable to its current length term
 
@@ -886,12 +903,9 @@ namespace seq {
     public:
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
         // the caller is responsible for keeping the solver alive.
-        nielsen_graph(euf::sgraph& sg, simple_solver& solver);
+        nielsen_graph(euf::sgraph& sg, sub_solver_i& solver, context_solver_i& ctx);
         ~nielsen_graph();
 
-        void set_literal_if_false(std::function<sat::literal(expr* e)> const& lif) {
-            m_literal_if_false = lif;
-        }
 
         ast_manager &get_manager() {
             return m;

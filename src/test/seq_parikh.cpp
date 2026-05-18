@@ -38,7 +38,7 @@ Author:
 // ---------------------------------------------------------------------------
 // Minimal solver stub (no-op)
 // ---------------------------------------------------------------------------
-class parikh_test_solver : public seq::simple_solver {
+class parikh_test_solver : public seq::sub_solver_i {
 public:
     void push() override {}
     void pop(unsigned) override {}
@@ -486,7 +486,8 @@ static void test_apply_to_node_adds_constraints() {
     euf::sgraph sg(m, eg);
     seq_util seq(m);
     parikh_test_solver solver;
-    seq::nielsen_graph ng(sg, solver);
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
     seq::seq_parikh parikh(sg);
 
     euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
@@ -518,7 +519,8 @@ static void test_apply_to_node_stride_one_no_constraints() {
     seq_util seq(m);
     sort_ref str_sort(seq.str.mk_string_sort(), m);
     parikh_test_solver solver;
-    seq::nielsen_graph ng(sg, solver);
+    seq::context_solver_i context_solver;
+    seq::nielsen_graph ng(sg, solver, context_solver);
     seq::seq_parikh parikh(sg);
 
     euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());

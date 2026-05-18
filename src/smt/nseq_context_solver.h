@@ -45,10 +45,9 @@ namespace smt {
      *
      * Assertions with dep == nullptr are asserted directly (always active).
      */
-    class context_solver : public seq::simple_solver {
+    class sub_solver : public seq::sub_solver_i {
         smt_params      m_params;    // must be declared before m_kernel
         kernel          m_kernel;
-        arith_value     m_arith_value;
 
         // Tracked assumption literals.
         // m_assump_lits[i] and m_frame_bounds together encode a stack of
@@ -69,12 +68,10 @@ namespace smt {
         }
 
     public:
-        context_solver(ast_manager& m) :
+        sub_solver(ast_manager& m) :
             m_params(make_seq_len_params()),
             m_kernel(m, m_params),
-            m_arith_value(m),
             m_assump_lits(m) {
-            m_arith_value.init(&m_kernel.get_context());
         }
 
         lbool check() override {
@@ -137,29 +134,65 @@ namespace smt {
 
         seq::dep_tracker core() override { return m_last_core; }
 
-        bool lower_bound(expr* e, rational& lo, literal_vector& lits, enode_pair_vector& eqs) const override {
-            bool is_strict = true;
-            return m_arith_value.get_lo(e, lo, is_strict, lits, eqs) && !is_strict && lo.is_int();
-        }
-
-        bool upper_bound(expr* e, rational& hi, literal_vector& lits, enode_pair_vector& eqs) const override {
-            bool is_strict = true;
-            return m_arith_value.get_up(e, hi, is_strict, lits, eqs) && !is_strict && hi.is_int();
-        }
-
-        bool current_value(expr* e, rational& v) const override {
-            return m_arith_value.get_value(e, v) && v.is_int();
-        }
-
         void reset() override {
             m_kernel.reset();
-            m_arith_value.init(&m_kernel.get_context());
             m_assump_lits.reset();
             m_assump_lit2id.reset();
             m_frame_bounds.reset();
             m_deps.reset();
             m_core_dep_mgr.reset();
             m_last_core = nullptr;
+        }
+    };
+
+    class context_solver : public seq::context_solver_i {
+        smt::context &ctx;
+        arith_value m_arith_value;
+    public:
+        context_solver(smt::context& ctx): 
+            ctx(ctx), 
+            m_arith_value(ctx.get_manager()) {
+            m_arith_value.init(&ctx);
+        }
+
+        bool lower_bound(expr *e, rational &lo, literal_vector &lits, enode_pair_vector &eqs) const override {
+            bool is_strict = true;
+            return m_arith_value.get_lo(e, lo, is_strict, lits, eqs) && !is_strict && lo.is_int();
+        }
+
+        bool upper_bound(expr *e, rational &hi, literal_vector &lits, enode_pair_vector &eqs) const override {
+            bool is_strict = true;
+            return m_arith_value.get_up(e, hi, is_strict, lits, eqs) && !is_strict && hi.is_int();
+        }
+
+        bool current_value(expr *e, rational &v) const override {
+            return m_arith_value.get_value(e, v) && v.is_int();
+        }
+
+        sat::literal literal_if_false(expr *e) {
+            bool is_not = ctx.get_manager().is_not(e, e);
+            if (m_should_internalize && !ctx.b_internalized(e)) {
+                // it can happen that the element is not internalized, but as soon as we do it, it becomes false.
+                // In case we just skip one of those uninternalized expressions,
+                // adding the Nielsen assumption later will fail
+                // Alternatively, we could just retry Nielsen saturation in case
+                // adding the Nielsen assumption yields the assumption being false after internalizing
+                ctx.internalize(to_app(e), false);
+            }
+
+            if (!ctx.b_internalized(e))
+                return sat::null_literal;
+
+            literal lit = ctx.get_literal(e);
+            if (is_not)
+                lit.neg();
+            if (ctx.get_assignment(lit) == l_false) {
+                // TRACE(seq, tout << "literal_if_false: " << lit << " " << mk_pp(e, m) << " is assigned false\n");
+                return lit;
+            }
+            // TRACE(seq, tout << "literal_if_false: " << mk_pp(e, m) << " is assigned " << ctx.get_assignment(lit) <<
+            // "\n");
+            return sat::null_literal;
         }
     };
 

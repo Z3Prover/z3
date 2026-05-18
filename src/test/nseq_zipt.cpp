@@ -30,7 +30,7 @@ Abstract:
 #include <chrono>
 
 // Trivial solver that always returns sat and ignores all assertions.
-class nseq_zipt_dummy_solver : public seq::simple_solver {
+class nseq_zipt_dummy_solver : public seq::sub_solver_i {
 public:
     void push() override {}
     void pop(unsigned) override {}
@@ -43,7 +43,7 @@ public:
 // Trivial simple_solver stub: optimistically assumes integer constraints
 // are always feasible (returns l_true without actually checking).
 // -----------------------------------------------------------------------
-class zipt_dummy_simple_solver : public seq::simple_solver {
+class zipt_dummy_simple_solver : public seq::sub_solver_i {
 public:
     void push() override {}
     void pop(unsigned) override {}
@@ -184,6 +184,7 @@ struct nseq_fixture {
     euf::egraph eg;
     euf::sgraph sg;
     zipt_dummy_simple_solver dummy_solver;
+    seq::context_solver_i context_solver;
     seq::nielsen_graph ng;
     seq_util su;
     str_builder sb;
@@ -193,7 +194,7 @@ struct nseq_fixture {
     static ast_manager& init(ast_manager& m) { reg_decl_plugins(m); return m; }
 
     nseq_fixture()
-        : eg(init(m)), sg(m, eg), ng(sg, dummy_solver), su(m), sb(sg, su), rb(m, su, sg)
+        : eg(init(m)), sg(m, eg), dummy_solver(), context_solver(), ng(sg, dummy_solver, context_solver), su(m), sb(sg, su), rb(m, su, sg)
     {}
 
     euf::snode* S(const char* s) { return sb.parse(s); }
