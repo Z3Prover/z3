@@ -69,9 +69,17 @@ namespace smt {
         sat::literal            m_assumption_lit;     // literal used as assumption to bound search to selected literal assignments
         unsigned                m_max_unfolding_depth = 0;
 
+        // SAT-path revalidation: m_constraint_gen changes only when the
+        // Nielsen-relevant constraint set changes (new str eq/mem, or a pop).
+        // m_solved_gen is the generation at the last successful SAT solve;
+        // when it still equals m_constraint_gen the cached sat path is reusable.
+        unsigned                m_constraint_gen = 0;
+        unsigned                m_solved_gen = UINT_MAX;
+
         // statistics
         unsigned m_num_conflicts        = 0;
         unsigned m_num_final_checks     = 0;
+        unsigned m_num_sat_revalidations = 0;   // times the cached SAT path was reused instead of rebuilding
         unsigned m_num_length_axioms    = 0;
         bool     m_digits_initialized   = false;
 

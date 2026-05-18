@@ -223,6 +223,7 @@ namespace smt {
             seq::dep_tracker dep = nullptr;
             ctx.push_trail(restore_vector(m_prop_queue));
             m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
+            ++m_constraint_gen;
         }
         catch(const std::exception&) {
 #ifdef Z3DEBUG
@@ -282,6 +283,7 @@ namespace smt {
                 if (is_true) {
                     ctx.push_trail(restore_vector(m_prop_queue));
                     m_prop_queue.push_back(mem_item(sn_str, sn_re, lit, dep));
+                    ++m_constraint_gen;
                 }
                 else {
                     // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
@@ -291,6 +293,7 @@ namespace smt {
                     euf::snode* sn_re_compl = get_snode(re_compl.get());
                     ctx.push_trail(restore_vector(m_prop_queue));
                     m_prop_queue.push_back(mem_item(sn_str, sn_re_compl, lit, dep));
+                    ++m_constraint_gen;
                 }
             }
             else if (m_seq.str.is_prefix(e)) {
@@ -364,6 +367,9 @@ namespace smt {
         try {
             theory::pop_scope_eh(num_scopes);
             m_sgraph.pop(num_scopes);
+            // A pop may remove constraints and/or unassign forced Nielsen
+            // literals; conservatively invalidate the cached SAT path.
+            ++m_constraint_gen;
         }
         catch(const std::exception&) {
 #ifdef Z3DEBUG
@@ -649,16 +655,6 @@ namespace smt {
                 return FC_DONE;
             }
 
-            // All literals that were needed to build a model could be assigned to true.
-            // There is an existing nielsen graph with a satisfying assignment.
-            if (!m_nielsen_literals.empty() && m_nielsen.sat_node() != nullptr &&
-                all_of(m_nielsen_literals, [&](auto lit) { return l_true == ctx.get_assignment(lit); })) {
-                TRACE(seq, tout << "nseq final_check: satifiable state revisited\n");
-                // Re-run solving/model extraction instead of early exiting on a
-                // cached SAT node. This avoids stale sat paths after additional
-                // SAT assignments were introduced in prior FC_CONTINUE rounds.
-            }
-
             // unfold higher-order terms when sequence structure is known
             if (unfold_ho_terms()) {
                 TRACE(seq, tout << "nseq final_check: unfolded ho_terms, FC_CONTINUE\n");
@@ -682,6 +678,23 @@ namespace smt {
                 TRACE(seq, tout << "nielsen root if null\n");
                 // this can happen for regex constraint only benchmarks
                 // qf_s\20250410-matching\wildcard-matching-regex-67.smt2
+                return FC_GIVEUP;
+            }
+
+            // Fast path: if no new string eq/mem arrived and no scope was popped
+            // since the last successful solve, the Nielsen graph and the chosen
+            // SAT leaf are identical to what we would rebuild.  All of the leaf's
+            // arithmetic side-constraints are already assigned true by the outer
+            // solver, so the model is valid — skip the rebuild and re-solve.
+            if (m_nielsen.sat_node() != nullptr &&
+                m_solved_gen == m_constraint_gen &&
+                !m_nielsen_literals.empty() &&
+                all_of(m_nielsen_literals, [&](auto lit) { return l_true == ctx.get_assignment(lit); })) {
+                ++m_num_sat_revalidations;
+                TRACE(seq, tout << "nseq final_check: revalidated cached SAT path, skipping rebuild\n");
+                if (!check_length_coherence()) return FC_CONTINUE;
+                if (!check_stoi_coherence())   return FC_CONTINUE;
+                if (!has_unhandled_preds())    return FC_DONE;
                 return FC_GIVEUP;
             }
 
@@ -760,6 +773,9 @@ namespace smt {
                 SASSERT(has_eq_or_mem); // we should have axiomatized them
 
                 bool all_sat = add_nielsen_assumptions();
+                // Snapshot generation so the fast path can skip a full rebuild
+                // on the next call if no new constraints arrive in the meantime.
+                m_solved_gen = m_constraint_gen;
 
                 if (!check_length_coherence())
                     return FC_CONTINUE;
@@ -1070,9 +1086,10 @@ namespace smt {
     // -----------------------------------------------------------------------
 
     void theory_nseq::collect_statistics(::statistics& st) const {
-        st.update("nseq conflicts",       m_num_conflicts);
-        st.update("nseq final checks",    m_num_final_checks);
-        st.update("nseq length axioms",   m_num_length_axioms);
+        st.update("nseq conflicts",         m_num_conflicts);
+        st.update("nseq final checks",      m_num_final_checks);
+        st.update("nseq sat revalidations", m_num_sat_revalidations);
+        st.update("nseq length axioms",     m_num_length_axioms);
         st.update("nseq ho unfolds",      m_num_ho_unfolds);
         m_nielsen.collect_statistics(st);
     }
