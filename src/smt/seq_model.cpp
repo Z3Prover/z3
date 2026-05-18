@@ -268,40 +268,34 @@ namespace smt {
     }
    
     expr_ref seq_model::snode_to_value(euf::snode *n, ptr_vector<enode> const &deps, expr_ref_vector const &values) {
-        // insert var2value in the same order that dependencies were traversed
-        // Leaf tokens (string constants, empty, char/unit) are context-free and
-        // memoized in var2value keyed by snode id, populated in the first pass in
-        // the exact traversal order of collect_dependencies so that the `values`
-        // vector (model values for enode dependencies) is consumed consistently.
-        //
-        // Computed nodes (concat / power / variable) are memorized in node2value
-        // keyed by (snode id, is_recursive). The recursion flag is part of the
-        // key because the SAME variable snode appears in two distinct roles in a
-        // Nielsen substitution such as D -> "cc" D: the outer variable being
-        // defined (is_recursive == false, value == value of its replacement) and
-        // the inner "leftover" remainder (is_recursive == true, value == "").
-        uint_set seen;
+        // var2value: leaf deps keyed by expression ID (populated from `deps`/`values`).
+        // node2value: computed nodes keyed by (snode_id * 2 + is_recursive).
+        // The recursion flag is part of the key because the SAME variable snode
+        // appears in two distinct roles in a Nielsen substitution such as D -> "cc" D:
+        // the outer variable (is_recursive == false, value == value of its replacement)
+        // and the inner "leftover" remainder (is_recursive == true, value == "").
         u_map<expr *> var2value;
         u_map<expr *> node2value;
         auto mk_key = [](euf::snode* s, bool r) { return s->id() * 2 + (r ? 1u : 0u); };
+        // resolve: check leaf deps by expression ID, computed nodes by (snode,recursive) key.
         auto resolve = [&](euf::snode* s, bool r, expr*& out) -> bool {
-            if (var2value.find(s->id(), out))
+            if (var2value.find(s->get_expr()->get_id(), out))
                 return true;
             return node2value.find(mk_key(s, r), out);
         };
         buffer<std::pair<euf::snode *, bool>> todo;
-        for (unsigned i = 0; i < deps.size(); ++i) 
+        for (unsigned i = 0; i < deps.size(); ++i)
             var2value.insert(deps[i]->get_expr_id(), values[i]);
         todo.push_back({n, false});
         expr_ref_vector args(m), pinned(m);
         arith_util a(m);
-        todo.push_back({n, false});
 
         expr *val = nullptr;
         while (!todo.empty()) {
             auto [curr, is_recursive] = todo.back();
-            auto id = curr->get_expr()->get_id();
-            if (var2value.contains(id)) {
+            // Early exit: already computed (as leaf dep or computed node).
+            expr* cached = nullptr;
+            if (resolve(curr, is_recursive, cached)) {
                 todo.pop_back();
                 continue;
             }
@@ -317,19 +311,19 @@ namespace smt {
             else if (curr->is_char_or_unit()) {
                 auto arg = curr->arg(0);
                 expr *e = arg->get_expr();
-                expr *val = nullptr;
+                expr *charval = nullptr;
                 if (m_ctx.e_internalized(e)) {
-                    val = var2value[e->get_id()];
+                    charval = var2value[e->get_id()];
                 }
                 else if (m_seq.str.is_nth_u(e)) {
                     expr *var_value = get_var_value(arg->arg(0));
                     auto index = int_value(arg->arg(1)->get_expr());
-                    val = m_seq.str.mk_nth(var_value, a.mk_int(index));
+                    charval = m_seq.str.mk_nth(var_value, a.mk_int(index));
                 }
                 else {
                     NOT_IMPLEMENTED_YET();
                 }
-                val = m_seq.str.mk_unit(val);
+                val = m_seq.str.mk_unit(charval);
             }
             else if (curr->is_concat()) {
                 args.reset();
@@ -347,7 +341,7 @@ namespace smt {
                 if (all_ready)
                     val = m_seq.str.mk_concat(args, curr->get_sort());
                 else
-                    continue; // not all arguments have been processed yet, will reconstruct in a later iteration
+                    continue; // not all arguments processed yet, will retry after children
             }
             else if (curr->is_var()) {
                 euf::snode *replacement = nullptr;
@@ -383,11 +377,15 @@ namespace smt {
                 IF_VERBOSE(0, verbose_stream() << "not handled " << mk_pp(curr->get_expr(), m) << "\n");
                 UNREACHABLE();
             }
-            var2value.insert(id, val);
+            node2value.insert(mk_key(curr, is_recursive), val);
             pinned.push_back(val);
             todo.pop_back();
         }
-        return expr_ref(var2value.find(n->get_expr()->get_id()), m);
+        expr* result = nullptr;
+        node2value.find(mk_key(n, false), result);
+        if (!result)
+            var2value.find(n->get_expr()->get_id(), result);
+        return expr_ref(result, m);
     }
 
     void seq_model::register_existing_values(seq::nielsen_graph& nielsen) {
