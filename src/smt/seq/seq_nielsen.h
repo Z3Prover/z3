@@ -640,6 +640,8 @@ namespace seq {
         vector<constraint> const& constraints() const { return m_constraints; }
         vector<constraint>& constraints() { return m_constraints; }
 
+        bool is_external_conflict() const { return m_conflict_external_literal != sat::null_literal; }
+
         sat::literal get_external_conflict_literal() const { return m_conflict_external_literal; }
 
         // Query current bounds for a variable from the arithmetic subsolver.
@@ -653,8 +655,6 @@ namespace seq {
         u_map<std::pair<char_set, dep_tracker>> const &char_ranges() const {
             return m_char_ranges;
         }
-        
-        
 
         // add a character range constraint for a symbolic char.
         // intersects with existing range; sets conflict if result is empty.
@@ -674,7 +674,7 @@ namespace seq {
         }
 
         bool is_extended() const { return m_is_extended; }
-        void set_extended(bool v) {
+        void set_extended(const bool v) {
             m_is_extended = v;
         }
 
@@ -710,7 +710,7 @@ namespace seq {
             m_conflict_external_literal = sat::null_literal;
         }
 
-        void set_external_conflict(sat::literal lit, dep_tracker confl) {
+        void set_external_conflict(const sat::literal lit, dep_tracker confl) {
             if (m_reason != backtrack_reason::unevaluated)
                 return;
             TRACE(seq, tout << "external conflict " << lit << "\n");
@@ -933,7 +933,15 @@ namespace seq {
         nielsen_node* sat_node() const { return m_sat_node; }
         void set_sat_node(nielsen_node* n) {
             SASSERT(n);
+            SASSERT(!m_sat_node);
+            SASSERT(m_sat_path.empty());
             m_sat_node = n;
+        }
+
+        void clear_sat_node() {
+            m_sat_node = nullptr;
+            m_sat_path.clear();
+            m_conflict_sources.reset();
         }
 
         // creates a new root for the graph

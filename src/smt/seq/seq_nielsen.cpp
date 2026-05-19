@@ -1654,9 +1654,7 @@ namespace seq {
 
         try {
             ++m_stats.m_num_solve_calls;
-            m_sat_node = nullptr;
-            m_sat_path.reset();
-            m_conflict_sources.reset();
+            clear_sat_node();
 
             TRACE(seq, tout << "Solve call " << m_stats.m_num_solve_calls << "\n");
 

@@ -22,6 +22,8 @@ Author:
 #include "util/statistics.h"
 #include "util/trail.h"
 
+#include <stack>
+
 namespace smt {
 
     theory_nseq::theory_nseq(context& ctx) :
@@ -682,65 +684,90 @@ namespace smt {
             }
 
             // Fast path: if no new string eq/mem arrived and no scope was popped
-            // since the last successful solve, the Nielsen graph and the chosen
-            // SAT leaf are identical to what we would rebuild.  All of the leaf's
-            // arithmetic side-constraints are already assigned true by the outer
-            // solver, so the model is valid — skip the rebuild and re-solve.
-            if (m_nielsen.sat_node() != nullptr &&
-                m_solved_gen == m_constraint_gen &&
-                !m_nielsen_literals.empty() &&
-                all_of(m_nielsen_literals, [&](auto lit) { return l_true == ctx.get_assignment(lit); })) {
-                ++m_num_sat_revalidations;
-                TRACE(seq, tout << "nseq final_check: revalidated cached SAT path, skipping rebuild\n");
-                if (!check_length_coherence()) return FC_CONTINUE;
-                if (!check_stoi_coherence())   return FC_CONTINUE;
-                if (!has_unhandled_preds())    return FC_DONE;
-                return FC_GIVEUP;
+            // since the last successful solve, the Nielsen graph can be (at least)
+            // partially be reused
+            if (m_solved_gen == m_constraint_gen) {
+                // SAT leaf are identical to what we would rebuild.  All of the leaf's
+                // arithmetic side-constraints are already assigned true by the outer
+                // solver, so the model is valid — skip the rebuild and re-solve.
+                if (m_nielsen.sat_node() != nullptr &&
+                    !m_nielsen_literals.empty() &&
+                    all_of(m_nielsen_literals, [&](auto lit) { return l_true == ctx.get_assignment(lit); })) {
+                    ++m_num_sat_revalidations;
+                    TRACE(seq, tout << "nseq final_check: revalidated cached SAT path, skipping rebuild\n");
+                    if (!check_length_coherence()) return FC_CONTINUE;
+                    if (!check_stoi_coherence())   return FC_CONTINUE;
+                    if (!has_unhandled_preds())    return FC_DONE;
+                    return FC_GIVEUP;
+                }
+                // fall through - no reason to rebuild the Nielsen graph
+                // everything that is not a general conflict needs to be recomputed
+                // but we can keep the general conflicts (which can be a lot!)
+                1 == 1;
+                0 == 0;
+                std::stack<seq::nielsen_node*> to_visit;
+                to_visit.push(m_nielsen.root());
+                while (!to_visit.empty()) {
+                    seq::nielsen_node* node = to_visit.top();
+                    to_visit.pop();
+                    if (node->is_general_conflict())
+                        // all its children are general conflicts as well - nothing to do
+                        continue;
+                    if (node->is_external_conflict())
+                        node->clear_local_conflict();
+
+                    for (auto& child : node->outgoing()) {
+                        to_visit.push(child->tgt());
+                    }
+                }
+                m_nielsen.clear_sat_node();
             }
+            else {
+                // let's rebuild the whole Nielsen graph
+                populate_nielsen_graph();
 
-            populate_nielsen_graph();
-
-            // assert length constraints derived from string equalities
-            if (assert_length_constraints()) {
-                TRACE(seq, tout << "nseq final_check: length constraints asserted, FC_CONTINUE\n");
-                return FC_CONTINUE;
-            }
-
-            SASSERT(m_nielsen.root());            
-
-            m_nielsen.assert_node_new_int_constraints(m_nielsen.root());
-
-            ++m_num_final_checks;
-
-            m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
-            m_nielsen.set_max_nodes(get_fparams().m_nseq_max_nodes);
-            m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
-            m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
-            m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);
-
-            SASSERT(!m_nielsen.root()->is_currently_conflict());
-
-            // Regex membership pre-check: before running DFS, check intersection
-            // emptiness for each variable's regex constraints.  This handles
-            // regex-only problems that the DFS cannot efficiently solve.
-            if (!m_nielsen.root()->is_currently_conflict() && get_fparams().m_nseq_regex_precheck) {
-                switch (check_regex_memberships_precheck()) {
-                case l_true:
-                    // conflict was asserted inside check_regex_memberships_precheck
-                    TRACE(seq, tout << "nseq final_check: regex precheck UNSAT\n");
+                // assert length constraints derived from string equalities
+                if (assert_length_constraints()) {
+                    TRACE(seq, tout << "nseq final_check: length constraints asserted, FC_CONTINUE\n");
                     return FC_CONTINUE;
-                case l_false:
-                    // all regex constraints satisfiable, no word eqs → SAT
-                    TRACE(seq, tout << "nseq final_check: regex precheck SAT\n");
-                    m_nielsen.set_sat_node(m_nielsen.root());
-                    if (!check_length_coherence())
+                }
+
+                SASSERT(m_nielsen.root());
+
+                m_nielsen.assert_node_new_int_constraints(m_nielsen.root());
+
+                ++m_num_final_checks;
+
+                m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
+                m_nielsen.set_max_nodes(get_fparams().m_nseq_max_nodes);
+                m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
+                m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
+                m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);
+
+                SASSERT(!m_nielsen.root()->is_currently_conflict());
+
+                // Regex membership pre-check: before running DFS, check intersection
+                // emptiness for each variable's regex constraints.  This handles
+                // regex-only problems that the DFS cannot efficiently solve.
+                if (!m_nielsen.root()->is_currently_conflict() && get_fparams().m_nseq_regex_precheck) {
+                    switch (check_regex_memberships_precheck()) {
+                    case l_true:
+                        // conflict was asserted inside check_regex_memberships_precheck
+                        TRACE(seq, tout << "nseq final_check: regex precheck UNSAT\n");
                         return FC_CONTINUE;
-                    if (!check_stoi_coherence())
-                        return FC_CONTINUE;
-                    TRACE(seq, tout << "pre-check done\n");
-                    return FC_DONE;
-                default:
-                    break;
+                    case l_false:
+                        // all regex constraints satisfiable, no word eqs → SAT
+                        TRACE(seq, tout << "nseq final_check: regex precheck SAT\n");
+                        m_nielsen.set_sat_node(m_nielsen.root());
+                        if (!check_length_coherence())
+                            return FC_CONTINUE;
+                        if (!check_stoi_coherence())
+                            return FC_CONTINUE;
+                        TRACE(seq, tout << "pre-check done\n");
+                        return FC_DONE;
+                    default:
+                        break;
+                    }
                 }
             }
 
@@ -756,6 +783,10 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << dot << "\n";);
             // std::cout << "Got: " << (result == seq::nielsen_graph::search_result::sat ? "sat" : (result == seq::nielsen_graph::search_result::unsat ? "unsat" : "unknown")) << std::endl;
 #endif
+
+            // Snapshot generation so the fast path can skip a full rebuild
+            // on the next call if no new constraints arrive in the meantime.
+            m_solved_gen = m_constraint_gen;
 
             if (result == seq::nielsen_graph::search_result::unsat) {
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNSAT\n";);
@@ -773,9 +804,6 @@ namespace smt {
                 SASSERT(has_eq_or_mem); // we should have axiomatized them
 
                 bool all_sat = add_nielsen_assumptions();
-                // Snapshot generation so the fast path can skip a full rebuild
-                // on the next call if no new constraints arrive in the meantime.
-                m_solved_gen = m_constraint_gen;
 
                 if (!check_length_coherence())
                     return FC_CONTINUE;
