@@ -475,6 +475,7 @@ namespace seq {
             // var may be s_var or s_power; sgraph::subst uses pointer identity matching
             SASSERT(var->is_var() || var->is_power() || var->is_unit());
             SASSERT(!var->is_unit() || repl->is_char_or_unit());
+            // SASSERT(!repl->collect_tokens().contains(var)); // for now - maybe we want to drop this later again
         }
 
         // an eliminating substitution does not contain the variable in the replacement
@@ -839,6 +840,8 @@ namespace seq {
         arith_util                    a;
         seq_util&                     m_seq;
         euf::sgraph&                  m_sg;
+        th_rewriter                   m_rw;
+        skolem                        m_sk;
         ptr_vector<nielsen_node>      m_nodes;
         ptr_vector<nielsen_edge>      m_edges;
         nielsen_node*                 m_root = nullptr;
@@ -875,7 +878,7 @@ namespace seq {
 
         // Regex membership module: stabilizers, emptiness checks, language
         // inclusion, derivatives. Allocated in the constructor; owned by this graph.
-        seq::seq_regex*              m_seq_regex = nullptr;
+        seq_regex*              m_seq_regex = nullptr;
 
 
         // Maps each variable to its current length term
@@ -1041,7 +1044,7 @@ namespace seq {
         // compute Parikh length interval [min_len, max_len] for a regex snode.
         // uses seq_util::rex min_length/max_length on the underlying expression.
         // max_len == UINT_MAX means unbounded.
-        void compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len);
+        void compute_regex_length_interval(euf::snode* regex, unsigned& min_len, unsigned& max_len) const;
 
         // accessor for the seq_regex module
         seq_regex* seq_regex_module() const { return m_seq_regex; }
@@ -1050,17 +1053,17 @@ namespace seq {
         dep_manager const& dep_mgr() const { return m_dep_mgr; }
 
         // Add a dependency leaf for lhs <= rhs and join it to dep.
-        void add_le_dependency(dep_tracker dep, nielsen_node* n, expr* lhs, expr* rhs);
+        void add_le_dependency(dep_tracker dep, nielsen_node* n, expr* lhs, expr* rhs) const;
 
-        void assert_to_subsolver(const constraint& c);
+        void assert_to_subsolver(const constraint& c) const;
 
-        void assert_to_subsolver(expr* e);
+        void assert_to_subsolver(expr* e) const;
 
         // Assert the constraints of `node` that are new relative to its
         // parent (indices [m_parent_ic_count..end)) into the current solver scope.
         // Called by search_dfs after simplify_and_init so that the newly derived
         // bounds become visible to subsequent check() and check_lp_le() calls.
-        void assert_node_new_int_constraints(nielsen_node* node);
+        void assert_node_new_int_constraints(nielsen_node* node) const;
 
     private:
 
@@ -1097,7 +1100,7 @@ namespace seq {
 
         // Convert a transition label (string token or regex minterm) into a
         // one-character regex snode used by the partial DFA.
-        euf::snode* to_partial_label_regex(euf::snode* label);
+        euf::snode* to_partial_label_regex(euf::snode* label) const;
 
         // Collect the SCC containing root_re in the current partial DFA.
         // Returns false if no cyclic SCC containing root_re exists.
@@ -1123,10 +1126,10 @@ namespace seq {
         //
         // Guarded by node.m_parikh_applied so that constraints are generated
         // only once per node across DFS iterations.
-        void apply_parikh_to_node(nielsen_node& node);
+        void apply_parikh_to_node(nielsen_node& node) const;
 
         // simplify expression and create a node from simplified expression.
-        euf::snode *mk_rewrite(expr *e);
+        euf::snode *mk_rewrite(expr *e) const;
 
         // create a fresh variable with a unique name and the given sequence sort
         euf::snode* mk_fresh_var(sort* s);
@@ -1257,17 +1260,17 @@ namespace seq {
         bool apply_var_num_unwinding_mem(nielsen_node* node);
 
         // find the first power token in any str_eq at this node
-        euf::snode* find_power_token(nielsen_node* node) const;
+        static euf::snode* find_power_token(nielsen_node* node);
 
         // find a power token facing a constant (char/non-var) token at either end
         // of an equation; returns orientation via `fwd` (true=head, false=tail).
-        bool find_power_vs_non_var(nielsen_node* node, euf::snode*& power, euf::snode*& other_head, str_eq const*& eq_out, bool& fwd) const;
+        static bool find_power_vs_non_var(nielsen_node* node, euf::snode*& power, euf::snode*& other_head, str_eq const*& eq_out, bool& fwd);
 
         // find a power token facing a variable token at either end of an
         // equation; returns orientation via `fwd` (true=head, false=tail).
-        bool find_power_vs_var(nielsen_node* node, euf::snode*& power, euf::snode*& var_head, str_eq const*& eq_out, bool& fwd) const;
+        static bool find_power_vs_var(nielsen_node* node, euf::snode*& power, euf::snode*& var_head, str_eq const*& eq_out, bool& fwd);
 
-        bool find_power_vs_var(nielsen_node* node, euf::snode*& power, str_mem const*& mem_out, bool& fwd) const;
+        static bool find_power_vs_var(nielsen_node* node, euf::snode*& power, str_mem const*& mem_out, bool& fwd);
 
         // -----------------------------------------------
         // Integer feasibility subsolver methods
@@ -1294,9 +1297,9 @@ namespace seq {
         // m_solver by search_dfs via push/pop, so a plain check() suffices.
         // l_undef (resource limit / timeout) is treated as feasible so that the
         // search continues rather than reporting a false unsatisfiability.
-        bool check_int_feasibility();
+        bool check_int_feasibility() const;
 
-        dep_tracker get_subsolver_dependency(nielsen_node* n);
+        dep_tracker get_subsolver_dependency(nielsen_node* n) const;
 
         // check whether lhs <= rhs is implied by the path constraints.
         // mirrors ZIPT's NielsenNode.IsLe(): temporarily asserts NOT(lhs <= rhs)
@@ -1305,10 +1308,10 @@ namespace seq {
         bool check_lp_le(expr* lhs, expr* rhs, nielsen_node* n, dep_tracker& dep);
 
         // create an integer constraint: lhs <kind> rhs
-        constraint mk_constraint(expr* fml, dep_tracker const& dep);
+        constraint mk_constraint(expr* fml, dep_tracker const& dep) const;
 
         // get the exponent expression from a power snode (arg(1))
-        expr* get_power_exponent(euf::snode* power);
+        static expr * get_power_exponent(euf::snode* power);
 
         // -----------------------------------------------
         // Modification counter methods for substitution length tracking.

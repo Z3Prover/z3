@@ -251,6 +251,12 @@ namespace euf {
                 tokens.push_back(const_cast<snode *>(this));
         }
 
+        snode_vector collect_tokens() const {
+            snode_vector tokens;
+            collect_tokens(tokens);
+            return tokens;
+        }
+
         // access the i-th token (0-based, left-to-right order)
         // returns nullptr if i >= length()
         snode *at(unsigned i) const {
