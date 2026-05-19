@@ -1145,6 +1145,7 @@ namespace smt {
             return alloc(expr_wrapper_proc, val);
         };
         theory_var v = n->get_th_var(get_id());
+        // Guard before using union-find: null_theory_var is not a valid index for m_find.
         if (v == null_theory_var)
             return mk_fallback();
         v            = m_find.find(v);
