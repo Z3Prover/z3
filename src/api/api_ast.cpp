@@ -129,7 +129,6 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_rec_func_decl(c, s, domain_size, domain, range);
         RESET_ERROR_CODE();
-        // 
         recfun::promise_def def = 
             mk_c(c)->recfun().get_plugin().mk_def(
                 to_symbol(s), domain_size, to_sorts(domain), to_sort(range), false);
@@ -1523,11 +1522,7 @@ extern "C" {
             return 0;
         }
         var* va = to_var(_a);
-        if (va) {
-            return va->get_idx();
-        }
-        SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-        return 0;
+        return va->get_idx();
         Z3_CATCH_RETURN(0);
     }
 
