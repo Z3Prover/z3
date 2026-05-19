@@ -64,7 +64,7 @@ void tst_api_datalog() {
         Z3_fixedpoint_dec_ref(ctx, fp);
     }
 
-    // Test 3: regression for Spacer model construction on ADT CHCs
+    // Regression test for Spacer model construction on ADT CHCs
     {
         char const* chc =
             "(set-logic HORN)\n"
