@@ -282,6 +282,7 @@ class tptp_parser {
     expr_ref_vector m_pinned_exprs;       // prevents bound variable apps from being freed
     std::unordered_map<std::string, std::pair<std::vector<sort*>, sort*>> m_typed_decls;
     std::vector<std::unordered_map<std::string, app*>> m_bound;
+    bool m_in_at_arg = false;  // true when parsing inside @ argument (lambda body stops consuming @)
     struct implicit_var_scope {
         std::unordered_map<std::string, app*> vars;
         ptr_vector<app> order;
@@ -350,6 +351,8 @@ class tptp_parser {
         case token_kind::nor_tok:     return "~|";
         case token_kind::and_tok:     return "&";
         case token_kind::nand_tok:    return "~&";
+        case token_kind::equal_tok:   return "=";
+        case token_kind::neq_tok:     return "!=";
         default:                      return nullptr;
         }
     }
@@ -501,17 +504,17 @@ class tptp_parser {
     func_decl* mk_decl_or_ho_const(std::string const& name, unsigned arity, bool pred) {
         if (arity == 0) {
             // Check if there's a typed decl at any arity > 0 for this name
-            for (unsigned try_arity = 1; try_arity <= 10; ++try_arity) {
+            for (unsigned try_arity = 1; try_arity <= 30; ++try_arity) {
                 auto itt = m_typed_decls.find(mk_typed_key(name, try_arity));
                 if (itt != m_typed_decls.end()) {
                     auto const& sig = itt->second;
                     sort* ho = get_ho_sort(sig.first, sig.second);
-                    std::string key = mk_decl_key(name, 0, 'h');
-                    auto itd = m_decls.find(key);
+                    std::string dkey = mk_decl_key(name, 0, 'h');
+                    auto itd = m_decls.find(dkey);
                     if (itd != m_decls.end()) return itd->second;
                     func_decl* f = m.mk_func_decl(symbol(name), 0, static_cast<sort**>(nullptr), ho);
                     m_pinned_decls.push_back(f);
-                    m_decls.emplace(key, f);
+                    m_decls.emplace(dkey, f);
                     return f;
                 }
             }
@@ -951,7 +954,11 @@ class tptp_parser {
             }
             expect(token_kind::colon, "':'");
             m_bound.push_back(scope);
+            // Quantifier body in @-arg should NOT consume @ — those belong to enclosing application
+            bool save_in_at_arg = m_in_at_arg;
+            m_in_at_arg = true;
             expr_ref body = parse_formula();
+            m_in_at_arg = save_in_at_arg;
             m_bound.pop_back();
             return mk_quantifier(is_forall, vars, body);
         }
@@ -994,34 +1001,19 @@ class tptp_parser {
 
     expr_ref parse_atomic_formula() {
         if (accept(token_kind::lparen)) {
+            // Parentheses create a new scope for @ consumption
+            bool save_in_at_arg = m_in_at_arg;
+            m_in_at_arg = false;
             expr_ref e = parse_formula();
-            // Handle equality/inequality inside parenthesized expressions
-            // In THF, (A = B) is used even for Bool-sorted expressions (meaning iff)
-            if (is(token_kind::equal_tok) || is(token_kind::neq_tok)) {
-                bool neq = accept(token_kind::neq_tok);
-                if (!neq) expect(token_kind::equal_tok, "'='");
-                expr_ref rhs = m.is_bool(e) ? parse_formula() : parse_term();
-                e = coerce_eq(e, rhs);
-                expr_ref eq(m.mk_eq(e, rhs), m);
-                e = neq ? expr_ref(m.mk_not(eq), m) : eq;
-            }
             expect(token_kind::rparen, "')'");
-            return apply_at(e);
+            m_in_at_arg = save_in_at_arg;
+            return e;
         }
 
         // Handle negative numerals in formula position: -2 = $uminus(2)
         if (accept(token_kind::minus_tok)) {
             expr_ref t = parse_term();
-            expr_ref lhs(m_arith.mk_uminus(t), m);
-            if (is(token_kind::equal_tok) || is(token_kind::neq_tok)) {
-                bool neq = accept(token_kind::neq_tok);
-                if (!neq) expect(token_kind::equal_tok, "'='");
-                expr_ref rhs = parse_term();
-                lhs = coerce_eq(lhs, rhs);
-                expr_ref eq(m.mk_eq(lhs, rhs), m);
-                return neq ? expr_ref(m.mk_not(eq), m) : eq;
-            }
-            return lhs;
+            return expr_ref(m_arith.mk_uminus(t), m);
         }
 
         std::string n = parse_name();
@@ -1029,15 +1021,7 @@ class tptp_parser {
         if (n == "$false") return expr_ref(m.mk_false(), m);
 
         if (is_nonempty_digit_string(n)) {
-            expr_ref lhs = parse_numeral_from_name(n);
-            if (is(token_kind::equal_tok) || is(token_kind::neq_tok)) {
-                bool neq = accept(token_kind::neq_tok);
-                if (!neq) expect(token_kind::equal_tok, "'='");
-                expr_ref rhs = parse_term();
-                expr_ref eq(m.mk_eq(lhs, rhs), m);
-                return neq ? expr_ref(m.mk_not(eq), m) : eq;
-            }
-            throw parse_error("numeric term used as formula");
+            return parse_numeral_from_name(n);
         }
 
         expr_ref_vector args(m);
@@ -1061,19 +1045,7 @@ class tptp_parser {
         // Table-driven prefix operator dispatch
         auto op_it = m_ops.find(n);
         if (op_it != m_ops.end() && !op_it->second.is_infix) {
-            expr_ref result = op_it->second.builder(args);
-            // If result is non-Bool, check for trailing = or !=
-            if (!m.is_bool(result)) {
-                if (is(token_kind::equal_tok) || is(token_kind::neq_tok)) {
-                    bool neq = accept(token_kind::neq_tok);
-                    if (!neq) expect(token_kind::equal_tok, "'='");
-                    expr_ref rhs = parse_term();
-                    result = coerce_eq(result, rhs);
-                    expr_ref eq(m.mk_eq(result, rhs), m);
-                    return neq ? expr_ref(m.mk_not(eq), m) : eq;
-                }
-            }
-            return result;
+            return op_it->second.builder(args);
         }
 
         expr_ref lhs(m);
@@ -1090,56 +1062,19 @@ class tptp_parser {
             }
         }
 
-        if (is(token_kind::equal_tok) || is(token_kind::neq_tok)) {
-            if (!has_lhs) {
-                func_decl* f = mk_decl_or_ho_const(n, args.size(), false);
-                if (!args.empty()) coerce_args(f, args);
-                lhs = args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data());
-            }
-            bool neq = accept(token_kind::neq_tok);
-            if (!neq) expect(token_kind::equal_tok, "'='");
-            expr_ref rhs = parse_term();
-            lhs = coerce_eq(lhs, rhs);
-            expr_ref eq(m.mk_eq(lhs, rhs), m);
-            return neq ? expr_ref(m.mk_not(eq), m) : eq;
-        }
-
-        if (has_lhs) {
-            lhs = apply_at(lhs);
-            if (is(token_kind::equal_tok) || is(token_kind::neq_tok)) {
-                bool neq = accept(token_kind::neq_tok);
-                if (!neq) expect(token_kind::equal_tok, "'='");
-                expr_ref rhs = parse_term();
-                lhs = coerce_eq(lhs, rhs);
-                expr_ref eq(m.mk_eq(lhs, rhs), m);
-                return neq ? expr_ref(m.mk_not(eq), m) : eq;
-            }
-            return lhs;  // In THF, variables of any sort can appear in formula position (e.g., with @)
-        }
+        if (has_lhs)
+            return lhs;
 
         auto typed = m_typed_decls.find(mk_typed_key(n, args.size()));
         if (typed != m_typed_decls.end()) {
             func_decl* f = args.empty() ? mk_decl_or_ho_const(n, 0, false) : mk_decl(n, args.size(), false);
             if (!args.empty()) coerce_args(f, args);
-            expr_ref e(args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data()), m);
-            e = apply_at(e);
-            if (is(token_kind::equal_tok) || is(token_kind::neq_tok)) {
-                bool neq = accept(token_kind::neq_tok);
-                if (!neq) expect(token_kind::equal_tok, "'='");
-                expr_ref rhs = parse_term();
-                e = coerce_eq(e, rhs);
-                expr_ref eq(m.mk_eq(e, rhs), m);
-                return neq ? expr_ref(m.mk_not(eq), m) : eq;
-            }
-            if (!m.is_bool(e))
-                return e;  // In THF, non-Bool typed expressions can appear in formula position (e.g., as @ args)
-            return e;
+            return expr_ref(args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data()), m);
         }
 
         func_decl* pred = mk_decl_or_ho_const(n, args.size(), true);
         if (!args.empty()) coerce_args(pred, args);
-        expr_ref result(args.empty() ? m.mk_const(pred) : m.mk_app(pred, args.size(), args.data()), m);
-        return apply_at(result);
+        return expr_ref(args.empty() ? m.mk_const(pred) : m.mk_app(pred, args.size(), args.data()), m);
     }
 
     // Parse THF lambda expression: ^ [X: T, ...] : body
@@ -1169,21 +1104,25 @@ class tptp_parser {
         }
         expect(token_kind::colon, "':'");
         m_bound.push_back(scope);
+        // Lambda body does NOT consume @ — @ belongs to the enclosing application
+        bool save_in_at_arg = m_in_at_arg;
+        m_in_at_arg = true;
         expr_ref body = parse_formula();
+        m_in_at_arg = save_in_at_arg;
         m_bound.pop_back();
         if (vars.empty())
             return body;
-        // Use expr_abstract to replace named constants with de Bruijn indices,
-        // then wrap with mk_lambda.
-        expr_ref abs_body(m);
-        expr_abstract(m, 0, vars.size(), (expr* const*)vars.data(), body, abs_body);
-        ptr_vector<sort> sorts;
-        svector<symbol> names;
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            sorts.push_back(vars[i]->get_sort());
-            names.push_back(vars[i]->get_decl()->get_name());
+        // Create nested single-variable lambdas (curried) to match our curried array encoding.
+        // ^[X:A, Y:B] : body  becomes  ^[X:A] : (^[Y:B] : body)  with sort Array(A, Array(B, body_sort))
+        expr_ref result = body;
+        for (int i = (int)vars.size() - 1; i >= 0; --i) {
+            expr_ref abs_body(m);
+            expr_abstract(m, 0, 1, (expr* const*)&vars[i], result, abs_body);
+            sort* s = vars[i]->get_sort();
+            symbol nm = vars[i]->get_decl()->get_name();
+            result = expr_ref(m.mk_lambda(1, &s, &nm, abs_body), m);
         }
-        return expr_ref(m.mk_lambda(sorts.size(), sorts.data(), names.data(), abs_body), m);
+        return result;
     }
 
     expr_ref parse_unary_formula() {
@@ -1260,9 +1199,23 @@ class tptp_parser {
         return parse_atomic_formula();
     }
 
-    expr_ref parse_expr(unsigned min_prec) {
+    expr_ref parse_expr(unsigned min_prec, bool consume_at = true) {
         expr_ref e = parse_unary_formula();
         for (;;) {
+            // Handle @ (function application) with highest precedence
+            // But NOT when we're inside a lambda body that's an @ argument
+            if (consume_at && !m_in_at_arg && is(token_kind::at_tok)) {
+                next();
+                expr_ref arg = parse_at_arg();
+                sort* e_sort = e->get_sort();
+                if (!m_array.is_array(e_sort)) {
+                    std::ostringstream out;
+                    out << "application operator (@) requires array/function type on left-hand side, got sort " << e_sort->get_name();
+                    throw parse_error(out.str());
+                }
+                e = expr_ref(m_array.mk_select(e, arg), m);
+                continue;
+            }
             char const* op_name = token_to_op_name();
             if (!op_name) break;
             auto it = m_ops.find(op_name);
@@ -1270,7 +1223,7 @@ class tptp_parser {
             if (it->second.precedence < min_prec) break;
             next(); // consume the operator token
             unsigned next_prec = it->second.right_assoc ? it->second.precedence : it->second.precedence + 1;
-            expr_ref rhs = parse_expr(next_prec);
+            expr_ref rhs = parse_expr(next_prec, consume_at);
             expr_ref_vector args(m);
             args.push_back(e);
             args.push_back(rhs);
@@ -1621,6 +1574,18 @@ public:
         }};
         m_ops["~&"] = { true, PREC_AND, false, [&](expr_ref_vector const& args) -> expr_ref {
             return expr_ref(m.mk_not(m.mk_and(args[0], args[1])), m);
+        }};
+        m_ops["="] = { true, PREC_EQ, false, [&](expr_ref_vector const& args) -> expr_ref {
+            expr_ref lhs(args[0], m);
+            expr_ref rhs(args[1], m);
+            lhs = coerce_eq(lhs, rhs);
+            return expr_ref(m.mk_eq(lhs, rhs), m);
+        }};
+        m_ops["!="] = { true, PREC_EQ, false, [&](expr_ref_vector const& args) -> expr_ref {
+            expr_ref lhs(args[0], m);
+            expr_ref rhs(args[1], m);
+            lhs = coerce_eq(lhs, rhs);
+            return expr_ref(m.mk_not(m.mk_eq(lhs, rhs)), m);
         }};
     }
 
