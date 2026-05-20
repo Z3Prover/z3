@@ -280,8 +280,26 @@ struct solver::imp {
         m_literal2constraint.reset();
         m_vars2mon.reset();
         m_coi.init();
-        // Create an NLSAT polyvar for each LRA variable and seed the
-        // assignment from the current LRA model.
+        auto &pm = m_nlsat->pm();
+        polynomial_ref_vector definitions(pm);
+        vector<rational> denominators;
+
+        // Create an NLSAT polyvar for each LRA variable (identity mapping),
+        // seed the assignment from the current LRA model, populate
+        // m_vars2mon, and build the inlined polynomial definition of v.
+        //
+        // The definition expands monic and term variables into polynomials
+        // over leaf variables. Each definition is scaled by denominators[v]
+        // so that all coefficients stay integral; the scaling cancels on
+        // both sides of every constraint we build below (just like in
+        // setup_solver_poly).
+        //
+        // This "de-linearized" representation is what the linear-cell
+        // construction in NLSAT needs: a cell built around a constraint
+        // polynomial that mentions several multiplications at once can
+        // yield a lemma constraining all of them simultaneously, which is
+        // strictly stronger than the per-multiplication lemmas we would
+        // get from asserting `v_mon - v1*...*vk = 0` separately.
         for (unsigned v = 0; v < lra.number_of_vars(); ++v) {
             auto j = m_nlsat->mk_var(lra.var_is_int(v));
             VERIFY(j == v);
@@ -295,40 +313,41 @@ struct solver::imp {
                 std::sort(vars.begin(), vars.end());
                 m_vars2mon.insert(vars, v);
             }
+            mk_definition(v, definitions, denominators);
         }
 
-        // Add LRA constraints using polyvars directly (no recursive
-        // substitution of term/monic definitions). This keeps NLSAT's
-        // polynomials in a form that can be inverted back to LRA terms
-        // unambiguously in add_lemma / process_polynomial_check_assignment.
+        // Substitute each variable in the LRA constraint by its definition
+        // and rescale to keep integer coefficients. Symbolically:
+        //
+        //     v == definitions[v] / denominators[v]
+        //
+        //   sum(coeff_v * v) k rhs
+        //     == sum((coeff_v / denominators[v]) * definitions[v]) k rhs
+        //
+        // We pick den := lcm of all denominators(coeff_v / denominators[v])
+        // together with denominator(rhs), so that den * coeff_v / denominators[v]
+        // and den * rhs are all integers. The relation kind k is preserved
+        // because den > 0.
         for (auto ci : m_coi.constraints()) {
             auto &c = lra.constraints()[ci];
-            auto &pm = m_nlsat->pm();
             auto k = c.kind();
             auto rhs = c.rhs();
             auto lhs = c.coeffs();
-            auto sz = lhs.size();
-            svector<polynomial::var> vars;
             rational den = denominator(rhs);
+            for (auto [coeff, v] : lhs)
+                den = lcm(den, denominator(coeff / denominators[v]));
+            polynomial::polynomial_ref p(pm);
+            p = pm.mk_const(-den * rhs);
             for (auto [coeff, v] : lhs) {
-                vars.push_back(lp2nl(v));
-                den = lcm(den, denominator(coeff));
+                polynomial_ref poly(pm);
+                poly = definitions.get(v);
+                poly = poly * constant(den * coeff / denominators[v]);
+                p = p + poly;
             }
-            vector<rational> coeffs;
-            for (auto kv : lhs)
-                coeffs.push_back(den * kv.first);
-            polynomial::polynomial_ref p(pm.mk_linear(sz, coeffs.data(), vars.data(), -den * rhs), pm);
             auto lit = add_constraint(p, ci, k);
             m_literal2constraint.setx(lit.index(), ci, lp::null_ci);
         }
-
-        // Assert the definitions of monic variables (v_mon = v1*v2*...).
-        for (auto const &m : m_coi.mons())
-            add_monic_eq(m_nla_core.emons()[m]);
-
-        // Assert the definitions of term variables (v_term = sum(coeff_i * v_i)).
-        for (unsigned i : m_coi.terms())
-            add_term(i);
+        definitions.reset();
     }
 
     void process_polynomial_check_assignment(polynomial::polynomial const* p, rational& bound, const u_map<lp::lpvar>& nl2lp, lp::lar_term& t) {
