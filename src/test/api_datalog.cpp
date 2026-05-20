@@ -64,5 +64,31 @@ void tst_api_datalog() {
         Z3_fixedpoint_dec_ref(ctx, fp);
     }
 
+    // Regression test for Spacer model construction on ADT CHCs
+    {
+        char const* chc =
+            "(set-logic HORN)\n"
+            "(set-option :fp.engine spacer)\n"
+            "(set-option :fp.spacer.random_seed 51)\n"
+            "(set-option :timeout 2000)\n"
+            "(declare-datatypes ((L 0)) (((cons (hd Int) (tl L)) (nil))))\n"
+            "(declare-fun reva (L L L) Bool)\n"
+            "(assert (forall ((a L)) (reva nil a a)))\n"
+            "(assert (forall ((x L) (acc L) (r L) (h Int))\n"
+            "  (=> (reva x (cons h acc) r)\n"
+            "      (reva (cons h x) acc r))))\n"
+            "(assert (forall ((B L) (C L) (D L) (E L) (F L))\n"
+            "  (=> (and (reva B C D)\n"
+            "           (reva D nil E)\n"
+            "           (reva C B F)\n"
+            "           (not (= E F)))\n"
+            "      false)))\n"
+            "(check-sat)\n";
+
+        Z3_string response = Z3_eval_smtlib2_string(ctx, chc);
+        ENSURE(response != nullptr);
+        ENSURE(Z3_get_error_code(ctx) == Z3_OK);
+    }
+
     Z3_del_context(ctx);
 }

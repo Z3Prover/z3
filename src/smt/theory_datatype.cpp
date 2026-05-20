@@ -1137,11 +1137,23 @@ namespace smt {
     };
 
     model_value_proc * theory_datatype::mk_value(enode * n, model_generator & mg) {
+        auto mk_fallback = [&]() -> model_value_proc * {
+            app* val = to_app(m_factory->get_some_value(n->get_sort()));
+            TRACE(datatype,
+                  tout << "fallback datatype value for " << pp(n, m)
+                       << " = " << mk_pp(val, m) << "\n";);
+            return alloc(expr_wrapper_proc, val);
+        };
         theory_var v = n->get_th_var(get_id());
+        // Guard before using union-find: null_theory_var is not a valid index for m_find.
+        if (v == null_theory_var)
+            return mk_fallback();
         v            = m_find.find(v);
-        SASSERT(v != null_theory_var);
+        if (v == null_theory_var || static_cast<unsigned>(v) >= m_var_data.size() || m_var_data[v] == nullptr)
+            return mk_fallback();
         var_data * d = m_var_data[v];
-        SASSERT(d->m_constructor);
+        if (d->m_constructor == nullptr)
+            return mk_fallback();
         func_decl * c_decl = d->m_constructor->get_decl();
         datatype_value_proc * result = alloc(datatype_value_proc, c_decl);
         for (enode* arg : enode::args(d->m_constructor)) 
