@@ -101,6 +101,11 @@ namespace smt {
         }
     }
 
+    void context::update_generation(enode * e) {
+        if (m_generation < e->get_generation())
+            e->set_generation(*this, m_generation);
+    }
+
     void context::ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited) {
         if (get_color(tcolors, fcolors, n, gate_ctx) == White) {
             todo.push_back(expr_bool_pair(n, gate_ctx));
@@ -115,12 +120,20 @@ namespace smt {
             return true;
         SASSERT(is_app(n));
         if (m.is_bool(n)) {
-            if (b_internalized(n))
+            if (b_internalized(n)) {
+                if (e_internalized(n)) {
+                    enode * e = get_enode(to_app(n));
+                    update_generation(e);
+                }
                 return true;
+            }
         }
         else {
-            if (e_internalized(n))
+            if (e_internalized(n)) {
+                enode * e = get_enode(to_app(n));
+                update_generation(e);
                 return true;
+            }
         }
 
         bool visited  = true;
@@ -404,6 +417,11 @@ namespace smt {
             bool_var v = get_bool_var(n);
             TRACE(internalize_bug, tout << "#" << n->get_id() << " already has bool_var v" << v << "\n";);
             
+            if (is_app(n) && e_internalized(n)) {
+                enode * e = get_enode(to_app(n));
+                update_generation(e);
+            }
+            
             // n was already internalized as boolean, but an enode was
             // not associated with it.  So, an enode is necessary, if
             // n is not in the context of a gate and is an application.
@@ -572,7 +590,7 @@ namespace smt {
         unsigned generation    = m_generation;
         unsigned _generation;
         if (!m_cached_generation.empty() && m_cached_generation.find(q, _generation)) {
-            generation = _generation;
+            generation = std::min(_generation, m_generation);
         }
         // TODO: do we really need this flag?
         bool_var_data & d      = get_bdata(v);
@@ -810,6 +828,8 @@ namespace smt {
     */
     void context::internalize_term(app * n) {
         if (e_internalized(n)) {
+            enode * e = get_enode(n);
+            update_generation(e);
             theory * th = m_theories.get_plugin(n->get_family_id());
             if (th != nullptr) {
                 // This code is necessary because some theories may decide
@@ -822,7 +842,6 @@ namespace smt {
                 //   Later, the core tries to internalize (f (* 2 x)).
                 //   Now, (* 2 x) is not internal to arithmetic anymore,
                 //   and a theory variable must be created for it.
-                enode * e = get_enode(n);
                 if (!th->is_attached_to_var(e))
                     th->internalize_term(n);
             }
