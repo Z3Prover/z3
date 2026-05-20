@@ -537,9 +537,10 @@ namespace seq {
             out << "<br/>";
         }
         // integer constraints
-        std::vector<std::string> int_constraints(m_constraints.size());
+        std::vector<std::string> int_constraints;
         for (auto const& ic : m_constraints) {
-            int_constraints.push_back(constraint_html(ic, names, next_id, m));
+            int_constraints.push_back(
+            (ic.internal ? "[I]   " : "") + constraint_html(ic, names, next_id, m));
         }
         if (!int_constraints.empty()) {
             // eliminate duplicates
@@ -635,8 +636,6 @@ namespace seq {
                 out << ", color=darkred";
             else if (n->is_currently_conflict())
                 out << ", color=red";
-            else if (n->eval_idx() != m_run_idx)  // inactive, not visited this run
-                out << ", color=blue";
 
             out << "];\n";
         }
@@ -669,8 +668,6 @@ namespace seq {
                 nielsen_edge* ep = const_cast<nielsen_edge*>(e);
                 if (sat_edges.contains(ep))
                     out << ", color=green";
-                else if (e->tgt()->eval_idx() != m_run_idx)
-                    out << ", color=blue";
                 else if (e->tgt()->is_currently_conflict())
                     out << ", color=red";
 

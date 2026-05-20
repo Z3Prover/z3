@@ -73,8 +73,8 @@ namespace smt {
         // Nielsen-relevant constraint set changes (new str eq/mem, or a pop).
         // m_solved_gen is the generation at the last successful SAT solve;
         // when it still equals m_constraint_gen the cached sat path is reusable.
-        unsigned                m_constraint_gen = 0;
-        unsigned                m_solved_gen = UINT_MAX;
+        unsigned                m_last_constraint_added = 0;
+        bool                    m_can_hot_restart = false;
 
         // statistics
         unsigned m_num_conflicts        = 0;

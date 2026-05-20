@@ -225,7 +225,8 @@ namespace smt {
             seq::dep_tracker dep = nullptr;
             ctx.push_trail(restore_vector(m_prop_queue));
             m_prop_queue.push_back(eq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
-            ++m_constraint_gen;
+            m_last_constraint_added = ctx.get_scope_level();
+            m_can_hot_restart = false;
         }
         catch(const std::exception&) {
 #ifdef Z3DEBUG
@@ -285,7 +286,8 @@ namespace smt {
                 if (is_true) {
                     ctx.push_trail(restore_vector(m_prop_queue));
                     m_prop_queue.push_back(mem_item(sn_str, sn_re, lit, dep));
-                    ++m_constraint_gen;
+                    m_last_constraint_added = ctx.get_scope_level();
+                    m_can_hot_restart = false;
                 }
                 else {
                     // ¬(str ∈ R)  ≡  str ∈ complement(R): store as a positive membership
@@ -295,7 +297,8 @@ namespace smt {
                     euf::snode* sn_re_compl = get_snode(re_compl.get());
                     ctx.push_trail(restore_vector(m_prop_queue));
                     m_prop_queue.push_back(mem_item(sn_str, sn_re_compl, lit, dep));
-                    ++m_constraint_gen;
+                    m_last_constraint_added = ctx.get_scope_level();
+                    m_can_hot_restart = false;
                 }
             }
             else if (m_seq.str.is_prefix(e)) {
@@ -371,7 +374,9 @@ namespace smt {
             m_sgraph.pop(num_scopes);
             // A pop may remove constraints and/or unassign forced Nielsen
             // literals; conservatively invalidate the cached SAT path.
-            ++m_constraint_gen;
+            if (m_can_hot_restart && ctx.get_scope_level() - num_scopes < m_last_constraint_added)
+                // we popped one of the constraints used to build the Nielsen graph
+                m_can_hot_restart = false;
         }
         catch(const std::exception&) {
 #ifdef Z3DEBUG
@@ -584,6 +589,7 @@ namespace smt {
 
     void theory_nseq::populate_nielsen_graph() {
         m_nielsen.reset();
+        m_can_hot_restart = true;
 
         unsigned num_eqs = 0, num_mems = 0;
 
@@ -686,7 +692,7 @@ namespace smt {
             // Fast path: if no new string eq/mem arrived and no scope was popped
             // since the last successful solve, the Nielsen graph can be (at least)
             // partially be reused
-            if (m_solved_gen == m_constraint_gen) {
+            if (m_can_hot_restart) {
                 // SAT leaf are identical to what we would rebuild.  All of the leaf's
                 // arithmetic side-constraints are already assigned true by the outer
                 // solver, so the model is valid — skip the rebuild and re-solve.
@@ -703,8 +709,6 @@ namespace smt {
                 // fall through - no reason to rebuild the Nielsen graph
                 // everything that is not a general conflict needs to be recomputed
                 // but we can keep the general conflicts (which can be a lot!)
-                1 == 1;
-                0 == 0;
                 std::stack<seq::nielsen_node*> to_visit;
                 to_visit.push(m_nielsen.root());
                 while (!to_visit.empty()) {
@@ -726,6 +730,7 @@ namespace smt {
                     }
                 }
                 m_nielsen.clear_sat_node();
+                m_length_solver.reset();
             }
             else {
                 // let's rebuild the whole Nielsen graph
@@ -739,7 +744,7 @@ namespace smt {
 
                 SASSERT(m_nielsen.root());
 
-                m_nielsen.assert_node_new_int_constraints(m_nielsen.root());
+                m_nielsen.assert_node_side_constraints(m_nielsen.root());
 
                 ++m_num_final_checks;
 
@@ -788,10 +793,6 @@ namespace smt {
             IF_VERBOSE(1, verbose_stream() << dot << "\n";);
             // std::cout << "Got: " << (result == seq::nielsen_graph::search_result::sat ? "sat" : (result == seq::nielsen_graph::search_result::unsat ? "unsat" : "unknown")) << std::endl;
 #endif
-
-            // Snapshot generation so the fast path can skip a full rebuild
-            // on the next call if no new constraints arrive in the meantime.
-            m_solved_gen = m_constraint_gen;
 
             if (result == seq::nielsen_graph::search_result::unsat) {
                 IF_VERBOSE(1, verbose_stream() << "nseq final_check: solve UNSAT\n";);
@@ -850,7 +851,11 @@ namespace smt {
         bool all_sat = true;
         ctx.push_trail(reset_vector(m_nielsen_literals));
         for (auto const& c : m_nielsen.sat_node()->constraints()) {
-            // std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
+            if (c.internal) {
+                std::cout << "Skipping internall assumption: "<< mk_pp(c.fml, m) << std::endl;
+                continue;
+            }
+            std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
             auto lit = mk_literal(c.fml);   
             m_nielsen_literals.push_back(lit);
             // Ensure Nielsen assumptions participate in SAT search instead of
@@ -904,7 +909,7 @@ namespace smt {
         set_conflict(eqs, lits);
 
 #ifdef Z3DEBUG
-#if 1
+#if 0
         // Pass constraints to a subsolver to check correctness modulo legacy solver
         {
             smt_params p;

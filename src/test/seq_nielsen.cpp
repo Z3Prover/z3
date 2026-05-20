@@ -409,26 +409,6 @@ static void test_nielsen_expansion() {
     ng.display(std::cout);
 }
 
-// test run index management
-static void test_run_idx() {
-    std::cout << "test_run_idx\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    euf::egraph eg(m);
-    euf::sgraph sg(m, eg);
-
-    dummy_simple_solver solver;
-    seq::context_solver_i context_solver;
-    seq::nielsen_graph ng(sg, solver, context_solver);
-    SASSERT(ng.run_idx() == 0);
-
-    ng.inc_run_idx();
-    SASSERT(ng.run_idx() == 1);
-
-    ng.inc_run_idx();
-    SASSERT(ng.run_idx() == 2);
-}
-
 // test multiple regex memberships
 static void test_multiple_memberships() {
     std::cout << "test_multiple_memberships\n";
@@ -1660,36 +1640,6 @@ static void test_solve_children_failed_reason() {
     auto result = ng.solve();
     SASSERT(result == seq::nielsen_graph::search_result::unsat);
 }
-
-// test that eval_idx is set during solve
-static void test_solve_eval_idx_tracking() {
-    std::cout << "test_solve_eval_idx_tracking\n";
-    ast_manager m;
-    reg_decl_plugins(m);
-    euf::egraph eg(m);
-    euf::sgraph sg(m, eg);
-
-    dummy_simple_solver solver;    
-    seq::context_solver_i context_solver;
-    seq::nielsen_graph ng(sg, solver, context_solver);
-    euf::snode* x = sg.mk_var(symbol("x"), sg.get_str_sort());
-    euf::snode* a = sg.mk_char('A');
-    // x = A·x would be infinite without depth bound, but
-    // x = A is simple and satisfiable
-    ng.add_str_eq(x, a);
-
-    unsigned run_before = ng.run_idx();
-    auto result = ng.solve();
-    SASSERT(result == seq::nielsen_graph::search_result::sat);
-
-    // run_idx should have been incremented
-    SASSERT(ng.run_idx() > run_before);
-
-    // root's eval_idx should match current run_idx
-    seq::nielsen_node* root = ng.root();
-    SASSERT(root->eval_idx() == ng.run_idx());
-}
-
 
 // -----------------------------------------------------------------------
 // Direct simplify_and_init tests
@@ -3438,14 +3388,14 @@ static void add_len_ge(seq::nielsen_graph& ng, seq::nielsen_node* node, euf::sno
     ast_manager& m = ng.get_manager();
     arith_util arith(m);
     expr_ref len(ng.seq().str.mk_length(var->get_expr()), m);
-    node->add_constraint(seq::constraint(arith.mk_ge(len, arith.mk_int(lb)), dep, m));
+    node->add_constraint(seq::constraint(arith.mk_ge(len, arith.mk_int(lb)), dep, false, m));
 }
 
 static void add_len_le(seq::nielsen_graph& ng, seq::nielsen_node* node, euf::snode* var, unsigned ub, seq::dep_tracker dep) {
     ast_manager& m = ng.get_manager();
     arith_util arith(m);
     expr_ref len(ng.seq().str.mk_length(var->get_expr()), m);
-    node->add_constraint(seq::constraint(arith.mk_le(len, arith.mk_int(ub)), dep, m));
+    node->add_constraint(seq::constraint(arith.mk_le(len, arith.mk_int(ub)), dep, false, m));
 }
 
 static unsigned queried_lb(seq::nielsen_node* node, euf::snode* var) {
@@ -3959,7 +3909,6 @@ void tst_seq_nielsen() {
     test_nielsen_subst_apply();
     test_nielsen_graph_reset();
     test_nielsen_expansion();
-    test_run_idx();
     test_multiple_memberships();
     test_backedge();
     test_eq_split_basic();
@@ -4004,7 +3953,6 @@ void tst_seq_nielsen() {
     test_solve_node_extended_flag();
     test_solve_mixed_eq_mem_sat();
     test_solve_children_failed_reason();
-    test_solve_eval_idx_tracking();
     test_simplify_prefix_cancel();
     test_simplify_suffix_cancel_rtl();
     test_simplify_symbol_clash();

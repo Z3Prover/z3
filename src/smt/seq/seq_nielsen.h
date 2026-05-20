@@ -499,6 +499,7 @@ namespace seq {
     struct constraint {
         expr_ref    fml;   // the formula (eq, le, or ge, unit-diseq expression)
         dep_tracker dep;   // tracks which input constraints contributed
+        bool        internal; // don't push back to the outer solver (helpful if not necessary and it would reveal internal variables)
 
         static expr_ref simplify(expr* f, ast_manager& m) {
             //th_rewriter th(m);
@@ -508,9 +509,10 @@ namespace seq {
         }
 
         constraint(ast_manager& m):
-            fml(m), dep(nullptr) {}
-        constraint(expr* f, dep_tracker const& d, ast_manager& m):
-            fml(simplify(f, m)), dep(d) {}
+            fml(m), dep(nullptr), internal(true) {}
+
+        constraint(expr* f, dep_tracker const& d, const bool internal, ast_manager& m):
+            fml(simplify(f, m)), dep(d), internal(internal) {}
 
         std::ostream& display(std::ostream& out) const;
     };
@@ -527,13 +529,14 @@ namespace seq {
         expr_ref    m_expr;  // arithmetic expression (e.g., len(x) + len(y) = len(a) + 1)
         dep_tracker m_dep;   // tracks which input constraints contributed
         length_kind m_kind;  // determines propagation strategy
+        bool        m_internal;
 
-        length_constraint(ast_manager& m): m_expr(m), m_dep(nullptr), m_kind(length_kind::nonneg) {}
-        length_constraint(expr* e, dep_tracker const& dep, length_kind kind, ast_manager& m):
-            m_expr(e, m), m_dep(dep), m_kind(kind) {}
+        length_constraint(ast_manager& m): m_expr(m), m_dep(nullptr), m_kind(length_kind::nonneg), m_internal(true) {}
+        length_constraint(expr* e, dep_tracker const& dep, length_kind kind, const bool internal, ast_manager& m):
+            m_expr(e, m), m_dep(dep), m_kind(kind), m_internal(internal) {}
 
         constraint to_constraint() const {
-            return constraint(m_expr, m_dep, m_expr.get_manager());
+            return constraint(m_expr, m_dep, m_internal, m_expr.get_manager());
         }
     };
 
@@ -602,9 +605,6 @@ namespace seq {
         backtrack_reason        m_reason = backtrack_reason::unevaluated;
         bool                    m_is_progress = false;
         bool                    m_node_len_constraints_generated = false; // true after generate_node_length_constraints runs
-
-        // evaluation index for run tracking
-        unsigned                m_eval_idx = 0;
 
         // Parikh filter: set to true once apply_parikh_to_node has been applied
         // to this node. Prevents duplicate constraint generation across DFS runs.
@@ -723,10 +723,6 @@ namespace seq {
         }
 
         bool is_progress() const { return m_is_progress; }
-
-        unsigned eval_idx() const { return m_eval_idx; }
-        void set_eval_idx(unsigned idx) { m_eval_idx = idx; }
-        void reset_counter() { m_eval_idx = 0; }
 
         // clone constraints from a parent node
         void clone_from(nielsen_node const& parent);
@@ -849,7 +845,6 @@ namespace seq {
         nielsen_node*                 m_root = nullptr;
         nielsen_node*                 m_sat_node = nullptr;
         ptr_vector<nielsen_edge>      m_sat_path;
-        unsigned                      m_run_idx = 0;
         unsigned                      m_depth_bound = 0;
         unsigned                      m_max_search_depth = 0;
         unsigned                      m_max_nodes = 0;          // 0 = unlimited
@@ -969,10 +964,6 @@ namespace seq {
         void add_str_eq(euf::snode* lhs, euf::snode* rhs);
         void add_str_mem(euf::snode* str, euf::snode* regex);
 
-        // run management
-        unsigned run_idx() const { return m_run_idx; }
-        void inc_run_idx();
-
         // access all nodes
         ptr_vector<nielsen_node> const& nodes() const { return m_nodes; }
         unsigned num_nodes() const { return m_nodes.size(); }
@@ -1065,7 +1056,7 @@ namespace seq {
         // parent (indices [m_parent_ic_count..end)) into the current solver scope.
         // Called by search_dfs after simplify_and_init so that the newly derived
         // bounds become visible to subsequent check() and check_lp_le() calls.
-        void assert_node_new_int_constraints(nielsen_node* node) const;
+        void assert_node_side_constraints(nielsen_node* node) const;
 
     private:
 
@@ -1316,7 +1307,7 @@ namespace seq {
         bool check_lp_le(expr* lhs, expr* rhs, nielsen_node* n, dep_tracker& dep);
 
         // create an integer constraint: lhs <kind> rhs
-        constraint mk_constraint(expr* fml, dep_tracker const& dep) const;
+        constraint mk_constraint(expr* fml, dep_tracker const& dep, bool internal = false) const;
 
         // get the exponent expression from a power snode (arg(1))
         static expr * get_power_exponent(euf::snode* power);
