@@ -475,7 +475,7 @@ namespace seq {
             // var may be s_var or s_power; sgraph::subst uses pointer identity matching
             SASSERT(var->is_var() || var->is_power() || var->is_unit());
             SASSERT(!var->is_unit() || repl->is_char_or_unit());
-            // SASSERT(!repl->collect_tokens().contains(var)); // for now - maybe we want to drop this later again
+            SASSERT(!repl->collect_tokens().contains(var)); // for now - maybe we want to drop this later again
         }
 
         // an eliminating substitution does not contain the variable in the replacement
@@ -693,6 +693,8 @@ namespace seq {
         }
 
         backtrack_reason reason() const { return m_reason; }
+
+        void clear_reason() { m_reason = backtrack_reason::unevaluated; }
 
         void set_child_conflict() {
             SASSERT(m_reason == backtrack_reason::unevaluated);
@@ -1117,6 +1119,12 @@ namespace seq {
         // Try to extract a stronger projection for root_re. Returns true and
         // stores it in projection_re iff SCC coverage has grown.
         bool try_extract_partial_projection(euf::snode* root_re, euf::snode*& projection_re);
+
+        euf::snode* get_slice(euf::snode* v, expr* left, expr* right);
+
+        euf::snode* get_tail(euf::snode* v, expr* cnt, bool fwd = true);
+
+        euf::snode* get_tail(euf::snode* v, unsigned cnt, bool fwd = true);
 
         // Apply the Parikh image filter to a node: generate modular length
         // constraints from regex memberships and append them to the node's

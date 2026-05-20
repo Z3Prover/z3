@@ -32,6 +32,7 @@ namespace seq {
 
         symbol         m_prefix, m_suffix;
         symbol         m_tail;
+        symbol         m_slice;
         symbol         m_left, m_right;
         symbol         m_seq_first, m_seq_last; 
         symbol         m_indexof_left, m_indexof_right;   // inverse of indexof: (indexof_left s t) + s + (indexof_right s t) = t, for s in t.
@@ -87,6 +88,7 @@ namespace seq {
         expr_ref mk_last_indexof_right(expr* t, expr* s, expr* offset = nullptr) { return mk(m_lindexof_right, t, s, offset); }
 
         expr_ref mk_tail(expr* s, expr* i) { return mk(m_tail, s, i); }
+        expr_ref mk_slice(expr* s, expr* l, expr* r) { return mk(m_slice, s, l, r); }
         expr_ref mk_post(expr* s, expr* i) { return mk(m_post, s, i); }
         expr_ref mk_postp(expr* s, expr* i) { return mk(m_postp, s, i); }
         expr_ref mk_ite(expr* c, expr* t, expr* e) { return mk(symbol("seq.if"), c, t, e, nullptr, t->get_sort()); }
@@ -116,6 +118,7 @@ namespace seq {
         bool is_unit_inv(expr* e) const { return is_skolem(symbol("seq.unit-inv"), e); }
         bool is_unit_inv(expr* e, expr*& u) const { return is_unit_inv(e) && (u = to_app(e)->get_arg(0), true); }
         bool is_tail(expr* e) const { return is_skolem(m_tail, e); }
+        bool is_slice(expr* e) const { return is_skolem(m_slice, e); }
         bool is_seq_first(expr* e) const { return is_skolem(m_seq_first, e); }
         bool is_indexof_left(expr* e) const { return is_skolem(m_indexof_left, e); }
         bool is_indexof_right(expr* e) const { return is_skolem(m_indexof_right, e); }
@@ -154,6 +157,8 @@ namespace seq {
         bool is_tail(expr* e, expr*& s, expr*& idx) const;
         bool is_tail_u(expr* e, expr*& s, unsigned& idx) const;
         bool is_tail(expr* e, expr*& s) const;
+        bool is_slice(expr* e, expr*& s, expr*& l, expr*& r) const;
+        bool is_slice(expr* e, expr*& s) const;
         bool is_digit(expr* e) const { return is_skolem(symbol("seq.is_digit"), e); }
         bool is_max_unfolding(expr* e) const { return is_skolem(m_max_unfolding, e); }
         bool is_length_limit(expr* e) const { return is_skolem(m_length_limit, e); }

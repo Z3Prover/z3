@@ -1155,6 +1155,37 @@ namespace seq {
         return true;
     }
 
+    euf::snode* nielsen_graph::get_slice(euf::snode* v, expr* left, expr* right) {
+        SASSERT(v && v->get_expr() && left && right);
+        SASSERT(v->is_var());
+
+        expr_ref new_arg(v->get_expr(), m);
+        expr_ref new_l(left, m), new_r(right, m);
+        expr* arg, *l, *r;
+        std::cout << "Creating slice for " << mk_pp(new_arg, m) << "; " << mk_pp(new_l, m) << "; " << mk_pp(new_r, m) << std::endl;
+
+        if (m_sk.is_slice(new_arg, arg, l, r)) {
+            new_l = a.mk_add(left, l);
+            m_rw(new_l);
+            new_r = a.mk_add(right, r);
+            m_rw(new_r);
+            new_arg = arg;
+        }
+        expr_ref slice = m_sk.mk_slice(new_arg, new_l, new_r);
+        std::cout << "Got " << mk_pp(slice, m) << std::endl;
+        return m_sg.mk(slice);
+    }
+
+
+    euf::snode* nielsen_graph::get_tail(euf::snode* v, expr* cnt, const bool fwd) {
+        if (fwd)
+            return get_slice(v, cnt, a.mk_int(0));
+        return get_slice(v, a.mk_int(0), cnt);
+    }
+
+    euf::snode* nielsen_graph::get_tail(euf::snode* v, const unsigned cnt, const bool fwd) {
+        return get_tail(v, a.mk_int(cnt), fwd);
+    }
 
     simplify_result nielsen_node::simplify_and_init(ptr_vector<nielsen_edge> const& cur_path) {
         if (m_is_extended)
@@ -1680,7 +1711,7 @@ namespace seq {
                 inc_run_idx();
                 ptr_vector<nielsen_edge> cur_path;
                 // scoped_push _scoped_push(m_dep_mgr); // gc dependencies after search
-                const search_result r = search_dfs(m_root, cur_path);
+                const search_result r = search_dfs(m_root, cur_path); // the main search loop
                 IF_VERBOSE(1, verbose_stream()
                                   << " depth_bound=" << m_depth_bound << " dfs_nodes=" << m_stats.m_num_dfs_nodes
                                   << " max_depth=" << m_stats.m_max_depth << " extensions=" << m_stats.m_num_extensions
@@ -1722,8 +1753,7 @@ namespace seq {
     }
 
     nielsen_graph::search_result nielsen_graph::search_dfs(nielsen_node* node,
-        ptr_vector<nielsen_edge>& cur_path,
-                                                           const unsigned depth) {
+        ptr_vector<nielsen_edge>& cur_path, const unsigned depth) {
 
         ++m_stats.m_num_dfs_nodes;
         // std::cout << m_stats.m_num_dfs_nodes << std::endl;
@@ -1885,6 +1915,7 @@ namespace seq {
 
         // explore children
         bool any_unknown = false;
+        bool all_general_conflict = true;
         for (nielsen_edge *e : node->outgoing()) {
             cur_path.push_back(e);
             // Push a solver scope for this edge and assert its side integer
@@ -1922,8 +1953,15 @@ namespace seq {
             cur_path.pop_back();
             if (r == search_result::unknown)
                 any_unknown = true;
+            if (!e->tgt()->is_general_conflict())
+                all_general_conflict = false;
         }
 
+        if (all_general_conflict) {
+            SASSERT(!any_unknown);
+            // mark it such that we do not have to reconsider it even after a hot-restart
+            node->set_general_conflict();
+        }
         if (!any_unknown) {
             node->set_child_conflict();
             return search_result::unsat;
@@ -2236,7 +2274,8 @@ namespace seq {
                 for (unsigned j = 1; j < i; ++j) {
                     prefix_sn = dir_concat(m_sg, prefix_sn, char_toks[j], fwd);
                 }
-                euf::snode* replacement = dir_concat(m_sg, prefix_sn, var_node, fwd);
+                euf::snode* replacement = dir_concat(m_sg, prefix_sn,
+                    get_tail(var_node, compute_length_expr(prefix_sn).get(), fwd), fwd);
                 nielsen_subst s(var_node, replacement,
                                 mk_rewrite(a.mk_sub(compute_length_expr(var_node), compute_length_expr(prefix_sn))),
                                 eq.m_dep);
@@ -2304,7 +2343,7 @@ namespace seq {
                     child->apply_subst(m_sg, s1);
 
 
-                    euf::snode* replacement = dir_concat(m_sg, char_head, var_head, fwd);
+                    euf::snode* replacement = dir_concat(m_sg, char_head, get_tail(var_head, a.mk_int(1), fwd), fwd);
                     child = mk_child(node);
                     e = mk_edge(node, child, false);
                     const nielsen_subst s2(var_head, replacement, mk_rewrite(a.mk_sub(compute_length_expr(var_head), a.mk_int(1))), eq.m_dep);
@@ -4249,7 +4288,8 @@ namespace seq {
                 SASSERT(n->m_conflict_external_literal == sat::null_literal);
                 continue;
             }
-            SASSERT(n->outgoing().empty());
+            // not true anymore since we might have done a hot-restart where we previously created the child:
+            //SASSERT(n->outgoing().empty());
             SASSERT(n->is_currently_conflict());
             if (n->m_conflict_external_literal != sat::null_literal)
                 // We know from the outer solver that this literal is assigned true and contradicts node constraint

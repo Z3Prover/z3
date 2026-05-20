@@ -387,11 +387,21 @@ namespace seq {
         return dot_html_escape(os.str());
     }
 
+    std::string decode_recursive_name(expr* e, ast_manager& m) {
+        SASSERT(e && is_app(e));
+        th_rewriter rw(m);
+        const skolem sk(m, rw);
+        expr* arg = e, *l, *r;
+        while (sk.is_slice(arg, arg, l, r)) { }
+        if (to_app(arg)->get_num_args() != 0)
+            return "";
+        return dot_html_escape(to_app(arg)->get_decl()->get_name().str());
+    }
+
     // Helper: render a snode as an HTML label for DOT output.
     // Groups consecutive s_char tokens into quoted strings, renders s_var by name,
     // shows s_power with superscripts, s_unit by its inner expression,
     // and falls back to mk_pp, HTML-escaped, for other token kinds.
-
     std::string snode_label_html(euf::snode const* n, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) {
         if (!n) return "null";
         seq_util seq(m);
@@ -437,8 +447,9 @@ namespace seq {
             if (!e) {
                 result += "#" + std::to_string(tok->id());
             } else if (tok->is_var()) {
-                if (to_app(e)->get_num_args() == 0) {
-                    result += to_app(e)->get_decl()->get_name().str();
+                std::string name = decode_recursive_name(e, m);
+                if (!name.empty()) {
+                    result += name;
                 }
                 else if (names.contains(e))
                     result += names[e];

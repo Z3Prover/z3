@@ -713,6 +713,11 @@ namespace smt {
                     if (node->is_general_conflict())
                         // all its children are general conflicts as well - nothing to do
                         continue;
+                    if (node->reason() == seq::backtrack_reason::children_failed) {
+                        SASSERT(!node->is_general_conflict());
+                        node->clear_reason();
+                    }
+
                     if (node->is_external_conflict())
                         node->clear_local_conflict();
 

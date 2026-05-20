@@ -26,6 +26,7 @@ skolem::skolem(ast_manager& m, th_rewriter& rw):
     m_suffix         = "seq.s.prefix";
     m_accept         = "aut.accept";
     m_tail           = "seq.tail";
+    m_slice          = "seq.slice";
     m_left           = "seq.left";
     m_right          = "seq.right";
     m_seq_first      = "seq.first";
@@ -157,6 +158,16 @@ bool skolem::is_tail(expr* e, expr*& s) const {
 
 bool skolem::is_tail(expr* e, expr*& s, expr*& idx) const {
     return is_tail(e) && (s = to_app(e)->get_arg(0), idx = to_app(e)->get_arg(1), true);
+}
+
+bool skolem::is_slice(expr* e, expr*& s) const {
+    expr* l = nullptr;
+    expr* r = nullptr;
+    return is_slice(e, s, l, r);
+}
+
+bool skolem::is_slice(expr* e, expr*& s, expr*& l, expr*& r) const {
+    return is_slice(e) && (s = to_app(e)->get_arg(0), l = to_app(e)->get_arg(1), r = to_app(e)->get_arg(2), true);
 }
 
 bool skolem::is_left_or_right(expr* e, expr*& x, expr*& y, expr*& z) {
