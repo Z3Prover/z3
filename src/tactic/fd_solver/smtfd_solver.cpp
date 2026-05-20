@@ -2065,6 +2065,16 @@ namespace smtfd {
         expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { 
             return expr_ref_vector(m);
         }
+        expr_ref get_split_candidate() override {
+            init();
+            flush_assertions();
+            return m_fd_sat_solver->get_split_candidate();
+        }
+        void get_backbone_candidates(vector<::solver::scored_literal>& candidates, unsigned max_num) override {
+            init();
+            flush_assertions();
+            m_fd_sat_solver->get_backbone_candidates(candidates, max_num);
+        }
 
         expr* congruence_root(expr* e) override { return e; }
 

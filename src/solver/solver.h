@@ -58,6 +58,13 @@ class solver : public check_sat_result, public user_propagator::core {
     params_ref  m_params;
     symbol      m_cancel_backup_file;
 public:
+    struct scored_literal {
+        expr_ref lit;
+        double score = 0.0;
+        scored_literal(ast_manager& m, expr* e, double s): lit(e, m), score(s) {}
+        scored_literal(expr_ref const& e, double s): lit(e), score(s) {}
+    };
+
     solver(ast_manager& m): check_sat_result(m) {}
 
     /**
@@ -301,6 +308,10 @@ public:
     
     virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
 
+    virtual expr_ref get_split_candidate() = 0;
+
+    virtual void get_backbone_candidates(vector<scored_literal>& candidates, unsigned max_num) = 0;
+
     class scoped_push {
         solver& s;
         bool    m_nopop;
@@ -328,4 +339,3 @@ typedef ref<solver> solver_ref;
 inline std::ostream& operator<<(std::ostream& out, solver const& s) {
     return s.display(out);
 }
-

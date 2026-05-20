@@ -453,6 +453,8 @@ namespace smt {
         svector<double> const & get_activity_vector() const { return m_activity; }
 
         double get_activity(bool_var v) const { return m_activity[v]; }
+        unsigned get_num_assignments() const { return m_stats.m_num_assignments; }
+        unsigned get_birthdate(bool_var v) const { return m_birthdate[v]; }
 
         void set_activity(bool_var v, double act) { m_activity[v] = act; }
 
@@ -538,6 +540,8 @@ namespace smt {
         bool at_search_level() const {
             return m_scope_lvl == m_search_lvl;
         }
+
+        void pop_to_search_level() { pop_to_search_lvl(); }
 
         bool tracking_assumptions() const {
             return !m_assumptions.empty() && m_search_lvl > m_base_lvl;
@@ -1917,5 +1921,3 @@ namespace smt {
     std::ostream& operator<<(std::ostream& out, enode_pp const& p);
 
 };
-
-

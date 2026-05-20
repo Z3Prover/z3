@@ -22,6 +22,7 @@ Notes:
 #include "ast/for_each_expr.h"
 #include "ast/ast_pp.h"
 #include "ast/func_decl_dependencies.h"
+#include "smt/smt_context.h"
 #include "smt/smt_kernel.h"
 #include "params/smt_params.h"
 #include "params/smt_params_helper.hpp"
@@ -210,6 +211,62 @@ namespace {
 
         expr_ref_vector get_trail(unsigned max_level) override {
             return m_context.get_trail(max_level);
+        }
+
+        expr_ref get_split_candidate() override {
+            ast_manager& m = get_manager();
+            auto& ctx = m_context.get_context();
+            expr_ref result(m);
+            double score = 0.0;
+            unsigned n = 0;
+            ctx.pop_to_search_level();
+            for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
+                if (ctx.get_assignment(v) != l_undef)
+                    continue;
+                expr* e = ctx.bool_var2expr(v);
+                if (!e)
+                    continue;
+                double new_score = ctx.get_activity(v);
+                if (new_score > score || !result || (new_score == score && ctx.get_random_value() % (++n) == 0)) {
+                    score = new_score;
+                    result = e;
+                }
+            }
+            return result;
+        }
+
+        void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+            ast_manager& m = get_manager();
+            auto& ctx = m_context.get_context();
+            unsigned curr_time = ctx.get_num_assignments();
+            vector<solver::scored_literal> all;
+
+            for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
+                if (ctx.get_assignment(v) != l_undef && ctx.get_assign_level(v) == ctx.get_base_level())
+                    continue;
+
+                expr* candidate = ctx.bool_var2expr(v);
+                if (!candidate)
+                    continue;
+
+                auto const& d = ctx.get_bdata(v);
+                if (d.m_phase_available && !d.m_phase)
+                    candidate = m.mk_not(candidate);
+
+                double age = static_cast<double>(curr_time - ctx.get_birthdate(v));
+                all.push_back(solver::scored_literal(m, candidate, age));
+            }
+
+            std::stable_sort(
+                all.begin(),
+                all.end(),
+                [](solver::scored_literal const& a, solver::scored_literal const& b) {
+                    return a.score > b.score;
+                });
+
+            unsigned n = std::min<unsigned>(max_num, all.size());
+            for (unsigned i = 0; i < n; ++i)
+                candidates.push_back(all[i]);
         }
 
         void register_on_clause(void* ctx, user_propagator::on_clause_eh_t& on_clause) override {
@@ -537,4 +594,3 @@ public:
 solver_factory * mk_smt_solver_factory() {
     return alloc(smt_solver_factory);
 }
-

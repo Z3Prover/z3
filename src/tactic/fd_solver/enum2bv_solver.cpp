@@ -131,6 +131,12 @@ public:
     expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { 
         return m_solver->cube(vars, backtrack_level); 
     }
+    expr_ref get_split_candidate() override {
+        return m_solver->get_split_candidate();
+    }
+    void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+        m_solver->get_backbone_candidates(candidates, max_num);
+    }
     expr* congruence_next(expr* e) override { return m_solver->congruence_next(e); }
     expr* congruence_root(expr* e) override { return m_solver->congruence_root(e); }
     expr_ref congruence_explain(expr* a, expr* b) override { return m_solver->congruence_explain(a, b); }

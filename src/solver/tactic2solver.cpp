@@ -147,6 +147,14 @@ public:
         return expr_ref_vector(get_manager());
     }
 
+    expr_ref get_split_candidate() override {
+        throw default_exception("cannot retrieve split candidate from solvers created using tactics");
+    }
+
+    void get_backbone_candidates(vector<solver::scored_literal>&, unsigned) override {
+        throw default_exception("cannot retrieve backbone candidates from solvers created using tactics");
+    }
+
     expr* congruence_next(expr* e) override { return e; }
     expr* congruence_root(expr* e) override { return e; }
     expr_ref congruence_explain(expr* a, expr* b) override { return expr_ref(get_manager().mk_eq(a, b), get_manager()); }
@@ -421,5 +429,4 @@ solver_factory * mk_tactic2solver_factory(tactic * t) {
 solver_factory * mk_tactic_factory2solver_factory(tactic_factory f) {
     return alloc(tactic_factory2solver_factory, f);
 }
-
 

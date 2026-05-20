@@ -132,6 +132,8 @@ namespace sat {
         m_best_phase.reset();
         m_phase.reset();
         m_prev_phase.reset();
+        m_phase_birthdate.reset();
+        m_best_phase_birthdate.reset();
         m_assigned_since_gc.reset();
         m_last_conflict.reset();
         m_last_propagation.reset();
@@ -161,6 +163,8 @@ namespace sat {
             m_phase[v] = src.m_phase[v];
             m_best_phase[v] = src.m_best_phase[v];
             m_prev_phase[v] = src.m_prev_phase[v];
+            m_phase_birthdate[v] = src.m_phase_birthdate[v];
+            m_best_phase_birthdate[v] = src.m_best_phase_birthdate[v];
 
             // inherit activity:
             m_activity[v] = src.m_activity[v];
@@ -267,6 +271,8 @@ namespace sat {
         m_phase[v] = false;
         m_best_phase[v] = false;
         m_prev_phase[v] = false;
+        m_phase_birthdate[v] = 0;
+        m_best_phase_birthdate[v] = 0;
         m_assigned_since_gc[v] = false;
         m_last_conflict[v] = 0;        
         m_last_propagation[v] = 0;
@@ -308,6 +314,8 @@ namespace sat {
         m_phase.push_back(false);
         m_best_phase.push_back(false);
         m_prev_phase.push_back(false);
+        m_phase_birthdate.push_back(0);
+        m_best_phase_birthdate.push_back(0);
         m_assigned_since_gc.push_back(false);
         m_last_conflict.push_back(0);
         m_last_propagation.push_back(0);
@@ -645,6 +653,17 @@ namespace sat {
         return 3*cls_allocator().get_allocation_size()/2 + memory::get_allocation_size() > memory::get_max_memory_size();
     }
 
+    void solver::set_phase(literal l) {
+        if (l.var() >= num_vars())
+            return;
+        bool value = !l.sign();
+        if (m_phase[l.var()] != value)
+            m_phase_birthdate[l.var()] = m_stats.m_conflict;
+        if (m_best_phase[l.var()] != value)
+            m_best_phase_birthdate[l.var()] = m_stats.m_conflict;
+        m_best_phase[l.var()] = m_phase[l.var()] = value;
+    }
+
     struct solver::cmp_activity {
         solver& s;
         cmp_activity(solver& s):s(s) {}
@@ -896,6 +915,8 @@ namespace sat {
         m_assignment[(~l).index()] = l_false;
         bool_var v = l.var();
         m_justification[v]         = j;
+        if (m_phase[v] != !l.sign())
+            m_phase_birthdate[v] = m_stats.m_conflict;
         m_phase[v]                 = !l.sign();
         m_assigned_since_gc[v]     = true;
         m_trail.push_back(l);
@@ -1378,8 +1399,12 @@ namespace sat {
         lbool r = m_local_search->check(_lits.size(), _lits.data(), nullptr);
         auto const& mdl = m_local_search->get_model();
         if (mdl.size() == m_best_phase.size()) {
-            for (unsigned i = 0; i < m_best_phase.size(); ++i)
-                m_best_phase[i] = l_true == mdl[i];
+            for (unsigned i = 0; i < m_best_phase.size(); ++i) {
+                bool is_true = l_true == mdl[i];
+                if (m_best_phase[i] != is_true)
+                    m_best_phase_birthdate[i] = m_stats.m_conflict;
+                m_best_phase[i] = is_true;
+            }
 
             if (r == l_true) {
                 m_conflicts_since_restart = 0;
@@ -1712,6 +1737,45 @@ namespace sat {
             UNREACHABLE();
             return false;
         }
+    }
+
+    uint64_t solver::get_preferred_phase_birthdate(bool_var v) const {
+        bool use_best =
+            m_config.m_phase == PS_FROZEN ||
+            ((m_config.m_phase == PS_SAT_CACHING || m_config.m_phase == PS_LOCAL_SEARCH) && m_search_state == s_sat);
+        return use_best ? m_best_phase_birthdate[v] : m_phase_birthdate[v];
+    }
+
+    literal solver::get_split_candidate() {
+        bool_var next = null_bool_var;
+        lbool phase = l_undef;
+        if (!m_ext || !m_ext->get_case_split(next, phase)) {
+            next = next_var();
+            if (next == null_bool_var)
+                return null_literal;
+        }
+        if (phase == l_undef)
+            phase = guess(next) ? l_true : l_false;
+        return literal(next, phase == l_false);
+    }
+
+    void solver::get_backbone_candidates(literal_vector& lits, unsigned max_num) {
+        struct candidate {
+            literal lit;
+            uint64_t age;
+        };
+        svector<candidate> cands;
+        uint64_t now = m_stats.m_conflict;
+        for (bool_var v = 0; v < num_vars(); ++v) {
+            if (value(v) != l_undef || was_eliminated(v))
+                continue;
+            bool is_pos = guess(v);
+            cands.push_back({ literal(v, !is_pos), now - get_preferred_phase_birthdate(v) });
+        }
+        std::stable_sort(cands.begin(), cands.end(),
+            [](candidate const& a, candidate const& b) { return a.age > b.age; });
+        for (unsigned i = 0; i < cands.size() && i < max_num; ++i)
+            lits.push_back(cands[i].lit);
     }
 
     bool solver::decide() {
@@ -2145,8 +2209,13 @@ namespace sat {
         for (bool_var v = 0; v < num; ++v) {
             if (!was_eliminated(v)) {
                 m_model[v] = value(v);
-                m_phase[v] = value(v) == l_true;
-                m_best_phase[v] = value(v) == l_true;
+                bool is_true = value(v) == l_true;
+                if (m_phase[v] != is_true)
+                    m_phase_birthdate[v] = m_stats.m_conflict;
+                if (m_best_phase[v] != is_true)
+                    m_best_phase_birthdate[v] = m_stats.m_conflict;
+                m_phase[v] = is_true;
+                m_best_phase[v] = is_true;
             }
         }
         TRACE(sat_mc_bug, m_mc.display(tout););
@@ -2915,13 +2984,18 @@ namespace sat {
         for (unsigned i = head; i < sz; ++i) {
             bool_var v = m_trail[i].var();
             TRACE(forget_phase, tout << "forgetting phase of v" << v << "\n";);
-            m_phase[v] = m_rand() % 2 == 0;
+            bool value = m_rand() % 2 == 0;
+            if (m_phase[v] != value)
+                m_phase_birthdate[v] = m_stats.m_conflict;
+            m_phase[v] = value;
         }
         if (is_sat_phase() && head >= m_best_phase_size) {
             m_best_phase_size = head;
             IF_VERBOSE(12, verbose_stream() << "sticky trail: " << head << "\n");
             for (unsigned i = 0; i < head; ++i) {
                 bool_var v = m_trail[i].var();
+                if (m_best_phase[v] != m_phase[v])
+                    m_best_phase_birthdate[v] = m_stats.m_conflict;
                 m_best_phase[v] = m_phase[v];
             }
             set_has_new_best_phase(true);
@@ -2971,23 +3045,43 @@ namespace sat {
     void solver::do_rephase() {
         switch (m_config.m_phase) {
         case PS_ALWAYS_TRUE:
-            for (auto& p : m_phase) p = true;
+            for (unsigned i = 0; i < m_phase.size(); ++i) {
+                if (!m_phase[i])
+                    m_phase_birthdate[i] = m_stats.m_conflict;
+                m_phase[i] = true;
+            }
             break;
         case PS_ALWAYS_FALSE:
-            for (auto& p : m_phase) p = false;
+            for (unsigned i = 0; i < m_phase.size(); ++i) {
+                if (m_phase[i])
+                    m_phase_birthdate[i] = m_stats.m_conflict;
+                m_phase[i] = false;
+            }
             break;
         case PS_FROZEN:
             break;
         case PS_BASIC_CACHING:
             switch (m_rephase.count % 4) {
             case 0:
-                for (auto& p : m_phase) p = (m_rand() % 2) == 0;
+                for (unsigned i = 0; i < m_phase.size(); ++i) {
+                    bool value = (m_rand() % 2) == 0;
+                    if (m_phase[i] != value)
+                        m_phase_birthdate[i] = m_stats.m_conflict;
+                    m_phase[i] = value;
+                }
                 break;
             case 1:
-                for (auto& p : m_phase) p = false;
+                for (unsigned i = 0; i < m_phase.size(); ++i) {
+                    if (m_phase[i])
+                        m_phase_birthdate[i] = m_stats.m_conflict;
+                    m_phase[i] = false;
+                }
                 break;
             case 2:
-                for (auto& p : m_phase) p = !p;
+                for (unsigned i = 0; i < m_phase.size(); ++i) {
+                    m_phase_birthdate[i] = m_stats.m_conflict;
+                    m_phase[i] = !m_phase[i];
+                }
                 break;
             default:
                 break;
@@ -2995,18 +3089,29 @@ namespace sat {
             break;
         case PS_SAT_CACHING:
             if (m_search_state == s_sat) 
-                for (unsigned i = 0; i < m_phase.size(); ++i) 
-                    m_phase[i] = m_best_phase[i];  
+                for (unsigned i = 0; i < m_phase.size(); ++i) {
+                    if (m_phase[i] != m_best_phase[i])
+                        m_phase_birthdate[i] = m_stats.m_conflict;
+                    m_phase[i] = m_best_phase[i];
+                }
             break;
         case PS_RANDOM:
-            for (auto& p : m_phase) p = (m_rand() % 2) == 0;
+            for (unsigned i = 0; i < m_phase.size(); ++i) {
+                bool value = (m_rand() % 2) == 0;
+                if (m_phase[i] != value)
+                    m_phase_birthdate[i] = m_stats.m_conflict;
+                m_phase[i] = value;
+            }
             break;
         case PS_LOCAL_SEARCH:
             if (m_search_state == s_sat) {
                 if (m_rand() % 2 == 0)
                     bounded_local_search();
-                for (unsigned i = 0; i < m_phase.size(); ++i) 
-                    m_phase[i] = m_best_phase[i];              
+                for (unsigned i = 0; i < m_phase.size(); ++i) {
+                    if (m_phase[i] != m_best_phase[i])
+                        m_phase_birthdate[i] = m_stats.m_conflict;
+                    m_phase[i] = m_best_phase[i];
+                }
             }
 
             break;
@@ -3601,6 +3706,8 @@ namespace sat {
         m_phase.shrink(v);
         m_best_phase.shrink(v);
         m_prev_phase.shrink(v);
+        m_phase_birthdate.shrink(v);
+        m_best_phase_birthdate.shrink(v);
         m_assigned_since_gc.shrink(v);
         m_simplifier.reset_todos();
     }

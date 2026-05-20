@@ -362,6 +362,10 @@ public:
     expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { 
         return s->cube(vars, backtrack_level); 
     }
+    expr_ref get_split_candidate() override { return s->get_split_candidate(); }
+    void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+        s->get_backbone_candidates(candidates, max_num);
+    }
 
     expr* congruence_root(expr* e) override { return s->congruence_root(e); }
     expr* congruence_next(expr* e) override { return s->congruence_next(e); }
@@ -403,4 +407,3 @@ public:
 solver* mk_simplifier_solver(solver* s, simplifier_factory* fac) {
     return alloc(simplifier_solver, s, fac);
 }
-

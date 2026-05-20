@@ -122,6 +122,10 @@ public:
     void set_phase(phase* p) override { m_solver.set_phase(p); }
     void move_to_front(expr* e) override { m_solver.move_to_front(e); }
     expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
+    expr_ref get_split_candidate() override { return m_solver.get_split_candidate(); }
+    void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+        m_solver.get_backbone_candidates(candidates, max_num);
+    }
     expr* congruence_root(expr* e) override { return e; }
     expr* congruence_next(expr* e) override { return e; }
     expr_ref congruence_explain(expr *a, expr *b) override { return expr_ref(m.mk_eq(a, b), m); }

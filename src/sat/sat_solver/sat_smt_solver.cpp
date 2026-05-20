@@ -424,6 +424,41 @@ public:
         return fmls;
     }
 
+    expr_ref get_split_candidate() override {
+        expr_ref_vector none(m);
+        lbool r = internalize_formulas(none);
+        if (r != l_true)
+            return expr_ref(nullptr, m);
+        convert_internalized();
+        sat::literal lit = m_solver.get_split_candidate();
+        if (lit == sat::null_literal)
+            return expr_ref(nullptr, m);
+        expr_ref_vector lit2expr(m);
+        lit2expr.resize(m_solver.num_vars() * 2);
+        m_map.mk_inv(lit2expr);
+        return expr_ref(lit2expr.get(lit.index()), m);
+    }
+
+    void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+        expr_ref_vector none(m);
+        lbool r = internalize_formulas(none);
+        if (r != l_true)
+            return;
+        convert_internalized();
+        sat::literal_vector lits;
+        m_solver.get_backbone_candidates(lits, max_num);
+        expr_ref_vector lit2expr(m);
+        lit2expr.resize(m_solver.num_vars() * 2);
+        m_map.mk_inv(lit2expr);
+        uint64_t now = m_solver.get_stats().m_conflict;
+        for (sat::literal lit : lits) {
+            expr* e = lit2expr.get(lit.index());
+            if (!e)
+                continue;
+            candidates.push_back(scored_literal(m, e, static_cast<double>(now - m_solver.get_preferred_phase_birthdate(lit.var()))));
+        }
+    }
+
     expr* congruence_next(expr* e) override { return e; }
     expr* congruence_root(expr* e) override { return e; }
     expr_ref congruence_explain(expr* a, expr* b) override { return expr_ref(m.mk_eq(a, b), m); }
@@ -728,4 +763,3 @@ private:
 solver* mk_sat_smt_solver(ast_manager& m, params_ref const& p) {
     return mk_simplifier_solver(alloc(sat_smt_solver, m, p), nullptr);
 }
-
