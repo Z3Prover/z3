@@ -133,7 +133,7 @@ namespace euf {
     // Instructions
     //
     // ------------------------------------
-    typedef enum {
+    typedef enum : uint8_t {
         INIT1=0, INIT2,  INIT3,  INIT4,  INIT5,  INIT6,  INITN, INITAC,
         BIND1,   BIND2,  BIND3,  BIND4,  BIND5,  BIND6,  BINDN,
         YIELD1,  YIELD2, YIELD3, YIELD4, YIELD5, YIELD6, YIELDN,
