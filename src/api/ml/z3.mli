@@ -2080,6 +2080,9 @@ sig
   (** the regular expression complement *)
   val mk_re_complement : context -> Expr.expr -> Expr.expr
 
+  (** the regular expression difference *)
+  val mk_re_diff : context -> Expr.expr -> Expr.expr -> Expr.expr
+
   (** the regular expression that accepts no sequences *)
   val mk_re_empty : context -> Sort.sort -> Expr.expr
 
