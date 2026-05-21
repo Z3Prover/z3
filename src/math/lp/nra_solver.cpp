@@ -419,42 +419,52 @@ struct solver::imp {
 
         statistics &st = m_nla_core.lp_settings().stats().m_st;
 
-        // Identify falsified COI constraints by evaluating each one at
-        // the LRA model after substituting monics and terms (this matches
-        // what mk_definition does when building NLSAT polynomials). We
-        // avoid materializing any NLSAT polynomial or clause for
-        // constraints that already hold.
-        u_map<rational> sub_cache;
-        svector<lp::constraint_index> falsified;
+        // Choose the falsified constraint to send to NLSAT according to
+        // arith.nl.nra_check_assignment_pick. In both modes we visit COI
+        // constraints in an order that lets us stop at the first
+        // falsified one rather than evaluating every constraint.
+        //
+        //   0 - sort COI constraints by ascending substitution-expansion
+        //       size (a structural, model-independent measure that acts
+        //       as a cheap LRA-side proxy for the lowest-degree-in-max-
+        //       var heuristic of nlsat::solver::check(rvalues, clause)).
+        //       The first falsified one we hit therefore has the minimum
+        //       expansion size among all falsified candidates.
+        //
+        //   1 - Fisher-Yates shuffle the COI constraints and pick the
+        //       first falsified one. Restricted to the falsified subset
+        //       a uniform permutation induces a uniform first-element
+        //       distribution, so the picked constraint is uniformly
+        //       random among falsified.
+        svector<lp::constraint_index> coi_constraints;
         for (auto ci : m_coi.constraints())
-            if (!lra_holds_substituted(ci, sub_cache))
-                falsified.push_back(ci);
+            coi_constraints.push_back(ci);
 
-        if (falsified.empty())
-            return l_undef;
-
-        // Pick the falsified constraint according to
-        // arith.nl.nra_check_assignment_pick:
-        //   0 - minimal substitution expansion (cheap LRA-side proxy
-        //       for the lowest-degree-in-max-var heuristic that
-        //       nlsat::solver::check(rvalues, clause) applies).
-        //   1 - uniformly random falsified constraint.
-        lp::constraint_index best = falsified[0];
         unsigned pick_mode = m_nla_core.params().arith_nl_nra_check_assignment_pick();
         if (pick_mode == 1) {
-            unsigned k = m_nla_core.random() % falsified.size();
-            best = falsified[k];
-        }
-        else {
-            unsigned best_score = constraint_expansion_size(best);
-            for (unsigned k = 1; k < falsified.size(); ++k) {
-                unsigned sc = constraint_expansion_size(falsified[k]);
-                if (sc < best_score) {
-                    best_score = sc;
-                    best = falsified[k];
-                }
+            for (unsigned i = coi_constraints.size(); i-- > 1; ) {
+                unsigned j = m_nla_core.random() % (i + 1);
+                std::swap(coi_constraints[i], coi_constraints[j]);
             }
         }
+        else {
+            std::stable_sort(coi_constraints.begin(), coi_constraints.end(),
+                             [&](lp::constraint_index a, lp::constraint_index b) {
+                                 return constraint_expansion_size(a) < constraint_expansion_size(b);
+                             });
+        }
+
+        u_map<rational> sub_cache;
+        lp::constraint_index best = lp::null_ci;
+        for (auto ci : coi_constraints) {
+            if (!lra_holds_substituted(ci, sub_cache)) {
+                best = ci;
+                break;
+            }
+        }
+
+        if (best == lp::null_ci)
+            return l_undef;
 
         // Determine the LRA variables transitively referenced by the
         // chosen constraint, then create only those NLSAT variables and
