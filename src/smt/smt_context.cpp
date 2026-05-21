@@ -59,6 +59,7 @@ namespace smt {
         m_qmanager(alloc(quantifier_manager, *this, p, _p)),
         m_model_generator(alloc(model_generator, m)),
         m_relevancy_propagator(mk_relevancy_propagator(*this)),
+        m_privileged_split_idx(0),
         m_user_propagator(nullptr),
         m_random(p.m_random_seed),
         m_flushing(false),
@@ -1912,7 +1913,6 @@ namespace smt {
 
         if (!is_pos) l.neg();
         TRACE(decide, tout << "case split " << l << "\n" << "activity: " << get_activity(var) << "\n";);
-        std::cout << "Deciding " << mk_pp(literal2expr(l), m) << std::endl;
         assign(l, b_justification::mk_axiom(), true);
         return true;
     }
@@ -2970,11 +2970,31 @@ namespace smt {
     }
 
     bool context::has_split_candidate(bool_var& var, bool& is_pos) {
-        if (!m_user_propagator)
-            return false;
-        if (!m_user_propagator->get_case_split(var, is_pos))
-            return false;
-        return get_assignment(var) == l_undef;
+        if (m_user_propagator) {
+            if (!m_user_propagator->get_case_split(var, is_pos))
+                return false;
+            return get_assignment(var) == l_undef;
+        }
+        if (m_privileged_split_idx < m_privileged_splits.size()) {
+            const unsigned prev = m_privileged_split_idx;
+            do {
+                const literal lit = m_privileged_splits[m_privileged_split_idx];
+                m_privileged_split_idx++;
+                if (get_assignment(lit) != l_undef)
+                    continue;
+                push_trail(value_trail(m_privileged_split_idx, prev));
+                var = lit.var();
+                is_pos = !lit.sign();
+                return true;
+            } while (m_privileged_split_idx < m_privileged_splits.size());
+            push_trail(value_trail(m_privileged_split_idx, prev));
+        }
+        return false;
+    }
+
+    void context::privileged_split(literal l) {
+        m_privileged_splits.push_back(l);
+        push_trail(push_back_vector<literal_vector>(m_privileged_splits));
     }
     
     bool context::decide_user_interference(bool_var& var, bool& is_pos) {

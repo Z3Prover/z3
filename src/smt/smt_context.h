@@ -107,6 +107,8 @@ namespace smt {
         scoped_ptr<quantifier_manager>   m_qmanager;
         scoped_ptr<model_generator>      m_model_generator;
         scoped_ptr<relevancy_propagator> m_relevancy_propagator;
+        literal_vector                   m_privileged_splits; // literals that need to be splitted on first
+        unsigned                         m_privileged_split_idx; // where to split
         theory_user_propagator*          m_user_propagator;
         random_gen                  m_random;
         bool                        m_flushing; // (debug support) true when flushing
@@ -1837,6 +1839,8 @@ namespace smt {
         bool watches_fixed(enode* n) const;
 
         bool has_split_candidate(bool_var& var, bool& is_pos);
+
+        void privileged_split(literal l);
         
         bool decide_user_interference(bool_var& var, bool& is_pos);
 

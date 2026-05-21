@@ -501,9 +501,9 @@ namespace seq {
         dep_tracker dep;   // tracks which input constraints contributed
 
         static expr_ref simplify(expr* f, ast_manager& m) {
-            //th_rewriter th(m);
+            th_rewriter th(m);
             expr_ref fml(f, m);
-            //th(fml);
+            th(fml);
             return fml;
         }
 

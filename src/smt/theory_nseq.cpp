@@ -866,7 +866,7 @@ namespace smt {
                 // std::cout << "Undef [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
                 // Commit the chosen Nielsen assumption to the SAT core so it
                 // cannot remain permanently undefined in a partial model.
-                ctx.force_phase(lit);
+                ctx.privileged_split(lit);
                 all_sat = false;
                 IF_VERBOSE(2, verbose_stream() << 
                     "nseq final_check: adding nielsen assumption " << c.fml << "\n";);
