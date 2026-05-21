@@ -479,7 +479,7 @@ jobs:
       - name: Test wheel
         run: |
           ~/env-pyodide/bin/pip install src/api/python/dist/*.whl
-          ~/env-pyodide/bin/python - <src/api/python/z3test.py z3
+          ~/env-pyodide/bin/python src/api/python/z3test.py z3
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7.0.1
