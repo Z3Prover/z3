@@ -2345,11 +2345,9 @@ namespace seq {
                 const bool fwd = od == 0;
                 euf::snode* lhead = dir_token(eq.m_lhs, fwd);
                 euf::snode* rhead = dir_token(eq.m_rhs, fwd);
-                if (!lhead || !rhead)
-                    continue;
+                SASSERT(lhead && rhead);
+                SASSERT(lhead->id() != rhead->id());
                 if (!lhead->is_var() || !rhead->is_var())
-                    continue;
-                if (lhead->id() == rhead->id())
                     continue;
 
                 // x·A = y·B where x,y are distinct variables (classic Nielsen)
@@ -2371,7 +2369,7 @@ namespace seq {
                 }
                 // child 3: x → y·x (no progress)
                 {
-                    euf::snode* replacement = dir_concat(m_sg, rhead, lhead, fwd);
+                    euf::snode* replacement = dir_concat(m_sg, rhead, get_tail(lhead, compute_length_expr(rhead).get(), fwd), fwd);
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, false);
                     const nielsen_subst s(lhead, replacement,
@@ -2382,7 +2380,7 @@ namespace seq {
                 }
                 // child 4: y → x·y (no progress)
                 {
-                    euf::snode* replacement = dir_concat(m_sg, lhead, rhead, fwd);
+                    euf::snode* replacement = dir_concat(m_sg, lhead, get_tail(rhead, compute_length_expr(lhead).get(), fwd), fwd);
                     nielsen_node* child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, false);
                     const nielsen_subst s(rhead, replacement,
