@@ -1297,6 +1297,9 @@ struct
   let mk_seq_contains = Z3native.mk_seq_contains
   let mk_seq_extract = Z3native.mk_seq_extract
   let mk_seq_replace = Z3native.mk_seq_replace
+  let mk_seq_replace_all = Z3native.mk_seq_replace_all
+  let mk_seq_replace_re = Z3native.mk_seq_replace_re
+  let mk_seq_replace_re_all = Z3native.mk_seq_replace_re_all
   let mk_seq_at = Z3native.mk_seq_at
   let mk_seq_length = Z3native.mk_seq_length
   let mk_seq_nth = Z3native.mk_seq_nth
