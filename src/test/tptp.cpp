@@ -73,6 +73,10 @@ fof(c1,conjecture, p(a)).)",
 R"(cnf(c1,axiom, p(X)).
 cnf(c2,axiom, ~ p(a)).)",
          "% SZS status Unsatisfiable"},
+        {"fof-bare-constant-equality",
+R"(fof(a1,axiom, ! [X] : (X = a)).
+fof(c1,conjecture, b = a).)",
+         "% SZS status Theorem"},
         {"tff-negative-literal",
 R"(tff(c1,conjecture, $less(-2,2)).)",
          "% SZS status Theorem"},

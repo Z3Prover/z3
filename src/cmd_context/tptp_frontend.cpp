@@ -966,6 +966,25 @@ class tptp_parser {
         return parse_term_primary();
     }
 
+    func_decl* mk_zero_arity_decl(symbol const& name, sort* range) {
+        std::string name_str = name.str();
+        if (range == m_univ)
+            return mk_decl_or_ho_const(name_str, 0, false);
+        if (m.is_bool(range))
+            return mk_decl_or_ho_const(name_str, 0, true);
+        std::string key = mk_decl_key(name_str, 0, 'c') + "\x1f" + std::to_string(range->get_id());
+        auto it = m_decls.find(key);
+        if (it != m_decls.end()) return it->second;
+        func_decl* f = m.mk_func_decl(name, 0, static_cast<sort**>(nullptr), range);
+        m_pinned_decls.push_back(f);
+        m_decls.emplace(key, f);
+        return f;
+    }
+
+    expr_ref coerce_zero_arity(app* a, sort* range) {
+        return expr_ref(m.mk_const(mk_zero_arity_decl(a->get_decl()->get_name(), range)), m);
+    }
+
     // Build an arithmetic expression from a TPTP function name and arguments
     // Coerce two expressions to have the same sort for equality.
     // If sorts already match, returns lhs unchanged. Otherwise coerces the
@@ -973,28 +992,25 @@ class tptp_parser {
     // coerces both to m_univ.
     expr_ref coerce_eq(expr_ref lhs, expr_ref& rhs) {
         if (lhs->get_sort() == rhs->get_sort()) return lhs;
-        // Try coercing one side (0-arity constants can be reinterpreted)
+        if (is_app(lhs) && to_app(lhs)->get_num_args() == 0 && m.is_bool(lhs->get_sort()) && !m.is_bool(rhs->get_sort()))
+            return coerce_zero_arity(to_app(lhs), rhs->get_sort());
+        if (is_app(rhs) && to_app(rhs)->get_num_args() == 0 && m.is_bool(rhs->get_sort()) && !m.is_bool(lhs->get_sort())) {
+            rhs = coerce_zero_arity(to_app(rhs), lhs->get_sort());
+            return lhs;
+        }
         if (is_app(lhs) && to_app(lhs)->get_num_args() == 0 && lhs->get_sort() != rhs->get_sort()) {
-            func_decl* fd = m.mk_func_decl(to_app(lhs)->get_decl()->get_name(), 0, static_cast<sort**>(nullptr), rhs->get_sort());
-            m_pinned_decls.push_back(fd);
-            return expr_ref(m.mk_const(fd), m);
+            return coerce_zero_arity(to_app(lhs), rhs->get_sort());
         }
         if (is_app(rhs) && to_app(rhs)->get_num_args() == 0 && lhs->get_sort() != rhs->get_sort()) {
-            func_decl* fd = m.mk_func_decl(to_app(rhs)->get_decl()->get_name(), 0, static_cast<sort**>(nullptr), lhs->get_sort());
-            m_pinned_decls.push_back(fd);
-            rhs = m.mk_const(fd);
+            rhs = coerce_zero_arity(to_app(rhs), lhs->get_sort());
             return lhs;
         }
         // Last resort: coerce both to m_univ
         if (is_app(lhs) && to_app(lhs)->get_num_args() == 0) {
-            func_decl* fd = m.mk_func_decl(to_app(lhs)->get_decl()->get_name(), 0, static_cast<sort**>(nullptr), m_univ);
-            m_pinned_decls.push_back(fd);
-            lhs = m.mk_const(fd);
+            lhs = coerce_zero_arity(to_app(lhs), m_univ);
         }
         if (is_app(rhs) && to_app(rhs)->get_num_args() == 0) {
-            func_decl* fd = m.mk_func_decl(to_app(rhs)->get_decl()->get_name(), 0, static_cast<sort**>(nullptr), m_univ);
-            m_pinned_decls.push_back(fd);
-            rhs = m.mk_const(fd);
+            rhs = coerce_zero_arity(to_app(rhs), m_univ);
         }
         return lhs;
     }
@@ -1070,6 +1086,11 @@ class tptp_parser {
             func_decl* f = args.empty() ? mk_decl_or_ho_const(n, 0, false) : mk_decl(n, args.size(), false);
             if (!args.empty()) coerce_args(f, args);
             return expr_ref(args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data()), m);
+        }
+
+        if (args.empty() && (is(token_kind::equal_tok) || is(token_kind::neq_tok))) {
+            func_decl* f = mk_decl_or_ho_const(n, 0, false);
+            return expr_ref(m.mk_const(f), m);
         }
 
         func_decl* pred = mk_decl_or_ho_const(n, args.size(), true);
@@ -1372,10 +1393,10 @@ public:
         m(m_cmd.m()),
         m_arith(m),
         m_array(m),
+        m_univ(m.mk_uninterpreted_sort(symbol("U"))),
         m_pinned_sorts(m),
         m_pinned_decls(m),
-        m_pinned_exprs(m),
-        m_univ(m.mk_uninterpreted_sort(symbol("U"))) {
+        m_pinned_exprs(m) {
         m_pinned_sorts.push_back(m_univ);
         sort* tType = m.mk_uninterpreted_sort(symbol("$tType"));
         m_pinned_sorts.push_back(tType);
