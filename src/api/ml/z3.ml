@@ -1322,6 +1322,7 @@ struct
   let mk_re_loop = Z3native.mk_re_loop
   let mk_re_intersect ctx args = Z3native.mk_re_intersect ctx (List.length args) args
   let mk_re_complement = Z3native.mk_re_complement
+  let mk_re_diff = Z3native.mk_re_diff
   let mk_re_empty = Z3native.mk_re_empty
   let mk_re_full = Z3native.mk_re_full
   let mk_char = Z3native.mk_char
