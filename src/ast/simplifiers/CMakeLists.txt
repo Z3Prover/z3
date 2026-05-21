@@ -15,6 +15,7 @@ z3_add_component(simplifiers
     elim_unconstrained.cpp
     eliminate_predicates.cpp
     euf_completion.cpp
+    expand_records.cpp
     extract_eqs.cpp
     factor_simplifier.cpp
     fold_unfold.cpp
@@ -39,6 +40,7 @@ z3_add_component(simplifiers
     blast_term_ite_simplifier.h
     elim_bounds.h
     elim_term_ite.h
+    expand_records.h
     pull_nested_quantifiers.h
     push_ite.h
     randomizer.h

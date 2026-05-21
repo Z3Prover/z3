@@ -228,6 +228,8 @@ class asserted_formulas {
     void force_push();
     void push_scope_core();
 
+    void expand_records();
+
     bool invoke(simplify_fmls& s);
     void swap_asserted_formulas(vector<justified_expr>& new_fmls);
     void push_assertion(expr * e, proof * pr, vector<justified_expr>& result);
