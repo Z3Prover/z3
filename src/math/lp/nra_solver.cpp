@@ -433,16 +433,26 @@ struct solver::imp {
         if (falsified.empty())
             return l_undef;
 
-        // Pick the falsified constraint with the smallest substitution
-        // expansion as a cheap LRA-side proxy for the lowest-degree
-        // heuristic that nlsat_solver::check(rvalues, clause) would apply.
+        // Pick the falsified constraint according to
+        // arith.nl.nra_check_assignment_pick:
+        //   0 - minimal substitution expansion (cheap LRA-side proxy
+        //       for the lowest-degree-in-max-var heuristic that
+        //       nlsat::solver::check(rvalues, clause) applies).
+        //   1 - uniformly random falsified constraint.
         lp::constraint_index best = falsified[0];
-        unsigned best_score = constraint_expansion_size(best);
-        for (unsigned k = 1; k < falsified.size(); ++k) {
-            unsigned sc = constraint_expansion_size(falsified[k]);
-            if (sc < best_score) {
-                best_score = sc;
-                best = falsified[k];
+        unsigned pick_mode = m_nla_core.params().arith_nl_nra_check_assignment_pick();
+        if (pick_mode == 1) {
+            unsigned k = m_nla_core.random() % falsified.size();
+            best = falsified[k];
+        }
+        else {
+            unsigned best_score = constraint_expansion_size(best);
+            for (unsigned k = 1; k < falsified.size(); ++k) {
+                unsigned sc = constraint_expansion_size(falsified[k]);
+                if (sc < best_score) {
+                    best_score = sc;
+                    best = falsified[k];
+                }
             }
         }
 
