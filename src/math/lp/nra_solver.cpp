@@ -274,80 +274,99 @@ struct solver::imp {
         return r;
     }
 
-    void setup_assignment_solver() {
-        SASSERT(need_check());
-        reset();
-        m_literal2constraint.reset();
-        m_vars2mon.reset();
-        m_coi.init();
-        auto &pm = m_nlsat->pm();
-        polynomial_ref_vector definitions(pm);
-        vector<rational> denominators;
+    // LRA model value with monic and term substitution, mirroring the
+    // de-linearized representation that mk_definition builds for NLSAT.
+    // For a monic m = v1*...*vk we return product of lra-values of vi
+    // (not lra.val(m), which may differ when m is being refined).
+    rational substituted_val(lp::lpvar v, u_map<rational>& cache) {
+        rational r;
+        if (cache.find(v, r))
+            return r;
+        if (m_nla_core.emons().is_monic_var(v)) {
+            r = rational::one();
+            for (auto w : m_nla_core.emons()[v].vars())
+                r *= substituted_val(w, cache);
+        }
+        else if (lra.column_has_term(v)) {
+            r = rational::zero();
+            for (auto const& [w, coeff] : lra.get_term(v))
+                r += coeff * substituted_val(w, cache);
+        }
+        else {
+            r = m_nla_core.val(v);
+        }
+        cache.insert(v, r);
+        return r;
+    }
 
-        // Create an NLSAT polyvar for each LRA variable (identity mapping),
-        // seed the assignment from the current LRA model, populate
-        // m_vars2mon, and build the inlined polynomial definition of v.
-        //
-        // The definition expands monic and term variables into polynomials
-        // over leaf variables. Each definition is scaled by denominators[v]
-        // so that all coefficients stay integral; the scaling cancels on
-        // both sides of every constraint we build below (just like in
-        // setup_solver_poly).
-        //
-        // This "de-linearized" representation is what the linear-cell
-        // construction in NLSAT needs: a cell built around a constraint
-        // polynomial that mentions several multiplications at once can
-        // yield a lemma constraining all of them simultaneously, which is
-        // strictly stronger than the per-multiplication lemmas we would
-        // get from asserting `v_mon - v1*...*vk = 0` separately.
-        for (unsigned v = 0; v < lra.number_of_vars(); ++v) {
-            auto j = m_nlsat->mk_var(lra.var_is_int(v));
-            VERIFY(j == v);
-            m_lp2nl.insert(v, j);
-            scoped_anum a(am());
-            am().set(a, m_nla_core.val(v).to_mpq());
-            m_values->push_back(a);
+    // Evaluate constraint ci at the LRA model after substituting monics
+    // and terms. Returns true iff the constraint holds.
+    bool lra_holds_substituted(lp::constraint_index ci, u_map<rational>& cache) {
+        auto& c = lra.constraints()[ci];
+        rational lhs(0);
+        for (auto [coeff, v] : c.coeffs())
+            lhs += coeff * substituted_val(v, cache);
+        rational const& rhs = c.rhs();
+        switch (c.kind()) {
+        case lp::lconstraint_kind::LE: return lhs <= rhs;
+        case lp::lconstraint_kind::GE: return lhs >= rhs;
+        case lp::lconstraint_kind::LT: return lhs < rhs;
+        case lp::lconstraint_kind::GT: return lhs > rhs;
+        case lp::lconstraint_kind::EQ: return lhs == rhs;
+        default: UNREACHABLE();
+        }
+        return true;
+    }
+
+    // BFS the set of LRA variables transitively reachable from constraint
+    // ci through monic factors and term components. These are exactly the
+    // variables that the substituted polynomial of ci will reference.
+    void collect_needed_vars(lp::constraint_index ci, indexed_uint_set& needed) {
+        svector<unsigned> todo;
+        auto& c = lra.constraints()[ci];
+        for (auto [coeff, v] : c.coeffs())
+            todo.push_back(v);
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            unsigned v = todo[i];
+            if (needed.contains(v))
+                continue;
+            needed.insert(v);
             if (m_nla_core.emons().is_monic_var(v)) {
-                auto const &m = m_nla_core.emons()[v];
-                auto vars = m.vars();
-                std::sort(vars.begin(), vars.end());
-                m_vars2mon.insert(vars, v);
+                for (auto w : m_nla_core.emons()[v].vars())
+                    todo.push_back(w);
             }
-            mk_definition(v, definitions, denominators);
+            else if (lra.column_has_term(v)) {
+                for (auto const& [w, coeff] : lra.get_term(v))
+                    todo.push_back(w);
+            }
         }
+    }
 
-        // Substitute each variable in the LRA constraint by its definition
-        // and rescale to keep integer coefficients. Symbolically:
-        //
-        //     v == definitions[v] / denominators[v]
-        //
-        //   sum(coeff_v * v) k rhs
-        //     == sum((coeff_v / denominators[v]) * definitions[v]) k rhs
-        //
-        // We pick den := lcm of all denominators(coeff_v / denominators[v])
-        // together with denominator(rhs), so that den * coeff_v / denominators[v]
-        // and den * rhs are all integers. The relation kind k is preserved
-        // because den > 0.
-        for (auto ci : m_coi.constraints()) {
-            auto &c = lra.constraints()[ci];
-            auto k = c.kind();
-            auto rhs = c.rhs();
-            auto lhs = c.coeffs();
-            rational den = denominator(rhs);
-            for (auto [coeff, v] : lhs)
-                den = lcm(den, denominator(coeff / denominators[v]));
-            polynomial::polynomial_ref p(pm);
-            p = pm.mk_const(-den * rhs);
-            for (auto [coeff, v] : lhs) {
-                polynomial_ref poly(pm);
-                poly = definitions.get(v);
-                poly = poly * constant(den * coeff / denominators[v]);
-                p = p + poly;
-            }
-            auto lit = add_constraint(p, ci, k);
-            m_literal2constraint.setx(lit.index(), ci, lp::null_ci);
+    // Cheap LRA-side proxy for "degree of the substituted polynomial in
+    // its max variable". For a leaf the expansion size is 1; for a monic
+    // it is the (recursive) sum over factors. For a constraint we take
+    // the max over the lhs terms, since the polynomial is a sum of those
+    // monomials. Smaller values are preferred to mimic the lowest-degree
+    // heuristic in nlsat_solver::check(rvalues, clause).
+    unsigned var_expansion_size(lp::lpvar v) {
+        if (m_nla_core.emons().is_monic_var(v)) {
+            unsigned s = 0;
+            for (auto w : m_nla_core.emons()[v].vars())
+                s += var_expansion_size(w);
+            return s;
         }
-        definitions.reset();
+        return 1;
+    }
+
+    unsigned constraint_expansion_size(lp::constraint_index ci) {
+        auto& c = lra.constraints()[ci];
+        unsigned best = 1;
+        for (auto [coeff, v] : c.coeffs()) {
+            unsigned d = var_expansion_size(v);
+            if (d > best)
+                best = d;
+        }
+        return best;
     }
 
     void process_polynomial_check_assignment(polynomial::polynomial const* p, rational& bound, const u_map<lp::lpvar>& nl2lp, lp::lar_term& t) {
@@ -392,38 +411,123 @@ struct solver::imp {
     }
     
     lbool check_assignment() {
-        setup_assignment_solver();
-        lbool r = l_undef;
+        SASSERT(need_check());
+        reset();
+        m_literal2constraint.reset();
+        m_vars2mon.reset();
+        m_coi.init();
+
         statistics &st = m_nla_core.lp_settings().stats().m_st;
-        nlsat::literal_vector clause;        
-        nlsat::assignment rvalues(m_nlsat->am());
+
+        // Identify falsified COI constraints by evaluating each one at
+        // the LRA model after substituting monics and terms (this matches
+        // what mk_definition does when building NLSAT polynomials). We
+        // avoid materializing any NLSAT polynomial or clause for
+        // constraints that already hold.
+        u_map<rational> sub_cache;
+        svector<lp::constraint_index> falsified;
+        for (auto ci : m_coi.constraints())
+            if (!lra_holds_substituted(ci, sub_cache))
+                falsified.push_back(ci);
+
+        if (falsified.empty())
+            return l_undef;
+
+        // Pick the falsified constraint with the smallest substitution
+        // expansion as a cheap LRA-side proxy for the lowest-degree
+        // heuristic that nlsat_solver::check(rvalues, clause) would apply.
+        lp::constraint_index best = falsified[0];
+        unsigned best_score = constraint_expansion_size(best);
+        for (unsigned k = 1; k < falsified.size(); ++k) {
+            unsigned sc = constraint_expansion_size(falsified[k]);
+            if (sc < best_score) {
+                best_score = sc;
+                best = falsified[k];
+            }
+        }
+
+        // Determine the LRA variables transitively referenced by the
+        // chosen constraint, then create only those NLSAT variables and
+        // polynomial definitions. No wasted definitions reach NLSAT.
+        indexed_uint_set needed;
+        collect_needed_vars(best, needed);
+
+        auto &pm = m_nlsat->pm();
+        polynomial_ref_vector definitions(pm);
+        vector<rational> denominators;
+
+        // Process vars in index order (topological). For needed leaves we
+        // allocate an NLSAT variable and let mk_definition push the leaf
+        // polynomial; for needed monics/terms mk_definition pushes the
+        // expanded form using the already-populated entries of its
+        // factors/components. Non-needed slots are filled with placeholders
+        // so that definitions[v] / denominators[v] remain index-aligned.
+        for (unsigned v = 0; v < lra.number_of_vars(); ++v) {
+            if (!needed.contains(v)) {
+                definitions.push_back(nullptr);
+                denominators.push_back(rational(0));
+                continue;
+            }
+            if (!m_nla_core.emons().is_monic_var(v) && !lra.column_has_term(v)) {
+                auto j = m_nlsat->mk_var(lra.var_is_int(v));
+                m_lp2nl.insert(v, j);
+            }
+            mk_definition(v, definitions, denominators);
+        }
+
+        // Populate m_vars2mon for every existing monic so that products
+        // produced by NLSAT's projection are recognized by add_lemma
+        // rather than being recreated through add_mul_def. Storage is
+        // negligible compared to the original per-monic clause work.
+        for (auto const& m : m_nla_core.emons()) {
+            auto vars = m.vars();
+            std::sort(vars.begin(), vars.end());
+            m_vars2mon.insert(vars, m.var());
+        }
+
+        // Build the substituted polynomial for the chosen constraint and
+        // register it as the single unit clause in NLSAT. The literal is
+        // wired to its source LRA constraint via m_literal2constraint so
+        // add_lemma can use the original explanation when it appears in
+        // the produced clause.
+        auto &c = lra.constraints()[best];
+        auto k = c.kind();
+        auto rhs = c.rhs();
+        auto lhs = c.coeffs();
+        rational den = denominator(rhs);
+        for (auto [coeff, v] : lhs)
+            den = lcm(den, denominator(coeff / denominators[v]));
+        polynomial::polynomial_ref p(pm);
+        p = pm.mk_const(-den * rhs);
+        for (auto [coeff, v] : lhs) {
+            polynomial_ref poly(pm);
+            poly = definitions.get(v);
+            poly = poly * constant(den * coeff / denominators[v]);
+            p = p + poly;
+        }
+        auto lit = add_constraint(p, best, k);
+        m_literal2constraint.setx(lit.index(), best, lp::null_ci);
+        definitions.reset();
+
+        // Seed the NLSAT assignment for the variables we registered
+        // (only leaves transitively reached from the chosen constraint).
+        nlsat::assignment rvalues(am());
         for (auto [j, x] : m_lp2nl) {
             scoped_anum a(am());
             am().set(a, m_nla_core.val(j).to_mpq());
             rvalues.set(x, a);
         }
-        r = m_nlsat->check(rvalues, clause);
-        
+
+        nlsat::literal_vector clause;
+        lbool r = m_nlsat->check(rvalues, clause);
         m_nlsat->collect_statistics(st);
-        switch (r) {
-        case l_true:
-            m_nla_core.set_use_nra_model(true);
-            lra.init_model();
-            for (lp::constraint_index ci : lra.constraints().indices())
-                if (!check_constraint(ci))
-                    return l_undef;
-            for (auto const& m : m_nla_core.emons())
-                if (!check_monic(m))
-                    return l_undef;
-            m_nla_core.set_use_nra_model(true);
-            break;
-        case l_false:
-            r = add_lemma(clause);
-            break;
-        default:
-            break;
-        }
-        return r;        
+
+        if (r == l_false)
+            return add_lemma(clause);
+        // The chosen constraint is falsified in the substituted LRA model,
+        // so NLSAT should also report l_false; any other outcome (l_true
+        // or l_undef) means we cannot derive a useful lemma here.
+        return l_undef;
     }
 
     lbool add_lemma(nlsat::literal_vector const &clause) {
