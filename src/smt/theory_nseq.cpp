@@ -850,11 +850,8 @@ namespace smt {
         //std::cout << "Nielsen assumptions:\n";
         bool all_sat = true;
         ctx.push_trail(reset_vector(m_nielsen_literals));
-        for (auto const& c : m_nielsen.sat_node()->constraints()) {
-            if (c.internal) {
-                std::cout << "Skipping internall assumption: "<< mk_pp(c.fml, m) << std::endl;
-                continue;
-            }
+        for (auto it = m_nielsen.sat_node()->constraints().rbegin(); it != m_nielsen.sat_node()->constraints().rend(); ++it) {
+            const auto& c = *it;
             std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
             auto lit = mk_literal(c.fml);   
             m_nielsen_literals.push_back(lit);
@@ -883,7 +880,7 @@ namespace smt {
                 ctx.push_trail(value_trail(m_context_solver.m_should_internalize));
                 m_context_solver.m_should_internalize = true;
                 break;
-            }    
+            }
             // use assumptions to bound search
             // "propagate(m_assumption_lit, lit)"; // to force the phase of lit to be true or force a conflict
         }

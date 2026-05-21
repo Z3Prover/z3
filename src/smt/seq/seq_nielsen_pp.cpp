@@ -130,6 +130,23 @@ namespace seq {
         return result;
     }
 
+    std::string decode_recursive_name(expr* e, ast_manager& m) {
+        SASSERT(e && is_app(e));
+        th_rewriter rw(m);
+        const skolem sk(m, rw);
+        expr* arg = e, *l, *r;
+        unsigned cnt = 0;
+        while (sk.is_slice(arg, arg, l, r)) {
+            cnt++;
+        }
+        if (to_app(arg)->get_num_args() != 0)
+            return "";
+        std::string s = dot_html_escape(to_app(arg)->get_decl()->get_name().str());
+        if (cnt == 0)
+            return s;
+        return s + "[" + std::to_string(cnt) + "]";
+    }
+
     static std::string code_to_str(unsigned code) {
         if (code >= 32 && code < 127 && code != '"' && code != '\\') {
             return std::string(reinterpret_cast<char*>(&code), 1);
@@ -217,8 +234,10 @@ namespace seq {
             return r;
         }
         if (seq.str.is_length(e, x)) {
-            if (to_app(x)->get_num_args() == 0)
-                return "|" + dot_html_escape(to_app(x)->get_decl()->get_name().str()) + "|";
+            std::string name = decode_recursive_name(x, m);
+            if (!name.empty()) {
+                return "|" + name + "|";
+            }
             if (names.contains(x)) {
                 return "|" + names[x] + "|";
             }
@@ -387,17 +406,6 @@ namespace seq {
         return dot_html_escape(os.str());
     }
 
-    std::string decode_recursive_name(expr* e, ast_manager& m) {
-        SASSERT(e && is_app(e));
-        th_rewriter rw(m);
-        const skolem sk(m, rw);
-        expr* arg = e, *l, *r;
-        while (sk.is_slice(arg, arg, l, r)) { }
-        if (to_app(arg)->get_num_args() != 0)
-            return "";
-        return dot_html_escape(to_app(arg)->get_decl()->get_name().str());
-    }
-
     // Helper: render a snode as an HTML label for DOT output.
     // Groups consecutive s_char tokens into quoted strings, renders s_var by name,
     // shows s_power with superscripts, s_unit by its inner expression,
@@ -539,8 +547,7 @@ namespace seq {
         // integer constraints
         std::vector<std::string> int_constraints;
         for (auto const& ic : m_constraints) {
-            int_constraints.push_back(
-            (ic.internal ? "[I]   " : "") + constraint_html(ic, names, next_id, m));
+            int_constraints.push_back(constraint_html(ic, names, next_id, m));
         }
         if (!int_constraints.empty()) {
             // eliminate duplicates

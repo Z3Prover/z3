@@ -3388,14 +3388,14 @@ static void add_len_ge(seq::nielsen_graph& ng, seq::nielsen_node* node, euf::sno
     ast_manager& m = ng.get_manager();
     arith_util arith(m);
     expr_ref len(ng.seq().str.mk_length(var->get_expr()), m);
-    node->add_constraint(seq::constraint(arith.mk_ge(len, arith.mk_int(lb)), dep, false, m));
+    node->add_constraint(seq::constraint(arith.mk_ge(len, arith.mk_int(lb)), dep, m));
 }
 
 static void add_len_le(seq::nielsen_graph& ng, seq::nielsen_node* node, euf::snode* var, unsigned ub, seq::dep_tracker dep) {
     ast_manager& m = ng.get_manager();
     arith_util arith(m);
     expr_ref len(ng.seq().str.mk_length(var->get_expr()), m);
-    node->add_constraint(seq::constraint(arith.mk_le(len, arith.mk_int(ub)), dep, false, m));
+    node->add_constraint(seq::constraint(arith.mk_le(len, arith.mk_int(ub)), dep, m));
 }
 
 static unsigned queried_lb(seq::nielsen_node* node, euf::snode* var) {

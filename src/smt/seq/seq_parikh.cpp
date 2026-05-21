@@ -210,11 +210,11 @@ namespace seq {
         expr_ref stride_expr(a.mk_int(stride), m);
         expr_ref stride_k(a.mk_mul(stride_expr, k_var), m);
         expr_ref rhs(a.mk_add(min_expr, stride_k), m);
-        out.push_back(constraint(m.mk_eq(len_str, rhs), mem.m_dep, false, m));
+        out.push_back(constraint(m.mk_eq(len_str, rhs), mem.m_dep, m));
 
         // Constraint 2: k ≥ 0
         expr_ref zero(a.mk_int(0), m);
-        out.push_back(constraint(a.mk_ge(k_var, zero), mem.m_dep, false, m));
+        out.push_back(constraint(a.mk_ge(k_var, zero), mem.m_dep, m));
 
         // Constraint 3 (optional): k ≤ max_k when max_len is bounded.
         // max_k = floor((max_len - min_len) / stride)
@@ -226,7 +226,7 @@ namespace seq {
             unsigned range = max_len - min_len;
             unsigned max_k = range / stride;
             expr_ref max_k_expr(a.mk_int(max_k), m);
-            out.push_back(constraint(a.mk_le(k_var, max_k_expr), mem.m_dep, false, m));
+            out.push_back(constraint(a.mk_le(k_var, max_k_expr), mem.m_dep, m));
         }
     }
 

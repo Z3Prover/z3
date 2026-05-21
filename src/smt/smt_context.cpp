@@ -1912,6 +1912,7 @@ namespace smt {
 
         if (!is_pos) l.neg();
         TRACE(decide, tout << "case split " << l << "\n" << "activity: " << get_activity(var) << "\n";);
+        std::cout << "Deciding " << mk_pp(literal2expr(l), m) << std::endl;
         assign(l, b_justification::mk_axiom(), true);
         return true;
     }

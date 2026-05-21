@@ -499,7 +499,6 @@ namespace seq {
     struct constraint {
         expr_ref    fml;   // the formula (eq, le, or ge, unit-diseq expression)
         dep_tracker dep;   // tracks which input constraints contributed
-        bool        internal; // don't push back to the outer solver (helpful if not necessary and it would reveal internal variables)
 
         static expr_ref simplify(expr* f, ast_manager& m) {
             //th_rewriter th(m);
@@ -509,10 +508,10 @@ namespace seq {
         }
 
         constraint(ast_manager& m):
-            fml(m), dep(nullptr), internal(true) {}
+            fml(m), dep(nullptr) {}
 
-        constraint(expr* f, dep_tracker const& d, const bool internal, ast_manager& m):
-            fml(simplify(f, m)), dep(d), internal(internal) {}
+        constraint(expr* f, dep_tracker const& d, ast_manager& m):
+            fml(simplify(f, m)), dep(d) {}
 
         std::ostream& display(std::ostream& out) const;
     };
@@ -529,14 +528,13 @@ namespace seq {
         expr_ref    m_expr;  // arithmetic expression (e.g., len(x) + len(y) = len(a) + 1)
         dep_tracker m_dep;   // tracks which input constraints contributed
         length_kind m_kind;  // determines propagation strategy
-        bool        m_internal;
 
-        length_constraint(ast_manager& m): m_expr(m), m_dep(nullptr), m_kind(length_kind::nonneg), m_internal(true) {}
+        length_constraint(ast_manager& m): m_expr(m), m_dep(nullptr), m_kind(length_kind::nonneg) {}
         length_constraint(expr* e, dep_tracker const& dep, length_kind kind, const bool internal, ast_manager& m):
-            m_expr(e, m), m_dep(dep), m_kind(kind), m_internal(internal) {}
+            m_expr(e, m), m_dep(dep), m_kind(kind) {}
 
         constraint to_constraint() const {
-            return constraint(m_expr, m_dep, m_internal, m_expr.get_manager());
+            return constraint(m_expr, m_dep, m_expr.get_manager());
         }
     };
 
@@ -879,9 +877,8 @@ namespace seq {
 
 
         // Maps each variable to its current length term
-
-        ptr_vector<euf::snode>        m_length_trail;
-        u_map<euf::snode *>           m_length_info;
+        // ptr_vector<euf::snode>        m_length_trail;
+        // u_map<euf::snode *>           m_length_info;
         u_map<unsigned>               m_mod_cnt;
 
         // Arena for dep_tracker nodes.  Declared mutable so that const methods
@@ -1307,7 +1304,7 @@ namespace seq {
         bool check_lp_le(expr* lhs, expr* rhs, nielsen_node* n, dep_tracker& dep);
 
         // create an integer constraint: lhs <kind> rhs
-        constraint mk_constraint(expr* fml, dep_tracker const& dep, bool internal = false) const;
+        constraint mk_constraint(expr *fml, dep_tracker const &dep) const;
 
         // get the exponent expression from a power snode (arg(1))
         static expr * get_power_exponent(euf::snode* power);

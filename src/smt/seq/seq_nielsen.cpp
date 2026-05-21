@@ -321,7 +321,7 @@ namespace seq {
             // We have to add all - even if some of it conflict
             // [otw. we would leave the node partially initialized]
             for (const auto f : *to_app(c.fml)) {
-                add_constraint(constraint(f, c.dep, c.internal, m));
+                add_constraint(constraint(f, c.dep, m));
             }
             return;
         }
@@ -371,7 +371,7 @@ namespace seq {
             expr* var_c_expr = s.m_var->arg(0)->get_expr();
             expr* repl_c_expr = s.m_replacement->arg(0)->get_expr();
             add_constraint(
-                constraint(m.mk_eq(var_c_expr, repl_c_expr), s.m_dep, false, m));
+                constraint(m.mk_eq(var_c_expr, repl_c_expr), s.m_dep, m));
 
             if (m_char_ranges.contains(var_id)) {
                 const auto range = m_char_ranges.find(var_id); // copy exactly
@@ -425,7 +425,7 @@ namespace seq {
                 seq.mk_le(seq.mk_char(ranges[i].m_lo), var),
                 seq.mk_le(var, seq.mk_char(ranges[i].m_hi - 1)));
         }
-        add_constraint(constraint(m.mk_or(cases), dep, false, m));
+        add_constraint(constraint(m.mk_or(cases), dep, m));
     }
     // -----------------------------------------------
     // nielsen_graph
@@ -531,15 +531,15 @@ namespace seq {
         m_depth_bound = 0;
         m_fresh_cnt = 0;
         m_root_constraints_asserted = false;
-        m_mod_cnt.reset();
+        //m_mod_cnt.reset();
         m_partial_dfa_edges.reset();
         m_partial_dfa_out.clear();
         m_partial_dfa_in.clear();
         m_partial_dfa_edge_index.clear();
         m_projection_extract_idx = 0;
         m_projection_cover_size.reset();
-        m_length_trail.reset();
-        m_length_info.reset();
+        //m_length_trail.reset();
+        //m_length_info.reset();
         m_dep_mgr.reset();
         m_length_solver.reset();
         SASSERT(m_nodes.empty());
@@ -555,7 +555,7 @@ namespace seq {
         // just assume it to be correct
         // Just add the constraint - we do not have to recompute it
         // [also it is on the set of side-conditions if we assert a satisfied node]
-        n->add_constraint(constraint(le, dep, false, m));
+        n->add_constraint(constraint(le, dep, m));
     }
 
     // -----------------------------------------------------------------------
@@ -1987,7 +1987,8 @@ namespace seq {
                         expr* expr_node = t->get_expr();
                         expr* pow_base = nullptr, *pow_exp = nullptr;
                         if (seq().str.is_power(expr_node, pow_base, pow_exp) && pow_exp) {
-                            e->add_side_constraint(mk_constraint(m.mk_eq(pow_exp, a.mk_int(0)), eq.m_dep));
+                            e->add_side_constraint(mk_constraint(a.mk_ge(pow_exp, a.mk_int(0)), eq.m_dep));
+                            e->add_side_constraint(mk_constraint(a.mk_le(pow_exp, a.mk_int(0)), eq.m_dep));
                         }
                         nielsen_subst s(t, m_sg.mk_empty_seq(t->get_sort()), nullptr, eq.m_dep);
                         e->add_subst(s);
@@ -2103,7 +2104,8 @@ namespace seq {
                     expr* pow_exp = get_power_exp_expr(pow_head, m_seq);
                     if (pow_exp) {
                         expr* zero = a.mk_int(0);
-                        e->add_side_constraint(mk_constraint(m.mk_eq(pow_exp, zero), eq.m_dep));
+                        e->add_side_constraint(mk_constraint(a.mk_ge(pow_exp, zero), eq.m_dep));
+                        e->add_side_constraint(mk_constraint(a.mk_le(pow_exp, zero), eq.m_dep));
                     }
                     return true;
                 }
@@ -2249,13 +2251,14 @@ namespace seq {
                 for (unsigned j = 1; j < i; ++j) {
                     prefix_sn = dir_concat(m_sg, prefix_sn, char_toks[j], fwd);
                 }
-                euf::snode* replacement = dir_concat(m_sg, prefix_sn,
-                    get_tail(var_node, compute_length_expr(prefix_sn).get(), fwd), fwd);
+                euf::snode* tail = get_tail(var_node, compute_length_expr(prefix_sn).get(), fwd);
+                euf::snode* replacement = dir_concat(m_sg, prefix_sn, tail, fwd);
                 nielsen_subst s(var_node, replacement,
                                 mk_rewrite(a.mk_sub(compute_length_expr(var_node), compute_length_expr(prefix_sn))),
                                 eq.m_dep);
                 nielsen_node* child = mk_child(node);
                 nielsen_edge* e = mk_edge(node, child, true);
+                e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(tail), a.mk_int(0)), eq.m_dep));
                 e->add_subst(s);
                 child->apply_subst(m_sg, s);
                 return true;
@@ -2318,9 +2321,11 @@ namespace seq {
                     child->apply_subst(m_sg, s1);
 
 
-                    euf::snode* replacement = dir_concat(m_sg, char_head, get_tail(var_head, a.mk_int(1), fwd), fwd);
+                    euf::snode* tail = get_tail(var_head, a.mk_int(1), fwd);
+                    euf::snode* replacement = dir_concat(m_sg, char_head, tail, fwd);
                     child = mk_child(node);
                     e = mk_edge(node, child, false);
+                    e->add_side_constraint(mk_constraint(a.mk_ge(compute_length_expr(tail), a.mk_int(0)), eq.m_dep));
                     const nielsen_subst s2(var_head, replacement, mk_rewrite(a.mk_sub(compute_length_expr(var_head), a.mk_int(1))), eq.m_dep);
                     e->add_subst(s2);
                     child->apply_subst(m_sg, s2);
@@ -3086,8 +3091,10 @@ namespace seq {
         const nielsen_subst s1(power, m_sg.mk_empty_seq(power->get_sort()), nullptr, eq->m_dep);
         e->add_subst(s1);
         child->apply_subst(m_sg, s1);
-        if (exp_n)
-            e->add_side_constraint(mk_constraint(m.mk_eq(exp_n, zero), eq->m_dep));
+        if (exp_n) {
+            e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, zero), eq->m_dep));
+            e->add_side_constraint(mk_constraint(a.mk_le(exp_n, zero), eq->m_dep));
+        }
 
         // Branch 2 (explored second): n >= 1 → peel one u: replace u^n with u · u^(n-1)
         // Side constraint: n >= 1
@@ -3946,7 +3953,7 @@ namespace seq {
                     nielsen_node *child = mk_child(node);
                     nielsen_edge* e = mk_edge(node, child, true);
                     for (const auto f : cs) {
-                        e->add_side_constraint(constraint(f, mem.m_dep, false, m));
+                        e->add_side_constraint(constraint(f, mem.m_dep, m));
                     }
                     for (str_mem &cm : child->str_mems()) {
                         if (cm == mem) {
@@ -4190,7 +4197,8 @@ namespace seq {
             const nielsen_subst s(power, m_sg.mk_empty_seq(power->get_sort()), nullptr, eq->m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
-            e->add_side_constraint(mk_constraint(m.mk_eq(exp_n, zero), eq->m_dep));
+            e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, zero), eq->m_dep));
+            e->add_side_constraint(mk_constraint(a.mk_le(exp_n, zero), eq->m_dep));
         }
 
         // Branch 2: n >= 1 → peel one u: u^n → u · u^(n-1)
@@ -4233,7 +4241,8 @@ namespace seq {
             const nielsen_subst s(power, m_sg.mk_empty_seq(power->get_sort()), nullptr, mem->m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
-            e->add_side_constraint(mk_constraint(m.mk_eq(exp_n, zero), mem->m_dep));
+            e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, zero), mem->m_dep));
+            e->add_side_constraint(mk_constraint(a.mk_le(exp_n, zero), mem->m_dep));
         }
 
         // Branch 2: n >= 1 → peel one u: u^n → u · u^(n-1)
@@ -4322,9 +4331,9 @@ namespace seq {
             return expr_ref(a.mk_add(left, right), m);
         }
 
-        euf::snode *length_term = nullptr;
-        if (m_length_info.find(n->id(), length_term) && length_term)
-            return expr_ref(length_term->get_expr(), m);
+        //euf::snode *length_term = nullptr;
+        //if (m_length_info.find(n->id(), length_term) && length_term)
+        //    return expr_ref(length_term->get_expr(), m);
 
         return expr_ref(m_seq.str.mk_length(n->get_expr()), m);
     }
@@ -4432,18 +4441,18 @@ namespace seq {
 
     expr_ref nielsen_graph::get_or_create_gpower_n_var(euf::snode* var) {
         SASSERT(var && var->is_var());
-        unsigned mc = 0;
-        m_mod_cnt.find(var->id(), mc);
+        //unsigned mc = 0;
+        //m_mod_cnt.find(var->id(), mc);
         th_rewriter rw(m);
-        return m_sk.mk("gpn!", var->get_expr(), a.mk_int(mc), a.mk_int());
+        return m_sk.mk("gpn!", var->get_expr()/*, a.mk_int(mc)*/, a.mk_int());
     }
 
     expr_ref nielsen_graph::get_or_create_gpower_m_var(euf::snode* var) {
         SASSERT(var && var->is_var());
-        unsigned mc = 0;
-        m_mod_cnt.find(var->id(), mc);
+        //unsigned mc = 0;
+        //m_mod_cnt.find(var->id(), mc);
         th_rewriter rw(m);
-        return m_sk.mk("gpm!", var->get_expr(), a.mk_int(mc), a.mk_int());
+        return m_sk.mk("gpm!", var->get_expr()/*, a.mk_int(mc)*/, a.mk_int());
     }
 
     void nielsen_graph::add_subst_length_constraints(nielsen_edge* e) {
@@ -4467,7 +4476,7 @@ namespace seq {
                 continue;
             has_non_elim = true;
             // Assert LHS >= 0
-            e->add_side_constraint(mk_constraint(a.mk_ge(lhs, a.mk_int(0)), s.m_dep, true));
+            e->add_side_constraint(mk_constraint(a.mk_ge(lhs, a.mk_int(0)), s.m_dep));
         }
 
         // Step 2: Bump mod counts for all non-eliminating variables at once.
@@ -4479,7 +4488,8 @@ namespace seq {
         for (auto const &[idx, lhs] : lhs_exprs) {
             auto const& s = substs[idx];
             expr_ref rhs = compute_length_expr(s.m_replacement);
-            e->add_side_constraint(mk_constraint(m.mk_eq(lhs, rhs), s.m_dep, true));
+            e->add_side_constraint(mk_constraint(a.mk_ge(lhs, rhs), s.m_dep));
+            e->add_side_constraint(mk_constraint(a.mk_le(lhs, rhs), s.m_dep));
             // otw. we have equality as a side-constraint in the Nielsen node
             // and adding the Nielsen assumption will force the phase of the equality to true
             // however the arith.-solver will axiomatize it as <= && >= which do not have a phase
@@ -4498,15 +4508,15 @@ namespace seq {
         for (unsigned i = 0; i < sub.size();  ++i) {
             auto const &s = sub[i];
             unsigned id = s.m_var->id();
-            if (s.m_length) {
-                euf::snode *old_length = nullptr;
-                m_length_info.find(id, old_length);
-                m_length_trail.push_back(old_length);
-                m_length_info.insert(id, s.m_length);
-            }
-            unsigned prev = 0;
-            m_mod_cnt.find(id, prev);
-            m_mod_cnt.insert(id, prev + 1);
+            //if (s.m_length) {
+            //    euf::snode *old_length = nullptr;
+            //    m_length_info.find(id, old_length);
+            //    m_length_trail.push_back(old_length);
+            //    m_length_info.insert(id, s.m_length);
+            //}
+            //unsigned prev = 0;
+            //m_mod_cnt.find(id, prev);
+            //m_mod_cnt.insert(id, prev + 1);
         }
     }
 
@@ -4515,18 +4525,18 @@ namespace seq {
         for (unsigned i = sub.size(); i-- > 0; ) {
             auto const &s = sub[i];
             unsigned id = s.m_var->id();
-            if (s.m_length) {
-                auto old_length = m_length_trail.back();
-                m_length_trail.pop_back();
-                m_length_info.insert(id, old_length);
-            }
-            unsigned prev = 0;
-            VERIFY(m_mod_cnt.find(id, prev));
-            SASSERT(prev >= 1);
-            if (prev <= 1)
-                m_mod_cnt.remove(id);
-			else
-                m_mod_cnt.insert(id, prev - 1);
+            //if (s.m_length) {
+            //    auto old_length = m_length_trail.back();
+            //    m_length_trail.pop_back();
+            //    m_length_info.insert(id, old_length);
+            //}
+            //unsigned prev = 0;
+            //VERIFY(m_mod_cnt.find(id, prev));
+            //SASSERT(prev >= 1);
+            //if (prev <= 1)
+            //    m_mod_cnt.remove(id);
+			//else
+            //    m_mod_cnt.insert(id, prev - 1);
         }
     }
 
@@ -4551,6 +4561,7 @@ namespace seq {
             // std::endl;
             if (lit != sat::null_literal) {
                 node->set_external_conflict(lit, c.dep);
+                std::cout << "External conflict: " << mk_pp(c.fml, m) << " with literal " << lit << std::endl;
                 return;
             }
             assert_to_subsolver(c);
@@ -4576,7 +4587,9 @@ namespace seq {
 
             expr_ref len_lhs = compute_length_expr(eq.m_lhs);
             expr_ref len_rhs = compute_length_expr(eq.m_rhs);
-            node->add_constraint(mk_constraint(m.mk_eq(len_lhs, len_rhs), eq.m_dep, true));
+            //node->add_constraint(mk_constraint(m.mk_eq(len_lhs, len_rhs), eq.m_dep));
+            node->add_constraint(mk_constraint(a.mk_ge(len_lhs, len_rhs), eq.m_dep));
+            node->add_constraint(mk_constraint(a.mk_le(len_lhs, len_rhs), eq.m_dep));
 
             // non-negativity for each variable (mod-count-aware)
             euf::snode_vector tokens;
@@ -4586,7 +4599,7 @@ namespace seq {
                 if (tok->is_var() && !seen_vars.contains(tok->id())) {
                     seen_vars.insert(tok->id());
                     expr_ref len_var = compute_length_expr(tok);
-                    node->add_constraint(mk_constraint(a.mk_ge(len_var, a.mk_int(0)), eq.m_dep, true));
+                    node->add_constraint(mk_constraint(a.mk_ge(len_var, a.mk_int(0)), eq.m_dep));
                 }
             }
         }
@@ -4602,9 +4615,9 @@ namespace seq {
             expr_ref len_str = compute_length_expr(mem.m_str);
 
             if (min_len > 0)
-                node->add_constraint(mk_constraint(a.mk_ge(len_str, a.mk_int(min_len)), mem.m_dep, true));
+                node->add_constraint(mk_constraint(a.mk_ge(len_str, a.mk_int(min_len)), mem.m_dep));
             if (max_len < UINT_MAX)
-                node->add_constraint(mk_constraint(a.mk_le(len_str, a.mk_int(max_len)), mem.m_dep, true));
+                node->add_constraint(mk_constraint(a.mk_le(len_str, a.mk_int(max_len)), mem.m_dep));
         }
     }
 
@@ -4665,14 +4678,14 @@ namespace seq {
             dep = m_length_solver.core();
         m_length_solver.pop(1);
         if (result == l_false) {
-            n->add_constraint(constraint(a.mk_le(lhs, rhs), dep, false, m));
+            n->add_constraint(constraint(a.mk_le(lhs, rhs), dep, m));
             return true;
         }
         return false;
     }
 
-    constraint nielsen_graph::mk_constraint(expr* fml, dep_tracker const& dep, bool internal) const {
-        return constraint(fml, dep, internal, m);
+    constraint nielsen_graph::mk_constraint(expr *fml, dep_tracker const &dep) const {
+        return constraint(fml, dep, m);
     }
 
     expr* nielsen_graph::get_power_exponent(euf::snode* power) {
