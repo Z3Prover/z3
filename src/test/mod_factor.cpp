@@ -4,6 +4,7 @@ Copyright (c) 2025 Microsoft Corporation
 
 #include "api/z3.h"
 #include "util/util.h"
+#include <string>
 
 // x mod 7 = 0 & (x*y) mod 7 != 0 should be unsat
 // Exercises: mod internalization path (is_mod with numeric divisor)
@@ -60,7 +61,31 @@ static void test_mod_factor_idiv_path() {
     Z3_del_context(ctx);
 }
 
+static void test_const_array_store_chain_unsat() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    const char* script = R"(
+(set-logic QF_ABV)
+(declare-const x (_ BitVec 8))
+(declare-const y (_ BitVec 8))
+(define-fun A0 () (Array (_ BitVec 2) (_ BitVec 8)) ((as const (Array (_ BitVec 2) (_ BitVec 8))) x))
+(define-fun A1 () (Array (_ BitVec 2) (_ BitVec 8)) ((as const (Array (_ BitVec 2) (_ BitVec 8))) y))
+(declare-const i0 (_ BitVec 2))
+(declare-const e0 (_ BitVec 8))
+(declare-const i1 (_ BitVec 2))
+(declare-const e1 (_ BitVec 8))
+(assert (distinct x y))
+(assert (= (store A0 i0 e0) (store A1 i1 e1)))
+(check-sat)
+)";
+    std::string resp = Z3_eval_smtlib2_string(ctx, script);
+    ENSURE(resp.find("unsat") != std::string::npos);
+    Z3_del_config(cfg);
+    Z3_del_context(ctx);
+}
+
 void tst_mod_factor() {
     test_mod_factor_mod_path();
     test_mod_factor_idiv_path();
+    test_const_array_store_chain_unsat();
 }
