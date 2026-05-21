@@ -254,6 +254,27 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
         }
         return;
     }
+    case AST_QUANTIFIER: {
+        quantifier * q = to_quantifier(n);
+        unsigned num_decls = q->get_num_decls();
+        info * body_info = nullptr;
+        m_cache.find(entry(q->get_expr(), delta + num_decls), body_info);
+        if (body_info == nullptr) {
+            save(n, delta, nullptr);
+            return;
+        }
+        // The lambda/quantifier itself is a valid sub-term in a pattern.
+        // Propagate the free variables from the body (they already refer
+        // to the outer quantifier's bindings) and keep the node as-is.
+        expr * new_body = body_info->m_node.get();
+        quantifier_ref new_q(m);
+        if (new_body != q->get_expr())
+            new_q = m.update_quantifier(q, new_body);
+        else
+            new_q = q;
+        save(n, delta, alloc(info, m, new_q, body_info->m_free_vars, body_info->m_size + 1));
+        return;
+    }
     default:
         save(n, delta, nullptr);
         return;
