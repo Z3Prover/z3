@@ -191,8 +191,7 @@ namespace smt {
         vector<std::pair<euf::snode*, euf::snode*>> bindings;
         for (seq::nielsen_edge* e : sat_path) {
             for (seq::nielsen_subst const& s : e->subst()) {
-                if (!s.m_var) 
-                    continue;
+                SASSERT(s.m_var);
                 IF_VERBOSE(1, {
                     verbose_stream() << "  subst: snode[" << s.m_var->id() << "]";
                     if (s.m_var->get_expr()) verbose_stream() << "=" << mk_bounded_pp(s.m_var->get_expr(), m, 2);
@@ -210,17 +209,18 @@ namespace smt {
         for (auto const &[var, replacement] : bindings) {
             SASSERT(var);
             unsigned id = var->first()->id(); // TODO - first or just var->id()?
-            if (!m_var_replacement.contains(id))
-                m_var_replacement.insert(id, replacement);
+            SASSERT(!m_var_replacement.contains(id));
+            m_var_replacement.insert(id, replacement);
+            std::cout << "Assignment: " << mk_pp(var->get_expr(), m) << ": " << mk_pp(replacement->get_expr(), m) << std::endl;
         }
     }
     
     void seq_model::collect_dependencies(euf::snode *n, ptr_vector<enode> &deps) const {
         uint_set seen;
-        buffer<std::pair<euf::snode*, bool>> todo;
-        todo.push_back({n, false});
+        buffer<euf::snode*> todo;
+        todo.push_back(n);
         while (!todo.empty()) {
-            auto [curr, is_recursive] = todo.back();
+            auto curr = todo.back();
             todo.pop_back();
             if (seen.contains(curr->id()))
                 continue;
@@ -236,7 +236,7 @@ namespace smt {
             }
             else if (curr->is_concat()) {
                 for (unsigned i = 0; i < curr->num_args(); ++i)
-                    todo.push_back({curr->arg(i), is_recursive});
+                    todo.push_back(curr->arg(i));
             }
             else if (curr->is_power()) {
                 // pretend there are no dependencies
@@ -249,8 +249,8 @@ namespace smt {
                 // map the values that are passed in to the sub-terms that are listed as dependencies.
                 // sub-terms are under concat, power and unit
                 euf::snode *replacement = nullptr;             
-                if (!is_recursive && m_var_replacement.find(curr->id(), replacement)) 
-                    todo.push_back({replacement, true});                
+                if (m_var_replacement.find(curr->id(), replacement))
+                    todo.push_back(replacement);
             }
             else {
                 IF_VERBOSE(0, {
@@ -276,26 +276,26 @@ namespace smt {
         // and the inner "leftover" remainder (is_recursive == true, value == "").
         u_map<expr *> var2value;
         u_map<expr *> node2value;
-        auto mk_key = [](euf::snode* s, bool r) { return s->id() * 2 + (r ? 1u : 0u); };
         // resolve: check leaf deps by expression ID, computed nodes by (snode,recursive) key.
-        auto resolve = [&](euf::snode* s, bool r, expr*& out) -> bool {
+        auto resolve = [&](euf::snode* s, expr*& out) -> bool {
             if (var2value.find(s->get_expr()->get_id(), out))
                 return true;
-            return node2value.find(mk_key(s, r), out);
+            return node2value.find(s->id(), out);
         };
-        buffer<std::pair<euf::snode *, bool>> todo;
-        for (unsigned i = 0; i < deps.size(); ++i)
+        buffer<euf::snode *> todo;
+        for (unsigned i = 0; i < deps.size(); ++i) {
             var2value.insert(deps[i]->get_expr_id(), values[i]);
-        todo.push_back({n, false});
+        }
+        todo.push_back(n);
         expr_ref_vector args(m), pinned(m);
         arith_util a(m);
 
         expr *val = nullptr;
         while (!todo.empty()) {
-            auto [curr, is_recursive] = todo.back();
+            auto curr = todo.back();
             // Early exit: already computed (as leaf dep or computed node).
             expr* cached = nullptr;
-            if (resolve(curr, is_recursive, cached)) {
+            if (resolve(curr, cached)) {
                 todo.pop_back();
                 continue;
             }
@@ -331,10 +331,10 @@ namespace smt {
                 for (unsigned i = 0; i < curr->num_args(); ++i) {
                     auto arg = curr->arg(i);
                     expr* av = nullptr;
-                    if (resolve(arg, is_recursive, av))
+                    if (resolve(arg, av))
                         args.push_back(av);
                     else {
-                        todo.push_back({arg, is_recursive});
+                        todo.push_back(arg);
                         all_ready = false;
                     }
                 }
@@ -345,27 +345,14 @@ namespace smt {
             }
             else if (curr->is_var()) {
                 euf::snode *replacement = nullptr;
-                if (!is_recursive && m_var_replacement.find(curr->id(), replacement)) {
+                if (m_var_replacement.find(curr->id(), replacement)) {
                     // outer variable: its value is the value of its replacement.
                     expr* rv = nullptr;
-                    if (!resolve(replacement, true, rv)) {
-                        todo.push_back({replacement, true});
+                    if (!resolve(replacement, rv)) {
+                        todo.push_back(replacement);
                         continue;
                     }
                     val = rv;
-                }
-                else if (is_recursive) {
-                    // recursive "leftover" remainder of a Nielsen substitution
-                    // such as x -> [nth_u(x,k)] ++ x. If the variable still
-                    // carries a primitive membership at the satisfying node
-                    // (recorded in m_var_regex), the leftover is a genuine
-                    // non-empty witness of that residual regex, not an
-                    // eliminated remainder. Otherwise the path drove it to the
-                    // empty string.
-                    if (m_var_regex.contains(curr->first()->id()))
-                        val = get_var_value(curr);
-                    else
-                        val = m_seq.str.mk_empty(curr->get_sort());
                 }
                 else {
                     // genuinely free variable (no replacement): respect its
@@ -377,12 +364,12 @@ namespace smt {
                 IF_VERBOSE(0, verbose_stream() << "not handled " << mk_pp(curr->get_expr(), m) << "\n");
                 UNREACHABLE();
             }
-            node2value.insert(mk_key(curr, is_recursive), val);
+            node2value.insert(curr->id(), val);
             pinned.push_back(val);
             todo.pop_back();
         }
         expr* result = nullptr;
-        node2value.find(mk_key(n, false), result);
+        node2value.find(n->id(), result);
         if (!result)
             var2value.find(n->get_expr()->get_id(), result);
         return expr_ref(result, m);
@@ -502,13 +489,13 @@ namespace smt {
                 unsigned n = len_val.get_unsigned();
                 zstring w;
                 for (unsigned i = 0; i < n; ++i)
-                    w += zstring('0');
+                    w += zstring('a');
                 expr* witness = m_seq.str.mk_string(w);
                 m_factory->register_value(witness);
                 return witness;
             }
 
-            expr* base = m_seq.str.mk_string("0");
+            expr* base = m_seq.str.mk_string("a");
             expr* witness = m_seq.str.mk_power(base, arith.mk_int(len_val));
             m_factory->register_value(witness);
             return witness;
