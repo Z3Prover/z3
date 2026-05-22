@@ -546,13 +546,13 @@ void pattern_inference_cfg::reset_pre_patterns() {
 
 
 bool pattern_inference_cfg::is_forbidden(app * n) const {
-    func_decl const * decl = n->get_decl();
+    func_decl * decl = n->get_decl();
     if (is_ground(n))
         return false;
     // Remark: skolem constants should not be used in patterns, since they do not
     // occur outside of the quantifier. That is, Z3 will never match this kind of
     // pattern.
-    if (m_params.m_pi_avoid_skolems && decl->is_skolem()) {
+    if (m_params.m_pi_avoid_skolems && decl->is_skolem() && !m.is_lambda_def(decl)) {
         CTRACE(pattern_inference_skolem, decl->is_skolem(), tout << "ignoring: " << mk_pp(n, m) << "\n";);
         return true;
     }
