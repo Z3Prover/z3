@@ -419,40 +419,25 @@ struct solver::imp {
 
         statistics &st = m_nla_core.lp_settings().stats().m_st;
 
-        // Choose the falsified constraint to send to NLSAT according to
-        // arith.nl.nra_check_assignment_pick. In both modes we visit COI
-        // constraints in an order that lets us stop at the first
-        // falsified one rather than evaluating every constraint.
-        //
-        //   0 - sort COI constraints by ascending substitution-expansion
-        //       size (a structural, model-independent measure that acts
-        //       as a cheap LRA-side proxy for the lowest-degree-in-max-
-        //       var heuristic of nlsat::solver::check(rvalues, clause)).
-        //       The first falsified one we hit therefore has the minimum
-        //       expansion size among all falsified candidates.
-        //
-        //   1 - Fisher-Yates shuffle the COI constraints and pick the
-        //       first falsified one. Restricted to the falsified subset
-        //       a uniform permutation induces a uniform first-element
-        //       distribution, so the picked constraint is uniformly
-        //       random among falsified.
+        // Sort COI constraints by ascending substitution-expansion size
+        // (a structural, model-independent measure that acts as a cheap
+        // LRA-side proxy for the lowest-degree-in-max-var heuristic of
+        // nlsat::solver::check(rvalues, clause)). The first falsified
+        // constraint we hit therefore has the minimum expansion size
+        // among all falsified candidates. Cache the expansion size for
+        // each constraint up front so the comparator is O(1).
         svector<lp::constraint_index> coi_constraints;
         for (auto ci : m_coi.constraints())
             coi_constraints.push_back(ci);
 
-        unsigned pick_mode = m_nla_core.params().arith_nl_nra_check_assignment_pick();
-        if (pick_mode == 1) {
-            for (unsigned i = coi_constraints.size(); i-- > 1; ) {
-                unsigned j = m_nla_core.random() % (i + 1);
-                std::swap(coi_constraints[i], coi_constraints[j]);
-            }
-        }
-        else {
-            std::stable_sort(coi_constraints.begin(), coi_constraints.end(),
-                             [&](lp::constraint_index a, lp::constraint_index b) {
-                                 return constraint_expansion_size(a) < constraint_expansion_size(b);
-                             });
-        }
+        u_map<unsigned> expansion_size_cache;
+        for (auto ci : coi_constraints)
+            expansion_size_cache.insert(ci, constraint_expansion_size(ci));
+
+        std::stable_sort(coi_constraints.begin(), coi_constraints.end(),
+                         [&](lp::constraint_index a, lp::constraint_index b) {
+                             return expansion_size_cache[a] < expansion_size_cache[b];
+                         });
 
         u_map<rational> sub_cache;
         lp::constraint_index best = lp::null_ci;
