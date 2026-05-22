@@ -122,16 +122,14 @@ namespace smt {
         if (m.is_bool(n)) {
             if (b_internalized(n)) {
                 if (e_internalized(n)) {
-                    enode * e = get_enode(to_app(n));
-                    update_generation(e);
+                    update_generation(n);
                 }
                 return true;
             }
         }
         else {
             if (e_internalized(n)) {
-                enode * e = get_enode(to_app(n));
-                update_generation(e);
+                update_generation(n);
                 return true;
             }
         }
@@ -418,8 +416,7 @@ namespace smt {
             TRACE(internalize_bug, tout << "#" << n->get_id() << " already has bool_var v" << v << "\n";);
             
             if (is_app(n) && e_internalized(n)) {
-                enode * e = get_enode(to_app(n));
-                update_generation(e);
+                update_generation(n);
             }
             
             // n was already internalized as boolean, but an enode was

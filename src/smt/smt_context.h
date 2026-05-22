@@ -787,6 +787,12 @@ namespace smt {
 
         void update_generation(enode * n);
 
+        void update_generation(expr * e) {
+            SASSERT(e_internalized(e));
+            enode * n = get_enode(to_app(e));
+            update_generation(n);
+        }
+
         typedef std::pair<expr *, bool> expr_bool_pair;
 
         void ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited);
