@@ -1770,14 +1770,6 @@ namespace seq {
         if (m_max_nodes > 0 && m_stats.m_num_dfs_nodes > m_max_nodes)
             return search_result::unknown;
 
-        if (node->is_satisfied()) {
-            m_sat_node = node;
-            m_sat_path = cur_path;
-            return search_result::sat;
-        }
-        if (node->is_currently_conflict())
-            return search_result::unsat;
-
         // we might need to tell the SAT solver about the new integer inequalities
         // that might have been added by an extension step
         assert_node_side_constraints(node);
@@ -1785,6 +1777,12 @@ namespace seq {
         if (node->is_currently_conflict()) {
             ++m_stats.m_num_simplify_conflict;
             return search_result::unsat;
+        }
+
+        if (node->is_satisfied()) {
+            m_sat_node = node;
+            m_sat_path = cur_path;
+            return search_result::sat;
         }
 
         // simplify constraints (idempotent after first call)
@@ -1900,9 +1898,7 @@ namespace seq {
             m_length_solver.push();
 
             // Lazily compute substitution length constraints (|x| = |u|) on first
-            // traversal. This must happen before asserting side_constraints and before
-            // bumping mod counts, so that LHS uses the parent's counts and RHS
-            // uses the temporarily-bumped counts.
+            // traversal. This must happen before asserting side_constraints
             if (!e->len_constraints_computed()) {
                 add_subst_length_constraints(e);
                 e->set_len_constraints_computed(true);
@@ -1910,17 +1906,10 @@ namespace seq {
                 for (const auto& sc : e->side_constraints()) {
                     e->tgt()->add_constraint(sc);
                 }
-
             }
-
-            // Bump modification counts for the child's context.
-            inc_edge_mod_counts(e);
 
             const auto new_depth = depth + (e->is_progress() ? 0 : 1);
             const search_result r = search_dfs(e->tgt(), cur_path, new_depth);
-
-            // Restore modification counts on backtrack.
-            dec_edge_mod_counts(e);
 
             m_length_solver.pop(1);
             if (r == search_result::sat)
@@ -1986,10 +1975,8 @@ namespace seq {
                     } else if (t->is_power()) {
                         expr* expr_node = t->get_expr();
                         expr* pow_base = nullptr, *pow_exp = nullptr;
-                        if (seq().str.is_power(expr_node, pow_base, pow_exp) && pow_exp) {
-                            e->add_side_constraint(mk_constraint(a.mk_ge(pow_exp, a.mk_int(0)), eq.m_dep));
-                            e->add_side_constraint(mk_constraint(a.mk_le(pow_exp, a.mk_int(0)), eq.m_dep));
-                        }
+                        if (seq().str.is_power(expr_node, pow_base, pow_exp) && pow_exp)
+                            e->add_side_constraint(mk_constraint(a.mk_eq(pow_exp, a.mk_int(0)), eq.m_dep));
                         nielsen_subst s(t, m_sg.mk_empty_seq(t->get_sort()), nullptr, eq.m_dep);
                         e->add_subst(s);
                         child->apply_subst(m_sg, s);
@@ -2104,8 +2091,7 @@ namespace seq {
                     expr* pow_exp = get_power_exp_expr(pow_head, m_seq);
                     if (pow_exp) {
                         expr* zero = a.mk_int(0);
-                        e->add_side_constraint(mk_constraint(a.mk_ge(pow_exp, zero), eq.m_dep));
-                        e->add_side_constraint(mk_constraint(a.mk_le(pow_exp, zero), eq.m_dep));
+                        e->add_side_constraint(mk_constraint(a.mk_eq(pow_exp, zero), eq.m_dep));
                     }
                     return true;
                 }
@@ -3089,10 +3075,8 @@ namespace seq {
         const nielsen_subst s1(power, m_sg.mk_empty_seq(power->get_sort()), nullptr, eq->m_dep);
         e->add_subst(s1);
         child->apply_subst(m_sg, s1);
-        if (exp_n) {
-            e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, zero), eq->m_dep));
-            e->add_side_constraint(mk_constraint(a.mk_le(exp_n, zero), eq->m_dep));
-        }
+        if (exp_n)
+            e->add_side_constraint(mk_constraint(a.mk_eq(exp_n, zero), eq->m_dep));
 
         // Branch 2 (explored second): n >= 1 → peel one u: replace u^n with u · u^(n-1)
         // Side constraint: n >= 1
@@ -4239,8 +4223,7 @@ namespace seq {
             const nielsen_subst s(power, m_sg.mk_empty_seq(power->get_sort()), nullptr, mem->m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
-            e->add_side_constraint(mk_constraint(a.mk_ge(exp_n, zero), mem->m_dep));
-            e->add_side_constraint(mk_constraint(a.mk_le(exp_n, zero), mem->m_dep));
+            e->add_side_constraint(mk_constraint(a.mk_eq(exp_n, zero), mem->m_dep));
         }
 
         // Branch 2: n >= 1 → peel one u: u^n → u · u^(n-1)
@@ -4455,12 +4438,7 @@ namespace seq {
 
     void nielsen_graph::add_subst_length_constraints(nielsen_edge* e) {
         auto const& substs = e->subst();
-        bool has_non_elim = false;
-
-
-        // Step 1: Compute LHS (|x|) for each non-eliminating substitution
-        // using current m_mod_cnt (before bumping).
-        // Also assert |x|_k >= 0 (mirrors ZIPT's NielsenNode constructor line 172).
+        // Compute LHS (|x|) for each non-eliminating substitution
         vector<std::pair<unsigned, expr_ref>> lhs_exprs;
         for (unsigned i = 0; i < substs.size(); ++i) {
             auto const& s = substs[i];
@@ -4469,72 +4447,8 @@ namespace seq {
             if (!m_seq.is_seq(s.m_var->get_expr()))
                 continue;
             expr_ref lhs = compute_length_expr(s.m_var);
-            lhs_exprs.push_back({i, lhs});
-            if (s.is_eliminating())
-                continue;
-            has_non_elim = true;
-            // Assert LHS >= 0
-            e->add_side_constraint(mk_constraint(a.mk_ge(lhs, a.mk_int(0)), s.m_dep));
-        }
-
-        // Step 2: Bump mod counts for all non-eliminating variables at once.
-        if (has_non_elim)
-            inc_edge_mod_counts(e);
-
-
-        // Step 3: Compute RHS (|u|) with bumped mod counts and add |x| = |u|.
-        for (auto const &[idx, lhs] : lhs_exprs) {
-            auto const& s = substs[idx];
             expr_ref rhs = compute_length_expr(s.m_replacement);
-            e->add_side_constraint(mk_constraint(a.mk_ge(lhs, rhs), s.m_dep));
-            e->add_side_constraint(mk_constraint(a.mk_le(lhs, rhs), s.m_dep));
-            // otw. we have equality as a side-constraint in the Nielsen node
-            // and adding the Nielsen assumption will force the phase of the equality to true
-            // however the arith.-solver will axiomatize it as <= && >= which do not have a phase
-            // hence it might get assigned false by decision which is a performance problem
-            // e->add_side_constraint(mk_constraint(a.mk_le(lhs, rhs), s.m_dep));
-            // e->add_side_constraint(mk_constraint(a.mk_ge(lhs, rhs), s.m_dep));
-        }
-
-        // Step 4: Restore mod counts (temporary bump for computing RHS only).
-        if (has_non_elim)
-            dec_edge_mod_counts(e);
-    }
-
-    void nielsen_graph::inc_edge_mod_counts(nielsen_edge* e) {
-        auto const &sub = e->subst();
-        for (unsigned i = 0; i < sub.size();  ++i) {
-            auto const &s = sub[i];
-            unsigned id = s.m_var->id();
-            //if (s.m_length) {
-            //    euf::snode *old_length = nullptr;
-            //    m_length_info.find(id, old_length);
-            //    m_length_trail.push_back(old_length);
-            //    m_length_info.insert(id, s.m_length);
-            //}
-            //unsigned prev = 0;
-            //m_mod_cnt.find(id, prev);
-            //m_mod_cnt.insert(id, prev + 1);
-        }
-    }
-
-    void nielsen_graph::dec_edge_mod_counts(nielsen_edge* e) {
-        auto const &sub = e->subst();
-        for (unsigned i = sub.size(); i-- > 0; ) {
-            auto const &s = sub[i];
-            unsigned id = s.m_var->id();
-            //if (s.m_length) {
-            //    auto old_length = m_length_trail.back();
-            //    m_length_trail.pop_back();
-            //    m_length_info.insert(id, old_length);
-            //}
-            //unsigned prev = 0;
-            //VERIFY(m_mod_cnt.find(id, prev));
-            //SASSERT(prev >= 1);
-            //if (prev <= 1)
-            //    m_mod_cnt.remove(id);
-			//else
-            //    m_mod_cnt.insert(id, prev - 1);
+            e->add_side_constraint(mk_constraint(a.mk_eq(lhs, rhs), s.m_dep));
         }
     }
 
@@ -4586,8 +4500,7 @@ namespace seq {
             expr_ref len_lhs = compute_length_expr(eq.m_lhs);
             expr_ref len_rhs = compute_length_expr(eq.m_rhs);
             //node->add_constraint(mk_constraint(m.mk_eq(len_lhs, len_rhs), eq.m_dep));
-            node->add_constraint(mk_constraint(a.mk_ge(len_lhs, len_rhs), eq.m_dep));
-            node->add_constraint(mk_constraint(a.mk_le(len_lhs, len_rhs), eq.m_dep));
+            node->add_constraint(mk_constraint(a.mk_eq(len_lhs, len_rhs), eq.m_dep));
 
             // non-negativity for each variable (mod-count-aware)
             euf::snode_vector tokens;

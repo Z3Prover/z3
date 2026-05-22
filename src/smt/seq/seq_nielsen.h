@@ -1329,14 +1329,6 @@ namespace seq {
         // Temporarily bumps m_mod_cnt for RHS computation, then restores.
         // Called lazily on first edge traversal in search_dfs.
         void add_subst_length_constraints(nielsen_edge* e);
-
-        // Bump modification counts for an edge's non-eliminating substitutions.
-        // Called when entering an edge during DFS.
-        void inc_edge_mod_counts(nielsen_edge* e);
-
-        // Restore modification counts for an edge's non-eliminating substitutions.
-        // Called when backtracking from an edge during DFS.
-        void dec_edge_mod_counts(nielsen_edge* e);
     };
 
 }

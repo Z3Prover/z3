@@ -548,6 +548,7 @@ namespace seq {
         std::vector<std::string> int_constraints;
         for (auto const& ic : m_constraints) {
             int_constraints.push_back(constraint_html(ic, names, next_id, m));
+            SASSERT(!int_constraints.empty());
         }
         if (!int_constraints.empty()) {
             // eliminate duplicates
@@ -557,7 +558,7 @@ namespace seq {
                 if (int_constraints[i] != int_constraints[prev])
                     int_constraints[++prev] = int_constraints[i];
             }
-            int_constraints.resize(prev);
+            int_constraints.resize(prev + 1);
             if (!any) { out << "Cnstr:<br/>"; any = true; }
             out << "Int:<br/>";
             for (const auto& s : int_constraints) {

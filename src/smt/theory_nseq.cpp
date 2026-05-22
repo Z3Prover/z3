@@ -850,8 +850,7 @@ namespace smt {
         //std::cout << "Nielsen assumptions:\n";
         bool all_sat = true;
         ctx.push_trail(reset_vector(m_nielsen_literals));
-        for (auto it = m_nielsen.sat_node()->constraints().rbegin(); it != m_nielsen.sat_node()->constraints().rend(); ++it) {
-            const auto& c = *it;
+        for (const auto& c : m_nielsen.sat_node()->constraints()) {
             std::cout << "Assumption: " << mk_pp(c.fml, m) << std::endl;
             auto lit = mk_literal(c.fml);   
             m_nielsen_literals.push_back(lit);
@@ -876,7 +875,7 @@ namespace smt {
                 // this should not happen because nielsen checks for this before returning a satisfying path.
                 TRACE(seq, tout << "nseq final_check: nielsen assumption " << c.fml << " is false; internalized - " << ctx.e_internalized(c.fml) << "\n");
                 all_sat = false;
-                // std::cout << "False [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
+                std::cout << "False [" << lit << "]: " << mk_pp(c.fml, m) << std::endl;
                 ctx.push_trail(value_trail(m_context_solver.m_should_internalize));
                 m_context_solver.m_should_internalize = true;
                 break;
