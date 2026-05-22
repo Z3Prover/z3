@@ -1471,6 +1471,14 @@ public:
           m_params(p),
           m_batch_manager(s->get_manager(), *this) {}
 
+    params_ref mk_worker_params(unsigned seed_offset) const {
+        params_ref p(m_params);
+        p.set_bool("override_incremental", true);
+        unsigned base_seed = m_params.get_uint("random_seed", 0u);
+        p.set_uint("random_seed", base_seed + seed_offset);
+        return p;
+    }
+
     /* Run the portfolio.  Returns sat/unsat/undef.
      *
      * On sat:   *mdl is populated (translated into m_manager).
@@ -1509,10 +1517,9 @@ public:
         /* Build workers – each gets a translated solver copy. */
         m_workers.reset();
         scoped_limits sl(m_manager.limit());
-        params_ref worker_params(m_params);
-        worker_params.set_bool("override_incremental", true);
 
         for (unsigned i = 0; i < num_threads; ++i) {
+            params_ref worker_params = mk_worker_params(i);
             auto* w = alloc(worker, i, *this, *m_solver, worker_params, asms);
             m_workers.push_back(w);
             sl.push_child(&(w->limit()));
@@ -1520,14 +1527,16 @@ public:
 
         m_core_minimizer_worker = nullptr;
         if (core_minimize) {
-            m_core_minimizer_worker = alloc(core_minimizer_worker, *this, *m_solver, worker_params, asms);
+            params_ref core_min_params = mk_worker_params(num_threads);
+            m_core_minimizer_worker = alloc(core_minimizer_worker, *this, *m_solver, core_min_params, asms);
             sl.push_child(&(m_core_minimizer_worker->limit()));
         }
         m_global_backbones_workers.reset();
         for (unsigned i = 0; i < num_global_bb_threads; ++i) {
+            params_ref bb_params = mk_worker_params(num_threads + (core_minimize ? 1 : 0) + i);
             backbones_worker::probe_mode mode =
                 i == 0 ? backbones_worker::probe_mode::negative : backbones_worker::probe_mode::positive;
-            auto* w = alloc(backbones_worker, i, *this, *m_solver, worker_params, asms, mode);
+            auto* w = alloc(backbones_worker, i, *this, *m_solver, bb_params, asms, mode);
             m_global_backbones_workers.push_back(w);
             sl.push_child(&(w->limit()));
         }
