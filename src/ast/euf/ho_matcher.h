@@ -391,6 +391,10 @@ namespace euf {
 
         bool is_ho_pattern(app* p);
 
+        // Register an alias pattern (e.g., after stripping ground elements) 
+        // that maps to the same original pattern as full_p
+        void register_ho_pattern(app* alias_p, app* full_p);
+
         void refine_ho_match(app* p, expr_ref_vector& s);
 
         bool is_free(app* p, unsigned i) const { return m_hopat2free_vars[p].contains(i); }
