@@ -2927,6 +2927,8 @@ namespace {
             SASSERT(m.is_pattern(mp));
             SASSERT(first_idx < mp->get_num_args());
             app * p           = to_app(mp->get_arg(first_idx));
+            if (is_ground(p))
+                return;
             func_decl * lbl   = p->get_decl();
             unsigned lbl_id   = lbl->get_small_id();
             m_trees.reserve(lbl_id+1, nullptr);
@@ -3852,10 +3854,10 @@ namespace {
             // Ground patterns are discarded.
             // However, the simplifier may turn a non-ground pattern into a ground one.
             // So, we should check it again here.
-            unsigned num_patterns = mp->get_num_args();
-            for (unsigned i = 0; i < num_patterns; ++i)
-                if (is_ground(mp->get_arg(i)))
-                    return; // ignore multi-pattern containing ground pattern.
+            if (all_of(*mp, [](expr *arg) { return is_ground(arg); }))
+                return;  // ignore multi-pattern containing only ground pattern.
+            if (any_of(*mp, [](expr *arg) { return has_quantifiers(arg); }))
+                return;  // patterns with quantifiers are not handled.
             update_filters(qa, mp);
             collect_ground_exprs(qa, mp);
             m_new_patterns.push_back(qp_pair(qa, mp));
@@ -3863,7 +3865,7 @@ namespace {
             // e-matching. So, for a multi-pattern [ p_1, ..., p_n ],
             // we have to make n insertions. In the i-th insertion,
             // the pattern p_i is assumed to be the first one.
-            for (unsigned i = 0; i < num_patterns; ++i)
+            for (unsigned i = 0; i < mp->get_num_args(); ++i)
                 m_trees.add_pattern(qa, mp, i);
         }
 
