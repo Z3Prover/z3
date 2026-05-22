@@ -103,7 +103,7 @@ namespace smt {
 
     void context::update_generation(enode * e) {
         if (0 < m_generation && m_generation < e->get_generation())
-            e->set_generation(*this, m_generation);
+            e->set_generation(nullptr, m_generation);
     }
 
     void context::ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited) {
