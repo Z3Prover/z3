@@ -211,7 +211,6 @@ namespace smt {
             unsigned id = var->first()->id(); // TODO - first or just var->id()?
             SASSERT(!m_var_replacement.contains(id));
             m_var_replacement.insert(id, replacement);
-            std::cout << "Assignment: " << mk_pp(var->get_expr(), m) << ": " << mk_pp(replacement->get_expr(), m) << std::endl;
         }
     }
     

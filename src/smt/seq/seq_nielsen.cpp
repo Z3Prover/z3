@@ -346,20 +346,10 @@ namespace seq {
         for (auto &mem : m_str_mem) {
             const auto new_str = sg.subst(mem.m_str, s.m_var, s.m_replacement);
             const auto new_regex = sg.subst(mem.m_regex, s.m_var, s.m_replacement);
-            std::cout << "Applying substitution "
-                << mk_pp(s.m_var->get_expr(), graph().m) << " / "
-                << mk_pp(s.m_replacement->get_expr(), graph().m) << " to " <<
-                    mk_pp(new_regex->get_expr(), graph().m) << std::endl;
             if (new_str != mem.m_str || new_regex != mem.m_regex) {
                 mem.m_str = new_str;
                 mem.m_regex = new_regex;
                 mem.m_dep = m_graph.dep_mgr().mk_join(mem.m_dep, s.m_dep);
-            }
-            if (new_regex != mem.m_regex) {
-                std::cout << "Got: " << mk_pp(new_regex->get_expr(), graph().get_manager()) << std::endl;
-            }
-            else {
-                std::cout << "No change!" << std::endl;
             }
         }
 
@@ -4023,9 +4013,12 @@ namespace seq {
             //
             euf::snode* fresh_char = m_sg.mk(get_or_create_char_var(first));
 
-            euf::snode* replacement = m_sg.mk_concat(fresh_char, first);
+
+            euf::snode* tail = get_tail(first, 1, true);
+            euf::snode* replacement = m_sg.mk_concat(fresh_char, tail);
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, false);
+
             const nielsen_subst s(first, replacement, mk_rewrite(a.mk_sub(compute_length_expr(first), a.mk_int(1))), mem.m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);

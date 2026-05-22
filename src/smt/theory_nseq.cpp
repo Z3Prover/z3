@@ -461,12 +461,10 @@ namespace smt {
 
         if (!get_fparams().m_nseq_regex_factorization_threshold)
             return;
-        std::cout << "Trying " << seq::mem_pp(mem, m);
 
         // Boolean Closure Propagations
         expr* re_expr = mem.m_regex->get_expr();
         if (m_seq.re.is_intersection(re_expr)) {
-            std::cout << "Propagating intersection " << seq::mem_pp(mem, m) << std::endl;
             for (expr* arg : *to_app(re_expr)) {
                 expr_ref in_r(m_seq.re.mk_in_re(s_expr, arg), m);
                 literal_vector lits;
@@ -479,7 +477,6 @@ namespace smt {
             return;
         }
         if (m_seq.re.is_union(re_expr)) {
-            std::cout << "Propagating union " << seq::mem_pp(mem, m) << std::endl;
             literal_vector lits;
             lits.push_back(~mem.lit);
             for (expr* arg : *to_app(re_expr)) {
@@ -496,7 +493,6 @@ namespace smt {
             zstring s;
             expr_ref arg(to_app(re_expr)->get_arg(0), m);
             if (m_seq.str.is_string(arg, s)) {
-                std::cout << "Propagating const matching " << seq::mem_pp(mem, m) << std::endl;
                 literal_vector lits;
                 lits.push_back(~mem.lit);
                 lits.push_back(mk_literal(m.mk_eq(s_expr, arg)));

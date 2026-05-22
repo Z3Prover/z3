@@ -464,12 +464,12 @@ namespace seq {
     struct nielsen_subst {
         euf::snode* m_var;
         euf::snode* m_replacement;
-        euf::snode *m_length = nullptr; // representation of length if this is a sequence variable, null otherwise.
+        // euf::snode *m_length = nullptr; // representation of length if this is a sequence variable, null otherwise.
         dep_tracker m_dep;
 
         nielsen_subst(): m_var(nullptr), m_replacement(nullptr), m_dep(nullptr) {}
         nielsen_subst(euf::snode* var, euf::snode* repl, euf::snode* length, dep_tracker const& dep):
-            m_var(var), m_replacement(repl), m_length(length), m_dep(dep) {
+            m_var(var), m_replacement(repl)/*, m_length(length)*/, m_dep(dep) {
             SASSERT(var != nullptr);
             SASSERT(repl != nullptr);
             // var may be s_var or s_power; sgraph::subst uses pointer identity matching
