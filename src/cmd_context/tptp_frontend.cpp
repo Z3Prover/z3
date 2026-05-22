@@ -985,19 +985,37 @@ class tptp_parser {
         return expr_ref(m.mk_const(mk_zero_arity_decl(a->get_decl()->get_name(), range)), m);
     }
 
-    // Build an arithmetic expression from a TPTP function name and arguments
+    // Coerce an expression from Bool sort to m_univ by rebuilding with a function decl.
+    // Works for both 0-arity constants and function applications.
+    expr_ref coerce_to_univ(expr_ref const& e) {
+        if (!is_app(e) || e->get_sort() == m_univ)
+            return e;
+        app* a = to_app(e);
+        if (a->get_num_args() == 0)
+            return coerce_zero_arity(a, m_univ);
+        // Rebuild with a function (non-predicate) declaration
+        func_decl* f = mk_decl(a->get_decl()->get_name().str(), a->get_num_args(), false);
+        expr_ref_vector args(m);
+        for (unsigned i = 0; i < a->get_num_args(); ++i)
+            args.push_back(a->get_arg(i));
+        coerce_args(f, args);
+        return expr_ref(m.mk_app(f, args.size(), args.data()), m);
+    }
+
     // Coerce two expressions to have the same sort for equality.
-    // If sorts already match, returns lhs unchanged. Otherwise coerces the
-    // 0-arity constant side to match the other's sort. If that's not possible,
-    // coerces both to m_univ.
+    // In TPTP, = is term equality and m_univ is the default sort.
+    // If one side has Bool sort (parsed as predicate), coerce it to m_univ.
+    // If sorts already match and are not Bool, returns lhs unchanged.
     expr_ref coerce_eq(expr_ref lhs, expr_ref& rhs) {
+        // Coerce Bool-sorted operands to m_univ since = is term equality in TPTP
+        if (m.is_bool(lhs->get_sort()) && is_app(lhs) && !m.is_true(lhs) && !m.is_false(lhs))
+            lhs = coerce_to_univ(lhs);
+        if (m.is_bool(rhs->get_sort()) && is_app(rhs) && !m.is_true(rhs) && !m.is_false(rhs))
+            rhs = coerce_to_univ(rhs);
+
         if (lhs->get_sort() == rhs->get_sort()) return lhs;
-        if (is_app(lhs) && to_app(lhs)->get_num_args() == 0 && m.is_bool(lhs->get_sort()) && !m.is_bool(rhs->get_sort()))
-            return coerce_zero_arity(to_app(lhs), rhs->get_sort());
-        if (is_app(rhs) && to_app(rhs)->get_num_args() == 0 && m.is_bool(rhs->get_sort()) && !m.is_bool(lhs->get_sort())) {
-            rhs = coerce_zero_arity(to_app(rhs), lhs->get_sort());
-            return lhs;
-        }
+
+        // Coerce 0-arity constants to match the other side's sort
         if (is_app(lhs) && to_app(lhs)->get_num_args() == 0 && lhs->get_sort() != rhs->get_sort()) {
             return coerce_zero_arity(to_app(lhs), rhs->get_sort());
         }
@@ -1359,8 +1377,13 @@ class tptp_parser {
             }
             // Only assert Bool-sorted formulas; non-Bool results from
             // incomplete higher-order approximation are silently skipped.
+            TRACE(parser, tout << "parsed formula with role '" << role << "' at " << loc() << ":\n"
+                             << mk_pp(f, m) << "\n";);
             if (m.is_bool(f))
                 m_cmd.assert_expr(f);
+            else
+                IF_VERBOSE(10, verbose_stream()
+                                   << "skipping non-Boolean formula with role '" << role << "' at " << loc() << "\n" << mk_pp(f, m) << "\n");
         }
 
         if (accept(token_kind::comma)) {
@@ -1682,6 +1705,7 @@ static unsigned read_tptp_stream(std::istream& in, char const* current_file) {
         // Suppress default check-sat output; TPTP frontend reports SZS status explicitly.
         std::ostringstream sink;
         scoped_regular_stream scoped_stream(ctx, sink);
+        TRACE(parser, ctx.get_solver()->display(tout));
         ctx.check_sat(0, nullptr);
         switch (ctx.cs_state()) {
         case cmd_context::css_unsat:

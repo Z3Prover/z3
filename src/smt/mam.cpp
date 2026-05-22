@@ -3754,7 +3754,7 @@ namespace {
         }
 
         void match_new_patterns() {
-            TRACE(mam_new_pat, tout << "matching new patterns:\n";);
+            TRACE(mam, tout << "matching new patterns:\n";);
             m_tmp_trees_to_delete.reset();
             for (auto const& kv : m_new_patterns) {
                 if (m_context.get_cancel_flag()) {
