@@ -590,7 +590,7 @@ namespace smt {
         unsigned generation    = m_generation;
         unsigned _generation;
         if (!m_cached_generation.empty() && m_cached_generation.find(q, _generation)) {
-            generation = std::min(_generation, m_generation);
+            generation = _generation;
         }
         // TODO: do we really need this flag?
         bool_var_data & d      = get_bdata(v);
