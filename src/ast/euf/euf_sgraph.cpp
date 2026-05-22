@@ -73,6 +73,9 @@ namespace euf {
         if (m_seq.re.is_star(e))
             return snode_kind::s_star;
 
+        if (m_seq.re.is_plus(e))
+            return snode_kind::s_plus;
+
         if (m_seq.re.is_loop(e))
             return snode_kind::s_loop;
 
@@ -172,6 +175,7 @@ namespace euf {
         }
 
         case snode_kind::s_star:
+        case snode_kind::s_plus:
             SASSERT(n->num_args() == 1);
             n->m_ground = n->arg(0)->is_ground();
             n->m_regex_free = false;
@@ -759,6 +763,7 @@ namespace euf {
             case snode_kind::s_concat:     return "concat";
             case snode_kind::s_power:      return "power";
             case snode_kind::s_star:       return "star";
+            case snode_kind::s_plus:       return "plus";
             case snode_kind::s_loop:       return "loop";
             case snode_kind::s_union:      return "union";
             case snode_kind::s_intersect:  return "intersect";

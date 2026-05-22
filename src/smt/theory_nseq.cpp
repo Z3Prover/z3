@@ -613,8 +613,8 @@ namespace smt {
                     ++num_mems;
                     continue;
                 }
-                /*if (m_ignored_mem.contains(mem.lit))
-                    continue; // already handled via Boolean closure, skip*/
+                if (m_ignored_mem.contains(mem.lit))
+                    continue; // already handled via Boolean closure, skip
                 // pre-process: consume ground prefix characters
                 vector<seq::str_mem> processed;
                 if (!m_regex.process_str_mem(mem, processed)) {
@@ -753,31 +753,31 @@ namespace smt {
                 m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
                 m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
                 m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);
+            }
 
-                SASSERT(!m_nielsen.root()->is_currently_conflict());
+            SASSERT(!m_nielsen.root()->is_currently_conflict());
 
-                // Regex membership pre-check: before running DFS, check intersection
-                // emptiness for each variable's regex constraints.  This handles
-                // regex-only problems that the DFS cannot efficiently solve.
-                if (!m_nielsen.root()->is_currently_conflict() && get_fparams().m_nseq_regex_precheck) {
-                    switch (check_regex_memberships_precheck()) {
-                    case l_true:
-                        // conflict was asserted inside check_regex_memberships_precheck
-                        TRACE(seq, tout << "nseq final_check: regex precheck UNSAT\n");
+            // Regex membership pre-check: before running DFS, check intersection
+            // emptiness for each variable's regex constraints.  This handles
+            // regex-only problems that the DFS cannot efficiently solve.
+            if (!m_nielsen.root()->is_currently_conflict() && get_fparams().m_nseq_regex_precheck) {
+                switch (check_regex_memberships_precheck()) {
+                case l_true:
+                    // conflict was asserted inside check_regex_memberships_precheck
+                    TRACE(seq, tout << "nseq final_check: regex precheck UNSAT\n");
+                    return FC_CONTINUE;
+                case l_false:
+                    // all regex constraints satisfiable, no word eqs → SAT
+                    TRACE(seq, tout << "nseq final_check: regex precheck SAT\n");
+                    m_nielsen.set_sat_node(m_nielsen.root());
+                    if (!check_length_coherence())
                         return FC_CONTINUE;
-                    case l_false:
-                        // all regex constraints satisfiable, no word eqs → SAT
-                        TRACE(seq, tout << "nseq final_check: regex precheck SAT\n");
-                        m_nielsen.set_sat_node(m_nielsen.root());
-                        if (!check_length_coherence())
-                            return FC_CONTINUE;
-                        if (!check_stoi_coherence())
-                            return FC_CONTINUE;
-                        TRACE(seq, tout << "pre-check done\n");
-                        return FC_DONE;
-                    default:
-                        break;
-                    }
+                    if (!check_stoi_coherence())
+                        return FC_CONTINUE;
+                    TRACE(seq, tout << "pre-check done\n");
+                    return FC_DONE;
+                default:
+                    break;
                 }
             }
 
@@ -1659,6 +1659,7 @@ namespace smt {
 
     bool theory_nseq::check_length_coherence() {
         if (m_relevant_lengths.empty())
+            // TODO: Make use of this; so far we always introduce lengths always
             return true;
 
         SASSERT(m_nielsen.sat_node());

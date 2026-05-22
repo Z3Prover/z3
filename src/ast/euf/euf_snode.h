@@ -45,6 +45,7 @@ namespace euf {
         s_concat,      // concatenation of two snodes (OP_SEQ_CONCAT)
         s_power,       // string exponentiation s^n (OP_SEQ_POWER)
         s_star,        // Kleene star r* (OP_RE_STAR)
+        s_plus,        // Kleene plus  r+ (OP_RE_PLUS)
         s_loop,        // bounded loop r{lo,hi} (OP_RE_LOOP)
         s_union,       // union r1|r2 (OP_RE_UNION)
         s_intersect,   // intersection r1&r2 (OP_RE_INTERSECT)
@@ -164,6 +165,9 @@ namespace euf {
         }
         bool is_star() const {
             return m_kind == snode_kind::s_star;
+        }
+        bool is_plus() const {
+            return m_kind == snode_kind::s_plus;
         }
         bool is_loop() const {
             return m_kind == snode_kind::s_loop;
