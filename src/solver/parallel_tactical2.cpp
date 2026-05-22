@@ -36,7 +36,7 @@ Abstract:
         so the solver can reuse learned clauses across different cube checks.
 
     Split atom selection is performed by temporarily pushing the cube path onto
-    the solver, calling solver::cube(), retrieving the first proposed literal, and
+    the solver, calling solver::get_split_candidate() on that cube state, and
     then popping, so that the base state is preserved.
 
 Author:
@@ -989,7 +989,11 @@ class parallel_solver {
         expr_ref get_split_atom(expr_ref_vector const& cube) {
             if (cube.size() >= m_config.m_max_cube_depth)
                 return expr_ref(nullptr, m);
+            s->push();
+            for (expr* c : cube)
+                s->assert_expr(c);
             expr_ref candidate = s->get_split_candidate();
+            s->pop(1);
 
             if (candidate && m_config.m_global_backbones &&
                 b.is_global_backbone_or_negation(m_l2g, candidate))
@@ -1026,6 +1030,8 @@ class parallel_solver {
             : id(id), b(p.m_batch_manager),
               asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager())
         {
+            parallel_params pp(params);
+            m_config.m_core_minimize = params.get_bool("core_minimize", pp.g, true);
             /* create translated solver copy */
             s = src.translate(m, params);
 
@@ -1161,6 +1167,10 @@ class parallel_solver {
     }; // class worker
 
     class backbones_worker {
+    public:
+        enum class probe_mode { negative, positive };
+
+    private:
         unsigned         id;
         batch_manager&   b;
         ast_manager      m;
@@ -1169,6 +1179,7 @@ class parallel_solver {
         ast_translation  m_g2l, m_l2g;
         unsigned         m_shared_clause_limit = 0;
         expr_mark        m_known_units;
+        probe_mode       m_probe_mode = probe_mode::negative;
 
         void collect_shared_clauses() {
             expr_ref_vector nc = b.return_shared_clauses(m_g2l, m_shared_clause_limit, UINT_MAX);
@@ -1234,9 +1245,11 @@ class parallel_solver {
 
     public:
         backbones_worker(unsigned id, parallel_solver& p, solver& src, params_ref const& params,
-                         expr_ref_vector const& src_asms)
+                         expr_ref_vector const& src_asms,
+                         probe_mode mode)
             : id(id), b(p.m_batch_manager),
-              asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
+              asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()),
+              m_probe_mode(mode) {
             s = src.translate(m, params);
             for (expr* a : src_asms)
                 asms.push_back(m_g2l(a));
@@ -1266,8 +1279,8 @@ class parallel_solver {
                         m_known_units.mark(c.lit.get());
                         continue;
                     }
-
-                    probe_literal(mk_not(m, c.lit));
+                    expr_ref probe(m_probe_mode == probe_mode::negative ? mk_not(m, c.lit) : c.lit.get(), m);
+                    probe_literal(probe);
                     m_known_units.mark(c.lit.get());
                 }
                 curr_batch.reset();
@@ -1468,14 +1481,26 @@ public:
                 expr_ref_vector& core) {
 
         parallel_params pp(m_params);
-        unsigned num_threads = std::min(
-            static_cast<unsigned>(std::thread::hardware_concurrency()),
-            pp.threads_max());
+        unsigned exact_threads = m_params.get_uint("threads", pp.g, 0u);
+        unsigned num_threads = exact_threads;
+        if (num_threads == 0) {
+            num_threads = std::min(
+                static_cast<unsigned>(std::thread::hardware_concurrency()),
+                pp.threads());
+        }
         if (num_threads < 2) num_threads = 2;
-        unsigned num_global_bb_threads = num_threads >= 4 ? 1 : 0;
+        bool core_minimize = m_params.get_bool("core_minimize", pp.g, true);
+        unsigned num_global_bb_threads = m_params.get_uint("num_global_bb_batch_threads", pp.g, 2u);
+        if (num_global_bb_threads > 2)
+            num_global_bb_threads = 2;
+        unsigned legacy_global_bb_threads = m_params.get_uint("global_bb_threads", pp.g, 0u);
+        if (legacy_global_bb_threads != 0)
+            num_global_bb_threads = std::min(legacy_global_bb_threads, 2u);
 
-        IF_VERBOSE(1, verbose_stream() << "par2: launching " << num_threads
-            << " threads\n");
+        IF_VERBOSE(1, verbose_stream() << "par2: launching "
+            << num_threads << " cube workers + "
+            << (core_minimize ? 1 : 0) << " core minimizer + "
+            << num_global_bb_threads << " backbone workers\n";);
 
         if (m_manager.has_trace_stream())
             throw default_exception(
@@ -1493,11 +1518,16 @@ public:
             sl.push_child(&(w->limit()));
         }
 
-        m_core_minimizer_worker = alloc(core_minimizer_worker, *this, *m_solver, worker_params, asms);
-        sl.push_child(&(m_core_minimizer_worker->limit()));
+        m_core_minimizer_worker = nullptr;
+        if (core_minimize) {
+            m_core_minimizer_worker = alloc(core_minimizer_worker, *this, *m_solver, worker_params, asms);
+            sl.push_child(&(m_core_minimizer_worker->limit()));
+        }
         m_global_backbones_workers.reset();
         for (unsigned i = 0; i < num_global_bb_threads; ++i) {
-            auto* w = alloc(backbones_worker, i, *this, *m_solver, worker_params, asms);
+            backbones_worker::probe_mode mode =
+                i == 0 ? backbones_worker::probe_mode::negative : backbones_worker::probe_mode::positive;
+            auto* w = alloc(backbones_worker, i, *this, *m_solver, worker_params, asms, mode);
             m_global_backbones_workers.push_back(w);
             sl.push_child(&(w->limit()));
         }
@@ -1508,7 +1538,8 @@ public:
         vector<std::thread> threads;
         for (auto* w : m_workers)
             threads.push_back(std::thread([w]() { w->run(); }));
-        threads.push_back(std::thread([this]() { m_core_minimizer_worker->run(); }));
+        if (m_core_minimizer_worker)
+            threads.push_back(std::thread([this]() { m_core_minimizer_worker->run(); }));
         for (auto* w : m_global_backbones_workers)
             threads.push_back(std::thread([w]() { w->run(); }));
 
