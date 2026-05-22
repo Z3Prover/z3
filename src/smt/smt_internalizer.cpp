@@ -102,7 +102,7 @@ namespace smt {
     }
 
     void context::update_generation(enode * e) {
-        if (m_generation < e->get_generation())
+        if (0 < m_generation && m_generation < e->get_generation())
             e->set_generation(*this, m_generation);
     }
 
