@@ -1,3 +1,4 @@
+#include <atomic>
 #include <cstdio>
 #include <chrono>
 #include <filesystem>
@@ -49,10 +50,10 @@ class scoped_temp_file {
     std::string m_path;
 public:
     scoped_temp_file(char const* contents) {
-        static unsigned counter = 0;
+        static std::atomic<unsigned> counter(0);
         auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
         m_path = (std::filesystem::temp_directory_path() /
-            ("z3-tptp-" + std::to_string(stamp) + "-" + std::to_string(counter++) + ".p")).string();
+            ("z3-tptp-" + std::to_string(stamp) + "-" + std::to_string(counter.fetch_add(1)) + ".p")).string();
         write_file(m_path.c_str(), contents);
     }
     ~scoped_temp_file() {
