@@ -1182,7 +1182,7 @@ class tptp_parser {
         if (let_consts.size() == 1) {
             replacer.insert(let_consts[0], value.get());
         } else {
-            throw parse_error("tuple $let destructuring is not supported");
+            throw parse_error("tuple $let destructuring is not supported; use single-variable $let bindings instead");
         }
         expr_ref result(m);
         replacer(body, result);
@@ -1257,7 +1257,7 @@ class tptp_parser {
 
         // Tuple/list in formula position: [t1, t2, ...] — return first element for simplicity
         if (accept(token_kind::lbrack)) {
-            throw parse_error("tuple/list formulas are not supported");
+            throw parse_error("tuple/list formulas are not supported in formula position; split them into separate formulas instead");
         }
 
         std::string n = parse_name();
@@ -1433,9 +1433,9 @@ class tptp_parser {
                     func_decl* f = mk_modal_op(mod_name);
                     return expr_ref(m.mk_app(f, sub.get()), m);
                 }
-                throw parse_error("tuple/list formulas are not supported");
+                throw parse_error("tuple/list formulas are not supported in formula position; split them into separate formulas instead");
             }
-            throw parse_error("tuple/list formulas are not supported");
+            throw parse_error("tuple/list formulas are not supported in formula position; split them into separate formulas instead");
         }
 
         // Diamond modality: <.>, <name>

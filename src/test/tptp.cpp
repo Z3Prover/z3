@@ -1,5 +1,7 @@
 #include <atomic>
+#include <cerrno>
 #include <cstdio>
+#include <cstring>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -64,7 +66,7 @@ public:
     }
     ~scoped_temp_file() {
         if (!m_path.empty() && std::remove(m_path.c_str()) != 0)
-            std::cerr << "failed to remove temporary file: " << m_path << "\n";
+            std::cerr << "failed to remove temporary file '" << m_path << "': " << std::strerror(errno) << "\n";
     }
     std::string const& path() const { return m_path; }
 };
