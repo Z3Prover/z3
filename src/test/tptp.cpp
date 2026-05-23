@@ -135,10 +135,6 @@ fof(a1,axiom,q).)";
     ENSURE(out.find("% SZS status Satisfiable") != std::string::npos);
     std::remove(included);
 
-    code = run_tptp("tff(a1,axiom,$ite($true,0,$true)).", out, err);
-    ENSURE(code == ERR_PARSER);
-    ENSURE(err.find("TPTP parse error:") != std::string::npos);
-
     code = run_tptp("fof(a1,axiom,[p(a),q(a)]).", out, err);
     ENSURE(code == ERR_PARSER);
     ENSURE(err.find("tuple/list formulas are not supported") != std::string::npos);

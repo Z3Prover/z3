@@ -1433,23 +1433,7 @@ class tptp_parser {
                     func_decl* f = mk_modal_op(mod_name);
                     return expr_ref(m.mk_app(f, sub.get()), m);
                 }
-                // Not a simple [name] modal — it's a tuple starting with this name.
-                // We've consumed '[' and a name. Parse the name as an expression and
-                // continue as tuple.
-                expr_ref first(m);
-                expr_ref b(m);
-                if (is_var_name(first_name) && find_bound(first_name, b))
-                    first = b;
-                else if (should_create_implicit_var(first_name))
-                    first = expr_ref(get_or_create_implicit_var(first_name), m);
-                else {
-                    func_decl* f = mk_decl_or_ho_const(first_name, 0, false);
-                    first = expr_ref(m.mk_const(f), m);
-                }
-                while (accept(token_kind::comma))
-                    parse_formula(); // consume remaining elements
-                expect(token_kind::rbrack, "']'");
-                return first;
+                throw parse_error("tuple/list formulas are not supported");
             }
             throw parse_error("tuple/list formulas are not supported");
         }
