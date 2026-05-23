@@ -3802,8 +3802,14 @@ namespace {
             for (unsigned i = 0; i < num_patterns; ++i) {
                 app * pat = to_app(mp->get_arg(i));
                 TRACE(mam_pat, tout << mk_ismt2_pp(qa, m) << "\npat:\n" << mk_ismt2_pp(pat, m) << "\n";);
-                SASSERT(!pat->is_ground());
-                todo.push_back(pat);
+                if (pat->is_ground()) {
+                    enode * e = mk_enode(m_context, qa, pat);
+                    m_context.mark_as_relevant(e);
+                    m_context.push_trail(add_shared_enode_trail(*this, e));
+                    m_shared_enodes.insert(e);
+                }
+                else
+                    todo.push_back(pat);
             }
             while (!todo.empty()) {
                 app * n = todo.back();
