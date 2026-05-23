@@ -1,9 +1,11 @@
 #include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <string>
 #include <vector>
 #include <iostream>
 #include <sstream>
+#include <unistd.h>
 #include "util/debug.h"
 #include "util/error_codes.h"
 #include "cmd_context/tptp_frontend.h"
@@ -41,6 +43,17 @@ static void write_file(char const* path, char const* contents) {
     ENSURE(out.good());
     out << contents;
     ENSURE(out.good());
+}
+
+static std::string write_temp_file(char const* contents) {
+    std::string tmpl = (std::filesystem::temp_directory_path() / "z3-tptp-XXXXXX").string();
+    std::vector<char> path(tmpl.begin(), tmpl.end());
+    path.push_back('\0');
+    int fd = mkstemp(path.data());
+    ENSURE(fd != -1);
+    ::close(fd);
+    write_file(path.data(), contents);
+    return path.data();
 }
 
 extern bool g_display_statistics;
@@ -123,8 +136,7 @@ R"(tff(c1,conjecture, $less($uminus(2),0)).)",
     ENSURE(code == ERR_PARSER);
     ENSURE(err.find("denominator of rational literal cannot be zero") != std::string::npos);
 
-    char const* included = "/tmp/z3-tptp-selected-include.p";
-    write_file(included,
+    std::string included = write_temp_file(
 R"(fof(keep,axiom,p).
 fof(poison,axiom,~ p).)");
     std::string selected_include =
@@ -133,7 +145,7 @@ fof(a1,axiom,q).)";
     code = run_tptp(selected_include.c_str(), out, err);
     ENSURE(code == 0);
     ENSURE(out.find("% SZS status Satisfiable") != std::string::npos);
-    std::remove(included);
+    std::remove(included.c_str());
 
     code = run_tptp("fof(a1,axiom,[p(a),q(a)]).", out, err);
     ENSURE(code == ERR_PARSER);
