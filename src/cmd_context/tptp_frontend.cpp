@@ -1693,7 +1693,7 @@ class tptp_parser {
             }
             catch (z3_exception const& ex) {
                 std::ostringstream out;
-                out << "invalid formula '" << formula_name << "': " << ex.what();
+                out << "semantic error in formula '" << formula_name << "': " << ex.what();
                 throw parse_error(out.str());
             }
         }

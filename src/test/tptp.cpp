@@ -1,11 +1,11 @@
 #include <cstdio>
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <string>
 #include <vector>
 #include <iostream>
 #include <sstream>
-#include <unistd.h>
 #include "util/debug.h"
 #include "util/error_codes.h"
 #include "cmd_context/tptp_frontend.h"
@@ -45,16 +45,22 @@ static void write_file(char const* path, char const* contents) {
     ENSURE(out.good());
 }
 
-static std::string write_temp_file(char const* contents) {
-    std::string tmpl = (std::filesystem::temp_directory_path() / "z3-tptp-XXXXXX").string();
-    std::vector<char> path(tmpl.begin(), tmpl.end());
-    path.push_back('\0');
-    int fd = mkstemp(path.data());
-    ENSURE(fd != -1);
-    ::close(fd);
-    write_file(path.data(), contents);
-    return path.data();
-}
+class scoped_temp_file {
+    std::string m_path;
+public:
+    scoped_temp_file(char const* contents) {
+        static unsigned counter = 0;
+        auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+        m_path = (std::filesystem::temp_directory_path() /
+            ("z3-tptp-" + std::to_string(stamp) + "-" + std::to_string(counter++) + ".p")).string();
+        write_file(m_path.c_str(), contents);
+    }
+    ~scoped_temp_file() {
+        if (!m_path.empty())
+            std::remove(m_path.c_str());
+    }
+    std::string const& path() const { return m_path; }
+};
 
 extern bool g_display_statistics;
 extern bool g_display_model;
@@ -136,16 +142,15 @@ R"(tff(c1,conjecture, $less($uminus(2),0)).)",
     ENSURE(code == ERR_PARSER);
     ENSURE(err.find("denominator of rational literal cannot be zero") != std::string::npos);
 
-    std::string included = write_temp_file(
+    scoped_temp_file included(
 R"(fof(keep,axiom,p).
 fof(poison,axiom,~ p).)");
     std::string selected_include =
-        std::string("include('") + included + R"(',[keep]).
+        std::string("include('") + included.path() + R"(',[keep]).
 fof(a1,axiom,q).)";
     code = run_tptp(selected_include.c_str(), out, err);
     ENSURE(code == 0);
     ENSURE(out.find("% SZS status Satisfiable") != std::string::npos);
-    std::remove(included.c_str());
 
     code = run_tptp("fof(a1,axiom,[p(a),q(a)]).", out, err);
     ENSURE(code == ERR_PARSER);
