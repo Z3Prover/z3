@@ -1693,7 +1693,8 @@ class tptp_parser {
             }
             catch (z3_exception const& ex) {
                 std::ostringstream out;
-                out << "semantic error in formula '" << formula_name << "': " << ex.what();
+                out << "semantic error in formula '" << formula_name << "': " << ex.what()
+                    << "; check the formula body and any related type declarations";
                 throw parse_error(out.str());
             }
         }
@@ -1964,7 +1965,23 @@ public:
         try {
             parse_toplevel(current_file);
         }
-        catch (...) {
+        catch (parse_error const&) {
+            if (pushed_filter)
+                m_name_filters.pop_back();
+            m_input = std::move(saved_input);
+            m_lex = std::move(saved_lex);
+            m_curr = saved_curr;
+            throw;
+        }
+        catch (z3_error const&) {
+            if (pushed_filter)
+                m_name_filters.pop_back();
+            m_input = std::move(saved_input);
+            m_lex = std::move(saved_lex);
+            m_curr = saved_curr;
+            throw;
+        }
+        catch (z3_exception const&) {
             if (pushed_filter)
                 m_name_filters.pop_back();
             m_input = std::move(saved_input);
