@@ -1660,7 +1660,7 @@ class tptp_parser {
         std::string role = to_lower(parse_name());
         expect(token_kind::comma, "','");
 
-        if (!m_name_filters.empty() && !m_name_filters.back().contains(formula_name)) {
+        if (!m_name_filters.empty() && m_name_filters.back().find(formula_name) == m_name_filters.back().end()) {
             skip_annotations_until_rparen();
             expect(token_kind::rparen, "')'");
             expect(token_kind::dot, "'.'");

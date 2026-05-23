@@ -49,16 +49,22 @@ static void write_file(char const* path, char const* contents) {
 class scoped_temp_file {
     std::string m_path;
 public:
+    scoped_temp_file(scoped_temp_file const&) = delete;
+    scoped_temp_file& operator=(scoped_temp_file const&) = delete;
+    scoped_temp_file(scoped_temp_file&&) = delete;
+    scoped_temp_file& operator=(scoped_temp_file&&) = delete;
+
     scoped_temp_file(char const* contents) {
         static std::atomic<unsigned> counter(0);
-        auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+        auto stamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
         m_path = (std::filesystem::temp_directory_path() /
             ("z3-tptp-" + std::to_string(stamp) + "-" + std::to_string(counter.fetch_add(1)) + ".p")).string();
         write_file(m_path.c_str(), contents);
     }
     ~scoped_temp_file() {
-        if (!m_path.empty())
-            std::remove(m_path.c_str());
+        if (!m_path.empty() && std::remove(m_path.c_str()) != 0)
+            std::cerr << "failed to remove temporary file: " << m_path << "\n";
     }
     std::string const& path() const { return m_path; }
 };
