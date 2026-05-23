@@ -305,6 +305,7 @@ class tptp_parser {
     };
     implicit_var_scope* m_implicit_scope = nullptr;
     std::unordered_set<std::string> m_seen_files;
+    std::vector<std::unordered_set<std::string>> m_name_filters;
 
     // Table-driven operator dispatch
     using op_builder = std::function<expr_ref(expr_ref_vector const&)>;
@@ -1181,9 +1182,7 @@ class tptp_parser {
         if (let_consts.size() == 1) {
             replacer.insert(let_consts[0], value.get());
         } else {
-            // For simultaneous let with tuple value, just bind first var to value
-            // (full tuple destructuring would require more complex handling)
-            replacer.insert(let_consts[0], value.get());
+            throw parse_error("tuple $let destructuring is not supported");
         }
         expr_ref result(m);
         replacer(body, result);
@@ -1258,13 +1257,7 @@ class tptp_parser {
 
         // Tuple/list in formula position: [t1, t2, ...] — return first element for simplicity
         if (accept(token_kind::lbrack)) {
-            if (accept(token_kind::rbrack))
-                return expr_ref(m.mk_const(symbol("$nil"), m_univ), m);
-            expr_ref first = parse_formula();
-            while (accept(token_kind::comma))
-                parse_formula(); // consume remaining elements
-            expect(token_kind::rbrack, "']'");
-            return first;
+            throw parse_error("tuple/list formulas are not supported");
         }
 
         std::string n = parse_name();
@@ -1458,15 +1451,7 @@ class tptp_parser {
                 expect(token_kind::rbrack, "']'");
                 return first;
             }
-            // Not a modal operator — it's a tuple [expr, expr, ...]
-            // We already consumed '[', so parse as tuple inline
-            if (accept(token_kind::rbrack))
-                return expr_ref(m.mk_const(symbol("$nil"), m_univ), m);
-            expr_ref first = parse_formula();
-            while (accept(token_kind::comma))
-                parse_formula(); // consume remaining elements
-            expect(token_kind::rbrack, "']'");
-            return first;
+            throw parse_error("tuple/list formulas are not supported");
         }
 
         // Diamond modality: <.>, <name>
@@ -1663,9 +1648,17 @@ class tptp_parser {
     void parse_include(std::string const& curr_file) {
         expect(token_kind::lparen, "'('");
         std::string file = parse_name();
+        std::unordered_set<std::string> selected_names;
+        bool has_selection = false;
         if (accept(token_kind::comma)) {
             if (accept(token_kind::lbrack)) {
-                skip_balanced(token_kind::lbrack, token_kind::rbrack);
+                has_selection = true;
+                if (!accept(token_kind::rbrack)) {
+                    do {
+                        selected_names.insert(parse_name());
+                    } while (accept(token_kind::comma));
+                    expect(token_kind::rbrack, "']'");
+                }
             }
             else {
                 skip_annotations_until_rparen();
@@ -1673,15 +1666,22 @@ class tptp_parser {
         }
         expect(token_kind::rparen, "')'");
         expect(token_kind::dot, "'.'");
-        parse_file(resolve_include(curr_file, file));
+        parse_file(resolve_include(curr_file, file), has_selection ? &selected_names : nullptr);
     }
 
     void parse_annotated() {
         expect(token_kind::lparen, "'('");
-        parse_name();
+        std::string formula_name = parse_name();
         expect(token_kind::comma, "','");
         std::string role = to_lower(parse_name());
         expect(token_kind::comma, "','");
+
+        if (!m_name_filters.empty() && !m_name_filters.back().contains(formula_name)) {
+            skip_annotations_until_rparen();
+            expect(token_kind::rparen, "')'");
+            expect(token_kind::dot, "'.'");
+            return;
+        }
 
         if (role == "type") {
             parse_type_decl_formula();
@@ -1706,14 +1706,11 @@ class tptp_parser {
                     f = m.mk_not(f);
                 }
                 m_cmd.assert_expr(f);
-            } catch (z3_exception const& ex) {
-                // Sort mismatch or other semantic error in this formula — skip it
-                IF_VERBOSE(2, verbose_stream() << "skipping formula due to: " << ex.what() << "\n");
-                // Skip to '.' to resync the parser for the next annotated formula
-                while (!is(token_kind::eof_tok) && !is(token_kind::dot))
-                    next();
-                if (is(token_kind::dot)) next();
-                return;
+            }
+            catch (z3_exception const& ex) {
+                std::ostringstream out;
+                out << "invalid formula '" << formula_name << "': " << ex.what();
+                throw parse_error(out.str());
             }
         }
 
@@ -1964,18 +1961,36 @@ public:
         }};
     }
 
-    void parse_input(std::istream& in, std::string const& current_file) {
+    void parse_input(std::istream& in, std::string const& current_file, std::unordered_set<std::string> const* filter = nullptr) {
         // Save parser state so that included files don't clobber the caller's lexer.
         std::string saved_input = std::move(m_input);
         std::unique_ptr<lexer> saved_lex = std::move(m_lex);
         token saved_curr = m_curr;
+        bool pushed_filter = false;
+        if (filter) {
+            m_name_filters.push_back(*filter);
+            pushed_filter = true;
+        }
 
         std::ostringstream buf;
         buf << in.rdbuf();
         m_input = buf.str();
         m_lex = std::make_unique<lexer>(m_input);
         next();
-        parse_toplevel(current_file);
+        try {
+            parse_toplevel(current_file);
+        }
+        catch (...) {
+            if (pushed_filter)
+                m_name_filters.pop_back();
+            m_input = std::move(saved_input);
+            m_lex = std::move(saved_lex);
+            m_curr = saved_curr;
+            throw;
+        }
+
+        if (pushed_filter)
+            m_name_filters.pop_back();
 
         // Restore caller's parser state.
         m_input = std::move(saved_input);
@@ -1983,7 +1998,7 @@ public:
         m_curr = saved_curr;
     }
 
-    void parse_file(std::string const& filename) {
+    void parse_file(std::string const& filename, std::unordered_set<std::string> const* filter = nullptr) {
         if (!m_seen_files.insert(filename).second) return;
         std::ifstream in(filename);
         if (in.fail()) {
@@ -1991,7 +2006,7 @@ public:
             out << "failed to open file '" << filename << "'";
             throw parse_error(out.str());
         }
-        parse_input(in, filename);
+        parse_input(in, filename, filter);
     }
 
     void parse_stream(std::istream& in) {

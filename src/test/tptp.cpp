@@ -1,3 +1,5 @@
+#include <cstdio>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -32,6 +34,13 @@ static std::string run_tptp(char const* input) {
     unsigned code = run_tptp(input, out, err);
     ENSURE(code == 0);
     return out;
+}
+
+static void write_file(char const* path, char const* contents) {
+    std::ofstream out(path);
+    ENSURE(out.good());
+    out << contents;
+    ENSURE(out.good());
 }
 
 extern bool g_display_statistics;
@@ -113,4 +122,28 @@ R"(tff(c1,conjecture, $less($uminus(2),0)).)",
     unsigned code = run_tptp("tff(c1,conjecture, $less(1/0,1)).", out, err);
     ENSURE(code == ERR_PARSER);
     ENSURE(err.find("denominator of rational literal cannot be zero") != std::string::npos);
+
+    char const* included = "/tmp/z3-tptp-selected-include.p";
+    write_file(included,
+R"(fof(keep,axiom,p).
+fof(poison,axiom,~ p).)");
+    std::string selected_include =
+        std::string("include('") + included + R"(',[keep]).
+fof(a1,axiom,q).)";
+    code = run_tptp(selected_include.c_str(), out, err);
+    ENSURE(code == 0);
+    ENSURE(out.find("% SZS status Satisfiable") != std::string::npos);
+    std::remove(included);
+
+    code = run_tptp("tff(a1,axiom,$ite($true,0,$true)).", out, err);
+    ENSURE(code == ERR_PARSER);
+    ENSURE(err.find("TPTP parse error:") != std::string::npos);
+
+    code = run_tptp("fof(a1,axiom,[p(a),q(a)]).", out, err);
+    ENSURE(code == ERR_PARSER);
+    ENSURE(err.find("tuple/list formulas are not supported") != std::string::npos);
+
+    code = run_tptp("fof(a1,axiom,$let([X: $i, Y: $i], [X,Y] := a, X = Y)).", out, err);
+    ENSURE(code == ERR_PARSER);
+    ENSURE(err.find("tuple $let destructuring is not supported") != std::string::npos);
 }
