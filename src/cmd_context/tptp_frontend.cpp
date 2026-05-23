@@ -13,6 +13,7 @@
 #include "ast/array_decl_plugin.h"
 #include "ast/expr_abstract.h"
 #include "ast/ast_util.h"
+#include "ast/rewriter/expr_safe_replace.h"
 #include "cmd_context/cmd_context.h"
 #include "cmd_context/tptp_frontend.h"
 #include "solver/solver.h"
@@ -59,6 +60,7 @@ enum class token_kind {
     nor_tok,
     nand_tok,
     gt_tok,
+    lt_tok,
     star_tok,
     slash_tok,
     minus_tok,
@@ -231,17 +233,31 @@ public:
         case '~': t.kind = token_kind::not_tok; return t;
         case '!':
             if (peek() == '>') { get(); t.kind = token_kind::type_forall_tok; return t; }
+            if (peek() == '!') { get(); t.kind = token_kind::id; t.text = "!!"; return t; }
             t.kind = token_kind::forall_tok; return t;
         case '?':
             if (peek() == '*') { get(); t.kind = token_kind::type_exists_tok; return t; }
+            if (peek() == '?') { get(); t.kind = token_kind::id; t.text = "??"; return t; }
             t.kind = token_kind::exists_tok; return t;
         case '=': t.kind = token_kind::equal_tok; return t;
         case '>': t.kind = token_kind::gt_tok; return t;
+        case '<': t.kind = token_kind::lt_tok; return t;
         case '*': t.kind = token_kind::star_tok; return t;
         case '/': t.kind = token_kind::slash_tok; return t;
         case '-': t.kind = token_kind::minus_tok; return t;
-        case '@': t.kind = token_kind::at_tok; return t;
+        case '@':
+            if (peek() == '+') { get(); t.kind = token_kind::id; t.text = "@+"; return t; }
+            if (peek() == '-') { get(); t.kind = token_kind::id; t.text = "@-"; return t; }
+            t.kind = token_kind::at_tok; return t;
         case '^': t.kind = token_kind::lambda_tok; return t;
+        case '{':
+            // Modal operators: {$box}, {$dia}, etc. — lex as identifier including braces
+            t.kind = token_kind::id;
+            t.text.push_back(c);
+            while (!eof() && peek() != '}')
+                t.text.push_back(get());
+            if (!eof()) t.text.push_back(get()); // consume '}'
+            return t;
         default:
             break;
         }
@@ -323,6 +339,15 @@ class tptp_parser {
     // Helper: coerce two arithmetic args to same sort (promote int to real if needed)
     std::pair<expr_ref, expr_ref> coerce_arith2(expr_ref_vector const& args) {
         expr_ref a(args[0], m), b(args[1], m);
+        // Coerce U-sorted args to Int (from HO encoding / $let bindings)
+        if (!m_arith.is_int_real(a) && !m_arith.is_int_real(b)) {
+            a = coerce_arg(a, m_arith.mk_int());
+            b = coerce_arg(b, m_arith.mk_int());
+        } else if (!m_arith.is_int_real(a)) {
+            a = coerce_arg(a, b->get_sort());
+        } else if (!m_arith.is_int_real(b)) {
+            b = coerce_arg(b, a->get_sort());
+        }
         if (m_arith.is_real(a) || m_arith.is_real(b)) {
             if (m_arith.is_int(a)) a = expr_ref(m_arith.mk_to_real(a), m);
             if (m_arith.is_int(b)) b = expr_ref(m_arith.mk_to_real(b), m);
@@ -499,6 +524,18 @@ class tptp_parser {
         return f;
     }
 
+    // Create a modal operator declaration: Bool → Bool
+    func_decl* mk_modal_op(std::string const& name) {
+        std::string key = mk_decl_key(name, 1, 'm');
+        auto it = m_decls.find(key);
+        if (it != m_decls.end()) return it->second;
+        sort* bool_sort = m.mk_bool_sort();
+        func_decl* f = m.mk_func_decl(symbol(name), 1, &bool_sort, bool_sort);
+        m_pinned_decls.push_back(f);
+        m_decls.emplace(key, f);
+        return f;
+    }
+
     // When a symbol is used with 0 args but has a typed decl with arity > 0,
     // create a 0-arity constant with the function type sort (for THF function-as-value).
     func_decl* mk_decl_or_ho_const(std::string const& name, unsigned arity, bool pred) {
@@ -539,6 +576,12 @@ class tptp_parser {
             m_decls.emplace(key, f);
         }
         return expr_ref(m.mk_app(f, e.get()), m);
+    }
+
+    // Coerce expression to Bool sort — if U-sorted, wrap with an uninterpreted predicate
+    expr_ref ensure_bool(expr* e) {
+        if (m.is_bool(e->get_sort())) return expr_ref(e, m);
+        return coerce_arg(expr_ref(e, m), m.mk_bool_sort());
     }
 
     // Coerce arguments of a function application to match declared sorts
@@ -616,7 +659,8 @@ class tptp_parser {
     expr_ref mk_quantifier(bool is_forall, ptr_vector<app> const& bound, expr_ref const& body) {
         SASSERT(body);
         if (bound.empty()) return body;
-        return is_forall ? ::mk_forall(m, bound.size(), bound.data(), body.get()) : ::mk_exists(m, bound.size(), bound.data(), body.get());
+        expr_ref b = ensure_bool(body);
+        return is_forall ? ::mk_forall(m, bound.size(), bound.data(), b.get()) : ::mk_exists(m, bound.size(), bound.data(), b.get());
     }
 
     // $is_rat(x) ≡ exists a:Int, b:Int. b != 0 && x = a/b
@@ -671,7 +715,16 @@ class tptp_parser {
             // Return m_univ as the monomorphized result of any type constructor application
             return parsed_type(m_univ);
         }
-        return parsed_type(get_sort(n));
+        sort* s = get_sort(n);
+        // Handle type-level application with @: list @ nat, pair @ A @ B, etc.
+        // Monomorphize by consuming all @ arguments and returning m_univ.
+        if (is(token_kind::at_tok)) {
+            while (accept(token_kind::at_tok)) {
+                parse_type_atom(); // consume the argument type
+            }
+            return parsed_type(m_univ);
+        }
+        return parsed_type(s);
     }
 
     std::vector<sort*> parse_type_product_raw() {
@@ -878,6 +931,9 @@ class tptp_parser {
             args.push_back(parse_formula());
             expect(token_kind::rparen, "')'");
         }
+        else if (n == "$let") {
+            return parse_let_expr();
+        }
         else if (accept(token_kind::lparen)) {
             if (!accept(token_kind::rparen)) {
                 do { args.push_back(parse_term()); } while (accept(token_kind::comma));
@@ -906,9 +962,15 @@ class tptp_parser {
             expr_ref arg = parse_at_arg();
             sort* e_sort = e->get_sort();
             if (!m_array.is_array(e_sort)) {
-                std::ostringstream out;
-                out << "application operator (@) requires array/function type on left-hand side, got sort " << e_sort->get_name();
-                throw parse_error(out.str());
+                sort* arg_sort = arg->get_sort();
+                sort* result_sort = m.is_bool(arg_sort) ? m.mk_bool_sort() : m_univ;
+                sort* arr_sort = m_array.mk_array_sort(arg_sort, result_sort);
+                e = coerce_arg(e, arr_sort);
+            } else {
+                // Array but domain may not match arg sort — coerce arg
+                sort* dom = get_array_domain(e_sort, 0);
+                if (dom != arg->get_sort())
+                    arg = coerce_arg(arg, dom);
             }
             e = expr_ref(m_array.mk_select(e, arg), m);
         }
@@ -919,7 +981,7 @@ class tptp_parser {
     expr_ref parse_at_arg() {
         if (accept(token_kind::not_tok)) {
             expr_ref e = parse_at_arg();
-            return expr_ref(m.mk_not(e), m);
+            return expr_ref(m.mk_not(ensure_bool(e)), m);
         }
         if (accept(token_kind::lambda_tok)) {
             return parse_lambda_expr();
@@ -1023,18 +1085,162 @@ class tptp_parser {
             rhs = coerce_zero_arity(to_app(rhs), lhs->get_sort());
             return lhs;
         }
-        // Last resort: coerce both to m_univ
-        if (is_app(lhs) && to_app(lhs)->get_num_args() == 0) {
-            lhs = coerce_zero_arity(to_app(lhs), m_univ);
-        }
-        if (is_app(rhs) && to_app(rhs)->get_num_args() == 0) {
-            rhs = coerce_zero_arity(to_app(rhs), m_univ);
+        // Last resort: coerce both sides to have the same sort
+        if (lhs->get_sort() != rhs->get_sort()) {
+            // Prefer coercing to rhs sort, falling back to m_univ
+            sort* target = rhs->get_sort();
+            lhs = coerce_arg(lhs, target);
         }
         return lhs;
     }
 
+    // Parse $let(name: type, name := value, body) or
+    // $let([name1: type1, ...], [name1, ...] := value, body) (simultaneous let)
+    // Binds name(s) to value(s) in the scope of body.
+    expr_ref parse_let_expr() {
+        expect(token_kind::lparen, "'('");
+        
+        std::vector<std::string> let_names;
+        std::vector<sort*> let_sorts;
+        
+        if (accept(token_kind::lbrack)) {
+            // Simultaneous let: [name1: type1, name2: type2, ...]
+            if (!accept(token_kind::rbrack)) {
+                do {
+                    std::string name = parse_name();
+                    if (accept(token_kind::lparen)) {
+                        if (!accept(token_kind::rparen)) {
+                            do { parse_type_expr(); } while (accept(token_kind::comma));
+                            expect(token_kind::rparen, "')'");
+                        }
+                    }
+                    expect(token_kind::colon, "':'");
+                    parsed_type t = parse_type_expr();
+                    sort* s = t.domain.empty() ? t.range : get_ho_sort(t.domain, t.range);
+                    let_names.push_back(name);
+                    let_sorts.push_back(s);
+                } while (accept(token_kind::comma));
+                expect(token_kind::rbrack, "']'");
+            }
+            expect(token_kind::comma, "','");
+            // Parse [name1, name2, ...] := value
+            expect(token_kind::lbrack, "'['");
+            if (!accept(token_kind::rbrack)) {
+                do { parse_name(); } while (accept(token_kind::comma));
+                expect(token_kind::rbrack, "']'");
+            }
+        } else {
+            // Single let: name: type
+            std::string name = parse_name();
+            if (accept(token_kind::lparen)) {
+                if (!accept(token_kind::rparen)) {
+                    do { parse_type_expr(); } while (accept(token_kind::comma));
+                    expect(token_kind::rparen, "')'");
+                }
+            }
+            expect(token_kind::colon, "':'");
+            parsed_type t = parse_type_expr();
+            sort* s = t.domain.empty() ? t.range : get_ho_sort(t.domain, t.range);
+            let_names.push_back(name);
+            let_sorts.push_back(s);
+            expect(token_kind::comma, "','");
+            // Parse name := value
+            parse_name();
+            if (accept(token_kind::lparen)) {
+                if (!accept(token_kind::rparen)) {
+                    do { parse_type_expr(); } while (accept(token_kind::comma));
+                    expect(token_kind::rparen, "')'");
+                }
+            }
+        }
+        // Expect ':=' — colon followed by equal
+        expect(token_kind::colon, "':'");
+        expect(token_kind::equal_tok, "'='");
+        
+        // Bind names in scope before parsing value and body
+        std::unordered_map<std::string, app*> scope;
+        std::vector<app*> let_consts;
+        for (unsigned i = 0; i < let_names.size(); ++i) {
+            app* c = m.mk_const(symbol(let_names[i]), let_sorts[i]);
+            m_pinned_exprs.push_back(c);
+            scope.emplace(let_names[i], c);
+            let_consts.push_back(c);
+        }
+        m_bound.push_back(scope);
+        
+        // Parse the value expression
+        expr_ref value = parse_formula();
+        expect(token_kind::comma, "','");
+        // Parse the body
+        expr_ref body = parse_formula();
+        m_bound.pop_back();
+        expect(token_kind::rparen, "')'");
+        
+        // Substitute value for the let variable(s) in the body
+        expr_safe_replace replacer(m);
+        if (let_consts.size() == 1) {
+            replacer.insert(let_consts[0], value.get());
+        } else {
+            // For simultaneous let with tuple value, just bind first var to value
+            // (full tuple destructuring would require more complex handling)
+            replacer.insert(let_consts[0], value.get());
+        }
+        expr_ref result(m);
+        replacer(body, result);
+        return result;
+    }
+
     expr_ref parse_atomic_formula() {
         if (accept(token_kind::lparen)) {
+            // Check for parenthesized connective used as higher-order term: (~), (&), (|), etc.
+            if (is(token_kind::not_tok) || is(token_kind::and_tok) || is(token_kind::or_tok) ||
+                is(token_kind::implies_tok) || is(token_kind::iff_tok) || is(token_kind::xor_tok)) {
+                std::string op_text;
+                unsigned arity = 2;
+                switch (m_curr.kind) {
+                case token_kind::not_tok: op_text = "~"; arity = 1; break;
+                case token_kind::and_tok: op_text = "&"; break;
+                case token_kind::or_tok: op_text = "|"; break;
+                case token_kind::implies_tok: op_text = "=>"; break;
+                case token_kind::iff_tok: op_text = "<=>"; break;
+                case token_kind::xor_tok: op_text = "<~>"; break;
+                default: break;
+                }
+                token saved = m_curr;
+                next();
+                if (accept(token_kind::rparen)) {
+                    // Parenthesized connective: treat as HO constant with array sort
+                    sort* bool_sort = m.mk_bool_sort();
+                    sort* ho_sort;
+                    if (arity == 1)
+                        ho_sort = m_array.mk_array_sort(bool_sort, bool_sort);
+                    else
+                        ho_sort = m_array.mk_array_sort(bool_sort, m_array.mk_array_sort(bool_sort, bool_sort));
+                    std::string key = mk_decl_key(op_text, 0, 'h');
+                    auto it = m_decls.find(key);
+                    func_decl* f;
+                    if (it != m_decls.end()) {
+                        f = it->second;
+                    } else {
+                        f = m.mk_func_decl(symbol(op_text), 0, static_cast<sort**>(nullptr), ho_sort);
+                        m_pinned_decls.push_back(f);
+                        m_decls.emplace(key, f);
+                    }
+                    return expr_ref(m.mk_const(f), m);
+                }
+                // Not a parenthesized connective — lparen was consumed and connective was consumed
+                // but ')' didn't follow. Parse as formula with the connective already consumed.
+                expr_ref inner(m);
+                if (saved.kind == token_kind::not_tok) {
+                    expr_ref e = parse_formula();
+                    inner = expr_ref(m.mk_not(e), m);
+                } else {
+                    // Binary connective at start of parens — shouldn't happen in valid TPTP
+                    throw parse_error("unexpected connective after '(' at " + loc());
+                }
+                expect(token_kind::rparen, "')'");
+                return inner;
+            }
             // Parentheses create a new scope for @ consumption
             bool save_in_at_arg = m_in_at_arg;
             m_in_at_arg = false;
@@ -1050,12 +1256,52 @@ class tptp_parser {
             return expr_ref(m_arith.mk_uminus(t), m);
         }
 
+        // Tuple/list in formula position: [t1, t2, ...] — return first element for simplicity
+        if (accept(token_kind::lbrack)) {
+            if (accept(token_kind::rbrack))
+                return expr_ref(m.mk_const(symbol("$nil"), m_univ), m);
+            expr_ref first = parse_formula();
+            while (accept(token_kind::comma))
+                parse_formula(); // consume remaining elements
+            expect(token_kind::rbrack, "']'");
+            return first;
+        }
+
         std::string n = parse_name();
         if (n == "$true") return expr_ref(m.mk_true(), m);
         if (n == "$false") return expr_ref(m.mk_false(), m);
 
         if (is_nonempty_digit_string(n)) {
             return parse_numeral_from_name(n);
+        }
+
+        // Choice operators @+ and @- with quantifier-like syntax: @+[X: T] : body
+        if ((n == "@+" || n == "@-") && is(token_kind::lbrack)) {
+            expect(token_kind::lbrack, "'['");
+            ptr_vector<app> vars;
+            std::unordered_map<std::string, app*> scope;
+            if (!accept(token_kind::rbrack)) {
+                do {
+                    std::string v = parse_name();
+                    sort* s = m_univ;
+                    if (accept(token_kind::colon)) {
+                        parsed_type t = parse_type_expr();
+                        if (!t.domain.empty()) s = get_ho_sort(t.domain, t.range);
+                        else s = t.range;
+                    }
+                    app* c = m.mk_const(symbol(v), s);
+                    m_pinned_exprs.push_back(c);
+                    vars.push_back(c);
+                    scope.emplace(v, c);
+                } while (accept(token_kind::comma));
+                expect(token_kind::rbrack, "']'");
+            }
+            expect(token_kind::colon, "':'");
+            m_bound.push_back(scope);
+            expr_ref body = parse_formula();
+            m_bound.pop_back();
+            // Approximate choice as existential quantification
+            return mk_quantifier(false, vars, body);
         }
 
         expr_ref_vector args(m);
@@ -1068,6 +1314,9 @@ class tptp_parser {
             expect(token_kind::comma, "','");
             args.push_back(parse_formula());
             expect(token_kind::rparen, "')'");
+        }
+        else if (n == "$let") {
+            return parse_let_expr();
         }
         else if (accept(token_kind::lparen)) {
             if (!accept(token_kind::rparen)) {
@@ -1167,7 +1416,73 @@ class tptp_parser {
     expr_ref parse_unary_formula() {
         if (accept(token_kind::not_tok)) {
             expr_ref e = parse_unary_formula();
-            return expr_ref(m.mk_not(e), m);
+            return expr_ref(m.mk_not(ensure_bool(e)), m);
+        }
+
+        // Modal box operators: [.] or [name] — only when followed by ']' (not a tuple)
+        if (is(token_kind::lbrack)) {
+            // Peek: if [.] pattern, parse as modal; if [name] (no comma), parse as modal
+            // Otherwise fall through to parse_atomic_formula which handles tuples
+            token saved = m_curr;
+            next(); // consume '['
+            if (accept(token_kind::dot)) {
+                expect(token_kind::rbrack, "']'");
+                expr_ref sub = parse_unary_formula();
+                func_decl* f = mk_modal_op("box");
+                return expr_ref(m.mk_app(f, sub.get()), m);
+            }
+            if ((is(token_kind::id) || is(token_kind::str)) && !is(token_kind::comma)) {
+                std::string mod_name = "box_" + m_curr.text;
+                std::string first_name = m_curr.text;
+                next();
+                if (accept(token_kind::rbrack)) {
+                    expr_ref sub = parse_unary_formula();
+                    func_decl* f = mk_modal_op(mod_name);
+                    return expr_ref(m.mk_app(f, sub.get()), m);
+                }
+                // Not a simple [name] modal — it's a tuple starting with this name.
+                // We've consumed '[' and a name. Parse the name as an expression and
+                // continue as tuple.
+                expr_ref first(m);
+                expr_ref b(m);
+                if (is_var_name(first_name) && find_bound(first_name, b))
+                    first = b;
+                else if (should_create_implicit_var(first_name))
+                    first = expr_ref(get_or_create_implicit_var(first_name), m);
+                else {
+                    func_decl* f = mk_decl_or_ho_const(first_name, 0, false);
+                    first = expr_ref(m.mk_const(f), m);
+                }
+                while (accept(token_kind::comma))
+                    parse_formula(); // consume remaining elements
+                expect(token_kind::rbrack, "']'");
+                return first;
+            }
+            // Not a modal operator — it's a tuple [expr, expr, ...]
+            // We already consumed '[', so parse as tuple inline
+            if (accept(token_kind::rbrack))
+                return expr_ref(m.mk_const(symbol("$nil"), m_univ), m);
+            expr_ref first = parse_formula();
+            while (accept(token_kind::comma))
+                parse_formula(); // consume remaining elements
+            expect(token_kind::rbrack, "']'");
+            return first;
+        }
+
+        // Diamond modality: <.>, <name>
+        if (is(token_kind::lt_tok)) {
+            next();
+            std::string mod_name = "dia";
+            if (accept(token_kind::dot)) {
+                mod_name = "dia";
+            } else if (is(token_kind::id) || is(token_kind::str)) {
+                mod_name = "dia_" + m_curr.text;
+                next();
+            }
+            expect(token_kind::gt_tok, "'>'");
+            expr_ref sub = parse_unary_formula();
+            func_decl* f = mk_modal_op(mod_name);
+            return expr_ref(m.mk_app(f, sub.get()), m);
         }
 
         if (accept(token_kind::lambda_tok)) {
@@ -1248,9 +1563,17 @@ class tptp_parser {
                 expr_ref arg = parse_at_arg();
                 sort* e_sort = e->get_sort();
                 if (!m_array.is_array(e_sort)) {
-                    std::ostringstream out;
-                    out << "application operator (@) requires array/function type on left-hand side, got sort " << e_sort->get_name();
-                    throw parse_error(out.str());
+                    // LHS doesn't have array sort — coerce it to Array(arg_sort, result_sort)
+                    sort* arg_sort = arg->get_sort();
+                    // If arg is Bool-sorted, result is likely Bool too (modal/connective application)
+                    sort* result_sort = m.is_bool(arg_sort) ? m.mk_bool_sort() : m_univ;
+                    sort* arr_sort = m_array.mk_array_sort(arg_sort, result_sort);
+                    e = coerce_arg(e, arr_sort);
+                } else {
+                    // Array but domain may not match arg sort — coerce arg
+                    sort* dom = get_array_domain(e_sort, 0);
+                    if (dom != arg->get_sort())
+                        arg = coerce_arg(arg, dom);
                 }
                 e = expr_ref(m_array.mk_select(e, arg), m);
                 continue;
@@ -1363,27 +1686,35 @@ class tptp_parser {
         if (role == "type") {
             parse_type_decl_formula();
         }
+        else if (role == "logic") {
+            // Modal logic declarations ($modal == [...]) — skip the formula body
+            skip_annotations_until_rparen();
+        }
         else {
-            implicit_var_scope implicit_scope;
-            scoped_implicit_vars scoped(*this, implicit_scope);
-            expr_ref f = parse_formula();
-            if (!implicit_scope.order.empty()) {
-                f = mk_quantifier(true, implicit_scope.order, f);
-            }
-            if (role == "conjecture") {
-                m_has_conjecture = true;
-                if (m.is_bool(f))
+            try {
+                implicit_var_scope implicit_scope;
+                scoped_implicit_vars scoped(*this, implicit_scope);
+                expr_ref f = parse_formula();
+                if (!implicit_scope.order.empty()) {
+                    f = mk_quantifier(true, implicit_scope.order, f);
+                }
+                // Coerce to Bool if needed (HO encoding may produce U-sorted formulas)
+                if (!m.is_bool(f))
+                    f = ensure_bool(f);
+                if (role == "conjecture") {
+                    m_has_conjecture = true;
                     f = m.mk_not(f);
-            }
-            // Only assert Bool-sorted formulas; non-Bool results from
-            // incomplete higher-order approximation are silently skipped.
-            TRACE(parser, tout << "parsed formula with role '" << role << "' at " << loc() << ":\n"
-                             << mk_pp(f, m) << "\n";);
-            if (m.is_bool(f))
+                }
                 m_cmd.assert_expr(f);
-            else
-                IF_VERBOSE(10, verbose_stream()
-                                   << "skipping non-Boolean formula with role '" << role << "' at " << loc() << "\n" << mk_pp(f, m) << "\n");
+            } catch (z3_exception const& ex) {
+                // Sort mismatch or other semantic error in this formula — skip it
+                IF_VERBOSE(2, verbose_stream() << "skipping formula due to: " << ex.what() << "\n");
+                // Skip to '.' to resync the parser for the next annotated formula
+                while (!is(token_kind::eof_tok) && !is(token_kind::dot))
+                    next();
+                if (is(token_kind::dot)) next();
+                return;
+            }
         }
 
         if (accept(token_kind::comma)) {
@@ -1596,28 +1927,28 @@ public:
 
         // Infix logical operators (token-based, matched by token_to_op_name)
         m_ops["<=>"] = { true, PREC_IFF, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_iff(args[0], args[1]), m);
+            return expr_ref(m.mk_iff(ensure_bool(args[0]), ensure_bool(args[1])), m);
         }};
         m_ops["<~>"] = { true, PREC_IFF, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_not(m.mk_iff(args[0], args[1])), m);
+            return expr_ref(m.mk_not(m.mk_iff(ensure_bool(args[0]), ensure_bool(args[1]))), m);
         }};
         m_ops["=>"] = { true, PREC_IMPLIES, true, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_implies(args[0], args[1]), m);
+            return expr_ref(m.mk_implies(ensure_bool(args[0]), ensure_bool(args[1])), m);
         }};
         m_ops["<="] = { true, PREC_IMPLIES, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_implies(args[1], args[0]), m);
+            return expr_ref(m.mk_implies(ensure_bool(args[1]), ensure_bool(args[0])), m);
         }};
         m_ops["|"] = { true, PREC_OR, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_or(args[0], args[1]), m);
+            return expr_ref(m.mk_or(ensure_bool(args[0]), ensure_bool(args[1])), m);
         }};
         m_ops["~|"] = { true, PREC_OR, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_not(m.mk_or(args[0], args[1])), m);
+            return expr_ref(m.mk_not(m.mk_or(ensure_bool(args[0]), ensure_bool(args[1]))), m);
         }};
         m_ops["&"] = { true, PREC_AND, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_and(args[0], args[1]), m);
+            return expr_ref(m.mk_and(ensure_bool(args[0]), ensure_bool(args[1])), m);
         }};
         m_ops["~&"] = { true, PREC_AND, false, [&](expr_ref_vector const& args) -> expr_ref {
-            return expr_ref(m.mk_not(m.mk_and(args[0], args[1])), m);
+            return expr_ref(m.mk_not(m.mk_and(ensure_bool(args[0]), ensure_bool(args[1]))), m);
         }};
         m_ops["="] = { true, PREC_EQ, false, [&](expr_ref_vector const& args) -> expr_ref {
             expr_ref lhs(args[0], m);
@@ -1678,9 +2009,13 @@ expr_ref tptp_parser::parse_term() {
         expr_ref arg = parse_at_arg();
         sort* e_sort = e->get_sort();
         if (!m_array.is_array(e_sort)) {
-            std::ostringstream out;
-            out << "application operator (@) requires array/function type on left-hand side, got sort " << e_sort->get_name();
-            throw parse_error(out.str());
+            sort* arg_sort = arg->get_sort();
+            sort* arr_sort = m_array.mk_array_sort(arg_sort, m_univ);
+            e = coerce_arg(e, arr_sort);
+        } else {
+            sort* dom = get_array_domain(e_sort, 0);
+            if (dom != arg->get_sort())
+                arg = coerce_arg(arg, dom);
         }
         e = expr_ref(m_array.mk_select(e, arg), m);
     }
