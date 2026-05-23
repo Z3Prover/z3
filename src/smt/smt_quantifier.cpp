@@ -213,7 +213,7 @@ namespace smt {
             vector<std::tuple<enode *, enode *>> & used_enodes) {
 
             if (pat != nullptr) {
-                if (used_enodes.size() > 0) {
+                if (!used_enodes.empty()) {
                     STRACE(causality, tout << "New-Match: "<< static_cast<void*>(f););
                     STRACE(triggers,  tout <<", Pat: "<< expr_ref(pat, m()););
                     STRACE(causality, tout <<", Father:";);
@@ -229,7 +229,7 @@ namespace smt {
                         STRACE(causality, tout << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";);
                     }
                 }
-                if (used_enodes.size() > 0) {
+                if (!used_enodes.empty()) {
                     STRACE(causality, tout << "\n";);
                 }
             }
@@ -667,8 +667,7 @@ namespace smt {
         void on_ho_match(euf::ho_subst& s) {
             ast_manager& m = m_context->get_manager();
             auto& st = m_ho_state;
-            auto* hoq = st.m_q;
-            auto* q = m_ho_matcher->hoq2q(hoq);
+            auto* q = m_ho_matcher->hoq2q(st.m_q);
 
             expr_ref_vector binding(m);
             for (unsigned i = 0; i < s.size(); ++i)
@@ -684,10 +683,10 @@ namespace smt {
                 while (change) {
                     change = false;
                     for (unsigned i = 0; i < binding.size(); ++i) {
-                        if (!binding.get(i)) continue;
-                        auto r = sub(binding.get(i), binding);
-                        change |= r != binding.get(i);
-                        binding[i] = r;
+                        expr* e = binding.get(i);
+                        if (!e) continue;
+                        auto r = sub(e, binding);
+                        if (r != e) { binding[i] = r; change = true; }
                     }
                 }
                 binding.shrink(q->get_num_decls());
@@ -928,14 +927,9 @@ namespace smt {
         }
 
         final_check_status final_check_eh(bool full) override {
-            if (!full) {
-                if (m_fparams->m_qi_lazy_instantiation)
-                    return final_check_quant();
-                return FC_DONE;
-            }
-            else {
+            if (full || m_fparams->m_qi_lazy_instantiation)
                 return final_check_quant();
-            }
+            return FC_DONE;
         }
 
         /**
