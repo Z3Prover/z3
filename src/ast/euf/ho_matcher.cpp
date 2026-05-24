@@ -544,8 +544,7 @@ namespace euf {
         uint_set vars;
         while (m_array.is_select(p)) {
             auto a = to_app(p);
-            for (unsigned i = 1; i < a->get_num_args(); ++i) {
-                auto arg = a->get_arg(i);
+            for (auto arg : *a) {
                 if (!is_bound_var(arg, offset))
                     return false;
                 auto idx = to_var(arg)->get_idx();
@@ -605,15 +604,12 @@ namespace euf {
         }
         expr_ref_vector pat2bound(m);        
         for (auto a : pats) {
-            unsigned sz = a->get_num_args();
-            for (unsigned i = 1; i < sz; ++i) {
-                auto arg = a->get_arg(i);
+            for (auto arg : *a) {
                 SASSERT(is_bound_var(arg, offset));
                 auto idx = to_var(arg)->get_idx();
                 pat2bound.reserve(idx + 1);
                 pat2bound[idx] = m.mk_var(--num_bound, arg->get_sort());
-            }   
-            p1 = a->get_arg(0);
+            }
         }
         var_subst sub(m, false);
         expr_ref lam = sub(t, pat2bound);
