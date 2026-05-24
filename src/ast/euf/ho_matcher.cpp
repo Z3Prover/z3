@@ -273,10 +273,9 @@ namespace euf {
         unsigned arity = f->get_arity();
         SASSERT(is_lambda(lam));
         
-        if (arity == 0) {
+        if (arity == 0) 
             // Constant lambda-def: just return the lambda expression
-            return expr_ref(lam, m);
-        }
+            return expr_ref(lam, m);        
 
         var_subst subst(m, false);
         expr_ref r = subst(lam, to_app(e)->get_num_args(), to_app(e)->get_args());
