@@ -277,38 +277,10 @@ namespace euf {
             // Constant lambda-def: just return the lambda expression
             return expr_ref(lam, m);
         }
-        
-        // f(a1,...,an) where lam = lambda (x1..xk) body
-        // The lambda body uses var(0)..var(k-1) for the lambda-bound vars
-        // and var(k)..var(k+n-1) for the function parameters.
-        // We substitute the function parameters with the actual arguments,
-        // shifting them by num_lambda_decls to avoid capture by the lambda binder.
-        unsigned num_lambda_decls = lam->get_num_decls();
-        expr_ref body(lam->get_expr(), m);
-        
-        expr_ref_vector subst(m);
-        subst.resize(num_lambda_decls + arity);
-        for (unsigned i = 0; i < num_lambda_decls; ++i)
-            subst[i] = m.mk_var(i, lam->get_decl_sort(num_lambda_decls - 1 - i));
-        
-        var_shifter shifter(m);
-        for (unsigned i = 0; i < arity; ++i) {
-            expr_ref shifted(m);
-            shifter(a->get_arg(arity - 1 - i), num_lambda_decls, shifted);
-            subst[num_lambda_decls + i] = shifted;
-        }
-        
-        var_subst vs(m, false);
-        body = vs(lam->get_expr(), subst);
-        
-        // Rebuild the lambda with the new body
-        ptr_buffer<sort> sorts;
-        vector<symbol> names;
-        for (unsigned i = 0; i < num_lambda_decls; ++i) {
-            sorts.push_back(lam->get_decl_sort(i));
-            names.push_back(lam->get_decl_name(i));
-        }
-        return expr_ref(m.mk_lambda(num_lambda_decls, sorts.data(), names.data(), body), m);
+
+        var_subst subst(m, false);
+        expr_ref r = subst(lam, to_app(e)->get_num_args(), to_app(e)->get_args());
+        return r;        
     }
 
     void ho_matcher::reduce(match_goal& wi) {
