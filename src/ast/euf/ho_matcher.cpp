@@ -185,16 +185,15 @@ namespace euf {
     //
     expr_ref ho_matcher::whnf(expr* e, unsigned offset) const {
         expr_ref r(e, m), t(m);
-//        verbose_stream() << "ho_matcher::whnf: " << r << "\n";
         if (is_meta_var(r, offset)) {
             auto v = to_var(e);
             auto idx = v->get_idx();
             if (idx >= offset && m_subst.get(idx - offset)) {
-                auto e = m_subst.get(idx - offset);
-                r = e;
+                expr* subst_val = m_subst.get(idx - offset);
+                r = subst_val;
                 if (offset > 0) {
                     var_shifter sh(m);
-                    sh(e, offset, r);
+                    sh(subst_val, offset, r);
                 }
                 return r;
             }
@@ -202,24 +201,21 @@ namespace euf {
         while (m_array.is_select(r)) {
             app* a = to_app(r);
             auto arg0 = a->get_arg(0);
-            //  apply substitution:
             if (is_meta_var(arg0, offset)) {
                 auto v = to_var(arg0);
                 auto idx = v->get_idx();
                 if (idx >= offset && m_subst.get(idx - offset)) {
-                    auto e = m_subst.get(idx - offset);
+                    expr* subst_val = m_subst.get(idx - offset);
                     if (offset > 0) {
                         var_shifter sh(m);
-                        sh(e, offset, r);
-                        e = r;
+                        sh(subst_val, offset, r);
+                        subst_val = r;
                     }
                     expr_ref_vector args(m);
-                    args.push_back(e);
+                    args.push_back(subst_val);
                     for (unsigned i = 1; i < a->get_num_args(); ++i) 
                         args.push_back(a->get_arg(i));
-                    
                     r = m.mk_app(a->get_decl(), args.size(), args.data());
-  //                  verbose_stream() << "ho_matcher::whnf: " << r << "\n";
                     continue;
                 }
             }
@@ -229,7 +225,6 @@ namespace euf {
                     ptr_vector<expr> args(a->get_num_args(), a->get_args());
                     args[0] = t;
                     r = m_array.mk_select(args.size(), args.data());
-   //                 verbose_stream() << "ho_matcher::whnf-rec: " << r << "\n";
                     continue;
                 }
             }
@@ -317,8 +312,6 @@ namespace euf {
     }
 
     bool ho_matcher::consume_work(match_goal &wi) {
-//        IF_VERBOSE(1, display(verbose_stream() << "ho_matcher::consume_work: " << wi.pat << " =?= " << wi.t << "\n"););
-
         if (wi.in_scope()) 
             m_trail.pop_scope(1);
         
