@@ -240,7 +240,18 @@ namespace euf {
             else
                 break;
         }
+        r = unfold_lambda_def(r); 
         return r;    
+    }
+
+    expr_ref ho_matcher::whnf_star(expr *e, unsigned offset) const {
+        expr_ref r(e, m);
+        while (true) {
+            auto q = whnf(r, offset);
+            if (q == r)
+                return r;
+            r = q;
+        }
     }
 
     // We assume that m_rewriter should produce
@@ -301,26 +312,8 @@ namespace euf {
     }
 
     void ho_matcher::reduce(match_goal& wi) {
-        while (true) {
-            expr_ref r = whnf(wi.pat, wi.pat_offset());
-            if (r == wi.pat) 
-                r = unfold_lambda_def(wi.pat);            
-            if (r == wi.pat)
-                break;
-            IF_VERBOSE(3, verbose_stream() << "ho_matcher::reduce: " << wi.pat << " -> " << r << "\n";);
-            wi.pat = r;
-        } 
-
-
-        while (true) {
-            expr_ref r = whnf(wi.t, wi.term_offset());
-            if (r == wi.t)
-                r = unfold_lambda_def(wi.t);
-            if (r == wi.t)
-                break;
-            IF_VERBOSE(3, verbose_stream() << "ho_matcher::reduce: " << wi.t << " -> " << r << "\n";);
-            wi.t = r;
-        } 
+        wi.pat = whnf_star(wi.pat, wi.pat_offset());
+        wi.t = whnf_star(wi.t, wi.term_offset());
     }
 
     bool ho_matcher::consume_work(match_goal &wi) {
@@ -638,7 +631,7 @@ namespace euf {
 
     //
     // keep track of number of internal scopes and offset to non-capture variables.
-    // a variable is captured if it's index is in the interval [scopes, offset[.
+    // a variable is captured if its index is in the interval [scopes, offset[.
     //
     bool ho_matcher::is_closed(expr* v, unsigned scopes, unsigned offset) const {
         if (is_ground(v))
@@ -700,9 +693,9 @@ namespace euf {
 
     std::pair<quantifier*, app*> ho_matcher::compile_ho_pattern(quantifier* q, app* p) {
         app* p1 = nullptr;
-        if (m_pat2hopat.find(p, p)) {
-            q = m_q2hoq[q];
-            return { q, p };
+        quantifier *q1 = nullptr;
+        if (m_pat2hopat.find(p, p1) && m_q2hoq.find(q, q1)) {
+            return { q1, p1 };
         }
         auto is_ho = any_of(subterms::all(expr_ref(p, m)), [&](expr* t) { 
             return m_unitary.is_flex(0, t) || 
@@ -715,6 +708,7 @@ namespace euf {
         ptr_buffer<var> bound;
         expr_ref_vector cache(m);
         unsigned nb = q->get_num_decls();
+        bool contains_pat2abs = m_pat2abs.contains(p);
         todo.push_back(p);
         while (!todo.empty()) {
             auto t = todo.back();
@@ -724,7 +718,8 @@ namespace euf {
                 continue;
             }
             if (m_unitary.is_flex(0, t) || (is_app(t) && m.is_lambda_def(to_app(t)->get_decl())) || is_lambda(t)) {
-                m_pat2abs.insert_if_not_there(p, svector<std::pair<unsigned, expr*>>()).push_back({ nb, t });
+                if (!contains_pat2abs)
+                    m_pat2abs.insert_if_not_there(p, svector<std::pair<unsigned, expr*>>()).push_back({ nb, t });
                 auto v = m.mk_var(nb++, t->get_sort());
                 bound.push_back(v);
                 cache.setx(t->get_id(), v);
@@ -750,7 +745,8 @@ namespace euf {
                 cache.setx(t->get_id(), m.mk_app(a->get_decl(), args.size(), args.data()));
             }
             if (is_quantifier(t)) {
-                m_pat2abs.remove(p);
+                if (!contains_pat2abs)
+                    m_pat2abs.remove(p);
                 return { q, p };
             }
         }
@@ -789,23 +785,36 @@ namespace euf {
             p1 = m.mk_pattern(pats.size(), pats.data());
         }
 
-        quantifier* q1 = m.mk_forall(sorts.size(), sorts.data(), names.data(), body);
+        q1 = m.mk_forall(sorts.size(), sorts.data(), names.data(), body);
 
-        m_pat2hopat.insert(p, p1);
-        m_hopat2pat.insert(p1, p);
-        m_q2hoq.insert(q, q1);
-        m_hoq2q.insert(q1, q);
-        m_hopat2free_vars.insert(p1, std::move(free_vars));
         m_ho_patterns.push_back(p1);
         m_ho_qs.push_back(q1);
         trail().push(push_back_vector(m_ho_patterns));
         trail().push(push_back_vector(m_ho_qs));
-        trail().push(insert_map(m_pat2hopat, p));
-        trail().push(insert_map(m_hopat2pat, p1));
-        trail().push(insert_map(m_pat2abs, p));
-        trail().push(insert_map(m_q2hoq, q));
-        trail().push(insert_map(m_hoq2q, q1));
-        trail().push(insert_map(m_hopat2free_vars, p1));
+
+        if (!m_pat2hopat.contains(p)) {
+            m_pat2hopat.insert(p, p1);
+            trail().push(insert_map(m_pat2hopat, p));
+        }
+        if (!m_hopat2pat.contains(p1)) {
+            m_hopat2pat.insert(p1, p);
+            trail().push(insert_map(m_hopat2pat, p1));
+        }
+        if (!m_q2hoq.contains(q)) {
+            m_q2hoq.insert(q, q1);
+            trail().push(insert_map(m_q2hoq, q));
+        }
+        if (!m_hoq2q.contains(q1)) {
+            m_hoq2q.insert(q1, q);
+            trail().push(insert_map(m_hoq2q, q1));
+        }
+        if (!m_hopat2free_vars.contains(p1)) {
+            m_hopat2free_vars.insert(p1, std::move(free_vars));
+            trail().push(insert_map(m_hopat2free_vars, p1));
+        }
+        if (!contains_pat2abs)
+            trail().push(insert_map(m_pat2abs, p));
+
         return { q1, p1 };
     }
 

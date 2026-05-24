@@ -329,6 +329,8 @@ namespace euf {
         bool consume_work(match_goal& wi);
 
         expr_ref whnf(expr* e, unsigned offset) const;
+
+        expr_ref whnf_star(expr *e, unsigned offset) const;
         
         bool is_bound_var(expr* v, unsigned offset) const { return is_var(v) && to_var(v)->get_idx() < offset; }
 
