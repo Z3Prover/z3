@@ -418,6 +418,9 @@ class tptp_parser {
         }
     }
 
+    // Grammar: <name>           ::= <atomic_word> | <integer>
+    //          <atomic_word>    ::= <lower_word> | <single_quoted>
+    //          Used universally for parsing identifiers, keywords, and quoted names.
     std::string parse_name() {
         if (is(token_kind::id) || is(token_kind::str)) {
             m_last_name_quoted = is(token_kind::str);
@@ -466,6 +469,11 @@ class tptp_parser {
         return true;
     }
 
+    // Grammar: <number>  ::= <integer> | <rational> | <real>
+    //          <integer> ::= <signed_integer> | <unsigned_integer>
+    //          <rational>::= <signed_integer>/<positive_integer>
+    //          <real>    ::= <signed_integer><dot_decimal> | ...
+    //          Parses integer, rational (N/D), and real (N.D or N.DeE) numeric literals.
     expr_ref parse_numeral_from_name(std::string const& n) {
         SASSERT(is_nonempty_digit_string(n));
         rational num(n.c_str());
@@ -682,6 +690,11 @@ class tptp_parser {
         return expr_ref(::mk_exists(m, bound.size(), bound.data(), body.get()), m);
     }
 
+    // Grammar: <thf_atomic_type>   ::= <type_constant> | <defined_type> | <variable> |
+    //                                   <thf_mapping_type> | (<thf_binary_type>)
+    //          <tff_atomic_type>   ::= <type_constant> | <defined_type> | <variable> |
+    //                                   <type_functor>(<tff_type_arguments>)
+    //          <defined_type>      ::= $oType | $o | $iType | $i | $tType | $real | $rat | $int
     parsed_type parse_type_atom() {
         if (accept(token_kind::lparen)) {
             std::vector<sort*> prod = parse_type_product_raw();
@@ -727,6 +740,9 @@ class tptp_parser {
         return parsed_type(s);
     }
 
+    // Grammar: <thf_xprod_type>    ::= <thf_unitary_type> * <thf_unitary_type>
+    //                                 | <thf_xprod_type> * <thf_unitary_type>
+    //          Product types form the domain in mapping types: (A * B) > C
     std::vector<sort*> parse_type_product_raw() {
         parsed_type first = parse_type_atom();
         if (!first.domain.empty() && first.range == nullptr) {
@@ -774,6 +790,10 @@ class tptp_parser {
         return args;
     }
 
+    // Grammar: <tff_top_level_type> ::= <tff_atomic_type> | <tff_mapping_type> | <tf1_quantified_type>
+    //          <tff_mapping_type>   ::= <tff_unitary_type> > <tff_atomic_type>
+    //          <thf_binary_type>    ::= <thf_mapping_type> | <thf_xprod_type>
+    //          <thf_mapping_type>   ::= <thf_unitary_type> > <thf_unitary_type>
     parsed_type parse_type_product() {
         parsed_type first = parse_type_atom();
         // If atom returned a function type and no '*' follows, return it directly
@@ -804,6 +824,10 @@ class tptp_parser {
         return parsed_type(args, nullptr);
     }
 
+    // Grammar: <tff_top_level_type>  ::= <tff_atomic_type> | <tff_mapping_type> | <tf1_quantified_type>
+    //          <thf_binary_type>     ::= <thf_mapping_type> | <thf_xprod_type>
+    //          <tf1_quantified_type> ::= !> [<tff_variable_list>] : <tff_monotype>
+    //          Parses: atom, atom > atom, (A * B) > C, !>[X:$tType] : T
     parsed_type parse_type_expr() {
         // Handle type quantification at the expression level for proper domain/range preservation
         if (is(token_kind::type_forall_tok) || is(token_kind::type_exists_tok)) {
@@ -889,8 +913,16 @@ class tptp_parser {
         }
     }
 
+    // Grammar: <tff_plain_atomic>  ::= <functor> | <functor>(<tff_arguments>)
+    //          <tff_arguments>     ::= <tff_term> | <tff_term>,<tff_arguments>
+    //          <defined_term>      ::= <defined_atom> | <defined_functor>(<tff_arguments>)
+    //          <defined_functor>   ::= $uminus | $sum | $difference | $product | ...
+    //          <tff_conditional>   ::= $ite(<tff_logic_formula>,<tff_term>,<tff_term>)
+    //          Handles: numerals, bound variables, let-bound names, defined functors,
+    //          plain function/constant symbols, parenthesized formulas.
     expr_ref parse_term();
 
+    // Grammar: (same as parse_term, primary productions)
     expr_ref parse_term_primary() {
         if (accept(token_kind::lparen)) {
             expr_ref e = parse_formula();
@@ -915,8 +947,23 @@ class tptp_parser {
         }
 
         expr_ref b(m);
-        if (!m_last_name_quoted && is_var_name(n) && find_bound(n, b))
+        // Check bound variables: uppercase (quantifier vars) AND lowercase (let-bound names)
+        if (!m_last_name_quoted && find_bound(n, b)) {
+            // For let-bound names followed by '(', apply via array select (function-style let)
+            if (is(token_kind::lparen)) {
+                next();
+                expr_ref_vector fargs(m);
+                if (!accept(token_kind::rparen)) {
+                    do { fargs.push_back(parse_term()); } while (accept(token_kind::comma));
+                    expect(token_kind::rparen, "')'");
+                }
+                expr_ref result = b;
+                for (unsigned i = 0; i < fargs.size(); ++i)
+                    result = expr_ref(m_array.mk_select(result, fargs.get(i)), m);
+                return result;
+            }
             return b;
+        }
         if (!m_last_name_quoted && should_create_implicit_var(n))
             return expr_ref(get_or_create_implicit_var(n), m);
 
@@ -952,8 +999,14 @@ class tptp_parser {
         return expr_ref(args.empty() ? m.mk_const(f) : m.mk_app(f, args.size(), args.data()), m);
     }
 
+    // Grammar: <tff_logic_formula>   ::= <tff_unitary_formula> | <tff_binary_formula>
+    //          <thf_logic_formula>   ::= <thf_unitary_formula> | <thf_binary_formula>
+    //          Entry point for formula parsing (wraps parse_expr with default precedence).
     expr_ref parse_formula();
 
+    // Grammar: <thf_apply_formula> ::= <thf_unitary_formula> @ <thf_unitary_formula>
+    //                               | <thf_apply_formula> @ <thf_unitary_formula>
+    //          @ is THF function application, encoded via array select.
     expr_ref apply_at(expr_ref e) {
         if (!is(token_kind::at_tok)) return e;
         
@@ -977,6 +1030,8 @@ class tptp_parser {
         return e;
     }
 
+    // Grammar: Argument to @ (THF application); may be an atom, negation, quantified formula,
+    //          parenthesized formula, or lambda. Handles the right-operand of <thf_apply_formula>.
     // Parse an argument to @ — can be a term, a formula (negation, quantifier, parens with connectives), or a lambda
     expr_ref parse_at_arg() {
         if (accept(token_kind::not_tok)) {
@@ -1094,43 +1149,66 @@ class tptp_parser {
         return lhs;
     }
 
-    // Parse $let(name: type, name := value, body) or
-    // $let([name1: type1, ...], [name1, ...] := value, body) (simultaneous let)
-    // Binds name(s) to value(s) in the scope of body.
+    // Grammar: <txf_let_defn>  ::= <txf_let_LHS> := <tff_term>
+    //          <txf_let_LHS>  ::= <tff_plain_atomic> | <txf_tuple>
+    //          <thf_let_defn> ::= <thf_logic_formula> := <thf_logic_formula>
+    // Parse a single let definition: name := value or name(X,Y,...) := value.
+    // For function-style definitions, wraps value in lambdas over the parameter variables.
+    std::pair<std::string, expr_ref> parse_single_let_defn() {
+        std::string name = parse_name();
+        std::vector<app*> param_vars;
+        std::unordered_map<std::string, app*> param_scope;
+        if (accept(token_kind::lparen)) {
+            if (!accept(token_kind::rparen)) {
+                do {
+                    std::string v = parse_name();
+                    app* c = m.mk_const(symbol(v), m_univ);
+                    m_pinned_exprs.push_back(c);
+                    param_vars.push_back(c);
+                    param_scope.emplace(v, c);
+                } while (accept(token_kind::comma));
+                expect(token_kind::rparen, "')'");
+            }
+        }
+        // Parse ':='
+        expect(token_kind::colon, "':'");
+        expect(token_kind::equal_tok, "'='");
+        // Bind parameter variables for parsing the RHS
+        if (!param_scope.empty())
+            m_bound.push_back(param_scope);
+        expr_ref value = parse_formula();
+        if (!param_scope.empty())
+            m_bound.pop_back();
+        // For function-style definitions, wrap value in lambdas
+        if (!param_vars.empty()) {
+            expr_ref result = value;
+            for (int i = (int)param_vars.size() - 1; i >= 0; --i) {
+                expr_ref abs_body(m);
+                expr_abstract(m, 0, 1, (expr* const*)&param_vars[i], result, abs_body);
+                sort* s = param_vars[i]->get_sort();
+                symbol nm = param_vars[i]->get_decl()->get_name();
+                result = expr_ref(m.mk_lambda(1, &s, &nm, abs_body), m);
+            }
+            value = result;
+        }
+        return {name, std::move(value)};
+    }
+
+    // Parse $let(types, defns, body)
+    // Grammar:
+    //   thf_let  ::= $let(thf_let_types, thf_let_defns, thf_logic_formula)
+    //   txf_let  ::= $let(txf_let_types, txf_let_defns, tff_term)
+    //   let_types ::= atom_typing | [atom_typing_list]
+    //   let_defns ::= let_defn | [let_defn_list]
+    //   let_defn  ::= LHS := RHS
     expr_ref parse_let_expr() {
         expect(token_kind::lparen, "'('");
-        
+
+        // --- Part 1: Parse type declarations ---
         std::vector<std::string> let_names;
         std::vector<sort*> let_sorts;
-        
-        if (accept(token_kind::lbrack)) {
-            // Simultaneous let: [name1: type1, name2: type2, ...]
-            if (!accept(token_kind::rbrack)) {
-                do {
-                    std::string name = parse_name();
-                    if (accept(token_kind::lparen)) {
-                        if (!accept(token_kind::rparen)) {
-                            do { parse_type_expr(); } while (accept(token_kind::comma));
-                            expect(token_kind::rparen, "')'");
-                        }
-                    }
-                    expect(token_kind::colon, "':'");
-                    parsed_type t = parse_type_expr();
-                    sort* s = t.domain.empty() ? t.range : get_ho_sort(t.domain, t.range);
-                    let_names.push_back(name);
-                    let_sorts.push_back(s);
-                } while (accept(token_kind::comma));
-                expect(token_kind::rbrack, "']'");
-            }
-            expect(token_kind::comma, "','");
-            // Parse [name1, name2, ...] := value
-            expect(token_kind::lbrack, "'['");
-            if (!accept(token_kind::rbrack)) {
-                do { parse_name(); } while (accept(token_kind::comma));
-                expect(token_kind::rbrack, "']'");
-            }
-        } else {
-            // Single let: name: type
+
+        auto parse_one_typing = [&]() {
             std::string name = parse_name();
             if (accept(token_kind::lparen)) {
                 if (!accept(token_kind::rparen)) {
@@ -1143,53 +1221,73 @@ class tptp_parser {
             sort* s = t.domain.empty() ? t.range : get_ho_sort(t.domain, t.range);
             let_names.push_back(name);
             let_sorts.push_back(s);
-            expect(token_kind::comma, "','");
-            // Parse name := value
-            parse_name();
-            if (accept(token_kind::lparen)) {
-                if (!accept(token_kind::rparen)) {
-                    do { parse_type_expr(); } while (accept(token_kind::comma));
-                    expect(token_kind::rparen, "')'");
-                }
+        };
+
+        if (is(token_kind::lbrack)) {
+            next();
+            if (!accept(token_kind::rbrack)) {
+                do { parse_one_typing(); } while (accept(token_kind::comma));
+                expect(token_kind::rbrack, "']'");
             }
+        } else {
+            parse_one_typing();
         }
-        // Expect ':=' — colon followed by equal
-        expect(token_kind::colon, "':'");
-        expect(token_kind::equal_tok, "'='");
-        
-        // Bind names in scope before parsing value and body
+
+        expect(token_kind::comma, "','");
+
+        // --- Create bound constants for all let-bound names ---
         std::unordered_map<std::string, app*> scope;
-        std::vector<app*> let_consts;
         for (unsigned i = 0; i < let_names.size(); ++i) {
             app* c = m.mk_const(symbol(let_names[i]), let_sorts[i]);
             m_pinned_exprs.push_back(c);
             scope.emplace(let_names[i], c);
-            let_consts.push_back(c);
         }
-        m_bound.push_back(scope);
-        
-        // Parse the value expression
-        expr_ref value = parse_formula();
+
+        // --- Part 2: Parse definitions ---
+        // Let-bound names are NOT in scope during RHS parsing (non-recursive semantics).
+        // Each definition has its own ':=' operator.
+        std::vector<std::pair<std::string, expr_ref>> defns;
+
+        if (is(token_kind::lbrack)) {
+            next();
+            if (!accept(token_kind::rbrack)) {
+                do {
+                    defns.push_back(parse_single_let_defn());
+                } while (accept(token_kind::comma));
+                expect(token_kind::rbrack, "']'");
+            }
+        } else {
+            defns.push_back(parse_single_let_defn());
+        }
+
         expect(token_kind::comma, "','");
-        // Parse the body
+
+        // --- Part 3: Parse body with let-bound names in scope ---
+        m_bound.push_back(scope);
         expr_ref body = parse_formula();
         m_bound.pop_back();
         expect(token_kind::rparen, "')'");
-        
-        // Substitute value for the let variable(s) in the body
+
+        // --- Substitute all let bindings in the body ---
         expr_safe_replace replacer(m);
-        if (let_consts.size() == 1) {
-            replacer.insert(let_consts[0], value.get());
-        } else {
-            // For simultaneous let with tuple value, just bind first var to value
-            // (full tuple destructuring would require more complex handling)
-            replacer.insert(let_consts[0], value.get());
+        for (auto& [defn_name, defn_value] : defns) {
+            auto it = scope.find(defn_name);
+            if (it != scope.end())
+                replacer.insert(it->second, defn_value.get());
         }
         expr_ref result(m);
         replacer(body, result);
         return result;
     }
 
+    // Grammar: <tff_atomic_formula> ::= <tff_plain_atomic_formula> | <tff_defined_atomic_formula>
+    //                                | <tff_system_atomic_formula>
+    //          <tff_plain_atomic_formula> ::= <tff_plain_atomic>
+    //          <tff_defined_atomic_formula> ::= <tff_defined_plain_formula> | <tff_defined_infix_formula>
+    //          <tff_defined_plain_formula> ::= $true | $false | <defined_pred>(<tff_arguments>)
+    //          <defined_pred>     ::= $less | $lesseq | $greater | $greatereq | $is_int | $is_rat | ...
+    //          <defined_infix_pred> ::= = | !=
+    //          Also handles: let-bound name resolution, implicit variable creation.
     expr_ref parse_atomic_formula() {
         if (accept(token_kind::lparen)) {
             // Check for parenthesized connective used as higher-order term: (~), (&), (|), etc.
@@ -1275,6 +1373,27 @@ class tptp_parser {
             return parse_numeral_from_name(n);
         }
 
+        // Check if name is let-bound (works for both uppercase vars and lowercase let-bound names)
+        {
+            expr_ref b(m);
+            if (!m_last_name_quoted && find_bound(n, b)) {
+                // If followed by '(' args, apply via array select (function-style let)
+                if (is(token_kind::lparen)) {
+                    next();
+                    expr_ref_vector fargs(m);
+                    if (!accept(token_kind::rparen)) {
+                        do { fargs.push_back(parse_term()); } while (accept(token_kind::comma));
+                        expect(token_kind::rparen, "')'");
+                    }
+                    expr_ref result = b;
+                    for (unsigned i = 0; i < fargs.size(); ++i)
+                        result = expr_ref(m_array.mk_select(result, fargs.get(i)), m);
+                    return result;
+                }
+                return b;
+            }
+        }
+
         // Choice operators @+ and @- with quantifier-like syntax: @+[X: T] : body
         if ((n == "@+" || n == "@-") && is(token_kind::lbrack)) {
             expect(token_kind::lbrack, "'['");
@@ -1334,12 +1453,7 @@ class tptp_parser {
         expr_ref lhs(m);
         bool has_lhs = false;
         if (args.empty()) {
-            expr_ref b(m);
-            if (!m_last_name_quoted && is_var_name(n) && find_bound(n, b)) {
-                lhs = b;
-                has_lhs = true;
-            }
-            else if (!m_last_name_quoted && should_create_implicit_var(n)) {
+            if (!m_last_name_quoted && should_create_implicit_var(n)) {
                 lhs = expr_ref(get_or_create_implicit_var(n), m);
                 has_lhs = true;
             }
@@ -1365,6 +1479,10 @@ class tptp_parser {
         return expr_ref(args.empty() ? m.mk_const(pred) : m.mk_app(pred, args.size(), args.data()), m);
     }
 
+    // Grammar: <thf_abstraction> ::= ^ [<thf_variable_list>] : <thf_unitary_formula>
+    //          <thf_variable_list> ::= <thf_variable> | <thf_variable>,<thf_variable_list>
+    //          <thf_variable>      ::= <thf_typed_variable> | <variable>
+    //          Produces Z3 lambda terms (array-valued).
     // Parse THF lambda expression: ^ [X: T, ...] : body
     // Uses Z3's native lambda construct, which produces array terms.
     expr_ref parse_lambda_expr() {
@@ -1413,6 +1531,13 @@ class tptp_parser {
         return result;
     }
 
+    // Grammar: <tff_unary_formula>   ::= <tff_prefix_unary> | <tff_infix_unary>
+    //          <tff_prefix_unary>   ::= <unary_connective> <tff_preunit_formula>
+    //          <unary_connective>   ::= ~
+    //          <tff_quantified_formula> ::= <fof_quantifier> [<tff_variable_list>] : <tff_unit_formula>
+    //          <thf_quantified_formula> ::= <thf_quantification> <thf_unitary_formula>
+    //          <fof_quantifier>     ::= ! | ?
+    //          Also handles: $ite, $let, lambda (^), parenthesized formulas, and atomic formulas.
     expr_ref parse_unary_formula() {
         if (accept(token_kind::not_tok)) {
             expr_ref e = parse_unary_formula();
@@ -1553,6 +1678,15 @@ class tptp_parser {
         return parse_atomic_formula();
     }
 
+    // Grammar: <tff_binary_formula>  ::= <tff_binary_nonassoc> | <tff_binary_assoc>
+    //          <tff_binary_nonassoc> ::= <tff_unit_formula> <nonassoc_connective> <tff_unit_formula>
+    //          <tff_binary_assoc>    ::= <tff_or_formula> | <tff_and_formula>
+    //          <nonassoc_connective> ::= <=> | => | <= | <~> | ~<vline> | ~&
+    //          <tff_or_formula>      ::= <tff_unit_formula> <vline> <tff_unit_formula>
+    //                                  | <tff_or_formula> <vline> <tff_unit_formula>
+    //          <tff_and_formula>     ::= <tff_unit_formula> & <tff_unit_formula>
+    //                                  | <tff_and_formula> & <tff_unit_formula>
+    //          Implements a Pratt-style (precedence climbing) parser for binary connectives.
     expr_ref parse_expr(unsigned min_prec, bool consume_at = true) {
         expr_ref e = parse_unary_formula();
         for (;;) {
@@ -1594,6 +1728,10 @@ class tptp_parser {
         return e;
     }
 
+    // Grammar: <tff_atom_typing>    ::= <untyped_atom> : <tff_top_level_type>
+    //          <thf_atom_typing>    ::= <untyped_atom> : <thf_top_level_type>
+    //          <untyped_atom>       ::= <constant> | <system_constant>
+    //          Declares a new constant or type with the given type signature.
     void parse_type_decl_formula() {
         unsigned lparen_count = 0;
         while (accept(token_kind::lparen)) ++lparen_count;
@@ -1660,6 +1798,8 @@ class tptp_parser {
         return local;
     }
 
+    // Grammar: <include> ::= include(<file_name><formula_selection>).
+    //          <formula_selection> ::= ,[<name_list>] | <null>
     void parse_include(std::string const& curr_file) {
         expect(token_kind::lparen, "'('");
         std::string file = parse_name();
@@ -1676,6 +1816,13 @@ class tptp_parser {
         parse_file(resolve_include(curr_file, file));
     }
 
+    // Grammar: <annotated_formula>  ::= <tff_annotated> | <thf_annotated> | <fof_annotated> | <cnf_annotated>
+    //          <tff_annotated>      ::= tff(<name>,<formula_role>,<tff_formula><annotations>).
+    //          <thf_annotated>      ::= thf(<name>,<formula_role>,<thf_formula><annotations>).
+    //          <formula_role>       ::= axiom | hypothesis | definition | assumption | lemma |
+    //                                   theorem | corollary | conjecture | negated_conjecture |
+    //                                   plain | type | ...
+    //          <annotations>        ::= ,<source><optional_info> | <null>
     void parse_annotated() {
         expect(token_kind::lparen, "'('");
         parse_name();
@@ -1724,6 +1871,9 @@ class tptp_parser {
         expect(token_kind::dot, "'.'");
     }
 
+    // Grammar: <TPTP_file>    ::= <TPTP_input>*
+    //          <TPTP_input>   ::= <annotated_formula> | <include>
+    //          Dispatches to parse_annotated() or parse_include() based on keyword.
     void parse_toplevel(std::string const& current_file) {
         while (!is(token_kind::eof_tok)) {
             std::string kw = to_lower(parse_name());

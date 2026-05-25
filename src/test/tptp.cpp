@@ -102,6 +102,15 @@ R"(tff(c1,conjecture, ~ $less(-3.25,-8.69)).)",
          "% SZS status Theorem"},
         {"tff-uminus-built-in",
 R"(tff(c1,conjecture, $less($uminus(2),0)).)",
+         "% SZS status Theorem"},
+        {"tff-let-single-binding",
+R"(tff(c1,conjecture, $let(a: $int, a := 3, $less(a,4))).)",
+         "% SZS status Theorem"},
+        {"tff-let-multiple-bindings",
+R"(tff(c1,conjecture, $let([a: $int, b: $int], [a := 1, b := 2], $less($sum(a,b),4))).)",
+         "% SZS status Theorem"},
+        {"tff-let-nested",
+R"(tff(c1,conjecture, $let(a: $int, a := 5, $let(b: $int, b := 3, $less(b,a)))).)",
          "% SZS status Theorem"}
     };
     for (auto const& c : cases) {
