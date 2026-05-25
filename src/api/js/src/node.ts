@@ -33,7 +33,8 @@ export * from './low-level/types.__GENERATED__';
  * // Deno users can provide an Emscripten locateFile hook to load the wasm
  * // through npm's asset resolution instead of filesystem reads.
  * // const api = await init({
- * //   locateFile: (file, _prefix) => import.meta.resolve(`npm:z3-solver/build/${file}`),
+ * //   locateFile: (file, _prefix): string =>
+ * //     import.meta.resolve(`npm:z3-solver/build/${file}`), // _prefix is unused here
  * // });
  * ```
  * @category Global */
