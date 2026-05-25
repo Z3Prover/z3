@@ -16,7 +16,7 @@ const {
 
 This package has different initialization for browser and node. Your bundler and node should choose good version automatically, but you can import the one you need manually - `const { init } = require('z3-solver/node');` or `const { init } = require('z3-solver/browser');`.
 
-The `init` function also accepts an optional Emscripten module overrides object. This is useful in runtimes such as Deno where you may want to provide a wasm load path explicitly instead of relying on filesystem reads. For example:
+The `init` function also accepts an optional Emscripten module overrides object. This is useful in runtimes such as Deno where you may want to provide a wasm load path explicitly instead of relying on filesystem reads. In Deno 2.1+, `import.meta.resolve(...)` returns a string synchronously, so it can be used directly in `locateFile`. For example:
 
 ```typescript
 import { init } from 'npm:z3-solver';
