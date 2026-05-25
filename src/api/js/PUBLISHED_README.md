@@ -22,7 +22,7 @@ The `init` function also accepts an optional Emscripten module overrides object.
 import { init } from 'npm:z3-solver';
 
 const api = await init({
-  locateFile: (file) => import.meta.resolve(`npm:z3-solver/build/${file}`),
+  locateFile: (file, _prefix) => import.meta.resolve(`npm:z3-solver/build/${file}`),
 });
 ```
 
