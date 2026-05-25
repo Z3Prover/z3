@@ -120,10 +120,32 @@ Once fetched, you can link the z3 library to your target:
 target_link_libraries(yourTarget PRIVATE libz3)
 ```
 
+If `yourTarget` is an executable or test that runs directly from the build tree,
+you may also need to add the directory containing the fetched `libz3` shared
+library to that target's build-time runtime search path. This is especially
+important on macOS, where `libz3` uses an `@rpath` install name:
+
+```cmake
+target_link_libraries(yourTarget PRIVATE libz3)
+
+if(TARGET libz3)
+    set_property(TARGET yourTarget APPEND PROPERTY
+        BUILD_RPATH "$<TARGET_FILE_DIR:libz3>"
+    )
+endif()
+```
+
+If Z3 is pulled in by an intermediate library, set the `BUILD_RPATH` on the
+final executable, test, or other runtime target that loads `libz3`, not just on
+the intermediate library. If you install your binaries, also set
+`INSTALL_RPATH` to match your installation layout.
+
 **Important notes for FetchContent approach**:
 - The target name is `libz3` (referring to the library target from `src/CMakeLists.txt`)
 - An additional include directory for `src/api/c++` is added to enable `#include "z3++.h"` in C++ code
 - Without the additional include directory, you would need `#include "c++/z3++.h"` instead
+- For build-tree execution, you may need to add `"$<TARGET_FILE_DIR:libz3>"` to the
+  consuming executable's `BUILD_RPATH`
 
 **Recommended: Create an alias for consistency with system installs**:
 
@@ -219,6 +241,8 @@ target_link_libraries(yourTarget PRIVATE z3::libz3)
 - Use `z3::libz3` target instead of raw library names for better CMake integration
 - The target automatically provides the correct include directories, so no need for manual `target_include_directories`
 - When using FetchContent, an alias is created to ensure target name consistency
+- If the FetchContent path is used and your executable runs from the build tree, you may need
+  to add `"$<TARGET_FILE_DIR:libz3>"` to that executable's `BUILD_RPATH`
 - Set `QUIET` in `find_package` to avoid error messages when Z3 isn't found
 
 
