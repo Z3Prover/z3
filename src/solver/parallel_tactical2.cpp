@@ -886,8 +886,8 @@ class parallel_solver {
             unsigned m_max_conflicts         = UINT_MAX;
             bool     m_share_units           = true;
             bool     m_share_conflicts       = true;
-            bool     m_core_minimize         = true;
-            bool     m_global_backbones      = true;
+            bool     m_core_minimize         = false;
+            bool     m_global_backbones      = false;
             unsigned m_max_cube_depth        = 20;
         };
 
@@ -901,12 +901,9 @@ class parallel_solver {
         expr_mark        m_known_units;     /* units already shared by this worker */
         unsigned         m_shared_clause_limit = 0;
 
-        void update_max_conflicts() {
+        void update_max_thread_conflicts() {
             m_config.m_threads_max_conflicts = static_cast<unsigned>(
                 m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
-            /* cap at the configured global maximum to prevent runaway cube checks */
-            if (m_config.m_threads_max_conflicts > m_config.m_max_conflicts)
-                m_config.m_threads_max_conflicts = m_config.m_max_conflicts;
         }
 
         /* Check the current cube (passed as additional assumptions).
@@ -1025,6 +1022,8 @@ class parallel_solver {
         {
             parallel_params pp(params);
             m_config.m_core_minimize = params.get_bool("core_minimize", pp.g, true);
+            unsigned num_global_bb_threads = params.get_uint("num_global_bb_batch_threads", pp.g, 2u);
+            m_config.m_global_backbones = num_global_bb_threads > 0;
             /* create translated solver copy */
             s = src.translate(m, params);
 
@@ -1072,7 +1071,7 @@ class parallel_solver {
                 switch (r) {
 
                 case l_undef: {
-                    update_max_conflicts();
+                    update_max_thread_conflicts();
                     IF_VERBOSE(1, verbose_stream() << "par2 worker " << id
                         << ": undef – attempting split\n");
                     if (m_config.m_max_cube_depth <= cube.size())
@@ -1482,21 +1481,13 @@ public:
                 expr_ref_vector& core) {
 
         parallel_params pp(m_params);
-        unsigned exact_threads = m_params.get_uint("threads", pp.g, 0u);
-        unsigned num_threads = exact_threads;
-        if (num_threads == 0) {
-            num_threads = std::min(
-                static_cast<unsigned>(std::thread::hardware_concurrency()),
-                pp.threads());
-        }
-        if (num_threads < 2) num_threads = 2;
+        unsigned num_threads = std::min(
+            static_cast<unsigned>(std::thread::hardware_concurrency()),
+            pp.threads_max());
         bool core_minimize = m_params.get_bool("core_minimize", pp.g, true);
         unsigned num_global_bb_threads = m_params.get_uint("num_global_bb_batch_threads", pp.g, 2u);
         if (num_global_bb_threads > 2)
-            num_global_bb_threads = 2;
-        unsigned legacy_global_bb_threads = m_params.get_uint("global_bb_threads", pp.g, 0u);
-        if (legacy_global_bb_threads != 0)
-            num_global_bb_threads = std::min(legacy_global_bb_threads, 2u);
+            throw default_exception("parallel.num_global_bb_batch_threads must be 0, 1, or 2");
 
         IF_VERBOSE(1, verbose_stream() << "par2: launching "
             << num_threads << " cube workers + "
