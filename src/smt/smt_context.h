@@ -789,7 +789,7 @@ namespace smt {
 
         void update_generation(expr * e) {
             if (is_app(e) && e_internalized(e))
-                update_generation(get_enode(to_app(e)););
+                update_generation(get_enode(to_app(e)));
         }
 
         typedef std::pair<expr *, bool> expr_bool_pair;
