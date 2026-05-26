@@ -1133,19 +1133,14 @@ class tptp_parser {
         if (lhs->get_sort() == rhs->get_sort()) return lhs;
 
         // Coerce 0-arity constants to match the other side's sort
-        if (is_app(lhs) && to_app(lhs)->get_num_args() == 0 && lhs->get_sort() != rhs->get_sort()) {
+        if (is_app(lhs) && to_app(lhs)->get_num_args() == 0)
             return coerce_zero_arity(to_app(lhs), rhs->get_sort());
-        }
-        if (is_app(rhs) && to_app(rhs)->get_num_args() == 0 && lhs->get_sort() != rhs->get_sort()) {
+        if (is_app(rhs) && to_app(rhs)->get_num_args() == 0) {
             rhs = coerce_zero_arity(to_app(rhs), lhs->get_sort());
             return lhs;
         }
-        // Last resort: coerce both sides to have the same sort
-        if (lhs->get_sort() != rhs->get_sort()) {
-            // Prefer coercing to rhs sort, falling back to m_univ
-            sort* target = rhs->get_sort();
-            lhs = coerce_arg(lhs, target);
-        }
+        // Last resort: coerce lhs to rhs sort
+        lhs = coerce_arg(lhs, rhs->get_sort());
         return lhs;
     }
 
@@ -2014,13 +2009,15 @@ public:
             check_arith_arity(args, 1, "$round");
             expr_ref a(args[0], m);
             if (m_arith.is_int(a)) return a;
-            // round to nearest even
+            // round to nearest even (banker's rounding)
             expr_ref i(m_arith.mk_to_int(a), m);
             expr_ref half(m_arith.mk_add(m_arith.mk_to_real(i), m_arith.mk_numeral(rational(1, 2), false)), m);
             expr_ref i1(m_arith.mk_add(i, m_arith.mk_int(1)), m);
             expr_ref is_even(m.mk_eq(m_arith.mk_mod(i, m_arith.mk_int(2)), m_arith.mk_int(0)), m);
-            return expr_ref(m.mk_ite(m_arith.mk_gt(a, half), i1,
-                           m.mk_ite(m.mk_eq(a, half), m.mk_ite(is_even, i, i1), i)), m);
+            // a > half: round up; a == half: round to even; a < half: round down
+            expr_ref tie_break(m.mk_ite(is_even, i, i1), m);
+            expr_ref at_or_below_half(m.mk_ite(m.mk_eq(a, half), tie_break, i), m);
+            return expr_ref(m.mk_ite(m_arith.mk_gt(a, half), i1, at_or_below_half), m);
         }};
         m_ops["$to_int"] = { false, 0, false, [&](expr_ref_vector const& args) -> expr_ref {
             check_arith_arity(args, 1, "$to_int");
