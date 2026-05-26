@@ -105,21 +105,6 @@ struct solver_cube_config {
     }
 };
 
-class bounded_pp_exprs {
-    expr_ref_vector const& es;
-public:
-    bounded_pp_exprs(expr_ref_vector const& es) : es(es) {}
-    std::ostream& display(std::ostream& out) const {
-        for (expr* e : es)
-            out << mk_bounded_pp(e, es.get_manager()) << "\n";
-        return out;
-    }
-};
-
-inline std::ostream& operator<<(std::ostream& out, bounded_pp_exprs const& pp) {
-    return pp.display(out);
-}
-
 static bool is_cancellation_exception(char const* msg) {
     return msg && (strstr(msg, "canceled") != nullptr || strstr(msg, "cancelled") != nullptr);
 }
@@ -424,7 +409,11 @@ class parallel_solver {
 
             cancel_closed_leases_unlocked(worker_id);
 
-            IF_VERBOSE(2, m_search_tree.display(verbose_stream() << bounded_pp_exprs(core) << "\n"););
+            IF_VERBOSE(2,
+                for (expr* e : core)
+                    verbose_stream() << mk_bounded_pp(e, core.get_manager()) << "\n";
+                m_search_tree.display(verbose_stream() << "\n");
+            );
 
             if (m_search_tree.is_closed()) {
                 IF_VERBOSE(1, verbose_stream() << "par2: search tree closed → UNSAT\n");
@@ -645,7 +634,11 @@ class parallel_solver {
             ++m_stats.m_core_min_jobs_published;
             cancel_closed_leases_unlocked(UINT_MAX);
 
-            IF_VERBOSE(2, m_search_tree.display(verbose_stream() << bounded_pp_exprs(minimized_core) << "\n"););
+            IF_VERBOSE(2,
+                for (expr* e : minimized_core)
+                    verbose_stream() << mk_bounded_pp(e, minimized_core.get_manager()) << "\n";
+                m_search_tree.display(verbose_stream() << "\n");
+            );
             if (m_search_tree.is_closed()) {
                 m_state = state::is_unsat;
                 SASSERT(m_unsat_core.empty());
