@@ -34,7 +34,7 @@ safe-outputs:
   allowed-github-references: []
   max-bot-mentions: 1
   create-discussion:
-    title-prefix: "[SMTLIB Benchmarks] "
+    title-prefix: "[SMT-LIB Benchmarks] "
     category: "Agentic Workflows"
     close-older-discussions: true
     expires: 90d
@@ -93,9 +93,12 @@ Query the Zenodo API for all records in the SMT-LIB community:
 curl -s "https://zenodo.org/api/records?communities=smt-lib&size=100&page=1" \
   -o /tmp/zenodo-smtlib-page1.json
 
-# Check if there are more pages
+# Check if there are more pages (paginate until empty)
 curl -s "https://zenodo.org/api/records?communities=smt-lib&size=100&page=2" \
   -o /tmp/zenodo-smtlib-page2.json 2>/dev/null || true
+
+curl -s "https://zenodo.org/api/records?communities=smt-lib&size=100&page=3" \
+  -o /tmp/zenodo-smtlib-page3.json 2>/dev/null || true
 ```
 
 For each Zenodo record extract:
@@ -114,7 +117,8 @@ def extract_github_repos(text):
 official_repos = set()
 official_zenodo_ids = set()
 
-for fname in ['/tmp/zenodo-smtlib-page1.json', '/tmp/zenodo-smtlib-page2.json']:
+for fname in ['/tmp/zenodo-smtlib-page1.json', '/tmp/zenodo-smtlib-page2.json',
+              '/tmp/zenodo-smtlib-page3.json']:
     try:
         data = json.load(open(fname))
     except Exception:
@@ -223,10 +227,11 @@ Note the dominant SMT logic(s) present, if discernible from the description or t
 
 ## Step 6: Generate the Discussion Report
 
-Create a GitHub Discussion. Use `###` or lower for all section headers.
+Create a GitHub Discussion. Use heading level 3 or deeper (`###`, `####`, …) for all
+section headers; never use `##` or `#` in the body.
 Wrap long tables in `<details>` tags to keep the report scannable.
 
-Title: `[SMTLIB Benchmarks] Community Benchmark Repository Survey — [Month YYYY]`
+Title: `[SMT-LIB Benchmarks] Community Benchmark Repository Survey — [Month YYYY]`
 
 Structure the report as follows:
 
@@ -329,7 +334,7 @@ After posting the discussion, update cache memory with:
 ## Important Notes
 
 - DO NOT create pull requests or modify source files.
-- DO close older SMTLIB Benchmarks discussions automatically (configured).
+- DO close older SMT-LIB Benchmarks discussions automatically (configured).
 - DO always call `create_discussion` or `noop` before the workflow ends.
   Failing to produce any safe output triggers an automatic failure issue.
 - DO use cache memory to avoid re-processing repos already surveyed.
