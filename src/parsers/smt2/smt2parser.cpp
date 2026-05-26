@@ -1890,29 +1890,7 @@ namespace smt2 {
             sexpr_stack().pop_back();
         }
 
-        void push_app_frame() {
-            SASSERT(curr_is_lparen() || curr_is_identifier());
-            unsigned param_spos  = m_param_stack.size();
-            unsigned expr_spos  = expr_stack().size();
-            if (curr_is_lparen()) {
-                void * mem = m_stack.allocate(sizeof(app_frame));
-                new (mem) app_frame(symbol::null, expr_spos, param_spos, false, true);
-                m_num_expr_frames++;
-                return;
-            }
-            bool has_as, is_lambda;
-            auto f = parse_qualified_identifier(has_as, is_lambda);
-
-            void * mem      = m_stack.allocate(sizeof(app_frame));
-            new (mem) app_frame(f, expr_spos, param_spos, has_as);
-            m_num_expr_frames++;
-            if (is_lambda) 
-                push_quant_frame(lambda_k);            
-        }
-
-        void push_expr_frame(expr_frame * curr) {
-            SASSERT(curr_is_lparen());
-            next();
+        void push_expr_frame_core(expr_frame * curr) {
             TRACE(push_expr_frame, tout << "push_expr_frame(), curr(): " << m_curr << "\n";);
             if (curr_is_identifier()) {
                 TRACE(push_expr_frame, tout << "push_expr_frame(), curr_id(): " << curr_id() << "\n";);
@@ -1950,6 +1928,49 @@ namespace smt2 {
             else {
                 throw parser_exception("invalid expression, '(' or symbol expected");
             }
+        }
+
+        void push_app_frame() {
+            SASSERT(curr_is_lparen() || curr_is_identifier());
+            unsigned param_spos  = m_param_stack.size();
+            unsigned expr_spos  = expr_stack().size();
+            bool has_as = false, is_lambda = false;
+            symbol f = symbol::null;
+            bool expr_head = false;
+
+            if (curr_is_lparen()) {
+                next();
+                if (curr_is_identifier() && curr_id_is_lambda()) {
+                    is_lambda = true;
+                    f = symbol("select");
+                }
+                else if (curr_is_identifier() && (curr_id_is_underscore() || curr_id_is_as())) {
+                    f = parse_qualified_identifier_core(has_as);
+                }
+                else {
+                    expr_head = true;
+                }
+            }
+            else {
+                f = parse_qualified_identifier(has_as, is_lambda);
+            }
+
+            void * mem = m_stack.allocate(sizeof(app_frame));
+            auto* frame = new (mem) app_frame(f, expr_spos, param_spos, has_as, expr_head);
+            m_num_expr_frames++;
+
+            if (is_lambda) {
+                push_quant_frame(lambda_k);
+            }
+            else if (expr_head) {
+                push_expr_frame_core(frame);
+            }
+        }
+
+        void push_expr_frame(expr_frame * curr) {
+            SASSERT(curr_is_lparen());
+            next();
+            push_expr_frame_core(curr);
         }
 
         void pop_app_frame(app_frame * fr) {
@@ -3322,4 +3343,3 @@ sexpr_ref parse_sexpr(cmd_context& ctx, std::istream& is, params_ref const& ps, 
     return p.parse_sexpr_ref();
     
 }
-
