@@ -785,6 +785,13 @@ namespace smt {
             return get_bdata(get_bool_var(n));
         }
 
+        void update_generation(enode * n);
+
+        void update_generation(expr * e) {
+            if (is_app(e) && e_internalized(e))
+                update_generation(get_enode(to_app(e)));
+        }
+
         typedef std::pair<expr *, bool> expr_bool_pair;
 
         void ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited);

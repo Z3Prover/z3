@@ -101,6 +101,11 @@ namespace smt {
         }
     }
 
+    void context::update_generation(enode * e) {
+        if (0 < m_generation && m_generation < e->get_generation())
+            e->set_generation(nullptr, m_generation);
+    }
+
     void context::ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited) {
         if (get_color(tcolors, fcolors, n, gate_ctx) == White) {
             todo.push_back(expr_bool_pair(n, gate_ctx));
@@ -115,12 +120,16 @@ namespace smt {
             return true;
         SASSERT(is_app(n));
         if (m.is_bool(n)) {
-            if (b_internalized(n))
+            if (b_internalized(n)) {
+                update_generation(n);                
                 return true;
+            }
         }
         else {
-            if (e_internalized(n))
+            update_generation(n);
+            if (e_internalized(n))                 
                 return true;
+            
         }
 
         bool visited  = true;
@@ -403,6 +412,8 @@ namespace smt {
             // n was already internalized as a boolean.
             bool_var v = get_bool_var(n);
             TRACE(internalize_bug, tout << "#" << n->get_id() << " already has bool_var v" << v << "\n";);
+            
+            update_generation(n);            
             
             // n was already internalized as boolean, but an enode was
             // not associated with it.  So, an enode is necessary, if
@@ -810,6 +821,8 @@ namespace smt {
     */
     void context::internalize_term(app * n) {
         if (e_internalized(n)) {
+            enode * e = get_enode(n);
+            update_generation(e);
             theory * th = m_theories.get_plugin(n->get_family_id());
             if (th != nullptr) {
                 // This code is necessary because some theories may decide
@@ -822,7 +835,6 @@ namespace smt {
                 //   Later, the core tries to internalize (f (* 2 x)).
                 //   Now, (* 2 x) is not internal to arithmetic anymore,
                 //   and a theory variable must be created for it.
-                enode * e = get_enode(n);
                 if (!th->is_attached_to_var(e))
                     th->internalize_term(n);
             }

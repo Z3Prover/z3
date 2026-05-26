@@ -136,10 +136,11 @@ namespace smt {
        \brief Push old value of generation on the context trail stack
        and update the generation.       
     */
-    void enode::set_generation(context & ctx, unsigned generation) {
+    void enode::set_generation(context * ctx, unsigned generation) {
         if (m_generation == generation)
             return;
-        ctx.push_trail(value_trail<unsigned>(m_generation));
+        if (ctx)
+            ctx->push_trail(value_trail<unsigned>(m_generation));
         m_generation = generation;
     }
 

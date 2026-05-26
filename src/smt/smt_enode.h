@@ -386,7 +386,7 @@ namespace smt {
             return m_generation;
         }
 
-        void set_generation(context & ctx, unsigned generation);
+        void set_generation(context * ctx, unsigned generation);
         
         /**
            \brief Return the enode n that is in the eqc of *this, and has the minimal generation.

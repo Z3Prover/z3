@@ -1046,7 +1046,7 @@ namespace {
             void operator()(expr * e) {
                 if (m_context.e_internalized(e)) {
                     enode * n = m_context.get_enode(e);
-                    n->set_generation(m_context, m_generation);
+                    n->set_generation(&m_context, m_generation);
                 }
             }
         };
