@@ -430,6 +430,7 @@ namespace seq {
         m_sk(m, m_rw),
         m_length_solver(solver),
         m_context_solver(ctx_solver),
+        m_partial_dfa_pin(sg.get_manager()),
         m_parikh(alloc(seq_parikh, sg)),
         m_seq_regex(alloc(seq::seq_regex, sg)) {}
 
@@ -526,6 +527,7 @@ namespace seq {
         m_partial_dfa_out.clear();
         m_partial_dfa_in.clear();
         m_partial_dfa_edge_index.clear();
+        m_partial_dfa_pin.reset();
         m_projection_extract_idx = 0;
         m_projection_cover_size.reset();
         //m_length_trail.reset();
@@ -880,29 +882,44 @@ namespace seq {
         if (!m_seq.is_re(label_re->get_expr()) || !label_re->is_ground())
             return;
 
-        partial_dfa_edge_key key{ src_re->id(), label_re->id(), dst_re->id() };
+        expr* src_e   = src_re->get_expr();
+        expr* label_e = label_re->get_expr();
+        expr* dst_e   = dst_re->get_expr();
+
+        partial_dfa_edge_key key{ src_e->get_id(), label_e->get_id(), dst_e->get_id() };
         if (m_partial_dfa_edge_index.contains(key))
             return;
+
+        // Pin each expression so the egraph cannot release it on pop while
+        // we still reference it from the cache.  Bumping the ref count of an
+        // already-pinned expression is harmless; the wasted slot is bounded
+        // by the unique-edge count.
+        m_partial_dfa_pin.push_back(src_e);
+        m_partial_dfa_pin.push_back(label_e);
+        m_partial_dfa_pin.push_back(dst_e);
 
         unsigned edge_idx = m_partial_dfa_edges.size();
         m_partial_dfa_edge_index.emplace(key, edge_idx);
 
         partial_dfa_edge e;
-        e.m_src = src_re;
-        e.m_label = label_re;
-        e.m_dst = dst_re;
+        e.m_src   = src_e;
+        e.m_label = label_e;
+        e.m_dst   = dst_e;
         m_partial_dfa_edges.push_back(e);
 
-        m_partial_dfa_out[src_re->id()].push_back(edge_idx);
-        m_partial_dfa_in[dst_re->id()].push_back(edge_idx);
+        m_partial_dfa_out[src_e->get_id()].push_back(edge_idx);
+        m_partial_dfa_in[dst_e->get_id()].push_back(edge_idx);
     }
 
     bool nielsen_graph::collect_scc_for_projection(euf::snode* root_re, uint_set& scc) const {
         scc.reset();
-        if (!root_re)
+        if (!root_re || !root_re->get_expr())
             return false;
 
-        const unsigned root_id = root_re->id();
+        // scc, fwd, bwd contain expression ids (matching the keys in
+        // m_partial_dfa_out / m_partial_dfa_in).  Expression ids are stable
+        // across sgraph pops because we pin them in m_partial_dfa_pin.
+        const unsigned root_id = root_re->get_expr()->get_id();
         uint_set fwd, bwd;
         unsigned_vector stack;
 
@@ -921,7 +938,7 @@ namespace seq {
                     continue;
                 partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
                 if (e.m_dst)
-                    stack.push_back(e.m_dst->id());
+                    stack.push_back(e.m_dst->get_id());
             }
         }
 
@@ -940,7 +957,7 @@ namespace seq {
                     continue;
                 partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
                 if (e.m_src)
-                    stack.push_back(e.m_src->id());
+                    stack.push_back(e.m_src->get_id());
             }
         }
 
@@ -962,13 +979,14 @@ namespace seq {
             if (edge_idx >= m_partial_dfa_edges.size())
                 continue;
             partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
-            if (e.m_dst && e.m_dst->id() == root_id)
+            if (e.m_dst && e.m_dst->get_id() == root_id)
                 return true;
         }
         return false;
     }
 
     unsigned nielsen_graph::mark_scc_projection_edges(uint_set const& scc) {
+        // scc contains expr ids (see collect_scc_for_projection).
         ++m_projection_extract_idx;
         const unsigned extract_idx = m_projection_extract_idx;
         unsigned covered = 0;
@@ -981,7 +999,7 @@ namespace seq {
                 if (edge_idx >= m_partial_dfa_edges.size())
                     continue;
                 partial_dfa_edge& e = m_partial_dfa_edges[edge_idx];
-                if (!e.m_dst || !scc.contains(e.m_dst->id()))
+                if (!e.m_dst || !scc.contains(e.m_dst->get_id()))
                     continue;
                 if (e.m_projection_idx == 0)
                     e.m_projection_idx = extract_idx;
@@ -1000,39 +1018,52 @@ namespace seq {
         SASSERT(seq_sort);
 
         sort* re_sort = root_re->get_expr()->get_sort();
-        euf::snode* eps = m_sg.mk(m_seq.re.mk_epsilon(seq_sort));
-        euf::snode* empty = m_sg.mk(m_seq.re.mk_empty(re_sort));
 
-        auto is_empty = [&](const euf::snode* re) -> bool {
-            return !re || re->is_fail() || !re->get_expr() || m_seq.re.is_empty(re->get_expr());
+        // Floyd-Warshall is done over expressions, not snodes: every label
+        // edge that feeds this matrix comes from m_partial_dfa_edges whose
+        // labels (and src/dst) may correspond to snodes that no longer exist
+        // at the current sgraph scope.  We work entirely with pinned exprs
+        // here and materialize a single snode for the simplified result at
+        // the very end.  All intermediate exprs are kept alive by an
+        // expr_ref_vector that lives for the duration of this call.
+        expr_ref_vector pin(m);
+        expr* eps_expr   = m_seq.re.mk_epsilon(seq_sort);
+        expr* empty_expr = m_seq.re.mk_empty(re_sort);
+        pin.push_back(eps_expr);
+        pin.push_back(empty_expr);
+
+        auto is_empty = [&](expr* re) -> bool {
+            return !re || m_seq.re.is_empty(re);
         };
 
-        auto mk_union = [&](euf::snode* a, euf::snode* b) -> euf::snode* {
-            if (is_empty(a))
-                return b;
-            if (is_empty(b))
-                return a;
-            if (a == b || a->get_expr() == b->get_expr())
-                return a;
-            return m_sg.mk(m_seq.re.mk_union(a->get_expr(), b->get_expr()));
+        auto is_eps = [&](expr* re) -> bool {
+            return re && m_seq.re.is_epsilon(re);
         };
 
-        auto mk_concat = [&](euf::snode* a, euf::snode* b) -> euf::snode* {
-            if (is_empty(a) || is_empty(b))
-                return empty;
-            if (a == eps || (a->get_expr() && m_seq.re.is_epsilon(a->get_expr())))
-                return b;
-            if (b == eps || (b->get_expr() && m_seq.re.is_epsilon(b->get_expr())))
-                return a;
-            return m_sg.mk(m_seq.re.mk_concat(a->get_expr(), b->get_expr()));
+        auto mk_union = [&](expr* a, expr* b) -> expr* {
+            if (is_empty(a)) return b;
+            if (is_empty(b)) return a;
+            if (a == b)      return a;
+            expr* r = m_seq.re.mk_union(a, b);
+            pin.push_back(r);
+            return r;
         };
 
-        auto mk_star = [&](euf::snode* r) -> euf::snode* {
-            if (is_empty(r) || r == eps || (r->get_expr() && m_seq.re.is_epsilon(r->get_expr())))
-                return eps;
-            if (r->get_expr() && m_seq.re.is_star(r->get_expr()))
-                return r;
-            return m_sg.mk(m_seq.re.mk_star(r->get_expr()));
+        auto mk_concat = [&](expr* a, expr* b) -> expr* {
+            if (is_empty(a) || is_empty(b)) return empty_expr;
+            if (is_eps(a))                  return b;
+            if (is_eps(b))                  return a;
+            expr* r = m_seq.re.mk_concat(a, b);
+            pin.push_back(r);
+            return r;
+        };
+
+        auto mk_star = [&](expr* r) -> expr* {
+            if (is_empty(r) || is_eps(r)) return eps_expr;
+            if (r && m_seq.re.is_star(r)) return r;
+            expr* s = m_seq.re.mk_star(r);
+            pin.push_back(s);
+            return s;
         };
 
         unsigned_vector states;
@@ -1043,12 +1074,13 @@ namespace seq {
             states.push_back(s);
         }
 
-        auto it_root = pos.find(root_re->id());
+        // scc / pos are keyed by expr id (see collect_scc_for_projection).
+        auto it_root = pos.find(root_re->get_expr()->get_id());
         if (it_root == pos.end())
             return nullptr;
 
         unsigned n = states.size();
-        std::vector<std::vector<euf::snode*>> R(n, std::vector<euf::snode*>(n, nullptr));
+        std::vector<std::vector<expr*>> R(n, std::vector<expr*>(n, nullptr));
 
         for (unsigned src_id : states) {
             auto it = m_partial_dfa_out.find(src_id);
@@ -1060,12 +1092,12 @@ namespace seq {
                 partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
                 if (!e.m_src || !e.m_dst || !e.m_label)
                     continue;
-                if (!scc.contains(e.m_dst->id()))
+                if (!scc.contains(e.m_dst->get_id()))
                     continue;
                 if (e.m_projection_idx == 0 || e.m_projection_idx > extract_idx)
                     continue;
-                auto it_src = pos.find(e.m_src->id());
-                auto it_dst = pos.find(e.m_dst->id());
+                auto it_src = pos.find(e.m_src->get_id());
+                auto it_dst = pos.find(e.m_dst->get_id());
                 if (it_src == pos.end() || it_dst == pos.end())
                     continue;
                 unsigned i = it_src->second;
@@ -1075,17 +1107,17 @@ namespace seq {
         }
 
         for (unsigned i = 0; i < n; ++i) {
-            R[i][i] = mk_union(R[i][i], eps);
+            R[i][i] = mk_union(R[i][i], eps_expr);
         }
 
         for (unsigned k = 0; k < n; ++k) {
-            std::vector<euf::snode*> col_k(n, nullptr), row_k(n, nullptr);
+            std::vector<expr*> col_k(n, nullptr), row_k(n, nullptr);
             for (unsigned i = 0; i < n; ++i)
                 col_k[i] = R[i][k];
             for (unsigned j = 0; j < n; ++j)
                 row_k[j] = R[k][j];
-            euf::snode* loop_k = R[k][k];
-            euf::snode* loop_star = mk_star(loop_k);
+            expr* loop_k = R[k][k];
+            expr* loop_star = mk_star(loop_k);
 
             for (unsigned i = 0; i < n; ++i) {
                 if (is_empty(col_k[i]))
@@ -1093,17 +1125,17 @@ namespace seq {
                 for (unsigned j = 0; j < n; ++j) {
                     if (is_empty(row_k[j]))
                         continue;
-                    euf::snode* via_k = mk_concat(mk_concat(col_k[i], loop_star), row_k[j]);
+                    expr* via_k = mk_concat(mk_concat(col_k[i], loop_star), row_k[j]);
                     R[i][j] = mk_union(R[i][j], via_k);
                 }
             }
         }
 
-        euf::snode* result = R[it_root->second][it_root->second];
+        expr* result = R[it_root->second][it_root->second];
         if (!result)
-            return eps;
+            return m_sg.mk(eps_expr);
 
-        expr_ref simplified(result->get_expr(), m);
+        expr_ref simplified(result, m);
         th_rewriter trw(m);
         trw(simplified);
         return m_sg.mk(simplified);
@@ -1119,9 +1151,12 @@ namespace seq {
         if (!collect_scc_for_projection(root_re, scc))
             return false;
 
+        // Key m_projection_cover_size by expr id (stable across pops), not
+        // snode id (reused on pop).
+        const unsigned root_expr_id = root_re->get_expr()->get_id();
         const unsigned covered_edges = mark_scc_projection_edges(scc);
         unsigned prev_covered = 0;
-        m_projection_cover_size.find(root_re->id(), prev_covered);
+        m_projection_cover_size.find(root_expr_id, prev_covered);
         if (covered_edges <= prev_covered)
             return false;
 
@@ -1129,7 +1164,7 @@ namespace seq {
         if (!projection_re)
             return false;
 
-        m_projection_cover_size.insert(root_re->id(), covered_edges);
+        m_projection_cover_size.insert(root_expr_id, covered_edges);
         return true;
     }
 
@@ -4466,7 +4501,6 @@ namespace seq {
             // std::endl;
             if (lit != sat::null_literal) {
                 node->set_external_conflict(lit, c.dep);
-                std::cout << "External conflict: " << mk_pp(c.fml, m) << " with literal " << lit << std::endl;
                 return;
             }
             assert_to_subsolver(c);

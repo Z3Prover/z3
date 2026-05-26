@@ -806,10 +806,16 @@ namespace seq {
         friend class nielsen_node;
         friend class nielsen_edge;
 
+        // Edge endpoints are stored as expr* (not snode*) because the cache
+        // must survive sgraph pops.  snodes are allocated in a region that is
+        // never freed, but their m_expr field is owned by the egraph trail and
+        // becomes dangling on pop.  We pin the referenced expressions via
+        // m_partial_dfa_pin so their ids stay stable, and we recover an snode
+        // at the current scope via m_sg.mk(expr) only when we actually need one.
         struct partial_dfa_edge {
-            euf::snode* m_src = nullptr;
-            euf::snode* m_label = nullptr; // one-character regex label (char/minterm)
-            euf::snode* m_dst = nullptr;
+            expr* m_src = nullptr;
+            expr* m_label = nullptr; // one-character regex label (char/minterm)
+            expr* m_dst = nullptr;
             unsigned m_projection_idx = 0; // first extraction index that included this edge
         };
 
@@ -885,15 +891,23 @@ namespace seq {
         // (e.g., explain_conflict) can call mk_join / linearize.
         mutable dep_manager           m_dep_mgr;
 
-        // Global partial derivative DFA (monotone across DFS/backtracking).
-        // States are regex snodes; edges are discovered derivatives labeled by
+        // Global partial derivative DFA (monotone across DFS/backtracking and
+        // across sgraph push/pop).  States are regex expressions (pinned in
+        // m_partial_dfa_pin); edges are discovered derivatives labeled by
         // one-character regexes (concrete chars or minterms).
+        // All maps below are keyed by expr->get_id(): stable for as long as
+        // the expression is pinned, unlike snode->id() which is reused on pop.
         vector<partial_dfa_edge>      m_partial_dfa_edges;
         std::unordered_map<unsigned, unsigned_vector> m_partial_dfa_out;
         std::unordered_map<unsigned, unsigned_vector> m_partial_dfa_in;
         std::unordered_map<partial_dfa_edge_key, unsigned, partial_dfa_edge_key_hash> m_partial_dfa_edge_index;
+        // Pins every expression referenced by m_partial_dfa_edges so the
+        // egraph cannot release them on pop.  We never shrink this — the
+        // cache is meant to be monotone.
+        expr_ref_vector               m_partial_dfa_pin;
         unsigned                      m_projection_extract_idx = 0;
         // Per regex-state: size of SCC-edge coverage at last successful projection.
+        // Keyed by the regex expression's id (NOT the snode id).
         u_map<unsigned>               m_projection_cover_size;
 
 

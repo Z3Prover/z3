@@ -28,7 +28,7 @@ namespace euf {
         m_rewriter(m),
         m_egraph(eg),
         m_str_sort(m_seq.str.mk_string_sort(), m),
-        m_add_plugin(add_plugin) {
+        m_pin(m) {
         // create seq_plugin and register it with the egraph
         if (add_plugin)
             m_egraph.add_plugin(alloc(seq_plugin, m_egraph, this));
@@ -341,7 +341,12 @@ namespace euf {
         unsigned eid = e->get_id();
         m_expr2snode.reserve(eid + 1, nullptr);
         m_expr2snode[eid] = n;
-        // pin expression via egraph (the egraph has an expr trail)
+        // Pin the expression for the lifetime of the sgraph: the egraph trail
+        // would otherwise release it on pop, but the underlying snode lives in
+        // m_region (never freed) and may still be referenced by clients past
+        // that pop.  See the comment on m_pin in euf_sgraph.h.
+        m_pin.push_back(e);
+        // also keep the enode pinning behaviour so congruence closure sees e
         mk_enode(e);
         ++m_stats.m_num_nodes;
         return n;

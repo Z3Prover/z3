@@ -89,7 +89,16 @@ namespace euf {
         unsigned_vector  m_scopes;
         unsigned         m_num_scopes = 0;
         stats            m_stats;
-        bool             m_add_plugin; // whether sgraph created the seq_plugin
+
+        // Pins every expression that any (live or popped) snode references via
+        // m_expr.  snodes are allocated in m_region — which is never freed —
+        // but their m_expr field is owned by the egraph trail.  Without this
+        // pin the egraph would release expressions on pop while clients still
+        // hold the matching snode* (e.g. inside nielsen_node str_mems, edge
+        // substitutions, or the partial-DFA cache), turning every later
+        // get_expr() into a use-after-free.  The pin grows monotonically; it
+        // is dropped only when sgraph itself is destroyed.
+        expr_ref_vector  m_pin;
 
         // maps expression id to snode
         ptr_vector<snode> m_expr2snode;
