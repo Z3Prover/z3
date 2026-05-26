@@ -178,8 +178,14 @@ namespace smt {
         virtual void push() = 0;
         virtual void pop(unsigned num_scopes) = 0;
 
-
+        /**
+           \brief Try to refine a match using higher-order matching.
+           Returns true if the pattern was an HO pattern and refinement was attempted.
+           In that case, the plugin handles adding instances via the refined bindings.
+        */
+        virtual bool refine_instance(quantifier* q, app* pat, unsigned num_bindings, enode* const* bindings,
+                                     unsigned max_generation, unsigned min_top_generation, unsigned max_top_generation,
+                                     vector<std::tuple<enode*, enode*>>& used_enodes) { return false; }
 
     };
 };
-

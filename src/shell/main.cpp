@@ -337,10 +337,35 @@ static void parse_cmd_line_args(std::string& input_file, int argc, char ** argv)
             }
         }
         else if (argv[i][0] != '"' && (eq_pos = strchr(argv[i], '='))) {
-            char * key   = argv[i];
-            *eq_pos      = 0;
-            char * value = eq_pos+1; 
-            gparams::set(key, value);
+            // If the argument looks like a file path (contains path separators
+            // or has a file extension), treat it as a filename rather than
+            // a parameter assignment. This handles files with '=' in their names.
+            bool is_filepath = strchr(argv[i], '/') || strchr(argv[i], '\\');
+            if (!is_filepath) {
+                char const * ext = get_extension(argv[i]);
+                if (ext && (strcmp(ext, "smt2") == 0 || strcmp(ext, "smt") == 0 ||
+                            strcmp(ext, "dimacs") == 0 || strcmp(ext, "cnf") == 0 ||
+                            strcmp(ext, "wcnf") == 0 || strcmp(ext, "opb") == 0 ||
+                            strcmp(ext, "lp") == 0 || strcmp(ext, "log") == 0 ||
+                            strcmp(ext, "drat") == 0 || strcmp(ext, "p") == 0))
+                    is_filepath = true;
+            }
+            if (is_filepath) {
+                if (get_extension(arg) && strcmp(get_extension(arg), "drat") == 0) {
+                    g_input_kind = IN_DRAT;
+                    g_drat_input_file = arg;
+                }
+                else if (g_input_file)
+                    warning_msg("input file was already specified.");
+                else
+                    g_input_file = arg;
+            }
+            else {
+                char * key   = argv[i];
+                *eq_pos      = 0;
+                char * value = eq_pos+1; 
+                gparams::set(key, value);
+            }
         }
         else {
             if (get_extension(arg) && strcmp(get_extension(arg), "drat") == 0) {

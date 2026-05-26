@@ -56,6 +56,7 @@ X(ctx_propagate_assertions, assert_eq_bug, "assert eq bug")
 X(ctx_solver_simplify_tactic, ctx_solver_simplify_tactic, "ctx solver simplify tactic")
 
 X(default_qm_plugin, default_qm_plugin, "default qm plugin")
+X(default_qm_plugin, ho_matching, "ho matching")
 X(default_qm_plugin, mam_stats, "mam stats")
 X(default_qm_plugin, quantifier, "quantifier")
 

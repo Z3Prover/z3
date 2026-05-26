@@ -254,6 +254,27 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
         }
         return;
     }
+    case AST_QUANTIFIER: {
+        quantifier * q = to_quantifier(n);
+        unsigned num_decls = q->get_num_decls();
+        info * body_info = nullptr;
+        m_cache.find(entry(q->get_expr(), delta + num_decls), body_info);
+        if (body_info == nullptr) {
+            save(n, delta, nullptr);
+            return;
+        }
+        // The lambda/quantifier itself is a valid sub-term in a pattern.
+        // Propagate the free variables from the body (they already refer
+        // to the outer quantifier's bindings) and keep the node as-is.
+        expr * new_body = body_info->m_node.get();
+        quantifier_ref new_q(m);
+        if (new_body != q->get_expr())
+            new_q = m.update_quantifier(q, new_body);
+        else
+            new_q = q;
+        save(n, delta, alloc(info, m, new_q, body_info->m_free_vars, body_info->m_size + 1));
+        return;
+    }
     default:
         save(n, delta, nullptr);
         return;
@@ -525,13 +546,13 @@ void pattern_inference_cfg::reset_pre_patterns() {
 
 
 bool pattern_inference_cfg::is_forbidden(app * n) const {
-    func_decl const * decl = n->get_decl();
+    func_decl * decl = n->get_decl();
     if (is_ground(n))
         return false;
     // Remark: skolem constants should not be used in patterns, since they do not
     // occur outside of the quantifier. That is, Z3 will never match this kind of
     // pattern.
-    if (m_params.m_pi_avoid_skolems && decl->is_skolem()) {
+    if (m_params.m_pi_avoid_skolems && decl->is_skolem() && !m.is_lambda_def(decl)) {
         CTRACE(pattern_inference_skolem, decl->is_skolem(), tout << "ignoring: " << mk_pp(n, m) << "\n";);
         return true;
     }

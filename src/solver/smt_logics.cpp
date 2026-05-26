@@ -50,10 +50,7 @@ bool smt_logics::logic_has_arith(symbol const & s) {
         str.find("IDL") != std::string::npos ||
         str.find("RDL") != std::string::npos ||
         str == "QF_BVRE" ||
-        str == "QF_FP" ||
-        str == "FP" ||
-        str == "QF_FPBV" ||
-        str == "QF_BVFP" ||
+        logic_has_fpa(s) ||
         str == "QF_S" ||
         logic_is_all(s) ||
         str == "QF_FD" ||
@@ -102,11 +99,7 @@ bool smt_logics::logic_has_str(symbol const & s) {
 
 bool smt_logics::logic_has_fpa(symbol const & s) {
     auto str = s.str();
-    return str == "FP" ||
-           str == "QF_FP" ||
-           str == "QF_FPBV" ||
-           str == "QF_BVFP" ||
-           str == "QF_FPLRA"  ||
+    return str.find("FP") != std::string::npos ||
            logic_is_all(s);
 }
 

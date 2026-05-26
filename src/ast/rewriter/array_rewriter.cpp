@@ -861,19 +861,45 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         return false;        
     };
 
+    auto domain_is_larger_than = [&](sort* s, unsigned num_stores) {
+        unsigned sz = get_array_arity(s);
+        rational dsz(1);
+        for (unsigned i = 0; i < sz; ++i) {
+            sort* d = get_array_domain(s, i);
+            if (d->is_infinite())
+                return true;
+            if (d->is_very_big())
+                return false;
+            dsz *= rational(d->get_num_elements().size(), rational::ui64());
+            if (dsz > rational(num_stores, rational::ui64()))
+                return true;
+        }
+        return false;
+    };
+
+    expr* lhs1 = lhs;
+    expr* rhs1 = rhs;
+    unsigned num_lhs = 0, num_rhs = 0;
+    while (m_util.is_store(lhs1)) {
+        lhs1 = to_app(lhs1)->get_arg(0);
+        ++num_lhs;
+    }
+    while (m_util.is_store(rhs1)) {
+        rhs1 = to_app(rhs1)->get_arg(0);
+        ++num_rhs;
+    }
+
+    if (m_util.is_const(lhs1, v) && m_util.is_const(rhs1, w) &&
+        domain_is_larger_than(lhs->get_sort(), num_lhs + num_rhs)) {
+        mk_eq(lhs, lhs, rhs, fmls);
+        mk_eq(rhs, lhs, rhs, fmls);
+        fmls.push_back(m().mk_eq(v, w));
+        result = m().mk_and(fmls);
+        return BR_REWRITE_FULL;
+    }
+
 
     if (m_expand_store_eq) {
-        expr* lhs1 = lhs;
-        expr* rhs1 = rhs;
-        unsigned num_lhs = 0, num_rhs = 0;
-        while (m_util.is_store(lhs1)) {
-            lhs1 = to_app(lhs1)->get_arg(0);
-            ++num_lhs;
-        }
-        while (m_util.is_store(rhs1)) {
-            rhs1 = to_app(rhs1)->get_arg(0);
-            ++num_rhs;
-        }
         if (lhs1 == rhs1) {
             mk_eq(lhs, lhs, rhs, fmls);
             mk_eq(rhs, lhs, rhs, fmls);

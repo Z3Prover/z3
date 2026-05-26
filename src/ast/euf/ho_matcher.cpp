@@ -64,7 +64,7 @@ namespace euf {
     }
 
     void ho_matcher::search() {
-        IF_VERBOSE(1, display(verbose_stream()));
+        IF_VERBOSE(10, display(verbose_stream()));
 
         while (m.inc()) {
             // Q, B -> Q', B'. Push work on the backtrack stack and new work items
@@ -77,7 +77,7 @@ namespace euf {
                 break;
         }
 
-        IF_VERBOSE(1, display(verbose_stream() << "ho_matcher: done\n"));
+        IF_VERBOSE(10, display(verbose_stream() << "ho_matcher: done\n"));
     }
 
     void ho_matcher::backtrack() {
@@ -110,7 +110,11 @@ namespace euf {
     }
 
     lbool ho_matcher::are_equal(unsigned o1, expr* p, unsigned o2, expr* t) const {
-        SASSERT(p->get_sort() == t->get_sort());
+        if (p->get_sort() != t->get_sort()) {
+            TRACE(ho_matching, tout << "sort mismatch: " << mk_pp(p, m) << " : " << mk_pp(p->get_sort(), m) 
+                       << " vs " << mk_pp(t, m) << " : " << mk_pp(t->get_sort(), m) << "\n";);
+            return l_false;
+        }
         if (o1 == o2 && p == t)
             return l_true;
 
@@ -236,28 +240,51 @@ namespace euf {
             else
                 break;
         }
+        r = unfold_lambda_def(r); 
         return r;    
+    }
+
+    expr_ref ho_matcher::whnf_star(expr *e, unsigned offset) const {
+        expr_ref r(e, m);
+        while (true) {
+            auto q = whnf(r, offset);
+            if (q == r)
+                return r;
+            r = q;
+        }
     }
 
     // We assume that m_rewriter should produce
     // something amounting to weak-head normal form WHNF
 
-    void ho_matcher::reduce(match_goal& wi) {
-        while (true) {
-            expr_ref r = whnf(wi.pat, wi.pat_offset());
-            if (r == wi.pat)
-                break;
-            IF_VERBOSE(3, verbose_stream() << "ho_matcher::reduce: " << wi.pat << " -> " << r << "\n";);
-            wi.pat = r;
-        } 
+    // Unfold a lambda-def application f(args) to the corresponding lambda expression.
+    // For a func_decl f with arity n and lambda-def quantifier (lambda (x1..xk) body),
+    // f(a1,...,an) is unfolded to (lambda (x1..xk) body[params := a1..an]).
+    // For a constant f (arity 0) that is a lambda-def, returns the lambda directly.
+    expr_ref ho_matcher::unfold_lambda_def(expr* e) const {
+        if (!is_app(e))
+            return expr_ref(e, m);
+        app* a = to_app(e);
+        func_decl* f = a->get_decl();
+        quantifier* lam = m.is_lambda_def(f);
+        if (!lam)
+            return expr_ref(e, m);
+        
+        unsigned arity = f->get_arity();
+        SASSERT(is_lambda(lam));
+        
+        if (arity == 0) 
+            // Constant lambda-def: just return the lambda expression
+            return expr_ref(lam, m);        
 
-        while (true) {
-            expr_ref r = whnf(wi.t, wi.term_offset());
-            if (r == wi.t)
-                break;
-            IF_VERBOSE(3, verbose_stream() << "ho_matcher::reduce: " << wi.t << " -> " << r << "\n";);
-            wi.t = r;
-        } 
+        var_subst subst(m, false);
+        expr_ref r = subst(lam, to_app(e)->get_num_args(), to_app(e)->get_args());
+        return r;        
+    }
+
+    void ho_matcher::reduce(match_goal& wi) {
+        wi.pat = whnf_star(wi.pat, wi.pat_offset());
+        wi.t = whnf_star(wi.t, wi.term_offset());
     }
 
     bool ho_matcher::consume_work(match_goal &wi) {
@@ -488,8 +515,7 @@ namespace euf {
         uint_set vars;
         while (m_array.is_select(p)) {
             auto a = to_app(p);
-            for (unsigned i = 1; i < a->get_num_args(); ++i) {
-                auto arg = a->get_arg(i);
+            for (auto arg : *a) {
                 if (!is_bound_var(arg, offset))
                     return false;
                 auto idx = to_var(arg)->get_idx();
@@ -549,15 +575,12 @@ namespace euf {
         }
         expr_ref_vector pat2bound(m);        
         for (auto a : pats) {
-            unsigned sz = a->get_num_args();
-            for (unsigned i = 1; i < sz; ++i) {
-                auto arg = a->get_arg(i);
+            for (auto arg : *a) {
                 SASSERT(is_bound_var(arg, offset));
                 auto idx = to_var(arg)->get_idx();
                 pat2bound.reserve(idx + 1);
                 pat2bound[idx] = m.mk_var(--num_bound, arg->get_sort());
-            }   
-            p1 = a->get_arg(0);
+            }
         }
         var_subst sub(m, false);
         expr_ref lam = sub(t, pat2bound);
@@ -575,7 +598,7 @@ namespace euf {
 
     //
     // keep track of number of internal scopes and offset to non-capture variables.
-    // a variable is captured if it's index is in the interval [scopes, offset[.
+    // a variable is captured if its index is in the interval [scopes, offset[.
     //
     bool ho_matcher::is_closed(expr* v, unsigned scopes, unsigned offset) const {
         if (is_ground(v))
@@ -630,24 +653,29 @@ namespace euf {
     void ho_matcher::add_binding(var* v, unsigned offset, expr* t) {
         SASSERT(v->get_idx() >= offset);
         m_subst.set(v->get_idx() - offset, t);
-        IF_VERBOSE(1, verbose_stream() << "ho_matcher::add_binding: v" << v->get_idx() - offset << " -> " << mk_pp(t, m) << "\n";);
+        IF_VERBOSE(10, verbose_stream() << "ho_matcher::add_binding: v" << v->get_idx() - offset << " -> " << mk_pp(t, m) << "\n";);
         m_trail.push(undo_set(m_subst, v->get_idx() - offset));
     }
 
 
     std::pair<quantifier*, app*> ho_matcher::compile_ho_pattern(quantifier* q, app* p) {
         app* p1 = nullptr;
-        if (m_pat2hopat.find(p, p)) {
-            q = m_q2hoq[q];
-            return { q, p };
+        quantifier *q1 = nullptr;
+        if (m_pat2hopat.find(p, p1) && m_q2hoq.find(q, q1)) {
+            return { q1, p1 };
         }
-        auto is_ho = any_of(subterms::all(expr_ref(p, m)), [&](expr* t) { return m_unitary.is_flex(0, t); });
+        auto is_ho = any_of(subterms::all(expr_ref(p, m)), [&](expr* t) { 
+            return m_unitary.is_flex(0, t) || 
+                   (is_app(t) && m.is_lambda_def(to_app(t)->get_decl())) || 
+                   is_lambda(t); 
+        });
         if (!is_ho)
             return { q, p };
         ptr_vector<expr> todo;
         ptr_buffer<var> bound;
         expr_ref_vector cache(m);
         unsigned nb = q->get_num_decls();
+        bool contains_pat2abs = m_pat2abs.contains(p);
         todo.push_back(p);
         while (!todo.empty()) {
             auto t = todo.back();
@@ -656,16 +684,18 @@ namespace euf {
                 todo.pop_back();
                 continue;
             }
-            if (m_unitary.is_flex(0, t)) {
-                m_pat2abs.insert_if_not_there(p, svector<std::pair<unsigned, expr*>>()).push_back({ nb, t });
+            if (m_unitary.is_flex(0, t) || (is_app(t) && m.is_lambda_def(to_app(t)->get_decl())) || is_lambda(t)) {
+                if (!contains_pat2abs)
+                    m_pat2abs.insert_if_not_there(p, svector<std::pair<unsigned, expr*>>()).push_back({ nb, t });
                 auto v = m.mk_var(nb++, t->get_sort());
                 bound.push_back(v);
                 cache.setx(t->get_id(), v);
                 todo.pop_back();
                 continue;
-            }
+            }            
             if (is_app(t)) {
                 auto a = to_app(t);
+
                 unsigned sz = a->get_num_args();
                 ptr_buffer<expr> args;
                 for (auto arg : *a) {
@@ -682,7 +712,8 @@ namespace euf {
                 cache.setx(t->get_id(), m.mk_app(a->get_decl(), args.size(), args.data()));
             }
             if (is_quantifier(t)) {
-                m_pat2abs.remove(p);
+                if (!contains_pat2abs)
+                    m_pat2abs.remove(p);
                 return { q, p };
             }
         }
@@ -721,23 +752,36 @@ namespace euf {
             p1 = m.mk_pattern(pats.size(), pats.data());
         }
 
-        quantifier* q1 = m.mk_forall(sorts.size(), sorts.data(), names.data(), body);
+        q1 = m.mk_forall(sorts.size(), sorts.data(), names.data(), body);
 
-        m_pat2hopat.insert(p, p1);
-        m_hopat2pat.insert(p1, p);
-        m_q2hoq.insert(q, q1);
-        m_hoq2q.insert(q1, q);
-        m_hopat2free_vars.insert(p1, std::move(free_vars));
         m_ho_patterns.push_back(p1);
         m_ho_qs.push_back(q1);
         trail().push(push_back_vector(m_ho_patterns));
         trail().push(push_back_vector(m_ho_qs));
-        trail().push(insert_map(m_pat2hopat, p));
-        trail().push(insert_map(m_hopat2pat, p1));
-        trail().push(insert_map(m_pat2abs, p));
-        trail().push(insert_map(m_q2hoq, q));
-        trail().push(insert_map(m_hoq2q, q1));
-        trail().push(insert_map(m_hopat2free_vars, p1));        
+
+        if (!m_pat2hopat.contains(p)) {
+            m_pat2hopat.insert(p, p1);
+            trail().push(insert_map(m_pat2hopat, p));
+        }
+        if (!m_hopat2pat.contains(p1)) {
+            m_hopat2pat.insert(p1, p);
+            trail().push(insert_map(m_hopat2pat, p1));
+        }
+        if (!m_q2hoq.contains(q)) {
+            m_q2hoq.insert(q, q1);
+            trail().push(insert_map(m_q2hoq, q));
+        }
+        if (!m_hoq2q.contains(q1)) {
+            m_hoq2q.insert(q1, q);
+            trail().push(insert_map(m_hoq2q, q1));
+        }
+        if (!m_hopat2free_vars.contains(p1)) {
+            m_hopat2free_vars.insert(p1, std::move(free_vars));
+            trail().push(insert_map(m_hopat2free_vars, p1));
+        }
+        if (!contains_pat2abs)
+            trail().push(insert_map(m_pat2abs, p));
+
         return { q1, p1 };
     }
 
@@ -745,28 +789,46 @@ namespace euf {
         return m_hopat2pat.contains(p);
     }
 
+    void ho_matcher::register_ho_pattern(app* alias_p, app* full_p) {
+        if (alias_p == full_p) return;
+        auto orig_p = m_hopat2pat[full_p];
+        m_hopat2pat.insert(alias_p, orig_p);
+        m_hopat2free_vars.insert(alias_p, m_hopat2free_vars[full_p]);
+        m_ho_patterns.push_back(alias_p);
+        trail().push(push_back_vector(m_ho_patterns));
+        trail().push(insert_map(m_hopat2pat, alias_p));
+        trail().push(insert_map(m_hopat2free_vars, alias_p));
+    }
+
     void ho_matcher::refine_ho_match(app* p, expr_ref_vector& s) {
         auto fo_pat = m_hopat2pat[p];
+        IF_VERBOSE(10, verbose_stream() << "refine_ho_match: p=" << mk_pp(p, m) << "\n  fo_pat=" << mk_pp(fo_pat, m) << "\n";
+                   verbose_stream() << "  m_pat2abs has fo_pat: " << m_pat2abs.contains(fo_pat) << "\n";
+                   auto& abs = m_pat2abs[fo_pat];
+                   verbose_stream() << "  m_pat2abs size: " << abs.size() << "\n";
+                   for (auto [v, pat] : abs) verbose_stream() << "    v=" << v << " pat=" << mk_pp(pat, m) << "\n";);
         m_trail.push_scope();
         m_subst.resize(0);
         m_subst.resize(s.size());
         m_goals.reset();
+        // MAM bindings are reversed: s[i] = binding for var idx = s.size()-1-i
+        // m_subst is indexed by var index directly
         for (unsigned i = 0; i < s.size(); ++i) {
             auto idx = s.size() - i - 1;
             if (!m_hopat2free_vars[p].contains(idx))
                 s[i] = m.mk_var(idx, s[i]->get_sort());
             else if (s.get(i))
-                m_subst.set(i, s.get(i));
+                m_subst.set(idx, s.get(i));
         }
 
-        IF_VERBOSE(1, verbose_stream() << "refine " << mk_pp(p, m) << "\n" << s << "\n");
+        IF_VERBOSE(10, verbose_stream() << "refine " << mk_pp(p, m) << "\n" << s << "\n");
 
         unsigned num_bound = 0, level = 0;
         for (auto [v, pat] : m_pat2abs[fo_pat]) {
             var_subst sub(m, true);
             auto pat_refined = sub(pat, s);
-            IF_VERBOSE(1, verbose_stream() << mk_pp(pat, m) << " -> " << pat_refined << "\n");
-            m_goals.push(level, num_bound, pat_refined, s.get(s.size() - v - 1));
+            IF_VERBOSE(10, verbose_stream() << mk_pp(pat, m) << " -> " << pat_refined << "\n");
+            m_goals.push(level, num_bound, pat_refined, m_subst.get(v));
         }
 
         search();

@@ -84,10 +84,10 @@ ${Z3_DOTNET_COMPILE_ITEMS}
 
   <!-- TODO we may want to pack x64 and x86 native assemblies into a single nupkg -->
 
-  <!-- Native binaries x64 -->
+  <!-- Native binaries x64/arm64 -->
   <ItemGroup Condition="'$(Platform)' != 'x86'">
-    <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/$(_DN_CMAKE_CONFIG)/libz3.dll" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/$(_DN_CMAKE_CONFIG)/libz3.dll')">
-      <PackagePath>runtimes\win-x64\native</PackagePath>
+    <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.dll" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.dll')">
+      <PackagePath>runtimes\${Z3_DOTNET_WIN_RID}\native</PackagePath>
     </Content>
     <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.so" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.so')">
       <PackagePath>runtimes\linux-x64\native</PackagePath>
@@ -99,7 +99,7 @@ ${Z3_DOTNET_COMPILE_ITEMS}
 
   <!-- Native binaries for x86; currently only Windows is supported. -->
   <ItemGroup Condition="'$(Platform)' == 'x86'">
-    <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/$(_DN_CMAKE_CONFIG)/libz3.dll" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/$(_DN_CMAKE_CONFIG)/libz3.dll')">
+    <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.dll" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.dll')">
       <PackagePath>runtimes\win-x86\native</PackagePath>
     </Content>
   </ItemGroup>

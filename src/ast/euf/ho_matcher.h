@@ -329,6 +329,8 @@ namespace euf {
         bool consume_work(match_goal& wi);
 
         expr_ref whnf(expr* e, unsigned offset) const;
+
+        expr_ref whnf_star(expr *e, unsigned offset) const;
         
         bool is_bound_var(expr* v, unsigned offset) const { return is_var(v) && to_var(v)->get_idx() < offset; }
 
@@ -349,6 +351,8 @@ namespace euf {
         expr_ref abstract_pattern(expr* p, unsigned offset, expr* t);
 
         void reduce(match_goal& wi);
+
+        expr_ref unfold_lambda_def(expr* e) const;
 
         trail_stack& trail() { return m_trail; }
 
@@ -389,11 +393,23 @@ namespace euf {
 
         bool is_ho_pattern(app* p);
 
+        // Register an alias pattern (e.g., after stripping ground elements) 
+        // that maps to the same original pattern as full_p
+        void register_ho_pattern(app* alias_p, app* full_p);
+
         void refine_ho_match(app* p, expr_ref_vector& s);
 
         bool is_free(app* p, unsigned i) const { return m_hopat2free_vars[p].contains(i); }
 
         quantifier* hoq2q(quantifier* q) const { return m_hoq2q[q]; }
+
+
+        svector<std::pair<unsigned, expr*>> const* get_flex_subterms(app* p) const {
+            auto orig_p = m_hopat2pat.find_core(p);
+            if (!orig_p) return nullptr;
+            auto abs = m_pat2abs.find_core(orig_p->get_data().get_value());
+            return abs ? &abs->get_data().get_value() : nullptr;
+        }
 
     };
 }

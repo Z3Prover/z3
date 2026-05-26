@@ -585,7 +585,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create a polymorphic datatype sort with explicit type parameters.
-        /// Type parameters should be sorts created with <see cref="MkTypeVariable"/>.
+        /// Type parameters should be sorts created with <see cref="MkTypeVariable(string)"/>.
         /// </summary>
         /// <param name="name">name of the datatype sort</param>
         /// <param name="typeParams">array of type variable sorts</param>
@@ -608,7 +608,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create a polymorphic datatype sort with explicit type parameters.
-        /// Type parameters should be sorts created with <see cref="MkTypeVariable"/>.
+        /// Type parameters should be sorts created with <see cref="MkTypeVariable(string)"/>.
         /// </summary>
         /// <param name="name">name of the datatype sort</param>
         /// <param name="typeParams">array of type variable sorts</param>
