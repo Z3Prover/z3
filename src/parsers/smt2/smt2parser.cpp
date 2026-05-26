@@ -156,12 +156,14 @@ namespace smt2 {
             unsigned m_expr_spos;
             unsigned m_param_spos;
             bool     m_as_sort;
-            app_frame(symbol const & f, unsigned expr_spos, unsigned param_spos, bool as_sort):
+            bool     m_expr_head;
+            app_frame(symbol const & f, unsigned expr_spos, unsigned param_spos, bool as_sort, bool expr_head = false):
                 expr_frame(EF_APP),
                 m_f(f),
                 m_expr_spos(expr_spos),
                 m_param_spos(param_spos),
-                m_as_sort(as_sort) {}
+                m_as_sort(as_sort),
+                m_expr_head(expr_head) {}
         };
 
         struct quant_frame : public expr_frame {
@@ -1892,6 +1894,12 @@ namespace smt2 {
             SASSERT(curr_is_lparen() || curr_is_identifier());
             unsigned param_spos  = m_param_stack.size();
             unsigned expr_spos  = expr_stack().size();
+            if (curr_is_lparen()) {
+                void * mem = m_stack.allocate(sizeof(app_frame));
+                new (mem) app_frame(symbol::null, expr_spos, param_spos, false, true);
+                m_num_expr_frames++;
+                return;
+            }
             bool has_as, is_lambda;
             auto f = parse_qualified_identifier(has_as, is_lambda);
 
@@ -1952,6 +1960,23 @@ namespace smt2 {
             unsigned num_args    = expr_stack().size() - fr->m_expr_spos;
             unsigned num_indices = m_param_stack.size() - fr->m_param_spos;
             expr_ref t_ref(m());
+            if (fr->m_expr_head) {
+                if (num_args < 2)
+                    throw parser_exception("invalid function application, arguments missing");
+                t_ref = expr_stack().get(fr->m_expr_spos);
+                for (unsigned i = 1; i < num_args; ++i) {
+                    expr* arg = expr_stack().get(fr->m_expr_spos + i);
+                    expr* args[2] = { t_ref.get(), arg };
+                    m_ctx.mk_app(symbol("select"),
+                                 2,
+                                 args,
+                                 0,
+                                 nullptr,
+                                 nullptr,
+                                 t_ref);
+                }
+            }
+            else {
             local l;
             if (m_env.find(fr->m_f, l)) {
                 push_local(l);
@@ -1976,6 +2001,7 @@ namespace smt2 {
                              m_param_stack.data() + fr->m_param_spos,
                              fr->m_as_sort ? sort_stack().back() : nullptr,
                              t_ref);
+            }
             }
             expr_stack().shrink(fr->m_expr_spos);
             m_param_stack.shrink(fr->m_param_spos);
@@ -3296,5 +3322,4 @@ sexpr_ref parse_sexpr(cmd_context& ctx, std::istream& is, params_ref const& ps, 
     return p.parse_sexpr_ref();
     
 }
-
 
