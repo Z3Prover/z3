@@ -18,6 +18,6 @@ Author:
 
 class tactic;
 class solver;
-class params_ref;
 
 tactic * mk_parallel_tactic(solver* s, params_ref const& p);
+
