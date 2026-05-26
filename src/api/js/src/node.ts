@@ -2,7 +2,7 @@
 import initModule = require('./z3-built');
 
 import { createApi, Z3HighLevel } from './high-level';
-import { init as initWrapper, Z3LowLevel } from './low-level';
+import { init as initWrapper, Z3LowLevel, Z3ModuleOverrides } from './low-level';
 export * from './high-level/types';
 export { Z3Core, Z3LowLevel } from './low-level';
 export * from './low-level/types.__GENERATED__';
@@ -29,10 +29,17 @@ export * from './low-level/types.__GENERATED__';
  *
  * console.log(`x=${model.get(x)}, y=${model.get(y)}`);
  * // x=0, y=12
+ *
+ * // Deno users can provide an Emscripten locateFile hook to load the wasm
+ * // through npm's asset resolution instead of filesystem reads.
+ * // const api = await init({
+ * //   locateFile: (file, _prefix): string =>
+ * //     import.meta.resolve(`npm:z3-solver/build/${file}`), // _prefix is unused here
+ * // });
  * ```
  * @category Global */
-export async function init(): Promise<Z3HighLevel & Z3LowLevel> {
-  const lowLevel = await initWrapper(initModule);
+export async function init(moduleOverrides: Z3ModuleOverrides = {}): Promise<Z3HighLevel & Z3LowLevel> {
+  const lowLevel = await initWrapper(initModule, moduleOverrides);
   const highLevel = createApi(lowLevel.Z3, lowLevel.em);
   return { ...lowLevel, ...highLevel };
 }

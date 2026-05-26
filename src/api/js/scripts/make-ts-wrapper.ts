@@ -444,8 +444,8 @@ ${Object.entries(primitiveTypes)
   .map(e => `type ${e[0]} = ${e[1]};`)
   .join('\n')}
 
-export async function init(initModule: any) {
-  let Mod = await initModule();
+export async function init(initModule: any, moduleOverrides: Record<string, unknown> = {}) {
+  let Mod = await initModule(moduleOverrides);
 
   // this works for both signed and unsigned, because JS will wrap for you when constructing the Uint32Array
   function intArrayToByteArr(ints: number[]) {
