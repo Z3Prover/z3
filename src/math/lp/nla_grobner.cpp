@@ -392,14 +392,14 @@ namespace nla {
         //     p = M*v1 + v - M*v2*v3 = 0,
         // every monomial except v is M-divisible, so v ≡ 0 (mod M).
         // Combined with 0 ≤ v < M, this forces v = 0.
-        // Emit: (v < 0) ∨ (v ≥ M) ∨ (v = 0).
+        // Emit: dependencies => (v < 0) ∨ (v ≥ M) ∨ (v = 0).
         //
         // General case. For a linear monomial c_v*v in p with c0 the constant
         // term, require c_i/c_v integer for every non-v monomial and c0/c_v
         // integer (call it K). Let M = gcd(|c_i/c_v|) over non-v monomials.
         // Then p/c_v gives v + M*Q + K = 0 with Q integer, so v ≡ -K (mod M).
         // With target = (-K) mod M ∈ [0, M-1], emit
-        //     (v < 0) ∨ (v ≥ M) ∨ (v = target).
+        //     dependencies => (v < 0) ∨ (v ≥ M) ∨ (v = target).
         for (auto const& mv : p) {
             if (mv.vars.size() != 1)
                 continue;
@@ -423,21 +423,21 @@ namespace nla {
                 rational a = abs(quot);
                 SASSERT(!a.is_zero());
                 M = M.is_zero() ? a : gcd(M, a);
-                if (M.is_one()) { ok = false; break; }  // trivial modulus, abort
+                if (M == 1) { ok = false; break; }  // trivial modulus, abort
             }
-            if (!ok || M.is_zero())
+            if (!ok || M == 0)
                 continue;
             rational K = c0 / c_v;
             if (!K.is_int())
                 continue;
             rational target = mod(-K, M);  // Euclidean: result in [0, M-1].
-            SASSERT(target >= rational::zero() && target < M);
+            SASSERT(target >= 0 && target < M);
             // Skip if the lemma is already satisfied by the current model:
             // any of (v < 0), (v ≥ M), (v = target) trivially holding means
             // emission would be redundant. Without this guard, the lemma
             // re-emits every Grobner round on the same polynomial.
             rational v_val = c().val(vv);
-            if (v_val < rational::zero() || v_val >= M || v_val == target)
+            if (v_val < 0 || v_val >= M || v_val == target)
                 continue;
             lemma_builder lemma(c(), "grobner-mod-residue");
             add_dependencies(lemma, eq);
