@@ -121,17 +121,15 @@ namespace smt {
         SASSERT(is_app(n));
         if (m.is_bool(n)) {
             if (b_internalized(n)) {
-                if (e_internalized(n)) {
-                    update_generation(n);
-                }
+                update_generation(n);                
                 return true;
             }
         }
         else {
-            if (e_internalized(n)) {
-                update_generation(n);
+            update_generation(n);
+            if (e_internalized(n))                 
                 return true;
-            }
+            
         }
 
         bool visited  = true;
@@ -415,9 +413,7 @@ namespace smt {
             bool_var v = get_bool_var(n);
             TRACE(internalize_bug, tout << "#" << n->get_id() << " already has bool_var v" << v << "\n";);
             
-            if (is_app(n) && e_internalized(n)) {
-                update_generation(n);
-            }
+            update_generation(n);            
             
             // n was already internalized as boolean, but an enode was
             // not associated with it.  So, an enode is necessary, if
