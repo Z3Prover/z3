@@ -20,6 +20,7 @@ Revision History:
 #include "ast/datatype_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/well_sorted.h"
@@ -79,6 +80,7 @@ namespace smt2 {
         symbol               m_forall;
         symbol               m_exists;
         symbol               m_lambda;
+        symbol               m_choice;
         symbol               m_as;
         symbol               m_not;
         symbol               m_root_obj;
@@ -144,7 +146,7 @@ namespace smt2 {
 
         typedef psort_frame sort_frame;
 
-        enum expr_frame_kind { EF_APP, EF_LET, EF_LET_DECL, EF_MATCH, EF_QUANT, EF_ATTR_EXPR, EF_PATTERN };
+        enum expr_frame_kind { EF_APP, EF_LET, EF_LET_DECL, EF_MATCH, EF_QUANT, EF_ATTR_EXPR, EF_PATTERN, EF_CHOICE };
 
         struct expr_frame {
             expr_frame_kind m_kind;
@@ -215,6 +217,22 @@ namespace smt2 {
             pattern_frame(unsigned expr_spos):
                 expr_frame(EF_PATTERN),
                 m_expr_spos(expr_spos) {
+            }
+        };
+
+        struct choice_frame : public expr_frame {
+            unsigned m_num_vars;
+            unsigned m_sym_spos;
+            unsigned m_sort_spos;
+            unsigned m_expr_spos;
+            unsigned m_old_num_bindings;
+            choice_frame(unsigned num_vars, unsigned sym_spos, unsigned sort_spos, unsigned expr_spos, unsigned old_num_bindings):
+                expr_frame(EF_CHOICE),
+                m_num_vars(num_vars),
+                m_sym_spos(sym_spos),
+                m_sort_spos(sort_spos),
+                m_expr_spos(expr_spos),
+                m_old_num_bindings(old_num_bindings) {
             }
         };
 
@@ -422,6 +440,7 @@ namespace smt2 {
         bool curr_id_is_forall() const { SASSERT(curr_is_identifier()); return curr_id() == m_forall; }
         bool curr_id_is_exists() const { SASSERT(curr_is_identifier()); return curr_id() == m_exists; }
         bool curr_id_is_lambda() const { SASSERT(curr_is_identifier()); return curr_id() == m_lambda; }
+        bool curr_id_is_choice() const { SASSERT(curr_is_identifier()); return curr_id() == m_choice; }
         bool curr_id_is_bang() const { SASSERT(curr_is_identifier()); return curr_id() == m_bang; }
         bool curr_id_is_let() const { SASSERT(curr_is_identifier()); return curr_id() == m_let; }
         bool curr_id_is_root_obj() const { SASSERT(curr_is_identifier()); return curr_id() == m_root_obj; }
@@ -1890,6 +1909,64 @@ namespace smt2 {
             sexpr_stack().pop_back();
         }
 
+        void push_choice_frame() {
+            SASSERT(curr_is_identifier() && curr_id_is_choice());
+            next();
+            unsigned sym_spos = symbol_stack().size();
+            unsigned sort_spos = sort_stack().size();
+            unsigned expr_spos = expr_stack().size();
+            unsigned old_num_bindings = m_num_bindings;
+            unsigned num_vars = parse_sorted_vars();
+            void * mem = m_stack.allocate(sizeof(choice_frame));
+            new (mem) choice_frame(num_vars, sym_spos, sort_spos, expr_spos, old_num_bindings);
+            m_num_expr_frames++;
+        }
+
+        void pop_choice_frame(choice_frame * fr) {
+            if (fr->m_num_vars != 1)
+                throw parser_exception("choice expects exactly one bound variable");
+            if (expr_stack().size() < fr->m_expr_spos + 1)
+                throw parser_exception("invalid choice expression");
+            expr_ref body(m());
+            body = expr_stack().back();
+            expr_stack().shrink(fr->m_expr_spos);
+            if (!m().is_bool(body))
+                throw parser_exception("choice body must be a Boolean expression");
+            sort* const* decl_sorts = sort_stack().data() + fr->m_sort_spos;
+            symbol* decl_names = symbol_stack().data() + fr->m_sym_spos;
+            app_ref witness(m().mk_fresh_const("choice", decl_sorts[0]), m());
+            expr_ref witness_body = var_subst(m())(body, witness);
+            expr_ref witness_exists(m().mk_exists(fr->m_num_vars, decl_sorts, decl_names, body), m());
+            expr_ref witness_axiom(m().mk_implies(witness_exists, witness_body), m());
+            m_ctx.assert_expr(witness_axiom);
+            symbol_stack().shrink(fr->m_sym_spos);
+            sort_stack().shrink(fr->m_sort_spos);
+            m_env.end_scope();
+            m_num_bindings = fr->m_old_num_bindings;
+            expr_stack().push_back(witness);
+            m_stack.deallocate(fr);
+            m_num_expr_frames--;
+        }
+
+        void mk_curried_select(expr_ref& r, unsigned num_args, expr * const * args) {
+            array_util au(m());
+            unsigned i = 0;
+            while (i < num_args) {
+                if (!au.is_array(r))
+                    throw parser_exception("invalid function application, function expected");
+                unsigned arity = get_array_arity(r->get_sort());
+                unsigned remaining = num_args - i;
+                if (remaining < arity)
+                    throw parser_exception("invalid function application, missing arguments");
+                ptr_buffer<expr> select_args;
+                select_args.push_back(r.get());
+                for (unsigned j = 0; j < arity; ++j)
+                    select_args.push_back(args[i + j]);
+                r = au.mk_select(select_args.size(), select_args.data());
+                i += arity;
+            }
+        }
+
         void push_expr_frame_core(expr_frame * curr) {
             TRACE(push_expr_frame, tout << "push_expr_frame(), curr(): " << m_curr << "\n";);
             if (curr_is_identifier()) {
@@ -1914,6 +1991,9 @@ namespace smt2 {
                 }
                 else if (curr_id_is_root_obj()) {
                     parse_root_obj();
+                }
+                else if (curr_id_is_choice()) {
+                    push_choice_frame();
                 }
                 else if (curr_id_is_match()) {
                     push_match_frame();
@@ -1985,34 +2065,14 @@ namespace smt2 {
                 if (num_args < 2)
                     throw parser_exception("invalid function application, arguments missing");
                 t_ref = expr_stack().get(fr->m_expr_spos);
-                for (unsigned i = 1; i < num_args; ++i) {
-                    expr* arg = expr_stack().get(fr->m_expr_spos + i);
-                    expr* args[2] = { t_ref.get(), arg };
-                    m_ctx.mk_app(symbol("select"),
-                                 2,
-                                 args,
-                                 0,
-                                 nullptr,
-                                 nullptr,
-                                 t_ref);
-                }
+                mk_curried_select(t_ref, num_args - 1, expr_stack().data() + fr->m_expr_spos + 1);
             }
             else {
             local l;
             if (m_env.find(fr->m_f, l)) {
                 push_local(l);
                 t_ref = expr_stack().back();
-                for (unsigned i = 0; i < num_args; ++i) {
-                    expr* arg = expr_stack().get(fr->m_expr_spos + i);
-                    expr* args[2] = { t_ref.get(), arg };
-                    m_ctx.mk_app(symbol("select"), 
-                                 2, 
-                                 args,
-                                 0,
-                                 nullptr,
-                                 nullptr,
-                                 t_ref);
-                }
+                mk_curried_select(t_ref, num_args, expr_stack().data() + fr->m_expr_spos);
             }
             else {
                 m_ctx.mk_app(fr->m_f,
@@ -2188,6 +2248,9 @@ namespace smt2 {
                 break;
             case EF_PATTERN:
                 pop_pattern_frame(static_cast<pattern_frame*>(fr));
+                break;
+            case EF_CHOICE:
+                pop_choice_frame(static_cast<choice_frame*>(fr));
                 break;
             default:
                 UNREACHABLE();
@@ -3135,6 +3198,7 @@ namespace smt2 {
             m_forall("forall"),
             m_exists("exists"),
             m_lambda("lambda"),
+            m_choice("choice"),
             m_as("as"),
             m_not("not"),
             m_root_obj("root-obj"),
