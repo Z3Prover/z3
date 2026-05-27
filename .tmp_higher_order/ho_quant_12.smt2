@@ -1,0 +1,10 @@
+; HO quantification: predicate intersection
+(set-logic HO_ALL)
+(declare-fun a () Int)
+(declare-fun P () (-> Int Bool))
+(declare-fun Q () (-> Int Bool))
+(assert (P a))
+(assert (Q a))
+(assert (not (exists ((x Int)) (and (P x) (Q x)))))
+(check-sat)
+(exit)

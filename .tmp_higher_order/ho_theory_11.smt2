@@ -1,0 +1,11 @@
+; HO + Sets: image of a function
+(set-logic HO_ALL)
+(declare-const S (Array Int Bool))
+(declare-fun f () (-> Int Int))
+(define-fun image ((f (-> Int Int)) (S (Array Int Bool))) (Array Int Bool)
+  (lambda ((y Int)) (exists ((x Int)) (and (select S x) (= (f x) y)))))
+(assert (= f (lambda ((x Int)) (* x 2))))
+(assert (= S (lambda ((x Int)) (and (>= x 1) (<= x 3)))))
+(assert (not (select (image f S) 4)))
+(check-sat)
+(exit)

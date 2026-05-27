@@ -1,0 +1,11 @@
+; Verification: loop invariant with function abstraction
+(set-logic HO_ALL)
+(declare-fun inv () (-> Int Bool))
+(declare-fun body () (-> Int Int))
+(assert (inv 0))
+(assert (forall ((x Int)) (=> (and (inv x) (< x 10)) (inv (body x)))))
+(assert (forall ((x Int)) (=> (and (inv x) (< x 10)) (< (body x) 11))))
+(assert (= body (lambda ((x Int)) (+ x 1))))
+(assert (not (inv 10)))
+(check-sat)
+(exit)

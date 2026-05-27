@@ -1,0 +1,13 @@
+; HO + Datatypes: fold over list
+(set-logic HO_ALL)
+(declare-datatype IntList ((nil) (cons (hd Int) (tl IntList))))
+(declare-fun foldr () (-> (-> Int Int Int) Int IntList Int))
+(assert (forall ((f (-> Int Int Int)) (z Int))
+  (= (foldr f z nil) z)))
+(assert (forall ((f (-> Int Int Int)) (z Int) (x Int) (xs IntList))
+  (= (foldr f z (cons x xs)) (f x (foldr f z xs)))))
+(declare-const mylist IntList)
+(assert (= mylist (cons 1 (cons 2 (cons 3 nil)))))
+(assert (not (= (foldr (lambda ((a Int) (b Int)) (+ a b)) 0 mylist) 6)))
+(check-sat)
+(exit)

@@ -1,0 +1,10 @@
+; Extensionality: HO congruence closure
+(set-logic HO_ALL)
+(declare-sort U 0)
+(declare-fun f () (-> U U))
+(declare-fun g () (-> U U))
+(declare-fun h () (-> (-> U U) U))
+(assert (= f g))
+(assert (not (= (h f) (h g))))
+(check-sat)
+(exit)

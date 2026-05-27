@@ -1,0 +1,8 @@
+; Extensionality: Boolean functions (predicates)
+(set-logic HO_ALL)
+(declare-fun P () (-> Int Bool))
+(declare-fun Q () (-> Int Bool))
+(assert (forall ((x Int)) (= (P x) (Q x))))
+(assert (distinct P Q))
+(check-sat)
+(exit)

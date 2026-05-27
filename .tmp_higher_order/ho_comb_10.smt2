@@ -1,0 +1,6 @@
+; Higher-order: W combinator (duplication)
+(set-logic HO_ALL)
+(define-fun W ((f (-> Int Int Int)) (x Int)) Int (f x x))
+(assert (not (= (W (lambda ((a Int) (b Int)) (+ a b)) 5) 10)))
+(check-sat)
+(exit)

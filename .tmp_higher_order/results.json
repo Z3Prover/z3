@@ -1,0 +1,905 @@
+[
+  {
+    "file": "ho_adv_01.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_adv_02.smt2",
+    "code": 0,
+    "result": "unknown",
+    "stdout": "unknown",
+    "stderr": ""
+  },
+  {
+    "file": "ho_adv_03.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_adv_04.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat\n(\n  ;; universe for U:\n  ;;   U!val!1 U!val!0 \n  ;; -----------\n  ;; definitions for universe elements:\n  (declare-fun U!val!1 () U)\n  (declare-fun U!val!0 () U)\n  ;; cardinality constraint:\n  (forall ((x U)) (or (= x U!val!1) (= x U!val!0)))\n  ;; -----------\n  (define-fun F () (-> U U)\n    (store ((as const (-> U U)) U!val!1) U!val!1 U!val!0))\n  (define-fun a () U\n    U!val!0)\n  (define-fun b () U\n    U!val!1)\n)",
+    "stderr": ""
+  },
+  {
+    "file": "ho_adv_05.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_adv_06.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_adv_07.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 3 column 18: unexpected token used as datatype name\")\n(error \"line 4 column 32: unknown sort 'Maybe'\")\n(error \"line 5 column 24: unknown sort 'Maybe'\")\n(error \"line 10 column 28: unknown sort 'Maybe'\")\n(error \"line 12 column 35: unknown constant return_m (Int) \")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_adv_08.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_adv_09.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_adv_10.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_01.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 8 column 31: unknown constant U\")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_02.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 6 column 28: unknown constant Int\")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_03.smt2",
+    "code": 0,
+    "result": "timeout",
+    "stdout": "(error \"line 5 column 44: unknown constant Int\")\n(error \"line 7 column 31: unknown constant f_inv (Int) \")\ntimeout",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_04.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 6 column 14: unknown constant Int\")\n(error \"line 10 column 16: unknown constant min_S\")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_05.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 6 column 28: unknown constant Int\")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_06.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 8 column 31: unknown constant Int\")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_07.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 6 column 37: unknown constant Int\")\n(error \"line 9 column 16: unknown constant the_P\")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_08.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 8 column 45: unknown constant B\")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_09.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 8 column 14: unknown constant Int\")\n(error \"line 9 column 21: unknown constant least\")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_10.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 8 column 23: unknown constant U\")\n(error \"line 9 column 28: unknown constant U\")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_11.smt2",
+    "code": 1,
+    "result": "unknown",
+    "stdout": "(error \"line 7 column 18: unknown constant Int\")\n(error \"line 8 column 19: unknown constant chosen_f\")\nunknown",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_12.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 5 column 28: unknown constant Int\")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_13.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 8 column 23: unknown constant Int\")\n(error \"line 9 column 23: unknown constant Int\")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_14.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 5 column 40: unknown constant Int\")\n(error \"line 7 column 22: unknown constant f (Int) \")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_choice_15.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 4 column 14: unknown constant Int\")\n(error \"line 5 column 37: unknown constant sqrt_approx (Int) \")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_comb_01.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 5 column 12: select requires 3 arguments, but was provided with 2 arguments\")\n(error \"line 9 column 24: unknown constant S ((Array U U U) (Array U U) U) \")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_comb_02.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_comb_03.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 6 column 67: select requires 3 arguments, but was provided with 2 arguments\")\n(error \"line 10 column 20: unknown constant S_comb ((Array U U U) (Array U U) U) \")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_comb_04.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 6 column 11: select requires 3 arguments, but was provided with 2 arguments\")\n(error \"line 7 column 61: unknown constant succ ((Array (Array Int Int) Int Int) (Array Int Int) Int) \")\n(error \"line 8 column 53: unknown constant one\")\n(error \"line 11 column 26: unknown constant two ((Array Int Int) Int) \")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_comb_05.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_comb_06.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 3 column 66: select requires 3 arguments, but was provided with 2 arguments\")\n(error \"line 6 column 30: unknown constant flip ((Array Int Int Int) Int Int) \")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_comb_07.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_comb_08.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_comb_09.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_comb_10.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 3 column 55: select requires 3 arguments, but was provided with 2 arguments\")\n(error \"line 4 column 55: unknown constant W ((Array Int Int Int) Int) \")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_ext_01.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_ext_02.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_ext_03.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_ext_04.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_ext_05.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat\n(\n  (define-fun f () (-> Int Int)\n    (store ((as const (-> Int Int)) 1) 5 2436))\n  (define-fun g () (-> Int Int)\n    (store ((as const (-> Int Int)) 0) 5 2437))\n)",
+    "stderr": ""
+  },
+  {
+    "file": "ho_ext_06.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_ext_07.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_ext_08.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_ext_09.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_ext_10.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_lambda_01.smt2",
+    "code": 0,
+    "result": "unknown",
+    "stdout": "unknown",
+    "stderr": ""
+  },
+  {
+    "file": "ho_lambda_02.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_lambda_03.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_lambda_04.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_lambda_05.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat\n(\n  (define-fun a () Int\n    1)\n)",
+    "stderr": ""
+  },
+  {
+    "file": "ho_lambda_06.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_lambda_07.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_lambda_08.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_lambda_09.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_lambda_10.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_01.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_02.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat\n(\n  (define-fun f () (-> Int Int)\n    (let ((a!1 (store (store (store ((as const (-> Int Int)) 6) 4 4) 3 4) 0 2)))\n  (store a!1 2 2)))\n)",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_03.smt2",
+    "code": 0,
+    "result": "timeout",
+    "stdout": "timeout",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_04.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_05.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_06.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_07.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_08.smt2",
+    "code": 0,
+    "result": "timeout",
+    "stdout": "timeout",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_09.smt2",
+    "code": 0,
+    "result": "timeout",
+    "stdout": "timeout",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_10.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_11.smt2",
+    "code": 0,
+    "result": "timeout",
+    "stdout": "timeout",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_12.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_13.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_14.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 4 column 35: select requires 3 arguments, but was provided with 2 arguments\")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_mbqi_15.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_partial_01.smt2",
+    "code": 0,
+    "result": "timeout",
+    "stdout": "(error \"line 6 column 22: unknown constant add (Int) \ndeclared: (declare-fun add () (Array Int Int Int)) \")\ntimeout",
+    "stderr": ""
+  },
+  {
+    "file": "ho_partial_02.smt2",
+    "code": 0,
+    "result": "timeout",
+    "stdout": "(error \"line 6 column 24: unknown constant mul (Int) \ndeclared: (declare-fun mul () (Array Int Int Int)) \")\ntimeout",
+    "stderr": ""
+  },
+  {
+    "file": "ho_partial_03.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 4 column 21: unknown sort 'n'\")\n(error \"line 5 column 37: unknown constant add_n (Int) \")\n(error \"line 7 column 41: unknown constant add_n (Int) \")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_partial_04.smt2",
+    "code": 0,
+    "result": "timeout",
+    "stdout": "(error \"line 6 column 22: unknown constant geq (Int) \ndeclared: (declare-fun geq () (Array Int Int Bool)) \")\ntimeout",
+    "stderr": ""
+  },
+  {
+    "file": "ho_partial_05.smt2",
+    "code": 0,
+    "result": "timeout",
+    "stdout": "(error \"line 6 column 20: unknown constant f (Int Int) \ndeclared: (declare-fun f () (Array Int Int Int Int)) \")\ntimeout",
+    "stderr": ""
+  },
+  {
+    "file": "ho_partial_06.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_partial_07.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_partial_08.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 5 column 16: select requires 3 arguments, but was provided with 2 arguments\")\n(error \"line 8 column 23: unknown constant on ((Array Int Int Int) (Array Int Int) Int Int) \")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_partial_09.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_partial_10.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_01.smt2",
+    "code": 0,
+    "result": "unknown",
+    "stdout": "unknown",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_02.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat\n(\n  (define-fun a () Int\n    0)\n)",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_03.smt2",
+    "code": 0,
+    "result": "unknown",
+    "stdout": "unknown",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_04.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_05.smt2",
+    "code": 0,
+    "result": "timeout",
+    "stdout": "timeout",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_06.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_07.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_08.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_09.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_10.smt2",
+    "code": 0,
+    "result": "unknown",
+    "stdout": "unknown",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_11.smt2",
+    "code": 0,
+    "result": "timeout",
+    "stdout": "timeout",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_12.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_13.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_14.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_quant_15.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_01.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_02.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_03.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_04.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_05.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_06.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_07.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_08.smt2",
+    "code": 1,
+    "result": "unknown",
+    "stdout": "(error \"line 8 column 48: select requires 3 arguments, but was provided with 2 arguments\")\nunknown",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_09.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 3 column 18: unexpected token used as datatype name\")\n(error \"line 4 column 42: unknown sort 'Option'\")\n(error \"line 8 column 59: unknown constant some (Int) \")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_10.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_11.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_12.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_13.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_14.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 6 column 16: unknown constant approx ((Array Real Real) Real) \ndeclared: (declare-fun approx () (Array (Array Real Real) Real Real Real)) \")\n(error \"line 9 column 31: unknown constant approx ((Array Real Real) Real) \ndeclared: (declare-fun approx () (Array (Array Real Real) Real Real Real)) \")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_theory_15.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_verify_01.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_verify_02.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_verify_03.smt2",
+    "code": 0,
+    "result": "unknown",
+    "stdout": "unknown",
+    "stderr": ""
+  },
+  {
+    "file": "ho_verify_04.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_verify_05.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_verify_06.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_verify_07.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_verify_08.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_verify_09.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "ho_verify_10.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "lambda_alpha_equiv.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "lambda_array.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "lambda_distinct.smt2",
+    "code": 0,
+    "result": "sat",
+    "stdout": "sat",
+    "stderr": ""
+  },
+  {
+    "file": "lambda_identity.smt2",
+    "code": 0,
+    "result": "no-result",
+    "stdout": "(lambda ((x Int)) x)",
+    "stderr": ""
+  },
+  {
+    "file": "lambda_map.smt2",
+    "code": 1,
+    "result": "sat",
+    "stdout": "(error \"line 4 column 58: unknown sort 'list'\")\n(error \"line 6 column 2: invalid function/constant definition, symbol expected\")\n(error \"line 12 column 9: invalid function application, arguments missing\")\nsat",
+    "stderr": ""
+  },
+  {
+    "file": "lambda_memset.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "lambda_min.smt2",
+    "code": 0,
+    "result": "unsat",
+    "stdout": "unsat",
+    "stderr": ""
+  },
+  {
+    "file": "lambda_patterns.smt2",
+    "code": 1,
+    "result": "unknown",
+    "stdout": "unknown\n(error \"line 46 column 15: unsat core is not available\")",
+    "stderr": ""
+  },
+  {
+    "file": "lambda_patterns_2.smt2",
+    "code": 1,
+    "result": "unsat",
+    "stdout": "<initial_stats>\n<statistics>\n(:arith-make-feasible 1\n :arith-max-columns   4\n :max-memory          17.25\n :memory              17.25\n :mk-bool-var         13\n :mk-clause           4\n :num-allocs          19040\n :rlimit-count        2767)\n</statistics>\n</initial_stats>\n<result>\nunsat\n</result>\n<reason-unknown>\n(:reason-unknown \"unknown\")\n</reason-unknown>\n<statistics>\n(:added-eqs               31\n :arith-make-feasible     2\n :arith-max-columns       4\n :array-def-lambda        8\n :array-ext-ax            2\n :array-splits            12\n :conflicts               3\n :datatype-accessor-ax    3\n :datatype-constructor-ax 1\n :datatype-occurs-check   3\n :decisions               6\n :del-clause              104\n :final-checks            2\n :max-generation          6\n :max-memory              17.35\n :memory                  17.35\n :mk-bool-var             120\n :mk-clause               129\n :num-allocs              24364\n :num-checks              1\n :propagations            54\n :quant-instantiations    16\n :rlimit-count            4361)\n</statistics>\n<labels>\nlabel_1\n(error \"line 210 column 13: model is not available\")\n</labels>\nDone!\n(equation_Prims.pure_wp_monotonic0 l_and-interp l_quant_interp_6bba8ada8d83fbf9a31086f503e84f1b interpretation_Tm_abs_f4b968d76e465dbbe733c9606c5bd64d @MaxIFuel_assumption @query)",
+    "stderr": ""
+  }
+]

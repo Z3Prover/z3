@@ -1,0 +1,10 @@
+; HO quantification: function composition associativity
+(set-logic HO_ALL)
+(declare-sort U 0)
+(declare-fun f () (-> U U))
+(declare-fun g () (-> U U))
+(declare-fun h () (-> U U))
+(assert (not (forall ((x U))
+  (= (f (g (h x))) (f (g (h x)))))))
+(check-sat)
+(exit)

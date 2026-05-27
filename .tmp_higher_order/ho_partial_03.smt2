@@ -1,0 +1,11 @@
+; Partial application: higher-order map with partial
+(set-logic HO_ALL)
+(declare-const a (Array Int Int))
+(declare-fun add_n ((n Int)) (-> Int Int))
+(assert (forall ((n Int)) (= (add_n n) (lambda ((x Int)) (+ x n)))))
+(declare-const b (Array Int Int))
+(assert (= b (lambda ((i Int)) ((add_n 10) (select a i)))))
+(assert (= (select a 0) 5))
+(assert (not (= (select b 0) 15)))
+(check-sat)
+(exit)

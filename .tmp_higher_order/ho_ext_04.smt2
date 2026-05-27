@@ -1,0 +1,10 @@
+; Extensionality: function update
+(set-logic HO_ALL)
+(declare-fun f () (-> Int Int))
+(define-fun update ((g (-> Int Int)) (a Int) (v Int)) (-> Int Int)
+  (lambda ((x Int)) (ite (= x a) v (g x))))
+(declare-fun f2 () (-> Int Int))
+(assert (= f2 (update f 5 99)))
+(assert (not (and (= (f2 5) 99) (= (f2 3) (f 3)))))
+(check-sat)
+(exit)

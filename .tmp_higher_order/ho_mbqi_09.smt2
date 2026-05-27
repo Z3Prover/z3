@@ -1,0 +1,10 @@
+; MBQI-Enum: cancellation property
+(set-logic HO_ALL)
+(declare-fun op () (-> Int Int Int))
+(declare-fun e () Int)
+(assert (forall ((x Int)) (= (op x e) x)))
+(assert (forall ((x Int)) (= (op e x) x)))
+(assert (forall ((x Int)) (exists ((y Int)) (= (op x y) e))))
+(assert (not (= (op (op 1 2) 3) (op 1 (op 2 3)))))
+(check-sat)
+(exit)

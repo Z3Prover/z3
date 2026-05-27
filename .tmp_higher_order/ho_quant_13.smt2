@@ -1,0 +1,10 @@
+; HO quantification: right inverse exists implies surjective
+(set-logic HO_ALL)
+(declare-sort A 0)
+(declare-sort B 0)
+(declare-fun f () (-> A B))
+(declare-fun g () (-> B A))
+(assert (forall ((b B)) (= (f (g b)) b)))
+(assert (not (forall ((b B)) (exists ((a A)) (= (f a) b)))))
+(check-sat)
+(exit)

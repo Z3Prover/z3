@@ -1,0 +1,11 @@
+; HO + Arrays: map over array
+(set-logic HO_ALL)
+(declare-const a (Array Int Int))
+(define-fun map_arr ((f (-> Int Int)) (arr (Array Int Int))) (Array Int Int)
+  (lambda ((i Int)) (f (select arr i))))
+(declare-const b (Array Int Int))
+(assert (= b (map_arr (lambda ((x Int)) (+ x 1)) a)))
+(assert (= (select a 3) 10))
+(assert (not (= (select b 3) 11)))
+(check-sat)
+(exit)
