@@ -189,11 +189,7 @@ void test_ho_choice_expression() {
 
     Z3_context ctx = Z3_mk_context(nullptr);
     Z3_set_error_handler(ctx, setError);
-    std::string resp;
-    is_error = false;
-    resp = Z3_eval_smtlib2_string(ctx, spec);
-    ENSURE(!is_error);
-    ENSURE(resp.find("unsat") != std::string::npos);
+    test_eval(ctx, spec, false);
     Z3_del_context(ctx);
 }
 
