@@ -1785,12 +1785,11 @@ class tptp_parser {
         char* buffer = nullptr;
         size_t len = 0;
         errno_t err = ::_dupenv_s(&buffer, &len, name);
-        if (err != 0)
+        if (err != 0 || !buffer)
             return false;
-        if (!buffer)
-            return false;
-        value.assign(buffer);
-        std::free(buffer);
+        std::unique_ptr<char, decltype(&std::free)> buffer_guard(buffer, &std::free);
+        value.assign(buffer_guard.get());
+        (void)len;
         return true;
 #else
         char const* v = std::getenv(name);
