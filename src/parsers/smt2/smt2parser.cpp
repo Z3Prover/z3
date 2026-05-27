@@ -2140,7 +2140,7 @@ namespace smt2 {
             SASSERT(num_decls <= m_num_bindings);
             m_num_bindings -= num_decls;
             if (fr->m_kind == choice_k) {
-                // create expression (select choice new_q)
+                // create expression (choice new_q)
                 // add to expr_stack().push_back(choice_expr);
                 // 
                 throw default_exception("parsing of choice expressions is NYI");
