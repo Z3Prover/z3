@@ -1780,12 +1780,17 @@ class tptp_parser {
         return path;
     }
 
-    static bool try_getenv(char const* name, std::string& value) {
+    static bool get_env_var(char const* name, std::string& value) {
 #ifdef _WIN32
         char* buffer = nullptr;
         size_t len = 0;
         errno_t err = ::_dupenv_s(&buffer, &len, name);
-        if (err != 0 || !buffer)
+        if (err != 0) {
+            if (buffer)
+                std::free(buffer);
+            return false;
+        }
+        if (!buffer)
             return false;
         value.assign(buffer);
         std::free(buffer);
@@ -1807,7 +1812,7 @@ class tptp_parser {
         if (file_exists(local)) return local;
         // Try TPTP environment variable (standard TPTP convention)
         std::string root;
-        if (try_getenv("TPTP", root)) {
+        if (get_env_var("TPTP", root)) {
             std::string env = normalize_path(root + "/" + name);
             if (file_exists(env)) return env;
         }
