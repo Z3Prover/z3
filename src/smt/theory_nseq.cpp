@@ -36,7 +36,7 @@ namespace smt {
         m_egraph(m),
         m_sgraph(m, m_egraph),
         m_length_solver(m),
-        m_context_solver(ctx),
+        m_context_solver(ctx, [this](expr* e1, expr* e2) { m_axioms.diseq_axiom(e1, e2); }),
         m_nielsen(m_sgraph, m_length_solver, m_context_solver),
         m_axioms(m_th_rewriter),
         m_regex(m_sgraph),
@@ -262,8 +262,19 @@ namespace smt {
                 break;
             }
         }
-        else if (m_seq.is_seq(e1) && !m_no_diseq_set.contains(e1) && !m_no_diseq_set.contains(e2))
-            m_axioms.diseq_axiom(e1, e2);
+        else if (m_seq.is_seq(e1) && !m_no_diseq_set.contains(e1) && !m_no_diseq_set.contains(e2)) {
+            if (get_fparams().m_nseq_axiomatize_diseq)
+                m_axioms.diseq_axiom(e1, e2);
+            else {
+                euf::snode *s1 = get_snode(e1);
+                euf::snode *s2 = get_snode(e2);
+                seq::dep_tracker dep = nullptr;
+                ctx.push_trail(restore_vector(m_prop_queue));
+                m_prop_queue.push_back(deq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
+                m_last_constraint_added = ctx.get_scope_level();
+                m_can_hot_restart = false;
+            }
+        }
         else
             ;
     }
@@ -408,6 +419,8 @@ namespace smt {
                 auto const& item = m_prop_queue[m_prop_qhead++];
                 if (std::holds_alternative<eq_item>(item))
                     propagate_eq(std::get<eq_item>(item));
+                else if (std::holds_alternative<deq_item>(item))
+                    propagate_deq(std::get<deq_item>(item));
                 else if (std::holds_alternative<mem_item>(item))
                     propagate_pos_mem(std::get<mem_item>(item));
                 else if (std::holds_alternative<axiom_item>(item))
@@ -428,6 +441,11 @@ namespace smt {
     void theory_nseq::propagate_eq(tracked_str_eq const& eq) {
         // When s1 = s2 is learned, ensure len(s1) and len(s2) are
         // internalized so congruence closure propagates len(s1) = len(s2).
+        ensure_length_var(eq.m_l->get_expr());
+        ensure_length_var(eq.m_r->get_expr());
+    }
+
+    void theory_nseq::propagate_deq(tracked_str_deq const& eq) {
         ensure_length_var(eq.m_l->get_expr());
         ensure_length_var(eq.m_r->get_expr());
     }
@@ -587,7 +605,7 @@ namespace smt {
         m_nielsen.reset();
         m_can_hot_restart = true;
 
-        unsigned num_eqs = 0, num_mems = 0;
+        unsigned num_eqs = 0, num_deqs = 0, num_mems = 0;
 
         // transfer string equalities and regex memberships from prop_queue to nielsen graph root
         for (auto const& item : m_prop_queue) {
@@ -595,6 +613,12 @@ namespace smt {
                 auto const& eq = std::get<eq_item>(item);
                 m_nielsen.add_str_eq(eq.m_lhs, eq.m_rhs, eq.m_l, eq.m_r);
                 ++num_eqs;
+            }
+            if (std::holds_alternative<deq_item>(item)) {
+                SASSERT(!get_fparams().m_nseq_axiomatize_diseq);
+                auto const& eq = std::get<deq_item>(item);
+                m_nielsen.add_str_deq(eq.m_lhs, eq.m_rhs, eq.m_l, eq.m_r);
+                ++num_deqs;
             }
             else if (std::holds_alternative<mem_item>(item)) {
                 auto const& mem = std::get<mem_item>(item);
@@ -626,7 +650,7 @@ namespace smt {
         }
 
         TRACE(seq, tout << "nseq populate: " << num_eqs << " eqs, "
-                        << num_mems << " mems -> nielsen root\n");
+                        << num_deqs << " diseqs, " << num_mems << " mems -> nielsen root\n");
         IF_VERBOSE(1, verbose_stream() << "nseq final_check: populating graph with "
             << num_eqs << " eqs, " << num_mems << " mems\n";);
     }
@@ -641,12 +665,12 @@ namespace smt {
             }
 
             // Check if there are any eq/mem items in the propagation queue.
-            bool has_eq_or_mem = any_of(m_prop_queue, [](auto const &item) {
-                return std::holds_alternative<eq_item>(item) || std::holds_alternative<mem_item>(item);
+            bool has_eq_or_diseq_or_mem = any_of(m_prop_queue, [](auto const &item) {
+                return std::holds_alternative<eq_item>(item) || std::holds_alternative<deq_item>(item) || std::holds_alternative<mem_item>(item);
             });
 
             // there is nothing to do for the string solver, as there are no string constraints
-            if (!has_eq_or_mem && m_ho_terms.empty() && !has_unhandled_preds()) {
+            if (!has_eq_or_diseq_or_mem && m_ho_terms.empty() && !has_unhandled_preds()) {
                 if (!check_stoi_coherence()) {
                     TRACE(seq, tout << "nseq final_check: stoi coherence added axioms, FC_CONTINUE\n");
                     return FC_CONTINUE;
@@ -665,7 +689,7 @@ namespace smt {
                 return FC_CONTINUE;
             }
 
-            if (!has_eq_or_mem && !has_unhandled_preds()) {
+            if (!has_eq_or_diseq_or_mem && !has_unhandled_preds()) {
                 if (!check_stoi_coherence()) {
                     TRACE(seq, tout << "nseq final_check: stoi coherence added axioms, FC_CONTINUE\n");
                     return FC_CONTINUE;
@@ -678,7 +702,7 @@ namespace smt {
                 return FC_DONE;
             }
 
-            if (!has_eq_or_mem && has_unhandled_preds()) {
+            if (!has_eq_or_diseq_or_mem && has_unhandled_preds()) {
                 TRACE(seq, tout << "nielsen root if null\n");
                 // this can happen for regex constraint only benchmarks
                 // qf_s\20250410-matching\wildcard-matching-regex-67.smt2
@@ -803,7 +827,7 @@ namespace smt {
                 TRACE(seq, tout << "nseq final_check: solve SAT, sat_node="
                     << (m_nielsen.sat_node() ? "set" : "null") << "\n");
                 // Nielsen found a consistent assignment for positive constraints.
-                SASSERT(has_eq_or_mem); // we should have axiomatized them
+                SASSERT(has_eq_or_diseq_or_mem); // we should have axiomatized them
 
                 bool all_sat = add_nielsen_assumptions();
 

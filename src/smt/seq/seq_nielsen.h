@@ -369,6 +369,7 @@ namespace seq {
         virtual sat::literal literal_if_false(expr* e) {
             return sat::null_literal;
         }
+        virtual void add_diseq_axiom(expr* e1, expr* e2) {}
 
     };
 
@@ -416,6 +417,46 @@ namespace seq {
 
     inline std::ostream &operator<<(std::ostream &out, eq_pp const &p) {
         return out << mk_pp(p.eq.m_lhs->get_expr(), p.m) << " == " << mk_pp(p.eq.m_rhs->get_expr(), p.m) << "\n";
+    }
+
+    // string disequality constraint: lhs != rhs
+    struct str_deq {
+        euf::snode* m_lhs;
+        euf::snode* m_rhs;
+        dep_tracker m_dep;
+
+        str_deq(euf::snode* lhs, euf::snode* rhs, dep_tracker const& dep): 
+            m_lhs(lhs), m_rhs(rhs), m_dep(dep) {
+            SASSERT(well_formed());
+        }
+
+        bool operator==(str_deq const& other) const {
+            return m_lhs == other.m_lhs && m_rhs == other.m_rhs;
+        }
+
+        void sort() {
+            if (m_lhs->id() > m_rhs->id()) {
+                std::swap(m_lhs, m_rhs);
+            }
+        }
+
+        bool contains_var(euf::snode* var) const {
+            return m_lhs->collect_tokens().contains(var) || m_rhs->collect_tokens().contains(var);
+        }
+
+        bool well_formed() const {
+            return !!m_lhs && !!m_rhs;
+        }
+    };
+
+    struct deq_pp {
+        str_deq const &deq;
+        ast_manager &m;
+        deq_pp(str_deq const &e, ast_manager &m) : deq(e), m(m) {}
+    };
+
+    inline std::ostream &operator<<(std::ostream &out, deq_pp const &p) {
+        return out << mk_pp(p.deq.m_lhs->get_expr(), p.m) << " != " << mk_pp(p.deq.m_rhs->get_expr(), p.m) << "\n";
     }
 
     // regex membership constraint: str in regex
@@ -560,7 +601,11 @@ namespace seq {
         vector<nielsen_subst> const& subst() const { return m_subst; }
         void add_subst(nielsen_subst const& s);
 
-        void add_side_constraint(constraint const& ic) { m_side_constraints.push_back(ic); }
+        void add_side_constraint(constraint const& ic) {
+            if (ic.fml.m().is_true(ic.fml))
+                return;
+            m_side_constraints.push_back(ic);
+        }
         vector<constraint> const& side_constraints() const { return m_side_constraints; }
 
         bool is_progress() const { return m_is_progress; }
@@ -583,11 +628,11 @@ namespace seq {
 
         // constraints at this node
         vector<str_eq>     m_str_eq;        // string equalities
+        vector<str_deq>    m_str_deq;       // string disequalities
         vector<str_mem>    m_str_mem;       // regex memberships
         vector<constraint> m_constraints;   // integer equalities/inequalities (mirrors ZIPT's IntEq/IntLe)
         sat::literal m_conflict_external_literal = sat::null_literal;
         dep_tracker  m_conflict_internal = nullptr;
-
 
         // character constraints (mirrors ZIPT's DisEqualities and CharRanges)
         // key: snode id of the s_unit symbolic character
@@ -629,10 +674,13 @@ namespace seq {
         // constraint access
         vector<str_eq> const& str_eqs() const { return m_str_eq; }
         vector<str_eq>& str_eqs() { return m_str_eq; }
+        vector<str_deq> const& str_deqs() const { return m_str_deq; }
+        vector<str_deq>& str_deqs() { return m_str_deq; }
         vector<str_mem> const& str_mems() const { return m_str_mem; }
         vector<str_mem>& str_mems() { return m_str_mem; }
 
         void add_str_eq(str_eq const& eq);
+        void add_str_deq(str_deq const& deq);
         void add_str_mem(str_mem const& mem);
         void add_constraint(constraint const &ic);
 
@@ -793,6 +841,7 @@ namespace seq {
         unsigned m_mod_var_nielsen     = 0;
         unsigned m_mod_var_num_unwinding_eq = 0;
         unsigned m_mod_var_num_unwinding_mem = 0;
+        unsigned m_ax_diseq = 0;
         void reset() { memset(this, 0, sizeof(nielsen_stats)); }
     };
 
@@ -969,10 +1018,12 @@ namespace seq {
 
         // add constraints to the root node from external solver
         void add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r);
+        void add_str_deq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r);
         void add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l);
 
         // test-friendly overloads (no external dependency tracking)
         void add_str_eq(euf::snode* lhs, euf::snode* rhs);
+        void add_str_deq(euf::snode* lhs, euf::snode* rhs);
         void add_str_mem(euf::snode* str, euf::snode* regex);
 
         // access all nodes
@@ -1268,6 +1319,8 @@ namespace seq {
         bool apply_var_num_unwinding_eq(nielsen_node* node);
 
         bool apply_var_num_unwinding_mem(nielsen_node* node);
+
+        bool axiomatize_diseq(nielsen_node* node);
 
         // find the first power token in any str_eq at this node
         static euf::snode* find_power_token(nielsen_node* node);

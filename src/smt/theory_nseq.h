@@ -53,10 +53,11 @@ namespace smt {
 
         // propagation queue items (variant over the distinct propagation cases)
         using eq_item   = tracked_str_eq;    // string equality
+        using deq_item   = tracked_str_deq;    // string disequality
         using mem_item  = tracked_str_mem;   // regex membership
         struct axiom_item { expr* e; };      // structural axiom for term e
 
-        using prop_item = std::variant<eq_item, mem_item, axiom_item>;
+        using prop_item = std::variant<eq_item, deq_item, mem_item, axiom_item>;
 
         vector<prop_item>       m_prop_queue;
         unsigned                m_prop_qhead = 0;
@@ -142,6 +143,7 @@ namespace smt {
 
         // propagation dispatch helpers
         void propagate_eq(tracked_str_eq const& eq);
+        void propagate_deq(tracked_str_deq const& deq);
         void propagate_pos_mem(tracked_str_mem const& mem);
         void enqueue_axiom(expr* e);
         void dequeue_axiom(expr* e);

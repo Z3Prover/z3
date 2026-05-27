@@ -33,6 +33,12 @@ namespace smt {
             : str_eq(lhs, rhs, dep), m_l(l), m_r(r) {}
     };
 
+    struct tracked_str_deq : seq::str_deq {
+        enode *m_l, *m_r;
+        tracked_str_deq(euf::snode *lhs, euf::snode *rhs, smt::enode *l, smt::enode *r, seq::dep_tracker const &dep)
+            : str_deq(lhs, rhs, dep), m_l(l), m_r(r) {}
+    };
+
     struct tracked_str_mem : seq::str_mem {
         sat::literal lit;
         tracked_str_mem(euf::snode *str, euf::snode *regex, sat::literal lit, seq::dep_tracker const &dep)

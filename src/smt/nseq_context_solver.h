@@ -148,11 +148,18 @@ namespace smt {
     class context_solver : public seq::context_solver_i {
         smt::context &ctx;
         arith_value m_arith_value;
+        std::function<void(expr*, expr*)> m_add_diseq_axiom;
     public:
-        context_solver(smt::context& ctx): 
+        context_solver(smt::context& ctx, std::function<void(expr*, expr*)> add_diseq_axiom = nullptr): 
             ctx(ctx), 
-            m_arith_value(ctx.get_manager()) {
+            m_arith_value(ctx.get_manager()),
+            m_add_diseq_axiom(add_diseq_axiom) {
             m_arith_value.init(&ctx);
+        }
+
+        void add_diseq_axiom(expr* e1, expr* e2) override {
+            if (m_add_diseq_axiom)
+                m_add_diseq_axiom(e1, e2);
         }
 
         bool lower_bound(expr *e, rational &lo, literal_vector &lits, enode_pair_vector &eqs) const override {

@@ -516,6 +516,7 @@ namespace seq {
     std::ostream& nielsen_node::to_html(std::ostream& out, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) const {
         bool any = false;
         bool hasEq = false;
+        bool hasDisEq = false;
         bool hasMem = false;
         bool hasRange = false;
 
@@ -525,6 +526,15 @@ namespace seq {
             if (!hasEq) { out << "Eq:<br/>"; hasEq = true; }
             out << snode_label_html(eq.m_lhs, names, next_id, m)
                 << " = "
+                << snode_label_html(eq.m_rhs, names, next_id, m)
+                << "<br/>";
+        }
+        // string disequalities
+        for (auto const& eq : m_str_deq) {
+            if (!any) { out << "Cnstr:<br/>"; any = true; }
+            if (!hasDisEq) { out << "DisEq:<br/>"; hasDisEq = true; }
+            out << snode_label_html(eq.m_lhs, names, next_id, m)
+                << " &#x2260; "
                 << snode_label_html(eq.m_rhs, names, next_id, m)
                 << "<br/>";
         }

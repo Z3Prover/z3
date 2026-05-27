@@ -233,10 +233,12 @@ namespace seq {
 
     void nielsen_node::clone_from(nielsen_node const& parent) {
         m_str_eq.reset();
+        m_str_deq.reset();
         m_str_mem.reset();
         m_constraints.reset();
         m_char_ranges.reset();
         m_str_eq.append(parent.m_str_eq);
+        m_str_deq.append(parent.m_str_deq);
         m_str_mem.append(parent.m_str_mem);
         m_constraints.append(parent.m_constraints);
 
@@ -248,6 +250,7 @@ namespace seq {
         m_regex_occurrence = parent.m_regex_occurrence;
 
         SASSERT(m_str_eq.size() == parent.m_str_eq.size());
+        SASSERT(m_str_deq.size() == parent.m_str_deq.size());
         SASSERT(m_str_mem.size() == parent.m_str_mem.size());
         SASSERT(m_constraints.size() == parent.m_constraints.size());
     }
@@ -269,6 +272,12 @@ namespace seq {
         if (eq.is_trivial())
             return;
         m_str_eq.push_back(eq);
+    }
+
+    void nielsen_node::add_str_deq(str_deq const& deq) {
+        SASSERT(deq.m_lhs != nullptr);
+        SASSERT(deq.m_rhs != nullptr);
+        m_str_deq.push_back(deq);
     }
 
     void nielsen_node::add_str_mem(str_mem const& mem) {
@@ -327,6 +336,7 @@ namespace seq {
         }
         m_constraints.push_back(c);
     }
+    euf::snode *nielsen_graph::mk_fresh_char_var() {}
 
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
         SASSERT(!s.m_var->is_char_or_unit() || s.m_replacement->is_char_or_unit());
@@ -340,6 +350,17 @@ namespace seq {
                  eq.m_rhs = new_rhs;
                  eq.m_dep = m_graph.dep_mgr().mk_join(eq.m_dep, s.m_dep);
                  eq.sort();
+            }
+        }
+
+        for (auto &deq : m_str_deq) {
+            const auto new_lhs = sg.subst(deq.m_lhs, s.m_var, s.m_replacement);
+            const auto new_rhs = sg.subst(deq.m_rhs, s.m_var, s.m_replacement);
+            if (new_lhs != deq.m_lhs || new_rhs != deq.m_rhs) {
+                 deq.m_lhs = new_lhs;
+                 deq.m_rhs = new_rhs;
+                 deq.m_dep = m_graph.dep_mgr().mk_join(deq.m_dep, s.m_dep);
+                 deq.sort();
             }
         }
 
@@ -479,6 +500,20 @@ namespace seq {
         m_root->add_str_eq(eq);
     }
 
+    void nielsen_graph::add_str_deq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r) {
+        if (!root())
+            create_root();
+        const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
+        str_deq deq(lhs, rhs, dep);
+        // check if root node contains this equation already
+        if (std::ranges::any_of(m_root->str_deqs(), [&](const str_deq& e) {
+            return e.m_lhs == deq.m_lhs && e.m_rhs == deq.m_rhs;
+        }))
+            // already present, no need to add again
+            return;
+        m_root->add_str_deq(deq);
+    }
+
     void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l) {
         if (!root())
             create_root();
@@ -500,6 +535,14 @@ namespace seq {
         str_eq eq(lhs, rhs, dep);
         eq.sort();
         m_root->add_str_eq(eq);
+    }
+
+    void nielsen_graph::add_str_deq(euf::snode* lhs, euf::snode* rhs) {
+        if (!root())
+            create_root();
+        const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
+        str_deq deq(lhs, rhs, dep);
+        m_root->add_str_deq(deq);
     }
 
     void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex) {
@@ -1240,6 +1283,109 @@ namespace seq {
                 changed = true;
             }
 
+            auto cannot_be_empty = [&](euf::snode* side) {
+                euf::snode_vector tokens;
+                side->collect_tokens(tokens);
+                const bool has_char = std::ranges::any_of(tokens, [](euf::snode* t){ return t->is_char(); });
+                const bool all_eliminable = std::ranges::all_of(tokens, [](euf::snode* t){
+                    return t->is_var() || t->is_power();
+                });
+                return has_char || !all_eliminable;
+            };
+
+            unsigned wk = 0;
+            for (unsigned k = 0; k < m_str_deq.size(); ++k) {
+                str_deq& deq = m_str_deq[k];
+
+                if (deq.m_lhs == deq.m_rhs || (deq.m_lhs && deq.m_rhs && deq.m_lhs->is_empty() && deq.m_rhs->is_empty())) {
+                    set_general_conflict();
+                    set_conflict(backtrack_reason::symbol_clash, deq.m_dep);
+                    return simplify_result::conflict;
+                }
+
+                if (deq.m_lhs->is_empty() && !deq.m_rhs->is_empty()) {
+                    if (cannot_be_empty(deq.m_rhs)) continue;
+                }
+                else if (deq.m_rhs->is_empty() && !deq.m_lhs->is_empty()) {
+                    if (cannot_be_empty(deq.m_lhs)) continue;
+                }
+
+                // simplify constant-exponent powers
+                dep_tracker lhs_pow_dep = nullptr;
+                if (euf::snode* s = simplify_const_powers(this, sg, deq.m_lhs, lhs_pow_dep)) {
+                    deq.m_lhs = s;
+                    deq.m_dep = m_graph.dep_mgr().mk_join(deq.m_dep, lhs_pow_dep);
+                    changed = true;
+                }
+                dep_tracker rhs_pow_dep = nullptr;
+                if (euf::snode* s = simplify_const_powers(this, sg, deq.m_rhs, rhs_pow_dep)) {
+                    deq.m_rhs = s;
+                    deq.m_dep = m_graph.dep_mgr().mk_join(deq.m_dep, rhs_pow_dep);
+                    changed = true;
+                }
+
+                // prefix/suffix cancellation
+                {
+                    euf::snode_vector lhs_toks, rhs_toks;
+                    deq.m_lhs->collect_tokens(lhs_toks);
+                    deq.m_rhs->collect_tokens(rhs_toks);
+
+                    unsigned prefix = 0;
+                    while (prefix < lhs_toks.size() && prefix < rhs_toks.size()) {
+                        euf::snode* lt = lhs_toks[prefix];
+                        euf::snode* rt = rhs_toks[prefix];
+                        if (m.are_equal(lt->get_expr(), rt->get_expr())) {
+                            ++prefix;
+                        }
+                        else if (sg.are_unit_distinct(lt, rt)) {
+                            prefix = static_cast<unsigned>(-1);
+                            break;
+                        }
+                        else
+                            break;
+                    }
+                    if (prefix == static_cast<unsigned>(-1)) {
+                        continue;
+                    }
+
+                    unsigned lsz = lhs_toks.size(), rsz = rhs_toks.size();
+                    unsigned suffix = 0;
+                    while (suffix < lsz - prefix && suffix < rsz - prefix) {
+                        euf::snode* lt = lhs_toks[lsz - 1 - suffix];
+                        euf::snode* rt = rhs_toks[rsz - 1 - suffix];
+                        if (m.are_equal(lt->get_expr(), rt->get_expr())) {
+                            ++suffix;
+                        } else if (sg.are_unit_distinct(lt, rt)) {
+                            suffix = static_cast<unsigned>(-1);
+                            break;
+                        }
+                        else
+                            break;
+                    }
+                    if (suffix == static_cast<unsigned>(-1)) {
+                        continue;
+                    }
+
+                    if (prefix > 0 || suffix > 0) {
+                        deq.m_lhs = sg.drop_left(sg.drop_right(deq.m_lhs, suffix), prefix);
+                        deq.m_rhs = sg.drop_left(sg.drop_right(deq.m_rhs, suffix), prefix);
+                        changed = true;
+                    }
+                }
+
+                if (deq.m_lhs == deq.m_rhs || (deq.m_lhs->is_empty() && deq.m_rhs->is_empty())) {
+                    set_general_conflict();
+                    set_conflict(backtrack_reason::symbol_clash, deq.m_dep);
+                    return simplify_result::conflict;
+                }
+
+                m_str_deq[wk++] = deq;
+            }
+            if (wk < m_str_deq.size()) {
+                m_str_deq.shrink(wk);
+                changed = true;
+            }
+
             // pass 2: detect symbol clashes, empty-propagation, and prefix cancellation
             for (str_eq& eq : m_str_eq) {
                 SASSERT(eq.well_formed());
@@ -1627,6 +1773,8 @@ namespace seq {
     }
 
     bool nielsen_node::is_satisfied() const {
+        if (!m_str_deq.empty())
+            return false;
         if (any_of(m_str_eq, [](auto const &eq) { return !eq.is_trivial(); }))
             return false;
         if (any_of(m_str_mem, [this](auto const &m) { return !m.is_trivial(this) && !m.is_primitive();}))
@@ -2760,6 +2908,10 @@ namespace seq {
         // Priority 14: variable power unwinding for membership constraints
         if (apply_var_num_unwinding_mem(node))
             return ++m_stats.m_mod_var_num_unwinding_mem, true;
+
+        // let's unwindind a disequality
+        if (axiomatize_diseq(node))
+            return ++m_stats.m_ax_diseq, true;
 
         return false;
     }
@@ -4272,6 +4424,68 @@ namespace seq {
         return true;
     }
 
+    // Cf. axioms::diseq_axiom
+    bool nielsen_graph::axiomatize_diseq(nielsen_node* node) {
+        SASSERT(node->m_str_eq.empty() &&
+                    std::ranges::all_of(node->m_str_mem, [](str_mem const& mem){ return mem.is_primitive(); }));
+
+        if (node->m_str_deq.empty())
+            return false;
+
+        const str_deq& first = node->m_str_deq.back();
+        euf::snode* u = first.m_lhs;
+        euf::snode* v = first.m_rhs;
+
+        const expr_ref u_len(compute_length_expr(u), m);
+        const expr_ref v_len(compute_length_expr(v), m);
+        expr_ref len_eq(m.mk_eq(u_len, v_len), m);
+        str_eq eq_uv(u, v, first.m_dep);
+        sort *char_sort = nullptr;
+        VERIFY(seq().is_seq(u->get_sort(), char_sort));
+        euf::snode* a = m_sg.mk(seq().str.mk_unit(m_sk.mk("diseq.a", u->get_expr(), v->get_expr(), char_sort).get()));
+        euf::snode* b = m_sg.mk(seq().str.mk_unit(m_sk.mk("diseq.b", u->get_expr(), v->get_expr(), char_sort).get()));
+        euf::snode* w = m_sg.mk(m_sk.mk("diseq.w", u->get_expr(), v->get_expr()).get());
+        euf::snode* up = m_sg.mk(m_sk.mk("diseq.u'", u->get_expr(), v->get_expr()).get());
+        euf::snode* vp = m_sg.mk(m_sk.mk("diseq.v'", u->get_expr(), v->get_expr()).get());
+        const expr_ref up_len(compute_length_expr(up), m);
+        const expr_ref vp_len(compute_length_expr(vp), m);
+        euf::snode* wau = dir_concat(m_sg, dir_concat(m_sg, w, a, true), up, true);
+        euf::snode* wbv = dir_concat(m_sg, dir_concat(m_sg, w, b, true), vp, true);
+        const str_eq u_eq(u, wau, first.m_dep);
+        const str_eq v_eq(v, wbv, first.m_dep);
+
+        // Branch 1: |u| < |v|
+        {
+            nielsen_node* child = mk_child(node);
+            nielsen_edge* e = mk_edge(node, child, true);
+            child->m_str_deq.pop_back();
+            expr_ref cmp(this->a.mk_le(u_len, v_len), m);
+            m_rw(cmp);
+            e->add_side_constraint(constraint(cmp, first.m_dep, m));
+        }
+        // Branch 2: |v| < |u|
+        {
+            nielsen_node* child = mk_child(node);
+            nielsen_edge* e = mk_edge(node, child, true);
+            child->m_str_deq.pop_back();
+            expr_ref cmp(this->a.mk_le(v_len, u_len), m);
+            m_rw(cmp);
+            e->add_side_constraint(constraint(cmp, first.m_dep, m));
+        }
+        // Branch 3: u = wau' && v = wbv' && |u'| = |v'| && a != b
+        {
+            nielsen_node* child = mk_child(node);
+            nielsen_edge* e = mk_edge(node, child, true);
+            child->m_str_deq.pop_back();
+            child->add_str_eq(u_eq);
+            child->add_str_eq(v_eq);
+            child->add_constraint(constraint(m.mk_eq(up_len, vp_len), first.m_dep, m));
+            e->add_side_constraint(constraint(m.mk_not(m.mk_eq(a->get_expr(), b->get_expr())), first.m_dep, m));
+        }
+
+        return true;
+    }
+
     dep_tracker nielsen_graph::collect_conflict_deps() const {
         dep_tracker deps = nullptr;
         // todo: Add visit set if the graph could contain cycles in the future
@@ -4822,6 +5036,7 @@ namespace seq {
         st.update("nseq mod var nielsen",      m_stats.m_mod_var_nielsen);
         st.update("nseq mod var num unwind (eq)",   m_stats.m_mod_var_num_unwinding_eq);
         st.update("nseq mod var num unwind (mem)",   m_stats.m_mod_var_num_unwinding_mem);
+        st.update("nseq mod axiomatized disequalities",   m_stats.m_ax_diseq);
     }
 
 }
