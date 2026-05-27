@@ -230,8 +230,7 @@ class parallel_solver {
                 m_bb_cv.notify_all();
         }
 
-        void release_lease_unlocked(unsigned worker_id,
-                                    search_tree::node<solver_cube_config>* n) {
+        void release_lease_unlocked(unsigned worker_id, search_tree::node<solver_cube_config>* n) {
             if (worker_id >= m_worker_leases.size()) return;
             auto& lease = m_worker_leases[worker_id];
             if (!lease.leased_node || lease.leased_node != n) return;
@@ -252,9 +251,7 @@ class parallel_solver {
             }
         }
 
-        void collect_clause_unlocked(ast_translation& l2g,
-                                     unsigned source_worker_id,
-                                     expr* clause) {
+        void collect_clause_unlocked(ast_translation& l2g, unsigned source_worker_id, expr* clause) {
             expr* g_clause = l2g(clause);
             if (!m_shared_clause_set.contains(g_clause)) {
                 m_shared_clause_set.insert(g_clause);
@@ -263,14 +260,12 @@ class parallel_solver {
             }
         }
 
-        bool is_global_backbone_unlocked(ast_translation& l2g,
-                                         expr* bb_cand) {
+        bool is_global_backbone_unlocked(ast_translation& l2g, expr* bb_cand) {
             expr_ref cand(l2g(bb_cand), m);
             return m_global_backbones.contains(cand.get());
         }
 
-        bool is_global_backbone_or_negation_unlocked(ast_translation& l2g,
-                                                     expr* bb_cand) {
+        bool is_global_backbone_or_negation_unlocked(ast_translation& l2g, expr* bb_cand) {
             expr_ref cand(l2g(bb_cand), m);
             expr_ref neg_cand(mk_not(m, cand), m);
             return m_global_backbones.contains(cand.get()) ||
@@ -435,14 +430,13 @@ class parallel_solver {
               m_unsat_core(m) {}
 
         /* ---- initialisation ---- */
-        void initialize(unsigned num_workers,
-                        unsigned num_global_bb_threads,
+        void initialize(unsigned num_global_bb_threads,
                         unsigned initial_max_thread_conflicts = 1000) {
             m_state = state::is_running;
             m_search_tree.reset();
             m_search_tree.set_effort_unit(initial_max_thread_conflicts);
             m_worker_leases.reset();
-            m_worker_leases.resize(num_workers);
+            m_worker_leases.resize(p.m_workers.size());
             m_shared_clause_trail.reset();
             m_shared_clause_set.reset();
             m_global_backbones.reset();
@@ -700,9 +694,7 @@ class parallel_solver {
             collect_clause_unlocked(l2g, source_worker_id, clause);
         }
 
-        expr_ref_vector return_shared_clauses(ast_translation& g2l,
-                                              unsigned& worker_limit,
-                                              unsigned worker_id) {
+        expr_ref_vector return_shared_clauses(ast_translation& g2l, unsigned& worker_limit, unsigned worker_id) {
             std::scoped_lock lock(mux);
             expr_ref_vector result(g2l.to());
             for (unsigned i = worker_limit; i < m_shared_clause_trail.size(); ++i) {
@@ -714,9 +706,7 @@ class parallel_solver {
         }
 
         /* ---- backbone / unit sharing ---- */
-        bool collect_global_backbone(ast_translation& l2g,
-                                     expr_ref const& backbone,
-                                     unsigned source_worker_id = UINT_MAX) {
+        bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone, unsigned source_worker_id = UINT_MAX) {
             std::scoped_lock lock(mux);
             if (is_global_backbone_unlocked(l2g, backbone.get()))
                 return false;
@@ -724,7 +714,6 @@ class parallel_solver {
             m_global_backbones.insert(g_bb.get());
             ++m_stats.m_backbones_found;
             IF_VERBOSE(2, verbose_stream() << "par2: new backbone " << mk_bounded_pp(g_bb, m, 3) << "\n");
-            /* share it as a unit clause so other workers pick it up */
             collect_clause_unlocked(l2g, source_worker_id, backbone.get());
 
             expr_ref neg_g_bb(mk_not(m, g_bb), m);
@@ -732,11 +721,13 @@ class parallel_solver {
             g_core.push_back(neg_g_bb);
             vector<node_lease> targets;
             collect_matching_targets_unlocked(nullptr, neg_g_bb, g_core, targets);
+            
             if (!targets.empty()) {
                 expr_ref_vector l_core(l2g.from());
                 l_core.push_back(mk_not(backbone));
                 backtrack_unlocked(l2g, UINT_MAX, l_core, nullptr, &targets);
             }
+            
             return true;
         }
 
@@ -898,7 +889,7 @@ class parallel_solver {
             st.update("parallel-core-min-jobs-skipped", m_stats.m_core_min_jobs_skipped);
             st.update("parallel-core-min-global-unsat", m_stats.m_core_min_global_unsat);
         }
-    }; // class batch_manager
+    };
 
     /* ================================================================
      * worker
@@ -917,7 +908,6 @@ class parallel_solver {
                 bool     m_share_units_initial_only = true;
                 bool     m_core_minimize         = false;
                 bool     m_global_backbones      = false;
-                bool     m_local_backbones       = false;
                 unsigned m_max_cube_depth        = 20;
         };
 
@@ -928,7 +918,7 @@ class parallel_solver {
         expr_ref_vector  asms;              /* translated assumptions */
         ast_translation  m_g2l, m_l2g;     /* global↔local translations */
         config           m_config;
-        expr_mark        m_known_units;     /* units already shared by this worker */
+        uint_set         m_known_units;     /* bool vars already shared by this worker */
         unsigned         m_shared_clause_limit = 0;
         unsigned         m_shared_units_prefix = 0;
         unsigned         m_num_initial_atoms = 0;
@@ -942,9 +932,7 @@ class parallel_solver {
          * The solver's conflict budget is set via updt_params before
          * each call so that long-running cubes are interrupted. */
         lbool check_cube(expr_ref_vector const& cube) {
-            params_ref p;
-            p.set_uint("max_conflicts", std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts));
-            s->updt_params(p);
+            s->set_max_conflicts(std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts));
 
             expr_ref_vector combined(m);
             combined.append(asms);
@@ -971,8 +959,7 @@ class parallel_solver {
          * base assertion set of this worker's solver.  The solver
          * automatically re-uses them on the next check_sat call. */
         void collect_shared_clauses() {
-            expr_ref_vector nc = b.return_shared_clauses(
-                m_g2l, m_shared_clause_limit, id);
+            expr_ref_vector nc = b.return_shared_clauses(m_g2l, m_shared_clause_limit, id);
             for (expr* e : nc) {
                 IF_VERBOSE(4, verbose_stream() << "par2 worker " << id << ": asserting shared clause " << mk_bounded_pp(e, m, 3) << "\n");
                 s->assert_expr(e);
@@ -985,11 +972,13 @@ class parallel_solver {
          * Uses solver::get_trail(0) which returns all literals
          * propagated at decision level 0. */
         void share_units() {
-            if (!m_config.m_share_units) return;
+            if (!m_config.m_share_units) 
+                return;
             expr_ref_vector trail = s->get_assigned_literals();
             unsigned sz = trail.size();
             unsigned prefix_sz = std::min(m_shared_units_prefix, sz);
             bool at_prefix = true;
+            
             for (unsigned i = m_shared_units_prefix; i < sz; ++i) {
                 expr* e = trail.get(i);
                 if (s->get_assign_level(e) > 0) {
@@ -1002,14 +991,22 @@ class parallel_solver {
 
                 expr* atom = e;
                 m.is_not(e, atom);
-                /* get_trail may include ground terms; skip complex ones */
+
+                // get_trail may include ground terms; skip complex ones 
                 if (!is_uninterp_const(atom)) continue;
+
+                unsigned v = s->get_bool_var(atom);
+                if (v == UINT_MAX)
+                    continue;
+                if (m_known_units.contains(v)) 
+                    continue;
+                m_known_units.insert(v);
+
                 if (m_config.m_share_units_relevant_only && !s->is_relevant(atom))
                     continue;
-                if (m_config.m_share_units_initial_only && s->get_bool_var(atom) >= m_num_initial_atoms)
+                if (m_config.m_share_units_initial_only && v >= m_num_initial_atoms)
                     continue;
-                if (m_known_units.is_marked(atom)) continue;
-                m_known_units.mark(atom);
+
                 expr_ref lit(e, m);
                 b.collect_global_backbone(m_l2g, lit, id);
             }
@@ -1048,23 +1045,17 @@ class parallel_solver {
 
     public:
 
-        worker(unsigned id, parallel_solver& p,
-               solver& src, params_ref const& params,
-               expr_ref_vector const& src_asms)
-            : id(id), b(p.m_batch_manager),
-              asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager())
-        {
+        worker(unsigned id, parallel_solver& p, solver& src, params_ref const& params, expr_ref_vector const& src_asms)
+            : id(id), b(p.m_batch_manager), asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
             parallel_params pp(params);
             m_config.m_core_minimize = params.get_bool("core_minimize", pp.g, true);
             m_config.m_global_backbones = params.get_uint("num_global_bb_batch_threads", pp.g, 2u) > 0 ||
                                           params.get_uint("num_global_bb_fl_threads", pp.g, 0u) > 0;
-            m_config.m_local_backbones = params.get_bool("local_backbones", pp.g, false);
-            /* create translated solver copy */
-            s = src.translate(m, params);
+
+            s = src.translate_for_parallel(m, params);
             m_shared_units_prefix = s->get_assigned_literals().size();
             m_num_initial_atoms = s->get_num_bool_vars();
 
-            /* translate assumptions */
             for (expr* a : src_asms)
                 asms.push_back(m_g2l(a));
 
@@ -1085,7 +1076,7 @@ class parallel_solver {
 
                 collect_shared_clauses();
             check_cube_start:
-                if (m_config.m_global_backbones || m_config.m_local_backbones) {
+                if (m_config.m_global_backbones) {
                     bb_candidates local_candidates = find_backbone_candidates(cube);
                     b.collect_backbone_candidates(m_l2g, local_candidates);
                     if (!m.inc())
@@ -1118,7 +1109,6 @@ class parallel_solver {
                     else {
                         goto check_cube_start;
                     }
-                    if (m_config.m_share_units) share_units();
                     break;
                 }
 
@@ -1150,13 +1140,14 @@ class parallel_solver {
 
                     if (m_config.m_share_conflicts)
                         b.collect_clause(m_l2g, id, mk_not(mk_and(unsat_core)));
-                    if (m_config.m_share_units) share_units();
                     break;
                 }
 
-                } // switch
-            } // while
-        } // run()
+                }
+                if (m_config.m_share_units)
+                    share_units();
+            }
+        }
 
         void cancel() { m.limit().cancel(); }
 
@@ -1166,9 +1157,6 @@ class parallel_solver {
 
         void collect_statistics(statistics& st) const {
             s->collect_statistics(st);
-        }
-
-        void collect_aux_statistics(statistics& st) const {
         }
 
         reslimit& limit() { return m.limit(); }
@@ -1291,26 +1279,21 @@ class parallel_solver {
 
                 auto fallback_failed_literal_probe =
                     [&](expr_ref_vector const& chunk_lits, expr_ref_vector& bb_candidate_lits, bool is_retry = false) {
-                        params_ref p;
-                        p.set_uint("max_conflicts", 10);
-                        s->updt_params(p);
-                        auto restore_conflicts = [&]() {
-                            p.set_uint("max_conflicts", m_bb_conflicts_per_chunk);
-                            s->updt_params(p);
-                        };
-
                         if (is_retry)
                             ++m_stats.m_bb_retries;
                         else
                             ++m_stats.m_fallback_singleton_checks;
 
+                        unsigned old_max_conflicts = s->get_max_conflicts();
+                        s->set_max_conflicts(10);
+
                         for (expr* lit : chunk_lits) {
                             if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch)) {
-                                restore_conflicts();
+                                s->set_max_conflicts(old_max_conflicts);
                                 return;
                             }
                             if (!m.inc() || canceled()) {
-                                restore_conflicts();
+                                s->set_max_conflicts(old_max_conflicts);
                                 return;
                             }
                             if (!bb_candidate_lits.contains(lit))
@@ -1336,7 +1319,7 @@ class parallel_solver {
                                     if (s->get_bool_var(atom) != UINT_MAX) {
                                         lbool terminal_result = probe_literal(mk_not(m, bb_ref), is_retry);
                                         if (terminal_result != l_undef) {
-                                            restore_conflicts();
+                                            s->set_max_conflicts(old_max_conflicts);
                                             return;
                                         }
                                     }
@@ -1345,7 +1328,7 @@ class parallel_solver {
                             bb_candidate_lits.erase(lit);
                         }
 
-                        restore_conflicts();
+                        s->set_max_conflicts(old_max_conflicts);
                     };
 
                 ++m_stats.m_batches_total;
@@ -1417,11 +1400,9 @@ class parallel_solver {
                         for (expr* a : bb_asms)
                             asms.push_back(a);
 
+                        s->set_max_conflicts(m_bb_conflicts_per_chunk);
                         lbool r = l_undef;
                         try {
-                            params_ref p;
-                            p.set_uint("max_conflicts", m_bb_conflicts_per_chunk);
-                            s->updt_params(p);
                             r = s->check_sat(asms);
                         }
                         catch (z3_error& err) {
@@ -1539,12 +1520,13 @@ class parallel_solver {
                          expr_ref_vector const& src_asms)
             : id(id), b(p.m_batch_manager),
               asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
-            s = src.translate(m, params);
+            s = src.translate_for_parallel(m, params);
             for (expr* a : src_asms)
                 asms.push_back(m_g2l(a));
             m_positive_mode = id != 0;
             m_shared_units_prefix = s->get_assigned_literals().size();
             m_num_initial_atoms = s->get_num_bool_vars();
+            s->set_max_conflicts(m_bb_conflicts_per_chunk);
         }
 
         void run() { run_batch_mode(); }
@@ -1580,10 +1562,6 @@ class parallel_solver {
                 safe_ratio(m_stats.m_core_refinement_rounds, m_stats.m_batches_total));
             st.update("bb-core-effectiveness-lit-removed-per-round",
                 safe_ratio(m_stats.m_lits_removed_by_core, m_stats.m_core_refinement_rounds));
-        }
-
-        void collect_aux_statistics(statistics& st) const {
-            collect_statistics(st);
         }
 
         reslimit& limit() { return m.limit(); }
@@ -1633,9 +1611,7 @@ class parallel_solver {
 
                 lbool r = l_undef;
                 try {
-                    params_ref p;
-                    p.set_uint("max_conflicts", m_core_minimize_conflict_budget);
-                    s->updt_params(p);
+                    s->set_max_conflicts(m_core_minimize_conflict_budget);
                     r = s->check_sat(trial);
                 }
                 catch (z3_error&) {
@@ -1697,7 +1673,7 @@ class parallel_solver {
                               expr_ref_vector const& src_asms)
             : b(p.m_batch_manager),
               asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
-            s = src.translate(m, params);
+            s = src.translate_for_parallel(m, params);
             for (expr* a : src_asms)
                 asms.push_back(m_g2l(a));
         }
@@ -1740,10 +1716,6 @@ class parallel_solver {
             st.update("parallel-core-minimize-found-sat", m_num_core_minimize_found_sat);
         }
 
-        void collect_aux_statistics(statistics& st) const {
-            collect_statistics(st);
-        }
-
         reslimit& limit() { return m.limit(); }
     };
 
@@ -1756,8 +1728,6 @@ class parallel_solver {
     scoped_ptr_vector<backbones_worker> m_global_backbones_workers;
     batch_manager             m_batch_manager;
     statistics                m_stats;
-    statistics                m_aux_stats;
-
 public:
 
     parallel_solver(solver* s, params_ref const& p)
@@ -1783,13 +1753,9 @@ public:
                 expr_ref_vector& core) {
 
         parallel_params pp(m_params);
-        unsigned exact_threads = m_params.get_uint("threads", pp.g, 0u);
-        unsigned num_threads = exact_threads;
-        if (num_threads == 0) {
-            num_threads = std::min(
-                static_cast<unsigned>(std::thread::hardware_concurrency()),
-                pp.threads_max());
-        }
+        unsigned num_threads = std::min(
+            static_cast<unsigned>(std::thread::hardware_concurrency()),
+            m_params.get_uint("threads", pp.g, pp.threads()));
         bool core_minimize = m_params.get_bool("core_minimize", pp.g, true);
         unsigned num_global_bb_batch_threads = m_params.get_uint("num_global_bb_batch_threads", pp.g, 2u);
         if (num_global_bb_batch_threads > 2)
@@ -1835,7 +1801,7 @@ public:
             sl.push_child(&(w->limit()));
         }
 
-        m_batch_manager.initialize(num_threads, num_global_bb_threads);
+        m_batch_manager.initialize(num_global_bb_threads);
 
         /* Launch threads. */
         vector<std::thread> threads;
@@ -1850,20 +1816,13 @@ public:
             t.join();
 
         m_stats.reset();
-        m_aux_stats.reset();
-
-        if (!m_workers.empty())
-            m_workers[0]->collect_statistics(m_stats);
-        else
-            m_solver->collect_statistics(m_stats);
         for (auto* w : m_workers)
-            w->collect_aux_statistics(m_aux_stats);
+            w->collect_statistics(m_stats);
+        m_batch_manager.collect_statistics(m_stats);
         if (m_core_minimizer_worker)
-            m_core_minimizer_worker->collect_aux_statistics(m_aux_stats);
+            m_core_minimizer_worker->collect_statistics(m_stats);
         for (auto* w : m_global_backbones_workers)
-            w->collect_aux_statistics(m_aux_stats);
-        m_batch_manager.collect_statistics(m_aux_stats);
-        m_stats.copy(m_aux_stats);
+            w->collect_statistics(m_stats);
 
         m_manager.limit().reset_cancel();
 

@@ -103,6 +103,27 @@ namespace {
             return result;
         }
 
+        solver* translate_for_parallel(ast_manager& m, params_ref const& p) override {
+            ast_translation translator(get_manager(), m);
+            params_ref init;
+            init.copy(get_params());
+            init.copy(p);
+
+            smt_solver* result = alloc(smt_solver, m, init, m_logic);
+            smt::kernel::copy(m_context, result->m_context, true);
+
+            if (mc0())
+                result->set_model_converter(mc0()->translate(translator));
+
+            for (auto& [k, v] : m_name2assertion) {
+                expr* val = translator(k);
+                expr* key = translator(v);
+                result->assert_expr(val, key);
+            }
+
+            return result;
+        }
+
         ~smt_solver() override {
             dealloc(m_cuber);
             for (auto& [k,v] : m_name2assertion) {
@@ -244,6 +265,15 @@ namespace {
 
         unsigned get_random_seed() const override {
             return const_cast<smt::kernel&>(m_context).get_context().get_fparams().m_random_seed;
+        }
+
+        void set_max_conflicts(unsigned max_conflicts) override {
+            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
+            ctx.get_fparams().m_max_conflicts = max_conflicts;
+        }
+
+        unsigned get_max_conflicts() const override {
+            return const_cast<smt::kernel&>(m_context).get_context().get_fparams().m_max_conflicts;
         }
 
         expr_ref get_split_candidate() override {

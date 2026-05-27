@@ -72,6 +72,10 @@ public:
     */
     virtual solver* translate(ast_manager& m, params_ref const& p) = 0;
 
+    virtual solver* translate_for_parallel(ast_manager& m, params_ref const& p) {
+        return translate(m, p);
+    }
+
     /**
        \brief Update the solver internal settings. 
     */
@@ -312,6 +316,14 @@ public:
     virtual unsigned get_bool_var(expr* e) const { return UINT_MAX; }
 
     virtual unsigned get_random_seed() const { return 0; }
+
+    virtual void set_max_conflicts(unsigned max_conflicts) {
+        params_ref p;
+        p.set_uint("max_conflicts", max_conflicts);
+        updt_params(p);
+    }
+
+    virtual unsigned get_max_conflicts() const { return UINT_MAX; }
     
     virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
 
