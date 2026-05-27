@@ -3,7 +3,7 @@ description: Analyze compare_stats.html for the latest 30 hours and publish bug/
 
 on:
   schedule:
-    - cron: "0 */6 * * *"
+    - cron: "0 */12 * * *"
   workflow_dispatch:
 
 permissions: read-all
@@ -44,6 +44,8 @@ Analyze the benchmark comparison page below, focusing on results from the last 3
 
 Source URL:
 `http://mtzguido.tplinkdns.com:8081/z3/compare_stats.html`
+
+Note: this endpoint is currently HTTP-only. Treat fetched data as non-sensitive benchmark telemetry and do not include secrets in requests or reports.
 
 ## Requirements
 
@@ -104,7 +106,7 @@ At minimum, detect:
 
 1. **Unknown-outlier anomaly** (required):
    - Within the same benchmark set/suite/group, if most rows are in `{sat, unsat, timeout}` but a minority are `unknown`, flag the `unknown` rows as anomalies.
-   - A practical threshold is acceptable (for example, total rows >= 4 and unknown ratio <= 0.4 while sat/unsat/timeout collectively dominate).
+   - Use this threshold: `total_rows >= 4`, `unknown_count / total_rows <= 0.4`, and `(sat_count + unsat_count + timeout_count) / total_rows >= 0.6`.
 
 2. **Status divergence anomaly**:
    - Same benchmark name appears multiple times with conflicting non-timeout statuses (for example `sat` vs `unsat`).
