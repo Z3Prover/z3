@@ -24,7 +24,7 @@ tools:
 safe-outputs:
   create-discussion:
     title-prefix: "[Compare Stats] "
-    category: "Agentic Workflows"
+    category: "agentic workflows"
     close-older-discussions: true
   missing-tool:
     create-issue: true
@@ -46,6 +46,7 @@ Source URL:
 `http://mtzguido.tplinkdns.com:8081/z3/compare_stats.html`
 
 Note: this endpoint is currently HTTP-only. Treat fetched data as non-sensitive benchmark telemetry and do not include secrets in requests or reports.
+Note: the workflow runs every 12 hours but analyzes 30 hours intentionally to provide overlap and avoid missing transient failures between runs.
 
 ## Requirements
 
@@ -106,6 +107,7 @@ At minimum, detect:
 
 1. **Unknown-outlier anomaly** (required):
    - Within the same benchmark set/suite/group, if most rows are in `{sat, unsat, timeout}` but a minority are `unknown`, flag the `unknown` rows as anomalies.
+   - Rationale: require enough samples for confidence and avoid flagging sets where `unknown` is common behavior.
    - Use this threshold: `total_rows >= 4`, `unknown_count / total_rows <= 0.4`, and `(sat_count + unsat_count + timeout_count) / total_rows >= 0.6`.
 
 2. **Status divergence anomaly**:
