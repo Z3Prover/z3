@@ -113,13 +113,13 @@ At minimum, detect:
 
 1. **Unknown-outlier anomaly** (required):
    - Within the same benchmark set/suite/group, if most rows are in `{sat, unsat, timeout}` but a minority are `unknown`, flag the `unknown` rows as anomalies.
-   - Rationale: require enough samples for confidence and avoid flagging sets where `unknown` is common behavior. `0.4` caps unknown results to a minority, while `0.6` enforces a decisive majority of sat/unsat/timeout outcomes. The remaining allowance is intentional for other statuses.
+   - Rationale: require enough samples for confidence and avoid flagging sets where `unknown` is common behavior. `0.4` caps unknown results to a minority, while `0.6` enforces a decisive majority of sat/unsat/timeout outcomes. Any remainder after those constraints is intentionally allowed for other statuses.
    - Use this threshold: `total_rows >= 4`, `unknown_count / total_rows <= 0.4`, and `(sat_count + unsat_count + timeout_count) / total_rows >= 0.6`.
    - If set/suite/group columns are missing, fallback grouping order is: directory prefix of benchmark path/name, then benchmark name prefix before first separator (`/`, `:`, `::`), then a single global group.
 
 2. **Status divergence anomaly**:
    - Same benchmark name appears multiple times with conflicting non-timeout statuses (for example `sat` vs `unsat`).
-   - Ignore timeout-only disagreements here; timeout behavior is covered under repeated hard-failure/anomaly sections to reduce noise from transient runtime variance.
+   - Ignore timeout-only disagreements here; timeout behavior is covered under the repeated hard-failure anomaly section to reduce noise from transient runtime variance.
 
 3. **Repeated hard-failure anomaly**:
    - Same benchmark appears repeatedly with crash/error-like status in the time window.
