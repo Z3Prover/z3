@@ -1783,13 +1783,12 @@ class tptp_parser {
     static bool get_env_var(char const* name, std::string& value) {
 #ifdef _WIN32
         char* buffer = nullptr;
-        size_t len = 0;
-        errno_t err = ::_dupenv_s(&buffer, &len, name);
+        errno_t err = ::_dupenv_s(&buffer, nullptr, name);
         if (err != 0 || !buffer)
             return false;
-        std::unique_ptr<char, decltype(&std::free)> buffer_guard(buffer, &std::free);
+        auto free_env = [](char* p) { std::free(p); };
+        std::unique_ptr<char, decltype(free_env)> buffer_guard(buffer, free_env);
         value.assign(buffer_guard.get());
-        (void)len;
         return true;
 #else
         char const* v = std::getenv(name);
