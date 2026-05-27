@@ -515,7 +515,7 @@ class tptp_parser {
             auto itd = m_decls.find(typed_decl_key);
             if (itd != m_decls.end()) return itd->second;
             auto const& sig = itt->second;
-            func_decl* f = m.mk_func_decl(symbol(name), sig.first.size(), sig.first.data(), sig.second);
+            func_decl* f = m.mk_func_decl(symbol(name), static_cast<unsigned>(sig.first.size()), sig.first.data(), sig.second);
             m_pinned_decls.push_back(f);
             m_decls.emplace(typed_decl_key, f);
             return f;
@@ -1753,7 +1753,7 @@ class tptp_parser {
         }
         if (t.range && is_ttype(t.range)) t.range = m_univ;
 
-        m_typed_decls.insert_or_assign(mk_typed_key(name, t.domain.size()), std::make_pair(t.domain, t.range));
+        m_typed_decls.insert_or_assign(mk_typed_key(name, static_cast<unsigned>(t.domain.size())), std::make_pair(t.domain, t.range));
     }
 
     static bool file_exists(std::string const& f) {
@@ -1780,6 +1780,25 @@ class tptp_parser {
         return path;
     }
 
+    static bool try_getenv(char const* name, std::string& value) {
+#ifdef _WIN32
+        char* buffer = nullptr;
+        size_t len = 0;
+        errno_t err = ::_dupenv_s(&buffer, &len, name);
+        if (err != 0 || !buffer)
+            return false;
+        value.assign(buffer);
+        std::free(buffer);
+        return true;
+#else
+        char const* v = std::getenv(name);
+        if (!v)
+            return false;
+        value.assign(v);
+        return true;
+#endif
+    }
+
     std::string resolve_include(std::string const& curr_file, std::string const& name) const {
         if (is_absolute_path(name))
             return normalize_path(name);
@@ -1787,9 +1806,9 @@ class tptp_parser {
         std::string local = normalize_path(dirname(curr_file) + "/" + name);
         if (file_exists(local)) return local;
         // Try TPTP environment variable (standard TPTP convention)
-        char const* root = std::getenv("TPTP");
-        if (root) {
-            std::string env = normalize_path(std::string(root) + "/" + name);
+        std::string root;
+        if (try_getenv("TPTP", root)) {
+            std::string env = normalize_path(root + "/" + name);
             if (file_exists(env)) return env;
         }
         // Try relative to current working directory (common when running from TPTP root)
