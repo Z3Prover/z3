@@ -47,6 +47,7 @@ Source URL:
 
 Note: this endpoint is currently HTTP-only. Treat fetched data as non-sensitive benchmark telemetry and do not include secrets in requests or reports.
 Note: the workflow runs every 12 hours but analyzes 30 hours intentionally to provide overlap and avoid missing transient failures between runs.
+Overlapping windows are expected; `close-older-discussions: true` keeps only the latest report thread active.
 
 ## Requirements
 
@@ -65,6 +66,10 @@ wget -q -T 60 -O /tmp/gh-aw/agent/compare_stats.html "http://mtzguido.tplinkdns.
 ```
 
 If both fail, still create a discussion that explains the fetch failure, includes stderr output, and marks the report as incomplete.
+After a successful fetch, perform basic integrity checks before parsing:
+- file is non-empty
+- content includes `<html` and at least one `<table`
+- if checks fail, treat as suspicious/incomplete data and report this explicitly
 
 ### 2) Parse tabular data
 
@@ -107,7 +112,7 @@ At minimum, detect:
 
 1. **Unknown-outlier anomaly** (required):
    - Within the same benchmark set/suite/group, if most rows are in `{sat, unsat, timeout}` but a minority are `unknown`, flag the `unknown` rows as anomalies.
-   - Rationale: require enough samples for confidence and avoid flagging sets where `unknown` is common behavior.
+   - Rationale: require enough samples for confidence and avoid flagging sets where `unknown` is common behavior. `0.4` caps unknown results to a minority, while `0.6` enforces a decisive majority of sat/unsat/timeout outcomes.
    - Use this threshold: `total_rows >= 4`, `unknown_count / total_rows <= 0.4`, and `(sat_count + unsat_count + timeout_count) / total_rows >= 0.6`.
 
 2. **Status divergence anomaly**:
