@@ -267,6 +267,14 @@ namespace {
             return const_cast<smt::kernel&>(m_context).get_context().get_fparams().m_random_seed;
         }
 
+        void pop_to_base_level() override {
+            m_context.pop_to_base_level();
+        }
+
+        void set_preprocess(bool f) override {
+            m_context.set_preprocess(f);
+        }
+
         void set_max_conflicts(unsigned max_conflicts) override {
             auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
             ctx.get_fparams().m_max_conflicts = max_conflicts;
@@ -274,6 +282,18 @@ namespace {
 
         unsigned get_max_conflicts() const override {
             return const_cast<smt::kernel&>(m_context).get_context().get_fparams().m_max_conflicts;
+        }
+
+        void reset_parallel_statistics() override {
+            m_context.reset_aux_statistics();
+        }
+
+        void add_parallel_statistics(statistics const& st) override {
+            m_context.add_aux_statistics(st);
+        }
+
+        void collect_parallel_statistics(statistics& st) const override {
+            m_context.collect_statistics(st);
         }
 
         expr_ref get_split_candidate() override {

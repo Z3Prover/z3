@@ -64,6 +64,7 @@ namespace smt {
 
     class model_generator;
     class context;
+    class kernel;
 
     struct oom_exception : public z3_error {
         oom_exception() : z3_error(ERR_MEMOUT) {}
@@ -85,6 +86,7 @@ namespace smt {
         friend class model_generator;
         friend class lookahead;
         friend class parallel;
+        friend class kernel;
     public:
         statistics                  m_stats;
 

@@ -333,9 +333,7 @@ class parallel_solver {
         }
 
         search_tree::node<solver_cube_config>* find_core_source_unlocked(
-            ast_translation& l2g,
-            search_tree::node<solver_cube_config>* source,
-            expr_ref_vector const& core) {
+            ast_translation& l2g, search_tree::node<solver_cube_config>* source, expr_ref_vector const& core) {
             if (!source)
                 return nullptr;
 
@@ -1053,8 +1051,10 @@ class parallel_solver {
                                           params.get_uint("num_global_bb_fl_threads", pp.g, 0u) > 0;
 
             s = src.translate_for_parallel(m, params);
+            s->pop_to_base_level();
             m_shared_units_prefix = s->get_assigned_literals().size();
             m_num_initial_atoms = s->get_num_bool_vars();
+            s->set_preprocess(false);
 
             for (expr* a : src_asms)
                 asms.push_back(m_g2l(a));
@@ -1521,12 +1521,13 @@ class parallel_solver {
             : id(id), b(p.m_batch_manager),
               asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
             s = src.translate_for_parallel(m, params);
+            s->set_max_conflicts(m_bb_conflicts_per_chunk);
+            s->pop_to_base_level();
             for (expr* a : src_asms)
                 asms.push_back(m_g2l(a));
             m_positive_mode = id != 0;
             m_shared_units_prefix = s->get_assigned_literals().size();
             m_num_initial_atoms = s->get_num_bool_vars();
-            s->set_max_conflicts(m_bb_conflicts_per_chunk);
         }
 
         void run() { run_batch_mode(); }
@@ -1674,6 +1675,8 @@ class parallel_solver {
             : b(p.m_batch_manager),
               asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
             s = src.translate_for_parallel(m, params);
+            s->pop_to_base_level();
+            s->set_preprocess(false);
             for (expr* a : src_asms)
                 asms.push_back(m_g2l(a));
         }
@@ -1740,6 +1743,7 @@ public:
         params_ref p(m_params);
         unsigned base_seed = m_solver->get_random_seed();
         p.set_uint("random_seed", base_seed + seed_offset);
+        p.set_uint("threads", 1);
         return p;
     }
 
@@ -1815,14 +1819,28 @@ public:
         for (auto& t : threads)
             t.join();
 
+        m_solver->reset_parallel_statistics();
+        statistics aux;
+        for (auto* w : m_workers) {
+            aux.reset();
+            w->collect_statistics(aux);
+            m_solver->add_parallel_statistics(aux);
+        }
+        aux.reset();
+        m_batch_manager.collect_statistics(aux);
+        m_solver->add_parallel_statistics(aux);
+        if (m_core_minimizer_worker) {
+            aux.reset();
+            m_core_minimizer_worker->collect_statistics(aux);
+            m_solver->add_parallel_statistics(aux);
+        }
+        for (auto* w : m_global_backbones_workers) {
+            aux.reset();
+            w->collect_statistics(aux);
+            m_solver->add_parallel_statistics(aux);
+        }
         m_stats.reset();
-        for (auto* w : m_workers)
-            w->collect_statistics(m_stats);
-        m_batch_manager.collect_statistics(m_stats);
-        if (m_core_minimizer_worker)
-            m_core_minimizer_worker->collect_statistics(m_stats);
-        for (auto* w : m_global_backbones_workers)
-            w->collect_statistics(m_stats);
+        m_solver->collect_parallel_statistics(m_stats);
 
         m_manager.limit().reset_cancel();
 
