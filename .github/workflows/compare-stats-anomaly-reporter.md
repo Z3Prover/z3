@@ -1,5 +1,5 @@
 ---
-description: Analyze compare_stats.html for the latest 30 hours and publish bug/crash/anomaly summary as a GitHub Discussion
+description: Analyze benchmark statistics from the latest 30 hours and publish bug/crash/anomaly summary as a GitHub Discussion
 
 on:
   schedule:
@@ -36,14 +36,14 @@ safe-outputs:
 
 Your name is ${{ github.workflow }}. You are a Z3 benchmarking analysis agent for `${{ github.repository }}`.
 
-Analyze the benchmark comparison page below, focusing on results from the last 30 hours, then create a GitHub Discussion with a concise but actionable summary of:
+Analyze the benchmark statistics page below, focusing on results from the last 30 hours, then create a GitHub Discussion with a concise but actionable summary of:
 
 - Bugs
 - Crashes
 - Anomalies
 
 Source URL:
-`http://mtzguido.tplinkdns.com:8081/z3/compare_stats.html`
+`http://mtzguido.tplinkdns.com:8081/z3/`
 
 Note: this endpoint is currently HTTP-only. Treat fetched data as non-sensitive benchmark telemetry and do not include secrets in requests or reports.
 Note: the workflow runs every 12 hours but analyzes 30 hours intentionally to provide overlap and avoid missing transient failures between runs.
@@ -53,16 +53,16 @@ Overlapping windows are expected; `close-older-discussions: true` keeps only the
 
 ### 1) Fetch and save the source page
 
-Use bash to fetch the page into `/tmp/gh-aw/agent/compare_stats.html`.
+Use bash to fetch the page into `/tmp/gh-aw/agent/benchmark_stats.html`.
 
 Try this first:
 ```bash
-curl -fsSL --max-time 60 "http://mtzguido.tplinkdns.com:8081/z3/compare_stats.html" -o /tmp/gh-aw/agent/compare_stats.html
+curl -fsSL --max-time 60 "http://mtzguido.tplinkdns.com:8081/z3/" -o /tmp/gh-aw/agent/benchmark_stats.html
 ```
 
 If that fails, retry once with:
 ```bash
-wget -q -T 60 -O /tmp/gh-aw/agent/compare_stats.html "http://mtzguido.tplinkdns.com:8081/z3/compare_stats.html"
+wget -q -T 60 -O /tmp/gh-aw/agent/benchmark_stats.html "http://mtzguido.tplinkdns.com:8081/z3/"
 ```
 
 If both fail, still create a discussion that explains the fetch failure, includes stderr output, and marks the report as incomplete.
@@ -133,7 +133,7 @@ Use this structure:
 ```markdown
 ### Compare Stats Analysis Report
 
-**Source**: [compare_stats.html](http://mtzguido.tplinkdns.com:8081/z3/compare_stats.html)
+**Source**: [benchmark statistics](http://mtzguido.tplinkdns.com:8081/z3/)
 **Workflow Run**: [#${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
 **Analysis Time (UTC)**: <timestamp>
 **Window**: last 30 hours (or fallback mode)
