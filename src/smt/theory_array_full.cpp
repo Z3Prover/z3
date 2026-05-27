@@ -607,8 +607,8 @@ namespace smt {
             return false;
         ++m_stats.m_num_choice_axiom;
         SASSERT(is_choice(ch));
-        app* choice = ch->get_expr();
-        expr* pred = choice->get_arg(0);
+        app* choice_term = ch->get_expr();
+        expr* pred = choice_term->get_arg(0);
         sort* pred_sort = pred->get_sort();
         SASSERT(is_array_sort(pred_sort));
         SASSERT(get_array_arity(pred_sort) == 1);
@@ -617,7 +617,7 @@ namespace smt {
         expr_ref x(m.mk_var(0, x_sort), m);
         expr* args1[2] = { pred, x };
         expr_ref px(mk_select(2, args1), m);
-        expr* args2[2] = { pred, choice };
+        expr* args2[2] = { pred, choice_term };
         expr_ref pc(mk_select(2, args2), m);
         expr_ref ax(m.mk_implies(px, pc), m);
         symbol x_name("x");

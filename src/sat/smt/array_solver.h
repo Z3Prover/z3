@@ -178,7 +178,7 @@ namespace array {
         bool assert_select_as_array_axiom(app* select, app* arr);
         bool assert_select_map_axiom(app* select, app* map);
         bool assert_select_lambda_axiom(app* select, expr* lambda);
-        bool assert_choice_axiom(app* choice);
+        bool assert_choice_axiom(app* choice_term);
         bool assert_extensionality(expr* e1, expr* e2);
         bool assert_default_map_axiom(app* map);
         bool assert_default_const_axiom(app* cnst);
