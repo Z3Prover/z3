@@ -407,7 +407,7 @@ namespace nla {
             if (!c().var_is_int(vv))
                 continue;
             rational c_v = mv.coeff;
-            SASSERT(!c_v.is_zero());
+            SASSERT(c_v != 0);
             rational M(0);  // 0 sentinel: "no non-v non-constant monomial seen yet".
             rational c0(0);
             bool ok = true;
@@ -421,8 +421,8 @@ namespace nla {
                 rational quot = mi.coeff / c_v;
                 if (!quot.is_int()) { ok = false; break; }
                 rational a = abs(quot);
-                SASSERT(!a.is_zero());
-                M = M.is_zero() ? a : gcd(M, a);
+                SASSERT(a != 0);
+                M = M == 0 ? a : gcd(M, a);
                 if (M == 1) { ok = false; break; }  // trivial modulus, abort
             }
             if (!ok || M == 0)
@@ -677,7 +677,7 @@ namespace nla {
         for (auto* e : m_solver.equations()) {
             dd::pdd p = e->poly();
             rational v = eval(p);
-            if (!v.is_zero()) {
+            if (v != 0) {
                 out << p << " := " << v << "\n";
             }
         }  
