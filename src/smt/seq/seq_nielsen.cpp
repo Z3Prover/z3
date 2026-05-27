@@ -1305,6 +1305,15 @@ namespace seq {
                     set_conflict(backtrack_reason::symbol_clash, deq.m_dep);
                     return simplify_result::conflict;
                 }
+                if (deq.m_lhs->length() == 1 && deq.m_rhs->length() == 1) {
+                    expr* l, *r;
+                    if (graph().seq().str.is_unit(deq.m_lhs->get_expr(), l) &&
+                        graph().seq().str.is_unit(deq.m_rhs->get_expr(), r)) {
+
+                        add_constraint(constraint(m.mk_not(m.mk_eq(l, r)), deq.m_dep, m));
+                        continue;
+                    }
+                }
 
                 if (deq.m_lhs->is_empty() && !deq.m_rhs->is_empty()) {
                     if (cannot_be_empty(deq.m_rhs)) continue;
