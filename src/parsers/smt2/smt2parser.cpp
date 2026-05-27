@@ -1998,31 +1998,31 @@ namespace smt2 {
                 }
             }
             else {
-            local l;
-            if (m_env.find(fr->m_f, l)) {
-                push_local(l);
-                t_ref = expr_stack().back();
-                for (unsigned i = 0; i < num_args; ++i) {
-                    expr* arg = expr_stack().get(fr->m_expr_spos + i);
-                    expr* args[2] = { t_ref.get(), arg };
-                    m_ctx.mk_app(symbol("select"), 
-                                 2, 
-                                 args,
-                                 0,
-                                 nullptr,
-                                 nullptr,
+                local l;
+                if (m_env.find(fr->m_f, l)) {
+                    push_local(l);
+                    t_ref = expr_stack().back();
+                    for (unsigned i = 0; i < num_args; ++i) {
+                        expr* arg = expr_stack().get(fr->m_expr_spos + i);
+                        expr* args[2] = { t_ref.get(), arg };
+                        m_ctx.mk_app(symbol("select"),
+                                     2,
+                                     args,
+                                     0,
+                                     nullptr,
+                                     nullptr,
+                                     t_ref);
+                    }
+                }
+                else {
+                    m_ctx.mk_app(fr->m_f,
+                                 num_args,
+                                 expr_stack().data() + fr->m_expr_spos,
+                                 num_indices,
+                                 m_param_stack.data() + fr->m_param_spos,
+                                 fr->m_as_sort ? sort_stack().back() : nullptr,
                                  t_ref);
                 }
-            }
-            else {
-                m_ctx.mk_app(fr->m_f,
-                             num_args,
-                             expr_stack().data() + fr->m_expr_spos,
-                             num_indices,
-                             m_param_stack.data() + fr->m_param_spos,
-                             fr->m_as_sort ? sort_stack().back() : nullptr,
-                             t_ref);
-            }
             }
             expr_stack().shrink(fr->m_expr_spos);
             m_param_stack.shrink(fr->m_param_spos);
