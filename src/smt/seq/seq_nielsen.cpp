@@ -1776,11 +1776,9 @@ namespace seq {
     }
 
     bool nielsen_node::is_satisfied() const {
-        if (!m_str_deq.empty())
+        if (!m_str_deq.empty() || !m_str_eq.empty())
             return false;
-        if (any_of(m_str_eq, [](auto const &eq) { return !eq.is_trivial(); }))
-            return false;
-        if (any_of(m_str_mem, [this](auto const &m) { return !m.is_trivial(this) && !m.is_primitive();}))
+        if (any_of(m_str_mem, [](auto const &m) { return !m.is_primitive();}))
             return false;
         return true;
     }
