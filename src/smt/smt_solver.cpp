@@ -242,6 +242,10 @@ namespace {
             return ctx.b_internalized(e) ? ctx.get_bool_var(e) : UINT_MAX;
         }
 
+        unsigned get_random_seed() const override {
+            return const_cast<smt::kernel&>(m_context).get_context().get_fparams().m_random_seed;
+        }
+
         expr_ref get_split_candidate() override {
             ast_manager& m = get_manager();
             auto& ctx = m_context.get_context();

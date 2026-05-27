@@ -135,10 +135,10 @@ class parallel_solver {
 
     struct bb_candidate {
         expr_ref lit;
-        double score;
+        double age;
         unsigned hits;
         bb_candidate(ast_manager& m, expr* e, double s, unsigned h)
-            : lit(e, m), score(s), hits(h) {}
+            : lit(e, m), age(s), hits(h) {}
     };
 
     using bb_candidates = vector<bb_candidate>;
@@ -196,12 +196,14 @@ class parallel_solver {
         /* backbone candidate queue */
         bb_candidates            m_bb_candidates;
         unsigned                 m_max_global_bb_candidates = 100;
-        unsigned                 m_bb_batch_size = 64;
+        unsigned                 m_bb_batch_size = 150;
+        std::atomic<unsigned>    m_bb_candidate_epoch = 0;
         std::condition_variable  m_bb_cv;
         bb_candidates            m_bb_current_batch;
         unsigned                 m_bb_batch_id = 0;
         unsigned                 m_num_global_bb_threads = 0;
         unsigned_vector          m_bb_last_batch_processed;
+        unsigned                 m_bb_cancel_epoch = 0;
 
         /* core minimization queue */
         std::condition_variable   m_core_min_cv;
@@ -450,6 +452,8 @@ class parallel_solver {
             m_num_global_bb_threads = num_global_bb_threads;
             m_bb_last_batch_processed.reset();
             m_bb_last_batch_processed.resize(num_global_bb_threads);
+            m_bb_cancel_epoch = 0;
+            m_bb_candidate_epoch.store(0, std::memory_order_release);
             m_core_min_jobs.reset();
             m_model = nullptr;
             m_unsat_core.reset();
@@ -672,8 +676,7 @@ class parallel_solver {
                 m_stats.m_max_cube_depth = std::max(
                     m_stats.m_max_cube_depth,
                     lease.leased_node->depth() + 1);
-                IF_VERBOSE(1, verbose_stream() << "par2: split on "
-                    << mk_bounded_pp(lit, m, 3) << "\n");
+                IF_VERBOSE(1, verbose_stream() << "par2: split on " << mk_bounded_pp(lit, m, 3) << "\n");
             }
         }
 
@@ -720,8 +723,7 @@ class parallel_solver {
             expr_ref g_bb(l2g(backbone.get()), m);
             m_global_backbones.insert(g_bb.get());
             ++m_stats.m_backbones_found;
-            IF_VERBOSE(2, verbose_stream() << "par2: new backbone "
-                << mk_bounded_pp(g_bb, m, 3) << "\n");
+            IF_VERBOSE(2, verbose_stream() << "par2: new backbone " << mk_bounded_pp(g_bb, m, 3) << "\n");
             /* share it as a unit clause so other workers pick it up */
             collect_clause_unlocked(l2g, source_worker_id, backbone.get());
 
@@ -743,6 +745,33 @@ class parallel_solver {
             return is_global_backbone_or_negation_unlocked(l2g, bb_cand);
         }
 
+        bool has_new_backbone_candidates(unsigned epoch) {
+            return m_bb_candidate_epoch.load(std::memory_order_acquire) != epoch;
+        }
+
+        unsigned get_bb_candidate_epoch() const {
+            return m_bb_candidate_epoch.load(std::memory_order_acquire);
+        }
+
+        void cancel_current_backbone_batch() {
+            std::scoped_lock lock(mux);
+            ++m_bb_cancel_epoch;
+            m_bb_cv.notify_all();
+        }
+
+        unsigned get_cancel_epoch() {
+            std::scoped_lock lock(mux);
+            return m_bb_cancel_epoch;
+        }
+
+        expr_ref_vector get_global_backbones_snapshot(ast_translation& g2l) {
+            std::scoped_lock lock(mux);
+            expr_ref_vector snapshot(g2l.to());
+            for (expr* gb : m_global_backbones)
+                snapshot.push_back(g2l(gb));
+            return snapshot;
+        }
+
         void collect_backbone_candidates(ast_translation& l2g,
                                          bb_candidates& bb_candidates) {
             std::scoped_lock lock(mux);
@@ -757,7 +786,7 @@ class parallel_solver {
             };
 
             auto rank_of = [&](bb_candidate const& c) {
-                return c.score * std::log2(2.0 + c.hits);
+                return c.age * std::log2(2.0 + c.hits);
             };
 
             for (auto const& c : bb_candidates) {
@@ -765,22 +794,22 @@ class parallel_solver {
                 if (is_global_backbone_or_negation_unlocked(l2g, c.lit.get()))
                     continue;
 
+                double age = c.age;
                 int idx = find_existing_candidate_idx(g_lit.get());
                 if (idx >= 0) {
                     auto& existing = m_bb_candidates[idx];
-                    existing.score = (existing.score * existing.hits + c.score) / (existing.hits + 1);
+                    existing.age = (existing.age * existing.hits + age) / (existing.hits + 1);
                     existing.hits++;
                     continue;
                 }
 
                 if (m_bb_candidates.size() < m_max_global_bb_candidates) {
-                    m_bb_candidates.push_back(bb_candidate(m, g_lit.get(), c.score, 1));
-                    ++m_stats.m_bb_candidates_enqueued;
+                    m_bb_candidates.push_back(bb_candidate(m, g_lit.get(), age, 1));
                     changed = true;
                     continue;
                 }
 
-                bb_candidate incoming(m, g_lit.get(), c.score, 1);
+                bb_candidate incoming(m, g_lit.get(), age, 1);
                 auto worst_it = std::min_element(
                     m_bb_candidates.begin(),
                     m_bb_candidates.end(),
@@ -794,6 +823,7 @@ class parallel_solver {
             }
 
             if (changed && !m_bb_candidates.empty()) {
+                m_bb_candidate_epoch.fetch_add(1, std::memory_order_release);
                 std::sort(
                     m_bb_candidates.begin(),
                     m_bb_candidates.end(),
@@ -818,7 +848,7 @@ class parallel_solver {
             if (lim.is_canceled() || m_state != state::is_running)
                 return false;
 
-            if (m_bb_last_batch_processed[bb_thread_id] == m_bb_batch_id) {
+                if (m_bb_last_batch_processed[bb_thread_id] == m_bb_batch_id) {
                 unsigned n = std::min<unsigned>(m_bb_batch_size, m_bb_candidates.size());
                 m_bb_current_batch.reset();
                 for (unsigned i = 0; i < n; ++i) {
@@ -826,13 +856,12 @@ class parallel_solver {
                     m_bb_candidates.pop_back();
                 }
                 ++m_bb_batch_id;
-                ++m_stats.m_bb_batches_issued;
                 m_bb_cv.notify_all();
             }
 
             for (auto const& gc : m_bb_current_batch) {
                 expr_ref l_lit(g2l(gc.lit.get()), g2l.to());
-                out.push_back(bb_candidate(g2l.to(), l_lit, gc.score, gc.hits));
+                out.push_back(bb_candidate(g2l.to(), l_lit, gc.age, gc.hits));
             }
             m_bb_last_batch_processed[bb_thread_id] = m_bb_batch_id;
             return true;
@@ -861,15 +890,13 @@ class parallel_solver {
         expr_ref_vector const& get_unsat_core() const { return m_unsat_core; }
 
         void collect_statistics(statistics& st) const {
-            st.update("par2-cubes",       m_stats.m_num_cubes);
-            st.update("par2-cube-depth",  m_stats.m_max_cube_depth);
-            st.update("par2-backbones",   m_stats.m_backbones_found);
-            st.update("par2-core-min-jobs-enqueued", m_stats.m_core_min_jobs_enqueued);
-            st.update("par2-core-min-jobs-published", m_stats.m_core_min_jobs_published);
-            st.update("par2-core-min-jobs-skipped", m_stats.m_core_min_jobs_skipped);
-            st.update("par2-core-min-global-unsat", m_stats.m_core_min_global_unsat);
-            st.update("par2-bb-candidates-enqueued", m_stats.m_bb_candidates_enqueued);
-            st.update("par2-bb-batches-issued", m_stats.m_bb_batches_issued);
+            st.update("parallel-num_cubes", m_stats.m_num_cubes);
+            st.update("parallel-max-cube-size", m_stats.m_max_cube_depth);
+            st.update("bb-backbones-found", m_stats.m_backbones_found);
+            st.update("parallel-core-min-jobs-enqueued", m_stats.m_core_min_jobs_enqueued);
+            st.update("parallel-core-min-jobs-published", m_stats.m_core_min_jobs_published);
+            st.update("parallel-core-min-jobs-skipped", m_stats.m_core_min_jobs_skipped);
+            st.update("parallel-core-min-global-unsat", m_stats.m_core_min_global_unsat);
         }
     }; // class batch_manager
 
@@ -880,17 +907,18 @@ class parallel_solver {
      * batch_manager (mutex-protected).
      * ================================================================ */
     class worker {
-        struct config {
-            unsigned m_threads_max_conflicts = 1000;
-            double   m_max_conflict_mul      = 1.5;
-            unsigned m_max_conflicts         = UINT_MAX;
-            bool     m_share_units           = true;
-            bool     m_share_conflicts       = true;
-            bool     m_share_units_relevant_only = true;
-            bool     m_share_units_initial_only = true;
-            bool     m_core_minimize         = false;
-            bool     m_global_backbones      = false;
-            unsigned m_max_cube_depth        = 20;
+            struct config {
+                unsigned m_threads_max_conflicts = 1000;
+                double   m_max_conflict_mul      = 1.5;
+                unsigned m_max_conflicts         = UINT_MAX;
+                bool     m_share_units           = true;
+                bool     m_share_conflicts       = true;
+                bool     m_share_units_relevant_only = true;
+                bool     m_share_units_initial_only = true;
+                bool     m_core_minimize         = false;
+                bool     m_global_backbones      = false;
+                bool     m_local_backbones       = false;
+                unsigned m_max_cube_depth        = 20;
         };
 
         unsigned         id;
@@ -915,17 +943,14 @@ class parallel_solver {
          * each call so that long-running cubes are interrupted. */
         lbool check_cube(expr_ref_vector const& cube) {
             params_ref p;
-            p.set_uint("max_conflicts",
-                       std::min(m_config.m_threads_max_conflicts,
-                                m_config.m_max_conflicts));
+            p.set_uint("max_conflicts", std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts));
             s->updt_params(p);
 
             expr_ref_vector combined(m);
             combined.append(asms);
             combined.append(cube);
 
-            IF_VERBOSE(2, verbose_stream() << "par2 worker " << id
-                << ": checking cube of size " << cube.size() << "\n");
+            IF_VERBOSE(2, verbose_stream() << "par2 worker " << id << ": checking cube of size " << cube.size() << "\n");
             lbool r = l_undef;
             try {
                 r = s->check_sat(combined);
@@ -938,8 +963,7 @@ class parallel_solver {
                 if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
                     b.set_exception(ex.what());
             }
-            IF_VERBOSE(2, verbose_stream() << "par2 worker " << id
-                << ": cube result " << r << "\n");
+            IF_VERBOSE(2, verbose_stream() << "par2 worker " << id << ": cube result " << r << "\n");
             return r;
         }
 
@@ -950,9 +974,7 @@ class parallel_solver {
             expr_ref_vector nc = b.return_shared_clauses(
                 m_g2l, m_shared_clause_limit, id);
             for (expr* e : nc) {
-                IF_VERBOSE(4, verbose_stream() << "par2 worker " << id
-                    << ": asserting shared clause "
-                    << mk_bounded_pp(e, m, 3) << "\n");
+                IF_VERBOSE(4, verbose_stream() << "par2 worker " << id << ": asserting shared clause " << mk_bounded_pp(e, m, 3) << "\n");
                 s->assert_expr(e);
             }
         }
@@ -994,17 +1016,12 @@ class parallel_solver {
             m_shared_units_prefix = prefix_sz;
         }
 
-        /* Select a split atom using the underlying solver's native
-         * branching heuristic on a temporary state that includes the
-         * current cube path. */
+        /* Select a split atom from the live solver state, matching
+         * smt_parallel's use of the current post-check search state. */
         expr_ref get_split_atom(expr_ref_vector const& cube) {
             if (cube.size() >= m_config.m_max_cube_depth)
                 return expr_ref(nullptr, m);
-            s->push();
-            for (expr* c : cube)
-                s->assert_expr(c);
             expr_ref candidate = s->get_split_candidate();
-            s->pop(1);
 
             if (candidate && m_config.m_global_backbones &&
                 b.is_global_backbone_or_negation(m_l2g, candidate))
@@ -1014,12 +1031,8 @@ class parallel_solver {
 
         bb_candidates find_backbone_candidates(expr_ref_vector const& cube, unsigned k = 10) {
             bb_candidates result;
-            s->push();
-            for (expr* c : cube)
-                s->assert_expr(c);
             vector<solver::scored_literal> cands;
-            s->get_backbone_candidates(cands, k);
-            s->pop(1);
+            s->get_backbone_candidates(cands, s->get_num_bool_vars());
 
             for (auto const& cand : cands) {
                 expr* lit = cand.lit.get();
@@ -1043,8 +1056,9 @@ class parallel_solver {
         {
             parallel_params pp(params);
             m_config.m_core_minimize = params.get_bool("core_minimize", pp.g, true);
-            unsigned num_global_bb_threads = params.get_uint("num_global_bb_batch_threads", pp.g, 2u);
-            m_config.m_global_backbones = num_global_bb_threads > 0;
+            m_config.m_global_backbones = params.get_uint("num_global_bb_batch_threads", pp.g, 2u) > 0 ||
+                                          params.get_uint("num_global_bb_fl_threads", pp.g, 0u) > 0;
+            m_config.m_local_backbones = params.get_bool("local_backbones", pp.g, false);
             /* create translated solver copy */
             s = src.translate(m, params);
             m_shared_units_prefix = s->get_assigned_literals().size();
@@ -1054,8 +1068,7 @@ class parallel_solver {
             for (expr* a : src_asms)
                 asms.push_back(m_g2l(a));
 
-            IF_VERBOSE(1, verbose_stream() << "par2: worker " << id
-                << " created (" << asms.size() << " assumptions)\n");
+            IF_VERBOSE(1, verbose_stream() << "par2: worker " << id << " created (" << asms.size() << " assumptions)\n");
         }
 
         void run() {
@@ -1065,15 +1078,14 @@ class parallel_solver {
 
             while (true) {
                 if (!b.get_cube(m_g2l, id, cube, is_first_run, lease)) {
-                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id
-                        << ": no more cubes\n");
+                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id << ": no more cubes\n");
                     return;
                 }
                 is_first_run = false;
 
                 collect_shared_clauses();
             check_cube_start:
-                if (m_config.m_global_backbones) {
+                if (m_config.m_global_backbones || m_config.m_local_backbones) {
                     bb_candidates local_candidates = find_backbone_candidates(cube);
                     b.collect_backbone_candidates(m_l2g, local_candidates);
                     if (!m.inc())
@@ -1082,8 +1094,7 @@ class parallel_solver {
                 lbool r = check_cube(cube);
 
                 if (b.lease_canceled(lease)) {
-                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id
-                        << ": lease canceled\n");
+                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id << ": lease canceled\n");
                     lease = {};
                     m.limit().dec_cancel();
                     continue;
@@ -1095,8 +1106,7 @@ class parallel_solver {
 
                 case l_undef: {
                     update_max_thread_conflicts();
-                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id
-                        << ": undef – attempting split\n");
+                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id << ": undef – attempting split\n");
                     if (m_config.m_max_cube_depth <= cube.size())
                         goto check_cube_start;
                     expr_ref atom = get_split_atom(cube);
@@ -1113,8 +1123,7 @@ class parallel_solver {
                 }
 
                 case l_true: {
-                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id
-                        << ": SAT\n");
+                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id << ": SAT\n");
                     model_ref mdl;
                     s->get_model(mdl);
                     if (mdl)
@@ -1123,8 +1132,7 @@ class parallel_solver {
                 }
 
                 case l_false: {
-                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id
-                        << ": UNSAT cube\n");
+                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id << ": UNSAT cube\n");
                     expr_ref_vector unsat_core(m);
                     s->get_unsat_core(unsat_core);
 
@@ -1150,9 +1158,7 @@ class parallel_solver {
             } // while
         } // run()
 
-        void cancel() {
-            m.limit().cancel();
-        }
+        void cancel() { m.limit().cancel(); }
 
         void cancel_lease() {
             m.limit().inc_cancel();
@@ -1162,23 +1168,43 @@ class parallel_solver {
             s->collect_statistics(st);
         }
 
+        void collect_aux_statistics(statistics& st) const {
+        }
+
         reslimit& limit() { return m.limit(); }
     }; // class worker
 
     class backbones_worker {
-    public:
-        enum class probe_mode { negative, positive };
-
     private:
+        struct stats {
+            unsigned m_batches_total = 0;
+            unsigned m_candidates_total = 0;
+            unsigned m_singleton_backbones = 0;
+            unsigned m_backbones_detected = 0;
+            unsigned m_internal_backbones_found = 0;
+            unsigned m_retry_backbones_found = 0;
+            unsigned m_bb_retries = 0;
+            unsigned m_fallback_singleton_checks = 0;
+            unsigned m_fallback_reason_chunk_exhausted = 0;
+            unsigned m_fallback_reason_undef = 0;
+            unsigned m_core_refinement_rounds = 0;
+            unsigned m_lits_removed_by_core = 0;
+            unsigned m_num_chunk_increases = 0;
+        };
+
         unsigned         id;
         batch_manager&   b;
         ast_manager      m;
         ref<solver>      s;
         expr_ref_vector  asms;
         ast_translation  m_g2l, m_l2g;
+        unsigned         m_bb_chunk_size = 20;
+        unsigned         m_bb_conflicts_per_chunk = 1000;
         unsigned         m_shared_clause_limit = 0;
-        expr_mark        m_known_units;
-        probe_mode       m_probe_mode = probe_mode::negative;
+        stats            m_stats;
+        unsigned         m_shared_units_prefix = 0;
+        unsigned         m_num_initial_atoms = 0;
+        bool             m_positive_mode = false;
 
         void collect_shared_clauses() {
             expr_ref_vector nc = b.return_shared_clauses(m_g2l, m_shared_clause_limit, UINT_MAX);
@@ -1187,37 +1213,36 @@ class parallel_solver {
         }
 
         bool try_get_unit_backbone(expr* candidate, expr_ref& backbone) {
-            expr_ref_vector trail = s->get_trail(0);
+            expr_ref_vector trail = s->get_assigned_literals();
             expr* atom = candidate;
-            bool candidate_neg = m.is_not(candidate, atom);
+            m.is_not(candidate, atom);
             for (expr* e : trail) {
+                if (s->get_assign_level(e) > 0)
+                    continue;
                 expr* trail_atom = e;
-                bool trail_neg = m.is_not(e, trail_atom);
+                m.is_not(e, trail_atom);
                 if (trail_atom != atom)
                     continue;
-                backbone = expr_ref(candidate_neg == trail_neg ? candidate : mk_not(m, candidate), m);
+                backbone = expr_ref(e, m);
                 return true;
             }
             return false;
         }
 
-        lbool probe_literal(expr* e) {
-            expr_ref_vector probe(m);
-            probe.append(asms);
-            probe.push_back(e);
-
+        lbool probe_literal(expr* e, bool is_retry) {
             lbool r = l_undef;
             try {
-                params_ref p;
-                p.set_uint("max_conflicts", 10);
-                s->updt_params(p);
-                r = s->check_sat(probe);
+                asms.push_back(e);
+                r = s->check_sat(asms);
+                asms.pop_back();
             }
             catch (z3_error& err) {
+                asms.pop_back();
                 if (!m.limit().is_canceled())
                     b.set_exception(err.error_code());
             }
             catch (z3_exception& ex) {
+                asms.pop_back();
                 if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
                     b.set_exception(ex.what());
             }
@@ -1230,7 +1255,13 @@ class parallel_solver {
                     return l_false;
                 }
                 expr_ref bb(mk_not(m, e), m);
-                b.collect_global_backbone(m_l2g, bb);
+                ++m_stats.m_backbones_detected;
+                if (b.collect_global_backbone(m_l2g, bb)) {
+                    ++m_stats.m_internal_backbones_found;
+                    if (is_retry)
+                        ++m_stats.m_retry_backbones_found;
+                }
+                s->assert_expr(bb.get());
                 return l_undef;
             }
             if (r == l_true) {
@@ -1242,56 +1273,317 @@ class parallel_solver {
             return r;
         }
 
-    public:
-        backbones_worker(unsigned id, parallel_solver& p, solver& src, params_ref const& params,
-                         expr_ref_vector const& src_asms,
-                         probe_mode mode)
-            : id(id), b(p.m_batch_manager),
-              asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()),
-              m_probe_mode(mode) {
-            s = src.translate(m, params);
-            for (expr* a : src_asms)
-                asms.push_back(m_g2l(a));
-        }
-
-        void run() {
+        void run_batch_mode() {
             bb_candidates curr_batch;
+
             while (m.inc()) {
                 if (!b.wait_for_backbone_job(id, m_g2l, curr_batch, m.limit()))
                     return;
+
                 if (curr_batch.empty())
                     continue;
 
                 collect_shared_clauses();
 
-                for (auto const& c : curr_batch) {
-                    if (!m.inc())
-                        return;
-                    if (b.is_global_backbone_or_negation(m_l2g, c.lit.get()))
-                        continue;
-                    if (m_known_units.is_marked(c.lit.get()))
-                        continue;
+                unsigned local_cancel_epoch = b.get_cancel_epoch();
+                auto canceled = [&] { return local_cancel_epoch != b.get_cancel_epoch(); };
+                unsigned bb_candidate_epoch = b.get_bb_candidate_epoch();
 
-                    expr_ref backbone(m);
-                    if (try_get_unit_backbone(c.lit.get(), backbone)) {
-                        b.collect_global_backbone(m_l2g, backbone);
-                        m_known_units.mark(c.lit.get());
-                        continue;
+                auto fallback_failed_literal_probe =
+                    [&](expr_ref_vector const& chunk_lits, expr_ref_vector& bb_candidate_lits, bool is_retry = false) {
+                        params_ref p;
+                        p.set_uint("max_conflicts", 10);
+                        s->updt_params(p);
+                        auto restore_conflicts = [&]() {
+                            p.set_uint("max_conflicts", m_bb_conflicts_per_chunk);
+                            s->updt_params(p);
+                        };
+
+                        if (is_retry)
+                            ++m_stats.m_bb_retries;
+                        else
+                            ++m_stats.m_fallback_singleton_checks;
+
+                        for (expr* lit : chunk_lits) {
+                            if (is_retry && b.has_new_backbone_candidates(bb_candidate_epoch)) {
+                                restore_conflicts();
+                                return;
+                            }
+                            if (!m.inc() || canceled()) {
+                                restore_conflicts();
+                                return;
+                            }
+                            if (!bb_candidate_lits.contains(lit))
+                                continue;
+
+                            expr_ref bb_ref(lit, m);
+                            if (m_positive_mode)
+                                bb_ref = mk_not(m, bb_ref);
+
+                            if (!b.is_global_backbone_or_negation(m_l2g, bb_ref.get())) {
+                                expr_ref backbone(m);
+                                if (try_get_unit_backbone(bb_ref.get(), backbone)) {
+                                    ++m_stats.m_backbones_detected;
+                                    if (b.collect_global_backbone(m_l2g, backbone)) {
+                                        ++m_stats.m_internal_backbones_found;
+                                        if (is_retry)
+                                            ++m_stats.m_retry_backbones_found;
+                                    }
+                                }
+                                else {
+                                    expr* atom = bb_ref.get();
+                                    m.is_not(bb_ref.get(), atom);
+                                    if (s->get_bool_var(atom) != UINT_MAX) {
+                                        lbool terminal_result = probe_literal(mk_not(m, bb_ref), is_retry);
+                                        if (terminal_result != l_undef) {
+                                            restore_conflicts();
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                            bb_candidate_lits.erase(lit);
+                        }
+
+                        restore_conflicts();
+                    };
+
+                ++m_stats.m_batches_total;
+                m_stats.m_candidates_total += curr_batch.size();
+
+                expr_ref_vector bb_candidate_lits(m);
+                for (auto const& c : curr_batch)
+                    bb_candidate_lits.push_back(c.lit);
+
+                unsigned chunk_delta = 1;
+
+                while (!bb_candidate_lits.empty() && !canceled() && m.inc()) {
+                    {
+                        unsigned j = 0;
+                        for (expr* lit : bb_candidate_lits) {
+                            if (!b.is_global_backbone_or_negation(m_l2g, lit))
+                                bb_candidate_lits[j++] = lit;
+                        }
+                        bb_candidate_lits.shrink(j);
                     }
-                    expr_ref probe(m_probe_mode == probe_mode::negative ? mk_not(m, c.lit) : c.lit.get(), m);
-                    probe_literal(probe);
-                    m_known_units.mark(c.lit.get());
+
+                    {
+                        unsigned j = 0;
+                        for (expr* lit : bb_candidate_lits) {
+                            expr_ref backbone(m);
+                            if (try_get_unit_backbone(lit, backbone)) {
+                                if (b.collect_global_backbone(m_l2g, backbone))
+                                    ++m_stats.m_internal_backbones_found;
+                                ++m_stats.m_backbones_detected;
+                                continue;
+                            }
+                            bb_candidate_lits[j++] = lit;
+                        }
+                        bb_candidate_lits.shrink(j);
+                    }
+
+                    unsigned chunk_size = std::min(m_bb_chunk_size * chunk_delta, bb_candidate_lits.size());
+                    expr_ref_vector chunk_lits(m);
+                    expr_ref_vector negated_chunk_lits(m);
+                    expr_mark chunk_atoms;
+
+                    for (unsigned i = 0; i < bb_candidate_lits.size() && chunk_lits.size() < chunk_size; ++i) {
+                        expr* lit = bb_candidate_lits.get(i);
+                        expr* atom = lit;
+                        m.is_not(lit, atom);
+                        if (chunk_atoms.is_marked(atom))
+                            continue;
+                        chunk_atoms.mark(atom);
+                        chunk_lits.push_back(lit);
+                        negated_chunk_lits.push_back(mk_not(m, lit));
+                    }
+
+                    expr_ref_vector bb_asms(m);
+                    if (!m_positive_mode)
+                        bb_asms.append(negated_chunk_lits);
+                    else
+                        bb_asms.append(chunk_lits);
+
+                    collect_shared_clauses();
+
+                    while (true) {
+                        if (!m.inc())
+                            return;
+                        if (canceled())
+                            break;
+
+                        ++m_stats.m_core_refinement_rounds;
+                        unsigned base_asms_sz = asms.size();
+                        for (expr* a : bb_asms)
+                            asms.push_back(a);
+
+                        lbool r = l_undef;
+                        try {
+                            params_ref p;
+                            p.set_uint("max_conflicts", m_bb_conflicts_per_chunk);
+                            s->updt_params(p);
+                            r = s->check_sat(asms);
+                        }
+                        catch (z3_error& err) {
+                            if (!m.limit().is_canceled())
+                                b.set_exception(err.error_code());
+                        }
+                        catch (z3_exception& ex) {
+                            if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
+                                b.set_exception(ex.what());
+                        }
+                        asms.shrink(base_asms_sz);
+
+                        if (!m.inc() || canceled())
+                            break;
+
+                        if (r == l_undef) {
+                            if (chunk_size < bb_candidate_lits.size()) {
+                                ++chunk_delta;
+                                ++m_stats.m_num_chunk_increases;
+                                break;
+                            }
+
+                            fallback_failed_literal_probe(chunk_lits, bb_candidate_lits);
+                            ++m_stats.m_fallback_reason_undef;
+                            chunk_delta = 1;
+                            break;
+                        }
+
+                        if (r == l_true) {
+                            model_ref mdl;
+                            s->get_model(mdl);
+                            if (mdl)
+                                b.set_sat(m_l2g, *mdl);
+                            curr_batch.reset();
+                            return;
+                        }
+
+                        expr_ref_vector bb_asms_in_core(m);
+                        expr_ref_vector unsat_core(m);
+                        s->get_unsat_core(unsat_core);
+
+                        for (expr* a : unsat_core)
+                            if (bb_asms.contains(a))
+                                bb_asms_in_core.push_back(a);
+
+                        if (bb_asms_in_core.empty()) {
+                            b.set_unsat(m_l2g, unsat_core);
+                            return;
+                        }
+
+                        if (bb_asms_in_core.size() == 1) {
+                            expr* a = bb_asms_in_core.back();
+                            expr_ref backbone_lit(mk_not(m, a), m);
+
+                            ++m_stats.m_singleton_backbones;
+                            ++m_stats.m_backbones_detected;
+
+                            if (b.collect_global_backbone(m_l2g, backbone_lit)) {
+                                ++m_stats.m_internal_backbones_found;
+                                s->assert_expr(backbone_lit.get());
+                            }
+
+                            expr* candidate_to_remove =
+                                (!m_positive_mode) ? backbone_lit.get() : a;
+                            bb_candidate_lits.erase(candidate_to_remove);
+                        }
+
+                        unsigned sz_before = bb_asms.size();
+                        for (expr* a : bb_asms_in_core)
+                            bb_asms.erase(a);
+                        m_stats.m_lits_removed_by_core += sz_before - bb_asms.size();
+                        chunk_delta = 1;
+
+                        if (bb_asms.empty()) {
+                            fallback_failed_literal_probe(chunk_lits, bb_candidate_lits);
+                            ++m_stats.m_fallback_reason_chunk_exhausted;
+                            break;
+                        }
+                    }
                 }
+
+                while (!b.has_new_backbone_candidates(bb_candidate_epoch) && !canceled() && m.inc()) {
+                    collect_shared_clauses();
+                    unsigned found_before = m_stats.m_internal_backbones_found;
+
+                    expr_ref_vector bb_snapshot = b.get_global_backbones_snapshot(m_g2l);
+                    expr_mark bb_mark;
+                    for (expr* e : bb_snapshot) {
+                        bb_mark.mark(e);
+                        bb_mark.mark(mk_not(m, e));
+                    }
+                    bb_candidate_lits.reset();
+                    for (auto const& c : curr_batch)
+                        if (!bb_mark.is_marked(c.lit.get()))
+                            bb_candidate_lits.push_back(c.lit);
+
+                    if (bb_candidate_lits.empty())
+                        break;
+
+                    fallback_failed_literal_probe(bb_candidate_lits, bb_candidate_lits, true);
+
+                    if (m_stats.m_internal_backbones_found == found_before)
+                        break;
+                }
+
+                if (!canceled())
+                    b.cancel_current_backbone_batch();
+
                 curr_batch.reset();
             }
         }
+
+    public:
+        backbones_worker(unsigned id, parallel_solver& p, solver& src, params_ref const& params,
+                         expr_ref_vector const& src_asms)
+            : id(id), b(p.m_batch_manager),
+              asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
+            s = src.translate(m, params);
+            for (expr* a : src_asms)
+                asms.push_back(m_g2l(a));
+            m_positive_mode = id != 0;
+            m_shared_units_prefix = s->get_assigned_literals().size();
+            m_num_initial_atoms = s->get_num_bool_vars();
+        }
+
+        void run() { run_batch_mode(); }
 
         void cancel() {
             m.limit().cancel();
         }
 
         void collect_statistics(statistics& st) const {
-            s->collect_statistics(st);
+            st.update("bb-batches-total", m_stats.m_batches_total);
+            st.update("bb-candidates-total", m_stats.m_candidates_total);
+            st.update("bb-backbones-detected", m_stats.m_backbones_detected);
+            st.update("bb-internal-backbones-found", m_stats.m_internal_backbones_found);
+            st.update("bb-retry-backbones-found", m_stats.m_retry_backbones_found);
+            st.update("bb-retries", m_stats.m_bb_retries);
+            st.update("bb-core-refinement-rounds", m_stats.m_core_refinement_rounds);
+            st.update("bb-singleton-backbones", m_stats.m_singleton_backbones);
+            st.update("bb-fallback-singleton-checks", m_stats.m_fallback_singleton_checks);
+            st.update("bb-fallback-chunk-exhausted", m_stats.m_fallback_reason_chunk_exhausted);
+            st.update("bb-fallback-undef", m_stats.m_fallback_reason_undef);
+            st.update("bb-literals-removed-by-core", m_stats.m_lits_removed_by_core);
+            st.update("bb-num-chunk-increases", m_stats.m_num_chunk_increases);
+
+            auto safe_ratio = [](double num, double den) -> double {
+                return den > 0 ? num / den : 0.0;
+            };
+
+            st.update("bb-backbone-yield-pct",
+                100.0 * safe_ratio(m_stats.m_internal_backbones_found, m_stats.m_candidates_total));
+            st.update("bb-avg-backbones-per-batch",
+                safe_ratio(m_stats.m_internal_backbones_found, m_stats.m_batches_total));
+            st.update("bb-core-refinement-rounds-per-batch",
+                safe_ratio(m_stats.m_core_refinement_rounds, m_stats.m_batches_total));
+            st.update("bb-core-effectiveness-lit-removed-per-round",
+                safe_ratio(m_stats.m_lits_removed_by_core, m_stats.m_core_refinement_rounds));
+        }
+
+        void collect_aux_statistics(statistics& st) const {
+            collect_statistics(st);
         }
 
         reslimit& limit() { return m.limit(); }
@@ -1441,12 +1733,15 @@ class parallel_solver {
         }
 
         void collect_statistics(statistics& st) const {
-            s->collect_statistics(st);
-            st.update("par2-core-minimize-calls", m_num_core_minimize_calls);
-            st.update("par2-core-minimize-undef", m_num_core_minimize_undef);
-            st.update("par2-core-minimize-refined", m_num_core_minimize_refined);
-            st.update("par2-core-minimize-lits-removed", m_num_core_minimize_lits_removed);
-            st.update("par2-core-minimize-found-sat", m_num_core_minimize_found_sat);
+            st.update("parallel-core-minimize-calls", m_num_core_minimize_calls);
+            st.update("parallel-core-minimize-undef", m_num_core_minimize_undef);
+            st.update("parallel-core-minimize-refined", m_num_core_minimize_refined);
+            st.update("parallel-core-minimize-lits-removed", m_num_core_minimize_lits_removed);
+            st.update("parallel-core-minimize-found-sat", m_num_core_minimize_found_sat);
+        }
+
+        void collect_aux_statistics(statistics& st) const {
+            collect_statistics(st);
         }
 
         reslimit& limit() { return m.limit(); }
@@ -1461,6 +1756,7 @@ class parallel_solver {
     scoped_ptr_vector<backbones_worker> m_global_backbones_workers;
     batch_manager             m_batch_manager;
     statistics                m_stats;
+    statistics                m_aux_stats;
 
 public:
 
@@ -1472,8 +1768,7 @@ public:
 
     params_ref mk_worker_params(unsigned seed_offset) const {
         params_ref p(m_params);
-        p.set_bool("override_incremental", true);
-        unsigned base_seed = m_params.get_uint("random_seed", 0u);
+        unsigned base_seed = m_solver->get_random_seed();
         p.set_uint("random_seed", base_seed + seed_offset);
         return p;
     }
@@ -1496,9 +1791,15 @@ public:
                 pp.threads_max());
         }
         bool core_minimize = m_params.get_bool("core_minimize", pp.g, true);
-        unsigned num_global_bb_threads = m_params.get_uint("num_global_bb_batch_threads", pp.g, 2u);
-        if (num_global_bb_threads > 2)
+        unsigned num_global_bb_batch_threads = m_params.get_uint("num_global_bb_batch_threads", pp.g, 2u);
+        if (num_global_bb_batch_threads > 2)
             throw default_exception("parallel.num_global_bb_batch_threads must be 0, 1, or 2");
+        unsigned num_global_bb_fl_threads = m_params.get_uint("num_global_bb_fl_threads", pp.g, 0u);
+        if (num_global_bb_fl_threads > 2)
+            throw default_exception("parallel.num_global_bb_fl_threads must be 0, 1, or 2");
+        if (num_global_bb_fl_threads > 0 && num_global_bb_batch_threads > 0)
+            throw default_exception("parallel.num_global_bb_fl_threads and parallel.num_global_bb_batch_threads cannot both be enabled");
+        unsigned num_global_bb_threads = num_global_bb_fl_threads > 0 ? num_global_bb_fl_threads : num_global_bb_batch_threads;
 
         IF_VERBOSE(1, verbose_stream() << "par2: launching "
             << num_threads << " cube workers + "
@@ -1529,9 +1830,7 @@ public:
         m_global_backbones_workers.reset();
         for (unsigned i = 0; i < num_global_bb_threads; ++i) {
             params_ref bb_params = mk_worker_params(num_threads + (core_minimize ? 1 : 0) + i);
-            backbones_worker::probe_mode mode =
-                i == 0 ? backbones_worker::probe_mode::negative : backbones_worker::probe_mode::positive;
-            auto* w = alloc(backbones_worker, i, *this, *m_solver, bb_params, asms, mode);
+            auto* w = alloc(backbones_worker, i, *this, *m_solver, bb_params, asms);
             m_global_backbones_workers.push_back(w);
             sl.push_child(&(w->limit()));
         }
@@ -1550,14 +1849,21 @@ public:
         for (auto& t : threads)
             t.join();
 
-        /* Collect per-worker statistics. */
+        m_stats.reset();
+        m_aux_stats.reset();
+
+        if (!m_workers.empty())
+            m_workers[0]->collect_statistics(m_stats);
+        else
+            m_solver->collect_statistics(m_stats);
         for (auto* w : m_workers)
-            w->collect_statistics(m_stats);
+            w->collect_aux_statistics(m_aux_stats);
         if (m_core_minimizer_worker)
-            m_core_minimizer_worker->collect_statistics(m_stats);
+            m_core_minimizer_worker->collect_aux_statistics(m_aux_stats);
         for (auto* w : m_global_backbones_workers)
-            w->collect_statistics(m_stats);
-        m_batch_manager.collect_statistics(m_stats);
+            w->collect_aux_statistics(m_aux_stats);
+        m_batch_manager.collect_statistics(m_aux_stats);
+        m_stats.copy(m_aux_stats);
 
         m_manager.limit().reset_cancel();
 
@@ -1669,9 +1975,7 @@ public:
         result.push_back(g.get());
     }
 
-    void cleanup() override {
-        m_stats.reset();
-    }
+    void cleanup() override {}
 
     tactic* translate(ast_manager& m) override {
         solver* s = m_solver->translate(m, m_params);

@@ -310,6 +310,8 @@ public:
     virtual bool is_relevant(expr* e) const { return true; }
     virtual unsigned get_num_bool_vars() const { return UINT_MAX; }
     virtual unsigned get_bool_var(expr* e) const { return UINT_MAX; }
+
+    virtual unsigned get_random_seed() const { return 0; }
     
     virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
 
