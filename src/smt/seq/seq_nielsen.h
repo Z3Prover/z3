@@ -1195,10 +1195,6 @@ namespace seq {
         // create a fresh variable with a unique name and the given sequence sort
         euf::snode* mk_fresh_var(sort* s);
 
-        // create a fresh symbolic character: seq.unit(fresh_char_const)
-        // analogous to ZIPT's SymCharToken creation
-        euf::snode* mk_fresh_char_var();
-
         // deterministic modifier: var = ε, same-head cancel
         bool apply_det_modifier(nielsen_node* node);
 
