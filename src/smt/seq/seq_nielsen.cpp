@@ -336,7 +336,7 @@ namespace seq {
         }
         m_constraints.push_back(c);
     }
-    
+
     void nielsen_node::apply_subst(euf::sgraph& sg, nielsen_subst const& s) {
         SASSERT(!s.m_var->is_char_or_unit() || s.m_replacement->is_char_or_unit());
         SASSERT(s.m_var);
