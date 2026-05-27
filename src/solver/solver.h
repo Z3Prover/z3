@@ -305,6 +305,11 @@ public:
     expr_ref_vector get_non_units();
 
     virtual expr_ref_vector get_trail(unsigned max_level) = 0; // { return expr_ref_vector(get_manager()); }
+    virtual expr_ref_vector get_assigned_literals() { return get_trail(UINT_MAX); }
+    virtual unsigned get_assign_level(expr* e) const { return UINT_MAX; }
+    virtual bool is_relevant(expr* e) const { return true; }
+    virtual unsigned get_num_bool_vars() const { return UINT_MAX; }
+    virtual unsigned get_bool_var(expr* e) const { return UINT_MAX; }
     
     virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
 

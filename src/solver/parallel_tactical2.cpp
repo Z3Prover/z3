@@ -886,6 +886,8 @@ class parallel_solver {
             unsigned m_max_conflicts         = UINT_MAX;
             bool     m_share_units           = true;
             bool     m_share_conflicts       = true;
+            bool     m_share_units_relevant_only = true;
+            bool     m_share_units_initial_only = true;
             bool     m_core_minimize         = false;
             bool     m_global_backbones      = false;
             unsigned m_max_cube_depth        = 20;
@@ -900,6 +902,8 @@ class parallel_solver {
         config           m_config;
         expr_mark        m_known_units;     /* units already shared by this worker */
         unsigned         m_shared_clause_limit = 0;
+        unsigned         m_shared_units_prefix = 0;
+        unsigned         m_num_initial_atoms = 0;
 
         void update_max_thread_conflicts() {
             m_config.m_threads_max_conflicts = static_cast<unsigned>(
@@ -960,17 +964,34 @@ class parallel_solver {
          * propagated at decision level 0. */
         void share_units() {
             if (!m_config.m_share_units) return;
-            expr_ref_vector trail = s->get_trail(0);
-            for (expr* e : trail) {
-                /* get_trail may include ground terms; skip complex ones */
+            expr_ref_vector trail = s->get_assigned_literals();
+            unsigned sz = trail.size();
+            unsigned prefix_sz = std::min(m_shared_units_prefix, sz);
+            bool at_prefix = true;
+            for (unsigned i = m_shared_units_prefix; i < sz; ++i) {
+                expr* e = trail.get(i);
+                if (s->get_assign_level(e) > 0) {
+                    at_prefix = false;
+                    continue;
+                }
+
+                if (at_prefix)
+                    ++prefix_sz;
+
                 expr* atom = e;
                 m.is_not(e, atom);
+                /* get_trail may include ground terms; skip complex ones */
                 if (!is_uninterp_const(atom)) continue;
-                if (m_known_units.is_marked(e)) continue;
-                m_known_units.mark(e);
+                if (m_config.m_share_units_relevant_only && !s->is_relevant(atom))
+                    continue;
+                if (m_config.m_share_units_initial_only && s->get_bool_var(atom) >= m_num_initial_atoms)
+                    continue;
+                if (m_known_units.is_marked(atom)) continue;
+                m_known_units.mark(atom);
                 expr_ref lit(e, m);
                 b.collect_global_backbone(m_l2g, lit, id);
             }
+            m_shared_units_prefix = prefix_sz;
         }
 
         /* Select a split atom using the underlying solver's native
@@ -1026,6 +1047,8 @@ class parallel_solver {
             m_config.m_global_backbones = num_global_bb_threads > 0;
             /* create translated solver copy */
             s = src.translate(m, params);
+            m_shared_units_prefix = s->get_assigned_literals().size();
+            m_num_initial_atoms = s->get_num_bool_vars();
 
             /* translate assumptions */
             for (expr* a : src_asms)
@@ -1102,39 +1125,23 @@ class parallel_solver {
                 case l_false: {
                     IF_VERBOSE(1, verbose_stream() << "par2 worker " << id
                         << ": UNSAT cube\n");
-                    expr_ref_vector core(m);
-                    s->get_unsat_core(core);
+                    expr_ref_vector unsat_core(m);
+                    s->get_unsat_core(unsat_core);
 
-                    /* Filter to only cube literals (exclude base assumptions). */
-                    expr_ref_vector cube_core(m);
-                    for (expr* c : core) {
-                        if (cube.contains(c))
-                            cube_core.push_back(c);
-                    }
-
-                    /* If core contains none of the cube lits, the whole
-                     * problem is UNSAT independent of the cube path. */
-                    if (cube_core.empty()) {
-                        b.set_unsat(m_l2g, core);
+                    if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
+                        b.set_unsat(m_l2g, unsat_core);
                         return;
                     }
 
                     auto* source = lease.leased_node;
-                    b.backtrack(m_l2g, id, cube_core, lease);
-                    lease = {};
+                    b.backtrack(m_l2g, id, unsat_core, lease);
 
                     if (m_config.m_core_minimize)
-                        b.enqueue_core_minimization(m_l2g, source, core);
+                        b.enqueue_core_minimization(m_l2g, source, unsat_core);
+                    lease = {};
 
-                    if (m_config.m_share_conflicts) {
-                        /* Share the negation of the cube-core conjunction
-                         * as a learned clause: ¬(c₁ ∧ … ∧ cₙ) ≡ ¬c₁ ∨ … ∨ ¬cₙ */
-                        expr_ref_vector neg_lits(m);
-                        for (expr* c : cube_core)
-                            neg_lits.push_back(mk_not(expr_ref(c, m)));
-                        expr_ref clause(mk_or(neg_lits), m);
-                        b.collect_clause(m_l2g, id, clause.get());
-                    }
+                    if (m_config.m_share_conflicts)
+                        b.collect_clause(m_l2g, id, mk_not(mk_and(unsat_core)));
                     if (m_config.m_share_units) share_units();
                     break;
                 }
@@ -1481,9 +1488,13 @@ public:
                 expr_ref_vector& core) {
 
         parallel_params pp(m_params);
-        unsigned num_threads = std::min(
-            static_cast<unsigned>(std::thread::hardware_concurrency()),
-            pp.threads_max());
+        unsigned exact_threads = m_params.get_uint("threads", pp.g, 0u);
+        unsigned num_threads = exact_threads;
+        if (num_threads == 0) {
+            num_threads = std::min(
+                static_cast<unsigned>(std::thread::hardware_concurrency()),
+                pp.threads_max());
+        }
         bool core_minimize = m_params.get_bool("core_minimize", pp.g, true);
         unsigned num_global_bb_threads = m_params.get_uint("num_global_bb_batch_threads", pp.g, 2u);
         if (num_global_bb_threads > 2)

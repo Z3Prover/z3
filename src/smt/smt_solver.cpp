@@ -213,6 +213,35 @@ namespace {
             return m_context.get_trail(max_level);
         }
 
+        expr_ref_vector get_assigned_literals() override {
+            expr_ref_vector result(m);
+            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
+            for (auto lit : ctx.assigned_literals())
+                result.push_back(ctx.literal2expr(lit));
+            return result;
+        }
+
+        unsigned get_assign_level(expr* e) const override {
+            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
+            if (!ctx.b_internalized(e))
+                return UINT_MAX;
+            return ctx.get_assign_level(ctx.get_bool_var(e));
+        }
+
+        bool is_relevant(expr* e) const override {
+            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
+            return ctx.b_internalized(e) && ctx.is_relevant(e);
+        }
+
+        unsigned get_num_bool_vars() const override {
+            return const_cast<smt::kernel&>(m_context).get_context().get_num_bool_vars();
+        }
+
+        unsigned get_bool_var(expr* e) const override {
+            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
+            return ctx.b_internalized(e) ? ctx.get_bool_var(e) : UINT_MAX;
+        }
+
         expr_ref get_split_candidate() override {
             ast_manager& m = get_manager();
             auto& ctx = m_context.get_context();
