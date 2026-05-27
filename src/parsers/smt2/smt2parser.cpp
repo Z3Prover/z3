@@ -79,6 +79,7 @@ namespace smt2 {
         symbol               m_forall;
         symbol               m_exists;
         symbol               m_lambda;
+        symbol               m_choice;
         symbol               m_as;
         symbol               m_not;
         symbol               m_root_obj;
@@ -422,6 +423,11 @@ namespace smt2 {
         bool curr_id_is_forall() const { SASSERT(curr_is_identifier()); return curr_id() == m_forall; }
         bool curr_id_is_exists() const { SASSERT(curr_is_identifier()); return curr_id() == m_exists; }
         bool curr_id_is_lambda() const { SASSERT(curr_is_identifier()); return curr_id() == m_lambda; }
+        bool curr_id_is_choice() const {
+            SASSERT(curr_is_identifier());
+            return curr_id() == m_choice;
+        }
+        
         bool curr_id_is_bang() const { SASSERT(curr_is_identifier()); return curr_id() == m_bang; }
         bool curr_id_is_let() const { SASSERT(curr_is_identifier()); return curr_id() == m_let; }
         bool curr_id_is_root_obj() const { SASSERT(curr_is_identifier()); return curr_id() == m_root_obj; }
@@ -1356,10 +1362,11 @@ namespace smt2 {
 
         void push_quant_frame(quantifier_kind k) {
             SASSERT(curr_is_identifier());
-            SASSERT(curr_id_is_forall() || curr_id_is_exists() || curr_id_is_lambda());
+            SASSERT(curr_id_is_forall() || curr_id_is_exists() || curr_id_is_lambda() || curr_id_is_choice());
             SASSERT((k == forall_k) == curr_id_is_forall());
             SASSERT((k == exists_k) == curr_id_is_exists());
             SASSERT((k == lambda_k) == curr_id_is_lambda());
+            SASSERT((k == choice_k) == curr_id_is_choice());
             next();
             void * mem      = m_stack.allocate(sizeof(quant_frame));
             new (mem) quant_frame(k, pattern_stack().size(), nopattern_stack().size(), symbol_stack().size(),
@@ -1906,6 +1913,9 @@ namespace smt2 {
                 else if (curr_id_is_lambda()) {
                     push_quant_frame(lambda_k);
                 }
+                else if (curr_id_is_choice()) {
+                    push_quant_frame(choice_k);
+                }
                 else if (curr_id_is_bang()) {
                     push_bang_frame(curr);
                 }
@@ -2108,7 +2118,7 @@ namespace smt2 {
                 fr->m_qid = symbol((unsigned)m_scanner.get_line());
             if (fr->m_kind != lambda_k && !m().is_bool(expr_stack().back()))
                 throw parser_exception("quantifier body must be a Boolean expression");
-            quantifier* new_q = m().mk_quantifier(fr->m_kind,
+            quantifier* new_q = m().mk_quantifier(fr->m_kind == choice_k ? lambda_k : fr->m_kind,
                                       num_decls,
                                       sort_stack().data() + fr->m_sort_spos,
                                       symbol_stack().data() + fr->m_sym_spos,
@@ -2129,8 +2139,14 @@ namespace smt2 {
             m_env.end_scope();
             SASSERT(num_decls <= m_num_bindings);
             m_num_bindings -= num_decls;
-
-            expr_stack().push_back(new_q);
+            if (fr->m_kind == choice_k) {
+                // create expression (select choice new_q)
+                // add to expr_stack().push_back(choice_expr);
+                // 
+                throw default_exception("parsing of choice expressions is NYI");
+            }
+            else 
+                expr_stack().push_back(new_q);
             m_stack.deallocate(fr);
             m_num_expr_frames--;
         }
@@ -3135,6 +3151,7 @@ namespace smt2 {
             m_forall("forall"),
             m_exists("exists"),
             m_lambda("lambda"),
+            m_choice("choice"),
             m_as("as"),
             m_not("not"),
             m_root_obj("root-obj"),

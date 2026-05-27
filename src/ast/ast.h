@@ -857,7 +857,8 @@ public:
 enum quantifier_kind {
     forall_k,
     exists_k,
-    lambda_k
+    lambda_k,
+    choice_k
 };
 
 class quantifier : public expr {

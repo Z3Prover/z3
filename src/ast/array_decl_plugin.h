@@ -63,6 +63,7 @@ enum array_op_kind {
     OP_SET_COMPLEMENT,
     OP_SET_SUBSET,
     OP_AS_ARRAY, // used for model construction
+    OP_CHOICE,
     LAST_ARRAY_OP
 };
 
