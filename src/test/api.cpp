@@ -7,6 +7,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "api/z3.h"
 #include "api/z3_private.h"
 #include <iostream>
+#include <string>
 #include "util/util.h"
 #include "util/trace.h"
 #include <map>
@@ -160,6 +161,27 @@ void test_optimize_translate() {
     Z3_del_context(ctx1);
 }
 
+static void test_seq_fold_left_alpha_equiv() {
+    Z3_config cfg = Z3_mk_config();
+    Z3_context ctx = Z3_mk_context(cfg);
+    Z3_del_config(cfg);
+
+    char const* script =
+        "(set-logic ALL)\n"
+        "(declare-const H String)\n"
+        "(declare-const I String)\n"
+        "(declare-const J String)\n"
+        "(assert (= (seq.len H) 1))\n"
+        "(assert (not (= H \"x\")))\n"
+        "(assert (= (seq.++ H I) (seq.fold_left (lambda ((K String) (L Unicode)) (ite (= (seq.unit L) \"$\") K (seq.++ K (seq.unit L)))) \"\" J)))\n"
+        "(assert (= (seq.fold_left (lambda ((K String) (M Unicode)) (ite (= (seq.unit M) \"$\") K (seq.++ K (seq.unit M)))) \"\" J) \"xyz\"))\n"
+        "(check-sat)\n";
+
+    std::string resp = Z3_eval_smtlib2_string(ctx, script);
+    ENSURE(resp.find("unsat") != std::string::npos);
+    Z3_del_context(ctx);
+}
+
 void test_max_reg() {    
     // BNH multi-objective optimization problem using Z3 Optimize C API.
     // Mimics /tmp/bnh_z3.py: two objectives over a constrained 2D domain.
@@ -285,6 +307,7 @@ void tst_api() {
     test_bvneg();
     test_mk_distinct();
     test_optimize_translate();
+    test_seq_fold_left_alpha_equiv();
 }
 
 void tst_max_reg() {

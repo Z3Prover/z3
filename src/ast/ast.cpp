@@ -452,9 +452,10 @@ bool compare_nodes(ast const * n1, ast const * n2) {
             compare_arrays(q1->get_decl_sorts(),
                            q2->get_decl_sorts(),
                            q1->get_num_decls()) &&
-            compare_arrays(q1->get_decl_names(),
-                           q2->get_decl_names(),
-                           q1->get_num_decls()) &&
+            (q1->get_kind() == lambda_k ||
+             compare_arrays(q1->get_decl_names(),
+                            q2->get_decl_names(),
+                            q1->get_num_decls())) &&
             ((q1->get_qid().is_numerical() && q2->get_qid().is_numerical()) ||
              (q1->get_qid() == q2->get_qid())) && 
             compare_arrays(q1->get_patterns(),
