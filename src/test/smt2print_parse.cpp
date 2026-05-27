@@ -176,6 +176,23 @@ void test_ho_curried_application() {
     Z3_del_context(ctx);
 }
 
+void test_ho_choice_expression() {
+    char const* spec =
+        "(set-logic HO_ALL)\n"
+        "(declare-sort U 0)\n"
+        "(declare-fun P () (-> U Bool))\n"
+        "(assert (exists ((x U)) (P x)))\n"
+        "(declare-fun witness () U)\n"
+        "(assert (= witness (choice ((x U)) (P x))))\n"
+        "(assert (not (P witness)))\n"
+        "(check-sat)\n";
+
+    Z3_context ctx = Z3_mk_context(nullptr);
+    Z3_set_error_handler(ctx, setError);
+    test_eval(ctx, spec, false);
+    Z3_del_context(ctx);
+}
+
 void test_name(Z3_string spec, Z3_string expected_name) {
     Z3_context ctx = Z3_mk_context(nullptr);
     Z3_set_error_handler(ctx, setError);
@@ -306,6 +323,7 @@ void tst_smt2print_parse() {
 
     test_repeated_eval();
     test_ho_curried_application();
+    test_ho_choice_expression();
 
     test_symbol_escape();
 

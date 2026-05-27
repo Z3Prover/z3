@@ -68,6 +68,8 @@ namespace array {
             return assert_extensionality(r.n->get_expr(), r.select->get_expr());
         case axiom_record::kind_t::is_congruence:
             return assert_congruent_axiom(r.n->get_expr(), r.select->get_expr());
+        case axiom_record::kind_t::is_choice:
+            return assert_choice_axiom(r.n->get_app());
         default:
             UNREACHABLE();
             break;
@@ -469,6 +471,27 @@ namespace array {
         return ctx.propagate(e_internalize(alpha), e_internalize(beta), array_axiom());
     }
 
+    bool solver::assert_choice_axiom(app* choice_term) {
+        ++m_stats.m_num_choice_axiom;
+        SASSERT(a.is_choice(choice_term));
+        expr* pred = choice_term->get_arg(0);
+        sort* pred_sort = pred->get_sort();
+        SASSERT(a.is_array(pred_sort));
+        SASSERT(get_array_arity(pred_sort) == 1);
+        SASSERT(m.is_bool(get_array_range(pred_sort)));
+        sort* x_sort = get_array_domain(pred_sort, 0);
+        expr_ref x(m.mk_var(0, x_sort), m);
+        expr* args1[2] = { pred, x };
+        expr_ref px(a.mk_select(2, args1), m);
+        expr* args2[2] = { pred, choice_term };
+        expr_ref pc(a.mk_select(2, args2), m);
+        expr_ref body(m.mk_implies(px, pc), m);
+        symbol x_name("x");
+        expr_ref q(m.mk_forall(1, &x_sort, &x_name, body), m);
+        rewrite(q);
+        return add_unit(mk_literal(q));
+    }
+
     /**
        \brief assert n1 = n2 => forall vars . (n1 vars) = (n2 vars)
      */
@@ -691,4 +714,3 @@ namespace array {
     }
 
 }
-
