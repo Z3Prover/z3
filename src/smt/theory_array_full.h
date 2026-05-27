@@ -43,6 +43,7 @@ namespace smt {
         static unsigned const m_default_const_fingerprint = UINT_MAX - 115;
         static unsigned const m_default_as_array_fingerprint = UINT_MAX - 116;
         static unsigned const m_default_lambda_fingerprint = UINT_MAX - 117;
+        static unsigned const m_choice_fingerprint = UINT_MAX - 118;
 
     protected:
 
@@ -80,6 +81,7 @@ namespace smt {
         bool instantiate_default_map_axiom(enode* map);
         bool instantiate_default_as_array_axiom(enode* arr);
         bool instantiate_default_lambda_def_axiom(enode* arr);
+        bool instantiate_choice_axiom(enode* ch);
         bool instantiate_parent_stores_default(theory_var v);
 
 
@@ -111,5 +113,4 @@ namespace smt {
     };
 
 };
-
 

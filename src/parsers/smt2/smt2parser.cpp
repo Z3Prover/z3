@@ -21,6 +21,7 @@ Revision History:
 #include "ast/bv_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/rewriter.h"
@@ -2140,10 +2141,7 @@ namespace smt2 {
             SASSERT(num_decls <= m_num_bindings);
             m_num_bindings -= num_decls;
             if (fr->m_kind == choice_k) {
-                // create expression (choice new_q)
-                // add to expr_stack().push_back(choice_expr);
-                // 
-                throw default_exception("parsing of choice expressions is NYI");
+                expr_stack().push_back(array_util(m()).mk_choice(new_q));
             }
             else 
                 expr_stack().push_back(new_q);

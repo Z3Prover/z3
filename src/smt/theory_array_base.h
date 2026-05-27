@@ -43,6 +43,7 @@ namespace smt {
         bool is_const(app const* n) const { return n->is_app_of(get_id(), OP_CONST_ARRAY); }
         bool is_array_ext(app const * n) const { return n->is_app_of(get_id(), OP_ARRAY_EXT); }
         bool is_as_array(app const * n) const { return n->is_app_of(get_id(), OP_AS_ARRAY); }
+        bool is_choice(app const* n) const { return n->is_app_of(get_id(), OP_CHOICE); }
         bool is_array_sort(sort const* s) const { return s->is_sort_of(get_id(), ARRAY_SORT); }
         bool is_array_sort(app const* n) const { return is_array_sort(n->get_sort()); }
 
@@ -51,6 +52,7 @@ namespace smt {
         bool is_select(enode const* n) const { return is_select(n->get_expr()); }
         bool is_const(enode const* n) const { return is_const(n->get_expr()); }
         bool is_as_array(enode const * n) const { return is_as_array(n->get_expr()); }
+        bool is_choice(enode const* n) const { return is_choice(n->get_expr()); }
         bool is_default(enode const* n) const { return is_default(n->get_expr()); }
         bool is_array_sort(enode const* n) const { return is_array_sort(n->get_expr()); }
         bool is_select_arg(enode* r);
@@ -207,5 +209,4 @@ namespace smt {
     };
 
 };
-
 

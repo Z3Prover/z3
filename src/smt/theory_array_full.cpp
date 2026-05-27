@@ -271,7 +271,7 @@ namespace smt {
             return theory_array::internalize_term(n);
         }
 
-        if (!is_const(n) && !is_default(n)  && !is_map(n) && !is_as_array(n)) {
+        if (!is_const(n) && !is_default(n)  && !is_map(n) && !is_as_array(n) && !is_choice(n)) {
             if (!is_array_ext(n))
                 found_unsupported_op(n);
             return false;
@@ -328,6 +328,9 @@ namespace smt {
             m_as_array.push_back(node);
             ctx.push_trail(push_back_vector(m_as_array));
             instantiate_default_as_array_axiom(node);
+        }
+        else if (is_choice(n)) {
+            instantiate_choice_axiom(node);
         }
         else if (is_array_ext(n)) {
             SASSERT(n->get_num_args() == 2);
@@ -406,7 +409,7 @@ namespace smt {
     void theory_array_full::relevant_eh(app* n) {
         TRACE(array, tout << mk_pp(n, m) << "\n";);
         theory_array::relevant_eh(n);
-        if (!is_default(n) && !is_select(n) && !is_map(n) && !is_const(n) && !is_as_array(n)){
+        if (!is_default(n) && !is_select(n) && !is_map(n) && !is_const(n) && !is_as_array(n) && !is_choice(n)){
             return;
         }
         ctx.ensure_internalized(n);
@@ -441,6 +444,9 @@ namespace smt {
         }
         else if (is_as_array(n)) {
             instantiate_default_as_array_axiom(node);
+        }
+        else if (is_choice(n)) {
+            instantiate_choice_axiom(node);
         }
     }
 
@@ -594,6 +600,32 @@ namespace smt {
         ctx.internalize(def, false);
         ctx.internalize(val.get(), false);
         return try_assign_eq(val.get(), def);
+    }
+
+    bool theory_array_full::instantiate_choice_axiom(enode* ch) {
+        if (!ctx.add_fingerprint(this, m_choice_fingerprint, 1, &ch))
+            return false;
+        ++m_stats.m_num_choice_axiom;
+        SASSERT(is_choice(ch));
+        app* choice = ch->get_expr();
+        expr* pred = choice->get_arg(0);
+        sort* pred_sort = pred->get_sort();
+        SASSERT(is_array_sort(pred_sort));
+        SASSERT(get_array_arity(pred_sort) == 1);
+        SASSERT(m.is_bool(get_array_range(pred_sort)));
+        sort* x_sort = get_array_domain(pred_sort, 0);
+        expr_ref x(m.mk_var(0, x_sort), m);
+        expr* args1[2] = { pred, x };
+        expr_ref px(mk_select(2, args1), m);
+        expr* args2[2] = { pred, choice };
+        expr_ref pc(mk_select(2, args2), m);
+        expr_ref ax(m.mk_implies(px, pc), m);
+        symbol x_name("x");
+        expr_ref q(m.mk_forall(1, &x_sort, &x_name, ax), m);
+        ctx.get_rewriter()(q);
+        literal l = mk_literal(q);
+        assert_axiom(l);
+        return true;
     }
 
     //
@@ -839,5 +871,6 @@ namespace smt {
         st.update("array def as-array", m_stats.m_num_default_as_array_axiom);
         st.update("array sel as-array", m_stats.m_num_select_as_array_axiom);
         st.update("array def lambda", m_stats.m_num_default_lambda_axiom);
+        st.update("array choice ax", m_stats.m_num_choice_axiom);
     }
 }
