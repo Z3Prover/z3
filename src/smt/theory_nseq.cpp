@@ -1454,9 +1454,10 @@ namespace smt {
         // Collect mem items from the propagation queue into a local pointer array
         // so that indices into the array remain stable during this function.
         ptr_vector<tracked_str_mem const> mems;
-        for (auto const& item : m_prop_queue)
+        for (auto const& item : m_prop_queue) {
             if (std::holds_alternative<mem_item>(item))
                 mems.push_back(&std::get<mem_item>(item));
+        }
 
         if (mems.empty())
             return l_undef;
@@ -1481,7 +1482,7 @@ namespace smt {
             return l_undef;
 
         // Check if there are any eq items in the queue (needed for SAT condition below).
-        bool has_eqs = any_of(m_prop_queue, [](auto p) { return std::holds_alternative<eq_item>(p); });
+        bool has_eqs = any_of(m_prop_queue, [](auto p) { return std::holds_alternative<eq_item>(p) || std::holds_alternative<deq_item>(p); });
 
         bool any_undef = false;
 
