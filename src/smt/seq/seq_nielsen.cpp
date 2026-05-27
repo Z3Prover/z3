@@ -1251,6 +1251,10 @@ namespace seq {
         seq_util& seq = this->graph().seq();
         bool changed = true;
 
+        if (id() == 4) {
+            graph().to_dot(std::cout);
+            std::flush(std::cout);
+        }
         // DON'T add rules here that add new constraints or apply substitutions
         // add them to apply_det_modifier instead
 
@@ -4458,7 +4462,7 @@ namespace seq {
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, true);
             child->m_str_deq.pop_back();
-            expr_ref cmp(this->a.mk_le(u_len, v_len), m);
+            expr_ref cmp(this->a.mk_lt(u_len, v_len), m);
             m_rw(cmp);
             e->add_side_constraint(constraint(cmp, first.m_dep, m));
         }
@@ -4467,7 +4471,7 @@ namespace seq {
             nielsen_node* child = mk_child(node);
             nielsen_edge* e = mk_edge(node, child, true);
             child->m_str_deq.pop_back();
-            expr_ref cmp(this->a.mk_le(v_len, u_len), m);
+            expr_ref cmp(this->a.mk_lt(v_len, u_len), m);
             m_rw(cmp);
             e->add_side_constraint(constraint(cmp, first.m_dep, m));
         }
