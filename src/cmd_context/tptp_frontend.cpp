@@ -1785,11 +1785,8 @@ class tptp_parser {
         char* buffer = nullptr;
         size_t len = 0;
         errno_t err = ::_dupenv_s(&buffer, &len, name);
-        if (err != 0) {
-            if (buffer)
-                std::free(buffer);
+        if (err != 0)
             return false;
-        }
         if (!buffer)
             return false;
         value.assign(buffer);
