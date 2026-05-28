@@ -3498,8 +3498,8 @@ namespace seq {
             VERIFY(m_seq.is_re(stabilizer_re->get_expr(), seq_sort));
 
             // Construct the replacement x = x' x''
-            euf::snode* xp      = mk_fresh_var(x->get_sort());
-            euf::snode* xpp     = mk_fresh_var(x->get_sort());
+            euf::snode* xp      = m_sg.mk(m_sk.mk("cycle", x->get_expr(), stabilizer_re->get_expr(), seq_sort));
+            euf::snode* xpp     = get_tail(x, compute_length_expr(xp).get());
             euf::snode* xp_xpp  = m_sg.mk_concat(xp, xpp);
 
             nielsen_node* child = mk_child(node);

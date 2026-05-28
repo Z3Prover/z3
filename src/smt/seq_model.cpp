@@ -460,7 +460,8 @@ namespace smt {
             expr_ref witness(m);
             // We checked non-emptiness during Nielsen already
             lbool wr = m_rewriter.some_seq_in_re(re_expr, witness);
-            if (wr == l_true && witness) {
+            if (wr == l_true) {
+                SASSERT(witness);
                 m_trail.push_back(witness);
                 m_factory->register_value(witness);
                 return witness;
