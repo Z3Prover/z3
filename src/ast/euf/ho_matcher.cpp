@@ -92,7 +92,7 @@ namespace euf {
         while (!m_backtrack.empty()) {
             auto& wi = *m_backtrack.back();
             bool st = consume_work(wi);
-            IF_VERBOSE(3, display(verbose_stream() << "ho_matcher::consume_work: " << wi.pat << " =?= " << wi.t << " -> " << (st?"true":"false") << "\n"););
+            TRACE(ho_matching, display(tout << "ho_matcher::consume_work: " << mk_bounded_pp(wi.pat, m) << " =?= " << mk_bounded_pp(wi.t, m) << " -> " << (st?"true":"false") << "\n"););
             if (st) {
                 if (m_goals.empty())                     
                     m_on_match(m_subst);                
@@ -653,7 +653,8 @@ namespace euf {
     void ho_matcher::add_binding(var* v, unsigned offset, expr* t) {
         SASSERT(v->get_idx() >= offset);
         m_subst.set(v->get_idx() - offset, t);
-        IF_VERBOSE(10, verbose_stream() << "ho_matcher::add_binding: v" << v->get_idx() - offset << " -> " << mk_pp(t, m) << "\n";);
+        SASSERT(v->get_sort() == t->get_sort());
+        TRACE(ho_matching, tout << "ho_matcher::add_binding: v" << v->get_idx() - offset << " -> " << mk_pp(t, m) << "\n";);
         m_trail.push(undo_set(m_subst, v->get_idx() - offset));
     }
 
@@ -821,13 +822,13 @@ namespace euf {
                 m_subst.set(idx, s.get(i));
         }
 
-        IF_VERBOSE(10, verbose_stream() << "refine " << mk_pp(p, m) << "\n" << s << "\n");
+        TRACE(ho_matching, tout << "refine " << mk_pp(p, m) << "\n" << s << "\n");
 
         unsigned num_bound = 0, level = 0;
         for (auto [v, pat] : m_pat2abs[fo_pat]) {
             var_subst sub(m, true);
             auto pat_refined = sub(pat, s);
-            IF_VERBOSE(10, verbose_stream() << mk_pp(pat, m) << " -> " << pat_refined << "\n");
+            TRACE(ho_matching, tout << mk_pp(pat, m) << " -> " << pat_refined << "\n");
             m_goals.push(level, num_bound, pat_refined, m_subst.get(v));
         }
 

@@ -668,7 +668,7 @@ template<typename Config>
 void rewriter_tpl<Config>::display_bindings(std::ostream& out) {
     for (unsigned i = 0; i < m_bindings.size(); ++i) {
         if (m_bindings[i])
-            out << i << ": " << mk_ismt2_pp(m_bindings[i], m()) << ";\n";
+            out << i << ": " << mk_ismt2_pp(m_bindings[i], m()) << " : " << mk_pp(m_bindings[i]->get_sort(), m()) << ";\n";
     }
 }
 
