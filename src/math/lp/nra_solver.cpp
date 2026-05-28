@@ -529,9 +529,11 @@ struct solver::imp {
 
         if (r == l_false)
             return add_lemma(clause);
+        if (r == l_true)
+            return l_true;
         // The chosen constraint is falsified in the substituted LRA model,
-        // so NLSAT should also report l_false; any other outcome (l_true
-        // or l_undef) means we cannot derive a useful lemma here.
+        // so NLSAT should also report l_false; l_undef means we cannot
+        // derive a useful lemma here and the check did not succeed.
         return l_undef;
     }
 
