@@ -5083,6 +5083,16 @@ namespace smt {
         if (!s)
             return nullptr;
 
+        if (s->is_numeral()) {
+            arith_util a(m);
+            return a.mk_numeral(s->get_numeral(), true);
+        }
+
+        if (s->is_bv_numeral()) {
+            bv_util bv(m);
+            return bv.mk_numeral(s->get_numeral(), s->get_bv_size());
+        }
+
         if (s->is_symbol()) {
             symbol name = s->get_symbol();
             if (name == symbol("true"))
@@ -5133,7 +5143,30 @@ namespace smt {
             }
         }
 
-        return decl ? m.mk_app(decl, args.size(), args.data()) : nullptr;
+        if (decl)
+            return m.mk_app(decl, args.size(), args.data());
+
+        arith_util a(m);
+        if (name == symbol(">") && arity == 2)
+            return a.mk_gt(args.get(0), args.get(1));
+        if (name == symbol(">=") && arity == 2)
+            return a.mk_ge(args.get(0), args.get(1));
+        if (name == symbol("<") && arity == 2)
+            return a.mk_lt(args.get(0), args.get(1));
+        if (name == symbol("<=") && arity == 2)
+            return a.mk_le(args.get(0), args.get(1));
+        if (name == symbol("+") && arity > 0)
+            return a.mk_add(args.size(), args.data());
+        if (name == symbol("*") && arity > 0)
+            return a.mk_mul(args.size(), args.data());
+        if (name == symbol("-") && arity == 1)
+            return a.mk_uminus(args.get(0));
+        if (name == symbol("-") && arity == 2)
+            return a.mk_sub(args.get(0), args.get(1));
+        if (name == symbol("/") && arity == 2)
+            return a.mk_div(args.get(0), args.get(1));
+
+        return nullptr;
     }
 
     void context::print_on_failure_logs() {
@@ -5144,7 +5177,7 @@ namespace smt {
             else {
                 std::ostringstream out;
                 s->display(out);
-                std::cout << "No enodes congruent to " << out.str() << "\n";
+                std::cout << "Could not parse sexpr: " << out.str() << "\n";
             }
         }
         m_cgr_on_failure_todo.reset();
