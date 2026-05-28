@@ -5029,9 +5029,33 @@ namespace smt {
             m_model->add_rec_funs();
     }
 
+    enode* context::find_enode_rec(expr* e) {
+        if (enode* n = find_enode(e))
+            return n;
+        if (!is_app(e))
+            return nullptr;
+        app* a = to_app(e);
+        enode_vector arg_enodes;
+        for (expr* arg : *a)
+            if (enode* n = find_enode_rec(arg))
+                arg_enodes.push_back(n);
+            else
+                return nullptr;
+        // The hash function for cg_table looks up the root enode for each argument, so we don't need to do it here.
+        return get_enode_eq_to(a->get_decl(), a->get_num_args(), arg_enodes.data());
+    }
+
+    void context::print_cgr(expr* e) {
+        smt::enode* n = find_enode_rec(e);
+        if (!n)
+            std::cout << "No enodes congruent to " << mk_pp(e, m) << "\n";
+        else
+            std::cout << "Congruence root for " << mk_pp(e, m) << ": " << mk_pp(n->get_root()->get_expr(), m) << "\n";
+    }
+
     void context::print_on_failure_logs() {
         for (expr* e : m_cgr_on_failure_todo)
-            std::cout << "Hello: " << mk_pp(e, m) << "\n";
+            print_cgr(e);
         m_cgr_on_failure_todo.reset();
     }
 

@@ -349,6 +349,9 @@ namespace smt {
             return m_app2enode.get(n->get_id(), 0);
         }
 
+        enode* find_enode_rec(expr* e);
+        void print_cgr(expr* e);
+
         void get_cgr_on_failure(expr * e);
 
         void reset_bool_vars() {
