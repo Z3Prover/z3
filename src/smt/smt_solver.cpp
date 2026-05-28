@@ -237,8 +237,12 @@ namespace {
         expr_ref_vector get_assigned_literals() override {
             expr_ref_vector result(m);
             auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
-            for (auto lit : ctx.assigned_literals())
-                result.push_back(ctx.literal2expr(lit));
+            for (auto lit : ctx.assigned_literals()) {
+                expr* atom = ctx.bool_var2expr(lit.var());
+                if (!atom)
+                    continue;
+                result.push_back(lit.sign() ? m.mk_not(atom) : atom);
+            }
             return result;
         }
 
