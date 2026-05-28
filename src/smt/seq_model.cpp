@@ -390,10 +390,10 @@ namespace smt {
 
         // unconstrained or regex-constrained: delegate to mk_fresh_value
         val = mk_fresh_value(var);
-        if (val) {
-            m_trail.push_back(val);
-            m_var_values.insert(key, val);
-        }
+        std::cout << "Fresh value for " << mk_pp(var->get_expr(), m) << " : " << mk_pp(val, m) << std::endl;
+        SASSERT(val);
+        m_trail.push_back(val);
+        m_var_values.insert(key, val);
         return val;
     }
 
@@ -432,8 +432,7 @@ namespace smt {
 
     expr* seq_model::mk_fresh_value(euf::snode* var) {
         SASSERT(var->get_expr());
-        if (!m_seq.is_seq(var->get_expr()))
-            return nullptr;
+        SASSERT(m_seq.is_seq(var->get_expr()));
         auto  srt = var->get_expr()->get_sort();
 
         // check if this variable has regex constraints
@@ -443,7 +442,6 @@ namespace smt {
             expr* re_expr = re->get_expr();
             SASSERT(re_expr);
 
-            arith_util arith(m);
             expr_ref len_expr(m_seq.str.mk_length(var->get_expr()), m);
             rational len_val;
             bool has_len = get_arith_value(len_expr, len_val);

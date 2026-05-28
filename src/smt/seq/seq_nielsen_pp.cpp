@@ -620,6 +620,70 @@ namespace seq {
             || r == backtrack_reason::smt;
     }
 
+    // Render the current substitution of the original (root) variables at `node`.
+    // Walks the parent-edge chain from the root down to `node`, composing the
+    // edge substitutions exactly the way seq_model::extract_assignments does,
+    // and prints each root variable together with its current value (the image
+    // of the variable after applying all substitutions on the root-to-node path).
+    // Only variables whose value actually changed are shown. Purely for display:
+    // the values are computed on demand and any snodes created during
+    // substitution are harmless (the sgraph is monotone within a scope).
+    static void render_current_subst(std::ostream& out, nielsen_node const* node,
+                                     nielsen_node const* root,
+                                     u_map<nielsen_edge*> const& parent_edge,
+                                     euf::sgraph& sg,
+                                     obj_map<expr, std::string>& names, uint64_t& next_id,
+                                     ast_manager& m) {
+        if (!root)
+            return;
+
+        // collect the original variables present in the root node's constraints
+        ptr_vector<euf::snode> vars;
+        uint_set seen;
+        auto add_vars = [&](euf::snode* s) {
+            if (!s)
+                return;
+            for (euf::snode* t : s->collect_tokens())
+                if (t->is_var() && !seen.contains(t->id())) {
+                    seen.insert(t->id());
+                    vars.push_back(t);
+                }
+        };
+        for (auto const& eq : root->str_eqs()) { add_vars(eq.m_lhs); add_vars(eq.m_rhs); }
+        for (auto const& deq : root->str_deqs()) { add_vars(deq.m_lhs); add_vars(deq.m_rhs); }
+        for (auto const& mem : root->str_mems()) add_vars(mem.m_str);
+        if (vars.empty())
+            return;
+
+        // collect edges along the root-to-node path (path[0] is node's parent edge)
+        ptr_vector<nielsen_edge> path;
+        uint_set visited;
+        for (nielsen_node const* cur = node; cur != root && !visited.contains(cur->id()); ) {
+            visited.insert(cur->id());
+            nielsen_edge* pe = nullptr;
+            if (!parent_edge.find(cur->id(), pe))
+                break;
+            path.push_back(pe);
+            cur = pe->src();
+        }
+
+        bool any = false;
+        for (euf::snode* var : vars) {
+            euf::snode* val = var;
+            // apply substitutions in root-to-node order (path is node-to-root)
+            for (unsigned i = path.size(); i-- > 0; )
+                for (nielsen_subst const& s : path[i]->subst())
+                    val = sg.subst(val, s.m_var, s.m_replacement);
+            if (val == var)
+                continue; // unchanged: variable is still free at this node
+            if (!any) { out << "<br/>Subst:<br/>"; any = true; }
+            out << snode_label_html(var, names, next_id, m)
+                << " &#8594; "
+                << snode_label_html(val, names, next_id, m)
+                << "<br/>";
+        }
+    }
+
     // gives a graphviz graph representation of the Nielsen graph, for debugging
     std::ostream& nielsen_graph::to_dot(std::ostream& out) const {
 
@@ -636,11 +700,20 @@ namespace seq {
         uint64_t next_id = 0;
         out << "digraph G {\n";
 
+        // map each node to an incoming edge so the root-to-node substitution
+        // path can be reconstructed (m_parent_edge is not maintained).
+        u_map<nielsen_edge*> parent_edge;
+        for (nielsen_node const* n : m_nodes)
+            for (nielsen_edge* e : n->outgoing())
+                parent_edge.insert(e->tgt()->id(), e);
+
         // --- nodes ---
         for (nielsen_node const* n : m_nodes) {
             out << "    " << n->id() << " [label=<"
                 << n->id() << ": ";
             n->to_html(out, names, next_id, m);
+            // append the current substitution of the root variables at this node
+            render_current_subst(out, n, m_root, parent_edge, m_sg, names, next_id, m);
             // append conflict reason if this is a direct conflict
             if (n->is_currently_conflict())
                 out << "<br/>" << reason_to_str(n->reason());
