@@ -78,6 +78,7 @@ namespace smt {
         m_dyn_ack_manager(*this, p),
         m_unknown("unknown"),
         m_unsat_core(m),
+        m_cgr_on_failure_todo(m),
         m_mk_bool_var_trail(*this),
         m_mk_enode_trail(*this),
         m_lemma_visitor(m) {
@@ -4218,6 +4219,7 @@ namespace smt {
                         display_eqc(std::cout);
                     }
 
+                    print_on_failure_logs();
                     return l_true;
                 case FC_CONTINUE:
                     break;
@@ -5026,9 +5028,15 @@ namespace smt {
         if (m_model && p.user_functions() && smtlib2_compliant != "true")
             m_model->add_rec_funs();
     }
-    
+
+    void context::print_on_failure_logs() {
+        for (expr* e : m_cgr_on_failure_todo)
+            std::cout << "Hello: " << mk_pp(e, m) << "\n";
+        m_cgr_on_failure_todo.reset();
+    }
+
     void context::get_cgr_on_failure(expr * e) {
-        std::cout << "Hello: " << mk_pp(e, m) << "\n";
+        m_cgr_on_failure_todo.push_back(e);
     }
 };
 
