@@ -449,7 +449,7 @@ struct solver::imp {
         }
 
         if (best == lp::null_ci)
-            return l_undef;
+            return l_true;
 
         // Determine the LRA variables transitively referenced by the
         // chosen constraint, then create only those NLSAT variables and
