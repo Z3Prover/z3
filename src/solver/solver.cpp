@@ -27,6 +27,8 @@ Notes:
 #include "params/solver_params.hpp"
 #include "model/model_evaluator.h"
 #include "model/model_params.hpp"
+#include <iostream>
+#include <typeinfo>
 
 
 unsigned solver::get_num_assertions() const {
@@ -184,6 +186,11 @@ lbool solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>&
 
 lbool solver::preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {
     return check_sat(0, nullptr);
+}
+
+void solver::get_cgr_on_failure(expr* e) {
+    (void)e;
+    std::cerr << "Solver does not support getting congruence roots on failure: " << typeid(*this).name() << std::endl;
 }
 
 

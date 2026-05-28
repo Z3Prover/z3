@@ -225,10 +225,14 @@ namespace smt {
     }
 
     expr* kernel::congruence_root(expr * e) {
-        smt::enode* n = m_imp->m_kernel.find_enode(e);        
+        smt::enode* n = m_imp->m_kernel.find_enode(e);
         if (!n)
             return e;
         return n->get_root()->get_expr();
+    }
+
+    void kernel::get_cgr_on_failure(expr * e) {
+        m_imp->m_kernel.get_cgr_on_failure(e);
     }
 
     expr* kernel::congruence_next(expr * e) {

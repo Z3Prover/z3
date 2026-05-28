@@ -343,6 +343,8 @@ namespace smt {
             return m_app2enode.get(n->get_id(), 0);
         }
 
+        void get_cgr_on_failure(expr * e);
+
         void reset_bool_vars() {
             m_expr2bool_var.reset();
         }

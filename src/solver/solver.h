@@ -274,6 +274,11 @@ public:
     */
     virtual expr_ref congruence_explain(expr* a, expr* b) = 0;
 
+    /**
+       \brief print congruence closure root at the time of failure.
+    */
+    virtual void get_cgr_on_failure(expr* e);
+
     struct solution {
         expr* var;
         expr_ref term;

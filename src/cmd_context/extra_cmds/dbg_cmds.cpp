@@ -760,6 +760,13 @@ class qe_lite_cmd : public cmd {
     }
 };
 
+UNARY_CMD(get_cgr_on_failure_cmd, "get-cgr-on-failure", "<term>", "Get the congruence root of a term if it exists at the failing branch of an unknown query", CPK_EXPR, expr *, {
+    solver * s = ctx.get_solver();
+    if (!s)
+        throw cmd_exception("solver is not available");
+    s->get_cgr_on_failure(arg);
+});
+
 void install_dbg_cmds(cmd_context &ctx) {
     ctx.insert(alloc(print_dimacs_cmd));
     ctx.insert(alloc(get_quantifier_body_cmd));
@@ -791,4 +798,5 @@ void install_dbg_cmds(cmd_context &ctx) {
     ctx.insert(alloc(eufi_cmd));
     ctx.insert(alloc(qel_cmd));
     ctx.insert(alloc(qe_lite_cmd));
+    ctx.insert(alloc(get_cgr_on_failure_cmd));
 }

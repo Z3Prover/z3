@@ -5026,7 +5026,10 @@ namespace smt {
         if (m_model && p.user_functions() && smtlib2_compliant != "true")
             m_model->add_rec_funs();
     }
-
+    
+    void context::get_cgr_on_failure(expr * e) {
+        std::cout << "Hello: " << mk_pp(e, m) << "\n";
+    }
 };
 
 

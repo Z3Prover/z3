@@ -440,6 +440,7 @@ namespace {
         expr* congruence_next(expr* e) override { return m_context.congruence_next(e); }
         expr* congruence_root(expr* e) override { return m_context.congruence_root(e); }
         expr_ref congruence_explain(expr* a, expr* b) override { return m_context.congruence_explain(a, b); }
+        void get_cgr_on_failure(expr* e) override { m_context.get_cgr_on_failure(e); }
         void  solve_for(vector<solver::solution>& s) override { m_context.solve_for(s); }
 
 
