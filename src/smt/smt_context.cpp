@@ -5181,10 +5181,19 @@ namespace smt {
             }
         }
         m_cgr_on_failure_todo.reset();
+
+        if (m_dump_egraph_on_failure) {
+            std::cout << "; Dumping egraph\n";
+            display_eqc(std::cout);
+        }
     }
 
     void context::get_cgr_on_failure(sexpr * e) {
         m_cgr_on_failure_todo.push_back(copy_sexpr(m_cgr_on_failure_sm, e));
+    }
+
+    void context::dump_egraph_on_failure(bool enable) {
+        m_dump_egraph_on_failure = enable;
     }
 };
 

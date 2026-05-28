@@ -441,6 +441,7 @@ namespace {
         expr* congruence_root(expr* e) override { return m_context.congruence_root(e); }
         expr_ref congruence_explain(expr* a, expr* b) override { return m_context.congruence_explain(a, b); }
         void get_cgr_on_failure(sexpr* e) override { m_context.get_cgr_on_failure(e); }
+        void dump_egraph_on_failure(bool enable) override { m_context.dump_egraph_on_failure(enable); }
         void  solve_for(vector<solver::solution>& s) override { m_context.solve_for(s); }
 
 

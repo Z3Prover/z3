@@ -280,6 +280,11 @@ public:
     */
     virtual void get_cgr_on_failure(sexpr* e);
 
+    /**
+       \brief enable/disable e-graph dump at the time of failure.
+    */
+    virtual void dump_egraph_on_failure(bool enable);
+
     struct solution {
         expr* var;
         expr_ref term;

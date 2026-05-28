@@ -193,6 +193,11 @@ void solver::get_cgr_on_failure(sexpr* e) {
     std::cerr << "Solver does not support getting congruence roots on failure: " << typeid(*this).name() << std::endl;
 }
 
+void solver::dump_egraph_on_failure(bool enable) {
+    (void)enable;
+    std::cerr << "Solver does not support dump-egraph-on-failure: " << typeid(*this).name() << std::endl;
+}
+
 
 static bool is_m_atom(ast_manager& m, expr* f) {
     if (!is_app(f)) return true;

@@ -280,6 +280,7 @@ namespace smt {
         // -----------------------------------
         sexpr_manager              m_cgr_on_failure_sm;
         sexpr_ref_vector           m_cgr_on_failure_todo;
+        bool                       m_dump_egraph_on_failure = false;
 
         // ----------------------------------
         //
@@ -356,6 +357,7 @@ namespace smt {
         expr* sexpr_to_expr(sexpr* s);
 
         void get_cgr_on_failure(sexpr * e);
+        void dump_egraph_on_failure(bool enable);
 
         void reset_bool_vars() {
             m_expr2bool_var.reset();
