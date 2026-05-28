@@ -612,7 +612,6 @@ namespace smt {
         scoped_ptr<model_finder>    m_model_finder;
         scoped_ptr<model_checker>   m_model_checker;
         scoped_ptr<euf::ho_matcher> m_ho_matcher;
-        trail_stack                 m_ho_trail;
         unsigned                    m_new_enode_qhead;
         unsigned                    m_lazy_matching_idx;
         bool                        m_active;
@@ -654,7 +653,7 @@ namespace smt {
             m_model_checker->set_qm(qm);
 
             if (m_fparams->m_ho_matching) {
-                m_ho_matcher = alloc(euf::ho_matcher, m, m_ho_trail);
+                m_ho_matcher = alloc(euf::ho_matcher, m, m_context->get_trail_stack());
                 std::function<void(euf::ho_subst&)> on_match = [&](euf::ho_subst& s) {
                     on_ho_match(s);
                 };
@@ -777,13 +776,13 @@ namespace smt {
         void push() override {
             m_mam->push_scope();
             m_lazy_mam->push_scope();
-            m_model_finder->push_scope();            
+            m_model_finder->push_scope();   
         }
 
         void pop(unsigned num_scopes) override {
             m_mam->pop_scope(num_scopes);
             m_lazy_mam->pop_scope(num_scopes);
-            m_model_finder->pop_scope(num_scopes);            
+            m_model_finder->pop_scope(num_scopes);
         }
 
         void init_search_eh() override {
