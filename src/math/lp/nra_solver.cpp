@@ -344,16 +344,23 @@ struct solver::imp {
 
     // Cheap LRA-side proxy for "degree of the substituted polynomial in
     // its max variable". For a leaf the expansion size is 1; for a monic
-    // it is the (recursive) sum over factors. For a constraint we take
-    // the max over the lhs terms, since the polynomial is a sum of those
-    // monomials. Smaller values are preferred to mimic the lowest-degree
-    // heuristic in nlsat_solver::check(rvalues, clause).
+    // it is the (recursive) sum over factors; for a term column it is the
+    // (recursive) sum over the term's constituent columns. For a constraint
+    // we take the max over the lhs terms, since the polynomial is a sum of
+    // those monomials. Smaller values are preferred to mimic the
+    // lowest-degree heuristic in nlsat_solver::check(rvalues, clause).
     unsigned var_expansion_size(lp::lpvar v) {
         if (m_nla_core.emons().is_monic_var(v)) {
             unsigned s = 0;
             for (auto w : m_nla_core.emons()[v].vars())
                 s += var_expansion_size(w);
             return s;
+        }
+        if (lra.column_has_term(v)) {
+            unsigned s = 0;
+            for (auto const& [w, coeff] : lra.get_term(v))
+                s += var_expansion_size(w);
+            return s > 0 ? s : 1;
         }
         return 1;
     }
