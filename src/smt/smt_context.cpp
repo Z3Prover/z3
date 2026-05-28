@@ -46,8 +46,34 @@ Revision History:
 #include "smt/smt_arith_value.h"
 #include <iostream>
 #include <sstream>
+#include <sstream>
 
 namespace smt {
+
+    static sexpr* copy_sexpr(sexpr_manager& sm, sexpr* s) {
+        if (!s)
+            return nullptr;
+        switch (s->get_kind()) {
+        case sexpr::kind_t::COMPOSITE: {
+            ptr_buffer<sexpr> children;
+            for (unsigned i = 0; i < s->get_num_children(); ++i)
+                children.push_back(copy_sexpr(sm, s->get_child(i)));
+            return sm.mk_composite(children.size(), children.data(), s->get_line(), s->get_pos());
+        }
+        case sexpr::kind_t::NUMERAL:
+            return sm.mk_numeral(s->get_numeral(), s->get_line(), s->get_pos());
+        case sexpr::kind_t::BV_NUMERAL:
+            return sm.mk_bv_numeral(s->get_numeral(), s->get_bv_size(), s->get_line(), s->get_pos());
+        case sexpr::kind_t::STRING:
+            return sm.mk_string(s->get_string(), s->get_line(), s->get_pos());
+        case sexpr::kind_t::KEYWORD:
+            return sm.mk_keyword(s->get_symbol(), s->get_line(), s->get_pos());
+        case sexpr::kind_t::SYMBOL:
+            return sm.mk_symbol(s->get_symbol(), s->get_line(), s->get_pos());
+        }
+        UNREACHABLE();
+        return nullptr;
+    }
 
     static sexpr* copy_sexpr(sexpr_manager& sm, sexpr* s) {
         if (!s)

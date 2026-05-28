@@ -27,6 +27,7 @@ Notes:
 class solver;
 class model_converter;
 class sexpr;
+class sexpr;
 
 
 
