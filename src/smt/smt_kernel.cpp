@@ -231,7 +231,7 @@ namespace smt {
         return n->get_root()->get_expr();
     }
 
-    void kernel::get_cgr_on_failure(expr * e) {
+    void kernel::get_cgr_on_failure(sexpr * e) {
         m_imp->m_kernel.get_cgr_on_failure(e);
     }
 

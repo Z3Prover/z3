@@ -188,7 +188,7 @@ lbool solver::preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>
     return check_sat(0, nullptr);
 }
 
-void solver::get_cgr_on_failure(expr* e) {
+void solver::get_cgr_on_failure(sexpr* e) {
     (void)e;
     std::cerr << "Solver does not support getting congruence roots on failure: " << typeid(*this).name() << std::endl;
 }

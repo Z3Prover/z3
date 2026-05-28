@@ -53,6 +53,7 @@ Revision History:
 #include "model/model.h"
 #include "solver/progress_callback.h"
 #include "solver/assertions/asserted_formulas.h"
+#include "util/sexpr.h"
 #include <tuple>
 
 // there is a significant space overhead with allocating 1000+ contexts in
@@ -277,7 +278,8 @@ namespace smt {
         // Debugging
         //
         // -----------------------------------
-        expr_ref_vector            m_cgr_on_failure_todo;
+        sexpr_manager              m_cgr_on_failure_sm;
+        sexpr_ref_vector           m_cgr_on_failure_todo;
 
         // ----------------------------------
         //
@@ -351,8 +353,9 @@ namespace smt {
 
         enode* find_enode_rec(expr* e);
         void print_cgr(expr* e);
+        expr* sexpr_to_expr(sexpr* s);
 
-        void get_cgr_on_failure(expr * e);
+        void get_cgr_on_failure(sexpr * e);
 
         void reset_bool_vars() {
             m_expr2bool_var.reset();

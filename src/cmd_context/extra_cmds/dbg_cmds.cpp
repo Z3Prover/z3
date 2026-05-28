@@ -760,7 +760,7 @@ class qe_lite_cmd : public cmd {
     }
 };
 
-UNARY_CMD(get_cgr_on_failure_cmd, "get-cgr-on-failure", "<term>", "Get the congruence root of a term if it exists at the failing branch of an unknown query", CPK_EXPR, expr *, {
+UNARY_CMD(get_cgr_on_failure_cmd, "get-cgr-on-failure", "<term>", "Get the congruence root of a term if it exists at the failing branch of an unknown query", CPK_SEXPR, sexpr *, {
     solver * s = ctx.get_solver();
     if (!s)
         throw cmd_exception("solver is not available");

@@ -45,8 +45,34 @@ Revision History:
 #include "smt/smt_parallel.h"
 #include "smt/smt_arith_value.h"
 #include <iostream>
+#include <sstream>
 
 namespace smt {
+
+    static sexpr* copy_sexpr(sexpr_manager& sm, sexpr* s) {
+        if (!s)
+            return nullptr;
+        switch (s->get_kind()) {
+        case sexpr::kind_t::COMPOSITE: {
+            ptr_buffer<sexpr> children;
+            for (unsigned i = 0; i < s->get_num_children(); ++i)
+                children.push_back(copy_sexpr(sm, s->get_child(i)));
+            return sm.mk_composite(children.size(), children.data(), s->get_line(), s->get_pos());
+        }
+        case sexpr::kind_t::NUMERAL:
+            return sm.mk_numeral(s->get_numeral(), s->get_line(), s->get_pos());
+        case sexpr::kind_t::BV_NUMERAL:
+            return sm.mk_bv_numeral(s->get_numeral(), s->get_bv_size(), s->get_line(), s->get_pos());
+        case sexpr::kind_t::STRING:
+            return sm.mk_string(s->get_string(), s->get_line(), s->get_pos());
+        case sexpr::kind_t::KEYWORD:
+            return sm.mk_keyword(s->get_symbol(), s->get_line(), s->get_pos());
+        case sexpr::kind_t::SYMBOL:
+            return sm.mk_symbol(s->get_symbol(), s->get_line(), s->get_pos());
+        }
+        UNREACHABLE();
+        return nullptr;
+    }
 
     context::context(ast_manager & m, smt_params & p, params_ref const & _p):
         m(m),
@@ -78,7 +104,7 @@ namespace smt {
         m_dyn_ack_manager(*this, p),
         m_unknown("unknown"),
         m_unsat_core(m),
-        m_cgr_on_failure_todo(m),
+        m_cgr_on_failure_todo(m_cgr_on_failure_sm),
         m_mk_bool_var_trail(*this),
         m_mk_enode_trail(*this),
         m_lemma_visitor(m) {
@@ -5050,17 +5076,82 @@ namespace smt {
         if (!n)
             std::cout << "No enodes congruent to " << mk_pp(e, m) << "\n";
         else
-            std::cout << "Congruence root for " << mk_pp(e, m) << ": " << mk_pp(n->get_root()->get_expr(), m) << "\n";
+            std::cout << "The congruence root for " << mk_pp(e, m) << " is #" << n->get_root()->get_owner_id() << ": " << mk_pp(n->get_root()->get_expr(), m) << "\n";
+    }
+
+    expr* context::sexpr_to_expr(sexpr* s) {
+        if (!s)
+            return nullptr;
+
+        if (s->is_symbol()) {
+            symbol name = s->get_symbol();
+            if (name == symbol("true"))
+                return m.mk_true();
+            if (name == symbol("false"))
+                return m.mk_false();
+            for (enode* n : m_enodes) {
+                app* a = n->get_expr();
+                if (a->get_num_args() == 0 && a->get_decl()->get_name() == name)
+                    return a;
+            }
+            return nullptr;
+        }
+
+        if (!s->is_composite() || s->get_num_children() == 0)
+            return nullptr;
+
+        sexpr* head = s->get_child(0);
+        if (!head->is_symbol())
+            return nullptr;
+
+        symbol name = head->get_symbol();
+        unsigned arity = s->get_num_children() - 1;
+        expr_ref_vector args(m);
+        for (unsigned i = 1; i < s->get_num_children(); ++i) {
+            expr* arg = sexpr_to_expr(s->get_child(i));
+            if (!arg)
+                return nullptr;
+            args.push_back(arg);
+        }
+
+        func_decl* decl = nullptr;
+        for (enode* n : m_enodes) {
+            app* a = n->get_expr();
+            func_decl* f = a->get_decl();
+            if (f->get_name() != name || f->get_arity() != arity)
+                continue;
+            bool sorts_match = true;
+            for (unsigned i = 0; i < arity; ++i) {
+                if (f->get_domain(i) != args[i]->get_sort()) {
+                    sorts_match = false;
+                    break;
+                }
+            }
+            if (sorts_match) {
+                decl = f;
+                break;
+            }
+        }
+
+        return decl ? m.mk_app(decl, args.size(), args.data()) : nullptr;
     }
 
     void context::print_on_failure_logs() {
-        for (expr* e : m_cgr_on_failure_todo)
-            print_cgr(e);
+        for (sexpr* s : m_cgr_on_failure_todo) {
+            if (expr* e = sexpr_to_expr(s)) {
+                print_cgr(e);
+            }
+            else {
+                std::ostringstream out;
+                s->display(out);
+                std::cout << "No enodes congruent to " << out.str() << "\n";
+            }
+        }
         m_cgr_on_failure_todo.reset();
     }
 
-    void context::get_cgr_on_failure(expr * e) {
-        m_cgr_on_failure_todo.push_back(e);
+    void context::get_cgr_on_failure(sexpr * e) {
+        m_cgr_on_failure_todo.push_back(copy_sexpr(m_cgr_on_failure_sm, e));
     }
 };
 
