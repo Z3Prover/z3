@@ -106,11 +106,6 @@ namespace smt {
         // Collect enode dependencies required to evaluate an snode value.
         void collect_dependencies(euf::snode* n, ptr_vector<enode>& deps) const;
 
-
-        // register all string literals appearing in the constraint store
-        // with the factory to avoid collisions with fresh values.
-        void register_existing_values(seq::nielsen_graph& nielsen);
-
         // look up or compute the value for an snode variable.
         // If no assignment exists, delegates to mk_fresh_value.
         expr* get_var_value(euf::snode* var);

@@ -602,6 +602,12 @@ namespace seq {
         void add_side_constraint(constraint const& ic) {
             if (ic.fml.m().is_true(ic.fml))
                 return;
+            expr* a, * b;
+            if (ic.fml.m().is_and(ic.fml, a, b)) {
+                add_side_constraint(constraint(a, ic.dep, ic.fml.m()));
+                add_side_constraint(constraint(b, ic.dep, ic.fml.m()));
+                return;
+            }
             m_side_constraints.push_back(ic);
         }
         vector<constraint> const& side_constraints() const { return m_side_constraints; }

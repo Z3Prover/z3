@@ -168,7 +168,7 @@ namespace seq {
             return val.to_string();
         if (!is_app(e)) {
             std::ostringstream os;
-            os << mk_pp(e, m);
+            os << mk_bounded_pp(e, m);
             return dot_html_escape(os.str());
         }
         app* a = to_app(e);
@@ -241,7 +241,9 @@ namespace seq {
             if (names.contains(x)) {
                 return "|" + names[x] + "|";
             }
-            std::string s = dot_html_escape(to_app(x)->get_decl()->get_name().str()) + std::to_string(next_id++);
+            std::stringstream ss;
+            ss << mk_bounded_pp(x, m);
+            std::string s = ss.str();
             names.insert(x, s);
             return "|" + s + "|";
         }
@@ -254,7 +256,9 @@ namespace seq {
             return dot_html_escape(a->get_decl()->get_name().str());
         if (names.contains(e))
             return names[e];
-        std::string s = dot_html_escape(to_app(e)->get_decl()->get_name().str()) + std::to_string(next_id++);
+        std::stringstream ss;
+        ss << mk_bounded_pp(e, m);
+        std::string s = dot_html_escape(ss.str());
         names.insert(e, s);
         return s;
 
@@ -462,7 +466,9 @@ namespace seq {
                 else if (names.contains(e))
                     result += names[e];
                 else {
-                    std::string s = dot_html_escape(to_app(e)->get_decl()->get_name().str()) + std::to_string(next_id++);
+                    std::stringstream ss;
+                    ss << mk_bounded_pp(e, m);
+                    std::string s = dot_html_escape(ss.str());
                     names.insert(e, s);
                     result += s;
                 }

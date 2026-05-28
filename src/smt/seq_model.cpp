@@ -79,6 +79,15 @@ namespace smt {
         }
     };
 
+    // Stable key for a variable snode. The sgraph may hold several distinct
+    // snode objects for the same hash-consed expression (e.g. one created at
+    // internalization and one re-created during the Nielsen search), so snode
+    // ids are NOT a reliable key. Expressions are perfectly shared, so their
+    // id is stable across all snodes that denote the same term.
+    static unsigned var_key(euf::snode* n) {
+        return n->first()->get_expr()->get_id();
+    }
+
     seq_model::seq_model(ast_manager& m, context& ctx, seq_util& seq,
                            seq_rewriter& rw, euf::sgraph& sg)
         : m(m), m_ctx(ctx), m_seq(seq), m_rewriter(rw), m_sg(sg), m_trail(m)
@@ -95,7 +104,6 @@ namespace smt {
         m_factory = alloc(seq_factory, m, m_seq.get_family_id(), mg.get_model());
         mg.register_factory(m_factory);
 
-        register_existing_values(nielsen);
         seq::nielsen_node* sat_node = nielsen.sat_node();
         SASSERT(sat_node); // in case we report sat, this has to point to a satisfied Nielsen node!
         collect_var_regex_constraints(sat_node);
@@ -112,6 +120,7 @@ namespace smt {
 
     model_value_proc* seq_model::mk_value(enode* n, model_generator& mg) {
         app* e = n->get_expr();
+
         if (!m_seq.is_seq(e) && !m_seq.is_re(e) && !m_seq.str.is_nth_u(e))
             return nullptr;
 
@@ -208,7 +217,10 @@ namespace smt {
         IF_VERBOSE(1, verbose_stream() << "nseq extract_assignments: " << bindings.size() << " bindings\n";);
         for (auto const &[var, replacement] : bindings) {
             SASSERT(var);
-            unsigned id = var->first()->id(); // TODO - first or just var->id()?
+            // Key by expression id, not snode id: the sgraph may hold two distinct
+            // snode objects for the same (hash-consed) expression, so snode ids are
+            // not a stable key across the substitution trees we traverse here.
+            unsigned id = var_key(var);
             SASSERT(!m_var_replacement.contains(id));
             m_var_replacement.insert(id, replacement);
         }
@@ -247,8 +259,8 @@ namespace smt {
                 // when using the dependencies to build a value for n we should
                 // map the values that are passed in to the sub-terms that are listed as dependencies.
                 // sub-terms are under concat, power and unit
-                euf::snode *replacement = nullptr;             
-                if (m_var_replacement.find(curr->id(), replacement))
+                euf::snode *replacement = nullptr;
+                if (m_var_replacement.find(var_key(curr), replacement))
                     todo.push_back(replacement);
             }
             else {
@@ -344,7 +356,7 @@ namespace smt {
             }
             else if (curr->is_var()) {
                 euf::snode *replacement = nullptr;
-                if (m_var_replacement.find(curr->id(), replacement)) {
+                if (m_var_replacement.find(var_key(curr), replacement)) {
                     // outer variable: its value is the value of its replacement.
                     expr* rv = nullptr;
                     if (!resolve(replacement, rv)) {
@@ -374,23 +386,15 @@ namespace smt {
         return expr_ref(result, m);
     }
 
-    void seq_model::register_existing_values(seq::nielsen_graph& nielsen) {
-        seq::nielsen_node const* root = nielsen.root();
-        if (!root)
-            return;
-        // TODO - need to traverse sub-expressions for values.
-    }
-
     expr* seq_model::get_var_value(euf::snode* var) {
         SASSERT(var);
-        unsigned key = var->first()->id();
+        const unsigned key = var_key(var);
         expr* val = nullptr;
         if (m_var_values.find(key, val))
             return val;
 
         // unconstrained or regex-constrained: delegate to mk_fresh_value
         val = mk_fresh_value(var);
-        std::cout << "Fresh value for " << mk_pp(var->get_expr(), m) << " : " << mk_pp(val, m) << std::endl;
         SASSERT(val);
         m_trail.push_back(val);
         m_var_values.insert(key, val);
@@ -437,7 +441,7 @@ namespace smt {
 
         // check if this variable has regex constraints
         euf::snode* re = nullptr;
-        unsigned key = var->first()->id();
+        unsigned key = var_key(var);
         if (m_var_regex.find(key, re) && re) {
             expr* re_expr = re->get_expr();
             SASSERT(re_expr);
@@ -509,8 +513,7 @@ namespace smt {
             if (mem.is_trivial(sat_node))
                 continue; // empty string in nullable regex: already satisfied, no variable to constrain
             VERIFY(mem.is_primitive()); // everything else should have been eliminated already
-            euf::snode* first = mem.m_str->first();
-            unsigned id = first->id();
+            unsigned id = var_key(mem.m_str);
             euf::snode* existing = nullptr;
             if (m_var_regex.find(id, existing) && existing) {
                 // intersect with existing constraint:
