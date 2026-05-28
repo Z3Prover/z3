@@ -990,8 +990,8 @@ class parallel_solver {
                 expr* atom = e;
                 m.is_not(e, atom);
 
-                // get_trail may include ground terms; skip complex ones 
-                if (!is_uninterp_const(atom)) continue;
+                if (m.is_and(atom) || m.is_or(atom) || m.is_ite(atom) || m.is_iff(atom))
+                    continue;
 
                 unsigned v = s->get_bool_var(atom);
                 if (v == UINT_MAX)
@@ -1018,8 +1018,7 @@ class parallel_solver {
                 return expr_ref(nullptr, m);
             expr_ref candidate = s->get_split_candidate();
 
-            if (candidate && m_config.m_global_backbones &&
-                b.is_global_backbone_or_negation(m_l2g, candidate))
+            if (candidate && m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, candidate))
                 return expr_ref(nullptr, m);
             return candidate;
         }

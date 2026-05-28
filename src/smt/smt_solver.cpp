@@ -244,14 +244,18 @@ namespace {
 
         unsigned get_assign_level(expr* e) const override {
             auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
-            if (!ctx.b_internalized(e))
+            expr* atom = e;
+            get_manager().is_not(e, atom);
+            if (!ctx.b_internalized(atom))
                 return UINT_MAX;
-            return ctx.get_assign_level(ctx.get_bool_var(e));
+            return ctx.get_assign_level(ctx.get_bool_var(atom));
         }
 
         bool is_relevant(expr* e) const override {
             auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
-            return ctx.b_internalized(e) && ctx.is_relevant(e);
+            expr* atom = e;
+            get_manager().is_not(e, atom);
+            return ctx.b_internalized(atom) && ctx.is_relevant(atom);
         }
 
         unsigned get_num_bool_vars() const override {
@@ -260,7 +264,9 @@ namespace {
 
         unsigned get_bool_var(expr* e) const override {
             auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
-            return ctx.b_internalized(e) ? ctx.get_bool_var(e) : UINT_MAX;
+            expr* atom = e;
+            get_manager().is_not(e, atom);
+            return ctx.b_internalized(atom) ? ctx.get_bool_var(atom) : UINT_MAX;
         }
 
         unsigned get_random_seed() const override {
