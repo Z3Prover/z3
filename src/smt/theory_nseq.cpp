@@ -1392,7 +1392,7 @@ namespace smt {
         // conditional constraints: propagate with justification from dep_tracker
         enode_pair_vector eqs;
         literal_vector lits;
-        seq::deps_to_lits(lc.m_dep, eqs, lits);
+        seq::deps_to_lits(m_nielsen.dep_mgr(), lc.m_dep, eqs, lits);
 
         set_propagate(eqs, lits, lit);
 
@@ -1692,14 +1692,12 @@ namespace smt {
         for (unsigned i = 0; i < mems.size(); ++i) {
             auto const &mem = mems[i];
             SASSERT(mem.well_formed());
-            if (mem.is_primitive()) {
-                auto &vec = var_to_mems.insert_if_not_there(mem.m_str->id(), unsigned_vector());
-                vec.push_back(i);
-            }
+            SASSERT(mem.is_primitive());
+            auto &vec = var_to_mems.insert_if_not_there(mem.m_str->id(), unsigned_vector());
+            vec.push_back(i);
         }
 
-        if (var_to_mems.empty())
-            return true;
+        SASSERT(!var_to_mems.empty());
 
         for (expr *len_expr : m_relevant_lengths) {
             expr *s = nullptr;
@@ -1787,8 +1785,10 @@ namespace smt {
                 enode_pair_vector eqs;
                 literal_vector dep_lits;
 
-                for (unsigned idx : mem_indices) 
-                    seq::deps_to_lits(mems[idx].m_dep, eqs, dep_lits);
+                for (unsigned idx : mem_indices) {
+                    std::cout << seq::mem_pp(mems[idx], m) << std::endl;
+                    seq::deps_to_lits(m_nielsen.dep_mgr(), mems[idx].m_dep, eqs, dep_lits);
+                }
                 
 
                 set_propagate(eqs, dep_lits, lit_prop);

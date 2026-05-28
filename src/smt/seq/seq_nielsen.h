@@ -375,9 +375,7 @@ namespace seq {
 
     // partition dep_source leaves from deps into enode pairs, sat literals,
     // and arithmetic <= dependencies.
-    void deps_to_lits(dep_tracker deps,
-                      enode_pair_vector& eqs,
-                      literal_vector& lits);
+    void deps_to_lits(dep_manager &dep_mgr, dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits);
 
     // string equality constraint: lhs = rhs
     // mirrors ZIPT's StrEq (both sides are regex-free snode trees)

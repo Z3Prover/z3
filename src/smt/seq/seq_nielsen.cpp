@@ -35,6 +35,7 @@ NSB review:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
 #include "ast/rewriter/var_subst.h"
+#include "smt/smt_enode.h"
 #include "util/statistics.h"
 #include <algorithm>
 #include <complex>
@@ -45,12 +46,16 @@ NSB review:
 
 namespace seq {
 
-    void deps_to_lits(const dep_tracker deps, svector<enode_pair> &eqs, svector<sat::literal> &lits) {
-        vector<dep_source> vs;
-        dep_manager::s_linearize(deps, vs);
+    void deps_to_lits(dep_manager &dep_mgr, const dep_tracker deps,
+        svector<enode_pair> &eqs, svector<sat::literal> &lits) {
+        
+        vector<dep_source, false> vs;
+        dep_mgr.linearize(deps, vs);
         for (dep_source const &d : vs) {
-            if (std::holds_alternative<enode_pair>(d))
+            if (std::holds_alternative<enode_pair>(d)) {
                 eqs.push_back(std::get<enode_pair>(d));
+                SASSERT(eqs.back().first->get_root() == eqs.back().second->get_root());
+            }
             else if (std::holds_alternative<sat::literal>(d))
                 lits.push_back(std::get<sat::literal>(d));
             else
@@ -1962,12 +1967,6 @@ namespace seq {
             return search_result::unsat;
         }
 
-        if (node->is_satisfied()) {
-            m_sat_node = node;
-            m_sat_path = cur_path;
-            return search_result::sat;
-        }
-
         // simplify constraints (idempotent after first call)
         const simplify_result sr = node->simplify_and_init(cur_path);
 
@@ -3758,7 +3757,7 @@ namespace seq {
                         first_filter_dep = m_dep_mgr.mk_join(first_filter_dep, prev_mem.m_dep);
                     }
                 }
-                if (regexes_p.size() > 1 && m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true) {
+                if (m_seq_regex->check_intersection_emptiness(regexes_p, 100) == l_true) {
                     eliminated_dep = m_dep_mgr.mk_join(eliminated_dep, first_filter_dep);
                     continue;
                 }
@@ -4982,15 +4981,13 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::check_leaf_regex(nielsen_node const& node, dep_tracker& dep) {
-        if (!m_seq_regex)
-            return true;
+        SASSERT(m_seq_regex);
 
         // Group str_mem constraints by variable (primitive constraints only)
         u_map<std::pair<ptr_vector<euf::snode>, dep_tracker>> var_regexes;
 
         for (auto const& mem : node.str_mems()) {
-            if (!mem.is_primitive())
-                continue;
+            SASSERT(mem.is_primitive());
             const euf::snode* const first = mem.m_str->first();
             SASSERT(first && first->is_var());
             auto& list = var_regexes.insert_if_not_there(first->id(), std::pair<ptr_vector<euf::snode>, dep_tracker>());
@@ -4998,10 +4995,8 @@ namespace seq {
             list.second = dep_mgr().mk_join(list.second, mem.m_dep);
         }
 
-        // For each variable with 2+ regex constraints, check intersection non-emptiness
+        // check intersection non-emptiness (also for single occurrences; it could be empty)
         for (auto& [var_id, regexes] : var_regexes) {
-            if (regexes.first.size() < 2)
-                continue;
             const lbool result = m_seq_regex->check_intersection_emptiness(regexes.first, 5000);
             if (result == l_true) {
                 TRACE(seq, tout << "empty intersection\n");
