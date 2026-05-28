@@ -1256,10 +1256,11 @@ namespace seq {
         seq_util& seq = this->graph().seq();
         bool changed = true;
 
-        if (id() == 4) {
-            graph().to_dot(std::cout);
-            std::flush(std::cout);
-        }
+        //if (id() == 9) {
+        //    std::string dot = graph().to_dot();
+        //    std::cout << dot << std::endl;
+        //}
+
         // DON'T add rules here that add new constraints or apply substitutions
         // add them to apply_det_modifier instead
 
@@ -1761,6 +1762,17 @@ namespace seq {
             }
         }
 
+        // remove trivial membership constraints once again
+        unsigned wj = 0;
+        for (unsigned j = 0; j < m_str_mem.size(); ++j) {
+            str_mem& mem = m_str_mem[j];
+            if (mem.is_trivial(this))
+                continue;
+            m_str_mem[wj++] = mem;
+        }
+        if (wj < m_str_mem.size())
+            m_str_mem.shrink(wj);
+
         // Regex widening: for each remaining str_mem, overapproximate
         // the string by replacing variables with their regex intersection
         // and check if the result intersected with the target regex is empty.
@@ -1778,7 +1790,6 @@ namespace seq {
                 return simplify_result::conflict;
             }
         }
-
 
         if (is_satisfied()) {
             // pass 1 removed all trivial str_eq entries; is_satisfied() requires
@@ -3031,6 +3042,9 @@ namespace seq {
                                           str_mem const*& mem_out,
                                           bool& fwd) {
         for (str_mem const& mem : node->str_mems()) {
+            if (mem.is_trivial(node)) {
+                std::cout << "Trivial mem: " << mem_pp(mem, node->graph().get_manager()) << std::endl;
+            }
             SASSERT(mem.well_formed() && !mem.is_trivial(node));
 
             for (unsigned od = 0; od < 2; ++od) {
