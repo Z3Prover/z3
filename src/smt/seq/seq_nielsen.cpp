@@ -610,7 +610,6 @@ namespace seq {
         m_partial_dfa_edge_index.clear();
         m_partial_dfa_pin.reset();
         m_projection_extract_idx = 0;
-        m_projection_cover_size.reset();
         //m_length_trail.reset();
         //m_length_info.reset();
         m_dep_mgr.reset();
@@ -967,7 +966,16 @@ namespace seq {
         expr* label_e = label_re->get_expr();
         expr* dst_e   = dst_re->get_expr();
 
-        partial_dfa_edge_key key{ src_e->get_id(), label_e->get_id(), dst_e->get_id() };
+        // Deduplicate transitions by (src, dst) only — NOT by label.  The
+        // projection operator is parameterized by the explored state set Q
+        // (the Brzozowski automaton is deterministic, so the only a-transition
+        // out of a state is to δ_a(state)); edge labels are never consulted by
+        // projection_state_in_Q / collect_scc_for_projection / the projection
+        // derivative.  Keying by label would record the SAME transition twice
+        // when it is discovered once as a concrete char (to_re "a") and once as
+        // a minterm range ([a-a]), spuriously inflating the SCC edge count and
+        // re-triggering cycle decomposition as the derivation walks the cycle.
+        partial_dfa_edge_key key{ src_e->get_id(), 0, dst_e->get_id() };
         if (m_partial_dfa_edge_index.contains(key))
             return;
 
@@ -1068,10 +1076,37 @@ namespace seq {
 
     unsigned nielsen_graph::mark_scc_projection_edges(uint_set const& scc) {
         // scc contains expr ids (see collect_scc_for_projection).
+        //
+        // Returns the number of edges *newly* added to the projection coverage
+        // by this call (edges that were previously unmarked).  Crucially, the
+        // monotone extraction index is bumped ONLY when there is something new
+        // to mark.  This makes "the explored SCC has grown" a *global* property
+        // of the SCC's edge set rather than a per-entry-state one: re-visiting
+        // an already-fully-marked SCC from a different state (e.g. a derivative
+        // state br of r, which shares the SCC {r, br}) marks nothing new and is
+        // therefore not treated as a fresh cycle to decompose.  Without this,
+        // each state of the cycle would trigger its own redundant decomposition
+        // as the derivation walks around the SCC.
+        unsigned newly_marked = 0;
+        for (unsigned src_id : scc) {
+            auto it = m_partial_dfa_out.find(src_id);
+            if (it == m_partial_dfa_out.end())
+                continue;
+            for (const unsigned edge_idx : it->second) {
+                if (edge_idx >= m_partial_dfa_edges.size())
+                    continue;
+                partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
+                if (!e.m_dst || !scc.contains(e.m_dst->get_id()))
+                    continue;
+                if (e.m_projection_idx == 0)
+                    ++newly_marked;
+            }
+        }
+        if (newly_marked == 0)
+            return 0;
+
         ++m_projection_extract_idx;
         const unsigned extract_idx = m_projection_extract_idx;
-        unsigned covered = 0;
-
         for (unsigned src_id : scc) {
             auto it = m_partial_dfa_out.find(src_id);
             if (it == m_partial_dfa_out.end())
@@ -1084,11 +1119,9 @@ namespace seq {
                     continue;
                 if (e.m_projection_idx == 0)
                     e.m_projection_idx = extract_idx;
-                if (e.m_projection_idx <= extract_idx)
-                    ++covered;
             }
         }
-        return covered;
+        return newly_marked;
     }
 
     bool nielsen_graph::try_extract_partial_projection(euf::snode* root_re, euf::snode*& projection_re) {
@@ -1101,13 +1134,12 @@ namespace seq {
         if (!collect_scc_for_projection(root_re, scc))
             return false;
 
-        // Key m_projection_cover_size by expr id (stable across pops), not
-        // snode id (reused on pop).
-        const unsigned root_expr_id = root_re->get_expr()->get_id();
-        const unsigned covered_edges = mark_scc_projection_edges(scc);
-        unsigned prev_covered = 0;
-        m_projection_cover_size.find(root_expr_id, prev_covered);
-        if (covered_edges <= prev_covered)
+        // Novelty = the SCC's edge set grew (some edge was previously unmarked).
+        // mark_scc_projection_edges advances the snapshot index only in that
+        // case, so a re-visit of an already-fully-marked SCC (from any of its
+        // states) marks nothing new and does not re-trigger a decomposition.
+        const unsigned newly_marked = mark_scc_projection_edges(scc);
+        if (newly_marked == 0)
             return false;
 
         // Keep the stabilizer symbolic as a projection operator over the
@@ -1117,7 +1149,6 @@ namespace seq {
         if (!projection_re)
             return false;
 
-        m_projection_cover_size.insert(root_expr_id, covered_edges);
         return true;
     }
 
@@ -3312,10 +3343,6 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_cycle_subsumption(nielsen_node* node) {
-        TRACE(seq, tout << "cycle_subsumption ENTER node " << node->id() << " with mems:\n";
-                   for (auto const& m2 : node->str_mems())
-                       tout << "  [prim=" << m2.is_primitive() << "] "
-                            << mk_pp(m2.m_str->get_expr(), m) << " ∈ " << mk_pp(m2.m_regex->get_expr(), m) << "\n");
         for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
             str_mem const& mem = node->str_mems()[mi];
             SASSERT(mem.well_formed());
@@ -3339,12 +3366,7 @@ namespace seq {
                 continue;
 
             // Check L(x_regex) ⊆ L(stabilizer).
-            lbool subset = m_seq_regex->is_language_subset(x_regex, stabilizer);
-            TRACE(seq, tout << "cycle_subsumption check: first=" << mk_pp(first->get_expr(), m)
-                            << "\n  x_regex=" << mk_pp(x_regex->get_expr(), m)
-                            << "\n  stabilizer=" << mk_pp(stabilizer->get_expr(), m)
-                            << "\n  subset=" << subset << "\n");
-            if (subset != l_true)
+            if (m_seq_regex->is_language_subset(x_regex, stabilizer) != l_true)
                 continue;
 
             // Subsume: replace x·rest ∈ r with rest ∈ r.
@@ -3428,10 +3450,6 @@ namespace seq {
             euf::snode* xp      = m_sg.mk(m_sk.mk("cycle", x->get_expr(), stabilizer_re->get_expr(), seq_sort));
             euf::snode* xpp     = get_tail(x, compute_length_expr(xp).get());
             euf::snode* xp_xpp  = m_sg.mk_concat(xp, xpp);
-            TRACE(seq, tout << "cycle_decomp build: xp=" << mk_pp(xp->get_expr(), m)
-                            << "\n  xpp=" << mk_pp(xpp->get_expr(), m)
-                            << "\n  xp_xpp=" << mk_pp(xp_xpp->get_expr(), m)
-                            << "\n  xp_xpp.first=" << mk_pp(xp_xpp->first()->get_expr(), m) << "\n");
 
             nielsen_node* child = mk_child(node);
             SASSERT(child->m_str_mem[mi] == mem);
@@ -4158,7 +4176,6 @@ namespace seq {
             // (seq.nth x (- (str.len x) len(x))
             //
             euf::snode* fresh_char = m_sg.mk(get_or_create_char_var(first));
-
 
             euf::snode* tail = get_tail(first, 1, true);
             euf::snode* replacement = m_sg.mk_concat(fresh_char, tail);

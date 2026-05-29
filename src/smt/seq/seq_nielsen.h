@@ -958,10 +958,10 @@ namespace seq {
         // egraph cannot release them on pop.  We never shrink this — the
         // cache is meant to be monotone.
         expr_ref_vector               m_partial_dfa_pin;
+        // Monotone snapshot index ν.  Bumped by mark_scc_projection_edges only
+        // when the explored SCC's edge set actually grows; identifies which
+        // partial-DFA edges (m_projection_idx ≤ ν) belong to a projection's Q.
         unsigned                      m_projection_extract_idx = 0;
-        // Per regex-state: size of SCC-edge coverage at last successful projection.
-        // Keyed by the regex expression's id (NOT the snode id).
-        u_map<unsigned>               m_projection_cover_size;
 
 
     public:
