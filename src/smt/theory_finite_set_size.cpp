@@ -201,7 +201,6 @@ namespace smt {
         for (auto [a, b] : th.m_diseqs) {
             auto x = th.get_enode(a);
             auto y = th.get_enode(b);
-            diseq d = {a, b};
             if (n2b.contains(x) && n2b.contains(y)) {
                 arith_util a(m);
                 auto d1 = mk_diff(x, y);
