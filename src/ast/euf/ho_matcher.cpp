@@ -315,7 +315,6 @@ namespace euf {
             break;
         }
         
-
         // v >= offset
         // v - offset |-> t
         if (is_meta_var(p, wi.pat_offset()) && is_closed(t, 0, wi.term_offset())) {
@@ -325,7 +324,6 @@ namespace euf {
             wi.set_done();
             return true;
         }
-
 
         // N = \ x. T => ((shift1 N) x) = T
         if (is_lambda(t) && !is_lambda(p)) {
@@ -342,6 +340,43 @@ namespace euf {
             r = m_array.mk_select(args);
             m_goals.push(wi.level, wi.term_offset() + nd, r, t_body);
             wi.set_done();
+            return true;
+        }
+
+        // \x . N = T => N = ((shift1 T) x) 
+        if (is_lambda(p) && !is_lambda(t)) {
+            auto q = to_quantifier(p);
+            auto p_body = q->get_expr();
+            auto nd = q->get_num_decls();
+            var_shifter vs(m);
+            expr_ref r(m);
+            vs(t, nd, r);
+            expr_ref_vector args(m);
+            args.push_back(r);
+            for (unsigned i = 0; i < nd; ++i)
+                args.push_back(m.mk_var(nd - 1 - i, q->get_decl_sort(i)));
+            r = m_array.mk_select(args);
+            m_goals.push(wi.level, wi.term_offset() + nd, p_body, r);
+            wi.set_done();
+            return true;
+        }
+
+        //
+        // lambda x . p == lambda x . t
+        // 
+        if (is_quantifier(p) && is_quantifier(t)) {
+            auto qp = to_quantifier(p);
+            auto qt = to_quantifier(t);
+            unsigned pd = qp->get_num_decls();
+            unsigned td = qt->get_num_decls();
+            if (qp->get_kind() != qt->get_kind())
+                return false;
+            if (pd != td)
+                return false;
+            for (unsigned i = 0; i < pd; ++i)
+                if (qp->get_decl_sort(i) != qt->get_decl_sort(i))
+                    return false;
+            m_goals.push(wi.level, wi.term_offset() + td, qp->get_expr(), qt->get_expr());
             return true;
         }
 
@@ -484,25 +519,7 @@ namespace euf {
                 m_goals.push(wi.level, wi.term_offset(), tp->get_arg(i), ta->get_arg(i));
             return true;
         }               
-                        
-        //
-        // lambda x . p == lambda x . t
-        // 
-        if (is_quantifier(p) && is_quantifier(t)) {
-            auto qp = to_quantifier(p);
-            auto qt = to_quantifier(t);
-            unsigned pd = qp->get_num_decls();
-            unsigned td = qt->get_num_decls();
-            if (qp->get_kind() != qt->get_kind())
-                return false;
-            if (pd != td)
-                return false;
-            for (unsigned i = 0; i < pd; ++i)
-                if (qp->get_decl_sort(i) != qt->get_decl_sort(i))
-                    return false;
-            m_goals.push(wi.level, wi.term_offset() + td, qp->get_expr(), qt->get_expr());
-            return true;
-        }
+                       
 
         return false;		       
     }
