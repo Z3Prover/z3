@@ -178,15 +178,14 @@ namespace seq {
     bool str_mem::is_trivial(nielsen_node const* n) const {
         if (!(m_str && m_regex && m_str->is_empty()))
             return false;
-        const auto& info = n->graph().seq().re.get_info(m_regex->get_expr());
-        return info.nullable == l_true;
+        // Projection-aware nullability (handles re.proj operators in m_regex).
+        return n->graph().sg().re_nullable(m_regex) == l_true;
     }
 
     bool str_mem::is_contradiction(nielsen_node const* n) const {
         if (!(m_str && m_regex && m_str->is_empty()))
             return false;
-        const auto& info = n->graph().seq().re.get_info(m_regex->get_expr());
-        return info.nullable == l_false;
+        return n->graph().sg().re_nullable(m_regex) == l_false;
     }
 
     bool str_mem::contains_var(euf::snode* var) const {
@@ -457,12 +456,47 @@ namespace seq {
         m_context_solver(ctx_solver),
         m_partial_dfa_pin(sg.get_manager()),
         m_parikh(alloc(seq_parikh, sg)),
-        m_seq_regex(alloc(seq::seq_regex, sg)) {}
+        m_seq_regex(alloc(seq::seq_regex, sg)) {
+        // Answer projection-state membership queries during projection-aware
+        // derivatives (the sgraph cannot reach the partial DFA otherwise).
+        m_sg.set_projection_oracle(this);
+    }
 
     nielsen_graph::~nielsen_graph() {
+        m_sg.set_projection_oracle(nullptr);
         dealloc(m_parikh);
         dealloc(m_seq_regex);
         reset();
+    }
+
+    bool nielsen_graph::projection_state_in_Q(expr* state, unsigned nu) {
+        if (!state || nu == 0)
+            return false;
+        const unsigned sid = state->get_id();
+        // r ∈ Q_nu iff r is incident to a partial-DFA edge whose extraction
+        // index lies in [1, nu] (the "edges marked ≤ ν" subautomaton of the
+        // implementation-aspects section of the paper).
+        auto incident = [&](std::unordered_map<unsigned, unsigned_vector> const& adj) {
+            auto it = adj.find(sid);
+            if (it == adj.end())
+                return false;
+            for (const unsigned edge_idx : it->second) {
+                if (edge_idx >= m_partial_dfa_edges.size())
+                    continue;
+                const unsigned pidx = m_partial_dfa_edges[edge_idx].m_projection_idx;
+                if (pidx != 0 && pidx <= nu)
+                    return true;
+            }
+            return false;
+        };
+        return incident(m_partial_dfa_out) || incident(m_partial_dfa_in);
+    }
+
+    euf::snode* nielsen_graph::mk_projection_term(euf::snode* root_re, unsigned nu) {
+        SASSERT(root_re && root_re->get_expr());
+        // π_{Q_nu, {root}}(root): current state == accepting state == root.
+        expr_ref proj = m_sg.mk_re_proj(root_re->get_expr(), root_re->get_expr(), nu);
+        return m_sg.mk(proj);
     }
 
     nielsen_node* nielsen_graph::mk_node() {
@@ -1057,137 +1091,6 @@ namespace seq {
         return covered;
     }
 
-    euf::snode* nielsen_graph::build_projection_regex_from_scc(euf::snode* root_re, uint_set const& scc, unsigned extract_idx) {
-        SASSERT(root_re && root_re->get_expr());
-
-        sort* seq_sort = nullptr;
-        VERIFY(m_seq.is_re(root_re->get_expr(), seq_sort));
-        SASSERT(seq_sort);
-
-        sort* re_sort = root_re->get_expr()->get_sort();
-
-        // Floyd-Warshall is done over expressions, not snodes: every label
-        // edge that feeds this matrix comes from m_partial_dfa_edges whose
-        // labels (and src/dst) may correspond to snodes that no longer exist
-        // at the current sgraph scope.  We work entirely with pinned exprs
-        // here and materialize a single snode for the simplified result at
-        // the very end.  All intermediate exprs are kept alive by an
-        // expr_ref_vector that lives for the duration of this call.
-        expr_ref_vector pin(m);
-        expr* eps_expr   = m_seq.re.mk_epsilon(seq_sort);
-        expr* empty_expr = m_seq.re.mk_empty(re_sort);
-        pin.push_back(eps_expr);
-        pin.push_back(empty_expr);
-
-        auto is_empty = [&](expr* re) -> bool {
-            return !re || m_seq.re.is_empty(re);
-        };
-
-        auto is_eps = [&](expr* re) -> bool {
-            return re && m_seq.re.is_epsilon(re);
-        };
-
-        auto mk_union = [&](expr* a, expr* b) -> expr* {
-            if (is_empty(a)) return b;
-            if (is_empty(b)) return a;
-            if (a == b)      return a;
-            expr* r = m_seq.re.mk_union(a, b);
-            pin.push_back(r);
-            return r;
-        };
-
-        auto mk_concat = [&](expr* a, expr* b) -> expr* {
-            if (is_empty(a) || is_empty(b)) return empty_expr;
-            if (is_eps(a))                  return b;
-            if (is_eps(b))                  return a;
-            expr* r = m_seq.re.mk_concat(a, b);
-            pin.push_back(r);
-            return r;
-        };
-
-        auto mk_star = [&](expr* r) -> expr* {
-            if (is_empty(r) || is_eps(r)) return eps_expr;
-            if (r && m_seq.re.is_star(r)) return r;
-            expr* s = m_seq.re.mk_star(r);
-            pin.push_back(s);
-            return s;
-        };
-
-        unsigned_vector states;
-        states.reserve(scc.num_elems());
-        std::unordered_map<unsigned, unsigned> pos;
-        for (unsigned s : scc) {
-            pos.emplace(s, states.size());
-            states.push_back(s);
-        }
-
-        // scc / pos are keyed by expr id (see collect_scc_for_projection).
-        auto it_root = pos.find(root_re->get_expr()->get_id());
-        if (it_root == pos.end())
-            return nullptr;
-
-        unsigned n = states.size();
-        std::vector<std::vector<expr*>> R(n, std::vector<expr*>(n, nullptr));
-
-        for (unsigned src_id : states) {
-            auto it = m_partial_dfa_out.find(src_id);
-            if (it == m_partial_dfa_out.end())
-                continue;
-            for (unsigned edge_idx : it->second) {
-                if (edge_idx >= m_partial_dfa_edges.size())
-                    continue;
-                partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
-                if (!e.m_src || !e.m_dst || !e.m_label)
-                    continue;
-                if (!scc.contains(e.m_dst->get_id()))
-                    continue;
-                if (e.m_projection_idx == 0 || e.m_projection_idx > extract_idx)
-                    continue;
-                auto it_src = pos.find(e.m_src->get_id());
-                auto it_dst = pos.find(e.m_dst->get_id());
-                if (it_src == pos.end() || it_dst == pos.end())
-                    continue;
-                unsigned i = it_src->second;
-                unsigned j = it_dst->second;
-                R[i][j] = mk_union(R[i][j], e.m_label);
-            }
-        }
-
-        for (unsigned i = 0; i < n; ++i) {
-            R[i][i] = mk_union(R[i][i], eps_expr);
-        }
-
-        for (unsigned k = 0; k < n; ++k) {
-            std::vector<expr*> col_k(n, nullptr), row_k(n, nullptr);
-            for (unsigned i = 0; i < n; ++i)
-                col_k[i] = R[i][k];
-            for (unsigned j = 0; j < n; ++j)
-                row_k[j] = R[k][j];
-            expr* loop_k = R[k][k];
-            expr* loop_star = mk_star(loop_k);
-
-            for (unsigned i = 0; i < n; ++i) {
-                if (is_empty(col_k[i]))
-                    continue;
-                for (unsigned j = 0; j < n; ++j) {
-                    if (is_empty(row_k[j]))
-                        continue;
-                    expr* via_k = mk_concat(mk_concat(col_k[i], loop_star), row_k[j]);
-                    R[i][j] = mk_union(R[i][j], via_k);
-                }
-            }
-        }
-
-        expr* result = R[it_root->second][it_root->second];
-        if (!result)
-            return m_sg.mk(eps_expr);
-
-        expr_ref simplified(result, m);
-        th_rewriter trw(m);
-        trw(simplified);
-        return m_sg.mk(simplified);
-    }
-
     bool nielsen_graph::try_extract_partial_projection(euf::snode* root_re, euf::snode*& projection_re) {
         SASSERT(root_re && root_re->get_expr());
         projection_re = nullptr;
@@ -1207,7 +1110,10 @@ namespace seq {
         if (covered_edges <= prev_covered)
             return false;
 
-        projection_re = build_projection_regex_from_scc(root_re, scc, m_projection_extract_idx);
+        // Keep the stabilizer symbolic as a projection operator over the
+        // (just-marked) explored subautomaton snapshot. Its language is
+        // refined lazily through projection-aware derivatives.
+        projection_re = mk_projection_term(root_re, m_projection_extract_idx);
         if (!projection_re)
             return false;
 
@@ -1222,7 +1128,6 @@ namespace seq {
         expr_ref new_arg(v->get_expr(), m);
         expr_ref new_l(left, m), new_r(right, m);
         expr* arg, *l, *r;
-        std::cout << "Creating slice for " << mk_pp(new_arg, m) << "; " << mk_pp(new_l, m) << "; " << mk_pp(new_r, m) << std::endl;
 
         if (m_sk.is_slice(new_arg, arg, l, r)) {
             new_l = a.mk_add(left, l);
@@ -1232,7 +1137,6 @@ namespace seq {
             new_arg = arg;
         }
         expr_ref slice = m_sk.mk_slice(new_arg, new_l, new_r);
-        std::cout << "Got " << mk_pp(slice, m) << std::endl;
         return m_sg.mk(slice);
     }
 
@@ -1713,35 +1617,45 @@ namespace seq {
                     break;
 
                 euf::snode* src_re = mem.m_regex;
-                seq_rewriter rw(m);
-                expr_ref d(rw.mk_derivative(mem.m_regex->get_expr()), m);
 
-                // Extract the inner char expression from seq.unit(?inner)
-                expr *inner_char = tok->arg(0)->get_expr();
-
-                // substitute the inner char for the derivative variable in d
-                var_subst vs(m);
-                d = vs(d, inner_char);
-
-                th_rewriter thrw(m);
-                thrw(d);
-
-                // Record concrete minterm edges for src_re so cycle_decomp can
-                // detect SCCs lazily (mirrors the incremental DFA building from
-                // concrete char consumption in the loop above).
-                if (src_re->is_ground()) {
-                    euf::snode_vector mts;
-                    sg.compute_minterms(src_re, mts);
-                    for (euf::snode* mt : mts) {
-                        euf::snode* mt_deriv = sg.brzozowski_deriv(src_re, mt);
-                        if (mt_deriv && !mt_deriv->is_fail())
-                            m_graph.record_partial_derivative_edge(src_re, mt, mt_deriv);
-                    }
+                euf::snode* next = nullptr;
+                if (src_re->has_projection()) {
+                    // The generic symbolic derivative cannot see the projection
+                    // operator; route through the projection-aware derivative,
+                    // which yields the ite-residual with π propagated to leaves.
+                    next = sg.brzozowski_deriv(src_re, tok);
                 }
+                else {
+                    seq_rewriter rw(m);
+                    expr_ref d(rw.mk_derivative(mem.m_regex->get_expr()), m);
 
-                auto next = sg.mk(d);
+                    // Extract the inner char expression from seq.unit(?inner)
+                    expr *inner_char = tok->arg(0)->get_expr();
+
+                    // substitute the inner char for the derivative variable in d
+                    var_subst vs(m);
+                    d = vs(d, inner_char);
+
+                    th_rewriter thrw(m);
+                    thrw(d);
+
+                    // Record concrete minterm edges for src_re so cycle_decomp can
+                    // detect SCCs lazily (mirrors the incremental DFA building from
+                    // concrete char consumption in the loop above).
+                    if (src_re->is_ground()) {
+                        euf::snode_vector mts;
+                        sg.compute_minterms(src_re, mts);
+                        for (euf::snode* mt : mts) {
+                            euf::snode* mt_deriv = sg.brzozowski_deriv(src_re, mt);
+                            if (mt_deriv && !mt_deriv->is_fail())
+                                m_graph.record_partial_derivative_edge(src_re, mt, mt_deriv);
+                        }
+                    }
+
+                    next = sg.mk(d);
+                }
                 if (next->is_fail()) {
-                    TRACE(seq, tout << "empty regex" << spp(mem.m_regex, m) << " d: " << d << "\n");
+                    TRACE(seq, tout << "empty regex" << spp(mem.m_regex, m) << "\n");
                     set_general_conflict();
                     set_conflict(backtrack_reason::regex, mem.m_dep);
                     return simplify_result::conflict;
@@ -3384,7 +3298,10 @@ namespace seq {
         uint_set scc;
         if (!collect_scc_for_projection(root_re, scc))
             return nullptr;
-        return build_projection_regex_from_scc(root_re, scc, m_projection_extract_idx);
+        // Symbolic projection over the edges marked by earlier extractions
+        // (index ≤ current snapshot). No new marking here, mirroring the old
+        // behaviour of reusing the current extraction index.
+        return mk_projection_term(root_re, m_projection_extract_idx);
     }
 
     // -----------------------------------------------------------------------
@@ -3395,6 +3312,10 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool nielsen_graph::apply_cycle_subsumption(nielsen_node* node) {
+        TRACE(seq, tout << "cycle_subsumption ENTER node " << node->id() << " with mems:\n";
+                   for (auto const& m2 : node->str_mems())
+                       tout << "  [prim=" << m2.is_primitive() << "] "
+                            << mk_pp(m2.m_str->get_expr(), m) << " ∈ " << mk_pp(m2.m_regex->get_expr(), m) << "\n");
         for (unsigned mi = 0; mi < node->str_mems().size(); ++mi) {
             str_mem const& mem = node->str_mems()[mi];
             SASSERT(mem.well_formed());
@@ -3418,7 +3339,12 @@ namespace seq {
                 continue;
 
             // Check L(x_regex) ⊆ L(stabilizer).
-            if (m_seq_regex->is_language_subset(x_regex, stabilizer) != l_true)
+            lbool subset = m_seq_regex->is_language_subset(x_regex, stabilizer);
+            TRACE(seq, tout << "cycle_subsumption check: first=" << mk_pp(first->get_expr(), m)
+                            << "\n  x_regex=" << mk_pp(x_regex->get_expr(), m)
+                            << "\n  stabilizer=" << mk_pp(stabilizer->get_expr(), m)
+                            << "\n  subset=" << subset << "\n");
+            if (subset != l_true)
                 continue;
 
             // Subsume: replace x·rest ∈ r with rest ∈ r.
@@ -3454,10 +3380,11 @@ namespace seq {
     // cycle is detected, project SCC onto stabilizer constraint b.
     // Rewrites x into x'·x'' with x' ∈ b*, x'' ∈ complement((b ∩ complement(eps)) · Sigma*).
     //
-    // Here b = Proj{R}{E_SCC}{R} is the language of all paths from R back to R
-    // in the known SCC edges (including ε), which equals s* for the non-empty
-    // cycle language s.  Equivalently, stabilizer_re from build_projection_regex_from_scc
-    // is the Kleene closure computed by Floyd-Warshall over the SCC subgraph.
+    // Here stabilizer_re = π_{Q_SCC,{R}}(R) is the projection operator denoting
+    // the language of all paths from R back to R that stay within the explored
+    // subautomaton Q_SCC (including ε), i.e. s* for the non-empty cycle language
+    // s. It is kept symbolic; its derivative/nullability are evaluated lazily by
+    // the projection-aware sgraph (paper §3.3) rather than materialized.
     //
     // The constraint on x'' prevents divergence: x'' may not begin with any
     // non-empty word from L(stabilizer_re), so it cannot re-enter the cycle.
@@ -3501,12 +3428,21 @@ namespace seq {
             euf::snode* xp      = m_sg.mk(m_sk.mk("cycle", x->get_expr(), stabilizer_re->get_expr(), seq_sort));
             euf::snode* xpp     = get_tail(x, compute_length_expr(xp).get());
             euf::snode* xp_xpp  = m_sg.mk_concat(xp, xpp);
+            TRACE(seq, tout << "cycle_decomp build: xp=" << mk_pp(xp->get_expr(), m)
+                            << "\n  xpp=" << mk_pp(xpp->get_expr(), m)
+                            << "\n  xp_xpp=" << mk_pp(xp_xpp->get_expr(), m)
+                            << "\n  xp_xpp.first=" << mk_pp(xp_xpp->first()->get_expr(), m) << "\n");
 
             nielsen_node* child = mk_child(node);
+            SASSERT(child->m_str_mem[mi] == mem);
             nielsen_edge* e     = mk_edge(node, child, false);
             const nielsen_subst s(x, xp_xpp, nullptr, mem.m_dep);
             e->add_subst(s);
             child->apply_subst(m_sg, s);
+
+            // remove from mi^th element of the child the leading token, as it is immediately subsumed
+            SASSERT(child->m_str_mem[mi].m_str->first() == xp);
+            child->m_str_mem[mi].m_str = dir_drop(m_sg, child->m_str_mem[mi].m_str, 1, true);
 
             // x' ∈ stabilizer_re   (= s*, all repetitions of the detected cycle)
             child->add_str_mem(str_mem(xp, stabilizer_re, mem.m_dep));

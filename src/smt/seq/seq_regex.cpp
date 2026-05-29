@@ -400,6 +400,14 @@ namespace seq {
         if (re->is_fail() || re->is_full_char() || re->is_full_seq())
             return;
 
+        // projection operator: only the regex arguments carry character
+        // structure; the third argument is the integer snapshot index.
+        if (re->is_projection()) {
+            collect_char_boundaries(re->arg(0), bounds);
+            collect_char_boundaries(re->arg(1), bounds);
+            return;
+        }
+
         // If we reached a leaf and none of the expected leaf forms matched,
         // this is a regex constructor we did not account for in boundary
         // extraction and should fail loudly in debug builds.

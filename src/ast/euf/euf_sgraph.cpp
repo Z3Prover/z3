@@ -18,6 +18,8 @@ Author:
 
 #include "ast/euf/euf_sgraph.h"
 #include "ast/euf/euf_seq_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/ast_pp.h"
 
 namespace euf {
@@ -108,6 +110,11 @@ namespace euf {
 
         if (m_seq.str.is_in_re(e))
             return snode_kind::s_in_re;
+
+        // projection operator π_{Q,F}(state) modeled as the re.proj skolem.
+        if (m_seq.is_skolem(e) &&
+            to_app(e)->get_decl()->get_parameter(0).get_symbol() == re_proj_name())
+            return snode_kind::s_projection;
 
         return snode_kind::s_var;
     }
@@ -283,6 +290,18 @@ namespace euf {
             n->m_length = 1;
             break;
 
+        case snode_kind::s_projection:
+            // re.proj(state, root, nu): args 0/1 are regexes, arg 2 is the
+            // snapshot index (an integer numeral). Ground/classical follow the
+            // regex arguments only.
+            SASSERT(n->num_args() == 3);
+            n->m_ground = n->arg(0)->is_ground() && n->arg(1)->is_ground();
+            n->m_regex_free = false;
+            n->m_is_classical = false;
+            n->m_level = 1;
+            n->m_length = 1;
+            break;
+
         default:
             // NSB review: is this the correct defaults for unclassified nodes?
             // Is this UNREACHABLE()?
@@ -292,6 +311,14 @@ namespace euf {
             n->m_length = 1;
             break;
         }
+
+        // A regex (sub)tree carries a projection iff it is a projection node or
+        // any argument does. Computed uniformly here so all callers can use the
+        // cheap snode flag instead of re-walking the AST.
+        n->m_has_projection = (n->m_kind == snode_kind::s_projection);
+        for (unsigned i = 0; i < n->num_args() && !n->m_has_projection; ++i)
+            if (n->arg(i)->has_projection())
+                n->m_has_projection = true;
     }
 
     static const unsigned HASH_BASE = 31;
@@ -544,6 +571,210 @@ namespace euf {
         return n;
     }
 
+    bool sgraph::is_re_proj(expr* e, expr*& state, expr*& root, unsigned& nu) const {
+        if (!e || !m_seq.is_skolem(e))
+            return false;
+        app* ap = to_app(e);
+        if (ap->get_decl()->get_parameter(0).get_symbol() != re_proj_name())
+            return false;
+        if (ap->get_num_args() != 3)
+            return false;
+        arith_util au(m);
+        rational r;
+        if (!au.is_numeral(ap->get_arg(2), r) || !r.is_unsigned())
+            return false;
+        state = ap->get_arg(0);
+        root  = ap->get_arg(1);
+        nu    = r.get_unsigned();
+        return true;
+    }
+
+    expr_ref sgraph::mk_re_proj(expr* state, expr* root, unsigned nu) {
+        SASSERT(state && root);
+        arith_util au(m);
+        expr* args[3] = { state, root, au.mk_int(nu) };
+        sort* re_sort = state->get_sort();
+        return expr_ref(m_seq.mk_skolem(re_proj_name(), 3, args, re_sort), m);
+    }
+
+    expr_ref sgraph::wrap_proj(expr* e, expr* root, unsigned nu) {
+        // The symbolic derivative of a regex is an ite-term dispatching on
+        // character predicates; its leaves are ordinary derivative states.
+        // π_{Q,F} is propagated to all such leaves (paper §4). Partial-DFA
+        // states are produced from concrete-character derivatives and are thus
+        // ite-free, so every ite encountered here is dispatch structure.
+        expr* c = nullptr, *th = nullptr, *el = nullptr;
+        if (m.is_ite(e, c, th, el)) {
+            expr_ref t = wrap_proj(th, root, nu);
+            expr_ref f = wrap_proj(el, root, nu);
+            return expr_ref(m.mk_ite(c, t, f), m);
+        }
+        // π(∅) ≡ ∅: a dead leaf stays dead.
+        if (m_seq.re.is_empty(e))
+            return expr_ref(e, m);
+        return mk_re_proj(e, root, nu);
+    }
+
+    // 3-valued Kleene conjunction / disjunction over lbool.
+    static lbool lb_and(lbool a, lbool b) {
+        if (a == l_false || b == l_false) return l_false;
+        if (a == l_undef || b == l_undef) return l_undef;
+        return l_true;
+    }
+    static lbool lb_or(lbool a, lbool b) {
+        if (a == l_true || b == l_true) return l_true;
+        if (a == l_undef || b == l_undef) return l_undef;
+        return l_false;
+    }
+
+    lbool sgraph::re_nullable(snode* re) {
+        if (!re)
+            return l_undef;
+        // Projection-free regexes: defer to the standard regex info.
+        if (!re->has_projection())
+            return m_seq.re.get_info(re->get_expr()).nullable;
+
+        switch (re->kind()) {
+        case snode_kind::s_projection: {
+            // nullable(π_{{root}}(state)) = [state ∈ F] = [state ≡ root].
+            // Regex expressions are perfectly shared, so syntactic pointer
+            // equality coincides with the expr-id equality used for cycle
+            // detection in the partial DFA.
+            expr* state = nullptr, *root = nullptr; unsigned nu = 0;
+            VERIFY(is_re_proj(re->get_expr(), state, root, nu));
+            return (state == root) ? l_true : l_false;
+        }
+        case snode_kind::s_complement:
+            return ~re_nullable(re->arg(0));
+        case snode_kind::s_intersect:
+        case snode_kind::s_concat:
+            return lb_and(re_nullable(re->arg(0)), re_nullable(re->arg(1)));
+        case snode_kind::s_union:
+            return lb_or(re_nullable(re->arg(0)), re_nullable(re->arg(1)));
+        case snode_kind::s_star:
+            return l_true;
+        case snode_kind::s_plus:
+            return re_nullable(re->arg(0));
+        case snode_kind::s_ite:
+            // ε-acceptance of a symbolic-derivative residual depends on the
+            // (unresolved) character predicate, so it is genuinely unknown
+            // until the ite is split (apply_regex_if_split).
+            return l_undef;
+        default:
+            // Not expected to carry a projection in our constructions; fall
+            // back to the standard info (sound for projection-free shapes).
+            return m_seq.re.get_info(re->get_expr()).nullable;
+        }
+    }
+
+    snode* sgraph::deriv_proj(snode* re, expr* ch) {
+        SASSERT(re && re->get_expr());
+        expr* re_expr = re->get_expr();
+        sort* re_sort = re_expr->get_sort();
+
+        // Projection-free subterm: the standard derivative already handles it
+        // (and keeps the result canonical, matching partial-DFA state ids).
+        if (!re->has_projection())
+            return mk(m_rewriter.mk_derivative(ch, re_expr));
+
+        // Minimal language-preserving simplifications that never inspect a
+        // projection's arguments (so the opaque skolem and its inner state id
+        // are preserved for the oracle's r ∈ Q test).
+        auto is_empty = [&](expr* r) { return m_seq.re.is_empty(r); };
+        auto is_full  = [&](expr* r) { return m_seq.re.is_full_seq(r); };
+        auto is_eps   = [&](expr* r) { return m_seq.re.is_epsilon(r); };
+        auto mk_union = [&](expr* x, expr* y) -> expr* {
+            if (is_empty(x)) return y;
+            if (is_empty(y)) return x;
+            if (x == y)      return x;
+            if (is_full(x) || is_full(y)) return m_seq.re.mk_full_seq(re_sort);
+            return m_seq.re.mk_union(x, y);
+        };
+        auto mk_inter = [&](expr* x, expr* y) -> expr* {
+            if (is_empty(x) || is_empty(y)) return m_seq.re.mk_empty(re_sort);
+            if (is_full(x)) return y;
+            if (is_full(y)) return x;
+            if (x == y)     return x;
+            return m_seq.re.mk_inter(x, y);
+        };
+        auto mk_concat = [&](expr* x, expr* y) -> expr* {
+            if (is_empty(x) || is_empty(y)) return m_seq.re.mk_empty(re_sort);
+            if (is_eps(x)) return y;
+            if (is_eps(y)) return x;
+            return m_seq.re.mk_concat(x, y);
+        };
+        auto mk_compl = [&](expr* x) -> expr* {
+            if (is_empty(x)) return m_seq.re.mk_full_seq(re_sort);
+            if (is_full(x))  return m_seq.re.mk_empty(re_sort);
+            expr* inner = nullptr;
+            if (m_seq.re.is_complement(x, inner)) return inner;
+            return m_seq.re.mk_complement(x);
+        };
+
+        switch (re->kind()) {
+        case snode_kind::s_projection: {
+            expr* state = nullptr, *root = nullptr; unsigned nu = 0;
+            VERIFY(is_re_proj(re_expr, state, root, nu));
+            // δ_a(π_{Q,{root}}(state)) = π_{Q,{root}}(δ_a(state)) if state ∈ Q,
+            // else ⊥.  The gate is on the *current* state (paper §3.3).
+            if (!m_proj_oracle || !m_proj_oracle->projection_state_in_Q(state, nu))
+                return mk(m_seq.re.mk_empty(re_sort));
+            snode* dstate = deriv_proj(re->arg(0), ch);   // arg(0) ≡ state
+            if (!dstate || dstate->is_fail() || m_seq.re.is_empty(dstate->get_expr()))
+                return mk(m_seq.re.mk_empty(re_sort));
+            // δ(state) may be concrete (one state) or an ite-term (symbolic
+            // character). Wrap π around the result, descending into ite leaves.
+            return mk(wrap_proj(dstate->get_expr(), root, nu));
+        }
+        case snode_kind::s_ite: {
+            // ite-structured residual (from a symbolic-character derivative):
+            // δ_a(ite(c, th, el)) = ite(c, δ_a(th), δ_a(el)).
+            snode* dth = deriv_proj(re->arg(1), ch);
+            snode* del = deriv_proj(re->arg(2), ch);
+            return mk(expr_ref(m.mk_ite(re->arg(0)->get_expr(), dth->get_expr(), del->get_expr()), m));
+        }
+        case snode_kind::s_complement: {
+            snode* d = deriv_proj(re->arg(0), ch);
+            return mk(expr_ref(mk_compl(d->get_expr()), m));
+        }
+        case snode_kind::s_intersect: {
+            snode* d0 = deriv_proj(re->arg(0), ch);
+            snode* d1 = deriv_proj(re->arg(1), ch);
+            return mk(expr_ref(mk_inter(d0->get_expr(), d1->get_expr()), m));
+        }
+        case snode_kind::s_union: {
+            snode* d0 = deriv_proj(re->arg(0), ch);
+            snode* d1 = deriv_proj(re->arg(1), ch);
+            return mk(expr_ref(mk_union(d0->get_expr(), d1->get_expr()), m));
+        }
+        case snode_kind::s_concat: {
+            // δ_a(R·S) = δ_a(R)·S  ⊔  (nullable(R) ? δ_a(S) : ∅)
+            snode* d0 = deriv_proj(re->arg(0), ch);
+            expr* head = mk_concat(d0->get_expr(), re->arg(1)->get_expr());
+            if (re_nullable(re->arg(0)) == l_true) {
+                snode* d1 = deriv_proj(re->arg(1), ch);
+                head = mk_union(head, d1->get_expr());
+            }
+            return mk(expr_ref(head, m));
+        }
+        case snode_kind::s_star: {
+            // δ_a(R*) = δ_a(R)·R*
+            snode* d = deriv_proj(re->arg(0), ch);
+            return mk(expr_ref(mk_concat(d->get_expr(), re_expr), m));
+        }
+        case snode_kind::s_plus: {
+            // δ_a(R+) = δ_a(R)·R*
+            snode* d = deriv_proj(re->arg(0), ch);
+            expr_ref star(m_seq.re.mk_star(re->arg(0)->get_expr()), m);
+            return mk(expr_ref(mk_concat(d->get_expr(), star), m));
+        }
+        default:
+            // A projection nested under an operator we do not specially derive
+            // is not produced by our constructions. Fall back conservatively.
+            return mk(m_rewriter.mk_derivative(ch, re_expr));
+        }
+    }
+
     snode* sgraph::brzozowski_deriv(snode* re, snode* elem) {
         expr* re_expr = re->get_expr();
         expr* elem_expr = elem->get_expr();
@@ -592,6 +823,22 @@ namespace euf {
             }
         }
         
+        // If the regex contains a projection operator, the generic rewriter
+        // cannot derive it. Use the projection-aware structural derivative,
+        // which delegates projection-free subterms back to mk_derivative.
+        // Canonicalize the result with th_rewriter (which treats the re.proj
+        // skolem as an opaque leaf and only applies ACI / identity rules to the
+        // surrounding Boolean/concat structure). Without this, equivalent
+        // derivative states get distinct snode ids and BFS emptiness checks
+        // fail to deduplicate, exploring an exploded state space.
+        if (re->has_projection()) {
+            snode* d = deriv_proj(re, elem_expr);
+            expr_ref e(d->get_expr(), m);
+            th_rewriter trw(m);
+            trw(e);
+            return mk(e);
+        }
+
         expr_ref result = m_rewriter.mk_derivative(elem_expr, re_expr);
         SASSERT(result);
         return mk(result);
@@ -646,6 +893,14 @@ namespace euf {
             return;
         if (m_seq.re.is_empty(e))
             return;
+
+        // projection operator: collect predicates from the regex arguments only
+        // (the third argument is the integer snapshot index, not a regex).
+        if (re->is_projection()) {
+            collect_re_predicates(re->arg(0), preds);
+            collect_re_predicates(re->arg(1), preds);
+            return;
+        }
 
         // Expected compound regex operators are handled by recursion below.
         // If a leaf survives to this point, it is an unhandled regex form.

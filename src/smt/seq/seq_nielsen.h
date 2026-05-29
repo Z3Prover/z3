@@ -855,7 +855,7 @@ namespace seq {
 
     // the overall Nielsen transformation graph
     // mirrors ZIPT's NielsenGraph
-    class nielsen_graph {
+    class nielsen_graph : public euf::projection_oracle {
         friend class nielsen_node;
         friend class nielsen_edge;
 
@@ -978,6 +978,11 @@ namespace seq {
         euf::sgraph& sg() { return m_sg; }
         seq_util& seq() { return m_seq; }
         seq_util const& seq() const { return m_seq; }
+
+        // euf::projection_oracle: true iff regex `state` is part of the
+        // explored subautomaton snapshot `nu` (a partial-DFA edge incident to
+        // `state` was marked with an index in [1, nu]).
+        bool projection_state_in_Q(expr* state, unsigned nu) override;
 
         // node management
         nielsen_node* mk_node();
@@ -1169,9 +1174,12 @@ namespace seq {
         // currently covered edge count for this extraction.
         unsigned mark_scc_projection_edges(uint_set const& scc);
 
-        // Build regex equivalent to proj(root_re, E_scc, {root_re}) using the
-        // currently marked SCC edges (projection index <= extract_idx).
-        euf::snode* build_projection_regex_from_scc(euf::snode* root_re, uint_set const& scc, unsigned extract_idx);
+        // Build the projection operator π_{Q,{root_re}}(root_re) as a re.proj
+        // skolem snode, where Q is the explored subautomaton identified by the
+        // snapshot index nu. This is the stabilizer of root_re kept symbolically
+        // (the projection's derivative/nullability are evaluated lazily by the
+        // sgraph consulting projection_state_in_Q).
+        euf::snode* mk_projection_term(euf::snode* root_re, unsigned nu);
 
         // Try to extract a stronger projection for root_re. Returns true and
         // stores it in projection_re iff SCC coverage has grown.

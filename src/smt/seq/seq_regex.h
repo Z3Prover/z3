@@ -210,8 +210,9 @@ namespace seq {
         }
 
         // check if regex accepts the empty string
+        // (projection-aware: re may contain re.proj operators)
         bool is_nullable(euf::snode* re) const {
-            return re && seq.re.get_info(re->get_expr()).nullable == l_true;
+            return re && m_sg.re_nullable(re) == l_true;
         }
 
         // check if regex is ground (no string variables)

@@ -58,6 +58,7 @@ Author:
 
 #include "util/region.h"
 #include "util/statistics.h"
+#include "util/lbool.h"
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/rewriter/seq_rewriter.h"
@@ -67,6 +68,19 @@ Author:
 namespace euf {
 
     class seq_plugin;
+
+    // Oracle queried by the projection-aware derivative of sgraph.
+    // The projection operator π_{Q,F}(state) (a re.proj skolem) has its set of
+    // explored states Q stored externally (the nielsen_graph partial DFA), keyed
+    // by a snapshot index nu.  The sgraph consults this oracle to decide whether
+    // the current state lies in Q when deriving a projection.
+    class projection_oracle {
+    public:
+        virtual ~projection_oracle() = default;
+        // true iff `state` (a regex expression) belongs to the explored
+        // subautomaton snapshot identified by `nu`.
+        virtual bool projection_state_in_Q(expr* state, unsigned nu) = 0;
+    };
 
     class sgraph {
 
@@ -106,6 +120,9 @@ namespace euf {
         // trail of alias entries (string constant → decomposed snode) for pop
         unsigned_vector  m_alias_trail;       // expression ids
         unsigned_vector  m_alias_trail_lim;   // scope boundaries
+
+        // Oracle answering "state ∈ Q_nu" for projection derivatives. Not owned.
+        projection_oracle* m_proj_oracle = nullptr;
 
         snode* mk_snode(expr* e, snode_kind k, unsigned num_args, snode* const* args);
         snode_kind classify(expr* e) const;
@@ -155,6 +172,27 @@ namespace euf {
         // allowed_range can explicitly provide a concrete character or range to use
         // for deriving symbolic variables.
         snode* brzozowski_deriv(snode* re, snode* elem);
+
+        // Register the oracle consulted when deriving projection operators.
+        // Passing nullptr unregisters. Not owned.
+        void set_projection_oracle(projection_oracle* o) { m_proj_oracle = o; }
+
+        // Projection operator support (π_{Q,F}(state) modeled as re.proj skolem).
+        // Recognize and destructure a re.proj skolem expression.
+        bool is_re_proj(expr* e, expr*& state, expr*& root, unsigned& nu) const;
+        // Build the re.proj skolem expression for π_{{root}}(state) at snapshot nu.
+        expr_ref mk_re_proj(expr* state, expr* root, unsigned nu);
+        // Wrap a (possibly ite-structured) symbolic-derivative result in the
+        // projection operator, propagating π into every ite leaf (paper §4).
+        expr_ref wrap_proj(expr* e, expr* root, unsigned nu);
+        // Projection-aware Brzozowski derivative w.r.t. a character expr
+        // (concrete or symbolic).
+        snode* deriv_proj(snode* re, expr* ch);
+
+        // Projection-aware nullability: lifts re.get_info().nullable to regexes
+        // that may contain projection operators. Returns l_true / l_false
+        // (l_undef only if an underlying projection-free subterm is undef).
+        lbool re_nullable(snode* re);
 
         // Decode a character expression that may be represented as a const-char,
         // a unit string containing a const-char, or a one-character string literal.
