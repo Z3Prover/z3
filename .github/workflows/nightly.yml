@@ -45,6 +45,19 @@ jobs:
       - name: Build
         run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=x64
             
+      - name: Validate libz3.dylib and z3 architecture (must be x86_64)
+        run: |
+          set -e
+          for f in build-dist/libz3.dylib build-dist/z3; do
+            ARCH=$(lipo -archs "$f")
+            echo "$f architecture: $ARCH"
+            if [ "$ARCH" != "x86_64" ]; then
+              echo "ERROR: $f has arch '$ARCH', expected 'x86_64' (see issue #9662)"
+              exit 1
+            fi
+          done
+          echo "OK: macOS x64 artifacts are x86_64"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -68,6 +81,19 @@ jobs:
       - name: Build
         run: python scripts/mk_unix_dist.py --dotnet-key=$GITHUB_WORKSPACE/resources/z3.snk --arch=arm64
             
+      - name: Validate libz3.dylib and z3 architecture (must be arm64)
+        run: |
+          set -e
+          for f in build-dist/libz3.dylib build-dist/z3; do
+            ARCH=$(lipo -archs "$f")
+            echo "$f architecture: $ARCH"
+            if [ "$ARCH" != "arm64" ]; then
+              echo "ERROR: $f has arch '$ARCH', expected 'arm64' (see issue #9662)"
+              exit 1
+            fi
+          done
+          echo "OK: macOS arm64 artifacts are arm64"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -101,6 +127,17 @@ jobs:
           Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
           echo "Z3_DIR=$Z3_DIR" >> $GITHUB_ENV
       
+      - name: Validate shipped libz3.dylib architecture (must be x86_64)
+        run: |
+          set -e
+          DYLIB="artifacts/$Z3_DIR/bin/libz3.dylib"
+          ARCH=$(lipo -archs "$DYLIB")
+          echo "Shipped $DYLIB architecture: $ARCH"
+          if [ "$ARCH" != "x86_64" ]; then
+            echo "ERROR: x64 nightly zip contains '$ARCH' libz3.dylib (see issue #9662)"
+            exit 1
+          fi
+
       - name: Test install_name_tool with headerpad
         run: |
           cd artifacts/$Z3_DIR/bin
@@ -149,6 +186,17 @@ jobs:
           Z3_DIR=$(find . -maxdepth 1 -type d -name "z3-*" | head -n 1)
           echo "Z3_DIR=$Z3_DIR" >> $GITHUB_ENV
       
+      - name: Validate shipped libz3.dylib architecture (must be arm64)
+        run: |
+          set -e
+          DYLIB="artifacts/$Z3_DIR/bin/libz3.dylib"
+          ARCH=$(lipo -archs "$DYLIB")
+          echo "Shipped $DYLIB architecture: $ARCH"
+          if [ "$ARCH" != "arm64" ]; then
+            echo "ERROR: arm64 nightly zip contains '$ARCH' libz3.dylib (see issue #9662)"
+            exit 1
+          fi
+
       - name: Test install_name_tool with headerpad
         run: |
           cd artifacts/$Z3_DIR/bin
