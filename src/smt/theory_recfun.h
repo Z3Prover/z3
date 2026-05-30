@@ -61,8 +61,8 @@ namespace smt {
         bool is_disabled_guard(expr* guard) { return m_disabled_guards.contains(guard); }
 
         recfun::util & u() const { return m_util; }
-        bool is_defined(app * f) const { return u().is_defined(f); }
-        bool is_case_pred(app * f) const { return u().is_case_pred(f); }
+        bool is_defined(expr * f) const { return u().is_defined(f); }
+        bool is_case_pred(expr * f) const { return u().is_case_pred(f); }
 
         bool is_defined(enode * e) const { return is_defined(e->get_expr()); }
         bool is_case_pred(enode * e) const { return is_case_pred(e->get_expr()); }
@@ -90,7 +90,7 @@ namespace smt {
         bool internalize_atom(app * atom, bool gate_ctx) override;
         bool internalize_term(app * term) override;
         void reset_eh() override;
-        void relevant_eh(app * n) override;
+        void relevant_eh(expr * n) override;
         char const * get_name() const override;
         final_check_status final_check_eh(unsigned) override;
         void assign_eh(bool_var v, bool is_true) override;

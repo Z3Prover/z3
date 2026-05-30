@@ -42,7 +42,7 @@ namespace smt {
         // v1 is the new root
         TRACE(array, 
               tout << "merging v" << v1 << " v" << v2 << "\n"; display_var(tout, v1);
-              tout << mk_pp(get_enode(v1)->get_expr(), m) << " <- " << mk_pp(get_enode(v2)->get_expr(), m) << "\n";);
+              tout << mk_pp(get_expr(v1), m) << " <- " << mk_pp(get_expr(v2), m) << "\n";);
         SASSERT(v1 == find(v1));
         var_data * d1 = m_var_data[v1];
         var_data * d2 = m_var_data[v2];
@@ -88,7 +88,7 @@ namespace smt {
         v                = find(v);
         var_data * d     = m_var_data[v];
         d->m_parent_selects.push_back(s);
-        TRACE(array, tout << v << " " << mk_pp(s->get_expr(), m) << " " << mk_pp(get_enode(v)->get_expr(), m) << "\n";);
+        TRACE(array, tout << v << " " << mk_pp(s->get_expr(), m) << " " << mk_pp(get_expr(v), m) << "\n";);
         m_trail_stack.push(push_back_trail<enode *, false>(d->m_parent_selects));
         for (enode* n : d->m_stores) 
             instantiate_axiom2a(s, n);
@@ -299,8 +299,8 @@ namespace smt {
     void theory_array::new_eq_eh(theory_var v1, theory_var v2) {
         m_find.merge(v1, v2);
         enode* n1 = get_enode(v1), *n2 = get_enode(v2);
-        if (n1->get_expr()->get_decl()->is_lambda() ||
-            n2->get_expr()->get_decl()->is_lambda()) {
+        if (n1->get_decl()->is_lambda() ||
+            n2->get_decl()->is_lambda()) {
             assert_congruent(n1, n2);
         }
     }
@@ -310,8 +310,8 @@ namespace smt {
         v2 = find(v2);        
         var_data * d1 = m_var_data[v1];
         TRACE(ext, tout << "extensionality: " << d1->m_is_array << "\n" 
-              << mk_bounded_pp(get_enode(v1)->get_expr(), m, 5) << "\n" 
-              << mk_bounded_pp(get_enode(v2)->get_expr(), m, 5) << "\n";);
+              << mk_bounded_pp(get_expr(v1), m, 5) << "\n" 
+              << mk_bounded_pp(get_expr(v2), m, 5) << "\n";);
         
         if (d1->m_is_array) {
             SASSERT(m_var_data[v2]->m_is_array);
@@ -319,7 +319,7 @@ namespace smt {
         }
     }
 
-    void theory_array::relevant_eh(app * n) {
+    void theory_array::relevant_eh(expr * n) {
         if (laziness() == 0)
             return;
         if (m.is_ite(n)) {
@@ -328,7 +328,7 @@ namespace smt {
         if (!is_store(n) && !is_select(n))
             return;
         if (!ctx.e_internalized(n)) ctx.internalize(n, false);
-        enode * arg      = ctx.get_enode(n->get_arg(0));
+        enode * arg      = ctx.get_enode(to_app(n)->get_arg(0));
         theory_var v_arg = arg->get_th_var(get_id());
         SASSERT(v_arg != null_theory_var);
         

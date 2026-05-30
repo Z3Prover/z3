@@ -392,7 +392,7 @@ namespace smt {
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;
         void restart_eh() override;
-        void relevant_eh(app* n) override;
+        void relevant_eh(expr* n) override;
         bool should_research(expr_ref_vector &) override;
         void add_theory_assumptions(expr_ref_vector & assumptions) override;
         theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, *new_ctx); }
@@ -629,7 +629,7 @@ namespace smt {
 
         void init() override;
         // model building
-        app* mk_value(app* a);
+        app* mk_value(expr* a);
 
         trail_stack& get_trail_stack() { return m_trail_stack; }
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2) {}

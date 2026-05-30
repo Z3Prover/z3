@@ -259,7 +259,7 @@ namespace smt {
            \brief This method is invoked when the theory application n
            is marked as relevant.
          */
-        virtual void relevant_eh(app * n) {
+        virtual void relevant_eh(expr * n) {
         }
         
         /**
@@ -435,7 +435,7 @@ namespace smt {
             return m_var2enode[v];
         }
 
-        app * get_expr(theory_var v) const {
+        expr * get_expr(theory_var v) const {
             return get_enode(v)->get_expr();
         }
 

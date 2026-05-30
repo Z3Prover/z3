@@ -248,7 +248,7 @@ namespace smt {
             instantiate_default_as_array_axiom(n);
             d->m_as_arrays.push_back(n);
         }
-        else if (m.is_lambda_def(n->get_decl())) {
+        else if (m.is_lambda_def(n->get_expr())) {
             instantiate_default_lambda_def_axiom(n);
             d->m_lambdas.push_back(n);
             m_lambdas.push_back(n);
@@ -406,22 +406,23 @@ namespace smt {
         }
     }
     
-    void theory_array_full::relevant_eh(app* n) {
+    void theory_array_full::relevant_eh(expr* n) {
         TRACE(array, tout << mk_pp(n, m) << "\n";);
         theory_array::relevant_eh(n);
-        if (!is_default(n) && !is_select(n) && !is_map(n) && !is_const(n) && !is_as_array(n) && !is_choice(n)){
+        if (!is_default(n) && !is_select(n) && !is_map(n) && 
+            !is_const(n) && !is_as_array(n) && !is_choice(n) && !is_lambda(n)){
             return;
         }
         ctx.ensure_internalized(n);
         enode* node = ctx.get_enode(n);
         if (is_select(n)) {
-            enode * arg = ctx.get_enode(n->get_arg(0));
+            enode * arg = ctx.get_enode(to_app(n)->get_arg(0));
             theory_var v = arg->get_th_var(get_id());
             SASSERT(v != null_theory_var);
             add_parent_select(find(v), node);            
         }
         else if (is_default(n)) {
-            enode * arg = ctx.get_enode(n->get_arg(0));
+            enode * arg = ctx.get_enode(to_app(n)->get_arg(0));
             theory_var v = arg->get_th_var(get_id());
             SASSERT(v != null_theory_var);
             set_prop_upward(v);               
@@ -434,7 +435,7 @@ namespace smt {
             add_parent_default(find(v));
         }
         else if (is_map(n)) {
-            for (expr * e : *n) {
+            for (expr * e : *to_app(n)) {
                 enode* arg = ctx.get_enode(e);
                 theory_var v_arg = find(arg->get_th_var(get_id()));
                 add_parent_map(v_arg, node);
@@ -447,6 +448,9 @@ namespace smt {
         }
         else if (is_choice(n)) {
             instantiate_choice_axiom(node);
+        }
+        else if (is_lambda(n)) {
+            NOT_IMPLEMENTED_YET();
         }
     }
 
@@ -462,8 +466,8 @@ namespace smt {
     // select(map[f](a, ... d), i) = f(select(a,i),...,select(d,i))
     //  
     bool theory_array_full::instantiate_select_map_axiom(enode* sl, enode* mp) {
-        app* map = mp->get_expr();
-        app* select = sl->get_expr();
+        app* map = mp->get_app();
+        app* select = sl->get_app();
         SASSERT(is_map(map));
         SASSERT(is_select(select));
         SASSERT(map->get_num_args() > 0);
@@ -529,7 +533,7 @@ namespace smt {
     bool theory_array_full::instantiate_default_map_axiom(enode* mp) {
         SASSERT(is_map(mp));
                 
-        app* map = mp->get_expr();
+        app* map = mp->get_app();
         if (!ctx.add_fingerprint(this, m_default_map_fingerprint, 1, &mp)) {
             return false;
         }
@@ -581,7 +585,7 @@ namespace smt {
         m_stats.m_num_default_lambda_axiom++;
         expr* e = arr->get_expr();
         expr_ref def(mk_default(e), m);
-        quantifier* lam = m.is_lambda_def(arr->get_decl());
+        quantifier* lam = m.is_lambda_def(e);
         TRACE(array, tout << mk_pp(lam, m) << "\n" << mk_pp(e, m) << "\n");
         expr_ref_vector args(m);       
         var_subst subst(m, false);
@@ -607,7 +611,7 @@ namespace smt {
             return false;
         ++m_stats.m_num_choice_axiom;
         SASSERT(is_choice(ch));
-        app* choice_term = ch->get_expr();
+        app* choice_term = ch->get_app();
         expr* pred = choice_term->get_arg(0);
         sort* pred_sort = pred->get_sort();
         SASSERT(is_array_sort(pred_sort));
@@ -645,10 +649,10 @@ namespace smt {
         ptr_buffer<expr> sel_args;
         sel_args.push_back(cnst->get_expr());
         for (unsigned short i = 1; i < num_args; ++i) {
-            sel_args.push_back(select->get_expr()->get_arg(i));
+            sel_args.push_back(select->get_app()->get_arg(i));
         }
         expr * sel = mk_select(sel_args.size(), sel_args.data());
-        expr * val = cnst->get_expr()->get_arg(0);
+        expr * val = cnst->get_app()->get_arg(0);
         TRACE(array, tout << "new select-const axiom...\n";
               tout << "const: " << mk_bounded_pp(cnst->get_expr(), m) << "\n";
               tout << "select: " << mk_bounded_pp(select->get_expr(), m) << "\n";
@@ -667,7 +671,7 @@ namespace smt {
     // select(as-array f, i_1, ..., i_n) = (f i_1 ... i_n)
     //
     bool theory_array_full::instantiate_select_as_array_axiom(enode* select, enode* arr) {
-        SASSERT(is_as_array(arr->get_expr()));
+        SASSERT(is_as_array(arr->get_app()));
         SASSERT(is_select(select));
         SASSERT(arr->get_num_args() == 0);
         unsigned num_args = select->get_num_args();
@@ -677,12 +681,12 @@ namespace smt {
 
         m_stats.m_num_select_as_array_axiom++;   
         ptr_buffer<expr> sel_args;
-        sel_args.push_back(arr->get_expr());
+        sel_args.push_back(arr->get_app());
         for (unsigned short i = 1; i < num_args; ++i) {
-            sel_args.push_back(select->get_expr()->get_arg(i));
+            sel_args.push_back(select->get_app()->get_arg(i));
         }
         expr * sel = mk_select(sel_args.size(), sel_args.data());
-        func_decl * f = array_util(m).get_as_array_func_decl(arr->get_expr());
+        func_decl * f = array_util(m).get_as_array_func_decl(arr->get_app());
         expr_ref val(m.mk_app(f, sel_args.size()-1, sel_args.data()+1), m);
         TRACE(array, tout << "new select-as-array axiom...\n";
               tout << "as-array: " << mk_bounded_pp(arr->get_expr(), m) << "\n";
@@ -701,7 +705,7 @@ namespace smt {
     bool theory_array_full::instantiate_default_store_axiom(enode* store) {
         SASSERT(is_store(store));
         SASSERT(store->get_num_args() >= 3);
-        app* store_app = store->get_expr();
+        app* store_app = store->get_app();
         if (!ctx.add_fingerprint(this, m_default_store_fingerprint, store->get_num_args(), store->get_args())) {
             return false;
         }

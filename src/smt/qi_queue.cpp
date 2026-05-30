@@ -140,7 +140,7 @@ namespace smt {
               tout << "new instance of " << q->get_qid() << ", weight " << q->get_weight()
               << ", generation: " << generation << ", scope_level: " << m_context.get_scope_level() << ", cost: " << cost << "\n";
               for (unsigned i = 0; i < f->get_num_args(); ++i) {
-                  tout << "#" << f->get_arg(i)->get_expr_id() << " d:" << f->get_arg(i)->get_expr()->get_depth() << " ";
+                  tout << "#" << f->get_arg(i)->get_expr_id() << " d:" << get_depth(f->get_arg(i)->get_expr()) << " ";
               }
               tout << "\n";);
         TRACE(new_entries_bug, tout << "[qi:insert]\n";);

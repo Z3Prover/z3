@@ -59,7 +59,7 @@ namespace smt {
 
         void restart_eh() override;
 
-        void relevant_eh(app* e) override;
+        void relevant_eh(expr* e) override;
 
         void init_search_eh() override;
 

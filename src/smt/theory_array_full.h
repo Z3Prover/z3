@@ -60,7 +60,7 @@ namespace smt {
         bool internalize_atom(app * atom, bool gate_ctx) override;
         void pop_scope_eh(unsigned num_scopes) override;
         theory_var mk_var(enode * n) override;
-        void relevant_eh(app * n) override;
+        void relevant_eh(expr * n) override;
 
         bool should_research(expr_ref_vector & unsat_core) override;
         void add_theory_assumptions(expr_ref_vector & assumptions) override;
@@ -81,6 +81,7 @@ namespace smt {
         bool instantiate_default_map_axiom(enode* map);
         bool instantiate_default_as_array_axiom(enode* arr);
         bool instantiate_default_lambda_def_axiom(enode* arr);
+        bool instantiate_select_lambda_axiom(enode *lambda);
         bool instantiate_choice_axiom(enode* ch);
         bool instantiate_parent_stores_default(theory_var v);
 

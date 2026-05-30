@@ -68,17 +68,17 @@ namespace smt {
         datatype_factory *        m_factory;
         stats                     m_stats;
 
-        bool is_constructor(app * f) const { return m_util.is_constructor(f); }
-        bool is_recognizer(app * f) const { return m_util.is_recognizer(f); }
-        bool is_subterm_predicate(app * f) const { return m_util.is_subterm_predicate(f); }
-        bool is_accessor(app * f) const { return m_util.is_accessor(f); }
-        bool is_update_field(app * f) const { return m_util.is_update_field(f); }
+        bool is_constructor(expr * f) const { return m_util.is_constructor(f); }
+        bool is_recognizer(expr * f) const { return m_util.is_recognizer(f); }
+        bool is_subterm_predicate(expr * f) const { return m_util.is_subterm_predicate(f); }
+        bool is_accessor(expr * f) const { return m_util.is_accessor(f); }
+        bool is_update_field(expr * f) const { return m_util.is_update_field(f); }
 
         bool is_constructor(enode * n) const { return is_constructor(n->get_expr()); }
         bool is_recognizer(enode * n) const { return is_recognizer(n->get_expr()); }
         bool is_subterm_predicate(enode * n) const { return is_subterm_predicate(n->get_expr()); }
         bool is_accessor(enode * n) const { return is_accessor(n->get_expr()); }
-        bool is_update_field(enode * n) const { return m_util.is_update_field(n->get_expr()); }
+        bool is_update_field(enode * n) const { return is_update_field(n->get_expr()); }
 
         void assert_eq_axiom(enode * lhs, expr * rhs, literal antecedent);
         void assert_is_constructor_axiom(enode * n, func_decl * c, literal antecedent);
@@ -148,7 +148,7 @@ namespace smt {
         bool use_diseqs() const override;
         void new_diseq_eh(theory_var v1, theory_var v2) override;
         void assign_eh(bool_var v, bool is_true) override;
-        void relevant_eh(app * n) override;
+        void relevant_eh(expr * n) override;
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;
         final_check_status final_check_eh(unsigned) override;

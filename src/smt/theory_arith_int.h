@@ -215,7 +215,7 @@ namespace smt {
               tout << "k = " << k << ", _k = "<< _k << std::endl;
               );
         expr_ref bound(m);
-        expr* e = get_enode(v)->get_expr();
+        expr* e = get_expr(v);
         bound  = m_util.mk_ge(e, m_util.mk_numeral(_k, m_util.is_int(e)));
         context & ctx = get_context();
         {
@@ -413,7 +413,7 @@ namespace smt {
         for (; it != end; ++it) {
             if (!it->is_dead() && it->m_var != b && is_free(it->m_var)) {
                 theory_var v  = it->m_var;
-                expr* e = get_enode(v)->get_expr();
+                expr* e = get_expr(v);
                 bool _is_int = m_util.is_int(e);
                 expr_ref bound(m_util.mk_ge(e, m_util.mk_numeral(rational::zero(), _is_int)), get_manager());
                 context & ctx = get_context();
@@ -629,9 +629,9 @@ namespace smt {
             }
             rational _k = k.to_rational();
             if (is_lower)
-                bound = m_util.mk_ge(get_enode(v)->get_expr(), m_util.mk_numeral(_k, is_int(v)));
+                bound = m_util.mk_ge(get_expr(v), m_util.mk_numeral(_k, is_int(v)));
             else
-                bound = m_util.mk_le(get_enode(v)->get_expr(), m_util.mk_numeral(_k, is_int(v)));
+                bound = m_util.mk_le(get_expr(v), m_util.mk_numeral(_k, is_int(v)));
         }
         else { 
             if (num_ints > 0) {

@@ -108,7 +108,7 @@ namespace smt {
     }
 
     void theory_array_base::assert_store_axiom1_core(enode * e) {
-        app * n           = e->get_expr();
+        app * n           = e->get_app();
         SASSERT(is_store(n));
         ptr_buffer<expr> sel_args;
         unsigned num_args = n->get_num_args();
@@ -235,10 +235,6 @@ namespace smt {
         return false;
     }
 
- 
-
-
-
     func_decl_ref_vector * theory_array_base::register_sort(sort * s_array) {
         unsigned dimension = get_dimension(s_array);
         func_decl_ref_vector * ext_skolems = nullptr;
@@ -333,8 +329,8 @@ namespace smt {
 
    
     void theory_array_base::assert_extensionality_core(enode * n1, enode * n2) {
-        app * e1        = n1->get_expr();
-        app * e2        = n2->get_expr();
+        expr * e1        = n1->get_expr();
+        expr * e2        = n2->get_expr();
 
         func_decl_ref_vector * funcs = nullptr;
         sort *                     s = e1->get_sort();
@@ -371,8 +367,8 @@ namespace smt {
        \brief assert n1 = n2 => forall vars . (n1 vars) = (n2 vars)
      */
     void theory_array_base::assert_congruent_core(enode * n1, enode * n2) {
-        app * e1        = n1->get_expr();
-        app * e2        = n2->get_expr();
+        expr * e1        = n1->get_expr();
+        expr * e2        = n2->get_expr();
         sort* s         = e1->get_sort();
         unsigned dimension = get_array_arity(s);
         literal n1_eq_n2 = mk_eq(e1, e2, true);
@@ -403,13 +399,13 @@ namespace smt {
         assert_axiom(~n1_eq_n2, fa_eq);
     }
 
-    expr_ref theory_array_base::instantiate_lambda(app* e) {
-        quantifier * q = m.is_lambda_def(e->get_decl());
+    expr_ref theory_array_base::instantiate_lambda(expr* e) {
+        quantifier * q = m.is_lambda_def(e);
         expr_ref f(e, m);
         if (q) {
             // the variables in q are maybe not consecutive.
             var_subst sub(m, false);
-            f = sub(q, e->get_num_args(), e->get_args());
+            f = sub(q, to_app(e)->get_num_args(), to_app(e)->get_args());
         }
         return f;
     }
@@ -561,13 +557,13 @@ namespace smt {
             TRACE(array_bug, tout << "mk_interface_eqs: processing: v" << *it1 << "\n";);
             theory_var  v1 = *it1;
             enode *     n1 = get_enode(v1);
-            sort *      s1 = n1->get_expr()->get_sort();
+            sort *      s1 = n1->get_sort();
             sbuffer<theory_var>::iterator it2 = it1;
             ++it2;
             for (; it2 != end1; ++it2) {
                 theory_var v2 = *it2;
                 enode *    n2 = get_enode(v2);
-                sort *     s2 = n2->get_expr()->get_sort();
+                sort *     s2 = n2->get_sort();
                 if (s1 == s2 && !ctx.is_diseq(n1, n2)) {
                     app * eq  = mk_eq_atom(n1->get_expr(), n2->get_expr());
                     if (!ctx.b_internalized(eq) || !ctx.is_relevant(eq)) {
@@ -974,7 +970,7 @@ namespace smt {
     model_value_proc * theory_array_base::mk_value(enode * n, model_generator & mg) {
         theory_var v       = n->get_th_var(get_id());
         SASSERT(v != null_theory_var);
-        sort * s           = n->get_expr()->get_sort();
+        sort * s           = n->get_sort();
         enode * else_val_n = get_default(v);
         array_value_proc * result = nullptr;
 

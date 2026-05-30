@@ -166,7 +166,15 @@ namespace smt {
 
         void del_eh(ast_manager & m, bool update_children_parent = true);
         
-        app * get_expr() const { return m_owner; }
+        app * get_app() const { return m_owner; }
+
+        expr *get_expr() const {
+            return m_owner;
+        }
+
+        bool is_app() const {
+            return ::is_app(m_owner);
+        }               
 
         unsigned get_owner_id() const { return m_owner->get_id(); }
         unsigned get_expr_id() const { return m_owner->get_id(); }
@@ -175,6 +183,10 @@ namespace smt {
         unsigned get_decl_id() const { return m_owner->get_decl()->get_small_id(); }
 
         sort* get_sort() const { return m_owner->get_sort(); }
+
+        family_id get_family_id() const {
+            return m_owner->get_family_id();
+        }
 
         unsigned hash() const {
             return m_owner->hash();

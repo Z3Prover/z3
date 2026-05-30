@@ -1154,7 +1154,7 @@ namespace smt {
 
         void push_eq(enode * lhs, enode * rhs, eq_justification const & js) {
             if (lhs->get_root() != rhs->get_root()) {
-                SASSERT(lhs->get_expr()->get_sort() == rhs->get_expr()->get_sort());
+                SASSERT(lhs->get_sort() == rhs->get_sort());
                 m_eq_propagation_queue.push_back(new_eq(lhs, rhs, js));
             }
         }

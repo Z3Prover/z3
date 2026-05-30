@@ -684,7 +684,7 @@ namespace euf {
         }
         auto is_ho = any_of(subterms::all(expr_ref(p, m)), [&](expr* t) { 
             return m_unitary.is_flex(0, t) || 
-                   (is_app(t) && m.is_lambda_def(to_app(t)->get_decl())) || 
+                   m.is_lambda_def(t) || 
                    is_lambda(t); 
         });
         if (!is_ho)
@@ -702,7 +702,7 @@ namespace euf {
                 todo.pop_back();
                 continue;
             }
-            if (m_unitary.is_flex(0, t) || (is_app(t) && m.is_lambda_def(to_app(t)->get_decl())) || is_lambda(t)) {
+            if (m_unitary.is_flex(0, t) || m.is_lambda_def(t) || is_lambda(t)) {
                 if (!contains_pat2abs)
                     m_pat2abs.insert_if_not_there(p, svector<std::pair<unsigned, expr*>>()).push_back({ nb, t });
                 auto v = m.mk_var(nb++, t->get_sort());

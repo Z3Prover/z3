@@ -70,6 +70,7 @@ namespace smt {
         context & get_context() const { return m_owner.get_context(); }
         ast_manager & get_manager() const { return m_owner.get_manager(); }
         enode * get_enode(theory_var v) const { return m_owner.get_enode(v); }
+        expr * get_expr(theory_var v) const { return m_owner.get_expr(v); }
 
     public:
         arith_eq_adapter(theory & owner, arith_util & u):m_owner(owner), m_util(u) {}

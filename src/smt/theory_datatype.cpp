@@ -138,7 +138,7 @@ namespace smt {
        where acc_i are the accessors of constructor c.
     */
     void theory_datatype::assert_is_constructor_axiom(enode * n, func_decl * c, literal antecedent) {
-        app* e = n->get_expr();
+        app* e = n->get_app();
         TRACE(datatype_bug, tout << "creating axiom (= n (c (acc_1 n) ... (acc_m n))) for\n" 
             << mk_pp(c, m) << " " << mk_pp(e, m) << "\n";);
         m_stats.m_assert_cnstr++;
@@ -175,12 +175,12 @@ namespace smt {
         vector<std::tuple<enode *, enode *>> used_enodes;
         used_enodes.push_back(std::make_tuple(nullptr, n));
         for (unsigned i = 0; i < n->get_num_args(); ++i) {
-            bindings.push_back(n->get_arg(i)->get_expr());
+            bindings.push_back(n->get_arg(i)->get_app());
         }
         unsigned base_id = m.has_trace_stream() && accessors.size() > 0 ? m_util.plugin().get_axiom_base_id(d->get_name()) : 0;
         unsigned i = 0;
         for (func_decl * acc : accessors) {
-            app_ref acc_app(m.mk_app(acc, n->get_expr()), m);
+            app_ref acc_app(m.mk_app(acc, n->get_app()), m);
             enode * arg       = n->get_arg(i);
 
             std::function<void(void)> fn = [&]() {
@@ -223,7 +223,7 @@ namespace smt {
     void theory_datatype::assert_update_field_axioms(enode * n) {
         m_stats.m_assert_update_field++;
         SASSERT(is_update_field(n));
-        app*        own  = n->get_expr();
+        app*        own  = n->get_app();
         expr*       arg1 = own->get_arg(0);
         func_decl * upd  = n->get_decl();
         func_decl * acc  = to_func_decl(upd->get_parameter(0).get_ast());
@@ -267,7 +267,7 @@ namespace smt {
             func_decl * sub_decl = m_util.get_datatype_subterm(s);
             if (sub_decl) {
                 TRACE(datatype, tout << "asserting reflexivity for #" << n->get_owner_id() << " " << mk_pp(n->get_expr(), m) << "\n";);
-                app_ref reflex(m.mk_app(sub_decl, n->get_expr(), n->get_expr()), m);
+                app_ref reflex(m.mk_app(sub_decl, n->get_app(), n->get_app()), m);
                 ctx.internalize(reflex, false);
                 literal l(ctx.get_bool_var(reflex));
                 ctx.mark_as_relevant(l);
@@ -356,7 +356,7 @@ namespace smt {
                 sort * s    = arg->get_sort();
                 sort *e_sort = nullptr;
                 if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
-                    app_ref def(m_autil.mk_default(arg->get_expr()), m);
+                    app_ref def(m_autil.mk_default(arg->get_app()), m);
                     if (!ctx.e_internalized(def)) {
                         ctx.internalize(def, false);
                     }
@@ -542,7 +542,7 @@ namespace smt {
         ptr_vector<enode> candidates = list_subterms(arg2);
 
         for (enode *s : candidates) {
-            bool is_leaf = !m_util.is_constructor(s->get_expr());
+            bool is_leaf = !m_util.is_constructor(s->get_app());
 
             // Case 1: Equality check (arg1 == s)
             // Valid if sorts are compatible.
@@ -570,7 +570,7 @@ namespace smt {
                     if (sub_decl) {
                         TRACE(datatype, tout << "adding recursive case: " << mk_pp(arg1->get_expr(), m) << " ⊑ "
                                              << mk_pp(s->get_expr(), m) << "\n";);
-                        auto tmp = m.mk_not(m.mk_app(sub_decl, arg1->get_expr(), s->get_expr()));
+                        auto tmp = m.mk_not(m.mk_app(sub_decl, arg1->get_app(), s->get_app()));
                         lits.push_back(mk_literal(tmp));
                         found_possible = true;
                     }
@@ -617,7 +617,7 @@ namespace smt {
         ptr_vector<enode> candidates = list_subterms(arg2);
 
         for (enode *s : candidates) {
-            bool is_leaf = !m_util.is_constructor(s->get_expr());
+            bool is_leaf = !m_util.is_constructor(s->get_app());
 
             if (s->get_sort() == arg1->get_sort()) {
                 TRACE(datatype,
@@ -638,7 +638,7 @@ namespace smt {
                     if (sub_decl) {
                         TRACE(datatype, tout << "asserting NOT " << mk_pp(arg1->get_expr(), m) << " subterm "
                                              << mk_pp(s->get_expr(), m) << "\n";);
-                        auto sub_app = m.mk_app(sub_decl, arg1->get_expr(), s->get_expr());
+                        auto sub_app = m.mk_app(sub_decl, arg1->get_app(), s->get_app());
                         literal sub_lit = mk_literal(sub_app);
                         literal lits[2] = {antecedent, ~sub_lit};
                         ctx.mk_th_axiom(get_id(), 2, lits);
@@ -678,7 +678,7 @@ namespace smt {
             enode *ctor = nullptr;
             enode *iter = root;
             do {
-                if (f.th.m_util.is_constructor(iter->get_expr())) {
+                if (f.th.m_util.is_constructor(iter->get_app())) {
                     ctor = iter;
                     break;
                 }
@@ -706,7 +706,7 @@ namespace smt {
         return result;
     }
 
-    void theory_datatype::relevant_eh(app * n) {
+    void theory_datatype::relevant_eh(expr * n) {
         force_push();
         TRACE(datatype, tout << "relevant_eh: " << mk_pp(n, m) << "\n";);
         SASSERT(ctx.relevancy());
@@ -967,7 +967,7 @@ namespace smt {
         };
         
         for (enode* sib : *n) {
-            if (m_sutil.str.is_concat_of_units(sib->get_expr())) {
+            if (m_sutil.str.is_concat_of_units(sib->get_app())) {
                 add_todo(sib);
                 sibling = sib;
                 break;
@@ -994,7 +994,7 @@ namespace smt {
         theory_array* th = dynamic_cast<theory_array*>(ctx.get_theory(m_autil.get_family_id()));
         for (enode* p : th->parent_selects(n)) 
             m_args.push_back(p);            
-        app_ref def(m_autil.mk_default(n->get_expr()), m);
+        app_ref def(m_autil.mk_default(n->get_app()), m);
         m_args.push_back(ctx.get_enode(def));
         return m_args;
     }
@@ -1328,7 +1328,7 @@ namespace smt {
             if (!r) {
                 ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(dt);
                 func_decl * rec = m_util.get_constructor_is(constructors[unassigned_idx]);
-                auto rec_app = m.mk_app(rec, n->get_expr());
+                auto rec_app = m.mk_app(rec, n->get_app());
                 consequent = mk_literal(rec_app);
             }
             else {
@@ -1405,7 +1405,7 @@ namespace smt {
             }
         }
         SASSERT(r != nullptr);
-        app_ref r_app(m.mk_app(r, n->get_expr()), m);
+        app_ref r_app(m.mk_app(r, n->get_app()), m);
         TRACE(datatype, tout << "creating split: " << mk_pp(r_app, m) << "\n";);
         ctx.internalize(r_app, false);
         bool_var bv     = ctx.get_bool_var(r_app);
