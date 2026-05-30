@@ -619,12 +619,11 @@ namespace smt {
         expr_ref px(mk_select(2, args1), m);
         expr* args2[2] = { pred, choice_term };
         expr_ref pc(mk_select(2, args2), m);
-        expr_ref ax(m.mk_implies(px, pc), m);
+        expr_ref body(m.mk_implies(px, pc), m);
         symbol x_name("x");
-        expr_ref q(m.mk_forall(1, &x_sort, &x_name, ax), m);
+        expr_ref q(m.mk_forall(1, &x_sort, &x_name, body), m);
         ctx.get_rewriter()(q);
-        literal l = mk_literal(q);
-        assert_axiom(l);
+        assert_axiom(mk_literal(q));
         return true;
     }
 
