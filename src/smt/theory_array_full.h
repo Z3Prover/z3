@@ -37,6 +37,8 @@ namespace smt {
         ast2ast_trailmap<sort, app> m_sort2epsilon;
         ast2ast_trailmap<sort, func_decl> m_sort2diag;
         obj_pair_map<expr, expr, bool> m_eqs;
+        enode_vector m_choice_terms;
+        unsigned m_choice_qhead = 0;
         
         static unsigned const m_default_map_fingerprint = UINT_MAX - 112;
         static unsigned const m_default_store_fingerprint = UINT_MAX - 113;
@@ -111,6 +113,8 @@ namespace smt {
         void merge_eh(theory_var v1, theory_var v2, theory_var, theory_var) override;
         void display_var(std::ostream & out, theory_var v) const override;
         void collect_statistics(::statistics & st) const override;
+        bool can_propagate() override { return theory_array::can_propagate() || m_choice_qhead < m_choice_terms.size(); }
+        void propagate() override;
     };
 
 };

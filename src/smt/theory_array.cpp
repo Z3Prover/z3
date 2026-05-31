@@ -68,12 +68,12 @@ namespace smt {
         m_var_data.push_back(alloc(var_data));
         var_data * d  = m_var_data[r];
         TRACE(array, tout << mk_bounded_pp(n->get_expr(), m) << "\nis_array: " << is_array_sort(n) << ", is_select: " << is_select(n) <<
-              ", is_store: " << is_store(n) << "\n";);
+              ", is_store: " << is_store(n) << ", is_lambda: " << is_lambda(n) << "\n";);
         d->m_is_array  = is_array_sort(n);
         if (d->m_is_array) 
             register_sort(n->get_expr()->get_sort());
         d->m_is_select = is_select(n);        
-        if (is_store(n))
+        if (is_store(n) || is_lambda(n))
             d->m_stores.push_back(n);
         ctx.attach_th_var(n, this, r);
         if (laziness() <= 1 && is_store(n))
@@ -95,7 +95,7 @@ namespace smt {
 
         if (!m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
             for (enode* store : d->m_parent_stores) {
-                SASSERT(is_store(store));
+                SASSERT(is_store(store) || is_lambda(store));
                 if (!m_params.m_array_cg || store->is_cgr()) {
                     instantiate_axiom2b(s, store);
                 }
@@ -106,7 +106,7 @@ namespace smt {
     void theory_array::add_parent_store(theory_var v, enode * s) {
         if (m_params.m_array_cg && !s->is_cgr())
             return;
-        SASSERT(is_store(s));
+        SASSERT(is_store(s) || is_lambda(s));
         v                = find(v);
         var_data * d     = m_var_data[v];
         d->m_parent_stores.push_back(s);
@@ -177,7 +177,7 @@ namespace smt {
     void theory_array::add_store(theory_var v, enode * s) {
         if (m_params.m_array_cg && !s->is_cgr())
             return;
-        SASSERT(is_store(s));
+        SASSERT(is_store(s) || is_lambda(s));
         v                = find(v);
         var_data * d     = m_var_data[v];
         unsigned lambda_equiv_class_size = get_lambda_equiv_size(v, d);
@@ -204,7 +204,7 @@ namespace smt {
     void theory_array::instantiate_axiom2a(enode * select, enode * store) {
         TRACE(array, tout << "axiom 2a: #" << select->get_owner_id() << " #" << store->get_owner_id() << "\n";);
         SASSERT(is_select(select));
-        SASSERT(is_store(store));
+        SASSERT(is_store(store) || is_lambda(store));
         if (assert_store_axiom2(store, select))
             m_stats.m_num_axiom2a++;
     }
@@ -212,7 +212,7 @@ namespace smt {
     bool theory_array::instantiate_axiom2b(enode * select, enode * store) {
         TRACE(array_axiom2b, tout << "axiom 2b: #" << select->get_owner_id() << " #" << store->get_owner_id() << "\n";);
         SASSERT(is_select(select));
-        SASSERT(is_store(store));
+        SASSERT(is_store(store) || is_lambda(store));
         if (assert_store_axiom2(store, select)) {
             m_stats.m_num_axiom2b++;
             return true;
@@ -261,7 +261,7 @@ namespace smt {
     }
 
     bool theory_array::internalize_term(app * n) {
-        if (!is_store(n) && !is_select(n)) {
+        if (!is_store(n) && !is_select(n) && !is_lambda(n)) {
             if (!is_array_ext(n))
                 found_unsupported_op(n);
             return false;
@@ -282,7 +282,7 @@ namespace smt {
             if (is_select(n)) {
                 add_parent_select(v_arg, ctx.get_enode(n));
             }
-            else if (is_store(n)) {
+            else if (is_store(n) || is_lambda(n)) {
                 add_parent_store(v_arg, ctx.get_enode(n));
             }
         }
@@ -325,9 +325,11 @@ namespace smt {
         if (m.is_ite(n)) {
             TRACE(array, tout << "relevant ite " << mk_pp(n, m) << "\n";);
         }
-        if (!is_store(n) && !is_select(n))
+        if (!is_store(n) && !is_select(n) && !is_lambda(n))
             return;
         if (!ctx.e_internalized(n)) ctx.internalize(n, false);
+        if (is_lambda(n))
+            return;
         enode * arg      = ctx.get_enode(to_app(n)->get_arg(0));
         theory_var v_arg = arg->get_th_var(get_id());
         SASSERT(v_arg != null_theory_var);

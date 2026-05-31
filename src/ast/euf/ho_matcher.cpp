@@ -689,20 +689,21 @@ namespace euf {
         });
         if (!is_ho)
             return { q, p };
-        ptr_vector<expr> todo;
+        vector<std::pair<expr*, unsigned>> todo;
         ptr_buffer<var> bound;
         expr_ref_vector cache(m);
         unsigned nb = q->get_num_decls();
         bool contains_pat2abs = m_pat2abs.contains(p);
-        todo.push_back(p);
+        SASSERT(m.is_pattern(p));
+        todo.push_back({p, 0});
         while (!todo.empty()) {
-            auto t = todo.back();
+            auto [t, lvl] = todo.back();
             if (is_var(t)) {
                 cache.setx(t->get_id(), t);
                 todo.pop_back();
                 continue;
             }
-            if (m_unitary.is_flex(0, t) || m.is_lambda_def(t) || is_lambda(t)) {
+            if ((m_unitary.is_flex(0, t) && lvl > 1) || m.is_lambda_def(t) || is_lambda(t)) {
                 if (!contains_pat2abs)
                     m_pat2abs.insert_if_not_there(p, svector<std::pair<unsigned, expr*>>()).push_back({ nb, t });
                 auto v = m.mk_var(nb++, t->get_sort());
@@ -720,7 +721,7 @@ namespace euf {
                     cache.reserve(arg->get_id() + 1);
                     expr* arg1 = cache.get(arg->get_id());
                     if (!arg1)
-                        todo.push_back(arg);
+                        todo.push_back({arg, lvl + 1});
                     else
                         args.push_back(arg1);
                 }
@@ -736,6 +737,9 @@ namespace euf {
             }
         }
         p1 = to_app(cache.get(p->get_id()));
+
+        if (p1 == p)
+            return {q, p};
         expr_free_vars free_vars;
         free_vars(p1);
         app_ref_vector new_ground(m);
@@ -762,6 +766,8 @@ namespace euf {
         auto body = q->get_expr();
         if (!new_patterns.empty()) {
             ptr_vector<app> pats;
+            CTRACE(ho_matching, !m.is_pattern(p1), 
+                tout << mk_pp(p, m) << "\n" << mk_pp(p1, m) << "\n";);
             VERIFY(m.is_pattern(p1, pats));
             for (auto p : new_patterns) // patterns for variables that are not free in new pattern
                 pats.push_back(p);
@@ -800,6 +806,10 @@ namespace euf {
         if (!contains_pat2abs)
             trail().push(insert_map(m_pat2abs, p));
 
+        TRACE(ho_matching, tout << mk_pp(q, m) << "\n"
+                                << mk_pp(p, m) << "\n->\n"
+                                << mk_pp(q1, m) << "\n"
+                                << mk_pp(p1, m) << "\n");
         return { q1, p1 };
     }
 

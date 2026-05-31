@@ -248,7 +248,7 @@ namespace smt {
             instantiate_default_as_array_axiom(n);
             d->m_as_arrays.push_back(n);
         }
-        else if (m.is_lambda_def(n->get_expr())) {
+        else if (is_lambda(n)) {
             instantiate_default_lambda_def_axiom(n);
             d->m_lambdas.push_back(n);
             m_lambdas.push_back(n);
@@ -329,9 +329,6 @@ namespace smt {
             ctx.push_trail(push_back_vector(m_as_array));
             instantiate_default_as_array_axiom(node);
         }
-        else if (is_choice(n)) {
-            instantiate_choice_axiom(node);
-        }
         else if (is_array_ext(n)) {
             SASSERT(n->get_num_args() == 2);
             instantiate_extensionality(ctx.get_enode(n->get_arg(0)), ctx.get_enode(n->get_arg(1)));
@@ -371,8 +368,8 @@ namespace smt {
         TRACE(array, tout << "v" << v << " " << pp(get_enode(v), m) << " " 
               << d->m_prop_upward << " " << m_params.m_array_delay_exp_axiom << "\n";);
         for (enode * store : d->m_stores) {
-            SASSERT(is_store(store));
-            instantiate_default_store_axiom(store);
+            if (is_store(store))
+                instantiate_default_store_axiom(store);
         }        
 
         if (!m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
@@ -410,7 +407,7 @@ namespace smt {
         TRACE(array, tout << mk_pp(n, m) << "\n";);
         theory_array::relevant_eh(n);
         if (!is_default(n) && !is_select(n) && !is_map(n) && 
-            !is_const(n) && !is_as_array(n) && !is_choice(n) && !is_lambda(n)){
+            !is_const(n) && !is_as_array(n) && !is_choice(n)) {
             return;
         }
         ctx.ensure_internalized(n);
@@ -447,10 +444,8 @@ namespace smt {
             instantiate_default_as_array_axiom(node);
         }
         else if (is_choice(n)) {
-            instantiate_choice_axiom(node);
-        }
-        else if (is_lambda(n)) {
-            NOT_IMPLEMENTED_YET();
+            m_choice_terms.push_back(node);
+            ctx.push_trail(push_back_vector(m_choice_terms));            
         }
     }
 
@@ -585,7 +580,7 @@ namespace smt {
         m_stats.m_num_default_lambda_axiom++;
         expr* e = arr->get_expr();
         expr_ref def(mk_default(e), m);
-        quantifier* lam = m.is_lambda_def(e);
+        quantifier* lam = is_quantifier(e) ? to_quantifier(e) : m.is_lambda_def(e);
         TRACE(array, tout << mk_pp(lam, m) << "\n" << mk_pp(e, m) << "\n");
         expr_ref_vector args(m);       
         var_subst subst(m, false);
@@ -627,8 +622,9 @@ namespace smt {
         symbol x_name("x");
         expr_ref q(m.mk_forall(1, &x_sort, &x_name, ax), m);
         ctx.get_rewriter()(q);
-        literal l = mk_literal(q);
-        assert_axiom(l);
+        TRACE(array, tout << "choice " << q << "\n");        
+        ctx.assert_expr(q);
+        ctx.internalize_assertions();
         return true;
     }
 
@@ -781,6 +777,16 @@ namespace smt {
             m_trail_stack.push(ast2ast_trail<sort, func_decl>(m_sort2diag, s, diag));
         }
         return {eps, diag};
+    }
+
+    void theory_array_full::propagate() {
+        if (m_choice_qhead == m_choice_terms.size())
+            return;
+        ctx.push_trail(value_trail(m_choice_qhead));
+        for (; m_choice_qhead < m_choice_terms.size(); ++m_choice_qhead) {
+            enode *choice = m_choice_terms[m_choice_qhead];
+            instantiate_choice_axiom(choice);
+        }
     }
 
     final_check_status theory_array_full::assert_delayed_axioms() {        

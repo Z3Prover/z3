@@ -217,18 +217,41 @@ namespace smt {
             if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
     }
+
+    void theory_array_base::assert_lambda_axiom_core(enode* n, enode* select) {
+        SASSERT(is_lambda(n));
+        SASSERT(is_select(select));
+        expr *e = n->get_expr();
+        app *s = select->get_app();
+        auto q = is_quantifier(e) ? to_quantifier(e) : m.is_lambda_def(e);
+        SASSERT(q);
+        SASSERT(::is_lambda(q));
+        SASSERT(q->get_num_decls() == s->get_num_args() - 1);
+        // do the same thing as in sat/smt/array_axioms:
+        ptr_vector<expr> args(s->get_num_args(), s->get_args());
+        args[0] = q;
+        array_util a(m);
+        expr_ref alpha(a.mk_select(args), m);
+        expr_ref beta(alpha);
+        ctx.get_rewriter()(beta);
+        TRACE(array, tout << alpha << " == " << beta << "\n";);
+        auto alpha_n = ensure_enode(alpha);
+        auto beta_n = ensure_enode(beta);
+        ctx.assign_eq(alpha_n, beta_n, eq_justification::mk_axiom());
+    }
     
     bool theory_array_base::assert_store_axiom2(enode * store, enode * select) { 
+        SASSERT(is_store(store) || is_lambda(store));
         unsigned num_args = select->get_num_args();
         unsigned        i = 1;
         for (; i < num_args; ++i) 
-            if (store->get_arg(i)->get_root() != select->get_arg(i)->get_root())
+            if (is_store(store) && store->get_arg(i)->get_root() != select->get_arg(i)->get_root())
                 break;
         if (i == num_args)
             return false;
         if (ctx.add_fingerprint(store, store->get_owner_id(), select->get_num_args() - 1, select->get_args() + 1)) {
             TRACE(array, tout << "adding axiom2 to todo queue\n";);
-            m_axiom2_todo.push_back(std::make_pair(store, select)); 
+            m_axiom2_todo.push_back({store, select}); 
             return true;
         }
         TRACE(array, tout << "axiom already instantiated: #" << store->get_owner_id() << " #" << select->get_owner_id() << "\n";);
@@ -426,7 +449,10 @@ namespace smt {
             m_axiom1_todo.reset();
             for (unsigned i = 0; i < m_axiom2_todo.size(); ++i) {
                 auto [store, select] = m_axiom2_todo[i];
-                assert_store_axiom2_core(store, select);
+                if (is_store(store))
+                    assert_store_axiom2_core(store, select);
+                else
+                    assert_lambda_axiom_core(store, select);
             }
             m_axiom2_todo.reset();
             for (unsigned i = 0; i < m_extensionality_todo.size(); ++i) {

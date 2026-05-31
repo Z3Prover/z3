@@ -598,19 +598,7 @@ namespace smt {
         if (e_internalized(q)) 
             return;
         app_ref lam_name(m.mk_fresh_const("lambda", q->get_sort()), m);
-        app_ref eq(m), lam_app(m);
-        expr_ref_vector vars(m);
-        vars.push_back(lam_name);
-        unsigned sz = q->get_num_decls();
-        for (unsigned i = 0; i < sz; ++i) 
-            vars.push_back(m.mk_var(sz - i - 1, q->get_decl_sort(i)));
-        array_util autil(m);
-        lam_app = autil.mk_select(vars.size(), vars.data());
-        eq = m.mk_eq(lam_app, q->get_expr());
-        quantifier_ref fa(m);
-        expr * patterns[1] = { m.mk_pattern(lam_app) };
-        fa = m.mk_forall(sz, q->get_decl_sorts(), q->get_decl_names(), eq, 0, m.lambda_def_qid(), symbol::null, 1, patterns);
-        internalize_quantifier(fa, true);
+        m.add_lambda_def(lam_name->get_decl(), q);
         if (!e_internalized(lam_name)) 
             internalize_uninterpreted(lam_name);
         enode* lam_node = get_enode(lam_name);
@@ -619,9 +607,6 @@ namespace smt {
         m_app2enode.setx(q->get_id(), lam_node, nullptr);
         m_l_internalized_stack.push_back(q);
         m_trail_stack.push_ptr(&m_mk_lambda_trail);
-        bool_var bv = get_bool_var(fa);
-        assign(literal(bv, false), nullptr);
-        mark_as_relevant(bv);
     }
 
     bool context::has_lambda() {
