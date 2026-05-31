@@ -23,10 +23,13 @@ static void test_table(mk_table_fn mk_table) {
     sig.push_back(8);
     sig.push_back(4);
     smt_params params;
+    params_ref fp_params;
+    gparams::set("fp.engine", "datalog");
+    // fp_params.set_sym("fp.engine", symbol("datalog"));
     ast_manager ast_m;
     reg_decl_plugins(ast_m);
     datalog::register_engine re;
-    datalog::context ctx(ast_m, re, params);    
+    datalog::context ctx(ast_m, re, params, fp_params);    
     datalog::relation_manager & m = ctx.get_rel_context()->get_rmanager();
 
     m.register_plugin(alloc(datalog::bitvector_table_plugin, m));
@@ -48,13 +51,10 @@ static void test_table(mk_table_fn mk_table) {
     table.add_fact(row2);
     table.display(std::cout);
 
-    datalog::table_base::iterator it = table.begin();
-    datalog::table_base::iterator end = table.end();
-    for (; it != end; ++it) {
-        it->get_fact(row);
-        for (unsigned j = 0; j < row.size(); ++j) {
-            std::cout << row[j] << " ";
-        }
+    for (auto &r : table) {
+        r.get_fact(row);
+        for (auto v : row)
+            std::cout << v << " ";
         std::cout << "\n";
     }
 
