@@ -780,6 +780,7 @@ namespace smt {
     }
 
     void theory_array_full::propagate() {
+        theory_array::propagate();
         if (m_choice_qhead == m_choice_terms.size())
             return;
         ctx.push_trail(value_trail(m_choice_qhead));
