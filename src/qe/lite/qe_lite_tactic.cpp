@@ -2242,7 +2242,8 @@ class qe_lite::impl {
             // so we return it directly without re-wrapping.
             if (is_exists(q) || is_forall(q)) {
                 expr_ref expanded(m);
-                if (m_imp.try_expand_bounded_quantifier(q, result, expanded)) {
+                if (m_imp.try_expand_bounded_quantifier(q, result, expanded) ||
+                    m_imp.try_expand_bv_eq_quantifier(q, result, expanded)) {
                     if (is_forall(q))
                         expanded = push_not(expanded);
                     m_imp.m_rewriter(expanded, result, result_pr);
@@ -2287,6 +2288,8 @@ private:
 
     bool m_use_array_der;
     static const unsigned EXPAND_BOUND_LIMIT = 10000;
+    static const unsigned BV_EQ_CASE_SPLIT_LIMIT = 256;
+    static const unsigned BV_EQ_CASES_PER_VAR_LIMIT = 8;
 
     bool has_unique_non_ground(expr_ref_vector const& fmls, unsigned& index) {
         index = fmls.size();
@@ -2496,6 +2499,141 @@ private:
                 cur_vals[i] = var_lbs[i];
             }
             if (carry == nv)
+                break;
+        }
+
+        bool_rewriter(m).mk_or(disjuncts.size(), disjuncts.data(), result);
+        return true;
+    }
+
+    bool collect_bv_eq_constants(expr* e, unsigned idx, obj_hashtable<expr>& values) {
+        ptr_buffer<expr> todo;
+        ast_mark visited;
+        todo.push_back(e);
+        while (!todo.empty()) {
+            expr* n = todo.back();
+            todo.pop_back();
+            if (visited.is_marked(n))
+                continue;
+            visited.mark(n, true);
+            if (is_var(n)) {
+                if (to_var(n)->get_idx() == idx)
+                    return false;
+                continue;
+            }
+            if (is_quantifier(n))
+                return false;
+            if (!is_app(n))
+                continue;
+            expr *lhs = nullptr, *rhs = nullptr;
+            if (m.is_eq(n, lhs, rhs)) {
+                bool lhs_is_var = is_var(lhs) && to_var(lhs)->get_idx() == idx;
+                bool rhs_is_var = is_var(rhs) && to_var(rhs)->get_idx() == idx;
+                if (lhs_is_var || rhs_is_var) {
+                    if (lhs_is_var == rhs_is_var)
+                        return false;
+                    expr* c = lhs_is_var ? rhs : lhs;
+                    if (!m.is_value(c))
+                        return false;
+                    values.insert(c);
+                    continue;
+                }
+            }
+            todo.append(to_app(n)->get_num_args(), to_app(n)->get_args());
+        }
+        return true;
+    }
+
+    bool mk_bv_default_case(unsigned bv_size, obj_hashtable<expr> const& values, expr_ref& value) {
+        bv_util bv(m);
+        unsigned max_num = values.size() + 1;
+        if (bv_size < sizeof(unsigned) * 8)
+            max_num = std::min<unsigned>(max_num, (1u << bv_size));
+        for (unsigned i = 0; i < max_num; ++i) {
+            value = bv.mk_numeral(rational(i), bv_size);
+            if (!values.contains(value))
+                return true;
+        }
+        return false;
+    }
+
+    bool try_expand_bv_eq_quantifier(quantifier* q, expr* body, expr_ref& result) {
+        unsigned num_decls = q->get_num_decls();
+        if (num_decls == 0)
+            return false;
+
+        used_vars uv;
+        uv(body);
+
+        struct bv_var_cases {
+            unsigned idx;
+            expr_ref_vector values;
+            bv_var_cases(ast_manager& m, unsigned i): idx(i), values(m) {}
+        };
+
+        vector<bv_var_cases> case_vars;
+        rational num_cases(1);
+
+        for (unsigned i = 0; i < num_decls; ++i) {
+            if (!uv.contains(i))
+                continue;
+            sort* var_sort = q->get_decl_sort(num_decls - i - 1);
+            bv_util bv(m);
+            if (!bv.is_bv_sort(var_sort))
+                return false;
+            obj_hashtable<expr> values;
+            if (!collect_bv_eq_constants(body, i, values) || values.empty())
+                return false;
+            if (values.size() > BV_EQ_CASES_PER_VAR_LIMIT)
+                return false;
+            case_vars.push_back(bv_var_cases(m, i));
+            auto& var_cases = case_vars.back();
+            for (expr* v : values)
+                var_cases.values.push_back(v);
+            expr_ref other(m);
+            if (mk_bv_default_case(bv.get_bv_size(var_sort), values, other))
+                var_cases.values.push_back(other);
+            if (var_cases.values.empty())
+                return false;
+            num_cases *= rational(var_cases.values.size());
+            if (num_cases > rational(BV_EQ_CASE_SPLIT_LIMIT))
+                return false;
+        }
+
+        if (case_vars.empty())
+            return false;
+
+        expr_ref_vector subst_map(m);
+        subst_map.resize(num_decls);
+        for (unsigned i = 0; i < num_decls; ++i)
+            if (!uv.contains(i))
+                subst_map.set(i, m.mk_var(i, q->get_decl_sort(num_decls - i - 1)));
+
+        unsigned_vector case_ix;
+        case_ix.resize(case_vars.size(), 0);
+
+        var_subst vs(m, false);
+        expr_ref_vector disjuncts(m);
+        while (true) {
+            for (unsigned i = 0; i < case_vars.size(); ++i) {
+                auto& c = case_vars[i];
+                subst_map.set(c.idx, c.values.get(case_ix[i]));
+            }
+            expr_ref inst(vs(body, subst_map.size(), subst_map.data()), m);
+            m_rewriter(inst);
+            disjuncts.push_back(inst);
+
+            // Increment mixed-radix counter over case_ix; if all positions wrap, stop.
+            bool wrapped = true;
+            for (unsigned j = case_ix.size(); j-- > 0; ) {
+                ++case_ix[j];
+                if (case_ix[j] < case_vars[j].values.size()) {
+                    wrapped = false;
+                    break;
+                }
+                case_ix[j] = 0;
+            }
+            if (wrapped)
                 break;
         }
 
