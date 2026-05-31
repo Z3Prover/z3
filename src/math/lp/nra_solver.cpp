@@ -204,7 +204,7 @@ struct solver::imp {
         
         smt_params_helper p(m_params);
 
-	    setup_solver_poly();
+	    setup_solver_terms();
 
         TRACE(nra, m_nlsat->display(tout));
 
