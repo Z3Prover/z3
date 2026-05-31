@@ -1137,7 +1137,7 @@ namespace smt {
             m.inc_ref(eq);
             _this->m_is_diseq_tmp = enode::mk_dummy(m, m_app2enode, eq);
         }
-        else if (m_is_diseq_tmp->get_arg(0)->get_sort() != n1->get_sort()) {
+        else if (m_is_diseq_tmp->get_app()->get_arg(0)->get_sort() != n1->get_sort()) {
             m.dec_ref(m_is_diseq_tmp->get_expr());
             app * eq = m.mk_eq(n1->get_expr(), n2->get_expr());
             m.inc_ref(eq);
