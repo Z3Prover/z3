@@ -677,33 +677,57 @@ namespace euf {
         if (!re->has_projection())
             return mk(m_rewriter.mk_derivative(ch, re_expr));
 
-        // Minimal language-preserving simplifications that never inspect a
-        // projection's arguments (so the opaque skolem and its inner state id
-        // are preserved for the oracle's r ∈ Q test).
+        // Language-preserving combinators that DISTRIBUTE over ite.  The
+        // symbolic-character derivative of a regex is a linear form: a
+        // *top-level* ite dispatching on character predicates over the (single)
+        // symbolic char, with ordinary derivative regexes at the leaves.  Both
+        // projection leaves (via wrap_proj) and projection-free subterms (via
+        // mk_derivative) already yield top-level ites; if the surrounding
+        // Boolean/concat operators did not push themselves into the ite leaves,
+        // the ite would end up *buried* (e.g. ~(ite(...)·Σ*)) where
+        // apply_regex_if_split — which only matches a top-level ite — can no
+        // longer resolve the symbolic char, stalling the constraint and causing
+        // unbounded variable unwinding.  Distributing keeps the result a proper
+        // top-level linear form, exactly as the standard mk_derivative does.
+        // These combinators also fold the trivial regex identities so the
+        // projection skolem and its inner state id are preserved verbatim.
         auto is_empty = [&](expr* r) { return m_seq.re.is_empty(r); };
         auto is_full  = [&](expr* r) { return m_seq.re.is_full_seq(r); };
         auto is_eps   = [&](expr* r) { return m_seq.re.is_epsilon(r); };
-        auto mk_union = [&](expr* x, expr* y) -> expr* {
+        auto is_ite   = [&](expr* r, expr*& c, expr*& t, expr*& e) { return m.is_ite(r, c, t, e); };
+
+        std::function<expr*(expr*, expr*)> mk_union = [&](expr* x, expr* y) -> expr* {
+            expr *c = nullptr, *t = nullptr, *e = nullptr;
+            if (is_ite(x, c, t, e)) return m.mk_ite(c, mk_union(t, y), mk_union(e, y));
+            if (is_ite(y, c, t, e)) return m.mk_ite(c, mk_union(x, t), mk_union(x, e));
             if (is_empty(x)) return y;
             if (is_empty(y)) return x;
             if (x == y)      return x;
             if (is_full(x) || is_full(y)) return m_seq.re.mk_full_seq(re_sort);
             return m_seq.re.mk_union(x, y);
         };
-        auto mk_inter = [&](expr* x, expr* y) -> expr* {
+        std::function<expr*(expr*, expr*)> mk_inter = [&](expr* x, expr* y) -> expr* {
+            expr *c = nullptr, *t = nullptr, *e = nullptr;
+            if (is_ite(x, c, t, e)) return m.mk_ite(c, mk_inter(t, y), mk_inter(e, y));
+            if (is_ite(y, c, t, e)) return m.mk_ite(c, mk_inter(x, t), mk_inter(x, e));
             if (is_empty(x) || is_empty(y)) return m_seq.re.mk_empty(re_sort);
             if (is_full(x)) return y;
             if (is_full(y)) return x;
             if (x == y)     return x;
             return m_seq.re.mk_inter(x, y);
         };
-        auto mk_concat = [&](expr* x, expr* y) -> expr* {
+        std::function<expr*(expr*, expr*)> mk_concat = [&](expr* x, expr* y) -> expr* {
+            expr *c = nullptr, *t = nullptr, *e = nullptr;
+            if (is_ite(x, c, t, e)) return m.mk_ite(c, mk_concat(t, y), mk_concat(e, y));
+            if (is_ite(y, c, t, e)) return m.mk_ite(c, mk_concat(x, t), mk_concat(x, e));
             if (is_empty(x) || is_empty(y)) return m_seq.re.mk_empty(re_sort);
             if (is_eps(x)) return y;
             if (is_eps(y)) return x;
             return m_seq.re.mk_concat(x, y);
         };
-        auto mk_compl = [&](expr* x) -> expr* {
+        std::function<expr*(expr*)> mk_compl = [&](expr* x) -> expr* {
+            expr *c = nullptr, *t = nullptr, *e = nullptr;
+            if (is_ite(x, c, t, e)) return m.mk_ite(c, mk_compl(t), mk_compl(e));
             if (is_empty(x)) return m_seq.re.mk_full_seq(re_sort);
             if (is_full(x))  return m_seq.re.mk_empty(re_sort);
             expr* inner = nullptr;

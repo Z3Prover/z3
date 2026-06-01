@@ -503,12 +503,11 @@ namespace seq {
     struct nielsen_subst {
         euf::snode* m_var;
         euf::snode* m_replacement;
-        // euf::snode *m_length = nullptr; // representation of length if this is a sequence variable, null otherwise.
         dep_tracker m_dep;
 
         nielsen_subst(): m_var(nullptr), m_replacement(nullptr), m_dep(nullptr) {}
-        nielsen_subst(euf::snode* var, euf::snode* repl, euf::snode* length, dep_tracker const& dep):
-            m_var(var), m_replacement(repl)/*, m_length(length)*/, m_dep(dep) {
+        nielsen_subst(euf::snode* var, euf::snode* repl, dep_tracker const& dep):
+            m_var(var), m_replacement(repl), m_dep(dep) {
             SASSERT(var != nullptr);
             SASSERT(repl != nullptr);
             // var may be s_var or s_power; sgraph::subst uses pointer identity matching
@@ -582,15 +581,18 @@ namespace seq {
     class nielsen_edge {
         nielsen_node*           m_src;
         nielsen_node*           m_tgt;
+        const char* const       m_rule_name;
         vector<nielsen_subst>   m_subst;
         vector<constraint>      m_side_constraints;  // side constraints: integer equalities/inequalities
         bool                    m_is_progress;     // does this edge represent progress?
         bool                    m_len_constraints_computed = false; // lazily computed substitution length constraints
+
     public:
-        nielsen_edge(nielsen_node* src, nielsen_node* tgt, bool is_progress);
+        nielsen_edge(nielsen_node* src, nielsen_node* tgt, const char* rule, bool is_progress);
 
         nielsen_node* src() const { return m_src; }
         nielsen_node* tgt() const { return m_tgt; }
+        const char* rule_name() const { return m_rule_name; }
 
         void set_tgt(nielsen_node* tgt) { m_tgt = tgt; }
 
@@ -989,7 +991,7 @@ namespace seq {
         nielsen_node* mk_child(nielsen_node* parent);
 
         // edge management
-        nielsen_edge* mk_edge(nielsen_node* src, nielsen_node* tgt, bool is_progress);
+        nielsen_edge* mk_edge(nielsen_node *src, nielsen_node *tgt, const char *rule, bool is_progress);
 
         // root node access
         nielsen_node* root() const { return m_root; }

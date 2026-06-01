@@ -156,20 +156,20 @@ static void test_nielsen_subst() {
     euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
 
     seq::dep_tracker dep = nullptr;
-    seq::nielsen_subst s1(x, a, nullptr, dep);
+    seq::nielsen_subst s1(x, a, dep);
     SASSERT(s1.is_eliminating());
 
     // eliminating substitution: x -> empty
-    seq::nielsen_subst s2(x, e, nullptr, dep);
+    seq::nielsen_subst s2(x, e, dep);
     SASSERT(s2.is_eliminating());
 
     // non-eliminating substitution: x -> concat(A, x)
     euf::snode* ax = sg.mk_concat(a, x);
-    seq::nielsen_subst s3(x, ax, nullptr, dep);
+    seq::nielsen_subst s3(x, ax, dep);
     SASSERT(!s3.is_eliminating());
 
     // eliminating substitution: x -> y (x not in y)
-    seq::nielsen_subst s4(x, y, nullptr, dep);
+    seq::nielsen_subst s4(x, y, dep);
     SASSERT(s4.is_eliminating());
 }
 
@@ -243,8 +243,8 @@ static void test_nielsen_edge() {
     seq::nielsen_node* child = ng.mk_child(parent);
 
     // create edge with substitution x -> A
-    seq::nielsen_edge* edge = ng.mk_edge(parent, child, true);
-    edge->add_subst(seq::nielsen_subst(x, a, nullptr, dep));
+    seq::nielsen_edge* edge = ng.mk_edge(parent, child, "test", true);
+    edge->add_subst(seq::nielsen_subst(x, a, dep));
 
     SASSERT(edge->src() == parent);
     SASSERT(edge->tgt() == child);
@@ -322,7 +322,7 @@ static void test_nielsen_subst_apply() {
     node->add_str_eq(seq::str_eq(xa, by, dep));
 
     // apply substitution x -> empty
-    seq::nielsen_subst s(x, e, nullptr, dep);
+    seq::nielsen_subst s(x, e, dep);
     node->apply_subst(sg, s);
 
     // after x -> empty: lhs should be just A, rhs still concat(B, y)
@@ -385,17 +385,17 @@ static void test_nielsen_expansion() {
     // branch 1: x -> eps (eliminating, progress)
     euf::snode* e = sg.mk_empty_seq(seq.str.mk_string_sort());
     seq::nielsen_node* child1 = ng.mk_child(root);
-    seq::nielsen_subst s1(x, e, nullptr, dep);
+    seq::nielsen_subst s1(x, e, dep);
     child1->apply_subst(sg, s1);
-    seq::nielsen_edge* edge1 = ng.mk_edge(root, child1, true);
+    seq::nielsen_edge* edge1 = ng.mk_edge(root, child1, "test", true);
     edge1->add_subst(s1);
 
     // branch 2: x -> Ax (non-eliminating, non-progress)
     euf::snode* ax = sg.mk_concat(a, x);
     seq::nielsen_node* child2 = ng.mk_child(root);
-    seq::nielsen_subst s2(x, ax, nullptr, dep);
+    seq::nielsen_subst s2(x, ax, dep);
     child2->apply_subst(sg, s2);
-    seq::nielsen_edge* edge2 = ng.mk_edge(root, child2, false);
+    seq::nielsen_edge* edge2 = ng.mk_edge(root, child2, "test", false);
     edge2->add_subst(s2);
 
     SASSERT(ng.num_nodes() == 3);
@@ -3584,7 +3584,7 @@ static void test_subst_does_not_propagate_bounds_single_var() {
 
     // apply substitution x → a·y
     euf::snode* ay = sg.mk_concat(a, y);
-    seq::nielsen_subst s(x, ay, nullptr, dep);
+    seq::nielsen_subst s(x, ay, dep);
     node->apply_subst(sg, s);
 
     // No local propagation anymore: y keeps conservative defaults.
@@ -3619,7 +3619,7 @@ static void test_subst_no_immediate_bound_conflict() {
 
     // apply substitution x → a·b (no eager bound check at this stage)
     euf::snode* ab = sg.mk_concat(a, b);
-    seq::nielsen_subst s(x, ab, nullptr, dep);
+    seq::nielsen_subst s(x, ab, dep);
     node->apply_subst(sg, s);
 
     SASSERT(!node->is_general_conflict());
@@ -3752,7 +3752,7 @@ static void test_subst_does_not_propagate_bounds_multi_var() {
 
     // apply substitution x → y·z (two vars, no constants)
     euf::snode* yz = sg.mk_concat(y, z);
-    seq::nielsen_subst s(x, yz, nullptr, dep);
+    seq::nielsen_subst s(x, yz, dep);
     node->apply_subst(sg, s);
 
     SASSERT(queried_ub(node, y) == UINT_MAX);

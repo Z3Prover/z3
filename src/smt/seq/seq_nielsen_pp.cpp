@@ -744,18 +744,16 @@ namespace seq {
                 out << "    " << n->id() << " -> " << e->tgt()->id() << " [label=<";
 
                 // edge label: substitutions joined by <br/>
-                bool first = true;
+                out << "[" << e->rule_name() << "]";
                 for (auto const& s : e->subst()) {
-                    if (!first) out << "<br/>";
-                    first = false;
+                    out << "<br/>";
                     out << snode_label_html(s.m_var, m)
                         << " &#8594; " // mapping arrow
                         << snode_label_html(s.m_replacement, m);
                 }
                 // side constraints: integer equalities/inequalities
                 for (auto const& ic : e->side_constraints()) {
-                    if (!first) out << "<br/>";
-                    first = false;
+                    out << "<br/>";
                     out << "<font color=\"gray\">"
                         << constraint_html(ic, names, next_id, m)
                         << "</font>";
