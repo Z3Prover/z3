@@ -996,7 +996,7 @@ namespace smt {
        \remark If suppress_args is true, then the enode is viewed as a constant
        in the egraph.
     */
-    enode * context::mk_enode(app * n, bool suppress_args, bool merge_tf, bool cgc_enabled) {
+    enode * context::mk_enode(expr * n, bool suppress_args, bool merge_tf, bool cgc_enabled) {
         TRACE(mk_enode_detail, tout << mk_pp(n, m) << "\nsuppress_args: " << suppress_args << ", merge_tf: " << 
               merge_tf << ", cgc_enabled: " << cgc_enabled << "\n";);
         SASSERT(!e_internalized(n));
@@ -1008,7 +1008,7 @@ namespace smt {
             CTRACE(cached_generation, generation != m_generation,
                    tout << "cached_generation: #" << n->get_id() << " " << generation << " " << m_generation << "\n";);
         }
-        enode *e = enode::mk(m, get_region(), m_app2enode, n, generation, suppress_args, merge_tf, m_scope_lvl,
+        enode *e = enode::mk(m, get_region(), m_app2enode, to_app(n), generation, suppress_args, merge_tf, m_scope_lvl,
                              cgc_enabled, true);
         TRACE(mk_enode_detail, tout << "e.get_num_args() = " << e->get_num_args() << "\n";);
         if (m.is_unique_value(n))
@@ -1042,7 +1042,7 @@ namespace smt {
                 }
             }
             if (!e->is_eq()) {
-                unsigned decl_id = n->get_decl()->get_small_id();
+                unsigned decl_id = e->get_decl_id();
                 if (decl_id >= m_decl2enodes.size())
                     m_decl2enodes.resize(decl_id+1);
                 m_decl2enodes[decl_id].push_back(e);
@@ -1086,7 +1086,7 @@ namespace smt {
             m_cg_table.erase(e);
         }
         if (e->get_num_args() > 0 && !e->is_eq()) {
-            unsigned decl_id = to_app(n)->get_decl()->get_small_id();
+            unsigned decl_id = e->get_decl_id();
             SASSERT(decl_id < m_decl2enodes.size());
             SASSERT(m_decl2enodes[decl_id].back() == e);
             m_decl2enodes[decl_id].pop_back();

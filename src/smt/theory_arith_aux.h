@@ -2179,7 +2179,7 @@ namespace smt {
         TRACE(shared, tout << ctx.get_scope_level() << " " <<  v << " " << r->get_num_parents() << "\n";);
         for (; it != end; ++it) {
             enode * parent = *it;
-            app *   o = parent->get_app();
+            app*   o = parent->get_app();
             if (parent->get_family_id() == get_id()) {
                 switch (o->get_decl_kind()) {
                 case OP_DIV:

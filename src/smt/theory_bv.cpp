@@ -179,10 +179,14 @@ namespace smt {
         if (params().m_bv_reflect) {
             return n->get_arg(idx);
         }
-        else {
+        else if (n->is_app()) {
             app * arg     = to_app(n->get_app()->get_arg(idx));
             SASSERT(ctx.e_internalized(arg));
             return ctx.get_enode(arg);
+        }
+        else {
+            UNREACHABLE();
+            return nullptr;
         }
     }
     
@@ -1151,7 +1155,7 @@ namespace smt {
         if (!is_attached_to_var(n) && !approximate_term(n->get_expr())) {
             mk_bits(mk_var(n));
             if (ctx.is_relevant(n)) {
-                relevant_eh(n->get_app());
+                relevant_eh(n->get_expr());
             }
         }
     }

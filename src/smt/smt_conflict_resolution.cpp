@@ -855,7 +855,7 @@ namespace smt {
         case eq_justification::CONGRUENCE:
             num_args = n1->get_num_args();
             SASSERT(num_args == n2->get_num_args());
-            SASSERT(n1->get_app()->get_decl() == n2->get_app()->get_decl());
+            SASSERT(n1->get_decl() == n2->get_decl());
             if (js.used_commutativity()) {
                 bool visited = true;
                 SASSERT(num_args == 2);

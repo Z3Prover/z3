@@ -482,11 +482,11 @@ namespace smt {
 
     protected:
         void log_axiom_instantiation(app * r, unsigned axiom_id = UINT_MAX, unsigned num_bindings = 0, 
-                                     app * const * bindings = nullptr, unsigned pattern_id = UINT_MAX, 
+                                     expr * const * bindings = nullptr, unsigned pattern_id = UINT_MAX, 
                                      const vector<std::tuple<enode *, enode *>> & used_enodes = vector<std::tuple<enode *, enode*>>());
 
         void log_axiom_instantiation(expr * r, unsigned axiom_id = UINT_MAX, unsigned num_bindings = 0, 
-                                     app * const * bindings = nullptr, unsigned pattern_id = UINT_MAX, 
+                                     expr * const * bindings = nullptr, unsigned pattern_id = UINT_MAX, 
                                      const vector<std::tuple<enode *, enode *>> & used_enodes = vector<std::tuple<enode *, enode*>>()) { 
             log_axiom_instantiation(to_app(r), axiom_id, num_bindings, bindings, pattern_id, used_enodes); 
         }

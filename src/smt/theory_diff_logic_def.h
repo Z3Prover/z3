@@ -974,10 +974,9 @@ theory_var theory_diff_logic<Ext>::expand(bool pos, theory_var v, rational & k) 
     enode* e = get_enode(v);
     rational r;
     for (;;) {
-        app* n = e->get_app();
-        if (m_util.is_add(n) && n->get_num_args() == 2) {
-            app* x = to_app(n->get_arg(0));
-            app* y = to_app(n->get_arg(1));
+        expr *x = nullptr, *y = nullptr;
+        expr* n = e->get_expr();
+        if (m_util.is_add(n, x, y)) {
             if (m_util.is_numeral(x, r)) {
                 e = ctx.get_enode(y);                
             }

@@ -33,8 +33,8 @@ namespace smt {
         void add_weak_var(theory_var v);
         virtual void set_prop_upward(theory_var v) {}
         void found_unsupported_op(expr * n);
-        void found_unsupported_op(enode* n) { found_unsupported_op(n->get_app()); }
-        void found_unsupported_op(theory_var v) { found_unsupported_op(get_enode(v)->get_app()); }
+        void found_unsupported_op(enode* n) { found_unsupported_op(n->get_expr()); }
+        void found_unsupported_op(theory_var v) { found_unsupported_op(get_expr(v)); }
         
         bool is_store(expr const* n) const { return is_app(n) && to_app(n)->is_app_of(get_id(), OP_STORE); }
         bool is_map(expr const* n) const { return is_app(n) && to_app(n)->is_app_of(get_id(), OP_ARRAY_MAP); }

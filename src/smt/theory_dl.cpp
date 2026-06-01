@@ -166,7 +166,7 @@ namespace smt {
         }
 
         void apply_sort_cnstr(enode * n, sort * s) override {
-            auto term = n->get_app();
+            auto term = n->get_expr();
             if (u().is_finite_sort(term)) {
                 mk_rep(term);
             }
@@ -214,11 +214,12 @@ namespace smt {
             }
         }
 
-        bool mk_rep(app* n) {
-            unsigned num_args = n->get_num_args();
+        bool mk_rep(expr* n) {
+
             enode * e = nullptr;
-            for (unsigned i = 0; i < num_args; ++i) {
-                ctx.internalize(n->get_arg(i), false);
+            if (is_app(n)) {
+                for (auto arg : *to_app(n))
+                    ctx.internalize(arg, false);
             }
             if (ctx.e_internalized(n)) {
                 e = ctx.get_enode(n);

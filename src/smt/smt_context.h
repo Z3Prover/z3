@@ -1025,7 +1025,7 @@ namespace smt {
 
         bool_var mk_bool_var(expr * n);
 
-        enode * mk_enode(app * n, bool suppress_args, bool merge_tf, bool cgc_enabled);
+        enode * mk_enode(expr * n, bool suppress_args, bool merge_tf, bool cgc_enabled);
 
         void attach_th_var(enode * n, theory * th, theory_var v);
 
