@@ -1064,6 +1064,10 @@ namespace seq {
 
         std::string to_dot() const;
 
+        std::ostream& partial_dfa_to_dot(std::ostream& out, euf::snode* start_state, bool keep_names) const;
+
+        std::string partial_dfa_to_dot(euf::snode* start_state, bool keep_names) const;
+
         // reset all nodes and state
         void reset();
 

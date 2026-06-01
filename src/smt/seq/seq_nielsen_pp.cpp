@@ -782,4 +782,115 @@ namespace seq {
         return ss.str();
     }
 
+    std::ostream& nielsen_graph::partial_dfa_to_dot(std::ostream& out, euf::snode* start_state, bool keep_names) const {
+        out << "digraph G {\n";
+        out << "  node [shape=box];\n";
+
+        if (!start_state || !start_state->get_expr())
+            return out << "}\n";
+
+        unsigned start_state_id = start_state->get_expr()->get_id();
+
+        unsigned_vector todo;
+        uint_set visited;
+        vector<partial_dfa_edge const*> edges;
+
+        todo.push_back(start_state_id);
+        visited.insert(start_state_id);
+
+        ast_manager& m = m_sg.get_manager();
+
+        auto sanitize = [](std::string const& s) {
+            std::string res;
+            for (char c : s) {
+                if (c == '"') res += "\\\"";
+                else if (c == '\n') res += "\\n";
+                else res += c;
+            }
+            return res;
+        };
+
+        while (!todo.empty()) {
+            unsigned curr = todo.back();
+            todo.pop_back();
+
+            auto it = m_partial_dfa_out.find(curr);
+            if (it == m_partial_dfa_out.end())
+                continue;
+
+            for (unsigned edge_idx : it->second) {
+                if (edge_idx >= m_partial_dfa_edges.size()) continue;
+                partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
+                edges.push_back(&e);
+
+                if (!visited.contains(e.m_dst->get_id())) {
+                    visited.insert(e.m_dst->get_id());
+                    todo.push_back(e.m_dst->get_id());
+                }
+            }
+        }
+
+        for (unsigned node_id : visited) {
+            expr* node_expr = nullptr;
+            for (auto* e : edges) {
+                if (e->m_src->get_id() == node_id) { node_expr = e->m_src; break; }
+                if (e->m_dst->get_id() == node_id) { node_expr = e->m_dst; break; }
+            }
+            if (!node_expr) {
+                for (expr* pinned : m_partial_dfa_pin) {
+                    if (pinned && pinned->get_id() == node_id) {
+                        node_expr = pinned;
+                        break;
+                    }
+                }
+            }
+
+            bool accepting = false;
+            if (node_expr) {
+                euf::snode* sn = m_sg.mk(node_expr);
+                accepting = (const_cast<euf::sgraph&>(m_sg).re_nullable(sn) == l_true);
+            }
+
+            out << "  N" << node_id << " [";
+            if (accepting) {
+                out << "shape=doublecircle, ";
+            }
+            out << "label=\"";
+
+            if (keep_names) {
+                if (node_expr) {
+                    std::stringstream ss;
+                    ss << mk_ismt2_pp(node_expr, m);
+                    out << sanitize(ss.str());
+                } else {
+                    out << node_id;
+                }
+            } else {
+                out << node_id;
+            }
+            out << "\"];\n";
+        }
+
+        for (auto* e : edges) {
+            out << "  N" << e->m_src->get_id() << " -> N" << e->m_dst->get_id() << " [label=\"";
+            if (e->m_label) {
+                std::stringstream ss;
+                ss << mk_ismt2_pp(e->m_label, m);
+                out << sanitize(ss.str());
+            } else {
+                out << "??";
+            }
+            out << "\"];\n";
+        }
+
+        out << "}\n";
+        return out;
+    }
+
+    std::string nielsen_graph::partial_dfa_to_dot(euf::snode* start_state, bool keep_names) const {
+        std::stringstream ss;
+        partial_dfa_to_dot(ss, start_state, keep_names);
+        return ss.str();
+    }
+
 } // namespace seq
