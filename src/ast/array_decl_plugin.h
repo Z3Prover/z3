@@ -107,7 +107,7 @@ class array_decl_plugin : public decl_plugin {
     func_decl * mk_set_subset(unsigned arity, sort * const * domain);
 
     func_decl * mk_as_array(func_decl * f);
-    
+
     func_decl * mk_choice(unsigned arity, sort* const* domain);
 
     bool is_array_sort(sort* s) const;
@@ -326,5 +326,4 @@ public:
     }
 
 };
-
 
