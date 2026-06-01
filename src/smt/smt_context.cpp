@@ -3410,7 +3410,8 @@ namespace smt {
         timeit tt(get_verbosity_level() >= 100, "smt.preprocessing");
         unsigned qhead = 0;
         do {
-            reduce_assertions();
+            if (m_fparams.m_reduce_assertions)
+                reduce_assertions();
             if (get_cancel_flag()) 
                 return;
             if (m_asserted_formulas.inconsistent()) {
