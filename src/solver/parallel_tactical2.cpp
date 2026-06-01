@@ -1853,6 +1853,7 @@ public:
                 core.push_back(c);
         }
 
+        sl.reset();
         m_workers.reset();
         m_core_minimizer_worker = nullptr;
         m_global_backbones_workers.reset();
