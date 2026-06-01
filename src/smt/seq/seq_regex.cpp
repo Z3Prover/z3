@@ -468,27 +468,38 @@ namespace seq {
     // NSB review: we have similar functionality in seq_rewriter::some_seq_in_re
     // currently both these versions only relly work for strings not general sequences
     lbool seq_regex::is_empty_bfs(euf::snode* re, unsigned max_states) {
-        if (!re)
-            return l_undef;
+        SASSERT(re);
+        const expr* e = re->get_expr();
+        SASSERT(e);
+
+        lbool cached_result;
+        if (m_empty_cache.find(e->get_id(), cached_result))
+            return cached_result;
+
+        auto cache_and_return = [&](lbool result) {
+            m_empty_cache.insert(e->get_id(), result);
+            return result;
+        };
+
         if (re->is_fail())
-            return l_true;
+            return cache_and_return(l_true);
         if (is_nullable(re))
-            return l_false;
+            return cache_and_return(l_false);
         // Structural quick checks for kinds that are never empty
         if (re->is_star() || re->is_full_char() || re->is_full_seq() || re->is_to_re() || re->is_range())
-            return l_false;
+            return cache_and_return(l_false);
         // Structural emptiness catches simple cases
         if (is_empty_regex(re))
-            return l_true;
+            return cache_and_return(l_true);
         // Only handle ground regexes; non-ground can't be fully explored
         if (!re->is_ground())
-            return l_undef;
+            return cache_and_return(l_undef);
         // s_var snodes (unrecognized regex kinds, e.g. re.+) cannot be
         // efficiently explored: the alphabet partition is trivially {∅} and
         // derivative computations may be slow.  Report l_undef and let the
         // caller fall back to a more capable procedure.
         if (re->is_var())
-            return l_undef;
+            return cache_and_return(l_undef);
 
         // BFS over the Brzozowski derivative automaton.
         // Each state is a derivative regex snode identified by its id.
@@ -503,9 +514,9 @@ namespace seq {
 
         while (!worklist.empty()) {
             if (!m.inc())
-                return l_undef;
+                return l_undef; // don't cache
             if (states_explored >= max_states)
-                return l_undef;
+                return l_undef; // also don't cache
 
             euf::snode* current = worklist.back();
             worklist.pop_back();
@@ -517,7 +528,7 @@ namespace seq {
             // derivative behavior.
             euf::snode_vector reps;
             if (!get_alphabet_representatives(current, reps))
-                return l_undef;
+                return cache_and_return(l_undef);
 
             if (reps.empty())
                 // Nothing found = dead-end
@@ -525,12 +536,12 @@ namespace seq {
 
             for (euf::snode* ch : reps) {
                 if (!m.inc())
-                    return l_undef;
+                    return l_undef; // don't cache
                 // std::cout << "Deriving by " << snode_label_html(ch, sg().get_manager()) << std::endl;
                 euf::snode* deriv = m_sg.brzozowski_deriv(current, ch);
                 SASSERT(deriv);
                 if (is_nullable(deriv))
-                    return l_false; // found an accepting state
+                    return cache_and_return(l_false); // found an accepting state
                 if (deriv->is_fail())
                     continue; // dead-end, no need to explore further
                 if (is_empty_regex(deriv))
@@ -538,11 +549,10 @@ namespace seq {
                 if (!visited.contains(deriv->id())) {
                     visited.insert(deriv->id());
                     worklist.push_back(deriv);
-                    // std::cout << "Found [" << deriv->id() << "]: " << snode_label_html(deriv, sg().get_manager()) << std::endl;
                 }
             }
         }
-        return l_true;
+        return cache_and_return(l_true);
     }
 
     // -----------------------------------------------------------------------

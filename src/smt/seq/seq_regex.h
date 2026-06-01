@@ -42,6 +42,9 @@ namespace seq {
         seq_util &seq;
         euf::sgraph& m_sg;
 
+        // cache for emptiness check (snode id -> lbool)
+        u_map<lbool> m_empty_cache;
+
         // -----------------------------------------------------------------
         // Stabilizer store (non-backtrackable, persists across solve() calls)
         // Mirrors ZIPT Environment.stabilizers / selfStabilizing
