@@ -279,6 +279,7 @@ public:
     expr* congruence_root(expr* e) override { switch_inc_mode(); return m_solver2->congruence_root(e); }
     expr_ref congruence_explain(expr* a, expr* b) override { switch_inc_mode(); return m_solver2->congruence_explain(a, b); }
     void get_cgr_on_failure(sexpr* e) override { switch_inc_mode(); m_solver2->get_cgr_on_failure(e); }
+    void add_cgr_listener(expr* e) override { switch_inc_mode(); m_solver2->add_cgr_listener(e); }
     void dump_egraph_on_failure(bool enable) override { switch_inc_mode(); m_solver2->dump_egraph_on_failure(enable); }
 
 

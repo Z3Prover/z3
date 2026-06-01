@@ -105,6 +105,7 @@ namespace smt {
         m_unknown("unknown"),
         m_unsat_core(m),
         m_cgr_on_failure_todo(m_cgr_on_failure_sm),
+        m_cgr_listeners(m),
         m_mk_bool_var_trail(*this),
         m_mk_enode_trail(*this),
         m_lemma_visitor(m) {
@@ -5191,6 +5192,10 @@ namespace smt {
 
     void context::get_cgr_on_failure(sexpr * e) {
         m_cgr_on_failure_todo.push_back(copy_sexpr(m_cgr_on_failure_sm, e));
+    }
+
+    void context::add_cgr_listener(expr* e) {
+        m_cgr_listeners.push_back(e);
     }
 
     void context::dump_egraph_on_failure(bool enable) {

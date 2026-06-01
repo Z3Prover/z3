@@ -281,6 +281,11 @@ public:
     virtual void get_cgr_on_failure(sexpr* e);
 
     /**
+       \brief add congruence-root listener.
+    */
+    virtual void add_cgr_listener(expr* e);
+
+    /**
        \brief enable/disable e-graph dump at the time of failure.
     */
     virtual void dump_egraph_on_failure(bool enable);

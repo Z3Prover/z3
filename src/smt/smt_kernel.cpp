@@ -235,6 +235,10 @@ namespace smt {
         m_imp->m_kernel.get_cgr_on_failure(e);
     }
 
+    void kernel::add_cgr_listener(expr* e) {
+        m_imp->m_kernel.add_cgr_listener(e);
+    }
+
     void kernel::dump_egraph_on_failure(bool enable) {
         m_imp->m_kernel.dump_egraph_on_failure(enable);
     }

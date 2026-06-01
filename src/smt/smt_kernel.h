@@ -246,8 +246,9 @@ namespace smt {
 
         expr* congruence_root(expr* e);
         
-      void get_cgr_on_failure(sexpr* e);
-         void dump_egraph_on_failure(bool enable);
+        void get_cgr_on_failure(sexpr* e);
+        void add_cgr_listener(expr* e);
+        void dump_egraph_on_failure(bool enable);
 
         expr_ref congruence_explain(expr* a, expr* b);
 

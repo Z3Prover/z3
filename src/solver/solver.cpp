@@ -193,6 +193,11 @@ void solver::get_cgr_on_failure(sexpr* e) {
     std::cerr << "Solver does not support getting congruence roots on failure: " << typeid(*this).name() << std::endl;
 }
 
+void solver::add_cgr_listener(expr* e) {
+    (void)e;
+    std::cerr << "Solver does not support add_cgr_listener: " << typeid(*this).name() << std::endl;
+}
+
 void solver::dump_egraph_on_failure(bool enable) {
     (void)enable;
     std::cerr << "Solver does not support dump-egraph-on-failure: " << typeid(*this).name() << std::endl;
