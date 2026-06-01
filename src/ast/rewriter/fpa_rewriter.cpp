@@ -428,6 +428,86 @@ br_status fpa_rewriter::mk_fma(expr * arg1, expr * arg2, expr * arg3, expr * arg
             result = m_util.mk_value(t);
             return BR_DONE;
         }
+
+        // fma(rm, ±0, y, z) or fma(rm, x, ±0, z): when one multiplicand is
+        // a concrete zero the full FMA bit-blast circuit is unnecessary.
+        // IEEE 754: 0 * finite = ±0, so fma reduces to fp.add(rm, ±0, z).
+        //           0 * NaN = NaN, 0 * inf = NaN.
+        expr *other_mul = nullptr;
+        bool zero_is_neg = false;
+        scoped_mpf vzero(m_fm);
+        if (m_util.is_numeral(arg2, vzero) && m_fm.is_zero(vzero)) {
+            other_mul = arg3;
+            zero_is_neg = m_fm.is_neg(vzero);
+        }
+        else {
+            scoped_mpf v3tmp(m_fm);
+            if (m_util.is_numeral(arg3, v3tmp) && m_fm.is_zero(v3tmp)) {
+                other_mul = arg2;
+                zero_is_neg = m_fm.is_neg(v3tmp);
+                m_fm.set(vzero, v3tmp);
+            }
+        }
+
+        if (other_mul) {
+            TRACE(fp_rewriter, tout << "fma zero-multiplicand simplification\n";);
+            sort *s = arg4->get_sort();
+            expr_ref nan(m_util.mk_nan(s), m());
+
+            // fma(rm, ±0, y, NaN) = NaN
+            if (m_util.is_nan(arg4)) {
+                result = nan;
+                return BR_DONE;
+            }
+
+            // If the other multiplicand is a concrete NaN or infinity, result is NaN
+            scoped_mpf vo(m_fm);
+            if (m_util.is_numeral(other_mul, vo) && (m_fm.is_nan(vo) || m_fm.is_inf(vo))) {
+                result = nan;
+                return BR_DONE;
+            }
+
+            // If the other multiplicand is concrete and finite, compute the product
+            // ±0, which is exact, then rewrite to fp.add(rm, product, z)
+            if (m_util.is_numeral(other_mul, vo)) {
+                scoped_mpf product(m_fm);
+                m_fm.mul(rm, vzero, vo, product);
+                SASSERT(m_fm.is_zero(product));
+                result = m_util.mk_add(arg1, m_util.mk_value(product), arg4);
+                return BR_REWRITE2;
+            }
+
+            // other_mul is symbolic.
+            // When z is a concrete non-zero non-NaN value, ±0 + z = z exactly,
+            // so fma(rm, ±0, y, z_const) = ite(not isNaN(y) and not isInf(y), z_const, NaN)
+            scoped_mpf vz(m_fm);
+            if (m_util.is_numeral(arg4, vz) && !m_fm.is_zero(vz) && !m_fm.is_nan(vz)) {
+                expr_ref finite_cond(m());
+                finite_cond = m().mk_not(m().mk_or(m_util.mk_is_nan(other_mul),
+                                                   m_util.mk_is_inf(other_mul)));
+                result = m().mk_ite(finite_cond, arg4, nan);
+                return BR_REWRITE_FULL;
+            }
+
+            // General case: decompose fma into ite + fp.add, avoiding
+            // the expensive FMA bit-blast.
+            // product sign = sign(zero) XOR sign(other_mul)
+            expr_ref pzero(m_util.mk_pzero(s), m());
+            expr_ref nzero(m_util.mk_nzero(s), m());
+            expr_ref product_zero(m());
+            if (zero_is_neg)
+                product_zero = m().mk_ite(m_util.mk_is_negative(other_mul), pzero, nzero);
+            else
+                product_zero = m().mk_ite(m_util.mk_is_negative(other_mul), nzero, pzero);
+
+            expr_ref finite_cond(m());
+            finite_cond = m().mk_not(m().mk_or(m_util.mk_is_nan(other_mul),
+                                               m_util.mk_is_inf(other_mul)));
+            result = m().mk_ite(finite_cond,
+                                m_util.mk_add(arg1, product_zero, arg4),
+                                nan);
+            return BR_REWRITE_FULL;
+        }
     }
 
     return BR_FAILED;
@@ -588,6 +668,30 @@ br_status fpa_rewriter::mk_is_nan(expr * arg1, expr_ref & result) {
         return BR_DONE;
     }
 
+    // isNaN(to_fp(rm, real_or_int)) is always false:
+    // converting a real/int value never produces NaN.
+    if (m_util.is_to_fp(arg1)) {
+        app * a = to_app(arg1);
+        if (a->get_num_args() == 2 &&
+            (m_util.au().is_real(a->get_arg(1)) ||
+             m_util.au().is_int(a->get_arg(1)))) {
+            result = m().mk_false();
+            return BR_DONE;
+        }
+    }
+
+    // Push through ite when both branches are concrete FP numerals.
+    expr *c = nullptr, *t = nullptr, *e = nullptr;
+    if (m().is_ite(arg1, c, t, e)) {
+        scoped_mpf vt(m_fm), ve(m_fm);
+        if (m_util.is_numeral(t, vt) && m_util.is_numeral(e, ve)) {
+            result = m().mk_ite(c,
+                m_fm.is_nan(vt) ? m().mk_true() : m().mk_false(),
+                m_fm.is_nan(ve) ? m().mk_true() : m().mk_false());
+            return BR_REWRITE2;
+        }
+    }
+
     return BR_FAILED;
 }
 
@@ -599,6 +703,50 @@ br_status fpa_rewriter::mk_is_inf(expr * arg1, expr_ref & result) {
         return BR_DONE;
     }
 
+    // isInf(to_fp(rm, to_real(int))) → integer overflow condition.
+    // Converting a real never produces NaN, and for an integer source,
+    // overflow to ±infinity depends only on the magnitude and rounding mode.
+    mpf_rounding_mode rm;
+    if (m_util.is_to_fp(arg1)) {
+        app * a = to_app(arg1);
+        if (a->get_num_args() == 2 && m_util.is_rm_numeral(a->get_arg(0), rm)) {
+            expr * inner = a->get_arg(1);
+            expr * int_expr = nullptr;
+            // Detect to_real(int_expr)
+            if (m_util.au().is_to_real(inner)) {
+                expr * unwrapped = to_app(inner)->get_arg(0);
+                if (m_util.au().is_int(unwrapped))
+                    int_expr = unwrapped;
+            }
+            else if (m_util.au().is_int(inner))
+                int_expr = inner;
+
+            if (int_expr) {
+                func_decl * fd = a->get_decl();
+                unsigned ebits = fd->get_parameter(0).get_int();
+                unsigned sbits = fd->get_parameter(1).get_int();
+                result = mk_is_inf_of_int(rm, ebits, sbits, int_expr);
+                if (result)
+                    return BR_REWRITE_FULL;
+            }
+        }
+    }
+
+    // isInf(to_fp(rm, real_or_int)) where input is a real: never NaN,
+    // but we can't determine finiteness without knowing the real value.
+
+    // Push through ite when both branches are concrete FP numerals.
+    expr *c = nullptr, *t = nullptr, *e = nullptr;
+    if (m().is_ite(arg1, c, t, e)) {
+        scoped_mpf vt(m_fm), ve(m_fm);
+        if (m_util.is_numeral(t, vt) && m_util.is_numeral(e, ve)) {
+            result = m().mk_ite(c,
+                m_fm.is_inf(vt) ? m().mk_true() : m().mk_false(),
+                m_fm.is_inf(ve) ? m().mk_true() : m().mk_false());
+            return BR_REWRITE2;
+        }
+    }
+
     return BR_FAILED;
 }
 
@@ -608,6 +756,48 @@ br_status fpa_rewriter::mk_is_normal(expr * arg1, expr_ref & result) {
     if (m_util.is_numeral(arg1, v)) {
         result = (m_fm.is_normal(v)) ? m().mk_true() : m().mk_false();
         return BR_DONE;
+    }
+
+    // isNormal(to_fp(rm, to_real(int_expr))) → int_expr ≠ 0 ∧ ¬isInf(to_fp(...))
+    // For integer x: to_fp is never NaN or subnormal, so
+    // isNormal ↔ x ≠ 0 ∧ ¬overflow(x)
+    mpf_rounding_mode rm;
+    if (m_util.is_to_fp(arg1)) {
+        app * a = to_app(arg1);
+        if (a->get_num_args() == 2 && m_util.is_rm_numeral(a->get_arg(0), rm)) {
+            expr * inner = a->get_arg(1);
+            expr * int_expr = nullptr;
+            if (m_util.au().is_to_real(inner)) {
+                expr * unwrapped = to_app(inner)->get_arg(0);
+                if (m_util.au().is_int(unwrapped))
+                    int_expr = unwrapped;
+            }
+            else if (m_util.au().is_int(inner))
+                int_expr = inner;
+
+            if (int_expr) {
+                func_decl * fd = a->get_decl();
+                unsigned ebits = fd->get_parameter(0).get_int();
+                unsigned sbits = fd->get_parameter(1).get_int();
+                arith_util & au = m_util.au();
+                expr_ref not_zero(m().mk_not(m().mk_eq(int_expr, au.mk_int(0))), m());
+                expr_ref inf_cond = mk_is_inf_of_int(rm, ebits, sbits, int_expr);
+                result = m().mk_and(not_zero, m().mk_not(inf_cond));
+                return BR_REWRITE_FULL;
+            }
+        }
+    }
+
+    // Push through ite when both branches are concrete FP numerals.
+    expr *c = nullptr, *t = nullptr, *e = nullptr;
+    if (m().is_ite(arg1, c, t, e)) {
+        scoped_mpf vt(m_fm), ve(m_fm);
+        if (m_util.is_numeral(t, vt) && m_util.is_numeral(e, ve)) {
+            result = m().mk_ite(c,
+                m_fm.is_normal(vt) ? m().mk_true() : m().mk_false(),
+                m_fm.is_normal(ve) ? m().mk_true() : m().mk_false());
+            return BR_REWRITE2;
+        }
     }
 
     return BR_FAILED;
@@ -843,4 +1033,55 @@ br_status fpa_rewriter::mk_bvwrap(expr * arg, expr_ref & result) {
     }
 
     return BR_FAILED;
+}
+
+// Compute isInf(to_fp(rm, to_real(x))) as an integer constraint on x.
+// For integer x, to_fp(rm, x) can only be ±0, normal, or ±infinity, never NaN or subnormal.
+// The overflow boundary depends on the rounding mode and float format.
+expr_ref fpa_rewriter::mk_is_inf_of_int(mpf_rounding_mode rm, unsigned ebits, unsigned sbits, expr * int_expr) {
+    arith_util & au = m_util.au();
+
+    // Compute MAX_FINITE as a rational
+    scoped_mpf max_val(m_fm);
+    m_fm.mk_max_value(ebits, sbits, false, max_val);
+    scoped_mpq max_q(m_fm.mpq_manager());
+    m_fm.to_rational(max_val, max_q);
+    rational max_finite(max_q);
+
+    // ULP at MAX_FINITE = 2^(max_exp - sbits + 1)
+    mpf_exp_t max_exp = m_fm.mk_max_exp(ebits);
+    int ulp_exp = (int)max_exp - (int)sbits + 1;
+    rational half_ulp = rational::power_of_two(ulp_exp) / rational(2);
+
+    expr_ref r(m());
+
+    switch (rm) {
+    case MPF_ROUND_NEAREST_TEVEN:
+    case MPF_ROUND_NEAREST_TAWAY: {
+        // Overflow when |x| >= MAX_FINITE + ULP/2.
+        // At the midpoint, RNE rounds to even, which is infinity since
+        // MAX_FINITE has an odd significand. RNA also rounds to infinity.
+        rational threshold = max_finite + half_ulp;
+        expr_ref thr(au.mk_int(threshold), m());
+        expr_ref neg_thr(au.mk_int(-threshold), m());
+        // |x| >= threshold  ↔  x >= threshold || x <= -threshold
+        r = m().mk_or(au.mk_ge(int_expr, thr), au.mk_le(int_expr, neg_thr));
+        break;
+    }
+    case MPF_ROUND_TOWARD_POSITIVE:
+        // RTP: positive overflow when x > MAX_FINITE, negative overflow never.
+        r = au.mk_gt(int_expr, au.mk_int(max_finite));
+        break;
+    case MPF_ROUND_TOWARD_NEGATIVE:
+        // RTN: negative overflow when x < -MAX_FINITE, positive overflow never.
+        r = au.mk_lt(int_expr, au.mk_int(-max_finite));
+        break;
+    case MPF_ROUND_TOWARD_ZERO:
+        // RTZ: never overflows to infinity from finite input.
+        r = m().mk_false();
+        break;
+    }
+
+    TRACE(fp_rewriter, tout << "isInf(to_fp(rm, int)) -> " << mk_ismt2_pp(r, m()) << "\n";);
+    return r;
 }
