@@ -24,6 +24,8 @@ Revision History:
 class datatype_factory : public struct_factory {
     datatype_util         m_util;
     obj_map<sort, expr *> m_last_fresh_value;
+    unsigned              m_fresh_depth = 0;
+    static const unsigned m_max_fresh_depth = 512;
     
     expr * get_last_fresh_value(sort * s);
     expr * get_almost_fresh_value(sort * s);
