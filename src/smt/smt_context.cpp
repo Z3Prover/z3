@@ -131,6 +131,7 @@ namespace smt {
         m_unknown("unknown"),
         m_unsat_core(m),
         m_cgr_on_failure_todo(m_cgr_on_failure_sm),
+        m_cgr_listeners(m),
         m_mk_bool_var_trail(*this),
         m_mk_enode_trail(*this),
         m_lemma_visitor(m) {
