@@ -4,6 +4,7 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
+#include "util/gparams.h"
 #include "muz/base/dl_util.h"
 
 using namespace datalog;
