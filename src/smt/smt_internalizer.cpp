@@ -1058,7 +1058,7 @@ namespace smt {
         SCTRACE(causality, m_coming_from_quant, tout << "EN: #" << e->get_owner_id() << "\n";);
 
         if (m.has_trace_stream())
-            m.trace_stream() << "[attach-enode] #" << n->get_id() << " " << m_generation << "\n";        
+            m.trace_stream() << "[attach-enode] #" << n->get_id() << " " << generation << "\n";        
 
         return e;
     }
