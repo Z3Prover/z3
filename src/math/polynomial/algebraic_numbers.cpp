@@ -2032,7 +2032,7 @@ namespace algebraic_numbers {
             // Check whether a can be separated from b's interval and vice versa
             // this recognizes the case where the intervals overlap,
             // but the anums do not lie in the intersection of the intervals.
-            mpq l_a, u_a, l_b, u_b;
+            scoped_mpq l_a(qm()), u_a(qm()), l_b(qm()), u_b(qm());
             to_mpq(qm(), la, l_a);
             to_mpq(qm(), ua, u_a);
             to_mpq(qm(), lb, l_b);

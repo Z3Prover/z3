@@ -87,8 +87,8 @@ namespace smt {
               tout << mk_ismt2_pp(n1->get_expr(), m) << "\n" << mk_ismt2_pp(n2->get_expr(), m) << "\n";);
         if (n1->get_owner_id() > n2->get_owner_id())
             std::swap(n1, n2);
-        app * t1        = n1->get_expr();
-        app * t2        = n2->get_expr();
+        expr * t1        = n1->get_expr();
+        expr * t2        = n2->get_expr();
         if (m.are_distinct(t1, t2)) {
             expr_ref eq(m.mk_eq(t1, t2), m);
             ctx.internalize(eq, true);
@@ -233,7 +233,7 @@ namespace smt {
 
     void arith_eq_adapter::new_eq_eh(theory_var v1, theory_var v2) {
         TRACE(arith_eq_adapter, tout << "v" << v1 << " = v" << v2 << " #" << get_enode(v1)->get_owner_id() << " = #" << get_enode(v2)->get_owner_id() << "\n";);
-        TRACE(arith_eq_adapter_bug, tout << mk_bounded_pp(get_enode(v1)->get_expr(), get_manager()) << "\n" << mk_bounded_pp(get_enode(v2)->get_expr(), get_manager()) << "\n";);
+        TRACE(arith_eq_adapter_bug, tout << mk_bounded_pp(get_expr(v1), get_manager()) << "\n" << mk_bounded_pp(get_expr(v2), get_manager()) << "\n";);
         mk_axioms(get_enode(v1), get_enode(v2));
     }
 

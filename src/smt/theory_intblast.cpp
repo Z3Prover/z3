@@ -153,7 +153,7 @@ namespace smt {
     void theory_intblast::apply_sort_cnstr(enode* n, sort* s) {
         SASSERT(bv.is_bv_sort(s));
         if (!is_attached_to_var(n)) {
-            m_translator.internalize_bv(n->get_expr());
+            m_translator.internalize_bv(n->get_app());
             auto v = mk_var(n);
             ctx.attach_th_var(n, this, v);
         }

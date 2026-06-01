@@ -263,7 +263,7 @@ namespace smt {
             m_arith_eq_adapter.restart_eh();
         }
 
-        void relevant_eh(app* e) override {}
+        void relevant_eh(expr* e) override {}
 
         void init_search_eh() override {
             m_arith_eq_adapter.init_search_eh();

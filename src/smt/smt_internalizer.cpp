@@ -598,19 +598,7 @@ namespace smt {
         if (e_internalized(q)) 
             return;
         app_ref lam_name(m.mk_fresh_const("lambda", q->get_sort()), m);
-        app_ref eq(m), lam_app(m);
-        expr_ref_vector vars(m);
-        vars.push_back(lam_name);
-        unsigned sz = q->get_num_decls();
-        for (unsigned i = 0; i < sz; ++i) 
-            vars.push_back(m.mk_var(sz - i - 1, q->get_decl_sort(i)));
-        array_util autil(m);
-        lam_app = autil.mk_select(vars.size(), vars.data());
-        eq = m.mk_eq(lam_app, q->get_expr());
-        quantifier_ref fa(m);
-        expr * patterns[1] = { m.mk_pattern(lam_app) };
-        fa = m.mk_forall(sz, q->get_decl_sorts(), q->get_decl_names(), eq, 0, m.lambda_def_qid(), symbol::null, 1, patterns);
-        internalize_quantifier(fa, true);
+        m.add_lambda_def(lam_name->get_decl(), q);
         if (!e_internalized(lam_name)) 
             internalize_uninterpreted(lam_name);
         enode* lam_node = get_enode(lam_name);
@@ -619,9 +607,6 @@ namespace smt {
         m_app2enode.setx(q->get_id(), lam_node, nullptr);
         m_l_internalized_stack.push_back(q);
         m_trail_stack.push_ptr(&m_mk_lambda_trail);
-        bool_var bv = get_bool_var(fa);
-        assign(literal(bv, false), nullptr);
-        mark_as_relevant(bv);
     }
 
     bool context::has_lambda() {
@@ -1011,7 +996,7 @@ namespace smt {
        \remark If suppress_args is true, then the enode is viewed as a constant
        in the egraph.
     */
-    enode * context::mk_enode(app * n, bool suppress_args, bool merge_tf, bool cgc_enabled) {
+    enode * context::mk_enode(expr * n, bool suppress_args, bool merge_tf, bool cgc_enabled) {
         TRACE(mk_enode_detail, tout << mk_pp(n, m) << "\nsuppress_args: " << suppress_args << ", merge_tf: " << 
               merge_tf << ", cgc_enabled: " << cgc_enabled << "\n";);
         SASSERT(!e_internalized(n));
@@ -1023,7 +1008,7 @@ namespace smt {
             CTRACE(cached_generation, generation != m_generation,
                    tout << "cached_generation: #" << n->get_id() << " " << generation << " " << m_generation << "\n";);
         }
-        enode *e = enode::mk(m, get_region(), m_app2enode, n, generation, suppress_args, merge_tf, m_scope_lvl,
+        enode *e = enode::mk(m, get_region(), m_app2enode, to_app(n), generation, suppress_args, merge_tf, m_scope_lvl,
                              cgc_enabled, true);
         TRACE(mk_enode_detail, tout << "e.get_num_args() = " << e->get_num_args() << "\n";);
         if (m.is_unique_value(n))
@@ -1057,7 +1042,7 @@ namespace smt {
                 }
             }
             if (!e->is_eq()) {
-                unsigned decl_id = n->get_decl()->get_small_id();
+                unsigned decl_id = e->get_decl_id();
                 if (decl_id >= m_decl2enodes.size())
                     m_decl2enodes.resize(decl_id+1);
                 m_decl2enodes[decl_id].push_back(e);
@@ -1073,7 +1058,7 @@ namespace smt {
         SCTRACE(causality, m_coming_from_quant, tout << "EN: #" << e->get_owner_id() << "\n";);
 
         if (m.has_trace_stream())
-            m.trace_stream() << "[attach-enode] #" << n->get_id() << " " << m_generation << "\n";        
+            m.trace_stream() << "[attach-enode] #" << n->get_id() << " " << generation << "\n";        
 
         return e;
     }
@@ -1101,7 +1086,7 @@ namespace smt {
             m_cg_table.erase(e);
         }
         if (e->get_num_args() > 0 && !e->is_eq()) {
-            unsigned decl_id = to_app(n)->get_decl()->get_small_id();
+            unsigned decl_id = e->get_decl_id();
             SASSERT(decl_id < m_decl2enodes.size());
             SASSERT(m_decl2enodes[decl_id].back() == e);
             m_decl2enodes[decl_id].pop_back();

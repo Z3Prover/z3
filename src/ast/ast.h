@@ -1644,10 +1644,10 @@ public:
 
     bool contains(ast * a) const { return m_ast_table.contains(a); }
     
-    bool is_lambda_def(quantifier* q) const { return q->get_qid() == m_lambda_def; }
+    bool is_lambda_q(quantifier* q) const { return q->get_qid() == m_lambda_def; }
     void add_lambda_def(func_decl* f, quantifier* q);
     quantifier* is_lambda_def(func_decl* f);
-    quantifier* is_lambda_def(app* e) { return is_lambda_def(e->get_decl()); }
+    quantifier* is_lambda_def(expr* e) { return is_app(e) ? is_lambda_def(to_app(e)->get_decl()) : nullptr; }
     obj_map<func_decl, quantifier*> const& lambda_defs() const { return m_lambda_defs; }
 
     symbol const& lambda_def_qid() const { return m_lambda_def; }

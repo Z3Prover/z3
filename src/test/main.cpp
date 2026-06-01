@@ -534,7 +534,7 @@ int main(int argc, char ** argv) {
     }
 
 #ifndef __EMSCRIPTEN__
-    if (num_jobs > 0)
+    if (num_jobs > 0 && (test_all || requested_tests.size() > 1))
         return run_parallel(argv[0], test_all, num_jobs, extra_args, requested_tests);
 #endif
 

@@ -36,11 +36,11 @@ namespace smt {
         typedef obj_pair_hashtable<app, app>      app_pair_set;
         typedef obj_map<clause, app_pair>         clause2app_pair;
 
-        typedef triple<app *, app *,app *>        app_triple;
-        typedef obj_triple_map<app, app, app, unsigned>  app_triple2num_occs;
-        typedef svector<app_triple>                 app_triple_vector;
-        typedef obj_triple_hashtable<app, app, app>      app_triple_set;
-        typedef obj_map<clause, app_triple>         clause2app_triple;
+        typedef triple<expr *, expr *,expr *>        expr_triple;
+        typedef obj_triple_map<expr, expr, expr, unsigned>  expr_triple2num_occs;
+        typedef svector<expr_triple>                 expr_triple_vector;
+        typedef obj_triple_hashtable<expr, expr, expr>      expr_triple_set;
+        typedef obj_map<clause, expr_triple>         clause2expr_triple;
 
         context &                                  m_context;
         ast_manager &                              m;
@@ -55,14 +55,14 @@ namespace smt {
         clause2app_pair                            m_clause2app_pair;
 
         struct _triple {
-            app_triple2num_occs                    m_app2num_occs;
-            app_triple_vector                      m_apps;
-            app_triple_vector                      m_to_instantiate;
+            expr_triple2num_occs                   m_app2num_occs;
+            expr_triple_vector                     m_apps;
+            expr_triple_vector                     m_to_instantiate;
             unsigned                               m_qhead;
             unsigned                               m_num_instances;
             unsigned                               m_num_propagations_since_last_gc;
-            app_triple_set                         m_instantiated;
-            clause2app_triple                      m_clause2apps;
+            expr_triple_set                        m_instantiated;
+            clause2expr_triple                     m_clause2apps;
         };
         _triple                                    m_triple;
         
@@ -76,9 +76,9 @@ namespace smt {
         literal mk_eq(expr * n1, expr * n2);
         void cg_eh(app * n1, app * n2);
 
-        void eq_eh(app * n1, app * n2, app* r);
-        void instantiate(app * n1, app * n2, app* r);
-        void reset_app_triples();
+        void eq_eh(expr * n1, expr * n2, expr* r);
+        void instantiate(expr * n1, expr * n2, expr* r);
+        void reset_expr_triples();
         void gc_triples();
         
     public:
@@ -112,7 +112,7 @@ namespace smt {
         /**
            \brief This method is invoked when equalities are used during conflict resolution.
         */
-        void used_eq_eh(app * n1, app * n2, app* r) {
+        void used_eq_eh(expr * n1, expr * n2, expr* r) {
             if (m_params.m_dack_eq)
                 eq_eh(n1, n2, r);
         }

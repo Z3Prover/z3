@@ -384,6 +384,8 @@ bool pattern_inference_cfg::contains_subpattern::operator()(expr * n) {
             break;
         case AST_VAR:
             break;
+        case AST_QUANTIFIER: 
+            break;
         default:
             UNREACHABLE();
         }

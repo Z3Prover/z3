@@ -155,7 +155,7 @@ namespace smt {
         bool can_propagate() override;
         void propagate() override;
         void assign_eh(bool_var v, bool is_true) override;
-        void relevant_eh(app *n) override;
+        void relevant_eh(expr *n) override;
         
         theory * mk_fresh(context * new_ctx) override;
         char const * get_name() const override { return "finite_set"; }

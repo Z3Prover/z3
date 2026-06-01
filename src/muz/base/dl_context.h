@@ -192,7 +192,7 @@ namespace datalog {
         model_converter_ref m_mc;
         proof_converter_ref m_pc;
 
-        rel_context_base*               m_rel;
+        rel_context_base*               m_rel = nullptr;
         scoped_ptr<engine_base>         m_engine;
 
         bool               m_closed;
@@ -201,7 +201,7 @@ namespace datalog {
         execution_result   m_last_status;
         expr_ref           m_last_answer;
         expr_ref           m_last_ground_answer;
-        DL_ENGINE          m_engine_type;
+        DL_ENGINE          m_engine_type = LAST_ENGINE;
 
 
 

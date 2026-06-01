@@ -216,7 +216,7 @@ namespace smt {
         }
         ast_translation tr(src_ctx.m, m, false);
         for (unsigned i = 0; i < src_ctx.m_user_propagator->get_num_vars(); ++i) {
-            app* e = src_ctx.m_user_propagator->get_expr(i);
+            auto e = src_ctx.m_user_propagator->get_expr(i);
             m_user_propagator->add_expr(tr(e), true);
         }
     }
@@ -653,7 +653,7 @@ namespace smt {
                     lbool val  = get_assignment(v);
                     if (val != l_true) {
                         if (val == l_false && js.get_kind() == eq_justification::CONGRUENCE)
-                            m_dyn_ack_manager.cg_conflict_eh(n1->get_expr(), n2->get_expr());
+                            m_dyn_ack_manager.cg_conflict_eh(n1->get_app(), n2->get_app());
                         assign(literal(v), mk_justification(eq_propagation_justification(lhs, rhs)));
                     }
                     // It is not necessary to reinsert the equality to the congruence table
@@ -919,7 +919,7 @@ namespace smt {
             lbool val2  = get_assignment(v2);
             if (val2 != val) {
                 if (val2 != l_undef && congruent(source, target) && source->get_num_args() > 0)
-                    m_dyn_ack_manager.cg_conflict_eh(source->get_expr(), target->get_expr());
+                    m_dyn_ack_manager.cg_conflict_eh(source->get_app(), target->get_app());
                 assign(literal(v2, sign), mk_justification(mp_iff_justification(source, target)));
             }
             target = target->get_next();
@@ -1137,7 +1137,7 @@ namespace smt {
             m.inc_ref(eq);
             _this->m_is_diseq_tmp = enode::mk_dummy(m, m_app2enode, eq);
         }
-        else if (m_is_diseq_tmp->get_expr()->get_arg(0)->get_sort() != n1->get_sort()) {
+        else if (m_is_diseq_tmp->get_app()->get_arg(0)->get_sort() != n1->get_sort()) {
             m.dec_ref(m_is_diseq_tmp->get_expr());
             app * eq = m.mk_eq(n1->get_expr(), n2->get_expr());
             m.inc_ref(eq);
@@ -1284,14 +1284,14 @@ namespace smt {
         enode * r   = m_cg_table.find(tmp);
 #ifdef Z3DEBUG
         if (r != nullptr) {
-            SASSERT(r->get_expr()->get_decl() == f);
+            SASSERT(r->get_decl() == f);
             SASSERT(r->get_num_args() == num_args);
             if (r->is_commutative()) {
                 // TODO
             }
             else {
                 for (unsigned i = 0; i < num_args; ++i) {
-                    expr * arg   = r->get_expr()->get_arg(i);
+                    expr * arg   = r->get_arg(i)->get_expr();
                     SASSERT(e_internalized(arg));
                     enode * _arg = get_enode(arg);
                     CTRACE(eq_to_bug, args[i]->get_root() != _arg->get_root(),
@@ -4672,8 +4672,8 @@ namespace smt {
             theory_id th_id     = l->get_id();
 
             for (enode * parent : enode::parents(n)) {
-                app* p = parent->get_expr();
-                family_id fid = p->get_family_id();
+                auto p = parent->get_expr();
+                family_id fid = parent->get_family_id();
                 if (fid != th_id && fid != m.get_basic_family_id()) {
                     if (is_beta_redex(parent, n))
                         continue;
@@ -4721,7 +4721,7 @@ namespace smt {
     }
 
     bool context::is_beta_redex(enode* p, enode* n) const {
-        family_id th_id = p->get_expr()->get_family_id();
+        family_id th_id = p->get_family_id();
         theory * th = get_theory(th_id);
         return th && th->is_beta_redex(p, n);
     }

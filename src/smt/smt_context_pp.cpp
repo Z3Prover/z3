@@ -545,14 +545,14 @@ namespace smt {
             out << std::left << n->get_owner_id() << " #";
             out.width(5);
             out << n->get_root()->get_owner_id() << " := " << std::right;
-            unsigned num = n->get_expr()->get_num_args();
+            unsigned num = n->get_num_args();
             if (num > 0)
                 out << "(";
             out << n->get_decl()->get_name();
             if (!n->get_decl()->private_parameters())
                 display_parameters(out, n->get_decl()->get_num_parameters(), n->get_decl()->get_parameters());
             for (unsigned i = 0; i < num; ++i) {
-                expr * arg = n->get_expr()->get_arg(i);
+                expr * arg = n->get_arg(i)->get_expr();
                 if (e_internalized(arg)) {
                     enode * n = get_enode(arg)->get_root();
                     out << " #" << n->get_owner_id();

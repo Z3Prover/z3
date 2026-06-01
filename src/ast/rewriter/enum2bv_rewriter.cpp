@@ -225,6 +225,7 @@ struct enum2bv_rewriter::imp {
                     new_body_ref = mk_and(bounds);
                     break;
                 case lambda_k:
+                case choice_k:
                     UNREACHABLE();
                     break;
                 }

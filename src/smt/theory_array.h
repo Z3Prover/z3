@@ -59,7 +59,7 @@ namespace smt {
         void apply_sort_cnstr(enode * n, sort * s) override;
         void new_eq_eh(theory_var v1, theory_var v2) override;
         void new_diseq_eh(theory_var v1, theory_var v2) override;
-        void relevant_eh(app * n) override;
+        void relevant_eh(expr * n) override;
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;
         final_check_status final_check_eh(unsigned) override;

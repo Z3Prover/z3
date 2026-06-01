@@ -239,7 +239,7 @@ namespace smt {
             m_arith_eq_adapter.restart_eh();
         }
 
-        void relevant_eh(app* e) override {}
+        void relevant_eh(expr* e) override {}
 
         void init_search_eh() override {
             m_arith_eq_adapter.init_search_eh();
@@ -323,7 +323,7 @@ namespace smt {
 
         void new_eq_or_diseq(bool is_eq, th_var v1, th_var v2, justification& eq_just);
         
-        bool is_int(theory_var v) const { return a.is_int(get_enode(v)->get_expr()); }
+        bool is_int(theory_var v) const { return a.is_int(get_expr(v)); }
 
         th_var get_zero(sort* s) { return a.is_int(s) ? m_izero : m_rzero; }
 

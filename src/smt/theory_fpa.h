@@ -104,7 +104,7 @@ namespace smt {
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
 
         void assign_eh(bool_var v, bool is_true) override;
-        void relevant_eh(app * n) override;
+        void relevant_eh(expr * n) override;
         void init_model(model_generator & m) override;
         void finalize_model(model_generator & mg) override;
 

@@ -484,7 +484,7 @@ namespace smt {
         pp.set_benchmark_name("lemma");
         int n = get_num_vars();
         for (theory_var v = 0; v < n; ++v) {
-            expr * n = get_enode(v)->get_expr();
+            expr * n = get_expr(v);
             if (is_fixed(v)) {
                 inf_numeral k_inf = lower_bound(v);
                 rational k = k_inf.get_rational().to_rational();
