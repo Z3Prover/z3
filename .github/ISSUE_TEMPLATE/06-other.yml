@@ -1,0 +1,65 @@
+name: 📋 Other Issue
+description: For issues that don't fit other categories
+title: "[Other] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please use this template only if your issue doesn't fit any of the other specific categories.
+
+        Consider whether your issue might be:
+        - **Bug Report** - Z3 crashes, gives wrong results, or behaves unexpectedly
+        - **Performance Issue** - Z3 is slower than expected or uses too much memory
+        - **Feature Request** - You need functionality that doesn't exist yet
+        - **Build/Installation** - Problems compiling or installing Z3
+        - **Question** - You need help understanding Z3's behavior
+
+  - type: dropdown
+    id: issue-category
+    attributes:
+      label: Issue Category
+      description: What type of issue is this?
+      options:
+        - Documentation problem
+        - Website/repository maintenance
+        - Security concern
+        - License question
+        - Community/governance
+        - CI/Testing infrastructure
+        - Release process
+        - Other (please specify)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Please describe your issue in detail
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Additional context that might be helpful
+      placeholder: |
+        Related documentation:
+        Affected pages/sections:
+        Relevant links:
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution (if any)
+      description: If you have ideas on how to address this issue
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Before submitting
+        - [ ] I confirmed this doesn't fit other issue categories
+        - [ ] I searched for existing similar issues
+        - [ ] I provided sufficient detail for maintainers to understand the issue
