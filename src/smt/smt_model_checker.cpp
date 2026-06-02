@@ -512,8 +512,7 @@ namespace smt {
         for (quantifier * q : *m_qm) {
             if (!(m_qm->mbqi_enabled(q) &&
                   m_context->is_relevant(q) &&
-                  m_context->get_assignment(q) == l_true &&
-                  (!m_context->get_fparams().m_ematching))) {
+                  m_context->get_assignment(q) == l_true)) {
                 if (!m_qm->mbqi_enabled(q))
                     ++num_failures;
                 continue;
