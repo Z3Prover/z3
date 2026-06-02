@@ -2013,6 +2013,20 @@ namespace {
         bool execute(code_tree * t) {
             TRACE(trigger_bug, tout << "execute for code tree:\n"; t->display(tout););
             init(t);
+
+
+#ifdef Z3DEBUG
+            if (m.has_trace_stream()) {
+                m.trace_stream()  << "Execute: " << t->get_root_lbl();
+                m.trace_stream()  << " pattern_ids: ";
+                for (app* a : t->get_patterns()) {
+                        m.trace_stream()  << a->get_id() << " ";
+                }
+                m.trace_stream()  << std::endl;
+            }
+#endif
+
+
 #define CLEANUP  for (enode* app : t->get_candidates()) if (app->is_marked()) app->unset_mark();
             if (t->filter_candidates()) {
                 for (enode* app : t->get_candidates()) {
@@ -2283,8 +2297,8 @@ namespace {
         TRACE(trigger_bug, tout << "interpreter::execute_core\n"; t->display(tout); tout << "\nenode\n" << mk_ismt2_pp(n->get_expr(), m) << "\n";);
         unsigned since_last_check = 0;
 
-           if (m.has_trace_stream()) {
-            m.trace_stream() << "execute core: " << t->get_root_lbl()->get_name() << " " << n->get_expr_id() << "\n";
+        if (m.has_trace_stream()) {
+            m.trace_stream() << "execute core: " << t->get_root_lbl()->get_name() << " " << n->get_expr_id() << ", gen: " << n->get_generation()<< ", cg: " << n->get_cg_or_const()->get_expr_id() << "\n";
         }
 
 #ifdef _PROFILE_MAM
@@ -3779,6 +3793,18 @@ namespace {
                 SASSERT(tmp_tree != 0);
                 SASSERT(m_context.get_num_enodes_of(lbl) > 0);
                 m_interpreter.init(tmp_tree);
+
+#ifdef Z3DEBUG
+                if (m.has_trace_stream()) {
+                    m.trace_stream()  << "match_new_patterns: " << tmp_tree->get_root_lbl() << std::endl;
+                    m.trace_stream()  << " pattern_ids: ";
+                    for (app* a : tmp_tree->get_patterns()) {
+                         m.trace_stream()  << a->get_id() << " ";
+                    }
+                    m.trace_stream()  << std::endl;
+                }
+#endif
+
                 for (enode * app : m_context.enodes_of(lbl)) {
                     if (m_context.is_relevant(app))
                         m_interpreter.execute_core(tmp_tree, app);
@@ -3928,6 +3954,16 @@ namespace {
                 code_tree * t = *it;
                 if (t) {
                     m_interpreter.init(t);
+#ifdef Z3DEBUG
+                    if (m.has_trace_stream()) {
+                        m.trace_stream()  << "Rematch: " << lbl;
+                        m.trace_stream()  << " pattern_ids: ";
+                        for (app* a : t->get_patterns()) {
+                            m.trace_stream()  << a->get_id() << " ";
+                        }
+                        m.trace_stream()  << std::endl;
+                    }
+#endif
                     func_decl * lbl = t->get_root_lbl();
                     for (enode * curr : m_context.enodes_of(lbl)) {
                         if (use_irrelevant || m_context.is_relevant(curr))

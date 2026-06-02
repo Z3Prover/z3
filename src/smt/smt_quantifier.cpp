@@ -240,6 +240,7 @@ namespace smt {
              quantifier * q, app * pat,
              unsigned num_bindings,
              enode * const * bindings,
+               unsigned max_generation,
              vector<std::tuple<enode *, enode *>> & used_enodes) {
 
             if (pat == nullptr) {
@@ -271,6 +272,7 @@ namespace smt {
                     // This nasty side-effect may change the behavior of Z3.
                     out << " #" << bindings[num_bindings - i - 1]->get_owner_id();
                 }
+                out << " ; gen " << max_generation;
                 out << "\n";
                 for (auto n : used_enodes) {
                     enode *orig = std::get<0>(n);
@@ -316,7 +318,7 @@ namespace smt {
                     log_causality(f,pat,used_enodes);
                 }
                 if (has_trace_stream()) {
-                    log_add_instance(f, q, pat, num_bindings, bindings, used_enodes);
+                    log_add_instance(f, q, pat, num_bindings, bindings, max_generation, used_enodes);
                 }
                 m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation); // TODO
                 m_num_instances++;
