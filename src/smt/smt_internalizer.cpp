@@ -1133,7 +1133,7 @@ namespace smt {
                 prms.set_bool("pp.single_line", true);
                 prms.set_uint("pp.min_alias_size", 1000000u);
                 prms.set_uint("pp.max_depth", 100000u);
-                std::cout << "enode congruent to " << mk_pp(l, m, prms) << ":\n\t#" << e->get_owner_id() << " gen " << m_generation << ": " << mk_pp(e->get_expr(), m, prms) << "\n";
+                std::cout << "enode congruent to " << mk_pp(l, m, prms) << ":\n\t#" << e->get_owner_id() << " gen " << generation << ": " << mk_pp(e->get_expr(), m, prms) << "\n";
             }
         }
 
