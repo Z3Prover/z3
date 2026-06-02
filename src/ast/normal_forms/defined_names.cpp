@@ -121,9 +121,6 @@ app * defined_names::impl::gen_name(expr * e, sort_ref_buffer & var_sorts, buffe
     sort * range = e->get_sort();
     func_decl * new_skolem_decl = m.mk_fresh_func_decl(m_z3name, symbol::null, domain.size(), domain.data(), range);
     app * n = m.mk_app(new_skolem_decl, new_args.size(), new_args.data());
-    if (is_lambda(e)) {
-        m.add_lambda_def(new_skolem_decl, to_quantifier(e));
-    }
     return n;
 }
 

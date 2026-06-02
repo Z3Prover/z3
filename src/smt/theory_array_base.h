@@ -46,9 +46,6 @@ namespace smt {
         bool is_choice(expr const* n) const { return is_app(n) && to_app(n)->is_app_of(get_id(), OP_CHOICE); }
         bool is_array_sort(sort const* s) const { return s->is_sort_of(get_id(), ARRAY_SORT); }
         bool is_array_sort(expr const* n) const { return is_array_sort(n->get_sort()); }
-        bool is_lambda(expr *n) const {
-            return m.is_lambda_def(n) || ::is_lambda(n);
-        }
         
 
         bool is_store(enode const * n) const { return is_store(n->get_expr()); }
@@ -59,9 +56,6 @@ namespace smt {
         bool is_choice(enode const* n) const { return is_choice(n->get_expr()); }
         bool is_default(enode const* n) const { return is_default(n->get_expr()); }
         bool is_array_sort(enode const* n) const { return is_array_sort(n->get_sort()); }
-        bool is_lambda(enode const *n) const {
-            return is_lambda(n->get_expr());
-        }
         
         
         

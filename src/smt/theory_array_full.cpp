@@ -248,7 +248,7 @@ namespace smt {
             instantiate_default_as_array_axiom(n);
             d->m_as_arrays.push_back(n);
         }
-        else if (is_lambda(n)) {
+        else if (is_lambda(n->get_expr())) {
             instantiate_default_lambda_def_axiom(n);
             d->m_lambdas.push_back(n);
             m_lambdas.push_back(n);
@@ -578,13 +578,12 @@ namespace smt {
         if (!ctx.add_fingerprint(this, m_default_lambda_fingerprint, 1, &arr))
             return false;
         m_stats.m_num_default_lambda_axiom++;
-        expr* e = arr->get_expr();
-        expr_ref def(mk_default(e), m);
-        quantifier* lam = is_quantifier(e) ? to_quantifier(e) : m.is_lambda_def(e);
-        TRACE(array, tout << mk_pp(lam, m) << "\n" << mk_pp(e, m) << "\n");
+        quantifier *lam = to_quantifier(arr->get_expr());
+        expr_ref def(mk_default(arr->get_expr()), m);
+        TRACE(array, tout << mk_pp(lam, m) << "\n");
         expr_ref_vector args(m);       
         var_subst subst(m, false);
-        args.push_back(subst(lam, to_app(e)->get_num_args(), to_app(e)->get_args()));
+        args.push_back(lam);
         for (unsigned i = 0; i < lam->get_num_decls(); ++i) 
             args.push_back(mk_epsilon(lam->get_decl_sort(i)).first);
         expr_ref val(mk_select(args), m);

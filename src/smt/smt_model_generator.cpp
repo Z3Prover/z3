@@ -428,6 +428,8 @@ namespace smt {
             if (!m_context->is_relevant(t))
                 continue;
             enode * n         = m_context->get_enode(t);
+            if (!n->is_app())
+                continue;
             unsigned num_args = n->get_num_args();
             func_decl * f     = n->get_decl();
             if (num_args == 0 && include_func_interp(f)) {

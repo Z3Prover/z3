@@ -597,16 +597,9 @@ namespace smt {
         SASSERT(is_lambda(q));
         if (e_internalized(q)) 
             return;
-        app_ref lam_name(m.mk_fresh_const("lambda", q->get_sort()), m);
-        m.add_lambda_def(lam_name->get_decl(), q);
-        if (!e_internalized(lam_name)) 
-            internalize_uninterpreted(lam_name);
-        enode* lam_node = get_enode(lam_name);
-        push_trail(insert_obj_map<enode, quantifier*>(m_lambdas, lam_node));
-        m_lambdas.insert(lam_node, q);
-        m_app2enode.setx(q->get_id(), lam_node, nullptr);
-        m_l_internalized_stack.push_back(q);
-        m_trail_stack.push_ptr(&m_mk_lambda_trail);
+        mk_enode(q, true, /* do suppress args */
+                    false,    /* it is a term, so it should not be merged with true/false */
+                    true);
     }
 
     bool context::has_lambda() {
@@ -1008,7 +1001,7 @@ namespace smt {
             CTRACE(cached_generation, generation != m_generation,
                    tout << "cached_generation: #" << n->get_id() << " " << generation << " " << m_generation << "\n";);
         }
-        enode *e = enode::mk(m, get_region(), m_app2enode, to_app(n), generation, suppress_args, merge_tf, m_scope_lvl,
+        enode *e = enode::mk(m, get_region(), m_app2enode, n, generation, suppress_args, merge_tf, m_scope_lvl,
                              cgc_enabled, true);
         TRACE(mk_enode_detail, tout << "e.get_num_args() = " << e->get_num_args() << "\n";);
         if (m.is_unique_value(n))
@@ -1063,14 +1056,6 @@ namespace smt {
         return e;
     }
 
-    void context::undo_mk_lambda() {
-        SASSERT(!m_l_internalized_stack.empty());
-        m_stats.m_num_del_enode++;
-        quantifier * n         = m_l_internalized_stack.back();
-        m_app2enode[n->get_id()] = nullptr;
-        m_l_internalized_stack.pop_back();
-    }
-
     void context::undo_mk_enode() {
         SASSERT(!m_e_internalized_stack.empty());
         m_stats.m_num_del_enode++;
@@ -1078,7 +1063,6 @@ namespace smt {
         TRACE(undo_mk_enode, tout << "undo_enode: #" << n->get_id() << "\n" << mk_pp(n, m) << "\n";);
         TRACE(mk_var_bug, tout << "undo_mk_enode: " << n->get_id() << "\n";);
         unsigned n_id         = n->get_id();
-        SASSERT(is_app(n));
         enode * e             = m_app2enode[n_id];
         m_app2enode[n_id]     = nullptr;
         if (e->is_cgr() && !e->is_true_eq() && e->is_cgc_enabled()) {

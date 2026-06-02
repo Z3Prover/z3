@@ -240,7 +240,6 @@ namespace euf {
             else
                 break;
         }
-        r = unfold_lambda_def(r); 
         return r;    
     }
 
@@ -252,34 +251,6 @@ namespace euf {
                 return r;
             r = q;
         }
-    }
-
-    // We assume that m_rewriter should produce
-    // something amounting to weak-head normal form WHNF
-
-    // Unfold a lambda-def application f(args) to the corresponding lambda expression.
-    // For a func_decl f with arity n and lambda-def quantifier (lambda (x1..xk) body),
-    // f(a1,...,an) is unfolded to (lambda (x1..xk) body[params := a1..an]).
-    // For a constant f (arity 0) that is a lambda-def, returns the lambda directly.
-    expr_ref ho_matcher::unfold_lambda_def(expr* e) const {
-        if (!is_app(e))
-            return expr_ref(e, m);
-        app* a = to_app(e);
-        func_decl* f = a->get_decl();
-        quantifier* lam = m.is_lambda_def(f);
-        if (!lam)
-            return expr_ref(e, m);
-        
-        unsigned arity = f->get_arity();
-        SASSERT(is_lambda(lam));
-        
-        if (arity == 0) 
-            // Constant lambda-def: just return the lambda expression
-            return expr_ref(lam, m);        
-
-        var_subst subst(m, false);
-        expr_ref r = subst(lam, to_app(e)->get_num_args(), to_app(e)->get_args());
-        return r;        
     }
 
     void ho_matcher::reduce(match_goal& wi) {
@@ -684,7 +655,7 @@ namespace euf {
         }
         auto is_ho = any_of(subterms::all(expr_ref(p, m)), [&](expr* t) { 
             return m_unitary.is_flex(0, t) || 
-                   m.is_lambda_def(t) || 
+                   // m.is_lambda_def(t) || 
                    is_lambda(t); 
         });
         if (!is_ho)
@@ -703,7 +674,8 @@ namespace euf {
                 todo.pop_back();
                 continue;
             }
-            if ((m_unitary.is_flex(0, t) && lvl > 1) || m.is_lambda_def(t) || is_lambda(t)) {
+            if ((m_unitary.is_flex(0, t) && lvl > 1) || // m.is_lambda_def(t) || 
+                is_lambda(t)) {
                 if (!contains_pat2abs)
                     m_pat2abs.insert_if_not_there(p, svector<std::pair<unsigned, expr*>>()).push_back({ nb, t });
                 auto v = m.mk_var(nb++, t->get_sort());

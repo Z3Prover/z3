@@ -69,7 +69,6 @@ namespace smt {
         m_fingerprints(m, get_region()),
         m_b_internalized_stack(m),
         m_e_internalized_stack(m),
-        m_l_internalized_stack(m),
         m_final_check_idx(0),
         m_cg_table(m),
         m_conflict(null_b_justification),
@@ -81,7 +80,6 @@ namespace smt {
         m_unsat_core(m),
         m_mk_bool_var_trail(*this),
         m_mk_enode_trail(*this),
-        m_mk_lambda_trail(*this),
         m_lemma_visitor(m) {
 
         SASSERT(m_scope_lvl == 0);
@@ -4662,7 +4660,7 @@ namespace smt {
             return false;
         }
         case 1: {
-            if (m_qmanager->is_shared(n) && !m.is_lambda_def(n->get_expr()) && !m_lambdas.contains(n)) 
+            if (m_qmanager->is_shared(n) && !m_lambdas.contains(n)) 
                 return true;
 
             // the variable is shared if the equivalence class of n

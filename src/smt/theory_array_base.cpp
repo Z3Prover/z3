@@ -219,13 +219,14 @@ namespace smt {
     }
 
     void theory_array_base::assert_lambda_axiom_core(enode* n, enode* select) {
-        SASSERT(is_lambda(n));
+        SASSERT(is_lambda(n->get_expr()));
         SASSERT(is_select(select));
         expr *e = n->get_expr();
+        SASSERT(is_lambda(e));
         app *s = select->get_app();
-        auto q = is_quantifier(e) ? to_quantifier(e) : m.is_lambda_def(e);
+        auto q = to_quantifier(e);
         SASSERT(q);
-        SASSERT(::is_lambda(q));
+
         SASSERT(q->get_num_decls() == s->get_num_args() - 1);
         // do the same thing as in sat/smt/array_axioms:
         ptr_vector<expr> args(s->get_num_args(), s->get_args());
@@ -241,7 +242,7 @@ namespace smt {
     }
     
     bool theory_array_base::assert_store_axiom2(enode * store, enode * select) { 
-        SASSERT(is_store(store) || is_lambda(store));
+        SASSERT(is_store(store) || is_lambda(store->get_expr()));
         unsigned num_args = select->get_num_args();
         unsigned        i = 1;
         for (; i < num_args; ++i) 
@@ -397,8 +398,8 @@ namespace smt {
         literal n1_eq_n2 = mk_eq(e1, e2, true);
         ctx.mark_as_relevant(n1_eq_n2);
         expr_ref_vector args1(m), args2(m);
-        args1.push_back(instantiate_lambda(e1));
-        args2.push_back(instantiate_lambda(e2));
+        args1.push_back(e1);
+        args2.push_back(e2);
         svector<symbol> names;
         sort_ref_vector sorts(m);
         for (unsigned i = 0; i < dimension; ++i) {
@@ -422,17 +423,6 @@ namespace smt {
         assert_axiom(~n1_eq_n2, fa_eq);
     }
 
-    expr_ref theory_array_base::instantiate_lambda(expr* e) {
-        quantifier * q = m.is_lambda_def(e);
-        expr_ref f(e, m);
-        if (q) {
-            // the variables in q are maybe not consecutive.
-            var_subst sub(m, false);
-            f = sub(q, to_app(e)->get_num_args(), to_app(e)->get_args());
-        }
-        return f;
-    }
-
     bool theory_array_base::can_propagate() {
         return 
             !m_axiom1_todo.empty() || 
@@ -443,7 +433,7 @@ namespace smt {
     }
 
     void theory_array_base::propagate() {
-        while (can_propagate()) {
+        while (theory_array_base::can_propagate()) {
             for (unsigned i = 0; i < m_axiom1_todo.size(); ++i)
                 assert_store_axiom1_core(m_axiom1_todo[i]);
             m_axiom1_todo.reset();

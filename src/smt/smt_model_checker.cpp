@@ -457,12 +457,6 @@ namespace smt {
 
         TRACE(model_checker, tout << "MODEL_CHECKER INVOKED\n";
         tout << "model:\n"; model_pp(tout, *m_curr_model););
-
-        for (quantifier* q : *m_qm)
-            if (m.is_lambda_q(q)) {
-                md->add_lambda_defs();
-                break;
-            }
 	
         md->compress();
 
@@ -519,7 +513,7 @@ namespace smt {
             if (!(m_qm->mbqi_enabled(q) &&
                   m_context->is_relevant(q) &&
                   m_context->get_assignment(q) == l_true &&
-                  (!m_context->get_fparams().m_ematching || !m.is_lambda_q(q)))) {
+                  (!m_context->get_fparams().m_ematching))) {
                 if (!m_qm->mbqi_enabled(q))
                     ++num_failures;
                 continue;

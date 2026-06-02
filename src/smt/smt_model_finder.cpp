@@ -291,8 +291,8 @@ namespace smt {
             }
 
             void insert(expr* n, unsigned generation) {
-                SASSERT(is_ground(n));
-                get_root()->m_set->insert(n, generation);
+                if (is_ground(n))
+                    get_root()->m_set->insert(n, generation);
             }
 
             void display(std::ostream& out, ast_manager& m) const {
@@ -1690,7 +1690,7 @@ namespace smt {
             typedef ptr_vector<cond_macro>::const_iterator macro_iterator;
 
             static quantifier_ref mk_flat(ast_manager& m, quantifier* q) {
-                if (has_quantifiers(q->get_expr()) && !m.is_lambda_q(q)) {
+                if (has_quantifiers(q->get_expr())) {
                     proof_ref pr(m);
                     expr_ref  new_q(m);
                     pull_quant pull(m);
@@ -2279,7 +2279,6 @@ namespace smt {
             void operator()(quantifier_info* d) {
                 m_info = d;
                 quantifier* q = d->get_flat_q();
-                if (m.is_lambda_q(q)) return;
                 expr* e = q->get_expr();
                 reset_cache();
                 if (!m.inc()) return;
