@@ -25,7 +25,6 @@ Revision History:
 class model_core {
 protected:
     typedef std::pair<unsigned, expr*> i_expr;
-    typedef std::pair<unsigned, func_interp*> i_interp;
     typedef obj_map<func_decl, i_expr>       decl2expr;
     typedef obj_map<func_decl, func_interp*> decl2finterp;
     ast_manager &                 m;
@@ -33,9 +32,9 @@ protected:
     decl2expr                     m_interp;      //!< interpretation for uninterpreted constants
     decl2finterp                  m_finterp;     //!< interpretation for uninterpreted functions
     ptr_vector<func_decl>         m_decls;       //!< domain of m_interp
-    ptr_vector<func_decl>         m_const_decls; 
-    ptr_vector<func_decl>         m_func_decls;  
-    
+    ptr_vector<func_decl>         m_const_decls;
+    ptr_vector<func_decl>         m_func_decls;
+
 public:
     model_core(ast_manager & m):m(m), m_ref_count(0) { }
     virtual ~model_core();
@@ -78,10 +77,9 @@ public:
     virtual expr * get_fresh_value(sort * s) = 0;
     virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) = 0;
 
-    expr * get_some_const_interp(func_decl * d) { 
-        expr * r = get_const_interp(d); 
-        if (r) return r; 
-        return get_some_value(d->get_range()); 
+    expr * get_some_const_interp(func_decl * d) {
+        expr * r = get_const_interp(d);
+        return r ? r : get_some_value(d->get_range());
     }
     //
     // Reference counting
