@@ -322,8 +322,8 @@ void tst_smt2print_parse() {
     // Test ?
 
     test_repeated_eval();
-    //test_ho_curried_application();
-    //test_ho_choice_expression();
+    test_ho_curried_application();
+    test_ho_choice_expression();
 
     test_symbol_escape();
 
