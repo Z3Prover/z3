@@ -2310,7 +2310,7 @@ namespace {
         m_min_top_generation.reset();
         m_max_top_generation.reset();
         m_pattern_instances.push_back(n);
-        m_max_generation = n->get_generation();
+        m_max_generation = 0;
 
         if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality)) {
             m_used_enodes.reset();
