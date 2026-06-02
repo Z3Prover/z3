@@ -58,6 +58,8 @@ public:
         return eval(f, r) && m.is_false(r);
     }
 
+    void add_lambda_defs();
+
     unsigned get_num_constants() const { return m_const_decls.size(); }
     unsigned get_num_functions() const { return m_func_decls.size(); }
     func_decl * get_constant(unsigned i) const { return m_const_decls[i]; }
