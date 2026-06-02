@@ -5059,7 +5059,7 @@ namespace smt {
 
     enode* context::find_enode_rec(expr* e) {
         if (enode* n = find_enode(e)) {
-            std:: cout << "Found enode for " << mk_pp(e, m) << ": #" << n->get_owner_id() << std::endl;
+            // std:: cout << "Found enode for " << mk_pp(e, m) << ": #" << n->get_owner_id() << std::endl;
             return n;
         }
         if (!is_app(e))
@@ -5075,17 +5075,23 @@ namespace smt {
                 return nullptr;
         // The hash function for cg_table looks up the root enode for each argument, so we don't need to do it here.
         enode* res = get_enode_eq_to(a->get_decl(), a->get_num_args(), arg_enodes.data());
-        std::cout << "Enode_eq_to " << mk_pp(e, m) << ": #" << res->get_owner_id() << std::endl;
+        if (res) {
+            //std::cout << "Enode_eq_to " << mk_pp(e, m) << ": #" << res->get_owner_id() << std::endl;
+        }
         return res;
     }
 
     void context::print_cgr(expr* e) {
+        params_ref prms;
+        prms.set_bool("pp.single_line", true);
+        prms.set_uint("pp.min_alias_size", 1000000u);
+        prms.set_uint("pp.max_depth", 100000u);
         smt::enode* n = find_enode_rec(e);
         if (!n)
-            std::cout << "No enodes congruent to " << mk_pp(e, m) << "\n";
+            std::cout << "No enodes congruent to " << mk_pp(e, m, prms) << "\n";
         else {
-            enode* cg = n->get_num_args() > 0 ? n->get_cg() : n;  // constants have no cg
-            std::cout << "The congruence representative for " << mk_pp(e, m) << " is #" << cg->get_owner_id() << ": " << mk_pp(cg->get_expr(), m) << "\n";
+            enode* cg = n->get_cg_or_const();
+            std::cout << "The congruence representative for " << mk_pp(e, m, prms) << " is #" << cg->get_owner_id() << ": " << mk_pp(cg->get_expr(), m, prms) << "\n";
         }
     }
 
