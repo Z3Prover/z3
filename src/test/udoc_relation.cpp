@@ -7,6 +7,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "muz/rel/udoc_relation.h"
 #include "util/trace.h"
 #include "util/vector.h"
+#include "util/gparams.h"
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
 #include "ast/reg_decl_plugins.h"
@@ -35,6 +36,7 @@ class udoc_tester {
 
     struct init {
         init(ast_manager& m) {
+            gparams::set("fp.engine", "datalog");
             reg_decl_plugins(m);
         }
     };
