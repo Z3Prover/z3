@@ -460,13 +460,19 @@ namespace smt {
             expr_ref witness(m);
             // We checked non-emptiness during Nielsen already
             lbool wr = m_rewriter.some_seq_in_re(re_expr, witness);
+            if (wr != l_true && re->has_projection()) {
+                // some_seq_in_re cannot extract a witness from a projection
+                // operator (re.proj). Fall back to a projection-aware BFS over
+                // the (length-intersected) regex using the sgraph derivative.
+                wr = projection_witness(m_sg.mk(re_expr), witness);
+            }
             if (wr == l_true) {
                 SASSERT(witness);
                 m_trail.push_back(witness);
                 m_factory->register_value(witness);
                 return witness;
             }
-            IF_VERBOSE(1, verbose_stream() << "witness extraction failed for " << mk_pp(var->get_expr(), m) 
+            IF_VERBOSE(1, verbose_stream() << "witness extraction failed for " << mk_pp(var->get_expr(), m)
                 << " : " << wr << " with len " << (has_len ? len_val.to_string() : "unknown") << "\n" << mk_pp(re_expr, m) << "\n");
             UNREACHABLE();
         }
@@ -505,6 +511,65 @@ namespace smt {
 
         // no regex constraint or witness generation failed: use empty string
         return m_seq.str.mk_empty(srt);
+    }
+
+    lbool seq_model::projection_witness(euf::snode* re0, expr_ref& witness) {
+        if (!re0 || !re0->get_expr())
+            return l_undef;
+        sort* seq_sort = nullptr;
+        if (!m_seq.is_re(re0->get_expr(), seq_sort))
+            return l_undef;
+
+        // Shortest-path BFS over the projection-aware derivative automaton.
+        // Each frontier item is (state, accepting-word-so-far).  A state is
+        // accepting when re_nullable (projection-aware) reports nullable.
+        // The regex carries the length intersection (∩ Σ^n), so an accepting
+        // run has exactly the requested length and the search is finite.
+        vector<std::pair<euf::snode*, zstring>> work;
+        work.push_back({re0, zstring()});
+        uint_set visited;
+        visited.insert(re0->id());
+
+        unsigned head = 0;
+        const unsigned MAX_STATES = 100000;
+        while (head < work.size() && head < MAX_STATES) {
+            euf::snode* st = work[head].first;
+            zstring w = work[head].second;
+            ++head;
+
+            if (m_sg.re_nullable(st) == l_true) {
+                witness = m_seq.str.mk_string(w);
+                return l_true;
+            }
+            if (st->is_fail())
+                continue;
+
+            euf::snode_vector mts;
+            m_sg.compute_minterms(st, mts);
+            for (euf::snode* mt : mts) {
+                euf::snode* d = m_sg.brzozowski_deriv(st, mt);
+                if (!d || d->is_fail())
+                    continue;
+                if (visited.contains(d->id()))
+                    continue;
+                visited.insert(d->id());
+
+                // Representative character of the minterm (must lie in mt so
+                // that δ_ch(st) = d).  Minterms over the cycle alphabet are
+                // ranges / to_re singletons / full_char.
+                unsigned ch = 0;
+                expr* me = mt->get_expr();
+                expr* lo = nullptr, *hi = nullptr, *s = nullptr;
+                if (m_seq.re.is_range(me, lo, hi))
+                    m_sg.decode_re_char(lo, ch);
+                else if (m_seq.re.is_to_re(me, s))
+                    m_sg.decode_re_char(s, ch);
+                // re.full_char and anything else: ch = 0 (a valid representative)
+
+                work.push_back({d, w + zstring(ch)});
+            }
+        }
+        return l_undef;
     }
 
     void seq_model::collect_var_regex_constraints(seq::nielsen_node const* sat_node) {

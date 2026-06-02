@@ -117,6 +117,14 @@ namespace smt {
         // to a plain fresh value from the factory.
         expr* mk_fresh_value(euf::snode* var);
 
+        // Witness extraction for regexes that contain a projection operator
+        // (re.proj), which the standard seq_rewriter::some_seq_in_re cannot
+        // handle.  Runs a shortest-path BFS over the projection-aware
+        // derivative automaton (m_sg) for a nullable (accepting) state,
+        // building the accepting word.  Returns l_true and sets `witness`
+        // on success.
+        lbool projection_witness(euf::snode* re, expr_ref& witness);
+
         // collect per-variable regex constraints from the state.
         // For each positive str_mem, records the regex (or intersects
         // with existing) into m_var_regex keyed by the string snode id.

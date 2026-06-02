@@ -597,17 +597,39 @@ namespace euf {
         return expr_ref(m_seq.mk_skolem(re_proj_name(), 3, args, re_sort), m);
     }
 
+    // A symbolic-character derivative is a linear form: a *dispatch* over the
+    // character built from `ite` (predicate selection) and `union` (the linear
+    // factors α_i·r_i), bottoming out in ordinary derivative *states* r_i.  We
+    // recognize this dispatch skeleton so that π can be pushed all the way to
+    // the concrete state leaves (where it is meaningful) rather than wrapped
+    // around a non-atomic union/ite (which is not a DFA state and breaks
+    // projection_state_in_Q / nullability).  A plain regex state (even one that
+    // is itself a union, e.g. δ of a union regex) is NOT dispatch.
+    bool sgraph::is_char_dispatch(expr* e) const {
+        if (m.is_ite(e))
+            return true;
+        if (m_seq.re.is_empty(e))
+            return true;
+        expr* a = nullptr, *b = nullptr;
+        if (m_seq.re.is_union(e, a, b))
+            return is_char_dispatch(a) && is_char_dispatch(b);
+        return false;
+    }
+
     expr_ref sgraph::wrap_proj(expr* e, expr* root, unsigned nu) {
-        // The symbolic derivative of a regex is an ite-term dispatching on
-        // character predicates; its leaves are ordinary derivative states.
-        // π_{Q,F} is propagated to all such leaves (paper §4). Partial-DFA
-        // states are produced from concrete-character derivatives and are thus
-        // ite-free, so every ite encountered here is dispatch structure.
+        // Push π_{Q,F} through the dispatch skeleton (ite / dispatch-union) to
+        // the concrete state leaves (paper §4).
         expr* c = nullptr, *th = nullptr, *el = nullptr;
         if (m.is_ite(e, c, th, el)) {
             expr_ref t = wrap_proj(th, root, nu);
             expr_ref f = wrap_proj(el, root, nu);
             return expr_ref(m.mk_ite(c, t, f), m);
+        }
+        expr* a = nullptr, *b = nullptr;
+        if (m_seq.re.is_union(e, a, b) && is_char_dispatch(e)) {
+            expr_ref wa = wrap_proj(a, root, nu);
+            expr_ref wb = wrap_proj(b, root, nu);
+            return expr_ref(m_seq.re.mk_union(wa, wb), m);
         }
         // π(∅) ≡ ∅: a dead leaf stays dead.
         if (m_seq.re.is_empty(e))
@@ -691,10 +713,23 @@ namespace euf {
         // top-level linear form, exactly as the standard mk_derivative does.
         // These combinators also fold the trivial regex identities so the
         // projection skolem and its inner state id are preserved verbatim.
+        // The symbolic-character derivative is a dispatch over the char built
+        // from `ite` (predicate selection) AND `union` (the linear factors).
+        // The combinators below distribute over BOTH so the dispatch skeleton
+        // stays at the top with concrete (π-wrapped) state leaves — otherwise a
+        // surrounding operator buries the dispatch and apply_regex_if_split can
+        // no longer resolve the symbolic char (the multi-cycle-SCC divergence).
+        // We only distribute over a union that is itself a char-dispatch (so a
+        // semantic state-union — e.g. δ of a union regex — is left intact and
+        // not needlessly expanded).  All distributions are language-preserving
+        // (∩ and · distribute over ⊔; ~(A⊔B) = ~A ∩ ~B by De Morgan).
         auto is_empty = [&](expr* r) { return m_seq.re.is_empty(r); };
         auto is_full  = [&](expr* r) { return m_seq.re.is_full_seq(r); };
         auto is_eps   = [&](expr* r) { return m_seq.re.is_epsilon(r); };
         auto is_ite   = [&](expr* r, expr*& c, expr*& t, expr*& e) { return m.is_ite(r, c, t, e); };
+        auto is_disp_union = [&](expr* r, expr*& a, expr*& b) {
+            return m_seq.re.is_union(r, a, b) && is_char_dispatch(r);
+        };
 
         std::function<expr*(expr*, expr*)> mk_union = [&](expr* x, expr* y) -> expr* {
             expr *c = nullptr, *t = nullptr, *e = nullptr;
@@ -707,9 +742,11 @@ namespace euf {
             return m_seq.re.mk_union(x, y);
         };
         std::function<expr*(expr*, expr*)> mk_inter = [&](expr* x, expr* y) -> expr* {
-            expr *c = nullptr, *t = nullptr, *e = nullptr;
+            expr *c = nullptr, *t = nullptr, *e = nullptr, *a = nullptr, *b = nullptr;
             if (is_ite(x, c, t, e)) return m.mk_ite(c, mk_inter(t, y), mk_inter(e, y));
             if (is_ite(y, c, t, e)) return m.mk_ite(c, mk_inter(x, t), mk_inter(x, e));
+            if (is_disp_union(x, a, b)) return mk_union(mk_inter(a, y), mk_inter(b, y));
+            if (is_disp_union(y, a, b)) return mk_union(mk_inter(x, a), mk_inter(x, b));
             if (is_empty(x) || is_empty(y)) return m_seq.re.mk_empty(re_sort);
             if (is_full(x)) return y;
             if (is_full(y)) return x;
@@ -717,17 +754,20 @@ namespace euf {
             return m_seq.re.mk_inter(x, y);
         };
         std::function<expr*(expr*, expr*)> mk_concat = [&](expr* x, expr* y) -> expr* {
-            expr *c = nullptr, *t = nullptr, *e = nullptr;
+            expr *c = nullptr, *t = nullptr, *e = nullptr, *a = nullptr, *b = nullptr;
             if (is_ite(x, c, t, e)) return m.mk_ite(c, mk_concat(t, y), mk_concat(e, y));
             if (is_ite(y, c, t, e)) return m.mk_ite(c, mk_concat(x, t), mk_concat(x, e));
+            if (is_disp_union(x, a, b)) return mk_union(mk_concat(a, y), mk_concat(b, y));
+            if (is_disp_union(y, a, b)) return mk_union(mk_concat(x, a), mk_concat(x, b));
             if (is_empty(x) || is_empty(y)) return m_seq.re.mk_empty(re_sort);
             if (is_eps(x)) return y;
             if (is_eps(y)) return x;
             return m_seq.re.mk_concat(x, y);
         };
         std::function<expr*(expr*)> mk_compl = [&](expr* x) -> expr* {
-            expr *c = nullptr, *t = nullptr, *e = nullptr;
+            expr *c = nullptr, *t = nullptr, *e = nullptr, *a = nullptr, *b = nullptr;
             if (is_ite(x, c, t, e)) return m.mk_ite(c, mk_compl(t), mk_compl(e));
+            if (is_disp_union(x, a, b)) return mk_inter(mk_compl(a), mk_compl(b)); // De Morgan
             if (is_empty(x)) return m_seq.re.mk_full_seq(re_sort);
             if (is_full(x))  return m_seq.re.mk_empty(re_sort);
             expr* inner = nullptr;

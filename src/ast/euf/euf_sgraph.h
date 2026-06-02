@@ -182,8 +182,11 @@ namespace euf {
         bool is_re_proj(expr* e, expr*& state, expr*& root, unsigned& nu) const;
         // Build the re.proj skolem expression for π_{{root}}(state) at snapshot nu.
         expr_ref mk_re_proj(expr* state, expr* root, unsigned nu);
-        // Wrap a (possibly ite-structured) symbolic-derivative result in the
-        // projection operator, propagating π into every ite leaf (paper §4).
+        // True if e is a symbolic-character dispatch skeleton (ite / union of
+        // dispatch, bottoming out in ∅) rather than a concrete regex state.
+        bool is_char_dispatch(expr* e) const;
+        // Wrap a (possibly ite/union-structured) symbolic-derivative result in
+        // the projection operator, propagating π into every dispatch leaf (§4).
         expr_ref wrap_proj(expr* e, expr* root, unsigned nu);
         // Projection-aware Brzozowski derivative w.r.t. a character expr
         // (concrete or symbolic).
