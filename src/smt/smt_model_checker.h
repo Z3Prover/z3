@@ -70,9 +70,8 @@ namespace smt {
         struct instance {
             quantifier * m_q;
             unsigned     m_generation;
-            expr *       m_def;
             unsigned     m_bindings_offset;
-            instance(quantifier * q, unsigned offset, expr* def, unsigned gen):m_q(q), m_generation(gen), m_def(def), m_bindings_offset(offset) {}
+            instance(quantifier * q, unsigned offset, unsigned gen):m_q(q), m_generation(gen), m_bindings_offset(offset) {}
         };
 
         svector<instance>                          m_new_instances;
@@ -86,7 +85,7 @@ namespace smt {
         struct is_model_value {};
         expr_mark m_visited;
         bool contains_model_value(expr * e);
-        void add_instance(quantifier * q, expr_ref_vector const & bindings, unsigned max_generation, expr * def);
+        void add_instance(quantifier * q, expr_ref_vector const & bindings, unsigned max_generation);
         bool is_safe_for_mbqi(quantifier * q) const;
 
     public:
