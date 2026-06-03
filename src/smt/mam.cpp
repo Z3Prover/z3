@@ -1901,27 +1901,41 @@ namespace {
             }
         }
 
+        enode * find_min_gen_cg(func_decl* lbl, unsigned num_expected_args, enode * cgr) {
+            SASSERT(cgr->is_cgr());
+            enode * min_gen_cg = cgr;
+            enode * curr = cgr->get_next();
+            while (curr != cgr) {
+                if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->get_cg() == cgr) {
+                    if (min_gen_cg->get_generation() > curr->get_generation()) {
+                        min_gen_cg = curr;
+                    }
+                }
+                curr = curr->get_next();
+            }
+            return min_gen_cg;
+        }
+
         // We have to provide the number of expected arguments because we have flat-assoc applications such as +.
         // Flat-assoc applications may have arbitrary number of arguments.
         enode * get_first_f_app(func_decl * lbl, unsigned num_expected_args, enode * curr) {
-            enode * first = curr;
-            enode *matching_cgr = nullptr, *min_gen_match = nullptr;
+            enode *first = curr;
             do {
-                get_f_app(lbl, num_expected_args, curr, matching_cgr, min_gen_match);
+                if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->is_cgr()) {
+                    update_max_generation(curr, first, find_min_gen_cg(lbl, num_expected_args, curr));  
+                    return curr;
+                }
                 curr = curr->get_next();
-            }
-            while (curr != first);
-            if (matching_cgr)
-                update_max_generation(matching_cgr, first, min_gen_match);  
-            return matching_cgr;
+            } while (curr != first);
+
+            return nullptr;
         }
 
         enode * get_next_f_app(func_decl * lbl, unsigned num_expected_args, enode * first, enode * curr) {
             curr = curr->get_next();
             while (curr != first) {
                 if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->is_cgr()) {
-                    if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality))
-                        m_used_enodes.push_back(std::make_tuple(first, curr));
+                    update_max_generation(curr, first, find_min_gen_cg(lbl, num_expected_args, curr));
                     return curr;
                 }
                 curr = curr->get_next();
@@ -2760,7 +2774,6 @@ namespace {
 #define BBIND_COMMON() m_b   = static_cast<const bind*>(bp.m_instr);                                                            \
                        m_n1  = m_registers[m_b->m_ireg];                                                                        \
                        m_app = get_next_f_app(m_b->m_label, m_b->m_num_args, m_n1, bp.m_curr); \
-                       m_max_generation = m_b->m_curr_max_generation;                                                            \
                        if (!m_app) {                                                                                        \
                            m_top--;                                                                                             \
                            goto backtrack;                                                                                      \
