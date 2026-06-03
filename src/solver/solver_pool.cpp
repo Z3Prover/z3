@@ -131,6 +131,10 @@ public:
         return m_base->get_split_candidate();
     }
 
+    void get_split_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+        m_base->get_split_candidates(candidates, max_num);
+    }
+
     void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
         m_base->get_backbone_candidates(candidates, max_num);
     }

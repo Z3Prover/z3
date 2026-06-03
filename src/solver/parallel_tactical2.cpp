@@ -1021,11 +1021,18 @@ class parallel_solver {
         expr_ref get_split_atom(expr_ref_vector const& cube) {
             if (cube.size() >= m_config.m_max_cube_depth)
                 return expr_ref(nullptr, m);
-            expr_ref candidate = s->get_split_candidate();
 
-            if (candidate && m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, candidate))
-                return expr_ref(nullptr, m);
-            return candidate;
+            vector<solver::scored_literal> cands;
+            s->get_split_candidates(cands, s->get_num_bool_vars());
+            for (auto const& cand : cands) {
+                expr* lit = cand.lit.get();
+                if (!lit)
+                    continue;
+                if (m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, lit))
+                    continue;
+                return expr_ref(lit, m);
+            }
+            return expr_ref(nullptr, m);
         }
 
         bb_candidates find_backbone_candidates(expr_ref_vector const& cube, unsigned k = 10) {

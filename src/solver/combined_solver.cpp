@@ -280,6 +280,11 @@ public:
         return m_solver2->get_split_candidate();
     }
 
+    void get_split_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+        switch_inc_mode();
+        m_solver2->get_split_candidates(candidates, max_num);
+    }
+
     void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
         if (m_use_solver1_results)
             m_solver1->get_backbone_candidates(candidates, max_num);

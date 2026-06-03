@@ -29,6 +29,8 @@ Notes:
 #include "solver/solver_na2as.h"
 #include "solver/mus.h"
 
+#include <algorithm>
+
 namespace {
 
     class smt_solver : public solver_na2as {
@@ -326,6 +328,32 @@ namespace {
                 }
             }
             return result;
+        }
+
+        void get_split_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+            ast_manager& m = get_manager();
+            auto& ctx = m_context.get_context();
+            vector<solver::scored_literal> all;
+            ctx.pop_to_search_level();
+            for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
+                if (ctx.get_assignment(v) != l_undef)
+                    continue;
+                expr* e = ctx.bool_var2expr(v);
+                if (!e)
+                    continue;
+                all.push_back(solver::scored_literal(m, e, ctx.get_activity(v)));
+            }
+
+            std::stable_sort(
+                all.begin(),
+                all.end(),
+                [](solver::scored_literal const& a, solver::scored_literal const& b) {
+                    return a.score > b.score;
+                });
+
+            unsigned n = std::min<unsigned>(max_num, all.size());
+            for (unsigned i = 0; i < n; ++i)
+                candidates.push_back(all[i]);
         }
 
         void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {

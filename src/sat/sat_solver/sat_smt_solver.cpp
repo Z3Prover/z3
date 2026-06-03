@@ -439,6 +439,10 @@ public:
         return expr_ref(lit2expr.get(lit.index()), m);
     }
 
+    void get_split_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+        get_backbone_candidates(candidates, max_num);
+    }
+
     void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
         expr_ref_vector none(m);
         lbool r = internalize_formulas(none);
