@@ -46,6 +46,7 @@ z3_add_component(ast
     recfun_decl_plugin.cpp
     reg_decl_plugins.cpp
     seq_decl_plugin.cpp
+    seq_derive.cpp
     shared_occs.cpp
     special_relations_decl_plugin.cpp
     static_features.cpp

@@ -2947,11 +2947,7 @@ bool seq_rewriter::check_deriv_normal_form(expr* r, int level) {
 #endif
 
 expr_ref seq_rewriter::mk_derivative(expr* r) {
-    sort* seq_sort = nullptr, * ele_sort = nullptr;
-    VERIFY(m_util.is_re(r, seq_sort));
-    VERIFY(m_util.is_seq(seq_sort, ele_sort));
-    expr_ref v(m().mk_var(0, ele_sort), m());
-    return mk_antimirov_deriv(v, r, m().mk_true());
+    return m_derive(r);
 }
 
 expr_ref seq_rewriter::mk_brz_derivative(expr* r) {
@@ -2963,7 +2959,7 @@ expr_ref seq_rewriter::mk_brz_derivative(expr* r) {
 }
 
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
-    return mk_antimirov_deriv(ele, r, m().mk_true());
+    return m_derive(ele, r);
 }
 
 expr_ref seq_rewriter::mk_antimirov_deriv(expr* e, expr* r, expr* path) {
@@ -3183,13 +3179,18 @@ expr_ref seq_rewriter::mk_antimirov_deriv_intersection(expr* e, expr* d1, expr* 
     VERIFY(m_util.is_seq(seq_sort, ele_sort));
     expr_ref result(m());
     expr* c, * a, * b;
-    if (re().is_empty(d1))
+    if (m_re_deriv_depth >= m_max_re_deriv_depth) {
+        // Depth limit reached: construct intersection without further decomposition
+        result = mk_regex_inter_normalize(d1, d2);
+    }
+    else if (re().is_empty(d1))
         result = d1;
     else if (re().is_empty(d2))
         result = d2;
     else if (m().is_ite(d1, c, a, b)) {
         expr_ref path_and_c(simplify_path(e, m().mk_and(path, c)), m());
         expr_ref path_and_notc(simplify_path(e, m().mk_and(path, m().mk_not(c))), m());
+        ++m_re_deriv_depth;
         if (m().is_false(path_and_c))
             result = mk_antimirov_deriv_intersection(e, b, d2, path);
         else if (m().is_false(path_and_notc))
@@ -3197,22 +3198,32 @@ expr_ref seq_rewriter::mk_antimirov_deriv_intersection(expr* e, expr* d1, expr* 
         else
             result = m().mk_ite(c, mk_antimirov_deriv_intersection(e, a, d2, path_and_c),
                 mk_antimirov_deriv_intersection(e, b, d2, path_and_notc));
+        --m_re_deriv_depth;
     }
-    else if (m().is_ite(d2))
+    else if (m().is_ite(d2)) {
         // swap d1 and d2
+        ++m_re_deriv_depth;
         result = mk_antimirov_deriv_intersection(e, d2, d1, path);
+        --m_re_deriv_depth;
+    }
     else if (d1 == d2 || re().is_full_seq(d2))
         result = mk_antimirov_deriv_restrict(e, d1, path);
     else if (re().is_full_seq(d1))
         result = mk_antimirov_deriv_restrict(e, d2, path);
-    else if (re().is_union(d1, a, b))
+    else if (re().is_union(d1, a, b)) {
         // distribute intersection over the union in d1
+        ++m_re_deriv_depth;
         result = mk_antimirov_deriv_union(mk_antimirov_deriv_intersection(e, a, d2, path),
             mk_antimirov_deriv_intersection(e, b, d2, path));
-    else if (re().is_union(d2, a, b))
+        --m_re_deriv_depth;
+    }
+    else if (re().is_union(d2, a, b)) {
         // distribute intersection over the union in d2
+        ++m_re_deriv_depth;
         result = mk_antimirov_deriv_union(mk_antimirov_deriv_intersection(e, d1, a, path),
             mk_antimirov_deriv_intersection(e, d1, b, path));
+        --m_re_deriv_depth;
+    }
     else
         result = mk_regex_inter_normalize(d1, d2);
     return result;
@@ -3222,13 +3233,22 @@ expr_ref seq_rewriter::mk_antimirov_deriv_concat(expr* d, expr* r) {
     expr_ref result(m());
     expr_ref _r(r, m()), _d(d, m());
     expr* c, * t, * e;
-    if (m().is_ite(d, c, t, e)) {
+    if (m_re_deriv_depth >= m_max_re_deriv_depth) {
+        // Depth limit reached: construct concat without further decomposition
+        result = mk_re_append(d, r);
+    }
+    else if (m().is_ite(d, c, t, e)) {
+        ++m_re_deriv_depth;
         auto r2 = mk_antimirov_deriv_concat(e, r);
         auto r1 = mk_antimirov_deriv_concat(t, r);
+        --m_re_deriv_depth;
         result = m().mk_ite(c, r1, r2);
     }
-    else if (re().is_union(d, t, e))
+    else if (re().is_union(d, t, e)) {
+        ++m_re_deriv_depth;
         result = mk_antimirov_deriv_union(mk_antimirov_deriv_concat(t, r), mk_antimirov_deriv_concat(e, r));
+        --m_re_deriv_depth;
+    }
     else
         result = mk_re_append(d, r);
     SASSERT(result.get());
@@ -3244,7 +3264,11 @@ expr_ref seq_rewriter::mk_antimirov_deriv_negate(expr* elem, expr* d) {
     auto dotplus = [&]() { return expr_ref(re().mk_plus(re().mk_full_char(d->get_sort())), m()); };
     expr_ref result(m());
     expr* c, * t, * e;
-    if (re().is_empty(d))
+    if (m_re_deriv_depth >= m_max_re_deriv_depth) {
+        // Depth limit reached: construct complement without further decomposition
+        result = re().mk_complement(d);
+    }
+    else if (re().is_empty(d))
         result = dotstar();
     else if (re().is_epsilon(d))
         result = dotplus();
@@ -3252,12 +3276,21 @@ expr_ref seq_rewriter::mk_antimirov_deriv_negate(expr* elem, expr* d) {
         result = nothing();
     else if (re().is_dot_plus(d))
         result = epsilon();
-    else if (m().is_ite(d, c, t, e))
+    else if (m().is_ite(d, c, t, e)) {
+        ++m_re_deriv_depth;
         result = m().mk_ite(c, mk_antimirov_deriv_negate(elem, t), mk_antimirov_deriv_negate(elem, e));
-    else if (re().is_union(d, t, e))
+        --m_re_deriv_depth;
+    }
+    else if (re().is_union(d, t, e)) {
+        ++m_re_deriv_depth;
         result = mk_antimirov_deriv_intersection(elem, mk_antimirov_deriv_negate(elem, t), mk_antimirov_deriv_negate(elem, e), m().mk_true());
-    else if (re().is_intersection(d, t, e))
+        --m_re_deriv_depth;
+    }
+    else if (re().is_intersection(d, t, e)) {
+        ++m_re_deriv_depth;
         result = mk_antimirov_deriv_union(mk_antimirov_deriv_negate(elem, t), mk_antimirov_deriv_negate(elem, e));
+        --m_re_deriv_depth;
+    }
     else if (re().is_complement(d, t))
         result = t;
     else
@@ -3298,15 +3331,21 @@ expr_ref seq_rewriter::mk_antimirov_deriv_restrict(expr* e, expr* d, expr* cond)
         result = re().mk_empty(d->get_sort());
     else if (re().is_empty(d) || m().is_true(cond))
         result = d;
+    else if (m_re_deriv_depth >= m_max_re_deriv_depth)
+        result = d;
     else if (m().is_ite(d, c, a, b)) {
         expr_ref path_and_c(simplify_path(e, m().mk_and(cond, c)), m());
         expr_ref path_and_notc(simplify_path(e, m().mk_and(cond, m().mk_not(c))), m());
+        ++m_re_deriv_depth;
         result = re().mk_ite_simplify(c, mk_antimirov_deriv_restrict(e, a, path_and_c),
             mk_antimirov_deriv_restrict(e, b, path_and_notc));
+        --m_re_deriv_depth;
     }
     else if (re().is_union(d, a, b)) {
+        ++m_re_deriv_depth;
         expr_ref a1(mk_antimirov_deriv_restrict(e, a, cond), m());
         expr_ref b1(mk_antimirov_deriv_restrict(e, b, cond), m());
+        --m_re_deriv_depth;
         result = mk_antimirov_deriv_union(a1, b1);
     }
     return result;
@@ -3970,230 +4009,7 @@ expr_ref seq_rewriter::mk_der_cond(expr* cond, expr* ele, sort* seq_sort) {
     return result;
 }
 
-/*
-   Classical Brzozowski derivative used by the regex_bisim equivalence
-   procedure. Unlike `mk_antimirov_deriv`, this variant never creates
-   _OP_RE_ANTIMIROV_UNION nodes — it stays in a classical (single regex
-   tree) form. The bisimulation algorithm relies on this so that each
-   leaf of D(p XOR q) is a coherent XOR pair (D_v p) XOR (D_v q).
-*/
-expr_ref seq_rewriter::mk_derivative_rec(expr* ele, expr* r) {
-    expr_ref result(m());
-    sort* seq_sort = nullptr, *ele_sort = nullptr;
-    VERIFY(m_util.is_re(r, seq_sort));
-    VERIFY(m_util.is_seq(seq_sort, ele_sort));
-    SASSERT(ele_sort == ele->get_sort());
-    expr* r1 = nullptr, *r2 = nullptr, *p = nullptr;
-    auto mk_empty = [&]() { return expr_ref(re().mk_empty(r->get_sort()), m()); };
-    unsigned lo = 0, hi = 0;
-    if (re().is_concat(r, r1, r2)) {
-        expr_ref is_n = is_nullable(r1);
-        expr_ref dr1 = mk_derivative_rec(ele, r1);
-        result = mk_der_concat(dr1, r2);
-        if (m().is_false(is_n)) {
-            return result;
-        }
-        expr_ref dr2 = mk_derivative_rec(ele, r2);
-        is_n = re_predicate(is_n, seq_sort);
-        if (re().is_empty(dr2)) {
-            //do not concatenate [], it is a deade-end 
-            return result;
-        }
-        else {
-            // Classical Brzozowski union: keep the derivative tree free of
-            // antimirov-union nodes so the bisimulation procedure sees a
-            // single regex tree whose leaves are XOR pairs.
-            return mk_der_union(result, mk_der_concat(is_n, dr2));
-        }
-    }
-    else if (re().is_star(r, r1)) {
-        return mk_der_concat(mk_derivative_rec(ele, r1), r);
-    }
-    else if (re().is_plus(r, r1)) {
-        expr_ref star(re().mk_star(r1), m());
-        return mk_derivative_rec(ele, star);
-    }
-    else if (re().is_union(r, r1, r2)) {
-        return mk_der_union(mk_derivative_rec(ele, r1), mk_derivative_rec(ele, r2));
-    }
-    else if (re().is_intersection(r, r1, r2)) {
-        return mk_der_inter(mk_derivative_rec(ele, r1), mk_derivative_rec(ele, r2));
-    }
-    else if (re().is_diff(r, r1, r2)) {
-        return mk_der_inter(mk_derivative_rec(ele, r1), mk_der_compl(mk_derivative_rec(ele, r2)));
-    }
-    else if (re().is_xor(r, r1, r2)) {
-        return mk_der_xor(mk_derivative_rec(ele, r1), mk_derivative_rec(ele, r2));
-    }
-    else if (m().is_ite(r, p, r1, r2)) {
-        // there is no BDD normalization here
-        result = m().mk_ite(p, mk_derivative_rec(ele, r1), mk_derivative_rec(ele, r2));
-        return result;
-    }
-    else if (re().is_opt(r, r1)) {
-        return mk_derivative_rec(ele, r1);
-    }
-    else if (re().is_complement(r, r1)) {
-        return mk_der_compl(mk_derivative_rec(ele, r1));
-    }
-    else if (re().is_loop(r, r1, lo)) {
-        if (lo > 0) {
-            lo--;
-        }
-        result = mk_derivative_rec(ele, r1);
-        //do not concatenate with [] (emptyset)
-        if (re().is_empty(result)) {
-            return result;
-        }
-        else {
-            //do not create loop r1{0,}, instead create r1*
-            return mk_der_concat(result, (lo == 0 ? re().mk_star(r1) : re().mk_loop(r1, lo)));
-        }
-    }
-    else if (re().is_loop(r, r1, lo, hi)) {
-        if (hi == 0) {
-            return mk_empty();
-        }
-        hi--;
-        if (lo > 0) {
-            lo--;
-        }
-        result = mk_derivative_rec(ele, r1);
-        //do not concatenate with [] (emptyset) or handle the rest of the loop if no more iterations remain
-        if (re().is_empty(result) || hi == 0) {
-            return result;
-        }
-        else {
-            return mk_der_concat(result, re().mk_loop_proper(r1, lo, hi));
-        }
-    }
-    else if (re().is_full_seq(r) ||
-             re().is_empty(r)) {
-        return expr_ref(r, m());
-    }
-    else if (re().is_to_re(r, r1)) {
-        // r1 is a string here (not a regexp)
-        expr_ref hd(m()), tl(m());
-        if (get_head_tail(r1, hd, tl)) {
-            // head must be equal; if so, derivative is tail
-            // Use mk_der_cond to normalize
-            STRACE(seq_verbose, tout << "deriv to_re" << std::endl;);
-            result = m().mk_eq(ele, hd);
-            result = mk_der_cond(result, ele, seq_sort);
-            expr_ref r1(re().mk_to_re(tl), m());
-            result = mk_der_concat(result, r1);
-            return result;
-        }
-        else if (str().is_empty(r1)) {
-            //observe: str().is_empty(r1) checks that r = () = epsilon
-            //while mk_empty() = [], because deriv(epsilon) = [] = nothing
-            return mk_empty();
-        }
-        else if (str().is_itos(r1)) {
-            //
-            // here r1 = (str.from_int r2) and r2 is non-ground 
-            // or else the expression would have been simplified earlier
-            // so r1 must be nonempty and must consists of decimal digits 
-            // '0' <= elem <= '9'
-            // if ((isdigit ele) and (ele = (hd r1))) then (to_re (tl r1)) else []
-            //
-            hd = mk_seq_first(r1);
-            // isolate nested conjunction for deterministic evaluation
-            auto a0 = u().mk_le(m_util.mk_char('0'), ele);
-            auto a1 = u().mk_le(ele, m_util.mk_char('9'));
-            auto a2 = m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort)));
-            auto a3 = m().mk_eq(hd, ele);
-            auto inner = m().mk_and(a2, a3);
-            m_br.mk_and(a0, a1, inner, result);
-            tl = re().mk_to_re(mk_seq_rest(r1));            
-            return re_and(result, tl);
-        }
-        else {
-            // recall: [] denotes the empty language (nothing) regex, () denotes epsilon or empty sequence
-            // construct the term (if (r1 != () and (ele = (first r1)) then (to_re (rest r1)) else []))
-            hd = mk_seq_first(r1);
-            m_br.mk_and(m().mk_not(m().mk_eq(r1, str().mk_empty(seq_sort))), m().mk_eq(hd, ele), result);
-            tl = re().mk_to_re(mk_seq_rest(r1));
-            return re_and(result, tl);
-        }
-    }
-    else if (re().is_reverse(r, r1)) {
-        if (re().is_to_re(r1, r2)) {
-            // First try to extract hd and tl such that r = hd ++ tl and |tl|=1
-            expr_ref hd(m()), tl(m());
-            if (get_head_tail_reversed(r2, hd, tl)) {
-                // Use mk_der_cond to normalize
-                STRACE(seq_verbose, tout << "deriv reverse to_re" << std::endl;);
-                result = m().mk_eq(ele, tl);
-                result = mk_der_cond(result, ele, seq_sort);
-                result = mk_der_concat(result, re().mk_reverse(re().mk_to_re(hd)));
-                return result;
-            }
-            else if (str().is_empty(r2)) {
-                return mk_empty();
-            }
-            else {
-                // construct the term (if (r2 != () and (ele = (last r2)) then reverse(to_re (butlast r2)) else []))
-                // hd = first of reverse(r2) i.e. last of r2
-                // tl = rest of reverse(r2) i.e. butlast of r2
-                //hd = str().mk_nth_i(r2, m_autil.mk_sub(str().mk_length(r2), one()));
-                hd = mk_seq_last(r2);
-                // factor nested constructor calls to enforce deterministic argument evaluation order
-                auto a_non_empty = m().mk_not(m().mk_eq(r2, str().mk_empty(seq_sort)));
-                auto a_eq        = m().mk_eq(hd, ele);
-                m_br.mk_and(a_non_empty, a_eq, result);
-                tl = re().mk_to_re(mk_seq_butlast(r2));
-                return re_and(result, re().mk_reverse(tl));
-            }
-        }
-    }
-    else if (re().is_range(r, r1, r2)) {
-        // r1, r2 are sequences.
-        zstring s1, s2;
-        if (str().is_string(r1, s1) && str().is_string(r2, s2)) {
-            if (s1.length() == 1 && s2.length() == 1) {
-                expr_ref ch1(m_util.mk_char(s1[0]), m());
-                expr_ref ch2(m_util.mk_char(s2[0]), m());
-                // Use mk_der_cond to normalize
-                STRACE(seq_verbose, tout << "deriv range zstring" << std::endl;);
-                expr_ref p1(u().mk_le(ch1, ele), m());
-                p1 = mk_der_cond(p1, ele, seq_sort);
-                expr_ref p2(u().mk_le(ele, ch2), m());
-                p2 = mk_der_cond(p2, ele, seq_sort);
-                result = mk_der_inter(p1, p2);
-                return result;
-            }
-            else {
-                return mk_empty();
-            }
-        }
-        expr* e1 = nullptr, * e2 = nullptr;
-        if (str().is_unit(r1, e1) && str().is_unit(r2, e2)) {
-            SASSERT(u().is_char(e1));
-            // Use mk_der_cond to normalize
-            STRACE(seq_verbose, tout << "deriv range str" << std::endl;);
-            expr_ref p1(u().mk_le(e1, ele), m());
-            p1 = mk_der_cond(p1, ele, seq_sort);
-            expr_ref p2(u().mk_le(ele, e2), m());
-            p2 = mk_der_cond(p2, ele, seq_sort);
-            result = mk_der_inter(p1, p2);
-            return result;
-        }
-    }
-    else if (re().is_full_char(r)) {
-        return expr_ref(re().mk_to_re(str().mk_empty(seq_sort)), m());
-    }
-    else if (re().is_of_pred(r, p)) {
-        array_util array(m());
-        expr* args[2] = { p, ele };
-        result = array.mk_select(2, args);
-        // Use mk_der_cond to normalize
-        STRACE(seq_verbose, tout << "deriv of_pred" << std::endl;);
-        return mk_der_cond(result, ele, seq_sort);
-    }
-    // stuck cases: re.derivative, re variable,
-    return expr_ref(re().mk_derivative(ele, r), m());
-}
+
 
 /*************************************************
  *****          End Derivative Code          *****
@@ -4697,6 +4513,16 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         }
         std::swap(a, b);
     }
+    // Hoist ite out of concat: concat(ite(c, r1, r2), b) → ite(c, concat(r1, b), concat(r2, b))
+    expr* c = nullptr;
+    if (m().is_ite(a, c, a1, b1)) {
+        result = m().mk_ite(c, re().mk_concat(a1, b), re().mk_concat(b1, b));
+        return BR_REWRITE3;
+    }
+    if (m().is_ite(b, c, a1, b1)) {
+        result = m().mk_ite(c, re().mk_concat(a, a1), re().mk_concat(a, b1));
+        return BR_REWRITE3;
+    }
     return BR_FAILED;
 }
 
@@ -4745,6 +4571,21 @@ br_status seq_rewriter::mk_re_union0(expr* a, expr* b, expr_ref& result) {
         result = b;
         return BR_DONE;
     }
+    // r ∪ ~r → Σ* (complement absorption)
+    if (are_complements(a, b)) {
+        result = re().mk_full_seq(a->get_sort());
+        return BR_DONE;
+    }
+    // Hoist ite out of union: union(ite(c, r1, r2), b) → ite(c, union(r1, b), union(r2, b))
+    expr *c = nullptr, *r1 = nullptr, *r2 = nullptr;
+    if (m().is_ite(a, c, r1, r2)) {
+        result = m().mk_ite(c, re().mk_union(r1, b), re().mk_union(r2, b));
+        return BR_REWRITE3;
+    }
+    if (m().is_ite(b, c, r1, r2)) {
+        result = m().mk_ite(c, re().mk_union(a, r1), re().mk_union(a, r2));
+        return BR_REWRITE3;
+    }
     return BR_FAILED;
 }
 
@@ -4787,6 +4628,12 @@ br_status seq_rewriter::mk_re_complement(expr* a, expr_ref& result) {
         result = re().mk_plus(re().mk_full_char(a->get_sort()));
         return BR_DONE;
     }
+    // Hoist ite out of complement: ~(ite(c, r1, r2)) → ite(c, ~r1, ~r2)
+    expr* c = nullptr;
+    if (m().is_ite(a, c, e1, e2)) {
+        result = m().mk_ite(c, re().mk_complement(e1), re().mk_complement(e2));
+        return BR_REWRITE3;
+    }
     return BR_FAILED;
 }
 
@@ -4811,6 +4658,21 @@ br_status seq_rewriter::mk_re_inter0(expr* a, expr* b, expr_ref& result) {
     if (re().is_full_seq(b)) {
         result = a;
         return BR_DONE;
+    }
+    // r ∩ ~r → ∅ (complement absorption)
+    if (are_complements(a, b)) {
+        result = re().mk_empty(a->get_sort());
+        return BR_DONE;
+    }
+    // Hoist ite out of intersection: inter(ite(c, r1, r2), b) → ite(c, inter(r1, b), inter(r2, b))
+    expr *c = nullptr, *r1 = nullptr, *r2 = nullptr;
+    if (m().is_ite(a, c, r1, r2)) {
+        result = m().mk_ite(c, re().mk_inter(r1, b), re().mk_inter(r2, b));
+        return BR_REWRITE3;
+    }
+    if (m().is_ite(b, c, r1, r2)) {
+        result = m().mk_ite(c, re().mk_inter(a, r1), re().mk_inter(a, r2));
+        return BR_REWRITE3;
     }
     return BR_FAILED;
 }
@@ -5051,7 +4913,9 @@ br_status seq_rewriter::mk_re_star(expr* a, expr_ref& result) {
             result = re().mk_full_seq(b1->get_sort());
             return BR_REWRITE2;
         }
-
+        // Hoist ite out of star: (ite c r1 r2)* → ite(c, r1*, r2*)
+        result = m().mk_ite(c, re().mk_star(b1), re().mk_star(c1));
+        return BR_REWRITE3;
     }
     return BR_FAILED;
 }

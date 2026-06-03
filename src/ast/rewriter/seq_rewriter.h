@@ -19,6 +19,7 @@ Notes:
 #pragma once
 
 #include "ast/seq_decl_plugin.h"
+#include "ast/seq_derive.h"
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -132,11 +133,18 @@ class seq_rewriter {
     seq_subset     m_subset;
     arith_util     m_autil;
     bool_rewriter  m_br;
+    seq::derive    m_derive;
     // re2automaton   m_re2aut;
     op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
+<<<<<<< HEAD
     bool           m_coalesce_chars;
     bool           m_in_bisim { false };
+=======
+    bool           m_coalesce_chars;    
+    unsigned       m_re_deriv_depth { 0 };
+    static const unsigned m_max_re_deriv_depth = 512;
+>>>>>>> 1f28fd0e6 (Add seq::derive class for symbolic regex derivatives)
 
     enum length_comparison {
         shorter_c, 
@@ -175,7 +183,6 @@ class seq_rewriter {
 
     // Calculate derivative, memoized and enforcing a normal form
     expr_ref is_nullable_rec(expr* r);
-    expr_ref mk_derivative_rec(expr* ele, expr* r);
     expr_ref mk_der_op(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_op_rec(decl_kind k, expr* a, expr* b);
     expr_ref mk_der_concat(expr* a, expr* b);
@@ -346,9 +353,9 @@ class seq_rewriter {
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
-        m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), // m_re2aut(m), 
+        m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), m_derive(m),  // m_re2aut(m), 
         m_op_cache(m), m_es(m), 
-        m_lhs(m), m_rhs(m), m_coalesce_chars(true) {
+        m_lhs(m), m_rhs(m) {
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
@@ -359,7 +366,7 @@ public:
     static void get_param_descrs(param_descrs & r);
 
 
-    bool coalesce_chars() const { return m_coalesce_chars; }
+    // bool coalesce_chars() const { return m_coalesce_chars; }
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
