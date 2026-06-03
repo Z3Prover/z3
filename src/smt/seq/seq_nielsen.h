@@ -232,24 +232,21 @@ Author:
 
 #pragma once
 
-#include "util/vector.h"
-#include "util/uint_set.h"
-#include "util/dependency.h"
-#include "util/map.h"
-#include "util/lbool.h"
-#include "util/rational.h"
 #include "ast/ast.h"
 #include "ast/seq_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/euf/euf_sgraph.h"
-#include <map>
 #include "model/model.h"
+#include "util/lbool.h"
+#include "util/dependency.h"
+#include "util/map.h"
 #include "util/obj_ref_hashtable.h"
-#include "util/uint_map.h"
+#include "util/rational.h"
+#include "util/uint_set.h"
+#include "util/vector.h"
+#include <map>
 
-namespace smt {
-    class enode;
-}
+namespace smt { class enode; }
 
 namespace seq {
 

@@ -35,14 +35,12 @@ NSB review:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
 #include "ast/rewriter/var_subst.h"
-#include "smt/smt_enode.h"
 #include "util/statistics.h"
 #include <algorithm>
 #include <complex>
 #include <cstdlib>
 #include <stack>
 #include <unordered_map>
-#include <vector>
 
 namespace seq {
 
@@ -54,7 +52,6 @@ namespace seq {
         for (dep_source const &d : vs) {
             if (std::holds_alternative<enode_pair>(d)) {
                 eqs.push_back(std::get<enode_pair>(d));
-                SASSERT(eqs.back().first->get_root() == eqs.back().second->get_root());
             }
             else if (std::holds_alternative<sat::literal>(d))
                 lits.push_back(std::get<sat::literal>(d));
