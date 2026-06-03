@@ -105,7 +105,7 @@ namespace smt {
                         proc = alloc(expr_wrapper_proc, m.mk_false());
                 }
                 else if (m.is_model_value(r->get_expr()))
-                    proc = alloc(expr_wrapper_proc, r->get_expr());                    
+                    proc = alloc(expr_wrapper_proc, r->get_app());                    
                 else {
                     family_id fid = s->get_family_id();
                     theory * th   = m_context->get_theory(fid);
@@ -384,7 +384,7 @@ namespace smt {
         // send model
         for (enode * n : m_context->enodes()) {
             if (is_uninterp_const(n->get_expr()) && m_context->is_relevant(n)) {
-                func_decl * d = n->get_expr()->get_decl();
+                func_decl * d = n->get_decl();
                 TRACE(mg_top_sort, tout << d->get_name() << " " << (m_hidden_ufs.contains(d)?"hidden":"visible") << "\n";);
                 if (m_hidden_ufs.contains(d)) continue;
                 expr * val    = get_value(n);
@@ -428,6 +428,8 @@ namespace smt {
             if (!m_context->is_relevant(t))
                 continue;
             enode * n         = m_context->get_enode(t);
+            if (!n->is_app())
+                continue;
             unsigned num_args = n->get_num_args();
             func_decl * f     = n->get_decl();
             if (num_args == 0 && include_func_interp(f)) {

@@ -777,7 +777,7 @@ namespace datalog {
         datatype_util dt;
         bv_util       bv;
         array_util    ar;
-        DL_ENGINE     m_engine_type;
+        DL_ENGINE     m_engine_type = DATALOG_ENGINE;
 
         bool is_large_bv(expr *e) {
             sort *s = e->get_sort();
@@ -961,7 +961,6 @@ namespace datalog {
             if (get_engine() == DATALOG_ENGINE) {
                 m_rel = dynamic_cast<rel_context_base*>(m_engine.get());
             }
-
         }
     }
 

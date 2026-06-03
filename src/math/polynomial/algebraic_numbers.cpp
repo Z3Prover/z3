@@ -2028,6 +2028,20 @@ namespace algebraic_numbers {
             }
             IF_VERBOSE(9, verbose_stream() << "sturm 1\n");
 
+
+            // Check whether a can be separated from b's interval and vice versa
+            // this recognizes the case where the intervals overlap,
+            // but the anums do not lie in the intersection of the intervals.
+            scoped_mpq l_a(qm()), u_a(qm()), l_b(qm()), u_b(qm());
+            to_mpq(qm(), la, l_a);
+            to_mpq(qm(), ua, u_a);
+            to_mpq(qm(), lb, l_b);
+            to_mpq(qm(), ub, u_b);
+            if (compare(cell_a, l_b) == sign_neg) return sign_neg;
+            if (compare(cell_a, u_b) == sign_pos) return sign_pos;
+            if (compare(cell_b, l_a) == sign_neg) return sign_pos;
+            if (compare(cell_b, u_a) == sign_pos) return sign_neg;
+
             // 
             // EXPENSIVE CASE
             // Let seq be the Sturm-Tarski sequence for

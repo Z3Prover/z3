@@ -170,8 +170,8 @@ namespace smt {
             //
                         
             app_ref eq(m), s2(m), t2(m);
-            app* s1 = get_enode(s)->get_expr();
-            app* t1 = get_enode(t)->get_expr();
+            expr* s1 = get_expr(s);
+            expr* t1 = get_expr(t);
             s2 = a.mk_sub(t1, s1);
             t2 = a.mk_numeral(k, s2->get_sort());
             eq = m.mk_eq(s2.get(), t2.get());
@@ -588,7 +588,7 @@ namespace smt {
         expr* x, *y;
         rational r;
         for (;;) {
-            app* n = e->get_expr();
+            auto n = e->get_expr();
             if (a.is_add(n, x, y)) {
                 if (a.is_numeral(x, r)) {
                     e = ctx.get_enode(y);                
@@ -906,7 +906,7 @@ namespace smt {
         num = num/rational(2);
         SASSERT(!is_int || num.is_int());
         TRACE(utvpi, 
-              expr* n = get_enode(v)->get_expr();
+              expr* n = get_expr(v);
               tout << mk_pp(n, m) << " |-> (" << val1 << " - " << val2 << ")/2 = " << num << "\n";);
 
         return num;

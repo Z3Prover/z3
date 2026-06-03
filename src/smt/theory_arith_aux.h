@@ -1086,7 +1086,7 @@ namespace smt {
     expr_ref theory_arith<Ext>::mk_gt(theory_var v) {
         ast_manager& m = get_manager();
         inf_numeral const& val = get_value(v);
-        expr* obj = get_enode(v)->get_expr();
+        expr* obj = get_expr(v);
         expr_ref e(m);
         rational r = val.get_rational();
         if (m_util.is_int(obj->get_sort())) {
@@ -1124,7 +1124,7 @@ namespace smt {
     expr_ref theory_arith<Ext>::mk_ge(generic_model_converter& fm, theory_var v, inf_numeral const& val) {
         ast_manager& m = get_manager();
         std::ostringstream strm;
-        strm << val << " <= " << mk_pp(get_enode(v)->get_expr(), get_manager());
+        strm << val << " <= " << mk_pp(get_expr(v), get_manager());
         app* b = m.mk_const(symbol(strm.str()), m.mk_bool_sort());
         expr_ref result(b, m);
         TRACE(opt, tout << result << "\n";);
@@ -1799,7 +1799,7 @@ namespace smt {
     */
     template<typename Ext>
    typename theory_arith<Ext>::max_min_t theory_arith<Ext>::max_min(theory_var v, bool max, bool maintain_integrality, bool& has_shared) {
-        expr* e = get_enode(v)->get_expr();
+        expr* e = get_expr(v);
         (void)e;
         SASSERT(!maintain_integrality || valid_assignment());
         SASSERT(satisfy_bounds());
@@ -2179,8 +2179,8 @@ namespace smt {
         TRACE(shared, tout << ctx.get_scope_level() << " " <<  v << " " << r->get_num_parents() << "\n";);
         for (; it != end; ++it) {
             enode * parent = *it;
-            app *   o = parent->get_expr();
-            if (o->get_family_id() == get_id()) {
+            app*   o = parent->get_app();
+            if (parent->get_family_id() == get_id()) {
                 switch (o->get_decl_kind()) {
                 case OP_DIV:
                 case OP_IDIV:

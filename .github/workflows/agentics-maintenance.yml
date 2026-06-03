@@ -92,7 +92,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw-actions/setup@v0.74.4
+        uses: github/gh-aw-actions/setup@v0.77.0
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -130,7 +130,7 @@ jobs:
       actions: write
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw-actions/setup@v0.74.4
+        uses: github/gh-aw-actions/setup@v0.77.0
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -159,7 +159,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Scripts
-        uses: github/gh-aw-actions/setup@v0.74.4
+        uses: github/gh-aw-actions/setup@v0.77.0
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -174,7 +174,7 @@ jobs:
             await main();
 
       - name: Install gh-aw
-        uses: github/gh-aw-actions/setup-cli@v0.74.4
+        uses: github/gh-aw-actions/setup-cli@v0.77.0
         with:
           version: v0.71.5
 
@@ -204,7 +204,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw-actions/setup@v0.74.4
+        uses: github/gh-aw-actions/setup@v0.77.0
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -250,7 +250,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Scripts
-        uses: github/gh-aw-actions/setup@v0.74.4
+        uses: github/gh-aw-actions/setup@v0.77.0
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -294,7 +294,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Scripts
-        uses: github/gh-aw-actions/setup@v0.74.4
+        uses: github/gh-aw-actions/setup@v0.77.0
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -309,7 +309,7 @@ jobs:
             await main();
 
       - name: Install gh-aw
-        uses: github/gh-aw-actions/setup-cli@v0.74.4
+        uses: github/gh-aw-actions/setup-cli@v0.77.0
         with:
           version: v0.71.5
 
@@ -340,7 +340,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Scripts
-        uses: github/gh-aw-actions/setup@v0.74.4
+        uses: github/gh-aw-actions/setup@v0.77.0
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -355,7 +355,7 @@ jobs:
             await main();
 
       - name: Install gh-aw
-        uses: github/gh-aw-actions/setup-cli@v0.74.4
+        uses: github/gh-aw-actions/setup-cli@v0.77.0
         with:
           version: v0.71.5
 
@@ -437,7 +437,7 @@ jobs:
       issues: write
     steps:
       - name: Setup Scripts
-        uses: github/gh-aw-actions/setup@v0.74.4
+        uses: github/gh-aw-actions/setup@v0.77.0
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -474,7 +474,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Scripts
-        uses: github/gh-aw-actions/setup@v0.74.4
+        uses: github/gh-aw-actions/setup@v0.77.0
         with:
           destination: ${{ runner.temp }}/gh-aw/actions
 
@@ -489,7 +489,7 @@ jobs:
             await main();
 
       - name: Install gh-aw
-        uses: github/gh-aw-actions/setup-cli@v0.74.4
+        uses: github/gh-aw-actions/setup-cli@v0.77.0
         with:
           version: v0.71.5
 

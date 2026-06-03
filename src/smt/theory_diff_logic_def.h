@@ -384,7 +384,7 @@ final_check_status theory_diff_logic<Ext>::final_check_eh(unsigned level) {
     }
 
     for (enode* n : ctx.enodes()) {
-        family_id fid = n->get_expr()->get_family_id();
+        family_id fid = n->get_family_id();
         if (fid != get_family_id() && 
             fid != m.get_basic_family_id() &&
             !is_uninterp_const(n->get_expr())) {
@@ -974,10 +974,9 @@ theory_var theory_diff_logic<Ext>::expand(bool pos, theory_var v, rational & k) 
     enode* e = get_enode(v);
     rational r;
     for (;;) {
-        app* n = e->get_expr();
-        if (m_util.is_add(n) && n->get_num_args() == 2) {
-            app* x = to_app(n->get_arg(0));
-            app* y = to_app(n->get_arg(1));
+        expr *x = nullptr, *y = nullptr;
+        expr* n = e->get_expr();
+        if (m_util.is_add(n, x, y)) {
             if (m_util.is_numeral(x, r)) {
                 e = ctx.get_enode(y);                
             }
@@ -1024,8 +1023,8 @@ void theory_diff_logic<Ext>::new_eq_or_diseq(bool is_eq, theory_var v1, theory_v
 
 
         app_ref eq(m), s2(m), t2(m);
-        app* s1 = get_enode(s)->get_expr();
-        app* t1 = get_enode(t)->get_expr();
+        expr* s1 = get_expr(s);
+        expr* t1 = get_expr(t);
         s2 = m_util.mk_sub(t1, s1);
         t2 = m_util.mk_numeral(k, s2->get_sort());
         // t1 - s1 = k

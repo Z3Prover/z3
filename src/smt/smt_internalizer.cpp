@@ -101,6 +101,11 @@ namespace smt {
         }
     }
 
+    void context::update_generation(enode * e) {
+        if (0 < m_generation && m_generation < e->get_generation())
+            e->set_generation(nullptr, m_generation);
+    }
+
     void context::ts_visit_child(expr * n, bool gate_ctx, svector<expr_bool_pair> & todo, bool & visited) {
         if (get_color(tcolors, fcolors, n, gate_ctx) == White) {
             todo.push_back(expr_bool_pair(n, gate_ctx));
@@ -115,12 +120,16 @@ namespace smt {
             return true;
         SASSERT(is_app(n));
         if (m.is_bool(n)) {
-            if (b_internalized(n))
+            if (b_internalized(n)) {
+                update_generation(n);                
                 return true;
+            }
         }
         else {
-            if (e_internalized(n))
+            update_generation(n);
+            if (e_internalized(n))                 
                 return true;
+            
         }
 
         bool visited  = true;
@@ -404,6 +413,8 @@ namespace smt {
             bool_var v = get_bool_var(n);
             TRACE(internalize_bug, tout << "#" << n->get_id() << " already has bool_var v" << v << "\n";);
             
+            update_generation(n);            
+            
             // n was already internalized as boolean, but an enode was
             // not associated with it.  So, an enode is necessary, if
             // n is not in the context of a gate and is an application.
@@ -586,31 +597,9 @@ namespace smt {
         SASSERT(is_lambda(q));
         if (e_internalized(q)) 
             return;
-        app_ref lam_name(m.mk_fresh_const("lambda", q->get_sort()), m);
-        app_ref eq(m), lam_app(m);
-        expr_ref_vector vars(m);
-        vars.push_back(lam_name);
-        unsigned sz = q->get_num_decls();
-        for (unsigned i = 0; i < sz; ++i) 
-            vars.push_back(m.mk_var(sz - i - 1, q->get_decl_sort(i)));
-        array_util autil(m);
-        lam_app = autil.mk_select(vars.size(), vars.data());
-        eq = m.mk_eq(lam_app, q->get_expr());
-        quantifier_ref fa(m);
-        expr * patterns[1] = { m.mk_pattern(lam_app) };
-        fa = m.mk_forall(sz, q->get_decl_sorts(), q->get_decl_names(), eq, 0, m.lambda_def_qid(), symbol::null, 1, patterns);
-        internalize_quantifier(fa, true);
-        if (!e_internalized(lam_name)) 
-            internalize_uninterpreted(lam_name);
-        enode* lam_node = get_enode(lam_name);
-        push_trail(insert_obj_map<enode, quantifier*>(m_lambdas, lam_node));
-        m_lambdas.insert(lam_node, q);
-        m_app2enode.setx(q->get_id(), lam_node, nullptr);
-        m_l_internalized_stack.push_back(q);
-        m_trail_stack.push_ptr(&m_mk_lambda_trail);
-        bool_var bv = get_bool_var(fa);
-        assign(literal(bv, false), nullptr);
-        mark_as_relevant(bv);
+        mk_enode(q, true, /* do suppress args */
+                    false,    /* it is a term, so it should not be merged with true/false */
+                    true);
     }
 
     bool context::has_lambda() {
@@ -810,6 +799,8 @@ namespace smt {
     */
     void context::internalize_term(app * n) {
         if (e_internalized(n)) {
+            enode * e = get_enode(n);
+            update_generation(e);
             theory * th = m_theories.get_plugin(n->get_family_id());
             if (th != nullptr) {
                 // This code is necessary because some theories may decide
@@ -822,7 +813,6 @@ namespace smt {
                 //   Later, the core tries to internalize (f (* 2 x)).
                 //   Now, (* 2 x) is not internal to arithmetic anymore,
                 //   and a theory variable must be created for it.
-                enode * e = get_enode(n);
                 if (!th->is_attached_to_var(e))
                     th->internalize_term(n);
             }
@@ -999,7 +989,7 @@ namespace smt {
        \remark If suppress_args is true, then the enode is viewed as a constant
        in the egraph.
     */
-    enode * context::mk_enode(app * n, bool suppress_args, bool merge_tf, bool cgc_enabled) {
+    enode * context::mk_enode(expr * n, bool suppress_args, bool merge_tf, bool cgc_enabled) {
         TRACE(mk_enode_detail, tout << mk_pp(n, m) << "\nsuppress_args: " << suppress_args << ", merge_tf: " << 
               merge_tf << ", cgc_enabled: " << cgc_enabled << "\n";);
         SASSERT(!e_internalized(n));
@@ -1045,7 +1035,7 @@ namespace smt {
                 }
             }
             if (!e->is_eq()) {
-                unsigned decl_id = n->get_decl()->get_small_id();
+                unsigned decl_id = e->get_decl_id();
                 if (decl_id >= m_decl2enodes.size())
                     m_decl2enodes.resize(decl_id+1);
                 m_decl2enodes[decl_id].push_back(e);
@@ -1061,17 +1051,9 @@ namespace smt {
         SCTRACE(causality, m_coming_from_quant, tout << "EN: #" << e->get_owner_id() << "\n";);
 
         if (m.has_trace_stream())
-            m.trace_stream() << "[attach-enode] #" << n->get_id() << " " << m_generation << "\n";        
+            m.trace_stream() << "[attach-enode] #" << n->get_id() << " " << generation << "\n";        
 
         return e;
-    }
-
-    void context::undo_mk_lambda() {
-        SASSERT(!m_l_internalized_stack.empty());
-        m_stats.m_num_del_enode++;
-        quantifier * n         = m_l_internalized_stack.back();
-        m_app2enode[n->get_id()] = nullptr;
-        m_l_internalized_stack.pop_back();
     }
 
     void context::undo_mk_enode() {
@@ -1081,7 +1063,6 @@ namespace smt {
         TRACE(undo_mk_enode, tout << "undo_enode: #" << n->get_id() << "\n" << mk_pp(n, m) << "\n";);
         TRACE(mk_var_bug, tout << "undo_mk_enode: " << n->get_id() << "\n";);
         unsigned n_id         = n->get_id();
-        SASSERT(is_app(n));
         enode * e             = m_app2enode[n_id];
         m_app2enode[n_id]     = nullptr;
         if (e->is_cgr() && !e->is_true_eq() && e->is_cgc_enabled()) {
@@ -1089,7 +1070,7 @@ namespace smt {
             m_cg_table.erase(e);
         }
         if (e->get_num_args() > 0 && !e->is_eq()) {
-            unsigned decl_id = to_app(n)->get_decl()->get_small_id();
+            unsigned decl_id = e->get_decl_id();
             SASSERT(decl_id < m_decl2enodes.size());
             SASSERT(m_decl2enodes[decl_id].back() == e);
             m_decl2enodes[decl_id].pop_back();

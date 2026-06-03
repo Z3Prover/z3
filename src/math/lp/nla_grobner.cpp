@@ -386,6 +386,70 @@ namespace nla {
                 nl_vars.insert(j);
         }
 
+        // mod_residue: derive v's residue mod M from polynomial divisibility.
+        //
+        // Common case. Given polynomial
+        //     p = M*v1 + v - M*v2*v3 = 0,
+        // every monomial except v is M-divisible, so v ≡ 0 (mod M).
+        // Combined with 0 ≤ v < M, this forces v = 0.
+        // Emit: dependencies => (v < 0) ∨ (v ≥ M) ∨ (v = 0).
+        //
+        // General case. For a linear monomial c_v*v in p with c0 the constant
+        // term, require c_i/c_v integer for every non-v monomial and c0/c_v
+        // integer (call it K). Let M = gcd(|c_i/c_v|) over non-v monomials.
+        // Then p/c_v gives v + M*Q + K = 0 with Q integer, so v ≡ -K (mod M).
+        // With target = (-K) mod M ∈ [0, M-1], emit
+        //     dependencies => (v < 0) ∨ (v ≥ M) ∨ (v = target).
+        for (auto const& mv : p) {
+            if (mv.vars.size() != 1)
+                continue;
+            lpvar vv = mv.vars[0];
+            if (!c().var_is_int(vv))
+                continue;
+            rational c_v = mv.coeff;
+            SASSERT(c_v != 0);
+            rational M(0);  // 0 sentinel: "no non-v non-constant monomial seen yet".
+            rational c0(0);
+            bool ok = true;
+            for (auto const& mi : p) {
+                if (mi.vars.size() == 1 && mi.vars[0] == vv)
+                    continue;  // skip the mv monomial itself
+                if (mi.vars.empty()) {
+                    c0 = mi.coeff;
+                    continue;
+                }
+                rational quot = mi.coeff / c_v;
+                if (!quot.is_int()) { ok = false; break; }
+                rational a = abs(quot);
+                SASSERT(a != 0);
+                M = M == 0 ? a : gcd(M, a);
+                if (M == 1) { ok = false; break; }  // trivial modulus, abort
+            }
+            if (!ok || M == 0)
+                continue;
+            rational K = c0 / c_v;
+            if (!K.is_int())
+                continue;
+            rational target = mod(-K, M);  // Euclidean: result in [0, M-1].
+            SASSERT(target >= 0 && target < M);
+            // Skip if the lemma is already satisfied by the current model:
+            // any of (v < 0), (v ≥ M), (v = target) trivially holding means
+            // emission would be redundant. Without this guard, the lemma
+            // re-emits every Grobner round on the same polynomial.
+            rational v_val = c().val(vv);
+            if (v_val < 0 || v_val >= M || v_val == target)
+                continue;
+            lemma_builder lemma(c(), "grobner-mod-residue");
+            add_dependencies(lemma, eq);
+            lemma |= ineq(vv, llc::LT, rational::zero());
+            lemma |= ineq(vv, llc::GE, M);
+            lemma |= ineq(vv, llc::EQ, target);
+            TRACE(grobner, lemma.display(tout << "mod_residue v=" << vv
+                << " M=" << M << " c_v=" << c_v << " c0=" << c0
+                << " target=" << target << "\n"));
+            return true;
+        }
+
         bool found_lemma = false;
         for (auto v : nl_vars) {
             auto& m = p.manager();
@@ -613,7 +677,7 @@ namespace nla {
         for (auto* e : m_solver.equations()) {
             dd::pdd p = e->poly();
             rational v = eval(p);
-            if (!v.is_zero()) {
+            if (v != 0) {
                 out << p << " := " << v << "\n";
             }
         }  

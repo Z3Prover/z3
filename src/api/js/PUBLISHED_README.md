@@ -16,6 +16,17 @@ const {
 
 This package has different initialization for browser and node. Your bundler and node should choose good version automatically, but you can import the one you need manually - `const { init } = require('z3-solver/node');` or `const { init } = require('z3-solver/browser');`.
 
+The `init` function also accepts an optional Emscripten module overrides object. This is useful in runtimes such as Deno where you may want to provide a wasm load path explicitly instead of relying on filesystem reads. In Deno 2.1+, `import.meta.resolve(...)` returns a string synchronously, so it can be used directly in `locateFile`. For example:
+
+```typescript
+import { init } from 'npm:z3-solver';
+
+const api = await init({
+  locateFile: (file, _prefix): string =>
+    import.meta.resolve(`npm:z3-solver/build/${file}`), // _prefix is unused here
+});
+```
+
 ### Limitations
 
 The package requires threads, which means you'll need to be running in an environment which supports `SharedArrayBuffer`. In browsers, in addition to ensuring the browser has implemented `SharedArrayBuffer`, you'll need to serve your page with [special headers](https://web.dev/coop-coep/). There's a [neat trick](https://github.com/gzuidhof/coi-serviceworker) for doing that client-side on e.g. Github Pages, though you shouldn't use that trick in more complex applications.

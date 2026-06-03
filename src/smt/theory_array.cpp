@@ -42,7 +42,7 @@ namespace smt {
         // v1 is the new root
         TRACE(array, 
               tout << "merging v" << v1 << " v" << v2 << "\n"; display_var(tout, v1);
-              tout << mk_pp(get_enode(v1)->get_expr(), m) << " <- " << mk_pp(get_enode(v2)->get_expr(), m) << "\n";);
+              tout << mk_pp(get_expr(v1), m) << " <- " << mk_pp(get_expr(v2), m) << "\n";);
         SASSERT(v1 == find(v1));
         var_data * d1 = m_var_data[v1];
         var_data * d2 = m_var_data[v2];
@@ -68,12 +68,12 @@ namespace smt {
         m_var_data.push_back(alloc(var_data));
         var_data * d  = m_var_data[r];
         TRACE(array, tout << mk_bounded_pp(n->get_expr(), m) << "\nis_array: " << is_array_sort(n) << ", is_select: " << is_select(n) <<
-              ", is_store: " << is_store(n) << "\n";);
+              ", is_store: " << is_store(n) << ", is_lambda: " << is_lambda(n->get_expr()) << "\n";);
         d->m_is_array  = is_array_sort(n);
         if (d->m_is_array) 
             register_sort(n->get_expr()->get_sort());
         d->m_is_select = is_select(n);        
-        if (is_store(n))
+        if (is_store(n) || is_lambda(n->get_expr()))
             d->m_stores.push_back(n);
         ctx.attach_th_var(n, this, r);
         if (laziness() <= 1 && is_store(n))
@@ -88,14 +88,14 @@ namespace smt {
         v                = find(v);
         var_data * d     = m_var_data[v];
         d->m_parent_selects.push_back(s);
-        TRACE(array, tout << v << " " << mk_pp(s->get_expr(), m) << " " << mk_pp(get_enode(v)->get_expr(), m) << "\n";);
+        TRACE(array, tout << v << " " << mk_pp(s->get_expr(), m) << " " << mk_pp(get_expr(v), m) << "\n";);
         m_trail_stack.push(push_back_trail<enode *, false>(d->m_parent_selects));
         for (enode* n : d->m_stores) 
             instantiate_axiom2a(s, n);
 
         if (!m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
             for (enode* store : d->m_parent_stores) {
-                SASSERT(is_store(store));
+                SASSERT(is_store(store) || is_lambda(store->get_expr()));
                 if (!m_params.m_array_cg || store->is_cgr()) {
                     instantiate_axiom2b(s, store);
                 }
@@ -106,7 +106,7 @@ namespace smt {
     void theory_array::add_parent_store(theory_var v, enode * s) {
         if (m_params.m_array_cg && !s->is_cgr())
             return;
-        SASSERT(is_store(s));
+        SASSERT(is_store(s) || is_lambda(s->get_expr()));
         v                = find(v);
         var_data * d     = m_var_data[v];
         d->m_parent_stores.push_back(s);
@@ -177,7 +177,7 @@ namespace smt {
     void theory_array::add_store(theory_var v, enode * s) {
         if (m_params.m_array_cg && !s->is_cgr())
             return;
-        SASSERT(is_store(s));
+        SASSERT(is_store(s) || is_lambda(s->get_expr()));
         v                = find(v);
         var_data * d     = m_var_data[v];
         unsigned lambda_equiv_class_size = get_lambda_equiv_size(v, d);
@@ -204,7 +204,7 @@ namespace smt {
     void theory_array::instantiate_axiom2a(enode * select, enode * store) {
         TRACE(array, tout << "axiom 2a: #" << select->get_owner_id() << " #" << store->get_owner_id() << "\n";);
         SASSERT(is_select(select));
-        SASSERT(is_store(store));
+        SASSERT(is_store(store) || is_lambda(store->get_expr()));
         if (assert_store_axiom2(store, select))
             m_stats.m_num_axiom2a++;
     }
@@ -212,7 +212,7 @@ namespace smt {
     bool theory_array::instantiate_axiom2b(enode * select, enode * store) {
         TRACE(array_axiom2b, tout << "axiom 2b: #" << select->get_owner_id() << " #" << store->get_owner_id() << "\n";);
         SASSERT(is_select(select));
-        SASSERT(is_store(store));
+        SASSERT(is_store(store) || is_lambda(store->get_expr()));
         if (assert_store_axiom2(store, select)) {
             m_stats.m_num_axiom2b++;
             return true;
@@ -261,7 +261,7 @@ namespace smt {
     }
 
     bool theory_array::internalize_term(app * n) {
-        if (!is_store(n) && !is_select(n)) {
+        if (!is_store(n) && !is_select(n) && !is_lambda(n)) {
             if (!is_array_ext(n))
                 found_unsupported_op(n);
             return false;
@@ -282,7 +282,7 @@ namespace smt {
             if (is_select(n)) {
                 add_parent_select(v_arg, ctx.get_enode(n));
             }
-            else if (is_store(n)) {
+            else if (is_store(n) || is_lambda(n)) {
                 add_parent_store(v_arg, ctx.get_enode(n));
             }
         }
@@ -298,11 +298,6 @@ namespace smt {
 
     void theory_array::new_eq_eh(theory_var v1, theory_var v2) {
         m_find.merge(v1, v2);
-        enode* n1 = get_enode(v1), *n2 = get_enode(v2);
-        if (n1->get_expr()->get_decl()->is_lambda() ||
-            n2->get_expr()->get_decl()->is_lambda()) {
-            assert_congruent(n1, n2);
-        }
     }
 
     void theory_array::new_diseq_eh(theory_var v1, theory_var v2) {
@@ -310,8 +305,8 @@ namespace smt {
         v2 = find(v2);        
         var_data * d1 = m_var_data[v1];
         TRACE(ext, tout << "extensionality: " << d1->m_is_array << "\n" 
-              << mk_bounded_pp(get_enode(v1)->get_expr(), m, 5) << "\n" 
-              << mk_bounded_pp(get_enode(v2)->get_expr(), m, 5) << "\n";);
+              << mk_bounded_pp(get_expr(v1), m, 5) << "\n" 
+              << mk_bounded_pp(get_expr(v2), m, 5) << "\n";);
         
         if (d1->m_is_array) {
             SASSERT(m_var_data[v2]->m_is_array);
@@ -319,16 +314,18 @@ namespace smt {
         }
     }
 
-    void theory_array::relevant_eh(app * n) {
+    void theory_array::relevant_eh(expr * n) {
         if (laziness() == 0)
             return;
         if (m.is_ite(n)) {
             TRACE(array, tout << "relevant ite " << mk_pp(n, m) << "\n";);
         }
-        if (!is_store(n) && !is_select(n))
+        if (!is_store(n) && !is_select(n) && !is_lambda(n))
             return;
         if (!ctx.e_internalized(n)) ctx.internalize(n, false);
-        enode * arg      = ctx.get_enode(n->get_arg(0));
+        if (is_lambda(n))
+            return;
+        enode * arg      = ctx.get_enode(to_app(n)->get_arg(0));
         theory_var v_arg = arg->get_th_var(get_id());
         SASSERT(v_arg != null_theory_var);
         

@@ -51,7 +51,6 @@ class dependent_expr_state {
     func_decl_ref_vector m_frozen_trail;
     void freeze_prefix();
     void freeze_recfun();
-    void freeze_lambda();
     void freeze_terms(expr* term, bool only_as_array, ast_mark& visited);
     void freeze(func_decl* f);
     struct thaw : public trail {

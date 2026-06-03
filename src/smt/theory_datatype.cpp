@@ -138,7 +138,7 @@ namespace smt {
        where acc_i are the accessors of constructor c.
     */
     void theory_datatype::assert_is_constructor_axiom(enode * n, func_decl * c, literal antecedent) {
-        app* e = n->get_expr();
+        app* e = n->get_app();
         TRACE(datatype_bug, tout << "creating axiom (= n (c (acc_1 n) ... (acc_m n))) for\n" 
             << mk_pp(c, m) << " " << mk_pp(e, m) << "\n";);
         m_stats.m_assert_cnstr++;
@@ -171,7 +171,7 @@ namespace smt {
         func_decl * d     = n->get_decl();
         ptr_vector<func_decl> const & accessors   = *m_util.get_constructor_accessors(d);
         SASSERT(n->get_num_args() == accessors.size());
-        app_ref_vector bindings(m);
+        expr_ref_vector bindings(m);
         vector<std::tuple<enode *, enode *>> used_enodes;
         used_enodes.push_back(std::make_tuple(nullptr, n));
         for (unsigned i = 0; i < n->get_num_args(); ++i) {
@@ -223,7 +223,7 @@ namespace smt {
     void theory_datatype::assert_update_field_axioms(enode * n) {
         m_stats.m_assert_update_field++;
         SASSERT(is_update_field(n));
-        app*        own  = n->get_expr();
+        app*        own  = n->get_app();
         expr*       arg1 = own->get_arg(0);
         func_decl * upd  = n->get_decl();
         func_decl * acc  = to_func_decl(upd->get_parameter(0).get_ast());
@@ -706,7 +706,7 @@ namespace smt {
         return result;
     }
 
-    void theory_datatype::relevant_eh(app * n) {
+    void theory_datatype::relevant_eh(expr * n) {
         force_push();
         TRACE(datatype, tout << "relevant_eh: " << mk_pp(n, m) << "\n";);
         SASSERT(ctx.relevancy());

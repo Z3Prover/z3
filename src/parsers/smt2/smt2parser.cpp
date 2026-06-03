@@ -21,6 +21,7 @@ Revision History:
 #include "ast/bv_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/rewriter.h"
@@ -79,6 +80,7 @@ namespace smt2 {
         symbol               m_forall;
         symbol               m_exists;
         symbol               m_lambda;
+        symbol               m_choice;
         symbol               m_as;
         symbol               m_not;
         symbol               m_root_obj;
@@ -156,12 +158,14 @@ namespace smt2 {
             unsigned m_expr_spos;
             unsigned m_param_spos;
             bool     m_as_sort;
-            app_frame(symbol const & f, unsigned expr_spos, unsigned param_spos, bool as_sort):
+            bool     m_expr_head;
+            app_frame(symbol const & f, unsigned expr_spos, unsigned param_spos, bool as_sort, bool expr_head = false):
                 expr_frame(EF_APP),
                 m_f(f),
                 m_expr_spos(expr_spos),
                 m_param_spos(param_spos),
-                m_as_sort(as_sort) {}
+                m_as_sort(as_sort),
+                m_expr_head(expr_head) {}
         };
 
         struct quant_frame : public expr_frame {
@@ -420,6 +424,11 @@ namespace smt2 {
         bool curr_id_is_forall() const { SASSERT(curr_is_identifier()); return curr_id() == m_forall; }
         bool curr_id_is_exists() const { SASSERT(curr_is_identifier()); return curr_id() == m_exists; }
         bool curr_id_is_lambda() const { SASSERT(curr_is_identifier()); return curr_id() == m_lambda; }
+        bool curr_id_is_choice() const {
+            SASSERT(curr_is_identifier());
+            return curr_id() == m_choice;
+        }
+        
         bool curr_id_is_bang() const { SASSERT(curr_is_identifier()); return curr_id() == m_bang; }
         bool curr_id_is_let() const { SASSERT(curr_is_identifier()); return curr_id() == m_let; }
         bool curr_id_is_root_obj() const { SASSERT(curr_is_identifier()); return curr_id() == m_root_obj; }
@@ -1354,10 +1363,11 @@ namespace smt2 {
 
         void push_quant_frame(quantifier_kind k) {
             SASSERT(curr_is_identifier());
-            SASSERT(curr_id_is_forall() || curr_id_is_exists() || curr_id_is_lambda());
+            SASSERT(curr_id_is_forall() || curr_id_is_exists() || curr_id_is_lambda() || curr_id_is_choice());
             SASSERT((k == forall_k) == curr_id_is_forall());
             SASSERT((k == exists_k) == curr_id_is_exists());
             SASSERT((k == lambda_k) == curr_id_is_lambda());
+            SASSERT((k == choice_k) == curr_id_is_choice());
             next();
             void * mem      = m_stack.allocate(sizeof(quant_frame));
             new (mem) quant_frame(k, pattern_stack().size(), nopattern_stack().size(), symbol_stack().size(),
@@ -1888,23 +1898,7 @@ namespace smt2 {
             sexpr_stack().pop_back();
         }
 
-        void push_app_frame() {
-            SASSERT(curr_is_lparen() || curr_is_identifier());
-            unsigned param_spos  = m_param_stack.size();
-            unsigned expr_spos  = expr_stack().size();
-            bool has_as, is_lambda;
-            auto f = parse_qualified_identifier(has_as, is_lambda);
-
-            void * mem      = m_stack.allocate(sizeof(app_frame));
-            new (mem) app_frame(f, expr_spos, param_spos, has_as);
-            m_num_expr_frames++;
-            if (is_lambda) 
-                push_quant_frame(lambda_k);            
-        }
-
-        void push_expr_frame(expr_frame * curr) {
-            SASSERT(curr_is_lparen());
-            next();
+        void push_expr_frame_core(expr_frame * curr) {
             TRACE(push_expr_frame, tout << "push_expr_frame(), curr(): " << m_curr << "\n";);
             if (curr_is_identifier()) {
                 TRACE(push_expr_frame, tout << "push_expr_frame(), curr_id(): " << curr_id() << "\n";);
@@ -1919,6 +1913,9 @@ namespace smt2 {
                 }
                 else if (curr_id_is_lambda()) {
                     push_quant_frame(lambda_k);
+                }
+                else if (curr_id_is_choice()) {
+                    push_quant_frame(choice_k);
                 }
                 else if (curr_id_is_bang()) {
                     push_bang_frame(curr);
@@ -1944,6 +1941,49 @@ namespace smt2 {
             }
         }
 
+        void push_app_frame() {
+            SASSERT(curr_is_lparen() || curr_is_identifier());
+            unsigned param_spos  = m_param_stack.size();
+            unsigned expr_spos  = expr_stack().size();
+            bool has_as = false, is_lambda = false;
+            symbol f = symbol::null;
+            bool expr_head = false;
+
+            if (curr_is_lparen()) {
+                next();
+                if (curr_is_identifier() && curr_id_is_lambda()) {
+                    is_lambda = true;
+                    f = symbol("select");
+                }
+                else if (curr_is_identifier() && (curr_id_is_underscore() || curr_id_is_as())) {
+                    f = parse_qualified_identifier_core(has_as);
+                }
+                else {
+                    expr_head = true;
+                }
+            }
+            else {
+                f = parse_qualified_identifier(has_as, is_lambda);
+            }
+
+            void * mem = m_stack.allocate(sizeof(app_frame));
+            auto* frame = new (mem) app_frame(f, expr_spos, param_spos, has_as, expr_head);
+            m_num_expr_frames++;
+
+            if (is_lambda) {
+                push_quant_frame(lambda_k);
+            }
+            else if (expr_head) {
+                push_expr_frame_core(frame);
+            }
+        }
+
+        void push_expr_frame(expr_frame * curr) {
+            SASSERT(curr_is_lparen());
+            next();
+            push_expr_frame_core(curr);
+        }
+
         void pop_app_frame(app_frame * fr) {
             SASSERT(expr_stack().size() >= fr->m_expr_spos);
             SASSERT(m_param_stack.size() >= fr->m_param_spos);
@@ -1952,15 +1992,15 @@ namespace smt2 {
             unsigned num_args    = expr_stack().size() - fr->m_expr_spos;
             unsigned num_indices = m_param_stack.size() - fr->m_param_spos;
             expr_ref t_ref(m());
-            local l;
-            if (m_env.find(fr->m_f, l)) {
-                push_local(l);
-                t_ref = expr_stack().back();
-                for (unsigned i = 0; i < num_args; ++i) {
+            if (fr->m_expr_head) {
+                if (num_args < 2)
+                    throw parser_exception("invalid function application, arguments missing");
+                t_ref = expr_stack().get(fr->m_expr_spos);
+                for (unsigned i = 1; i < num_args; ++i) {
                     expr* arg = expr_stack().get(fr->m_expr_spos + i);
                     expr* args[2] = { t_ref.get(), arg };
-                    m_ctx.mk_app(symbol("select"), 
-                                 2, 
+                    m_ctx.mk_app(symbol("select"),
+                                 2,
                                  args,
                                  0,
                                  nullptr,
@@ -1969,13 +2009,31 @@ namespace smt2 {
                 }
             }
             else {
-                m_ctx.mk_app(fr->m_f,
-                             num_args,
-                             expr_stack().data() + fr->m_expr_spos,
-                             num_indices,
-                             m_param_stack.data() + fr->m_param_spos,
-                             fr->m_as_sort ? sort_stack().back() : nullptr,
-                             t_ref);
+                local l;
+                if (m_env.find(fr->m_f, l)) {
+                    push_local(l);
+                    t_ref = expr_stack().back();
+                    for (unsigned i = 0; i < num_args; ++i) {
+                        expr* arg = expr_stack().get(fr->m_expr_spos + i);
+                        expr* args[2] = { t_ref.get(), arg };
+                        m_ctx.mk_app(symbol("select"),
+                                     2,
+                                     args,
+                                     0,
+                                     nullptr,
+                                     nullptr,
+                                     t_ref);
+                    }
+                }
+                else {
+                    m_ctx.mk_app(fr->m_f,
+                                 num_args,
+                                 expr_stack().data() + fr->m_expr_spos,
+                                 num_indices,
+                                 m_param_stack.data() + fr->m_param_spos,
+                                 fr->m_as_sort ? sort_stack().back() : nullptr,
+                                 t_ref);
+                }
             }
             expr_stack().shrink(fr->m_expr_spos);
             m_param_stack.shrink(fr->m_param_spos);
@@ -2061,7 +2119,7 @@ namespace smt2 {
                 fr->m_qid = symbol((unsigned)m_scanner.get_line());
             if (fr->m_kind != lambda_k && !m().is_bool(expr_stack().back()))
                 throw parser_exception("quantifier body must be a Boolean expression");
-            quantifier* new_q = m().mk_quantifier(fr->m_kind,
+            quantifier* new_q = m().mk_quantifier(fr->m_kind == choice_k ? lambda_k : fr->m_kind,
                                       num_decls,
                                       sort_stack().data() + fr->m_sort_spos,
                                       symbol_stack().data() + fr->m_sym_spos,
@@ -2082,8 +2140,11 @@ namespace smt2 {
             m_env.end_scope();
             SASSERT(num_decls <= m_num_bindings);
             m_num_bindings -= num_decls;
-
-            expr_stack().push_back(new_q);
+            if (fr->m_kind == choice_k) {
+                expr_stack().push_back(array_util(m()).mk_choice(new_q));
+            }
+            else 
+                expr_stack().push_back(new_q);
             m_stack.deallocate(fr);
             m_num_expr_frames--;
         }
@@ -3088,6 +3149,7 @@ namespace smt2 {
             m_forall("forall"),
             m_exists("exists"),
             m_lambda("lambda"),
+            m_choice("choice"),
             m_as("as"),
             m_not("not"),
             m_root_obj("root-obj"),
@@ -3296,5 +3358,3 @@ sexpr_ref parse_sexpr(cmd_context& ctx, std::istream& is, params_ref const& ps, 
     return p.parse_sexpr_ref();
     
 }
-
-

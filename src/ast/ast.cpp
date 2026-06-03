@@ -242,21 +242,14 @@ func_decl_info::func_decl_info(family_id family_id, decl_kind k, unsigned num_pa
     m_injective(false),
     m_idempotent(false),
     m_skolem(false),
-    m_lambda(false),
     m_polymorphic(false) {
 }
 
 bool func_decl_info::operator==(func_decl_info const & info) const {
-    return decl_info::operator==(info) &&
-        m_left_assoc == info.m_left_assoc &&
-        m_right_assoc == info.m_right_assoc &&
-        m_flat_associative == info.m_flat_associative &&
-        m_commutative == info.m_commutative &&
-        m_chainable == info.m_chainable &&
-        m_pairwise == info.m_pairwise &&
-        m_injective == info.m_injective &&
-        m_skolem == info.m_skolem &&
-        m_lambda == info.m_lambda;
+    return decl_info::operator==(info) && m_left_assoc == info.m_left_assoc && m_right_assoc == info.m_right_assoc &&
+           m_flat_associative == info.m_flat_associative && m_commutative == info.m_commutative &&
+           m_chainable == info.m_chainable && m_pairwise == info.m_pairwise && m_injective == info.m_injective &&
+           m_skolem == info.m_skolem;
 }
 
 std::ostream & operator<<(std::ostream & out, func_decl_info const & info) {
@@ -270,7 +263,6 @@ std::ostream & operator<<(std::ostream & out, func_decl_info const & info) {
     if (info.is_injective()) out << " :injective ";
     if (info.is_idempotent()) out << " :idempotent ";
     if (info.is_skolem()) out << " :skolem ";
-    if (info.is_lambda()) out << " :lambda ";
     if (info.is_polymorphic()) out << " :polymorphic ";
     return out;
 }
@@ -1625,19 +1617,6 @@ bool ast_manager::are_distinct(expr* a, expr* b) const {
     return false;
 }
 
-void ast_manager::add_lambda_def(func_decl* f, quantifier* q) {
-    TRACE(model, tout << "add lambda def " << mk_pp(q, *this) << "\n");
-    m_lambda_defs.insert(f, q);
-    f->get_info()->set_lambda(true);
-    inc_ref(q);
-}
-
-quantifier* ast_manager::is_lambda_def(func_decl* f) {
-    if (f->get_info() && f->get_info()->is_lambda()) 
-        return m_lambda_defs[f];
-    return nullptr;
-}
-
 
 void ast_manager::register_plugin(family_id id, decl_plugin * plugin) {
     SASSERT(m_plugins.get(id, 0) == 0);
@@ -1670,7 +1649,7 @@ bool ast_manager::slow_not_contains(ast const * n) {
 }
 #endif
 
-#if 1
+#if 0
 static unsigned s_count = 0;
 
 static void track_id(ast_manager& m, ast* n, unsigned id) {
@@ -1832,10 +1811,6 @@ void ast_manager::delete_node(ast * n) {
                 m_poly_roots.erase(f);
             if (f->m_info != nullptr) {
                 func_decl_info * info = f->get_info();
-                if (info->is_lambda()) {
-                    push_dec_ref(m_lambda_defs[f]);
-                    m_lambda_defs.remove(f);
-                }
                 info->del_eh(*this);
                 dealloc(info);
             }

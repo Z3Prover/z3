@@ -25,6 +25,7 @@ Author:
 #include "ast/for_each_expr.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/rewriter/array_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 
@@ -88,13 +89,15 @@ namespace euf {
         }
 
         match_goal(unsigned level, unsigned offset, expr_ref const& pat, expr_ref const& t) noexcept : 
-            base_offset(offset), pat(pat), t(t),  level(level)  {}
+            base_offset(offset), pat(pat), t(t),  level(level)  {
+            SASSERT(pat->get_sort() == t->get_sort());
+        }
 
         unsigned term_offset() const { return base_offset + delta_offset; }
         unsigned pat_offset() const { return base_offset + delta_offset; }
 
         std::ostream& display(std::ostream& out) const {
-            return out << "[" << level << ":" << base_offset + delta_offset << "] " << pat << " ~ " << t << "\n";
+            return out << "[" << level << ":" << base_offset + delta_offset << "] " << mk_bounded_pp(pat, pat.m()) << " ~ " << mk_bounded_pp(t, t.m()) << "\n";
         }
     };
 
@@ -351,8 +354,6 @@ namespace euf {
         expr_ref abstract_pattern(expr* p, unsigned offset, expr* t);
 
         void reduce(match_goal& wi);
-
-        expr_ref unfold_lambda_def(expr* e) const;
 
         trail_stack& trail() { return m_trail; }
 

@@ -38,7 +38,7 @@ namespace smt {
         return r;
     }
 
-    app * theory_bv::mk_bit2bool(app * bv, unsigned idx) {
+    app * theory_bv::mk_bit2bool(expr * bv, unsigned idx) {
         parameter p(idx);
         expr * args[1] = {bv};
         return get_manager().mk_app(get_id(), OP_BIT2BOOL, 1, &p, 1, args);
@@ -46,7 +46,7 @@ namespace smt {
     
     void theory_bv::mk_bits(theory_var v) {
         enode * n             = get_enode(v);
-        app * owner           = n->get_expr();
+        expr * owner           = n->get_expr();
         unsigned bv_size      = get_bv_size(n);
         bool is_relevant      = ctx.is_relevant(n);
         literal_vector & bits = m_bits[v];
@@ -179,10 +179,14 @@ namespace smt {
         if (params().m_bv_reflect) {
             return n->get_arg(idx);
         }
-        else {
-            app * arg     = to_app(n->get_expr()->get_arg(idx));
+        else if (n->is_app()) {
+            app * arg     = to_app(n->get_app()->get_arg(idx));
             SASSERT(ctx.e_internalized(arg));
             return ctx.get_enode(arg);
+        }
+        else {
+            UNREACHABLE();
+            return nullptr;
         }
     }
     
@@ -236,8 +240,8 @@ namespace smt {
         TRACE(bv_diseq_axiom, tout << "found new diseq axiom\n"; display_var(tout, v1); display_var(tout, v2););
         // found new disequality
         m_stats.m_num_diseq_static++;
-        app * e1       = get_expr(v1);
-        app * e2       = get_expr(v2);
+        expr * e1       = get_expr(v1);
+        expr * e2       = get_expr(v2);
         expr_ref eq(m.mk_eq(e1, e2), m);
         literal l       = ~mk_literal(eq);
         std::function<expr*(void)> logfn = [&]() {
@@ -438,8 +442,8 @@ namespace smt {
             return;
         }
         ++m_stats.m_num_eq_dynamic;
-        app* o1 = get_enode(v1)->get_expr();
-        app* o2 = get_enode(v2)->get_expr();
+        expr* o1 = get_expr(v1);
+        expr* o2 = get_expr(v2);
         literal oeq = mk_eq(o1, o2, true);
         ctx.mark_as_relevant(oeq);
 
@@ -475,7 +479,7 @@ namespace smt {
         VERIFY(get_fixed_value(v, val));
         enode* n = get_enode(v);
         if (ctx.watches_fixed(n)) {
-            expr_ref num(m_util.mk_numeral(val, n->get_expr()->get_sort()), m);
+            expr_ref num(m_util.mk_numeral(val, n->get_sort()), m);
             literal_vector& lits = m_tmp_literals;
             lits.reset();
             for (literal b : m_bits[v]) {
@@ -1124,15 +1128,18 @@ namespace smt {
     // Determine whether bit-vector expression should be approximated
     // based on the number of bits used by the arguments.
     // 
-    bool theory_bv::approximate_term(app* n) {
+    bool theory_bv::approximate_term(expr *e) {
         if (params().m_bv_blast_max_size == INT_MAX) {
             return false;
         }
+        if (!is_app(e))
+            return false;
+        app *n = to_app(e);
         unsigned num_args = n->get_num_args();
         for (unsigned i = 0; i <= num_args; ++i) {
-            expr* arg = (i == num_args)?n:n->get_arg(i);
-            sort* s = arg->get_sort();
-            if (m_util.is_bv_sort(s) && m_util.get_bv_size(arg) > params().m_bv_blast_max_size) {                
+            expr *arg = (i == num_args) ? n : n->get_arg(i);
+            sort *s = arg->get_sort();
+            if (m_util.is_bv_sort(s) && m_util.get_bv_size(arg) > params().m_bv_blast_max_size) {
                 if (!m_approximates_large_bvs) {
                     TRACE(bv, tout << "found large size bit-vector:\n" << mk_pp(n, m) << "\n";);
                     ctx.push_trail(value_trail<bool>(m_approximates_large_bvs));
@@ -1154,7 +1161,7 @@ namespace smt {
     }
     
     void theory_bv::new_eq_eh(theory_var v1, theory_var v2) {
-        TRACE(bv_eq, tout << "new_eq: " << mk_pp(get_enode(v1)->get_expr(), m) << " = " << mk_pp(get_enode(v2)->get_expr(), m) << "\n";);
+        TRACE(bv_eq, tout << "new_eq: " << mk_pp(get_expr(v1), m) << " = " << mk_pp(get_expr(v2), m) << "\n";);
         TRACE(bv, tout << "new_eq_eh v" << v1 << " = v" << v2 << " @ " << ctx.get_scope_level() << 
               " relevant1: " << ctx.is_relevant(get_enode(v1)) << 
               " relevant2: " << ctx.is_relevant(get_enode(v2)) << "\n";);
@@ -1218,7 +1225,7 @@ namespace smt {
 
         literal_vector & lits = m_tmp_literals;
         lits.reset();
-        literal eq = mk_eq(get_enode(v1)->get_expr(), get_enode(v2)->get_expr(), true);
+        literal eq = mk_eq(get_expr(v1), get_expr(v2), true);
         lits.push_back(eq);
         it1 = bits1.begin();
         it2 = bits2.begin();
@@ -1232,7 +1239,7 @@ namespace smt {
             lits.push_back(arg);
         }
         TRACE(bv, 
-              tout << mk_pp(get_enode(v1)->get_expr(), m) << " = " << mk_pp(get_enode(v2)->get_expr(), m) << " " 
+              tout << mk_pp(get_expr(v1), m) << " = " << mk_pp(get_expr(v2), m) << " " 
               << ctx.get_scope_level() 
               << "\n";
               ctx.display_literals_smt2(tout, lits););
@@ -1385,7 +1392,7 @@ namespace smt {
         }
     }
     
-    void theory_bv::relevant_eh(app * n) {
+    void theory_bv::relevant_eh(expr * n) {
         TRACE(arith, tout << "relevant: #" << n->get_id() << " " << ctx.e_internalized(n) << ": " << mk_bounded_pp(n, m) << "\n";);
         TRACE(bv, tout << "relevant: #" << n->get_id() << " " << ctx.e_internalized(n) << ": " << mk_pp(n, m) << "\n";);
         if (m.is_bool(n)) {
@@ -1403,18 +1410,18 @@ namespace smt {
             }
         }
         else if (params().m_bv_enable_int2bv2int && m_util.is_ubv2int(n)) {
-            ctx.mark_as_relevant(n->get_arg(0));
-            assert_bv2int_axiom(n);
+            ctx.mark_as_relevant(to_app(n)->get_arg(0));
+            assert_bv2int_axiom(to_app(n));
         }
         else if (params().m_bv_enable_int2bv2int && m_util.is_int2bv(n)) {
-            ctx.mark_as_relevant(n->get_arg(0));
-            assert_int2bv_axiom(n);
+            ctx.mark_as_relevant(to_app(n)->get_arg(0));
+            assert_int2bv_axiom(to_app(n));
         }
 #if ENABLE_QUOT_REM_ENCODING
         else if (m_util.is_bv_udivi(n)) {
-            ctx.mark_as_relevant(n->get_arg(0));
-            ctx.mark_as_relevant(n->get_arg(1));
-            assert_udiv_quot_rem_axiom(n);
+            ctx.mark_as_relevant(to_app(n)->get_arg(0));
+            ctx.mark_as_relevant(to_app(n)->get_arg(1));
+            assert_udiv_quot_rem_axiom(to_app(n));
         }
 #endif
         else if (ctx.e_internalized(n)) {

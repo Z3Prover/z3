@@ -384,6 +384,8 @@ bool pattern_inference_cfg::contains_subpattern::operator()(expr * n) {
             break;
         case AST_VAR:
             break;
+        case AST_QUANTIFIER: 
+            break;
         default:
             UNREACHABLE();
         }
@@ -552,7 +554,7 @@ bool pattern_inference_cfg::is_forbidden(app * n) const {
     // Remark: skolem constants should not be used in patterns, since they do not
     // occur outside of the quantifier. That is, Z3 will never match this kind of
     // pattern.
-    if (m_params.m_pi_avoid_skolems && decl->is_skolem() && !m.is_lambda_def(decl)) {
+    if (m_params.m_pi_avoid_skolems && decl->is_skolem()) {
         CTRACE(pattern_inference_skolem, decl->is_skolem(), tout << "ignoring: " << mk_pp(n, m) << "\n";);
         return true;
     }

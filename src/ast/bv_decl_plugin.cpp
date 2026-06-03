@@ -783,6 +783,9 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
     op_names.push_back(builtin_name("rotate_left",OP_ROTATE_LEFT));
     op_names.push_back(builtin_name("rotate_right",OP_ROTATE_RIGHT));
     op_names.push_back(builtin_name("bit2bool", OP_BIT2BOOL));
+    op_names.push_back(builtin_name("ubv_to_int", OP_UBV2INT));
+    op_names.push_back(builtin_name("sbv_to_int", OP_SBV2INT));
+    op_names.push_back(builtin_name("int_to_bv", OP_INT2BV));
 
     if (logic == symbol::null || logic == symbol("ALL") || logic == "QF_FD" || logic == "HORN") {
         op_names.push_back(builtin_name("bvumul_noovfl",OP_BUMUL_NO_OVFL));
@@ -804,11 +807,10 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
         op_names.push_back(builtin_name("ext_rotate_left",OP_EXT_ROTATE_LEFT));
         op_names.push_back(builtin_name("ext_rotate_right",OP_EXT_ROTATE_RIGHT));
         op_names.push_back(builtin_name("int2bv",OP_INT2BV));
-        op_names.push_back(builtin_name("int_to_bv",OP_INT2BV));
+
         op_names.push_back(builtin_name("bv2int",OP_UBV2INT));
         op_names.push_back(builtin_name("bv2nat",OP_UBV2INT));
-        op_names.push_back(builtin_name("ubv_to_int",OP_UBV2INT));
-        op_names.push_back(builtin_name("sbv_to_int",OP_SBV2INT));
+
         op_names.push_back(builtin_name("mkbv",OP_MKBV));
     }
 }

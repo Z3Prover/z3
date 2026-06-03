@@ -59,7 +59,7 @@ namespace smt {
        equality propagation, and the theory central bus of equalities.
     */
     class enode {
-        app  *              m_owner;    //!< The application that 'owns' this enode.
+        expr  *             m_owner;    //!< The application that 'owns' this enode.
         enode *             m_root;     //!< Representative of the equivalence class
         enode *             m_next;     //!< Next element in the equivalence class.
         enode *             m_cg;       
@@ -132,7 +132,7 @@ namespace smt {
 
         friend class tmp_enode;
 
-        static enode * init(ast_manager & m, void * mem, app2enode_t const & app2enode, app * owner, 
+        static enode * init(ast_manager & m, void * mem, app2enode_t const & app2enode, expr * owner, 
                             unsigned generation, bool suppress_args, bool merge_tf, unsigned iscope_lvl,
                             bool cgc_enabled, bool update_children_parent);
     public:
@@ -141,7 +141,7 @@ namespace smt {
             return sizeof(enode) + num_args * sizeof(enode*);
         }
         
-        static enode * mk(ast_manager & m, region & r, app2enode_t const & app2enode, app * owner, 
+        static enode * mk(ast_manager & m, region & r, app2enode_t const & app2enode, expr * owner, 
                           unsigned generation, bool suppress_args, bool merge_tf, unsigned iscope_lvl,
                           bool cgc_enabled, bool update_children_parent);
 
@@ -166,15 +166,27 @@ namespace smt {
 
         void del_eh(ast_manager & m, bool update_children_parent = true);
         
-        app * get_expr() const { return m_owner; }
+        app * get_app() const { SASSERT(is_app()); return to_app(m_owner); }
+
+        expr *get_expr() const {
+            return m_owner;
+        }
+
+        bool is_app() const {
+            return ::is_app(m_owner);
+        }               
 
         unsigned get_owner_id() const { return m_owner->get_id(); }
         unsigned get_expr_id() const { return m_owner->get_id(); }
 
-        func_decl * get_decl() const { return m_owner->get_decl(); }
-        unsigned get_decl_id() const { return m_owner->get_decl()->get_small_id(); }
+        func_decl * get_decl() const { return is_app() ? to_app(m_owner)->get_decl() : nullptr; }
+        unsigned get_decl_id() const { return is_app() ? to_app(m_owner)->get_decl()->get_small_id() : 43; }
 
         sort* get_sort() const { return m_owner->get_sort(); }
+
+        family_id get_family_id() const {
+            return is_app() ? to_app(m_owner)->get_family_id() : basic_family_id;
+        }
 
         unsigned hash() const {
             return m_owner->hash();
@@ -213,7 +225,7 @@ namespace smt {
         }
 
         unsigned get_num_args() const { 
-            return m_suppress_args ? 0 : m_owner->get_num_args(); 
+            return m_suppress_args || !is_app() ? 0 : to_app(m_owner)->get_num_args(); 
         }
 
         enode * get_arg(unsigned idx) const {
@@ -386,7 +398,7 @@ namespace smt {
             return m_generation;
         }
 
-        void set_generation(context & ctx, unsigned generation);
+        void set_generation(context * ctx, unsigned generation);
         
         /**
            \brief Return the enode n that is in the eqc of *this, and has the minimal generation.

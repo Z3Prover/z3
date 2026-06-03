@@ -86,6 +86,7 @@ namespace datalog {
             case forall_k: m_univ = true; break;
             case exists_k: m_exist = true; break;
             case lambda_k: m_lambda = true; break;
+            case choice_k: break;
             }
         }
         void operator()(app * n) { }
