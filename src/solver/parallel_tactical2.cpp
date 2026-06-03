@@ -92,6 +92,26 @@ tactic* mk_parallel_tactic2(solver* s, params_ref const& p) {
 #include <thread>
 #include <condition_variable>
 
+#define LOG_WORKER(lvl, s) IF_VERBOSE(lvl, verbose_stream() << "Worker " << id << s)
+#define LOG_BB_WORKER(lvl, s) IF_VERBOSE(lvl, verbose_stream() << "Backbones Worker " << id << s)
+
+class bounded_pp_exprs {
+    expr_ref_vector const &es;
+
+public:
+    bounded_pp_exprs(expr_ref_vector const &es) : es(es) {}
+
+    std::ostream &display(std::ostream &out) const {
+        for (auto e : es)
+            out << mk_bounded_pp(e, es.get_manager()) << "\n";
+        return out;
+    }
+};
+
+inline std::ostream &operator<<(std::ostream &out, bounded_pp_exprs const &pp) {
+    return pp.display(out);
+}
+
 /* ------------------------------------------------------------------ */
 /* Search-tree literal configuration                                    */
 /* ------------------------------------------------------------------ */
@@ -217,13 +237,15 @@ class parallel_solver {
 
         /* ---- cancellation helpers (called under mux) ---- */
         void cancel_workers_unlocked() {
-            IF_VERBOSE(1, verbose_stream() << "par2: canceling workers\n");
+            IF_VERBOSE(1, verbose_stream() << "Canceling workers\n");
             for (auto* w : p.m_workers)
                 w->cancel();
             if (p.m_core_minimizer_worker) {
                 p.m_core_minimizer_worker->cancel();
                 m_core_min_cv.notify_all();
             }
+            if (!p.m_global_backbones_workers.empty())
+                IF_VERBOSE(1, verbose_stream() << "Canceling backbones workers\n");
             for (auto* w : p.m_global_backbones_workers)
                 w->cancel();
             if (!p.m_global_backbones_workers.empty())
@@ -411,7 +433,7 @@ class parallel_solver {
             );
 
             if (m_search_tree.is_closed()) {
-                IF_VERBOSE(1, verbose_stream() << "par2: search tree closed → UNSAT\n");
+                IF_VERBOSE(1, verbose_stream() << "Search tree closed, setting UNSAT\n");
                 m_state = state::is_unsat;
                 SASSERT(m_unsat_core.empty());
                 for (auto& e : m_search_tree.get_core_from_root())
@@ -428,8 +450,7 @@ class parallel_solver {
               m_unsat_core(m) {}
 
         /* ---- initialisation ---- */
-        void initialize(unsigned num_global_bb_threads,
-                        unsigned initial_max_thread_conflicts = 1000) {
+        void initialize(unsigned num_global_bb_threads, unsigned initial_max_thread_conflicts = 1000) {
             m_state = state::is_running;
             m_search_tree.reset();
             m_search_tree.set_effort_unit(initial_max_thread_conflicts);
@@ -454,7 +475,7 @@ class parallel_solver {
         /* ---- result setters (called by workers, guarded by mux) ---- */
         void set_sat(ast_translation& l2g, model& mdl) {
             std::scoped_lock lock(mux);
-            IF_VERBOSE(1, verbose_stream() << "par2: batch_manager SAT\n");
+            IF_VERBOSE(1, verbose_stream() << "Batch manager setting SAT.\n");
             if (m_state != state::is_running) return;
             m_state = state::is_sat;
             m_model = mdl.translate(l2g);
@@ -464,7 +485,7 @@ class parallel_solver {
         void set_unsat(ast_translation& l2g,
                        expr_ref_vector const& core) {
             std::scoped_lock lock(mux);
-            IF_VERBOSE(1, verbose_stream() << "par2: batch_manager UNSAT\n");
+            IF_VERBOSE(1, verbose_stream() << "Batch manager setting UNSAT.\n");
             if (m_state != state::is_running) return;
             m_state = state::is_unsat;
             SASSERT(m_unsat_core.empty());
@@ -475,7 +496,7 @@ class parallel_solver {
 
         void set_exception(std::string const& msg) {
             std::scoped_lock lock(mux);
-            IF_VERBOSE(1, verbose_stream() << "par2: batch_manager exception: " << msg << "\n");
+            IF_VERBOSE(1, verbose_stream() << "Batch manager setting exception msg: " << msg << ".\n");
             if (m_state != state::is_running) return;
             m_state = state::is_exception_msg;
             m_exception_msg = msg;
@@ -484,6 +505,7 @@ class parallel_solver {
 
         void set_exception(unsigned error_code) {
             std::scoped_lock lock(mux);
+            IF_VERBOSE(1, verbose_stream() << "Batch manager setting exception code: " << error_code << ".\n");
             if (m_state != state::is_running) return;
             m_state = state::is_exception_code;
             m_exception_code = error_code;
@@ -606,6 +628,7 @@ class parallel_solver {
             }
 
             if (all_of(g_core, [&](solver_cube_config::literal const& lit) { return asms.contains(lit.get()); })) {
+                IF_VERBOSE(1, verbose_stream() << "Minimized core removed all path literals, setting UNSAT\n");
                 m_state = state::is_unsat;
                 SASSERT(m_unsat_core.empty());
                 for (expr* e : minimized_core)
@@ -630,12 +653,15 @@ class parallel_solver {
             ++m_stats.m_core_min_jobs_published;
             cancel_closed_leases_unlocked(UINT_MAX);
 
+            IF_VERBOSE(1, verbose_stream() << "Batch manager publishing minimized core "
+                                           << original_core_size << " -> " << minimized_core.size() << "\n");
             IF_VERBOSE(2,
                 for (expr* e : minimized_core)
                     verbose_stream() << mk_bounded_pp(e, minimized_core.get_manager()) << "\n";
                 m_search_tree.display(verbose_stream() << "\n");
             );
             if (m_search_tree.is_closed()) {
+                IF_VERBOSE(1, verbose_stream() << "Search tree closed by minimized core, setting UNSAT\n");
                 m_state = state::is_unsat;
                 SASSERT(m_unsat_core.empty());
                 for (auto& e : m_search_tree.get_core_from_root())
@@ -668,7 +694,7 @@ class parallel_solver {
                 m_stats.m_max_cube_depth = std::max(
                     m_stats.m_max_cube_depth,
                     lease.leased_node->depth() + 1);
-                IF_VERBOSE(1, verbose_stream() << "par2: split on " << mk_bounded_pp(lit, m, 3) << "\n");
+                IF_VERBOSE(1, verbose_stream() << "Batch manager splitting on literal: " << mk_bounded_pp(lit, m, 3) << "\n");
             }
         }
 
@@ -706,12 +732,13 @@ class parallel_solver {
         /* ---- backbone / unit sharing ---- */
         bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone, unsigned source_worker_id = UINT_MAX) {
             std::scoped_lock lock(mux);
+            IF_VERBOSE(1, verbose_stream() << "collect-global-backbone\n");
             if (is_global_backbone_unlocked(l2g, backbone.get()))
                 return false;
             expr_ref g_bb(l2g(backbone.get()), m);
             m_global_backbones.insert(g_bb.get());
             ++m_stats.m_backbones_found;
-            IF_VERBOSE(2, verbose_stream() << "par2: new backbone " << mk_bounded_pp(g_bb, m, 3) << "\n");
+            IF_VERBOSE(1, verbose_stream() << " Found and sharing new global backbone: " << mk_bounded_pp(g_bb, m, 3) << "\n");
             collect_clause_unlocked(l2g, source_worker_id, backbone.get());
 
             expr_ref neg_g_bb(mk_not(m, g_bb), m);
@@ -721,6 +748,8 @@ class parallel_solver {
             collect_matching_targets_unlocked(nullptr, neg_g_bb, g_core, targets);
             
             if (!targets.empty()) {
+                IF_VERBOSE(1, verbose_stream() << " Closing negation of the new global backbone: "
+                                               << mk_bounded_pp(g_bb, m, 3) << "\n");
                 expr_ref_vector l_core(l2g.from());
                 l_core.push_back(mk_not(backbone));
                 backtrack_unlocked(l2g, UINT_MAX, l_core, nullptr, &targets);
@@ -936,7 +965,11 @@ class parallel_solver {
             combined.append(asms);
             combined.append(cube);
 
-            IF_VERBOSE(2, verbose_stream() << "par2 worker " << id << ": checking cube of size " << cube.size() << "\n");
+            IF_VERBOSE(1, verbose_stream() << " Checking cube\n"
+                                           << bounded_pp_exprs(cube)
+                                           << "with max_conflicts: "
+                                           << std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts)
+                                           << "\n";);
             lbool r = l_undef;
             try {
                 r = s->check_sat(combined);
@@ -949,7 +982,7 @@ class parallel_solver {
                 if (!m.limit().is_canceled() && !is_cancellation_exception(ex.what()))
                     b.set_exception(ex.what());
             }
-            IF_VERBOSE(2, verbose_stream() << "par2 worker " << id << ": cube result " << r << "\n");
+            LOG_WORKER(1, " DONE checking cube " << r << "\n";);
             return r;
         }
 
@@ -959,7 +992,7 @@ class parallel_solver {
         void collect_shared_clauses() {
             expr_ref_vector nc = b.return_shared_clauses(m_g2l, m_shared_clause_limit, id);
             for (expr* e : nc) {
-                IF_VERBOSE(4, verbose_stream() << "par2 worker " << id << ": asserting shared clause " << mk_bounded_pp(e, m, 3) << "\n");
+                LOG_WORKER(4, " asserting shared clause: " << mk_bounded_pp(e, m, 3) << "\n");
                 s->assert_expr(e);
             }
         }
@@ -1058,7 +1091,7 @@ class parallel_solver {
             for (expr* a : src_asms)
                 asms.push_back(m_g2l(a));
 
-            IF_VERBOSE(1, verbose_stream() << "par2: worker " << id << " created (" << asms.size() << " assumptions)\n");
+            LOG_WORKER(1, " created with " << asms.size() << " assumptions\n");
         }
 
         void run() {
@@ -1068,13 +1101,14 @@ class parallel_solver {
 
             while (true) {
                 if (!b.get_cube(m_g2l, id, cube, is_first_run, lease)) {
-                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id << ": no more cubes\n");
+                    LOG_WORKER(1, " no more cubes\n");
                     return;
                 }
                 is_first_run = false;
 
                 collect_shared_clauses();
             check_cube_start:
+                LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
                 if (m_config.m_global_backbones) {
                     bb_candidates local_candidates = find_backbone_candidates(cube);
                     b.collect_backbone_candidates(m_l2g, local_candidates);
@@ -1084,7 +1118,7 @@ class parallel_solver {
                 lbool r = check_cube(cube);
 
                 if (b.lease_canceled(lease)) {
-                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id << ": lease canceled\n");
+                    LOG_WORKER(1, " abandoning canceled lease\n");
                     lease = {};
                     m.limit().dec_cancel();
                     continue;
@@ -1096,7 +1130,7 @@ class parallel_solver {
 
                 case l_undef: {
                     update_max_thread_conflicts();
-                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id << ": undef – attempting split\n");
+                    LOG_WORKER(1, " found undef cube\n");
                     if (m_config.m_max_cube_depth <= cube.size())
                         goto check_cube_start;
                     expr_ref atom = get_split_atom(cube);
@@ -1112,7 +1146,7 @@ class parallel_solver {
                 }
 
                 case l_true: {
-                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id << ": SAT\n");
+                    LOG_WORKER(1, " found sat cube\n");
                     model_ref mdl;
                     s->get_model(mdl);
                     if (mdl)
@@ -1121,15 +1155,18 @@ class parallel_solver {
                 }
 
                 case l_false: {
-                    IF_VERBOSE(1, verbose_stream() << "par2 worker " << id << ": UNSAT cube\n");
                     expr_ref_vector unsat_core(m);
                     s->get_unsat_core(unsat_core);
+                    LOG_WORKER(2, " unsat core:\n";
+                               for (auto c : unsat_core) verbose_stream() << mk_bounded_pp(c, m, 3) << "\n");
 
                     if (all_of(unsat_core, [&](expr* e) { return asms.contains(e); })) {
+                        LOG_WORKER(1, " determined formula unsat\n");
                         b.set_unsat(m_l2g, unsat_core);
                         return;
                     }
 
+                    LOG_WORKER(1, " found unsat cube\n");
                     auto* source = lease.leased_node;
                     b.backtrack(m_l2g, id, unsat_core, lease);
 
@@ -1148,9 +1185,13 @@ class parallel_solver {
             }
         }
 
-        void cancel() { m.limit().cancel(); }
+        void cancel() {
+            LOG_WORKER(1, " canceling\n");
+            m.limit().cancel();
+        }
 
         void cancel_lease() {
+            LOG_WORKER(1, " canceling lease\n");
             m.limit().inc_cancel();
         }
 
@@ -1195,8 +1236,10 @@ class parallel_solver {
 
         void collect_shared_clauses() {
             expr_ref_vector nc = b.return_shared_clauses(m_g2l, m_shared_clause_limit, UINT_MAX);
-            for (expr* e : nc)
+            for (expr* e : nc) {
                 s->assert_expr(e);
+                LOG_BB_WORKER(4, " asserting shared clause: " << mk_bounded_pp(e, m, 3) << "\n");
+            }
         }
 
         bool try_get_unit_backbone(expr* candidate, expr_ref& backbone) {
@@ -1264,12 +1307,15 @@ class parallel_solver {
             bb_candidates curr_batch;
 
             while (m.inc()) {
-                if (!b.wait_for_backbone_job(id, m_g2l, curr_batch, m.limit()))
+                if (!b.wait_for_backbone_job(id, m_g2l, curr_batch, m.limit())) {
+                    LOG_BB_WORKER(1, " BACKBONES WORKER cancelling\n");
                     return;
+                }
 
                 if (curr_batch.empty())
                     continue;
 
+                LOG_BB_WORKER(1, " received batch of " << curr_batch.size() << " candidates\n");
                 collect_shared_clauses();
 
                 unsigned local_cancel_epoch = b.get_cancel_epoch();
@@ -1311,12 +1357,14 @@ class parallel_solver {
                                         if (is_retry)
                                             ++m_stats.m_retry_backbones_found;
                                     }
+                                    LOG_BB_WORKER(1, " fallback found unit backbone: " << mk_bounded_pp(backbone.get(), m, 3) << "\n");
                                 }
                                 else {
                                     expr* atom = bb_ref.get();
                                     m.is_not(bb_ref.get(), atom);
                                     if (s->get_bool_var(atom) != UINT_MAX) {
                                         lbool terminal_result = probe_literal(mk_not(m, bb_ref), is_retry);
+                                        LOG_BB_WORKER(1, " RESULT: " << terminal_result << " FOR CANDIDATE: " << mk_bounded_pp(bb_ref.get(), m, 3) << "\n");
                                         if (terminal_result != l_undef) {
                                             s->set_max_conflicts(old_max_conflicts);
                                             return;
@@ -1418,12 +1466,14 @@ class parallel_solver {
                             break;
 
                         if (r == l_undef) {
+                            LOG_BB_WORKER(1, " UNDEF at chunk_size=" << chunk_size << "\n");
                             if (chunk_size < bb_candidate_lits.size()) {
                                 ++chunk_delta;
                                 ++m_stats.m_num_chunk_increases;
                                 break;
                             }
 
+                            LOG_BB_WORKER(1, " UNDEF and max chunk -> fallback\n");
                             fallback_failed_literal_probe(chunk_lits, bb_candidate_lits);
                             ++m_stats.m_fallback_reason_undef;
                             chunk_delta = 1;
@@ -1431,6 +1481,7 @@ class parallel_solver {
                         }
 
                         if (r == l_true) {
+                            LOG_BB_WORKER(1, " batch check returned SAT, thus entire formula is SAT\n");
                             model_ref mdl;
                             s->get_model(mdl);
                             if (mdl)
@@ -1476,6 +1527,7 @@ class parallel_solver {
                         chunk_delta = 1;
 
                         if (bb_asms.empty()) {
+                            LOG_BB_WORKER(1, " no more negated chunk literals, fallback to individual checks\n");
                             fallback_failed_literal_probe(chunk_lits, bb_candidate_lits);
                             ++m_stats.m_fallback_reason_chunk_exhausted;
                             break;
@@ -1527,11 +1579,13 @@ class parallel_solver {
             m_positive_mode = id != 0;
             m_shared_units_prefix = s->get_assigned_literals().size();
             m_num_initial_atoms = s->get_num_bool_vars();
+            IF_VERBOSE(1, verbose_stream() << "Initialized backbones thread " << id << "\n");
         }
 
         void run() { run_batch_mode(); }
 
         void cancel() {
+            LOG_BB_WORKER(1, " BACKBONES WORKER cancelling\n");
             m.limit().cancel();
         }
 
@@ -1583,8 +1637,11 @@ class parallel_solver {
 
         void collect_shared_clauses() {
             expr_ref_vector nc = b.return_shared_clauses(m_g2l, m_shared_clause_limit, UINT_MAX);
-            for (expr* e : nc)
+            for (expr* e : nc) {
                 s->assert_expr(e);
+                IF_VERBOSE(4, verbose_stream() << "Core minimizer asserting shared clause: "
+                                               << mk_bounded_pp(e, m, 3) << "\n";);
+            }
         }
 
         void minimize_unsat_core(expr_ref_vector& core) {
@@ -1678,6 +1735,7 @@ class parallel_solver {
             s->set_preprocess(false);
             for (expr* a : src_asms)
                 asms.push_back(m_g2l(a));
+            IF_VERBOSE(1, verbose_stream() << "Initialized core minimizer thread\n");
         }
 
         void run() {
@@ -1707,6 +1765,7 @@ class parallel_solver {
         }
 
         void cancel() {
+            IF_VERBOSE(1, verbose_stream() << "Core minimizer cancelling\n");
             m.limit().cancel();
         }
 
@@ -1769,11 +1828,9 @@ public:
         if (num_global_bb_fl_threads > 0 && num_global_bb_batch_threads > 0)
             throw default_exception("parallel.num_global_bb_fl_threads and parallel.num_global_bb_batch_threads cannot both be enabled");
         unsigned num_global_bb_threads = num_global_bb_fl_threads > 0 ? num_global_bb_fl_threads : num_global_bb_batch_threads;
+        unsigned total_threads = num_threads + (core_minimize ? 1 : 0) + num_global_bb_threads;
 
-        IF_VERBOSE(1, verbose_stream() << "par2: launching "
-            << num_threads << " cube workers + "
-            << (core_minimize ? 1 : 0) << " core minimizer + "
-            << num_global_bb_threads << " backbone workers\n";);
+        IF_VERBOSE(1, verbose_stream() << "Parallel tactical2 with " << total_threads << " threads\n";);
 
         if (m_manager.has_trace_stream())
             throw default_exception(
@@ -1803,6 +1860,10 @@ public:
             m_global_backbones_workers.push_back(w);
             sl.push_child(&(w->limit()));
         }
+        IF_VERBOSE(1, verbose_stream() << "Launched " << m_workers.size() << " CDCL threads, "
+                                       << 0 << " SLS threads, "
+                                       << (m_core_minimizer_worker ? 1 : 0) << " core minimizer threads, "
+                                       << m_global_backbones_workers.size() << " global backbone threads.\n";);
 
         m_batch_manager.initialize(num_global_bb_threads);
 
@@ -1867,7 +1928,7 @@ public:
     void reset_statistics() {
         m_stats.reset();
     }
-}; // class parallel_solver
+};
 
 /* ------------------------------------------------------------------ */
 /* parallel_tactic2 – wraps parallel_solver as a tactic               */
@@ -1970,10 +2031,10 @@ public:
     void reset_statistics() override {
         m_stats.reset();
     }
-}; // class parallel_tactic2
+};
 
 tactic* mk_parallel_tactic2(solver* s, params_ref const& p) {
     return alloc(parallel_tactic2, s, p);
 }
 
-#endif  /* !SINGLE_THREAD */
+#endif
