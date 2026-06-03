@@ -119,7 +119,7 @@ namespace smt {
         void propagate() override;
         void init() override;
         void assign_eh(bool_var v, bool is_true) override;
-        void relevant_eh(app* n) override;
+        void relevant_eh(expr * n) override;
         final_check_status final_check_eh(unsigned) override;
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;

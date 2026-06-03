@@ -119,7 +119,7 @@ namespace smt {
     }
 
     model_value_proc* seq_model::mk_value(enode* n, model_generator& mg) {
-        app* e = n->get_expr();
+        expr* e = n->get_expr();
 
         if (!m_seq.is_seq(e) && !m_seq.is_re(e) && !m_seq.str.is_nth_u(e))
             return nullptr;
@@ -128,7 +128,7 @@ namespace smt {
         // Regexes are interpreted as themselves in the model.
         if (m_seq.is_re(e)) {
             m_trail.push_back(e);
-            return alloc(expr_wrapper_proc, e);
+            return alloc(expr_wrapper_proc, to_app(e));
         }
 
         // For nth_u (underspecified nth): the Nielsen character-peel /

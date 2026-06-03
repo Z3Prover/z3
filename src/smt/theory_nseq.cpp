@@ -577,7 +577,7 @@ namespace smt {
             m_axioms.str_to_code_axiom(n);
     }
 
-    void theory_nseq::relevant_eh(app* n) {
+    void theory_nseq::relevant_eh(expr * n) {
         if (m_seq.str.is_length(n)     ||
             m_seq.str.is_index(n)      ||
             m_seq.str.is_last_index(n) ||
