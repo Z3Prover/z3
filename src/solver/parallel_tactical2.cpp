@@ -55,15 +55,15 @@ Author:
 #include "solver/solver.h"
 #include "solver/parallel_tactical2.h"
 #include "solver/parallel_params.hpp"
-#include "solver/solver_preprocess.h"
 #include "util/search_tree.h"
 #include "tactic/tactic.h"
-#include "tactic/tactical.h"
 #include "solver/solver2tactic.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <mutex>
+#include <utility>
 
 /* ------------------------------------------------------------------ */
 /* Single-threaded stub                                                 */
@@ -1104,7 +1104,6 @@ class parallel_solver {
                     return;
                 }
                 is_first_run = false;
-
                 collect_shared_clauses();
             check_cube_start:
                 LOG_WORKER(1, " CUBE SIZE IN MAIN LOOP: " << cube.size() << "\n");
@@ -1199,7 +1198,7 @@ class parallel_solver {
         }
 
         reslimit& limit() { return m.limit(); }
-    }; // class worker
+    };
 
     class backbones_worker {
     private:
