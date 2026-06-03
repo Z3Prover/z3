@@ -258,7 +258,6 @@ namespace smt {
                 svector<symbol> names;
                 for (unsigned i = 0; i < f->get_arity(); ++i) 
                     names.push_back(symbol(i));
-                defined_names dn(m);
                 body = replace_value_from_ctx(body);
                 body = m.mk_lambda(sorts.size(), sorts.data(), names.data(), body);
                 sk_term = body;
