@@ -78,7 +78,6 @@ namespace seq {
 
         // Nullable check: returns a Boolean expression
         expr_ref is_nullable(expr* r);
-        expr_ref is_nullable_rec(expr* r);
 
         // Smart constructors with simplification and ACI canonicalization
         expr_ref mk_union(expr* a, expr* b);

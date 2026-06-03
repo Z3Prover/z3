@@ -25,6 +25,7 @@ Authors:
 #include "ast/ast_pp.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "util/util.h"
 #include <algorithm>
 
 namespace seq {
@@ -80,9 +81,8 @@ namespace seq {
             return expr_ref(re().mk_derivative(m_ele, r), m);
         }
 
-        ++m_depth;
+        flet<unsigned> _scoped_depth(m_depth, m_depth + 1);
         expr_ref result = derive_core(r);
-        --m_depth;
 
         // Cache the result
         m_cache.insert(r, result);
@@ -304,64 +304,10 @@ namespace seq {
             return expr_ref(m.mk_true(), m);
         if (nb == l_false)
             return expr_ref(m.mk_false(), m);
-        // info is undetermined (l_undef) — fall back to recursive computation
-        return is_nullable_rec(r);
-    }
-
-    expr_ref derive::is_nullable_rec(expr* r) {
-        expr* r1 = nullptr, * r2 = nullptr, * cond = nullptr;
+        // For symbolic regexes, return a membership predicate
         sort* s = nullptr;
-        unsigned lo = 0, hi = 0;
-
-        if (re().is_concat(r, r1, r2) || re().is_intersection(r, r1, r2)) {
-            expr_ref n1 = is_nullable(r1);
-            expr_ref n2 = is_nullable(r2);
-            expr_ref result(m);
-            m_br.mk_and(n1, n2, result);
-            return result;
-        }
-        if (re().is_union(r, r1, r2)) {
-            expr_ref n1 = is_nullable(r1);
-            expr_ref n2 = is_nullable(r2);
-            expr_ref result(m);
-            m_br.mk_or(n1, n2, result);
-            return result;
-        }
-        if (re().is_complement(r, r1)) {
-            expr_ref n1 = is_nullable(r1);
-            expr_ref result(m);
-            m_br.mk_not(n1, result);
-            return result;
-        }
-        if (re().is_diff(r, r1, r2)) {
-            expr_ref n1 = is_nullable(r1);
-            expr_ref n2 = is_nullable(r2);
-            expr_ref not_n2(m);
-            m_br.mk_not(n2, not_n2);
-            expr_ref result(m);
-            m_br.mk_and(n1, not_n2, result);
-            return result;
-        }
-        if (re().is_to_re(r, r1)) {
-            if (u().str.is_empty(r1))
-                return expr_ref(m.mk_true(), m);
-            zstring zs;
-            if (u().str.is_string(r1, zs))
-                return expr_ref(m.mk_bool_val(zs.length() == 0), m);
-            return expr_ref(m.mk_eq(r1, u().str.mk_empty(r1->get_sort())), m);
-        }
-        if (m.is_ite(r, cond, r1, r2)) {
-            expr_ref n1 = is_nullable(r1);
-            expr_ref n2 = is_nullable(r2);
-            expr_ref result(m);
-            m_br.mk_ite(cond, n1, n2, result);
-            return result;
-        }
-        // Unknown: use membership test
-        if (m_util.is_re(r, s))
-            return expr_ref(re().mk_in_re(u().str.mk_empty(s), r), m);
-
-        return expr_ref(m.mk_true(), m);
+        VERIFY(m_util.is_re(r, s));
+        return expr_ref(re().mk_in_re(u().str.mk_empty(s), r), m);
     }
 
     // -------------------------------------------------------
@@ -552,8 +498,6 @@ namespace seq {
 
     expr_ref derive::mk_union_from_sorted(expr_ref_vector& args) {
         if (args.empty()) {
-            // All elements were identity/absorbed - should not happen in practice
-            // but handle gracefully
             UNREACHABLE();
             return expr_ref(m.mk_true(), m);
         }
@@ -561,10 +505,8 @@ namespace seq {
             return expr_ref(args.get(0), m);
         // Build right-associated union
         expr_ref result(args.back(), m);
-        for (unsigned i = args.size() - 1; i > 0; ) {
-            --i;
+        for (unsigned i = args.size() - 1; i-- > 0; )
             result = expr_ref(re().mk_union(args.get(i), result), m);
-        }
         return result;
     }
 
@@ -577,10 +519,8 @@ namespace seq {
             return expr_ref(args.get(0), m);
         // Build right-associated intersection
         expr_ref result(args.back(), m);
-        for (unsigned i = args.size() - 1; i > 0; ) {
-            --i;
+        for (unsigned i = args.size() - 1; i-- > 0; )
             result = expr_ref(re().mk_inter(args.get(i), result), m);
-        }
         return result;
     }
 
@@ -591,29 +531,28 @@ namespace seq {
     expr_ref derive::ite_combine_binary(expr* d1, expr* d2,
         std::function<expr_ref(expr*, expr*)> const& op) {
         expr *c1, *t1, *e1, *c2, *t2, *e2;
+        bool is_ite1 = m.is_ite(d1, c1, t1, e1);
+        bool is_ite2 = m.is_ite(d2, c2, t2, e2);
 
         // Both are leaves (non-ITE)
-        if (!m.is_ite(d1, c1, t1, e1) && !m.is_ite(d2, c2, t2, e2))
+        if (!is_ite1 && !is_ite2)
             return op(d1, d2);
 
         // d1 is ITE, d2 is not
-        if (m.is_ite(d1, c1, t1, e1) && !m.is_ite(d2, c2, t2, e2)) {
+        if (is_ite1 && !is_ite2) {
             expr_ref then_r = ite_combine_binary(t1, d2, op);
             expr_ref else_r = ite_combine_binary(e1, d2, op);
             return mk_ite(c1, then_r, else_r);
         }
 
         // d2 is ITE, d1 is not
-        if (!m.is_ite(d1, c1, t1, e1) && m.is_ite(d2, c2, t2, e2)) {
+        if (!is_ite1 && is_ite2) {
             expr_ref then_r = ite_combine_binary(d1, t2, op);
             expr_ref else_r = ite_combine_binary(d1, e2, op);
             return mk_ite(c2, then_r, else_r);
         }
 
         // Both are ITE
-        VERIFY(m.is_ite(d1, c1, t1, e1));
-        VERIFY(m.is_ite(d2, c2, t2, e2));
-
         if (c1 == c2) {
             // Same condition: combine pairwise
             expr_ref then_r = ite_combine_binary(t1, t2, op);
