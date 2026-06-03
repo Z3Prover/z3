@@ -7,37 +7,7 @@ Module Name:
 
 Abstract:
 
-    Parallel portfolio solver using the solver API.
-
-    Models the internals after smt/smt_parallel.cpp but operates on generic
-    solver objects (smt_solver, inc_sat_solver, etc.) via the solver interface
-    instead of accessing smt::context internals directly.
-
-    Key features compared to parallel_tactical.cpp:
-      - Search tree for coordinated non-chronological backtracking (from smt_parallel).
-      - Shared clause pool: learned conflict clauses are broadcast to all workers.
-      - Shared backbone/unit pool: base-level units propagated by one worker are
-        asserted as facts on every other worker's solver.
-      - Workers reuse their solver state across multiple cube checks, accumulating
-        learned clauses (same pattern as smt_parallel workers).
-
-    Key differences from smt_parallel:
-      - Uses the solver API throughout (translate, check_sat, get_trail, cube,
-        get_model, get_unsat_core, assert_expr, push, pop, updt_params, …)
-        rather than accessing smt::context members directly.
-      - Works with any conforming solver implementation.
-
-    Cube path management follows the assumption-based pattern from smt_parallel:
-      - The worker's solver base assertion set is fixed at construction (the full
-        problem is translated into the worker's own ast_manager once).
-      - Shared clauses discovered by other workers are appended to the base set via
-        assert_expr at any time.
-      - The current cube path is passed as extra assumptions on every check_sat call,
-        so the solver can reuse learned clauses across different cube checks.
-
-    Split atom selection is performed by temporarily pushing the cube path onto
-    the solver, calling solver::get_split_candidate() on that cube state, and
-    then popping, so that the base state is preserved.
+    Parallel tactical, portfolio loop specialized to the solver API.
 
 Author:
 
@@ -143,7 +113,15 @@ class parallel_solver {
     /* ---- node lease (mirrors smt_parallel) ---- */
     struct node_lease {
         search_tree::node<solver_cube_config>* leased_node = nullptr;
+
+        // Cancellation generation counter for this node/subtree.
+        // Incremented when the node is closed; used to signal that all
+        // workers holding leases on this node (or its descendants)
+        // must abandon work immediately.
         unsigned cancel_epoch = 0;
+
+        // Guards against multiple inc_cancel() calls for the same lease.
+        // Set when cancel_lease() is signaled; cleared when a new lease is assigned.
         bool cancel_signaled  = false;
     };
 
@@ -156,18 +134,13 @@ class parallel_solver {
     struct bb_candidate {
         expr_ref lit;
         double age;
-        unsigned hits;
+        unsigned hits;     // how many cubes reported it
         bb_candidate(ast_manager& m, expr* e, double s, unsigned h)
             : lit(e, m), age(s), hits(h) {}
     };
 
     using bb_candidates = vector<bb_candidate>;
 
-    /* ================================================================
-     * batch_manager
-     * Coordinates workers: distributes cubes, collects clauses/units,
-     * stores the final result (sat model / unsat core / exception).
-     * ================================================================ */
     class batch_manager {
 
         enum state {
@@ -206,14 +179,11 @@ class parallel_solver {
         search_tree::tree<solver_cube_config> m_search_tree;
         vector<node_lease> m_worker_leases;
 
-        /* shared clause pool (guarded by mux) */
-        vector<shared_clause>    m_shared_clause_trail;
-        obj_hashtable<expr>      m_shared_clause_set;
+        vector<shared_clause>    m_shared_clause_trail; // store all shared clauses with worker IDs
+        obj_hashtable<expr>      m_shared_clause_set;   // for duplicate filtering on per-thread clause expressions
 
-        /* shared backbone / unit pool (guarded by mux) */
         obj_hashtable<expr>      m_global_backbones;
 
-        /* backbone candidate queue */
         bb_candidates            m_bb_candidates;
         unsigned                 m_max_global_bb_candidates = 100;
         unsigned                 m_bb_batch_size = 150;
@@ -223,19 +193,18 @@ class parallel_solver {
         unsigned                 m_bb_batch_id = 0;
         unsigned                 m_num_bb_threads = 0;
         unsigned_vector          m_bb_last_batch_processed;
-        unsigned                 m_bb_cancel_epoch = 0;
+        unsigned                 m_bb_cancel_epoch = 0; // When a backbone worker finishes early, it increments m_bb_cancel_epoch and notifies all
 
-        /* core minimization queue */
+        // Core minimization job queue
         std::condition_variable   m_core_min_cv;
         scoped_ptr_vector<core_min_job> m_core_min_jobs;
 
-        /* result storage (guarded by mux) */
         unsigned     m_exception_code = 0;
         std::string  m_exception_msg;
-        model_ref    m_model;           /* sat model translated to m */
-        expr_ref_vector m_unsat_core;   /* unsat core translated to m */
+        model_ref    m_model;
+        expr_ref_vector m_unsat_core;
 
-        /* ---- cancellation helpers (called under mux) ---- */
+        // called from batch manager to cancel other workers if we've reached a verdict
         void cancel_workers_unlocked() {
             IF_VERBOSE(1, verbose_stream() << "Canceling workers\n");
             for (auto* w : p.m_workers)
@@ -282,6 +251,7 @@ class parallel_solver {
             }
         }
 
+        // to avoid deadlock
         bool is_global_backbone_unlocked(ast_translation& l2g, expr* bb_cand) {
             expr_ref cand(l2g(bb_cand), m);
             return m_global_backbones.contains(cand.get());
@@ -335,11 +305,21 @@ class parallel_solver {
                     continue;
                 if (m_search_tree.is_lease_canceled(t, t->get_cancel_epoch()))
                     continue;
+
+                // When source is provided, keep only external matches. Nodes in the
+                // same branch are already closed by backtracking on the source node.
                 if (source && (is_ancestor_of(source, t) || is_ancestor_of(t, source)))
                     continue;
+
+                // Reusing a conflict on another branch is sound only if that
+                // the path from that node->root contains every literal in the core.
+                // Matching on the closing literal alone is insufficient: F & a & l
+                // may be UNSAT while F & c & l is SAT.
                 if (!path_contains_core(t))
                     continue;
 
+                // Keep only highest matching nodes: closing an ancestor also closes
+                // all of its matching descendants.
                 bool is_highest_ancestor = true;
                 for (auto* p = t->parent(); p; p = p->parent()) {
                     if (any_of(targets, [&](node_lease const& target) { return target.leased_node == p; })) {
@@ -354,6 +334,8 @@ class parallel_solver {
             }
         }
 
+        // Given a newly closed node, source, and its core, find the lowest ancestor of source that
+        // contains a core literal, and return it as the source for the core minimization job
         search_tree::node<solver_cube_config>* find_core_source_unlocked(
             ast_translation& l2g, search_tree::node<solver_cube_config>* source, expr_ref_vector const& core) {
             if (!source)
@@ -384,6 +366,8 @@ class parallel_solver {
                 auto* job_source = job->source;
                 unsigned job_depth = job_source ? job_source->depth() : 0;
                 unsigned job_core_size = job->core.size();
+
+                // rank first by core source node depth (deepest -> shallowest), then by core size (largest -> smallest)
                 if (job_depth > best_depth ||
                     (job_depth == best_depth && job_core_size > best_core_size)) {
                     best_idx = i;
@@ -409,6 +393,8 @@ class parallel_solver {
             bool did_backtrack = false;
 
             if (lease && !m_search_tree.is_lease_canceled(lease->leased_node, lease->cancel_epoch)) {
+                // we close/backtrack regardless of whether this lease is stale or not, as long as the lease isn't canceled
+                // i.e. worker 1 splits this node, but then worker 2 determines UNSAT --> worker 2 is stale but we still close this node and backtrack
                 did_backtrack = true;
                 release_lease_unlocked(worker_id, lease->leased_node);
                 m_search_tree.backtrack(lease->leased_node, g_core);
@@ -424,6 +410,7 @@ class parallel_solver {
             if (!did_backtrack)
                 return;
 
+            // terminate on-demand the workers that are currently exploring the now-closed nodes
             cancel_closed_leases_unlocked(worker_id);
 
             IF_VERBOSE(2,
@@ -449,7 +436,6 @@ class parallel_solver {
               m_search_tree(expr_ref(m)),
               m_unsat_core(m) {}
 
-        /* ---- initialisation ---- */
         void initialize(unsigned num_bb_threads, unsigned initial_max_thread_conflicts = 1000) {
             m_state = state::is_running;
             m_search_tree.reset();
@@ -472,7 +458,6 @@ class parallel_solver {
             m_unsat_core.reset();
         }
 
-        /* ---- result setters (called by workers, guarded by mux) ---- */
         void set_sat(ast_translation& l2g, model& mdl) {
             std::scoped_lock lock(mux);
             IF_VERBOSE(1, verbose_stream() << "Batch manager setting SAT.\n");
@@ -512,7 +497,6 @@ class parallel_solver {
             cancel_workers_unlocked();
         }
 
-        /* ---- cube distribution (called by workers) ---- */
         bool get_cube(ast_translation& g2l, unsigned id,
                       expr_ref_vector& cube, bool is_first_run,
                       node_lease& lease) {
@@ -532,7 +516,6 @@ class parallel_solver {
                 m_worker_leases.resize(id + 1);
             m_worker_leases[id] = lease;
 
-            /* build cube from path root → t */
             for (auto* cur = t; cur; cur = cur->parent()) {
                 if (solver_cube_config::literal_is_null(cur->get_literal()))
                     break;
@@ -541,7 +524,6 @@ class parallel_solver {
             return true;
         }
 
-        /* ---- backtrack on conflict (called by workers) ---- */
         void backtrack(ast_translation& l2g, unsigned worker_id,
                        expr_ref_vector const& core,
                        node_lease const& lease) {
@@ -622,6 +604,8 @@ class parallel_solver {
             for (expr* c : minimized_core)
                 g_core.push_back(expr_ref(l2g(c), m));
 
+            // don't publish a minimized core if the node already has an equal-or-smaller core by the time the minimizer thread finishes
+            // (e.g. from another thread or from backtracking resolution propagation)
             if (source->get_core().size() <= g_core.size()) {
                 ++m_stats.m_core_min_jobs_skipped;
                 return;
@@ -639,6 +623,9 @@ class parallel_solver {
                 return;
             }
 
+            // do not backtrack through the batch manager since this only handles non-closed leases
+            // and the batch manager also tries to search for external matching targets in the tree
+            // which is a problem since we must backtrack only on the source node or the core is invalid
             m_search_tree.backtrack(source, g_core);
 
             vector<node_lease> targets;
@@ -670,7 +657,6 @@ class parallel_solver {
             }
         }
 
-        /* ---- try to split (called on undef) ---- */
         void try_split(ast_translation& l2g, unsigned worker_id,
                        node_lease const& lease,
                        expr* atom, unsigned effort) {
@@ -710,7 +696,6 @@ class parallel_solver {
                        lease.leased_node, lease.cancel_epoch);
         }
 
-        /* ---- clause sharing ---- */
         void collect_clause(ast_translation& l2g,
                             unsigned source_worker_id,
                             expr* clause) {
@@ -725,11 +710,10 @@ class parallel_solver {
                 if (m_shared_clause_trail[i].source_worker_id != worker_id)
                     result.push_back(g2l(m_shared_clause_trail[i].clause.get()));
             }
-            worker_limit = m_shared_clause_trail.size();
+            worker_limit = m_shared_clause_trail.size();  // update the worker limit to the end of the current trail
             return result;
         }
 
-        /* ---- backbone / unit sharing ---- */
         bool collect_global_backbone(ast_translation& l2g, expr_ref const& backbone, unsigned source_worker_id = UINT_MAX) {
             std::scoped_lock lock(mux);
             IF_VERBOSE(1, verbose_stream() << "collect-global-backbone\n");
@@ -885,11 +869,12 @@ class parallel_solver {
             return true;
         }
 
-        /* ---- result accessors ---- */
         lbool get_result() const {
-            if (m.limit().is_canceled()) return l_undef;
+            if (m.limit().is_canceled())
+                return l_undef;  // the main context was cancelled, so we return undef.
             switch (m_state) {
-            case state::is_running:
+            case state::is_running:  // batch manager is still running, but all threads have processed their cubes, which
+                                     // means all cubes were unsat
                 throw default_exception("par2: inconsistent end state");
             case state::is_sat:             return l_true;
             case state::is_unsat:           return l_false;
@@ -955,9 +940,6 @@ class parallel_solver {
                 m_config.m_max_conflict_mul * m_config.m_threads_max_conflicts);
         }
 
-        /* Check the current cube (passed as additional assumptions).
-         * The solver's conflict budget is set via updt_params before
-         * each call so that long-running cubes are interrupted. */
         lbool check_cube(expr_ref_vector const& cube) {
             s->set_max_conflicts(std::min(m_config.m_threads_max_conflicts, m_config.m_max_conflicts));
 
@@ -986,9 +968,6 @@ class parallel_solver {
             return r;
         }
 
-        /* Assert shared clauses discovered by other workers into the
-         * base assertion set of this worker's solver.  The solver
-         * automatically re-uses them on the next check_sat call. */
         void collect_shared_clauses() {
             expr_ref_vector nc = b.return_shared_clauses(m_g2l, m_shared_clause_limit, id);
             for (expr* e : nc) {
@@ -997,11 +976,6 @@ class parallel_solver {
             }
         }
 
-        /* Propagate any new base-level units (backbone literals) this
-         * worker has learned to the shared backbone pool.
-         *
-         * Uses solver::get_trail(0) which returns all literals
-         * propagated at decision level 0. */
         void share_units() {
             if (!m_config.m_share_units) 
                 return;
@@ -1044,8 +1018,6 @@ class parallel_solver {
             m_shared_units_prefix = prefix_sz;
         }
 
-        /* Select a split atom from the live solver state, matching
-         * smt_parallel's use of the current post-check search state. */
         expr_ref get_split_atom(expr_ref_vector const& cube) {
             if (cube.size() >= m_config.m_max_cube_depth)
                 return expr_ref(nullptr, m);
@@ -1082,9 +1054,11 @@ class parallel_solver {
             m_config.m_global_backbones = pp.num_bb_threads() > 0;
 
             s = src.translate_for_parallel(m, params);
+            // don't share initial units
             s->pop_to_base_level();
             m_shared_units_prefix = s->get_assigned_literals().size();
             m_num_initial_atoms = s->get_num_bool_vars();
+            // avoid preprocessing lemmas that are exchanged
             s->set_preprocess(false);
 
             for (expr* a : src_asms)
@@ -1730,6 +1704,7 @@ class parallel_solver {
               asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
             s = src.translate_for_parallel(m, params);
             s->pop_to_base_level();
+            // avoid preprocessing lemmas that are exchanged
             s->set_preprocess(false);
             for (expr* a : src_asms)
                 asms.push_back(m_g2l(a));
@@ -1797,6 +1772,8 @@ public:
 
     params_ref mk_worker_params(unsigned seed_offset) const {
         params_ref p(m_params);
+        // Match smt_parallel's per-worker m_smt_params.m_random_seed += id.
+        // Generic solver workers receive the seed through translate_for_parallel params.
         unsigned base_seed = m_solver->get_random_seed();
         p.set_uint("random_seed", base_seed + seed_offset);
         p.set_uint("threads", 1);

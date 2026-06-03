@@ -116,6 +116,10 @@ public:
         return m_solver.get_config().m_incremental;
     }
 
+    unsigned get_random_seed() const override {
+        return m_solver.get_config().m_random_seed;
+    }
+
     solver* translate(ast_manager& dst_m, params_ref const& p) override {
         ast_translation tr(m, dst_m);
         m_solver.pop_to_base_level();
