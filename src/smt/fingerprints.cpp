@@ -100,13 +100,11 @@ namespace smt {
 
     bool fingerprint_set::contains(void * data, unsigned data_hash, unsigned num_args, enode * const * args) {
         fingerprint * d = mk_dummy(data, data_hash, num_args, args);
-        if (m_set.contains(d)) 
+        if (m_set.contains(d))
             return true;
         for (unsigned i = 0; i < num_args; ++i)
             d->m_args[i] = d->m_args[i]->get_root();
-        if (m_set.contains(d))
-            return true;
-        return false;
+        return m_set.contains(d);
     }
     
     void fingerprint_set::reset() {
