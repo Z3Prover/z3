@@ -21,7 +21,7 @@ Authors:
 
 --*/
 
-#include "ast/seq_derive.h"
+#include "ast/rewriter/seq_derive.h"
 #include "ast/ast_pp.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/rewriter/bool_rewriter.h"

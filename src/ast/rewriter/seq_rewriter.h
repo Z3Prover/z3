@@ -19,7 +19,7 @@ Notes:
 #pragma once
 
 #include "ast/seq_decl_plugin.h"
-#include "ast/seq_derive.h"
+#include "ast/rewriter/seq_derive.h"
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/rewriter_types.h"
@@ -199,17 +199,6 @@ class seq_rewriter {
     bool check_deriv_normal_form(expr* r, int level = 3);
     #endif
 
-    void mk_antimirov_deriv_rec(expr* e, expr* r, expr* path, expr_ref& result);
-
-    expr_ref mk_antimirov_deriv(expr* e, expr* r, expr* path);
-    expr_ref mk_in_antimirov_rec(expr* s, expr* d);
-    expr_ref mk_in_antimirov(expr* s, expr* d);
-
-    expr_ref mk_antimirov_deriv_intersection(expr* elem, expr* d1, expr* d2, expr* path);
-    expr_ref mk_antimirov_deriv_concat(expr* d, expr* r);
-    expr_ref mk_antimirov_deriv_negate(expr* elem, expr* d);
-    expr_ref mk_antimirov_deriv_union(expr* d1, expr* d2);
-    expr_ref mk_antimirov_deriv_restrict(expr* elem, expr* d1, expr* cond);
     expr_ref mk_regex_reverse(expr* r);
     expr_ref mk_regex_concat(expr* r1, expr* r2);
 
