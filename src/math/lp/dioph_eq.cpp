@@ -238,18 +238,13 @@ namespace lp {
                 r.c() -= b.c();
                 return r;
             }
-#if Z3DEBUG
-            friend bool operator==(const term_o& a, const term_o& b) {
+            
+            friend bool eq(const term_o& a, const term_o& b) {
                 term_o t = a.clone();
                 t += mpq(-1) * b;
                 return t.c() == mpq(0) && t.size() == 0;
             }
 
-            friend bool operator!=(const term_o& a, const term_o& b) {
-                return ! (a  == b);
-            }
-
-#endif
             term_o& operator+=(const term_o& t) {
                 for (const auto& p : t) {
                     add_monomial(p.coeff(), p.j());
@@ -1541,7 +1536,7 @@ namespace lp {
             term_o t1 = open_ml(t0);
             t1.add_monomial(mpq(1), j);
             term_o rs = fix_vars(t1);
-            if (ls != rs) {
+            if (!eq(ls, rs)) {
                 TRACE(dio, tout << "ls:"; print_term_o(ls, tout) << "\n";
                       tout << "rs:"; print_term_o(rs, tout) << "\n";);
                 return false;
@@ -2351,7 +2346,7 @@ namespace lp {
 
                 return false;
             }
-            bool ret = ls == fix_vars(open_ml(m_l_matrix.m_rows[ei]));
+            bool ret = eq(ls, fix_vars(open_ml(m_l_matrix.m_rows[ei])));
             if (!ret) {
                 CTRACE(dio, !ret,
                    {

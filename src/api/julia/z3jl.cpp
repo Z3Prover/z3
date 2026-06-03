@@ -320,6 +320,20 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     m.method("finite_set_map", &finite_set_map);
     m.method("finite_set_filter", &finite_set_filter);
     m.method("finite_set_range", &finite_set_range);
+    m.method("empty_set", &empty_set);
+    m.method("full_set", &full_set);
+    m.method("set_add", &set_add);
+    m.method("set_del", &set_del);
+    m.method("set_union", &set_union);
+    m.method("set_intersect", &set_intersect);
+    m.method("set_difference", &set_difference);
+    m.method("set_complement", &set_complement);
+    m.method("set_member", &set_member);
+    m.method("set_subset", &set_subset);
+    m.method("linear_order", &linear_order);
+    m.method("partial_order", &partial_order);
+    m.method("piecewise_linear_order", &piecewise_linear_order);
+    m.method("tree_order", &tree_order);
 
     // -------------------------------------------------------------------------
 
@@ -629,7 +643,13 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(context, string_sort)
         .MM(context, seq_sort)
         .MM(context, re_sort)
+        .MM(context, char_sort)
         .MM(context, finite_set_sort)
+        .method("set_sort", [](context &c, sort s) {
+            Z3_sort r = Z3_mk_set_sort(c, s);
+            c.check_error();
+            return sort(c, r);
+        })
         .method("array_sort", static_cast<sort (context::*)(sort, sort)>(&context::array_sort))
         .method("array_sort", static_cast<sort (context::*)(sort_vector const&, sort)>(&context::array_sort))
         .method("fpa_sort", static_cast<sort (context::*)(unsigned, unsigned)>(&context::fpa_sort))

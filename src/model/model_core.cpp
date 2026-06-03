@@ -130,19 +130,3 @@ void model_core::unregister_decl(func_decl * d) {
     }
 }
 
-void model_core::add_lambda_defs() {
-    unsigned sz = get_num_decls();
-    for (unsigned i = sz; i-- > 0; ) {
-        func_decl* f = get_decl(i);
-        quantifier* q = m.is_lambda_def(f);
-        if (!q)
-            continue;
-        if (f->get_arity() > 0) {
-            func_interp* fi = alloc(func_interp, m, f->get_arity());
-            fi->set_else(q);
-            register_decl(f, fi);
-        }
-        else
-            register_decl(f, q);
-    }
-}

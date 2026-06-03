@@ -312,6 +312,12 @@ namespace nla {
             }
             dep.mul<dep_intervals::with_deps>(product, vi, product);
         }
+        if (do_propagate_down && c().params().arith_nl_monomial_sandwich() &&
+            propagate_shared_factor(m))
+            return true;
+        if (c().params().arith_nl_monomial_binomial_sign() &&
+            propagate_binomial_sign(m))
+            return true;
         return do_propagate_up && propagate_value(product, m.var());
     }
 
@@ -501,10 +507,195 @@ namespace nla {
     }
     
     lpvar monomial_bounds::non_fixed_var(monic const& m) {
-        for (lpvar v : m) 
+        for (lpvar v : m)
             if (!c().var_is_fixed(v))
                 return v;
         return null_lpvar;
+    }
+
+    /**
+     * Dual-row shared-factor sandwich. For a binary monomial m = u*v, find LP
+     * term columns whose term has shape  a_m * m + a_v * v  (exactly two
+     * variables, both factors of m). The term column's bound is a sound
+     * interval for (a_m * m + a_v * v). Substituting m = u*v yields
+     * v * (a_m * u + a_v); dividing by the interval on v (sign-determined)
+     * gives an interval on (a_m * u + a_v), and an affine shift gives an
+     * interval on u. The derived interval is fed to the existing
+     * propagate_value path so the lemma channel and integer rounding are
+     * shared with the rest of the propagation pipeline.
+     */
+    bool monomial_bounds::propagate_shared_factor(monic const& m) {
+        if (m.size() != 2)
+            return false;
+        lpvar f0 = m.vars()[0], f1 = m.vars()[1];
+        if (f0 == f1)
+            return false;
+
+        unsigned const fanout_limit = c().params().arith_nl_monomial_sandwich_max_fanout();
+
+        auto try_pair = [&](lpvar u, lpvar v) -> bool {
+            // Skip if u participates in too many monomials: tightening such a
+            // factor cascades through ord-binom / monotonicity on every monic
+            // that contains it.
+            if (fanout_limit > 0) {
+                unsigned fanout = 0;
+                for (auto const& m1 : c().emons().get_use_list(u)) {
+                    (void)m1;
+                    if (++fanout > fanout_limit)
+                        return false;
+                }
+            }
+            scoped_dep_interval vi(dep);
+            var2interval(v, vi);
+            if (!dep.separated_from_zero(vi))
+                return false;
+
+            auto& lra = c().lra;
+            unsigned const ROW_CAP = 16;
+            unsigned scanned = 0;
+
+            for (auto const& cell : lra.A_r().m_columns[m.var()]) {
+                if (++scanned > ROW_CAP)
+                    break;
+                unsigned basic = lra.get_base_column_in_row(cell.var());
+                if (basic == m.var() || basic == v || basic == u)
+                    continue;
+                if (!lra.column_has_term(basic))
+                    continue;
+                auto const& term = lra.get_term(basic);
+                if (term.size() != 2 ||
+                    !term.contains(m.var()) || !term.contains(v))
+                    continue;
+
+                rational const& a_m = term.get_coeff(m.var());
+                rational const& a_v = term.get_coeff(v);
+                if (a_m.is_zero())
+                    continue;
+
+                // Term value = a_m*m + a_v*v; bound on basic bounds the term.
+                // Substituting m = u*v: term = v * (a_m*u + a_v).
+                scoped_dep_interval bi(dep);
+                var2interval(basic, bi);
+
+                scoped_dep_interval inner(dep);
+                dep.div<dep_intervals::with_deps>(bi, vi, inner);
+
+                scoped_dep_interval shift(dep);
+                dep.set_value(shift, -a_v);
+                scoped_dep_interval scaled(dep);
+                dep.add<dep_intervals::with_deps>(inner, shift, scaled);
+
+                scoped_dep_interval u_int(dep);
+                dep.mul<dep_intervals::with_deps>(rational::one() / a_m, scaled, u_int);
+
+                TRACE(nla_solver, tout << "sandwich shared-factor basic=" << basic
+                      << " m=" << m.var() << " v=" << v << " u=" << u
+                      << " a_m=" << a_m << " a_v=" << a_v << "\n";);
+
+                if (propagate_value(u_int, u))
+                    return true;  // one lemma per call to keep the channel quiet
+            }
+            return false;
+        };
+
+        return try_pair(f1, f0) || try_pair(f0, f1);
+    }
+
+    /**
+     * Sign-pinned binomial bound. For a binary monomial m = u*v in m_to_refine,
+     * use the current LP value mv = val(m.var()) as a one-sided anchor on the
+     * monomial value variable, and derive a deterministic interval for u via
+     * sign-aware division by v.
+     *
+     * Direction is chosen by the disagreement: if val(m.var()) > val(u)*val(v)
+     * the LP placed the monomial above the factor product, so we condition on
+     * "m.var() >= mv"; otherwise on "m.var() <= mv". The resulting clause is
+     * structurally analogous to a propagate_value lemma plus one extra
+     * snapshot literal on m.var(): under the asserted bounds on v, the clause
+     * reduces to a 2-disjunct (snapshot literal | factor bound).
+     *
+     * Targets the case ord-binom currently handles: factors have determined
+     * signs, m.var() may have no LP bound at all. The clause is sound modulo
+     * the monomial definition (the same condition propagate_down,
+     * propagate_shared_factor and ord-binom rely on).
+     */
+    bool monomial_bounds::propagate_binomial_sign(monic const& m) {
+        if (m.size() != 2)
+            return false;
+        lpvar f0 = m.vars()[0], f1 = m.vars()[1];
+        if (f0 == f1)
+            return false;
+
+        rational const mv = c().val(m.var());
+        rational const fp = c().val(f0) * c().val(f1);
+        if (mv == fp)
+            return false;
+        bool const below = mv > fp;            // LP placed m.var() too high
+        llc const anchor_cmp = below ? llc::LT : llc::GT;
+
+        auto try_anchor = [&](lpvar u, lpvar v) -> bool {
+            // Throttle once per (m.var(), u, v, direction) tuple. Without it
+            // each new val(m.var()) snapshot would re-emit and the search
+            // would cascade across model changes the same way ord-binom does.
+            if (c().throttle().insert_new(
+                    nla_throttle::MONOMIAL_BINOMIAL_SIGN,
+                    m.var(), u, v, below))
+                return false;
+
+            scoped_dep_interval vi(dep);
+            var2interval(v, vi);
+            if (!dep.separated_from_zero(vi))
+                return false;
+
+            // Synthesize a one-sided interval for m.var() at mv. No deps;
+            // the snapshot literal goes into the lemma body directly.
+            scoped_dep_interval mi_anchor(dep);
+            if (below) {
+                dep.set_lower(mi_anchor, mv);
+                dep.set_lower_is_inf(mi_anchor, false);
+                dep.set_lower_is_open(mi_anchor, false);
+                dep.set_upper_is_inf(mi_anchor, true);
+            } else {
+                dep.set_upper(mi_anchor, mv);
+                dep.set_upper_is_inf(mi_anchor, false);
+                dep.set_upper_is_open(mi_anchor, false);
+                dep.set_lower_is_inf(mi_anchor, true);
+            }
+
+            scoped_dep_interval u_int(dep);
+            dep.div<dep_intervals::with_deps>(mi_anchor, vi, u_int);
+
+            bool emitted = false;
+            if (should_propagate_lower(u_int, u, 1)) {
+                auto const& lower = dep.lower(u_int);
+                if (!is_too_big(lower)) {
+                    auto cmp = dep.lower_is_open(u_int) ? llc::GT : llc::GE;
+                    lp::explanation ex;
+                    dep.get_lower_dep(u_int, ex);
+                    lemma_builder lemma(c(), "binomial sign anchor");
+                    lemma &= ex;
+                    lemma |= ineq(m.var(), anchor_cmp, mv);
+                    lemma |= ineq(u, cmp, lower);
+                    emitted = true;
+                }
+            }
+            if (should_propagate_upper(u_int, u, 1)) {
+                auto const& upper = dep.upper(u_int);
+                if (!is_too_big(upper)) {
+                    auto cmp = dep.upper_is_open(u_int) ? llc::LT : llc::LE;
+                    lp::explanation ex;
+                    dep.get_upper_dep(u_int, ex);
+                    lemma_builder lemma(c(), "binomial sign anchor");
+                    lemma &= ex;
+                    lemma |= ineq(m.var(), anchor_cmp, mv);
+                    lemma |= ineq(u, cmp, upper);
+                    emitted = true;
+                }
+            }
+            return emitted;
+        };
+
+        return try_anchor(f1, f0) || try_anchor(f0, f1);
     }
 
 }

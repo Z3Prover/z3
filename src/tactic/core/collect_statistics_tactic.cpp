@@ -119,6 +119,9 @@ protected:
             case lambda_k:
                 m_stats["lambda-variables"] += q->get_num_decls();
                 break;
+            case choice_k:
+                m_stats["choice-variables"] += q->get_num_decls();
+                break;
             }
             m_stats["patterns"] += q->get_num_patterns();
             m_stats["no-patterns"] += q->get_num_no_patterns();

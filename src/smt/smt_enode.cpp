@@ -25,7 +25,7 @@ namespace smt {
     /**
        \brief Initialize an enode in the given memory position.
     */
-    enode * enode::init(ast_manager & m, void * mem, app2enode_t const & app2enode, app * owner, 
+    enode * enode::init(ast_manager & m, void * mem, app2enode_t const & app2enode, expr * owner, 
                         unsigned generation, bool suppress_args, bool merge_tf, unsigned iscope_lvl,
                         bool cgc_enabled, bool update_children_parent) {
         SASSERT(m.is_bool(owner) || !merge_tf);
@@ -42,7 +42,7 @@ namespace smt {
         n->m_interpreted      = false;
         n->m_suppress_args    = suppress_args;
         n->m_eq               = m.is_eq(owner);
-        n->m_commutative      = n->get_num_args() == 2 && owner->get_decl()->is_commutative();
+        n->m_commutative      = n->get_num_args() == 2 && n->get_decl()->is_commutative();
         n->m_bool             = m.is_bool(owner);
         n->m_merge_tf         = merge_tf;
         n->m_cgc_enabled      = cgc_enabled;
@@ -52,7 +52,7 @@ namespace smt {
         n->m_is_shared        = 2;
         unsigned num_args     = n->get_num_args();
         for (unsigned i = 0; i < num_args; ++i) {            
-            enode * arg  = app2enode[owner->get_arg(i)->get_id()];
+            enode * arg  = app2enode[to_app(owner)->get_arg(i)->get_id()];
             n->m_args[i] = arg;
             arg->get_root()->m_is_shared = 2;
             SASSERT(n->get_arg(i) == arg);
@@ -64,11 +64,11 @@ namespace smt {
         return n;
     }
 
-    enode * enode::mk(ast_manager & m, region & r, app2enode_t const & app2enode, app * owner, 
+    enode * enode::mk(ast_manager & m, region & r, app2enode_t const & app2enode, expr * owner, 
                            unsigned generation, bool suppress_args, bool merge_tf, unsigned iscope_lvl,
                            bool cgc_enabled, bool update_children_parent) {
         SASSERT(m.is_bool(owner) || !merge_tf);
-        unsigned sz           = get_enode_size(suppress_args ? 0 : owner->get_num_args());
+        unsigned sz           = get_enode_size(suppress_args || !::is_app(owner) ? 0 : to_app(owner)->get_num_args());
         void * mem            = r.allocate(sz);
         return init(m, mem, app2enode, owner, generation, suppress_args, merge_tf, iscope_lvl, cgc_enabled, update_children_parent);
     }
@@ -136,10 +136,11 @@ namespace smt {
        \brief Push old value of generation on the context trail stack
        and update the generation.       
     */
-    void enode::set_generation(context & ctx, unsigned generation) {
+    void enode::set_generation(context * ctx, unsigned generation) {
         if (m_generation == generation)
             return;
-        ctx.push_trail(value_trail<unsigned>(m_generation));
+        if (ctx)
+            ctx->push_trail(value_trail<unsigned>(m_generation));
         m_generation = generation;
     }
 
@@ -279,7 +280,7 @@ namespace smt {
 
     bool congruent(enode * n1, enode * n2, bool & comm) {
         comm          = false;
-        if (n1->get_expr()->get_decl() != n2->get_expr()->get_decl())
+        if (!n1->is_app() || n1->get_decl() != n2->get_decl())
             return false;
         unsigned num_args = n1->get_num_args();
         if (num_args != n2->get_num_args())

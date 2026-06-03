@@ -53,10 +53,7 @@ void arith_eq_solver::prop_mod_const(expr * e, unsigned depth, numeral const& k,
     numeral n;
     bool is_int;
 
-    if (depth == 0) {
-        result = e;
-    }
-    else if (m_util.is_add(e) || m_util.is_mul(e)) {
+    if (depth != 0 && (m_util.is_add(e) || m_util.is_mul(e))) {
         expr_ref_vector args(m);
         expr_ref tmp(m);
         app* a = to_app(e);
@@ -66,7 +63,7 @@ void arith_eq_solver::prop_mod_const(expr * e, unsigned depth, numeral const& k,
         }
         m_arith_rewriter.mk_app(a->get_decl(), args.size(), args.data(), result);
     }
-    else if (m_util.is_numeral(e, n, is_int) && is_int) {
+    else if (depth != 0 && m_util.is_numeral(e, n, is_int) && is_int) {
         result = m_util.mk_numeral(mod(n, k), true);
     }
     else {

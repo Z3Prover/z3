@@ -204,7 +204,7 @@ namespace smt {
         log_axiom_instantiation(mk_or(fmls));
     }
 
-    void theory::log_axiom_instantiation(app * r, unsigned axiom_id, unsigned num_bindings, app * const * bindings, unsigned pattern_id, const vector<std::tuple<enode *, enode *>> & used_enodes) {
+    void theory::log_axiom_instantiation(app * r, unsigned axiom_id, unsigned num_bindings, expr * const * bindings, unsigned pattern_id, const vector<std::tuple<enode *, enode *>> & used_enodes) {
         ast_manager & m = get_manager();   
         SASSERT(r->get_ref_count() > 0);
         std::ostream& out = m.trace_stream();

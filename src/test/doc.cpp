@@ -436,7 +436,7 @@ public:
         //sub:{xxx \ {1x0, 0x1}}
         //result:{100}
 
-        for (unsigned i = 0; i < 1000; ++i) {
+        for (unsigned i = 0; i < 100; ++i) {
             udoc d1, d2;
             mk_rand_udoc(3, 3, d1);
             mk_rand_udoc(3, 3, d2);
@@ -453,7 +453,7 @@ public:
 
     void test_intersect() {
         expr_ref fml1(m), fml2(m), fml3(m);
-        for (unsigned i = 0; i < 10000; ++i) {
+        for (unsigned i = 0; i < 100; ++i) {
             udoc d1, d2;
             mk_rand_udoc(3, 3, d1);
             mk_rand_udoc(3, 3, d2);

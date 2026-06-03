@@ -70,7 +70,6 @@ namespace smt {
         m_fingerprints(m, get_region()),
         m_b_internalized_stack(m),
         m_e_internalized_stack(m),
-        m_l_internalized_stack(m),
         m_final_check_idx(0),
         m_cg_table(m),
         m_conflict(null_b_justification),
@@ -82,7 +81,6 @@ namespace smt {
         m_unsat_core(m),
         m_mk_bool_var_trail(*this),
         m_mk_enode_trail(*this),
-        m_mk_lambda_trail(*this),
         m_lemma_visitor(m) {
 
         SASSERT(m_scope_lvl == 0);
@@ -217,7 +215,7 @@ namespace smt {
         }
         ast_translation tr(src_ctx.m, m, false);
         for (unsigned i = 0; i < src_ctx.m_user_propagator->get_num_vars(); ++i) {
-            app* e = src_ctx.m_user_propagator->get_expr(i);
+            auto e = src_ctx.m_user_propagator->get_expr(i);
             m_user_propagator->add_expr(tr(e), true);
         }
     }
@@ -289,8 +287,13 @@ namespace smt {
             if (!decision && d.m_phase == l.sign())
                 m_agility         += (1.0 - m_fparams.m_agility_factor);
         }
+        bool new_phase = !l.sign();
+        m_stats.m_num_assignments++;
+        if (d.m_phase_available && d.m_phase != new_phase)
+            m_birthdate[l.var()] = m_stats.m_num_assignments; // reset birthdate when phase changes
         d.m_phase_available        = true;
-        d.m_phase                  = !l.sign();
+        d.m_phase = new_phase;
+
         TRACE(assign_core, tout << (decision?"decision: ":"propagating: ") << l << " ";
               display_literal_smt2(tout, l) << "\n";
               tout << "relevant: " << is_relevant_core(l) << " level: " << m_scope_lvl << " is atom " << d.is_atom() << "\n";
@@ -649,7 +652,7 @@ namespace smt {
                     lbool val  = get_assignment(v);
                     if (val != l_true) {
                         if (val == l_false && js.get_kind() == eq_justification::CONGRUENCE)
-                            m_dyn_ack_manager.cg_conflict_eh(n1->get_expr(), n2->get_expr());
+                            m_dyn_ack_manager.cg_conflict_eh(n1->get_app(), n2->get_app());
                         assign(literal(v), mk_justification(eq_propagation_justification(lhs, rhs)));
                     }
                     // It is not necessary to reinsert the equality to the congruence table
@@ -915,7 +918,7 @@ namespace smt {
             lbool val2  = get_assignment(v2);
             if (val2 != val) {
                 if (val2 != l_undef && congruent(source, target) && source->get_num_args() > 0)
-                    m_dyn_ack_manager.cg_conflict_eh(source->get_expr(), target->get_expr());
+                    m_dyn_ack_manager.cg_conflict_eh(source->get_app(), target->get_app());
                 assign(literal(v2, sign), mk_justification(mp_iff_justification(source, target)));
             }
             target = target->get_next();
@@ -1133,7 +1136,7 @@ namespace smt {
             m.inc_ref(eq);
             _this->m_is_diseq_tmp = enode::mk_dummy(m, m_app2enode, eq);
         }
-        else if (m_is_diseq_tmp->get_expr()->get_arg(0)->get_sort() != n1->get_sort()) {
+        else if (m_is_diseq_tmp->get_app()->get_arg(0)->get_sort() != n1->get_sort()) {
             m.dec_ref(m_is_diseq_tmp->get_expr());
             app * eq = m.mk_eq(n1->get_expr(), n2->get_expr());
             m.inc_ref(eq);
@@ -1280,14 +1283,14 @@ namespace smt {
         enode * r   = m_cg_table.find(tmp);
 #ifdef Z3DEBUG
         if (r != nullptr) {
-            SASSERT(r->get_expr()->get_decl() == f);
+            SASSERT(r->get_decl() == f);
             SASSERT(r->get_num_args() == num_args);
             if (r->is_commutative()) {
                 // TODO
             }
             else {
                 for (unsigned i = 0; i < num_args; ++i) {
-                    expr * arg   = r->get_expr()->get_arg(i);
+                    expr * arg   = r->get_arg(i)->get_expr();
                     SASSERT(e_internalized(arg));
                     enode * _arg = get_enode(arg);
                     CTRACE(eq_to_bug, args[i]->get_root() != _arg->get_root(),
@@ -1773,9 +1776,11 @@ namespace smt {
         return m_fingerprints.contains(q, q->get_id(), num_bindings, bindings);
     }
 
-    bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
+    bool context::add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, //expr* def, 
+        unsigned max_generation,
                                unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode *>> & used_enodes) {
-        return m_qmanager->add_instance(q, pat, num_bindings, bindings, def, max_generation, min_top_generation, max_top_generation, used_enodes);
+        return m_qmanager->add_instance(q, pat, num_bindings, bindings, 
+            max_generation, min_top_generation, max_top_generation, used_enodes);
     }
 
     void context::rescale_bool_var_activity() {
@@ -4188,9 +4193,17 @@ namespace smt {
                 return FC_CONTINUE;
             }
             if (m_final_check_idx == old_idx) {
-                if (level >= max_level || result == FC_DONE || can_propagate())
+                if (level >= max_level || result == FC_DONE || result == FC_CONTINUE || can_propagate())
                     break;
                 ++level;
+                // Re-evaluate at the higher level: clear the give-up state
+                // accumulated at lower levels so a level that succeeds is
+                // not masked by a previous FC_GIVEUP. See e.g. theory_lra
+                // whose level 2 invokes the full nlsat (m_nra.check) that
+                // is skipped at level 1.
+                result = FC_DONE;
+                f      = OK;
+                m_incomplete_theories.reset();
             }
         }
 
@@ -4670,7 +4683,7 @@ namespace smt {
             return false;
         }
         case 1: {
-            if (m_qmanager->is_shared(n) && !m.is_lambda_def(n->get_expr()) && !m_lambdas.contains(n)) 
+            if (m_qmanager->is_shared(n) && !m_lambdas.contains(n)) 
                 return true;
 
             // the variable is shared if the equivalence class of n
@@ -4680,8 +4693,8 @@ namespace smt {
             theory_id th_id     = l->get_id();
 
             for (enode * parent : enode::parents(n)) {
-                app* p = parent->get_expr();
-                family_id fid = p->get_family_id();
+                auto p = parent->get_expr();
+                family_id fid = parent->get_family_id();
                 if (fid != th_id && fid != m.get_basic_family_id()) {
                     if (is_beta_redex(parent, n))
                         continue;
@@ -4729,7 +4742,7 @@ namespace smt {
     }
 
     bool context::is_beta_redex(enode* p, enode* n) const {
-        family_id th_id = p->get_expr()->get_family_id();
+        family_id th_id = p->get_family_id();
         theory * th = get_theory(th_id);
         return th && th->is_beta_redex(p, n);
     }

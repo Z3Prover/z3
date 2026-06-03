@@ -108,7 +108,7 @@ namespace smt {
     }
 
     void theory_array_base::assert_store_axiom1_core(enode * e) {
-        app * n           = e->get_expr();
+        app * n           = e->get_app();
         SASSERT(is_store(n));
         ptr_buffer<expr> sel_args;
         unsigned num_args = n->get_num_args();
@@ -217,27 +217,47 @@ namespace smt {
             if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
     }
+
+    void theory_array_base::assert_lambda_axiom_core(enode* n, enode* select) {
+        SASSERT(is_lambda(n->get_expr()));
+        SASSERT(is_select(select));
+        expr *e = n->get_expr();
+        SASSERT(is_lambda(e));
+        app *s = select->get_app();
+        auto q = to_quantifier(e);
+        SASSERT(q);
+
+        SASSERT(q->get_num_decls() == s->get_num_args() - 1);
+        // do the same thing as in sat/smt/array_axioms:
+        ptr_vector<expr> args(s->get_num_args(), s->get_args());
+        args[0] = q;
+        array_util a(m);
+        expr_ref alpha(a.mk_select(args), m);
+        expr_ref beta(alpha);
+        ctx.get_rewriter()(beta);
+        TRACE(array, tout << alpha << " == " << beta << "\n";);
+        auto alpha_n = ensure_enode(alpha);
+        auto beta_n = ensure_enode(beta);
+        ctx.assign_eq(alpha_n, beta_n, eq_justification::mk_axiom());
+    }
     
     bool theory_array_base::assert_store_axiom2(enode * store, enode * select) { 
+        SASSERT(is_store(store) || is_lambda(store->get_expr()));
         unsigned num_args = select->get_num_args();
         unsigned        i = 1;
         for (; i < num_args; ++i) 
-            if (store->get_arg(i)->get_root() != select->get_arg(i)->get_root())
+            if (is_store(store) && store->get_arg(i)->get_root() != select->get_arg(i)->get_root())
                 break;
         if (i == num_args)
             return false;
         if (ctx.add_fingerprint(store, store->get_owner_id(), select->get_num_args() - 1, select->get_args() + 1)) {
             TRACE(array, tout << "adding axiom2 to todo queue\n";);
-            m_axiom2_todo.push_back(std::make_pair(store, select)); 
+            m_axiom2_todo.push_back({store, select}); 
             return true;
         }
         TRACE(array, tout << "axiom already instantiated: #" << store->get_owner_id() << " #" << select->get_owner_id() << "\n";);
         return false;
     }
-
- 
-
-
 
     func_decl_ref_vector * theory_array_base::register_sort(sort * s_array) {
         unsigned dimension = get_dimension(s_array);
@@ -333,8 +353,8 @@ namespace smt {
 
    
     void theory_array_base::assert_extensionality_core(enode * n1, enode * n2) {
-        app * e1        = n1->get_expr();
-        app * e2        = n2->get_expr();
+        expr * e1        = n1->get_expr();
+        expr * e2        = n2->get_expr();
 
         func_decl_ref_vector * funcs = nullptr;
         sort *                     s = e1->get_sort();
@@ -371,15 +391,15 @@ namespace smt {
        \brief assert n1 = n2 => forall vars . (n1 vars) = (n2 vars)
      */
     void theory_array_base::assert_congruent_core(enode * n1, enode * n2) {
-        app * e1        = n1->get_expr();
-        app * e2        = n2->get_expr();
+        expr * e1        = n1->get_expr();
+        expr * e2        = n2->get_expr();
         sort* s         = e1->get_sort();
         unsigned dimension = get_array_arity(s);
         literal n1_eq_n2 = mk_eq(e1, e2, true);
         ctx.mark_as_relevant(n1_eq_n2);
         expr_ref_vector args1(m), args2(m);
-        args1.push_back(instantiate_lambda(e1));
-        args2.push_back(instantiate_lambda(e2));
+        args1.push_back(e1);
+        args2.push_back(e2);
         svector<symbol> names;
         sort_ref_vector sorts(m);
         for (unsigned i = 0; i < dimension; ++i) {
@@ -403,17 +423,6 @@ namespace smt {
         assert_axiom(~n1_eq_n2, fa_eq);
     }
 
-    expr_ref theory_array_base::instantiate_lambda(app* e) {
-        quantifier * q = m.is_lambda_def(e->get_decl());
-        expr_ref f(e, m);
-        if (q) {
-            // the variables in q are maybe not consecutive.
-            var_subst sub(m, false);
-            f = sub(q, e->get_num_args(), e->get_args());
-        }
-        return f;
-    }
-
     bool theory_array_base::can_propagate() {
         return 
             !m_axiom1_todo.empty() || 
@@ -424,13 +433,16 @@ namespace smt {
     }
 
     void theory_array_base::propagate() {
-        while (can_propagate()) {
+        while (theory_array_base::can_propagate()) {
             for (unsigned i = 0; i < m_axiom1_todo.size(); ++i)
                 assert_store_axiom1_core(m_axiom1_todo[i]);
             m_axiom1_todo.reset();
             for (unsigned i = 0; i < m_axiom2_todo.size(); ++i) {
                 auto [store, select] = m_axiom2_todo[i];
-                assert_store_axiom2_core(store, select);
+                if (is_store(store))
+                    assert_store_axiom2_core(store, select);
+                else
+                    assert_lambda_axiom_core(store, select);
             }
             m_axiom2_todo.reset();
             for (unsigned i = 0; i < m_extensionality_todo.size(); ++i) {
@@ -561,13 +573,13 @@ namespace smt {
             TRACE(array_bug, tout << "mk_interface_eqs: processing: v" << *it1 << "\n";);
             theory_var  v1 = *it1;
             enode *     n1 = get_enode(v1);
-            sort *      s1 = n1->get_expr()->get_sort();
+            sort *      s1 = n1->get_sort();
             sbuffer<theory_var>::iterator it2 = it1;
             ++it2;
             for (; it2 != end1; ++it2) {
                 theory_var v2 = *it2;
                 enode *    n2 = get_enode(v2);
-                sort *     s2 = n2->get_expr()->get_sort();
+                sort *     s2 = n2->get_sort();
                 if (s1 == s2 && !ctx.is_diseq(n1, n2)) {
                     app * eq  = mk_eq_atom(n1->get_expr(), n2->get_expr());
                     if (!ctx.b_internalized(eq) || !ctx.is_relevant(eq)) {
@@ -974,7 +986,7 @@ namespace smt {
     model_value_proc * theory_array_base::mk_value(enode * n, model_generator & mg) {
         theory_var v       = n->get_th_var(get_id());
         SASSERT(v != null_theory_var);
-        sort * s           = n->get_expr()->get_sort();
+        sort * s           = n->get_sort();
         enode * else_val_n = get_default(v);
         array_value_proc * result = nullptr;
 

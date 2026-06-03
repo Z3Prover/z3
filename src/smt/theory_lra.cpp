@@ -228,7 +228,7 @@ class theory_lra::imp {
     bool is_real(enode* n) const { return a.is_real(n->get_expr()); }
     enode* get_enode(theory_var v) const { return th.get_enode(v); }
     enode* get_enode(expr* e) const { return ctx().get_enode(e); }
-    expr*  get_owner(theory_var v) const { return get_enode(v)->get_expr(); }
+    expr*  get_expr(theory_var v) const { return get_enode(v)->get_expr(); }
     enode_pp pp(enode* n) const { return enode_pp(n, ctx()); }
     enode_pp pp(theory_var v) const { return pp(get_enode(v)); }
     mk_bounded_pp bpp(expr* e) { return mk_bounded_pp(e, m); }
@@ -449,25 +449,42 @@ class theory_lra::imp {
                         internalize_term(to_app(n));
                         internalize_term(to_app(n1));
                         internalize_term(to_app(n2));
+                        internalize_term(to_app(mod));
                         theory_var q = mk_var(n);
                         theory_var x = mk_var(n1);
                         theory_var y = mk_var(n2);
-                        m_nla->add_idivision(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y));
+                        theory_var rv = mk_var(mod);
+                        m_nla->add_idivision(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(rv));
                     }
                     if (a.is_numeral(n2) && a.is_bounded(n1)) {
                         ensure_nla();
                         internalize_term(to_app(n));
                         internalize_term(to_app(n1));
                         internalize_term(to_app(n2));
+                        internalize_term(to_app(mod));
                         theory_var q = mk_var(n);
                         theory_var x = mk_var(n1);
                         theory_var y = mk_var(n2);
-                        m_nla->add_bounded_division(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y));
+                        theory_var rv = mk_var(mod);
+                        m_nla->add_bounded_division(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(rv));
                     }
                 }
                 else if (a.is_mod(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
-                    if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);    
+                    if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);
+                    if (m_nla && a.is_numeral(n2) && !r.is_zero()) {
+                        app_ref div(a.mk_idiv(n1, n2), m);
+                        ctx().internalize(div, false);
+                        internalize_term(to_app(div));
+                        internalize_term(to_app(n1));
+                        internalize_term(to_app(n2));
+                        internalize_term(t);
+                        theory_var q = mk_var(div);
+                        theory_var x = mk_var(n1);
+                        theory_var y = mk_var(n2);
+                        theory_var rv = mk_var(n);
+                        m_nla->add_bounded_division(register_theory_var_in_lar_solver(q), register_theory_var_in_lar_solver(x), register_theory_var_in_lar_solver(y), register_theory_var_in_lar_solver(rv));
+                    }
                 }
                 else if (a.is_rem(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
@@ -1101,7 +1118,7 @@ public:
             m_nla->simplify();
     }
 
-    void relevant_eh(app* n) {
+    void relevant_eh(expr* n) {
         expr* n1, *n2;
         if (a.is_mod(n, n1, n2)) 
             mk_idiv_mod_axioms(n1, n2);
@@ -1110,11 +1127,11 @@ public:
         else if (a.is_div(n, n1, n2)) 
             mk_div_axiom(n1, n2);
         else if (a.is_to_int(n)) 
-            mk_to_int_axiom(n);
+            mk_to_int_axiom(to_app(n));
         else if (a.is_is_int(n))
-            mk_is_int_axiom(n);            
+            mk_is_int_axiom(to_app(n));            
         else if (m.is_ite(n))
-            mk_ite_axiom(n);
+            mk_ite_axiom(to_app(n));
         else if (a.is_power(n, n1, n2))
             mk_power_axiom(n, n1, n2);
     }
@@ -1235,9 +1252,9 @@ public:
     ///   abs(r) > r >= 0
     void assert_idiv_mod_axioms(theory_var u, theory_var v, theory_var w, rational const& r) {
         app_ref term(m);
-        term = a.mk_mul(a.mk_numeral(r, true), get_enode(w)->get_expr());
-        term = a.mk_add(get_enode(v)->get_expr(), term);
-        term = a.mk_sub(get_enode(u)->get_expr(), term);
+        term = a.mk_mul(a.mk_numeral(r, true), get_expr(w));
+        term = a.mk_add(get_expr(v), term);
+        term = a.mk_sub(get_expr(u), term);
         theory_var z = internalize_def(term);
         lpvar zi = register_theory_var_in_lar_solver(z);
         lpvar vi = register_theory_var_in_lar_solver(v);
@@ -1820,7 +1837,7 @@ public:
         rational lc = denominator(k);
         for (auto const& kv : coeffs) {
             theory_var w = kv.m_key;
-            expr* o = get_enode(w)->get_expr();
+            expr* o = get_expr(w);
             is_int = a.is_int(o);
             if (!is_int) break;
             lc = lcm(lc, denominator(kv.m_value));
@@ -2109,6 +2126,14 @@ public:
         m_explanation = l.expl();
         literal_vector core;
         SASSERT(!m_lemma.is_empty());
+        TRACE(nla_solver,
+            tout << "varmap:";
+            for (lpvar j : m_nla->get_core().collect_vars(l)) {
+                auto ext = lp().local_to_external(j);
+                if (ext != lp::null_lpvar && static_cast<unsigned>(ext) < th.get_num_vars())
+                    tout << " " << lp().get_variable_name(j) << "=" << pp(ext);
+            }
+            tout << "\n";);
         for (auto const& ineq : m_lemma.ineqs()) {
             auto lit = mk_literal(ineq);
             core.push_back(~lit);
@@ -2487,7 +2512,7 @@ public:
         lpvar vi = be.m_j;
         if (lp().column_has_term(vi))
             return;
-        expr_ref w(get_enode(v)->get_expr(), m);
+        expr_ref w(get_expr(v), m);
         if (a.is_add(w) || a.is_numeral(w) || m.is_ite(w))
             return;
         literal bound = null_literal;
@@ -3392,7 +3417,7 @@ public:
             theory_var v = lp().local_to_external(vi);
             rational val;
             TRACE(arith, tout << lp().get_variable_name(vi) << " " << v << "\n";);
-            if (v != null_theory_var && a.is_numeral(get_owner(v), val) && bound == val) {
+            if (v != null_theory_var && a.is_numeral(get_expr(v), val) && bound == val) {
                 dep = nullptr;
                 return bound == val;
             }
@@ -4121,7 +4146,7 @@ public:
 
     // Overload: create blocker from a saved impq value (used when x has been restored)
     expr_ref mk_gt(theory_var v, lp::impq const& val) {
-        expr* obj = get_enode(v)->get_expr();
+        expr* obj = get_expr(v);
         rational r = val.x;
         expr_ref e(m);
         if (a.is_int(obj->get_sort())) {
@@ -4179,7 +4204,7 @@ public:
     app_ref coeffs2app(u_map<rational> const& coeffs, rational const& offset, bool is_int) {
         expr_ref_vector args(m);
         for (auto const& [w, coeff] : coeffs) {
-            expr* o = get_enode(w)->get_expr();
+            expr* o = get_expr(w);
             if (coeff.is_zero()) {
                 // continue
             }
@@ -4226,13 +4251,14 @@ public:
 
     app_ref mk_obj(theory_var v) {
         auto t = get_lpvar(v);
-        bool is_int = a.is_int(get_enode(v)->get_expr());
+        auto e = th.get_expr(v);
+        bool is_int = a.is_int(e);
         if (lp().column_has_term(t)) {
             return mk_term(lp().get_term(t), is_int);
         }
         else {
             // theory_var w = lp().external_to_local(vi);
-            return app_ref(get_enode(v)->get_expr(), m);
+            return app_ref(to_app(e), m);
         }
     }
 
@@ -4240,7 +4266,7 @@ public:
         rational r = val.get_rational();
         bool is_strict =  val.get_infinitesimal().is_pos();
         app_ref b(m);
-        bool is_int = a.is_int(get_enode(v)->get_expr());
+        bool is_int = a.is_int(get_expr(v));
         TRACE(arith, display(tout << "v" << v << "\n"););
         if (is_strict) {
             b = a.mk_le(mk_obj(v), a.mk_numeral(r, is_int));
@@ -4446,7 +4472,7 @@ void theory_lra::pop_scope_eh(unsigned num_scopes) {
 void theory_lra::restart_eh() {
     m_imp->restart_eh();
 }
-void theory_lra::relevant_eh(app* e) {
+void theory_lra::relevant_eh(expr* e) {
     m_imp->relevant_eh(e);
 }
 void theory_lra::init_search_eh() {

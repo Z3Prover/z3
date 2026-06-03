@@ -45,6 +45,7 @@ namespace smt {
         unsigned m_num_checks;
         unsigned m_num_simplifications;
         unsigned m_num_del_clauses;
+        unsigned m_num_assignments;
         statistics() {
             reset();
         }

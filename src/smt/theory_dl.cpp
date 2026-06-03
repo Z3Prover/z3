@@ -166,20 +166,20 @@ namespace smt {
         }
 
         void apply_sort_cnstr(enode * n, sort * s) override {
-            app* term = n->get_expr();
+            auto term = n->get_expr();
             if (u().is_finite_sort(term)) {
                 mk_rep(term);
             }
         }
 
         
-        void relevant_eh(app * n) override {
+        void relevant_eh(expr * n) override {
             if (u().is_finite_sort(n)) {
                 sort* s = n->get_sort();
                 func_decl* r, *v;
                 get_rep(s, r, v);
                 
-                if (n->get_decl() != v) {
+                if (is_app(n) && to_app(n)->get_decl() != v) {
                     expr* rep = m().mk_app(r, n);
                     uint64_t vl;
                     if (u().is_numeral_ext(n, vl)) {
@@ -214,11 +214,12 @@ namespace smt {
             }
         }
 
-        bool mk_rep(app* n) {
-            unsigned num_args = n->get_num_args();
+        bool mk_rep(expr* n) {
+
             enode * e = nullptr;
-            for (unsigned i = 0; i < num_args; ++i) {
-                ctx.internalize(n->get_arg(i), false);
+            if (is_app(n)) {
+                for (auto arg : *to_app(n))
+                    ctx.internalize(arg, false);
             }
             if (ctx.e_internalized(n)) {
                 e = ctx.get_enode(n);

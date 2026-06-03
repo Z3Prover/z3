@@ -188,7 +188,7 @@ struct pull_quant::imp {
 				 var_names.data(),
 				 nested_q->get_expr(),
 				 std::min(q->get_weight(), nested_q->get_weight()),
-				 m.is_lambda_def(q) ? symbol("pulled-lambda") : q->get_qid());
+				 q->get_qid());
         }
 
         void pull_quant1(quantifier * q, expr * new_expr, expr_ref & result) {

@@ -2976,13 +2976,12 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
         prev_bit = bit;
     }
 
-    expr_ref one_div_exp2(m);
-    one_div_exp2 = m_arith_util.mk_div(one, exp2);
-    exp2 = m.mk_ite(exp_is_neg, one_div_exp2, exp2);
-    dbg_decouple("fpa2bv_to_real_exp2", exp2);
-
-    expr_ref res(m), two_exp2(m), minus_res(m), sgn_is_1(m);
+    expr_ref two_exp2(m), one_div_two_exp2(m);
     two_exp2 = m_arith_util.mk_power(two, exp2);
+    one_div_two_exp2 = m_arith_util.mk_div(one, two_exp2);
+    two_exp2 = m.mk_ite(exp_is_neg, one_div_two_exp2, two_exp2);
+    dbg_decouple("fpa2bv_to_real_exp2", two_exp2);
+    expr_ref res(m), minus_res(m), sgn_is_1(m);
     res = m_arith_util.mk_mul(rsig, two_exp2);
     minus_res = m_arith_util.mk_uminus(res);
     sgn_is_1 = m.mk_eq(sgn, bv1);
@@ -2990,7 +2989,7 @@ void fpa2bv_converter::mk_to_real(func_decl * f, unsigned num, expr * const * ar
     dbg_decouple("fpa2bv_to_real_sig_times_exp2", res);
 
     TRACE(fpa2bv_to_real, tout << "rsig = " << mk_ismt2_pp(rsig, m) << std::endl;
-    tout << "exp2 = " << mk_ismt2_pp(exp2, m) << std::endl;);
+    tout << "two_exp2 = " << mk_ismt2_pp(two_exp2, m) << std::endl;);
 
     expr_ref unspec(m);
     mk_to_real_unspecified(f, num, args, unspec);

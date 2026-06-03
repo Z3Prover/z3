@@ -92,6 +92,7 @@ class elim_unconstrained : public dependent_expr_simplifier {
     stats                    m_stats;
     config                   m_config;
     bool                     m_created_compound = false;
+    expr_mark m_disabled;
 
     bool is_var_lt(int v1, int v2) const;
     node& get_node(unsigned n) const { return *m_nodes[n]; }
@@ -108,6 +109,7 @@ class elim_unconstrained : public dependent_expr_simplifier {
     expr* reconstruct_term(node& n);
     void assert_normalized(vector<dependent_expr>& old_fmls);
     void update_model_trail(generic_model_converter& mc, vector<dependent_expr> const& old_fmls);
+    void disable(expr *e);
 
         
 public:

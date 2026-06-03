@@ -192,7 +192,7 @@ namespace sat {
                 return false;
             }
             binary b(~y, x, nullptr);
-            if (!binaries.find(b, b)) {
+            if (!binaries.find(b, b) || !b.use_list) {
                 return false;
             }
             for (auto p : *b.use_list) {

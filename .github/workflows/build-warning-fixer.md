@@ -5,8 +5,6 @@ on:
   workflow_dispatch:
 permissions: read-all
 tools:
-  view: {}
-  glob: {}
   edit:
   bash: true
 safe-outputs:

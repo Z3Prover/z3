@@ -444,8 +444,8 @@ ${Object.entries(primitiveTypes)
   .map(e => `type ${e[0]} = ${e[1]};`)
   .join('\n')}
 
-export async function init(initModule: any) {
-  let Mod = await initModule();
+export async function init(initModule: any, moduleOverrides: Record<string, unknown> = {}) {
+  let Mod = await initModule(moduleOverrides);
 
   // this works for both signed and unsigned, because JS will wrap for you when constructing the Uint32Array
   function intArrayToByteArr(ints: number[]) {
@@ -461,13 +461,13 @@ export async function init(initModule: any) {
   }
 
   let outAddress = Mod._malloc(${BYTES_TO_ALLOCATE_FOR_OUT_PARAMS});
-  let outUintArray = (new Uint32Array(Mod.HEAPU32.buffer, outAddress, 4));
+  let outUintArray = (new Uint32Array(Mod.HEAPU32.buffer, outAddress, ${BYTES_TO_ALLOCATE_FOR_OUT_PARAMS / 4}));
   let getOutUint = (i: ${getValidOutArrayIndexes(4)}) => outUintArray[i];
-  let outIntArray = (new Int32Array(Mod.HEAPU32.buffer, outAddress, 4));
+  let outIntArray = (new Int32Array(Mod.HEAPU32.buffer, outAddress, ${BYTES_TO_ALLOCATE_FOR_OUT_PARAMS / 4}));
   let getOutInt = (i: ${getValidOutArrayIndexes(4)}) => outIntArray[i];
-  let outUint64Array = (new BigUint64Array(Mod.HEAPU32.buffer, outAddress, 2));
+  let outUint64Array = (new BigUint64Array(Mod.HEAPU32.buffer, outAddress, ${BYTES_TO_ALLOCATE_FOR_OUT_PARAMS / 8}));
   let getOutUint64 = (i: ${getValidOutArrayIndexes(8)}) => outUint64Array[i];
-  let outInt64Array = (new BigInt64Array(Mod.HEAPU32.buffer, outAddress, 2));
+  let outInt64Array = (new BigInt64Array(Mod.HEAPU32.buffer, outAddress, ${BYTES_TO_ALLOCATE_FOR_OUT_PARAMS / 8}));
   let getOutInt64 = (i: ${getValidOutArrayIndexes(8)}) => outInt64Array[i];
 
   return {

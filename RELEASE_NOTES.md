@@ -60,6 +60,77 @@ Version 4.17.0
   https://github.com/Z3Prover/z3/pull/8983
 - Fix deep API bugs in Z3 C API (null pointer handling, error propagation).
   https://github.com/Z3Prover/z3/pull/8972
+- Implement multivariate polynomial factorization via Hensel lifting. Replaces the prior stub
+  implementation (factor_n_sqf_pp) with a working algorithm: evaluate away extra variables to
+  reduce to bivariate, factor the univariate specialization, lift via linear Hensel lifting in
+  Zp[x], and verify the result over Z[x,y]. For more than two variables, bivariate factors are
+  checked against the original polynomial. Thanks to Lev Nachmanson.
+- Add riscv64 Python wheel builds to nightly and release PyPI publishing.
+  https://github.com/Z3Prover/z3/pull/9153
+- Fix nlsat clear() crash: reset polynomial cache and root-atom assignments during solver
+  destruction to prevent use-after-free heap corruption. Also fix scoped_numeral_vector copy
+  constructor to read from the source operand instead of uninitialized self.
+  https://github.com/Z3Prover/z3/pull/9150
+- Fix #9030: in box mode optimization (opt.priority=box), each objective is now optimized
+  independently using push/pop scopes, so adding or removing one objective no longer changes
+  the optimal values of others.
+- Fix assertion violation in isolate_roots for nested nlsat calls. Fixes #6871.
+- Fix #9036: expand bounded integer quantifiers in qe-light when Fourier-Motzkin elimination
+  fails due to non-unit coefficients. When all remaining quantified integers have explicit
+  finite bounds and the product of domain sizes is at most 10000, the quantifier is unrolled
+  into an explicit disjunction.
+- Fix #8023: only skip adding an axiom clause when its satisfying literal is assigned at base
+  level (scope 0). The previous optimization was unsound: literals can be retracted by
+  backtracking, causing the string solver to miss propagations such as indexof(a,s) = -1 when
+  contains(a,s) becomes false after backtracking.
+- Fix lock contention in theory_diff_logic and theory_dense_diff_logic when using multi-threaded
+  solving (smt.threads > 1). A diagnostic IF_VERBOSE(0,...) call was always acquiring the global
+  verbose mutex, causing catastrophic contention when multiple threads internalized atoms.
+  Fixes #8019.
+- Fix string solver: move m_fixed insertion after check_long_strings guard to prevent premature
+  marking of string variables with length > 20 as processed.
+- Fix documentation for Z3_solver_to_dimacs_string: corrected the function name in the API
+  comment. Thanks to Mark DenHoed, https://github.com/Z3Prover/z3/pull/9053
+- Add global backbones to parallel architecture for smt.threads > 1. Backbone literals learned
+  by any worker thread are broadcast to all others, improving search pruning in the shared search
+  tree. Thanks to Ilana Shapiro.
+  https://github.com/Z3Prover/z3/pull/9343
+- Terminate on Demand and algorithmic bugfixes in the parallel search tree, including improved
+  worker termination signaling and fixes to node-state management. Thanks to Ilana Shapiro.
+  https://github.com/Z3Prover/z3/pull/9336
+- Add adaptive growth knobs for Gröbner basis computation under arith.nl.grobner_adaptive.
+  Allows tuning of Gröbner basis expansion rate for better NLA performance. Thanks to Arie.
+  https://github.com/Z3Prover/z3/pull/9390
+- Improvements to NLA lemmas for better nonlinear arithmetic solving. Thanks to Arie.
+  https://github.com/Z3Prover/z3/pull/9391
+- Throttle lia2card tactic in QF_NIA preamble to avoid combinatorial explosion on large instances.
+  Thanks to Arie, https://github.com/Z3Prover/z3/pull/9362
+- Fix smt: reset give-up state when escalating final_check level to prevent solver from
+  incorrectly abandoning solvable instances. Thanks to Lev Nachmanson.
+  https://github.com/Z3Prover/z3/pull/9408
+- Fix double-free crash in anum by giving anum move semantics to prevent sort-triggered
+  double-free. Thanks to Arie, https://github.com/Z3Prover/z3/pull/9320
+- Fix lar_term equality operator to correctly compare terms. Thanks to Arie.
+  https://github.com/Z3Prover/z3/pull/9284
+- Prevent unsound solve-eqs elimination across recursive-function definitions.
+  https://github.com/Z3Prover/z3/pull/9358
+- Fix inverted logic of is-linear check in solve-eqs, #9311.
+- Fix #9293: disable elim-uncnstr simplification under quantifiers to prevent unsound
+  eliminations. Also fix #9234, #9309.
+- Add exception protection for nlsat_tactic and try_for tactic to correctly handle cancellation
+  and ensure robust exception propagation.
+- Add smt.solve_eqs.linear parameter (default false). When set to true, restricts variable
+  eliminations in solve-eqs to only use linear substitutions, avoiding cross-multiplication
+  of nested substitutions.
+- Fix null dereference in linearise_multi_pattern: reorder null check before side effect.
+  https://github.com/Z3Prover/z3/pull/9427
+- Add Go and OCaml API coverage: substitution, AST introspection, Spacer, and Goal completion
+  APIs. https://github.com/Z3Prover/z3/pull/9277
+- Fix two bugs in Python examples. Thanks to Guangyu (Gary) HU.
+  https://github.com/Z3Prover/z3/pull/9303
+- Add fold-unfold tactic as an alternative to solve-eqs for variable elimination using
+  fold-unfold transformations. Also exposed as a simplifier.
+- Handle SIGXCPU (OS timeout) like a regular `-T` timeout.  Users should make sure to set the soft limit below the hard one, as in `ulimit -S -t 30 -H -t 31` for a 30s soft limit, so SIGXCPU is delivered before SIGKILL.
 
 Version 4.16.0
 ==============

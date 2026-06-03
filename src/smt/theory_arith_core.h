@@ -1381,18 +1381,19 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::relevant_eh(app * n) {
+    void theory_arith<Ext>::relevant_eh(expr * n) {
         TRACE(arith_relevant_eh, tout << "relevant_eh: " << mk_pp(n, m) << "\n";);
-        if (m_util.is_mod(n))
-            mk_idiv_mod_axioms(n->get_arg(0), n->get_arg(1));
-        else if (m_util.is_rem(n))
-            mk_rem_axiom(n->get_arg(0), n->get_arg(1));
-        else if (m_util.is_div(n))
-            mk_div_axiom(n->get_arg(0), n->get_arg(1));
+        expr* x = nullptr, *y = nullptr;
+        if (m_util.is_mod(n, x, y))
+            mk_idiv_mod_axioms(x, y);
+        else if (m_util.is_rem(n, x, y))
+            mk_rem_axiom(x, y);
+        else if (m_util.is_div(n, x, y))
+            mk_div_axiom(x, y);
         else if (m_util.is_to_int(n))
-            mk_to_int_axiom(n);
+            mk_to_int_axiom(to_app(n));
         else if (m_util.is_is_int(n))
-            mk_is_int_axiom(n);
+            mk_is_int_axiom(to_app(n));
     }
 
     template<typename Ext>
@@ -1451,8 +1452,8 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::new_diseq_eh(theory_var v1, theory_var v2) {
-        TRACE(arith_new_diseq_eh, tout << mk_bounded_pp(get_enode(v1)->get_expr(), m) << "\n" <<
-              mk_bounded_pp(get_enode(v2)->get_expr(), m) << "\n";);
+        TRACE(arith_new_diseq_eh, tout << mk_bounded_pp(get_expr(v1), m) << "\n" <<
+              mk_bounded_pp(get_expr(v2), m) << "\n";);
         m_stats.m_assert_diseq++;
         m_arith_eq_adapter.new_diseq_eh(v1, v2);
     }

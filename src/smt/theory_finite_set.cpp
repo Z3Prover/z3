@@ -239,8 +239,9 @@ namespace smt {
         return true;
     }
 
-    void theory_finite_set::relevant_eh(app* t) {
-        add_immediate_axioms(t);
+    void theory_finite_set::relevant_eh(expr* t) {
+        if (is_app(t))
+            add_immediate_axioms(to_app(t));
     }
 
     void theory_finite_set::apply_sort_cnstr(enode* n, sort* s) {

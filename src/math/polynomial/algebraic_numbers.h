@@ -381,13 +381,24 @@ namespace algebraic_numbers {
 
     
 
-    class anum {   
+    class anum {
         enum anum_kind { BASIC = 0, ROOT };
         void* m_cell;
     public:
         anum() :m_cell(nullptr) {}
         anum(basic_cell* cell) :m_cell(TAG(void*, cell, BASIC)) { }
         anum(algebraic_cell * cell):m_cell(TAG(void*, cell, ROOT)) {  }
+
+        // Move nulls the source so std::sort's inner shifts stay alias-free
+        // if the comparator throws between moves (avoids a later double-free).
+        anum(anum const &) = default;
+        anum & operator=(anum const &) = default;
+        anum(anum && other) noexcept : m_cell(other.m_cell) { other.m_cell = nullptr; }
+        anum & operator=(anum && other) noexcept {
+            m_cell = other.m_cell;
+            other.m_cell = nullptr;
+            return *this;
+        }
 
         bool is_basic() const { return GET_TAG(m_cell) == BASIC; }
         basic_cell * to_basic() const { SASSERT(is_basic()); return UNTAG(basic_cell*, m_cell); }

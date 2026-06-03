@@ -33,6 +33,8 @@ namespace nla {
         u_dependency* explain_fixed(monic const& m, rational const& k);
         lp::explanation get_explanation(u_dependency* dep);
         bool propagate_down(monic const& m, dep_interval& mi, lpvar v, unsigned power, dep_interval& product);
+        bool propagate_shared_factor(monic const& m);
+        bool propagate_binomial_sign(monic const& m);
         void analyze_monomial(monic const& m, unsigned& num_free, lpvar& free_v, unsigned& power) const;
         bool is_free(lpvar v) const;
         bool is_zero(lpvar v) const;

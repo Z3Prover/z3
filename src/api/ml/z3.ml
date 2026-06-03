@@ -475,6 +475,7 @@ sig
   val substitute : expr -> expr list -> expr list -> expr
   val substitute_one : expr -> expr -> expr -> expr
   val substitute_vars : expr -> expr list -> expr
+  val substitute_funs : expr -> FuncDecl.func_decl list -> expr list -> expr
   val translate : expr -> context -> expr
   val to_string : expr -> string
   val is_numeral : expr -> bool
@@ -537,6 +538,13 @@ end = struct
   let substitute_vars x to_ =
     Z3native.substitute_vars (gc x) x (List.length to_) to_
 
+  let substitute_funs x from to_ =
+    let len = List.length from in
+    if List.length to_ <> len then
+      raise (Error "Argument sizes do not match")
+    else
+      Z3native.substitute_funs (gc x) x len from to_
+
   let translate (x:expr) to_ctx =
     if gc x = to_ctx then
       x
@@ -586,6 +594,12 @@ struct
 
   let mk_eq = Z3native.mk_eq
   let mk_distinct ctx args = Z3native.mk_distinct ctx (List.length args) args
+
+  let mk_atmost ctx args k = Z3native.mk_atmost ctx (List.length args) args k
+  let mk_atleast ctx args k = Z3native.mk_atleast ctx (List.length args) args k
+  let mk_pble ctx args coeffs k = Z3native.mk_pble ctx (List.length args) args coeffs k
+  let mk_pbge ctx args coeffs k = Z3native.mk_pbge ctx (List.length args) args coeffs k
+  let mk_pbeq ctx args coeffs k = Z3native.mk_pbeq ctx (List.length args) args coeffs k
 
   let get_bool_value x = lbool_of_int (Z3native.get_bool_value (gc x) x)
 
@@ -1283,6 +1297,9 @@ struct
   let mk_seq_contains = Z3native.mk_seq_contains
   let mk_seq_extract = Z3native.mk_seq_extract
   let mk_seq_replace = Z3native.mk_seq_replace
+  let mk_seq_replace_all = Z3native.mk_seq_replace_all
+  let mk_seq_replace_re = Z3native.mk_seq_replace_re
+  let mk_seq_replace_re_all = Z3native.mk_seq_replace_re_all
   let mk_seq_at = Z3native.mk_seq_at
   let mk_seq_length = Z3native.mk_seq_length
   let mk_seq_nth = Z3native.mk_seq_nth
@@ -1308,6 +1325,7 @@ struct
   let mk_re_loop = Z3native.mk_re_loop
   let mk_re_intersect ctx args = Z3native.mk_re_intersect ctx (List.length args) args
   let mk_re_complement = Z3native.mk_re_complement
+  let mk_re_diff = Z3native.mk_re_diff
   let mk_re_empty = Z3native.mk_re_empty
   let mk_re_full = Z3native.mk_re_full
   let mk_char = Z3native.mk_char
@@ -1334,6 +1352,15 @@ struct
   let mk_map = Z3native.mk_finite_set_map
   let mk_filter = Z3native.mk_finite_set_filter
   let mk_range = Z3native.mk_finite_set_range
+end
+
+module SpecialRelation =
+struct
+  let mk_linear_order = Z3native.mk_linear_order
+  let mk_partial_order = Z3native.mk_partial_order
+  let mk_piecewise_linear_order = Z3native.mk_piecewise_linear_order
+  let mk_tree_order = Z3native.mk_tree_order
+  let mk_transitive_closure = Z3native.mk_transitive_closure
 end
 
 module FloatingPoint =

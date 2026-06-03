@@ -163,6 +163,24 @@ struct mbp_dt_tg::impl {
             if (is_app(term) &&
                 m_dt_util.is_accessor(to_app(term)->get_decl()) &&
                 has_var(to_app(term)->get_arg(0))) {
+                // Only apply rm_accessor if the model confirms the argument
+                // has the constructor that this accessor belongs to.
+                // Otherwise we introduce a contradictory is-cons literal.
+                func_decl *cons =
+                    m_dt_util.get_accessor_constructor(to_app(term)->get_decl());
+                func_decl *rec = m_dt_util.get_constructor_recognizer(cons);
+                expr_ref is_rec(m.mk_app(rec, to_app(term)->get_arg(0)), m);
+                if (!m_mdl.is_true(is_rec)) {
+                    // Ground the argument so the accessor term becomes
+                    // constructively ground. This preserves any enclosing
+                    // literal (e.g., (not (is-nil (tl nil)))) as a guard in
+                    // the output, preventing an over-approximation.
+                    expr_ref is(m.mk_not(is_rec), m);
+                    m_tg.add_lit(is);
+                    mark_seen(term);
+                    progress = true;
+                    continue;
+                }
                 mark_seen(term);
                 progress = true;
                 rm_accessor(term);

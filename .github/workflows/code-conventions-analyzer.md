@@ -8,8 +8,6 @@ tools:
   cache-memory: true
   github:
     toolsets: [default]
-  view: {}
-  glob: {}
   edit: {}
   bash:
     - "clang-format --version"

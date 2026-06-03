@@ -215,6 +215,7 @@ namespace {
         unsigned short m_num_args;
         unsigned       m_ireg;
         unsigned       m_oreg;
+        unsigned       m_curr_max_generation = 0;
     };
 
     struct get_cgr : public instruction {
@@ -1114,8 +1115,9 @@ namespace {
                         best_j         = j;
                     }
                 }
+                if (best == nullptr)
+                    continue;
                 m_mp_already_processed[best_j] = true;
-                SASSERT(best != 0);
                 app * p                 = best;
                 func_decl * lbl         = p->get_decl();
                 unsigned short num_args = p->get_num_args();
@@ -1225,7 +1227,11 @@ namespace {
 
             SASSERT(head->m_next == 0);
 
-            m_seq.push_back(m_ct_manager.mk_yield(m_qa, m_mp, m_qa->get_num_decls(), reinterpret_cast<unsigned*>(m_vars.begin())));
+            unsigned num_decls = m_qa->get_num_decls();
+            unsigned_vector var_regs(num_decls);
+            for (unsigned i = 0; i < num_decls; ++i)
+                var_regs[i] = static_cast<unsigned>(m_vars[i]);
+            m_seq.push_back(m_ct_manager.mk_yield(m_qa, m_mp, num_decls, var_regs.data()));
 
             for (instruction* curr : m_seq) {
                 head->m_next = curr;
@@ -1882,32 +1888,42 @@ namespace {
                 m_used_enodes.push_back(std::make_tuple(prev, n));
         }
 
+        void get_f_app(func_decl* lbl, unsigned num_expected_args, enode* curr, enode*& matching_cgr, enode*& min_gen_match) {
+            if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args) {
+                if (curr->is_cgr() && !matching_cgr)
+                    matching_cgr = curr;
+
+                if (!min_gen_match || min_gen_match->get_generation() > curr->get_generation()) {
+                    min_gen_match = curr;
+                }
+            }
+        }
+
         // We have to provide the number of expected arguments because we have flat-assoc applications such as +.
         // Flat-assoc applications may have arbitrary number of arguments.
         enode * get_first_f_app(func_decl * lbl, unsigned num_expected_args, enode * curr) {
             enode * first = curr;
+            enode *matching_cgr = nullptr, *min_gen_match = nullptr;
             do {
-                if (curr->get_decl() == lbl && curr->is_cgr() && curr->get_num_args() == num_expected_args) {
-                    update_max_generation(curr, first);
-                    return curr;
-                }
+                get_f_app(lbl, num_expected_args, curr, matching_cgr, min_gen_match);
                 curr = curr->get_next();
             }
             while (curr != first);
-            return nullptr;
+            if (matching_cgr)
+                update_max_generation(min_gen_match, first);  
+            return matching_cgr;
         }
 
         enode * get_next_f_app(func_decl * lbl, unsigned num_expected_args, enode * first, enode * curr) {
             curr = curr->get_next();
             while (curr != first) {
-                if (curr->get_decl() == lbl && curr->is_cgr() && curr->get_num_args() == num_expected_args) {
-                    update_max_generation(curr, first);
+                if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->is_cgr())
                     return curr;
-                }
                 curr = curr->get_next();
             }
             return nullptr;
         }
+
 
         /**
            \brief Execute the is_cgr instruction.
@@ -2471,6 +2487,7 @@ namespace {
                  m_backtrack_stack[m_top].m_old_max_generation = m_curr_max_generation;                                 \
                  m_backtrack_stack[m_top].m_old_used_enodes_size = m_curr_used_enodes_size;                             \
                  m_backtrack_stack[m_top].m_curr               = m_app;                                                 \
+                 const_cast<bind*>(static_cast<const bind*>(m_pc))->m_curr_max_generation = m_max_generation;                                   \
                  m_top++;
 
             BIND_COMMON();
@@ -2738,7 +2755,8 @@ namespace {
 #define BBIND_COMMON() m_b   = static_cast<const bind*>(bp.m_instr);                                                            \
                        m_n1  = m_registers[m_b->m_ireg];                                                                        \
                        m_app = get_next_f_app(m_b->m_label, m_b->m_num_args, m_n1, bp.m_curr); \
-                       if (m_app == 0) {                                                                                        \
+                       m_max_generation = m_b->m_curr_max_generation;                                                            \
+                       if (!m_app) {                                                                                        \
                            m_top--;                                                                                             \
                            goto backtrack;                                                                                      \
                        }                                                                                                        \
@@ -2909,6 +2927,8 @@ namespace {
             SASSERT(m.is_pattern(mp));
             SASSERT(first_idx < mp->get_num_args());
             app * p           = to_app(mp->get_arg(first_idx));
+            if (is_ground(p))
+                return;
             func_decl * lbl   = p->get_decl();
             unsigned lbl_id   = lbl->get_small_id();
             m_trees.reserve(lbl_id+1, nullptr);
@@ -3736,7 +3756,7 @@ namespace {
         }
 
         void match_new_patterns() {
-            TRACE(mam_new_pat, tout << "matching new patterns:\n";);
+            TRACE(mam, tout << "matching new patterns:\n";);
             m_tmp_trees_to_delete.reset();
             for (auto const& kv : m_new_patterns) {
                 if (m_context.get_cancel_flag()) {
@@ -3782,8 +3802,14 @@ namespace {
             for (unsigned i = 0; i < num_patterns; ++i) {
                 app * pat = to_app(mp->get_arg(i));
                 TRACE(mam_pat, tout << mk_ismt2_pp(qa, m) << "\npat:\n" << mk_ismt2_pp(pat, m) << "\n";);
-                SASSERT(!pat->is_ground());
-                todo.push_back(pat);
+                if (pat->is_ground()) {
+                    enode * e = mk_enode(m_context, qa, pat);
+                    m_context.mark_as_relevant(e);
+                    m_context.push_trail(add_shared_enode_trail(*this, e));
+                    m_shared_enodes.insert(e);
+                }
+                else
+                    todo.push_back(pat);
             }
             while (!todo.empty()) {
                 app * n = todo.back();
@@ -3834,10 +3860,10 @@ namespace {
             // Ground patterns are discarded.
             // However, the simplifier may turn a non-ground pattern into a ground one.
             // So, we should check it again here.
-            unsigned num_patterns = mp->get_num_args();
-            for (unsigned i = 0; i < num_patterns; ++i)
-                if (is_ground(mp->get_arg(i)))
-                    return; // ignore multi-pattern containing ground pattern.
+            if (all_of(*mp, [](expr *arg) { return is_ground(arg); }))
+                return;  // ignore multi-pattern containing only ground pattern.
+            if (any_of(*mp, [](expr *arg) { return has_quantifiers(arg); }))
+                return;  // patterns with quantifiers are not handled.
             update_filters(qa, mp);
             collect_ground_exprs(qa, mp);
             m_new_patterns.push_back(qp_pair(qa, mp));
@@ -3845,7 +3871,7 @@ namespace {
             // e-matching. So, for a multi-pattern [ p_1, ..., p_n ],
             // we have to make n insertions. In the i-th insertion,
             // the pattern p_i is assumed to be the first one.
-            for (unsigned i = 0; i < num_patterns; ++i)
+            for (unsigned i = 0; i < mp->get_num_args(); ++i)
                 m_trees.add_pattern(qa, mp, i);
         }
 
@@ -3949,7 +3975,7 @@ namespace {
 #endif
             unsigned min_gen = 0, max_gen = 0;
             m_interpreter.get_min_max_top_generation(min_gen, max_gen);
-            m_context.add_instance(qa, pat, num_bindings, bindings, nullptr, max_generation, min_gen, max_gen, used_enodes);
+            m_context.add_instance(qa, pat, num_bindings, bindings, max_generation, min_gen, max_gen, used_enodes);
         }
 
         bool is_shared(enode * n) const override {

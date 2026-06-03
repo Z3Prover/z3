@@ -74,6 +74,8 @@ class Horn2Transitions:
         pred, inv0 = self.is_body(body)
         if pred is None:
             return False
+        if inv0 is None:
+            return False
         inv1 = self.is_inv(head)
         if inv1 is None:
             return False
@@ -335,7 +337,7 @@ class MiniIC3:
         s = self.states[f - 1].solver
         if unsat == s.check(cube):
             core = s.unsat_core()
-            if not check_disjoint(self.init, self.prev(And(core))):
+            if len(core) > 0 and check_disjoint(self.init, self.prev(And(core))):
                 return core, f
         return cube, f
 

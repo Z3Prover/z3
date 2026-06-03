@@ -34,25 +34,31 @@ namespace smt {
         virtual void set_prop_upward(theory_var v) {}
         void found_unsupported_op(expr * n);
         void found_unsupported_op(enode* n) { found_unsupported_op(n->get_expr()); }
-        void found_unsupported_op(theory_var v) { found_unsupported_op(get_enode(v)->get_expr()); }
+        void found_unsupported_op(theory_var v) { found_unsupported_op(get_expr(v)); }
         
-        bool is_store(app const* n) const { return n->is_app_of(get_id(), OP_STORE); }
-        bool is_map(app const* n) const { return n->is_app_of(get_id(), OP_ARRAY_MAP); }
-        bool is_select(app const* n) const { return n->is_app_of(get_id(), OP_SELECT); }
-        bool is_default(app const* n) const { return n->is_app_of(get_id(), OP_ARRAY_DEFAULT); }
-        bool is_const(app const* n) const { return n->is_app_of(get_id(), OP_CONST_ARRAY); }
-        bool is_array_ext(app const * n) const { return n->is_app_of(get_id(), OP_ARRAY_EXT); }
-        bool is_as_array(app const * n) const { return n->is_app_of(get_id(), OP_AS_ARRAY); }
+        bool is_store(expr const* n) const { return is_app(n) && to_app(n)->is_app_of(get_id(), OP_STORE); }
+        bool is_map(expr const* n) const { return is_app(n) && to_app(n)->is_app_of(get_id(), OP_ARRAY_MAP); }
+        bool is_select(expr const* n) const { return is_app(n) && to_app(n)->is_app_of(get_id(), OP_SELECT); }
+        bool is_default(expr const* n) const { return is_app(n) && to_app(n)->is_app_of(get_id(), OP_ARRAY_DEFAULT); }
+        bool is_const(expr const* n) const { return is_app(n) && to_app(n)->is_app_of(get_id(), OP_CONST_ARRAY); }
+        bool is_array_ext(expr const * n) const { return is_app(n) && to_app(n)->is_app_of(get_id(), OP_ARRAY_EXT); }
+        bool is_as_array(expr const * n) const { return is_app(n) && to_app(n)->is_app_of(get_id(), OP_AS_ARRAY); }
+        bool is_choice(expr const* n) const { return is_app(n) && to_app(n)->is_app_of(get_id(), OP_CHOICE); }
         bool is_array_sort(sort const* s) const { return s->is_sort_of(get_id(), ARRAY_SORT); }
-        bool is_array_sort(app const* n) const { return is_array_sort(n->get_sort()); }
+        bool is_array_sort(expr const* n) const { return is_array_sort(n->get_sort()); }
+        
 
         bool is_store(enode const * n) const { return is_store(n->get_expr()); }
         bool is_map(enode const* n) const { return is_map(n->get_expr()); }
         bool is_select(enode const* n) const { return is_select(n->get_expr()); }
         bool is_const(enode const* n) const { return is_const(n->get_expr()); }
         bool is_as_array(enode const * n) const { return is_as_array(n->get_expr()); }
+        bool is_choice(enode const* n) const { return is_choice(n->get_expr()); }
         bool is_default(enode const* n) const { return is_default(n->get_expr()); }
-        bool is_array_sort(enode const* n) const { return is_array_sort(n->get_expr()); }
+        bool is_array_sort(enode const* n) const { return is_array_sort(n->get_sort()); }
+        
+        
+        
         bool is_select_arg(enode* r);
 
         app * mk_select(unsigned num_args, expr * const * args);
@@ -74,13 +80,14 @@ namespace smt {
         void assert_axiom(literal l);
         void assert_store_axiom1_core(enode * n);
         void assert_store_axiom2_core(enode * store, enode * select);
+        void assert_lambda_axiom_core(enode *lambda, enode *select);
         void assert_store_axiom1(enode * n) { m_axiom1_todo.push_back(n); }
         bool assert_store_axiom2(enode * store, enode * select);
 
         void assert_extensionality_core(enode * a1, enode * a2);
         bool assert_extensionality(enode * a1, enode * a2);
 
-        expr_ref instantiate_lambda(app* e);
+        expr_ref instantiate_lambda(expr* e);
         void assert_congruent_core(enode * a1, enode * a2);
         void assert_congruent(enode * a1, enode * a2);
 
@@ -207,5 +214,4 @@ namespace smt {
     };
 
 };
-
 

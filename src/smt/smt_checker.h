@@ -37,10 +37,10 @@ namespace smt {
         unsigned               m_num_bindings;
         enode * const *        m_bindings;
 
-        bool all_args(app * a, bool is_true);
-        bool any_arg(app * a, bool is_true);
-        bool check_core(expr * n, bool is_true);
-        bool check(expr * n, bool is_true);
+        bool all_args(app *a, unsigned depth, bool is_true);
+        bool any_arg(app *a, unsigned depth, bool is_true);
+        bool check_core(expr * n, unsigned depth, bool is_true);
+        bool check(expr *n, unsigned depth, bool is_true);
         enode * get_enode_eq_to_core(app * n);
         enode * get_enode_eq_to(expr * n);
 

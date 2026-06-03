@@ -138,7 +138,7 @@ namespace smt {
        where acc_i are the accessors of constructor c.
     */
     void theory_datatype::assert_is_constructor_axiom(enode * n, func_decl * c, literal antecedent) {
-        app* e = n->get_expr();
+        app* e = n->get_app();
         TRACE(datatype_bug, tout << "creating axiom (= n (c (acc_1 n) ... (acc_m n))) for\n" 
             << mk_pp(c, m) << " " << mk_pp(e, m) << "\n";);
         m_stats.m_assert_cnstr++;
@@ -171,7 +171,7 @@ namespace smt {
         func_decl * d     = n->get_decl();
         ptr_vector<func_decl> const & accessors   = *m_util.get_constructor_accessors(d);
         SASSERT(n->get_num_args() == accessors.size());
-        app_ref_vector bindings(m);
+        expr_ref_vector bindings(m);
         vector<std::tuple<enode *, enode *>> used_enodes;
         used_enodes.push_back(std::make_tuple(nullptr, n));
         for (unsigned i = 0; i < n->get_num_args(); ++i) {
@@ -223,7 +223,7 @@ namespace smt {
     void theory_datatype::assert_update_field_axioms(enode * n) {
         m_stats.m_assert_update_field++;
         SASSERT(is_update_field(n));
-        app*        own  = n->get_expr();
+        app*        own  = n->get_app();
         expr*       arg1 = own->get_arg(0);
         func_decl * upd  = n->get_decl();
         func_decl * acc  = to_func_decl(upd->get_parameter(0).get_ast());
@@ -706,7 +706,7 @@ namespace smt {
         return result;
     }
 
-    void theory_datatype::relevant_eh(app * n) {
+    void theory_datatype::relevant_eh(expr * n) {
         force_push();
         TRACE(datatype, tout << "relevant_eh: " << mk_pp(n, m) << "\n";);
         SASSERT(ctx.relevancy());
@@ -1137,11 +1137,23 @@ namespace smt {
     };
 
     model_value_proc * theory_datatype::mk_value(enode * n, model_generator & mg) {
+        auto mk_fallback = [&]() -> model_value_proc * {
+            app* val = to_app(m_factory->get_some_value(n->get_sort()));
+            TRACE(datatype,
+                  tout << "fallback datatype value for " << pp(n, m)
+                       << " = " << mk_pp(val, m) << "\n";);
+            return alloc(expr_wrapper_proc, val);
+        };
         theory_var v = n->get_th_var(get_id());
+        // Guard before using union-find: null_theory_var is not a valid index for m_find.
+        if (v == null_theory_var)
+            return mk_fallback();
         v            = m_find.find(v);
-        SASSERT(v != null_theory_var);
+        if (v == null_theory_var || static_cast<unsigned>(v) >= m_var_data.size() || m_var_data[v] == nullptr)
+            return mk_fallback();
         var_data * d = m_var_data[v];
-        SASSERT(d->m_constructor);
+        if (d->m_constructor == nullptr)
+            return mk_fallback();
         func_decl * c_decl = d->m_constructor->get_decl();
         datatype_value_proc * result = alloc(datatype_value_proc, c_decl);
         for (enode* arg : enode::args(d->m_constructor)) 

@@ -291,8 +291,8 @@ namespace smt {
             }
 
             void insert(expr* n, unsigned generation) {
-                SASSERT(is_ground(n));
-                get_root()->m_set->insert(n, generation);
+                if (is_ground(n))
+                    get_root()->m_set->insert(n, generation);
             }
 
             void display(std::ostream& out, ast_manager& m) const {
@@ -1378,7 +1378,7 @@ namespace smt {
 
            Store in arrays, all enodes that match the pattern
         */
-        void get_auf_arrays(app* auf_arr, context* ctx, ptr_buffer<enode>& arrays) {
+        void get_auf_arrays(expr* auf_arr, context* ctx, ptr_buffer<enode>& arrays) {
             if (is_ground(auf_arr)) {
                 if (ctx->e_internalized(auf_arr)) {
                     enode* e = ctx->get_enode(auf_arr);
@@ -1387,8 +1387,8 @@ namespace smt {
                     }
                 }
             }
-            else {
-                app* nested_array = to_app(auf_arr->get_arg(0));
+            else if (is_app(auf_arr)) {
+                app* nested_array = to_app(to_app(auf_arr)->get_arg(0));
                 ptr_buffer<enode> nested_arrays;
                 get_auf_arrays(nested_array, ctx, nested_arrays);
                 for (enode* curr : nested_arrays) {
@@ -1396,7 +1396,7 @@ namespace smt {
                     enode_vector::iterator end2 = curr->end_parents();
                     for (; it2 != end2; ++it2) {
                         enode* p = *it2;
-                        if (ctx->is_relevant(p) && p->get_expr()->get_decl() == auf_arr->get_decl()) {
+                        if (ctx->is_relevant(p) && p->get_decl() == to_app(auf_arr)->get_decl()) {
                             arrays.push_back(p);
                         }
                     }
@@ -1411,9 +1411,9 @@ namespace smt {
             unsigned      m_arg_i;
             unsigned      m_var_j;
 
-            app* get_array() const { return to_app(m_select->get_arg(0)); }
+            expr* get_array() const { return m_select->get_arg(0); }
 
-            func_decl* get_array_func_decl(app* ground_array, auf_solver& s) {
+            func_decl* get_array_func_decl(expr* ground_array, auf_solver& s) {
                 TRACE(model_evaluator, tout << expr_ref(ground_array, m) << "\n";);
                 expr* ground_array_interp = s.eval(ground_array, false);
                 if (ground_array_interp && m_array.is_as_array(ground_array_interp))
@@ -1449,7 +1449,7 @@ namespace smt {
                 });
                 node* n1 = s.get_uvar(q, m_var_j);
                 for (enode* n : arrays) {
-                    app* ground_array = n->get_expr();
+                    auto ground_array = n->get_expr();
                     func_decl* f = get_array_func_decl(ground_array, s);
                     if (f) {
                         SASSERT(m_arg_i >= 1);
@@ -1463,7 +1463,7 @@ namespace smt {
                 ptr_buffer<enode> arrays;
                 get_auf_arrays(get_array(), ctx, arrays);
                 for (enode* curr : arrays) {
-                    app* ground_array = curr->get_expr();
+                    auto ground_array = curr->get_expr();
                     func_decl* f = get_array_func_decl(ground_array, s);
                     if (f) {
                         node* A_f_i = s.get_A_f_i(f, m_arg_i - 1);
@@ -1471,8 +1471,8 @@ namespace smt {
                         enode_vector::iterator end2 = curr->end_parents();
                         for (; it2 != end2; ++it2) {
                             enode* p = *it2;
-                            if (ctx->is_relevant(p) && p->get_expr()->get_decl() == m_select->get_decl()) {
-                                SASSERT(m_arg_i < p->get_expr()->get_num_args());
+                            if (ctx->is_relevant(p) && p->get_decl() == m_select->get_decl()) {
+                                SASSERT(m_arg_i < p->get_num_args());
                                 enode* e_arg = p->get_arg(m_arg_i);
                                 A_f_i->insert(e_arg->get_expr(), e_arg->get_generation());
                             }
@@ -1690,7 +1690,7 @@ namespace smt {
             typedef ptr_vector<cond_macro>::const_iterator macro_iterator;
 
             static quantifier_ref mk_flat(ast_manager& m, quantifier* q) {
-                if (has_quantifiers(q->get_expr()) && !m.is_lambda_def(q)) {
+                if (has_quantifiers(q->get_expr())) {
                     proof_ref pr(m);
                     expr_ref  new_q(m);
                     pull_quant pull(m);
@@ -2279,7 +2279,6 @@ namespace smt {
             void operator()(quantifier_info* d) {
                 m_info = d;
                 quantifier* q = d->get_flat_q();
-                if (m.is_lambda_def(q)) return;
                 expr* e = q->get_expr();
                 reset_cache();
                 if (!m.inc()) return;

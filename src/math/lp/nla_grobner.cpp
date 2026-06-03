@@ -10,6 +10,8 @@ Author:
     Nikolaj Bjorner (nbjorner)
 
 --*/
+#include <algorithm>
+#include <climits>
 #include "util/uint_set.h"
 #include "params/smt_params_helper.hpp"
 #include "math/lp/nla_core.h"
@@ -77,54 +79,73 @@ namespace nla {
         if (!configure())
             return;
 
+        bool productive = false;
+
         try {
             if (propagate_gcd_test())
-                return;
+                productive = true;
         }
         catch (...) {
-            
+
         }
-        m_solver.saturate();
-        TRACE(grobner, m_solver.display(tout));
+        if (!productive) {
+            m_solver.saturate();
+            TRACE(grobner, m_solver.display(tout));
 
-        if (m_delay_base > 0)
-            --m_delay_base;
-        
-        try {
+            if (m_delay_base > 0)
+                --m_delay_base;
 
-            if (is_conflicting())
-                return;
+            try {
+                productive = is_conflicting()
+                    || propagate_quotients()
+                    || propagate_gcd_test()
+                    || propagate_eqs()
+                    || propagate_factorization()
+                    || propagate_linear_equations();
+            }
+            catch (...) {
 
-            if (propagate_quotients())
-                return;
-
-            if (propagate_gcd_test())
-                return;
-
-            if (propagate_eqs())
-                return;
-
-            if (propagate_factorization())
-                return;
-
-            if (propagate_linear_equations())
-                return;
-            
-        }
-        catch (...) {
-            
+            }
         }
 
-        // DEBUG_CODE(for (auto e : m_solver.equations()) check_missing_propagation(*e););
+        if (c().params().arith_nl_grobner_adaptive())
+            update_growth_boost(productive);
 
-        // for (auto e : m_solver.equations()) check_missing_propagation(*e);
-        
+        if (productive)
+            return;
+
         ++m_delay_base;
         if (m_quota > 0)
-           --m_quota;
+            --m_quota;
 
         IF_VERBOSE(5, verbose_stream() << "grobner miss, quota " << m_quota << "\n");
         IF_VERBOSE(5, diagnose_pdd_miss(verbose_stream()));
+    }
+
+    void grobner::update_growth_boost(bool productive) {
+        // Bumping is conservative: requires two consecutive productive runs
+        // before any boost; misses decay toward unit by 1/4 per call.
+        unsigned const unit = m_config.m_adaptive_unit;
+        unsigned const cap  = m_config.m_adaptive_max;
+        if (productive) {
+            ++m_hit_streak;
+            if (m_hit_streak >= m_config.m_adaptive_bump_after) {
+                unsigned next = m_growth_boost + (m_growth_boost >> 1);
+                m_growth_boost = std::min(next, cap);
+                m_hit_streak = 0;
+            }
+        }
+        else {
+            m_hit_streak = 0;
+            if (m_growth_boost > unit) {
+                unsigned excess = m_growth_boost - unit;
+                m_growth_boost -= (excess + 3) / 4;
+                if (m_growth_boost < unit)
+                    m_growth_boost = unit;
+            }
+        }
+        IF_VERBOSE(5, verbose_stream() << "grobner adaptive boost " << m_growth_boost
+                   << "/" << unit << (productive ? " (hit)" : " (miss)") << "\n");
     }
 
     bool grobner::is_conflicting() {
@@ -210,8 +231,6 @@ namespace nla {
         if (vars.empty() || !q.is_linear())
             return false;
 
-        // IF_VERBOSE(0, verbose_stream() << "factored " << q << " : " << vars << "\n");
-
         auto [t, offset] = linear_to_term(q);
 
         vector<ineq> ineqs;
@@ -226,7 +245,6 @@ namespace nla {
         add_dependencies(lemma, eq);
         for (auto const& i : ineqs)
             lemma |= i;
-        //lemma.display(verbose_stream());
         return true;
     }
 
@@ -366,6 +384,70 @@ namespace nla {
                 continue;
             for (auto j : m.vars)
                 nl_vars.insert(j);
+        }
+
+        // mod_residue: derive v's residue mod M from polynomial divisibility.
+        //
+        // Common case. Given polynomial
+        //     p = M*v1 + v - M*v2*v3 = 0,
+        // every monomial except v is M-divisible, so v ≡ 0 (mod M).
+        // Combined with 0 ≤ v < M, this forces v = 0.
+        // Emit: dependencies => (v < 0) ∨ (v ≥ M) ∨ (v = 0).
+        //
+        // General case. For a linear monomial c_v*v in p with c0 the constant
+        // term, require c_i/c_v integer for every non-v monomial and c0/c_v
+        // integer (call it K). Let M = gcd(|c_i/c_v|) over non-v monomials.
+        // Then p/c_v gives v + M*Q + K = 0 with Q integer, so v ≡ -K (mod M).
+        // With target = (-K) mod M ∈ [0, M-1], emit
+        //     dependencies => (v < 0) ∨ (v ≥ M) ∨ (v = target).
+        for (auto const& mv : p) {
+            if (mv.vars.size() != 1)
+                continue;
+            lpvar vv = mv.vars[0];
+            if (!c().var_is_int(vv))
+                continue;
+            rational c_v = mv.coeff;
+            SASSERT(c_v != 0);
+            rational M(0);  // 0 sentinel: "no non-v non-constant monomial seen yet".
+            rational c0(0);
+            bool ok = true;
+            for (auto const& mi : p) {
+                if (mi.vars.size() == 1 && mi.vars[0] == vv)
+                    continue;  // skip the mv monomial itself
+                if (mi.vars.empty()) {
+                    c0 = mi.coeff;
+                    continue;
+                }
+                rational quot = mi.coeff / c_v;
+                if (!quot.is_int()) { ok = false; break; }
+                rational a = abs(quot);
+                SASSERT(a != 0);
+                M = M == 0 ? a : gcd(M, a);
+                if (M == 1) { ok = false; break; }  // trivial modulus, abort
+            }
+            if (!ok || M == 0)
+                continue;
+            rational K = c0 / c_v;
+            if (!K.is_int())
+                continue;
+            rational target = mod(-K, M);  // Euclidean: result in [0, M-1].
+            SASSERT(target >= 0 && target < M);
+            // Skip if the lemma is already satisfied by the current model:
+            // any of (v < 0), (v ≥ M), (v = target) trivially holding means
+            // emission would be redundant. Without this guard, the lemma
+            // re-emits every Grobner round on the same polynomial.
+            rational v_val = c().val(vv);
+            if (v_val < 0 || v_val >= M || v_val == target)
+                continue;
+            lemma_builder lemma(c(), "grobner-mod-residue");
+            add_dependencies(lemma, eq);
+            lemma |= ineq(vv, llc::LT, rational::zero());
+            lemma |= ineq(vv, llc::GE, M);
+            lemma |= ineq(vv, llc::EQ, target);
+            TRACE(grobner, lemma.display(tout << "mod_residue v=" << vv
+                << " M=" << M << " c_v=" << c_v << " c0=" << c0
+                << " target=" << target << "\n"));
+            return true;
         }
 
         bool found_lemma = false;
@@ -559,25 +641,27 @@ namespace nla {
         }
         TRACE(grobner, m_solver.display(tout));
 
-#if 0
-        IF_VERBOSE(2, m_pdd_grobner.display(verbose_stream()));
-        dd::pdd_eval eval(m_pdd_manager);
-        eval.var2val() = [&](unsigned j){ return val(j); };
-        for (auto* e : m_pdd_grobner.equations()) {
-            dd::pdd p = e->poly();
-            rational v = eval(p);
-            if (p.is_linear() && !eval(p).is_zero()) {
-                IF_VERBOSE(0, verbose_stream() << "violated linear constraint " << p << "\n");
-            }
-        }
-#endif
-   
         struct dd::solver::config cfg;
         cfg.m_max_steps = m_solver.equations().size();
         cfg.m_max_simplified = c().params().arith_nl_grobner_max_simplified();
         cfg.m_eqs_growth = c().params().arith_nl_grobner_eqs_growth();
         cfg.m_expr_size_growth = c().params().arith_nl_grobner_expr_size_growth();
         cfg.m_expr_degree_growth = c().params().arith_nl_grobner_expr_degree_growth();
+        if (c().params().arith_nl_grobner_adaptive() && m_growth_boost != m_config.m_adaptive_unit) {
+            // Wider intermediate to prevent overflow when a user param is
+            // close to UINT_MAX; clamp before assigning back to the unsigned
+            // config fields.
+            uint64_t const unit  = m_config.m_adaptive_unit;
+            uint64_t const boost = m_growth_boost;
+            auto scale = [unit, boost](unsigned x) -> unsigned {
+                uint64_t y = (static_cast<uint64_t>(x) * boost) / unit;
+                return y > UINT_MAX ? UINT_MAX : static_cast<unsigned>(y);
+            };
+            cfg.m_eqs_growth         = scale(cfg.m_eqs_growth);
+            cfg.m_expr_size_growth   = scale(cfg.m_expr_size_growth);
+            cfg.m_expr_degree_growth = scale(cfg.m_expr_degree_growth);
+            cfg.m_max_simplified     = scale(cfg.m_max_simplified);
+        }
         cfg.m_number_of_conflicts_to_report = c().params().arith_nl_grobner_cnfl_to_report();
         m_solver.set(cfg);
         m_solver.adjust_cfg();
@@ -588,14 +672,12 @@ namespace nla {
 
     std::ostream& grobner::diagnose_pdd_miss(std::ostream& out) {
 
-        // m_pdd_grobner.display(out);
-
         dd::pdd_eval eval;
         eval.var2val() = [&](unsigned j){ return val(j); };
         for (auto* e : m_solver.equations()) {
             dd::pdd p = e->poly();
             rational v = eval(p);
-            if (!v.is_zero()) {
+            if (v != 0) {
                 out << p << " := " << v << "\n";
             }
         }  
@@ -701,7 +783,15 @@ namespace nla {
 
         lp::lpvar j = c().lra.add_term(coeffs, UINT_MAX);
         c().lra.update_column_type_and_bound(j, lp::lconstraint_kind::EQ, offset, e.dep());
-        c().m_check_feasible = true; 
+        c().m_check_feasible = true;
+        TRACE(nla_solver,
+            // Print the term as installed (post subst_known_terms), not the
+            // pre-add_term coeffs vector. add_term normalizes/substitutes
+            // term-column references, so coeffs and the resulting row can
+            // diverge if any var is itself a term-column.
+            tout << "grobner-linear-eq: ";
+            c().lra.print_term(c().lra.get_term(j), tout);
+            tout << " = " << offset << "\n";);
         return true;
     }
 

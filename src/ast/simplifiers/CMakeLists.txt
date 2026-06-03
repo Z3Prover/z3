@@ -17,6 +17,7 @@ z3_add_component(simplifiers
     euf_completion.cpp
     extract_eqs.cpp
     factor_simplifier.cpp
+    fold_unfold.cpp
     linear_equation.cpp
     max_bv_sharing.cpp
     model_reconstruction_trail.cpp

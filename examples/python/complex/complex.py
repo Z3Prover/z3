@@ -81,7 +81,7 @@ class ComplexExpr:
         other = _to_complex(other)
         return And(self.r == other.r, self.i == other.i)
 
-    def __neq__(self, other):
+    def __ne__(self, other):
         return Not(self.__eq__(other))
 
     def simplify(self):

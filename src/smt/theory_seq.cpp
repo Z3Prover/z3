@@ -1485,8 +1485,7 @@ bool theory_seq::internalize_term(app* term) {
         return true;
     }
     
-    if (m.is_bool(term) && 
-        (m_util.str.is_in_re(term) || m_sk.is_skolem(term))) {
+    if (m.is_bool(term) && (m_util.str.is_in_re(term) || m_sk.is_skolem(term))) {
         bool_var bv = ctx.mk_bool_var(term);
         ctx.set_var_theory(bv, get_id());
         ctx.mark_as_relevant(bv);
@@ -2104,7 +2103,7 @@ app* theory_seq::get_ite_value(expr* e) {
 }
 
 model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
-    app* e = n->get_expr();
+    expr* e = n->get_expr();
     TRACE(seq, tout << mk_pp(e, m) << "\n";);
 
     // Shortcut for well-founded values to avoid some quadratic overhead
@@ -2164,7 +2163,7 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
 }
 
 
-app* theory_seq::mk_value(app* e) {
+app* theory_seq::mk_value(expr* e) {
     expr_ref result(m);
     e = get_ite_value(e);
     result = m_rep.find(e);
@@ -3287,7 +3286,10 @@ void theory_seq::pop_scope_eh(unsigned num_scopes) {
 void theory_seq::restart_eh() {
 }
 
-void theory_seq::relevant_eh(app* n) {
+void theory_seq::relevant_eh(expr* _n) {
+    if (!is_app(_n))
+        return;
+    app *n = to_app(_n);
     if (m_util.str.is_index(n)   ||
         m_util.str.is_replace(n) ||
         m_util.str.is_extract(n) ||

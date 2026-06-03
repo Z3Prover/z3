@@ -101,14 +101,14 @@ namespace smt {
     };
 
     class dyn_ack_eq_justification : public justification {
-        app *     m_app1;
-        app *     m_app2;
-        app *     m_r;
+        expr *     m_app1;
+        expr *     m_app2;
+        expr *     m_r;
         app *     m_eq1;
         app *     m_eq2;
         app *     m_eq3;
     public:
-        dyn_ack_eq_justification(app * n1, app * n2, app* r, app* eq1, app* eq2, app* eq3):
+        dyn_ack_eq_justification(expr * n1, expr * n2, expr* r, app* eq1, app* eq2, app* eq3):
             justification(false), // dyn_ack_cc_justifications are not stored in regions.
             m_app1(n1), 
             m_app2(n2), 
@@ -167,7 +167,7 @@ namespace smt {
 
     dyn_ack_manager::~dyn_ack_manager() {
         reset_app_pairs();
-        reset_app_triples();
+        reset_expr_triples();
     }
 
     void dyn_ack_manager::reset_app_pairs() {
@@ -189,7 +189,7 @@ namespace smt {
         m_num_propagations_since_last_gc = 0;
 
         m_triple.m_app2num_occs.reset();
-        reset_app_triples();
+        reset_expr_triples();
         m_triple.m_to_instantiate.reset();
         m_triple.m_qhead = 0;
     }
@@ -230,7 +230,7 @@ namespace smt {
         }
     }
 
-    void dyn_ack_manager::eq_eh(app * n1, app * n2, app* r) {
+    void dyn_ack_manager::eq_eh(expr * n1, expr * n2, expr* r) {
         if (n1 == n2 || r == n1 || r == n2 || m.is_bool(n1)) {
             return;
         }
@@ -238,7 +238,7 @@ namespace smt {
             std::swap(n1,n2);
         TRACE(dyn_ack, 
               tout << mk_pp(n1, m) << " = " << mk_pp(n2, m) << " = " << mk_pp(r, m) << "\n";);
-        app_triple tr(n1, n2, r);
+        expr_triple tr(n1, n2, r);
         if (m_triple.m_instantiated.contains(tr)) {
             return;
         }
@@ -361,7 +361,7 @@ namespace smt {
             SASSERT(!m_app_pair2num_occs.contains(a1, a2));
             return;
         }
-        app_triple tr(0,0,0);
+        expr_triple tr(0,0,0);
         if (m_triple.m_clause2apps.find(cls, tr)) {
             [[maybe_unused]] auto [a1, a2, a3] = tr;
             SASSERT(a1 && a2 && a3);
@@ -451,9 +451,8 @@ namespace smt {
         m_triple.m_clause2apps.reset();
     }
 
-    void dyn_ack_manager::reset_app_triples() {
-        for (app_triple& p : m_triple.m_apps) {
-            auto [a1, a2, a3] = p;
+    void dyn_ack_manager::reset_expr_triples() {
+        for (auto &[a1,a2,a3] : m_triple.m_apps) {
             m.dec_ref(a1);
             m.dec_ref(a2);
             m.dec_ref(a3);
@@ -461,7 +460,7 @@ namespace smt {
         m_triple.m_apps.reset();
     }
 
-    void dyn_ack_manager::instantiate(app * n1, app * n2, app* r) {
+    void dyn_ack_manager::instantiate(expr * n1, expr * n2, expr* r) {
         context& ctx = m_context;
         SASSERT(m_params.m_dack != dyn_ack_strategy::DACK_DISABLED);
         SASSERT(n1 != n2 && n1 != r && n2 != r);
@@ -471,7 +470,7 @@ namespace smt {
               << mk_pp(n2, m) << "\n"
               << mk_pp(r,  m) << "\n";
               );
-        app_triple tr(n1, n2, r);
+        expr_triple tr(n1, n2, r);
         SASSERT(m_triple.m_app2num_occs.contains(n1, n2, r));
         m_triple.m_app2num_occs.erase(n1, n2, r);
         // pair n1,n2 is still in m_triple.m_apps
@@ -504,22 +503,22 @@ namespace smt {
     }
 
 
-    struct app_triple_lt { 
-        typedef triple<app *, app *, app*>          app_triple;
-        typedef obj_triple_map<app, app, app, unsigned> app_triple2num_occs;
-        app_triple2num_occs &  m_app_triple2num_occs;
+    struct expr_triple_lt { 
+        typedef triple<expr *, expr *,expr *>          expr_triple;
+        typedef obj_triple_map<expr, expr, expr, unsigned> expr_triple2num_occs;
+        expr_triple2num_occs &  m_expr_triple2num_occs;
         
-        app_triple_lt(app_triple2num_occs & m):
-            m_app_triple2num_occs(m) {
+        expr_triple_lt(expr_triple2num_occs & m):
+            m_expr_triple2num_occs(m) {
         }
         
-        bool operator()(app_triple const & p1, app_triple const & p2) const {
+        bool operator()(expr_triple const & p1, expr_triple const & p2) const {
             auto [a1_1, a1_2, a1_3] = p1;
             auto [a2_1, a2_2, a2_3] = p2;
             unsigned n1 = 0;
             unsigned n2 = 0;
-            m_app_triple2num_occs.find(a1_1, a1_2, a1_3, n1);
-            m_app_triple2num_occs.find(a2_1, a2_2, a2_3, n2);
+            m_expr_triple2num_occs.find(a1_1, a1_2, a1_3, n1);
+            m_expr_triple2num_occs.find(a2_1, a2_2, a2_3, n2);
             SASSERT(n1 > 0);
             SASSERT(n2 > 0);
             return n1 > n2;
@@ -530,11 +529,11 @@ namespace smt {
         TRACE(dyn_ack, tout << "dyn_ack GC\n";);
         m_triple.m_to_instantiate.reset();
         m_triple.m_qhead = 0;
-        svector<app_triple>::iterator it  = m_triple.m_apps.begin();
-        svector<app_triple>::iterator end = m_triple.m_apps.end();
-        svector<app_triple>::iterator it2 = it;
+        svector<expr_triple>::iterator it  = m_triple.m_apps.begin();
+        svector<expr_triple>::iterator end = m_triple.m_apps.end();
+        svector<expr_triple>::iterator it2 = it;
         for (; it != end; ++it) {
-            app_triple & p = *it;
+            expr_triple & p = *it;
             auto [a1, a2, a3] = p;
             if (m_triple.m_instantiated.contains(p)) {
                 TRACE(dyn_ack, tout << "1) erasing:\n" << mk_pp(a1, m) << "\n" << mk_pp(a2, m) << "\n";);
@@ -548,7 +547,7 @@ namespace smt {
             m_triple.m_app2num_occs.find(a1, a2, a3, num_occs);
             // The following invariant is not true. a1 and
             // a2 may have been instantiated, and removed from
-            // m_app_triple2num_occs, but not from m_app_triples.
+            // m_triple.m_app2num_occs, but not from m_triple.m_apps.
             //
             // SASSERT(num_occs > 0);
             num_occs = static_cast<unsigned>(num_occs * m_params.m_dack_gc_inv_decay);
@@ -568,8 +567,8 @@ namespace smt {
                 m_triple.m_to_instantiate.push_back(p);
         }
         m_triple.m_apps.set_end(it2);
-        app_triple_lt f(m_triple.m_app2num_occs);
-        // app_triple_lt is not a total order
+        expr_triple_lt f(m_triple.m_app2num_occs);
+        // expr_triple_lt is not a total order
         std::stable_sort(m_triple.m_to_instantiate.begin(), m_triple.m_to_instantiate.end(), f);
     }
 

@@ -126,7 +126,7 @@ namespace smt {
             break;
         case eq_justification::CONGRUENCE: {
             CTRACE(dyn_ack_target, !lhs->is_eq(), tout << "dyn_ack_target2: " << lhs->get_owner_id() << " " << rhs->get_owner_id() << "\n";);
-            m_dyn_ack_manager.used_cg_eh(lhs->get_expr(), rhs->get_expr());
+            m_dyn_ack_manager.used_cg_eh(lhs->get_app(), rhs->get_app());
             unsigned num_args = lhs->get_num_args();
             SASSERT(num_args == rhs->get_num_args());
             if (js.used_commutativity()) {
@@ -787,8 +787,8 @@ namespace smt {
         SASSERT(m.has_fact(pr));
         expr* f1 = nullptr, *f2 = nullptr;
         app * fact     = to_app(m.get_fact(pr));
-        app * n1_owner = n1->get_expr();
-        app * n2_owner = n2->get_expr();
+        expr * n1_owner = n1->get_expr();
+        expr * n2_owner = n2->get_expr();
         bool is_eq = m.is_eq(fact, f1, f2);
         if (is_eq && is_quantifier(f1)) {
             f1 = m_ctx.get_enode(f1)->get_expr();
@@ -855,7 +855,7 @@ namespace smt {
         case eq_justification::CONGRUENCE:
             num_args = n1->get_num_args();
             SASSERT(num_args == n2->get_num_args());
-            SASSERT(n1->get_expr()->get_decl() == n2->get_expr()->get_decl());
+            SASSERT(n1->get_decl() == n2->get_decl());
             if (js.used_commutativity()) {
                 bool visited = true;
                 SASSERT(num_args == 2);
@@ -878,8 +878,8 @@ namespace smt {
                 }
                 if (!visited)
                     return nullptr;
-                app * e1 = n1->get_expr();
-                app * e2 = n2->get_expr();
+                app * e1 = n1->get_app();
+                app * e2 = n2->get_app();
                 app * e2_prime = m.mk_app(e2->get_decl(), e2->get_arg(1), e2->get_arg(0));
                 proof * pr1 = nullptr;
                 if (!prs.empty()) {
@@ -910,7 +910,7 @@ namespace smt {
                 }
                 if (!visited)
                     return nullptr;
-                proof * pr = m.mk_congruence(n1->get_expr(), n2->get_expr(), prs.size(), prs.data());
+                proof * pr = m.mk_congruence(n1->get_app(), n2->get_app(), prs.size(), prs.data());
                 m_new_proofs.push_back(pr);
                 return pr;
             }

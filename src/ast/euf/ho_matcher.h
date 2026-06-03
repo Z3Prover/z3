@@ -25,6 +25,7 @@ Author:
 #include "ast/for_each_expr.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/rewriter/array_rewriter.h"
 #include "ast/rewriter/var_subst.h"
 
@@ -88,13 +89,15 @@ namespace euf {
         }
 
         match_goal(unsigned level, unsigned offset, expr_ref const& pat, expr_ref const& t) noexcept : 
-            base_offset(offset), pat(pat), t(t),  level(level)  {}
+            base_offset(offset), pat(pat), t(t),  level(level)  {
+            SASSERT(pat->get_sort() == t->get_sort());
+        }
 
         unsigned term_offset() const { return base_offset + delta_offset; }
         unsigned pat_offset() const { return base_offset + delta_offset; }
 
         std::ostream& display(std::ostream& out) const {
-            return out << "[" << level << ":" << base_offset + delta_offset << "] " << pat << " ~ " << t << "\n";
+            return out << "[" << level << ":" << base_offset + delta_offset << "] " << mk_bounded_pp(pat, pat.m()) << " ~ " << mk_bounded_pp(t, t.m()) << "\n";
         }
     };
 
@@ -329,6 +332,8 @@ namespace euf {
         bool consume_work(match_goal& wi);
 
         expr_ref whnf(expr* e, unsigned offset) const;
+
+        expr_ref whnf_star(expr *e, unsigned offset) const;
         
         bool is_bound_var(expr* v, unsigned offset) const { return is_var(v) && to_var(v)->get_idx() < offset; }
 
@@ -389,11 +394,23 @@ namespace euf {
 
         bool is_ho_pattern(app* p);
 
+        // Register an alias pattern (e.g., after stripping ground elements) 
+        // that maps to the same original pattern as full_p
+        void register_ho_pattern(app* alias_p, app* full_p);
+
         void refine_ho_match(app* p, expr_ref_vector& s);
 
         bool is_free(app* p, unsigned i) const { return m_hopat2free_vars[p].contains(i); }
 
         quantifier* hoq2q(quantifier* q) const { return m_hoq2q[q]; }
+
+
+        svector<std::pair<unsigned, expr*>> const* get_flex_subterms(app* p) const {
+            auto orig_p = m_hopat2pat.find_core(p);
+            if (!orig_p) return nullptr;
+            auto abs = m_pat2abs.find_core(orig_p->get_data().get_value());
+            return abs ? &abs->get_data().get_value() : nullptr;
+        }
 
     };
 }

@@ -81,9 +81,11 @@ void order::order_lemma_on_binomial(const monic& ac) {
   
 */
 void order::order_lemma_on_binomial_sign(const monic& xy, lpvar x, lpvar y, int sign) {
+    if (!c().params().arith_nl_order_binomial_sign())
+        return;
     if (!c().var_is_int(x) && val(x).is_big())
         return;
-    
+
 
     SASSERT(!_().mon_has_zero(xy.vars()));
     int sy = rat_sign(val(y));

@@ -18,26 +18,26 @@ Description:
 
 namespace nla {
 
-    void divisions::add_idivision(lpvar q, lpvar x, lpvar y) {
-        if (x == null_lpvar || y == null_lpvar || q == null_lpvar)
+    void divisions::add_idivision(lpvar q, lpvar x, lpvar y, lpvar r) {
+        if (x == null_lpvar || y == null_lpvar || q == null_lpvar || r == null_lpvar)
             return;
-        m_idivisions.push_back({q, x, y});
+        m_idivisions.push_back({q, x, y, r});
         m_core.trail().push(push_back_vector(m_idivisions));
     }
 
-    void divisions::add_rdivision(lpvar q, lpvar x, lpvar y) {
-        if (x == null_lpvar || y == null_lpvar || q == null_lpvar)
+    void divisions::add_rdivision(lpvar q, lpvar x, lpvar y, lpvar r) {
+        if (x == null_lpvar || y == null_lpvar || q == null_lpvar || r == null_lpvar)
             return;
-        m_rdivisions.push_back({ q, x, y });
+        m_rdivisions.push_back({ q, x, y, r });
         m_core.trail().push(push_back_vector(m_rdivisions));
     }
 
-    void divisions::add_bounded_division(lpvar q, lpvar x, lpvar y) {
-        if (x == null_lpvar || y == null_lpvar || q == null_lpvar)
+    void divisions::add_bounded_division(lpvar q, lpvar x, lpvar y, lpvar r) {
+        if (x == null_lpvar || y == null_lpvar || q == null_lpvar || r == null_lpvar)
             return;
         if (m_core.lra.column_has_term(x) || m_core.lra.column_has_term(y) ||  m_core.lra.column_has_term(q))
             return;
-        m_bounded_divisions.push_back({ q, x, y });
+        m_bounded_divisions.push_back({ q, x, y, r });
         m_core.trail().push(push_back_vector(m_bounded_divisions));
     }
 
@@ -111,7 +111,7 @@ namespace nla {
                 return false;
         };
 
-        for (auto const & [r, x, y] : m_idivisions) {
+        for (auto const & [r, x, y, md] : m_idivisions) {
             if (!c.is_relevant(r))
                 continue;
             auto xval = c.val(x);
@@ -120,7 +120,7 @@ namespace nla {
             // idiv semantics
             if (!xval.is_int() || !yval.is_int() || yval == 0 || rval == div(xval, yval))
                 continue;
-            for (auto const& [q2, x2, y2] : m_idivisions) {
+            for (auto const& [q2, x2, y2, md2] : m_idivisions) {
                 if (q2 == r)
                     continue;
                 if (!c.is_relevant(q2))
@@ -133,7 +133,7 @@ namespace nla {
             }
         }
 
-        for (auto const& [r, x, y] : m_rdivisions) {
+        for (auto const& [r, x, y, md] : m_rdivisions) {
             if (!c.is_relevant(r))
                 continue;
             auto xval = c.val(x);
@@ -142,7 +142,7 @@ namespace nla {
             // / semantics
             if (yval == 0 || rval == xval / yval)
                 continue;
-            for (auto const& [q2, x2, y2] : m_rdivisions) {
+            for (auto const& [q2, x2, y2, md2] : m_rdivisions) {
                 if (q2 == r)
                     continue;
                 if (!c.is_relevant(q2))
@@ -154,7 +154,8 @@ namespace nla {
                     return;
             }
         }
-        
+
+        check_mod_mult();
     }
 
     // if p is bounded, q a value, r = eval(p):
@@ -163,11 +164,11 @@ namespace nla {
 
     void divisions::check_bounded_divisions() {
         core& c = m_core;
-        unsigned offset = c.random(), sz = m_bounded_divisions.size();        
+        unsigned offset = c.random(), sz = m_bounded_divisions.size();
 
         for (unsigned j = 0; j < sz; ++j) {
             unsigned i = (offset + j) % sz;
-            auto [q, x, y] = m_bounded_divisions[i];
+            auto [q, x, y, r] = m_bounded_divisions[i];
             if (!c.is_relevant(q))
                 continue;
             auto xv = c.val(x);
@@ -188,9 +189,9 @@ namespace nla {
             rational lo = yv * div_v;
             if (xv > hi) {
                 lemma_builder lemma(c, "y = yv & x <= yv * div(xv, yv) + yv - 1 => div(p, y) <= div(xv, yv)");
-                lemma |= ineq(y, llc::NE, yv); 
-                lemma |= ineq(x, llc::GT, hi); 
-                lemma |= ineq(q, llc::LE, div_v);  
+                lemma |= ineq(y, llc::NE, yv);
+                lemma |= ineq(x, llc::GT, hi);
+                lemma |= ineq(q, llc::LE, div_v);
                 return;
             }
             if (xv < lo) {
@@ -201,5 +202,45 @@ namespace nla {
                 return;
             }
         }
-    }    
+    }
+
+    // mod(factor, p) = 0 => mod(factor * k, p) = 0
+    // For each division (q, x, y, r) where x is a monic m = f1 * f2 * ... * fk,
+    // if some factor fi has mod(fi, p) = 0 (fixed), then mod(x, p) = 0.
+    void divisions::check_mod_mult() {
+        core& c = m_core;
+        unsigned offset = c.random(), sz = m_bounded_divisions.size();
+
+        for (unsigned j = 0; j < sz; ++j) {
+            unsigned i = (offset + j) % sz;
+            auto [q, x, y, r] = m_bounded_divisions[i];
+            if (!c.is_relevant(q))
+                continue;
+            if (c.var_is_fixed_to_zero(r))
+                continue;
+            if (c.val(r).is_zero())
+                continue;
+            if (!c.is_monic_var(x))
+                continue;
+            auto yv = c.val(y);
+            if (yv <= 0 || !yv.is_int())
+                continue;
+            auto const& m = c.emons()[x];
+            for (lpvar f : m.vars()) {
+                for (auto const& [q2, x2, y2, r2] : m_bounded_divisions) {
+                    if (x2 != f)
+                        continue;
+                    if (c.val(y2) != yv)
+                        continue;
+                    if (!c.var_is_fixed_to_zero(r2))
+                        continue;
+                    // mod(factor, p) = 0 => mod(product, p) = 0
+                    lemma_builder lemma(c, "mod(factor, p) = 0 => mod(factor * k, p) = 0");
+                    lemma |= ineq(r2, llc::NE, 0);
+                    lemma |= ineq(r, llc::EQ, 0);
+                    return;
+                }
+            }
+        }
+    }
 }

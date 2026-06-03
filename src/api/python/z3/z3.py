@@ -5612,6 +5612,20 @@ class Datatype:
         """
         return CreateDatatypes([self])[0]
 
+    def create_polymorphic(self, type_params):
+        """Create a polymorphic Z3 datatype with explicit type variables.
+
+        `type_params` is a list of type variables created with `DeclareTypeVar`.
+        Constructor field sorts may reference these type variables.
+        Self-recursive fields may reference this datatype directly.
+
+        >>> A = DeclareTypeVar('A')
+        >>> Pair = Datatype('Pair')
+        >>> Pair.declare('pair', ('fst', A), ('snd', A))
+        >>> Pair = Pair.create_polymorphic([A])
+        """
+        return CreatePolymorphicDatatype(self, type_params)
+
 
 class ScopedConstructor:
     """Auxiliary object used to create Z3 datatypes."""
@@ -5731,6 +5745,76 @@ def CreateDatatypes(*ds):
                 setattr(dref, aref.name(), aref)
         result.append(dref)
     return tuple(result)
+
+
+def CreatePolymorphicDatatype(d, type_params):
+    """Create a single polymorphic Z3 datatype with explicit type parameters.
+
+    `d` is a `Datatype` helper object whose constructors have been declared.
+    `type_params` is a list of type variables created with `DeclareTypeVar`.
+    Constructor field sorts may reference these type variables, and self-recursive
+    fields may reference `d` directly.
+
+    >>> A = DeclareTypeVar('A')
+    >>> Pair = Datatype('Pair')
+    >>> Pair.declare('pair', ('fst', A), ('snd', A))
+    >>> Pair = CreatePolymorphicDatatype(Pair, [A])
+    """
+    if z3_debug():
+        _z3_assert(isinstance(d, Datatype), "Datatype expected")
+        _z3_assert(d.constructors != [], "Non-empty Datatype expected")
+    ctx = d.ctx
+    name = to_symbol(d.name, ctx)
+    num_params = len(type_params)
+    params_arr = (Sort * num_params)()
+    for i, p in enumerate(type_params):
+        if z3_debug():
+            _z3_assert(is_sort(p), "Z3 sort expected for type parameter")
+        params_arr[i] = p.ast
+    num_cs = len(d.constructors)
+    cs = (Constructor * num_cs)()
+    to_delete = []
+    for j in range(num_cs):
+        c = d.constructors[j]
+        cname = to_symbol(c[0], ctx)
+        rname = to_symbol(c[1], ctx)
+        fs = c[2]
+        num_fs = len(fs)
+        fnames = (Symbol * num_fs)()
+        sorts = (Sort * num_fs)()
+        refs = (ctypes.c_uint * num_fs)()
+        for k in range(num_fs):
+            fname = fs[k][0]
+            ftype = fs[k][1]
+            fnames[k] = to_symbol(fname, ctx)
+            if isinstance(ftype, Datatype):
+                if z3_debug():
+                    _z3_assert(ftype is d, "Only self-recursive references are supported in polymorphic datatypes. Use CreateDatatypes for mutually recursive datatypes.")
+                sorts[k] = None
+                refs[k] = 0
+            else:
+                if z3_debug():
+                    _z3_assert(is_sort(ftype), "Z3 sort expected")
+                sorts[k] = ftype.ast
+                refs[k] = 0
+        cs[j] = Z3_mk_constructor(ctx.ref(), cname, rname, num_fs, fnames, sorts, refs)
+        to_delete.append(ScopedConstructor(cs[j], ctx))
+    out = Z3_mk_polymorphic_datatype(ctx.ref(), name, num_params, params_arr, num_cs, cs)
+    dref = DatatypeSortRef(out, ctx)
+    num_cs_actual = dref.num_constructors()
+    for j in range(num_cs_actual):
+        cref = dref.constructor(j)
+        cref_name = cref.name()
+        cref_arity = cref.arity()
+        if cref_arity == 0:
+            cref = cref()
+        setattr(dref, cref_name, cref)
+        rref = dref.recognizer(j)
+        setattr(dref, "is_" + cref_name, rref)
+        for k in range(cref_arity):
+            aref = dref.accessor(j, k)
+            setattr(dref, aref.name(), aref)
+    return dref
 
 
 class DatatypeSortRef(SortRef):

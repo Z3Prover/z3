@@ -43,7 +43,7 @@ namespace array {
             unsigned m_num_select_const_axiom, m_num_select_store_axiom_delayed;
             unsigned m_num_default_store_axiom, m_num_default_map_axiom;
             unsigned m_num_default_const_axiom, m_num_default_as_array_axiom;
-            unsigned m_num_select_lambda_axiom;
+            unsigned m_num_select_lambda_axiom, m_num_choice_axiom;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };
@@ -86,7 +86,8 @@ namespace array {
                 is_select,
                 is_extensionality,
                 is_default,
-                is_congruence
+                is_congruence,
+                is_choice
             };
             enum class state_t {
                 is_new,
@@ -165,6 +166,7 @@ namespace array {
         axiom_record store_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_store, n); }
         axiom_record extensionality_axiom(euf::enode* x, euf::enode* y) { return axiom_record(axiom_record::kind_t::is_extensionality, x, y); }
         axiom_record congruence_axiom(euf::enode* a, euf::enode* b) { return axiom_record(axiom_record::kind_t::is_congruence, a, b); }
+        axiom_record choice_axiom(euf::enode* n) { return axiom_record(axiom_record::kind_t::is_choice, n); }
 
         scoped_ptr<sat::constraint_base> m_constraint;
 
@@ -176,6 +178,7 @@ namespace array {
         bool assert_select_as_array_axiom(app* select, app* arr);
         bool assert_select_map_axiom(app* select, app* map);
         bool assert_select_lambda_axiom(app* select, expr* lambda);
+        bool assert_choice_axiom(app* choice_term);
         bool assert_extensionality(expr* e1, expr* e2);
         bool assert_default_map_axiom(app* map);
         bool assert_default_const_axiom(app* cnst);

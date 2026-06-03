@@ -89,6 +89,7 @@ add_executable(test-z3
   memory.cpp
   model2expr.cpp
   model_based_opt.cpp
+  mod_factor.cpp
   model_evaluator.cpp
   model_retrieval.cpp
   monomial_bounds.cpp
@@ -116,6 +117,7 @@ add_executable(test-z3
   prime_generator.cpp
   proof_checker.cpp
   qe_arith.cpp
+  mbp_qel.cpp
   quant_elim.cpp
   quant_solve.cpp
   random.cpp
@@ -151,6 +153,7 @@ add_executable(test-z3
   theory_dl.cpp
   theory_pb.cpp
   timeout.cpp
+  tptp.cpp
   total_order.cpp
   totalizer.cpp
   trigo.cpp
@@ -169,12 +172,11 @@ add_executable(test-z3
 z3_add_install_tactic_rule(${z3_test_deps})
 z3_add_memory_initializer_rule(${z3_test_deps})
 z3_add_gparams_register_modules_rule(${z3_test_deps})
-target_compile_definitions(test-z3 PRIVATE ${Z3_COMPONENT_CXX_DEFINES})
+target_compile_definitions(test-z3 PRIVATE
+  ${Z3_COMPONENT_CXX_DEFINES}
+)
 target_compile_options(test-z3 PRIVATE ${Z3_COMPONENT_CXX_FLAGS})
 target_link_libraries(test-z3 PRIVATE ${Z3_DEPENDENT_LIBS})
 target_include_directories(test-z3 PRIVATE ${Z3_COMPONENT_EXTRA_INCLUDE_DIRS})
 z3_append_linker_flag_list_to_target(test-z3 ${Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS})
 z3_add_component_dependencies_to_target(test-z3 ${z3_test_expanded_deps})
-
-
-

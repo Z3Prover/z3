@@ -524,7 +524,7 @@ namespace smt {
 
         bool has_var(expr * v) const { return get_context().e_internalized(v) && get_context().get_enode(v)->get_th_var(get_id()) != null_theory_var; }
         theory_var expr2var(expr * v) const { SASSERT(get_context().e_internalized(v)); return get_context().get_enode(v)->get_th_var(get_id()); }
-        expr * var2expr(theory_var v) const { return get_enode(v)->get_expr(); }
+        expr * var2expr(theory_var v) const { return get_expr(v); }
         bool reflection_enabled() const;
         bool reflect(app * n) const;
         unsigned lazy_pivoting_lvl() const { return m_params.m_arith_lazy_pivoting_lvl; }
@@ -656,7 +656,7 @@ namespace smt {
         void push_scope_eh() override;
         void pop_scope_eh(unsigned num_scopes) override;
 
-        void relevant_eh(app * n) override;
+        void relevant_eh(expr * n) override;
         
         void restart_eh() override;
         void init_search_eh() override;
@@ -966,7 +966,7 @@ namespace smt {
            \brief A monomial is 'pure' if does not have a numeric coefficient.
         */
         bool is_pure_monomial(expr * m) const;
-        bool is_pure_monomial(theory_var v) const { return is_pure_monomial(get_enode(v)->get_expr()); }
+        bool is_pure_monomial(theory_var v) const { return is_pure_monomial(get_expr(v)); }
         void mark_var(theory_var v, svector<theory_var> & vars, var_set & already_found);
         void mark_dependents(theory_var v, svector<theory_var> & vars, var_set & already_found, row_set & already_visited_rows);
         void get_non_linear_cluster(svector<theory_var> & vars);

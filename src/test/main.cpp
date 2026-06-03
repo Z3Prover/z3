@@ -154,6 +154,7 @@
     X(hilbert_basis) \
     X(heap_trie) \
     X(karr) \
+    X(mod_factor) \
     X(no_overflow) \
     X(datalog_parser) \
     X_ARGV(datalog_parser_file) \
@@ -162,6 +163,7 @@
     X(rcf) \
     X(polynorm) \
     X(qe_arith) \
+    X(mbp_qel) \
     X(expr_substitution) \
     X(sorting_network) \
     X(theory_pb) \
@@ -539,7 +541,7 @@ int main(int argc, char ** argv) {
     }
 
 #ifndef __EMSCRIPTEN__
-    if (num_jobs > 0)
+    if (num_jobs > 0 && (test_all || requested_tests.size() > 1))
         return run_parallel(argv[0], test_all, num_jobs, extra_args, requested_tests);
 #endif
 

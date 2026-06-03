@@ -479,6 +479,12 @@ export interface Context<Name extends string = 'main'> {
   /** @category Expressions */
   readonly Datatype: DatatypeCreation<Name>;
 
+  /**
+   * Create a type variable sort for use as a parameter in polymorphic datatypes.
+   * @category Sorts
+   */
+  TypeVariable(name: string): Sort<Name>;
+
   ////////////////
   // Operations //
   ////////////////
@@ -928,12 +934,79 @@ export interface Context<Name extends string = 'main'> {
   mkPartialOrder(sort: Sort<Name>, index: number): FuncDecl<Name>;
 
   /**
+   * Create a linear (total) order relation over a sort.
+   * @param sort The sort of the relation
+   * @param index The index of the relation
+   * @category Operations
+   */
+  mkLinearOrder(sort: Sort<Name>, index: number): FuncDecl<Name>;
+
+  /**
+   * Create a piecewise linear order relation over a sort.
+   * @param sort The sort of the relation
+   * @param index The index of the relation
+   * @category Operations
+   */
+  mkPiecewiseLinearOrder(sort: Sort<Name>, index: number): FuncDecl<Name>;
+
+  /**
+   * Create a tree order relation over a sort.
+   * @param sort The sort of the relation
+   * @param index The index of the relation
+   * @category Operations
+   */
+  mkTreeOrder(sort: Sort<Name>, index: number): FuncDecl<Name>;
+
+  /**
    * Create the transitive closure of a binary relation.
    * The resulting relation is recursive.
    * @param f A binary relation represented as a function declaration
    * @category Operations
    */
   mkTransitiveClosure(f: FuncDecl<Name>): FuncDecl<Name>;
+
+  /**
+   * Create a character literal from a Unicode code point.
+   * @param ch The Unicode code point
+   * @category Characters
+   */
+  mkChar(ch: number): Expr<Name>;
+
+  /**
+   * Create a character less-than-or-equal predicate (ch1 ≤ ch2).
+   * @param ch1 First character
+   * @param ch2 Second character
+   * @category Characters
+   */
+  mkCharLe(ch1: Expr<Name>, ch2: Expr<Name>): Bool<Name>;
+
+  /**
+   * Convert a character to its integer (Unicode code point) value.
+   * @param ch The character expression
+   * @category Characters
+   */
+  mkCharToInt(ch: Expr<Name>): Arith<Name>;
+
+  /**
+   * Convert a character to a bit-vector.
+   * @param ch The character expression
+   * @category Characters
+   */
+  mkCharToBV(ch: Expr<Name>): Expr<Name>;
+
+  /**
+   * Convert a bit-vector to a character.
+   * @param bv The bit-vector expression
+   * @category Characters
+   */
+  mkCharFromBV(bv: Expr<Name>): Expr<Name>;
+
+  /**
+   * Create a predicate that is true if the character is a decimal digit.
+   * @param ch The character expression
+   * @category Characters
+   */
+  mkCharIsDigit(ch: Expr<Name>): Bool<Name>;
 
   /**
    * Return the nonzero subresultants of p and q with respect to the "variable" x.
@@ -3136,6 +3209,15 @@ export interface Datatype<Name extends string = 'main'> {
    * For mutually recursive datatypes, use Context.createDatatypes instead.
    */
   create(): DatatypeSort<Name>;
+
+  /**
+   * Create a polymorphic datatype sort with explicit type parameters.
+   * Type parameters should be sorts created with Context.TypeVariable.
+   * Self-recursive fields may reference this Datatype object directly.
+   *
+   * @param typeParams Array of type variable sorts
+   */
+  createPolymorphic(typeParams: AnySort<Name>[]): DatatypeSort<Name>;
 }
 
 /**
@@ -3154,6 +3236,17 @@ export interface DatatypeCreation<Name extends string> {
    * @returns Array of created DatatypeSort instances
    */
   createDatatypes(...datatypes: Datatype<Name>[]): DatatypeSort<Name>[];
+
+  /**
+   * Create a single polymorphic datatype sort with explicit type parameters.
+   * Type parameters should be sorts created with Context.TypeVariable.
+   * Self-recursive fields in constructors may reference the Datatype object directly.
+   *
+   * @param typeParams Array of type variable sorts
+   * @param datatype Datatype declaration with constructors
+   * @returns Created DatatypeSort instance
+   */
+  createPolymorphicDatatype(typeParams: AnySort<Name>[], datatype: Datatype<Name>): DatatypeSort<Name>;
 }
 
 /**

@@ -37,12 +37,15 @@ namespace smt {
         ast2ast_trailmap<sort, app> m_sort2epsilon;
         ast2ast_trailmap<sort, func_decl> m_sort2diag;
         obj_pair_map<expr, expr, bool> m_eqs;
+        enode_vector m_choice_terms;
+        unsigned m_choice_qhead = 0;
         
         static unsigned const m_default_map_fingerprint = UINT_MAX - 112;
         static unsigned const m_default_store_fingerprint = UINT_MAX - 113;
         static unsigned const m_default_const_fingerprint = UINT_MAX - 115;
         static unsigned const m_default_as_array_fingerprint = UINT_MAX - 116;
         static unsigned const m_default_lambda_fingerprint = UINT_MAX - 117;
+        static unsigned const m_choice_fingerprint = UINT_MAX - 118;
 
     protected:
 
@@ -59,7 +62,7 @@ namespace smt {
         bool internalize_atom(app * atom, bool gate_ctx) override;
         void pop_scope_eh(unsigned num_scopes) override;
         theory_var mk_var(enode * n) override;
-        void relevant_eh(app * n) override;
+        void relevant_eh(expr * n) override;
 
         bool should_research(expr_ref_vector & unsat_core) override;
         void add_theory_assumptions(expr_ref_vector & assumptions) override;
@@ -80,6 +83,8 @@ namespace smt {
         bool instantiate_default_map_axiom(enode* map);
         bool instantiate_default_as_array_axiom(enode* arr);
         bool instantiate_default_lambda_def_axiom(enode* arr);
+        bool instantiate_select_lambda_axiom(enode *lambda);
+        bool instantiate_choice_axiom(enode* ch);
         bool instantiate_parent_stores_default(theory_var v);
 
 
@@ -108,8 +113,9 @@ namespace smt {
         void merge_eh(theory_var v1, theory_var v2, theory_var, theory_var) override;
         void display_var(std::ostream & out, theory_var v) const override;
         void collect_statistics(::statistics & st) const override;
+        bool can_propagate() override { return theory_array::can_propagate() || m_choice_qhead < m_choice_terms.size(); }
+        void propagate() override;
     };
 
 };
-
 
