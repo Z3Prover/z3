@@ -224,9 +224,13 @@ namespace seq {
             return mk_ite(cond, d1, d2);
         }
 
-        // δ(reverse(r1)) - stuck: return symbolic derivative
-        if (re().is_reverse(r, r1))
+        // δ(reverse(r1)) - normalize by pushing reverse inward, then derive
+        if (re().is_reverse(r, r1)) {
+            expr_ref norm = normalize_reverse(r1);
+            if (norm)
+                return derive_rec(norm);
             return expr_ref(re().mk_derivative(m_ele, r), m);
+        }
 
         // Stuck/uninterpreted case
         return expr_ref(re().mk_derivative(m_ele, r), m);
@@ -302,6 +306,99 @@ namespace seq {
         expr* args[2] = { pred, m_ele };
         expr_ref cond(autil.mk_select(2, args), m);
         return mk_ite(cond, eps, empty);
+    }
+
+    // -------------------------------------------------------
+    // Normalize reverse by pushing it inward
+    // -------------------------------------------------------
+
+    expr_ref derive::normalize_reverse(expr* r) {
+        expr* r1 = nullptr, * r2 = nullptr, * s = nullptr, * p = nullptr;
+        unsigned lo = 0, hi = 0;
+        zstring zs;
+
+        // reverse(reverse(r1)) = r1
+        if (re().is_reverse(r, r1))
+            return expr_ref(r1, m);
+
+        // reverse(r1 · r2) = reverse(r2) · reverse(r1)
+        if (re().is_concat(r, r1, r2)) {
+            expr_ref a(re().mk_reverse(r2), m);
+            expr_ref b(re().mk_reverse(r1), m);
+            return expr_ref(re().mk_concat(a, b), m);
+        }
+
+        // reverse(r1 ∪ r2) = reverse(r1) ∪ reverse(r2)
+        if (re().is_union(r, r1, r2)) {
+            expr_ref a(re().mk_reverse(r1), m);
+            expr_ref b(re().mk_reverse(r2), m);
+            return expr_ref(re().mk_union(a, b), m);
+        }
+
+        // reverse(r1 ∩ r2) = reverse(r1) ∩ reverse(r2)
+        if (re().is_intersection(r, r1, r2)) {
+            expr_ref a(re().mk_reverse(r1), m);
+            expr_ref b(re().mk_reverse(r2), m);
+            return expr_ref(re().mk_inter(a, b), m);
+        }
+
+        // reverse(r1 \ r2) = reverse(r1) \ reverse(r2)
+        if (re().is_diff(r, r1, r2)) {
+            expr_ref a(re().mk_reverse(r1), m);
+            expr_ref b(re().mk_reverse(r2), m);
+            return expr_ref(re().mk_diff(a, b), m);
+        }
+
+        // reverse(ite(c, r1, r2)) = ite(c, reverse(r1), reverse(r2))
+        if (m.is_ite(r, p, r1, r2))
+            return expr_ref(m.mk_ite(p, re().mk_reverse(r1), re().mk_reverse(r2)), m);
+
+        // reverse(r1?) = reverse(r1)?
+        if (re().is_opt(r, r1))
+            return expr_ref(re().mk_opt(re().mk_reverse(r1)), m);
+
+        // reverse(~r1) = ~reverse(r1)
+        if (re().is_complement(r, r1))
+            return expr_ref(re().mk_complement(re().mk_reverse(r1)), m);
+
+        // reverse(r1*) = reverse(r1)*
+        if (re().is_star(r, r1))
+            return expr_ref(re().mk_star(re().mk_reverse(r1)), m);
+
+        // reverse(r1+) = reverse(r1)+
+        if (re().is_plus(r, r1))
+            return expr_ref(re().mk_plus(re().mk_reverse(r1)), m);
+
+        // reverse(r1{lo,}) = reverse(r1){lo,}
+        if (re().is_loop(r, r1, lo))
+            return expr_ref(re().mk_loop(re().mk_reverse(r1), lo), m);
+
+        // reverse(r1{lo,hi}) = reverse(r1){lo,hi}
+        if (re().is_loop(r, r1, lo, hi))
+            return expr_ref(re().mk_loop_proper(re().mk_reverse(r1), lo, hi), m);
+
+        // Symmetric: full_seq, empty, range, full_char, of_pred
+        if (re().is_full_seq(r) || re().is_empty(r) || re().is_range(r) ||
+            re().is_full_char(r) || re().is_of_pred(r))
+            return expr_ref(r, m);
+
+        // reverse(to_re(s)) where s is a string literal
+        if (re().is_to_re(r, s) && u().str.is_string(s, zs))
+            return expr_ref(re().mk_to_re(u().str.mk_string(zs.reverse())), m);
+
+        // reverse(to_re(unit)) = to_re(unit)
+        if (re().is_to_re(r, s) && u().str.is_unit(s))
+            return expr_ref(r, m);
+
+        // reverse(to_re(s1 ++ s2)) = reverse(to_re(s2)) · reverse(to_re(s1))
+        if (re().is_to_re(r, s) && u().str.is_concat(s, r1, r2)) {
+            expr_ref a(re().mk_reverse(re().mk_to_re(r2)), m);
+            expr_ref b(re().mk_reverse(re().mk_to_re(r1)), m);
+            return expr_ref(re().mk_concat(a, b), m);
+        }
+
+        // Stuck — cannot normalize further
+        return expr_ref(nullptr, m);
     }
 
     // -------------------------------------------------------
