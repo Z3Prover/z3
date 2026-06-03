@@ -1906,7 +1906,7 @@ namespace {
             enode * min_gen_cg = cgr;
             enode * curr = cgr->get_next();
             while (curr != cgr) {
-                if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->get_cg() == cgr) {
+                if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->get_cg_root() == cgr) {
                     if (min_gen_cg->get_generation() > curr->get_generation()) {
                         min_gen_cg = curr;
                     }
@@ -1914,6 +1914,20 @@ namespace {
                 curr = curr->get_next();
             }
             return min_gen_cg;
+        }
+
+        unsigned get_max_generation_min_cg(unsigned num_enodes, enode * const * enodes) {
+            SASSERT(num_enodes > 0);
+            unsigned max = 0;
+            for (unsigned i = 0; i < num_enodes; ++i) {
+                enode * n = enodes[i];
+                // binding might be a constant
+                unsigned curr = n->get_num_args() == 0 ? n->get_generation() : 
+                    find_min_gen_cg(n->get_decl(), n->get_num_args(), n->get_cg_root())->get_generation();
+                if (curr > max)
+                    max = curr;
+            }
+            return max;
         }
 
         // We have to provide the number of expected arguments because we have flat-assoc applications such as +.
@@ -2329,7 +2343,8 @@ namespace {
         m_min_top_generation.reset();
         m_max_top_generation.reset();
         m_pattern_instances.push_back(n);
-        m_max_generation = n->get_generation();
+
+        m_max_generation = find_min_gen_cg(n->get_decl(), n->get_num_args(), n->get_cg_root())->get_generation();
 
         if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality)) {
             m_used_enodes.reset();
@@ -2570,7 +2585,7 @@ namespace {
         case YIELD1:
             m_bindings[0] = m_registers[static_cast<const yield *>(m_pc)->m_bindings[0]];
 #define ON_MATCH(NUM)                                                   \
-            m_max_generation = std::max(m_max_generation, get_max_generation(NUM, m_bindings.begin())); \
+            m_max_generation = std::max(m_max_generation, get_max_generation_min_cg(NUM, m_bindings.begin())); \
             if (m_context.get_cancel_flag()) {                          \
                 return false;                                           \
             }                                                           \
@@ -3985,10 +4000,10 @@ namespace {
                 }
                 return;
             }
-            DEBUG_CODE(
-                for (unsigned i = 0; i < num_bindings; ++i) {
-                    SASSERT(bindings[i]->get_generation() <= max_generation);
-                });
+            // DEBUG_CODE(
+            //     for (unsigned i = 0; i < num_bindings; ++i) {
+            //         SASSERT(bindings[i]->get_generation() <= max_generation);
+            //     });
                 
 #endif
             unsigned min_gen = 0, max_gen = 0;
