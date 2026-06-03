@@ -47,6 +47,8 @@ namespace seq {
 
     expr_ref derive::operator()(expr* ele, expr* r) {
         SASSERT(m_util.is_re(r));
+        if (m_trail.size() > 1000)
+            reset();
         m_ele = ele;
         m_depth = 0;
         expr_ref result = derive_rec(r);

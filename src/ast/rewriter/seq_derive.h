@@ -107,6 +107,8 @@ namespace seq {
         sort* seq_sort(expr* r) { sort* s = nullptr; m_util.is_re(r, s); return s; }
         sort* ele_sort(expr* r) { sort* s = seq_sort(r); sort* e = nullptr; m_util.is_seq(s, e); return e; }
 
+        void reset();
+
     public:
         derive(ast_manager& m);
 
@@ -121,8 +123,6 @@ namespace seq {
          * Convenience: symbolic derivative using de Bruijn var 0.
          */
         expr_ref operator()(expr* r);
-
-        void reset();
     };
 
 }
