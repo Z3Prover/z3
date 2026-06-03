@@ -103,6 +103,9 @@ namespace seq {
         // Distribute concatenation through ITE/union in derivative
         expr_ref mk_deriv_concat(expr* d, expr* tail);
 
+        // Normalize reverse(r) by pushing reverse inward
+        expr_ref normalize_reverse(expr* r);
+
         // Simplify ITE conditions w.r.t. m_ele
         expr_ref simplify_ite(expr* d);
         expr_ref simplify_ite_rec(expr* cond, bool sign, expr* d);
