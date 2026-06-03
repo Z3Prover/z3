@@ -1955,8 +1955,7 @@ public:
         ptr_vector<expr> assumptions_raw;
         obj_map<expr, expr*> bool2dep;
         ref<generic_model_converter> fmc;
-        extract_clauses_and_dependencies(g, clauses, assumptions_raw,
-                                         bool2dep, fmc);
+        extract_clauses_and_dependencies(g, clauses, assumptions_raw, bool2dep, fmc);
         for (expr* cl : clauses)
             s->assert_expr(cl);
 
@@ -1972,15 +1971,16 @@ public:
         ps.collect_statistics(m_stats);
 
         switch (is_sat) {
-        case l_true:
-            g->reset();
+        case l_true: {
             if (g->models_enabled() && mdl) {
-                if (fmc)
-                    g->add(concat(fmc.get(), model2model_converter(mdl.get())));
-                else
-                    g->add(model2model_converter(mdl.get()));
+                model_converter_ref mc = model2model_converter(mdl.get());
+                mc = concat(fmc.get(), mc.get());
+                mc = concat(s->mc0(), mc.get());
+                g->add(mc.get());
             }
+            g->reset();
             break;
+        }
 
         case l_false: {
             SASSERT(!g->proofs_enabled());
