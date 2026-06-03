@@ -221,7 +221,7 @@ class parallel_solver {
         std::condition_variable  m_bb_cv;
         bb_candidates            m_bb_current_batch;
         unsigned                 m_bb_batch_id = 0;
-        unsigned                 m_num_global_bb_threads = 0;
+        unsigned                 m_num_bb_threads = 0;
         unsigned_vector          m_bb_last_batch_processed;
         unsigned                 m_bb_cancel_epoch = 0;
 
@@ -450,7 +450,7 @@ class parallel_solver {
               m_unsat_core(m) {}
 
         /* ---- initialisation ---- */
-        void initialize(unsigned num_global_bb_threads, unsigned initial_max_thread_conflicts = 1000) {
+        void initialize(unsigned num_bb_threads, unsigned initial_max_thread_conflicts = 1000) {
             m_state = state::is_running;
             m_search_tree.reset();
             m_search_tree.set_effort_unit(initial_max_thread_conflicts);
@@ -462,9 +462,9 @@ class parallel_solver {
             m_bb_candidates.reset();
             m_bb_current_batch.reset();
             m_bb_batch_id = 0;
-            m_num_global_bb_threads = num_global_bb_threads;
+            m_num_bb_threads = num_bb_threads;
             m_bb_last_batch_processed.reset();
-            m_bb_last_batch_processed.resize(num_global_bb_threads);
+            m_bb_last_batch_processed.resize(num_bb_threads);
             m_bb_cancel_epoch = 0;
             m_bb_candidate_epoch.store(0, std::memory_order_release);
             m_core_min_jobs.reset();
@@ -1078,9 +1078,8 @@ class parallel_solver {
         worker(unsigned id, parallel_solver& p, solver& src, params_ref const& params, expr_ref_vector const& src_asms)
             : id(id), b(p.m_batch_manager), asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
             parallel_params pp(params);
-            m_config.m_core_minimize = params.get_bool("core_minimize", pp.g, true);
-            m_config.m_global_backbones = params.get_uint("num_global_bb_batch_threads", pp.g, 2u) > 0 ||
-                                          params.get_uint("num_global_bb_fl_threads", pp.g, 0u) > 0;
+            m_config.m_core_minimize = pp.core_minimize();
+            m_config.m_global_backbones = pp.num_bb_threads() > 0;
 
             s = src.translate_for_parallel(m, params);
             s->pop_to_base_level();
@@ -1817,18 +1816,12 @@ public:
         parallel_params pp(m_params);
         unsigned num_threads = std::min(
             static_cast<unsigned>(std::thread::hardware_concurrency()),
-            m_params.get_uint("threads", pp.g, pp.threads()));
-        bool core_minimize = m_params.get_bool("core_minimize", pp.g, true);
-        unsigned num_global_bb_batch_threads = m_params.get_uint("num_global_bb_batch_threads", pp.g, 2u);
-        if (num_global_bb_batch_threads > 2)
-            throw default_exception("parallel.num_global_bb_batch_threads must be 0, 1, or 2");
-        unsigned num_global_bb_fl_threads = m_params.get_uint("num_global_bb_fl_threads", pp.g, 0u);
-        if (num_global_bb_fl_threads > 2)
-            throw default_exception("parallel.num_global_bb_fl_threads must be 0, 1, or 2");
-        if (num_global_bb_fl_threads > 0 && num_global_bb_batch_threads > 0)
-            throw default_exception("parallel.num_global_bb_fl_threads and parallel.num_global_bb_batch_threads cannot both be enabled");
-        unsigned num_global_bb_threads = num_global_bb_fl_threads > 0 ? num_global_bb_fl_threads : num_global_bb_batch_threads;
-        unsigned total_threads = num_threads + (core_minimize ? 1 : 0) + num_global_bb_threads;
+            pp.threads_max());
+        bool core_minimize = pp.core_minimize();
+        unsigned num_bb_threads = pp.num_bb_threads();
+        if (num_bb_threads > 2)
+            throw default_exception("parallel.num_bb_threads must be 0, 1, or 2");
+        unsigned total_threads = num_threads + (core_minimize ? 1 : 0) + num_bb_threads;
 
         IF_VERBOSE(1, verbose_stream() << "Parallel tactical2 with " << total_threads << " threads\n";);
 
@@ -1854,7 +1847,7 @@ public:
             sl.push_child(&(m_core_minimizer_worker->limit()));
         }
         m_global_backbones_workers.reset();
-        for (unsigned i = 0; i < num_global_bb_threads; ++i) {
+        for (unsigned i = 0; i < num_bb_threads; ++i) {
             params_ref bb_params = mk_worker_params(num_threads + (core_minimize ? 1 : 0) + i);
             auto* w = alloc(backbones_worker, i, *this, *m_solver, bb_params, asms);
             m_global_backbones_workers.push_back(w);
@@ -1865,7 +1858,7 @@ public:
                                        << (m_core_minimizer_worker ? 1 : 0) << " core minimizer threads, "
                                        << m_global_backbones_workers.size() << " global backbone threads.\n";);
 
-        m_batch_manager.initialize(num_global_bb_threads);
+        m_batch_manager.initialize(num_bb_threads);
 
         /* Launch threads. */
         vector<std::thread> threads;
