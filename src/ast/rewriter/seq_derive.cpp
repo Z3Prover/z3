@@ -52,6 +52,7 @@ namespace seq {
         m_ele = ele;
         m_depth = 0;
         expr_ref result = derive_rec(r);
+        result = simplify_ite(result);
         m_ele = nullptr;
         return result;
     }
@@ -63,6 +64,14 @@ namespace seq {
         VERIFY(m_util.is_seq(seq_sort, ele_sort));
         expr_ref v(m.mk_var(0, ele_sort), m);
         return (*this)(v, r);
+    }
+
+    expr_ref derive::eval(expr* ele, expr* d) {
+        expr_ref old_ele(m_ele, m);
+        m_ele = ele;
+        expr_ref result = simplify_ite(d);
+        m_ele = old_ele;
+        return result;
     }
 
     // -------------------------------------------------------
@@ -469,6 +478,9 @@ namespace seq {
             return expr_ref(t, m);
         if (m.is_false(c))
             return expr_ref(e, m);
+        bool cond_val;
+        if (eval_cond(c, cond_val))
+            return cond_val ? expr_ref(t, m) : expr_ref(e, m);
         return expr_ref(m.mk_ite(c, t, e), m);
     }
 
@@ -612,6 +624,131 @@ namespace seq {
         }
 
         return mk_concat(d, tail);
+    }
+
+    // -------------------------------------------------------
+    // Post-processing: simplify ITE conditions w.r.t. m_ele
+    // -------------------------------------------------------
+
+    bool derive::eval_cond(expr* cond, bool& result) {
+        expr* lhs = nullptr, * rhs = nullptr, * e1 = nullptr;
+        unsigned ch1 = 0, ch2 = 0;
+
+        if (m.is_true(cond)) { result = true; return true; }
+        if (m.is_false(cond)) { result = false; return true; }
+
+        // elem = char or char = elem
+        if (m.is_eq(cond, lhs, rhs)) {
+            if (rhs == m_ele) std::swap(lhs, rhs);
+            if (lhs == m_ele && u().is_const_char(rhs, ch1) && u().is_const_char(m_ele, ch2)) {
+                result = (ch1 == ch2);
+                return true;
+            }
+            if (lhs == rhs) { result = true; return true; }
+        }
+
+        // char_le(lhs, rhs)
+        if (u().is_char_le(cond, lhs, rhs)) {
+            unsigned vl = 0, vr = 0;
+            if (lhs == m_ele && u().is_const_char(m_ele, vl) && u().is_const_char(rhs, vr)) {
+                result = (vl <= vr); return true;
+            }
+            if (rhs == m_ele && u().is_const_char(lhs, vl) && u().is_const_char(m_ele, vr)) {
+                result = (vl <= vr); return true;
+            }
+            if (u().is_const_char(lhs, vl) && u().is_const_char(rhs, vr)) {
+                result = (vl <= vr); return true;
+            }
+        }
+
+        // not(e1)
+        if (m.is_not(cond, e1)) {
+            bool inner;
+            if (eval_cond(e1, inner)) {
+                result = !inner;
+                return true;
+            }
+        }
+
+        // and(...)
+        if (m.is_and(cond)) {
+            for (expr* arg : *to_app(cond)) {
+                bool v;
+                if (eval_cond(arg, v)) {
+                    if (!v) { result = false; return true; }
+                } else {
+                    return false;
+                }
+            }
+            result = true;
+            return true;
+        }
+
+        // or(...)
+        if (m.is_or(cond)) {
+            for (expr* arg : *to_app(cond)) {
+                bool v;
+                if (eval_cond(arg, v)) {
+                    if (v) { result = true; return true; }
+                } else {
+                    return false;
+                }
+            }
+            result = false;
+            return true;
+        }
+
+        return false;
+    }
+
+    expr_ref derive::simplify_ite(expr* d) {
+        expr* c, * t, * e;
+        if (!m.is_ite(d, c, t, e))
+            return expr_ref(d, m);
+
+        bool cond_val;
+        if (eval_cond(c, cond_val))
+            return simplify_ite(cond_val ? t : e);
+
+        // Simplify branches with knowledge of the condition's truth value
+        expr_ref st = simplify_ite_rec(c, false, t);
+        expr_ref se = simplify_ite_rec(c, true, e);
+        return mk_ite(c, st, se);
+    }
+
+    expr_ref derive::simplify_ite_rec(expr* cond, bool sign, expr* d) {
+        expr* c, * t, * e;
+        if (!m.is_ite(d, c, t, e))
+            return expr_ref(d, m);
+
+        // If the ITE condition matches cond directly
+        if (c == cond)
+            return sign ? simplify_ite(e) : simplify_ite(t);
+
+        // If cond is (x = ch1) and c is (x = ch2) with ch1 != ch2:
+        // when sign is false (cond is true, i.e., x = ch1), then c must be false
+        expr* lhs1 = nullptr, * rhs1 = nullptr, * lhs2 = nullptr, * rhs2 = nullptr;
+        if (!sign && m.is_eq(cond, lhs1, rhs1) && m.is_eq(c, lhs2, rhs2)) {
+            if (u().is_const_char(lhs1)) std::swap(lhs1, rhs1);
+            if (u().is_const_char(lhs2)) std::swap(lhs2, rhs2);
+            unsigned ch1 = 0, ch2 = 0;
+            if (lhs1 == lhs2 && u().is_const_char(rhs1, ch1) && u().is_const_char(rhs2, ch2) && ch1 != ch2)
+                return simplify_ite_rec(cond, sign, e);
+        }
+
+        // General case: try to evaluate c given knowledge of cond
+        bool cond_val;
+        if (eval_cond(c, cond_val))
+            return simplify_ite_rec(cond, sign, cond_val ? t : e);
+
+        // Cannot simplify c: recurse into branches
+        expr_ref st = simplify_ite_rec(cond, sign, t);
+        expr_ref se = simplify_ite_rec(cond, sign, e);
+
+        // Now also simplify c's branches with knowledge of c
+        st = simplify_ite_rec(c, false, st);
+        se = simplify_ite_rec(c, true, se);
+        return mk_ite(c, st, se);
     }
 
 }

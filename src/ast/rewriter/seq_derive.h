@@ -103,6 +103,11 @@ namespace seq {
         // Distribute concatenation through ITE/union in derivative
         expr_ref mk_deriv_concat(expr* d, expr* tail);
 
+        // Simplify ITE conditions w.r.t. m_ele
+        expr_ref simplify_ite(expr* d);
+        expr_ref simplify_ite_rec(expr* cond, bool sign, expr* d);
+        bool eval_cond(expr* cond, bool& result);
+
         sort* re_sort(expr* r) { return r->get_sort(); }
         sort* seq_sort(expr* r) { sort* s = nullptr; m_util.is_re(r, s); return s; }
         sort* ele_sort(expr* r) { sort* s = seq_sort(r); sort* e = nullptr; m_util.is_seq(s, e); return e; }
@@ -123,6 +128,11 @@ namespace seq {
          * Convenience: symbolic derivative using de Bruijn var 0.
          */
         expr_ref operator()(expr* r);
+
+        /**
+         * Evaluate an ITE-tree derivative for a concrete element.
+         */
+        expr_ref eval(expr* ele, expr* d);
     };
 
 }
