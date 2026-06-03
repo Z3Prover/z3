@@ -104,9 +104,7 @@ namespace smt {
             return true;
         for (unsigned i = 0; i < num_args; ++i)
             d->m_args[i] = d->m_args[i]->get_root();
-        if (m_set.contains(d))
-            return true;
-        return false;
+        return m_set.contains(d);
     }
     
     void fingerprint_set::reset() {
