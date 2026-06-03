@@ -2918,7 +2918,9 @@ expr_ref seq_rewriter::mk_derivative(expr* r) {
 }
 
 expr_ref seq_rewriter::mk_derivative(expr* ele, expr* r) {
-    return m_derive(ele, r);
+    // Compute symbolic derivative (cached per regex), then evaluate for concrete element
+    expr_ref d = m_derive(r);
+    return m_derive.eval(ele, d);
 }
 
 
