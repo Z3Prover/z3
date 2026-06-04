@@ -330,7 +330,7 @@ namespace {
             return result;
         }
 
-        void get_split_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+        void get_split_candidates(vector<solver::scored_literal>& candidates) override {
             ast_manager& m = get_manager();
             auto& ctx = m_context.get_context();
             vector<solver::scored_literal> all;
@@ -351,9 +351,7 @@ namespace {
                     return a.score > b.score;
                 });
 
-            unsigned n = std::min<unsigned>(max_num, all.size());
-            for (unsigned i = 0; i < n; ++i)
-                candidates.push_back(all[i]);
+            candidates.append(all);
         }
 
         void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {

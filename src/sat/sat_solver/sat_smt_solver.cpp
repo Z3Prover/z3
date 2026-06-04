@@ -439,14 +439,14 @@ public:
         return expr_ref(lit2expr.get(lit.index()), m);
     }
 
-    void get_split_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+    void get_split_candidates(vector<solver::scored_literal>& candidates) override {
         expr_ref_vector none(m);
         lbool r = internalize_formulas(none);
         if (r != l_true)
             return;
         convert_internalized();
         sat::literal_vector lits;
-        m_solver.get_split_candidates(lits, max_num);
+        m_solver.get_split_candidates(lits);
         expr_ref_vector lit2expr(m);
         lit2expr.resize(m_solver.num_vars() * 2);
         m_map.mk_inv(lit2expr);

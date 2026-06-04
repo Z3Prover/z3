@@ -1023,7 +1023,7 @@ class parallel_solver {
                 return expr_ref(nullptr, m);
 
             vector<solver::scored_literal> cands;
-            s->get_split_candidates(cands, UINT_MAX);
+            s->get_split_candidates(cands);
             for (auto const& cand : cands) {
                 expr* lit = cand.lit.get();
                 if (!lit)

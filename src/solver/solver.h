@@ -347,9 +347,9 @@ public:
 
     virtual expr_ref get_split_candidate() = 0;
 
-    virtual void get_split_candidates(vector<scored_literal>& candidates, unsigned max_num) {
+    virtual void get_split_candidates(vector<scored_literal>& candidates) {
         expr_ref e = get_split_candidate();
-        if (e && max_num > 0)
+        if (e)
             candidates.push_back(scored_literal(e, 0.0));
     }
 

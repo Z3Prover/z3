@@ -394,9 +394,9 @@ public:
         flush();
         return s->get_split_candidate();
     }
-    void get_split_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
+    void get_split_candidates(vector<solver::scored_literal>& candidates) override {
         flush();
-        s->get_split_candidates(candidates, max_num);
+        s->get_split_candidates(candidates);
     }
     void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
         flush();
