@@ -245,16 +245,39 @@ jobs:
       - name: Test
         run: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
       - name: Clone bench (for issue-oracle smoke test)
+        # continue-on-error: true keeps a missing/expired BENCH_REPO_TOKEN
+        # or a transient outage on Z3Prover/bench from failing the
+        # nightly build. The next step still won't run successfully if
+        # the bench/ directory is absent, but it also has
+        # continue-on-error, so the worst case is a noisy annotation
+        # rather than a red build. Re-evaluate removing this once the
+        # secret is verified to be present and stable in CI.
         continue-on-error: true
-        run: |
-          # Sparse clone: bench is ~12 GB total but only scripts/ and
-          # inputs/issues/ (~800 MB) are needed by the oracle. The
-          # smoke-test runs on a sampled subset of iss-* dirs (see
-          # next step), so even this 800 MB pull is upper-bounded
-          # at the clone level rather than runtime.
-          git clone --depth 1 --filter=blob:none --sparse \
-            https://github.com/Z3Prover/bench bench
-          git -C bench sparse-checkout set scripts inputs/issues
+        # Z3Prover/bench is a PRIVATE repo, so the default GITHUB_TOKEN
+        # (which is scoped to this repository only) cannot read it.
+        # Authentication is provided by the BENCH_REPO_TOKEN secret,
+        # which must be a PAT (or GitHub App installation token) with
+        # `contents: read` permission on Z3Prover/bench. Without it,
+        # the previous unauthenticated `git clone` failed with
+        # "could not read Username for 'https://github.com'".
+        #
+        # Sparse clone: bench is ~12 GB total but only scripts/ and
+        # inputs/issues/ (~800 MB) are needed by the oracle. The
+        # smoke-test runs on a sampled subset of iss-* dirs (see
+        # next step), so even this 800 MB pull is upper-bounded
+        # at the clone level rather than runtime. Cone-mode
+        # sparse-checkout pulls everything recursively under those
+        # two top-level dirs; `fetch-depth: 1` keeps history minimal.
+        uses: actions/checkout@v6.0.2
+        with:
+          repository: Z3Prover/bench
+          token: ${{ secrets.BENCH_REPO_TOKEN }}
+          path: bench
+          sparse-checkout: |
+            scripts
+            inputs/issues
+          fetch-depth: 1
+          persist-credentials: false
 
       - name: Run issue-oracle smoke test
         # continue-on-error: true means this step can NEVER red the
