@@ -473,7 +473,7 @@ public:
             expr* e = lit2expr.get(lit.index());
             if (!e)
                 continue;
-            candidates.push_back(scored_literal(m, e, static_cast<double>(now - m_solver.get_preferred_phase_birthdate(lit.var()))));
+            candidates.push_back(scored_literal(m, e, static_cast<double>(now - m_solver.get_phase_birthdate(lit.var()))));
         }
     }
 
