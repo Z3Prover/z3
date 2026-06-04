@@ -220,7 +220,7 @@ namespace seq {
         // δ(reverse(r1)) - normalize by pushing reverse inward, then derive
         if (re().is_reverse(r, r1)) {
             expr_ref norm = normalize_reverse(r1);
-            if (norm)
+            if (norm != r)
                 return derive_rec(norm);
             return expr_ref(re().mk_derivative(m_ele, r), m);
         }
@@ -418,7 +418,7 @@ namespace seq {
         }
 
         // Stuck — cannot normalize further
-        return expr_ref(nullptr, m);
+        return expr_ref(re().mk_reverse(r), m);
     }
 
     // -------------------------------------------------------
@@ -442,6 +442,46 @@ namespace seq {
     // Smart constructors with simplification
     // -------------------------------------------------------
 
+    // Lightweight structural subsumption: checks if L(a) ⊆ L(b)
+    // Returns true only when subsumption can be determined structurally.
+    bool derive::is_subset(expr* a, expr* b) {
+        if (a == b) return true;
+        if (re().is_empty(a)) return true;
+        if (re().is_full_seq(b)) return true;
+
+        // a ⊆ a* (since a* accepts everything a does and more)
+        expr* b1 = nullptr;
+        if (re().is_star(b, b1) && a == b1) return true;
+
+        // a* ⊆ b* if a ⊆ b
+        expr* a1 = nullptr;
+        if (re().is_star(a, a1) && re().is_star(b, b1) && is_subset(a1, b1)) return true;
+
+        // a ⊆ b1 ∪ b2 if a ⊆ b1 or a ⊆ b2
+        if (re().is_union(b, b1, a1)) {
+            if (is_subset(a, b1) || is_subset(a, a1)) return true;
+        }
+
+        // a1 ∩ a2 ⊆ b if a1 ⊆ b or a2 ⊆ b
+        if (re().is_intersection(a, a1, b1)) {
+            if (is_subset(a1, b) || is_subset(b1, b)) return true;
+        }
+
+        // concat subsumption: a1·a2 ⊆ b1·b2 when a1 ⊆ b1 and a2 ⊆ b2
+        expr* a2 = nullptr, * b2 = nullptr;
+        if (re().is_concat(a, a1, a2) && re().is_concat(b, b1, b2) && 
+            is_subset(a1, b1) && is_subset(a2, b2))
+            return true;
+
+        // loop subsumption: r{la,ua} ⊆ r{lb,ub} when lb <= la and ua <= ub
+        unsigned la, ua, lb, ub;
+        if (re().is_loop(a, a1, la, ua) && re().is_loop(b, b1, lb, ub) &&
+            a1 == b1 && lb <= la && ua <= ub)
+            return true;
+
+        return false;
+    }
+
     expr_ref derive::mk_union(expr* a, expr* b) {
         // Identity / annihilator
         if (a == b) return expr_ref(a, m);
@@ -456,6 +496,10 @@ namespace seq {
             return expr_ref(re().mk_full_seq(a->get_sort()), m);
         if (re().is_complement(b, c) && c == a)
             return expr_ref(re().mk_full_seq(a->get_sort()), m);
+
+        // Subsumption: a ∪ b = b if a ⊆ b, a ∪ b = a if b ⊆ a
+        if (is_subset(a, b)) return expr_ref(b, m);
+        if (is_subset(b, a)) return expr_ref(a, m);
 
         // ITE combination: if both are ITE with same condition, merge
         expr *c1, *t1, *e1, *c2, *t2, *e2;
@@ -507,6 +551,10 @@ namespace seq {
             return expr_ref(re().mk_empty(a->get_sort()), m);
         if (re().is_complement(b, c) && c == a)
             return expr_ref(re().mk_empty(a->get_sort()), m);
+
+        // Subsumption: a ∩ b = a if a ⊆ b, a ∩ b = b if b ⊆ a
+        if (is_subset(a, b)) return expr_ref(a, m);
+        if (is_subset(b, a)) return expr_ref(b, m);
 
         // ITE combination: if both are ITE with same condition, merge
         expr *c1, *t1, *e1, *c2, *t2, *e2;
@@ -852,6 +900,11 @@ namespace seq {
         if (!m.is_ite(d, c, t, e))
             return expr_ref(d, m);
 
+        // Try to evaluate c directly
+        bool cond_val;
+        if (eval_cond(c, cond_val))
+            return simplify_ite_rec(path, cond_val ? t : e);
+
         // Check if c can be determined from the path
         for (auto const& [cond, sign] : path) {
             // Direct match: c == cond
@@ -862,8 +915,8 @@ namespace seq {
             // If v != w, then c is false → take else branch
             expr* lhs1 = nullptr, * rhs1 = nullptr, * lhs2 = nullptr, * rhs2 = nullptr;
             if (!sign && m.is_eq(cond, lhs1, rhs1) && m.is_eq(c, lhs2, rhs2)) {
-                if (m_util.is_const_char(lhs1)) std::swap(lhs1, rhs1);
-                if (m_util.is_const_char(lhs2)) std::swap(lhs2, rhs2);
+                if (m.is_value(lhs1)) std::swap(lhs1, rhs1);
+                if (m.is_value(lhs2)) std::swap(lhs2, rhs2);
                 if (lhs1 == lhs2 && m.are_distinct(rhs1, rhs2))
                     return simplify_ite_rec(path, e);
             }
@@ -872,7 +925,7 @@ namespace seq {
             // and c is (x = v). If v is outside the range, c is false.
             unsigned v_val = 0, lo_val = 0, hi_val = 0;
             if (!sign && m.is_eq(c, lhs2, rhs2)) {
-                if (m_util.is_const_char(lhs2)) std::swap(lhs2, rhs2);
+                if (m.is_value(lhs2)) std::swap(lhs2, rhs2);
                 if (m_util.is_const_char(rhs2, v_val)) {
                     // Check if cond is (lo <= x) where x == lhs2
                     expr* le_lhs = nullptr, * le_rhs = nullptr;
@@ -891,7 +944,7 @@ namespace seq {
         expr* lhs_c = nullptr, * rhs_c = nullptr;
         unsigned v_val = 0;
         if (m.is_eq(c, lhs_c, rhs_c)) {
-            if (m_util.is_const_char(lhs_c)) std::swap(lhs_c, rhs_c);
+            if (m.is_value(lhs_c)) std::swap(lhs_c, rhs_c);
             if (m_util.is_const_char(rhs_c, v_val)) {
                 unsigned lo_bound = 0, hi_bound = UINT_MAX;
                 bool has_lo = false, has_hi = false;
@@ -920,21 +973,17 @@ namespace seq {
             }
         }
 
-        // Try to evaluate c directly
-        bool cond_val;
-        if (eval_cond(c, cond_val))
-            return simplify_ite_rec(path, cond_val ? t : e);
-
         // Cannot simplify c: recurse into branches with extended paths
         // True branch: add conjuncts of c
-        path_t extended_path(path);
+        auto sz = path.size();
         if (m.is_and(c)) {
             for (expr* arg : *to_app(c))
-                extended_path.push_back({ arg, false });
+                path.push_back({ arg, false });
         } else {
-            extended_path.push_back({ c, false });
+            path.push_back({ c, false });
         }
-        expr_ref st = simplify_ite_rec(extended_path, t);
+        expr_ref st = simplify_ite_rec(path, t);
+        path.shrink(sz);
 
         // Else branch: add (c, true)
         path.push_back({ c, true });

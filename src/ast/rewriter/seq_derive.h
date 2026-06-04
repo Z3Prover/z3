@@ -104,6 +104,9 @@ namespace seq {
         // Distribute concatenation through ITE/union in derivative
         expr_ref mk_deriv_concat(expr* d, expr* tail);
 
+        // Lightweight subsumption check: returns true if L(a) ⊆ L(b)
+        bool is_subset(expr* a, expr* b);
+
         // Normalize reverse(r) by pushing reverse inward
         expr_ref normalize_reverse(expr* r);
 
@@ -135,6 +138,12 @@ namespace seq {
          * Convenience: symbolic derivative using de Bruijn var 0.
          */
         expr_ref operator()(expr* r);
+
+        /**
+         * Lightweight structural subsumption check: L(a) ⊆ L(b)?
+         * Returns true only when provable structurally.
+         */
+        bool subsumes(expr* larger, expr* smaller) { return is_subset(smaller, larger); }
     };
 
 }
