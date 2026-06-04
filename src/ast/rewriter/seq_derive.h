@@ -116,14 +116,19 @@ namespace seq {
 
         // Path of signed conditions for ITE simplification
         using path_t = svector<std::pair<expr*, bool>>;
+        using intervals_t = svector<std::pair<unsigned, unsigned>>;
 
         // Simplify ITE conditions w.r.t. m_ele and path knowledge
         expr_ref simplify_ite(expr* d);
-        expr_ref simplify_ite_rec(path_t& path, expr* d);
-        std::pair<expr_ref, expr_ref> simplify_ite_rec(path_t& path, expr* c, expr* t, expr* e);
+        expr_ref simplify_ite_rec(path_t& path, intervals_t& intervals, expr* d);
+        std::pair<expr_ref, expr_ref> simplify_ite_rec(path_t& path, intervals_t& intervals, expr* c, expr* t, expr* e);
         void push_path(path_t& path, expr* c, bool sign);
+        void push_intervals(intervals_t& intervals, expr* c, bool sign);
         lbool eval_cond(expr* cond);
         lbool eval_path_cond(path_t const& path, expr* c);
+        lbool eval_range_cond(intervals_t const& intervals, expr* c);
+        static void intersect_intervals(unsigned lo, unsigned hi, intervals_t& ranges);
+        static void exclude_interval(unsigned lo, unsigned hi, intervals_t& ranges, unsigned max_char);
 
         sort* re_sort(expr* r) { return r->get_sort(); }
         sort* seq_sort(expr* r) { sort* s = nullptr; m_util.is_re(r, s); return s; }

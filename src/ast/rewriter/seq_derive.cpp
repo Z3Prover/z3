@@ -1091,14 +1091,146 @@ namespace seq {
         }
     }
 
-    std::pair<expr_ref, expr_ref> derive::simplify_ite_rec(path_t& path, expr* c, expr* t, expr* e) {
+    void derive::push_intervals(intervals_t& intervals, expr* c, bool sign) {
+        expr* lhs = nullptr, * rhs = nullptr;
+        unsigned val = 0;
+        if (m_util.is_char_le(c, lhs, rhs)) {
+            if (!sign) {
+                if (lhs == m_ele && m_util.is_const_char(rhs, val))
+                    intersect_intervals(0, val, intervals);
+                else if (rhs == m_ele && m_util.is_const_char(lhs, val))
+                    intersect_intervals(val, u().max_char(), intervals);
+            } else {
+                if (lhs == m_ele && m_util.is_const_char(rhs, val))
+                    exclude_interval(0, val, intervals, u().max_char());
+                else if (rhs == m_ele && m_util.is_const_char(lhs, val))
+                    exclude_interval(val, u().max_char(), intervals, u().max_char());
+            }
+        } else if (!sign && m.is_and(c)) {
+            for (expr* arg : *to_app(c))
+                push_intervals(intervals, arg, false);
+        } else if (sign && m.is_or(c)) {
+            for (expr* arg : *to_app(c))
+                push_intervals(intervals, arg, true);
+        } else if (sign && m.is_and(c)) {
+            // ¬(and(lo<=x, x<=hi)) → exclude [lo, hi]
+            unsigned lo = 0, hi = u().max_char();
+            bool got_lo = false, got_hi = false;
+            for (expr* arg : *to_app(c)) {
+                expr* a_lhs = nullptr, * a_rhs = nullptr;
+                unsigned a_val = 0;
+                if (m_util.is_char_le(arg, a_lhs, a_rhs)) {
+                    if (a_lhs == m_ele && m_util.is_const_char(a_rhs, a_val))
+                        { hi = std::min(hi, a_val); got_hi = true; }
+                    else if (a_rhs == m_ele && m_util.is_const_char(a_lhs, a_val))
+                        { lo = std::max(lo, a_val); got_lo = true; }
+                }
+            }
+            if (got_lo || got_hi)
+                exclude_interval(lo, hi, intervals, u().max_char());
+        }
+    }
+
+    void derive::intersect_intervals(unsigned lo, unsigned hi, intervals_t& ranges) {
+        unsigned j = 0;
+        for (unsigned i = 0; i < ranges.size(); ++i) {
+            auto [lo1, hi1] = ranges[i];
+            if (hi < lo1)
+                break;
+            if (hi1 >= lo)
+                ranges[j++] = std::make_pair(std::max(lo1, lo), std::min(hi1, hi));
+        }
+        ranges.shrink(j);
+    }
+
+    void derive::exclude_interval(unsigned lo, unsigned hi, intervals_t& ranges, unsigned max_char) {
+        if (lo == 0 && hi >= max_char) { ranges.reset(); return; }
+        if (lo == 0) { intersect_intervals(hi + 1, max_char, ranges); return; }
+        if (hi >= max_char) { intersect_intervals(0, lo - 1, ranges); return; }
+        intervals_t right(ranges);
+        intersect_intervals(0, lo - 1, ranges);
+        intersect_intervals(hi + 1, max_char, right);
+        ranges.append(right);
+    }
+
+    lbool derive::eval_range_cond(intervals_t const& intervals, expr* c) {
+        if (intervals.empty())
+            return l_false;
+
+        expr* lhs = nullptr, * rhs = nullptr;
+        unsigned val = 0;
+
+        // Handle AND of char_le as range [lo, hi]
+        if (m.is_and(c)) {
+            unsigned lo = 0, hi = u().max_char();
+            bool got_lo = false, got_hi = false;
+            bool all_char_le = true;
+            for (expr* arg : *to_app(c)) {
+                expr* a_lhs = nullptr, * a_rhs = nullptr;
+                unsigned a_val = 0;
+                if (m_util.is_char_le(arg, a_lhs, a_rhs)) {
+                    if (a_lhs == m_ele && m_util.is_const_char(a_rhs, a_val))
+                        { hi = std::min(hi, a_val); got_hi = true; }
+                    else if (a_rhs == m_ele && m_util.is_const_char(a_lhs, a_val))
+                        { lo = std::max(lo, a_val); got_lo = true; }
+                    else all_char_le = false;
+                } else all_char_le = false;
+            }
+            if (all_char_le && (got_lo || got_hi)) {
+                if (lo > hi) return l_false;
+                bool any_overlap = false;
+                bool all_contained = true;
+                for (auto const& [r_lo, r_hi] : intervals) {
+                    if (std::max(r_lo, lo) <= std::min(r_hi, hi))
+                        any_overlap = true;
+                    if (r_lo < lo || r_hi > hi)
+                        all_contained = false;
+                }
+                if (!any_overlap) return l_false;
+                if (all_contained) return l_true;
+            }
+            return l_undef;
+        }
+
+        // Handle single char_le
+        if (!m_util.is_char_le(c, lhs, rhs))
+            return l_undef;
+
+        if (lhs == m_ele && m_util.is_const_char(rhs, val)) {
+            // c is (x <= val): true if all hi <= val, false if all lo > val
+            bool all_le = true, any_le = false;
+            for (auto const& [r_lo, r_hi] : intervals) {
+                if (r_lo <= val) any_le = true;
+                if (r_hi > val) all_le = false;
+            }
+            if (all_le) return l_true;
+            if (!any_le) return l_false;
+        } else if (rhs == m_ele && m_util.is_const_char(lhs, val)) {
+            // c is (val <= x): true if all lo >= val, false if all hi < val
+            bool all_ge = true, any_ge = false;
+            for (auto const& [r_lo, r_hi] : intervals) {
+                if (r_hi >= val) any_ge = true;
+                if (r_lo < val) all_ge = false;
+            }
+            if (all_ge) return l_true;
+            if (!any_ge) return l_false;
+        }
+        return l_undef;
+    }
+
+    std::pair<expr_ref, expr_ref> derive::simplify_ite_rec(path_t& path, intervals_t& intervals, expr* c, expr* t, expr* e) {
         auto sz = path.size();
+        auto saved_intervals = intervals;
         push_path(path, c, false);
-        expr_ref st = simplify_ite_rec(path, t);
+        push_intervals(intervals, c, false);
+        expr_ref st = simplify_ite_rec(path, intervals, t);
         path.shrink(sz);
+        intervals = saved_intervals;
         push_path(path, c, true);
-        expr_ref se = simplify_ite_rec(path, e);
+        push_intervals(intervals, c, true);
+        expr_ref se = simplify_ite_rec(path, intervals, e);
         path.shrink(sz);
+        intervals = saved_intervals;
         return { st, se };
     }
 
@@ -1112,19 +1244,26 @@ namespace seq {
         if (cond_val == l_false) return simplify_ite(e);
 
         path_t path;
-        auto [st, se] = simplify_ite_rec(path, c, t, e);
+        intervals_t intervals;
+        intervals.push_back(std::make_pair(0u, u().max_char()));
+        auto [st, se] = simplify_ite_rec(path, intervals, c, t, e);
         return mk_ite(c, st, se);
     }
 
-    expr_ref derive::simplify_ite_rec(path_t& path, expr* d) {
+    expr_ref derive::simplify_ite_rec(path_t& path, intervals_t& intervals, expr* d) {
         expr* c, * t, * e;
         if (!m.is_ite(d, c, t, e))
             return expr_ref(d, m);
 
         // Try to evaluate c directly
         lbool cond_val = eval_cond(c);
-        if (cond_val == l_true) return simplify_ite_rec(path, t);
-        if (cond_val == l_false) return simplify_ite_rec(path, e);
+        if (cond_val == l_true) return simplify_ite_rec(path, intervals, t);
+        if (cond_val == l_false) return simplify_ite_rec(path, intervals, e);
+
+        // Use interval-based range reasoning (catches AND range vs disjoint intervals)
+        lbool range_val = eval_range_cond(intervals, c);
+        if (range_val == l_true) return simplify_ite_rec(path, intervals, t);
+        if (range_val == l_false) return simplify_ite_rec(path, intervals, e);
 
         // When c is an AND (range condition), check each conjunct against the path.
         // If any conjunct is contradicted by the path, c is false → take else.
@@ -1140,21 +1279,21 @@ namespace seq {
                 if (arg_val == l_undef)
                     and_result = l_undef;
             }
-            if (and_result == l_true) return simplify_ite_rec(path, t);
-            if (and_result == l_false) return simplify_ite_rec(path, e);
+            if (and_result == l_true) return simplify_ite_rec(path, intervals, t);
+            if (and_result == l_false) return simplify_ite_rec(path, intervals, e);
         }
         // When c is a single char_le, also check against the path
         else {
             lbool c_val = eval_path_cond(path, c);
-            if (c_val == l_true) return simplify_ite_rec(path, t);
-            if (c_val == l_false) return simplify_ite_rec(path, e);
+            if (c_val == l_true) return simplify_ite_rec(path, intervals, t);
+            if (c_val == l_false) return simplify_ite_rec(path, intervals, e);
         }
 
         // Check if c can be determined from the path (legacy checks for equality conditions)
         for (auto const& [cond, sign] : path) {
             // Direct match: c == cond
             if (c == cond)
-                return sign ? simplify_ite_rec(path, e) : simplify_ite_rec(path, t);
+                return sign ? simplify_ite_rec(path, intervals, e) : simplify_ite_rec(path, intervals, t);
 
             // c is (x = v), cond is (x = w) with sign=false (cond is true, so x=w)
             // If v != w, then c is false → take else branch
@@ -1163,7 +1302,7 @@ namespace seq {
                 if (m.is_value(lhs1)) std::swap(lhs1, rhs1);
                 if (m.is_value(lhs2)) std::swap(lhs2, rhs2);
                 if (lhs1 == lhs2 && m.are_distinct(rhs1, rhs2))
-                    return simplify_ite_rec(path, e);
+                    return simplify_ite_rec(path, intervals, e);
             }
 
             // Range constraint: cond is (lo <= x) or (x <= hi) with sign=false
@@ -1175,56 +1314,44 @@ namespace seq {
                     expr* le_lhs = nullptr, * le_rhs = nullptr;
                     if (m_util.is_char_le(cond, le_lhs, le_rhs) && le_rhs == lhs2 &&
                         m_util.is_const_char(le_lhs, lo_val) && v_val < lo_val)
-                        return simplify_ite_rec(path, e);
+                        return simplify_ite_rec(path, intervals, e);
                     if (m_util.is_char_le(cond, le_lhs, le_rhs) && le_lhs == lhs2 &&
                         m_util.is_const_char(le_rhs, hi_val) && v_val > hi_val)
-                        return simplify_ite_rec(path, e);
+                        return simplify_ite_rec(path, intervals, e);
                 }
             }
 
             // Range implication between char_le conditions:
-            // If c is char_le(lo, x) [lo <= x] and path has ¬(x <= hi) [x > hi]:
-            //   ¬(x <= hi) means x >= hi+1. If lo <= hi+1, then lo <= x is implied → c is true.
-            // If c is char_le(x, hi) [x <= hi] and path has ¬(lo <= x) [x < lo]:
-            //   ¬(lo <= x) means x <= lo-1. If lo-1 <= hi, then x <= hi is implied → c is true.
             expr* c_lhs = nullptr, * c_rhs = nullptr;
             expr* p_lhs = nullptr, * p_rhs = nullptr;
             if (m_util.is_char_le(c, c_lhs, c_rhs) && m_util.is_char_le(cond, p_lhs, p_rhs)) {
                 unsigned c_lo = 0, c_hi = 0, p_lo = 0, p_hi = 0;
                 if (sign) {
-                    // cond is negated (¬cond is true)
-                    // c is (lo <= x), cond is (x <= hi) with sign=true means ¬(x <= hi) i.e. x > hi i.e. x >= hi+1
                     if (m_util.is_const_char(c_lhs, c_lo) && c_rhs == m_ele &&
                         p_lhs == m_ele && m_util.is_const_char(p_rhs, p_hi) &&
                         c_lo <= p_hi + 1)
-                        return simplify_ite_rec(path, t);
-                    // c is (x <= hi), cond is (lo <= x) with sign=true means ¬(lo <= x) i.e. x < lo i.e. x <= lo-1
+                        return simplify_ite_rec(path, intervals, t);
                     if (c_lhs == m_ele && m_util.is_const_char(c_rhs, c_hi) &&
                         m_util.is_const_char(p_lhs, p_lo) && p_rhs == m_ele &&
                         p_lo > 0 && p_lo - 1 <= c_hi)
-                        return simplify_ite_rec(path, t);
+                        return simplify_ite_rec(path, intervals, t);
                 } else {
-                    // cond is true (not negated)
-                    // c is (lo <= x), cond is (x <= hi) true: x <= hi. If lo > hi → c is false.
                     if (m_util.is_const_char(c_lhs, c_lo) && c_rhs == m_ele &&
                         p_lhs == m_ele && m_util.is_const_char(p_rhs, p_hi) &&
                         c_lo > p_hi)
-                        return simplify_ite_rec(path, e);
-                    // c is (x <= hi), cond is (lo <= x) true: lo <= x. If hi < lo → c is false.
+                        return simplify_ite_rec(path, intervals, e);
                     if (c_lhs == m_ele && m_util.is_const_char(c_rhs, c_hi) &&
                         m_util.is_const_char(p_lhs, p_lo) && p_rhs == m_ele &&
                         c_hi < p_lo)
-                        return simplify_ite_rec(path, e);
-                    // c is (lo <= x), cond is (lo2 <= x) true: lo2 <= x. If lo <= lo2 → c is true.
+                        return simplify_ite_rec(path, intervals, e);
                     if (m_util.is_const_char(c_lhs, c_lo) && c_rhs == m_ele &&
                         m_util.is_const_char(p_lhs, p_lo) && p_rhs == m_ele &&
                         c_lo <= p_lo)
-                        return simplify_ite_rec(path, t);
-                    // c is (x <= hi), cond is (x <= hi2) true: x <= hi2. If hi >= hi2 → c is true.
+                        return simplify_ite_rec(path, intervals, t);
                     if (c_lhs == m_ele && m_util.is_const_char(c_rhs, c_hi) &&
                         p_lhs == m_ele && m_util.is_const_char(p_rhs, p_hi) &&
                         c_hi >= p_hi)
-                        return simplify_ite_rec(path, t);
+                        return simplify_ite_rec(path, intervals, t);
                 }
             }
         }
@@ -1251,14 +1378,14 @@ namespace seq {
                     }
                 }
                 if (has_lo && has_hi && lo_bound <= v_val && v_val <= hi_bound) {
-                    auto [st, se] = simplify_ite_rec(path, c, t, e);
+                    auto [st, se] = simplify_ite_rec(path, intervals, c, t, e);
                     return mk_ite(c, st, se);
                 }
             }
         }
 
         // Cannot simplify c: recurse into branches with extended paths
-        auto [st, se] = simplify_ite_rec(path, c, t, e);
+        auto [st, se] = simplify_ite_rec(path, intervals, c, t, e);
         return mk_ite(c, st, se);
     }
 
