@@ -891,6 +891,16 @@ namespace smt {
                 m_state_graph.add_edge(r_id, dr_id, maybecycle);
             }
             m_state_graph.mark_done(r_id);
+            // Recursively explore unexplored targets for dead state detection
+            // Skip targets that are nullable to avoid state explosion
+            for (auto const& dr: derivatives) {
+                unsigned dr_id = get_state_id(dr);
+                if (m_state_graph.is_done(dr_id) || m_state_graph.is_live(dr_id))
+                    continue;
+                if (re().get_info(dr).nullable == l_true)
+                    continue;
+                update_state_graph(dr);
+            }
         }
 
         STRACE(seq_regex, m_state_graph.display(tout););
