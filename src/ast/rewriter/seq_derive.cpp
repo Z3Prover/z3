@@ -42,6 +42,7 @@ namespace seq {
 
     void derive::reset() {
         m_cache.reset();
+        m_top_cache.reset();
         m_trail.reset();
     }
 
@@ -49,11 +50,20 @@ namespace seq {
         SASSERT(m_util.is_re(r));
         if (m_trail.size() > 1000)
             reset();
+        // Check top-level cache (post-simplify result)
+        expr* cached = nullptr;
+        if (m_top_cache.find(ele, r, cached))
+            return expr_ref(cached, m);
         m_ele = ele;
         m_depth = 0;
         expr_ref result = derive_rec(r);
         result = simplify_ite(result);
         m_ele = nullptr;
+        // Cache and pin the final result
+        m_top_cache.insert(ele, r, result);
+        m_trail.push_back(ele);
+        m_trail.push_back(r);
+        m_trail.push_back(result);
         return result;
     }
 
@@ -254,6 +264,27 @@ namespace seq {
             return mk_ite(cond, tail_re, empty);
         }
 
+        // δ(to_re(unit(c))) = ite(ele = c, ε, ∅)
+        expr* ch = nullptr;
+        if (u().str.is_unit(s, ch)) {
+            expr_ref eps(re().mk_to_re(u().str.mk_empty(seq_sort)), m);
+            expr_ref empty(re().mk_empty(re_sort), m);
+            expr_ref cond(m.mk_eq(m_ele, ch), m);
+            return mk_ite(cond, eps, empty);
+        }
+
+        // δ(to_re(s1 ++ s2)) = ite(head matches, to_re(tail ++ s2), ∅)
+        expr* s1 = nullptr, * s2 = nullptr;
+        if (u().str.is_concat(s, s1, s2)) {
+            expr_ref hd(m), tl(m);
+            if (get_head_tail(s1, s2, hd, tl)) {
+                expr_ref cond(m.mk_eq(m_ele, hd), m);
+                expr_ref tail_re(re().mk_to_re(tl), m);
+                expr_ref empty(re().mk_empty(re_sort), m);
+                return mk_ite(cond, tail_re, empty);
+            }
+        }
+
         // δ(to_re(itos(n))) - derivative of integer-to-string
         // itos(n) produces digits '0'-'9' when n >= 0, empty when n < 0
         expr* n = nullptr;
@@ -326,6 +357,34 @@ namespace seq {
         expr* args[2] = { pred, m_ele };
         expr_ref cond(autil.mk_select(2, args), m);
         return mk_ite(cond, eps, empty);
+    }
+
+    // Extract head character and remaining tail from a sequence
+    // s1 is the first part, s2 is the continuation (from str.concat(s1, s2))
+    bool derive::get_head_tail(expr* s1, expr* s2, expr_ref& hd, expr_ref& tl) {
+        expr* ch = nullptr;
+        expr* a = nullptr, * b = nullptr;
+        if (u().str.is_unit(s1, ch)) {
+            hd = ch;
+            tl = s2;
+            return true;
+        }
+        if (u().str.is_concat(s1, a, b)) {
+            expr_ref new_s2(u().str.mk_concat(b, s2), m);
+            return get_head_tail(a, new_s2, hd, tl);
+        }
+        zstring zs;
+        if (u().str.is_string(s1, zs) && zs.length() > 0) {
+            hd = m_util.mk_char(zs[0]);
+            if (zs.length() == 1)
+                tl = s2;
+            else {
+                expr_ref rest(u().str.mk_string(zs.extract(1, zs.length() - 1)), m);
+                tl = u().str.mk_concat(rest, s2);
+            }
+            return true;
+        }
+        return false;
     }
 
     // -------------------------------------------------------
@@ -462,9 +521,19 @@ namespace seq {
             if (is_subset(a, b1) || is_subset(a, a1)) return true;
         }
 
+        // a1 ∪ a2 ⊆ b if a1 ⊆ b and a2 ⊆ b
+        if (re().is_union(a, a1, b1)) {
+            if (is_subset(a1, b) && is_subset(b1, b)) return true;
+        }
+
         // a1 ∩ a2 ⊆ b if a1 ⊆ b or a2 ⊆ b
         if (re().is_intersection(a, a1, b1)) {
             if (is_subset(a1, b) || is_subset(b1, b)) return true;
+        }
+
+        // a ⊆ b1 ∩ b2 if a ⊆ b1 and a ⊆ b2
+        if (re().is_intersection(b, b1, a1)) {
+            if (is_subset(a, b1) && is_subset(a, a1)) return true;
         }
 
         // concat subsumption: a1·a2 ⊆ b1·b2 when a1 ⊆ b1 and a2 ⊆ b2
@@ -478,6 +547,10 @@ namespace seq {
         if (re().is_loop(a, a1, la, ua) && re().is_loop(b, b1, lb, ub) &&
             a1 == b1 && lb <= la && ua <= ub)
             return true;
+
+        // complement: ~a ⊆ ~b if b ⊆ a
+        if (re().is_complement(a, a1) && re().is_complement(b, b1))
+            return is_subset(b1, a1);
 
         return false;
     }
@@ -501,12 +574,31 @@ namespace seq {
         if (is_subset(a, b)) return expr_ref(b, m);
         if (is_subset(b, a)) return expr_ref(a, m);
 
+        // Prefix factoring: a·x ∪ a·y = a·(x ∪ y)
+        expr *a1, *a2, *b1, *b2;
+        if (re().is_concat(a, a1, a2) && re().is_concat(b, b1, b2) && a1 == b1) {
+            expr_ref tail = mk_union(a2, b2);
+            return mk_deriv_concat(expr_ref(a1, m), tail);
+        }
+
         // ITE combination: if both are ITE with same condition, merge
         expr *c1, *t1, *e1, *c2, *t2, *e2;
         if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2) && c1 == c2) {
             expr_ref then_br = mk_union(t1, t2);
             expr_ref else_br = mk_union(e1, e2);
             return mk_ite(c1, then_br, else_br);
+        }
+
+        // ITE hoisting: ite(c, t, e) ∪ r = ite(c, t ∪ r, e ∪ r)
+        if (m.is_ite(a, c1, t1, e1)) {
+            expr_ref then_br = mk_union(t1, b);
+            expr_ref else_br = mk_union(e1, b);
+            return mk_ite(c1, then_br, else_br);
+        }
+        if (m.is_ite(b, c2, t2, e2)) {
+            expr_ref then_br = mk_union(a, t2);
+            expr_ref else_br = mk_union(a, e2);
+            return mk_ite(c2, then_br, else_br);
         }
 
         // ACI: flatten, sort, deduplicate
@@ -556,12 +648,31 @@ namespace seq {
         if (is_subset(a, b)) return expr_ref(a, m);
         if (is_subset(b, a)) return expr_ref(b, m);
 
+        // Prefix factoring: a·x ∩ a·y = a·(x ∩ y)
+        expr *a1, *b1, *a2, *b2;
+        if (re().is_concat(a, a1, a2) && re().is_concat(b, b1, b2) && a1 == b1) {
+            expr_ref tail = mk_inter(a2, b2);
+            return mk_deriv_concat(expr_ref(a1, m), tail);
+        }
+
         // ITE combination: if both are ITE with same condition, merge
         expr *c1, *t1, *e1, *c2, *t2, *e2;
         if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2) && c1 == c2) {
             expr_ref then_br = mk_inter(t1, t2);
             expr_ref else_br = mk_inter(e1, e2);
             return mk_ite(c1, then_br, else_br);
+        }
+
+        // ITE hoisting: ite(c, t, e) ∩ r = ite(c, t ∩ r, e ∩ r)
+        if (m.is_ite(a, c1, t1, e1)) {
+            expr_ref then_br = mk_inter(t1, b);
+            expr_ref else_br = mk_inter(e1, b);
+            return mk_ite(c1, then_br, else_br);
+        }
+        if (m.is_ite(b, c2, t2, e2)) {
+            expr_ref then_br = mk_inter(a, t2);
+            expr_ref else_br = mk_inter(a, e2);
+            return mk_ite(c2, then_br, else_br);
         }
 
         // ACI: flatten, sort, deduplicate
@@ -586,6 +697,25 @@ namespace seq {
 
         if (args.empty())
             return expr_ref(re().mk_full_seq(a->get_sort()), m);
+
+        // Special: r* ∩ .+ = r+
+        expr* star_body = nullptr;
+        int star_idx = -1, dotplus_idx = -1;
+        for (unsigned i = 0; i < args.size(); ++i) {
+            if (re().is_star(args.get(i), star_body))
+                star_idx = i;
+            if (re().is_dot_plus(args.get(i)))
+                dotplus_idx = i;
+        }
+        if (star_idx >= 0 && dotplus_idx >= 0 && star_body) {
+            args.set(star_idx, re().mk_plus(star_body));
+            // Remove .+ by shifting
+            for (unsigned i = dotplus_idx; i + 1 < args.size(); ++i)
+                args.set(i, args.get(i + 1));
+            args.shrink(args.size() - 1);
+            if (args.size() == 1)
+                return expr_ref(args.get(0), m);
+        }
 
         return mk_inter_from_sorted(args);
     }
@@ -633,6 +763,21 @@ namespace seq {
             expr_ref ct = mk_complement(t);
             expr_ref ce = mk_complement(e);
             return mk_ite(c, ct, ce);
+        }
+
+        // De Morgan: ~(r1 ∪ r2) → ~r1 ∩ ~r2
+        expr* r1 = nullptr, * r2 = nullptr;
+        if (re().is_union(a, r1, r2)) {
+            expr_ref c1 = mk_complement(r1);
+            expr_ref c2 = mk_complement(r2);
+            return mk_inter(c1, c2);
+        }
+
+        // ~ε → .+
+        sort* s = nullptr;
+        if (re().is_to_re(a, r) && u().str.is_empty(r)) {
+            VERIFY(m_util.is_re(a, s));
+            return expr_ref(re().mk_plus(re().mk_full_char(a->get_sort())), m);
         }
 
         return expr_ref(re().mk_complement(a), m);

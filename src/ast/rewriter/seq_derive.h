@@ -56,6 +56,7 @@ namespace seq {
 
         // Cache: maps (ele, regex) pair to its derivative
         obj_pair_map<expr, expr, expr*> m_cache;
+        obj_pair_map<expr, expr, expr*> m_top_cache; // post-simplify cache
         expr_ref_vector      m_trail;    // pin cached results
 
         // Depth limiting
@@ -103,6 +104,9 @@ namespace seq {
 
         // Distribute concatenation through ITE/union in derivative
         expr_ref mk_deriv_concat(expr* d, expr* tail);
+
+        // Extract head character and tail from a sequence expression
+        bool get_head_tail(expr* s1, expr* s2, expr_ref& hd, expr_ref& tl);
 
         // Lightweight subsumption check: returns true if L(a) ⊆ L(b)
         bool is_subset(expr* a, expr* b);
