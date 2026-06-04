@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2025 Microsoft Corporation
+Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
@@ -17,7 +17,7 @@ Abstract:
 
 Authors:
 
-    Nikolaj Bjorner (nbjorner) 2025-06-03
+    Nikolaj Bjorner (nbjorner) 2026-06-03
 
 --*/
 
@@ -643,9 +643,9 @@ namespace seq {
             return expr_ref(t, m);
         if (m.is_false(c))
             return expr_ref(e, m);
-        bool cond_val;
-        if (eval_cond(c, cond_val))
-            return cond_val ? expr_ref(t, m) : expr_ref(e, m);
+        lbool cond_val = eval_cond(c);
+        if (cond_val == l_true) return expr_ref(t, m);
+        if (cond_val == l_false) return expr_ref(e, m);
         return expr_ref(m.mk_ite(c, t, e), m);
     }
 
@@ -795,75 +795,83 @@ namespace seq {
     // Post-processing: simplify ITE conditions w.r.t. m_ele
     // -------------------------------------------------------
 
-    bool derive::eval_cond(expr* cond, bool& result) {
+    lbool derive::eval_cond(expr* cond) {
         expr* lhs = nullptr, * rhs = nullptr, * e1 = nullptr;
         unsigned ch1 = 0, ch2 = 0;
 
-        if (m.is_true(cond)) { result = true; return true; }
-        if (m.is_false(cond)) { result = false; return true; }
+        if (m.is_true(cond)) return l_true;
+        if (m.is_false(cond)) return l_false;
 
         // elem = char or char = elem
         if (m.is_eq(cond, lhs, rhs)) {
             if (rhs == m_ele) std::swap(lhs, rhs);
-            if (lhs == m_ele && u().is_const_char(rhs, ch1) && u().is_const_char(m_ele, ch2)) {
-                result = (ch1 == ch2);
-                return true;
-            }
-            if (lhs == rhs) { result = true; return true; }
+            if (lhs == m_ele && u().is_const_char(rhs, ch1) && u().is_const_char(m_ele, ch2))
+                return ch1 == ch2 ? l_true : l_false;
+            if (lhs == rhs) return l_true;
         }
 
         // char_le(lhs, rhs)
         if (u().is_char_le(cond, lhs, rhs)) {
             unsigned vl = 0, vr = 0;
-            if (lhs == m_ele && u().is_const_char(m_ele, vl) && u().is_const_char(rhs, vr)) {
-                result = (vl <= vr); return true;
-            }
-            if (rhs == m_ele && u().is_const_char(lhs, vl) && u().is_const_char(m_ele, vr)) {
-                result = (vl <= vr); return true;
-            }
-            if (u().is_const_char(lhs, vl) && u().is_const_char(rhs, vr)) {
-                result = (vl <= vr); return true;
-            }
+            if (lhs == m_ele && u().is_const_char(m_ele, vl) && u().is_const_char(rhs, vr))
+                return vl <= vr ? l_true : l_false;
+            if (rhs == m_ele && u().is_const_char(lhs, vl) && u().is_const_char(m_ele, vr))
+                return vl <= vr ? l_true : l_false;
+            if (u().is_const_char(lhs, vl) && u().is_const_char(rhs, vr))
+                return vl <= vr ? l_true : l_false;
         }
 
         // not(e1)
         if (m.is_not(cond, e1)) {
-            bool inner;
-            if (eval_cond(e1, inner)) {
-                result = !inner;
-                return true;
-            }
+            lbool inner = eval_cond(e1);
+            if (inner != l_undef)
+                return inner == l_true ? l_false : l_true;
         }
 
         // and(...)
         if (m.is_and(cond)) {
             for (expr* arg : *to_app(cond)) {
-                bool v;
-                if (eval_cond(arg, v)) {
-                    if (!v) { result = false; return true; }
-                } else {
-                    return false;
-                }
+                lbool v = eval_cond(arg);
+                if (v == l_false) return l_false;
+                if (v == l_undef) return l_undef;
             }
-            result = true;
-            return true;
+            return l_true;
         }
 
         // or(...)
         if (m.is_or(cond)) {
             for (expr* arg : *to_app(cond)) {
-                bool v;
-                if (eval_cond(arg, v)) {
-                    if (v) { result = true; return true; }
-                } else {
-                    return false;
-                }
+                lbool v = eval_cond(arg);
+                if (v == l_true) return l_true;
+                if (v == l_undef) return l_undef;
             }
-            result = false;
-            return true;
+            return l_false;
         }
 
-        return false;
+        return l_undef;
+    }
+
+    void derive::push_path(path_t& path, expr* c, bool sign) {
+        if (!sign && m.is_and(c)) {
+            for (expr* arg : *to_app(c))
+                push_path(path, arg, false);
+        } else if (sign && m.is_or(c)) {
+            for (expr* arg : *to_app(c))
+                push_path(path, arg, true);
+        } else {
+            path.push_back({ c, sign });
+        }
+    }
+
+    std::pair<expr_ref, expr_ref> derive::simplify_ite_rec(path_t& path, expr* c, expr* t, expr* e) {
+        auto sz = path.size();
+        push_path(path, c, false);
+        expr_ref st = simplify_ite_rec(path, t);
+        path.shrink(sz);
+        push_path(path, c, true);
+        expr_ref se = simplify_ite_rec(path, e);
+        path.shrink(sz);
+        return { st, se };
     }
 
     expr_ref derive::simplify_ite(expr* d) {
@@ -871,27 +879,12 @@ namespace seq {
         if (!m.is_ite(d, c, t, e))
             return expr_ref(d, m);
 
-        bool cond_val;
-        if (eval_cond(c, cond_val))
-            return simplify_ite(cond_val ? t : e);
+        lbool cond_val = eval_cond(c);
+        if (cond_val == l_true) return simplify_ite(t);
+        if (cond_val == l_false) return simplify_ite(e);
 
-        // Extract signed conditions from c for the true-branch path
-        path_t path_t_branch;
-        if (m.is_and(c)) {
-            for (expr* arg : *to_app(c))
-                path_t_branch.push_back({ arg, false });
-        } else {
-            path_t_branch.push_back({ c, false });
-        }
-
-        // Simplify the true branch under path knowledge
-        expr_ref st = simplify_ite_rec(path_t_branch, t);
-
-        // For the else branch, the whole condition is false
-        path_t path_e_branch;
-        path_e_branch.push_back({ c, true });
-        expr_ref se = simplify_ite_rec(path_e_branch, e);
-
+        path_t path;
+        auto [st, se] = simplify_ite_rec(path, c, t, e);
         return mk_ite(c, st, se);
     }
 
@@ -901,9 +894,9 @@ namespace seq {
             return expr_ref(d, m);
 
         // Try to evaluate c directly
-        bool cond_val;
-        if (eval_cond(c, cond_val))
-            return simplify_ite_rec(path, cond_val ? t : e);
+        lbool cond_val = eval_cond(c);
+        if (cond_val == l_true) return simplify_ite_rec(path, t);
+        if (cond_val == l_false) return simplify_ite_rec(path, e);
 
         // Check if c can be determined from the path
         for (auto const& [cond, sign] : path) {
@@ -927,12 +920,10 @@ namespace seq {
             if (!sign && m.is_eq(c, lhs2, rhs2)) {
                 if (m.is_value(lhs2)) std::swap(lhs2, rhs2);
                 if (m_util.is_const_char(rhs2, v_val)) {
-                    // Check if cond is (lo <= x) where x == lhs2
                     expr* le_lhs = nullptr, * le_rhs = nullptr;
                     if (m_util.is_char_le(cond, le_lhs, le_rhs) && le_rhs == lhs2 &&
                         m_util.is_const_char(le_lhs, lo_val) && v_val < lo_val)
                         return simplify_ite_rec(path, e);
-                    // Check if cond is (x <= hi) where x == lhs2
                     if (m_util.is_char_le(cond, le_lhs, le_rhs) && le_lhs == lhs2 &&
                         m_util.is_const_char(le_rhs, hi_val) && v_val > hi_val)
                         return simplify_ite_rec(path, e);
@@ -949,7 +940,7 @@ namespace seq {
                 unsigned lo_bound = 0, hi_bound = UINT_MAX;
                 bool has_lo = false, has_hi = false;
                 for (auto const& [cond, sign] : path) {
-                    if (sign) continue; // only use true conditions
+                    if (sign) continue;
                     expr* le_lhs = nullptr, * le_rhs = nullptr;
                     if (m_util.is_char_le(cond, le_lhs, le_rhs)) {
                         unsigned bound = 0;
@@ -962,34 +953,14 @@ namespace seq {
                     }
                 }
                 if (has_lo && has_hi && lo_bound <= v_val && v_val <= hi_bound) {
-                    // v is in range [lo, hi], so c is satisfiable
-                    // Add (x = v, false) to path and simplify t
-                    path.push_back({ c, false });
-                    expr_ref st = simplify_ite_rec(path, t);
-                    path.pop_back();
-                    expr_ref se = simplify_ite_rec(path, e);
+                    auto [st, se] = simplify_ite_rec(path, c, t, e);
                     return mk_ite(c, st, se);
                 }
             }
         }
 
         // Cannot simplify c: recurse into branches with extended paths
-        // True branch: add conjuncts of c
-        auto sz = path.size();
-        if (m.is_and(c)) {
-            for (expr* arg : *to_app(c))
-                path.push_back({ arg, false });
-        } else {
-            path.push_back({ c, false });
-        }
-        expr_ref st = simplify_ite_rec(path, t);
-        path.shrink(sz);
-
-        // Else branch: add (c, true)
-        path.push_back({ c, true });
-        expr_ref se = simplify_ite_rec(path, e);
-        path.pop_back();
-
+        auto [st, se] = simplify_ite_rec(path, c, t, e);
         return mk_ite(c, st, se);
     }
 
