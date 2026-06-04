@@ -123,6 +123,7 @@ namespace seq {
         std::pair<expr_ref, expr_ref> simplify_ite_rec(path_t& path, expr* c, expr* t, expr* e);
         void push_path(path_t& path, expr* c, bool sign);
         lbool eval_cond(expr* cond);
+        lbool eval_path_cond(path_t const& path, expr* c);
 
         sort* re_sort(expr* r) { return r->get_sort(); }
         sort* seq_sort(expr* r) { sort* s = nullptr; m_util.is_re(r, s); return s; }

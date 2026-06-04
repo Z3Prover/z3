@@ -336,10 +336,22 @@ namespace seq {
         // Extract character values from unit strings
         expr_ref c_lo(m), c_hi(m);
         if (u().str.is_unit_string(lo, c_lo) && u().str.is_unit_string(hi, c_hi)) {
-            // ite(lo <= ele && ele <= hi, ε, ∅)
-            expr_ref ge_lo(m_util.mk_le(c_lo, m_ele), m);
-            expr_ref le_hi(m_util.mk_le(m_ele, c_hi), m);
-            expr_ref in_range(m.mk_and(ge_lo, le_hi), m);
+            // Build range condition, simplifying trivial bounds
+            unsigned lo_val = 0, hi_val = 0;
+            bool lo_trivial = m_util.is_const_char(c_lo, lo_val) && lo_val == 0;
+            bool hi_trivial = m_util.is_const_char(c_hi, hi_val) && hi_val == u().max_char();
+
+            if (lo_trivial && hi_trivial)
+                return eps; // full charset range — always matches
+
+            expr_ref in_range(m);
+            if (lo_trivial)
+                in_range = m_util.mk_le(m_ele, c_hi);
+            else if (hi_trivial)
+                in_range = m_util.mk_le(c_lo, m_ele);
+            else
+                in_range = m.mk_and(m_util.mk_le(c_lo, m_ele), m_util.mk_le(m_ele, c_hi));
+
             return mk_ite(in_range, eps, empty);
         }
 
@@ -508,8 +520,13 @@ namespace seq {
         if (re().is_empty(a)) return true;
         if (re().is_full_seq(b)) return true;
 
-        // a ⊆ a* (since a* accepts everything a does and more)
+        // a ⊆ .+ iff a is non-nullable (non-nullable means ε ∉ L(a))
         expr* b1 = nullptr;
+        if (re().is_plus(b, b1) && re().is_full_char(b1) &&
+            re().get_info(a).nullable == l_false)
+            return true;
+
+        // a ⊆ a* (since a* accepts everything a does and more)
         if (re().is_star(b, b1) && a == b1) return true;
 
         // a* ⊆ b* if a ⊆ b
@@ -964,6 +981,12 @@ namespace seq {
                 return vl <= vr ? l_true : l_false;
             if (u().is_const_char(lhs, vl) && u().is_const_char(rhs, vr))
                 return vl <= vr ? l_true : l_false;
+            // char_le(0, x) is always true (chars are unsigned)
+            if (u().is_const_char(lhs, vl) && vl == 0)
+                return l_true;
+            // char_le(x, max_char) is always true
+            if (u().is_const_char(rhs, vr) && vr == u().max_char())
+                return l_true;
         }
 
         // not(e1)
@@ -993,6 +1016,66 @@ namespace seq {
             return l_false;
         }
 
+        return l_undef;
+    }
+
+    // Evaluate a single atomic condition (char_le or equality) against path constraints.
+    // Returns l_true if path implies cond, l_false if path contradicts cond, l_undef otherwise.
+    lbool derive::eval_path_cond(path_t const& path, expr* c) {
+        expr* c_lhs = nullptr, * c_rhs = nullptr;
+        if (!m_util.is_char_le(c, c_lhs, c_rhs))
+            return l_undef;
+
+        unsigned c_lo = 0, c_hi = 0;
+        for (auto const& [cond, sign] : path) {
+            expr* p_lhs = nullptr, * p_rhs = nullptr;
+            if (!m_util.is_char_le(cond, p_lhs, p_rhs))
+                continue;
+            unsigned p_lo = 0, p_hi = 0;
+            if (sign) {
+                // cond is negated: ¬cond is true
+                // ¬(x <= hi) means x > hi, i.e., x >= hi+1
+                if (p_lhs == m_ele && m_util.is_const_char(p_rhs, p_hi)) {
+                    // We know x > p_hi (i.e., x >= p_hi+1)
+                    // c is (lo <= x): if lo <= p_hi+1 → c is true (since x >= p_hi+1 >= lo)
+                    if (m_util.is_const_char(c_lhs, c_lo) && c_rhs == m_ele && c_lo <= p_hi + 1)
+                        return l_true;
+                    // c is (x <= hi2): if hi2 <= p_hi → c is false (since x > p_hi >= hi2)
+                    if (c_lhs == m_ele && m_util.is_const_char(c_rhs, c_hi) && c_hi <= p_hi)
+                        return l_false;
+                }
+                // ¬(lo <= x) means x < lo, i.e., x <= lo-1
+                if (m_util.is_const_char(p_lhs, p_lo) && p_rhs == m_ele && p_lo > 0) {
+                    // We know x < p_lo (i.e., x <= p_lo-1)
+                    // c is (x <= hi): if hi >= p_lo-1 → c is true (since x <= p_lo-1 <= hi)
+                    if (c_lhs == m_ele && m_util.is_const_char(c_rhs, c_hi) && c_hi >= p_lo - 1)
+                        return l_true;
+                    // c is (lo <= x): if lo >= p_lo → c is false (since x < p_lo <= lo)
+                    if (m_util.is_const_char(c_lhs, c_lo) && c_rhs == m_ele && c_lo >= p_lo)
+                        return l_false;
+                }
+            } else {
+                // cond is true (not negated)
+                // (x <= hi) is true: we know x <= p_hi
+                if (p_lhs == m_ele && m_util.is_const_char(p_rhs, p_hi)) {
+                    // c is (lo <= x): if lo > p_hi → c is false (x <= p_hi < lo)
+                    if (m_util.is_const_char(c_lhs, c_lo) && c_rhs == m_ele && c_lo > p_hi)
+                        return l_false;
+                    // c is (x <= hi2): if hi2 >= p_hi → c is true (x <= p_hi <= hi2)
+                    if (c_lhs == m_ele && m_util.is_const_char(c_rhs, c_hi) && c_hi >= p_hi)
+                        return l_true;
+                }
+                // (lo <= x) is true: we know x >= p_lo
+                if (m_util.is_const_char(p_lhs, p_lo) && p_rhs == m_ele) {
+                    // c is (x <= hi): if hi < p_lo → c is false (x >= p_lo > hi)
+                    if (c_lhs == m_ele && m_util.is_const_char(c_rhs, c_hi) && c_hi < p_lo)
+                        return l_false;
+                    // c is (lo <= x): if lo <= p_lo → c is true (x >= p_lo >= lo)
+                    if (m_util.is_const_char(c_lhs, c_lo) && c_rhs == m_ele && c_lo <= p_lo)
+                        return l_true;
+                }
+            }
+        }
         return l_undef;
     }
 
@@ -1043,7 +1126,31 @@ namespace seq {
         if (cond_val == l_true) return simplify_ite_rec(path, t);
         if (cond_val == l_false) return simplify_ite_rec(path, e);
 
-        // Check if c can be determined from the path
+        // When c is an AND (range condition), check each conjunct against the path.
+        // If any conjunct is contradicted by the path, c is false → take else.
+        // If all conjuncts are implied by the path, c is true → take then.
+        if (m.is_and(c)) {
+            lbool and_result = l_true;
+            for (expr* arg : *to_app(c)) {
+                lbool arg_val = eval_path_cond(path, arg);
+                if (arg_val == l_false) {
+                    and_result = l_false;
+                    break;
+                }
+                if (arg_val == l_undef)
+                    and_result = l_undef;
+            }
+            if (and_result == l_true) return simplify_ite_rec(path, t);
+            if (and_result == l_false) return simplify_ite_rec(path, e);
+        }
+        // When c is a single char_le, also check against the path
+        else {
+            lbool c_val = eval_path_cond(path, c);
+            if (c_val == l_true) return simplify_ite_rec(path, t);
+            if (c_val == l_false) return simplify_ite_rec(path, e);
+        }
+
+        // Check if c can be determined from the path (legacy checks for equality conditions)
         for (auto const& [cond, sign] : path) {
             // Direct match: c == cond
             if (c == cond)
@@ -1072,6 +1179,52 @@ namespace seq {
                     if (m_util.is_char_le(cond, le_lhs, le_rhs) && le_lhs == lhs2 &&
                         m_util.is_const_char(le_rhs, hi_val) && v_val > hi_val)
                         return simplify_ite_rec(path, e);
+                }
+            }
+
+            // Range implication between char_le conditions:
+            // If c is char_le(lo, x) [lo <= x] and path has ¬(x <= hi) [x > hi]:
+            //   ¬(x <= hi) means x >= hi+1. If lo <= hi+1, then lo <= x is implied → c is true.
+            // If c is char_le(x, hi) [x <= hi] and path has ¬(lo <= x) [x < lo]:
+            //   ¬(lo <= x) means x <= lo-1. If lo-1 <= hi, then x <= hi is implied → c is true.
+            expr* c_lhs = nullptr, * c_rhs = nullptr;
+            expr* p_lhs = nullptr, * p_rhs = nullptr;
+            if (m_util.is_char_le(c, c_lhs, c_rhs) && m_util.is_char_le(cond, p_lhs, p_rhs)) {
+                unsigned c_lo = 0, c_hi = 0, p_lo = 0, p_hi = 0;
+                if (sign) {
+                    // cond is negated (¬cond is true)
+                    // c is (lo <= x), cond is (x <= hi) with sign=true means ¬(x <= hi) i.e. x > hi i.e. x >= hi+1
+                    if (m_util.is_const_char(c_lhs, c_lo) && c_rhs == m_ele &&
+                        p_lhs == m_ele && m_util.is_const_char(p_rhs, p_hi) &&
+                        c_lo <= p_hi + 1)
+                        return simplify_ite_rec(path, t);
+                    // c is (x <= hi), cond is (lo <= x) with sign=true means ¬(lo <= x) i.e. x < lo i.e. x <= lo-1
+                    if (c_lhs == m_ele && m_util.is_const_char(c_rhs, c_hi) &&
+                        m_util.is_const_char(p_lhs, p_lo) && p_rhs == m_ele &&
+                        p_lo > 0 && p_lo - 1 <= c_hi)
+                        return simplify_ite_rec(path, t);
+                } else {
+                    // cond is true (not negated)
+                    // c is (lo <= x), cond is (x <= hi) true: x <= hi. If lo > hi → c is false.
+                    if (m_util.is_const_char(c_lhs, c_lo) && c_rhs == m_ele &&
+                        p_lhs == m_ele && m_util.is_const_char(p_rhs, p_hi) &&
+                        c_lo > p_hi)
+                        return simplify_ite_rec(path, e);
+                    // c is (x <= hi), cond is (lo <= x) true: lo <= x. If hi < lo → c is false.
+                    if (c_lhs == m_ele && m_util.is_const_char(c_rhs, c_hi) &&
+                        m_util.is_const_char(p_lhs, p_lo) && p_rhs == m_ele &&
+                        c_hi < p_lo)
+                        return simplify_ite_rec(path, e);
+                    // c is (lo <= x), cond is (lo2 <= x) true: lo2 <= x. If lo <= lo2 → c is true.
+                    if (m_util.is_const_char(c_lhs, c_lo) && c_rhs == m_ele &&
+                        m_util.is_const_char(p_lhs, p_lo) && p_rhs == m_ele &&
+                        c_lo <= p_lo)
+                        return simplify_ite_rec(path, t);
+                    // c is (x <= hi), cond is (x <= hi2) true: x <= hi2. If hi >= hi2 → c is true.
+                    if (c_lhs == m_ele && m_util.is_const_char(c_rhs, c_hi) &&
+                        p_lhs == m_ele && m_util.is_const_char(p_rhs, p_hi) &&
+                        c_hi >= p_hi)
+                        return simplify_ite_rec(path, t);
                 }
             }
         }
