@@ -1759,6 +1759,37 @@ namespace sat {
         return literal(next, phase == l_false);
     }
 
+    void solver::get_split_candidates(literal_vector& lits, unsigned max_num) {
+        if (max_num == 0)
+            return;
+
+        bool_var ext = null_bool_var;
+        lbool phase = l_undef;
+        if (m_ext && m_ext->get_case_split(ext, phase) &&
+            value(ext) == l_undef && !was_eliminated(ext)) {
+            if (phase == l_undef)
+                phase = guess(ext) ? l_true : l_false;
+            lits.push_back(literal(ext, phase == l_false));
+            if (lits.size() >= max_num)
+                return;
+        }
+
+        svector<bool_var> vars;
+        for (bool_var v = 0; v < num_vars(); ++v) {
+            if (v == ext || value(v) != l_undef || was_eliminated(v))
+                continue;
+            vars.push_back(v);
+        }
+        std::stable_sort(vars.begin(), vars.end(), cmp_activity(*this));
+
+        for (bool_var v : vars) {
+            bool is_pos = guess(v);
+            lits.push_back(literal(v, !is_pos));
+            if (lits.size() >= max_num)
+                return;
+        }
+    }
+
     void solver::get_backbone_candidates(literal_vector& lits, unsigned max_num) {
         struct candidate {
             literal lit;

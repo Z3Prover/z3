@@ -385,6 +385,7 @@ namespace sat {
         bool has_new_best_phase() const { return m_new_best_phase; }
         void move_to_front(bool_var b);
         literal get_split_candidate();
+        void get_split_candidates(literal_vector& lits, unsigned max_num);
         void get_backbone_candidates(literal_vector& lits, unsigned max_num);
         unsigned scope_lvl() const { return m_scope_lvl; }
         unsigned search_lvl() const { return m_search_lvl; }

@@ -503,7 +503,22 @@ public:
     }
 
     void get_split_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
-        get_backbone_candidates(candidates, max_num);
+        if (!is_internalized()) {
+            lbool r = internalize_formulas();
+            if (r != l_true)
+                return;
+        }
+        convert_internalized();
+        sat::literal_vector lits;
+        m_solver.get_split_candidates(lits, max_num);
+        expr_ref_vector lit2expr(m);
+        lit2expr.resize(m_solver.num_vars() * 2);
+        m_map.mk_inv(lit2expr);
+        for (sat::literal lit : lits) {
+            expr* e = lit2expr.get(lit.index());
+            if (e)
+                candidates.push_back(scored_literal(m, e, 0.0));
+        }
     }
 
     void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
