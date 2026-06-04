@@ -245,15 +245,6 @@ jobs:
       - name: Test
         run: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
 
-      # NOTE: The issue-oracle smoke test that previously lived here
-      # (3 steps: "Clone bench", "Run issue-oracle smoke test",
-      # "Upload issue-oracle report") was moved to its own workflow
-      # in Z3Prover/bench: `.github/workflows/issue-oracle.yml`.
-      # That workflow pulls the z3 binary from this repo's PUBLIC
-      # Nightly release, so no cross-repo private clone is needed.
-      # See Z3Prover/bench PR #2504 and the PR that introduced this
-      # removal for the rationale.
-
       - name: Upload artifact
         uses: actions/upload-artifact@v7.0.1
         with:
