@@ -21,6 +21,7 @@ Revision History:
 #include "ast/for_each_ast.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/ast_smt2_pp.h"
 
 // #define AST_LL_PP_SHOW_FAMILY_NAME
 
@@ -44,7 +45,7 @@ class ll_printer {
     }
 
     void display_name(func_decl * decl) {
-        m_out << decl->get_name();
+        m_out << ensure_quote(decl->get_name());
     }
 
     bool process_numeral(expr * n) {
