@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2025 Microsoft Corporation
+Copyright (c) 2026 Microsoft Corporation
 
 Module Name:
 
@@ -116,7 +116,9 @@ namespace seq {
         // Simplify ITE conditions w.r.t. m_ele and path knowledge
         expr_ref simplify_ite(expr* d);
         expr_ref simplify_ite_rec(path_t& path, expr* d);
-        bool eval_cond(expr* cond, bool& result);
+        std::pair<expr_ref, expr_ref> simplify_ite_rec(path_t& path, expr* c, expr* t, expr* e);
+        void push_path(path_t& path, expr* c, bool sign);
+        lbool eval_cond(expr* cond);
 
         sort* re_sort(expr* r) { return r->get_sort(); }
         sort* seq_sort(expr* r) { sort* s = nullptr; m_util.is_re(r, s); return s; }
