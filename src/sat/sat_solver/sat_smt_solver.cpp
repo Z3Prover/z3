@@ -453,7 +453,7 @@ public:
         for (sat::literal lit : lits) {
             expr* e = lit2expr.get(lit.index());
             if (e)
-                candidates.push_back(scored_literal(m, e, 0.0));
+                candidates.push_back(scored_literal(m, e, static_cast<double>(m_solver.get_activity(lit.var()))));
         }
     }
 
