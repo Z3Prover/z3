@@ -66,14 +66,6 @@ namespace seq {
         return (*this)(v, r);
     }
 
-    expr_ref derive::eval(expr* ele, expr* d) {
-        expr_ref old_ele(m_ele, m);
-        m_ele = ele;
-        expr_ref result = simplify_ite(d);
-        m_ele = old_ele;
-        return result;
-    }
-
     // -------------------------------------------------------
     // Core derivative computation
     // -------------------------------------------------------
@@ -81,9 +73,9 @@ namespace seq {
     expr_ref derive::derive_rec(expr* r) {
         SASSERT(m_util.is_re(r));
 
-        // Check cache
+        // Check cache (indexed by both m_ele and r)
         expr* cached = nullptr;
-        if (m_cache.find(r, cached))
+        if (m_cache.find(m_ele, r, cached))
             return expr_ref(cached, m);
 
         // Depth check
@@ -96,7 +88,8 @@ namespace seq {
         expr_ref result = derive_core(r);
 
         // Cache the result
-        m_cache.insert(r, result);
+        m_cache.insert(m_ele, r, result);
+        m_trail.push_back(m_ele);
         m_trail.push_back(r);
         m_trail.push_back(result);
         return result;
@@ -259,6 +252,33 @@ namespace seq {
             expr_ref tail_re(re().mk_to_re(tail_str), m);
             expr_ref empty(re().mk_empty(re_sort), m);
             return mk_ite(cond, tail_re, empty);
+        }
+
+        // δ(to_re(itos(n))) - derivative of integer-to-string
+        // itos(n) produces digits '0'-'9' when n >= 0, empty when n < 0
+        expr* n = nullptr;
+        if (u().str.is_itos(s, n)) {
+            expr_ref empty(re().mk_empty(re_sort), m);
+            // Guard: n >= 0 and element is a digit and element = s[0]
+            expr_ref n_ge_0(m_autil.mk_ge(n, m_autil.mk_int(0)), m);
+            expr_ref char_0(m_util.mk_char('0'), m);
+            expr_ref char_9(m_util.mk_char('9'), m);
+            expr_ref ge_0(m_util.mk_le(char_0, m_ele), m);
+            expr_ref le_9(m_util.mk_le(m_ele, char_9), m);
+            expr_ref is_digit(m.mk_and(ge_0, le_9), m);
+            // First character of itos(n) matches ele
+            expr_ref zero_idx(m_autil.mk_int(0), m);
+            expr_ref first(u().str.mk_nth_i(s, zero_idx), m);
+            expr_ref eq_first(m.mk_eq(m_ele, first), m);
+            // Guard = n >= 0 && is_digit && ele = s[0]
+            expr_ref guard(m.mk_and(n_ge_0, m.mk_and(is_digit, eq_first)), m);
+            // Tail: to_re(substr(itos(n), 1, len(itos(n)) - 1))
+            expr_ref one(m_autil.mk_int(1), m);
+            expr_ref len(u().str.mk_length(s), m);
+            expr_ref rest_len(m_autil.mk_sub(len, one), m);
+            expr_ref rest(u().str.mk_substr(s, one, rest_len), m);
+            expr_ref rest_re(re().mk_to_re(rest), m);
+            return mk_ite(guard, rest_re, empty);
         }
 
         // Non-ground sequence: δ(to_re(s)) = ite(s ≠ "" ∧ ele = s[0], to_re(s[1:]), ∅)
@@ -807,44 +827,120 @@ namespace seq {
         if (eval_cond(c, cond_val))
             return simplify_ite(cond_val ? t : e);
 
-        // Simplify branches with knowledge of the condition's truth value
-        expr_ref st = simplify_ite_rec(c, false, t);
-        expr_ref se = simplify_ite_rec(c, true, e);
+        // Extract signed conditions from c for the true-branch path
+        path_t path_t_branch;
+        if (m.is_and(c)) {
+            for (expr* arg : *to_app(c))
+                path_t_branch.push_back({ arg, false });
+        } else {
+            path_t_branch.push_back({ c, false });
+        }
+
+        // Simplify the true branch under path knowledge
+        expr_ref st = simplify_ite_rec(path_t_branch, t);
+
+        // For the else branch, the whole condition is false
+        path_t path_e_branch;
+        path_e_branch.push_back({ c, true });
+        expr_ref se = simplify_ite_rec(path_e_branch, e);
+
         return mk_ite(c, st, se);
     }
 
-    expr_ref derive::simplify_ite_rec(expr* cond, bool sign, expr* d) {
+    expr_ref derive::simplify_ite_rec(path_t& path, expr* d) {
         expr* c, * t, * e;
         if (!m.is_ite(d, c, t, e))
             return expr_ref(d, m);
 
-        // If the ITE condition matches cond directly
-        if (c == cond)
-            return sign ? simplify_ite(e) : simplify_ite(t);
+        // Check if c can be determined from the path
+        for (auto const& [cond, sign] : path) {
+            // Direct match: c == cond
+            if (c == cond)
+                return sign ? simplify_ite_rec(path, e) : simplify_ite_rec(path, t);
 
-        // If cond is (x = ch1) and c is (x = ch2) with ch1 != ch2:
-        // when sign is false (cond is true, i.e., x = ch1), then c must be false
-        expr* lhs1 = nullptr, * rhs1 = nullptr, * lhs2 = nullptr, * rhs2 = nullptr;
-        if (!sign && m.is_eq(cond, lhs1, rhs1) && m.is_eq(c, lhs2, rhs2)) {
-            if (u().is_const_char(lhs1)) std::swap(lhs1, rhs1);
-            if (u().is_const_char(lhs2)) std::swap(lhs2, rhs2);
-            unsigned ch1 = 0, ch2 = 0;
-            if (lhs1 == lhs2 && u().is_const_char(rhs1, ch1) && u().is_const_char(rhs2, ch2) && ch1 != ch2)
-                return simplify_ite_rec(cond, sign, e);
+            // c is (x = v), cond is (x = w) with sign=false (cond is true, so x=w)
+            // If v != w, then c is false → take else branch
+            expr* lhs1 = nullptr, * rhs1 = nullptr, * lhs2 = nullptr, * rhs2 = nullptr;
+            if (!sign && m.is_eq(cond, lhs1, rhs1) && m.is_eq(c, lhs2, rhs2)) {
+                if (m_util.is_const_char(lhs1)) std::swap(lhs1, rhs1);
+                if (m_util.is_const_char(lhs2)) std::swap(lhs2, rhs2);
+                if (lhs1 == lhs2 && m.are_distinct(rhs1, rhs2))
+                    return simplify_ite_rec(path, e);
+            }
+
+            // Range constraint: cond is (lo <= x) or (x <= hi) with sign=false
+            // and c is (x = v). If v is outside the range, c is false.
+            unsigned v_val = 0, lo_val = 0, hi_val = 0;
+            if (!sign && m.is_eq(c, lhs2, rhs2)) {
+                if (m_util.is_const_char(lhs2)) std::swap(lhs2, rhs2);
+                if (m_util.is_const_char(rhs2, v_val)) {
+                    // Check if cond is (lo <= x) where x == lhs2
+                    expr* le_lhs = nullptr, * le_rhs = nullptr;
+                    if (m_util.is_char_le(cond, le_lhs, le_rhs) && le_rhs == lhs2 &&
+                        m_util.is_const_char(le_lhs, lo_val) && v_val < lo_val)
+                        return simplify_ite_rec(path, e);
+                    // Check if cond is (x <= hi) where x == lhs2
+                    if (m_util.is_char_le(cond, le_lhs, le_rhs) && le_lhs == lhs2 &&
+                        m_util.is_const_char(le_rhs, hi_val) && v_val > hi_val)
+                        return simplify_ite_rec(path, e);
+                }
+            }
         }
 
-        // General case: try to evaluate c given knowledge of cond
+        // Check if both range bounds are in path and c is (x = v) within range
+        expr* lhs_c = nullptr, * rhs_c = nullptr;
+        unsigned v_val = 0;
+        if (m.is_eq(c, lhs_c, rhs_c)) {
+            if (m_util.is_const_char(lhs_c)) std::swap(lhs_c, rhs_c);
+            if (m_util.is_const_char(rhs_c, v_val)) {
+                unsigned lo_bound = 0, hi_bound = UINT_MAX;
+                bool has_lo = false, has_hi = false;
+                for (auto const& [cond, sign] : path) {
+                    if (sign) continue; // only use true conditions
+                    expr* le_lhs = nullptr, * le_rhs = nullptr;
+                    if (m_util.is_char_le(cond, le_lhs, le_rhs)) {
+                        unsigned bound = 0;
+                        if (le_rhs == lhs_c && m_util.is_const_char(le_lhs, bound)) {
+                            lo_bound = bound; has_lo = true;
+                        }
+                        if (le_lhs == lhs_c && m_util.is_const_char(le_rhs, bound)) {
+                            hi_bound = bound; has_hi = true;
+                        }
+                    }
+                }
+                if (has_lo && has_hi && lo_bound <= v_val && v_val <= hi_bound) {
+                    // v is in range [lo, hi], so c is satisfiable
+                    // Add (x = v, false) to path and simplify t
+                    path.push_back({ c, false });
+                    expr_ref st = simplify_ite_rec(path, t);
+                    path.pop_back();
+                    expr_ref se = simplify_ite_rec(path, e);
+                    return mk_ite(c, st, se);
+                }
+            }
+        }
+
+        // Try to evaluate c directly
         bool cond_val;
         if (eval_cond(c, cond_val))
-            return simplify_ite_rec(cond, sign, cond_val ? t : e);
+            return simplify_ite_rec(path, cond_val ? t : e);
 
-        // Cannot simplify c: recurse into branches
-        expr_ref st = simplify_ite_rec(cond, sign, t);
-        expr_ref se = simplify_ite_rec(cond, sign, e);
+        // Cannot simplify c: recurse into branches with extended paths
+        // True branch: add conjuncts of c
+        path_t extended_path(path);
+        if (m.is_and(c)) {
+            for (expr* arg : *to_app(c))
+                extended_path.push_back({ arg, false });
+        } else {
+            extended_path.push_back({ c, false });
+        }
+        expr_ref st = simplify_ite_rec(extended_path, t);
 
-        // Now also simplify c's branches with knowledge of c
-        st = simplify_ite_rec(c, false, st);
-        se = simplify_ite_rec(c, true, se);
+        // Else branch: add (c, true)
+        path.push_back({ c, true });
+        expr_ref se = simplify_ite_rec(path, e);
+        path.pop_back();
+
         return mk_ite(c, st, se);
     }
 

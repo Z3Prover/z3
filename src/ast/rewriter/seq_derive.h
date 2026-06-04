@@ -28,6 +28,7 @@ Authors:
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "util/obj_pair_hashtable.h"
 
 namespace seq {
 
@@ -53,8 +54,8 @@ namespace seq {
         arith_util      m_autil;
         bool_rewriter   m_br;
 
-        // Cache: maps regex expr to its symbolic derivative
-        obj_map<expr, expr*> m_cache;
+        // Cache: maps (ele, regex) pair to its derivative
+        obj_pair_map<expr, expr, expr*> m_cache;
         expr_ref_vector      m_trail;    // pin cached results
 
         // Depth limiting
@@ -106,9 +107,12 @@ namespace seq {
         // Normalize reverse(r) by pushing reverse inward
         expr_ref normalize_reverse(expr* r);
 
-        // Simplify ITE conditions w.r.t. m_ele
+        // Path of signed conditions for ITE simplification
+        using path_t = svector<std::pair<expr*, bool>>;
+
+        // Simplify ITE conditions w.r.t. m_ele and path knowledge
         expr_ref simplify_ite(expr* d);
-        expr_ref simplify_ite_rec(expr* cond, bool sign, expr* d);
+        expr_ref simplify_ite_rec(path_t& path, expr* d);
         bool eval_cond(expr* cond, bool& result);
 
         sort* re_sort(expr* r) { return r->get_sort(); }
@@ -131,11 +135,6 @@ namespace seq {
          * Convenience: symbolic derivative using de Bruijn var 0.
          */
         expr_ref operator()(expr* r);
-
-        /**
-         * Evaluate an ITE-tree derivative for a concrete element.
-         */
-        expr_ref eval(expr* ele, expr* d);
     };
 
 }
