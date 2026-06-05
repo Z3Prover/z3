@@ -122,8 +122,8 @@ namespace seq {
         expr_ref simplify_ite(expr* d);
         expr_ref simplify_ite_rec(path_t& path, intervals_t& intervals, expr* d);
         std::pair<expr_ref, expr_ref> simplify_ite_rec(path_t& path, intervals_t& intervals, expr* c, expr* t, expr* e);
-        void push_path(path_t& path, expr* c, bool sign);
-        void push_intervals(intervals_t& intervals, expr* c, bool sign);
+        lbool push_path(path_t& path, expr* c, bool sign);
+        lbool push_intervals(intervals_t& intervals, expr* c, bool sign);
         lbool eval_cond(expr* cond);
         lbool eval_range_cond(intervals_t const& intervals, expr* c);
         static void intersect_intervals(unsigned lo, unsigned hi, intervals_t& ranges);

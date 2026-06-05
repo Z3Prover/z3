@@ -1038,46 +1038,85 @@ namespace seq {
     }
 
     // Evaluate a single atomic condition (char_le or equality) against path constraints.
-    // Returns l_true if path implies cond, l_false if path contradicts cond, l_undef otherwise.
+    // Returns l_true if path implies (c, !sign), l_false if path contradicts (c, !sign), l_undef otherwise.
 
-    void derive::push_path(path_t& path, expr* c, bool sign) {
-        if (!sign && m.is_and(c)) {
-            for (expr* arg : *to_app(c))
-                push_path(path, arg, false);
-        } else if (sign && m.is_or(c)) {
-            for (expr* arg : *to_app(c))
-                push_path(path, arg, true);
-        } else {
-            path.push_back({ c, sign });
+    lbool derive::push_path(path_t& path, expr* c, bool sign) {
+        // Check if (c, sign) is already determined by the path
+        for (auto const& [cond, csign] : path) {
+            if (c == cond)
+                return csign == sign ? l_true : l_false;
+
+            expr* lhs1 = nullptr, * rhs1 = nullptr, * lhs2 = nullptr, * rhs2 = nullptr;
+            if (!csign && m.is_eq(cond, lhs1, rhs1) && m.is_eq(c, lhs2, rhs2)) {
+                if (m.is_value(lhs1)) std::swap(lhs1, rhs1);
+                if (m.is_value(lhs2)) std::swap(lhs2, rhs2);
+                if (lhs1 == lhs2 && m.are_distinct(rhs1, rhs2))
+                    return sign ? l_true : l_false;
+            }
         }
+
+        // Composite case: conjunction (sign=false) or disjunction (sign=true)
+        if (!sign && m.is_and(c)) {
+            auto sz = path.size();
+            lbool r = l_true;
+            for (expr* arg : *to_app(c)) {
+                lbool v = push_path(path, arg, false);
+                if (v == l_false) { path.shrink(sz); return l_false; }
+                if (v == l_undef) r = l_undef;
+            }
+            if (r == l_true) path.shrink(sz);
+            return r;
+        }
+        if (sign && m.is_or(c)) {
+            auto sz = path.size();
+            lbool r = l_true;
+            for (expr* arg : *to_app(c)) {
+                lbool v = push_path(path, arg, true);
+                if (v == l_false) { path.shrink(sz); return l_false; }
+                if (v == l_undef) r = l_undef;
+            }
+            if (r == l_true) path.shrink(sz);
+            return r;
+        }
+
+        // Atomic case: not determined, push onto path
+        path.push_back({ c, sign });
+        return l_undef;
     }
 
-    void derive::push_intervals(intervals_t& intervals, expr* c, bool sign) {
+    lbool derive::push_intervals(intervals_t& intervals, expr* c, bool sign) {
+        // First check if the condition is already determined by current intervals
+        lbool range_val = eval_range_cond(intervals, c);
+        if (range_val != l_undef)
+            return sign ? ~range_val : range_val;
+
+        // Not determined — modify intervals
         unsigned lo = 0, hi = 0;
         bool negated = false;
         if (m_util.is_char_const_range(m_ele, c, lo, hi, negated)) {
-            // is_char_const_range returns the range [lo, hi] such that
-            // c ≡ (lo <= x <= hi) when negated=false, or c ≡ ¬(lo <= x <= hi) when negated=true
             bool effective_neg = (negated != sign);
-            // effective_neg=false means condition is asserted true: intersect with [lo, hi]
-            // effective_neg=true means condition is negated: exclude [lo, hi]
             if (!effective_neg) {
-                if (lo <= hi)
-                    intersect_intervals(lo, hi, intervals);
-                else
-                    intervals.reset(); // contradictory range
+                if (lo > hi)
+                    return l_false;
+                intersect_intervals(lo, hi, intervals);
             } else {
                 if (lo <= hi)
                     exclude_interval(lo, hi, intervals, u().max_char());
-                // else: excluding empty range is a no-op
             }
         } else if (!sign && m.is_and(c)) {
-            for (expr* arg : *to_app(c))
-                push_intervals(intervals, arg, false);
+            auto saved = intervals;
+            for (expr* arg : *to_app(c)) {
+                lbool v = push_intervals(intervals, arg, false);
+                if (v == l_false) { intervals = saved; return l_false; }
+            }
         } else if (sign && m.is_or(c)) {
-            for (expr* arg : *to_app(c))
-                push_intervals(intervals, arg, true);
+            auto saved = intervals;
+            for (expr* arg : *to_app(c)) {
+                lbool v = push_intervals(intervals, arg, true);
+                if (v == l_false) { intervals = saved; return l_false; }
+            }
         }
+        return l_undef;
     }
 
     void derive::intersect_intervals(unsigned lo, unsigned hi, intervals_t& ranges) {
@@ -1137,13 +1176,43 @@ namespace seq {
     std::pair<expr_ref, expr_ref> derive::simplify_ite_rec(path_t& path, intervals_t& intervals, expr* c, expr* t, expr* e) {
         auto sz = path.size();
         auto saved_intervals = intervals;
-        push_path(path, c, false);
-        push_intervals(intervals, c, false);
+
+        // Push c with sign=false (then-branch: c is true)
+        lbool path_val = push_path(path, c, false);
+        if (path_val != l_undef) {
+            path.shrink(sz);
+            expr_ref r = simplify_ite_rec(path, intervals, path_val == l_true ? t : e);
+            return { r, r };
+        }
+
+        lbool intv_val = push_intervals(intervals, c, false);
+        if (intv_val != l_undef) {
+            path.shrink(sz);
+            intervals = saved_intervals;
+            expr_ref r = simplify_ite_rec(path, intervals, intv_val == l_true ? t : e);
+            return { r, r };
+        }
+
         expr_ref st = simplify_ite_rec(path, intervals, t);
         path.shrink(sz);
         intervals = saved_intervals;
-        push_path(path, c, true);
-        push_intervals(intervals, c, true);
+
+        // Push c with sign=true (else-branch: c is false)
+        path_val = push_path(path, c, true);
+        if (path_val != l_undef) {
+            path.shrink(sz);
+            expr_ref r = simplify_ite_rec(path, intervals, path_val == l_true ? e : t);
+            return { r, r };
+        }
+
+        intv_val = push_intervals(intervals, c, true);
+        if (intv_val != l_undef) {
+            path.shrink(sz);
+            intervals = saved_intervals;
+            expr_ref r = simplify_ite_rec(path, intervals, intv_val == l_true ? e : t);
+            return { r, r };
+        }
+
         expr_ref se = simplify_ite_rec(path, intervals, e);
         path.shrink(sz);
         intervals = saved_intervals;
@@ -1176,26 +1245,8 @@ namespace seq {
         if (cond_val == l_true) return simplify_ite_rec(path, intervals, t);
         if (cond_val == l_false) return simplify_ite_rec(path, intervals, e);
 
-        // Use interval-based range reasoning
-        lbool range_val = eval_range_cond(intervals, c);
-        if (range_val == l_true) return simplify_ite_rec(path, intervals, t);
-        if (range_val == l_false) return simplify_ite_rec(path, intervals, e);
-
-        // Check direct structural matches in path (equality conditions)
-        for (auto const& [cond, sign] : path) {
-            if (c == cond)
-                return sign ? simplify_ite_rec(path, intervals, e) : simplify_ite_rec(path, intervals, t);
-
-            expr* lhs1 = nullptr, * rhs1 = nullptr, * lhs2 = nullptr, * rhs2 = nullptr;
-            if (!sign && m.is_eq(cond, lhs1, rhs1) && m.is_eq(c, lhs2, rhs2)) {
-                if (m.is_value(lhs1)) std::swap(lhs1, rhs1);
-                if (m.is_value(lhs2)) std::swap(lhs2, rhs2);
-                if (lhs1 == lhs2 && m.are_distinct(rhs1, rhs2))
-                    return simplify_ite_rec(path, intervals, e);
-            }
-        }
-
         // Cannot simplify c: recurse into branches with extended paths
+        // push_path and push_intervals will check subsumption/contradiction
         auto [st, se] = simplify_ite_rec(path, intervals, c, t, e);
         return mk_ite(c, st, se);
     }
