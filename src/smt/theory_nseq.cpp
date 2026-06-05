@@ -493,36 +493,6 @@ namespace smt {
             return;
         }
 
-        if (!get_fparams().m_nseq_regex_factorization_threshold)
-            return;
-
-        //if (mem.m_regex->is_intersect()) {
-        //    // u \in r1 & r_2 → u \in r1 && u \in r2
-        //    for (const euf::snode* const arg : *mem.m_regex) {
-        //        expr_ref in_r(m_seq.re.mk_in_re(s, arg->get_expr()), m);
-        //        literal_vector lits;
-        //        lits.push_back(~mem.lit);
-        //        lits.push_back(mk_literal(in_r));
-        //        ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
-        //    }
-        //    m_ignored_mem.insert(mem.lit);
-        //    ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
-        //    return;
-        //}
-        //if (mem.m_regex->is_union()) {
-        //    // u \in r1 | r_2 → u \in r1 || u \in r2
-        //    literal_vector lits;
-        //    lits.push_back(~mem.lit);
-        //    for (const euf::snode* const arg : *mem.m_regex) {
-        //        expr_ref in_r(m_seq.re.mk_in_re(s, arg->get_expr()), m);
-        //        lits.push_back(mk_literal(in_r));
-        //    }
-        //    ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
-        //    m_ignored_mem.insert(mem.lit);
-        //    ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
-        //    return;
-        //}
-
         if (mem.m_regex->is_to_re()) {
             // u \in v (with v is constant) → u = v
             zstring str;
@@ -536,6 +506,9 @@ namespace smt {
                 ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
             }
         }
+
+        if (!get_fparams().m_nseq_regex_factorization_threshold)
+            return;
 
         // Eager sigma factorization (token-level): when enabled, split a non-primitive
         // membership s ∈ r at the boundary between the first concat argument (head) and

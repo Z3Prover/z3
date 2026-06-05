@@ -937,16 +937,15 @@ namespace seq {
     }
 
     void nielsen_graph::record_partial_derivative_edge(euf::snode* src_re, euf::snode* label, euf::snode* dst_re) {
-        if (!src_re || !dst_re || !src_re->get_expr() || !dst_re->get_expr())
-            return;
+        SASSERT(src_re && dst_re);
         if (!src_re->is_ground() || !dst_re->is_ground())
             return;
         if (src_re->is_fail() || dst_re->is_fail())
             return;
 
         euf::snode* label_re = to_partial_label_regex(label);
-        if (!label_re || !label_re->get_expr())
-            return;
+        SASSERT(label_re);
+
         if (!m_seq.is_re(label_re->get_expr()) || !label_re->is_ground())
             return;
 
@@ -3269,7 +3268,8 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     void nielsen_graph::precompute_partial_dfa(euf::snode* root_re, const unsigned depth) {
-        if (!root_re || !root_re->is_ground())
+        SASSERT(root_re);
+        if (!root_re->is_ground())
             return;
 
         struct work_item { euf::snode* re; unsigned d; };
@@ -3284,6 +3284,7 @@ namespace seq {
             euf::snode_vector mts;
             m_sg.compute_minterms(re, mts);
             for (euf::snode* mt : mts) {
+                std::cout << "minterm: " << mk_pp(mt->get_expr(), m) << std::endl;
                 euf::snode* deriv = m_sg.brzozowski_deriv(re, mt);
                 if (!deriv || deriv->is_fail())
                     continue;
@@ -3294,6 +3295,8 @@ namespace seq {
                 }
             }
         }
+        std::string s = partial_dfa_to_dot(root_re, false);
+        std::cout << s << std::endl;
     }
 
     // -----------------------------------------------------------------------
