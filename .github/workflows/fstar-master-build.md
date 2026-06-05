@@ -1,35 +1,13 @@
 ---
-description: Build latest FStar master using Z3 built from latest Z3 master
-
+description: Build Z3 master and then build FStar master using that Z3 build
 on:
   schedule: daily
   workflow_dispatch:
-
 permissions: read-all
-
 network: defaults
-
 tools:
   bash: true
-  github:
-    toolsets: [default]
-
-safe-outputs:
-  create-discussion:
-    title-prefix: "[F* Build] "
-    category: "Agentic Workflows"
-    close-older-discussions: true
-    expires: 14d
-  create-issue:
-    title-prefix: "[F* Build Failure] "
-    labels: ["build", "fstar"]
-  missing-tool:
-    create-issue: true
-  noop:
-    report-as-issue: false
-
-timeout-minutes: 120
-
+timeout-minutes: 180
 steps:
   - name: Checkout Z3 master
     uses: actions/checkout@v6.0.2
@@ -37,76 +15,103 @@ steps:
       ref: master
       fetch-depth: 1
       persist-credentials: false
-
 ---
 
-# Build Latest F* with Latest Z3
+# Build FStar master with Z3 master
 
-You are an automation engineer validating interoperability between Z3 and F*.
+You are an AI build agent. Build the latest `master` branch of Z3, then build the latest `master` branch of FStar using the Z3 you just built.
 
-Your goal is to build **latest Z3 master** from this repository, then build **latest FStarLang/FStar master** using the Z3 you built.
+## Constraints
 
-## Requirements
+- Use `${{ github.workspace }}` as the workspace root.
+- Put temporary files under `/tmp/gh-aw/agent`.
+- Use only the Z3 built in this workflow when building FStar.
+- Fail fast with clear error messages if any phase fails.
 
-1. Use `${{ github.workspace }}` as the Z3 source (already checked out at `master`).
-2. Build Z3 from source with CMake + Ninja in Release mode.
-3. Install Z3 into `/tmp/gh-aw/agent/z3-install`.
-4. Verify the installed Z3 binary and capture its full version string.
-5. Fetch latest `master` from `FStarLang/FStar` and capture the exact commit SHA used.
-6. Build F* from that latest master using the locally built Z3 (not a system Z3).
-7. If F* requires setup steps, follow the current instructions from the checked-out FStar repository (for example `INSTALL.md`, `README.md`, `flake.nix`, or build scripts).
-8. Keep all temporary files under `/tmp/gh-aw/agent`.
+## Phase 1: Build Z3 master
 
-## Execution Plan
+```bash
+set -euo pipefail
 
-### Phase 1: Environment Setup
+cd "${{ github.workspace }}"
 
-- Install required build dependencies for Z3 and F* (for example: `cmake`, `ninja-build`, `opam`, `m4`, `pkg-config`, `libgmp-dev`, `curl`, `git`, `python3`).
-- Print tool versions (`cmake`, `ninja`, `opam`, `ocaml` if available).
+echo "Building Z3 from branch: $(git rev-parse --abbrev-ref HEAD)"
+git rev-parse HEAD
 
-### Phase 2: Build and Install Z3 (master)
+sudo apt-get update -y
+sudo apt-get install -y cmake ninja-build python3 git curl unzip
 
-- Build in `/tmp/gh-aw/agent/z3-build`.
-- Use:
-  - `cmake -G Ninja -DCMAKE_BUILD_TYPE=Release`
-  - `ninja`
-  - `ninja install` with prefix `/tmp/gh-aw/agent/z3-install`
-- Verify:
-  - `/tmp/gh-aw/agent/z3-install/bin/z3 --version`
-- Record:
-  - Z3 commit from `git -C "${{ github.workspace }}" rev-parse HEAD`
-  - Z3 version output
+cmake -S . -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release
+ninja -C build/release z3
 
-### Phase 3: Fetch Latest F* Master
+"${{ github.workspace }}/build/release/z3" --version | tee /tmp/gh-aw/agent/z3-version.txt
+```
 
-- Clone `https://github.com/FStarLang/FStar.git` into `/tmp/gh-aw/agent/fstar` with branch `master`.
-- Record exact commit SHA:
-  - `git -C /tmp/gh-aw/agent/fstar rev-parse HEAD`
+Extract the numeric version string from the `z3 --version` output and store it in `Z3_VERSION` (for example, `4.15.4`).
 
-### Phase 4: Build F* with Local Z3
+## Phase 2: Prepare PATH aliases for FStar
 
-- Ensure the local Z3 is used by exporting:
-  - `PATH=/tmp/gh-aw/agent/z3-install/bin:$PATH`
-  - `Z3_EXE=/tmp/gh-aw/agent/z3-install/bin/z3`
-- Discover and follow the repository’s current build path from checked-in docs/scripts.
-- Execute the build commands needed for F* master.
-- Capture concise logs into files under `/tmp/gh-aw/agent/logs/`.
+FStar expects versioned Z3 command names on PATH. Create local aliases pointing to the Z3 binary from Phase 1.
 
-### Phase 5: Report Results
+```bash
+set -euo pipefail
 
-- On success, call `create-discussion` with:
-  - Z3 commit + version
-  - FStar commit
-  - Key build commands executed
-  - Build outcome summary
-- On failure, call `create-issue` with:
-  - Failing phase
-  - Error summary
-  - Relevant log excerpt
-  - Z3 commit/version and FStar commit (if available)
+mkdir -p /tmp/gh-aw/agent/z3-bin
+ln -sf "${{ github.workspace }}/build/release/z3" /tmp/gh-aw/agent/z3-bin/z3
+ln -sf "${{ github.workspace }}/build/release/z3" /tmp/gh-aw/agent/z3-bin/z3-4.8.5
+ln -sf "${{ github.workspace }}/build/release/z3" /tmp/gh-aw/agent/z3-bin/z3-4.13.3
+export PATH="/tmp/gh-aw/agent/z3-bin:$PATH"
 
-## Safety and Quality
+z3 --version
+z3-4.8.5 --version
+z3-4.13.3 --version
+```
 
-- Fail fast on command errors.
-- Do not modify repository files.
-- Keep the report concise and actionable.
+## Phase 3: Clone and build FStar master
+
+```bash
+set -euo pipefail
+
+mkdir -p /tmp/gh-aw/agent
+rm -rf /tmp/gh-aw/agent/FStar
+
+git clone --depth=1 --branch master https://github.com/FStarLang/FStar.git /tmp/gh-aw/agent/FStar
+cd /tmp/gh-aw/agent/FStar
+
+echo "FStar commit: $(git rev-parse HEAD)"
+
+sudo apt-get update -y
+sudo apt-get install -y opam m4 pkg-config libgmp-dev
+
+opam init --disable-sandboxing --yes
+OPAM_SWITCH=4.14.2
+opam switch create "$OPAM_SWITCH" --yes || opam switch "$OPAM_SWITCH"
+eval "$(opam env --switch=$OPAM_SWITCH)"
+
+opam install --deps-only . --yes
+
+Z3_VERSION="$(sed -E -n 's/^Z3 version ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' /tmp/gh-aw/agent/z3-version.txt | head -1)"
+if [ -z "$Z3_VERSION" ]; then
+  echo "ERROR: could not parse Z3 version from /tmp/gh-aw/agent/z3-version.txt"
+  exit 1
+fi
+
+echo "Using Z3 version override: $Z3_VERSION"
+PATH="/tmp/gh-aw/agent/z3-bin:$PATH" OTHERFLAGS="--z3version $Z3_VERSION" make -j"$(nproc)"
+```
+
+## Phase 4: Verify artifacts and report
+
+```bash
+set -euo pipefail
+
+test -x /tmp/gh-aw/agent/FStar/out/bin/fstar.exe
+/tmp/gh-aw/agent/FStar/out/bin/fstar.exe --version | tee /tmp/gh-aw/agent/fstar-version.txt
+
+echo "SUCCESS: built Z3 master and FStar master with that Z3"
+```
+
+## Usage
+
+- This workflow is scheduled daily and can also be started manually.
+- It checks out Z3 `master`, builds `build/release/z3`, then clones FStar `master` and builds it using that Z3.
