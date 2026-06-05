@@ -753,7 +753,7 @@ namespace sls {
             for (unsigned j = 1; j <= val_other.length() - i; ++j) {
                 zstring sub = val_other.extract(i, j);
                 if (set.contains(sub))
-                    break;
+                    continue;
                 set.insert(sub);
             }
         }
