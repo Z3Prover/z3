@@ -199,7 +199,8 @@ namespace sls {
                 auto sx = strval0(x);
                 auto sy = strval0(y);
                 rational val_e;
-                VERIFY(a.is_numeral(ctx.get_value(e), val_e));
+                if (!a.is_numeral(ctx.get_value(e), val_e))
+                    return false;
                 rational actual(sx.last_indexof(sy));
                 if (val_e == actual)
                     continue;
