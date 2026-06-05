@@ -28,13 +28,13 @@ Revision History:
 
 namespace smt {
 
-    static inline void log_cg_update(char const* site, enode* n, enode* cg) {
-        std::cerr << "[CG_UPDATE] " << site
-                  << " n_owner_id=" << (n ? n->get_owner_id() : 0)
-                  << " cg_owner_id=" << (cg ? cg->get_owner_id() : 0)
-                  << " cg_m_owner_ptr=" << static_cast<void*>(cg ? cg->get_expr() : nullptr)
-                  << "\n";
-    }
+    // static inline void log_cg_update(char const* site, enode* n, enode* cg) {
+    //     std::cerr << "[CG_UPDATE] " << site
+    //               << " n_owner_id=" << (n ? n->get_owner_id() : 0)
+    //               << " cg_owner_id=" << (cg ? cg->get_owner_id() : 0)
+    //               << " cg_m_owner_ptr=" << static_cast<void*>(cg ? cg->get_expr() : nullptr)
+    //               << "\n";
+    // }
 
     /**
        \brief Return true if the expression is viewed as a logical gate.
@@ -1032,7 +1032,7 @@ namespace smt {
                 bool_var v = enode2bool_var(e);
                 assign(literal(v), mk_justification(eq_propagation_justification(e->get_arg(0), e->get_arg(1))));
                 e->m_cg    = e;
-                log_cg_update("internalizer:true_eq", e, e);
+                // log_cg_update("internalizer:true_eq", e, e);
                 push_eq(e, m_true_enode, eq_justification());
             }
             else {
@@ -1049,12 +1049,12 @@ namespace smt {
                     }
                     else {
                         e->m_cg = e;
-                        log_cg_update("internalizer:cgc_root", e, e);
+                        // log_cg_update("internalizer:cgc_root", e, e);
                     }
                 }
                 else {
                     e->m_cg = e;
-                    log_cg_update("internalizer:non_cgc_root", e, e);
+                    // log_cg_update("internalizer:non_cgc_root", e, e);
                 }
             }
             if (!e->is_eq()) {

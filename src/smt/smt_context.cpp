@@ -455,21 +455,28 @@ namespace smt {
         m_th_diseq_propagation_queue.push_back(new_th_eq(th, lhs, rhs));
     }
 
+    void context::undo_cgr_promotion(enode * new_cgr, enode * old_cgr) {
+        m_cg_table.erase(new_cgr);
+        new_cgr->m_cg = old_cgr;
+        old_cgr->m_cg = old_cgr;
+        auto [cgr_after_undo, used_commutativity] = m_cg_table.insert(old_cgr);
+        SASSERT(cgr_after_undo == old_cgr);
+        (void) used_commutativity;
+    }
+
     class cgr_promotion_trail : public trail {
+        context & ctx;
         enode*   new_cgr;
         enode*   old_cgr;
     public:
-        cgr_promotion_trail(enode* new_cgr, enode* old_cgr):
+        cgr_promotion_trail(context & ctx, enode* new_cgr, enode* old_cgr):
+            ctx(ctx),
             new_cgr(new_cgr),
             old_cgr(old_cgr) {
         }
 
         void undo() override {
-            m_cg_table.erase(new_cgr);
-            new_cgr->m_cg = old_cgr;
-            old_cgr->m_cg = old_cgr;
-            auto [cgr_after_undo, used_commutativity] = m_cg_table.insert(e);
-            SASSERT(cgr_after_undo == old_cgr);
+            ctx.undo_cgr_promotion(new_cgr, old_cgr);
         }
     };
 
@@ -484,15 +491,16 @@ namespace smt {
             m_cg_table.erase(cur_cgr);
             cur_cgr->m_cg = e;
             e->m_cg = e;
-            auto [new_cgr, promote_used_commutativity] = m_cg_table.insert(e);
+            auto [new_cgr, used_commutativity] = m_cg_table.insert(e);
+            promote_used_commutativity = used_commutativity;
             SASSERT(new_cgr == e);
             
-            push_trail(cgr_promotion_trail(e, cur_cgr));
+            push_trail(cgr_promotion_trail(*this, e, cur_cgr));
 
-            return enode_pair(cur_cgr, e);
+            return enode_pair(e, cur_cgr);
         }
 
-        return enode_pair(e, cur_cgr);  
+        return enode_pair(cur_cgr, e);  
     }
 
     class add_eq_trail : public trail {
