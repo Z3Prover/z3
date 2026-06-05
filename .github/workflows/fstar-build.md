@@ -156,8 +156,9 @@ fi
 ### 5. Build F* with Our Z3
 
 Build F* using the Z3 binary compiled in Step 2.
-F* ships a pre-extracted OCaml snapshot in `src/ocaml-output/` that can be compiled
-directly without requiring a bootstrapped F* binary.
+F* ships a pre-extracted OCaml snapshot in `src/ocaml-output/` — this is an OCaml translation
+of the F* source that is committed to the repository and can be compiled directly with `ocamlfind`,
+without needing a pre-existing F* binary for the bootstrapping step.
 
 ```bash
 cd /tmp/fstar
@@ -328,7 +329,7 @@ Store in cache memory for future comparison:
 - **Graceful failure**: If an early step fails (e.g., Z3 build), continue to the reporting step with what you have. A failed build result is still useful information.
 - **Be specific**: Include commit SHAs, exact error messages, and log excerpts so failures can be diagnosed.
 - **Track regressions**: Use cache memory to flag when a previously passing step now fails.
-- **Timeout awareness**: The full F* build can take 30–60 minutes. If a step is taking too long, record a timeout in the status and move on to reporting.
+- **Timeout awareness**: The full F* build can take 30–60 minutes; the overall workflow timeout is set to 180 minutes to accommodate all steps. If a single step is hanging, record a timeout in the status and move on to reporting rather than waiting for the overall workflow limit.
 
 ## Important Notes
 
