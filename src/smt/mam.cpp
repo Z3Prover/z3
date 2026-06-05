@@ -215,7 +215,7 @@ namespace {
         unsigned short m_num_args;
         unsigned       m_ireg;
         unsigned       m_oreg;
-        unsigned       m_curr_max_generation = 0;
+        // unsigned       m_curr_max_generation = 0;
     };
 
     struct get_cgr : public instruction {
@@ -1890,31 +1890,31 @@ namespace {
                 m_used_enodes.push_back(std::make_tuple(prev, n));
         }
 
-        void get_f_app(func_decl* lbl, unsigned num_expected_args, enode* curr, enode*& matching_cgr, enode*& min_gen_match) {
-            if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args) {
-                if (curr->is_cgr() && !matching_cgr)
-                    matching_cgr = curr;
+        // void get_f_app(func_decl* lbl, unsigned num_expected_args, enode* curr, enode*& matching_cgr, enode*& min_gen_match) {
+        //     if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args) {
+        //         if (curr->is_cgr() && !matching_cgr)
+        //             matching_cgr = curr;
 
-                if (!min_gen_match || min_gen_match->get_generation() > curr->get_generation()) {
-                    min_gen_match = curr;
-                }
-            }
-        }
+        //         if (!min_gen_match || min_gen_match->get_generation() > curr->get_generation()) {
+        //             min_gen_match = curr;
+        //         }
+        //     }
+        // }
 
-        enode * find_min_gen_cg(func_decl* lbl, unsigned num_expected_args, enode * cgr) {
-            SASSERT(cgr->is_cgr());
-            enode * min_gen_cg = cgr;
-            enode * curr = cgr->get_next();
-            while (curr != cgr) {
-                if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->get_cg_root() == cgr) {
-                    if (min_gen_cg->get_generation() > curr->get_generation()) {
-                        min_gen_cg = curr;
-                    }
-                }
-                curr = curr->get_next();
-            }
-            return min_gen_cg;
-        }
+        // enode * find_min_gen_cg(func_decl* lbl, unsigned num_expected_args, enode * cgr) {
+        //     SASSERT(cgr->is_cgr());
+        //     enode * min_gen_cg = cgr;
+        //     enode * curr = cgr->get_next();
+        //     while (curr != cgr) {
+        //         if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->get_cg_root() == cgr) {
+        //             if (min_gen_cg->get_generation() > curr->get_generation()) {
+        //                 min_gen_cg = curr;
+        //             }
+        //         }
+        //         curr = curr->get_next();
+        //     }
+        //     return min_gen_cg;
+        // }
 
         unsigned get_max_generation_min_cg(unsigned num_enodes, enode * const * enodes) {
             SASSERT(num_enodes > 0);
@@ -1922,8 +1922,7 @@ namespace {
             for (unsigned i = 0; i < num_enodes; ++i) {
                 enode * n = enodes[i];
                 // binding might be a constant
-                unsigned curr = n->get_num_args() == 0 ? n->get_generation() : 
-                    find_min_gen_cg(n->get_decl(), n->get_num_args(), n->get_cg_root())->get_generation();
+                unsigned curr = n->get_num_args() == 0 ? n->get_generation() : n->get_cg_root()->get_generation();
                 if (curr > max)
                     max = curr;
             }
@@ -1933,23 +1932,23 @@ namespace {
         // We have to provide the number of expected arguments because we have flat-assoc applications such as +.
         // Flat-assoc applications may have arbitrary number of arguments.
         enode * get_first_f_app(func_decl * lbl, unsigned num_expected_args, enode * curr) {
-            enode *first = curr;
+            enode * first = curr;
             do {
-                if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->is_cgr()) {
-                    update_max_generation(curr, first, find_min_gen_cg(lbl, num_expected_args, curr));  
+                if (curr->get_decl() == lbl && curr->is_cgr() && curr->get_num_args() == num_expected_args) {
+                    update_max_generation(curr, first);
                     return curr;
                 }
                 curr = curr->get_next();
-            } while (curr != first);
-
+            }
+            while (curr != first);
             return nullptr;
         }
 
         enode * get_next_f_app(func_decl * lbl, unsigned num_expected_args, enode * first, enode * curr) {
             curr = curr->get_next();
             while (curr != first) {
-                if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->is_cgr()) {
-                    update_max_generation(curr, first, find_min_gen_cg(lbl, num_expected_args, curr));
+                if (curr->get_decl() == lbl && curr->is_cgr() && curr->get_num_args() == num_expected_args) {
+                    update_max_generation(curr, first);
                     return curr;
                 }
                 curr = curr->get_next();
@@ -2344,7 +2343,7 @@ namespace {
         m_max_top_generation.reset();
         m_pattern_instances.push_back(n);
 
-        m_max_generation = find_min_gen_cg(n->get_decl(), n->get_num_args(), n->get_cg_root())->get_generation();
+        m_max_generation = n->get_cg_root()->get_generation();
 
         if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality)) {
             m_used_enodes.reset();
@@ -2521,7 +2520,6 @@ namespace {
                  m_backtrack_stack[m_top].m_old_max_generation = m_curr_max_generation;                                 \
                  m_backtrack_stack[m_top].m_old_used_enodes_size = m_curr_used_enodes_size;                             \
                  m_backtrack_stack[m_top].m_curr               = m_app;                                                 \
-                 const_cast<bind*>(static_cast<const bind*>(m_pc))->m_curr_max_generation = m_max_generation;                                   \
                  m_top++;
 
             BIND_COMMON();
