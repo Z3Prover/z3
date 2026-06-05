@@ -829,25 +829,23 @@ namespace smt {
                 // let's rebuild the whole Nielsen graph
                 populate_nielsen_graph();
 
-                // assert length constraints derived from string equalities
-                if (assert_length_constraints()) {
-                    TRACE(seq, tout << "nseq final_check: length constraints asserted, FC_CONTINUE\n");
-                    return FC_CONTINUE;
-                }
-
-                SASSERT(m_nielsen.root());
-
-                m_nielsen.assert_node_side_constraints(m_nielsen.root());
-
-                ++m_num_final_checks;
-
                 m_nielsen.set_max_search_depth(get_fparams().m_nseq_max_depth);
                 m_nielsen.set_max_nodes(get_fparams().m_nseq_max_nodes);
                 m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
                 m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
                 m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);
                 m_nielsen.set_regex_factorization_eager(get_fparams().m_nseq_regex_factorization_eager);
+
+                // assert length constraints derived from string equalities
+                if (assert_length_constraints()) {
+                    TRACE(seq, tout << "nseq final_check: length constraints asserted, FC_CONTINUE\n");
+                    return FC_CONTINUE;
+                }
+                SASSERT(m_nielsen.root());
+                m_nielsen.assert_node_side_constraints(m_nielsen.root());
             }
+
+            ++m_num_final_checks;
 
             SASSERT(!m_nielsen.root()->is_currently_conflict());
 
