@@ -285,7 +285,7 @@ namespace smt {
     void theory_nseq::assign_eh(bool_var v, bool is_true) {
         try {
             expr* e = ctx.bool_var2expr(v);
-            std::cout << "assigned [" << sat::literal(v, is_true) << "] " << mk_pp(e, m) << " = " << is_true << std::endl;
+            // std::cout << "assigned [" << sat::literal(v, is_true) << "] " << mk_pp(e, m) << " = " << is_true << std::endl;
             expr *s = nullptr, *re = nullptr, *a = nullptr, *b = nullptr;
             TRACE(seq, tout << (is_true ? "" : "¬") << mk_bounded_pp(e, m, 3) << "\n";);
             if (m_seq.str.is_in_re(e, s, re)) {
@@ -496,32 +496,32 @@ namespace smt {
         if (!get_fparams().m_nseq_regex_factorization_threshold)
             return;
 
-        if (mem.m_regex->is_intersect()) {
-            // u \in r1 & r_2 → u \in r1 && u \in r2
-            for (const euf::snode* const arg : *mem.m_regex) {
-                expr_ref in_r(m_seq.re.mk_in_re(s, arg->get_expr()), m);
-                literal_vector lits;
-                lits.push_back(~mem.lit);
-                lits.push_back(mk_literal(in_r));
-                ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
-            }
-            m_ignored_mem.insert(mem.lit);
-            ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
-            return;
-        }
-        if (mem.m_regex->is_union()) {
-            // u \in r1 | r_2 → u \in r1 || u \in r2
-            literal_vector lits;
-            lits.push_back(~mem.lit);
-            for (const euf::snode* const arg : *mem.m_regex) {
-                expr_ref in_r(m_seq.re.mk_in_re(s, arg->get_expr()), m);
-                lits.push_back(mk_literal(in_r));
-            }
-            ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
-            m_ignored_mem.insert(mem.lit);
-            ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
-            return;
-        }
+        //if (mem.m_regex->is_intersect()) {
+        //    // u \in r1 & r_2 → u \in r1 && u \in r2
+        //    for (const euf::snode* const arg : *mem.m_regex) {
+        //        expr_ref in_r(m_seq.re.mk_in_re(s, arg->get_expr()), m);
+        //        literal_vector lits;
+        //        lits.push_back(~mem.lit);
+        //        lits.push_back(mk_literal(in_r));
+        //        ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+        //    }
+        //    m_ignored_mem.insert(mem.lit);
+        //    ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
+        //    return;
+        //}
+        //if (mem.m_regex->is_union()) {
+        //    // u \in r1 | r_2 → u \in r1 || u \in r2
+        //    literal_vector lits;
+        //    lits.push_back(~mem.lit);
+        //    for (const euf::snode* const arg : *mem.m_regex) {
+        //        expr_ref in_r(m_seq.re.mk_in_re(s, arg->get_expr()), m);
+        //        lits.push_back(mk_literal(in_r));
+        //    }
+        //    ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+        //    m_ignored_mem.insert(mem.lit);
+        //    ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
+        //    return;
+        //}
 
         if (mem.m_regex->is_to_re()) {
             // u \in v (with v is constant) → u = v
@@ -677,6 +677,7 @@ namespace smt {
     void theory_nseq::populate_nielsen_graph() {
         m_nielsen.reset();
         m_can_hot_restart = true;
+        m_nielsen.create_root();
 
         unsigned num_eqs = 0, num_deqs = 0, num_mems = 0;
 

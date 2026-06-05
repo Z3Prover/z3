@@ -1074,18 +1074,18 @@ namespace seq {
         unsigned num_nodes() const { return m_nodes.size(); }
 
         // maximum overall search depth (0 = unlimited)
-        void set_max_search_depth(const unsigned d) { m_max_search_depth = d; }
+        void set_max_search_depth(unsigned d) { m_max_search_depth = d; }
 
         // maximum total DFS nodes per solve() call (0 = unlimited)
-        void set_max_nodes(const unsigned n) { m_max_nodes = n; }
+        void set_max_nodes(unsigned n) { m_max_nodes = n; }
         
         // enable/disable Parikh image verification constraints
-        void set_parikh_enabled(const bool e) { m_parikh_enabled = e; }
+        void set_parikh_enabled(bool e) { m_parikh_enabled = e; }
 
-        void set_signature_split(const bool e) { m_signature_split = e; }
+        void set_signature_split(bool e) { m_signature_split = e; }
         
-        void set_regex_factorization_threshold(const unsigned max) { m_regex_factorization_threshold = max; }
-        void set_regex_factorization_eager(const bool e) { m_regex_factorization_eager = e; }
+        void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }
+        void set_regex_factorization_eager(bool e) { m_regex_factorization_eager = e; }
 
         // display for debugging
         std::ostream& display(std::ostream& out) const;

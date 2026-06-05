@@ -244,8 +244,10 @@ namespace euf {
             for (unsigned i = 0; i < cnt; i++) {
                 const snode* const c = arg(i);
                 unsigned val;
-                if (!seq.is_const_char(c->get_expr(), val))
+                if (!c->is_char())
                     return false;
+                expr* d = to_app(c->get_expr())->get_arg(0);
+                VERIFY(seq.is_const_char(d, val));
                 str += zstring(val);
             }
             return true;

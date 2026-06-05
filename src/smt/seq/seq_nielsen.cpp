@@ -522,8 +522,6 @@ namespace seq {
     }
 
     void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r) {
-        if (!root())
-            create_root();
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
         str_eq eq(lhs, rhs, dep);
         eq.sort();
@@ -537,8 +535,6 @@ namespace seq {
     }
 
     void nielsen_graph::add_str_deq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r) {
-        if (!root())
-            create_root();
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
         str_deq deq(lhs, rhs, dep);
         // check if root node contains this equation already
@@ -551,8 +547,6 @@ namespace seq {
     }
 
     void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l) {
-        if (!root())
-            create_root();
         // check if root node contains this membership constraint already
         if (std::ranges::any_of(m_root->str_mems(), [&](const str_mem& e) {
             return e.m_regex == regex && e.m_str == str;
@@ -565,8 +559,6 @@ namespace seq {
 
     // test-friendly overloads (no external dependency tracking)
     void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs) {
-        if (!root())
-            create_root();
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         str_eq eq(lhs, rhs, dep);
         eq.sort();
@@ -574,25 +566,23 @@ namespace seq {
     }
 
     void nielsen_graph::add_str_deq(euf::snode* lhs, euf::snode* rhs) {
-        if (!root())
-            create_root();
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         str_deq deq(lhs, rhs, dep);
         m_root->add_str_deq(deq);
     }
 
     void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex) {
-        if (!root())
-            create_root();
         const dep_tracker dep = nullptr;
         m_root->add_str_mem(str_mem(str, regex, dep));
     }
 
     void nielsen_graph::reset() {
-        for (nielsen_node* n : m_nodes)
+        for (nielsen_node* n : m_nodes) {
             dealloc(n);
-        for (nielsen_edge* e : m_edges)
+        }
+        for (nielsen_edge* e : m_edges) {
             dealloc(e);
+        }
         m_nodes.reset();
         m_edges.reset();
         m_root = nullptr;
@@ -1863,6 +1853,7 @@ namespace seq {
                     break;
                 ptr_vector<nielsen_edge> cur_path;
                 // scoped_push _scoped_push(m_dep_mgr); // gc dependencies after search
+                SASSERT(!m_root->is_currently_conflict());
                 const search_result r = search_dfs(m_root, cur_path); // the main search loop
                 IF_VERBOSE(1, verbose_stream()
                                   << " depth_bound=" << m_depth_bound << " dfs_nodes=" << m_stats.m_num_dfs_nodes
@@ -2039,11 +2030,14 @@ namespace seq {
                 display(std::cout, node);
             }
             VERIFY(ext);
+
+            if (node->is_currently_conflict())
+                // in rare cases, trying to extend can make a complicated conflict visible
+                return search_result::unsat;
+
             node->set_extended(true);
             ++m_stats.m_num_extensions;
         }
-
-        SASSERT(!node->is_currently_conflict());
 
         // explore children
         bool any_unknown = false;
@@ -3637,7 +3631,7 @@ namespace seq {
         sort* str_sort = nullptr;
         if (!seq.is_re(r->get_expr(), str_sort))
             return false;
-        std::cout << "Computing sigma of " << snode_label_html(r, m, false) << std::endl;
+        // std::cout << "Computing sigma of " << snode_label_html(r, m, false) << std::endl;
 
         if (r->is_empty()) {
             const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
@@ -3669,15 +3663,12 @@ namespace seq {
                 result.push_back(sigma_pair(ex, eps, m));
                 return true;
             }
-            if (c->is_string()) {
-                const euf::snode * arg = r->arg0();
-                zstring s;
-                if (arg->is_string(s, seq) && s.length() > 1) {
-                    for (unsigned i = 0; i <= s.length(); ++i) {
-                        expr_ref p(seq.re.mk_to_re(seq.str.mk_string(s.extract(0, i))), m);
-                        expr_ref q(seq.re.mk_to_re(seq.str.mk_string(s.extract(i, s.length() - i))), m);
-                        result.push_back(sigma_pair(p, q, m));
-                    }
+            zstring s;
+            if (c->is_string(s, seq)) {
+                for (unsigned i = 0; i <= s.length(); ++i) {
+                    expr_ref p(seq.re.mk_to_re(seq.str.mk_string(s.extract(0, i))), m);
+                    expr_ref q(seq.re.mk_to_re(seq.str.mk_string(s.extract(i, s.length() - i))), m);
+                    result.push_back(sigma_pair(p, q, m));
                 }
                 return true;
             }
@@ -3795,8 +3786,8 @@ namespace seq {
             }
             return true;
         }
-        // the simplifier should have eliminated everything else already
-        UNREACHABLE();
+        // the simplifier should have eliminated most of them already
+        // TODO: so far, we are, however, still missing bounded repetitions and ite
         return false;
     }
 
