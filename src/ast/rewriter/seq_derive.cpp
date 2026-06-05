@@ -842,6 +842,17 @@ namespace seq {
             UNREACHABLE();
             return expr_ref(m.mk_true(), m);
         }
+        // Remove subsumed elements: if a ⊆ b, drop a from union
+        for (unsigned i = 0; i < args.size(); ++i) {
+            for (unsigned j = 0; j < args.size(); ++j) {
+                if (i != j && args.get(i) && args.get(j) && is_subset(args.get(i), args.get(j))) {
+                    args[i] = args.back();
+                    args.pop_back();
+                    --i;
+                    break;
+                }
+            }
+        }
         if (args.size() == 1)
             return expr_ref(args.get(0), m);
         // Build right-associated union
@@ -855,6 +866,17 @@ namespace seq {
         if (args.empty()) {
             UNREACHABLE();
             return expr_ref(m.mk_true(), m);
+        }
+        // Remove subsuming elements: if a ⊆ b, drop b from intersection
+        for (unsigned i = 0; i < args.size(); ++i) {
+            for (unsigned j = 0; j < args.size(); ++j) {
+                if (i != j && args.get(i) && args.get(j) && is_subset(args.get(i), args.get(j))) {
+                    args[j] = args.back();
+                    args.pop_back();
+                    if (j < i) --i;
+                    --j;
+                }
+            }
         }
         if (args.size() == 1)
             return expr_ref(args.get(0), m);
@@ -958,62 +980,58 @@ namespace seq {
     // -------------------------------------------------------
 
     lbool derive::eval_cond(expr* cond) {
-        expr* lhs = nullptr, * rhs = nullptr, * e1 = nullptr;
-        unsigned ch1 = 0, ch2 = 0;
+        expr* e1 = nullptr;
 
         if (m.is_true(cond)) return l_true;
         if (m.is_false(cond)) return l_false;
 
-        // elem = char or char = elem
-        if (m.is_eq(cond, lhs, rhs)) {
-            if (rhs == m_ele) std::swap(lhs, rhs);
-            if (lhs == m_ele && u().is_const_char(rhs, ch1) && u().is_const_char(m_ele, ch2))
-                return ch1 == ch2 ? l_true : l_false;
-            if (lhs == rhs) return l_true;
+        // Use is_char_const_range to evaluate conditions involving m_ele
+        unsigned lo = 0, hi = 0, ele_val = 0;
+        bool negated = false;
+        if (m_util.is_char_const_range(m_ele, cond, lo, hi, negated) && u().is_const_char(m_ele, ele_val)) {
+            bool in_range = (lo <= ele_val && ele_val <= hi);
+            return (in_range != negated) ? l_true : l_false;
         }
 
-        // char_le(lhs, rhs)
+        // Handle self-equality and constant comparisons not involving m_ele
+        expr* lhs = nullptr, * rhs = nullptr;
+        if (m.is_eq(cond, lhs, rhs) && lhs == rhs)
+            return l_true;
+
+        unsigned vl = 0, vr = 0;
         if (u().is_char_le(cond, lhs, rhs)) {
-            unsigned vl = 0, vr = 0;
-            if (lhs == m_ele && u().is_const_char(m_ele, vl) && u().is_const_char(rhs, vr))
-                return vl <= vr ? l_true : l_false;
-            if (rhs == m_ele && u().is_const_char(lhs, vl) && u().is_const_char(m_ele, vr))
-                return vl <= vr ? l_true : l_false;
             if (u().is_const_char(lhs, vl) && u().is_const_char(rhs, vr))
                 return vl <= vr ? l_true : l_false;
-            // char_le(0, x) is always true (chars are unsigned)
             if (u().is_const_char(lhs, vl) && vl == 0)
                 return l_true;
-            // char_le(x, max_char) is always true
             if (u().is_const_char(rhs, vr) && vr == u().max_char())
                 return l_true;
         }
 
         // not(e1)
-        if (m.is_not(cond, e1)) {
-            lbool inner = eval_cond(e1);
-            if (inner != l_undef)
-                return inner == l_true ? l_false : l_true;
-        }
+        if (m.is_not(cond, e1))
+            return ~eval_cond(e1);
 
         // and(...)
         if (m.is_and(cond)) {
+            lbool r = l_true;
             for (expr* arg : *to_app(cond)) {
                 lbool v = eval_cond(arg);
                 if (v == l_false) return l_false;
-                if (v == l_undef) return l_undef;
+                if (v == l_undef) r = l_undef;
             }
-            return l_true;
+            return r;
         }
 
         // or(...)
         if (m.is_or(cond)) {
+            lbool r = l_false;
             for (expr* arg : *to_app(cond)) {
                 lbool v = eval_cond(arg);
                 if (v == l_true) return l_true;
-                if (v == l_undef) return l_undef;
+                if (v == l_undef) r = l_undef;
             }
-            return l_false;
+            return r;
         }
 
         return l_undef;
