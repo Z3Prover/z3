@@ -92,7 +92,7 @@ namespace seq {
         out << "nielsen_graph with " << m_nodes.size() << " nodes, "
             << m_edges.size() << " edges\n";
 
-        for (nielsen_node* n : m_nodes) 
+        for (const nielsen_node * n : m_nodes)
             display(out, n);        
 
         return out;
@@ -105,10 +105,12 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     // Helper: HTML-escape a string and replace literal \n with <br/>.
-    static std::string dot_html_escape(std::string const& s) {
+    static std::string dot_html_escape(std::string const& s, const bool html_escape) {
+        if (!html_escape)
+            return s;
         std::string r;
         r.reserve(s.size());
-        for (char c : s) {
+        for (const char c : s) {
             switch (c) {
             case '&': r += "&amp;"; break;
             case '<': r += "&lt;";  break;
@@ -130,7 +132,7 @@ namespace seq {
         return result;
     }
 
-    std::string decode_recursive_name(expr* e, ast_manager& m) {
+    std::string decode_recursive_name(expr* e, ast_manager& m, bool html_escape) {
         SASSERT(e && is_app(e));
         th_rewriter rw(m);
         const skolem sk(m, rw);
@@ -141,7 +143,7 @@ namespace seq {
         }
         if (to_app(arg)->get_num_args() != 0)
             return "";
-        std::string s = dot_html_escape(to_app(arg)->get_decl()->get_name().str());
+        std::string s = dot_html_escape(to_app(arg)->get_decl()->get_name().str(), html_escape);
         if (cnt == 0)
             return s;
         return s + "[" + std::to_string(cnt) + "]";
@@ -159,7 +161,7 @@ namespace seq {
     // Helper: render an arithmetic/integer expression in infix HTML notation.
     // Recognises +, -, *, unary minus, numerals, str.len, and named constants;
     // falls back to HTML-escaped mk_pp for anything else.
-    static std::string arith_expr_html(expr* e, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) {
+    static std::string arith_expr_html(expr* e, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m, bool html_escape) {
         if (!e) return "null";
         arith_util arith(m);
         seq_util seq(m);
@@ -169,39 +171,39 @@ namespace seq {
         if (!is_app(e)) {
             std::ostringstream os;
             os << mk_bounded_pp(e, m);
-            return dot_html_escape(os.str());
+            return dot_html_escape(os.str(), html_escape);
         }
         app* a = to_app(e);
         expr* x, * y;
         if (m.is_or(e)) {
             app* ap = to_app(e);
             std::string res;
-            res = arith_expr_html(ap->get_arg(0), names, next_id, m);
+            res = arith_expr_html(ap->get_arg(0), names, next_id, m, html_escape);
             for (unsigned i = 1; i < ap->get_num_args(); ++i) {
                 res += " || ";
-                res += arith_expr_html(ap->get_arg(i), names, next_id, m);
+                res += arith_expr_html(ap->get_arg(i), names, next_id, m, html_escape);
             }
             return res;
         }
         if (m.is_not(e, x))
-            return "!(" + arith_expr_html(x, names, next_id, m) + ")";
+            return "!(" + arith_expr_html(x, names, next_id, m, html_escape) + ")";
         if (arith.is_lt(e, x, y)) {
-            return arith_expr_html(x, names, next_id, m) + " &lt; " + arith_expr_html(y, names, next_id, m);
+            return arith_expr_html(x, names, next_id, m, html_escape) + " &lt; " + arith_expr_html(y, names, next_id, m, html_escape);
         }
         if (arith.is_gt(e, x, y)) {
-            return arith_expr_html(x, names, next_id, m) + " &gt; " + arith_expr_html(y, names, next_id, m);
+            return arith_expr_html(x, names, next_id, m, html_escape) + " &gt; " + arith_expr_html(y, names, next_id, m, html_escape);
         }
         if (arith.is_le(e, x, y)) {
-            return arith_expr_html(x, names, next_id, m) + " &#8804; " + arith_expr_html(y, names, next_id, m);
+            return arith_expr_html(x, names, next_id, m, html_escape) + " &#8804; " + arith_expr_html(y, names, next_id, m, html_escape);
         }
         if (arith.is_ge(e, x, y)) {
-            return arith_expr_html(x, names, next_id, m) + " &#8805; " + arith_expr_html(y, names, next_id, m);
+            return arith_expr_html(x, names, next_id, m, html_escape) + " &#8805; " + arith_expr_html(y, names, next_id, m, html_escape);
         }
         if (m.is_eq(e, x, y)) {
-            return arith_expr_html(x, names, next_id, m) + " = " + arith_expr_html(y, names, next_id, m);
+            return arith_expr_html(x, names, next_id, m, html_escape) + " = " + arith_expr_html(y, names, next_id, m, html_escape);
         }
         if (arith.is_add(e)) {
-            std::string r = arith_expr_html(a->get_arg(0), names, next_id, m);
+            std::string r = arith_expr_html(a->get_arg(0), names, next_id, m, html_escape);
             for (unsigned i = 1; i < a->get_num_args(); ++i) {
                 expr* arg = a->get_arg(i);
                 // render (+ x (- y)) as "x - y" and (+ x (- n)) as "x - n"
@@ -209,32 +211,32 @@ namespace seq {
                 rational neg_val;
                 if (arith.is_uminus(arg, neg_inner)) {
                     r += " &#8722; "; // minus sign
-                    r += arith_expr_html(neg_inner, names, next_id, m);
+                    r += arith_expr_html(neg_inner, names, next_id, m, html_escape);
                 } else if (arith.is_numeral(arg, neg_val) && neg_val.is_neg()) {
                     r += " &#8722; "; // minus sign
                     r += (-neg_val).to_string();
                 }
                 else {
                     r += " + ";
-                    r += arith_expr_html(arg, names, next_id, m);
+                    r += arith_expr_html(arg, names, next_id, m, html_escape);
                 }
             }
             return r;
         }
         if (arith.is_sub(e, x, y))
-            return arith_expr_html(x, names, next_id, m) + " &#8722; " + arith_expr_html(y, names, next_id, m);
+            return arith_expr_html(x, names, next_id, m, html_escape) + " &#8722; " + arith_expr_html(y, names, next_id, m, html_escape);
         if (arith.is_uminus(e, x))
-            return "&#8722;" + arith_expr_html(x, names, next_id, m);
+            return "&#8722;" + arith_expr_html(x, names, next_id, m, html_escape);
         if (arith.is_mul(e)) {
             std::string r;
             for (unsigned i = 0; i < a->get_num_args(); ++i) {
                 if (i > 0) r += " &#183; "; // middle dot
-                r += arith_expr_html(a->get_arg(i), names, next_id, m);
+                r += arith_expr_html(a->get_arg(i), names, next_id, m, html_escape);
             }
             return r;
         }
         if (seq.str.is_length(e, x)) {
-            std::string name = decode_recursive_name(x, m);
+            std::string name = decode_recursive_name(x, m, html_escape);
             if (!name.empty()) {
                 return "|" + name + "|";
             }
@@ -253,28 +255,23 @@ namespace seq {
 
         // named constant, fresh variable like n!0
         if (a->get_num_args() == 0)
-            return dot_html_escape(a->get_decl()->get_name().str());
+            return dot_html_escape(a->get_decl()->get_name().str(), html_escape);
         if (names.contains(e))
             return names[e];
         std::stringstream ss;
         ss << mk_bounded_pp(e, m);
-        std::string s = dot_html_escape(ss.str());
+        std::string s = dot_html_escape(ss.str(), html_escape);
         names.insert(e, s);
         return s;
-
-        // fallback
-        std::ostringstream os;
-        os << mk_pp(e, m);
-        return dot_html_escape(os.str());
     }
 
     // Helper: render a constraint as an HTML string for DOT edge labels.
     static std::string constraint_html(constraint const& ic, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) {
-        if (ic.fml) return arith_expr_html(ic.fml, names, next_id, m);
+        if (ic.fml) return arith_expr_html(ic.fml, names, next_id, m, true);
         return "null";
     }
 
-    static std::string regex_expr_html(expr* e, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m, seq_util& seq) {
+    static std::string regex_expr_html(expr* e, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m, seq_util& seq, bool html_escape) {
         if (!e)
             return "null";
         expr* a = nullptr, * b = nullptr;
@@ -296,14 +293,14 @@ namespace seq {
                 }
                 if (seq.str.is_string(arg, s)) {
                     if (!first) os << " ";
-                    os << "\"" + dot_html_escape(s.encode()) + "\"";
+                    os << "\"" + dot_html_escape(s.encode(), html_escape) + "\"";
                     first = false;
                     continue;
                 }
                 unsigned ch_val = 0;
                 if (seq.str.is_unit(arg) && seq.is_const_char(to_app(arg)->get_arg(0), ch_val)) {
                     if (!first) os << " ";
-                    os << "\"" + dot_html_escape(zstring(ch_val).encode()) + "\"";
+                    os << "\"" + dot_html_escape(zstring(ch_val).encode(), html_escape) + "\"";
                     first = false;
                     continue;
                 }
@@ -311,7 +308,7 @@ namespace seq {
                 os << mk_pp(arg, m);
                 first = false;
             }
-            return dot_html_escape(os.str());
+            return dot_html_escape(os.str(), html_escape);
         }
         unsigned c;
         if (seq.is_const_char(e, c))
@@ -324,16 +321,16 @@ namespace seq {
                 if (i > 0) res += " ";
                 bool needs_parens = seq.re.is_union(ap->get_arg(i));
                 if (needs_parens) res += "(";
-                res += regex_expr_html(ap->get_arg(i), names, next_id, m, seq);
+                res += regex_expr_html(ap->get_arg(i), names, next_id, m, seq, html_escape);
                 if (needs_parens) res += ")";
             }
             return res;
         }
         if (m.is_ite(e)) {
             app* ap = to_app(e);
-            std::string cond = arith_expr_html(ap->get_arg(0), names, next_id, m);
-            std::string t = regex_expr_html(ap->get_arg(1), names, next_id, m, seq);
-            std::string f = regex_expr_html(ap->get_arg(2), names, next_id, m, seq);
+            std::string cond = arith_expr_html(ap->get_arg(0), names, next_id, m, html_escape);
+            std::string t = regex_expr_html(ap->get_arg(1), names, next_id, m, seq, html_escape);
+            std::string f = regex_expr_html(ap->get_arg(2), names, next_id, m, seq, html_escape);
             return cond + " ? (" + t + ") : (" + f + ")";
         }
         if (seq.re.is_union(e)) {
@@ -341,10 +338,10 @@ namespace seq {
             std::string res;
             if (ap->get_num_args() == 0)
                 return "&#8709;";
-            res = regex_expr_html(ap->get_arg(0), names, next_id, m, seq);
+            res = regex_expr_html(ap->get_arg(0), names, next_id, m, seq, html_escape);
             for (unsigned i = 1; i < ap->get_num_args(); ++i) {
                 res += " | ";
-                res += regex_expr_html(ap->get_arg(i), names, next_id, m, seq);
+                res += regex_expr_html(ap->get_arg(i), names, next_id, m, seq, html_escape);
             }
             return res;
         }
@@ -355,7 +352,7 @@ namespace seq {
                 if (i > 0) res += " &amp; ";
                 bool needs_parens = seq.re.is_union(ap->get_arg(i)) || seq.re.is_concat(ap->get_arg(i));
                 if (needs_parens) res += "(";
-                res += regex_expr_html(ap->get_arg(i), names, next_id, m, seq);
+                res += regex_expr_html(ap->get_arg(i), names, next_id, m, seq, html_escape);
                 if (needs_parens) res += ")";
             }
             return res;
@@ -363,21 +360,21 @@ namespace seq {
         if (seq.re.is_star(e, a)) {
             bool needs_parens = seq.re.is_union(a) || seq.re.is_concat(a) || seq.re.is_intersection(a);
             std::string res = needs_parens ? "(" : "";
-            res += regex_expr_html(a, names, next_id, m, seq);
+            res += regex_expr_html(a, names, next_id, m, seq, html_escape);
             res += needs_parens ? ")<SUP>*</SUP>" : "<SUP>*</SUP>";
             return res;
         }
         if (seq.re.is_plus(e, a)) {
             bool needs_parens = seq.re.is_union(a) || seq.re.is_concat(a) || seq.re.is_intersection(a);
             std::string res = needs_parens ? "(" : "";
-            res += regex_expr_html(a, names, next_id, m, seq);
+            res += regex_expr_html(a, names, next_id, m, seq, html_escape);
             res += needs_parens ? ")<SUP>+</SUP>" : "<SUP>+</SUP>";
             return res;
         }
         if (seq.re.is_opt(e, a)) {
             bool needs_parens = seq.re.is_union(a) || seq.re.is_concat(a) || seq.re.is_intersection(a);
             std::string res = needs_parens ? "(" : "";
-            res += regex_expr_html(a, names, next_id, m, seq);
+            res += regex_expr_html(a, names, next_id, m, seq, html_escape);
             res += needs_parens ? ")?" : "?";
             return res;
         }
@@ -385,14 +382,14 @@ namespace seq {
             bool needs_parens = seq.re.is_union(a) || seq.re.is_concat(a) || seq.re.is_intersection(a);
             std::string res = "~";
             res += needs_parens ? "(" : "";
-            res += regex_expr_html(a, names, next_id, m, seq);
+            res += regex_expr_html(a, names, next_id, m, seq, html_escape);
             res += needs_parens ? ")" : "";
             return res;
         }
         if (seq.re.is_range(e, a, b)) {
             zstring s1, s2;
-            std::string c1 = seq.str.is_string(a, s1) ? dot_html_escape(s1.encode()) : arith_expr_html(a, names, next_id, m);
-            std::string c2 = seq.str.is_string(b, s2) ? dot_html_escape(s2.encode()) : arith_expr_html(b, names, next_id, m);
+            std::string c1 = seq.str.is_string(a, s1) ? dot_html_escape(s1.encode(), html_escape) : arith_expr_html(a, names, next_id, m, html_escape);
+            std::string c2 = seq.str.is_string(b, s2) ? dot_html_escape(s2.encode(), html_escape) : arith_expr_html(b, names, next_id, m, html_escape);
             return "[" + c1 + "-" + c2 + "]";
         }
         if (seq.re.is_full_char(e)) {
@@ -407,14 +404,14 @@ namespace seq {
 
         std::ostringstream os;
         os << mk_pp(e, m);
-        return dot_html_escape(os.str());
+        return dot_html_escape(os.str(), html_escape);
     }
 
     // Helper: render a snode as an HTML label for DOT output.
     // Groups consecutive s_char tokens into quoted strings, renders s_var by name,
     // shows s_power with superscripts, s_unit by its inner expression,
     // and falls back to mk_pp, HTML-escaped, for other token kinds.
-    std::string snode_label_html(euf::snode const* n, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m) {
+    std::string snode_label_html(euf::snode const* n, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m, bool html_escape) {
         if (!n) return "null";
         seq_util seq(m);
 
@@ -433,7 +430,7 @@ namespace seq {
         auto flush_chars = [&]() {
             if (char_acc.empty()) return;
             if (!first) result += " + ";
-            result += "\"" + dot_html_escape(char_acc) + "\"";
+            result += "\"" + dot_html_escape(char_acc, html_escape) + "\"";
             first = false;
             char_acc.clear();
         };
@@ -459,7 +456,7 @@ namespace seq {
             if (!e) {
                 result += "#" + std::to_string(tok->id());
             } else if (tok->is_var()) {
-                std::string name = decode_recursive_name(e, m);
+                std::string name = decode_recursive_name(e, m, html_escape);
                 if (!name.empty()) {
                     result += name;
                 }
@@ -468,7 +465,7 @@ namespace seq {
                 else {
                     std::stringstream ss;
                     ss << mk_bounded_pp(e, m);
-                    std::string s = dot_html_escape(ss.str());
+                    std::string s = dot_html_escape(ss.str(), html_escape);
                     names.insert(e, s);
                     result += s;
                 }
@@ -477,40 +474,40 @@ namespace seq {
                 std::cout << mk_pp(e, m) << std::endl;
                 expr* ch = to_app(e)->get_arg(0);
                 if (is_app(ch) && to_app(ch)->get_num_args() == 0)
-                    result += "[" + dot_html_escape(to_app(ch)->get_decl()->get_name().str()) + "]";
+                    result += "[" + dot_html_escape(to_app(ch)->get_decl()->get_name().str(), html_escape) + "]";
                 else {
                     std::ostringstream os;
                     os << mk_pp(ch, m);
-                    result += "[" + dot_html_escape(os.str()) + "]";
+                    result += "[" + dot_html_escape(os.str(), html_escape) + "]";
                 }
             }
             else if (tok->is_power()) {
                 // seq.power(base, n): render as base<SUP>n</SUP>
-                std::string base_html = snode_label_html(tok->arg(0), m);
+                std::string base_html = snode_label_html(tok->arg(0), m, html_escape);
                 if (tok->arg(0)->length() > 1)
                     base_html = "(" + base_html + ")";
                 result += base_html;
                 result += "<SUP>";
                 expr* exp_expr = to_app(e)->get_arg(1);
-                result += arith_expr_html(exp_expr, names, next_id, m);
+                result += arith_expr_html(exp_expr, names, next_id, m, html_escape);
                 result += "</SUP>";
             }
-            else if (e && seq.is_re(e))
-                result += regex_expr_html(e, names, next_id, m, seq);
+            else if (seq.is_re(e))
+                result += regex_expr_html(e, names, next_id, m, seq, html_escape);
             else {
                 std::ostringstream os;
                 os << mk_pp(e, m);
-                result += dot_html_escape(os.str());
+                result += dot_html_escape(os.str(), html_escape);
             }
         }
         flush_chars();
         return result;
     }
 
-    std::string snode_label_html(euf::snode const* n, ast_manager& m) {
+    std::string snode_label_html(euf::snode const* n, ast_manager& m, bool html_escape) {
         obj_map<expr, std::string> names;
         uint64_t next_id = 0;
-        return snode_label_html(n, names, next_id, m);
+        return snode_label_html(n, names, next_id, m, html_escape);
     }
 
     std::ostream& nielsen_node::to_html(std::ostream& out, ast_manager& m) const {
@@ -530,27 +527,27 @@ namespace seq {
         for (auto const& eq : m_str_eq) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
             if (!hasEq) { out << "Eq:<br/>"; hasEq = true; }
-            out << snode_label_html(eq.m_lhs, names, next_id, m)
+            out << snode_label_html(eq.m_lhs, names, next_id, m, true)
                 << " = "
-                << snode_label_html(eq.m_rhs, names, next_id, m)
+                << snode_label_html(eq.m_rhs, names, next_id, m, true)
                 << "<br/>";
         }
         // string disequalities
         for (auto const& eq : m_str_deq) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
             if (!hasDisEq) { out << "DisEq:<br/>"; hasDisEq = true; }
-            out << snode_label_html(eq.m_lhs, names, next_id, m)
+            out << snode_label_html(eq.m_lhs, names, next_id, m, true)
                 << " &#x2260; "
-                << snode_label_html(eq.m_rhs, names, next_id, m)
+                << snode_label_html(eq.m_rhs, names, next_id, m, true)
                 << "<br/>";
         }
         // regex memberships
         for (auto const& mem : m_str_mem) {
             if (!any) { out << "Cnstr:<br/>"; any = true; }
             if (!hasMem) { out << "Mem:<br/>"; hasMem = true; }
-            out << snode_label_html(mem.m_str, names, next_id, m)
+            out << snode_label_html(mem.m_str, names, next_id, m, true)
                 << " &#8712; "
-                << regex_expr_html(mem.m_regex->get_expr(), names, next_id, m, graph().seq())
+                << regex_expr_html(mem.m_regex->get_expr(), names, next_id, m, graph().seq(), true)
                 << "<br/>";
         }
         // character ranges
@@ -613,19 +610,6 @@ namespace seq {
         }
     }
 
-    // Returns true when the reason is a direct, non-propagated, conflict.
-    // Mirrors ZIPT's NielsenNode.IsActualConflict(): all conflicts except ChildrenFailed.
-    static bool is_actual_conflict(backtrack_reason r) {
-        return r == backtrack_reason::symbol_clash
-            || r == backtrack_reason::parikh_image
-            || r == backtrack_reason::subsumption
-            || r == backtrack_reason::arithmetic
-            || r == backtrack_reason::regex
-            || r == backtrack_reason::regex_widening
-            || r == backtrack_reason::character_range
-            || r == backtrack_reason::smt;
-    }
-
     // Render the current substitution of the original (root) variables at `node`.
     // Walks the parent-edge chain from the root down to `node`, composing the
     // edge substitutions exactly the way seq_model::extract_assignments does,
@@ -683,9 +667,9 @@ namespace seq {
             if (val == var)
                 continue; // unchanged: variable is still free at this node
             if (!any) { out << "<br/>Subst:<br/>"; any = true; }
-            out << snode_label_html(var, names, next_id, m)
+            out << snode_label_html(var, names, next_id, m, true)
                 << " &#8594; "
-                << snode_label_html(val, names, next_id, m)
+                << snode_label_html(val, names, next_id, m, true)
                 << "<br/>";
         }
     }
@@ -747,9 +731,9 @@ namespace seq {
                 out << "[" << e->rule_name() << "]";
                 for (auto const& s : e->subst()) {
                     out << "<br/>";
-                    out << snode_label_html(s.m_var, m)
+                    out << snode_label_html(s.m_var, m, true)
                         << " &#8594; " // mapping arrow
-                        << snode_label_html(s.m_replacement, m);
+                        << snode_label_html(s.m_replacement, m, true);
                 }
                 // side constraints: integer equalities/inequalities
                 for (auto const& ic : e->side_constraints()) {
@@ -787,7 +771,7 @@ namespace seq {
         if (!start_state || !start_state->get_expr())
             return out << "}\n";
 
-        unsigned start_state_id = start_state->get_expr()->get_id();
+        const unsigned start_state_id = start_state->get_expr()->get_id();
 
         unsigned_vector todo;
         uint_set visited;
@@ -796,11 +780,9 @@ namespace seq {
         todo.push_back(start_state_id);
         visited.insert(start_state_id);
 
-        ast_manager& m = m_sg.get_manager();
-
         auto sanitize = [](std::string const& s) {
             std::string res;
-            for (char c : s) {
+            for (const char c : s) {
                 if (c == '"') res += "\\\"";
                 else if (c == '\n') res += "\\n";
                 else res += c;
@@ -816,8 +798,9 @@ namespace seq {
             if (it == m_partial_dfa_out.end())
                 continue;
 
-            for (unsigned edge_idx : it->second) {
-                if (edge_idx >= m_partial_dfa_edges.size()) continue;
+            for (const unsigned edge_idx : it->second) {
+                if (edge_idx >= m_partial_dfa_edges.size())
+                    continue;
                 partial_dfa_edge const& e = m_partial_dfa_edges[edge_idx];
                 edges.push_back(&e);
 
@@ -828,11 +811,17 @@ namespace seq {
             }
         }
 
-        for (unsigned node_id : visited) {
+        for (const unsigned node_id : visited) {
             expr* node_expr = nullptr;
             for (auto* e : edges) {
-                if (e->m_src->get_id() == node_id) { node_expr = e->m_src; break; }
-                if (e->m_dst->get_id() == node_id) { node_expr = e->m_dst; break; }
+                if (e->m_src->get_id() == node_id) {
+                    node_expr = e->m_src;
+                    break;
+                }
+                if (e->m_dst->get_id() == node_id) {
+                    node_expr = e->m_dst;
+                    break;
+                }
             }
             if (!node_expr) {
                 for (expr* pinned : m_partial_dfa_pin) {

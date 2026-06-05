@@ -257,9 +257,34 @@ namespace seq {
     class seq_parikh;
     class seq_regex;  // forward declaration (defined in smt/seq/seq_regex.h)
 
-    std::string snode_label_html(euf::snode const* n, obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m);
+    std::string snode_label_html(euf::snode const* n,
+        obj_map<expr, std::string>& names, uint64_t& next_id, ast_manager& m, bool html_escape);
 
-    std::string snode_label_html(euf::snode const* n, ast_manager& m);
+    std::string snode_label_html(euf::snode const* n, ast_manager& m, bool html_escape);
+
+    // Split-pair produced by compute_sigma: uv |= r  iff  exists i: u |= m_p[i] and v |= m_q[i]
+    struct sigma_pair {
+        expr_ref m_p;
+        expr_ref m_q;
+        sigma_pair(expr* p, expr* q, ast_manager& m) : m_p(p, m), m_q(q, m) {
+            SASSERT(p && q);
+        }
+    };
+    typedef vector<sigma_pair> sigma_pairs;
+
+    // Compute the split-set sigma(r) per the splitting rules of the paper
+    // "Extended Regular Expression Membership". Generalises the classical compute_tau
+    // with intersection and complement cases via the split-set algebra.
+    // `result` is appended to (not cleared).
+    bool compute_sigma(ast_manager& m, seq_util& seq, seq_rewriter& rw, const euf::snode* r, sigma_pairs& result, unsigned threshold);
+
+    // Simplify a split-set in place using the split algebra's language-level rules
+    // (paper section "split-set simplification heuristics"): drop pairs with an
+    // empty-language component, and drop any split subsumed by another
+    // (<D_i,N_i> is subsumed by <D_j,N_j> iff L(D_i) subseteq L(D_j) and L(N_i) subseteq L(N_j)).
+    // Subsumption tames the 2^k blow-up of sigma(~r) (e.g. sigma(~a*): 8 -> 2).
+    // Requires the regex emptiness/subset checker and an sgraph to build snodes.
+    void simplify_sigma_pairs(sigma_pairs& pairs, seq_regex& sr, euf::sgraph& sg);
 
     // simplification result for constraint processing
     // mirrors ZIPT's SimplifyResult enum
@@ -377,8 +402,8 @@ namespace seq {
     // string equality constraint: lhs = rhs
     // mirrors ZIPT's StrEq (both sides are regex-free snode trees)
     struct str_eq {
-        euf::snode* m_lhs;
-        euf::snode* m_rhs;
+        euf::snode* m_lhs; // assumed to be non-null
+        euf::snode* m_rhs; // assumed to be non-null
         dep_tracker m_dep;
 
         str_eq(euf::snode* lhs, euf::snode* rhs, dep_tracker const& dep): 
@@ -400,7 +425,8 @@ namespace seq {
         bool contains_var(euf::snode* var) const;
 
         bool well_formed() const {
-            return !!m_lhs && !!m_rhs;
+            // assumed to be always true
+            return m_lhs && m_rhs;
         }
     };
 
@@ -411,13 +437,15 @@ namespace seq {
     };
 
     inline std::ostream &operator<<(std::ostream &out, eq_pp const &p) {
-        return out << mk_pp(p.eq.m_lhs->get_expr(), p.m) << " == " << mk_pp(p.eq.m_rhs->get_expr(), p.m) << "\n";
+        return out << snode_label_html(p.eq.m_lhs, p.m, false)
+            << " == "
+            << snode_label_html(p.eq.m_rhs, p.m, false);
     }
 
     // string disequality constraint: lhs != rhs
     struct str_deq {
-        euf::snode* m_lhs;
-        euf::snode* m_rhs;
+        euf::snode* m_lhs; // assumed to be non-null
+        euf::snode* m_rhs; // assumed to be non-null
         dep_tracker m_dep;
 
         str_deq(euf::snode* lhs, euf::snode* rhs, dep_tracker const& dep): 
@@ -440,7 +468,8 @@ namespace seq {
         }
 
         bool well_formed() const {
-            return !!m_lhs && !!m_rhs;
+            // assumed to be always true
+            return m_lhs && m_rhs;
         }
     };
 
@@ -451,17 +480,18 @@ namespace seq {
     };
 
     inline std::ostream &operator<<(std::ostream &out, deq_pp const &p) {
-        return out << mk_pp(p.deq.m_lhs->get_expr(), p.m) << " != " << mk_pp(p.deq.m_rhs->get_expr(), p.m) << "\n";
+        return out << snode_label_html(p.deq.m_lhs, p.m, false)
+            << " != "
+            << snode_label_html(p.deq.m_rhs, p.m, false);
     }
 
     // regex membership constraint: str in regex
     // mirrors ZIPT's StrMem
     struct str_mem {
-        euf::snode* m_str;
-        euf::snode* m_regex;
+        euf::snode* m_str; // assumed to be non-null
+        euf::snode* m_regex; // assumed to be non-null
         dep_tracker m_dep;
 
-        // str_mem(): m_str(nullptr), m_regex(nullptr), m_dep(nullptr) {}
         str_mem(euf::snode* str, euf::snode* regex, dep_tracker const& dep):
             m_str(str), m_regex(regex), m_dep(dep) {}
 
@@ -481,17 +511,21 @@ namespace seq {
         bool contains_var(euf::snode* var) const;
 
         bool well_formed() const {
-            return !!m_str && !!m_regex;
+            // assumed to be always true
+            return m_str && m_regex;
         }
     };
 
     struct mem_pp {
         str_mem const& mem;
         ast_manager &m;
-        mem_pp(str_mem const& mem, ast_manager& m) : m(m), mem(mem) {}
+        mem_pp(str_mem const& mem, ast_manager& m) : mem(mem), m(m) {}
     };
     inline std::ostream &operator<<(std::ostream &out, mem_pp const &p) {
-        return out << mk_pp(p.mem.m_str->get_expr(), p.m) << " in " << mk_pp(p.mem.m_regex->get_expr(), p.m) << "\n";
+        return out
+            << snode_label_html(p.mem.m_str, p.m, false)
+            << " in "
+            << snode_label_html(p.mem.m_regex, p.m, false);
     }
 
     // string variable substitution: var -> replacement
@@ -907,6 +941,7 @@ namespace seq {
         bool                          m_parikh_enabled = true;
         bool                          m_signature_split = false;
         unsigned                      m_regex_factorization_threshold = 1;
+        bool                          m_regex_factorization_eager = false;
         unsigned                      m_fresh_cnt = 0;
         nielsen_stats                 m_stats;
 
@@ -1050,6 +1085,7 @@ namespace seq {
         void set_signature_split(bool e) { m_signature_split = e; }
         
         void set_regex_factorization_threshold(unsigned max) { m_regex_factorization_threshold = max; }
+        void set_regex_factorization_eager(bool e) { m_regex_factorization_eager = e; }
 
         // display for debugging
         std::ostream& display(std::ostream& out) const;

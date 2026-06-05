@@ -59,6 +59,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_nseq_parikh = p.nseq_parikh();
     m_nseq_regex_precheck = p.nseq_regex_precheck();
     m_nseq_regex_factorization_threshold = p.nseq_regex_factorization_threshold();
+    m_nseq_regex_factorization_eager = p.nseq_regex_factorization_eager();
     m_nseq_signature = p.nseq_signature();
     m_nseq_axiomatize_diseq = p.nseq_axiomatize_diseq();
     m_up_persist_clauses = p.up_persist_clauses();
@@ -175,6 +176,7 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_nseq_parikh);
     DISPLAY_PARAM(m_nseq_regex_precheck);
     DISPLAY_PARAM(m_nseq_regex_factorization_threshold);
+    DISPLAY_PARAM(m_nseq_regex_factorization_eager);
     DISPLAY_PARAM(m_nseq_axiomatize_diseq);
 
     DISPLAY_PARAM(m_profile_res_sub);

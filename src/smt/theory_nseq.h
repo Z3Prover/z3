@@ -137,6 +137,14 @@ namespace smt {
         void populate_nielsen_graph();
         void explain_nielsen_conflict();
         void set_conflict(enode_pair_vector const& eqs, literal_vector const& lits);
+        void set_conflict(literal_vector const& lits) {
+            const enode_pair_vector eqs;
+            set_conflict(eqs, lits);
+        }
+        void set_conflict(enode_pair_vector const& eqs) {
+            const literal_vector lits;
+            set_conflict(eqs, lits);
+        }
         void set_propagate(enode_pair_vector const &eqs, literal_vector const &lits, literal p);
         bool add_nielsen_assumptions();
         euf::snode* get_snode(expr* e);
@@ -147,7 +155,7 @@ namespace smt {
         void propagate_pos_mem(tracked_str_mem const& mem);
         void enqueue_axiom(expr* e);
         void dequeue_axiom(expr* e);
-        void ensure_length_var(expr* e);
+        void ensure_length_var(expr* e) const;
 
         // higher-order term unfolding
         bool unfold_ho_terms();

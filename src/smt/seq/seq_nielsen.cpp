@@ -379,8 +379,8 @@ namespace seq {
         ast_manager& m = graph().get_manager();
 
         if (s.is_char_subst()) {
-            expr* var_c_expr = s.m_var->arg(0)->get_expr();
-            expr* repl_c_expr = s.m_replacement->arg(0)->get_expr();
+            expr* var_c_expr = s.m_var->arg0()->get_expr();
+            expr* repl_c_expr = s.m_replacement->arg0()->get_expr();
             add_constraint(
                 constraint(m.mk_eq(var_c_expr, repl_c_expr), s.m_dep, m));
 
@@ -835,7 +835,7 @@ namespace seq {
                     }
                     if (ub.is_one()) {
                         // base^1 → base
-                        euf::snode* base_sn = tok->arg(0);
+                        euf::snode* base_sn = tok->arg0();
                         if (base_sn) {
                             dep = node->graph().dep_mgr().mk_join(dep, ub_dep);
                             result.push_back(base_sn);
@@ -900,7 +900,7 @@ namespace seq {
             // Skip at leading position (i == 0) to avoid undoing power unwinding:
             // unwind produces u · u^(n-1); merging it back to u^n creates an infinite cycle.
             if (i > 0 && t->is_power()) {
-                euf::snode* pow_base = t->arg(0);
+                euf::snode* pow_base = t->arg0();
                 if (pow_base) {
                     euf::snode_vector pb_tokens;
                     collect_tokens_dir(pow_base, fwd, pb_tokens);
@@ -1455,7 +1455,7 @@ namespace seq {
                         euf::snode* end_tok = dir_token(pow_side, fwd);
                         if (!end_tok || !end_tok->is_power())
                             continue;
-                        euf::snode* base_sn = end_tok->arg(0);
+                        euf::snode* base_sn = end_tok->arg0();
                         expr* pow_exp = get_power_exp_expr(end_tok, seq);
                         if (!base_sn || !pow_exp)
                             continue;
@@ -1659,7 +1659,7 @@ namespace seq {
                     expr_ref d(rw.mk_derivative(mem.m_regex->get_expr()), m);
 
                     // Extract the inner char expression from seq.unit(?inner)
-                    expr *inner_char = tok->arg(0)->get_expr();
+                    expr *inner_char = tok->arg0()->get_expr();
 
                     // substitute the inner char for the derivative variable in d
                     var_subst vs(m);
@@ -2236,7 +2236,7 @@ namespace seq {
                     euf::snode* other_head = (side == 0) ? rh : lh;
                     if (!pow_head || !pow_head->is_power() || !other_head || !other_head->is_char())
                         continue;
-                    euf::snode* base_sn = pow_head->arg(0);
+                    euf::snode* base_sn = pow_head->arg0();
                     if (!base_sn) continue;
                     euf::snode* base_head = dir_token(base_sn, fwd);
                     if (!base_head || !base_head->is_char()) continue;
@@ -2853,7 +2853,7 @@ namespace seq {
         if (apply_gpower_intr(node))
             return ++m_stats.m_mod_gpower_intr, true;
 
-        // Priority 8: Regex Factorization (Boolean Closure)
+        // Priority 8: Regex Factorization
         if (apply_regex_factorization(node))
             return ++m_stats.m_mod_regex_factorization, true;
 
@@ -3058,7 +3058,7 @@ namespace seq {
             return false;
 
         SASSERT(power->is_power() && power->num_args() >= 1);
-        euf::snode *base = power->arg(0);
+        euf::snode *base = power->arg0();
 
         nielsen_node* child;
         nielsen_edge* e;
@@ -3109,7 +3109,7 @@ namespace seq {
                 if (lhead->num_args() < 1 || rhead->num_args() < 1)
                     continue;
                 // same base: compare the two powers
-                if (lhead->arg(0) != rhead->arg(0))
+                if (lhead->arg0() != rhead->arg0())
                     continue;
 
                 // Skip if the exponents differ by a constant — simplify_and_init's
@@ -3169,7 +3169,7 @@ namespace seq {
                     euf::snode* end_tok = dir_token(pow_side, fwd);
                     if (!end_tok || !end_tok->is_power())
                         continue;
-                    euf::snode* base_sn = end_tok->arg(0);
+                    euf::snode* base_sn = end_tok->arg0();
                     expr* pow_exp = get_power_exp_expr(end_tok, m_seq);
                     // NB: Shuvendu - this test is also redundant
                     if (!base_sn || !pow_exp)
@@ -3223,7 +3223,7 @@ namespace seq {
             return false;
 
         SASSERT(power->is_power() && power->num_args() >= 1);
-        euf::snode *base = power->arg(0);
+        euf::snode *base = power->arg0();
         expr *exp_n = get_power_exponent(power);
         expr *zero = a.mk_int(0);
         expr *one = a.mk_int(1);
@@ -3582,62 +3582,157 @@ namespace seq {
     // Modifier: apply_regex_factorization (Boolean Closure)
     // -----------------------------------------------------------------------
 
-    struct tau_pair {
-        expr_ref m_p;
-        expr_ref m_q;
-        tau_pair(expr* p, expr* q, ast_manager& m) : m_p(p, m), m_q(q, m) {
-            SASSERT(p);
-            SASSERT(q);
+    // Cross-product intersection of two split-sets (split algebra):
+    //   S1 ⊓ S2 = { ⟨Δ1⊓Δ2, ∇1⊓∇2⟩ | ⟨Δ1,∇1⟩∈S1, ⟨Δ2,∇2⟩∈S2 }
+    // Pairs where either component is the empty regex are dropped (∅⊓r ≡ ∅).
+    static bool intersect_sigma_pairs(ast_manager& m, seq_util& seq,
+            sigma_pairs const& s1, sigma_pairs const& s2, sigma_pairs& result, unsigned threshold) {
+        for (auto const& p1 : s1) {
+            for (auto const& p2 : s2) {
+                if (seq.re.is_empty(p1.m_p) || seq.re.is_empty(p2.m_p) ||
+                    seq.re.is_empty(p1.m_q) || seq.re.is_empty(p2.m_q))
+                    continue;
+                result.push_back(sigma_pair(seq.re.mk_inter(p1.m_p, p2.m_p),
+                                            seq.re.mk_inter(p1.m_q, p2.m_q), m));
+                if (result.size() > threshold)
+                    return false;
+            }
         }
-    };
-    typedef vector<tau_pair> tau_pairs;
+        return true;
+    }
 
-    static void compute_tau(ast_manager& m, seq_util& seq, euf::sgraph& sg, expr* r, tau_pairs& result) {
+    // Complement of a split-set via De Morgan: ~S = ⊓_{s∈S} ~s,
+    //   ~⟨Δ,∇⟩ = { ⟨~Δ, .*⟩, ⟨.*, ~∇⟩ }   and   ~{} = { ⟨.*, .*⟩ }.
+    // str_sort is the sequence-element sort; mk_full_seq needs the regex sort.
+    // May produce up to 2^|sp| pairs (bounded downstream by the factorization threshold).
+    static bool complement_sigma_pairs(ast_manager& m, seq_util& seq, sort* str_sort,
+            sigma_pairs const& sp, sigma_pairs& result, unsigned threshold) {
+
+        sort* re_sort = seq.re.mk_re(str_sort);
+        const expr_ref full(seq.re.mk_full_seq(re_sort), m);   // .*
+        if (sp.empty()) {                                      // ~{} = ⟨.*, .*⟩
+            result.push_back(sigma_pair(full, full, m));
+            return true;
+        }
+        sigma_pairs acc;
+        acc.push_back(sigma_pair(seq.re.mk_complement(sp[0].m_p), full, m));
+        acc.push_back(sigma_pair(full, seq.re.mk_complement(sp[0].m_q), m));
+        for (unsigned i = 1; i < sp.size(); ++i) {
+            sigma_pairs next;
+            next.push_back(sigma_pair(seq.re.mk_complement(sp[i].m_p), full, m));
+            next.push_back(sigma_pair(full, seq.re.mk_complement(sp[i].m_q), m));
+            sigma_pairs tmp;
+            if (intersect_sigma_pairs(m, seq, acc, next, tmp, threshold) || tmp.empty())
+                break;
+            acc = std::move(tmp);
+            if (acc.size() > threshold)
+                return false;
+        }
+        result.append(acc);
+        return true;
+    }
+
+    bool compute_sigma(ast_manager& m, seq_util& seq, seq_rewriter& rw, const euf::snode* r, sigma_pairs& result, unsigned threshold) {
         SASSERT(r);
         sort* str_sort = nullptr;
-        if (!seq.is_re(r, str_sort)) return;
-        expr *body = nullptr;
+        if (!seq.is_re(r->get_expr(), str_sort))
+            return false;
+        std::cout << "Computing sigma of " << snode_label_html(r, m, false) << std::endl;
 
-        if (seq.re.is_epsilon(r)) {
+        if (r->is_empty()) {
             const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
-            result.push_back(tau_pair(eps, eps, m));
+            result.push_back(sigma_pair(eps, eps, m));
+            return true;
         }
-        else if (seq.str.is_unit(r) || seq.str.is_string(r) || seq.re.is_range(r) || seq.re.is_full_char(r) ||
-                 (seq.re.is_to_re(r) && seq.str.is_string(to_app(r)->get_arg(0)))) {
-            if (seq.re.is_to_re(r)) {
-                const expr * arg = to_app(r)->get_arg(0);
+        if (r->is_to_re()) {
+            const euf::snode* const c = r->arg0();
+            if (c->is_range()) {
+                const expr_ref ex(c->get_expr(), m);
+                const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
+
+                result.push_back(sigma_pair(eps, ex, m));
+                result.push_back(sigma_pair(ex, eps, m));
+                return true;
+            }
+            if (c->is_empty()) {
+                const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
+                result.push_back(sigma_pair(eps, eps, m));
+                return true;
+            }
+            if (c->is_char()) {
+                unsigned val;
+                VERIFY(seq.is_const_char(c->arg0()->get_expr(), val));
+                const expr_ref ex(seq.re.mk_to_re(seq.str.mk_string(zstring(val))), m);
+                const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
+
+                result.push_back(sigma_pair(eps, ex, m));
+                result.push_back(sigma_pair(ex, eps, m));
+                return true;
+            }
+            if (c->is_string()) {
+                const euf::snode * arg = r->arg0();
                 zstring s;
-                if (seq.str.is_string(arg, s) && s.length() > 1) {
+                if (arg->is_string(s, seq) && s.length() > 1) {
                     for (unsigned i = 0; i <= s.length(); ++i) {
                         expr_ref p(seq.re.mk_to_re(seq.str.mk_string(s.extract(0, i))), m);
                         expr_ref q(seq.re.mk_to_re(seq.str.mk_string(s.extract(i, s.length() - i))), m);
-                        result.push_back(tau_pair(p, q, m));
+                        result.push_back(sigma_pair(p, q, m));
                     }
-                    return;
                 }
+                return true;
             }
+            UNREACHABLE();
+            return false;
+        }
+        if (r->is_full_char()) {
+            const expr_ref ex(r->get_expr(), m);
             const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
-            result.push_back(tau_pair(eps, r, m));
-            result.push_back(tau_pair(r, eps, m));
+
+            result.push_back(sigma_pair(eps, ex, m));
+            result.push_back(sigma_pair(ex, eps, m));
+            return true;
         }
-        else if (seq.re.is_empty(r)) {
-            // empty set has no splits
-        }
-        else if (seq.re.is_union(r)) {
-            for (expr* arg : *to_app(r)) {
-                compute_tau(m, seq, sg, arg, result);
+        if (r->is_union()) {
+            // σ(r₁ ⊔ r₂) = σ(r₁) ∪ σ(r₂)
+            SASSERT(r->num_args() >= 2);
+            for (const euf::snode* const arg : *r) {
+                if (!compute_sigma(m, seq, rw, arg, result, threshold))
+                    return false;
             }
+            return true;
         }
-        else if (seq.re.is_concat(r)) {
-            const unsigned num_args = to_app(r)->get_num_args();
-            if (num_args == 0) {
-                const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
-                result.push_back(tau_pair(eps, eps, m));
-                return;
+        if (r->is_intersect()) {
+            // σ(r₁ ⊓ r₂ ⊓ …) = σ(r₁) ⊓ σ(r₂) ⊓ …; empty intersection (0 args) = {⟨.*,.*⟩}
+            const unsigned n = r->num_args();
+            SASSERT(n >= 2);
+            sigma_pairs current;
+            if (!compute_sigma(m, seq, rw, r->arg0(), current, threshold))
+                return false;
+            for (unsigned i = 1; i < n && !current.empty(); ++i) {
+                sigma_pairs arg_i;
+                compute_sigma(m, seq, rw, r->arg(i), arg_i, threshold);
+                sigma_pairs tmp;
+                if (!intersect_sigma_pairs(m, seq, current, arg_i, tmp, threshold))
+                    return false;
+                current = std::move(tmp);
             }
-            for (unsigned i = 0; i < num_args; ++i) {
-                tau_pairs tau_arg;
-                compute_tau(m, seq, sg, to_app(r)->get_arg(i), tau_arg);
+            result.append(current);
+            return true;
+        }
+        if (r->is_complement()) {
+            // σ(~r) = ~σ(r)
+            sigma_pairs body_pairs;
+            if (!compute_sigma(m, seq, rw, r->arg0(), body_pairs, threshold))
+                return false;
+            return complement_sigma_pairs(m, seq, str_sort, body_pairs, result, threshold);
+        }
+        if (r->is_concat()) {
+            const unsigned n = r->num_args();
+            SASSERT(n >= 2);
+            for (unsigned i = 0; i < n; ++i) {
+                sigma_pairs sigma_arg;
+                if (!compute_sigma(m, seq, rw, r->arg(i), sigma_arg, threshold))
+                    return false;
 
                 expr_ref left(m);
                 expr_ref right(m);
@@ -3646,58 +3741,116 @@ namespace seq {
                     left = seq.re.mk_epsilon(str_sort);
                 else {
                     for (unsigned j = 0; j < i; ++j) {
-                        const auto arg = to_app(r)->get_arg(j);
-                        left = left ? seq.re.mk_concat(left, arg) : arg;
+                        const euf::snode* arg = r->arg(j);
+                        left = left ? seq.re.mk_concat(left, arg->get_expr()) : arg->get_expr();
                     }
                 }
 
-                if (i == num_args - 1)
+                if (i == n - 1)
                     right = seq.re.mk_epsilon(str_sort);
                 else {
-                    for (unsigned j = i + 1; j < num_args; ++j) {
-                        const auto arg = to_app(r)->get_arg(j);
-                        right = right ? seq.re.mk_concat(right, arg) : arg;
+                    for (unsigned j = i + 1; j < n; ++j) {
+                        const euf::snode* arg = r->arg(j);
+                        right = right ? seq.re.mk_concat(right, arg->get_expr()) : arg->get_expr();
                     }
                 }
 
-                for (auto const &[tp, tq] : tau_arg) {
-                    seq_rewriter rw(m);
-                    auto p = rw.mk_re_append(left, tp);
-                    auto q = rw.mk_re_append(tq, right);
-                    result.push_back(tau_pair(p, q, m));
+                for (auto const &[tp, tq] : sigma_arg) {
+                    expr_ref p = rw.mk_re_append(left, tp);
+                    expr_ref q = rw.mk_re_append(tq, right);
+                    result.push_back(sigma_pair(p, q, m));
                 }
             }
+            return true;
         }
-        else if (seq.re.is_star(r, body) || seq.re.is_plus(r, body)) {
-            if (seq.re.is_plus(r)) {
-                const expr_ref star(seq.re.mk_star(body), m);
-                const expr_ref concat(seq.re.mk_concat(body, star), m);
-                compute_tau(m, seq, sg, concat, result);
-                return;
-            }
+        if (r->is_star()) {
+            const euf::snode* body = r->arg0();
+            const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
+            result.push_back(sigma_pair(eps, eps, m));
 
-            const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
-            result.push_back(tau_pair(eps, eps, m));
-
-            tau_pairs tau_body;
-            compute_tau(m, seq, sg, body, tau_body);
-            for (auto const &[tp, tq] : tau_body) {
-                seq_rewriter rw(m);
-                auto p = rw.mk_re_append(r, tp);
-                auto q = rw.mk_re_append(tq, r);
-                result.push_back(tau_pair(p, q, m));
+            sigma_pairs sigma_body;
+            if (!compute_sigma(m, seq, rw, body, sigma_body, threshold))
+                return false;
+            for (auto const &[tp, tq] : sigma_body) {
+                auto p = rw.mk_re_append(r->get_expr(), tp);
+                auto q = rw.mk_re_append(tq, r->get_expr());
+                result.push_back(sigma_pair(p, q, m));
             }
+            return true;
         }
-        else if (seq.re.is_opt(r, body)) {
-            const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
-            result.push_back(tau_pair(eps, eps, m));
-            compute_tau(m, seq, sg, body, result);
+        if (r->is_plus()) {
+            // r⁺ = r·r* ; by Kleene factorization σ(r⁺) = r*·σ(r)·r*.
+            // Same shape as the star rule but with the surrounding factor being
+            // body* without the {⟨ε,ε⟩} pair
+            const euf::snode* body = r->arg0();
+            const expr_ref star(seq.re.mk_star(body->get_expr()), m);   // body*
+
+            sigma_pairs sigma_body;
+            if (!compute_sigma(m, seq, rw, body, sigma_body, threshold))
+                return false;
+            for (auto const &[tp, tq] : sigma_body) {
+                auto p = rw.mk_re_append(star, tp);   // body* · tp
+                auto q = rw.mk_re_append(tq, star);   // tq · body*
+                result.push_back(sigma_pair(p, q, m));
+            }
+            return true;
         }
-        else {
-            const expr_ref eps(seq.re.mk_epsilon(str_sort), m);
-            result.push_back(tau_pair(eps, r, m));
-            result.push_back(tau_pair(r, eps, m));
+        // the simplifier should have eliminated everything else already
+        UNREACHABLE();
+        return false;
+    }
+
+    void simplify_sigma_pairs(sigma_pairs& pairs, seq_regex& sr, euf::sgraph& sg) {
+        return; // For now
+        if (pairs.size() <= 1)
+            return;
+        // Guard against pathological cost: subsumption is O(n^2) language-subset
+        // BFS checks. Large split-sets are left to the factorization threshold.
+        if (pairs.size() > 64)
+            return;
+
+        struct row { euf::snode* p; euf::snode* q; unsigned idx; };
+
+        // Materialise snodes once; drop pairs with a structurally-empty component.
+        vector<row> rows;
+        for (unsigned i = 0; i < pairs.size(); ++i) {
+            euf::snode* p = sg.mk(pairs[i].m_p);
+            euf::snode* q = sg.mk(pairs[i].m_q);
+            if (sr.is_empty_regex(p) || sr.is_empty_regex(q))
+                continue;
+            rows.push_back({ p, q, i });
         }
+
+        // a subsumes b iff L(b.p) ⊆ L(a.p) and L(b.q) ⊆ L(a.q).
+        // is_language_subset may return l_undef (inconclusive); only treat a
+        // definite l_true as subsumption, so we never drop a needed split.
+        auto subsumes = [&](row const& a, row const& b) {
+            return sr.is_language_subset(b.p, a.p) == l_true &&
+                   sr.is_language_subset(b.q, a.q) == l_true;
+        };
+
+        vector<row> kept;
+        for (row const& r : rows) {
+            bool redundant = false;
+            for (row const& k : kept)
+                if (subsumes(k, r)) { redundant = true; break; }
+            if (redundant)
+                continue;
+            // drop already-kept rows strictly subsumed by r
+            unsigned w = 0;
+            for (unsigned t = 0; t < kept.size(); ++t) {
+                if (subsumes(r, kept[t]))
+                    continue;
+                kept[w++] = kept[t];
+            }
+            kept.shrink(w);
+            kept.push_back(r);
+        }
+
+        sigma_pairs result;
+        for (row const& k : kept)
+            result.push_back(pairs[k.idx]);
+        pairs.swap(result);
     }
 
     bool nielsen_graph::apply_regex_factorization(nielsen_node* node) {
@@ -3713,7 +3866,9 @@ namespace seq {
         for (str_mem const& mem : node->str_mems()) {
             SASSERT(mem.well_formed());
 
-            if (mem.m_str->is_empty() || mem.is_primitive() || !mem.m_regex->is_classical())
+            // compute_sigma handles all regex forms (incl. complement / intersection),
+            // so the classical restriction is no longer needed.
+            if (mem.m_str->is_empty() || mem.is_primitive())
                 continue;
 
             euf::snode* first = mem.m_str->first();
@@ -3721,10 +3876,14 @@ namespace seq {
             SASSERT(!first->is_char());
             euf::snode* tail = m_sg.drop_first(mem.m_str);
             SASSERT(tail);
-            std::cout << "Processing: " <<  mem_pp(mem, m) << std::endl;
 
-            tau_pairs pairs;
-            compute_tau(m, m_seq, m_sg, mem.m_regex->get_expr(), pairs);
+            sigma_pairs pairs;
+            seq_rewriter rw(m);
+            if (!compute_sigma(m, m_seq, rw, mem.m_regex, pairs, m_regex_factorization_threshold))
+                continue;
+
+            if (m_seq_regex)
+                simplify_sigma_pairs(pairs, *m_seq_regex, m_sg);
 
             vector<rf_split> feasible;
             dep_tracker eliminated_dep = mem.m_dep;
@@ -4222,7 +4381,7 @@ namespace seq {
             return false;
 
         SASSERT(power->is_power() && power->num_args() >= 1);
-        euf::snode* base = power->arg(0);
+        euf::snode* base = power->arg0();
         const expr_ref zero(a.mk_int(0), m);
 
         // Branch 1: enumerate all decompositions of the base.
@@ -4331,7 +4490,7 @@ namespace seq {
             return false;
 
         SASSERT(power->is_power() && power->num_args() >= 1);
-        euf::snode* base = power->arg(0);
+        euf::snode* base = power->arg0();
         expr* exp_n = get_power_exponent(power);
         SASSERT(exp_n);
         const expr_ref zero(a.mk_int(0), m);
@@ -4375,7 +4534,7 @@ namespace seq {
             return false;
 
         SASSERT(power->is_power() && power->num_args() >= 1);
-        euf::snode* base = power->arg(0);
+        euf::snode* base = power->arg0();
         expr* exp_n = get_power_exponent(power);
         SASSERT(exp_n);
         const expr_ref zero(a.mk_int(0), m);
@@ -4535,7 +4694,7 @@ namespace seq {
             return expr_ref(a.mk_int(1), m);
 
         if (n->is_concat()) {
-            const expr_ref left = compute_length_expr(n->arg(0));
+            const expr_ref left = compute_length_expr(n->arg0());
             const expr_ref right = compute_length_expr(n->arg(1));
             return expr_ref(a.mk_add(left, right), m);
         }
@@ -4562,8 +4721,8 @@ namespace seq {
             expr_ref len_lhs = compute_length_expr(eq.m_lhs);
             expr_ref len_rhs = compute_length_expr(eq.m_rhs);
             TRACE(seq,
-                tout << "Length constraint from LHS " << snode_label_html(eq.m_lhs, m) << " to " << len_lhs << ":\n";
-                tout << "Length constraint from RHS " << snode_label_html(eq.m_rhs, m) << " to " << len_rhs << "\n");
+                tout << "Length constraint from LHS " << snode_label_html(eq.m_lhs, m, true) << " to " << len_lhs << ":\n";
+                tout << "Length constraint from RHS " << snode_label_html(eq.m_rhs, m, true) << " to " << len_rhs << "\n");
             expr_ref len_eq(m.mk_eq(len_lhs, len_rhs), m);
             constraints.push_back(length_constraint(len_eq, eq.m_dep, length_kind::eq, true, m));
 

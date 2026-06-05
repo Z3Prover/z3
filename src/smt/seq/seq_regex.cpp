@@ -324,8 +324,7 @@ namespace seq {
     // -----------------------------------------------------------------------
 
     bool seq_regex::is_empty_regex(euf::snode* re) const {
-        if (!re)
-            return false;
+        SASSERT(re);
         // direct empty language constant
         if (re->is_fail())
             return true;

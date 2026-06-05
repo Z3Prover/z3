@@ -67,7 +67,7 @@ namespace euf {
     inline symbol re_proj_name() { return symbol("re.proj"); }
 
     class snode {
-        expr *m_expr = nullptr;
+        expr *m_expr = nullptr; // assumed to be non-null
         snode_kind m_kind = snode_kind::s_var;
         unsigned m_id = UINT_MAX;
         unsigned m_num_args = 0;
@@ -107,7 +107,7 @@ namespace euf {
 
     public:
         expr *get_expr() const {
-            return m_expr;
+            return m_expr; // assumed to be non-null
         }
         snode_kind kind() const {
             return m_kind;
@@ -115,12 +115,26 @@ namespace euf {
         unsigned id() const {
             return m_id;
         }
+
         unsigned num_args() const {
             return m_num_args;
         }
-        snode *arg(unsigned i) const {
+
+        snode* arg(const unsigned i) const {
             SASSERT(i < m_num_args);
             return m_args[i];
+        }
+
+        snode* arg0() const {
+            return arg(0);
+        }
+
+        snode * const* begin() const {
+            return m_args;
+        }
+
+        snode * const* end() const {
+            return m_args + m_num_args;
         }
 
         // TODO: Track regex being "classical" (no complement, intersection, fail)
@@ -213,6 +227,28 @@ namespace euf {
         }
         bool is_in_re() const {
             return m_kind == snode_kind::s_in_re;
+        }
+        bool is_string() const {
+            // constant string (we assume a flat concatenation)
+            return is_concat() && std::ranges::all_of(begin(), end(),
+                    [](const snode * const arg) { return arg->is_char(); });
+        }
+
+        bool is_string(zstring& str, seq_util& seq) const {
+            // constant string (we assume a flat concatenation)
+            // TODO: Optimize
+            if (!is_concat())
+                return false;
+            str.reset();
+            const unsigned cnt = num_args();
+            for (unsigned i = 0; i < cnt; i++) {
+                const snode* const c = arg(i);
+                unsigned val;
+                if (!seq.is_const_char(c->get_expr(), val))
+                    return false;
+                str += zstring(val);
+            }
+            return true;
         }
         bool is_projection() const {
             return m_kind == snode_kind::s_projection;

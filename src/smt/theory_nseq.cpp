@@ -208,9 +208,8 @@ namespace smt {
                 case l_true: {
                     // regexes are disjoint: conflict
                     enode_pair_vector eqs;
-                    literal_vector lits;
                     eqs.push_back({n1, n2});
-                    set_conflict(eqs, lits);
+                    set_conflict(eqs);
                     return;
                 }
                 default: break;
@@ -454,37 +453,53 @@ namespace smt {
 
         SASSERT(mem.well_formed());
 
+        expr* const re = mem.m_regex->get_expr();
+        expr* const s = mem.m_str->get_expr();
+        std::cout << "Propagating: " << seq::mem_pp(mem, m) << std::endl;
+
+        if (mem.m_regex->is_full_seq()) {
+            // u \in .* can be ignored
+            m_ignored_mem.insert(mem.lit);
+            ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
+            return;
+        }
+
+        // try to rewrite into an easier form
+        expr_ref simpl(m);
+        m_th_rewriter(re, simpl);
+        if (simpl != re) {
+            // we could simplify; let's propagate it
+            const expr_ref e(m_seq.re.mk_in_re(s, simpl), m);
+            ctx.mk_th_axiom(get_id(), ~mem.lit, mk_literal(e));
+            m_ignored_mem.insert(mem.lit);
+            ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
+            // std::cout << "Simplified to " << seq::snode_label_html(m_sgraph.mk(simpl), m, false) << std::endl;
+            return;
+        }
+
         // regex is ∅ → conflict
         if (m_regex.is_empty_regex(mem.m_regex)) {
-            enode_pair_vector eqs;
             literal_vector lits;
             lits.push_back(mem.lit);
-            set_conflict(eqs, lits);
+            set_conflict(lits);
             return;
         }
 
         // empty string in non-nullable regex → conflict
-        if (mem.m_str->is_empty() && m_seq.re.get_info(mem.m_regex->get_expr()).nullable == l_false) {
-            enode_pair_vector eqs;
+        if (mem.m_str->is_empty() && m_sgraph.re_nullable(mem.m_regex) == l_false) {
             literal_vector lits;
             lits.push_back(mem.lit);
-            set_conflict(eqs, lits);
+            set_conflict(lits);
             return;
         }
-
-        // ensure length term exists for the string argument
-        expr* s_expr = mem.m_str->get_expr();
-        if (s_expr)
-            ensure_length_var(s_expr);
 
         if (!get_fparams().m_nseq_regex_factorization_threshold)
             return;
 
-        // Boolean Closure Propagations
-        expr* re_expr = mem.m_regex->get_expr();
-        if (m_seq.re.is_intersection(re_expr)) {
-            for (expr* arg : *to_app(re_expr)) {
-                expr_ref in_r(m_seq.re.mk_in_re(s_expr, arg), m);
+        if (mem.m_regex->is_intersect()) {
+            // u \in r1 & r_2 → u \in r1 && u \in r2
+            for (const euf::snode* const arg : *mem.m_regex) {
+                expr_ref in_r(m_seq.re.mk_in_re(s, arg->get_expr()), m);
                 literal_vector lits;
                 lits.push_back(~mem.lit);
                 lits.push_back(mk_literal(in_r));
@@ -494,11 +509,12 @@ namespace smt {
             ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
             return;
         }
-        if (m_seq.re.is_union(re_expr)) {
+        if (mem.m_regex->is_union()) {
+            // u \in r1 | r_2 → u \in r1 || u \in r2
             literal_vector lits;
             lits.push_back(~mem.lit);
-            for (expr* arg : *to_app(re_expr)) {
-                expr_ref in_r(m_seq.re.mk_in_re(s_expr, arg), m);
+            for (const euf::snode* const arg : *mem.m_regex) {
+                expr_ref in_r(m_seq.re.mk_in_re(s, arg->get_expr()), m);
                 lits.push_back(mk_literal(in_r));
             }
             ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
@@ -506,24 +522,81 @@ namespace smt {
             ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
             return;
         }
-        if (m_seq.re.is_to_re(re_expr)) {
-            return;
-            zstring s;
-            expr_ref arg(to_app(re_expr)->get_arg(0), m);
-            if (m_seq.str.is_string(arg, s)) {
+
+        if (mem.m_regex->is_to_re()) {
+            // u \in v (with v is constant) → u = v
+            zstring str;
+            const expr_ref arg(to_app(re)->get_arg(0), m);
+            if (m_seq.str.is_string(arg, str)) {
                 literal_vector lits;
                 lits.push_back(~mem.lit);
-                lits.push_back(mk_literal(m.mk_eq(s_expr, arg)));
+                lits.push_back(mk_literal(m.mk_eq(m_seq.str.mk_string(str), arg)));
                 ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
                 m_ignored_mem.insert(mem.lit);
                 ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
             }
         }
+
+        // Eager sigma factorization (token-level): when enabled, split a non-primitive
+        // membership s ∈ r at the boundary between the first concat argument (head) and
+        // the rest (tail), using compute_sigma. This mirrors the lazy Nielsen
+        // apply_regex_factorization and the paper's Reduce rule for x·u'.
+        //   (s ∈ r) → ⋁_{⟨Δ,∇⟩∈σ(r)} ( head ∈ Δ ∧ tail ∈ ∇ )
+        // Only fires for a concatenation s (single-variable s is already primitive).
+        if (get_fparams().m_nseq_regex_factorization_eager &&
+            get_fparams().m_nseq_regex_factorization_threshold > 0 &&
+            mem.m_str->is_concat()) {
+            const app* const a = to_app(s);
+            const unsigned na = a->get_num_args();
+            SASSERT(na >= 2);
+
+            const expr_ref head(a->get_arg(0), m);
+            const expr_ref tail(m_seq.str.mk_concat(na - 1, a->get_args() + 1, s->get_sort()), m);
+
+            const unsigned threshold = get_fparams().m_nseq_regex_factorization_threshold;
+            seq::sigma_pairs pairs;
+            if (!seq::compute_sigma(m, m_seq, m_rewriter, mem.m_regex, pairs, threshold))
+                // we give up
+                return;
+
+            seq::simplify_sigma_pairs(pairs, m_regex, m_sgraph);
+
+            if (pairs.empty()) {
+                // no viable splits
+                literal_vector lits;
+                lits.push_back(~mem.lit);
+                set_conflict(lits);
+                return;
+            }
+            if (pairs.size() <= threshold) {
+                TRACE(seq, tout << "eager regex fact: " << mk_pp(s, m) << " in "
+                                << mk_pp(re, m) << " -> " << pairs.size() << " splits\n";);
+
+                if (!ctx.e_internalized(head))
+                    ctx.internalize(head, false);
+                if (!ctx.e_internalized(tail))
+                    ctx.internalize(tail, false);
+
+                // forward direction; mk_literal Tseitin-encodes each conjunction
+                literal_vector lits;
+                lits.push_back(~mem.lit);
+                for (auto const& sp : pairs) {
+                    expr_ref mem_head(m_seq.re.mk_in_re(head, sp.m_p), m);
+                    expr_ref mem_tail(m_seq.re.mk_in_re(tail, sp.m_q), m);
+                    expr_ref conj(m.mk_and(mem_head, mem_tail), m);
+                    lits.push_back(mk_literal(conj));
+                }
+                ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
+                m_ignored_mem.insert(mem.lit);
+                ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
+                return;
+            }
+        }
     }
 
-    void theory_nseq::ensure_length_var(expr* e) {
+    void theory_nseq::ensure_length_var(expr* e) const {
         SASSERT(e && m_seq.is_seq(e));
-        expr_ref len(m_seq.str.mk_length(e), m);
+        const expr_ref len(m_seq.str.mk_length(e), m);
         if (!ctx.e_internalized(len))
             ctx.internalize(len, false);
     }
@@ -773,6 +846,7 @@ namespace smt {
                 m_nielsen.set_parikh_enabled(get_fparams().m_nseq_parikh);
                 m_nielsen.set_signature_split(get_fparams().m_nseq_signature);
                 m_nielsen.set_regex_factorization_threshold(get_fparams().m_nseq_regex_factorization_threshold);
+                m_nielsen.set_regex_factorization_eager(get_fparams().m_nseq_regex_factorization_eager);
             }
 
             SASSERT(!m_nielsen.root()->is_currently_conflict());
@@ -1044,11 +1118,11 @@ namespace smt {
         std::cout << "The root node contained " << m_nielsen.root()->str_mems().size() << " memberships and " << m_nielsen.root()->str_eqs().size() << " equalities" << std::endl;
         unsigned idx = 0;
         for (auto& eq : m_nielsen.root()->str_eqs()) {
-            std::cout << "[" << (idx++) << "]: " << seq::eq_pp(eq, m);
+            std::cout << "[" << (idx++) << "]: " << seq::eq_pp(eq, m) << "\n";
         }
         idx = 0;
         for (auto& mem : m_nielsen.root()->str_mems()) {
-            std::cout << "[" << (idx++) << "]: " << seq::mem_pp(mem, m);
+            std::cout << "[" << (idx++) << "]: " << seq::mem_pp(mem, m) << "\n";
         }
         std::flush(std::cout);
 #endif
@@ -1505,7 +1579,6 @@ namespace smt {
             if (result == l_true) {
                 // Intersection is empty → the memberships on this variable are
                 // jointly unsatisfiable.  Assert a conflict from all their literals.
-                enode_pair_vector eqs;
                 literal_vector lits;
                 for (unsigned i : mem_indices) {
                     SASSERT(ctx.get_assignment(mems[i]->lit) == l_true); // we already stored the polarity of the literal
@@ -1513,7 +1586,7 @@ namespace smt {
                 }
                 TRACE(seq, tout << "nseq regex precheck: empty intersection for var "
                                 << var_id << ", conflict with " << lits.size() << " lits\n";);
-                set_conflict(eqs, lits);
+                set_conflict(lits);
                 return l_true;   // conflict asserted
             }
             if (result == l_undef)
