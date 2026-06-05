@@ -1040,22 +1040,12 @@ namespace smt {
                     auto [e_prime, used_commutativity] = m_cg_table.insert(e);
                     if (e != e_prime) {
                         SASSERT(e_prime->is_cgr());
-                        if (e->get_generation() < e_prime->get_generation()) {
-                            SASSERT(m_cg_table.contains_ptr(e_prime));
-                            m_cg_table.erase(e_prime);
-                            e_prime->m_cg = e;
-                            log_cg_update("internalizer:promote_old_rep", e_prime, e);
-                            e->m_cg = e;
-                            log_cg_update("internalizer:promote_new_rep", e, e);
-                            auto [new_cgr, promote_used_commutativity] = m_cg_table.insert(e);
-                            SASSERT(new_cgr == e);
-                            push_new_congruence(e_prime, e, used_commutativity || promote_used_commutativity);
-                        }
-                        else {
-                            e->m_cg = e_prime;
-                            log_cg_update("internalizer:demote", e, e_prime);
-                            push_new_congruence(e, e_prime, used_commutativity);
-                        }
+                        e->m_cg = e_prime;
+
+                        bool promote_used_commutativity;
+                        auto [new_cgr, other] = try_cgr_promotion(e, e_prime, promote_used_commutativity);
+
+                        push_new_congruence(other, new_cgr, used_commutativity || promote_used_commutativity);
                     }
                     else {
                         e->m_cg = e;

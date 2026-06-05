@@ -25,6 +25,7 @@ Revision History:
 namespace smt {
 
     typedef std::pair<enode *, bool> enode_bool_pair;
+    typedef std::pair<enode *, enode *> enode_pair;
     
     // one table per function symbol
 

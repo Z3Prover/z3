@@ -455,6 +455,46 @@ namespace smt {
         m_th_diseq_propagation_queue.push_back(new_th_eq(th, lhs, rhs));
     }
 
+    class cgr_promotion_trail : public trail {
+        enode*   new_cgr;
+        enode*   old_cgr;
+    public:
+        cgr_promotion_trail(enode* new_cgr, enode* old_cgr):
+            new_cgr(new_cgr),
+            old_cgr(old_cgr) {
+        }
+
+        void undo() override {
+            m_cg_table.erase(new_cgr);
+            new_cgr->m_cg = old_cgr;
+            old_cgr->m_cg = old_cgr;
+            auto [cgr_after_undo, used_commutativity] = m_cg_table.insert(e);
+            SASSERT(cgr_after_undo == old_cgr);
+        }
+    };
+
+    enode_pair context::try_cgr_promotion(enode *e, enode *cur_cgr, bool &promote_used_commutativity) {
+        SASSERT(m_cg_table.contains_ptr(cur_cgr));
+        SASSERT(cur_cgr->is_cgr());
+        SASSERT(congruent(e, cur_cgr));
+
+        promote_used_commutativity = false;
+
+        if (e->m_generation < cur_cgr->m_generation) {
+            m_cg_table.erase(cur_cgr);
+            cur_cgr->m_cg = e;
+            e->m_cg = e;
+            auto [new_cgr, promote_used_commutativity] = m_cg_table.insert(e);
+            SASSERT(new_cgr == e);
+            
+            push_trail(cgr_promotion_trail(e, cur_cgr));
+
+            return enode_pair(cur_cgr, e);
+        }
+
+        return enode_pair(e, cur_cgr);  
+    }
+
     class add_eq_trail : public trail {
         context& ctx;
         enode * m_r1;
@@ -661,10 +701,7 @@ namespace smt {
                 }
             }
             if (parent->is_cgc_enabled()) {
-                enode* parent_prime;
-                bool used_commutativity;
-                std::tie(parent_prime, used_commutativity) = m_cg_table.insert(parent);
-                // enode * parent_cg = parent_prime->get_cg_root();    // This might be redundant..
+                auto [parent_prime, used_commutativity] = m_cg_table.insert(parent);
                 SASSERT(parent_prime->is_cgr());
                 if (parent_prime == parent) {
                     SASSERT(parent);
@@ -673,35 +710,20 @@ namespace smt {
                     r2_parents.push_back(parent);
                     continue;
                 }
-                if (parent->get_generation() >= parent_prime->get_generation()) {
-                    parent->m_cg = parent_prime;
-                    SASSERT(!m_cg_table.contains_ptr(parent));
-                } else {
-                    SASSERT(m_cg_table.contains_ptr(parent_prime));
-                    m_cg_table.erase(parent_prime);
-                    // // parent_prime may have been appended earlier as a cgr parent.
-                    // // Keep r2_parents aligned with current representatives.
-                    // enode_vector::iterator it2 = std::find(r2_parents.begin(), r2_parents.end(), parent_prime);
-                    // if (it2 != r2_parents.end())
-                    //     *it2 = parent;
-                    // LOG HERE
-                    parent_prime->m_cg = parent;
-                    parent->m_cg = parent;
-                    enode* new_cg;
-                    std::tie(new_cg, used_commutativity) = m_cg_table.insert(parent);
-                    r2_parents.push_back(parent);
-                    SASSERT(new_cg == parent);
-                    SASSERT(parent->is_cgr());
+                parent->m_cg = parent_prime;
+                SASSERT(!m_cg_table.contains_ptr(parent));
 
-                    enode *tmp = parent;
-                    parent = parent_prime;
-                    parent_prime = tmp;
-                }
-                if (parent_prime->m_root != parent->m_root) {
-                    TRACE(cg, tout << "found new congruence: #" << parent->get_owner_id() << " = #" << parent_prime->get_owner_id()
+                bool promote_used_commutativity;
+                auto [new_cgr, other] = try_cgr_promotion(parent, parent_prime, promote_used_commutativity);
+
+                used_commutativity = used_commutativity || promote_used_commutativity;
+
+                if (new_cgr->m_root != other->m_root) {
+                    TRACE(cg, tout << "found new congruence: #" << new_cgr->get_owner_id() << " = #" << other->get_owner_id()
                           << " used_commutativity: " << used_commutativity << "\n";);
-                    push_new_congruence(parent, parent_prime, used_commutativity);
+                    push_new_congruence(other, new_cgr, used_commutativity);
                 }
+                
             }
             else {
                 // If congruence closure is not enabled for parent, then I just copy it
@@ -978,10 +1000,6 @@ namespace smt {
                             << "\nparents: ";
                        for (enode* p : r2->m_parents) tout << "#" << p->get_owner_id() << " ";
                        display(tout << "\n"););
-                // tmp: we may have duplicate parents. debug this
-                if (!m_cg_table.contains_ptr(parent)) {
-                    continue;
-                }
                 SASSERT(parent->is_cgr());
                 SASSERT(m_cg_table.contains_ptr(parent));
                 m_cg_table.erase(parent);
@@ -1004,24 +1022,12 @@ namespace smt {
             if (parent->is_cgc_enabled()) {
                 
                 enode * cg = parent->m_cg;
-                std::cerr << "Calling congruent " << parent->get_owner_id() << " with " << parent->m_owner << " " << cg->get_owner_id() << std::endl;
                 if (!parent->is_true_eq() &&
                     (parent == cg ||           // parent was root of the congruence class before and after the merge
                      !congruent(parent, cg)    // parent was root of the congruence class before but not after the merge
                      )) {
                     auto [parent_cg, used_commutativity] = m_cg_table.insert(parent);
-                    // SASSERT(parent_cg->is_cgr());
-                    if (parent_cg != parent && parent->get_generation() < parent_cg->get_generation()) {
-                        SASSERT(m_cg_table.contains_ptr(parent_cg));
-                        m_cg_table.erase(parent_cg);
-                        parent_cg->m_cg = parent;
-                        parent->m_cg = parent;
-                        auto [new_cg, promote_used_commutativity] = m_cg_table.insert(parent);
-                        SASSERT(new_cg == parent);
-                    }
-                    else {
-                        parent->m_cg = parent_cg;
-                    }
+                    parent->m_cg = parent_cg;
                 }
             }
         }
