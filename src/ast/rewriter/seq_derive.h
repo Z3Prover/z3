@@ -125,7 +125,6 @@ namespace seq {
         void push_path(path_t& path, expr* c, bool sign);
         void push_intervals(intervals_t& intervals, expr* c, bool sign);
         lbool eval_cond(expr* cond);
-        lbool eval_path_cond(path_t const& path, expr* c);
         lbool eval_range_cond(intervals_t const& intervals, expr* c);
         static void intersect_intervals(unsigned lo, unsigned hi, intervals_t& ranges);
         static void exclude_interval(unsigned lo, unsigned hi, intervals_t& ranges, unsigned max_char);
