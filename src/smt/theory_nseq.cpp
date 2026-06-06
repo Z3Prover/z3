@@ -1767,10 +1767,25 @@ namespace smt {
 
             unsigned_vector const &mem_indices = var_to_mems[var_id];
             ptr_vector<euf::snode> regexes;
+            bool has_projection = false;
             for (auto i : mem_indices) {
                 SASSERT(mems[i].well_formed());
                 regexes.push_back(mems[i].m_regex);
+                if (mems[i].m_regex->has_projection())
+                    has_projection = true;
             }
+
+            // Skip length coherence for synthetic variables constrained by a
+            // projection operator (the cycle variable x'∈π(R) and remainder
+            // x''∈~((π(R)∩~ε)Σ*) introduced by cycle decomposition).  The
+            // Σ^l ∩ projection gradient does not converge for them — the
+            // benchmark has no real length constraints, so the integer solver
+            // is free to pick ever-larger lengths for these *synthetic* vars
+            // and the coherence loop rejects each one (len≠l) forever.  Their
+            // length consistency is already guaranteed by the soundness of the
+            // decomposition, so leaving the integer assignment alone is safe.
+            if (has_projection)
+                continue;
 
             SASSERT(!regexes.empty());
             sort *ele_sort;

@@ -860,13 +860,13 @@ namespace seq {
 
         for (auto* e : edges) {
             out << "  N" << e->m_src->get_id() << " -> N" << e->m_dst->get_id() << " [label=\"";
-            if (e->m_label) {
-                std::stringstream ss;
-                ss << mk_ismt2_pp(e->m_label, m);
-                out << sanitize(ss.str());
-            } else {
-                out << "??";
-            }
+            //if (e->m_label) {
+            //    std::stringstream ss;
+            //    ss << mk_ismt2_pp(e->m_label, m);
+            //    out << sanitize(ss.str());
+            //} else {
+            //    out << "??";
+            //}
             out << "\"];\n";
         }
 

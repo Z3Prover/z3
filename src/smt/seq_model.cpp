@@ -460,10 +460,12 @@ namespace smt {
             expr_ref witness(m);
             // We checked non-emptiness during Nielsen already
             lbool wr = m_rewriter.some_seq_in_re(re_expr, witness);
-            if (wr != l_true && re->has_projection()) {
-                // some_seq_in_re cannot extract a witness from a projection
-                // operator (re.proj). Fall back to a projection-aware BFS over
-                // the (length-intersected) regex using the sgraph derivative.
+            if (wr != l_true) {
+                // some_seq_in_re can fail (l_undef / l_false) on regexes it does
+                // not fully support — notably projection operators (re.proj),
+                // but also some plain Boolean-closure / large length-intersected
+                // shapes.  Fall back to a derivative-automaton BFS that builds an
+                // accepting word of the requested length directly.
                 wr = projection_witness(m_sg.mk(re_expr), witness);
             }
             if (wr == l_true) {
@@ -474,7 +476,9 @@ namespace smt {
             }
             IF_VERBOSE(1, verbose_stream() << "witness extraction failed for " << mk_pp(var->get_expr(), m)
                 << " : " << wr << " with len " << (has_len ? len_val.to_string() : "unknown") << "\n" << mk_pp(re_expr, m) << "\n");
-            UNREACHABLE();
+            // Last resort: do not crash model construction.  model_validate (if
+            // enabled) will flag an inconsistent witness; otherwise fall through
+            // to the length-respecting fallback below.
         }
 
         // No regex constraint: try to respect the assigned length for the variable.

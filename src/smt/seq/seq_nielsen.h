@@ -900,7 +900,7 @@ namespace seq {
         // at the current scope via m_sg.mk(expr) only when we actually need one.
         struct partial_dfa_edge {
             expr* m_src = nullptr;
-            expr* m_label = nullptr; // one-character regex label (char/minterm)
+            //expr* m_label = nullptr; // one-character regex label (char/minterm)
             expr* m_dst = nullptr;
             unsigned m_projection_idx = 0; // first extraction index that included this edge
         };
@@ -1002,14 +1002,14 @@ namespace seq {
         // Construct with a caller-supplied solver.  Ownership is NOT transferred;
         // the caller is responsible for keeping the solver alive.
         nielsen_graph(euf::sgraph& sg, sub_solver_i& solver, context_solver_i& ctx);
-        ~nielsen_graph();
+        ~nielsen_graph() override;
 
 
-        ast_manager &get_manager() {
+        ast_manager& get_manager() const {
             return m;
         }
         
-        euf::sgraph& sg() { return m_sg; }
+        euf::sgraph& sg() const { return m_sg; }
         seq_util& seq() { return m_seq; }
         seq_util const& seq() const { return m_seq; }
 

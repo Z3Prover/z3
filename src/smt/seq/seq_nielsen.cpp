@@ -942,15 +942,24 @@ namespace seq {
             return;
         if (src_re->is_fail() || dst_re->is_fail())
             return;
-
-        euf::snode* label_re = to_partial_label_regex(label);
-        SASSERT(label_re);
-
-        if (!m_seq.is_re(label_re->get_expr()) || !label_re->is_ground())
+        // The partial DFA must track ONLY the concrete Brzozowski automaton of
+        // the original ground regexes.  Projection operators (re.proj) are
+        // synthetic stabilizers minted by cycle decomposition; every fresh
+        // snapshot index ν is a new expression, so recording projection-derived
+        // states as DFA nodes makes the SCC grow without bound (a newly-marked
+        // edge on every extraction) and re-triggers cycle decomposition forever
+        // (e.g. a cycle variable x'∈π(R) being decomposed again and again
+        // against its own / a sibling regex's cycle).  Reject such edges.
+        if (src_re->has_projection() || dst_re->has_projection())
             return;
 
+        //euf::snode* label_re = to_partial_label_regex(label);
+        //SASSERT(label_re);
+        //if (!m_seq.is_re(label_re->get_expr()) || !label_re->is_ground())
+        //    return;
+
         expr* src_e   = src_re->get_expr();
-        expr* label_e = label_re->get_expr();
+        //expr* label_e = label_re->get_expr();
         expr* dst_e   = dst_re->get_expr();
 
         // Deduplicate transitions by (src, dst) only — NOT by label.  The
@@ -971,7 +980,7 @@ namespace seq {
         // already-pinned expression is harmless; the wasted slot is bounded
         // by the unique-edge count.
         m_partial_dfa_pin.push_back(src_e);
-        m_partial_dfa_pin.push_back(label_e);
+        //m_partial_dfa_pin.push_back(label_e);
         m_partial_dfa_pin.push_back(dst_e);
 
         unsigned edge_idx = m_partial_dfa_edges.size();
@@ -979,7 +988,7 @@ namespace seq {
 
         partial_dfa_edge e;
         e.m_src   = src_e;
-        e.m_label = label_e;
+        //e.m_label = label_e;
         e.m_dst   = dst_e;
         m_partial_dfa_edges.push_back(e);
 
@@ -3284,7 +3293,7 @@ namespace seq {
             euf::snode_vector mts;
             m_sg.compute_minterms(re, mts);
             for (euf::snode* mt : mts) {
-                std::cout << "minterm: " << mk_pp(mt->get_expr(), m) << std::endl;
+                // std::cout << "minterm: " << mk_pp(mt->get_expr(), m) << std::endl;
                 euf::snode* deriv = m_sg.brzozowski_deriv(re, mt);
                 if (!deriv || deriv->is_fail())
                     continue;
@@ -3295,8 +3304,7 @@ namespace seq {
                 }
             }
         }
-        std::string s = partial_dfa_to_dot(root_re, false);
-        std::cout << s << std::endl;
+        //std::string s = partial_dfa_to_dot(root_re, true);
     }
 
     // -----------------------------------------------------------------------
@@ -3863,6 +3871,13 @@ namespace seq {
             // compute_sigma handles all regex forms (incl. complement / intersection),
             // so the classical restriction is no longer needed.
             if (mem.m_str->is_empty() || mem.is_primitive())
+                continue;
+
+            // compute_sigma / compute_tau do not understand the projection
+            // operator (re.proj) — they would recurse into it and hit an
+            // UNREACHABLE.  Projection-constrained memberships are handled by the
+            // cycle-decomposition path, so skip them here.
+            if (mem.m_regex->has_projection())
                 continue;
 
             euf::snode* first = mem.m_str->first();
