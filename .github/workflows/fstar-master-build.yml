@@ -26,9 +26,9 @@ on:
         required: false
         default: "4.14.2"
       fstar_otherflags:
-        description: "Extra FStar OTHERFLAGS (example: --smt.ho_matching true)"
+        description: "Extra FStar OTHERFLAGS"
         required: false
-        default: "--smt.ho_matching true"
+        default: ""
       discussion_category:
         description: Discussion category name
         required: false
@@ -52,7 +52,7 @@ jobs:
       Z3_RUNTIME_ARGS: ${{ github.event.inputs.z3_runtime_args || 'smt.ho_matching=true' }}
       FSTAR_REF: ${{ github.event.inputs.fstar_ref || 'master' }}
       FSTAR_OPAM_SWITCH: ${{ github.event.inputs.fstar_opam_switch || '4.14.2' }}
-      FSTAR_OTHERFLAGS: ${{ github.event.inputs.fstar_otherflags || '--smt.ho_matching true' }}
+      FSTAR_OTHERFLAGS: ${{ github.event.inputs.fstar_otherflags || '' }}
       DISCUSSION_CATEGORY: ${{ github.event.inputs.discussion_category || 'Agentic Workflows' }}
     steps:
       - name: Checkout Z3
