@@ -115,6 +115,7 @@ add_executable(test-z3
   prime_generator.cpp
   proof_checker.cpp
   qe_arith.cpp
+  mbp_qel.cpp
   quant_elim.cpp
   quant_solve.cpp
   random.cpp
