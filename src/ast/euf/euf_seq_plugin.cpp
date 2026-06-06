@@ -46,6 +46,11 @@ namespace euf {
         }
     }
 
+    // Check if a + b can be computed in unsigned arithmetic without overflow.
+    static bool can_add_without_overflow(unsigned a, unsigned b) {
+        return b <= UINT_MAX - a;
+    }
+
     unsigned enode_concat_hash::operator()(enode* n) const {
         snode* sn = sg.find(n->get_expr());
         if (sn && sn->has_cached_hash())
@@ -287,7 +292,8 @@ namespace euf {
         // concat(v{l1,h1}, v{l2,h2}) = v{l1+l2,h1+h2}
         unsigned lo1, hi1, lo2, hi2;
         if (same_loop_body(a, b, lo1, hi1, lo2, hi2) &&
-            lo2 <= UINT_MAX - lo1 && hi2 <= UINT_MAX - hi1) {
+            can_add_without_overflow(lo1, lo2) &&
+            can_add_without_overflow(hi1, hi2)) {
             ast_manager& m = g.get_manager();
             enode* body_n = a->get_arg(0);
             unsigned lo_merged = lo1 + lo2;
@@ -304,11 +310,11 @@ namespace euf {
     }
 
     bool seq_plugin::same_star_body(enode* a, enode* b) {
-        enode* ar = a->get_root(), *br = b->get_root();
-        if (!is_star(ar) || !is_star(br))
+        enode* a_root = a->get_root(), *b_root = b->get_root();
+        if (!is_star(a_root) || !is_star(b_root))
             return false;
         // re.star(x) and re.star(y) have congruent bodies if x ~ y
-        return ar->get_arg(0)->get_root() == br->get_arg(0)->get_root();
+        return a_root->get_arg(0)->get_root() == b_root->get_arg(0)->get_root();
     }
 
     bool seq_plugin::same_loop_body(enode* a, enode* b,
