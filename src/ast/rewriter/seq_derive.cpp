@@ -43,6 +43,10 @@ namespace seq {
     void derive::reset() {
         m_cache.reset();
         m_top_cache.reset();
+        m_union_cache.reset();
+        m_inter_cache.reset();
+        m_concat_cache.reset();
+        m_complement_cache.reset();
         m_trail.reset();
     }
 
@@ -573,6 +577,22 @@ namespace seq {
     }
 
     expr_ref derive::mk_union(expr* a, expr* b) {
+        // Check op cache
+        expr* cached = nullptr;
+        if (m_union_cache.find(a, b, cached))
+            return expr_ref(cached, m);
+
+        expr_ref result = mk_union_core(a, b);
+
+        // Store in cache
+        m_union_cache.insert(a, b, result);
+        m_trail.push_back(a);
+        m_trail.push_back(b);
+        m_trail.push_back(result);
+        return result;
+    }
+
+    expr_ref derive::mk_union_core(expr* a, expr* b) {
         // Identity / annihilator
         if (a == b) return expr_ref(a, m);
         if (re().is_empty(a)) return expr_ref(b, m);
@@ -606,16 +626,29 @@ namespace seq {
             return mk_ite(c1, then_br, else_br);
         }
 
-        // ITE hoisting: ite(c, t, e) ∪ r = ite(c, t ∪ r, e ∪ r)
+        // Conservative ITE hoisting via subsumption:
+        // Only hoist when at least one branch simplifies by is_subset.
         if (m.is_ite(a, c1, t1, e1)) {
-            expr_ref then_br = mk_union(t1, b);
-            expr_ref else_br = mk_union(e1, b);
-            return mk_ite(c1, then_br, else_br);
+            bool t1_sub_b = is_subset(t1, b); // t1 ∪ b = b
+            bool b_sub_t1 = is_subset(b, t1); // t1 ∪ b = t1
+            bool e1_sub_b = is_subset(e1, b); // e1 ∪ b = b
+            bool b_sub_e1 = is_subset(b, e1); // e1 ∪ b = e1
+            if (t1_sub_b || b_sub_t1 || e1_sub_b || b_sub_e1) {
+                expr_ref then_br = t1_sub_b ? expr_ref(b, m) : b_sub_t1 ? expr_ref(t1, m) : mk_union(t1, b);
+                expr_ref else_br = e1_sub_b ? expr_ref(b, m) : b_sub_e1 ? expr_ref(e1, m) : mk_union(e1, b);
+                return mk_ite(c1, then_br, else_br);
+            }
         }
         if (m.is_ite(b, c2, t2, e2)) {
-            expr_ref then_br = mk_union(a, t2);
-            expr_ref else_br = mk_union(a, e2);
-            return mk_ite(c2, then_br, else_br);
+            bool t2_sub_a = is_subset(t2, a); // a ∪ t2 = a
+            bool a_sub_t2 = is_subset(a, t2); // a ∪ t2 = t2
+            bool e2_sub_a = is_subset(e2, a); // a ∪ e2 = a
+            bool a_sub_e2 = is_subset(a, e2); // a ∪ e2 = e2
+            if (t2_sub_a || a_sub_t2 || e2_sub_a || a_sub_e2) {
+                expr_ref then_br = t2_sub_a ? expr_ref(a, m) : a_sub_t2 ? expr_ref(t2, m) : mk_union(a, t2);
+                expr_ref else_br = e2_sub_a ? expr_ref(a, m) : a_sub_e2 ? expr_ref(e2, m) : mk_union(a, e2);
+                return mk_ite(c2, then_br, else_br);
+            }
         }
 
         // ACI: flatten, sort, deduplicate
@@ -647,6 +680,22 @@ namespace seq {
     }
 
     expr_ref derive::mk_inter(expr* a, expr* b) {
+        // Check op cache
+        expr* cached = nullptr;
+        if (m_inter_cache.find(a, b, cached))
+            return expr_ref(cached, m);
+
+        expr_ref result = mk_inter_core(a, b);
+
+        // Store in cache
+        m_inter_cache.insert(a, b, result);
+        m_trail.push_back(a);
+        m_trail.push_back(b);
+        m_trail.push_back(result);
+        return result;
+    }
+
+    expr_ref derive::mk_inter_core(expr* a, expr* b) {
         // Identity / annihilator
         if (a == b) return expr_ref(a, m);
         if (re().is_empty(a)) return expr_ref(a, m);
@@ -680,16 +729,24 @@ namespace seq {
             return mk_ite(c1, then_br, else_br);
         }
 
-        // ITE hoisting: ite(c, t, e) ∩ r = ite(c, t ∩ r, e ∩ r)
-        if (m.is_ite(a, c1, t1, e1)) {
-            expr_ref then_br = mk_inter(t1, b);
-            expr_ref else_br = mk_inter(e1, b);
-            return mk_ite(c1, then_br, else_br);
-        }
-        if (m.is_ite(b, c2, t2, e2)) {
-            expr_ref then_br = mk_inter(a, t2);
-            expr_ref else_br = mk_inter(a, e2);
-            return mk_ite(c2, then_br, else_br);
+        // ITE hoisting for intersection with depth bound.
+        // Unconditional hoisting needed for re.inter/re.diff/re.comp patterns,
+        // but bounded to prevent exponential blowup on union-heavy patterns.
+        if (m_inter_hoist_depth < m_max_inter_hoist_depth) {
+            if (m.is_ite(a, c1, t1, e1)) {
+                m_inter_hoist_depth++;
+                expr_ref then_br = mk_inter(t1, b);
+                expr_ref else_br = mk_inter(e1, b);
+                m_inter_hoist_depth--;
+                return mk_ite(c1, then_br, else_br);
+            }
+            if (m.is_ite(b, c2, t2, e2)) {
+                m_inter_hoist_depth++;
+                expr_ref then_br = mk_inter(a, t2);
+                expr_ref else_br = mk_inter(a, e2);
+                m_inter_hoist_depth--;
+                return mk_ite(c2, then_br, else_br);
+            }
         }
 
         // ACI: flatten, sort, deduplicate
@@ -763,6 +820,21 @@ namespace seq {
     }
 
     expr_ref derive::mk_complement(expr* a) {
+        // Check op cache
+        expr* cached = nullptr;
+        if (m_complement_cache.find(a, cached))
+            return expr_ref(cached, m);
+
+        expr_ref result = mk_complement_core(a);
+
+        // Store in cache
+        m_complement_cache.insert(a, result);
+        m_trail.push_back(a);
+        m_trail.push_back(result);
+        return result;
+    }
+
+    expr_ref derive::mk_complement_core(expr* a) {
         // ~~r → r
         expr* r = nullptr;
         if (re().is_complement(a, r))
@@ -952,6 +1024,22 @@ namespace seq {
     // -------------------------------------------------------
 
     expr_ref derive::mk_deriv_concat(expr* d, expr* tail) {
+        // Check op cache
+        expr* cached = nullptr;
+        if (m_concat_cache.find(d, tail, cached))
+            return expr_ref(cached, m);
+
+        expr_ref result = mk_deriv_concat_core(d, tail);
+
+        // Store in cache
+        m_concat_cache.insert(d, tail, result);
+        m_trail.push_back(d);
+        m_trail.push_back(tail);
+        m_trail.push_back(result);
+        return result;
+    }
+
+    expr_ref derive::mk_deriv_concat_core(expr* d, expr* tail) {
         expr_ref _d(d, m), _tail(tail, m);
         expr* c, * t, * e;
 
@@ -1173,7 +1261,7 @@ namespace seq {
         return l_undef;
     }
 
-    std::pair<expr_ref, expr_ref> derive::simplify_ite_rec(path_t& path, intervals_t& intervals, expr* c, expr* t, expr* e) {
+    std::pair<expr_ref, expr_ref> derive::simplify_ite_rec(path_t& path, intervals_t& intervals, expr* c, expr* t, expr* e, unsigned depth) {
         auto sz = path.size();
         auto saved_intervals = intervals;
 
@@ -1181,7 +1269,7 @@ namespace seq {
         lbool path_val = push_path(path, c, false);
         if (path_val != l_undef) {
             path.shrink(sz);
-            expr_ref r = simplify_ite_rec(path, intervals, path_val == l_true ? t : e);
+            expr_ref r = simplify_ite_rec(path, intervals, path_val == l_true ? t : e, depth);
             return { r, r };
         }
 
@@ -1189,11 +1277,12 @@ namespace seq {
         if (intv_val != l_undef) {
             path.shrink(sz);
             intervals = saved_intervals;
-            expr_ref r = simplify_ite_rec(path, intervals, intv_val == l_true ? t : e);
+            expr_ref r = simplify_ite_rec(path, intervals, intv_val == l_true ? t : e, depth);
             return { r, r };
         }
 
-        expr_ref st = simplify_ite_rec(path, intervals, t);
+        // Then-branch increases depth
+        expr_ref st = simplify_ite_rec(path, intervals, t, depth + 1);
         path.shrink(sz);
         intervals = saved_intervals;
 
@@ -1201,7 +1290,7 @@ namespace seq {
         path_val = push_path(path, c, true);
         if (path_val != l_undef) {
             path.shrink(sz);
-            expr_ref r = simplify_ite_rec(path, intervals, path_val == l_true ? e : t);
+            expr_ref r = simplify_ite_rec(path, intervals, path_val == l_true ? e : t, depth);
             return { r, r };
         }
 
@@ -1209,11 +1298,12 @@ namespace seq {
         if (intv_val != l_undef) {
             path.shrink(sz);
             intervals = saved_intervals;
-            expr_ref r = simplify_ite_rec(path, intervals, intv_val == l_true ? e : t);
+            expr_ref r = simplify_ite_rec(path, intervals, intv_val == l_true ? e : t, depth);
             return { r, r };
         }
 
-        expr_ref se = simplify_ite_rec(path, intervals, e);
+        // Else-branch does NOT increase depth (covers disjoint cases)
+        expr_ref se = simplify_ite_rec(path, intervals, e, depth);
         path.shrink(sz);
         intervals = saved_intervals;
         return { st, se };
@@ -1231,27 +1321,28 @@ namespace seq {
         path_t path;
         intervals_t intervals;
         intervals.push_back(std::make_pair(0u, u().max_char()));
-        auto [st, se] = simplify_ite_rec(path, intervals, c, t, e);
+        auto [st, se] = simplify_ite_rec(path, intervals, c, t, e, 0);
         return mk_ite(c, st, se);
     }
 
-    expr_ref derive::simplify_ite_rec(path_t& path, intervals_t& intervals, expr* d) {
+    expr_ref derive::simplify_ite_rec(path_t& path, intervals_t& intervals, expr* d, unsigned depth) {
         expr* c, * t, * e;
         if (!m.is_ite(d, c, t, e))
             return expr_ref(d, m);
 
+        // Depth limit reached — return without further simplification
+        if (depth >= m_max_simp_depth)
+            return expr_ref(d, m);
+
         // Try to evaluate c directly (handles trivially true/false conditions)
         lbool cond_val = eval_cond(c);
-        if (cond_val == l_true) return simplify_ite_rec(path, intervals, t);
-        if (cond_val == l_false) return simplify_ite_rec(path, intervals, e);
+        if (cond_val == l_true) return simplify_ite_rec(path, intervals, t, depth);
+        if (cond_val == l_false) return simplify_ite_rec(path, intervals, e, depth);
 
         // Cannot simplify c: recurse into branches with extended paths
         // push_path and push_intervals will check subsumption/contradiction
-        auto [st, se] = simplify_ite_rec(path, intervals, c, t, e);
+        auto [st, se] = simplify_ite_rec(path, intervals, c, t, e, depth);
         return mk_ite(c, st, se);
     }
 
 }
-
-
-

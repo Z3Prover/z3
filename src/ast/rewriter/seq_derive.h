@@ -59,9 +59,23 @@ namespace seq {
         obj_pair_map<expr, expr, expr*> m_top_cache; // post-simplify cache
         expr_ref_vector      m_trail;    // pin cached results
 
+        // Op cache for ITE-hoisting operations (union, inter, concat, complement)
+        obj_pair_map<expr, expr, expr*> m_union_cache;
+        obj_pair_map<expr, expr, expr*> m_inter_cache;
+        obj_pair_map<expr, expr, expr*> m_concat_cache;
+        obj_map<expr, expr*>            m_complement_cache;
+
         // Depth limiting
         unsigned m_depth { 0 };
         static const unsigned m_max_depth = 512;
+
+        // Simplify ITE recursion depth limit
+        unsigned m_simp_depth { 0 };
+        static const unsigned m_max_simp_depth = 8;
+
+        // Intersection ITE hoisting depth limit
+        unsigned m_inter_hoist_depth { 0 };
+        static const unsigned m_max_inter_hoist_depth = 4;
 
         seq_util::rex& re() { return m_util.re; }
         seq_util& u() { return m_util; }
@@ -83,9 +97,12 @@ namespace seq {
 
         // Smart constructors with simplification and ACI canonicalization
         expr_ref mk_union(expr* a, expr* b);
+        expr_ref mk_union_core(expr* a, expr* b);
         expr_ref mk_inter(expr* a, expr* b);
+        expr_ref mk_inter_core(expr* a, expr* b);
         expr_ref mk_concat(expr* a, expr* b);
         expr_ref mk_complement(expr* a);
+        expr_ref mk_complement_core(expr* a);
         expr_ref mk_ite(expr* c, expr* t, expr* e);
 
         // Flatten and sort for ACI normal form
@@ -104,6 +121,7 @@ namespace seq {
 
         // Distribute concatenation through ITE/union in derivative
         expr_ref mk_deriv_concat(expr* d, expr* tail);
+        expr_ref mk_deriv_concat_core(expr* d, expr* tail);
 
         // Extract head character and tail from a sequence expression
         bool get_head_tail(expr* s1, expr* s2, expr_ref& hd, expr_ref& tl);
@@ -120,8 +138,8 @@ namespace seq {
 
         // Simplify ITE conditions w.r.t. m_ele and path knowledge
         expr_ref simplify_ite(expr* d);
-        expr_ref simplify_ite_rec(path_t& path, intervals_t& intervals, expr* d);
-        std::pair<expr_ref, expr_ref> simplify_ite_rec(path_t& path, intervals_t& intervals, expr* c, expr* t, expr* e);
+        expr_ref simplify_ite_rec(path_t& path, intervals_t& intervals, expr* d, unsigned depth);
+        std::pair<expr_ref, expr_ref> simplify_ite_rec(path_t& path, intervals_t& intervals, expr* c, expr* t, expr* e, unsigned depth);
         lbool push_path(path_t& path, expr* c, bool sign);
         lbool push_intervals(intervals_t& intervals, expr* c, bool sign);
         lbool eval_cond(expr* cond);
