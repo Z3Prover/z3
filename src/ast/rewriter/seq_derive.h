@@ -73,7 +73,7 @@ namespace seq {
         unsigned m_simp_depth { 0 };
         static const unsigned m_max_simp_depth = 8;
 
-        // Intersection ITE hoisting depth limit
+        // ITE combine depth limit (bounds exponential blowup in BDD merge)
         unsigned m_inter_hoist_depth { 0 };
         static const unsigned m_max_inter_hoist_depth = 4;
 
@@ -128,6 +128,11 @@ namespace seq {
 
         // Lightweight subsumption check: returns true if L(a) ⊆ L(b)
         bool is_subset(expr* a, expr* b);
+
+        // Predicate implication for character range conditions.
+        // Returns true if condition a implies condition b.
+        bool pred_implies(expr* a, expr* b);
+        bool extract_char_range(expr* cond, unsigned& lo, unsigned& hi);
 
         // Normalize reverse(r) by pushing reverse inward
         expr_ref normalize_reverse(expr* r);

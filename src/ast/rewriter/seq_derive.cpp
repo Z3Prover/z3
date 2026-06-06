@@ -52,7 +52,7 @@ namespace seq {
 
     expr_ref derive::operator()(expr* ele, expr* r) {
         SASSERT(m_util.is_re(r));
-        if (m_trail.size() > 1000)
+        if (m_trail.size() > 100000)
             reset();
         // Check top-level cache (post-simplify result)
         expr* cached = nullptr;
@@ -576,6 +576,109 @@ namespace seq {
         return false;
     }
 
+    // Extract character range [lo, hi] from a derivative condition.
+    // Conditions are of the form:
+    //   char_le(lo_expr, ele) && char_le(ele, hi_expr)  → range [lo, hi]
+    //   char_le(lo_expr, ele)                           → range [lo, max_char]
+    //   char_le(ele, hi_expr)                           → range [0, hi]
+    // Returns false if not a recognizable range condition.
+    bool derive::extract_char_range(expr* cond, unsigned& lo, unsigned& hi) {
+        expr* e1 = nullptr, *e2 = nullptr, *lhs = nullptr, *rhs = nullptr;
+        lo = 0;
+        hi = u().max_char();
+
+        // Negation: ~(range [a,b]) = [0,a-1] ∪ [b+1,max]
+        // We don't handle negation here — it's handled via pred_implies logic
+        if (m.is_not(cond, e1))
+            return false;
+
+        // Conjunction: and(char_le(lo, x), char_le(x, hi))
+        if (m.is_and(cond, e1, e2)) {
+            expr *a1, *a2, *b1, *b2;
+            unsigned v;
+            if (u().is_char_le(e1, a1, a2) && u().is_char_le(e2, b1, b2)) {
+                // e1: a1 <= a2, e2: b1 <= b2
+                // Expect: lo <= ele (a1=const, a2=var) and ele <= hi (b1=var, b2=const)
+                // OR: ele <= hi (a1=var, a2=const) and lo <= ele (b1=const, b2=var)
+                if (u().is_const_char(a1, v) && u().is_const_char(b2, lo)) {
+                    // e1: const <= a2, e2: b1 <= const
+                    // This is: v <= ele and ele <= lo — wrong naming, let me fix
+                    lo = v;
+                    hi = 0;
+                    if (u().is_const_char(b2, hi))
+                        return true;
+                }
+            }
+            // Try more carefully: extract from each conjunct
+            lo = 0;
+            hi = u().max_char();
+            if (u().is_char_le(e1, a1, a2)) {
+                if (u().is_const_char(a1, v) && !u().is_const_char(a2, v))
+                    lo = std::max(lo, v); // v <= ele
+                else if (!u().is_const_char(a1, v) && u().is_const_char(a2, v))
+                    hi = std::min(hi, v); // ele <= v
+            }
+            if (u().is_char_le(e2, b1, b2)) {
+                unsigned v2;
+                if (u().is_const_char(b1, v2) && !u().is_const_char(b2, v2))
+                    lo = std::max(lo, v2); // v2 <= ele
+                else if (!u().is_const_char(b1, v2) && u().is_const_char(b2, v2))
+                    hi = std::min(hi, v2); // ele <= v2
+            }
+            return lo <= hi;
+        }
+
+        // Single char_le
+        if (u().is_char_le(cond, lhs, rhs)) {
+            unsigned v;
+            if (u().is_const_char(lhs, v) && !u().is_const_char(rhs, v)) {
+                lo = v; // v <= ele
+                return true;
+            }
+            if (!u().is_const_char(lhs, v) && u().is_const_char(rhs, v)) {
+                hi = v; // ele <= v
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Predicate implication for character range conditions.
+    // Returns true if: whenever cond_a is true, cond_b must also be true.
+    // Used for BDD-merge of derivative ITE trees.
+    bool derive::pred_implies(expr* a, expr* b) {
+        if (a == b) return true;
+
+        expr *nota = nullptr, *notb = nullptr;
+
+        // ~a implies ~b  iff  b implies a
+        if (m.is_not(a, nota) && m.is_not(b, notb))
+            return pred_implies(notb, nota);
+
+        unsigned lo_a, hi_a, lo_b, hi_b;
+
+        // a implies b: range_a ⊆ range_b
+        if (extract_char_range(a, lo_a, hi_a) && extract_char_range(b, lo_b, hi_b))
+            return lo_b <= lo_a && hi_a <= hi_b;
+
+        // a implies ~b: range_a ∩ range_b = ∅
+        if (m.is_not(b, notb)) {
+            if (extract_char_range(a, lo_a, hi_a) && extract_char_range(notb, lo_b, hi_b))
+                return hi_a < lo_b || hi_b < lo_a;
+        }
+
+        // ~a implies b: complement of range_a ⊆ range_b
+        // This is true when range_b covers everything outside range_a
+        // i.e., lo_b == 0 and hi_b >= max_char, minus range_a... complex, skip for now
+        if (m.is_not(a, nota)) {
+            if (extract_char_range(nota, lo_a, hi_a) && extract_char_range(b, lo_b, hi_b))
+                return lo_b <= 0 && hi_b >= u().max_char(); // only if b is universal
+        }
+
+        return false;
+    }
+
     expr_ref derive::mk_union(expr* a, expr* b) {
         // Check op cache
         expr* cached = nullptr;
@@ -618,8 +721,10 @@ namespace seq {
             return mk_deriv_concat(expr_ref(a1, m), tail);
         }
 
-        // ITE combination: if both are ITE with same condition, merge
+        // ITE handling for union
         expr *c1, *t1, *e1, *c2, *t2, *e2;
+
+        // Same condition merge (cheap, always correct)
         if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2) && c1 == c2) {
             expr_ref then_br = mk_union(t1, t2);
             expr_ref else_br = mk_union(e1, e2);
@@ -629,10 +734,10 @@ namespace seq {
         // Conservative ITE hoisting via subsumption:
         // Only hoist when at least one branch simplifies by is_subset.
         if (m.is_ite(a, c1, t1, e1)) {
-            bool t1_sub_b = is_subset(t1, b); // t1 ∪ b = b
-            bool b_sub_t1 = is_subset(b, t1); // t1 ∪ b = t1
-            bool e1_sub_b = is_subset(e1, b); // e1 ∪ b = b
-            bool b_sub_e1 = is_subset(b, e1); // e1 ∪ b = e1
+            bool t1_sub_b = is_subset(t1, b);
+            bool b_sub_t1 = is_subset(b, t1);
+            bool e1_sub_b = is_subset(e1, b);
+            bool b_sub_e1 = is_subset(b, e1);
             if (t1_sub_b || b_sub_t1 || e1_sub_b || b_sub_e1) {
                 expr_ref then_br = t1_sub_b ? expr_ref(b, m) : b_sub_t1 ? expr_ref(t1, m) : mk_union(t1, b);
                 expr_ref else_br = e1_sub_b ? expr_ref(b, m) : b_sub_e1 ? expr_ref(e1, m) : mk_union(e1, b);
@@ -640,14 +745,44 @@ namespace seq {
             }
         }
         if (m.is_ite(b, c2, t2, e2)) {
-            bool t2_sub_a = is_subset(t2, a); // a ∪ t2 = a
-            bool a_sub_t2 = is_subset(a, t2); // a ∪ t2 = t2
-            bool e2_sub_a = is_subset(e2, a); // a ∪ e2 = a
-            bool a_sub_e2 = is_subset(a, e2); // a ∪ e2 = e2
+            bool t2_sub_a = is_subset(t2, a);
+            bool a_sub_t2 = is_subset(a, t2);
+            bool e2_sub_a = is_subset(e2, a);
+            bool a_sub_e2 = is_subset(a, e2);
             if (t2_sub_a || a_sub_t2 || e2_sub_a || a_sub_e2) {
                 expr_ref then_br = t2_sub_a ? expr_ref(a, m) : a_sub_t2 ? expr_ref(t2, m) : mk_union(a, t2);
                 expr_ref else_br = e2_sub_a ? expr_ref(a, m) : a_sub_e2 ? expr_ref(e2, m) : mk_union(a, e2);
                 return mk_ite(c2, then_br, else_br);
+            }
+        }
+
+        // BDD merge for union: only when both are ITE and pred_implies fires
+        // (avoids exponential blowup when conditions are unrelated)
+        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2)) {
+            // Only merge if we can determine the relationship between conditions
+            bool c1_imp_c2 = pred_implies(c1, c2);
+            bool c1_imp_nc2 = !c1_imp_c2 && pred_implies(c1, m.mk_not(c2));
+            expr_ref notc1(m.mk_not(c1), m);
+            bool nc1_imp_c2 = pred_implies(notc1, c2);
+            bool nc1_imp_nc2 = !nc1_imp_c2 && pred_implies(notc1, m.mk_not(c2));
+            if (c1_imp_c2 || c1_imp_nc2 || nc1_imp_c2 || nc1_imp_nc2) {
+                // pred_implies fires — safe to merge without exponential blowup
+                expr_ref r1(m), r2(m);
+                // Under c1:
+                if (c1_imp_c2)
+                    r1 = mk_union(t1, t2);
+                else if (c1_imp_nc2)
+                    r1 = mk_union(t1, e2);
+                else
+                    r1 = mk_union(t1, b);
+                // Under ~c1:
+                if (nc1_imp_c2)
+                    r2 = mk_union(e1, t2);
+                else if (nc1_imp_nc2)
+                    r2 = mk_union(e1, e2);
+                else
+                    r2 = mk_union(e1, b);
+                return mk_ite(c1, r1, r2);
             }
         }
 
@@ -721,17 +856,48 @@ namespace seq {
             return mk_deriv_concat(expr_ref(a1, m), tail);
         }
 
-        // ITE combination: if both are ITE with same condition, merge
+        // ITE handling for intersection
         expr *c1, *t1, *e1, *c2, *t2, *e2;
+
+        // Same condition merge
         if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2) && c1 == c2) {
             expr_ref then_br = mk_inter(t1, t2);
             expr_ref else_br = mk_inter(e1, e2);
             return mk_ite(c1, then_br, else_br);
         }
 
-        // ITE hoisting for intersection with depth bound.
-        // Unconditional hoisting needed for re.inter/re.diff/re.comp patterns,
-        // but bounded to prevent exponential blowup on union-heavy patterns.
+        // Both-ITE with pred_implies: exploit condition relationships (no depth cost)
+        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2)) {
+            // Order conditions: larger id on outside
+            if (c1->get_id() < c2->get_id()) {
+                std::swap(a, b);
+                std::swap(c1, c2);
+                std::swap(t1, t2);
+                std::swap(e1, e2);
+            }
+            expr_ref r1(m), r2(m);
+            bool have_r1 = false, have_r2 = false;
+            // Under c1: what do we know about c2?
+            if (pred_implies(c1, c2)) {
+                r1 = mk_inter(t1, t2); have_r1 = true;
+            } else if (pred_implies(c1, m.mk_not(c2))) {
+                r1 = mk_inter(t1, e2); have_r1 = true;
+            }
+            // Under ~c1: what do we know about c2?
+            expr_ref notc1(m.mk_not(c1), m);
+            if (pred_implies(notc1, c2)) {
+                r2 = mk_inter(e1, t2); have_r2 = true;
+            } else if (pred_implies(notc1, m.mk_not(c2))) {
+                r2 = mk_inter(e1, e2); have_r2 = true;
+            }
+            if (have_r1 || have_r2) {
+                if (!have_r1) r1 = mk_inter(t1, b);
+                if (!have_r2) r2 = mk_inter(e1, b);
+                return mk_ite(c1, r1, r2);
+            }
+        }
+
+        // ITE hoisting with depth bound (fallback when pred_implies doesn't fire)
         if (m_inter_hoist_depth < m_max_inter_hoist_depth) {
             if (m.is_ite(a, c1, t1, e1)) {
                 m_inter_hoist_depth++;
@@ -854,17 +1020,10 @@ namespace seq {
             return mk_ite(c, ct, ce);
         }
 
-        // De Morgan: ~(r1 ∪ r2) → ~r1 ∩ ~r2
-        expr* r1 = nullptr, * r2 = nullptr;
-        if (re().is_union(a, r1, r2)) {
-            expr_ref c1 = mk_complement(r1);
-            expr_ref c2 = mk_complement(r2);
-            return mk_inter(c1, c2);
-        }
-
         // ~ε → .+
         sort* s = nullptr;
-        if (re().is_to_re(a, r) && u().str.is_empty(r)) {
+        expr* r1 = nullptr;
+        if (re().is_to_re(a, r1) && u().str.is_empty(r1)) {
             VERIFY(m_util.is_re(a, s));
             return expr_ref(re().mk_plus(re().mk_full_char(a->get_sort())), m);
         }
@@ -973,39 +1132,61 @@ namespace seq {
         if (!is_ite1 && !is_ite2)
             return op(d1, d2);
 
-        // d1 is ITE, d2 is not
+        // d1 is ITE, d2 is not — linear distribution (no depth cost)
         if (is_ite1 && !is_ite2) {
             expr_ref then_r = ite_combine_binary(t1, d2, op);
             expr_ref else_r = ite_combine_binary(e1, d2, op);
             return mk_ite(c1, then_r, else_r);
         }
 
-        // d2 is ITE, d1 is not
+        // d2 is ITE, d1 is not — linear distribution (no depth cost)
         if (!is_ite1 && is_ite2) {
             expr_ref then_r = ite_combine_binary(d1, t2, op);
             expr_ref else_r = ite_combine_binary(d1, e2, op);
             return mk_ite(c2, then_r, else_r);
         }
 
-        // Both are ITE
+        // Both are ITE — this is the cross-product case, consume depth budget
+        m_inter_hoist_depth++;
+        expr_ref result(m);
+
         if (c1 == c2) {
-            // Same condition: combine pairwise
+            // Same condition: combine pairwise (no cross-product)
             expr_ref then_r = ite_combine_binary(t1, t2, op);
             expr_ref else_r = ite_combine_binary(e1, e2, op);
-            return mk_ite(c1, then_r, else_r);
-        }
-
-        // Order by condition id (larger id on outside for canonical form)
-        if (c1->get_id() > c2->get_id()) {
-            expr_ref then_r = ite_combine_binary(t1, d2, op);
-            expr_ref else_r = ite_combine_binary(e1, d2, op);
-            return mk_ite(c1, then_r, else_r);
+            result = mk_ite(c1, then_r, else_r);
         }
         else {
-            expr_ref then_r = ite_combine_binary(d1, t2, op);
-            expr_ref else_r = ite_combine_binary(d1, e2, op);
-            return mk_ite(c2, then_r, else_r);
+            // Different conditions. Order by id for canonical form.
+            if (c1->get_id() < c2->get_id()) {
+                std::swap(d1, d2);
+                std::swap(c1, c2);
+                std::swap(t1, t2);
+                std::swap(e1, e2);
+            }
+
+            // Now c1->get_id() >= c2->get_id(). Hoist c1.
+            expr_ref r1(m), r2(m);
+            if (pred_implies(c1, c2))
+                r1 = ite_combine_binary(t1, t2, op);
+            else if (pred_implies(c1, m.mk_not(c2)))
+                r1 = ite_combine_binary(t1, e2, op);
+            else
+                r1 = ite_combine_binary(t1, d2, op);
+
+            expr_ref notc1(m.mk_not(c1), m);
+            if (pred_implies(notc1, c2))
+                r2 = ite_combine_binary(e1, t2, op);
+            else if (pred_implies(notc1, m.mk_not(c2)))
+                r2 = ite_combine_binary(e1, e2, op);
+            else
+                r2 = ite_combine_binary(e1, d2, op);
+
+            result = mk_ite(c1, r1, r2);
         }
+
+        m_inter_hoist_depth--;
+        return result;
     }
 
     expr_ref derive::ite_combine_unary(expr* d,
