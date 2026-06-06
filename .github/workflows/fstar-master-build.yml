@@ -14,7 +14,7 @@ on:
         required: false
         default: ""
       z3_runtime_args:
-        description: Extra Z3 runtime args (example: smt.ho_matching=true)
+        description: "Extra Z3 runtime args (example: smt.ho_matching=true)"
         required: false
         default: "smt.ho_matching=true"
       fstar_ref:
@@ -26,7 +26,7 @@ on:
         required: false
         default: "4.14.2"
       fstar_otherflags:
-        description: Extra FStar OTHERFLAGS (example: --smt.ho_matching true)
+        description: "Extra FStar OTHERFLAGS (example: --smt.ho_matching true)"
         required: false
         default: "--smt.ho_matching true"
       discussion_category:
