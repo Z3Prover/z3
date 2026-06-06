@@ -13,7 +13,7 @@ on:
         required: false
         default: ""
       z3_runtime_args:
-        description: Extra runtime args for Z3 sanity checks
+        description: Extra runtime args for Z3 sanity checks (for example smt.ho_matching=true)
         required: false
         default: "smt.ho_matching=true"
       fstar_ref:
@@ -25,7 +25,7 @@ on:
         required: false
         default: "4.14.2"
       fstar_otherflags:
-        description: Extra OTHERFLAGS for FStar build
+        description: Extra OTHERFLAGS for FStar build (for example --smt.ho_matching true)
         required: false
         default: "--smt.ho_matching true"
 permissions:
@@ -68,6 +68,7 @@ Read all values from workflow-dispatch inputs and apply defaults when not set:
 - `fstar_ref` (default `master`)
 - `fstar_opam_switch` (default `4.14.2`)
 - `fstar_otherflags` (default `--smt.ho_matching true`)
+- Note: `z3_runtime_args` uses Z3 runtime syntax (`name=value`) while `fstar_otherflags` uses FStar CLI syntax (`--name value`).
 
 ## Constraints
 
@@ -100,7 +101,7 @@ cmake -S . -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release $Z3_CMAKE_ARGS
 ninja -C build/release z3
 
 "${{ github.workspace }}/build/release/z3" --version | tee /tmp/gh-aw/agent/z3-version.txt
-"${{ github.workspace }}/build/release/z3" $Z3_RUNTIME_ARGS -version | tee /tmp/gh-aw/agent/z3-runtime-check.txt
+printf '(check-sat)\n' | "${{ github.workspace }}/build/release/z3" $Z3_RUNTIME_ARGS -in | tee /tmp/gh-aw/agent/z3-runtime-check.txt
 ```
 
 Extract the numeric version string from `/tmp/gh-aw/agent/z3-version.txt` into `Z3_VERSION`.
@@ -190,7 +191,8 @@ EOF
 
 Read `/tmp/gh-aw/agent/summary.md` and call `create_discussion` with:
 
-- Title: `FStar build with configurable Z3 inputs — YYYY-MM-DD`
+- Title: `FStar build with configurable Z3 inputs — $(date -u +%Y-%m-%d)`
 - Body: include the summary file contents and a link to `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
 
+Keep workflow permissions read-only; safe outputs handles write operations for `create_discussion`.
 You **MUST** call either `create_discussion` or `report_incomplete` before finishing.
