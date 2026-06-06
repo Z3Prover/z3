@@ -124,7 +124,7 @@ namespace smt {
         // Note: Doesn't need to be sound or complete (doesn't affect soundness)
         bool can_be_in_cycle(expr* r1, expr* r2);
         // Update the graph
-        bool update_state_graph(expr* r);
+        bool update_state_graph(expr* r, unsigned depth = 0);
 
         // Printing expressions for seq_regex_brief
         std::string state_str(expr* e);
