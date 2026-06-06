@@ -89,7 +89,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf /tmp/gh-aw/agent/FStar
-          git clone --depth=1 --branch "$FSTAR_REF" https://github.com/FStarLang/FStar.git /tmp/gh-aw/agent/FStar
+          git clone --depth=1 --recurse-submodules --branch "$FSTAR_REF" https://github.com/FStarLang/FStar.git /tmp/gh-aw/agent/FStar
           cd /tmp/gh-aw/agent/FStar
           echo "FStar commit: $(git rev-parse HEAD)" | tee /tmp/gh-aw/agent/fstar-commit.txt
 
