@@ -455,7 +455,7 @@ public:
         expr_ref_vector lit2expr(m);
         lit2expr.resize(m_solver.num_vars() * 2);
         m_map.mk_inv(lit2expr);
-        if (!m_params.get_bool("cube.lookahead", true)) {
+        if (!m_params.get_bool("cube.lookahead", false)) {
             sat::bool_var best = sat::null_bool_var;
             unsigned best_activity = 0;
             for (sat::bool_var v : vars) {
@@ -473,6 +473,12 @@ public:
             SASSERT(e);
             if (e)
                 fmls.push_back(e);
+            vs.reset();
+            for (sat::bool_var v : vars) {
+                expr* x = lit2expr[sat::literal(v, false).index()].get();
+                if (x)
+                    vs.push_back(x);
+            }
             return fmls;
         }
         lbool result = m_solver.cube(vars, lits, backtrack_level);

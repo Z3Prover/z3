@@ -1032,17 +1032,40 @@ class parallel_solver {
                 return expr_ref(nullptr, m);
 
             expr_ref_vector vars(m);
-            expr_ref_vector cands = s->cube(vars, 1);
-            for (expr* lit : cands) {
-                if (!lit)
-                    continue;
-                if (m.is_true(lit) || m.is_false(lit))
-                    continue;
-                if (m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, lit))
-                    continue;
-                return expr_ref(lit, m);
+            obj_hashtable<expr> rejected_atoms;
+            while (true) {
+                expr_ref_vector cands = s->cube(vars, 1);
+                bool rejected = false;
+                for (expr* lit : cands) {
+                    if (!lit)
+                        continue;
+                    if (m.is_true(lit) || m.is_false(lit))
+                        continue;
+                    if (m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, lit)) {
+                        expr* atom = lit;
+                        m.is_not(lit, atom);
+                        rejected_atoms.insert(atom);
+                        rejected = true;
+                        continue;
+                    }
+                    return expr_ref(lit, m);
+                }
+
+                if (!rejected || vars.empty())
+                    return expr_ref(nullptr, m);
+
+                expr_ref_vector next_vars(m);
+                for (expr* v : vars) {
+                    expr* atom = v;
+                    m.is_not(v, atom);
+                    if (!rejected_atoms.contains(atom))
+                        next_vars.push_back(v);
+                }
+                if (next_vars.empty() || next_vars.size() == vars.size())
+                    return expr_ref(nullptr, m);
+                vars.reset();
+                vars.append(next_vars);
             }
-            return expr_ref(nullptr, m);
         }
 
         bb_candidates find_backbone_candidates(expr_ref_vector const& cube, unsigned k = 10) {
