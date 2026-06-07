@@ -70,9 +70,6 @@ simple_check_sat_result::simple_check_sat_result(ast_manager & m):
     m_proof(m) {
     }
 
-void simple_check_sat_result::collect_statistics(statistics & st) const { 
-    st.copy(m_stats); 
-}
 
 void simple_check_sat_result::get_unsat_core(expr_ref_vector & r) { 
     if (m_status == l_false) {

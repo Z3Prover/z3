@@ -159,7 +159,7 @@ public:
     void collect_param_descrs(param_descrs & r) override { m_solver->collect_param_descrs(r); }
     void set_produce_models(bool f) override { m_solver->set_produce_models(f); }
     void set_progress_callback(progress_callback * callback) override { m_solver->set_progress_callback(callback);  }
-    void collect_statistics(statistics & st) const override { m_solver->collect_statistics(st); }
+    void collect_statistics_core(statistics & st) const override { m_solver->collect_statistics(st); }
     void get_unsat_core(expr_ref_vector & r) override { m_solver->get_unsat_core(r); }
     void set_phase(expr* e) override { m_solver->set_phase(e); }
     phase* get_phase() override { return m_solver->get_phase(); }
