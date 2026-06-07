@@ -473,6 +473,42 @@ namespace {
 
         expr_ref_vector cube(expr_ref_vector& vars, unsigned cutoff) override {
             ast_manager& m = get_manager();
+            if (!get_params().get_bool("cube.lookahead", false)) {
+                auto& ctx = m_context.get_context();
+                obj_hashtable<expr> selected_vars;
+                for (expr* v : vars)
+                    selected_vars.insert(v);
+                expr_ref_vector candidates(m);
+                expr_ref result(m);
+                double score = 0.0;
+
+                ctx.pop_to_search_level();
+                for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
+                    if (ctx.get_assignment(v) != l_undef)
+                        continue;
+                    expr* e = ctx.bool_var2expr(v);
+                    if (!e)
+                        continue;
+                    if (!selected_vars.empty() && !selected_vars.contains(e))
+                        continue;
+                    candidates.push_back(e);
+                    double new_score = ctx.get_activity(v);
+                    if (new_score > score || !result) {
+                        score = new_score;
+                        auto const& d = ctx.get_bdata(v);
+                        result = d.m_phase_available && !d.m_phase ? m.mk_not(e) : e;
+                    }
+                }
+
+                vars.reset();
+                vars.append(candidates);
+
+                expr_ref_vector lits(m);
+                if (result)
+                    lits.push_back(result);
+                return lits;
+            }
+
             if (!m_cuber) {
                 m_cuber = alloc(cuber, *this);
                 // force propagation
