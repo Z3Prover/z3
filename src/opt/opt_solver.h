@@ -89,7 +89,7 @@ namespace opt {
         solver* translate(ast_manager& m, params_ref const& p) override;
         void updt_params(params_ref const& p) override;
         void collect_param_descrs(param_descrs & r) override;
-        void collect_statistics(statistics & st) const override;
+        void collect_statistics_core(statistics & st) const override;
         void assert_expr_core(expr * t) override;
         void push_core() override;
         void pop_core(unsigned n) override;

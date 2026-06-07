@@ -49,7 +49,7 @@ class tactic2solver : public solver_na2as {
     bool                         m_produce_models;
     bool                         m_produce_proofs;
     bool                         m_produce_unsat_cores;
-    statistics                   m_stats;
+//    statistics                   m_stats;
     bool                         m_minimizing = false;
     
 public:
@@ -70,7 +70,7 @@ public:
     void pop_core(unsigned n) override;
     lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override;
 
-    void collect_statistics(statistics & st) const override;
+    void collect_statistics_core(statistics & st) const override;
     void get_unsat_core(expr_ref_vector & r) override;
     void get_model_core(model_ref & m) override;
     proof * get_proof_core() override;
@@ -284,8 +284,9 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
         m_result->m_unknown = ex.what();
         m_result->m_proof = pr;
     }
-    m_tactic->collect_statistics(m_result->m_stats);
-    m_tactic->collect_statistics(m_stats);
+    statistics stats;
+    m_tactic->collect_statistics(stats);
+    m_result->add_statistics(stats);
     m_result->m_model = md;
     m_result->m_proof = pr;
     if (m_produce_unsat_cores) {
@@ -311,7 +312,7 @@ solver* tactic2solver::translate(ast_manager& m, params_ref const& p) {
 }
 
 
-void tactic2solver::collect_statistics(statistics & st) const {    
+void tactic2solver::collect_statistics_core(statistics & st) const {    
     st.copy(m_stats);
     if (m_stats.size() == 0 && m_tactic)
         m_tactic->collect_statistics(st);

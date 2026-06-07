@@ -387,7 +387,7 @@ public:
         if (p1.euf() && !get_euf()) 
             ensure_euf();        
     }
-    void collect_statistics(statistics & st) const override {
+    void collect_statistics_core(statistics & st) const override {
         if (m_preprocess) m_preprocess->collect_statistics(st);
         m_solver.collect_statistics(st);
     }

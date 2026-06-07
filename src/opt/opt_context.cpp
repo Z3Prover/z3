@@ -1745,7 +1745,7 @@ namespace opt {
         m_pareto1 = p != nullptr;
     }
 
-    void context::collect_statistics(statistics& stats) const {
+    void context::collect_statistics_core(statistics& stats) const {
         if (m_solver) 
             m_solver->collect_statistics(stats);
         if (m_simplify) 

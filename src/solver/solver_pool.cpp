@@ -83,7 +83,7 @@ public:
     void pop_params() override {m_base->pop_params();}
     
     void collect_param_descrs(param_descrs & r) override { m_base->collect_param_descrs(r); }
-    void collect_statistics(statistics & st) const override { m_base->collect_statistics(st); }
+    void collect_statistics_core(statistics & st) const override { m_base->collect_statistics(st); }
     unsigned get_num_assertions() const override { return m_base->get_num_assertions(); }
     expr * get_assertion(unsigned idx) const override { return m_base->get_assertion(idx); }
 
