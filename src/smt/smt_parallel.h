@@ -32,6 +32,13 @@ namespace smt {
     struct cube_config {
         using literal = expr_ref;
         static bool literal_is_null(expr_ref const& l) { return l == nullptr; }
+        static bool same_atom(expr_ref const& a, expr_ref const& b) {
+            expr* atom_a = a.get();
+            expr* atom_b = b.get();
+            a.get_manager().is_not(atom_a, atom_a);
+            b.get_manager().is_not(atom_b, atom_b);
+            return atom_a == atom_b;
+        }
         static std::ostream& display_literal(std::ostream& out, expr_ref const& l) { return out << mk_bounded_pp(l, l.get_manager()); }
     };
 

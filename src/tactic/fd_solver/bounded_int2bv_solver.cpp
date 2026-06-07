@@ -214,10 +214,6 @@ public:
     expr* congruence_root(expr* e) override { return m_solver->congruence_root(e); }
     expr_ref congruence_explain(expr* a, expr* b) override { return m_solver->congruence_explain(a, b); }
     expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { flush_assertions(); return m_solver->cube(vars, backtrack_level); }
-    expr_ref get_split_candidate() override {
-        flush_assertions();
-        return m_solver->get_split_candidate();
-    }
     void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
         flush_assertions();
         m_solver->get_backbone_candidates(candidates, max_num);

@@ -362,10 +362,6 @@ public:
     expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { 
         return s->cube(vars, backtrack_level); 
     }
-    expr_ref get_split_candidate() override { return s->get_split_candidate(); }
-    void get_split_candidates(vector<solver::scored_literal>& candidates) override {
-        s->get_split_candidates(candidates);
-    }
     void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
         s->get_backbone_candidates(candidates, max_num);
     }

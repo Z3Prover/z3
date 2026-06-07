@@ -89,6 +89,13 @@ inline std::ostream &operator<<(std::ostream &out, bounded_pp_exprs const &pp) {
 struct solver_cube_config {
     using literal = expr_ref;
     static bool literal_is_null(expr_ref const& l) { return l == nullptr; }
+    static bool same_atom(expr_ref const& a, expr_ref const& b) {
+        expr* atom_a = a.get();
+        expr* atom_b = b.get();
+        a.get_manager().is_not(atom_a, atom_a);
+        b.get_manager().is_not(atom_b, atom_b);
+        return atom_a == atom_b;
+    }
     static std::ostream& display_literal(std::ostream& out, expr_ref const& l) {
         if (l) return out << mk_bounded_pp(l, l.get_manager());
         return out << "(null)";
@@ -668,6 +675,8 @@ class parallel_solver {
             expr_ref lit(m), nlit(m);
             lit  = l2g(atom);
             nlit = mk_not(m, lit);
+            VERIFY(!lease.leased_node->path_contains_atom(lit));
+            VERIFY(!lease.leased_node->path_contains_atom(nlit));
 
             bool did_split = m_search_tree.try_split(
                 lease.leased_node, lease.cancel_epoch,
@@ -1022,11 +1031,12 @@ class parallel_solver {
             if (cube.size() >= m_config.m_max_cube_depth)
                 return expr_ref(nullptr, m);
 
-            vector<solver::scored_literal> cands;
-            s->get_split_candidates(cands);
-            for (auto const& cand : cands) {
-                expr* lit = cand.lit.get();
+            expr_ref_vector vars(m);
+            expr_ref_vector cands = s->cube(vars, 1);
+            for (expr* lit : cands) {
                 if (!lit)
+                    continue;
+                if (m.is_true(lit) || m.is_false(lit))
                     continue;
                 if (m_config.m_global_backbones && b.is_global_backbone_or_negation(m_l2g, lit))
                     continue;
@@ -1781,7 +1791,7 @@ public:
         params_ref p(m_params);
         // Match smt_parallel's per-worker m_smt_params.m_random_seed += id.
         // Generic solver workers receive the seed through translate_for_parallel params.
-        unsigned base_seed = m_solver->get_random_seed();
+        unsigned base_seed = m_params.get_uint("random_seed", 0);
         p.set_uint("random_seed", base_seed + seed_offset);
         p.set_uint("threads", 1);
         return p;

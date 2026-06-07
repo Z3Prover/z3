@@ -275,10 +275,6 @@ namespace {
             return ctx.b_internalized(atom) ? ctx.get_bool_var(atom) : UINT_MAX;
         }
 
-        unsigned get_random_seed() const override {
-            return const_cast<smt::kernel&>(m_context).get_context().get_fparams().m_random_seed;
-        }
-
         void pop_to_base_level() override {
             m_context.pop_to_base_level();
         }
@@ -306,52 +302,6 @@ namespace {
 
         void collect_parallel_statistics(statistics& st) const override {
             m_context.collect_statistics(st);
-        }
-
-        expr_ref get_split_candidate() override {
-            ast_manager& m = get_manager();
-            auto& ctx = m_context.get_context();
-            expr_ref result(m);
-            double score = 0.0;
-            unsigned n = 0;
-            ctx.pop_to_search_level();
-            for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
-                if (ctx.get_assignment(v) != l_undef)
-                    continue;
-                expr* e = ctx.bool_var2expr(v);
-                if (!e)
-                    continue;
-                double new_score = ctx.get_activity(v);
-                if (new_score > score || !result || (new_score == score && ctx.get_random_value() % (++n) == 0)) {
-                    score = new_score;
-                    result = e;
-                }
-            }
-            return result;
-        }
-
-        void get_split_candidates(vector<solver::scored_literal>& candidates) override {
-            ast_manager& m = get_manager();
-            auto& ctx = m_context.get_context();
-            vector<solver::scored_literal> all;
-            ctx.pop_to_search_level();
-            for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
-                if (ctx.get_assignment(v) != l_undef)
-                    continue;
-                expr* e = ctx.bool_var2expr(v);
-                if (!e)
-                    continue;
-                all.push_back(solver::scored_literal(m, e, ctx.get_activity(v)));
-            }
-
-            std::stable_sort(
-                all.begin(),
-                all.end(),
-                [](solver::scored_literal const& a, solver::scored_literal const& b) {
-                    return a.score > b.score;
-                });
-
-            candidates.append(all);
         }
 
         void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {

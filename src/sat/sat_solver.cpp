@@ -1746,43 +1746,6 @@ namespace sat {
         return use_best ? m_best_phase_birthdate[v] : m_phase_birthdate[v];
     }
 
-    literal solver::get_split_candidate() {
-        bool_var next = null_bool_var;
-        lbool phase = l_undef;
-        if (!m_ext || !m_ext->get_case_split(next, phase)) {
-            next = next_var();
-            if (next == null_bool_var)
-                return null_literal;
-        }
-        if (phase == l_undef)
-            phase = guess(next) ? l_true : l_false;
-        return literal(next, phase == l_false);
-    }
-
-    void solver::get_split_candidates(literal_vector& lits) {
-        bool_var ext = null_bool_var;
-        lbool phase = l_undef;
-        if (m_ext && m_ext->get_case_split(ext, phase) &&
-            value(ext) == l_undef && !was_eliminated(ext)) {
-            if (phase == l_undef)
-                phase = guess(ext) ? l_true : l_false;
-            lits.push_back(literal(ext, phase == l_false));
-        }
-
-        svector<bool_var> vars;
-        for (bool_var v = 0; v < num_vars(); ++v) {
-            if (v == ext || value(v) != l_undef || was_eliminated(v))
-                continue;
-            vars.push_back(v);
-        }
-        std::stable_sort(vars.begin(), vars.end(), cmp_activity(*this));
-
-        for (bool_var v : vars) {
-            bool is_pos = guess(v);
-            lits.push_back(literal(v, !is_pos));
-        }
-    }
-
     void solver::get_backbone_candidates(literal_vector& lits, unsigned max_num) {
         struct candidate {
             literal lit;

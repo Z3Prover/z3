@@ -275,16 +275,6 @@ public:
         return m_solver2->cube(vars, backtrack_level);
     }
 
-    expr_ref get_split_candidate() override {
-        switch_inc_mode();
-        return m_solver2->get_split_candidate();
-    }
-
-    void get_split_candidates(vector<solver::scored_literal>& candidates) override {
-        switch_inc_mode();
-        m_solver2->get_split_candidates(candidates);
-    }
-
     void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
         if (m_use_solver1_results)
             m_solver1->get_backbone_candidates(candidates, max_num);

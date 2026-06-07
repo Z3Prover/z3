@@ -109,7 +109,6 @@ namespace opt {
         void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override; 
         expr_ref_vector get_trail(unsigned max_level) override { return m_context.get_trail(max_level); }
         expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
-        expr_ref get_split_candidate() override;
         void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override;
         expr* congruence_root(expr* e) override { return e; }
         expr* congruence_next(expr* e) override { return e; }

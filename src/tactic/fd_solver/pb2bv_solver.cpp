@@ -122,10 +122,6 @@ public:
     void get_labels(svector<symbol> & r) override { m_solver->get_labels(r); }
     ast_manager& get_manager() const override { return m;  }
     expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { flush_assertions(); return m_solver->cube(vars, backtrack_level); }
-    expr_ref get_split_candidate() override {
-        flush_assertions();
-        return m_solver->get_split_candidate();
-    }
     void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
         flush_assertions();
         m_solver->get_backbone_candidates(candidates, max_num);

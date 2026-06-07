@@ -390,14 +390,6 @@ public:
         flush();
         return s->cube(vars, backtrack_level); 
     }
-    expr_ref get_split_candidate() override {
-        flush();
-        return s->get_split_candidate();
-    }
-    void get_split_candidates(vector<solver::scored_literal>& candidates) override {
-        flush();
-        s->get_split_candidates(candidates);
-    }
     void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
         flush();
         s->get_backbone_candidates(candidates, max_num);

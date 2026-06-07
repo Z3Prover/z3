@@ -116,10 +116,6 @@ public:
         return m_solver.get_config().m_incremental;
     }
 
-    unsigned get_random_seed() const override {
-        return m_solver.get_config().m_random_seed;
-    }
-
     solver* translate(ast_manager& dst_m, params_ref const& p) override {
         ast_translation tr(m, dst_m);
         m_solver.pop_to_base_level();
@@ -455,11 +451,31 @@ public:
                 vars.push_back(kv.m_value);
         }
         sat::literal_vector lits;
-        lbool result = m_solver.cube(vars, lits, backtrack_level);
         expr_ref_vector fmls(m);
         expr_ref_vector lit2expr(m);
         lit2expr.resize(m_solver.num_vars() * 2);
         m_map.mk_inv(lit2expr);
+        if (!m_params.get_bool("cube.lookahead", true)) {
+            sat::bool_var best = sat::null_bool_var;
+            unsigned best_activity = 0;
+            for (sat::bool_var v : vars) {
+                if (m_solver.value(v) != l_undef || m_solver.was_eliminated(v))
+                    continue;
+                if (best == sat::null_bool_var || m_solver.get_activity(v) > best_activity) {
+                    best = v;
+                    best_activity = m_solver.get_activity(v);
+                }
+            }
+            if (best == sat::null_bool_var)
+                return expr_ref_vector(m);
+            sat::literal lit(best, !m_solver.get_phase(best));
+            expr* e = lit2expr.get(lit.index());
+            SASSERT(e);
+            if (e)
+                fmls.push_back(e);
+            return fmls;
+        }
+        lbool result = m_solver.cube(vars, lits, backtrack_level);
         for (sat::literal l : lits) {
             expr* e = lit2expr.get(l.index());
             SASSERT(e);
@@ -484,41 +500,6 @@ public:
             set_reason_unknown(m_solver.get_reason_unknown());
         }
         return fmls;
-    }
-
-    expr_ref get_split_candidate() override {
-        if (!is_internalized()) {
-            lbool r = internalize_formulas();
-            if (r != l_true)
-                return expr_ref(nullptr, m);
-        }
-        convert_internalized();
-        sat::literal lit = m_solver.get_split_candidate();
-        if (lit == sat::null_literal)
-            return expr_ref(nullptr, m);
-        expr_ref_vector lit2expr(m);
-        lit2expr.resize(m_solver.num_vars() * 2);
-        m_map.mk_inv(lit2expr);
-        return expr_ref(lit2expr.get(lit.index()), m);
-    }
-
-    void get_split_candidates(vector<solver::scored_literal>& candidates) override {
-        if (!is_internalized()) {
-            lbool r = internalize_formulas();
-            if (r != l_true)
-                return;
-        }
-        convert_internalized();
-        sat::literal_vector lits;
-        m_solver.get_split_candidates(lits);
-        expr_ref_vector lit2expr(m);
-        lit2expr.resize(m_solver.num_vars() * 2);
-        m_map.mk_inv(lit2expr);
-        for (sat::literal lit : lits) {
-            expr* e = lit2expr.get(lit.index());
-            if (e)
-                candidates.push_back(scored_literal(m, e, static_cast<double>(m_solver.get_activity(lit.var()))));
-        }
     }
 
     void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {

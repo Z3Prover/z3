@@ -316,8 +316,6 @@ public:
     virtual unsigned get_num_bool_vars() const { return UINT_MAX; }
     virtual unsigned get_bool_var(expr* e) const { return UINT_MAX; }
 
-    virtual unsigned get_random_seed() const { return 0; }
-
     virtual void pop_to_base_level() {}
 
     virtual void set_preprocess(bool) {}
@@ -344,14 +342,6 @@ public:
     }
     
     virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
-
-    virtual expr_ref get_split_candidate() = 0;
-
-    virtual void get_split_candidates(vector<scored_literal>& candidates) {
-        expr_ref e = get_split_candidate();
-        if (e)
-            candidates.push_back(scored_literal(e, 0.0));
-    }
 
     virtual void get_backbone_candidates(vector<scored_literal>& candidates, unsigned max_num) = 0;
 

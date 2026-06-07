@@ -68,9 +68,17 @@ namespace search_tree {
         literal const &get_literal() const {
             return m_literal;
         }
+        bool path_contains_atom(literal const& l) const {
+            for (node const* n = this; n; n = n->parent())
+                if (!Config::literal_is_null(n->get_literal()) && Config::same_atom(n->get_literal(), l))
+                    return true;
+            return false;
+        }
         void split(literal const &a, literal const &b) {
             SASSERT(!Config::literal_is_null(a));
             SASSERT(!Config::literal_is_null(b));
+            VERIFY(!path_contains_atom(a));
+            VERIFY(!path_contains_atom(b));
             if (m_status != status::active)
                 return;
             SASSERT(!m_left);

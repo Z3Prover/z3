@@ -101,27 +101,6 @@ namespace opt {
         m_context.set_logic(logic);
     }
 
-    expr_ref opt_solver::get_split_candidate() {
-        auto& ctx = m_context.get_context();
-        expr_ref result(m);
-        double score = 0.0;
-        unsigned n = 0;
-        ctx.pop_to_search_level();
-        for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
-            if (ctx.get_assignment(v) != l_undef)
-                continue;
-            expr* e = ctx.bool_var2expr(v);
-            if (!e)
-                continue;
-            double new_score = ctx.get_activity(v);
-            if (new_score > score || !result || (new_score == score && ctx.get_random_value() % (++n) == 0)) {
-                score = new_score;
-                result = e;
-            }
-        }
-        return result;
-    }
-
     void opt_solver::get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) {
         auto& ctx = m_context.get_context();
         unsigned curr_time = ctx.get_num_assignments();
