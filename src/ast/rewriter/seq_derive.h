@@ -77,6 +77,10 @@ namespace seq {
         unsigned m_inter_hoist_depth { 0 };
         static const unsigned m_max_inter_hoist_depth = 4;
 
+        // Depth limit for one-sided union hoisting (global budget per derivative call)
+        unsigned m_union_hoist_budget { 0 };
+        static const unsigned m_max_union_hoist_budget = 32;
+
         seq_util::rex& re() { return m_util.re; }
         seq_util& u() { return m_util; }
 
@@ -111,14 +115,6 @@ namespace seq {
         expr_ref mk_union_from_sorted(expr_ref_vector& args);
         expr_ref mk_inter_from_sorted(expr_ref_vector& args);
 
-        // ITE-tree binary combinator (analogous to REsharp mk_binary)
-        // Combines two ITE-tree derivatives with a binary regex operation
-        expr_ref ite_combine_binary(expr* d1, expr* d2,
-            std::function<expr_ref(expr*, expr*)> const& op);
-
-        // ITE-tree unary combinator (analogous to REsharp mk_unary)
-        expr_ref ite_combine_unary(expr* d, std::function<expr_ref(expr*)> const& op);
-
         // Distribute concatenation through ITE/union in derivative
         expr_ref mk_deriv_concat(expr* d, expr* tail);
         expr_ref mk_deriv_concat_core(expr* d, expr* tail);
@@ -133,6 +129,7 @@ namespace seq {
         // Returns true if condition a implies condition b.
         bool pred_implies(expr* a, expr* b);
         bool extract_char_range(expr* cond, unsigned& lo, unsigned& hi);
+        bool is_char_cond(expr* c);
 
         // Normalize reverse(r) by pushing reverse inward
         expr_ref normalize_reverse(expr* r);
@@ -157,6 +154,7 @@ namespace seq {
         sort* ele_sort(expr* r) { sort* s = seq_sort(r); sort* e = nullptr; m_util.is_seq(s, e); return e; }
 
         void reset();
+        void reset_op_caches();
 
     public:
         derive(ast_manager& m);
