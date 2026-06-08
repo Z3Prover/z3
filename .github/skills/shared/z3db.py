@@ -3,7 +3,7 @@
 z3db: shared library and CLI for Z3 skill scripts.
 
 Library usage:
-    from z3db import Z3DB, find_z3, run_z3
+    from z3db import Z3DB, find_z3, find_repo_root, require_repo_root, run_z3
 
 CLI usage:
     python z3db.py init
@@ -131,7 +131,7 @@ class Z3DB:
         """Write to stderr and to the interaction_log table."""
         getattr(logger, level, logger.info)(message)
         self.conn.execute(
-            "INSERT INTO interaction_log (run_id, level, message) " "VALUES (?, ?, ?)",
+            "INSERT INTO interaction_log (run_id, level, message) VALUES (?, ?, ?)",
             (run_id, level, message),
         )
         self.conn.commit()
@@ -182,7 +182,7 @@ def find_z3(hint: str = None) -> str:
     if hint:
         candidates.append(hint)
 
-    repo_root = _find_repo_root()
+    repo_root = find_repo_root()
     if repo_root:
         for build_dir in ["build", "build/release", "build/debug"]:
             candidates.append(str(repo_root / build_dir / "z3"))
@@ -201,7 +201,8 @@ def find_z3(hint: str = None) -> str:
     sys.exit(1)
 
 
-def _find_repo_root() -> Optional[Path]:
+def find_repo_root() -> Optional[Path]:
+    """Best-effort search for the Z3 repository root from the current directory."""
     d = Path.cwd()
     for _ in range(10):
         if (d / "CMakeLists.txt").exists() and (d / "src").is_dir():
@@ -211,6 +212,15 @@ def _find_repo_root() -> Optional[Path]:
             break
         d = parent
     return None
+
+
+def require_repo_root() -> Path:
+    """Return the Z3 repository root or exit the process if it is not found."""
+    repo_root = find_repo_root()
+    if repo_root is None:
+        logger.error("could not locate Z3 repository root")
+        sys.exit(1)
+    return repo_root
 
 
 def run_z3(

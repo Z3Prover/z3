@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "shared"))
-from z3db import Z3DB, setup_logging
+from z3db import Z3DB, require_repo_root, setup_logging
 
 logger = logging.getLogger("z3agent")
 
@@ -50,19 +50,6 @@ def check_dependencies():
         for tool, install in missing:
             print(f"  {tool}: {install}", file=sys.stderr)
         sys.exit(1)
-
-
-def find_repo_root() -> Path:
-    d = Path.cwd()
-    for _ in range(10):
-        if (d / "CMakeLists.txt").exists() and (d / "src").is_dir():
-            return d
-        parent = d.parent
-        if parent == d:
-            break
-        d = parent
-    logger.error("could not locate Z3 repository root")
-    sys.exit(1)
 
 
 def build_is_configured(build_dir: Path, sanitizer: str) -> bool:
@@ -220,7 +207,7 @@ def main():
 
     setup_logging(args.debug)
     check_dependencies()
-    repo_root = find_repo_root()
+    repo_root = require_repo_root()
 
     sanitizers = ["asan", "ubsan"] if args.sanitizer == "both" else [args.sanitizer]
     all_findings = []
