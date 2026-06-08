@@ -82,7 +82,7 @@ public:
     void collect_param_descrs(param_descrs & r) override { m_solver->collect_param_descrs(r); m_rewriter.collect_param_descrs(r);}    
     void set_produce_models(bool f) override { m_solver->set_produce_models(f); }
     void set_progress_callback(progress_callback * callback) override { m_solver->set_progress_callback(callback);  }
-    void collect_statistics(statistics & st) const override { 
+    void collect_statistics_core(statistics & st) const override { 
         m_rewriter.collect_statistics(st);
         m_solver->collect_statistics(st); 
     }

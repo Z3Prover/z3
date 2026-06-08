@@ -232,7 +232,9 @@ public:
                 }
                 ctx.validate_check_sat_result(r);
             }
-            t.collect_statistics(result->m_stats);
+            statistics stats;
+            t.collect_statistics(stats);
+            result->add_statistics(stats);
         }
 
         if (ctx.produce_unsat_cores()) {
