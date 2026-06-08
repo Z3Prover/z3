@@ -117,14 +117,17 @@ jobs:
           script: |
             const fs = require('fs');
 
-            const readIfExists = (path) => fs.existsSync(path) ? fs.readFileSync(path, 'utf8').trim() : '';
-            const z3VersionText = readIfExists('/tmp/gh-aw/agent/z3-version.txt') || 'unknown';
-            const fstarVersionFile = readIfExists('/tmp/gh-aw/agent/fstar-version.txt');
+            const readIfExists = (path) => fs.existsSync(path) ? fs.readFileSync(path, 'utf8').trim() : null;
+            const z3VersionText = readIfExists('/tmp/gh-aw/agent/z3-version.txt') ?? 'unknown';
+            const fstarVersionFile = readIfExists('/tmp/gh-aw/agent/fstar-version.txt') ?? '';
             const fstarVersionText = fstarVersionFile ? fstarVersionFile.split('\n')[0] : 'unknown';
-            const fstarCommitLine = readIfExists('/tmp/gh-aw/agent/fstar-commit.txt');
+            const fstarCommitLine = readIfExists('/tmp/gh-aw/agent/fstar-commit.txt') ?? '';
             const fstarCommit = fstarCommitLine ? fstarCommitLine.replace(/^FStar commit:\s*/, '') : 'unknown';
-            const fstarBuildSucceeded = process.env.FSTAR_BUILD_OUTCOME === 'success';
-            const fstarStatus = fstarBuildSucceeded ? '✅ FStar build completed' : '⚠️ FStar build failed (pipeline continued)';
+            const fstarBuildOutcome = process.env.FSTAR_BUILD_OUTCOME || 'unknown';
+            const fstarBuildSucceeded = fstarBuildOutcome === 'success';
+            const fstarStatus = fstarBuildSucceeded
+              ? '✅ FStar build completed'
+              : `⚠️ FStar build ${fstarBuildOutcome} (pipeline continued)`;
             const date = new Date().toISOString().slice(0, 10);
 
             const owner = context.repo.owner;
