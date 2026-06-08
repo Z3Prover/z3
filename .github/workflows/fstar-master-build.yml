@@ -20,7 +20,7 @@ on:
       fstar_ref:
         description: FStar ref to checkout and build
         required: false
-        default: master
+        default: _nik_higher_order_smt
       fstar_opam_switch:
         description: OCaml switch for FStar build
         required: false
@@ -28,7 +28,7 @@ on:
       fstar_otherflags:
         description: "Extra FStar OTHERFLAGS"
         required: false
-        default: "--split_queries --log_failing_queries"
+        default: "--split_queries --log_failing_queries --ext higher_order_smt --proof_recovery"
       discussion_category:
         description: Discussion category name
         required: false
