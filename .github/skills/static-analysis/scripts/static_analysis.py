@@ -176,9 +176,7 @@ def print_findings(findings: list):
         return
 
     for f in findings:
-        label = f["category"]
-        if f["type"]:
-            label = f["type"]
+        label = f["type"] or f["category"]
         print(f"[{label}] {f['file']}:{f['line']}: {f['description']}")
 
     print()
