@@ -43,6 +43,7 @@ namespace euf {
         m_egraph.set_on_make(on_make);
     }
 
+
     sgraph::~sgraph() {
     }
 
@@ -52,11 +53,10 @@ namespace euf {
         if (m_seq.str.is_empty(e))
             return snode_kind::s_empty;
 
-        if (m_seq.str.is_string(e)) {
+        {
             zstring s;
-            if (m_seq.str.is_string(e, s) && s.empty())
-                return snode_kind::s_empty;
-            return snode_kind::s_var;
+            if (m_seq.str.is_string(e, s))
+                return s.empty() ? snode_kind::s_empty : snode_kind::s_var;
         }
 
         if (m_seq.str.is_concat(e) || m_seq.re.is_concat(e))
@@ -531,17 +531,21 @@ namespace euf {
     snode* sgraph::drop_left(snode* n, unsigned count) {
         if (count == 0 || n->is_empty()) return n;
         if (count >= n->length()) return mk_empty_seq(n->get_sort());
-        for (unsigned i = 0; i < count; ++i)
-            n = drop_first(n);
-        return n;
+        SASSERT(n->is_concat());
+        unsigned left_len = n->arg(0)->length();
+        if (count < left_len)
+            return mk_concat(drop_left(n->arg(0), count), n->arg(1));
+        return drop_left(n->arg(1), count - left_len);
     }
 
     snode* sgraph::drop_right(snode* n, unsigned count) {
         if (count == 0 || n->is_empty()) return n;
         if (count >= n->length()) return mk_empty_seq(n->get_sort());
-        for (unsigned i = 0; i < count; ++i)
-            n = drop_last(n);
-        return n;
+        SASSERT(n->is_concat());
+        unsigned right_len = n->arg(1)->length();
+        if (count < right_len)
+            return mk_concat(n->arg(0), drop_right(n->arg(1), count));
+        return drop_right(n->arg(0), count - right_len);
     }
 
     snode* sgraph::subst(snode* n, snode* var, snode* replacement) {
@@ -1133,4 +1137,3 @@ namespace euf {
     }
 
 }
-

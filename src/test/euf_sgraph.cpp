@@ -564,10 +564,22 @@ static void test_sgraph_drop() {
     SASSERT(cd2->length() == 2);
     SASSERT(cd2->first() == c);
 
+    // drop_left(1): [A, B, C, D] => [B, C, D]
+    euf::snode* bcd2 = sg.drop_left(abcd, 1);
+    SASSERT(bcd2->length() == 3);
+    SASSERT(bcd2->first() == b);
+    SASSERT(bcd2->last() == d);
+
     // drop_right(2): [A, B, C, D] => [A, B]
     euf::snode* ab2 = sg.drop_right(abcd, 2);
     SASSERT(ab2->length() == 2);
     SASSERT(ab2->last() == b);
+
+    // drop_right(1): [A, B, C, D] => [A, B, C]
+    euf::snode* abc2 = sg.drop_right(abcd, 1);
+    SASSERT(abc2->length() == 3);
+    SASSERT(abc2->first() == a);
+    SASSERT(abc2->last() == c);
 
     // drop all: [A, B, C, D] => empty
     euf::snode* empty = sg.drop_left(abcd, 4);
