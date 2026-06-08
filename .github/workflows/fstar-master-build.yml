@@ -101,7 +101,7 @@ jobs:
           Z3_VERSION="$(sed -E -n 's/^Z3 version ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' /tmp/gh-aw/agent/z3-version.txt | head -1)"
           test -n "$Z3_VERSION" || { echo "Error: Failed to extract Z3 version from /tmp/gh-aw/agent/z3-version.txt (expected: 'Z3 version X.Y.Z')"; cat /tmp/gh-aw/agent/z3-version.txt || true; exit 1; }
 
-          PATH="/tmp/gh-aw/agent/z3-bin:$PATH" OTHERFLAGS="--z3version $Z3_VERSION $FSTAR_OTHERFLAGS" make -j"$(nproc)"
+          PATH="/tmp/gh-aw/agent/z3-bin:$PATH" OTHERFLAGS="--z3version $Z3_VERSION $FSTAR_OTHERFLAGS" make -j"$(nproc)" -k
           test -x /tmp/gh-aw/agent/FStar/out/bin/fstar.exe || { echo "Error: FStar binary not found or not executable at /tmp/gh-aw/agent/FStar/out/bin/fstar.exe"; exit 1; }
           /tmp/gh-aw/agent/FStar/out/bin/fstar.exe --version | tee /tmp/gh-aw/agent/fstar-version.txt
 
