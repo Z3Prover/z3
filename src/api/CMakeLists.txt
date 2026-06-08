@@ -66,7 +66,7 @@ z3_add_component(api
     z3_replayer.cpp
     ${full_path_generated_files}
   COMPONENT_DEPENDENCIES
-    opt
+    z3_opt
     euf
     portfolio
     realclosure
