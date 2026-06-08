@@ -108,7 +108,7 @@ jobs:
           /tmp/gh-aw/agent/FStar/out/bin/fstar.exe --version | tee /tmp/gh-aw/agent/fstar-version.txt
 
       - name: Create discussion summary
-        if: ${{ always() }}
+        if: always()
         uses: actions/github-script@v9
         env:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -117,8 +117,8 @@ jobs:
           script: |
             const fs = require('fs');
 
-            const readIfExists = (path, fallback = '') => fs.existsSync(path) ? fs.readFileSync(path, 'utf8').trim() : fallback;
-            const z3VersionText = readIfExists('/tmp/gh-aw/agent/z3-version.txt', 'unknown');
+            const readIfExists = (path) => fs.existsSync(path) ? fs.readFileSync(path, 'utf8').trim() : '';
+            const z3VersionText = readIfExists('/tmp/gh-aw/agent/z3-version.txt') || 'unknown';
             const fstarVersionFile = readIfExists('/tmp/gh-aw/agent/fstar-version.txt');
             const fstarVersionText = fstarVersionFile ? fstarVersionFile.split('\n')[0] : 'unknown';
             const fstarCommitLine = readIfExists('/tmp/gh-aw/agent/fstar-commit.txt');
