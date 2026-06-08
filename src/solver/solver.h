@@ -311,6 +311,10 @@ public:
     virtual bool is_relevant(expr* e) const { return true; }
     virtual unsigned get_num_bool_vars() const { return UINT_MAX; }
     virtual unsigned get_bool_var(expr* e) const { return UINT_MAX; }
+    virtual expr* bool_var2expr(unsigned) const { return nullptr; }
+    virtual lbool get_assignment(unsigned) const { return l_undef; }
+    virtual double get_activity(unsigned) const { return 0.0; }
+    virtual bool was_eliminated(unsigned) const { return false; }
 
     virtual void pop_to_base_level() {}
 

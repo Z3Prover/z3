@@ -64,6 +64,7 @@ namespace {
         smt_params           m_smt_params;
         smt::kernel          m_context;
         cuber*               m_cuber;
+        random_gen           m_rand;
         symbol               m_logic;
         bool                 m_minimizing_core;
         bool                 m_core_extend_patterns;
@@ -77,6 +78,7 @@ namespace {
             m_smt_params(p),
             m_context(m, m_smt_params),
             m_cuber(nullptr),
+            m_rand(p.get_uint("random_seed", 0)),
             m_minimizing_core(false),
             m_core_extend_patterns(false),
             m_core_extend_patterns_max_distance(UINT_MAX),
@@ -255,6 +257,21 @@ namespace {
             expr* atom = e;
             get_manager().is_not(e, atom);
             return ctx.b_internalized(atom) ? ctx.get_bool_var(atom) : UINT_MAX;
+        }
+
+        expr* bool_var2expr(unsigned v) const override {
+            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
+            return v < ctx.get_num_bool_vars() ? ctx.bool_var2expr(v) : nullptr;
+        }
+
+        lbool get_assignment(unsigned v) const override {
+            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
+            return v < ctx.get_num_bool_vars() ? ctx.get_assignment(v) : l_undef;
+        }
+
+        double get_activity(unsigned v) const override {
+            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
+            return v < ctx.get_num_bool_vars() ? ctx.get_activity(v) : 0.0;
         }
 
         void pop_to_base_level() override {
@@ -463,22 +480,22 @@ namespace {
                 expr_ref_vector candidates(m);
                 expr_ref result(m);
                 double score = 0.0;
+                unsigned n = 0;
 
                 ctx.pop_to_search_level();
-                for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
-                    if (ctx.get_assignment(v) != l_undef)
+                for (unsigned v = 0; v < get_num_bool_vars(); ++v) {
+                    if (get_assignment(v) != l_undef)
                         continue;
-                    expr* e = ctx.bool_var2expr(v);
+                    expr* e = bool_var2expr(v);
                     if (!e)
                         continue;
                     if (!selected_vars.empty() && !selected_vars.contains(e))
                         continue;
                     candidates.push_back(e);
-                    double new_score = ctx.get_activity(v);
-                    if (new_score > score || !result) {
+                    double new_score = get_activity(v);
+                    if (new_score > score || !result || (new_score == score && m_rand(++n) == 0)) {
                         score = new_score;
-                        auto const& d = ctx.get_bdata(v);
-                        result = d.m_phase_available && !d.m_phase ? m.mk_not(e) : e;
+                        result = e;
                     }
                 }
 
