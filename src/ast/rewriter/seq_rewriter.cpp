@@ -4491,7 +4491,57 @@ br_status seq_rewriter::mk_str_to_regexp(expr* a, expr_ref& result) {
     r* ++ r -> r ++ r*
 */
 br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
+    auto accepts_empty_word = [&](expr* r) {
+        auto info = re().get_info(r);
+        return info.interpreted && info.nullable == l_true && info.min_length == 0;
+    };
+    auto starts_with_full_seq = [&](expr* r) {
+        expr* r1 = nullptr, *r2 = nullptr;
+        return re().is_full_seq(r) || (re().is_concat(r, r1, r2) && re().is_full_seq(r1));
+    };
+    auto ends_with_full_seq = [&](expr* r) {
+        expr* r1 = nullptr, *r2 = nullptr;
+        while (re().is_concat(r, r1, r2))
+            r = r2;
+        return re().is_full_seq(r);
+    };
+    auto all_inter_arms_end_with_full_seq = [&](expr* r) {
+        ptr_buffer<expr> todo;
+        todo.push_back(r);
+        while (!todo.empty()) {
+            expr* r1 = nullptr, *r2 = nullptr;
+            expr* t = todo.back();
+            todo.pop_back();
+            if (re().is_intersection(t, r1, r2)) {
+                todo.push_back(r1);
+                todo.push_back(r2);
+            }
+            else if (!ends_with_full_seq(t)) {
+                return false;
+            }
+        }
+        return true;
+    };
     if (re().is_full_seq(a) && re().is_full_seq(b)) {
+        result = a;
+        return BR_DONE;
+    }
+    if (re().is_full_seq(a) && accepts_empty_word(b)) {
+        result = a;
+        return BR_DONE;
+    }
+    if (re().is_full_seq(b) && accepts_empty_word(a)) {
+        result = b;
+        return BR_DONE;
+    }
+    expr* u1 = nullptr, *u2 = nullptr;
+    if (re().is_full_seq(a) && re().is_union(b, u1, u2) &&
+        (starts_with_full_seq(u1) || starts_with_full_seq(u2))) {
+        result = mk_regex_union_normalize(mk_regex_concat(a, u1), mk_regex_concat(a, u2));
+        return BR_REWRITE2;
+    }
+    if (re().is_intersection(a, u1, u2) && re().is_full_seq(b) &&
+        all_inter_arms_end_with_full_seq(a)) {
         result = a;
         return BR_DONE;
     }
@@ -4525,13 +4575,19 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = re().mk_to_re(str().mk_concat(a_str, b_str));
         return BR_REWRITE2;
     }
-    expr* a1 = nullptr, *b1 = nullptr;
+    expr* a1 = nullptr;
+    expr* b1 = nullptr;
     if (re().is_to_re(a, a1) && re().is_to_re(b, b1)) {
         result = re().mk_to_re(str().mk_concat(a1, b1));
         return BR_DONE;
     }
     if (re().is_star(a, a1) && re().is_star(b, b1) && a1 == b1) {
         result = a;
+        return BR_DONE;
+    }
+    expr* b2 = nullptr, *b3 = nullptr;
+    if (re().is_star(a, a1) && re().is_concat(b, b1, b2) && re().is_star(b1, b3) && a1 == b3) {
+        result = b;
         return BR_DONE;
     }
     if (re().is_star(a, a1) && a1 == b) {
@@ -6163,4 +6219,3 @@ bool seq_rewriter::get_bounds(expr* e, unsigned& low, unsigned& high) {
     }
     return low <= high;
 }
-
