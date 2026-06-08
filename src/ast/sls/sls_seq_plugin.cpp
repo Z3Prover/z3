@@ -470,7 +470,7 @@ namespace sls {
                 zstring s2 = strval0(y);
                 zstring c = strval0(z);
                 
-                if (s1.length() < s2.length()) 
+                if (s2.empty() || s1.length() < s2.length())
                     ev.val1.svalue = s1;
                 else {
                     zstring r;
@@ -1489,7 +1489,7 @@ namespace sls {
         if (ctx.is_true(e)) {
             unsigned n = std::min(lena, lenb);
             if (!is_value(a)) {                
-                for (unsigned i = 0; i < n; ++i)
+                for (unsigned i = 0; i <= n; ++i)
                     add_str_update(a, sa, sb.extract(0, i), 1);
             }
             if (!is_value(b)) {
@@ -1527,7 +1527,7 @@ namespace sls {
         if (ctx.is_true(e)) {
             unsigned n = std::min(lena, lenb);
             if (!is_value(a)) {
-                for (unsigned i = 0; i < n; ++i)
+                for (unsigned i = 0; i <= n; ++i)
                     add_str_update(a, sa, sb.extract(lenb - i, i), 1);
             }
             if (!is_value(b)) {
