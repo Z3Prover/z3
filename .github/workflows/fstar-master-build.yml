@@ -28,7 +28,7 @@ on:
       fstar_otherflags:
         description: "Extra FStar OTHERFLAGS"
         required: false
-        default: ""
+        default: "--split_queries --log_failing_queries"
       discussion_category:
         description: Discussion category name
         required: false
