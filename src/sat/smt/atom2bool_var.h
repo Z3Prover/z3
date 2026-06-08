@@ -40,3 +40,4 @@ class goal;
 
 void collect_boolean_interface(goal const & g, obj_hashtable<expr> & r);
 void collect_boolean_interface(ast_manager & m, unsigned num, expr * const * fs, obj_hashtable<expr> & r);
+

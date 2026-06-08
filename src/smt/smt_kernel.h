@@ -350,3 +350,4 @@ namespace smt {
         context & get_context();
     };
 };
+

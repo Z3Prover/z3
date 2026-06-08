@@ -259,21 +259,6 @@ namespace {
             return ctx.b_internalized(atom) ? ctx.get_bool_var(atom) : UINT_MAX;
         }
 
-        expr* bool_var2expr(unsigned v) const override {
-            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
-            return v < ctx.get_num_bool_vars() ? ctx.bool_var2expr(v) : nullptr;
-        }
-
-        lbool get_assignment(unsigned v) const override {
-            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
-            return v < ctx.get_num_bool_vars() ? ctx.get_assignment(v) : l_undef;
-        }
-
-        double get_activity(unsigned v) const override {
-            auto& ctx = const_cast<smt::kernel&>(m_context).get_context();
-            return v < ctx.get_num_bool_vars() ? ctx.get_activity(v) : 0.0;
-        }
-
         void pop_to_base_level() override {
             m_context.pop_to_base_level();
         }
@@ -483,16 +468,16 @@ namespace {
                 unsigned n = 0;
 
                 ctx.pop_to_search_level();
-                for (unsigned v = 0; v < get_num_bool_vars(); ++v) {
-                    if (get_assignment(v) != l_undef)
+                for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
+                    if (ctx.get_assignment(v) != l_undef)
                         continue;
-                    expr* e = bool_var2expr(v);
+                    expr* e = ctx.bool_var2expr(v);
                     if (!e)
                         continue;
                     if (!selected_vars.empty() && !selected_vars.contains(e))
                         continue;
                     candidates.push_back(e);
-                    double new_score = get_activity(v);
+                    double new_score = ctx.get_activity(v);
                     if (new_score > score || !result || (new_score == score && m_rand(++n) == 0)) {
                         score = new_score;
                         result = e;
@@ -698,3 +683,4 @@ public:
 solver_factory * mk_smt_solver_factory() {
     return alloc(smt_solver_factory);
 }
+
