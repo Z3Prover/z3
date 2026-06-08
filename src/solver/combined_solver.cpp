@@ -275,13 +275,6 @@ public:
         return m_solver2->cube(vars, backtrack_level);
     }
 
-    void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
-        if (m_use_solver1_results)
-            m_solver1->get_backbone_candidates(candidates, max_num);
-        else
-            m_solver2->get_backbone_candidates(candidates, max_num);
-    }
-
     expr* congruence_next(expr* e) override { switch_inc_mode(); return m_solver2->congruence_next(e); }
     expr* congruence_root(expr* e) override { switch_inc_mode(); return m_solver2->congruence_root(e); }
     expr_ref congruence_explain(expr* a, expr* b) override { switch_inc_mode(); return m_solver2->congruence_explain(a, b); }

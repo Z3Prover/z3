@@ -101,35 +101,6 @@ namespace opt {
         m_context.set_logic(logic);
     }
 
-    void opt_solver::get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) {
-        auto& ctx = m_context.get_context();
-        unsigned curr_time = ctx.get_num_assignments();
-        vector<solver::scored_literal> all;
-
-        for (unsigned v = 0; v < ctx.get_num_bool_vars(); ++v) {
-            if (ctx.get_assignment(v) != l_undef && ctx.get_assign_level(v) == ctx.get_base_level())
-                continue;
-            expr* candidate = ctx.bool_var2expr(v);
-            if (!candidate)
-                continue;
-
-            auto const& data = ctx.get_bdata(v);
-            if (data.m_phase_available && !data.m_phase)
-                candidate = m.mk_not(candidate);
-
-            double age = static_cast<double>(curr_time - ctx.get_birthdate(v));
-            all.push_back(solver::scored_literal(m, candidate, age));
-        }
-
-        std::stable_sort(all.begin(), all.end(), [](solver::scored_literal const& a, solver::scored_literal const& b) {
-            return a.score > b.score;
-        });
-
-        unsigned n = std::min<unsigned>(max_num, all.size());
-        for (unsigned i = 0; i < n; ++i)
-            candidates.push_back(all[i]);
-    }
-
     void opt_solver::ensure_pb() {
         smt::theory_id th_id = m.get_family_id("pb");
         smt::theory* th = get_context().get_theory(th_id);               

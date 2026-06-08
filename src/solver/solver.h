@@ -343,7 +343,7 @@ public:
     
     virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
 
-    virtual void get_backbone_candidates(vector<scored_literal>& candidates, unsigned max_num) = 0;
+    virtual void get_backbone_candidates(vector<scored_literal>&, unsigned) {}
 
     class scoped_push {
         solver& s;

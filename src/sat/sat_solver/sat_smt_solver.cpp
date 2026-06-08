@@ -395,37 +395,11 @@ public:
             if (_vs.empty() || _vs.contains(kv.m_key))
                 vars.push_back(kv.m_value);
         sat::literal_vector lits;
+        lbool result = m_solver.cube(vars, lits, backtrack_level);
         expr_ref_vector fmls(m);
         expr_ref_vector lit2expr(m);
         lit2expr.resize(m_solver.num_vars() * 2);
         m_map.mk_inv(lit2expr);
-        if (!m_params.get_bool("cube.lookahead", false)) {
-            sat::bool_var best = sat::null_bool_var;
-            unsigned best_activity = 0;
-            for (sat::bool_var v : vars) {
-                if (m_solver.value(v) != l_undef || m_solver.was_eliminated(v))
-                    continue;
-                if (best == sat::null_bool_var || m_solver.get_activity(v) > best_activity) {
-                    best = v;
-                    best_activity = m_solver.get_activity(v);
-                }
-            }
-            if (best == sat::null_bool_var)
-                return expr_ref_vector(m);
-            sat::literal lit(best, !m_solver.get_phase(best));
-            expr* e = lit2expr.get(lit.index());
-            SASSERT(e);
-            if (e)
-                fmls.push_back(e);
-            vs.reset();
-            for (sat::bool_var v : vars) {
-                expr* x = lit2expr[sat::literal(v, false).index()].get();
-                if (x)
-                    vs.push_back(x);
-            }
-            return fmls;
-        }
-        lbool result = m_solver.cube(vars, lits, backtrack_level);
         for (sat::literal l : lits) {
             expr* e = lit2expr.get(l.index());
             SASSERT(e);
@@ -448,26 +422,6 @@ public:
         if (lits.empty()) 
             set_reason_unknown(m_solver.get_reason_unknown());
         return fmls;
-    }
-
-    void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
-        expr_ref_vector none(m);
-        lbool r = internalize_formulas(none);
-        if (r != l_true)
-            return;
-        convert_internalized();
-        sat::literal_vector lits;
-        m_solver.get_backbone_candidates(lits, max_num);
-        expr_ref_vector lit2expr(m);
-        lit2expr.resize(m_solver.num_vars() * 2);
-        m_map.mk_inv(lit2expr);
-        uint64_t now = m_solver.get_stats().m_conflict;
-        for (sat::literal lit : lits) {
-            expr* e = lit2expr.get(lit.index());
-            if (!e)
-                continue;
-            candidates.push_back(scored_literal(m, e, static_cast<double>(now - m_solver.get_phase_birthdate(lit.var()))));
-        }
     }
 
     expr* congruence_next(expr* e) override { return e; }
@@ -774,3 +728,4 @@ private:
 solver* mk_sat_smt_solver(ast_manager& m, params_ref const& p) {
     return mk_simplifier_solver(alloc(sat_smt_solver, m, p), nullptr);
 }
+

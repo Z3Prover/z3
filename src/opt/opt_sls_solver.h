@@ -98,9 +98,6 @@ namespace opt {
         virtual expr * get_assertion(unsigned idx) const {
             return m_solver->get_assertion(idx);
         }
-        void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
-            m_solver->get_backbone_candidates(candidates, max_num);
-        }
         virtual void display(std::ostream & out) const {
             m_solver->display(out);
             // if (m_bvsls) m_bvsls->display(out);
@@ -233,3 +230,4 @@ namespace opt {
 
     };
 }
+

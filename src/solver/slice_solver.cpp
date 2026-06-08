@@ -390,10 +390,6 @@ public:
         flush();
         return s->cube(vars, backtrack_level); 
     }
-    void get_backbone_candidates(vector<solver::scored_literal>& candidates, unsigned max_num) override {
-        flush();
-        s->get_backbone_candidates(candidates, max_num);
-    }
 
     expr* congruence_root(expr* e) override { return s->congruence_root(e); }
     expr* congruence_next(expr* e) override { return s->congruence_next(e); }
@@ -434,3 +430,4 @@ solver * mk_slice_solver(solver * s) {
     else
         return s;
 }
+

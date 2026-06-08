@@ -2062,15 +2062,8 @@ namespace smtfd {
         lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override { 
             return l_undef;
         }
-        expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override {
-            init();
-            flush_assertions();
-            return m_fd_sat_solver->cube(vars, backtrack_level);
-        }
-        void get_backbone_candidates(vector<::solver::scored_literal>& candidates, unsigned max_num) override {
-            init();
-            flush_assertions();
-            m_fd_sat_solver->get_backbone_candidates(candidates, max_num);
+        expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override { 
+            return expr_ref_vector(m);
         }
 
         expr* congruence_root(expr* e) override { return e; }
