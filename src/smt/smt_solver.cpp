@@ -89,24 +89,6 @@ namespace {
 
         solver * translate(ast_manager & m, params_ref const & p) override {
             ast_translation translator(get_manager(), m);
-
-            smt_solver * result = alloc(smt_solver, m, p, m_logic);
-            smt::kernel::copy(m_context, result->m_context, true);
-
-            if (mc0()) 
-                result->set_model_converter(mc0()->translate(translator));
-
-            for (auto & [k, v] : m_name2assertion) {
-                expr* val = translator(k);
-                expr* key = translator(v);
-                result->assert_expr(val, key);
-            }
-
-            return result;
-        }
-
-        solver* translate_for_parallel(ast_manager& m, params_ref const& p) override {
-            ast_translation translator(get_manager(), m);
             params_ref init;
             init.copy(get_params());
             init.copy(p);

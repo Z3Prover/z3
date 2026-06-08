@@ -1093,7 +1093,7 @@ class parallel_solver {
             m_config.m_core_minimize = pp.core_minimize();
             m_config.m_global_backbones = pp.num_bb_threads() > 0;
 
-            s = src.translate_for_parallel(m, params);
+            s = src.translate(m, params);
             // don't share initial units
             s->pop_to_base_level();
             m_shared_units_prefix = s->get_assigned_literals().size();
@@ -1583,7 +1583,7 @@ class parallel_solver {
                          expr_ref_vector const& src_asms)
             : id(id), b(p.m_batch_manager),
               asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
-            s = src.translate_for_parallel(m, params);
+            s = src.translate(m, params);
             s->set_max_conflicts(m_bb_conflicts_per_chunk);
             s->pop_to_base_level();
             for (expr* a : src_asms)
@@ -1742,7 +1742,7 @@ class parallel_solver {
                               expr_ref_vector const& src_asms)
             : b(p.m_batch_manager),
               asms(m), m_g2l(src.get_manager(), m), m_l2g(m, src.get_manager()) {
-            s = src.translate_for_parallel(m, params);
+            s = src.translate(m, params);
             s->pop_to_base_level();
             // avoid preprocessing lemmas that are exchanged
             s->set_preprocess(false);
@@ -1813,7 +1813,7 @@ public:
     params_ref mk_worker_params(unsigned seed_offset) const {
         params_ref p(m_params);
         // Match smt_parallel's per-worker m_smt_params.m_random_seed += id.
-        // Generic solver workers receive the seed through translate_for_parallel params.
+        // Generic solver workers receive the seed through translate params.
         unsigned base_seed = m_params.get_uint("random_seed", 0);
         p.set_uint("random_seed", base_seed + seed_offset);
         p.set_uint("threads", 1);

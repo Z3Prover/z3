@@ -73,10 +73,6 @@ public:
     */
     virtual solver* translate(ast_manager& m, params_ref const& p) = 0;
 
-    virtual solver* translate_for_parallel(ast_manager& m, params_ref const& p) {
-        return translate(m, p);
-    }
-
     /**
        \brief Update the solver internal settings. 
     */
