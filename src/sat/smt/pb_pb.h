@@ -18,6 +18,7 @@ Author:
 #pragma once 
 
 #include "sat/sat_types.h"
+#include "util/trailing_array.h"
 #include "sat/smt/pb_card.h"
 
 
@@ -27,7 +28,7 @@ namespace pb {
         unsigned       m_slack;
         unsigned       m_num_watch;
         unsigned       m_max_sum;
-        wliteral       m_wlits[0];
+        TRAILING_ARRAY(wliteral, m_wlits);
     public:
         static size_t get_obj_size(unsigned num_lits) { return sat::constraint_base::obj_size(sizeof(pbc) + num_lits * sizeof(wliteral)); }
         pbc(unsigned id, literal lit, svector<wliteral> const& wlits, unsigned k);

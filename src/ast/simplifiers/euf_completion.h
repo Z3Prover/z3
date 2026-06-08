@@ -21,6 +21,7 @@ Author:
 #pragma once
 
 #include "util/scoped_vector.h"
+#include "util/trailing_array.h"
 #include "util/dlist.h"
 #include "ast/simplifiers/dependent_expr_state.h"
 #include "ast/euf/euf_egraph.h"
@@ -53,7 +54,7 @@ namespace euf {
         unsigned           m_max_generation;
         unsigned           m_min_top_generation;
         unsigned           m_max_top_generation;
-        euf::enode*        m_nodes[0];
+        TRAILING_ARRAY(euf::enode*, m_nodes);
 
         binding(quantifier* q, app* pat, unsigned max_generation, unsigned min_top, unsigned max_top) :
             m_q(q),

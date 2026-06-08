@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include "util/sexpr.h"
+#include "util/trailing_array.h"
 #include "util/vector.h"
 #include "util/buffer.h"
 
@@ -27,7 +28,7 @@ Notes:
 
 struct sexpr_composite : public sexpr {
     unsigned m_num_children;
-    sexpr *  m_children[0];
+    TRAILING_ARRAY(sexpr *, m_children);
     sexpr_composite(unsigned num_children, sexpr * const * children, unsigned line, unsigned pos):
         sexpr(kind_t::COMPOSITE, line, pos),
         m_num_children(num_children) {

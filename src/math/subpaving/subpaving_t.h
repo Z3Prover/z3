@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include<ostream>
+#include "util/trailing_array.h"
 #include "util/tptr.h"
 #include "util/small_object_allocator.h"
 #include "util/chashtable.h"
@@ -94,7 +95,7 @@ public:
         unsigned m_lemma:1;         //!< True if it is a learned clause.
         unsigned m_watched:1;       //!< True if it we are watching this clause. All non-lemmas are watched.
         unsigned m_num_jst:30;      //!< Number of times it is used to justify some bound.
-        ineq *   m_atoms[0];
+        TRAILING_ARRAY(ineq *, m_atoms);
         static unsigned get_obj_size(unsigned sz) { return sizeof(clause) + sz*sizeof(ineq*); }
     public:
         clause():constraint(constraint::CLAUSE) {}
@@ -322,7 +323,7 @@ public:
     class monomial : public definition {
         friend class context_t;
         unsigned m_size;
-        power    m_powers[0];
+        TRAILING_ARRAY(power, m_powers);
         monomial(unsigned sz, power const * pws);
         static unsigned get_obj_size(unsigned sz) { return sizeof(monomial) + sz*sizeof(power); }
     public:

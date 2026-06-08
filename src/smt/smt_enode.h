@@ -19,6 +19,7 @@ Revision History:
 #pragma once
 
 #include "util/id_var_list.h"
+#include "util/trailing_array.h"
 #include "util/approx_set.h"
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
@@ -101,7 +102,7 @@ namespace smt {
         trans_justification m_trans;            //!< A justification for the enode being equal to its root.
         approx_set          m_lbls;
         approx_set          m_plbls;
-        enode *             m_args[0];          //!< Cached args
+        TRAILING_ARRAY(enode *, m_args);          //!< Cached args
         
         friend class context;
         friend class conflict_resolution;

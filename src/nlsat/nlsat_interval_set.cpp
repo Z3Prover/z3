@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include "nlsat/nlsat_interval_set.h"
+#include "util/trailing_array.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/buffer.h"
 
@@ -39,7 +40,7 @@ namespace nlsat {
         unsigned  m_num_intervals;
         unsigned  m_ref_count:31;
         unsigned  m_full:1;
-        interval  m_intervals[0];
+        TRAILING_ARRAY(interval, m_intervals);
     };
 
     void display(std::ostream & out, anum_manager & am, interval const & curr) {
