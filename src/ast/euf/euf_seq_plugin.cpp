@@ -46,9 +46,9 @@ namespace euf {
         }
     }
 
-    // Saturating unsigned addition: returns UINT_MAX instead of wrapping.
-    static unsigned saturating_add(unsigned a, unsigned b) {
-        return (b > UINT_MAX - a) ? UINT_MAX : a + b;
+    // Check if a + b can be computed in unsigned arithmetic without overflow.
+    static bool can_add_without_overflow(unsigned a, unsigned b) {
+        return b <= UINT_MAX - a;
     }
 
     unsigned enode_concat_hash::operator()(enode* n) const {
@@ -183,13 +183,20 @@ namespace euf {
                 propagate_simplify(n);
         }
 
+        {
+            enode* root = a->get_root();
+            for (enode* cn : m_concats) {
+                enode *na, *nb;
+                if (is_concat(cn, na, nb) &&
+                    (na->get_root() == root || nb->get_root() == root))
+                    propagate_simplify(cn);
+            }
+        }
+
         // Re-apply identity and absorption rules over all tracked concat nodes.
         // This handles the case where the merge caused a child to become equivalent
         // to an identity (ε) or absorbing element (∅) that was not known at
         // registration time (e.g. b ~ "" discovered after concat(x, b) was registered).
-        // Also re-simplifies RE concat nodes when a child's root has become full_seq,
-        // to handle nullable absorption through nested concats:
-        // concat(.*, concat(v, w)) = concat(.*, w) when v is nullable but w is not.
         for (enode* n : m_concats) {
             enode *na, *nb;
             if (is_str_concat(n, na, nb)) {
@@ -207,8 +214,6 @@ namespace euf {
                     push_merge(n, na);   // absorb: concat(∅, b) = ∅
                 else if (is_re_empty(nb))
                     push_merge(n, nb);   // absorb: concat(a, ∅) = ∅
-                else if (is_full_seq(na->get_root()) || is_full_seq(nb->get_root()))
-                    propagate_simplify(n);
             }
         }
     }
@@ -260,21 +265,21 @@ namespace euf {
 
         // Rule 1 extended (right): concat(v*, concat(v*, c)) = concat(v*, c)
         enode* b1, *b2;
-        if (is_concat(b, b1, b2) && same_star_body(a, b1))
+        if (is_concat(b->get_root(), b1, b2) && same_star_body(a, b1))
             push_merge(n, b);
 
         // Rule 1 extended (left): concat(concat(c, v*), v*) = concat(c, v*)
         enode* a1, *a2;
-        if (is_concat(a, a1, a2) && same_star_body(a2, b))
+        if (is_concat(a->get_root(), a1, a2) && same_star_body(a2, b))
             push_merge(n, a);
 
         // Rule 2: Nullable absorption by .*
         // concat(.*, v) = .* when v is nullable
-        if (is_full_seq(a) && is_nullable(b))
+        if (is_full_seq(a->get_root()) && is_nullable(b->get_root()))
             push_merge(n, a);
 
         // concat(v, .*) = .* when v is nullable
-        if (is_nullable(a) && is_full_seq(b))
+        if (is_nullable(a->get_root()) && is_full_seq(b->get_root()))
             push_merge(n, b);
 
         // concat(.*, concat(v, w)) = concat(.*, w) when v nullable
@@ -286,12 +291,13 @@ namespace euf {
         // Rule 3: Loop merging
         // concat(v{l1,h1}, v{l2,h2}) = v{l1+l2,h1+h2}
         unsigned lo1, hi1, lo2, hi2;
-        if (same_loop_body(a, b, lo1, hi1, lo2, hi2)) {
+        if (same_loop_body(a, b, lo1, hi1, lo2, hi2) &&
+            can_add_without_overflow(lo1, lo2) &&
+            can_add_without_overflow(hi1, hi2)) {
             ast_manager& m = g.get_manager();
             enode* body_n = a->get_arg(0);
-            // saturating add: prevent silent unsigned wrap-around on large bounds
-            unsigned lo_merged = saturating_add(lo1, lo2);
-            unsigned hi_merged = saturating_add(hi1, hi2);
+            unsigned lo_merged = lo1 + lo2;
+            unsigned hi_merged = hi1 + hi2;
             expr_ref merged(m_seq.re.mk_loop(body_n->get_expr(), lo_merged, hi_merged), m);
             enode* merged_n = mk(merged, 1, &body_n);
             push_merge(n, merged_n);
@@ -304,10 +310,11 @@ namespace euf {
     }
 
     bool seq_plugin::same_star_body(enode* a, enode* b) {
-        if (!is_star(a) || !is_star(b))
+        enode* a_root = a->get_root(), *b_root = b->get_root();
+        if (!is_star(a_root) || !is_star(b_root))
             return false;
         // re.star(x) and re.star(y) have congruent bodies if x ~ y
-        return a->get_arg(0)->get_root() == b->get_arg(0)->get_root();
+        return a_root->get_arg(0)->get_root() == b_root->get_arg(0)->get_root();
     }
 
     bool seq_plugin::same_loop_body(enode* a, enode* b,

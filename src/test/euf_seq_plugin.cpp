@@ -9,6 +9,7 @@ Copyright (c) 2026 Microsoft Corporation
 #include "ast/euf/euf_egraph.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
+#include <climits>
 #include <iostream>
 
 static unsigned s_var = 0;
@@ -290,6 +291,127 @@ static void test_seq_plugin_loop_merge() {
     std::cout << g << "\n";
 }
 
+// test seq_plugin: star merge should fire when a child is merged into a star.
+static void test_seq_plugin_star_merge_after_child_merge() {
+    std::cout << "test_seq_plugin_star_merge_after_child_merge\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    euf::egraph& g = sg.get_egraph();
+    seq_util seq(m);
+    sort_ref str_sort(seq.str.mk_string_sort(), m);
+    sort_ref re_sort(seq.re.mk_re(str_sort), m);
+
+    expr_ref x(m.mk_const("x", str_sort), m);
+    expr_ref a(m.mk_const("a", re_sort), m);
+    expr_ref to_re_x(seq.re.mk_to_re(x), m);
+    expr_ref star_x(seq.re.mk_star(to_re_x), m);
+    expr_ref concat_expr(seq.re.mk_concat(a, star_x), m);
+
+    auto* nc = get_node(g, seq, concat_expr);
+    auto* na = get_node(g, seq, a);
+    auto* ns = get_node(g, seq, star_x);
+    g.propagate();
+
+    g.merge(na, ns, nullptr);
+    g.propagate();
+
+    SASSERT(nc->get_root() == ns->get_root());
+    std::cout << g << "\n";
+}
+
+// test seq_plugin: extended star merge should use the concat root.
+static void test_seq_plugin_star_merge_extended_root() {
+    std::cout << "test_seq_plugin_star_merge_extended_root\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    euf::egraph& g = sg.get_egraph();
+    seq_util seq(m);
+    sort_ref str_sort(seq.str.mk_string_sort(), m);
+    sort_ref re_sort(seq.re.mk_re(str_sort), m);
+
+    expr_ref x(m.mk_const("x", str_sort), m);
+    expr_ref c(m.mk_const("c", str_sort), m);
+    expr_ref b(m.mk_const("b", re_sort), m);
+    expr_ref to_re_x(seq.re.mk_to_re(x), m);
+    expr_ref to_re_c(seq.re.mk_to_re(c), m);
+    expr_ref star_x(seq.re.mk_star(to_re_x), m);
+    expr_ref rhs(seq.re.mk_concat(star_x, to_re_c), m);
+    expr_ref top(seq.re.mk_concat(star_x, b), m);
+
+    auto* ntop = get_node(g, seq, top);
+    auto* nb = get_node(g, seq, b);
+    auto* nrhs = get_node(g, seq, rhs);
+    g.propagate();
+
+    g.merge(nb, nrhs, nullptr);
+    g.propagate();
+
+    SASSERT(ntop->get_root() == nb->get_root());
+    std::cout << g << "\n";
+}
+
+// test seq_plugin: nullable absorption should use merged roots.
+static void test_seq_plugin_nullable_absorb_root() {
+    std::cout << "test_seq_plugin_nullable_absorb_root\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    euf::egraph& g = sg.get_egraph();
+    seq_util seq(m);
+    sort_ref str_sort(seq.str.mk_string_sort(), m);
+    sort_ref re_sort(seq.re.mk_re(str_sort), m);
+
+    expr_ref a(m.mk_const("a", re_sort), m);
+    expr_ref b(m.mk_const("b", re_sort), m);
+    expr_ref full_seq(seq.re.mk_full_seq(str_sort), m);
+    expr_ref eps(seq.re.mk_epsilon(str_sort), m);
+    expr_ref top(seq.re.mk_concat(a, b), m);
+
+    auto* ntop = get_node(g, seq, top);
+    auto* na = get_node(g, seq, a);
+    auto* nb = get_node(g, seq, b);
+    auto* nfull = get_node(g, seq, full_seq);
+    auto* neps = get_node(g, seq, eps);
+    g.propagate();
+
+    g.merge(na, nfull, nullptr);
+    g.merge(nb, neps, nullptr);
+    g.propagate();
+
+    SASSERT(ntop->get_root() == na->get_root());
+    std::cout << g << "\n";
+}
+
+// test seq_plugin: loop merge should not fire when bounds overflow.
+static void test_seq_plugin_loop_merge_overflow_guard() {
+    std::cout << "test_seq_plugin_loop_merge_overflow_guard\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    euf::egraph& g = sg.get_egraph();
+    seq_util seq(m);
+    sort_ref str_sort(seq.str.mk_string_sort(), m);
+
+    expr_ref x(m.mk_const("x", str_sort), m);
+    expr_ref r(seq.re.mk_to_re(x), m);
+    expr_ref l1(seq.re.mk_loop_proper(r, UINT_MAX, UINT_MAX), m);
+    expr_ref l2(seq.re.mk_loop_proper(r, 1, 1), m);
+    expr_ref concat_loops(seq.re.mk_concat(l1, l2), m);
+
+    auto* nc = get_node(g, seq, concat_loops);
+    auto* nl1 = get_node(g, seq, l1);
+    g.propagate();
+
+    SASSERT(nc->get_root() != nl1->get_root());
+    std::cout << g << "\n";
+}
+
 void tst_euf_seq_plugin() {
     s_var = 0; test_sgraph_basic();
     s_var = 0; test_sgraph_backtrack();
@@ -300,4 +422,8 @@ void tst_euf_seq_plugin() {
     s_var = 0; test_sgraph_egraph_sync();
     s_var = 0; test_seq_plugin_identity_after_merge();
     s_var = 0; test_seq_plugin_loop_merge();
+    s_var = 0; test_seq_plugin_star_merge_after_child_merge();
+    s_var = 0; test_seq_plugin_star_merge_extended_root();
+    s_var = 0; test_seq_plugin_nullable_absorb_root();
+    s_var = 0; test_seq_plugin_loop_merge_overflow_guard();
 }
