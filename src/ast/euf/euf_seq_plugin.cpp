@@ -183,22 +183,22 @@ namespace euf {
                 propagate_simplify(n);
         }
 
-        // Re-apply identity and absorption rules over all tracked concat nodes.
-        // This handles the case where the merge caused a child to become equivalent
-        // to an identity (ε) or absorbing element (∅) that was not known at
-        // registration time (e.g. b ~ "" discovered after concat(x, b) was registered).
-        // Also re-simplifies RE concat nodes when a child's root has become full_seq,
-        // to handle nullable absorption through nested concats:
-        // concat(.*, concat(v, w)) = concat(.*, w) when v is nullable but w is not.
+        // Re-apply identity and absorption rules over tracked concat nodes whose
+        // children are affected by this merge. This handles the case where a child
+        // becomes equivalent to an identity (ε) or absorbing element (∅) after
+        // registration (e.g. b ~ "" discovered after concat(x, b) was registered).
+        enode* merged_root = a->get_root();
         for (enode* n : m_concats) {
             enode *na, *nb;
-            if (is_str_concat(n, na, nb)) {
+            if (is_str_concat(n, na, nb) &&
+                (na->get_root() == merged_root || nb->get_root() == merged_root)) {
                 if (is_str_empty(na))
                     push_merge(n, nb);
                 else if (is_str_empty(nb))
                     push_merge(n, na);
             }
-            if (is_re_concat(n, na, nb)) {
+            if (is_re_concat(n, na, nb) &&
+                (na->get_root() == merged_root || nb->get_root() == merged_root)) {
                 if (is_re_epsilon(na))
                     push_merge(n, nb);
                 else if (is_re_epsilon(nb))
@@ -207,8 +207,6 @@ namespace euf {
                     push_merge(n, na);   // absorb: concat(∅, b) = ∅
                 else if (is_re_empty(nb))
                     push_merge(n, nb);   // absorb: concat(a, ∅) = ∅
-                else if (is_full_seq(na->get_root()) || is_full_seq(nb->get_root()))
-                    propagate_simplify(n);
             }
         }
     }
@@ -270,11 +268,17 @@ namespace euf {
 
         // Rule 2: Nullable absorption by .*
         // concat(.*, v) = .* when v is nullable
-        if (is_full_seq(a) && is_nullable(b))
+        auto find_full_seq = [this](enode* e) {
+            for (enode* c : enode_class(e))
+                if (is_full_seq(c))
+                    return true;
+            return false;
+        };
+        if (find_full_seq(a) && is_nullable(b))
             push_merge(n, a);
 
         // concat(v, .*) = .* when v is nullable
-        if (is_nullable(a) && is_full_seq(b))
+        if (is_nullable(a) && find_full_seq(b))
             push_merge(n, b);
 
         // concat(.*, concat(v, w)) = concat(.*, w) when v nullable
@@ -304,10 +308,21 @@ namespace euf {
     }
 
     bool seq_plugin::same_star_body(enode* a, enode* b) {
-        if (!is_star(a) || !is_star(b))
+        enode* star_a = nullptr, *star_b = nullptr;
+        for (enode* c : enode_class(a))
+            if (is_star(c)) {
+                star_a = c;
+                break;
+            }
+        for (enode* c : enode_class(b))
+            if (is_star(c)) {
+                star_b = c;
+                break;
+            }
+        if (!star_a || !star_b)
             return false;
         // re.star(x) and re.star(y) have congruent bodies if x ~ y
-        return a->get_arg(0)->get_root() == b->get_arg(0)->get_root();
+        return star_a->get_arg(0)->get_root() == star_b->get_arg(0)->get_root();
     }
 
     bool seq_plugin::same_loop_body(enode* a, enode* b,

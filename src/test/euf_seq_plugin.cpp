@@ -290,6 +290,64 @@ static void test_seq_plugin_loop_merge() {
     std::cout << g << "\n";
 }
 
+// test seq_plugin: star simplification should work when class contains a star
+// but the concat children themselves are non-star representatives.
+static void test_seq_plugin_star_merge_class_member() {
+    std::cout << "test_seq_plugin_star_merge_class_member\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    euf::egraph& g = sg.get_egraph();
+    seq_util seq(m);
+    sort_ref str_sort(seq.str.mk_string_sort(), m);
+    sort_ref re_sort(seq.re.mk_re(str_sort), m);
+
+    expr_ref x(m.mk_const("x", str_sort), m);
+    expr_ref v(m.mk_const("v", re_sort), m);
+    expr_ref star_x(seq.re.mk_star(seq.re.mk_to_re(x)), m);
+    expr_ref vv(seq.re.mk_concat(v, v), m);
+
+    auto* nv = get_node(g, seq, v);
+    auto* nstar = get_node(g, seq, star_x);
+    auto* nvv = get_node(g, seq, vv);
+    g.propagate();
+
+    // v is equivalent to re.*(to_re(x)), so concat(v, v) should simplify to v.
+    g.merge(nv, nstar, nullptr);
+    g.propagate();
+    SASSERT(nvv->get_root() == nv->get_root());
+}
+
+// test seq_plugin: nullable absorption by .* should work when .* is only
+// present as a member of the equivalence class.
+static void test_seq_plugin_full_seq_class_member() {
+    std::cout << "test_seq_plugin_full_seq_class_member\n";
+    ast_manager m;
+    reg_decl_plugins(m);
+    euf::egraph eg(m);
+    euf::sgraph sg(m, eg);
+    euf::egraph& g = sg.get_egraph();
+    seq_util seq(m);
+    sort_ref str_sort(seq.str.mk_string_sort(), m);
+    sort_ref re_sort(seq.re.mk_re(str_sort), m);
+
+    expr_ref v(m.mk_const("v", re_sort), m);
+    expr_ref full(seq.re.mk_full_seq(str_sort), m);
+    expr_ref eps(seq.re.mk_epsilon(str_sort), m);
+    expr_ref veps(seq.re.mk_concat(v, eps), m);
+
+    auto* nv = get_node(g, seq, v);
+    auto* nfull = get_node(g, seq, full);
+    auto* nveps = get_node(g, seq, veps);
+    g.propagate();
+
+    // v is equivalent to .*, and epsilon is nullable, so concat(v, epsilon) = v.
+    g.merge(nv, nfull, nullptr);
+    g.propagate();
+    SASSERT(nveps->get_root() == nv->get_root());
+}
+
 void tst_euf_seq_plugin() {
     s_var = 0; test_sgraph_basic();
     s_var = 0; test_sgraph_backtrack();
@@ -300,4 +358,6 @@ void tst_euf_seq_plugin() {
     s_var = 0; test_sgraph_egraph_sync();
     s_var = 0; test_seq_plugin_identity_after_merge();
     s_var = 0; test_seq_plugin_loop_merge();
+    s_var = 0; test_seq_plugin_star_merge_class_member();
+    s_var = 0; test_seq_plugin_full_seq_class_member();
 }
