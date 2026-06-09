@@ -150,8 +150,8 @@ namespace smt {
         euf::snode* get_snode(expr* e);
 
         // propagation dispatch helpers
-        void propagate_eq(tracked_str_eq const& eq);
-        void propagate_deq(tracked_str_deq const& deq);
+        void propagate_eq(tracked_str_eq const& eq) const;
+        void propagate_deq(tracked_str_deq const& deq) const;
         void propagate_pos_mem(tracked_str_mem const& mem);
         void enqueue_axiom(expr* e);
         void dequeue_axiom(expr* e);

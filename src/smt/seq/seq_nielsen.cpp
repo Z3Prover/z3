@@ -35,6 +35,7 @@ NSB review:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_skolem.h"
 #include "ast/rewriter/var_subst.h"
+#include "smt/smt_enode.h"
 #include "util/statistics.h"
 #include <algorithm>
 #include <complex>
@@ -442,18 +443,10 @@ namespace seq {
     // nielsen_graph
     // -----------------------------------------------
 
-    nielsen_graph::nielsen_graph(euf::sgraph &sg, sub_solver_i &solver, context_solver_i& ctx_solver):
-        m(sg.get_manager()),
-        a(sg.get_manager()),
-        m_seq(sg.get_seq_util()),
-        m_sg(sg),
-        m_rw(m),
-        m_sk(m, m_rw),
-        m_length_solver(solver),
-        m_context_solver(ctx_solver),
-        m_partial_dfa_pin(sg.get_manager()),
-        m_parikh(alloc(seq_parikh, sg)),
-        m_seq_regex(alloc(seq::seq_regex, sg)) {
+    nielsen_graph::nielsen_graph(euf::sgraph &sg, sub_solver_i &solver, context_solver_i &ctx_solver)
+        : m(sg.get_manager()), a(sg.get_manager()), m_seq(sg.get_seq_util()), m_sg(sg), m_rw(m), m_sk(m, m_rw),
+          m_length_solver(solver), m_context_solver(ctx_solver), m_partial_dfa_pin(sg.get_manager()),
+          m_parikh(alloc(seq_parikh, sg)), m_seq_regex(alloc(seq::seq_regex, sg)) {
         // Answer projection-state membership queries during projection-aware
         // derivatives (the sgraph cannot reach the partial DFA otherwise).
         m_sg.set_projection_oracle(this);
@@ -466,14 +459,14 @@ namespace seq {
         reset();
     }
 
-    bool nielsen_graph::projection_state_in_Q(expr* state, unsigned nu) {
+    bool nielsen_graph::projection_state_in_Q(expr *state, unsigned nu) {
         if (!state || nu == 0)
             return false;
         const unsigned sid = state->get_id();
         // r ∈ Q_nu iff r is incident to a partial-DFA edge whose extraction
         // index lies in [1, nu] (the "edges marked ≤ ν" subautomaton of the
         // implementation-aspects section of the paper).
-        auto incident = [&](std::unordered_map<unsigned, unsigned_vector> const& adj) {
+        auto incident = [&](std::unordered_map<unsigned, unsigned_vector> const &adj) {
             auto it = adj.find(sid);
             if (it == adj.end())
                 return false;
@@ -489,68 +482,58 @@ namespace seq {
         return incident(m_partial_dfa_out) || incident(m_partial_dfa_in);
     }
 
-    euf::snode* nielsen_graph::mk_projection_term(euf::snode* root_re, unsigned nu) {
-        SASSERT(root_re && root_re->get_expr());
-        // π_{Q_nu, {root}}(root): current state == accepting state == root.
-        expr_ref proj = m_sg.mk_re_proj(root_re->get_expr(), root_re->get_expr(), nu);
-        return m_sg.mk(proj);
-    }
-
-    nielsen_node* nielsen_graph::mk_node() {
+    nielsen_node *nielsen_graph::mk_node() {
         const unsigned id = m_nodes.size();
-        nielsen_node* n = alloc(nielsen_node, *this, id);
+        nielsen_node *n = alloc(nielsen_node, *this, id);
         m_nodes.push_back(n);
         SASSERT(n->id() == m_nodes.size() - 1);
         return n;
     }
 
-    nielsen_node* nielsen_graph::mk_child(nielsen_node* parent) {
-        nielsen_node* child = mk_node();
+    nielsen_node *nielsen_graph::mk_child(nielsen_node *parent) {
+        nielsen_node *child = mk_node();
         child->clone_from(*parent);
         child->m_parent_ic_count = parent->constraints().size();
         return child;
     }
 
-    nielsen_edge* nielsen_graph::mk_edge(nielsen_node *src, nielsen_node *tgt, const char *rule,
+    nielsen_edge *nielsen_graph::mk_edge(nielsen_node *src, nielsen_node *tgt, const char *rule,
                                          const bool is_progress) {
         SASSERT(src != nullptr);
         SASSERT(tgt != nullptr);
-        nielsen_edge* e = alloc(nielsen_edge, src, tgt, rule, is_progress);
+        nielsen_edge *e = alloc(nielsen_edge, src, tgt, rule, is_progress);
         m_edges.push_back(e);
         src->add_outgoing(e);
         return e;
     }
 
-    void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r) {
+    void nielsen_graph::add_str_eq(euf::snode *lhs, euf::snode *rhs, smt::enode *l, smt::enode *r) const {
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
         str_eq eq(lhs, rhs, dep);
         eq.sort();
         // check if root node contains this equation already
-        if (std::ranges::any_of(m_root->str_eqs(), [&](const str_eq& e) {
-            return e.m_lhs == eq.m_lhs && e.m_rhs == eq.m_rhs;
-        }))
+        if (std::ranges::any_of(m_root->str_eqs(),
+                                [&](const str_eq &e) { return e.m_lhs == eq.m_lhs && e.m_rhs == eq.m_rhs; }))
             // already present, no need to add again
             return;
         m_root->add_str_eq(eq);
     }
 
-    void nielsen_graph::add_str_deq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r) {
-        const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(l, r));
+    void nielsen_graph::add_str_deq(euf::snode *lhs, euf::snode *rhs, sat::literal l) const {
+        const dep_tracker dep = m_dep_mgr.mk_leaf(l);
         str_deq deq(lhs, rhs, dep);
         // check if root node contains this equation already
-        if (std::ranges::any_of(m_root->str_deqs(), [&](const str_deq& e) {
-            return e.m_lhs == deq.m_lhs && e.m_rhs == deq.m_rhs;
-        }))
+        if (std::ranges::any_of(m_root->str_deqs(),
+                                [&](const str_deq &e) { return e.m_lhs == deq.m_lhs && e.m_rhs == deq.m_rhs; }))
             // already present, no need to add again
             return;
         m_root->add_str_deq(deq);
     }
 
-    void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l) {
+    void nielsen_graph::add_str_mem(euf::snode *str, euf::snode *regex, sat::literal l) const {
         // check if root node contains this membership constraint already
-        if (std::ranges::any_of(m_root->str_mems(), [&](const str_mem& e) {
-            return e.m_regex == regex && e.m_str == str;
-        }))
+        if (std::ranges::any_of(m_root->str_mems(),
+                                [&](const str_mem &e) { return e.m_regex == regex && e.m_str == str; }))
             // already present, no need to add again
             return;
         const dep_tracker dep = m_dep_mgr.mk_leaf(l);
@@ -558,29 +541,29 @@ namespace seq {
     }
 
     // test-friendly overloads (no external dependency tracking)
-    void nielsen_graph::add_str_eq(euf::snode* lhs, euf::snode* rhs) {
+    void nielsen_graph::add_str_eq(euf::snode *lhs, euf::snode *rhs) {
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         str_eq eq(lhs, rhs, dep);
         eq.sort();
         m_root->add_str_eq(eq);
     }
 
-    void nielsen_graph::add_str_deq(euf::snode* lhs, euf::snode* rhs) {
+    void nielsen_graph::add_str_deq(euf::snode *lhs, euf::snode *rhs) {
         const dep_tracker dep = m_dep_mgr.mk_leaf(enode_pair(nullptr, nullptr));
         str_deq deq(lhs, rhs, dep);
         m_root->add_str_deq(deq);
     }
 
-    void nielsen_graph::add_str_mem(euf::snode* str, euf::snode* regex) {
+    void nielsen_graph::add_str_mem(euf::snode *str, euf::snode *regex) {
         const dep_tracker dep = nullptr;
         m_root->add_str_mem(str_mem(str, regex, dep));
     }
 
     void nielsen_graph::reset() {
-        for (nielsen_node* n : m_nodes) {
+        for (nielsen_node *n : m_nodes) {
             dealloc(n);
         }
-        for (nielsen_edge* e : m_edges) {
+        for (nielsen_edge *e : m_edges) {
             dealloc(e);
         }
         m_nodes.reset();
@@ -591,15 +574,15 @@ namespace seq {
         m_depth_bound = 0;
         m_fresh_cnt = 0;
         m_root_constraints_asserted = false;
-        //m_mod_cnt.reset();
+        // m_mod_cnt.reset();
         m_partial_dfa_edges.reset();
         m_partial_dfa_out.clear();
         m_partial_dfa_in.clear();
         m_partial_dfa_edge_index.clear();
         m_partial_dfa_pin.reset();
         m_projection_extract_idx = 0;
-        //m_length_trail.reset();
-        //m_length_info.reset();
+        // m_length_trail.reset();
+        // m_length_info.reset();
         m_dep_mgr.reset();
         m_length_solver.reset();
         SASSERT(m_nodes.empty());
@@ -608,7 +591,7 @@ namespace seq {
         SASSERT(m_sat_node == nullptr);
     }
 
-    void nielsen_graph::add_le_dependency(const dep_tracker dep, nielsen_node* n, expr* lhs, expr* rhs) const {
+    void nielsen_graph::add_le_dependency(const dep_tracker dep, nielsen_node *n, expr *lhs, expr *rhs) const {
         SASSERT(lhs);
         SASSERT(rhs);
         const expr_ref le(a.mk_le(lhs, rhs), m);
@@ -616,6 +599,13 @@ namespace seq {
         // Just add the constraint - we do not have to recompute it
         // [also it is on the set of side-conditions if we assert a satisfied node]
         n->add_constraint(constraint(le, dep, m));
+    }
+
+    euf::snode *nielsen_graph::mk_projection_term(euf::snode *root_re, unsigned nu) {
+        SASSERT(root_re && root_re->get_expr());
+        // π_{Q_nu, {root}}(root): current state == accepting state == root.
+        expr_ref proj = m_sg.mk_re_proj(root_re->get_expr(), root_re->get_expr(), nu);
+        return m_sg.mk(proj);
     }
 
     // -----------------------------------------------------------------------

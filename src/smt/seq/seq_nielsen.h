@@ -1060,9 +1060,9 @@ namespace seq {
         ptr_vector<nielsen_edge> const& sat_path() const { return m_sat_path; }
 
         // add constraints to the root node from external solver
-        void add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r);
-        void add_str_deq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r);
-        void add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l);
+        void add_str_eq(euf::snode* lhs, euf::snode* rhs, smt::enode* l, smt::enode* r) const;
+        void add_str_deq(euf::snode* lhs, euf::snode* rhs, sat::literal l) const;
+        void add_str_mem(euf::snode* str, euf::snode* regex, sat::literal l) const;
 
         // test-friendly overloads (no external dependency tracking)
         void add_str_eq(euf::snode* lhs, euf::snode* rhs);

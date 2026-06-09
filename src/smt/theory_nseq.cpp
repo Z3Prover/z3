@@ -267,9 +267,10 @@ namespace smt {
             else {
                 euf::snode *s1 = get_snode(e1);
                 euf::snode *s2 = get_snode(e2);
-                seq::dep_tracker dep = nullptr;
+                const seq::dep_tracker dep = nullptr;
                 ctx.push_trail(restore_vector(m_prop_queue));
-                m_prop_queue.push_back(deq_item(s1, s2, get_enode(v1), get_enode(v2), dep));
+                expr_ref eq_expr(m.mk_not(m.mk_eq(e1, e2)), m);
+                m_prop_queue.push_back(deq_item(s1, s2, ctx.get_literal(eq_expr), dep));
                 m_last_constraint_added = ctx.get_scope_level();
                 m_can_hot_restart = false;
             }
@@ -437,16 +438,16 @@ namespace smt {
         }
     }
 
-    void theory_nseq::propagate_eq(tracked_str_eq const& eq) {
+    void theory_nseq::propagate_eq(tracked_str_eq const &eq) const {
         // When s1 = s2 is learned, ensure len(s1) and len(s2) are
         // internalized so congruence closure propagates len(s1) = len(s2).
         ensure_length_var(eq.m_l->get_expr());
         ensure_length_var(eq.m_r->get_expr());
     }
 
-    void theory_nseq::propagate_deq(tracked_str_deq const& eq) {
-        ensure_length_var(eq.m_l->get_expr());
-        ensure_length_var(eq.m_r->get_expr());
+    void theory_nseq::propagate_deq(tracked_str_deq const& eq) const {
+        ensure_length_var(eq.m_lhs->get_expr());
+        ensure_length_var(eq.m_rhs->get_expr());
     }
 
     void theory_nseq::propagate_pos_mem(tracked_str_mem const& mem) {
@@ -706,8 +707,8 @@ namespace smt {
             }
             if (std::holds_alternative<deq_item>(item)) {
                 SASSERT(!get_fparams().m_nseq_axiomatize_diseq);
-                auto const& eq = std::get<deq_item>(item);
-                m_nielsen.add_str_deq(eq.m_lhs, eq.m_rhs, eq.m_l, eq.m_r);
+                auto const& deq = std::get<deq_item>(item);
+                m_nielsen.add_str_deq(deq.m_lhs, deq.m_rhs, deq.lit);
                 ++num_deqs;
             }
             else if (std::holds_alternative<mem_item>(item)) {
@@ -917,9 +918,6 @@ namespace smt {
                     << (m_nielsen.sat_node() ? "set" : "null") << "\n");
                 // Nielsen found a consistent assignment for positive constraints.
                 SASSERT(has_eq_or_diseq_or_mem); // we should have axiomatized them
-
-                bool all_sat = add_nielsen_assumptions();
-
                 if (!check_length_coherence())
                     return FC_CONTINUE;
 
@@ -927,6 +925,9 @@ namespace smt {
                     return FC_CONTINUE;
 
                 CTRACE(seq, !has_unhandled_preds(), display(tout << "done\n"));
+
+                bool all_sat = add_nielsen_assumptions();
+
                 if (!all_sat)
                     return FC_CONTINUE;
 
@@ -1149,7 +1150,10 @@ namespace smt {
               for (auto [a, b] : eqs) tout << enode_pp(a, ctx) << " == " << enode_pp(b, ctx) << "\n";
         );
 
-        SASSERT(all_of(eqs, [&](auto eq) { return eq.first->get_root() == eq.second->get_root(); }));
+        for (auto& eq : eqs) {
+            std::cout << mk_pp(eq.first->get_expr(), m) << " == " << mk_pp(eq.second->get_expr(), m) << std::endl;
+            SASSERT(eq.first->get_root() == eq.second->get_root());
+        };
 
         bool all_true = all_of(lits, [&](auto lit) { return ctx.get_assignment(lit) == l_true; });          
 
