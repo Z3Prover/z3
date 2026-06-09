@@ -179,7 +179,7 @@ jobs:
             const smt2ArtifactId = (process.env.SMT2_ARTIFACT_ID || '').trim();
             const smt2ArtifactUrl = smt2ArtifactId ? `${process.env.RUN_URL}/artifacts/${smt2ArtifactId}` : '';
             const smt2PreviewFile = '/tmp/gh-aw/agent/smt2-preview.md';
-            const maxPreviewChars = 55000; // Keep below GitHub discussion body limits with room for non-preview sections.
+            const maxPreviewChars = 55000; // Keep below GitHub's 65536-character discussion body limit, leaving room for non-preview sections.
             let smt2Preview = readIfExists(smt2PreviewFile) ?? '';
             const smt2PreviewChars = Array.from(smt2Preview);
             if (smt2PreviewChars.length > maxPreviewChars) {
