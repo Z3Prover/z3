@@ -128,7 +128,9 @@ namespace seq {
 
         // Smart constructors with path-aware simplification and ACI canonicalization
         expr_ref mk_union(expr* a, expr* b);
-        void flatten_union(expr* e, expr_ref_vector& args);
+        expr_ref merge_union(expr* a, expr* b);  // merge two sorted right-associated union chains
+        bool are_complements(expr* a, expr* b);
+        unsigned union_id(expr* e);              // complement-aware ID for sorting
         bool is_subset(expr* a, expr* b);
         expr_ref mk_union_core(expr* a, expr* b);
         expr_ref mk_inter(expr* a, expr* b);
