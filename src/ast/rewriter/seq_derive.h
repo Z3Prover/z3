@@ -29,6 +29,10 @@ Authors:
 #include "ast/array_decl_plugin.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "util/obj_pair_hashtable.h"
+#include "util/obj_triple_hashtable.h"
+#include <functional>
+
+class seq_rewriter;
 
 namespace seq {
 
@@ -53,6 +57,7 @@ namespace seq {
         seq_util        m_util;
         arith_util      m_autil;
         bool_rewriter   m_br;
+        seq_rewriter&   m_re;
 
         // Cache: maps (ele, regex) pair to its derivative
         obj_pair_map<expr, expr, expr*> m_cache;
@@ -60,32 +65,51 @@ namespace seq {
         expr_ref_vector      m_trail;    // pin cached results
 
         // Op cache for ITE-hoisting operations (union, inter, concat, complement)
-        obj_pair_map<expr, expr, expr*> m_union_cache;
-        obj_pair_map<expr, expr, expr*> m_inter_cache;
+        // Path-aware caches: key is (a, b, path_expr) for binary ops, (a, path_expr) for complement
+        obj_triple_map<expr, expr, expr, expr*> m_union_cache;
+        obj_triple_map<expr, expr, expr, expr*> m_inter_cache;
         obj_pair_map<expr, expr, expr*> m_concat_cache;
-        obj_map<expr, expr*>            m_complement_cache;
+        obj_pair_map<expr, expr, expr*> m_complement_cache;
 
         // Depth limiting
         unsigned m_depth { 0 };
         static const unsigned m_max_depth = 512;
-
-        // Simplify ITE recursion depth limit
-        unsigned m_simp_depth { 0 };
-        static const unsigned m_max_simp_depth = 8;
-
-        // ITE combine depth limit (bounds exponential blowup in BDD merge)
-        unsigned m_inter_hoist_depth { 0 };
-        static const unsigned m_max_inter_hoist_depth = 4;
-
-        // Depth limit for one-sided union hoisting (global budget per derivative call)
-        unsigned m_union_hoist_budget { 0 };
-        static const unsigned m_max_union_hoist_budget = 32;
 
         seq_util::rex& re() { return m_util.re; }
         seq_util& u() { return m_util; }
 
         // The element (character) for the current derivative computation
         expr_ref m_ele;
+
+        // Path state for inline pruning during mk_inter/mk_union/mk_complement
+        using intervals_t = svector<std::pair<unsigned, unsigned>>;
+
+        // Path: vector of signed atoms
+        svector<std::pair<expr*, bool>> m_path;
+        // Intervals: feasible character ranges under current path
+        intervals_t m_intervals;
+        // Stack of saved states for push/pop
+        struct path_save { unsigned path_sz; intervals_t intervals; expr* path_expr; };
+        svector<path_save> m_path_stack;
+        // Boolean expression encoding of current path (for cache keys)
+        expr_ref m_path_expr;
+
+        // Path interface
+        lbool push(expr* c, bool sign);  // l_true: implied, l_undef: pushed (must pop), l_false: contradicts
+        void  pop();                      // restore state to matching push
+        expr* get_path_expr() { return m_path_expr; }
+
+        // Hoist ITE: apply_op through ite(c, t, e) with path pruning
+        expr_ref apply_ite(expr* c, expr* t, expr* e, expr* r, std::function<expr_ref(expr*, expr*)> apply_op);
+        expr_ref apply_ite(expr* c, expr* t1, expr* e1, expr* t2, expr* e2, std::function<expr_ref(expr*, expr*)> apply_op);
+        expr_ref apply_ite(expr* c, expr* t, expr* e, std::function<expr_ref(expr*)> apply_op);
+
+        // Evaluate a condition against the current path/intervals
+        lbool eval_path_cond(expr* c);
+
+        // Internal helpers for push
+        lbool push_path_atoms(expr* c, bool sign);
+        lbool push_intervals_impl(expr* c, bool sign);
 
         // Core derivative computation
         expr_ref derive_rec(expr* r);
@@ -99,8 +123,10 @@ namespace seq {
         // Nullable check: returns a Boolean expression
         expr_ref is_nullable(expr* r);
 
-        // Smart constructors with simplification and ACI canonicalization
+        // Smart constructors with path-aware simplification and ACI canonicalization
         expr_ref mk_union(expr* a, expr* b);
+        void flatten_union(expr* e, expr_ref_vector& args);
+        bool is_subset(expr* a, expr* b);
         expr_ref mk_union_core(expr* a, expr* b);
         expr_ref mk_inter(expr* a, expr* b);
         expr_ref mk_inter_core(expr* a, expr* b);
@@ -109,12 +135,6 @@ namespace seq {
         expr_ref mk_complement_core(expr* a);
         expr_ref mk_ite(expr* c, expr* t, expr* e);
 
-        // Flatten and sort for ACI normal form
-        void flatten_union(expr* r, expr_ref_vector& args);
-        void flatten_inter(expr* r, expr_ref_vector& args);
-        expr_ref mk_union_from_sorted(expr_ref_vector& args);
-        expr_ref mk_inter_from_sorted(expr_ref_vector& args);
-
         // Distribute concatenation through ITE/union in derivative
         expr_ref mk_deriv_concat(expr* d, expr* tail);
         expr_ref mk_deriv_concat_core(expr* d, expr* tail);
@@ -122,28 +142,15 @@ namespace seq {
         // Extract head character and tail from a sequence expression
         bool get_head_tail(expr* s1, expr* s2, expr_ref& hd, expr_ref& tl);
 
-        // Lightweight subsumption check: returns true if L(a) ⊆ L(b)
-        bool is_subset(expr* a, expr* b);
-
         // Predicate implication for character range conditions.
-        // Returns true if condition a implies condition b.
+        bool pred_implies(bool sign_a, expr* a, bool sign_b, expr* b);
         bool pred_implies(expr* a, expr* b);
         bool extract_char_range(expr* cond, unsigned& lo, unsigned& hi);
-        bool is_char_cond(expr* c);
 
         // Normalize reverse(r) by pushing reverse inward
         expr_ref normalize_reverse(expr* r);
 
-        // Path of signed conditions for ITE simplification
-        using path_t = svector<std::pair<expr*, bool>>;
-        using intervals_t = svector<std::pair<unsigned, unsigned>>;
-
-        // Simplify ITE conditions w.r.t. m_ele and path knowledge
-        expr_ref simplify_ite(expr* d);
-        expr_ref simplify_ite_rec(path_t& path, intervals_t& intervals, expr* d, unsigned depth);
-        std::pair<expr_ref, expr_ref> simplify_ite_rec(path_t& path, intervals_t& intervals, expr* c, expr* t, expr* e, unsigned depth);
-        lbool push_path(path_t& path, expr* c, bool sign);
-        lbool push_intervals(intervals_t& intervals, expr* c, bool sign);
+        // Condition evaluation helpers
         lbool eval_cond(expr* cond);
         lbool eval_range_cond(intervals_t const& intervals, expr* c);
         static void intersect_intervals(unsigned lo, unsigned hi, intervals_t& ranges);
@@ -157,7 +164,7 @@ namespace seq {
         void reset_op_caches();
 
     public:
-        derive(ast_manager& m);
+        derive(ast_manager& m, seq_rewriter& re);
 
         /**
          * Compute the derivative of regex r with respect to element ele.
@@ -171,11 +178,6 @@ namespace seq {
          */
         expr_ref operator()(expr* r);
 
-        /**
-         * Lightweight structural subsumption check: L(a) ⊆ L(b)?
-         * Returns true only when provable structurally.
-         */
-        bool subsumes(expr* larger, expr* smaller) { return is_subset(smaller, larger); }
     };
 
 }

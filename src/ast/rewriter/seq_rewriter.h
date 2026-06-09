@@ -129,6 +129,8 @@ class seq_rewriter {
         void insert(decl_kind op, expr* a, expr* b, expr* c, expr* r);
     };
 
+    friend class seq::derive;
+
     seq_util       m_util;
     seq_subset     m_subset;
     arith_util     m_autil;
@@ -137,14 +139,8 @@ class seq_rewriter {
     // re2automaton   m_re2aut;
     op_cache       m_op_cache;
     expr_ref_vector m_es, m_lhs, m_rhs;
-<<<<<<< HEAD
     bool           m_coalesce_chars;
     bool           m_in_bisim { false };
-=======
-    bool           m_coalesce_chars;    
-    unsigned       m_re_deriv_depth { 0 };
-    static const unsigned m_max_re_deriv_depth = 512;
->>>>>>> 1f28fd0e6 (Add seq::derive class for symbolic regex derivatives)
 
     enum length_comparison {
         shorter_c, 
@@ -342,7 +338,11 @@ class seq_rewriter {
 
 public:
     seq_rewriter(ast_manager & m, params_ref const & p = params_ref()):
+<<<<<<< HEAD
         m_util(m), m_subset(m_util.re), m_autil(m), m_br(m, p), m_derive(m),  // m_re2aut(m), 
+=======
+        m_util(m), m_autil(m), m_br(m, p), m_derive(m, *this), // m_re2aut(m), 
+>>>>>>> 8deac03ca (Refactor seq_derive: inline path pruning with ACI normalization)
         m_op_cache(m), m_es(m), 
         m_lhs(m), m_rhs(m) {
     }
