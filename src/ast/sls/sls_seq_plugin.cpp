@@ -912,7 +912,7 @@ namespace sls {
                         m_string_updates.reset();
                         u[i][j] = d[i - 1][j];
                     }
-                    if (d[i][j - 1] < u[i][j] && b.can_add(i - 1)) {
+                    if (d[i][j - 1] < u[i][j] && b.can_add(j - 1)) {
                         m_string_updates.reset();
                         u[i][j] = d[i][j - 1];
                     }
