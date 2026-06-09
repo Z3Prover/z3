@@ -1653,7 +1653,7 @@ seq_util::rex::info seq_util::rex::mk_info_rec(app* e) const {
     if (e->get_family_id() == u.get_family_id()) {
         switch (e->get_decl()->get_decl_kind()) {
         case OP_RE_EMPTY_SET:
-            return info(true, l_false, UINT_MAX);
+            return info(true, l_false, UINT_MAX, false);
         case OP_RE_FULL_SEQ_SET:
             return info(true, l_true, 0);
         case OP_RE_STAR:
@@ -1720,7 +1720,8 @@ std::ostream& seq_util::rex::info::display(std::ostream& out) const {
     if (is_known()) {
         out << "info("
             << "nullable=" << (nullable == l_true ? "T" : (nullable == l_false ? "F" : "U")) << ", "
-            << "min_length=" << min_length << ")";
+            << "min_length=" << min_length << ", "
+            << "classical=" << (classical ? "T" : "F") << ")";
     }
     else if (is_valid())
         out << "UNKNOWN";
@@ -1740,13 +1741,13 @@ std::string seq_util::rex::info::str() const {
 
 seq_util::rex::info seq_util::rex::info::star() const {
     //if is_known() is false then all mentioned properties will remain false
-    return seq_util::rex::info(interpreted, l_true, 0);
+    return seq_util::rex::info(interpreted, l_true, 0, classical);
 }
 
 seq_util::rex::info seq_util::rex::info::plus() const {
     if (is_known()) {
         //plus never occurs in a normalized regex
-        return info(interpreted, nullable, min_length);
+        return info(interpreted, nullable, min_length, classical);
     }
     else
         return *this;
@@ -1755,14 +1756,14 @@ seq_util::rex::info seq_util::rex::info::plus() const {
 seq_util::rex::info seq_util::rex::info::opt() const {
     // if is_known() is false then all mentioned properties will remain false
     // optional construct never occurs in a normalized regex
-    return seq_util::rex::info(interpreted, l_true, 0);
+    return seq_util::rex::info(interpreted, l_true, 0, classical);
 }
 
 seq_util::rex::info seq_util::rex::info::complement() const {
     if (is_known()) {
         lbool compl_nullable = (nullable == l_true ? l_false : (nullable == l_false ? l_true : l_undef));
         unsigned compl_min_length = (compl_nullable == l_false ? 1 : 0);
-        return info(interpreted, compl_nullable, compl_min_length);
+        return info(interpreted, compl_nullable, compl_min_length, false);
     }
     else
         return *this;
@@ -1776,7 +1777,8 @@ seq_util::rex::info seq_util::rex::info::concat(seq_util::rex::info const& rhs, 
                 m = UINT_MAX;
             return info(interpreted && rhs.interpreted,
                 ((nullable == l_false || rhs.nullable == l_false) ? l_false : ((nullable == l_true && rhs.nullable == l_true) ? l_true : l_undef)),
-                m);
+                m,
+                classical && rhs.classical);
         }
         else
             return rhs;
@@ -1790,7 +1792,8 @@ seq_util::rex::info seq_util::rex::info::disj(seq_util::rex::info const& rhs) co
         //works correctly if one of the arguments is unknown
         return info(interpreted && rhs.interpreted,
             ((nullable == l_true || rhs.nullable == l_true) ? l_true : ((nullable == l_false && rhs.nullable == l_false) ? l_false : l_undef)),
-            std::min(min_length, rhs.min_length));
+            std::min(min_length, rhs.min_length),
+            classical && rhs.classical);
     }
     else
         return rhs;
@@ -1801,7 +1804,8 @@ seq_util::rex::info seq_util::rex::info::conj(seq_util::rex::info const& rhs) co
         if (rhs.is_known()) {
             return info(interpreted && rhs.interpreted,
                 ((nullable == l_true && rhs.nullable == l_true) ? l_true : ((nullable == l_false || rhs.nullable == l_false) ? l_false : l_undef)),
-                std::max(min_length, rhs.min_length));
+                std::max(min_length, rhs.min_length),
+                false);
         }
         else
             return rhs;
@@ -1815,7 +1819,8 @@ seq_util::rex::info seq_util::rex::info::diff(seq_util::rex::info const& rhs) co
         if (rhs.is_known()) {
             return info(interpreted & rhs.interpreted,
                 ((nullable == l_true && rhs.nullable == l_false) ? l_true : ((nullable == l_false || rhs.nullable == l_false) ? l_false : l_undef)),
-                std::max(min_length, rhs.min_length));
+                std::max(min_length, rhs.min_length),
+                false);
         }
         else
             return rhs;
@@ -1832,7 +1837,8 @@ seq_util::rex::info seq_util::rex::info::orelse(seq_util::rex::info const& i) co
             // TBD: whether ite is interpreted or not depends on whether the condition is interpreted and both branches are interpreted
             return info(false,
                 ((nullable == l_true && i.nullable == l_true) ? l_true : ((nullable == l_false && i.nullable == l_false) ? l_false : l_undef)),
-                std::min(min_length, i.min_length));
+                std::min(min_length, i.min_length),
+                classical && i.classical);
         }
         else
             return i;
@@ -1848,7 +1854,7 @@ seq_util::rex::info seq_util::rex::info::loop(unsigned lower, unsigned upper) co
         if (m > 0 && (m < min_length || m < lower))
             m = UINT_MAX;
         lbool loop_nullable = (nullable == l_true || lower == 0 ? l_true : nullable);
-        return info(interpreted, loop_nullable, m);
+        return info(interpreted, loop_nullable, m, classical);
     }
     else
         return *this;
@@ -1863,6 +1869,7 @@ seq_util::rex::info& seq_util::rex::info::operator=(info const& other) {
     interpreted = other.interpreted;
     nullable = other.nullable;
     min_length = other.min_length;
+    classical = other.classical;
     return *this;
 }
 
