@@ -707,7 +707,7 @@ namespace lp {
                 m_l_matrix.m_rows[c.var()][c.offset()].offset() = pivot_col_cell_index;
             }
             while (column.size() > 1) {
-                auto c = column.back();
+                auto& c = column.back();
                 unsigned changed_row = c.var();
                 SASSERT(changed_row != last_row_index);
                 m_l_matrix.pivot_row_to_row_given_cell(last_row_index, c, j);
