@@ -331,9 +331,6 @@ namespace smt {
         unsigned gen = get_new_gen(q, generation, ent.m_cost);
         display_instance_profile(f, q, num_bindings, bindings, proof_id, gen);
         m_context.internalize_instance(lemma, pr1, gen);
-        if (f->get_def()) {
-            m_context.internalize(f->get_def(), true);
-        }
         TRACE_CODE({
             static unsigned num_useless = 0;
             if (m.is_or(lemma)) {

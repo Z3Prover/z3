@@ -142,7 +142,7 @@ namespace {
             insert_ctrl_c(r);
         }
 
-        void collect_statistics(statistics & st) const override {
+        void collect_statistics_core(statistics & st) const override {
             m_context.collect_statistics(st);
         }
 

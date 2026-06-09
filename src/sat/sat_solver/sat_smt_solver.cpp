@@ -334,7 +334,7 @@ public:
             ensure_euf();
     }
     
-    void collect_statistics(statistics & st) const override {
+    void collect_statistics_core(statistics & st) const override {
         m_solver.collect_statistics(st);
     }
     

@@ -203,7 +203,7 @@ namespace smt {
         unsigned num_decls = q->get_num_decls();
         // Remark: sks were created for the flat version of q.
         SASSERT(sks.size() >= num_decls);
-        expr_ref_vector bindings(m), defs(m);
+        expr_ref_vector bindings(m);
         expr_ref def(m);
         bindings.resize(num_decls);
         unsigned max_generation = 0;
@@ -249,6 +249,7 @@ namespace smt {
                 sk_value = get_type_compatible_term(sk_value);
             }
             func_decl * f = nullptr;
+            expr_ref sk_term(sk_value, m);
             if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f) && cex->get_func_interp(f)->get_interp()) {
                 expr_ref body(cex->get_func_interp(f)->get_interp(), m);
                 if (contains_model_value(body))
@@ -257,30 +258,25 @@ namespace smt {
                 svector<symbol> names;
                 for (unsigned i = 0; i < f->get_arity(); ++i) 
                     names.push_back(symbol(i));
-                defined_names dn(m);
                 body = replace_value_from_ctx(body);
                 body = m.mk_lambda(sorts.size(), sorts.data(), names.data(), body);
-                // sk_value = m.mk_fresh_const(0, m.get_sort(sk_value));  // get rid of as-array
-                body = dn.mk_definition(body, to_app(sk_value));
-                defs.push_back(body);
+                sk_term = body;
             }
-            bindings.set(num_decls - i - 1, sk_value);
+            bindings.set(num_decls - i - 1, sk_term);
         }
 
-        TRACE(model_checker, tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: " << bindings << "\ndefs:\n" << defs << "\n";);
-        if (!defs.empty()) def = mk_and(defs);
+        TRACE(model_checker, tout << q->get_qid() << " found (use_inv: " << use_inv << ") new instance: " << bindings << "\n");
         max_generation = std::max(m_qm->get_generation(q), max_generation);
-        add_instance(q, bindings, max_generation, def.get());
+        add_instance(q, bindings, max_generation);
         return true;
     }
 
-    void model_checker::add_instance(quantifier* q, expr_ref_vector const& bindings, unsigned max_generation, expr* def) {
+    void model_checker::add_instance(quantifier* q, expr_ref_vector const& bindings, unsigned max_generation) {
         SASSERT(q->get_num_decls() == bindings.size());
         unsigned offset = m_pinned_exprs.size();
         m_pinned_exprs.append(bindings);
         m_pinned_exprs.push_back(q);
-        m_pinned_exprs.push_back(def);
-        m_new_instances.push_back(instance(q, offset, def, max_generation));
+        m_new_instances.push_back(instance(q, offset, max_generation));
     }
 
     void model_checker::operator()(expr *n) {
@@ -457,12 +453,6 @@ namespace smt {
 
         TRACE(model_checker, tout << "MODEL_CHECKER INVOKED\n";
         tout << "model:\n"; model_pp(tout, *m_curr_model););
-
-        for (quantifier* q : *m_qm)
-            if (m.is_lambda_q(q)) {
-                md->add_lambda_defs();
-                break;
-            }
 	
         md->compress();
 
@@ -518,8 +508,7 @@ namespace smt {
         for (quantifier * q : *m_qm) {
             if (!(m_qm->mbqi_enabled(q) &&
                   m_context->is_relevant(q) &&
-                  m_context->get_assignment(q) == l_true &&
-                  (!m_context->get_fparams().m_ematching || !m.is_lambda_q(q)))) {
+                  m_context->get_assignment(q) == l_true)) {
                 if (!m_qm->mbqi_enabled(q))
                     ++num_failures;
                 continue;
@@ -588,27 +577,11 @@ namespace smt {
                     bindings.push_back(m_context->get_enode(b));
                 }
 
-                if (inst.m_def) {
-                    unsigned n = 1;
-                    expr* const* args = &inst.m_def;
-                    if (m.is_and(inst.m_def)) {
-                        n = to_app(inst.m_def)->get_num_args();
-                        args = to_app(inst.m_def)->get_args();
-                    }
-                    for (unsigned i = 0; i < n; ++i) {
-                        proof* pr = nullptr;
-                        expr* arg = args[i];
-                        if (m.proofs_enabled()) 
-                            pr = m.mk_def_intro(arg);
-                        m_context->internalize_assertion(arg, pr, gen);
-                    }
-                }
-
                 TRACE(model_checker_bug_detail, tout << "instantiating... q:\n" << mk_pp(q, m) << "\n";
                       tout << "inconsistent: " << m_context->inconsistent() << "\n";
                       tout << "bindings:\n" << expr_ref_vector(m, num_decls, m_pinned_exprs.data() + offset) << "\n";
-                      tout << "def " << mk_pp(inst.m_def, m) << "\n";);
-                m_context->add_instance(q, nullptr, num_decls, bindings.data(), inst.m_def, gen, gen, gen, dummy);
+                          );
+                m_context->add_instance(q, nullptr, num_decls, bindings.data(), gen, gen, gen, dummy);
                 TRACE(model_checker_bug_detail, tout << "after instantiating, inconsistent: " << m_context->inconsistent() << "\n";);
             }
         }

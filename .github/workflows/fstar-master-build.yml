@@ -1,0 +1,267 @@
+name: Build FStar master with Z3 master
+
+on:
+  schedule:
+    - cron: "9 4 * * *"
+  workflow_dispatch:
+    inputs:
+      z3_ref:
+        description: Z3 ref to checkout and build
+        required: false
+        default: master
+      z3_cmake_args:
+        description: Extra CMake arguments for Z3 build
+        required: false
+        default: ""
+      z3_runtime_args:
+        description: "Extra Z3 runtime args (example: smt.ho_matching=true)"
+        required: false
+        default: "smt.ho_matching=true"
+      fstar_ref:
+        description: FStar ref to checkout and build
+        required: false
+        default: _nik_higher_order_smt
+      fstar_opam_switch:
+        description: OCaml switch for FStar build
+        required: false
+        default: "4.14.2"
+      fstar_otherflags:
+        description: "Extra FStar OTHERFLAGS"
+        required: false
+        default: "--split_queries on_failure --log_failing_queries --ext higher_order_smt --proof_recovery"
+      discussion_category:
+        description: Discussion category name
+        required: false
+        default: "Agentic Workflows"
+
+permissions:
+  contents: read
+  discussions: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      Z3_REF: ${{ github.event.inputs.z3_ref || 'master' }}
+      Z3_CMAKE_ARGS: ${{ github.event.inputs.z3_cmake_args || '' }}
+      Z3_RUNTIME_ARGS: ${{ github.event.inputs.z3_runtime_args || 'smt.ho_matching=true' }}
+      FSTAR_REF: ${{ github.event.inputs.fstar_ref || 'master' }}
+      FSTAR_OPAM_SWITCH: ${{ github.event.inputs.fstar_opam_switch || '4.14.2' }}
+      FSTAR_OTHERFLAGS: ${{ github.event.inputs.fstar_otherflags || '' }}
+      DISCUSSION_CATEGORY: ${{ github.event.inputs.discussion_category || 'Agentic Workflows' }}
+    steps:
+      - name: Checkout Z3
+        uses: actions/checkout@v6.0.3
+        with:
+          ref: ${{ env.Z3_REF }}
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y cmake ninja-build python3 git curl unzip opam m4 pkg-config libgmp-dev
+
+      - name: Build Z3
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/gh-aw/agent
+          cmake -S . -B build/release -G Ninja -DCMAKE_BUILD_TYPE=Release $Z3_CMAKE_ARGS
+          ninja -C build/release z3
+          ./build/release/z3 --version | tee /tmp/gh-aw/agent/z3-version.txt
+          printf '(check-sat)\n' | ./build/release/z3 $Z3_RUNTIME_ARGS -in | tee /tmp/gh-aw/agent/z3-runtime-check.txt
+
+      - name: Prepare Z3 aliases for FStar
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/gh-aw/agent/z3-bin
+          ln -sf "$GITHUB_WORKSPACE/build/release/z3" /tmp/gh-aw/agent/z3-bin/z3
+          ln -sf "$GITHUB_WORKSPACE/build/release/z3" /tmp/gh-aw/agent/z3-bin/z3-4.8.5
+          ln -sf "$GITHUB_WORKSPACE/build/release/z3" /tmp/gh-aw/agent/z3-bin/z3-4.13.3
+          /tmp/gh-aw/agent/z3-bin/z3 --version
+
+      - name: Build FStar
+        id: build_fstar
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/gh-aw/agent/FStar
+          git clone --depth=1 --recurse-submodules --branch "$FSTAR_REF" https://github.com/FStarLang/FStar.git /tmp/gh-aw/agent/FStar
+          cd /tmp/gh-aw/agent/FStar
+          echo "FStar commit: $(git rev-parse HEAD)" | tee /tmp/gh-aw/agent/fstar-commit.txt
+
+          opam init --disable-sandboxing --yes
+          opam switch create "$FSTAR_OPAM_SWITCH" --yes || opam switch "$FSTAR_OPAM_SWITCH"
+          eval "$(opam env --switch="$FSTAR_OPAM_SWITCH")"
+          opam install --deps-only . --yes
+
+          Z3_VERSION="$(sed -E -n 's/^Z3 version ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' /tmp/gh-aw/agent/z3-version.txt | head -1)"
+          test -n "$Z3_VERSION" || { echo "Error: Failed to extract Z3 version from /tmp/gh-aw/agent/z3-version.txt (expected: 'Z3 version X.Y.Z')"; cat /tmp/gh-aw/agent/z3-version.txt || true; exit 1; }
+
+          PATH="/tmp/gh-aw/agent/z3-bin:$PATH" OTHERFLAGS="--z3version $Z3_VERSION $FSTAR_OTHERFLAGS" make -j"$(nproc)" -k
+          test -x /tmp/gh-aw/agent/FStar/out/bin/fstar.exe || { echo "Error: FStar binary not found or not executable at /tmp/gh-aw/agent/FStar/out/bin/fstar.exe"; exit 1; }
+          /tmp/gh-aw/agent/FStar/out/bin/fstar.exe --version | tee /tmp/gh-aw/agent/fstar-version.txt
+
+      - name: Collect generated SMT2 files
+        id: collect_smt2
+        if: always()
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/gh-aw/agent/smt2-artifact
+          mkdir -p /tmp/gh-aw/agent/smt2-artifact
+          SMT2_PREVIEW=/tmp/gh-aw/agent/smt2-preview.md
+          SMT2_HEAD_LINES=1000
+          > "$SMT2_PREVIEW"
+
+          if [ -d /tmp/gh-aw/agent/FStar ]; then
+            mapfile -t SMT2_FILES < <(find /tmp/gh-aw/agent/FStar -type f -name '*.smt2' | sort)
+          else
+            SMT2_FILES=()
+          fi
+
+          if [ "${#SMT2_FILES[@]}" -eq 0 ]; then
+            echo "has_files=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          for file in "${SMT2_FILES[@]}"; do
+            rel="${file#/tmp/gh-aw/agent/FStar/}"
+            target="/tmp/gh-aw/agent/smt2-artifact/${rel}"
+            mkdir -p "$(dirname "$target")"
+            cp "$file" "$target"
+            {
+              printf '#### `%s`\n\n' "$rel"
+              printf '```smt2\n'
+              head -n "$SMT2_HEAD_LINES" "$file"
+              printf '\n```\n\n'
+            } >> "$SMT2_PREVIEW"
+          done
+
+          echo "has_files=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload generated SMT2 artifact
+        id: upload_smt2
+        if: always() && steps.collect_smt2.outputs.has_files == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fstar-generated-smt2-${{ github.run_id }}
+          path: /tmp/gh-aw/agent/smt2-artifact
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Create discussion summary
+        if: always()
+        uses: actions/github-script@v9
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          FSTAR_BUILD_OUTCOME: ${{ steps.build_fstar.outcome }}
+          SMT2_ARTIFACT_ID: ${{ steps.upload_smt2.outputs.artifact-id }}
+        with:
+          script: |
+            const fs = require('fs');
+
+            const readIfExists = (path) => fs.existsSync(path) ? fs.readFileSync(path, 'utf8').trim() : null;
+            const z3VersionText = readIfExists('/tmp/gh-aw/agent/z3-version.txt') ?? 'unknown';
+            const fstarVersionFile = readIfExists('/tmp/gh-aw/agent/fstar-version.txt') ?? '';
+            const fstarVersionText = fstarVersionFile ? fstarVersionFile.split('\n')[0] : 'unknown';
+            const fstarCommitLine = readIfExists('/tmp/gh-aw/agent/fstar-commit.txt') ?? '';
+            const fstarCommit = fstarCommitLine ? fstarCommitLine.replace(/^FStar commit:\s*/, '') : 'unknown';
+            const fstarBuildOutcome = process.env.FSTAR_BUILD_OUTCOME || 'unknown';
+            const fstarBuildSucceeded = fstarBuildOutcome === 'success';
+            const fstarStatus = fstarBuildSucceeded
+              ? '✅ FStar build completed'
+              : `⚠️ FStar build ${fstarBuildOutcome} (pipeline continued)`;
+            const smt2ArtifactId = (process.env.SMT2_ARTIFACT_ID || '').trim();
+            const smt2ArtifactUrl = smt2ArtifactId ? `${process.env.RUN_URL}/artifacts/${smt2ArtifactId}` : '';
+            const smt2PreviewFile = '/tmp/gh-aw/agent/smt2-preview.md';
+            const maxPreviewChars = 55000; // Keep below GitHub's 65536-character discussion body limit, leaving room for non-preview sections.
+            let smt2Preview = readIfExists(smt2PreviewFile) ?? '';
+            const smt2PreviewChars = Array.from(smt2Preview);
+            if (smt2PreviewChars.length > maxPreviewChars) {
+              smt2Preview = `${smt2PreviewChars.slice(0, maxPreviewChars).join('')}\n\n... (truncated due to discussion size limits)`;
+            }
+            const smt2Section = smt2ArtifactId
+              ? [
+                  `### Generated SMT2 files`,
+                  `- Artifact: ${smt2ArtifactUrl}`,
+                  ``,
+                  `First 1000 lines per generated \`.smt2\` file:`,
+                  ``,
+                  smt2Preview || '_No preview content available._'
+                ].join('\n')
+              : [
+                  `### Generated SMT2 files`,
+                  `- No generated \`.smt2\` files were found.`
+                ].join('\n');
+            const date = new Date().toISOString().slice(0, 10);
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const categoryName = process.env.DISCUSSION_CATEGORY;
+
+            const categoryQuery = await github.graphql(
+              `query($owner:String!, $repo:String!) {
+                repository(owner:$owner, name:$repo) {
+                  id
+                  discussionCategories(first:50) {
+                    nodes { id name }
+                  }
+                }
+              }`,
+              { owner, repo }
+            );
+
+            const categories = categoryQuery.repository.discussionCategories.nodes || [];
+            const normalized = categoryName.trim().toLowerCase();
+            const category = categories.find(c => c.name.toLowerCase() === normalized);
+            if (!category) {
+              throw new Error(`Discussion category '${categoryName}' not found`);
+            }
+
+            const body = [
+              `### Build status`,
+              `- ✅ Z3 build completed`,
+              `- ${fstarStatus}`,
+              ``,
+              `### Inputs used`,
+              `- z3_ref: \`${process.env.Z3_REF}\``,
+              `- z3_cmake_args: \`${process.env.Z3_CMAKE_ARGS}\``,
+              `- z3_runtime_args: \`${process.env.Z3_RUNTIME_ARGS}\``,
+              `- fstar_ref: \`${process.env.FSTAR_REF}\``,
+              `- fstar_opam_switch: \`${process.env.FSTAR_OPAM_SWITCH}\``,
+              `- fstar_otherflags: \`${process.env.FSTAR_OTHERFLAGS}\``,
+              ``,
+              `### Produced versions`,
+              `- Z3: \`${z3VersionText}\``,
+              `- FStar: \`${fstarVersionText}\``,
+              `- FStar commit: \`${fstarCommit}\``,
+              ``,
+              smt2Section,
+              ``,
+              `### Run`,
+              `- Workflow run: ${process.env.RUN_URL}`
+            ].join('\n');
+
+            await github.graphql(
+              `mutation($repositoryId:ID!, $categoryId:ID!, $title:String!, $body:String!) {
+                createDiscussion(input:{
+                  repositoryId:$repositoryId,
+                  categoryId:$categoryId,
+                  title:$title,
+                  body:$body
+                }) {
+                  discussion { url }
+                }
+              }`,
+              {
+                repositoryId: categoryQuery.repository.id,
+                categoryId: category.id,
+                title: `FStar build with configurable Z3 inputs — ${date}`,
+                body
+              }
+            );

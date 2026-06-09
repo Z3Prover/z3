@@ -2032,7 +2032,7 @@ namespace smtfd {
 
         void set_produce_models(bool f) override { }
         void set_progress_callback(progress_callback * callback) override { }
-        void collect_statistics(statistics & st) const override {
+        void collect_statistics_core(statistics & st) const override {
             if (m_fd_sat_solver) {
                 m_fd_sat_solver->collect_statistics(st); 
                 m_fd_core_solver->collect_statistics(st); 

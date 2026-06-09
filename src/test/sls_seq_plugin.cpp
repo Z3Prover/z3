@@ -351,4 +351,28 @@ void tst_sls_seq_plugin() {
     app_ref eq(m.mk_eq(l, r), m);
     verbose_stream() << eq << "\n";
     ts.repair_down_str_eq_edit_distance_incremental(eq);
+
+    test_seq::string_instance lhs, rhs;
+    lhs.s = zstring("a");
+    lhs.is_value.push_back(false);
+    lhs.prev_is_var.push_back(false);
+    lhs.next_is_var.push_back(false);
+    rhs.s = zstring("ab");
+    rhs.is_value.push_back(true);
+    rhs.prev_is_var.push_back(false);
+    rhs.next_is_var.push_back(false);
+    rhs.is_value.push_back(false);
+    rhs.prev_is_var.push_back(false);
+    rhs.next_is_var.push_back(false);
+
+    ENSURE(ts.edit_distance_with_updates(lhs, rhs) == 0);
+    ENSURE(ts.m_string_updates.size() == 2);
+    ENSURE(ts.m_string_updates[0].side == test_seq::side_t::right);
+    ENSURE(ts.m_string_updates[0].op == test_seq::op_t::add);
+    ENSURE(ts.m_string_updates[0].i == 0);
+    ENSURE(ts.m_string_updates[0].j == 1);
+    ENSURE(ts.m_string_updates[1].side == test_seq::side_t::right);
+    ENSURE(ts.m_string_updates[1].op == test_seq::op_t::del);
+    ENSURE(ts.m_string_updates[1].i == 1);
+    ENSURE(ts.m_string_updates[1].j == 0);
 }

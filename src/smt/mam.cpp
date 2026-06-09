@@ -1881,8 +1881,10 @@ namespace {
             m_pool.recycle(v);
         }
 
-        void update_max_generation(enode * n, enode * prev) {
-            m_max_generation = std::max(m_max_generation, n->get_generation());
+        void update_max_generation(enode * n, enode * prev, enode * min_gen_match=nullptr) {
+            unsigned new_gen = min_gen_match ? min_gen_match->get_generation() : n->get_generation();
+
+            m_max_generation = std::max(m_max_generation, new_gen);
 
             if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality))
                 m_used_enodes.push_back(std::make_tuple(prev, n));
@@ -1910,15 +1912,18 @@ namespace {
             }
             while (curr != first);
             if (matching_cgr)
-                update_max_generation(min_gen_match, first);  
+                update_max_generation(matching_cgr, first, min_gen_match);  
             return matching_cgr;
         }
 
         enode * get_next_f_app(func_decl * lbl, unsigned num_expected_args, enode * first, enode * curr) {
             curr = curr->get_next();
             while (curr != first) {
-                if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->is_cgr())
+                if (curr->get_decl() == lbl && curr->get_num_args() == num_expected_args && curr->is_cgr()) {
+                    if (m.has_trace_stream() || is_trace_enabled(TraceTag::causality))
+                        m_used_enodes.push_back(std::make_tuple(first, curr));
                     return curr;
+                }
                 curr = curr->get_next();
             }
             return nullptr;
@@ -3975,7 +3980,7 @@ namespace {
 #endif
             unsigned min_gen = 0, max_gen = 0;
             m_interpreter.get_min_max_top_generation(min_gen, max_gen);
-            m_context.add_instance(qa, pat, num_bindings, bindings, nullptr, max_generation, min_gen, max_gen, used_enodes);
+            m_context.add_instance(qa, pat, num_bindings, bindings, max_generation, min_gen, max_gen, used_enodes);
         }
 
         bool is_shared(enode * n) const override {

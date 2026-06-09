@@ -235,7 +235,7 @@ namespace opt {
         void get_model_core(model_ref& _m) override;
         void get_box_model(model_ref& _m, unsigned index) override;
         void fix_model(model_ref& _m) override;
-        void collect_statistics(statistics& stats) const override;
+        void collect_statistics_core(statistics& stats) const override;
         proof* get_proof_core() override { return nullptr; }
         void get_labels(svector<symbol> & r) override;
         void get_unsat_core(expr_ref_vector & r) override;

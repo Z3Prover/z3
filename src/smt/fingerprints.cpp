@@ -20,10 +20,9 @@ Revision History:
 
 namespace smt {
 
-    fingerprint::fingerprint(region & r, void * d, unsigned d_h, expr* def, unsigned n, enode * const * args):
+    fingerprint::fingerprint(region & r, void * d, unsigned d_h, unsigned n, enode * const * args):
         m_data(d), 
         m_data_hash(d_h),
-        m_def(def),
         m_num_args(n), 
         m_args(nullptr) {
         m_args = new (r) enode*[n];
@@ -62,7 +61,7 @@ namespace smt {
     }
 
     
-    fingerprint * fingerprint_set::insert(void * data, unsigned data_hash, unsigned num_args, enode * const * args, expr* def) {
+    fingerprint * fingerprint_set::insert(void * data, unsigned data_hash, unsigned num_args, enode * const * args) {
         
         struct arg_data {
             unsigned data_hash;
@@ -93,9 +92,8 @@ namespace smt {
             return nullptr;
         }
         TRACE(fingerprint_bug, tout << "inserting @" << m_scopes.size() << " " << *d;);
-        fingerprint * f = new (m_region) fingerprint(m_region, data, data_hash, def, num_args, d->m_args);
+        fingerprint * f = new (m_region) fingerprint(m_region, data, data_hash, num_args, d->m_args);
         m_fingerprints.push_back(f);
-        m_defs.push_back(def);
         m_set.insert(f);
         return f;
     }
@@ -106,15 +104,12 @@ namespace smt {
             return true;
         for (unsigned i = 0; i < num_args; ++i)
             d->m_args[i] = d->m_args[i]->get_root();
-        if (m_set.contains(d))
-            return true;
-        return false;
+        return m_set.contains(d);
     }
     
     void fingerprint_set::reset() {
         m_set.reset();
         m_fingerprints.reset();
-        m_defs.reset();
     }
         
     void fingerprint_set::push_scope() {
@@ -134,7 +129,6 @@ namespace smt {
                 m_set.erase(m_fingerprints[i]);
         }
         m_fingerprints.shrink(old_size);
-        m_defs.shrink(old_size);
         m_scopes.shrink(new_lvl);
         TRACE(fingerprint_bug, tout << "pop @" << m_scopes.size() << "\n";);
     }

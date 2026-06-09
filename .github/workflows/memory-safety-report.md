@@ -1,7 +1,7 @@
 ---
 description: >
   Analyze ASan/UBSan sanitizer logs from the memory-safety workflow
-  and post findings as a GitHub Discussion.
+  and file findings as a GitHub issue.
 
 on:
   workflow_run:
@@ -16,7 +16,6 @@ timeout-minutes: 30
 permissions:
   actions: read
   contents: read
-  discussions: read
   issues: read
   pull-requests: read
 
@@ -35,11 +34,10 @@ safe-outputs:
   mentions: false
   allowed-github-references: []
   max-bot-mentions: 1
-  create-discussion:
+  create-issue:
     title-prefix: "[Memory Safety] "
-    category: "Agentic Workflows"
-    close-older-discussions: true
-    expires: 7d
+    labels: [bug, memory-safety, automated-analysis]
+    max: 1
   missing-tool:
     create-issue: true
   noop:
@@ -111,9 +109,9 @@ Check cache memory for previous run results:
 - List of previously known issues
 - Identify new findings (regressions) vs. resolved findings (improvements)
 
-### 4. Generate the Discussion Report
+### 4. Generate the Issue Report
 
-Create a GitHub Discussion. Use `###` or lower for section headers, never `##` or `#`. Wrap verbose sections in `<details>` tags to keep the report scannable.
+Create a GitHub issue using `create-issue`. Use `##` or lower for section headers and wrap verbose sections in `<details>` tags to keep the report scannable.
 
 ```markdown
 **Date**: YYYY-MM-DD
@@ -190,7 +188,7 @@ Create a GitHub Discussion. Use `###` or lower for section headers, never `##` o
 </details>
 ```
 
-If zero findings across all tools, create a discussion noting a clean run with the commit and workflow run link.
+If zero findings across all tools, call `noop` and include a clean-run summary (commit and workflow run link) in the no-op message.
 
 ### 5. Update Cache Memory
 
@@ -203,7 +201,7 @@ Store the current run's results in cache memory for future comparison:
 
 - If the triggering workflow failed entirely, report that analysis could not complete and include any partial results.
 - If no artifacts are available, report that and suggest running the workflow manually.
-- If the helper scripts fail, report the error in the discussion body and stop.
+- If the helper scripts fail, report the error in the issue body and stop.
 
 ## Guidelines
 
@@ -217,6 +215,6 @@ Store the current run's results in cache memory for future comparison:
 
 - DO NOT create pull requests or modify source files.
 - DO NOT attempt to fix the findings automatically.
-- DO close older Memory Safety discussions automatically (configured via `close-older-discussions: true`).
+- DO create issues only when there are actionable findings; use `noop` for clean runs.
 - DO always report the commit SHA so findings can be correlated with specific code versions.
 - DO use cache memory to track trends over multiple runs.

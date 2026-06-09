@@ -76,7 +76,7 @@ namespace opt {
         m_context.collect_param_descrs(r);
     }
     
-    void opt_solver::collect_statistics(statistics & st) const {        
+    void opt_solver::collect_statistics_core(statistics & st) const {        
         m_context.collect_statistics(st);
     }
     

@@ -122,7 +122,6 @@ namespace smt {
         // enodes. Examples: boolean expression nested in an
         // uninterpreted function.
         expr_ref_vector             m_e_internalized_stack; // stack of the expressions already internalized as enodes.
-        quantifier_ref_vector       m_l_internalized_stack;
 
         ptr_vector<justification>   m_justifications;
 
@@ -620,8 +619,8 @@ namespace smt {
             return m_asserted_formulas.has_quantifiers();
         }
 
-        fingerprint * add_fingerprint(void * data, unsigned data_hash, unsigned num_args, enode * const * args, expr* def = nullptr) {
-            return m_fingerprints.insert(data, data_hash, num_args, args, def);
+        fingerprint * add_fingerprint(void * data, unsigned data_hash, unsigned num_args, enode * const * args) {
+            return m_fingerprints.insert(data, data_hash, num_args, args);
         }
 
         theory_id get_var_theory(bool_var v) const {
@@ -870,16 +869,6 @@ namespace smt {
         mk_enode_trail   m_mk_enode_trail;
         void undo_mk_enode();
 
-        friend class mk_lambda_trail;
-        class mk_lambda_trail : public trail {
-            context& ctx;
-        public:
-            mk_lambda_trail(context& ctx) :ctx(ctx) {}
-            void undo() override { ctx.undo_mk_lambda(); }
-        };
-        mk_lambda_trail   m_mk_lambda_trail;
-        void undo_mk_lambda();
-
 
         void apply_sort_cnstr(app * term, enode * e);
 
@@ -1113,8 +1102,8 @@ namespace smt {
 
         bool contains_instance(quantifier * q, unsigned num_bindings, enode * const * bindings);
 
-        bool add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
-                          unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode*>> & used_enodes /*gives the equalities used for the pattern match, see mam.cpp for more info*/);
+        bool add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, 
+            unsigned max_generation, unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode*>> & used_enodes /*gives the equalities used for the pattern match, see mam.cpp for more info*/);
 
         void set_global_generation(unsigned generation) { m_generation = generation; }
 

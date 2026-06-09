@@ -48,7 +48,7 @@ namespace lp {
     }
 
 
-    template <typename T, typename X> bool static_matrix<T, X>::pivot_row_to_row_given_cell(unsigned i, 
+    template <typename T, typename X> void static_matrix<T, X>::pivot_row_to_row_given_cell(unsigned i, 
                                                                                             column_cell & c, unsigned pivot_col) {
         unsigned ii = c.var();
         SASSERT(i < row_count() && ii < column_count() && i != ii);
@@ -82,7 +82,7 @@ namespace lp {
             if (is_zero(rowii[k].coeff()))
                 remove_element(rowii, rowii[k]);
         }
-        return !rowii.empty();
+        SASSERT(!rowii.empty());
     }
 
     

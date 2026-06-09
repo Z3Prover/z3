@@ -4014,51 +4014,7 @@ bool seq_rewriter::are_complements(expr* r1, expr* r2) const {
  * basic subset checker.
  */
 bool seq_rewriter::is_subset(expr* r1, expr* r2) const {
-    // return false;
-    expr* ra1 = nullptr, *ra2 = nullptr, *ra3 = nullptr;
-    expr* rb1 = nullptr, *rb2 = nullptr, *rb3 = nullptr;
-    unsigned la, ua, lb, ub;
-    if (re().is_complement(r1, ra1) && 
-        re().is_complement(r2, rb1)) {
-        return is_subset(rb1, ra1);
-    }
-    auto is_concat = [&](expr* r, expr*& a, expr*& b, expr*& c) {
-        return re().is_concat(r, a, b) && re().is_concat(b, b, c);
-    };
-    while (true) {
-        if (r1 == r2)
-            return true;
-        if (re().is_full_seq(r2))
-            return true;
-        if (re().is_dot_plus(r2) && re().get_info(r1).nullable == l_false)
-            return true;
-        if (is_concat(r1, ra1, ra2, ra3) &&
-            is_concat(r2, rb1, rb2, rb3) && ra1 == rb1 && ra2 == rb2) {
-            r1 = ra3;
-            r2 = rb3;
-            continue;
-        }
-        if (re().is_concat(r1, ra1, ra2) && 
-            re().is_concat(r2, rb1, rb2) && re().is_full_seq(rb1)) {
-            r1 = ra2;
-            continue;
-        }
-        // r1=ra3{la,ua}ra2, r2=rb3{lb,ub}rb2, ra3=rb3, lb<=la, ua<=ub
-        if (re().is_concat(r1, ra1, ra2) && re().is_loop(ra1, ra3, la, ua) &&
-            re().is_concat(r2, rb1, rb2) && re().is_loop(rb1, rb3, lb, ub) &&
-            ra3 == rb3 && lb <= la && ua <= ub) {
-            r1 = ra2;
-            r2 = rb2;
-            continue;
-        }
-        // ra1=ra3{la,ua}, r2=rb3{lb,ub}, ra3=rb3, lb<=la, ua<=ub
-        if (re().is_loop(r1, ra3, la, ua) &&
-            re().is_loop(r2, rb3, lb, ub) &&
-            ra3 == rb3 && lb <= la && ua <= ub) {
-            return true;
-        }
-        return false;
-    }
+    return m_subset.is_subset(r1, r2);
 }
 
 br_status seq_rewriter::mk_re_union0(expr* a, expr* b, expr_ref& result) {
@@ -5628,4 +5584,3 @@ bool seq_rewriter::get_bounds(expr* e, unsigned& low, unsigned& high) {
     }
     return low <= high;
 }
-

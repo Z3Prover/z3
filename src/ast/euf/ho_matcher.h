@@ -355,8 +355,6 @@ namespace euf {
 
         void reduce(match_goal& wi);
 
-        expr_ref unfold_lambda_def(expr* e) const;
-
         trail_stack& trail() { return m_trail; }
 
         std::ostream& display(std::ostream& out) const;
