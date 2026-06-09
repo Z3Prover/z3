@@ -293,7 +293,7 @@ public:
 
 
 // pivot row i to row ii
-    bool pivot_row_to_row_given_cell(unsigned i, column_cell& c, unsigned j);
+    void pivot_row_to_row_given_cell(unsigned i, column_cell& c, unsigned j);
     void pivot_row_to_row_given_cell_with_sign(unsigned piv_row_index, column_cell& c, unsigned j, int j_sign);
     void transpose_rows(unsigned i, unsigned ii) {
         auto t = m_rows[i];
