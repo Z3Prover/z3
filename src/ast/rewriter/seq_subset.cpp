@@ -42,7 +42,7 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
             return true;
 
         // e ⊆ a*
-        if (m_re.is_epsilon(a) && m_re.is_m_re.is_star(b, b1))
+        if (m_re.is_epsilon(a) && m_re.is_star(b, b1))
             return true;
 
         // R ⊆ R*
