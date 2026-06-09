@@ -443,6 +443,8 @@ public:
             lbool nullable { l_undef };
             /* Lower bound  on the length of all accepted words. */
             unsigned min_length { 0 };
+            /* Classical regular expression: does not use complement, intersection, diff, or the empty language (fail). */
+            bool classical { true };
 
             /*
               Default constructor of invalid info.
@@ -459,11 +461,13 @@ public:
             */
             info(bool is_interpreted,
                 lbool is_nullable,
-                unsigned min_l) :
+                unsigned min_l,
+                bool is_classical) :
                 known(l_true), 
                 interpreted(is_interpreted),
                 nullable(is_nullable),
-                min_length(min_l) {}
+                min_length(min_l),
+                classical(is_classical) {}
 
             /*
               Appends a string representation of the info into the stream.
