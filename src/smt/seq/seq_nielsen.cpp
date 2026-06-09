@@ -3627,9 +3627,15 @@ namespace seq {
             next.push_back(sigma_pair(seq.re.mk_complement(sp[i].m_p), full, m));
             next.push_back(sigma_pair(full, seq.re.mk_complement(sp[i].m_q), m));
             sigma_pairs tmp;
-            if (intersect_sigma_pairs(m, seq, acc, next, tmp, threshold) || tmp.empty())
-                break;
+            // De Morgan fold: acc := acc ⊓ ~sp[i]. intersect_sigma_pairs returns
+            // false ONLY when it overruns the threshold; in that case we must give
+            // up entirely (a partial fold is a strictly weaker — hence unsound —
+            // split set, since each ~sp[i] further constrains ~S).
+            if (!intersect_sigma_pairs(m, seq, acc, next, tmp, threshold))
+                return false;
             acc = std::move(tmp);
+            if (acc.empty())            // intersection empty ⇒ ~S is empty
+                break;
             if (acc.size() > threshold)
                 return false;
         }
