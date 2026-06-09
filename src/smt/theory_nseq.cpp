@@ -463,8 +463,11 @@ namespace smt {
                 euf::snode* re_node = mem.m_regex;
                 euf::snode* str_node = mem.m_str;
                 do {
-                    // eliminate leading character by derivatives
-                    re_node = m_sgraph.brzozowski_deriv(re_node, mem.m_str->first());
+                    // eliminate leading character by derivatives; derive by the
+                    // CURRENT leading char (str_node->first()), not the original
+                    // mem.m_str->first() — otherwise a multi-char prefix is derived
+                    // by its first char repeatedly (unsound).
+                    re_node = m_sgraph.brzozowski_deriv(re_node, str_node->first());
                     str_node = m_sgraph.drop_first(str_node);
                 } while (!str_node->is_empty() && str_node->first()->is_char());
 
