@@ -565,7 +565,7 @@ public:
         expr_ref_vector lit2expr(m);
         lit2expr.resize(m_solver.num_vars() * 2);
         m_map.mk_inv(lit2expr);
-        uint64_t now = m_solver.get_stats().m_conflict;
+        uint64_t now = m_solver.get_stats().m_conflicts;
         for (sat::literal lit : lits) {
             expr* e = lit2expr.get(lit.index());
             if (!e)

@@ -60,7 +60,7 @@ namespace sat {
         unsigned m_mk_bin_clause;
         unsigned m_mk_ter_clause;
         unsigned m_mk_clause;
-        unsigned m_conflict;
+        unsigned m_conflicts;
         unsigned m_propagate;
         unsigned m_bin_propagate;
         unsigned m_ter_propagate;
