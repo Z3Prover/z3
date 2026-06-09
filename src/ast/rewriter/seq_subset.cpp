@@ -17,13 +17,6 @@ Author:
 
 #include "ast/rewriter/seq_subset.h"
 
-bool seq_subset::has_suffix(expr* r, expr* suffix) const {
-    if (r == suffix)
-        return true;
-    expr* r1 = nullptr, * r2 = nullptr;
-    return m_re.is_concat(r, r1, r2) && has_suffix(r2, suffix);
-}
-
 bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
     while (true) {
         
@@ -37,7 +30,7 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
         if (depth >= m_max_depth)
             return false;        
 
-        expr* a1 = nullptr, * a2 = nullptr, * b1 = nullptr, * b2 = nullptr;
+        expr* a1 = nullptr, * a2 = nullptr, *a3 = nullptr, * b1 = nullptr, * b2 = nullptr, * b3 = nullptr;
         unsigned la, ua, lb, ub;
 
         // a ⊆ .+ iff a is non-nullable
@@ -46,6 +39,10 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
 
         // a ⊆ a*
         if (m_re.is_star(b, b1) && is_subset_rec(a, b1, depth))
+            return true;
+
+        // e ⊆ a*
+        if (m_re.is_epsilon(a) && m_re.is_m_re.is_star(b, b1))
             return true;
 
         // E3: R ⊆ R*
@@ -57,7 +54,7 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
             return true;
 
         // E3: R1+ ⊆ R2+ if R1 ⊆ R2
-        if (m_re.is_plus(a, a1) && m_re.is_plus(b, b1) && is_subset_rec(a1, b1, depth + 1))
+        if (m_re.is_plus(a, a1) && m_re.is_plus(b, b1) && is_subset_rec(a1, b1, depth))
             return true;
 
         // a ⊆ b1 ∪ b2 if a ⊆ b1 or a ⊆ b2
@@ -76,6 +73,21 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
         if (m_re.is_intersection(b, b1, b2) && is_subset_rec(a, b1, depth + 1) && is_subset_rec(a, b2, depth + 1))
             return true;
 
+        // r1=ra3{la,ua}ra2, r2=rb3{lb,ub}rb2, ra3=rb3, lb<=la, ua<=ub
+        if (re().is_concat(a, a1, a2) && re().is_loop(a1, a3, la, ua) &&
+            re().is_concat(b, b1, b2) && re().is_loop(b1, b3, lb, ub) &&
+            a3 == b3 && lb <= la && ua <= ub) {
+            a = a2;
+            b = b2;
+            continue;
+        }
+        // ra1=ra3{la,ua}, r2=rb3{lb,ub}, ra3=rb3, lb<=la, ua<=ub
+        if (re().is_loop(a, a1, la, ua) &&
+            re().is_loop(b, b1, lb, ub) &&
+            lb <= la && ua <= ub && is_subset_rec(a1, b1, depth + 1)) {
+            return true;
+        }        
+
         // concat monotonicity:
         // tail-recursive on second arguments (without increasing depth bound).
         if (m_re.is_concat(a, a1, a2) && m_re.is_concat(b, b1, b2) && is_subset_rec(a1, b1, depth + 1)) {
@@ -84,8 +96,8 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
             continue;
         }
 
-        // E2: R ⊆ Σ*·R, and generalized suffix matching for nested concatenations.
-        if (m_re.is_concat(b, b1, b2) && m_re.is_full_seq(b1) && has_suffix(a, b2))
+        // E2: R ⊆ Σ*·R' if R ⊆ R'
+        if (m_re.is_concat(b, b1, b2) && m_re.is_full_seq(b1) && is_subset_rec(a, b2, depth))
             return true;
 
         // loop subsumption: r{la,ua} ⊆ r{lb,ub} when lb <= la and ua <= ub
