@@ -22,7 +22,6 @@ class seq_subset {
     seq_util::rex& m_re;
     static constexpr unsigned m_max_depth = 3;
 
-    bool has_suffix(expr* r, expr* suffix) const;
     bool is_subset_rec(expr* a, expr* b, unsigned depth) const;
 
 public:
