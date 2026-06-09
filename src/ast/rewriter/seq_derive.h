@@ -86,10 +86,11 @@ namespace seq {
 
         // Path: vector of signed atoms
         svector<std::pair<expr*, bool>> m_path;
-        // Intervals: feasible character ranges under current path
+        // Intervals: feasible character ranges under current path (append-only)
         intervals_t m_intervals;
+        unsigned m_intervals_start { 0 };
         // Stack of saved states for push/pop
-        struct path_save { unsigned path_sz; intervals_t intervals; expr* path_expr; };
+        struct path_save { unsigned path_sz; unsigned intervals_sz; unsigned intervals_start; expr* path_expr; };
         svector<path_save> m_path_stack;
         // Boolean expression encoding of current path (for cache keys)
         expr_ref m_path_expr;
@@ -103,6 +104,8 @@ namespace seq {
         expr_ref apply_ite(expr* c, expr* t, expr* e, expr* r, std::function<expr_ref(expr*, expr*)> apply_op);
         expr_ref apply_ite(expr* c, expr* t1, expr* e1, expr* t2, expr* e2, std::function<expr_ref(expr*, expr*)> apply_op);
         expr_ref apply_ite(expr* c, expr* t, expr* e, std::function<expr_ref(expr*)> apply_op);
+        // Common ITE dispatch for binary ops (union/inter)
+        expr_ref hoist_ite(expr* a, expr* b, std::function<expr_ref(expr*, expr*)> apply_op);
 
         // Evaluate a condition against the current path/intervals
         lbool eval_path_cond(expr* c);
@@ -152,9 +155,9 @@ namespace seq {
 
         // Condition evaluation helpers
         lbool eval_cond(expr* cond);
-        lbool eval_range_cond(intervals_t const& intervals, expr* c);
-        static void intersect_intervals(unsigned lo, unsigned hi, intervals_t& ranges);
-        static void exclude_interval(unsigned lo, unsigned hi, intervals_t& ranges, unsigned max_char);
+        lbool eval_range_cond(expr* c);
+        void intersect_intervals(unsigned lo, unsigned hi);
+        void exclude_interval(unsigned lo, unsigned hi);
 
         sort* re_sort(expr* r) { return r->get_sort(); }
         sort* seq_sort(expr* r) { sort* s = nullptr; m_util.is_re(r, s); return s; }

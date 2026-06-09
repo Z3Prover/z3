@@ -78,6 +78,7 @@ namespace seq {
         m_path.reset();
         m_intervals.reset();
         m_intervals.push_back(std::make_pair(0u, u().max_char()));
+        m_intervals_start = 0;
         m_path_expr = m.mk_true();
         expr_ref result = derive_rec(r);
         m_ele = nullptr;
@@ -664,6 +665,7 @@ namespace seq {
     bool derive::is_subset(expr* a, expr* b) {
         if (a == b) return true;
         if (re().is_empty(a)) return true;
+        if (re().is_full_seq(a)) return re().is_full_seq(b);
         if (re().is_full_seq(b)) return true;
 
         expr* b1 = nullptr;
@@ -721,45 +723,14 @@ namespace seq {
         if (a->get_id() > b->get_id())
             std::swap(a, b);
 
-        // Identity / annihilator
-        if (a == b) return expr_ref(a, m);
-        if (re().is_empty(a)) return expr_ref(b, m);
-        if (re().is_empty(b)) return expr_ref(a, m);
-        if (re().is_full_seq(a)) return expr_ref(a, m);
-        if (re().is_full_seq(b)) return expr_ref(b, m);
-
-        // Complement absorption: r ∪ ~r = Σ*
-        expr* c = nullptr;
-        if (re().is_complement(a, c) && c == b)
-            return expr_ref(re().mk_full_seq(a->get_sort()), m);
-        if (re().is_complement(b, c) && c == a)
-            return expr_ref(re().mk_full_seq(a->get_sort()), m);
+        // Subsumption covers: a==b, empty(a), empty(b), full(a), full(b), complement absorption, etc.
+        if (is_subset(a, b)) return expr_ref(b, m);
+        if (is_subset(b, a)) return expr_ref(a, m);
 
         // ITE handling with path pruning
-        expr *c1, *t1, *e1, *c2, *t2, *e2;
         auto union_op = [&](expr* x, expr* y) { return mk_union(x, y); };
-
-        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2)) {
-            expr_ref r(m);
-            if (c1 == c2)
-                r = apply_ite(c1, t1, e1, t2, e2, union_op);
-            else
-                r = apply_ite(c1, t1, e1, b, union_op);
-            if (r) return r;
-            return expr_ref(re().mk_empty(a->get_sort()), m);
-        }
-        if (m_path_stack.size() < 8) {
-            if (m.is_ite(a, c1, t1, e1)) {
-                expr_ref r = apply_ite(c1, t1, e1, b, union_op);
-                if (r) return r;
-                return expr_ref(re().mk_empty(a->get_sort()), m);
-            }
-            if (m.is_ite(b, c2, t2, e2)) {
-                expr_ref r = apply_ite(c2, t2, e2, a, union_op);
-                if (r) return r;
-                return expr_ref(re().mk_empty(a->get_sort()), m);
-            }
-        }
+        expr_ref r = hoist_ite(a, b, union_op);
+        if (r) return r;
 
         // Prefix factoring: a·x ∪ a·y = a·(x ∪ y)
         expr *a1, *a2, *b1, *b2;
@@ -768,24 +739,34 @@ namespace seq {
             return mk_deriv_concat(a1, tail);
         }
 
-        // star absorbs epsilon: r* ∪ ε = r*
-        if (re().is_star(a) && re().is_epsilon(b)) return expr_ref(a, m);
-        if (re().is_star(b) && re().is_epsilon(a)) return expr_ref(b, m);
-
-        // Subsumption: a ∪ b = b if a ⊆ b, a ∪ b = a if b ⊆ a
-        if (is_subset(a, b)) return expr_ref(b, m);
-        if (is_subset(b, a)) return expr_ref(a, m);
-
-        // ACI normalization: flatten, sort by id, deduplicate
+        // ACI normalization: flatten, sort by id, deduplicate/subsume
         expr_ref_vector args(m);
         flatten_union(a, args);
         flatten_union(b, args);
         std::sort(args.data(), args.data() + args.size(), [](expr* x, expr* y) { return x->get_id() < y->get_id(); });
-        expr_ref result(args.get(0), m);
-        for (unsigned i = 1; i < args.size(); ++i) {
-            if (args.get(i) != args.get(i - 1))
-                result = expr_ref(re().mk_union(result, args.get(i)), m);
+        // Remove subsumed elements: if args[i] ⊆ args[j], drop args[i]
+        unsigned j = 0;
+        for (unsigned i = 0; i < args.size(); ++i) {
+            bool subsumed = false;
+            for (unsigned k = 0; k < j; ++k) {
+                if (is_subset(args.get(i), args.get(k))) { subsumed = true; break; }
+            }
+            if (!subsumed) {
+                // Check if new element subsumes any previously kept
+                unsigned new_j = 0;
+                for (unsigned k = 0; k < j; ++k) {
+                    if (!is_subset(args.get(k), args.get(i)))
+                        args[new_j++] = args.get(k);
+                }
+                args[new_j++] = args.get(i);
+                j = new_j;
+            }
         }
+        if (j == 0)
+            return expr_ref(re().mk_empty(a->get_sort()), m);
+        expr_ref result(args.get(0), m);
+        for (unsigned i = 1; i < j; ++i)
+            result = expr_ref(re().mk_union(result, args.get(i)), m);
         return result;
     }
 
@@ -812,12 +793,9 @@ namespace seq {
         if (a->get_id() > b->get_id())
             std::swap(a, b);
 
-        // Identity / annihilator
-        if (a == b) return expr_ref(a, m);
-        if (re().is_empty(a)) return expr_ref(a, m);
-        if (re().is_empty(b)) return expr_ref(b, m);
-        if (re().is_full_seq(a)) return expr_ref(b, m);
-        if (re().is_full_seq(b)) return expr_ref(a, m);
+        // Subsumption covers: a==b, empty(a), empty(b), full(a), full(b), etc.
+        if (is_subset(a, b)) return expr_ref(a, m);
+        if (is_subset(b, a)) return expr_ref(b, m);
 
         // Complement absorption: r ∩ ~r = ∅
         expr* c = nullptr;
@@ -827,30 +805,9 @@ namespace seq {
             return expr_ref(re().mk_empty(a->get_sort()), m);
 
         // ITE handling with path pruning
-        expr *c1, *t1, *e1, *c2, *t2, *e2;
         auto inter_op = [&](expr* x, expr* y) { return mk_inter(x, y); };
-
-        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2)) {
-            expr_ref r(m);
-            if (c1 == c2)
-                r = apply_ite(c1, t1, e1, t2, e2, inter_op);
-            else
-                r = apply_ite(c1, t1, e1, b, inter_op);
-            if (r) return r;
-            return expr_ref(re().mk_empty(a->get_sort()), m);
-        }
-        if (m_path_stack.size() < 8) {
-            if (m.is_ite(a, c1, t1, e1)) {
-                expr_ref r = apply_ite(c1, t1, e1, b, inter_op);
-                if (r) return r;
-                return expr_ref(re().mk_empty(a->get_sort()), m);
-            }
-            if (m.is_ite(b, c2, t2, e2)) {
-                expr_ref r = apply_ite(c2, t2, e2, a, inter_op);
-                if (r) return r;
-                return expr_ref(re().mk_empty(a->get_sort()), m);
-            }
-        }
+        expr_ref r = hoist_ite(a, b, inter_op);
+        if (r) return r;
 
         // Base case: build raw intersection
         return expr_ref(re().mk_inter(a, b), m);
@@ -1000,14 +957,16 @@ namespace seq {
 
         // Save current state
         unsigned saved_path_sz = m_path.size();
-        intervals_t saved_intervals(m_intervals);
+        unsigned saved_intervals_sz = m_intervals.size();
+        unsigned saved_intervals_start = m_intervals_start;
         expr* saved_path_expr = m_path_expr;
 
         // Push atoms onto path and check for contradiction or implication
         lbool atoms_result = push_path_atoms(c, sign);
         if (atoms_result == l_false) {
             m_path.shrink(saved_path_sz);
-            m_intervals = saved_intervals;
+            m_intervals.shrink(saved_intervals_sz);
+            m_intervals_start = saved_intervals_start;
             return l_false;
         }
 
@@ -1015,14 +974,16 @@ namespace seq {
         lbool intervals_result = push_intervals_impl(c, sign);
         if (intervals_result == l_false) {
             m_path.shrink(saved_path_sz);
-            m_intervals = saved_intervals;
+            m_intervals.shrink(saved_intervals_sz);
+            m_intervals_start = saved_intervals_start;
             return l_false;
         }
 
-        // If both determined the atom is implied, no need to actually push
-        if (atoms_result == l_true && intervals_result == l_true) {
+        // If either determined the atom is implied, no need to actually push
+        if (atoms_result == l_true || intervals_result == l_true) {
             m_path.shrink(saved_path_sz);
-            m_intervals = saved_intervals;
+            m_intervals.shrink(saved_intervals_sz);
+            m_intervals_start = saved_intervals_start;
             return l_true;
         }
 
@@ -1032,7 +993,7 @@ namespace seq {
         m_trail.push_back(m_path_expr);
 
         // Commit: save state for pop()
-        m_path_stack.push_back({ saved_path_sz, std::move(saved_intervals), saved_path_expr });
+        m_path_stack.push_back({ saved_path_sz, saved_intervals_sz, saved_intervals_start, saved_path_expr });
         return l_undef;
     }
 
@@ -1040,7 +1001,8 @@ namespace seq {
         SASSERT(!m_path_stack.empty());
         auto const& saved = m_path_stack.back();
         m_path.shrink(saved.path_sz);
-        m_intervals = saved.intervals;
+        m_intervals.shrink(saved.intervals_sz);
+        m_intervals_start = saved.intervals_start;
         m_path_expr = saved.path_expr;
         m_path_stack.pop_back();
     }
@@ -1102,6 +1064,34 @@ namespace seq {
         return expr_ref(nullptr, m);
     }
 
+    // Common ITE dispatch for binary ops (union/inter).
+    // Returns nullptr if neither a nor b is ITE (or depth limit reached).
+    expr_ref derive::hoist_ite(expr* a, expr* b, std::function<expr_ref(expr*, expr*)> apply_op) {
+        expr *c1, *t1, *e1, *c2, *t2, *e2;
+        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2)) {
+            expr_ref r(m);
+            if (c1 == c2)
+                r = apply_ite(c1, t1, e1, t2, e2, apply_op);
+            else
+                r = apply_ite(c1, t1, e1, b, apply_op);
+            if (r) return r;
+            return expr_ref(re().mk_empty(a->get_sort()), m);
+        }
+        if (m_path_stack.size() < 8) {
+            if (m.is_ite(a, c1, t1, e1)) {
+                expr_ref r = apply_ite(c1, t1, e1, b, apply_op);
+                if (r) return r;
+                return expr_ref(re().mk_empty(a->get_sort()), m);
+            }
+            if (m.is_ite(b, c2, t2, e2)) {
+                expr_ref r = apply_ite(c2, t2, e2, a, apply_op);
+                if (r) return r;
+                return expr_ref(re().mk_empty(a->get_sort()), m);
+            }
+        }
+        return expr_ref(nullptr, m);
+    }
+
     // Push signed atoms onto m_path. Returns l_true if implied, l_false if contradicted, l_undef if pushed.
     lbool derive::push_path_atoms(expr* c, bool sign) {
         // Check if (c, sign) is already determined by the path
@@ -1118,19 +1108,10 @@ namespace seq {
         }
 
         // Composite: conjunction assumed true, or disjunction assumed false
-        if (!sign && m.is_and(c)) {
+        if ((!sign && m.is_and(c)) || (sign && m.is_or(c))) {
             bool all_implied = true;
             for (expr* arg : *to_app(c)) {
-                lbool r = push_path_atoms(arg, false);
-                if (r == l_false) return l_false;
-                if (r == l_undef) all_implied = false;
-            }
-            return all_implied ? l_true : l_undef;
-        }
-        if (sign && m.is_or(c)) {
-            bool all_implied = true;
-            for (expr* arg : *to_app(c)) {
-                lbool r = push_path_atoms(arg, true);
+                lbool r = push_path_atoms(arg, sign);
                 if (r == l_false) return l_false;
                 if (r == l_undef) all_implied = false;
             }
@@ -1143,6 +1124,8 @@ namespace seq {
     }
 
     // Update m_intervals based on the condition. Returns l_true if implied, l_false if inconsistent, l_undef if pushed.
+    // Operates on the active suffix m_intervals[m_intervals_start..end].
+    // On modification, appends new intervals and updates m_intervals_start.
     lbool derive::push_intervals_impl(expr* c, bool sign) {
         unsigned lo = 0, hi = 0;
         bool negated = false;
@@ -1152,43 +1135,38 @@ namespace seq {
                 if (lo <= hi) {
                     // Check if current intervals already imply [lo,hi]
                     bool already_subset = true;
-                    for (auto const& [ilo, ihi] : m_intervals) {
-                        if (ilo < lo || ihi > hi) { already_subset = false; break; }
+                    for (unsigned i = m_intervals_start; i < m_intervals.size(); ++i) {
+                        if (m_intervals[i].first < lo || m_intervals[i].second > hi) { already_subset = false; break; }
                     }
                     if (already_subset) return l_true;
-                    intersect_intervals(lo, hi, m_intervals);
+                    intersect_intervals(lo, hi);
                 } else {
-                    m_intervals.reset();
+                    // lo > hi means empty range — contradiction
+                    return l_false;
                 }
             } else {
                 if (lo <= hi) {
                     // Check if current intervals already exclude [lo,hi]
                     bool already_excluded = true;
-                    for (auto const& [ilo, ihi] : m_intervals) {
-                        if (ilo <= hi && ihi >= lo) { already_excluded = false; break; }
+                    for (unsigned i = m_intervals_start; i < m_intervals.size(); ++i) {
+                        if (m_intervals[i].first <= hi && m_intervals[i].second >= lo) { already_excluded = false; break; }
                     }
                     if (already_excluded) return l_true;
-                    exclude_interval(lo, hi, m_intervals, u().max_char());
+                    exclude_interval(lo, hi);
                 }
             }
-        } else if (!sign && m.is_and(c)) {
+        } else if ((!sign && m.is_and(c)) || (sign && m.is_or(c))) {
             bool all_implied = true;
             for (expr* arg : *to_app(c)) {
-                lbool r = push_intervals_impl(arg, false);
+                lbool r = push_intervals_impl(arg, sign);
                 if (r == l_false) return l_false;
                 if (r == l_undef) all_implied = false;
             }
-            return all_implied ? l_true : (m_intervals.empty() ? l_false : l_undef);
-        } else if (sign && m.is_or(c)) {
-            bool all_implied = true;
-            for (expr* arg : *to_app(c)) {
-                lbool r = push_intervals_impl(arg, true);
-                if (r == l_false) return l_false;
-                if (r == l_undef) all_implied = false;
-            }
-            return all_implied ? l_true : (m_intervals.empty() ? l_false : l_undef);
+            unsigned n = m_intervals.size() - m_intervals_start;
+            return all_implied ? l_true : (n == 0 ? l_false : l_undef);
         }
-        return m_intervals.empty() ? l_false : l_undef;
+        unsigned n = m_intervals.size() - m_intervals_start;
+        return n == 0 ? l_false : l_undef;
     }
 
     // Evaluate a condition against the current path and intervals.
@@ -1204,7 +1182,7 @@ namespace seq {
         }
 
         // Check against intervals
-        v = eval_range_cond(m_intervals, c);
+        v = eval_range_cond(c);
         if (v != l_undef) return v;
 
         // Check pred_implies from path atoms
@@ -1280,8 +1258,9 @@ namespace seq {
         return l_undef;
     }
 
-    lbool derive::eval_range_cond(intervals_t const& intervals, expr* c) {
-        if (intervals.empty())
+    lbool derive::eval_range_cond(expr* c) {
+        unsigned n = m_intervals.size() - m_intervals_start;
+        if (n == 0)
             return l_false;
         unsigned lo = 0, hi = 0;
         bool negated = false;
@@ -1293,7 +1272,8 @@ namespace seq {
         // Check if [lo, hi] overlaps with intervals and/or contains all intervals
         bool any_overlap = false;
         bool all_contained = true;
-        for (auto const& [r_lo, r_hi] : intervals) {
+        for (unsigned i = m_intervals_start; i < m_intervals.size(); ++i) {
+            auto [r_lo, r_hi] = m_intervals[i];
             if (std::max(r_lo, lo) <= std::min(r_hi, hi))
                 any_overlap = true;
             if (r_lo < lo || r_hi > hi)
@@ -1309,26 +1289,48 @@ namespace seq {
         return l_undef;
     }
 
-    void derive::intersect_intervals(unsigned lo, unsigned hi, intervals_t& ranges) {
-        unsigned j = 0;
-        for (unsigned i = 0; i < ranges.size(); ++i) {
-            auto [lo1, hi1] = ranges[i];
+    // Intersect the active suffix m_intervals[m_intervals_start..end] with [lo, hi]
+    void derive::intersect_intervals(unsigned lo, unsigned hi) {
+        // Copy active suffix to end, update start, then filter
+        unsigned old_start = m_intervals_start;
+        unsigned old_sz = m_intervals.size();
+        for (unsigned i = old_start; i < old_sz; ++i)
+            m_intervals.push_back(m_intervals[i]);
+        m_intervals_start = old_sz;
+        // Filter in-place within new suffix
+        unsigned j = m_intervals_start;
+        for (unsigned i = m_intervals_start; i < m_intervals.size(); ++i) {
+            auto [lo1, hi1] = m_intervals[i];
             if (hi < lo1)
                 break;
             if (hi1 >= lo)
-                ranges[j++] = std::make_pair(std::max(lo1, lo), std::min(hi1, hi));
+                m_intervals[j++] = std::make_pair(std::max(lo1, lo), std::min(hi1, hi));
         }
-        ranges.shrink(j);
+        m_intervals.shrink(j);
     }
 
-    void derive::exclude_interval(unsigned lo, unsigned hi, intervals_t& ranges, unsigned max_char) {
-        if (lo == 0 && hi >= max_char) { ranges.reset(); return; }
-        if (lo == 0) { intersect_intervals(hi + 1, max_char, ranges); return; }
-        if (hi >= max_char) { intersect_intervals(0, lo - 1, ranges); return; }
-        intervals_t right(ranges);
-        intersect_intervals(0, lo - 1, ranges);
-        intersect_intervals(hi + 1, max_char, right);
-        ranges.append(right);
+    // Exclude [lo, hi] from the active suffix m_intervals[m_intervals_start..end]
+    void derive::exclude_interval(unsigned lo, unsigned hi) {
+        unsigned max_char = u().max_char();
+        if (lo == 0 && hi >= max_char) { m_intervals_start = m_intervals.size(); return; }
+        if (lo == 0) { intersect_intervals(hi + 1, max_char); return; }
+        if (hi >= max_char) { intersect_intervals(0, lo - 1); return; }
+        // Each interval [ilo, ihi] minus [lo, hi] → up to 2 pieces
+        // Append new results past the end, then move start
+        unsigned old_start = m_intervals_start;
+        unsigned old_sz = m_intervals.size();
+        for (unsigned i = old_start; i < old_sz; ++i) {
+            auto [ilo, ihi] = m_intervals[i];
+            if (ihi < lo || ilo > hi) {
+                m_intervals.push_back(m_intervals[i]);
+            } else {
+                if (ilo < lo)
+                    m_intervals.push_back(std::make_pair(ilo, lo - 1));
+                if (ihi > hi)
+                    m_intervals.push_back(std::make_pair(hi + 1, ihi));
+            }
+        }
+        m_intervals_start = old_sz;
     }
 
 }
