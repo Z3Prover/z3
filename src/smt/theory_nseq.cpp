@@ -247,7 +247,7 @@ namespace smt {
             switch (m_rewriter.some_seq_in_re(r, s)) {
             case l_false: {
                 enode_pair_vector eqs;
-                auto lit = mk_eq(e1, e2, false);
+                const auto lit = mk_eq(e1, e2, false);
                 literal_vector lits;
                 lits.push_back(~lit);
                 set_conflict(eqs, lits);
@@ -269,8 +269,8 @@ namespace smt {
                 euf::snode *s2 = get_snode(e2);
                 const seq::dep_tracker dep = nullptr;
                 ctx.push_trail(restore_vector(m_prop_queue));
-                expr_ref eq_expr(m.mk_not(m.mk_eq(e1, e2)), m);
-                m_prop_queue.push_back(deq_item(s1, s2, ctx.get_literal(eq_expr), dep));
+                const expr_ref eq_expr(m.mk_eq(e1, e2), m);
+                m_prop_queue.push_back(deq_item(s1, s2, ~ctx.get_literal(eq_expr), dep));
                 m_last_constraint_added = ctx.get_scope_level();
                 m_can_hot_restart = false;
             }
@@ -577,7 +577,7 @@ namespace smt {
             if (pairs.empty()) {
                 // no viable splits
                 literal_vector lits;
-                lits.push_back(~mem.lit);
+                lits.push_back(mem.lit);
                 set_conflict(lits);
                 return;
             }
@@ -1155,25 +1155,12 @@ namespace smt {
             SASSERT(eq.first->get_root() == eq.second->get_root());
         };
 
-        bool all_true = all_of(lits, [&](auto lit) { return ctx.get_assignment(lit) == l_true; });          
+        SASSERT(all_of(lits, [&](auto lit) { return ctx.get_assignment(lit) == l_true; }));
 
-        if (all_true) {
-            ctx.set_conflict(
-                ctx.mk_justification(
-                    ext_theory_conflict_justification(
-                        get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data(), 0, nullptr)));
-        }
-        else {
-            literal_vector clause;
-            for (literal lit : lits)
-                clause.push_back(~lit);
-            for (auto [a, b] : eqs)
-                clause.push_back(~mk_eq(a->get_expr(), b->get_expr(), false));
-            for (auto lit : clause)
-                ctx.mark_as_relevant(lit);
-
-            ctx.mk_th_axiom(get_id(), clause.size(), clause.data());
-        }
+        ctx.set_conflict(
+            ctx.mk_justification(
+                ext_theory_conflict_justification(
+                    get_id(), ctx, lits.size(), lits.data(), eqs.size(), eqs.data(), 0, nullptr)));
     }
 
     void theory_nseq::set_propagate(enode_pair_vector const& eqs, literal_vector const& lits, literal p) {
@@ -1599,7 +1586,7 @@ namespace smt {
                 // Intersection is empty → the memberships on this variable are
                 // jointly unsatisfiable.  Assert a conflict from all their literals.
                 literal_vector lits;
-                for (unsigned i : mem_indices) {
+                for (const unsigned i : mem_indices) {
                     SASSERT(ctx.get_assignment(mems[i]->lit) == l_true); // we already stored the polarity of the literal
                     lits.push_back(mems[i]->lit);
                 }
