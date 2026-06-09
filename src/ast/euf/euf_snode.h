@@ -23,6 +23,7 @@ Author:
 
 #pragma once
 
+#include <iterator>
 #include "util/vector.h"
 #include "util/region.h"
 #include "ast/ast.h"
@@ -129,12 +130,57 @@ namespace euf {
             return arg(0);
         }
 
-        snode * const* begin() const {
-            return m_args;
+        // Iterator over the leaf tokens of this snode, modulo concatenation
+        // (analogous to first()/last()/at()): an s_concat tree is flattened to
+        // its leaf tokens in left-to-right order, empty nodes are skipped, and
+        // any non-concat node yields itself as a single token.
+        // O(1) amortized per token, O(tree height) auxiliary memory.
+        class token_iterator {
+            snode_vector m_stack;        // pending subtrees, top == back()
+            snode *m_current = nullptr;  // current token, nullptr == end
+
+            void advance() {
+                while (!m_stack.empty()) {
+                    snode *n = m_stack.back();
+                    m_stack.pop_back();
+                    if (n->is_concat()) {
+                        m_stack.push_back(n->arg(1));
+                        m_stack.push_back(n->arg(0));
+                    }
+                    else if (!n->is_empty()) {
+                        m_current = n;
+                        return;
+                    }
+                }
+                m_current = nullptr;
+            }
+
+        public:
+            using iterator_category = std::input_iterator_tag;
+            using value_type = snode *;
+            using difference_type = std::ptrdiff_t;
+            using pointer = snode * const *;
+            using reference = snode *;
+
+            token_iterator() = default; // end iterator
+            explicit token_iterator(snode *root) {
+                m_stack.push_back(root);
+                advance();
+            }
+
+            snode *operator*() const { return m_current; }
+            token_iterator &operator++() { advance(); return *this; }
+            token_iterator operator++(int) { token_iterator t = *this; advance(); return t; }
+            bool operator==(token_iterator const &o) const { return m_current == o.m_current; }
+            bool operator!=(token_iterator const &o) const { return m_current != o.m_current; }
+        };
+
+        token_iterator begin() const {
+            return token_iterator(const_cast<snode *>(this));
         }
 
-        snode * const* end() const {
-            return m_args + m_num_args;
+        static token_iterator end() {
+            return token_iterator();
         }
 
         // TODO: Track regex being "classical" (no complement, intersection, fail)
@@ -240,9 +286,7 @@ namespace euf {
             if (!is_concat())
                 return false;
             str.reset();
-            const unsigned cnt = num_args();
-            for (unsigned i = 0; i < cnt; i++) {
-                const snode* const c = arg(i);
+            for (const snode* c : *this) {
                 unsigned val;
                 if (!c->is_char())
                     return false;

@@ -3679,6 +3679,7 @@ namespace seq {
                 }
                 return true;
             }
+            std::cout << mk_pp(c->get_expr(), m) << std::endl;
             UNREACHABLE();
             return false;
         }
@@ -3698,8 +3699,8 @@ namespace seq {
         if (r->is_union()) {
             // σ(r₁ ⊔ r₂) = σ(r₁) ∪ σ(r₂)
             SASSERT(r->num_args() >= 2);
-            for (const euf::snode* const arg : *r) {
-                if (!compute_sigma(m, seq, rw, arg, result, threshold))
+            for (unsigned i = 0; i < r->num_args(); i++) {
+                if (!compute_sigma(m, seq, rw, r->arg(i), result, threshold))
                     return false;
             }
             return true;
