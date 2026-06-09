@@ -105,7 +105,7 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
         }
 
         // a \ b ⊆ a
-        if (m_re.is_diff(a, a1, a2) && (a1 == b || is_subset_rec(a1, b, depth + 1)))
+        if (m_re.is_diff(a, a1, a2) && is_subset_rec(a1, b, depth + 1))
             return true;
 
         // R ⊆ Σ*·R' if R ⊆ R'
@@ -118,8 +118,10 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
 
         // star absorption: R·R* ⊆ R*, R*·R ⊆ R*
         if (m_re.is_concat(a, a1, a2) && m_re.is_star(b, b1) &&
-            ((is_subset_rec(a1, b1, depth + 1) && is_subset_rec(a2, b, depth + 1)) ||
-             (is_subset_rec(a2, b1, depth + 1) && is_subset_rec(a1, b, depth + 1))))
+            is_subset_rec(a1, b1, depth + 1) && is_subset_rec(a2, b, depth + 1))
+            return true;
+        if (m_re.is_concat(a, a1, a2) && m_re.is_star(b, b1) &&
+            is_subset_rec(a2, b1, depth + 1) && is_subset_rec(a1, b, depth + 1))
             return true;
 
         // concat monotonicity:
