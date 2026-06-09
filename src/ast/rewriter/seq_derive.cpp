@@ -669,11 +669,9 @@ namespace seq {
     expr_ref derive::merge_union(expr* r1, expr* r2) {
         expr_ref _r1(r1, m), _r2(r2, m);
 
-        if (r1 == r2) return expr_ref(r1, m);
-        if (re().is_empty(r1)) return expr_ref(r2, m);
-        if (re().is_empty(r2)) return expr_ref(r1, m);
-        if (re().is_full_seq(r1)) return expr_ref(r1, m);
-        if (re().is_full_seq(r2)) return expr_ref(r2, m);
+        if (is_subset(r1, r2)) return expr_ref(r2, m);
+        if (is_subset(r2, r1)) return expr_ref(r1, m);
+
         if (are_complements(r1, r2)) return expr_ref(re().mk_full_seq(r1->get_sort()), m);
 
         // Flatten both chains into a vector, merge-sort style
@@ -755,8 +753,7 @@ namespace seq {
 
     expr_ref derive::mk_union_core(expr* a, expr* b) {
         // ITE handling with path pruning (before merge, since ITEs aren't part of sorted chains)
-        expr *c1, *t1, *e1, *c2, *t2, *e2;
-        if (m.is_ite(a, c1, t1, e1) || m.is_ite(b, c2, t2, e2)) {
+        if (m.is_ite(a) || m.is_ite(b)) {
             // Canonical order for non-ITE cases handled by merge below
             auto union_op = [&](expr* x, expr* y) { return mk_union(x, y); };
             expr_ref r = hoist_ite(a, b, union_op);
@@ -793,7 +790,6 @@ namespace seq {
     }
 
     expr_ref derive::mk_inter_core(expr* a, expr* b) {
-        // Canonical order: smaller id first
         if (a->get_id() > b->get_id())
             std::swap(a, b);
 
@@ -1080,6 +1076,8 @@ namespace seq {
     // Returns nullptr if neither a nor b is ITE (or depth limit reached).
     expr_ref derive::hoist_ite(expr* a, expr* b, std::function<expr_ref(expr*, expr*)> apply_op) {
         expr *c1, *t1, *e1, *c2, *t2, *e2;
+        if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2) && c1->get_id() > c2->get_id()) 
+            std::swap(a, b);
         if (m.is_ite(a, c1, t1, e1) && m.is_ite(b, c2, t2, e2)) {
             expr_ref r(m);
             if (c1 == c2)
