@@ -150,7 +150,6 @@ namespace seq {
         // Predicate implication for character range conditions.
         bool pred_implies(bool sign_a, expr* a, bool sign_b, expr* b);
         bool pred_implies(expr* a, expr* b);
-        bool extract_char_range(expr* cond, unsigned& lo, unsigned& hi);
 
         // Normalize reverse(r) by pushing reverse inward
         expr_ref normalize_reverse(expr* r);

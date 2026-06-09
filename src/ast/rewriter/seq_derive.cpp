@@ -544,68 +544,8 @@ namespace seq {
     //   char_le(lo_expr, ele)                           → range [lo, max_char]
     //   char_le(ele, hi_expr)                           → range [0, hi]
     // Returns false if not a recognizable range condition.
-    bool derive::extract_char_range(expr* cond, unsigned& lo, unsigned& hi) {
-        expr* e1 = nullptr, *e2 = nullptr, *lhs = nullptr, *rhs = nullptr;
-        lo = 0;
-        hi = u().max_char();
-
-        // Negation: not handled here — handled via pred_implies logic
-        if (m.is_not(cond, e1))
-            return false;
-
-        // Equality: ele == c → range [c, c]
-        if (m.is_eq(cond, e1, e2)) {
-            unsigned v;
-            if (u().is_const_char(e1, v) && e2 == m_ele) {
-                lo = hi = v;
-                return true;
-            }
-            if (u().is_const_char(e2, v) && e1 == m_ele) {
-                lo = hi = v;
-                return true;
-            }
-            return false;
-        }
-
-        // Conjunction: and(char_le(lo, x), char_le(x, hi))
-        if (m.is_and(cond, e1, e2)) {
-            expr *a1, *a2, *b1, *b2;
-            unsigned v;
-            if (u().is_char_le(e1, a1, a2)) {
-                if (u().is_const_char(a1, v) && a2 == m_ele)
-                    lo = std::max(lo, v); // v <= ele
-                else if (a1 == m_ele && u().is_const_char(a2, v))
-                    hi = std::min(hi, v); // ele <= v
-            }
-            if (u().is_char_le(e2, b1, b2)) {
-                unsigned v2;
-                if (u().is_const_char(b1, v2) && b2 == m_ele)
-                    lo = std::max(lo, v2); // v2 <= ele
-                else if (b1 == m_ele && u().is_const_char(b2, v2))
-                    hi = std::min(hi, v2); // ele <= v2
-            }
-            return lo <= hi;
-        }
-
-        // Single char_le
-        if (u().is_char_le(cond, lhs, rhs)) {
-            unsigned v;
-            if (u().is_const_char(lhs, v) && rhs == m_ele) {
-                lo = v; // v <= ele
-                return true;
-            }
-            if (lhs == m_ele && u().is_const_char(rhs, v)) {
-                hi = v; // ele <= v
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     // Predicate implication for character range conditions.
     // Returns true if: whenever cond_a is true, cond_b must also be true.
-    // Used for BDD-merge of derivative ITE trees.
     // pred_implies(sign_a, a, sign_b, b): does (sign_a ? ¬a : a) imply (sign_b ? ¬b : b)?
     bool derive::pred_implies(bool sign_a, expr* a, bool sign_b, expr* b) {
         // Same atom: check sign compatibility
@@ -616,20 +556,24 @@ namespace seq {
             return pred_implies(false, b, false, a);
 
         unsigned lo_a, hi_a, lo_b, hi_b;
+        bool neg_a, neg_b;
 
         if (!sign_a && !sign_b) {
             // a → b: range_a ⊆ range_b
-            if (extract_char_range(a, lo_a, hi_a) && extract_char_range(b, lo_b, hi_b))
+            if (u().is_char_const_range(m_ele, a, lo_a, hi_a, neg_a) && !neg_a &&
+                u().is_char_const_range(m_ele, b, lo_b, hi_b, neg_b) && !neg_b)
                 return lo_b <= lo_a && hi_a <= hi_b;
         }
         else if (!sign_a && sign_b) {
             // a → ¬b: range_a ∩ range_b = ∅
-            if (extract_char_range(a, lo_a, hi_a) && extract_char_range(b, lo_b, hi_b))
+            if (u().is_char_const_range(m_ele, a, lo_a, hi_a, neg_a) && !neg_a &&
+                u().is_char_const_range(m_ele, b, lo_b, hi_b, neg_b) && !neg_b)
                 return hi_a < lo_b || hi_b < lo_a;
         }
         else if (sign_a && !sign_b) {
             // ¬a → b: complement of range_a ⊆ range_b
-            if (extract_char_range(a, lo_a, hi_a) && extract_char_range(b, lo_b, hi_b))
+            if (u().is_char_const_range(m_ele, a, lo_a, hi_a, neg_a) && !neg_a &&
+                u().is_char_const_range(m_ele, b, lo_b, hi_b, neg_b) && !neg_b)
                 return lo_b == 0 && hi_b >= u().max_char();
         }
 
