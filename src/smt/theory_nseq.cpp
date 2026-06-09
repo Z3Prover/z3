@@ -457,6 +457,40 @@ namespace smt {
         expr* const s = mem.m_str->get_expr();
         std::cout << "Propagating: " << seq::mem_pp(mem, m) << std::endl;
 
+        if (!mem.m_str->is_empty()) {
+            if (mem.m_str->first()->is_char()) {
+                euf::snode* re_node = mem.m_regex;
+                euf::snode* str_node = mem.m_str;
+                do {
+                    // eliminate leading character by derivatives
+                    re_node = m_sgraph.brzozowski_deriv(re_node, mem.m_str->first());
+                    str_node = m_sgraph.drop_first(str_node);
+                } while (!str_node->is_empty() && str_node->first()->is_char());
+
+                if (re_node->is_fail()) {
+                    literal_vector lits;
+                    lits.push_back(mem.lit);
+                    set_conflict(lits);
+                    return;
+                }
+                const expr_ref e(m_seq.re.mk_in_re(str_node->get_expr(), re_node->get_expr()), m);
+                ctx.mk_th_axiom(get_id(), ~mem.lit, mk_literal(e));
+                m_ignored_mem.insert(mem.lit);
+                ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
+                return;
+            }
+        }
+        else {
+            // check nullability
+            if (m_sgraph.re_nullable(mem.m_regex) == l_true) {
+                // empty string in nullable regex → trivially satisfied
+                m_ignored_mem.insert(mem.lit);
+                ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
+                return;
+            }
+            return;
+        }
+
         if (mem.m_regex->is_full_seq()) {
             // u \in .* can be ignored
             m_ignored_mem.insert(mem.lit);
@@ -510,6 +544,11 @@ namespace smt {
         if (!get_fparams().m_nseq_regex_factorization_threshold)
             return;
 
+        SASSERT(!mem.m_str->is_empty());
+        SASSERT(!mem.m_str->first()->is_char());
+        if (!mem.m_str->first()->is_var())
+            return;
+
         // Eager sigma factorization (token-level): when enabled, split a non-primitive
         // membership s ∈ r at the boundary between the first concat argument (head) and
         // the rest (tail), using compute_sigma. This mirrors the lazy Nielsen
@@ -553,12 +592,16 @@ namespace smt {
                 // forward direction; mk_literal Tseitin-encodes each conjunction
                 literal_vector lits;
                 lits.push_back(~mem.lit);
+                std::cout << "Decomposing into:\n";
                 for (auto const& sp : pairs) {
                     expr_ref mem_head(m_seq.re.mk_in_re(head, sp.m_p), m);
                     expr_ref mem_tail(m_seq.re.mk_in_re(tail, sp.m_q), m);
                     expr_ref conj(m.mk_and(mem_head, mem_tail), m);
                     lits.push_back(mk_literal(conj));
+                    seq::dep_tracker dep = nullptr;
+                    std::cout << seq::mem_pp(seq::str_mem(m_sgraph.mk(head), m_sgraph.mk(sp.m_p), dep), m) << " && " << seq::mem_pp(seq::str_mem(m_sgraph.mk(tail), m_sgraph.mk(sp.m_q), dep), m) << "\n";
                 }
+                std::cout << std::endl;
                 ctx.mk_th_axiom(get_id(), lits.size(), lits.data());
                 m_ignored_mem.insert(mem.lit);
                 ctx.push_trail(insert_map(m_ignored_mem, mem.lit));
