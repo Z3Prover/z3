@@ -3690,6 +3690,11 @@ namespace seq {
             result.push_back(sigma_pair(ex, eps, m));
             return true;
         }
+        if (r->is_full_seq()) {
+            const expr_ref ex(r->get_expr(), m);
+            result.push_back(sigma_pair(ex, ex, m));
+            return true;
+        }
         if (r->is_union()) {
             // σ(r₁ ⊔ r₂) = σ(r₁) ∪ σ(r₂)
             SASSERT(r->num_args() >= 2);
@@ -3795,6 +3800,7 @@ namespace seq {
         }
         // the simplifier should have eliminated most of them already
         // TODO: so far, we are, however, still missing bounded repetitions and ite
+        std::cout << "Unknown element " << mk_pp(r->get_expr(), m) << std::endl;
         return false;
     }
 
