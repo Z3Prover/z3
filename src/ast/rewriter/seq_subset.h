@@ -22,7 +22,7 @@ Author:
 class seq_subset {
     seq_util::rex& m_re;
 
-    using cache = obj_pair_hashtable<expr, expr>;
+    using cache = obj_pair_map<expr, expr, bool>;
 
     void flatten_concat(expr* r, ptr_vector<expr>& out) const;
     expr* mk_concat(ptr_vector<expr> const& es, unsigned lo, unsigned hi, sort* re_sort) const;
@@ -39,4 +39,3 @@ public:
     explicit seq_subset(seq_util::rex& re) : m_re(re) {}
     bool is_subset(expr* a, expr* b) const;
 };
-
