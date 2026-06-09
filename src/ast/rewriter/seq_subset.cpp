@@ -45,15 +45,15 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
         if (m_re.is_epsilon(a) && m_re.is_m_re.is_star(b, b1))
             return true;
 
-        // E3: R ⊆ R*
+        // R ⊆ R*
         if (m_re.is_star(b, b1) && is_subset_rec(a, b1, depth + 1))
             return true;
 
-        // E3: R1* ⊆ R2* if R1 ⊆ R2
+        // R1* ⊆ R2* if R1 ⊆ R2
         if (m_re.is_star(a, a1) && m_re.is_star(b, b1) && is_subset_rec(a1, b1, depth + 1))
             return true;
 
-        // E3: R1+ ⊆ R2+ if R1 ⊆ R2
+        // R1+ ⊆ R2+ if R1 ⊆ R2
         if (m_re.is_plus(a, a1) && m_re.is_plus(b, b1) && is_subset_rec(a1, b1, depth))
             return true;
 
@@ -73,20 +73,16 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
         if (m_re.is_intersection(b, b1, b2) && is_subset_rec(a, b1, depth + 1) && is_subset_rec(a, b2, depth + 1))
             return true;
 
-        // r1=ra3{la,ua}ra2, r2=rb3{lb,ub}rb2, ra3=rb3, lb<=la, ua<=ub
-        if (re().is_concat(a, a1, a2) && re().is_loop(a1, a3, la, ua) &&
-            re().is_concat(b, b1, b2) && re().is_loop(b1, b3, lb, ub) &&
-            a3 == b3 && lb <= la && ua <= ub) {
-            a = a2;
-            b = b2;
-            continue;
-        }
-        // ra1=ra3{la,ua}, r2=rb3{lb,ub}, ra3=rb3, lb<=la, ua<=ub
+        // R{la,ua} ⊆  R'{lb,ub} if  R ⊆ R', lb<=la, ua<=ub
         if (re().is_loop(a, a1, la, ua) &&
             re().is_loop(b, b1, lb, ub) &&
             lb <= la && ua <= ub && is_subset_rec(a1, b1, depth + 1)) {
             return true;
         }        
+
+        // R ⊆ Σ*·R' if R ⊆ R'
+        if (m_re.is_concat(b, b1, b2) && m_re.is_full_seq(b1) && is_subset_rec(a, b2, depth))
+            return true;
 
         // concat monotonicity:
         // tail-recursive on second arguments (without increasing depth bound).
@@ -95,15 +91,6 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, unsigned depth) const {
             b = b2;
             continue;
         }
-
-        // E2: R ⊆ Σ*·R' if R ⊆ R'
-        if (m_re.is_concat(b, b1, b2) && m_re.is_full_seq(b1) && is_subset_rec(a, b2, depth))
-            return true;
-
-        // loop subsumption: r{la,ua} ⊆ r{lb,ub} when lb <= la and ua <= ub
-        if (m_re.is_loop(a, a1, la, ua) && m_re.is_loop(b, b1, lb, ub) &&
-            is_subset_rec(a1, b1, depth + 1) && lb <= la && ua <= ub)
-            return true;
 
         // complement: ~a ⊆ ~b if b ⊆ a
         if (m_re.is_complement(a, a1) && m_re.is_complement(b, b1))
