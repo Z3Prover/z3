@@ -111,7 +111,6 @@ bool seq_subset::is_subset_rec(expr* a, expr* b, cache& visited) const {
     bool cached_result = false;
     if (visited.find(a, b, cached_result))
         return cached_result;
-    cached_result = false;
     bool& cache_ref = visited.insert_if_not_there(a, b, cached_result);
     auto set_result = [&](bool v) -> bool { cache_ref = v; return v; };
 
