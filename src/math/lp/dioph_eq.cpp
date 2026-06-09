@@ -708,10 +708,9 @@ namespace lp {
             }
             while (column.size() > 1) {
                 auto& c = column.back();
-                unsigned changed_row = c.var();
-                SASSERT(changed_row != last_row_index);
+                SASSERT(c.var() != last_row_index);
+                m_changed_rows.insert(c.var());
                 m_l_matrix.pivot_row_to_row_given_cell(last_row_index, c, j);
-                m_changed_rows.insert(changed_row);
             }
         }
 
